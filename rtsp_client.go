@@ -104,9 +104,11 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 					"CSeq": cseq,
 					"Public": strings.Join([]string{
 						"DESCRIBE",
+						"ANNOUNCE",
 						"SETUP",
 						"PLAY",
 						"PAUSE",
+						"RECORD",
 						"TEARDOWN",
 					}, ", "),
 				},
@@ -151,6 +153,56 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 				c.log("ERR: %s", err)
 				return
 			}
+
+		case "ANNOUNCE":
+			if c.state != "STARTING" {
+				c.log("ERR: client is in state '%s'", c.state)
+				return
+			}
+
+			ct, ok := req.Headers["Content-Type"]
+			if !ok {
+				c.log("ERR: Content-Type header missing")
+				return
+			}
+
+			if ct != "application/sdp" {
+				c.log("ERR: unsupported Content-Type '%s'", ct)
+				return
+			}
+
+			err := func() error {
+				c.p.mutex.Lock()
+				defer c.p.mutex.Unlock()
+
+				if c.p.streamAuthor != nil {
+					return fmt.Errorf("another client is already streaming")
+				}
+
+				c.p.streamAuthor = c
+				c.p.streamSdp = req.Content
+				return nil
+			}()
+			if err != nil {
+				c.log("ERR: %s", err)
+				return
+			}
+
+			err = c.rconn.WriteResponse(&rtsp.Response{
+				StatusCode: 200,
+				Status:     "OK",
+				Headers: map[string]string{
+					"CSeq": cseq,
+				},
+			})
+			if err != nil {
+				c.log("ERR: %s", err)
+				return
+			}
+
+			c.p.mutex.Lock()
+			c.state = "ANNOUNCE"
+			c.p.mutex.Unlock()
 
 		case "SETUP":
 			transport, ok := req.Headers["Transport"]
@@ -352,56 +404,6 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 
 			c.p.mutex.Lock()
 			c.state = "RECORD"
-			c.p.mutex.Unlock()
-
-		case "ANNOUNCE":
-			if c.state != "STARTING" {
-				c.log("ERR: client is in state '%s'", c.state)
-				return
-			}
-
-			ct, ok := req.Headers["Content-Type"]
-			if !ok {
-				c.log("ERR: Content-Type header missing")
-				return
-			}
-
-			if ct != "application/sdp" {
-				c.log("ERR: unsupported Content-Type '%s'", ct)
-				return
-			}
-
-			err := func() error {
-				c.p.mutex.Lock()
-				defer c.p.mutex.Unlock()
-
-				if c.p.streamAuthor != nil {
-					return fmt.Errorf("another client is already streaming")
-				}
-
-				c.p.streamAuthor = c
-				c.p.streamSdp = req.Content
-				return nil
-			}()
-			if err != nil {
-				c.log("ERR: %s", err)
-				return
-			}
-
-			err = c.rconn.WriteResponse(&rtsp.Response{
-				StatusCode: 200,
-				Status:     "OK",
-				Headers: map[string]string{
-					"CSeq": cseq,
-				},
-			})
-			if err != nil {
-				c.log("ERR: %s", err)
-				return
-			}
-
-			c.p.mutex.Lock()
-			c.state = "ANNOUNCE"
 			c.p.mutex.Unlock()
 
 		case "TEARDOWN":
