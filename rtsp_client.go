@@ -125,8 +125,8 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 			}
 
 			sdp, err := func() ([]byte, error) {
-				c.p.mutex.Lock()
-				defer c.p.mutex.Unlock()
+				c.p.mutex.RLock()
+				defer c.p.mutex.RUnlock()
 
 				if len(c.p.streamSdp) == 0 {
 					return nil, fmt.Errorf("no one is streaming")

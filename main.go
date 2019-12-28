@@ -16,7 +16,7 @@ type program struct {
 	rtspPort     int
 	rtpPort      int
 	rtcpPort     int
-	mutex        sync.Mutex
+	mutex        sync.RWMutex
 	rtspl        *rtspListener
 	rtpl         *udpListener
 	rtcpl        *udpListener
@@ -36,8 +36,8 @@ func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 	var err error
 
 	p.rtpl, err = newUdpListener(rtpPort, "RTP", func(l *udpListener, buf []byte) {
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
+		p.mutex.RLock()
+		defer p.mutex.RUnlock()
 		for c := range p.clients {
 			if c.state == "PLAY" {
 				l.nconn.WriteTo(buf, &net.UDPAddr{
@@ -52,8 +52,8 @@ func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 	}
 
 	p.rtcpl, err = newUdpListener(rtcpPort, "RTCP", func(l *udpListener, buf []byte) {
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
+		p.mutex.RLock()
+		defer p.mutex.RUnlock()
 		for c := range p.clients {
 			if c.state == "PLAY" {
 				l.nconn.WriteTo(buf, &net.UDPAddr{
