@@ -12,6 +12,8 @@ help:
 	@echo "  format        format source files"
 	@echo "  test          run available tests"
 	@echo "  run           run app"
+	@echo "  release       build release assets"
+	@echo "  travis-setup  setup travis CI"
 	@echo ""
 
 mod-tidy:
@@ -99,3 +101,13 @@ release-nodocker:
 
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOBUILD) -o /tmp/rtsp-simple-server
 	tar -C /tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm64.tar.gz --owner=0 --group=0 rtsp-simple-server
+
+travis-setup:
+	echo "FROM ruby:alpine \n\
+	RUN apk add --no-cache build-base git \n\
+	RUN gem install travis" | docker build - -t temp \
+	&& docker run --rm -it \
+	-v $(PWD):/s \
+	temp \
+	sh -c "cd /s \
+	&& travis setup releases --force"
