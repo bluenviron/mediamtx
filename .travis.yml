@@ -1,0 +1,18 @@
+language: minimal
+
+services:
+- docker
+
+script:
+- make release
+
+deploy:
+  provider: releases
+  api_key:
+    secure: LyeRmOzOq3nleE612AvOR+pA7ygb9/zshJcdO3J87JlT+WzwIz1FHCqYCR8kvNhWZSJiQugPvznBqrcWDL3tFb3Cv9yYQU5JIgJSmsW5bBMJMSGlQuWRLjIVlEh3uACyKorrsaWfMLNckkIMoPN/7A76OcSPpekeGacZJVtv6DEMYmWG6J9ljLX9RH1S4al3aUsKAQam/EUPRq0POo+in2Oj5yI6Rb1zjcSWRjKgvVMz7VkKMpCLsAsr1jwvDrZjGndZphm6MQKCtgCjh8XGYD6Q056uMMHH7hVcz0oX3IVeQokWl0IqQkzLduBXAtw83lLFxe/OBrZNGh7P7YhstBRZuLXx9Dafoilw7DapB/ZaRw/Pbuw7KWLTGu/kEeckDk7mCSzd1WHTeqbVesdxPWfDO2SZSL90s1SXIbsN3B02tcpCKzwJIGOGbBYsI9Xj23VkeANMP7adcLteTuOlehhj7hXz7oDRIOVZFNnBsneTVWTvbWhd3EizE8eKZPxIx0TIO0dIKmcuLUMLB08TjjdWWDgv4nKHPYn/sHiGFJWFteLQdFwy/s8YL1696pOnZJuXt3cbuNgJ8QqVJrj4wW4GC15/WHkSPbk6+9WnJUyiKF1ml4rke3yMvSiYLqS1h0Gts7y0Pv+tkoJMa89UwRJKbqIGuKqFWe/sDKZ4vFw=
+  skip_cleanup: true
+  file_glob: true
+  file: release/*
+  on:
+    repo: aler9/rtsp-simple-server
+    tags: true
