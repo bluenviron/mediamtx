@@ -11,10 +11,14 @@ This software was developed with the aim of simulating a live camera feed for de
 It actually supports *one* publisher, while readers can be more than one.
 
 
+<br />
+
 ## Installation
 
 Precompiled binaries are available in the [release](https://github.com/aler9/rtsp-simple-server/releases) page. Just download and extract the executable.
 
+
+<br />
 
 ## Usage
 
@@ -38,6 +42,8 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
    gst-launch-1.0 -v rtspsrc location=rtsp://localhost:8554/ ! rtph264depay ! decodebin ! autovideosink
    ```
 
+<br />
+
 ## Full command-line usage
 
 ```
@@ -55,7 +61,9 @@ Flags:
   --rtcp-port=8001  port of the RTCP UDP listener
 ```
 
+<br />
+
 ## Links
 
-Specifications
+IETF Standard
 * https://tools.ietf.org/html/rfc7826
