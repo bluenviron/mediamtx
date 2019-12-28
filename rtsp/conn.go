@@ -5,35 +5,21 @@ import (
 )
 
 type Conn struct {
-	c net.Conn
-}
-
-func NewConn(c net.Conn) *Conn {
-	return &Conn{
-		c: c,
-	}
-}
-
-func (c *Conn) Close() error {
-	return c.c.Close()
-}
-
-func (c *Conn) RemoteAddr() net.Addr {
-	return c.c.RemoteAddr()
+	net.Conn
 }
 
 func (c *Conn) ReadRequest() (*Request, error) {
-	return requestDecode(c.c)
+	return requestDecode(c)
 }
 
 func (c *Conn) WriteRequest(req *Request) error {
-	return requestEncode(c.c, req)
+	return requestEncode(c, req)
 }
 
 func (c *Conn) ReadResponse() (*Response, error) {
-	return responseDecode(c.c)
+	return responseDecode(c)
 }
 
 func (c *Conn) WriteResponse(res *Response) error {
-	return responseEncode(c.c, res)
+	return responseEncode(c, res)
 }

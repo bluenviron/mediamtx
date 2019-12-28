@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -38,12 +39,21 @@ func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 	p.rtpl, err = newUdpListener(rtpPort, "RTP", func(l *udpListener, buf []byte) {
 		p.mutex.RLock()
 		defer p.mutex.RUnlock()
+
+		tcpHeader := [4]byte{0x24, 0x00, 0x00, 0x00}
+		binary.BigEndian.PutUint16(tcpHeader[2:], uint16(len(buf)))
+
 		for c := range p.clients {
 			if c.state == "PLAY" {
-				l.nconn.WriteTo(buf, &net.UDPAddr{
-					IP:   c.IP,
-					Port: c.rtpPort,
-				})
+				if c.rtpProto == "udp" {
+					l.nconn.WriteTo(buf, &net.UDPAddr{
+						IP:   c.IP,
+						Port: c.rtpPort,
+					})
+				} else {
+					c.nconn.Write(tcpHeader[:])
+					c.nconn.Write(buf)
+				}
 			}
 		}
 	})
@@ -54,12 +64,21 @@ func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 	p.rtcpl, err = newUdpListener(rtcpPort, "RTCP", func(l *udpListener, buf []byte) {
 		p.mutex.RLock()
 		defer p.mutex.RUnlock()
+
+		tcpHeader := [4]byte{0x24, 0x00, 0x00, 0x00}
+		binary.BigEndian.PutUint16(tcpHeader[2:], uint16(len(buf)))
+
 		for c := range p.clients {
 			if c.state == "PLAY" {
-				l.nconn.WriteTo(buf, &net.UDPAddr{
-					IP:   c.IP,
-					Port: c.rtcpPort,
-				})
+				if c.rtpProto == "udp" {
+					l.nconn.WriteTo(buf, &net.UDPAddr{
+						IP:   c.IP,
+						Port: c.rtcpPort,
+					})
+				} else {
+					c.nconn.Write(tcpHeader[:])
+					c.nconn.Write(buf)
+				}
 			}
 		}
 	})

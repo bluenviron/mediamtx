@@ -4,8 +4,6 @@ import (
 	"log"
 	"net"
 	"sync"
-
-	"rtsp-server/rtsp"
 )
 
 type rtspListener struct {
@@ -38,13 +36,12 @@ func (l *rtspListener) run(wg sync.WaitGroup) {
 	defer wg.Done()
 
 	for {
-		conn, err := l.netl.AcceptTCP()
+		nconn, err := l.netl.AcceptTCP()
 		if err != nil {
 			break
 		}
 
-		rconn := rtsp.NewConn(conn)
-		rsc := newRtspClient(l.p, rconn)
+		rsc := newRtspClient(l.p, nconn)
 		wg.Add(1)
 		go rsc.run(wg)
 	}
