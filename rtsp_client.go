@@ -383,6 +383,16 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 			c.state = "PLAY"
 			c.p.mutex.Unlock()
 
+		case "PAUSE":
+			if c.state != "PLAY" {
+				c.log("ERR: client is in state '%s'", c.state)
+				return
+			}
+
+			c.p.mutex.Lock()
+			c.state = "PRE_PLAY"
+			c.p.mutex.Unlock()
+
 		case "RECORD":
 			if c.state != "PRE_RECORD" {
 				c.log("ERR: client is in state '%s'", c.state)
