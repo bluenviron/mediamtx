@@ -6,15 +6,13 @@ import (
 	"sync"
 )
 
-type udpListenerCb func(*udpListener, []byte)
-
 type udpListener struct {
 	nconn     *net.UDPConn
 	logPrefix string
-	cb        udpListenerCb
+	cb        func([]byte)
 }
 
-func newUdpListener(port int, logPrefix string, cb udpListenerCb) (*udpListener, error) {
+func newUdpListener(port int, logPrefix string, cb func([]byte)) (*udpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -48,6 +46,6 @@ func (l *udpListener) run(wg sync.WaitGroup) {
 			break
 		}
 
-		l.cb(l, buf[:n])
+		l.cb(buf[:n])
 	}
 }

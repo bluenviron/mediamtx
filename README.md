@@ -12,6 +12,7 @@ Features:
 * Supports reading and publishing streams
 * Supports one publisher at once, while readers can be more than one.
 * Supports reading via UDP and TCP
+* Supports publishing via UDP and TCP
 
 
 <br />

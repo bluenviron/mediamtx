@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
@@ -326,47 +328,74 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 
 			// record
 			case "ANNOUNCE":
-				if _, ok := transports["RTP/AVP/UDP"]; !ok {
-					c.log("ERR: transport header does not contain RTP/AVP/UDP")
-					return
-				}
-
 				if _, ok := transports["mode=record"]; !ok {
 					c.log("ERR: transport header does not contain mode=record")
 					return
 				}
 
-				clientPort1, clientPort2 := getPorts()
-				if clientPort1 == 0 || clientPort2 == 0 {
-					c.log("ERR: transport header does not have valid client ports (%s)", transport)
+				if _, ok := transports["RTP/AVP/UDP"]; ok {
+					clientPort1, clientPort2 := getPorts()
+					if clientPort1 == 0 || clientPort2 == 0 {
+						c.log("ERR: transport header does not have valid client ports (%s)", transport)
+						return
+					}
+
+					err = rconn.WriteResponse(&rtsp.Response{
+						StatusCode: 200,
+						Status:     "OK",
+						Headers: map[string]string{
+							"CSeq": cseq,
+							"Transport": strings.Join([]string{
+								"RTP/AVP",
+								"unicast",
+								fmt.Sprintf("client_port=%d-%d", clientPort1, clientPort2),
+								fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
+								"ssrc=1234ABCD",
+							}, ";"),
+							"Session": "12345678",
+						},
+					})
+					if err != nil {
+						c.log("ERR: %s", err)
+						return
+					}
+
+					c.p.mutex.Lock()
+					c.rtpProto = "udp"
+					c.rtpPort = clientPort1
+					c.rtcpPort = clientPort2
+					c.state = "PRE_RECORD"
+					c.p.mutex.Unlock()
+
+				} else if _, ok := transports["RTP/AVP/TCP"]; ok {
+					err = rconn.WriteResponse(&rtsp.Response{
+						StatusCode: 200,
+						Status:     "OK",
+						Headers: map[string]string{
+							"CSeq": cseq,
+							"Transport": strings.Join([]string{
+								"RTP/AVP/TCP",
+								"unicast",
+								"destionation=127.0.0.1",
+								"source=127.0.0.1",
+							}, ";"),
+							"Session": "12345678",
+						},
+					})
+					if err != nil {
+						c.log("ERR: %s", err)
+						return
+					}
+
+					c.p.mutex.Lock()
+					c.rtpProto = "tcp"
+					c.state = "PRE_RECORD"
+					c.p.mutex.Unlock()
+
+				} else {
+					c.log("ERR: transport header does not contain a valid protocol (RTP/AVP or RTP/AVP/TCP) (%s)", transport)
 					return
 				}
-
-				err = rconn.WriteResponse(&rtsp.Response{
-					StatusCode: 200,
-					Status:     "OK",
-					Headers: map[string]string{
-						"CSeq": cseq,
-						"Transport": strings.Join([]string{
-							"RTP/AVP",
-							"unicast",
-							fmt.Sprintf("client_port=%d-%d", clientPort1, clientPort2),
-							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
-							"ssrc=1234ABCD",
-						}, ";"),
-						"Session": "12345678",
-					},
-				})
-				if err != nil {
-					c.log("ERR: %s", err)
-					return
-				}
-
-				c.p.mutex.Lock()
-				c.rtpPort = clientPort1
-				c.rtcpPort = clientPort2
-				c.state = "PRE_RECORD"
-				c.p.mutex.Unlock()
 
 			default:
 				c.log("ERR: client is in state '%s'", c.state)
@@ -398,12 +427,10 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 			c.state = "PLAY"
 			c.p.mutex.Unlock()
 
-			// when rtp protocol is TCP, the RTSP connection
-			// becomes a RTP connection.
-			// receive RTP feedback, do not parse it, wait until
-			// connection closes.
+			// when rtp protocol is TCP, the RTSP connection becomes a RTP connection.
+			// receive RTP feedback, do not parse it, wait until connection closes.
 			if c.rtpProto == "tcp" {
-				buf := make([]byte, 10249)
+				buf := make([]byte, 1024)
 				for {
 					_, err := c.nconn.Read(buf)
 					if err != nil {
@@ -456,11 +483,48 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 				return
 			}
 
-			c.log("is publishing (via udp)")
+			c.log("is publishing (via %s)", c.rtpProto)
 
 			c.p.mutex.Lock()
 			c.state = "RECORD"
 			c.p.mutex.Unlock()
+
+			// when rtp protocol is TCP, the RTSP connection becomes a RTP connection.
+			// receive RTP feedback, do not parse it, wait until connection closes.
+			if c.rtpProto == "tcp" {
+				packet := make([]byte, 2048)
+				bconn := bufio.NewReader(c.nconn)
+				for {
+					byts, err := bconn.Peek(4)
+					if err != nil {
+						return
+					}
+					bconn.Discard(4)
+
+					if byts[0] != 0x24 {
+						c.log("ERR: wrong magic byte")
+						return
+					}
+
+					if byts[1] != 0x00 {
+						c.log("ERR: wrong channel")
+						return
+					}
+
+					plen := binary.BigEndian.Uint16(byts[2:])
+					if plen > 2048 {
+						c.log("ERR: packet len > 2048")
+						return
+					}
+
+					_, err = io.ReadFull(bconn, packet[:plen])
+					if err != nil {
+						return
+					}
+
+					c.p.handleRtp(packet[:plen])
+				}
+			}
 
 		case "TEARDOWN":
 			return
