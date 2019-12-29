@@ -132,7 +132,7 @@ func (c *rtspClient) run() {
 			if c.rtpProto == "tcp" {
 				buf := make([]byte, 2048)
 				for {
-					_, _, err := c.rconn.ReadInterleavedFrame(buf)
+					_, err := c.rconn.Read(buf)
 					if err != nil {
 						if err != io.EOF {
 							c.log("ERR: %s", err)

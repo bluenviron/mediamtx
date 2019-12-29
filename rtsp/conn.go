@@ -84,3 +84,7 @@ func (c *Conn) WriteInterleavedFrame(frame []byte) error {
 	}
 	return nil
 }
+
+func (c *Conn) Read(buf []byte) (int, error) {
+	return c.c.Read(buf)
+}
