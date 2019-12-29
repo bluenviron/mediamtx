@@ -10,7 +10,7 @@ This software was developed with the aim of simulating a live camera feed for de
 
 Features:
 * Supports reading and publishing streams
-* Supports one publisher at once, while readers can be more than one.
+* Supports one publisher at once, while readers can be more than one
 * Supports reading via UDP and TCP
 * Supports publishing via UDP and TCP
 
