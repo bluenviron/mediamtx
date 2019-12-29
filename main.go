@@ -55,18 +55,12 @@ func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 }
 
 func (p *program) run() {
-	var wg sync.WaitGroup
+	go p.rtpl.run()
+	go p.rtcpl.run()
+	go p.rtspl.run()
 
-	wg.Add(1)
-	go p.rtpl.run(wg)
-
-	wg.Add(1)
-	go p.rtcpl.run(wg)
-
-	wg.Add(1)
-	go p.rtspl.run(wg)
-
-	wg.Wait()
+	infty := make(chan struct{})
+	<-infty
 }
 
 func (p *program) handleRtp(buf []byte) {

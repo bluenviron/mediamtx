@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net"
-	"sync"
 )
 
 type udpListener struct {
@@ -34,9 +33,7 @@ func (l *udpListener) log(format string, args ...interface{}) {
 	log.Printf("["+l.logPrefix+" listener] "+format, args...)
 }
 
-func (l *udpListener) run(wg sync.WaitGroup) {
-	defer wg.Done()
-
+func (l *udpListener) run() {
 	buf := make([]byte, 2048) // UDP MTU is 1400
 
 	for {

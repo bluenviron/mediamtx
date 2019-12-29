@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net"
-	"sync"
 )
 
 type rtspListener struct {
@@ -32,9 +31,7 @@ func (l *rtspListener) log(format string, args ...interface{}) {
 	log.Printf("[RTSP listener] "+format, args...)
 }
 
-func (l *rtspListener) run(wg sync.WaitGroup) {
-	defer wg.Done()
-
+func (l *rtspListener) run() {
 	for {
 		nconn, err := l.netl.AcceptTCP()
 		if err != nil {
@@ -42,7 +39,6 @@ func (l *rtspListener) run(wg sync.WaitGroup) {
 		}
 
 		rsc := newRtspClient(l.p, nconn)
-		wg.Add(1)
-		go rsc.run(wg)
+		go rsc.run()
 	}
 }

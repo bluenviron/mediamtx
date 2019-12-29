@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 
 	"rtsp-server/rtsp"
 )
@@ -40,20 +39,26 @@ func newRtspClient(p *program, nconn net.Conn) *rtspClient {
 }
 
 func (c *rtspClient) close() error {
+	// already deleted
+	if _, ok := c.p.clients[c]; !ok {
+		return nil
+	}
+
 	delete(c.p.clients, c)
+	c.nconn.Close()
 
 	if c.p.streamAuthor == c {
 		c.p.streamAuthor = nil
 		c.p.streamSdp = nil
 
-		// if the streamer has disconnected
+		// if the publisher has disconnected
 		// close all other connections
 		for oc := range c.p.clients {
 			oc.close()
 		}
 	}
 
-	return c.nconn.Close()
+	return nil
 }
 
 func (c *rtspClient) log(format string, args ...interface{}) {
@@ -61,8 +66,7 @@ func (c *rtspClient) log(format string, args ...interface{}) {
 	log.Printf(format, args...)
 }
 
-func (c *rtspClient) run(wg sync.WaitGroup) {
-	defer wg.Done()
+func (c *rtspClient) run() {
 	defer c.log("disconnected")
 	defer func() {
 		c.p.mutex.Lock()
@@ -278,7 +282,7 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 								fmt.Sprintf("client_port=%d-%d", clientPort1, clientPort2),
 								// use two fake server ports, since we do not want to receive feedback
 								// from the client
-								fmt.Sprintf("server_port=%d-%d", c.p.rtpPort + 2, c.p.rtcpPort + 2),
+								fmt.Sprintf("server_port=%d-%d", c.p.rtpPort+2, c.p.rtcpPort+2),
 								"ssrc=1234ABCD",
 							}, ";"),
 							"Session": "12345678",
