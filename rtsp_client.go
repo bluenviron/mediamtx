@@ -310,7 +310,7 @@ func (c *rtspClient) run() {
 							"Transport": strings.Join([]string{
 								"RTP/AVP/TCP",
 								"unicast",
-								"destionation=127.0.0.1",
+								"destination=127.0.0.1",
 								"source=127.0.0.1",
 								"interleaved=0-1",
 							}, ";"),
@@ -382,7 +382,7 @@ func (c *rtspClient) run() {
 							"Transport": strings.Join([]string{
 								"RTP/AVP/TCP",
 								"unicast",
-								"destionation=127.0.0.1",
+								"destination=127.0.0.1",
 								"source=127.0.0.1",
 							}, ";"),
 							"Session": "12345678",
