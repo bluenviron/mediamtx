@@ -132,7 +132,7 @@ func (c *rtspClient) run() {
 			if c.rtpProto == "tcp" {
 				buf := make([]byte, 2048)
 				for {
-					_, err := c.rconn.ReadInterleavedFrame(buf)
+					_, _, err := c.rconn.ReadInterleavedFrame(buf)
 					if err != nil {
 						if err != io.EOF {
 							c.log("ERR: %s", err)
@@ -161,7 +161,7 @@ func (c *rtspClient) run() {
 			if c.rtpProto == "tcp" {
 				buf := make([]byte, 2048)
 				for {
-					n, err := c.rconn.ReadInterleavedFrame(buf)
+					channel, n, err := c.rconn.ReadInterleavedFrame(buf)
 					if err != nil {
 						if err != io.EOF {
 							c.log("ERR: %s", err)
@@ -169,7 +169,17 @@ func (c *rtspClient) run() {
 						return
 					}
 
-					c.p.handleRtp(buf[:n])
+					switch channel {
+					case 0:
+						c.p.handleRtp(buf[:n])
+
+					case 1:
+						c.p.handleRtcp(buf[:n])
+
+					default:
+						c.log("ERR: unsupported channel '%d'", channel)
+						return
+					}
 				}
 			}
 

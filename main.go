@@ -117,7 +117,7 @@ func main() {
 
 	p, err := newProgram(*rtspPort, *rtpPort, *rtcpPort)
 	if err != nil {
-		log.Fatal("ERR:", err)
+		log.Fatal("ERR: ", err)
 	}
 
 	p.run()

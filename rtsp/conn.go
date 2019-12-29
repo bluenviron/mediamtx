@@ -43,33 +43,33 @@ func (c *Conn) WriteResponse(res *Response) error {
 	return responseEncode(c.c, res)
 }
 
-func (c *Conn) ReadInterleavedFrame(frame []byte) (int, error) {
+func (c *Conn) ReadInterleavedFrame(frame []byte) (int, int, error) {
 	var header [4]byte
 	_, err := io.ReadFull(c.c, header[:])
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	// connection terminated
 	if header[0] == 0x54 {
-		return 0, io.EOF
+		return 0, 0, io.EOF
 	}
 
 	if header[0] != 0x24 {
-		return 0, fmt.Errorf("wrong magic byte (0x%.2x)", header[0])
+		return 0, 0, fmt.Errorf("wrong magic byte (0x%.2x)", header[0])
 	}
 
 	framelen := binary.BigEndian.Uint16(header[2:])
 	if framelen > 2048 {
-		return 0, fmt.Errorf("frame length greater than 2048")
+		return 0, 0, fmt.Errorf("frame length greater than 2048")
 	}
 
 	_, err = io.ReadFull(c.c, frame[:framelen])
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return int(framelen), nil
+	return int(header[1]), int(framelen), nil
 }
 
 func (c *Conn) WriteInterleavedFrame(frame []byte) error {
