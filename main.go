@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/binary"
 	"fmt"
 	"log"
 	"net"
@@ -63,45 +62,37 @@ func (p *program) run() {
 	<-infty
 }
 
-func (p *program) handleRtp(buf []byte) {
+func (p *program) handleRtp(frame []byte) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-
-	tcpHeader := [4]byte{0x24, 0x00, 0x00, 0x00}
-	binary.BigEndian.PutUint16(tcpHeader[2:], uint16(len(buf)))
 
 	for c := range p.clients {
 		if c.state == "PLAY" {
 			if c.rtpProto == "udp" {
-				p.rtpl.nconn.WriteTo(buf, &net.UDPAddr{
+				p.rtpl.nconn.WriteTo(frame, &net.UDPAddr{
 					IP:   c.IP,
 					Port: c.rtpPort,
 				})
 			} else {
-				c.nconn.Write(tcpHeader[:])
-				c.nconn.Write(buf)
+				c.rconn.WriteInterleavedFrame(frame)
 			}
 		}
 	}
 }
 
-func (p *program) handleRtcp(buf []byte) {
+func (p *program) handleRtcp(frame []byte) {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-
-	tcpHeader := [4]byte{0x24, 0x00, 0x00, 0x00}
-	binary.BigEndian.PutUint16(tcpHeader[2:], uint16(len(buf)))
 
 	for c := range p.clients {
 		if c.state == "PLAY" {
 			if c.rtpProto == "udp" {
-				p.rtcpl.nconn.WriteTo(buf, &net.UDPAddr{
+				p.rtcpl.nconn.WriteTo(frame, &net.UDPAddr{
 					IP:   c.IP,
 					Port: c.rtcpPort,
 				})
 			} else {
-				c.nconn.Write(tcpHeader[:])
-				c.nconn.Write(buf)
+				c.rconn.WriteInterleavedFrame(frame)
 			}
 		}
 	}

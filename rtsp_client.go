@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -23,7 +21,7 @@ var (
 
 type rtspClient struct {
 	p        *program
-	nconn    net.Conn
+	rconn    *rtsp.Conn
 	state    string
 	IP       net.IP
 	rtpProto string
@@ -34,7 +32,7 @@ type rtspClient struct {
 func newRtspClient(p *program, nconn net.Conn) *rtspClient {
 	c := &rtspClient{
 		p:     p,
-		nconn: nconn,
+		rconn: rtsp.NewConn(nconn),
 		state: "STARTING",
 	}
 
@@ -52,7 +50,7 @@ func (c *rtspClient) close() error {
 	}
 
 	delete(c.p.clients, c)
-	c.nconn.Close()
+	c.rconn.Close()
 
 	if c.p.streamAuthor == c {
 		c.p.streamAuthor = nil
@@ -69,7 +67,7 @@ func (c *rtspClient) close() error {
 }
 
 func (c *rtspClient) log(format string, args ...interface{}) {
-	format = "[RTSP client " + c.nconn.RemoteAddr().String() + "] " + format
+	format = "[RTSP client " + c.rconn.RemoteAddr().String() + "] " + format
 	log.Printf(format, args...)
 }
 
@@ -81,15 +79,13 @@ func (c *rtspClient) run() {
 		c.close()
 	}()
 
-	ipstr, _, _ := net.SplitHostPort(c.nconn.RemoteAddr().String())
+	ipstr, _, _ := net.SplitHostPort(c.rconn.RemoteAddr().String())
 	c.IP = net.ParseIP(ipstr)
-
-	rconn := &rtsp.Conn{c.nconn}
 
 	c.log("connected")
 
 	for {
-		req, err := rconn.ReadRequest()
+		req, err := c.rconn.ReadRequest()
 		if err != nil {
 			if err != io.EOF {
 				c.log("ERR: %s", err)
@@ -104,7 +100,7 @@ func (c *rtspClient) run() {
 		switch err {
 		// normal response
 		case nil:
-			err = rconn.WriteResponse(res)
+			err = c.rconn.WriteResponse(res)
 			if err != nil {
 				c.log("ERR: %s", err)
 				return
@@ -119,7 +115,7 @@ func (c *rtspClient) run() {
 		// before the response
 		// then switch to RTP if TCP
 		case errPlay:
-			err = rconn.WriteResponse(res)
+			err = c.rconn.WriteResponse(res)
 			if err != nil {
 				c.log("ERR: %s", err)
 				return
@@ -134,10 +130,13 @@ func (c *rtspClient) run() {
 			// when rtp protocol is TCP, the RTSP connection becomes a RTP connection
 			// receive RTP feedback, do not parse it, wait until connection closes
 			if c.rtpProto == "tcp" {
-				buf := make([]byte, 1024)
+				buf := make([]byte, 2048)
 				for {
-					_, err := c.nconn.Read(buf)
+					_, err := c.rconn.ReadInterleavedFrame(buf)
 					if err != nil {
+						if err != io.EOF {
+							c.log("ERR: %s", err)
+						}
 						return
 					}
 				}
@@ -145,7 +144,7 @@ func (c *rtspClient) run() {
 
 		// RECORD: switch to RTP if TCP
 		case errRecord:
-			err = rconn.WriteResponse(res)
+			err = c.rconn.WriteResponse(res)
 			if err != nil {
 				c.log("ERR: %s", err)
 				return
@@ -160,37 +159,17 @@ func (c *rtspClient) run() {
 			// when rtp protocol is TCP, the RTSP connection becomes a RTP connection
 			// receive RTP data and parse it
 			if c.rtpProto == "tcp" {
-				packet := make([]byte, 2048)
-				bconn := bufio.NewReader(c.nconn)
+				buf := make([]byte, 2048)
 				for {
-					byts, err := bconn.Peek(4)
+					n, err := c.rconn.ReadInterleavedFrame(buf)
 					if err != nil {
-						return
-					}
-					bconn.Discard(4)
-
-					if byts[0] != 0x24 {
-						c.log("ERR: wrong magic byte")
+						if err != io.EOF {
+							c.log("ERR: %s", err)
+						}
 						return
 					}
 
-					if byts[1] != 0x00 {
-						c.log("ERR: wrong channel")
-						return
-					}
-
-					plen := binary.BigEndian.Uint16(byts[2:])
-					if plen > 2048 {
-						c.log("ERR: packet len > 2048")
-						return
-					}
-
-					_, err = io.ReadFull(bconn, packet[:plen])
-					if err != nil {
-						return
-					}
-
-					c.p.handleRtp(packet[:plen])
+					c.p.handleRtp(buf[:n])
 				}
 			}
 
@@ -199,7 +178,7 @@ func (c *rtspClient) run() {
 			c.log("ERR: %s", err)
 
 			if cseq, ok := req.Headers["cseq"]; ok {
-				rconn.WriteResponse(&rtsp.Response{
+				c.rconn.WriteResponse(&rtsp.Response{
 					StatusCode: 400,
 					Status:     "Bad Request",
 					Headers: map[string]string{
@@ -207,7 +186,7 @@ func (c *rtspClient) run() {
 					},
 				})
 			} else {
-				rconn.WriteResponse(&rtsp.Response{
+				c.rconn.WriteResponse(&rtsp.Response{
 					StatusCode: 400,
 					Status:     "Bad Request",
 				})
