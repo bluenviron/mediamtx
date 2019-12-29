@@ -451,6 +451,10 @@ func (c *rtspClient) handleRequest(req *rtsp.Request) (*rtsp.Response, error) {
 				}, nil
 
 			} else if _, ok := transports["RTP/AVP/TCP"]; ok {
+				if _, ok := transports["interleaved=0-1"]; !ok {
+					return nil, fmt.Errorf("transport header does not contain interleaved=0-1")
+				}
+
 				c.p.mutex.Lock()
 				c.rtpProto = "tcp"
 				c.state = "PRE_RECORD"
