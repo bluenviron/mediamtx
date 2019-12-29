@@ -276,7 +276,9 @@ func (c *rtspClient) run(wg sync.WaitGroup) {
 								"RTP/AVP",
 								"unicast",
 								fmt.Sprintf("client_port=%d-%d", clientPort1, clientPort2),
-								fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
+								// use two fake server ports, since we do not want to receive feedback
+								// from the client
+								fmt.Sprintf("server_port=%d-%d", c.p.rtpPort + 2, c.p.rtcpPort + 2),
 								"ssrc=1234ABCD",
 							}, ";"),
 							"Session": "12345678",
