@@ -72,9 +72,9 @@ func (c *Conn) ReadInterleavedFrame(frame []byte) (int, int, error) {
 	return int(header[1]), int(framelen), nil
 }
 
-func (c *Conn) WriteInterleavedFrame(frame []byte) error {
+func (c *Conn) WriteInterleavedFrame(channel int, frame []byte) error {
 	c.writeBuf[0] = 0x24
-	c.writeBuf[1] = 0x00
+	c.writeBuf[1] = byte(channel)
 	binary.BigEndian.PutUint16(c.writeBuf[2:], uint16(len(frame)))
 	n := copy(c.writeBuf[4:], frame)
 

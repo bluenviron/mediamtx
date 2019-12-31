@@ -12,17 +12,42 @@ import (
 
 var Version string = "v0.0.0"
 
+type trackFlow int
+
+const (
+	_TRACK_FLOW_RTP trackFlow = iota
+	_TRACK_FLOW_RTCP
+)
+
+type track struct {
+	rtpPort  int
+	rtcpPort int
+}
+
+type streamProtocol int
+
+const (
+	_STREAM_PROTOCOL_UDP = iota
+	_STREAM_PROTOCOL_TCP
+)
+
+func (s streamProtocol) String() string {
+	if s == _STREAM_PROTOCOL_UDP {
+		return "udp"
+	}
+	return "tcp"
+}
+
 type program struct {
-	rtspPort     int
-	rtpPort      int
-	rtcpPort     int
-	mutex        sync.RWMutex
-	rtspl        *rtspListener
-	rtpl         *udpListener
-	rtcpl        *udpListener
-	clients      map[*rtspClient]struct{}
-	streamAuthor *rtspClient
-	streamSdp    []byte
+	rtspPort  int
+	rtpPort   int
+	rtcpPort  int
+	mutex     sync.RWMutex
+	rtspl     *rtspListener
+	rtpl      *udpListener
+	rtcpl     *udpListener
+	clients   map[*client]struct{}
+	publisher *client
 }
 
 func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
@@ -30,17 +55,17 @@ func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 		rtspPort: rtspPort,
 		rtpPort:  rtpPort,
 		rtcpPort: rtcpPort,
-		clients:  make(map[*rtspClient]struct{}),
+		clients:  make(map[*client]struct{}),
 	}
 
 	var err error
 
-	p.rtpl, err = newUdpListener(rtpPort, "RTP", p.handleRtp)
+	p.rtpl, err = newUdpListener(p, rtpPort, _TRACK_FLOW_RTP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.rtcpl, err = newUdpListener(rtcpPort, "RTCP", p.handleRtcp)
+	p.rtcpl, err = newUdpListener(p, rtcpPort, _TRACK_FLOW_RTCP)
 	if err != nil {
 		return nil, err
 	}
@@ -62,37 +87,24 @@ func (p *program) run() {
 	<-infty
 }
 
-func (p *program) handleRtp(frame []byte) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
+func (p *program) forwardTrack(flow trackFlow, id int, frame []byte) {
 	for c := range p.clients {
 		if c.state == "PLAY" {
-			if c.rtpProto == "udp" {
-				p.rtpl.nconn.WriteTo(frame, &net.UDPAddr{
-					IP:   c.IP,
-					Port: c.rtpPort,
-				})
-			} else {
-				c.rconn.WriteInterleavedFrame(frame)
-			}
-		}
-	}
-}
+			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
+				if flow == _TRACK_FLOW_RTP {
+					p.rtpl.nconn.WriteTo(frame, &net.UDPAddr{
+						IP:   c.ip,
+						Port: c.streamTracks[id].rtpPort,
+					})
+				} else {
+					p.rtcpl.nconn.WriteTo(frame, &net.UDPAddr{
+						IP:   c.ip,
+						Port: c.streamTracks[id].rtcpPort,
+					})
+				}
 
-func (p *program) handleRtcp(frame []byte) {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-
-	for c := range p.clients {
-		if c.state == "PLAY" {
-			if c.rtpProto == "udp" {
-				p.rtcpl.nconn.WriteTo(frame, &net.UDPAddr{
-					IP:   c.IP,
-					Port: c.rtcpPort,
-				})
 			} else {
-				c.rconn.WriteInterleavedFrame(frame)
+				c.rconn.WriteInterleavedFrame(trackToInterleavedChannel(flow, id), frame)
 			}
 		}
 	}
