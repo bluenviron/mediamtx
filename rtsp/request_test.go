@@ -21,7 +21,7 @@ var casesRequest = []struct {
 			"\r\n"),
 		&Request{
 			Method: "OPTIONS",
-			Path:   "rtsp://example.com/media.mp4",
+			Url:    "rtsp://example.com/media.mp4",
 			Headers: map[string]string{
 				"CSeq":          "1",
 				"Require":       "implicit-play",
@@ -36,7 +36,7 @@ var casesRequest = []struct {
 			"\r\n"),
 		&Request{
 			Method: "DESCRIBE",
-			Path:   "rtsp://example.com/media.mp4",
+			Url:    "rtsp://example.com/media.mp4",
 			Headers: map[string]string{
 				"CSeq": "2",
 			},
@@ -64,7 +64,7 @@ var casesRequest = []struct {
 			"m=video 2232 RTP/AVP 31\n"),
 		&Request{
 			Method: "ANNOUNCE",
-			Path:   "rtsp://example.com/media.mp4",
+			Url:    "rtsp://example.com/media.mp4",
 			Headers: map[string]string{
 				"CSeq":           "7",
 				"Date":           "23 Jan 1997 15:35:06 GMT",
@@ -98,7 +98,7 @@ var casesRequest = []struct {
 			"jitter\n"),
 		&Request{
 			Method: "GET_PARAMETER",
-			Path:   "rtsp://example.com/media.mp4",
+			Url:    "rtsp://example.com/media.mp4",
 			Headers: map[string]string{
 				"CSeq":           "9",
 				"Content-Type":   "text/parameters",

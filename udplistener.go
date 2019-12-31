@@ -53,38 +53,32 @@ func (l *udpListener) run() {
 			l.p.mutex.RLock()
 			defer l.p.mutex.RUnlock()
 
-			if l.p.publisher == nil {
-				return
-			}
-
-			if l.p.publisher.streamProtocol != _STREAM_PROTOCOL_UDP {
-				return
-			}
-
-			if !l.p.publisher.ip.Equal(addr.IP) {
-				return
-			}
-
-			// get track id by using client port
-			trackId := func() int {
-				for i, t := range l.p.publisher.streamTracks {
-					if l.flow == _TRACK_FLOW_RTP {
-						if t.rtpPort == addr.Port {
-							return i
+			// find path and track id
+			path, trackId := func() (string, int) {
+				for _, pub := range l.p.publishers {
+					for i, t := range pub.streamTracks {
+						if !pub.ip.Equal(addr.IP) {
+							continue
 						}
-					} else {
-						if t.rtcpPort == addr.Port {
-							return i
+
+						if l.flow == _TRACK_FLOW_RTP {
+							if t.rtpPort == addr.Port {
+								return pub.path, i
+							}
+						} else {
+							if t.rtcpPort == addr.Port {
+								return pub.path, i
+							}
 						}
 					}
 				}
-				return -1
+				return "", -1
 			}()
-			if trackId < 0 {
+			if path == "" {
 				return
 			}
 
-			l.p.forwardTrack(l.flow, trackId, buf[:n])
+			l.p.forwardTrack(path, trackId, l.flow, buf[:n])
 		}()
 	}
 }

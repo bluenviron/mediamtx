@@ -10,7 +10,7 @@ This software was developed with the aim of simulating a live camera feed for de
 
 Features:
 * Supports reading and publishing streams via UDP and TCP
-* Supports publishing one stream at once, that can be read by multiple users
+* Supports publishing multiple streams at once, each in a separate path, that can be read by multiple users
 * Supports multiple video and audio tracks for each stream
 * Supports the RTP/RTCP streaming protocol
 
@@ -33,17 +33,17 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 
 2. In another terminal, publish something with FFmpeg (in this example it's a video file, but it can be anything you want):
    ```
-   ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/
+   ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
    ```
 
 3. Open the stream with VLC:
    ```
-   vlc rtsp://localhost:8554/
+   vlc rtsp://localhost:8554/mystream
    ```
 
    you can alternatively use GStreamer:
    ```
-   gst-launch-1.0 -v rtspsrc location=rtsp://localhost:8554/ ! rtph264depay ! decodebin ! autovideosink
+   gst-launch-1.0 -v rtspsrc location=rtsp://localhost:8554/mystream ! rtph264depay ! decodebin ! autovideosink
    ```
 
 <br />

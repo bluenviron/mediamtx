@@ -39,23 +39,24 @@ func (s streamProtocol) String() string {
 }
 
 type program struct {
-	rtspPort  int
-	rtpPort   int
-	rtcpPort  int
-	mutex     sync.RWMutex
-	rtspl     *rtspListener
-	rtpl      *udpListener
-	rtcpl     *udpListener
-	clients   map[*client]struct{}
-	publisher *client
+	rtspPort   int
+	rtpPort    int
+	rtcpPort   int
+	mutex      sync.RWMutex
+	rtspl      *rtspListener
+	rtpl       *udpListener
+	rtcpl      *udpListener
+	clients    map[*client]struct{}
+	publishers map[string]*client
 }
 
 func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
 	p := &program{
-		rtspPort: rtspPort,
-		rtpPort:  rtpPort,
-		rtcpPort: rtcpPort,
-		clients:  make(map[*client]struct{}),
+		rtspPort:   rtspPort,
+		rtpPort:    rtpPort,
+		rtcpPort:   rtcpPort,
+		clients:    make(map[*client]struct{}),
+		publishers: make(map[string]*client),
 	}
 
 	var err error
@@ -87,9 +88,9 @@ func (p *program) run() {
 	<-infty
 }
 
-func (p *program) forwardTrack(flow trackFlow, id int, frame []byte) {
+func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte) {
 	for c := range p.clients {
-		if c.state == "PLAY" {
+		if c.path == path && c.state == "PLAY" {
 			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
 				if flow == _TRACK_FLOW_RTP {
 					p.rtpl.nconn.WriteTo(frame, &net.UDPAddr{
@@ -104,7 +105,7 @@ func (p *program) forwardTrack(flow trackFlow, id int, frame []byte) {
 				}
 
 			} else {
-				c.rconn.WriteInterleavedFrame(trackToInterleavedChannel(flow, id), frame)
+				c.rconn.WriteInterleavedFrame(trackToInterleavedChannel(id, flow), frame)
 			}
 		}
 	}

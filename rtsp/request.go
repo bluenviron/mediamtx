@@ -8,7 +8,7 @@ import (
 
 type Request struct {
 	Method  string
-	Path    string
+	Url     string
 	Headers map[string]string
 	Content []byte
 }
@@ -32,9 +32,9 @@ func requestDecode(r io.Reader) (*Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Path = string(byts[:len(byts)-1])
+	req.Url = string(byts[:len(byts)-1])
 
-	if len(req.Path) == 0 {
+	if len(req.Url) == 0 {
 		return nil, fmt.Errorf("empty path")
 	}
 
@@ -69,7 +69,7 @@ func requestDecode(r io.Reader) (*Request, error) {
 func requestEncode(w io.Writer, req *Request) error {
 	wb := bufio.NewWriter(w)
 
-	_, err := wb.Write([]byte(req.Method + " " + req.Path + " " + _RTSP_PROTO + "\r\n"))
+	_, err := wb.Write([]byte(req.Method + " " + req.Url + " " + _RTSP_PROTO + "\r\n"))
 	if err != nil {
 		return err
 	}

@@ -38,7 +38,7 @@ func (l *rtspListener) run() {
 			break
 		}
 
-		rsc := newRtspClient(l.p, nconn)
+		rsc := newClient(l.p, nconn)
 		go rsc.run()
 	}
 }
