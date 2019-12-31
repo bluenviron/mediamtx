@@ -187,7 +187,7 @@ func (c *rtspClient) run() {
 		default:
 			c.log("ERR: %s", err)
 
-			if cseq, ok := req.Headers["cseq"]; ok {
+			if cseq, ok := req.Headers["CSeq"]; ok {
 				c.rconn.WriteResponse(&rtsp.Response{
 					StatusCode: 400,
 					Status:     "Bad Request",
