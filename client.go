@@ -491,9 +491,7 @@ func (c *client) handleRequest(req *rtsp.Request) (*rtsp.Response, error) {
 							"RTP/AVP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							// use two fake server ports, since we do not want to receive feedback
-							// from the client
-							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort+2, c.p.rtcpPort+2),
+							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
 							"ssrc=1234ABCD",
 						}, ";"),
 						"Session": "12345678",
