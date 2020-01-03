@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"regexp"
 	"sync"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -42,6 +43,7 @@ type program struct {
 	rtspPort   int
 	rtpPort    int
 	rtcpPort   int
+	publishKey string
 	mutex      sync.RWMutex
 	rtspl      *rtspListener
 	rtpl       *udpListener
@@ -50,11 +52,20 @@ type program struct {
 	publishers map[string]*client
 }
 
-func newProgram(rtspPort int, rtpPort int, rtcpPort int) (*program, error) {
+func newProgram(rtspPort int, rtpPort int, rtcpPort int, publishKey string) (*program, error) {
+	if publishKey != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(publishKey) {
+			return nil, fmt.Errorf("publish key must be alphanumeric")
+		}
+	}
+
+	log.Printf("rtsp-simple-server %s", Version)
+
 	p := &program{
 		rtspPort:   rtspPort,
 		rtpPort:    rtpPort,
 		rtcpPort:   rtcpPort,
+		publishKey: publishKey,
 		clients:    make(map[*client]struct{}),
 		publishers: make(map[string]*client),
 	}
@@ -120,6 +131,7 @@ func main() {
 	rtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
 	rtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
 	rtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
+	publishKey := kingpin.Flag("publish-key", "optional authentication key required to publish").Default("").String()
 
 	kingpin.Parse()
 
@@ -128,7 +140,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	p, err := newProgram(*rtspPort, *rtpPort, *rtcpPort)
+	p, err := newProgram(*rtspPort, *rtpPort, *rtcpPort, *publishKey)
 	if err != nil {
 		log.Fatal("ERR: ", err)
 	}

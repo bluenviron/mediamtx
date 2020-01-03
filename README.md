@@ -13,6 +13,7 @@ Features:
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
+* Optional authentication schema for publishers
 * Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
 
@@ -26,6 +27,8 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 <br />
 
 ## Usage
+
+#### Basic usage
 
 1. Start the server:
    ```
@@ -47,14 +50,24 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
    gst-launch-1.0 -v rtspsrc location=rtsp://localhost:8554/mystream ! rtph264depay ! decodebin ! autovideosink
    ```
 
-<br />
+#### Publisher authentication
 
-## Full command-line usage
+1. Start the server and set a publish key:
+   ```
+   ./rtsp-simple-server --publish-key=IU23yyfaw6324
+   ```
+
+ 2. Only publishers which have the key will be able to publish:
+    ```
+    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?key=IU23yyfaw6324
+    ```
+
+#### Full command-line usage
 
 ```
 usage: rtsp-simple-server [<flags>]
 
-rtsp-simple-server
+rtsp-simple-server v0.0.0
 
 RTSP server.
 
@@ -64,7 +77,9 @@ Flags:
   --rtsp-port=8554  port of the RTSP TCP listener
   --rtp-port=8000   port of the RTP UDP listener
   --rtcp-port=8001  port of the RTCP UDP listener
+  --publish-key=""  optional authentication key required to publish
 ```
+
 
 <br />
 

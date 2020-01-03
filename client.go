@@ -19,6 +19,7 @@ var (
 	errTeardown = errors.New("teardown")
 	errPlay     = errors.New("play")
 	errRecord   = errors.New("record")
+	errWrongKey = errors.New("wrong key")
 )
 
 func interleavedChannelToTrack(channel int) (int, trackFlow) {
@@ -170,7 +171,7 @@ func (c *client) run() {
 				return
 			}
 
-		// TEARDOWN, close connection silently
+		// TEARDOWN: close connection silently
 		case errTeardown:
 			return
 
@@ -258,7 +259,20 @@ func (c *client) run() {
 				}
 			}
 
-		// error: write and exit
+		// wrong key: reply with 401 and exit
+		case errWrongKey:
+			c.log("ERR: %s", err)
+
+			c.rconn.WriteResponse(&rtsp.Response{
+				StatusCode: 401,
+				Status:     "Unauthorized",
+				Headers: map[string]string{
+					"CSeq": req.Headers["CSeq"],
+				},
+			})
+			return
+
+		// generic error: reply with code 400 and exit
 		default:
 			c.log("ERR: %s", err)
 
@@ -287,29 +301,26 @@ func (c *client) handleRequest(req *rtsp.Request) (*rtsp.Response, error) {
 		return nil, fmt.Errorf("cseq missing")
 	}
 
-	path, err := func() (string, error) {
-		ur, err := url.Parse(req.Url)
-		if err != nil {
-			return "", fmt.Errorf("unable to parse path '%s'", req.Url)
-		}
-		path := ur.Path
+	ur, err := url.Parse(req.Url)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse path '%s'", req.Url)
+	}
+
+	path := func() string {
+		ret := ur.Path
 
 		// remove leading slash
-		if len(path) > 1 {
-			path = path[1:]
+		if len(ret) > 1 {
+			ret = ret[1:]
 		}
 
 		// strip any subpath
-		if n := strings.Index(path, "/"); n >= 0 {
-			path = path[:n]
+		if n := strings.Index(ret, "/"); n >= 0 {
+			ret = ret[:n]
 		}
 
-		return path, nil
+		return ret
 	}()
-
-	c.p.mutex.Lock()
-	c.path = path
-	c.p.mutex.Unlock()
 
 	switch req.Method {
 	case "OPTIONS":
@@ -395,6 +406,22 @@ func (c *client) handleRequest(req *rtsp.Request) (*rtsp.Response, error) {
 		}()
 		if err != nil {
 			return nil, fmt.Errorf("invalid SDP: %s", err)
+		}
+
+		if c.p.publishKey != "" {
+			q, err := url.ParseQuery(ur.RawQuery)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse query")
+			}
+
+			key, ok := q["key"]
+			if !ok || len(key) == 0 {
+				return nil, fmt.Errorf("key missing")
+			}
+
+			if key[0] != c.p.publishKey {
+				return nil, errWrongKey
+			}
 		}
 
 		err = func() error {

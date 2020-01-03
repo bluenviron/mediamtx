@@ -8,12 +8,12 @@ help:
 	@echo ""
 	@echo "available actions:"
 	@echo ""
-	@echo "  mod-tidy      run go mod tidy"
-	@echo "  format        format source files"
-	@echo "  test          run available tests"
-	@echo "  run           run app"
-	@echo "  release       build release assets"
-	@echo "  travis-setup  setup travis CI"
+	@echo "  mod-tidy       run go mod tidy"
+	@echo "  format         format source files"
+	@echo "  test           run available tests"
+	@echo "  run ARGS=args  run app"
+	@echo "  release        build release assets"
+	@echo "  travis-setup   setup travis CI"
 	@echo ""
 
 mod-tidy:
@@ -64,7 +64,7 @@ run:
 	--network=host \
 	--name temp \
 	temp \
-	/out
+	/out $(ARGS)
 
 define DOCKERFILE_RELEASE
 FROM $(BASE_IMAGE)
