@@ -6,13 +6,14 @@
 
 _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server, a program that allows multiple users to read or publish live video and audio streams. RTSP a standardized protocol that defines how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol and read or write data. The server is then responsible of linking the publisher stream with the readers.
 
-This software was developed with the aim of simulating a live camera feed for debugging purposes, and therefore to use files instead of real streams. Another reason for the development was the deprecation of _FFserver_, the component of the FFmpeg project that allowed to create a RTSP server with _FFmpeg_ (but this server can be used with any software that supports RTSP).
+This software was developed with the aim of simulating a live camera feed for debugging purposes, and therefore to use files instead of real streams. Another reason for the development was the deprecation of _FFserver_, the component of the _FFmpeg_ project that allowed to create a RTSP server (but this server is not bounded to _FFmpeg_ and can be used with any software that supports publishing to RTSP).
 
 Features:
 * Read and publish streams via UDP and TCP
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
+* Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
 
 <br />
