@@ -313,13 +313,9 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			}
 
 			key, ok := q["key"]
-			if !ok || len(key) == 0 {
-				c.writeResError(req, fmt.Errorf("key missing"))
-				return false
-			}
-
-			if key[0] != c.p.publishKey {
+			if !ok || len(key) != 1 || key[0] != c.p.publishKey {
 				// reply with 401 and exit
+				c.log("ERR: publish key wrong or missing")
 				c.writeRes(&rtsp.Response{
 					StatusCode: 401,
 					Status:     "Unauthorized",
