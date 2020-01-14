@@ -435,11 +435,10 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 					Headers: map[string]string{
 						"CSeq": cseq,
 						"Transport": strings.Join([]string{
-							"RTP/AVP",
+							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
 							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
-							"ssrc=1234ABCD",
 						}, ";"),
 						"Session": "12345678",
 					},
@@ -559,11 +558,10 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 					Headers: map[string]string{
 						"CSeq": cseq,
 						"Transport": strings.Join([]string{
-							"RTP/AVP",
+							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
 							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
-							"ssrc=1234ABCD",
 						}, ";"),
 						"Session": "12345678",
 					},
