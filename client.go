@@ -375,7 +375,17 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 		// play
 		case "STARTING", "PRE_PLAY":
 			// play via UDP
-			if _, ok := th["RTP/AVP"]; ok {
+			if func() bool {
+				_, ok := th["RTP/AVP"]
+				if ok {
+					return true
+				}
+				_, ok = th["RTP/AVP/UDP"]
+				if ok {
+					return true
+				}
+				return false
+			}() {
 				rtpPort, rtcpPort := th.getClientPorts()
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportstr))
