@@ -386,6 +386,18 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 				}
 				return false
 			}() {
+				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
+					c.log("ERR: udp streaming is disabled")
+					c.rconn.WriteResponse(&rtsp.Response{
+						StatusCode: 461,
+						Status:     "Unsupported Transport",
+						Headers: map[string]string{
+							"CSeq": cseq,
+						},
+					})
+					return false
+				}
+
 				rtpPort, rtcpPort := th.getClientPorts()
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
@@ -447,6 +459,18 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 
 				// play via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
+				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
+					c.log("ERR: tcp streaming is disabled")
+					c.rconn.WriteResponse(&rtsp.Response{
+						StatusCode: 461,
+						Status:     "Unsupported Transport",
+						Headers: map[string]string{
+							"CSeq": cseq,
+						},
+					})
+					return false
+				}
+
 				if c.path != "" && path != c.path {
 					c.writeResError(req, fmt.Errorf("path has changed"))
 					return false
@@ -529,7 +553,19 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 					return true
 				}
 				return false
-			}(); ok {
+			}() {
+				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
+					c.log("ERR: udp streaming is disabled")
+					c.rconn.WriteResponse(&rtsp.Response{
+						StatusCode: 461,
+						Status:     "Unsupported Transport",
+						Headers: map[string]string{
+							"CSeq": cseq,
+						},
+					})
+					return false
+				}
+
 				rtpPort, rtcpPort := th.getClientPorts()
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
@@ -580,6 +616,18 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 
 				// record via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
+				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
+					c.log("ERR: tcp streaming is disabled")
+					c.rconn.WriteResponse(&rtsp.Response{
+						StatusCode: 461,
+						Status:     "Unsupported Transport",
+						Headers: map[string]string{
+							"CSeq": cseq,
+						},
+					})
+					return false
+				}
+
 				var interleaved string
 				err = func() error {
 					c.p.mutex.Lock()

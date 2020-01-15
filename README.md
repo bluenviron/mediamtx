@@ -72,12 +72,13 @@ rtsp-simple-server v0.0.0
 RTSP server.
 
 Flags:
-  --help            Show context-sensitive help (also try --help-long and --help-man).
-  --version         print rtsp-simple-server version
-  --rtsp-port=8554  port of the RTSP TCP listener
-  --rtp-port=8000   port of the RTP UDP listener
-  --rtcp-port=8001  port of the RTCP UDP listener
-  --publish-key=""  optional authentication key required to publish
+  --help                 Show context-sensitive help (also try --help-long and --help-man).
+  --version              print rtsp-simple-server version
+  --protocols="udp,tcp"  supported protocols
+  --rtsp-port=8554       port of the RTSP TCP listener
+  --rtp-port=8000        port of the RTP UDP listener
+  --rtcp-port=8001       port of the RTCP UDP listener
+  --publish-key=""       optional authentication key required to publish
 ```
 
 
