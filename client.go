@@ -358,13 +358,13 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 		return true
 
 	case "SETUP":
-		transportstr, ok := req.Headers["Transport"]
+		transportStr, ok := req.Headers["Transport"]
 		if !ok {
 			c.writeResError(req, fmt.Errorf("transport header missing"))
 			return false
 		}
 
-		th := newTransportHeader(transportstr)
+		th := newTransportHeader(transportStr)
 
 		if _, ok := th["unicast"]; !ok {
 			c.writeResError(req, fmt.Errorf("transport header does not contain unicast"))
@@ -388,7 +388,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			}() {
 				rtpPort, rtcpPort := th.getClientPorts()
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportstr))
+					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
 					return false
 				}
 
@@ -502,7 +502,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 				return true
 
 			} else {
-				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP or RTP/AVP/TCP) (%s)", transportstr))
+				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", transportStr))
 				return false
 			}
 
@@ -519,10 +519,20 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			}
 
 			// record via UDP
-			if _, ok := th["RTP/AVP/UDP"]; ok {
+			if func() bool {
+				_, ok := th["RTP/AVP"]
+				if ok {
+					return true
+				}
+				_, ok = th["RTP/AVP/UDP"]
+				if ok {
+					return true
+				}
+				return false
+			}(); ok {
 				rtpPort, rtcpPort := th.getClientPorts()
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportstr))
+					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
 					return false
 				}
 
@@ -623,7 +633,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 				return true
 
 			} else {
-				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP or RTP/AVP/TCP) (%s)", transportstr))
+				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", transportStr))
 				return false
 			}
 
