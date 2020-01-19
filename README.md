@@ -16,15 +16,9 @@ Features:
 * Optional authentication mechanism for publishers
 * Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
-
-<br />
-
 ## Installation
 
 Precompiled binaries are available in the [release](https://github.com/aler9/rtsp-simple-server/releases) page. Just download and extract the executable.
-
-
-<br />
 
 ## Usage
 
@@ -80,9 +74,6 @@ Flags:
   --rtcp-port=8001       port of the RTCP UDP listener
   --publish-key=""       optional authentication key required to publish
 ```
-
-
-<br />
 
 ## Links
 
