@@ -77,5 +77,9 @@ Flags:
 
 ## Links
 
+Related projects
+* https://github.com/aler9/rtsp-simple-proxy
+* https://github.com/aler9/gortsplib
+
 IETF Standard
 * https://tools.ietf.org/html/rfc7826
