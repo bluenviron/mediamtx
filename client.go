@@ -26,10 +26,21 @@ func trackToInterleavedChannel(id int, flow trackFlow) int {
 	return (id * 2) + 1
 }
 
+type clientState int
+
+const (
+	_CLIENT_STATE_STARTING clientState = iota
+	_CLIENT_STATE_ANNOUNCE
+	_CLIENT_STATE_PRE_PLAY
+	_CLIENT_STATE_PLAY
+	_CLIENT_STATE_PRE_RECORD
+	_CLIENT_STATE_RECORD
+)
+
 type client struct {
 	p               *program
 	rconn           *gortsplib.Conn
-	state           string
+	state           clientState
 	ip              net.IP
 	path            string
 	streamSdpText   []byte       // filled only if publisher
@@ -42,7 +53,7 @@ func newClient(p *program, nconn net.Conn) *client {
 	c := &client{
 		p:     p,
 		rconn: gortsplib.NewConn(nconn),
-		state: "STARTING",
+		state: _CLIENT_STATE_STARTING,
 	}
 
 	c.p.mutex.Lock()
@@ -189,8 +200,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case "DESCRIBE":
-		if c.state != "STARTING" {
-			c.writeResError(req, fmt.Errorf("client is in state '%s'", c.state))
+		if c.state != _CLIENT_STATE_STARTING {
+			c.writeResError(req, fmt.Errorf("client is in state '%d'", c.state))
 			return false
 		}
 
@@ -223,8 +234,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case "ANNOUNCE":
-		if c.state != "STARTING" {
-			c.writeResError(req, fmt.Errorf("client is in state '%s'", c.state))
+		if c.state != _CLIENT_STATE_STARTING {
+			c.writeResError(req, fmt.Errorf("client is in state '%d'", c.state))
 			return false
 		}
 
@@ -294,7 +305,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			c.p.publishers[path] = c
 			c.streamSdpText = req.Content
 			c.streamSdpParsed = sdpParsed
-			c.state = "ANNOUNCE"
+			c.state = _CLIENT_STATE_ANNOUNCE
 			return nil
 		}()
 		if err != nil {
@@ -327,7 +338,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 		switch c.state {
 		// play
-		case "STARTING", "PRE_PLAY":
+		case _CLIENT_STATE_STARTING, _CLIENT_STATE_PRE_PLAY:
 			// play via UDP
 			if func() bool {
 				_, ok := th["RTP/AVP"]
@@ -387,7 +398,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						rtcpPort: rtcpPort,
 					})
 
-					c.state = "PRE_PLAY"
+					c.state = _CLIENT_STATE_PRE_PLAY
 					return nil
 				}()
 				if err != nil {
@@ -454,7 +465,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						rtcpPort: 0,
 					})
 
-					c.state = "PRE_PLAY"
+					c.state = _CLIENT_STATE_PRE_PLAY
 					return nil
 				}()
 				if err != nil {
@@ -485,7 +496,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			}
 
 		// record
-		case "ANNOUNCE", "PRE_RECORD":
+		case _CLIENT_STATE_ANNOUNCE, _CLIENT_STATE_PRE_RECORD:
 			if _, ok := th["mode=record"]; !ok {
 				c.writeResError(req, fmt.Errorf("transport header does not contain mode=record"))
 				return false
@@ -544,7 +555,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						rtcpPort: rtcpPort,
 					})
 
-					c.state = "PRE_RECORD"
+					c.state = _CLIENT_STATE_PRE_RECORD
 					return nil
 				}()
 				if err != nil {
@@ -611,7 +622,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						rtcpPort: 0,
 					})
 
-					c.state = "PRE_RECORD"
+					c.state = _CLIENT_STATE_PRE_RECORD
 					return nil
 				}()
 				if err != nil {
@@ -640,13 +651,13 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			}
 
 		default:
-			c.writeResError(req, fmt.Errorf("client is in state '%s'", c.state))
+			c.writeResError(req, fmt.Errorf("client is in state '%d'", c.state))
 			return false
 		}
 
 	case "PLAY":
-		if c.state != "PRE_PLAY" {
-			c.writeResError(req, fmt.Errorf("client is in state '%s'", c.state))
+		if c.state != _CLIENT_STATE_PRE_PLAY {
+			c.writeResError(req, fmt.Errorf("client is in state '%d'", c.state))
 			return false
 		}
 
@@ -695,7 +706,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		}(), c.streamProtocol)
 
 		c.p.mutex.Lock()
-		c.state = "PLAY"
+		c.state = _CLIENT_STATE_PLAY
 		c.p.mutex.Unlock()
 
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
@@ -716,8 +727,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case "PAUSE":
-		if c.state != "PLAY" {
-			c.writeResError(req, fmt.Errorf("client is in state '%s'", c.state))
+		if c.state != _CLIENT_STATE_PLAY {
+			c.writeResError(req, fmt.Errorf("client is in state '%d'", c.state))
 			return false
 		}
 
@@ -729,7 +740,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.log("paused")
 
 		c.p.mutex.Lock()
-		c.state = "PRE_PLAY"
+		c.state = _CLIENT_STATE_PRE_PLAY
 		c.p.mutex.Unlock()
 
 		c.writeRes(&gortsplib.Response{
@@ -743,8 +754,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case "RECORD":
-		if c.state != "PRE_RECORD" {
-			c.writeResError(req, fmt.Errorf("client is in state '%s'", c.state))
+		if c.state != _CLIENT_STATE_PRE_RECORD {
+			c.writeResError(req, fmt.Errorf("client is in state '%d'", c.state))
 			return false
 		}
 
@@ -778,7 +789,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		})
 
 		c.p.mutex.Lock()
-		c.state = "RECORD"
+		c.state = _CLIENT_STATE_RECORD
 		c.p.mutex.Unlock()
 
 		c.log("is publishing on path '%s', %d %s via %s", c.path, len(c.streamTracks), func() string {
