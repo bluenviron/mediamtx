@@ -5,12 +5,12 @@ import (
 	"net"
 )
 
-type rtspListener struct {
+type rtspTcpListener struct {
 	p    *program
 	netl *net.TCPListener
 }
 
-func newRtspListener(p *program) (*rtspListener, error) {
+func newRtspTcpListener(p *program) (*rtspTcpListener, error) {
 	netl, err := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: p.rtspPort,
 	})
@@ -18,7 +18,7 @@ func newRtspListener(p *program) (*rtspListener, error) {
 		return nil, err
 	}
 
-	s := &rtspListener{
+	s := &rtspTcpListener{
 		p:    p,
 		netl: netl,
 	}
@@ -27,11 +27,11 @@ func newRtspListener(p *program) (*rtspListener, error) {
 	return s, nil
 }
 
-func (l *rtspListener) log(format string, args ...interface{}) {
-	log.Printf("[RTSP listener] "+format, args...)
+func (l *rtspTcpListener) log(format string, args ...interface{}) {
+	log.Printf("[RTSP TCP listener] "+format, args...)
 }
 
-func (l *rtspListener) run() {
+func (l *rtspTcpListener) run() {
 	for {
 		nconn, err := l.netl.AcceptTCP()
 		if err != nil {

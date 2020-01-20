@@ -47,9 +47,9 @@ type program struct {
 	rtcpPort   int
 	publishKey string
 	mutex      sync.RWMutex
-	rtspl      *rtspListener
-	rtpl       *udpListener
-	rtcpl      *udpListener
+	rtspl      *rtspTcpListener
+	rtpl       *rtspUdpListener
+	rtcpl      *rtspUdpListener
 	clients    map[*client]struct{}
 	publishers map[string]*client
 }
@@ -92,17 +92,17 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 
 	var err error
 
-	p.rtpl, err = newUdpListener(p, rtpPort, _TRACK_FLOW_RTP)
+	p.rtpl, err = newRtspUdpListener(p, rtpPort, _TRACK_FLOW_RTP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.rtcpl, err = newUdpListener(p, rtcpPort, _TRACK_FLOW_RTCP)
+	p.rtcpl, err = newRtspUdpListener(p, rtcpPort, _TRACK_FLOW_RTCP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.rtspl, err = newRtspListener(p)
+	p.rtspl, err = newRtspTcpListener(p)
 	if err != nil {
 		return nil, err
 	}

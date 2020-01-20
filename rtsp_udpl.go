@@ -5,13 +5,13 @@ import (
 	"net"
 )
 
-type udpListener struct {
+type rtspUdpListener struct {
 	p     *program
 	nconn *net.UDPConn
 	flow  trackFlow
 }
 
-func newUdpListener(p *program, port int, flow trackFlow) (*udpListener, error) {
+func newRtspUdpListener(p *program, port int, flow trackFlow) (*rtspUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -19,7 +19,7 @@ func newUdpListener(p *program, port int, flow trackFlow) (*udpListener, error) 
 		return nil, err
 	}
 
-	l := &udpListener{
+	l := &rtspUdpListener{
 		p:     p,
 		nconn: nconn,
 		flow:  flow,
@@ -29,17 +29,17 @@ func newUdpListener(p *program, port int, flow trackFlow) (*udpListener, error) 
 	return l, nil
 }
 
-func (l *udpListener) log(format string, args ...interface{}) {
+func (l *rtspUdpListener) log(format string, args ...interface{}) {
 	var label string
 	if l.flow == _TRACK_FLOW_RTP {
 		label = "RTP"
 	} else {
 		label = "RTCP"
 	}
-	log.Printf("["+label+" listener] "+format, args...)
+	log.Printf("[RTSP UDP/"+label+" listener] "+format, args...)
 }
 
-func (l *udpListener) run() {
+func (l *rtspUdpListener) run() {
 	buf := make([]byte, 2048) // UDP MTU is 1400
 
 	for {
