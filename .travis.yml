@@ -4,7 +4,6 @@ services:
 - docker
 
 script:
-- make test
 - make release
 
 deploy:

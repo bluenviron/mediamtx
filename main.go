@@ -147,7 +147,6 @@ func main() {
 		"RTSP server."
 
 	version := kingpin.Flag("version", "print rtsp-simple-server version").Bool()
-
 	protocols := kingpin.Flag("protocols", "supported protocols").Default("udp,tcp").String()
 	rtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
 	rtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()

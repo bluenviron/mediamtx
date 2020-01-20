@@ -9,8 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"rtsp-server/rtsp"
-
+	"github.com/aler9/gortsplib"
 	"gortc.io/sdp"
 )
 
@@ -74,7 +73,7 @@ func (th transportHeader) getClientPorts() (int, int) {
 
 type client struct {
 	p               *program
-	rconn           *rtsp.Conn
+	rconn           *gortsplib.Conn
 	state           string
 	ip              net.IP
 	path            string
@@ -87,7 +86,7 @@ type client struct {
 func newClient(p *program, nconn net.Conn) *client {
 	c := &client{
 		p:     p,
-		rconn: rtsp.NewConn(nconn),
+		rconn: gortsplib.NewConn(nconn),
 		state: "STARTING",
 	}
 
@@ -157,15 +156,15 @@ func (c *client) run() {
 	}
 }
 
-func (c *client) writeRes(res *rtsp.Response) {
+func (c *client) writeRes(res *gortsplib.Response) {
 	c.rconn.WriteResponse(res)
 }
 
-func (c *client) writeResError(req *rtsp.Request, err error) {
+func (c *client) writeResError(req *gortsplib.Request, err error) {
 	c.log("ERR: %s", err)
 
 	if cseq, ok := req.Headers["CSeq"]; ok {
-		c.rconn.WriteResponse(&rtsp.Response{
+		c.rconn.WriteResponse(&gortsplib.Response{
 			StatusCode: 400,
 			Status:     "Bad Request",
 			Headers: map[string]string{
@@ -173,14 +172,14 @@ func (c *client) writeResError(req *rtsp.Request, err error) {
 			},
 		})
 	} else {
-		c.rconn.WriteResponse(&rtsp.Response{
+		c.rconn.WriteResponse(&gortsplib.Response{
 			StatusCode: 400,
 			Status:     "Bad Request",
 		})
 	}
 }
 
-func (c *client) handleRequest(req *rtsp.Request) bool {
+func (c *client) handleRequest(req *gortsplib.Request) bool {
 	c.log(req.Method)
 
 	cseq, ok := req.Headers["CSeq"]
@@ -216,7 +215,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 		// do not check state, since OPTIONS can be requested
 		// in any state
 
-		c.writeRes(&rtsp.Response{
+		c.writeRes(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
 			Headers: map[string]string{
@@ -256,7 +255,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			return false
 		}
 
-		c.writeRes(&rtsp.Response{
+		c.writeRes(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
 			Headers: map[string]string{
@@ -316,7 +315,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			if !ok || len(key) != 1 || key[0] != c.p.publishKey {
 				// reply with 401 and exit
 				c.log("ERR: publish key wrong or missing")
-				c.writeRes(&rtsp.Response{
+				c.writeRes(&gortsplib.Response{
 					StatusCode: 401,
 					Status:     "Unauthorized",
 					Headers: map[string]string{
@@ -348,7 +347,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			return false
 		}
 
-		c.writeRes(&rtsp.Response{
+		c.writeRes(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
 			Headers: map[string]string{
@@ -388,7 +387,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			}() {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
 					c.log("ERR: udp streaming is disabled")
-					c.rconn.WriteResponse(&rtsp.Response{
+					c.rconn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -441,7 +440,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 					return false
 				}
 
-				c.writeRes(&rtsp.Response{
+				c.writeRes(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
 					Headers: map[string]string{
@@ -461,7 +460,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
 					c.log("ERR: tcp streaming is disabled")
-					c.rconn.WriteResponse(&rtsp.Response{
+					c.rconn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -510,7 +509,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 
 				interleaved := fmt.Sprintf("%d-%d", ((len(c.streamTracks) - 1) * 2), ((len(c.streamTracks)-1)*2)+1)
 
-				c.writeRes(&rtsp.Response{
+				c.writeRes(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
 					Headers: map[string]string{
@@ -556,7 +555,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			}() {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
 					c.log("ERR: udp streaming is disabled")
-					c.rconn.WriteResponse(&rtsp.Response{
+					c.rconn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -598,7 +597,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 					return false
 				}
 
-				c.writeRes(&rtsp.Response{
+				c.writeRes(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
 					Headers: map[string]string{
@@ -618,7 +617,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
 					c.log("ERR: tcp streaming is disabled")
-					c.rconn.WriteResponse(&rtsp.Response{
+					c.rconn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -665,7 +664,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 					return false
 				}
 
-				c.writeRes(&rtsp.Response{
+				c.writeRes(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
 					Headers: map[string]string{
@@ -724,7 +723,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 		// first write response, then set state
 		// otherwise, in case of TCP connections, RTP packets could be written
 		// before the response
-		c.writeRes(&rtsp.Response{
+		c.writeRes(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
 			Headers: map[string]string{
@@ -778,7 +777,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 		c.state = "PRE_PLAY"
 		c.p.mutex.Unlock()
 
-		c.writeRes(&rtsp.Response{
+		c.writeRes(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
 			Headers: map[string]string{
@@ -814,7 +813,7 @@ func (c *client) handleRequest(req *rtsp.Request) bool {
 			return false
 		}
 
-		c.writeRes(&rtsp.Response{
+		c.writeRes(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
 			Headers: map[string]string{
