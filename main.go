@@ -136,7 +136,7 @@ func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte
 				}
 
 			} else {
-				c.rconn.WriteInterleavedFrame(trackToInterleavedChannel(id, flow), frame)
+				c.conn.WriteInterleavedFrame(trackToInterleavedChannel(id, flow), frame)
 			}
 		}
 	}

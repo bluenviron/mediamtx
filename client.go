@@ -39,7 +39,7 @@ const (
 
 type client struct {
 	p               *program
-	rconn           *gortsplib.Conn
+	conn            *gortsplib.Conn
 	state           clientState
 	ip              net.IP
 	path            string
@@ -52,7 +52,7 @@ type client struct {
 func newClient(p *program, nconn net.Conn) *client {
 	c := &client{
 		p:     p,
-		rconn: gortsplib.NewConn(nconn),
+		conn:  gortsplib.NewConn(nconn),
 		state: _CLIENT_STATE_STARTING,
 	}
 
@@ -70,7 +70,7 @@ func (c *client) close() error {
 	}
 
 	delete(c.p.clients, c)
-	c.rconn.Close()
+	c.conn.NetConn().Close()
 
 	if c.path != "" {
 		if pub, ok := c.p.publishers[c.path]; ok && pub == c {
@@ -89,7 +89,7 @@ func (c *client) close() error {
 }
 
 func (c *client) log(format string, args ...interface{}) {
-	format = "[RTSP client " + c.rconn.RemoteAddr().String() + "] " + format
+	format = "[RTSP client " + c.conn.NetConn().RemoteAddr().String() + "] " + format
 	log.Printf(format, args...)
 }
 
@@ -101,13 +101,13 @@ func (c *client) run() {
 		c.close()
 	}()
 
-	ipstr, _, _ := net.SplitHostPort(c.rconn.RemoteAddr().String())
+	ipstr, _, _ := net.SplitHostPort(c.conn.NetConn().RemoteAddr().String())
 	c.ip = net.ParseIP(ipstr)
 
 	c.log("connected")
 
 	for {
-		req, err := c.rconn.ReadRequest()
+		req, err := c.conn.ReadRequest()
 		if err != nil {
 			if err != io.EOF {
 				c.log("ERR: %s", err)
@@ -123,14 +123,14 @@ func (c *client) run() {
 }
 
 func (c *client) writeRes(res *gortsplib.Response) {
-	c.rconn.WriteResponse(res)
+	c.conn.WriteResponse(res)
 }
 
 func (c *client) writeResError(req *gortsplib.Request, err error) {
 	c.log("ERR: %s", err)
 
 	if cseq, ok := req.Headers["CSeq"]; ok {
-		c.rconn.WriteResponse(&gortsplib.Response{
+		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: 400,
 			Status:     "Bad Request",
 			Headers: map[string]string{
@@ -138,7 +138,7 @@ func (c *client) writeResError(req *gortsplib.Request, err error) {
 			},
 		})
 	} else {
-		c.rconn.WriteResponse(&gortsplib.Response{
+		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: 400,
 			Status:     "Bad Request",
 		})
@@ -353,7 +353,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			}() {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
 					c.log("ERR: udp streaming is disabled")
-					c.rconn.WriteResponse(&gortsplib.Response{
+					c.conn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -426,7 +426,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
 					c.log("ERR: tcp streaming is disabled")
-					c.rconn.WriteResponse(&gortsplib.Response{
+					c.conn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -521,7 +521,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			}() {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
 					c.log("ERR: udp streaming is disabled")
-					c.rconn.WriteResponse(&gortsplib.Response{
+					c.conn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -583,7 +583,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
 				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
 					c.log("ERR: tcp streaming is disabled")
-					c.rconn.WriteResponse(&gortsplib.Response{
+					c.conn.WriteResponse(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Headers: map[string]string{
@@ -714,7 +714,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
 			buf := make([]byte, 2048)
 			for {
-				_, err := c.rconn.Read(buf)
+				_, err := c.conn.NetConn().Read(buf)
 				if err != nil {
 					if err != io.EOF {
 						c.log("ERR: %s", err)
@@ -804,7 +804,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
 			buf := make([]byte, 2048)
 			for {
-				channel, n, err := c.rconn.ReadInterleavedFrame(buf)
+				channel, n, err := c.conn.ReadInterleavedFrame(buf)
 				if err != nil {
 					if _, ok := err.(*net.OpError); ok {
 					} else if err == io.EOF {
