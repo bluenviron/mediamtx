@@ -6,7 +6,6 @@ import (
 	"log"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/aler9/gortsplib"
@@ -25,50 +24,6 @@ func trackToInterleavedChannel(id int, flow trackFlow) int {
 		return id * 2
 	}
 	return (id * 2) + 1
-}
-
-type transportHeader map[string]struct{}
-
-func newTransportHeader(in string) transportHeader {
-	th := make(map[string]struct{})
-	for _, t := range strings.Split(in, ";") {
-		th[t] = struct{}{}
-	}
-	return th
-}
-
-func (th transportHeader) getKeyValue(key string) string {
-	prefix := key + "="
-	for t := range th {
-		if strings.HasPrefix(t, prefix) {
-			return t[len(prefix):]
-		}
-	}
-	return ""
-}
-
-func (th transportHeader) getClientPorts() (int, int) {
-	val := th.getKeyValue("client_port")
-	if val == "" {
-		return 0, 0
-	}
-
-	ports := strings.Split(val, "-")
-	if len(ports) != 2 {
-		return 0, 0
-	}
-
-	port1, err := strconv.ParseInt(ports[0], 10, 64)
-	if err != nil {
-		return 0, 0
-	}
-
-	port2, err := strconv.ParseInt(ports[1], 10, 64)
-	if err != nil {
-		return 0, 0
-	}
-
-	return int(port1), int(port2)
 }
 
 type client struct {
@@ -363,7 +318,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		th := newTransportHeader(transportStr)
+		th := gortsplib.NewTransportHeader(transportStr)
 
 		if _, ok := th["unicast"]; !ok {
 			c.writeResError(req, fmt.Errorf("transport header does not contain unicast"))
@@ -397,7 +352,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				rtpPort, rtcpPort := th.getClientPorts()
+				rtpPort, rtcpPort := th.GetPorts("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
 					return false
@@ -565,7 +520,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				rtpPort, rtcpPort := th.getClientPorts()
+				rtpPort, rtcpPort := th.GetPorts("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
 					return false
@@ -640,7 +595,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						return fmt.Errorf("all the tracks have already been setup")
 					}
 
-					interleaved = th.getKeyValue("interleaved")
+					interleaved = th.GetValue("interleaved")
 					if interleaved == "" {
 						return fmt.Errorf("transport header does not contain interleaved field")
 					}

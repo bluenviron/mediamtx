@@ -17,7 +17,7 @@ help:
 
 mod-tidy:
 	docker run --rm -it -v $(PWD):/s $(BASE_IMAGE) \
-	sh -c "apk add git && cd /s && go get && go mod tidy"
+	sh -c "apk add git && cd /s && GOPROXY=direct go get && GOPROXY=direct go mod tidy"
 
 format:
 	docker run --rm -it -v $(PWD):/s $(BASE_IMAGE) \
@@ -30,7 +30,7 @@ WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-RUN go build -o /out .
+RUN GOPROXY=direct go build -o /out .
 endef
 export DOCKERFILE_RUN
 
