@@ -29,7 +29,7 @@ type track struct {
 type streamProtocol int
 
 const (
-	_STREAM_PROTOCOL_UDP = iota
+	_STREAM_PROTOCOL_UDP streamProtocol = iota
 	_STREAM_PROTOCOL_TCP
 )
 
