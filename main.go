@@ -8,11 +8,17 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var Version string = "v0.0.0"
+
+const (
+	_READ_TIMEOUT  = 5 * time.Second
+	_WRITE_TIMEOUT = 5 * time.Second
+)
 
 type trackFlow int
 
@@ -124,11 +130,13 @@ func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte
 		if c.path == path && c.state == _CLIENT_STATE_PLAY {
 			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
 				if flow == _TRACK_FLOW_RTP {
+					p.rtpl.nconn.SetWriteDeadline(time.Now().Add(_WRITE_TIMEOUT))
 					p.rtpl.nconn.WriteTo(frame, &net.UDPAddr{
 						IP:   c.ip,
 						Port: c.streamTracks[id].rtpPort,
 					})
 				} else {
+					p.rtcpl.nconn.SetWriteDeadline(time.Now().Add(_WRITE_TIMEOUT))
 					p.rtcpl.nconn.WriteTo(frame, &net.UDPAddr{
 						IP:   c.ip,
 						Port: c.streamTracks[id].rtcpPort,
@@ -136,6 +144,7 @@ func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte
 				}
 
 			} else {
+				c.conn.NetConn().SetWriteDeadline(time.Now().Add(_WRITE_TIMEOUT))
 				c.conn.WriteInterleavedFrame(trackToInterleavedChannel(id, flow), frame)
 			}
 		}

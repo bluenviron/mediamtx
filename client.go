@@ -13,11 +13,6 @@ import (
 	"gortc.io/sdp"
 )
 
-const (
-	_READ_TIMEOUT  = 5 * time.Second
-	_WRITE_TIMEOUT = 5 * time.Second
-)
-
 func interleavedChannelToTrack(channel int) (int, trackFlow) {
 	if (channel % 2) == 0 {
 		return (channel / 2), _TRACK_FLOW_RTP

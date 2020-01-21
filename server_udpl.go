@@ -53,7 +53,7 @@ func (l *serverUdpListener) run() {
 			l.p.mutex.RLock()
 			defer l.p.mutex.RUnlock()
 
-			// find path and track id
+			// find path and track id from ip and port
 			path, trackId := func() (string, int) {
 				for _, pub := range l.p.publishers {
 					for i, t := range pub.streamTracks {
