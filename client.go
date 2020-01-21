@@ -34,9 +34,17 @@ func sdpParse(in []byte) (*sdp.Message, error) {
 	return m, nil
 }
 
-// remove everything from SDP except infos about the tracks
+// remove everything from SDP except the bare minimum
 func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
 	msgOut := &sdp.Message{}
+
+	msgOut.Name = "Stream"
+	msgOut.Origin = sdp.Origin{
+		Username:    "-",
+		NetworkType: "IN",
+		AddressType: "IP4",
+		Address:     "127.0.0.1",
+	}
 
 	for i, m := range msgIn.Medias {
 		var attributes []sdp.Attribute
