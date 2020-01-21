@@ -38,7 +38,6 @@ run:
 	echo "$$DOCKERFILE_RUN" | docker build -q . -f - -t temp
 	docker run --rm -it \
 	--network=host \
-	--name temp \
 	temp \
 	/out $(ARGS)
 

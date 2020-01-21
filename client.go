@@ -6,12 +6,68 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib"
 	"gortc.io/sdp"
 )
+
+func sdpParse(in []byte) (*sdp.Message, error) {
+	s, err := sdp.DecodeSession(in, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	m := &sdp.Message{}
+	d := sdp.NewDecoder(s)
+	err = d.Decode(m)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(m.Medias) == 0 {
+		return nil, fmt.Errorf("no tracks defined in SDP")
+	}
+
+	return m, nil
+}
+
+// remove everything from SDP except infos about the tracks
+func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
+	msgOut := &sdp.Message{}
+
+	for i, m := range msgIn.Medias {
+		var attributes []sdp.Attribute
+		for _, attr := range m.Attributes {
+			if attr.Key == "rtpmap" || attr.Key == "fmtp" {
+				attributes = append(attributes, attr)
+			}
+		}
+		// control attribute is needed by gstreamer
+		attributes = append(attributes, sdp.Attribute{
+			Key:   "control",
+			Value: "streamid=" + strconv.FormatInt(int64(i), 10),
+		})
+
+		msgOut.Medias = append(msgOut.Medias, sdp.Media{
+			Bandwidths: m.Bandwidths,
+			Description: sdp.MediaDescription{
+				Type:     m.Description.Type,
+				Protocol: m.Description.Protocol,
+				Formats:  m.Description.Formats,
+			},
+			Attributes: attributes,
+		})
+	}
+
+	sdps := sdp.Session{}
+	sdps = msgOut.Append(sdps)
+	byteOut := sdps.AppendTo(nil)
+
+	return msgOut, byteOut
+}
 
 func interleavedChannelToTrack(channel int) (int, trackFlow) {
 	if (channel % 2) == 0 {
@@ -252,25 +308,13 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		sdpParsed, err := func() (*sdp.Message, error) {
-			s, err := sdp.DecodeSession(req.Content, nil)
-			if err != nil {
-				return nil, err
-			}
-
-			m := &sdp.Message{}
-			d := sdp.NewDecoder(s)
-			err = d.Decode(m)
-			if err != nil {
-				return nil, err
-			}
-
-			return m, nil
-		}()
+		sdpParsed, err := sdpParse(req.Content)
 		if err != nil {
 			c.writeResError(req, fmt.Errorf("invalid SDP: %s", err))
 			return false
 		}
+
+		sdpParsed, req.Content = sdpFilter(sdpParsed, req.Content)
 
 		if c.p.publishKey != "" {
 			q, err := url.ParseQuery(ur.RawQuery)
