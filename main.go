@@ -62,6 +62,27 @@ type program struct {
 }
 
 func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, publishKey string) (*program, error) {
+
+	if rtspPort == 0 {
+		return nil, fmt.Errorf("rtsp port not provided")
+	}
+
+	if rtpPort == 0 {
+		return nil, fmt.Errorf("rtp port not provided")
+	}
+
+	if rtcpPort == 0 {
+		return nil, fmt.Errorf("rtcp port not provided")
+	}
+
+	if (rtpPort % 2) != 0 {
+		return nil, fmt.Errorf("rtp port must be even")
+	}
+
+	if rtcpPort != (rtpPort + 1) {
+		return nil, fmt.Errorf("rtcp port must be rtp port plus 1")
+	}
+
 	protocols := make(map[streamProtocol]struct{})
 	for _, proto := range strings.Split(protocolsStr, ",") {
 		switch proto {
@@ -76,7 +97,7 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 		}
 	}
 	if len(protocols) == 0 {
-		return nil, fmt.Errorf("no protocols supplied")
+		return nil, fmt.Errorf("no protocols provided")
 	}
 
 	if publishKey != "" {
