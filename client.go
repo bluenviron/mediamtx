@@ -77,18 +77,18 @@ func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
 	return msgOut, byteOut
 }
 
-func interleavedChannelToTrack(channel int) (int, trackFlow) {
+func interleavedChannelToTrack(channel uint8) (int, trackFlow) {
 	if (channel % 2) == 0 {
-		return (channel / 2), _TRACK_FLOW_RTP
+		return int(channel / 2), _TRACK_FLOW_RTP
 	}
-	return ((channel - 1) / 2), _TRACK_FLOW_RTCP
+	return int((channel - 1) / 2), _TRACK_FLOW_RTCP
 }
 
-func trackToInterleavedChannel(id int, flow trackFlow) int {
+func trackToInterleavedChannel(id int, flow trackFlow) uint8 {
 	if flow == _TRACK_FLOW_RTP {
-		return id * 2
+		return uint8(id * 2)
 	}
-	return (id * 2) + 1
+	return uint8((id * 2) + 1)
 }
 
 type clientState int
@@ -104,7 +104,7 @@ const (
 
 type client struct {
 	p               *program
-	conn            *gortsplib.Conn
+	conn            *gortsplib.ConnServer
 	state           clientState
 	ip              net.IP
 	path            string
@@ -117,7 +117,7 @@ type client struct {
 func newClient(p *program, nconn net.Conn) *client {
 	c := &client{
 		p:     p,
-		conn:  gortsplib.NewConn(nconn),
+		conn:  gortsplib.NewConnServer(nconn),
 		state: _CLIENT_STATE_STARTING,
 	}
 
@@ -195,12 +195,12 @@ func (c *client) writeResDeadline(res *gortsplib.Response) {
 func (c *client) writeResError(req *gortsplib.Request, err error) {
 	c.log("ERR: %s", err)
 
-	if cseq, ok := req.Headers["CSeq"]; ok {
+	if cseq, ok := req.Header["CSeq"]; ok && len(cseq) == 1 {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 400,
 			Status:     "Bad Request",
-			Headers: map[string]string{
-				"CSeq": cseq,
+			Header: gortsplib.Header{
+				"CSeq": []string{cseq[0]},
 			},
 		})
 	} else {
@@ -214,8 +214,8 @@ func (c *client) writeResError(req *gortsplib.Request, err error) {
 func (c *client) handleRequest(req *gortsplib.Request) bool {
 	c.log(req.Method)
 
-	cseq, ok := req.Headers["CSeq"]
-	if !ok {
+	cseq, ok := req.Header["CSeq"]
+	if !ok || len(cseq) != 1 {
 		c.writeResError(req, fmt.Errorf("cseq missing"))
 		return false
 	}
@@ -250,9 +250,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
-			Headers: map[string]string{
+			Header: gortsplib.Header{
 				"CSeq": cseq,
-				"Public": strings.Join([]string{
+				"Public": []string{strings.Join([]string{
 					"DESCRIBE",
 					"ANNOUNCE",
 					"SETUP",
@@ -260,7 +260,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					"PAUSE",
 					"RECORD",
 					"TEARDOWN",
-				}, ", "),
+				}, ", ")},
 			},
 		})
 		return true
@@ -290,10 +290,10 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
-			Headers: map[string]string{
-				"CSeq":         cseq,
-				"Content-Base": req.Url,
-				"Content-Type": "application/sdp",
+			Header: gortsplib.Header{
+				"CSeq":         []string{cseq[0]},
+				"Content-Base": []string{req.Url},
+				"Content-Type": []string{"application/sdp"},
 			},
 			Content: sdp,
 		})
@@ -305,13 +305,13 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		ct, ok := req.Headers["Content-Type"]
-		if !ok {
+		ct, ok := req.Header["Content-Type"]
+		if !ok || len(ct) != 1 {
 			c.writeResError(req, fmt.Errorf("Content-Type header missing"))
 			return false
 		}
 
-		if ct != "application/sdp" {
+		if ct[0] != "application/sdp" {
 			c.writeResError(req, fmt.Errorf("unsupported Content-Type '%s'", ct))
 			return false
 		}
@@ -338,8 +338,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.writeResDeadline(&gortsplib.Response{
 					StatusCode: 401,
 					Status:     "Unauthorized",
-					Headers: map[string]string{
-						"CSeq": req.Headers["CSeq"],
+					Header: gortsplib.Header{
+						"CSeq": []string{cseq[0]},
 					},
 				})
 				return false
@@ -370,20 +370,20 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
-			Headers: map[string]string{
-				"CSeq": cseq,
+			Header: gortsplib.Header{
+				"CSeq": []string{cseq[0]},
 			},
 		})
 		return true
 
 	case "SETUP":
-		transportStr, ok := req.Headers["Transport"]
-		if !ok {
+		tsRaw, ok := req.Header["Transport"]
+		if !ok || len(tsRaw) != 1 {
 			c.writeResError(req, fmt.Errorf("transport header missing"))
 			return false
 		}
 
-		th := gortsplib.NewTransportHeader(transportStr)
+		th := gortsplib.ReadHeaderTransport(tsRaw[0])
 
 		if _, ok := th["unicast"]; !ok {
 			c.writeResError(req, fmt.Errorf("transport header does not contain unicast"))
@@ -410,7 +410,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					c.writeResDeadline(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
-						Headers: map[string]string{
+						Header: gortsplib.Header{
 							"CSeq": cseq,
 						},
 					})
@@ -419,7 +419,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 				rtpPort, rtcpPort := th.GetPorts("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
+					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", tsRaw[0]))
 					return false
 				}
 
@@ -463,15 +463,15 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.writeResDeadline(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
-					Headers: map[string]string{
-						"CSeq": cseq,
-						"Transport": strings.Join([]string{
+					Header: gortsplib.Header{
+						"CSeq": []string{cseq[0]},
+						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
 							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
-						}, ";"),
-						"Session": "12345678",
+						}, ";")},
+						"Session": []string{"12345678"},
 					},
 				})
 				return true
@@ -483,7 +483,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					c.writeResDeadline(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
-						Headers: map[string]string{
+						Header: gortsplib.Header{
 							"CSeq": cseq,
 						},
 					})
@@ -532,20 +532,20 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.writeResDeadline(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
-					Headers: map[string]string{
-						"CSeq": cseq,
-						"Transport": strings.Join([]string{
+					Header: gortsplib.Header{
+						"CSeq": []string{cseq[0]},
+						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/TCP",
 							"unicast",
 							fmt.Sprintf("interleaved=%s", interleaved),
-						}, ";"),
-						"Session": "12345678",
+						}, ";")},
+						"Session": []string{"12345678"},
 					},
 				})
 				return true
 
 			} else {
-				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", transportStr))
+				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", tsRaw[0]))
 				return false
 			}
 
@@ -578,7 +578,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					c.writeResDeadline(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
-						Headers: map[string]string{
+						Header: gortsplib.Header{
 							"CSeq": cseq,
 						},
 					})
@@ -587,7 +587,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 				rtpPort, rtcpPort := th.GetPorts("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", transportStr))
+					c.writeResError(req, fmt.Errorf("transport header does not have valid client ports (%s)", tsRaw[0]))
 					return false
 				}
 
@@ -620,15 +620,15 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.writeResDeadline(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
-					Headers: map[string]string{
-						"CSeq": cseq,
-						"Transport": strings.Join([]string{
+					Header: gortsplib.Header{
+						"CSeq": []string{cseq[0]},
+						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
 							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
-						}, ";"),
-						"Session": "12345678",
+						}, ";")},
+						"Session": []string{"12345678"},
 					},
 				})
 				return true
@@ -640,7 +640,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					c.writeResDeadline(&gortsplib.Response{
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
-						Headers: map[string]string{
+						Header: gortsplib.Header{
 							"CSeq": cseq,
 						},
 					})
@@ -687,20 +687,20 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.writeResDeadline(&gortsplib.Response{
 					StatusCode: 200,
 					Status:     "OK",
-					Headers: map[string]string{
-						"CSeq": cseq,
-						"Transport": strings.Join([]string{
+					Header: gortsplib.Header{
+						"CSeq": []string{cseq[0]},
+						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/TCP",
 							"unicast",
 							fmt.Sprintf("interleaved=%s", interleaved),
-						}, ";"),
-						"Session": "12345678",
+						}, ";")},
+						"Session": []string{"12345678"},
 					},
 				})
 				return true
 
 			} else {
-				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", transportStr))
+				c.writeResError(req, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", tsRaw[0]))
 				return false
 			}
 
@@ -746,9 +746,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
-			Headers: map[string]string{
-				"CSeq":    cseq,
-				"Session": "12345678",
+			Header: gortsplib.Header{
+				"CSeq":    []string{cseq[0]},
+				"Session": []string{"12345678"},
 			},
 		})
 
@@ -800,9 +800,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
-			Headers: map[string]string{
-				"CSeq":    cseq,
-				"Session": "12345678",
+			Header: gortsplib.Header{
+				"CSeq":    []string{cseq[0]},
+				"Session": []string{"12345678"},
 			},
 		})
 		return true
@@ -836,9 +836,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.writeResDeadline(&gortsplib.Response{
 			StatusCode: 200,
 			Status:     "OK",
-			Headers: map[string]string{
-				"CSeq":    cseq,
-				"Session": "12345678",
+			Header: gortsplib.Header{
+				"CSeq":    []string{cseq[0]},
+				"Session": []string{"12345678"},
 			},
 		})
 
@@ -856,16 +856,15 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		// receive RTP data and parse it
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
-			buf := make([]byte, 2048)
 			for {
 				c.conn.NetConn().SetReadDeadline(time.Now().Add(_READ_TIMEOUT))
-				channel, n, err := c.conn.ReadInterleavedFrame(buf)
+				frame, err := c.conn.ReadInterleavedFrame()
 				if err != nil {
 					c.log("ERR: %s", err)
 					return false
 				}
 
-				trackId, trackFlow := interleavedChannelToTrack(channel)
+				trackId, trackFlow := interleavedChannelToTrack(frame.Channel)
 
 				if trackId >= len(c.streamTracks) {
 					c.log("ERR: invalid track id '%d'", trackId)
@@ -873,7 +872,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				c.p.mutex.RLock()
-				c.p.forwardTrack(c.path, trackId, trackFlow, buf[:n])
+				c.p.forwardTrack(c.path, trackId, trackFlow, frame.Content)
 				c.p.mutex.RUnlock()
 			}
 		}
