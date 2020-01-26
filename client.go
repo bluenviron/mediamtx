@@ -112,13 +112,15 @@ type client struct {
 	streamSdpParsed *sdp.Message // filled only if publisher
 	streamProtocol  streamProtocol
 	streamTracks    []*track
+	chanWrite       chan *gortsplib.InterleavedFrame
 }
 
 func newClient(p *program, nconn net.Conn) *client {
 	c := &client{
-		p:     p,
-		conn:  gortsplib.NewConnServer(nconn),
-		state: _CLIENT_STATE_STARTING,
+		p:         p,
+		conn:      gortsplib.NewConnServer(nconn),
+		state:     _CLIENT_STATE_STARTING,
+		chanWrite: make(chan *gortsplib.InterleavedFrame),
 	}
 
 	c.p.mutex.Lock()
@@ -136,6 +138,7 @@ func (c *client) close() error {
 
 	delete(c.p.clients, c)
 	c.conn.NetConn().Close()
+	close(c.chanWrite)
 
 	if c.path != "" {
 		if pub, ok := c.p.publishers[c.path]; ok && pub == c {
@@ -251,7 +254,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			StatusCode: 200,
 			Status:     "OK",
 			Header: gortsplib.Header{
-				"CSeq": cseq,
+				"CSeq": []string{cseq[0]},
 				"Public": []string{strings.Join([]string{
 					"DESCRIBE",
 					"ANNOUNCE",
@@ -411,7 +414,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Header: gortsplib.Header{
-							"CSeq": cseq,
+							"CSeq": []string{cseq[0]},
 						},
 					})
 					return false
@@ -484,7 +487,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Header: gortsplib.Header{
-							"CSeq": cseq,
+							"CSeq": []string{cseq[0]},
 						},
 					})
 					return false
@@ -579,7 +582,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Header: gortsplib.Header{
-							"CSeq": cseq,
+							"CSeq": []string{cseq[0]},
 						},
 					})
 					return false
@@ -641,7 +644,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 						StatusCode: 461,
 						Status:     "Unsupported Transport",
 						Header: gortsplib.Header{
-							"CSeq": cseq,
+							"CSeq": []string{cseq[0]},
 						},
 					})
 					return false
@@ -763,9 +766,19 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.state = _CLIENT_STATE_PLAY
 		c.p.mutex.Unlock()
 
+		//c.conn.NetConn().SetWriteDeadline(time.Now().Add(_WRITE_TIMEOUT))
+
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
-		// receive RTP feedback, do not parse it, wait until connection closes
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
+			// write RTP frames sequentially
+			go func() {
+				for frame := range c.chanWrite {
+					c.conn.NetConn().SetWriteDeadline(time.Now().Add(_WRITE_TIMEOUT))
+					c.conn.WriteInterleavedFrame(frame)
+				}
+			}()
+
+			// receive RTP feedback, do not parse it, wait until connection closes
 			buf := make([]byte, 2048)
 			for {
 				_, err := c.conn.NetConn().Read(buf)
