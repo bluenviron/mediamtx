@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,8 @@ type program struct {
 	rtpPort    int
 	rtcpPort   int
 	publishKey string
+	preScript string
+	postScript string
 	mutex      sync.RWMutex
 	rtspl      *serverTcpListener
 	rtpl       *serverUdpListener
@@ -61,7 +64,7 @@ type program struct {
 	publishers map[string]*client
 }
 
-func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, publishKey string) (*program, error) {
+func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, publishKey string, preScript string, postScript string) (*program, error) {
 
 	if rtspPort == 0 {
 		return nil, fmt.Errorf("rtsp port not provided")
@@ -106,6 +109,22 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 		}
 	}
 
+	if preScript != "" {
+		if runtime.GOOS != "linux" {
+			return nil, fmt.Errorf("connect script currenty supported only on Linux")
+                } else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(preScript) {
+				return nil, fmt.Errorf("connect script must be a valid path")
+		}
+	}
+
+	if postScript != "" {
+		if runtime.GOOS != "linux" {
+			return nil, fmt.Errorf("disconnect script currently supported only on Linux")
+		} else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(postScript) {
+				return nil, fmt.Errorf("disconnect script must be a valid path")
+		}
+	}
+
 	log.Printf("rtsp-simple-server %s", Version)
 
 	p := &program{
@@ -114,6 +133,8 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 		rtpPort:    rtpPort,
 		rtcpPort:   rtcpPort,
 		publishKey: publishKey,
+		preScript:  preScript,
+		postScript: postScript,
 		clients:    make(map[*client]struct{}),
 		publishers: make(map[string]*client),
 	}
@@ -189,6 +210,8 @@ func main() {
 	rtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
 	rtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
 	publishKey := kingpin.Flag("publish-key", "optional authentication key required to publish").Default("").String()
+	preScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
+	postScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
 
 	kingpin.Parse()
 
@@ -197,7 +220,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	p, err := newProgram(*protocols, *rtspPort, *rtpPort, *rtcpPort, *publishKey)
+	p, err := newProgram(*protocols, *rtspPort, *rtpPort, *rtcpPort, *publishKey, *preScript, *postScript)
 	if err != nil {
 		log.Fatal("ERR: ", err)
 	}
