@@ -14,7 +14,7 @@ Features:
 * Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
 * Optional authentication mechanism for publishers
-* Optionally run a script on client connect or disconnect (currently Linux only)
+* Run a script when a client connects or disconnects
 * Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
 ## Installation

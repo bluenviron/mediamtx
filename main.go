@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"regexp"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -106,22 +105,6 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 	if publishKey != "" {
 		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(publishKey) {
 			return nil, fmt.Errorf("publish key must be alphanumeric")
-		}
-	}
-
-	if preScript != "" {
-		if runtime.GOOS != "linux" {
-			return nil, fmt.Errorf("connect script currenty supported only on Linux")
-		} else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(preScript) {
-			return nil, fmt.Errorf("connect script must be a valid path")
-		}
-	}
-
-	if postScript != "" {
-		if runtime.GOOS != "linux" {
-			return nil, fmt.Errorf("disconnect script currently supported only on Linux")
-		} else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(postScript) {
-			return nil, fmt.Errorf("disconnect script must be a valid path")
 		}
 	}
 
