@@ -109,6 +109,7 @@ type client struct {
 	state           clientState
 	ip              net.IP
 	path            string
+	as              *gortsplib.AuthServer
 	streamSdpText   []byte       // filled only if publisher
 	streamSdpParsed *sdp.Message // filled only if publisher
 	streamProtocol  streamProtocol
@@ -328,6 +329,36 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
+		if c.p.publishUser != "" {
+			initialRequest := false
+			if c.as == nil {
+				initialRequest = true
+				c.as = gortsplib.NewAuthServer(c.p.publishUser, c.p.publishPass)
+			}
+
+			err := c.as.ValidateHeader(req.Header["Authorization"], "ANNOUNCE", req.Url)
+			if err != nil {
+				if !initialRequest {
+					c.log("ERR: Unauthorized: %s", err)
+				}
+
+				c.writeResDeadline(&gortsplib.Response{
+					StatusCode: 401,
+					Status:     "Unauthorized",
+					Header: gortsplib.Header{
+						"CSeq":             []string{cseq[0]},
+						"WWW-Authenticate": c.as.GenerateHeader(),
+					},
+				})
+
+				if !initialRequest {
+					return false
+				}
+
+				return true
+			}
+		}
+
 		ct, ok := req.Header["Content-Type"]
 		if !ok || len(ct) != 1 {
 			c.writeResError(req, fmt.Errorf("Content-Type header missing"))
@@ -346,28 +377,6 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		sdpParsed, req.Content = sdpFilter(sdpParsed, req.Content)
-
-		if c.p.publishKey != "" {
-			q, err := url.ParseQuery(ur.RawQuery)
-			if err != nil {
-				c.writeResError(req, fmt.Errorf("unable to parse query"))
-				return false
-			}
-
-			key, ok := q["key"]
-			if !ok || len(key) != 1 || key[0] != c.p.publishKey {
-				// reply with 401 and exit
-				c.log("ERR: publish key wrong or missing")
-				c.writeResDeadline(&gortsplib.Response{
-					StatusCode: 401,
-					Status:     "Unauthorized",
-					Header: gortsplib.Header{
-						"CSeq": []string{cseq[0]},
-					},
-				})
-				return false
-			}
-		}
 
 		err = func() error {
 			c.p.mutex.Lock()

@@ -48,22 +48,52 @@ func (s streamProtocol) String() string {
 }
 
 type program struct {
-	protocols  map[streamProtocol]struct{}
-	rtspPort   int
-	rtpPort    int
-	rtcpPort   int
-	publishKey string
-	preScript  string
-	postScript string
-	mutex      sync.RWMutex
-	rtspl      *serverTcpListener
-	rtpl       *serverUdpListener
-	rtcpl      *serverUdpListener
-	clients    map[*client]struct{}
-	publishers map[string]*client
+	protocols   map[streamProtocol]struct{}
+	rtspPort    int
+	rtpPort     int
+	rtcpPort    int
+	publishUser string
+	publishPass string
+	preScript   string
+	postScript  string
+	mutex       sync.RWMutex
+	rtspl       *serverTcpListener
+	rtpl        *serverUdpListener
+	rtcpl       *serverUdpListener
+	clients     map[*client]struct{}
+	publishers  map[string]*client
 }
 
-func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, publishKey string, preScript string, postScript string) (*program, error) {
+func newProgram() (*program, error) {
+	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" +
+		"RTSP server."
+
+	argVersion := kingpin.Flag("version", "print rtsp-simple-server version").Bool()
+	argProtocolsStr := kingpin.Flag("protocols", "supported protocols").Default("udp,tcp").String()
+	argRtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
+	argRtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
+	argRtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
+	argPublishUser := kingpin.Flag("publish-user", "optional username required to publish").Default("").String()
+	argPublishPass := kingpin.Flag("publish-pass", "optional password required to publish").Default("").String()
+	argPreScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
+	argPostScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
+
+	kingpin.Parse()
+
+	version := *argVersion
+	protocolsStr := *argProtocolsStr
+	rtspPort := *argRtspPort
+	rtpPort := *argRtpPort
+	rtcpPort := *argRtcpPort
+	publishUser := *argPublishUser
+	publishPass := *argPublishPass
+	preScript := *argPreScript
+	postScript := *argPostScript
+
+	if version == true {
+		fmt.Println("rtsp-simple-server " + Version)
+		os.Exit(0)
+	}
 
 	if rtspPort == 0 {
 		return nil, fmt.Errorf("rtsp port not provided")
@@ -102,24 +132,35 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 		return nil, fmt.Errorf("no protocols provided")
 	}
 
-	if publishKey != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(publishKey) {
-			return nil, fmt.Errorf("publish key must be alphanumeric")
+	if publishUser != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(publishUser) {
+			return nil, fmt.Errorf("publish username must be alphanumeric")
 		}
+	}
+
+	if publishPass != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(publishPass) {
+			return nil, fmt.Errorf("publish password must be alphanumeric")
+		}
+	}
+
+	if publishUser != "" && publishPass == "" || publishUser == "" && publishPass != "" {
+		return nil, fmt.Errorf("publish username and password must be both filled")
 	}
 
 	log.Printf("rtsp-simple-server %s", Version)
 
 	p := &program{
-		protocols:  protocols,
-		rtspPort:   rtspPort,
-		rtpPort:    rtpPort,
-		rtcpPort:   rtcpPort,
-		publishKey: publishKey,
-		preScript:  preScript,
-		postScript: postScript,
-		clients:    make(map[*client]struct{}),
-		publishers: make(map[string]*client),
+		protocols:   protocols,
+		rtspPort:    rtspPort,
+		rtpPort:     rtpPort,
+		rtcpPort:    rtcpPort,
+		publishUser: publishUser,
+		publishPass: publishPass,
+		preScript:   preScript,
+		postScript:  postScript,
+		clients:     make(map[*client]struct{}),
+		publishers:  make(map[string]*client),
 	}
 
 	var err error
@@ -184,26 +225,7 @@ func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte
 }
 
 func main() {
-	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" +
-		"RTSP server."
-
-	version := kingpin.Flag("version", "print rtsp-simple-server version").Bool()
-	protocols := kingpin.Flag("protocols", "supported protocols").Default("udp,tcp").String()
-	rtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
-	rtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
-	rtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
-	publishKey := kingpin.Flag("publish-key", "optional authentication key required to publish").Default("").String()
-	preScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
-	postScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
-
-	kingpin.Parse()
-
-	if *version == true {
-		fmt.Println("rtsp-simple-server " + Version)
-		os.Exit(0)
-	}
-
-	p, err := newProgram(*protocols, *rtspPort, *rtpPort, *rtcpPort, *publishKey, *preScript, *postScript)
+	p, err := newProgram()
 	if err != nil {
 		log.Fatal("ERR: ", err)
 	}

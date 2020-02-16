@@ -13,7 +13,7 @@ Features:
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
-* Optional authentication mechanism for publishers
+* Authentication mechanism for publishers
 * Run a script when a client connects or disconnects
 * Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
@@ -47,14 +47,14 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 
 #### Publisher authentication
 
-1. Start the server and set a publish key:
+1. Start the server and set a username and a password
    ```
-   ./rtsp-simple-server --publish-key=IU23yyfaw6324
+   ./rtsp-simple-server --publish-user=admin --publish-pass=mypassword
    ```
 
- 2. Only publishers which have the key will be able to publish:
+ 2. Only publishers which know both username and password will be able to publish:
     ```
-    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?key=IU23yyfaw6324
+    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
     ```
 
 #### Full command-line usage
@@ -73,7 +73,8 @@ Flags:
   --rtsp-port=8554       port of the RTSP TCP listener
   --rtp-port=8000        port of the RTP UDP listener
   --rtcp-port=8001       port of the RTCP UDP listener
-  --publish-key=""       optional authentication key required to publish
+  --publish-user=""      optional username required to publish
+  --publish-pass=""      optional password required to publish
   --pre-script=""        optional script to run on client connect
   --post-script=""       optional script to run on client disconnect
 ```
