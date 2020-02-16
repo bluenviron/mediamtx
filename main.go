@@ -54,7 +54,7 @@ type program struct {
 	rtpPort    int
 	rtcpPort   int
 	publishKey string
-	preScript string
+	preScript  string
 	postScript string
 	mutex      sync.RWMutex
 	rtspl      *serverTcpListener
@@ -112,8 +112,8 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 	if preScript != "" {
 		if runtime.GOOS != "linux" {
 			return nil, fmt.Errorf("connect script currenty supported only on Linux")
-                } else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(preScript) {
-				return nil, fmt.Errorf("connect script must be a valid path")
+		} else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(preScript) {
+			return nil, fmt.Errorf("connect script must be a valid path")
 		}
 	}
 
@@ -121,7 +121,7 @@ func newProgram(protocolsStr string, rtspPort int, rtpPort int, rtcpPort int, pu
 		if runtime.GOOS != "linux" {
 			return nil, fmt.Errorf("disconnect script currently supported only on Linux")
 		} else if !regexp.MustCompile(`(?m)^(.+)\/([^/]+)$`).MatchString(postScript) {
-				return nil, fmt.Errorf("disconnect script must be a valid path")
+			return nil, fmt.Errorf("disconnect script must be a valid path")
 		}
 	}
 

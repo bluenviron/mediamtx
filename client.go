@@ -164,14 +164,14 @@ func (c *client) log(format string, args ...interface{}) {
 
 func (c *client) run() {
 	defer func() {
-                if c.p.postScript != "" {
-                   postScript := exec.Command(c.p.postScript)
-		   err := postScript.Run()
-                   if err != nil {
-			   c.log("ERR: %s", err)
-	           }
-                 }
-        }()
+		if c.p.postScript != "" {
+			postScript := exec.Command(c.p.postScript)
+			err := postScript.Run()
+			if err != nil {
+				c.log("ERR: %s", err)
+			}
+		}
+	}()
 
 	defer c.log("disconnected")
 
@@ -187,12 +187,12 @@ func (c *client) run() {
 	c.log("connected")
 
 	if c.p.preScript != "" {
-                   preScript := exec.Command(c.p.preScript)
-		   err := preScript.Run()
-                   if err != nil {
-			   c.log("ERR: %s", err)
-	           }
-        }
+		preScript := exec.Command(c.p.preScript)
+		err := preScript.Run()
+		if err != nil {
+			c.log("ERR: %s", err)
+		}
+	}
 
 	for {
 		req, err := c.conn.ReadRequest()
