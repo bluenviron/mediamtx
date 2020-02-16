@@ -14,6 +14,7 @@ Features:
 * Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
 * Optional authentication mechanism for publishers
+* Run a script when a client connects or disconnects
 * Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
 ## Installation
@@ -73,6 +74,8 @@ Flags:
   --rtp-port=8000        port of the RTP UDP listener
   --rtcp-port=8001       port of the RTCP UDP listener
   --publish-key=""       optional authentication key required to publish
+  --pre-script=""        optional script to run on client connect
+  --post-script=""       optional script to run on client disconnect
 ```
 
 ## Links
