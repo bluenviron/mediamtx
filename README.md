@@ -47,12 +47,12 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 
 #### Publisher authentication
 
-1. Start the server and set a username and a password
+1. Start the server and set a username and a password:
    ```
    ./rtsp-simple-server --publish-user=admin --publish-pass=mypassword
    ```
 
- 2. Only publishers which know both username and password will be able to publish:
+ 2. Only publishers that know both username and password will be able to publish:
     ```
     ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
     ```
