@@ -84,7 +84,7 @@ Flags:
 Related projects
 * https://github.com/aler9/rtsp-simple-proxy
 * https://github.com/aler9/gortsplib
-* https://github.com/flaviostutz/rtsp-relay - a ready made container for relaying RTSP feeds
+* https://github.com/flaviostutz/rtsp-relay
 
 IETF Standard
 * https://tools.ietf.org/html/rfc7826
