@@ -59,7 +59,7 @@ func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
 		// to the stream path in SETUP
 		attributes = append(attributes, sdp.Attribute{
 			Key:   "control",
-			Value: "streamid=" + strconv.FormatInt(int64(i), 10),
+			Value: "trackID=" + strconv.FormatInt(int64(i), 10),
 		})
 
 		msgOut.Medias = append(msgOut.Medias, sdp.Media{
