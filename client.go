@@ -54,7 +54,9 @@ func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
 				attributes = append(attributes, attr)
 			}
 		}
-		// control attribute is needed by gstreamer
+
+		// control attribute is mandatory, and is the path that is appended
+		// to the stream path in SETUP
 		attributes = append(attributes, sdp.Attribute{
 			Key:   "control",
 			Value: "streamid=" + strconv.FormatInt(int64(i), 10),
