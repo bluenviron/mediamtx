@@ -77,6 +77,9 @@ release-nodocker:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 $(GOBUILD) -o /tmp/rtsp-simple-server
 	tar -C /tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm64.tar.gz --owner=0 --group=0 rtsp-simple-server
 
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o /tmp/rtsp-simple-server
+	tar -C /tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_darwin_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server
+
 travis-setup:
 	echo "FROM ruby:alpine \n\
 	RUN apk add --no-cache build-base git \n\
