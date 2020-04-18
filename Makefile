@@ -80,11 +80,16 @@ release-nodocker:
 	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 $(GOBUILD) -o /tmp/rtsp-simple-server
 	tar -C /tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_darwin_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server
 
+define DOCKERFILE_TRAVIS
+FROM ruby:alpine
+RUN apk add --no-cache build-base git
+RUN gem install travis
+endef
+export DOCKERFILE_TRAVIS
+
 travis-setup:
-	echo "FROM ruby:alpine \n\
-	RUN apk add --no-cache build-base git \n\
-	RUN gem install travis" | docker build - -t temp \
-	&& docker run --rm -it \
+	echo "$$DOCKERFILE_TRAVIS" | docker build - -t temp
+	docker run --rm -it \
 	-v $(PWD):/s \
 	temp \
 	sh -c "cd /s \
