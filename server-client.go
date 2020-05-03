@@ -227,7 +227,7 @@ func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.Stat
 }
 
 func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
-	c.log(req.Method)
+	c.log(string(req.Method))
 
 	cseq, ok := req.Header["CSeq"]
 	if !ok || len(cseq) != 1 {
@@ -258,7 +258,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 	}()
 
 	switch req.Method {
-	case "OPTIONS":
+	case gortsplib.OPTIONS:
 		// do not check state, since OPTIONS can be requested
 		// in any state
 
@@ -267,19 +267,19 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			Header: gortsplib.Header{
 				"CSeq": []string{cseq[0]},
 				"Public": []string{strings.Join([]string{
-					"DESCRIBE",
-					"ANNOUNCE",
-					"SETUP",
-					"PLAY",
-					"PAUSE",
-					"RECORD",
-					"TEARDOWN",
+					string(gortsplib.DESCRIBE),
+					string(gortsplib.ANNOUNCE),
+					string(gortsplib.SETUP),
+					string(gortsplib.PLAY),
+					string(gortsplib.PAUSE),
+					string(gortsplib.RECORD),
+					string(gortsplib.TEARDOWN),
 				}, ", ")},
 			},
 		})
 		return true
 
-	case "DESCRIBE":
+	case gortsplib.DESCRIBE:
 		if c.state != _CLIENT_STATE_STARTING {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%d'", c.state))
 			return false
@@ -312,7 +312,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		})
 		return true
 
-	case "ANNOUNCE":
+	case gortsplib.ANNOUNCE:
 		if c.state != _CLIENT_STATE_STARTING {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%d'", c.state))
 			return false
@@ -325,7 +325,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				c.as = gortsplib.NewAuthServer(c.p.publishUser, c.p.publishPass)
 			}
 
-			err := c.as.ValidateHeader(req.Header["Authorization"], "ANNOUNCE", req.Url)
+			err := c.as.ValidateHeader(req.Header["Authorization"], gortsplib.ANNOUNCE, req.Url)
 			if err != nil {
 				if !initialRequest {
 					c.log("ERR: Unauthorized: %s", err)
@@ -395,7 +395,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		})
 		return true
 
-	case "SETUP":
+	case gortsplib.SETUP:
 		tsRaw, ok := req.Header["Transport"]
 		if !ok || len(tsRaw) != 1 {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header missing"))
@@ -696,7 +696,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-	case "PLAY":
+	case gortsplib.PLAY:
 		if c.state != _CLIENT_STATE_PRE_PLAY {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%d'", c.state))
 			return false
@@ -773,7 +773,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 		return true
 
-	case "PAUSE":
+	case gortsplib.PAUSE:
 		if c.state != _CLIENT_STATE_PLAY {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%d'", c.state))
 			return false
@@ -799,7 +799,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		})
 		return true
 
-	case "RECORD":
+	case gortsplib.RECORD:
 		if c.state != _CLIENT_STATE_PRE_RECORD {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%d'", c.state))
 			return false
@@ -869,7 +869,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 		return true
 
-	case "TEARDOWN":
+	case gortsplib.TEARDOWN:
 		// close connection silently
 		return false
 
