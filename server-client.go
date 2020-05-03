@@ -472,7 +472,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					}
 
 					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
-						return fmt.Errorf("client want to send tracks with different protocols")
+						return fmt.Errorf("client wants to read tracks with different protocols")
 					}
 
 					if len(c.streamTracks) >= len(pub.streamSdpParsed.Medias) {
@@ -539,7 +539,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					}
 
 					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
-						return fmt.Errorf("client want to send tracks with different protocols")
+						return fmt.Errorf("client wants to read tracks with different protocols")
 					}
 
 					if len(c.streamTracks) >= len(pub.streamSdpParsed.Medias) {
@@ -630,7 +630,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					defer c.p.mutex.Unlock()
 
 					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
-						return fmt.Errorf("client want to send tracks with different protocols")
+						return fmt.Errorf("client wants to publish tracks with different protocols")
 					}
 
 					if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
@@ -687,7 +687,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					defer c.p.mutex.Unlock()
 
 					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
-						return fmt.Errorf("client want to send tracks with different protocols")
+						return fmt.Errorf("client wants to publish tracks with different protocols")
 					}
 
 					if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
