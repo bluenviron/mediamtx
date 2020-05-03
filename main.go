@@ -199,7 +199,8 @@ func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte
 				if flow == _TRACK_FLOW_RTP {
 					p.rtpl.chanWrite <- &udpWrite{
 						addr: &net.UDPAddr{
-							IP:   c.ip,
+							IP:   c.ip(),
+							Zone: c.zone(),
 							Port: c.streamTracks[id].rtpPort,
 						},
 						buf: frame,
@@ -207,7 +208,8 @@ func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte
 				} else {
 					p.rtcpl.chanWrite <- &udpWrite{
 						addr: &net.UDPAddr{
-							IP:   c.ip,
+							IP:   c.ip(),
+							Zone: c.zone(),
 							Port: c.streamTracks[id].rtcpPort,
 						},
 						buf: frame,

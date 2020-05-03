@@ -68,7 +68,7 @@ func (l *serverUdpListener) run() {
 				path, trackId := func() (string, int) {
 					for _, pub := range l.p.publishers {
 						for i, t := range pub.streamTracks {
-							if !pub.ip.Equal(addr.IP) {
+							if !pub.ip().Equal(addr.IP) {
 								continue
 							}
 

@@ -107,7 +107,6 @@ type serverClient struct {
 	p               *program
 	conn            *gortsplib.ConnServer
 	state           clientState
-	ip              net.IP
 	path            string
 	as              *gortsplib.AuthServer
 	streamSdpText   []byte       // filled only if publisher
@@ -164,6 +163,14 @@ func (c *serverClient) log(format string, args ...interface{}) {
 		fmt.Sprintf(format, args...))
 }
 
+func (c *serverClient) ip() net.IP {
+	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
+}
+
+func (c *serverClient) zone() string {
+	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
+}
+
 func (c *serverClient) run() {
 	defer func() {
 		if c.p.postScript != "" {
@@ -182,9 +189,6 @@ func (c *serverClient) run() {
 		defer c.p.mutex.Unlock()
 		c.close()
 	}()
-
-	ipstr, _, _ := net.SplitHostPort(c.conn.NetConn().RemoteAddr().String())
-	c.ip = net.ParseIP(ipstr)
 
 	c.log("connected")
 
