@@ -38,7 +38,7 @@ func (l *serverTcpListener) run() {
 			break
 		}
 
-		rsc := newClient(l.p, nconn)
+		rsc := newServerClient(l.p, nconn)
 		go rsc.run()
 	}
 }

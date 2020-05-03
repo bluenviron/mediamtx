@@ -60,8 +60,8 @@ type program struct {
 	rtspl       *serverTcpListener
 	rtpl        *serverUdpListener
 	rtcpl       *serverUdpListener
-	clients     map[*client]struct{}
-	publishers  map[string]*client
+	clients     map[*serverClient]struct{}
+	publishers  map[string]*serverClient
 }
 
 func newProgram() (*program, error) {
@@ -159,8 +159,8 @@ func newProgram() (*program, error) {
 		publishPass: publishPass,
 		preScript:   preScript,
 		postScript:  postScript,
-		clients:     make(map[*client]struct{}),
-		publishers:  make(map[string]*client),
+		clients:     make(map[*serverClient]struct{}),
+		publishers:  make(map[string]*serverClient),
 	}
 
 	var err error
