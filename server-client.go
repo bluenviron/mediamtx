@@ -160,8 +160,9 @@ func (c *serverClient) close() error {
 }
 
 func (c *serverClient) log(format string, args ...interface{}) {
-	format = "[RTSP client " + c.conn.NetConn().RemoteAddr().String() + "] " + format
-	log.Printf(format, args...)
+	// keep remote address outside format, since it can contain %
+	log.Println("[RTSP client " + c.conn.NetConn().RemoteAddr().String() + "] " +
+		fmt.Sprintf(format, args...))
 }
 
 func (c *serverClient) run() {
