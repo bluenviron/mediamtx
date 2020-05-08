@@ -13,7 +13,7 @@ Features:
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
-* Authentication mechanism for publishers
+* Supports authentication for publishers
 * Run a script when a client connects or disconnects
 * Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
 
