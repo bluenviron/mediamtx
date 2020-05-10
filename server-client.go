@@ -122,8 +122,8 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
 			NConn:        nconn,
-			ReadTimeout:  _READ_TIMEOUT,
-			WriteTimeout: _WRITE_TIMEOUT,
+			ReadTimeout:  p.args.readTimeout,
+			WriteTimeout: p.args.writeTimeout,
 		}),
 		state: _CLIENT_STATE_STARTING,
 		write: make(chan *gortsplib.InterleavedFrame),

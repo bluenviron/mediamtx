@@ -13,11 +13,6 @@ import (
 
 var Version string = "v0.0.0"
 
-const (
-	_READ_TIMEOUT  = 5 * time.Second
-	_WRITE_TIMEOUT = 5 * time.Second
-)
-
 type trackFlow int
 
 const (
@@ -50,6 +45,8 @@ type args struct {
 	rtspPort     int
 	rtpPort      int
 	rtcpPort     int
+	readTimeout  time.Duration
+	writeTimeout time.Duration
 	publishUser  string
 	publishPass  string
 	preScript    string
@@ -76,6 +73,12 @@ func newProgram(args args) (*program, error) {
 	}
 	if args.rtcpPort == 0 {
 		args.rtcpPort = 8001
+	}
+	if args.readTimeout == time.Duration(0) {
+		args.readTimeout = 5 * time.Second
+	}
+	if args.writeTimeout == time.Duration(0) {
+		args.writeTimeout = 5 * time.Second
 	}
 
 	if args.version == true {
@@ -170,6 +173,8 @@ func main() {
 	argRtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
 	argRtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
 	argRtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
+	argReadTimeout := kingpin.Flag("read-timeout", "timeout for read operations").Default("5s").Duration()
+	argWriteTimeout := kingpin.Flag("write-timeout", "timeout for write operations").Default("5s").Duration()
 	argPublishUser := kingpin.Flag("publish-user", "optional username required to publish").Default("").String()
 	argPublishPass := kingpin.Flag("publish-pass", "optional password required to publish").Default("").String()
 	argPreScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
@@ -183,6 +188,8 @@ func main() {
 		rtspPort:     *argRtspPort,
 		rtpPort:      *argRtpPort,
 		rtcpPort:     *argRtcpPort,
+		readTimeout:  *argReadTimeout,
+		writeTimeout: *argWriteTimeout,
 		publishUser:  *argPublishUser,
 		publishPass:  *argPublishPass,
 		preScript:    *argPreScript,

@@ -73,6 +73,8 @@ Flags:
   --rtsp-port=8554       port of the RTSP TCP listener
   --rtp-port=8000        port of the RTP UDP listener
   --rtcp-port=8001       port of the RTCP UDP listener
+  --read-timeout=5s      timeout for read operations
+  --write-timeout=5s     timeout for write operations
   --publish-user=""      optional username required to publish
   --publish-pass=""      optional password required to publish
   --pre-script=""        optional script to run on client connect
