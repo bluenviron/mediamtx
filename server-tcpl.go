@@ -12,7 +12,7 @@ type serverTcpListener struct {
 
 func newServerTcpListener(p *program) (*serverTcpListener, error) {
 	netl, err := net.ListenTCP("tcp", &net.TCPAddr{
-		Port: p.rtspPort,
+		Port: p.args.rtspPort,
 	})
 	if err != nil {
 		return nil, err
@@ -23,7 +23,7 @@ func newServerTcpListener(p *program) (*serverTcpListener, error) {
 		netl: netl,
 	}
 
-	s.log("opened on :%d", p.rtspPort)
+	s.log("opened on :%d", p.args.rtspPort)
 	return s, nil
 }
 

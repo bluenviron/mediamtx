@@ -177,8 +177,8 @@ func (c *serverClient) zone() string {
 
 func (c *serverClient) run() {
 	defer func() {
-		if c.p.postScript != "" {
-			postScript := exec.Command(c.p.postScript)
+		if c.p.args.postScript != "" {
+			postScript := exec.Command(c.p.args.postScript)
 			err := postScript.Run()
 			if err != nil {
 				c.log("ERR: %s", err)
@@ -196,8 +196,8 @@ func (c *serverClient) run() {
 
 	c.log("connected")
 
-	if c.p.preScript != "" {
-		preScript := exec.Command(c.p.preScript)
+	if c.p.args.preScript != "" {
+		preScript := exec.Command(c.p.args.preScript)
 		err := preScript.Run()
 		if err != nil {
 			c.log("ERR: %s", err)
@@ -320,11 +320,11 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		if c.p.publishUser != "" {
+		if c.p.args.publishUser != "" {
 			initialRequest := false
 			if c.as == nil {
 				initialRequest = true
-				c.as = gortsplib.NewAuthServer(c.p.publishUser, c.p.publishPass)
+				c.as = gortsplib.NewAuthServer(c.p.args.publishUser, c.p.args.publishPass)
 			}
 
 			err := c.as.ValidateHeader(req.Header["Authorization"], gortsplib.ANNOUNCE, req.Url)
@@ -482,7 +482,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
+							fmt.Sprintf("server_port=%d-%d", c.p.args.rtpPort, c.p.args.rtcpPort),
 						}, ";")},
 						"Session": []string{"12345678"},
 					},
@@ -623,7 +623,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							fmt.Sprintf("server_port=%d-%d", c.p.rtpPort, c.p.rtcpPort),
+							fmt.Sprintf("server_port=%d-%d", c.p.args.rtpPort, c.p.args.rtcpPort),
 						}, ";")},
 						"Session": []string{"12345678"},
 					},
