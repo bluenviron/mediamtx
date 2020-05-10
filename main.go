@@ -49,6 +49,8 @@ type args struct {
 	writeTimeout time.Duration
 	publishUser  string
 	publishPass  string
+	readUser     string
+	readPass     string
 	preScript    string
 	postScript   string
 }
@@ -177,6 +179,8 @@ func main() {
 	argWriteTimeout := kingpin.Flag("write-timeout", "timeout for write operations").Default("5s").Duration()
 	argPublishUser := kingpin.Flag("publish-user", "optional username required to publish").Default("").String()
 	argPublishPass := kingpin.Flag("publish-pass", "optional password required to publish").Default("").String()
+	argReadUser := kingpin.Flag("read-user", "optional username required to read").Default("").String()
+	argReadPass := kingpin.Flag("read-pass", "optional password required to read").Default("").String()
 	argPreScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
 	argPostScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
 
@@ -192,6 +196,8 @@ func main() {
 		writeTimeout: *argWriteTimeout,
 		publishUser:  *argPublishUser,
 		publishPass:  *argPublishPass,
+		readUser:     *argReadUser,
+		readPass:     *argReadPass,
 		preScript:    *argPreScript,
 		postScript:   *argPostScript,
 	})

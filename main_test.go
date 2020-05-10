@@ -102,7 +102,7 @@ func TestProtocols(t *testing.T) {
 	}
 }
 
-func TestAuthentication(t *testing.T) {
+func TestPublishAuth(t *testing.T) {
 	p, err := newProgram(args{
 		publishUser: "testuser",
 		publishPass: "testpass",
@@ -133,6 +133,49 @@ func TestAuthentication(t *testing.T) {
 		"-loglevel", "panic",
 		"-rtsp_transport", "udp",
 		"-i", "rtsp://localhost:8554/teststream",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	cnt2.wait()
+
+	require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
+}
+
+func TestReadAuth(t *testing.T) {
+	p, err := newProgram(args{
+		readUser: "testuser",
+		readPass: "testpass",
+	})
+	require.NoError(t, err)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-hide_banner",
+		"-loglevel", "panic",
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "/emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"-rtsp_transport", "udp",
+		"rtsp://localhost:8554/teststream",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt2, err := newContainer("ffmpeg", "dest", []string{
+		"-hide_banner",
+		"-loglevel", "panic",
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://testuser:testpass@localhost:8554/teststream",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",

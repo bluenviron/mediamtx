@@ -77,6 +77,8 @@ Flags:
   --write-timeout=5s     timeout for write operations
   --publish-user=""      optional username required to publish
   --publish-pass=""      optional password required to publish
+  --read-user=""         optional username required to read
+  --read-pass=""         optional password required to read
   --pre-script=""        optional script to run on client connect
   --post-script=""       optional script to run on client disconnect
 ```
