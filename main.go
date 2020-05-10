@@ -7,7 +7,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -60,14 +59,11 @@ type args struct {
 }
 
 type program struct {
-	args       args
-	protocols  map[streamProtocol]struct{}
-	mutex      sync.RWMutex
-	rtspl      *serverTcpListener
-	rtpl       *serverUdpListener
-	rtcpl      *serverUdpListener
-	clients    map[*serverClient]struct{}
-	publishers map[string]*serverClient
+	args      args
+	protocols map[streamProtocol]struct{}
+	rtspl     *serverTcpListener
+	rtpl      *serverUdpListener
+	rtcpl     *serverUdpListener
 }
 
 func newProgram(args args) (*program, error) {
@@ -132,10 +128,8 @@ func newProgram(args args) (*program, error) {
 	log.Printf("rtsp-simple-server %s", Version)
 
 	p := &program{
-		args:       args,
-		protocols:  protocols,
-		clients:    make(map[*serverClient]struct{}),
-		publishers: make(map[string]*serverClient),
+		args:      args,
+		protocols: protocols,
 	}
 
 	var err error
@@ -163,7 +157,7 @@ func newProgram(args args) (*program, error) {
 }
 
 func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte) {
-	for c := range p.clients {
+	for c := range p.rtspl.clients {
 		if c.path == path && c.state == _CLIENT_STATE_PLAY {
 			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
 				if flow == _TRACK_FLOW_RTP {

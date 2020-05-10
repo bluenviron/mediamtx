@@ -128,30 +128,30 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 		write: make(chan *gortsplib.InterleavedFrame),
 	}
 
-	c.p.mutex.Lock()
-	c.p.clients[c] = struct{}{}
-	c.p.mutex.Unlock()
+	c.p.rtspl.mutex.Lock()
+	c.p.rtspl.clients[c] = struct{}{}
+	c.p.rtspl.mutex.Unlock()
 
 	return c
 }
 
 func (c *serverClient) close() error {
 	// already deleted
-	if _, ok := c.p.clients[c]; !ok {
+	if _, ok := c.p.rtspl.clients[c]; !ok {
 		return nil
 	}
 
-	delete(c.p.clients, c)
+	delete(c.p.rtspl.clients, c)
 	c.conn.NetConn().Close()
 	close(c.write)
 
 	if c.path != "" {
-		if pub, ok := c.p.publishers[c.path]; ok && pub == c {
-			delete(c.p.publishers, c.path)
+		if pub, ok := c.p.rtspl.publishers[c.path]; ok && pub == c {
+			delete(c.p.rtspl.publishers, c.path)
 
 			// if the publisher has disconnected
 			// close all other connections that share the same path
-			for oc := range c.p.clients {
+			for oc := range c.p.rtspl.clients {
 				if oc.path == c.path {
 					oc.close()
 				}
@@ -189,8 +189,8 @@ func (c *serverClient) run() {
 	defer c.log("disconnected")
 
 	defer func() {
-		c.p.mutex.Lock()
-		defer c.p.mutex.Unlock()
+		c.p.rtspl.mutex.Lock()
+		defer c.p.rtspl.mutex.Unlock()
 		c.close()
 	}()
 
@@ -288,10 +288,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		sdp, err := func() ([]byte, error) {
-			c.p.mutex.RLock()
-			defer c.p.mutex.RUnlock()
+			c.p.rtspl.mutex.RLock()
+			defer c.p.rtspl.mutex.RUnlock()
 
-			pub, ok := c.p.publishers[path]
+			pub, ok := c.p.rtspl.publishers[path]
 			if !ok {
 				return nil, fmt.Errorf("no one is streaming on path '%s'", path)
 			}
@@ -369,16 +369,16 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		sdpParsed, req.Content = sdpFilter(sdpParsed, req.Content)
 
 		err = func() error {
-			c.p.mutex.Lock()
-			defer c.p.mutex.Unlock()
+			c.p.rtspl.mutex.Lock()
+			defer c.p.rtspl.mutex.Unlock()
 
-			_, ok := c.p.publishers[path]
+			_, ok := c.p.rtspl.publishers[path]
 			if ok {
 				return fmt.Errorf("another client is already publishing on path '%s'", path)
 			}
 
 			c.path = path
-			c.p.publishers[path] = c
+			c.p.rtspl.publishers[path] = c
 			c.streamSdpText = req.Content
 			c.streamSdpParsed = sdpParsed
 			c.state = _CLIENT_STATE_ANNOUNCE
@@ -443,10 +443,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				err := func() error {
-					c.p.mutex.Lock()
-					defer c.p.mutex.Unlock()
+					c.p.rtspl.mutex.Lock()
+					defer c.p.rtspl.mutex.Unlock()
 
-					pub, ok := c.p.publishers[path]
+					pub, ok := c.p.rtspl.publishers[path]
 					if !ok {
 						return fmt.Errorf("no one is streaming on path '%s'", path)
 					}
@@ -502,10 +502,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				err := func() error {
-					c.p.mutex.Lock()
-					defer c.p.mutex.Unlock()
+					c.p.rtspl.mutex.Lock()
+					defer c.p.rtspl.mutex.Unlock()
 
-					pub, ok := c.p.publishers[path]
+					pub, ok := c.p.rtspl.publishers[path]
 					if !ok {
 						return fmt.Errorf("no one is streaming on path '%s'", path)
 					}
@@ -590,8 +590,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				err := func() error {
-					c.p.mutex.Lock()
-					defer c.p.mutex.Unlock()
+					c.p.rtspl.mutex.Lock()
+					defer c.p.rtspl.mutex.Unlock()
 
 					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
 						return fmt.Errorf("client wants to publish tracks with different protocols")
@@ -639,8 +639,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 				var interleaved string
 				err := func() error {
-					c.p.mutex.Lock()
-					defer c.p.mutex.Unlock()
+					c.p.rtspl.mutex.Lock()
+					defer c.p.rtspl.mutex.Unlock()
 
 					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
 						return fmt.Errorf("client wants to publish tracks with different protocols")
@@ -710,10 +710,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		err := func() error {
-			c.p.mutex.Lock()
-			defer c.p.mutex.Unlock()
+			c.p.rtspl.mutex.Lock()
+			defer c.p.rtspl.mutex.Unlock()
 
-			pub, ok := c.p.publishers[c.path]
+			pub, ok := c.p.rtspl.publishers[c.path]
 			if !ok {
 				return fmt.Errorf("no one is streaming on path '%s'", c.path)
 			}
@@ -747,9 +747,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return "tracks"
 		}(), c.streamProtocol)
 
-		c.p.mutex.Lock()
+		c.p.rtspl.mutex.Lock()
 		c.state = _CLIENT_STATE_PLAY
-		c.p.mutex.Unlock()
+		c.p.rtspl.mutex.Unlock()
 
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
@@ -788,9 +788,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 		c.log("paused")
 
-		c.p.mutex.Lock()
+		c.p.rtspl.mutex.Lock()
 		c.state = _CLIENT_STATE_PRE_PLAY
-		c.p.mutex.Unlock()
+		c.p.rtspl.mutex.Unlock()
 
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
@@ -813,8 +813,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		err := func() error {
-			c.p.mutex.Lock()
-			defer c.p.mutex.Unlock()
+			c.p.rtspl.mutex.Lock()
+			defer c.p.rtspl.mutex.Unlock()
 
 			if len(c.streamTracks) != len(c.streamSdpParsed.Medias) {
 				return fmt.Errorf("not all tracks have been setup")
@@ -835,9 +835,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
-		c.p.mutex.Lock()
+		c.p.rtspl.mutex.Lock()
 		c.state = _CLIENT_STATE_RECORD
-		c.p.mutex.Unlock()
+		c.p.rtspl.mutex.Unlock()
 
 		c.log("is publishing on path '%s', %d %s via %s", c.path, len(c.streamTracks), func() string {
 			if len(c.streamTracks) == 1 {
@@ -863,9 +863,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				c.p.mutex.RLock()
+				c.p.rtspl.mutex.RLock()
 				c.p.forwardTrack(c.path, trackId, trackFlow, frame.Content)
-				c.p.mutex.RUnlock()
+				c.p.rtspl.mutex.RUnlock()
 			}
 		}
 
