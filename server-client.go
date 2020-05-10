@@ -864,7 +864,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				c.p.rtspl.mutex.RLock()
-				c.p.forwardTrack(c.path, trackId, trackFlow, frame.Content)
+				c.p.rtspl.forwardTrack(c.path, trackId, trackFlow, frame.Content)
 				c.p.rtspl.mutex.RUnlock()
 			}
 		}

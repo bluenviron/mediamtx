@@ -96,7 +96,7 @@ func (l *serverUdpListener) run() {
 				return
 			}
 
-			l.p.forwardTrack(path, trackId, l.flow, buf[:n])
+			l.p.rtspl.forwardTrack(path, trackId, l.flow, buf[:n])
 		}()
 	}
 

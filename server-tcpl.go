@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 	"sync"
+
+	"github.com/aler9/gortsplib"
 )
 
 type serverTcpListener struct {
@@ -46,5 +48,39 @@ func (l *serverTcpListener) run() {
 
 		rsc := newServerClient(l.p, nconn)
 		go rsc.run()
+	}
+}
+
+func (l *serverTcpListener) forwardTrack(path string, id int, flow trackFlow, frame []byte) {
+	for c := range l.clients {
+		if c.path == path && c.state == _CLIENT_STATE_PLAY {
+			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
+				if flow == _TRACK_FLOW_RTP {
+					l.p.rtpl.write <- &udpWrite{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[id].rtpPort,
+						},
+						buf: frame,
+					}
+				} else {
+					l.p.rtcpl.write <- &udpWrite{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[id].rtcpPort,
+						},
+						buf: frame,
+					}
+				}
+
+			} else {
+				c.write <- &gortsplib.InterleavedFrame{
+					Channel: trackToInterleavedChannel(id, flow),
+					Content: frame,
+				}
+			}
+		}
 	}
 }

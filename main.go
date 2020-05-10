@@ -3,13 +3,11 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
 	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -154,40 +152,6 @@ func newProgram(args args) (*program, error) {
 	go p.rtspl.run()
 
 	return p, nil
-}
-
-func (p *program) forwardTrack(path string, id int, flow trackFlow, frame []byte) {
-	for c := range p.rtspl.clients {
-		if c.path == path && c.state == _CLIENT_STATE_PLAY {
-			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
-				if flow == _TRACK_FLOW_RTP {
-					p.rtpl.write <- &udpWrite{
-						addr: &net.UDPAddr{
-							IP:   c.ip(),
-							Zone: c.zone(),
-							Port: c.streamTracks[id].rtpPort,
-						},
-						buf: frame,
-					}
-				} else {
-					p.rtcpl.write <- &udpWrite{
-						addr: &net.UDPAddr{
-							IP:   c.ip(),
-							Zone: c.zone(),
-							Port: c.streamTracks[id].rtcpPort,
-						},
-						buf: frame,
-					}
-				}
-
-			} else {
-				c.write <- &gortsplib.InterleavedFrame{
-					Channel: trackToInterleavedChannel(id, flow),
-					Content: frame,
-				}
-			}
-		}
-	}
 }
 
 func main() {
