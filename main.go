@@ -65,21 +65,22 @@ type program struct {
 }
 
 func newProgram(args args) (*program, error) {
+	if args.protocolsStr == "" {
+		args.protocolsStr = "udp,tcp"
+	}
+	if args.rtspPort == 0 {
+		args.rtspPort = 8554
+	}
+	if args.rtpPort == 0 {
+		args.rtpPort = 8000
+	}
+	if args.rtcpPort == 0 {
+		args.rtcpPort = 8001
+	}
+
 	if args.version == true {
 		fmt.Println("rtsp-simple-server " + Version)
 		os.Exit(0)
-	}
-
-	if args.rtspPort == 0 {
-		return nil, fmt.Errorf("rtsp port not provided")
-	}
-
-	if args.rtpPort == 0 {
-		return nil, fmt.Errorf("rtp port not provided")
-	}
-
-	if args.rtcpPort == 0 {
-		return nil, fmt.Errorf("rtcp port not provided")
 	}
 
 	if (args.rtpPort % 2) != 0 {

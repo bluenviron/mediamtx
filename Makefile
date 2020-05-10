@@ -1,7 +1,7 @@
 
 .PHONY: $(shell ls)
 
-BASE_IMAGE = amd64/golang:1.13-alpine3.10
+BASE_IMAGE = amd64/golang:1.14-alpine3.11
 
 help:
 	@echo "usage: make [action]"
@@ -14,6 +14,12 @@ help:
 	@echo "  release        build release assets"
 	@echo "  travis-setup   setup travis CI"
 	@echo ""
+
+blank :=
+define NL
+
+$(blank)
+endef
 
 mod-tidy:
 	docker run --rm -it -v $(PWD):/s $(BASE_IMAGE) \
@@ -40,6 +46,30 @@ run:
 	--network=host \
 	temp \
 	/out $(ARGS)
+
+define DOCKERFILE_TEST
+FROM $(BASE_IMAGE)
+RUN apk add --no-cache make docker-cli git
+WORKDIR /s
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
+endef
+export DOCKERFILE_TEST
+
+test:
+	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
+	docker run --rm -it \
+	--network=host \
+	-v /var/run/docker.sock:/var/run/docker.sock:ro \
+	temp \
+	make test-nodocker
+
+test-nodocker:
+	$(foreach IMG,$(shell echo test-images/*/ | xargs -n1 basename), \
+	docker build -q test-images/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
+	$(eval export CGO_ENABLED = 0)
+	go test -v .
 
 define DOCKERFILE_RELEASE
 FROM $(BASE_IMAGE)
