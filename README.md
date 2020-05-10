@@ -15,7 +15,7 @@ Features:
 * Supports the RTP/RTCP streaming protocol
 * Supports authentication for publishers
 * Run a script when a client connects or disconnects
-* Compatible with Linux and Windows, does not require any dependency or interpreter, it's a single executable
+* Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 
 ## Installation
 
