@@ -114,6 +114,7 @@ type serverClient struct {
 	streamProtocol  streamProtocol
 	streamTracks    []*track
 	write           chan *gortsplib.InterleavedFrame
+	done            chan struct{}
 }
 
 func newServerClient(p *program, nconn net.Conn) *serverClient {
@@ -126,11 +127,14 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 		}),
 		state: _CLIENT_STATE_STARTING,
 		write: make(chan *gortsplib.InterleavedFrame),
+		done:  make(chan struct{}),
 	}
 
 	c.p.tcpl.mutex.Lock()
 	c.p.tcpl.clients[c] = struct{}{}
 	c.p.tcpl.mutex.Unlock()
+
+	go c.run()
 
 	return c
 }
@@ -176,24 +180,6 @@ func (c *serverClient) zone() string {
 }
 
 func (c *serverClient) run() {
-	defer func() {
-		if c.p.args.postScript != "" {
-			postScript := exec.Command(c.p.args.postScript)
-			err := postScript.Run()
-			if err != nil {
-				c.log("ERR: %s", err)
-			}
-		}
-	}()
-
-	defer c.log("disconnected")
-
-	defer func() {
-		c.p.tcpl.mutex.Lock()
-		defer c.p.tcpl.mutex.Unlock()
-		c.close()
-	}()
-
 	c.log("connected")
 
 	if c.p.args.preScript != "" {
@@ -210,14 +196,34 @@ func (c *serverClient) run() {
 			if err != io.EOF {
 				c.log("ERR: %s", err)
 			}
-			return
+			break
 		}
 
 		ok := c.handleRequest(req)
 		if !ok {
-			return
+			break
 		}
 	}
+
+	func() {
+		c.p.tcpl.mutex.Lock()
+		defer c.p.tcpl.mutex.Unlock()
+		c.close()
+	}()
+
+	c.log("disconnected")
+
+	func() {
+		if c.p.args.postScript != "" {
+			postScript := exec.Command(c.p.args.postScript)
+			err := postScript.Run()
+			if err != nil {
+				c.log("ERR: %s", err)
+			}
+		}
+	}()
+
+	close(c.done)
 }
 
 func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.StatusCode, err error) {
