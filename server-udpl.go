@@ -68,12 +68,12 @@ func (l *serverUdpListener) run() {
 		}
 
 		func() {
-			l.p.rtspl.mutex.RLock()
-			defer l.p.rtspl.mutex.RUnlock()
+			l.p.tcpl.mutex.RLock()
+			defer l.p.tcpl.mutex.RUnlock()
 
 			// find path and track id from ip and port
 			path, trackId := func() (string, int) {
-				for _, pub := range l.p.rtspl.publishers {
+				for _, pub := range l.p.tcpl.publishers {
 					for i, t := range pub.streamTracks {
 						if !pub.ip().Equal(addr.IP) {
 							continue
@@ -96,7 +96,7 @@ func (l *serverUdpListener) run() {
 				return
 			}
 
-			l.p.rtspl.forwardTrack(path, trackId, l.flow, buf[:n])
+			l.p.tcpl.forwardTrack(path, trackId, l.flow, buf[:n])
 		}()
 	}
 
