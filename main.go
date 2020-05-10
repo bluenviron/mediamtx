@@ -154,6 +154,12 @@ func newProgram(args args) (*program, error) {
 	return p, nil
 }
 
+func (p *program) close() {
+	p.tcpl.close()
+	p.udplRtcp.close()
+	p.udplRtp.close()
+}
+
 func main() {
 	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" +
 		"RTSP server."
