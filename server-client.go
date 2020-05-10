@@ -858,7 +858,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			for {
 				frame, err := c.conn.ReadInterleavedFrame()
 				if err != nil {
-					c.log("ERR: %s", err)
+					if err != io.EOF {
+						c.log("ERR: %s", err)
+					}
 					return false
 				}
 
