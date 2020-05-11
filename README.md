@@ -68,7 +68,7 @@ RTSP server.
 
 Flags:
   --help                 Show context-sensitive help (also try --help-long and --help-man).
-  --version              print rtsp-simple-server version
+  --version              print version
   --protocols="udp,tcp"  supported protocols
   --rtsp-port=8554       port of the RTSP TCP listener
   --rtp-port=8000        port of the RTP UDP listener

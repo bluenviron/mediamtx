@@ -67,7 +67,7 @@ func newProgram(sargs []string) (*program, error) {
 	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" +
 		"RTSP server."
 
-	argVersion := kingpin.Flag("version", "print rtsp-simple-server version").Bool()
+	argVersion := kingpin.Flag("version", "print version").Bool()
 	argProtocolsStr := kingpin.Flag("protocols", "supported protocols").Default("udp,tcp").String()
 	argRtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
 	argRtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
@@ -100,7 +100,7 @@ func newProgram(sargs []string) (*program, error) {
 	}
 
 	if args.version == true {
-		fmt.Println("rtsp-simple-server " + Version)
+		fmt.Println(Version)
 		os.Exit(0)
 	}
 
