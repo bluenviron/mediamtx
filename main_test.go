@@ -61,7 +61,7 @@ func TestProtocols(t *testing.T) {
 		{"tcp", "tcp"},
 	} {
 		t.Run(pair[0]+"_"+pair[1], func(t *testing.T) {
-			p, err := newProgram(args{})
+			p, err := newProgram([]string{})
 			require.NoError(t, err)
 			defer p.close()
 
@@ -103,9 +103,9 @@ func TestProtocols(t *testing.T) {
 }
 
 func TestPublishAuth(t *testing.T) {
-	p, err := newProgram(args{
-		publishUser: "testuser",
-		publishPass: "testpass",
+	p, err := newProgram([]string{
+		"--publish-user=testuser",
+		"--publish-pass=testpass",
 	})
 	require.NoError(t, err)
 	defer p.close()
@@ -146,9 +146,9 @@ func TestPublishAuth(t *testing.T) {
 }
 
 func TestReadAuth(t *testing.T) {
-	p, err := newProgram(args{
-		readUser: "testuser",
-		readPass: "testpass",
+	p, err := newProgram([]string{
+		"--read-user=testuser",
+		"--read-pass=testpass",
 	})
 	require.NoError(t, err)
 	defer p.close()
