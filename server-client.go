@@ -24,7 +24,10 @@ func sdpParse(in []byte) (*sdp.Message, error) {
 	d := sdp.NewDecoder(s)
 	err = d.Decode(m)
 	if err != nil {
-		return nil, err
+		// allow empty Origins
+		if err.Error() != "failed to decode message: DecodeError in section s: origin address not set" {
+			return nil, err
+		}
 	}
 
 	if len(m.Medias) == 0 {
@@ -65,7 +68,7 @@ func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
 			Bandwidths: m.Bandwidths,
 			Description: sdp.MediaDescription{
 				Type:     m.Description.Type,
-				Protocol: m.Description.Protocol,
+				Protocol: "RTP/AVP", // override protocol
 				Formats:  m.Description.Formats,
 			},
 			Attributes: attributes,
