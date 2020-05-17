@@ -59,7 +59,7 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 
 #### Remuxing / Re-encoding
 
-`rtsp-simple-server` is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex software that can receive existing streams, re-encode them and publish them. Therefore, rtsp-simple-server alone cannot change the format, codec or compression of a stream (but keep reading).
+`rtsp-simple-server` is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex software that can receive existing streams, re-encode them and publish them. Therefore, `rtsp-simple-server` alone cannot change the format, codec or compression of a stream.
 
 Nothing forbids from using `ffmpeg` or `gstreamer` together with `rtsp-simple-server`, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path of `rtsp-simple-server`, and make the modified stream available in the `/compressed` path, it is enough to launch `ffmpeg` in parallel with `rtsp-simple-server`, with the following syntax:
 ```
