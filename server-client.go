@@ -7,80 +7,11 @@ import (
 	"log"
 	"net"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/aler9/gortsplib"
 	"gortc.io/sdp"
 )
-
-func sdpParse(in []byte) (*sdp.Message, error) {
-	s, err := sdp.DecodeSession(in, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	m := &sdp.Message{}
-	d := sdp.NewDecoder(s)
-	err = d.Decode(m)
-	if err != nil {
-		// allow empty Origins
-		if err.Error() != "failed to decode message: DecodeError in section s: origin address not set" {
-			return nil, err
-		}
-	}
-
-	if len(m.Medias) == 0 {
-		return nil, fmt.Errorf("no tracks defined in SDP")
-	}
-
-	return m, nil
-}
-
-// remove everything from SDP except the bare minimum
-func sdpFilter(msgIn *sdp.Message, byteIn []byte) (*sdp.Message, []byte) {
-	msgOut := &sdp.Message{}
-
-	msgOut.Name = "Stream"
-	msgOut.Origin = sdp.Origin{
-		Username:    "-",
-		NetworkType: "IN",
-		AddressType: "IP4",
-		Address:     "127.0.0.1",
-	}
-
-	for i, m := range msgIn.Medias {
-		var attributes []sdp.Attribute
-		for _, attr := range m.Attributes {
-			if attr.Key == "rtpmap" || attr.Key == "fmtp" {
-				attributes = append(attributes, attr)
-			}
-		}
-
-		// control attribute is mandatory, and is the path that is appended
-		// to the stream path in SETUP
-		attributes = append(attributes, sdp.Attribute{
-			Key:   "control",
-			Value: "trackID=" + strconv.FormatInt(int64(i), 10),
-		})
-
-		msgOut.Medias = append(msgOut.Medias, sdp.Media{
-			Bandwidths: m.Bandwidths,
-			Description: sdp.MediaDescription{
-				Type:     m.Description.Type,
-				Protocol: "RTP/AVP", // override protocol
-				Formats:  m.Description.Formats,
-			},
-			Attributes: attributes,
-		})
-	}
-
-	sdps := sdp.Session{}
-	sdps = msgOut.Append(sdps)
-	byteOut := sdps.AppendTo(nil)
-
-	return msgOut, byteOut
-}
 
 func interleavedChannelToTrack(channel uint8) (int, trackFlow) {
 	if (channel % 2) == 0 {
@@ -396,13 +327,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		sdpParsed, err := sdpParse(req.Content)
+		sdpParsed, err := gortsplib.SDPParse(req.Content)
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return false
 		}
 
-		sdpParsed, req.Content = sdpFilter(sdpParsed, req.Content)
+		sdpParsed, req.Content = gortsplib.SDPFilter(sdpParsed, req.Content)
 
 		err = func() error {
 			c.p.tcpl.mutex.Lock()
