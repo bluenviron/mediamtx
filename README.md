@@ -57,11 +57,11 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
     ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
     ```
 
-#### Remuxing / Re-encoding
+#### Remuxing, re-encoding, compression
 
 `rtsp-simple-server` is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex software that can receive existing streams, re-encode them and publish them. Therefore, `rtsp-simple-server` alone cannot change the format, codec or compression of a stream.
 
-Nothing forbids from using `ffmpeg` or `gstreamer` together with `rtsp-simple-server`, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path of `rtsp-simple-server`, and make the modified stream available in the `/compressed` path, it is enough to launch `ffmpeg` in parallel with `rtsp-simple-server`, with the following syntax:
+Nothing forbids from using `ffmpeg` or `gstreamer` together with `rtsp-simple-server`, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path, and make the modified stream available in the `/compressed` path, it is enough to launch `ffmpeg` in parallel with `rtsp-simple-server`, with the following syntax:
 ```
 ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
 ```
