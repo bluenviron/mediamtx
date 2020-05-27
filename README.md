@@ -10,11 +10,11 @@ This software was developed with the aim of simulating a live camera feed for de
 
 Features:
 * Read and publish streams via UDP and TCP
+* Each stream can have multiple video and audio tracks, encoded in any format
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
-* Each stream can have multiple video and audio tracks
 * Supports the RTP/RTCP streaming protocol
-* Supports authentication for publishers
-* Run a script when a client connects or disconnects
+* Supports authentication
+* Supports running a script when a client connects or disconnects
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 
 ## Installation
