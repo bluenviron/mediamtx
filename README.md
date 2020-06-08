@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/rtsp-simple-server)](https://goreportcard.com/report/github.com/aler9/rtsp-simple-server)
 [![Build Status](https://travis-ci.org/aler9/rtsp-simple-server.svg?branch=master)](https://travis-ci.org/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server, a software that allows multiple users to read or publish live video and audio streams. RTSP is a standardized protocol that defines how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol and read or write data. The server is then responsible of linking the publisher stream with the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server, a software that allows multiple users to publish and read live video and audio streams. RTSP is a standardized protocol that defines how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol. The server is then responsible of relaying the publisher stream to the readers.
 
 This software was developed with the aim of simulating a live camera feed for debugging purposes, and therefore to use files instead of real streams. Another reason for the development was the deprecation of _FFserver_, the component of the _FFmpeg_ project that allowed to create a RTSP server (but this server is not bounded to _FFmpeg_ and can be used with any software that supports publishing to RTSP).
 
@@ -30,19 +30,24 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
    ./rtsp-simple-server
    ```
 
-2. In another terminal, publish something with FFmpeg (in this example it's a video file, but it can be anything you want):
+2. Publish a stream. For instance, you can publish a video file with _FFmpeg_:
    ```
    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
    ```
 
-3. Open the stream with VLC:
+3. Open the stream. For instance, you can open the stream with _VLC_:
    ```
    vlc rtsp://localhost:8554/mystream
    ```
 
-   you can alternatively use GStreamer:
+   or _GStreamer_:
    ```
    gst-launch-1.0 -v rtspsrc location=rtsp://localhost:8554/mystream ! rtph264depay ! decodebin ! autovideosink
+   ```
+
+   or _FFmpeg_:
+   ```
+   ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
    ```
 
 #### Publisher authentication
@@ -59,9 +64,9 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 
 #### Remuxing, re-encoding, compression
 
-`rtsp-simple-server` is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex software that can receive existing streams, re-encode them and publish them. Therefore, `rtsp-simple-server` alone cannot change the format, codec or compression of a stream.
+_rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex software that can receive existing streams, re-encode them and publish them. Therefore, _rtsp-simple-server_ alone cannot change the format, codec or compression of a stream.
 
-Nothing forbids from using `ffmpeg` or `gstreamer` together with `rtsp-simple-server`, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path, and make the modified stream available in the `/compressed` path, it is enough to launch `ffmpeg` in parallel with `rtsp-simple-server`, with the following syntax:
+Nothing forbids from using _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path, and make the modified stream available in the `/compressed` path, it is enough to launch _FFmpeg_ in parallel with _rtsp-simple-server_, with the following syntax:
 ```
 ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
 ```
