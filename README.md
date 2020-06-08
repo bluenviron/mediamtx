@@ -62,6 +62,8 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
     ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
     ```
 
+WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
+
 #### Remuxing, re-encoding, compression
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex software that can receive existing streams, re-encode them and publish them. Therefore, _rtsp-simple-server_ alone cannot change the format, codec or compression of a stream.
