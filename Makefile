@@ -10,6 +10,7 @@ help:
 	@echo ""
 	@echo "  mod-tidy       run go mod tidy"
 	@echo "  format         format source files"
+	@echo "  test           run available tests"
 	@echo "  run ARGS=args  run app"
 	@echo "  release        build release assets"
 	@echo "  travis-setup   setup travis CI"
@@ -28,6 +29,29 @@ mod-tidy:
 format:
 	docker run --rm -it -v $(PWD):/s $(BASE_IMAGE) \
 	sh -c "cd /s && find . -type f -name '*.go' | xargs gofmt -l -w -s"
+
+define DOCKERFILE_TEST
+FROM $(BASE_IMAGE)
+RUN apk add --no-cache make docker-cli git
+WORKDIR /s
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . ./
+endef
+export DOCKERFILE_TEST
+
+test:
+	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
+	docker run --rm -it \
+	-v /var/run/docker.sock:/var/run/docker.sock:ro \
+	temp \
+	make test-nodocker
+
+test-nodocker:
+	$(foreach IMG,$(shell echo test-images/*/ | xargs -n1 basename), \
+	docker build -q test-images/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
+	$(eval export CGO_ENABLED = 0)
+	go test -v .
 
 define DOCKERFILE_RUN
 FROM $(BASE_IMAGE)
@@ -48,30 +72,6 @@ run:
 	-p 8001:8001/udp \
 	temp \
 	/out $(ARGS)
-
-define DOCKERFILE_TEST
-FROM $(BASE_IMAGE)
-RUN apk add --no-cache make docker-cli git
-WORKDIR /s
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . ./
-endef
-export DOCKERFILE_TEST
-
-test:
-	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
-	docker run --rm -it \
-	--network=host \
-	-v /var/run/docker.sock:/var/run/docker.sock:ro \
-	temp \
-	make test-nodocker
-
-test-nodocker:
-	$(foreach IMG,$(shell echo test-images/*/ | xargs -n1 basename), \
-	docker build -q test-images/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	$(eval export CGO_ENABLED = 0)
-	go test -v .
 
 define DOCKERFILE_RELEASE
 FROM $(BASE_IMAGE)
