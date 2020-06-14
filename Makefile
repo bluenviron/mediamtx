@@ -67,9 +67,7 @@ export DOCKERFILE_RUN
 run:
 	echo "$$DOCKERFILE_RUN" | docker build -q . -f - -t temp
 	docker run --rm -it \
-	-p 8554:8554 \
-	-p 8000:8000/udp \
-	-p 8001:8001/udp \
+	--network=host \
 	temp \
 	/out $(ARGS)
 

@@ -397,9 +397,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		th := gortsplib.ReadHeaderTransport(tsRaw[0])
-
-		if _, ok := th["unicast"]; !ok {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain unicast"))
+		if _, ok := th["multicast"]; ok {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("multicast is not supported"))
 			return false
 		}
 
