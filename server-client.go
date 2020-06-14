@@ -210,7 +210,7 @@ func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass st
 	initialRequest := false
 	if *auth == nil {
 		initialRequest = true
-		*auth = gortsplib.NewAuthServer(user, pass)
+		*auth = gortsplib.NewAuthServer(user, pass, nil)
 	}
 
 	err := (*auth).ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
