@@ -17,25 +17,21 @@ Features:
 * Supports running a script when a client connects or disconnects
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 
-## Installation
+## Installation and basic usage
 
-Precompiled binaries are available in the [release](https://github.com/aler9/rtsp-simple-server/releases) page. Just download and extract the executable.
+1. Download and extract a precompiled binary from the [release](https://github.com/aler9/rtsp-simple-server/releases) page.
 
-## Usage
-
-#### Basic usage
-
-1. Start the server:
+2. Start the server:
    ```
    ./rtsp-simple-server
    ```
 
-2. Publish a stream. For instance, you can publish a video file with _FFmpeg_:
+3. Publish a stream. For instance, you can publish a video file with _FFmpeg_:
    ```
    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
    ```
 
-3. Open the stream. For instance, you can open the stream with _VLC_:
+4. Open the stream. For instance, you can open the stream with _VLC_:
    ```
    vlc rtsp://localhost:8554/mystream
    ```
@@ -50,7 +46,9 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
    ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
    ```
 
-#### Publisher authentication
+## Advanced usage and FAQs
+
+#### Setup publisher authentication
 
 1. Start the server and set a username and a password:
    ```
@@ -64,7 +62,7 @@ Precompiled binaries are available in the [release](https://github.com/aler9/rts
 
 WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
 
-#### Remuxing, re-encoding, compression
+#### How to perform remuxing, re-encoding, compression
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
 
@@ -97,6 +95,18 @@ Flags:
   --read-pass=""         optional password required to read
   --pre-script=""        optional script to run on client connect
   --post-script=""       optional script to run on client disconnect
+```
+
+#### Compile and run from source
+
+Install Go &ge; 1.12, download the repository, open a terminal in it and run:
+```
+go build -o rtsp-simple-server . && ./rtsp-simple-server
+```
+
+If you have Docker installed, you can perform the entire operation with a single command:
+```
+make run
 ```
 
 ## Links
