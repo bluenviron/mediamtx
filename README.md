@@ -50,19 +50,19 @@ Features:
 
 #### Setup publisher authentication
 
-1. Start the server and set a username and a password:
-   ```
-   ./rtsp-simple-server --publish-user=admin --publish-pass=mypassword
-   ```
+Start the server and set a username and a password:
+```
+./rtsp-simple-server --publish-user=admin --publish-pass=mypassword
+```
 
- 2. Only publishers that know both username and password will be able to publish:
-    ```
-    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
-    ```
+Only publishers that know both username and password will be able to publish:
+ ```
+ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
+ ```
 
 WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
 
-#### How to perform remuxing, re-encoding, compression
+#### Remuxing, re-encoding, compression
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
 
@@ -101,10 +101,10 @@ Flags:
 
 Install Go &ge; 1.12, download the repository, open a terminal in it and run:
 ```
-go build -o rtsp-simple-server . && ./rtsp-simple-server
+go run .
 ```
 
-If you have Docker installed, you can perform the entire operation with a single command:
+You can perform the entire operation inside Docker with:
 ```
 make run
 ```
