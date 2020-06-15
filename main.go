@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"regexp"
 	"strings"
@@ -12,6 +13,30 @@ import (
 )
 
 var Version string = "v0.0.0"
+
+func parseIpCidrList(in string) ([]interface{}, error) {
+	if in == "" {
+		return nil, nil
+	}
+
+	var ret []interface{}
+	for _, t := range strings.Split(in, ",") {
+		_, ipnet, err := net.ParseCIDR(t)
+		if err == nil {
+			ret = append(ret, ipnet)
+			continue
+		}
+
+		ip := net.ParseIP(t)
+		if ip != nil {
+			ret = append(ret, ip)
+			continue
+		}
+
+		return nil, fmt.Errorf("unable to parse ip/network '%s'", t)
+	}
+	return ret, nil
+}
 
 type trackFlow int
 
@@ -49,18 +74,22 @@ type args struct {
 	writeTimeout time.Duration
 	publishUser  string
 	publishPass  string
+	publishIps   string
 	readUser     string
 	readPass     string
+	readIps      string
 	preScript    string
 	postScript   string
 }
 
 type program struct {
-	args      args
-	protocols map[streamProtocol]struct{}
-	tcpl      *serverTcpListener
-	udplRtp   *serverUdpListener
-	udplRtcp  *serverUdpListener
+	args       args
+	protocols  map[streamProtocol]struct{}
+	publishIps []interface{}
+	readIps    []interface{}
+	tcpl       *serverTcpListener
+	udplRtp    *serverUdpListener
+	udplRtcp   *serverUdpListener
 }
 
 func newProgram(sargs []string) (*program, error) {
@@ -76,8 +105,10 @@ func newProgram(sargs []string) (*program, error) {
 	argWriteTimeout := kingpin.Flag("write-timeout", "timeout of write operations").Default("5s").Duration()
 	argPublishUser := kingpin.Flag("publish-user", "optional username required to publish").Default("").String()
 	argPublishPass := kingpin.Flag("publish-pass", "optional password required to publish").Default("").String()
+	argPublishIps := kingpin.Flag("publish-ips", "comma-separated list of IPs or networks (x.x.x.x/24) that can publish").Default("").String()
 	argReadUser := kingpin.Flag("read-user", "optional username required to read").Default("").String()
 	argReadPass := kingpin.Flag("read-pass", "optional password required to read").Default("").String()
+	argReadIps := kingpin.Flag("read-ips", "comma-separated list of IPs or networks (x.x.x.x/24) that can read").Default("").String()
 	argPreScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
 	argPostScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
 
@@ -93,8 +124,10 @@ func newProgram(sargs []string) (*program, error) {
 		writeTimeout: *argWriteTimeout,
 		publishUser:  *argPublishUser,
 		publishPass:  *argPublishPass,
+		publishIps:   *argPublishIps,
 		readUser:     *argReadUser,
 		readPass:     *argReadPass,
+		readIps:      *argReadIps,
 		preScript:    *argPreScript,
 		postScript:   *argPostScript,
 	}
@@ -120,12 +153,14 @@ func newProgram(sargs []string) (*program, error) {
 	if len(protocols) == 0 {
 		return nil, fmt.Errorf("no protocols provided")
 	}
+
 	if (args.rtpPort % 2) != 0 {
 		return nil, fmt.Errorf("rtp port must be even")
 	}
 	if args.rtcpPort != (args.rtpPort + 1) {
 		return nil, fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
+
 	if args.publishUser != "" {
 		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.publishUser) {
 			return nil, fmt.Errorf("publish username must be alphanumeric")
@@ -136,6 +171,11 @@ func newProgram(sargs []string) (*program, error) {
 			return nil, fmt.Errorf("publish password must be alphanumeric")
 		}
 	}
+	publishIps, err := parseIpCidrList(args.publishIps)
+	if err != nil {
+		return nil, err
+	}
+
 	if args.readUser != "" && args.readPass == "" || args.readUser == "" && args.readPass != "" {
 		return nil, fmt.Errorf("read username and password must be both filled")
 	}
@@ -152,15 +192,19 @@ func newProgram(sargs []string) (*program, error) {
 	if args.readUser != "" && args.readPass == "" || args.readUser == "" && args.readPass != "" {
 		return nil, fmt.Errorf("read username and password must be both filled")
 	}
+	readIps, err := parseIpCidrList(args.readIps)
+	if err != nil {
+		return nil, err
+	}
 
 	log.Printf("rtsp-simple-server %s", Version)
 
 	p := &program{
-		args:      args,
-		protocols: protocols,
+		args:       args,
+		protocols:  protocols,
+		publishIps: publishIps,
+		readIps:    readIps,
 	}
-
-	var err error
 
 	p.udplRtp, err = newServerUdpListener(p, args.rtpPort, _TRACK_FLOW_RTP)
 	if err != nil {

@@ -142,6 +142,7 @@ func TestPublishAuth(t *testing.T) {
 	p, err := newProgram([]string{
 		"--publish-user=testuser",
 		"--publish-pass=testpass",
+		"--publish-ips=172.17.0.0/16",
 	})
 	require.NoError(t, err)
 	defer p.close()
@@ -185,6 +186,7 @@ func TestReadAuth(t *testing.T) {
 	p, err := newProgram([]string{
 		"--read-user=testuser",
 		"--read-pass=testpass",
+		"--read-ips=172.17.0.0/16",
 	})
 	require.NoError(t, err)
 	defer p.close()

@@ -202,36 +202,70 @@ func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.Stat
 var errAuthCritical = errors.New("auth critical")
 var errAuthNotCritical = errors.New("auth not critical")
 
-func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass string, auth **gortsplib.AuthServer) error {
-	if user == "" {
-		return nil
-	}
+func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass string, auth **gortsplib.AuthServer, ips []interface{}) error {
+	err := func() error {
+		if ips == nil {
+			return nil
+		}
 
-	initialRequest := false
-	if *auth == nil {
-		initialRequest = true
-		*auth = gortsplib.NewAuthServer(user, pass, nil)
-	}
+		connIp := c.conn.NetConn().LocalAddr().(*net.TCPAddr).IP
 
-	err := (*auth).ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
+		for _, item := range ips {
+			switch titem := item.(type) {
+			case net.IP:
+				if titem.Equal(connIp) {
+					return nil
+				}
+
+			case *net.IPNet:
+				if titem.Contains(connIp) {
+					return nil
+				}
+			}
+		}
+
+		c.log("ERR: ip '%s' not allowed", connIp)
+		return errAuthCritical
+	}()
 	if err != nil {
-		if !initialRequest {
-			c.log("ERR: Unauthorized: %s", err)
+		return err
+	}
+
+	err = func() error {
+		if user == "" {
+			return nil
 		}
 
-		c.conn.WriteResponse(&gortsplib.Response{
-			StatusCode: gortsplib.StatusUnauthorized,
-			Header: gortsplib.Header{
-				"CSeq":             []string{req.Header["CSeq"][0]},
-				"WWW-Authenticate": (*auth).GenerateHeader(),
-			},
-		})
-
-		if !initialRequest {
-			return errAuthCritical
+		initialRequest := false
+		if *auth == nil {
+			initialRequest = true
+			*auth = gortsplib.NewAuthServer(user, pass, nil)
 		}
 
-		return errAuthNotCritical
+		err := (*auth).ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
+		if err != nil {
+			if !initialRequest {
+				c.log("ERR: unauthorized: %s", err)
+			}
+
+			c.conn.WriteResponse(&gortsplib.Response{
+				StatusCode: gortsplib.StatusUnauthorized,
+				Header: gortsplib.Header{
+					"CSeq":             []string{req.Header["CSeq"][0]},
+					"WWW-Authenticate": (*auth).GenerateHeader(),
+				},
+			})
+
+			if !initialRequest {
+				return errAuthCritical
+			}
+
+			return errAuthNotCritical
+		}
+		return nil
+	}()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -291,7 +325,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, c.p.args.readUser, c.p.args.readPass, &c.readAuth)
+		err := c.validateAuth(req, c.p.args.readUser, c.p.args.readPass, &c.readAuth, c.p.readIps)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -333,7 +367,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, c.p.args.publishUser, c.p.args.publishPass, &c.publishAuth)
+		err := c.validateAuth(req, c.p.args.publishUser, c.p.args.publishPass, &c.publishAuth, c.p.publishIps)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -405,7 +439,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		switch c.state {
 		// play
 		case _CLIENT_STATE_STARTING, _CLIENT_STATE_PRE_PLAY:
-			err := c.validateAuth(req, c.p.args.readUser, c.p.args.readPass, &c.readAuth)
+			err := c.validateAuth(req, c.p.args.readUser, c.p.args.readPass, &c.readAuth, c.p.readIps)
 			if err != nil {
 				if err == errAuthCritical {
 					return false

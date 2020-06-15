@@ -91,8 +91,10 @@ Flags:
   --write-timeout=5s     timeout of write operations
   --publish-user=""      optional username required to publish
   --publish-pass=""      optional password required to publish
+  --publish-ips=""       comma-separated list of IPs or networks (x.x.x.x/24) that can publish
   --read-user=""         optional username required to read
   --read-pass=""         optional password required to read
+  --read-ips=""          comma-separated list of IPs or networks (x.x.x.x/24) that can read
   --pre-script=""        optional script to run on client connect
   --post-script=""       optional script to run on client disconnect
 ```
