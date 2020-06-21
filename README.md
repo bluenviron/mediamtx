@@ -3,6 +3,7 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/rtsp-simple-server)](https://goreportcard.com/report/github.com/aler9/rtsp-simple-server)
 [![Build Status](https://travis-ci.org/aler9/rtsp-simple-server.svg?branch=master)](https://travis-ci.org/aler9/rtsp-simple-server)
+[![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--proxy-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
 _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server, a software that allows multiple users to publish and read live video and audio streams. RTSP is a standardized protocol that defines how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol. The server is then responsible of relaying the publisher streams to the readers.
 
@@ -48,7 +49,19 @@ Features:
 
 ## Advanced usage and FAQs
 
-#### Setup publisher authentication
+#### Usage with Docker
+
+Download and launch the image:
+```
+docker run --rm -it --network=host aler9/rtsp-simple-server
+```
+
+The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port:
+```
+docker run --rm -it -p 8554 aler9/rtsp-simple-server --protocols=tcp
+```
+
+#### Publisher authentication
 
 Start the server and set a username and a password:
 ```

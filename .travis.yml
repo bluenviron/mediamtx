@@ -1,19 +1,37 @@
 language: minimal
 
+dist: bionic
+
 services:
 - docker
 
+# docker >= 19.03 is required for docker buildx, so it is upgraded
+before_install:
+- sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+- sudo apt update -y
+- sudo apt install --only-upgrade docker-ce -y
+
 script:
 - make test
-- make release
 
 deploy:
-  provider: releases
-  api_key:
-    secure: RmEv6bgtRwQr7JDFHFNDbv2nKve8Y+299/S9Ez39ZobX4F8870Szl329OjnL2B82wYWQg3GzPZ6pkcsm6OUV1Xms+Bo0a+QIOTddmNmzOyd70+IG7BtFjDa4HQ7rrxOt/kr5NAOP0R9h5oVq1+mlMOMEeB6BBo4SNG4V3YIkuXxVUTOtiJdyJDlqIvjgei7PWIierazTmdDmEkvdeXWKfbMXFKWu8v+vNVXYXsq4rX4f4eyivNYQuOnCKKjr3XB4QAigRijbLubxpc+GAlEQrxSzQkHR95lLE/w6xUkeYM0qL0OF1W3+nWYk7C3gGYVHXIaSse+7+UqhGtroZmxtaiP5duvOhW8ikamvEcLkiYEfvnmTJDUldGR27xQZ7wJRvtWhl4TMqSCHBgTWvPtf7l55rLTZmibsrE0AttJZF1UkPoVQ+j/wvUP8azqaNiwDrDU6F7NHXn8jhoLfnELtPe9Ed6o0JHr+Asuv1sooOOU+af3Y8cYlFTH3+NResrGdSUQ0n9OkRIv1pHN2T/FTLL74HWS0tlahhA6FAIqxfbffypSrMP4NhcwC7YI0dystLxJd1BmOxFBn9ov+vfqNi7yhyG+bwEcFPfi6h0bd5xa3ni0erdKI1ner8GaQSThWkgGD91X+0Rg5VDN9OKg3lcpO7Xz+GbJUpMMuXWpuWcI=
+- provider: script
+  script: make release
+  on:
+    repo: aler9/rtsp-simple-server
+    tags: true
+
+- provider: releases
+  api_key: $GITHUB_API_KEY
   skip_cleanup: true
   file_glob: true
   file: release/*
+  on:
+    repo: aler9/rtsp-simple-server
+    tags: true
+
+- provider: script
+  script: docker login -u aler9 -p $DOCKER_PASSWORD && make dockerhub
   on:
     repo: aler9/rtsp-simple-server
     tags: true
