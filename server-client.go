@@ -8,9 +8,15 @@ import (
 	"net"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/aler9/gortsplib"
 	"gortc.io/sdp"
+)
+
+const (
+	_UDP_CHECK_STREAM_INTERVAL = 5 * time.Second
+	_UDP_STREAM_DEAD_AFTER     = 10 * time.Second
 )
 
 func interleavedChannelToTrack(channel uint8) (int, trackFlow) {
@@ -62,18 +68,20 @@ func (cs clientState) String() string {
 }
 
 type serverClient struct {
-	p               *program
-	conn            *gortsplib.ConnServer
-	state           clientState
-	path            string
-	publishAuth     *gortsplib.AuthServer
-	readAuth        *gortsplib.AuthServer
-	streamSdpText   []byte       // filled only if publisher
-	streamSdpParsed *sdp.Message // filled only if publisher
-	streamProtocol  streamProtocol
-	streamTracks    []*track
-	write           chan *gortsplib.InterleavedFrame
-	done            chan struct{}
+	p                    *program
+	conn                 *gortsplib.ConnServer
+	state                clientState
+	path                 string
+	publishAuth          *gortsplib.AuthServer
+	readAuth             *gortsplib.AuthServer
+	streamSdpText        []byte       // filled only if publisher
+	streamSdpParsed      *sdp.Message // filled only if publisher
+	streamProtocol       streamProtocol
+	streamTracks         []*track
+	udpLastFrameTime     time.Time
+	udpCheckStreamTicker *time.Ticker
+	write                chan *gortsplib.InterleavedFrame
+	done                 chan struct{}
 }
 
 func newServerClient(p *program, nconn net.Conn) *serverClient {
@@ -170,6 +178,10 @@ func (c *serverClient) run() {
 		c.close()
 	}()
 
+	if c.udpCheckStreamTicker != nil {
+		c.udpCheckStreamTicker.Stop()
+	}
+
 	c.log("disconnected")
 
 	func() {
@@ -262,6 +274,7 @@ func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass st
 
 			return errAuthNotCritical
 		}
+
 		return nil
 	}()
 	if err != nil {
@@ -871,10 +884,6 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
-		c.p.tcpl.mutex.Lock()
-		c.state = _CLIENT_STATE_RECORD
-		c.p.tcpl.mutex.Unlock()
-
 		c.log("is publishing on path '%s', %d %s via %s", c.path, len(c.streamTracks), func() string {
 			if len(c.streamTracks) == 1 {
 				return "track"
@@ -885,6 +894,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		// receive RTP data and parse it
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
+			c.p.tcpl.mutex.Lock()
+			c.state = _CLIENT_STATE_RECORD
+			c.p.tcpl.mutex.Unlock()
+
 			for {
 				frame, err := c.conn.ReadInterleavedFrame()
 				if err != nil {
@@ -905,6 +918,32 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				c.p.tcpl.forwardTrack(c.path, trackId, trackFlow, frame.Content)
 				c.p.tcpl.mutex.RUnlock()
 			}
+		} else {
+			c.p.tcpl.mutex.Lock()
+			c.state = _CLIENT_STATE_RECORD
+			c.udpLastFrameTime = time.Now()
+			c.udpCheckStreamTicker = time.NewTicker(_UDP_CHECK_STREAM_INTERVAL)
+			c.p.tcpl.mutex.Unlock()
+
+			go func() {
+				for range c.udpCheckStreamTicker.C {
+					ok := func() bool {
+						c.p.tcpl.mutex.Lock()
+						defer c.p.tcpl.mutex.Unlock()
+
+						if time.Since(c.udpLastFrameTime) >= _UDP_STREAM_DEAD_AFTER {
+							return false
+						}
+
+						return true
+					}()
+					if !ok {
+						c.log("ERR: stream is dead")
+						c.conn.NetConn().Close()
+						break
+					}
+				}
+			}()
 		}
 
 		return true

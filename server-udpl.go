@@ -68,35 +68,38 @@ func (l *serverUdpListener) run() {
 		}
 
 		func() {
-			l.p.tcpl.mutex.RLock()
-			defer l.p.tcpl.mutex.RUnlock()
+			l.p.tcpl.mutex.Lock()
+			defer l.p.tcpl.mutex.Unlock()
 
-			// find path and track id from ip and port
-			path, trackId := func() (string, int) {
+			// find publisher and track id from ip and port
+			pub, trackId := func() (*serverClient, int) {
 				for _, pub := range l.p.tcpl.publishers {
-					for i, t := range pub.streamTracks {
-						if !pub.ip().Equal(addr.IP) {
-							continue
-						}
+					if pub.streamProtocol != _STREAM_PROTOCOL_UDP ||
+						pub.state != _CLIENT_STATE_RECORD ||
+						!pub.ip().Equal(addr.IP) {
+						continue
+					}
 
+					for i, t := range pub.streamTracks {
 						if l.flow == _TRACK_FLOW_RTP {
 							if t.rtpPort == addr.Port {
-								return pub.path, i
+								return pub, i
 							}
 						} else {
 							if t.rtcpPort == addr.Port {
-								return pub.path, i
+								return pub, i
 							}
 						}
 					}
 				}
-				return "", -1
+				return nil, -1
 			}()
-			if path == "" {
+			if pub == nil {
 				return
 			}
 
-			l.p.tcpl.forwardTrack(path, trackId, l.flow, buf[:n])
+			pub.udpLastFrameTime = time.Now()
+			l.p.tcpl.forwardTrack(pub.path, trackId, l.flow, buf[:n])
 		}()
 	}
 
