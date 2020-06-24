@@ -58,7 +58,7 @@ docker run --rm -it --network=host aler9/rtsp-simple-server
 
 The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port:
 ```
-docker run --rm -it -p 8554 aler9/rtsp-simple-server --protocols=tcp
+docker run --rm -it -p 8554:8554 aler9/rtsp-simple-server --protocols=tcp
 ```
 
 #### Publisher authentication
