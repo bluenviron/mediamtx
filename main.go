@@ -240,6 +240,5 @@ func main() {
 		log.Fatal("ERR: ", err)
 	}
 
-	infty := make(chan struct{})
-	<-infty
+	select {}
 }
