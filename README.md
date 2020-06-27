@@ -66,60 +66,9 @@ and passing it to the container:
 docker run --rm -it -v $PWD/conf.yml:/conf.yml -p 8554:8554 aler9/rtsp-simple-server
 ```
 
-#### Publisher authentication
+#### Full configuration file
 
-Create a file named `conf.yml` in the same folder of the executable, with the following content:
-```yaml
-paths:
-  all:
-    publishUser: admin
-    publishPass: mypassword
-```
-
-Start the server:
-```
-./rtsp-simple-server
-```
-
-Only publishers that provide both username and password will be able to publish:
-```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
-```
-
-It's also possible to set different credentials for each path:
-```yaml
-paths:
-  path1:
-    publishUser: admin
-    publishPass: mypassword
-
-  path2:
-    publishUser: admin
-    publishPass: mypassword
-```
-
-WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
-
-#### Remuxing, re-encoding, compression
-
-_rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
-
-To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path, and make the resulting stream available in the `/compressed` path, it is enough to launch _FFmpeg_ in parallel with _rtsp-simple-server_, with the following syntax:
-```
-ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
-```
-
-#### Counting clients
-
-The current number of clients, publishers and receivers is printed in each log line; for instance, the line:
-```
-2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
-```
-
-means that there are 2 clients, 1 publisher and 1 receiver.
-
-#### Full configuration file (conf.yml)
-
+To change the configuration, it's enough to create a file named `conf.yml` in the same folder of the executable. The default configuration is the following:
 ```yaml
 # supported stream protocols (the handshake is always performed with TCP)
 protocols: [udp, tcp]
@@ -159,6 +108,46 @@ paths:
     readIps: []
 
 ```
+
+#### Publisher authentication
+
+Create a file named `conf.yml` in the same folder of the executable, with the following content:
+```yaml
+paths:
+  all:
+    publishUser: admin
+    publishPass: mypassword
+```
+
+Start the server:
+```
+./rtsp-simple-server
+```
+
+Only publishers that provide both username and password will be able to publish:
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
+```
+
+WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
+
+#### Remuxing, re-encoding, compression
+
+_rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
+
+To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path, and make the resulting stream available in the `/compressed` path, it is enough to launch _FFmpeg_ in parallel with _rtsp-simple-server_, with the following syntax:
+```
+ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
+```
+
+#### Counting clients
+
+The current number of clients, publishers and receivers is printed in each log line; for instance, the line:
+```
+2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
+```
+
+means that there are 2 clients, 1 publisher and 1 receiver.
 
 #### Full command-line usage
 
