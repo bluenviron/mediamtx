@@ -141,7 +141,7 @@ postScript:
 pprof: false
 
 # these settings are path-dependent. The settings under the path 'all' are
-# applied to all paths that does not match another path in the map.
+# applied to all paths that do not match a specific entry.
 paths:
   all:
     # username required to publish
