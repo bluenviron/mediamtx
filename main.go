@@ -172,26 +172,32 @@ type programEventTerminate struct{}
 
 func (programEventTerminate) isProgramEvent() {}
 
-type conf struct {
-	Protocols    []string      `yaml:"protocols"`
-	RtspPort     int           `yaml:"rtspPort"`
-	RtpPort      int           `yaml:"rtpPort"`
-	RtcpPort     int           `yaml:"rtcpPort"`
-	PublishUser  string        `yaml:"publishUser"`
-	PublishPass  string        `yaml:"publishPass"`
-	PublishIps   []string      `yaml:"publishIps"`
-	ReadUser     string        `yaml:"readUser"`
-	ReadPass     string        `yaml:"readPass"`
-	ReadIps      []string      `yaml:"readIps"`
-	PreScript    string        `yaml:"preScript"`
-	PostScript   string        `yaml:"postScript"`
-	ReadTimeout  time.Duration `yaml:"readTimeout"`
-	WriteTimeout time.Duration `yaml:"writeTimeout"`
-	Pprof        bool          `yaml:"pprof"`
+type ConfPath struct {
+	PublishUser string   `yaml:"publishUser"`
+	PublishPass string   `yaml:"publishPass"`
+	PublishIps  []string `yaml:"publishIps"`
+	publishIps  []interface{}
+	ReadUser    string   `yaml:"readUser"`
+	ReadPass    string   `yaml:"readPass"`
+	ReadIps     []string `yaml:"readIps"`
+	readIps     []interface{}
 }
 
-func loadConf(confPath string, stdin io.Reader) (*conf, error) {
-	if confPath == "stdin" {
+type conf struct {
+	Protocols    []string             `yaml:"protocols"`
+	RtspPort     int                  `yaml:"rtspPort"`
+	RtpPort      int                  `yaml:"rtpPort"`
+	RtcpPort     int                  `yaml:"rtcpPort"`
+	ReadTimeout  time.Duration        `yaml:"readTimeout"`
+	WriteTimeout time.Duration        `yaml:"writeTimeout"`
+	PreScript    string               `yaml:"preScript"`
+	PostScript   string               `yaml:"postScript"`
+	Pprof        bool                 `yaml:"pprof"`
+	Paths        map[string]*ConfPath `yaml:"paths"`
+}
+
+func loadConf(fpath string, stdin io.Reader) (*conf, error) {
+	if fpath == "stdin" {
 		var ret conf
 		err := yaml.NewDecoder(stdin).Decode(&ret)
 		if err != nil {
@@ -202,13 +208,13 @@ func loadConf(confPath string, stdin io.Reader) (*conf, error) {
 
 	} else {
 		// conf.yml is optional
-		if confPath == "conf.yml" {
-			if _, err := os.Stat(confPath); err != nil {
+		if fpath == "conf.yml" {
+			if _, err := os.Stat(fpath); err != nil {
 				return &conf{}, nil
 			}
 		}
 
-		f, err := os.Open(confPath)
+		f, err := os.Open(fpath)
 		if err != nil {
 			return nil, err
 		}
@@ -227,8 +233,6 @@ func loadConf(confPath string, stdin io.Reader) (*conf, error) {
 type program struct {
 	conf           *conf
 	protocols      map[streamProtocol]struct{}
-	publishIps     []interface{}
-	readIps        []interface{}
 	tcpl           *serverTcpListener
 	udplRtp        *serverUdpListener
 	udplRtcp       *serverUdpListener
@@ -242,13 +246,13 @@ type program struct {
 }
 
 func newProgram(sargs []string, stdin io.Reader) (*program, error) {
-	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" +
-		"RTSP server."
+	k := kingpin.New("rtsp-simple-server",
+		"rtsp-simple-server "+Version+"\n\nRTSP server.")
 
-	argVersion := kingpin.Flag("version", "print version").Bool()
-	argConfPath := kingpin.Arg("confpath", "path to a config file. The default is conf.yml. Use 'stdin' to read config from stdin").Default("conf.yml").String()
+	argVersion := k.Flag("version", "print version").Bool()
+	argConfPath := k.Arg("confpath", "path to a config file. The default is conf.yml. Use 'stdin' to read config from stdin").Default("conf.yml").String()
 
-	kingpin.MustParse(kingpin.CommandLine.Parse(sargs))
+	kingpin.MustParse(k.Parse(sargs))
 
 	if *argVersion == true {
 		fmt.Println(Version)
@@ -290,7 +294,6 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 	if conf.RtspPort == 0 {
 		conf.RtspPort = 8554
 	}
-
 	if conf.RtpPort == 0 {
 		conf.RtpPort = 8000
 	}
@@ -304,47 +307,53 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		return nil, fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
 
-	if conf.PublishUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.PublishUser) {
-			return nil, fmt.Errorf("publish username must be alphanumeric")
+	if len(conf.Paths) == 0 {
+		conf.Paths = map[string]*ConfPath{
+			"all": {},
 		}
-	}
-	if conf.PublishPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.PublishPass) {
-			return nil, fmt.Errorf("publish password must be alphanumeric")
-		}
-	}
-	publishIps, err := parseIpCidrList(conf.PublishIps)
-	if err != nil {
-		return nil, err
 	}
 
-	if conf.ReadUser != "" && conf.ReadPass == "" || conf.ReadUser == "" && conf.ReadPass != "" {
-		return nil, fmt.Errorf("read username and password must be both filled")
-	}
-	if conf.ReadUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.ReadUser) {
-			return nil, fmt.Errorf("read username must be alphanumeric")
+	for _, pconf := range conf.Paths {
+		if pconf.PublishUser != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishUser) {
+				return nil, fmt.Errorf("publish username must be alphanumeric")
+			}
 		}
-	}
-	if conf.ReadPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.ReadPass) {
-			return nil, fmt.Errorf("read password must be alphanumeric")
+		if pconf.PublishPass != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishPass) {
+				return nil, fmt.Errorf("publish password must be alphanumeric")
+			}
 		}
-	}
-	if conf.ReadUser != "" && conf.ReadPass == "" || conf.ReadUser == "" && conf.ReadPass != "" {
-		return nil, fmt.Errorf("read username and password must be both filled")
-	}
-	readIps, err := parseIpCidrList(conf.ReadIps)
-	if err != nil {
-		return nil, err
+		pconf.publishIps, err = parseIpCidrList(pconf.PublishIps)
+		if err != nil {
+			return nil, err
+		}
+
+		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
+			return nil, fmt.Errorf("read username and password must be both filled")
+		}
+		if pconf.ReadUser != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadUser) {
+				return nil, fmt.Errorf("read username must be alphanumeric")
+			}
+		}
+		if pconf.ReadPass != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadPass) {
+				return nil, fmt.Errorf("read password must be alphanumeric")
+			}
+		}
+		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
+			return nil, fmt.Errorf("read username and password must be both filled")
+		}
+		pconf.readIps, err = parseIpCidrList(pconf.ReadIps)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	p := &program{
 		conf:       conf,
 		protocols:  protocols,
-		publishIps: publishIps,
-		readIps:    readIps,
 		clients:    make(map[*serverClient]struct{}),
 		publishers: make(map[string]*serverClient),
 		events:     make(chan programEvent),

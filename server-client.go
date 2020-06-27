@@ -264,7 +264,7 @@ func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass st
 			c.conn.WriteResponse(&gortsplib.Response{
 				StatusCode: gortsplib.StatusUnauthorized,
 				Header: gortsplib.Header{
-					"CSeq":             []string{req.Header["CSeq"][0]},
+					"CSeq":             req.Header["CSeq"],
 					"WWW-Authenticate": (*auth).GenerateHeader(),
 				},
 			})
@@ -280,6 +280,18 @@ func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass st
 	}()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (c *serverClient) findConfForPath(path string) *ConfPath {
+	if pconf, ok := c.p.conf.Paths[path]; ok {
+		return pconf
+	}
+
+	if pconf, ok := c.p.conf.Paths["all"]; ok {
+		return pconf
 	}
 
 	return nil
@@ -339,7 +351,14 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, c.p.conf.ReadUser, c.p.conf.ReadPass, &c.readAuth, c.p.readIps)
+		pconf := c.findConfForPath(path)
+		if pconf == nil {
+			c.writeResError(req, gortsplib.StatusBadRequest,
+				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
+			return false
+		}
+
+		err := c.validateAuth(req, pconf.ReadUser, pconf.ReadPass, &c.readAuth, pconf.readIps)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -373,7 +392,14 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, c.p.conf.PublishUser, c.p.conf.PublishPass, &c.publishAuth, c.p.publishIps)
+		pconf := c.findConfForPath(path)
+		if pconf == nil {
+			c.writeResError(req, gortsplib.StatusBadRequest,
+				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
+			return false
+		}
+
+		err := c.validateAuth(req, pconf.PublishUser, pconf.PublishPass, &c.publishAuth, pconf.publishIps)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -436,7 +462,14 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		switch c.state {
 		// play
 		case _CLIENT_STATE_STARTING, _CLIENT_STATE_PRE_PLAY:
-			err := c.validateAuth(req, c.p.conf.ReadUser, c.p.conf.ReadPass, &c.readAuth, c.p.readIps)
+			pconf := c.findConfForPath(path)
+			if pconf == nil {
+				c.writeResError(req, gortsplib.StatusBadRequest,
+					fmt.Errorf("unable to find a valid configuration for path '%s'", path))
+				return false
+			}
+
+			err := c.validateAuth(req, pconf.ReadUser, pconf.ReadPass, &c.readAuth, pconf.readIps)
 			if err != nil {
 				if err == errAuthCritical {
 					return false

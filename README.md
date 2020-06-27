@@ -56,19 +56,24 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port, by providing a configuration file:
-```
-docker run --rm -it -p 8554:8554 aler9/rtsp-simple-server stdin << EOF
+The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port, by creating a configuration file named `conf.yml` with the following content:
+```yaml
 protocols: [tcp]
-EOF
+```
+
+and passing it to the container:
+```
+docker run --rm -it -v $PWD/conf.yml:/conf.yml -p 8554:8554 aler9/rtsp-simple-server
 ```
 
 #### Publisher authentication
 
 Create a file named `conf.yml` in the same folder of the executable, with the following content:
 ```yaml
-publishUser: admin
-publishPass: mypassword
+paths:
+  all:
+    publishUser: admin
+    publishPass: mypassword
 ```
 
 Start the server:
@@ -77,9 +82,21 @@ Start the server:
 ```
 
 Only publishers that provide both username and password will be able to publish:
- ```
- ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
- ```
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
+```
+
+It's also possible to set different credentials for each path:
+```yaml
+paths:
+  path1:
+    publishUser: admin
+    publishPass: mypassword
+
+  path2:
+    publishUser: admin
+    publishPass: mypassword
+```
 
 WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
 
@@ -101,7 +118,7 @@ The current number of clients, publishers and receivers is printed in each log l
 
 means that there are 2 clients, 1 publisher and 1 receiver.
 
-#### Full configuration file
+#### Full configuration file (conf.yml)
 
 ```yaml
 # supported stream protocols (the handshake is always performed with TCP)
@@ -112,32 +129,35 @@ rtspPort: 8554
 rtpPort: 8000
 # port of the UDP rtcp listener
 rtcpPort: 8001
-
-# username required to publish
-publishUser:
-# password required to publish
-publishPass:
-# IPs or networks (x.x.x.x/24) allowed to publish
-publishIps: []
-
-# username required to read
-readUser:
-# password required to read
-readPass:
-# IPs or networks (x.x.x.x/24) allowed to read
-readIps: []
-
-# script to run when a client connects
-preScript:
-# script to run when a client disconnects
-postScript:
-
 # timeout of read operations
 readTimeout: 5s
 # timeout of write operations
 writeTimeout: 5s
+# script to run when a client connects
+preScript:
+# script to run when a client disconnects
+postScript:
 # enable pprof on port 9999 to monitor performance
 pprof: false
+
+# these settings are path-dependent. The settings under the path 'all' are
+# applied to all paths that does not match another path in the map.
+paths:
+  all:
+    # username required to publish
+    publishUser:
+    # password required to publish
+    publishPass:
+    # IPs or networks (x.x.x.x/24) allowed to publish
+    publishIps: []
+
+    # username required to read
+    readUser:
+    # password required to read
+    readPass:
+    # IPs or networks (x.x.x.x/24) allowed to read
+    readIps: []
+
 ```
 
 #### Full command-line usage
