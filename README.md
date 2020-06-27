@@ -119,6 +119,7 @@ Flags:
   --read-ips=""          comma-separated list of IPs or networks (x.x.x.x/24) that can read
   --pre-script=""        optional script to run on client connect
   --post-script=""       optional script to run on client disconnect
+  --pprof                enable pprof on port 9999 to monitor performance
 ```
 
 #### Compile and run from source

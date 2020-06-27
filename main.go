@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"regexp"
 	"strings"
@@ -186,6 +188,7 @@ type args struct {
 	readIps      string
 	preScript    string
 	postScript   string
+	pprof        bool
 }
 
 type program struct {
@@ -224,6 +227,7 @@ func newProgram(sargs []string) (*program, error) {
 	argReadIps := kingpin.Flag("read-ips", "comma-separated list of IPs or networks (x.x.x.x/24) that can read").Default("").String()
 	argPreScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
 	argPostScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
+	argPprof := kingpin.Flag("pprof", "enable pprof on port 9999 to monitor performance").Default("false").Bool()
 
 	kingpin.MustParse(kingpin.CommandLine.Parse(sargs))
 
@@ -243,6 +247,7 @@ func newProgram(sargs []string) (*program, error) {
 		readIps:      *argReadIps,
 		preScript:    *argPreScript,
 		postScript:   *argPostScript,
+		pprof:        *argPprof,
 	}
 
 	if args.version == true {
@@ -322,6 +327,18 @@ func newProgram(sargs []string) (*program, error) {
 	}
 
 	p.log("rtsp-simple-server %s", Version)
+
+	if args.pprof {
+		go func(mux *http.ServeMux) {
+			server := &http.Server{
+				Addr:    ":9999",
+				Handler: mux,
+			}
+			p.log("pprof is available on :9999")
+			panic(server.ListenAndServe())
+		}(http.DefaultServeMux)
+		http.DefaultServeMux = http.NewServeMux()
+	}
 
 	p.udplRtp, err = newServerUdpListener(p, args.rtpPort, _TRACK_FLOW_RTP)
 	if err != nil {
