@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net"
 	"time"
 )
@@ -47,7 +46,7 @@ func (l *serverUdpListener) log(format string, args ...interface{}) {
 	} else {
 		label = "RTCP"
 	}
-	log.Printf("[UDP/"+label+" listener] "+format, args...)
+	l.p.log("[UDP/"+label+" listener] "+format, args...)
 }
 
 func (l *serverUdpListener) run() {

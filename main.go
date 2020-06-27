@@ -189,15 +189,17 @@ type args struct {
 }
 
 type program struct {
-	args       args
-	protocols  map[streamProtocol]struct{}
-	publishIps []interface{}
-	readIps    []interface{}
-	tcpl       *serverTcpListener
-	udplRtp    *serverUdpListener
-	udplRtcp   *serverUdpListener
-	clients    map[*serverClient]struct{}
-	publishers map[string]*serverClient
+	args           args
+	protocols      map[streamProtocol]struct{}
+	publishIps     []interface{}
+	readIps        []interface{}
+	tcpl           *serverTcpListener
+	udplRtp        *serverUdpListener
+	udplRtcp       *serverUdpListener
+	clients        map[*serverClient]struct{}
+	publishers     map[string]*serverClient
+	publisherCount int
+	receiverCount  int
 
 	events chan programEvent
 	done   chan struct{}
@@ -308,8 +310,6 @@ func newProgram(sargs []string) (*program, error) {
 		return nil, err
 	}
 
-	log.Printf("rtsp-simple-server %s", Version)
-
 	p := &program{
 		args:       args,
 		protocols:  protocols,
@@ -320,6 +320,8 @@ func newProgram(sargs []string) (*program, error) {
 		events:     make(chan programEvent),
 		done:       make(chan struct{}),
 	}
+
+	p.log("rtsp-simple-server %s", Version)
 
 	p.udplRtp, err = newServerUdpListener(p, args.rtpPort, _TRACK_FLOW_RTP)
 	if err != nil {
@@ -344,6 +346,11 @@ func newProgram(sargs []string) (*program, error) {
 	return p, nil
 }
 
+func (p *program) log(format string, args ...interface{}) {
+	log.Printf("[%d/%d/%d] "+format, append([]interface{}{len(p.clients),
+		p.publisherCount, p.receiverCount}, args...)...)
+}
+
 func (p *program) run() {
 outer:
 	for rawEvt := range p.events {
@@ -351,6 +358,7 @@ outer:
 		case programEventClientNew:
 			c := newServerClient(p, evt.nconn)
 			p.clients[c] = struct{}{}
+			c.log("connected")
 
 		case programEventClientClose:
 			// already deleted
@@ -375,6 +383,15 @@ outer:
 				}
 			}
 
+			switch evt.client.state {
+			case _CLIENT_STATE_PLAY:
+				p.receiverCount -= 1
+
+			case _CLIENT_STATE_RECORD:
+				p.publisherCount -= 1
+			}
+
+			evt.client.log("disconnected")
 			close(evt.done)
 
 		case programEventClientGetStreamSdp:
@@ -444,14 +461,17 @@ outer:
 			evt.res <- nil
 
 		case programEventClientPlay2:
+			p.receiverCount += 1
 			evt.client.state = _CLIENT_STATE_PLAY
 			evt.res <- nil
 
 		case programEventClientPause:
+			p.receiverCount -= 1
 			evt.client.state = _CLIENT_STATE_PRE_PLAY
 			evt.res <- nil
 
 		case programEventClientRecord:
+			p.publisherCount += 1
 			evt.client.state = _CLIENT_STATE_RECORD
 			evt.res <- nil
 

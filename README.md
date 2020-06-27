@@ -84,6 +84,15 @@ To change the format, codec or compression of a stream, you can use _FFmpeg_ or 
 ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
 ```
 
+#### Counting clients
+
+The current number of clients, publishers and receivers is printed in each log line; for instance, the line:
+```
+2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
+```
+
+means that there are 2 clients, 1 publisher and 1 receiver.
+
 #### Full command-line usage
 
 ```

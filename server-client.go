@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"os/exec"
 	"strings"
@@ -108,9 +107,7 @@ func (c *serverClient) close() {
 }
 
 func (c *serverClient) log(format string, args ...interface{}) {
-	// keep remote address outside format, since it can contain %
-	log.Println("[RTSP client " + c.conn.NetConn().RemoteAddr().String() + "] " +
-		fmt.Sprintf(format, args...))
+	c.p.log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }
 
 func (c *serverClient) ip() net.IP {
@@ -122,8 +119,6 @@ func (c *serverClient) zone() string {
 }
 
 func (c *serverClient) run() {
-	c.log("connected")
-
 	if c.p.args.preScript != "" {
 		preScript := exec.Command(c.p.args.preScript)
 		err := preScript.Run()
@@ -147,11 +142,14 @@ func (c *serverClient) run() {
 		}
 	}
 
-	c.log("disconnected")
-
 	if c.udpCheckStreamTicker != nil {
 		c.udpCheckStreamTicker.Stop()
 	}
+
+	go func() {
+		for range c.write {
+		}
+	}()
 
 	func() {
 		if c.p.args.postScript != "" {
@@ -682,17 +680,17 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
+		// set state
+		res = make(chan error)
+		c.p.events <- programEventClientPlay2{res, c}
+		<-res
+
 		c.log("is receiving on path '%s', %d %s via %s", c.path, len(c.streamTracks), func() string {
 			if len(c.streamTracks) == 1 {
 				return "track"
 			}
 			return "tracks"
 		}(), c.streamProtocol)
-
-		// set state
-		res = make(chan error)
-		c.p.events <- programEventClientPlay2{res, c}
-		<-res
 
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
@@ -770,16 +768,16 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
+		res := make(chan error)
+		c.p.events <- programEventClientRecord{res, c}
+		<-res
+
 		c.log("is publishing on path '%s', %d %s via %s", c.path, len(c.streamTracks), func() string {
 			if len(c.streamTracks) == 1 {
 				return "track"
 			}
 			return "tracks"
 		}(), c.streamProtocol)
-
-		res := make(chan error)
-		c.p.events <- programEventClientRecord{res, c}
-		<-res
 
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		// receive RTP data and parse it

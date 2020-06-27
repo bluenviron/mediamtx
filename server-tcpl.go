@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net"
 )
 
@@ -31,7 +30,7 @@ func newServerTcpListener(p *program) (*serverTcpListener, error) {
 }
 
 func (l *serverTcpListener) log(format string, args ...interface{}) {
-	log.Printf("[TCP listener] "+format, args...)
+	l.p.log("[TCP listener] "+format, args...)
 }
 
 func (l *serverTcpListener) run() {
