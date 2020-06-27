@@ -14,9 +14,15 @@ type serverUdpListener struct {
 	p             *program
 	nconn         *net.UDPConn
 	trackFlowType trackFlowType
+	readBuf1      []byte
+	readBuf2      []byte
+	readCurBuf    bool
+	writeBuf1     []byte
+	writeBuf2     []byte
+	writeCurBuf   bool
 
-	write chan *udpWrite
-	done  chan struct{}
+	writec chan *udpWrite
+	done   chan struct{}
 }
 
 func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*serverUdpListener, error) {
@@ -31,7 +37,11 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 		p:             p,
 		nconn:         nconn,
 		trackFlowType: trackFlowType,
-		write:         make(chan *udpWrite),
+		readBuf1:      make([]byte, 2048),
+		readBuf2:      make([]byte, 2048),
+		writeBuf1:     make([]byte, 2048),
+		writeBuf2:     make([]byte, 2048),
+		writec:        make(chan *udpWrite),
 		done:          make(chan struct{}),
 	}
 
@@ -51,17 +61,21 @@ func (l *serverUdpListener) log(format string, args ...interface{}) {
 
 func (l *serverUdpListener) run() {
 	go func() {
-		for w := range l.write {
+		for w := range l.writec {
 			l.nconn.SetWriteDeadline(time.Now().Add(l.p.args.writeTimeout))
 			l.nconn.WriteTo(w.buf, w.addr)
 		}
 	}()
 
 	for {
-		// create a buffer for each read.
-		// this is necessary since the buffer is propagated with channels
-		// so it must be unique.
-		buf := make([]byte, 2048) // UDP MTU is 1400
+		var buf []byte
+		if !l.readCurBuf {
+			buf = l.readBuf1
+		} else {
+			buf = l.readBuf2
+		}
+		l.readCurBuf = !l.readCurBuf
+
 		n, addr, err := l.nconn.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -74,7 +88,7 @@ func (l *serverUdpListener) run() {
 		}
 	}
 
-	close(l.write)
+	close(l.writec)
 
 	close(l.done)
 }
@@ -82,4 +96,22 @@ func (l *serverUdpListener) run() {
 func (l *serverUdpListener) close() {
 	l.nconn.Close()
 	<-l.done
+}
+
+func (l *serverUdpListener) write(addr *net.UDPAddr, inbuf []byte) {
+	var buf []byte
+	if !l.writeCurBuf {
+		buf = l.writeBuf1
+	} else {
+		buf = l.writeBuf2
+	}
+
+	buf = buf[:len(inbuf)]
+	copy(buf, inbuf)
+	l.writeCurBuf = !l.writeCurBuf
+
+	l.writec <- &udpWrite{
+		addr: addr,
+		buf:  buf,
+	}
 }

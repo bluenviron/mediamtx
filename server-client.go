@@ -79,9 +79,15 @@ type serverClient struct {
 	streamTracks         []*track
 	udpLastFrameTime     time.Time
 	udpCheckStreamTicker *time.Ticker
+	readBuf1             []byte
+	readBuf2             []byte
+	readCurBuf           bool
+	writeBuf1            []byte
+	writeBuf2            []byte
+	writeCurBuf          bool
 
-	write chan *gortsplib.InterleavedFrame
-	done  chan struct{}
+	writec chan *gortsplib.InterleavedFrame
+	done   chan struct{}
 }
 
 func newServerClient(p *program, nconn net.Conn) *serverClient {
@@ -92,18 +98,17 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 			ReadTimeout:  p.args.readTimeout,
 			WriteTimeout: p.args.writeTimeout,
 		}),
-		state: _CLIENT_STATE_STARTING,
-		write: make(chan *gortsplib.InterleavedFrame),
-		done:  make(chan struct{}),
+		state:     _CLIENT_STATE_STARTING,
+		readBuf1:  make([]byte, 0, 512*1024),
+		readBuf2:  make([]byte, 0, 512*1024),
+		writeBuf1: make([]byte, 2048),
+		writeBuf2: make([]byte, 2048),
+		writec:    make(chan *gortsplib.InterleavedFrame),
+		done:      make(chan struct{}),
 	}
 
 	go c.run()
 	return c
-}
-
-func (c *serverClient) close() {
-	c.conn.NetConn().Close()
-	<-c.done
 }
 
 func (c *serverClient) log(format string, args ...interface{}) {
@@ -147,7 +152,7 @@ func (c *serverClient) run() {
 	}
 
 	go func() {
-		for range c.write {
+		for range c.writec {
 		}
 	}()
 
@@ -165,9 +170,32 @@ func (c *serverClient) run() {
 	c.p.events <- programEventClientClose{done, c}
 	<-done
 
-	close(c.write)
+	close(c.writec)
 
 	close(c.done)
+}
+
+func (c *serverClient) close() {
+	c.conn.NetConn().Close()
+	<-c.done
+}
+
+func (c *serverClient) writeFrame(channel uint8, inbuf []byte) {
+	var buf []byte
+	if !c.writeCurBuf {
+		buf = c.writeBuf1
+	} else {
+		buf = c.writeBuf2
+	}
+
+	buf = buf[:len(inbuf)]
+	copy(buf, inbuf)
+	c.writeCurBuf = !c.writeCurBuf
+
+	c.writec <- &gortsplib.InterleavedFrame{
+		Channel: channel,
+		Content: buf,
+	}
 }
 
 func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.StatusCode, err error) {
@@ -696,7 +724,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
 			// write RTP frames sequentially
 			go func() {
-				for frame := range c.write {
+				for frame := range c.writec {
 					c.conn.WriteInterleavedFrame(frame)
 				}
 			}()
@@ -782,8 +810,18 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		// receive RTP data and parse it
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
+			frame := &gortsplib.InterleavedFrame{}
 			for {
-				frame, err := c.conn.ReadInterleavedFrame()
+				if !c.readCurBuf {
+					frame.Content = c.readBuf1
+				} else {
+					frame.Content = c.readBuf2
+				}
+
+				frame.Content = frame.Content[:cap(frame.Content)]
+				c.readCurBuf = !c.readCurBuf
+
+				err := c.conn.ReadInterleavedFrame(frame)
 				if err != nil {
 					if err != io.EOF {
 						c.log("ERR: %s", err)
