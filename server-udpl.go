@@ -12,14 +12,15 @@ type udpWrite struct {
 }
 
 type serverUdpListener struct {
-	p     *program
-	nconn *net.UDPConn
-	flow  trackFlow
+	p             *program
+	nconn         *net.UDPConn
+	trackFlowType trackFlowType
+
 	write chan *udpWrite
 	done  chan struct{}
 }
 
-func newServerUdpListener(p *program, port int, flow trackFlow) (*serverUdpListener, error) {
+func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*serverUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -28,11 +29,11 @@ func newServerUdpListener(p *program, port int, flow trackFlow) (*serverUdpListe
 	}
 
 	l := &serverUdpListener{
-		p:     p,
-		nconn: nconn,
-		flow:  flow,
-		write: make(chan *udpWrite),
-		done:  make(chan struct{}),
+		p:             p,
+		nconn:         nconn,
+		trackFlowType: trackFlowType,
+		write:         make(chan *udpWrite),
+		done:          make(chan struct{}),
 	}
 
 	l.log("opened on :%d", port)
@@ -41,7 +42,7 @@ func newServerUdpListener(p *program, port int, flow trackFlow) (*serverUdpListe
 
 func (l *serverUdpListener) log(format string, args ...interface{}) {
 	var label string
-	if l.flow == _TRACK_FLOW_RTP {
+	if l.trackFlowType == _TRACK_FLOW_RTP {
 		label = "RTP"
 	} else {
 		label = "RTCP"
@@ -67,40 +68,11 @@ func (l *serverUdpListener) run() {
 			break
 		}
 
-		func() {
-			l.p.tcpl.mutex.Lock()
-			defer l.p.tcpl.mutex.Unlock()
-
-			// find publisher and track id from ip and port
-			pub, trackId := func() (*serverClient, int) {
-				for _, pub := range l.p.tcpl.publishers {
-					if pub.streamProtocol != _STREAM_PROTOCOL_UDP ||
-						pub.state != _CLIENT_STATE_RECORD ||
-						!pub.ip().Equal(addr.IP) {
-						continue
-					}
-
-					for i, t := range pub.streamTracks {
-						if l.flow == _TRACK_FLOW_RTP {
-							if t.rtpPort == addr.Port {
-								return pub, i
-							}
-						} else {
-							if t.rtcpPort == addr.Port {
-								return pub, i
-							}
-						}
-					}
-				}
-				return nil, -1
-			}()
-			if pub == nil {
-				return
-			}
-
-			pub.udpLastFrameTime = time.Now()
-			l.p.tcpl.forwardTrack(pub.path, trackId, l.flow, buf[:n])
-		}()
+		l.p.events <- programEventFrameUdp{
+			l.trackFlowType,
+			addr,
+			buf[:n],
+		}
 	}
 
 	close(l.write)

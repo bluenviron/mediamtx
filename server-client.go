@@ -19,15 +19,15 @@ const (
 	_UDP_STREAM_DEAD_AFTER     = 10 * time.Second
 )
 
-func interleavedChannelToTrack(channel uint8) (int, trackFlow) {
+func interleavedChannelToTrack(channel uint8) (int, trackFlowType) {
 	if (channel % 2) == 0 {
 		return int(channel / 2), _TRACK_FLOW_RTP
 	}
 	return int((channel - 1) / 2), _TRACK_FLOW_RTCP
 }
 
-func trackToInterleavedChannel(id int, flow trackFlow) uint8 {
-	if flow == _TRACK_FLOW_RTP {
+func trackToInterleavedChannel(id int, trackFlowType trackFlowType) uint8 {
+	if trackFlowType == _TRACK_FLOW_RTP {
 		return uint8(id * 2)
 	}
 	return uint8((id * 2) + 1)
@@ -80,8 +80,9 @@ type serverClient struct {
 	streamTracks         []*track
 	udpLastFrameTime     time.Time
 	udpCheckStreamTicker *time.Ticker
-	write                chan *gortsplib.InterleavedFrame
-	done                 chan struct{}
+
+	write chan *gortsplib.InterleavedFrame
+	done  chan struct{}
 }
 
 func newServerClient(p *program, nconn net.Conn) *serverClient {
@@ -97,39 +98,13 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 		done:  make(chan struct{}),
 	}
 
-	c.p.tcpl.mutex.Lock()
-	c.p.tcpl.clients[c] = struct{}{}
-	c.p.tcpl.mutex.Unlock()
-
 	go c.run()
-
 	return c
 }
 
-func (c *serverClient) close() error {
-	// already deleted
-	if _, ok := c.p.tcpl.clients[c]; !ok {
-		return nil
-	}
-
-	delete(c.p.tcpl.clients, c)
+func (c *serverClient) close() {
 	c.conn.NetConn().Close()
-	close(c.write)
-
-	if c.path != "" {
-		if pub, ok := c.p.tcpl.publishers[c.path]; ok && pub == c {
-			delete(c.p.tcpl.publishers, c.path)
-
-			// if the publisher has disconnected
-			// close all other connections that share the same path
-			for oc := range c.p.tcpl.clients {
-				if oc.path == c.path {
-					oc.close()
-				}
-			}
-		}
-	}
-	return nil
+	<-c.done
 }
 
 func (c *serverClient) log(format string, args ...interface{}) {
@@ -172,17 +147,11 @@ func (c *serverClient) run() {
 		}
 	}
 
-	func() {
-		c.p.tcpl.mutex.Lock()
-		defer c.p.tcpl.mutex.Unlock()
-		c.close()
-	}()
+	c.log("disconnected")
 
 	if c.udpCheckStreamTicker != nil {
 		c.udpCheckStreamTicker.Stop()
 	}
-
-	c.log("disconnected")
 
 	func() {
 		if c.p.args.postScript != "" {
@@ -194,6 +163,12 @@ func (c *serverClient) run() {
 		}
 	}()
 
+	done := make(chan struct{})
+	c.p.events <- programEventClientClose{done, c}
+	<-done
+
+	close(c.write)
+
 	close(c.done)
 }
 
@@ -202,7 +177,7 @@ func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.Stat
 
 	header := gortsplib.Header{}
 	if cseq, ok := req.Header["CSeq"]; ok && len(cseq) == 1 {
-		header["CSeq"] = []string{cseq[0]}
+		header["CSeq"] = cseq
 	}
 
 	c.conn.WriteResponse(&gortsplib.Response{
@@ -317,7 +292,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
-				"CSeq": []string{cseq[0]},
+				"CSeq": cseq,
 				"Public": []string{strings.Join([]string{
 					string(gortsplib.DESCRIBE),
 					string(gortsplib.ANNOUNCE),
@@ -346,26 +321,18 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return true
 		}
 
-		sdp, err := func() ([]byte, error) {
-			c.p.tcpl.mutex.RLock()
-			defer c.p.tcpl.mutex.RUnlock()
-
-			pub, ok := c.p.tcpl.publishers[path]
-			if !ok {
-				return nil, fmt.Errorf("no one is streaming on path '%s'", path)
-			}
-
-			return pub.streamSdpText, nil
-		}()
-		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, err)
+		res := make(chan []byte)
+		c.p.events <- programEventClientGetStreamSdp{path, res}
+		sdp := <-res
+		if sdp == nil {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no one is streaming on path '%s'", path))
 			return false
 		}
 
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
-				"CSeq":         []string{cseq[0]},
+				"CSeq":         cseq,
 				"Content-Base": []string{req.Url.String()},
 				"Content-Type": []string{"application/sdp"},
 			},
@@ -404,25 +371,16 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return false
 		}
-
 		sdpParsed, req.Content = gortsplib.SDPFilter(sdpParsed, req.Content)
 
-		err = func() error {
-			c.p.tcpl.mutex.Lock()
-			defer c.p.tcpl.mutex.Unlock()
+		if len(path) == 0 {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path can't be empty"))
+			return false
+		}
 
-			_, ok := c.p.tcpl.publishers[path]
-			if ok {
-				return fmt.Errorf("another client is already publishing on path '%s'", path)
-			}
-
-			c.path = path
-			c.p.tcpl.publishers[path] = c
-			c.streamSdpText = req.Content
-			c.streamSdpParsed = sdpParsed
-			c.state = _CLIENT_STATE_ANNOUNCE
-			return nil
-		}()
+		res := make(chan error)
+		c.p.events <- programEventClientAnnounce{res, c, path, req.Content, sdpParsed}
+		err = <-res
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, err)
 			return false
@@ -431,7 +389,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
-				"CSeq": []string{cseq[0]},
+				"CSeq": cseq,
 			},
 		})
 		return true
@@ -488,33 +446,14 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				err := func() error {
-					c.p.tcpl.mutex.Lock()
-					defer c.p.tcpl.mutex.Unlock()
+				if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
+					return false
+				}
 
-					pub, ok := c.p.tcpl.publishers[path]
-					if !ok {
-						return fmt.Errorf("no one is streaming on path '%s'", path)
-					}
-
-					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
-						return fmt.Errorf("client wants to read tracks with different protocols")
-					}
-
-					if len(c.streamTracks) >= len(pub.streamSdpParsed.Medias) {
-						return fmt.Errorf("all the tracks have already been setup")
-					}
-
-					c.path = path
-					c.streamProtocol = _STREAM_PROTOCOL_UDP
-					c.streamTracks = append(c.streamTracks, &track{
-						rtpPort:  rtpPort,
-						rtcpPort: rtcpPort,
-					})
-
-					c.state = _CLIENT_STATE_PRE_PLAY
-					return nil
-				}()
+				res := make(chan error)
+				c.p.events <- programEventClientSetupPlay{res, c, path, _STREAM_PROTOCOL_UDP, rtpPort, rtcpPort}
+				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
@@ -523,7 +462,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": []string{cseq[0]},
+						"CSeq": cseq,
 						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/UDP",
 							"unicast",
@@ -547,33 +486,14 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				err := func() error {
-					c.p.tcpl.mutex.Lock()
-					defer c.p.tcpl.mutex.Unlock()
+				if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
+					return false
+				}
 
-					pub, ok := c.p.tcpl.publishers[path]
-					if !ok {
-						return fmt.Errorf("no one is streaming on path '%s'", path)
-					}
-
-					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
-						return fmt.Errorf("client wants to read tracks with different protocols")
-					}
-
-					if len(c.streamTracks) >= len(pub.streamSdpParsed.Medias) {
-						return fmt.Errorf("all the tracks have already been setup")
-					}
-
-					c.path = path
-					c.streamProtocol = _STREAM_PROTOCOL_TCP
-					c.streamTracks = append(c.streamTracks, &track{
-						rtpPort:  0,
-						rtcpPort: 0,
-					})
-
-					c.state = _CLIENT_STATE_PRE_PLAY
-					return nil
-				}()
+				res := make(chan error)
+				c.p.events <- programEventClientSetupPlay{res, c, path, _STREAM_PROTOCOL_TCP, 0, 0}
+				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
@@ -584,7 +504,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": []string{cseq[0]},
+						"CSeq": cseq,
 						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/TCP",
 							"unicast",
@@ -607,6 +527,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}
 
+			// after ANNOUNCE, c.path is already set
 			if path != c.path {
 				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed"))
 				return false
@@ -635,27 +556,19 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				err := func() error {
-					c.p.tcpl.mutex.Lock()
-					defer c.p.tcpl.mutex.Unlock()
+				if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
+					return false
+				}
 
-					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_UDP {
-						return fmt.Errorf("client wants to publish tracks with different protocols")
-					}
+				if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
+					return false
+				}
 
-					if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
-						return fmt.Errorf("all the tracks have already been setup")
-					}
-
-					c.streamProtocol = _STREAM_PROTOCOL_UDP
-					c.streamTracks = append(c.streamTracks, &track{
-						rtpPort:  rtpPort,
-						rtcpPort: rtcpPort,
-					})
-
-					c.state = _CLIENT_STATE_PRE_RECORD
-					return nil
-				}()
+				res := make(chan error)
+				c.p.events <- programEventClientSetupRecord{res, c, _STREAM_PROTOCOL_UDP, rtpPort, rtcpPort}
+				err := <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
@@ -664,7 +577,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": []string{cseq[0]},
+						"CSeq": cseq,
 						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/UDP",
 							"unicast",
@@ -683,38 +596,31 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				var interleaved string
-				err := func() error {
-					c.p.tcpl.mutex.Lock()
-					defer c.p.tcpl.mutex.Unlock()
+				if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
+					return false
+				}
 
-					if len(c.streamTracks) > 0 && c.streamProtocol != _STREAM_PROTOCOL_TCP {
-						return fmt.Errorf("client wants to publish tracks with different protocols")
-					}
+				interleaved := th.GetValue("interleaved")
+				if interleaved == "" {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain the interleaved field"))
+					return false
+				}
 
-					if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
-						return fmt.Errorf("all the tracks have already been setup")
-					}
+				expInterleaved := fmt.Sprintf("%d-%d", 0+len(c.streamTracks)*2, 1+len(c.streamTracks)*2)
+				if interleaved != expInterleaved {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("wrong interleaved value, expected '%s', got '%s'", expInterleaved, interleaved))
+					return false
+				}
 
-					interleaved = th.GetValue("interleaved")
-					if interleaved == "" {
-						return fmt.Errorf("transport header does not contain interleaved field")
-					}
+				if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
+					return false
+				}
 
-					expInterleaved := fmt.Sprintf("%d-%d", 0+len(c.streamTracks)*2, 1+len(c.streamTracks)*2)
-					if interleaved != expInterleaved {
-						return fmt.Errorf("wrong interleaved value, expected '%s', got '%s'", expInterleaved, interleaved)
-					}
-
-					c.streamProtocol = _STREAM_PROTOCOL_TCP
-					c.streamTracks = append(c.streamTracks, &track{
-						rtpPort:  0,
-						rtcpPort: 0,
-					})
-
-					c.state = _CLIENT_STATE_PRE_RECORD
-					return nil
-				}()
+				res := make(chan error)
+				c.p.events <- programEventClientSetupRecord{res, c, _STREAM_PROTOCOL_TCP, 0, 0}
+				err := <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
@@ -723,7 +629,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": []string{cseq[0]},
+						"CSeq": cseq,
 						"Transport": []string{strings.Join([]string{
 							"RTP/AVP/TCP",
 							"unicast",
@@ -756,33 +662,22 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := func() error {
-			c.p.tcpl.mutex.Lock()
-			defer c.p.tcpl.mutex.Unlock()
-
-			pub, ok := c.p.tcpl.publishers[c.path]
-			if !ok {
-				return fmt.Errorf("no one is streaming on path '%s'", c.path)
-			}
-
-			if len(c.streamTracks) != len(pub.streamSdpParsed.Medias) {
-				return fmt.Errorf("not all tracks have been setup")
-			}
-
-			return nil
-		}()
+		// check publisher existence
+		res := make(chan error)
+		c.p.events <- programEventClientPlay1{res, c}
+		err := <-res
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, err)
 			return false
 		}
 
-		// first write response, then set state
-		// otherwise, in case of TCP connections, RTP packets could be written
+		// write response before setting state
+		// otherwise, in case of TCP connections, RTP packets could be sent
 		// before the response
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
-				"CSeq":    []string{cseq[0]},
+				"CSeq":    cseq,
 				"Session": []string{"12345678"},
 			},
 		})
@@ -794,9 +689,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return "tracks"
 		}(), c.streamProtocol)
 
-		c.p.tcpl.mutex.Lock()
-		c.state = _CLIENT_STATE_PLAY
-		c.p.tcpl.mutex.Unlock()
+		// set state
+		res = make(chan error)
+		c.p.events <- programEventClientPlay2{res, c}
+		<-res
 
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
@@ -836,14 +732,14 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 		c.log("paused")
 
-		c.p.tcpl.mutex.Lock()
-		c.state = _CLIENT_STATE_PRE_PLAY
-		c.p.tcpl.mutex.Unlock()
+		res := make(chan error)
+		c.p.events <- programEventClientPause{res, c}
+		<-res
 
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
-				"CSeq":    []string{cseq[0]},
+				"CSeq":    cseq,
 				"Session": []string{"12345678"},
 			},
 		})
@@ -861,25 +757,15 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := func() error {
-			c.p.tcpl.mutex.Lock()
-			defer c.p.tcpl.mutex.Unlock()
-
-			if len(c.streamTracks) != len(c.streamSdpParsed.Medias) {
-				return fmt.Errorf("not all tracks have been setup")
-			}
-
-			return nil
-		}()
-		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, err)
+		if len(c.streamTracks) != len(c.streamSdpParsed.Medias) {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return false
 		}
 
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
-				"CSeq":    []string{cseq[0]},
+				"CSeq":    cseq,
 				"Session": []string{"12345678"},
 			},
 		})
@@ -891,13 +777,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return "tracks"
 		}(), c.streamProtocol)
 
+		res := make(chan error)
+		c.p.events <- programEventClientRecord{res, c}
+		<-res
+
 		// when protocol is TCP, the RTSP connection becomes a RTP connection
 		// receive RTP data and parse it
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
-			c.p.tcpl.mutex.Lock()
-			c.state = _CLIENT_STATE_RECORD
-			c.p.tcpl.mutex.Unlock()
-
 			for {
 				frame, err := c.conn.ReadInterleavedFrame()
 				if err != nil {
@@ -907,37 +793,27 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				trackId, trackFlow := interleavedChannelToTrack(frame.Channel)
+				trackId, trackFlowType := interleavedChannelToTrack(frame.Channel)
 
 				if trackId >= len(c.streamTracks) {
 					c.log("ERR: invalid track id '%d'", trackId)
 					return false
 				}
 
-				c.p.tcpl.mutex.RLock()
-				c.p.tcpl.forwardTrack(c.path, trackId, trackFlow, frame.Content)
-				c.p.tcpl.mutex.RUnlock()
+				c.p.events <- programEventFrameTcp{
+					c.path,
+					trackId,
+					trackFlowType,
+					frame.Content,
+				}
 			}
 		} else {
-			c.p.tcpl.mutex.Lock()
-			c.state = _CLIENT_STATE_RECORD
 			c.udpLastFrameTime = time.Now()
 			c.udpCheckStreamTicker = time.NewTicker(_UDP_CHECK_STREAM_INTERVAL)
-			c.p.tcpl.mutex.Unlock()
 
 			go func() {
 				for range c.udpCheckStreamTicker.C {
-					ok := func() bool {
-						c.p.tcpl.mutex.Lock()
-						defer c.p.tcpl.mutex.Unlock()
-
-						if time.Since(c.udpLastFrameTime) >= _UDP_STREAM_DEAD_AFTER {
-							return false
-						}
-
-						return true
-					}()
-					if !ok {
+					if time.Since(c.udpLastFrameTime) >= _UDP_STREAM_DEAD_AFTER {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						break

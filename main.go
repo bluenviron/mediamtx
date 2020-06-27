@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
+	"gortc.io/sdp"
 )
 
 var Version = "v0.0.0"
@@ -38,10 +40,10 @@ func parseIpCidrList(in string) ([]interface{}, error) {
 	return ret, nil
 }
 
-type trackFlow int
+type trackFlowType int
 
 const (
-	_TRACK_FLOW_RTP trackFlow = iota
+	_TRACK_FLOW_RTP trackFlowType = iota
 	_TRACK_FLOW_RTCP
 )
 
@@ -63,6 +65,110 @@ func (s streamProtocol) String() string {
 	}
 	return "tcp"
 }
+
+type programEvent interface {
+	isProgramEvent()
+}
+
+type programEventClientNew struct {
+	nconn net.Conn
+}
+
+func (programEventClientNew) isProgramEvent() {}
+
+type programEventClientClose struct {
+	done   chan struct{}
+	client *serverClient
+}
+
+func (programEventClientClose) isProgramEvent() {}
+
+type programEventClientGetStreamSdp struct {
+	path string
+	res  chan []byte
+}
+
+func (programEventClientGetStreamSdp) isProgramEvent() {}
+
+type programEventClientAnnounce struct {
+	res       chan error
+	client    *serverClient
+	path      string
+	sdpText   []byte
+	sdpParsed *sdp.Message
+}
+
+func (programEventClientAnnounce) isProgramEvent() {}
+
+type programEventClientSetupPlay struct {
+	res      chan error
+	client   *serverClient
+	path     string
+	protocol streamProtocol
+	rtpPort  int
+	rtcpPort int
+}
+
+func (programEventClientSetupPlay) isProgramEvent() {}
+
+type programEventClientSetupRecord struct {
+	res      chan error
+	client   *serverClient
+	protocol streamProtocol
+	rtpPort  int
+	rtcpPort int
+}
+
+func (programEventClientSetupRecord) isProgramEvent() {}
+
+type programEventClientPlay1 struct {
+	res    chan error
+	client *serverClient
+}
+
+func (programEventClientPlay1) isProgramEvent() {}
+
+type programEventClientPlay2 struct {
+	res    chan error
+	client *serverClient
+}
+
+func (programEventClientPlay2) isProgramEvent() {}
+
+type programEventClientPause struct {
+	res    chan error
+	client *serverClient
+}
+
+func (programEventClientPause) isProgramEvent() {}
+
+type programEventClientRecord struct {
+	res    chan error
+	client *serverClient
+}
+
+func (programEventClientRecord) isProgramEvent() {}
+
+type programEventFrameUdp struct {
+	trackFlowType trackFlowType
+	addr          *net.UDPAddr
+	buf           []byte
+}
+
+func (programEventFrameUdp) isProgramEvent() {}
+
+type programEventFrameTcp struct {
+	path          string
+	trackId       int
+	trackFlowType trackFlowType
+	buf           []byte
+}
+
+func (programEventFrameTcp) isProgramEvent() {}
+
+type programEventTerminate struct{}
+
+func (programEventTerminate) isProgramEvent() {}
 
 type args struct {
 	version      bool
@@ -90,6 +196,11 @@ type program struct {
 	tcpl       *serverTcpListener
 	udplRtp    *serverUdpListener
 	udplRtcp   *serverUdpListener
+	clients    map[*serverClient]struct{}
+	publishers map[string]*serverClient
+
+	events chan programEvent
+	done   chan struct{}
 }
 
 func newProgram(sargs []string) (*program, error) {
@@ -204,6 +315,10 @@ func newProgram(sargs []string) (*program, error) {
 		protocols:  protocols,
 		publishIps: publishIps,
 		readIps:    readIps,
+		clients:    make(map[*serverClient]struct{}),
+		publishers: make(map[string]*serverClient),
+		events:     make(chan programEvent),
+		done:       make(chan struct{}),
 	}
 
 	p.udplRtp, err = newServerUdpListener(p, args.rtpPort, _TRACK_FLOW_RTP)
@@ -224,14 +339,243 @@ func newProgram(sargs []string) (*program, error) {
 	go p.udplRtp.run()
 	go p.udplRtcp.run()
 	go p.tcpl.run()
+	go p.run()
 
 	return p, nil
 }
 
-func (p *program) close() {
+func (p *program) run() {
+outer:
+	for rawEvt := range p.events {
+		switch evt := rawEvt.(type) {
+		case programEventClientNew:
+			c := newServerClient(p, evt.nconn)
+			p.clients[c] = struct{}{}
+
+		case programEventClientClose:
+			// already deleted
+			if _, ok := p.clients[evt.client]; !ok {
+				close(evt.done)
+				continue
+			}
+
+			delete(p.clients, evt.client)
+
+			if evt.client.path != "" {
+				if pub, ok := p.publishers[evt.client.path]; ok && pub == evt.client {
+					delete(p.publishers, evt.client.path)
+
+					// if the publisher has disconnected
+					// close all other connections that share the same path
+					for oc := range p.clients {
+						if oc.path == evt.client.path {
+							go oc.close()
+						}
+					}
+				}
+			}
+
+			close(evt.done)
+
+		case programEventClientGetStreamSdp:
+			pub, ok := p.publishers[evt.path]
+			if !ok {
+				evt.res <- nil
+				continue
+			}
+			evt.res <- pub.streamSdpText
+
+		case programEventClientAnnounce:
+			_, ok := p.publishers[evt.path]
+			if ok {
+				evt.res <- fmt.Errorf("another client is already publishing on path '%s'", evt.path)
+				continue
+			}
+
+			evt.client.path = evt.path
+			evt.client.streamSdpText = evt.sdpText
+			evt.client.streamSdpParsed = evt.sdpParsed
+			evt.client.state = _CLIENT_STATE_ANNOUNCE
+			p.publishers[evt.path] = evt.client
+			evt.res <- nil
+
+		case programEventClientSetupPlay:
+			pub, ok := p.publishers[evt.path]
+			if !ok {
+				evt.res <- fmt.Errorf("no one is streaming on path '%s'", evt.path)
+				continue
+			}
+
+			if len(evt.client.streamTracks) >= len(pub.streamSdpParsed.Medias) {
+				evt.res <- fmt.Errorf("all the tracks have already been setup")
+				continue
+			}
+
+			evt.client.path = evt.path
+			evt.client.streamProtocol = evt.protocol
+			evt.client.streamTracks = append(evt.client.streamTracks, &track{
+				rtpPort:  evt.rtpPort,
+				rtcpPort: evt.rtcpPort,
+			})
+			evt.client.state = _CLIENT_STATE_PRE_PLAY
+			evt.res <- nil
+
+		case programEventClientSetupRecord:
+			evt.client.streamProtocol = evt.protocol
+			evt.client.streamTracks = append(evt.client.streamTracks, &track{
+				rtpPort:  evt.rtpPort,
+				rtcpPort: evt.rtcpPort,
+			})
+			evt.client.state = _CLIENT_STATE_PRE_RECORD
+			evt.res <- nil
+
+		case programEventClientPlay1:
+			pub, ok := p.publishers[evt.client.path]
+			if !ok {
+				evt.res <- fmt.Errorf("no one is streaming on path '%s'", evt.client.path)
+				continue
+			}
+
+			if len(evt.client.streamTracks) != len(pub.streamSdpParsed.Medias) {
+				evt.res <- fmt.Errorf("not all tracks have been setup")
+				continue
+			}
+
+			evt.res <- nil
+
+		case programEventClientPlay2:
+			evt.client.state = _CLIENT_STATE_PLAY
+			evt.res <- nil
+
+		case programEventClientPause:
+			evt.client.state = _CLIENT_STATE_PRE_PLAY
+			evt.res <- nil
+
+		case programEventClientRecord:
+			evt.client.state = _CLIENT_STATE_RECORD
+			evt.res <- nil
+
+		case programEventFrameUdp:
+			// find publisher and track id from ip and port
+			pub, trackId := func() (*serverClient, int) {
+				for _, pub := range p.publishers {
+					if pub.streamProtocol != _STREAM_PROTOCOL_UDP ||
+						pub.state != _CLIENT_STATE_RECORD ||
+						!pub.ip().Equal(evt.addr.IP) {
+						continue
+					}
+
+					for i, t := range pub.streamTracks {
+						if evt.trackFlowType == _TRACK_FLOW_RTP {
+							if t.rtpPort == evt.addr.Port {
+								return pub, i
+							}
+						} else {
+							if t.rtcpPort == evt.addr.Port {
+								return pub, i
+							}
+						}
+					}
+				}
+				return nil, -1
+			}()
+			if pub == nil {
+				continue
+			}
+
+			pub.udpLastFrameTime = time.Now()
+			p.forwardTrack(pub.path, trackId, evt.trackFlowType, evt.buf)
+
+		case programEventFrameTcp:
+			p.forwardTrack(evt.path, evt.trackId, evt.trackFlowType, evt.buf)
+
+		case programEventTerminate:
+			break outer
+		}
+	}
+
+	go func() {
+		for rawEvt := range p.events {
+			switch evt := rawEvt.(type) {
+			case programEventClientClose:
+				close(evt.done)
+
+			case programEventClientGetStreamSdp:
+				evt.res <- nil
+
+			case programEventClientAnnounce:
+				evt.res <- fmt.Errorf("terminated")
+
+			case programEventClientSetupPlay:
+				evt.res <- fmt.Errorf("terminated")
+
+			case programEventClientSetupRecord:
+				evt.res <- fmt.Errorf("terminated")
+
+			case programEventClientPlay1:
+				evt.res <- fmt.Errorf("terminated")
+
+			case programEventClientPlay2:
+				evt.res <- fmt.Errorf("terminated")
+
+			case programEventClientPause:
+				evt.res <- fmt.Errorf("terminated")
+
+			case programEventClientRecord:
+				evt.res <- fmt.Errorf("terminated")
+			}
+		}
+	}()
+
 	p.tcpl.close()
 	p.udplRtcp.close()
 	p.udplRtp.close()
+
+	for c := range p.clients {
+		c.close()
+	}
+
+	close(p.events)
+	close(p.done)
+}
+
+func (p *program) close() {
+	p.events <- programEventTerminate{}
+	<-p.done
+}
+
+func (p *program) forwardTrack(path string, id int, trackFlowType trackFlowType, frame []byte) {
+	for c := range p.clients {
+		if c.path == path && c.state == _CLIENT_STATE_PLAY {
+			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
+				if trackFlowType == _TRACK_FLOW_RTP {
+					p.udplRtp.write <- &udpWrite{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[id].rtpPort,
+						},
+						buf: frame,
+					}
+				} else {
+					p.udplRtcp.write <- &udpWrite{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[id].rtcpPort,
+						},
+						buf: frame,
+					}
+				}
+
+			} else {
+				c.write <- &gortsplib.InterleavedFrame{
+					Channel: trackToInterleavedChannel(id, trackFlowType),
+					Content: frame,
+				}
+			}
+		}
+	}
 }
 
 func main() {
