@@ -2,28 +2,29 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"regexp"
-	"strings"
 	"time"
 
 	"gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/yaml.v2"
 	"gortc.io/sdp"
 )
 
 var Version = "v0.0.0"
 
-func parseIpCidrList(in string) ([]interface{}, error) {
-	if in == "" {
+func parseIpCidrList(in []string) ([]interface{}, error) {
+	if len(in) == 0 {
 		return nil, nil
 	}
 
 	var ret []interface{}
-	for _, t := range strings.Split(in, ",") {
+	for _, t := range in {
 		_, ipnet, err := net.ParseCIDR(t)
 		if err == nil {
 			ret = append(ret, ipnet)
@@ -171,27 +172,60 @@ type programEventTerminate struct{}
 
 func (programEventTerminate) isProgramEvent() {}
 
-type args struct {
-	version      bool
-	protocolsStr string
-	rtspPort     int
-	rtpPort      int
-	rtcpPort     int
-	readTimeout  time.Duration
-	writeTimeout time.Duration
-	publishUser  string
-	publishPass  string
-	publishIps   string
-	readUser     string
-	readPass     string
-	readIps      string
-	preScript    string
-	postScript   string
-	pprof        bool
+type conf struct {
+	Protocols    []string      `yaml:"protocols"`
+	RtspPort     int           `yaml:"rtspPort"`
+	RtpPort      int           `yaml:"rtpPort"`
+	RtcpPort     int           `yaml:"rtcpPort"`
+	PublishUser  string        `yaml:"publishUser"`
+	PublishPass  string        `yaml:"publishPass"`
+	PublishIps   []string      `yaml:"publishIps"`
+	ReadUser     string        `yaml:"readUser"`
+	ReadPass     string        `yaml:"readPass"`
+	ReadIps      []string      `yaml:"readIps"`
+	PreScript    string        `yaml:"preScript"`
+	PostScript   string        `yaml:"postScript"`
+	ReadTimeout  time.Duration `yaml:"readTimeout"`
+	WriteTimeout time.Duration `yaml:"writeTimeout"`
+	Pprof        bool          `yaml:"pprof"`
+}
+
+func loadConf(confPath string, stdin io.Reader) (*conf, error) {
+	if confPath == "stdin" {
+		var ret conf
+		err := yaml.NewDecoder(stdin).Decode(&ret)
+		if err != nil {
+			return nil, err
+		}
+
+		return &ret, nil
+
+	} else {
+		// conf.yml is optional
+		if confPath == "conf.yml" {
+			if _, err := os.Stat(confPath); err != nil {
+				return &conf{}, nil
+			}
+		}
+
+		f, err := os.Open(confPath)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		var ret conf
+		err = yaml.NewDecoder(f).Decode(&ret)
+		if err != nil {
+			return nil, err
+		}
+
+		return &ret, nil
+	}
 }
 
 type program struct {
-	args           args
+	conf           *conf
 	protocols      map[streamProtocol]struct{}
 	publishIps     []interface{}
 	readIps        []interface{}
@@ -207,55 +241,37 @@ type program struct {
 	done   chan struct{}
 }
 
-func newProgram(sargs []string) (*program, error) {
+func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 	kingpin.CommandLine.Help = "rtsp-simple-server " + Version + "\n\n" +
 		"RTSP server."
 
 	argVersion := kingpin.Flag("version", "print version").Bool()
-	argProtocolsStr := kingpin.Flag("protocols", "supported protocols").Default("udp,tcp").String()
-	argRtspPort := kingpin.Flag("rtsp-port", "port of the RTSP TCP listener").Default("8554").Int()
-	argRtpPort := kingpin.Flag("rtp-port", "port of the RTP UDP listener").Default("8000").Int()
-	argRtcpPort := kingpin.Flag("rtcp-port", "port of the RTCP UDP listener").Default("8001").Int()
-	argReadTimeout := kingpin.Flag("read-timeout", "timeout of read operations").Default("5s").Duration()
-	argWriteTimeout := kingpin.Flag("write-timeout", "timeout of write operations").Default("5s").Duration()
-	argPublishUser := kingpin.Flag("publish-user", "optional username required to publish").Default("").String()
-	argPublishPass := kingpin.Flag("publish-pass", "optional password required to publish").Default("").String()
-	argPublishIps := kingpin.Flag("publish-ips", "comma-separated list of IPs or networks (x.x.x.x/24) that can publish").Default("").String()
-	argReadUser := kingpin.Flag("read-user", "optional username required to read").Default("").String()
-	argReadPass := kingpin.Flag("read-pass", "optional password required to read").Default("").String()
-	argReadIps := kingpin.Flag("read-ips", "comma-separated list of IPs or networks (x.x.x.x/24) that can read").Default("").String()
-	argPreScript := kingpin.Flag("pre-script", "optional script to run on client connect").Default("").String()
-	argPostScript := kingpin.Flag("post-script", "optional script to run on client disconnect").Default("").String()
-	argPprof := kingpin.Flag("pprof", "enable pprof on port 9999 to monitor performance").Default("false").Bool()
+	argConfPath := kingpin.Arg("confpath", "path to a config file. The default is conf.yml. Use 'stdin' to read config from stdin").Default("conf.yml").String()
 
 	kingpin.MustParse(kingpin.CommandLine.Parse(sargs))
 
-	args := args{
-		version:      *argVersion,
-		protocolsStr: *argProtocolsStr,
-		rtspPort:     *argRtspPort,
-		rtpPort:      *argRtpPort,
-		rtcpPort:     *argRtcpPort,
-		readTimeout:  *argReadTimeout,
-		writeTimeout: *argWriteTimeout,
-		publishUser:  *argPublishUser,
-		publishPass:  *argPublishPass,
-		publishIps:   *argPublishIps,
-		readUser:     *argReadUser,
-		readPass:     *argReadPass,
-		readIps:      *argReadIps,
-		preScript:    *argPreScript,
-		postScript:   *argPostScript,
-		pprof:        *argPprof,
-	}
-
-	if args.version == true {
+	if *argVersion == true {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
 
+	conf, err := loadConf(*argConfPath, stdin)
+	if err != nil {
+		return nil, err
+	}
+
+	if conf.ReadTimeout == 0 {
+		conf.ReadTimeout = 5 * time.Second
+	}
+	if conf.WriteTimeout == 0 {
+		conf.WriteTimeout = 5 * time.Second
+	}
+
+	if len(conf.Protocols) == 0 {
+		conf.Protocols = []string{"udp", "tcp"}
+	}
 	protocols := make(map[streamProtocol]struct{})
-	for _, proto := range strings.Split(args.protocolsStr, ",") {
+	for _, proto := range conf.Protocols {
 		switch proto {
 		case "udp":
 			protocols[_STREAM_PROTOCOL_UDP] = struct{}{}
@@ -271,51 +287,61 @@ func newProgram(sargs []string) (*program, error) {
 		return nil, fmt.Errorf("no protocols provided")
 	}
 
-	if (args.rtpPort % 2) != 0 {
+	if conf.RtspPort == 0 {
+		conf.RtspPort = 8554
+	}
+
+	if conf.RtpPort == 0 {
+		conf.RtpPort = 8000
+	}
+	if (conf.RtpPort % 2) != 0 {
 		return nil, fmt.Errorf("rtp port must be even")
 	}
-	if args.rtcpPort != (args.rtpPort + 1) {
+	if conf.RtcpPort == 0 {
+		conf.RtcpPort = 8001
+	}
+	if conf.RtcpPort != (conf.RtpPort + 1) {
 		return nil, fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
 
-	if args.publishUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.publishUser) {
+	if conf.PublishUser != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.PublishUser) {
 			return nil, fmt.Errorf("publish username must be alphanumeric")
 		}
 	}
-	if args.publishPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.publishPass) {
+	if conf.PublishPass != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.PublishPass) {
 			return nil, fmt.Errorf("publish password must be alphanumeric")
 		}
 	}
-	publishIps, err := parseIpCidrList(args.publishIps)
+	publishIps, err := parseIpCidrList(conf.PublishIps)
 	if err != nil {
 		return nil, err
 	}
 
-	if args.readUser != "" && args.readPass == "" || args.readUser == "" && args.readPass != "" {
+	if conf.ReadUser != "" && conf.ReadPass == "" || conf.ReadUser == "" && conf.ReadPass != "" {
 		return nil, fmt.Errorf("read username and password must be both filled")
 	}
-	if args.readUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.readUser) {
+	if conf.ReadUser != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.ReadUser) {
 			return nil, fmt.Errorf("read username must be alphanumeric")
 		}
 	}
-	if args.readPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(args.readPass) {
+	if conf.ReadPass != "" {
+		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(conf.ReadPass) {
 			return nil, fmt.Errorf("read password must be alphanumeric")
 		}
 	}
-	if args.readUser != "" && args.readPass == "" || args.readUser == "" && args.readPass != "" {
+	if conf.ReadUser != "" && conf.ReadPass == "" || conf.ReadUser == "" && conf.ReadPass != "" {
 		return nil, fmt.Errorf("read username and password must be both filled")
 	}
-	readIps, err := parseIpCidrList(args.readIps)
+	readIps, err := parseIpCidrList(conf.ReadIps)
 	if err != nil {
 		return nil, err
 	}
 
 	p := &program{
-		args:       args,
+		conf:       conf,
 		protocols:  protocols,
 		publishIps: publishIps,
 		readIps:    readIps,
@@ -327,7 +353,7 @@ func newProgram(sargs []string) (*program, error) {
 
 	p.log("rtsp-simple-server %s", Version)
 
-	if args.pprof {
+	if conf.Pprof {
 		go func(mux *http.ServeMux) {
 			server := &http.Server{
 				Addr:    ":9999",
@@ -339,12 +365,12 @@ func newProgram(sargs []string) (*program, error) {
 		http.DefaultServeMux = http.NewServeMux()
 	}
 
-	p.udplRtp, err = newServerUdpListener(p, args.rtpPort, _TRACK_FLOW_RTP)
+	p.udplRtp, err = newServerUdpListener(p, conf.RtpPort, _TRACK_FLOW_RTP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.udplRtcp, err = newServerUdpListener(p, args.rtcpPort, _TRACK_FLOW_RTCP)
+	p.udplRtcp, err = newServerUdpListener(p, conf.RtcpPort, _TRACK_FLOW_RTCP)
 	if err != nil {
 		return nil, err
 	}
@@ -607,7 +633,7 @@ func (p *program) forwardTrack(path string, id int, trackFlowType trackFlowType,
 }
 
 func main() {
-	_, err := newProgram(os.Args[1:])
+	_, err := newProgram(os.Args[1:], os.Stdin)
 	if err != nil {
 		log.Fatal("ERR: ", err)
 	}

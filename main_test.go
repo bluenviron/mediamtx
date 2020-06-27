@@ -97,7 +97,7 @@ func TestProtocols(t *testing.T) {
 		{"tcp", "tcp"},
 	} {
 		t.Run(pair[0]+"_"+pair[1], func(t *testing.T) {
-			p, err := newProgram([]string{})
+			p, err := newProgram([]string{}, bytes.NewBuffer(nil))
 			require.NoError(t, err)
 			defer p.close()
 
@@ -139,11 +139,11 @@ func TestProtocols(t *testing.T) {
 }
 
 func TestPublishAuth(t *testing.T) {
-	p, err := newProgram([]string{
-		"--publish-user=testuser",
-		"--publish-pass=testpass",
-		"--publish-ips=172.17.0.0/16",
-	})
+	stdin := []byte("\n" +
+		"publishUser: testuser\n" +
+		"publishPass: testpass\n" +
+		"publishIps: [172.17.0.0/16]\n")
+	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
 	require.NoError(t, err)
 	defer p.close()
 
@@ -183,11 +183,11 @@ func TestPublishAuth(t *testing.T) {
 }
 
 func TestReadAuth(t *testing.T) {
-	p, err := newProgram([]string{
-		"--read-user=testuser",
-		"--read-pass=testpass",
-		"--read-ips=172.17.0.0/16",
-	})
+	stdin := []byte("\n" +
+		"readUser: testuser\n" +
+		"readPass: testpass\n" +
+		"readIps: [172.17.0.0/16]\n")
+	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
 	require.NoError(t, err)
 	defer p.close()
 

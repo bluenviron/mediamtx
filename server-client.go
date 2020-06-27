@@ -95,8 +95,8 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
 			NConn:        nconn,
-			ReadTimeout:  p.args.readTimeout,
-			WriteTimeout: p.args.writeTimeout,
+			ReadTimeout:  p.conf.ReadTimeout,
+			WriteTimeout: p.conf.WriteTimeout,
 		}),
 		state:     _CLIENT_STATE_STARTING,
 		readBuf1:  make([]byte, 0, 512*1024),
@@ -124,8 +124,8 @@ func (c *serverClient) zone() string {
 }
 
 func (c *serverClient) run() {
-	if c.p.args.preScript != "" {
-		preScript := exec.Command(c.p.args.preScript)
+	if c.p.conf.PreScript != "" {
+		preScript := exec.Command(c.p.conf.PreScript)
 		err := preScript.Run()
 		if err != nil {
 			c.log("ERR: %s", err)
@@ -157,8 +157,8 @@ func (c *serverClient) run() {
 	}()
 
 	func() {
-		if c.p.args.postScript != "" {
-			postScript := exec.Command(c.p.args.postScript)
+		if c.p.conf.PostScript != "" {
+			postScript := exec.Command(c.p.conf.PostScript)
 			err := postScript.Run()
 			if err != nil {
 				c.log("ERR: %s", err)
@@ -339,7 +339,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, c.p.args.readUser, c.p.args.readPass, &c.readAuth, c.p.readIps)
+		err := c.validateAuth(req, c.p.conf.ReadUser, c.p.conf.ReadPass, &c.readAuth, c.p.readIps)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -373,7 +373,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, c.p.args.publishUser, c.p.args.publishPass, &c.publishAuth, c.p.publishIps)
+		err := c.validateAuth(req, c.p.conf.PublishUser, c.p.conf.PublishPass, &c.publishAuth, c.p.publishIps)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -436,7 +436,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		switch c.state {
 		// play
 		case _CLIENT_STATE_STARTING, _CLIENT_STATE_PRE_PLAY:
-			err := c.validateAuth(req, c.p.args.readUser, c.p.args.readPass, &c.readAuth, c.p.readIps)
+			err := c.validateAuth(req, c.p.conf.ReadUser, c.p.conf.ReadPass, &c.readAuth, c.p.readIps)
 			if err != nil {
 				if err == errAuthCritical {
 					return false
@@ -493,7 +493,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							fmt.Sprintf("server_port=%d-%d", c.p.args.rtpPort, c.p.args.rtcpPort),
+							fmt.Sprintf("server_port=%d-%d", c.p.conf.RtpPort, c.p.conf.RtcpPort),
 						}, ";")},
 						"Session": []string{"12345678"},
 					},
@@ -608,7 +608,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							fmt.Sprintf("server_port=%d-%d", c.p.args.rtpPort, c.p.args.rtcpPort),
+							fmt.Sprintf("server_port=%d-%d", c.p.conf.RtpPort, c.p.conf.RtcpPort),
 						}, ";")},
 						"Session": []string{"12345678"},
 					},

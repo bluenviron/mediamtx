@@ -56,19 +56,27 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port:
+The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port, by providing a configuration file:
 ```
-docker run --rm -it -p 8554:8554 aler9/rtsp-simple-server --protocols=tcp
+docker run --rm -it -p 8554:8554 aler9/rtsp-simple-server stdin << EOF
+protocols: [tcp]
+EOF
 ```
 
 #### Publisher authentication
 
-Start the server and set a username and a password:
-```
-./rtsp-simple-server --publish-user=admin --publish-pass=mypassword
+Create a file named `conf.yml` in the same folder of the executable, with the following content:
+```yaml
+publishUser: admin
+publishPass: mypassword
 ```
 
-Only publishers that know both username and password will be able to publish:
+Start the server:
+```
+./rtsp-simple-server
+```
+
+Only publishers that provide both username and password will be able to publish:
  ```
  ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
  ```
@@ -93,6 +101,45 @@ The current number of clients, publishers and receivers is printed in each log l
 
 means that there are 2 clients, 1 publisher and 1 receiver.
 
+#### Full configuration file
+
+```yaml
+# supported stream protocols (the handshake is always performed with TCP)
+protocols: [udp, tcp]
+# port of the TCP rtsp listener
+rtspPort: 8554
+# port of the UDP rtp listener
+rtpPort: 8000
+# port of the UDP rtcp listener
+rtcpPort: 8001
+
+# username required to publish
+publishUser:
+# password required to publish
+publishPass:
+# IPs or networks (x.x.x.x/24) allowed to publish
+publishIps: []
+
+# username required to read
+readUser:
+# password required to read
+readPass:
+# IPs or networks (x.x.x.x/24) allowed to read
+readIps: []
+
+# script to run when a client connects
+preScript:
+# script to run when a client disconnects
+postScript:
+
+# timeout of read operations
+readTimeout: 5s
+# timeout of write operations
+writeTimeout: 5s
+# enable pprof on port 9999 to monitor performance
+pprof: false
+```
+
 #### Full command-line usage
 
 ```
@@ -103,23 +150,12 @@ rtsp-simple-server v0.0.0
 RTSP server.
 
 Flags:
-  --help                 Show context-sensitive help (also try --help-long and --help-man).
-  --version              print version
-  --protocols="udp,tcp"  supported protocols
-  --rtsp-port=8554       port of the RTSP TCP listener
-  --rtp-port=8000        port of the RTP UDP listener
-  --rtcp-port=8001       port of the RTCP UDP listener
-  --read-timeout=5s      timeout of read operations
-  --write-timeout=5s     timeout of write operations
-  --publish-user=""      optional username required to publish
-  --publish-pass=""      optional password required to publish
-  --publish-ips=""       comma-separated list of IPs or networks (x.x.x.x/24) that can publish
-  --read-user=""         optional username required to read
-  --read-pass=""         optional password required to read
-  --read-ips=""          comma-separated list of IPs or networks (x.x.x.x/24) that can read
-  --pre-script=""        optional script to run on client connect
-  --post-script=""       optional script to run on client disconnect
-  --pprof                enable pprof on port 9999 to monitor performance
+  --help     Show context-sensitive help (also try --help-long and --help-man).
+  --version  print version
+
+Args:
+  [<confpath>]  path to a config file. The default is conf.yml. Use 'stdin' to
+                read config from stdin
 ```
 
 #### Compile and run from source
