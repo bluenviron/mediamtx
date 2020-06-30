@@ -164,7 +164,6 @@ make run
 ## Links
 
 Related projects
-* https://github.com/aler9/rtsp-simple-proxy
 * https://github.com/aler9/gortsplib
 * https://github.com/flaviostutz/rtsp-relay
 
