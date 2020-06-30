@@ -81,7 +81,7 @@ func (l *serverUdpListener) run() {
 			break
 		}
 
-		l.p.events <- programEventFrameUdp{
+		l.p.events <- programEventClientFrameUdp{
 			l.trackFlowType,
 			addr,
 			buf[:n],

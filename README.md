@@ -3,12 +3,13 @@
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/rtsp-simple-server)](https://goreportcard.com/report/github.com/aler9/rtsp-simple-server)
 [![Build Status](https://travis-ci.org/aler9/rtsp-simple-server.svg?branch=master)](https://travis-ci.org/aler9/rtsp-simple-server)
-[![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--proxy-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
+[![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server, a software that allows multiple users to publish and read live video and audio streams. RTSP is a standardized protocol that defines how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol. The server is then responsible of relaying the publisher streams to the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server and RTSP proxy, a software that allows multiple users to publish and read live video and audio streams. RTSP is a standardized protocol that defines how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol. The server is then responsible of relaying the publisher streams to the readers.
 
 Features:
 * Read and publish streams via UDP and TCP
+* Pull and serve streams from other RTSP servers (RTSP proxy)
 * Each stream can have multiple video and audio tracks, encoded in any format
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Supports the RTP/RTCP streaming protocol
@@ -66,50 +67,33 @@ docker run --rm -it -v $PWD/conf.yml:/conf.yml -p 8554:8554 aler9/rtsp-simple-se
 
 #### Full configuration file
 
-To change the configuration, it's enough to create a file named `conf.yml` in the same folder of the executable. The default configuration is the following:
+To change the configuration, it's enough to edit the file `conf.yml`, provided with the executable. The default configuration is [available here](conf.yml).
+
+#### Usage as an RTSP Proxy
+
+An RTSP proxy is usually deployed in one of these scenarios:
+* when there are multiple users that are receiving a stream and the bandwidth is limited, so the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
+* when there's a NAT / firewall between a stream and the users, in this case the proxy is installed in the NAT and makes the stream available to the outside world.
+
+Edit `conf.yml` and replace everything inside section `paths` with the following content:
 ```yaml
-# supported stream protocols (the handshake is always performed with TCP)
-protocols: [udp, tcp]
-# port of the TCP rtsp listener
-rtspPort: 8554
-# port of the UDP rtp listener
-rtpPort: 8000
-# port of the UDP rtcp listener
-rtcpPort: 8001
-# timeout of read operations
-readTimeout: 5s
-# timeout of write operations
-writeTimeout: 5s
-# script to run when a client connects
-preScript:
-# script to run when a client disconnects
-postScript:
-# enable pprof on port 9999 to monitor performance
-pprof: false
-
-# these settings are path-dependent. The settings under the path 'all' are
-# applied to all paths that do not match a specific entry.
 paths:
-  all:
-    # username required to publish
-    publishUser:
-    # password required to publish
-    publishPass:
-    # IPs or networks (x.x.x.x/24) allowed to publish
-    publishIps: []
-
-    # username required to read
-    readUser:
-    # password required to read
-    readPass:
-    # IPs or networks (x.x.x.x/24) allowed to read
-    readIps: []
-
+  # insert one or more entries
+  proxied:
+    # url of the source stream, in the format rtsp://user:pass@host:port/path
+    source: rtsp://original-url
 ```
+
+Start the server:
+```
+./rtsp-simple-server
+```
+
+Users can then connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url.
 
 #### Publisher authentication
 
-Create a file named `conf.yml` in the same folder of the executable, with the following content:
+Edit `conf.yml` and replace everything inside section `paths` with the following content:
 ```yaml
 paths:
   all:

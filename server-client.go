@@ -123,6 +123,18 @@ func (c *serverClient) zone() string {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
 }
 
+func (c *serverClient) publisherIsReady() bool {
+	return c.state == _CLIENT_STATE_RECORD
+}
+
+func (c *serverClient) publisherSdpText() []byte {
+	return c.streamSdpText
+}
+
+func (c *serverClient) publisherSdpParsed() *sdp.Message {
+	return c.streamSdpParsed
+}
+
 func (c *serverClient) run() {
 	if c.p.conf.PreScript != "" {
 		preScript := exec.Command(c.p.conf.PreScript)
@@ -367,7 +379,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		res := make(chan []byte)
-		c.p.events <- programEventClientGetStreamSdp{path, res}
+		c.p.events <- programEventClientDescribe{path, res}
 		sdp := <-res
 		if sdp == nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no one is streaming on path '%s'", path))
@@ -431,12 +443,15 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		res := make(chan error)
-		c.p.events <- programEventClientAnnounce{res, c, path, req.Content, sdpParsed}
+		c.p.events <- programEventClientAnnounce{res, c, path}
 		err = <-res
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, err)
 			return false
 		}
+
+		c.streamSdpText = req.Content
+		c.streamSdpParsed = sdpParsed
 
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
@@ -869,7 +884,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				c.p.events <- programEventFrameTcp{
+				c.p.events <- programEventClientFrameTcp{
 					c.path,
 					trackId,
 					trackFlowType,

@@ -1,0 +1,44 @@
+
+# supported stream protocols (the handshake is always performed with TCP)
+protocols: [udp, tcp]
+# port of the TCP rtsp listener
+rtspPort: 8554
+# port of the UDP rtp listener
+rtpPort: 8000
+# port of the UDP rtcp listener
+rtcpPort: 8001
+# timeout of read operations
+readTimeout: 5s
+# timeout of write operations
+writeTimeout: 5s
+# script to run when a client connects
+preScript:
+# script to run when a client disconnects
+postScript:
+# enable pprof on port 9999 to monitor performance
+pprof: false
+
+# these settings are path-dependent. The settings under the path 'all' are
+# applied to all paths that do not match a specific entry.
+paths:
+  all:
+    # source of the stream - this can be:
+    # * record -> the stream is provided by a client through the RECORD command (like ffmpeg)
+    # * rtsp://url -> the stream is pulled from another RTSP server
+    source: record
+    # if the source is an RTSP url, this is the protocol that will be used to pull the stream
+    sourceProtocol: udp
+
+    # username required to publish
+    publishUser:
+    # password required to publish
+    publishPass:
+    # IPs or networks (x.x.x.x/24) allowed to publish
+    publishIps: []
+
+    # username required to read
+    readUser:
+    # password required to read
+    readPass:
+    # IPs or networks (x.x.x.x/24) allowed to read
+    readIps: []

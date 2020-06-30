@@ -85,19 +85,17 @@ type programEventClientClose struct {
 
 func (programEventClientClose) isProgramEvent() {}
 
-type programEventClientGetStreamSdp struct {
+type programEventClientDescribe struct {
 	path string
 	res  chan []byte
 }
 
-func (programEventClientGetStreamSdp) isProgramEvent() {}
+func (programEventClientDescribe) isProgramEvent() {}
 
 type programEventClientAnnounce struct {
-	res       chan error
-	client    *serverClient
-	path      string
-	sdpText   []byte
-	sdpParsed *sdp.Message
+	res    chan error
+	client *serverClient
+	path   string
 }
 
 func (programEventClientAnnounce) isProgramEvent() {}
@@ -151,36 +149,59 @@ type programEventClientRecord struct {
 
 func (programEventClientRecord) isProgramEvent() {}
 
-type programEventFrameUdp struct {
+type programEventClientFrameUdp struct {
 	trackFlowType trackFlowType
 	addr          *net.UDPAddr
 	buf           []byte
 }
 
-func (programEventFrameUdp) isProgramEvent() {}
+func (programEventClientFrameUdp) isProgramEvent() {}
 
-type programEventFrameTcp struct {
+type programEventClientFrameTcp struct {
 	path          string
 	trackId       int
 	trackFlowType trackFlowType
 	buf           []byte
 }
 
-func (programEventFrameTcp) isProgramEvent() {}
+func (programEventClientFrameTcp) isProgramEvent() {}
+
+type programEventStreamerReady struct {
+	streamer *streamer
+}
+
+func (programEventStreamerReady) isProgramEvent() {}
+
+type programEventStreamerNotReady struct {
+	streamer *streamer
+}
+
+func (programEventStreamerNotReady) isProgramEvent() {}
+
+type programEventStreamerFrame struct {
+	streamer      *streamer
+	trackId       int
+	trackFlowType trackFlowType
+	buf           []byte
+}
+
+func (programEventStreamerFrame) isProgramEvent() {}
 
 type programEventTerminate struct{}
 
 func (programEventTerminate) isProgramEvent() {}
 
 type ConfPath struct {
-	PublishUser string   `yaml:"publishUser"`
-	PublishPass string   `yaml:"publishPass"`
-	PublishIps  []string `yaml:"publishIps"`
-	publishIps  []interface{}
-	ReadUser    string   `yaml:"readUser"`
-	ReadPass    string   `yaml:"readPass"`
-	ReadIps     []string `yaml:"readIps"`
-	readIps     []interface{}
+	Source         string   `yaml:"source"`
+	SourceProtocol string   `yaml:"sourceProtocol"`
+	PublishUser    string   `yaml:"publishUser"`
+	PublishPass    string   `yaml:"publishPass"`
+	PublishIps     []string `yaml:"publishIps"`
+	publishIps     []interface{}
+	ReadUser       string   `yaml:"readUser"`
+	ReadPass       string   `yaml:"readPass"`
+	ReadIps        []string `yaml:"readIps"`
+	readIps        []interface{}
 }
 
 type conf struct {
@@ -230,6 +251,13 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 }
 
+// a publisher can be either a serverClient or a streamer
+type publisher interface {
+	publisherIsReady() bool
+	publisherSdpText() []byte
+	publisherSdpParsed() *sdp.Message
+}
+
 type program struct {
 	conf           *conf
 	protocols      map[streamProtocol]struct{}
@@ -237,7 +265,8 @@ type program struct {
 	udplRtp        *serverUdpListener
 	udplRtcp       *serverUdpListener
 	clients        map[*serverClient]struct{}
-	publishers     map[string]*serverClient
+	streamers      []*streamer
+	publishers     map[string]publisher
 	publisherCount int
 	receiverCount  int
 
@@ -313,7 +342,20 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		}
 	}
 
-	for _, pconf := range conf.Paths {
+	p := &program{
+		conf:       conf,
+		protocols:  protocols,
+		clients:    make(map[*serverClient]struct{}),
+		publishers: make(map[string]publisher),
+		events:     make(chan programEvent),
+		done:       make(chan struct{}),
+	}
+
+	for path, pconf := range conf.Paths {
+		if pconf.Source == "" {
+			pconf.Source = "record"
+		}
+
 		if pconf.PublishUser != "" {
 			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishUser) {
 				return nil, fmt.Errorf("publish username must be alphanumeric")
@@ -349,15 +391,24 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	p := &program{
-		conf:       conf,
-		protocols:  protocols,
-		clients:    make(map[*serverClient]struct{}),
-		publishers: make(map[string]*serverClient),
-		events:     make(chan programEvent),
-		done:       make(chan struct{}),
+		if pconf.Source != "record" {
+			if path == "all" {
+				return nil, fmt.Errorf("path 'all' cannot have a RTSP source")
+			}
+
+			if pconf.SourceProtocol == "" {
+				pconf.SourceProtocol = "udp"
+			}
+
+			s, err := newStreamer(p, path, pconf.Source, pconf.SourceProtocol)
+			if err != nil {
+				return nil, err
+			}
+
+			p.streamers = append(p.streamers, s)
+			p.publishers[path] = s
+		}
 	}
 
 	p.log("rtsp-simple-server %s", Version)
@@ -392,6 +443,9 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 	go p.udplRtp.run()
 	go p.udplRtcp.run()
 	go p.tcpl.run()
+	for _, s := range p.streamers {
+		go s.run()
+	}
 	go p.run()
 
 	return p, nil
@@ -424,11 +478,13 @@ outer:
 				if pub, ok := p.publishers[evt.client.path]; ok && pub == evt.client {
 					delete(p.publishers, evt.client.path)
 
-					// if the publisher has disconnected
-					// close all other connections that share the same path
-					for oc := range p.clients {
-						if oc.path == evt.client.path {
-							go oc.close()
+					// if the publisher has disconnected and was ready
+					// close all other clients that share the same path
+					if pub.publisherIsReady() {
+						for oc := range p.clients {
+							if oc.path == evt.client.path {
+								go oc.close()
+							}
 						}
 					}
 				}
@@ -445,36 +501,37 @@ outer:
 			evt.client.log("disconnected")
 			close(evt.done)
 
-		case programEventClientGetStreamSdp:
+		case programEventClientDescribe:
 			pub, ok := p.publishers[evt.path]
-			if !ok {
+			if !ok || !pub.publisherIsReady() {
 				evt.res <- nil
 				continue
 			}
-			evt.res <- pub.streamSdpText
+
+			evt.res <- pub.publisherSdpText()
 
 		case programEventClientAnnounce:
 			_, ok := p.publishers[evt.path]
 			if ok {
-				evt.res <- fmt.Errorf("another client is already publishing on path '%s'", evt.path)
+				evt.res <- fmt.Errorf("someone is already publishing on path '%s'", evt.path)
 				continue
 			}
 
 			evt.client.path = evt.path
-			evt.client.streamSdpText = evt.sdpText
-			evt.client.streamSdpParsed = evt.sdpParsed
 			evt.client.state = _CLIENT_STATE_ANNOUNCE
 			p.publishers[evt.path] = evt.client
 			evt.res <- nil
 
 		case programEventClientSetupPlay:
 			pub, ok := p.publishers[evt.path]
-			if !ok {
+			if !ok || !pub.publisherIsReady() {
 				evt.res <- fmt.Errorf("no one is streaming on path '%s'", evt.path)
 				continue
 			}
 
-			if len(evt.client.streamTracks) >= len(pub.streamSdpParsed.Medias) {
+			sdpParsed := pub.publisherSdpParsed()
+
+			if len(evt.client.streamTracks) >= len(sdpParsed.Medias) {
 				evt.res <- fmt.Errorf("all the tracks have already been setup")
 				continue
 			}
@@ -499,12 +556,14 @@ outer:
 
 		case programEventClientPlay1:
 			pub, ok := p.publishers[evt.client.path]
-			if !ok {
+			if !ok || !pub.publisherIsReady() {
 				evt.res <- fmt.Errorf("no one is streaming on path '%s'", evt.client.path)
 				continue
 			}
 
-			if len(evt.client.streamTracks) != len(pub.streamSdpParsed.Medias) {
+			sdpParsed := pub.publisherSdpParsed()
+
+			if len(evt.client.streamTracks) != len(sdpParsed.Medias) {
 				evt.res <- fmt.Errorf("not all tracks have been setup")
 				continue
 			}
@@ -526,39 +585,64 @@ outer:
 			evt.client.state = _CLIENT_STATE_RECORD
 			evt.res <- nil
 
-		case programEventFrameUdp:
+		case programEventClientFrameUdp:
 			// find publisher and track id from ip and port
-			pub, trackId := func() (*serverClient, int) {
+			cl, trackId := func() (*serverClient, int) {
 				for _, pub := range p.publishers {
-					if pub.streamProtocol != _STREAM_PROTOCOL_UDP ||
-						pub.state != _CLIENT_STATE_RECORD ||
-						!pub.ip().Equal(evt.addr.IP) {
+					cl, ok := pub.(*serverClient)
+					if !ok {
 						continue
 					}
 
-					for i, t := range pub.streamTracks {
+					if cl.streamProtocol != _STREAM_PROTOCOL_UDP ||
+						cl.state != _CLIENT_STATE_RECORD ||
+						!cl.ip().Equal(evt.addr.IP) {
+						continue
+					}
+
+					for i, t := range cl.streamTracks {
 						if evt.trackFlowType == _TRACK_FLOW_RTP {
 							if t.rtpPort == evt.addr.Port {
-								return pub, i
+								return cl, i
 							}
 						} else {
 							if t.rtcpPort == evt.addr.Port {
-								return pub, i
+								return cl, i
 							}
 						}
 					}
 				}
 				return nil, -1
 			}()
-			if pub == nil {
+			if cl == nil {
 				continue
 			}
 
-			pub.udpLastFrameTime = time.Now()
-			p.forwardTrack(pub.path, trackId, evt.trackFlowType, evt.buf)
+			cl.udpLastFrameTime = time.Now()
+			p.forwardTrack(cl.path, trackId, evt.trackFlowType, evt.buf)
 
-		case programEventFrameTcp:
+		case programEventClientFrameTcp:
 			p.forwardTrack(evt.path, evt.trackId, evt.trackFlowType, evt.buf)
+
+		case programEventStreamerReady:
+			evt.streamer.ready = true
+			p.publisherCount += 1
+			evt.streamer.log("ready")
+
+		case programEventStreamerNotReady:
+			evt.streamer.ready = false
+			p.publisherCount -= 1
+			evt.streamer.log("not ready")
+
+			// close all clients that share the same path
+			for oc := range p.clients {
+				if oc.path == evt.streamer.path {
+					go oc.close()
+				}
+			}
+
+		case programEventStreamerFrame:
+			p.forwardTrack(evt.streamer.path, evt.trackId, evt.trackFlowType, evt.buf)
 
 		case programEventTerminate:
 			break outer
@@ -571,7 +655,7 @@ outer:
 			case programEventClientClose:
 				close(evt.done)
 
-			case programEventClientGetStreamSdp:
+			case programEventClientDescribe:
 				evt.res <- nil
 
 			case programEventClientAnnounce:
@@ -597,6 +681,10 @@ outer:
 			}
 		}
 	}()
+
+	for _, s := range p.streamers {
+		s.close()
+	}
 
 	p.tcpl.close()
 	p.udplRtcp.close()

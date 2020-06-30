@@ -229,3 +229,70 @@ func TestReadAuth(t *testing.T) {
 
 	require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
 }
+
+func TestProxy(t *testing.T) {
+	for _, proto := range []string{
+		"udp",
+		"tcp",
+	} {
+		t.Run(proto, func(t *testing.T) {
+			stdin := []byte("\n" +
+				"paths:\n" +
+				"  all:\n" +
+				"    readUser: testuser\n" +
+				"    readPass: testpass\n")
+			p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+			require.NoError(t, err)
+			defer p1.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-hide_banner",
+				"-loglevel", "panic",
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "/emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ownDockerIp + ":8554/teststream",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
+
+			time.Sleep(1 * time.Second)
+
+			stdin = []byte("\n" +
+				"rtspPort: 8555\n" +
+				"rtpPort: 8100\n" +
+				"rtcpPort: 8101\n" +
+				"\n" +
+				"paths:\n" +
+				"  proxied:\n" +
+				"    source: rtsp://testuser:testpass@localhost:8554/teststream\n" +
+				"    sourceProtocol: " + proto + "\n")
+			p2, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+			require.NoError(t, err)
+			defer p2.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-hide_banner",
+				"-loglevel", "panic",
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ownDockerIp + ":8555/proxied",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+
+			cnt2.wait()
+
+			require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
+		})
+	}
+}
