@@ -69,7 +69,7 @@ docker run --rm -it -v $PWD/conf.yml:/conf.yml -p 8554:8554 aler9/rtsp-simple-se
 
 To change the configuration, it's enough to edit the file `conf.yml`, provided with the executable. The default configuration is [available here](conf.yml).
 
-#### Usage as an RTSP Proxy
+#### Usage as RTSP Proxy
 
 An RTSP proxy is usually deployed in one of these scenarios:
 * when there are multiple users that are receiving a stream and the bandwidth is limited, so the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
