@@ -52,7 +52,9 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 	if ur.Scheme != "rtsp" {
 		return nil, fmt.Errorf("'%s' is not a valid RTSP url", source)
 	}
-
+	if ur.Port() == "" {
+		ur.Host += ":554"
+	}
 	if ur.User != nil {
 		pass, _ := ur.User.Password()
 		user := ur.User.Username()
