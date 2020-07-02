@@ -78,7 +78,6 @@ An RTSP proxy is usually deployed in one of these scenarios:
 Edit `conf.yml` and replace everything inside section `paths` with the following content:
 ```yaml
 paths:
-  # insert one or more entries
   proxied:
     # url of the source stream, in the format rtsp://user:pass@host:port/path
     source: rtsp://original-url
@@ -89,7 +88,7 @@ Start the server:
 ./rtsp-simple-server
 ```
 
-Users can then connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url.
+Users can then connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
 
 #### Publisher authentication
 
