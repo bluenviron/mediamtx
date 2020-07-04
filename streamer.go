@@ -562,16 +562,16 @@ outer:
 		frame.Content = frame.Content[:cap(frame.Content)]
 		s.readCurBuf = !s.readCurBuf
 
-		vres, err := conn.ReadInterleavedFrameOrResponse(frame)
+		recv, err := conn.ReadInterleavedFrameOrResponse(frame)
 		if err != nil {
 			s.log("ERR: %s", err)
 			return true
 		}
 
-		switch res := vres.(type) {
+		switch recvt := recv.(type) {
 		case *gortsplib.Response:
-			if res.StatusCode != gortsplib.StatusOK {
-				s.log("ERR: PLAY returned code %d (%s)", res.StatusCode, res.StatusMessage)
+			if recvt.StatusCode != gortsplib.StatusOK {
+				s.log("ERR: PLAY returned code %d (%s)", recvt.StatusCode, recvt.StatusMessage)
 				return true
 			}
 			break outer

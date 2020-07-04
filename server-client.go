@@ -869,7 +869,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				frame.Content = frame.Content[:cap(frame.Content)]
 				c.readCurBuf = !c.readCurBuf
 
-				err := c.conn.ReadInterleavedFrame(frame)
+				recv, err := c.conn.ReadInterleavedFrameOrRequest(frame)
 				if err != nil {
 					if err != io.EOF {
 						c.log("ERR: %s", err)
@@ -877,19 +877,40 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				trackId, trackFlowType := interleavedChannelToTrack(frame.Channel)
+				switch recvt := recv.(type) {
+				case *gortsplib.InterleavedFrame:
+					trackId, trackFlowType := interleavedChannelToTrack(frame.Channel)
 
-				if trackId >= len(c.streamTracks) {
-					c.log("ERR: invalid track id '%d'", trackId)
-					return false
+					if trackId >= len(c.streamTracks) {
+						c.log("ERR: invalid track id '%d'", trackId)
+						return false
+					}
+
+					c.p.events <- programEventClientFrameTcp{
+						c.path,
+						trackId,
+						trackFlowType,
+						frame.Content,
+					}
+
+				case *gortsplib.Request:
+					cseq, ok := recvt.Header["CSeq"]
+					if !ok || len(cseq) != 1 {
+						c.writeResError(recvt, gortsplib.StatusBadRequest, fmt.Errorf("cseq missing"))
+						return false
+					}
+
+					switch recvt.Method {
+					case gortsplib.TEARDOWN:
+						// close connection silently
+						return false
+
+					default:
+						c.writeResError(recvt, gortsplib.StatusBadRequest, fmt.Errorf("unhandled method '%s'", recvt.Method))
+						return false
+					}
 				}
 
-				c.p.events <- programEventClientFrameTcp{
-					c.path,
-					trackId,
-					trackFlowType,
-					frame.Content,
-				}
 			}
 		} else {
 			c.udpLastFrameTime = time.Now()
