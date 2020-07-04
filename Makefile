@@ -1,7 +1,7 @@
 
 .PHONY: $(shell ls)
 
-BASE_IMAGE = golang:1.14-alpine3.11
+BASE_IMAGE = golang:1.14-alpine3.12
 
 help:
 	@echo "usage: make [action]"
