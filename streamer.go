@@ -590,9 +590,15 @@ outer:
 	chanConnError := make(chan struct{})
 	go func() {
 		for {
-			frame := &gortsplib.InterleavedFrame{
-				Content: make([]byte, 512*1024),
+			if !s.readCurBuf {
+				frame.Content = s.readBuf1
+			} else {
+				frame.Content = s.readBuf2
 			}
+
+			frame.Content = frame.Content[:cap(frame.Content)]
+			s.readCurBuf = !s.readCurBuf
+
 			err := conn.ReadInterleavedFrame(frame)
 			if err != nil {
 				s.log("ERR: %s", err)
