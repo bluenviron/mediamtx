@@ -406,7 +406,7 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 	defer tickerSendKeepalive.Stop()
 
 	tickerCheckStream := time.NewTicker(_CHECK_STREAM_INTERVAL)
-	defer tickerSendKeepalive.Stop()
+	defer tickerCheckStream.Stop()
 
 	s.p.events <- programEventStreamerReady{s}
 
