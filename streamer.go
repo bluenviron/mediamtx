@@ -442,7 +442,7 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 					lastFrameTime = lft
 				}
 
-				lft = pair.udplRtp.lastFrameTime
+				lft = pair.udplRtcp.lastFrameTime
 				if lft.After(lastFrameTime) {
 					lastFrameTime = lft
 				}
