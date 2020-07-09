@@ -11,7 +11,7 @@ help:
 	@echo "  mod-tidy       run go mod tidy"
 	@echo "  format         format source files"
 	@echo "  test           run available tests"
-	@echo "  run ARGS=args  run app"
+	@echo "  run            run app"
 	@echo "  release        build release assets"
 	@echo "  dockerhub      build and push docker hub images"
 	@echo ""
@@ -64,12 +64,20 @@ RUN GOPROXY=direct go build -o /out .
 endef
 export DOCKERFILE_RUN
 
+define CONFIG_RUN
+paths:
+  all:
+    readUser: test
+    readPass: tast
+endef
+export CONFIG_RUN
+
 run:
 	echo "$$DOCKERFILE_RUN" | docker build -q . -f - -t temp
 	docker run --rm -it \
 	--network=host \
 	temp \
-	/out $(ARGS)
+	sh -c "echo '$$CONFIG_RUN' | /out stdin"
 
 define DOCKERFILE_RELEASE
 FROM amd64/$(BASE_IMAGE)
