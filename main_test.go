@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,14 +49,12 @@ var ownDockerIp = func() string {
 }()
 
 type container struct {
-	name   string
-	stdout *bytes.Buffer
+	name string
 }
 
 func newContainer(image string, name string, args []string) (*container, error) {
 	c := &container{
-		name:   name,
-		stdout: bytes.NewBuffer(nil),
+		name: name,
 	}
 
 	exec.Command("docker", "kill", "rtsp-simple-server-test-"+name).Run()
@@ -65,8 +65,7 @@ func newContainer(image string, name string, args []string) (*container, error) 
 		"rtsp-simple-server-test-" + image}
 	cmd = append(cmd, args...)
 	ecmd := exec.Command(cmd[0], cmd[1:]...)
-
-	ecmd.Stdout = c.stdout
+	ecmd.Stdout = nil
 	ecmd.Stderr = os.Stderr
 
 	err := ecmd.Start()
@@ -85,18 +84,24 @@ func (c *container) close() {
 	exec.Command("docker", "rm", "rtsp-simple-server-test-"+c.name).Run()
 }
 
-func (c *container) wait() {
+func (c *container) wait() int {
 	exec.Command("docker", "wait", "rtsp-simple-server-test-"+c.name).Run()
+	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
+		"--format={{.State.ExitCode}}").Output()
+	code, _ := strconv.ParseInt(string(out[:len(out)-1]), 10, 64)
+	return int(code)
 }
 
 func TestProtocols(t *testing.T) {
-	for _, pair := range [][2]string{
-		{"udp", "udp"},
-		{"udp", "tcp"},
-		{"tcp", "udp"},
-		{"tcp", "tcp"},
+	for _, conf := range [][3]string{
+		{"udp", "udp", "ffmpeg"},
+		{"udp", "tcp", "ffmpeg"},
+		{"tcp", "udp", "ffmpeg"},
+		{"tcp", "tcp", "ffmpeg"},
+		{"tcp", "udp", "vlc"},
+		{"tcp", "tcp", "vlc"},
 	} {
-		t.Run(pair[0]+"_"+pair[1], func(t *testing.T) {
+		t.Run(strings.Join(conf[:], "_"), func(t *testing.T) {
 			p, err := newProgram([]string{}, bytes.NewBuffer(nil))
 			require.NoError(t, err)
 			defer p.close()
@@ -111,7 +116,7 @@ func TestProtocols(t *testing.T) {
 				"-i", "/emptyvideo.ts",
 				"-c", "copy",
 				"-f", "rtsp",
-				"-rtsp_transport", pair[0],
+				"-rtsp_transport", conf[0],
 				"rtsp://" + ownDockerIp + ":8554/teststream",
 			})
 			require.NoError(t, err)
@@ -119,115 +124,146 @@ func TestProtocols(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-hide_banner",
-				"-loglevel", "panic",
-				"-rtsp_transport", pair[1],
-				"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
-			require.NoError(t, err)
-			defer cnt2.close()
+			if conf[2] == "ffmpeg" {
+				cnt2, err := newContainer("ffmpeg", "dest", []string{
+					"-hide_banner",
+					"-loglevel", "panic",
+					"-rtsp_transport", conf[1],
+					"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+					"-vframes", "1",
+					"-f", "image2",
+					"-y", "/dev/null",
+				})
+				require.NoError(t, err)
+				defer cnt2.close()
 
-			cnt2.wait()
+				code := cnt2.wait()
+				require.Equal(t, 0, code)
 
-			require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
+			} else {
+				args := []string{}
+				if conf[1] == "tcp" {
+					args = append(args, "--rtsp-tcp")
+				}
+				args = append(args, "rtsp://"+ownDockerIp+":8554/teststream")
+
+				cnt2, err := newContainer("vlc", "dest", args)
+				require.NoError(t, err)
+				defer cnt2.close()
+
+				code := cnt2.wait()
+				require.Equal(t, 0, code)
+			}
 		})
 	}
 }
 
-func TestPublishAuth(t *testing.T) {
-	stdin := []byte("\n" +
-		"paths:\n" +
-		"  all:\n" +
-		"    publishUser: testuser\n" +
-		"    publishPass: testpass\n" +
-		"    publishIps: [172.17.0.0/16]\n")
-	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
-	require.NoError(t, err)
-	defer p.close()
+func TestAuth(t *testing.T) {
+	t.Run("publish", func(t *testing.T) {
+		stdin := []byte("\n" +
+			"paths:\n" +
+			"  all:\n" +
+			"    publishUser: testuser\n" +
+			"    publishPass: testpass\n" +
+			"    publishIps: [172.17.0.0/16]\n")
+		p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+		require.NoError(t, err)
+		defer p.close()
 
-	time.Sleep(1 * time.Second)
+		time.Sleep(1 * time.Second)
 
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-hide_banner",
-		"-loglevel", "panic",
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "/emptyvideo.ts",
-		"-c", "copy",
-		"-f", "rtsp",
-		"-rtsp_transport", "udp",
-		"rtsp://testuser:testpass@" + ownDockerIp + ":8554/teststream",
+		cnt1, err := newContainer("ffmpeg", "source", []string{
+			"-hide_banner",
+			"-loglevel", "panic",
+			"-re",
+			"-stream_loop", "-1",
+			"-i", "/emptyvideo.ts",
+			"-c", "copy",
+			"-f", "rtsp",
+			"-rtsp_transport", "udp",
+			"rtsp://testuser:testpass@" + ownDockerIp + ":8554/teststream",
+		})
+		require.NoError(t, err)
+		defer cnt1.close()
+
+		time.Sleep(1 * time.Second)
+
+		cnt2, err := newContainer("ffmpeg", "dest", []string{
+			"-hide_banner",
+			"-loglevel", "panic",
+			"-rtsp_transport", "udp",
+			"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer cnt2.close()
+
+		code := cnt2.wait()
+		require.Equal(t, 0, code)
 	})
-	require.NoError(t, err)
-	defer cnt1.close()
 
-	time.Sleep(1 * time.Second)
+	for _, soft := range []string{
+		"ffmpeg",
+		"vlc",
+	} {
+		t.Run("read_"+soft, func(t *testing.T) {
+			stdin := []byte("\n" +
+				"paths:\n" +
+				"  all:\n" +
+				"    readUser: testuser\n" +
+				"    readPass: testpass\n" +
+				"    readIps: [172.17.0.0/16]\n")
+			p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+			require.NoError(t, err)
+			defer p.close()
 
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-hide_banner",
-		"-loglevel", "panic",
-		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
+			time.Sleep(1 * time.Second)
 
-	cnt2.wait()
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-hide_banner",
+				"-loglevel", "panic",
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "/emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ownDockerIp + ":8554/teststream",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
 
-	require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
-}
+			time.Sleep(1 * time.Second)
 
-func TestReadAuth(t *testing.T) {
-	stdin := []byte("\n" +
-		"paths:\n" +
-		"  all:\n" +
-		"    readUser: testuser\n" +
-		"    readPass: testpass\n" +
-		"    readIps: [172.17.0.0/16]\n")
-	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
-	require.NoError(t, err)
-	defer p.close()
+			if soft == "ffmpeg" {
+				cnt2, err := newContainer("ffmpeg", "dest", []string{
+					"-hide_banner",
+					"-loglevel", "panic",
+					"-rtsp_transport", "udp",
+					"-i", "rtsp://testuser:testpass@" + ownDockerIp + ":8554/teststream",
+					"-vframes", "1",
+					"-f", "image2",
+					"-y", "/dev/null",
+				})
+				require.NoError(t, err)
+				defer cnt2.close()
 
-	time.Sleep(1 * time.Second)
+				code := cnt2.wait()
+				require.Equal(t, 0, code)
 
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-hide_banner",
-		"-loglevel", "panic",
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "/emptyvideo.ts",
-		"-c", "copy",
-		"-f", "rtsp",
-		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIp + ":8554/teststream",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
+			} else {
+				cnt2, err := newContainer("vlc", "dest",
+					[]string{"rtsp://testuser:testpass@" + ownDockerIp + ":8554/teststream"})
+				require.NoError(t, err)
+				defer cnt2.close()
 
-	time.Sleep(1 * time.Second)
-
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-hide_banner",
-		"-loglevel", "panic",
-		"-rtsp_transport", "udp",
-		"-i", "rtsp://testuser:testpass@" + ownDockerIp + ":8554/teststream",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
-
-	cnt2.wait()
-
-	require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
+				code := cnt2.wait()
+				require.Equal(t, 0, code)
+			}
+		})
+	}
 }
 
 func TestProxy(t *testing.T) {
@@ -290,9 +326,8 @@ func TestProxy(t *testing.T) {
 			require.NoError(t, err)
 			defer cnt2.close()
 
-			cnt2.wait()
-
-			require.Equal(t, "all right\n", string(cnt2.stdout.Bytes()))
+			code := cnt2.wait()
+			require.Equal(t, 0, code)
 		})
 	}
 }
