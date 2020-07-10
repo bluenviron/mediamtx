@@ -71,8 +71,10 @@ type serverClient struct {
 	conn                 *gortsplib.ConnServer
 	state                clientState
 	path                 string
-	publishAuth          *gortsplib.AuthServer
-	readAuth             *gortsplib.AuthServer
+	authUser             string
+	authPass             string
+	authHelper           *gortsplib.AuthServer
+	authFailures         int
 	streamSdpText        []byte       // filled only if publisher
 	streamSdpParsed      *sdp.Message // filled only if publisher
 	streamProtocol       streamProtocol
@@ -86,8 +88,8 @@ type serverClient struct {
 	writeBuf2            []byte
 	writeCurBuf          bool
 
-	writec chan *gortsplib.InterleavedFrame
-	done   chan struct{}
+	writeChan chan *gortsplib.InterleavedFrame
+	done      chan struct{}
 }
 
 func newServerClient(p *program, nconn net.Conn) *serverClient {
@@ -103,7 +105,7 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 		readBuf2:  make([]byte, 0, 512*1024),
 		writeBuf1: make([]byte, 2048),
 		writeBuf2: make([]byte, 2048),
-		writec:    make(chan *gortsplib.InterleavedFrame),
+		writeChan: make(chan *gortsplib.InterleavedFrame),
 		done:      make(chan struct{}),
 	}
 
@@ -164,7 +166,7 @@ func (c *serverClient) run() {
 	}
 
 	go func() {
-		for range c.writec {
+		for range c.writeChan {
 		}
 	}()
 
@@ -182,9 +184,10 @@ func (c *serverClient) run() {
 	c.p.events <- programEventClientClose{done, c}
 	<-done
 
-	close(c.writec)
+	close(c.writeChan)
+	c.conn.NetConn().Close() // close socket in case it has not been closed yet
 
-	close(c.done)
+	close(c.done) // close() never blocks
 }
 
 func (c *serverClient) close() {
@@ -204,7 +207,7 @@ func (c *serverClient) writeFrame(channel uint8, inbuf []byte) {
 	copy(buf, inbuf)
 	c.writeCurBuf = !c.writeCurBuf
 
-	c.writec <- &gortsplib.InterleavedFrame{
+	c.writeChan <- &gortsplib.InterleavedFrame{
 		Channel: channel,
 		Content: buf,
 	}
@@ -224,79 +227,6 @@ func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.Stat
 	})
 }
 
-var errAuthCritical = errors.New("auth critical")
-var errAuthNotCritical = errors.New("auth not critical")
-
-func (c *serverClient) validateAuth(req *gortsplib.Request, user string, pass string, auth **gortsplib.AuthServer, ips []interface{}) error {
-	err := func() error {
-		if ips == nil {
-			return nil
-		}
-
-		connIp := c.conn.NetConn().LocalAddr().(*net.TCPAddr).IP
-
-		for _, item := range ips {
-			switch titem := item.(type) {
-			case net.IP:
-				if titem.Equal(connIp) {
-					return nil
-				}
-
-			case *net.IPNet:
-				if titem.Contains(connIp) {
-					return nil
-				}
-			}
-		}
-
-		c.log("ERR: ip '%s' not allowed", connIp)
-		return errAuthCritical
-	}()
-	if err != nil {
-		return err
-	}
-
-	err = func() error {
-		if user == "" {
-			return nil
-		}
-
-		initialRequest := false
-		if *auth == nil {
-			initialRequest = true
-			*auth = gortsplib.NewAuthServer(user, pass, nil)
-		}
-
-		err := (*auth).ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
-		if err != nil {
-			if !initialRequest {
-				c.log("ERR: unauthorized: %s", err)
-			}
-
-			c.conn.WriteResponse(&gortsplib.Response{
-				StatusCode: gortsplib.StatusUnauthorized,
-				Header: gortsplib.Header{
-					"CSeq":             req.Header["CSeq"],
-					"WWW-Authenticate": (*auth).GenerateHeader(),
-				},
-			})
-
-			if !initialRequest {
-				return errAuthCritical
-			}
-
-			return errAuthNotCritical
-		}
-
-		return nil
-	}()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (c *serverClient) findConfForPath(path string) *ConfPath {
 	if pconf, ok := c.p.conf.Paths[path]; ok {
 		return pconf
@@ -304,6 +234,98 @@ func (c *serverClient) findConfForPath(path string) *ConfPath {
 
 	if pconf, ok := c.p.conf.Paths["all"]; ok {
 		return pconf
+	}
+
+	return nil
+}
+
+var errAuthCritical = errors.New("auth critical")
+var errAuthNotCritical = errors.New("auth not critical")
+
+func (c *serverClient) authenticate(ips []interface{}, user string, pass string, req *gortsplib.Request) error {
+	// validate ip
+	err := func() error {
+		if ips == nil {
+			return nil
+		}
+
+		ip := c.ip()
+
+		for _, item := range ips {
+			switch titem := item.(type) {
+			case net.IP:
+				if titem.Equal(ip) {
+					return nil
+				}
+
+			case *net.IPNet:
+				if titem.Contains(ip) {
+					return nil
+				}
+			}
+		}
+
+		c.log("ERR: ip '%s' not allowed", ip)
+		return errAuthCritical
+	}()
+	if err != nil {
+		return err
+	}
+
+	// validate credentials
+	err = func() error {
+		if user == "" {
+			return nil
+		}
+
+		// reset authHelper every time the credentials change
+		if c.authHelper == nil || c.authUser != user || c.authPass != pass {
+			c.authUser = user
+			c.authPass = pass
+			c.authHelper = gortsplib.NewAuthServer(user, pass, nil)
+		}
+
+		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
+		if err != nil {
+			c.authFailures += 1
+
+			// vlc with login prompt sends 4 requests:
+			// 1) without credentials
+			// 2) with password but without the username
+			// 3) without credentials
+			// 4) with password and username
+			// hence we must allow up to 3 failures
+			var retErr error
+			if c.authFailures > 3 {
+				c.log("ERR: unauthorized: %s", err)
+				retErr = errAuthCritical
+
+			} else if c.authFailures > 1 {
+				c.log("WARN: unauthorized: %s", err)
+				retErr = errAuthNotCritical
+
+			} else {
+				retErr = errAuthNotCritical
+			}
+
+			c.conn.WriteResponse(&gortsplib.Response{
+				StatusCode: gortsplib.StatusUnauthorized,
+				Header: gortsplib.Header{
+					"CSeq":             req.Header["CSeq"],
+					"WWW-Authenticate": c.authHelper.GenerateHeader(),
+				},
+			})
+
+			return retErr
+		}
+
+		// reset authFailures after a successful login
+		c.authFailures = 0
+
+		return nil
+	}()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -370,7 +392,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, pconf.ReadUser, pconf.ReadPass, &c.readAuth, pconf.readIps)
+		err := c.authenticate(pconf.readIpsParsed, pconf.ReadUser, pconf.ReadPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -411,7 +433,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.validateAuth(req, pconf.PublishUser, pconf.PublishPass, &c.publishAuth, pconf.publishIps)
+		err := c.authenticate(pconf.publishIpsParsed, pconf.PublishUser, pconf.PublishPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -484,7 +506,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}
 
-			err := c.validateAuth(req, pconf.ReadUser, pconf.ReadPass, &c.readAuth, pconf.readIps)
+			err := c.authenticate(pconf.readIpsParsed, pconf.ReadUser, pconf.ReadPass, req)
 			if err != nil {
 				if err == errAuthCritical {
 					return false
@@ -772,7 +794,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
 			// write RTP frames sequentially
 			go func() {
-				for frame := range c.writec {
+				for frame := range c.writeChan {
 					c.conn.WriteInterleavedFrame(frame)
 				}
 			}()

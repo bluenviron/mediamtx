@@ -21,8 +21,8 @@ type serverUdpListener struct {
 	writeBuf2     []byte
 	writeCurBuf   bool
 
-	writec chan *udpWrite
-	done   chan struct{}
+	writeChan chan *udpWrite
+	done      chan struct{}
 }
 
 func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*serverUdpListener, error) {
@@ -41,7 +41,7 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 		readBuf2:      make([]byte, 2048),
 		writeBuf1:     make([]byte, 2048),
 		writeBuf2:     make([]byte, 2048),
-		writec:        make(chan *udpWrite),
+		writeChan:     make(chan *udpWrite),
 		done:          make(chan struct{}),
 	}
 
@@ -61,7 +61,7 @@ func (l *serverUdpListener) log(format string, args ...interface{}) {
 
 func (l *serverUdpListener) run() {
 	go func() {
-		for w := range l.writec {
+		for w := range l.writeChan {
 			l.nconn.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
 			l.nconn.WriteTo(w.buf, w.addr)
 		}
@@ -88,7 +88,7 @@ func (l *serverUdpListener) run() {
 		}
 	}
 
-	close(l.writec)
+	close(l.writeChan)
 
 	close(l.done)
 }
@@ -110,7 +110,7 @@ func (l *serverUdpListener) write(addr *net.UDPAddr, inbuf []byte) {
 	copy(buf, inbuf)
 	l.writeCurBuf = !l.writeCurBuf
 
-	l.writec <- &udpWrite{
+	l.writeChan <- &udpWrite{
 		addr: addr,
 		buf:  buf,
 	}

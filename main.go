@@ -192,16 +192,16 @@ type programEventTerminate struct{}
 func (programEventTerminate) isProgramEvent() {}
 
 type ConfPath struct {
-	Source         string   `yaml:"source"`
-	SourceProtocol string   `yaml:"sourceProtocol"`
-	PublishUser    string   `yaml:"publishUser"`
-	PublishPass    string   `yaml:"publishPass"`
-	PublishIps     []string `yaml:"publishIps"`
-	publishIps     []interface{}
-	ReadUser       string   `yaml:"readUser"`
-	ReadPass       string   `yaml:"readPass"`
-	ReadIps        []string `yaml:"readIps"`
-	readIps        []interface{}
+	Source           string   `yaml:"source"`
+	SourceProtocol   string   `yaml:"sourceProtocol"`
+	PublishUser      string   `yaml:"publishUser"`
+	PublishPass      string   `yaml:"publishPass"`
+	PublishIps       []string `yaml:"publishIps"`
+	publishIpsParsed []interface{}
+	ReadUser         string   `yaml:"readUser"`
+	ReadPass         string   `yaml:"readPass"`
+	ReadIps          []string `yaml:"readIps"`
+	readIpsParsed    []interface{}
 }
 
 type conf struct {
@@ -366,7 +366,7 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 				return nil, fmt.Errorf("publish password must be alphanumeric")
 			}
 		}
-		pconf.publishIps, err = parseIpCidrList(pconf.PublishIps)
+		pconf.publishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
 		if err != nil {
 			return nil, err
 		}
@@ -387,7 +387,7 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
 			return nil, fmt.Errorf("read username and password must be both filled")
 		}
-		pconf.readIps, err = parseIpCidrList(pconf.ReadIps)
+		pconf.readIpsParsed, err = parseIpCidrList(pconf.ReadIps)
 		if err != nil {
 			return nil, err
 		}
@@ -482,7 +482,7 @@ outer:
 					// close all other clients that share the same path
 					if pub.publisherIsReady() {
 						for oc := range p.clients {
-							if oc.path == evt.client.path {
+							if oc != evt.client && oc.path == evt.client.path {
 								go oc.close()
 							}
 						}
