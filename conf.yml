@@ -24,7 +24,7 @@ paths:
   all:
     # source of the stream - this can be:
     # * record -> the stream is provided by a client through the RECORD command (like ffmpeg)
-    # * rtsp://url -> the stream is pulled from another RTSP server
+    # * rtsp://original-url -> the stream is pulled from another RTSP server
     source: record
     # if the source is an RTSP url, this is the protocol that will be used to pull the stream
     sourceProtocol: udp
