@@ -51,7 +51,7 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 
 func (l *serverUdpListener) log(format string, args ...interface{}) {
 	var label string
-	if l.trackFlowType == _TRACK_FLOW_RTP {
+	if l.trackFlowType == _TRACK_FLOW_TYPE_RTP {
 		label = "RTP"
 	} else {
 		label = "RTCP"

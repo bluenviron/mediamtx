@@ -18,10 +18,10 @@ const (
 	_UDP_STREAM_DEAD_AFTER     = 10 * time.Second
 )
 
-type clientState int
+type serverClientState int
 
 const (
-	_CLIENT_STATE_STARTING clientState = iota
+	_CLIENT_STATE_STARTING serverClientState = iota
 	_CLIENT_STATE_ANNOUNCE
 	_CLIENT_STATE_PRE_PLAY
 	_CLIENT_STATE_PLAY
@@ -29,7 +29,7 @@ const (
 	_CLIENT_STATE_RECORD
 )
 
-func (cs clientState) String() string {
+func (cs serverClientState) String() string {
 	switch cs {
 	case _CLIENT_STATE_STARTING:
 		return "STARTING"
@@ -55,7 +55,7 @@ func (cs clientState) String() string {
 type serverClient struct {
 	p                    *program
 	conn                 *gortsplib.ConnServer
-	state                clientState
+	state                serverClientState
 	path                 string
 	authUser             string
 	authPass             string
@@ -887,7 +887,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 				switch recvt := recv.(type) {
 				case *gortsplib.InterleavedFrame:
-					trackId, trackFlowType := interleavedChannelToTrack(frame.Channel)
+					trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
 
 					if trackId >= len(c.streamTracks) {
 						c.log("ERR: invalid track id '%d'", trackId)

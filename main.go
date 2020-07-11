@@ -394,12 +394,12 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		http.DefaultServeMux = http.NewServeMux()
 	}
 
-	p.udplRtp, err = newServerUdpListener(p, conf.RtpPort, _TRACK_FLOW_RTP)
+	p.udplRtp, err = newServerUdpListener(p, conf.RtpPort, _TRACK_FLOW_TYPE_RTP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.udplRtcp, err = newServerUdpListener(p, conf.RtcpPort, _TRACK_FLOW_RTCP)
+	p.udplRtcp, err = newServerUdpListener(p, conf.RtcpPort, _TRACK_FLOW_TYPE_RTCP)
 	if err != nil {
 		return nil, err
 	}
@@ -570,7 +570,7 @@ outer:
 					}
 
 					for i, t := range cl.streamTracks {
-						if evt.trackFlowType == _TRACK_FLOW_RTP {
+						if evt.trackFlowType == _TRACK_FLOW_TYPE_RTP {
 							if t.rtpPort == evt.addr.Port {
 								return cl, i
 							}
@@ -676,7 +676,7 @@ func (p *program) forwardTrack(path string, id int, trackFlowType trackFlowType,
 	for c := range p.clients {
 		if c.path == path && c.state == _CLIENT_STATE_PLAY {
 			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
-				if trackFlowType == _TRACK_FLOW_RTP {
+				if trackFlowType == _TRACK_FLOW_TYPE_RTP {
 					p.udplRtp.write(&net.UDPAddr{
 						IP:   c.ip(),
 						Zone: c.zone(),
@@ -692,7 +692,7 @@ func (p *program) forwardTrack(path string, id int, trackFlowType trackFlowType,
 				}
 
 			} else {
-				c.writeFrame(trackToInterleavedChannel(id, trackFlowType), frame)
+				c.writeFrame(trackFlowTypeToInterleavedChannel(id, trackFlowType), frame)
 			}
 		}
 	}

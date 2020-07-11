@@ -272,13 +272,13 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 
 				var err error
 				udplRtp, err = newStreamerUdpListener(s.p, rtpPort, s, i,
-					_TRACK_FLOW_RTP, publisherIp)
+					_TRACK_FLOW_TYPE_RTP, publisherIp)
 				if err != nil {
 					continue
 				}
 
 				udplRtcp, err = newStreamerUdpListener(s.p, rtcpPort, s, i,
-					_TRACK_FLOW_RTCP, publisherIp)
+					_TRACK_FLOW_TYPE_RTCP, publisherIp)
 				if err != nil {
 					udplRtp.close()
 					continue
@@ -606,7 +606,7 @@ outer:
 				break
 			}
 
-			trackId, trackFlowType := interleavedChannelToTrack(frame.Channel)
+			trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
 
 			s.p.events <- programEventStreamerFrame{s, trackId, trackFlowType, frame.Content}
 		}
