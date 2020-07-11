@@ -5,13 +5,6 @@ import (
 	"time"
 )
 
-type streamerUdpListenerState int
-
-const (
-	_UDPL_STATE_STARTING streamerUdpListenerState = iota
-	_UDPL_STATE_RUNNING
-)
-
 type streamerUdpListener struct {
 	p             *program
 	streamer      *streamer

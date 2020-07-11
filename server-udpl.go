@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type udpWrite struct {
+type udpAddrFramePair struct {
 	addr *net.UDPAddr
 	buf  []byte
 }
@@ -21,7 +21,7 @@ type serverUdpListener struct {
 	writeBuf2     []byte
 	writeCurBuf   bool
 
-	writeChan chan *udpWrite
+	writeChan chan *udpAddrFramePair
 	done      chan struct{}
 }
 
@@ -41,7 +41,7 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 		readBuf2:      make([]byte, 2048),
 		writeBuf1:     make([]byte, 2048),
 		writeBuf2:     make([]byte, 2048),
-		writeChan:     make(chan *udpWrite),
+		writeChan:     make(chan *udpAddrFramePair),
 		done:          make(chan struct{}),
 	}
 
@@ -110,7 +110,7 @@ func (l *serverUdpListener) write(addr *net.UDPAddr, inbuf []byte) {
 	copy(buf, inbuf)
 	l.writeCurBuf = !l.writeCurBuf
 
-	l.writeChan <- &udpWrite{
+	l.writeChan <- &udpAddrFramePair{
 		addr: addr,
 		buf:  buf,
 	}
