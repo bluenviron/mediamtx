@@ -36,9 +36,7 @@ type streamer struct {
 	serverSdpText   []byte
 	serverSdpParsed *sdp.Message
 	firstTime       bool
-	readBuf1        []byte
-	readBuf2        []byte
-	readCurBuf      bool
+	readBuf         *doubleBuffer
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -84,8 +82,7 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 		ur:        ur,
 		proto:     proto,
 		firstTime: true,
-		readBuf1:  make([]byte, 0, 512*1024),
-		readBuf2:  make([]byte, 0, 512*1024),
+		readBuf:   newDoubleBuffer(512 * 1024),
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -553,14 +550,8 @@ func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
 
 outer:
 	for {
-		if !s.readCurBuf {
-			frame.Content = s.readBuf1
-		} else {
-			frame.Content = s.readBuf2
-		}
-
+		frame.Content = s.readBuf.swap()
 		frame.Content = frame.Content[:cap(frame.Content)]
-		s.readCurBuf = !s.readCurBuf
 
 		recv, err := conn.ReadInterleavedFrameOrResponse(frame)
 		if err != nil {
@@ -590,15 +581,8 @@ outer:
 	chanConnError := make(chan struct{})
 	go func() {
 		for {
-			if !s.readCurBuf {
-				frame.Content = s.readBuf1
-			} else {
-				frame.Content = s.readBuf2
-			}
-
+			frame.Content = s.readBuf.swap()
 			frame.Content = frame.Content[:cap(frame.Content)]
-			s.readCurBuf = !s.readCurBuf
-
 			err := conn.ReadInterleavedFrame(frame)
 			if err != nil {
 				s.log("ERR: %s", err)

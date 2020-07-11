@@ -49,3 +49,27 @@ func trackFlowTypeToInterleavedChannel(id int, trackFlowType trackFlowType) uint
 	}
 	return uint8((id * 2) + 1)
 }
+
+type doubleBuffer struct {
+	buf1   []byte
+	buf2   []byte
+	curBuf bool
+}
+
+func newDoubleBuffer(size int) *doubleBuffer {
+	return &doubleBuffer{
+		buf1: make([]byte, size),
+		buf2: make([]byte, size),
+	}
+}
+
+func (db *doubleBuffer) swap() []byte {
+	var ret []byte
+	if !db.curBuf {
+		ret = db.buf1
+	} else {
+		ret = db.buf2
+	}
+	db.curBuf = !db.curBuf
+	return ret
+}

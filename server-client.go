@@ -67,12 +67,8 @@ type serverClient struct {
 	streamTracks         []*track
 	udpLastFrameTime     time.Time
 	udpCheckStreamTicker *time.Ticker
-	readBuf1             []byte
-	readBuf2             []byte
-	readCurBuf           bool
-	writeBuf1            []byte
-	writeBuf2            []byte
-	writeCurBuf          bool
+	readBuf              *doubleBuffer
+	writeBuf             *doubleBuffer
 
 	writeChan chan *gortsplib.InterleavedFrame
 	done      chan struct{}
@@ -87,10 +83,8 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 			WriteTimeout: p.conf.WriteTimeout,
 		}),
 		state:     _CLIENT_STATE_STARTING,
-		readBuf1:  make([]byte, 0, 512*1024),
-		readBuf2:  make([]byte, 0, 512*1024),
-		writeBuf1: make([]byte, 2048),
-		writeBuf2: make([]byte, 2048),
+		readBuf:   newDoubleBuffer(512 * 1024),
+		writeBuf:  newDoubleBuffer(2048),
 		writeChan: make(chan *gortsplib.InterleavedFrame),
 		done:      make(chan struct{}),
 	}
@@ -182,16 +176,9 @@ func (c *serverClient) close() {
 }
 
 func (c *serverClient) writeFrame(channel uint8, inbuf []byte) {
-	var buf []byte
-	if !c.writeCurBuf {
-		buf = c.writeBuf1
-	} else {
-		buf = c.writeBuf2
-	}
-
+	buf := c.writeBuf.swap()
 	buf = buf[:len(inbuf)]
 	copy(buf, inbuf)
-	c.writeCurBuf = !c.writeCurBuf
 
 	c.writeChan <- &gortsplib.InterleavedFrame{
 		Channel: channel,
@@ -868,15 +855,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
 			frame := &gortsplib.InterleavedFrame{}
 			for {
-				if !c.readCurBuf {
-					frame.Content = c.readBuf1
-				} else {
-					frame.Content = c.readBuf2
-				}
-
+				frame.Content = c.readBuf.swap()
 				frame.Content = frame.Content[:cap(frame.Content)]
-				c.readCurBuf = !c.readCurBuf
-
 				recv, err := c.conn.ReadInterleavedFrameOrRequest(frame)
 				if err != nil {
 					if err != io.EOF {

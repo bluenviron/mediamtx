@@ -14,12 +14,8 @@ type serverUdpListener struct {
 	p             *program
 	nconn         *net.UDPConn
 	trackFlowType trackFlowType
-	readBuf1      []byte
-	readBuf2      []byte
-	readCurBuf    bool
-	writeBuf1     []byte
-	writeBuf2     []byte
-	writeCurBuf   bool
+	readBuf       *doubleBuffer
+	writeBuf      *doubleBuffer
 
 	writeChan chan *udpAddrFramePair
 	done      chan struct{}
@@ -37,10 +33,8 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 		p:             p,
 		nconn:         nconn,
 		trackFlowType: trackFlowType,
-		readBuf1:      make([]byte, 2048),
-		readBuf2:      make([]byte, 2048),
-		writeBuf1:     make([]byte, 2048),
-		writeBuf2:     make([]byte, 2048),
+		readBuf:       newDoubleBuffer(2048),
+		writeBuf:      newDoubleBuffer(2048),
 		writeChan:     make(chan *udpAddrFramePair),
 		done:          make(chan struct{}),
 	}
@@ -68,14 +62,7 @@ func (l *serverUdpListener) run() {
 	}()
 
 	for {
-		var buf []byte
-		if !l.readCurBuf {
-			buf = l.readBuf1
-		} else {
-			buf = l.readBuf2
-		}
-		l.readCurBuf = !l.readCurBuf
-
+		buf := l.readBuf.swap()
 		n, addr, err := l.nconn.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -99,16 +86,9 @@ func (l *serverUdpListener) close() {
 }
 
 func (l *serverUdpListener) write(addr *net.UDPAddr, inbuf []byte) {
-	var buf []byte
-	if !l.writeCurBuf {
-		buf = l.writeBuf1
-	} else {
-		buf = l.writeBuf2
-	}
-
+	buf := l.writeBuf.swap()
 	buf = buf[:len(inbuf)]
 	copy(buf, inbuf)
-	l.writeCurBuf = !l.writeCurBuf
 
 	l.writeChan <- &udpAddrFramePair{
 		addr: addr,

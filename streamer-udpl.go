@@ -14,9 +14,7 @@ type streamerUdpListener struct {
 	publisherPort int
 	nconn         *net.UDPConn
 	running       bool
-	readBuf1      []byte
-	readBuf2      []byte
-	readCurBuf    bool
+	readBuf       *doubleBuffer
 	lastFrameTime time.Time
 
 	done chan struct{}
@@ -38,8 +36,7 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 		trackFlowType: trackFlowType,
 		publisherIp:   publisherIp,
 		nconn:         nconn,
-		readBuf1:      make([]byte, 2048),
-		readBuf2:      make([]byte, 2048),
+		readBuf:       newDoubleBuffer(2048),
 		lastFrameTime: time.Now(),
 		done:          make(chan struct{}),
 	}
@@ -62,14 +59,7 @@ func (l *streamerUdpListener) start() {
 
 func (l *streamerUdpListener) run() {
 	for {
-		var buf []byte
-		if !l.readCurBuf {
-			buf = l.readBuf1
-		} else {
-			buf = l.readBuf2
-		}
-		l.readCurBuf = !l.readCurBuf
-
+		buf := l.readBuf.swap()
 		n, addr, err := l.nconn.ReadFromUDP(buf)
 		if err != nil {
 			break
