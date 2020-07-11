@@ -15,7 +15,6 @@ type streamerUdpListener struct {
 	nconn         *net.UDPConn
 	running       bool
 	readBuf       *doubleBuffer
-	lastFrameTime time.Time
 
 	done chan struct{}
 }
@@ -37,7 +36,6 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 		publisherIp:   publisherIp,
 		nconn:         nconn,
 		readBuf:       newDoubleBuffer(2048),
-		lastFrameTime: time.Now(),
 		done:          make(chan struct{}),
 	}
 
@@ -69,7 +67,7 @@ func (l *streamerUdpListener) run() {
 			continue
 		}
 
-		l.lastFrameTime = time.Now()
+		l.streamer.udpLastFrameTime = time.Now()
 
 		l.p.events <- programEventStreamerFrame{l.streamer, l.trackId, l.trackFlowType, buf[:n]}
 	}

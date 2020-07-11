@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-type udpAddrFramePair struct {
+type udpAddrBufPair struct {
 	addr *net.UDPAddr
 	buf  []byte
 }
@@ -17,7 +17,7 @@ type serverUdpListener struct {
 	readBuf       *doubleBuffer
 	writeBuf      *doubleBuffer
 
-	writeChan chan *udpAddrFramePair
+	writeChan chan *udpAddrBufPair
 	done      chan struct{}
 }
 
@@ -35,7 +35,7 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 		trackFlowType: trackFlowType,
 		readBuf:       newDoubleBuffer(2048),
 		writeBuf:      newDoubleBuffer(2048),
-		writeChan:     make(chan *udpAddrFramePair),
+		writeChan:     make(chan *udpAddrBufPair),
 		done:          make(chan struct{}),
 	}
 
@@ -69,8 +69,8 @@ func (l *serverUdpListener) run() {
 		}
 
 		l.p.events <- programEventClientFrameUdp{
-			l.trackFlowType,
 			addr,
+			l.trackFlowType,
 			buf[:n],
 		}
 	}
@@ -85,13 +85,12 @@ func (l *serverUdpListener) close() {
 	<-l.done
 }
 
-func (l *serverUdpListener) write(addr *net.UDPAddr, inbuf []byte) {
+func (l *serverUdpListener) write(pair *udpAddrBufPair) {
+	// replace input buffer with write buffer
 	buf := l.writeBuf.swap()
-	buf = buf[:len(inbuf)]
-	copy(buf, inbuf)
+	buf = buf[:len(pair.buf)]
+	copy(buf, pair.buf)
+	pair.buf = buf
 
-	l.writeChan <- &udpAddrFramePair{
-		addr: addr,
-		buf:  buf,
-	}
+	l.writeChan <- pair
 }

@@ -104,13 +104,6 @@ type programEventClientPlay2 struct {
 
 func (programEventClientPlay2) isProgramEvent() {}
 
-type programEventClientPause struct {
-	res    chan error
-	client *serverClient
-}
-
-func (programEventClientPause) isProgramEvent() {}
-
 type programEventClientRecord struct {
 	res    chan error
 	client *serverClient
@@ -119,8 +112,8 @@ type programEventClientRecord struct {
 func (programEventClientRecord) isProgramEvent() {}
 
 type programEventClientFrameUdp struct {
-	trackFlowType trackFlowType
 	addr          *net.UDPAddr
+	trackFlowType trackFlowType
 	buf           []byte
 }
 
@@ -544,54 +537,22 @@ outer:
 			evt.client.state = _CLIENT_STATE_PLAY
 			evt.res <- nil
 
-		case programEventClientPause:
-			p.receiverCount -= 1
-			evt.client.state = _CLIENT_STATE_PRE_PLAY
-			evt.res <- nil
-
 		case programEventClientRecord:
 			p.publisherCount += 1
 			evt.client.state = _CLIENT_STATE_RECORD
 			evt.res <- nil
 
 		case programEventClientFrameUdp:
-			// find publisher and track id from ip and port
-			cl, trackId := func() (*serverClient, int) {
-				for _, pub := range p.publishers {
-					cl, ok := pub.(*serverClient)
-					if !ok {
-						continue
-					}
-
-					if cl.streamProtocol != _STREAM_PROTOCOL_UDP ||
-						cl.state != _CLIENT_STATE_RECORD ||
-						!cl.ip().Equal(evt.addr.IP) {
-						continue
-					}
-
-					for i, t := range cl.streamTracks {
-						if evt.trackFlowType == _TRACK_FLOW_TYPE_RTP {
-							if t.rtpPort == evt.addr.Port {
-								return cl, i
-							}
-						} else {
-							if t.rtcpPort == evt.addr.Port {
-								return cl, i
-							}
-						}
-					}
-				}
-				return nil, -1
-			}()
-			if cl == nil {
+			client, trackId := p.findPublisher(evt.addr, evt.trackFlowType)
+			if client == nil {
 				continue
 			}
 
-			cl.udpLastFrameTime = time.Now()
-			p.forwardTrack(cl.path, trackId, evt.trackFlowType, evt.buf)
+			client.udpLastFrameTime = time.Now()
+			p.forwardFrame(client.path, trackId, evt.trackFlowType, evt.buf)
 
 		case programEventClientFrameTcp:
-			p.forwardTrack(evt.path, evt.trackId, evt.trackFlowType, evt.buf)
+			p.forwardFrame(evt.path, evt.trackId, evt.trackFlowType, evt.buf)
 
 		case programEventStreamerReady:
 			evt.streamer.ready = true
@@ -611,7 +572,7 @@ outer:
 			}
 
 		case programEventStreamerFrame:
-			p.forwardTrack(evt.streamer.path, evt.trackId, evt.trackFlowType, evt.buf)
+			p.forwardFrame(evt.streamer.path, evt.trackId, evt.trackFlowType, evt.buf)
 
 		case programEventTerminate:
 			break outer
@@ -642,9 +603,6 @@ outer:
 			case programEventClientPlay2:
 				evt.res <- fmt.Errorf("terminated")
 
-			case programEventClientPause:
-				evt.res <- fmt.Errorf("terminated")
-
 			case programEventClientRecord:
 				evt.res <- fmt.Errorf("terminated")
 			}
@@ -672,27 +630,60 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) forwardTrack(path string, id int, trackFlowType trackFlowType, frame []byte) {
+func (p *program) findPublisher(addr *net.UDPAddr, trackFlowType trackFlowType) (*serverClient, int) {
+	for _, pub := range p.publishers {
+		cl, ok := pub.(*serverClient)
+		if !ok {
+			continue
+		}
+
+		if cl.streamProtocol != _STREAM_PROTOCOL_UDP ||
+			cl.state != _CLIENT_STATE_RECORD ||
+			!cl.ip().Equal(addr.IP) {
+			continue
+		}
+
+		for i, t := range cl.streamTracks {
+			if trackFlowType == _TRACK_FLOW_TYPE_RTP {
+				if t.rtpPort == addr.Port {
+					return cl, i
+				}
+			} else {
+				if t.rtcpPort == addr.Port {
+					return cl, i
+				}
+			}
+		}
+	}
+	return nil, -1
+}
+
+func (p *program) forwardFrame(path string, trackId int, trackFlowType trackFlowType, frame []byte) {
 	for c := range p.clients {
 		if c.path == path && c.state == _CLIENT_STATE_PLAY {
 			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
 				if trackFlowType == _TRACK_FLOW_TYPE_RTP {
-					p.udplRtp.write(&net.UDPAddr{
-						IP:   c.ip(),
-						Zone: c.zone(),
-						Port: c.streamTracks[id].rtpPort,
-					}, frame)
-
+					p.udplRtp.write(&udpAddrBufPair{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[trackId].rtpPort,
+						},
+						buf: frame,
+					})
 				} else {
-					p.udplRtcp.write(&net.UDPAddr{
-						IP:   c.ip(),
-						Zone: c.zone(),
-						Port: c.streamTracks[id].rtcpPort,
-					}, frame)
+					p.udplRtcp.write(&udpAddrBufPair{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[trackId].rtcpPort,
+						},
+						buf: frame,
+					})
 				}
 
 			} else {
-				c.writeFrame(trackFlowTypeToInterleavedChannel(id, trackFlowType), frame)
+				c.writeFrame(trackFlowTypeToInterleavedChannel(trackId, trackFlowType), frame)
 			}
 		}
 	}

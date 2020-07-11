@@ -27,16 +27,17 @@ type streamerUdpListenerPair struct {
 }
 
 type streamer struct {
-	p               *program
-	path            string
-	ur              *url.URL
-	proto           streamProtocol
-	ready           bool
-	clientSdpParsed *sdp.Message
-	serverSdpText   []byte
-	serverSdpParsed *sdp.Message
-	firstTime       bool
-	readBuf         *doubleBuffer
+	p                *program
+	path             string
+	ur               *url.URL
+	proto            streamProtocol
+	ready            bool
+	clientSdpParsed  *sdp.Message
+	serverSdpText    []byte
+	serverSdpParsed  *sdp.Message
+	firstTime        bool
+	udpLastFrameTime time.Time
+	readBuf          *doubleBuffer
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -402,6 +403,7 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 	tickerSendKeepalive := time.NewTicker(_KEEPALIVE_INTERVAL)
 	defer tickerSendKeepalive.Stop()
 
+	s.udpLastFrameTime = time.Now()
 	tickerCheckStream := time.NewTicker(_CHECK_STREAM_INTERVAL)
 	defer tickerCheckStream.Stop()
 
@@ -431,21 +433,7 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 			}
 
 		case <-tickerCheckStream.C:
-			lastFrameTime := time.Time{}
-
-			for _, pair := range streamerUdpListenerPairs {
-				lft := pair.udplRtp.lastFrameTime
-				if lft.After(lastFrameTime) {
-					lastFrameTime = lft
-				}
-
-				lft = pair.udplRtcp.lastFrameTime
-				if lft.After(lastFrameTime) {
-					lastFrameTime = lft
-				}
-			}
-
-			if time.Since(lastFrameTime) >= _STREAM_DEAD_AFTER {
+			if time.Since(s.udpLastFrameTime) >= _STREAM_DEAD_AFTER {
 				s.log("ERR: stream is dead")
 				return true
 			}
