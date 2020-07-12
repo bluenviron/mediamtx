@@ -15,7 +15,6 @@ import (
 
 const (
 	_CLIENT_CHECK_STREAM_INTERVAL    = 5 * time.Second
-	_CLIENT_STREAM_DEAD_AFTER        = 15 * time.Second
 	_CLIENT_RECEIVER_REPORT_INTERVAL = 10 * time.Second
 )
 
@@ -332,7 +331,7 @@ func (c *serverClient) runRecord() bool {
 
 			case <-checkStreamTicker.C:
 				for trackId := range c.streamTracks {
-					if time.Since(c.rtcpReceivers[trackId].lastFrameTime()) >= _CLIENT_STREAM_DEAD_AFTER {
+					if time.Since(c.rtcpReceivers[trackId].lastFrameTime()) >= c.p.conf.StreamDeadAfter {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						<-readDone
@@ -388,7 +387,7 @@ func (c *serverClient) runRecord() bool {
 
 			case <-checkStreamTicker.C:
 				for trackId := range c.streamTracks {
-					if time.Since(c.rtcpReceivers[trackId].lastFrameTime()) >= _CLIENT_STREAM_DEAD_AFTER {
+					if time.Since(c.rtcpReceivers[trackId].lastFrameTime()) >= c.p.conf.StreamDeadAfter {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						<-readDone

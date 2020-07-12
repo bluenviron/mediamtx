@@ -16,7 +16,6 @@ import (
 const (
 	_STREAMER_RETRY_INTERVAL           = 5 * time.Second
 	_STREAMER_CHECK_STREAM_INTERVAL    = 5 * time.Second
-	_STREAMER_STREAM_DEAD_AFTER        = 15 * time.Second
 	_STREAMER_KEEPALIVE_INTERVAL       = 60 * time.Second
 	_STREAMER_RECEIVER_REPORT_INTERVAL = 10 * time.Second
 )
@@ -431,7 +430,7 @@ outer:
 
 		case <-checkStreamTicker.C:
 			for trackId := range s.clientSdpParsed.Medias {
-				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= _STREAMER_STREAM_DEAD_AFTER {
+				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= s.p.conf.StreamDeadAfter {
 					s.log("ERR: stream is dead")
 					ret = true
 					break outer
@@ -634,7 +633,7 @@ outer2:
 
 		case <-checkStreamTicker.C:
 			for trackId := range s.clientSdpParsed.Medias {
-				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= _STREAMER_STREAM_DEAD_AFTER {
+				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= s.p.conf.StreamDeadAfter {
 					s.log("ERR: stream is dead")
 					ret = true
 					break outer2

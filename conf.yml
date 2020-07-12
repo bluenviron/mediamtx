@@ -15,6 +15,8 @@ postScript:
 readTimeout: 5s
 # timeout of write operations
 writeTimeout: 5s
+# time after which a stream is considered dead
+streamDeadAfter: 15s
 # supported authentication methods
 authMethods: [basic, digest]
 # enable pprof on port 9999 to monitor performance
