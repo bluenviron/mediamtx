@@ -16,7 +16,8 @@ type streamerUdpListener struct {
 	running       bool
 	readBuf       *doubleBuffer
 
-	done chan struct{}
+	writeChan chan *udpAddrBufPair
+	done      chan struct{}
 }
 
 func newStreamerUdpListener(p *program, port int, streamer *streamer,
@@ -36,6 +37,7 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 		publisherIp:   publisherIp,
 		nconn:         nconn,
 		readBuf:       newDoubleBuffer(2048),
+		writeChan:     make(chan *udpAddrBufPair),
 		done:          make(chan struct{}),
 	}
 
@@ -43,19 +45,28 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 }
 
 func (l *streamerUdpListener) close() {
-	l.nconn.Close()
-
-	if l.running {
-		<-l.done
-	}
+	l.nconn.Close() // close twice
 }
 
 func (l *streamerUdpListener) start() {
-	l.running = true
 	go l.run()
 }
 
+func (l *streamerUdpListener) stop() {
+	l.nconn.Close()
+	<-l.done
+}
+
 func (l *streamerUdpListener) run() {
+	writeDone := make(chan struct{})
+	go func() {
+		defer close(writeDone)
+		for w := range l.writeChan {
+			l.nconn.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
+			l.nconn.WriteTo(w.buf, w.addr)
+		}
+	}()
+
 	for {
 		buf := l.readBuf.swap()
 		n, addr, err := l.nconn.ReadFromUDP(buf)
@@ -67,10 +78,12 @@ func (l *streamerUdpListener) run() {
 			continue
 		}
 
-		l.streamer.udpLastFrameTime = time.Now()
-
+		l.streamer.rtcpReceivers[l.trackId].onFrame(l.trackFlowType, buf[:n])
 		l.p.events <- programEventStreamerFrame{l.streamer, l.trackId, l.trackFlowType, buf[:n]}
 	}
+
+	close(l.writeChan)
+	<-writeDone
 
 	close(l.done)
 }

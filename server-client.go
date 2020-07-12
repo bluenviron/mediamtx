@@ -14,9 +14,20 @@ import (
 )
 
 const (
-	_UDP_CHECK_STREAM_INTERVAL = 5 * time.Second
-	_UDP_STREAM_DEAD_AFTER     = 10 * time.Second
+	_CLIENT_CHECK_STREAM_INTERVAL    = 5 * time.Second
+	_CLIENT_STREAM_DEAD_AFTER        = 15 * time.Second
+	_CLIENT_RECEIVER_REPORT_INTERVAL = 10 * time.Second
 )
+
+type serverClientEvent interface {
+	isServerClientEvent()
+}
+
+type serverClientEventFrameTcp struct {
+	frame *gortsplib.InterleavedFrame
+}
+
+func (serverClientEventFrameTcp) isServerClientEvent() {}
 
 type serverClientState int
 
@@ -53,24 +64,24 @@ func (cs serverClientState) String() string {
 }
 
 type serverClient struct {
-	p                *program
-	conn             *gortsplib.ConnServer
-	state            serverClientState
-	path             string
-	authUser         string
-	authPass         string
-	authHelper       *gortsplib.AuthServer
-	authFailures     int
-	streamSdpText    []byte       // only if publisher
-	streamSdpParsed  *sdp.Message // only if publisher
-	streamProtocol   streamProtocol
-	streamTracks     []*track
-	udpLastFrameTime time.Time
-	readBuf          *doubleBuffer
-	writeBuf         *doubleBuffer
+	p               *program
+	conn            *gortsplib.ConnServer
+	state           serverClientState
+	path            string
+	authUser        string
+	authPass        string
+	authHelper      *gortsplib.AuthServer
+	authFailures    int
+	streamSdpText   []byte       // only if publisher
+	streamSdpParsed *sdp.Message // only if publisher
+	streamProtocol  streamProtocol
+	streamTracks    []*track
+	rtcpReceivers   []*rtcpReceiver
+	readBuf         *doubleBuffer
+	writeBuf        *doubleBuffer
 
-	writeChan chan *gortsplib.InterleavedFrame // only if state = _CLIENT_STATE_PLAY
-	done      chan struct{}
+	events chan serverClientEvent
+	done   chan struct{}
 }
 
 func newServerClient(p *program, nconn net.Conn) *serverClient {
@@ -201,31 +212,45 @@ outer:
 
 func (c *serverClient) runPlay() bool {
 	if c.streamProtocol == _STREAM_PROTOCOL_TCP {
-		writeDone := make(chan struct{})
+		readDone := make(chan error)
 		go func() {
-			defer close(writeDone)
-			for frame := range c.writeChan {
-				c.conn.WriteInterleavedFrame(frame)
+			buf := make([]byte, 2048)
+			for {
+				_, err := c.conn.NetConn().Read(buf)
+				if err != nil {
+					readDone <- err
+					break
+				}
 			}
 		}()
 
-		buf := make([]byte, 2048)
+	outer:
 		for {
-			_, err := c.conn.NetConn().Read(buf)
-			if err != nil {
+			select {
+			case err := <-readDone:
 				if err != io.EOF {
 					c.log("ERR: %s", err)
 				}
-				break
+				break outer
+
+			case rawEvt := <-c.events:
+				switch evt := rawEvt.(type) {
+				case serverClientEventFrameTcp:
+					c.conn.WriteInterleavedFrame(evt.frame)
+				}
 			}
 		}
+
+		go func() {
+			for range c.events {
+			}
+		}()
 
 		done := make(chan struct{})
 		c.p.events <- programEventClientClose{done, c}
 		<-done
 
-		close(c.writeChan)
-		<-writeDone
+		close(c.events)
 
 	} else {
 		for {
@@ -255,83 +280,147 @@ func (c *serverClient) runRecord() bool {
 	if c.streamProtocol == _STREAM_PROTOCOL_TCP {
 		frame := &gortsplib.InterleavedFrame{}
 
-	outer:
+		readDone := make(chan error)
+		go func() {
+			for {
+				frame.Content = c.readBuf.swap()
+				frame.Content = frame.Content[:cap(frame.Content)]
+				recv, err := c.conn.ReadInterleavedFrameOrRequest(frame)
+				if err != nil {
+					readDone <- err
+					break
+				}
+
+				switch recvt := recv.(type) {
+				case *gortsplib.InterleavedFrame:
+					trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
+					if trackId >= len(c.streamTracks) {
+						c.log("ERR: invalid track id '%d'", trackId)
+						readDone <- nil
+						break
+					}
+
+					c.rtcpReceivers[trackId].onFrame(trackFlowType, frame.Content)
+					c.p.events <- programEventClientFrameTcp{
+						c.path,
+						trackId,
+						trackFlowType,
+						frame.Content,
+					}
+
+				case *gortsplib.Request:
+					err := c.handleRequest(recvt)
+					if err != nil {
+						readDone <- nil
+						break
+					}
+				}
+			}
+		}()
+
+		checkStreamTicker := time.NewTicker(_CLIENT_CHECK_STREAM_INTERVAL)
+		receiverReportTicker := time.NewTicker(_CLIENT_RECEIVER_REPORT_INTERVAL)
+
+	outer1:
 		for {
-			frame.Content = c.readBuf.swap()
-			frame.Content = frame.Content[:cap(frame.Content)]
-			recv, err := c.conn.ReadInterleavedFrameOrRequest(frame)
-			if err != nil {
-				if err != io.EOF {
+			select {
+			case err := <-readDone:
+				if err != nil && err != io.EOF {
 					c.log("ERR: %s", err)
 				}
-				break outer
-			}
+				break outer1
 
-			switch recvt := recv.(type) {
-			case *gortsplib.InterleavedFrame:
-				trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
-
-				if trackId >= len(c.streamTracks) {
-					c.log("ERR: invalid track id '%d'", trackId)
-					break outer
+			case <-checkStreamTicker.C:
+				for trackId := range c.streamTracks {
+					if time.Since(c.rtcpReceivers[trackId].lastFrameTime()) >= _CLIENT_STREAM_DEAD_AFTER {
+						c.log("ERR: stream is dead")
+						c.conn.NetConn().Close()
+						<-readDone
+						break outer1
+					}
 				}
 
-				c.p.events <- programEventClientFrameTcp{
-					c.path,
-					trackId,
-					trackFlowType,
-					frame.Content,
-				}
+			case <-receiverReportTicker.C:
+				for trackId := range c.streamTracks {
+					channel := trackFlowTypeToInterleavedChannel(trackId, _TRACK_FLOW_TYPE_RTCP)
 
-			case *gortsplib.Request:
-				err := c.handleRequest(recvt)
-				if err != nil {
-					break outer
+					frame := c.rtcpReceivers[trackId].report()
+					c.conn.WriteInterleavedFrame(&gortsplib.InterleavedFrame{
+						Channel: channel,
+						Content: frame,
+					})
 				}
 			}
 		}
 
-		done := make(chan struct{})
-		c.p.events <- programEventClientClose{done, c}
-		<-done
+		checkStreamTicker.Stop()
+		receiverReportTicker.Stop()
 
 	} else {
-		c.udpLastFrameTime = time.Now()
-
-		udpCheckStreamTicker := time.NewTicker(_UDP_CHECK_STREAM_INTERVAL)
-		udpCheckStreamDone := make(chan struct{})
+		readDone := make(chan error)
 		go func() {
-			defer close(udpCheckStreamDone)
-			for range udpCheckStreamTicker.C {
-				if time.Since(c.udpLastFrameTime) >= _UDP_STREAM_DEAD_AFTER {
-					c.log("ERR: stream is dead")
-					c.conn.NetConn().Close()
+			for {
+				req, err := c.conn.ReadRequest()
+				if err != nil {
+					readDone <- err
+					break
+				}
+
+				err = c.handleRequest(req)
+				if err != nil {
+					readDone <- nil // err is not needed
 					break
 				}
 			}
 		}()
 
+		checkStreamTicker := time.NewTicker(_CLIENT_CHECK_STREAM_INTERVAL)
+		receiverReportTicker := time.NewTicker(_CLIENT_RECEIVER_REPORT_INTERVAL)
+
+	outer2:
 		for {
-			req, err := c.conn.ReadRequest()
-			if err != nil {
-				if err != io.EOF {
+			select {
+			case err := <-readDone:
+				if err != nil && err != io.EOF {
 					c.log("ERR: %s", err)
 				}
-				break
-			}
+				break outer2
 
-			err = c.handleRequest(req)
-			if err != nil {
-				break
+			case <-checkStreamTicker.C:
+				for trackId := range c.streamTracks {
+					if time.Since(c.rtcpReceivers[trackId].lastFrameTime()) >= _CLIENT_STREAM_DEAD_AFTER {
+						c.log("ERR: stream is dead")
+						c.conn.NetConn().Close()
+						<-readDone
+						break outer2
+					}
+				}
+
+			case <-receiverReportTicker.C:
+				for trackId := range c.streamTracks {
+					frame := c.rtcpReceivers[trackId].report()
+					c.p.rtcpl.writeChan <- &udpAddrBufPair{
+						addr: &net.UDPAddr{
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[trackId].rtcpPort,
+						},
+						buf: frame,
+					}
+				}
 			}
 		}
 
-		done := make(chan struct{})
-		c.p.events <- programEventClientClose{done, c}
-		<-done
+		checkStreamTicker.Stop()
+		receiverReportTicker.Stop()
+	}
 
-		udpCheckStreamTicker.Stop()
-		<-udpCheckStreamDone
+	done := make(chan struct{})
+	c.p.events <- programEventClientClose{done, c}
+	<-done
+
+	for trackId := range c.streamTracks {
+		c.rtcpReceivers[trackId].close()
 	}
 
 	return false
@@ -340,17 +429,6 @@ func (c *serverClient) runRecord() bool {
 func (c *serverClient) close() {
 	c.conn.NetConn().Close()
 	<-c.done
-}
-
-func (c *serverClient) writeFrame(channel uint8, inbuf []byte) {
-	buf := c.writeBuf.swap()
-	buf = buf[:len(inbuf)]
-	copy(buf, inbuf)
-
-	c.writeChan <- &gortsplib.InterleavedFrame{
-		Channel: channel,
-		Content: buf,
-	}
 }
 
 func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.StatusCode, err error) {
@@ -532,7 +610,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 		c.p.events <- programEventClientDescribe{path, res}
 		sdp := <-res
 		if sdp == nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no one is streaming on path '%s'", path))
+			c.writeResError(req, gortsplib.StatusNotFound, fmt.Errorf("no one is publishing on path '%s'", path))
 			return errClientTerminate
 		}
 
@@ -906,8 +984,10 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 			},
 		})
 
-		c.writeBuf = newDoubleBuffer(2048)
-		c.writeChan = make(chan *gortsplib.InterleavedFrame)
+		if c.streamProtocol == _STREAM_PROTOCOL_TCP {
+			c.writeBuf = newDoubleBuffer(2048)
+			c.events = make(chan serverClientEvent)
+		}
 
 		// set state
 		res = make(chan error)
@@ -947,6 +1027,11 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 				"Session": []string{"12345678"},
 			},
 		})
+
+		c.rtcpReceivers = make([]*rtcpReceiver, len(c.streamTracks))
+		for trackId := range c.streamTracks {
+			c.rtcpReceivers[trackId] = newRtcpReceiver()
+		}
 
 		res := make(chan error)
 		c.p.events <- programEventClientRecord{res, c}

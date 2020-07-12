@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"gopkg.in/yaml.v2"
 	"gortc.io/sdp"
@@ -223,9 +224,9 @@ type publisher interface {
 type program struct {
 	conf           *conf
 	protocols      map[streamProtocol]struct{}
-	tcpl           *serverTcpListener
-	udplRtp        *serverUdpListener
-	udplRtcp       *serverUdpListener
+	rtspl          *serverTcpListener
+	rtpl           *serverUdpListener
+	rtcpl          *serverUdpListener
 	clients        map[*serverClient]struct{}
 	streamers      []*streamer
 	publishers     map[string]publisher
@@ -387,24 +388,24 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		http.DefaultServeMux = http.NewServeMux()
 	}
 
-	p.udplRtp, err = newServerUdpListener(p, conf.RtpPort, _TRACK_FLOW_TYPE_RTP)
+	p.rtpl, err = newServerUdpListener(p, conf.RtpPort, _TRACK_FLOW_TYPE_RTP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.udplRtcp, err = newServerUdpListener(p, conf.RtcpPort, _TRACK_FLOW_TYPE_RTCP)
+	p.rtcpl, err = newServerUdpListener(p, conf.RtcpPort, _TRACK_FLOW_TYPE_RTCP)
 	if err != nil {
 		return nil, err
 	}
 
-	p.tcpl, err = newServerTcpListener(p)
+	p.rtspl, err = newServerTcpListener(p)
 	if err != nil {
 		return nil, err
 	}
 
-	go p.udplRtp.run()
-	go p.udplRtcp.run()
-	go p.tcpl.run()
+	go p.rtpl.run()
+	go p.rtcpl.run()
+	go p.rtspl.run()
 	for _, s := range p.streamers {
 		go s.run()
 	}
@@ -548,7 +549,7 @@ outer:
 				continue
 			}
 
-			client.udpLastFrameTime = time.Now()
+			client.rtcpReceivers[trackId].onFrame(evt.trackFlowType, evt.buf)
 			p.forwardFrame(client.path, trackId, evt.trackFlowType, evt.buf)
 
 		case programEventClientFrameTcp:
@@ -613,9 +614,9 @@ outer:
 		s.close()
 	}
 
-	p.tcpl.close()
-	p.udplRtcp.close()
-	p.udplRtp.close()
+	p.rtspl.close()
+	p.rtcpl.close()
+	p.rtpl.close()
 
 	for c := range p.clients {
 		c.close()
@@ -659,31 +660,42 @@ func (p *program) findPublisher(addr *net.UDPAddr, trackFlowType trackFlowType) 
 }
 
 func (p *program) forwardFrame(path string, trackId int, trackFlowType trackFlowType, frame []byte) {
-	for c := range p.clients {
-		if c.path == path && c.state == _CLIENT_STATE_PLAY {
-			if c.streamProtocol == _STREAM_PROTOCOL_UDP {
+	for client := range p.clients {
+		if client.path == path && client.state == _CLIENT_STATE_PLAY {
+			if client.streamProtocol == _STREAM_PROTOCOL_UDP {
 				if trackFlowType == _TRACK_FLOW_TYPE_RTP {
-					p.udplRtp.write(&udpAddrBufPair{
+					p.rtpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
-							IP:   c.ip(),
-							Zone: c.zone(),
-							Port: c.streamTracks[trackId].rtpPort,
+							IP:   client.ip(),
+							Zone: client.zone(),
+							Port: client.streamTracks[trackId].rtpPort,
 						},
 						buf: frame,
 					})
 				} else {
-					p.udplRtcp.write(&udpAddrBufPair{
+					p.rtcpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
-							IP:   c.ip(),
-							Zone: c.zone(),
-							Port: c.streamTracks[trackId].rtcpPort,
+							IP:   client.ip(),
+							Zone: client.zone(),
+							Port: client.streamTracks[trackId].rtcpPort,
 						},
 						buf: frame,
 					})
 				}
 
 			} else {
-				c.writeFrame(trackFlowTypeToInterleavedChannel(trackId, trackFlowType), frame)
+				channel := trackFlowTypeToInterleavedChannel(trackId, trackFlowType)
+
+				buf := client.writeBuf.swap()
+				buf = buf[:len(frame)]
+				copy(buf, frame)
+
+				client.events <- serverClientEventFrameTcp{
+					frame: &gortsplib.InterleavedFrame{
+						Channel: channel,
+						Content: buf,
+					},
+				}
 			}
 		}
 	}

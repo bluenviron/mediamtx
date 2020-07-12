@@ -14,30 +14,29 @@ import (
 )
 
 const (
-	_DIAL_TIMEOUT          = 10 * time.Second
-	_RETRY_INTERVAL        = 5 * time.Second
-	_CHECK_STREAM_INTERVAL = 6 * time.Second
-	_STREAM_DEAD_AFTER     = 5 * time.Second
-	_KEEPALIVE_INTERVAL    = 60 * time.Second
+	_STREAMER_RETRY_INTERVAL           = 5 * time.Second
+	_STREAMER_CHECK_STREAM_INTERVAL    = 5 * time.Second
+	_STREAMER_STREAM_DEAD_AFTER        = 15 * time.Second
+	_STREAMER_KEEPALIVE_INTERVAL       = 60 * time.Second
+	_STREAMER_RECEIVER_REPORT_INTERVAL = 10 * time.Second
 )
 
 type streamerUdpListenerPair struct {
-	udplRtp  *streamerUdpListener
-	udplRtcp *streamerUdpListener
+	rtpl  *streamerUdpListener
+	rtcpl *streamerUdpListener
 }
 
 type streamer struct {
-	p                *program
-	path             string
-	ur               *url.URL
-	proto            streamProtocol
-	ready            bool
-	clientSdpParsed  *sdp.Message
-	serverSdpText    []byte
-	serverSdpParsed  *sdp.Message
-	firstTime        bool
-	udpLastFrameTime time.Time
-	readBuf          *doubleBuffer
+	p               *program
+	path            string
+	ur              *url.URL
+	proto           streamProtocol
+	ready           bool
+	clientSdpParsed *sdp.Message
+	serverSdpText   []byte
+	serverSdpParsed *sdp.Message
+	rtcpReceivers   []*rtcpReceiver
+	readBuf         *doubleBuffer
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -82,7 +81,6 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 		path:      path,
 		ur:        ur,
 		proto:     proto,
-		firstTime: true,
 		readBuf:   newDoubleBuffer(512 * 1024),
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
@@ -113,30 +111,26 @@ func (s *streamer) run() {
 		if !ok {
 			break
 		}
+
+		t := time.NewTimer(_STREAMER_RETRY_INTERVAL)
+		select {
+		case <-s.terminate:
+			break
+		case <-t.C:
+		}
 	}
 
 	close(s.done)
 }
 
 func (s *streamer) do() bool {
-	if s.firstTime {
-		s.firstTime = false
-	} else {
-		t := time.NewTimer(_RETRY_INTERVAL)
-		select {
-		case <-s.terminate:
-			return false
-		case <-t.C:
-		}
-	}
-
 	s.log("initializing with protocol %s", s.proto)
 
 	var nconn net.Conn
 	var err error
 	dialDone := make(chan struct{})
 	go func() {
-		nconn, err = net.DialTimeout("tcp", s.ur.Host, _DIAL_TIMEOUT)
+		nconn, err = net.DialTimeout("tcp", s.ur.Host, s.p.conf.ReadTimeout)
 		close(dialDone)
 	}()
 
@@ -251,16 +245,16 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 
 	defer func() {
 		for _, pair := range streamerUdpListenerPairs {
-			pair.udplRtp.close()
-			pair.udplRtcp.close()
+			pair.rtpl.close()
+			pair.rtcpl.close()
 		}
 	}()
 
 	for i, media := range s.clientSdpParsed.Medias {
 		var rtpPort int
 		var rtcpPort int
-		var udplRtp *streamerUdpListener
-		var udplRtcp *streamerUdpListener
+		var rtpl *streamerUdpListener
+		var rtcpl *streamerUdpListener
 		func() {
 			for {
 				// choose two consecutive ports in range 65536-10000
@@ -269,16 +263,16 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 				rtcpPort = rtpPort + 1
 
 				var err error
-				udplRtp, err = newStreamerUdpListener(s.p, rtpPort, s, i,
+				rtpl, err = newStreamerUdpListener(s.p, rtpPort, s, i,
 					_TRACK_FLOW_TYPE_RTP, publisherIp)
 				if err != nil {
 					continue
 				}
 
-				udplRtcp, err = newStreamerUdpListener(s.p, rtcpPort, s, i,
+				rtcpl, err = newStreamerUdpListener(s.p, rtcpPort, s, i,
 					_TRACK_FLOW_TYPE_RTCP, publisherIp)
 				if err != nil {
-					udplRtp.close()
+					rtpl.close()
 					continue
 				}
 
@@ -338,23 +332,23 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		})
 		if err != nil {
 			s.log("ERR: %s", err)
-			udplRtp.close()
-			udplRtcp.close()
+			rtpl.close()
+			rtcpl.close()
 			return true
 		}
 
 		if res.StatusCode != gortsplib.StatusOK {
 			s.log("ERR: SETUP returned code %d (%s)", res.StatusCode, res.StatusMessage)
-			udplRtp.close()
-			udplRtcp.close()
+			rtpl.close()
+			rtcpl.close()
 			return true
 		}
 
 		tsRaw, ok := res.Header["Transport"]
 		if !ok || len(tsRaw) != 1 {
 			s.log("ERR: transport header not provided")
-			udplRtp.close()
-			udplRtcp.close()
+			rtpl.close()
+			rtcpl.close()
 			return true
 		}
 
@@ -362,17 +356,17 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		rtpServerPort, rtcpServerPort := th.GetPorts("server_port")
 		if rtpServerPort == 0 {
 			s.log("ERR: server ports not provided")
-			udplRtp.close()
-			udplRtcp.close()
+			rtpl.close()
+			rtcpl.close()
 			return true
 		}
 
-		udplRtp.publisherPort = rtpServerPort
-		udplRtcp.publisherPort = rtcpServerPort
+		rtpl.publisherPort = rtpServerPort
+		rtcpl.publisherPort = rtcpServerPort
 
 		streamerUdpListenerPairs = append(streamerUdpListenerPairs, streamerUdpListenerPair{
-			udplRtp:  udplRtp,
-			udplRtcp: udplRtcp,
+			rtpl:  rtpl,
+			rtcpl: rtcpl,
 		})
 	}
 
@@ -395,30 +389,32 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	for _, pair := range streamerUdpListenerPairs {
-		pair.udplRtp.start()
-		pair.udplRtcp.start()
+	s.rtcpReceivers = make([]*rtcpReceiver, len(s.clientSdpParsed.Medias))
+	for trackId := range s.clientSdpParsed.Medias {
+		s.rtcpReceivers[trackId] = newRtcpReceiver()
 	}
 
-	tickerSendKeepalive := time.NewTicker(_KEEPALIVE_INTERVAL)
-	defer tickerSendKeepalive.Stop()
+	for _, pair := range streamerUdpListenerPairs {
+		pair.rtpl.start()
+		pair.rtcpl.start()
+	}
 
-	s.udpLastFrameTime = time.Now()
-	tickerCheckStream := time.NewTicker(_CHECK_STREAM_INTERVAL)
-	defer tickerCheckStream.Stop()
+	sendKeepaliveTicker := time.NewTicker(_STREAMER_KEEPALIVE_INTERVAL)
+	checkStreamTicker := time.NewTicker(_STREAMER_CHECK_STREAM_INTERVAL)
+	receiverReportTicker := time.NewTicker(_STREAMER_RECEIVER_REPORT_INTERVAL)
 
 	s.p.events <- programEventStreamerReady{s}
 
-	defer func() {
-		s.p.events <- programEventStreamerNotReady{s}
-	}()
+	var ret bool
 
+outer:
 	for {
 		select {
 		case <-s.terminate:
-			return false
+			ret = false
+			break outer
 
-		case <-tickerSendKeepalive.C:
+		case <-sendKeepaliveTicker.C:
 			_, err = conn.WriteRequest(&gortsplib.Request{
 				Method: gortsplib.OPTIONS,
 				Url: &url.URL{
@@ -429,16 +425,50 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 			})
 			if err != nil {
 				s.log("ERR: %s", err)
-				return true
+				ret = true
+				break outer
 			}
 
-		case <-tickerCheckStream.C:
-			if time.Since(s.udpLastFrameTime) >= _STREAM_DEAD_AFTER {
-				s.log("ERR: stream is dead")
-				return true
+		case <-checkStreamTicker.C:
+			for trackId := range s.clientSdpParsed.Medias {
+				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= _STREAMER_STREAM_DEAD_AFTER {
+					s.log("ERR: stream is dead")
+					ret = true
+					break outer
+				}
+			}
+
+		case <-receiverReportTicker.C:
+			for trackId := range s.clientSdpParsed.Medias {
+				frame := s.rtcpReceivers[trackId].report()
+				streamerUdpListenerPairs[trackId].rtcpl.writeChan <- &udpAddrBufPair{
+					addr: &net.UDPAddr{
+						IP:   conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
+						Zone: conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone,
+						Port: streamerUdpListenerPairs[trackId].rtcpl.publisherPort,
+					},
+					buf: frame,
+				}
 			}
 		}
 	}
+
+	sendKeepaliveTicker.Stop()
+	checkStreamTicker.Stop()
+	receiverReportTicker.Stop()
+
+	s.p.events <- programEventStreamerNotReady{s}
+
+	for _, pair := range streamerUdpListenerPairs {
+		pair.rtpl.stop()
+		pair.rtcpl.stop()
+	}
+
+	for trackId := range s.clientSdpParsed.Medias {
+		s.rtcpReceivers[trackId].close()
+	}
+
+	return ret
 }
 
 func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
@@ -536,7 +566,7 @@ func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
 
 	frame := &gortsplib.InterleavedFrame{}
 
-outer:
+outer1:
 	for {
 		frame.Content = s.readBuf.swap()
 		frame.Content = frame.Content[:cap(frame.Content)]
@@ -553,18 +583,19 @@ outer:
 				s.log("ERR: PLAY returned code %d (%s)", recvt.StatusCode, recvt.StatusMessage)
 				return true
 			}
-			break outer
+			break outer1
 
 		case *gortsplib.InterleavedFrame:
 			// ignore the frames sent before the response
 		}
 	}
 
-	s.p.events <- programEventStreamerReady{s}
+	s.rtcpReceivers = make([]*rtcpReceiver, len(s.clientSdpParsed.Medias))
+	for trackId := range s.clientSdpParsed.Medias {
+		s.rtcpReceivers[trackId] = newRtcpReceiver()
+	}
 
-	defer func() {
-		s.p.events <- programEventStreamerNotReady{s}
-	}()
+	s.p.events <- programEventStreamerReady{s}
 
 	chanConnError := make(chan struct{})
 	go func() {
@@ -580,16 +611,60 @@ outer:
 
 			trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
 
+			s.rtcpReceivers[trackId].onFrame(trackFlowType, frame.Content)
 			s.p.events <- programEventStreamerFrame{s, trackId, trackFlowType, frame.Content}
 		}
 	}()
 
-	select {
-	case <-s.terminate:
-		return false
-	case <-chanConnError:
-		return true
+	checkStreamTicker := time.NewTicker(_STREAMER_CHECK_STREAM_INTERVAL)
+	receiverReportTicker := time.NewTicker(_STREAMER_RECEIVER_REPORT_INTERVAL)
+
+	var ret bool
+
+outer2:
+	for {
+		select {
+		case <-s.terminate:
+			ret = false
+			break outer2
+
+		case <-chanConnError:
+			ret = true
+			break outer2
+
+		case <-checkStreamTicker.C:
+			for trackId := range s.clientSdpParsed.Medias {
+				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= _STREAMER_STREAM_DEAD_AFTER {
+					s.log("ERR: stream is dead")
+					ret = true
+					break outer2
+				}
+			}
+
+		case <-receiverReportTicker.C:
+			for trackId := range s.clientSdpParsed.Medias {
+				frame := s.rtcpReceivers[trackId].report()
+
+				channel := trackFlowTypeToInterleavedChannel(trackId, _TRACK_FLOW_TYPE_RTCP)
+
+				conn.WriteInterleavedFrame(&gortsplib.InterleavedFrame{
+					Channel: channel,
+					Content: frame,
+				})
+			}
+		}
 	}
+
+	checkStreamTicker.Stop()
+	receiverReportTicker.Stop()
+
+	s.p.events <- programEventStreamerNotReady{s}
+
+	for trackId := range s.clientSdpParsed.Medias {
+		s.rtcpReceivers[trackId].close()
+	}
+
+	return ret
 }
 
 func (s *streamer) close() {

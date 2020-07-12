@@ -54,7 +54,9 @@ func (l *serverUdpListener) log(format string, args ...interface{}) {
 }
 
 func (l *serverUdpListener) run() {
+	writeDone := make(chan struct{})
 	go func() {
+		defer close(writeDone)
 		for w := range l.writeChan {
 			l.nconn.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
 			l.nconn.WriteTo(w.buf, w.addr)
@@ -76,6 +78,7 @@ func (l *serverUdpListener) run() {
 	}
 
 	close(l.writeChan)
+	<-writeDone
 
 	close(l.done)
 }

@@ -1,20 +1,20 @@
 
 # supported stream protocols (the handshake is always performed with TCP)
 protocols: [udp, tcp]
-# port of the TCP rtsp listener
+# port of the TCP RTSP listener
 rtspPort: 8554
-# port of the UDP rtp listener
+# port of the UDP RTP listener
 rtpPort: 8000
-# port of the UDP rtcp listener
+# port of the UDP RTCP listener
 rtcpPort: 8001
-# timeout of read operations
-readTimeout: 5s
-# timeout of write operations
-writeTimeout: 5s
 # script to run when a client connects
 preScript:
 # script to run when a client disconnects
 postScript:
+# timeout of read operations
+readTimeout: 5s
+# timeout of write operations
+writeTimeout: 5s
 # enable pprof on port 9999 to monitor performance
 pprof: false
 

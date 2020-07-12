@@ -65,10 +65,18 @@ endef
 export DOCKERFILE_RUN
 
 define CONFIG_RUN
+#rtspPort: 8555
+#rtpPort: 8002
+#rtcpPort: 8003
+
 paths:
   all:
     readUser: test
     readPass: tast
+
+  proxied:
+    source: rtsp://192.168.10.1/unicast
+    sourceProtocol: udp
 endef
 export CONFIG_RUN
 
