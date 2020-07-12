@@ -489,7 +489,7 @@ func (c *serverClient) authenticate(ips []interface{}, user string, pass string,
 		if c.authHelper == nil || c.authUser != user || c.authPass != pass {
 			c.authUser = user
 			c.authPass = pass
-			c.authHelper = gortsplib.NewAuthServer(user, pass, nil)
+			c.authHelper = gortsplib.NewAuthServer(user, pass, c.p.conf.authMethodsParsed)
 		}
 
 		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
@@ -732,7 +732,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 				}
 				return false
 			}() {
-				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[_STREAM_PROTOCOL_UDP]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errClientTerminate
 				}
@@ -778,7 +778,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 
 				// play via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
-				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[_STREAM_PROTOCOL_TCP]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errClientTerminate
 				}
@@ -847,7 +847,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 				}
 				return false
 			}() {
-				if _, ok := c.p.protocols[_STREAM_PROTOCOL_UDP]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[_STREAM_PROTOCOL_UDP]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errClientTerminate
 				}
@@ -893,7 +893,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 
 				// record via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
-				if _, ok := c.p.protocols[_STREAM_PROTOCOL_TCP]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[_STREAM_PROTOCOL_TCP]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errClientTerminate
 				}
