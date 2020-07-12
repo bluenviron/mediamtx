@@ -10,8 +10,8 @@ import (
 	"os"
 
 	"github.com/aler9/gortsplib"
+	"github.com/pion/sdp"
 	"gopkg.in/alecthomas/kingpin.v2"
-	"gortc.io/sdp"
 )
 
 var Version = "v0.0.0"
@@ -155,7 +155,7 @@ func (programEventTerminate) isProgramEvent() {}
 type publisher interface {
 	publisherIsReady() bool
 	publisherSdpText() []byte
-	publisherSdpParsed() *sdp.Message
+	publisherSdpParsed() *sdp.SessionDescription
 }
 
 type program struct {
@@ -332,7 +332,7 @@ outer:
 
 			sdpParsed := pub.publisherSdpParsed()
 
-			if len(evt.client.streamTracks) >= len(sdpParsed.Medias) {
+			if len(evt.client.streamTracks) >= len(sdpParsed.MediaDescriptions) {
 				evt.res <- fmt.Errorf("all the tracks have already been setup")
 				continue
 			}
@@ -364,7 +364,7 @@ outer:
 
 			sdpParsed := pub.publisherSdpParsed()
 
-			if len(evt.client.streamTracks) != len(sdpParsed.Medias) {
+			if len(evt.client.streamTracks) != len(sdpParsed.MediaDescriptions) {
 				evt.res <- fmt.Errorf("not all tracks have been setup")
 				continue
 			}

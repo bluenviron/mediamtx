@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"gortc.io/sdp"
+	"github.com/pion/sdp"
 )
 
 const (
@@ -71,8 +71,8 @@ type serverClient struct {
 	authPass        string
 	authHelper      *gortsplib.AuthServer
 	authFailures    int
-	streamSdpText   []byte       // only if publisher
-	streamSdpParsed *sdp.Message // only if publisher
+	streamSdpText   []byte                  // only if publisher
+	streamSdpParsed *sdp.SessionDescription // only if publisher
 	streamProtocol  streamProtocol
 	streamTracks    []*track
 	rtcpReceivers   []*rtcpReceiver
@@ -120,7 +120,7 @@ func (c *serverClient) publisherSdpText() []byte {
 	return c.streamSdpText
 }
 
-func (c *serverClient) publisherSdpParsed() *sdp.Message {
+func (c *serverClient) publisherSdpParsed() *sdp.SessionDescription {
 	return c.streamSdpParsed
 }
 
@@ -631,6 +631,11 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 			return errClientTerminate
 		}
 
+		if len(path) == 0 {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path can't be empty"))
+			return errClientTerminate
+		}
+
 		pconf := c.findConfForPath(path)
 		if pconf == nil {
 			c.writeResError(req, gortsplib.StatusBadRequest,
@@ -657,15 +662,16 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 			return errClientTerminate
 		}
 
-		sdpParsed, err := gortsplib.SDPParse(req.Content)
+		sdpParsed := &sdp.SessionDescription{}
+		err = sdpParsed.Unmarshal(string(req.Content))
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return errClientTerminate
 		}
-		sdpParsed, req.Content = gortsplib.SDPFilter(sdpParsed, req.Content)
+		sdpParsed, req.Content = sdpForServer(sdpParsed, req.Content)
 
-		if len(path) == 0 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path can't be empty"))
+		if len(sdpParsed.MediaDescriptions) == 0 {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no tracks defined"))
 			return errClientTerminate
 		}
 
@@ -862,7 +868,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 					return errClientTerminate
 				}
 
-				if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
+				if len(c.streamTracks) >= len(c.streamSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errClientTerminate
 				}
@@ -914,7 +920,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 					return errClientTerminate
 				}
 
-				if len(c.streamTracks) >= len(c.streamSdpParsed.Medias) {
+				if len(c.streamTracks) >= len(c.streamSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errClientTerminate
 				}
@@ -1014,7 +1020,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 			return errClientTerminate
 		}
 
-		if len(c.streamTracks) != len(c.streamSdpParsed.Medias) {
+		if len(c.streamTracks) != len(c.streamSdpParsed.MediaDescriptions) {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return errClientTerminate
 		}

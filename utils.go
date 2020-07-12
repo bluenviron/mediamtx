@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/pion/rtcp"
+	"github.com/pion/sdp"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {
@@ -229,4 +231,61 @@ func (rr *rtcpReceiver) report() []byte {
 	res := make(chan []byte)
 	rr.events <- rtcpReceiverEventReport{res}
 	return <-res
+}
+
+func sdpFindAttribute(attributes []sdp.Attribute, key string) string {
+	for _, attr := range attributes {
+		if attr.Key == key {
+			return attr.Value
+		}
+	}
+	return ""
+}
+
+func sdpForServer(sin *sdp.SessionDescription, bytsin []byte) (*sdp.SessionDescription, []byte) {
+	sout := &sdp.SessionDescription{
+		SessionName: "Stream",
+		Origin: sdp.Origin{
+			Username:       "-",
+			NetworkType:    "IN",
+			AddressType:    "IP4",
+			UnicastAddress: "127.0.0.1",
+		},
+		TimeDescriptions: []sdp.TimeDescription{
+			{Timing: sdp.Timing{0, 0}},
+		},
+	}
+
+	for i, min := range sin.MediaDescriptions {
+		mout := &sdp.MediaDescription{
+			MediaName: sdp.MediaName{
+				Media:   min.MediaName.Media,
+				Protos:  []string{"RTP", "AVP"}, // override protocol
+				Formats: min.MediaName.Formats,
+			},
+			Bandwidth: min.Bandwidth,
+			Attributes: func() []sdp.Attribute {
+				var ret []sdp.Attribute
+
+				for _, attr := range min.Attributes {
+					if attr.Key == "rtpmap" || attr.Key == "fmtp" {
+						ret = append(ret, attr)
+					}
+				}
+
+				// control attribute is mandatory, and is the path that is appended
+				// to the stream path in SETUP
+				ret = append(ret, sdp.Attribute{
+					Key:   "control",
+					Value: "trackID=" + strconv.FormatInt(int64(i), 10),
+				})
+
+				return ret
+			}(),
+		}
+		sout.MediaDescriptions = append(sout.MediaDescriptions, mout)
+	}
+
+	bytsout := []byte(sout.Marshal())
+	return sout, bytsout
 }
