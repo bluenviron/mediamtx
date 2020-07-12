@@ -110,18 +110,18 @@ type programEventClientRecord struct {
 func (programEventClientRecord) isProgramEvent() {}
 
 type programEventClientFrameUdp struct {
-	addr          *net.UDPAddr
-	trackFlowType trackFlowType
-	buf           []byte
+	addr       *net.UDPAddr
+	streamType gortsplib.StreamType
+	buf        []byte
 }
 
 func (programEventClientFrameUdp) isProgramEvent() {}
 
 type programEventClientFrameTcp struct {
-	path          string
-	trackId       int
-	trackFlowType trackFlowType
-	buf           []byte
+	path       string
+	trackId    int
+	streamType gortsplib.StreamType
+	buf        []byte
 }
 
 func (programEventClientFrameTcp) isProgramEvent() {}
@@ -139,10 +139,10 @@ type programEventStreamerNotReady struct {
 func (programEventStreamerNotReady) isProgramEvent() {}
 
 type programEventStreamerFrame struct {
-	streamer      *streamer
-	trackId       int
-	trackFlowType trackFlowType
-	buf           []byte
+	streamer   *streamer
+	trackId    int
+	streamType gortsplib.StreamType
+	buf        []byte
 }
 
 func (programEventStreamerFrame) isProgramEvent() {}
@@ -226,12 +226,12 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 		http.DefaultServeMux = http.NewServeMux()
 	}
 
-	p.rtpl, err = newServerUdpListener(p, conf.RtpPort, _TRACK_FLOW_TYPE_RTP)
+	p.rtpl, err = newServerUdpListener(p, conf.RtpPort, gortsplib.StreamTypeRtp)
 	if err != nil {
 		return nil, err
 	}
 
-	p.rtcpl, err = newServerUdpListener(p, conf.RtcpPort, _TRACK_FLOW_TYPE_RTCP)
+	p.rtcpl, err = newServerUdpListener(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
 	if err != nil {
 		return nil, err
 	}
@@ -382,16 +382,16 @@ outer:
 			evt.res <- nil
 
 		case programEventClientFrameUdp:
-			client, trackId := p.findPublisher(evt.addr, evt.trackFlowType)
+			client, trackId := p.findPublisher(evt.addr, evt.streamType)
 			if client == nil {
 				continue
 			}
 
-			client.rtcpReceivers[trackId].onFrame(evt.trackFlowType, evt.buf)
-			p.forwardFrame(client.path, trackId, evt.trackFlowType, evt.buf)
+			client.rtcpReceivers[trackId].onFrame(evt.streamType, evt.buf)
+			p.forwardFrame(client.path, trackId, evt.streamType, evt.buf)
 
 		case programEventClientFrameTcp:
-			p.forwardFrame(evt.path, evt.trackId, evt.trackFlowType, evt.buf)
+			p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
 
 		case programEventStreamerReady:
 			evt.streamer.ready = true
@@ -411,7 +411,7 @@ outer:
 			}
 
 		case programEventStreamerFrame:
-			p.forwardFrame(evt.streamer.path, evt.trackId, evt.trackFlowType, evt.buf)
+			p.forwardFrame(evt.streamer.path, evt.trackId, evt.streamType, evt.buf)
 
 		case programEventTerminate:
 			break outer
@@ -469,7 +469,7 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) findPublisher(addr *net.UDPAddr, trackFlowType trackFlowType) (*serverClient, int) {
+func (p *program) findPublisher(addr *net.UDPAddr, streamType gortsplib.StreamType) (*serverClient, int) {
 	for _, pub := range p.publishers {
 		cl, ok := pub.(*serverClient)
 		if !ok {
@@ -483,7 +483,7 @@ func (p *program) findPublisher(addr *net.UDPAddr, trackFlowType trackFlowType) 
 		}
 
 		for i, t := range cl.streamTracks {
-			if trackFlowType == _TRACK_FLOW_TYPE_RTP {
+			if streamType == gortsplib.StreamTypeRtp {
 				if t.rtpPort == addr.Port {
 					return cl, i
 				}
@@ -497,11 +497,11 @@ func (p *program) findPublisher(addr *net.UDPAddr, trackFlowType trackFlowType) 
 	return nil, -1
 }
 
-func (p *program) forwardFrame(path string, trackId int, trackFlowType trackFlowType, frame []byte) {
+func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for client := range p.clients {
 		if client.path == path && client.state == _CLIENT_STATE_PLAY {
 			if client.streamProtocol == _STREAM_PROTOCOL_UDP {
-				if trackFlowType == _TRACK_FLOW_TYPE_RTP {
+				if streamType == gortsplib.StreamTypeRtp {
 					p.rtpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
 							IP:   client.ip(),
@@ -522,7 +522,7 @@ func (p *program) forwardFrame(path string, trackId int, trackFlowType trackFlow
 				}
 
 			} else {
-				channel := trackFlowTypeToInterleavedChannel(trackId, trackFlowType)
+				channel := gortsplib.ConvTrackIdAndStreamTypeToChannel(trackId, streamType)
 
 				buf := client.writeBuf.swap()
 				buf = buf[:len(frame)]

@@ -3,13 +3,15 @@ package main
 import (
 	"net"
 	"time"
+
+	"github.com/aler9/gortsplib"
 )
 
 type streamerUdpListener struct {
 	p             *program
 	streamer      *streamer
 	trackId       int
-	trackFlowType trackFlowType
+	streamType    gortsplib.StreamType
 	publisherIp   net.IP
 	publisherPort int
 	nconn         *net.UDPConn
@@ -21,7 +23,7 @@ type streamerUdpListener struct {
 }
 
 func newStreamerUdpListener(p *program, port int, streamer *streamer,
-	trackId int, trackFlowType trackFlowType, publisherIp net.IP) (*streamerUdpListener, error) {
+	trackId int, streamType gortsplib.StreamType, publisherIp net.IP) (*streamerUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -30,15 +32,15 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 	}
 
 	l := &streamerUdpListener{
-		p:             p,
-		streamer:      streamer,
-		trackId:       trackId,
-		trackFlowType: trackFlowType,
-		publisherIp:   publisherIp,
-		nconn:         nconn,
-		readBuf:       newDoubleBuffer(2048),
-		writeChan:     make(chan *udpAddrBufPair),
-		done:          make(chan struct{}),
+		p:           p,
+		streamer:    streamer,
+		trackId:     trackId,
+		streamType:  streamType,
+		publisherIp: publisherIp,
+		nconn:       nconn,
+		readBuf:     newDoubleBuffer(2048),
+		writeChan:   make(chan *udpAddrBufPair),
+		done:        make(chan struct{}),
 	}
 
 	return l, nil
@@ -78,8 +80,8 @@ func (l *streamerUdpListener) run() {
 			continue
 		}
 
-		l.streamer.rtcpReceivers[l.trackId].onFrame(l.trackFlowType, buf[:n])
-		l.p.events <- programEventStreamerFrame{l.streamer, l.trackId, l.trackFlowType, buf[:n]}
+		l.streamer.rtcpReceivers[l.trackId].onFrame(l.streamType, buf[:n])
+		l.p.events <- programEventStreamerFrame{l.streamer, l.trackId, l.streamType, buf[:n]}
 	}
 
 	close(l.writeChan)

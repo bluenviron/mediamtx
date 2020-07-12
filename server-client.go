@@ -87,7 +87,7 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 	c := &serverClient{
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
-			NConn:        nconn,
+			Conn:         nconn,
 			ReadTimeout:  p.conf.ReadTimeout,
 			WriteTimeout: p.conf.WriteTimeout,
 		}),
@@ -235,7 +235,7 @@ func (c *serverClient) runPlay() bool {
 			case rawEvt := <-c.events:
 				switch evt := rawEvt.(type) {
 				case serverClientEventFrameTcp:
-					c.conn.WriteInterleavedFrame(evt.frame)
+					c.conn.WriteFrame(evt.frame)
 				}
 			}
 		}
@@ -284,7 +284,7 @@ func (c *serverClient) runRecord() bool {
 			for {
 				frame.Content = c.readBuf.swap()
 				frame.Content = frame.Content[:cap(frame.Content)]
-				recv, err := c.conn.ReadInterleavedFrameOrRequest(frame)
+				recv, err := c.conn.ReadFrameOrRequest(frame)
 				if err != nil {
 					readDone <- err
 					break
@@ -292,18 +292,18 @@ func (c *serverClient) runRecord() bool {
 
 				switch recvt := recv.(type) {
 				case *gortsplib.InterleavedFrame:
-					trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
+					trackId, streamType := gortsplib.ConvChannelToTrackIdAndStreamType(frame.Channel)
 					if trackId >= len(c.streamTracks) {
 						c.log("ERR: invalid track id '%d'", trackId)
 						readDone <- nil
 						break
 					}
 
-					c.rtcpReceivers[trackId].onFrame(trackFlowType, frame.Content)
+					c.rtcpReceivers[trackId].onFrame(streamType, frame.Content)
 					c.p.events <- programEventClientFrameTcp{
 						c.path,
 						trackId,
-						trackFlowType,
+						streamType,
 						frame.Content,
 					}
 
@@ -341,10 +341,10 @@ func (c *serverClient) runRecord() bool {
 
 			case <-receiverReportTicker.C:
 				for trackId := range c.streamTracks {
-					channel := trackFlowTypeToInterleavedChannel(trackId, _TRACK_FLOW_TYPE_RTCP)
+					channel := gortsplib.ConvTrackIdAndStreamTypeToChannel(trackId, gortsplib.StreamTypeRtcp)
 
 					frame := c.rtcpReceivers[trackId].report()
-					c.conn.WriteInterleavedFrame(&gortsplib.InterleavedFrame{
+					c.conn.WriteFrame(&gortsplib.InterleavedFrame{
 						Channel: channel,
 						Content: frame,
 					})
@@ -668,7 +668,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) error {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return errClientTerminate
 		}
-		sdpParsed, req.Content = sdpForServer(sdpParsed, req.Content)
+		sdpParsed, req.Content = sdpForServer(sdpParsed)
 
 		if len(sdpParsed.MediaDescriptions) == 0 {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no tracks defined"))

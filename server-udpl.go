@@ -3,6 +3,8 @@ package main
 import (
 	"net"
 	"time"
+
+	"github.com/aler9/gortsplib"
 )
 
 type udpAddrBufPair struct {
@@ -11,17 +13,17 @@ type udpAddrBufPair struct {
 }
 
 type serverUdpListener struct {
-	p             *program
-	nconn         *net.UDPConn
-	trackFlowType trackFlowType
-	readBuf       *doubleBuffer
-	writeBuf      *doubleBuffer
+	p          *program
+	nconn      *net.UDPConn
+	streamType gortsplib.StreamType
+	readBuf    *doubleBuffer
+	writeBuf   *doubleBuffer
 
 	writeChan chan *udpAddrBufPair
 	done      chan struct{}
 }
 
-func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*serverUdpListener, error) {
+func newServerUdpListener(p *program, port int, streamType gortsplib.StreamType) (*serverUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -30,13 +32,13 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 	}
 
 	l := &serverUdpListener{
-		p:             p,
-		nconn:         nconn,
-		trackFlowType: trackFlowType,
-		readBuf:       newDoubleBuffer(2048),
-		writeBuf:      newDoubleBuffer(2048),
-		writeChan:     make(chan *udpAddrBufPair),
-		done:          make(chan struct{}),
+		p:          p,
+		nconn:      nconn,
+		streamType: streamType,
+		readBuf:    newDoubleBuffer(2048),
+		writeBuf:   newDoubleBuffer(2048),
+		writeChan:  make(chan *udpAddrBufPair),
+		done:       make(chan struct{}),
 	}
 
 	l.log("opened on :%d", port)
@@ -45,7 +47,7 @@ func newServerUdpListener(p *program, port int, trackFlowType trackFlowType) (*s
 
 func (l *serverUdpListener) log(format string, args ...interface{}) {
 	var label string
-	if l.trackFlowType == _TRACK_FLOW_TYPE_RTP {
+	if l.streamType == gortsplib.StreamTypeRtp {
 		label = "RTP"
 	} else {
 		label = "RTCP"
@@ -72,7 +74,7 @@ func (l *serverUdpListener) run() {
 
 		l.p.events <- programEventClientFrameUdp{
 			addr,
-			l.trackFlowType,
+			l.streamType,
 			buf[:n],
 		}
 	}

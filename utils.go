@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/pion/rtcp"
 	"github.com/pion/sdp"
 )
@@ -50,27 +51,6 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 		}
 	}
 	return false
-}
-
-type trackFlowType int
-
-const (
-	_TRACK_FLOW_TYPE_RTP trackFlowType = iota
-	_TRACK_FLOW_TYPE_RTCP
-)
-
-func interleavedChannelToTrackFlowType(channel uint8) (int, trackFlowType) {
-	if (channel % 2) == 0 {
-		return int(channel / 2), _TRACK_FLOW_TYPE_RTP
-	}
-	return int((channel - 1) / 2), _TRACK_FLOW_TYPE_RTCP
-}
-
-func trackFlowTypeToInterleavedChannel(id int, trackFlowType trackFlowType) uint8 {
-	if trackFlowType == _TRACK_FLOW_TYPE_RTP {
-		return uint8(id * 2)
-	}
-	return uint8((id * 2) + 1)
 }
 
 type doubleBuffer struct {
@@ -198,8 +178,8 @@ func (rr *rtcpReceiver) close() {
 	<-rr.done
 }
 
-func (rr *rtcpReceiver) onFrame(trackFlowType trackFlowType, buf []byte) {
-	if trackFlowType == _TRACK_FLOW_TYPE_RTP {
+func (rr *rtcpReceiver) onFrame(streamType gortsplib.StreamType, buf []byte) {
+	if streamType == gortsplib.StreamTypeRtp {
 		// extract sequence number of first frame
 		if len(buf) >= 3 {
 			sequenceNumber := uint16(uint16(buf[2])<<8 | uint16(buf[1]))
@@ -233,16 +213,7 @@ func (rr *rtcpReceiver) report() []byte {
 	return <-res
 }
 
-func sdpFindAttribute(attributes []sdp.Attribute, key string) string {
-	for _, attr := range attributes {
-		if attr.Key == key {
-			return attr.Value
-		}
-	}
-	return ""
-}
-
-func sdpForServer(sin *sdp.SessionDescription, bytsin []byte) (*sdp.SessionDescription, []byte) {
+func sdpForServer(sin *sdp.SessionDescription) (*sdp.SessionDescription, []byte) {
 	sout := &sdp.SessionDescription{
 		SessionName: "Stream",
 		Origin: sdp.Origin{

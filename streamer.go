@@ -5,8 +5,6 @@ import (
 	"math/rand"
 	"net"
 	"net/url"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -28,7 +26,7 @@ type streamerUdpListenerPair struct {
 type streamer struct {
 	p               *program
 	path            string
-	ur              *url.URL
+	u               *url.URL
 	proto           streamProtocol
 	ready           bool
 	clientSdpParsed *sdp.SessionDescription
@@ -42,19 +40,19 @@ type streamer struct {
 }
 
 func newStreamer(p *program, path string, source string, sourceProtocol string) (*streamer, error) {
-	ur, err := url.Parse(source)
+	u, err := url.Parse(source)
 	if err != nil {
 		return nil, fmt.Errorf("'%s' is not a valid source not an RTSP url", source)
 	}
-	if ur.Scheme != "rtsp" {
+	if u.Scheme != "rtsp" {
 		return nil, fmt.Errorf("'%s' is not a valid RTSP url", source)
 	}
-	if ur.Port() == "" {
-		ur.Host += ":554"
+	if u.Port() == "" {
+		u.Host += ":554"
 	}
-	if ur.User != nil {
-		pass, _ := ur.User.Password()
-		user := ur.User.Username()
+	if u.User != nil {
+		pass, _ := u.User.Password()
+		user := u.User.Username()
 		if user != "" && pass == "" ||
 			user == "" && pass != "" {
 			fmt.Errorf("username and password must be both provided")
@@ -78,7 +76,7 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 	s := &streamer{
 		p:         p,
 		path:      path,
-		ur:        ur,
+		u:         u,
 		proto:     proto,
 		readBuf:   newDoubleBuffer(512 * 1024),
 		terminate: make(chan struct{}),
@@ -129,7 +127,7 @@ func (s *streamer) do() bool {
 	var err error
 	dialDone := make(chan struct{})
 	go func() {
-		nconn, err = net.DialTimeout("tcp", s.ur.Host, s.p.conf.ReadTimeout)
+		nconn, err = net.DialTimeout("tcp", s.u.Host, s.p.conf.ReadTimeout)
 		close(dialDone)
 	}()
 
@@ -146,20 +144,7 @@ func (s *streamer) do() bool {
 	defer nconn.Close()
 
 	conn, err := gortsplib.NewConnClient(gortsplib.ConnClientConf{
-		NConn: nconn,
-		Username: func() string {
-			if s.ur.User != nil {
-				return s.ur.User.Username()
-			}
-			return ""
-		}(),
-		Password: func() string {
-			if s.ur.User != nil {
-				pass, _ := s.ur.User.Password()
-				return pass
-			}
-			return ""
-		}(),
+		Conn:         nconn,
 		ReadTimeout:  s.p.conf.ReadTimeout,
 		WriteTimeout: s.p.conf.WriteTimeout,
 	})
@@ -168,64 +153,20 @@ func (s *streamer) do() bool {
 		return true
 	}
 
-	res, err := conn.WriteRequest(&gortsplib.Request{
-		Method: gortsplib.OPTIONS,
-		Url: &url.URL{
-			Scheme: "rtsp",
-			Host:   s.ur.Host,
-			Path:   "/",
-		},
-	})
+	_, err = conn.Options(s.u)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
 	}
 
-	// OPTIONS is not available in some cameras
-	if res.StatusCode != gortsplib.StatusOK && res.StatusCode != gortsplib.StatusNotFound {
-		s.log("ERR: OPTIONS returned code %d (%s)", res.StatusCode, res.StatusMessage)
-		return true
-	}
-
-	res, err = conn.WriteRequest(&gortsplib.Request{
-		Method: gortsplib.DESCRIBE,
-		Url: &url.URL{
-			Scheme:   "rtsp",
-			Host:     s.ur.Host,
-			Path:     s.ur.Path,
-			RawQuery: s.ur.RawQuery,
-		},
-	})
+	clientSdpParsed, _, err := conn.Describe(s.u)
 	if err != nil {
 		s.log("ERR: %s", err)
-		return true
-	}
-
-	if res.StatusCode != gortsplib.StatusOK {
-		s.log("ERR: DESCRIBE returned code %d (%s)", res.StatusCode, res.StatusMessage)
-		return true
-	}
-
-	contentType, ok := res.Header["Content-Type"]
-	if !ok || len(contentType) != 1 {
-		s.log("ERR: Content-Type not provided")
-		return true
-	}
-
-	if contentType[0] != "application/sdp" {
-		s.log("ERR: wrong Content-Type, expected application/sdp")
-		return true
-	}
-
-	clientSdpParsed := &sdp.SessionDescription{}
-	err = clientSdpParsed.Unmarshal(string(res.Content))
-	if err != nil {
-		s.log("ERR: invalid SDP: %s", err)
 		return true
 	}
 
 	// create a filtered SDP that is used by the server (not by the client)
-	serverSdpParsed, serverSdpText := sdpForServer(clientSdpParsed, res.Content)
+	serverSdpParsed, serverSdpText := sdpForServer(clientSdpParsed)
 
 	s.clientSdpParsed = clientSdpParsed
 	s.serverSdpText = serverSdpText
@@ -264,13 +205,13 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 
 				var err error
 				rtpl, err = newStreamerUdpListener(s.p, rtpPort, s, i,
-					_TRACK_FLOW_TYPE_RTP, publisherIp)
+					gortsplib.StreamTypeRtp, publisherIp)
 				if err != nil {
 					continue
 				}
 
 				rtcpl, err = newStreamerUdpListener(s.p, rtcpPort, s, i,
-					_TRACK_FLOW_TYPE_RTCP, publisherIp)
+					gortsplib.StreamTypeRtcp, publisherIp)
 				if err != nil {
 					rtpl.close()
 					continue
@@ -280,82 +221,9 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 			}
 		}()
 
-		res, err := conn.WriteRequest(&gortsplib.Request{
-			Method: gortsplib.SETUP,
-			Url: func() *url.URL {
-				control := sdpFindAttribute(media.Attributes, "control")
-
-				// no control attribute
-				if control == "" {
-					return s.ur
-				}
-
-				// absolute path
-				if strings.HasPrefix(control, "rtsp://") {
-					ur, err := url.Parse(control)
-					if err != nil {
-						return s.ur
-					}
-					return ur
-				}
-
-				// relative path
-				return &url.URL{
-					Scheme: "rtsp",
-					Host:   s.ur.Host,
-					Path: func() string {
-						ret := s.ur.Path
-
-						if len(ret) == 0 || ret[len(ret)-1] != '/' {
-							ret += "/"
-						}
-
-						control := sdpFindAttribute(media.Attributes, "control")
-						if control != "" {
-							ret += control
-						} else {
-							ret += "trackID=" + strconv.FormatInt(int64(i+1), 10)
-						}
-
-						return ret
-					}(),
-					RawQuery: s.ur.RawQuery,
-				}
-			}(),
-			Header: gortsplib.Header{
-				"Transport": []string{strings.Join([]string{
-					"RTP/AVP/UDP",
-					"unicast",
-					fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-				}, ";")},
-			},
-		})
+		rtpServerPort, rtcpServerPort, _, err := conn.SetupUdp(s.u, media, rtpPort, rtcpPort)
 		if err != nil {
 			s.log("ERR: %s", err)
-			rtpl.close()
-			rtcpl.close()
-			return true
-		}
-
-		if res.StatusCode != gortsplib.StatusOK {
-			s.log("ERR: SETUP returned code %d (%s)", res.StatusCode, res.StatusMessage)
-			rtpl.close()
-			rtcpl.close()
-			return true
-		}
-
-		tsRaw, ok := res.Header["Transport"]
-		if !ok || len(tsRaw) != 1 {
-			s.log("ERR: transport header not provided")
-			rtpl.close()
-			rtcpl.close()
-			return true
-		}
-
-		th := gortsplib.ReadHeaderTransport(tsRaw[0])
-		rtpServerPort, rtcpServerPort := th.GetPorts("server_port")
-		if rtpServerPort == 0 {
-			s.log("ERR: server ports not provided")
 			rtpl.close()
 			rtcpl.close()
 			return true
@@ -370,22 +238,9 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		})
 	}
 
-	res, err := conn.WriteRequest(&gortsplib.Request{
-		Method: gortsplib.PLAY,
-		Url: &url.URL{
-			Scheme:   "rtsp",
-			Host:     s.ur.Host,
-			Path:     s.ur.Path,
-			RawQuery: s.ur.RawQuery,
-		},
-	})
+	_, err := conn.Play(s.u)
 	if err != nil {
 		s.log("ERR: %s", err)
-		return true
-	}
-
-	if res.StatusCode != gortsplib.StatusOK {
-		s.log("ERR: PLAY returned code %d (%s)", res.StatusCode, res.StatusMessage)
 		return true
 	}
 
@@ -415,11 +270,11 @@ outer:
 			break outer
 
 		case <-sendKeepaliveTicker.C:
-			_, err = conn.WriteRequest(&gortsplib.Request{
+			_, err = conn.Do(&gortsplib.Request{
 				Method: gortsplib.OPTIONS,
 				Url: &url.URL{
 					Scheme: "rtsp",
-					Host:   s.ur.Host,
+					Host:   s.u.Host,
 					Path:   "/",
 				},
 			})
@@ -473,121 +328,17 @@ outer:
 
 func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
 	for i, media := range s.clientSdpParsed.MediaDescriptions {
-		interleaved := fmt.Sprintf("interleaved=%d-%d", (i * 2), (i*2)+1)
-
-		res, err := conn.WriteRequest(&gortsplib.Request{
-			Method: gortsplib.SETUP,
-			Url: func() *url.URL {
-				control := sdpFindAttribute(media.Attributes, "control")
-
-				// no control attribute
-				if control == "" {
-					return s.ur
-				}
-
-				// absolute path
-				if strings.HasPrefix(control, "rtsp://") {
-					ur, err := url.Parse(control)
-					if err != nil {
-						return s.ur
-					}
-					return ur
-				}
-
-				// relative path
-				return &url.URL{
-					Scheme: "rtsp",
-					Host:   s.ur.Host,
-					Path: func() string {
-						ret := s.ur.Path
-
-						if len(ret) == 0 || ret[len(ret)-1] != '/' {
-							ret += "/"
-						}
-
-						control := sdpFindAttribute(media.Attributes, "control")
-						if control != "" {
-							ret += control
-						} else {
-							ret += "trackID=" + strconv.FormatInt(int64(i+1), 10)
-						}
-
-						return ret
-					}(),
-					RawQuery: s.ur.RawQuery,
-				}
-			}(),
-			Header: gortsplib.Header{
-				"Transport": []string{strings.Join([]string{
-					"RTP/AVP/TCP",
-					"unicast",
-					interleaved,
-				}, ";")},
-			},
-		})
+		_, err := conn.SetupTcp(s.u, media, i)
 		if err != nil {
 			s.log("ERR: %s", err)
 			return true
 		}
-
-		if res.StatusCode != gortsplib.StatusOK {
-			s.log("ERR: SETUP returned code %d (%s)", res.StatusCode, res.StatusMessage)
-			return true
-		}
-
-		tsRaw, ok := res.Header["Transport"]
-		if !ok || len(tsRaw) != 1 {
-			s.log("ERR: transport header not provided")
-			return true
-		}
-
-		th := gortsplib.ReadHeaderTransport(tsRaw[0])
-
-		_, ok = th[interleaved]
-		if !ok {
-			s.log("ERR: transport header does not have %s (%s)", interleaved, tsRaw[0])
-			return true
-		}
 	}
 
-	err := conn.WriteRequestNoResponse(&gortsplib.Request{
-		Method: gortsplib.PLAY,
-		Url: &url.URL{
-			Scheme:   "rtsp",
-			Host:     s.ur.Host,
-			Path:     s.ur.Path,
-			RawQuery: s.ur.RawQuery,
-		},
-	})
+	_, err := conn.Play(s.u)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
-	}
-
-	frame := &gortsplib.InterleavedFrame{}
-
-outer1:
-	for {
-		frame.Content = s.readBuf.swap()
-		frame.Content = frame.Content[:cap(frame.Content)]
-
-		recv, err := conn.ReadInterleavedFrameOrResponse(frame)
-		if err != nil {
-			s.log("ERR: %s", err)
-			return true
-		}
-
-		switch recvt := recv.(type) {
-		case *gortsplib.Response:
-			if recvt.StatusCode != gortsplib.StatusOK {
-				s.log("ERR: PLAY returned code %d (%s)", recvt.StatusCode, recvt.StatusMessage)
-				return true
-			}
-			break outer1
-
-		case *gortsplib.InterleavedFrame:
-			// ignore the frames sent before the response
-		}
 	}
 
 	s.rtcpReceivers = make([]*rtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
@@ -597,57 +348,52 @@ outer1:
 
 	s.p.events <- programEventStreamerReady{s}
 
+	frame := &gortsplib.InterleavedFrame{}
+
 	chanConnError := make(chan struct{})
 	go func() {
 		for {
 			frame.Content = s.readBuf.swap()
 			frame.Content = frame.Content[:cap(frame.Content)]
-			err := conn.ReadInterleavedFrame(frame)
+
+			err := conn.ReadFrame(frame)
 			if err != nil {
 				s.log("ERR: %s", err)
 				close(chanConnError)
 				break
 			}
 
-			trackId, trackFlowType := interleavedChannelToTrackFlowType(frame.Channel)
+			trackId, streamType := gortsplib.ConvChannelToTrackIdAndStreamType(frame.Channel)
 
-			s.rtcpReceivers[trackId].onFrame(trackFlowType, frame.Content)
-			s.p.events <- programEventStreamerFrame{s, trackId, trackFlowType, frame.Content}
+			s.rtcpReceivers[trackId].onFrame(streamType, frame.Content)
+			s.p.events <- programEventStreamerFrame{s, trackId, streamType, frame.Content}
 		}
 	}()
 
-	checkStreamTicker := time.NewTicker(_STREAMER_CHECK_STREAM_INTERVAL)
+	// a ticker to check the stream is not needed since there's already a deadline
+	// on the RTSP reads
 	receiverReportTicker := time.NewTicker(_STREAMER_RECEIVER_REPORT_INTERVAL)
 
 	var ret bool
 
-outer2:
+outer:
 	for {
 		select {
 		case <-s.terminate:
 			ret = false
-			break outer2
+			break outer
 
 		case <-chanConnError:
 			ret = true
-			break outer2
-
-		case <-checkStreamTicker.C:
-			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= s.p.conf.StreamDeadAfter {
-					s.log("ERR: stream is dead")
-					ret = true
-					break outer2
-				}
-			}
+			break outer
 
 		case <-receiverReportTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
 				frame := s.rtcpReceivers[trackId].report()
 
-				channel := trackFlowTypeToInterleavedChannel(trackId, _TRACK_FLOW_TYPE_RTCP)
+				channel := gortsplib.ConvTrackIdAndStreamTypeToChannel(trackId, gortsplib.StreamTypeRtcp)
 
-				conn.WriteInterleavedFrame(&gortsplib.InterleavedFrame{
+				conn.WriteFrame(&gortsplib.InterleavedFrame{
 					Channel: channel,
 					Content: frame,
 				})
@@ -655,7 +401,6 @@ outer2:
 		}
 	}
 
-	checkStreamTicker.Stop()
 	receiverReportTicker.Stop()
 
 	s.p.events <- programEventStreamerNotReady{s}
