@@ -54,19 +54,19 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port, by creating a configuration file named `conf.yml` with the following content:
+The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port, by creating a file named `rtsp-simple-server.yml` with the following content:
 ```yaml
 protocols: [tcp]
 ```
 
 and passing it to the container:
 ```
-docker run --rm -it -v $PWD/conf.yml:/conf.yml -p 8554:8554 aler9/rtsp-simple-server
+docker run --rm -it -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml -p 8554:8554 aler9/rtsp-simple-server
 ```
 
 #### Full configuration file
 
-To change the configuration, it's enough to edit the `conf.yml` file, provided with the executable. The default configuration is [available here](conf.yml).
+To change the configuration, it's enough to edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
 
 #### Usage as RTSP Proxy
 
@@ -74,7 +74,7 @@ An RTSP proxy is usually deployed in one of these scenarios:
 * when there are multiple users that are receiving a stream and the bandwidth is limited, so the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
 * when there's a NAT / firewall between a stream and the users, in this case the proxy is installed in the NAT and makes the stream available to the outside world.
 
-Edit `conf.yml` and replace everything inside section `paths` with the following content:
+Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
 paths:
   proxied:
@@ -91,7 +91,7 @@ Users can then connect to `rtsp://localhost:8554/proxied`, instead of connecting
 
 #### Publisher authentication
 
-Edit `conf.yml` and replace everything inside section `paths` with the following content:
+Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
 paths:
   all:
@@ -115,7 +115,7 @@ WARNING: RTSP is a plain protocol, and the credentials can be intercepted and re
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
 
-To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `conf.yml` and replace everything inside section `paths` with the following content:
+To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
 paths:
   all:
@@ -146,7 +146,7 @@ Flags:
   --version  print version
 
 Args:
-  [<confpath>]  path to a config file. The default is conf.yml. Use 'stdin' to
+  [<confpath>]  path to a config file. The default is rtsp-simple-server.yml. Use 'stdin' to
                 read config from stdin
 ```
 

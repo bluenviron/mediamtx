@@ -113,25 +113,25 @@ release-nodocker:
 	$(eval GOBUILD := go build -ldflags '-X main.Version=$(VERSION)')
 	rm -rf tmp && mkdir tmp
 	rm -rf release && mkdir release
-	cp conf.yml tmp/
+	cp rtsp-simple-server.yml tmp/
 
 	GOOS=windows GOARCH=amd64 $(GOBUILD) -o tmp/rtsp-simple-server.exe
-	cd tmp && zip -q $(PWD)/release/rtsp-simple-server_$(VERSION)_windows_amd64.zip rtsp-simple-server.exe conf.yml
+	cd tmp && zip -q $(PWD)/release/rtsp-simple-server_$(VERSION)_windows_amd64.zip rtsp-simple-server.exe rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=amd64 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server conf.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=arm GOARM=6 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm6.tar.gz --owner=0 --group=0 rtsp-simple-server conf.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm6.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm7.tar.gz --owner=0 --group=0 rtsp-simple-server conf.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm7.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=arm64 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm64.tar.gz --owner=0 --group=0 rtsp-simple-server conf.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm64.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_darwin_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server conf.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_darwin_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 define DOCKERFILE_IMAGE
 FROM --platform=linux/amd64 $(BASE_IMAGE) AS build

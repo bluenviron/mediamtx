@@ -55,8 +55,8 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			return nil
 
 		} else {
-			// conf.yml is optional
-			if fpath == "conf.yml" {
+			// rtsp-simple-server.yml is optional
+			if fpath == "rtsp-simple-server.yml" {
 				if _, err := os.Stat(fpath); err != nil {
 					return nil
 				}
