@@ -55,7 +55,7 @@ test-nodocker:
 
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)
-RUN apk add --no-cache git
+RUN apk add --no-cache git ffmpeg
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
@@ -71,12 +71,16 @@ define CONFIG_RUN
 
 paths:
   all:
-    readUser: test
-    readPass: tast
+#    readUser: test
+#    readPass: tast
 
-  proxied:
-    source: rtsp://192.168.10.1/unicast
-    sourceProtocol: udp
+#  proxied:
+#    source: rtsp://192.168.10.1/unicast
+#    sourceProtocol: udp
+
+  original:
+    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
+
 endef
 export CONFIG_RUN
 

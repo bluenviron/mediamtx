@@ -13,7 +13,7 @@ Features:
 * Each stream can have multiple video and audio tracks, encoded in any format
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Supports authentication
-* Supports running a script when a client connects or disconnects
+* Run custom commands when clients connect, disconnect, read or publish streams (linux only)
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 
 ## Installation and basic usage
@@ -66,7 +66,7 @@ docker run --rm -it -v $PWD/conf.yml:/conf.yml -p 8554:8554 aler9/rtsp-simple-se
 
 #### Full configuration file
 
-To change the configuration, it's enough to edit the file `conf.yml`, provided with the executable. The default configuration is [available here](conf.yml).
+To change the configuration, it's enough to edit the `conf.yml` file, provided with the executable. The default configuration is [available here](conf.yml).
 
 #### Usage as RTSP Proxy
 
@@ -115,9 +115,12 @@ WARNING: RTSP is a plain protocol, and the credentials can be intercepted and re
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
 
-To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, if we want to re-encode an existing stream, that is available in the `/original` path, and make the resulting stream available in the `/compressed` path, it is enough to launch _FFmpeg_ in parallel with _rtsp-simple-server_, with the following syntax:
+To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `conf.yml` and replace everything inside section `paths` with the following content:
 ```
-ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
+paths:
+  all:
+  original:
+    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
 ```
 
 #### Client count

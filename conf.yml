@@ -7,10 +7,9 @@ rtspPort: 8554
 rtpPort: 8000
 # port of the UDP RTCP listener
 rtcpPort: 8001
-# script to run when a client connects
-preScript:
-# script to run when a client disconnects
-postScript:
+# command to run when a client connects.
+# this is terminated with SIGINT when a client disconnects.
+runOnConnect:
 # timeout of read operations
 readTimeout: 5s
 # timeout of write operations
@@ -46,3 +45,11 @@ paths:
     readPass:
     # IPs or networks (x.x.x.x/24) allowed to read
     readIps: []
+
+    # command to run when a client starts publishing.
+    # This is terminated with SIGINT when a client stops publishing.
+    runOnPublish:
+
+    # command to run when a clients starts reading.
+    # This is terminated with SIGINT when a client stops reading.
+    runOnRead:

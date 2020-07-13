@@ -22,6 +22,8 @@ type ConfPath struct {
 	ReadPass         string   `yaml:"readPass"`
 	ReadIps          []string `yaml:"readIps"`
 	readIpsParsed    []interface{}
+	RunOnPublish     string `yaml:"runOnPublish"`
+	RunOnRead        string `yaml:"runOnRead"`
 }
 
 type conf struct {
@@ -30,8 +32,7 @@ type conf struct {
 	RtspPort          int           `yaml:"rtspPort"`
 	RtpPort           int           `yaml:"rtpPort"`
 	RtcpPort          int           `yaml:"rtcpPort"`
-	PreScript         string        `yaml:"preScript"`
-	PostScript        string        `yaml:"postScript"`
+	RunOnConnect      string        `yaml:"runOnConnect"`
 	ReadTimeout       time.Duration `yaml:"readTimeout"`
 	WriteTimeout      time.Duration `yaml:"writeTimeout"`
 	StreamDeadAfter   time.Duration `yaml:"streamDeadAfter"`
@@ -148,6 +149,11 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 
 	for path, pconf := range conf.Paths {
+		if pconf == nil {
+			conf.Paths[path] = &ConfPath{}
+			pconf = conf.Paths[path]
+		}
+
 		if pconf.Source == "" {
 			pconf.Source = "record"
 		}

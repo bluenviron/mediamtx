@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -125,9 +126,12 @@ func (c *serverClient) publisherSdpParsed() *sdp.SessionDescription {
 }
 
 func (c *serverClient) run() {
-	if c.p.conf.PreScript != "" {
-		preScript := exec.Command(c.p.conf.PreScript)
-		err := preScript.Run()
+	var runOnConnectCmd *exec.Cmd
+	if c.p.conf.RunOnConnect != "" {
+		runOnConnectCmd = exec.Command("/bin/sh", "-c", c.p.conf.RunOnConnect)
+		runOnConnectCmd.Stdout = os.Stdout
+		runOnConnectCmd.Stderr = os.Stderr
+		err := runOnConnectCmd.Start()
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -155,15 +159,10 @@ outer:
 
 	c.conn.NetConn().Close() // close socket in case it has not been closed yet
 
-	func() {
-		if c.p.conf.PostScript != "" {
-			postScript := exec.Command(c.p.conf.PostScript)
-			err := postScript.Run()
-			if err != nil {
-				c.log("ERR: %s", err)
-			}
-		}
-	}()
+	if runOnConnectCmd != nil {
+		runOnConnectCmd.Process.Signal(os.Interrupt)
+		runOnConnectCmd.Wait()
+	}
 
 	close(c.done) // close() never blocks
 }
@@ -732,7 +731,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
-		c.runPlay()
+		c.runPlay(path)
 		return false
 
 	case gortsplib.RECORD:
@@ -760,7 +759,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			},
 		})
 
-		c.runRecord()
+		c.runRecord(path)
 		return false
 
 	case gortsplib.TEARDOWN:
@@ -773,7 +772,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 	}
 }
 
-func (c *serverClient) runPlay() {
+func (c *serverClient) runPlay(path string) {
+	pconf := c.findConfForPath(path)
+
 	if c.streamProtocol == streamProtocolTcp {
 		c.writeBuf = newDoubleBuffer(2048)
 		c.events = make(chan serverClientEvent)
@@ -789,6 +790,17 @@ func (c *serverClient) runPlay() {
 		}
 		return "tracks"
 	}(), c.streamProtocol)
+
+	var runOnReadCmd *exec.Cmd
+	if pconf.RunOnRead != "" {
+		runOnReadCmd = exec.Command("/bin/sh", "-c", pconf.RunOnRead)
+		runOnReadCmd.Stdout = os.Stdout
+		runOnReadCmd.Stderr = os.Stderr
+		err := runOnReadCmd.Start()
+		if err != nil {
+			c.log("ERR: %s", err)
+		}
+	}
 
 	if c.streamProtocol == streamProtocolTcp {
 		readDone := make(chan error)
@@ -851,9 +863,16 @@ func (c *serverClient) runPlay() {
 		c.p.events <- programEventClientPlayStop{done, c}
 		<-done
 	}
+
+	if runOnReadCmd != nil {
+		runOnReadCmd.Process.Signal(os.Interrupt)
+		runOnReadCmd.Wait()
+	}
 }
 
-func (c *serverClient) runRecord() {
+func (c *serverClient) runRecord(path string) {
+	pconf := c.findConfForPath(path)
+
 	c.RtcpReceivers = make([]*gortsplib.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {
 		c.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
@@ -869,6 +888,17 @@ func (c *serverClient) runRecord() {
 		}
 		return "tracks"
 	}(), c.streamProtocol)
+
+	var runOnPublishCmd *exec.Cmd
+	if pconf.RunOnPublish != "" {
+		runOnPublishCmd = exec.Command("/bin/sh", "-c", pconf.RunOnPublish)
+		runOnPublishCmd.Stdout = os.Stdout
+		runOnPublishCmd.Stderr = os.Stderr
+		err := runOnPublishCmd.Start()
+		if err != nil {
+			c.log("ERR: %s", err)
+		}
+	}
 
 	if c.streamProtocol == streamProtocolTcp {
 		frame := &gortsplib.InterleavedFrame{}
@@ -1012,5 +1042,10 @@ func (c *serverClient) runRecord() {
 
 	for trackId := range c.streamTracks {
 		c.RtcpReceivers[trackId].Close()
+	}
+
+	if runOnPublishCmd != nil {
+		runOnPublishCmd.Process.Signal(os.Interrupt)
+		runOnPublishCmd.Wait()
 	}
 }
