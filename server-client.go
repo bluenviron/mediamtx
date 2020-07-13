@@ -79,7 +79,7 @@ type serverClient struct {
 	readBuf         *doubleBuffer
 	writeBuf        *doubleBuffer
 
-	events chan serverClientEvent
+	events chan serverClientEvent // only if state = Play and streamProtocol = TCP
 	done   chan struct{}
 }
 
