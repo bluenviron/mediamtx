@@ -80,7 +80,7 @@ func (l *streamerUdpListener) run() {
 			continue
 		}
 
-		l.streamer.rtcpReceivers[l.trackId].onFrame(l.streamType, buf[:n])
+		l.streamer.RtcpReceivers[l.trackId].OnFrame(l.streamType, buf[:n])
 		l.p.events <- programEventStreamerFrame{l.streamer, l.trackId, l.streamType, buf[:n]}
 	}
 

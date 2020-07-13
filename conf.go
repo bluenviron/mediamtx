@@ -86,10 +86,10 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	for _, proto := range conf.Protocols {
 		switch proto {
 		case "udp":
-			conf.protocolsParsed[_STREAM_PROTOCOL_UDP] = struct{}{}
+			conf.protocolsParsed[streamProtocolUdp] = struct{}{}
 
 		case "tcp":
-			conf.protocolsParsed[_STREAM_PROTOCOL_TCP] = struct{}{}
+			conf.protocolsParsed[streamProtocolTcp] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)

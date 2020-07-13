@@ -2,8 +2,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafo
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d h1:UQZhZ2O0vMHr2cI+DC1Mbh0TJxzA3RcLoMsFw+aXw7E=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
-github.com/aler9/gortsplib v0.0.0-20200712204813-71824f42dca0 h1:9Ph5Zl7JkTIEXkot6Q3Acag+9klW9cpwI9navzSE0gs=
-github.com/aler9/gortsplib v0.0.0-20200712204813-71824f42dca0/go.mod h1:VsK6bzyxOh2ymYRX/U7ZfM4fEsXKXd1ylL73c2eNzUA=
+github.com/aler9/gortsplib v0.0.0-20200713074216-643dce1dd787 h1:6svRLsZW0bSOLSU/P3KjkLDJdU0KQjJkfc+Ttcd0veg=
+github.com/aler9/gortsplib v0.0.0-20200713074216-643dce1dd787/go.mod h1:17dcA4Qak5TLqgun8OR0wnSbFQIg4cvYVSf1nbCt+qU=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pion/rtcp v1.2.3 h1:2wrhKnqgSz91Q5nzYTO07mQXztYPtxL8a0XOss4rJqA=

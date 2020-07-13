@@ -24,12 +24,12 @@ type track struct {
 type streamProtocol int
 
 const (
-	_STREAM_PROTOCOL_UDP streamProtocol = iota
-	_STREAM_PROTOCOL_TCP
+	streamProtocolUdp streamProtocol = iota
+	streamProtocolTcp
 )
 
 func (s streamProtocol) String() string {
-	if s == _STREAM_PROTOCOL_UDP {
+	if s == streamProtocolUdp {
 		return "udp"
 	}
 	return "tcp"
@@ -292,10 +292,10 @@ outer:
 			}
 
 			switch evt.client.state {
-			case _CLIENT_STATE_PLAY:
+			case clientStatePlay:
 				p.receiverCount -= 1
 
-			case _CLIENT_STATE_RECORD:
+			case clientStateRecord:
 				p.publisherCount -= 1
 			}
 
@@ -319,7 +319,7 @@ outer:
 			}
 
 			evt.client.path = evt.path
-			evt.client.state = _CLIENT_STATE_ANNOUNCE
+			evt.client.state = clientStateAnnounce
 			p.publishers[evt.path] = evt.client
 			evt.res <- nil
 
@@ -343,7 +343,7 @@ outer:
 				rtpPort:  evt.rtpPort,
 				rtcpPort: evt.rtcpPort,
 			})
-			evt.client.state = _CLIENT_STATE_PRE_PLAY
+			evt.client.state = clientStatePrePlay
 			evt.res <- nil
 
 		case programEventClientSetupRecord:
@@ -352,7 +352,7 @@ outer:
 				rtpPort:  evt.rtpPort,
 				rtcpPort: evt.rtcpPort,
 			})
-			evt.client.state = _CLIENT_STATE_PRE_RECORD
+			evt.client.state = clientStatePreRecord
 			evt.res <- nil
 
 		case programEventClientPlay1:
@@ -373,12 +373,12 @@ outer:
 
 		case programEventClientPlay2:
 			p.receiverCount += 1
-			evt.client.state = _CLIENT_STATE_PLAY
+			evt.client.state = clientStatePlay
 			evt.res <- nil
 
 		case programEventClientRecord:
 			p.publisherCount += 1
-			evt.client.state = _CLIENT_STATE_RECORD
+			evt.client.state = clientStateRecord
 			evt.res <- nil
 
 		case programEventClientFrameUdp:
@@ -387,7 +387,7 @@ outer:
 				continue
 			}
 
-			client.rtcpReceivers[trackId].onFrame(evt.streamType, evt.buf)
+			client.RtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
 			p.forwardFrame(client.path, trackId, evt.streamType, evt.buf)
 
 		case programEventClientFrameTcp:
@@ -476,8 +476,8 @@ func (p *program) findPublisher(addr *net.UDPAddr, streamType gortsplib.StreamTy
 			continue
 		}
 
-		if cl.streamProtocol != _STREAM_PROTOCOL_UDP ||
-			cl.state != _CLIENT_STATE_RECORD ||
+		if cl.streamProtocol != streamProtocolUdp ||
+			cl.state != clientStateRecord ||
 			!cl.ip().Equal(addr.IP) {
 			continue
 		}
@@ -499,8 +499,8 @@ func (p *program) findPublisher(addr *net.UDPAddr, streamType gortsplib.StreamTy
 
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for client := range p.clients {
-		if client.path == path && client.state == _CLIENT_STATE_PLAY {
-			if client.streamProtocol == _STREAM_PROTOCOL_UDP {
+		if client.path == path && client.state == clientStatePlay {
+			if client.streamProtocol == streamProtocolUdp {
 				if streamType == gortsplib.StreamTypeRtp {
 					p.rtpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
@@ -522,16 +522,15 @@ func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.St
 				}
 
 			} else {
-				channel := gortsplib.ConvTrackIdAndStreamTypeToChannel(trackId, streamType)
-
 				buf := client.writeBuf.swap()
 				buf = buf[:len(frame)]
 				copy(buf, frame)
 
 				client.events <- serverClientEventFrameTcp{
 					frame: &gortsplib.InterleavedFrame{
-						Channel: channel,
-						Content: buf,
+						TrackId:    trackId,
+						StreamType: streamType,
+						Content:    buf,
 					},
 				}
 			}

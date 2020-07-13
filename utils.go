@@ -2,13 +2,9 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"strconv"
-	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/pion/rtcp"
 	"github.com/pion/sdp"
 )
 
@@ -75,142 +71,6 @@ func (db *doubleBuffer) swap() []byte {
 	}
 	db.curBuf = !db.curBuf
 	return ret
-}
-
-type rtcpReceiverEvent interface {
-	isRtpReceiverEvent()
-}
-
-type rtcpReceiverEventFrameRtp struct {
-	sequenceNumber uint16
-}
-
-func (rtcpReceiverEventFrameRtp) isRtpReceiverEvent() {}
-
-type rtcpReceiverEventFrameRtcp struct {
-	ssrc          uint32
-	ntpTimeMiddle uint32
-}
-
-func (rtcpReceiverEventFrameRtcp) isRtpReceiverEvent() {}
-
-type rtcpReceiverEventLastFrameTime struct {
-	res chan time.Time
-}
-
-func (rtcpReceiverEventLastFrameTime) isRtpReceiverEvent() {}
-
-type rtcpReceiverEventReport struct {
-	res chan []byte
-}
-
-func (rtcpReceiverEventReport) isRtpReceiverEvent() {}
-
-type rtcpReceiverEventTerminate struct{}
-
-func (rtcpReceiverEventTerminate) isRtpReceiverEvent() {}
-
-type rtcpReceiver struct {
-	events chan rtcpReceiverEvent
-	done   chan struct{}
-}
-
-func newRtcpReceiver() *rtcpReceiver {
-	rr := &rtcpReceiver{
-		events: make(chan rtcpReceiverEvent),
-		done:   make(chan struct{}),
-	}
-	go rr.run()
-	return rr
-}
-
-func (rr *rtcpReceiver) run() {
-	lastFrameTime := time.Now()
-	publisherSSRC := uint32(0)
-	receiverSSRC := rand.Uint32()
-	sequenceNumberCycles := uint16(0)
-	lastSequenceNumber := uint16(0)
-	lastSenderReport := uint32(0)
-
-outer:
-	for rawEvt := range rr.events {
-		switch evt := rawEvt.(type) {
-		case rtcpReceiverEventFrameRtp:
-			if evt.sequenceNumber < lastSequenceNumber {
-				sequenceNumberCycles += 1
-			}
-			lastSequenceNumber = evt.sequenceNumber
-			lastFrameTime = time.Now()
-
-		case rtcpReceiverEventFrameRtcp:
-			publisherSSRC = evt.ssrc
-			lastSenderReport = evt.ntpTimeMiddle
-
-		case rtcpReceiverEventLastFrameTime:
-			evt.res <- lastFrameTime
-
-		case rtcpReceiverEventReport:
-			rr := &rtcp.ReceiverReport{
-				SSRC: receiverSSRC,
-				Reports: []rtcp.ReceptionReport{
-					{
-						SSRC:               publisherSSRC,
-						LastSequenceNumber: uint32(sequenceNumberCycles)<<8 | uint32(lastSequenceNumber),
-						LastSenderReport:   lastSenderReport,
-					},
-				},
-			}
-			frame, _ := rr.Marshal()
-			evt.res <- frame
-
-		case rtcpReceiverEventTerminate:
-			break outer
-		}
-	}
-
-	close(rr.events)
-
-	close(rr.done)
-}
-
-func (rr *rtcpReceiver) close() {
-	rr.events <- rtcpReceiverEventTerminate{}
-	<-rr.done
-}
-
-func (rr *rtcpReceiver) onFrame(streamType gortsplib.StreamType, buf []byte) {
-	if streamType == gortsplib.StreamTypeRtp {
-		// extract sequence number of first frame
-		if len(buf) >= 3 {
-			sequenceNumber := uint16(uint16(buf[2])<<8 | uint16(buf[1]))
-			rr.events <- rtcpReceiverEventFrameRtp{sequenceNumber}
-		}
-
-	} else {
-		frames, err := rtcp.Unmarshal(buf)
-		if err == nil {
-			for _, frame := range frames {
-				if senderReport, ok := (frame).(*rtcp.SenderReport); ok {
-					rr.events <- rtcpReceiverEventFrameRtcp{
-						senderReport.SSRC,
-						uint32(senderReport.NTPTime >> 16),
-					}
-				}
-			}
-		}
-	}
-}
-
-func (rr *rtcpReceiver) lastFrameTime() time.Time {
-	res := make(chan time.Time)
-	rr.events <- rtcpReceiverEventLastFrameTime{res}
-	return <-res
-}
-
-func (rr *rtcpReceiver) report() []byte {
-	res := make(chan []byte)
-	rr.events <- rtcpReceiverEventReport{res}
-	return <-res
 }
 
 func sdpForServer(sin *sdp.SessionDescription) (*sdp.SessionDescription, []byte) {

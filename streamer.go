@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	_STREAMER_RETRY_INTERVAL           = 5 * time.Second
-	_STREAMER_CHECK_STREAM_INTERVAL    = 5 * time.Second
-	_STREAMER_KEEPALIVE_INTERVAL       = 60 * time.Second
-	_STREAMER_RECEIVER_REPORT_INTERVAL = 10 * time.Second
+	streamerRetryInterval          = 5 * time.Second
+	streamerCheckStreamInterval    = 5 * time.Second
+	streamerKeepaliveInterval      = 60 * time.Second
+	streamerReceiverReportInterval = 10 * time.Second
 )
 
 type streamerUdpListenerPair struct {
@@ -32,7 +32,7 @@ type streamer struct {
 	clientSdpParsed *sdp.SessionDescription
 	serverSdpText   []byte
 	serverSdpParsed *sdp.SessionDescription
-	rtcpReceivers   []*rtcpReceiver
+	RtcpReceivers   []*gortsplib.RtcpReceiver
 	readBuf         *doubleBuffer
 
 	terminate chan struct{}
@@ -62,10 +62,10 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 	proto, err := func() (streamProtocol, error) {
 		switch sourceProtocol {
 		case "udp":
-			return _STREAM_PROTOCOL_UDP, nil
+			return streamProtocolUdp, nil
 
 		case "tcp":
-			return _STREAM_PROTOCOL_TCP, nil
+			return streamProtocolTcp, nil
 		}
 		return streamProtocol(0), fmt.Errorf("unsupported protocol '%s'", sourceProtocol)
 	}()
@@ -109,7 +109,7 @@ func (s *streamer) run() {
 			break
 		}
 
-		t := time.NewTimer(_STREAMER_RETRY_INTERVAL)
+		t := time.NewTimer(streamerRetryInterval)
 		select {
 		case <-s.terminate:
 			break
@@ -143,15 +143,11 @@ func (s *streamer) do() bool {
 	}
 	defer nconn.Close()
 
-	conn, err := gortsplib.NewConnClient(gortsplib.ConnClientConf{
+	conn := gortsplib.NewConnClient(gortsplib.ConnClientConf{
 		Conn:         nconn,
 		ReadTimeout:  s.p.conf.ReadTimeout,
 		WriteTimeout: s.p.conf.WriteTimeout,
 	})
-	if err != nil {
-		s.log("ERR: %s", err)
-		return true
-	}
 
 	_, err = conn.Options(s.u)
 	if err != nil {
@@ -172,7 +168,7 @@ func (s *streamer) do() bool {
 	s.serverSdpText = serverSdpText
 	s.serverSdpParsed = serverSdpParsed
 
-	if s.proto == _STREAM_PROTOCOL_UDP {
+	if s.proto == streamProtocolUdp {
 		return s.runUdp(conn)
 	} else {
 		return s.runTcp(conn)
@@ -244,9 +240,9 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.rtcpReceivers = make([]*rtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
+	s.RtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.rtcpReceivers[trackId] = newRtcpReceiver()
+		s.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
 	for _, pair := range streamerUdpListenerPairs {
@@ -254,9 +250,9 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		pair.rtcpl.start()
 	}
 
-	sendKeepaliveTicker := time.NewTicker(_STREAMER_KEEPALIVE_INTERVAL)
-	checkStreamTicker := time.NewTicker(_STREAMER_CHECK_STREAM_INTERVAL)
-	receiverReportTicker := time.NewTicker(_STREAMER_RECEIVER_REPORT_INTERVAL)
+	sendKeepaliveTicker := time.NewTicker(streamerKeepaliveInterval)
+	checkStreamTicker := time.NewTicker(streamerCheckStreamInterval)
+	receiverReportTicker := time.NewTicker(streamerReceiverReportInterval)
 
 	s.p.events <- programEventStreamerReady{s}
 
@@ -270,14 +266,7 @@ outer:
 			break outer
 
 		case <-sendKeepaliveTicker.C:
-			_, err = conn.Do(&gortsplib.Request{
-				Method: gortsplib.OPTIONS,
-				Url: &url.URL{
-					Scheme: "rtsp",
-					Host:   s.u.Host,
-					Path:   "/",
-				},
-			})
+			_, err := conn.Options(s.u)
 			if err != nil {
 				s.log("ERR: %s", err)
 				ret = true
@@ -286,7 +275,7 @@ outer:
 
 		case <-checkStreamTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				if time.Since(s.rtcpReceivers[trackId].lastFrameTime()) >= s.p.conf.StreamDeadAfter {
+				if time.Since(s.RtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.StreamDeadAfter {
 					s.log("ERR: stream is dead")
 					ret = true
 					break outer
@@ -295,7 +284,7 @@ outer:
 
 		case <-receiverReportTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				frame := s.rtcpReceivers[trackId].report()
+				frame := s.RtcpReceivers[trackId].Report()
 				streamerUdpListenerPairs[trackId].rtcpl.writeChan <- &udpAddrBufPair{
 					addr: &net.UDPAddr{
 						IP:   conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
@@ -320,7 +309,7 @@ outer:
 	}
 
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.rtcpReceivers[trackId].close()
+		s.RtcpReceivers[trackId].Close()
 	}
 
 	return ret
@@ -341,9 +330,9 @@ func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.rtcpReceivers = make([]*rtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
+	s.RtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.rtcpReceivers[trackId] = newRtcpReceiver()
+		s.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
 	s.p.events <- programEventStreamerReady{s}
@@ -363,16 +352,14 @@ func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
 				break
 			}
 
-			trackId, streamType := gortsplib.ConvChannelToTrackIdAndStreamType(frame.Channel)
-
-			s.rtcpReceivers[trackId].onFrame(streamType, frame.Content)
-			s.p.events <- programEventStreamerFrame{s, trackId, streamType, frame.Content}
+			s.RtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
+			s.p.events <- programEventStreamerFrame{s, frame.TrackId, frame.StreamType, frame.Content}
 		}
 	}()
 
 	// a ticker to check the stream is not needed since there's already a deadline
 	// on the RTSP reads
-	receiverReportTicker := time.NewTicker(_STREAMER_RECEIVER_REPORT_INTERVAL)
+	receiverReportTicker := time.NewTicker(streamerReceiverReportInterval)
 
 	var ret bool
 
@@ -389,13 +376,12 @@ outer:
 
 		case <-receiverReportTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				frame := s.rtcpReceivers[trackId].report()
-
-				channel := gortsplib.ConvTrackIdAndStreamTypeToChannel(trackId, gortsplib.StreamTypeRtcp)
+				frame := s.RtcpReceivers[trackId].Report()
 
 				conn.WriteFrame(&gortsplib.InterleavedFrame{
-					Channel: channel,
-					Content: frame,
+					TrackId:    trackId,
+					StreamType: gortsplib.StreamTypeRtcp,
+					Content:    frame,
 				})
 			}
 		}
@@ -406,7 +392,7 @@ outer:
 	s.p.events <- programEventStreamerNotReady{s}
 
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.rtcpReceivers[trackId].close()
+		s.RtcpReceivers[trackId].Close()
 	}
 
 	return ret
