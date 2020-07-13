@@ -104,7 +104,7 @@ Start the server:
 ./rtsp-simple-server
 ```
 
-Only publishers that provide both username and password will be able to publish:
+Only publishers that provide both username and password will be able to proceed:
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
 ```
@@ -120,7 +120,7 @@ To change the format, codec or compression of a stream, you can use _FFmpeg_ or 
 ffmpeg -i rtsp://localhost:8554/original -c:v libx264 -preset ultrafast -tune zerolatency -b 600k -f rtsp rtsp://localhost:8554/compressed
 ```
 
-#### Counting clients
+#### Client count
 
 The current number of clients, publishers and receivers is printed in each log line; for instance, the line:
 ```
