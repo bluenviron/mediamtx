@@ -96,18 +96,32 @@ type programEventClientPlay1 struct {
 func (programEventClientPlay1) isProgramEvent() {}
 
 type programEventClientPlay2 struct {
-	res    chan error
+	done   chan struct{}
 	client *serverClient
 }
 
 func (programEventClientPlay2) isProgramEvent() {}
 
+type programEventClientPlayStop struct {
+	done   chan struct{}
+	client *serverClient
+}
+
+func (programEventClientPlayStop) isProgramEvent() {}
+
 type programEventClientRecord struct {
-	res    chan error
+	done   chan struct{}
 	client *serverClient
 }
 
 func (programEventClientRecord) isProgramEvent() {}
+
+type programEventClientRecordStop struct {
+	done   chan struct{}
+	client *serverClient
+}
+
+func (programEventClientRecordStop) isProgramEvent() {}
 
 type programEventClientFrameUdp struct {
 	addr       *net.UDPAddr
@@ -278,25 +292,7 @@ outer:
 			if evt.client.path != "" {
 				if pub, ok := p.publishers[evt.client.path]; ok && pub == evt.client {
 					delete(p.publishers, evt.client.path)
-
-					// if the publisher has disconnected and was ready
-					// close all other clients that share the same path
-					if pub.publisherIsReady() {
-						for oc := range p.clients {
-							if oc != evt.client && oc.path == evt.client.path {
-								go oc.close()
-							}
-						}
-					}
 				}
-			}
-
-			switch evt.client.state {
-			case clientStatePlay:
-				p.receiverCount -= 1
-
-			case clientStateRecord:
-				p.publisherCount -= 1
 			}
 
 			evt.client.log("disconnected")
@@ -374,12 +370,30 @@ outer:
 		case programEventClientPlay2:
 			p.receiverCount += 1
 			evt.client.state = clientStatePlay
-			evt.res <- nil
+			close(evt.done)
+
+		case programEventClientPlayStop:
+			p.receiverCount -= 1
+			evt.client.state = clientStatePrePlay
+			close(evt.done)
 
 		case programEventClientRecord:
 			p.publisherCount += 1
 			evt.client.state = clientStateRecord
-			evt.res <- nil
+			close(evt.done)
+
+		case programEventClientRecordStop:
+			p.publisherCount -= 1
+			evt.client.state = clientStatePreRecord
+
+			// close all other clients that share the same path
+			for oc := range p.clients {
+				if oc != evt.client && oc.path == evt.client.path {
+					go oc.close()
+				}
+			}
+
+			close(evt.done)
 
 		case programEventClientFrameUdp:
 			client, trackId := p.findPublisher(evt.addr, evt.streamType)
@@ -440,10 +454,16 @@ outer:
 				evt.res <- fmt.Errorf("terminated")
 
 			case programEventClientPlay2:
-				evt.res <- fmt.Errorf("terminated")
+				close(evt.done)
+
+			case programEventClientPlayStop:
+				close(evt.done)
 
 			case programEventClientRecord:
-				evt.res <- fmt.Errorf("terminated")
+				close(evt.done)
+
+			case programEventClientRecordStop:
+				close(evt.done)
 			}
 		}
 	}()
