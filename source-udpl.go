@@ -7,9 +7,9 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-type streamerUdpListener struct {
+type sourceUdpListener struct {
 	p             *program
-	streamer      *streamer
+	source        *source
 	trackId       int
 	streamType    gortsplib.StreamType
 	publisherIp   net.IP
@@ -22,8 +22,8 @@ type streamerUdpListener struct {
 	done      chan struct{}
 }
 
-func newStreamerUdpListener(p *program, port int, streamer *streamer,
-	trackId int, streamType gortsplib.StreamType, publisherIp net.IP) (*streamerUdpListener, error) {
+func newSourceUdpListener(p *program, port int, source *source,
+	trackId int, streamType gortsplib.StreamType, publisherIp net.IP) (*sourceUdpListener, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -31,9 +31,9 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 		return nil, err
 	}
 
-	l := &streamerUdpListener{
+	l := &sourceUdpListener{
 		p:           p,
-		streamer:    streamer,
+		source:      source,
 		trackId:     trackId,
 		streamType:  streamType,
 		publisherIp: publisherIp,
@@ -46,20 +46,20 @@ func newStreamerUdpListener(p *program, port int, streamer *streamer,
 	return l, nil
 }
 
-func (l *streamerUdpListener) close() {
+func (l *sourceUdpListener) close() {
 	l.nconn.Close() // close twice
 }
 
-func (l *streamerUdpListener) start() {
+func (l *sourceUdpListener) start() {
 	go l.run()
 }
 
-func (l *streamerUdpListener) stop() {
+func (l *sourceUdpListener) stop() {
 	l.nconn.Close()
 	<-l.done
 }
 
-func (l *streamerUdpListener) run() {
+func (l *sourceUdpListener) run() {
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
@@ -80,8 +80,8 @@ func (l *streamerUdpListener) run() {
 			continue
 		}
 
-		l.streamer.RtcpReceivers[l.trackId].OnFrame(l.streamType, buf[:n])
-		l.p.events <- programEventStreamerFrame{l.streamer, l.trackId, l.streamType, buf[:n]}
+		l.source.RtcpReceivers[l.trackId].OnFrame(l.streamType, buf[:n])
+		l.p.events <- programEventStreamerFrame{l.source, l.trackId, l.streamType, buf[:n]}
 	}
 
 	close(l.writeChan)

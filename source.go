@@ -12,18 +12,18 @@ import (
 )
 
 const (
-	streamerRetryInterval          = 5 * time.Second
-	streamerCheckStreamInterval    = 5 * time.Second
-	streamerKeepaliveInterval      = 60 * time.Second
-	streamerReceiverReportInterval = 10 * time.Second
+	sourceRetryInterval          = 5 * time.Second
+	sourceCheckStreamInterval    = 5 * time.Second
+	sourceKeepaliveInterval      = 60 * time.Second
+	sourceReceiverReportInterval = 10 * time.Second
 )
 
-type streamerUdpListenerPair struct {
-	rtpl  *streamerUdpListener
-	rtcpl *streamerUdpListener
+type sourceUdpListenerPair struct {
+	rtpl  *sourceUdpListener
+	rtcpl *sourceUdpListener
 }
 
-type streamer struct {
+type source struct {
 	p               *program
 	path            string
 	u               *url.URL
@@ -39,13 +39,13 @@ type streamer struct {
 	done      chan struct{}
 }
 
-func newStreamer(p *program, path string, source string, sourceProtocol string) (*streamer, error) {
-	u, err := url.Parse(source)
+func newSource(p *program, path string, sourceStr string, sourceProtocol string) (*source, error) {
+	u, err := url.Parse(sourceStr)
 	if err != nil {
-		return nil, fmt.Errorf("'%s' is not a valid source not an RTSP url", source)
+		return nil, fmt.Errorf("'%s' is not a valid RTSP url", sourceStr)
 	}
 	if u.Scheme != "rtsp" {
-		return nil, fmt.Errorf("'%s' is not a valid RTSP url", source)
+		return nil, fmt.Errorf("'%s' is not a valid RTSP url", sourceStr)
 	}
 	if u.Port() == "" {
 		u.Host += ":554"
@@ -73,7 +73,7 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 		return nil, err
 	}
 
-	s := &streamer{
+	s := &source{
 		p:         p,
 		path:      path,
 		u:         u,
@@ -86,30 +86,30 @@ func newStreamer(p *program, path string, source string, sourceProtocol string) 
 	return s, nil
 }
 
-func (s *streamer) log(format string, args ...interface{}) {
-	s.p.log("[streamer "+s.path+"] "+format, args...)
+func (s *source) log(format string, args ...interface{}) {
+	s.p.log("[source "+s.path+"] "+format, args...)
 }
 
-func (s *streamer) publisherIsReady() bool {
+func (s *source) publisherIsReady() bool {
 	return s.ready
 }
 
-func (s *streamer) publisherSdpText() []byte {
+func (s *source) publisherSdpText() []byte {
 	return s.serverSdpText
 }
 
-func (s *streamer) publisherSdpParsed() *sdp.SessionDescription {
+func (s *source) publisherSdpParsed() *sdp.SessionDescription {
 	return s.serverSdpParsed
 }
 
-func (s *streamer) run() {
+func (s *source) run() {
 	for {
 		ok := s.do()
 		if !ok {
 			break
 		}
 
-		t := time.NewTimer(streamerRetryInterval)
+		t := time.NewTimer(sourceRetryInterval)
 		select {
 		case <-s.terminate:
 			break
@@ -120,7 +120,7 @@ func (s *streamer) run() {
 	close(s.done)
 }
 
-func (s *streamer) do() bool {
+func (s *source) do() bool {
 	s.log("initializing with protocol %s", s.proto)
 
 	var nconn net.Conn
@@ -175,13 +175,13 @@ func (s *streamer) do() bool {
 	}
 }
 
-func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
+func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 	publisherIp := conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 
-	var streamerUdpListenerPairs []streamerUdpListenerPair
+	var sourceUdpListenerPairs []sourceUdpListenerPair
 
 	defer func() {
-		for _, pair := range streamerUdpListenerPairs {
+		for _, pair := range sourceUdpListenerPairs {
 			pair.rtpl.close()
 			pair.rtcpl.close()
 		}
@@ -190,8 +190,8 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 	for i, media := range s.clientSdpParsed.MediaDescriptions {
 		var rtpPort int
 		var rtcpPort int
-		var rtpl *streamerUdpListener
-		var rtcpl *streamerUdpListener
+		var rtpl *sourceUdpListener
+		var rtcpl *sourceUdpListener
 		func() {
 			for {
 				// choose two consecutive ports in range 65536-10000
@@ -200,13 +200,13 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 				rtcpPort = rtpPort + 1
 
 				var err error
-				rtpl, err = newStreamerUdpListener(s.p, rtpPort, s, i,
+				rtpl, err = newSourceUdpListener(s.p, rtpPort, s, i,
 					gortsplib.StreamTypeRtp, publisherIp)
 				if err != nil {
 					continue
 				}
 
-				rtcpl, err = newStreamerUdpListener(s.p, rtcpPort, s, i,
+				rtcpl, err = newSourceUdpListener(s.p, rtcpPort, s, i,
 					gortsplib.StreamTypeRtcp, publisherIp)
 				if err != nil {
 					rtpl.close()
@@ -228,7 +228,7 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		rtpl.publisherPort = rtpServerPort
 		rtcpl.publisherPort = rtcpServerPort
 
-		streamerUdpListenerPairs = append(streamerUdpListenerPairs, streamerUdpListenerPair{
+		sourceUdpListenerPairs = append(sourceUdpListenerPairs, sourceUdpListenerPair{
 			rtpl:  rtpl,
 			rtcpl: rtcpl,
 		})
@@ -245,14 +245,14 @@ func (s *streamer) runUdp(conn *gortsplib.ConnClient) bool {
 		s.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
-	for _, pair := range streamerUdpListenerPairs {
+	for _, pair := range sourceUdpListenerPairs {
 		pair.rtpl.start()
 		pair.rtcpl.start()
 	}
 
-	sendKeepaliveTicker := time.NewTicker(streamerKeepaliveInterval)
-	checkStreamTicker := time.NewTicker(streamerCheckStreamInterval)
-	receiverReportTicker := time.NewTicker(streamerReceiverReportInterval)
+	sendKeepaliveTicker := time.NewTicker(sourceKeepaliveInterval)
+	checkStreamTicker := time.NewTicker(sourceCheckStreamInterval)
+	receiverReportTicker := time.NewTicker(sourceReceiverReportInterval)
 
 	s.p.events <- programEventStreamerReady{s}
 
@@ -285,11 +285,11 @@ outer:
 		case <-receiverReportTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
 				frame := s.RtcpReceivers[trackId].Report()
-				streamerUdpListenerPairs[trackId].rtcpl.writeChan <- &udpAddrBufPair{
+				sourceUdpListenerPairs[trackId].rtcpl.writeChan <- &udpAddrBufPair{
 					addr: &net.UDPAddr{
 						IP:   conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
 						Zone: conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone,
-						Port: streamerUdpListenerPairs[trackId].rtcpl.publisherPort,
+						Port: sourceUdpListenerPairs[trackId].rtcpl.publisherPort,
 					},
 					buf: frame,
 				}
@@ -303,7 +303,7 @@ outer:
 
 	s.p.events <- programEventStreamerNotReady{s}
 
-	for _, pair := range streamerUdpListenerPairs {
+	for _, pair := range sourceUdpListenerPairs {
 		pair.rtpl.stop()
 		pair.rtcpl.stop()
 	}
@@ -315,7 +315,7 @@ outer:
 	return ret
 }
 
-func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
+func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 	for i, media := range s.clientSdpParsed.MediaDescriptions {
 		_, err := conn.SetupTcp(s.u, media, i)
 		if err != nil {
@@ -359,7 +359,7 @@ func (s *streamer) runTcp(conn *gortsplib.ConnClient) bool {
 
 	// a ticker to check the stream is not needed since there's already a deadline
 	// on the RTSP reads
-	receiverReportTicker := time.NewTicker(streamerReceiverReportInterval)
+	receiverReportTicker := time.NewTicker(sourceReceiverReportInterval)
 
 	var ret bool
 
@@ -398,7 +398,7 @@ outer:
 	return ret
 }
 
-func (s *streamer) close() {
+func (s *source) close() {
 	close(s.terminate)
 	<-s.done
 }

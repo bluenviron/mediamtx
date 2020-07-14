@@ -141,19 +141,19 @@ type programEventClientFrameTcp struct {
 func (programEventClientFrameTcp) isProgramEvent() {}
 
 type programEventStreamerReady struct {
-	streamer *streamer
+	source *source
 }
 
 func (programEventStreamerReady) isProgramEvent() {}
 
 type programEventStreamerNotReady struct {
-	streamer *streamer
+	source *source
 }
 
 func (programEventStreamerNotReady) isProgramEvent() {}
 
 type programEventStreamerFrame struct {
-	streamer   *streamer
+	source     *source
 	trackId    int
 	streamType gortsplib.StreamType
 	buf        []byte
@@ -165,7 +165,7 @@ type programEventTerminate struct{}
 
 func (programEventTerminate) isProgramEvent() {}
 
-// a publisher can be either a serverClient or a streamer
+// a publisher can be either a serverClient or a source
 type publisher interface {
 	publisherIsReady() bool
 	publisherSdpText() []byte
@@ -178,7 +178,7 @@ type program struct {
 	rtpl           *serverUdpListener
 	rtcpl          *serverUdpListener
 	clients        map[*serverClient]struct{}
-	streamers      []*streamer
+	sources        []*source
 	publishers     map[string]publisher
 	publisherCount int
 	receiverCount  int
@@ -216,12 +216,12 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 
 	for path, pconf := range conf.Paths {
 		if pconf.Source != "record" {
-			s, err := newStreamer(p, path, pconf.Source, pconf.SourceProtocol)
+			s, err := newSource(p, path, pconf.Source, pconf.SourceProtocol)
 			if err != nil {
 				return nil, err
 			}
 
-			p.streamers = append(p.streamers, s)
+			p.sources = append(p.sources, s)
 			p.publishers[path] = s
 		}
 	}
@@ -258,7 +258,7 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 	go p.rtpl.run()
 	go p.rtcpl.run()
 	go p.rtspl.run()
-	for _, s := range p.streamers {
+	for _, s := range p.sources {
 		go s.run()
 	}
 	go p.run()
@@ -408,24 +408,24 @@ outer:
 			p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
 
 		case programEventStreamerReady:
-			evt.streamer.ready = true
+			evt.source.ready = true
 			p.publisherCount += 1
-			evt.streamer.log("ready")
+			evt.source.log("ready")
 
 		case programEventStreamerNotReady:
-			evt.streamer.ready = false
+			evt.source.ready = false
 			p.publisherCount -= 1
-			evt.streamer.log("not ready")
+			evt.source.log("not ready")
 
 			// close all clients that share the same path
 			for oc := range p.clients {
-				if oc.path == evt.streamer.path {
+				if oc.path == evt.source.path {
 					go oc.close()
 				}
 			}
 
 		case programEventStreamerFrame:
-			p.forwardFrame(evt.streamer.path, evt.trackId, evt.streamType, evt.buf)
+			p.forwardFrame(evt.source.path, evt.trackId, evt.streamType, evt.buf)
 
 		case programEventTerminate:
 			break outer
@@ -468,7 +468,7 @@ outer:
 		}
 	}()
 
-	for _, s := range p.streamers {
+	for _, s := range p.sources {
 		s.close()
 	}
 
