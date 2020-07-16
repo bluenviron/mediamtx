@@ -32,7 +32,7 @@ type source struct {
 	clientSdpParsed *sdp.SessionDescription
 	serverSdpText   []byte
 	serverSdpParsed *sdp.SessionDescription
-	RtcpReceivers   []*gortsplib.RtcpReceiver
+	rtcpReceivers   []*gortsplib.RtcpReceiver
 	readBuf         *doubleBuffer
 
 	terminate chan struct{}
@@ -240,9 +240,9 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.RtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
+	s.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
+		s.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
 	for _, pair := range sourceUdpListenerPairs {
@@ -275,7 +275,7 @@ outer:
 
 		case <-checkStreamTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				if time.Since(s.RtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.StreamDeadAfter {
+				if time.Since(s.rtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.StreamDeadAfter {
 					s.log("ERR: stream is dead")
 					ret = true
 					break outer
@@ -284,7 +284,7 @@ outer:
 
 		case <-receiverReportTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				frame := s.RtcpReceivers[trackId].Report()
+				frame := s.rtcpReceivers[trackId].Report()
 				sourceUdpListenerPairs[trackId].rtcpl.writeChan <- &udpAddrBufPair{
 					addr: &net.UDPAddr{
 						IP:   conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
@@ -309,7 +309,7 @@ outer:
 	}
 
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.RtcpReceivers[trackId].Close()
+		s.rtcpReceivers[trackId].Close()
 	}
 
 	return ret
@@ -330,9 +330,9 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.RtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
+	s.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientSdpParsed.MediaDescriptions))
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
+		s.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
 	s.p.events <- programEventStreamerReady{s}
@@ -352,7 +352,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 				break
 			}
 
-			s.RtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
+			s.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
 			s.p.events <- programEventStreamerFrame{s, frame.TrackId, frame.StreamType, frame.Content}
 		}
 	}()
@@ -376,7 +376,7 @@ outer:
 
 		case <-receiverReportTicker.C:
 			for trackId := range s.clientSdpParsed.MediaDescriptions {
-				frame := s.RtcpReceivers[trackId].Report()
+				frame := s.rtcpReceivers[trackId].Report()
 
 				conn.WriteFrame(&gortsplib.InterleavedFrame{
 					TrackId:    trackId,
@@ -392,7 +392,7 @@ outer:
 	s.p.events <- programEventStreamerNotReady{s}
 
 	for trackId := range s.clientSdpParsed.MediaDescriptions {
-		s.RtcpReceivers[trackId].Close()
+		s.rtcpReceivers[trackId].Close()
 	}
 
 	return ret
