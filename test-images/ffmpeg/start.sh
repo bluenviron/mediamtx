@@ -1,3 +1,3 @@
 #!/bin/sh -e
 
-ffmpeg $@
+exec ffmpeg $@

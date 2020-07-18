@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -92,23 +91,86 @@ func (c *container) wait() int {
 	return int(code)
 }
 
-func TestPublishRead(t *testing.T) {
-	for _, conf := range [][3]string{
-		{"udp", "udp", "ffmpeg"},
-		{"udp", "tcp", "ffmpeg"},
-		{"tcp", "udp", "ffmpeg"},
-		{"tcp", "tcp", "ffmpeg"},
-		{"tcp", "udp", "vlc"},
-		{"tcp", "tcp", "vlc"},
+func TestPublish(t *testing.T) {
+	for _, conf := range []struct {
+		publishSoft  string
+		publishProto string
+	}{
+		{"ffmpeg", "udp"},
+		{"ffmpeg", "tcp"},
+		{"gstreamer", "udp"},
+		{"gstreamer", "tcp"},
 	} {
-		t.Run(strings.Join(conf[:], "_"), func(t *testing.T) {
+		t.Run(conf.publishSoft+"_"+conf.publishProto, func(t *testing.T) {
 			p, err := newProgram([]string{}, bytes.NewBuffer(nil))
 			require.NoError(t, err)
 			defer p.close()
 
 			time.Sleep(1 * time.Second)
 
-			cnt1, err := newContainer("ffmpeg", "source", []string{
+			switch conf.publishSoft {
+			case "ffmpeg":
+				cnt1, err := newContainer("ffmpeg", "publish", []string{
+					"-hide_banner",
+					"-loglevel", "panic",
+					"-re",
+					"-stream_loop", "-1",
+					"-i", "/emptyvideo.ts",
+					"-c", "copy",
+					"-f", "rtsp",
+					"-rtsp_transport", conf.publishProto,
+					"rtsp://" + ownDockerIp + ":8554/teststream",
+				})
+				require.NoError(t, err)
+				defer cnt1.close()
+
+			default:
+				cnt1, err := newContainer("gstreamer", "source", []string{
+					"filesrc location=emptyvideo.ts ! tsdemux ! rtspclientsink " +
+						"location=rtsp://" + ownDockerIp + ":8554/teststream protocols=" + conf.publishProto,
+				})
+				require.NoError(t, err)
+				defer cnt1.close()
+			}
+
+			time.Sleep(1 * time.Second)
+
+			cnt2, err := newContainer("ffmpeg", "read", []string{
+				"-hide_banner",
+				"-loglevel", "panic",
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+
+			code := cnt2.wait()
+			require.Equal(t, 0, code)
+		})
+	}
+}
+
+func TestRead(t *testing.T) {
+	for _, conf := range []struct {
+		readSoft  string
+		readProto string
+	}{
+		{"ffmpeg", "udp"},
+		{"ffmpeg", "tcp"},
+		{"vlc", "udp"},
+		{"vlc", "tcp"},
+	} {
+		t.Run(conf.readSoft+"_"+conf.readProto, func(t *testing.T) {
+			p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+			require.NoError(t, err)
+			defer p.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt1, err := newContainer("ffmpeg", "publish", []string{
 				"-hide_banner",
 				"-loglevel", "panic",
 				"-re",
@@ -116,7 +178,7 @@ func TestPublishRead(t *testing.T) {
 				"-i", "/emptyvideo.ts",
 				"-c", "copy",
 				"-f", "rtsp",
-				"-rtsp_transport", conf[0],
+				"-rtsp_transport", "udp",
 				"rtsp://" + ownDockerIp + ":8554/teststream",
 			})
 			require.NoError(t, err)
@@ -124,11 +186,12 @@ func TestPublishRead(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			if conf[2] == "ffmpeg" {
-				cnt2, err := newContainer("ffmpeg", "dest", []string{
+			switch conf.readSoft {
+			case "ffmpeg":
+				cnt2, err := newContainer("ffmpeg", "read", []string{
 					"-hide_banner",
 					"-loglevel", "panic",
-					"-rtsp_transport", conf[1],
+					"-rtsp_transport", conf.readProto,
 					"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
 					"-vframes", "1",
 					"-f", "image2",
@@ -140,9 +203,9 @@ func TestPublishRead(t *testing.T) {
 				code := cnt2.wait()
 				require.Equal(t, 0, code)
 
-			} else {
+			default:
 				args := []string{}
-				if conf[1] == "tcp" {
+				if conf.readProto == "tcp" {
 					args = append(args, "--rtsp-tcp")
 				}
 				args = append(args, "rtsp://"+ownDockerIp+":8554/teststream")

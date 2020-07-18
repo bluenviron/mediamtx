@@ -30,6 +30,11 @@ Features:
    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
    ```
 
+   or _GStreamer_:
+   ```
+   gst-launch-1.0 filesrc location=file.mp4 ! qtdemux ! rtspclientsink location=rtsp://localhost:8554/mystream
+   ```
+
 4. Open the stream. For instance, you can open the stream with _VLC_:
    ```
    vlc rtsp://localhost:8554/mystream
