@@ -5,6 +5,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/aler9/gortsplib"
 	"github.com/pion/sdp"
 )
 
@@ -73,7 +74,7 @@ func (db *doubleBuffer) swap() []byte {
 	return ret
 }
 
-func sdpForServer(sin *sdp.SessionDescription) (*sdp.SessionDescription, []byte) {
+func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 	sout := &sdp.SessionDescription{
 		SessionName: "Stream",
 		Origin: sdp.Origin{
@@ -87,18 +88,18 @@ func sdpForServer(sin *sdp.SessionDescription) (*sdp.SessionDescription, []byte)
 		},
 	}
 
-	for i, min := range sin.MediaDescriptions {
+	for i, track := range tracks {
 		mout := &sdp.MediaDescription{
 			MediaName: sdp.MediaName{
-				Media:   min.MediaName.Media,
+				Media:   track.Media.MediaName.Media,
 				Protos:  []string{"RTP", "AVP"}, // override protocol
-				Formats: min.MediaName.Formats,
+				Formats: track.Media.MediaName.Formats,
 			},
-			Bandwidth: min.Bandwidth,
+			Bandwidth: track.Media.Bandwidth,
 			Attributes: func() []sdp.Attribute {
 				var ret []sdp.Attribute
 
-				for _, attr := range min.Attributes {
+				for _, attr := range track.Media.Attributes {
 					if attr.Key == "rtpmap" || attr.Key == "fmtp" {
 						ret = append(ret, attr)
 					}

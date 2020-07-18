@@ -313,7 +313,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
 				"CSeq": cseq,
-				"Public": []string{strings.Join([]string{
+				"Public": gortsplib.HeaderValue{strings.Join([]string{
 					string(gortsplib.DESCRIBE),
 					string(gortsplib.ANNOUNCE),
 					string(gortsplib.SETUP),
@@ -359,8 +359,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
 				"CSeq":         cseq,
-				"Content-Base": []string{req.Url.String() + "/"},
-				"Content-Type": []string{"application/sdp"},
+				"Content-Base": gortsplib.HeaderValue{req.Url.String() + "/"},
+				"Content-Type": gortsplib.HeaderValue{"application/sdp"},
 			},
 			Content: sdp,
 		})
@@ -410,12 +410,20 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return false
 		}
-		sdpParsed, req.Content = sdpForServer(sdpParsed)
 
 		if len(sdpParsed.MediaDescriptions) == 0 {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no tracks defined"))
 			return false
 		}
+
+		var tracks []*gortsplib.Track
+		for i, media := range sdpParsed.MediaDescriptions {
+			tracks = append(tracks, &gortsplib.Track{
+				Id:    i,
+				Media: media,
+			})
+		}
+		sdpParsed, req.Content = sdpForServer(tracks)
 
 		res := make(chan error)
 		c.p.events <- programEventClientAnnounce{res, c, path}
@@ -437,13 +445,12 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case gortsplib.SETUP:
-		tsRaw, ok := req.Header["Transport"]
-		if !ok || len(tsRaw) != 1 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header missing"))
+		th, err := gortsplib.ReadHeaderTransport(req.Header["Transport"])
+		if err != nil {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header: %s", err))
 			return false
 		}
 
-		th := gortsplib.ReadHeaderTransport(tsRaw[0])
 		if _, ok := th["multicast"]; ok {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("multicast is not supported"))
 			return false
@@ -486,7 +493,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 				rtpPort, rtcpPort := th.GetPorts("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", tsRaw[0]))
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%v)", req.Header["Transport"]))
 					return false
 				}
 
@@ -512,13 +519,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
 						"CSeq": cseq,
-						"Transport": []string{strings.Join([]string{
+						"Transport": gortsplib.HeaderValue{strings.Join([]string{
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
 							fmt.Sprintf("server_port=%d-%d", c.p.conf.RtpPort, c.p.conf.RtcpPort),
 						}, ";")},
-						"Session": []string{"12345678"},
+						"Session": gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return true
@@ -554,18 +561,18 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
 						"CSeq": cseq,
-						"Transport": []string{strings.Join([]string{
+						"Transport": gortsplib.HeaderValue{strings.Join([]string{
 							"RTP/AVP/TCP",
 							"unicast",
 							fmt.Sprintf("interleaved=%s", interleaved),
 						}, ";")},
-						"Session": []string{"12345678"},
+						"Session": gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return true
 
 			} else {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", tsRaw[0]))
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
 				return false
 			}
 
@@ -601,7 +608,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 				rtpPort, rtcpPort := th.GetPorts("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", tsRaw[0]))
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
 					return false
 				}
 
@@ -627,13 +634,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
 						"CSeq": cseq,
-						"Transport": []string{strings.Join([]string{
+						"Transport": gortsplib.HeaderValue{strings.Join([]string{
 							"RTP/AVP/UDP",
 							"unicast",
 							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
 							fmt.Sprintf("server_port=%d-%d", c.p.conf.RtpPort, c.p.conf.RtcpPort),
 						}, ";")},
-						"Session": []string{"12345678"},
+						"Session": gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return true
@@ -679,18 +686,18 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
 						"CSeq": cseq,
-						"Transport": []string{strings.Join([]string{
+						"Transport": gortsplib.HeaderValue{strings.Join([]string{
 							"RTP/AVP/TCP",
 							"unicast",
 							fmt.Sprintf("interleaved=%s", interleaved),
 						}, ";")},
-						"Session": []string{"12345678"},
+						"Session": gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return true
 
 			} else {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", tsRaw[0]))
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
 				return false
 			}
 
@@ -727,7 +734,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
 				"CSeq":    cseq,
-				"Session": []string{"12345678"},
+				"Session": gortsplib.HeaderValue{"12345678"},
 			},
 		})
 
@@ -755,7 +762,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
 				"CSeq":    cseq,
-				"Session": []string{"12345678"},
+				"Session": gortsplib.HeaderValue{"12345678"},
 			},
 		})
 

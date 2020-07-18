@@ -92,7 +92,7 @@ func (c *container) wait() int {
 	return int(code)
 }
 
-func TestProtocols(t *testing.T) {
+func TestPublishRead(t *testing.T) {
 	for _, conf := range [][3]string{
 		{"udp", "udp", "ffmpeg"},
 		{"udp", "tcp", "ffmpeg"},
