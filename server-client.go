@@ -491,7 +491,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				rtpPort, rtcpPort := th.GetPorts("client_port")
+				rtpPort, rtcpPort := th.Ports("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%v)", req.Header["Transport"]))
 					return false
@@ -578,7 +578,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 		// record
 		case clientStateAnnounce, clientStatePreRecord:
-			if _, ok := th["mode=record"]; !ok {
+			if strings.ToLower(th.Value("mode")) != "record" {
 				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain mode=record"))
 				return false
 			}
@@ -606,7 +606,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				rtpPort, rtcpPort := th.GetPorts("client_port")
+				rtpPort, rtcpPort := th.Ports("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
 					return false
@@ -657,7 +657,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				interleaved := th.GetValue("interleaved")
+				interleaved := th.Value("interleaved")
 				if interleaved == "" {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain the interleaved field"))
 					return false
