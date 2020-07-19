@@ -339,7 +339,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 
 	frame := &gortsplib.InterleavedFrame{}
 
-	chanConnError := make(chan struct{})
+	tcpConnDone := make(chan error, 1)
 	go func() {
 		for {
 			frame.Content = s.readBuf.swap()
@@ -347,9 +347,8 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 
 			err := conn.ReadFrame(frame)
 			if err != nil {
-				s.log("ERR: %s", err)
-				close(chanConnError)
-				break
+				tcpConnDone <- err
+				return
 			}
 
 			s.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
@@ -370,7 +369,8 @@ outer:
 			ret = false
 			break outer
 
-		case <-chanConnError:
+		case err := <-tcpConnDone:
+			s.log("ERR: %s", err)
 			ret = true
 			break outer
 
