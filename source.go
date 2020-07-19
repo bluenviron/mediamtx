@@ -276,7 +276,7 @@ outer:
 
 		case <-checkStreamTicker.C:
 			for trackId := range s.tracks {
-				if time.Since(s.rtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.StreamDeadAfter {
+				if time.Since(s.rtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.ReadTimeout {
 					s.log("ERR: stream is dead")
 					ret = true
 					break outer

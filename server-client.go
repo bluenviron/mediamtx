@@ -966,7 +966,7 @@ func (c *serverClient) runRecord(path string) {
 
 			case <-checkStreamTicker.C:
 				for trackId := range c.streamTracks {
-					if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.StreamDeadAfter {
+					if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.ReadTimeout {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						<-readDone
@@ -1021,7 +1021,7 @@ func (c *serverClient) runRecord(path string) {
 
 			case <-checkStreamTicker.C:
 				for trackId := range c.streamTracks {
-					if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.StreamDeadAfter {
+					if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.ReadTimeout {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						<-readDone

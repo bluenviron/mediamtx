@@ -35,7 +35,6 @@ type conf struct {
 	RunOnConnect      string        `yaml:"runOnConnect"`
 	ReadTimeout       time.Duration `yaml:"readTimeout"`
 	WriteTimeout      time.Duration `yaml:"writeTimeout"`
-	StreamDeadAfter   time.Duration `yaml:"streamDeadAfter"`
 	AuthMethods       []string      `yaml:"authMethods"`
 	authMethodsParsed []gortsplib.AuthMethod
 	Pprof             bool                 `yaml:"pprof"`
@@ -121,9 +120,6 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 	if conf.WriteTimeout == 0 {
 		conf.WriteTimeout = 5 * time.Second
-	}
-	if conf.StreamDeadAfter == 0 {
-		conf.StreamDeadAfter = 15 * time.Second
 	}
 
 	if len(conf.AuthMethods) == 0 {
