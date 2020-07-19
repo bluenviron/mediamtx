@@ -28,7 +28,7 @@ type ConfPath struct {
 
 type conf struct {
 	Protocols         []string `yaml:"protocols"`
-	protocolsParsed   map[streamProtocol]struct{}
+	protocolsParsed   map[gortsplib.StreamProtocol]struct{}
 	RtspPort          int           `yaml:"rtspPort"`
 	RtpPort           int           `yaml:"rtpPort"`
 	RtcpPort          int           `yaml:"rtcpPort"`
@@ -83,14 +83,14 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	if len(conf.Protocols) == 0 {
 		conf.Protocols = []string{"udp", "tcp"}
 	}
-	conf.protocolsParsed = make(map[streamProtocol]struct{})
+	conf.protocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
 	for _, proto := range conf.Protocols {
 		switch proto {
 		case "udp":
-			conf.protocolsParsed[streamProtocolUdp] = struct{}{}
+			conf.protocolsParsed[gortsplib.StreamProtocolUdp] = struct{}{}
 
 		case "tcp":
-			conf.protocolsParsed[streamProtocolTcp] = struct{}{}
+			conf.protocolsParsed[gortsplib.StreamProtocolTcp] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)

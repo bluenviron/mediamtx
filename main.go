@@ -16,25 +16,6 @@ import (
 
 var Version = "v0.0.0"
 
-type track struct {
-	rtpPort  int
-	rtcpPort int
-}
-
-type streamProtocol int
-
-const (
-	streamProtocolUdp streamProtocol = iota
-	streamProtocolTcp
-)
-
-func (s streamProtocol) String() string {
-	if s == streamProtocolUdp {
-		return "udp"
-	}
-	return "tcp"
-}
-
 type programEvent interface {
 	isProgramEvent()
 }
@@ -71,7 +52,7 @@ type programEventClientSetupPlay struct {
 	res      chan error
 	client   *serverClient
 	path     string
-	protocol streamProtocol
+	protocol gortsplib.StreamProtocol
 	rtpPort  int
 	rtcpPort int
 }
@@ -81,7 +62,7 @@ func (programEventClientSetupPlay) isProgramEvent() {}
 type programEventClientSetupRecord struct {
 	res      chan error
 	client   *serverClient
-	protocol streamProtocol
+	protocol gortsplib.StreamProtocol
 	rtpPort  int
 	rtcpPort int
 }
@@ -335,7 +316,7 @@ outer:
 
 			evt.client.path = evt.path
 			evt.client.streamProtocol = evt.protocol
-			evt.client.streamTracks = append(evt.client.streamTracks, &track{
+			evt.client.streamTracks = append(evt.client.streamTracks, &serverClientTrack{
 				rtpPort:  evt.rtpPort,
 				rtcpPort: evt.rtcpPort,
 			})
@@ -344,7 +325,7 @@ outer:
 
 		case programEventClientSetupRecord:
 			evt.client.streamProtocol = evt.protocol
-			evt.client.streamTracks = append(evt.client.streamTracks, &track{
+			evt.client.streamTracks = append(evt.client.streamTracks, &serverClientTrack{
 				rtpPort:  evt.rtpPort,
 				rtcpPort: evt.rtcpPort,
 			})
@@ -401,7 +382,7 @@ outer:
 				continue
 			}
 
-			client.RtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
+			client.rtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
 			p.forwardFrame(client.path, trackId, evt.streamType, evt.buf)
 
 		case programEventClientFrameTcp:
@@ -496,7 +477,7 @@ func (p *program) findPublisher(addr *net.UDPAddr, streamType gortsplib.StreamTy
 			continue
 		}
 
-		if cl.streamProtocol != streamProtocolUdp ||
+		if cl.streamProtocol != gortsplib.StreamProtocolUdp ||
 			cl.state != clientStateRecord ||
 			!cl.ip().Equal(addr.IP) {
 			continue
@@ -520,7 +501,7 @@ func (p *program) findPublisher(addr *net.UDPAddr, streamType gortsplib.StreamTy
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for client := range p.clients {
 		if client.path == path && client.state == clientStatePlay {
-			if client.streamProtocol == streamProtocolUdp {
+			if client.streamProtocol == gortsplib.StreamProtocolUdp {
 				if streamType == gortsplib.StreamTypeRtp {
 					p.rtpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{

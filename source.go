@@ -27,9 +27,9 @@ type source struct {
 	p               *program
 	path            string
 	u               *url.URL
-	proto           streamProtocol
+	proto           gortsplib.StreamProtocol
 	ready           bool
-	clientTracks    []*gortsplib.Track
+	tracks          []*gortsplib.Track
 	serverSdpText   []byte
 	serverSdpParsed *sdp.SessionDescription
 	rtcpReceivers   []*gortsplib.RtcpReceiver
@@ -59,15 +59,15 @@ func newSource(p *program, path string, sourceStr string, sourceProtocol string)
 		}
 	}
 
-	proto, err := func() (streamProtocol, error) {
+	proto, err := func() (gortsplib.StreamProtocol, error) {
 		switch sourceProtocol {
 		case "udp":
-			return streamProtocolUdp, nil
+			return gortsplib.StreamProtocolUdp, nil
 
 		case "tcp":
-			return streamProtocolTcp, nil
+			return gortsplib.StreamProtocolTcp, nil
 		}
-		return streamProtocol(0), fmt.Errorf("unsupported protocol '%s'", sourceProtocol)
+		return gortsplib.StreamProtocol(0), fmt.Errorf("unsupported protocol '%s'", sourceProtocol)
 	}()
 	if err != nil {
 		return nil, err
@@ -155,20 +155,20 @@ func (s *source) do() bool {
 		return true
 	}
 
-	clientTracks, _, err := conn.Describe(s.u)
+	tracks, _, err := conn.Describe(s.u)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
 	}
 
 	// create a filtered SDP that is used by the server (not by the client)
-	serverSdpParsed, serverSdpText := sdpForServer(clientTracks)
+	serverSdpParsed, serverSdpText := sdpForServer(tracks)
 
-	s.clientTracks = clientTracks
+	s.tracks = tracks
 	s.serverSdpText = serverSdpText
 	s.serverSdpParsed = serverSdpParsed
 
-	if s.proto == streamProtocolUdp {
+	if s.proto == gortsplib.StreamProtocolUdp {
 		return s.runUdp(conn)
 	} else {
 		return s.runTcp(conn)
@@ -187,7 +187,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		}
 	}()
 
-	for i, track := range s.clientTracks {
+	for i, track := range s.tracks {
 		var rtpPort int
 		var rtcpPort int
 		var rtpl *sourceUdpListener
@@ -240,8 +240,8 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientTracks))
-	for trackId := range s.clientTracks {
+	s.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.tracks))
+	for trackId := range s.tracks {
 		s.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
@@ -250,11 +250,15 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		pair.rtcpl.start()
 	}
 
-	sendKeepaliveTicker := time.NewTicker(sourceKeepaliveInterval)
+	s.p.events <- programEventStreamerReady{s}
+
+	tcpConnDone := make(chan error, 1)
+	go func() {
+		tcpConnDone <- conn.LoopUDP(s.u)
+	}()
+
 	checkStreamTicker := time.NewTicker(sourceCheckStreamInterval)
 	receiverReportTicker := time.NewTicker(sourceReceiverReportInterval)
-
-	s.p.events <- programEventStreamerReady{s}
 
 	var ret bool
 
@@ -265,16 +269,13 @@ outer:
 			ret = false
 			break outer
 
-		case <-sendKeepaliveTicker.C:
-			_, err := conn.Options(s.u)
-			if err != nil {
-				s.log("ERR: %s", err)
-				ret = true
-				break outer
-			}
+		case err := <-tcpConnDone:
+			s.log("ERR: %s", err)
+			ret = true
+			break outer
 
 		case <-checkStreamTicker.C:
-			for trackId := range s.clientTracks {
+			for trackId := range s.tracks {
 				if time.Since(s.rtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.StreamDeadAfter {
 					s.log("ERR: stream is dead")
 					ret = true
@@ -283,7 +284,7 @@ outer:
 			}
 
 		case <-receiverReportTicker.C:
-			for trackId := range s.clientTracks {
+			for trackId := range s.tracks {
 				frame := s.rtcpReceivers[trackId].Report()
 				sourceUdpListenerPairs[trackId].rtcpl.writeChan <- &udpAddrBufPair{
 					addr: &net.UDPAddr{
@@ -297,7 +298,6 @@ outer:
 		}
 	}
 
-	sendKeepaliveTicker.Stop()
 	checkStreamTicker.Stop()
 	receiverReportTicker.Stop()
 
@@ -308,7 +308,7 @@ outer:
 		pair.rtcpl.stop()
 	}
 
-	for trackId := range s.clientTracks {
+	for trackId := range s.tracks {
 		s.rtcpReceivers[trackId].Close()
 	}
 
@@ -316,7 +316,7 @@ outer:
 }
 
 func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
-	for _, track := range s.clientTracks {
+	for _, track := range s.tracks {
 		_, err := conn.SetupTcp(s.u, track)
 		if err != nil {
 			s.log("ERR: %s", err)
@@ -330,8 +330,8 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.clientTracks))
-	for trackId := range s.clientTracks {
+	s.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(s.tracks))
+	for trackId := range s.tracks {
 		s.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
@@ -375,7 +375,7 @@ outer:
 			break outer
 
 		case <-receiverReportTicker.C:
-			for trackId := range s.clientTracks {
+			for trackId := range s.tracks {
 				frame := s.rtcpReceivers[trackId].Report()
 
 				conn.WriteFrame(&gortsplib.InterleavedFrame{
@@ -391,7 +391,7 @@ outer:
 
 	s.p.events <- programEventStreamerNotReady{s}
 
-	for trackId := range s.clientTracks {
+	for trackId := range s.tracks {
 		s.rtcpReceivers[trackId].Close()
 	}
 

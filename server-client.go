@@ -19,6 +19,11 @@ const (
 	clientReceiverReportInterval = 10 * time.Second
 )
 
+type serverClientTrack struct {
+	rtpPort  int
+	rtcpPort int
+}
+
 type serverClientEvent interface {
 	isServerClientEvent()
 }
@@ -74,13 +79,13 @@ type serverClient struct {
 	authFailures    int
 	streamSdpText   []byte                  // only if publisher
 	streamSdpParsed *sdp.SessionDescription // only if publisher
-	streamProtocol  streamProtocol
-	streamTracks    []*track
-	RtcpReceivers   []*gortsplib.RtcpReceiver
+	streamProtocol  gortsplib.StreamProtocol
+	streamTracks    []*serverClientTrack
+	rtcpReceivers   []*gortsplib.RtcpReceiver
 	readBuf         *doubleBuffer
 	writeBuf        *doubleBuffer
 
-	events chan serverClientEvent // only if state = Play and streamProtocol = TCP
+	events chan serverClientEvent // only if state = Play and gortsplib.StreamProtocol = TCP
 	done   chan struct{}
 }
 
@@ -486,7 +491,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 				return false
 			}() {
-				if _, ok := c.p.conf.protocolsParsed[streamProtocolUdp]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return false
 				}
@@ -502,13 +507,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != streamProtocolUdp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return false
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, path, streamProtocolUdp, rtpPort, rtcpPort}
+				c.p.events <- programEventClientSetupPlay{res, c, path, gortsplib.StreamProtocolUdp, rtpPort, rtcpPort}
 				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
@@ -532,7 +537,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 				// play via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
-				if _, ok := c.p.conf.protocolsParsed[streamProtocolTcp]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTcp]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return false
 				}
@@ -542,13 +547,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != streamProtocolTcp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return false
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, path, streamProtocolTcp, 0, 0}
+				c.p.events <- programEventClientSetupPlay{res, c, path, gortsplib.StreamProtocolTcp, 0, 0}
 				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
@@ -601,7 +606,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 				return false
 			}() {
-				if _, ok := c.p.conf.protocolsParsed[streamProtocolUdp]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return false
 				}
@@ -612,7 +617,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != streamProtocolUdp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return false
 				}
@@ -623,7 +628,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupRecord{res, c, streamProtocolUdp, rtpPort, rtcpPort}
+				c.p.events <- programEventClientSetupRecord{res, c, gortsplib.StreamProtocolUdp, rtpPort, rtcpPort}
 				err := <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
@@ -647,12 +652,12 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 				// record via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
-				if _, ok := c.p.conf.protocolsParsed[streamProtocolTcp]; !ok {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTcp]; !ok {
 					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return false
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != streamProtocolTcp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return false
 				}
@@ -675,7 +680,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupRecord{res, c, streamProtocolTcp, 0, 0}
+				c.p.events <- programEventClientSetupRecord{res, c, gortsplib.StreamProtocolTcp, 0, 0}
 				err := <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
@@ -782,7 +787,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 func (c *serverClient) runPlay(path string) {
 	pconf := c.findConfForPath(path)
 
-	if c.streamProtocol == streamProtocolTcp {
+	if c.streamProtocol == gortsplib.StreamProtocolTcp {
 		c.writeBuf = newDoubleBuffer(2048)
 		c.events = make(chan serverClientEvent)
 	}
@@ -809,7 +814,7 @@ func (c *serverClient) runPlay(path string) {
 		}
 	}
 
-	if c.streamProtocol == streamProtocolTcp {
+	if c.streamProtocol == gortsplib.StreamProtocolTcp {
 		readDone := make(chan error)
 		go func() {
 			buf := make([]byte, 2048)
@@ -880,9 +885,9 @@ func (c *serverClient) runPlay(path string) {
 func (c *serverClient) runRecord(path string) {
 	pconf := c.findConfForPath(path)
 
-	c.RtcpReceivers = make([]*gortsplib.RtcpReceiver, len(c.streamTracks))
+	c.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {
-		c.RtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
+		c.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
 	done := make(chan struct{})
@@ -907,7 +912,7 @@ func (c *serverClient) runRecord(path string) {
 		}
 	}
 
-	if c.streamProtocol == streamProtocolTcp {
+	if c.streamProtocol == gortsplib.StreamProtocolTcp {
 		frame := &gortsplib.InterleavedFrame{}
 
 		readDone := make(chan error)
@@ -929,7 +934,7 @@ func (c *serverClient) runRecord(path string) {
 						break
 					}
 
-					c.RtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
+					c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
 					c.p.events <- programEventClientFrameTcp{
 						c.path,
 						frame.TrackId,
@@ -961,7 +966,7 @@ func (c *serverClient) runRecord(path string) {
 
 			case <-checkStreamTicker.C:
 				for trackId := range c.streamTracks {
-					if time.Since(c.RtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.StreamDeadAfter {
+					if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.StreamDeadAfter {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						<-readDone
@@ -971,7 +976,7 @@ func (c *serverClient) runRecord(path string) {
 
 			case <-receiverReportTicker.C:
 				for trackId := range c.streamTracks {
-					frame := c.RtcpReceivers[trackId].Report()
+					frame := c.rtcpReceivers[trackId].Report()
 					c.conn.WriteFrame(&gortsplib.InterleavedFrame{
 						TrackId:    trackId,
 						StreamType: gortsplib.StreamTypeRtcp,
@@ -1016,7 +1021,7 @@ func (c *serverClient) runRecord(path string) {
 
 			case <-checkStreamTicker.C:
 				for trackId := range c.streamTracks {
-					if time.Since(c.RtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.StreamDeadAfter {
+					if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.StreamDeadAfter {
 						c.log("ERR: stream is dead")
 						c.conn.NetConn().Close()
 						<-readDone
@@ -1026,7 +1031,7 @@ func (c *serverClient) runRecord(path string) {
 
 			case <-receiverReportTicker.C:
 				for trackId := range c.streamTracks {
-					frame := c.RtcpReceivers[trackId].Report()
+					frame := c.rtcpReceivers[trackId].Report()
 					c.p.rtcpl.writeChan <- &udpAddrBufPair{
 						addr: &net.UDPAddr{
 							IP:   c.ip(),
@@ -1048,7 +1053,7 @@ func (c *serverClient) runRecord(path string) {
 	<-done
 
 	for trackId := range c.streamTracks {
-		c.RtcpReceivers[trackId].Close()
+		c.rtcpReceivers[trackId].Close()
 	}
 
 	if runOnPublishCmd != nil {
