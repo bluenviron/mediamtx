@@ -252,7 +252,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 
 	s.p.events <- programEventStreamerReady{s}
 
-	tcpConnDone := make(chan error, 1)
+	tcpConnDone := make(chan error)
 	go func() {
 		tcpConnDone <- conn.LoopUDP(s.u)
 	}()
@@ -266,6 +266,8 @@ outer:
 	for {
 		select {
 		case <-s.terminate:
+			conn.NetConn().Close()
+			<-tcpConnDone
 			ret = false
 			break outer
 
@@ -278,6 +280,8 @@ outer:
 			for trackId := range s.tracks {
 				if time.Since(s.rtcpReceivers[trackId].LastFrameTime()) >= s.p.conf.ReadTimeout {
 					s.log("ERR: stream is dead")
+					conn.NetConn().Close()
+					<-tcpConnDone
 					ret = true
 					break outer
 				}
@@ -339,7 +343,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 
 	frame := &gortsplib.InterleavedFrame{}
 
-	tcpConnDone := make(chan error, 1)
+	tcpConnDone := make(chan error)
 	go func() {
 		for {
 			frame.Content = s.readBuf.swap()
@@ -366,6 +370,8 @@ outer:
 	for {
 		select {
 		case <-s.terminate:
+			conn.NetConn().Close()
+			<-tcpConnDone
 			ret = false
 			break outer
 
