@@ -11,12 +11,12 @@ rtcpPort: 8001
 # this is terminated with SIGINT when a client disconnects.
 runOnConnect:
 # timeout of read operations
-readTimeout: 5s
+readTimeout: 10s
 # timeout of write operations
 writeTimeout: 5s
 # supported authentication methods
 authMethods: [basic, digest]
-# enable pprof on port 9999 to monitor performance
+# enable pprof on port 9999 to monitor performances
 pprof: false
 
 # these settings are path-dependent. The settings under the path 'all' are

@@ -116,7 +116,7 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 
 	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 5 * time.Second
+		conf.ReadTimeout = 10 * time.Second
 	}
 	if conf.WriteTimeout == 0 {
 		conf.WriteTimeout = 5 * time.Second
