@@ -59,7 +59,7 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. An alternative consists in disabling UDP and exposing the RTSP port, by creating a file named `rtsp-simple-server.yml` with the following content:
+The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. To avoid the option, disable UDP and expose the RTSP port, by creating a file named `rtsp-simple-server.yml` with the following content:
 ```yaml
 protocols: [tcp]
 ```
@@ -94,7 +94,33 @@ Start the server:
 
 Users can then connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
 
-#### Publisher authentication
+#### Convert a webcam into a RTSP server
+
+Start the server:
+```
+./rtsp-simple-server
+```
+
+Publish the webcam:
+```
+ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/mystream
+```
+
+The last command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
+
+#### Remuxing, re-encoding, compression
+
+_rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
+
+To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+```yaml
+paths:
+  all:
+  original:
+    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
+```
+
+#### Authentication
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
@@ -114,19 +140,18 @@ Only publishers that provide both username and password will be able to proceed:
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
 ```
 
-WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
-
-#### Remuxing, re-encoding, compression
-
-_rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
-
-To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_, obtaining the same features of a media server. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+It's possible to setup authentication for readers too:
 ```yaml
 paths:
   all:
-  original:
-    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
+    publishUser: admin
+    publishPass: mypassword
+
+    readUser: user
+    readPass: userpassword
 ```
+
+WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
 
 #### Client count
 
