@@ -10,7 +10,7 @@ import (
 	"os"
 
 	"github.com/aler9/gortsplib"
-	"github.com/pion/sdp"
+	"github.com/aler9/sdp/v3"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

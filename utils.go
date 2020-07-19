@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/aler9/gortsplib"
-	"github.com/pion/sdp"
+	"github.com/aler9/sdp/v3"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {
@@ -76,8 +76,11 @@ func (db *doubleBuffer) swap() []byte {
 
 func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 	sout := &sdp.SessionDescription{
-		SessionName: "Stream",
-		Origin: sdp.Origin{
+		SessionName: func() *sdp.SessionName {
+			ret := sdp.SessionName("Stream")
+			return &ret
+		}(),
+		Origin: &sdp.Origin{
 			Username:       "-",
 			NetworkType:    "IN",
 			AddressType:    "IP4",
@@ -118,6 +121,6 @@ func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 		sout.MediaDescriptions = append(sout.MediaDescriptions, mout)
 	}
 
-	bytsout := []byte(sout.Marshal())
+	bytsout, _ := sout.Marshal()
 	return sout, bytsout
 }

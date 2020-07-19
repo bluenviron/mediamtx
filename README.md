@@ -172,6 +172,8 @@ make run
 Related projects
 * https://github.com/aler9/gortsplib
 * https://github.com/flaviostutz/rtsp-relay
+* https://github.com/pion/sdp (SDP library used internally)
+* https://github.com/pion/rtcp (RTCP library used internally)
 
 IETF Standards
 * RTSP 1.0 https://tools.ietf.org/html/rfc2326

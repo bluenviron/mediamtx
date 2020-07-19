@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/pion/sdp"
+	"github.com/aler9/sdp/v3"
 )
 
 const (
@@ -405,7 +405,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		sdpParsed := &sdp.SessionDescription{}
-		err = sdpParsed.Unmarshal(string(req.Content))
+		err = sdpParsed.Unmarshal(req.Content)
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return false
