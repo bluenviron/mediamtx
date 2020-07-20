@@ -35,8 +35,8 @@ func newServerUdpListener(p *program, port int, streamType gortsplib.StreamType)
 		p:          p,
 		nconn:      nconn,
 		streamType: streamType,
-		readBuf:    newDoubleBuffer(2048),
-		writeBuf:   newDoubleBuffer(2048),
+		readBuf:    newDoubleBuffer(clientUdpReadBufferSize),
+		writeBuf:   newDoubleBuffer(clientUdpWriteBufferSize),
 		writeChan:  make(chan *udpAddrBufPair),
 		done:       make(chan struct{}),
 	}

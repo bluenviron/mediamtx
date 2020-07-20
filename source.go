@@ -14,7 +14,9 @@ import (
 )
 
 const (
-	sourceRetryInterval = 5 * time.Second
+	sourceRetryInterval     = 5 * time.Second
+	sourceUdpReadBufferSize = 2048
+	sourceTcpReadBufferSize = 128 * 1024
 )
 
 type source struct {
@@ -26,7 +28,6 @@ type source struct {
 	tracks          []*gortsplib.Track
 	serverSdpText   []byte
 	serverSdpParsed *sdp.SessionDescription
-	readBuf         *doubleBuffer
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -71,7 +72,6 @@ func newSource(p *program, path string, sourceStr string, sourceProtocol string)
 		path:      path,
 		u:         u,
 		proto:     proto,
-		readBuf:   newDoubleBuffer(512 * 1024),
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -226,7 +226,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
 			defer wg.Done()
 
-			doubleBuf := newDoubleBuffer(2048)
+			doubleBuf := newDoubleBuffer(sourceUdpReadBufferSize)
 			for {
 				buf := doubleBuf.swap()
 
@@ -243,7 +243,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
 			defer wg.Done()
 
-			doubleBuf := newDoubleBuffer(2048)
+			doubleBuf := newDoubleBuffer(sourceUdpReadBufferSize)
 			for {
 				buf := doubleBuf.swap()
 
@@ -309,11 +309,12 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 	s.p.events <- programEventStreamerReady{s}
 
 	frame := &gortsplib.InterleavedFrame{}
+	doubleBuf := newDoubleBuffer(sourceTcpReadBufferSize)
 
 	tcpConnDone := make(chan error)
 	go func() {
 		for {
-			frame.Content = s.readBuf.swap()
+			frame.Content = doubleBuf.swap()
 			frame.Content = frame.Content[:cap(frame.Content)]
 
 			err := conn.ReadFrame(frame)

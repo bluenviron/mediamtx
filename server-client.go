@@ -17,6 +17,10 @@ import (
 const (
 	clientCheckStreamInterval    = 5 * time.Second
 	clientReceiverReportInterval = 10 * time.Second
+	clientTcpReadBufferSize      = 128 * 1024
+	clientTcpWriteBufferSize     = 128 * 1024
+	clientUdpReadBufferSize      = 2048
+	clientUdpWriteBufferSize     = 128 * 1024
 )
 
 type serverClientTrack struct {
@@ -98,7 +102,7 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 			WriteTimeout: p.conf.WriteTimeout,
 		}),
 		state:   clientStateStarting,
-		readBuf: newDoubleBuffer(512 * 1024),
+		readBuf: newDoubleBuffer(clientTcpReadBufferSize),
 		done:    make(chan struct{}),
 	}
 
@@ -788,7 +792,7 @@ func (c *serverClient) runPlay(path string) {
 	pconf := c.findConfForPath(path)
 
 	if c.streamProtocol == gortsplib.StreamProtocolTcp {
-		c.writeBuf = newDoubleBuffer(2048)
+		c.writeBuf = newDoubleBuffer(clientTcpWriteBufferSize)
 		c.events = make(chan serverClientEvent)
 	}
 
@@ -818,6 +822,7 @@ func (c *serverClient) runPlay(path string) {
 		readDone := make(chan error)
 		go func() {
 			buf := make([]byte, 2048)
+
 			for {
 				_, err := c.conn.NetConn().Read(buf)
 				if err != nil {
@@ -920,6 +925,7 @@ func (c *serverClient) runRecord(path string) {
 			for {
 				frame.Content = c.readBuf.swap()
 				frame.Content = frame.Content[:cap(frame.Content)]
+
 				recv, err := c.conn.ReadFrameOrRequest(frame)
 				if err != nil {
 					readDone <- err
