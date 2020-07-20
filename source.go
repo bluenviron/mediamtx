@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 	"net"
 	"net/url"
@@ -33,40 +32,7 @@ type source struct {
 	done      chan struct{}
 }
 
-func newSource(p *program, path string, sourceStr string, sourceProtocol string) (*source, error) {
-	u, err := url.Parse(sourceStr)
-	if err != nil {
-		return nil, fmt.Errorf("'%s' is not a valid RTSP url", sourceStr)
-	}
-	if u.Scheme != "rtsp" {
-		return nil, fmt.Errorf("'%s' is not a valid RTSP url", sourceStr)
-	}
-	if u.Port() == "" {
-		u.Host += ":554"
-	}
-	if u.User != nil {
-		pass, _ := u.User.Password()
-		user := u.User.Username()
-		if user != "" && pass == "" ||
-			user == "" && pass != "" {
-			fmt.Errorf("username and password must be both provided")
-		}
-	}
-
-	proto, err := func() (gortsplib.StreamProtocol, error) {
-		switch sourceProtocol {
-		case "udp":
-			return gortsplib.StreamProtocolUdp, nil
-
-		case "tcp":
-			return gortsplib.StreamProtocolTcp, nil
-		}
-		return gortsplib.StreamProtocol(0), fmt.Errorf("unsupported protocol '%s'", sourceProtocol)
-	}()
-	if err != nil {
-		return nil, err
-	}
-
+func newSource(p *program, path string, u *url.URL, proto gortsplib.StreamProtocol) *source {
 	s := &source{
 		p:         p,
 		path:      path,
@@ -76,7 +42,7 @@ func newSource(p *program, path string, sourceStr string, sourceProtocol string)
 		done:      make(chan struct{}),
 	}
 
-	return s, nil
+	return s
 }
 
 func (s *source) log(format string, args ...interface{}) {

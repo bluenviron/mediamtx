@@ -155,7 +155,7 @@ WARNING: RTSP is a plain protocol, and the credentials can be intercepted and re
 
 #### Client count
 
-The current number of clients, publishers and receivers is printed in each log line; for instance, the line:
+The current number of clients, publishers and readers is printed in each log line; for instance, the line:
 ```
 2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
 ```

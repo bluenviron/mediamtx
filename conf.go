@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"regexp"
 	"time"
@@ -12,18 +13,20 @@ import (
 )
 
 type ConfPath struct {
-	Source           string   `yaml:"source"`
-	SourceProtocol   string   `yaml:"sourceProtocol"`
-	PublishUser      string   `yaml:"publishUser"`
-	PublishPass      string   `yaml:"publishPass"`
-	PublishIps       []string `yaml:"publishIps"`
-	publishIpsParsed []interface{}
-	ReadUser         string   `yaml:"readUser"`
-	ReadPass         string   `yaml:"readPass"`
-	ReadIps          []string `yaml:"readIps"`
-	readIpsParsed    []interface{}
-	RunOnPublish     string `yaml:"runOnPublish"`
-	RunOnRead        string `yaml:"runOnRead"`
+	Source               string `yaml:"source"`
+	sourceUrl            *url.URL
+	SourceProtocol       string `yaml:"sourceProtocol"`
+	sourceProtocolParsed gortsplib.StreamProtocol
+	PublishUser          string   `yaml:"publishUser"`
+	PublishPass          string   `yaml:"publishPass"`
+	PublishIps           []string `yaml:"publishIps"`
+	publishIpsParsed     []interface{}
+	ReadUser             string   `yaml:"readUser"`
+	ReadPass             string   `yaml:"readPass"`
+	ReadIps              []string `yaml:"readIps"`
+	readIpsParsed        []interface{}
+	RunOnPublish         string `yaml:"runOnPublish"`
+	RunOnRead            string `yaml:"runOnRead"`
 }
 
 type conf struct {
@@ -197,6 +200,36 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 
 			if pconf.SourceProtocol == "" {
 				pconf.SourceProtocol = "udp"
+			}
+
+			pconf.sourceUrl, err = url.Parse(pconf.Source)
+			if err != nil {
+				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+			}
+			if pconf.sourceUrl.Scheme != "rtsp" {
+				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+			}
+			if pconf.sourceUrl.Port() == "" {
+				pconf.sourceUrl.Host += ":554"
+			}
+			if pconf.sourceUrl.User != nil {
+				pass, _ := pconf.sourceUrl.User.Password()
+				user := pconf.sourceUrl.User.Username()
+				if user != "" && pass == "" ||
+					user == "" && pass != "" {
+					fmt.Errorf("username and password must be both provided")
+				}
+			}
+
+			switch pconf.SourceProtocol {
+			case "udp":
+				pconf.sourceProtocolParsed = gortsplib.StreamProtocolUdp
+
+			case "tcp":
+				pconf.sourceProtocolParsed = gortsplib.StreamProtocolTcp
+
+			default:
+				return nil, fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
 			}
 		}
 	}

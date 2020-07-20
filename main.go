@@ -162,20 +162,20 @@ type program struct {
 	sources        []*source
 	publishers     map[string]publisher
 	publisherCount int
-	receiverCount  int
+	readerCount    int
 
 	events chan programEvent
 	done   chan struct{}
 }
 
-func newProgram(sargs []string, stdin io.Reader) (*program, error) {
+func newProgram(args []string, stdin io.Reader) (*program, error) {
 	k := kingpin.New("rtsp-simple-server",
 		"rtsp-simple-server "+Version+"\n\nRTSP server.")
 
 	argVersion := k.Flag("version", "print version").Bool()
 	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml. Use 'stdin' to read config from stdin").Default("rtsp-simple-server.yml").String()
 
-	kingpin.MustParse(k.Parse(sargs))
+	kingpin.MustParse(k.Parse(args))
 
 	if *argVersion == true {
 		fmt.Println(Version)
@@ -197,11 +197,7 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 
 	for path, pconf := range conf.Paths {
 		if pconf.Source != "record" {
-			s, err := newSource(p, path, pconf.Source, pconf.SourceProtocol)
-			if err != nil {
-				return nil, err
-			}
-
+			s := newSource(p, path, pconf.sourceUrl, pconf.sourceProtocolParsed)
 			p.sources = append(p.sources, s)
 			p.publishers[path] = s
 		}
@@ -249,7 +245,7 @@ func newProgram(sargs []string, stdin io.Reader) (*program, error) {
 
 func (p *program) log(format string, args ...interface{}) {
 	log.Printf("[%d/%d/%d] "+format, append([]interface{}{len(p.clients),
-		p.publisherCount, p.receiverCount}, args...)...)
+		p.publisherCount, p.readerCount}, args...)...)
 }
 
 func (p *program) run() {
@@ -349,12 +345,12 @@ outer:
 			evt.res <- nil
 
 		case programEventClientPlay2:
-			p.receiverCount += 1
+			p.readerCount += 1
 			evt.client.state = clientStatePlay
 			close(evt.done)
 
 		case programEventClientPlayStop:
-			p.receiverCount -= 1
+			p.readerCount -= 1
 			evt.client.state = clientStatePrePlay
 			close(evt.done)
 
