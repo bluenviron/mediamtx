@@ -155,7 +155,7 @@ dockerhub:
 	$(eval export DOCKER_CLI_EXPERIMENTAL=enabled)
 	$(eval VERSION := $(shell git describe --tags))
 
-	docker buildx rm test 2>/dev/null || true
+	docker buildx rm builder 2>/dev/null || true
 	docker buildx create --name=builder --use
 
 	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
@@ -168,26 +168,26 @@ dockerhub:
 	--push -t aler9/rtsp-simple-server:$(VERSION)-armv7 --build-arg OPTS="GOOS=linux GOARCH=arm GOARM=7" --platform=linux/arm/v7
 
 	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
-	--push -t aler9/rtsp-simple-server:$(VERSION)-arm64 --build-arg OPTS="GOOS=linux GOARCH=arm64" --platform=linux/arm64/v8
+	--push -t aler9/rtsp-simple-server:$(VERSION)-arm64v8 --build-arg OPTS="GOOS=linux GOARCH=arm64" --platform=linux/arm64/v8
 
 	docker manifest create --amend aler9/rtsp-simple-server:$(VERSION) \
-	$(foreach ARCH,amd64 armv6 armv7 arm64,aler9/rtsp-simple-server:$(VERSION)-$(ARCH))
+	$(foreach ARCH,amd64 armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH))
 	docker manifest push aler9/rtsp-simple-server:$(VERSION)
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
-	--push -t aler9/rtsp-simple-server:latest-amd64 --build-arg OPTS="GOOS=linux GOARCH=amd64" --platform=linux/amd64
+	docker manifest create --amend aler9/rtsp-simple-server:latest-amd64 aler9/rtsp-simple-server:$(VERSION)-amd64
+	docker manifest push aler9/rtsp-simple-server:latest-amd64
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
-	--push -t aler9/rtsp-simple-server:latest-armv6 --build-arg OPTS="GOOS=linux GOARCH=arm GOARM=6" --platform=linux/arm/v6
+	docker manifest create --amend aler9/rtsp-simple-server:latest-armv6 aler9/rtsp-simple-server:$(VERSION)-armv6
+	docker manifest push aler9/rtsp-simple-server:latest-armv6
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
-	--push -t aler9/rtsp-simple-server:latest-armv7 --build-arg OPTS="GOOS=linux GOARCH=arm GOARM=7" --platform=linux/arm/v7
+	docker manifest create --amend aler9/rtsp-simple-server:latest-armv7 aler9/rtsp-simple-server:$(VERSION)-armv7
+	docker manifest push aler9/rtsp-simple-server:latest-armv7
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
-	--push -t aler9/rtsp-simple-server:latest-arm64 --build-arg OPTS="GOOS=linux GOARCH=arm64" --platform=linux/arm64/v8
+	docker manifest create --amend aler9/rtsp-simple-server:latest-arm64v8 aler9/rtsp-simple-server:$(VERSION)-arm64v8
+	docker manifest push aler9/rtsp-simple-server:latest-arm64v8
 
 	docker manifest create --amend aler9/rtsp-simple-server:latest \
-	$(foreach ARCH,amd64 armv6 armv7 arm64,aler9/rtsp-simple-server:latest-$(ARCH))
+	$(foreach ARCH,amd64 armv6 armv7 arm64v8,aler9/rtsp-simple-server:latest-$(ARCH))
 	docker manifest push aler9/rtsp-simple-server:latest
 
 	docker buildx rm builder
