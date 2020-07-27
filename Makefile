@@ -24,7 +24,7 @@ endef
 
 mod-tidy:
 	docker run --rm -it -v $(PWD):/s amd64/$(BASE_IMAGE) \
-	sh -c "apk add git && cd /s && GOPROXY=direct go get && GOPROXY=direct go mod tidy"
+	sh -c "apk add git && cd /s && GOPROXY=direct go get && go mod tidy"
 
 format:
 	docker run --rm -it -v $(PWD):/s amd64/$(BASE_IMAGE) \
@@ -60,7 +60,7 @@ WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-RUN GOPROXY=direct go build -o /out .
+RUN go build -o /out .
 endef
 export DOCKERFILE_RUN
 
@@ -133,7 +133,7 @@ release-nodocker:
 	GOOS=darwin GOARCH=amd64 $(GOBUILD) -o tmp/rtsp-simple-server
 	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_darwin_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
-define DOCKERFILE_IMAGE
+define DOCKERFILE_DOCKERHUB
 FROM --platform=linux/amd64 $(BASE_IMAGE) AS build
 RUN apk add --no-cache git
 WORKDIR /s
@@ -149,7 +149,7 @@ FROM scratch
 COPY --from=build /rtsp-simple-server /rtsp-simple-server
 ENTRYPOINT [ "/rtsp-simple-server" ]
 endef
-export DOCKERFILE_IMAGE
+export DOCKERFILE_DOCKERHUB
 
 dockerhub:
 	$(eval export DOCKER_CLI_EXPERIMENTAL=enabled)
@@ -159,16 +159,16 @@ dockerhub:
 	rm -rf $$HOME/.docker/manifests/*
 	docker buildx create --name=builder --use
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
+	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
 	--push -t aler9/rtsp-simple-server:$(VERSION)-amd64 --build-arg OPTS="GOOS=linux GOARCH=amd64" --platform=linux/amd64
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
+	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
 	--push -t aler9/rtsp-simple-server:$(VERSION)-armv6 --build-arg OPTS="GOOS=linux GOARCH=arm GOARM=6" --platform=linux/arm/v6
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
+	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
 	--push -t aler9/rtsp-simple-server:$(VERSION)-armv7 --build-arg OPTS="GOOS=linux GOARCH=arm GOARM=7" --platform=linux/arm/v7
 
-	echo "$$DOCKERFILE_IMAGE" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
+	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - --build-arg VERSION=$(VERSION) \
 	--push -t aler9/rtsp-simple-server:$(VERSION)-arm64v8 --build-arg OPTS="GOOS=linux GOARCH=arm64" --platform=linux/arm64/v8
 
 	docker manifest create aler9/rtsp-simple-server:$(VERSION) \
