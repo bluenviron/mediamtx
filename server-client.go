@@ -818,7 +818,27 @@ func (c *serverClient) runPlay(path string) {
 		}
 	}
 
-	if c.streamProtocol == gortsplib.StreamProtocolTcp {
+	if c.streamProtocol == gortsplib.StreamProtocolUdp {
+		for {
+			req, err := c.conn.ReadRequest()
+			if err != nil {
+				if err != io.EOF {
+					c.log("ERR: %s", err)
+				}
+				break
+			}
+
+			ok := c.handleRequest(req)
+			if !ok {
+				break
+			}
+		}
+
+		done := make(chan struct{})
+		c.p.events <- programEventClientPlayStop{done, c}
+		<-done
+
+	} else {
 		readDone := make(chan error)
 		go func() {
 			buf := make([]byte, 2048)
@@ -859,26 +879,6 @@ func (c *serverClient) runPlay(path string) {
 		<-done
 
 		close(c.events)
-
-	} else {
-		for {
-			req, err := c.conn.ReadRequest()
-			if err != nil {
-				if err != io.EOF {
-					c.log("ERR: %s", err)
-				}
-				break
-			}
-
-			ok := c.handleRequest(req)
-			if !ok {
-				break
-			}
-		}
-
-		done := make(chan struct{})
-		c.p.events <- programEventClientPlayStop{done, c}
-		<-done
 	}
 
 	if runOnReadCmd != nil {
