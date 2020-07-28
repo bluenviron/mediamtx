@@ -1,3 +1,3 @@
 #!/bin/sh -e
 
-exec ffmpeg $@
+exec ffmpeg -hide_banner -loglevel error $@

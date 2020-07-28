@@ -111,8 +111,6 @@ func TestPublish(t *testing.T) {
 			switch conf.publishSoft {
 			case "ffmpeg":
 				cnt1, err := newContainer("ffmpeg", "publish", []string{
-					"-hide_banner",
-					"-loglevel", "panic",
 					"-re",
 					"-stream_loop", "-1",
 					"-i", "/emptyvideo.ts",
@@ -127,7 +125,7 @@ func TestPublish(t *testing.T) {
 			default:
 				cnt1, err := newContainer("gstreamer", "source", []string{
 					"filesrc location=emptyvideo.ts ! tsdemux ! rtspclientsink " +
-						"location=rtsp://" + ownDockerIp + ":8554/teststream protocols=" + conf.publishProto,
+						"location=rtsp://" + ownDockerIp + ":8554/teststream protocols=" + conf.publishProto + " latency=0",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -136,8 +134,6 @@ func TestPublish(t *testing.T) {
 			time.Sleep(1 * time.Second)
 
 			cnt2, err := newContainer("ffmpeg", "read", []string{
-				"-hide_banner",
-				"-loglevel", "panic",
 				"-rtsp_transport", "udp",
 				"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
 				"-vframes", "1",
@@ -171,8 +167,6 @@ func TestRead(t *testing.T) {
 			time.Sleep(1 * time.Second)
 
 			cnt1, err := newContainer("ffmpeg", "publish", []string{
-				"-hide_banner",
-				"-loglevel", "panic",
 				"-re",
 				"-stream_loop", "-1",
 				"-i", "/emptyvideo.ts",
@@ -189,8 +183,6 @@ func TestRead(t *testing.T) {
 			switch conf.readSoft {
 			case "ffmpeg":
 				cnt2, err := newContainer("ffmpeg", "read", []string{
-					"-hide_banner",
-					"-loglevel", "panic",
 					"-rtsp_transport", conf.readProto,
 					"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
 					"-vframes", "1",
@@ -236,8 +228,6 @@ func TestAuth(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		cnt1, err := newContainer("ffmpeg", "source", []string{
-			"-hide_banner",
-			"-loglevel", "panic",
 			"-re",
 			"-stream_loop", "-1",
 			"-i", "/emptyvideo.ts",
@@ -252,8 +242,6 @@ func TestAuth(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-hide_banner",
-			"-loglevel", "panic",
 			"-rtsp_transport", "udp",
 			"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
 			"-vframes", "1",
@@ -285,8 +273,6 @@ func TestAuth(t *testing.T) {
 			time.Sleep(1 * time.Second)
 
 			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-hide_banner",
-				"-loglevel", "panic",
 				"-re",
 				"-stream_loop", "-1",
 				"-i", "/emptyvideo.ts",
@@ -302,8 +288,6 @@ func TestAuth(t *testing.T) {
 
 			if soft == "ffmpeg" {
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
-					"-hide_banner",
-					"-loglevel", "panic",
 					"-rtsp_transport", "udp",
 					"-i", "rtsp://testuser:testpass@" + ownDockerIp + ":8554/teststream",
 					"-vframes", "1",
@@ -347,8 +331,6 @@ func TestProxy(t *testing.T) {
 			time.Sleep(1 * time.Second)
 
 			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-hide_banner",
-				"-loglevel", "panic",
 				"-re",
 				"-stream_loop", "-1",
 				"-i", "/emptyvideo.ts",
@@ -378,8 +360,6 @@ func TestProxy(t *testing.T) {
 			time.Sleep(1 * time.Second)
 
 			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-hide_banner",
-				"-loglevel", "panic",
 				"-rtsp_transport", "udp",
 				"-i", "rtsp://" + ownDockerIp + ":8555/proxied",
 				"-vframes", "1",
