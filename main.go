@@ -538,7 +538,7 @@ func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.St
 func main() {
 	_, err := newProgram(os.Args[1:], os.Stdin)
 	if err != nil {
-		log.Fatal("ERR: ", err)
+		log.Fatal("ERR:", err)
 	}
 
 	select {}
