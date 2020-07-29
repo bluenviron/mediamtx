@@ -15,6 +15,7 @@ readTimeout: 10s
 # timeout of write operations
 writeTimeout: 5s
 # supported authentication methods
+# WARNING: both methods are insecure, use RTSP inside a VPN to enforce security.
 authMethods: [basic, digest]
 # enable pprof on port 9999 to monitor performances
 pprof: false
@@ -29,6 +30,9 @@ paths:
     source: record
     # if the source is an RTSP url, this is the protocol that will be used to pull the stream
     sourceProtocol: udp
+    # if the source is an RTSP url, it will be pulled only when at least one reader
+    # is connected, saving bandwidth
+    sourceOnDemand: no
 
     # username required to publish
     publishUser:

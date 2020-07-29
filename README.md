@@ -71,7 +71,7 @@ docker run --rm -it -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml -p 85
 
 #### Full configuration file
 
-To change the configuration, it's enough to edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
+To see or change the configuration, edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
 
 #### Usage as RTSP Proxy
 

@@ -12,11 +12,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type ConfPath struct {
+type confPath struct {
 	Source               string `yaml:"source"`
 	sourceUrl            *url.URL
 	SourceProtocol       string `yaml:"sourceProtocol"`
 	sourceProtocolParsed gortsplib.StreamProtocol
+	SourceOnDemand       bool     `yaml:"sourceOnDemand"`
 	PublishUser          string   `yaml:"publishUser"`
 	PublishPass          string   `yaml:"publishPass"`
 	PublishIps           []string `yaml:"publishIps"`
@@ -41,7 +42,7 @@ type conf struct {
 	AuthMethods       []string      `yaml:"authMethods"`
 	authMethodsParsed []gortsplib.AuthMethod
 	Pprof             bool                 `yaml:"pprof"`
-	Paths             map[string]*ConfPath `yaml:"paths"`
+	Paths             map[string]*confPath `yaml:"paths"`
 }
 
 func loadConf(fpath string, stdin io.Reader) (*conf, error) {
@@ -142,14 +143,14 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 
 	if len(conf.Paths) == 0 {
-		conf.Paths = map[string]*ConfPath{
+		conf.Paths = map[string]*confPath{
 			"all": {},
 		}
 	}
 
 	for path, pconf := range conf.Paths {
 		if pconf == nil {
-			conf.Paths[path] = &ConfPath{}
+			conf.Paths[path] = &confPath{}
 			pconf = conf.Paths[path]
 		}
 

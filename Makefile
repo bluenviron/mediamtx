@@ -74,9 +74,10 @@ paths:
 #    readUser: test
 #    readPass: tast
 
-#  proxied:
-#    source: rtsp://localhost:8554/mystream
-#    sourceProtocol: tcp
+  proxied:
+    source: rtsp://192.168.2.198:8554/stream
+    sourceProtocol: tcp
+    sourceOnDemand: yes
 
 #  original:
 #    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed

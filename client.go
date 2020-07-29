@@ -23,25 +23,26 @@ const (
 	clientUdpWriteBufferSize     = 128 * 1024
 )
 
-type serverClientTrack struct {
+type clientTrack struct {
 	rtpPort  int
 	rtcpPort int
 }
 
-type serverClientEvent interface {
+type clientEvent interface {
 	isServerClientEvent()
 }
 
-type serverClientEventFrameTcp struct {
+type clientEventFrameTcp struct {
 	frame *gortsplib.InterleavedFrame
 }
 
-func (serverClientEventFrameTcp) isServerClientEvent() {}
+func (clientEventFrameTcp) isServerClientEvent() {}
 
-type serverClientState int
+type clientState int
 
 const (
-	clientStateStarting serverClientState = iota
+	clientStateInitial clientState = iota
+	clientStateWaitingDescription
 	clientStateAnnounce
 	clientStatePrePlay
 	clientStatePlay
@@ -49,10 +50,10 @@ const (
 	clientStateRecord
 )
 
-func (cs serverClientState) String() string {
+func (cs clientState) String() string {
 	switch cs {
-	case clientStateStarting:
-		return "STARTING"
+	case clientStateInitial:
+		return "INITIAL"
 
 	case clientStateAnnounce:
 		return "ANNOUNCE"
@@ -72,36 +73,35 @@ func (cs serverClientState) String() string {
 	return "UNKNOWN"
 }
 
-type serverClient struct {
-	p               *program
-	conn            *gortsplib.ConnServer
-	state           serverClientState
-	path            string
-	authUser        string
-	authPass        string
-	authHelper      *gortsplib.AuthServer
-	authFailures    int
-	streamSdpText   []byte                  // only if publisher
-	streamSdpParsed *sdp.SessionDescription // only if publisher
-	streamProtocol  gortsplib.StreamProtocol
-	streamTracks    []*serverClientTrack
-	rtcpReceivers   []*gortsplib.RtcpReceiver
-	readBuf         *doubleBuffer
-	writeBuf        *doubleBuffer
+type client struct {
+	p              *program
+	conn           *gortsplib.ConnServer
+	state          clientState
+	path           string
+	authUser       string
+	authPass       string
+	authHelper     *gortsplib.AuthServer
+	authFailures   int
+	streamProtocol gortsplib.StreamProtocol
+	streamTracks   []*clientTrack
+	rtcpReceivers  []*gortsplib.RtcpReceiver
+	readBuf        *doubleBuffer
+	writeBuf       *doubleBuffer
 
-	events chan serverClientEvent // only if state = Play and gortsplib.StreamProtocol = TCP
-	done   chan struct{}
+	describeRes chan []byte
+	events      chan clientEvent // only if state = Play and gortsplib.StreamProtocol = TCP
+	done        chan struct{}
 }
 
-func newServerClient(p *program, nconn net.Conn) *serverClient {
-	c := &serverClient{
+func newServerClient(p *program, nconn net.Conn) *client {
+	c := &client{
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
 			Conn:         nconn,
 			ReadTimeout:  p.conf.ReadTimeout,
 			WriteTimeout: p.conf.WriteTimeout,
 		}),
-		state:   clientStateStarting,
+		state:   clientStateInitial,
 		readBuf: newDoubleBuffer(clientTcpReadBufferSize),
 		done:    make(chan struct{}),
 	}
@@ -110,31 +110,21 @@ func newServerClient(p *program, nconn net.Conn) *serverClient {
 	return c
 }
 
-func (c *serverClient) log(format string, args ...interface{}) {
+func (c *client) log(format string, args ...interface{}) {
 	c.p.log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }
 
-func (c *serverClient) ip() net.IP {
+func (c *client) isPublisher() {}
+
+func (c *client) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
-func (c *serverClient) zone() string {
+func (c *client) zone() string {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
 }
 
-func (c *serverClient) publisherIsReady() bool {
-	return c.state == clientStateRecord
-}
-
-func (c *serverClient) publisherSdpText() []byte {
-	return c.streamSdpText
-}
-
-func (c *serverClient) publisherSdpParsed() *sdp.SessionDescription {
-	return c.streamSdpParsed
-}
-
-func (c *serverClient) run() {
+func (c *client) run() {
 	var runOnConnectCmd *exec.Cmd
 	if c.p.conf.RunOnConnect != "" {
 		runOnConnectCmd = exec.Command("/bin/sh", "-c", c.p.conf.RunOnConnect)
@@ -176,12 +166,7 @@ outer:
 	close(c.done) // close() never blocks
 }
 
-func (c *serverClient) close() {
-	c.conn.NetConn().Close()
-	<-c.done
-}
-
-func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.StatusCode, err error) {
+func (c *client) writeResError(req *gortsplib.Request, code gortsplib.StatusCode, err error) {
 	c.log("ERR: %s", err)
 
 	header := gortsplib.Header{}
@@ -195,22 +180,10 @@ func (c *serverClient) writeResError(req *gortsplib.Request, code gortsplib.Stat
 	})
 }
 
-func (c *serverClient) findConfForPath(path string) *ConfPath {
-	if pconf, ok := c.p.conf.Paths[path]; ok {
-		return pconf
-	}
-
-	if pconf, ok := c.p.conf.Paths["all"]; ok {
-		return pconf
-	}
-
-	return nil
-}
-
 var errAuthCritical = errors.New("auth critical")
 var errAuthNotCritical = errors.New("auth not critical")
 
-func (c *serverClient) authenticate(ips []interface{}, user string, pass string, req *gortsplib.Request) error {
+func (c *client) authenticate(ips []interface{}, user string, pass string, req *gortsplib.Request) error {
 	// validate ip
 	err := func() error {
 		if ips == nil {
@@ -288,7 +261,7 @@ func (c *serverClient) authenticate(ips []interface{}, user string, pass string,
 	return nil
 }
 
-func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
+func (c *client) handleRequest(req *gortsplib.Request) bool {
 	c.log(string(req.Method))
 
 	cseq, ok := req.Header["CSeq"]
@@ -315,9 +288,6 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 	switch req.Method {
 	case gortsplib.OPTIONS:
-		// do not check state, since OPTIONS can be requested
-		// in any state
-
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
 			Header: gortsplib.Header{
@@ -335,13 +305,13 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case gortsplib.DESCRIBE:
-		if c.state != clientStateStarting {
+		if c.state != clientStateInitial {
 			c.writeResError(req, gortsplib.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateStarting))
+				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
 			return false
 		}
 
-		pconf := c.findConfForPath(path)
+		pconf := c.p.findConfForPath(path)
 		if pconf == nil {
 			c.writeResError(req, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -356,9 +326,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return true
 		}
 
-		res := make(chan []byte)
-		c.p.events <- programEventClientDescribe{path, res}
-		sdp := <-res
+		c.describeRes = make(chan []byte)
+		c.p.events <- programEventClientDescribe{c, path}
+		sdp := <-c.describeRes
 		if sdp == nil {
 			c.writeResError(req, gortsplib.StatusNotFound, fmt.Errorf("no one is publishing on path '%s'", path))
 			return false
@@ -376,9 +346,9 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		return true
 
 	case gortsplib.ANNOUNCE:
-		if c.state != clientStateStarting {
+		if c.state != clientStateInitial {
 			c.writeResError(req, gortsplib.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateStarting))
+				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
 			return false
 		}
 
@@ -387,7 +357,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		pconf := c.findConfForPath(path)
+		pconf := c.p.findConfForPath(path)
 		if pconf == nil {
 			c.writeResError(req, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -435,15 +405,12 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 		sdpParsed, req.Content = sdpForServer(tracks)
 
 		res := make(chan error)
-		c.p.events <- programEventClientAnnounce{res, c, path}
+		c.p.events <- programEventClientAnnounce{res, c, path, req.Content, sdpParsed}
 		err = <-res
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, err)
 			return false
 		}
-
-		c.streamSdpText = req.Content
-		c.streamSdpParsed = sdpParsed
 
 		c.conn.WriteResponse(&gortsplib.Response{
 			StatusCode: gortsplib.StatusOK,
@@ -467,8 +434,8 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 
 		switch c.state {
 		// play
-		case clientStateStarting, clientStatePrePlay:
-			pconf := c.findConfForPath(path)
+		case clientStateInitial, clientStatePrePlay:
+			pconf := c.p.findConfForPath(path)
 			if pconf == nil {
 				c.writeResError(req, gortsplib.StatusBadRequest,
 					fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -626,7 +593,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.streamSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.p.paths[c.path].publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -678,7 +645,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.streamSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.p.paths[c.path].publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -762,7 +729,7 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		if len(c.streamTracks) != len(c.streamSdpParsed.MediaDescriptions) {
+		if len(c.streamTracks) != len(c.p.paths[c.path].publisherSdpParsed.MediaDescriptions) {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return false
 		}
@@ -788,12 +755,12 @@ func (c *serverClient) handleRequest(req *gortsplib.Request) bool {
 	}
 }
 
-func (c *serverClient) runPlay(path string) {
-	pconf := c.findConfForPath(path)
+func (c *client) runPlay(path string) {
+	pconf := c.p.findConfForPath(path)
 
 	if c.streamProtocol == gortsplib.StreamProtocolTcp {
 		c.writeBuf = newDoubleBuffer(clientTcpWriteBufferSize)
-		c.events = make(chan serverClientEvent)
+		c.events = make(chan clientEvent)
 	}
 
 	done := make(chan struct{})
@@ -863,7 +830,7 @@ func (c *serverClient) runPlay(path string) {
 
 			case rawEvt := <-c.events:
 				switch evt := rawEvt.(type) {
-				case serverClientEventFrameTcp:
+				case clientEventFrameTcp:
 					c.conn.WriteFrame(evt.frame)
 				}
 			}
@@ -887,8 +854,8 @@ func (c *serverClient) runPlay(path string) {
 	}
 }
 
-func (c *serverClient) runRecord(path string) {
-	pconf := c.findConfForPath(path)
+func (c *client) runRecord(path string) {
+	pconf := c.p.findConfForPath(path)
 
 	c.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {

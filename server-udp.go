@@ -12,7 +12,7 @@ type udpAddrBufPair struct {
 	buf  []byte
 }
 
-type serverUdpListener struct {
+type serverUdp struct {
 	p          *program
 	nconn      *net.UDPConn
 	streamType gortsplib.StreamType
@@ -23,7 +23,7 @@ type serverUdpListener struct {
 	done      chan struct{}
 }
 
-func newServerUdpListener(p *program, port int, streamType gortsplib.StreamType) (*serverUdpListener, error) {
+func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serverUdp, error) {
 	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -31,7 +31,7 @@ func newServerUdpListener(p *program, port int, streamType gortsplib.StreamType)
 		return nil, err
 	}
 
-	l := &serverUdpListener{
+	l := &serverUdp{
 		p:          p,
 		nconn:      nconn,
 		streamType: streamType,
@@ -45,7 +45,7 @@ func newServerUdpListener(p *program, port int, streamType gortsplib.StreamType)
 	return l, nil
 }
 
-func (l *serverUdpListener) log(format string, args ...interface{}) {
+func (l *serverUdp) log(format string, args ...interface{}) {
 	var label string
 	if l.streamType == gortsplib.StreamTypeRtp {
 		label = "RTP"
@@ -55,7 +55,7 @@ func (l *serverUdpListener) log(format string, args ...interface{}) {
 	l.p.log("[UDP/"+label+" listener] "+format, args...)
 }
 
-func (l *serverUdpListener) run() {
+func (l *serverUdp) run() {
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
@@ -85,12 +85,12 @@ func (l *serverUdpListener) run() {
 	close(l.done)
 }
 
-func (l *serverUdpListener) close() {
+func (l *serverUdp) close() {
 	l.nconn.Close()
 	<-l.done
 }
 
-func (l *serverUdpListener) write(pair *udpAddrBufPair) {
+func (l *serverUdp) write(pair *udpAddrBufPair) {
 	// replace input buffer with write buffer
 	buf := l.writeBuf.swap()
 	buf = buf[:len(pair.buf)]

@@ -3,13 +3,11 @@ package main
 import (
 	"math/rand"
 	"net"
-	"net/url"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/sdp/v3"
 )
 
 const (
@@ -18,28 +16,51 @@ const (
 	sourceTcpReadBufferSize = 128 * 1024
 )
 
-type source struct {
-	p               *program
-	path            string
-	u               *url.URL
-	proto           gortsplib.StreamProtocol
-	ready           bool
-	tracks          []*gortsplib.Track
-	serverSdpText   []byte
-	serverSdpParsed *sdp.SessionDescription
+type sourceState int
 
-	terminate chan struct{}
-	done      chan struct{}
+const (
+	sourceStateStopped sourceState = iota
+	sourceStateRunning
+)
+
+type sourceEvent interface {
+	isSourceEvent()
 }
 
-func newSource(p *program, path string, u *url.URL, proto gortsplib.StreamProtocol) *source {
+type sourceEventApplyState struct {
+	state sourceState
+}
+
+func (sourceEventApplyState) isSourceEvent() {}
+
+type sourceEventTerminate struct{}
+
+func (sourceEventTerminate) isSourceEvent() {}
+
+type source struct {
+	p      *program
+	path   string
+	pconf  *confPath
+	state  sourceState
+	tracks []*gortsplib.Track
+
+	events chan sourceEvent
+	done   chan struct{}
+}
+
+func newSource(p *program, path string, pconf *confPath) *source {
 	s := &source{
-		p:         p,
-		path:      path,
-		u:         u,
-		proto:     proto,
-		terminate: make(chan struct{}),
-		done:      make(chan struct{}),
+		p:      p,
+		path:   path,
+		pconf:  pconf,
+		events: make(chan sourceEvent),
+		done:   make(chan struct{}),
+	}
+
+	if pconf.SourceOnDemand {
+		s.state = sourceStateStopped
+	} else {
+		s.state = sourceStateRunning
 	}
 
 	return s
@@ -49,45 +70,88 @@ func (s *source) log(format string, args ...interface{}) {
 	s.p.log("[source "+s.path+"] "+format, args...)
 }
 
-func (s *source) publisherIsReady() bool {
-	return s.ready
-}
-
-func (s *source) publisherSdpText() []byte {
-	return s.serverSdpText
-}
-
-func (s *source) publisherSdpParsed() *sdp.SessionDescription {
-	return s.serverSdpParsed
-}
+func (s *source) isPublisher() {}
 
 func (s *source) run() {
-	for {
-		ok := s.do()
-		if !ok {
-			break
-		}
+	running := false
+	var doTerminate chan struct{}
+	var doDone chan struct{}
 
-		t := time.NewTimer(sourceRetryInterval)
-		select {
-		case <-s.terminate:
-			break
-		case <-t.C:
+	applyState := func(state sourceState) {
+		if state == sourceStateRunning {
+			if !running {
+				s.log("started")
+				running = true
+				doTerminate = make(chan struct{})
+				doDone = make(chan struct{})
+				go s.do(doTerminate, doDone)
+			}
+		} else {
+			if running {
+				close(doTerminate)
+				<-doDone
+				running = false
+				s.log("stopped")
+			}
 		}
+	}
+
+	applyState(s.state)
+
+outer:
+	for rawEvt := range s.events {
+		switch evt := rawEvt.(type) {
+		case sourceEventApplyState:
+			applyState(evt.state)
+
+		case sourceEventTerminate:
+			break outer
+		}
+	}
+
+	if running {
+		close(doTerminate)
+		<-doDone
 	}
 
 	close(s.done)
 }
 
-func (s *source) do() bool {
-	s.log("initializing with protocol %s", s.proto)
+func (s *source) do(terminate chan struct{}, done chan struct{}) {
+	defer close(done)
+
+	for {
+		ok := s.doInner(terminate)
+		if !ok {
+			break
+		}
+
+		s.p.events <- programEventSourceReset{s}
+
+		if !func() bool {
+			t := time.NewTimer(sourceRetryInterval)
+			defer t.Stop()
+			select {
+			case <-terminate:
+				return false
+			case <-t.C:
+				return true
+			}
+		}() {
+			break
+		}
+	}
+}
+
+func (s *source) doInner(terminate chan struct{}) bool {
+	s.log("connecting")
 
 	var conn *gortsplib.ConnClient
 	var err error
 	dialDone := make(chan struct{})
 	go func() {
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:         s.u.Host,
+			Host:         s.pconf.sourceUrl.Host,
 			ReadTimeout:  s.p.conf.ReadTimeout,
 			WriteTimeout: s.p.conf.WriteTimeout,
 		})
@@ -95,7 +159,7 @@ func (s *source) do() bool {
 	}()
 
 	select {
-	case <-s.terminate:
+	case <-terminate:
 		return false
 	case <-dialDone:
 	}
@@ -107,13 +171,13 @@ func (s *source) do() bool {
 
 	defer conn.Close()
 
-	_, err = conn.Options(s.u)
+	_, err = conn.Options(s.pconf.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
 	}
 
-	tracks, _, err := conn.Describe(s.u)
+	tracks, _, err := conn.Describe(s.pconf.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
@@ -123,17 +187,17 @@ func (s *source) do() bool {
 	serverSdpParsed, serverSdpText := sdpForServer(tracks)
 
 	s.tracks = tracks
-	s.serverSdpText = serverSdpText
-	s.serverSdpParsed = serverSdpParsed
+	s.p.paths[s.path].publisherSdpText = serverSdpText
+	s.p.paths[s.path].publisherSdpParsed = serverSdpParsed
 
-	if s.proto == gortsplib.StreamProtocolUdp {
-		return s.runUdp(conn)
+	if s.pconf.sourceProtocolParsed == gortsplib.StreamProtocolUdp {
+		return s.runUdp(terminate, conn)
 	} else {
-		return s.runTcp(conn)
+		return s.runTcp(terminate, conn)
 	}
 }
 
-func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
+func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) bool {
 	type trackListenerPair struct {
 		rtpl  *gortsplib.ConnClientUdpListener
 		rtcpl *gortsplib.ConnClientUdpListener
@@ -151,7 +215,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
-			rtpl, rtcpl, _, err = conn.SetupUdp(s.u, track, rtpPort, rtcpPort)
+			rtpl, rtcpl, _, err = conn.SetupUdp(s.pconf.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
 				// retry if it's a bind error
 				if nerr, ok := err.(*net.OpError); ok {
@@ -175,13 +239,13 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		})
 	}
 
-	_, err := conn.Play(s.u)
+	_, err := conn.Play(s.pconf.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
 	}
 
-	s.p.events <- programEventStreamerReady{s}
+	s.p.events <- programEventSourceReady{s}
 
 	var wg sync.WaitGroup
 
@@ -201,7 +265,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 					break
 				}
 
-				s.p.events <- programEventStreamerFrame{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
+				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
 			}
 		}(trackId, lp.rtpl)
 
@@ -218,14 +282,14 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 					break
 				}
 
-				s.p.events <- programEventStreamerFrame{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
+				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
 			}
 		}(trackId, lp.rtcpl)
 	}
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUDP(s.u)
+		tcpConnDone <- conn.LoopUDP(s.pconf.sourceUrl)
 	}()
 
 	var ret bool
@@ -233,7 +297,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 outer:
 	for {
 		select {
-		case <-s.terminate:
+		case <-terminate:
 			conn.NetConn().Close()
 			<-tcpConnDone
 			ret = false
@@ -246,7 +310,7 @@ outer:
 		}
 	}
 
-	s.p.events <- programEventStreamerNotReady{s}
+	s.p.events <- programEventSourceNotReady{s}
 
 	for _, lp := range listeners {
 		lp.rtpl.Close()
@@ -257,22 +321,22 @@ outer:
 	return ret
 }
 
-func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
+func (s *source) runTcp(terminate chan struct{}, conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTcp(s.u, track)
+		_, err := conn.SetupTcp(s.pconf.sourceUrl, track)
 		if err != nil {
 			s.log("ERR: %s", err)
 			return true
 		}
 	}
 
-	_, err := conn.Play(s.u)
+	_, err := conn.Play(s.pconf.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
 	}
 
-	s.p.events <- programEventStreamerReady{s}
+	s.p.events <- programEventSourceReady{s}
 
 	frame := &gortsplib.InterleavedFrame{}
 	doubleBuf := newDoubleBuffer(sourceTcpReadBufferSize)
@@ -289,7 +353,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 				return
 			}
 
-			s.p.events <- programEventStreamerFrame{s, frame.TrackId, frame.StreamType, frame.Content}
+			s.p.events <- programEventSourceFrame{s, frame.TrackId, frame.StreamType, frame.Content}
 		}
 	}()
 
@@ -298,7 +362,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 outer:
 	for {
 		select {
-		case <-s.terminate:
+		case <-terminate:
 			conn.NetConn().Close()
 			<-tcpConnDone
 			ret = false
@@ -311,12 +375,7 @@ outer:
 		}
 	}
 
-	s.p.events <- programEventStreamerNotReady{s}
+	s.p.events <- programEventSourceNotReady{s}
 
 	return ret
-}
-
-func (s *source) close() {
-	close(s.terminate)
-	<-s.done
 }
