@@ -145,12 +145,6 @@ type programEventSourceFrame struct {
 
 func (programEventSourceFrame) isProgramEvent() {}
 
-type programEventSourceReset struct {
-	source *source
-}
-
-func (programEventSourceReset) isProgramEvent() {}
-
 type programEventTerminate struct{}
 
 func (programEventTerminate) isProgramEvent() {}
@@ -197,11 +191,17 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		done:    make(chan struct{}),
 	}
 
-	for path, pconf := range conf.Paths {
-		if pconf.Source != "record" {
-			s := newSource(p, path, pconf)
+	for path, confp := range conf.Paths {
+		if path == "all" {
+			continue
+		}
+
+		newPath(p, path, confp, true)
+
+		if confp.Source != "record" {
+			s := newSource(p, path, confp)
 			p.sources = append(p.sources, s)
-			p.paths[path] = newPath(p, path, s)
+			p.paths[path].publisher = s
 		}
 	}
 
@@ -265,21 +265,21 @@ outer:
 		case rawEvt := <-p.events:
 			switch evt := rawEvt.(type) {
 			case programEventClientNew:
-				c := newServerClient(p, evt.nconn)
+				c := newClient(p, evt.nconn)
 				p.clients[c] = struct{}{}
 				c.log("connected")
 
 			case programEventClientClose:
 				delete(p.clients, evt.client)
 
-				if evt.client.path != "" {
-					if path, ok := p.paths[evt.client.path]; ok {
-						// if this is a publisher
+				if evt.client.pathId != "" {
+					if path, ok := p.paths[evt.client.pathId]; ok {
 						if path.publisher == evt.client {
-							path.publisherReset()
+							path.publisherRemove()
 
-							// delete the path
-							delete(p.paths, evt.client.path)
+							if !path.permanent {
+								delete(p.paths, evt.client.pathId)
+							}
 						}
 					}
 				}
@@ -289,35 +289,30 @@ outer:
 
 			case programEventClientDescribe:
 				path, ok := p.paths[evt.path]
-
-				// no path: return 404
 				if !ok {
-					evt.client.describeRes <- nil
+					evt.client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", evt.path)}
 					continue
 				}
 
-				sdpText, wait := path.describe()
-
-				if wait {
-					evt.client.path = evt.path
-					evt.client.state = clientStateWaitingDescription
-					continue
-				}
-
-				evt.client.describeRes <- sdpText
+				path.describe(evt.client)
 
 			case programEventClientAnnounce:
-				_, ok := p.paths[evt.path]
-				if ok {
-					evt.res <- fmt.Errorf("someone is already publishing on path '%s'", evt.path)
-					continue
+				if path, ok := p.paths[evt.path]; ok {
+					if path.publisher != nil {
+						evt.res <- fmt.Errorf("someone is already publishing on path '%s'", evt.path)
+						continue
+					}
+
+				} else {
+					newPath(p, evt.path, p.findConfForPath(evt.path), false)
 				}
 
-				evt.client.path = evt.path
-				evt.client.state = clientStateAnnounce
-				p.paths[evt.path] = newPath(p, evt.path, evt.client)
+				p.paths[evt.path].publisher = evt.client
 				p.paths[evt.path].publisherSdpText = evt.sdpText
 				p.paths[evt.path].publisherSdpParsed = evt.sdpParsed
+
+				evt.client.pathId = evt.path
+				evt.client.state = clientStateAnnounce
 				evt.res <- nil
 
 			case programEventClientSetupPlay:
@@ -332,7 +327,7 @@ outer:
 					continue
 				}
 
-				evt.client.path = evt.path
+				evt.client.pathId = evt.path
 				evt.client.streamProtocol = evt.protocol
 				evt.client.streamTracks = append(evt.client.streamTracks, &clientTrack{
 					rtpPort:  evt.rtpPort,
@@ -351,9 +346,9 @@ outer:
 				evt.res <- nil
 
 			case programEventClientPlay1:
-				path, ok := p.paths[evt.client.path]
+				path, ok := p.paths[evt.client.pathId]
 				if !ok || !path.publisherReady {
-					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.path)
+					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.pathId)
 					continue
 				}
 
@@ -377,13 +372,13 @@ outer:
 			case programEventClientRecord:
 				p.publisherCount += 1
 				evt.client.state = clientStateRecord
-				p.paths[evt.client.path].publisherSetReady()
+				p.paths[evt.client.pathId].publisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
 				p.publisherCount -= 1
 				evt.client.state = clientStatePreRecord
-				p.paths[evt.client.path].publisherSetNotReady()
+				p.paths[evt.client.pathId].publisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
@@ -393,24 +388,21 @@ outer:
 				}
 
 				client.rtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
-				p.forwardFrame(client.path, trackId, evt.streamType, evt.buf)
+				p.forwardFrame(client.pathId, trackId, evt.streamType, evt.buf)
 
 			case programEventClientFrameTcp:
 				p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventSourceReady:
 				evt.source.log("ready")
-				p.paths[evt.source.path].publisherSetReady()
+				p.paths[evt.source.pathId].publisherSetReady()
 
 			case programEventSourceNotReady:
 				evt.source.log("not ready")
-				p.paths[evt.source.path].publisherSetNotReady()
+				p.paths[evt.source.pathId].publisherSetNotReady()
 
 			case programEventSourceFrame:
-				p.forwardFrame(evt.source.path, evt.trackId, evt.streamType, evt.buf)
-
-			case programEventSourceReset:
-				p.paths[evt.source.path].publisherReset()
+				p.forwardFrame(evt.source.pathId, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventTerminate:
 				break outer
@@ -425,7 +417,7 @@ outer:
 				close(evt.done)
 
 			case programEventClientDescribe:
-				evt.client.describeRes <- nil
+				evt.client.describeRes <- describeRes{nil, fmt.Errorf("terminated")}
 
 			case programEventClientAnnounce:
 				evt.res <- fmt.Errorf("terminated")
@@ -478,12 +470,12 @@ func (p *program) close() {
 }
 
 func (p *program) findConfForPath(path string) *confPath {
-	if pconf, ok := p.conf.Paths[path]; ok {
-		return pconf
+	if confp, ok := p.conf.Paths[path]; ok {
+		return confp
 	}
 
-	if pconf, ok := p.conf.Paths["all"]; ok {
-		return pconf
+	if confp, ok := p.conf.Paths["all"]; ok {
+		return confp
 	}
 
 	return nil
@@ -518,35 +510,35 @@ func (p *program) findClientPublisher(addr *net.UDPAddr, streamType gortsplib.St
 }
 
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
-	for client := range p.clients {
-		if client.path == path && client.state == clientStatePlay {
-			if client.streamProtocol == gortsplib.StreamProtocolUdp {
+	for c := range p.clients {
+		if c.pathId == path && c.state == clientStatePlay {
+			if c.streamProtocol == gortsplib.StreamProtocolUdp {
 				if streamType == gortsplib.StreamTypeRtp {
 					p.rtpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
-							IP:   client.ip(),
-							Zone: client.zone(),
-							Port: client.streamTracks[trackId].rtpPort,
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[trackId].rtpPort,
 						},
 						buf: frame,
 					})
 				} else {
 					p.rtcpl.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
-							IP:   client.ip(),
-							Zone: client.zone(),
-							Port: client.streamTracks[trackId].rtcpPort,
+							IP:   c.ip(),
+							Zone: c.zone(),
+							Port: c.streamTracks[trackId].rtcpPort,
 						},
 						buf: frame,
 					})
 				}
 
 			} else {
-				buf := client.writeBuf.swap()
+				buf := c.writeBuf.swap()
 				buf = buf[:len(frame)]
 				copy(buf, frame)
 
-				client.events <- clientEventFrameTcp{
+				c.events <- clientEventFrameTcp{
 					frame: &gortsplib.InterleavedFrame{
 						TrackId:    trackId,
 						StreamType: streamType,

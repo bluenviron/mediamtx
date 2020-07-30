@@ -48,6 +48,11 @@ paths:
     # IPs or networks (x.x.x.x/24) allowed to read
     readIps: []
 
+    # command to run when this path is requested.
+    # This can be used, for example, to publish a stream on demand.
+    # This is terminated with SIGINT when a client stops publishing.
+    runOnDemand:
+
     # command to run when a client starts publishing.
     # This is terminated with SIGINT when a client stops publishing.
     runOnPublish:

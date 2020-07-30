@@ -74,6 +74,7 @@ func (db *doubleBuffer) swap() []byte {
 	return ret
 }
 
+// generate a sdp from scratch
 func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 	sout := &sdp.SessionDescription{
 		SessionName: func() *sdp.SessionName {

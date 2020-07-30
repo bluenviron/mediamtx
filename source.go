@@ -39,8 +39,8 @@ func (sourceEventTerminate) isSourceEvent() {}
 
 type source struct {
 	p      *program
-	path   string
-	pconf  *confPath
+	pathId string
+	confp  *confPath
 	state  sourceState
 	tracks []*gortsplib.Track
 
@@ -48,16 +48,16 @@ type source struct {
 	done   chan struct{}
 }
 
-func newSource(p *program, path string, pconf *confPath) *source {
+func newSource(p *program, pathId string, confp *confPath) *source {
 	s := &source{
 		p:      p,
-		path:   path,
-		pconf:  pconf,
+		pathId: pathId,
+		confp:  confp,
 		events: make(chan sourceEvent),
 		done:   make(chan struct{}),
 	}
 
-	if pconf.SourceOnDemand {
+	if confp.SourceOnDemand {
 		s.state = sourceStateStopped
 	} else {
 		s.state = sourceStateRunning
@@ -67,7 +67,7 @@ func newSource(p *program, path string, pconf *confPath) *source {
 }
 
 func (s *source) log(format string, args ...interface{}) {
-	s.p.log("[source "+s.path+"] "+format, args...)
+	s.p.log("[source "+s.pathId+"] "+format, args...)
 }
 
 func (s *source) isPublisher() {}
@@ -121,23 +121,24 @@ func (s *source) do(terminate chan struct{}, done chan struct{}) {
 	defer close(done)
 
 	for {
-		ok := s.doInner(terminate)
-		if !ok {
-			break
-		}
+		ok := func() bool {
+			ok := s.doInner(terminate)
+			if !ok {
+				return false
+			}
 
-		s.p.events <- programEventSourceReset{s}
-
-		if !func() bool {
 			t := time.NewTimer(sourceRetryInterval)
 			defer t.Stop()
+
 			select {
 			case <-terminate:
 				return false
 			case <-t.C:
-				return true
 			}
-		}() {
+
+			return true
+		}()
+		if !ok {
 			break
 		}
 	}
@@ -151,7 +152,7 @@ func (s *source) doInner(terminate chan struct{}) bool {
 	dialDone := make(chan struct{})
 	go func() {
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:         s.pconf.sourceUrl.Host,
+			Host:         s.confp.sourceUrl.Host,
 			ReadTimeout:  s.p.conf.ReadTimeout,
 			WriteTimeout: s.p.conf.WriteTimeout,
 		})
@@ -171,13 +172,13 @@ func (s *source) doInner(terminate chan struct{}) bool {
 
 	defer conn.Close()
 
-	_, err = conn.Options(s.pconf.sourceUrl)
+	_, err = conn.Options(s.confp.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
 	}
 
-	tracks, _, err := conn.Describe(s.pconf.sourceUrl)
+	tracks, _, err := conn.Describe(s.confp.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
@@ -187,10 +188,10 @@ func (s *source) doInner(terminate chan struct{}) bool {
 	serverSdpParsed, serverSdpText := sdpForServer(tracks)
 
 	s.tracks = tracks
-	s.p.paths[s.path].publisherSdpText = serverSdpText
-	s.p.paths[s.path].publisherSdpParsed = serverSdpParsed
+	s.p.paths[s.pathId].publisherSdpText = serverSdpText
+	s.p.paths[s.pathId].publisherSdpParsed = serverSdpParsed
 
-	if s.pconf.sourceProtocolParsed == gortsplib.StreamProtocolUdp {
+	if s.confp.sourceProtocolParsed == gortsplib.StreamProtocolUdp {
 		return s.runUdp(terminate, conn)
 	} else {
 		return s.runTcp(terminate, conn)
@@ -215,7 +216,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
-			rtpl, rtcpl, _, err = conn.SetupUdp(s.pconf.sourceUrl, track, rtpPort, rtcpPort)
+			rtpl, rtcpl, _, err = conn.SetupUdp(s.confp.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
 				// retry if it's a bind error
 				if nerr, ok := err.(*net.OpError); ok {
@@ -239,7 +240,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 		})
 	}
 
-	_, err := conn.Play(s.pconf.sourceUrl)
+	_, err := conn.Play(s.confp.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true
@@ -289,7 +290,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUDP(s.pconf.sourceUrl)
+		tcpConnDone <- conn.LoopUDP(s.confp.sourceUrl)
 	}()
 
 	var ret bool
@@ -323,14 +324,14 @@ outer:
 
 func (s *source) runTcp(terminate chan struct{}, conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTcp(s.pconf.sourceUrl, track)
+		_, err := conn.SetupTcp(s.confp.sourceUrl, track)
 		if err != nil {
 			s.log("ERR: %s", err)
 			return true
 		}
 	}
 
-	_, err := conn.Play(s.pconf.sourceUrl)
+	_, err := conn.Play(s.confp.sourceUrl)
 	if err != nil {
 		s.log("ERR: %s", err)
 		return true

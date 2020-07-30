@@ -26,6 +26,7 @@ type confPath struct {
 	ReadPass             string   `yaml:"readPass"`
 	ReadIps              []string `yaml:"readIps"`
 	readIpsParsed        []interface{}
+	RunOnDemand          string `yaml:"runOnDemand"`
 	RunOnPublish         string `yaml:"runOnPublish"`
 	RunOnRead            string `yaml:"runOnRead"`
 }
@@ -148,90 +149,94 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		}
 	}
 
-	for path, pconf := range conf.Paths {
-		if pconf == nil {
+	for path, confp := range conf.Paths {
+		if confp == nil {
 			conf.Paths[path] = &confPath{}
-			pconf = conf.Paths[path]
+			confp = conf.Paths[path]
 		}
 
-		if pconf.Source == "" {
-			pconf.Source = "record"
+		if confp.Source == "" {
+			confp.Source = "record"
 		}
 
-		if pconf.PublishUser != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishUser) {
-				return nil, fmt.Errorf("publish username must be alphanumeric")
-			}
-		}
-		if pconf.PublishPass != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishPass) {
-				return nil, fmt.Errorf("publish password must be alphanumeric")
-			}
-		}
-		pconf.publishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
-		if err != nil {
-			return nil, err
-		}
-
-		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
-			return nil, fmt.Errorf("read username and password must be both filled")
-		}
-		if pconf.ReadUser != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadUser) {
-				return nil, fmt.Errorf("read username must be alphanumeric")
-			}
-		}
-		if pconf.ReadPass != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadPass) {
-				return nil, fmt.Errorf("read password must be alphanumeric")
-			}
-		}
-		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
-			return nil, fmt.Errorf("read username and password must be both filled")
-		}
-		pconf.readIpsParsed, err = parseIpCidrList(pconf.ReadIps)
-		if err != nil {
-			return nil, err
-		}
-
-		if pconf.Source != "record" {
+		if confp.Source != "record" {
 			if path == "all" {
 				return nil, fmt.Errorf("path 'all' cannot have a RTSP source")
 			}
 
-			if pconf.SourceProtocol == "" {
-				pconf.SourceProtocol = "udp"
+			if confp.SourceProtocol == "" {
+				confp.SourceProtocol = "udp"
 			}
 
-			pconf.sourceUrl, err = url.Parse(pconf.Source)
+			confp.sourceUrl, err = url.Parse(confp.Source)
 			if err != nil {
-				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+				return nil, fmt.Errorf("'%s' is not a valid RTSP url", confp.Source)
 			}
-			if pconf.sourceUrl.Scheme != "rtsp" {
-				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+			if confp.sourceUrl.Scheme != "rtsp" {
+				return nil, fmt.Errorf("'%s' is not a valid RTSP url", confp.Source)
 			}
-			if pconf.sourceUrl.Port() == "" {
-				pconf.sourceUrl.Host += ":554"
+			if confp.sourceUrl.Port() == "" {
+				confp.sourceUrl.Host += ":554"
 			}
-			if pconf.sourceUrl.User != nil {
-				pass, _ := pconf.sourceUrl.User.Password()
-				user := pconf.sourceUrl.User.Username()
+			if confp.sourceUrl.User != nil {
+				pass, _ := confp.sourceUrl.User.Password()
+				user := confp.sourceUrl.User.Username()
 				if user != "" && pass == "" ||
 					user == "" && pass != "" {
 					fmt.Errorf("username and password must be both provided")
 				}
 			}
 
-			switch pconf.SourceProtocol {
+			switch confp.SourceProtocol {
 			case "udp":
-				pconf.sourceProtocolParsed = gortsplib.StreamProtocolUdp
+				confp.sourceProtocolParsed = gortsplib.StreamProtocolUdp
 
 			case "tcp":
-				pconf.sourceProtocolParsed = gortsplib.StreamProtocolTcp
+				confp.sourceProtocolParsed = gortsplib.StreamProtocolTcp
 
 			default:
-				return nil, fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
+				return nil, fmt.Errorf("unsupported protocol '%s'", confp.SourceProtocol)
 			}
+		}
+
+		if confp.PublishUser != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.PublishUser) {
+				return nil, fmt.Errorf("publish username must be alphanumeric")
+			}
+		}
+		if confp.PublishPass != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.PublishPass) {
+				return nil, fmt.Errorf("publish password must be alphanumeric")
+			}
+		}
+		confp.publishIpsParsed, err = parseIpCidrList(confp.PublishIps)
+		if err != nil {
+			return nil, err
+		}
+
+		if confp.ReadUser != "" && confp.ReadPass == "" || confp.ReadUser == "" && confp.ReadPass != "" {
+			return nil, fmt.Errorf("read username and password must be both filled")
+		}
+		if confp.ReadUser != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.ReadUser) {
+				return nil, fmt.Errorf("read username must be alphanumeric")
+			}
+		}
+		if confp.ReadPass != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.ReadPass) {
+				return nil, fmt.Errorf("read password must be alphanumeric")
+			}
+		}
+		if confp.ReadUser != "" && confp.ReadPass == "" || confp.ReadUser == "" && confp.ReadPass != "" {
+			return nil, fmt.Errorf("read username and password must be both filled")
+		}
+		confp.readIpsParsed, err = parseIpCidrList(confp.ReadIps)
+		if err != nil {
+			return nil, err
+		}
+
+		if confp.RunOnDemand != "" && path == "all" {
+			return nil, fmt.Errorf("option 'runOnDemand' cannot be used in path 'all'")
 		}
 	}
 
