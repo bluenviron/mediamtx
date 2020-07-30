@@ -210,9 +210,9 @@ There are multiple ways to monitor the server usage over time:
 
 * A performance monitor, compatible with pprof, can be enabled with the option `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
   ```
-  docker run --rm -it --network=host golang:1.14-alpine3.12 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
-  docker run --rm -it --network=host golang:1.14-alpine3.12 go tool pprof -text http://localhost:9999/debug/pprof/heap
-  docker run --rm -it --network=host golang:1.14-alpine3.12 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
+  docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
+  docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/heap
+  docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
   ```
 
 #### Full command-line usage
