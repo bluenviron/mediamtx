@@ -50,7 +50,7 @@ paths:
 
     # command to run when this path is requested.
     # This can be used, for example, to publish a stream on demand.
-    # This is terminated with SIGINT when a client stops publishing.
+    # This is terminated with SIGINT when the path is not requested anymore.
     runOnDemand:
 
     # command to run when a client starts publishing.
