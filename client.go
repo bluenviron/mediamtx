@@ -932,7 +932,7 @@ func (c *client) runRecord(path string) {
 			case <-receiverReportTicker.C:
 				for trackId := range c.streamTracks {
 					frame := c.rtcpReceivers[trackId].Report()
-					c.p.rtcpl.writeChan <- &udpAddrBufPair{
+					c.p.serverRtcp.writeChan <- &udpAddrBufPair{
 						addr: &net.UDPAddr{
 							IP:   c.ip(),
 							Zone: c.zone(),

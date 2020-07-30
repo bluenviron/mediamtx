@@ -42,6 +42,7 @@ type conf struct {
 	WriteTimeout      time.Duration                         `yaml:"writeTimeout"`
 	AuthMethods       []string                              `yaml:"authMethods"`
 	authMethodsParsed []gortsplib.AuthMethod                ``
+	Metrics           bool                                  `yaml:"metrics"`
 	Pprof             bool                                  `yaml:"pprof"`
 	Paths             map[string]*confPath                  `yaml:"paths"`
 }

@@ -28,7 +28,7 @@ type path struct {
 	onDemandCmd        *exec.Cmd
 }
 
-func newPath(p *program, id string, confp *confPath, permanent bool) {
+func newPath(p *program, id string, confp *confPath, permanent bool) *path {
 	pa := &path{
 		p:         p,
 		id:        id,
@@ -36,7 +36,7 @@ func newPath(p *program, id string, confp *confPath, permanent bool) {
 		permanent: permanent,
 	}
 
-	p.paths[id] = pa
+	return pa
 }
 
 func (pa *path) check() {

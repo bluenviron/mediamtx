@@ -17,6 +17,8 @@ writeTimeout: 5s
 # supported authentication methods
 # WARNING: both methods are insecure, use RTSP inside a VPN to enforce security.
 authMethods: [basic, digest]
+# enable Prometheus-compatible metrics on port 9998
+metrics: false
 # enable pprof on port 9999 to monitor performances
 pprof: false
 

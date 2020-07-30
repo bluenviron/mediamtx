@@ -200,14 +200,14 @@ func (s *source) doInner(terminate chan struct{}) bool {
 
 func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) bool {
 	type trackListenerPair struct {
-		rtpl  *gortsplib.ConnClientUdpListener
-		rtcpl *gortsplib.ConnClientUdpListener
+		serverRtp  *gortsplib.ConnClientUdpListener
+		serverRtcp *gortsplib.ConnClientUdpListener
 	}
 	var listeners []*trackListenerPair
 
 	for _, track := range s.tracks {
-		var rtpl *gortsplib.ConnClientUdpListener
-		var rtcpl *gortsplib.ConnClientUdpListener
+		var serverRtp *gortsplib.ConnClientUdpListener
+		var serverRtcp *gortsplib.ConnClientUdpListener
 		var err error
 
 		for {
@@ -216,7 +216,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
-			rtpl, rtcpl, _, err = conn.SetupUdp(s.confp.sourceUrl, track, rtpPort, rtcpPort)
+			serverRtp, serverRtcp, _, err = conn.SetupUdp(s.confp.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
 				// retry if it's a bind error
 				if nerr, ok := err.(*net.OpError); ok {
@@ -235,8 +235,8 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 		}
 
 		listeners = append(listeners, &trackListenerPair{
-			rtpl:  rtpl,
-			rtcpl: rtcpl,
+			serverRtp:  serverRtp,
+			serverRtcp: serverRtcp,
 		})
 	}
 
@@ -268,7 +268,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
 			}
-		}(trackId, lp.rtpl)
+		}(trackId, lp.serverRtp)
 
 		// receive RTCP packets
 		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
@@ -285,7 +285,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
 			}
-		}(trackId, lp.rtcpl)
+		}(trackId, lp.serverRtcp)
 	}
 
 	tcpConnDone := make(chan error)
@@ -314,8 +314,8 @@ outer:
 	s.p.events <- programEventSourceNotReady{s}
 
 	for _, lp := range listeners {
-		lp.rtpl.Close()
-		lp.rtcpl.Close()
+		lp.serverRtp.Close()
+		lp.serverRtcp.Close()
 	}
 	wg.Wait()
 

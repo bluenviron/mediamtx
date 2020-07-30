@@ -188,14 +188,32 @@ systemctl enable rtsp-simple-server
 systemctl start rtsp-simple-server
 ```
 
-#### Client count
+#### Monitoring
 
-The current number of clients, publishers and readers is printed in each log line; for instance, the line:
-```
-2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
-```
+There are multiple ways to monitor the server usage over time:
+* The current number of clients, publishers and readers is printed in each log line; for instance, the line:
+  ```
+  2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
+  ```
+  means that there are 2 clients, 1 publisher and 1 receiver.
 
-means that there are 2 clients, 1 publisher and 1 receiver.
+* A metrics exporter, compatible with Prometheus, can be enabled with the option `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+  ```
+  wget -qO- localhost:9998
+  ```
+  Obtaining:
+  ```
+  clients 23 1596122687740
+  publishers 15 1596122687740
+  readers 8 1596122687740
+  ```
+
+* A performance monitor, compatible with pprof, can be enabled with the option `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
+  ```
+  docker run --rm -it --network=host golang:1.14-alpine3.12 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
+  docker run --rm -it --network=host golang:1.14-alpine3.12 go tool pprof -text http://localhost:9999/debug/pprof/heap
+  docker run --rm -it --network=host golang:1.14-alpine3.12 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
+  ```
 
 #### Full command-line usage
 

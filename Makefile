@@ -68,6 +68,7 @@ define CONFIG_RUN
 #rtspPort: 8555
 #rtpPort: 8002
 #rtcpPort: 8003
+metrics: yes
 
 paths:
   all:

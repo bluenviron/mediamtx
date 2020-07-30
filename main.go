@@ -17,9 +17,19 @@ import (
 
 var Version = "v0.0.0"
 
+const (
+	pprofAddress = ":9999"
+)
+
 type programEvent interface {
 	isProgramEvent()
 }
+
+type programEventMetrics struct {
+	res chan *metricsData
+}
+
+func (programEventMetrics) isProgramEvent() {}
 
 type programEventClientNew struct {
 	nconn net.Conn
@@ -151,9 +161,10 @@ func (programEventTerminate) isProgramEvent() {}
 
 type program struct {
 	conf           *conf
-	rtspl          *serverTcp
-	rtpl           *serverUdp
-	rtcpl          *serverUdp
+	metrics        *metrics
+	serverRtsp     *serverTcp
+	serverRtp      *serverUdp
+	serverRtcp     *serverUdp
 	sources        []*source
 	clients        map[*client]struct{}
 	paths          map[string]*path
@@ -196,7 +207,7 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 			continue
 		}
 
-		newPath(p, path, confp, true)
+		p.paths[path] = newPath(p, path, confp, true)
 
 		if confp.Source != "record" {
 			s := newSource(p, path, confp)
@@ -207,36 +218,42 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 
 	p.log("rtsp-simple-server %s", Version)
 
+	if conf.Metrics {
+		p.metrics = newMetrics(p)
+	}
+
 	if conf.Pprof {
 		go func(mux *http.ServeMux) {
-			server := &http.Server{
-				Addr:    ":9999",
+			p.log("[pprof] opened on " + pprofAddress)
+			panic((&http.Server{
+				Addr:    pprofAddress,
 				Handler: mux,
-			}
-			p.log("pprof is available on :9999")
-			panic(server.ListenAndServe())
+			}).ListenAndServe())
 		}(http.DefaultServeMux)
 		http.DefaultServeMux = http.NewServeMux()
 	}
 
-	p.rtpl, err = newServerUdp(p, conf.RtpPort, gortsplib.StreamTypeRtp)
+	p.serverRtp, err = newServerUdp(p, conf.RtpPort, gortsplib.StreamTypeRtp)
 	if err != nil {
 		return nil, err
 	}
 
-	p.rtcpl, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
+	p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
 	if err != nil {
 		return nil, err
 	}
 
-	p.rtspl, err = newServerTcp(p)
+	p.serverRtsp, err = newServerTcp(p)
 	if err != nil {
 		return nil, err
 	}
 
-	go p.rtpl.run()
-	go p.rtcpl.run()
-	go p.rtspl.run()
+	if p.metrics != nil {
+		go p.metrics.run()
+	}
+	go p.serverRtp.run()
+	go p.serverRtcp.run()
+	go p.serverRtsp.run()
 	for _, s := range p.sources {
 		go s.run()
 	}
@@ -264,6 +281,13 @@ outer:
 
 		case rawEvt := <-p.events:
 			switch evt := rawEvt.(type) {
+			case programEventMetrics:
+				evt.res <- &metricsData{
+					clientCount:    len(p.clients),
+					publisherCount: p.publisherCount,
+					readerCount:    p.readerCount,
+				}
+
 			case programEventClientNew:
 				c := newClient(p, evt.nconn)
 				p.clients[c] = struct{}{}
@@ -304,7 +328,7 @@ outer:
 					}
 
 				} else {
-					newPath(p, evt.path, p.findConfForPath(evt.path), false)
+					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPath(evt.path), false)
 				}
 
 				p.paths[evt.path].publisher = evt.client
@@ -413,6 +437,9 @@ outer:
 	go func() {
 		for rawEvt := range p.events {
 			switch evt := rawEvt.(type) {
+			case programEventMetrics:
+				evt.res <- nil
+
 			case programEventClientClose:
 				close(evt.done)
 
@@ -451,13 +478,17 @@ outer:
 		<-s.done
 	}
 
-	p.rtspl.close()
-	p.rtcpl.close()
-	p.rtpl.close()
+	p.serverRtsp.close()
+	p.serverRtcp.close()
+	p.serverRtp.close()
 
 	for c := range p.clients {
 		c.conn.NetConn().Close()
 		<-c.done
+	}
+
+	if p.metrics != nil {
+		p.metrics.close()
 	}
 
 	close(p.events)
@@ -514,7 +545,7 @@ func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.St
 		if c.pathId == path && c.state == clientStatePlay {
 			if c.streamProtocol == gortsplib.StreamProtocolUdp {
 				if streamType == gortsplib.StreamTypeRtp {
-					p.rtpl.write(&udpAddrBufPair{
+					p.serverRtp.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
 							IP:   c.ip(),
 							Zone: c.zone(),
@@ -523,7 +554,7 @@ func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.St
 						buf: frame,
 					})
 				} else {
-					p.rtcpl.write(&udpAddrBufPair{
+					p.serverRtcp.write(&udpAddrBufPair{
 						addr: &net.UDPAddr{
 							IP:   c.ip(),
 							Zone: c.zone(),
