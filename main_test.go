@@ -352,7 +352,8 @@ func TestProxy(t *testing.T) {
 				"paths:\n" +
 				"  proxied:\n" +
 				"    source: rtsp://testuser:testpass@localhost:8554/teststream\n" +
-				"    sourceProtocol: " + proto + "\n")
+				"    sourceProtocol: " + proto + "\n" +
+				"    sourceOnDemand: yes\n")
 			p2, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
 			require.NoError(t, err)
 			defer p2.close()
@@ -373,4 +374,28 @@ func TestProxy(t *testing.T) {
 			require.Equal(t, 0, code)
 		})
 	}
+}
+
+func TestRunOnDemand(t *testing.T) {
+	stdin := []byte("\n" +
+		"paths:\n" +
+		"  ondemand:\n" +
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i test-images/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/ondemand\n")
+	p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+	require.NoError(t, err)
+	defer p1.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "dest", []string{
+		"-i", "rtsp://" + ownDockerIp + ":8554/ondemand",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	code := cnt1.wait()
+	require.Equal(t, 0, code)
 }

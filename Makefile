@@ -32,7 +32,7 @@ format:
 
 define DOCKERFILE_TEST
 FROM amd64/$(BASE_IMAGE)
-RUN apk add --no-cache make docker-cli git
+RUN apk add --no-cache make docker-cli git ffmpeg
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
