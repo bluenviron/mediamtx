@@ -32,19 +32,22 @@ type confPath struct {
 }
 
 type conf struct {
-	Protocols         []string                              `yaml:"protocols"`
-	protocolsParsed   map[gortsplib.StreamProtocol]struct{} ``
-	RtspPort          int                                   `yaml:"rtspPort"`
-	RtpPort           int                                   `yaml:"rtpPort"`
-	RtcpPort          int                                   `yaml:"rtcpPort"`
-	RunOnConnect      string                                `yaml:"runOnConnect"`
-	ReadTimeout       time.Duration                         `yaml:"readTimeout"`
-	WriteTimeout      time.Duration                         `yaml:"writeTimeout"`
-	AuthMethods       []string                              `yaml:"authMethods"`
-	authMethodsParsed []gortsplib.AuthMethod                ``
-	Metrics           bool                                  `yaml:"metrics"`
-	Pprof             bool                                  `yaml:"pprof"`
-	Paths             map[string]*confPath                  `yaml:"paths"`
+	Protocols             []string                              `yaml:"protocols"`
+	protocolsParsed       map[gortsplib.StreamProtocol]struct{} ``
+	RtspPort              int                                   `yaml:"rtspPort"`
+	RtpPort               int                                   `yaml:"rtpPort"`
+	RtcpPort              int                                   `yaml:"rtcpPort"`
+	RunOnConnect          string                                `yaml:"runOnConnect"`
+	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
+	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
+	AuthMethods           []string                              `yaml:"authMethods"`
+	authMethodsParsed     []gortsplib.AuthMethod                ``
+	Metrics               bool                                  `yaml:"metrics"`
+	Pprof                 bool                                  `yaml:"pprof"`
+	LogDestinations       []string                              `yaml:"logDestinations"`
+	logDestinationsParsed map[logDestination]struct{}           ``
+	LogFile               string                                `yaml:"logFile"`
+	Paths                 map[string]*confPath                  `yaml:"paths"`
 }
 
 func loadConf(fpath string, stdin io.Reader) (*conf, error) {
@@ -142,6 +145,26 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		default:
 			return nil, fmt.Errorf("unsupported authentication method: %s", method)
 		}
+	}
+
+	if len(conf.LogDestinations) == 0 {
+		conf.LogDestinations = []string{"stdout"}
+	}
+	conf.logDestinationsParsed = make(map[logDestination]struct{})
+	for _, dest := range conf.LogDestinations {
+		switch dest {
+		case "stdout":
+			conf.logDestinationsParsed[logDestinationStdout] = struct{}{}
+
+		case "file":
+			conf.logDestinationsParsed[logDestinationFile] = struct{}{}
+
+		default:
+			return nil, fmt.Errorf("unsupported log destination: %s", dest)
+		}
+	}
+	if conf.LogFile == "" {
+		conf.LogFile = "rtsp-simple-server.log"
 	}
 
 	if len(conf.Paths) == 0 {

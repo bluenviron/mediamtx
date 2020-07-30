@@ -21,6 +21,10 @@ authMethods: [basic, digest]
 metrics: false
 # enable pprof on port 9999 to monitor performances
 pprof: false
+# destinations of log messages; available options are 'stdout' and 'file'
+logDestinations: [stdout]
+# if 'file' is in logDestinations, this is the file that will receive the logs
+logFile: rtsp-simple-server.log
 
 # these settings are path-dependent. The settings under the path 'all' are
 # applied to all paths that do not match a specific entry.

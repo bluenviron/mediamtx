@@ -21,6 +21,13 @@ const (
 	pprofAddress = ":9999"
 )
 
+type logDestination int
+
+const (
+	logDestinationStdout logDestination = iota
+	logDestinationFile
+)
+
 type programEvent interface {
 	isProgramEvent()
 }
@@ -161,6 +168,7 @@ func (programEventTerminate) isProgramEvent() {}
 
 type program struct {
 	conf           *conf
+	logFile        *os.File
 	metrics        *metrics
 	serverRtsp     *serverTcp
 	serverRtp      *serverUdp
@@ -202,6 +210,15 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		done:    make(chan struct{}),
 	}
 
+	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
+		p.logFile, err = os.OpenFile(p.conf.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal("ERR:", err)
+		}
+	}
+
+	p.log("rtsp-simple-server %s", Version)
+
 	for path, confp := range conf.Paths {
 		if path == "all" {
 			continue
@@ -215,8 +232,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 			p.paths[path].publisher = s
 		}
 	}
-
-	p.log("rtsp-simple-server %s", Version)
 
 	if conf.Metrics {
 		p.metrics = newMetrics(p)
@@ -263,8 +278,15 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 }
 
 func (p *program) log(format string, args ...interface{}) {
-	log.Printf("[%d/%d/%d] "+format, append([]interface{}{len(p.clients),
+	line := fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{len(p.clients),
 		p.publisherCount, p.readerCount}, args...)...)
+
+	if _, ok := p.conf.logDestinationsParsed[logDestinationStdout]; ok {
+		log.Println(line)
+	}
+	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
+		p.logFile.WriteString(line + "\n")
+	}
 }
 
 func (p *program) run() {
@@ -489,6 +511,10 @@ outer:
 
 	if p.metrics != nil {
 		p.metrics.close()
+	}
+
+	if p.logFile != nil {
+		p.logFile.Close()
 	}
 
 	close(p.events)
