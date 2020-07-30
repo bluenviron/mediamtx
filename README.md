@@ -108,6 +108,17 @@ ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/mystream
 
 The last command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
 
+#### On-demand publishing
+
+Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+```yaml
+paths:
+  ondemand:
+    runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/ondemand
+```
+
+The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
+
 #### Remuxing, re-encoding, compression
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
