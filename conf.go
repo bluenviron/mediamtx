@@ -13,37 +13,37 @@ import (
 )
 
 type confPath struct {
-	Source               string `yaml:"source"`
-	sourceUrl            *url.URL
-	SourceProtocol       string `yaml:"sourceProtocol"`
-	sourceProtocolParsed gortsplib.StreamProtocol
-	SourceOnDemand       bool     `yaml:"sourceOnDemand"`
-	PublishUser          string   `yaml:"publishUser"`
-	PublishPass          string   `yaml:"publishPass"`
-	PublishIps           []string `yaml:"publishIps"`
-	publishIpsParsed     []interface{}
-	ReadUser             string   `yaml:"readUser"`
-	ReadPass             string   `yaml:"readPass"`
-	ReadIps              []string `yaml:"readIps"`
-	readIpsParsed        []interface{}
-	RunOnDemand          string `yaml:"runOnDemand"`
-	RunOnPublish         string `yaml:"runOnPublish"`
-	RunOnRead            string `yaml:"runOnRead"`
+	Source               string                   `yaml:"source"`
+	sourceUrl            *url.URL                 ``
+	SourceProtocol       string                   `yaml:"sourceProtocol"`
+	sourceProtocolParsed gortsplib.StreamProtocol ``
+	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
+	RunOnDemand          string                   `yaml:"runOnDemand"`
+	RunOnPublish         string                   `yaml:"runOnPublish"`
+	RunOnRead            string                   `yaml:"runOnRead"`
+	PublishUser          string                   `yaml:"publishUser"`
+	PublishPass          string                   `yaml:"publishPass"`
+	PublishIps           []string                 `yaml:"publishIps"`
+	publishIpsParsed     []interface{}            ``
+	ReadUser             string                   `yaml:"readUser"`
+	ReadPass             string                   `yaml:"readPass"`
+	ReadIps              []string                 `yaml:"readIps"`
+	readIpsParsed        []interface{}            ``
 }
 
 type conf struct {
-	Protocols         []string `yaml:"protocols"`
-	protocolsParsed   map[gortsplib.StreamProtocol]struct{}
-	RtspPort          int           `yaml:"rtspPort"`
-	RtpPort           int           `yaml:"rtpPort"`
-	RtcpPort          int           `yaml:"rtcpPort"`
-	RunOnConnect      string        `yaml:"runOnConnect"`
-	ReadTimeout       time.Duration `yaml:"readTimeout"`
-	WriteTimeout      time.Duration `yaml:"writeTimeout"`
-	AuthMethods       []string      `yaml:"authMethods"`
-	authMethodsParsed []gortsplib.AuthMethod
-	Pprof             bool                 `yaml:"pprof"`
-	Paths             map[string]*confPath `yaml:"paths"`
+	Protocols         []string                              `yaml:"protocols"`
+	protocolsParsed   map[gortsplib.StreamProtocol]struct{} ``
+	RtspPort          int                                   `yaml:"rtspPort"`
+	RtpPort           int                                   `yaml:"rtpPort"`
+	RtcpPort          int                                   `yaml:"rtcpPort"`
+	RunOnConnect      string                                `yaml:"runOnConnect"`
+	ReadTimeout       time.Duration                         `yaml:"readTimeout"`
+	WriteTimeout      time.Duration                         `yaml:"writeTimeout"`
+	AuthMethods       []string                              `yaml:"authMethods"`
+	authMethodsParsed []gortsplib.AuthMethod                ``
+	Pprof             bool                                  `yaml:"pprof"`
+	Paths             map[string]*confPath                  `yaml:"paths"`
 }
 
 func loadConf(fpath string, stdin io.Reader) (*conf, error) {
