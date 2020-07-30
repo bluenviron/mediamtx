@@ -1,6 +1,6 @@
 ---
 name: Communication issue with an external camera or software
-about: A portion of bugs are related to different RTSP implementations between the
+about: Some bugs are caused by different RTSP implementations between the
   server and the target
 title: ''
 labels: ''

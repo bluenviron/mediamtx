@@ -1,6 +1,6 @@
 ---
-name: Blank issue
-about: Blank issue
+name: Blank issue, question or enhancement request
+about: Blank issue, question or enhancement request
 title: ''
 labels: ''
 assignees: ''
