@@ -9,8 +9,8 @@ _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server a
 
 Features:
 * Read and publish streams via UDP and TCP
-* Pull and serve streams from other RTSP servers (RTSP proxy)
 * Each stream can have multiple video and audio tracks, encoded in any format
+* Pull and serve streams from other RTSP servers, always or on-demand (RTSP proxy)
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Supports authentication
 * Run custom commands when clients connect, disconnect, read or publish streams (linux only)
@@ -18,7 +18,7 @@ Features:
 
 ## Installation and basic usage
 
-1. Download and extract a precompiled binary from the [release](https://github.com/aler9/rtsp-simple-server/releases) page.
+1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/rtsp-simple-server/releases).
 
 2. Start the server:
    ```
@@ -152,6 +152,30 @@ paths:
 ```
 
 WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
+
+#### Start on boot with systemd
+
+Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
+
+Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), and put:
+* `rtsp-simple-server` in `/usr/local/bin`
+* `rtsp-simple-server.yml` in `/usr/local/etc`
+
+Create a file `/etc/systemd/system/rtsp-simple-server.service` with the following content:
+```
+[Unit]
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/rtsp-simple-server /usr/local/etc/rtsp-simple-server.yml
+[Install]
+WantedBy=multi-user.target
+```
+
+Enable and start the service with:
+```
+systemctl enable rtsp-simple-server
+systemctl start rtsp-simple-server
+```
 
 #### Client count
 
