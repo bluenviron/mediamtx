@@ -114,8 +114,9 @@ func (pa *path) describe(client *client) {
 
 	// publisher not found
 	if pa.publisher == nil {
+		// on demand command is available: put the client on hold
 		if pa.confp.RunOnDemand != "" {
-			// start on demand command if needed; put the client on hold
+			// start on demand command if needed
 			if pa.onDemandCmd == nil {
 				pa.p.log("starting on demand command")
 
