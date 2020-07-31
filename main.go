@@ -8,6 +8,7 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -176,6 +177,7 @@ type program struct {
 	sources        []*source
 	clients        map[*client]struct{}
 	paths          map[string]*path
+	cmds           []*exec.Cmd
 	publisherCount int
 	readerCount    int
 
@@ -261,6 +263,20 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	p.serverRtsp, err = newServerTcp(p)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, confp := range conf.Paths {
+		if confp.RunOnInit != "" {
+			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
+			onInitCmd.Stdout = os.Stdout
+			onInitCmd.Stderr = os.Stderr
+			err := onInitCmd.Start()
+			if err != nil {
+				p.log("ERR: %s", err)
+			}
+
+			p.cmds = append(p.cmds, onInitCmd)
+		}
 	}
 
 	if p.metrics != nil {
@@ -494,6 +510,11 @@ outer:
 			}
 		}
 	}()
+
+	for _, cmd := range p.cmds {
+		cmd.Process.Signal(os.Interrupt)
+		cmd.Wait()
+	}
 
 	for _, s := range p.sources {
 		s.events <- sourceEventTerminate{}

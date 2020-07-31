@@ -40,6 +40,11 @@ paths:
     # is connected, saving bandwidth
     sourceOnDemand: no
 
+    # command to run when this path is loaded by the program.
+    # this can be used, for example, to publish a stream and keep it always opened.
+    # This is terminated with SIGINT when the program closes.
+    runOnInit:
+
     # command to run when this path is requested.
     # This can be used, for example, to publish a stream on demand.
     # This is terminated with SIGINT when the path is not requested anymore.

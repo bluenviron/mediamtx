@@ -87,26 +87,18 @@ paths:
     source: rtsp://original-url
 ```
 
-Start the server:
-```
-./rtsp-simple-server
-```
-
-Users can then connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
+After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
 
 #### Convert a webcam into a RTSP server
 
-Start the server:
-```
-./rtsp-simple-server
-```
-
-Publish the webcam:
-```
-ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/mystream
+Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+```yaml
+paths:
+  webcam:
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/mystream
 ```
 
-The last command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
+After starting the server, the webcam can be opened with `rtsp://localhost:8554/webcam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
 
 #### On-demand publishing
 
@@ -139,11 +131,6 @@ paths:
   all:
     publishUser: admin
     publishPass: mypassword
-```
-
-Start the server:
-```
-./rtsp-simple-server
 ```
 
 Only publishers that provide both username and password will be able to proceed:
