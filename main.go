@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"time"
+	"strings"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/sdp/v3"
@@ -265,9 +266,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	for _, confp := range conf.Paths {
+	for path, confp := range conf.Paths {
 		if confp.RunOnInit != "" {
 			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
+			onInitCmd.Env = append(os.Environ(),
+				"RTSP_SERVER_PATH="+path,
+			)
 			onInitCmd.Stdout = os.Stdout
 			onInitCmd.Stderr = os.Stderr
 			err := onInitCmd.Start()
@@ -339,7 +343,13 @@ outer:
 						if path.publisher == evt.client {
 							path.publisherRemove()
 
-							if !path.permanent {
+							if !path.permanent && !path.consumerConnected {
+								delete(p.paths, evt.client.pathId)
+							}
+						} else {
+							path.consumerConnected = false
+
+							if !path.permanent && path.publisher == nil {
 								delete(p.paths, evt.client.pathId)
 							}
 						}
@@ -352,8 +362,14 @@ outer:
 			case programEventClientDescribe:
 				path, ok := p.paths[evt.path]
 				if !ok {
-					evt.client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", evt.path)}
-					continue
+					confp, _ := p.findConfForPath(evt.path)
+					if confp == nil {
+						evt.client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", evt.path)}
+						continue
+					} else {
+						p.paths[evt.path] = newPath(p, evt.path, confp, false)
+						path = p.paths[evt.path]
+					}
 				}
 
 				path.describe(evt.client)
@@ -366,7 +382,8 @@ outer:
 					}
 
 				} else {
-					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPath(evt.path), false)
+					confp, _ := p.findConfForPath(evt.path)
+					p.paths[evt.path] = newPath(p, evt.path, confp, false)
 				}
 
 				p.paths[evt.path].publisher = evt.client
@@ -547,16 +564,22 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) findConfForPath(path string) *confPath {
-	if confp, ok := p.conf.Paths[path]; ok {
-		return confp
+func (p *program) findConfForPath(path string) (*confPath, string) {
+	var def_confPath *confPath = nil
+	def_string := ""
+
+	for p, c := range p.conf.Paths {
+		if p == "all" {
+			def_confPath = c
+			def_string = ""
+		} else if c.IsWildcard && strings.HasPrefix(path, p) {
+			return c, p
+		} else if path == p {
+			return c, p
+		}
 	}
 
-	if confp, ok := p.conf.Paths["all"]; ok {
-		return confp
-	}
-
-	return nil
+	return def_confPath, def_string
 }
 
 func (p *program) findClientPublisher(addr *net.UDPAddr, streamType gortsplib.StreamType) (*client, int) {

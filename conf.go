@@ -18,6 +18,7 @@ type confPath struct {
 	SourceProtocol       string                   `yaml:"sourceProtocol"`
 	sourceProtocolParsed gortsplib.StreamProtocol ``
 	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
+	IsWildcard           bool                     `yaml:"isWildcard"`
 	RunOnInit            string                   `yaml:"runOnInit"`
 	RunOnDemand          string                   `yaml:"runOnDemand"`
 	RunOnPublish         string                   `yaml:"runOnPublish"`
@@ -189,6 +190,11 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 				return nil, fmt.Errorf("path 'all' cannot have a RTSP source; use another path")
 			}
 
+			if confp.SourceOnDemand && confp.IsWildcard {
+				return nil, fmt.Errorf("wildcard paths must not be sourced on demand; set sourceOnDemand to no");
+			}
+
+
 			if confp.SourceProtocol == "" {
 				confp.SourceProtocol = "udp"
 			}
@@ -263,6 +269,7 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		if confp.RunOnDemand != "" && path == "all" {
 			return nil, fmt.Errorf("path 'all' does not support option 'runOnDemand'; use another path")
 		}
+
 	}
 
 	return conf, nil

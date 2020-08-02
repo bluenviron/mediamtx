@@ -23,6 +23,7 @@ type path struct {
 	publisherReady     bool
 	publisherSdpText   []byte
 	publisherSdpParsed *sdp.SessionDescription
+	consumerConnected  bool
 	lastRequested      time.Time
 	lastActivation     time.Time
 	onDemandCmd        *exec.Cmd
@@ -122,6 +123,9 @@ func (pa *path) describe(client *client) {
 
 				pa.lastActivation = time.Now()
 				pa.onDemandCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnDemand)
+				pa.onDemandCmd.Env = append(os.Environ(),
+					"RTSP_SERVER_PATH="+pa.id,
+				)
 				pa.onDemandCmd.Stdout = os.Stdout
 				pa.onDemandCmd.Stderr = os.Stderr
 				err := pa.onDemandCmd.Start()
