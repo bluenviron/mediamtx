@@ -70,22 +70,17 @@ type programEventClientAnnounce struct {
 func (programEventClientAnnounce) isProgramEvent() {}
 
 type programEventClientSetupPlay struct {
-	res      chan error
-	client   *client
-	path     string
-	protocol gortsplib.StreamProtocol
-	rtpPort  int
-	rtcpPort int
+	res     chan error
+	client  *client
+	path    string
+	trackId int
 }
 
 func (programEventClientSetupPlay) isProgramEvent() {}
 
 type programEventClientSetupRecord struct {
-	res      chan error
-	client   *client
-	protocol gortsplib.StreamProtocol
-	rtpPort  int
-	rtcpPort int
+	res    chan error
+	client *client
 }
 
 func (programEventClientSetupRecord) isProgramEvent() {}
@@ -384,26 +379,16 @@ outer:
 					continue
 				}
 
-				if len(evt.client.streamTracks) >= len(path.publisherSdpParsed.MediaDescriptions) {
-					evt.res <- fmt.Errorf("all the tracks have already been setup")
+				if evt.trackId >= len(path.publisherSdpParsed.MediaDescriptions) {
+					evt.res <- fmt.Errorf("track %d does not exist", evt.trackId)
 					continue
 				}
 
 				evt.client.pathId = evt.path
-				evt.client.streamProtocol = evt.protocol
-				evt.client.streamTracks = append(evt.client.streamTracks, &clientTrack{
-					rtpPort:  evt.rtpPort,
-					rtcpPort: evt.rtcpPort,
-				})
 				evt.client.state = clientStatePrePlay
 				evt.res <- nil
 
 			case programEventClientSetupRecord:
-				evt.client.streamProtocol = evt.protocol
-				evt.client.streamTracks = append(evt.client.streamTracks, &clientTrack{
-					rtpPort:  evt.rtpPort,
-					rtcpPort: evt.rtcpPort,
-				})
 				evt.client.state = clientStatePreRecord
 				evt.res <- nil
 
@@ -414,8 +399,8 @@ outer:
 					continue
 				}
 
-				if len(evt.client.streamTracks) != len(path.publisherSdpParsed.MediaDescriptions) {
-					evt.res <- fmt.Errorf("not all tracks have been setup")
+				if len(evt.client.streamTracks) == 0 {
+					evt.res <- fmt.Errorf("no tracks have been setup")
 					continue
 				}
 
@@ -589,40 +574,48 @@ func (p *program) findClientPublisher(addr *net.UDPAddr, streamType gortsplib.St
 
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for c := range p.clients {
-		if c.pathId == path && c.state == clientStatePlay {
-			if c.streamProtocol == gortsplib.StreamProtocolUdp {
-				if streamType == gortsplib.StreamTypeRtp {
-					p.serverRtp.write(&udpAddrBufPair{
-						addr: &net.UDPAddr{
-							IP:   c.ip(),
-							Zone: c.zone(),
-							Port: c.streamTracks[trackId].rtpPort,
-						},
-						buf: frame,
-					})
-				} else {
-					p.serverRtcp.write(&udpAddrBufPair{
-						addr: &net.UDPAddr{
-							IP:   c.ip(),
-							Zone: c.zone(),
-							Port: c.streamTracks[trackId].rtcpPort,
-						},
-						buf: frame,
-					})
-				}
+		if c.pathId != path ||
+			c.state != clientStatePlay {
+			continue
+		}
 
-			} else {
-				buf := c.writeBuf.swap()
-				buf = buf[:len(frame)]
-				copy(buf, frame)
+		track, ok := c.streamTracks[trackId]
+		if !ok {
+			continue
+		}
 
-				c.events <- clientEventFrameTcp{
-					frame: &gortsplib.InterleavedFrame{
-						TrackId:    trackId,
-						StreamType: streamType,
-						Content:    buf,
+		if c.streamProtocol == gortsplib.StreamProtocolUdp {
+			if streamType == gortsplib.StreamTypeRtp {
+				p.serverRtp.write(&udpAddrBufPair{
+					addr: &net.UDPAddr{
+						IP:   c.ip(),
+						Zone: c.zone(),
+						Port: track.rtpPort,
 					},
-				}
+					buf: frame,
+				})
+			} else {
+				p.serverRtcp.write(&udpAddrBufPair{
+					addr: &net.UDPAddr{
+						IP:   c.ip(),
+						Zone: c.zone(),
+						Port: track.rtcpPort,
+					},
+					buf: frame,
+				})
+			}
+
+		} else {
+			buf := c.writeBuf.swap()
+			buf = buf[:len(frame)]
+			copy(buf, frame)
+
+			c.events <- clientEventFrameTcp{
+				frame: &gortsplib.InterleavedFrame{
+					TrackId:    trackId,
+					StreamType: streamType,
+					Content:    buf,
+				},
 			}
 		}
 	}

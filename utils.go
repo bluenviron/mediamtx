@@ -110,7 +110,7 @@ func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 					}
 				}
 
-				// control attribute is mandatory, and is the path that is appended
+				// control attribute is the path that is appended
 				// to the stream path in SETUP
 				ret = append(ret, sdp.Attribute{
 					Key:   "control",

@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,7 +89,7 @@ type client struct {
 	authHelper     *gortsplib.AuthServer
 	authFailures   int
 	streamProtocol gortsplib.StreamProtocol
-	streamTracks   []*clientTrack
+	streamTracks   map[int]*clientTrack
 	rtcpReceivers  []*gortsplib.RtcpReceiver
 	readBuf        *doubleBuffer
 	writeBuf       *doubleBuffer
@@ -106,9 +107,10 @@ func newClient(p *program, nconn net.Conn) *client {
 			ReadTimeout:  p.conf.ReadTimeout,
 			WriteTimeout: p.conf.WriteTimeout,
 		}),
-		state:   clientStateInitial,
-		readBuf: newDoubleBuffer(clientTcpReadBufferSize),
-		done:    make(chan struct{}),
+		state:        clientStateInitial,
+		streamTracks: make(map[int]*clientTrack),
+		readBuf:      newDoubleBuffer(clientTcpReadBufferSize),
+		done:         make(chan struct{}),
 	}
 
 	go c.run()
@@ -433,7 +435,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		basePath, _, err := splitPath(path)
+		basePath, controlPath, err := splitPath(path)
 		if err != nil {
 			c.writeResError(req, gortsplib.StatusBadRequest, err)
 			return false
@@ -457,6 +459,28 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return true
 			}
 
+			if c.pathId != "" && basePath != c.pathId {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
+				return false
+			}
+
+			if !strings.HasPrefix(controlPath, "trackID=") {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid control path (%s)", controlPath))
+				return false
+			}
+
+			tmp, err := strconv.ParseInt(controlPath[len("trackID="):], 10, 64)
+			if err != nil || tmp < 0 {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid track id (%s)", controlPath))
+				return false
+			}
+			trackId := int(tmp)
+
+			if _, ok := c.streamTracks[trackId]; ok {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("track %d has already been setup", trackId))
+				return false
+			}
+
 			// play via UDP
 			if func() bool {
 				_, ok := th["RTP/AVP"]
@@ -474,28 +498,29 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
+					return false
+				}
+
 				rtpPort, rtcpPort := th.Ports("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%v)", req.Header["Transport"]))
 					return false
 				}
 
-				if c.pathId != "" && basePath != c.pathId {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
-					return false
-				}
-
-				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
-					return false
-				}
-
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, basePath, gortsplib.StreamProtocolUdp, rtpPort, rtcpPort}
+				c.p.events <- programEventClientSetupPlay{res, c, basePath, trackId}
 				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
+				}
+
+				c.streamProtocol = gortsplib.StreamProtocolUdp
+				c.streamTracks[trackId] = &clientTrack{
+					rtpPort:  rtpPort,
+					rtcpPort: rtcpPort,
 				}
 
 				c.conn.WriteResponse(&gortsplib.Response{
@@ -520,25 +545,26 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if c.pathId != "" && basePath != c.pathId {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
-					return false
-				}
-
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return false
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, basePath, gortsplib.StreamProtocolTcp, 0, 0}
+				c.p.events <- programEventClientSetupPlay{res, c, basePath, trackId}
 				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
 				}
 
-				interleaved := fmt.Sprintf("%d-%d", ((len(c.streamTracks) - 1) * 2), ((len(c.streamTracks)-1)*2)+1)
+				c.streamProtocol = gortsplib.StreamProtocolTcp
+				c.streamTracks[trackId] = &clientTrack{
+					rtpPort:  0,
+					rtcpPort: 0,
+				}
+
+				interleaved := fmt.Sprintf("%d-%d", ((trackId) * 2), ((trackId)*2)+1)
 
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
@@ -589,14 +615,14 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				rtpPort, rtcpPort := th.Ports("client_port")
-				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return false
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
+				rtpPort, rtcpPort := th.Ports("client_port")
+				if rtpPort == 0 || rtcpPort == 0 {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
 					return false
 				}
 
@@ -606,11 +632,17 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupRecord{res, c, gortsplib.StreamProtocolUdp, rtpPort, rtcpPort}
+				c.p.events <- programEventClientSetupRecord{res, c}
 				err := <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
+				}
+
+				c.streamProtocol = gortsplib.StreamProtocolUdp
+				c.streamTracks[len(c.streamTracks)] = &clientTrack{
+					rtpPort:  rtpPort,
+					rtcpPort: rtcpPort,
 				}
 
 				c.conn.WriteResponse(&gortsplib.Response{
@@ -658,11 +690,17 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupRecord{res, c, gortsplib.StreamProtocolTcp, 0, 0}
+				c.p.events <- programEventClientSetupRecord{res, c}
 				err := <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
 					return false
+				}
+
+				c.streamProtocol = gortsplib.StreamProtocolTcp
+				c.streamTracks[len(c.streamTracks)] = &clientTrack{
+					rtpPort:  0,
+					rtcpPort: 0,
 				}
 
 				c.conn.WriteResponse(&gortsplib.Response{
@@ -776,6 +814,7 @@ func (c *client) runPlay(path string) {
 		c.events = make(chan clientEvent)
 	}
 
+	// start sending frames only after sending the response to the PLAY request
 	done := make(chan struct{})
 	c.p.events <- programEventClientPlay2{done, c}
 	<-done
