@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/sdp/v3"
@@ -124,4 +125,25 @@ func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 
 	bytsout, _ := sout.Marshal()
 	return sout, bytsout
+}
+
+func splitPath(path string) (string, string, error) {
+	comps := strings.Split(path, "/")
+	if len(comps) < 2 {
+		return "", "", fmt.Errorf("the path must contain a base path and a control path (%s)", path)
+	}
+
+	if len(comps) > 2 {
+		return "", "", fmt.Errorf("slashes in the path are not supported (%s)", path)
+	}
+
+	if len(comps[0]) == 0 {
+		return "", "", fmt.Errorf("empty base path (%s)", path)
+	}
+
+	if len(comps[1]) == 0 {
+		return "", "", fmt.Errorf("empty control path (%s)", path)
+	}
+
+	return comps[0], comps[1], nil
 }

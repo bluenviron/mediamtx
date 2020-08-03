@@ -275,21 +275,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		return false
 	}
 
-	path := func() string {
-		ret := req.Url.Path
-
-		// remove leading slash
-		if len(ret) > 1 {
-			ret = ret[1:]
-		}
-
-		// strip any subpath
-		if n := strings.Index(ret, "/"); n >= 0 {
-			ret = ret[:n]
-		}
-
-		return ret
-	}()
+	path := req.Url.Path
+	if len(path) < 1 || path[0] != '/' {
+		c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path must begin with a slash"))
+		return false
+	}
+	path = path[1:] // strip leading slash
 
 	switch req.Method {
 	case gortsplib.OPTIONS:
@@ -358,7 +349,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		}
 
 		if len(path) == 0 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path can't be empty"))
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("empty base path"))
+			return false
+		}
+
+		if strings.Index(path, "/") >= 0 {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("slashes in the path are not supported (%s)", path))
 			return false
 		}
 
@@ -437,13 +433,19 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
+		basePath, _, err := splitPath(path)
+		if err != nil {
+			c.writeResError(req, gortsplib.StatusBadRequest, err)
+			return false
+		}
+
 		switch c.state {
 		// play
 		case clientStateInitial, clientStatePrePlay:
-			confp := c.p.findConfForPath(path)
+			confp := c.p.findConfForPath(basePath)
 			if confp == nil {
 				c.writeResError(req, gortsplib.StatusBadRequest,
-					fmt.Errorf("unable to find a valid configuration for path '%s'", path))
+					fmt.Errorf("unable to find a valid configuration for path '%s'", basePath))
 				return false
 			}
 
@@ -478,8 +480,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if c.pathId != "" && path != c.pathId {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed"))
+				if c.pathId != "" && basePath != c.pathId {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
 					return false
 				}
 
@@ -489,7 +491,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, path, gortsplib.StreamProtocolUdp, rtpPort, rtcpPort}
+				c.p.events <- programEventClientSetupPlay{res, c, basePath, gortsplib.StreamProtocolUdp, rtpPort, rtcpPort}
 				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
@@ -518,8 +520,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if c.pathId != "" && path != c.pathId {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed"))
+				if c.pathId != "" && basePath != c.pathId {
+					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
 					return false
 				}
 
@@ -529,7 +531,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, path, gortsplib.StreamProtocolTcp, 0, 0}
+				c.p.events <- programEventClientSetupPlay{res, c, basePath, gortsplib.StreamProtocolTcp, 0, 0}
 				err = <-res
 				if err != nil {
 					c.writeResError(req, gortsplib.StatusBadRequest, err)
@@ -565,8 +567,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			}
 
 			// after ANNOUNCE, c.pathId is already set
-			if path != c.pathId {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed"))
+			if basePath != c.pathId {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
 				return false
 			}
 
@@ -694,8 +696,11 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
+		// path can end with a slash, remove it
+		path = strings.TrimSuffix(path, "/")
+
 		if path != c.pathId {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed"))
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, path))
 			return false
 		}
 
@@ -729,8 +734,11 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
+		// path can end with a slash, remove it
+		path = strings.TrimSuffix(path, "/")
+
 		if path != c.pathId {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed"))
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, path))
 			return false
 		}
 
