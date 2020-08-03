@@ -147,3 +147,17 @@ func splitPath(path string) (string, string, error) {
 
 	return comps[0], comps[1], nil
 }
+
+// use a fixed-size array for ip comparison
+type ipKey [net.IPv6len]byte
+
+func makeIpKey(ip net.IP) ipKey {
+	var ret ipKey
+	if len(ip) == net.IPv4len {
+		copy(ret[0:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}) // v4InV6Prefix
+		copy(ret[12:], ip)
+	} else {
+		copy(ret[:], ip)
+	}
+	return ret
+}

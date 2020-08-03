@@ -163,18 +163,19 @@ type programEventTerminate struct{}
 func (programEventTerminate) isProgramEvent() {}
 
 type program struct {
-	conf           *conf
-	logFile        *os.File
-	metrics        *metrics
-	serverRtsp     *serverTcp
-	serverRtp      *serverUdp
-	serverRtcp     *serverUdp
-	sources        []*source
-	clients        map[*client]struct{}
-	paths          map[string]*path
-	cmds           []*exec.Cmd
-	publisherCount int
-	readerCount    int
+	conf                *conf
+	logFile             *os.File
+	metrics             *metrics
+	serverRtsp          *serverTcp
+	serverRtp           *serverUdp
+	serverRtcp          *serverUdp
+	sources             []*source
+	clients             map[*client]struct{}
+	udpClientPublishers map[ipKey]*client
+	paths               map[string]*path
+	cmds                []*exec.Cmd
+	publisherCount      int
+	readerCount         int
 
 	events chan programEvent
 	done   chan struct{}
@@ -200,11 +201,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	p := &program{
-		conf:    conf,
-		clients: make(map[*client]struct{}),
-		paths:   make(map[string]*path),
-		events:  make(chan programEvent),
-		done:    make(chan struct{}),
+		conf:                conf,
+		clients:             make(map[*client]struct{}),
+		udpClientPublishers: make(map[ipKey]*client),
+		paths:               make(map[string]*path),
+		events:              make(chan programEvent),
+		done:                make(chan struct{}),
 	}
 
 	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
@@ -419,17 +421,19 @@ outer:
 			case programEventClientRecord:
 				p.publisherCount += 1
 				evt.client.state = clientStateRecord
+				p.udpClientPublishers[makeIpKey(evt.client.ip())] = evt.client
 				p.paths[evt.client.pathId].publisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
 				p.publisherCount -= 1
 				evt.client.state = clientStatePreRecord
+				delete(p.udpClientPublishers, makeIpKey(evt.client.ip()))
 				p.paths[evt.client.pathId].publisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
-				client, trackId := p.findClientPublisher(evt.addr, evt.streamType)
+				client, trackId := p.findUdpClientPublisher(evt.addr, evt.streamType)
 				if client == nil {
 					continue
 				}
@@ -544,31 +548,22 @@ func (p *program) findConfForPath(path string) *confPath {
 	return nil
 }
 
-func (p *program) findClientPublisher(addr *net.UDPAddr, streamType gortsplib.StreamType) (*client, int) {
-	for _, path := range p.paths {
-		cl, ok := path.publisher.(*client)
-		if !ok {
-			continue
-		}
-
-		if cl.streamProtocol != gortsplib.StreamProtocolUdp ||
-			cl.state != clientStateRecord ||
-			!cl.ip().Equal(addr.IP) {
-			continue
-		}
-
-		for i, t := range cl.streamTracks {
+func (p *program) findUdpClientPublisher(addr *net.UDPAddr, streamType gortsplib.StreamType) (*client, int) {
+	c, ok := p.udpClientPublishers[makeIpKey(addr.IP)]
+	if ok {
+		for i, t := range c.streamTracks {
 			if streamType == gortsplib.StreamTypeRtp {
 				if t.rtpPort == addr.Port {
-					return cl, i
+					return c, i
 				}
 			} else {
 				if t.rtcpPort == addr.Port {
-					return cl, i
+					return c, i
 				}
 			}
 		}
 	}
+
 	return nil, -1
 }
 
