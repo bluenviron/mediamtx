@@ -264,7 +264,7 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		if confp.RunOnInit != "" {
 			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
 			onInitCmd.Env = append(os.Environ(),
-				"RTSP_SERVER_PATH="+path,
+				conf.PathEnvVariable+"="+path,
 			)
 			onInitCmd.Stdout = os.Stdout
 			onInitCmd.Stderr = os.Stderr

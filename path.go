@@ -123,7 +123,7 @@ func (pa *path) describe(client *client) {
 				pa.lastActivation = time.Now()
 				pa.onDemandCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnDemand)
 				pa.onDemandCmd.Env = append(os.Environ(),
-					"RTSP_SERVER_PATH="+pa.id,
+					pa.p.conf.PathEnvVariable+"="+pa.id,
 				)
 				pa.onDemandCmd.Stdout = os.Stdout
 				pa.onDemandCmd.Stderr = os.Stderr
