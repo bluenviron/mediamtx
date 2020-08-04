@@ -43,19 +43,26 @@ paths:
     # command to run when this path is loaded by the program.
     # this can be used, for example, to publish a stream and keep it always opened.
     # This is terminated with SIGINT when the program closes.
+    # The path is available as an environment variable $RTSP_SERVER_PATH
     runOnInit:
 
     # command to run when this path is requested.
     # This can be used, for example, to publish a stream on demand.
     # This is terminated with SIGINT when the path is not requested anymore.
+    # The actual path from the request (useful for wildcard paths) is available as an
+    # environment variable $RTSP_SERVER_PATH
     runOnDemand:
 
     # command to run when a client starts publishing.
     # This is terminated with SIGINT when a client stops publishing.
+    # The actual path from the client (useful for wildcard paths) is available as an
+    # environment variable $RTSP_SERVER_PATH
     runOnPublish:
 
     # command to run when a clients starts reading.
     # This is terminated with SIGINT when a client stops reading.
+    # The actual path from the client (useful for wildcard paths) is available as an
+    # environment variable $RTSP_SERVER_PATH
     runOnRead:
 
     # username required to publish
