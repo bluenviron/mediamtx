@@ -42,7 +42,7 @@ Features:
 
    or _GStreamer_:
    ```
-   gst-launch-1.0 -v rtspsrc location=rtsp://localhost:8554/mystream ! rtph264depay ! decodebin ! autovideosink
+   gst-launch-1.0 rtspsrc location=rtsp://localhost:8554/mystream ! rtph264depay ! decodebin ! autovideosink
    ```
 
    or _FFmpeg_:
