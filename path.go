@@ -23,6 +23,7 @@ type path struct {
 	publisherReady     bool
 	publisherSdpText   []byte
 	publisherSdpParsed *sdp.SessionDescription
+	consumerConnected  bool
 	lastRequested      time.Time
 	lastActivation     time.Time
 	onDemandCmd        *exec.Cmd
@@ -136,6 +137,7 @@ func (pa *path) describe(client *client) {
 		}
 
 		// no on-demand: reply with 404
+		pa.consumerConnected = false
 		client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", pa.id)}
 		return
 	}

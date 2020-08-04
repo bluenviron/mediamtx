@@ -309,7 +309,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		confp := c.p.findConfForPath(path)
+		confp, _ := c.p.findConfForPath(path)
 		if confp == nil {
 			c.writeResError(req, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -360,7 +360,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		confp := c.p.findConfForPath(path)
+		confp, _ := c.p.findConfForPath(path)
 		if confp == nil {
 			c.writeResError(req, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -444,7 +444,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		switch c.state {
 		// play
 		case clientStateInitial, clientStatePrePlay:
-			confp := c.p.findConfForPath(basePath)
+			confp, _ := c.p.findConfForPath(basePath)
 			if confp == nil {
 				c.writeResError(req, gortsplib.StatusBadRequest,
 					fmt.Errorf("unable to find a valid configuration for path '%s'", basePath))
@@ -807,7 +807,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 }
 
 func (c *client) runPlay(path string) {
-	confp := c.p.findConfForPath(path)
+	confp, pathMatch := c.p.findConfForPath(path)
 
 	if c.streamProtocol == gortsplib.StreamProtocolTcp {
 		c.writeBuf = newDoubleBuffer(clientTcpWriteBufferSize)
@@ -819,7 +819,12 @@ func (c *client) runPlay(path string) {
 	c.p.events <- programEventClientPlay2{done, c}
 	<-done
 
-	c.log("is receiving on path '%s', %d %s via %s", c.pathId, len(c.streamTracks), func() string {
+	c.log("is receiving on path '%s'%s, %d %s via %s", c.pathId, func() string {
+		if confp.IsWildcard {
+			return "("+pathMatch+"*)"
+		}
+		return ""
+	}(), len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -907,7 +912,7 @@ func (c *client) runPlay(path string) {
 }
 
 func (c *client) runRecord(path string) {
-	confp := c.p.findConfForPath(path)
+	confp, pathMatch := c.p.findConfForPath(path)
 
 	c.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {
@@ -918,7 +923,12 @@ func (c *client) runRecord(path string) {
 	c.p.events <- programEventClientRecord{done, c}
 	<-done
 
-	c.log("is publishing on path '%s', %d %s via %s", c.pathId, len(c.streamTracks), func() string {
+	c.log("is publishing on path '%s'%s, %d %s via %s", c.pathId, func() string {
+		if confp.IsWildcard {
+			return "("+pathMatch+"*)"
+		}
+		return ""
+	}(), len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}

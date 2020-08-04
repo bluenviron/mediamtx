@@ -40,6 +40,10 @@ paths:
     # is connected, saving bandwidth
     sourceOnDemand: no
 
+    # make this path a wildcard, that matches any path that starts with what is specified.
+    # if the source is an RTSP url, sourceOnDemand must be set to 'no'
+    isWildcard: no
+
     # command to run when this path is loaded by the program.
     # this can be used, for example, to publish a stream and keep it always opened.
     # This is terminated with SIGINT when the program closes.
