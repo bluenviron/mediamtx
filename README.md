@@ -95,7 +95,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yaml
 paths:
   webcam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/mystream
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH
 ```
 
 After starting the server, the webcam can be opened with `rtsp://localhost:8554/webcam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
@@ -106,7 +106,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yaml
 paths:
   ondemand:
-    runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/ondemand
+    runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH
 ```
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
@@ -120,7 +120,7 @@ To change the format, codec or compression of a stream, you can use _FFmpeg_ or 
 paths:
   all:
   original:
-    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
+    runOnPublish: ffmpeg -i rtsp://localhost:8554/$RTSP_SERVER_PATH -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
 ```
 
 #### Authentication
