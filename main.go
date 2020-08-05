@@ -163,19 +163,19 @@ type programEventTerminate struct{}
 func (programEventTerminate) isProgramEvent() {}
 
 type program struct {
-	conf                *conf
-	logFile             *os.File
-	metrics             *metrics
-	serverRtsp          *serverTcp
-	serverRtp           *serverUdp
-	serverRtcp          *serverUdp
-	sources             []*source
-	clients             map[*client]struct{}
-	udpClientPublishers map[ipKey]*client
-	paths               map[string]*path
-	cmds                []*exec.Cmd
-	publisherCount      int
-	readerCount         int
+	conf             *conf
+	logFile          *os.File
+	metrics          *metrics
+	serverRtsp       *serverTcp
+	serverRtp        *serverUdp
+	serverRtcp       *serverUdp
+	sources          []*source
+	clients          map[*client]struct{}
+	udpClientsByAddr map[udpClientAddr]*udpClient
+	paths            map[string]*path
+	cmds             []*exec.Cmd
+	publisherCount   int
+	readerCount      int
 
 	events chan programEvent
 	done   chan struct{}
@@ -201,12 +201,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	p := &program{
-		conf:                conf,
-		clients:             make(map[*client]struct{}),
-		udpClientPublishers: make(map[ipKey]*client),
-		paths:               make(map[string]*path),
-		events:              make(chan programEvent),
-		done:                make(chan struct{}),
+		conf:             conf,
+		clients:          make(map[*client]struct{}),
+		udpClientsByAddr: make(map[udpClientAddr]*udpClient),
+		paths:            make(map[string]*path),
+		events:           make(chan programEvent),
+		done:             make(chan struct{}),
 	}
 
 	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
@@ -424,9 +424,25 @@ outer:
 			case programEventClientRecord:
 				p.publisherCount += 1
 				evt.client.state = clientStateRecord
+
 				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
-					p.udpClientPublishers[makeIpKey(evt.client.ip())] = evt.client
+					for trackId, track := range evt.client.streamTracks {
+						key := makeUdpClientAddr(evt.client.ip(), track.rtpPort)
+						p.udpClientsByAddr[key] = &udpClient{
+							client:     evt.client,
+							trackId:    trackId,
+							streamType: gortsplib.StreamTypeRtp,
+						}
+
+						key = makeUdpClientAddr(evt.client.ip(), track.rtcpPort)
+						p.udpClientsByAddr[key] = &udpClient{
+							client:     evt.client,
+							trackId:    trackId,
+							streamType: gortsplib.StreamTypeRtcp,
+						}
+					}
 				}
+
 				p.paths[evt.client.pathName].publisherSetReady()
 				close(evt.done)
 
@@ -434,19 +450,30 @@ outer:
 				p.publisherCount -= 1
 				evt.client.state = clientStatePreRecord
 				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
-					delete(p.udpClientPublishers, makeIpKey(evt.client.ip()))
+					for _, track := range evt.client.streamTracks {
+						key := makeUdpClientAddr(evt.client.ip(), track.rtpPort)
+						delete(p.udpClientsByAddr, key)
+
+						key = makeUdpClientAddr(evt.client.ip(), track.rtcpPort)
+						delete(p.udpClientsByAddr, key)
+					}
 				}
 				p.paths[evt.client.pathName].publisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
-				client, trackId := p.findUdpClientPublisher(evt.addr, evt.streamType)
-				if client == nil {
+				pub, ok := p.udpClientsByAddr[makeUdpClientAddr(evt.addr.IP, evt.addr.Port)]
+				if !ok {
 					continue
 				}
 
-				client.rtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
-				p.forwardFrame(client.pathName, trackId, evt.streamType, evt.buf)
+				// client sent RTP on RTCP port or vice-versa
+				if pub.streamType != evt.streamType {
+					continue
+				}
+
+				pub.client.rtcpReceivers[pub.trackId].OnFrame(evt.streamType, evt.buf)
+				p.forwardFrame(pub.client.pathName, pub.trackId, evt.streamType, evt.buf)
 
 			case programEventClientFrameTcp:
 				p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
@@ -553,25 +580,6 @@ func (p *program) findConfForPath(name string) *confPath {
 	}
 
 	return nil
-}
-
-func (p *program) findUdpClientPublisher(addr *net.UDPAddr, streamType gortsplib.StreamType) (*client, int) {
-	c, ok := p.udpClientPublishers[makeIpKey(addr.IP)]
-	if ok {
-		for i, t := range c.streamTracks {
-			if streamType == gortsplib.StreamTypeRtp {
-				if t.rtpPort == addr.Port {
-					return c, i
-				}
-			} else {
-				if t.rtcpPort == addr.Port {
-					return c, i
-				}
-			}
-		}
-	}
-
-	return nil, -1
 }
 
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {

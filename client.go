@@ -24,6 +24,33 @@ const (
 	clientUdpWriteBufferSize     = 128 * 1024
 )
 
+type udpClient struct {
+	client     *client
+	trackId    int
+	streamType gortsplib.StreamType
+}
+
+type udpClientAddr struct {
+	// use a fixed-size array for ip comparison
+	ip   [net.IPv6len]byte
+	port int
+}
+
+func makeUdpClientAddr(ip net.IP, port int) udpClientAddr {
+	ret := udpClientAddr{
+		port: port,
+	}
+
+	if len(ip) == net.IPv4len {
+		copy(ret.ip[0:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}) // v4InV6Prefix
+		copy(ret.ip[12:], ip)
+	} else {
+		copy(ret.ip[:], ip)
+	}
+
+	return ret
+}
+
 type describeRes struct {
 	sdp []byte
 	err error
