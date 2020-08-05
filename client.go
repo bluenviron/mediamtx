@@ -83,7 +83,7 @@ type client struct {
 	p              *program
 	conn           *gortsplib.ConnServer
 	state          clientState
-	pathId         string
+	pathName       string
 	authUser       string
 	authPass       string
 	authHelper     *gortsplib.AuthServer
@@ -459,8 +459,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return true
 			}
 
-			if c.pathId != "" && basePath != c.pathId {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
+			if c.pathName != "" && basePath != c.pathName {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
 				return false
 			}
 
@@ -592,9 +592,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}
 
-			// after ANNOUNCE, c.pathId is already set
-			if basePath != c.pathId {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
+			// after ANNOUNCE, c.pathName is already set
+			if basePath != c.pathName {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
 				return false
 			}
 
@@ -626,7 +626,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.p.paths[c.pathId].publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -684,7 +684,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.p.paths[c.pathId].publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -737,8 +737,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
-		if path != c.pathId {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, path))
+		if path != c.pathName {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
 
@@ -775,12 +775,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
-		if path != c.pathId {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, path))
+		if path != c.pathName {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
 
-		if len(c.streamTracks) != len(c.p.paths[c.pathId].publisherSdpParsed.MediaDescriptions) {
+		if len(c.streamTracks) != len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return false
 		}
@@ -819,7 +819,7 @@ func (c *client) runPlay(path string) {
 	c.p.events <- programEventClientPlay2{done, c}
 	<-done
 
-	c.log("is receiving on path '%s', %d %s via %s", c.pathId, len(c.streamTracks), func() string {
+	c.log("is receiving on path '%s', %d %s via %s", c.pathName, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -921,7 +921,7 @@ func (c *client) runRecord(path string) {
 	c.p.events <- programEventClientRecord{done, c}
 	<-done
 
-	c.log("is publishing on path '%s', %d %s via %s", c.pathId, len(c.streamTracks), func() string {
+	c.log("is publishing on path '%s', %d %s via %s", c.pathName, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -1025,7 +1025,7 @@ func (c *client) runRecord(path string) {
 
 					c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
 					c.p.events <- programEventClientFrameTcp{
-						c.pathId,
+						c.pathName,
 						frame.TrackId,
 						frame.StreamType,
 						frame.Content,

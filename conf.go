@@ -174,10 +174,10 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		}
 	}
 
-	for path, confp := range conf.Paths {
+	for name, confp := range conf.Paths {
 		if confp == nil {
-			conf.Paths[path] = &confPath{}
-			confp = conf.Paths[path]
+			conf.Paths[name] = &confPath{}
+			confp = conf.Paths[name]
 		}
 
 		if confp.Source == "" {
@@ -185,7 +185,7 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		}
 
 		if confp.Source != "record" {
-			if path == "all" {
+			if name == "all" {
 				return nil, fmt.Errorf("path 'all' cannot have a RTSP source; use another path")
 			}
 
@@ -260,7 +260,7 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			return nil, err
 		}
 
-		if confp.RunOnDemand != "" && path == "all" {
+		if confp.RunOnDemand != "" && name == "all" {
 			return nil, fmt.Errorf("path 'all' does not support option 'runOnDemand'; use another path")
 		}
 	}

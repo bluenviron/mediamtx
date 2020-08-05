@@ -38,23 +38,23 @@ type sourceEventTerminate struct{}
 func (sourceEventTerminate) isSourceEvent() {}
 
 type source struct {
-	p      *program
-	pathId string
-	confp  *confPath
-	state  sourceState
-	tracks []*gortsplib.Track
+	p        *program
+	pathName string
+	confp    *confPath
+	state    sourceState
+	tracks   []*gortsplib.Track
 
 	events chan sourceEvent
 	done   chan struct{}
 }
 
-func newSource(p *program, pathId string, confp *confPath) *source {
+func newSource(p *program, pathName string, confp *confPath) *source {
 	s := &source{
-		p:      p,
-		pathId: pathId,
-		confp:  confp,
-		events: make(chan sourceEvent),
-		done:   make(chan struct{}),
+		p:        p,
+		pathName: pathName,
+		confp:    confp,
+		events:   make(chan sourceEvent),
+		done:     make(chan struct{}),
 	}
 
 	if confp.SourceOnDemand {
@@ -67,7 +67,7 @@ func newSource(p *program, pathId string, confp *confPath) *source {
 }
 
 func (s *source) log(format string, args ...interface{}) {
-	s.p.log("[source "+s.pathId+"] "+format, args...)
+	s.p.log("[source "+s.pathName+"] "+format, args...)
 }
 
 func (s *source) isPublisher() {}
@@ -188,8 +188,8 @@ func (s *source) doInner(terminate chan struct{}) bool {
 	serverSdpParsed, serverSdpText := sdpForServer(tracks)
 
 	s.tracks = tracks
-	s.p.paths[s.pathId].publisherSdpText = serverSdpText
-	s.p.paths[s.pathId].publisherSdpParsed = serverSdpParsed
+	s.p.paths[s.pathName].publisherSdpText = serverSdpText
+	s.p.paths[s.pathName].publisherSdpParsed = serverSdpParsed
 
 	if s.confp.sourceProtocolParsed == gortsplib.StreamProtocolUdp {
 		return s.runUdp(terminate, conn)

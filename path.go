@@ -16,7 +16,7 @@ type publisher interface {
 
 type path struct {
 	p                  *program
-	id                 string
+	name               string
 	confp              *confPath
 	permanent          bool
 	publisher          publisher
@@ -28,10 +28,10 @@ type path struct {
 	onDemandCmd        *exec.Cmd
 }
 
-func newPath(p *program, id string, confp *confPath, permanent bool) *path {
+func newPath(p *program, name string, confp *confPath, permanent bool) *path {
 	pa := &path{
 		p:         p,
-		id:        id,
+		name:      name,
 		confp:     confp,
 		permanent: permanent,
 	}
@@ -42,7 +42,7 @@ func newPath(p *program, id string, confp *confPath, permanent bool) *path {
 func (pa *path) check() {
 	hasClientsWaitingDescribe := func() bool {
 		for c := range pa.p.clients {
-			if c.state == clientStateWaitingDescription && c.pathId == pa.id {
+			if c.state == clientStateWaitingDescription && c.pathName == pa.name {
 				return true
 			}
 		}
@@ -54,10 +54,10 @@ func (pa *path) check() {
 		time.Since(pa.lastActivation) >= 5*time.Second {
 		for c := range pa.p.clients {
 			if c.state == clientStateWaitingDescription &&
-				c.pathId == pa.id {
-				c.pathId = ""
+				c.pathName == pa.name {
+				c.pathName = ""
 				c.state = clientStateInitial
-				c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.id)}
+				c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			}
 		}
 
@@ -73,7 +73,7 @@ func (pa *path) check() {
 
 			hasClients := func() bool {
 				for c := range pa.p.clients {
-					if c.pathId == pa.id {
+					if c.pathName == pa.name {
 						return true
 					}
 				}
@@ -93,7 +93,7 @@ func (pa *path) check() {
 
 			hasClientReaders := func() bool {
 				for c := range pa.p.clients {
-					if c.pathId == pa.id && c != pa.publisher {
+					if c.pathName == pa.name && c != pa.publisher {
 						return true
 					}
 				}
@@ -123,7 +123,7 @@ func (pa *path) describe(client *client) {
 				pa.lastActivation = time.Now()
 				pa.onDemandCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnDemand)
 				pa.onDemandCmd.Env = append(os.Environ(),
-					"RTSP_SERVER_PATH="+pa.id,
+					"RTSP_SERVER_PATH="+pa.name,
 				)
 				pa.onDemandCmd.Stdout = os.Stdout
 				pa.onDemandCmd.Stderr = os.Stderr
@@ -133,13 +133,13 @@ func (pa *path) describe(client *client) {
 				}
 			}
 
-			client.pathId = pa.id
+			client.pathName = pa.name
 			client.state = clientStateWaitingDescription
 			return
 		}
 
 		// no on-demand: reply with 404
-		client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", pa.id)}
+		client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", pa.name)}
 		return
 	}
 
@@ -153,7 +153,7 @@ func (pa *path) describe(client *client) {
 			source.events <- sourceEventApplyState{source.state}
 		}
 
-		client.pathId = pa.id
+		client.pathName = pa.name
 		client.state = clientStateWaitingDescription
 		return
 	}
@@ -165,10 +165,10 @@ func (pa *path) describe(client *client) {
 func (pa *path) publisherRemove() {
 	for c := range pa.p.clients {
 		if c.state == clientStateWaitingDescription &&
-			c.pathId == pa.id {
-			c.pathId = ""
+			c.pathName == pa.name {
+			c.pathName = ""
 			c.state = clientStateInitial
-			c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' is not available anymore", pa.id)}
+			c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' is not available anymore", pa.name)}
 		}
 	}
 
@@ -181,8 +181,8 @@ func (pa *path) publisherSetReady() {
 	// reply to all clients that are waiting for a description
 	for c := range pa.p.clients {
 		if c.state == clientStateWaitingDescription &&
-			c.pathId == pa.id {
-			c.pathId = ""
+			c.pathName == pa.name {
+			c.pathName = ""
 			c.state = clientStateInitial
 			c.describeRes <- describeRes{pa.publisherSdpText, nil}
 		}
@@ -196,7 +196,7 @@ func (pa *path) publisherSetNotReady() {
 	for c := range pa.p.clients {
 		if c.state != clientStateWaitingDescription &&
 			c != pa.publisher &&
-			c.pathId == pa.id {
+			c.pathName == pa.name {
 			c.conn.NetConn().Close()
 		}
 	}

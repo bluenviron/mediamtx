@@ -218,17 +218,17 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 
 	p.log("rtsp-simple-server %s", Version)
 
-	for path, confp := range conf.Paths {
-		if path == "all" {
+	for name, confp := range conf.Paths {
+		if name == "all" {
 			continue
 		}
 
-		p.paths[path] = newPath(p, path, confp, true)
+		p.paths[name] = newPath(p, name, confp, true)
 
 		if confp.Source != "record" {
-			s := newSource(p, path, confp)
+			s := newSource(p, name, confp)
 			p.sources = append(p.sources, s)
-			p.paths[path].publisher = s
+			p.paths[name].publisher = s
 		}
 	}
 
@@ -262,11 +262,11 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	for path, confp := range conf.Paths {
+	for name, confp := range conf.Paths {
 		if confp.RunOnInit != "" {
 			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
 			onInitCmd.Env = append(os.Environ(),
-				"RTSP_SERVER_PATH="+path,
+				"RTSP_SERVER_PATH="+name,
 			)
 			onInitCmd.Stdout = os.Stdout
 			onInitCmd.Stderr = os.Stderr
@@ -334,13 +334,13 @@ outer:
 			case programEventClientClose:
 				delete(p.clients, evt.client)
 
-				if evt.client.pathId != "" {
-					if path, ok := p.paths[evt.client.pathId]; ok {
+				if evt.client.pathName != "" {
+					if path, ok := p.paths[evt.client.pathName]; ok {
 						if path.publisher == evt.client {
 							path.publisherRemove()
 
 							if !path.permanent {
-								delete(p.paths, evt.client.pathId)
+								delete(p.paths, evt.client.pathName)
 							}
 						}
 					}
@@ -373,7 +373,7 @@ outer:
 				p.paths[evt.path].publisherSdpText = evt.sdpText
 				p.paths[evt.path].publisherSdpParsed = evt.sdpParsed
 
-				evt.client.pathId = evt.path
+				evt.client.pathName = evt.path
 				evt.client.state = clientStateAnnounce
 				evt.res <- nil
 
@@ -389,7 +389,7 @@ outer:
 					continue
 				}
 
-				evt.client.pathId = evt.path
+				evt.client.pathName = evt.path
 				evt.client.state = clientStatePrePlay
 				evt.res <- nil
 
@@ -398,9 +398,9 @@ outer:
 				evt.res <- nil
 
 			case programEventClientPlay1:
-				path, ok := p.paths[evt.client.pathId]
+				path, ok := p.paths[evt.client.pathName]
 				if !ok || !path.publisherReady {
-					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.pathId)
+					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.pathName)
 					continue
 				}
 
@@ -427,7 +427,7 @@ outer:
 				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
 					p.udpClientPublishers[makeIpKey(evt.client.ip())] = evt.client
 				}
-				p.paths[evt.client.pathId].publisherSetReady()
+				p.paths[evt.client.pathName].publisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
@@ -436,7 +436,7 @@ outer:
 				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
 					delete(p.udpClientPublishers, makeIpKey(evt.client.ip()))
 				}
-				p.paths[evt.client.pathId].publisherSetNotReady()
+				p.paths[evt.client.pathName].publisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
@@ -446,21 +446,21 @@ outer:
 				}
 
 				client.rtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
-				p.forwardFrame(client.pathId, trackId, evt.streamType, evt.buf)
+				p.forwardFrame(client.pathName, trackId, evt.streamType, evt.buf)
 
 			case programEventClientFrameTcp:
 				p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventSourceReady:
 				evt.source.log("ready")
-				p.paths[evt.source.pathId].publisherSetReady()
+				p.paths[evt.source.pathName].publisherSetReady()
 
 			case programEventSourceNotReady:
 				evt.source.log("not ready")
-				p.paths[evt.source.pathId].publisherSetNotReady()
+				p.paths[evt.source.pathName].publisherSetNotReady()
 
 			case programEventSourceFrame:
-				p.forwardFrame(evt.source.pathId, evt.trackId, evt.streamType, evt.buf)
+				p.forwardFrame(evt.source.pathName, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventTerminate:
 				break outer
@@ -543,8 +543,8 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) findConfForPath(path string) *confPath {
-	if confp, ok := p.conf.Paths[path]; ok {
+func (p *program) findConfForPath(name string) *confPath {
+	if confp, ok := p.conf.Paths[name]; ok {
 		return confp
 	}
 
@@ -576,7 +576,7 @@ func (p *program) findUdpClientPublisher(addr *net.UDPAddr, streamType gortsplib
 
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for c := range p.clients {
-		if c.pathId != path ||
+		if c.pathName != path ||
 			c.state != clientStatePlay {
 			continue
 		}
