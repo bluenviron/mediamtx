@@ -421,14 +421,18 @@ outer:
 			case programEventClientRecord:
 				p.publisherCount += 1
 				evt.client.state = clientStateRecord
-				p.udpClientPublishers[makeIpKey(evt.client.ip())] = evt.client
+				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
+					p.udpClientPublishers[makeIpKey(evt.client.ip())] = evt.client
+				}
 				p.paths[evt.client.pathId].publisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
 				p.publisherCount -= 1
 				evt.client.state = clientStatePreRecord
-				delete(p.udpClientPublishers, makeIpKey(evt.client.ip()))
+				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
+					delete(p.udpClientPublishers, makeIpKey(evt.client.ip()))
+				}
 				p.paths[evt.client.pathId].publisherSetNotReady()
 				close(evt.done)
 
