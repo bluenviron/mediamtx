@@ -262,9 +262,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	for _, confp := range conf.Paths {
+	for path, confp := range conf.Paths {
 		if confp.RunOnInit != "" {
 			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
+			onInitCmd.Env = append(os.Environ(),
+				conf.PathEnvVariable+"="+path,
+			)
 			onInitCmd.Stdout = os.Stdout
 			onInitCmd.Stderr = os.Stderr
 			err := onInitCmd.Start()

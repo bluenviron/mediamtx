@@ -41,6 +41,7 @@ type conf struct {
 	RunOnConnect          string                                `yaml:"runOnConnect"`
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
+	PathEnvVariable       string                                `yaml:"pathEnvVariable"`
 	AuthMethods           []string                              `yaml:"authMethods"`
 	authMethodsParsed     []gortsplib.AuthMethod                ``
 	Metrics               bool                                  `yaml:"metrics"`
@@ -130,6 +131,14 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 	if conf.WriteTimeout == 0 {
 		conf.WriteTimeout = 5 * time.Second
+	}
+
+	if conf.PathEnvVariable == "" {
+		conf.PathEnvVariable = "RTSP_SERVER_PATH"
+	}
+	re := regexp.MustCompile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+	if !re.MatchString(conf.PathEnvVariable) {
+		return nil, fmt.Errorf("pathEnvVariable must consist of only alphanumerics and underscores, and should not begin with a digit")
 	}
 
 	if len(conf.AuthMethods) == 0 {
