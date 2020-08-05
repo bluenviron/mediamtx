@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -160,4 +161,14 @@ func makeIpKey(ip net.IP) ipKey {
 		copy(ret[:], ip)
 	}
 	return ret
+}
+
+var rePathName = regexp.MustCompile("^[0-9a-zA-Z_-]+$")
+
+func checkPathName(name string) error {
+	if !rePathName.MatchString(name) {
+		return fmt.Errorf("can contain only alfanumeric characters, underscore or minus")
+	}
+
+	return nil
 }

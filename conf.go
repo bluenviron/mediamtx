@@ -180,6 +180,11 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			confp = conf.Paths[name]
 		}
 
+		err := checkPathName(name)
+		if err != nil {
+			return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
+		}
+
 		if confp.Source == "" {
 			confp.Source = "record"
 		}

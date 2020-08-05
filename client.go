@@ -355,8 +355,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		if strings.Index(path, "/") >= 0 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("slashes in the path are not supported (%s)", path))
+		err := checkPathName(path)
+		if err != nil {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid path name: %s (%s)", err, path))
 			return false
 		}
 
@@ -367,7 +368,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.authenticate(confp.publishIpsParsed, confp.PublishUser, confp.PublishPass, req)
+		err = c.authenticate(confp.publishIpsParsed, confp.PublishUser, confp.PublishPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
