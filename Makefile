@@ -73,6 +73,7 @@ logDestinations: [stdout, file]
 
 paths:
   all:
+    runOnPublish: ffmpeg -i rtsp://localhost:8554/$$RTSP_SERVER_PATH -c copy -f mpegts myfile_$$RTSP_SERVER_PATH.ts
 #    readUser: test
 #    readPass: tast
 
