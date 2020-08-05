@@ -830,7 +830,7 @@ func (c *client) runPlay(path string) {
 	if confp.RunOnRead != "" {
 		onReadCmd = exec.Command("/bin/sh", "-c", confp.RunOnRead)
 		onReadCmd.Env = append(os.Environ(),
-			c.p.conf.PathEnvVariable+"="+path,
+			"RTSP_SERVER_PATH="+path,
 		)
 		onReadCmd.Stdout = os.Stdout
 		onReadCmd.Stderr = os.Stderr
@@ -932,7 +932,7 @@ func (c *client) runRecord(path string) {
 	if confp.RunOnPublish != "" {
 		onPublishCmd = exec.Command("/bin/sh", "-c", confp.RunOnPublish)
 		onPublishCmd.Env = append(os.Environ(),
-			c.p.conf.PathEnvVariable+"="+path,
+			"RTSP_SERVER_PATH="+path,
 		)
 		onPublishCmd.Stdout = os.Stdout
 		onPublishCmd.Stderr = os.Stderr

@@ -7,18 +7,20 @@ rtspPort: 8554
 rtpPort: 8000
 # port of the UDP RTCP listener
 rtcpPort: 8001
-# command to run when a client connects.
-# this is terminated with SIGINT when a client disconnects.
-runOnConnect:
+
 # timeout of read operations
 readTimeout: 10s
 # timeout of write operations
 writeTimeout: 5s
-# name of environment variable used to pass the path to runOnInit/Demand/Publish/Read
-pathEnvVariable: RTSP_SERVER_PATH
+
 # supported authentication methods
 # WARNING: both methods are insecure, use RTSP inside a VPN to enforce security.
 authMethods: [basic, digest]
+
+# command to run when a client connects.
+# this is terminated with SIGINT when a client disconnects.
+runOnConnect:
+
 # enable Prometheus-compatible metrics on port 9998
 metrics: false
 # enable pprof on port 9999 to monitor performances
@@ -45,26 +47,23 @@ paths:
     # command to run when this path is loaded by the program.
     # this can be used, for example, to publish a stream and keep it always opened.
     # This is terminated with SIGINT when the program closes.
-    # The path is available as an environment variable configured by pathEnvVariable
+    # The path can be accessed with the variable RTSP_SERVER_PATH
     runOnInit:
 
     # command to run when this path is requested.
     # This can be used, for example, to publish a stream on demand.
     # This is terminated with SIGINT when the path is not requested anymore.
-    # The actual path from the request (useful for wildcard paths) is available as an
-    # environment variable configured by pathEnvVariable
+    # The path can be accessed with the variable RTSP_SERVER_PATH
     runOnDemand:
 
     # command to run when a client starts publishing.
     # This is terminated with SIGINT when a client stops publishing.
-    # The actual path from the client (useful for wildcard paths) is available as an
-    # environment variable configured by pathEnvVariable
+    # The path can be accessed with the variable RTSP_SERVER_PATH
     runOnPublish:
 
     # command to run when a clients starts reading.
     # This is terminated with SIGINT when a client stops reading.
-    # The actual path from the client (useful for wildcard paths) is available as an
-    # environment variable configured by pathEnvVariable
+    # The path can be accessed with the variable RTSP_SERVER_PATH
     runOnRead:
 
     # username required to publish
