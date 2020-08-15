@@ -290,7 +290,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUDP(s.confp.sourceUrl)
+		tcpConnDone <- conn.LoopUdp(s.confp.sourceUrl)
 	}()
 
 	var ret bool
