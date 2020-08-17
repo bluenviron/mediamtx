@@ -52,7 +52,7 @@ Features:
 
 ## Advanced usage and FAQs
 
-#### Usage with Docker
+### Usage with Docker
 
 Download and launch the image:
 ```
@@ -69,11 +69,11 @@ and passing it to the container:
 docker run --rm -it -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml -p 8554:8554 aler9/rtsp-simple-server
 ```
 
-#### Full configuration file
+### Full configuration file
 
 To see or change the configuration, edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
 
-#### Usage as RTSP Proxy
+### Usage as RTSP Proxy
 
 An RTSP proxy is usually deployed in one of these scenarios:
 * when there are multiple users that are receiving a stream and the bandwidth is limited, so the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
@@ -89,7 +89,7 @@ paths:
 
 After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
 
-#### Convert a webcam into a RTSP server
+### Convert a webcam into a RTSP server
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
@@ -100,7 +100,7 @@ paths:
 
 After starting the server, the webcam can be opened with `rtsp://localhost:8554/webcam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
 
-#### On-demand publishing
+### On-demand publishing
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
@@ -111,7 +111,7 @@ paths:
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
 
-#### Remuxing, re-encoding, compression
+### Remuxing, re-encoding, compression
 
 _rtsp-simple-server_ is an RTSP server: it publishes existing streams and does not touch them. It is not a media server, that is a far more complex and heavy software that can receive existing streams, re-encode them and publish them.
 
@@ -123,7 +123,7 @@ paths:
     runOnPublish: ffmpeg -i rtsp://localhost:8554/$RTSP_SERVER_PATH -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
 ```
 
-#### Authentication
+### Authentication
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
@@ -151,7 +151,7 @@ paths:
 
 WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
 
-#### Start on boot with systemd
+### Start on boot with systemd
 
 Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
 
@@ -175,7 +175,7 @@ systemctl enable rtsp-simple-server
 systemctl start rtsp-simple-server
 ```
 
-#### Monitoring
+### Monitoring
 
 There are multiple ways to monitor the server usage over time:
 * The current number of clients, publishers and readers is printed in each log line; for instance, the line:
@@ -202,7 +202,7 @@ There are multiple ways to monitor the server usage over time:
   docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
   ```
 
-#### Full command-line usage
+### Full command-line usage
 
 ```
 usage: rtsp-simple-server [<flags>]
@@ -220,7 +220,7 @@ Args:
                 read config from stdin
 ```
 
-#### Compile and run from source
+### Compile and run from source
 
 Install Go &ge; 1.12, download the repository, open a terminal in it and run:
 ```
