@@ -252,14 +252,16 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
-	if err != nil {
-		return nil, err
-	}
+	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+		p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
+		if err != nil {
+			return nil, err
+		}
 
-	p.serverRtsp, err = newServerTcp(p)
-	if err != nil {
-		return nil, err
+		p.serverRtsp, err = newServerTcp(p)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	for name, confp := range conf.Paths {
@@ -545,8 +547,11 @@ outer:
 	}
 
 	p.serverRtsp.close()
-	p.serverRtcp.close()
-	p.serverRtp.close()
+
+	if _, ok := p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+		p.serverRtcp.close()
+		p.serverRtp.close()
+	}
 
 	for c := range p.clients {
 		c.conn.NetConn().Close()

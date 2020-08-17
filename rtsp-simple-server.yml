@@ -3,9 +3,9 @@
 protocols: [udp, tcp]
 # port of the TCP RTSP listener
 rtspPort: 8554
-# port of the UDP RTP listener
+# port of the UDP RTP listener (used only if udp is in protocols)
 rtpPort: 8000
-# port of the UDP RTCP listener
+# port of the UDP RTCP listener (used only if udp is in protocols)
 rtcpPort: 8001
 
 # timeout of read operations
@@ -13,8 +13,7 @@ readTimeout: 10s
 # timeout of write operations
 writeTimeout: 5s
 
-# supported authentication methods
-# WARNING: both methods are insecure, use RTSP inside a VPN to enforce security.
+# supported authentication methods (both are insecure, use RTSP inside a VPN to enforce security)
 authMethods: [basic, digest]
 
 # command to run when a client connects.
