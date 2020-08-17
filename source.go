@@ -212,7 +212,7 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 		for {
 			// choose two consecutive ports in range 65536-10000
-			// rtp must be pair and rtcp odd
+			// rtp must be even and rtcp odd
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
