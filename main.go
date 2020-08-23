@@ -163,19 +163,19 @@ type programEventTerminate struct{}
 func (programEventTerminate) isProgramEvent() {}
 
 type program struct {
-	conf                *conf
-	logFile             *os.File
-	metrics             *metrics
-	serverRtsp          *serverTcp
-	serverRtp           *serverUdp
-	serverRtcp          *serverUdp
-	sources             []*source
-	clients             map[*client]struct{}
-	udpClientPublishers map[ipKey]*client
-	paths               map[string]*path
-	cmds                []*exec.Cmd
-	publisherCount      int
-	readerCount         int
+	conf             *conf
+	logFile          *os.File
+	metrics          *metrics
+	serverRtsp       *serverTcp
+	serverRtp        *serverUdp
+	serverRtcp       *serverUdp
+	sources          []*source
+	clients          map[*client]struct{}
+	udpClientsByAddr map[udpClientAddr]*udpClient
+	paths            map[string]*path
+	cmds             []*exec.Cmd
+	publisherCount   int
+	readerCount      int
 
 	events chan programEvent
 	done   chan struct{}
@@ -201,12 +201,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	p := &program{
-		conf:                conf,
-		clients:             make(map[*client]struct{}),
-		udpClientPublishers: make(map[ipKey]*client),
-		paths:               make(map[string]*path),
-		events:              make(chan programEvent),
-		done:                make(chan struct{}),
+		conf:             conf,
+		clients:          make(map[*client]struct{}),
+		udpClientsByAddr: make(map[udpClientAddr]*udpClient),
+		paths:            make(map[string]*path),
+		events:           make(chan programEvent),
+		done:             make(chan struct{}),
 	}
 
 	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
@@ -218,17 +218,17 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 
 	p.log("rtsp-simple-server %s", Version)
 
-	for path, confp := range conf.Paths {
-		if path == "all" {
+	for name, confp := range conf.Paths {
+		if name == "all" {
 			continue
 		}
 
-		p.paths[path] = newPath(p, path, confp, true)
+		p.paths[name] = newPath(p, name, confp, true)
 
 		if confp.Source != "record" {
-			s := newSource(p, path, confp)
+			s := newSource(p, name, confp)
 			p.sources = append(p.sources, s)
-			p.paths[path].publisher = s
+			p.paths[name].publisher = s
 		}
 	}
 
@@ -252,19 +252,24 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
-	if err != nil {
-		return nil, err
+	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+		p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
+		if err != nil {
+			return nil, err
+		}
+
+		p.serverRtsp, err = newServerTcp(p)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	p.serverRtsp, err = newServerTcp(p)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, confp := range conf.Paths {
+	for name, confp := range conf.Paths {
 		if confp.RunOnInit != "" {
 			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
+			onInitCmd.Env = append(os.Environ(),
+				"RTSP_SERVER_PATH="+name,
+			)
 			onInitCmd.Stdout = os.Stdout
 			onInitCmd.Stderr = os.Stderr
 			err := onInitCmd.Start()
@@ -331,13 +336,13 @@ outer:
 			case programEventClientClose:
 				delete(p.clients, evt.client)
 
-				if evt.client.pathId != "" {
-					if path, ok := p.paths[evt.client.pathId]; ok {
+				if evt.client.pathName != "" {
+					if path, ok := p.paths[evt.client.pathName]; ok {
 						if path.publisher == evt.client {
 							path.publisherRemove()
 
 							if !path.permanent {
-								delete(p.paths, evt.client.pathId)
+								delete(p.paths, evt.client.pathName)
 							}
 						}
 					}
@@ -370,7 +375,7 @@ outer:
 				p.paths[evt.path].publisherSdpText = evt.sdpText
 				p.paths[evt.path].publisherSdpParsed = evt.sdpParsed
 
-				evt.client.pathId = evt.path
+				evt.client.pathName = evt.path
 				evt.client.state = clientStateAnnounce
 				evt.res <- nil
 
@@ -386,7 +391,7 @@ outer:
 					continue
 				}
 
-				evt.client.pathId = evt.path
+				evt.client.pathName = evt.path
 				evt.client.state = clientStatePrePlay
 				evt.res <- nil
 
@@ -395,9 +400,9 @@ outer:
 				evt.res <- nil
 
 			case programEventClientPlay1:
-				path, ok := p.paths[evt.client.pathId]
+				path, ok := p.paths[evt.client.pathName]
 				if !ok || !path.publisherReady {
-					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.pathId)
+					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.pathName)
 					continue
 				}
 
@@ -421,39 +426,70 @@ outer:
 			case programEventClientRecord:
 				p.publisherCount += 1
 				evt.client.state = clientStateRecord
-				p.udpClientPublishers[makeIpKey(evt.client.ip())] = evt.client
-				p.paths[evt.client.pathId].publisherSetReady()
+
+				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
+					for trackId, track := range evt.client.streamTracks {
+						key := makeUdpClientAddr(evt.client.ip(), track.rtpPort)
+						p.udpClientsByAddr[key] = &udpClient{
+							client:     evt.client,
+							trackId:    trackId,
+							streamType: gortsplib.StreamTypeRtp,
+						}
+
+						key = makeUdpClientAddr(evt.client.ip(), track.rtcpPort)
+						p.udpClientsByAddr[key] = &udpClient{
+							client:     evt.client,
+							trackId:    trackId,
+							streamType: gortsplib.StreamTypeRtcp,
+						}
+					}
+				}
+
+				p.paths[evt.client.pathName].publisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
 				p.publisherCount -= 1
 				evt.client.state = clientStatePreRecord
-				delete(p.udpClientPublishers, makeIpKey(evt.client.ip()))
-				p.paths[evt.client.pathId].publisherSetNotReady()
+				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
+					for _, track := range evt.client.streamTracks {
+						key := makeUdpClientAddr(evt.client.ip(), track.rtpPort)
+						delete(p.udpClientsByAddr, key)
+
+						key = makeUdpClientAddr(evt.client.ip(), track.rtcpPort)
+						delete(p.udpClientsByAddr, key)
+					}
+				}
+				p.paths[evt.client.pathName].publisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
-				client, trackId := p.findUdpClientPublisher(evt.addr, evt.streamType)
-				if client == nil {
+				pub, ok := p.udpClientsByAddr[makeUdpClientAddr(evt.addr.IP, evt.addr.Port)]
+				if !ok {
 					continue
 				}
 
-				client.rtcpReceivers[trackId].OnFrame(evt.streamType, evt.buf)
-				p.forwardFrame(client.pathId, trackId, evt.streamType, evt.buf)
+				// client sent RTP on RTCP port or vice-versa
+				if pub.streamType != evt.streamType {
+					continue
+				}
+
+				pub.client.rtcpReceivers[pub.trackId].OnFrame(evt.streamType, evt.buf)
+				p.forwardFrame(pub.client.pathName, pub.trackId, evt.streamType, evt.buf)
 
 			case programEventClientFrameTcp:
 				p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventSourceReady:
 				evt.source.log("ready")
-				p.paths[evt.source.pathId].publisherSetReady()
+				p.paths[evt.source.pathName].publisherSetReady()
 
 			case programEventSourceNotReady:
 				evt.source.log("not ready")
-				p.paths[evt.source.pathId].publisherSetNotReady()
+				p.paths[evt.source.pathName].publisherSetNotReady()
 
 			case programEventSourceFrame:
-				p.forwardFrame(evt.source.pathId, evt.trackId, evt.streamType, evt.buf)
+				p.forwardFrame(evt.source.pathName, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventTerminate:
 				break outer
@@ -511,8 +547,11 @@ outer:
 	}
 
 	p.serverRtsp.close()
-	p.serverRtcp.close()
-	p.serverRtp.close()
+
+	if _, ok := p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+		p.serverRtcp.close()
+		p.serverRtp.close()
+	}
 
 	for c := range p.clients {
 		c.conn.NetConn().Close()
@@ -536,8 +575,8 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) findConfForPath(path string) *confPath {
-	if confp, ok := p.conf.Paths[path]; ok {
+func (p *program) findConfForPath(name string) *confPath {
+	if confp, ok := p.conf.Paths[name]; ok {
 		return confp
 	}
 
@@ -548,28 +587,9 @@ func (p *program) findConfForPath(path string) *confPath {
 	return nil
 }
 
-func (p *program) findUdpClientPublisher(addr *net.UDPAddr, streamType gortsplib.StreamType) (*client, int) {
-	c, ok := p.udpClientPublishers[makeIpKey(addr.IP)]
-	if ok {
-		for i, t := range c.streamTracks {
-			if streamType == gortsplib.StreamTypeRtp {
-				if t.rtpPort == addr.Port {
-					return c, i
-				}
-			} else {
-				if t.rtcpPort == addr.Port {
-					return c, i
-				}
-			}
-		}
-	}
-
-	return nil, -1
-}
-
 func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for c := range p.clients {
-		if c.pathId != path ||
+		if c.pathName != path ||
 			c.state != clientStatePlay {
 			continue
 		}

@@ -24,6 +24,33 @@ const (
 	clientUdpWriteBufferSize     = 128 * 1024
 )
 
+type udpClient struct {
+	client     *client
+	trackId    int
+	streamType gortsplib.StreamType
+}
+
+type udpClientAddr struct {
+	// use a fixed-size array for ip comparison
+	ip   [net.IPv6len]byte
+	port int
+}
+
+func makeUdpClientAddr(ip net.IP, port int) udpClientAddr {
+	ret := udpClientAddr{
+		port: port,
+	}
+
+	if len(ip) == net.IPv4len {
+		copy(ret.ip[0:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}) // v4InV6Prefix
+		copy(ret.ip[12:], ip)
+	} else {
+		copy(ret.ip[:], ip)
+	}
+
+	return ret
+}
+
 type describeRes struct {
 	sdp []byte
 	err error
@@ -83,7 +110,7 @@ type client struct {
 	p              *program
 	conn           *gortsplib.ConnServer
 	state          clientState
-	pathId         string
+	pathName       string
 	authUser       string
 	authPass       string
 	authHelper     *gortsplib.AuthServer
@@ -355,8 +382,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		if strings.Index(path, "/") >= 0 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("slashes in the path are not supported (%s)", path))
+		err := checkPathName(path)
+		if err != nil {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid path name: %s (%s)", err, path))
 			return false
 		}
 
@@ -367,7 +395,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		err := c.authenticate(confp.publishIpsParsed, confp.PublishUser, confp.PublishPass, req)
+		err = c.authenticate(confp.publishIpsParsed, confp.PublishUser, confp.PublishPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return false
@@ -459,8 +487,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return true
 			}
 
-			if c.pathId != "" && basePath != c.pathId {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
+			if c.pathName != "" && basePath != c.pathName {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
 				return false
 			}
 
@@ -592,9 +620,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}
 
-			// after ANNOUNCE, c.pathId is already set
-			if basePath != c.pathId {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, basePath))
+			// after ANNOUNCE, c.pathName is already set
+			if basePath != c.pathName {
+				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
 				return false
 			}
 
@@ -626,7 +654,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.p.paths[c.pathId].publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -684,7 +712,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.p.paths[c.pathId].publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -737,8 +765,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
-		if path != c.pathId {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, path))
+		if path != c.pathName {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
 
@@ -775,12 +803,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
-		if path != c.pathId {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathId, path))
+		if path != c.pathName {
+			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
 
-		if len(c.streamTracks) != len(c.p.paths[c.pathId].publisherSdpParsed.MediaDescriptions) {
+		if len(c.streamTracks) != len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
 			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return false
 		}
@@ -819,7 +847,7 @@ func (c *client) runPlay(path string) {
 	c.p.events <- programEventClientPlay2{done, c}
 	<-done
 
-	c.log("is receiving on path '%s', %d %s via %s", c.pathId, len(c.streamTracks), func() string {
+	c.log("is receiving on path '%s', %d %s via %s", c.pathName, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -829,6 +857,9 @@ func (c *client) runPlay(path string) {
 	var onReadCmd *exec.Cmd
 	if confp.RunOnRead != "" {
 		onReadCmd = exec.Command("/bin/sh", "-c", confp.RunOnRead)
+		onReadCmd.Env = append(os.Environ(),
+			"RTSP_SERVER_PATH="+path,
+		)
 		onReadCmd.Stdout = os.Stdout
 		onReadCmd.Stderr = os.Stderr
 		err := onReadCmd.Start()
@@ -918,7 +949,7 @@ func (c *client) runRecord(path string) {
 	c.p.events <- programEventClientRecord{done, c}
 	<-done
 
-	c.log("is publishing on path '%s', %d %s via %s", c.pathId, len(c.streamTracks), func() string {
+	c.log("is publishing on path '%s', %d %s via %s", c.pathName, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -928,6 +959,9 @@ func (c *client) runRecord(path string) {
 	var onPublishCmd *exec.Cmd
 	if confp.RunOnPublish != "" {
 		onPublishCmd = exec.Command("/bin/sh", "-c", confp.RunOnPublish)
+		onPublishCmd.Env = append(os.Environ(),
+			"RTSP_SERVER_PATH="+path,
+		)
 		onPublishCmd.Stdout = os.Stdout
 		onPublishCmd.Stderr = os.Stderr
 		err := onPublishCmd.Start()
@@ -1019,7 +1053,7 @@ func (c *client) runRecord(path string) {
 
 					c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
 					c.p.events <- programEventClientFrameTcp{
-						c.pathId,
+						c.pathName,
 						frame.TrackId,
 						frame.StreamType,
 						frame.Content,

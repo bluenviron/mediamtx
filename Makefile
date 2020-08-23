@@ -1,7 +1,7 @@
 
-.PHONY: $(shell ls)
-
 BASE_IMAGE = golang:1.14-alpine3.12
+
+.PHONY: $(shell ls)
 
 help:
 	@echo "usage: make [action]"
@@ -73,14 +73,15 @@ logDestinations: [stdout, file]
 
 paths:
   all:
+#    runOnPublish: ffmpeg -i rtsp://localhost:8554/$$RTSP_SERVER_PATH -c copy -f mpegts myfile_$$RTSP_SERVER_PATH.ts
 #    readUser: test
 #    readPass: tast
 
-  proxied:
+#  proxied:
 #    source: rtsp://192.168.2.198:8554/stream
 #    sourceProtocol: tcp
 #    sourceOnDemand: yes
-    runOnDemand: ffmpeg -i rtsp://192.168.2.198:8554/stream -c copy -f rtsp rtsp://localhost:8554/proxied2
+#    runOnDemand: ffmpeg -i rtsp://192.168.2.198:8554/stream -c copy -f rtsp rtsp://localhost:8554/proxied2
 
 #  original:
 #    runOnPublish: ffmpeg -i rtsp://localhost:8554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed

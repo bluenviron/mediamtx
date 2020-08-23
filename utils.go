@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -148,16 +149,12 @@ func splitPath(path string) (string, string, error) {
 	return comps[0], comps[1], nil
 }
 
-// use a fixed-size array for ip comparison
-type ipKey [net.IPv6len]byte
+var rePathName = regexp.MustCompile("^[0-9a-zA-Z_-]+$")
 
-func makeIpKey(ip net.IP) ipKey {
-	var ret ipKey
-	if len(ip) == net.IPv4len {
-		copy(ret[0:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}) // v4InV6Prefix
-		copy(ret[12:], ip)
-	} else {
-		copy(ret[:], ip)
+func checkPathName(name string) error {
+	if !rePathName.MatchString(name) {
+		return fmt.Errorf("can contain only alfanumeric characters, underscore or minus")
 	}
-	return ret
+
+	return nil
 }
