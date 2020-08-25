@@ -118,8 +118,6 @@ type client struct {
 	streamProtocol gortsplib.StreamProtocol
 	streamTracks   map[int]*clientTrack
 	rtcpReceivers  []*gortsplib.RtcpReceiver
-	readBuf        *doubleBuffer
-	writeBuf       *doubleBuffer
 
 	describeRes chan describeRes
 	events      chan clientEvent // only if state = Play and gortsplib.StreamProtocol = TCP
@@ -136,7 +134,6 @@ func newClient(p *program, nconn net.Conn) *client {
 		}),
 		state:        clientStateInitial,
 		streamTracks: make(map[int]*clientTrack),
-		readBuf:      newDoubleBuffer(clientTcpReadBufferSize),
 		done:         make(chan struct{}),
 	}
 
@@ -838,7 +835,6 @@ func (c *client) runPlay(path string) {
 	confp := c.p.findConfForPath(path)
 
 	if c.streamProtocol == gortsplib.StreamProtocolTcp {
-		c.writeBuf = newDoubleBuffer(clientTcpWriteBufferSize)
 		c.events = make(chan clientEvent)
 	}
 
@@ -1030,11 +1026,12 @@ func (c *client) runRecord(path string) {
 
 	} else {
 		frame := &gortsplib.InterleavedFrame{}
+		readBuf := newMultiBuffer(3, clientTcpReadBufferSize)
 
 		readDone := make(chan error)
 		go func() {
 			for {
-				frame.Content = c.readBuf.swap()
+				frame.Content = readBuf.next()
 				frame.Content = frame.Content[:cap(frame.Content)]
 
 				recv, err := c.conn.ReadFrameOrRequest(frame)

@@ -69,7 +69,7 @@ define CONFIG_RUN
 #rtpPort: 8002
 #rtcpPort: 8003
 #metrics: yes
-logDestinations: [stdout, file]
+pprof: yes
 
 paths:
   all:

@@ -257,9 +257,9 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
 			defer wg.Done()
 
-			doubleBuf := newDoubleBuffer(sourceUdpReadBufferSize)
+			multiBuf := newMultiBuffer(3, sourceUdpReadBufferSize)
 			for {
-				buf := doubleBuf.swap()
+				buf := multiBuf.next()
 
 				n, err := l.Read(buf)
 				if err != nil {
@@ -274,9 +274,9 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
 			defer wg.Done()
 
-			doubleBuf := newDoubleBuffer(sourceUdpReadBufferSize)
+			multiBuf := newMultiBuffer(3, sourceUdpReadBufferSize)
 			for {
-				buf := doubleBuf.swap()
+				buf := multiBuf.next()
 
 				n, err := l.Read(buf)
 				if err != nil {
@@ -340,12 +340,12 @@ func (s *source) runTcp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 	s.p.events <- programEventSourceReady{s}
 
 	frame := &gortsplib.InterleavedFrame{}
-	doubleBuf := newDoubleBuffer(sourceTcpReadBufferSize)
+	multiBuf := newMultiBuffer(3, sourceTcpReadBufferSize)
 
 	tcpConnDone := make(chan error)
 	go func() {
 		for {
-			frame.Content = doubleBuf.swap()
+			frame.Content = multiBuf.next()
 			frame.Content = frame.Content[:cap(frame.Content)]
 
 			err := conn.ReadFrame(frame)

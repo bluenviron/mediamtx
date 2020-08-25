@@ -52,27 +52,28 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 	return false
 }
 
-type doubleBuffer struct {
-	buf1   []byte
-	buf2   []byte
-	curBuf bool
+type multiBuffer struct {
+	buffers [][]byte
+	curBuf  int
 }
 
-func newDoubleBuffer(size int) *doubleBuffer {
-	return &doubleBuffer{
-		buf1: make([]byte, size),
-		buf2: make([]byte, size),
+func newMultiBuffer(count int, size int) *multiBuffer {
+	buffers := make([][]byte, count)
+	for i := 0; i < count; i++ {
+		buffers[i] = make([]byte, size)
+	}
+
+	return &multiBuffer{
+		buffers: buffers,
 	}
 }
 
-func (db *doubleBuffer) swap() []byte {
-	var ret []byte
-	if !db.curBuf {
-		ret = db.buf1
-	} else {
-		ret = db.buf2
+func (mb *multiBuffer) next() []byte {
+	ret := mb.buffers[mb.curBuf]
+	mb.curBuf += 1
+	if mb.curBuf >= len(mb.buffers) {
+		mb.curBuf = 0
 	}
-	db.curBuf = !db.curBuf
 	return ret
 }
 

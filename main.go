@@ -621,15 +621,11 @@ func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.St
 			}
 
 		} else {
-			buf := c.writeBuf.swap()
-			buf = buf[:len(frame)]
-			copy(buf, frame)
-
 			c.events <- clientEventFrameTcp{
 				frame: &gortsplib.InterleavedFrame{
 					TrackId:    trackId,
 					StreamType: streamType,
-					Content:    buf,
+					Content:    frame,
 				},
 			}
 		}

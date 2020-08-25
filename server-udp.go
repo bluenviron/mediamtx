@@ -16,8 +16,7 @@ type serverUdp struct {
 	p          *program
 	nconn      *net.UDPConn
 	streamType gortsplib.StreamType
-	readBuf    *doubleBuffer
-	writeBuf   *doubleBuffer
+	readBuf    *multiBuffer
 
 	writeChan chan *udpAddrBufPair
 	done      chan struct{}
@@ -35,8 +34,7 @@ func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serve
 		p:          p,
 		nconn:      nconn,
 		streamType: streamType,
-		readBuf:    newDoubleBuffer(clientUdpReadBufferSize),
-		writeBuf:   newDoubleBuffer(clientUdpWriteBufferSize),
+		readBuf:    newMultiBuffer(3, clientUdpReadBufferSize),
 		writeChan:  make(chan *udpAddrBufPair),
 		done:       make(chan struct{}),
 	}
@@ -66,7 +64,7 @@ func (l *serverUdp) run() {
 	}()
 
 	for {
-		buf := l.readBuf.swap()
+		buf := l.readBuf.next()
 		n, addr, err := l.nconn.ReadFromUDP(buf)
 		if err != nil {
 			break
@@ -91,11 +89,5 @@ func (l *serverUdp) close() {
 }
 
 func (l *serverUdp) write(pair *udpAddrBufPair) {
-	// replace input buffer with write buffer
-	buf := l.writeBuf.swap()
-	buf = buf[:len(pair.buf)]
-	copy(buf, pair.buf)
-	pair.buf = buf
-
 	l.writeChan <- pair
 }
