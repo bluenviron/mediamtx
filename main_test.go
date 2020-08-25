@@ -124,7 +124,7 @@ func TestPublish(t *testing.T) {
 
 			default:
 				cnt1, err := newContainer("gstreamer", "source", []string{
-					"filesrc location=emptyvideo.ts ! tsdemux ! rtspclientsink " +
+					"filesrc location=emptyvideo.ts ! tsdemux ! queue ! video/x-h264 ! rtspclientsink " +
 						"location=rtsp://" + ownDockerIp + ":8554/teststream protocols=" + conf.publishProto + " latency=0",
 				})
 				require.NoError(t, err)
