@@ -21,9 +21,9 @@ authMethods: [basic, digest]
 runOnConnect:
 
 # enable Prometheus-compatible metrics on port 9998
-metrics: false
+metrics: no
 # enable pprof on port 9999 to monitor performances
-pprof: false
+pprof: no
 # destinations of log messages; available options are 'stdout' and 'file'
 logDestinations: [stdout]
 # if 'file' is in logDestinations, this is the file that will receive the logs
