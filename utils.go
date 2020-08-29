@@ -5,7 +5,6 @@ import (
 	"net"
 	"regexp"
 	"strconv"
-	"strings"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/sdp/v3"
@@ -130,31 +129,46 @@ func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
 }
 
 func splitPath(path string) (string, string, error) {
-	comps := strings.Split(path, "/")
-	if len(comps) < 2 {
+	pos := func() int {
+		for i := len(path) - 1; i >= 0; i-- {
+			if path[i] == '/' {
+				return i
+			}
+		}
+		return -1
+	}()
+
+	if pos < 0 {
 		return "", "", fmt.Errorf("the path must contain a base path and a control path (%s)", path)
 	}
 
-	if len(comps) > 2 {
-		return "", "", fmt.Errorf("slashes in the path are not supported (%s)", path)
+	basePath := path[:pos]
+	controlPath := path[pos+1:]
+
+	if len(basePath) == 0 {
+		return "", "", fmt.Errorf("empty base path (%s)", basePath)
 	}
 
-	if len(comps[0]) == 0 {
-		return "", "", fmt.Errorf("empty base path (%s)", path)
+	if len(controlPath) == 0 {
+		return "", "", fmt.Errorf("empty control path (%s)", controlPath)
 	}
 
-	if len(comps[1]) == 0 {
-		return "", "", fmt.Errorf("empty control path (%s)", path)
-	}
-
-	return comps[0], comps[1], nil
+	return basePath, controlPath, nil
 }
 
-var rePathName = regexp.MustCompile("^[0-9a-zA-Z_-]+$")
+var rePathName = regexp.MustCompile("^[0-9a-zA-Z_\\-/]+$")
 
 func checkPathName(name string) error {
 	if !rePathName.MatchString(name) {
-		return fmt.Errorf("can contain only alfanumeric characters, underscore or minus")
+		return fmt.Errorf("can contain only alfanumeric characters, underscore, minus or slash")
+	}
+
+	if name[0] == '/' {
+		return fmt.Errorf("can't begin with a slash")
+	}
+
+	if name[len(name)-1] == '/' {
+		return fmt.Errorf("can't end with a slash")
 	}
 
 	return nil
