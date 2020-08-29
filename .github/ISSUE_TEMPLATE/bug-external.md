@@ -1,7 +1,6 @@
 ---
-name: Communication issue with an external camera or software
-about: Some bugs are caused by different RTSP implementations between the
-  server and the target
+name: 'Bug: communication with an external camera or another software'
+about: Bug that arised when using the software with an external camera or another software
 title: ''
 labels: ''
 assignees: ''
@@ -9,7 +8,7 @@ assignees: ''
 ---
 
 <!--
-The most helpful content you can provide to fix a communication issue between rtsp-simple-server and an external hardware or software, is a network dump of the data exchanged between the server and the target, that can be generated in this way:
+The most helpful content you can provide to fix a communication issue between rtsp-simple-server and an external hardware or software, is a dump of the data exchanged between the server and the target (network dump), that can be generated in this way:
 1) Download wireshark (https://www.wireshark.org/)
 2) Start capturing on the interface used for exchanging RTSP (if the server and the target software are both installed in your pc, the interface is probably "loopback", otherwise it's the one of your network card)
 3) Start the server and replicate the issue
@@ -27,4 +26,4 @@ Description
 
 ## Did you attach a network dump?
 
-yes
+yes / no

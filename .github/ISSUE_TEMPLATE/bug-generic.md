@@ -1,6 +1,6 @@
 ---
-name: Blank issue, question or enhancement request
-about: Blank issue, question or enhancement request
+name: 'Bug: generic'
+about: Generic bug
 title: ''
 labels: ''
 assignees: ''
