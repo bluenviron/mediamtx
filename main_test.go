@@ -213,6 +213,41 @@ func TestRead(t *testing.T) {
 	}
 }
 
+func TestTcpOnly(t *testing.T) {
+	stdin := []byte("\n" +
+		"protocols: [tcp]\n")
+	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+	require.NoError(t, err)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "publish", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "/emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"-rtsp_transport", "tcp",
+		"rtsp://" + ownDockerIp + ":8554/teststream",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	cnt2, err := newContainer("ffmpeg", "read", []string{
+		"-rtsp_transport", "tcp",
+		"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	code := cnt2.wait()
+	require.Equal(t, 0, code)
+}
+
 func TestAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		stdin := []byte("\n" +

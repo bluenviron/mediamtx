@@ -247,21 +247,21 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		http.DefaultServeMux = http.NewServeMux()
 	}
 
-	p.serverRtp, err = newServerUdp(p, conf.RtpPort, gortsplib.StreamTypeRtp)
-	if err != nil {
-		return nil, err
-	}
-
 	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+		p.serverRtp, err = newServerUdp(p, conf.RtpPort, gortsplib.StreamTypeRtp)
+		if err != nil {
+			return nil, err
+		}
+
 		p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
 		if err != nil {
 			return nil, err
 		}
+	}
 
-		p.serverRtsp, err = newServerTcp(p)
-		if err != nil {
-			return nil, err
-		}
+	p.serverRtsp, err = newServerTcp(p)
+	if err != nil {
+		return nil, err
 	}
 
 	for name, confp := range conf.Paths {
@@ -284,12 +284,18 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	if p.metrics != nil {
 		go p.metrics.run()
 	}
-	go p.serverRtp.run()
-	go p.serverRtcp.run()
-	go p.serverRtsp.run()
+
+	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+		go p.serverRtp.run()
+		go p.serverRtcp.run()
+	}
+
 	for _, s := range p.sources {
 		go s.run()
 	}
+
+	go p.serverRtsp.run()
+
 	go p.run()
 
 	return p, nil
@@ -541,12 +547,12 @@ outer:
 		cmd.Wait()
 	}
 
+	p.serverRtsp.close()
+
 	for _, s := range p.sources {
 		s.events <- sourceEventTerminate{}
 		<-s.done
 	}
-
-	p.serverRtsp.close()
 
 	if _, ok := p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
 		p.serverRtcp.close()
