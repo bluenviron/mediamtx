@@ -1,15 +1,9 @@
 language: minimal
 
-dist: bionic
+dist: focal
 
 services:
 - docker
-
-# docker >= 19.03 is required for docker buildx, so it is upgraded
-before_install:
-- sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-- sudo apt update -y
-- sudo apt install --only-upgrade docker-ce -y
 
 script:
 - make test
