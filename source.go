@@ -170,16 +170,16 @@ func (s *source) doInner(terminate chan struct{}) bool {
 		return true
 	}
 
-	defer conn.Close()
-
 	_, err = conn.Options(s.confp.sourceUrl)
 	if err != nil {
+		conn.Close()
 		s.log("ERR: %s", err)
 		return true
 	}
 
 	tracks, _, err := conn.Describe(s.confp.sourceUrl)
 	if err != nil {
+		conn.Close()
 		s.log("ERR: %s", err)
 		return true
 	}
@@ -199,24 +199,17 @@ func (s *source) doInner(terminate chan struct{}) bool {
 }
 
 func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) bool {
-	type trackListenerPair struct {
-		serverRtp  *gortsplib.ConnClientUdpListener
-		serverRtcp *gortsplib.ConnClientUdpListener
-	}
-	var listeners []*trackListenerPair
+	var rtpReads []gortsplib.UdpReadFunc
+	var rtcpReads []gortsplib.UdpReadFunc
 
 	for _, track := range s.tracks {
-		var serverRtp *gortsplib.ConnClientUdpListener
-		var serverRtcp *gortsplib.ConnClientUdpListener
-		var err error
-
 		for {
 			// choose two consecutive ports in range 65536-10000
 			// rtp must be even and rtcp odd
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
-			serverRtp, serverRtcp, _, err = conn.SetupUdp(s.confp.sourceUrl, track, rtpPort, rtcpPort)
+			rtpRead, rtcpRead, _, err := conn.SetupUdp(s.confp.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
 				// retry if it's a bind error
 				if nerr, ok := err.(*net.OpError); ok {
@@ -227,21 +220,20 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 					}
 				}
 
+				conn.Close()
 				s.log("ERR: %s", err)
 				return true
 			}
 
+			rtpReads = append(rtpReads, rtpRead)
+			rtcpReads = append(rtcpReads, rtcpRead)
 			break
 		}
-
-		listeners = append(listeners, &trackListenerPair{
-			serverRtp:  serverRtp,
-			serverRtcp: serverRtcp,
-		})
 	}
 
 	_, err := conn.Play(s.confp.sourceUrl)
 	if err != nil {
+		conn.Close()
 		s.log("ERR: %s", err)
 		return true
 	}
@@ -250,42 +242,44 @@ func (s *source) runUdp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 	var wg sync.WaitGroup
 
-	for trackId, lp := range listeners {
-		wg.Add(2)
-
-		// receive RTP packets
-		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
+	// receive RTP packets
+	for trackId, rtpRead := range rtpReads {
+		wg.Add(1)
+		go func(trackId int, rtpRead gortsplib.UdpReadFunc) {
 			defer wg.Done()
 
 			multiBuf := newMultiBuffer(3, sourceUdpReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
-				n, err := l.Read(buf)
+				n, err := rtpRead(buf)
 				if err != nil {
 					break
 				}
 
 				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
 			}
-		}(trackId, lp.serverRtp)
+		}(trackId, rtpRead)
+	}
 
-		// receive RTCP packets
-		go func(trackId int, l *gortsplib.ConnClientUdpListener) {
+	// receive RTCP packets
+	for trackId, rtcpRead := range rtcpReads {
+		wg.Add(1)
+		go func(trackId int, rtcpRead gortsplib.UdpReadFunc) {
 			defer wg.Done()
 
 			multiBuf := newMultiBuffer(3, sourceUdpReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
-				n, err := l.Read(buf)
+				n, err := rtcpRead(buf)
 				if err != nil {
 					break
 				}
 
 				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
 			}
-		}(trackId, lp.serverRtcp)
+		}(trackId, rtcpRead)
 	}
 
 	tcpConnDone := make(chan error)
@@ -299,25 +293,22 @@ outer:
 	for {
 		select {
 		case <-terminate:
-			conn.NetConn().Close()
+			conn.Close()
 			<-tcpConnDone
 			ret = false
 			break outer
 
 		case err := <-tcpConnDone:
+			conn.Close()
 			s.log("ERR: %s", err)
 			ret = true
 			break outer
 		}
 	}
 
-	s.p.events <- programEventSourceNotReady{s}
-
-	for _, lp := range listeners {
-		lp.serverRtp.Close()
-		lp.serverRtcp.Close()
-	}
 	wg.Wait()
+
+	s.p.events <- programEventSourceNotReady{s}
 
 	return ret
 }
@@ -326,6 +317,7 @@ func (s *source) runTcp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 	for _, track := range s.tracks {
 		_, err := conn.SetupTcp(s.confp.sourceUrl, track)
 		if err != nil {
+			conn.Close()
 			s.log("ERR: %s", err)
 			return true
 		}
@@ -333,6 +325,7 @@ func (s *source) runTcp(terminate chan struct{}, conn *gortsplib.ConnClient) boo
 
 	_, err := conn.Play(s.confp.sourceUrl)
 	if err != nil {
+		conn.Close()
 		s.log("ERR: %s", err)
 		return true
 	}
@@ -364,12 +357,13 @@ outer:
 	for {
 		select {
 		case <-terminate:
-			conn.NetConn().Close()
+			conn.Close()
 			<-tcpConnDone
 			ret = false
 			break outer
 
 		case err := <-tcpConnDone:
+			conn.Close()
 			s.log("ERR: %s", err)
 			ret = true
 			break outer

@@ -887,13 +887,29 @@ func (c *client) runPlay(path string) {
 	} else {
 		readDone := make(chan error)
 		go func() {
-			buf := make([]byte, 2048)
+			frame := &gortsplib.InterleavedFrame{}
+			readBuf := make([]byte, clientTcpReadBufferSize)
 
 			for {
-				_, err := c.conn.NetConn().Read(buf)
+				frame.Content = readBuf
+				frame.Content = frame.Content[:cap(frame.Content)]
+
+				recv, err := c.conn.ReadFrameOrRequest(frame, false)
 				if err != nil {
 					readDone <- err
 					break
+				}
+
+				switch recvt := recv.(type) {
+				case *gortsplib.InterleavedFrame:
+					// rtcp feedback is handled by gortsplib
+
+				case *gortsplib.Request:
+					ok := c.handleRequest(recvt)
+					if !ok {
+						readDone <- nil
+						break
+					}
 				}
 			}
 		}()
@@ -902,7 +918,7 @@ func (c *client) runPlay(path string) {
 		for {
 			select {
 			case err := <-readDone:
-				if err != io.EOF {
+				if err != nil && err != io.EOF {
 					c.log("ERR: %s", err)
 				}
 				break outer
@@ -1034,7 +1050,7 @@ func (c *client) runRecord(path string) {
 				frame.Content = readBuf.next()
 				frame.Content = frame.Content[:cap(frame.Content)]
 
-				recv, err := c.conn.ReadFrameOrRequest(frame)
+				recv, err := c.conn.ReadFrameOrRequest(frame, true)
 				if err != nil {
 					readDone <- err
 					break
