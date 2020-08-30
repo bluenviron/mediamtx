@@ -45,7 +45,7 @@ func newPath(p *program, name string, confp *confPath, permanent bool) *path {
 	}
 
 	if confp.Source != "record" {
-		s := newSource(p, name, confp)
+		s := newSource(p, pa, confp)
 		pa.source = s
 		pa.publisher = s
 	}
@@ -95,7 +95,7 @@ func (pa *path) onClose() {
 
 func (pa *path) hasClients() bool {
 	for c := range pa.p.clients {
-		if c.pathName == pa.name {
+		if c.path == pa {
 			return true
 		}
 	}
@@ -104,7 +104,7 @@ func (pa *path) hasClients() bool {
 
 func (pa *path) hasClientsWaitingDescribe() bool {
 	for c := range pa.p.clients {
-		if c.state == clientStateWaitingDescription && c.pathName == pa.name {
+		if c.state == clientStateWaitingDescription && c.path == pa {
 			return true
 		}
 	}
@@ -113,7 +113,7 @@ func (pa *path) hasClientsWaitingDescribe() bool {
 
 func (pa *path) hasClientReaders() bool {
 	for c := range pa.p.clients {
-		if c.pathName == pa.name && c != pa.publisher {
+		if c.path == pa && c != pa.publisher {
 			return true
 		}
 	}
@@ -126,8 +126,8 @@ func (pa *path) onCheck() {
 		time.Since(pa.lastDescribeActivation) >= describeTimeout {
 		for c := range pa.p.clients {
 			if c.state == clientStateWaitingDescription &&
-				c.pathName == pa.name {
-				c.pathName = ""
+				c.path == pa {
+				c.path = nil
 				c.state = clientStateInitial
 				c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			}
@@ -169,7 +169,7 @@ func (pa *path) onPublisherNew(client *client, sdpText []byte, sdpParsed *sdp.Se
 	pa.publisherSdpText = sdpText
 	pa.publisherSdpParsed = sdpParsed
 
-	client.pathName = pa.name
+	client.path = pa
 	client.state = clientStateAnnounce
 }
 
@@ -183,8 +183,8 @@ func (pa *path) onPublisherSetReady() {
 	// reply to all clients that are waiting for a description
 	for c := range pa.p.clients {
 		if c.state == clientStateWaitingDescription &&
-			c.pathName == pa.name {
-			c.pathName = ""
+			c.path == pa {
+			c.path = nil
 			c.state = clientStateInitial
 			c.describeRes <- describeRes{pa.publisherSdpText, nil}
 		}
@@ -198,7 +198,7 @@ func (pa *path) onPublisherSetNotReady() {
 	for c := range pa.p.clients {
 		if c.state != clientStateWaitingDescription &&
 			c != pa.publisher &&
-			c.pathName == pa.name {
+			c.path == pa {
 			c.conn.NetConn().Close()
 		}
 	}
@@ -227,7 +227,7 @@ func (pa *path) onDescribe(client *client) {
 				}
 			}
 
-			client.pathName = pa.name
+			client.path = pa
 			client.state = clientStateWaitingDescription
 
 			// no on-demand: reply with 404
@@ -244,7 +244,7 @@ func (pa *path) onDescribe(client *client) {
 			pa.source.events <- sourceEventApplyState{pa.source.state}
 		}
 
-		client.pathName = pa.name
+		client.path = pa
 		client.state = clientStateWaitingDescription
 
 		// publisher was found and is ready

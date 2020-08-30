@@ -31,8 +31,7 @@ type udpClient struct {
 }
 
 type udpClientAddr struct {
-	// use a fixed-size array for ip comparison
-	ip   [net.IPv6len]byte
+	ip   [net.IPv6len]byte // use a fixed-size array to enable the equality operator
 	port int
 }
 
@@ -110,7 +109,7 @@ type client struct {
 	p              *program
 	conn           *gortsplib.ConnServer
 	state          clientState
-	pathName       string
+	path           *path
 	authUser       string
 	authPass       string
 	authHelper     *gortsplib.AuthServer
@@ -481,8 +480,8 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return true
 			}
 
-			if c.pathName != "" && basePath != c.pathName {
-				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
+			if c.path != nil && basePath != c.path.name {
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, basePath))
 				return false
 			}
 
@@ -614,9 +613,9 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}
 
-			// after ANNOUNCE, c.pathName is already set
-			if basePath != c.pathName {
-				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
+			// after ANNOUNCE, c.path is already set
+			if basePath != c.path.name {
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, basePath))
 				return false
 			}
 
@@ -648,7 +647,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.path.publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -706,7 +705,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 					return false
 				}
 
-				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= len(c.path.publisherSdpParsed.MediaDescriptions) {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
@@ -759,17 +758,13 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
-		if path != c.pathName {
-			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
+		if path != c.path.name {
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, path))
 			return false
 		}
 
-		// check publisher existence
-		res := make(chan error)
-		c.p.events <- programEventClientPlay1{res, c}
-		err := <-res
-		if err != nil {
-			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
+		if len(c.streamTracks) == 0 {
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("no tracks have been setup"))
 			return false
 		}
 
@@ -797,12 +792,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		// path can end with a slash, remove it
 		path = strings.TrimSuffix(path, "/")
 
-		if path != c.pathName {
-			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
+		if path != c.path.name {
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, path))
 			return false
 		}
 
-		if len(c.streamTracks) != len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
+		if len(c.streamTracks) != len(c.path.publisherSdpParsed.MediaDescriptions) {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return false
 		}
@@ -837,10 +832,10 @@ func (c *client) runPlay(path string) {
 
 	// start sending frames only after sending the response to the PLAY request
 	done := make(chan struct{})
-	c.p.events <- programEventClientPlay2{done, c}
+	c.p.events <- programEventClientPlay{done, c}
 	<-done
 
-	c.log("is receiving on path '%s', %d %s via %s", c.pathName, len(c.streamTracks), func() string {
+	c.log("is receiving on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -958,7 +953,7 @@ func (c *client) runRecord(path string) {
 	c.p.events <- programEventClientRecord{done, c}
 	<-done
 
-	c.log("is publishing on path '%s', %d %s via %s", c.pathName, len(c.streamTracks), func() string {
+	c.log("is publishing on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -1063,7 +1058,7 @@ func (c *client) runRecord(path string) {
 
 					c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
 					c.p.events <- programEventClientFrameTcp{
-						c.pathName,
+						c.path,
 						frame.TrackId,
 						frame.StreamType,
 						frame.Content,

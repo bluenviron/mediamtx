@@ -50,8 +50,8 @@ type programEventClientClose struct {
 func (programEventClientClose) isProgramEvent() {}
 
 type programEventClientDescribe struct {
-	client *client
-	path   string
+	client   *client
+	pathName string
 }
 
 func (programEventClientDescribe) isProgramEvent() {}
@@ -59,7 +59,7 @@ func (programEventClientDescribe) isProgramEvent() {}
 type programEventClientAnnounce struct {
 	res       chan error
 	client    *client
-	path      string
+	pathName  string
 	sdpText   []byte
 	sdpParsed *sdp.SessionDescription
 }
@@ -67,10 +67,10 @@ type programEventClientAnnounce struct {
 func (programEventClientAnnounce) isProgramEvent() {}
 
 type programEventClientSetupPlay struct {
-	res     chan error
-	client  *client
-	path    string
-	trackId int
+	res      chan error
+	client   *client
+	pathName string
+	trackId  int
 }
 
 func (programEventClientSetupPlay) isProgramEvent() {}
@@ -82,19 +82,12 @@ type programEventClientSetupRecord struct {
 
 func (programEventClientSetupRecord) isProgramEvent() {}
 
-type programEventClientPlay1 struct {
-	res    chan error
-	client *client
-}
-
-func (programEventClientPlay1) isProgramEvent() {}
-
-type programEventClientPlay2 struct {
+type programEventClientPlay struct {
 	done   chan struct{}
 	client *client
 }
 
-func (programEventClientPlay2) isProgramEvent() {}
+func (programEventClientPlay) isProgramEvent() {}
 
 type programEventClientPlayStop struct {
 	done   chan struct{}
@@ -126,7 +119,7 @@ type programEventClientFrameUdp struct {
 func (programEventClientFrameUdp) isProgramEvent() {}
 
 type programEventClientFrameTcp struct {
-	path       string
+	path       *path
 	trackId    int
 	streamType gortsplib.StreamType
 	buf        []byte
@@ -321,12 +314,8 @@ outer:
 			case programEventClientClose:
 				delete(p.clients, evt.client)
 
-				if evt.client.pathName != "" {
-					if path, ok := p.paths[evt.client.pathName]; ok {
-						if path.publisher == evt.client {
-							path.onPublisherRemove()
-						}
-					}
+				if evt.client.path != nil && evt.client.path.publisher == evt.client {
+					evt.client.path.onPublisherRemove()
 				}
 
 				evt.client.log("disconnected")
@@ -334,31 +323,31 @@ outer:
 
 			case programEventClientDescribe:
 				// create path if not exist
-				if _, ok := p.paths[evt.path]; !ok {
-					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPathName(evt.path), false)
+				if _, ok := p.paths[evt.pathName]; !ok {
+					p.paths[evt.pathName] = newPath(p, evt.pathName, p.findConfForPathName(evt.pathName), false)
 				}
 
-				p.paths[evt.path].onDescribe(evt.client)
+				p.paths[evt.pathName].onDescribe(evt.client)
 
 			case programEventClientAnnounce:
 				// create path if not exist
-				if path, ok := p.paths[evt.path]; !ok {
-					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPathName(evt.path), false)
+				if path, ok := p.paths[evt.pathName]; !ok {
+					p.paths[evt.pathName] = newPath(p, evt.pathName, p.findConfForPathName(evt.pathName), false)
 
 				} else {
 					if path.publisher != nil {
-						evt.res <- fmt.Errorf("someone is already publishing on path '%s'", evt.path)
+						evt.res <- fmt.Errorf("someone is already publishing on path '%s'", evt.pathName)
 						continue
 					}
 				}
 
-				p.paths[evt.path].onPublisherNew(evt.client, evt.sdpText, evt.sdpParsed)
+				p.paths[evt.pathName].onPublisherNew(evt.client, evt.sdpText, evt.sdpParsed)
 				evt.res <- nil
 
 			case programEventClientSetupPlay:
-				path, ok := p.paths[evt.path]
+				path, ok := p.paths[evt.pathName]
 				if !ok || !path.publisherReady {
-					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.path)
+					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.pathName)
 					continue
 				}
 
@@ -367,7 +356,7 @@ outer:
 					continue
 				}
 
-				evt.client.pathName = evt.path
+				evt.client.path = path
 				evt.client.state = clientStatePrePlay
 				evt.res <- nil
 
@@ -375,21 +364,7 @@ outer:
 				evt.client.state = clientStatePreRecord
 				evt.res <- nil
 
-			case programEventClientPlay1:
-				path, ok := p.paths[evt.client.pathName]
-				if !ok || !path.publisherReady {
-					evt.res <- fmt.Errorf("no one is publishing on path '%s'", evt.client.pathName)
-					continue
-				}
-
-				if len(evt.client.streamTracks) == 0 {
-					evt.res <- fmt.Errorf("no tracks have been setup")
-					continue
-				}
-
-				evt.res <- nil
-
-			case programEventClientPlay2:
+			case programEventClientPlay:
 				p.readerCount += 1
 				evt.client.state = clientStatePlay
 				close(evt.done)
@@ -421,7 +396,7 @@ outer:
 					}
 				}
 
-				p.paths[evt.client.pathName].onPublisherSetReady()
+				evt.client.path.onPublisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
@@ -436,7 +411,7 @@ outer:
 						delete(p.udpClientsByAddr, key)
 					}
 				}
-				p.paths[evt.client.pathName].onPublisherSetNotReady()
+				evt.client.path.onPublisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
@@ -451,21 +426,21 @@ outer:
 				}
 
 				pub.client.rtcpReceivers[pub.trackId].OnFrame(evt.streamType, evt.buf)
-				p.forwardFrame(pub.client.pathName, pub.trackId, evt.streamType, evt.buf)
+				p.forwardFrame(pub.client.path, pub.trackId, evt.streamType, evt.buf)
 
 			case programEventClientFrameTcp:
 				p.forwardFrame(evt.path, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventSourceReady:
 				evt.source.log("ready")
-				p.paths[evt.source.pathName].onPublisherSetReady()
+				evt.source.path.onPublisherSetReady()
 
 			case programEventSourceNotReady:
 				evt.source.log("not ready")
-				p.paths[evt.source.pathName].onPublisherSetNotReady()
+				evt.source.path.onPublisherSetNotReady()
 
 			case programEventSourceFrame:
-				p.forwardFrame(evt.source.pathName, evt.trackId, evt.streamType, evt.buf)
+				p.forwardFrame(evt.source.path, evt.trackId, evt.streamType, evt.buf)
 
 			case programEventTerminate:
 				break outer
@@ -494,10 +469,7 @@ outer:
 			case programEventClientSetupRecord:
 				evt.res <- fmt.Errorf("terminated")
 
-			case programEventClientPlay1:
-				evt.res <- fmt.Errorf("terminated")
-
-			case programEventClientPlay2:
+			case programEventClientPlay:
 				close(evt.done)
 
 			case programEventClientPlayStop:
@@ -564,9 +536,9 @@ func (p *program) findConfForPathName(name string) *confPath {
 	return nil
 }
 
-func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.StreamType, frame []byte) {
+func (p *program) forwardFrame(path *path, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for c := range p.clients {
-		if c.pathName != path ||
+		if c.path != path ||
 			c.state != clientStatePlay {
 			continue
 		}
