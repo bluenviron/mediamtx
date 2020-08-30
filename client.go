@@ -197,17 +197,14 @@ outer:
 	close(c.done) // close() never blocks
 }
 
-func (c *client) writeResError(req *gortsplib.Request, code gortsplib.StatusCode, err error) {
+func (c *client) writeResError(cseq gortsplib.HeaderValue, code gortsplib.StatusCode, err error) {
 	c.log("ERR: %s", err)
-
-	header := gortsplib.Header{}
-	if cseq, ok := req.Header["CSeq"]; ok && len(cseq) == 1 {
-		header["CSeq"] = cseq
-	}
 
 	c.conn.WriteResponse(&gortsplib.Response{
 		StatusCode: code,
-		Header:     header,
+		Header: gortsplib.Header{
+			"CSeq": cseq,
+		},
 	})
 }
 
@@ -297,13 +294,13 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 	cseq, ok := req.Header["CSeq"]
 	if !ok || len(cseq) != 1 {
-		c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("cseq missing"))
+		c.writeResError(nil, gortsplib.StatusBadRequest, fmt.Errorf("cseq missing"))
 		return false
 	}
 
 	path := req.Url.Path
 	if len(path) < 1 || path[0] != '/' {
-		c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path must begin with a slash"))
+		c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path must begin with a slash"))
 		return false
 	}
 	path = path[1:] // strip leading slash
@@ -328,14 +325,14 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 	case gortsplib.DESCRIBE:
 		if c.state != clientStateInitial {
-			c.writeResError(req, gortsplib.StatusBadRequest,
+			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
 			return false
 		}
 
 		confp := c.p.findConfForPath(path)
 		if confp == nil {
-			c.writeResError(req, gortsplib.StatusBadRequest,
+			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
 			return false
 		}
@@ -352,7 +349,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.p.events <- programEventClientDescribe{c, path}
 		describeRes := <-c.describeRes
 		if describeRes.err != nil {
-			c.writeResError(req, gortsplib.StatusNotFound, describeRes.err)
+			c.writeResError(cseq, gortsplib.StatusNotFound, describeRes.err)
 			return false
 		}
 
@@ -369,25 +366,25 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 	case gortsplib.ANNOUNCE:
 		if c.state != clientStateInitial {
-			c.writeResError(req, gortsplib.StatusBadRequest,
+			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
 			return false
 		}
 
 		if len(path) == 0 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("empty base path"))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("empty base path"))
 			return false
 		}
 
 		err := checkPathName(path)
 		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid path name: %s (%s)", err, path))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("invalid path name: %s (%s)", err, path))
 			return false
 		}
 
 		confp := c.p.findConfForPath(path)
 		if confp == nil {
-			c.writeResError(req, gortsplib.StatusBadRequest,
+			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
 			return false
 		}
@@ -402,24 +399,24 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 		ct, ok := req.Header["Content-Type"]
 		if !ok || len(ct) != 1 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("Content-Type header missing"))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("Content-Type header missing"))
 			return false
 		}
 
 		if ct[0] != "application/sdp" {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("unsupported Content-Type '%s'", ct))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("unsupported Content-Type '%s'", ct))
 			return false
 		}
 
 		sdpParsed := &sdp.SessionDescription{}
 		err = sdpParsed.Unmarshal(req.Content)
 		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return false
 		}
 
 		if len(sdpParsed.MediaDescriptions) == 0 {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("no tracks defined"))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("no tracks defined"))
 			return false
 		}
 
@@ -436,7 +433,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.p.events <- programEventClientAnnounce{res, c, path, req.Content, sdpParsed}
 		err = <-res
 		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, err)
+			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 			return false
 		}
 
@@ -451,18 +448,18 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 	case gortsplib.SETUP:
 		th, err := gortsplib.ReadHeaderTransport(req.Header["Transport"])
 		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header: %s", err))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header: %s", err))
 			return false
 		}
 
 		if _, ok := th["multicast"]; ok {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("multicast is not supported"))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("multicast is not supported"))
 			return false
 		}
 
 		basePath, controlPath, err := splitPath(path)
 		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, err)
+			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 			return false
 		}
 
@@ -471,7 +468,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		case clientStateInitial, clientStatePrePlay:
 			confp := c.p.findConfForPath(basePath)
 			if confp == nil {
-				c.writeResError(req, gortsplib.StatusBadRequest,
+				c.writeResError(cseq, gortsplib.StatusBadRequest,
 					fmt.Errorf("unable to find a valid configuration for path '%s'", basePath))
 				return false
 			}
@@ -485,24 +482,24 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			}
 
 			if c.pathName != "" && basePath != c.pathName {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
 				return false
 			}
 
 			if !strings.HasPrefix(controlPath, "trackID=") {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid control path (%s)", controlPath))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("invalid control path (%s)", controlPath))
 				return false
 			}
 
 			tmp, err := strconv.ParseInt(controlPath[len("trackID="):], 10, 64)
 			if err != nil || tmp < 0 {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("invalid track id (%s)", controlPath))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("invalid track id (%s)", controlPath))
 				return false
 			}
 			trackId := int(tmp)
 
 			if _, ok := c.streamTracks[trackId]; ok {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("track %d has already been setup", trackId))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("track %d has already been setup", trackId))
 				return false
 			}
 
@@ -519,18 +516,18 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}() {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; !ok {
-					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
+					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return false
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return false
 				}
 
 				rtpPort, rtcpPort := th.Ports("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%v)", req.Header["Transport"]))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%v)", req.Header["Transport"]))
 					return false
 				}
 
@@ -538,7 +535,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.p.events <- programEventClientSetupPlay{res, c, basePath, trackId}
 				err = <-res
 				if err != nil {
-					c.writeResError(req, gortsplib.StatusBadRequest, err)
+					c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 					return false
 				}
 
@@ -566,12 +563,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				// play via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTcp]; !ok {
-					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
+					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return false
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return false
 				}
 
@@ -579,7 +576,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.p.events <- programEventClientSetupPlay{res, c, basePath, trackId}
 				err = <-res
 				if err != nil {
-					c.writeResError(req, gortsplib.StatusBadRequest, err)
+					c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 					return false
 				}
 
@@ -606,20 +603,20 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return true
 
 			} else {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
 				return false
 			}
 
 		// record
 		case clientStateAnnounce, clientStatePreRecord:
 			if strings.ToLower(th.Value("mode")) != "record" {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain mode=record"))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain mode=record"))
 				return false
 			}
 
 			// after ANNOUNCE, c.pathName is already set
 			if basePath != c.pathName {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, basePath))
 				return false
 			}
 
@@ -636,23 +633,23 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return false
 			}() {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; !ok {
-					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
+					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return false
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return false
 				}
 
 				rtpPort, rtcpPort := th.Ports("client_port")
 				if rtpPort == 0 || rtcpPort == 0 {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
 					return false
 				}
 
 				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
 
@@ -660,7 +657,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.p.events <- programEventClientSetupRecord{res, c}
 				err := <-res
 				if err != nil {
-					c.writeResError(req, gortsplib.StatusBadRequest, err)
+					c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 					return false
 				}
 
@@ -688,29 +685,29 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				// record via TCP
 			} else if _, ok := th["RTP/AVP/TCP"]; ok {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTcp]; !ok {
-					c.writeResError(req, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
+					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return false
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return false
 				}
 
 				interleaved := th.Value("interleaved")
 				if interleaved == "" {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain the interleaved field"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain the interleaved field"))
 					return false
 				}
 
 				expInterleaved := fmt.Sprintf("%d-%d", 0+len(c.streamTracks)*2, 1+len(c.streamTracks)*2)
 				if interleaved != expInterleaved {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("wrong interleaved value, expected '%s', got '%s'", expInterleaved, interleaved))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("wrong interleaved value, expected '%s', got '%s'", expInterleaved, interleaved))
 					return false
 				}
 
 				if len(c.streamTracks) >= len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
-					c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return false
 				}
 
@@ -718,7 +715,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				c.p.events <- programEventClientSetupRecord{res, c}
 				err := <-res
 				if err != nil {
-					c.writeResError(req, gortsplib.StatusBadRequest, err)
+					c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 					return false
 				}
 
@@ -743,18 +740,18 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 				return true
 
 			} else {
-				c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
 				return false
 			}
 
 		default:
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%s'", c.state))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("client is in state '%s'", c.state))
 			return false
 		}
 
 	case gortsplib.PLAY:
 		if c.state != clientStatePrePlay {
-			c.writeResError(req, gortsplib.StatusBadRequest,
+			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePrePlay))
 			return false
 		}
@@ -763,7 +760,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		path = strings.TrimSuffix(path, "/")
 
 		if path != c.pathName {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
 
@@ -772,7 +769,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		c.p.events <- programEventClientPlay1{res, c}
 		err := <-res
 		if err != nil {
-			c.writeResError(req, gortsplib.StatusBadRequest, err)
+			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 			return false
 		}
 
@@ -792,7 +789,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 
 	case gortsplib.RECORD:
 		if c.state != clientStatePreRecord {
-			c.writeResError(req, gortsplib.StatusBadRequest,
+			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePreRecord))
 			return false
 		}
@@ -801,12 +798,12 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		path = strings.TrimSuffix(path, "/")
 
 		if path != c.pathName {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.pathName, path))
 			return false
 		}
 
 		if len(c.streamTracks) != len(c.p.paths[c.pathName].publisherSdpParsed.MediaDescriptions) {
-			c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return false
 		}
 
@@ -826,7 +823,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		return false
 
 	default:
-		c.writeResError(req, gortsplib.StatusBadRequest, fmt.Errorf("unhandled method '%s'", req.Method))
+		c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("unhandled method '%s'", req.Method))
 		return false
 	}
 }
