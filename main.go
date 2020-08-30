@@ -160,13 +160,12 @@ type program struct {
 	logFile          *os.File
 	metrics          *metrics
 	pprof            *pprof
-	serverRtsp       *serverTcp
+	paths            map[string]*path
 	serverRtp        *serverUdp
 	serverRtcp       *serverUdp
-	sources          []*source
+	serverRtsp       *serverTcp
 	clients          map[*client]struct{}
 	udpClientsByAddr map[udpClientAddr]*udpClient
-	paths            map[string]*path
 	publisherCount   int
 	readerCount      int
 
@@ -195,9 +194,9 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 
 	p := &program{
 		conf:             conf,
+		paths:            make(map[string]*path),
 		clients:          make(map[*client]struct{}),
 		udpClientsByAddr: make(map[udpClientAddr]*udpClient),
-		paths:            make(map[string]*path),
 		events:           make(chan programEvent),
 		done:             make(chan struct{}),
 	}
@@ -211,20 +210,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 
 	p.log("rtsp-simple-server %s", Version)
 
-	for name, confp := range conf.Paths {
-		if name == "all" {
-			continue
-		}
-
-		p.paths[name] = newPath(p, name, confp, true)
-
-		if confp.Source != "record" {
-			s := newSource(p, name, confp)
-			p.sources = append(p.sources, s)
-			p.paths[name].publisher = s
-		}
-	}
-
 	if conf.Metrics {
 		p.metrics, err = newMetrics(p)
 		if err != nil {
@@ -237,6 +222,13 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	for name, confp := range conf.Paths {
+		if name == "all" {
+			continue
+		}
+		p.paths[name] = newPath(p, name, confp, true)
 	}
 
 	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
@@ -270,10 +262,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	go p.serverRtsp.run()
-
-	for _, s := range p.sources {
-		go s.run()
-	}
 
 	for _, p := range p.paths {
 		p.onInit()
@@ -531,11 +519,6 @@ outer:
 	}
 
 	p.serverRtsp.close()
-
-	for _, s := range p.sources {
-		s.events <- sourceEventTerminate{}
-		<-s.done
-	}
 
 	if _, ok := p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
 		p.serverRtcp.close()

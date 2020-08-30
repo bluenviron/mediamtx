@@ -19,6 +19,7 @@ type path struct {
 	name               string
 	confp              *confPath
 	permanent          bool
+	source             *source
 	publisher          publisher
 	publisherReady     bool
 	publisherSdpText   []byte
@@ -37,10 +38,20 @@ func newPath(p *program, name string, confp *confPath, permanent bool) *path {
 		permanent: permanent,
 	}
 
+	if confp.Source != "record" {
+		s := newSource(p, name, confp)
+		pa.source = s
+		pa.publisher = s
+	}
+
 	return pa
 }
 
 func (pa *path) onInit() {
+	if pa.source != nil {
+		go pa.source.run()
+	}
+
 	if pa.confp.RunOnInit != "" {
 		pa.p.log("starting on init command")
 
@@ -58,6 +69,11 @@ func (pa *path) onInit() {
 }
 
 func (pa *path) onClose() {
+	if pa.source != nil {
+		pa.source.events <- sourceEventTerminate{}
+		<-pa.source.done
+	}
+
 	if pa.onInitCmd != nil {
 		pa.p.log("stopping on init command (exited)")
 		pa.onInitCmd.Process.Signal(os.Interrupt)
