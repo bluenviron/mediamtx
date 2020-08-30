@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
@@ -19,25 +20,32 @@ type metricsData struct {
 }
 
 type metrics struct {
-	p      *program
-	mux    *http.ServeMux
-	server *http.Server
+	p        *program
+	mux      *http.ServeMux
+	server   *http.Server
+	listener net.Listener
 }
 
-func newMetrics(p *program) *metrics {
+func newMetrics(p *program) (*metrics, error) {
+	listener, err := net.Listen("tcp", metricsAddress)
+	if err != nil {
+		return nil, err
+	}
+
 	m := &metrics{
-		p: p,
+		p:        p,
+		listener: listener,
 	}
 
 	m.mux = http.NewServeMux()
 	m.mux.HandleFunc("/metrics", m.onMetrics)
+
 	m.server = &http.Server{
-		Addr:    metricsAddress,
 		Handler: m.mux,
 	}
-	m.log("opened on " + metricsAddress)
 
-	return m
+	m.log("opened on " + metricsAddress)
+	return m, nil
 }
 
 func (m *metrics) log(format string, args ...interface{}) {
@@ -45,7 +53,7 @@ func (m *metrics) log(format string, args ...interface{}) {
 }
 
 func (m *metrics) run() {
-	err := m.server.ListenAndServe()
+	err := m.server.Serve(m.listener)
 	if err != http.ErrServerClosed {
 		panic(err)
 	}

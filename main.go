@@ -210,7 +210,7 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
 		p.logFile, err = os.OpenFile(p.conf.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatal("ERR:", err)
+			return nil, err
 		}
 	}
 
@@ -231,7 +231,10 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	if conf.Metrics {
-		p.metrics = newMetrics(p)
+		p.metrics, err = newMetrics(p)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if conf.Pprof {
