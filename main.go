@@ -15,6 +15,10 @@ import (
 
 var Version = "v0.0.0"
 
+const (
+	checkPathPeriod = 5 * time.Second
+)
+
 type logDestination int
 
 const (
@@ -260,6 +264,7 @@ func (p *program) log(format string, args ...interface{}) {
 	if _, ok := p.conf.logDestinationsParsed[logDestinationStdout]; ok {
 		log.Println(line)
 	}
+
 	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
 		p.logFile.WriteString(line + "\n")
 	}
@@ -288,7 +293,7 @@ func (p *program) run() {
 		p.onInit()
 	}
 
-	checkPathsTicker := time.NewTicker(5 * time.Second)
+	checkPathsTicker := time.NewTicker(checkPathPeriod)
 	defer checkPathsTicker.Stop()
 
 outer:
@@ -319,12 +324,7 @@ outer:
 				if evt.client.pathName != "" {
 					if path, ok := p.paths[evt.client.pathName]; ok {
 						if path.publisher == evt.client {
-							path.publisherRemove()
-
-							if !path.permanent {
-								path.onClose()
-								delete(p.paths, evt.client.pathName)
-							}
+							path.onPublisherRemove()
 						}
 					}
 				}
@@ -333,31 +333,26 @@ outer:
 				close(evt.done)
 
 			case programEventClientDescribe:
-				path, ok := p.paths[evt.path]
-				if !ok {
-					evt.client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", evt.path)}
-					continue
+				// create path if not exist
+				if _, ok := p.paths[evt.path]; !ok {
+					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPathName(evt.path), false)
 				}
 
-				path.describe(evt.client)
+				p.paths[evt.path].onDescribe(evt.client)
 
 			case programEventClientAnnounce:
-				if path, ok := p.paths[evt.path]; ok {
+				// create path if not exist
+				if path, ok := p.paths[evt.path]; !ok {
+					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPathName(evt.path), false)
+
+				} else {
 					if path.publisher != nil {
 						evt.res <- fmt.Errorf("someone is already publishing on path '%s'", evt.path)
 						continue
 					}
-
-				} else {
-					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPathName(evt.path), false)
 				}
 
-				p.paths[evt.path].publisher = evt.client
-				p.paths[evt.path].publisherSdpText = evt.sdpText
-				p.paths[evt.path].publisherSdpParsed = evt.sdpParsed
-
-				evt.client.pathName = evt.path
-				evt.client.state = clientStateAnnounce
+				p.paths[evt.path].onPublisherNew(evt.client, evt.sdpText, evt.sdpParsed)
 				evt.res <- nil
 
 			case programEventClientSetupPlay:
@@ -426,7 +421,7 @@ outer:
 					}
 				}
 
-				p.paths[evt.client.pathName].publisherSetReady()
+				p.paths[evt.client.pathName].onPublisherSetReady()
 				close(evt.done)
 
 			case programEventClientRecordStop:
@@ -441,7 +436,7 @@ outer:
 						delete(p.udpClientsByAddr, key)
 					}
 				}
-				p.paths[evt.client.pathName].publisherSetNotReady()
+				p.paths[evt.client.pathName].onPublisherSetNotReady()
 				close(evt.done)
 
 			case programEventClientFrameUdp:
@@ -463,11 +458,11 @@ outer:
 
 			case programEventSourceReady:
 				evt.source.log("ready")
-				p.paths[evt.source.pathName].publisherSetReady()
+				p.paths[evt.source.pathName].onPublisherSetReady()
 
 			case programEventSourceNotReady:
 				evt.source.log("not ready")
-				p.paths[evt.source.pathName].publisherSetNotReady()
+				p.paths[evt.source.pathName].onPublisherSetNotReady()
 
 			case programEventSourceFrame:
 				p.forwardFrame(evt.source.pathName, evt.trackId, evt.streamType, evt.buf)

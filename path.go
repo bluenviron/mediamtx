@@ -9,25 +9,31 @@ import (
 	"github.com/aler9/sdp/v3"
 )
 
+const (
+	describeTimeout                  = 5 * time.Second
+	sourceStopAfterDescribeSecs      = 10 * time.Second
+	onDemandCmdStopAfterDescribeSecs = 10 * time.Second
+)
+
 // a publisher is either a client or a source
 type publisher interface {
 	isPublisher()
 }
 
 type path struct {
-	p                  *program
-	name               string
-	confp              *confPath
-	permanent          bool
-	source             *source
-	publisher          publisher
-	publisherReady     bool
-	publisherSdpText   []byte
-	publisherSdpParsed *sdp.SessionDescription
-	lastRequested      time.Time
-	lastActivation     time.Time
-	onInitCmd          *exec.Cmd
-	onDemandCmd        *exec.Cmd
+	p                      *program
+	name                   string
+	confp                  *confPath
+	permanent              bool
+	source                 *source
+	publisher              publisher
+	publisherReady         bool
+	publisherSdpText       []byte
+	publisherSdpParsed     *sdp.SessionDescription
+	lastDescribeReq        time.Time
+	lastDescribeActivation time.Time
+	onInitCmd              *exec.Cmd
+	onDemandCmd            *exec.Cmd
 }
 
 func newPath(p *program, name string, confp *confPath, permanent bool) *path {
@@ -87,19 +93,37 @@ func (pa *path) onClose() {
 	}
 }
 
-func (pa *path) onCheck() {
-	hasClientsWaitingDescribe := func() bool {
-		for c := range pa.p.clients {
-			if c.state == clientStateWaitingDescription && c.pathName == pa.name {
-				return true
-			}
+func (pa *path) hasClients() bool {
+	for c := range pa.p.clients {
+		if c.pathName == pa.name {
+			return true
 		}
-		return false
-	}()
+	}
+	return false
+}
 
+func (pa *path) hasClientsWaitingDescribe() bool {
+	for c := range pa.p.clients {
+		if c.state == clientStateWaitingDescription && c.pathName == pa.name {
+			return true
+		}
+	}
+	return false
+}
+
+func (pa *path) hasClientReaders() bool {
+	for c := range pa.p.clients {
+		if c.pathName == pa.name && c != pa.publisher {
+			return true
+		}
+	}
+	return false
+}
+
+func (pa *path) onCheck() {
 	// reply to DESCRIBE requests if they are in timeout
-	if hasClientsWaitingDescribe &&
-		time.Since(pa.lastActivation) >= 5*time.Second {
+	if pa.hasClientsWaitingDescribe() &&
+		time.Since(pa.lastDescribeActivation) >= describeTimeout {
 		for c := range pa.p.clients {
 			if c.state == clientStateWaitingDescription &&
 				c.pathName == pa.name {
@@ -108,67 +132,89 @@ func (pa *path) onCheck() {
 				c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			}
 		}
-
-		// perform actions below in next run
-		return
 	}
 
-	if source, ok := pa.publisher.(*source); ok {
-		// stop on demand source if needed
-		if pa.confp.SourceOnDemand &&
-			source.state == sourceStateRunning &&
-			time.Since(pa.lastRequested) >= 10*time.Second {
+	// stop on demand source if needed
+	if pa.source != nil &&
+		pa.confp.SourceOnDemand &&
+		pa.source.state == sourceStateRunning &&
+		!pa.hasClients() &&
+		time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribeSecs {
+		pa.source.log("stopping since we're not requested anymore")
+		pa.source.state = sourceStateStopped
+		pa.source.events <- sourceEventApplyState{pa.source.state}
+	}
 
-			hasClients := func() bool {
-				for c := range pa.p.clients {
-					if c.pathName == pa.name {
-						return true
-					}
-				}
-				return false
-			}()
-			if !hasClients {
-				source.log("stopping since we're not requested anymore")
-				source.state = sourceStateStopped
-				source.events <- sourceEventApplyState{source.state}
-			}
-		}
+	// stop on demand command if needed
+	if pa.onDemandCmd != nil &&
+		!pa.hasClientReaders() &&
+		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribeSecs {
+		pa.p.log("stopping on demand command (not requested anymore)")
+		pa.onDemandCmd.Process.Signal(os.Interrupt)
+		pa.onDemandCmd.Wait()
+		pa.onDemandCmd = nil
+	}
 
-	} else {
-		// stop on demand command if needed
-		if pa.onDemandCmd != nil &&
-			time.Since(pa.lastRequested) >= 10*time.Second {
+	// remove non-permanent paths
+	if !pa.permanent &&
+		pa.publisher == nil &&
+		!pa.hasClients() {
+		pa.onClose()
+		delete(pa.p.paths, pa.name)
+	}
+}
 
-			hasClientReaders := func() bool {
-				for c := range pa.p.clients {
-					if c.pathName == pa.name && c != pa.publisher {
-						return true
-					}
-				}
-				return false
-			}()
-			if !hasClientReaders {
-				pa.p.log("stopping on demand command (not requested anymore)")
-				pa.onDemandCmd.Process.Signal(os.Interrupt)
-				pa.onDemandCmd.Wait()
-				pa.onDemandCmd = nil
-			}
+func (pa *path) onPublisherNew(client *client, sdpText []byte, sdpParsed *sdp.SessionDescription) {
+	pa.publisher = client
+	pa.publisherSdpText = sdpText
+	pa.publisherSdpParsed = sdpParsed
+
+	client.pathName = pa.name
+	client.state = clientStateAnnounce
+}
+
+func (pa *path) onPublisherRemove() {
+	pa.publisher = nil
+}
+
+func (pa *path) onPublisherSetReady() {
+	pa.publisherReady = true
+
+	// reply to all clients that are waiting for a description
+	for c := range pa.p.clients {
+		if c.state == clientStateWaitingDescription &&
+			c.pathName == pa.name {
+			c.pathName = ""
+			c.state = clientStateInitial
+			c.describeRes <- describeRes{pa.publisherSdpText, nil}
 		}
 	}
 }
 
-func (pa *path) describe(client *client) {
-	pa.lastRequested = time.Now()
+func (pa *path) onPublisherSetNotReady() {
+	pa.publisherReady = false
+
+	// close all clients that are reading
+	for c := range pa.p.clients {
+		if c.state != clientStateWaitingDescription &&
+			c != pa.publisher &&
+			c.pathName == pa.name {
+			c.conn.NetConn().Close()
+		}
+	}
+}
+
+func (pa *path) onDescribe(client *client) {
+	pa.lastDescribeReq = time.Now()
 
 	// publisher not found
 	if pa.publisher == nil {
 		// on demand command is available: put the client on hold
 		if pa.confp.RunOnDemand != "" {
-			// start on demand command if needed
-			if pa.onDemandCmd == nil {
+			if pa.onDemandCmd == nil { // start if needed
 				pa.p.log("starting on demand command")
 
-				pa.lastActivation = time.Now()
+				pa.lastDescribeActivation = time.Now()
 				pa.onDemandCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnDemand)
 				pa.onDemandCmd.Env = append(os.Environ(),
 					"RTSP_SERVER_PATH="+pa.name,
@@ -183,69 +229,26 @@ func (pa *path) describe(client *client) {
 
 			client.pathName = pa.name
 			client.state = clientStateWaitingDescription
-			return
+
+			// no on-demand: reply with 404
+		} else {
+			client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", pa.name)}
 		}
 
-		// no on-demand: reply with 404
-		client.describeRes <- describeRes{nil, fmt.Errorf("no one is publishing on path '%s'", pa.name)}
-		return
-	}
-
-	// publisher was found but is not ready: put the client on hold
-	if !pa.publisherReady {
-		// start source if needed
-		if source, ok := pa.publisher.(*source); ok && source.state == sourceStateStopped {
-			source.log("starting on demand")
-			pa.lastActivation = time.Now()
-			source.state = sourceStateRunning
-			source.events <- sourceEventApplyState{source.state}
+		// publisher was found but is not ready: put the client on hold
+	} else if !pa.publisherReady {
+		if pa.source != nil && pa.source.state == sourceStateStopped { // start if needed
+			pa.source.log("starting on demand")
+			pa.lastDescribeActivation = time.Now()
+			pa.source.state = sourceStateRunning
+			pa.source.events <- sourceEventApplyState{pa.source.state}
 		}
 
 		client.pathName = pa.name
 		client.state = clientStateWaitingDescription
-		return
-	}
 
-	// publisher was found and is ready
-	client.describeRes <- describeRes{pa.publisherSdpText, nil}
-}
-
-func (pa *path) publisherRemove() {
-	for c := range pa.p.clients {
-		if c.state == clientStateWaitingDescription &&
-			c.pathName == pa.name {
-			c.pathName = ""
-			c.state = clientStateInitial
-			c.describeRes <- describeRes{nil, fmt.Errorf("publisher of path '%s' is not available anymore", pa.name)}
-		}
-	}
-
-	pa.publisher = nil
-}
-
-func (pa *path) publisherSetReady() {
-	pa.publisherReady = true
-
-	// reply to all clients that are waiting for a description
-	for c := range pa.p.clients {
-		if c.state == clientStateWaitingDescription &&
-			c.pathName == pa.name {
-			c.pathName = ""
-			c.state = clientStateInitial
-			c.describeRes <- describeRes{pa.publisherSdpText, nil}
-		}
-	}
-}
-
-func (pa *path) publisherSetNotReady() {
-	pa.publisherReady = false
-
-	// close all clients that are reading
-	for c := range pa.p.clients {
-		if c.state != clientStateWaitingDescription &&
-			c != pa.publisher &&
-			c.pathName == pa.name {
-			c.conn.NetConn().Close()
-		}
+		// publisher was found and is ready
+	} else {
+		client.describeRes <- describeRes{pa.publisherSdpText, nil}
 	}
 }
