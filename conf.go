@@ -265,7 +265,10 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			return nil, err
 		}
 
-		if confp.RunOnDemand != "" && name == "all" {
+		if name == "all" && confp.RunOnInit != "" {
+			return nil, fmt.Errorf("path 'all' does not support option 'runOnInit'; use another path")
+		}
+		if name == "all" && confp.RunOnDemand != "" {
 			return nil, fmt.Errorf("path 'all' does not support option 'runOnDemand'; use another path")
 		}
 	}

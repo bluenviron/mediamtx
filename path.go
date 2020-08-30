@@ -25,6 +25,7 @@ type path struct {
 	publisherSdpParsed *sdp.SessionDescription
 	lastRequested      time.Time
 	lastActivation     time.Time
+	onInitCmd          *exec.Cmd
 	onDemandCmd        *exec.Cmd
 }
 
@@ -39,7 +40,34 @@ func newPath(p *program, name string, confp *confPath, permanent bool) *path {
 	return pa
 }
 
-func (pa *path) check() {
+func (pa *path) onInit() {
+	if pa.confp.RunOnInit != "" {
+		pa.onInitCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnInit)
+		pa.onInitCmd.Env = append(os.Environ(),
+			"RTSP_SERVER_PATH="+pa.name,
+		)
+		pa.onInitCmd.Stdout = os.Stdout
+		pa.onInitCmd.Stderr = os.Stderr
+		err := pa.onInitCmd.Start()
+		if err != nil {
+			pa.p.log("ERR: %s", err)
+		}
+	}
+}
+
+func (pa *path) onClose() {
+	if pa.onInitCmd != nil {
+		pa.onInitCmd.Process.Signal(os.Interrupt)
+		pa.onInitCmd.Wait()
+	}
+
+	if pa.onDemandCmd != nil {
+		pa.onDemandCmd.Process.Signal(os.Interrupt)
+		pa.onDemandCmd.Wait()
+	}
+}
+
+func (pa *path) onCheck() {
 	hasClientsWaitingDescribe := func() bool {
 		for c := range pa.p.clients {
 			if c.state == clientStateWaitingDescription && c.pathName == pa.name {

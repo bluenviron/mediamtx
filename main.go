@@ -8,7 +8,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -173,7 +172,6 @@ type program struct {
 	clients          map[*client]struct{}
 	udpClientsByAddr map[udpClientAddr]*udpClient
 	paths            map[string]*path
-	cmds             []*exec.Cmd
 	publisherCount   int
 	readerCount      int
 
@@ -264,23 +262,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	for name, confp := range conf.Paths {
-		if confp.RunOnInit != "" {
-			onInitCmd := exec.Command("/bin/sh", "-c", confp.RunOnInit)
-			onInitCmd.Env = append(os.Environ(),
-				"RTSP_SERVER_PATH="+name,
-			)
-			onInitCmd.Stdout = os.Stdout
-			onInitCmd.Stderr = os.Stderr
-			err := onInitCmd.Start()
-			if err != nil {
-				p.log("ERR: %s", err)
-			}
-
-			p.cmds = append(p.cmds, onInitCmd)
-		}
-	}
-
 	if p.metrics != nil {
 		go p.metrics.run()
 	}
@@ -295,6 +276,10 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	go p.serverRtsp.run()
+
+	for _, p := range p.paths {
+		p.onInit()
+	}
 
 	go p.run()
 
@@ -322,7 +307,7 @@ outer:
 		select {
 		case <-checkPathsTicker.C:
 			for _, path := range p.paths {
-				path.check()
+				path.onCheck()
 			}
 
 		case rawEvt := <-p.events:
@@ -542,11 +527,6 @@ outer:
 		}
 	}()
 
-	for _, cmd := range p.cmds {
-		cmd.Process.Signal(os.Interrupt)
-		cmd.Wait()
-	}
-
 	p.serverRtsp.close()
 
 	for _, s := range p.sources {
@@ -562,6 +542,10 @@ outer:
 	for c := range p.clients {
 		c.conn.NetConn().Close()
 		<-c.done
+	}
+
+	for _, p := range p.paths {
+		p.onClose()
 	}
 
 	if p.metrics != nil {
