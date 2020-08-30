@@ -5,8 +5,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"time"
 
@@ -16,10 +14,6 @@ import (
 )
 
 var Version = "v0.0.0"
-
-const (
-	pprofAddress = ":9999"
-)
 
 type logDestination int
 
@@ -165,6 +159,7 @@ type program struct {
 	conf             *conf
 	logFile          *os.File
 	metrics          *metrics
+	pprof            *pprof
 	serverRtsp       *serverTcp
 	serverRtp        *serverUdp
 	serverRtcp       *serverUdp
@@ -238,14 +233,10 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	if conf.Pprof {
-		go func(mux *http.ServeMux) {
-			p.log("[pprof] opened on " + pprofAddress)
-			panic((&http.Server{
-				Addr:    pprofAddress,
-				Handler: mux,
-			}).ListenAndServe())
-		}(http.DefaultServeMux)
-		http.DefaultServeMux = http.NewServeMux()
+		p.pprof, err = newPprof(p)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
@@ -269,16 +260,20 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		go p.metrics.run()
 	}
 
+	if p.pprof != nil {
+		go p.pprof.run()
+	}
+
 	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
 		go p.serverRtp.run()
 		go p.serverRtcp.run()
 	}
 
+	go p.serverRtsp.run()
+
 	for _, s := range p.sources {
 		go s.run()
 	}
-
-	go p.serverRtsp.run()
 
 	for _, p := range p.paths {
 		p.onInit()
@@ -629,7 +624,7 @@ func (p *program) forwardFrame(path string, trackId int, streamType gortsplib.St
 func main() {
 	_, err := newProgram(os.Args[1:], os.Stdin)
 	if err != nil {
-		log.Fatal("ERR:", err)
+		log.Fatal("ERR: ", err)
 	}
 
 	select {}

@@ -21,9 +21,9 @@ type metricsData struct {
 
 type metrics struct {
 	p        *program
+	listener net.Listener
 	mux      *http.ServeMux
 	server   *http.Server
-	listener net.Listener
 }
 
 func newMetrics(p *program) (*metrics, error) {
@@ -44,12 +44,8 @@ func newMetrics(p *program) (*metrics, error) {
 		Handler: m.mux,
 	}
 
-	m.log("opened on " + metricsAddress)
+	m.p.log("[metrics] opened on " + metricsAddress)
 	return m, nil
-}
-
-func (m *metrics) log(format string, args ...interface{}) {
-	m.p.log("[metrics] "+format, args...)
 }
 
 func (m *metrics) run() {
