@@ -194,10 +194,6 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 				return nil, fmt.Errorf("path 'all' cannot have a RTSP source; use another path")
 			}
 
-			if confp.SourceProtocol == "" {
-				confp.SourceProtocol = "udp"
-			}
-
 			confp.sourceUrl, err = url.Parse(confp.Source)
 			if err != nil {
 				return nil, fmt.Errorf("'%s' is not a valid RTSP url", confp.Source)
@@ -217,6 +213,9 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 				}
 			}
 
+			if confp.SourceProtocol == "" {
+				confp.SourceProtocol = "udp"
+			}
 			switch confp.SourceProtocol {
 			case "udp":
 				confp.sourceProtocolParsed = gortsplib.StreamProtocolUdp
@@ -267,9 +266,6 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 
 		if name == "all" && confp.RunOnInit != "" {
 			return nil, fmt.Errorf("path 'all' does not support option 'runOnInit'; use another path")
-		}
-		if name == "all" && confp.RunOnDemand != "" {
-			return nil, fmt.Errorf("path 'all' does not support option 'runOnDemand'; use another path")
 		}
 	}
 

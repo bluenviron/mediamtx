@@ -42,6 +42,8 @@ func newPath(p *program, name string, confp *confPath, permanent bool) *path {
 
 func (pa *path) onInit() {
 	if pa.confp.RunOnInit != "" {
+		pa.p.log("starting on init command")
+
 		pa.onInitCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnInit)
 		pa.onInitCmd.Env = append(os.Environ(),
 			"RTSP_SERVER_PATH="+pa.name,
@@ -57,11 +59,13 @@ func (pa *path) onInit() {
 
 func (pa *path) onClose() {
 	if pa.onInitCmd != nil {
+		pa.p.log("stopping on init command (exited)")
 		pa.onInitCmd.Process.Signal(os.Interrupt)
 		pa.onInitCmd.Wait()
 	}
 
 	if pa.onDemandCmd != nil {
+		pa.p.log("stopping on demand command (exited)")
 		pa.onDemandCmd.Process.Signal(os.Interrupt)
 		pa.onDemandCmd.Wait()
 	}
@@ -128,7 +132,7 @@ func (pa *path) onCheck() {
 				return false
 			}()
 			if !hasClientReaders {
-				pa.p.log("stopping on demand command since it is not requested anymore")
+				pa.p.log("stopping on demand command (not requested anymore)")
 				pa.onDemandCmd.Process.Signal(os.Interrupt)
 				pa.onDemandCmd.Wait()
 				pa.onDemandCmd = nil

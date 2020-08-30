@@ -333,6 +333,7 @@ outer:
 							path.publisherRemove()
 
 							if !path.permanent {
+								path.onClose()
 								delete(p.paths, evt.client.pathName)
 							}
 						}
@@ -527,6 +528,10 @@ outer:
 		}
 	}()
 
+	for _, p := range p.paths {
+		p.onClose()
+	}
+
 	p.serverRtsp.close()
 
 	for _, s := range p.sources {
@@ -542,10 +547,6 @@ outer:
 	for c := range p.clients {
 		c.conn.NetConn().Close()
 		<-c.done
-	}
-
-	for _, p := range p.paths {
-		p.onClose()
 	}
 
 	if p.metrics != nil {

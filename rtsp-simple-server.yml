@@ -46,23 +46,23 @@ paths:
     # command to run when this path is loaded by the program.
     # this can be used, for example, to publish a stream and keep it always opened.
     # This is terminated with SIGINT when the program closes.
-    # The path can be accessed with the variable RTSP_SERVER_PATH
+    # The path name is available in the RTSP_SERVER_PATH variable
     runOnInit:
 
     # command to run when this path is requested.
     # This can be used, for example, to publish a stream on demand.
     # This is terminated with SIGINT when the path is not requested anymore.
-    # The path can be accessed with the variable RTSP_SERVER_PATH
+    # The path name is available in the RTSP_SERVER_PATH variable
     runOnDemand:
 
     # command to run when a client starts publishing.
     # This is terminated with SIGINT when a client stops publishing.
-    # The path can be accessed with the variable RTSP_SERVER_PATH
+    # The path name is available in the RTSP_SERVER_PATH variable
     runOnPublish:
 
     # command to run when a clients starts reading.
     # This is terminated with SIGINT when a client stops reading.
-    # The path can be accessed with the variable RTSP_SERVER_PATH
+    # The path name is available in the RTSP_SERVER_PATH variable
     runOnRead:
 
     # username required to publish
