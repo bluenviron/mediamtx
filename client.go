@@ -330,7 +330,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		confp := c.p.findConfForPath(path)
+		confp := c.p.findConfForPathName(path)
 		if confp == nil {
 			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -382,7 +382,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 			return false
 		}
 
-		confp := c.p.findConfForPath(path)
+		confp := c.p.findConfForPathName(path)
 		if confp == nil {
 			c.writeResError(cseq, gortsplib.StatusBadRequest,
 				fmt.Errorf("unable to find a valid configuration for path '%s'", path))
@@ -466,7 +466,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 		switch c.state {
 		// play
 		case clientStateInitial, clientStatePrePlay:
-			confp := c.p.findConfForPath(basePath)
+			confp := c.p.findConfForPathName(basePath)
 			if confp == nil {
 				c.writeResError(cseq, gortsplib.StatusBadRequest,
 					fmt.Errorf("unable to find a valid configuration for path '%s'", basePath))
@@ -829,7 +829,7 @@ func (c *client) handleRequest(req *gortsplib.Request) bool {
 }
 
 func (c *client) runPlay(path string) {
-	confp := c.p.findConfForPath(path)
+	confp := c.p.findConfForPathName(path)
 
 	if c.streamProtocol == gortsplib.StreamProtocolTcp {
 		c.events = make(chan clientEvent)
@@ -947,7 +947,7 @@ func (c *client) runPlay(path string) {
 }
 
 func (c *client) runRecord(path string) {
-	confp := c.p.findConfForPath(path)
+	confp := c.p.findConfForPathName(path)
 
 	c.rtcpReceivers = make([]*gortsplib.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {

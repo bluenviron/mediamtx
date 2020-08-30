@@ -359,7 +359,7 @@ outer:
 					}
 
 				} else {
-					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPath(evt.path), false)
+					p.paths[evt.path] = newPath(p, evt.path, p.findConfForPathName(evt.path), false)
 				}
 
 				p.paths[evt.path].publisher = evt.client
@@ -565,7 +565,7 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) findConfForPath(name string) *confPath {
+func (p *program) findConfForPathName(name string) *confPath {
 	if confp, ok := p.conf.Paths[name]; ok {
 		return confp
 	}
