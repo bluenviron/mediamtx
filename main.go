@@ -248,25 +248,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	if p.metrics != nil {
-		go p.metrics.run()
-	}
-
-	if p.pprof != nil {
-		go p.pprof.run()
-	}
-
-	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
-		go p.serverRtp.run()
-		go p.serverRtcp.run()
-	}
-
-	go p.serverRtsp.run()
-
-	for _, p := range p.paths {
-		p.onInit()
-	}
-
 	go p.run()
 
 	return p, nil
@@ -285,6 +266,28 @@ func (p *program) log(format string, args ...interface{}) {
 }
 
 func (p *program) run() {
+	if p.metrics != nil {
+		go p.metrics.run()
+	}
+
+	if p.pprof != nil {
+		go p.pprof.run()
+	}
+
+	if p.serverRtp != nil {
+		go p.serverRtp.run()
+	}
+
+	if p.serverRtcp != nil {
+		go p.serverRtcp.run()
+	}
+
+	go p.serverRtsp.run()
+
+	for _, p := range p.paths {
+		p.onInit()
+	}
+
 	checkPathsTicker := time.NewTicker(5 * time.Second)
 	defer checkPathsTicker.Stop()
 
@@ -520,8 +523,11 @@ outer:
 
 	p.serverRtsp.close()
 
-	if _, ok := p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
+	if p.serverRtcp != nil {
 		p.serverRtcp.close()
+	}
+
+	if p.serverRtp != nil {
 		p.serverRtp.close()
 	}
 
@@ -532,6 +538,10 @@ outer:
 
 	if p.metrics != nil {
 		p.metrics.close()
+	}
+
+	if p.pprof != nil {
+		p.pprof.close()
 	}
 
 	if p.logFile != nil {

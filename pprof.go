@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -38,4 +39,8 @@ func (pp *pprof) run() {
 	if err != http.ErrServerClosed {
 		panic(err)
 	}
+}
+
+func (pp *pprof) close() {
+	pp.server.Shutdown(context.Background())
 }
