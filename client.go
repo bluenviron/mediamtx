@@ -24,6 +24,39 @@ const (
 	clientUdpWriteBufferSize     = 128 * 1024
 )
 
+type clientDescribeReq struct {
+	client   *client
+	pathName string
+}
+
+type clientAnnounceReq struct {
+	res       chan error
+	client    *client
+	pathName  string
+	sdpText   []byte
+	sdpParsed *sdp.SessionDescription
+}
+
+type clientSetupPlayReq struct {
+	res      chan error
+	client   *client
+	pathName string
+	trackId  int
+}
+
+type clientFrameUdpReq struct {
+	addr       *net.UDPAddr
+	streamType gortsplib.StreamType
+	buf        []byte
+}
+
+type clientFrameTcpReq struct {
+	path       *path
+	trackId    int
+	streamType gortsplib.StreamType
+	buf        []byte
+}
+
 type udpClient struct {
 	client     *client
 	trackId    int
@@ -362,7 +395,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			return nil
 		}
 
-		c.p.events <- programEventClientDescribe{c, pathName}
+		c.p.clientDescribe <- clientDescribeReq{c, pathName}
 
 		c.describeCSeq = cseq
 		c.describeUrl = req.Url.String()
@@ -435,7 +468,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 		sdpParsed, req.Content = sdpForServer(tracks)
 
 		res := make(chan error)
-		c.p.events <- programEventClientAnnounce{res, c, pathName, req.Content, sdpParsed}
+		c.p.clientAnnounce <- clientAnnounceReq{res, c, pathName, req.Content, sdpParsed}
 		err = <-res
 		if err != nil {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
@@ -527,7 +560,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, basePath, trackId}
+				c.p.clientSetupPlay <- clientSetupPlayReq{res, c, basePath, trackId}
 				err = <-res
 				if err != nil {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, err)
@@ -568,7 +601,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				}
 
 				res := make(chan error)
-				c.p.events <- programEventClientSetupPlay{res, c, basePath, trackId}
+				c.p.clientSetupPlay <- clientSetupPlayReq{res, c, basePath, trackId}
 				err = <-res
 				if err != nil {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, err)
@@ -826,7 +859,7 @@ func (c *client) runInitial() bool {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
-			c.p.events <- programEventClientClose{c}
+			c.p.clientClose <- c
 			<-c.terminate
 			return false
 		}
@@ -865,7 +898,7 @@ func (c *client) runWaitDescription() bool {
 
 func (c *client) runPlay() bool {
 	// start sending frames only after sending the response to the PLAY request
-	c.p.events <- programEventClientPlay{c}
+	c.p.clientPlay <- c
 
 	c.log("is receiving on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
@@ -926,7 +959,7 @@ func (c *client) runPlayUdp() {
 		if err != io.EOF && err != errRunTerminate {
 			c.log("ERR: %s", err)
 		}
-		c.p.events <- programEventClientClose{c}
+		c.p.clientClose <- c
 		<-c.terminate
 		return
 
@@ -978,7 +1011,7 @@ func (c *client) runPlayTcp() {
 				for range c.tcpFrame {
 				}
 			}()
-			c.p.events <- programEventClientClose{c}
+			c.p.clientClose <- c
 			<-c.terminate
 			return
 
@@ -999,7 +1032,7 @@ func (c *client) runRecord() bool {
 		c.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
-	c.p.events <- programEventClientRecord{c}
+	c.p.clientRecord <- c
 
 	c.log("is publishing on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
@@ -1071,7 +1104,7 @@ func (c *client) runRecordUdp() {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
-			c.p.events <- programEventClientClose{c}
+			c.p.clientClose <- c
 			<-c.terminate
 			return
 
@@ -1081,7 +1114,7 @@ func (c *client) runRecordUdp() {
 					c.log("ERR: stream is dead")
 					c.conn.Close()
 					<-readDone
-					c.p.events <- programEventClientClose{c}
+					c.p.clientClose <- c
 					<-c.terminate
 					return
 				}
@@ -1132,7 +1165,7 @@ func (c *client) runRecordTcp() {
 				}
 
 				c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
-				c.p.events <- programEventClientFrameTcp{
+				c.p.clientFrameTcp <- clientFrameTcpReq{
 					c.path,
 					frame.TrackId,
 					frame.StreamType,
@@ -1159,7 +1192,7 @@ func (c *client) runRecordTcp() {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
-			c.p.events <- programEventClientClose{c}
+			c.p.clientClose <- c
 			<-c.terminate
 			return
 

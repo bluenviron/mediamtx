@@ -16,6 +16,13 @@ const (
 	sourceTcpReadBufferSize = 128 * 1024
 )
 
+type sourceFrameReq struct {
+	source     *source
+	trackId    int
+	streamType gortsplib.StreamType
+	buf        []byte
+}
+
 type sourceState int
 
 const (
@@ -226,7 +233,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.p.events <- programEventSourceReady{s}
+	s.p.sourceReady <- s
 
 	var wg sync.WaitGroup
 
@@ -245,7 +252,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 					break
 				}
 
-				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
+				s.p.sourceFrame <- sourceFrameReq{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
 			}
 		}(trackId, rtpRead)
 	}
@@ -265,7 +272,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 					break
 				}
 
-				s.p.events <- programEventSourceFrame{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
+				s.p.sourceFrame <- sourceFrameReq{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
 			}
 		}(trackId, rtcpRead)
 	}
@@ -296,7 +303,7 @@ outer:
 
 	wg.Wait()
 
-	s.p.events <- programEventSourceNotReady{s}
+	s.p.sourceNotReady <- s
 
 	return ret
 }
@@ -318,7 +325,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 		return true
 	}
 
-	s.p.events <- programEventSourceReady{s}
+	s.p.sourceReady <- s
 
 	frame := &gortsplib.InterleavedFrame{}
 	multiBuf := newMultiBuffer(3, sourceTcpReadBufferSize)
@@ -335,7 +342,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 				return
 			}
 
-			s.p.events <- programEventSourceFrame{s, frame.TrackId, frame.StreamType, frame.Content}
+			s.p.sourceFrame <- sourceFrameReq{s, frame.TrackId, frame.StreamType, frame.Content}
 		}
 	}()
 
@@ -358,7 +365,7 @@ outer:
 		}
 	}
 
-	s.p.events <- programEventSourceNotReady{s}
+	s.p.sourceNotReady <- s
 
 	return ret
 }

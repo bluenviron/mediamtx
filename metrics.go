@@ -19,6 +19,10 @@ type metricsData struct {
 	readerCount    int
 }
 
+type metricsGatherReq struct {
+	res chan *metricsData
+}
+
 type metrics struct {
 	p        *program
 	listener net.Listener
@@ -61,7 +65,7 @@ func (m *metrics) close() {
 
 func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	res := make(chan *metricsData)
-	m.p.events <- programEventMetrics{res}
+	m.p.metricsGather <- metricsGatherReq{res}
 	data := <-res
 
 	if data == nil {

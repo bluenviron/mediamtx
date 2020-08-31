@@ -5,14 +5,14 @@ import (
 )
 
 type serverTcp struct {
-	p     *program
-	nconn *net.TCPListener
+	p        *program
+	listener *net.TCPListener
 
 	done chan struct{}
 }
 
 func newServerTcp(p *program) (*serverTcp, error) {
-	nconn, err := net.ListenTCP("tcp", &net.TCPAddr{
+	listener, err := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: p.conf.RtspPort,
 	})
 	if err != nil {
@@ -20,9 +20,9 @@ func newServerTcp(p *program) (*serverTcp, error) {
 	}
 
 	l := &serverTcp{
-		p:     p,
-		nconn: nconn,
-		done:  make(chan struct{}),
+		p:        p,
+		listener: listener,
+		done:     make(chan struct{}),
 	}
 
 	l.log("opened on :%d", p.conf.RtspPort)
@@ -35,18 +35,18 @@ func (l *serverTcp) log(format string, args ...interface{}) {
 
 func (l *serverTcp) run() {
 	for {
-		nconn, err := l.nconn.AcceptTCP()
+		conn, err := l.listener.AcceptTCP()
 		if err != nil {
 			break
 		}
 
-		l.p.events <- programEventClientNew{nconn}
+		l.p.clientNew <- conn
 	}
 
 	close(l.done)
 }
 
 func (l *serverTcp) close() {
-	l.nconn.Close()
+	l.listener.Close()
 	<-l.done
 }

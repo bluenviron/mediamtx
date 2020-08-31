@@ -14,7 +14,7 @@ type udpAddrBufPair struct {
 
 type serverUdp struct {
 	p          *program
-	nconn      *net.UDPConn
+	conn       *net.UDPConn
 	streamType gortsplib.StreamType
 	readBuf    *multiBuffer
 
@@ -23,7 +23,7 @@ type serverUdp struct {
 }
 
 func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serverUdp, error) {
-	nconn, err := net.ListenUDP("udp", &net.UDPAddr{
+	conn, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
 	if err != nil {
@@ -32,7 +32,7 @@ func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serve
 
 	l := &serverUdp{
 		p:          p,
-		nconn:      nconn,
+		conn:       conn,
 		streamType: streamType,
 		readBuf:    newMultiBuffer(3, clientUdpReadBufferSize),
 		writeChan:  make(chan *udpAddrBufPair),
@@ -58,19 +58,19 @@ func (l *serverUdp) run() {
 	go func() {
 		defer close(writeDone)
 		for w := range l.writeChan {
-			l.nconn.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
-			l.nconn.WriteTo(w.buf, w.addr)
+			l.conn.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
+			l.conn.WriteTo(w.buf, w.addr)
 		}
 	}()
 
 	for {
 		buf := l.readBuf.next()
-		n, addr, err := l.nconn.ReadFromUDP(buf)
+		n, addr, err := l.conn.ReadFromUDP(buf)
 		if err != nil {
 			break
 		}
 
-		l.p.events <- programEventClientFrameUdp{
+		l.p.clientFrameUdp <- clientFrameUdpReq{
 			addr,
 			l.streamType,
 			buf[:n],
@@ -84,7 +84,7 @@ func (l *serverUdp) run() {
 }
 
 func (l *serverUdp) close() {
-	l.nconn.Close()
+	l.conn.Close()
 	<-l.done
 }
 
