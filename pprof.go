@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	pprofAddress = ":9998"
+	pprofAddress = ":9999"
 )
 
 type pprof struct {
