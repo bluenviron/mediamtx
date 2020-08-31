@@ -135,6 +135,38 @@ func newClient(p *program, nconn net.Conn) *client {
 	return c
 }
 
+func (c *client) close() {
+	delete(c.p.clients, c)
+
+	switch c.state {
+	case clientStatePlay:
+		c.p.readerCount -= 1
+
+	case clientStateRecord:
+		c.p.publisherCount -= 1
+
+		if c.streamProtocol == gortsplib.StreamProtocolUdp {
+			for _, track := range c.streamTracks {
+				key := makeUdpClientAddr(c.ip(), track.rtpPort)
+				delete(c.p.udpClientsByAddr, key)
+
+				key = makeUdpClientAddr(c.ip(), track.rtcpPort)
+				delete(c.p.udpClientsByAddr, key)
+			}
+		}
+
+		c.path.onPublisherSetNotReady()
+	}
+
+	if c.path != nil && c.path.publisher == c {
+		c.path.onPublisherRemove()
+	}
+
+	close(c.terminate)
+
+	c.log("disconnected")
+}
+
 func (c *client) log(format string, args ...interface{}) {
 	c.p.log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }

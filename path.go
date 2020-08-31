@@ -99,7 +99,7 @@ func (pa *path) onClose() {
 				c.state = clientStateInitial
 				c.describe <- describeRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			} else {
-				pa.p.closeClient(c)
+				c.close()
 			}
 		}
 	}
@@ -184,7 +184,7 @@ func (pa *path) onPublisherRemove() {
 		if c.path == pa &&
 			c.state != clientStateWaitDescription &&
 			c != pa.publisher {
-			pa.p.closeClient(c)
+			c.close()
 		}
 	}
 }
@@ -211,7 +211,7 @@ func (pa *path) onPublisherSetNotReady() {
 		if c.path == pa &&
 			c.state != clientStateWaitDescription &&
 			c != pa.publisher {
-			pa.p.closeClient(c)
+			c.close()
 		}
 	}
 }

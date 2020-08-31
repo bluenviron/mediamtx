@@ -291,7 +291,7 @@ outer:
 				if _, ok := p.clients[evt.client]; !ok {
 					continue
 				}
-				p.closeClient(evt.client)
+				evt.client.close()
 
 			case programEventClientDescribe:
 				// create path if not exist
@@ -429,7 +429,7 @@ outer:
 	}
 
 	for c := range p.clients {
-		p.closeClient(c)
+		c.close()
 		<-c.done
 	}
 
@@ -464,38 +464,6 @@ func (p *program) findConfForPathName(name string) *confPath {
 	}
 
 	return nil
-}
-
-func (p *program) closeClient(client *client) {
-	delete(p.clients, client)
-
-	switch client.state {
-	case clientStatePlay:
-		p.readerCount -= 1
-
-	case clientStateRecord:
-		p.publisherCount -= 1
-
-		if client.streamProtocol == gortsplib.StreamProtocolUdp {
-			for _, track := range client.streamTracks {
-				key := makeUdpClientAddr(client.ip(), track.rtpPort)
-				delete(p.udpClientsByAddr, key)
-
-				key = makeUdpClientAddr(client.ip(), track.rtcpPort)
-				delete(p.udpClientsByAddr, key)
-			}
-		}
-
-		client.path.onPublisherSetNotReady()
-	}
-
-	if client.path != nil && client.path.publisher == client {
-		client.path.onPublisherRemove()
-	}
-
-	close(client.terminate)
-
-	client.log("disconnected")
 }
 
 func (p *program) forwardFrame(path *path, trackId int, streamType gortsplib.StreamType, frame []byte) {

@@ -40,12 +40,12 @@ type source struct {
 
 func newSource(p *program, path *path, confp *confPath) *source {
 	s := &source{
-		p:              p,
-		path:           path,
-		confp:          confp,
-		setState:       make(chan sourceState),
-		terminate:      make(chan struct{}),
-		done:           make(chan struct{}),
+		p:         p,
+		path:      path,
+		confp:     confp,
+		setState:  make(chan sourceState),
+		terminate: make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 
 	if confp.SourceOnDemand {
