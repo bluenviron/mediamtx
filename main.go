@@ -304,11 +304,11 @@ outer:
 			p.forwardFrame(req.path, req.trackId, req.streamType, req.buf)
 
 		case source := <-p.sourceReady:
-			source.log("ready")
+			source.path.log("source ready")
 			source.path.onPublisherSetReady()
 
 		case source := <-p.sourceNotReady:
-			source.log("not ready")
+			source.path.log("source not ready")
 			source.path.onPublisherSetNotReady()
 
 		case req := <-p.sourceFrame:

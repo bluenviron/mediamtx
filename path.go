@@ -53,13 +53,17 @@ func newPath(p *program, name string, confp *confPath, permanent bool) *path {
 	return pa
 }
 
+func (pa *path) log(format string, args ...interface{}) {
+	pa.p.log("[path "+pa.name+"] "+format, args...)
+}
+
 func (pa *path) onInit() {
 	if pa.source != nil {
 		go pa.source.run()
 	}
 
 	if pa.confp.RunOnInit != "" {
-		pa.p.log("starting on init command")
+		pa.log("starting on init command")
 
 		pa.onInitCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnInit)
 		pa.onInitCmd.Env = append(os.Environ(),
@@ -69,7 +73,7 @@ func (pa *path) onInit() {
 		pa.onInitCmd.Stderr = os.Stderr
 		err := pa.onInitCmd.Start()
 		if err != nil {
-			pa.p.log("ERR: %s", err)
+			pa.log("ERR: %s", err)
 		}
 	}
 }
@@ -81,13 +85,13 @@ func (pa *path) onClose() {
 	}
 
 	if pa.onInitCmd != nil {
-		pa.p.log("stopping on init command (exited)")
+		pa.log("stopping on init command (closing)")
 		pa.onInitCmd.Process.Signal(os.Interrupt)
 		pa.onInitCmd.Wait()
 	}
 
 	if pa.onDemandCmd != nil {
-		pa.p.log("stopping on demand command (exited)")
+		pa.log("stopping on demand command (closing)")
 		pa.onDemandCmd.Process.Signal(os.Interrupt)
 		pa.onDemandCmd.Wait()
 	}
@@ -152,7 +156,7 @@ func (pa *path) onCheck() {
 		pa.source.state == sourceStateRunning &&
 		!pa.hasClients() &&
 		time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribeSecs {
-		pa.source.log("stopping since we're not requested anymore")
+		pa.log("stopping on demand source since (not requested anymore)")
 		pa.source.state = sourceStateStopped
 		pa.source.setState <- pa.source.state
 	}
@@ -161,7 +165,7 @@ func (pa *path) onCheck() {
 	if pa.onDemandCmd != nil &&
 		!pa.hasClientReaders() &&
 		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribeSecs {
-		pa.p.log("stopping on demand command (not requested anymore)")
+		pa.log("stopping on demand command (not requested anymore)")
 		pa.onDemandCmd.Process.Signal(os.Interrupt)
 		pa.onDemandCmd.Wait()
 		pa.onDemandCmd = nil
@@ -224,7 +228,7 @@ func (pa *path) onDescribe(client *client) {
 		// on demand command is available: put the client on hold
 		if pa.confp.RunOnDemand != "" {
 			if pa.onDemandCmd == nil { // start if needed
-				pa.p.log("starting on demand command")
+				pa.log("starting on demand command")
 
 				pa.lastDescribeActivation = time.Now()
 				pa.onDemandCmd = exec.Command("/bin/sh", "-c", pa.confp.RunOnDemand)
@@ -235,7 +239,7 @@ func (pa *path) onDescribe(client *client) {
 				pa.onDemandCmd.Stderr = os.Stderr
 				err := pa.onDemandCmd.Start()
 				if err != nil {
-					pa.p.log("ERR: %s", err)
+					pa.log("ERR: %s", err)
 				}
 			}
 
@@ -250,7 +254,7 @@ func (pa *path) onDescribe(client *client) {
 		// publisher was found but is not ready: put the client on hold
 	} else if !pa.publisherReady {
 		if pa.source != nil && pa.source.state == sourceStateStopped { // start if needed
-			pa.source.log("starting on demand")
+			pa.log("starting on demand source")
 			pa.lastDescribeActivation = time.Now()
 			pa.source.state = sourceStateRunning
 			pa.source.setState <- pa.source.state

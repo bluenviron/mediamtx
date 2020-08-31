@@ -64,10 +64,6 @@ func newSource(p *program, path *path, confp *confPath) *source {
 	return s
 }
 
-func (s *source) log(format string, args ...interface{}) {
-	s.p.log("[source "+s.path.name+"] "+format, args...)
-}
-
 func (s *source) isPublisher() {}
 
 func (s *source) run() {
@@ -96,7 +92,7 @@ outer:
 func (s *source) applyState(state sourceState) {
 	if state == sourceStateRunning {
 		if !s.innerRunning {
-			s.log("started")
+			s.path.log("source started")
 			s.innerRunning = true
 			s.innerTerminate = make(chan struct{})
 			s.innerDone = make(chan struct{})
@@ -107,7 +103,7 @@ func (s *source) applyState(state sourceState) {
 			close(s.innerTerminate)
 			<-s.innerDone
 			s.innerRunning = false
-			s.log("stopped")
+			s.path.log("source stopped")
 		}
 	}
 }
@@ -140,7 +136,7 @@ func (s *source) runInner() {
 }
 
 func (s *source) runInnerInner() bool {
-	s.log("connecting")
+	s.path.log("source connecting")
 
 	var conn *gortsplib.ConnClient
 	var err error
@@ -161,21 +157,21 @@ func (s *source) runInnerInner() bool {
 	}
 
 	if err != nil {
-		s.log("ERR: %s", err)
+		s.path.log("source ERR: %s", err)
 		return true
 	}
 
 	_, err = conn.Options(s.confp.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.log("ERR: %s", err)
+		s.path.log("source ERR: %s", err)
 		return true
 	}
 
 	tracks, _, err := conn.Describe(s.confp.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.log("ERR: %s", err)
+		s.path.log("source ERR: %s", err)
 		return true
 	}
 
@@ -216,7 +212,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 				}
 
 				conn.Close()
-				s.log("ERR: %s", err)
+				s.path.log("source ERR: %s", err)
 				return true
 			}
 
@@ -229,7 +225,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 	_, err := conn.Play(s.confp.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.log("ERR: %s", err)
+		s.path.log("source ERR: %s", err)
 		return true
 	}
 
@@ -295,7 +291,7 @@ outer:
 
 		case err := <-tcpConnDone:
 			conn.Close()
-			s.log("ERR: %s", err)
+			s.path.log("source ERR: %s", err)
 			ret = true
 			break outer
 		}
@@ -313,7 +309,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 		_, err := conn.SetupTcp(s.confp.sourceUrl, track)
 		if err != nil {
 			conn.Close()
-			s.log("ERR: %s", err)
+			s.path.log("source ERR: %s", err)
 			return true
 		}
 	}
@@ -321,7 +317,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 	_, err := conn.Play(s.confp.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.log("ERR: %s", err)
+		s.path.log("source ERR: %s", err)
 		return true
 	}
 
@@ -359,7 +355,7 @@ outer:
 
 		case err := <-tcpConnDone:
 			conn.Close()
-			s.log("ERR: %s", err)
+			s.path.log("source ERR: %s", err)
 			ret = true
 			break outer
 		}
