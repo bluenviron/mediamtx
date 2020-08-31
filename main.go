@@ -43,7 +43,6 @@ type programEventClientNew struct {
 func (programEventClientNew) isProgramEvent() {}
 
 type programEventClientClose struct {
-	done   chan struct{}
 	client *client
 }
 
@@ -75,40 +74,17 @@ type programEventClientSetupPlay struct {
 
 func (programEventClientSetupPlay) isProgramEvent() {}
 
-type programEventClientSetupRecord struct {
-	res    chan error
-	client *client
-}
-
-func (programEventClientSetupRecord) isProgramEvent() {}
-
 type programEventClientPlay struct {
-	done   chan struct{}
 	client *client
 }
 
 func (programEventClientPlay) isProgramEvent() {}
 
-type programEventClientPlayStop struct {
-	done   chan struct{}
-	client *client
-}
-
-func (programEventClientPlayStop) isProgramEvent() {}
-
 type programEventClientRecord struct {
-	done   chan struct{}
 	client *client
 }
 
 func (programEventClientRecord) isProgramEvent() {}
-
-type programEventClientRecordStop struct {
-	done   chan struct{}
-	client *client
-}
-
-func (programEventClientRecordStop) isProgramEvent() {}
 
 type programEventClientFrameUdp struct {
 	addr       *net.UDPAddr
@@ -312,14 +288,10 @@ outer:
 				c.log("connected")
 
 			case programEventClientClose:
-				delete(p.clients, evt.client)
-
-				if evt.client.path != nil && evt.client.path.publisher == evt.client {
-					evt.client.path.onPublisherRemove()
+				if _, ok := p.clients[evt.client]; !ok {
+					continue
 				}
-
-				evt.client.log("disconnected")
-				close(evt.done)
+				p.closeClient(evt.client)
 
 			case programEventClientDescribe:
 				// create path if not exist
@@ -341,7 +313,12 @@ outer:
 					}
 				}
 
-				p.paths[evt.pathName].onPublisherNew(evt.client, evt.sdpText, evt.sdpParsed)
+				p.paths[evt.pathName].publisher = evt.client
+				p.paths[evt.pathName].publisherSdpText = evt.sdpText
+				p.paths[evt.pathName].publisherSdpParsed = evt.sdpParsed
+
+				evt.client.path = p.paths[evt.pathName]
+				evt.client.state = clientStatePreRecord
 				evt.res <- nil
 
 			case programEventClientSetupPlay:
@@ -360,19 +337,9 @@ outer:
 				evt.client.state = clientStatePrePlay
 				evt.res <- nil
 
-			case programEventClientSetupRecord:
-				evt.client.state = clientStatePreRecord
-				evt.res <- nil
-
 			case programEventClientPlay:
 				p.readerCount += 1
 				evt.client.state = clientStatePlay
-				close(evt.done)
-
-			case programEventClientPlayStop:
-				p.readerCount -= 1
-				evt.client.state = clientStatePrePlay
-				close(evt.done)
 
 			case programEventClientRecord:
 				p.publisherCount += 1
@@ -397,22 +364,6 @@ outer:
 				}
 
 				evt.client.path.onPublisherSetReady()
-				close(evt.done)
-
-			case programEventClientRecordStop:
-				p.publisherCount -= 1
-				evt.client.state = clientStatePreRecord
-				if evt.client.streamProtocol == gortsplib.StreamProtocolUdp {
-					for _, track := range evt.client.streamTracks {
-						key := makeUdpClientAddr(evt.client.ip(), track.rtpPort)
-						delete(p.udpClientsByAddr, key)
-
-						key = makeUdpClientAddr(evt.client.ip(), track.rtcpPort)
-						delete(p.udpClientsByAddr, key)
-					}
-				}
-				evt.client.path.onPublisherSetNotReady()
-				close(evt.done)
 
 			case programEventClientFrameUdp:
 				pub, ok := p.udpClientsByAddr[makeUdpClientAddr(evt.addr.IP, evt.addr.Port)]
@@ -454,32 +405,11 @@ outer:
 			case programEventMetrics:
 				evt.res <- nil
 
-			case programEventClientClose:
-				close(evt.done)
-
-			case programEventClientDescribe:
-				evt.client.describeRes <- describeRes{nil, fmt.Errorf("terminated")}
-
 			case programEventClientAnnounce:
 				evt.res <- fmt.Errorf("terminated")
 
 			case programEventClientSetupPlay:
 				evt.res <- fmt.Errorf("terminated")
-
-			case programEventClientSetupRecord:
-				evt.res <- fmt.Errorf("terminated")
-
-			case programEventClientPlay:
-				close(evt.done)
-
-			case programEventClientPlayStop:
-				close(evt.done)
-
-			case programEventClientRecord:
-				close(evt.done)
-
-			case programEventClientRecordStop:
-				close(evt.done)
 			}
 		}
 	}()
@@ -499,7 +429,7 @@ outer:
 	}
 
 	for c := range p.clients {
-		c.conn.NetConn().Close()
+		p.closeClient(c)
 		<-c.done
 	}
 
@@ -536,6 +466,38 @@ func (p *program) findConfForPathName(name string) *confPath {
 	return nil
 }
 
+func (p *program) closeClient(client *client) {
+	delete(p.clients, client)
+
+	switch client.state {
+	case clientStatePlay:
+		p.readerCount -= 1
+
+	case clientStateRecord:
+		p.publisherCount -= 1
+
+		if client.streamProtocol == gortsplib.StreamProtocolUdp {
+			for _, track := range client.streamTracks {
+				key := makeUdpClientAddr(client.ip(), track.rtpPort)
+				delete(p.udpClientsByAddr, key)
+
+				key = makeUdpClientAddr(client.ip(), track.rtcpPort)
+				delete(p.udpClientsByAddr, key)
+			}
+		}
+
+		client.path.onPublisherSetNotReady()
+	}
+
+	if client.path != nil && client.path.publisher == client {
+		client.path.onPublisherRemove()
+	}
+
+	close(client.terminate)
+
+	client.log("disconnected")
+}
+
 func (p *program) forwardFrame(path *path, trackId int, streamType gortsplib.StreamType, frame []byte) {
 	for c := range p.clients {
 		if c.path != path ||
@@ -570,12 +532,10 @@ func (p *program) forwardFrame(path *path, trackId int, streamType gortsplib.Str
 			}
 
 		} else {
-			c.events <- clientEventFrameTcp{
-				frame: &gortsplib.InterleavedFrame{
-					TrackId:    trackId,
-					StreamType: streamType,
-					Content:    frame,
-				},
+			c.tcpFrame <- &gortsplib.InterleavedFrame{
+				TrackId:    trackId,
+				StreamType: streamType,
+				Content:    frame,
 			}
 		}
 	}

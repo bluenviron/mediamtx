@@ -23,20 +23,6 @@ const (
 	sourceStateRunning
 )
 
-type sourceEvent interface {
-	isSourceEvent()
-}
-
-type sourceEventApplyState struct {
-	state sourceState
-}
-
-func (sourceEventApplyState) isSourceEvent() {}
-
-type sourceEventTerminate struct{}
-
-func (sourceEventTerminate) isSourceEvent() {}
-
 type source struct {
 	p      *program
 	path   *path
@@ -44,17 +30,19 @@ type source struct {
 	state  sourceState
 	tracks []*gortsplib.Track
 
-	events chan sourceEvent
-	done   chan struct{}
+	setState  chan sourceState
+	terminate chan struct{}
+	done      chan struct{}
 }
 
 func newSource(p *program, path *path, confp *confPath) *source {
 	s := &source{
-		p:      p,
-		path:   path,
-		confp:  confp,
-		events: make(chan sourceEvent),
-		done:   make(chan struct{}),
+		p:         p,
+		path:      path,
+		confp:     confp,
+		setState:  make(chan sourceState),
+		terminate: make(chan struct{}),
+		done:      make(chan struct{}),
 	}
 
 	if confp.SourceOnDemand {
@@ -99,12 +87,12 @@ func (s *source) run() {
 	applyState(s.state)
 
 outer:
-	for rawEvt := range s.events {
-		switch evt := rawEvt.(type) {
-		case sourceEventApplyState:
-			applyState(evt.state)
+	for {
+		select {
+		case state := <-s.setState:
+			applyState(state)
 
-		case sourceEventTerminate:
+		case <-s.terminate:
 			break outer
 		}
 	}
@@ -114,6 +102,7 @@ outer:
 		<-doDone
 	}
 
+	close(s.setState)
 	close(s.done)
 }
 
