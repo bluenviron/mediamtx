@@ -7,23 +7,23 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-type udpAddrBufPair struct {
-	addr *net.UDPAddr
+type udpBufAddrPair struct {
 	buf  []byte
+	addr *net.UDPAddr
 }
 
 type serverUdp struct {
 	p          *program
-	conn       *net.UDPConn
+	pc         *net.UDPConn
 	streamType gortsplib.StreamType
 	readBuf    *multiBuffer
 
-	writeChan chan *udpAddrBufPair
-	done      chan struct{}
+	writec chan udpBufAddrPair
+	done   chan struct{}
 }
 
 func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serverUdp, error) {
-	conn, err := net.ListenUDP("udp", &net.UDPAddr{
+	pc, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
 	if err != nil {
@@ -32,10 +32,10 @@ func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serve
 
 	l := &serverUdp{
 		p:          p,
-		conn:       conn,
+		pc:         pc,
 		streamType: streamType,
 		readBuf:    newMultiBuffer(3, clientUdpReadBufferSize),
-		writeChan:  make(chan *udpAddrBufPair),
+		writec:     make(chan udpBufAddrPair),
 		done:       make(chan struct{}),
 	}
 
@@ -57,15 +57,15 @@ func (l *serverUdp) run() {
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
-		for w := range l.writeChan {
-			l.conn.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
-			l.conn.WriteTo(w.buf, w.addr)
+		for w := range l.writec {
+			l.pc.SetWriteDeadline(time.Now().Add(l.p.conf.WriteTimeout))
+			l.pc.WriteTo(w.buf, w.addr)
 		}
 	}()
 
 	for {
 		buf := l.readBuf.next()
-		n, addr, err := l.conn.ReadFromUDP(buf)
+		n, addr, err := l.pc.ReadFromUDP(buf)
 		if err != nil {
 			break
 		}
@@ -77,17 +77,17 @@ func (l *serverUdp) run() {
 		}
 	}
 
-	close(l.writeChan)
+	close(l.writec)
 	<-writeDone
 
 	close(l.done)
 }
 
 func (l *serverUdp) close() {
-	l.conn.Close()
+	l.pc.Close()
 	<-l.done
 }
 
-func (l *serverUdp) write(pair *udpAddrBufPair) {
-	l.writeChan <- pair
+func (l *serverUdp) write(data []byte, addr *net.UDPAddr) {
+	l.writec <- udpBufAddrPair{data, addr}
 }

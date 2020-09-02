@@ -427,22 +427,17 @@ func (p *program) forwardFrame(path *path, trackId int, streamType gortsplib.Str
 
 		if c.streamProtocol == gortsplib.StreamProtocolUdp {
 			if streamType == gortsplib.StreamTypeRtp {
-				p.serverRtp.write(&udpAddrBufPair{
-					addr: &net.UDPAddr{
-						IP:   c.ip(),
-						Zone: c.zone(),
-						Port: track.rtpPort,
-					},
-					buf: frame,
+				p.serverRtp.write(frame, &net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: track.rtpPort,
 				})
+
 			} else {
-				p.serverRtcp.write(&udpAddrBufPair{
-					addr: &net.UDPAddr{
-						IP:   c.ip(),
-						Zone: c.zone(),
-						Port: track.rtcpPort,
-					},
-					buf: frame,
+				p.serverRtcp.write(frame, &net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: track.rtcpPort,
 				})
 			}
 

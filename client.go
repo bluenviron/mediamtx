@@ -1074,6 +1074,25 @@ func (c *client) runRecord() bool {
 }
 
 func (c *client) runRecordUdp() {
+	// open the firewall by sending packets to every channel
+	for _, track := range c.streamTracks {
+		c.p.serverRtp.write(
+			[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+			&net.UDPAddr{
+				IP:   c.ip(),
+				Zone: c.zone(),
+				Port: track.rtpPort,
+			})
+
+		c.p.serverRtcp.write(
+			[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00},
+			&net.UDPAddr{
+				IP:   c.ip(),
+				Zone: c.zone(),
+				Port: track.rtcpPort,
+			})
+	}
+
 	readDone := make(chan error)
 	go func() {
 		for {
@@ -1111,7 +1130,7 @@ func (c *client) runRecordUdp() {
 		case <-checkStreamTicker.C:
 			for trackId := range c.streamTracks {
 				if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.ReadTimeout {
-					c.log("ERR: stream is dead")
+					c.log("ERR: no packets received recently (maybe there's a firewall/NAT)")
 					c.conn.Close()
 					<-readDone
 					c.p.clientClose <- c
@@ -1123,14 +1142,11 @@ func (c *client) runRecordUdp() {
 		case <-receiverReportTicker.C:
 			for trackId := range c.streamTracks {
 				frame := c.rtcpReceivers[trackId].Report()
-				c.p.serverRtcp.writeChan <- &udpAddrBufPair{
-					addr: &net.UDPAddr{
-						IP:   c.ip(),
-						Zone: c.zone(),
-						Port: c.streamTracks[trackId].rtcpPort,
-					},
-					buf: frame,
-				}
+				c.p.serverRtcp.write(frame, &net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: c.streamTracks[trackId].rtcpPort,
+				})
 			}
 
 		case <-c.terminate:
