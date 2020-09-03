@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -171,12 +172,14 @@ func newClient(p *program, nconn net.Conn) *client {
 func (c *client) close() {
 	delete(c.p.clients, c)
 
+	atomic.AddInt64(&c.p.countClient, -1)
+
 	switch c.state {
 	case clientStatePlay:
-		c.p.readerCount -= 1
+		atomic.AddInt64(&c.p.countReader, -1)
 
 	case clientStateRecord:
-		c.p.publisherCount -= 1
+		atomic.AddInt64(&c.p.countPublisher, -1)
 
 		if c.streamProtocol == gortsplib.StreamProtocolUdp {
 			for _, track := range c.streamTracks {

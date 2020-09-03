@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -36,8 +37,9 @@ type program struct {
 	serverRtsp       *serverTcp
 	clients          map[*client]struct{}
 	udpClientsByAddr map[udpClientAddr]*udpClient
-	publisherCount   int
-	readerCount      int
+	countClient      int64
+	countPublisher   int64
+	countReader      int64
 
 	metricsGather   chan metricsGatherReq
 	clientNew       chan net.Conn
@@ -150,8 +152,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 }
 
 func (p *program) log(format string, args ...interface{}) {
-	line := fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{len(p.clients),
-		p.publisherCount, p.readerCount}, args...)...)
+	countClient := atomic.LoadInt64(&p.countClient)
+	countPublisher := atomic.LoadInt64(&p.countPublisher)
+	countReader := atomic.LoadInt64(&p.countReader)
+
+	line := fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClient,
+		countPublisher, countReader}, args...)...)
 
 	if _, ok := p.conf.logDestinationsParsed[logDestinationStdout]; ok {
 		log.Println(line)
@@ -198,14 +204,15 @@ outer:
 
 		case req := <-p.metricsGather:
 			req.res <- &metricsData{
-				clientCount:    len(p.clients),
-				publisherCount: p.publisherCount,
-				readerCount:    p.readerCount,
+				countClient:    p.countClient,
+				countPublisher: p.countPublisher,
+				countReader:    p.countReader,
 			}
 
 		case conn := <-p.clientNew:
 			c := newClient(p, conn)
 			p.clients[c] = struct{}{}
+			atomic.AddInt64(&p.countClient, 1)
 			c.log("connected")
 
 		case client := <-p.clientClose:
@@ -259,11 +266,11 @@ outer:
 			req.res <- nil
 
 		case client := <-p.clientPlay:
-			p.readerCount += 1
+			atomic.AddInt64(&p.countReader, 1)
 			client.state = clientStatePlay
 
 		case client := <-p.clientRecord:
-			p.publisherCount += 1
+			atomic.AddInt64(&p.countPublisher, 1)
 			client.state = clientStateRecord
 
 			if client.streamProtocol == gortsplib.StreamProtocolUdp {

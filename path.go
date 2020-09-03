@@ -106,7 +106,7 @@ func (pa *path) onClose(wait bool) {
 				c.close()
 
 				if wait {
-					<- c.done
+					<-c.done
 				}
 			}
 		}

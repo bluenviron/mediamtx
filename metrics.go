@@ -14,9 +14,9 @@ const (
 )
 
 type metricsData struct {
-	clientCount    int
-	publisherCount int
-	readerCount    int
+	countClient    int64
+	countPublisher int64
+	countReader    int64
 }
 
 type metricsGatherReq struct {
@@ -76,9 +76,9 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	out := ""
 	now := time.Now().UnixNano() / 1000000
 
-	out += fmt.Sprintf("clients %d %v\n", data.clientCount, now)
-	out += fmt.Sprintf("publishers %d %v\n", data.publisherCount, now)
-	out += fmt.Sprintf("readers %d %v\n", data.readerCount, now)
+	out += fmt.Sprintf("clients %d %v\n", data.countClient, now)
+	out += fmt.Sprintf("publishers %d %v\n", data.countPublisher, now)
+	out += fmt.Sprintf("readers %d %v\n", data.countReader, now)
 
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, out)
