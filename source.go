@@ -66,8 +66,8 @@ func newSource(p *program, path *path, confp *confPath) *source {
 
 func (s *source) isPublisher() {}
 
-func (s *source) run() {
-	s.applyState(s.state)
+func (s *source) run(initialState sourceState) {
+	s.applyState(initialState)
 
 outer:
 	for {

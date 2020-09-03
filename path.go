@@ -59,7 +59,7 @@ func (pa *path) log(format string, args ...interface{}) {
 
 func (pa *path) onInit() {
 	if pa.source != nil {
-		go pa.source.run()
+		go pa.source.run(pa.source.state)
 	}
 
 	if pa.confp.RunOnInit != "" {
