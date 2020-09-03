@@ -78,7 +78,7 @@ func (pa *path) onInit() {
 	}
 }
 
-func (pa *path) onClose() {
+func (pa *path) onClose(wait bool) {
 	if pa.source != nil {
 		close(pa.source.terminate)
 		<-pa.source.done
@@ -104,6 +104,10 @@ func (pa *path) onClose() {
 				c.describe <- describeRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			} else {
 				c.close()
+
+				if wait {
+					<- c.done
+				}
 			}
 		}
 	}
@@ -175,7 +179,7 @@ func (pa *path) onCheck() {
 	if !pa.permanent &&
 		pa.publisher == nil &&
 		!pa.hasClients() {
-		pa.onClose()
+		pa.onClose(false)
 		delete(pa.p.paths, pa.name)
 	}
 }

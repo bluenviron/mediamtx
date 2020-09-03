@@ -350,7 +350,7 @@ outer:
 	}()
 
 	for _, p := range p.paths {
-		p.onClose()
+		p.onClose(true)
 	}
 
 	p.serverRtsp.close()
