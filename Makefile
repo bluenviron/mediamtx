@@ -32,7 +32,7 @@ format:
 
 define DOCKERFILE_TEST
 FROM amd64/$(BASE_IMAGE)
-RUN apk add --no-cache make docker-cli git ffmpeg
+RUN apk add --no-cache make docker-cli git ffmpeg gcc musl-dev
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
@@ -48,10 +48,9 @@ test:
 	make test-nodocker
 
 test-nodocker:
-	$(eval export CGO_ENABLED=0)
 	$(foreach IMG,$(shell echo test-images/*/ | xargs -n1 basename), \
 	docker build -q test-images/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	go test -v .
+	go test -race -v .
 
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)
