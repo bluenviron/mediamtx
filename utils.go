@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strings"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {
@@ -98,6 +99,14 @@ func splitPath(path string) (string, string, error) {
 	}
 
 	return basePath, controlPath, nil
+}
+
+func removeQueryFromPath(path string) string {
+	i := strings.Index(path, "?")
+	if i >= 0 {
+		return path[:i]
+	}
+	return path
 }
 
 var rePathName = regexp.MustCompile("^[0-9a-zA-Z_\\-/]+$")

@@ -357,6 +357,12 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 	}
 	pathName = pathName[1:] // strip leading slash
 
+	// in RTSP, the control path is inserted after the query.
+	// therefore, path and query can't be threated separately
+	if req.Url.RawQuery != "" {
+		pathName += "?" + req.Url.RawQuery
+	}
+
 	switch req.Method {
 	case gortsplib.OPTIONS:
 		c.conn.WriteResponse(&gortsplib.Response{
@@ -381,6 +387,8 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
 			return errRunTerminate
 		}
+
+		pathName = removeQueryFromPath(pathName)
 
 		confp := c.p.findConfForPathName(pathName)
 		if confp == nil {
@@ -410,6 +418,8 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
 			return errRunTerminate
 		}
+
+		pathName = removeQueryFromPath(pathName)
 
 		if len(pathName) == 0 {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("empty base path"))
@@ -494,6 +504,8 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 			return errRunTerminate
 		}
+
+		basePath = removeQueryFromPath(basePath)
 
 		switch c.state {
 		// play
@@ -752,6 +764,8 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			return errRunTerminate
 		}
 
+		pathName = removeQueryFromPath(pathName)
+
 		// path can end with a slash, remove it
 		pathName = strings.TrimSuffix(pathName, "/")
 
@@ -784,6 +798,8 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePreRecord))
 			return errRunTerminate
 		}
+
+		pathName = removeQueryFromPath(pathName)
 
 		// path can end with a slash, remove it
 		pathName = strings.TrimSuffix(pathName, "/")

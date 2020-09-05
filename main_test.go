@@ -281,6 +281,39 @@ func TestPathWithSlash(t *testing.T) {
 	require.Equal(t, 0, code)
 }
 
+func TestPathWithQuery(t *testing.T) {
+	p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+	require.NoError(t, err)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "publish", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "/emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"-rtsp_transport", "udp",
+		"rtsp://" + ownDockerIp + ":8554/test?param1=val&param2=val",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	cnt2, err := newContainer("ffmpeg", "read", []string{
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://" + ownDockerIp + ":8554/test?param3=otherval",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	code := cnt2.wait()
+	require.Equal(t, 0, code)
+}
+
 func TestAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		stdin := []byte("\n" +
