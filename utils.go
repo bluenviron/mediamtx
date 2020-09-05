@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/sdp/v3"
+	"github.com/aler9/sdp-dirty/v3"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {

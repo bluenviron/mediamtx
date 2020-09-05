@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/aler9/sdp/v3"
+	"github.com/aler9/sdp-dirty/v3"
 )
 
 const (
