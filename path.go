@@ -5,8 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"time"
-
-	"github.com/aler9/sdp-dirty/v3"
 )
 
 const (
@@ -28,8 +26,8 @@ type path struct {
 	source                 *source
 	publisher              publisher
 	publisherReady         bool
-	publisherSdpText       []byte
-	publisherSdpParsed     *sdp.SessionDescription
+	publisherTrackCount    int
+	publisherSdp           []byte
 	lastDescribeReq        time.Time
 	lastDescribeActivation time.Time
 	onInitCmd              *exec.Cmd
@@ -206,7 +204,7 @@ func (pa *path) onPublisherSetReady() {
 			c.path == pa {
 			c.path = nil
 			c.state = clientStateInitial
-			c.describe <- describeRes{pa.publisherSdpText, nil}
+			c.describe <- describeRes{pa.publisherSdp, nil}
 		}
 	}
 }
@@ -269,6 +267,6 @@ func (pa *path) onDescribe(client *client) {
 
 		// publisher was found and is ready
 	} else {
-		client.describe <- describeRes{pa.publisherSdpText, nil}
+		client.describe <- describeRes{pa.publisherSdp, nil}
 	}
 }

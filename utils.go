@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"strconv"
-
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/sdp-dirty/v3"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {
@@ -74,58 +70,6 @@ func (mb *multiBuffer) next() []byte {
 		mb.curBuf = 0
 	}
 	return ret
-}
-
-// generate a sdp from scratch
-func sdpForServer(tracks []*gortsplib.Track) (*sdp.SessionDescription, []byte) {
-	sout := &sdp.SessionDescription{
-		SessionName: func() *sdp.SessionName {
-			ret := sdp.SessionName("Stream")
-			return &ret
-		}(),
-		Origin: &sdp.Origin{
-			Username:       "-",
-			NetworkType:    "IN",
-			AddressType:    "IP4",
-			UnicastAddress: "127.0.0.1",
-		},
-		TimeDescriptions: []sdp.TimeDescription{
-			{Timing: sdp.Timing{0, 0}},
-		},
-	}
-
-	for i, track := range tracks {
-		mout := &sdp.MediaDescription{
-			MediaName: sdp.MediaName{
-				Media:   track.Media.MediaName.Media,
-				Protos:  []string{"RTP", "AVP"}, // override protocol
-				Formats: track.Media.MediaName.Formats,
-			},
-			Bandwidth: track.Media.Bandwidth,
-			Attributes: func() []sdp.Attribute {
-				var ret []sdp.Attribute
-
-				for _, attr := range track.Media.Attributes {
-					if attr.Key == "rtpmap" || attr.Key == "fmtp" {
-						ret = append(ret, attr)
-					}
-				}
-
-				// control attribute is the path that is appended
-				// to the stream path in SETUP
-				ret = append(ret, sdp.Attribute{
-					Key:   "control",
-					Value: "trackID=" + strconv.FormatInt(int64(i), 10),
-				})
-
-				return ret
-			}(),
-		}
-		sout.MediaDescriptions = append(sout.MediaDescriptions, mout)
-	}
-
-	bytsout, _ := sout.Marshal()
-	return sout, bytsout
 }
 
 func splitPath(path string) (string, string, error) {

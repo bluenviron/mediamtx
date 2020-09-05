@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/sdp-dirty/v3"
 )
 
 const (
@@ -31,11 +30,11 @@ type clientDescribeReq struct {
 }
 
 type clientAnnounceReq struct {
-	res       chan error
-	client    *client
-	pathName  string
-	sdpText   []byte
-	sdpParsed *sdp.SessionDescription
+	res        chan error
+	client     *client
+	pathName   string
+	trackCount int
+	sdp        []byte
 }
 
 type clientSetupPlayReq struct {
@@ -449,29 +448,21 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			return errRunTerminate
 		}
 
-		sdpParsed := &sdp.SessionDescription{}
-		err = sdpParsed.Unmarshal(req.Content)
+		tracks, err := gortsplib.ReadTracks(req.Content)
 		if err != nil {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("invalid SDP: %s", err))
 			return errRunTerminate
 		}
 
-		if len(sdpParsed.MediaDescriptions) == 0 {
+		if len(tracks) == 0 {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("no tracks defined"))
 			return errRunTerminate
 		}
 
-		var tracks []*gortsplib.Track
-		for i, media := range sdpParsed.MediaDescriptions {
-			tracks = append(tracks, &gortsplib.Track{
-				Id:    i,
-				Media: media,
-			})
-		}
-		sdpParsed, req.Content = sdpForServer(tracks)
+		sdp := tracks.Write()
 
 		res := make(chan error)
-		c.p.clientAnnounce <- clientAnnounceReq{res, c, pathName, req.Content, sdpParsed}
+		c.p.clientAnnounce <- clientAnnounceReq{res, c, pathName, len(tracks), sdp}
 		err = <-res
 		if err != nil {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
@@ -669,7 +660,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) >= len(c.path.publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= c.path.publisherTrackCount {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errRunTerminate
 				}
@@ -719,7 +710,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) >= len(c.path.publisherSdpParsed.MediaDescriptions) {
+				if len(c.streamTracks) >= c.path.publisherTrackCount {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errRunTerminate
 				}
@@ -802,7 +793,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			return errRunTerminate
 		}
 
-		if len(c.streamTracks) != len(c.path.publisherSdpParsed.MediaDescriptions) {
+		if len(c.streamTracks) != c.path.publisherTrackCount {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return errRunTerminate
 		}

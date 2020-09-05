@@ -242,8 +242,8 @@ outer:
 			}
 
 			p.paths[req.pathName].publisher = req.client
-			p.paths[req.pathName].publisherSdpText = req.sdpText
-			p.paths[req.pathName].publisherSdpParsed = req.sdpParsed
+			p.paths[req.pathName].publisherTrackCount = req.trackCount
+			p.paths[req.pathName].publisherSdp = req.sdp
 
 			req.client.path = p.paths[req.pathName]
 			req.client.state = clientStatePreRecord
@@ -256,7 +256,7 @@ outer:
 				continue
 			}
 
-			if req.trackId >= len(path.publisherSdpParsed.MediaDescriptions) {
+			if req.trackId >= path.publisherTrackCount {
 				req.res <- fmt.Errorf("track %d does not exist", req.trackId)
 				continue
 			}

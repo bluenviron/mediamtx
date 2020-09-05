@@ -176,11 +176,11 @@ func (s *source) runInnerInner() bool {
 	}
 
 	// create a filtered SDP that is used by the server (not by the client)
-	serverSdpParsed, serverSdpText := sdpForServer(tracks)
+	serverSdp := tracks.Write()
 
 	s.tracks = tracks
-	s.path.publisherSdpText = serverSdpText
-	s.path.publisherSdpParsed = serverSdpParsed
+	s.path.publisherTrackCount = len(tracks)
+	s.path.publisherSdp = serverSdp
 
 	if s.confp.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
 		return s.runUDP(conn)
