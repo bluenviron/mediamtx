@@ -494,7 +494,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			return errRunTerminate
 		}
 
-		if _, ok := th["multicast"]; ok {
+		if th.Cast != nil && *th.Cast == gortsplib.StreamMulticast {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("multicast is not supported"))
 			return errRunTerminate
 		}
@@ -548,7 +548,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			}
 
 			// play via UDP
-			if th.IsUDP() {
+			if th.Protocol == gortsplib.StreamProtocolUDP {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
@@ -559,8 +559,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				rtpPort, rtcpPort := th.Ports("client_port")
-				if rtpPort == 0 || rtcpPort == 0 {
+				if th.ClientPorts == nil {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%v)", req.Header["Transport"]))
 					return errRunTerminate
 				}
@@ -575,27 +574,32 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 
 				c.streamProtocol = gortsplib.StreamProtocolUDP
 				c.streamTracks[trackId] = &clientTrack{
-					rtpPort:  rtpPort,
-					rtcpPort: rtcpPort,
+					rtpPort:  (*th.ClientPorts)[0],
+					rtcpPort: (*th.ClientPorts)[1],
+				}
+
+				th := &gortsplib.HeaderTransport{
+					Protocol: gortsplib.StreamProtocolUDP,
+					Cast: func() *gortsplib.StreamCast {
+						v := gortsplib.StreamUnicast
+						return &v
+					}(),
+					ClientPorts: th.ClientPorts,
+					ServerPorts: &[2]int{c.p.conf.RtpPort, c.p.conf.RtcpPort},
 				}
 
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": cseq,
-						"Transport": gortsplib.HeaderValue{strings.Join([]string{
-							"RTP/AVP/UDP",
-							"unicast",
-							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							fmt.Sprintf("server_port=%d-%d", c.p.conf.RtpPort, c.p.conf.RtcpPort),
-						}, ";")},
-						"Session": gortsplib.HeaderValue{"12345678"},
+						"CSeq":      cseq,
+						"Transport": th.Write(),
+						"Session":   gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return nil
 
 				// play via TCP
-			} else if th.IsTCP() {
+			} else {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
@@ -620,30 +624,27 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					rtcpPort: 0,
 				}
 
-				interleaved := fmt.Sprintf("%d-%d", ((trackId) * 2), ((trackId)*2)+1)
+				interleavedIds := [2]int{trackId * 2, (trackId * 2) + 1}
+
+				th := &gortsplib.HeaderTransport{
+					Protocol:       gortsplib.StreamProtocolTCP,
+					InterleavedIds: &interleavedIds,
+				}
 
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": cseq,
-						"Transport": gortsplib.HeaderValue{strings.Join([]string{
-							"RTP/AVP/TCP",
-							"unicast",
-							fmt.Sprintf("interleaved=%s", interleaved),
-						}, ";")},
-						"Session": gortsplib.HeaderValue{"12345678"},
+						"CSeq":      cseq,
+						"Transport": th.Write(),
+						"Session":   gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return nil
-
-			} else {
-				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
-				return errRunTerminate
 			}
 
 		// record
 		case clientStatePreRecord:
-			if strings.ToLower(th.Value("mode")) != "record" {
+			if th.Mode == nil || *th.Mode != "record" {
 				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain mode=record"))
 				return errRunTerminate
 			}
@@ -655,7 +656,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			}
 
 			// record via UDP
-			if th.IsUDP() {
+			if th.Protocol == gortsplib.StreamProtocolUDP {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
@@ -666,8 +667,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				rtpPort, rtcpPort := th.Ports("client_port")
-				if rtpPort == 0 || rtcpPort == 0 {
+				if th.ClientPorts == nil {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"]))
 					return errRunTerminate
 				}
@@ -679,27 +679,32 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 
 				c.streamProtocol = gortsplib.StreamProtocolUDP
 				c.streamTracks[len(c.streamTracks)] = &clientTrack{
-					rtpPort:  rtpPort,
-					rtcpPort: rtcpPort,
+					rtpPort:  (*th.ClientPorts)[0],
+					rtcpPort: (*th.ClientPorts)[1],
+				}
+
+				th := &gortsplib.HeaderTransport{
+					Protocol: gortsplib.StreamProtocolUDP,
+					Cast: func() *gortsplib.StreamCast {
+						v := gortsplib.StreamUnicast
+						return &v
+					}(),
+					ClientPorts: th.ClientPorts,
+					ServerPorts: &[2]int{c.p.conf.RtpPort, c.p.conf.RtcpPort},
 				}
 
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": cseq,
-						"Transport": gortsplib.HeaderValue{strings.Join([]string{
-							"RTP/AVP/UDP",
-							"unicast",
-							fmt.Sprintf("client_port=%d-%d", rtpPort, rtcpPort),
-							fmt.Sprintf("server_port=%d-%d", c.p.conf.RtpPort, c.p.conf.RtcpPort),
-						}, ";")},
-						"Session": gortsplib.HeaderValue{"12345678"},
+						"CSeq":      cseq,
+						"Transport": th.Write(),
+						"Session":   gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return nil
 
 				// record via TCP
-			} else if th.IsTCP() {
+			} else {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
@@ -710,15 +715,15 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				interleaved := th.Value("interleaved")
-				if interleaved == "" {
+				interleavedIds := [2]int{len(c.streamTracks) * 2, 1 + len(c.streamTracks)*2}
+
+				if th.InterleavedIds == nil {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain the interleaved field"))
 					return errRunTerminate
 				}
 
-				expInterleaved := fmt.Sprintf("%d-%d", 0+len(c.streamTracks)*2, 1+len(c.streamTracks)*2)
-				if interleaved != expInterleaved {
-					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("wrong interleaved value, expected '%s', got '%s'", expInterleaved, interleaved))
+				if (*th.InterleavedIds)[0] != interleavedIds[0] || (*th.InterleavedIds)[1] != interleavedIds[1] {
+					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("wrong interleaved ids, expected %v, got %v", interleavedIds, *th.InterleavedIds))
 					return errRunTerminate
 				}
 
@@ -733,23 +738,20 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					rtcpPort: 0,
 				}
 
+				ht := &gortsplib.HeaderTransport{
+					Protocol:       gortsplib.StreamProtocolTCP,
+					InterleavedIds: &interleavedIds,
+				}
+
 				c.conn.WriteResponse(&gortsplib.Response{
 					StatusCode: gortsplib.StatusOK,
 					Header: gortsplib.Header{
-						"CSeq": cseq,
-						"Transport": gortsplib.HeaderValue{strings.Join([]string{
-							"RTP/AVP/TCP",
-							"unicast",
-							fmt.Sprintf("interleaved=%s", interleaved),
-						}, ";")},
-						"Session": gortsplib.HeaderValue{"12345678"},
+						"CSeq":      cseq,
+						"Transport": ht.Write(),
+						"Session":   gortsplib.HeaderValue{"12345678"},
 					},
 				})
 				return nil
-
-			} else {
-				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header does not contain a valid protocol (RTP/AVP, RTP/AVP/UDP or RTP/AVP/TCP) (%s)", req.Header["Transport"]))
-				return errRunTerminate
 			}
 
 		default:
