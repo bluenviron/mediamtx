@@ -12,7 +12,7 @@ type udpBufAddrPair struct {
 	addr *net.UDPAddr
 }
 
-type serverUdp struct {
+type serverUDP struct {
 	p          *program
 	pc         *net.UDPConn
 	streamType gortsplib.StreamType
@@ -22,7 +22,7 @@ type serverUdp struct {
 	done   chan struct{}
 }
 
-func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serverUdp, error) {
+func newServerUDP(p *program, port int, streamType gortsplib.StreamType) (*serverUDP, error) {
 	pc, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
@@ -30,11 +30,11 @@ func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serve
 		return nil, err
 	}
 
-	l := &serverUdp{
+	l := &serverUDP{
 		p:          p,
 		pc:         pc,
 		streamType: streamType,
-		readBuf:    newMultiBuffer(3, clientUdpReadBufferSize),
+		readBuf:    newMultiBuffer(3, clientUDPReadBufferSize),
 		writec:     make(chan udpBufAddrPair),
 		done:       make(chan struct{}),
 	}
@@ -43,7 +43,7 @@ func newServerUdp(p *program, port int, streamType gortsplib.StreamType) (*serve
 	return l, nil
 }
 
-func (l *serverUdp) log(format string, args ...interface{}) {
+func (l *serverUDP) log(format string, args ...interface{}) {
 	var label string
 	if l.streamType == gortsplib.StreamTypeRtp {
 		label = "RTP"
@@ -53,7 +53,7 @@ func (l *serverUdp) log(format string, args ...interface{}) {
 	l.p.log("[UDP/"+label+" listener] "+format, args...)
 }
 
-func (l *serverUdp) run() {
+func (l *serverUDP) run() {
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
@@ -70,7 +70,7 @@ func (l *serverUdp) run() {
 			break
 		}
 
-		l.p.clientFrameUdp <- clientFrameUdpReq{
+		l.p.clientFrameUDP <- clientFrameUDPReq{
 			addr,
 			l.streamType,
 			buf[:n],
@@ -83,11 +83,11 @@ func (l *serverUdp) run() {
 	close(l.done)
 }
 
-func (l *serverUdp) close() {
+func (l *serverUDP) close() {
 	l.pc.Close()
 	<-l.done
 }
 
-func (l *serverUdp) write(data []byte, addr *net.UDPAddr) {
+func (l *serverUDP) write(data []byte, addr *net.UDPAddr) {
 	l.writec <- udpBufAddrPair{data, addr}
 }

@@ -32,9 +32,9 @@ type program struct {
 	metrics          *metrics
 	pprof            *pprof
 	paths            map[string]*path
-	serverRtp        *serverUdp
-	serverRtcp       *serverUdp
-	serverRtsp       *serverTcp
+	serverRtp        *serverUDP
+	serverRtcp       *serverUDP
+	serverRtsp       *serverTCP
 	clients          map[*client]struct{}
 	udpClientsByAddr map[udpClientAddr]*udpClient
 	countClient      int64
@@ -49,8 +49,8 @@ type program struct {
 	clientSetupPlay chan clientSetupPlayReq
 	clientPlay      chan *client
 	clientRecord    chan *client
-	clientFrameUdp  chan clientFrameUdpReq
-	clientFrameTcp  chan clientFrameTcpReq
+	clientFrameUDP  chan clientFrameUDPReq
+	clientFrameTCP  chan clientFrameTCPReq
 	sourceReady     chan *source
 	sourceNotReady  chan *source
 	sourceFrame     chan sourceFrameReq
@@ -90,8 +90,8 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		clientSetupPlay:  make(chan clientSetupPlayReq),
 		clientPlay:       make(chan *client),
 		clientRecord:     make(chan *client),
-		clientFrameUdp:   make(chan clientFrameUdpReq),
-		clientFrameTcp:   make(chan clientFrameTcpReq),
+		clientFrameUDP:   make(chan clientFrameUDPReq),
+		clientFrameTCP:   make(chan clientFrameTCPReq),
 		sourceReady:      make(chan *source),
 		sourceNotReady:   make(chan *source),
 		sourceFrame:      make(chan sourceFrameReq),
@@ -129,19 +129,19 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		p.paths[name] = newPath(p, name, confp, true)
 	}
 
-	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUdp]; ok {
-		p.serverRtp, err = newServerUdp(p, conf.RtpPort, gortsplib.StreamTypeRtp)
+	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUDP]; ok {
+		p.serverRtp, err = newServerUDP(p, conf.RtpPort, gortsplib.StreamTypeRtp)
 		if err != nil {
 			return nil, err
 		}
 
-		p.serverRtcp, err = newServerUdp(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
+		p.serverRtcp, err = newServerUDP(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	p.serverRtsp, err = newServerTcp(p)
+	p.serverRtsp, err = newServerTCP(p)
 	if err != nil {
 		return nil, err
 	}
@@ -273,16 +273,16 @@ outer:
 			atomic.AddInt64(&p.countPublisher, 1)
 			client.state = clientStateRecord
 
-			if client.streamProtocol == gortsplib.StreamProtocolUdp {
+			if client.streamProtocol == gortsplib.StreamProtocolUDP {
 				for trackId, track := range client.streamTracks {
-					key := makeUdpClientAddr(client.ip(), track.rtpPort)
+					key := makeUDPClientAddr(client.ip(), track.rtpPort)
 					p.udpClientsByAddr[key] = &udpClient{
 						client:     client,
 						trackId:    trackId,
 						streamType: gortsplib.StreamTypeRtp,
 					}
 
-					key = makeUdpClientAddr(client.ip(), track.rtcpPort)
+					key = makeUDPClientAddr(client.ip(), track.rtcpPort)
 					p.udpClientsByAddr[key] = &udpClient{
 						client:     client,
 						trackId:    trackId,
@@ -293,8 +293,8 @@ outer:
 
 			client.path.onPublisherSetReady()
 
-		case req := <-p.clientFrameUdp:
-			pub, ok := p.udpClientsByAddr[makeUdpClientAddr(req.addr.IP, req.addr.Port)]
+		case req := <-p.clientFrameUDP:
+			pub, ok := p.udpClientsByAddr[makeUDPClientAddr(req.addr.IP, req.addr.Port)]
 			if !ok {
 				continue
 			}
@@ -307,7 +307,7 @@ outer:
 			pub.client.rtcpReceivers[pub.trackId].OnFrame(req.streamType, req.buf)
 			p.forwardFrame(pub.client.path, pub.trackId, req.streamType, req.buf)
 
-		case req := <-p.clientFrameTcp:
+		case req := <-p.clientFrameTCP:
 			p.forwardFrame(req.path, req.trackId, req.streamType, req.buf)
 
 		case source := <-p.sourceReady:
@@ -347,8 +347,8 @@ outer:
 
 			case <-p.clientPlay:
 			case <-p.clientRecord:
-			case <-p.clientFrameUdp:
-			case <-p.clientFrameTcp:
+			case <-p.clientFrameUDP:
+			case <-p.clientFrameTCP:
 			case <-p.sourceReady:
 			case <-p.sourceNotReady:
 			case <-p.sourceFrame:
@@ -395,8 +395,8 @@ outer:
 	close(p.clientSetupPlay)
 	close(p.clientPlay)
 	close(p.clientRecord)
-	close(p.clientFrameUdp)
-	close(p.clientFrameTcp)
+	close(p.clientFrameUDP)
+	close(p.clientFrameTCP)
 	close(p.sourceReady)
 	close(p.sourceNotReady)
 	close(p.sourceFrame)
@@ -432,7 +432,7 @@ func (p *program) forwardFrame(path *path, trackId int, streamType gortsplib.Str
 			continue
 		}
 
-		if c.streamProtocol == gortsplib.StreamProtocolUdp {
+		if c.streamProtocol == gortsplib.StreamProtocolUDP {
 			if streamType == gortsplib.StreamTypeRtp {
 				p.serverRtp.write(frame, &net.UDPAddr{
 					IP:   c.ip(),

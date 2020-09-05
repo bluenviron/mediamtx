@@ -213,7 +213,7 @@ func TestRead(t *testing.T) {
 	}
 }
 
-func TestTcpOnly(t *testing.T) {
+func TestTCPOnly(t *testing.T) {
 	stdin := []byte("\n" +
 		"protocols: [tcp]\n")
 	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))

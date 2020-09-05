@@ -4,14 +4,14 @@ import (
 	"net"
 )
 
-type serverTcp struct {
+type serverTCP struct {
 	p        *program
 	listener *net.TCPListener
 
 	done chan struct{}
 }
 
-func newServerTcp(p *program) (*serverTcp, error) {
+func newServerTCP(p *program) (*serverTCP, error) {
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: p.conf.RtspPort,
 	})
@@ -19,7 +19,7 @@ func newServerTcp(p *program) (*serverTcp, error) {
 		return nil, err
 	}
 
-	l := &serverTcp{
+	l := &serverTCP{
 		p:        p,
 		listener: listener,
 		done:     make(chan struct{}),
@@ -29,11 +29,11 @@ func newServerTcp(p *program) (*serverTcp, error) {
 	return l, nil
 }
 
-func (l *serverTcp) log(format string, args ...interface{}) {
+func (l *serverTCP) log(format string, args ...interface{}) {
 	l.p.log("[TCP listener] "+format, args...)
 }
 
-func (l *serverTcp) run() {
+func (l *serverTCP) run() {
 	for {
 		conn, err := l.listener.AcceptTCP()
 		if err != nil {
@@ -46,7 +46,7 @@ func (l *serverTcp) run() {
 	close(l.done)
 }
 
-func (l *serverTcp) close() {
+func (l *serverTCP) close() {
 	l.listener.Close()
 	<-l.done
 }

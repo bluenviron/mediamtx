@@ -12,8 +12,8 @@ import (
 
 const (
 	sourceRetryInterval     = 5 * time.Second
-	sourceUdpReadBufferSize = 2048
-	sourceTcpReadBufferSize = 128 * 1024
+	sourceUDPReadBufferSize = 2048
+	sourceTCPReadBufferSize = 128 * 1024
 )
 
 type sourceFrameReq struct {
@@ -182,16 +182,16 @@ func (s *source) runInnerInner() bool {
 	s.path.publisherSdpText = serverSdpText
 	s.path.publisherSdpParsed = serverSdpParsed
 
-	if s.confp.sourceProtocolParsed == gortsplib.StreamProtocolUdp {
-		return s.runUdp(conn)
+	if s.confp.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
+		return s.runUDP(conn)
 	} else {
-		return s.runTcp(conn)
+		return s.runTCP(conn)
 	}
 }
 
-func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
-	var rtpReads []gortsplib.UdpReadFunc
-	var rtcpReads []gortsplib.UdpReadFunc
+func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
+	var rtpReads []gortsplib.UDPReadFunc
+	var rtcpReads []gortsplib.UDPReadFunc
 
 	for _, track := range s.tracks {
 		for {
@@ -200,7 +200,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
-			rtpRead, rtcpRead, _, err := conn.SetupUdp(s.confp.sourceUrl, track, rtpPort, rtcpPort)
+			rtpRead, rtcpRead, _, err := conn.SetupUDP(s.confp.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
 				// retry if it's a bind error
 				if nerr, ok := err.(*net.OpError); ok {
@@ -236,10 +236,10 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 	// receive RTP packets
 	for trackId, rtpRead := range rtpReads {
 		wg.Add(1)
-		go func(trackId int, rtpRead gortsplib.UdpReadFunc) {
+		go func(trackId int, rtpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(3, sourceUdpReadBufferSize)
+			multiBuf := newMultiBuffer(3, sourceUDPReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
@@ -256,10 +256,10 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 	// receive RTCP packets
 	for trackId, rtcpRead := range rtcpReads {
 		wg.Add(1)
-		go func(trackId int, rtcpRead gortsplib.UdpReadFunc) {
+		go func(trackId int, rtcpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(3, sourceUdpReadBufferSize)
+			multiBuf := newMultiBuffer(3, sourceUDPReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
@@ -275,7 +275,7 @@ func (s *source) runUdp(conn *gortsplib.ConnClient) bool {
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUdp(s.confp.sourceUrl)
+		tcpConnDone <- conn.LoopUDP(s.confp.sourceUrl)
 	}()
 
 	var ret bool
@@ -304,9 +304,9 @@ outer:
 	return ret
 }
 
-func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
+func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTcp(s.confp.sourceUrl, track)
+		_, err := conn.SetupTCP(s.confp.sourceUrl, track)
 		if err != nil {
 			conn.Close()
 			s.path.log("source ERR: %s", err)
@@ -324,7 +324,7 @@ func (s *source) runTcp(conn *gortsplib.ConnClient) bool {
 	s.p.sourceReady <- s
 
 	frame := &gortsplib.InterleavedFrame{}
-	multiBuf := newMultiBuffer(3, sourceTcpReadBufferSize)
+	multiBuf := newMultiBuffer(3, sourceTCPReadBufferSize)
 
 	tcpConnDone := make(chan error)
 	go func() {

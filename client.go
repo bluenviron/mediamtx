@@ -19,10 +19,10 @@ import (
 const (
 	clientCheckStreamInterval    = 5 * time.Second
 	clientReceiverReportInterval = 10 * time.Second
-	clientTcpReadBufferSize      = 128 * 1024
-	clientTcpWriteBufferSize     = 128 * 1024
-	clientUdpReadBufferSize      = 2048
-	clientUdpWriteBufferSize     = 128 * 1024
+	clientTCPReadBufferSize      = 128 * 1024
+	clientTCPWriteBufferSize     = 128 * 1024
+	clientUDPReadBufferSize      = 2048
+	clientUDPWriteBufferSize     = 128 * 1024
 )
 
 type clientDescribeReq struct {
@@ -45,13 +45,13 @@ type clientSetupPlayReq struct {
 	trackId  int
 }
 
-type clientFrameUdpReq struct {
+type clientFrameUDPReq struct {
 	addr       *net.UDPAddr
 	streamType gortsplib.StreamType
 	buf        []byte
 }
 
-type clientFrameTcpReq struct {
+type clientFrameTCPReq struct {
 	path       *path
 	trackId    int
 	streamType gortsplib.StreamType
@@ -69,7 +69,7 @@ type udpClientAddr struct {
 	port int
 }
 
-func makeUdpClientAddr(ip net.IP, port int) udpClientAddr {
+func makeUDPClientAddr(ip net.IP, port int) udpClientAddr {
 	ret := udpClientAddr{
 		port: port,
 	}
@@ -181,12 +181,12 @@ func (c *client) close() {
 	case clientStateRecord:
 		atomic.AddInt64(&c.p.countPublisher, -1)
 
-		if c.streamProtocol == gortsplib.StreamProtocolUdp {
+		if c.streamProtocol == gortsplib.StreamProtocolUDP {
 			for _, track := range c.streamTracks {
-				key := makeUdpClientAddr(c.ip(), track.rtpPort)
+				key := makeUDPClientAddr(c.ip(), track.rtpPort)
 				delete(c.p.udpClientsByAddr, key)
 
-				key = makeUdpClientAddr(c.ip(), track.rtcpPort)
+				key = makeUDPClientAddr(c.ip(), track.rtcpPort)
 				delete(c.p.udpClientsByAddr, key)
 			}
 		}
@@ -545,13 +545,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			}
 
 			// play via UDP
-			if th.IsUdp() {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; !ok {
+			if th.IsUDP() {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUDP {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return errRunTerminate
 				}
@@ -570,7 +570,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				c.streamProtocol = gortsplib.StreamProtocolUdp
+				c.streamProtocol = gortsplib.StreamProtocolUDP
 				c.streamTracks[trackId] = &clientTrack{
 					rtpPort:  rtpPort,
 					rtcpPort: rtcpPort,
@@ -592,13 +592,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				return nil
 
 				// play via TCP
-			} else if th.IsTcp() {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTcp]; !ok {
+			} else if th.IsTCP() {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTCP {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't receive tracks with different protocols"))
 					return errRunTerminate
 				}
@@ -611,7 +611,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				c.streamProtocol = gortsplib.StreamProtocolTcp
+				c.streamProtocol = gortsplib.StreamProtocolTCP
 				c.streamTracks[trackId] = &clientTrack{
 					rtpPort:  0,
 					rtcpPort: 0,
@@ -652,13 +652,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			}
 
 			// record via UDP
-			if th.IsUdp() {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUdp]; !ok {
+			if th.IsUDP() {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUdp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUDP {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return errRunTerminate
 				}
@@ -674,7 +674,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				c.streamProtocol = gortsplib.StreamProtocolUdp
+				c.streamProtocol = gortsplib.StreamProtocolUDP
 				c.streamTracks[len(c.streamTracks)] = &clientTrack{
 					rtpPort:  rtpPort,
 					rtcpPort: rtcpPort,
@@ -696,13 +696,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				return nil
 
 				// record via TCP
-			} else if th.IsTcp() {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTcp]; !ok {
+			} else if th.IsTCP() {
+				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTcp {
+				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTCP {
 					c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("can't publish tracks with different protocols"))
 					return errRunTerminate
 				}
@@ -724,7 +724,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					return errRunTerminate
 				}
 
-				c.streamProtocol = gortsplib.StreamProtocolTcp
+				c.streamProtocol = gortsplib.StreamProtocolTCP
 				c.streamTracks[len(c.streamTracks)] = &clientTrack{
 					rtpPort:  0,
 					rtcpPort: 0,
@@ -924,10 +924,10 @@ func (c *client) runPlay() bool {
 		}
 	}
 
-	if c.streamProtocol == gortsplib.StreamProtocolUdp {
-		c.runPlayUdp()
+	if c.streamProtocol == gortsplib.StreamProtocolUDP {
+		c.runPlayUDP()
 	} else {
-		c.runPlayTcp()
+		c.runPlayTCP()
 	}
 
 	if onReadCmd != nil {
@@ -938,7 +938,7 @@ func (c *client) runPlay() bool {
 	return false
 }
 
-func (c *client) runPlayUdp() {
+func (c *client) runPlayUDP() {
 	readDone := make(chan error)
 	go func() {
 		for {
@@ -973,11 +973,11 @@ func (c *client) runPlayUdp() {
 	}
 }
 
-func (c *client) runPlayTcp() {
+func (c *client) runPlayTCP() {
 	readDone := make(chan error)
 	go func() {
 		frame := &gortsplib.InterleavedFrame{}
-		readBuf := make([]byte, clientTcpReadBufferSize)
+		readBuf := make([]byte, clientTCPReadBufferSize)
 
 		for {
 			frame.Content = readBuf
@@ -1058,10 +1058,10 @@ func (c *client) runRecord() bool {
 		}
 	}
 
-	if c.streamProtocol == gortsplib.StreamProtocolUdp {
-		c.runRecordUdp()
+	if c.streamProtocol == gortsplib.StreamProtocolUDP {
+		c.runRecordUDP()
 	} else {
-		c.runRecordTcp()
+		c.runRecordTCP()
 	}
 
 	if onPublishCmd != nil {
@@ -1076,7 +1076,7 @@ func (c *client) runRecord() bool {
 	return false
 }
 
-func (c *client) runRecordUdp() {
+func (c *client) runRecordUDP() {
 	// open the firewall by sending packets to every channel
 	for _, track := range c.streamTracks {
 		c.p.serverRtp.write(
@@ -1160,9 +1160,9 @@ func (c *client) runRecordUdp() {
 	}
 }
 
-func (c *client) runRecordTcp() {
+func (c *client) runRecordTCP() {
 	frame := &gortsplib.InterleavedFrame{}
-	readBuf := newMultiBuffer(3, clientTcpReadBufferSize)
+	readBuf := newMultiBuffer(3, clientTCPReadBufferSize)
 
 	readDone := make(chan error)
 	go func() {
@@ -1184,7 +1184,7 @@ func (c *client) runRecordTcp() {
 				}
 
 				c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
-				c.p.clientFrameTcp <- clientFrameTcpReq{
+				c.p.clientFrameTCP <- clientFrameTCPReq{
 					c.path,
 					frame.TrackId,
 					frame.StreamType,

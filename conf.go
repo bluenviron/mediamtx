@@ -96,10 +96,10 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	for _, proto := range conf.Protocols {
 		switch proto {
 		case "udp":
-			conf.protocolsParsed[gortsplib.StreamProtocolUdp] = struct{}{}
+			conf.protocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
 
 		case "tcp":
-			conf.protocolsParsed[gortsplib.StreamProtocolTcp] = struct{}{}
+			conf.protocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)
@@ -218,10 +218,10 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			}
 			switch confp.SourceProtocol {
 			case "udp":
-				confp.sourceProtocolParsed = gortsplib.StreamProtocolUdp
+				confp.sourceProtocolParsed = gortsplib.StreamProtocolUDP
 
 			case "tcp":
-				confp.sourceProtocolParsed = gortsplib.StreamProtocolTcp
+				confp.sourceProtocolParsed = gortsplib.StreamProtocolTCP
 
 			default:
 				return nil, fmt.Errorf("unsupported protocol '%s'", confp.SourceProtocol)
