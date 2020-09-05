@@ -89,16 +89,35 @@ paths:
 
 After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
 
-### Convert a webcam into a RTSP server
+### Serve a webcam
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
 paths:
-  webcam:
+  cam:
     runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH
 ```
 
-After starting the server, the webcam can be opened with `rtsp://localhost:8554/webcam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
+After starting the server, the webcam can be opened with `rtsp://localhost:8554/cam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
+
+### Serve a Raspberry Pi Camera
+
+Install dependencies:
+1. Gstreamer
+   ```
+   sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp
+   ```
+
+2. gst-rpicamsrc, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
+
+Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+```yaml
+paths:
+  cam:
+    runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! rtspclientsink location=rtsp://localhost:8554/$RTSP_SERVER_PATH
+```
+
+After starting the server, the webcam can be opened with `rtsp://localhost:8554/cam`.
 
 ### On-demand publishing
 
