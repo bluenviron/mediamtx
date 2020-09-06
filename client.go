@@ -57,6 +57,11 @@ type clientFrameTCPReq struct {
 	buf        []byte
 }
 
+type readRequestPair struct {
+	req *gortsplib.Request
+	res chan error
+}
+
 type udpClient struct {
 	client     *client
 	trackId    int
@@ -983,6 +988,9 @@ func (c *client) runPlayUDP() {
 }
 
 func (c *client) runPlayTCP() {
+	readRequest := make(chan readRequestPair)
+	defer close(readRequest)
+
 	readDone := make(chan error)
 	go func() {
 		frame := &gortsplib.InterleavedFrame{}
@@ -1003,7 +1011,9 @@ func (c *client) runPlayTCP() {
 				// rtcp feedback is handled by gortsplib
 
 			case *gortsplib.Request:
-				err := c.handleRequest(recvt)
+				res := make(chan error)
+				readRequest <- readRequestPair{recvt, res}
+				err := <-res
 				if err != nil {
 					readDone <- err
 					break
@@ -1014,6 +1024,10 @@ func (c *client) runPlayTCP() {
 
 	for {
 		select {
+		// responses must be written in the same routine of frames
+		case req := <-readRequest:
+			req.res <- c.handleRequest(req.req)
+
 		case err := <-readDone:
 			c.conn.Close()
 			if err != io.EOF && err != errRunTerminate {
@@ -1031,6 +1045,11 @@ func (c *client) runPlayTCP() {
 			c.conn.WriteFrame(frame)
 
 		case <-c.terminate:
+			go func() {
+				for req := range readRequest {
+					req.res <- fmt.Errorf("terminated")
+				}
+			}()
 			c.conn.Close()
 			<-readDone
 			return
@@ -1173,6 +1192,9 @@ func (c *client) runRecordTCP() {
 	frame := &gortsplib.InterleavedFrame{}
 	readBuf := newMultiBuffer(3, clientTCPReadBufferSize)
 
+	readRequest := make(chan readRequestPair)
+	defer close(readRequest)
+
 	readDone := make(chan error)
 	go func() {
 		for {
@@ -1215,6 +1237,10 @@ func (c *client) runRecordTCP() {
 
 	for {
 		select {
+		// responses must be written in the same routine of receiver reports
+		case req := <-readRequest:
+			req.res <- c.handleRequest(req.req)
+
 		case err := <-readDone:
 			c.conn.Close()
 			if err != io.EOF && err != errRunTerminate {
@@ -1235,6 +1261,11 @@ func (c *client) runRecordTCP() {
 			}
 
 		case <-c.terminate:
+			go func() {
+				for req := range readRequest {
+					req.res <- fmt.Errorf("terminated")
+				}
+			}()
 			c.conn.Close()
 			<-readDone
 			return
