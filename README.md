@@ -12,8 +12,8 @@ Features:
 * Each stream can have multiple video and audio tracks, encoded in any format
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Pull and serve streams from other RTSP servers, always or on-demand (RTSP proxy)
-* Make streams secure with usernames and passwords (authentication)
-* Run custom commands when clients connect, disconnect, read or publish streams (linux only)
+* Provide separate authentication for reading and publishing
+* Run custom commands when clients connect, disconnect, read or publish streams
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 
 ## Installation and basic usage
