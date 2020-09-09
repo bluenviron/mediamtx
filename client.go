@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -230,16 +229,8 @@ var errRunRecord = errors.New("record")
 func (c *client) run() {
 	var onConnectCmd *exec.Cmd
 	if c.p.conf.RunOnConnect != "" {
-		var substitutedCommand = strings.ReplaceAll(c.p.conf.RunOnConnect, "$RTSP_SERVER_PATH", c.path.name)
-		if runtime.GOOS == "windows" {
-			var command = strings.Fields(substitutedCommand)
-			onConnectCmd = exec.Command(command[0], command[1:]...)
-		} else {
-			onConnectCmd = exec.Command("/bin/sh", "-c", substitutedCommand)
-		}
-		onConnectCmd.Stdout = os.Stdout
-		onConnectCmd.Stderr = os.Stderr
-		err := onConnectCmd.Start()
+		var err error
+		onConnectCmd, err = startExternalCommand(c.p.conf.RunOnConnect, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -933,16 +924,8 @@ func (c *client) runPlay() bool {
 
 	var onReadCmd *exec.Cmd
 	if c.path.confp.RunOnRead != "" {
-		var substitutedCommand = strings.ReplaceAll(c.path.confp.RunOnRead, "$RTSP_SERVER_PATH", c.path.name)
-		if runtime.GOOS == "windows" {
-			var command = strings.Fields(substitutedCommand)
-			onReadCmd = exec.Command(command[0], command[1:]...)
-		} else {
-			onReadCmd = exec.Command("/bin/sh", "-c", substitutedCommand)
-		}
-		onReadCmd.Stdout = os.Stdout
-		onReadCmd.Stderr = os.Stderr
-		err := onReadCmd.Start()
+		var err error
+		onReadCmd, err = startExternalCommand(c.path.confp.RunOnRead, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -1084,16 +1067,8 @@ func (c *client) runRecord() bool {
 
 	var onPublishCmd *exec.Cmd
 	if c.path.confp.RunOnPublish != "" {
-		var substitutedCommand = strings.ReplaceAll(c.path.confp.RunOnPublish, "$RTSP_SERVER_PATH", c.path.name)
-		if runtime.GOOS == "windows" {
-			var command = strings.Fields(substitutedCommand)
-			onPublishCmd = exec.Command(command[0], command[1:]...)
-		} else {
-			onPublishCmd = exec.Command("/bin/sh", "-c", substitutedCommand)
-		}
-		onPublishCmd.Stdout = os.Stdout
-		onPublishCmd.Stderr = os.Stderr
-		err := onPublishCmd.Start()
+		var err error
+		onPublishCmd, err = startExternalCommand(c.path.confp.RunOnPublish, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
-	"strings"
 	"time"
 )
 
@@ -64,16 +62,9 @@ func (pa *path) onInit() {
 
 	if pa.confp.RunOnInit != "" {
 		pa.log("starting on init command")
-		var substitutedCommand = strings.ReplaceAll(pa.confp.RunOnInit, "$RTSP_SERVER_PATH", pa.name)
-		if runtime.GOOS == "windows" {
-			var command = strings.Fields(substitutedCommand)
-			pa.onInitCmd = exec.Command(command[0], command[1:]...)
-		} else {
-			pa.onInitCmd = exec.Command("/bin/sh", "-c", substitutedCommand)
-		}
-		pa.onInitCmd.Stdout = os.Stdout
-		pa.onInitCmd.Stderr = os.Stderr
-		err := pa.onInitCmd.Start()
+
+		var err error
+		pa.onInitCmd, err = startExternalCommand(pa.confp.RunOnInit, pa.name)
 		if err != nil {
 			pa.log("ERR: %s", err)
 		}
@@ -235,18 +226,10 @@ func (pa *path) onDescribe(client *client) {
 		if pa.confp.RunOnDemand != "" {
 			if pa.onDemandCmd == nil { // start if needed
 				pa.log("starting on demand command")
-
 				pa.lastDescribeActivation = time.Now()
-				var substitutedCommand = strings.ReplaceAll(pa.confp.RunOnDemand, "$RTSP_SERVER_PATH", pa.name)
-				if runtime.GOOS == "windows" {
-					var command = strings.Fields(substitutedCommand)
-					pa.onDemandCmd = exec.Command(command[0], command[1:]...)
-				} else {
-					pa.onDemandCmd = exec.Command("/bin/sh", "-c", substitutedCommand)
-				}
-				pa.onDemandCmd.Stdout = os.Stdout
-				pa.onDemandCmd.Stderr = os.Stderr
-				err := pa.onDemandCmd.Start()
+
+				var err error
+				pa.onDemandCmd, err = startExternalCommand(pa.confp.RunOnDemand, "")
 				if err != nil {
 					pa.log("ERR: %s", err)
 				}
