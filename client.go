@@ -373,6 +373,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			Header: gortsplib.Header{
 				"CSeq": cseq,
 				"Public": gortsplib.HeaderValue{strings.Join([]string{
+					string(gortsplib.GET_PARAMETER),
 					string(gortsplib.DESCRIBE),
 					string(gortsplib.ANNOUNCE),
 					string(gortsplib.SETUP),
@@ -381,6 +382,18 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 					string(gortsplib.TEARDOWN),
 				}, ", ")},
 			},
+		})
+		return nil
+
+	// GET_PARAMETER is used like a ping
+	case gortsplib.GET_PARAMETER:
+		c.conn.WriteResponse(&gortsplib.Response{
+			StatusCode: gortsplib.StatusOK,
+			Header: gortsplib.Header{
+				"CSeq":         cseq,
+				"Content-Type": gortsplib.HeaderValue{"text/parameters"},
+			},
+			Content: []byte("\n"),
 		})
 		return nil
 
