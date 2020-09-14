@@ -20,6 +20,10 @@ The most helpful content you can provide to fix a communication issue between rt
 
 v0.0.0
 
+## Which operating system are you using?
+
+Windows / Mac / Linux
+
 ## Describe the problem
 
 Description
