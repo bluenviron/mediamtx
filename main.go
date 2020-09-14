@@ -26,6 +26,12 @@ const (
 	logDestinationFile
 )
 
+type logWriter func([]byte) (int, error)
+
+func (f logWriter) Write(p []byte) (int, error) {
+	return f(p)
+}
+
 type program struct {
 	conf             *conf
 	logFile          *os.File
@@ -106,6 +112,8 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		}
 	}
 
+	log.SetOutput(logWriter(p.logOutput))
+
 	p.log("rtsp-simple-server %s", Version)
 
 	if conf.Metrics {
@@ -156,16 +164,20 @@ func (p *program) log(format string, args ...interface{}) {
 	countPublisher := atomic.LoadInt64(&p.countPublisher)
 	countReader := atomic.LoadInt64(&p.countReader)
 
-	line := fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClient,
-		countPublisher, countReader}, args...)...)
+	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClient,
+		countPublisher, countReader}, args...)...))
+}
 
+func (p *program) logOutput(line []byte) (int, error) {
 	if _, ok := p.conf.logDestinationsParsed[logDestinationStdout]; ok {
-		log.Println(line)
+		print(string(line))
 	}
 
 	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
-		p.logFile.WriteString(line + "\n")
+		p.logFile.Write(line)
 	}
+
+	return len(line), nil
 }
 
 func (p *program) run() {
