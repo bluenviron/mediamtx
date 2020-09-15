@@ -77,7 +77,7 @@ To see or change the configuration, edit the `rtsp-simple-server.yml` file, prov
 
 An RTSP proxy is usually deployed in one of these scenarios:
 * when there are multiple users that are receiving a stream and the bandwidth is limited, so the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
-* when there's a NAT / firewall between a stream and the users, in this case the proxy is installed in the NAT and makes the stream available to the outside world.
+* when there's a NAT / firewall between a stream and the users, in this case the proxy is installed on the NAT and makes the stream available to the outside world.
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
