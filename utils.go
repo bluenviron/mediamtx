@@ -159,3 +159,14 @@ func startExternalCommand(cmdstr string, pathName string) (*exec.Cmd, error) {
 
 	return cmd, nil
 }
+
+func isBindError(err error) bool {
+	if nerr, ok := err.(*net.OpError); ok {
+		if serr, ok := nerr.Err.(*os.SyscallError); ok {
+			if serr.Syscall == "bind" {
+				return true
+			}
+		}
+	}
+	return false
+}

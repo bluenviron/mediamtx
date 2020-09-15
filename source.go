@@ -2,8 +2,6 @@ package main
 
 import (
 	"math/rand"
-	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -195,20 +193,15 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 
 	for _, track := range s.tracks {
 		for {
-			// choose two consecutive ports in range 65536-10000
+			// choose two consecutive ports in range 65535-10000
 			// rtp must be even and rtcp odd
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
 			rtpRead, rtcpRead, _, err := conn.SetupUDP(s.confp.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
-				// retry if it's a bind error
-				if nerr, ok := err.(*net.OpError); ok {
-					if serr, ok := nerr.Err.(*os.SyscallError); ok {
-						if serr.Syscall == "bind" {
-							continue
-						}
-					}
+				if isBindError(err) {
+					continue // retry
 				}
 
 				conn.Close()
