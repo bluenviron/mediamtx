@@ -8,6 +8,9 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"sync"
+
+	"github.com/aler9/gortsplib"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {
@@ -169,4 +172,131 @@ func isBindError(err error) bool {
 		}
 	}
 	return false
+}
+
+type udpPublisherAddr struct {
+	ip   [net.IPv6len]byte // use a fixed-size array to enable the equality operator
+	port int
+}
+
+func makeUDPPublisherAddr(ip net.IP, port int) udpPublisherAddr {
+	ret := udpPublisherAddr{
+		port: port,
+	}
+
+	if len(ip) == net.IPv4len {
+		copy(ret.ip[0:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}) // v4InV6Prefix
+		copy(ret.ip[12:], ip)
+	} else {
+		copy(ret.ip[:], ip)
+	}
+
+	return ret
+}
+
+type udpPublisher struct {
+	client     *client
+	trackId    int
+	streamType gortsplib.StreamType
+}
+
+type udpPublishersMap struct {
+	mutex sync.RWMutex
+	ma    map[udpPublisherAddr]*udpPublisher
+}
+
+func newUdpPublisherMap() *udpPublishersMap {
+	return &udpPublishersMap{
+		ma: make(map[udpPublisherAddr]*udpPublisher),
+	}
+}
+
+func (m *udpPublishersMap) get(addr udpPublisherAddr) *udpPublisher {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	el, ok := m.ma[addr]
+	if !ok {
+		return nil
+	}
+	return el
+}
+
+func (m *udpPublishersMap) add(addr udpPublisherAddr, pub *udpPublisher) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.ma[addr] = pub
+}
+
+func (m *udpPublishersMap) remove(addr udpPublisherAddr) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	delete(m.ma, addr)
+}
+
+type readersMap struct {
+	mutex sync.RWMutex
+	ma    map[*client]struct{}
+}
+
+func newReadersMap() *readersMap {
+	return &readersMap{
+		ma: make(map[*client]struct{}),
+	}
+}
+
+func (m *readersMap) add(reader *client) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.ma[reader] = struct{}{}
+}
+
+func (m *readersMap) remove(reader *client) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	delete(m.ma, reader)
+}
+
+func (m *readersMap) forwardFrame(path *path, trackId int, streamType gortsplib.StreamType, frame []byte) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for c := range m.ma {
+		if c.path != path {
+			continue
+		}
+
+		track, ok := c.streamTracks[trackId]
+		if !ok {
+			continue
+		}
+
+		if c.streamProtocol == gortsplib.StreamProtocolUDP {
+			if streamType == gortsplib.StreamTypeRtp {
+				c.p.serverRtp.write(frame, &net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: track.rtpPort,
+				})
+
+			} else {
+				c.p.serverRtcp.write(frame, &net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: track.rtcpPort,
+				})
+			}
+
+		} else {
+			c.tcpFrame <- &gortsplib.InterleavedFrame{
+				TrackId:    trackId,
+				StreamType: streamType,
+				Content:    frame,
+			}
+		}
+	}
 }

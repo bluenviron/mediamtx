@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -70,11 +71,25 @@ func (l *serverUDP) run() {
 			break
 		}
 
-		l.p.clientFrameUDP <- clientFrameUDPReq{
-			addr,
-			l.streamType,
-			buf[:n],
+		pub := l.p.udpPublishersMap.get(makeUDPPublisherAddr(addr.IP, addr.Port))
+		if pub == nil {
+			continue
 		}
+
+		// client sent RTP on RTCP port or vice-versa
+		if pub.streamType != l.streamType {
+			continue
+		}
+
+		atomic.StoreInt64(pub.client.udpLastFrameTimes[pub.trackId], time.Now().Unix())
+
+		pub.client.rtcpReceivers[pub.trackId].OnFrame(l.streamType, buf[:n])
+
+		l.p.readersMap.forwardFrame(pub.client.path,
+			pub.trackId,
+			l.streamType,
+			buf[:n])
+
 	}
 
 	close(l.writec)

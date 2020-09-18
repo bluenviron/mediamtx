@@ -14,13 +14,6 @@ const (
 	sourceTCPReadBufferSize = 128 * 1024
 )
 
-type sourceFrameReq struct {
-	source     *source
-	trackId    int
-	streamType gortsplib.StreamType
-	buf        []byte
-}
-
 type sourceState int
 
 const (
@@ -241,7 +234,8 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 					break
 				}
 
-				s.p.sourceFrame <- sourceFrameReq{s, trackId, gortsplib.StreamTypeRtp, buf[:n]}
+				s.p.readersMap.forwardFrame(s.path, trackId,
+					gortsplib.StreamTypeRtp, buf[:n])
 			}
 		}(trackId, rtpRead)
 	}
@@ -261,7 +255,8 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 					break
 				}
 
-				s.p.sourceFrame <- sourceFrameReq{s, trackId, gortsplib.StreamTypeRtcp, buf[:n]}
+				s.p.readersMap.forwardFrame(s.path, trackId,
+					gortsplib.StreamTypeRtcp, buf[:n])
 			}
 		}(trackId, rtcpRead)
 	}
@@ -331,7 +326,7 @@ func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
 				return
 			}
 
-			s.p.sourceFrame <- sourceFrameReq{s, frame.TrackId, frame.StreamType, frame.Content}
+			s.p.readersMap.forwardFrame(s.path, frame.TrackId, frame.StreamType, frame.Content)
 		}
 	}()
 

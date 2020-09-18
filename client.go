@@ -44,48 +44,9 @@ type clientSetupPlayReq struct {
 	trackId  int
 }
 
-type clientFrameUDPReq struct {
-	addr       *net.UDPAddr
-	streamType gortsplib.StreamType
-	buf        []byte
-}
-
-type clientFrameTCPReq struct {
-	path       *path
-	trackId    int
-	streamType gortsplib.StreamType
-	buf        []byte
-}
-
 type readRequestPair struct {
 	req *gortsplib.Request
 	res chan error
-}
-
-type udpClient struct {
-	client     *client
-	trackId    int
-	streamType gortsplib.StreamType
-}
-
-type udpClientAddr struct {
-	ip   [net.IPv6len]byte // use a fixed-size array to enable the equality operator
-	port int
-}
-
-func makeUDPClientAddr(ip net.IP, port int) udpClientAddr {
-	ret := udpClientAddr{
-		port: port,
-	}
-
-	if len(ip) == net.IPv4len {
-		copy(ret.ip[0:], []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff}) // v4InV6Prefix
-		copy(ret.ip[12:], ip)
-	} else {
-		copy(ret.ip[:], ip)
-	}
-
-	return ret
 }
 
 type clientTrack struct {
@@ -182,17 +143,18 @@ func (c *client) close() {
 	switch c.state {
 	case clientStatePlay:
 		atomic.AddInt64(&c.p.countReader, -1)
+		c.p.readersMap.remove(c)
 
 	case clientStateRecord:
 		atomic.AddInt64(&c.p.countPublisher, -1)
 
 		if c.streamProtocol == gortsplib.StreamProtocolUDP {
 			for _, track := range c.streamTracks {
-				key := makeUDPClientAddr(c.ip(), track.rtpPort)
-				delete(c.p.udpClientsByAddr, key)
+				addr := makeUDPPublisherAddr(c.ip(), track.rtpPort)
+				c.p.udpPublishersMap.remove(addr)
 
-				key = makeUDPClientAddr(c.ip(), track.rtcpPort)
-				delete(c.p.udpClientsByAddr, key)
+				addr = makeUDPPublisherAddr(c.ip(), track.rtcpPort)
+				c.p.udpPublishersMap.remove(addr)
 			}
 		}
 
@@ -1225,12 +1187,8 @@ func (c *client) runRecordTCP() {
 				}
 
 				c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
-				c.p.clientFrameTCP <- clientFrameTCPReq{
-					c.path,
-					frame.TrackId,
-					frame.StreamType,
-					frame.Content,
-				}
+
+				c.p.readersMap.forwardFrame(c.path, frame.TrackId, frame.StreamType, frame.Content)
 
 			case *gortsplib.Request:
 				err := c.handleRequest(recvt)
