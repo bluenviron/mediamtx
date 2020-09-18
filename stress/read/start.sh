@@ -1,0 +1,30 @@
+#!/bin/sh -e
+
+READER_COUNT=10
+READER_PROTOCOL=tcp
+
+#####################################################
+# source
+
+CONF=""
+CONF="${CONF}pprof: yes\n"
+echo -e "$CONF" > /source.conf
+
+/rtsp-simple-server /source.conf &
+
+sleep 1
+
+ffmpeg -re -stream_loop -1 -i /video.mkv -c copy -f rtsp rtsp://localhost:8554/source &
+
+sleep 1
+
+#####################################################
+# readers
+
+for i in $(seq 1 $READER_COUNT); do
+    ffmpeg  -hide_banner -loglevel error \
+    -rtsp_transport $READER_PROTOCOL \
+    -i rtsp://localhost:8554/source -c copy -f mpegts -y /dev/null &
+done
+
+wait

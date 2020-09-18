@@ -11,6 +11,7 @@ help:
 	@echo "  mod-tidy       run go mod tidy"
 	@echo "  format         format source files"
 	@echo "  test           run available tests"
+	@echo "  stress NAME=n  run stress environment"
 	@echo "  run            run app"
 	@echo "  release        build release assets"
 	@echo "  dockerhub      build and push docker hub images"
@@ -52,6 +53,10 @@ test-nodocker:
 	docker build -q test-images/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
 	go test -race -v .
 
+stress:
+	docker build -q . -f stress/$(NAME)/Dockerfile -t temp
+	docker run --rm -it --network=host temp
+
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)
 RUN apk add --no-cache git ffmpeg
@@ -68,14 +73,14 @@ define CONFIG_RUN
 #rtpPort: 8002
 #rtcpPort: 8003
 #metrics: yes
-pprof: yes
+#pprof: yes
 
 paths:
   all:
 #    runOnPublish: ffmpeg -i rtsp://localhost:8554/$$RTSP_SERVER_PATH -c copy -f mpegts myfile_$$RTSP_SERVER_PATH.ts
 #    readUser: test
 #    readPass: tast
-    runOnDemand: ffmpeg -re -stream_loop -1 -i test-images/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$$RTSP_SERVER_PATH
+#    runOnDemand: ffmpeg -re -stream_loop -1 -i test-images/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$$RTSP_SERVER_PATH
 
 #  proxied:
 #    source: rtsp://192.168.2.198:8554/stream
