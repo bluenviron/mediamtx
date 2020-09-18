@@ -225,7 +225,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, rtpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(3, sourceUDPReadBufferSize)
+			multiBuf := newMultiBuffer(2, sourceUDPReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
@@ -246,7 +246,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, rtcpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(3, sourceUDPReadBufferSize)
+			multiBuf := newMultiBuffer(2, sourceUDPReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
@@ -312,7 +312,7 @@ func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
 	s.p.sourceReady <- s
 
 	frame := &gortsplib.InterleavedFrame{}
-	multiBuf := newMultiBuffer(3, sourceTCPReadBufferSize)
+	multiBuf := newMultiBuffer(2, sourceTCPReadBufferSize)
 
 	tcpConnDone := make(chan error)
 	go func() {

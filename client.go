@@ -1162,7 +1162,7 @@ func (c *client) runRecordUDP() {
 
 func (c *client) runRecordTCP() {
 	frame := &gortsplib.InterleavedFrame{}
-	readBuf := newMultiBuffer(3, clientTCPReadBufferSize)
+	readBuf := newMultiBuffer(2, clientTCPReadBufferSize)
 
 	readRequest := make(chan readRequestPair)
 	defer close(readRequest)
