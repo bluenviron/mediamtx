@@ -133,19 +133,20 @@ func (cs clientState) String() string {
 }
 
 type client struct {
-	p              *program
-	conn           *gortsplib.ConnServer
-	state          clientState
-	path           *path
-	authUser       string
-	authPass       string
-	authHelper     *gortsplib.AuthServer
-	authFailures   int
-	streamProtocol gortsplib.StreamProtocol
-	streamTracks   map[int]*clientTrack
-	rtcpReceivers  []*gortsplib.RtcpReceiver
-	describeCSeq   gortsplib.HeaderValue
-	describeUrl    string
+	p                 *program
+	conn              *gortsplib.ConnServer
+	state             clientState
+	path              *path
+	authUser          string
+	authPass          string
+	authHelper        *gortsplib.AuthServer
+	authFailures      int
+	streamProtocol    gortsplib.StreamProtocol
+	streamTracks      map[int]*clientTrack
+	rtcpReceivers     []*gortsplib.RtcpReceiver
+	udpLastFrameTimes []*int64
+	describeCSeq      gortsplib.HeaderValue
+	describeUrl       string
 
 	describe  chan describeRes
 	tcpFrame  chan *gortsplib.InterleavedFrame
@@ -1069,6 +1070,14 @@ func (c *client) runRecord() bool {
 		c.rtcpReceivers[trackId] = gortsplib.NewRtcpReceiver()
 	}
 
+	if c.streamProtocol == gortsplib.StreamProtocolUDP {
+		c.udpLastFrameTimes = make([]*int64, len(c.streamTracks))
+		for trackId := range c.streamTracks {
+			v := time.Now().Unix()
+			c.udpLastFrameTimes[trackId] = &v
+		}
+	}
+
 	c.p.clientRecord <- c
 
 	c.log("is publishing on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
@@ -1096,10 +1105,6 @@ func (c *client) runRecord() bool {
 	if onPublishCmd != nil {
 		onPublishCmd.Process.Signal(os.Interrupt)
 		onPublishCmd.Wait()
-	}
-
-	for trackId := range c.streamTracks {
-		c.rtcpReceivers[trackId].Close()
 	}
 
 	return false
@@ -1160,9 +1165,13 @@ func (c *client) runRecordUDP() {
 			return
 
 		case <-checkStreamTicker.C:
-			for trackId := range c.streamTracks {
-				if time.Since(c.rtcpReceivers[trackId].LastFrameTime()) >= c.p.conf.ReadTimeout {
-					c.log("ERR: no packets received recently (maybe there's a firewall/NAT)")
+			now := time.Now()
+
+			for _, lastUnix := range c.udpLastFrameTimes {
+				last := time.Unix(atomic.LoadInt64(lastUnix), 0)
+
+				if now.Sub(last) >= c.p.conf.ReadTimeout {
+					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
 					<-readDone
 					c.p.clientClose <- c

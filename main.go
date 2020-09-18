@@ -316,7 +316,10 @@ outer:
 				continue
 			}
 
+			atomic.StoreInt64(pub.client.udpLastFrameTimes[pub.trackId], time.Now().Unix())
+
 			pub.client.rtcpReceivers[pub.trackId].OnFrame(req.streamType, req.buf)
+
 			p.forwardFrame(pub.client.path, pub.trackId, req.streamType, req.buf)
 
 		case req := <-p.clientFrameTCP:
