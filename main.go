@@ -19,22 +19,9 @@ const (
 	checkPathPeriod = 5 * time.Second
 )
 
-type logDestination int
-
-const (
-	logDestinationStdout logDestination = iota
-	logDestinationFile
-)
-
-type logWriter func([]byte) (int, error)
-
-func (f logWriter) Write(p []byte) (int, error) {
-	return f(p)
-}
-
 type program struct {
 	conf             *conf
-	logFile          *os.File
+	logHandler       *logHandler
 	metrics          *metrics
 	pprof            *pprof
 	paths            map[string]*path
@@ -81,8 +68,14 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
+	logHandler, err := newLogHandler(conf.logDestinationsParsed, conf.LogFile)
+	if err != nil {
+		return nil, err
+	}
+
 	p := &program{
 		conf:             conf,
+		logHandler:       logHandler,
 		paths:            make(map[string]*path),
 		clients:          make(map[*client]struct{}),
 		udpPublishersMap: newUdpPublisherMap(),
@@ -100,15 +93,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		terminate:        make(chan struct{}),
 		done:             make(chan struct{}),
 	}
-
-	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
-		p.logFile, err = os.OpenFile(p.conf.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	log.SetOutput(logWriter(p.logOutput))
 
 	p.log("rtsp-simple-server %s", Version)
 
@@ -162,18 +146,6 @@ func (p *program) log(format string, args ...interface{}) {
 
 	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClient,
 		countPublisher, countReader}, args...)...))
-}
-
-func (p *program) logOutput(line []byte) (int, error) {
-	if _, ok := p.conf.logDestinationsParsed[logDestinationStdout]; ok {
-		print(string(line))
-	}
-
-	if _, ok := p.conf.logDestinationsParsed[logDestinationFile]; ok {
-		p.logFile.Write(line)
-	}
-
-	return len(line), nil
 }
 
 func (p *program) run() {
@@ -369,9 +341,7 @@ outer:
 		p.pprof.close()
 	}
 
-	if p.logFile != nil {
-		p.logFile.Close()
-	}
+	p.logHandler.close()
 
 	close(p.metricsGather)
 	close(p.clientNew)
