@@ -193,7 +193,7 @@ func (c *client) run() {
 	var onConnectCmd *exec.Cmd
 	if c.p.conf.RunOnConnect != "" {
 		var err error
-		onConnectCmd, err = startExternalCommand(c.p.conf.RunOnConnect, c.path.name)
+		onConnectCmd, err = startExternalCommand(c.p.conf.RunOnConnect, "")
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
