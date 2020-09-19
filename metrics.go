@@ -71,7 +71,7 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	out += fmt.Sprintf("rtsp_clients{state=\"reading\"} %d %v\n",
 		countReaders, now)
 	out += fmt.Sprintf("rtsp_proxies{state=\"idle\"} %d %v\n",
-		countProxies, now)
+		countProxies-countProxiesRunning, now)
 	out += fmt.Sprintf("rtsp_proxies{state=\"running\"} %d %v\n",
 		countProxiesRunning, now)
 
