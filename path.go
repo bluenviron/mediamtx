@@ -8,11 +8,11 @@ import (
 
 const (
 	describeTimeout                  = 5 * time.Second
-	sourceStopAfterDescribeSecs      = 10 * time.Second
+	proxyStopAfterDescribeSecs       = 10 * time.Second
 	onDemandCmdStopAfterDescribeSecs = 10 * time.Second
 )
 
-// a publisher is either a client or a source
+// a publisher is either a client or a proxy
 type publisher interface {
 	isPublisher()
 }
@@ -21,7 +21,7 @@ type path struct {
 	p                      *program
 	name                   string
 	conf                   *pathConf
-	source                 *source
+	proxy                  *proxy
 	publisher              publisher
 	publisherReady         bool
 	publisherTrackCount    int
@@ -40,8 +40,8 @@ func newPath(p *program, name string, conf *pathConf) *path {
 	}
 
 	if conf.Source != "record" {
-		s := newSource(p, pa, conf)
-		pa.source = s
+		s := newProxy(p, pa, conf)
+		pa.proxy = s
 		pa.publisher = s
 	}
 
@@ -53,8 +53,8 @@ func (pa *path) log(format string, args ...interface{}) {
 }
 
 func (pa *path) onInit() {
-	if pa.source != nil {
-		go pa.source.run(pa.source.state)
+	if pa.proxy != nil {
+		go pa.proxy.run(pa.proxy.state)
 	}
 
 	if pa.conf.RunOnInit != "" {
@@ -69,9 +69,9 @@ func (pa *path) onInit() {
 }
 
 func (pa *path) onClose(wait bool) {
-	if pa.source != nil {
-		close(pa.source.terminate)
-		<-pa.source.done
+	if pa.proxy != nil {
+		close(pa.proxy.terminate)
+		<-pa.proxy.done
 	}
 
 	if pa.onInitCmd != nil {
@@ -142,16 +142,16 @@ func (pa *path) onCheck() {
 		}
 	}
 
-	// stop on demand source if needed
-	if pa.source != nil &&
+	// stop on demand proxy if needed
+	if pa.proxy != nil &&
 		pa.conf.SourceOnDemand &&
-		pa.source.state == sourceStateRunning &&
+		pa.proxy.state == proxyStateRunning &&
 		!pa.hasClients() &&
-		time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribeSecs {
-		pa.log("stopping on demand source (not requested anymore)")
+		time.Since(pa.lastDescribeReq) >= proxyStopAfterDescribeSecs {
+		pa.log("stopping on demand proxy (not requested anymore)")
 		atomic.AddInt64(&pa.p.countProxiesRunning, -1)
-		pa.source.state = sourceStateStopped
-		pa.source.setState <- pa.source.state
+		pa.proxy.state = proxyStateStopped
+		pa.proxy.setState <- pa.proxy.state
 	}
 
 	// stop on demand command if needed
@@ -240,12 +240,12 @@ func (pa *path) onDescribe(client *client) {
 
 		// publisher was found but is not ready: put the client on hold
 	} else if !pa.publisherReady {
-		if pa.source != nil && pa.source.state == sourceStateStopped { // start if needed
-			pa.log("starting on demand source")
+		if pa.proxy != nil && pa.proxy.state == proxyStateStopped { // start if needed
+			pa.log("starting on demand proxy")
 			pa.lastDescribeActivation = time.Now()
 			atomic.AddInt64(&pa.p.countProxiesRunning, +1)
-			pa.source.state = sourceStateRunning
-			pa.source.setState <- pa.source.state
+			pa.proxy.state = proxyStateRunning
+			pa.proxy.setState <- pa.proxy.state
 		}
 
 		client.path = pa

@@ -10,39 +10,39 @@ import (
 )
 
 const (
-	sourceRetryInterval     = 5 * time.Second
-	sourceUDPReadBufferSize = 2048
-	sourceTCPReadBufferSize = 128 * 1024
+	proxyRetryInterval     = 5 * time.Second
+	proxyUDPReadBufferSize = 2048
+	proxyTCPReadBufferSize = 128 * 1024
 )
 
-type sourceState int
+type proxyState int
 
 const (
-	sourceStateStopped sourceState = iota
-	sourceStateRunning
+	proxyStateStopped proxyState = iota
+	proxyStateRunning
 )
 
-type source struct {
+type proxy struct {
 	p            *program
 	path         *path
 	pathConf     *pathConf
-	state        sourceState
+	state        proxyState
 	tracks       []*gortsplib.Track
 	innerRunning bool
 
 	innerTerminate chan struct{}
 	innerDone      chan struct{}
-	setState       chan sourceState
+	setState       chan proxyState
 	terminate      chan struct{}
 	done           chan struct{}
 }
 
-func newSource(p *program, path *path, pathConf *pathConf) *source {
-	s := &source{
+func newProxy(p *program, path *path, pathConf *pathConf) *proxy {
+	s := &proxy{
 		p:         p,
 		path:      path,
 		pathConf:  pathConf,
-		setState:  make(chan sourceState),
+		setState:  make(chan proxyState),
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -50,18 +50,18 @@ func newSource(p *program, path *path, pathConf *pathConf) *source {
 	atomic.AddInt64(&p.countProxies, +1)
 
 	if pathConf.SourceOnDemand {
-		s.state = sourceStateStopped
+		s.state = proxyStateStopped
 	} else {
-		s.state = sourceStateRunning
+		s.state = proxyStateRunning
 		atomic.AddInt64(&p.countProxiesRunning, +1)
 	}
 
 	return s
 }
 
-func (s *source) isPublisher() {}
+func (s *proxy) isPublisher() {}
 
-func (s *source) run(initialState sourceState) {
+func (s *proxy) run(initialState proxyState) {
 	s.applyState(initialState)
 
 outer:
@@ -84,10 +84,10 @@ outer:
 	close(s.done)
 }
 
-func (s *source) applyState(state sourceState) {
-	if state == sourceStateRunning {
+func (s *proxy) applyState(state proxyState) {
+	if state == proxyStateRunning {
 		if !s.innerRunning {
-			s.path.log("source started")
+			s.path.log("proxy started")
 			s.innerRunning = true
 			s.innerTerminate = make(chan struct{})
 			s.innerDone = make(chan struct{})
@@ -98,12 +98,12 @@ func (s *source) applyState(state sourceState) {
 			close(s.innerTerminate)
 			<-s.innerDone
 			s.innerRunning = false
-			s.path.log("source stopped")
+			s.path.log("proxy stopped")
 		}
 	}
 }
 
-func (s *source) runInner() {
+func (s *proxy) runInner() {
 	defer close(s.innerDone)
 
 	for {
@@ -113,7 +113,7 @@ func (s *source) runInner() {
 				return false
 			}
 
-			t := time.NewTimer(sourceRetryInterval)
+			t := time.NewTimer(proxyRetryInterval)
 			defer t.Stop()
 
 			select {
@@ -130,8 +130,8 @@ func (s *source) runInner() {
 	}
 }
 
-func (s *source) runInnerInner() bool {
-	s.path.log("source connecting")
+func (s *proxy) runInnerInner() bool {
+	s.path.log("proxy connecting")
 
 	var conn *gortsplib.ConnClient
 	var err error
@@ -152,21 +152,21 @@ func (s *source) runInnerInner() bool {
 	}
 
 	if err != nil {
-		s.path.log("source ERR: %s", err)
+		s.path.log("proxy ERR: %s", err)
 		return true
 	}
 
 	_, err = conn.Options(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("source ERR: %s", err)
+		s.path.log("proxy ERR: %s", err)
 		return true
 	}
 
 	tracks, _, err := conn.Describe(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("source ERR: %s", err)
+		s.path.log("proxy ERR: %s", err)
 		return true
 	}
 
@@ -184,7 +184,7 @@ func (s *source) runInnerInner() bool {
 	}
 }
 
-func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
+func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
 	var rtpReads []gortsplib.UDPReadFunc
 	var rtcpReads []gortsplib.UDPReadFunc
 
@@ -202,7 +202,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 				}
 
 				conn.Close()
-				s.path.log("source ERR: %s", err)
+				s.path.log("proxy ERR: %s", err)
 				return true
 			}
 
@@ -215,11 +215,11 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 	_, err := conn.Play(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("source ERR: %s", err)
+		s.path.log("proxy ERR: %s", err)
 		return true
 	}
 
-	s.p.sourceReady <- s
+	s.p.proxyReady <- s
 
 	var wg sync.WaitGroup
 
@@ -229,7 +229,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, rtpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(2, sourceUDPReadBufferSize)
+			multiBuf := newMultiBuffer(2, proxyUDPReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
@@ -250,7 +250,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, rtcpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(2, sourceUDPReadBufferSize)
+			multiBuf := newMultiBuffer(2, proxyUDPReadBufferSize)
 			for {
 				buf := multiBuf.next()
 
@@ -283,7 +283,7 @@ outer:
 
 		case err := <-tcpConnDone:
 			conn.Close()
-			s.path.log("source ERR: %s", err)
+			s.path.log("proxy ERR: %s", err)
 			ret = true
 			break outer
 		}
@@ -291,17 +291,17 @@ outer:
 
 	wg.Wait()
 
-	s.p.sourceNotReady <- s
+	s.p.proxyNotReady <- s
 
 	return ret
 }
 
-func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
+func (s *proxy) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
 		_, err := conn.SetupTCP(s.pathConf.sourceUrl, track)
 		if err != nil {
 			conn.Close()
-			s.path.log("source ERR: %s", err)
+			s.path.log("proxy ERR: %s", err)
 			return true
 		}
 	}
@@ -309,14 +309,14 @@ func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
 	_, err := conn.Play(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("source ERR: %s", err)
+		s.path.log("proxy ERR: %s", err)
 		return true
 	}
 
-	s.p.sourceReady <- s
+	s.p.proxyReady <- s
 
 	frame := &gortsplib.InterleavedFrame{}
-	multiBuf := newMultiBuffer(2, sourceTCPReadBufferSize)
+	multiBuf := newMultiBuffer(2, proxyTCPReadBufferSize)
 
 	tcpConnDone := make(chan error)
 	go func() {
@@ -347,13 +347,13 @@ outer:
 
 		case err := <-tcpConnDone:
 			conn.Close()
-			s.path.log("source ERR: %s", err)
+			s.path.log("proxy ERR: %s", err)
 			ret = true
 			break outer
 		}
 	}
 
-	s.p.sourceNotReady <- s
+	s.p.proxyNotReady <- s
 
 	return ret
 }

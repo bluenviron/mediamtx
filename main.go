@@ -44,8 +44,8 @@ type program struct {
 	clientSetupPlay chan clientSetupPlayReq
 	clientPlay      chan *client
 	clientRecord    chan *client
-	sourceReady     chan *source
-	sourceNotReady  chan *source
+	proxyReady      chan *proxy
+	proxyNotReady   chan *proxy
 	terminate       chan struct{}
 	done            chan struct{}
 }
@@ -88,8 +88,8 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		clientSetupPlay:  make(chan clientSetupPlayReq),
 		clientPlay:       make(chan *client),
 		clientRecord:     make(chan *client),
-		sourceReady:      make(chan *source),
-		sourceNotReady:   make(chan *source),
+		proxyReady:       make(chan *proxy),
+		proxyNotReady:    make(chan *proxy),
 		terminate:        make(chan struct{}),
 		done:             make(chan struct{}),
 	}
@@ -266,13 +266,13 @@ outer:
 
 			client.path.onPublisherSetReady()
 
-		case source := <-p.sourceReady:
-			source.path.log("source ready")
-			source.path.onPublisherSetReady()
+		case proxy := <-p.proxyReady:
+			proxy.path.log("proxy ready")
+			proxy.path.onPublisherSetReady()
 
-		case source := <-p.sourceNotReady:
-			source.path.log("source not ready")
-			source.path.onPublisherSetNotReady()
+		case proxy := <-p.proxyNotReady:
+			proxy.path.log("proxy not ready")
+			proxy.path.onPublisherSetNotReady()
 
 		case <-p.terminate:
 			break outer
@@ -298,8 +298,8 @@ outer:
 
 			case <-p.clientPlay:
 			case <-p.clientRecord:
-			case <-p.sourceReady:
-			case <-p.sourceNotReady:
+			case <-p.proxyReady:
+			case <-p.proxyNotReady:
 			}
 		}
 	}()
@@ -343,8 +343,8 @@ outer:
 	close(p.clientSetupPlay)
 	close(p.clientPlay)
 	close(p.clientRecord)
-	close(p.sourceReady)
-	close(p.sourceNotReady)
+	close(p.proxyReady)
+	close(p.proxyNotReady)
 	close(p.done)
 }
 
