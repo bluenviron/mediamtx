@@ -207,9 +207,9 @@ There are multiple ways to monitor the server usage over time:
   ```
   Obtaining:
   ```
-  clients 23 1596122687740
-  publishers 15 1596122687740
-  readers 8 1596122687740
+  rtsp_clients{state="idle"} 2 1596122687740
+  rtsp_clients{state="publishing"} 15 1596122687740
+  rtsp_clients{state="reading"} 8 1596122687740
   ```
 
 * A performance monitor, compatible with pprof, can be enabled with the option `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:

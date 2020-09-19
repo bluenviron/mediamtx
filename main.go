@@ -31,11 +31,10 @@ type program struct {
 	clients          map[*client]struct{}
 	udpPublishersMap *udpPublishersMap
 	readersMap       *readersMap
-	countClient      int64
-	countPublisher   int64
-	countReader      int64
+	countClients     int64
+	countPublishers  int64
+	countReaders     int64
 
-	metricsGather   chan metricsGatherReq
 	clientNew       chan net.Conn
 	clientClose     chan *client
 	clientDescribe  chan clientDescribeReq
@@ -80,7 +79,6 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		clients:          make(map[*client]struct{}),
 		udpPublishersMap: newUdpPublisherMap(),
 		readersMap:       newReadersMap(),
-		metricsGather:    make(chan metricsGatherReq),
 		clientNew:        make(chan net.Conn),
 		clientClose:      make(chan *client),
 		clientDescribe:   make(chan clientDescribeReq),
@@ -139,12 +137,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 }
 
 func (p *program) log(format string, args ...interface{}) {
-	countClient := atomic.LoadInt64(&p.countClient)
-	countPublisher := atomic.LoadInt64(&p.countPublisher)
-	countReader := atomic.LoadInt64(&p.countReader)
+	countClients := atomic.LoadInt64(&p.countClients)
+	countPublishers := atomic.LoadInt64(&p.countPublishers)
+	countReaders := atomic.LoadInt64(&p.countReaders)
 
-	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClient,
-		countPublisher, countReader}, args...)...))
+	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClients,
+		countPublishers, countReaders}, args...)...))
 }
 
 func (p *program) run() {
@@ -181,17 +179,10 @@ outer:
 				path.onCheck()
 			}
 
-		case req := <-p.metricsGather:
-			req.res <- &metricsData{
-				countClient:    p.countClient,
-				countPublisher: p.countPublisher,
-				countReader:    p.countReader,
-			}
-
 		case conn := <-p.clientNew:
 			c := newClient(p, conn)
 			p.clients[c] = struct{}{}
-			atomic.AddInt64(&p.countClient, 1)
+			atomic.AddInt64(&p.countClients, 1)
 			c.log("connected")
 
 		case client := <-p.clientClose:
@@ -245,12 +236,12 @@ outer:
 			req.res <- nil
 
 		case client := <-p.clientPlay:
-			atomic.AddInt64(&p.countReader, 1)
+			atomic.AddInt64(&p.countReaders, 1)
 			client.state = clientStatePlay
 			p.readersMap.add(client)
 
 		case client := <-p.clientRecord:
-			atomic.AddInt64(&p.countPublisher, 1)
+			atomic.AddInt64(&p.countPublishers, 1)
 			client.state = clientStateRecord
 
 			if client.streamProtocol == gortsplib.StreamProtocolUDP {
@@ -289,13 +280,11 @@ outer:
 	go func() {
 		for {
 			select {
-			case req, ok := <-p.metricsGather:
+			case _, ok := <-p.clientNew:
 				if !ok {
 					return
 				}
-				req.res <- nil
 
-			case <-p.clientNew:
 			case <-p.clientClose:
 			case <-p.clientDescribe:
 
@@ -345,7 +334,6 @@ outer:
 
 	p.logHandler.close()
 
-	close(p.metricsGather)
 	close(p.clientNew)
 	close(p.clientClose)
 	close(p.clientDescribe)

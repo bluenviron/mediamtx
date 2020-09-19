@@ -6,22 +6,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"time"
 )
 
 const (
 	metricsAddress = ":9998"
 )
-
-type metricsData struct {
-	countClient    int64
-	countPublisher int64
-	countReader    int64
-}
-
-type metricsGatherReq struct {
-	res chan *metricsData
-}
 
 type metrics struct {
 	p        *program
@@ -64,21 +55,19 @@ func (m *metrics) close() {
 }
 
 func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
-	res := make(chan *metricsData)
-	m.p.metricsGather <- metricsGatherReq{res}
-	data := <-res
-
-	if data == nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	out := ""
 	now := time.Now().UnixNano() / 1000000
 
-	out += fmt.Sprintf("clients %d %v\n", data.countClient, now)
-	out += fmt.Sprintf("publishers %d %v\n", data.countPublisher, now)
-	out += fmt.Sprintf("readers %d %v\n", data.countReader, now)
+	countClients := atomic.LoadInt64(&m.p.countClients)
+	countPublishers := atomic.LoadInt64(&m.p.countPublishers)
+	countReaders := atomic.LoadInt64(&m.p.countReaders)
+
+	out := ""
+	out += fmt.Sprintf("rtsp_clients{state=\"idle\"} %d %v\n",
+		countClients-countPublishers-countReaders, now)
+	out += fmt.Sprintf("rtsp_clients{state=\"publishing\"} %d %v\n",
+		countPublishers, now)
+	out += fmt.Sprintf("rtsp_clients{state=\"reading\"} %d %v\n",
+		countReaders, now)
 
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, out)
