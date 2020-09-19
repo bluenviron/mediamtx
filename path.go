@@ -229,7 +229,7 @@ func (pa *path) onDescribe(client *client) {
 				pa.lastDescribeActivation = time.Now()
 
 				var err error
-				pa.onDemandCmd, err = startExternalCommand(pa.confp.RunOnDemand, "")
+				pa.onDemandCmd, err = startExternalCommand(pa.confp.RunOnDemand, pa.name)
 				if err != nil {
 					pa.log("ERR: %s", err)
 				}
