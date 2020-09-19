@@ -27,12 +27,14 @@ const (
 type clientDescribeReq struct {
 	client   *client
 	pathName string
+	pathConf *pathConf
 }
 
 type clientAnnounceReq struct {
 	res        chan error
 	client     *client
 	pathName   string
+	pathConf   *pathConf
 	trackCount int
 	sdp        []byte
 }
@@ -369,14 +371,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 
 		pathName = removeQueryFromPath(pathName)
 
-		confp := c.p.findConfForPathName(pathName)
-		if confp == nil {
-			c.writeResError(cseq, gortsplib.StatusBadRequest,
-				fmt.Errorf("unable to find a valid configuration for path '%s'", pathName))
+		pathConf, err := c.p.conf.checkPathNameAndFindConf(pathName)
+		if err != nil {
+			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 			return errRunTerminate
 		}
 
-		err := c.authenticate(confp.readIpsParsed, confp.ReadUser, confp.ReadPass, req)
+		err = c.authenticate(pathConf.readIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return errRunTerminate
@@ -384,7 +385,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 			return nil
 		}
 
-		c.p.clientDescribe <- clientDescribeReq{c, pathName}
+		c.p.clientDescribe <- clientDescribeReq{c, pathName, pathConf}
 
 		c.describeCSeq = cseq
 		c.describeUrl = req.Url.String()
@@ -400,25 +401,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 
 		pathName = removeQueryFromPath(pathName)
 
-		if len(pathName) == 0 {
-			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("empty base path"))
-			return errRunTerminate
-		}
-
-		err := checkPathName(pathName)
+		pathConf, err := c.p.conf.checkPathNameAndFindConf(pathName)
 		if err != nil {
-			c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("invalid path name: %s (%s)", err, pathName))
+			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 			return errRunTerminate
 		}
 
-		confp := c.p.findConfForPathName(pathName)
-		if confp == nil {
-			c.writeResError(cseq, gortsplib.StatusBadRequest,
-				fmt.Errorf("unable to find a valid configuration for path '%s'", pathName))
-			return errRunTerminate
-		}
-
-		err = c.authenticate(confp.publishIpsParsed, confp.PublishUser, confp.PublishPass, req)
+		err = c.authenticate(pathConf.publishIpsParsed, pathConf.PublishUser, pathConf.PublishPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return errRunTerminate
@@ -451,7 +440,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 		sdp := tracks.Write()
 
 		res := make(chan error)
-		c.p.clientAnnounce <- clientAnnounceReq{res, c, pathName, len(tracks), sdp}
+		c.p.clientAnnounce <- clientAnnounceReq{res, c, pathName, pathConf, len(tracks), sdp}
 		err = <-res
 		if err != nil {
 			c.writeResError(cseq, gortsplib.StatusBadRequest, err)
@@ -489,14 +478,13 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 		switch c.state {
 		// play
 		case clientStateInitial, clientStatePrePlay:
-			confp := c.p.findConfForPathName(basePath)
-			if confp == nil {
-				c.writeResError(cseq, gortsplib.StatusBadRequest,
-					fmt.Errorf("unable to find a valid configuration for path '%s'", basePath))
+			pathConf, err := c.p.conf.checkPathNameAndFindConf(basePath)
+			if err != nil {
+				c.writeResError(cseq, gortsplib.StatusBadRequest, err)
 				return errRunTerminate
 			}
 
-			err := c.authenticate(confp.readIpsParsed, confp.ReadUser, confp.ReadPass, req)
+			err = c.authenticate(pathConf.readIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
 			if err != nil {
 				if err == errAuthCritical {
 					return errRunTerminate
@@ -899,9 +887,9 @@ func (c *client) runPlay() bool {
 	}(), c.streamProtocol)
 
 	var onReadCmd *exec.Cmd
-	if c.path.confp.RunOnRead != "" {
+	if c.path.conf.RunOnRead != "" {
 		var err error
-		onReadCmd, err = startExternalCommand(c.path.confp.RunOnRead, c.path.name)
+		onReadCmd, err = startExternalCommand(c.path.conf.RunOnRead, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -1050,9 +1038,9 @@ func (c *client) runRecord() bool {
 	}(), c.streamProtocol)
 
 	var onPublishCmd *exec.Cmd
-	if c.path.confp.RunOnPublish != "" {
+	if c.path.conf.RunOnPublish != "" {
 		var err error
-		onPublishCmd, err = startExternalCommand(c.path.confp.RunOnPublish, c.path.name)
+		onPublishCmd, err = startExternalCommand(c.path.conf.RunOnPublish, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"testing"
 	"time"
+	"fmt"
 
 	"github.com/stretchr/testify/require"
 )
@@ -480,8 +481,11 @@ func TestProxy(t *testing.T) {
 func TestRunOnDemand(t *testing.T) {
 	stdin := []byte("\n" +
 		"paths:\n" +
-		"  ondemand:\n" +
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i test-images/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/ondemand\n")
+		"  all:\n" +
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i test-images/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n")
+
+	fmt.Println("TEST", string(stdin))
+
 	p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
 	require.NoError(t, err)
 	defer p1.close()

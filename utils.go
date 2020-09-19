@@ -118,8 +118,8 @@ func removeQueryFromPath(path string) string {
 var rePathName = regexp.MustCompile("^[0-9a-zA-Z_\\-/]+$")
 
 func checkPathName(name string) error {
-	if !rePathName.MatchString(name) {
-		return fmt.Errorf("can contain only alfanumeric characters, underscore, minus or slash")
+	if name == "" {
+		return fmt.Errorf("cannot be empty")
 	}
 
 	if name[0] == '/' {
@@ -128,6 +128,10 @@ func checkPathName(name string) error {
 
 	if name[len(name)-1] == '/' {
 		return fmt.Errorf("can't end with a slash")
+	}
+
+	if !rePathName.MatchString(name) {
+		return fmt.Errorf("can contain only alfanumeric characters, underscore, minus or slash")
 	}
 
 	return nil
@@ -146,6 +150,8 @@ func startExternalCommand(cmdstr string, pathName string) (*exec.Cmd, error) {
 	} else {
 		cmd = exec.Command("/bin/sh", "-c", cmdstr)
 	}
+
+	fmt.Println("PATH NAME", pathName)
 
 	// variables are available through environment variables
 	cmd.Env = append(os.Environ(),

@@ -24,7 +24,7 @@ const (
 type source struct {
 	p            *program
 	path         *path
-	confp        *confPath
+	pathConf     *pathConf
 	state        sourceState
 	tracks       []*gortsplib.Track
 	innerRunning bool
@@ -36,17 +36,17 @@ type source struct {
 	done           chan struct{}
 }
 
-func newSource(p *program, path *path, confp *confPath) *source {
+func newSource(p *program, path *path, pathConf *pathConf) *source {
 	s := &source{
 		p:         p,
 		path:      path,
-		confp:     confp,
+		pathConf:  pathConf,
 		setState:  make(chan sourceState),
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
 
-	if confp.SourceOnDemand {
+	if pathConf.SourceOnDemand {
 		s.state = sourceStateStopped
 	} else {
 		s.state = sourceStateRunning
@@ -134,7 +134,7 @@ func (s *source) runInnerInner() bool {
 	dialDone := make(chan struct{})
 	go func() {
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:         s.confp.sourceUrl.Host,
+			Host:         s.pathConf.sourceUrl.Host,
 			ReadTimeout:  s.p.conf.ReadTimeout,
 			WriteTimeout: s.p.conf.WriteTimeout,
 		})
@@ -152,14 +152,14 @@ func (s *source) runInnerInner() bool {
 		return true
 	}
 
-	_, err = conn.Options(s.confp.sourceUrl)
+	_, err = conn.Options(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("source ERR: %s", err)
 		return true
 	}
 
-	tracks, _, err := conn.Describe(s.confp.sourceUrl)
+	tracks, _, err := conn.Describe(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("source ERR: %s", err)
@@ -173,7 +173,7 @@ func (s *source) runInnerInner() bool {
 	s.path.publisherTrackCount = len(tracks)
 	s.path.publisherSdp = serverSdp
 
-	if s.confp.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
+	if s.pathConf.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
 		return s.runUDP(conn)
 	} else {
 		return s.runTCP(conn)
@@ -191,7 +191,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
 			rtcpPort := rtpPort + 1
 
-			rtpRead, rtcpRead, _, err := conn.SetupUDP(s.confp.sourceUrl, track, rtpPort, rtcpPort)
+			rtpRead, rtcpRead, _, err := conn.SetupUDP(s.pathConf.sourceUrl, track, rtpPort, rtcpPort)
 			if err != nil {
 				if isBindError(err) {
 					continue // retry
@@ -208,7 +208,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 		}
 	}
 
-	_, err := conn.Play(s.confp.sourceUrl)
+	_, err := conn.Play(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("source ERR: %s", err)
@@ -263,7 +263,7 @@ func (s *source) runUDP(conn *gortsplib.ConnClient) bool {
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUDP(s.confp.sourceUrl)
+		tcpConnDone <- conn.LoopUDP(s.pathConf.sourceUrl)
 	}()
 
 	var ret bool
@@ -294,7 +294,7 @@ outer:
 
 func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTCP(s.confp.sourceUrl, track)
+		_, err := conn.SetupTCP(s.pathConf.sourceUrl, track)
 		if err != nil {
 			conn.Close()
 			s.path.log("source ERR: %s", err)
@@ -302,7 +302,7 @@ func (s *source) runTCP(conn *gortsplib.ConnClient) bool {
 		}
 	}
 
-	_, err := conn.Play(s.confp.sourceUrl)
+	_, err := conn.Play(s.pathConf.sourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("source ERR: %s", err)

@@ -21,8 +21,7 @@ type publisher interface {
 type path struct {
 	p                      *program
 	name                   string
-	confp                  *confPath
-	permanent              bool
+	conf                   *pathConf
 	source                 *source
 	publisher              publisher
 	publisherReady         bool
@@ -34,16 +33,15 @@ type path struct {
 	onDemandCmd            *exec.Cmd
 }
 
-func newPath(p *program, name string, confp *confPath, permanent bool) *path {
+func newPath(p *program, name string, conf *pathConf) *path {
 	pa := &path{
-		p:         p,
-		name:      name,
-		confp:     confp,
-		permanent: permanent,
+		p:    p,
+		name: name,
+		conf: conf,
 	}
 
-	if confp.Source != "record" {
-		s := newSource(p, pa, confp)
+	if conf.Source != "record" {
+		s := newSource(p, pa, conf)
 		pa.source = s
 		pa.publisher = s
 	}
@@ -60,11 +58,11 @@ func (pa *path) onInit() {
 		go pa.source.run(pa.source.state)
 	}
 
-	if pa.confp.RunOnInit != "" {
+	if pa.conf.RunOnInit != "" {
 		pa.log("starting on init command")
 
 		var err error
-		pa.onInitCmd, err = startExternalCommand(pa.confp.RunOnInit, pa.name)
+		pa.onInitCmd, err = startExternalCommand(pa.conf.RunOnInit, pa.name)
 		if err != nil {
 			pa.log("ERR: %s", err)
 		}
@@ -149,7 +147,7 @@ func (pa *path) onCheck() {
 
 	// stop on demand source if needed
 	if pa.source != nil &&
-		pa.confp.SourceOnDemand &&
+		pa.conf.SourceOnDemand &&
 		pa.source.state == sourceStateRunning &&
 		!pa.hasClients() &&
 		time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribeSecs {
@@ -168,8 +166,8 @@ func (pa *path) onCheck() {
 		pa.onDemandCmd = nil
 	}
 
-	// remove non-permanent paths
-	if !pa.permanent &&
+	// remove regular expression paths
+	if pa.conf.regexp != nil &&
 		pa.publisher == nil &&
 		!pa.hasClients() {
 		pa.onClose(false)
@@ -223,13 +221,13 @@ func (pa *path) onDescribe(client *client) {
 	// publisher not found
 	if pa.publisher == nil {
 		// on demand command is available: put the client on hold
-		if pa.confp.RunOnDemand != "" {
+		if pa.conf.RunOnDemand != "" {
 			if pa.onDemandCmd == nil { // start if needed
 				pa.log("starting on demand command")
 				pa.lastDescribeActivation = time.Now()
 
 				var err error
-				pa.onDemandCmd, err = startExternalCommand(pa.confp.RunOnDemand, "")
+				pa.onDemandCmd, err = startExternalCommand(pa.conf.RunOnDemand, "")
 				if err != nil {
 					pa.log("ERR: %s", err)
 				}

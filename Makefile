@@ -51,7 +51,7 @@ test:
 test-nodocker:
 	$(foreach IMG,$(shell echo test-images/*/ | xargs -n1 basename), \
 	docker build -q test-images/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	go test -race -v .
+	go test -race -v -run OnDemand .
 
 stress:
 	docker build -q . -f stress/$(NAME)/Dockerfile -t temp
