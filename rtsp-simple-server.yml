@@ -30,10 +30,11 @@ logDestinations: [stdout]
 logFile: rtsp-simple-server.log
 
 # these settings are path-dependent.
+# It's possible to use regular expressions by using a tilde as prefix.
+# for instance, '~^(test1|test2)$' will match both 'test1' and 'test2'.
+# for instance, '~^prefix' will match all paths that start with 'prefix'.
 # The settings under the path 'all' are applied to all paths that do not match
 # another entry.
-# It's possible to use regular expressions by using a tilde as prefix,
-# for instance, '~^(test1|test2)$' will match both test1 and test2.
 paths:
   all:
     # source of the stream - this can be:
