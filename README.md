@@ -212,6 +212,11 @@ There are multiple ways to monitor the server usage over time:
   rtsp_clients{state="reading"} 8 1596122687740
   ```
 
+  where:
+  * `rtsp_clients{state="idle"}` is the count of clients that are neither publishing nor reading
+  * `rtsp_clients{state="publishing"}` is the count of clients that are publishing
+  * `rtsp_clients{state="reading"}` is the count of clients that are reading
+
 * A performance monitor, compatible with pprof, can be enabled with the option `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
   ```
   docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
