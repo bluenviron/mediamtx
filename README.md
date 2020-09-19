@@ -201,7 +201,7 @@ There are multiple ways to monitor the server usage over time:
   ```
   2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
   ```
-  means that there are 2 clients, 1 publisher and 1 receiver.
+  means that there are 2 clients, 1 publisher and 1 reader.
 
 * A metrics exporter, compatible with Prometheus, can be enabled with the option `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
   ```

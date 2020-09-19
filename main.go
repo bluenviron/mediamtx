@@ -110,11 +110,10 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		}
 	}
 
-	for name, confp := range conf.Paths {
-		if name == "all" {
-			continue
+	for name, pathConf := range conf.Paths {
+		if pathConf.regexp == nil {
+			p.paths[name] = newPath(p, name, pathConf)
 		}
-		p.paths[name] = newPath(p, name, confp, true)
 	}
 
 	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUDP]; ok {
@@ -204,7 +203,7 @@ outer:
 		case req := <-p.clientDescribe:
 			// create path if not exist
 			if _, ok := p.paths[req.pathName]; !ok {
-				p.paths[req.pathName] = newPath(p, req.pathName, p.findConfForPathName(req.pathName), false)
+				p.paths[req.pathName] = newPath(p, req.pathName, req.pathConf)
 			}
 
 			p.paths[req.pathName].onDescribe(req.client)
@@ -212,7 +211,7 @@ outer:
 		case req := <-p.clientAnnounce:
 			// create path if not exist
 			if path, ok := p.paths[req.pathName]; !ok {
-				p.paths[req.pathName] = newPath(p, req.pathName, p.findConfForPathName(req.pathName), false)
+				p.paths[req.pathName] = newPath(p, req.pathName, req.pathConf)
 
 			} else {
 				if path.publisher != nil {
@@ -362,18 +361,6 @@ outer:
 func (p *program) close() {
 	close(p.terminate)
 	<-p.done
-}
-
-func (p *program) findConfForPathName(name string) *confPath {
-	if confp, ok := p.conf.Paths[name]; ok {
-		return confp
-	}
-
-	if confp, ok := p.conf.Paths["all"]; ok {
-		return confp
-	}
-
-	return nil
 }
 
 func main() {

@@ -29,8 +29,11 @@ logDestinations: [stdout]
 # if 'file' is in logDestinations, this is the file that will receive the logs
 logFile: rtsp-simple-server.log
 
-# these settings are path-dependent. The settings under the path 'all' are
-# applied to all paths that do not match a specific entry.
+# these settings are path-dependent.
+# The settings under the path 'all' are applied to all paths that do not match
+# another entry.
+# It's possible to use regular expressions by using a tilde as prefix,
+# for instance, '~^(test1|test2)$' will match both test1 and test2.
 paths:
   all:
     # source of the stream - this can be:

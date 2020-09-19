@@ -12,7 +12,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type confPath struct {
+type pathConf struct {
+	regexp               *regexp.Regexp
 	Source               string                   `yaml:"source"`
 	sourceUrl            *url.URL                 ``
 	SourceProtocol       string                   `yaml:"sourceProtocol"`
@@ -48,7 +49,7 @@ type conf struct {
 	LogDestinations       []string                              `yaml:"logDestinations"`
 	logDestinationsParsed map[logDestination]struct{}           ``
 	LogFile               string                                `yaml:"logFile"`
-	Paths                 map[string]*confPath                  `yaml:"paths"`
+	Paths                 map[string]*pathConf                  `yaml:"paths"`
 }
 
 func loadConf(fpath string, stdin io.Reader) (*conf, error) {
@@ -172,105 +173,147 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	}
 
 	if len(conf.Paths) == 0 {
-		conf.Paths = map[string]*confPath{
+		conf.Paths = map[string]*pathConf{
 			"all": {},
 		}
 	}
 
-	for name, confp := range conf.Paths {
-		if confp == nil {
-			conf.Paths[name] = &confPath{}
-			confp = conf.Paths[name]
+	// "all" is an alias for "~^.*$"
+	if _, ok := conf.Paths["all"]; ok {
+		conf.Paths["~^.*$"] = conf.Paths["all"]
+		delete(conf.Paths, "all")
+	}
+
+	for name, pconf := range conf.Paths {
+		if pconf == nil {
+			conf.Paths[name] = &pathConf{}
+			pconf = conf.Paths[name]
 		}
 
-		err := checkPathName(name)
-		if err != nil {
-			return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
+		if name == "" {
+			return nil, fmt.Errorf("path name can not be empty")
 		}
 
-		if confp.Source == "" {
-			confp.Source = "record"
-		}
-
-		if confp.Source != "record" {
-			if name == "all" {
-				return nil, fmt.Errorf("path 'all' cannot have a RTSP source; use another path")
-			}
-
-			confp.sourceUrl, err = url.Parse(confp.Source)
+		// normal path
+		if name[0] != '~' {
+			err := checkPathName(name)
 			if err != nil {
-				return nil, fmt.Errorf("'%s' is not a valid RTSP url", confp.Source)
+				return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
 			}
-			if confp.sourceUrl.Scheme != "rtsp" {
-				return nil, fmt.Errorf("'%s' is not a valid RTSP url", confp.Source)
+
+			// regular expression path
+		} else {
+			pathRegexp, err := regexp.Compile(name[1:])
+			if err != nil {
+				return nil, fmt.Errorf("invalid regular expression: %s", name[1:])
 			}
-			if confp.sourceUrl.Port() == "" {
-				confp.sourceUrl.Host += ":554"
+			pconf.regexp = pathRegexp
+		}
+
+		if pconf.Source == "" {
+			pconf.Source = "record"
+		}
+
+		if pconf.Source != "record" {
+			if pconf.regexp != nil {
+				return nil, fmt.Errorf("a path with a regular expression cannot have a RTSP source; use another path")
 			}
-			if confp.sourceUrl.User != nil {
-				pass, _ := confp.sourceUrl.User.Password()
-				user := confp.sourceUrl.User.Username()
+
+			pconf.sourceUrl, err = url.Parse(pconf.Source)
+			if err != nil {
+				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+			}
+			if pconf.sourceUrl.Scheme != "rtsp" {
+				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+			}
+			if pconf.sourceUrl.Port() == "" {
+				pconf.sourceUrl.Host += ":554"
+			}
+			if pconf.sourceUrl.User != nil {
+				pass, _ := pconf.sourceUrl.User.Password()
+				user := pconf.sourceUrl.User.Username()
 				if user != "" && pass == "" ||
 					user == "" && pass != "" {
 					fmt.Errorf("username and password must be both provided")
 				}
 			}
 
-			if confp.SourceProtocol == "" {
-				confp.SourceProtocol = "udp"
+			if pconf.SourceProtocol == "" {
+				pconf.SourceProtocol = "udp"
 			}
-			switch confp.SourceProtocol {
+			switch pconf.SourceProtocol {
 			case "udp":
-				confp.sourceProtocolParsed = gortsplib.StreamProtocolUDP
+				pconf.sourceProtocolParsed = gortsplib.StreamProtocolUDP
 
 			case "tcp":
-				confp.sourceProtocolParsed = gortsplib.StreamProtocolTCP
+				pconf.sourceProtocolParsed = gortsplib.StreamProtocolTCP
 
 			default:
-				return nil, fmt.Errorf("unsupported protocol '%s'", confp.SourceProtocol)
+				return nil, fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
 			}
 		}
 
-		if confp.PublishUser != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.PublishUser) {
+		if pconf.PublishUser != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishUser) {
 				return nil, fmt.Errorf("publish username must be alphanumeric")
 			}
 		}
-		if confp.PublishPass != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.PublishPass) {
+		if pconf.PublishPass != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishPass) {
 				return nil, fmt.Errorf("publish password must be alphanumeric")
 			}
 		}
-		confp.publishIpsParsed, err = parseIpCidrList(confp.PublishIps)
+		pconf.publishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
 		if err != nil {
 			return nil, err
 		}
 
-		if confp.ReadUser != "" && confp.ReadPass == "" || confp.ReadUser == "" && confp.ReadPass != "" {
+		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
 			return nil, fmt.Errorf("read username and password must be both filled")
 		}
-		if confp.ReadUser != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.ReadUser) {
+		if pconf.ReadUser != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadUser) {
 				return nil, fmt.Errorf("read username must be alphanumeric")
 			}
 		}
-		if confp.ReadPass != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(confp.ReadPass) {
+		if pconf.ReadPass != "" {
+			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadPass) {
 				return nil, fmt.Errorf("read password must be alphanumeric")
 			}
 		}
-		if confp.ReadUser != "" && confp.ReadPass == "" || confp.ReadUser == "" && confp.ReadPass != "" {
+		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
 			return nil, fmt.Errorf("read username and password must be both filled")
 		}
-		confp.readIpsParsed, err = parseIpCidrList(confp.ReadIps)
+		pconf.readIpsParsed, err = parseIpCidrList(pconf.ReadIps)
 		if err != nil {
 			return nil, err
 		}
 
-		if name == "all" && confp.RunOnInit != "" {
-			return nil, fmt.Errorf("path 'all' does not support option 'runOnInit'; use another path")
+		if pconf.regexp != nil && pconf.RunOnInit != "" {
+			return nil, fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
 		}
 	}
 
 	return conf, nil
+}
+
+func (conf *conf) checkPathNameAndFindConf(name string) (*pathConf, error) {
+	err := checkPathName(name)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
+	}
+
+	// normal path
+	if pconf, ok := conf.Paths[name]; ok {
+		return pconf, nil
+	}
+
+	// regular expression path
+	for _, pconf := range conf.Paths {
+		if pconf.regexp != nil && pconf.regexp.MatchString(name) {
+			return pconf, nil
+		}
+	}
+
+	return nil, fmt.Errorf("unable to find a valid configuration for path '%s'", name)
 }
