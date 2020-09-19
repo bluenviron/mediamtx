@@ -160,6 +160,9 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		case "file":
 			conf.logDestinationsParsed[logDestinationFile] = struct{}{}
 
+		case "syslog":
+			conf.logDestinationsParsed[logDestinationSyslog] = struct{}{}
+
 		default:
 			return nil, fmt.Errorf("unsupported log destination: %s", dest)
 		}
