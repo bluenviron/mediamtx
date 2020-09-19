@@ -51,7 +51,7 @@ func (l *serverUDP) log(format string, args ...interface{}) {
 	} else {
 		label = "RTCP"
 	}
-	l.p.log("[UDP/"+label+" listener] "+format, args...)
+	l.p.log("[UDP/"+label+" server] "+format, args...)
 }
 
 func (l *serverUDP) run() {

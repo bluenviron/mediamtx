@@ -30,7 +30,7 @@ func newServerTCP(p *program) (*serverTCP, error) {
 }
 
 func (l *serverTCP) log(format string, args ...interface{}) {
-	l.p.log("[TCP listener] "+format, args...)
+	l.p.log("[TCP server] "+format, args...)
 }
 
 func (l *serverTCP) run() {
