@@ -3,6 +3,7 @@ package main
 import (
 	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -46,10 +47,13 @@ func newSource(p *program, path *path, pathConf *pathConf) *source {
 		done:      make(chan struct{}),
 	}
 
+	atomic.AddInt64(&p.countProxies, +1)
+
 	if pathConf.SourceOnDemand {
 		s.state = sourceStateStopped
 	} else {
 		s.state = sourceStateRunning
+		atomic.AddInt64(&p.countProxiesRunning, +1)
 	}
 
 	return s

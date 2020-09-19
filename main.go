@@ -20,20 +20,22 @@ const (
 )
 
 type program struct {
-	conf             *conf
-	logHandler       *logHandler
-	metrics          *metrics
-	pprof            *pprof
-	paths            map[string]*path
-	serverRtp        *serverUDP
-	serverRtcp       *serverUDP
-	serverRtsp       *serverTCP
-	clients          map[*client]struct{}
-	udpPublishersMap *udpPublishersMap
-	readersMap       *readersMap
-	countClients     int64
-	countPublishers  int64
-	countReaders     int64
+	conf                *conf
+	logHandler          *logHandler
+	metrics             *metrics
+	pprof               *pprof
+	paths               map[string]*path
+	serverRtp           *serverUDP
+	serverRtcp          *serverUDP
+	serverRtsp          *serverTCP
+	clients             map[*client]struct{}
+	udpPublishersMap    *udpPublishersMap
+	readersMap          *readersMap
+	countClients        int64
+	countPublishers     int64
+	countReaders        int64
+	countProxies        int64
+	countProxiesRunning int64
 
 	clientNew       chan net.Conn
 	clientClose     chan *client

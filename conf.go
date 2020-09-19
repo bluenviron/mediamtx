@@ -216,7 +216,7 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 
 		if pconf.Source != "record" {
 			if pconf.regexp != nil {
-				return nil, fmt.Errorf("a path with a regular expression cannot have a RTSP source; use another path")
+				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 			}
 
 			pconf.sourceUrl, err = url.Parse(pconf.Source)

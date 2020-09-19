@@ -60,6 +60,8 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	countClients := atomic.LoadInt64(&m.p.countClients)
 	countPublishers := atomic.LoadInt64(&m.p.countPublishers)
 	countReaders := atomic.LoadInt64(&m.p.countReaders)
+	countProxies := atomic.LoadInt64(&m.p.countProxies)
+	countProxiesRunning := atomic.LoadInt64(&m.p.countProxiesRunning)
 
 	out := ""
 	out += fmt.Sprintf("rtsp_clients{state=\"idle\"} %d %v\n",
@@ -68,6 +70,10 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 		countPublishers, now)
 	out += fmt.Sprintf("rtsp_clients{state=\"reading\"} %d %v\n",
 		countReaders, now)
+	out += fmt.Sprintf("rtsp_proxies{state=\"idle\"} %d %v\n",
+		countProxies, now)
+	out += fmt.Sprintf("rtsp_proxies{state=\"running\"} %d %v\n",
+		countProxiesRunning, now)
 
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, out)

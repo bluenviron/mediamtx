@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 )
 
@@ -147,7 +148,8 @@ func (pa *path) onCheck() {
 		pa.source.state == sourceStateRunning &&
 		!pa.hasClients() &&
 		time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribeSecs {
-		pa.log("stopping on demand source since (not requested anymore)")
+		pa.log("stopping on demand source (not requested anymore)")
+		atomic.AddInt64(&pa.p.countProxiesRunning, -1)
 		pa.source.state = sourceStateStopped
 		pa.source.setState <- pa.source.state
 	}
@@ -241,6 +243,7 @@ func (pa *path) onDescribe(client *client) {
 		if pa.source != nil && pa.source.state == sourceStateStopped { // start if needed
 			pa.log("starting on demand source")
 			pa.lastDescribeActivation = time.Now()
+			atomic.AddInt64(&pa.p.countProxiesRunning, +1)
 			pa.source.state = sourceStateRunning
 			pa.source.setState <- pa.source.state
 		}
