@@ -314,6 +314,9 @@ outer:
 		}
 	}()
 
+	p.udpPublishersMap.clear()
+	p.readersMap.clear()
+
 	for _, p := range p.paths {
 		p.onClose(true)
 	}

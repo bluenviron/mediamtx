@@ -211,15 +211,11 @@ func newUdpPublisherMap() *udpPublishersMap {
 	}
 }
 
-func (m *udpPublishersMap) get(addr udpPublisherAddr) *udpPublisher {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+func (m *udpPublishersMap) clear() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
 
-	el, ok := m.ma[addr]
-	if !ok {
-		return nil
-	}
-	return el
+	m.ma = make(map[udpPublisherAddr]*udpPublisher)
 }
 
 func (m *udpPublishersMap) add(addr udpPublisherAddr, pub *udpPublisher) {
@@ -236,6 +232,17 @@ func (m *udpPublishersMap) remove(addr udpPublisherAddr) {
 	delete(m.ma, addr)
 }
 
+func (m *udpPublishersMap) get(addr udpPublisherAddr) *udpPublisher {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	el, ok := m.ma[addr]
+	if !ok {
+		return nil
+	}
+	return el
+}
+
 type readersMap struct {
 	mutex sync.RWMutex
 	ma    map[*client]struct{}
@@ -245,6 +252,13 @@ func newReadersMap() *readersMap {
 	return &readersMap{
 		ma: make(map[*client]struct{}),
 	}
+}
+
+func (m *readersMap) clear() {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	m.ma = make(map[*client]struct{})
 }
 
 func (m *readersMap) add(reader *client) {
