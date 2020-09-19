@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -192,7 +190,7 @@ var errRunPlay = errors.New("play")
 var errRunRecord = errors.New("record")
 
 func (c *client) run() {
-	var onConnectCmd *exec.Cmd
+	var onConnectCmd *externalCmd
 	if c.p.conf.RunOnConnect != "" {
 		var err error
 		onConnectCmd, err = startExternalCommand(c.p.conf.RunOnConnect, "")
@@ -208,8 +206,7 @@ func (c *client) run() {
 	}
 
 	if onConnectCmd != nil {
-		onConnectCmd.Process.Signal(os.Interrupt)
-		onConnectCmd.Wait()
+		onConnectCmd.close()
 	}
 
 	close(c.describe)
@@ -886,7 +883,7 @@ func (c *client) runPlay() bool {
 		return "tracks"
 	}(), c.streamProtocol)
 
-	var onReadCmd *exec.Cmd
+	var onReadCmd *externalCmd
 	if c.path.conf.RunOnRead != "" {
 		var err error
 		onReadCmd, err = startExternalCommand(c.path.conf.RunOnRead, c.path.name)
@@ -902,8 +899,7 @@ func (c *client) runPlay() bool {
 	}
 
 	if onReadCmd != nil {
-		onReadCmd.Process.Signal(os.Interrupt)
-		onReadCmd.Wait()
+		onReadCmd.close()
 	}
 
 	return false
@@ -1037,7 +1033,7 @@ func (c *client) runRecord() bool {
 		return "tracks"
 	}(), c.streamProtocol)
 
-	var onPublishCmd *exec.Cmd
+	var onPublishCmd *externalCmd
 	if c.path.conf.RunOnPublish != "" {
 		var err error
 		onPublishCmd, err = startExternalCommand(c.path.conf.RunOnPublish, c.path.name)
@@ -1053,8 +1049,7 @@ func (c *client) runRecord() bool {
 	}
 
 	if onPublishCmd != nil {
-		onPublishCmd.Process.Signal(os.Interrupt)
-		onPublishCmd.Wait()
+		onPublishCmd.close()
 	}
 
 	return false

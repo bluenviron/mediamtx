@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"time"
 )
 
@@ -29,8 +27,8 @@ type path struct {
 	publisherSdp           []byte
 	lastDescribeReq        time.Time
 	lastDescribeActivation time.Time
-	onInitCmd              *exec.Cmd
-	onDemandCmd            *exec.Cmd
+	onInitCmd              *externalCmd
+	onDemandCmd            *externalCmd
 }
 
 func newPath(p *program, name string, conf *pathConf) *path {
@@ -77,14 +75,12 @@ func (pa *path) onClose(wait bool) {
 
 	if pa.onInitCmd != nil {
 		pa.log("stopping on init command (closing)")
-		pa.onInitCmd.Process.Signal(os.Interrupt)
-		pa.onInitCmd.Wait()
+		pa.onInitCmd.close()
 	}
 
 	if pa.onDemandCmd != nil {
 		pa.log("stopping on demand command (closing)")
-		pa.onDemandCmd.Process.Signal(os.Interrupt)
-		pa.onDemandCmd.Wait()
+		pa.onDemandCmd.close()
 	}
 
 	for c := range pa.p.clients {
@@ -161,8 +157,7 @@ func (pa *path) onCheck() {
 		!pa.hasClientReaders() &&
 		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribeSecs {
 		pa.log("stopping on demand command (not requested anymore)")
-		pa.onDemandCmd.Process.Signal(os.Interrupt)
-		pa.onDemandCmd.Wait()
+		pa.onDemandCmd.close()
 		pa.onDemandCmd = nil
 	}
 
