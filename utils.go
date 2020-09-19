@@ -144,7 +144,7 @@ func startExternalCommand(cmdstr string, pathName string) (*exec.Cmd, error) {
 		cmd = exec.Command(args[0], args[1:]...)
 
 	} else {
-		cmd = exec.Command("/bin/sh", "-c", cmdstr)
+		cmd = exec.Command("/bin/sh", "-c", "exec "+cmdstr)
 	}
 
 	// variables are available through environment variables
