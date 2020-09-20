@@ -51,31 +51,6 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 	return false
 }
 
-type multiBuffer struct {
-	buffers [][]byte
-	curBuf  int
-}
-
-func newMultiBuffer(count int, size int) *multiBuffer {
-	buffers := make([][]byte, count)
-	for i := 0; i < count; i++ {
-		buffers[i] = make([]byte, size)
-	}
-
-	return &multiBuffer{
-		buffers: buffers,
-	}
-}
-
-func (mb *multiBuffer) next() []byte {
-	ret := mb.buffers[mb.curBuf]
-	mb.curBuf += 1
-	if mb.curBuf >= len(mb.buffers) {
-		mb.curBuf = 0
-	}
-	return ret
-}
-
 func splitPath(path string) (string, string, error) {
 	pos := func() int {
 		for i := len(path) - 1; i >= 0; i-- {

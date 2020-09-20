@@ -8,6 +8,10 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
+const (
+	udpReadBufferSize = 2048
+)
+
 type udpBufAddrPair struct {
 	buf  []byte
 	addr *net.UDPAddr
@@ -17,7 +21,7 @@ type serverUDP struct {
 	p          *program
 	pc         *net.UDPConn
 	streamType gortsplib.StreamType
-	readBuf    *multiBuffer
+	readBuf    *gortsplib.MultiBuffer
 
 	writec chan udpBufAddrPair
 	done   chan struct{}
@@ -35,7 +39,7 @@ func newServerUDP(p *program, port int, streamType gortsplib.StreamType) (*serve
 		p:          p,
 		pc:         pc,
 		streamType: streamType,
-		readBuf:    newMultiBuffer(2, clientUDPReadBufferSize),
+		readBuf:    gortsplib.NewMultiBuffer(2, udpReadBufferSize),
 		writec:     make(chan udpBufAddrPair),
 		done:       make(chan struct{}),
 	}
@@ -65,7 +69,7 @@ func (l *serverUDP) run() {
 	}()
 
 	for {
-		buf := l.readBuf.next()
+		buf := l.readBuf.Next()
 		n, addr, err := l.pc.ReadFromUDP(buf)
 		if err != nil {
 			break

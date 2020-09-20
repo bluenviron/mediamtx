@@ -16,10 +16,6 @@ import (
 const (
 	clientCheckStreamInterval    = 5 * time.Second
 	clientReceiverReportInterval = 10 * time.Second
-	clientTCPReadBufferSize      = 128 * 1024
-	clientTCPWriteBufferSize     = 128 * 1024
-	clientUDPReadBufferSize      = 2048
-	clientUDPWriteBufferSize     = 128 * 1024
 )
 
 type clientDescribeReq struct {
@@ -119,9 +115,10 @@ func newClient(p *program, nconn net.Conn) *client {
 	c := &client{
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
-			Conn:         nconn,
-			ReadTimeout:  p.conf.ReadTimeout,
-			WriteTimeout: p.conf.WriteTimeout,
+			Conn:            nconn,
+			ReadTimeout:     p.conf.ReadTimeout,
+			WriteTimeout:    p.conf.WriteTimeout,
+			ReadBufferCount: 2,
 		}),
 		state:        clientStateInitial,
 		streamTracks: make(map[int]*clientTrack),
@@ -946,14 +943,8 @@ func (c *client) runPlayTCP() {
 
 	readDone := make(chan error)
 	go func() {
-		frame := &gortsplib.InterleavedFrame{}
-		readBuf := make([]byte, clientTCPReadBufferSize)
-
 		for {
-			frame.Content = readBuf
-			frame.Content = frame.Content[:cap(frame.Content)]
-
-			recv, err := c.conn.ReadFrameOrRequest(frame, false)
+			recv, err := c.conn.ReadFrameOrRequest(false)
 			if err != nil {
 				readDone <- err
 				break
@@ -1144,19 +1135,13 @@ func (c *client) runRecordUDP() {
 }
 
 func (c *client) runRecordTCP() {
-	frame := &gortsplib.InterleavedFrame{}
-	readBuf := newMultiBuffer(2, clientTCPReadBufferSize)
-
 	readRequest := make(chan readRequestPair)
 	defer close(readRequest)
 
 	readDone := make(chan error)
 	go func() {
 		for {
-			frame.Content = readBuf.next()
-			frame.Content = frame.Content[:cap(frame.Content)]
-
-			recv, err := c.conn.ReadFrameOrRequest(frame, true)
+			recv, err := c.conn.ReadFrameOrRequest(true)
 			if err != nil {
 				readDone <- err
 				break
@@ -1164,14 +1149,14 @@ func (c *client) runRecordTCP() {
 
 			switch recvt := recv.(type) {
 			case *gortsplib.InterleavedFrame:
-				if frame.TrackId >= len(c.streamTracks) {
-					readDone <- fmt.Errorf("invalid track id '%d'", frame.TrackId)
+				if recvt.TrackId >= len(c.streamTracks) {
+					readDone <- fmt.Errorf("invalid track id '%d'", recvt.TrackId)
 					break
 				}
 
-				c.rtcpReceivers[frame.TrackId].OnFrame(frame.StreamType, frame.Content)
+				c.rtcpReceivers[recvt.TrackId].OnFrame(recvt.StreamType, recvt.Content)
 
-				c.p.readersMap.forwardFrame(c.path, frame.TrackId, frame.StreamType, frame.Content)
+				c.p.readersMap.forwardFrame(c.path, recvt.TrackId, recvt.StreamType, recvt.Content)
 
 			case *gortsplib.Request:
 				err := c.handleRequest(recvt)

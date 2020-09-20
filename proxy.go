@@ -9,9 +9,7 @@ import (
 )
 
 const (
-	proxyRetryInterval     = 5 * time.Second
-	proxyUDPReadBufferSize = 2048
-	proxyTCPReadBufferSize = 128 * 1024
+	proxyRetryInterval = 5 * time.Second
 )
 
 type proxyState int
@@ -137,9 +135,10 @@ func (s *proxy) runInnerInner() bool {
 	dialDone := make(chan struct{})
 	go func() {
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:         s.pathConf.sourceUrl.Host,
-			ReadTimeout:  s.p.conf.ReadTimeout,
-			WriteTimeout: s.p.conf.WriteTimeout,
+			Host:            s.pathConf.sourceUrl.Host,
+			ReadTimeout:     s.p.conf.ReadTimeout,
+			WriteTimeout:    s.p.conf.WriteTimeout,
+			ReadBufferCount: 2,
 		})
 		close(dialDone)
 	}()
@@ -216,17 +215,14 @@ func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, rtpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(2, proxyUDPReadBufferSize)
 			for {
-				buf := multiBuf.next()
-
-				n, err := rtpRead(buf)
+				buf, err := rtpRead()
 				if err != nil {
 					break
 				}
 
 				s.p.readersMap.forwardFrame(s.path, trackId,
-					gortsplib.StreamTypeRtp, buf[:n])
+					gortsplib.StreamTypeRtp, buf)
 			}
 		}(trackId, rtpRead)
 	}
@@ -237,17 +233,14 @@ func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
 		go func(trackId int, rtcpRead gortsplib.UDPReadFunc) {
 			defer wg.Done()
 
-			multiBuf := newMultiBuffer(2, proxyUDPReadBufferSize)
 			for {
-				buf := multiBuf.next()
-
-				n, err := rtcpRead(buf)
+				buf, err := rtcpRead()
 				if err != nil {
 					break
 				}
 
 				s.p.readersMap.forwardFrame(s.path, trackId,
-					gortsplib.StreamTypeRtcp, buf[:n])
+					gortsplib.StreamTypeRtcp, buf)
 			}
 		}(trackId, rtcpRead)
 	}
@@ -302,16 +295,10 @@ func (s *proxy) runTCP(conn *gortsplib.ConnClient) bool {
 
 	s.p.proxyReady <- s
 
-	frame := &gortsplib.InterleavedFrame{}
-	multiBuf := newMultiBuffer(2, proxyTCPReadBufferSize)
-
 	tcpConnDone := make(chan error)
 	go func() {
 		for {
-			frame.Content = multiBuf.next()
-			frame.Content = frame.Content[:cap(frame.Content)]
-
-			err := conn.ReadFrame(frame)
+			frame, err := conn.ReadFrame()
 			if err != nil {
 				tcpConnDone <- err
 				return
