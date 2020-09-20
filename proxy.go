@@ -1,7 +1,6 @@
 package main
 
 import (
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -189,27 +188,15 @@ func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
 	var rtcpReads []gortsplib.UDPReadFunc
 
 	for _, track := range s.tracks {
-		for {
-			// choose two consecutive ports in range 65535-10000
-			// rtp must be even and rtcp odd
-			rtpPort := (rand.Intn((65535-10000)/2) * 2) + 10000
-			rtcpPort := rtpPort + 1
-
-			rtpRead, rtcpRead, _, err := conn.SetupUDP(s.pathConf.sourceUrl, track, rtpPort, rtcpPort)
-			if err != nil {
-				if isBindError(err) {
-					continue // retry
-				}
-
-				conn.Close()
-				s.path.log("proxy ERR: %s", err)
-				return true
-			}
-
-			rtpReads = append(rtpReads, rtpRead)
-			rtcpReads = append(rtcpReads, rtcpRead)
-			break
+		rtpRead, rtcpRead, _, err := conn.SetupUDP(s.pathConf.sourceUrl, track, 0, 0)
+		if err != nil {
+			conn.Close()
+			s.path.log("proxy ERR: %s", err)
+			return true
 		}
+
+		rtpReads = append(rtpReads, rtpRead)
+		rtcpReads = append(rtcpReads, rtcpRead)
 	}
 
 	_, err := conn.Play(s.pathConf.sourceUrl)
