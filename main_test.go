@@ -481,7 +481,7 @@ func TestRunOnDemand(t *testing.T) {
 	stdin := []byte("\n" +
 		"paths:\n" +
 		"  all:\n" +
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i test-images/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n")
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n")
 	p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
 	require.NoError(t, err)
 	defer p1.close()
