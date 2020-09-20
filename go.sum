@@ -2,8 +2,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafo
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d h1:UQZhZ2O0vMHr2cI+DC1Mbh0TJxzA3RcLoMsFw+aXw7E=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
-github.com/aler9/gortsplib v0.0.0-20200920120711-81b5754b0b0c h1:tXQF5q+mlu5KEALSgHR+ReWfF+cS7h3oM4+nJuTBf7E=
-github.com/aler9/gortsplib v0.0.0-20200920120711-81b5754b0b0c/go.mod h1:IQy51zikcH4wQFNwYPHtC0+HTcPlahJcxcYiMqlCyiw=
+github.com/aler9/gortsplib v0.0.0-20200920125203-e34b7d932695 h1:3b6hZXRGPbdCX6YhJAD0UhUvSD+8xGWiMHU618MrJUY=
+github.com/aler9/gortsplib v0.0.0-20200920125203-e34b7d932695/go.mod h1:IQy51zikcH4wQFNwYPHtC0+HTcPlahJcxcYiMqlCyiw=
 github.com/aler9/sdp-dirty/v3 v3.0.0-20200919115950-f1abc664f625 h1:A3upkpYzceQTuBPvVleu1zd6R8jInhg5ifimSO7ku/o=
 github.com/aler9/sdp-dirty/v3 v3.0.0-20200919115950-f1abc664f625/go.mod h1:5bO/aUQr9m3OasDatNNcVqKAgs7r5hgGXmszWHaC6mI=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
