@@ -44,13 +44,13 @@ func newProxy(p *program, path *path, pathConf *pathConf) *proxy {
 		done:      make(chan struct{}),
 	}
 
-	atomic.AddInt64(&p.countProxies, +1)
+	atomic.AddInt64(p.countProxies, +1)
 
 	if pathConf.SourceOnDemand {
 		s.state = proxyStateStopped
 	} else {
 		s.state = proxyStateRunning
-		atomic.AddInt64(&p.countProxiesRunning, +1)
+		atomic.AddInt64(p.countProxiesRunning, +1)
 	}
 
 	return s

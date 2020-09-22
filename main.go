@@ -20,22 +20,24 @@ const (
 )
 
 type program struct {
-	conf                *conf
-	logHandler          *logHandler
-	metrics             *metrics
-	pprof               *pprof
-	paths               map[string]*path
-	serverRtp           *serverUDP
-	serverRtcp          *serverUDP
-	serverRtsp          *serverTCP
-	clients             map[*client]struct{}
-	udpPublishersMap    *udpPublishersMap
-	readersMap          *readersMap
-	countClients        int64
-	countPublishers     int64
-	countReaders        int64
-	countProxies        int64
-	countProxiesRunning int64
+	conf             *conf
+	logHandler       *logHandler
+	metrics          *metrics
+	pprof            *pprof
+	paths            map[string]*path
+	serverRtp        *serverUDP
+	serverRtcp       *serverUDP
+	serverRtsp       *serverTCP
+	clients          map[*client]struct{}
+	udpPublishersMap *udpPublishersMap
+	readersMap       *readersMap
+	// use pointers to avoid a crash on 32bit platforms
+	// https://github.com/golang/go/issues/9959
+	countClients        *int64
+	countPublishers     *int64
+	countReaders        *int64
+	countProxies        *int64
+	countProxiesRunning *int64
 
 	clientNew       chan net.Conn
 	clientClose     chan *client
@@ -81,17 +83,37 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		clients:          make(map[*client]struct{}),
 		udpPublishersMap: newUdpPublisherMap(),
 		readersMap:       newReadersMap(),
-		clientNew:        make(chan net.Conn),
-		clientClose:      make(chan *client),
-		clientDescribe:   make(chan clientDescribeReq),
-		clientAnnounce:   make(chan clientAnnounceReq),
-		clientSetupPlay:  make(chan clientSetupPlayReq),
-		clientPlay:       make(chan *client),
-		clientRecord:     make(chan *client),
-		proxyReady:       make(chan *proxy),
-		proxyNotReady:    make(chan *proxy),
-		terminate:        make(chan struct{}),
-		done:             make(chan struct{}),
+		countClients: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		countPublishers: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		countReaders: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		countProxies: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		countProxiesRunning: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		clientNew:       make(chan net.Conn),
+		clientClose:     make(chan *client),
+		clientDescribe:  make(chan clientDescribeReq),
+		clientAnnounce:  make(chan clientAnnounceReq),
+		clientSetupPlay: make(chan clientSetupPlayReq),
+		clientPlay:      make(chan *client),
+		clientRecord:    make(chan *client),
+		proxyReady:      make(chan *proxy),
+		proxyNotReady:   make(chan *proxy),
+		terminate:       make(chan struct{}),
+		done:            make(chan struct{}),
 	}
 
 	p.log("rtsp-simple-server %s", Version)
@@ -139,9 +161,9 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 }
 
 func (p *program) log(format string, args ...interface{}) {
-	countClients := atomic.LoadInt64(&p.countClients)
-	countPublishers := atomic.LoadInt64(&p.countPublishers)
-	countReaders := atomic.LoadInt64(&p.countReaders)
+	countClients := atomic.LoadInt64(p.countClients)
+	countPublishers := atomic.LoadInt64(p.countPublishers)
+	countReaders := atomic.LoadInt64(p.countReaders)
 
 	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClients,
 		countPublishers, countReaders}, args...)...))
@@ -184,7 +206,7 @@ outer:
 		case conn := <-p.clientNew:
 			c := newClient(p, conn)
 			p.clients[c] = struct{}{}
-			atomic.AddInt64(&p.countClients, 1)
+			atomic.AddInt64(p.countClients, 1)
 			c.log("connected")
 
 		case client := <-p.clientClose:
@@ -238,12 +260,12 @@ outer:
 			req.res <- nil
 
 		case client := <-p.clientPlay:
-			atomic.AddInt64(&p.countReaders, 1)
+			atomic.AddInt64(p.countReaders, 1)
 			client.state = clientStatePlay
 			p.readersMap.add(client)
 
 		case client := <-p.clientRecord:
-			atomic.AddInt64(&p.countPublishers, 1)
+			atomic.AddInt64(p.countPublishers, 1)
 			client.state = clientStateRecord
 
 			if client.streamProtocol == gortsplib.StreamProtocolUDP {

@@ -57,11 +57,11 @@ func (m *metrics) close() {
 func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	now := time.Now().UnixNano() / 1000000
 
-	countClients := atomic.LoadInt64(&m.p.countClients)
-	countPublishers := atomic.LoadInt64(&m.p.countPublishers)
-	countReaders := atomic.LoadInt64(&m.p.countReaders)
-	countProxies := atomic.LoadInt64(&m.p.countProxies)
-	countProxiesRunning := atomic.LoadInt64(&m.p.countProxiesRunning)
+	countClients := atomic.LoadInt64(m.p.countClients)
+	countPublishers := atomic.LoadInt64(m.p.countPublishers)
+	countReaders := atomic.LoadInt64(m.p.countReaders)
+	countProxies := atomic.LoadInt64(m.p.countProxies)
+	countProxiesRunning := atomic.LoadInt64(m.p.countProxiesRunning)
 
 	out := ""
 	out += fmt.Sprintf("rtsp_clients{state=\"idle\"} %d %v\n",

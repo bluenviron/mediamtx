@@ -149,7 +149,7 @@ func (pa *path) onCheck() {
 		!pa.hasClients() &&
 		time.Since(pa.lastDescribeReq) >= proxyStopAfterDescribeSecs {
 		pa.log("stopping on demand proxy (not requested anymore)")
-		atomic.AddInt64(&pa.p.countProxiesRunning, -1)
+		atomic.AddInt64(pa.p.countProxiesRunning, -1)
 		pa.proxy.state = proxyStateStopped
 		pa.proxy.setState <- pa.proxy.state
 	}
@@ -243,7 +243,7 @@ func (pa *path) onDescribe(client *client) {
 		if pa.proxy != nil && pa.proxy.state == proxyStateStopped { // start if needed
 			pa.log("starting on demand proxy")
 			pa.lastDescribeActivation = time.Now()
-			atomic.AddInt64(&pa.p.countProxiesRunning, +1)
+			atomic.AddInt64(pa.p.countProxiesRunning, +1)
 			pa.proxy.state = proxyStateRunning
 			pa.proxy.setState <- pa.proxy.state
 		}
