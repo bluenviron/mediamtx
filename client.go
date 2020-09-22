@@ -138,15 +138,15 @@ func newClient(p *program, nconn net.Conn) *client {
 func (c *client) close() {
 	delete(c.p.clients, c)
 
-	atomic.AddInt64(&c.p.countClient, -1)
+	atomic.AddInt64(c.p.countClient, -1)
 
 	switch c.state {
 	case clientStatePlay:
-		atomic.AddInt64(&c.p.countReader, -1)
+		atomic.AddInt64(c.p.countReader, -1)
 		c.p.readersMap.remove(c)
 
 	case clientStateRecord:
-		atomic.AddInt64(&c.p.countPublisher, -1)
+		atomic.AddInt64(c.p.countPublisher, -1)
 
 		if c.streamProtocol == gortsplib.StreamProtocolUDP {
 			for _, track := range c.streamTracks {

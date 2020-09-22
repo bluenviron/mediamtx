@@ -31,9 +31,11 @@ type program struct {
 	clients          map[*client]struct{}
 	udpPublishersMap *udpPublishersMap
 	readersMap       *readersMap
-	countClient      int64
-	countPublisher   int64
-	countReader      int64
+	// use pointers to avoid a crash on 32bit platforms
+	// https://github.com/golang/go/issues/9959
+	countClient    *int64
+	countPublisher *int64
+	countReader    *int64
 
 	metricsGather   chan metricsGatherReq
 	clientNew       chan net.Conn
@@ -80,18 +82,30 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		clients:          make(map[*client]struct{}),
 		udpPublishersMap: newUdpPublisherMap(),
 		readersMap:       newReadersMap(),
-		metricsGather:    make(chan metricsGatherReq),
-		clientNew:        make(chan net.Conn),
-		clientClose:      make(chan *client),
-		clientDescribe:   make(chan clientDescribeReq),
-		clientAnnounce:   make(chan clientAnnounceReq),
-		clientSetupPlay:  make(chan clientSetupPlayReq),
-		clientPlay:       make(chan *client),
-		clientRecord:     make(chan *client),
-		sourceReady:      make(chan *source),
-		sourceNotReady:   make(chan *source),
-		terminate:        make(chan struct{}),
-		done:             make(chan struct{}),
+		countClient: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		countPublisher: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		countReader: func() *int64 {
+			v := int64(0)
+			return &v
+		}(),
+		metricsGather:   make(chan metricsGatherReq),
+		clientNew:       make(chan net.Conn),
+		clientClose:     make(chan *client),
+		clientDescribe:  make(chan clientDescribeReq),
+		clientAnnounce:  make(chan clientAnnounceReq),
+		clientSetupPlay: make(chan clientSetupPlayReq),
+		clientPlay:      make(chan *client),
+		clientRecord:    make(chan *client),
+		sourceReady:     make(chan *source),
+		sourceNotReady:  make(chan *source),
+		terminate:       make(chan struct{}),
+		done:            make(chan struct{}),
 	}
 
 	p.log("rtsp-simple-server %s", Version)
@@ -140,9 +154,9 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 }
 
 func (p *program) log(format string, args ...interface{}) {
-	countClient := atomic.LoadInt64(&p.countClient)
-	countPublisher := atomic.LoadInt64(&p.countPublisher)
-	countReader := atomic.LoadInt64(&p.countReader)
+	countClient := atomic.LoadInt64(p.countClient)
+	countPublisher := atomic.LoadInt64(p.countPublisher)
+	countReader := atomic.LoadInt64(p.countReader)
 
 	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClient,
 		countPublisher, countReader}, args...)...))
@@ -184,15 +198,15 @@ outer:
 
 		case req := <-p.metricsGather:
 			req.res <- &metricsData{
-				countClient:    p.countClient,
-				countPublisher: p.countPublisher,
-				countReader:    p.countReader,
+				countClient:    atomic.LoadInt64(p.countClient),
+				countPublisher: atomic.LoadInt64(p.countPublisher),
+				countReader:    atomic.LoadInt64(p.countReader),
 			}
 
 		case conn := <-p.clientNew:
 			c := newClient(p, conn)
 			p.clients[c] = struct{}{}
-			atomic.AddInt64(&p.countClient, 1)
+			atomic.AddInt64(p.countClient, 1)
 			c.log("connected")
 
 		case client := <-p.clientClose:
@@ -246,12 +260,12 @@ outer:
 			req.res <- nil
 
 		case client := <-p.clientPlay:
-			atomic.AddInt64(&p.countReader, 1)
+			atomic.AddInt64(p.countReader, 1)
 			client.state = clientStatePlay
 			p.readersMap.add(client)
 
 		case client := <-p.clientRecord:
-			atomic.AddInt64(&p.countPublisher, 1)
+			atomic.AddInt64(p.countPublisher, 1)
 			client.state = clientStateRecord
 
 			if client.streamProtocol == gortsplib.StreamProtocolUDP {
