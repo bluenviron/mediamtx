@@ -183,19 +183,13 @@ func (s *proxy) runInnerInner() bool {
 }
 
 func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
-	var rtpReads []gortsplib.UDPReadFunc
-	var rtcpReads []gortsplib.UDPReadFunc
-
 	for _, track := range s.tracks {
-		rtpRead, rtcpRead, _, err := conn.SetupUDP(s.pathConf.sourceUrl, track, 0, 0)
+		_, err := conn.SetupUDP(s.pathConf.sourceUrl, gortsplib.SetupModePlay, track, 0, 0)
 		if err != nil {
 			conn.Close()
 			s.path.log("proxy ERR: %s", err)
 			return true
 		}
-
-		rtpReads = append(rtpReads, rtpRead)
-		rtcpReads = append(rtcpReads, rtcpRead)
 	}
 
 	_, err := conn.Play(s.pathConf.sourceUrl)
@@ -210,39 +204,39 @@ func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
 	var wg sync.WaitGroup
 
 	// receive RTP packets
-	for trackId, rtpRead := range rtpReads {
+	for _, track := range s.tracks {
 		wg.Add(1)
-		go func(trackId int, rtpRead gortsplib.UDPReadFunc) {
+		go func(track *gortsplib.Track) {
 			defer wg.Done()
 
 			for {
-				buf, err := rtpRead()
+				buf, err := conn.ReadFrameUDP(track, gortsplib.StreamTypeRtp)
 				if err != nil {
 					break
 				}
 
-				s.p.readersMap.forwardFrame(s.path, trackId,
+				s.p.readersMap.forwardFrame(s.path, track.Id,
 					gortsplib.StreamTypeRtp, buf)
 			}
-		}(trackId, rtpRead)
+		}(track)
 	}
 
 	// receive RTCP packets
-	for trackId, rtcpRead := range rtcpReads {
+	for _, track := range s.tracks {
 		wg.Add(1)
-		go func(trackId int, rtcpRead gortsplib.UDPReadFunc) {
+		go func(track *gortsplib.Track) {
 			defer wg.Done()
 
 			for {
-				buf, err := rtcpRead()
+				buf, err := conn.ReadFrameUDP(track, gortsplib.StreamTypeRtcp)
 				if err != nil {
 					break
 				}
 
-				s.p.readersMap.forwardFrame(s.path, trackId,
+				s.p.readersMap.forwardFrame(s.path, track.Id,
 					gortsplib.StreamTypeRtcp, buf)
 			}
-		}(trackId, rtcpRead)
+		}(track)
 	}
 
 	tcpConnDone := make(chan error)
@@ -278,7 +272,7 @@ outer:
 
 func (s *proxy) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTCP(s.pathConf.sourceUrl, track)
+		_, err := conn.SetupTCP(s.pathConf.sourceUrl, gortsplib.SetupModePlay, track)
 		if err != nil {
 			conn.Close()
 			s.path.log("proxy ERR: %s", err)
@@ -298,7 +292,7 @@ func (s *proxy) runTCP(conn *gortsplib.ConnClient) bool {
 	tcpConnDone := make(chan error)
 	go func() {
 		for {
-			frame, err := conn.ReadFrame()
+			frame, err := conn.ReadFrameTCP()
 			if err != nil {
 				tcpConnDone <- err
 				return

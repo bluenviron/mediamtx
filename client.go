@@ -513,7 +513,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				return errRunTerminate
 			}
 
-			// play via UDP
+			// play with UDP
 			if th.Protocol == gortsplib.StreamProtocolUDP {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
@@ -564,7 +564,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				})
 				return nil
 
-				// play via TCP
+				// play with TCP
 			} else {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
@@ -621,7 +621,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				return errRunTerminate
 			}
 
-			// record via UDP
+			// record with UDP
 			if th.Protocol == gortsplib.StreamProtocolUDP {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
@@ -669,7 +669,7 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 				})
 				return nil
 
-				// record via TCP
+				// record with TCP
 			} else {
 				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, gortsplib.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
@@ -878,7 +878,7 @@ func (c *client) runPlay() bool {
 	// start sending frames only after sending the response to the PLAY request
 	c.p.clientPlay <- c
 
-	c.log("is receiving on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
+	c.log("is receiving on path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -991,7 +991,7 @@ func (c *client) runPlayTCP() {
 			return
 
 		case frame := <-c.tcpFrame:
-			c.conn.WriteFrame(frame)
+			c.conn.WriteFrameTCP(frame)
 
 		case <-c.terminate:
 			go func() {
@@ -1022,7 +1022,7 @@ func (c *client) runRecord() bool {
 
 	c.p.clientRecord <- c
 
-	c.log("is publishing on path '%s', %d %s via %s", c.path.name, len(c.streamTracks), func() string {
+	c.log("is publishing on path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -1194,7 +1194,7 @@ func (c *client) runRecordTCP() {
 		case <-receiverReportTicker.C:
 			for trackId := range c.streamTracks {
 				frame := c.rtcpReceivers[trackId].Report()
-				c.conn.WriteFrame(&gortsplib.InterleavedFrame{
+				c.conn.WriteFrameTCP(&gortsplib.InterleavedFrame{
 					TrackId:    trackId,
 					StreamType: gortsplib.StreamTypeRtcp,
 					Content:    frame,

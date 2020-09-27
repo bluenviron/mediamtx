@@ -8,7 +8,7 @@
 _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server and RTSP proxy, a software that allows multiple users to publish and read live video and audio streams over time. RTSP, RTP and RTCP are standardized protocol that describe how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming protocol. The server is then responsible of relaying the publisher streams to the readers.
 
 Features:
-* Read and publish live streams via UDP and TCP
+* Read and publish live streams with UDP and TCP
 * Each stream can have multiple video and audio tracks, encoded in any format
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Pull and serve streams from other RTSP servers, always or on-demand (RTSP proxy)
