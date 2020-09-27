@@ -472,6 +472,11 @@ func (c *client) handleRequest(req *gortsplib.Request) error {
 		switch c.state {
 		// play
 		case clientStateInitial, clientStatePrePlay:
+			if th.Mode != nil && *th.Mode != "play" {
+				c.writeResError(cseq, gortsplib.StatusBadRequest, fmt.Errorf("transport header must contain mode=play or not contain a mode"))
+				return errRunTerminate
+			}
+
 			pathConf, err := c.p.conf.checkPathNameAndFindConf(basePath)
 			if err != nil {
 				c.writeResError(cseq, gortsplib.StatusBadRequest, err)
