@@ -9,7 +9,7 @@ _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server a
 
 Features:
 * Read and publish live streams with UDP and TCP
-* Each stream can have multiple video and audio tracks, encoded in any format
+* Each stream can have multiple video and audio tracks, encoded in any format (including H264, H265, VP8, MP3, AAC, Opus, PCM)
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Pull and serve streams from other RTSP servers, always or on-demand (RTSP proxy)
 * Provide separate authentication for reading and publishing
@@ -73,11 +73,11 @@ docker run --rm -it -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml -p 85
 
 To see or change the configuration, edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
 
-### Usage as RTSP Proxy
+### RTSP proxy mode
 
-An RTSP proxy is usually deployed in one of these scenarios:
-* when there are multiple users that are receiving a stream and the bandwidth is limited, so the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
-* when there's a NAT / firewall between a stream and the users, in this case the proxy is installed on the NAT and makes the stream available to the outside world.
+`rtsp-simple-server` is also an RTSP proxy, that is usually deployed in one of these scenarios:
+* when there are multiple users that are receiving a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
+* when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 ```yaml
@@ -98,7 +98,7 @@ paths:
     runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH
 ```
 
-After starting the server, the webcam can be opened with `rtsp://localhost:8554/cam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
+After starting the server, the webcam is available on `rtsp://localhost:8554/cam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
 
 ### Serve a Raspberry Pi Camera
 
@@ -117,7 +117,7 @@ paths:
     runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! rtspclientsink location=rtsp://localhost:8554/$RTSP_SERVER_PATH
 ```
 
-After starting the server, the webcam can be opened with `rtsp://localhost:8554/cam`.
+After starting the server, the webcam is available on `rtsp://localhost:8554/cam`.
 
 ### On-demand publishing
 
