@@ -226,14 +226,14 @@ func (m *readersMap) forwardFrame(path *path, trackId int, streamType gortsplib.
 
 		if c.streamProtocol == gortsplib.StreamProtocolUDP {
 			if streamType == gortsplib.StreamTypeRtp {
-				c.p.serverRtp.write(frame, &net.UDPAddr{
+				c.p.serverUdpRtp.write(frame, &net.UDPAddr{
 					IP:   c.ip(),
 					Zone: c.zone(),
 					Port: track.rtpPort,
 				})
 
 			} else {
-				c.p.serverRtcp.write(frame, &net.UDPAddr{
+				c.p.serverUdpRtcp.write(frame, &net.UDPAddr{
 					IP:   c.ip(),
 					Zone: c.zone(),
 					Port: track.rtcpPort,

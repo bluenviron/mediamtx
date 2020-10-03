@@ -11,7 +11,7 @@ Features:
 * Read and publish live streams with UDP and TCP
 * Each stream can have multiple video and audio tracks, encoded in any format (including H264, H265, VP8, MP3, AAC, Opus, PCM)
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
-* Pull and serve streams from other RTSP servers, always or on-demand (RTSP proxy)
+* Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
 * Provide separate authentication for reading and publishing
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
@@ -216,8 +216,10 @@ There are multiple ways to monitor the server usage over time:
   * `rtsp_clients{state="idle"}` is the count of clients that are neither publishing nor reading
   * `rtsp_clients{state="publishing"}` is the count of clients that are publishing
   * `rtsp_clients{state="reading"}` is the count of clients that are reading
-  * `rtsp_proxies{state="idle"}` is the count of proxy sources that are not running
-  * `rtsp_proxies{state="running"}` is the count of proxy sources that are running
+  * `rtsp_sources{type="rtsp",state="idle"}` is the count of rtsp sources that are not running
+  * `rtsp_sources{type="rtsp",state="running"}` is the count of rtsp sources that are running
+  * `rtsp_sources{type="rtmp",state="idle"}` is the count of rtmp sources that are not running
+  * `rtsp_sources{type="rtmp",state="running"}` is the count of rtmp sources that are running
 
 * A performance monitor, compatible with pprof, can be enabled with the option `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
   ```

@@ -878,7 +878,7 @@ func (c *client) runPlay() bool {
 	// start sending frames only after sending the response to the PLAY request
 	c.p.clientPlay <- c
 
-	c.log("is receiving on path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
+	c.log("is reading from path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -949,7 +949,7 @@ func (c *client) runPlayTCP() {
 	readDone := make(chan error)
 	go func() {
 		for {
-			recv, err := c.conn.ReadFrameOrRequest(false)
+			recv, err := c.conn.ReadFrameTCPOrRequest(false)
 			if err != nil {
 				readDone <- err
 				break
@@ -1022,7 +1022,7 @@ func (c *client) runRecord() bool {
 
 	c.p.clientRecord <- c
 
-	c.log("is publishing on path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
+	c.log("is publishing to path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -1052,9 +1052,9 @@ func (c *client) runRecord() bool {
 }
 
 func (c *client) runRecordUDP() {
-	// open the firewall by sending packets to every channel
+	// open the firewall by sending packets to the counterpart
 	for _, track := range c.streamTracks {
-		c.p.serverRtp.write(
+		c.p.serverUdpRtp.write(
 			[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 			&net.UDPAddr{
 				IP:   c.ip(),
@@ -1062,7 +1062,7 @@ func (c *client) runRecordUDP() {
 				Port: track.rtpPort,
 			})
 
-		c.p.serverRtcp.write(
+		c.p.serverUdpRtcp.write(
 			[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00},
 			&net.UDPAddr{
 				IP:   c.ip(),
@@ -1124,7 +1124,7 @@ func (c *client) runRecordUDP() {
 		case <-receiverReportTicker.C:
 			for trackId := range c.streamTracks {
 				frame := c.rtcpReceivers[trackId].Report()
-				c.p.serverRtcp.write(frame, &net.UDPAddr{
+				c.p.serverUdpRtcp.write(frame, &net.UDPAddr{
 					IP:   c.ip(),
 					Zone: c.zone(),
 					Port: c.streamTracks[trackId].rtcpPort,
@@ -1146,7 +1146,7 @@ func (c *client) runRecordTCP() {
 	readDone := make(chan error)
 	go func() {
 		for {
-			recv, err := c.conn.ReadFrameOrRequest(true)
+			recv, err := c.conn.ReadFrameTCPOrRequest(true)
 			if err != nil {
 				readDone <- err
 				break

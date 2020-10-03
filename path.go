@@ -2,17 +2,18 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"time"
 )
 
 const (
-	describeTimeout                  = 5 * time.Second
-	proxyStopAfterDescribeSecs       = 10 * time.Second
-	onDemandCmdStopAfterDescribeSecs = 10 * time.Second
+	describeTimeout                    = 5 * time.Second
+	sourceStopAfterDescribePeriod      = 10 * time.Second
+	onDemandCmdStopAfterDescribePeriod = 10 * time.Second
 )
 
-// a publisher is either a client or a proxy
+// a publisher can be a client, a sourceRtsp or a sourceRtmp
 type publisher interface {
 	isPublisher()
 }
@@ -21,7 +22,6 @@ type path struct {
 	p                      *program
 	name                   string
 	conf                   *pathConf
-	proxy                  *proxy
 	publisher              publisher
 	publisherReady         bool
 	publisherTrackCount    int
@@ -39,9 +39,12 @@ func newPath(p *program, name string, conf *pathConf) *path {
 		conf: conf,
 	}
 
-	if conf.Source != "record" {
-		s := newProxy(p, pa, conf)
-		pa.proxy = s
+	if strings.HasPrefix(conf.Source, "rtsp://") {
+		s := newSourceRtsp(p, pa)
+		pa.publisher = s
+
+	} else if strings.HasPrefix(conf.Source, "rtmp://") {
+		s := newSourceRtmp(p, pa)
 		pa.publisher = s
 	}
 
@@ -53,8 +56,11 @@ func (pa *path) log(format string, args ...interface{}) {
 }
 
 func (pa *path) onInit() {
-	if pa.proxy != nil {
-		go pa.proxy.run(pa.proxy.state)
+	if source, ok := pa.publisher.(*sourceRtsp); ok {
+		go source.run(source.state)
+
+	} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+		go source.run(source.state)
 	}
 
 	if pa.conf.RunOnInit != "" {
@@ -69,9 +75,13 @@ func (pa *path) onInit() {
 }
 
 func (pa *path) onClose(wait bool) {
-	if pa.proxy != nil {
-		close(pa.proxy.terminate)
-		<-pa.proxy.done
+	if source, ok := pa.publisher.(*sourceRtsp); ok {
+		close(source.terminate)
+		<-source.done
+
+	} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+		close(source.terminate)
+		<-source.done
 	}
 
 	if pa.onInitCmd != nil {
@@ -142,22 +152,35 @@ func (pa *path) onCheck() {
 		}
 	}
 
-	// stop on demand proxy if needed
-	if pa.proxy != nil &&
-		pa.conf.SourceOnDemand &&
-		pa.proxy.state == proxyStateRunning &&
-		!pa.hasClients() &&
-		time.Since(pa.lastDescribeReq) >= proxyStopAfterDescribeSecs {
-		pa.log("stopping on demand proxy (not requested anymore)")
-		atomic.AddInt64(pa.p.countProxiesRunning, -1)
-		pa.proxy.state = proxyStateStopped
-		pa.proxy.setState <- pa.proxy.state
+	// stop on demand rtsp source if needed
+	if source, ok := pa.publisher.(*sourceRtsp); ok {
+		if pa.conf.SourceOnDemand &&
+			source.state == sourceRtspStateRunning &&
+			!pa.hasClients() &&
+			time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribePeriod {
+			pa.log("stopping on demand rtsp source (not requested anymore)")
+			atomic.AddInt64(pa.p.countSourcesRtspRunning, -1)
+			source.state = sourceRtspStateStopped
+			source.setState <- source.state
+		}
+
+		// stop on demand rtmp source if needed
+	} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+		if pa.conf.SourceOnDemand &&
+			source.state == sourceRtmpStateRunning &&
+			!pa.hasClients() &&
+			time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribePeriod {
+			pa.log("stopping on demand rtmp source (not requested anymore)")
+			atomic.AddInt64(pa.p.countSourcesRtmpRunning, -1)
+			source.state = sourceRtmpStateStopped
+			source.setState <- source.state
+		}
 	}
 
 	// stop on demand command if needed
 	if pa.onDemandCmd != nil &&
 		!pa.hasClientReaders() &&
-		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribeSecs {
+		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribePeriod {
 		pa.log("stopping on demand command (not requested anymore)")
 		pa.onDemandCmd.close()
 		pa.onDemandCmd = nil
@@ -240,12 +263,25 @@ func (pa *path) onDescribe(client *client) {
 
 		// publisher was found but is not ready: put the client on hold
 	} else if !pa.publisherReady {
-		if pa.proxy != nil && pa.proxy.state == proxyStateStopped { // start if needed
-			pa.log("starting on demand proxy")
-			pa.lastDescribeActivation = time.Now()
-			atomic.AddInt64(pa.p.countProxiesRunning, +1)
-			pa.proxy.state = proxyStateRunning
-			pa.proxy.setState <- pa.proxy.state
+		// start rtsp source if needed
+		if source, ok := pa.publisher.(*sourceRtsp); ok {
+			if source.state == sourceRtspStateStopped {
+				pa.log("starting on demand rtsp source")
+				pa.lastDescribeActivation = time.Now()
+				atomic.AddInt64(pa.p.countSourcesRtspRunning, +1)
+				source.state = sourceRtspStateRunning
+				source.setState <- source.state
+			}
+
+			// start rtmp source if needed
+		} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+			if source.state == sourceRtmpStateStopped {
+				pa.log("starting on demand rtmp source")
+				pa.lastDescribeActivation = time.Now()
+				atomic.AddInt64(pa.p.countSourcesRtmpRunning, +1)
+				source.state = sourceRtmpStateRunning
+				source.setState <- source.state
+			}
 		}
 
 		client.path = pa

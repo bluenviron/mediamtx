@@ -9,56 +9,54 @@ import (
 )
 
 const (
-	proxyRetryInterval = 5 * time.Second
+	sourceRtspRetryInterval = 5 * time.Second
 )
 
-type proxyState int
+type sourceRtspState int
 
 const (
-	proxyStateStopped proxyState = iota
-	proxyStateRunning
+	sourceRtspStateStopped sourceRtspState = iota
+	sourceRtspStateRunning
 )
 
-type proxy struct {
+type sourceRtsp struct {
 	p            *program
 	path         *path
-	pathConf     *pathConf
-	state        proxyState
+	state        sourceRtspState
 	tracks       []*gortsplib.Track
 	innerRunning bool
 
 	innerTerminate chan struct{}
 	innerDone      chan struct{}
-	setState       chan proxyState
+	setState       chan sourceRtspState
 	terminate      chan struct{}
 	done           chan struct{}
 }
 
-func newProxy(p *program, path *path, pathConf *pathConf) *proxy {
-	s := &proxy{
+func newSourceRtsp(p *program, path *path) *sourceRtsp {
+	s := &sourceRtsp{
 		p:         p,
 		path:      path,
-		pathConf:  pathConf,
-		setState:  make(chan proxyState),
+		setState:  make(chan sourceRtspState),
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
 
-	atomic.AddInt64(p.countProxies, +1)
+	atomic.AddInt64(p.countSourcesRtsp, +1)
 
-	if pathConf.SourceOnDemand {
-		s.state = proxyStateStopped
+	if path.conf.SourceOnDemand {
+		s.state = sourceRtspStateStopped
 	} else {
-		s.state = proxyStateRunning
-		atomic.AddInt64(p.countProxiesRunning, +1)
+		s.state = sourceRtspStateRunning
+		atomic.AddInt64(p.countSourcesRtspRunning, +1)
 	}
 
 	return s
 }
 
-func (s *proxy) isPublisher() {}
+func (s *sourceRtsp) isPublisher() {}
 
-func (s *proxy) run(initialState proxyState) {
+func (s *sourceRtsp) run(initialState sourceRtspState) {
 	s.applyState(initialState)
 
 outer:
@@ -81,10 +79,10 @@ outer:
 	close(s.done)
 }
 
-func (s *proxy) applyState(state proxyState) {
-	if state == proxyStateRunning {
+func (s *sourceRtsp) applyState(state sourceRtspState) {
+	if state == sourceRtspStateRunning {
 		if !s.innerRunning {
-			s.path.log("proxy started")
+			s.path.log("rtsp source started")
 			s.innerRunning = true
 			s.innerTerminate = make(chan struct{})
 			s.innerDone = make(chan struct{})
@@ -95,52 +93,46 @@ func (s *proxy) applyState(state proxyState) {
 			close(s.innerTerminate)
 			<-s.innerDone
 			s.innerRunning = false
-			s.path.log("proxy stopped")
+			s.path.log("rtsp source stopped")
 		}
 	}
 }
 
-func (s *proxy) runInner() {
+func (s *sourceRtsp) runInner() {
 	defer close(s.innerDone)
 
+outer:
 	for {
-		ok := func() bool {
-			ok := s.runInnerInner()
-			if !ok {
-				return false
-			}
-
-			t := time.NewTimer(proxyRetryInterval)
-			defer t.Stop()
-
-			select {
-			case <-s.innerTerminate:
-				return false
-			case <-t.C:
-			}
-
-			return true
-		}()
+		ok := s.runInnerInner()
 		if !ok {
-			break
+			break outer
+		}
+
+		t := time.NewTimer(sourceRtspRetryInterval)
+		defer t.Stop()
+
+		select {
+		case <-s.innerTerminate:
+			break outer
+		case <-t.C:
 		}
 	}
 }
 
-func (s *proxy) runInnerInner() bool {
-	s.path.log("proxy connecting")
+func (s *sourceRtsp) runInnerInner() bool {
+	s.path.log("connecting to rtsp source")
 
 	var conn *gortsplib.ConnClient
 	var err error
-	dialDone := make(chan struct{})
+	dialDone := make(chan struct{}, 1)
 	go func() {
+		defer close(dialDone)
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:            s.pathConf.sourceUrl.Host,
+			Host:            s.path.conf.sourceUrl.Host,
 			ReadTimeout:     s.p.conf.ReadTimeout,
 			WriteTimeout:    s.p.conf.WriteTimeout,
 			ReadBufferCount: 2,
 		})
-		close(dialDone)
 	}()
 
 	select {
@@ -150,56 +142,55 @@ func (s *proxy) runInnerInner() bool {
 	}
 
 	if err != nil {
-		s.path.log("proxy ERR: %s", err)
+		s.path.log("rtsp source ERR: %s", err)
 		return true
 	}
 
-	_, err = conn.Options(s.pathConf.sourceUrl)
+	_, err = conn.Options(s.path.conf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("proxy ERR: %s", err)
+		s.path.log("rtsp source ERR: %s", err)
 		return true
 	}
 
-	tracks, _, err := conn.Describe(s.pathConf.sourceUrl)
+	tracks, _, err := conn.Describe(s.path.conf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("proxy ERR: %s", err)
+		s.path.log("rtsp source ERR: %s", err)
 		return true
 	}
 
 	// create a filtered SDP that is used by the server (not by the client)
-	serverSdp := tracks.Write()
-
-	s.tracks = tracks
+	s.path.publisherSdp = tracks.Write()
 	s.path.publisherTrackCount = len(tracks)
-	s.path.publisherSdp = serverSdp
+	s.tracks = tracks
 
-	if s.pathConf.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
+	if s.path.conf.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
 		return s.runUDP(conn)
 	} else {
 		return s.runTCP(conn)
 	}
 }
 
-func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
+func (s *sourceRtsp) runUDP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupUDP(s.pathConf.sourceUrl, gortsplib.SetupModePlay, track, 0, 0)
+		_, err := conn.SetupUDP(s.path.conf.sourceUrl, gortsplib.SetupModePlay, track, 0, 0)
 		if err != nil {
 			conn.Close()
-			s.path.log("proxy ERR: %s", err)
+			s.path.log("rtsp source ERR: %s", err)
 			return true
 		}
 	}
 
-	_, err := conn.Play(s.pathConf.sourceUrl)
+	_, err := conn.Play(s.path.conf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("proxy ERR: %s", err)
+		s.path.log("rtsp source ERR: %s", err)
 		return true
 	}
 
-	s.p.proxyReady <- s
+	s.p.sourceRtspReady <- s
+	s.path.log("rtsp source ready")
 
 	var wg sync.WaitGroup
 
@@ -241,7 +232,7 @@ func (s *proxy) runUDP(conn *gortsplib.ConnClient) bool {
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUDP(s.pathConf.sourceUrl)
+		tcpConnDone <- conn.LoopUDP(s.path.conf.sourceUrl)
 	}()
 
 	var ret bool
@@ -257,7 +248,7 @@ outer:
 
 		case err := <-tcpConnDone:
 			conn.Close()
-			s.path.log("proxy ERR: %s", err)
+			s.path.log("rtsp source ERR: %s", err)
 			ret = true
 			break outer
 		}
@@ -265,29 +256,31 @@ outer:
 
 	wg.Wait()
 
-	s.p.proxyNotReady <- s
+	s.p.sourceRtspNotReady <- s
+	s.path.log("rtsp source not ready")
 
 	return ret
 }
 
-func (s *proxy) runTCP(conn *gortsplib.ConnClient) bool {
+func (s *sourceRtsp) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTCP(s.pathConf.sourceUrl, gortsplib.SetupModePlay, track)
+		_, err := conn.SetupTCP(s.path.conf.sourceUrl, gortsplib.SetupModePlay, track)
 		if err != nil {
 			conn.Close()
-			s.path.log("proxy ERR: %s", err)
+			s.path.log("rtsp source ERR: %s", err)
 			return true
 		}
 	}
 
-	_, err := conn.Play(s.pathConf.sourceUrl)
+	_, err := conn.Play(s.path.conf.sourceUrl)
 	if err != nil {
 		conn.Close()
-		s.path.log("proxy ERR: %s", err)
+		s.path.log("rtsp source ERR: %s", err)
 		return true
 	}
 
-	s.p.proxyReady <- s
+	s.p.sourceRtspReady <- s
+	s.path.log("rtsp source ready")
 
 	tcpConnDone := make(chan error)
 	go func() {
@@ -315,13 +308,14 @@ outer:
 
 		case err := <-tcpConnDone:
 			conn.Close()
-			s.path.log("proxy ERR: %s", err)
+			s.path.log("rtsp source ERR: %s", err)
 			ret = true
 			break outer
 		}
 	}
 
-	s.p.proxyNotReady <- s
+	s.p.sourceRtspNotReady <- s
+	s.path.log("rtsp source not ready")
 
 	return ret
 }

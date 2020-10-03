@@ -86,9 +86,15 @@ func (c *container) close() {
 func (c *container) wait() int {
 	exec.Command("docker", "wait", "rtsp-simple-server-test-"+c.name).Run()
 	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
-		"--format={{.State.ExitCode}}").Output()
+		"-f", "{{.State.ExitCode}}").Output()
 	code, _ := strconv.ParseInt(string(out[:len(out)-1]), 10, 64)
 	return int(code)
+}
+
+func (c *container) ip() string {
+	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
+		"-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}").Output()
+	return string(out[:len(out)-1])
 }
 
 func TestPublish(t *testing.T) {
@@ -214,8 +220,7 @@ func TestRead(t *testing.T) {
 }
 
 func TestTCPOnly(t *testing.T) {
-	stdin := []byte("\n" +
-		"protocols: [tcp]\n")
+	stdin := []byte("protocols: [tcp]\n")
 	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
 	require.NoError(t, err)
 	defer p.close()
@@ -316,8 +321,7 @@ func TestPathWithQuery(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
-		stdin := []byte("\n" +
-			"paths:\n" +
+		stdin := []byte("paths:\n" +
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: testpass\n" +
@@ -361,8 +365,7 @@ func TestAuth(t *testing.T) {
 		"vlc",
 	} {
 		t.Run("read_"+soft, func(t *testing.T) {
-			stdin := []byte("\n" +
-				"paths:\n" +
+			stdin := []byte("paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: testpass\n" +
@@ -414,14 +417,13 @@ func TestAuth(t *testing.T) {
 	}
 }
 
-func TestProxy(t *testing.T) {
+func TestSourceRtsp(t *testing.T) {
 	for _, proto := range []string{
 		"udp",
 		"tcp",
 	} {
 		t.Run(proto, func(t *testing.T) {
-			stdin := []byte("\n" +
-				"paths:\n" +
+			stdin := []byte("paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: testpass\n")
@@ -445,8 +447,7 @@ func TestProxy(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			stdin = []byte("\n" +
-				"rtspPort: 8555\n" +
+			stdin = []byte("rtspPort: 8555\n" +
 				"rtpPort: 8100\n" +
 				"rtcpPort: 8101\n" +
 				"\n" +
@@ -477,9 +478,52 @@ func TestProxy(t *testing.T) {
 	}
 }
 
+func TestSourceRtmp(t *testing.T) {
+	cnt1, err := newContainer("nginx-rtmp", "rtmpserver", []string{})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt2, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "/emptyvideo.ts",
+		"-c", "copy",
+		"-f", "flv",
+		"rtmp://" + cnt1.ip() + "/stream/test",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	time.Sleep(1 * time.Second)
+
+	stdin := []byte("paths:\n" +
+		"  proxied:\n" +
+		"    source: rtmp://" + cnt1.ip() + "/stream/test\n" +
+		"    sourceOnDemand: yes\n")
+	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+	require.NoError(t, err)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt3, err := newContainer("ffmpeg", "dest", []string{
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://" + ownDockerIp + ":8554/proxied",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt3.close()
+
+	code := cnt3.wait()
+	require.Equal(t, 0, code)
+}
+
 func TestRunOnDemand(t *testing.T) {
-	stdin := []byte("\n" +
-		"paths:\n" +
+	stdin := []byte("paths:\n" +
 		"  all:\n" +
 		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n")
 	p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))

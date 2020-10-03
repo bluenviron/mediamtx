@@ -38,12 +38,13 @@ logFile: rtsp-simple-server.log
 paths:
   all:
     # source of the stream - this can be:
-    # * record -> the stream is provided by a client through the RECORD command (like ffmpeg)
-    # * rtsp://original-url -> the stream is pulled from another RTSP server (proxy mode)
+    # * record -> the stream is provided by a client with the RECORD command (like ffmpeg)
+    # * rtsp://existing-url -> the stream is pulled from another RTSP server (proxy mode)
+    # * rtmp://existing-url -> the stream is pulled from a RTMP server
     source: record
     # if the source is an RTSP url, this is the protocol that will be used to pull the stream
     sourceProtocol: udp
-    # if the source is an RTSP url, it will be pulled only when at least one reader
+    # if the source is an RTSP or RTMP url, it will be pulled only when at least one reader
     # is connected, saving bandwidth
     sourceOnDemand: no
 

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -214,17 +215,14 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			pconf.Source = "record"
 		}
 
-		if pconf.Source != "record" {
+		if strings.HasPrefix(pconf.Source, "rtsp://") {
 			if pconf.regexp != nil {
 				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 			}
 
 			pconf.sourceUrl, err = url.Parse(pconf.Source)
 			if err != nil {
-				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
-			}
-			if pconf.sourceUrl.Scheme != "rtsp" {
-				return nil, fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
 			}
 			if pconf.sourceUrl.Port() == "" {
 				pconf.sourceUrl.Host += ":554"
@@ -251,6 +249,24 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 			default:
 				return nil, fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
 			}
+
+		} else if strings.HasPrefix(pconf.Source, "rtmp://") {
+			if pconf.regexp != nil {
+				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
+			}
+
+			pconf.sourceUrl, err = url.Parse(pconf.Source)
+			if err != nil {
+				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
+			}
+			if pconf.sourceUrl.Port() == "" {
+				pconf.sourceUrl.Host += ":1935"
+			}
+
+		} else if pconf.Source == "record" {
+
+		} else {
+			return nil, fmt.Errorf("unsupported source: '%s'", pconf.Source)
 		}
 
 		if pconf.PublishUser != "" {

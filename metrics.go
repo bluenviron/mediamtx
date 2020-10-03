@@ -60,8 +60,10 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	countClients := atomic.LoadInt64(m.p.countClients)
 	countPublishers := atomic.LoadInt64(m.p.countPublishers)
 	countReaders := atomic.LoadInt64(m.p.countReaders)
-	countProxies := atomic.LoadInt64(m.p.countProxies)
-	countProxiesRunning := atomic.LoadInt64(m.p.countProxiesRunning)
+	countSourcesRtsp := atomic.LoadInt64(m.p.countSourcesRtsp)
+	countSourcesRtspRunning := atomic.LoadInt64(m.p.countSourcesRtspRunning)
+	countSourcesRtmp := atomic.LoadInt64(m.p.countSourcesRtmp)
+	countSourcesRtmpRunning := atomic.LoadInt64(m.p.countSourcesRtmpRunning)
 
 	out := ""
 	out += fmt.Sprintf("rtsp_clients{state=\"idle\"} %d %v\n",
@@ -70,10 +72,14 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 		countPublishers, now)
 	out += fmt.Sprintf("rtsp_clients{state=\"reading\"} %d %v\n",
 		countReaders, now)
-	out += fmt.Sprintf("rtsp_proxies{state=\"idle\"} %d %v\n",
-		countProxies-countProxiesRunning, now)
-	out += fmt.Sprintf("rtsp_proxies{state=\"running\"} %d %v\n",
-		countProxiesRunning, now)
+	out += fmt.Sprintf("rtsp_sources{type=\"rtsp\",state=\"idle\"} %d %v\n",
+		countSourcesRtsp-countSourcesRtspRunning, now)
+	out += fmt.Sprintf("rtsp_sources{type=\"rtsp\",state=\"running\"} %d %v\n",
+		countSourcesRtspRunning, now)
+	out += fmt.Sprintf("rtsp_sources{type=\"rtmp\",state=\"idle\"} %d %v\n",
+		countSourcesRtmp-countSourcesRtmpRunning, now)
+	out += fmt.Sprintf("rtsp_sources{type=\"rtmp\",state=\"running\"} %d %v\n",
+		countSourcesRtmpRunning, now)
 
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, out)
