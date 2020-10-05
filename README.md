@@ -210,6 +210,10 @@ There are multiple ways to monitor the server usage over time:
   rtsp_clients{state="idle"} 2 1596122687740
   rtsp_clients{state="publishing"} 15 1596122687740
   rtsp_clients{state="reading"} 8 1596122687740
+  rtsp_sources{type="rtsp",state="idle"} 3 1596122687740
+  rtsp_sources{type="rtsp",state="running"} 2 1596122687740
+  rtsp_sources{type="rtmp",state="idle"} 1 1596122687740
+  rtsp_sources{type="rtmp",state="running"} 0 1596122687740
   ```
 
   where:
