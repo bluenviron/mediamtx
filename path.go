@@ -164,7 +164,7 @@ func (pa *path) onCheck() {
 		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribeSecs {
 		pa.log("stopping on demand command (not requested anymore)")
 		pa.onDemandCmd.Process.Kill()
-		pa.onDemandCmd.Kill()
+		pa.onDemandCmd.Wait()
 		pa.onDemandCmd = nil
 	}
 
