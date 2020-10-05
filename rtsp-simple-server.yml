@@ -38,8 +38,8 @@ logFile: rtsp-simple-server.log
 paths:
   all:
     # source of the stream - this can be:
-    # * record -> the stream is provided by a client with the RECORD command (like ffmpeg)
-    # * rtsp://existing-url -> the stream is pulled from another RTSP server (proxy mode)
+    # * record -> the stream is provided by a RTSP client
+    # * rtsp://existing-url -> the stream is pulled from another RTSP server
     # * rtmp://existing-url -> the stream is pulled from a RTMP server
     source: record
     # if the source is an RTSP url, this is the protocol that will be used to pull the stream
