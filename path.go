@@ -79,13 +79,13 @@ func (pa *path) onClose(wait bool) {
 
 	if pa.onInitCmd != nil {
 		pa.log("stopping on init command (closing)")
-		pa.onInitCmd.Process.Signal(os.Interrupt)
+		pa.onInitCmd.Process.Kill()
 		pa.onInitCmd.Wait()
 	}
 
 	if pa.onDemandCmd != nil {
 		pa.log("stopping on demand command (closing)")
-		pa.onDemandCmd.Process.Signal(os.Interrupt)
+		pa.onDemandCmd.Process.Kill()
 		pa.onDemandCmd.Wait()
 	}
 
@@ -163,8 +163,8 @@ func (pa *path) onCheck() {
 		!pa.hasClientReaders() &&
 		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribeSecs {
 		pa.log("stopping on demand command (not requested anymore)")
-		pa.onDemandCmd.Process.Signal(os.Interrupt)
-		pa.onDemandCmd.Wait()
+		pa.onDemandCmd.Process.Kill()
+		pa.onDemandCmd.Kill()
 		pa.onDemandCmd = nil
 	}
 

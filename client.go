@@ -206,7 +206,7 @@ func (c *client) run() {
 	}
 
 	if onConnectCmd != nil {
-		onConnectCmd.Process.Signal(os.Interrupt)
+		onConnectCmd.Process.Kill()
 		onConnectCmd.Wait()
 	}
 
@@ -914,7 +914,7 @@ func (c *client) runPlay() bool {
 	}
 
 	if onReadCmd != nil {
-		onReadCmd.Process.Signal(os.Interrupt)
+		onReadCmd.Process.Kill()
 		onReadCmd.Wait()
 	}
 
@@ -1065,7 +1065,7 @@ func (c *client) runRecord() bool {
 	}
 
 	if onPublishCmd != nil {
-		onPublishCmd.Process.Signal(os.Interrupt)
+		onPublishCmd.Process.Kill()
 		onPublishCmd.Wait()
 	}
 
