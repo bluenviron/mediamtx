@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/multibuffer"
 )
 
 const (
@@ -21,7 +22,7 @@ type serverUDP struct {
 	p          *program
 	pc         *net.UDPConn
 	streamType gortsplib.StreamType
-	readBuf    *gortsplib.MultiBuffer
+	readBuf    *multibuffer.MultiBuffer
 
 	writec chan udpBufAddrPair
 	done   chan struct{}
@@ -39,7 +40,7 @@ func newServerUDP(p *program, port int, streamType gortsplib.StreamType) (*serve
 		p:          p,
 		pc:         pc,
 		streamType: streamType,
-		readBuf:    gortsplib.NewMultiBuffer(2, udpReadBufferSize),
+		readBuf:    multibuffer.New(2, udpReadBufferSize),
 		writec:     make(chan udpBufAddrPair),
 		done:       make(chan struct{}),
 	}

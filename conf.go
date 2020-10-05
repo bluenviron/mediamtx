@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/headers"
 	"gopkg.in/yaml.v2"
 )
 
@@ -44,7 +45,7 @@ type conf struct {
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
 	AuthMethods           []string                              `yaml:"authMethods"`
-	authMethodsParsed     []gortsplib.AuthMethod                ``
+	authMethodsParsed     []headers.AuthMethod                  ``
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
 	LogDestinations       []string                              `yaml:"logDestinations"`
@@ -140,10 +141,10 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	for _, method := range conf.AuthMethods {
 		switch method {
 		case "basic":
-			conf.authMethodsParsed = append(conf.authMethodsParsed, gortsplib.Basic)
+			conf.authMethodsParsed = append(conf.authMethodsParsed, headers.AuthBasic)
 
 		case "digest":
-			conf.authMethodsParsed = append(conf.authMethodsParsed, gortsplib.Digest)
+			conf.authMethodsParsed = append(conf.authMethodsParsed, headers.AuthDigest)
 
 		default:
 			return nil, fmt.Errorf("unsupported authentication method: %s", method)

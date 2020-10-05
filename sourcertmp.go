@@ -2,145 +2,21 @@ package main
 
 import (
 	"fmt"
-	"math/rand"
 	"net"
 	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/rtpaac"
+	"github.com/aler9/gortsplib/rtph264"
 	"github.com/notedit/rtmp/av"
 	"github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/rtmp"
-	"github.com/pion/rtp"
 )
 
 const (
 	sourceRtmpRetryInterval = 5 * time.Second
-	rtpPayloadMaxSize       = 1460 // 1500 - ip header - udp header - rtp header
 )
-
-type rtpH264Encoder struct {
-	seqnum    uint16
-	ssrc      uint32
-	initialTs uint32
-	started   time.Duration
-}
-
-func newRtpH264Encoder() *rtpH264Encoder {
-	return &rtpH264Encoder{
-		seqnum:    uint16(0),
-		ssrc:      rand.Uint32(),
-		initialTs: rand.Uint32(),
-	}
-}
-
-func (e *rtpH264Encoder) Encode(nalus [][]byte, timestamp time.Duration) ([][]byte, error) {
-	var frames [][]byte
-
-	if e.started == time.Duration(0) {
-		e.started = timestamp
-	}
-
-	// rtp/h264 uses a 90khz clock
-	rtpTs := e.initialTs + uint32((timestamp-e.started).Seconds()*90000)
-
-	for i, nalu := range nalus {
-		naluFrames, err := e.encodeNalu(nalu, rtpTs, (i == len(nalus)-1))
-		if err != nil {
-			return nil, err
-		}
-		frames = append(frames, naluFrames...)
-	}
-
-	return frames, nil
-}
-
-func (e *rtpH264Encoder) encodeNalu(nalu []byte, rtpTs uint32, isFinal bool) ([][]byte, error) {
-	// if the NALU fits into the RTP packet, use a single NALU packet
-	if len(nalu) < rtpPayloadMaxSize {
-		rpkt := &rtp.Packet{
-			Header: rtp.Header{
-				Version:        0x02,
-				PayloadType:    96,
-				SequenceNumber: e.seqnum,
-				Timestamp:      rtpTs,
-				SSRC:           e.ssrc,
-			},
-			Payload: nalu,
-		}
-		e.seqnum++
-
-		if isFinal {
-			rpkt.Header.Marker = true
-		}
-
-		frame, err := rpkt.Marshal()
-		if err != nil {
-			return nil, err
-		}
-
-		return [][]byte{frame}, nil
-	}
-
-	// otherwise, use fragmentation units
-	// use only FU-A, not FU-B, since we always use non-interleaved mode
-	// (set with packetization-mode=1)
-
-	frameCount := (len(nalu) - 1) / (rtpPayloadMaxSize - 2)
-	lastFrameSize := (len(nalu) - 1) % (rtpPayloadMaxSize - 2)
-	if lastFrameSize > 0 {
-		frameCount++
-	}
-	frames := make([][]byte, frameCount)
-
-	nri := (nalu[0] >> 5) & 0x03
-	typ := nalu[0] & 0x1F
-	nalu = nalu[1:] // remove header
-
-	for i := 0; i < frameCount; i++ {
-		indicator := 0 | (nri << 5) | 28 // FU-A
-
-		start := uint8(0)
-		if i == 0 {
-			start = 1
-		}
-		end := uint8(0)
-		le := rtpPayloadMaxSize - 2
-		if i == (len(frames) - 1) {
-			end = 1
-			le = lastFrameSize
-		}
-		header := (start << 7) | (end << 6) | typ
-
-		data := append([]byte{indicator, header}, nalu[:le]...)
-		nalu = nalu[le:]
-
-		rpkt := &rtp.Packet{
-			Header: rtp.Header{
-				Version:        0x02,
-				PayloadType:    96,
-				SequenceNumber: e.seqnum,
-				Timestamp:      rtpTs,
-				SSRC:           e.ssrc,
-			},
-			Payload: data,
-		}
-		e.seqnum++
-
-		if isFinal && i == (len(frames)-1) {
-			rpkt.Header.Marker = true
-		}
-
-		frame, err := rpkt.Marshal()
-		if err != nil {
-			return nil, err
-		}
-
-		frames[i] = frame
-	}
-
-	return frames, nil
-}
 
 type sourceRtmpState int
 
@@ -271,31 +147,107 @@ func (s *sourceRtmp) runInnerInner() bool {
 		return true
 	}
 
-	// wait for SPS and PPS
-	sps, pps, err := func() ([]byte, []byte, error) {
+	// gather video and audio features
+	var h264Sps []byte
+	var h264Pps []byte
+	var aacConfig []byte
+	confDone := make(chan struct{})
+	confClose := uint32(0)
+	go func() {
+		defer close(confDone)
+
 		for {
-			pkt, err := conn.ReadPacket()
+			var pkt av.Packet
+			pkt, err = conn.ReadPacket()
 			if err != nil {
-				return nil, nil, err
+				return
 			}
 
-			if pkt.Type == av.H264DecoderConfig {
+			if atomic.LoadUint32(&confClose) > 0 {
+				return
+			}
+
+			switch pkt.Type {
+			case av.H264DecoderConfig:
 				codec, err := h264.FromDecoderConfig(pkt.Data)
 				if err != nil {
 					panic(err)
 				}
 
-				return codec.SPS[0], codec.PPS[0], nil
+				h264Sps = codec.SPS[0]
+				h264Pps = codec.PPS[0]
+
+				if aacConfig != nil {
+					return
+				}
+
+			case av.AACDecoderConfig:
+				aacConfig = pkt.Data
+
+				if h264Sps != nil {
+					return
+				}
 			}
 		}
 	}()
+
+	timer := time.NewTimer(5 * time.Second)
+
+	select {
+	case <-confDone:
+	case <-timer.C:
+		atomic.StoreUint32(&confClose, 1)
+		<-confDone
+	}
+
 	if err != nil {
 		s.path.log("rtmp source ERR: %s", err)
 		return true
 	}
 
-	track := gortsplib.NewTrackH264(0, sps, pps)
-	tracks := gortsplib.Tracks{track}
+	var tracks gortsplib.Tracks
+	var videoTrack *gortsplib.Track
+	var audioTrack *gortsplib.Track
+	var h264Encoder *rtph264.Encoder
+	var aacEncoder *rtpaac.Encoder
+
+	if h264Sps != nil {
+		videoTrack, err = gortsplib.NewTrackH264(len(tracks), h264Sps, h264Pps)
+		if err != nil {
+			s.path.log("rtmp source ERR: %s", err)
+			return true
+		}
+
+		h264Encoder, err = rtph264.NewEncoder(uint8(len(tracks)))
+		if err != nil {
+			s.path.log("rtmp source ERR: %s", err)
+			return true
+		}
+
+		tracks = append(tracks, videoTrack)
+	}
+
+	if aacConfig != nil {
+		audioTrack, err = gortsplib.NewTrackAac(len(tracks), aacConfig)
+		if err != nil {
+			s.path.log("rtmp source ERR: %s", err)
+			return true
+		}
+
+		aacEncoder, err = rtpaac.NewEncoder(uint8(len(tracks)), aacConfig)
+		if err != nil {
+			s.path.log("rtmp source ERR: %s", err)
+			return true
+		}
+
+		tracks = append(tracks, audioTrack)
+	}
+
+	if len(tracks) == 0 {
+		s.path.log("rtmp source ERR: no tracks found")
+		return true
+	}
+
 	s.path.publisherSdp = tracks.Write()
 	s.path.publisherTrackCount = len(tracks)
 
@@ -304,7 +256,6 @@ func (s *sourceRtmp) runInnerInner() bool {
 
 	readDone := make(chan error)
 	go func() {
-		encoder := newRtpH264Encoder()
 
 		for {
 			pkt, err := conn.ReadPacket()
@@ -313,7 +264,13 @@ func (s *sourceRtmp) runInnerInner() bool {
 				return
 			}
 
-			if pkt.Type == av.H264 {
+			switch pkt.Type {
+			case av.H264:
+				if h264Sps == nil {
+					readDone <- fmt.Errorf("rtmp source ERR: received an H264 frame, but track is not setup up")
+					return
+				}
+
 				// decode from AVCC format
 				nalus, typ := h264.SplitNALUs(pkt.Data)
 				if typ != h264.NALU_AVCC {
@@ -322,15 +279,35 @@ func (s *sourceRtmp) runInnerInner() bool {
 				}
 
 				// encode into RTP/H264 format
-				frames, err := encoder.Encode(nalus, pkt.Time)
+				frames, err := h264Encoder.Write(nalus, pkt.Time)
 				if err != nil {
 					readDone <- err
 					return
 				}
 
 				for _, f := range frames {
-					s.p.readersMap.forwardFrame(s.path, 0, gortsplib.StreamTypeRtp, f)
+					s.p.readersMap.forwardFrame(s.path, videoTrack.Id, gortsplib.StreamTypeRtp, f)
 				}
+
+			case av.AAC:
+				if aacConfig == nil {
+					readDone <- fmt.Errorf("rtmp source ERR: received an AAC frame, but track is not setup up")
+					return
+				}
+
+				frames, err := aacEncoder.Write(pkt.Data, pkt.Time)
+				if err != nil {
+					readDone <- err
+					return
+				}
+
+				for _, f := range frames {
+					s.p.readersMap.forwardFrame(s.path, audioTrack.Id, gortsplib.StreamTypeRtp, f)
+				}
+
+			default:
+				readDone <- fmt.Errorf("rtmp source ERR: unexpected packet: %v", pkt.Type)
+				return
 			}
 		}
 	}()

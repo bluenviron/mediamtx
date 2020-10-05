@@ -174,7 +174,7 @@ func (s *sourceRtsp) runInnerInner() bool {
 
 func (s *sourceRtsp) runUDP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupUDP(s.path.conf.sourceUrl, gortsplib.SetupModePlay, track, 0, 0)
+		_, err := conn.SetupUDP(s.path.conf.sourceUrl, gortsplib.TransportModePlay, track, 0, 0)
 		if err != nil {
 			conn.Close()
 			s.path.log("rtsp source ERR: %s", err)
@@ -195,44 +195,44 @@ func (s *sourceRtsp) runUDP(conn *gortsplib.ConnClient) bool {
 	var wg sync.WaitGroup
 
 	// receive RTP packets
-	for _, track := range s.tracks {
+	for trackId := range s.tracks {
 		wg.Add(1)
-		go func(track *gortsplib.Track) {
+		go func(trackId int) {
 			defer wg.Done()
 
 			for {
-				buf, err := conn.ReadFrameUDP(track, gortsplib.StreamTypeRtp)
+				buf, err := conn.ReadFrameUDP(trackId, gortsplib.StreamTypeRtp)
 				if err != nil {
 					break
 				}
 
-				s.p.readersMap.forwardFrame(s.path, track.Id,
+				s.p.readersMap.forwardFrame(s.path, trackId,
 					gortsplib.StreamTypeRtp, buf)
 			}
-		}(track)
+		}(trackId)
 	}
 
 	// receive RTCP packets
-	for _, track := range s.tracks {
+	for trackId := range s.tracks {
 		wg.Add(1)
-		go func(track *gortsplib.Track) {
+		go func(trackId int) {
 			defer wg.Done()
 
 			for {
-				buf, err := conn.ReadFrameUDP(track, gortsplib.StreamTypeRtcp)
+				buf, err := conn.ReadFrameUDP(trackId, gortsplib.StreamTypeRtcp)
 				if err != nil {
 					break
 				}
 
-				s.p.readersMap.forwardFrame(s.path, track.Id,
+				s.p.readersMap.forwardFrame(s.path, trackId,
 					gortsplib.StreamTypeRtcp, buf)
 			}
-		}(track)
+		}(trackId)
 	}
 
 	tcpConnDone := make(chan error)
 	go func() {
-		tcpConnDone <- conn.LoopUDP(s.path.conf.sourceUrl)
+		tcpConnDone <- conn.LoopUDP()
 	}()
 
 	var ret bool
@@ -264,7 +264,7 @@ outer:
 
 func (s *sourceRtsp) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTCP(s.path.conf.sourceUrl, gortsplib.SetupModePlay, track)
+		_, err := conn.SetupTCP(s.path.conf.sourceUrl, gortsplib.TransportModePlay, track)
 		if err != nil {
 			conn.Close()
 			s.path.log("rtsp source ERR: %s", err)
@@ -285,13 +285,13 @@ func (s *sourceRtsp) runTCP(conn *gortsplib.ConnClient) bool {
 	tcpConnDone := make(chan error)
 	go func() {
 		for {
-			frame, err := conn.ReadFrameTCP()
+			trackId, streamType, content, err := conn.ReadFrameTCP()
 			if err != nil {
 				tcpConnDone <- err
 				return
 			}
 
-			s.p.readersMap.forwardFrame(s.path, frame.TrackId, frame.StreamType, frame.Content)
+			s.p.readersMap.forwardFrame(s.path, trackId, streamType, content)
 		}
 	}()
 

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/base"
 )
 
 func parseIpCidrList(in []string) ([]interface{}, error) {
@@ -241,7 +242,7 @@ func (m *readersMap) forwardFrame(path *path, trackId int, streamType gortsplib.
 			}
 
 		} else {
-			c.tcpFrame <- &gortsplib.InterleavedFrame{
+			c.tcpFrame <- &base.InterleavedFrame{
 				TrackId:    trackId,
 				StreamType: streamType,
 				Content:    frame,
