@@ -256,7 +256,6 @@ func (s *sourceRtmp) runInnerInner() bool {
 
 	readDone := make(chan error)
 	go func() {
-
 		for {
 			pkt, err := conn.ReadPacket()
 			if err != nil {
@@ -279,7 +278,7 @@ func (s *sourceRtmp) runInnerInner() bool {
 				}
 
 				// encode into RTP/H264 format
-				frames, err := h264Encoder.Write(nalus, pkt.Time)
+				frames, err := h264Encoder.Write(nalus, pkt.Time+pkt.CTime)
 				if err != nil {
 					readDone <- err
 					return
@@ -295,7 +294,7 @@ func (s *sourceRtmp) runInnerInner() bool {
 					return
 				}
 
-				frames, err := aacEncoder.Write(pkt.Data, pkt.Time)
+				frames, err := aacEncoder.Write(pkt.Data, pkt.Time+pkt.CTime)
 				if err != nil {
 					readDone <- err
 					return
