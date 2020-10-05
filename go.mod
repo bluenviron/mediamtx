@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
-	github.com/aler9/gortsplib v0.0.0-20201005185315-235585df65a0
+	github.com/aler9/gortsplib v0.0.0-20201005195734-cbf56d59d962
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/rtp v1.6.1 // indirect
