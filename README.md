@@ -266,9 +266,11 @@ make run
 
 Related projects
 * https://github.com/aler9/gortsplib (RTSP library used internally)
-* https://github.com/flaviostutz/rtsp-relay
 * https://github.com/pion/sdp (SDP library used internally)
 * https://github.com/pion/rtcp (RTCP library used internally)
+* https://github.com/pion/rtp (RTP library used internally)
+* https://github.com/notedit/rtmp (RTMP library used internally)
+* https://github.com/flaviostutz/rtsp-relay
 
 IETF Standards
 * RTSP 1.0 https://tools.ietf.org/html/rfc2326
