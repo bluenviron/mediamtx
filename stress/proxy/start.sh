@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-PROXY_COUNT=10
+PROXY_COUNT=20
 PROXY_PROTOCOL=tcp
 
 #####################################################

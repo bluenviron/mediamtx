@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-READER_COUNT=10
+READER_COUNT=20
 READER_PROTOCOL=tcp
 
 #####################################################
