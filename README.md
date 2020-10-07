@@ -9,7 +9,7 @@ _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server a
 
 Features:
 * Read and publish live streams with UDP and TCP
-* Each stream can have multiple video and audio tracks, encoded in any format (including H264, H265, VP8, MP3, AAC, Opus, PCM)
+* Each stream can have multiple video and audio tracks, encoded in any format (including H264, H265, VP8, VP9, MP3, AAC, Opus, PCM)
 * Publish multiple streams at once, each in a separate path, that can be read by multiple users
 * Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
 * Provide separate authentication for reading and publishing
@@ -69,7 +69,7 @@ and passing it to the container:
 docker run --rm -it -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml -p 8554:8554 aler9/rtsp-simple-server
 ```
 
-### Full configuration file
+### Configuration
 
 To see or change the configuration, edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
 
