@@ -14,7 +14,7 @@ type externalCmd struct {
 func startExternalCommand(cmdstr string, pathName string) (*externalCmd, error) {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		// in Windows the shell is not used and command is started directly
+		// on Windows the shell is not used and command is started directly
 		// variables are replaced manually in order to allow
 		// compatibility with linux commands
 		cmdstr = strings.ReplaceAll(cmdstr, "$RTSP_SERVER_PATH", pathName)
@@ -44,6 +44,12 @@ func startExternalCommand(cmdstr string, pathName string) (*externalCmd, error) 
 }
 
 func (e *externalCmd) close() {
-	e.cmd.Process.Signal(os.Interrupt)
+	// on Windows it's not possible to send os.Interrupt to a process
+	// Kill() is the only supported way
+	if runtime.GOOS == "windows" {
+		e.cmd.Process.Kill()
+	} else {
+		e.cmd.Process.Signal(os.Interrupt)
+	}
 	e.cmd.Wait()
 }
