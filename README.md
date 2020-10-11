@@ -73,6 +73,34 @@ docker run --rm -it -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml -p 85
 
 To see or change the configuration, edit the `rtsp-simple-server.yml` file, provided with the executable. The default configuration is [available here](rtsp-simple-server.yml).
 
+Options can be overridden with a config file, flags or environment variables.
+Each option takes precedence over the option below it:
+
+- environment variable
+- flag
+- config file
+- default
+
+#### Flags
+
+Flags follow the same syntax as the [rtsp-simple-server.yml][] properties prefixed with a `--`:
+
+```bash
+rtsp-simple-server --rtspPort 8555 --rtpPort 8002 --rtcpPort 8003
+```
+
+:warning: The `paths` property cannot be overridden.
+
+#### Environment variables
+
+Environment variables also follow the same syntax as the [rtsp-simple-server.yml][] properties prefixed with `RTSP_`:
+
+```bash
+RTSP_rtspPort=8556 RTSP_readTimeout=20s rtsp-simple-server
+```
+
+:warning: The `paths` property cannot be overridden and the properties `protocols`, `authMethods` and `logDestinations` cannot have multiple values (see https://github.com/knadh/koanf/issues/33 to track the feature).
+
 ### RTSP proxy mode
 
 `rtsp-simple-server` is also an RTSP proxy, that is usually deployed in one of these scenarios:

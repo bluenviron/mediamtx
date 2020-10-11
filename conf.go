@@ -2,7 +2,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/knadh/koanf"
+	"github.com/knadh/koanf/parsers/yaml"
+	"github.com/knadh/koanf/providers/confmap"
+	"github.com/knadh/koanf/providers/env"
+	"github.com/knadh/koanf/providers/file"
+	"github.com/knadh/koanf/providers/posflag"
+	"github.com/knadh/koanf/providers/rawbytes"
+	"github.com/spf13/pflag"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"regexp"
@@ -11,185 +20,217 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/headers"
-	"gopkg.in/yaml.v2"
+)
+
+const (
+	envPrefix        = "RTSP_"
+	keyPathDelimiter = "."
 )
 
 type pathConf struct {
 	regexp               *regexp.Regexp
-	Source               string                   `yaml:"source"`
-	sourceUrl            *url.URL                 ``
-	SourceProtocol       string                   `yaml:"sourceProtocol"`
-	sourceProtocolParsed gortsplib.StreamProtocol ``
-	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
-	RunOnInit            string                   `yaml:"runOnInit"`
-	RunOnDemand          string                   `yaml:"runOnDemand"`
-	RunOnPublish         string                   `yaml:"runOnPublish"`
-	RunOnRead            string                   `yaml:"runOnRead"`
-	PublishUser          string                   `yaml:"publishUser"`
-	PublishPass          string                   `yaml:"publishPass"`
-	PublishIps           []string                 `yaml:"publishIps"`
-	publishIpsParsed     []interface{}            ``
-	ReadUser             string                   `yaml:"readUser"`
-	ReadPass             string                   `yaml:"readPass"`
-	ReadIps              []string                 `yaml:"readIps"`
-	readIpsParsed        []interface{}            ``
+	Source               string                   `flag:"source"`
+	sourceUrl            *url.URL                 `flag:"-"`
+	SourceProtocol       string                   `flag:"sourceProtocol"`
+	sourceProtocolParsed gortsplib.StreamProtocol `flag:"-"`
+	SourceOnDemand       bool                     `flag:"sourceOnDemand"`
+	RunOnInit            string                   `flag:"runOnInit"`
+	RunOnDemand          string                   `flag:"runOnDemand"`
+	RunOnPublish         string                   `flag:"runOnPublish"`
+	RunOnRead            string                   `flag:"runOnRead"`
+	PublishUser          string                   `flag:"publishUser"`
+	PublishPass          string                   `flag:"publishPass"`
+	PublishIps           []string                 `flag:"publishIps"`
+	publishIpsParsed     []interface{}            `flag:"-"`
+	ReadUser             string                   `flag:"readUser"`
+	ReadPass             string                   `flag:"readPass"`
+	ReadIps              []string                 `flag:"readIps"`
+	readIpsParsed        []interface{}            `flag:"-"`
 }
 
 type conf struct {
-	Protocols             []string                              `yaml:"protocols"`
-	protocolsParsed       map[gortsplib.StreamProtocol]struct{} ``
-	RtspPort              int                                   `yaml:"rtspPort"`
-	RtpPort               int                                   `yaml:"rtpPort"`
-	RtcpPort              int                                   `yaml:"rtcpPort"`
-	RunOnConnect          string                                `yaml:"runOnConnect"`
-	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
-	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
-	AuthMethods           []string                              `yaml:"authMethods"`
-	authMethodsParsed     []headers.AuthMethod                  ``
-	Metrics               bool                                  `yaml:"metrics"`
-	Pprof                 bool                                  `yaml:"pprof"`
-	LogDestinations       []string                              `yaml:"logDestinations"`
-	logDestinationsParsed map[logDestination]struct{}           ``
-	LogFile               string                                `yaml:"logFile"`
-	Paths                 map[string]*pathConf                  `yaml:"paths"`
+	Version               bool                                  `flag:"version,v;;show version"`
+	Protocols             []string                              `flag:"protocols;;supported stream protocols (the handshake is always performed with TCP)"`
+	protocolsParsed       map[gortsplib.StreamProtocol]struct{} `flag:"-"`
+	RtspPort              int                                   `flag:"rtspPort;;port of the TCP RTSP listener"`
+	RtpPort               int                                   `flag:"rtpPort;;port of the UDP RTP listener (used only if udp is in protocols)"`
+	RtcpPort              int                                   `flag:"rtcpPort;;port of the UDP RTCP listener (used only if udp is in protocols)"`
+	RunOnConnect          string                                `flag:"runOnConnect;;command to run when a client connects, this is terminated with SIGINT when a client disconnects."`
+	ReadTimeout           time.Duration                         `flag:"readTimeout;;timeout of read operations"`
+	WriteTimeout          time.Duration                         `flag:"writeTimeout;;timeout of write operations"`
+	AuthMethods           []string                              `flag:"authMethods;;supported authentication methods (both are insecure, use RTSP inside a VPN to enforce security)"`
+	authMethodsParsed     []headers.AuthMethod                  `flag:"-"`
+	Metrics               bool                                  `flag:"metrics;;enable Prometheus-compatible metrics on port 9998"`
+	Pprof                 bool                                  `flag:"pprof;;enable pprof on port 9999 to monitor performances"`
+	LogDestinations       []string                              `flag:"logDestinations;;destinations of log messages, available options are 'stdout', 'file' and 'syslog'"`
+	logDestinationsParsed map[logDestination]struct{}           `flag:"-"`
+	LogFile               string                                `flag:"logFile;;if 'file' is in logDestinations, this is the file that will receive the logs"`
+	Paths                 map[string]*pathConf                  `flag:"paths"`
 }
 
-func loadConf(fpath string, stdin io.Reader) (*conf, error) {
-	conf := &conf{}
+type confLoader struct {
+	k   *koanf.Koanf
+	err error
+}
 
-	err := func() error {
-		if fpath == "stdin" {
-			err := yaml.NewDecoder(stdin).Decode(conf)
-			if err != nil {
-				return err
-			}
+func (cl *confLoader) loadDefaultValue() *confLoader {
+	if cl.err != nil {
+		return cl
+	}
+	return cl.load(confmap.Provider(map[string]interface{}{
+		"protocols":       []string{"udp", "tcp"},
+		"rtspPort":        8554,
+		"rtpPort":         8000,
+		"rtcpPort":        8001,
+		"readTimeout":     10 * time.Second,
+		"writeTimeout":    5 * time.Second,
+		"authMethods":     []string{"basic", "digest"},
+		"logDestinations": []string{"stdout"},
+		"logFile":         "rtsp-simple-server.log",
+	}, ""), nil)
+}
 
-			return nil
-
-		} else {
-			// rtsp-simple-server.yml is optional
-			if fpath == "rtsp-simple-server.yml" {
-				if _, err := os.Stat(fpath); err != nil {
-					return nil
-				}
-			}
-
-			f, err := os.Open(fpath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			err = yaml.NewDecoder(f).Decode(conf)
-			if err != nil {
-				return err
-			}
-
-			return nil
+func (cl *confLoader) loadFromArg(fpath string, stdin io.Reader) *confLoader {
+	if cl.err != nil {
+		return cl
+	}
+	var p koanf.Provider
+	if fpath == "stdin" {
+		b, err := ioutil.ReadAll(stdin)
+		if err != nil {
+			cl.err = err
+			return cl
 		}
-	}()
+		p = rawbytes.Provider(b)
+	} else {
+		// rtsp-simple-server.yml is optional
+		if fpath == "rtsp-simple-server.yml" {
+			if _, err := os.Stat(fpath); err != nil {
+				return cl
+			}
+		}
+		p = file.Provider(fpath)
+	}
+	return cl.load(p, yaml.Parser())
+}
+
+func (cl *confLoader) loadFromFlags(fs *pflag.FlagSet) *confLoader {
+	if cl.err != nil {
+		return cl
+	}
+	return cl.load(posflag.Provider(fs, keyPathDelimiter, cl.k), nil)
+}
+
+func (cl *confLoader) loadFromEnv() *confLoader {
+	if cl.err != nil {
+		return cl
+	}
+	return cl.load(env.Provider(envPrefix, keyPathDelimiter, func(s string) string {
+		return strings.Replace(strings.TrimPrefix(s, envPrefix), "_", keyPathDelimiter, -1)
+	}), nil)
+}
+
+func (cl *confLoader) load(p koanf.Provider, pa koanf.Parser) *confLoader {
+	if cl.err == nil {
+		cl.err = cl.k.Load(p, pa)
+	}
+	return cl
+}
+
+func (cl confLoader) toConf() (*conf, error) {
+	if cl.err != nil {
+		return nil, cl.err
+	}
+	var c conf
+	if err := cl.k.Unmarshal("", &c); err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
+func loadConf(fpath string, stdin io.Reader, fs *pflag.FlagSet) (*conf, error) {
+	cl := confLoader{k: koanf.New(keyPathDelimiter)}
+	// load config order: default -> file / stdin -> flags -> env
+	c, err := cl.
+		loadDefaultValue().
+		loadFromArg(fpath, stdin).
+		loadFromFlags(fs).
+		loadFromEnv().
+		toConf()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(conf.Protocols) == 0 {
-		conf.Protocols = []string{"udp", "tcp"}
-	}
-	conf.protocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
-	for _, proto := range conf.Protocols {
+	c.protocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
+	for _, proto := range c.Protocols {
 		switch proto {
 		case "udp":
-			conf.protocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
+			c.protocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
 
 		case "tcp":
-			conf.protocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
+			c.protocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)
 		}
 	}
-	if len(conf.protocolsParsed) == 0 {
+	if len(c.protocolsParsed) == 0 {
 		return nil, fmt.Errorf("no protocols provided")
 	}
 
-	if conf.RtspPort == 0 {
-		conf.RtspPort = 8554
-	}
-	if conf.RtpPort == 0 {
-		conf.RtpPort = 8000
-	}
-	if (conf.RtpPort % 2) != 0 {
+	if (c.RtpPort % 2) != 0 {
 		return nil, fmt.Errorf("rtp port must be even")
 	}
-	if conf.RtcpPort == 0 {
-		conf.RtcpPort = 8001
-	}
-	if conf.RtcpPort != (conf.RtpPort + 1) {
+	if c.RtcpPort != (c.RtpPort + 1) {
 		return nil, fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
 
-	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 10 * time.Second
-	}
-	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 5 * time.Second
-	}
-
-	if len(conf.AuthMethods) == 0 {
-		conf.AuthMethods = []string{"basic", "digest"}
-	}
-	for _, method := range conf.AuthMethods {
+	for _, method := range c.AuthMethods {
 		switch method {
 		case "basic":
-			conf.authMethodsParsed = append(conf.authMethodsParsed, headers.AuthBasic)
+			c.authMethodsParsed = append(c.authMethodsParsed, headers.AuthBasic)
 
 		case "digest":
-			conf.authMethodsParsed = append(conf.authMethodsParsed, headers.AuthDigest)
+			c.authMethodsParsed = append(c.authMethodsParsed, headers.AuthDigest)
 
 		default:
 			return nil, fmt.Errorf("unsupported authentication method: %s", method)
 		}
 	}
 
-	if len(conf.LogDestinations) == 0 {
-		conf.LogDestinations = []string{"stdout"}
-	}
-	conf.logDestinationsParsed = make(map[logDestination]struct{})
-	for _, dest := range conf.LogDestinations {
+	c.logDestinationsParsed = make(map[logDestination]struct{})
+	for _, dest := range c.LogDestinations {
 		switch dest {
 		case "stdout":
-			conf.logDestinationsParsed[logDestinationStdout] = struct{}{}
+			c.logDestinationsParsed[logDestinationStdout] = struct{}{}
 
 		case "file":
-			conf.logDestinationsParsed[logDestinationFile] = struct{}{}
+			c.logDestinationsParsed[logDestinationFile] = struct{}{}
 
 		case "syslog":
-			conf.logDestinationsParsed[logDestinationSyslog] = struct{}{}
+			c.logDestinationsParsed[logDestinationSyslog] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported log destination: %s", dest)
 		}
 	}
-	if conf.LogFile == "" {
-		conf.LogFile = "rtsp-simple-server.log"
-	}
 
-	if len(conf.Paths) == 0 {
-		conf.Paths = map[string]*pathConf{
+	if len(c.Paths) == 0 {
+		c.Paths = map[string]*pathConf{
 			"all": {},
 		}
 	}
 
 	// "all" is an alias for "~^.*$"
-	if _, ok := conf.Paths["all"]; ok {
-		conf.Paths["~^.*$"] = conf.Paths["all"]
-		delete(conf.Paths, "all")
+	if _, ok := c.Paths["all"]; ok {
+		c.Paths["~^.*$"] = c.Paths["all"]
+		delete(c.Paths, "all")
 	}
 
-	for name, pconf := range conf.Paths {
+	for name, pconf := range c.Paths {
 		if pconf == nil {
-			conf.Paths[name] = &pathConf{}
-			pconf = conf.Paths[name]
+			c.Paths[name] = &pathConf{}
+			pconf = c.Paths[name]
 		}
 
 		if name == "" {
@@ -311,7 +352,7 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 		}
 	}
 
-	return conf, nil
+	return c, nil
 }
 
 func (conf *conf) checkPathNameAndFindConf(name string) (*pathConf, error) {

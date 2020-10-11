@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/AdamSLevy/flagbind"
+	"github.com/spf13/pflag"
 	"io"
 	"log"
 	"net"
@@ -10,13 +12,13 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var Version = "v0.0.0"
 
 const (
 	checkPathPeriod = 5 * time.Second
+	defaultConfPath = "rtsp-simple-server.yml"
 )
 
 type program struct {
@@ -57,20 +59,44 @@ type program struct {
 }
 
 func newProgram(args []string, stdin io.Reader) (*program, error) {
-	k := kingpin.New("rtsp-simple-server",
-		"rtsp-simple-server "+Version+"\n\nRTSP server.")
+	fs := pflag.NewFlagSet("rtsp-simple-server", pflag.ContinueOnError)
+	fs.Usage = func() {
+		fmt.Fprintf(os.Stderr, `usage: rtsp-simple-server [<flags>] [<confpath>]
 
-	argVersion := k.Flag("version", "print version").Bool()
-	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml. Use 'stdin' to read config from stdin").Default("rtsp-simple-server.yml").String()
+rtsp-simple-server %s:
 
-	kingpin.MustParse(k.Parse(args))
+RTSP server.
 
-	if *argVersion == true {
+Flags:
+%s
+Args:
+      [<confpath>] path to a config file. The default is %s. Use 'stdin' to read config from stdin.`, Version, fs.FlagUsages(), defaultConfPath)
+	}
+	if err := flagbind.Bind(fs, &conf{}); err != nil {
+		return nil, err
+	}
+	if err := fs.Parse(args); err != nil {
+		if err == pflag.ErrHelp {
+			os.Exit(0)
+		}
+		return nil, err
+	}
+
+	argVersion, err := fs.GetBool("version")
+	if err != nil {
+		return nil, err
+	}
+	if argVersion == true {
 		fmt.Println(Version)
 		os.Exit(0)
 	}
 
-	conf, err := loadConf(*argConfPath, stdin)
+	argConfPath := fs.Arg(0)
+	if argConfPath == "" {
+		argConfPath = defaultConfPath
+	}
+
+	conf, err := loadConf(argConfPath, stdin, fs)
 	if err != nil {
 		return nil, err
 	}
