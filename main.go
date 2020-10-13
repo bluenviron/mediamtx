@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -59,7 +58,7 @@ type program struct {
 	done               chan struct{}
 }
 
-func newProgram(args []string, stdin io.Reader) (*program, error) {
+func newProgram(args []string) (*program, error) {
 	k := kingpin.New("rtsp-simple-server",
 		"rtsp-simple-server "+Version+"\n\nRTSP server.")
 
@@ -399,7 +398,7 @@ func (p *program) close() {
 }
 
 func main() {
-	_, err := newProgram(os.Args[1:], os.Stdin)
+	_, err := newProgram(os.Args[1:])
 	if err != nil {
 		log.Fatal("ERR: ", err)
 	}

@@ -103,7 +103,7 @@ func (c *container) ip() string {
 
 func testProgram(conf string) (*program, error) {
 	if conf == "" {
-		return newProgram([]string{}, nil)
+		return newProgram([]string{})
 	}
 
 	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
@@ -115,7 +115,7 @@ func testProgram(conf string) (*program, error) {
 	tmpf.WriteString(conf)
 	tmpf.Close()
 
-	return newProgram([]string{tmpf.Name()}, nil)
+	return newProgram([]string{tmpf.Name()})
 }
 
 func TestEnvironment(t *testing.T) {

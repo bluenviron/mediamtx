@@ -251,8 +251,7 @@ Flags:
   --version  print version
 
 Args:
-  [<confpath>]  path to a config file. The default is rtsp-simple-server.yml. Use 'stdin' to
-                read config from stdin
+  [<confpath>]  path to a config file. The default is rtsp-simple-server.yml.
 ```
 
 ### Compile and run from source
