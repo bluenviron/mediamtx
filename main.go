@@ -63,7 +63,7 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		"rtsp-simple-server "+Version+"\n\nRTSP server.")
 
 	argVersion := k.Flag("version", "print version").Bool()
-	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml. Use 'stdin' to read config from stdin").Default("rtsp-simple-server.yml").String()
+	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml.").Default("rtsp-simple-server.yml").String()
 
 	kingpin.MustParse(k.Parse(args))
 
@@ -72,7 +72,7 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		os.Exit(0)
 	}
 
-	conf, err := loadConf(*argConfPath, stdin)
+	conf, err := loadConf(*argConfPath)
 	if err != nil {
 		return nil, err
 	}

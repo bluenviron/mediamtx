@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
@@ -99,6 +99,23 @@ func (c *container) ip() string {
 	return string(out[:len(out)-1])
 }
 
+func testProgram(conf string) (*program, error) {
+	if conf == "" {
+		return newProgram([]string{}, nil)
+	}
+
+	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(tmpf.Name())
+
+	tmpf.WriteString(conf)
+	tmpf.Close()
+
+	return newProgram([]string{tmpf.Name()}, nil)
+}
+
 func TestEnvironment(t *testing.T) {
 	// string
 	os.Setenv("RTSP_RUNONCONNECT", "testcmd")
@@ -130,7 +147,7 @@ func TestEnvironment(t *testing.T) {
 	os.Setenv("RTSP_PATHS_TEST_SOURCEPROTOCOL", "tcp")
 	defer os.Unsetenv("RTSP_PATHS_TEST_SOURCEPROTOCOL")
 
-	p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+	p, err := testProgram("")
 	require.NoError(t, err)
 	defer p.close()
 
@@ -174,7 +191,7 @@ func TestPublish(t *testing.T) {
 		{"gstreamer", "tcp"},
 	} {
 		t.Run(conf.publishSoft+"_"+conf.publishProto, func(t *testing.T) {
-			p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+			p, err := testProgram("")
 			require.NoError(t, err)
 			defer p.close()
 
@@ -232,7 +249,7 @@ func TestRead(t *testing.T) {
 		{"vlc", "tcp"},
 	} {
 		t.Run(conf.readSoft+"_"+conf.readProto, func(t *testing.T) {
-			p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+			p, err := testProgram("")
 			require.NoError(t, err)
 			defer p.close()
 
@@ -286,8 +303,8 @@ func TestRead(t *testing.T) {
 }
 
 func TestTCPOnly(t *testing.T) {
-	stdin := []byte("protocols: [tcp]\n")
-	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+	conf := "protocols: [tcp]\n"
+	p, err := testProgram(conf)
 	require.NoError(t, err)
 	defer p.close()
 
@@ -320,7 +337,7 @@ func TestTCPOnly(t *testing.T) {
 }
 
 func TestPathWithSlash(t *testing.T) {
-	p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+	p, err := testProgram("")
 	require.NoError(t, err)
 	defer p.close()
 
@@ -353,7 +370,7 @@ func TestPathWithSlash(t *testing.T) {
 }
 
 func TestPathWithQuery(t *testing.T) {
-	p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+	p, err := testProgram("")
 	require.NoError(t, err)
 	defer p.close()
 
@@ -387,12 +404,12 @@ func TestPathWithQuery(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
-		stdin := []byte("paths:\n" +
+		conf := "paths:\n" +
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: testpass\n" +
-			"    publishIps: [172.17.0.0/16]\n")
-		p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+			"    publishIps: [172.17.0.0/16]\n"
+		p, err := testProgram(conf)
 		require.NoError(t, err)
 		defer p.close()
 
@@ -431,12 +448,12 @@ func TestAuth(t *testing.T) {
 		"vlc",
 	} {
 		t.Run("read_"+soft, func(t *testing.T) {
-			stdin := []byte("paths:\n" +
+			conf := "paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: testpass\n" +
-				"    readIps: [172.17.0.0/16]\n")
-			p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+				"    readIps: [172.17.0.0/16]\n"
+			p, err := testProgram(conf)
 			require.NoError(t, err)
 			defer p.close()
 
@@ -489,11 +506,11 @@ func TestSourceRtsp(t *testing.T) {
 		"tcp",
 	} {
 		t.Run(proto, func(t *testing.T) {
-			stdin := []byte("paths:\n" +
+			conf := "paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
-				"    readPass: testpass\n")
-			p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+				"    readPass: testpass\n"
+			p1, err := testProgram(conf)
 			require.NoError(t, err)
 			defer p1.close()
 
@@ -513,7 +530,7 @@ func TestSourceRtsp(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			stdin = []byte("rtspPort: 8555\n" +
+			conf = "rtspPort: 8555\n" +
 				"rtpPort: 8100\n" +
 				"rtcpPort: 8101\n" +
 				"\n" +
@@ -521,8 +538,8 @@ func TestSourceRtsp(t *testing.T) {
 				"  proxied:\n" +
 				"    source: rtsp://testuser:testpass@localhost:8554/teststream\n" +
 				"    sourceProtocol: " + proto + "\n" +
-				"    sourceOnDemand: yes\n")
-			p2, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+				"    sourceOnDemand: yes\n"
+			p2, err := testProgram(conf)
 			require.NoError(t, err)
 			defer p2.close()
 
@@ -564,11 +581,11 @@ func TestSourceRtmp(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	stdin := []byte("paths:\n" +
+	conf := "paths:\n" +
 		"  proxied:\n" +
 		"    source: rtmp://" + cnt1.ip() + "/stream/test\n" +
-		"    sourceOnDemand: yes\n")
-	p, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+		"    sourceOnDemand: yes\n"
+	p, err := testProgram(conf)
 	require.NoError(t, err)
 	defer p.close()
 
@@ -589,10 +606,10 @@ func TestSourceRtmp(t *testing.T) {
 }
 
 func TestRunOnDemand(t *testing.T) {
-	stdin := []byte("paths:\n" +
+	conf := "paths:\n" +
 		"  all:\n" +
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n")
-	p1, err := newProgram([]string{"stdin"}, bytes.NewBuffer(stdin))
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n"
+	p1, err := testProgram(conf)
 	require.NoError(t, err)
 	defer p1.close()
 

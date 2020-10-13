@@ -57,19 +57,11 @@ type conf struct {
 	Paths                 map[string]*pathConf                  `yaml:"paths"`
 }
 
-func loadConf(fpath string, stdin io.Reader) (*conf, error) {
+func loadConf(fpath string) (*conf, error) {
 	conf := &conf{}
 
 	// read from file or stdin
 	err := func() error {
-		if fpath == "stdin" {
-			err := yaml.NewDecoder(stdin).Decode(conf)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-
 		// rtsp-simple-server.yml is optional
 		if fpath == "rtsp-simple-server.yml" {
 			if _, err := os.Stat(fpath); err != nil {
