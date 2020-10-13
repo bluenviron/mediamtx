@@ -59,7 +59,7 @@ func newSourceRtmp(p *program, path *path) *sourceRtmp {
 	return s
 }
 
-func (s *sourceRtmp) isPublisher() {}
+func (s *sourceRtmp) isSource() {}
 
 func (s *sourceRtmp) run(initialState sourceRtmpState) {
 	s.applyState(initialState)
@@ -248,8 +248,8 @@ func (s *sourceRtmp) runInnerInner() bool {
 		return true
 	}
 
-	s.path.publisherSdp = tracks.Write()
-	s.path.publisherTrackCount = len(tracks)
+	s.path.sourceSdp = tracks.Write()
+	s.path.sourceTrackCount = len(tracks)
 
 	s.p.sourceRtmpReady <- s
 	s.path.log("rtmp source ready")

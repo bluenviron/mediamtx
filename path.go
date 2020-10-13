@@ -13,19 +13,19 @@ const (
 	onDemandCmdStopAfterDescribePeriod = 10 * time.Second
 )
 
-// a publisher can be a client, a sourceRtsp or a sourceRtmp
-type publisher interface {
-	isPublisher()
+// a source can be a client, a sourceRtsp or a sourceRtmp
+type source interface {
+	isSource()
 }
 
 type path struct {
 	p                      *program
 	name                   string
 	conf                   *pathConf
-	publisher              publisher
-	publisherReady         bool
-	publisherTrackCount    int
-	publisherSdp           []byte
+	source                 source
+	sourceReady            bool
+	sourceTrackCount       int
+	sourceSdp              []byte
 	lastDescribeReq        time.Time
 	lastDescribeActivation time.Time
 	onInitCmd              *externalCmd
@@ -41,11 +41,11 @@ func newPath(p *program, name string, conf *pathConf) *path {
 
 	if strings.HasPrefix(conf.Source, "rtsp://") {
 		s := newSourceRtsp(p, pa)
-		pa.publisher = s
+		pa.source = s
 
 	} else if strings.HasPrefix(conf.Source, "rtmp://") {
 		s := newSourceRtmp(p, pa)
-		pa.publisher = s
+		pa.source = s
 	}
 
 	return pa
@@ -56,10 +56,10 @@ func (pa *path) log(format string, args ...interface{}) {
 }
 
 func (pa *path) onInit() {
-	if source, ok := pa.publisher.(*sourceRtsp); ok {
+	if source, ok := pa.source.(*sourceRtsp); ok {
 		go source.run(source.state)
 
-	} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+	} else if source, ok := pa.source.(*sourceRtmp); ok {
 		go source.run(source.state)
 	}
 
@@ -75,11 +75,11 @@ func (pa *path) onInit() {
 }
 
 func (pa *path) onClose(wait bool) {
-	if source, ok := pa.publisher.(*sourceRtsp); ok {
+	if source, ok := pa.source.(*sourceRtsp); ok {
 		close(source.terminate)
 		<-source.done
 
-	} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+	} else if source, ok := pa.source.(*sourceRtmp); ok {
 		close(source.terminate)
 		<-source.done
 	}
@@ -131,7 +131,7 @@ func (pa *path) hasClientsWaitingDescribe() bool {
 
 func (pa *path) hasClientReaders() bool {
 	for c := range pa.p.clients {
-		if c.path == pa && c != pa.publisher {
+		if c.path == pa && c != pa.source {
 			return true
 		}
 	}
@@ -153,7 +153,7 @@ func (pa *path) onCheck() {
 	}
 
 	// stop on demand rtsp source if needed
-	if source, ok := pa.publisher.(*sourceRtsp); ok {
+	if source, ok := pa.source.(*sourceRtsp); ok {
 		if pa.conf.SourceOnDemand &&
 			source.state == sourceRtspStateRunning &&
 			!pa.hasClients() &&
@@ -165,7 +165,7 @@ func (pa *path) onCheck() {
 		}
 
 		// stop on demand rtmp source if needed
-	} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+	} else if source, ok := pa.source.(*sourceRtmp); ok {
 		if pa.conf.SourceOnDemand &&
 			source.state == sourceRtmpStateRunning &&
 			!pa.hasClients() &&
@@ -188,28 +188,28 @@ func (pa *path) onCheck() {
 
 	// remove regular expression paths
 	if pa.conf.regexp != nil &&
-		pa.publisher == nil &&
+		pa.source == nil &&
 		!pa.hasClients() {
 		pa.onClose(false)
 		delete(pa.p.paths, pa.name)
 	}
 }
 
-func (pa *path) onPublisherRemove() {
-	pa.publisher = nil
+func (pa *path) onSourceRemove() {
+	pa.source = nil
 
 	// close all clients that are reading or waiting for reading
 	for c := range pa.p.clients {
 		if c.path == pa &&
 			c.state != clientStateWaitDescription &&
-			c != pa.publisher {
+			c != pa.source {
 			c.close()
 		}
 	}
 }
 
-func (pa *path) onPublisherSetReady() {
-	pa.publisherReady = true
+func (pa *path) onSourceSetReady() {
+	pa.sourceReady = true
 
 	// reply to all clients that are waiting for a description
 	for c := range pa.p.clients {
@@ -217,19 +217,19 @@ func (pa *path) onPublisherSetReady() {
 			c.path == pa {
 			c.path = nil
 			c.state = clientStateInitial
-			c.describe <- describeRes{pa.publisherSdp, nil}
+			c.describe <- describeRes{pa.sourceSdp, nil}
 		}
 	}
 }
 
-func (pa *path) onPublisherSetNotReady() {
-	pa.publisherReady = false
+func (pa *path) onSourceSetNotReady() {
+	pa.sourceReady = false
 
 	// close all clients that are reading or waiting for reading
 	for c := range pa.p.clients {
 		if c.path == pa &&
 			c.state != clientStateWaitDescription &&
-			c != pa.publisher {
+			c != pa.source {
 			c.close()
 		}
 	}
@@ -239,7 +239,7 @@ func (pa *path) onDescribe(client *client) {
 	pa.lastDescribeReq = time.Now()
 
 	// publisher not found
-	if pa.publisher == nil {
+	if pa.source == nil {
 		// on demand command is available: put the client on hold
 		if pa.conf.RunOnDemand != "" {
 			if pa.onDemandCmd == nil { // start if needed
@@ -262,9 +262,9 @@ func (pa *path) onDescribe(client *client) {
 		}
 
 		// publisher was found but is not ready: put the client on hold
-	} else if !pa.publisherReady {
+	} else if !pa.sourceReady {
 		// start rtsp source if needed
-		if source, ok := pa.publisher.(*sourceRtsp); ok {
+		if source, ok := pa.source.(*sourceRtsp); ok {
 			if source.state == sourceRtspStateStopped {
 				pa.log("starting on demand rtsp source")
 				pa.lastDescribeActivation = time.Now()
@@ -274,7 +274,7 @@ func (pa *path) onDescribe(client *client) {
 			}
 
 			// start rtmp source if needed
-		} else if source, ok := pa.publisher.(*sourceRtmp); ok {
+		} else if source, ok := pa.source.(*sourceRtmp); ok {
 			if source.state == sourceRtmpStateStopped {
 				pa.log("starting on demand rtmp source")
 				pa.lastDescribeActivation = time.Now()
@@ -289,6 +289,6 @@ func (pa *path) onDescribe(client *client) {
 
 		// publisher was found and is ready
 	} else {
-		client.describe <- describeRes{pa.publisherSdp, nil}
+		client.describe <- describeRes{pa.sourceSdp, nil}
 	}
 }

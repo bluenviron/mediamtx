@@ -159,11 +159,11 @@ func (c *client) close() {
 			}
 		}
 
-		c.path.onPublisherSetNotReady()
+		c.path.onSourceSetNotReady()
 	}
 
-	if c.path != nil && c.path.publisher == c {
-		c.path.onPublisherRemove()
+	if c.path != nil && c.path.source == c {
+		c.path.onSourceRemove()
 	}
 
 	close(c.terminate)
@@ -175,7 +175,7 @@ func (c *client) log(format string, args ...interface{}) {
 	c.p.log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }
 
-func (c *client) isPublisher() {}
+func (c *client) isSource() {}
 
 func (c *client) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
@@ -642,7 +642,7 @@ func (c *client) handleRequest(req *base.Request) error {
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) >= c.path.publisherTrackCount {
+				if len(c.streamTracks) >= c.path.sourceTrackCount {
 					c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errRunTerminate
 				}
@@ -697,7 +697,7 @@ func (c *client) handleRequest(req *base.Request) error {
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) >= c.path.publisherTrackCount {
+				if len(c.streamTracks) >= c.path.sourceTrackCount {
 					c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errRunTerminate
 				}
@@ -781,7 +781,7 @@ func (c *client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		if len(c.streamTracks) != c.path.publisherTrackCount {
+		if len(c.streamTracks) != c.path.sourceTrackCount {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return errRunTerminate
 		}

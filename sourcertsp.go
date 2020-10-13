@@ -54,7 +54,7 @@ func newSourceRtsp(p *program, path *path) *sourceRtsp {
 	return s
 }
 
-func (s *sourceRtsp) isPublisher() {}
+func (s *sourceRtsp) isSource() {}
 
 func (s *sourceRtsp) run(initialState sourceRtspState) {
 	s.applyState(initialState)
@@ -161,8 +161,8 @@ func (s *sourceRtsp) runInnerInner() bool {
 	}
 
 	// create a filtered SDP that is used by the server (not by the client)
-	s.path.publisherSdp = tracks.Write()
-	s.path.publisherTrackCount = len(tracks)
+	s.path.sourceSdp = tracks.Write()
+	s.path.sourceTrackCount = len(tracks)
 	s.tracks = tracks
 
 	if s.path.conf.sourceProtocolParsed == gortsplib.StreamProtocolUDP {

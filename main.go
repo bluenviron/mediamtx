@@ -243,15 +243,15 @@ outer:
 				p.paths[req.pathName] = newPath(p, req.pathName, req.pathConf)
 
 			} else {
-				if path.publisher != nil {
+				if path.source != nil {
 					req.res <- fmt.Errorf("someone is already publishing on path '%s'", req.pathName)
 					continue
 				}
 			}
 
-			p.paths[req.pathName].publisher = req.client
-			p.paths[req.pathName].publisherTrackCount = req.trackCount
-			p.paths[req.pathName].publisherSdp = req.sdp
+			p.paths[req.pathName].source = req.client
+			p.paths[req.pathName].sourceTrackCount = req.trackCount
+			p.paths[req.pathName].sourceSdp = req.sdp
 
 			req.client.path = p.paths[req.pathName]
 			req.client.state = clientStatePreRecord
@@ -259,12 +259,12 @@ outer:
 
 		case req := <-p.clientSetupPlay:
 			path, ok := p.paths[req.pathName]
-			if !ok || !path.publisherReady {
+			if !ok || !path.sourceReady {
 				req.res <- fmt.Errorf("no one is publishing on path '%s'", req.pathName)
 				continue
 			}
 
-			if req.trackId >= path.publisherTrackCount {
+			if req.trackId >= path.sourceTrackCount {
 				req.res <- fmt.Errorf("track %d does not exist", req.trackId)
 				continue
 			}
@@ -300,19 +300,19 @@ outer:
 				}
 			}
 
-			client.path.onPublisherSetReady()
+			client.path.onSourceSetReady()
 
 		case s := <-p.sourceRtspReady:
-			s.path.onPublisherSetReady()
+			s.path.onSourceSetReady()
 
 		case s := <-p.sourceRtspNotReady:
-			s.path.onPublisherSetNotReady()
+			s.path.onSourceSetNotReady()
 
 		case s := <-p.sourceRtmpReady:
-			s.path.onPublisherSetReady()
+			s.path.onSourceSetReady()
 
 		case s := <-p.sourceRtmpNotReady:
-			s.path.onPublisherSetNotReady()
+			s.path.onSourceSetNotReady()
 
 		case <-p.terminate:
 			break outer
