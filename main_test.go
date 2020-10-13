@@ -3,12 +3,14 @@ package main
 import (
 	"bytes"
 	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
 )
 
@@ -95,6 +97,70 @@ func (c *container) ip() string {
 	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
 		"-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}").Output()
 	return string(out[:len(out)-1])
+}
+
+func TestEnvironment(t *testing.T) {
+	// string
+	os.Setenv("RTSP_RUNONCONNECT", "testcmd")
+	defer os.Unsetenv("RTSP_RUNONCONNECT")
+
+	// int
+	os.Setenv("RTSP_RTSPPORT", "8555")
+	defer os.Unsetenv("RTSP_RTSPPORT")
+
+	// bool
+	os.Setenv("RTSP_METRICS", "yes")
+	defer os.Unsetenv("RTSP_METRICS")
+
+	// duration
+	os.Setenv("RTSP_READTIMEOUT", "22s")
+	defer os.Unsetenv("RTSP_READTIMEOUT")
+
+	// slice
+	os.Setenv("RTSP_LOGDESTINATIONS", "stdout,file")
+	defer os.Unsetenv("RTSP_LOGDESTINATIONS")
+
+	// map key
+	os.Setenv("RTSP_PATHS_TEST2", "")
+	defer os.Unsetenv("RTSP_PATHS_TEST2")
+
+	// map value
+	os.Setenv("RTSP_PATHS_TEST_SOURCE", "rtsp://testing")
+	defer os.Unsetenv("RTSP_PATHS_TEST_SOURCE")
+	os.Setenv("RTSP_PATHS_TEST_SOURCEPROTOCOL", "tcp")
+	defer os.Unsetenv("RTSP_PATHS_TEST_SOURCEPROTOCOL")
+
+	p, err := newProgram([]string{}, bytes.NewBuffer(nil))
+	require.NoError(t, err)
+	defer p.close()
+
+	require.Equal(t, "testcmd", p.conf.RunOnConnect)
+
+	require.Equal(t, 8555, p.conf.RtspPort)
+
+	require.Equal(t, true, p.conf.Metrics)
+
+	require.Equal(t, 22*time.Second, p.conf.ReadTimeout)
+
+	require.Equal(t, []string{"stdout", "file"}, p.conf.LogDestinations)
+
+	pa, ok := p.conf.Paths["test2"]
+	require.Equal(t, true, ok)
+	require.Equal(t, &pathConf{
+		Source: "record",
+	}, pa)
+
+	pa, ok = p.conf.Paths["test"]
+	require.Equal(t, true, ok)
+	require.Equal(t, &pathConf{
+		Source: "rtsp://testing",
+		sourceUrl: func() *url.URL {
+			u, _ := url.Parse("rtsp://testing:554")
+			return u
+		}(),
+		SourceProtocol:       "tcp",
+		sourceProtocolParsed: gortsplib.StreamProtocolTCP,
+	}, pa)
 }
 
 func TestPublish(t *testing.T) {

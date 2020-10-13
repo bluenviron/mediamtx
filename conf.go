@@ -12,6 +12,8 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/headers"
 	"gopkg.in/yaml.v2"
+
+	"github.com/aler9/rtsp-simple-server/confenv"
 )
 
 type pathConf struct {
@@ -57,37 +59,42 @@ type conf struct {
 func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	conf := &conf{}
 
+	// read from file or stdin
 	err := func() error {
 		if fpath == "stdin" {
 			err := yaml.NewDecoder(stdin).Decode(conf)
 			if err != nil {
 				return err
 			}
-
-			return nil
-
-		} else {
-			// rtsp-simple-server.yml is optional
-			if fpath == "rtsp-simple-server.yml" {
-				if _, err := os.Stat(fpath); err != nil {
-					return nil
-				}
-			}
-
-			f, err := os.Open(fpath)
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			err = yaml.NewDecoder(f).Decode(conf)
-			if err != nil {
-				return err
-			}
-
 			return nil
 		}
+
+		// rtsp-simple-server.yml is optional
+		if fpath == "rtsp-simple-server.yml" {
+			if _, err := os.Stat(fpath); err != nil {
+				return nil
+			}
+		}
+
+		f, err := os.Open(fpath)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		err = yaml.NewDecoder(f).Decode(conf)
+		if err != nil {
+			return err
+		}
+
+		return nil
 	}()
+	if err != nil {
+		return nil, err
+	}
+
+	// read from environment
+	err = confenv.Process("RTSP", conf)
 	if err != nil {
 		return nil, err
 	}
