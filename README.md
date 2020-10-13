@@ -68,7 +68,7 @@ docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
 
 To see or change the configuration, edit the `rtsp-simple-server.yml` file, provided with the executable, and also [available here](rtsp-simple-server.yml).
 
-The configuration can be overridden with environment variables in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the name of a parameter, in uppercase. For instance, the `rtspPort` parameter can be overridden in the following way:
+The configuration can be overridden by environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspPort` parameter can be overridden in the following way:
 ```
 RTSP_RTSPPORT=8555 ./rtsp-simple-server
 ```
