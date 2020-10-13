@@ -64,7 +64,7 @@ func checkPathName(name string) error {
 }
 
 type PathConf struct {
-	Regexp               *regexp.Regexp
+	Regexp               *regexp.Regexp           `yaml:"-"`
 	Source               string                   `yaml:"source"`
 	SourceUrl            *url.URL                 `yaml:"-"`
 	SourceProtocol       string                   `yaml:"sourceProtocol"`
