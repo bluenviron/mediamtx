@@ -11,6 +11,8 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/aler9/rtsp-simple-server/loghandler"
 )
 
 var Version = "v0.0.0"
@@ -21,7 +23,7 @@ const (
 
 type program struct {
 	conf             *conf
-	logHandler       *logHandler
+	logHandler       *loghandler.LogHandler
 	metrics          *metrics
 	pprof            *pprof
 	paths            map[string]*path
@@ -75,7 +77,7 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		return nil, err
 	}
 
-	logHandler, err := newLogHandler(conf.logDestinationsParsed, conf.LogFile)
+	logHandler, err := loghandler.New(conf.logDestinationsParsed, conf.LogFile)
 	if err != nil {
 		return nil, err
 	}
@@ -376,7 +378,7 @@ outer:
 		p.pprof.close()
 	}
 
-	p.logHandler.close()
+	p.logHandler.Close()
 
 	close(p.clientNew)
 	close(p.clientClose)

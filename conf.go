@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/aler9/rtsp-simple-server/confenv"
+	"github.com/aler9/rtsp-simple-server/loghandler"
 )
 
 type pathConf struct {
@@ -51,7 +52,7 @@ type conf struct {
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
 	LogDestinations       []string                              `yaml:"logDestinations"`
-	logDestinationsParsed map[logDestination]struct{}           ``
+	logDestinationsParsed map[loghandler.Destination]struct{}   ``
 	LogFile               string                                `yaml:"logFile"`
 	Paths                 map[string]*pathConf                  `yaml:"paths"`
 }
@@ -161,17 +162,17 @@ func loadConf(fpath string, stdin io.Reader) (*conf, error) {
 	if len(conf.LogDestinations) == 0 {
 		conf.LogDestinations = []string{"stdout"}
 	}
-	conf.logDestinationsParsed = make(map[logDestination]struct{})
+	conf.logDestinationsParsed = make(map[loghandler.Destination]struct{})
 	for _, dest := range conf.LogDestinations {
 		switch dest {
 		case "stdout":
-			conf.logDestinationsParsed[logDestinationStdout] = struct{}{}
+			conf.logDestinationsParsed[loghandler.DestinationStdout] = struct{}{}
 
 		case "file":
-			conf.logDestinationsParsed[logDestinationFile] = struct{}{}
+			conf.logDestinationsParsed[loghandler.DestinationFile] = struct{}{}
 
 		case "syslog":
-			conf.logDestinationsParsed[logDestinationSyslog] = struct{}{}
+			conf.logDestinationsParsed[loghandler.DestinationSyslog] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported log destination: %s", dest)

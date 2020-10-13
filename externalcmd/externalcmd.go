@@ -1,4 +1,4 @@
-package main
+package externalcmd
 
 import (
 	"os"
@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-type externalCmd struct {
+type ExternalCmd struct {
 	cmd *exec.Cmd
 }
 
-func startExternalCommand(cmdstr string, pathName string) (*externalCmd, error) {
+func New(cmdstr string, pathName string) (*ExternalCmd, error) {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		// on Windows the shell is not used and command is started directly
@@ -38,12 +38,12 @@ func startExternalCommand(cmdstr string, pathName string) (*externalCmd, error) 
 		return nil, err
 	}
 
-	return &externalCmd{
+	return &ExternalCmd{
 		cmd: cmd,
 	}, nil
 }
 
-func (e *externalCmd) close() {
+func (e *ExternalCmd) Close() {
 	// on Windows it's not possible to send os.Interrupt to a process
 	// Kill() is the only supported way
 	if runtime.GOOS == "windows" {

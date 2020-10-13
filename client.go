@@ -15,6 +15,8 @@ import (
 	"github.com/aler9/gortsplib/base"
 	"github.com/aler9/gortsplib/headers"
 	"github.com/aler9/gortsplib/rtcpreceiver"
+
+	"github.com/aler9/rtsp-simple-server/externalcmd"
 )
 
 const (
@@ -191,10 +193,10 @@ var errRunPlay = errors.New("play")
 var errRunRecord = errors.New("record")
 
 func (c *client) run() {
-	var onConnectCmd *externalCmd
+	var onConnectCmd *externalcmd.ExternalCmd
 	if c.p.conf.RunOnConnect != "" {
 		var err error
-		onConnectCmd, err = startExternalCommand(c.p.conf.RunOnConnect, "")
+		onConnectCmd, err = externalcmd.New(c.p.conf.RunOnConnect, "")
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -207,7 +209,7 @@ func (c *client) run() {
 	}
 
 	if onConnectCmd != nil {
-		onConnectCmd.close()
+		onConnectCmd.Close()
 	}
 
 	close(c.describe)
@@ -889,10 +891,10 @@ func (c *client) runPlay() bool {
 		return "tracks"
 	}(), c.streamProtocol)
 
-	var onReadCmd *externalCmd
+	var onReadCmd *externalcmd.ExternalCmd
 	if c.path.conf.RunOnRead != "" {
 		var err error
-		onReadCmd, err = startExternalCommand(c.path.conf.RunOnRead, c.path.name)
+		onReadCmd, err = externalcmd.New(c.path.conf.RunOnRead, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -905,7 +907,7 @@ func (c *client) runPlay() bool {
 	}
 
 	if onReadCmd != nil {
-		onReadCmd.close()
+		onReadCmd.Close()
 	}
 
 	return false
@@ -1033,10 +1035,10 @@ func (c *client) runRecord() bool {
 		return "tracks"
 	}(), c.streamProtocol)
 
-	var onPublishCmd *externalCmd
+	var onPublishCmd *externalcmd.ExternalCmd
 	if c.path.conf.RunOnPublish != "" {
 		var err error
-		onPublishCmd, err = startExternalCommand(c.path.conf.RunOnPublish, c.path.name)
+		onPublishCmd, err = externalcmd.New(c.path.conf.RunOnPublish, c.path.name)
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -1049,7 +1051,7 @@ func (c *client) runRecord() bool {
 	}
 
 	if onPublishCmd != nil {
-		onPublishCmd.close()
+		onPublishCmd.Close()
 	}
 
 	return false

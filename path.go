@@ -5,6 +5,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/aler9/rtsp-simple-server/externalcmd"
 )
 
 const (
@@ -28,8 +30,8 @@ type path struct {
 	sourceSdp              []byte
 	lastDescribeReq        time.Time
 	lastDescribeActivation time.Time
-	onInitCmd              *externalCmd
-	onDemandCmd            *externalCmd
+	onInitCmd              *externalcmd.ExternalCmd
+	onDemandCmd            *externalcmd.ExternalCmd
 }
 
 func newPath(p *program, name string, conf *pathConf) *path {
@@ -67,7 +69,7 @@ func (pa *path) onInit() {
 		pa.log("starting on init command")
 
 		var err error
-		pa.onInitCmd, err = startExternalCommand(pa.conf.RunOnInit, pa.name)
+		pa.onInitCmd, err = externalcmd.New(pa.conf.RunOnInit, pa.name)
 		if err != nil {
 			pa.log("ERR: %s", err)
 		}
@@ -86,12 +88,12 @@ func (pa *path) onClose(wait bool) {
 
 	if pa.onInitCmd != nil {
 		pa.log("stopping on init command (closing)")
-		pa.onInitCmd.close()
+		pa.onInitCmd.Close()
 	}
 
 	if pa.onDemandCmd != nil {
 		pa.log("stopping on demand command (closing)")
-		pa.onDemandCmd.close()
+		pa.onDemandCmd.Close()
 	}
 
 	for c := range pa.p.clients {
@@ -182,7 +184,7 @@ func (pa *path) onCheck() {
 		!pa.hasClientReaders() &&
 		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribePeriod {
 		pa.log("stopping on demand command (not requested anymore)")
-		pa.onDemandCmd.close()
+		pa.onDemandCmd.Close()
 		pa.onDemandCmd = nil
 	}
 
@@ -247,7 +249,7 @@ func (pa *path) onDescribe(client *client) {
 				pa.lastDescribeActivation = time.Now()
 
 				var err error
-				pa.onDemandCmd, err = startExternalCommand(pa.conf.RunOnDemand, pa.name)
+				pa.onDemandCmd, err = externalcmd.New(pa.conf.RunOnDemand, pa.name)
 				if err != nil {
 					pa.log("ERR: %s", err)
 				}
