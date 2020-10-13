@@ -4,6 +4,7 @@ package syslog
 
 import (
 	"fmt"
+	"io"
 )
 
 type syslog struct {
