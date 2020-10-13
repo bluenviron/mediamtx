@@ -12,6 +12,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/aler9/rtsp-simple-server/conf"
 	"github.com/aler9/rtsp-simple-server/loghandler"
 )
 
@@ -22,7 +23,7 @@ const (
 )
 
 type program struct {
-	conf             *conf
+	conf             *conf.Conf
 	logHandler       *loghandler.LogHandler
 	metrics          *metrics
 	pprof            *pprof
@@ -72,12 +73,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 		os.Exit(0)
 	}
 
-	conf, err := loadConf(*argConfPath)
+	conf, err := conf.Load(*argConfPath)
 	if err != nil {
 		return nil, err
 	}
 
-	logHandler, err := loghandler.New(conf.logDestinationsParsed, conf.LogFile)
+	logHandler, err := loghandler.New(conf.LogDestinationsParsed, conf.LogFile)
 	if err != nil {
 		return nil, err
 	}
@@ -149,12 +150,12 @@ func newProgram(args []string, stdin io.Reader) (*program, error) {
 	}
 
 	for name, pathConf := range conf.Paths {
-		if pathConf.regexp == nil {
+		if pathConf.Regexp == nil {
 			p.paths[name] = newPath(p, name, pathConf)
 		}
 	}
 
-	if _, ok := conf.protocolsParsed[gortsplib.StreamProtocolUDP]; ok {
+	if _, ok := conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
 		p.serverUdpRtp, err = newServerUDP(p, conf.RtpPort, gortsplib.StreamTypeRtp)
 		if err != nil {
 			return nil, err

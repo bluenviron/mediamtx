@@ -128,7 +128,7 @@ func (s *sourceRtsp) runInnerInner() bool {
 	go func() {
 		defer close(dialDone)
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:            s.path.conf.sourceUrl.Host,
+			Host:            s.path.conf.SourceUrl.Host,
 			ReadTimeout:     s.p.conf.ReadTimeout,
 			WriteTimeout:    s.p.conf.WriteTimeout,
 			ReadBufferCount: 2,
@@ -146,14 +146,14 @@ func (s *sourceRtsp) runInnerInner() bool {
 		return true
 	}
 
-	_, err = conn.Options(s.path.conf.sourceUrl)
+	_, err = conn.Options(s.path.conf.SourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("rtsp source ERR: %s", err)
 		return true
 	}
 
-	tracks, _, err := conn.Describe(s.path.conf.sourceUrl)
+	tracks, _, err := conn.Describe(s.path.conf.SourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("rtsp source ERR: %s", err)
@@ -165,7 +165,7 @@ func (s *sourceRtsp) runInnerInner() bool {
 	s.path.sourceTrackCount = len(tracks)
 	s.tracks = tracks
 
-	if s.path.conf.sourceProtocolParsed == gortsplib.StreamProtocolUDP {
+	if s.path.conf.SourceProtocolParsed == gortsplib.StreamProtocolUDP {
 		return s.runUDP(conn)
 	} else {
 		return s.runTCP(conn)
@@ -174,7 +174,7 @@ func (s *sourceRtsp) runInnerInner() bool {
 
 func (s *sourceRtsp) runUDP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupUDP(s.path.conf.sourceUrl, gortsplib.TransportModePlay, track, 0, 0)
+		_, err := conn.SetupUDP(s.path.conf.SourceUrl, gortsplib.TransportModePlay, track, 0, 0)
 		if err != nil {
 			conn.Close()
 			s.path.log("rtsp source ERR: %s", err)
@@ -182,7 +182,7 @@ func (s *sourceRtsp) runUDP(conn *gortsplib.ConnClient) bool {
 		}
 	}
 
-	_, err := conn.Play(s.path.conf.sourceUrl)
+	_, err := conn.Play(s.path.conf.SourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("rtsp source ERR: %s", err)
@@ -264,7 +264,7 @@ outer:
 
 func (s *sourceRtsp) runTCP(conn *gortsplib.ConnClient) bool {
 	for _, track := range s.tracks {
-		_, err := conn.SetupTCP(s.path.conf.sourceUrl, gortsplib.TransportModePlay, track)
+		_, err := conn.SetupTCP(s.path.conf.SourceUrl, gortsplib.TransportModePlay, track)
 		if err != nil {
 			conn.Close()
 			s.path.log("rtsp source ERR: %s", err)
@@ -272,7 +272,7 @@ func (s *sourceRtsp) runTCP(conn *gortsplib.ConnClient) bool {
 		}
 	}
 
-	_, err := conn.Play(s.path.conf.sourceUrl)
+	_, err := conn.Play(s.path.conf.SourceUrl)
 	if err != nil {
 		conn.Close()
 		s.path.log("rtsp source ERR: %s", err)

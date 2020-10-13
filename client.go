@@ -16,6 +16,7 @@ import (
 	"github.com/aler9/gortsplib/headers"
 	"github.com/aler9/gortsplib/rtcpreceiver"
 
+	"github.com/aler9/rtsp-simple-server/conf"
 	"github.com/aler9/rtsp-simple-server/externalcmd"
 )
 
@@ -27,14 +28,14 @@ const (
 type clientDescribeReq struct {
 	client   *client
 	pathName string
-	pathConf *pathConf
+	pathConf *conf.PathConf
 }
 
 type clientAnnounceReq struct {
 	res        chan error
 	client     *client
 	pathName   string
-	pathConf   *pathConf
+	pathConf   *conf.PathConf
 	trackCount int
 	sdp        []byte
 }
@@ -260,7 +261,7 @@ func (c *client) authenticate(ips []interface{}, user string, pass string, req *
 		if c.authHelper == nil || c.authUser != user || c.authPass != pass {
 			c.authUser = user
 			c.authPass = pass
-			c.authHelper = auth.NewServer(user, pass, c.p.conf.authMethodsParsed)
+			c.authHelper = auth.NewServer(user, pass, c.p.conf.AuthMethodsParsed)
 		}
 
 		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
@@ -371,13 +372,13 @@ func (c *client) handleRequest(req *base.Request) error {
 
 		pathName = removeQueryFromPath(pathName)
 
-		pathConf, err := c.p.conf.checkPathNameAndFindConf(pathName)
+		pathConf, err := c.p.conf.CheckPathNameAndFindConf(pathName)
 		if err != nil {
 			c.writeResError(cseq, base.StatusBadRequest, err)
 			return errRunTerminate
 		}
 
-		err = c.authenticate(pathConf.readIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
+		err = c.authenticate(pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return errRunTerminate
@@ -401,13 +402,13 @@ func (c *client) handleRequest(req *base.Request) error {
 
 		pathName = removeQueryFromPath(pathName)
 
-		pathConf, err := c.p.conf.checkPathNameAndFindConf(pathName)
+		pathConf, err := c.p.conf.CheckPathNameAndFindConf(pathName)
 		if err != nil {
 			c.writeResError(cseq, base.StatusBadRequest, err)
 			return errRunTerminate
 		}
 
-		err = c.authenticate(pathConf.publishIpsParsed, pathConf.PublishUser, pathConf.PublishPass, req)
+		err = c.authenticate(pathConf.PublishIpsParsed, pathConf.PublishUser, pathConf.PublishPass, req)
 		if err != nil {
 			if err == errAuthCritical {
 				return errRunTerminate
@@ -483,13 +484,13 @@ func (c *client) handleRequest(req *base.Request) error {
 				return errRunTerminate
 			}
 
-			pathConf, err := c.p.conf.checkPathNameAndFindConf(basePath)
+			pathConf, err := c.p.conf.CheckPathNameAndFindConf(basePath)
 			if err != nil {
 				c.writeResError(cseq, base.StatusBadRequest, err)
 				return errRunTerminate
 			}
 
-			err = c.authenticate(pathConf.readIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
+			err = c.authenticate(pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
 			if err != nil {
 				if err == errAuthCritical {
 					return errRunTerminate
@@ -521,7 +522,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 			// play with UDP
 			if th.Protocol == gortsplib.StreamProtocolUDP {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
+				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -572,7 +573,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 				// play with TCP
 			} else {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
+				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -629,7 +630,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 			// record with UDP
 			if th.Protocol == gortsplib.StreamProtocolUDP {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
+				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -677,7 +678,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 				// record with TCP
 			} else {
-				if _, ok := c.p.conf.protocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
+				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
 				}

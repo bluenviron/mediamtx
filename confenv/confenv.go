@@ -94,14 +94,14 @@ func process(env map[string]string, envKey string, rv reflect.Value) error {
 	case reflect.Struct:
 		flen := rt.NumField()
 		for i := 0; i < flen; i++ {
-			fieldName := rt.Field(i).Name
+			f := rt.Field(i)
 
 			// process only public fields
-			if fieldName[0] < 'A' || fieldName[0] > 'Z' {
+			if f.Tag.Get("yaml") == "-" {
 				continue
 			}
 
-			fieldEnvKey := envKey + "_" + strings.ToUpper(fieldName)
+			fieldEnvKey := envKey + "_" + strings.ToUpper(f.Name)
 			err := process(env, fieldEnvKey, rv.Field(i))
 			if err != nil {
 				return err

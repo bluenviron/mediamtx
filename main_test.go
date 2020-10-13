@@ -12,6 +12,8 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aler9/rtsp-simple-server/conf"
 )
 
 var ownDockerIp = func() string {
@@ -163,20 +165,20 @@ func TestEnvironment(t *testing.T) {
 
 	pa, ok := p.conf.Paths["test2"]
 	require.Equal(t, true, ok)
-	require.Equal(t, &pathConf{
+	require.Equal(t, &conf.PathConf{
 		Source: "record",
 	}, pa)
 
 	pa, ok = p.conf.Paths["test"]
 	require.Equal(t, true, ok)
-	require.Equal(t, &pathConf{
+	require.Equal(t, &conf.PathConf{
 		Source: "rtsp://testing",
-		sourceUrl: func() *url.URL {
+		SourceUrl: func() *url.URL {
 			u, _ := url.Parse("rtsp://testing:554")
 			return u
 		}(),
 		SourceProtocol:       "tcp",
-		sourceProtocolParsed: gortsplib.StreamProtocolTCP,
+		SourceProtocolParsed: gortsplib.StreamProtocolTCP,
 	}, pa)
 }
 

@@ -1,8 +1,8 @@
-package main
+package conf
 
 import (
 	"fmt"
-	"io"
+	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -17,12 +17,58 @@ import (
 	"github.com/aler9/rtsp-simple-server/loghandler"
 )
 
-type pathConf struct {
-	regexp               *regexp.Regexp
+func parseIpCidrList(in []string) ([]interface{}, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+
+	var ret []interface{}
+	for _, t := range in {
+		_, ipnet, err := net.ParseCIDR(t)
+		if err == nil {
+			ret = append(ret, ipnet)
+			continue
+		}
+
+		ip := net.ParseIP(t)
+		if ip != nil {
+			ret = append(ret, ip)
+			continue
+		}
+
+		return nil, fmt.Errorf("unable to parse ip/network '%s'", t)
+	}
+	return ret, nil
+}
+
+var rePathName = regexp.MustCompile("^[0-9a-zA-Z_\\-/]+$")
+
+func checkPathName(name string) error {
+	if name == "" {
+		return fmt.Errorf("cannot be empty")
+	}
+
+	if name[0] == '/' {
+		return fmt.Errorf("can't begin with a slash")
+	}
+
+	if name[len(name)-1] == '/' {
+		return fmt.Errorf("can't end with a slash")
+	}
+
+	if !rePathName.MatchString(name) {
+		return fmt.Errorf("can contain only alfanumeric characters, underscore, minus or slash")
+	}
+
+	return nil
+}
+
+type PathConf struct {
+	Regexp               *regexp.Regexp
 	Source               string                   `yaml:"source"`
-	sourceUrl            *url.URL                 ``
+	SourceUrl            *url.URL                 `yaml:"-"`
 	SourceProtocol       string                   `yaml:"sourceProtocol"`
-	sourceProtocolParsed gortsplib.StreamProtocol ``
+	SourceProtocolParsed gortsplib.StreamProtocol `yaml:"-"`
 	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
 	RunOnInit            string                   `yaml:"runOnInit"`
 	RunOnDemand          string                   `yaml:"runOnDemand"`
@@ -31,16 +77,16 @@ type pathConf struct {
 	PublishUser          string                   `yaml:"publishUser"`
 	PublishPass          string                   `yaml:"publishPass"`
 	PublishIps           []string                 `yaml:"publishIps"`
-	publishIpsParsed     []interface{}            ``
+	PublishIpsParsed     []interface{}            `yaml:"-"`
 	ReadUser             string                   `yaml:"readUser"`
 	ReadPass             string                   `yaml:"readPass"`
 	ReadIps              []string                 `yaml:"readIps"`
-	readIpsParsed        []interface{}            ``
+	ReadIpsParsed        []interface{}            `yaml:"-"`
 }
 
-type conf struct {
+type Conf struct {
 	Protocols             []string                              `yaml:"protocols"`
-	protocolsParsed       map[gortsplib.StreamProtocol]struct{} ``
+	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-"`
 	RtspPort              int                                   `yaml:"rtspPort"`
 	RtpPort               int                                   `yaml:"rtpPort"`
 	RtcpPort              int                                   `yaml:"rtcpPort"`
@@ -48,19 +94,19 @@ type conf struct {
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
 	AuthMethods           []string                              `yaml:"authMethods"`
-	authMethodsParsed     []headers.AuthMethod                  ``
+	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-"`
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
 	LogDestinations       []string                              `yaml:"logDestinations"`
-	logDestinationsParsed map[loghandler.Destination]struct{}   ``
+	LogDestinationsParsed map[loghandler.Destination]struct{}   `yaml:"-"`
 	LogFile               string                                `yaml:"logFile"`
-	Paths                 map[string]*pathConf                  `yaml:"paths"`
+	Paths                 map[string]*PathConf                  `yaml:"paths"`
 }
 
-func loadConf(fpath string) (*conf, error) {
-	conf := &conf{}
+func Load(fpath string) (*Conf, error) {
+	conf := &Conf{}
 
-	// read from file or stdin
+	// read from file
 	err := func() error {
 		// rtsp-simple-server.yml is optional
 		if fpath == "rtsp-simple-server.yml" {
@@ -95,20 +141,20 @@ func loadConf(fpath string) (*conf, error) {
 	if len(conf.Protocols) == 0 {
 		conf.Protocols = []string{"udp", "tcp"}
 	}
-	conf.protocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
+	conf.ProtocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
 	for _, proto := range conf.Protocols {
 		switch proto {
 		case "udp":
-			conf.protocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
+			conf.ProtocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
 
 		case "tcp":
-			conf.protocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
+			conf.ProtocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported protocol: %s", proto)
 		}
 	}
-	if len(conf.protocolsParsed) == 0 {
+	if len(conf.ProtocolsParsed) == 0 {
 		return nil, fmt.Errorf("no protocols provided")
 	}
 
@@ -141,10 +187,10 @@ func loadConf(fpath string) (*conf, error) {
 	for _, method := range conf.AuthMethods {
 		switch method {
 		case "basic":
-			conf.authMethodsParsed = append(conf.authMethodsParsed, headers.AuthBasic)
+			conf.AuthMethodsParsed = append(conf.AuthMethodsParsed, headers.AuthBasic)
 
 		case "digest":
-			conf.authMethodsParsed = append(conf.authMethodsParsed, headers.AuthDigest)
+			conf.AuthMethodsParsed = append(conf.AuthMethodsParsed, headers.AuthDigest)
 
 		default:
 			return nil, fmt.Errorf("unsupported authentication method: %s", method)
@@ -154,17 +200,17 @@ func loadConf(fpath string) (*conf, error) {
 	if len(conf.LogDestinations) == 0 {
 		conf.LogDestinations = []string{"stdout"}
 	}
-	conf.logDestinationsParsed = make(map[loghandler.Destination]struct{})
+	conf.LogDestinationsParsed = make(map[loghandler.Destination]struct{})
 	for _, dest := range conf.LogDestinations {
 		switch dest {
 		case "stdout":
-			conf.logDestinationsParsed[loghandler.DestinationStdout] = struct{}{}
+			conf.LogDestinationsParsed[loghandler.DestinationStdout] = struct{}{}
 
 		case "file":
-			conf.logDestinationsParsed[loghandler.DestinationFile] = struct{}{}
+			conf.LogDestinationsParsed[loghandler.DestinationFile] = struct{}{}
 
 		case "syslog":
-			conf.logDestinationsParsed[loghandler.DestinationSyslog] = struct{}{}
+			conf.LogDestinationsParsed[loghandler.DestinationSyslog] = struct{}{}
 
 		default:
 			return nil, fmt.Errorf("unsupported log destination: %s", dest)
@@ -175,7 +221,7 @@ func loadConf(fpath string) (*conf, error) {
 	}
 
 	if len(conf.Paths) == 0 {
-		conf.Paths = map[string]*pathConf{
+		conf.Paths = map[string]*PathConf{
 			"all": {},
 		}
 	}
@@ -188,7 +234,7 @@ func loadConf(fpath string) (*conf, error) {
 
 	for name, pconf := range conf.Paths {
 		if pconf == nil {
-			conf.Paths[name] = &pathConf{}
+			conf.Paths[name] = &PathConf{}
 			pconf = conf.Paths[name]
 		}
 
@@ -209,7 +255,7 @@ func loadConf(fpath string) (*conf, error) {
 			if err != nil {
 				return nil, fmt.Errorf("invalid regular expression: %s", name[1:])
 			}
-			pconf.regexp = pathRegexp
+			pconf.Regexp = pathRegexp
 		}
 
 		if pconf.Source == "" {
@@ -217,20 +263,20 @@ func loadConf(fpath string) (*conf, error) {
 		}
 
 		if strings.HasPrefix(pconf.Source, "rtsp://") {
-			if pconf.regexp != nil {
+			if pconf.Regexp != nil {
 				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 			}
 
-			pconf.sourceUrl, err = url.Parse(pconf.Source)
+			pconf.SourceUrl, err = url.Parse(pconf.Source)
 			if err != nil {
 				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
 			}
-			if pconf.sourceUrl.Port() == "" {
-				pconf.sourceUrl.Host += ":554"
+			if pconf.SourceUrl.Port() == "" {
+				pconf.SourceUrl.Host += ":554"
 			}
-			if pconf.sourceUrl.User != nil {
-				pass, _ := pconf.sourceUrl.User.Password()
-				user := pconf.sourceUrl.User.Username()
+			if pconf.SourceUrl.User != nil {
+				pass, _ := pconf.SourceUrl.User.Password()
+				user := pconf.SourceUrl.User.Username()
 				if user != "" && pass == "" ||
 					user == "" && pass != "" {
 					fmt.Errorf("username and password must be both provided")
@@ -242,26 +288,26 @@ func loadConf(fpath string) (*conf, error) {
 			}
 			switch pconf.SourceProtocol {
 			case "udp":
-				pconf.sourceProtocolParsed = gortsplib.StreamProtocolUDP
+				pconf.SourceProtocolParsed = gortsplib.StreamProtocolUDP
 
 			case "tcp":
-				pconf.sourceProtocolParsed = gortsplib.StreamProtocolTCP
+				pconf.SourceProtocolParsed = gortsplib.StreamProtocolTCP
 
 			default:
 				return nil, fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
 			}
 
 		} else if strings.HasPrefix(pconf.Source, "rtmp://") {
-			if pconf.regexp != nil {
+			if pconf.Regexp != nil {
 				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
 			}
 
-			pconf.sourceUrl, err = url.Parse(pconf.Source)
+			pconf.SourceUrl, err = url.Parse(pconf.Source)
 			if err != nil {
 				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
 			}
-			if pconf.sourceUrl.Port() == "" {
-				pconf.sourceUrl.Host += ":1935"
+			if pconf.SourceUrl.Port() == "" {
+				pconf.SourceUrl.Host += ":1935"
 			}
 
 		} else if pconf.Source == "record" {
@@ -280,7 +326,7 @@ func loadConf(fpath string) (*conf, error) {
 				return nil, fmt.Errorf("publish password must be alphanumeric")
 			}
 		}
-		pconf.publishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
+		pconf.PublishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
 		if err != nil {
 			return nil, err
 		}
@@ -301,12 +347,12 @@ func loadConf(fpath string) (*conf, error) {
 		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
 			return nil, fmt.Errorf("read username and password must be both filled")
 		}
-		pconf.readIpsParsed, err = parseIpCidrList(pconf.ReadIps)
+		pconf.ReadIpsParsed, err = parseIpCidrList(pconf.ReadIps)
 		if err != nil {
 			return nil, err
 		}
 
-		if pconf.regexp != nil && pconf.RunOnInit != "" {
+		if pconf.Regexp != nil && pconf.RunOnInit != "" {
 			return nil, fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
 		}
 	}
@@ -314,7 +360,7 @@ func loadConf(fpath string) (*conf, error) {
 	return conf, nil
 }
 
-func (conf *conf) checkPathNameAndFindConf(name string) (*pathConf, error) {
+func (conf *Conf) CheckPathNameAndFindConf(name string) (*PathConf, error) {
 	err := checkPathName(name)
 	if err != nil {
 		return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
@@ -327,7 +373,7 @@ func (conf *conf) checkPathNameAndFindConf(name string) (*pathConf, error) {
 
 	// regular expression path
 	for _, pconf := range conf.Paths {
-		if pconf.regexp != nil && pconf.regexp.MatchString(name) {
+		if pconf.Regexp != nil && pconf.Regexp.MatchString(name) {
 			return pconf, nil
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/aler9/rtsp-simple-server/conf"
 	"github.com/aler9/rtsp-simple-server/externalcmd"
 )
 
@@ -23,7 +24,7 @@ type source interface {
 type path struct {
 	p                      *program
 	name                   string
-	conf                   *pathConf
+	conf                   *conf.PathConf
 	source                 source
 	sourceReady            bool
 	sourceTrackCount       int
@@ -34,7 +35,7 @@ type path struct {
 	onDemandCmd            *externalcmd.ExternalCmd
 }
 
-func newPath(p *program, name string, conf *pathConf) *path {
+func newPath(p *program, name string, conf *conf.PathConf) *path {
 	pa := &path{
 		p:    p,
 		name: name,
@@ -189,7 +190,7 @@ func (pa *path) onCheck() {
 	}
 
 	// remove regular expression paths
-	if pa.conf.regexp != nil &&
+	if pa.conf.Regexp != nil &&
 		pa.source == nil &&
 		!pa.hasClients() {
 		pa.onClose(false)
