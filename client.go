@@ -115,10 +115,9 @@ type client struct {
 	describe  chan describeRes
 	tcpFrame  chan *base.InterleavedFrame
 	terminate chan struct{}
-	done      chan struct{}
 }
 
-func newClient(p *program, nconn net.Conn) *client {
+func newClient(p *program, nconn net.Conn) {
 	c := &client{
 		p: p,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
@@ -132,11 +131,14 @@ func newClient(p *program, nconn net.Conn) *client {
 		describe:     make(chan describeRes),
 		tcpFrame:     make(chan *base.InterleavedFrame),
 		terminate:    make(chan struct{}),
-		done:         make(chan struct{}),
 	}
 
+	p.clients[c] = struct{}{}
+	atomic.AddInt64(p.countClients, 1)
+	c.log("connected")
+
+	p.clientsWg.Add(1)
 	go c.run()
-	return c
 }
 
 func (c *client) close() {
@@ -194,6 +196,8 @@ var errRunPlay = errors.New("play")
 var errRunRecord = errors.New("record")
 
 func (c *client) run() {
+	defer c.p.clientsWg.Done()
+
 	var onConnectCmd *externalcmd.ExternalCmd
 	if c.p.conf.RunOnConnect != "" {
 		var err error
@@ -215,7 +219,6 @@ func (c *client) run() {
 
 	close(c.describe)
 	close(c.tcpFrame)
-	close(c.done)
 }
 
 func (c *client) writeResError(cseq base.HeaderValue, code base.StatusCode, err error) {

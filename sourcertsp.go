@@ -57,6 +57,8 @@ func newSourceRtsp(p *program, path *path) *sourceRtsp {
 func (s *sourceRtsp) isSource() {}
 
 func (s *sourceRtsp) run(initialState sourceRtspState) {
+	defer close(s.done)
+
 	s.applyState(initialState)
 
 outer:
@@ -76,7 +78,6 @@ outer:
 	}
 
 	close(s.setState)
-	close(s.done)
 }
 
 func (s *sourceRtsp) applyState(state sourceRtspState) {

@@ -60,6 +60,8 @@ func (l *serverUDP) log(format string, args ...interface{}) {
 }
 
 func (l *serverUDP) run() {
+	defer close(l.done)
+
 	writeDone := make(chan struct{})
 	go func() {
 		defer close(writeDone)
@@ -99,8 +101,6 @@ func (l *serverUDP) run() {
 
 	close(l.writec)
 	<-writeDone
-
-	close(l.done)
 }
 
 func (l *serverUDP) close() {

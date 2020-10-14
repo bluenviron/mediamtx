@@ -34,6 +34,8 @@ func (l *serverTCP) log(format string, args ...interface{}) {
 }
 
 func (l *serverTCP) run() {
+	defer close(l.done)
+
 	for {
 		conn, err := l.listener.AcceptTCP()
 		if err != nil {
@@ -42,8 +44,6 @@ func (l *serverTCP) run() {
 
 		l.p.clientNew <- conn
 	}
-
-	close(l.done)
 }
 
 func (l *serverTCP) close() {

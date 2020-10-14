@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +32,7 @@ type program struct {
 	serverUdpRtcp    *serverUDP
 	serverTcp        *serverTCP
 	clients          map[*client]struct{}
+	clientsWg        sync.WaitGroup
 	udpPublishersMap *udpPublishersMap
 	readersMap       *readersMap
 	// use pointers to avoid a crash on 32bit platforms
@@ -186,6 +188,8 @@ func (p *program) log(format string, args ...interface{}) {
 }
 
 func (p *program) run() {
+	defer close(p.done)
+
 	if p.metrics != nil {
 		go p.metrics.run()
 	}
@@ -220,10 +224,7 @@ outer:
 			}
 
 		case conn := <-p.clientNew:
-			c := newClient(p, conn)
-			p.clients[c] = struct{}{}
-			atomic.AddInt64(p.countClients, 1)
-			c.log("connected")
+			newClient(p, conn)
 
 		case client := <-p.clientClose:
 			if _, ok := p.clients[client]; !ok {
@@ -352,7 +353,7 @@ outer:
 	p.readersMap.clear()
 
 	for _, p := range p.paths {
-		p.onClose(true)
+		p.onClose()
 	}
 
 	p.serverTcp.close()
@@ -367,8 +368,9 @@ outer:
 
 	for c := range p.clients {
 		c.close()
-		<-c.done
 	}
+
+	p.clientsWg.Wait()
 
 	if p.metrics != nil {
 		p.metrics.close()
@@ -389,7 +391,6 @@ outer:
 	close(p.clientRecord)
 	close(p.sourceRtspReady)
 	close(p.sourceRtspNotReady)
-	close(p.done)
 }
 
 func (p *program) close() {

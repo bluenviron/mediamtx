@@ -62,6 +62,8 @@ func newSourceRtmp(p *program, path *path) *sourceRtmp {
 func (s *sourceRtmp) isSource() {}
 
 func (s *sourceRtmp) run(initialState sourceRtmpState) {
+	defer close(s.done)
+
 	s.applyState(initialState)
 
 outer:
@@ -81,7 +83,6 @@ outer:
 	}
 
 	close(s.setState)
-	close(s.done)
 }
 
 func (s *sourceRtmp) applyState(state sourceRtmpState) {
