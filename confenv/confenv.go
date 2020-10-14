@@ -70,12 +70,16 @@ func process(env map[string]string, envKey string, rv reflect.Value) error {
 
 	case reflect.Map:
 		for k := range env {
-			if !strings.HasPrefix(k, envKey) {
+			if !strings.HasPrefix(k, envKey+"_") {
 				continue
 			}
 
-			tmp := strings.Split(strings.TrimPrefix(k[len(envKey):], "_"), "_")
-			mapKey := strings.ToLower(tmp[0])
+			tmp := strings.Split(k[len(envKey+"_"):], "_")
+			mapKey := tmp[0]
+			if len(mapKey) == 0 {
+				continue
+			}
+			mapKey = strings.ToLower(mapKey)
 
 			nv := rv.MapIndex(reflect.ValueOf(mapKey))
 			zero := reflect.Value{}
