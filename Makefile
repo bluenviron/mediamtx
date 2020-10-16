@@ -65,6 +65,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
 RUN go build -o /out .
+WORKDIR /
+ARG CONFIG_RUN
+RUN echo "$$CONFIG_RUN" > rtsp-simple-server.yml
 endef
 export DOCKERFILE_RUN
 
@@ -95,11 +98,12 @@ endef
 export CONFIG_RUN
 
 run:
-	echo "$$DOCKERFILE_RUN" | docker build -q . -f - -t temp
+	echo "$$DOCKERFILE_RUN" | docker build -q . -f - -t temp \
+	--build-arg CONFIG_RUN="$$CONFIG_RUN"
 	docker run --rm -it \
 	--network=host \
 	temp \
-	sh -c "echo '$$CONFIG_RUN' | /out stdin"
+	sh -c "/out"
 
 define DOCKERFILE_RELEASE
 FROM amd64/$(BASE_IMAGE)
