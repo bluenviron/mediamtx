@@ -202,6 +202,26 @@ func TestEnvironment(t *testing.T) {
 	}, pa)
 }
 
+func TestEnvironmentNoFile(t *testing.T) {
+	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
+	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
+
+	p, err := testProgram("{}")
+	require.NoError(t, err)
+	defer p.close()
+
+	pa, ok := p.conf.Paths["cam1"]
+	require.Equal(t, true, ok)
+	require.Equal(t, &conf.PathConf{
+		Source: "rtsp://testing",
+		SourceUrl: func() *url.URL {
+			u, _ := url.Parse("rtsp://testing:554")
+			return u
+		}(),
+		SourceProtocol: "udp",
+	}, pa)
+}
+
 func TestPublish(t *testing.T) {
 	for _, conf := range []struct {
 		publishSoft  string

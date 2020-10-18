@@ -81,6 +81,11 @@ func process(env map[string]string, envKey string, rv reflect.Value) error {
 			}
 			mapKey = strings.ToLower(mapKey)
 
+			// initialize only if there's at least one key
+			if rv.IsNil() {
+				rv.Set(reflect.MakeMap(rt))
+			}
+
 			nv := rv.MapIndex(reflect.ValueOf(mapKey))
 			zero := reflect.Value{}
 			if nv == zero {
