@@ -326,9 +326,15 @@ func Load(fpath string) (*Conf, error) {
 				return nil, fmt.Errorf("publish password must be alphanumeric")
 			}
 		}
-		pconf.PublishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
-		if err != nil {
-			return nil, err
+
+		if len(pconf.PublishIps) > 0 {
+			pconf.PublishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// yaml doesn't use nil dicts - avoid test fails by using nil
+			pconf.PublishIps = nil
 		}
 
 		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
@@ -347,9 +353,15 @@ func Load(fpath string) (*Conf, error) {
 		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
 			return nil, fmt.Errorf("read username and password must be both filled")
 		}
-		pconf.ReadIpsParsed, err = parseIpCidrList(pconf.ReadIps)
-		if err != nil {
-			return nil, err
+
+		if len(pconf.ReadIps) > 0 {
+			pconf.ReadIpsParsed, err = parseIpCidrList(pconf.ReadIps)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			// yaml doesn't use nil dicts - avoid test fails by using nil
+			pconf.ReadIps = nil
 		}
 
 		if pconf.Regexp != nil && pconf.RunOnInit != "" {
