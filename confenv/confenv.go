@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func process(env map[string]string, envKey string, rv reflect.Value) error {
+func load(env map[string]string, envKey string, rv reflect.Value) error {
 	rt := rv.Type()
 
 	switch rt {
@@ -93,7 +93,7 @@ func process(env map[string]string, envKey string, rv reflect.Value) error {
 				rv.SetMapIndex(reflect.ValueOf(mapKey), nv)
 			}
 
-			err := process(env, envKey+"_"+strings.ToUpper(mapKey), nv.Elem())
+			err := load(env, envKey+"_"+strings.ToUpper(mapKey), nv.Elem())
 			if err != nil {
 				return err
 			}
@@ -105,13 +105,13 @@ func process(env map[string]string, envKey string, rv reflect.Value) error {
 		for i := 0; i < flen; i++ {
 			f := rt.Field(i)
 
-			// process only public fields
+			// load only public fields
 			if f.Tag.Get("yaml") == "-" {
 				continue
 			}
 
 			fieldEnvKey := envKey + "_" + strings.ToUpper(f.Name)
-			err := process(env, fieldEnvKey, rv.Field(i))
+			err := load(env, fieldEnvKey, rv.Field(i))
 			if err != nil {
 				return err
 			}
@@ -122,12 +122,12 @@ func process(env map[string]string, envKey string, rv reflect.Value) error {
 	return fmt.Errorf("unsupported type: %v", rt)
 }
 
-func Process(envKey string, v interface{}) error {
+func Load(envKey string, v interface{}) error {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {
 		tmp := strings.Split(kv, "=")
 		env[tmp[0]] = tmp[1]
 	}
 
-	return process(env, envKey, reflect.ValueOf(v).Elem())
+	return load(env, envKey, reflect.ValueOf(v).Elem())
 }

@@ -3,7 +3,6 @@ package main
 import (
 	"io/ioutil"
 	"net"
-	"net/url"
 	"os"
 	"os/exec"
 	"regexp"
@@ -191,11 +190,7 @@ func TestEnvironment(t *testing.T) {
 	pa, ok = p.conf.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Source: "rtsp://testing",
-		SourceUrl: func() *url.URL {
-			u, _ := url.Parse("rtsp://testing:554")
-			return u
-		}(),
+		Source:               "rtsp://testing",
 		SourceProtocol:       "tcp",
 		SourceProtocolParsed: gortsplib.StreamProtocolTCP,
 		SourceOnDemand:       true,
@@ -213,11 +208,7 @@ func TestEnvironmentNoFile(t *testing.T) {
 	pa, ok := p.conf.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Source: "rtsp://testing",
-		SourceUrl: func() *url.URL {
-			u, _ := url.Parse("rtsp://testing:554")
-			return u
-		}(),
+		Source:         "rtsp://testing",
 		SourceProtocol: "udp",
 	}, pa)
 }

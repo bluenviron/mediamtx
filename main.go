@@ -3,61 +3,39 @@ package main
 import (
 	"fmt"
 	"log"
-	"net"
 	"os"
-	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/aler9/rtsp-simple-server/clientman"
 	"github.com/aler9/rtsp-simple-server/conf"
 	"github.com/aler9/rtsp-simple-server/loghandler"
+	"github.com/aler9/rtsp-simple-server/metrics"
+	"github.com/aler9/rtsp-simple-server/pathman"
+	"github.com/aler9/rtsp-simple-server/pprof"
+	"github.com/aler9/rtsp-simple-server/servertcp"
+	"github.com/aler9/rtsp-simple-server/serverudp"
+	"github.com/aler9/rtsp-simple-server/stats"
 )
 
 var Version = "v0.0.0"
 
-const (
-	checkPathPeriod = 5 * time.Second
-)
-
 type program struct {
-	conf             *conf.Conf
-	logHandler       *loghandler.LogHandler
-	metrics          *metrics
-	pprof            *pprof
-	paths            map[string]*path
-	serverUdpRtp     *serverUDP
-	serverUdpRtcp    *serverUDP
-	serverTcp        *serverTCP
-	clients          map[*client]struct{}
-	clientsWg        sync.WaitGroup
-	udpPublishersMap *udpPublishersMap
-	readersMap       *readersMap
-	// use pointers to avoid a crash on 32bit platforms
-	// https://github.com/golang/go/issues/9959
-	countClients            *int64
-	countPublishers         *int64
-	countReaders            *int64
-	countSourcesRtsp        *int64
-	countSourcesRtspRunning *int64
-	countSourcesRtmp        *int64
-	countSourcesRtmpRunning *int64
+	conf          *conf.Conf
+	stats         *stats.Stats
+	logHandler    *loghandler.LogHandler
+	metrics       *metrics.Metrics
+	pprof         *pprof.Pprof
+	serverUdpRtp  *serverudp.Server
+	serverUdpRtcp *serverudp.Server
+	serverTcp     *servertcp.Server
+	pathMan       *pathman.PathManager
+	clientMan     *clientman.ClientManager
 
-	clientNew          chan net.Conn
-	clientClose        chan *client
-	clientDescribe     chan clientDescribeReq
-	clientAnnounce     chan clientAnnounceReq
-	clientSetupPlay    chan clientSetupPlayReq
-	clientPlay         chan *client
-	clientRecord       chan *client
-	sourceRtspReady    chan *sourceRtsp
-	sourceRtspNotReady chan *sourceRtsp
-	sourceRtmpReady    chan *sourceRtmp
-	sourceRtmpNotReady chan *sourceRtmp
-	terminate          chan struct{}
-	done               chan struct{}
+	terminate chan struct{}
+	done      chan struct{}
 }
 
 func newProgram(args []string) (*program, error) {
@@ -79,109 +57,76 @@ func newProgram(args []string) (*program, error) {
 		return nil, err
 	}
 
-	logHandler, err := loghandler.New(conf.LogDestinationsParsed, conf.LogFile)
+	p := &program{
+		conf:      conf,
+		terminate: make(chan struct{}),
+		done:      make(chan struct{}),
+	}
+
+	p.stats = stats.New()
+
+	p.logHandler, err = loghandler.New(conf.LogDestinationsParsed, conf.LogFile)
 	if err != nil {
+		p.closeResources()
 		return nil, err
 	}
 
-	p := &program{
-		conf:             conf,
-		logHandler:       logHandler,
-		paths:            make(map[string]*path),
-		clients:          make(map[*client]struct{}),
-		udpPublishersMap: newUdpPublisherMap(),
-		readersMap:       newReadersMap(),
-		countClients: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		countPublishers: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		countReaders: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		countSourcesRtsp: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		countSourcesRtspRunning: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		countSourcesRtmp: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		countSourcesRtmpRunning: func() *int64 {
-			v := int64(0)
-			return &v
-		}(),
-		clientNew:          make(chan net.Conn),
-		clientClose:        make(chan *client),
-		clientDescribe:     make(chan clientDescribeReq),
-		clientAnnounce:     make(chan clientAnnounceReq),
-		clientSetupPlay:    make(chan clientSetupPlayReq),
-		clientPlay:         make(chan *client),
-		clientRecord:       make(chan *client),
-		sourceRtspReady:    make(chan *sourceRtsp),
-		sourceRtspNotReady: make(chan *sourceRtsp),
-		sourceRtmpReady:    make(chan *sourceRtmp),
-		sourceRtmpNotReady: make(chan *sourceRtmp),
-		terminate:          make(chan struct{}),
-		done:               make(chan struct{}),
-	}
-
-	p.log("rtsp-simple-server %s", Version)
+	p.Log("rtsp-simple-server %s", Version)
 
 	if conf.Metrics {
-		p.metrics, err = newMetrics(p)
+		p.metrics, err = metrics.New(p.stats, p)
 		if err != nil {
+			p.closeResources()
 			return nil, err
 		}
 	}
 
 	if conf.Pprof {
-		p.pprof, err = newPprof(p)
+		p.pprof, err = pprof.New(p)
 		if err != nil {
+			p.closeResources()
 			return nil, err
-		}
-	}
-
-	for name, pathConf := range conf.Paths {
-		if pathConf.Regexp == nil {
-			p.paths[name] = newPath(p, name, pathConf)
 		}
 	}
 
 	if _, ok := conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
-		p.serverUdpRtp, err = newServerUDP(p, conf.RtpPort, gortsplib.StreamTypeRtp)
+		p.serverUdpRtp, err = serverudp.New(p.conf.WriteTimeout,
+			conf.RtpPort, gortsplib.StreamTypeRtp, p)
 		if err != nil {
+			p.closeResources()
 			return nil, err
 		}
 
-		p.serverUdpRtcp, err = newServerUDP(p, conf.RtcpPort, gortsplib.StreamTypeRtcp)
+		p.serverUdpRtcp, err = serverudp.New(p.conf.WriteTimeout,
+			conf.RtcpPort, gortsplib.StreamTypeRtcp, p)
 		if err != nil {
+			p.closeResources()
 			return nil, err
 		}
 	}
 
-	p.serverTcp, err = newServerTCP(p)
+	p.serverTcp, err = servertcp.New(conf.RtspPort, p)
 	if err != nil {
+		p.closeResources()
 		return nil, err
 	}
 
-	go p.run()
+	p.pathMan = pathman.New(p.stats, p.serverUdpRtp, p.serverUdpRtcp,
+		p.conf.ReadTimeout, p.conf.WriteTimeout, p.conf.AuthMethodsParsed,
+		conf.Paths, p)
 
+	p.clientMan = clientman.New(p.stats, p.serverUdpRtp, p.serverUdpRtcp,
+		p.conf.ReadTimeout, p.conf.WriteTimeout, p.conf.RunOnConnect,
+		p.conf.ProtocolsParsed, p.pathMan, p.serverTcp, p)
+
+	go p.run()
 	return p, nil
 }
 
-func (p *program) log(format string, args ...interface{}) {
-	countClients := atomic.LoadInt64(p.countClients)
-	countPublishers := atomic.LoadInt64(p.countPublishers)
-	countReaders := atomic.LoadInt64(p.countReaders)
+func (p *program) Log(format string, args ...interface{}) {
+	countClients := atomic.LoadInt64(p.stats.CountClients)
+	countPublishers := atomic.LoadInt64(p.stats.CountPublishers)
+	countReaders := atomic.LoadInt64(p.stats.CountReaders)
 
 	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClients,
 		countPublishers, countReaders}, args...)...))
@@ -190,207 +135,49 @@ func (p *program) log(format string, args ...interface{}) {
 func (p *program) run() {
 	defer close(p.done)
 
-	if p.metrics != nil {
-		go p.metrics.run()
-	}
-
-	if p.pprof != nil {
-		go p.pprof.run()
-	}
-
-	if p.serverUdpRtp != nil {
-		go p.serverUdpRtp.run()
-	}
-
-	if p.serverUdpRtcp != nil {
-		go p.serverUdpRtcp.run()
-	}
-
-	go p.serverTcp.run()
-
-	for _, p := range p.paths {
-		p.onInit()
-	}
-
-	checkPathsTicker := time.NewTicker(checkPathPeriod)
-	defer checkPathsTicker.Stop()
-
 outer:
 	for {
 		select {
-		case <-checkPathsTicker.C:
-			for _, path := range p.paths {
-				path.onCheck()
-			}
-
-		case conn := <-p.clientNew:
-			newClient(p, conn)
-
-		case client := <-p.clientClose:
-			if _, ok := p.clients[client]; !ok {
-				continue
-			}
-			client.close()
-
-		case req := <-p.clientDescribe:
-			// create path if it doesn't exist
-			if _, ok := p.paths[req.pathName]; !ok {
-				p.paths[req.pathName] = newPath(p, req.pathName, req.pathConf)
-			}
-
-			p.paths[req.pathName].onDescribe(req.client)
-
-		case req := <-p.clientAnnounce:
-			// create path if it doesn't exist
-			if path, ok := p.paths[req.pathName]; !ok {
-				p.paths[req.pathName] = newPath(p, req.pathName, req.pathConf)
-
-			} else {
-				if path.source != nil {
-					req.res <- fmt.Errorf("someone is already publishing on path '%s'", req.pathName)
-					continue
-				}
-			}
-
-			p.paths[req.pathName].source = req.client
-			p.paths[req.pathName].sourceTrackCount = req.trackCount
-			p.paths[req.pathName].sourceSdp = req.sdp
-
-			req.client.path = p.paths[req.pathName]
-			req.client.state = clientStatePreRecord
-			req.res <- nil
-
-		case req := <-p.clientSetupPlay:
-			path, ok := p.paths[req.pathName]
-			if !ok || !path.sourceReady {
-				req.res <- fmt.Errorf("no one is publishing on path '%s'", req.pathName)
-				continue
-			}
-
-			if req.trackId >= path.sourceTrackCount {
-				req.res <- fmt.Errorf("track %d does not exist", req.trackId)
-				continue
-			}
-
-			req.client.path = path
-			req.client.state = clientStatePrePlay
-			req.res <- nil
-
-		case client := <-p.clientPlay:
-			atomic.AddInt64(p.countReaders, 1)
-			client.state = clientStatePlay
-			p.readersMap.add(client)
-
-		case client := <-p.clientRecord:
-			atomic.AddInt64(p.countPublishers, 1)
-			client.state = clientStateRecord
-
-			if client.streamProtocol == gortsplib.StreamProtocolUDP {
-				for trackId, track := range client.streamTracks {
-					addr := makeUDPPublisherAddr(client.ip(), track.rtpPort)
-					p.udpPublishersMap.add(addr, &udpPublisher{
-						client:     client,
-						trackId:    trackId,
-						streamType: gortsplib.StreamTypeRtp,
-					})
-
-					addr = makeUDPPublisherAddr(client.ip(), track.rtcpPort)
-					p.udpPublishersMap.add(addr, &udpPublisher{
-						client:     client,
-						trackId:    trackId,
-						streamType: gortsplib.StreamTypeRtcp,
-					})
-				}
-			}
-
-			client.path.onSourceSetReady()
-
-		case s := <-p.sourceRtspReady:
-			s.path.onSourceSetReady()
-
-		case s := <-p.sourceRtspNotReady:
-			s.path.onSourceSetNotReady()
-
-		case s := <-p.sourceRtmpReady:
-			s.path.onSourceSetReady()
-
-		case s := <-p.sourceRtmpNotReady:
-			s.path.onSourceSetNotReady()
-
 		case <-p.terminate:
 			break outer
 		}
 	}
 
-	go func() {
-		for {
-			select {
-			case _, ok := <-p.clientNew:
-				if !ok {
-					return
-				}
+	p.closeResources()
+}
 
-			case <-p.clientClose:
-			case <-p.clientDescribe:
-
-			case req := <-p.clientAnnounce:
-				req.res <- fmt.Errorf("terminated")
-
-			case req := <-p.clientSetupPlay:
-				req.res <- fmt.Errorf("terminated")
-
-			case <-p.clientPlay:
-			case <-p.clientRecord:
-			case <-p.sourceRtspReady:
-			case <-p.sourceRtspNotReady:
-			case <-p.sourceRtmpReady:
-			case <-p.sourceRtmpNotReady:
-			}
-		}
-	}()
-
-	p.udpPublishersMap.clear()
-	p.readersMap.clear()
-
-	for _, p := range p.paths {
-		p.onClose()
+func (p *program) closeResources() {
+	if p.clientMan != nil {
+		p.clientMan.Close()
 	}
 
-	p.serverTcp.close()
+	if p.pathMan != nil {
+		p.pathMan.Close()
+	}
+
+	if p.serverTcp != nil {
+		p.serverTcp.Close()
+	}
 
 	if p.serverUdpRtcp != nil {
-		p.serverUdpRtcp.close()
+		p.serverUdpRtcp.Close()
 	}
 
 	if p.serverUdpRtp != nil {
-		p.serverUdpRtp.close()
+		p.serverUdpRtp.Close()
 	}
-
-	for c := range p.clients {
-		c.close()
-	}
-
-	p.clientsWg.Wait()
 
 	if p.metrics != nil {
-		p.metrics.close()
+		p.metrics.Close()
 	}
 
 	if p.pprof != nil {
-		p.pprof.close()
+		p.pprof.Close()
 	}
 
-	p.logHandler.Close()
-
-	close(p.clientNew)
-	close(p.clientClose)
-	close(p.clientDescribe)
-	close(p.clientAnnounce)
-	close(p.clientSetupPlay)
-	close(p.clientPlay)
-	close(p.clientRecord)
-	close(p.sourceRtspReady)
-	close(p.sourceRtspNotReady)
+	if p.logHandler != nil {
+		p.logHandler.Close()
+	}
 }
 
 func (p *program) close() {

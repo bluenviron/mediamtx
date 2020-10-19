@@ -2,7 +2,6 @@ package conf
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"os"
 	"regexp"
@@ -17,56 +16,9 @@ import (
 	"github.com/aler9/rtsp-simple-server/loghandler"
 )
 
-func parseIpCidrList(in []string) ([]interface{}, error) {
-	if len(in) == 0 {
-		return nil, nil
-	}
-
-	var ret []interface{}
-	for _, t := range in {
-		_, ipnet, err := net.ParseCIDR(t)
-		if err == nil {
-			ret = append(ret, ipnet)
-			continue
-		}
-
-		ip := net.ParseIP(t)
-		if ip != nil {
-			ret = append(ret, ip)
-			continue
-		}
-
-		return nil, fmt.Errorf("unable to parse ip/network '%s'", t)
-	}
-	return ret, nil
-}
-
-var rePathName = regexp.MustCompile("^[0-9a-zA-Z_\\-/]+$")
-
-func checkPathName(name string) error {
-	if name == "" {
-		return fmt.Errorf("cannot be empty")
-	}
-
-	if name[0] == '/' {
-		return fmt.Errorf("can't begin with a slash")
-	}
-
-	if name[len(name)-1] == '/' {
-		return fmt.Errorf("can't end with a slash")
-	}
-
-	if !rePathName.MatchString(name) {
-		return fmt.Errorf("can contain only alfanumeric characters, underscore, minus or slash")
-	}
-
-	return nil
-}
-
 type PathConf struct {
 	Regexp               *regexp.Regexp           `yaml:"-"`
 	Source               string                   `yaml:"source"`
-	SourceUrl            *url.URL                 `yaml:"-"`
 	SourceProtocol       string                   `yaml:"sourceProtocol"`
 	SourceProtocolParsed gortsplib.StreamProtocol `yaml:"-"`
 	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
@@ -133,7 +85,7 @@ func Load(fpath string) (*Conf, error) {
 	}
 
 	// read from environment
-	err = confenv.Process("RTSP", conf)
+	err = confenv.Load("RTSP", conf)
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +196,7 @@ func Load(fpath string) (*Conf, error) {
 
 		// normal path
 		if name[0] != '~' {
-			err := checkPathName(name)
+			err := CheckPathName(name)
 			if err != nil {
 				return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
 			}
@@ -267,16 +219,13 @@ func Load(fpath string) (*Conf, error) {
 				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 			}
 
-			pconf.SourceUrl, err = url.Parse(pconf.Source)
+			u, err := url.Parse(pconf.Source)
 			if err != nil {
 				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
 			}
-			if pconf.SourceUrl.Port() == "" {
-				pconf.SourceUrl.Host += ":554"
-			}
-			if pconf.SourceUrl.User != nil {
-				pass, _ := pconf.SourceUrl.User.Password()
-				user := pconf.SourceUrl.User.Username()
+			if u.User != nil {
+				pass, _ := u.User.Password()
+				user := u.User.Username()
 				if user != "" && pass == "" ||
 					user == "" && pass != "" {
 					fmt.Errorf("username and password must be both provided")
@@ -302,12 +251,17 @@ func Load(fpath string) (*Conf, error) {
 				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
 			}
 
-			pconf.SourceUrl, err = url.Parse(pconf.Source)
+			u, err := url.Parse(pconf.Source)
 			if err != nil {
 				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
 			}
-			if pconf.SourceUrl.Port() == "" {
-				pconf.SourceUrl.Host += ":1935"
+			if u.User != nil {
+				pass, _ := u.User.Password()
+				user := u.User.Username()
+				if user != "" && pass == "" ||
+					user == "" && pass != "" {
+					fmt.Errorf("username and password must be both provided")
+				}
 			}
 
 		} else if pconf.Source == "record" {
@@ -370,25 +324,4 @@ func Load(fpath string) (*Conf, error) {
 	}
 
 	return conf, nil
-}
-
-func (conf *Conf) CheckPathNameAndFindConf(name string) (*PathConf, error) {
-	err := checkPathName(name)
-	if err != nil {
-		return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
-	}
-
-	// normal path
-	if pconf, ok := conf.Paths[name]; ok {
-		return pconf, nil
-	}
-
-	// regular expression path
-	for _, pconf := range conf.Paths {
-		if pconf.Regexp != nil && pconf.Regexp.MatchString(name) {
-			return pconf, nil
-		}
-	}
-
-	return nil, fmt.Errorf("unable to find a valid configuration for path '%s'", name)
 }

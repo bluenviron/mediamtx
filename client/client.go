@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"errors"
@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -18,190 +19,186 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/conf"
 	"github.com/aler9/rtsp-simple-server/externalcmd"
+	"github.com/aler9/rtsp-simple-server/serverudp"
+	"github.com/aler9/rtsp-simple-server/stats"
 )
 
 const (
-	clientCheckStreamInterval    = 5 * time.Second
-	clientReceiverReportInterval = 10 * time.Second
+	checkStreamInterval    = 5 * time.Second
+	receiverReportInterval = 10 * time.Second
 )
-
-type clientDescribeReq struct {
-	client   *client
-	pathName string
-	pathConf *conf.PathConf
-}
-
-type clientAnnounceReq struct {
-	res        chan error
-	client     *client
-	pathName   string
-	pathConf   *conf.PathConf
-	trackCount int
-	sdp        []byte
-}
-
-type clientSetupPlayReq struct {
-	res      chan error
-	client   *client
-	pathName string
-	trackId  int
-}
 
 type readRequestPair struct {
 	req *base.Request
 	res chan error
 }
 
-type clientTrack struct {
+type streamTrack struct {
 	rtpPort  int
 	rtcpPort int
 }
 
-type describeRes struct {
+type describeData struct {
 	sdp []byte
 	err error
 }
 
-type clientState int
+type state int
 
 const (
-	clientStateInitial clientState = iota
-	clientStateWaitDescription
-	clientStatePrePlay
-	clientStatePlay
-	clientStatePreRecord
-	clientStateRecord
+	stateInitial state = iota
+	stateWaitingDescribe
+	statePrePlay
+	statePlay
+	statePreRecord
+	stateRecord
 )
 
-func (cs clientState) String() string {
+func (cs state) String() string {
 	switch cs {
-	case clientStateInitial:
+	case stateInitial:
 		return "Initial"
 
-	case clientStateWaitDescription:
-		return "WaitDescription"
+	case stateWaitingDescribe:
+		return "WaitingDescribe"
 
-	case clientStatePrePlay:
+	case statePrePlay:
 		return "PrePlay"
 
-	case clientStatePlay:
+	case statePlay:
 		return "Play"
 
-	case clientStatePreRecord:
+	case statePreRecord:
 		return "PreRecord"
 
-	case clientStateRecord:
+	case stateRecord:
 		return "Record"
 	}
 	return "Invalid"
 }
 
-type client struct {
-	p                 *program
-	conn              *gortsplib.ConnServer
-	state             clientState
-	path              *path
+type Path interface {
+	Name() string
+	SourceTrackCount() int
+	Conf() *conf.PathConf
+	OnClientRemove(*Client)
+	OnClientPlay(*Client)
+	OnClientRecord(*Client)
+	OnFrame(int, gortsplib.StreamType, []byte)
+}
+
+type Parent interface {
+	Log(string, ...interface{})
+	OnClientClose(*Client)
+	OnClientDescribe(*Client, string, *base.Request) (Path, error)
+	OnClientAnnounce(*Client, string, gortsplib.Tracks, *base.Request) (Path, error)
+	OnClientSetupPlay(*Client, string, int, *base.Request) (Path, error)
+}
+
+type Client struct {
+	wg            *sync.WaitGroup
+	stats         *stats.Stats
+	serverUdpRtp  *serverudp.Server
+	serverUdpRtcp *serverudp.Server
+	readTimeout   time.Duration
+	runOnConnect  string
+	protocols     map[gortsplib.StreamProtocol]struct{}
+	conn          *gortsplib.ConnServer
+	parent        Parent
+
+	state             state
+	path              Path
 	authUser          string
 	authPass          string
 	authHelper        *auth.Server
 	authFailures      int
 	streamProtocol    gortsplib.StreamProtocol
-	streamTracks      map[int]*clientTrack
+	streamTracks      map[int]*streamTrack
 	rtcpReceivers     []*rtcpreceiver.RtcpReceiver
 	udpLastFrameTimes []*int64
 	describeCSeq      base.HeaderValue
 	describeUrl       string
 
-	describe  chan describeRes
-	tcpFrame  chan *base.InterleavedFrame
-	terminate chan struct{}
+	// in
+	describeData chan describeData           // from path
+	tcpFrame     chan *base.InterleavedFrame // from source
+	terminate    chan struct{}
 }
 
-func newClient(p *program, nconn net.Conn) {
-	c := &client{
-		p: p,
+func New(
+	wg *sync.WaitGroup,
+	stats *stats.Stats,
+	serverUdpRtp *serverudp.Server,
+	serverUdpRtcp *serverudp.Server,
+	readTimeout time.Duration,
+	writeTimeout time.Duration,
+	runOnConnect string,
+	protocols map[gortsplib.StreamProtocol]struct{},
+	nconn net.Conn,
+	parent Parent) *Client {
+
+	c := &Client{
+		wg:            wg,
+		stats:         stats,
+		serverUdpRtp:  serverUdpRtp,
+		serverUdpRtcp: serverUdpRtcp,
+		readTimeout:   readTimeout,
+		runOnConnect:  runOnConnect,
+		protocols:     protocols,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
 			Conn:            nconn,
-			ReadTimeout:     p.conf.ReadTimeout,
-			WriteTimeout:    p.conf.WriteTimeout,
+			ReadTimeout:     readTimeout,
+			WriteTimeout:    writeTimeout,
 			ReadBufferCount: 2,
 		}),
-		state:        clientStateInitial,
-		streamTracks: make(map[int]*clientTrack),
-		describe:     make(chan describeRes),
+		parent:       parent,
+		state:        stateInitial,
+		streamTracks: make(map[int]*streamTrack),
+		describeData: make(chan describeData),
 		tcpFrame:     make(chan *base.InterleavedFrame),
 		terminate:    make(chan struct{}),
 	}
 
-	p.clients[c] = struct{}{}
-	atomic.AddInt64(p.countClients, 1)
+	atomic.AddInt64(c.stats.CountClients, 1)
 	c.log("connected")
 
-	p.clientsWg.Add(1)
+	c.wg.Add(1)
 	go c.run()
+	return c
 }
 
-func (c *client) close() {
-	delete(c.p.clients, c)
-
-	atomic.AddInt64(c.p.countClients, -1)
-
-	switch c.state {
-	case clientStatePlay:
-		atomic.AddInt64(c.p.countReaders, -1)
-		c.p.readersMap.remove(c)
-
-	case clientStateRecord:
-		atomic.AddInt64(c.p.countPublishers, -1)
-
-		if c.streamProtocol == gortsplib.StreamProtocolUDP {
-			for _, track := range c.streamTracks {
-				addr := makeUDPPublisherAddr(c.ip(), track.rtpPort)
-				c.p.udpPublishersMap.remove(addr)
-
-				addr = makeUDPPublisherAddr(c.ip(), track.rtcpPort)
-				c.p.udpPublishersMap.remove(addr)
-			}
-		}
-
-		c.path.onSourceSetNotReady()
-	}
-
-	if c.path != nil && c.path.source == c {
-		c.path.onSourceRemove()
-	}
-
+func (c *Client) Close() {
+	atomic.AddInt64(c.stats.CountClients, -1)
 	close(c.terminate)
-
-	c.log("disconnected")
 }
 
-func (c *client) log(format string, args ...interface{}) {
-	c.p.log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
+func (c *Client) IsSource() {}
+
+func (c *Client) log(format string, args ...interface{}) {
+	c.parent.Log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }
 
-func (c *client) isSource() {}
-
-func (c *client) ip() net.IP {
+func (c *Client) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
-func (c *client) zone() string {
+func (c *Client) zone() string {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
 }
 
 var errRunTerminate = errors.New("terminate")
-var errRunWaitDescription = errors.New("wait description")
+var errRunWaitingDescribe = errors.New("wait description")
 var errRunPlay = errors.New("play")
 var errRunRecord = errors.New("record")
 
-func (c *client) run() {
-	defer c.p.clientsWg.Done()
+func (c *Client) run() {
+	defer c.wg.Done()
+	defer c.log("disconnected")
 
 	var onConnectCmd *externalcmd.ExternalCmd
-	if c.p.conf.RunOnConnect != "" {
+	if c.runOnConnect != "" {
 		var err error
-		onConnectCmd, err = externalcmd.New(c.p.conf.RunOnConnect, "")
+		onConnectCmd, err = externalcmd.New(c.runOnConnect, "")
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -217,11 +214,11 @@ func (c *client) run() {
 		onConnectCmd.Close()
 	}
 
-	close(c.describe)
+	close(c.describeData)
 	close(c.tcpFrame)
 }
 
-func (c *client) writeResError(cseq base.HeaderValue, code base.StatusCode, err error) {
+func (c *Client) writeResError(cseq base.HeaderValue, code base.StatusCode, err error) {
 	c.log("ERR: %s", err)
 
 	c.conn.WriteResponse(&base.Response{
@@ -232,39 +229,47 @@ func (c *client) writeResError(cseq base.HeaderValue, code base.StatusCode, err 
 	})
 }
 
-var errAuthCritical = errors.New("auth critical")
-var errAuthNotCritical = errors.New("auth not critical")
+type ErrAuthNotCritical struct {
+	*base.Response
+}
 
-func (c *client) authenticate(ips []interface{}, user string, pass string, req *base.Request) error {
+func (ErrAuthNotCritical) Error() string {
+	return "auth not critical"
+}
+
+type ErrAuthCritical struct {
+	*base.Response
+}
+
+func (ErrAuthCritical) Error() string {
+	return "auth critical"
+}
+
+func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{}, user string, pass string, req *base.Request) error {
 	// validate ip
-	err := func() error {
-		if ips == nil {
-			return nil
-		}
-
+	if ips != nil {
 		ip := c.ip()
+
 		if !ipEqualOrInRange(ip, ips) {
 			c.log("ERR: ip '%s' not allowed", ip)
-			return errAuthCritical
-		}
 
-		return nil
-	}()
-	if err != nil {
-		return err
+			return ErrAuthCritical{&base.Response{
+				StatusCode: base.StatusUnauthorized,
+				Header: base.Header{
+					"CSeq":             req.Header["CSeq"],
+					"WWW-Authenticate": c.authHelper.GenerateHeader(),
+				},
+			}}
+		}
 	}
 
-	// validate credentials
-	err = func() error {
-		if user == "" {
-			return nil
-		}
-
+	// validate user
+	if user != "" {
 		// reset authHelper every time the credentials change
 		if c.authHelper == nil || c.authUser != user || c.authPass != pass {
 			c.authUser = user
 			c.authPass = pass
-			c.authHelper = auth.NewServer(user, pass, c.p.conf.AuthMethodsParsed)
+			c.authHelper = auth.NewServer(user, pass, authMethods)
 		}
 
 		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
@@ -277,43 +282,40 @@ func (c *client) authenticate(ips []interface{}, user string, pass string, req *
 			// 3) without credentials
 			// 4) with password and username
 			// hence we must allow up to 3 failures
-			var retErr error
 			if c.authFailures > 3 {
 				c.log("ERR: unauthorized: %s", err)
-				retErr = errAuthCritical
 
-			} else if c.authFailures > 1 {
-				c.log("WARN: unauthorized: %s", err)
-				retErr = errAuthNotCritical
+				return ErrAuthCritical{&base.Response{
+					StatusCode: base.StatusUnauthorized,
+					Header: base.Header{
+						"CSeq":             req.Header["CSeq"],
+						"WWW-Authenticate": c.authHelper.GenerateHeader(),
+					},
+				}}
 
 			} else {
-				retErr = errAuthNotCritical
+				if c.authFailures > 1 {
+					c.log("WARN: unauthorized: %s", err)
+				}
+
+				return ErrAuthNotCritical{&base.Response{
+					StatusCode: base.StatusUnauthorized,
+					Header: base.Header{
+						"CSeq":             req.Header["CSeq"],
+						"WWW-Authenticate": c.authHelper.GenerateHeader(),
+					},
+				}}
 			}
-
-			c.conn.WriteResponse(&base.Response{
-				StatusCode: base.StatusUnauthorized,
-				Header: base.Header{
-					"CSeq":             req.Header["CSeq"],
-					"WWW-Authenticate": c.authHelper.GenerateHeader(),
-				},
-			})
-
-			return retErr
 		}
-
-		// reset authFailures after a successful login
-		c.authFailures = 0
-
-		return nil
-	}()
-	if err != nil {
-		return err
 	}
+
+	// login successful, reset authFailures
+	c.authFailures = 0
 
 	return nil
 }
 
-func (c *client) handleRequest(req *base.Request) error {
+func (c *Client) handleRequest(req *base.Request) error {
 	c.log(string(req.Method))
 
 	cseq, ok := req.Header["CSeq"]
@@ -367,56 +369,43 @@ func (c *client) handleRequest(req *base.Request) error {
 		return nil
 
 	case base.DESCRIBE:
-		if c.state != clientStateInitial {
+		if c.state != stateInitial {
 			c.writeResError(cseq, base.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
+				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, stateInitial))
 			return errRunTerminate
 		}
 
 		pathName = removeQueryFromPath(pathName)
 
-		pathConf, err := c.p.conf.CheckPathNameAndFindConf(pathName)
+		path, err := c.parent.OnClientDescribe(c, pathName, req)
 		if err != nil {
-			c.writeResError(cseq, base.StatusBadRequest, err)
-			return errRunTerminate
-		}
+			switch terr := err.(type) {
+			case ErrAuthNotCritical:
+				c.conn.WriteResponse(terr.Response)
+				return nil
 
-		err = c.authenticate(pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
-		if err != nil {
-			if err == errAuthCritical {
+			case ErrAuthCritical:
+				c.conn.WriteResponse(terr.Response)
+				return errRunTerminate
+
+			default:
+				c.writeResError(cseq, base.StatusBadRequest, err)
 				return errRunTerminate
 			}
-			return nil
 		}
 
-		c.p.clientDescribe <- clientDescribeReq{c, pathName, pathConf}
-
+		c.path = path
+		c.state = stateWaitingDescribe
 		c.describeCSeq = cseq
 		c.describeUrl = req.Url.String()
 
-		return errRunWaitDescription
+		return errRunWaitingDescribe
 
 	case base.ANNOUNCE:
-		if c.state != clientStateInitial {
+		if c.state != stateInitial {
 			c.writeResError(cseq, base.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStateInitial))
+				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, stateInitial))
 			return errRunTerminate
-		}
-
-		pathName = removeQueryFromPath(pathName)
-
-		pathConf, err := c.p.conf.CheckPathNameAndFindConf(pathName)
-		if err != nil {
-			c.writeResError(cseq, base.StatusBadRequest, err)
-			return errRunTerminate
-		}
-
-		err = c.authenticate(pathConf.PublishIpsParsed, pathConf.PublishUser, pathConf.PublishPass, req)
-		if err != nil {
-			if err == errAuthCritical {
-				return errRunTerminate
-			}
-			return nil
 		}
 
 		ct, ok := req.Header["Content-Type"]
@@ -441,15 +430,26 @@ func (c *client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		sdp := tracks.Write()
+		pathName = removeQueryFromPath(pathName)
 
-		res := make(chan error)
-		c.p.clientAnnounce <- clientAnnounceReq{res, c, pathName, pathConf, len(tracks), sdp}
-		err = <-res
+		path, err := c.parent.OnClientAnnounce(c, pathName, tracks, req)
 		if err != nil {
-			c.writeResError(cseq, base.StatusBadRequest, err)
-			return errRunTerminate
+			switch terr := err.(type) {
+			case ErrAuthNotCritical:
+				c.conn.WriteResponse(terr.Response)
+				return nil
+
+			case ErrAuthCritical:
+				c.conn.WriteResponse(terr.Response)
+				return errRunTerminate
+
+			default:
+				c.writeResError(cseq, base.StatusBadRequest, err)
+				return errRunTerminate
+			}
 		}
+		c.path = path
+		c.state = statePreRecord
 
 		c.conn.WriteResponse(&base.Response{
 			StatusCode: base.StatusOK,
@@ -471,7 +471,7 @@ func (c *client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, controlPath, err := splitPath(pathName)
+		basePath, controlPath, err := splitPathIntoBaseAndControl(pathName)
 		if err != nil {
 			c.writeResError(cseq, base.StatusBadRequest, err)
 			return errRunTerminate
@@ -481,28 +481,14 @@ func (c *client) handleRequest(req *base.Request) error {
 
 		switch c.state {
 		// play
-		case clientStateInitial, clientStatePrePlay:
+		case stateInitial, statePrePlay:
 			if th.Mode != nil && *th.Mode != gortsplib.TransportModePlay {
 				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("transport header must contain mode=play or not contain a mode"))
 				return errRunTerminate
 			}
 
-			pathConf, err := c.p.conf.CheckPathNameAndFindConf(basePath)
-			if err != nil {
-				c.writeResError(cseq, base.StatusBadRequest, err)
-				return errRunTerminate
-			}
-
-			err = c.authenticate(pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req)
-			if err != nil {
-				if err == errAuthCritical {
-					return errRunTerminate
-				}
-				return nil
-			}
-
-			if c.path != nil && basePath != c.path.name {
-				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, basePath))
+			if c.path != nil && basePath != c.path.Name() {
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath))
 				return errRunTerminate
 			}
 
@@ -525,7 +511,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 			// play with UDP
 			if th.Protocol == gortsplib.StreamProtocolUDP {
-				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
+				if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -540,16 +526,28 @@ func (c *client) handleRequest(req *base.Request) error {
 					return errRunTerminate
 				}
 
-				res := make(chan error)
-				c.p.clientSetupPlay <- clientSetupPlayReq{res, c, basePath, trackId}
-				err = <-res
+				path, err := c.parent.OnClientSetupPlay(c, basePath, trackId, req)
 				if err != nil {
-					c.writeResError(cseq, base.StatusBadRequest, err)
-					return errRunTerminate
+					switch terr := err.(type) {
+					case ErrAuthNotCritical:
+						c.conn.WriteResponse(terr.Response)
+						return nil
+
+					case ErrAuthCritical:
+						c.conn.WriteResponse(terr.Response)
+						return errRunTerminate
+
+					default:
+						c.writeResError(cseq, base.StatusBadRequest, err)
+						return errRunTerminate
+					}
 				}
 
+				c.path = path
+				c.state = statePrePlay
+
 				c.streamProtocol = gortsplib.StreamProtocolUDP
-				c.streamTracks[trackId] = &clientTrack{
+				c.streamTracks[trackId] = &streamTrack{
 					rtpPort:  (*th.ClientPorts)[0],
 					rtcpPort: (*th.ClientPorts)[1],
 				}
@@ -561,7 +559,7 @@ func (c *client) handleRequest(req *base.Request) error {
 						return &v
 					}(),
 					ClientPorts: th.ClientPorts,
-					ServerPorts: &[2]int{c.p.conf.RtpPort, c.p.conf.RtcpPort},
+					ServerPorts: &[2]int{c.serverUdpRtp.Port(), c.serverUdpRtcp.Port()},
 				}
 
 				c.conn.WriteResponse(&base.Response{
@@ -576,7 +574,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 				// play with TCP
 			} else {
-				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
+				if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -586,16 +584,28 @@ func (c *client) handleRequest(req *base.Request) error {
 					return errRunTerminate
 				}
 
-				res := make(chan error)
-				c.p.clientSetupPlay <- clientSetupPlayReq{res, c, basePath, trackId}
-				err = <-res
+				path, err := c.parent.OnClientSetupPlay(c, basePath, trackId, req)
 				if err != nil {
-					c.writeResError(cseq, base.StatusBadRequest, err)
-					return errRunTerminate
+					switch terr := err.(type) {
+					case ErrAuthNotCritical:
+						c.conn.WriteResponse(terr.Response)
+						return nil
+
+					case ErrAuthCritical:
+						c.conn.WriteResponse(terr.Response)
+						return errRunTerminate
+
+					default:
+						c.writeResError(cseq, base.StatusBadRequest, err)
+						return errRunTerminate
+					}
 				}
 
+				c.path = path
+				c.state = statePrePlay
+
 				c.streamProtocol = gortsplib.StreamProtocolTCP
-				c.streamTracks[trackId] = &clientTrack{
+				c.streamTracks[trackId] = &streamTrack{
 					rtpPort:  0,
 					rtcpPort: 0,
 				}
@@ -619,21 +629,21 @@ func (c *client) handleRequest(req *base.Request) error {
 			}
 
 		// record
-		case clientStatePreRecord:
+		case statePreRecord:
 			if th.Mode == nil || *th.Mode != gortsplib.TransportModeRecord {
 				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("transport header does not contain mode=record"))
 				return errRunTerminate
 			}
 
 			// after ANNOUNCE, c.path is already set
-			if basePath != c.path.name {
-				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, basePath))
+			if basePath != c.path.Name() {
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath))
 				return errRunTerminate
 			}
 
 			// record with UDP
 			if th.Protocol == gortsplib.StreamProtocolUDP {
-				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; !ok {
+				if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -648,13 +658,13 @@ func (c *client) handleRequest(req *base.Request) error {
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) >= c.path.sourceTrackCount {
+				if len(c.streamTracks) >= c.path.SourceTrackCount() {
 					c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errRunTerminate
 				}
 
 				c.streamProtocol = gortsplib.StreamProtocolUDP
-				c.streamTracks[len(c.streamTracks)] = &clientTrack{
+				c.streamTracks[len(c.streamTracks)] = &streamTrack{
 					rtpPort:  (*th.ClientPorts)[0],
 					rtcpPort: (*th.ClientPorts)[1],
 				}
@@ -666,7 +676,7 @@ func (c *client) handleRequest(req *base.Request) error {
 						return &v
 					}(),
 					ClientPorts: th.ClientPorts,
-					ServerPorts: &[2]int{c.p.conf.RtpPort, c.p.conf.RtcpPort},
+					ServerPorts: &[2]int{c.serverUdpRtp.Port(), c.serverUdpRtcp.Port()},
 				}
 
 				c.conn.WriteResponse(&base.Response{
@@ -681,7 +691,7 @@ func (c *client) handleRequest(req *base.Request) error {
 
 				// record with TCP
 			} else {
-				if _, ok := c.p.conf.ProtocolsParsed[gortsplib.StreamProtocolTCP]; !ok {
+				if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
 					return errRunTerminate
 				}
@@ -703,13 +713,13 @@ func (c *client) handleRequest(req *base.Request) error {
 					return errRunTerminate
 				}
 
-				if len(c.streamTracks) >= c.path.sourceTrackCount {
+				if len(c.streamTracks) >= c.path.SourceTrackCount() {
 					c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("all the tracks have already been setup"))
 					return errRunTerminate
 				}
 
 				c.streamProtocol = gortsplib.StreamProtocolTCP
-				c.streamTracks[len(c.streamTracks)] = &clientTrack{
+				c.streamTracks[len(c.streamTracks)] = &streamTrack{
 					rtpPort:  0,
 					rtcpPort: 0,
 				}
@@ -736,9 +746,9 @@ func (c *client) handleRequest(req *base.Request) error {
 		}
 
 	case base.PLAY:
-		if c.state != clientStatePrePlay {
+		if c.state != statePrePlay {
 			c.writeResError(cseq, base.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePrePlay))
+				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, statePrePlay))
 			return errRunTerminate
 		}
 
@@ -747,8 +757,8 @@ func (c *client) handleRequest(req *base.Request) error {
 		// path can end with a slash, remove it
 		pathName = strings.TrimSuffix(pathName, "/")
 
-		if pathName != c.path.name {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, pathName))
+		if pathName != c.path.Name() {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), pathName))
 			return errRunTerminate
 		}
 
@@ -771,9 +781,9 @@ func (c *client) handleRequest(req *base.Request) error {
 		return errRunPlay
 
 	case base.RECORD:
-		if c.state != clientStatePreRecord {
+		if c.state != statePreRecord {
 			c.writeResError(cseq, base.StatusBadRequest,
-				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, clientStatePreRecord))
+				fmt.Errorf("client is in state '%s' instead of '%s'", c.state, statePreRecord))
 			return errRunTerminate
 		}
 
@@ -782,12 +792,12 @@ func (c *client) handleRequest(req *base.Request) error {
 		// path can end with a slash, remove it
 		pathName = strings.TrimSuffix(pathName, "/")
 
-		if pathName != c.path.name {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.name, pathName))
+		if pathName != c.path.Name() {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), pathName))
 			return errRunTerminate
 		}
 
-		if len(c.streamTracks) != c.path.sourceTrackCount {
+		if len(c.streamTracks) != c.path.SourceTrackCount() {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("not all tracks have been setup"))
 			return errRunTerminate
 		}
@@ -812,7 +822,7 @@ func (c *client) handleRequest(req *base.Request) error {
 	}
 }
 
-func (c *client) runInitial() bool {
+func (c *Client) runInitial() bool {
 	readDone := make(chan error)
 	go func() {
 		for {
@@ -833,8 +843,8 @@ func (c *client) runInitial() bool {
 	select {
 	case err := <-readDone:
 		switch err {
-		case errRunWaitDescription:
-			return c.runWaitDescription()
+		case errRunWaitingDescribe:
+			return c.runWaitingDescribe()
 
 		case errRunPlay:
 			return c.runPlay()
@@ -847,7 +857,8 @@ func (c *client) runInitial() bool {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
-			c.p.clientClose <- c
+
+			c.parent.OnClientClose(c)
 			<-c.terminate
 			return false
 		}
@@ -859,9 +870,12 @@ func (c *client) runInitial() bool {
 	}
 }
 
-func (c *client) runWaitDescription() bool {
+func (c *Client) runWaitingDescribe() bool {
 	select {
-	case res := <-c.describe:
+	case res := <-c.describeData:
+		c.path = nil
+		c.state = stateInitial
+
 		if res.err != nil {
 			c.writeResError(c.describeCSeq, base.StatusNotFound, res.err)
 			return true
@@ -879,16 +893,23 @@ func (c *client) runWaitDescription() bool {
 		return true
 
 	case <-c.terminate:
+		go func() {
+			for range c.describeData {
+			}
+		}()
+
+		c.path.OnClientRemove(c)
+
 		c.conn.Close()
 		return false
 	}
 }
 
-func (c *client) runPlay() bool {
-	// start sending frames only after sending the response to the PLAY request
-	c.p.clientPlay <- c
+func (c *Client) runPlay() bool {
+	// start sending frames only after replying to the PLAY request
+	c.path.OnClientPlay(c)
 
-	c.log("is reading from path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
+	c.log("is reading from path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -896,9 +917,9 @@ func (c *client) runPlay() bool {
 	}(), c.streamProtocol)
 
 	var onReadCmd *externalcmd.ExternalCmd
-	if c.path.conf.RunOnRead != "" {
+	if c.path.Conf().RunOnRead != "" {
 		var err error
-		onReadCmd, err = externalcmd.New(c.path.conf.RunOnRead, c.path.name)
+		onReadCmd, err = externalcmd.New(c.path.Conf().RunOnRead, c.path.Name())
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -917,7 +938,7 @@ func (c *client) runPlay() bool {
 	return false
 }
 
-func (c *client) runPlayUDP() {
+func (c *Client) runPlayUDP() {
 	readDone := make(chan error)
 	go func() {
 		for {
@@ -941,18 +962,23 @@ func (c *client) runPlayUDP() {
 		if err != io.EOF && err != errRunTerminate {
 			c.log("ERR: %s", err)
 		}
-		c.p.clientClose <- c
+
+		c.path.OnClientRemove(c)
+
+		c.parent.OnClientClose(c)
 		<-c.terminate
 		return
 
 	case <-c.terminate:
+		c.path.OnClientRemove(c)
+
 		c.conn.Close()
 		<-readDone
 		return
 	}
 }
 
-func (c *client) runPlayTCP() {
+func (c *Client) runPlayTCP() {
 	readRequest := make(chan readRequestPair)
 	defer close(readRequest)
 
@@ -992,11 +1018,15 @@ func (c *client) runPlayTCP() {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
+
 			go func() {
 				for range c.tcpFrame {
 				}
 			}()
-			c.p.clientClose <- c
+
+			c.path.OnClientRemove(c)
+
+			c.parent.OnClientClose(c)
 			<-c.terminate
 			return
 
@@ -1009,6 +1039,9 @@ func (c *client) runPlayTCP() {
 					req.res <- fmt.Errorf("terminated")
 				}
 			}()
+
+			c.path.OnClientRemove(c)
+
 			c.conn.Close()
 			<-readDone
 			return
@@ -1016,7 +1049,7 @@ func (c *client) runPlayTCP() {
 	}
 }
 
-func (c *client) runRecord() bool {
+func (c *Client) runRecord() bool {
 	c.rtcpReceivers = make([]*rtcpreceiver.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {
 		c.rtcpReceivers[trackId] = rtcpreceiver.New()
@@ -1030,19 +1063,26 @@ func (c *client) runRecord() bool {
 		}
 	}
 
-	c.p.clientRecord <- c
+	c.path.OnClientRecord(c)
 
-	c.log("is publishing to path '%s', %d %s with %s", c.path.name, len(c.streamTracks), func() string {
+	c.log("is publishing to path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
 		return "tracks"
 	}(), c.streamProtocol)
 
+	if c.streamProtocol == gortsplib.StreamProtocolUDP {
+		for trackId, track := range c.streamTracks {
+			c.serverUdpRtp.AddPublisher(c.ip(), track.rtpPort, c, trackId)
+			c.serverUdpRtcp.AddPublisher(c.ip(), track.rtcpPort, c, trackId)
+		}
+	}
+
 	var onPublishCmd *externalcmd.ExternalCmd
-	if c.path.conf.RunOnPublish != "" {
+	if c.path.Conf().RunOnPublish != "" {
 		var err error
-		onPublishCmd, err = externalcmd.New(c.path.conf.RunOnPublish, c.path.name)
+		onPublishCmd, err = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Name())
 		if err != nil {
 			c.log("ERR: %s", err)
 		}
@@ -1054,6 +1094,13 @@ func (c *client) runRecord() bool {
 		c.runRecordTCP()
 	}
 
+	if c.streamProtocol == gortsplib.StreamProtocolUDP {
+		for _, track := range c.streamTracks {
+			c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
+			c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
+		}
+	}
+
 	if onPublishCmd != nil {
 		onPublishCmd.Close()
 	}
@@ -1061,10 +1108,10 @@ func (c *client) runRecord() bool {
 	return false
 }
 
-func (c *client) runRecordUDP() {
+func (c *Client) runRecordUDP() {
 	// open the firewall by sending packets to the counterpart
 	for _, track := range c.streamTracks {
-		c.p.serverUdpRtp.write(
+		c.serverUdpRtp.Write(
 			[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 			&net.UDPAddr{
 				IP:   c.ip(),
@@ -1072,7 +1119,7 @@ func (c *client) runRecordUDP() {
 				Port: track.rtpPort,
 			})
 
-		c.p.serverUdpRtcp.write(
+		c.serverUdpRtcp.Write(
 			[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00},
 			&net.UDPAddr{
 				IP:   c.ip(),
@@ -1098,10 +1145,10 @@ func (c *client) runRecordUDP() {
 		}
 	}()
 
-	checkStreamTicker := time.NewTicker(clientCheckStreamInterval)
+	checkStreamTicker := time.NewTicker(checkStreamInterval)
 	defer checkStreamTicker.Stop()
 
-	receiverReportTicker := time.NewTicker(clientReceiverReportInterval)
+	receiverReportTicker := time.NewTicker(receiverReportInterval)
 	defer receiverReportTicker.Stop()
 
 	for {
@@ -1111,7 +1158,10 @@ func (c *client) runRecordUDP() {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
-			c.p.clientClose <- c
+
+			c.path.OnClientRemove(c)
+
+			c.parent.OnClientClose(c)
 			<-c.terminate
 			return
 
@@ -1121,11 +1171,14 @@ func (c *client) runRecordUDP() {
 			for _, lastUnix := range c.udpLastFrameTimes {
 				last := time.Unix(atomic.LoadInt64(lastUnix), 0)
 
-				if now.Sub(last) >= c.p.conf.ReadTimeout {
+				if now.Sub(last) >= c.readTimeout {
 					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
 					<-readDone
-					c.p.clientClose <- c
+
+					c.path.OnClientRemove(c)
+
+					c.parent.OnClientClose(c)
 					<-c.terminate
 					return
 				}
@@ -1134,7 +1187,7 @@ func (c *client) runRecordUDP() {
 		case <-receiverReportTicker.C:
 			for trackId := range c.streamTracks {
 				frame := c.rtcpReceivers[trackId].Report()
-				c.p.serverUdpRtcp.write(frame, &net.UDPAddr{
+				c.serverUdpRtcp.Write(frame, &net.UDPAddr{
 					IP:   c.ip(),
 					Zone: c.zone(),
 					Port: c.streamTracks[trackId].rtcpPort,
@@ -1142,6 +1195,8 @@ func (c *client) runRecordUDP() {
 			}
 
 		case <-c.terminate:
+			c.path.OnClientRemove(c)
+
 			c.conn.Close()
 			<-readDone
 			return
@@ -1149,7 +1204,7 @@ func (c *client) runRecordUDP() {
 	}
 }
 
-func (c *client) runRecordTCP() {
+func (c *Client) runRecordTCP() {
 	readRequest := make(chan readRequestPair)
 	defer close(readRequest)
 
@@ -1170,8 +1225,7 @@ func (c *client) runRecordTCP() {
 				}
 
 				c.rtcpReceivers[recvt.TrackId].OnFrame(recvt.StreamType, recvt.Content)
-
-				c.p.readersMap.forwardFrame(c.path, recvt.TrackId, recvt.StreamType, recvt.Content)
+				c.path.OnFrame(recvt.TrackId, recvt.StreamType, recvt.Content)
 
 			case *base.Request:
 				err := c.handleRequest(recvt)
@@ -1183,7 +1237,7 @@ func (c *client) runRecordTCP() {
 		}
 	}()
 
-	receiverReportTicker := time.NewTicker(clientReceiverReportInterval)
+	receiverReportTicker := time.NewTicker(receiverReportInterval)
 	defer receiverReportTicker.Stop()
 
 	for {
@@ -1197,7 +1251,10 @@ func (c *client) runRecordTCP() {
 			if err != io.EOF && err != errRunTerminate {
 				c.log("ERR: %s", err)
 			}
-			c.p.clientClose <- c
+
+			c.path.OnClientRemove(c)
+
+			c.parent.OnClientClose(c)
 			<-c.terminate
 			return
 
@@ -1213,9 +1270,54 @@ func (c *client) runRecordTCP() {
 					req.res <- fmt.Errorf("terminated")
 				}
 			}()
+
+			c.path.OnClientRemove(c)
+
 			c.conn.Close()
 			<-readDone
 			return
 		}
 	}
+}
+
+func (c *Client) OnUdpPublisherFrame(trackId int, streamType base.StreamType, buf []byte) {
+	atomic.StoreInt64(c.udpLastFrameTimes[trackId], time.Now().Unix())
+
+	c.rtcpReceivers[trackId].OnFrame(streamType, buf)
+	c.path.OnFrame(trackId, streamType, buf)
+}
+
+func (c *Client) OnReaderFrame(trackId int, streamType base.StreamType, buf []byte) {
+	track, ok := c.streamTracks[trackId]
+	if !ok {
+		return
+	}
+
+	if c.streamProtocol == gortsplib.StreamProtocolUDP {
+		if streamType == gortsplib.StreamTypeRtp {
+			c.serverUdpRtp.Write(buf, &net.UDPAddr{
+				IP:   c.ip(),
+				Zone: c.zone(),
+				Port: track.rtpPort,
+			})
+
+		} else {
+			c.serverUdpRtcp.Write(buf, &net.UDPAddr{
+				IP:   c.ip(),
+				Zone: c.zone(),
+				Port: track.rtcpPort,
+			})
+		}
+
+	} else {
+		c.tcpFrame <- &base.InterleavedFrame{
+			TrackId:    trackId,
+			StreamType: streamType,
+			Content:    buf,
+		}
+	}
+}
+
+func (c *Client) OnPathDescribeData(sdp []byte, err error) {
+	c.describeData <- describeData{sdp, err}
 }
