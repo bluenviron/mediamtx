@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/rtsp-simple-server)](https://goreportcard.com/report/github.com/aler9/rtsp-simple-server)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server and RTSP proxy, a software that allows multiple users to publish and read live video and audio streams over time. RTSP is a standard protocol that describe how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming method. The server is then responsible of relaying the publisher streams to the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server and RTSP proxy, a software that allows multiple users to publish and read live video and audio streams over time. RTSP is a standard protocol that describes how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming method, then relays the publisher streams to the readers.
 
 Features:
 * Read and publish live streams with UDP and TCP

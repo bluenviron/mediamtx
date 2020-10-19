@@ -333,7 +333,7 @@ func Load(fpath string) (*Conf, error) {
 				return nil, err
 			}
 		} else {
-			// yaml doesn't use nil dicts - avoid test fails by using nil
+			// the configuration file doesn't use nil dicts - avoid test fails by using nil
 			pconf.PublishIps = nil
 		}
 
@@ -360,7 +360,7 @@ func Load(fpath string) (*Conf, error) {
 				return nil, err
 			}
 		} else {
-			// yaml doesn't use nil dicts - avoid test fails by using nil
+			// the configuration file doesn't use nil dicts - avoid test fails by using nil
 			pconf.ReadIps = nil
 		}
 
