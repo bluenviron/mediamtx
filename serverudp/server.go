@@ -122,12 +122,20 @@ func (s *Server) run() {
 			break
 		}
 
-		pub := s.getPublisher(addr.IP, addr.Port)
-		if pub == nil {
-			continue
-		}
+		func() {
+			s.publishersMutex.RLock()
+			defer s.publishersMutex.RUnlock()
 
-		pub.publisher.OnUdpPublisherFrame(pub.trackId, s.streamType, buf[:n])
+			// find publisher data
+			var pubAddr publisherAddr
+			pubAddr.fill(addr.IP, addr.Port)
+			pubData, ok := s.publishers[pubAddr]
+			if !ok {
+				return
+			}
+
+			pubData.publisher.OnUdpPublisherFrame(pubData.trackId, s.streamType, buf[:n])
+		}()
 	}
 
 	close(s.write)
@@ -163,18 +171,4 @@ func (s *Server) RemovePublisher(ip net.IP, port int, publisher Publisher) {
 	addr.fill(ip, port)
 
 	delete(s.publishers, addr)
-}
-
-func (s *Server) getPublisher(ip net.IP, port int) *publisherData {
-	s.publishersMutex.RLock()
-	defer s.publishersMutex.RUnlock()
-
-	var addr publisherAddr
-	addr.fill(ip, port)
-
-	el, ok := s.publishers[addr]
-	if !ok {
-		return nil
-	}
-	return el
 }

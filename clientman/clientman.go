@@ -20,13 +20,13 @@ type Parent interface {
 }
 
 type ClientManager struct {
-	stats         *stats.Stats
-	serverUdpRtp  *serverudp.Server
-	serverUdpRtcp *serverudp.Server
 	readTimeout   time.Duration
 	writeTimeout  time.Duration
 	runOnConnect  string
 	protocols     map[headers.StreamProtocol]struct{}
+	stats         *stats.Stats
+	serverUdpRtp  *serverudp.Server
+	serverUdpRtcp *serverudp.Server
 	pathMan       *pathman.PathManager
 	serverTcp     *servertcp.Server
 	parent        Parent
@@ -42,25 +42,26 @@ type ClientManager struct {
 	done chan struct{}
 }
 
-func New(stats *stats.Stats,
-	serverUdpRtp *serverudp.Server,
-	serverUdpRtcp *serverudp.Server,
+func New(
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	runOnConnect string,
 	protocols map[headers.StreamProtocol]struct{},
+	stats *stats.Stats,
+	serverUdpRtp *serverudp.Server,
+	serverUdpRtcp *serverudp.Server,
 	pathMan *pathman.PathManager,
 	serverTcp *servertcp.Server,
 	parent Parent) *ClientManager {
 
 	cm := &ClientManager{
-		stats:         stats,
-		serverUdpRtp:  serverUdpRtp,
-		serverUdpRtcp: serverUdpRtcp,
 		readTimeout:   readTimeout,
 		writeTimeout:  writeTimeout,
 		runOnConnect:  runOnConnect,
 		protocols:     protocols,
+		stats:         stats,
+		serverUdpRtp:  serverUdpRtp,
+		serverUdpRtcp: serverUdpRtcp,
 		pathMan:       pathMan,
 		serverTcp:     serverTcp,
 		parent:        parent,

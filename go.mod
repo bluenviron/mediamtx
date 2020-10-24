@@ -7,6 +7,7 @@ require (
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/aler9/gortsplib v0.0.0-20201017143703-0b7201de6890
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/fsnotify/fsnotify v1.4.9
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/rtp v1.6.1 // indirect
 	github.com/stretchr/testify v1.6.1

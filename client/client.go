@@ -448,6 +448,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 				return errRunTerminate
 			}
 		}
+
 		c.path = path
 		c.state = statePreRecord
 
@@ -873,7 +874,9 @@ func (c *Client) runInitial() bool {
 func (c *Client) runWaitingDescribe() bool {
 	select {
 	case res := <-c.describeData:
+		c.path.OnClientRemove(c)
 		c.path = nil
+
 		c.state = stateInitial
 
 		if res.err != nil {
@@ -899,6 +902,7 @@ func (c *Client) runWaitingDescribe() bool {
 		}()
 
 		c.path.OnClientRemove(c)
+		c.path = nil
 
 		c.conn.Close()
 		return false
@@ -935,6 +939,9 @@ func (c *Client) runPlay() bool {
 		onReadCmd.Close()
 	}
 
+	c.path.OnClientRemove(c)
+	c.path = nil
+
 	return false
 }
 
@@ -963,15 +970,11 @@ func (c *Client) runPlayUDP() {
 			c.log("ERR: %s", err)
 		}
 
-		c.path.OnClientRemove(c)
-
 		c.parent.OnClientClose(c)
 		<-c.terminate
 		return
 
 	case <-c.terminate:
-		c.path.OnClientRemove(c)
-
 		c.conn.Close()
 		<-readDone
 		return
@@ -1024,8 +1027,6 @@ func (c *Client) runPlayTCP() {
 				}
 			}()
 
-			c.path.OnClientRemove(c)
-
 			c.parent.OnClientClose(c)
 			<-c.terminate
 			return
@@ -1040,7 +1041,10 @@ func (c *Client) runPlayTCP() {
 				}
 			}()
 
-			c.path.OnClientRemove(c)
+			go func() {
+				for range c.tcpFrame {
+				}
+			}()
 
 			c.conn.Close()
 			<-readDone
@@ -1050,6 +1054,15 @@ func (c *Client) runPlayTCP() {
 }
 
 func (c *Client) runRecord() bool {
+	c.path.OnClientRecord(c)
+
+	c.log("is publishing to path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
+		if len(c.streamTracks) == 1 {
+			return "track"
+		}
+		return "tracks"
+	}(), c.streamProtocol)
+
 	c.rtcpReceivers = make([]*rtcpreceiver.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {
 		c.rtcpReceivers[trackId] = rtcpreceiver.New()
@@ -1061,21 +1074,29 @@ func (c *Client) runRecord() bool {
 			v := time.Now().Unix()
 			c.udpLastFrameTimes[trackId] = &v
 		}
-	}
 
-	c.path.OnClientRecord(c)
-
-	c.log("is publishing to path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
-		if len(c.streamTracks) == 1 {
-			return "track"
-		}
-		return "tracks"
-	}(), c.streamProtocol)
-
-	if c.streamProtocol == gortsplib.StreamProtocolUDP {
 		for trackId, track := range c.streamTracks {
 			c.serverUdpRtp.AddPublisher(c.ip(), track.rtpPort, c, trackId)
 			c.serverUdpRtcp.AddPublisher(c.ip(), track.rtcpPort, c, trackId)
+		}
+
+		// open the firewall by sending packets to the counterpart
+		for _, track := range c.streamTracks {
+			c.serverUdpRtp.Write(
+				[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+				&net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: track.rtpPort,
+				})
+
+			c.serverUdpRtcp.Write(
+				[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00},
+				&net.UDPAddr{
+					IP:   c.ip(),
+					Zone: c.zone(),
+					Port: track.rtcpPort,
+				})
 		}
 	}
 
@@ -1094,6 +1115,10 @@ func (c *Client) runRecord() bool {
 		c.runRecordTCP()
 	}
 
+	if onPublishCmd != nil {
+		onPublishCmd.Close()
+	}
+
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
 		for _, track := range c.streamTracks {
 			c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
@@ -1101,33 +1126,13 @@ func (c *Client) runRecord() bool {
 		}
 	}
 
-	if onPublishCmd != nil {
-		onPublishCmd.Close()
-	}
+	c.path.OnClientRemove(c)
+	c.path = nil
 
 	return false
 }
 
 func (c *Client) runRecordUDP() {
-	// open the firewall by sending packets to the counterpart
-	for _, track := range c.streamTracks {
-		c.serverUdpRtp.Write(
-			[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-			&net.UDPAddr{
-				IP:   c.ip(),
-				Zone: c.zone(),
-				Port: track.rtpPort,
-			})
-
-		c.serverUdpRtcp.Write(
-			[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00},
-			&net.UDPAddr{
-				IP:   c.ip(),
-				Zone: c.zone(),
-				Port: track.rtcpPort,
-			})
-	}
-
 	readDone := make(chan error)
 	go func() {
 		for {
@@ -1159,8 +1164,6 @@ func (c *Client) runRecordUDP() {
 				c.log("ERR: %s", err)
 			}
 
-			c.path.OnClientRemove(c)
-
 			c.parent.OnClientClose(c)
 			<-c.terminate
 			return
@@ -1175,8 +1178,6 @@ func (c *Client) runRecordUDP() {
 					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
 					<-readDone
-
-					c.path.OnClientRemove(c)
 
 					c.parent.OnClientClose(c)
 					<-c.terminate
@@ -1195,8 +1196,6 @@ func (c *Client) runRecordUDP() {
 			}
 
 		case <-c.terminate:
-			c.path.OnClientRemove(c)
-
 			c.conn.Close()
 			<-readDone
 			return
@@ -1252,8 +1251,6 @@ func (c *Client) runRecordTCP() {
 				c.log("ERR: %s", err)
 			}
 
-			c.path.OnClientRemove(c)
-
 			c.parent.OnClientClose(c)
 			<-c.terminate
 			return
@@ -1270,8 +1267,6 @@ func (c *Client) runRecordTCP() {
 					req.res <- fmt.Errorf("terminated")
 				}
 			}()
-
-			c.path.OnClientRemove(c)
 
 			c.conn.Close()
 			<-readDone

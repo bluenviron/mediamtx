@@ -2,10 +2,7 @@ package conf
 
 import (
 	"fmt"
-	"net/url"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -16,29 +13,9 @@ import (
 	"github.com/aler9/rtsp-simple-server/loghandler"
 )
 
-type PathConf struct {
-	Regexp               *regexp.Regexp           `yaml:"-"`
-	Source               string                   `yaml:"source"`
-	SourceProtocol       string                   `yaml:"sourceProtocol"`
-	SourceProtocolParsed gortsplib.StreamProtocol `yaml:"-"`
-	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
-	RunOnInit            string                   `yaml:"runOnInit"`
-	RunOnDemand          string                   `yaml:"runOnDemand"`
-	RunOnPublish         string                   `yaml:"runOnPublish"`
-	RunOnRead            string                   `yaml:"runOnRead"`
-	PublishUser          string                   `yaml:"publishUser"`
-	PublishPass          string                   `yaml:"publishPass"`
-	PublishIps           []string                 `yaml:"publishIps"`
-	PublishIpsParsed     []interface{}            `yaml:"-"`
-	ReadUser             string                   `yaml:"readUser"`
-	ReadPass             string                   `yaml:"readPass"`
-	ReadIps              []string                 `yaml:"readIps"`
-	ReadIpsParsed        []interface{}            `yaml:"-"`
-}
-
 type Conf struct {
 	Protocols             []string                              `yaml:"protocols"`
-	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-"`
+	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	RtspPort              int                                   `yaml:"rtspPort"`
 	RtpPort               int                                   `yaml:"rtpPort"`
 	RtcpPort              int                                   `yaml:"rtcpPort"`
@@ -46,13 +23,123 @@ type Conf struct {
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
 	AuthMethods           []string                              `yaml:"authMethods"`
-	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-"`
+	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-" json:"-"`
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
 	LogDestinations       []string                              `yaml:"logDestinations"`
-	LogDestinationsParsed map[loghandler.Destination]struct{}   `yaml:"-"`
+	LogDestinationsParsed map[loghandler.Destination]struct{}   `yaml:"-" json:"-"`
 	LogFile               string                                `yaml:"logFile"`
 	Paths                 map[string]*PathConf                  `yaml:"paths"`
+}
+
+func (conf *Conf) fillAndCheck() error {
+	if len(conf.Protocols) == 0 {
+		conf.Protocols = []string{"udp", "tcp"}
+	}
+	conf.ProtocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
+	for _, proto := range conf.Protocols {
+		switch proto {
+		case "udp":
+			conf.ProtocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
+
+		case "tcp":
+			conf.ProtocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
+
+		default:
+			return fmt.Errorf("unsupported protocol: %s", proto)
+		}
+	}
+	if len(conf.ProtocolsParsed) == 0 {
+		return fmt.Errorf("no protocols provided")
+	}
+
+	if conf.RtspPort == 0 {
+		conf.RtspPort = 8554
+	}
+	if conf.RtpPort == 0 {
+		conf.RtpPort = 8000
+	}
+	if (conf.RtpPort % 2) != 0 {
+		return fmt.Errorf("rtp port must be even")
+	}
+	if conf.RtcpPort == 0 {
+		conf.RtcpPort = 8001
+	}
+	if conf.RtcpPort != (conf.RtpPort + 1) {
+		return fmt.Errorf("rtcp and rtp ports must be consecutive")
+	}
+
+	if conf.ReadTimeout == 0 {
+		conf.ReadTimeout = 10 * time.Second
+	}
+	if conf.WriteTimeout == 0 {
+		conf.WriteTimeout = 5 * time.Second
+	}
+
+	if len(conf.AuthMethods) == 0 {
+		conf.AuthMethods = []string{"basic", "digest"}
+	}
+	for _, method := range conf.AuthMethods {
+		switch method {
+		case "basic":
+			conf.AuthMethodsParsed = append(conf.AuthMethodsParsed, headers.AuthBasic)
+
+		case "digest":
+			conf.AuthMethodsParsed = append(conf.AuthMethodsParsed, headers.AuthDigest)
+
+		default:
+			return fmt.Errorf("unsupported authentication method: %s", method)
+		}
+	}
+
+	if len(conf.LogDestinations) == 0 {
+		conf.LogDestinations = []string{"stdout"}
+	}
+	conf.LogDestinationsParsed = make(map[loghandler.Destination]struct{})
+	for _, dest := range conf.LogDestinations {
+		switch dest {
+		case "stdout":
+			conf.LogDestinationsParsed[loghandler.DestinationStdout] = struct{}{}
+
+		case "file":
+			conf.LogDestinationsParsed[loghandler.DestinationFile] = struct{}{}
+
+		case "syslog":
+			conf.LogDestinationsParsed[loghandler.DestinationSyslog] = struct{}{}
+
+		default:
+			return fmt.Errorf("unsupported log destination: %s", dest)
+		}
+	}
+	if conf.LogFile == "" {
+		conf.LogFile = "rtsp-simple-server.log"
+	}
+
+	if len(conf.Paths) == 0 {
+		conf.Paths = map[string]*PathConf{
+			"all": {},
+		}
+	}
+
+	// "all" is an alias for "~^.*$"
+	if _, ok := conf.Paths["all"]; ok {
+		conf.Paths["~^.*$"] = conf.Paths["all"]
+		delete(conf.Paths, "all")
+	}
+
+	for name, pconf := range conf.Paths {
+		if pconf == nil {
+			conf.Paths[name] = &PathConf{}
+			pconf = conf.Paths[name]
+		}
+
+		err := pconf.fillAndCheck(name)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func Load(fpath string) (*Conf, error) {
@@ -90,237 +177,9 @@ func Load(fpath string) (*Conf, error) {
 		return nil, err
 	}
 
-	if len(conf.Protocols) == 0 {
-		conf.Protocols = []string{"udp", "tcp"}
-	}
-	conf.ProtocolsParsed = make(map[gortsplib.StreamProtocol]struct{})
-	for _, proto := range conf.Protocols {
-		switch proto {
-		case "udp":
-			conf.ProtocolsParsed[gortsplib.StreamProtocolUDP] = struct{}{}
-
-		case "tcp":
-			conf.ProtocolsParsed[gortsplib.StreamProtocolTCP] = struct{}{}
-
-		default:
-			return nil, fmt.Errorf("unsupported protocol: %s", proto)
-		}
-	}
-	if len(conf.ProtocolsParsed) == 0 {
-		return nil, fmt.Errorf("no protocols provided")
-	}
-
-	if conf.RtspPort == 0 {
-		conf.RtspPort = 8554
-	}
-	if conf.RtpPort == 0 {
-		conf.RtpPort = 8000
-	}
-	if (conf.RtpPort % 2) != 0 {
-		return nil, fmt.Errorf("rtp port must be even")
-	}
-	if conf.RtcpPort == 0 {
-		conf.RtcpPort = 8001
-	}
-	if conf.RtcpPort != (conf.RtpPort + 1) {
-		return nil, fmt.Errorf("rtcp and rtp ports must be consecutive")
-	}
-
-	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 10 * time.Second
-	}
-	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 5 * time.Second
-	}
-
-	if len(conf.AuthMethods) == 0 {
-		conf.AuthMethods = []string{"basic", "digest"}
-	}
-	for _, method := range conf.AuthMethods {
-		switch method {
-		case "basic":
-			conf.AuthMethodsParsed = append(conf.AuthMethodsParsed, headers.AuthBasic)
-
-		case "digest":
-			conf.AuthMethodsParsed = append(conf.AuthMethodsParsed, headers.AuthDigest)
-
-		default:
-			return nil, fmt.Errorf("unsupported authentication method: %s", method)
-		}
-	}
-
-	if len(conf.LogDestinations) == 0 {
-		conf.LogDestinations = []string{"stdout"}
-	}
-	conf.LogDestinationsParsed = make(map[loghandler.Destination]struct{})
-	for _, dest := range conf.LogDestinations {
-		switch dest {
-		case "stdout":
-			conf.LogDestinationsParsed[loghandler.DestinationStdout] = struct{}{}
-
-		case "file":
-			conf.LogDestinationsParsed[loghandler.DestinationFile] = struct{}{}
-
-		case "syslog":
-			conf.LogDestinationsParsed[loghandler.DestinationSyslog] = struct{}{}
-
-		default:
-			return nil, fmt.Errorf("unsupported log destination: %s", dest)
-		}
-	}
-	if conf.LogFile == "" {
-		conf.LogFile = "rtsp-simple-server.log"
-	}
-
-	if len(conf.Paths) == 0 {
-		conf.Paths = map[string]*PathConf{
-			"all": {},
-		}
-	}
-
-	// "all" is an alias for "~^.*$"
-	if _, ok := conf.Paths["all"]; ok {
-		conf.Paths["~^.*$"] = conf.Paths["all"]
-		delete(conf.Paths, "all")
-	}
-
-	for name, pconf := range conf.Paths {
-		if pconf == nil {
-			conf.Paths[name] = &PathConf{}
-			pconf = conf.Paths[name]
-		}
-
-		if name == "" {
-			return nil, fmt.Errorf("path name can not be empty")
-		}
-
-		// normal path
-		if name[0] != '~' {
-			err := CheckPathName(name)
-			if err != nil {
-				return nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
-			}
-
-			// regular expression path
-		} else {
-			pathRegexp, err := regexp.Compile(name[1:])
-			if err != nil {
-				return nil, fmt.Errorf("invalid regular expression: %s", name[1:])
-			}
-			pconf.Regexp = pathRegexp
-		}
-
-		if pconf.Source == "" {
-			pconf.Source = "record"
-		}
-
-		if strings.HasPrefix(pconf.Source, "rtsp://") {
-			if pconf.Regexp != nil {
-				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
-			}
-
-			u, err := url.Parse(pconf.Source)
-			if err != nil {
-				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
-			}
-			if u.User != nil {
-				pass, _ := u.User.Password()
-				user := u.User.Username()
-				if user != "" && pass == "" ||
-					user == "" && pass != "" {
-					fmt.Errorf("username and password must be both provided")
-				}
-			}
-
-			if pconf.SourceProtocol == "" {
-				pconf.SourceProtocol = "udp"
-			}
-			switch pconf.SourceProtocol {
-			case "udp":
-				pconf.SourceProtocolParsed = gortsplib.StreamProtocolUDP
-
-			case "tcp":
-				pconf.SourceProtocolParsed = gortsplib.StreamProtocolTCP
-
-			default:
-				return nil, fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
-			}
-
-		} else if strings.HasPrefix(pconf.Source, "rtmp://") {
-			if pconf.Regexp != nil {
-				return nil, fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
-			}
-
-			u, err := url.Parse(pconf.Source)
-			if err != nil {
-				return nil, fmt.Errorf("'%s' is not a valid url", pconf.Source)
-			}
-			if u.User != nil {
-				pass, _ := u.User.Password()
-				user := u.User.Username()
-				if user != "" && pass == "" ||
-					user == "" && pass != "" {
-					fmt.Errorf("username and password must be both provided")
-				}
-			}
-
-		} else if pconf.Source == "record" {
-
-		} else {
-			return nil, fmt.Errorf("unsupported source: '%s'", pconf.Source)
-		}
-
-		if pconf.PublishUser != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishUser) {
-				return nil, fmt.Errorf("publish username must be alphanumeric")
-			}
-		}
-		if pconf.PublishPass != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishPass) {
-				return nil, fmt.Errorf("publish password must be alphanumeric")
-			}
-		}
-
-		if len(pconf.PublishIps) > 0 {
-			pconf.PublishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// the configuration file doesn't use nil dicts - avoid test fails by using nil
-			pconf.PublishIps = nil
-		}
-
-		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
-			return nil, fmt.Errorf("read username and password must be both filled")
-		}
-		if pconf.ReadUser != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadUser) {
-				return nil, fmt.Errorf("read username must be alphanumeric")
-			}
-		}
-		if pconf.ReadPass != "" {
-			if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadPass) {
-				return nil, fmt.Errorf("read password must be alphanumeric")
-			}
-		}
-		if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
-			return nil, fmt.Errorf("read username and password must be both filled")
-		}
-
-		if len(pconf.ReadIps) > 0 {
-			pconf.ReadIpsParsed, err = parseIpCidrList(pconf.ReadIps)
-			if err != nil {
-				return nil, err
-			}
-		} else {
-			// the configuration file doesn't use nil dicts - avoid test fails by using nil
-			pconf.ReadIps = nil
-		}
-
-		if pconf.Regexp != nil && pconf.RunOnInit != "" {
-			return nil, fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
-		}
+	err = conf.fillAndCheck()
+	if err != nil {
+		return nil, err
 	}
 
 	return conf, nil

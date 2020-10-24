@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"testing"
@@ -659,4 +660,70 @@ func TestRunOnDemand(t *testing.T) {
 
 	code := cnt1.wait()
 	require.Equal(t, 0, code)
+}
+
+func TestHotReloading(t *testing.T) {
+	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
+
+	err := ioutil.WriteFile(confPath, []byte("paths:\n"+
+		"  test1:\n"+
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n"),
+		0644)
+	require.NoError(t, err)
+
+	p, err := newProgram([]string{confPath})
+	require.NoError(t, err)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	func() {
+		cnt1, err := newContainer("ffmpeg", "dest", []string{
+			"-i", "rtsp://" + ownDockerIp + ":8554/test1",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer cnt1.close()
+
+		code := cnt1.wait()
+		require.Equal(t, 0, code)
+	}()
+
+	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
+		"  test2:\n"+
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH\n"),
+		0644)
+	require.NoError(t, err)
+
+	time.Sleep(1 * time.Second)
+
+	func() {
+		cnt1, err := newContainer("ffmpeg", "dest", []string{
+			"-i", "rtsp://" + ownDockerIp + ":8554/test1",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer cnt1.close()
+
+		code := cnt1.wait()
+		require.Equal(t, 1, code)
+	}()
+
+	func() {
+		cnt1, err := newContainer("ffmpeg", "dest", []string{
+			"-i", "rtsp://" + ownDockerIp + ":8554/test2",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer cnt1.close()
+
+		code := cnt1.wait()
+		require.Equal(t, 0, code)
+	}()
 }
