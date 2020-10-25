@@ -31,9 +31,17 @@ type Parent interface {
 	OnPathClientClose(*client.Client)
 }
 
-// a source can be a client, a sourcertsp.Source or a sourcertmp.Source
+// a source is either a client.Client, a sourcertsp.Source or a sourcertmp.Source
 type source interface {
 	IsSource()
+}
+
+// a sourceExternal is either a sourcertsp.Source or a sourcertmp.Source
+type sourceExternal interface {
+	IsSource()
+	Close()
+	IsRunning() bool
+	SetRunning(bool)
 }
 
 type ClientDescribeRes struct {
@@ -183,46 +191,26 @@ func (pa *Path) run() {
 	defer pa.wg.Done()
 
 	if strings.HasPrefix(pa.conf.Source, "rtsp://") {
-		state := sourcertsp.StateStopped
-		if !pa.conf.SourceOnDemand {
-			state = sourcertsp.StateRunning
+		state := !pa.conf.SourceOnDemand
+		if state {
+			pa.Log("starting source")
 		}
 
-		s := sourcertsp.New(
-			pa.conf.Source,
-			pa.conf.SourceProtocolParsed,
-			pa.readTimeout,
-			pa.writeTimeout,
-			state,
-			pa)
-		pa.source = s
-
-		atomic.AddInt64(pa.stats.CountSourcesRtsp, +1)
-		if !pa.conf.SourceOnDemand {
-			atomic.AddInt64(pa.stats.CountSourcesRtspRunning, +1)
-		}
+		pa.source = sourcertsp.New(pa.conf.Source, pa.conf.SourceProtocolParsed,
+			pa.readTimeout, pa.writeTimeout, state, pa.stats, pa)
 
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
-		state := sourcertmp.StateStopped
-		if !pa.conf.SourceOnDemand {
-			state = sourcertmp.StateRunning
+		state := !pa.conf.SourceOnDemand
+		if state {
+			pa.Log("starting source")
 		}
 
-		s := sourcertmp.New(
-			pa.conf.Source,
-			state,
-			pa)
-		pa.source = s
-
-		atomic.AddInt64(pa.stats.CountSourcesRtmp, +1)
-		if !pa.conf.SourceOnDemand {
-			atomic.AddInt64(pa.stats.CountSourcesRtmpRunning, +1)
-		}
+		pa.source = sourcertmp.New(pa.conf.Source, state,
+			pa.stats, pa)
 	}
 
 	if pa.conf.RunOnInit != "" {
 		pa.Log("starting on init command")
-
 		var err error
 		pa.onInitCmd, err = externalcmd.New(pa.conf.RunOnInit, pa.name)
 		if err != nil {
@@ -312,10 +300,10 @@ outer:
 		pa.onInitCmd.Close()
 	}
 
-	if source, ok := pa.source.(*sourcertsp.Source); ok {
-		source.Close()
-
-	} else if source, ok := pa.source.(*sourcertmp.Source); ok {
+	if source, ok := pa.source.(sourceExternal); ok {
+		if source.IsRunning() {
+			pa.Log("stopping on demand source (closing)")
+		}
 		source.Close()
 	}
 
@@ -451,26 +439,14 @@ func (pa *Path) onCheck() bool {
 		}
 	}
 
-	// stop on demand rtsp source if needed
-	if source, ok := pa.source.(*sourcertsp.Source); ok {
+	// stop on demand source if needed
+	if source, ok := pa.source.(sourceExternal); ok {
 		if pa.conf.SourceOnDemand &&
-			source.State() == sourcertsp.StateRunning &&
+			source.IsRunning() &&
 			!pa.hasClients() &&
 			time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribePeriod {
-			pa.Log("stopping on demand rtsp source (not requested anymore)")
-			atomic.AddInt64(pa.stats.CountSourcesRtspRunning, -1)
-			source.SetState(sourcertsp.StateStopped)
-		}
-
-		// stop on demand rtmp source if needed
-	} else if source, ok := pa.source.(*sourcertmp.Source); ok {
-		if pa.conf.SourceOnDemand &&
-			source.State() == sourcertmp.StateRunning &&
-			!pa.hasClients() &&
-			time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribePeriod {
-			pa.Log("stopping on demand rtmp source (not requested anymore)")
-			atomic.AddInt64(pa.stats.CountSourcesRtmpRunning, -1)
-			source.SetState(sourcertmp.StateStopped)
+			pa.Log("stopping on demand source (not requested anymore)")
+			source.SetRunning(false)
 		}
 	}
 
@@ -528,7 +504,6 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 			if pa.onDemandCmd == nil { // start if needed
 				pa.Log("starting on demand command")
 				pa.lastDescribeActivation = time.Now()
-
 				var err error
 				pa.onDemandCmd, err = externalcmd.New(pa.conf.RunOnDemand, pa.name)
 				if err != nil {
@@ -549,22 +524,12 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 
 		// publisher was found but is not ready: put the client on hold
 	} else if !pa.sourceReady {
-		// start rtsp source if needed
-		if source, ok := pa.source.(*sourcertsp.Source); ok {
-			if source.State() == sourcertsp.StateStopped {
-				pa.Log("starting on demand rtsp source")
+		// start source if needed
+		if source, ok := pa.source.(sourceExternal); ok {
+			if !source.IsRunning() {
+				pa.Log("starting on demand source")
 				pa.lastDescribeActivation = time.Now()
-				atomic.AddInt64(pa.stats.CountSourcesRtspRunning, +1)
-				source.SetState(sourcertsp.StateRunning)
-			}
-
-			// start rtmp source if needed
-		} else if source, ok := pa.source.(*sourcertmp.Source); ok {
-			if source.State() == sourcertmp.StateStopped {
-				pa.Log("starting on demand rtmp source")
-				pa.lastDescribeActivation = time.Now()
-				atomic.AddInt64(pa.stats.CountSourcesRtmpRunning, +1)
-				source.SetState(sourcertmp.StateRunning)
+				source.SetRunning(true)
 			}
 		}
 

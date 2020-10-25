@@ -3,9 +3,12 @@ package sourcertsp
 import (
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
+
+	"github.com/aler9/rtsp-simple-server/stats"
 )
 
 const (
@@ -19,27 +22,21 @@ type Parent interface {
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
-type State int
-
-const (
-	StateStopped State = iota
-	StateRunning
-)
-
 type Source struct {
 	ur           string
 	proto        gortsplib.StreamProtocol
 	readTimeout  time.Duration
 	writeTimeout time.Duration
-	state        State
+	state        bool
+	stats        *stats.Stats
 	parent       Parent
 
-	innerRunning bool
+	innerState bool
 
 	// in
 	innerTerminate chan struct{}
 	innerDone      chan struct{}
-	stateChange    chan State
+	stateChange    chan bool
 	terminate      chan struct{}
 
 	// out
@@ -50,7 +47,8 @@ func New(ur string,
 	proto gortsplib.StreamProtocol,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
-	state State,
+	state bool,
+	stats *stats.Stats,
 	parent Parent) *Source {
 	s := &Source{
 		ur:           ur,
@@ -58,13 +56,17 @@ func New(ur string,
 		readTimeout:  readTimeout,
 		writeTimeout: writeTimeout,
 		state:        state,
+		stats:        stats,
 		parent:       parent,
-		stateChange:  make(chan State),
+		stateChange:  make(chan bool),
 		terminate:    make(chan struct{}),
 		done:         make(chan struct{}),
 	}
 
-	go s.run(s.state)
+	atomic.AddInt64(s.stats.CountSourcesRtsp, +1)
+
+	go s.run()
+	s.SetRunning(s.state)
 	return s
 }
 
@@ -75,56 +77,51 @@ func (s *Source) Close() {
 
 func (s *Source) IsSource() {}
 
-func (s *Source) State() State {
+func (s *Source) IsRunning() bool {
 	return s.state
 }
 
-func (s *Source) SetState(state State) {
+func (s *Source) SetRunning(state bool) {
 	s.state = state
 	s.stateChange <- s.state
 }
 
-func (s *Source) run(initialState State) {
+func (s *Source) run() {
 	defer close(s.done)
-
-	s.applyState(initialState)
 
 outer:
 	for {
 		select {
 		case state := <-s.stateChange:
-			s.applyState(state)
+			if state {
+				if !s.innerState {
+					atomic.AddInt64(s.stats.CountSourcesRtspRunning, +1)
+					s.innerState = true
+					s.innerTerminate = make(chan struct{})
+					s.innerDone = make(chan struct{})
+					go s.runInner()
+				}
+			} else {
+				if s.innerState {
+					atomic.AddInt64(s.stats.CountSourcesRtspRunning, -1)
+					close(s.innerTerminate)
+					<-s.innerDone
+					s.innerState = false
+				}
+			}
 
 		case <-s.terminate:
 			break outer
 		}
 	}
 
-	if s.innerRunning {
+	if s.innerState {
+		atomic.AddInt64(s.stats.CountSourcesRtspRunning, -1)
 		close(s.innerTerminate)
 		<-s.innerDone
 	}
 
 	close(s.stateChange)
-}
-
-func (s *Source) applyState(state State) {
-	if state == StateRunning {
-		if !s.innerRunning {
-			s.parent.Log("rtsp source started")
-			s.innerRunning = true
-			s.innerTerminate = make(chan struct{})
-			s.innerDone = make(chan struct{})
-			go s.runInner()
-		}
-	} else {
-		if s.innerRunning {
-			close(s.innerTerminate)
-			<-s.innerDone
-			s.innerRunning = false
-			s.parent.Log("rtsp source stopped")
-		}
-	}
 }
 
 func (s *Source) runInner() {
@@ -281,7 +278,6 @@ outer:
 	wg.Wait()
 
 	s.parent.OnSourceNotReady()
-	s.parent.Log("rtsp source not ready")
 
 	return ret
 }
@@ -339,7 +335,6 @@ outer:
 	}
 
 	s.parent.OnSourceNotReady()
-	s.parent.Log("rtsp source not ready")
 
 	return ret
 }
