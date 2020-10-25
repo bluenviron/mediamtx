@@ -1,7 +1,7 @@
 
 # rtsp-simple-server
 
-[![Build Status](https://travis-ci.org/aler9/rtsp-simple-server.svg?branch=master)](https://travis-ci.org/aler9/rtsp-simple-server)
+[![Build Status](https://travis-ci.com/aler9/rtsp-simple-server.svg?branch=master)](https://travis-ci.com/aler9/rtsp-simple-server)
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/rtsp-simple-server)](https://goreportcard.com/report/github.com/aler9/rtsp-simple-server)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
