@@ -519,7 +519,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			if th.Protocol == gortsplib.StreamProtocolUDP {
 				if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
-					return errRunTerminate
+					return nil
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUDP {
@@ -582,7 +582,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			} else {
 				if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
-					return errRunTerminate
+					return nil
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTCP {
@@ -651,7 +651,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			if th.Protocol == gortsplib.StreamProtocolUDP {
 				if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("UDP streaming is disabled"))
-					return errRunTerminate
+					return nil
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolUDP {
@@ -699,7 +699,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			} else {
 				if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
 					c.writeResError(cseq, base.StatusUnsupportedTransport, fmt.Errorf("TCP streaming is disabled"))
-					return errRunTerminate
+					return nil
 				}
 
 				if len(c.streamTracks) > 0 && c.streamProtocol != gortsplib.StreamProtocolTCP {
