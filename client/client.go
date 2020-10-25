@@ -332,7 +332,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 	pathName = pathName[1:] // strip leading slash
 
 	// in RTSP, the control path is inserted after the query.
-	// therefore, path and query can't be threated separately
+	// therefore, path and query can't be treated separately
 	if req.Url.RawQuery != "" {
 		pathName += "?" + req.Url.RawQuery
 	}
