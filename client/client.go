@@ -210,6 +210,11 @@ func (c *Client) run() {
 		}
 	}
 
+	if c.path != nil {
+		c.path.OnClientRemove(c)
+		c.path = nil
+	}
+
 	if onConnectCmd != nil {
 		onConnectCmd.Close()
 	}
@@ -901,9 +906,6 @@ func (c *Client) runWaitingDescribe() bool {
 			}
 		}()
 
-		c.path.OnClientRemove(c)
-		c.path = nil
-
 		c.conn.Close()
 		return false
 	}
@@ -938,9 +940,6 @@ func (c *Client) runPlay() bool {
 	if onReadCmd != nil {
 		onReadCmd.Close()
 	}
-
-	c.path.OnClientRemove(c)
-	c.path = nil
 
 	return false
 }
@@ -1125,9 +1124,6 @@ func (c *Client) runRecord() bool {
 			c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
 		}
 	}
-
-	c.path.OnClientRemove(c)
-	c.path = nil
 
 	return false
 }
