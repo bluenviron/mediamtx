@@ -16,6 +16,7 @@ type PathConf struct {
 	SourceProtocol       string                   `yaml:"sourceProtocol"`
 	SourceProtocolParsed gortsplib.StreamProtocol `yaml:"-" json:"-"`
 	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
+	SourceRedirect       string                   `yaml:"sourceRedirect"`
 	RunOnInit            string                   `yaml:"runOnInit"`
 	RunOnDemand          string                   `yaml:"runOnDemand"`
 	RunOnPublish         string                   `yaml:"runOnPublish"`
@@ -64,6 +65,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid url", pconf.Source)
 		}
+
 		if u.User != nil {
 			pass, _ := u.User.Password()
 			user := u.User.Username()
@@ -76,6 +78,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		if pconf.SourceProtocol == "" {
 			pconf.SourceProtocol = "udp"
 		}
+
 		switch pconf.SourceProtocol {
 		case "udp":
 			pconf.SourceProtocolParsed = gortsplib.StreamProtocolUDP
@@ -96,6 +99,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid url", pconf.Source)
 		}
+
 		if u.User != nil {
 			pass, _ := u.User.Password()
 			user := u.User.Username()
@@ -107,8 +111,17 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 	} else if pconf.Source == "record" {
 
+	} else if pconf.Source == "redirect" {
+
 	} else {
 		return fmt.Errorf("unsupported source: '%s'", pconf.Source)
+	}
+
+	if pconf.SourceRedirect != "" {
+		_, err := url.Parse(pconf.SourceRedirect)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid url", pconf.SourceRedirect)
+		}
 	}
 
 	if pconf.PublishUser != "" {
@@ -116,6 +129,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("publish username must be alphanumeric")
 		}
 	}
+
 	if pconf.PublishPass != "" {
 		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishPass) {
 			return fmt.Errorf("publish password must be alphanumeric")

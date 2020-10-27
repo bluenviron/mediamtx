@@ -1,39 +1,41 @@
 
-# supported stream protocols (the handshake is always performed with TCP)
+# supported stream protocols (the handshake is always performed with TCP).
 protocols: [udp, tcp]
-# port of the TCP RTSP listener
+# port of the TCP RTSP listener.
 rtspPort: 8554
-# port of the UDP RTP listener (used only if udp is in protocols)
+# port of the UDP RTP listener (used only if udp is in protocols).
 rtpPort: 8000
-# port of the UDP RTCP listener (used only if udp is in protocols)
+# port of the UDP RTCP listener (used only if udp is in protocols).
 rtcpPort: 8001
 
-# timeout of read operations
+# timeout of read operations.
 readTimeout: 10s
-# timeout of write operations
+# timeout of write operations.
 writeTimeout: 5s
 
-# supported authentication methods (both are insecure, use RTSP inside a VPN to enforce security)
+# supported authentication methods (both are insecure, use RTSP inside a VPN
+# to enforce security).
 authMethods: [basic, digest]
 
 # command to run when a client connects.
 # this is terminated with SIGINT when a client disconnects.
 runOnConnect:
 
-# enable Prometheus-compatible metrics on port 9998
+# enable Prometheus-compatible metrics on port 9998.
 metrics: no
-# enable pprof on port 9999 to monitor performances
+# enable pprof on port 9999 to monitor performances.
 pprof: no
-# destinations of log messages; available options are 'stdout', 'file' and 'syslog'
+
+# destinations of log messages; available options are "stdout", "file" and "syslog".
 logDestinations: [stdout]
-# if 'file' is in logDestinations, this is the file that will receive the logs
+# if "file" is in logDestinations, this is the file that will receive the logs.
 logFile: rtsp-simple-server.log
 
 # these settings are path-dependent.
-# It's possible to use regular expressions by using a tilde as prefix.
-# for instance, '~^(test1|test2)$' will match both 'test1' and 'test2'.
-# for instance, '~^prefix' will match all paths that start with 'prefix'.
-# The settings under the path 'all' are applied to all paths that do not match
+# it's possible to use regular expressions by using a tilde as prefix.
+# for example, "~^(test1|test2)$" will match both "test1" and "test2".
+# for example, "~^prefix" will match all paths that start with "prefix".
+# the settings under the path "all" are applied to all paths that do not match
 # another entry.
 paths:
   all:
@@ -41,45 +43,52 @@ paths:
     # * record -> the stream is provided by a RTSP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
     # * rtmp://existing-url -> the stream is pulled from a RTMP server
+    # * redirect -> the stream is provided by another path or server
     source: record
-    # if the source is an RTSP url, this is the protocol that will be used to pull the stream
+
+    # if the source is an RTSP url, this is the protocol that will be used to
+    # pull the stream.
     sourceProtocol: udp
-    # if the source is an RTSP or RTMP url, it will be pulled only when at least one reader
-    # is connected, saving bandwidth
+    # if the source is an RTSP or RTMP url, it will be pulled only when at least
+    # one reader is connected, saving bandwidth.
     sourceOnDemand: no
+
+    # if the source is "redirect", this is the RTSP url which clients will be
+    # redirected to.
+    sourceRedirect:
 
     # command to run when this path is loaded by the program.
     # this can be used, for example, to publish a stream and keep it always opened.
-    # This is terminated with SIGINT when the program closes.
-    # The path name is available in the RTSP_SERVER_PATH variable
+    # this is terminated with SIGINT when the program closes.
+    # the path name is available in the RTSP_SERVER_PATH variable.
     runOnInit:
 
     # command to run when this path is requested.
-    # This can be used, for example, to publish a stream on demand.
-    # This is terminated with SIGINT when the path is not requested anymore.
-    # The path name is available in the RTSP_SERVER_PATH variable
+    # this can be used, for example, to publish a stream on demand.
+    # this is terminated with SIGINT when the path is not requested anymore.
+    # the path name is available in the RTSP_SERVER_PATH variable.
     runOnDemand:
 
     # command to run when a client starts publishing.
-    # This is terminated with SIGINT when a client stops publishing.
-    # The path name is available in the RTSP_SERVER_PATH variable
+    # this is terminated with SIGINT when a client stops publishing.
+    # the path name is available in the RTSP_SERVER_PATH variable.
     runOnPublish:
 
     # command to run when a clients starts reading.
-    # This is terminated with SIGINT when a client stops reading.
-    # The path name is available in the RTSP_SERVER_PATH variable
+    # this is terminated with SIGINT when a client stops reading.
+    # the path name is available in the RTSP_SERVER_PATH variable.
     runOnRead:
 
-    # username required to publish
+    # username required to publish.
     publishUser:
-    # password required to publish
+    # password required to publish.
     publishPass:
-    # IPs or networks (x.x.x.x/24) allowed to publish
+    # ips or networks (x.x.x.x/24) allowed to publish.
     publishIps: []
 
-    # username required to read
+    # username required to read.
     readUser:
-    # password required to read
+    # password required to read.
     readPass:
-    # IPs or networks (x.x.x.x/24) allowed to read
+    # ips or networks (x.x.x.x/24) allowed to read.
     readIps: []

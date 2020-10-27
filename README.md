@@ -5,14 +5,15 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/aler9/rtsp-simple-server)](https://goreportcard.com/report/github.com/aler9/rtsp-simple-server)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server and RTSP proxy, a software that allows multiple users to publish and read live video and audio streams over time. RTSP is a standard protocol that describes how to perform these operations with the help of a server, that is contacted by both readers and publishers in order to negotiate a streaming method, then relays the publisher streams to the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server and RTSP proxy, a software that allows multiple users to publish and read live video and audio streams over time. RTSP is a standard protocol that describes how to perform these operations with the help of a server, that is contacted by both readers and publishers and relays the publisher streams to the readers.
 
 Features:
 * Read and publish live streams with UDP and TCP
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MP3, AAC, Opus, PCM)
-* Publish multiple streams at once, each in a separate path, that can be read by multiple users
+* Serve multiple streams at once, each in a separate path, that can be read by multiple users
 * Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
-* Provide separate authentication for reading and publishing
+* Redirect to other RTSP servers (load balancing)
+* Authenticate readers and publishers separately
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 

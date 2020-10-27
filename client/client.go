@@ -39,8 +39,9 @@ type streamTrack struct {
 }
 
 type describeData struct {
-	sdp []byte
-	err error
+	sdp      []byte
+	redirect string
+	err      error
 }
 
 type state int
@@ -889,6 +890,17 @@ func (c *Client) runWaitingDescribe() bool {
 			return true
 		}
 
+		if res.redirect != "" {
+			c.conn.WriteResponse(&base.Response{
+				StatusCode: base.StatusMovedPermanently,
+				Header: base.Header{
+					"CSeq":     c.describeCSeq,
+					"Location": base.HeaderValue{res.redirect},
+				},
+			})
+			return true
+		}
+
 		c.conn.WriteResponse(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
@@ -1309,6 +1321,6 @@ func (c *Client) OnReaderFrame(trackId int, streamType base.StreamType, buf []by
 	}
 }
 
-func (c *Client) OnPathDescribeData(sdp []byte, err error) {
-	c.describeData <- describeData{sdp, err}
+func (c *Client) OnPathDescribeData(sdp []byte, redirect string, err error) {
+	c.describeData <- describeData{sdp, redirect, err}
 }

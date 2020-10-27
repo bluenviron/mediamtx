@@ -31,18 +31,28 @@ type Parent interface {
 	OnPathClientClose(*client.Client)
 }
 
-// a source is either a client.Client, a sourcertsp.Source or a sourcertmp.Source
+// a source can be
+// * client.Client
+// * sourcertsp.Source
+// * sourcertmp.Source
+// * sourceRedirect
 type source interface {
 	IsSource()
 }
 
-// a sourceExternal is either a sourcertsp.Source or a sourcertmp.Source
+// a sourceExternal can be
+// * sourcertsp.Source
+// * sourcertmp.Source
 type sourceExternal interface {
 	IsSource()
 	Close()
 	IsRunning() bool
 	SetRunning(bool)
 }
+
+type sourceRedirect struct{}
+
+func (*sourceRedirect) IsSource() {}
 
 type ClientDescribeRes struct {
 	Path client.Path
@@ -205,8 +215,10 @@ func (pa *Path) run() {
 			pa.Log("starting source")
 		}
 
-		pa.source = sourcertmp.New(pa.conf.Source, state,
-			pa.stats, pa)
+		pa.source = sourcertmp.New(pa.conf.Source, state, pa.stats, pa)
+
+	} else if pa.conf.Source == "redirect" {
+		pa.source = &sourceRedirect{}
 	}
 
 	if pa.conf.RunOnInit != "" {
@@ -434,7 +446,7 @@ func (pa *Path) onCheck() bool {
 		for c, state := range pa.clients {
 			if state != clientStatePreRemove && state == clientStateWaitingDescribe {
 				pa.clients[c] = clientStatePreRemove
-				c.OnPathDescribeData(nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name))
+				c.OnPathDescribeData(nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name))
 			}
 		}
 	}
@@ -477,7 +489,7 @@ func (pa *Path) onSourceSetReady() {
 	for c, state := range pa.clients {
 		if state == clientStateWaitingDescribe {
 			pa.clients[c] = clientStatePreRemove
-			c.OnPathDescribeData(pa.sourceSdp, nil)
+			c.OnPathDescribeData(pa.sourceSdp, "", nil)
 		}
 	}
 }
@@ -497,7 +509,7 @@ func (pa *Path) onSourceSetNotReady() {
 func (pa *Path) onClientDescribe(c *client.Client) {
 	pa.lastDescribeReq = time.Now()
 
-	// publisher not found
+	// source not found
 	if pa.source == nil {
 		// on demand command is available: put the client on hold
 		if pa.conf.RunOnDemand != "" {
@@ -519,10 +531,17 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 			pa.clients[c] = clientStatePreRemove
 			pa.clientsWg.Add(1)
 
-			c.OnPathDescribeData(nil, fmt.Errorf("no one is publishing to path '%s'", pa.name))
+			c.OnPathDescribeData(nil, "", fmt.Errorf("no one is publishing to path '%s'", pa.name))
 		}
 
-		// publisher was found but is not ready: put the client on hold
+		// source found and is redirect
+	} else if _, ok := pa.source.(*sourceRedirect); ok {
+		pa.clients[c] = clientStatePreRemove
+		pa.clientsWg.Add(1)
+
+		c.OnPathDescribeData(nil, pa.conf.SourceRedirect, nil)
+
+		// source was found but is not ready: put the client on hold
 	} else if !pa.sourceReady {
 		// start source if needed
 		if source, ok := pa.source.(sourceExternal); ok {
@@ -536,12 +555,12 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 		pa.clients[c] = clientStateWaitingDescribe
 		pa.clientsWg.Add(1)
 
-		// publisher was found and is ready
+		// source was found and is ready
 	} else {
 		pa.clients[c] = clientStatePreRemove
 		pa.clientsWg.Add(1)
 
-		c.OnPathDescribeData(pa.sourceSdp, nil)
+		c.OnPathDescribeData(pa.sourceSdp, "", nil)
 	}
 }
 
