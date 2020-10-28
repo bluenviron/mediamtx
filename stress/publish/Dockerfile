@@ -10,7 +10,7 @@ WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY *.go ./
+COPY . ./
 RUN go build -o /rtsp-simple-server .
 
 COPY stress/publish/start.sh /
