@@ -61,7 +61,7 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. This option can be avoided by disabling UDP and exposing the RTSP port:
+The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. This issue can be avoided by disabling UDP and exposing the RTSP port:
 ```
 docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
 ```
@@ -214,7 +214,7 @@ There are multiple ways to monitor the server usage over time:
   ```
   means that there are 2 clients, 1 publisher and 1 reader.
 
-* A metrics exporter, compatible with Prometheus, can be enabled with the option `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+* A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
   ```
   wget -qO- localhost:9998
   ```
@@ -238,11 +238,11 @@ There are multiple ways to monitor the server usage over time:
   * `rtsp_sources{type="rtmp",state="idle"}` is the count of rtmp sources that are not running
   * `rtsp_sources{type="rtmp",state="running"}` is the count of rtmp sources that are running
 
-* A performance monitor, compatible with pprof, can be enabled with the option `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
+* A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
   ```
-  docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
-  docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/heap
-  docker run --rm -it --network=host golang:1.14 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
+  docker run --rm -it --network=host golang:1.15 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
+  docker run --rm -it --network=host golang:1.15 go tool pprof -text http://localhost:9999/debug/pprof/heap
+  docker run --rm -it --network=host golang:1.15 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
   ```
 
 ### Full command-line usage
@@ -264,7 +264,7 @@ Args:
 
 ### Compile and run from source
 
-Install Go &ge; 1.14, download the repository, open a terminal in it and run:
+Install Go &ge; 1.15, download the repository, open a terminal in it and run:
 ```
 go run .
 ```
