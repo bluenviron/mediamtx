@@ -10,11 +10,12 @@ _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server a
 Features:
 * Read and publish live streams with UDP and TCP
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MP3, AAC, Opus, PCM)
-* Serve multiple streams at once, each in a separate path, that can be read by multiple users
+* Serve multiple streams at once in separate paths
 * Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
-* Redirect to other RTSP servers (load balancing)
 * Authenticate readers and publishers separately
+* Redirect to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
+* Reload the configuration without disconnecting existing clients (hot reloading)
 * Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
 
 ## Installation and basic usage
@@ -82,7 +83,7 @@ Parameters in maps can be overridden by using underscores, in the following way:
 RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
 ```
 
-The configuration can be changed dinamically when the server is running (hot reloading) by editing the configuration file: changes are detected and written over the previous configuration, clients are disconnected only if necessary.
+The configuration can be changed dinamically when the server is running (hot reloading) by editing the configuration file: changes are detected and applied without disconnecting existing clients, if possible.
 
 
 ### RTSP proxy mode
