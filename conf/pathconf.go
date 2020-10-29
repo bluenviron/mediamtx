@@ -63,7 +63,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		u, err := url.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -97,7 +97,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		u, err := url.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid rtmp url", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -112,16 +112,21 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	} else if pconf.Source == "record" {
 
 	} else if pconf.Source == "redirect" {
+		if pconf.SourceRedirect == "" {
+			return fmt.Errorf("source redirect must be filled")
+		}
+
+		_, err := url.Parse(pconf.SourceRedirect)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.SourceRedirect)
+		}
+
+		if u.Scheme != "rtsp" {
+			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.SourceRedirect)
+		}
 
 	} else {
 		return fmt.Errorf("unsupported source: '%s'", pconf.Source)
-	}
-
-	if pconf.SourceRedirect != "" {
-		_, err := url.Parse(pconf.SourceRedirect)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid url", pconf.SourceRedirect)
-		}
 	}
 
 	if pconf.PublishUser != "" {
