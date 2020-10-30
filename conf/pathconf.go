@@ -116,7 +116,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("source redirect must be filled")
 		}
 
-		_, err := url.Parse(pconf.SourceRedirect)
+		u, err := url.Parse(pconf.SourceRedirect)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.SourceRedirect)
 		}
