@@ -128,7 +128,7 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 func Load(envKey string, v interface{}) error {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {
-		tmp := strings.Split(kv, "=")
+		tmp := strings.SplitN(kv, "=", 2)
 		env[tmp[0]] = tmp[1]
 	}
 
