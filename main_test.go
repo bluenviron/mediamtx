@@ -121,7 +121,7 @@ func testProgram(conf string) (*program, error) {
 
 func TestEnvironment(t *testing.T) {
 	// string
-	os.Setenv("RTSP_RUNONCONNECT", "testcmd")
+	os.Setenv("RTSP_RUNONCONNECT", "test=cmd")
 	defer os.Unsetenv("RTSP_RUNONCONNECT")
 
 	// int
@@ -162,7 +162,7 @@ func TestEnvironment(t *testing.T) {
 	require.NoError(t, err)
 	defer p.close()
 
-	require.Equal(t, "testcmd", p.conf.RunOnConnect)
+	require.Equal(t, "test=cmd", p.conf.RunOnConnect)
 
 	require.Equal(t, 8555, p.conf.RtspPort)
 
