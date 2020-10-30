@@ -74,26 +74,30 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 				continue
 			}
 
-			tmp := strings.Split(k[len(envKey+"_"):], "_")
-			mapKey := tmp[0]
+			mapKey := strings.Split(k[len(envKey+"_"):], "_")[0]
 			if len(mapKey) == 0 {
 				continue
 			}
-			mapKey = strings.ToLower(mapKey)
+
+			// allow only keys in uppercase
+			if mapKey != strings.ToUpper(mapKey) {
+				continue
+			}
 
 			// initialize only if there's at least one key
 			if rv.IsNil() {
 				rv.Set(reflect.MakeMap(rt))
 			}
 
-			nv := rv.MapIndex(reflect.ValueOf(mapKey))
+			mapKeyLower := strings.ToLower(mapKey)
+			nv := rv.MapIndex(reflect.ValueOf(mapKeyLower))
 			zero := reflect.Value{}
 			if nv == zero {
 				nv = reflect.New(rt.Elem().Elem())
-				rv.SetMapIndex(reflect.ValueOf(mapKey), nv)
+				rv.SetMapIndex(reflect.ValueOf(mapKeyLower), nv)
 			}
 
-			err := load(env, envKey+"_"+strings.ToUpper(mapKey), nv.Elem())
+			err := load(env, envKey+"_"+mapKey, nv.Elem())
 			if err != nil {
 				return err
 			}
@@ -110,8 +114,7 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 				continue
 			}
 
-			fieldEnvKey := envKey + "_" + strings.ToUpper(f.Name)
-			err := load(env, fieldEnvKey, rv.Field(i))
+			err := load(env, envKey+"_"+strings.ToUpper(f.Name), rv.Field(i))
 			if err != nil {
 				return err
 			}
