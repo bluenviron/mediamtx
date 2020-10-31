@@ -46,35 +46,34 @@ func (e *ExternalCmd) run() {
 	defer close(e.done)
 
 	for {
-		if !e.runInner() {
+		ok := func() bool {
+			ok := e.runInner()
+			if !ok {
+				return false
+			}
+
+			if !e.restart {
+				<-e.terminate
+				return false
+			}
+
+			t := time.NewTimer(restartPause)
+			defer t.Stop()
+
+			select {
+			case <-t.C:
+				return true
+			case <-e.terminate:
+				return false
+			}
+		}()
+		if !ok {
 			break
 		}
 	}
 }
 
 func (e *ExternalCmd) runInner() bool {
-	ok := e.runInnerInner()
-	if !ok {
-		return false
-	}
-
-	if !e.restart {
-		<-e.terminate
-		return false
-	}
-
-	t := time.NewTimer(restartPause)
-	defer t.Stop()
-
-	select {
-	case <-t.C:
-		return true
-	case <-e.terminate:
-		return false
-	}
-}
-
-func (e *ExternalCmd) runInnerInner() bool {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		// on Windows the shell is not used and command is started directly

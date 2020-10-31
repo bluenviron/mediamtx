@@ -123,20 +123,25 @@ outer:
 func (s *Source) runInner() {
 	defer close(s.innerDone)
 
-outer:
 	for {
-		ok := s.runInnerInner()
+		ok := func() bool {
+			ok := s.runInnerInner()
+			if !ok {
+				return false
+			}
+
+			t := time.NewTimer(retryInterval)
+			defer t.Stop()
+
+			select {
+			case <-t.C:
+				return true
+			case <-s.innerTerminate:
+				return false
+			}
+		}()
 		if !ok {
-			break outer
-		}
-
-		t := time.NewTimer(retryInterval)
-		defer t.Stop()
-
-		select {
-		case <-s.innerTerminate:
-			break outer
-		case <-t.C:
+			break
 		}
 	}
 }
@@ -209,6 +214,7 @@ func (s *Source) runInnerInner() bool {
 	}()
 
 	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
 
 	select {
 	case <-confDone:
