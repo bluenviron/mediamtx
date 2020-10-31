@@ -454,7 +454,7 @@ func TestAuth(t *testing.T) {
 			"-c", "copy",
 			"-f", "rtsp",
 			"-rtsp_transport", "udp",
-			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/teststream",
+			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/test/stream",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -463,7 +463,7 @@ func TestAuth(t *testing.T) {
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
 			"-rtsp_transport", "udp",
-			"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+			"-i", "rtsp://" + ownDockerIp + ":8554/test/stream",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -497,7 +497,7 @@ func TestAuth(t *testing.T) {
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIp + ":8554/teststream",
+				"rtsp://" + ownDockerIp + ":8554/test/stream",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -507,7 +507,7 @@ func TestAuth(t *testing.T) {
 			if soft == "ffmpeg" {
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
 					"-rtsp_transport", "udp",
-					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/teststream",
+					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/test/stream",
 					"-vframes", "1",
 					"-f", "image2",
 					"-y", "/dev/null",
@@ -520,7 +520,7 @@ func TestAuth(t *testing.T) {
 
 			} else {
 				cnt2, err := newContainer("vlc", "dest", []string{
-					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/teststream",
+					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/test/stream",
 				})
 				require.NoError(t, err)
 				defer cnt2.close()

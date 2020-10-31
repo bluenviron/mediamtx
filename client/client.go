@@ -278,7 +278,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			c.authHelper = auth.NewServer(user, pass, authMethods)
 		}
 
-		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.Url)
+		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.URL)
 		if err != nil {
 			c.authFailures += 1
 
@@ -330,19 +330,6 @@ func (c *Client) handleRequest(req *base.Request) error {
 		return errRunTerminate
 	}
 
-	pathName := req.Url.Path
-	if len(pathName) < 1 || pathName[0] != '/' {
-		c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path must begin with a slash"))
-		return errRunTerminate
-	}
-	pathName = pathName[1:] // strip leading slash
-
-	// in RTSP, the control path is inserted after the query.
-	// therefore, path and query can't be treated separately
-	if req.Url.RawQuery != "" {
-		pathName += "?" + req.Url.RawQuery
-	}
-
 	switch req.Method {
 	case base.OPTIONS:
 		c.conn.WriteResponse(&base.Response{
@@ -381,9 +368,13 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		pathName = removeQueryFromPath(pathName)
+		basePath, ok := base.URLGetBasePath(req.URL)
+		if !ok {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
+			return errRunTerminate
+		}
 
-		path, err := c.parent.OnClientDescribe(c, pathName, req)
+		path, err := c.parent.OnClientDescribe(c, basePath, req)
 		if err != nil {
 			switch terr := err.(type) {
 			case ErrAuthNotCritical:
@@ -403,7 +394,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 		c.path = path
 		c.state = stateWaitingDescribe
 		c.describeCSeq = cseq
-		c.describeUrl = req.Url.String()
+		c.describeUrl = req.URL.String()
 
 		return errRunWaitingDescribe
 
@@ -436,9 +427,13 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		pathName = removeQueryFromPath(pathName)
+		basePath, ok := base.URLGetBasePath(req.URL)
+		if !ok {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
+			return errRunTerminate
+		}
 
-		path, err := c.parent.OnClientAnnounce(c, pathName, tracks, req)
+		path, err := c.parent.OnClientAnnounce(c, basePath, tracks, req)
 		if err != nil {
 			switch terr := err.(type) {
 			case ErrAuthNotCritical:
@@ -478,13 +473,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, controlPath, err := splitPathIntoBaseAndControl(pathName)
-		if err != nil {
-			c.writeResError(cseq, base.StatusBadRequest, err)
+		basePath, controlPath, ok := base.URLGetBaseControlPath(req.URL)
+		if !ok {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find control path (%s)", req.URL))
 			return errRunTerminate
 		}
-
-		basePath = removeQueryFromPath(basePath)
 
 		switch c.state {
 		// play
@@ -759,13 +752,17 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		pathName = removeQueryFromPath(pathName)
+		basePath, ok := base.URLGetBasePath(req.URL)
+		if !ok {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
+			return errRunTerminate
+		}
 
 		// path can end with a slash, remove it
-		pathName = strings.TrimSuffix(pathName, "/")
+		basePath = strings.TrimSuffix(basePath, "/")
 
-		if pathName != c.path.Name() {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), pathName))
+		if basePath != c.path.Name() {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath))
 			return errRunTerminate
 		}
 
@@ -794,13 +791,17 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		pathName = removeQueryFromPath(pathName)
+		basePath, ok := base.URLGetBasePath(req.URL)
+		if !ok {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
+			return errRunTerminate
+		}
 
 		// path can end with a slash, remove it
-		pathName = strings.TrimSuffix(pathName, "/")
+		basePath = strings.TrimSuffix(basePath, "/")
 
-		if pathName != c.path.Name() {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), pathName))
+		if basePath != c.path.Name() {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath))
 			return errRunTerminate
 		}
 
