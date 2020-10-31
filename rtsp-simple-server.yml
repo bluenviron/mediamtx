@@ -17,10 +17,6 @@ writeTimeout: 5s
 # to enforce security).
 authMethods: [basic, digest]
 
-# command to run when a client connects.
-# this is terminated with SIGINT when a client disconnects.
-runOnConnect:
-
 # enable Prometheus-compatible metrics on port 9998.
 metrics: no
 # enable pprof on port 9999 to monitor performances.
@@ -30,6 +26,11 @@ pprof: no
 logDestinations: [stdout]
 # if "file" is in logDestinations, this is the file that will receive the logs.
 logFile: rtsp-simple-server.log
+
+# command to run when a client connects to the server.
+# this is terminated with SIGINT when a client disconnects from the server.
+runOnConnect:
+runOnConnectRestart: no
 
 # these settings are path-dependent.
 # it's possible to use regular expressions by using a tilde as prefix.
@@ -57,28 +58,6 @@ paths:
     # redirected to.
     sourceRedirect:
 
-    # command to run when this path is loaded by the program.
-    # this can be used, for example, to publish a stream and keep it always opened.
-    # this is terminated with SIGINT when the program closes.
-    # the path name is available in the RTSP_SERVER_PATH variable.
-    runOnInit:
-
-    # command to run when this path is requested.
-    # this can be used, for example, to publish a stream on demand.
-    # this is terminated with SIGINT when the path is not requested anymore.
-    # the path name is available in the RTSP_SERVER_PATH variable.
-    runOnDemand:
-
-    # command to run when a client starts publishing.
-    # this is terminated with SIGINT when a client stops publishing.
-    # the path name is available in the RTSP_SERVER_PATH variable.
-    runOnPublish:
-
-    # command to run when a clients starts reading.
-    # this is terminated with SIGINT when a client stops reading.
-    # the path name is available in the RTSP_SERVER_PATH variable.
-    runOnRead:
-
     # username required to publish.
     publishUser:
     # password required to publish.
@@ -92,3 +71,29 @@ paths:
     readPass:
     # ips or networks (x.x.x.x/24) allowed to read.
     readIps: []
+
+    # command to run when this path is loaded by the program.
+    # this can be used, for example, to publish a stream and keep it always opened.
+    # this is terminated with SIGINT when the program closes.
+    # the path name is available in the RTSP_SERVER_PATH variable.
+    runOnInit:
+    runOnInitRestart: no
+
+    # command to run when this path is requested.
+    # this can be used, for example, to publish a stream on demand.
+    # this is terminated with SIGINT when the path is not requested anymore.
+    # the path name is available in the RTSP_SERVER_PATH variable.
+    runOnDemand:
+    runOnDemandRestart: no
+
+    # command to run when a client starts publishing.
+    # this is terminated with SIGINT when a client stops publishing.
+    # the path name is available in the RTSP_SERVER_PATH variable.
+    runOnPublish:
+    runOnPublishRestart: no
+
+    # command to run when a clients starts reading.
+    # this is terminated with SIGINT when a client stops reading.
+    # the path name is available in the RTSP_SERVER_PATH variable.
+    runOnRead:
+    runOnReadRestart: no

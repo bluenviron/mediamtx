@@ -20,6 +20,7 @@ type Conf struct {
 	RtpPort               int                                   `yaml:"rtpPort"`
 	RtcpPort              int                                   `yaml:"rtcpPort"`
 	RunOnConnect          string                                `yaml:"runOnConnect"`
+	RunOnConnectRestart   bool                                  `yaml:"runOnConnectRestart"`
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
 	AuthMethods           []string                              `yaml:"authMethods"`

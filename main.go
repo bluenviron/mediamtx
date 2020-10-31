@@ -181,8 +181,9 @@ func (p *program) createResources(initial bool) error {
 
 	if p.clientMan == nil {
 		p.clientMan = clientman.New(p.conf.ReadTimeout, p.conf.WriteTimeout,
-			p.conf.RunOnConnect, p.conf.ProtocolsParsed, p.stats,
-			p.serverUdpRtp, p.serverUdpRtcp, p.pathMan, p.serverTcp, p)
+			p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
+			p.conf.ProtocolsParsed, p.stats, p.serverUdpRtp, p.serverUdpRtcp,
+			p.pathMan, p.serverTcp, p)
 	}
 
 	if p.confWatcher == nil {
@@ -295,6 +296,7 @@ func (p *program) reloadConf() error {
 		conf.ReadTimeout != p.conf.ReadTimeout ||
 		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RunOnConnect != p.conf.RunOnConnect ||
+		conf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		!reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) {
 		closeClientMan = true
 	}

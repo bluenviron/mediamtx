@@ -223,11 +223,8 @@ func (pa *Path) run() {
 
 	if pa.conf.RunOnInit != "" {
 		pa.Log("starting on init command")
-		var err error
-		pa.onInitCmd, err = externalcmd.New(pa.conf.RunOnInit, pa.name)
-		if err != nil {
-			pa.Log("ERR: %s", err)
-		}
+		pa.onInitCmd = externalcmd.New(pa.conf.RunOnInit,
+			pa.conf.RunOnInitRestart, pa.name)
 	}
 
 	tickerCheck := time.NewTicker(pathCheckPeriod)
@@ -516,11 +513,8 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 			if pa.onDemandCmd == nil { // start if needed
 				pa.Log("starting on demand command")
 				pa.lastDescribeActivation = time.Now()
-				var err error
-				pa.onDemandCmd, err = externalcmd.New(pa.conf.RunOnDemand, pa.name)
-				if err != nil {
-					pa.Log("ERR: %s", err)
-				}
+				pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand,
+					pa.conf.RunOnDemandRestart, pa.name)
 			}
 
 			pa.clients[c] = clientStateWaitingDescribe

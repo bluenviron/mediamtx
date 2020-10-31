@@ -20,16 +20,17 @@ type Parent interface {
 }
 
 type ClientManager struct {
-	readTimeout   time.Duration
-	writeTimeout  time.Duration
-	runOnConnect  string
-	protocols     map[headers.StreamProtocol]struct{}
-	stats         *stats.Stats
-	serverUdpRtp  *serverudp.Server
-	serverUdpRtcp *serverudp.Server
-	pathMan       *pathman.PathManager
-	serverTcp     *servertcp.Server
-	parent        Parent
+	readTimeout         time.Duration
+	writeTimeout        time.Duration
+	runOnConnect        string
+	runOnConnectRestart bool
+	protocols           map[headers.StreamProtocol]struct{}
+	stats               *stats.Stats
+	serverUdpRtp        *serverudp.Server
+	serverUdpRtcp       *serverudp.Server
+	pathMan             *pathman.PathManager
+	serverTcp           *servertcp.Server
+	parent              Parent
 
 	clients map[*client.Client]struct{}
 	wg      sync.WaitGroup
@@ -46,6 +47,7 @@ func New(
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	runOnConnect string,
+	runOnConnectRestart bool,
 	protocols map[headers.StreamProtocol]struct{},
 	stats *stats.Stats,
 	serverUdpRtp *serverudp.Server,
@@ -55,20 +57,21 @@ func New(
 	parent Parent) *ClientManager {
 
 	cm := &ClientManager{
-		readTimeout:   readTimeout,
-		writeTimeout:  writeTimeout,
-		runOnConnect:  runOnConnect,
-		protocols:     protocols,
-		stats:         stats,
-		serverUdpRtp:  serverUdpRtp,
-		serverUdpRtcp: serverUdpRtcp,
-		pathMan:       pathMan,
-		serverTcp:     serverTcp,
-		parent:        parent,
-		clients:       make(map[*client.Client]struct{}),
-		clientClose:   make(chan *client.Client),
-		terminate:     make(chan struct{}),
-		done:          make(chan struct{}),
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		protocols:           protocols,
+		stats:               stats,
+		serverUdpRtp:        serverUdpRtp,
+		serverUdpRtcp:       serverUdpRtcp,
+		pathMan:             pathMan,
+		serverTcp:           serverTcp,
+		parent:              parent,
+		clients:             make(map[*client.Client]struct{}),
+		clientClose:         make(chan *client.Client),
+		terminate:           make(chan struct{}),
+		done:                make(chan struct{}),
 	}
 
 	go cm.run()
@@ -98,6 +101,7 @@ outer:
 				cm.readTimeout,
 				cm.writeTimeout,
 				cm.runOnConnect,
+				cm.runOnConnectRestart,
 				cm.protocols,
 				conn,
 				cm)

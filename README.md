@@ -109,6 +109,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 paths:
   cam:
     runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH
+    runOnInitRestart: yes
 ```
 
 After starting the server, the webcam is available on `rtsp://localhost:8554/cam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
@@ -128,6 +129,7 @@ Then edit `rtsp-simple-server.yml` and replace everything inside section `paths`
 paths:
   cam:
     runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! rtspclientsink location=rtsp://localhost:8554/$RTSP_SERVER_PATH
+    runOnInitRestart: yes
 ```
 
 After starting the server, the webcam is available on `rtsp://localhost:8554/cam`.
@@ -139,6 +141,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 paths:
   ondemand:
     runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_SERVER_PATH
+    runOnDemandRestart: yes
 ```
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
@@ -151,6 +154,7 @@ paths:
   all:
   original:
     runOnPublish: ffmpeg -i rtsp://localhost:8554/$RTSP_SERVER_PATH -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
+    runOnPublishRestart: yes
 ```
 
 ### Authentication

@@ -22,9 +22,13 @@ type PathConf struct {
 	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
 	SourceRedirect       string                   `yaml:"sourceRedirect"`
 	RunOnInit            string                   `yaml:"runOnInit"`
+	RunOnInitRestart     bool                     `yaml:"runOnInitRestart"`
 	RunOnDemand          string                   `yaml:"runOnDemand"`
+	RunOnDemandRestart   bool                     `yaml:"runOnDemandRestart"`
 	RunOnPublish         string                   `yaml:"runOnPublish"`
+	RunOnPublishRestart  bool                     `yaml:"runOnPublishRestart"`
 	RunOnRead            string                   `yaml:"runOnRead"`
+	RunOnReadRestart     bool                     `yaml:"runOnReadRestart"`
 	PublishUser          string                   `yaml:"publishUser"`
 	PublishPass          string                   `yaml:"publishPass"`
 	PublishIps           []string                 `yaml:"publishIps"`
