@@ -8,4 +8,8 @@ RUN adduser -D -H -s /bin/sh -u 9337 user
 COPY start.sh /
 RUN chmod +x /start.sh
 
+RUN mkdir /out \
+    && chown user:user /out
+
+USER user
 ENTRYPOINT [ "/start.sh" ]

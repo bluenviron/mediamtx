@@ -10,6 +10,10 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
+var reUserPass = regexp.MustCompile("^[a-zA-Z0-9!\\$\\(\\)\\*\\+\\.;<=>\\[\\]\\^_\\-\\{\\}]+$")
+
+const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
+
 type PathConf struct {
 	Regexp               *regexp.Regexp           `yaml:"-" json:"-"`
 	Source               string                   `yaml:"source"`
@@ -130,14 +134,14 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 
 	if pconf.PublishUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishUser) {
-			return fmt.Errorf("publish username must be alphanumeric")
+		if !reUserPass.MatchString(pconf.PublishUser) {
+			return fmt.Errorf("publish username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 
 	if pconf.PublishPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.PublishPass) {
-			return fmt.Errorf("publish password must be alphanumeric")
+		if !reUserPass.MatchString(pconf.PublishPass) {
+			return fmt.Errorf("publish password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 
@@ -156,13 +160,13 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 	if pconf.ReadUser != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadUser) {
-			return fmt.Errorf("read username must be alphanumeric")
+		if !reUserPass.MatchString(pconf.ReadUser) {
+			return fmt.Errorf("read username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 	if pconf.ReadPass != "" {
-		if !regexp.MustCompile("^[a-zA-Z0-9]+$").MatchString(pconf.ReadPass) {
-			return fmt.Errorf("read password must be alphanumeric")
+		if !reUserPass.MatchString(pconf.ReadPass) {
+			return fmt.Errorf("read password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 	if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {

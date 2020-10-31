@@ -1,10 +1,6 @@
 #!/bin/sh -e
 
-mkdir /out
-chown user:user /out
-
-CMD="cvlc --play-and-exit --no-audio --no-video --sout file/ts:/out/stream.ts -vvv $@"
-su - user -c "$CMD" 2>&1 &
+cvlc --play-and-exit --no-audio --no-video --sout file/ts:/out/stream.ts -vvv $@ 2>&1 &
 
 COUNTER=0
 while true; do
