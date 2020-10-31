@@ -832,6 +832,8 @@ func (c *Client) handleRequest(req *base.Request) error {
 func (c *Client) runInitial() bool {
 	readDone := make(chan error)
 	go func() {
+		defer close(readDone)
+
 		for {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
@@ -959,6 +961,8 @@ func (c *Client) runPlay() bool {
 func (c *Client) runPlayUDP() {
 	readDone := make(chan error)
 	go func() {
+		defer close(readDone)
+
 		for {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
@@ -998,6 +1002,8 @@ func (c *Client) runPlayTCP() {
 
 	readDone := make(chan error)
 	go func() {
+		defer close(readDone)
+
 		for {
 			recv, err := c.conn.ReadFrameTCPOrRequest(false)
 			if err != nil {
@@ -1026,6 +1032,7 @@ func (c *Client) runPlayTCP() {
 		// responses must be written in the same routine of frames
 		case req := <-readRequest:
 			req.res <- c.handleRequest(req.req)
+			close(req.res)
 
 		case err := <-readDone:
 			c.conn.Close()
@@ -1143,6 +1150,8 @@ func (c *Client) runRecord() bool {
 func (c *Client) runRecordUDP() {
 	readDone := make(chan error)
 	go func() {
+		defer close(readDone)
+
 		for {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
@@ -1217,6 +1226,8 @@ func (c *Client) runRecordTCP() {
 
 	readDone := make(chan error)
 	go func() {
+		defer close(readDone)
+
 		for {
 			recv, err := c.conn.ReadFrameTCPOrRequest(true)
 			if err != nil {
