@@ -836,13 +836,13 @@ func (c *Client) runInitial() bool {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 
 			err = c.handleRequest(req)
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 		}
 	}()
@@ -963,13 +963,13 @@ func (c *Client) runPlayUDP() {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 
 			err = c.handleRequest(req)
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 		}
 	}()
@@ -1002,7 +1002,7 @@ func (c *Client) runPlayTCP() {
 			recv, err := c.conn.ReadFrameTCPOrRequest(false)
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 
 			switch recvt := recv.(type) {
@@ -1015,7 +1015,7 @@ func (c *Client) runPlayTCP() {
 				err := <-res
 				if err != nil {
 					readDone <- err
-					break
+					return
 				}
 			}
 		}
@@ -1147,13 +1147,13 @@ func (c *Client) runRecordUDP() {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 
 			err = c.handleRequest(req)
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 		}
 	}()
@@ -1221,14 +1221,14 @@ func (c *Client) runRecordTCP() {
 			recv, err := c.conn.ReadFrameTCPOrRequest(true)
 			if err != nil {
 				readDone <- err
-				break
+				return
 			}
 
 			switch recvt := recv.(type) {
 			case *base.InterleavedFrame:
 				if recvt.TrackId >= len(c.streamTracks) {
 					readDone <- fmt.Errorf("invalid track id '%d'", recvt.TrackId)
-					break
+					return
 				}
 
 				c.rtcpReceivers[recvt.TrackId].OnFrame(recvt.StreamType, recvt.Content)
@@ -1238,7 +1238,7 @@ func (c *Client) runRecordTCP() {
 				err := c.handleRequest(recvt)
 				if err != nil {
 					readDone <- err
-					break
+					return
 				}
 			}
 		}
