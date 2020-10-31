@@ -270,8 +270,6 @@ func (s *Source) runInnerInner() bool {
 
 	readDone := make(chan error)
 	go func() {
-		defer close(readDone)
-
 		for {
 			pkt, err := conn.ReadPacket()
 			if err != nil {

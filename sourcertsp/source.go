@@ -253,7 +253,6 @@ func (s *Source) runUDP(u *url.URL, conn *gortsplib.ConnClient, tracks gortsplib
 
 	tcpConnDone := make(chan error)
 	go func() {
-		defer close(tcpConnDone)
 		tcpConnDone <- conn.LoopUDP()
 	}()
 
@@ -305,8 +304,6 @@ func (s *Source) runTCP(u *url.URL, conn *gortsplib.ConnClient, tracks gortsplib
 
 	tcpConnDone := make(chan error)
 	go func() {
-		defer close(tcpConnDone)
-
 		for {
 			trackId, streamType, content, err := conn.ReadFrameTCP()
 			if err != nil {
