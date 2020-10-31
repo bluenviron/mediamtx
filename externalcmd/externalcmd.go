@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	restartPause = 2 * time.Second
+	restartPause = 5 * time.Second
 )
 
 type ExternalCmd struct {
