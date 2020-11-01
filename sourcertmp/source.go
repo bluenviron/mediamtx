@@ -3,6 +3,7 @@ package sourcertmp
 import (
 	"fmt"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -17,126 +18,74 @@ import (
 )
 
 const (
-	retryInterval = 5 * time.Second
+	retryPause = 5 * time.Second
 )
 
 type Parent interface {
 	Log(string, ...interface{})
-	OnSourceReady(gortsplib.Tracks)
-	OnSourceNotReady()
+	OnSourceSetReady(gortsplib.Tracks)
+	OnSourceSetNotReady()
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 type Source struct {
 	ur     string
 	state  bool
+	wg     *sync.WaitGroup
 	stats  *stats.Stats
 	parent Parent
 
-	innerState bool
-
 	// in
-	innerTerminate chan struct{}
-	innerDone      chan struct{}
-	stateChange    chan bool
-	terminate      chan struct{}
-
-	// out
-	done chan struct{}
+	terminate chan struct{}
 }
 
 func New(ur string,
-	state bool,
+	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
 	s := &Source{
-		ur:          ur,
-		state:       state,
-		stats:       stats,
-		parent:      parent,
-		stateChange: make(chan bool),
-		terminate:   make(chan struct{}),
-		done:        make(chan struct{}),
+		ur:        ur,
+		wg:        wg,
+		stats:     stats,
+		parent:    parent,
+		terminate: make(chan struct{}),
 	}
 
 	atomic.AddInt64(s.stats.CountSourcesRtmp, +1)
+	s.parent.Log("rtmp source started")
 
+	s.wg.Add(1)
 	go s.run()
-	s.SetRunning(s.state)
 	return s
 }
 
 func (s *Source) Close() {
+	atomic.AddInt64(s.stats.CountSourcesRtmpRunning, -1)
+	s.parent.Log("rtmp source stopped")
 	close(s.terminate)
-	<-s.done
 }
 
 func (s *Source) IsSource() {}
 
-func (s *Source) IsRunning() bool {
-	return s.state
-}
-
-func (s *Source) SetRunning(state bool) {
-	s.state = state
-	s.stateChange <- s.state
-}
+func (s *Source) IsSourceExternal() {}
 
 func (s *Source) run() {
-	defer close(s.done)
-
-outer:
-	for {
-		select {
-		case state := <-s.stateChange:
-			if state {
-				if !s.innerState {
-					atomic.AddInt64(s.stats.CountSourcesRtmpRunning, +1)
-					s.innerState = true
-					s.innerTerminate = make(chan struct{})
-					s.innerDone = make(chan struct{})
-					go s.runInner()
-				}
-			} else {
-				if s.innerState {
-					atomic.AddInt64(s.stats.CountSourcesRtmpRunning, -1)
-					close(s.innerTerminate)
-					<-s.innerDone
-					s.innerState = false
-				}
-			}
-
-		case <-s.terminate:
-			break outer
-		}
-	}
-
-	if s.innerState {
-		atomic.AddInt64(s.stats.CountSourcesRtmpRunning, -1)
-		close(s.innerTerminate)
-		<-s.innerDone
-	}
-
-	close(s.stateChange)
-}
-
-func (s *Source) runInner() {
-	defer close(s.innerDone)
+	defer s.wg.Done()
 
 	for {
 		ok := func() bool {
-			ok := s.runInnerInner()
+			ok := s.runInner()
 			if !ok {
 				return false
 			}
 
-			t := time.NewTimer(retryInterval)
+			t := time.NewTimer(retryPause)
 			defer t.Stop()
 
 			select {
 			case <-t.C:
 				return true
-			case <-s.innerTerminate:
+			case <-s.terminate:
 				return false
 			}
 		}()
@@ -146,7 +95,7 @@ func (s *Source) runInner() {
 	}
 }
 
-func (s *Source) runInnerInner() bool {
+func (s *Source) runInner() bool {
 	s.parent.Log("connecting to rtmp source")
 
 	var conn *rtmp.Conn
@@ -159,7 +108,7 @@ func (s *Source) runInnerInner() bool {
 	}()
 
 	select {
-	case <-s.innerTerminate:
+	case <-s.terminate:
 		return false
 	case <-dialDone:
 	}
@@ -271,8 +220,8 @@ func (s *Source) runInnerInner() bool {
 		return true
 	}
 
-	s.parent.OnSourceReady(tracks)
 	s.parent.Log("rtmp source ready")
+	s.parent.OnSourceSetReady(tracks)
 
 	readDone := make(chan error)
 	go func() {
@@ -336,7 +285,7 @@ func (s *Source) runInnerInner() bool {
 outer:
 	for {
 		select {
-		case <-s.innerTerminate:
+		case <-s.terminate:
 			nconn.Close()
 			<-readDone
 			ret = false
@@ -350,7 +299,7 @@ outer:
 		}
 	}
 
-	s.parent.OnSourceNotReady()
+	s.parent.OnSourceSetNotReady()
 
 	return ret
 }

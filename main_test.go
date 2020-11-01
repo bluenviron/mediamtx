@@ -175,26 +175,38 @@ func TestEnvironment(t *testing.T) {
 	pa, ok := p.conf.Paths["test2"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Source: "record",
+		Source:                     "record",
+		SourceOnDemandStartTimeout: 10 * time.Second,
+		SourceOnDemandCloseAfter:   10 * time.Second,
+		RunOnDemandStartTimeout:    10 * time.Second,
+		RunOnDemandCloseAfter:      10 * time.Second,
 	}, pa)
 
 	pa, ok = p.conf.Paths["~^.*$"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Regexp:         regexp.MustCompile("^.*$"),
-		Source:         "record",
-		SourceProtocol: "udp",
-		ReadUser:       "testuser",
-		ReadPass:       "testpass",
+		Regexp:                     regexp.MustCompile("^.*$"),
+		Source:                     "record",
+		SourceProtocol:             "udp",
+		SourceOnDemandStartTimeout: 10 * time.Second,
+		SourceOnDemandCloseAfter:   10 * time.Second,
+		ReadUser:                   "testuser",
+		ReadPass:                   "testpass",
+		RunOnDemandStartTimeout:    10 * time.Second,
+		RunOnDemandCloseAfter:      10 * time.Second,
 	}, pa)
 
 	pa, ok = p.conf.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Source:               "rtsp://testing",
-		SourceProtocol:       "tcp",
-		SourceProtocolParsed: gortsplib.StreamProtocolTCP,
-		SourceOnDemand:       true,
+		Source:                     "rtsp://testing",
+		SourceProtocol:             "tcp",
+		SourceProtocolParsed:       gortsplib.StreamProtocolTCP,
+		SourceOnDemand:             true,
+		SourceOnDemandStartTimeout: 10 * time.Second,
+		SourceOnDemandCloseAfter:   10 * time.Second,
+		RunOnDemandStartTimeout:    10 * time.Second,
+		RunOnDemandCloseAfter:      10 * time.Second,
 	}, pa)
 }
 
@@ -209,8 +221,12 @@ func TestEnvironmentNoFile(t *testing.T) {
 	pa, ok := p.conf.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Source:         "rtsp://testing",
-		SourceProtocol: "udp",
+		Source:                     "rtsp://testing",
+		SourceProtocol:             "udp",
+		SourceOnDemandStartTimeout: 10 * time.Second,
+		SourceOnDemandCloseAfter:   10 * time.Second,
+		RunOnDemandStartTimeout:    10 * time.Second,
+		RunOnDemandCloseAfter:      10 * time.Second,
 	}, pa)
 }
 

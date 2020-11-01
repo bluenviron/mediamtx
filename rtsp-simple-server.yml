@@ -22,14 +22,14 @@ metrics: no
 # enable pprof on port 9999 to monitor performances.
 pprof: no
 
-# destinations of log messages; available options are "stdout", "file" and "syslog".
+# destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
-# if "file" is in logDestinations, this is the file that will receive the logs.
+# if "file" is in logDestinations, this is the file which will receive the logs.
 logFile: rtsp-simple-server.log
 
 # command to run when a client connects to the server.
 # this is terminated with SIGINT when a client disconnects from the server.
-# the restart option allows to restart the command if it exits suddely.
+# the restart parameter allows to restart the command if it exits suddenly.
 runOnConnect:
 runOnConnectRestart: no
 
@@ -54,6 +54,12 @@ paths:
     # if the source is an RTSP or RTMP url, it will be pulled only when at least
     # one reader is connected, saving bandwidth.
     sourceOnDemand: no
+    # if sourceOnDemand is "yes", readers will be put on hold until the source is
+    # ready or until this amount of time has passed.
+    sourceOnDemandStartTimeout: 10s
+    # if sourceOnDemand is "yes", the source will be closed when there are no
+    # readers connected and this amount of time has passed.
+    sourceOnDemandCloseAfter: 10s
 
     # if the source is "redirect", this is the RTSP url which clients will be
     # redirected to.
@@ -73,32 +79,38 @@ paths:
     # ips or networks (x.x.x.x/24) allowed to read.
     readIps: []
 
-    # command to run when this path is loaded by the program.
-    # this can be used, for example, to publish a stream and keep it always opened.
+    # command to run when this path is initialized.
+    # this can be used to publish a stream and keep it always opened.
     # this is terminated with SIGINT when the program closes.
     # the path name is available in the RTSP_SERVER_PATH variable.
-    # the restart option allows to restart the command if it exits suddely.
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnInit:
     runOnInitRestart: no
 
     # command to run when this path is requested.
-    # this can be used, for example, to publish a stream on demand.
+    # this can be used to publish a stream on demand.
     # this is terminated with SIGINT when the path is not requested anymore.
     # the path name is available in the RTSP_SERVER_PATH variable.
-    # the restart option allows to restart the command if it exits suddely.
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnDemand:
     runOnDemandRestart: no
+    # readers will be put on hold until the runOnDemand command starts publishing
+    # or until this amount of time has passed.
+    runOnDemandStartTimeout: 10s
+    # the runOnDemand command will be closed when there are no
+    # readers connected and this amount of time has passed.
+    runOnDemandCloseAfter: 10s
 
     # command to run when a client starts publishing.
     # this is terminated with SIGINT when a client stops publishing.
     # the path name is available in the RTSP_SERVER_PATH variable.
-    # the restart option allows to restart the command if it exits suddely.
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnPublish:
     runOnPublishRestart: no
 
     # command to run when a clients starts reading.
     # this is terminated with SIGINT when a client stops reading.
     # the path name is available in the RTSP_SERVER_PATH variable.
-    # the restart option allows to restart the command if it exits suddely.
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnRead:
     runOnReadRestart: no

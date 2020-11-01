@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	restartPause = 5 * time.Second
+	retryPause = 5 * time.Second
 )
 
 type ExternalCmd struct {
@@ -57,7 +57,7 @@ func (e *ExternalCmd) run() {
 				return false
 			}
 
-			t := time.NewTimer(restartPause)
+			t := time.NewTimer(retryPause)
 			defer t.Stop()
 
 			select {

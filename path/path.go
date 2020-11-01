@@ -18,12 +18,11 @@ import (
 	"github.com/aler9/rtsp-simple-server/stats"
 )
 
-const (
-	pathCheckPeriod                    = 5 * time.Second
-	describeTimeout                    = 5 * time.Second
-	sourceStopAfterDescribePeriod      = 10 * time.Second
-	onDemandCmdStopAfterDescribePeriod = 10 * time.Second
-)
+func newEmptyTimer() *time.Timer {
+	t := time.NewTimer(0)
+	<-t.C
+	return t
+}
 
 type Parent interface {
 	Log(string, ...interface{})
@@ -45,9 +44,8 @@ type source interface {
 // * sourcertmp.Source
 type sourceExternal interface {
 	IsSource()
+	IsSourceExternal()
 	Close()
-	IsRunning() bool
-	SetRunning(bool)
 }
 
 type sourceRedirect struct{}
@@ -118,6 +116,14 @@ const (
 	clientStatePreRemove
 )
 
+type sourceState int
+
+const (
+	sourceStateNotReady sourceState = iota
+	sourceStateWaitingDescribe
+	sourceStateReady
+)
+
 type Path struct {
 	readTimeout  time.Duration
 	writeTimeout time.Duration
@@ -128,17 +134,23 @@ type Path struct {
 	stats        *stats.Stats
 	parent       Parent
 
-	clients                map[*client.Client]clientState
-	clientsWg              sync.WaitGroup
-	source                 source
-	sourceReady            bool
-	sourceTrackCount       int
-	sourceSdp              []byte
-	lastDescribeReq        time.Time
-	lastDescribeActivation time.Time
-	readers                *readersMap
-	onInitCmd              *externalcmd.ExternalCmd
-	onDemandCmd            *externalcmd.ExternalCmd
+	clients                      map[*client.Client]clientState
+	clientsWg                    sync.WaitGroup
+	source                       source
+	sourceTrackCount             int
+	sourceSdp                    []byte
+	readers                      *readersMap
+	onInitCmd                    *externalcmd.ExternalCmd
+	onDemandCmd                  *externalcmd.ExternalCmd
+	describeTimer                *time.Timer
+	sourceCloseTimer             *time.Timer
+	sourceCloseTimerStarted      bool
+	sourceState                  sourceState
+	sourceWg                     sync.WaitGroup
+	runOnDemandCloseTimer        *time.Timer
+	runOnDemandCloseTimerStarted bool
+	closeTimer                   *time.Timer
+	closeTimerStarted            bool
 
 	// in
 	sourceSetReady    chan struct{}           // from source
@@ -163,25 +175,29 @@ func New(
 	parent Parent) *Path {
 
 	pa := &Path{
-		readTimeout:       readTimeout,
-		writeTimeout:      writeTimeout,
-		confName:          confName,
-		conf:              conf,
-		name:              name,
-		wg:                wg,
-		stats:             stats,
-		parent:            parent,
-		clients:           make(map[*client.Client]clientState),
-		readers:           newReadersMap(),
-		sourceSetReady:    make(chan struct{}),
-		sourceSetNotReady: make(chan struct{}),
-		clientDescribe:    make(chan ClientDescribeReq),
-		clientAnnounce:    make(chan ClientAnnounceReq),
-		clientSetupPlay:   make(chan ClientSetupPlayReq),
-		clientPlay:        make(chan clientPlayReq),
-		clientRecord:      make(chan clientRecordReq),
-		clientRemove:      make(chan clientRemoveReq),
-		terminate:         make(chan struct{}),
+		readTimeout:           readTimeout,
+		writeTimeout:          writeTimeout,
+		confName:              confName,
+		conf:                  conf,
+		name:                  name,
+		wg:                    wg,
+		stats:                 stats,
+		parent:                parent,
+		clients:               make(map[*client.Client]clientState),
+		readers:               newReadersMap(),
+		describeTimer:         newEmptyTimer(),
+		sourceCloseTimer:      newEmptyTimer(),
+		runOnDemandCloseTimer: newEmptyTimer(),
+		closeTimer:            newEmptyTimer(),
+		sourceSetReady:        make(chan struct{}),
+		sourceSetNotReady:     make(chan struct{}),
+		clientDescribe:        make(chan ClientDescribeReq),
+		clientAnnounce:        make(chan ClientAnnounceReq),
+		clientSetupPlay:       make(chan ClientSetupPlayReq),
+		clientPlay:            make(chan clientPlayReq),
+		clientRecord:          make(chan clientRecordReq),
+		clientRemove:          make(chan clientRemoveReq),
+		terminate:             make(chan struct{}),
 	}
 
 	pa.wg.Add(1)
@@ -200,47 +216,57 @@ func (pa *Path) Log(format string, args ...interface{}) {
 func (pa *Path) run() {
 	defer pa.wg.Done()
 
-	if strings.HasPrefix(pa.conf.Source, "rtsp://") {
-		state := !pa.conf.SourceOnDemand
-		if state {
-			pa.Log("starting source")
-		}
-
-		pa.source = sourcertsp.New(pa.conf.Source, pa.conf.SourceProtocolParsed,
-			pa.readTimeout, pa.writeTimeout, state, pa.stats, pa)
-
-	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
-		state := !pa.conf.SourceOnDemand
-		if state {
-			pa.Log("starting source")
-		}
-
-		pa.source = sourcertmp.New(pa.conf.Source, state, pa.stats, pa)
-
-	} else if pa.conf.Source == "redirect" {
+	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
+
+	} else if pa.hasExternalSource() && !pa.conf.SourceOnDemand {
+		pa.startExternalSource()
 	}
 
 	if pa.conf.RunOnInit != "" {
-		pa.Log("starting on init command")
+		pa.Log("on init command started")
 		pa.onInitCmd = externalcmd.New(pa.conf.RunOnInit,
 			pa.conf.RunOnInitRestart, pa.name)
 	}
 
-	tickerCheck := time.NewTicker(pathCheckPeriod)
-	defer tickerCheck.Stop()
-
 outer:
 	for {
 		select {
-		case <-tickerCheck.C:
-			ok := pa.onCheck()
-			if !ok {
-				pa.exhaustChannels()
-				pa.parent.OnPathClose(pa)
-				<-pa.terminate
-				break outer
+		case <-pa.describeTimer.C:
+			for c, state := range pa.clients {
+				if state == clientStateWaitingDescribe {
+					pa.removeClient(c)
+					c.OnPathDescribeData(nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name))
+				}
 			}
+
+			// set state after removeClient(), so schedule* works once
+			pa.sourceState = sourceStateNotReady
+
+			pa.scheduleSourceClose()
+			pa.scheduleRunOnDemandClose()
+			pa.scheduleClose()
+
+		case <-pa.sourceCloseTimer.C:
+			pa.sourceCloseTimerStarted = false
+			pa.source.(sourceExternal).Close()
+			pa.source = nil
+
+			pa.scheduleClose()
+
+		case <-pa.runOnDemandCloseTimer.C:
+			pa.runOnDemandCloseTimerStarted = false
+			pa.Log("on demand command stopped")
+			pa.onDemandCmd.Close()
+			pa.onDemandCmd = nil
+
+			pa.scheduleClose()
+
+		case <-pa.closeTimer.C:
+			pa.exhaustChannels()
+			pa.parent.OnPathClose(pa)
+			<-pa.terminate
+			break outer
 
 		case <-pa.sourceSetReady:
 			pa.onSourceSetReady()
@@ -290,7 +316,7 @@ outer:
 			}
 
 			if pa.clients[req.client] != clientStatePreRemove {
-				pa.onClientPreRemove(req.client)
+				pa.removeClient(req.client)
 			}
 
 			delete(pa.clients, req.client)
@@ -304,20 +330,23 @@ outer:
 		}
 	}
 
+	pa.describeTimer.Stop()
+	pa.sourceCloseTimer.Stop()
+	pa.runOnDemandCloseTimer.Stop()
+	pa.closeTimer.Stop()
+
 	if pa.onInitCmd != nil {
-		pa.Log("stopping on init command (closing)")
+		pa.Log("on init command stopped")
 		pa.onInitCmd.Close()
 	}
 
 	if source, ok := pa.source.(sourceExternal); ok {
-		if source.IsRunning() {
-			pa.Log("stopping on demand source (closing)")
-		}
 		source.Close()
 	}
+	pa.sourceWg.Wait()
 
 	if pa.onDemandCmd != nil {
-		pa.Log("stopping on demand command (closing)")
+		pa.Log("on demand command stopped")
 		pa.onDemandCmd.Close()
 	}
 
@@ -331,7 +360,6 @@ outer:
 			case clientStateRecord:
 				atomic.AddInt64(pa.stats.CountPublishers, -1)
 			}
-
 			pa.parent.OnPathClientClose(c)
 		}
 	}
@@ -409,6 +437,21 @@ func (pa *Path) exhaustChannels() {
 	}()
 }
 
+func (pa *Path) hasExternalSource() bool {
+	return strings.HasPrefix(pa.conf.Source, "rtsp://") ||
+		strings.HasPrefix(pa.conf.Source, "rtmp://")
+}
+
+func (pa *Path) startExternalSource() {
+	if strings.HasPrefix(pa.conf.Source, "rtsp://") {
+		pa.source = sourcertsp.New(pa.conf.Source, pa.conf.SourceProtocolParsed,
+			pa.readTimeout, pa.writeTimeout, &pa.sourceWg, pa.stats, pa)
+
+	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
+		pa.source = sourcertmp.New(pa.conf.Source, &pa.sourceWg, pa.stats, pa)
+	}
+}
+
 func (pa *Path) hasClients() bool {
 	for _, state := range pa.clients {
 		if state != clientStatePreRemove {
@@ -418,16 +461,7 @@ func (pa *Path) hasClients() bool {
 	return false
 }
 
-func (pa *Path) hasClientsWaitingDescribe() bool {
-	for _, state := range pa.clients {
-		if state == clientStateWaitingDescribe {
-			return true
-		}
-	}
-	return false
-}
-
-func (pa *Path) hasClientReadersOrWaitingDescribe() bool {
+func (pa *Path) hasClientsNotSources() bool {
 	for c, state := range pa.clients {
 		if state != clientStatePreRemove && c != pa.source {
 			return true
@@ -436,130 +470,149 @@ func (pa *Path) hasClientReadersOrWaitingDescribe() bool {
 	return false
 }
 
-func (pa *Path) onCheck() bool {
-	// reply to DESCRIBE requests if they are in timeout
-	if pa.hasClientsWaitingDescribe() &&
-		time.Since(pa.lastDescribeActivation) >= describeTimeout {
-		for c, state := range pa.clients {
-			if state != clientStatePreRemove && state == clientStateWaitingDescribe {
-				pa.clients[c] = clientStatePreRemove
-				c.OnPathDescribeData(nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name))
+func (pa *Path) addClient(c *client.Client, state clientState) {
+	if _, ok := pa.clients[c]; ok {
+		panic("client already added")
+	}
+
+	pa.clients[c] = state
+	pa.clientsWg.Add(1)
+}
+
+func (pa *Path) removeClient(c *client.Client) {
+	state := pa.clients[c]
+	pa.clients[c] = clientStatePreRemove
+
+	switch state {
+	case clientStatePlay:
+		atomic.AddInt64(pa.stats.CountReaders, -1)
+		pa.readers.remove(c)
+
+	case clientStateRecord:
+		atomic.AddInt64(pa.stats.CountPublishers, -1)
+		pa.onSourceSetNotReady()
+	}
+
+	if pa.source == c {
+		pa.source = nil
+
+		// close all clients that are reading or waiting to read
+		for oc, state := range pa.clients {
+			if state != clientStatePreRemove && state != clientStateWaitingDescribe {
+				pa.removeClient(oc)
+				pa.parent.OnPathClientClose(oc)
 			}
 		}
 	}
 
-	// stop on demand source if needed
-	if source, ok := pa.source.(sourceExternal); ok {
-		if pa.conf.SourceOnDemand &&
-			source.IsRunning() &&
-			!pa.hasClients() &&
-			time.Since(pa.lastDescribeReq) >= sourceStopAfterDescribePeriod {
-			pa.Log("stopping on demand source (not requested anymore)")
-			source.SetRunning(false)
-		}
-	}
-
-	// stop on demand command if needed
-	if pa.onDemandCmd != nil &&
-		!pa.hasClientReadersOrWaitingDescribe() &&
-		time.Since(pa.lastDescribeReq) >= onDemandCmdStopAfterDescribePeriod {
-		pa.Log("stopping on demand command (not requested anymore)")
-		pa.onDemandCmd.Close()
-		pa.onDemandCmd = nil
-	}
-
-	// remove path if is regexp, has no source, has no on-demand command and has no clients
-	if pa.conf.Regexp != nil &&
-		pa.source == nil &&
-		pa.onDemandCmd == nil &&
-		!pa.hasClients() {
-		return false
-	}
-
-	return true
+	pa.scheduleSourceClose()
+	pa.scheduleRunOnDemandClose()
+	pa.scheduleClose()
 }
 
 func (pa *Path) onSourceSetReady() {
-	pa.sourceReady = true
+	if pa.sourceState == sourceStateWaitingDescribe {
+		pa.describeTimer.Stop()
+		pa.describeTimer = newEmptyTimer()
+	}
+
+	pa.sourceState = sourceStateReady
 
 	// reply to all clients that are waiting for a description
 	for c, state := range pa.clients {
 		if state == clientStateWaitingDescribe {
-			pa.clients[c] = clientStatePreRemove
+			pa.removeClient(c)
 			c.OnPathDescribeData(pa.sourceSdp, "", nil)
 		}
 	}
+
+	pa.scheduleSourceClose()
+	pa.scheduleRunOnDemandClose()
+	pa.scheduleClose()
 }
 
 func (pa *Path) onSourceSetNotReady() {
-	pa.sourceReady = false
+	pa.sourceState = sourceStateNotReady
 
 	// close all clients that are reading or waiting to read
 	for c, state := range pa.clients {
-		if state != clientStatePreRemove && state != clientStateWaitingDescribe && c != pa.source {
-			pa.onClientPreRemove(c)
+		if state == clientStateWaitingDescribe {
+			panic("not possible")
+		}
+		if c != pa.source && state != clientStatePreRemove {
+			pa.removeClient(c)
 			pa.parent.OnPathClientClose(c)
 		}
 	}
 }
 
 func (pa *Path) onClientDescribe(c *client.Client) {
-	pa.lastDescribeReq = time.Now()
+	// prevent on-demand source from closing
+	if pa.sourceCloseTimerStarted {
+		pa.sourceCloseTimer = newEmptyTimer()
+		pa.sourceCloseTimerStarted = false
+	}
 
-	// source not found
-	if pa.source == nil {
-		// on demand command is available: put the client on hold
-		if pa.conf.RunOnDemand != "" {
-			if pa.onDemandCmd == nil { // start if needed
-				pa.Log("starting on demand command")
-				pa.lastDescribeActivation = time.Now()
-				pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand,
-					pa.conf.RunOnDemandRestart, pa.name)
+	// prevent on-demand command from closing
+	if pa.runOnDemandCloseTimerStarted {
+		pa.runOnDemandCloseTimer = newEmptyTimer()
+		pa.runOnDemandCloseTimerStarted = false
+	}
+
+	// start on-demand source
+	if pa.hasExternalSource() {
+		if pa.source == nil {
+			pa.startExternalSource()
+
+			if pa.sourceState != sourceStateWaitingDescribe {
+				pa.describeTimer = time.NewTimer(pa.conf.SourceOnDemandStartTimeout)
+				pa.sourceState = sourceStateWaitingDescribe
 			}
-
-			pa.clients[c] = clientStateWaitingDescribe
-			pa.clientsWg.Add(1)
-
-			// no on-demand: reply with 404
-		} else {
-			pa.clients[c] = clientStatePreRemove
-			pa.clientsWg.Add(1)
-
-			c.OnPathDescribeData(nil, "", fmt.Errorf("no one is publishing to path '%s'", pa.name))
 		}
+	}
 
-		// source found and is redirect
-	} else if _, ok := pa.source.(*sourceRedirect); ok {
-		pa.clients[c] = clientStatePreRemove
-		pa.clientsWg.Add(1)
+	// start on-demand command
+	if pa.conf.RunOnDemand != "" {
+		if pa.onDemandCmd == nil {
+			pa.Log("on demand command started")
+			pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand,
+				pa.conf.RunOnDemandRestart, pa.name)
 
+			if pa.sourceState != sourceStateWaitingDescribe {
+				pa.describeTimer = time.NewTimer(pa.conf.RunOnDemandStartTimeout)
+				pa.sourceState = sourceStateWaitingDescribe
+			}
+		}
+	}
+
+	if _, ok := pa.source.(*sourceRedirect); ok {
+		pa.addClient(c, clientStatePreRemove)
+		pa.removeClient(c)
 		c.OnPathDescribeData(nil, pa.conf.SourceRedirect, nil)
+		return
+	}
 
-		// source was found but is not ready: put the client on hold
-	} else if !pa.sourceReady {
-		// start source if needed
-		if source, ok := pa.source.(sourceExternal); ok {
-			if !source.IsRunning() {
-				pa.Log("starting on demand source")
-				pa.lastDescribeActivation = time.Now()
-				source.SetRunning(true)
-			}
-		}
-
-		pa.clients[c] = clientStateWaitingDescribe
-		pa.clientsWg.Add(1)
-
-		// source was found and is ready
-	} else {
-		pa.clients[c] = clientStatePreRemove
-		pa.clientsWg.Add(1)
-
+	switch pa.sourceState {
+	case sourceStateReady:
+		pa.addClient(c, clientStatePreRemove)
+		pa.removeClient(c)
 		c.OnPathDescribeData(pa.sourceSdp, "", nil)
+		return
+
+	case sourceStateWaitingDescribe:
+		pa.addClient(c, clientStateWaitingDescribe)
+		return
+
+	case sourceStateNotReady:
+		pa.addClient(c, clientStatePreRemove)
+		pa.removeClient(c)
+		c.OnPathDescribeData(nil, "", fmt.Errorf("no one is publishing to path '%s'", pa.name))
+		return
 	}
 }
 
 func (pa *Path) onClientSetupPlay(c *client.Client, trackId int) error {
-	if !pa.sourceReady {
+	if pa.sourceState != sourceStateReady {
 		return fmt.Errorf("no one is publishing to path '%s'", pa.name)
 	}
 
@@ -568,8 +621,19 @@ func (pa *Path) onClientSetupPlay(c *client.Client, trackId int) error {
 	}
 
 	if _, ok := pa.clients[c]; !ok {
-		pa.clients[c] = clientStatePrePlay
-		pa.clientsWg.Add(1)
+		// prevent on-demand source from closing
+		if pa.sourceCloseTimerStarted {
+			pa.sourceCloseTimer = newEmptyTimer()
+			pa.sourceCloseTimerStarted = false
+		}
+
+		// prevent on-demand command from closing
+		if pa.runOnDemandCloseTimerStarted {
+			pa.runOnDemandCloseTimer = newEmptyTimer()
+			pa.runOnDemandCloseTimerStarted = false
+		}
+
+		pa.addClient(c, clientStatePrePlay)
 	}
 
 	return nil
@@ -595,12 +659,11 @@ func (pa *Path) onClientAnnounce(c *client.Client, tracks gortsplib.Tracks) erro
 		return fmt.Errorf("already subscribed")
 	}
 
-	if pa.source != nil {
+	if pa.source != nil || pa.hasExternalSource() {
 		return fmt.Errorf("someone is already publishing to path '%s'", pa.name)
 	}
 
-	pa.clients[c] = clientStatePreRecord
-	pa.clientsWg.Add(1)
+	pa.addClient(c, clientStatePreRecord)
 
 	pa.source = c
 	pa.sourceTrackCount = len(tracks)
@@ -624,40 +687,58 @@ func (pa *Path) onClientRecord(c *client.Client) {
 	pa.onSourceSetReady()
 }
 
-func (pa *Path) onClientPreRemove(c *client.Client) {
-	state := pa.clients[c]
-	pa.clients[c] = clientStatePreRemove
-
-	switch state {
-	case clientStatePlay:
-		atomic.AddInt64(pa.stats.CountReaders, -1)
-		pa.readers.remove(c)
-
-	case clientStateRecord:
-		atomic.AddInt64(pa.stats.CountPublishers, -1)
-		pa.onSourceSetNotReady()
+func (pa *Path) scheduleSourceClose() {
+	if !pa.hasExternalSource() || !pa.conf.SourceOnDemand || pa.source == nil {
+		return
 	}
 
-	if pa.source == c {
-		pa.source = nil
-
-		// close all clients that are reading or waiting to read
-		for oc, state := range pa.clients {
-			if state != clientStatePreRemove && state != clientStateWaitingDescribe && oc != pa.source {
-				pa.onClientPreRemove(oc)
-				pa.parent.OnPathClientClose(oc)
-			}
-		}
+	if pa.sourceCloseTimerStarted ||
+		pa.sourceState == sourceStateWaitingDescribe ||
+		pa.hasClients() {
+		return
 	}
+
+	pa.sourceCloseTimer.Stop()
+	pa.sourceCloseTimer = time.NewTimer(pa.conf.SourceOnDemandCloseAfter)
+	pa.sourceCloseTimerStarted = true
 }
 
-func (pa *Path) OnSourceReady(tracks gortsplib.Tracks) {
+func (pa *Path) scheduleRunOnDemandClose() {
+	if pa.conf.RunOnDemand == "" || pa.onDemandCmd == nil {
+		return
+	}
+
+	if pa.runOnDemandCloseTimerStarted ||
+		pa.sourceState == sourceStateWaitingDescribe ||
+		pa.hasClientsNotSources() {
+		return
+	}
+
+	pa.runOnDemandCloseTimer.Stop()
+	pa.runOnDemandCloseTimer = time.NewTimer(pa.conf.RunOnDemandCloseAfter)
+	pa.runOnDemandCloseTimerStarted = true
+}
+
+func (pa *Path) scheduleClose() {
+	if pa.closeTimerStarted ||
+		pa.conf.Regexp == nil ||
+		pa.hasClients() ||
+		pa.source != nil {
+		return
+	}
+
+	pa.closeTimer.Stop()
+	pa.closeTimer = time.NewTimer(0)
+	pa.closeTimerStarted = true
+}
+
+func (pa *Path) OnSourceSetReady(tracks gortsplib.Tracks) {
 	pa.sourceSdp = tracks.Write()
 	pa.sourceTrackCount = len(tracks)
 	pa.sourceSetReady <- struct{}{}
 }
 
-func (pa *Path) OnSourceNotReady() {
+func (pa *Path) OnSourceSetNotReady() {
 	pa.sourceSetNotReady <- struct{}{}
 }
 

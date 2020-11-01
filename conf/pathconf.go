@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aler9/gortsplib"
 )
@@ -15,28 +16,32 @@ var reUserPass = regexp.MustCompile("^[a-zA-Z0-9!\\$\\(\\)\\*\\+\\.;<=>\\[\\]\\^
 const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
 
 type PathConf struct {
-	Regexp               *regexp.Regexp           `yaml:"-" json:"-"`
-	Source               string                   `yaml:"source"`
-	SourceProtocol       string                   `yaml:"sourceProtocol"`
-	SourceProtocolParsed gortsplib.StreamProtocol `yaml:"-" json:"-"`
-	SourceOnDemand       bool                     `yaml:"sourceOnDemand"`
-	SourceRedirect       string                   `yaml:"sourceRedirect"`
-	RunOnInit            string                   `yaml:"runOnInit"`
-	RunOnInitRestart     bool                     `yaml:"runOnInitRestart"`
-	RunOnDemand          string                   `yaml:"runOnDemand"`
-	RunOnDemandRestart   bool                     `yaml:"runOnDemandRestart"`
-	RunOnPublish         string                   `yaml:"runOnPublish"`
-	RunOnPublishRestart  bool                     `yaml:"runOnPublishRestart"`
-	RunOnRead            string                   `yaml:"runOnRead"`
-	RunOnReadRestart     bool                     `yaml:"runOnReadRestart"`
-	PublishUser          string                   `yaml:"publishUser"`
-	PublishPass          string                   `yaml:"publishPass"`
-	PublishIps           []string                 `yaml:"publishIps"`
-	PublishIpsParsed     []interface{}            `yaml:"-" json:"-"`
-	ReadUser             string                   `yaml:"readUser"`
-	ReadPass             string                   `yaml:"readPass"`
-	ReadIps              []string                 `yaml:"readIps"`
-	ReadIpsParsed        []interface{}            `yaml:"-" json:"-"`
+	Regexp                     *regexp.Regexp           `yaml:"-" json:"-"`
+	Source                     string                   `yaml:"source"`
+	SourceProtocol             string                   `yaml:"sourceProtocol"`
+	SourceProtocolParsed       gortsplib.StreamProtocol `yaml:"-" json:"-"`
+	SourceOnDemand             bool                     `yaml:"sourceOnDemand"`
+	SourceOnDemandStartTimeout time.Duration            `yaml:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   time.Duration            `yaml:"sourceOnDemandCloseAfter"`
+	SourceRedirect             string                   `yaml:"sourceRedirect"`
+	RunOnInit                  string                   `yaml:"runOnInit"`
+	RunOnInitRestart           bool                     `yaml:"runOnInitRestart"`
+	RunOnDemand                string                   `yaml:"runOnDemand"`
+	RunOnDemandRestart         bool                     `yaml:"runOnDemandRestart"`
+	RunOnDemandStartTimeout    time.Duration            `yaml:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter      time.Duration            `yaml:"runOnDemandCloseAfter"`
+	RunOnPublish               string                   `yaml:"runOnPublish"`
+	RunOnPublishRestart        bool                     `yaml:"runOnPublishRestart"`
+	RunOnRead                  string                   `yaml:"runOnRead"`
+	RunOnReadRestart           bool                     `yaml:"runOnReadRestart"`
+	PublishUser                string                   `yaml:"publishUser"`
+	PublishPass                string                   `yaml:"publishPass"`
+	PublishIps                 []string                 `yaml:"publishIps"`
+	PublishIpsParsed           []interface{}            `yaml:"-" json:"-"`
+	ReadUser                   string                   `yaml:"readUser"`
+	ReadPass                   string                   `yaml:"readPass"`
+	ReadIps                    []string                 `yaml:"readIps"`
+	ReadIpsParsed              []interface{}            `yaml:"-" json:"-"`
 }
 
 func (pconf *PathConf) fillAndCheck(name string) error {
@@ -64,7 +69,9 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		pconf.Source = "record"
 	}
 
-	if strings.HasPrefix(pconf.Source, "rtsp://") {
+	if pconf.Source == "record" {
+
+	} else if strings.HasPrefix(pconf.Source, "rtsp://") {
 		if pconf.Regexp != nil {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 		}
@@ -117,8 +124,6 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			}
 		}
 
-	} else if pconf.Source == "record" {
-
 	} else if pconf.Source == "redirect" {
 		if pconf.SourceRedirect == "" {
 			return fmt.Errorf("source redirect must be filled")
@@ -134,7 +139,15 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		}
 
 	} else {
-		return fmt.Errorf("unsupported source: '%s'", pconf.Source)
+		return fmt.Errorf("invalid source: '%s'", pconf.Source)
+	}
+
+	if pconf.SourceOnDemandStartTimeout == 0 {
+		pconf.SourceOnDemandStartTimeout = 10 * time.Second
+	}
+
+	if pconf.SourceOnDemandCloseAfter == 0 {
+		pconf.SourceOnDemandCloseAfter = 10 * time.Second
 	}
 
 	if pconf.PublishUser != "" {
@@ -188,8 +201,16 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		pconf.ReadIps = nil
 	}
 
-	if pconf.Regexp != nil && pconf.RunOnInit != "" {
+	if pconf.RunOnInit != "" && pconf.Regexp != nil {
 		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
+	}
+
+	if pconf.RunOnDemandStartTimeout == 0 {
+		pconf.RunOnDemandStartTimeout = 10 * time.Second
+	}
+
+	if pconf.RunOnDemandCloseAfter == 0 {
+		pconf.RunOnDemandCloseAfter = 10 * time.Second
 	}
 
 	return nil
