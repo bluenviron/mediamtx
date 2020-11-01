@@ -20,6 +20,7 @@ type Parent interface {
 }
 
 type PathManager struct {
+	rtspPort     int
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	authMethods  []headers.AuthMethod
@@ -44,6 +45,7 @@ type PathManager struct {
 }
 
 func New(
+	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	authMethods []headers.AuthMethod,
@@ -52,6 +54,7 @@ func New(
 	parent Parent) *PathManager {
 
 	pm := &PathManager{
+		rtspPort:        rtspPort,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		authMethods:     authMethods,
@@ -155,9 +158,8 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(
-					pm.readTimeout, pm.writeTimeout, pathName, pathConf, req.PathName,
-					&pm.wg, pm.stats, pm)
+				pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
+					pathName, pathConf, req.PathName, &pm.wg, pm.stats, pm)
 				pm.paths[req.PathName] = pa
 			}
 
@@ -179,9 +181,8 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(
-					pm.readTimeout, pm.writeTimeout, pathName, pathConf, req.PathName,
-					&pm.wg, pm.stats, pm)
+				pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
+					pathName, pathConf, req.PathName, &pm.wg, pm.stats, pm)
 				pm.paths[req.PathName] = pa
 			}
 
@@ -254,9 +255,8 @@ outer:
 func (pm *PathManager) createPaths() {
 	for pathName, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
-			pa := path.New(
-				pm.readTimeout, pm.writeTimeout, pathName, pathConf, pathName,
-				&pm.wg, pm.stats, pm)
+			pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
+				pathName, pathConf, pathName, &pm.wg, pm.stats, pm)
 			pm.paths[pathName] = pa
 		}
 	}

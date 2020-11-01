@@ -692,7 +692,7 @@ func TestRedirect(t *testing.T) {
 func TestRunOnDemand(t *testing.T) {
 	p1, err := testProgram("paths:\n" +
 		"  all:\n" +
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_PATH\n")
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n")
 	require.NoError(t, err)
 	defer p1.close()
 
@@ -716,7 +716,7 @@ func TestHotReloading(t *testing.T) {
 
 	err := ioutil.WriteFile(confPath, []byte("paths:\n"+
 		"  test1:\n"+
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_PATH\n"),
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"),
 		0644)
 	require.NoError(t, err)
 
@@ -742,7 +742,7 @@ func TestHotReloading(t *testing.T) {
 
 	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
 		"  test2:\n"+
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$RTSP_PATH\n"),
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"),
 		0644)
 	require.NoError(t, err)
 

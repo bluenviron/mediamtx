@@ -29,6 +29,7 @@ logFile: rtsp-simple-server.log
 
 # command to run when a client connects to the server.
 # this is terminated with SIGINT when a client disconnects from the server.
+# the server port is available in the RTSP_PORT variable.
 # the restart parameter allows to restart the command if it exits suddenly.
 runOnConnect:
 runOnConnectRestart: no
@@ -83,6 +84,7 @@ paths:
     # this can be used to publish a stream and keep it always opened.
     # this is terminated with SIGINT when the program closes.
     # the path name is available in the RTSP_PATH variable.
+    # the server port is available in the RTSP_PORT variable.
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnInit:
     runOnInitRestart: no
@@ -91,6 +93,7 @@ paths:
     # this can be used to publish a stream on demand.
     # this is terminated with SIGINT when the path is not requested anymore.
     # the path name is available in the RTSP_PATH variable.
+    # the server port is available in the RTSP_PORT variable.
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnDemand:
     runOnDemandRestart: no
@@ -104,6 +107,7 @@ paths:
     # command to run when a client starts publishing.
     # this is terminated with SIGINT when a client stops publishing.
     # the path name is available in the RTSP_PATH variable.
+    # the server port is available in the RTSP_PORT variable.
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnPublish:
     runOnPublishRestart: no
@@ -111,6 +115,7 @@ paths:
     # command to run when a clients starts reading.
     # this is terminated with SIGINT when a client stops reading.
     # the path name is available in the RTSP_PATH variable.
+    # the server port is available in the RTSP_PORT variable.
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnRead:
     runOnReadRestart: no

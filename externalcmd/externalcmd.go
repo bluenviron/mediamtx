@@ -12,10 +12,15 @@ const (
 	retryPause = 5 * time.Second
 )
 
+type Environment struct {
+	Path string
+	Port string
+}
+
 type ExternalCmd struct {
-	cmdstr   string
-	restart  bool
-	pathName string
+	cmdstr  string
+	restart bool
+	env     Environment
 
 	// in
 	terminate chan struct{}
@@ -24,11 +29,11 @@ type ExternalCmd struct {
 	done chan struct{}
 }
 
-func New(cmdstr string, restart bool, pathName string) *ExternalCmd {
+func New(cmdstr string, restart bool, env Environment) *ExternalCmd {
 	e := &ExternalCmd{
 		cmdstr:    cmdstr,
 		restart:   restart,
-		pathName:  pathName,
+		env:       env,
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -79,16 +84,19 @@ func (e *ExternalCmd) runInner() bool {
 		// on Windows the shell is not used and command is started directly
 		// variables are replaced manually in order to guarantee compatibility
 		// with Linux commands
-		args := strings.Fields(strings.ReplaceAll(e.cmdstr, "$RTSP_PATH", e.pathName))
+		tmp := strings.ReplaceAll(e.cmdstr, "$RTSP_PATH", e.env.Path)
+		tmp = strings.ReplaceAll(tmp, "$RTSP_PORT", e.env.Port)
+
+		args := strings.Fields(tmp)
 		cmd = exec.Command(args[0], args[1:]...)
 
 	} else {
 		cmd = exec.Command("/bin/sh", "-c", "exec "+e.cmdstr)
 	}
 
-	// variables are inserted into the environment
 	cmd.Env = append(os.Environ(),
-		"RTSP_PATH="+e.pathName,
+		"RTSP_PATH="+e.env.Path,
+		"RTSP_PORT="+e.env.Port,
 	)
 
 	cmd.Stdout = os.Stdout

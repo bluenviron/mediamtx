@@ -2,6 +2,7 @@ package path
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -125,6 +126,7 @@ const (
 )
 
 type Path struct {
+	rtspPort     int
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	confName     string
@@ -165,6 +167,7 @@ type Path struct {
 }
 
 func New(
+	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	confName string,
@@ -175,6 +178,7 @@ func New(
 	parent Parent) *Path {
 
 	pa := &Path{
+		rtspPort:              rtspPort,
 		readTimeout:           readTimeout,
 		writeTimeout:          writeTimeout,
 		confName:              confName,
@@ -225,8 +229,10 @@ func (pa *Path) run() {
 
 	if pa.conf.RunOnInit != "" {
 		pa.Log("on init command started")
-		pa.onInitCmd = externalcmd.New(pa.conf.RunOnInit,
-			pa.conf.RunOnInitRestart, pa.name)
+		pa.onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
+			Path: pa.name,
+			Port: strconv.FormatInt(int64(pa.rtspPort), 10),
+		})
 	}
 
 outer:
@@ -575,8 +581,10 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 	if pa.conf.RunOnDemand != "" {
 		if pa.onDemandCmd == nil {
 			pa.Log("on demand command started")
-			pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand,
-				pa.conf.RunOnDemandRestart, pa.name)
+			pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand, pa.conf.RunOnDemandRestart, externalcmd.Environment{
+				Path: pa.name,
+				Port: strconv.FormatInt(int64(pa.rtspPort), 10),
+			})
 
 			if pa.sourceState != sourceStateWaitingDescribe {
 				pa.describeTimer = time.NewTimer(pa.conf.RunOnDemandStartTimeout)

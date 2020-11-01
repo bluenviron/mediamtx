@@ -97,14 +97,15 @@ type Parent interface {
 }
 
 type Client struct {
-	wg                  *sync.WaitGroup
-	stats               *stats.Stats
-	serverUdpRtp        *serverudp.Server
-	serverUdpRtcp       *serverudp.Server
+	rtspPort            int
 	readTimeout         time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
 	protocols           map[gortsplib.StreamProtocol]struct{}
+	wg                  *sync.WaitGroup
+	stats               *stats.Stats
+	serverUdpRtp        *serverudp.Server
+	serverUdpRtcp       *serverudp.Server
 	conn                *gortsplib.ConnServer
 	parent              Parent
 
@@ -128,27 +129,29 @@ type Client struct {
 }
 
 func New(
-	wg *sync.WaitGroup,
-	stats *stats.Stats,
-	serverUdpRtp *serverudp.Server,
-	serverUdpRtcp *serverudp.Server,
+	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	protocols map[gortsplib.StreamProtocol]struct{},
+	wg *sync.WaitGroup,
+	stats *stats.Stats,
+	serverUdpRtp *serverudp.Server,
+	serverUdpRtcp *serverudp.Server,
 	nconn net.Conn,
 	parent Parent) *Client {
 
 	c := &Client{
-		wg:                  wg,
-		stats:               stats,
-		serverUdpRtp:        serverUdpRtp,
-		serverUdpRtcp:       serverUdpRtcp,
+		rtspPort:            rtspPort,
 		readTimeout:         readTimeout,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		protocols:           protocols,
+		wg:                  wg,
+		stats:               stats,
+		serverUdpRtp:        serverUdpRtp,
+		serverUdpRtcp:       serverUdpRtcp,
 		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
 			Conn:            nconn,
 			ReadTimeout:     readTimeout,
@@ -201,7 +204,10 @@ func (c *Client) run() {
 
 	var onConnectCmd *externalcmd.ExternalCmd
 	if c.runOnConnect != "" {
-		onConnectCmd = externalcmd.New(c.runOnConnect, c.runOnConnectRestart, "")
+		onConnectCmd = externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
+			Path: "",
+			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+		})
 	}
 
 	for {
@@ -936,8 +942,10 @@ func (c *Client) runPlay() bool {
 
 	var onReadCmd *externalcmd.ExternalCmd
 	if c.path.Conf().RunOnRead != "" {
-		onReadCmd = externalcmd.New(c.path.Conf().RunOnRead,
-			c.path.Conf().RunOnReadRestart, c.path.Name())
+		onReadCmd = externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
+			Path: c.path.Name(),
+			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+		})
 	}
 
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
@@ -1111,8 +1119,10 @@ func (c *Client) runRecord() bool {
 
 	var onPublishCmd *externalcmd.ExternalCmd
 	if c.path.Conf().RunOnPublish != "" {
-		onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish,
-			c.path.Conf().RunOnPublishRestart, c.path.Name())
+		onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
+			Path: c.path.Name(),
+			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+		})
 	}
 
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {

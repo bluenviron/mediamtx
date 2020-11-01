@@ -175,13 +175,14 @@ func (p *program) createResources(initial bool) error {
 	}
 
 	if p.pathMan == nil {
-		p.pathMan = pathman.New(p.conf.ReadTimeout, p.conf.WriteTimeout,
-			p.conf.AuthMethodsParsed, p.conf.Paths, p.stats, p)
+		p.pathMan = pathman.New(p.conf.RtspPort, p.conf.ReadTimeout,
+			p.conf.WriteTimeout, p.conf.AuthMethodsParsed, p.conf.Paths,
+			p.stats, p)
 	}
 
 	if p.clientMan == nil {
-		p.clientMan = clientman.New(p.conf.ReadTimeout, p.conf.WriteTimeout,
-			p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
+		p.clientMan = clientman.New(p.conf.RtspPort, p.conf.ReadTimeout,
+			p.conf.WriteTimeout, p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
 			p.conf.ProtocolsParsed, p.stats, p.serverUdpRtp, p.serverUdpRtcp,
 			p.pathMan, p.serverTcp, p)
 	}
@@ -280,7 +281,8 @@ func (p *program) reloadConf() error {
 	}
 
 	closePathMan := false
-	if conf.ReadTimeout != p.conf.ReadTimeout ||
+	if conf.RtspPort != p.conf.RtspPort ||
+		conf.ReadTimeout != p.conf.ReadTimeout ||
 		conf.WriteTimeout != p.conf.WriteTimeout ||
 		!reflect.DeepEqual(conf.AuthMethodsParsed, p.conf.AuthMethodsParsed) {
 		closePathMan = true
@@ -293,6 +295,7 @@ func (p *program) reloadConf() error {
 		closeServerUdpRtcp ||
 		closeServerTcp ||
 		closePathMan ||
+		conf.RtspPort != p.conf.RtspPort ||
 		conf.ReadTimeout != p.conf.ReadTimeout ||
 		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RunOnConnect != p.conf.RunOnConnect ||
