@@ -24,6 +24,7 @@ type PathConf struct {
 	SourceOnDemandStartTimeout time.Duration            `yaml:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   time.Duration            `yaml:"sourceOnDemandCloseAfter"`
 	SourceRedirect             string                   `yaml:"sourceRedirect"`
+	Fallback                   string                   `yaml:"fallback"`
 	RunOnInit                  string                   `yaml:"runOnInit"`
 	RunOnInitRestart           bool                     `yaml:"runOnInitRestart"`
 	RunOnDemand                string                   `yaml:"runOnDemand"`
@@ -148,6 +149,17 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 	if pconf.SourceOnDemandCloseAfter == 0 {
 		pconf.SourceOnDemandCloseAfter = 10 * time.Second
+	}
+
+	if pconf.Fallback != "" {
+		u, err := url.Parse(pconf.Fallback)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Fallback)
+		}
+
+		if u.Scheme != "rtsp" {
+			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Fallback)
+		}
 	}
 
 	if pconf.PublishUser != "" {

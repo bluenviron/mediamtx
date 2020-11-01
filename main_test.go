@@ -689,6 +689,44 @@ func TestRedirect(t *testing.T) {
 	require.Equal(t, 0, code)
 }
 
+func TestFallback(t *testing.T) {
+	p1, err := testProgram("paths:\n" +
+		"  path1:\n" +
+		"    fallback: rtsp://" + ownDockerIp + ":8554/path2\n" +
+		"  path2:\n")
+	require.NoError(t, err)
+	defer p1.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "/emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"-rtsp_transport", "udp",
+		"rtsp://" + ownDockerIp + ":8554/path2",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt2, err := newContainer("ffmpeg", "dest", []string{
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://" + ownDockerIp + ":8554/path1",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	code := cnt2.wait()
+	require.Equal(t, 0, code)
+}
+
 func TestRunOnDemand(t *testing.T) {
 	p1, err := testProgram("paths:\n" +
 		"  all:\n" +

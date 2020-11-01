@@ -612,6 +612,13 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 		return
 
 	case sourceStateNotReady:
+		if pa.conf.Fallback != "" {
+			pa.addClient(c, clientStatePreRemove)
+			pa.removeClient(c)
+			c.OnPathDescribeData(nil, pa.conf.Fallback, nil)
+			return
+		}
+
 		pa.addClient(c, clientStatePreRemove)
 		pa.removeClient(c)
 		c.OnPathDescribeData(nil, "", fmt.Errorf("no one is publishing to path '%s'", pa.name))

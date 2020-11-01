@@ -66,6 +66,9 @@ paths:
     # redirected to.
     sourceRedirect:
 
+    # fallback url to redirect clients to when nobody is publishing to this path
+    fallback:
+
     # username required to publish.
     publishUser:
     # password required to publish.
