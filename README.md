@@ -88,7 +88,7 @@ The configuration can be changed dinamically when the server is running (hot rel
 
 ### RTSP proxy mode
 
-`rtsp-simple-server` is also an RTSP proxy, that is usually deployed in one of these scenarios:
+_rtsp-simple-server_ is also a RTSP proxy, that is usually deployed in one of these scenarios:
 * when there are multiple users that are receiving a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
 * when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
 

@@ -160,7 +160,8 @@ RUN export CGO_ENABLED=0 $${OPTS} \
 	&& go build -ldflags "-X main.Version=$$VERSION" -o /rtsp-simple-server
 
 FROM scratch
-COPY --from=build /rtsp-simple-server /rtsp-simple-server
+COPY --from=build /rtsp-simple-server /
+COPY --from=build /s/rtsp-simple-server.yml /
 ENTRYPOINT [ "/rtsp-simple-server" ]
 endef
 export DOCKERFILE_DOCKERHUB
