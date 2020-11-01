@@ -80,10 +80,10 @@ define CONFIG_RUN
 
 paths:
   all:
-#    runOnPublish: ffmpeg -i rtsp://localhost:8554/$$RTSP_SERVER_PATH -c copy -f mpegts myfile_$$RTSP_SERVER_PATH.ts
+#    runOnPublish: ffmpeg -i rtsp://localhost:8554/$$RTSP_PATH -c copy -f mpegts myfile_$$RTSP_PATH.ts
 #    readUser: test
 #    readPass: tast
-#    runOnDemand: ffmpeg -re -stream_loop -1 -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$$RTSP_SERVER_PATH
+#    runOnDemand: ffmpeg -re -stream_loop -1 -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:8554/$$RTSP_PATH
 
 #  proxied:
 #    source: rtsp://192.168.2.198:8554/stream

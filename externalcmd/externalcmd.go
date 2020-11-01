@@ -79,7 +79,7 @@ func (e *ExternalCmd) runInner() bool {
 		// on Windows the shell is not used and command is started directly
 		// variables are replaced manually in order to guarantee compatibility
 		// with Linux commands
-		args := strings.Fields(strings.ReplaceAll(e.cmdstr, "$RTSP_SERVER_PATH", e.pathName))
+		args := strings.Fields(strings.ReplaceAll(e.cmdstr, "$RTSP_PATH", e.pathName))
 		cmd = exec.Command(args[0], args[1:]...)
 
 	} else {
@@ -88,7 +88,7 @@ func (e *ExternalCmd) runInner() bool {
 
 	// variables are inserted into the environment
 	cmd.Env = append(os.Environ(),
-		"RTSP_SERVER_PATH="+e.pathName,
+		"RTSP_PATH="+e.pathName,
 	)
 
 	cmd.Stdout = os.Stdout
