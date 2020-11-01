@@ -373,7 +373,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, ok := base.URLGetBasePath(req.URL)
+		basePath, ok := req.URL.BasePath()
 		if !ok {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
 			return errRunTerminate
@@ -432,7 +432,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, ok := base.URLGetBasePath(req.URL)
+		basePath, ok := req.URL.BasePath()
 		if !ok {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
 			return errRunTerminate
@@ -478,7 +478,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, controlPath, ok := base.URLGetBaseControlPath(req.URL)
+		basePath, controlPath, ok := req.URL.BaseControlPath()
 		if !ok {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find control path (%s)", req.URL))
 			return errRunTerminate
@@ -757,7 +757,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, ok := base.URLGetBasePath(req.URL)
+		basePath, ok := req.URL.BasePath()
 		if !ok {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
 			return errRunTerminate
@@ -796,7 +796,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, ok := base.URLGetBasePath(req.URL)
+		basePath, ok := req.URL.BasePath()
 		if !ok {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
 			return errRunTerminate

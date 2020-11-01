@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/base"
 )
 
 var reUserPass = regexp.MustCompile("^[a-zA-Z0-9!\\$\\(\\)\\*\\+\\.;<=>\\[\\]\\^_\\-\\{\\}]+$")
@@ -77,14 +78,14 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 		}
 
-		u, err := url.Parse(pconf.Source)
+		u, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Source)
 		}
 
-		if u.User != nil {
-			pass, _ := u.User.Password()
-			user := u.User.Username()
+		if u.User() != nil {
+			pass, _ := u.User().Password()
+			user := u.User().Username()
 			if user != "" && pass == "" ||
 				user == "" && pass != "" {
 				fmt.Errorf("username and password must be both provided")
@@ -115,6 +116,9 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid rtmp url", pconf.Source)
 		}
+		if u.Scheme != "rtmp" {
+			return fmt.Errorf("'%s' is not a valid rtmp url", pconf.Source)
+		}
 
 		if u.User != nil {
 			pass, _ := u.User.Password()
@@ -130,12 +134,8 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("source redirect must be filled")
 		}
 
-		u, err := url.Parse(pconf.SourceRedirect)
+		_, err := base.ParseURL(pconf.SourceRedirect)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.SourceRedirect)
-		}
-
-		if u.Scheme != "rtsp" {
 			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.SourceRedirect)
 		}
 
@@ -152,12 +152,8 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 
 	if pconf.Fallback != "" {
-		u, err := url.Parse(pconf.Fallback)
+		_, err := base.ParseURL(pconf.Fallback)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Fallback)
-		}
-
-		if u.Scheme != "rtsp" {
 			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Fallback)
 		}
 	}

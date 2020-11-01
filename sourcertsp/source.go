@@ -1,12 +1,12 @@
 package sourcertsp
 
 import (
-	"net/url"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/base"
 
 	"github.com/aler9/rtsp-simple-server/stats"
 )
@@ -103,7 +103,7 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.parent.Log("connecting to rtsp source")
 
-	u, _ := url.Parse(s.ur)
+	u, _ := base.ParseURL(s.ur)
 
 	var conn *gortsplib.ConnClient
 	var err error
@@ -111,7 +111,7 @@ func (s *Source) runInner() bool {
 	go func() {
 		defer close(dialDone)
 		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:            u.Host,
+			Host:            u.Host(),
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
 			ReadBufferCount: 2,
@@ -150,7 +150,7 @@ func (s *Source) runInner() bool {
 	}
 }
 
-func (s *Source) runUDP(u *url.URL, conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
+func (s *Source) runUDP(u *base.URL, conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
 	for _, track := range tracks {
 		_, err := conn.SetupUDP(u, gortsplib.TransportModePlay, track, 0, 0)
 		if err != nil {
@@ -237,7 +237,7 @@ outer:
 	return ret
 }
 
-func (s *Source) runTCP(u *url.URL, conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
+func (s *Source) runTCP(u *base.URL, conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
 	for _, track := range tracks {
 		_, err := conn.SetupTCP(u, gortsplib.TransportModePlay, track)
 		if err != nil {
