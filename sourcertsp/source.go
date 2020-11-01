@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/base"
 
 	"github.com/aler9/rtsp-simple-server/stats"
 )
@@ -103,19 +102,16 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.parent.Log("connecting to rtsp source")
 
-	u, _ := base.ParseURL(s.ur)
-
 	var conn *gortsplib.ConnClient
 	var err error
 	dialDone := make(chan struct{}, 1)
 	go func() {
 		defer close(dialDone)
-		conn, err = gortsplib.NewConnClient(gortsplib.ConnClientConf{
-			Host:            u.Host(),
+		conn, err = gortsplib.Dialer{
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
 			ReadBufferCount: 2,
-		})
+		}.DialRead(s.ur, s.proto)
 	}()
 
 	select {
@@ -129,47 +125,23 @@ func (s *Source) runInner() bool {
 		return true
 	}
 
-	_, err = conn.Options(u)
-	if err != nil {
-		conn.Close()
-		s.parent.Log("rtsp source ERR: %s", err)
-		return true
-	}
-
-	tracks, _, err := conn.Describe(u)
-	if err != nil {
-		conn.Close()
-		s.parent.Log("rtsp source ERR: %s", err)
-		return true
-	}
-
-	if s.proto == gortsplib.StreamProtocolUDP {
-		return s.runUDP(u, conn, tracks)
-	} else {
-		return s.runTCP(u, conn, tracks)
-	}
-}
-
-func (s *Source) runUDP(u *base.URL, conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
-	for _, track := range tracks {
-		_, err := conn.SetupUDP(u, gortsplib.TransportModePlay, track, 0, 0)
-		if err != nil {
-			conn.Close()
-			s.parent.Log("rtsp source ERR: %s", err)
-			return true
-		}
-	}
-
-	_, err := conn.Play(u)
-	if err != nil {
-		conn.Close()
-		s.parent.Log("rtsp source ERR: %s", err)
-		return true
-	}
+	tracks := conn.Tracks()
 
 	s.parent.Log("rtsp source ready")
 	s.parent.OnSourceSetReady(tracks)
 
+	var ret bool
+	if s.proto == gortsplib.StreamProtocolUDP {
+		ret = s.runUDP(conn, tracks)
+	} else {
+		ret = s.runTCP(conn, tracks)
+	}
+
+	s.parent.OnSourceSetNotReady()
+	return ret
+}
+
+func (s *Source) runUDP(conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
 	var wg sync.WaitGroup
 
 	// receive RTP packets
@@ -231,32 +203,10 @@ outer:
 	}
 
 	wg.Wait()
-
-	s.parent.OnSourceSetNotReady()
-
 	return ret
 }
 
-func (s *Source) runTCP(u *base.URL, conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
-	for _, track := range tracks {
-		_, err := conn.SetupTCP(u, gortsplib.TransportModePlay, track)
-		if err != nil {
-			conn.Close()
-			s.parent.Log("rtsp source ERR: %s", err)
-			return true
-		}
-	}
-
-	_, err := conn.Play(u)
-	if err != nil {
-		conn.Close()
-		s.parent.Log("rtsp source ERR: %s", err)
-		return true
-	}
-
-	s.parent.Log("rtsp source ready")
-	s.parent.OnSourceSetReady(tracks)
-
+func (s *Source) runTCP(conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
 	tcpConnDone := make(chan error)
 	go func() {
 		for {
@@ -288,8 +238,6 @@ outer:
 			break outer
 		}
 	}
-
-	s.parent.OnSourceSetNotReady()
 
 	return ret
 }
