@@ -14,7 +14,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aler9/rtsp-simple-server/conf"
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 )
 
 var ownDockerIp = func() string {

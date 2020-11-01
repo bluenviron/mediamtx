@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/aler9/rtsp-simple-server/syslog"
+	"github.com/aler9/rtsp-simple-server/internal/syslog"
 )
 
 type Destination int

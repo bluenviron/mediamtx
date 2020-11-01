@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/stats"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 const (

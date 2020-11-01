@@ -17,10 +17,10 @@ import (
 	"github.com/aler9/gortsplib/headers"
 	"github.com/aler9/gortsplib/rtcpreceiver"
 
-	"github.com/aler9/rtsp-simple-server/conf"
-	"github.com/aler9/rtsp-simple-server/externalcmd"
-	"github.com/aler9/rtsp-simple-server/serverudp"
-	"github.com/aler9/rtsp-simple-server/stats"
+	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
+	"github.com/aler9/rtsp-simple-server/internal/serverudp"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 const (

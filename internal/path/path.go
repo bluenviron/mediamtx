@@ -11,12 +11,12 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/base"
 
-	"github.com/aler9/rtsp-simple-server/client"
-	"github.com/aler9/rtsp-simple-server/conf"
-	"github.com/aler9/rtsp-simple-server/externalcmd"
-	"github.com/aler9/rtsp-simple-server/sourcertmp"
-	"github.com/aler9/rtsp-simple-server/sourcertsp"
-	"github.com/aler9/rtsp-simple-server/stats"
+	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
+	"github.com/aler9/rtsp-simple-server/internal/sourcertmp"
+	"github.com/aler9/rtsp-simple-server/internal/sourcertsp"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 func newEmptyTimer() *time.Timer {

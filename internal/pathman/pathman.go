@@ -9,10 +9,10 @@ import (
 	"github.com/aler9/gortsplib/base"
 	"github.com/aler9/gortsplib/headers"
 
-	"github.com/aler9/rtsp-simple-server/client"
-	"github.com/aler9/rtsp-simple-server/conf"
-	"github.com/aler9/rtsp-simple-server/path"
-	"github.com/aler9/rtsp-simple-server/stats"
+	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/path"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 type Parent interface {

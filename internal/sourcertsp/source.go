@@ -7,7 +7,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 
-	"github.com/aler9/rtsp-simple-server/stats"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 const (

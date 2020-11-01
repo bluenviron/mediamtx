@@ -9,8 +9,8 @@ import (
 	"github.com/aler9/gortsplib/headers"
 	"gopkg.in/yaml.v2"
 
-	"github.com/aler9/rtsp-simple-server/confenv"
-	"github.com/aler9/rtsp-simple-server/loghandler"
+	"github.com/aler9/rtsp-simple-server/internal/confenv"
+	"github.com/aler9/rtsp-simple-server/internal/loghandler"
 )
 
 type Conf struct {

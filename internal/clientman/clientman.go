@@ -8,11 +8,11 @@ import (
 	"github.com/aler9/gortsplib/base"
 	"github.com/aler9/gortsplib/headers"
 
-	"github.com/aler9/rtsp-simple-server/client"
-	"github.com/aler9/rtsp-simple-server/pathman"
-	"github.com/aler9/rtsp-simple-server/servertcp"
-	"github.com/aler9/rtsp-simple-server/serverudp"
-	"github.com/aler9/rtsp-simple-server/stats"
+	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/pathman"
+	"github.com/aler9/rtsp-simple-server/internal/servertcp"
+	"github.com/aler9/rtsp-simple-server/internal/serverudp"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 type Parent interface {
