@@ -85,7 +85,6 @@ RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
 
 The configuration can be changed dinamically when the server is running (hot reloading) by editing the configuration file, Changes are detected and applied without disconnecting existing clients, whenever is possible.
 
-
 ### RTSP proxy mode
 
 _rtsp-simple-server_ is also a RTSP proxy, that is usually deployed in one of these scenarios:
@@ -93,7 +92,7 @@ _rtsp-simple-server_ is also a RTSP proxy, that is usually deployed in one of th
 * when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-```yaml
+```yml
 paths:
   proxied:
     # url of the source stream, in the format rtsp://user:pass@host:port/path
@@ -102,10 +101,18 @@ paths:
 
 After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
 
+It's possible to save bandwidth by enabling the on-demand mode: the stream will be pulled only when at least a client is connected:
+```yml
+paths:
+  proxied:
+    source: rtsp://original-url
+    sourceOnDemand: yes
+```
+
 ### Serve a webcam
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-```yaml
+```yml
 paths:
   cam:
     runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
@@ -125,7 +132,7 @@ Install dependencies:
 2. gst-rpicamsrc, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
 
 Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-```yaml
+```yml
 paths:
   cam:
     runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! rtspclientsink location=rtsp://localhost:$RTSP_PORT/$RTSP_PATH
@@ -137,7 +144,7 @@ After starting the server, the webcam is available on `rtsp://localhost:8554/cam
 ### On-demand publishing
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-```yaml
+```yml
 paths:
   ondemand:
     runOnDemand: ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
@@ -148,8 +155,8 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 ### Remuxing, re-encoding, compression
 
-To change the format, codec or compression of a stream, you can use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-```yaml
+To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+```yml
 paths:
   all:
   original:
@@ -157,10 +164,29 @@ paths:
     runOnPublishRestart: yes
 ```
 
+### Redirect to another url
+
+To redirect to another URL, use the `redirect` source:
+```yml
+paths:
+  redirected:
+    source: redirect
+    sourceRedirect: rtsp://otherurl/otherpath
+```
+
+### Fallback stream
+
+If no one is publishing to the server, readers can be redirected to a fallback URL that is serving a fallback stream:
+```yml
+paths:
+  withfallback:
+    fallback: rtsp://otherurl/otherpath
+```
+
 ### Authentication
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-```yaml
+```yml
 paths:
   all:
     publishUser: admin
@@ -173,7 +199,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@lo
 ```
 
 It's possible to setup authentication for readers too:
-```yaml
+```yml
 paths:
   all:
     publishUser: admin
