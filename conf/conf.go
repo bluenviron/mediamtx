@@ -74,7 +74,7 @@ func (conf *Conf) fillAndCheck() error {
 		conf.ReadTimeout = 10 * time.Second
 	}
 	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 5 * time.Second
+		conf.WriteTimeout = 10 * time.Second
 	}
 
 	if len(conf.AuthMethods) == 0 {

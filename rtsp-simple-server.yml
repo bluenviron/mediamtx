@@ -11,7 +11,7 @@ rtcpPort: 8001
 # timeout of read operations.
 readTimeout: 10s
 # timeout of write operations.
-writeTimeout: 5s
+writeTimeout: 10s
 
 # supported authentication methods (both are insecure, use RTSP inside a VPN
 # to enforce security).
