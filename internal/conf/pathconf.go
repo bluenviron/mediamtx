@@ -83,9 +83,9 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Source)
 		}
 
-		if u.User() != nil {
-			pass, _ := u.User().Password()
-			user := u.User().Username()
+		if u.User != nil {
+			pass, _ := u.User.Password()
+			user := u.User.Username()
 			if user != "" && pass == "" ||
 				user == "" && pass != "" {
 				fmt.Errorf("username and password must be both provided")

@@ -478,9 +478,9 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errRunTerminate
 		}
 
-		basePath, controlPath, ok := req.URL.BaseControlPath()
+		basePath, controlPath, ok := req.URL.BasePathControlAttr()
 		if !ok {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find control path (%s)", req.URL))
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find control attribute (%s)", req.URL))
 			return errRunTerminate
 		}
 
@@ -498,7 +498,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			}
 
 			if !strings.HasPrefix(controlPath, "trackID=") {
-				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("invalid control path (%s)", controlPath))
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("invalid control attribute (%s)", controlPath))
 				return errRunTerminate
 			}
 
