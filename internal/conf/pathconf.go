@@ -16,6 +16,7 @@ var reUserPass = regexp.MustCompile("^[a-zA-Z0-9!\\$\\(\\)\\*\\+\\.;<=>\\[\\]\\^
 
 const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
 
+// PathConf is a path configuration.
 type PathConf struct {
 	Regexp                     *regexp.Regexp           `yaml:"-" json:"-"`
 	Source                     string                   `yaml:"source"`
@@ -224,6 +225,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	return nil
 }
 
+// Equal checks whether two PathConfs are equal.
 func (pconf *PathConf) Equal(other *PathConf) bool {
 	a, _ := json.Marshal(pconf)
 	b, _ := json.Marshal(pconf)

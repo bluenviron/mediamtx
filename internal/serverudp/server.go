@@ -14,6 +14,7 @@ const (
 	readBufferSize = 2048
 )
 
+// Publisher is implemented by client.Client.
 type Publisher interface {
 	OnUdpPublisherFrame(int, base.StreamType, []byte)
 }
@@ -28,6 +29,7 @@ type bufAddrPair struct {
 	addr *net.UDPAddr
 }
 
+// Parent is implemented by program.
 type Parent interface {
 	Log(string, ...interface{})
 }
@@ -48,6 +50,7 @@ func (p *publisherAddr) fill(ip net.IP, port int) {
 	}
 }
 
+// Server is a RTSP UDP server.
 type Server struct {
 	writeTimeout time.Duration
 	streamType   gortsplib.StreamType
@@ -64,6 +67,7 @@ type Server struct {
 	done chan struct{}
 }
 
+// New allocates a Server.
 func New(writeTimeout time.Duration,
 	port int,
 	streamType gortsplib.StreamType,
@@ -98,6 +102,7 @@ func New(writeTimeout time.Duration,
 	return s, nil
 }
 
+// Close closes a Server.
 func (s *Server) Close() {
 	s.pc.Close()
 	<-s.done
@@ -142,14 +147,17 @@ func (s *Server) run() {
 	<-writeDone
 }
 
+// Port returns the server local port.
 func (s *Server) Port() int {
 	return s.pc.LocalAddr().(*net.UDPAddr).Port
 }
 
+// Write writes a UDP packet.
 func (s *Server) Write(data []byte, addr *net.UDPAddr) {
 	s.write <- bufAddrPair{data, addr}
 }
 
+// AddPublisher adds a publisher.
 func (s *Server) AddPublisher(ip net.IP, port int, publisher Publisher, trackId int) {
 	s.publishersMutex.Lock()
 	defer s.publishersMutex.Unlock()
@@ -163,6 +171,7 @@ func (s *Server) AddPublisher(ip net.IP, port int, publisher Publisher, trackId 
 	}
 }
 
+// RemovePublisher removes a publisher.
 func (s *Server) RemovePublisher(ip net.IP, port int, publisher Publisher) {
 	s.publishersMutex.Lock()
 	defer s.publishersMutex.Unlock()

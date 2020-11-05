@@ -13,6 +13,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/loghandler"
 )
 
+// Conf is the program configuration.
 type Conf struct {
 	Protocols             []string                              `yaml:"protocols"`
 	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
@@ -143,6 +144,7 @@ func (conf *Conf) fillAndCheck() error {
 	return nil
 }
 
+// Load loads a Conf.
 func Load(fpath string) (*Conf, error) {
 	conf := &Conf{}
 

@@ -14,6 +14,7 @@ const (
 	retryPause = 5 * time.Second
 )
 
+// Parent is implemented by path.Path.
 type Parent interface {
 	Log(string, ...interface{})
 	OnSourceSetReady(gortsplib.Tracks)
@@ -21,6 +22,7 @@ type Parent interface {
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
+// Source is a RTSP source.
 type Source struct {
 	ur           string
 	proto        gortsplib.StreamProtocol
@@ -37,6 +39,7 @@ type Source struct {
 	done chan struct{}
 }
 
+// New allocates a Source.
 func New(ur string,
 	proto gortsplib.StreamProtocol,
 	readTimeout time.Duration,
@@ -63,14 +66,17 @@ func New(ur string,
 	return s
 }
 
+// Close closes a Source.
 func (s *Source) Close() {
 	atomic.AddInt64(s.stats.CountSourcesRtsp, -1)
 	s.parent.Log("rtsp source stopped")
 	close(s.terminate)
 }
 
+// IsSource implements path.source.
 func (s *Source) IsSource() {}
 
+// IsSourceExternal implements path.sourceExternal.
 func (s *Source) IsSourceExternal() {}
 
 func (s *Source) run() {

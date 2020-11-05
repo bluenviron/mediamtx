@@ -7,29 +7,29 @@ import (
 	"github.com/aler9/gortsplib/base"
 )
 
-type Reader interface {
+type reader interface {
 	OnReaderFrame(int, base.StreamType, []byte)
 }
 
 type readersMap struct {
 	mutex sync.RWMutex
-	ma    map[Reader]struct{}
+	ma    map[reader]struct{}
 }
 
 func newReadersMap() *readersMap {
 	return &readersMap{
-		ma: make(map[Reader]struct{}),
+		ma: make(map[reader]struct{}),
 	}
 }
 
-func (m *readersMap) add(reader Reader) {
+func (m *readersMap) add(reader reader) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	m.ma[reader] = struct{}{}
 }
 
-func (m *readersMap) remove(reader Reader) {
+func (m *readersMap) remove(reader reader) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 

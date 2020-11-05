@@ -4,6 +4,8 @@ import (
 	"context"
 	"net"
 	"net/http"
+
+	// start pprof
 	_ "net/http/pprof"
 )
 
@@ -11,15 +13,18 @@ const (
 	address = ":9999"
 )
 
+// Parent is implemented by program.
 type Parent interface {
 	Log(string, ...interface{})
 }
 
+// Pprof is a performance metrics exporter.
 type Pprof struct {
 	listener net.Listener
 	server   *http.Server
 }
 
+// New allocates a Pprof.
 func New(parent Parent) (*Pprof, error) {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -40,6 +45,7 @@ func New(parent Parent) (*Pprof, error) {
 	return pp, nil
 }
 
+// Close closes a Pprof.
 func (pp *Pprof) Close() {
 	pp.server.Shutdown(context.Background())
 }

@@ -12,11 +12,13 @@ const (
 	retryPause = 5 * time.Second
 )
 
+// Environment is a ExternalCmd environment.
 type Environment struct {
 	Path string
 	Port string
 }
 
+// ExternalCmd is an external command.
 type ExternalCmd struct {
 	cmdstr  string
 	restart bool
@@ -29,6 +31,7 @@ type ExternalCmd struct {
 	done chan struct{}
 }
 
+// New allocates an ExternalCmd.
 func New(cmdstr string, restart bool, env Environment) *ExternalCmd {
 	e := &ExternalCmd{
 		cmdstr:    cmdstr,
@@ -42,6 +45,7 @@ func New(cmdstr string, restart bool, env Environment) *ExternalCmd {
 	return e
 }
 
+// Close closes an ExternalCmd.
 func (e *ExternalCmd) Close() {
 	close(e.terminate)
 	<-e.done

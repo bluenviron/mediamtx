@@ -5,6 +5,7 @@ func ptrInt64() *int64 {
 	return &v
 }
 
+// Stats contains statistics.
 type Stats struct {
 	// use pointers to avoid a crash on 32bit platforms
 	// https://github.com/golang/go/issues/9959
@@ -17,6 +18,7 @@ type Stats struct {
 	CountSourcesRtmpRunning *int64
 }
 
+// New allocates a Stats.
 func New() *Stats {
 	return &Stats{
 		CountClients:            ptrInt64(),

@@ -8,11 +8,17 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/syslog"
 )
 
+// Destination is a log destination.
 type Destination int
 
 const (
+	// DestinationStdout writes logs to the standard output.
 	DestinationStdout Destination = iota
+
+	// DestinationFile writes logs to a file.
 	DestinationFile
+
+	// DestinationSyslog writes logs to the system logger.
 	DestinationSyslog
 )
 
@@ -22,6 +28,7 @@ func (f writeFunc) Write(p []byte) (int, error) {
 	return f(p)
 }
 
+// LogHandler is a log handler.
 type LogHandler struct {
 	destinations map[Destination]struct{}
 
@@ -29,6 +36,7 @@ type LogHandler struct {
 	syslog io.WriteCloser
 }
 
+// New allocates a log handler.
 func New(destinations map[Destination]struct{}, filePath string) (*LogHandler, error) {
 	lh := &LogHandler{
 		destinations: destinations,
@@ -57,6 +65,7 @@ func New(destinations map[Destination]struct{}, filePath string) (*LogHandler, e
 	return lh, nil
 }
 
+// Close closes a log handler.
 func (lh *LogHandler) Close() {
 	if lh.file != nil {
 		lh.file.Close()

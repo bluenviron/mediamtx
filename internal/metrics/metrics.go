@@ -16,10 +16,12 @@ const (
 	address = ":9998"
 )
 
+// Parent is implemented by program.
 type Parent interface {
 	Log(string, ...interface{})
 }
 
+// Metrics is a metrics exporter.
 type Metrics struct {
 	stats *stats.Stats
 
@@ -28,6 +30,7 @@ type Metrics struct {
 	server   *http.Server
 }
 
+// New allocates a metrics.
 func New(stats *stats.Stats, parent Parent) (*Metrics, error) {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
@@ -52,6 +55,7 @@ func New(stats *stats.Stats, parent Parent) (*Metrics, error) {
 	return m, nil
 }
 
+// Close closes a Metrics.
 func (m *Metrics) Close() {
 	m.server.Shutdown(context.Background())
 }

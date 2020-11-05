@@ -78,6 +78,7 @@ func (cs state) String() string {
 	return "Invalid"
 }
 
+// Path is implemented by path.Path.
 type Path interface {
 	Name() string
 	SourceTrackCount() int
@@ -88,6 +89,7 @@ type Path interface {
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
+// Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(string, ...interface{})
 	OnClientClose(*Client)
@@ -96,6 +98,7 @@ type Parent interface {
 	OnClientSetupPlay(*Client, string, int, *base.Request) (Path, error)
 }
 
+// Client is a RTSP client.
 type Client struct {
 	rtspPort            int
 	readTimeout         time.Duration
@@ -128,6 +131,7 @@ type Client struct {
 	terminate    chan struct{}
 }
 
+// New allocates a Client.
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
@@ -174,11 +178,13 @@ func New(
 	return c
 }
 
+// Close closes a Client.
 func (c *Client) Close() {
 	atomic.AddInt64(c.stats.CountClients, -1)
 	close(c.terminate)
 }
 
+// IsSource implementes path.source.
 func (c *Client) IsSource() {}
 
 func (c *Client) log(format string, args ...interface{}) {
@@ -240,22 +246,23 @@ func (c *Client) writeResError(cseq base.HeaderValue, code base.StatusCode, err 
 	})
 }
 
-type ErrAuthNotCritical struct {
+type errAuthNotCritical struct {
 	*base.Response
 }
 
-func (ErrAuthNotCritical) Error() string {
+func (errAuthNotCritical) Error() string {
 	return "auth not critical"
 }
 
-type ErrAuthCritical struct {
+type errAuthCritical struct {
 	*base.Response
 }
 
-func (ErrAuthCritical) Error() string {
+func (errAuthCritical) Error() string {
 	return "auth critical"
 }
 
+// Authenticate performs an authentication.
 func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{}, user string, pass string, req *base.Request) error {
 	// validate ip
 	if ips != nil {
@@ -264,7 +271,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 		if !ipEqualOrInRange(ip, ips) {
 			c.log("ERR: ip '%s' not allowed", ip)
 
-			return ErrAuthCritical{&base.Response{
+			return errAuthCritical{&base.Response{
 				StatusCode: base.StatusUnauthorized,
 				Header: base.Header{
 					"CSeq":             req.Header["CSeq"],
@@ -296,7 +303,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			if c.authFailures > 3 {
 				c.log("ERR: unauthorized: %s", err)
 
-				return ErrAuthCritical{&base.Response{
+				return errAuthCritical{&base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
 						"CSeq":             req.Header["CSeq"],
@@ -309,7 +316,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 					c.log("WARN: unauthorized: %s", err)
 				}
 
-				return ErrAuthNotCritical{&base.Response{
+				return errAuthNotCritical{&base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
 						"CSeq":             req.Header["CSeq"],
@@ -382,11 +389,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 		path, err := c.parent.OnClientDescribe(c, basePath, req)
 		if err != nil {
 			switch terr := err.(type) {
-			case ErrAuthNotCritical:
+			case errAuthNotCritical:
 				c.conn.WriteResponse(terr.Response)
 				return nil
 
-			case ErrAuthCritical:
+			case errAuthCritical:
 				c.conn.WriteResponse(terr.Response)
 				return errRunTerminate
 
@@ -441,11 +448,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 		path, err := c.parent.OnClientAnnounce(c, basePath, tracks, req)
 		if err != nil {
 			switch terr := err.(type) {
-			case ErrAuthNotCritical:
+			case errAuthNotCritical:
 				c.conn.WriteResponse(terr.Response)
 				return nil
 
-			case ErrAuthCritical:
+			case errAuthCritical:
 				c.conn.WriteResponse(terr.Response)
 				return errRunTerminate
 
@@ -534,11 +541,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 				path, err := c.parent.OnClientSetupPlay(c, basePath, trackId, req)
 				if err != nil {
 					switch terr := err.(type) {
-					case ErrAuthNotCritical:
+					case errAuthNotCritical:
 						c.conn.WriteResponse(terr.Response)
 						return nil
 
-					case ErrAuthCritical:
+					case errAuthCritical:
 						c.conn.WriteResponse(terr.Response)
 						return errRunTerminate
 
@@ -592,11 +599,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 				path, err := c.parent.OnClientSetupPlay(c, basePath, trackId, req)
 				if err != nil {
 					switch terr := err.(type) {
-					case ErrAuthNotCritical:
+					case errAuthNotCritical:
 						c.conn.WriteResponse(terr.Response)
 						return nil
 
-					case ErrAuthCritical:
+					case errAuthCritical:
 						c.conn.WriteResponse(terr.Response)
 						return errRunTerminate
 
@@ -1288,6 +1295,7 @@ func (c *Client) runRecordTCP() {
 	}
 }
 
+// OnUdpPublisherFrame implements serverudp.Publisher.
 func (c *Client) OnUdpPublisherFrame(trackId int, streamType base.StreamType, buf []byte) {
 	atomic.StoreInt64(c.udpLastFrameTimes[trackId], time.Now().Unix())
 
@@ -1295,6 +1303,7 @@ func (c *Client) OnUdpPublisherFrame(trackId int, streamType base.StreamType, bu
 	c.path.OnFrame(trackId, streamType, buf)
 }
 
+// OnReaderFrame implements path.Reader.
 func (c *Client) OnReaderFrame(trackId int, streamType base.StreamType, buf []byte) {
 	track, ok := c.streamTracks[trackId]
 	if !ok {
@@ -1326,6 +1335,7 @@ func (c *Client) OnReaderFrame(trackId int, streamType base.StreamType, buf []by
 	}
 }
 
+// OnPathDescribeData is called by path.Path.
 func (c *Client) OnPathDescribeData(sdp []byte, redirect string, err error) {
 	c.describeData <- describeData{sdp, redirect, err}
 }

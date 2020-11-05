@@ -125,6 +125,7 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 	return fmt.Errorf("unsupported type: %v", rt)
 }
 
+// Load fills a structure with data from the environment.
 func Load(envKey string, v interface{}) error {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {

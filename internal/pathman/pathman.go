@@ -15,10 +15,12 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
+// Parent is implemented by program.
 type Parent interface {
 	Log(string, ...interface{})
 }
 
+// PathManager is a path.Path manager.
 type PathManager struct {
 	rtspPort     int
 	readTimeout  time.Duration
@@ -44,6 +46,7 @@ type PathManager struct {
 	done        chan struct{}
 }
 
+// New allocates a PathManager.
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
@@ -78,6 +81,7 @@ func New(
 	return pm
 }
 
+// Close closes a PathManager.
 func (pm *PathManager) Close() {
 	go func() {
 		for range pm.clientClose {
@@ -87,6 +91,7 @@ func (pm *PathManager) Close() {
 	<-pm.done
 }
 
+// Log is the main logging function.
 func (pm *PathManager) Log(format string, args ...interface{}) {
 	pm.parent.Log(format, args...)
 }
@@ -283,18 +288,22 @@ func (pm *PathManager) findPathConf(name string) (string, *conf.PathConf, error)
 	return "", nil, fmt.Errorf("unable to find a valid configuration for path '%s'", name)
 }
 
+// OnProgramConfReload is called by program.
 func (pm *PathManager) OnProgramConfReload(pathConfs map[string]*conf.PathConf) {
 	pm.confReload <- pathConfs
 }
 
+// OnPathClose is called by path.Path.
 func (pm *PathManager) OnPathClose(pa *path.Path) {
 	pm.pathClose <- pa
 }
 
+// OnPathClientClose is called by path.Path.
 func (pm *PathManager) OnPathClientClose(c *client.Client) {
 	pm.clientClose <- c
 }
 
+// OnClientDescribe is called by client.Client.
 func (pm *PathManager) OnClientDescribe(c *client.Client, pathName string, req *base.Request) (client.Path, error) {
 	res := make(chan path.ClientDescribeRes)
 	pm.clientDescribe <- path.ClientDescribeReq{res, c, pathName, req}
@@ -302,6 +311,7 @@ func (pm *PathManager) OnClientDescribe(c *client.Client, pathName string, req *
 	return re.Path, re.Err
 }
 
+// OnClientAnnounce is called by client.Client.
 func (pm *PathManager) OnClientAnnounce(c *client.Client, pathName string, tracks gortsplib.Tracks, req *base.Request) (client.Path, error) {
 	res := make(chan path.ClientAnnounceRes)
 	pm.clientAnnounce <- path.ClientAnnounceReq{res, c, pathName, tracks, req}
@@ -309,6 +319,7 @@ func (pm *PathManager) OnClientAnnounce(c *client.Client, pathName string, track
 	return re.Path, re.Err
 }
 
+// OnClientSetupPlay is called by client.Client.
 func (pm *PathManager) OnClientSetupPlay(c *client.Client, pathName string, trackId int, req *base.Request) (client.Path, error) {
 	res := make(chan path.ClientSetupPlayRes)
 	pm.clientSetupPlay <- path.ClientSetupPlayReq{res, c, pathName, trackId, req}
@@ -316,6 +327,7 @@ func (pm *PathManager) OnClientSetupPlay(c *client.Client, pathName string, trac
 	return re.Path, re.Err
 }
 
+// ClientClose is called by client.Client.
 func (pm *PathManager) ClientClose() chan *client.Client {
 	return pm.clientClose
 }

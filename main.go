@@ -22,6 +22,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
+// Version can be overridden by build flags.
 var Version = "v0.0.0"
 
 type program struct {

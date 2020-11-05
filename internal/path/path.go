@@ -25,6 +25,7 @@ func newEmptyTimer() *time.Timer {
 	return t
 }
 
+// Parent is implemented by pathman.PathMan.
 type Parent interface {
 	Log(string, ...interface{})
 	OnPathClose(*Path)
@@ -53,11 +54,13 @@ type sourceRedirect struct{}
 
 func (*sourceRedirect) IsSource() {}
 
+// ClientDescribeRes is a client describe response.
 type ClientDescribeRes struct {
 	Path client.Path
 	Err  error
 }
 
+// ClientDescribeReq is a client describe request.
 type ClientDescribeReq struct {
 	Res      chan ClientDescribeRes
 	Client   *client.Client
@@ -65,11 +68,13 @@ type ClientDescribeReq struct {
 	Req      *base.Request
 }
 
+// ClientAnnounceRes is a client announce response.
 type ClientAnnounceRes struct {
 	Path client.Path
 	Err  error
 }
 
+// ClientAnnounceReq is a client announce request.
 type ClientAnnounceReq struct {
 	Res      chan ClientAnnounceRes
 	Client   *client.Client
@@ -78,11 +83,13 @@ type ClientAnnounceReq struct {
 	Req      *base.Request
 }
 
+// ClientSetupPlayRes is a setup/play response.
 type ClientSetupPlayRes struct {
 	Path client.Path
 	Err  error
 }
 
+// ClientSetupPlayReq is a setup/play request.
 type ClientSetupPlayReq struct {
 	Res      chan ClientSetupPlayRes
 	Client   *client.Client
@@ -125,6 +132,7 @@ const (
 	sourceStateReady
 )
 
+// Path is a path.
 type Path struct {
 	rtspPort     int
 	readTimeout  time.Duration
@@ -166,6 +174,7 @@ type Path struct {
 	terminate         chan struct{}
 }
 
+// New allocates a Path.
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
@@ -209,10 +218,12 @@ func New(
 	return pa
 }
 
+// Close closes a path.
 func (pa *Path) Close() {
 	close(pa.terminate)
 }
 
+// Log is the main logging function.
 func (pa *Path) Log(format string, args ...interface{}) {
 	pa.parent.Log("[path "+pa.name+"] "+format, args...)
 }
@@ -747,62 +758,75 @@ func (pa *Path) scheduleClose() {
 	pa.closeTimerStarted = true
 }
 
+// ConfName returns the configuration name of this path.
+func (pa *Path) ConfName() string {
+	return pa.confName
+}
+
+// Conf returns the configuration of this path.
+func (pa *Path) Conf() *conf.PathConf {
+	return pa.conf
+}
+
+// Name returns the name of this path.
+func (pa *Path) Name() string {
+	return pa.name
+}
+
+// SourceTrackCount returns the number of tracks of the source this path.
+func (pa *Path) SourceTrackCount() int {
+	return pa.sourceTrackCount
+}
+
+// OnSourceSetReady is called by a source.
 func (pa *Path) OnSourceSetReady(tracks gortsplib.Tracks) {
 	pa.sourceSdp = tracks.Write()
 	pa.sourceTrackCount = len(tracks)
 	pa.sourceSetReady <- struct{}{}
 }
 
+// OnSourceSetNotReady is called by a source.
 func (pa *Path) OnSourceSetNotReady() {
 	pa.sourceSetNotReady <- struct{}{}
 }
 
-func (pa *Path) ConfName() string {
-	return pa.confName
-}
-
-func (pa *Path) Conf() *conf.PathConf {
-	return pa.conf
-}
-
-func (pa *Path) Name() string {
-	return pa.name
-}
-
-func (pa *Path) SourceTrackCount() int {
-	return pa.sourceTrackCount
-}
-
+// OnPathManDescribe is called by pathman.PathMan.
 func (pa *Path) OnPathManDescribe(req ClientDescribeReq) {
 	pa.clientDescribe <- req
 }
 
+// OnPathManSetupPlay is called by pathman.PathMan.
 func (pa *Path) OnPathManSetupPlay(req ClientSetupPlayReq) {
 	pa.clientSetupPlay <- req
 }
 
+// OnPathManAnnounce is called by pathman.PathMan.
 func (pa *Path) OnPathManAnnounce(req ClientAnnounceReq) {
 	pa.clientAnnounce <- req
 }
 
+// OnClientRemove is called by client.Client.
 func (pa *Path) OnClientRemove(c *client.Client) {
 	res := make(chan struct{})
 	pa.clientRemove <- clientRemoveReq{res, c}
 	<-res
 }
 
+// OnClientPlay is called by client.Client.
 func (pa *Path) OnClientPlay(c *client.Client) {
 	res := make(chan struct{})
 	pa.clientPlay <- clientPlayReq{res, c}
 	<-res
 }
 
+// OnClientRecord is called by client.Client.
 func (pa *Path) OnClientRecord(c *client.Client) {
 	res := make(chan struct{})
 	pa.clientRecord <- clientRecordReq{res, c}
 	<-res
 }
 
+// OnFrame is called by a source or by a client.Client.
 func (pa *Path) OnFrame(trackId int, streamType gortsplib.StreamType, buf []byte) {
 	pa.readers.forwardFrame(trackId, streamType, buf)
 }

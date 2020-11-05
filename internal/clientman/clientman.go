@@ -15,10 +15,12 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
+// Parent is implemented by program.
 type Parent interface {
 	Log(string, ...interface{})
 }
 
+// ClientManager is a client.Client manager.
 type ClientManager struct {
 	rtspPort            int
 	readTimeout         time.Duration
@@ -44,6 +46,7 @@ type ClientManager struct {
 	done chan struct{}
 }
 
+// New allocates a ClientManager.
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
@@ -81,11 +84,13 @@ func New(
 	return cm
 }
 
+// Close closes a ClientManager.
 func (cm *ClientManager) Close() {
 	close(cm.terminate)
 	<-cm.done
 }
 
+// Log is the main logging function.
 func (cm *ClientManager) Log(format string, args ...interface{}) {
 	cm.parent.Log(format, args...)
 }
@@ -137,18 +142,22 @@ outer:
 	close(cm.clientClose)
 }
 
+// OnClientClose is called by client.Client.
 func (cm *ClientManager) OnClientClose(c *client.Client) {
 	cm.clientClose <- c
 }
 
+// OnClientDescribe is called by client.Client.
 func (cm *ClientManager) OnClientDescribe(c *client.Client, pathName string, req *base.Request) (client.Path, error) {
 	return cm.pathMan.OnClientDescribe(c, pathName, req)
 }
 
+// OnClientAnnounce is called by client.Client.
 func (cm *ClientManager) OnClientAnnounce(c *client.Client, pathName string, tracks gortsplib.Tracks, req *base.Request) (client.Path, error) {
 	return cm.pathMan.OnClientAnnounce(c, pathName, tracks, req)
 }
 
+// OnClientSetupPlay is called by client.Client.
 func (cm *ClientManager) OnClientSetupPlay(c *client.Client, pathName string, trackId int, req *base.Request) (client.Path, error) {
 	return cm.pathMan.OnClientSetupPlay(c, pathName, trackId, req)
 }

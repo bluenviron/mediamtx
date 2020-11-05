@@ -4,10 +4,12 @@ import (
 	"net"
 )
 
+// Parent is implemented by program.
 type Parent interface {
 	Log(string, ...interface{})
 }
 
+// Server is a RTSP TCP server.
 type Server struct {
 	parent Parent
 
@@ -18,6 +20,7 @@ type Server struct {
 	done   chan struct{}
 }
 
+// New allocates a Server.
 func New(port int, parent Parent) (*Server, error) {
 	listener, err := net.ListenTCP("tcp", &net.TCPAddr{
 		Port: port,
@@ -39,6 +42,7 @@ func New(port int, parent Parent) (*Server, error) {
 	return s, nil
 }
 
+// Close closes a Server.
 func (s *Server) Close() {
 	go func() {
 		for co := range s.accept {
@@ -64,6 +68,7 @@ func (s *Server) run() {
 	close(s.accept)
 }
 
+// Accept returns a channel to accept incoming connections.
 func (s *Server) Accept() <-chan net.Conn {
 	return s.accept
 }
