@@ -1,4 +1,9 @@
 
+# destinations of log messages; available values are "stdout", "file" and "syslog".
+logDestinations: [stdout]
+# if "file" is in logDestinations, this is the file which will receive the logs.
+logFile: rtsp-simple-server.log
+
 # supported stream protocols (the handshake is always performed with TCP).
 protocols: [udp, tcp]
 # port of the TCP RTSP listener.
@@ -7,12 +12,10 @@ rtspPort: 8554
 rtpPort: 8000
 # port of the UDP RTCP listener (used only if udp is in protocols).
 rtcpPort: 8001
-
 # timeout of read operations.
 readTimeout: 10s
 # timeout of write operations.
 writeTimeout: 10s
-
 # supported authentication methods (both are insecure, use RTSP inside a VPN
 # to enforce security).
 authMethods: [basic, digest]
@@ -21,11 +24,6 @@ authMethods: [basic, digest]
 metrics: no
 # enable pprof on port 9999 to monitor performances.
 pprof: no
-
-# destinations of log messages; available values are "stdout", "file" and "syslog".
-logDestinations: [stdout]
-# if "file" is in logDestinations, this is the file which will receive the logs.
-logFile: rtsp-simple-server.log
 
 # command to run when a client connects to the server.
 # this is terminated with SIGINT when a client disconnects from the server.
