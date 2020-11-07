@@ -113,6 +113,11 @@ type clientRecordReq struct {
 	client *client.Client
 }
 
+type clientPauseReq struct {
+	res    chan struct{}
+	client *client.Client
+}
+
 type clientState int
 
 const (
@@ -170,6 +175,7 @@ type Path struct {
 	clientSetupPlay   chan ClientSetupPlayReq // from program
 	clientPlay        chan clientPlayReq      // from client
 	clientRecord      chan clientRecordReq    // from client
+	clientPause       chan clientPauseReq     // from client
 	clientRemove      chan clientRemoveReq    // from client
 	terminate         chan struct{}
 }
@@ -209,6 +215,7 @@ func New(
 		clientSetupPlay:       make(chan ClientSetupPlayReq),
 		clientPlay:            make(chan clientPlayReq),
 		clientRecord:          make(chan clientRecordReq),
+		clientPause:           make(chan clientPauseReq),
 		clientRemove:          make(chan clientRemoveReq),
 		terminate:             make(chan struct{}),
 	}
@@ -326,6 +333,10 @@ outer:
 			pa.onClientRecord(req.client)
 			close(req.res)
 
+		case req := <-pa.clientPause:
+			pa.onClientPause(req.client)
+			close(req.res)
+
 		case req := <-pa.clientRemove:
 			if _, ok := pa.clients[req.client]; !ok {
 				close(req.res)
@@ -389,6 +400,7 @@ outer:
 	close(pa.clientSetupPlay)
 	close(pa.clientPlay)
 	close(pa.clientRecord)
+	close(pa.clientPause)
 	close(pa.clientRemove)
 }
 
@@ -431,6 +443,12 @@ func (pa *Path) exhaustChannels() {
 				close(req.res)
 
 			case req, ok := <-pa.clientRecord:
+				if !ok {
+					return
+				}
+				close(req.res)
+
+			case req, ok := <-pa.clientPause:
 				if !ok {
 					return
 				}
@@ -677,6 +695,7 @@ func (pa *Path) onClientPlay(c *client.Client) {
 
 	atomic.AddInt64(pa.stats.CountReaders, 1)
 	pa.clients[c] = clientStatePlay
+
 	pa.readers.add(c)
 }
 
@@ -711,6 +730,26 @@ func (pa *Path) onClientRecord(c *client.Client) {
 	pa.clients[c] = clientStateRecord
 
 	pa.onSourceSetReady()
+}
+
+func (pa *Path) onClientPause(c *client.Client) {
+	state, ok := pa.clients[c]
+	if !ok {
+		return
+	}
+
+	if state == clientStatePlay {
+		atomic.AddInt64(pa.stats.CountReaders, -1)
+		pa.clients[c] = clientStatePrePlay
+
+		pa.readers.remove(c)
+
+	} else if state == clientStateRecord {
+		atomic.AddInt64(pa.stats.CountPublishers, -1)
+		pa.clients[c] = clientStatePreRecord
+
+		pa.onSourceSetNotReady()
+	}
 }
 
 func (pa *Path) scheduleSourceClose() {
@@ -823,6 +862,13 @@ func (pa *Path) OnClientPlay(c *client.Client) {
 func (pa *Path) OnClientRecord(c *client.Client) {
 	res := make(chan struct{})
 	pa.clientRecord <- clientRecordReq{res, c}
+	<-res
+}
+
+// OnClientPause is called by client.Client.
+func (pa *Path) OnClientPause(c *client.Client) {
+	res := make(chan struct{})
+	pa.clientPause <- clientPauseReq{res, c}
 	<-res
 }
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/base"
-	"github.com/aler9/gortsplib/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
@@ -27,7 +26,7 @@ type ClientManager struct {
 	writeTimeout        time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
-	protocols           map[headers.StreamProtocol]struct{}
+	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
 	serverUdpRtp        *serverudp.Server
 	serverUdpRtcp       *serverudp.Server
@@ -53,7 +52,7 @@ func New(
 	writeTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
-	protocols map[headers.StreamProtocol]struct{},
+	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
 	serverUdpRtp *serverudp.Server,
 	serverUdpRtcp *serverudp.Server,

@@ -288,6 +288,77 @@ func TestPublish(t *testing.T) {
 	}
 }
 
+func TestPublishPause(t *testing.T) {
+	for _, conf := range []struct {
+		proto string
+	}{
+		{"udp"},
+		{"tcp"},
+	} {
+		t.Run(conf.proto, func(t *testing.T) {
+			p, err := testProgram("")
+			require.NoError(t, err)
+			defer p.close()
+
+			time.Sleep(1 * time.Second)
+
+			track, err := gortsplib.NewTrackH264(0, []byte("\x00\x00\x00\x00\x00"),
+				[]byte("\x00\x00\x00\x00\x00"))
+			require.NoError(t, err)
+
+			switch conf.proto {
+			case "udp":
+				conn, err := gortsplib.DialPublish("rtsp://"+ownDockerIp+":8554/teststream",
+					gortsplib.StreamProtocolUDP, gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer conn.Close()
+
+				for i := 0; i < 2; i++ {
+					err := conn.WriteFrameUDP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					require.NoError(t, err)
+				}
+
+				_, err = conn.Pause()
+				require.NoError(t, err)
+
+				time.Sleep(1 * time.Second)
+
+				_, err = conn.Record()
+				require.NoError(t, err)
+
+				for i := 0; i < 2; i++ {
+					err := conn.WriteFrameUDP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					require.NoError(t, err)
+				}
+
+			case "tcp":
+				conn, err := gortsplib.DialPublish("rtsp://"+ownDockerIp+":8554/teststream",
+					gortsplib.StreamProtocolTCP, gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer conn.Close()
+
+				for i := 0; i < 2; i++ {
+					err := conn.WriteFrameTCP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					require.NoError(t, err)
+				}
+
+				_, err = conn.Pause()
+				require.NoError(t, err)
+
+				time.Sleep(1 * time.Second)
+
+				_, err = conn.Record()
+				require.NoError(t, err)
+
+				for i := 0; i < 2; i++ {
+					err := conn.WriteFrameTCP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					require.NoError(t, err)
+				}
+			}
+		})
+	}
+}
+
 func TestRead(t *testing.T) {
 	for _, conf := range []struct {
 		readSoft  string
@@ -347,6 +418,87 @@ func TestRead(t *testing.T) {
 
 				code := cnt2.wait()
 				require.Equal(t, 0, code)
+			}
+		})
+	}
+}
+
+func TestReadPause(t *testing.T) {
+	for _, conf := range []struct {
+		proto string
+	}{
+		{"udp"},
+		{"tcp"},
+	} {
+		t.Run(conf.proto, func(t *testing.T) {
+			p, err := testProgram("")
+			require.NoError(t, err)
+			defer p.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "/emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ownDockerIp + ":8554/teststream",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
+
+			time.Sleep(1 * time.Second)
+
+			switch conf.proto {
+			case "udp":
+				conn, err := gortsplib.DialRead("rtsp://"+ownDockerIp+":8554/teststream",
+					gortsplib.StreamProtocolUDP)
+				require.NoError(t, err)
+				defer conn.Close()
+
+				for i := 0; i < 2; i++ {
+					_, err := conn.ReadFrameUDP(0, gortsplib.StreamTypeRtp)
+					require.NoError(t, err)
+				}
+
+				_, err = conn.Pause()
+				require.NoError(t, err)
+
+				time.Sleep(1 * time.Second)
+
+				_, err = conn.Play()
+				require.NoError(t, err)
+
+				for i := 0; i < 2; i++ {
+					_, err := conn.ReadFrameUDP(0, gortsplib.StreamTypeRtp)
+					require.NoError(t, err)
+				}
+
+			case "tcp":
+				conn, err := gortsplib.DialRead("rtsp://"+ownDockerIp+":8554/teststream",
+					gortsplib.StreamProtocolTCP)
+				require.NoError(t, err)
+				defer conn.Close()
+
+				for i := 0; i < 2; i++ {
+					_, _, _, err := conn.ReadFrameTCP()
+					require.NoError(t, err)
+				}
+
+				_, err = conn.Pause()
+				require.NoError(t, err)
+
+				time.Sleep(1 * time.Second)
+
+				_, err = conn.Play()
+				require.NoError(t, err)
+
+				for i := 0; i < 2; i++ {
+					_, _, _, err := conn.ReadFrameTCP()
+					require.NoError(t, err)
+				}
 			}
 		})
 	}

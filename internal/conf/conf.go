@@ -13,7 +13,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/loghandler"
 )
 
-// Conf is the program configuration.
+// Conf is the main program configuration.
 type Conf struct {
 	Protocols             []string                              `yaml:"protocols"`
 	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
