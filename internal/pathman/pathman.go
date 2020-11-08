@@ -127,11 +127,7 @@ outer:
 			// remove paths associated with a conf which doesn't exist anymore
 			// or has changed
 			for _, pa := range pm.paths {
-				if pathConf, ok := pm.pathConfs[pa.ConfName()]; !ok {
-					delete(pm.paths, pa.Name())
-					pa.Close()
-
-				} else if pathConf != pa.Conf() {
+				if pathConf, ok := pm.pathConfs[pa.ConfName()]; !ok || pathConf != pa.Conf() {
 					delete(pm.paths, pa.Name())
 					pa.Close()
 				}
@@ -259,7 +255,7 @@ outer:
 
 func (pm *PathManager) createPaths() {
 	for pathName, pathConf := range pm.pathConfs {
-		if pathConf.Regexp == nil {
+		if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
 			pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
 				pathName, pathConf, pathName, &pm.wg, pm.stats, pm)
 			pm.paths[pathName] = pa

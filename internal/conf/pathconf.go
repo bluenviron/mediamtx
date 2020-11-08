@@ -228,6 +228,6 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 // Equal checks whether two PathConfs are equal.
 func (pconf *PathConf) Equal(other *PathConf) bool {
 	a, _ := json.Marshal(pconf)
-	b, _ := json.Marshal(pconf)
+	b, _ := json.Marshal(other)
 	return string(a) == string(b)
 }
