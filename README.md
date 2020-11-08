@@ -119,7 +119,20 @@ paths:
     runOnInitRestart: yes
 ```
 
-After starting the server, the webcam is available on `rtsp://localhost:8554/cam`. The ffmpeg command works only on Linux; for Windows and Mac equivalents, read the [ffmpeg wiki](https://trac.ffmpeg.org/wiki/Capture/Webcam).
+If the platform is Windows:
+```yml
+paths:
+  cam:
+    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInitRestart: yes
+```
+
+Where `USB2.0 HD UVC WebCam` is the name of your webcam, that can be obtained with:
+```
+ffmpeg -list_devices true -f dshow -i dummy
+```
+
+After starting the server, the webcam can be reached on `rtsp://localhost:8554/cam`.
 
 ### Serve a Raspberry Pi Camera
 

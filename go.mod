@@ -8,6 +8,7 @@ require (
 	github.com/aler9/gortsplib v0.0.0-20201108190150-2deddcffab35
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/rtp v1.6.1 // indirect
 	github.com/stretchr/testify v1.6.1

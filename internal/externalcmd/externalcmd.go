@@ -1,10 +1,6 @@
 package externalcmd
 
 import (
-	"os"
-	"os/exec"
-	"runtime"
-	"strings"
 	"time"
 )
 
@@ -79,57 +75,5 @@ func (e *ExternalCmd) run() {
 		if !ok {
 			break
 		}
-	}
-}
-
-func (e *ExternalCmd) runInner() bool {
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		// on Windows the shell is not used and command is started directly
-		// variables are replaced manually in order to guarantee compatibility
-		// with Linux commands
-		tmp := strings.ReplaceAll(e.cmdstr, "$RTSP_PATH", e.env.Path)
-		tmp = strings.ReplaceAll(tmp, "$RTSP_PORT", e.env.Port)
-
-		args := strings.Fields(tmp)
-		cmd = exec.Command(args[0], args[1:]...)
-
-	} else {
-		cmd = exec.Command("/bin/sh", "-c", "exec "+e.cmdstr)
-	}
-
-	cmd.Env = append(os.Environ(),
-		"RTSP_PATH="+e.env.Path,
-		"RTSP_PORT="+e.env.Port,
-	)
-
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Start()
-	if err != nil {
-		return true
-	}
-
-	cmdDone := make(chan struct{})
-	go func() {
-		defer close(cmdDone)
-		cmd.Wait()
-	}()
-
-	select {
-	case <-e.terminate:
-		// on Windows it's not possible to send os.Interrupt to a process
-		// Kill() is the only supported way
-		if runtime.GOOS == "windows" {
-			cmd.Process.Kill()
-		} else {
-			cmd.Process.Signal(os.Interrupt)
-		}
-		<-cmdDone
-		return false
-
-	case <-cmdDone:
-		return true
 	}
 }
