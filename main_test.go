@@ -314,7 +314,7 @@ func TestPublishPause(t *testing.T) {
 				defer conn.Close()
 
 				for i := 0; i < 2; i++ {
-					err := conn.WriteFrameUDP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					err := conn.WriteFrame(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
 					require.NoError(t, err)
 				}
 
@@ -327,7 +327,7 @@ func TestPublishPause(t *testing.T) {
 				require.NoError(t, err)
 
 				for i := 0; i < 2; i++ {
-					err := conn.WriteFrameUDP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					err := conn.WriteFrame(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
 					require.NoError(t, err)
 				}
 
@@ -338,7 +338,7 @@ func TestPublishPause(t *testing.T) {
 				defer conn.Close()
 
 				for i := 0; i < 2; i++ {
-					err := conn.WriteFrameTCP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					err := conn.WriteFrame(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
 					require.NoError(t, err)
 				}
 
@@ -351,7 +351,7 @@ func TestPublishPause(t *testing.T) {
 				require.NoError(t, err)
 
 				for i := 0; i < 2; i++ {
-					err := conn.WriteFrameTCP(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
+					err := conn.WriteFrame(track.Id, gortsplib.StreamTypeRtp, []byte("\x00\x00\x00\x00"))
 					require.NoError(t, err)
 				}
 			}
