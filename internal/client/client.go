@@ -1275,6 +1275,7 @@ func (c *Client) runRecordUDP() bool {
 
 				c.state = statePreRecord
 				c.path.OnClientPause(c)
+
 				return true
 
 			} else {
@@ -1308,15 +1309,16 @@ func (c *Client) runRecordUDP() bool {
 						c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
 					}
 
-					c.path.OnClientRemove(c)
-					c.path = nil
-
 					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
 					<-readDone
 
+					c.path.OnClientRemove(c)
+					c.path = nil
+
 					c.parent.OnClientClose(c)
 					<-c.terminate
+
 					return false
 				}
 			}
@@ -1337,11 +1339,12 @@ func (c *Client) runRecordUDP() bool {
 				c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
 			}
 
+			c.conn.Close()
+			<-readDone
+
 			c.path.OnClientRemove(c)
 			c.path = nil
 
-			c.conn.Close()
-			<-readDone
 			return false
 		}
 	}
@@ -1393,6 +1396,7 @@ func (c *Client) runRecordTCP() bool {
 			if err == errStateInitial {
 				c.state = statePreRecord
 				c.path.OnClientPause(c)
+
 				return true
 
 			} else {
@@ -1406,6 +1410,7 @@ func (c *Client) runRecordTCP() bool {
 
 				c.parent.OnClientClose(c)
 				<-c.terminate
+
 				return false
 			}
 
@@ -1422,11 +1427,12 @@ func (c *Client) runRecordTCP() bool {
 				}
 			}()
 
+			c.conn.Close()
+			<-readDone
+
 			c.path.OnClientRemove(c)
 			c.path = nil
 
-			c.conn.Close()
-			<-readDone
 			return false
 		}
 	}
