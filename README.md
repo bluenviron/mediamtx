@@ -83,7 +83,7 @@ Parameters in maps can be overridden by using underscores, in the following way:
 RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
 ```
 
-The configuration can be changed dinamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever is possible.
+The configuration can be changed dinamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
 
 ### RTSP proxy mode
 
