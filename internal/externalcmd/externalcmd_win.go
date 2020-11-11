@@ -16,7 +16,6 @@ func (e *ExternalCmd) runInner() bool {
 	// with Linux commands
 	tmp := strings.ReplaceAll(e.cmdstr, "$RTSP_PATH", e.env.Path)
 	tmp = strings.ReplaceAll(tmp, "$RTSP_PORT", e.env.Port)
-
 	parts, err := shellquote.Split(tmp)
 	if err != nil {
 		return true
@@ -32,7 +31,7 @@ func (e *ExternalCmd) runInner() bool {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		return true
 	}
