@@ -855,8 +855,10 @@ func (c *Client) handleRequest(req *base.Request) error {
 
 	case base.PAUSE:
 		err := c.checkState(map[state]struct{}{
-			statePlay:   {},
-			stateRecord: {},
+			statePrePlay:   {},
+			statePlay:      {},
+			statePreRecord: {},
+			stateRecord:    {},
 		})
 		if err != nil {
 			c.writeResError(cseq, base.StatusBadRequest, err)
@@ -870,7 +872,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 				"Session": base.HeaderValue{sessionId},
 			},
 		})
-		return errStateInitial
+
+		if c.state == statePlay || c.state == stateRecord {
+			return errStateInitial
+		}
+		return nil
 
 	case base.TEARDOWN:
 		// close connection silently
