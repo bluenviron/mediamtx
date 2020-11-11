@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	retryPause = 5 * time.Second
+	retryPause     = 5 * time.Second
+	analyzeTimeout = 8 * time.Second
 )
 
 // Parent is implemeneted by path.Path.
@@ -151,8 +152,7 @@ func (s *Source) runInner() bool {
 					panic(err)
 				}
 
-				h264Sps = codec.SPS[0]
-				h264Pps = codec.PPS[0]
+				h264Sps, h264Pps = codec.SPS[0], codec.PPS[0]
 
 				if aacConfig != nil {
 					return
@@ -168,7 +168,7 @@ func (s *Source) runInner() bool {
 		}
 	}()
 
-	timer := time.NewTimer(5 * time.Second)
+	timer := time.NewTimer(analyzeTimeout)
 	defer timer.Stop()
 
 	select {
