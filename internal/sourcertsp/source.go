@@ -139,18 +139,16 @@ func (s *Source) runInner() bool {
 	s.parent.Log("rtsp source ready")
 	s.parent.OnSourceSetReady(tracks)
 
-	readDone := make(chan error)
-	go func() {
-		for {
-			trackId, streamType, content, err := conn.ReadFrame()
-			if err != nil {
-				readDone <- err
-				return
-			}
+	readerDone := make(chan error)
 
-			s.parent.OnFrame(trackId, streamType, content)
+	conn.OnFrame(func(trackId int, streamType gortsplib.StreamType, content []byte, err error) {
+		if err != nil {
+			readerDone <- err
+			return
 		}
-	}()
+
+		s.parent.OnFrame(trackId, streamType, content)
+	})
 
 	var ret bool
 
@@ -159,11 +157,11 @@ outer:
 		select {
 		case <-s.terminate:
 			conn.Close()
-			<-readDone
+			<-readerDone
 			ret = false
 			break outer
 
-		case err := <-readDone:
+		case err := <-readerDone:
 			conn.Close()
 			s.parent.Log("rtsp source ERR: %s", err)
 			ret = true

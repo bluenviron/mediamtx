@@ -111,9 +111,9 @@ func (s *Server) Close() {
 func (s *Server) run() {
 	defer close(s.done)
 
-	writeDone := make(chan struct{})
+	writerDone := make(chan struct{})
 	go func() {
-		defer close(writeDone)
+		defer close(writerDone)
 		for w := range s.write {
 			s.pc.SetWriteDeadline(time.Now().Add(s.writeTimeout))
 			s.pc.WriteTo(w.buf, w.addr)
@@ -144,7 +144,7 @@ func (s *Server) run() {
 	}
 
 	close(s.write)
-	<-writeDone
+	<-writerDone
 }
 
 // Port returns the server local port.

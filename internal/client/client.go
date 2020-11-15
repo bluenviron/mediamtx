@@ -884,25 +884,25 @@ func (c *Client) handleRequest(req *base.Request) error {
 }
 
 func (c *Client) runInitial() bool {
-	readDone := make(chan error)
+	readerDone := make(chan error)
 	go func() {
 		for {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 
 			err = c.handleRequest(req)
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 		}
 	}()
 
 	select {
-	case err := <-readDone:
+	case err := <-readerDone:
 		switch err {
 		case errStateWaitingDescribe:
 			return c.runWaitingDescribe()
@@ -926,7 +926,7 @@ func (c *Client) runInitial() bool {
 
 	case <-c.terminate:
 		c.conn.Close()
-		<-readDone
+		<-readerDone
 		return false
 	}
 }
@@ -1024,25 +1024,25 @@ func (c *Client) runPlay() bool {
 }
 
 func (c *Client) runPlayUDP() bool {
-	readDone := make(chan error)
+	readerDone := make(chan error)
 	go func() {
 		for {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 
 			err = c.handleRequest(req)
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 		}
 	}()
 
 	select {
-	case err := <-readDone:
+	case err := <-readerDone:
 		if err == errStateInitial {
 			c.state = statePrePlay
 			c.path.OnClientPause(c)
@@ -1067,7 +1067,7 @@ func (c *Client) runPlayUDP() bool {
 		c.path = nil
 
 		c.conn.Close()
-		<-readDone
+		<-readerDone
 		return false
 	}
 }
@@ -1076,12 +1076,12 @@ func (c *Client) runPlayTCP() bool {
 	readRequest := make(chan readRequestPair)
 	defer close(readRequest)
 
-	readDone := make(chan error)
+	readerDone := make(chan error)
 	go func() {
 		for {
 			recv, err := c.conn.ReadFrameTCPOrRequest(false)
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 
@@ -1094,7 +1094,7 @@ func (c *Client) runPlayTCP() bool {
 				readRequest <- readRequestPair{recvt, res}
 				err := <-res
 				if err != nil {
-					readDone <- err
+					readerDone <- err
 					return
 				}
 			}
@@ -1107,7 +1107,7 @@ func (c *Client) runPlayTCP() bool {
 		case req := <-readRequest:
 			req.res <- c.handleRequest(req.req)
 
-		case err := <-readDone:
+		case err := <-readerDone:
 			if err == errStateInitial {
 				ch := c.tcpFrame
 				go func() {
@@ -1165,7 +1165,7 @@ func (c *Client) runPlayTCP() bool {
 			close(c.tcpFrame)
 
 			c.conn.Close()
-			<-readDone
+			<-readerDone
 			return false
 		}
 	}
@@ -1242,18 +1242,18 @@ func (c *Client) runRecord() bool {
 }
 
 func (c *Client) runRecordUDP() bool {
-	readDone := make(chan error)
+	readerDone := make(chan error)
 	go func() {
 		for {
 			req, err := c.conn.ReadRequest()
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 
 			err = c.handleRequest(req)
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 		}
@@ -1267,7 +1267,7 @@ func (c *Client) runRecordUDP() bool {
 
 	for {
 		select {
-		case err := <-readDone:
+		case err := <-readerDone:
 			if err == errStateInitial {
 				for _, track := range c.streamTracks {
 					c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
@@ -1312,7 +1312,7 @@ func (c *Client) runRecordUDP() bool {
 
 					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
-					<-readDone
+					<-readerDone
 
 					c.path.OnClientRemove(c)
 					c.path = nil
@@ -1341,7 +1341,7 @@ func (c *Client) runRecordUDP() bool {
 			}
 
 			c.conn.Close()
-			<-readDone
+			<-readerDone
 
 			c.path.OnClientRemove(c)
 			c.path = nil
@@ -1355,19 +1355,19 @@ func (c *Client) runRecordTCP() bool {
 	readRequest := make(chan readRequestPair)
 	defer close(readRequest)
 
-	readDone := make(chan error)
+	readerDone := make(chan error)
 	go func() {
 		for {
 			recv, err := c.conn.ReadFrameTCPOrRequest(true)
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 
 			switch recvt := recv.(type) {
 			case *base.InterleavedFrame:
 				if recvt.TrackId >= len(c.streamTracks) {
-					readDone <- fmt.Errorf("invalid track id '%d'", recvt.TrackId)
+					readerDone <- fmt.Errorf("invalid track id '%d'", recvt.TrackId)
 					return
 				}
 
@@ -1377,7 +1377,7 @@ func (c *Client) runRecordTCP() bool {
 			case *base.Request:
 				err := c.handleRequest(recvt)
 				if err != nil {
-					readDone <- err
+					readerDone <- err
 					return
 				}
 			}
@@ -1393,7 +1393,7 @@ func (c *Client) runRecordTCP() bool {
 		case req := <-readRequest:
 			req.res <- c.handleRequest(req.req)
 
-		case err := <-readDone:
+		case err := <-readerDone:
 			if err == errStateInitial {
 				c.state = statePreRecord
 				c.path.OnClientPause(c)
@@ -1429,7 +1429,7 @@ func (c *Client) runRecordTCP() bool {
 			}()
 
 			c.conn.Close()
-			<-readDone
+			<-readerDone
 
 			c.path.OnClientRemove(c)
 			c.path = nil

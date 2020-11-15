@@ -229,33 +229,33 @@ func (s *Source) runInner() bool {
 	s.parent.Log("rtmp source ready")
 	s.parent.OnSourceSetReady(tracks)
 
-	readDone := make(chan error)
+	readerDone := make(chan error)
 	go func() {
 		for {
 			pkt, err := conn.ReadPacket()
 			if err != nil {
-				readDone <- err
+				readerDone <- err
 				return
 			}
 
 			switch pkt.Type {
 			case av.H264:
 				if h264Sps == nil {
-					readDone <- fmt.Errorf("rtmp source ERR: received an H264 frame, but track is not setup up")
+					readerDone <- fmt.Errorf("rtmp source ERR: received an H264 frame, but track is not setup up")
 					return
 				}
 
 				// decode from AVCC format
 				nalus, typ := h264.SplitNALUs(pkt.Data)
 				if typ != h264.NALU_AVCC {
-					readDone <- fmt.Errorf("invalid NALU format (%d)", typ)
+					readerDone <- fmt.Errorf("invalid NALU format (%d)", typ)
 					return
 				}
 
 				// encode into RTP/H264 format
 				frames, err := h264Encoder.Write(nalus, pkt.Time+pkt.CTime)
 				if err != nil {
-					readDone <- err
+					readerDone <- err
 					return
 				}
 
@@ -265,13 +265,13 @@ func (s *Source) runInner() bool {
 
 			case av.AAC:
 				if aacConfig == nil {
-					readDone <- fmt.Errorf("rtmp source ERR: received an AAC frame, but track is not setup up")
+					readerDone <- fmt.Errorf("rtmp source ERR: received an AAC frame, but track is not setup up")
 					return
 				}
 
 				frames, err := aacEncoder.Write(pkt.Data, pkt.Time+pkt.CTime)
 				if err != nil {
-					readDone <- err
+					readerDone <- err
 					return
 				}
 
@@ -280,7 +280,7 @@ func (s *Source) runInner() bool {
 				}
 
 			default:
-				readDone <- fmt.Errorf("rtmp source ERR: unexpected packet: %v", pkt.Type)
+				readerDone <- fmt.Errorf("rtmp source ERR: unexpected packet: %v", pkt.Type)
 				return
 			}
 		}
@@ -293,11 +293,11 @@ outer:
 		select {
 		case <-s.terminate:
 			nconn.Close()
-			<-readDone
+			<-readerDone
 			ret = false
 			break outer
 
-		case err := <-readDone:
+		case err := <-readerDone:
 			nconn.Close()
 			s.parent.Log("rtmp source ERR: %s", err)
 			ret = true
