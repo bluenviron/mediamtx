@@ -1,12 +1,11 @@
-FROM amd64/alpine:3.12
+FROM amd64/ubuntu:20.04
 
-RUN apk add --no-cache \
-    gstreamer-tools \
-    gst-plugins-good \
-    gst-plugins-bad \
-    && apk add --no-cache \
-    -X http://dl-cdn.alpinelinux.org/alpine/edge/testing \
-    gst-rtsp-server
+RUN apt update && apt install -y --no-install-recommends \
+    gstreamer1.0-tools \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-rtsp \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY emptyvideo.ts /
 
