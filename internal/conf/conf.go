@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/headers"
+	"github.com/aler9/gortsplib/pkg/headers"
 	"gopkg.in/yaml.v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/confenv"

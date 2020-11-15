@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/auth"
-	"github.com/aler9/gortsplib/base"
-	"github.com/aler9/gortsplib/headers"
-	"github.com/aler9/gortsplib/rtcpreceiver"
+	"github.com/aler9/gortsplib/pkg/auth"
+	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/aler9/gortsplib/pkg/rtcpreceiver"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -56,27 +56,22 @@ const (
 	stateRecord
 )
 
-func (cs state) String() string {
-	switch cs {
+func (s state) String() string {
+	switch s {
 	case stateInitial:
-		return "Initial"
-
+		return "initial"
 	case stateWaitingDescribe:
-		return "WaitingDescribe"
-
+		return "waitingDescribe"
 	case statePrePlay:
-		return "PrePlay"
-
+		return "prePlay"
 	case statePlay:
-		return "Play"
-
+		return "play"
 	case statePreRecord:
-		return "PreRecord"
-
+		return "preRecord"
 	case stateRecord:
-		return "Record"
+		return "record"
 	}
-	return "Invalid"
+	return "invalid"
 }
 
 // Path is implemented by path.Path.

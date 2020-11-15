@@ -113,11 +113,14 @@ func (s *Source) runInner() bool {
 	dialDone := make(chan struct{}, 1)
 	go func() {
 		defer close(dialDone)
-		conn, err = gortsplib.Dialer{
+
+		dialer := gortsplib.Dialer{
+			StreamProtocol:  s.proto,
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
 			ReadBufferCount: 2,
-		}.DialRead(s.ur, s.proto)
+		}
+		conn, err = dialer.DialRead(s.ur)
 	}()
 
 	select {
@@ -136,89 +139,12 @@ func (s *Source) runInner() bool {
 	s.parent.Log("rtsp source ready")
 	s.parent.OnSourceSetReady(tracks)
 
-	var ret bool
-	if s.proto == gortsplib.StreamProtocolUDP {
-		ret = s.runUDP(conn, tracks)
-	} else {
-		ret = s.runTCP(conn, tracks)
-	}
-
-	s.parent.OnSourceSetNotReady()
-	return ret
-}
-
-func (s *Source) runUDP(conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
-	var wg sync.WaitGroup
-
-	// receive RTP packets
-	for trackId := range tracks {
-		wg.Add(1)
-		go func(trackId int) {
-			defer wg.Done()
-
-			for {
-				buf, err := conn.ReadFrameUDP(trackId, gortsplib.StreamTypeRtp)
-				if err != nil {
-					break
-				}
-
-				s.parent.OnFrame(trackId, gortsplib.StreamTypeRtp, buf)
-			}
-		}(trackId)
-	}
-
-	// receive RTCP packets
-	for trackId := range tracks {
-		wg.Add(1)
-		go func(trackId int) {
-			defer wg.Done()
-
-			for {
-				buf, err := conn.ReadFrameUDP(trackId, gortsplib.StreamTypeRtcp)
-				if err != nil {
-					break
-				}
-
-				s.parent.OnFrame(trackId, gortsplib.StreamTypeRtcp, buf)
-			}
-		}(trackId)
-	}
-
-	tcpConnDone := make(chan error)
-	go func() {
-		tcpConnDone <- conn.LoopUDP()
-	}()
-
-	var ret bool
-
-outer:
-	for {
-		select {
-		case <-s.terminate:
-			conn.Close()
-			<-tcpConnDone
-			ret = false
-			break outer
-
-		case err := <-tcpConnDone:
-			conn.Close()
-			s.parent.Log("rtsp source ERR: %s", err)
-			ret = true
-			break outer
-		}
-	}
-
-	wg.Wait()
-	return ret
-}
-
-func (s *Source) runTCP(conn *gortsplib.ConnClient, tracks gortsplib.Tracks) bool {
-	tcpConnDone := make(chan error)
+	readDone := make(chan error)
 	go func() {
 		for {
-			trackId, streamType, content, err := conn.ReadFrameTCP()
+			trackId, streamType, content, err := conn.ReadFrame()
 			if err != nil {
-				tcpConnDone <- err
+				readDone <- err
 				return
 			}
 
@@ -233,11 +159,11 @@ outer:
 		select {
 		case <-s.terminate:
 			conn.Close()
-			<-tcpConnDone
+			<-readDone
 			ret = false
 			break outer
 
-		case err := <-tcpConnDone:
+		case err := <-readDone:
 			conn.Close()
 			s.parent.Log("rtsp source ERR: %s", err)
 			ret = true
@@ -245,5 +171,6 @@ outer:
 		}
 	}
 
+	s.parent.OnSourceSetNotReady()
 	return ret
 }
