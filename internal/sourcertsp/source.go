@@ -139,7 +139,7 @@ func (s *Source) runInner() bool {
 	s.parent.Log("rtsp source ready")
 	s.parent.OnSourceSetReady(tracks)
 
-	readerDone := make(chan error)
+	readerDone := make(chan error, 1)
 
 	conn.OnFrame(func(trackId int, streamType gortsplib.StreamType, content []byte, err error) {
 		if err != nil {
