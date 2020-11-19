@@ -174,6 +174,40 @@ paths:
 
 After starting the server, the webcam is available on `rtsp://localhost:8554/cam`.
 
+### Output HLS
+
+Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  all:
+    runOnPublish: ffmpeg -re -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
+    runOnPublishRestart: yes
+```
+
+Every time someone publishes a stream, the server will produce HLS segments, that can be served by a web server.
+
+The example above makes the assumption that the incoming stream is encoded with H264 and AAC, since they are the only codecs supported by HLS; if the incoming stream is encoded with different codecs, it must be converted:
+
+```yml
+paths:
+  all:
+    runOnPublish: ffmpeg -re -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:a aac -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
+    runOnPublishRestart: yes
+```
+
+### Remuxing, re-encoding, compression
+
+To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  all:
+  original:
+    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    runOnPublishRestart: yes
+```
+
 ### On-demand publishing
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
@@ -186,18 +220,6 @@ paths:
 ```
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
-
-### Remuxing, re-encoding, compression
-
-To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-
-```yml
-paths:
-  all:
-  original:
-    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
-    runOnPublishRestart: yes
-```
 
 ### Redirect to another server
 
