@@ -361,6 +361,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 					string(base.SETUP),
 					string(base.PLAY),
 					string(base.RECORD),
+					string(base.PAUSE),
 					string(base.TEARDOWN),
 				}, ", ")},
 			},
