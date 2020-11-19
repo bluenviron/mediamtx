@@ -228,6 +228,7 @@ func (s *Source) runInner() bool {
 
 	s.parent.Log("rtmp source ready")
 	s.parent.OnSourceSetReady(tracks)
+	defer s.parent.OnSourceSetNotReady()
 
 	readerDone := make(chan error)
 	go func() {
@@ -286,26 +287,17 @@ func (s *Source) runInner() bool {
 		}
 	}()
 
-	var ret bool
-
-outer:
 	for {
 		select {
 		case <-s.terminate:
 			nconn.Close()
 			<-readerDone
-			ret = false
-			break outer
+			return false
 
 		case err := <-readerDone:
 			nconn.Close()
 			s.parent.Log("rtmp source ERR: %s", err)
-			ret = true
-			break outer
+			return true
 		}
 	}
-
-	s.parent.OnSourceSetNotReady()
-
-	return ret
 }
