@@ -1185,7 +1185,7 @@ func (c *Client) runRecord() bool {
 
 	c.rtcpReceivers = make([]*rtcpreceiver.RtcpReceiver, len(c.streamTracks))
 	for trackId := range c.streamTracks {
-		c.rtcpReceivers[trackId] = rtcpreceiver.New()
+		c.rtcpReceivers[trackId] = rtcpreceiver.New(nil)
 	}
 
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
