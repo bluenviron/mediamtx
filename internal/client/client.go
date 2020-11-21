@@ -29,9 +29,9 @@ const (
 	sessionId              = "12345678"
 )
 
-type readRequestPair struct {
+type readReq struct {
 	req *base.Request
-	res chan error
+	res chan bool
 }
 
 type streamTrack struct {
@@ -121,10 +121,11 @@ type Client struct {
 	udpLastFrameTimes []*int64
 	describeCSeq      base.HeaderValue
 	describeUrl       string
+	tcpWriteMutex     sync.Mutex
+	tcpWriteOk        bool
 
 	// in
-	describeData chan describeData           // from path
-	tcpFrame     chan *base.InterleavedFrame // from source
+	describeData chan describeData // from path
 	terminate    chan struct{}
 }
 
@@ -988,7 +989,7 @@ func (c *Client) runWaitingDescribe() bool {
 
 func (c *Client) runPlay() bool {
 	if c.streamProtocol == gortsplib.StreamProtocolTCP {
-		c.tcpFrame = make(chan *base.InterleavedFrame)
+		c.tcpWriteOk = true
 	}
 
 	// start sending frames only after replying to the PLAY request
@@ -1002,29 +1003,25 @@ func (c *Client) runPlay() bool {
 		return "tracks"
 	}(), c.streamProtocol)
 
-	var onReadCmd *externalcmd.ExternalCmd
 	if c.path.Conf().RunOnRead != "" {
-		onReadCmd = externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
+		onReadCmd := externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
 			Path: c.path.Name(),
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
+		defer onReadCmd.Close()
 	}
 
-	var ret bool
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
-		ret = c.runPlayUDP()
+		return c.runPlayUDP()
 	} else {
-		ret = c.runPlayTCP()
+		return c.runPlayTCP()
 	}
-
-	if onReadCmd != nil {
-		onReadCmd.Close()
-	}
-
-	return ret
 }
 
 func (c *Client) runPlayUDP() bool {
+	readerRequest := make(chan readReq)
+	defer close(readerRequest)
+
 	readerDone := make(chan error)
 	go func() {
 		for {
@@ -1034,48 +1031,70 @@ func (c *Client) runPlayUDP() bool {
 				return
 			}
 
-			err = c.handleRequest(req)
-			if err != nil {
-				readerDone <- err
+			okc := make(chan bool)
+			readerRequest <- readReq{req, okc}
+			ok := <-okc
+			if !ok {
+				readerDone <- nil
 				return
 			}
 		}
 	}()
 
-	select {
-	case err := <-readerDone:
+	onError := func(err error) bool {
 		if err == errStateInitial {
 			c.state = statePrePlay
 			c.path.OnClientPause(c)
 			return true
+		}
 
-		} else {
+		c.conn.Close()
+		if err != io.EOF && err != errStateTerminate {
+			c.log("ERR: %s", err)
+		}
+
+		c.path.OnClientRemove(c)
+		c.path = nil
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+		return false
+	}
+
+	for {
+		select {
+		case req := <-readerRequest:
+			err := c.handleRequest(req.req)
+			if err != nil {
+				req.res <- false
+				<-readerDone
+				return onError(err)
+			}
+			req.res <- true
+
+		case err := <-readerDone:
+			return onError(err)
+
+		case <-c.terminate:
+			go func() {
+				for req := range readerRequest {
+					req.res <- false
+				}
+			}()
+
 			c.path.OnClientRemove(c)
 			c.path = nil
 
 			c.conn.Close()
-			if err != io.EOF && err != errStateTerminate {
-				c.log("ERR: %s", err)
-			}
-
-			c.parent.OnClientClose(c)
-			<-c.terminate
+			<-readerDone
 			return false
 		}
-
-	case <-c.terminate:
-		c.path.OnClientRemove(c)
-		c.path = nil
-
-		c.conn.Close()
-		<-readerDone
-		return false
 	}
 }
 
 func (c *Client) runPlayTCP() bool {
-	readRequest := make(chan readRequestPair)
-	defer close(readRequest)
+	readerRequest := make(chan readReq)
+	defer close(readerRequest)
 
 	readerDone := make(chan error)
 	go func() {
@@ -1091,79 +1110,64 @@ func (c *Client) runPlayTCP() bool {
 				// rtcp feedback is handled by gortsplib
 
 			case *base.Request:
-				res := make(chan error)
-				readRequest <- readRequestPair{recvt, res}
-				err := <-res
-				if err != nil {
-					readerDone <- err
+				okc := make(chan bool)
+				readerRequest <- readReq{recvt, okc}
+				ok := <-okc
+				if !ok {
+					readerDone <- nil
 					return
 				}
 			}
 		}
 	}()
 
+	onError := func(err error) bool {
+		if err == errStateInitial {
+			c.state = statePrePlay
+			c.path.OnClientPause(c)
+			return true
+		}
+
+		c.conn.Close()
+		if err != io.EOF && err != errStateTerminate {
+			c.log("ERR: %s", err)
+		}
+
+		c.path.OnClientRemove(c)
+		c.path = nil
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+		return false
+	}
+
 	for {
 		select {
-		// responses must be written in the same routine of frames
-		case req := <-readRequest:
-			req.res <- c.handleRequest(req.req)
+		case req := <-readerRequest:
+			c.tcpWriteMutex.Lock()
+			err := c.handleRequest(req.req)
+			if err != nil {
+				c.tcpWriteOk = false
+				c.tcpWriteMutex.Unlock()
+				req.res <- false
+				<-readerDone
+				return onError(err)
+			}
+			c.tcpWriteMutex.Unlock()
+			req.res <- true
 
 		case err := <-readerDone:
-			if err == errStateInitial {
-				ch := c.tcpFrame
-				go func() {
-					for range ch {
-					}
-				}()
-
-				c.state = statePrePlay
-				c.path.OnClientPause(c)
-
-				close(c.tcpFrame)
-				return true
-
-			} else {
-				ch := c.tcpFrame
-				go func() {
-					for range ch {
-					}
-				}()
-
-				c.path.OnClientRemove(c)
-				c.path = nil
-
-				close(c.tcpFrame)
-
-				c.conn.Close()
-				if err != io.EOF && err != errStateTerminate {
-					c.log("ERR: %s", err)
-				}
-
-				c.parent.OnClientClose(c)
-				<-c.terminate
-				return false
-			}
-
-		case frame := <-c.tcpFrame:
-			c.conn.WriteFrameTCP(frame.TrackId, frame.StreamType, frame.Content)
+			return onError(err)
 
 		case <-c.terminate:
 			go func() {
-				for req := range readRequest {
-					req.res <- fmt.Errorf("terminated")
-				}
-			}()
-
-			ch := c.tcpFrame
-			go func() {
-				for range ch {
+				for req := range readerRequest {
+					req.res <- false
 				}
 			}()
 
 			c.path.OnClientRemove(c)
 			c.path = nil
-
-			close(c.tcpFrame)
 
 			c.conn.Close()
 			<-readerDone
@@ -1220,29 +1224,25 @@ func (c *Client) runRecord() bool {
 		}
 	}
 
-	var onPublishCmd *externalcmd.ExternalCmd
 	if c.path.Conf().RunOnPublish != "" {
-		onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
+		onPublishCmd := externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
 			Path: c.path.Name(),
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
+		defer onPublishCmd.Close()
 	}
 
-	var ret bool
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
-		ret = c.runRecordUDP()
+		return c.runRecordUDP()
 	} else {
-		ret = c.runRecordTCP()
+		return c.runRecordTCP()
 	}
-
-	if onPublishCmd != nil {
-		onPublishCmd.Close()
-	}
-
-	return ret
 }
 
 func (c *Client) runRecordUDP() bool {
+	readerRequest := make(chan readReq)
+	defer close(readerRequest)
+
 	readerDone := make(chan error)
 	go func() {
 		for {
@@ -1252,9 +1252,11 @@ func (c *Client) runRecordUDP() bool {
 				return
 			}
 
-			err = c.handleRequest(req)
-			if err != nil {
-				readerDone <- err
+			okc := make(chan bool)
+			readerRequest <- readReq{req, okc}
+			ok := <-okc
+			if !ok {
+				readerDone <- nil
 				return
 			}
 		}
@@ -1266,38 +1268,49 @@ func (c *Client) runRecordUDP() bool {
 	receiverReportTicker := time.NewTicker(receiverReportInterval)
 	defer receiverReportTicker.Stop()
 
+	onError := func(err error) bool {
+		if err == errStateInitial {
+			for _, track := range c.streamTracks {
+				c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
+				c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
+			}
+
+			c.state = statePreRecord
+			c.path.OnClientPause(c)
+			return true
+		}
+
+		c.conn.Close()
+		if err != io.EOF && err != errStateTerminate {
+			c.log("ERR: %s", err)
+		}
+
+		for _, track := range c.streamTracks {
+			c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
+			c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
+		}
+
+		c.path.OnClientRemove(c)
+		c.path = nil
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+		return false
+	}
+
 	for {
 		select {
-		case err := <-readerDone:
-			if err == errStateInitial {
-				for _, track := range c.streamTracks {
-					c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
-					c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
-				}
-
-				c.state = statePreRecord
-				c.path.OnClientPause(c)
-
-				return true
-
-			} else {
-				for _, track := range c.streamTracks {
-					c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
-					c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
-				}
-
-				c.path.OnClientRemove(c)
-				c.path = nil
-
-				c.conn.Close()
-				if err != io.EOF && err != errStateTerminate {
-					c.log("ERR: %s", err)
-				}
-
-				c.parent.OnClientClose(c)
-				<-c.terminate
-				return false
+		case req := <-readerRequest:
+			err := c.handleRequest(req.req)
+			if err != nil {
+				req.res <- false
+				<-readerDone
+				return onError(err)
 			}
+			req.res <- true
+
+		case err := <-readerDone:
+			return onError(err)
 
 		case <-checkStreamTicker.C:
 			now := time.Now()
@@ -1306,21 +1319,26 @@ func (c *Client) runRecordUDP() bool {
 				last := time.Unix(atomic.LoadInt64(lastUnix), 0)
 
 				if now.Sub(last) >= c.readTimeout {
-					for _, track := range c.streamTracks {
-						c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
-						c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
-					}
+					go func() {
+						for req := range readerRequest {
+							req.res <- false
+						}
+					}()
 
 					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
 					<-readerDone
+
+					for _, track := range c.streamTracks {
+						c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
+						c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
+					}
 
 					c.path.OnClientRemove(c)
 					c.path = nil
 
 					c.parent.OnClientClose(c)
 					<-c.terminate
-
 					return false
 				}
 			}
@@ -1336,25 +1354,30 @@ func (c *Client) runRecordUDP() bool {
 			}
 
 		case <-c.terminate:
+			go func() {
+				for req := range readerRequest {
+					req.res <- false
+				}
+			}()
+
+			c.conn.Close()
+			<-readerDone
+
 			for _, track := range c.streamTracks {
 				c.serverUdpRtp.RemovePublisher(c.ip(), track.rtpPort, c)
 				c.serverUdpRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
 			}
 
-			c.conn.Close()
-			<-readerDone
-
 			c.path.OnClientRemove(c)
 			c.path = nil
-
 			return false
 		}
 	}
 }
 
 func (c *Client) runRecordTCP() bool {
-	readRequest := make(chan readRequestPair)
-	defer close(readRequest)
+	readerRequest := make(chan readReq)
+	defer close(readerRequest)
 
 	readerDone := make(chan error)
 	go func() {
@@ -1376,9 +1399,11 @@ func (c *Client) runRecordTCP() bool {
 				c.path.OnFrame(recvt.TrackId, recvt.StreamType, recvt.Content)
 
 			case *base.Request:
-				err := c.handleRequest(recvt)
-				if err != nil {
-					readerDone <- err
+				okc := make(chan bool)
+				readerRequest <- readReq{recvt, okc}
+				ok := <-okc
+				if !ok {
+					readerDone <- nil
 					return
 				}
 			}
@@ -1388,33 +1413,39 @@ func (c *Client) runRecordTCP() bool {
 	receiverReportTicker := time.NewTicker(receiverReportInterval)
 	defer receiverReportTicker.Stop()
 
+	onError := func(err error) bool {
+		if err == errStateInitial {
+			c.state = statePreRecord
+			c.path.OnClientPause(c)
+			return true
+		}
+
+		c.conn.Close()
+		if err != io.EOF && err != errStateTerminate {
+			c.log("ERR: %s", err)
+		}
+
+		c.path.OnClientRemove(c)
+		c.path = nil
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+		return false
+	}
+
 	for {
 		select {
-		// responses must be written in the same routine of receiver reports
-		case req := <-readRequest:
-			req.res <- c.handleRequest(req.req)
+		case req := <-readerRequest:
+			err := c.handleRequest(req.req)
+			if err != nil {
+				req.res <- false
+				<-readerDone
+				return onError(err)
+			}
+			req.res <- true
 
 		case err := <-readerDone:
-			if err == errStateInitial {
-				c.state = statePreRecord
-				c.path.OnClientPause(c)
-
-				return true
-
-			} else {
-				c.path.OnClientRemove(c)
-				c.path = nil
-
-				c.conn.Close()
-				if err != io.EOF && err != errStateTerminate {
-					c.log("ERR: %s", err)
-				}
-
-				c.parent.OnClientClose(c)
-				<-c.terminate
-
-				return false
-			}
+			return onError(err)
 
 		case <-receiverReportTicker.C:
 			for trackId := range c.streamTracks {
@@ -1424,8 +1455,8 @@ func (c *Client) runRecordTCP() bool {
 
 		case <-c.terminate:
 			go func() {
-				for req := range readRequest {
-					req.res <- fmt.Errorf("terminated")
+				for req := range readerRequest {
+					req.res <- false
 				}
 			}()
 
@@ -1434,7 +1465,6 @@ func (c *Client) runRecordTCP() bool {
 
 			c.path.OnClientRemove(c)
 			c.path = nil
-
 			return false
 		}
 	}
@@ -1472,11 +1502,11 @@ func (c *Client) OnReaderFrame(trackId int, streamType base.StreamType, buf []by
 		}
 
 	} else {
-		c.tcpFrame <- &base.InterleavedFrame{
-			TrackId:    trackId,
-			StreamType: streamType,
-			Content:    buf,
+		c.tcpWriteMutex.Lock()
+		if c.tcpWriteOk {
+			c.conn.WriteFrameTCP(trackId, streamType, buf)
 		}
+		c.tcpWriteMutex.Unlock()
 	}
 }
 
