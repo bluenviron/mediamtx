@@ -205,12 +205,12 @@ func (c *Client) run() {
 	defer c.wg.Done()
 	defer c.log("disconnected")
 
-	var onConnectCmd *externalcmd.ExternalCmd
 	if c.runOnConnect != "" {
-		onConnectCmd = externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
+		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
 			Path: "",
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
+		defer onConnectCmd.Close()
 	}
 
 	for {
@@ -222,10 +222,6 @@ func (c *Client) run() {
 	if c.path != nil {
 		c.path.OnClientRemove(c)
 		c.path = nil
-	}
-
-	if onConnectCmd != nil {
-		onConnectCmd.Close()
 	}
 }
 

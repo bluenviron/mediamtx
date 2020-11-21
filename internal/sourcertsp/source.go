@@ -25,7 +25,7 @@ type Parent interface {
 // Source is a RTSP source.
 type Source struct {
 	ur           string
-	proto        gortsplib.StreamProtocol
+	proto        *gortsplib.StreamProtocol
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	wg           *sync.WaitGroup
@@ -41,7 +41,7 @@ type Source struct {
 
 // New allocates a Source.
 func New(ur string,
-	proto gortsplib.StreamProtocol,
+	proto *gortsplib.StreamProtocol,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	wg *sync.WaitGroup,

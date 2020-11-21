@@ -187,7 +187,7 @@ func TestEnvironment(t *testing.T) {
 	require.Equal(t, &conf.PathConf{
 		Regexp:                     regexp.MustCompile("^.*$"),
 		Source:                     "record",
-		SourceProtocol:             "udp",
+		SourceProtocol:             "automatic",
 		SourceOnDemandStartTimeout: 10 * time.Second,
 		SourceOnDemandCloseAfter:   10 * time.Second,
 		ReadUser:                   "testuser",
@@ -199,9 +199,12 @@ func TestEnvironment(t *testing.T) {
 	pa, ok = p.conf.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
-		Source:                     "rtsp://testing",
-		SourceProtocol:             "tcp",
-		SourceProtocolParsed:       gortsplib.StreamProtocolTCP,
+		Source:         "rtsp://testing",
+		SourceProtocol: "tcp",
+		SourceProtocolParsed: func() *gortsplib.StreamProtocol {
+			v := gortsplib.StreamProtocolTCP
+			return &v
+		}(),
 		SourceOnDemand:             true,
 		SourceOnDemandStartTimeout: 10 * time.Second,
 		SourceOnDemandCloseAfter:   10 * time.Second,
@@ -222,7 +225,7 @@ func TestEnvironmentNoFile(t *testing.T) {
 	require.Equal(t, true, ok)
 	require.Equal(t, &conf.PathConf{
 		Source:                     "rtsp://testing",
-		SourceProtocol:             "udp",
+		SourceProtocol:             "automatic",
 		SourceOnDemandStartTimeout: 10 * time.Second,
 		SourceOnDemandCloseAfter:   10 * time.Second,
 		RunOnDemandStartTimeout:    10 * time.Second,

@@ -48,8 +48,8 @@ paths:
     source: record
 
     # if the source is an RTSP url, this is the protocol that will be used to
-    # pull the stream.
-    sourceProtocol: udp
+    # pull the stream. available options are "automatic", "udp", "tcp".
+    sourceProtocol: automatic
     # if the source is an RTSP or RTMP url, it will be pulled only when at least
     # one reader is connected, saving bandwidth.
     sourceOnDemand: no

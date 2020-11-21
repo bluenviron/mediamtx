@@ -18,33 +18,33 @@ const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
 
 // PathConf is a path configuration.
 type PathConf struct {
-	Regexp                     *regexp.Regexp           `yaml:"-" json:"-"`
-	Source                     string                   `yaml:"source"`
-	SourceProtocol             string                   `yaml:"sourceProtocol"`
-	SourceProtocolParsed       gortsplib.StreamProtocol `yaml:"-" json:"-"`
-	SourceOnDemand             bool                     `yaml:"sourceOnDemand"`
-	SourceOnDemandStartTimeout time.Duration            `yaml:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   time.Duration            `yaml:"sourceOnDemandCloseAfter"`
-	SourceRedirect             string                   `yaml:"sourceRedirect"`
-	Fallback                   string                   `yaml:"fallback"`
-	RunOnInit                  string                   `yaml:"runOnInit"`
-	RunOnInitRestart           bool                     `yaml:"runOnInitRestart"`
-	RunOnDemand                string                   `yaml:"runOnDemand"`
-	RunOnDemandRestart         bool                     `yaml:"runOnDemandRestart"`
-	RunOnDemandStartTimeout    time.Duration            `yaml:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter      time.Duration            `yaml:"runOnDemandCloseAfter"`
-	RunOnPublish               string                   `yaml:"runOnPublish"`
-	RunOnPublishRestart        bool                     `yaml:"runOnPublishRestart"`
-	RunOnRead                  string                   `yaml:"runOnRead"`
-	RunOnReadRestart           bool                     `yaml:"runOnReadRestart"`
-	PublishUser                string                   `yaml:"publishUser"`
-	PublishPass                string                   `yaml:"publishPass"`
-	PublishIps                 []string                 `yaml:"publishIps"`
-	PublishIpsParsed           []interface{}            `yaml:"-" json:"-"`
-	ReadUser                   string                   `yaml:"readUser"`
-	ReadPass                   string                   `yaml:"readPass"`
-	ReadIps                    []string                 `yaml:"readIps"`
-	ReadIpsParsed              []interface{}            `yaml:"-" json:"-"`
+	Regexp                     *regexp.Regexp            `yaml:"-" json:"-"`
+	Source                     string                    `yaml:"source"`
+	SourceProtocol             string                    `yaml:"sourceProtocol"`
+	SourceProtocolParsed       *gortsplib.StreamProtocol `yaml:"-" json:"-"`
+	SourceOnDemand             bool                      `yaml:"sourceOnDemand"`
+	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter"`
+	SourceRedirect             string                    `yaml:"sourceRedirect"`
+	Fallback                   string                    `yaml:"fallback"`
+	RunOnInit                  string                    `yaml:"runOnInit"`
+	RunOnInitRestart           bool                      `yaml:"runOnInitRestart"`
+	RunOnDemand                string                    `yaml:"runOnDemand"`
+	RunOnDemandRestart         bool                      `yaml:"runOnDemandRestart"`
+	RunOnDemandStartTimeout    time.Duration             `yaml:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter      time.Duration             `yaml:"runOnDemandCloseAfter"`
+	RunOnPublish               string                    `yaml:"runOnPublish"`
+	RunOnPublishRestart        bool                      `yaml:"runOnPublishRestart"`
+	RunOnRead                  string                    `yaml:"runOnRead"`
+	RunOnReadRestart           bool                      `yaml:"runOnReadRestart"`
+	PublishUser                string                    `yaml:"publishUser"`
+	PublishPass                string                    `yaml:"publishPass"`
+	PublishIps                 []string                  `yaml:"publishIps"`
+	PublishIpsParsed           []interface{}             `yaml:"-" json:"-"`
+	ReadUser                   string                    `yaml:"readUser"`
+	ReadPass                   string                    `yaml:"readPass"`
+	ReadIps                    []string                  `yaml:"readIps"`
+	ReadIpsParsed              []interface{}             `yaml:"-" json:"-"`
 }
 
 func (pconf *PathConf) fillAndCheck(name string) error {
@@ -94,15 +94,19 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		}
 
 		if pconf.SourceProtocol == "" {
-			pconf.SourceProtocol = "udp"
+			pconf.SourceProtocol = "automatic"
 		}
 
 		switch pconf.SourceProtocol {
 		case "udp":
-			pconf.SourceProtocolParsed = gortsplib.StreamProtocolUDP
+			v := gortsplib.StreamProtocolUDP
+			pconf.SourceProtocolParsed = &v
 
 		case "tcp":
-			pconf.SourceProtocolParsed = gortsplib.StreamProtocolTCP
+			v := gortsplib.StreamProtocolTCP
+			pconf.SourceProtocolParsed = &v
+
+		case "automatic":
 
 		default:
 			return fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
