@@ -8,14 +8,14 @@ const (
 	retryPause = 5 * time.Second
 )
 
-// Environment is a ExternalCmd environment.
+// Environment is a Cmd environment.
 type Environment struct {
 	Path string
 	Port string
 }
 
-// ExternalCmd is an external command.
-type ExternalCmd struct {
+// Cmd is an external command.
+type Cmd struct {
 	cmdstr  string
 	restart bool
 	env     Environment
@@ -27,9 +27,9 @@ type ExternalCmd struct {
 	done chan struct{}
 }
 
-// New allocates an ExternalCmd.
-func New(cmdstr string, restart bool, env Environment) *ExternalCmd {
-	e := &ExternalCmd{
+// New allocates an Cmd.
+func New(cmdstr string, restart bool, env Environment) *Cmd {
+	e := &Cmd{
 		cmdstr:    cmdstr,
 		restart:   restart,
 		env:       env,
@@ -41,13 +41,13 @@ func New(cmdstr string, restart bool, env Environment) *ExternalCmd {
 	return e
 }
 
-// Close closes an ExternalCmd.
-func (e *ExternalCmd) Close() {
+// Close closes an Cmd.
+func (e *Cmd) Close() {
 	close(e.terminate)
 	<-e.done
 }
 
-func (e *ExternalCmd) run() {
+func (e *Cmd) run() {
 	defer close(e.done)
 
 	for {

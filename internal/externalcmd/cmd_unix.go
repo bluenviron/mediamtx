@@ -7,7 +7,7 @@ import (
 	"os/exec"
 )
 
-func (e *ExternalCmd) runInner() bool {
+func (e *Cmd) runInner() bool {
 	cmd := exec.Command("/bin/sh", "-c", "exec "+e.cmdstr)
 
 	cmd.Env = append(os.Environ(),

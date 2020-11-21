@@ -10,7 +10,7 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-func (e *ExternalCmd) runInner() bool {
+func (e *Cmd) runInner() bool {
 	// on Windows the shell is not used and command is started directly
 	// variables are replaced manually in order to guarantee compatibility
 	// with Linux commands

@@ -155,7 +155,7 @@ type Path struct {
 	sourceTrackCount             int
 	sourceSdp                    []byte
 	readers                      *readersMap
-	onDemandCmd                  *externalcmd.ExternalCmd
+	onDemandCmd                  *externalcmd.Cmd
 	describeTimer                *time.Timer
 	sourceCloseTimer             *time.Timer
 	sourceCloseTimerStarted      bool
@@ -244,7 +244,7 @@ func (pa *Path) run() {
 		pa.startExternalSource()
 	}
 
-	var onInitCmd *externalcmd.ExternalCmd
+	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
 		pa.Log("on init command started")
 		onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
