@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/rtcpsender"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
@@ -184,9 +185,13 @@ func (s *Source) runInner() bool {
 	}
 
 	var tracks gortsplib.Tracks
+
 	var videoTrack *gortsplib.Track
-	var audioTrack *gortsplib.Track
+	var videoRtcpSender *rtcpsender.RtcpSender
 	var h264Encoder *rtph264.Encoder
+
+	var audioTrack *gortsplib.Track
+	var audioRtcpSender *rtcpsender.RtcpSender
 	var aacEncoder *rtpaac.Encoder
 
 	if h264Sps != nil {
@@ -196,7 +201,10 @@ func (s *Source) runInner() bool {
 			return true
 		}
 
-		h264Encoder, err = rtph264.NewEncoder(uint8(len(tracks)))
+		clockRate, _ := videoTrack.ClockRate()
+		videoRtcpSender = rtcpsender.New(clockRate)
+
+		h264Encoder, err = rtph264.NewEncoder(96 + uint8(len(tracks)))
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
@@ -206,13 +214,16 @@ func (s *Source) runInner() bool {
 	}
 
 	if aacConfig != nil {
-		audioTrack, err = gortsplib.NewTrackAac(len(tracks), aacConfig)
+		audioTrack, err = gortsplib.NewTrackAAC(len(tracks), aacConfig)
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
 		}
 
-		aacEncoder, err = rtpaac.NewEncoder(uint8(len(tracks)), aacConfig)
+		clockRate, _ := audioTrack.ClockRate()
+		audioRtcpSender = rtcpsender.New(clockRate)
+
+		aacEncoder, err = rtpaac.NewEncoder(96+uint8(len(tracks)), clockRate)
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
@@ -229,6 +240,39 @@ func (s *Source) runInner() bool {
 	s.parent.Log("rtmp source ready")
 	s.parent.OnSourceSetReady(tracks)
 	defer s.parent.OnSourceSetNotReady()
+
+	rtcpTerminate := make(chan struct{})
+	rtcpDone := make(chan struct{})
+	go func() {
+		close(rtcpDone)
+
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+
+		for {
+			select {
+			case <-t.C:
+				now := time.Now()
+
+				if videoRtcpSender != nil {
+					r := videoRtcpSender.Report(now)
+					if r != nil {
+						s.parent.OnFrame(videoTrack.Id, gortsplib.StreamTypeRtcp, r)
+					}
+				}
+
+				if audioRtcpSender != nil {
+					r := audioRtcpSender.Report(now)
+					if r != nil {
+						s.parent.OnFrame(audioTrack.Id, gortsplib.StreamTypeRtcp, r)
+					}
+				}
+
+			case <-rtcpTerminate:
+				return
+			}
+		}
+	}()
 
 	readerDone := make(chan error)
 	go func() {
@@ -261,6 +305,7 @@ func (s *Source) runInner() bool {
 				}
 
 				for _, f := range frames {
+					videoRtcpSender.OnFrame(time.Now(), gortsplib.StreamTypeRtp, f)
 					s.parent.OnFrame(videoTrack.Id, gortsplib.StreamTypeRtp, f)
 				}
 
@@ -277,6 +322,7 @@ func (s *Source) runInner() bool {
 				}
 
 				for _, f := range frames {
+					audioRtcpSender.OnFrame(time.Now(), gortsplib.StreamTypeRtp, f)
 					s.parent.OnFrame(audioTrack.Id, gortsplib.StreamTypeRtp, f)
 				}
 
@@ -292,11 +338,17 @@ func (s *Source) runInner() bool {
 		case <-s.terminate:
 			nconn.Close()
 			<-readerDone
+
+			close(rtcpTerminate)
+			<-rtcpDone
 			return false
 
 		case err := <-readerDone:
 			nconn.Close()
 			s.parent.Log("rtmp source ERR: %s", err)
+
+			close(rtcpTerminate)
+			<-rtcpDone
 			return true
 		}
 	}
