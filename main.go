@@ -22,8 +22,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
-// Version can be overridden by build flags.
-var Version = "v0.0.0"
+var version = "v0.0.0"
 
 type program struct {
 	confPath      string
@@ -45,7 +44,7 @@ type program struct {
 
 func newProgram(args []string) (*program, error) {
 	k := kingpin.New("rtsp-simple-server",
-		"rtsp-simple-server "+Version+"\n\nRTSP server.")
+		"rtsp-simple-server "+version+"\n\nRTSP server.")
 
 	argVersion := k.Flag("version", "print version").Bool()
 	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml.").Default("rtsp-simple-server.yml").String()
@@ -53,7 +52,7 @@ func newProgram(args []string) (*program, error) {
 	kingpin.MustParse(k.Parse(args))
 
 	if *argVersion == true {
-		fmt.Println(Version)
+		fmt.Println(version)
 		os.Exit(0)
 	}
 
@@ -129,7 +128,7 @@ func (p *program) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log("rtsp-simple-server %s", Version)
+		p.Log("rtsp-simple-server %s", version)
 	}
 
 	if p.conf.Metrics {

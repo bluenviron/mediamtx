@@ -124,7 +124,7 @@ release:
 release-nodocker:
 	$(eval export CGO_ENABLED=0)
 	$(eval VERSION := $(shell git describe --tags))
-	$(eval GOBUILD := go build -ldflags '-X main.Version=$(VERSION)')
+	$(eval GOBUILD := go build -ldflags '-X main.version=$(VERSION)')
 	rm -rf tmp && mkdir tmp
 	rm -rf release && mkdir release
 	cp rtsp-simple-server.yml tmp/
@@ -157,7 +157,7 @@ COPY . ./
 ARG VERSION
 ARG OPTS
 RUN export CGO_ENABLED=0 $${OPTS} \
-	&& go build -ldflags "-X main.Version=$$VERSION" -o /rtsp-simple-server
+	&& go build -ldflags "-X main.version=$$VERSION" -o /rtsp-simple-server
 
 FROM scratch
 COPY --from=build /rtsp-simple-server /
