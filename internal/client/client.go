@@ -770,31 +770,35 @@ func (c *Client) handleRequest(req *base.Request) error {
 		}
 
 	case base.PLAY:
+		// play can be sent twice, allow calling it even if we're already playing
 		err := c.checkState(map[state]struct{}{
 			statePrePlay: {},
+			statePlay:    {},
 		})
 		if err != nil {
 			c.writeResError(cseq, base.StatusBadRequest, err)
 			return errStateTerminate
 		}
 
-		basePath, ok := req.URL.BasePath()
-		if !ok {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
-			return errStateTerminate
-		}
+		if c.state == statePrePlay {
+			basePath, ok := req.URL.BasePath()
+			if !ok {
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
+				return errStateTerminate
+			}
 
-		// path can end with a slash, remove it
-		basePath = strings.TrimSuffix(basePath, "/")
+			// path can end with a slash, remove it
+			basePath = strings.TrimSuffix(basePath, "/")
 
-		if basePath != c.path.Name() {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath))
-			return errStateTerminate
-		}
+			if basePath != c.path.Name() {
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath))
+				return errStateTerminate
+			}
 
-		if len(c.streamTracks) == 0 {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("no tracks have been setup"))
-			return errStateTerminate
+			if len(c.streamTracks) == 0 {
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("no tracks have been setup"))
+				return errStateTerminate
+			}
 		}
 
 		// write response before setting state
@@ -807,7 +811,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 				"Session": base.HeaderValue{sessionId},
 			},
 		})
-		return errStatePlay
+
+		if c.state == statePrePlay {
+			return errStatePlay
+		}
+		return nil
 
 	case base.RECORD:
 		err := c.checkState(map[state]struct{}{
