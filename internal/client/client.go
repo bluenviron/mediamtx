@@ -158,7 +158,7 @@ func New(
 			Conn:            nconn,
 			ReadTimeout:     readTimeout,
 			WriteTimeout:    writeTimeout,
-			ReadBufferCount: 2,
+			ReadBufferCount: 1,
 		}),
 		parent:       parent,
 		state:        stateInitial,

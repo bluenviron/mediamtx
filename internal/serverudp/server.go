@@ -85,7 +85,7 @@ func New(writeTimeout time.Duration,
 		writeTimeout: writeTimeout,
 		streamType:   streamType,
 		pc:           pc,
-		readBuf:      multibuffer.New(2, readBufferSize),
+		readBuf:      multibuffer.New(1, readBufferSize),
 		publishers:   make(map[publisherAddr]*publisherData),
 		done:         make(chan struct{}),
 	}
