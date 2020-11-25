@@ -124,7 +124,7 @@ paths:
     sourceOnDemand: yes
 ```
 
-### Serve a webcam
+### Publish a webcam
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
@@ -151,7 +151,7 @@ ffmpeg -list_devices true -f dshow -i dummy
 
 After starting the server, the webcam can be reached on `rtsp://localhost:8554/cam`.
 
-### Serve a Raspberry Pi Camera
+### Publish a Raspberry Pi Camera
 
 Install dependencies:
 
@@ -174,7 +174,7 @@ paths:
 
 After starting the server, the webcam is available on `rtsp://localhost:8554/cam`.
 
-### Output HLS
+### Generate HLS
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
