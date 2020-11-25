@@ -11,6 +11,9 @@ import (
 )
 
 const (
+	// use the same buffer size as gstreamer's rtspsrc
+	kernelReadBufferSize = 0x80000
+
 	readBufferSize = 2048
 )
 
@@ -69,6 +72,11 @@ func New(writeTimeout time.Duration,
 	pc, err := net.ListenUDP("udp", &net.UDPAddr{
 		Port: port,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = pc.SetReadBuffer(kernelReadBufferSize)
 	if err != nil {
 		return nil, err
 	}
