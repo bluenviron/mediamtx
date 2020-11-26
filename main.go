@@ -260,13 +260,15 @@ func (p *program) reloadConf() error {
 	}
 
 	closeServerUdpRtp := false
-	if conf.WriteTimeout != p.conf.WriteTimeout ||
+	if !reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RtpPort != p.conf.RtpPort {
 		closeServerUdpRtp = true
 	}
 
 	closeServerUdpRtcp := false
-	if conf.WriteTimeout != p.conf.WriteTimeout ||
+	if !reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RtcpPort != p.conf.RtcpPort {
 		closeServerUdpRtcp = true
 	}
