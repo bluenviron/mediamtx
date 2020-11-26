@@ -68,13 +68,20 @@ func newProgram(args []string) (*program, error) {
 		return nil, err
 	}
 
-	err = p.createResources(true)
+	err = p.createDynamicResources(true)
 	if err != nil {
-		p.closeResources()
+		p.closeAllResources()
+		return nil, err
+	}
+
+	p.confWatcher, err = confwatcher.New(p.confPath)
+	if err != nil {
+		p.closeAllResources()
 		return nil, err
 	}
 
 	go p.run()
+
 	return p, nil
 }
 
@@ -110,10 +117,10 @@ outer:
 		}
 	}
 
-	p.closeResources()
+	p.closeAllResources()
 }
 
-func (p *program) createResources(initial bool) error {
+func (p *program) createDynamicResources(initial bool) error {
 	var err error
 
 	if p.stats == nil {
@@ -187,17 +194,10 @@ func (p *program) createResources(initial bool) error {
 			p.pathMan, p.serverTcp, p)
 	}
 
-	if p.confWatcher == nil {
-		p.confWatcher, err = confwatcher.New(p.confPath)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-func (p *program) closeResources() {
+func (p *program) closeAllResources() {
 	if p.confWatcher != nil {
 		p.confWatcher.Close()
 	}
@@ -242,10 +242,6 @@ func (p *program) reloadConf() error {
 	if err != nil {
 		return err
 	}
-
-	// always recreate confWatcher to avoid reloading twice
-	p.confWatcher.Close()
-	p.confWatcher = nil
 
 	closeLogHandler := false
 	if !reflect.DeepEqual(conf.LogDestinationsParsed, p.conf.LogDestinationsParsed) ||
@@ -345,7 +341,7 @@ func (p *program) reloadConf() error {
 	}
 
 	p.conf = conf
-	return p.createResources(false)
+	return p.createDynamicResources(false)
 }
 
 func main() {
