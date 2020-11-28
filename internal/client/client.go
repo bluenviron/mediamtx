@@ -117,7 +117,7 @@ type Client struct {
 	authFailures      int
 	streamProtocol    gortsplib.StreamProtocol
 	streamTracks      map[int]*streamTrack
-	rtcpReceivers     []*rtcpreceiver.RtcpReceiver
+	rtcpReceivers     map[int]*rtcpreceiver.RtcpReceiver
 	udpLastFrameTimes []*int64
 	describeCSeq      base.HeaderValue
 	describeUrl       string
@@ -160,10 +160,11 @@ func New(
 			WriteTimeout:    writeTimeout,
 			ReadBufferCount: 1,
 		}),
-		parent:       parent,
-		state:        stateInitial,
-		streamTracks: make(map[int]*streamTrack),
-		terminate:    make(chan struct{}),
+		parent:        parent,
+		state:         stateInitial,
+		streamTracks:  make(map[int]*streamTrack),
+		rtcpReceivers: make(map[int]*rtcpreceiver.RtcpReceiver),
+		terminate:     make(chan struct{}),
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
@@ -275,7 +276,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 
 			// vlc with login prompt sends 4 requests:
 			// 1) without credentials
-			// 2) with password but without the username
+			// 2) with password but without username
 			// 3) without credentials
 			// 4) with password and username
 			// hence we must allow up to 3 failures
@@ -429,6 +430,12 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errStateTerminate
 		}
 
+		basePath, ok := req.URL.BasePath()
+		if !ok {
+			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
+			return errStateTerminate
+		}
+
 		ct, ok := req.Header["Content-Type"]
 		if !ok || len(ct) != 1 {
 			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("Content-Type header missing"))
@@ -451,10 +458,12 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errStateTerminate
 		}
 
-		basePath, ok := req.URL.BasePath()
-		if !ok {
-			c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to find base path (%s)", req.URL))
-			return errStateTerminate
+		for trackId, t := range tracks {
+			_, err := t.ClockRate()
+			if err != nil {
+				c.writeResError(cseq, base.StatusBadRequest, fmt.Errorf("unable to get clock rate of track %d", trackId))
+				return errStateTerminate
+			}
 		}
 
 		path, err := c.parent.OnClientAnnounce(c, basePath, tracks, req)
@@ -472,6 +481,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 				c.writeResError(cseq, base.StatusBadRequest, err)
 				return errStateTerminate
 			}
+		}
+
+		for trackId, t := range tracks {
+			clockRate, _ := t.ClockRate()
+			c.rtcpReceivers[trackId] = rtcpreceiver.New(nil, clockRate)
 		}
 
 		c.path = path
@@ -688,7 +702,8 @@ func (c *Client) handleRequest(req *base.Request) error {
 				}
 
 				c.streamProtocol = gortsplib.StreamProtocolUDP
-				c.streamTracks[len(c.streamTracks)] = &streamTrack{
+				trackId := len(c.streamTracks)
+				c.streamTracks[trackId] = &streamTrack{
 					rtpPort:  (*th.ClientPorts)[0],
 					rtcpPort: (*th.ClientPorts)[1],
 				}
@@ -743,7 +758,8 @@ func (c *Client) handleRequest(req *base.Request) error {
 				}
 
 				c.streamProtocol = gortsplib.StreamProtocolTCP
-				c.streamTracks[len(c.streamTracks)] = &streamTrack{
+				trackId := len(c.streamTracks)
+				c.streamTracks[trackId] = &streamTrack{
 					rtpPort:  0,
 					rtcpPort: 0,
 				}
@@ -1191,11 +1207,6 @@ func (c *Client) runRecord() bool {
 		return "tracks"
 	}(), c.streamProtocol)
 
-	c.rtcpReceivers = make([]*rtcpreceiver.RtcpReceiver, len(c.streamTracks))
-	for trackId := range c.streamTracks {
-		c.rtcpReceivers[trackId] = rtcpreceiver.New(nil)
-	}
-
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
 		c.udpLastFrameTimes = make([]*int64, len(c.streamTracks))
 		for trackId := range c.streamTracks {
@@ -1348,9 +1359,10 @@ func (c *Client) runRecordUDP() bool {
 			}
 
 		case <-receiverReportTicker.C:
+			now := time.Now()
 			for trackId := range c.streamTracks {
-				frame := c.rtcpReceivers[trackId].Report()
-				c.serverUdpRtcp.Write(frame, &net.UDPAddr{
+				r := c.rtcpReceivers[trackId].Report(now)
+				c.serverUdpRtcp.Write(r, &net.UDPAddr{
 					IP:   c.ip(),
 					Zone: c.zone(),
 					Port: c.streamTracks[trackId].rtcpPort,
@@ -1399,7 +1411,7 @@ func (c *Client) runRecordTCP() bool {
 					return
 				}
 
-				c.rtcpReceivers[recvt.TrackId].OnFrame(recvt.StreamType, recvt.Content)
+				c.rtcpReceivers[recvt.TrackId].OnFrame(time.Now(), recvt.StreamType, recvt.Content)
 				c.path.OnFrame(recvt.TrackId, recvt.StreamType, recvt.Content)
 
 			case *base.Request:
@@ -1452,9 +1464,10 @@ func (c *Client) runRecordTCP() bool {
 			return onError(err)
 
 		case <-receiverReportTicker.C:
+			now := time.Now()
 			for trackId := range c.streamTracks {
-				frame := c.rtcpReceivers[trackId].Report()
-				c.conn.WriteFrameTCP(trackId, gortsplib.StreamTypeRtcp, frame)
+				r := c.rtcpReceivers[trackId].Report(now)
+				c.conn.WriteFrameTCP(trackId, gortsplib.StreamTypeRtcp, r)
 			}
 
 		case <-c.terminate:
@@ -1476,9 +1489,9 @@ func (c *Client) runRecordTCP() bool {
 
 // OnUdpPublisherFrame implements serverudp.Publisher.
 func (c *Client) OnUdpPublisherFrame(trackId int, streamType base.StreamType, buf []byte) {
-	atomic.StoreInt64(c.udpLastFrameTimes[trackId], time.Now().Unix())
-
-	c.rtcpReceivers[trackId].OnFrame(streamType, buf)
+	now := time.Now()
+	atomic.StoreInt64(c.udpLastFrameTimes[trackId], now.Unix())
+	c.rtcpReceivers[trackId].OnFrame(now, streamType, buf)
 	c.path.OnFrame(trackId, streamType, buf)
 }
 

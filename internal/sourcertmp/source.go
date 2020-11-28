@@ -298,7 +298,7 @@ func (s *Source) runInner() bool {
 				}
 
 				// encode into RTP/H264 format
-				frames, err := h264Encoder.Write(nalus, pkt.Time+pkt.CTime)
+				frames, err := h264Encoder.Write(pkt.Time+pkt.CTime, nalus)
 				if err != nil {
 					readerDone <- err
 					return
@@ -315,7 +315,7 @@ func (s *Source) runInner() bool {
 					return
 				}
 
-				frames, err := aacEncoder.Write(pkt.Data, pkt.Time+pkt.CTime)
+				frames, err := aacEncoder.Write(pkt.Time+pkt.CTime, pkt.Data)
 				if err != nil {
 					readerDone <- err
 					return
