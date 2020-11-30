@@ -195,7 +195,7 @@ func (s *Source) runInner() bool {
 	var aacEncoder *rtpaac.Encoder
 
 	if h264Sps != nil {
-		videoTrack, err = gortsplib.NewTrackH264(len(tracks), h264Sps, h264Pps)
+		videoTrack, err = gortsplib.NewTrackH264(96, h264Sps, h264Pps)
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
@@ -204,7 +204,7 @@ func (s *Source) runInner() bool {
 		clockRate, _ := videoTrack.ClockRate()
 		videoRtcpSender = rtcpsender.New(clockRate)
 
-		h264Encoder, err = rtph264.NewEncoder(96 + uint8(len(tracks)))
+		h264Encoder, err = rtph264.NewEncoder(96)
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
@@ -214,7 +214,7 @@ func (s *Source) runInner() bool {
 	}
 
 	if aacConfig != nil {
-		audioTrack, err = gortsplib.NewTrackAAC(len(tracks), aacConfig)
+		audioTrack, err = gortsplib.NewTrackAAC(96, aacConfig)
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
@@ -223,7 +223,7 @@ func (s *Source) runInner() bool {
 		clockRate, _ := audioTrack.ClockRate()
 		audioRtcpSender = rtcpsender.New(clockRate)
 
-		aacEncoder, err = rtpaac.NewEncoder(96+uint8(len(tracks)), clockRate)
+		aacEncoder, err = rtpaac.NewEncoder(96, clockRate)
 		if err != nil {
 			s.parent.Log("rtmp source ERR: %s", err)
 			return true
@@ -235,6 +235,10 @@ func (s *Source) runInner() bool {
 	if len(tracks) == 0 {
 		s.parent.Log("rtmp source ERR: no tracks found")
 		return true
+	}
+
+	for i, t := range tracks {
+		t.Id = i
 	}
 
 	s.parent.Log("rtmp source ready")
@@ -305,7 +309,7 @@ func (s *Source) runInner() bool {
 				}
 
 				for _, f := range frames {
-					videoRtcpSender.OnFrame(time.Now(), gortsplib.StreamTypeRtp, f)
+					videoRtcpSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRtp, f)
 					s.parent.OnFrame(videoTrack.Id, gortsplib.StreamTypeRtp, f)
 				}
 
@@ -322,7 +326,7 @@ func (s *Source) runInner() bool {
 				}
 
 				for _, f := range frames {
-					audioRtcpSender.OnFrame(time.Now(), gortsplib.StreamTypeRtp, f)
+					audioRtcpSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRtp, f)
 					s.parent.OnFrame(audioTrack.Id, gortsplib.StreamTypeRtp, f)
 				}
 

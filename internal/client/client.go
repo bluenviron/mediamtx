@@ -1411,7 +1411,7 @@ func (c *Client) runRecordTCP() bool {
 					return
 				}
 
-				c.rtcpReceivers[recvt.TrackId].OnFrame(time.Now(), recvt.StreamType, recvt.Content)
+				c.rtcpReceivers[recvt.TrackId].ProcessFrame(time.Now(), recvt.StreamType, recvt.Content)
 				c.path.OnFrame(recvt.TrackId, recvt.StreamType, recvt.Content)
 
 			case *base.Request:
@@ -1491,7 +1491,7 @@ func (c *Client) runRecordTCP() bool {
 func (c *Client) OnUdpPublisherFrame(trackId int, streamType base.StreamType, buf []byte) {
 	now := time.Now()
 	atomic.StoreInt64(c.udpLastFrameTimes[trackId], now.Unix())
-	c.rtcpReceivers[trackId].OnFrame(now, streamType, buf)
+	c.rtcpReceivers[trackId].ProcessFrame(now, streamType, buf)
 	c.path.OnFrame(trackId, streamType, buf)
 }
 
