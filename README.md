@@ -277,27 +277,31 @@ WARNING: RTSP is a plain protocol, and the credentials can be intercepted and re
 
 Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
 
-Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), and put:
-
-* `rtsp-simple-server` in `/usr/local/bin`
-* `rtsp-simple-server.yml` in `/usr/local/etc`
-
-Create a file `/etc/systemd/system/rtsp-simple-server.service` with the following content:
+Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), unzip it, and move the executable and configuration in the system:
 
 ```
+sudo mv rtsp-simple-server /usr/local/bin/
+sudo mv rtsp-simple-server.yml /usr/local/etc/
+```
+
+Create the service:
+
+```
+sudo tee /etc/systemd/system/rtsp-simple-server.service >/dev/null << EOF
 [Unit]
 After=network.target
 [Service]
 ExecStart=/usr/local/bin/rtsp-simple-server /usr/local/etc/rtsp-simple-server.yml
 [Install]
 WantedBy=multi-user.target
+EOF
 ```
 
-Enable and start the service with:
+Enable and start the service:
 
 ```
-systemctl enable rtsp-simple-server
-systemctl start rtsp-simple-server
+sudo systemctl enable rtsp-simple-server
+sudo systemctl start rtsp-simple-server
 ```
 
 ### Monitoring
@@ -373,7 +377,7 @@ Install Go &ge; 1.15, download the repository, open a terminal in it and run:
 go run .
 ```
 
-You can perform the entire operation inside Docker with:
+You can perform the entire operation inside Docker:
 
 ```
 make run
