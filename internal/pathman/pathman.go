@@ -146,14 +146,14 @@ outer:
 		case req := <-pm.clientDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- path.ClientDescribeRes{nil, err}
+				req.Res <- path.ClientDescribeRes{nil, err} //nolint:govet
 				continue
 			}
 
 			err = req.Client.Authenticate(pm.authMethods, pathConf.ReadIpsParsed,
 				pathConf.ReadUser, pathConf.ReadPass, req.Req)
 			if err != nil {
-				req.Res <- path.ClientDescribeRes{nil, err}
+				req.Res <- path.ClientDescribeRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -169,14 +169,14 @@ outer:
 		case req := <-pm.clientAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- path.ClientAnnounceRes{nil, err}
+				req.Res <- path.ClientAnnounceRes{nil, err} //nolint:govet
 				continue
 			}
 
 			err = req.Client.Authenticate(pm.authMethods,
 				pathConf.PublishIpsParsed, pathConf.PublishUser, pathConf.PublishPass, req.Req)
 			if err != nil {
-				req.Res <- path.ClientAnnounceRes{nil, err}
+				req.Res <- path.ClientAnnounceRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -191,20 +191,20 @@ outer:
 
 		case req := <-pm.clientSetupPlay:
 			if _, ok := pm.paths[req.PathName]; !ok {
-				req.Res <- path.ClientSetupPlayRes{nil, fmt.Errorf("no one is publishing to path '%s'", req.PathName)}
+				req.Res <- path.ClientSetupPlayRes{nil, fmt.Errorf("no one is publishing to path '%s'", req.PathName)} //nolint:govet
 				continue
 			}
 
 			_, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- path.ClientSetupPlayRes{nil, err}
+				req.Res <- path.ClientSetupPlayRes{nil, err} //nolint:govet
 				continue
 			}
 
 			err = req.Client.Authenticate(pm.authMethods,
 				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req.Req)
 			if err != nil {
-				req.Res <- path.ClientSetupPlayRes{nil, err}
+				req.Res <- path.ClientSetupPlayRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -229,13 +229,13 @@ outer:
 				}
 
 			case req := <-pm.clientDescribe:
-				req.Res <- path.ClientDescribeRes{nil, fmt.Errorf("terminated")}
+				req.Res <- path.ClientDescribeRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req := <-pm.clientAnnounce:
-				req.Res <- path.ClientAnnounceRes{nil, fmt.Errorf("terminated")}
+				req.Res <- path.ClientAnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req := <-pm.clientSetupPlay:
-				req.Res <- path.ClientSetupPlayRes{nil, fmt.Errorf("terminated")}
+				req.Res <- path.ClientSetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 			}
 		}
 	}()
@@ -302,7 +302,7 @@ func (pm *PathManager) OnPathClientClose(c *client.Client) {
 // OnClientDescribe is called by client.Client.
 func (pm *PathManager) OnClientDescribe(c *client.Client, pathName string, req *base.Request) (client.Path, error) {
 	res := make(chan path.ClientDescribeRes)
-	pm.clientDescribe <- path.ClientDescribeReq{res, c, pathName, req}
+	pm.clientDescribe <- path.ClientDescribeReq{res, c, pathName, req} //nolint:govet
 	re := <-res
 	return re.Path, re.Err
 }
@@ -310,15 +310,15 @@ func (pm *PathManager) OnClientDescribe(c *client.Client, pathName string, req *
 // OnClientAnnounce is called by client.Client.
 func (pm *PathManager) OnClientAnnounce(c *client.Client, pathName string, tracks gortsplib.Tracks, req *base.Request) (client.Path, error) {
 	res := make(chan path.ClientAnnounceRes)
-	pm.clientAnnounce <- path.ClientAnnounceReq{res, c, pathName, tracks, req}
+	pm.clientAnnounce <- path.ClientAnnounceReq{res, c, pathName, tracks, req} //nolint:govet
 	re := <-res
 	return re.Path, re.Err
 }
 
 // OnClientSetupPlay is called by client.Client.
-func (pm *PathManager) OnClientSetupPlay(c *client.Client, pathName string, trackId int, req *base.Request) (client.Path, error) {
+func (pm *PathManager) OnClientSetupPlay(c *client.Client, pathName string, trackID int, req *base.Request) (client.Path, error) {
 	res := make(chan path.ClientSetupPlayRes)
-	pm.clientSetupPlay <- path.ClientSetupPlayReq{res, c, pathName, trackId, req}
+	pm.clientSetupPlay <- path.ClientSetupPlayReq{res, c, pathName, trackID, req} //nolint:govet
 	re := <-res
 	return re.Path, re.Err
 }

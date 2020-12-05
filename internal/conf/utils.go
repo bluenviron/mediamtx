@@ -6,7 +6,7 @@ import (
 	"regexp"
 )
 
-var rePathName = regexp.MustCompile("^[0-9a-zA-Z_\\-/]+$")
+var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/]+$`)
 
 // CheckPathName check if a path name is valid.
 func CheckPathName(name string) error {
@@ -29,7 +29,7 @@ func CheckPathName(name string) error {
 	return nil
 }
 
-func parseIpCidrList(in []string) ([]interface{}, error) {
+func parseIPCidrList(in []string) ([]interface{}, error) {
 	if len(in) == 0 {
 		return nil, nil
 	}

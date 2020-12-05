@@ -31,9 +31,9 @@ type program struct {
 	logHandler    *loghandler.LogHandler
 	metrics       *metrics.Metrics
 	pprof         *pprof.Pprof
-	serverUdpRtp  *serverudp.Server
-	serverUdpRtcp *serverudp.Server
-	serverTcp     *servertcp.Server
+	serverUDPRtp  *serverudp.Server
+	serverUDPRtcp *serverudp.Server
+	serverTCP     *servertcp.Server
 	pathMan       *pathman.PathManager
 	clientMan     *clientman.ClientManager
 	confWatcher   *confwatcher.ConfWatcher
@@ -51,7 +51,7 @@ func newProgram(args []string) (*program, error) {
 
 	kingpin.MustParse(k.Parse(args))
 
-	if *argVersion == true {
+	if *argVersion {
 		fmt.Println(version)
 		os.Exit(0)
 	}
@@ -95,8 +95,8 @@ func (p *program) Log(format string, args ...interface{}) {
 	countPublishers := atomic.LoadInt64(p.stats.CountPublishers)
 	countReaders := atomic.LoadInt64(p.stats.CountReaders)
 
-	log.Printf(fmt.Sprintf("[%d/%d/%d] "+format, append([]interface{}{countClients,
-		countPublishers, countReaders}, args...)...))
+	log.Printf("[%d/%d/%d] "+format, append([]interface{}{countClients,
+		countPublishers, countReaders}, args...)...)
 }
 
 func (p *program) run() {
@@ -157,16 +157,16 @@ func (p *program) createDynamicResources(initial bool) error {
 	}
 
 	if _, ok := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
-		if p.serverUdpRtp == nil {
-			p.serverUdpRtp, err = serverudp.New(p.conf.WriteTimeout,
+		if p.serverUDPRtp == nil {
+			p.serverUDPRtp, err = serverudp.New(p.conf.WriteTimeout,
 				p.conf.RtpPort, gortsplib.StreamTypeRtp, p)
 			if err != nil {
 				return err
 			}
 		}
 
-		if p.serverUdpRtcp == nil {
-			p.serverUdpRtcp, err = serverudp.New(p.conf.WriteTimeout,
+		if p.serverUDPRtcp == nil {
+			p.serverUDPRtcp, err = serverudp.New(p.conf.WriteTimeout,
 				p.conf.RtcpPort, gortsplib.StreamTypeRtcp, p)
 			if err != nil {
 				return err
@@ -174,8 +174,8 @@ func (p *program) createDynamicResources(initial bool) error {
 		}
 	}
 
-	if p.serverTcp == nil {
-		p.serverTcp, err = servertcp.New(p.conf.RtspPort, p)
+	if p.serverTCP == nil {
+		p.serverTCP, err = servertcp.New(p.conf.RtspPort, p)
 		if err != nil {
 			return err
 		}
@@ -190,8 +190,8 @@ func (p *program) createDynamicResources(initial bool) error {
 	if p.clientMan == nil {
 		p.clientMan = clientman.New(p.conf.RtspPort, p.conf.ReadTimeout,
 			p.conf.WriteTimeout, p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
-			p.conf.ProtocolsParsed, p.stats, p.serverUdpRtp, p.serverUdpRtcp,
-			p.pathMan, p.serverTcp, p)
+			p.conf.ProtocolsParsed, p.stats, p.serverUDPRtp, p.serverUDPRtcp,
+			p.pathMan, p.serverTCP, p)
 	}
 
 	return nil
@@ -210,16 +210,16 @@ func (p *program) closeAllResources() {
 		p.pathMan.Close()
 	}
 
-	if p.serverTcp != nil {
-		p.serverTcp.Close()
+	if p.serverTCP != nil {
+		p.serverTCP.Close()
 	}
 
-	if p.serverUdpRtcp != nil {
-		p.serverUdpRtcp.Close()
+	if p.serverUDPRtcp != nil {
+		p.serverUDPRtcp.Close()
 	}
 
-	if p.serverUdpRtp != nil {
-		p.serverUdpRtp.Close()
+	if p.serverUDPRtp != nil {
+		p.serverUDPRtp.Close()
 	}
 
 	if p.metrics != nil {
@@ -259,23 +259,23 @@ func (p *program) reloadConf() error {
 		closePprof = true
 	}
 
-	closeServerUdpRtp := false
+	closeServerUDPRtp := false
 	if !reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RtpPort != p.conf.RtpPort {
-		closeServerUdpRtp = true
+		closeServerUDPRtp = true
 	}
 
-	closeServerUdpRtcp := false
+	closeServerUDPRtcp := false
 	if !reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RtcpPort != p.conf.RtcpPort {
-		closeServerUdpRtcp = true
+		closeServerUDPRtcp = true
 	}
 
-	closeServerTcp := false
+	closeServerTCP := false
 	if conf.RtspPort != p.conf.RtspPort {
-		closeServerTcp = true
+		closeServerTCP = true
 	}
 
 	closePathMan := false
@@ -289,9 +289,9 @@ func (p *program) reloadConf() error {
 	}
 
 	closeClientMan := false
-	if closeServerUdpRtp ||
-		closeServerUdpRtcp ||
-		closeServerTcp ||
+	if closeServerUDPRtp ||
+		closeServerUDPRtcp ||
+		closeServerTCP ||
 		closePathMan ||
 		conf.RtspPort != p.conf.RtspPort ||
 		conf.ReadTimeout != p.conf.ReadTimeout ||
@@ -312,19 +312,19 @@ func (p *program) reloadConf() error {
 		p.pathMan = nil
 	}
 
-	if closeServerTcp {
-		p.serverTcp.Close()
-		p.serverTcp = nil
+	if closeServerTCP {
+		p.serverTCP.Close()
+		p.serverTCP = nil
 	}
 
-	if closeServerUdpRtcp && p.serverUdpRtcp != nil {
-		p.serverUdpRtcp.Close()
-		p.serverUdpRtcp = nil
+	if closeServerUDPRtcp && p.serverUDPRtcp != nil {
+		p.serverUDPRtcp.Close()
+		p.serverUDPRtcp = nil
 	}
 
-	if closeServerUdpRtp && p.serverUdpRtp != nil {
-		p.serverUdpRtp.Close()
-		p.serverUdpRtp = nil
+	if closeServerUDPRtp && p.serverUDPRtp != nil {
+		p.serverUDPRtp.Close()
+		p.serverUDPRtp = nil
 	}
 
 	if closePprof && p.pprof != nil {

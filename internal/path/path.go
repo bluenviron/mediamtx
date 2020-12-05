@@ -94,7 +94,7 @@ type ClientSetupPlayReq struct {
 	Res      chan ClientSetupPlayRes
 	Client   *client.Client
 	PathName string
-	TrackId  int
+	TrackID  int
 	Req      *base.Request
 }
 
@@ -310,7 +310,7 @@ outer:
 			pa.onClientDescribe(req.Client)
 
 		case req := <-pa.clientSetupPlay:
-			err := pa.onClientSetupPlay(req.Client, req.TrackId)
+			err := pa.onClientSetupPlay(req.Client, req.TrackID)
 			if err != nil {
 				req.Res <- ClientSetupPlayRes{nil, err}
 				continue
@@ -655,13 +655,13 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 	}
 }
 
-func (pa *Path) onClientSetupPlay(c *client.Client, trackId int) error {
+func (pa *Path) onClientSetupPlay(c *client.Client, trackID int) error {
 	if pa.sourceState != sourceStateReady {
 		return fmt.Errorf("no one is publishing to path '%s'", pa.name)
 	}
 
-	if trackId >= pa.sourceTrackCount {
-		return fmt.Errorf("track %d does not exist", trackId)
+	if trackID >= pa.sourceTrackCount {
+		return fmt.Errorf("track %d does not exist", trackID)
 	}
 
 	if _, ok := pa.clients[c]; !ok {
@@ -873,6 +873,6 @@ func (pa *Path) OnClientPause(c *client.Client) {
 }
 
 // OnFrame is called by a source or by a client.Client.
-func (pa *Path) OnFrame(trackId int, streamType gortsplib.StreamType, buf []byte) {
-	pa.readers.forwardFrame(trackId, streamType, buf)
+func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+	pa.readers.forwardFrame(trackID, streamType, buf)
 }

@@ -12,7 +12,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 )
 
-var reUserPass = regexp.MustCompile("^[a-zA-Z0-9!\\$\\(\\)\\*\\+\\.;<=>\\[\\]\\^_\\-\\{\\}]+$")
+var reUserPass = regexp.MustCompile(`^[a-zA-Z0-9!\$\(\)\*\+\.;<=>\[\]\^_\-\{\}]+$`)
 
 const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
 
@@ -89,7 +89,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			user := u.User.Username()
 			if user != "" && pass == "" ||
 				user == "" && pass != "" {
-				fmt.Errorf("username and password must be both provided")
+				return fmt.Errorf("username and password must be both provided")
 			}
 		}
 
@@ -130,7 +130,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			user := u.User.Username()
 			if user != "" && pass == "" ||
 				user == "" && pass != "" {
-				fmt.Errorf("username and password must be both provided")
+				return fmt.Errorf("username and password must be both provided")
 			}
 		}
 
@@ -177,7 +177,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 	if len(pconf.PublishIps) > 0 {
 		var err error
-		pconf.PublishIpsParsed, err = parseIpCidrList(pconf.PublishIps)
+		pconf.PublishIpsParsed, err = parseIPCidrList(pconf.PublishIps)
 		if err != nil {
 			return err
 		}
@@ -205,7 +205,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 	if len(pconf.ReadIps) > 0 {
 		var err error
-		pconf.ReadIpsParsed, err = parseIpCidrList(pconf.ReadIps)
+		pconf.ReadIpsParsed, err = parseIPCidrList(pconf.ReadIps)
 		if err != nil {
 			return err
 		}

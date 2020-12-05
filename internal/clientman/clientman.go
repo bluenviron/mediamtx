@@ -28,10 +28,10 @@ type ClientManager struct {
 	runOnConnectRestart bool
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
-	serverUdpRtp        *serverudp.Server
-	serverUdpRtcp       *serverudp.Server
+	serverUDPRtp        *serverudp.Server
+	serverUDPRtcp       *serverudp.Server
 	pathMan             *pathman.PathManager
-	serverTcp           *servertcp.Server
+	serverTCP           *servertcp.Server
 	parent              Parent
 
 	clients map[*client.Client]struct{}
@@ -54,10 +54,10 @@ func New(
 	runOnConnectRestart bool,
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
-	serverUdpRtp *serverudp.Server,
-	serverUdpRtcp *serverudp.Server,
+	serverUDPRtp *serverudp.Server,
+	serverUDPRtcp *serverudp.Server,
 	pathMan *pathman.PathManager,
-	serverTcp *servertcp.Server,
+	serverTCP *servertcp.Server,
 	parent Parent) *ClientManager {
 
 	cm := &ClientManager{
@@ -68,10 +68,10 @@ func New(
 		runOnConnectRestart: runOnConnectRestart,
 		protocols:           protocols,
 		stats:               stats,
-		serverUdpRtp:        serverUdpRtp,
-		serverUdpRtcp:       serverUdpRtcp,
+		serverUDPRtp:        serverUDPRtp,
+		serverUDPRtcp:       serverUDPRtcp,
 		pathMan:             pathMan,
-		serverTcp:           serverTcp,
+		serverTCP:           serverTCP,
 		parent:              parent,
 		clients:             make(map[*client.Client]struct{}),
 		clientClose:         make(chan *client.Client),
@@ -100,10 +100,10 @@ func (cm *ClientManager) run() {
 outer:
 	for {
 		select {
-		case conn := <-cm.serverTcp.Accept():
+		case conn := <-cm.serverTCP.Accept():
 			c := client.New(cm.rtspPort, cm.readTimeout, cm.writeTimeout,
 				cm.runOnConnect, cm.runOnConnectRestart, cm.protocols, &cm.wg,
-				cm.stats, cm.serverUdpRtp, cm.serverUdpRtcp, conn, cm)
+				cm.stats, cm.serverUDPRtp, cm.serverUDPRtcp, conn, cm)
 			cm.clients[c] = struct{}{}
 
 		case c := <-cm.pathMan.ClientClose():
@@ -126,10 +126,7 @@ outer:
 	}
 
 	go func() {
-		for {
-			select {
-			case <-cm.clientClose:
-			}
+		for range cm.clientClose {
 		}
 	}()
 
@@ -157,6 +154,6 @@ func (cm *ClientManager) OnClientAnnounce(c *client.Client, pathName string, tra
 }
 
 // OnClientSetupPlay is called by client.Client.
-func (cm *ClientManager) OnClientSetupPlay(c *client.Client, pathName string, trackId int, req *base.Request) (client.Path, error) {
-	return cm.pathMan.OnClientSetupPlay(c, pathName, trackId, req)
+func (cm *ClientManager) OnClientSetupPlay(c *client.Client, pathName string, trackID int, req *base.Request) (client.Path, error) {
+	return cm.pathMan.OnClientSetupPlay(c, pathName, trackID, req)
 }

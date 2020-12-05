@@ -10,7 +10,8 @@ help:
 	@echo ""
 	@echo "  mod-tidy       run go mod tidy"
 	@echo "  format         format source files"
-	@echo "  test           run available tests"
+	@echo "  test           run tests"
+	@echo "  lint           run linters"
 	@echo "  stress NAME=n  run stress environment"
 	@echo "  run            run app"
 	@echo "  release        build release assets"
@@ -52,6 +53,15 @@ test-nodocker:
 	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
 	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
 	go test -race -v .
+
+lint:
+	docker run --rm -v $(PWD):/app -w /app \
+	golangci/golangci-lint:v1.33.0 \
+	golangci-lint run -v \
+	--disable=errcheck \
+	--enable=gofmt \
+	--enable=golint \
+	--enable=misspell
 
 stress:
 	docker build -q . -f stress/$(NAME)/Dockerfile -t temp

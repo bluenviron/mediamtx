@@ -1,0 +1,25 @@
+name: lint
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  lint:
+    name: lint
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: golangci/golangci-lint-action@v2
+      with:
+        version: v1.33
+        args: >
+          --disable=errcheck
+          --enable=gofmt
+          --enable=golint
+          --enable=misspell

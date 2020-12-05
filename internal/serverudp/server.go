@@ -19,12 +19,12 @@ const (
 
 // Publisher is implemented by client.Client.
 type Publisher interface {
-	OnUdpPublisherFrame(int, base.StreamType, []byte)
+	OnUDPPublisherFrame(int, base.StreamType, []byte)
 }
 
 type publisherData struct {
 	publisher Publisher
-	trackId   int
+	trackID   int
 }
 
 // Parent is implemented by program.
@@ -130,7 +130,7 @@ func (s *Server) run() {
 				return
 			}
 
-			pubData.publisher.OnUdpPublisherFrame(pubData.trackId, s.streamType, buf[:n])
+			pubData.publisher.OnUDPPublisherFrame(pubData.trackID, s.streamType, buf[:n])
 		}()
 	}
 }
@@ -150,7 +150,7 @@ func (s *Server) Write(buf []byte, addr *net.UDPAddr) {
 }
 
 // AddPublisher adds a publisher.
-func (s *Server) AddPublisher(ip net.IP, port int, publisher Publisher, trackId int) {
+func (s *Server) AddPublisher(ip net.IP, port int, publisher Publisher, trackID int) {
 	s.publishersMutex.Lock()
 	defer s.publishersMutex.Unlock()
 
@@ -159,7 +159,7 @@ func (s *Server) AddPublisher(ip net.IP, port int, publisher Publisher, trackId 
 
 	s.publishers[addr] = &publisherData{
 		publisher: publisher,
-		trackId:   trackId,
+		trackID:   trackID,
 	}
 }
 

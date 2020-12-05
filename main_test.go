@@ -17,7 +17,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 )
 
-var ownDockerIp = func() string {
+var ownDockerIP = func() string {
 	out, err := exec.Command("docker", "network", "inspect", "bridge",
 		"-f", "{{range .IPAM.Config}}{{.Subnet}}{{end}}").Output()
 	if err != nil {
@@ -259,7 +259,7 @@ func TestPublish(t *testing.T) {
 					"-c", "copy",
 					"-f", "rtsp",
 					"-rtsp_transport", conf.publishProto,
-					"rtsp://" + ownDockerIp + ":8554/teststream",
+					"rtsp://" + ownDockerIP + ":8554/teststream",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -267,7 +267,7 @@ func TestPublish(t *testing.T) {
 			default:
 				cnt1, err := newContainer("gstreamer", "source", []string{
 					"filesrc location=emptyvideo.ts ! tsdemux ! queue ! video/x-h264 ! h264parse config-interval=1 ! rtspclientsink " +
-						"location=rtsp://" + ownDockerIp + ":8554/teststream protocols=" + conf.publishProto + " latency=0",
+						"location=rtsp://" + ownDockerIP + ":8554/teststream protocols=" + conf.publishProto + " latency=0",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -277,7 +277,7 @@ func TestPublish(t *testing.T) {
 
 			cnt2, err := newContainer("ffmpeg", "dest", []string{
 				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+				"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
 				"-vframes", "1",
 				"-f", "image2",
 				"-y", "/dev/null",
@@ -315,7 +315,7 @@ func TestRead(t *testing.T) {
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIp + ":8554/teststream",
+				"rtsp://" + ownDockerIP + ":8554/teststream",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -326,7 +326,7 @@ func TestRead(t *testing.T) {
 			case "ffmpeg":
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
 					"-rtsp_transport", conf.readProto,
-					"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+					"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
 					"-vframes", "1",
 					"-f", "image2",
 					"-y", "/dev/null",
@@ -342,7 +342,7 @@ func TestRead(t *testing.T) {
 				if conf.readProto == "tcp" {
 					args = append(args, "--rtsp-tcp")
 				}
-				args = append(args, "rtsp://"+ownDockerIp+":8554/teststream")
+				args = append(args, "rtsp://"+ownDockerIP+":8554/teststream")
 
 				cnt2, err := newContainer("vlc", "dest", args)
 				require.NoError(t, err)
@@ -369,14 +369,14 @@ func TestTCPOnly(t *testing.T) {
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "tcp",
-		"rtsp://" + ownDockerIp + ":8554/teststream",
+		"rtsp://" + ownDockerIP + ":8554/teststream",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "tcp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/teststream",
+		"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -402,14 +402,14 @@ func TestPathWithSlash(t *testing.T) {
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIp + ":8554/test/stream",
+		"rtsp://" + ownDockerIP + ":8554/test/stream",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/test/stream",
+		"-i", "rtsp://" + ownDockerIP + ":8554/test/stream",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -435,14 +435,14 @@ func TestPathWithQuery(t *testing.T) {
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIp + ":8554/test?param1=val&param2=val",
+		"rtsp://" + ownDockerIP + ":8554/test?param1=val&param2=val",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/test?param3=otherval",
+		"-i", "rtsp://" + ownDockerIP + ":8554/test?param3=otherval",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -473,7 +473,7 @@ func TestAuth(t *testing.T) {
 			"-c", "copy",
 			"-f", "rtsp",
 			"-rtsp_transport", "udp",
-			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/test/stream",
+			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIP + ":8554/test/stream",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -482,7 +482,7 @@ func TestAuth(t *testing.T) {
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
 			"-rtsp_transport", "udp",
-			"-i", "rtsp://" + ownDockerIp + ":8554/test/stream",
+			"-i", "rtsp://" + ownDockerIP + ":8554/test/stream",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -516,7 +516,7 @@ func TestAuth(t *testing.T) {
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIp + ":8554/test/stream",
+				"rtsp://" + ownDockerIP + ":8554/test/stream",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -526,7 +526,7 @@ func TestAuth(t *testing.T) {
 			if soft == "ffmpeg" {
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
 					"-rtsp_transport", "udp",
-					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/test/stream",
+					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIP + ":8554/test/stream",
 					"-vframes", "1",
 					"-f", "image2",
 					"-y", "/dev/null",
@@ -539,7 +539,7 @@ func TestAuth(t *testing.T) {
 
 			} else {
 				cnt2, err := newContainer("vlc", "dest", []string{
-					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIp + ":8554/test/stream",
+					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIP + ":8554/test/stream",
 				})
 				require.NoError(t, err)
 				defer cnt2.close()
@@ -573,7 +573,7 @@ func TestSourceRtsp(t *testing.T) {
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIp + ":8554/teststream",
+				"rtsp://" + ownDockerIP + ":8554/teststream",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -596,7 +596,7 @@ func TestSourceRtsp(t *testing.T) {
 
 			cnt2, err := newContainer("ffmpeg", "dest", []string{
 				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIp + ":8555/proxied",
+				"-i", "rtsp://" + ownDockerIP + ":8555/proxied",
 				"-vframes", "1",
 				"-f", "image2",
 				"-y", "/dev/null",
@@ -641,7 +641,7 @@ func TestSourceRtmp(t *testing.T) {
 
 	cnt3, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/proxied",
+		"-i", "rtsp://" + ownDockerIP + ":8554/proxied",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -657,7 +657,7 @@ func TestRedirect(t *testing.T) {
 	p1, err := testProgram("paths:\n" +
 		"  path1:\n" +
 		"    source: redirect\n" +
-		"    sourceRedirect: rtsp://" + ownDockerIp + ":8554/path2\n" +
+		"    sourceRedirect: rtsp://" + ownDockerIP + ":8554/path2\n" +
 		"  path2:\n")
 	require.NoError(t, err)
 	defer p1.close()
@@ -671,7 +671,7 @@ func TestRedirect(t *testing.T) {
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIp + ":8554/path2",
+		"rtsp://" + ownDockerIP + ":8554/path2",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -680,7 +680,7 @@ func TestRedirect(t *testing.T) {
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/path1",
+		"-i", "rtsp://" + ownDockerIP + ":8554/path1",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -695,7 +695,7 @@ func TestRedirect(t *testing.T) {
 func TestFallback(t *testing.T) {
 	p1, err := testProgram("paths:\n" +
 		"  path1:\n" +
-		"    fallback: rtsp://" + ownDockerIp + ":8554/path2\n" +
+		"    fallback: rtsp://" + ownDockerIP + ":8554/path2\n" +
 		"  path2:\n")
 	require.NoError(t, err)
 	defer p1.close()
@@ -709,7 +709,7 @@ func TestFallback(t *testing.T) {
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIp + ":8554/path2",
+		"rtsp://" + ownDockerIP + ":8554/path2",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -718,7 +718,7 @@ func TestFallback(t *testing.T) {
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIp + ":8554/path1",
+		"-i", "rtsp://" + ownDockerIP + ":8554/path1",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -740,7 +740,7 @@ func TestRunOnDemand(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt1, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "rtsp://" + ownDockerIp + ":8554/ondemand",
+		"-i", "rtsp://" + ownDockerIP + ":8554/ondemand",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -774,7 +774,7 @@ func TestHotReloading(t *testing.T) {
 
 	func() {
 		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIp + ":8554/test1",
+			"-i", "rtsp://" + ownDockerIP + ":8554/test1",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -799,7 +799,7 @@ func TestHotReloading(t *testing.T) {
 
 	func() {
 		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIp + ":8554/test1",
+			"-i", "rtsp://" + ownDockerIP + ":8554/test1",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -813,7 +813,7 @@ func TestHotReloading(t *testing.T) {
 
 	func() {
 		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIp + ":8554/test2",
+			"-i", "rtsp://" + ownDockerIP + ":8554/test2",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",

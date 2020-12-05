@@ -34,9 +34,6 @@ type Source struct {
 
 	// in
 	terminate chan struct{}
-
-	// out
-	done chan struct{}
 }
 
 // New allocates a Source.
@@ -140,8 +137,8 @@ func (s *Source) runInner() bool {
 	s.parent.OnSourceSetReady(tracks)
 	defer s.parent.OnSourceSetNotReady()
 
-	readerDone := conn.OnFrame(func(trackId int, streamType gortsplib.StreamType, content []byte) {
-		s.parent.OnFrame(trackId, streamType, content)
+	readerDone := conn.OnFrame(func(trackID int, streamType gortsplib.StreamType, content []byte) {
+		s.parent.OnFrame(trackID, streamType, content)
 	})
 
 	for {

@@ -34,7 +34,6 @@ type Parent interface {
 // Source is a RTMP source.
 type Source struct {
 	ur     string
-	state  bool
 	wg     *sync.WaitGroup
 	stats  *stats.Stats
 	parent Parent
@@ -238,7 +237,7 @@ func (s *Source) runInner() bool {
 	}
 
 	for i, t := range tracks {
-		t.Id = i
+		t.ID = i
 	}
 
 	s.parent.Log("rtmp source ready")
@@ -261,14 +260,14 @@ func (s *Source) runInner() bool {
 				if videoRtcpSender != nil {
 					r := videoRtcpSender.Report(now)
 					if r != nil {
-						s.parent.OnFrame(videoTrack.Id, gortsplib.StreamTypeRtcp, r)
+						s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRtcp, r)
 					}
 				}
 
 				if audioRtcpSender != nil {
 					r := audioRtcpSender.Report(now)
 					if r != nil {
-						s.parent.OnFrame(audioTrack.Id, gortsplib.StreamTypeRtcp, r)
+						s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRtcp, r)
 					}
 				}
 
@@ -310,7 +309,7 @@ func (s *Source) runInner() bool {
 
 				for _, f := range frames {
 					videoRtcpSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRtp, f)
-					s.parent.OnFrame(videoTrack.Id, gortsplib.StreamTypeRtp, f)
+					s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRtp, f)
 				}
 
 			case av.AAC:
@@ -327,7 +326,7 @@ func (s *Source) runInner() bool {
 
 				for _, f := range frames {
 					audioRtcpSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRtp, f)
-					s.parent.OnFrame(audioTrack.Id, gortsplib.StreamTypeRtp, f)
+					s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRtp, f)
 				}
 
 			default:
