@@ -264,10 +264,12 @@ func TestPublish(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt1.close()
 
+				time.Sleep(1 * time.Second)
+
 			default:
 				cnt1, err := newContainer("gstreamer", "source", []string{
 					"filesrc location=emptyvideo.ts ! tsdemux ! queue ! video/x-h264 ! h264parse config-interval=1 ! rtspclientsink " +
-						"location=rtsp://" + ownDockerIP + ":8554/teststream protocols=" + conf.publishProto + " latency=0",
+						"location=rtsp://" + ownDockerIP + ":8554/teststream protocols=" + conf.publishProto + " latency=0 timeout=0 rtx-time=0",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
