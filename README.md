@@ -29,7 +29,7 @@ Features:
    ./rtsp-simple-server
    ```
 
-3. Publish a stream. For instance, you can publish a video file with _FFmpeg_:
+3. Publish a stream. For instance, you can publish a video/audio file with _FFmpeg_:
 
    ```
    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
@@ -38,7 +38,7 @@ Features:
    or _GStreamer_:
 
    ```
-   gst-launch-1.0 filesrc location=file.mp4 ! qtdemux ! rtspclientsink location=rtsp://localhost:8554/mystream
+   gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
 
 4. Open the stream. For instance, you can open the stream with _VLC_:
@@ -50,7 +50,7 @@ Features:
    or _GStreamer_:
 
    ```
-   gst-launch-1.0 rtspsrc location=rtsp://localhost:8554/mystream ! rtph264depay ! decodebin ! autovideosink
+   gst-launch-1.0 rtspsrc location=rtsp://localhost:8554/mystream name=s s. ! application/x-rtp,media=video ! decodebin ! autovideosink s. ! application/x-rtp,media=audio ! decodebin ! audioconvert ! audioresample ! autoaudiosink
    ```
 
    or _FFmpeg_:
