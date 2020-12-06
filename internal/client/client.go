@@ -106,7 +106,7 @@ type Client struct {
 	stats               *stats.Stats
 	serverUDPRtp        *serverudp.Server
 	serverUDPRtcp       *serverudp.Server
-	conn                *gortsplib.ConnServer
+	conn                *gortsplib.ServerConn
 	parent              Parent
 
 	state             state
@@ -133,7 +133,6 @@ type Client struct {
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
-	writeTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	protocols map[gortsplib.StreamProtocol]struct{},
@@ -141,7 +140,7 @@ func New(
 	stats *stats.Stats,
 	serverUDPRtp *serverudp.Server,
 	serverUDPRtcp *serverudp.Server,
-	nconn net.Conn,
+	conn *gortsplib.ServerConn,
 	parent Parent) *Client {
 
 	c := &Client{
@@ -154,17 +153,12 @@ func New(
 		stats:               stats,
 		serverUDPRtp:        serverUDPRtp,
 		serverUDPRtcp:       serverUDPRtcp,
-		conn: gortsplib.NewConnServer(gortsplib.ConnServerConf{
-			Conn:            nconn,
-			ReadTimeout:     readTimeout,
-			WriteTimeout:    writeTimeout,
-			ReadBufferCount: 1,
-		}),
-		parent:        parent,
-		state:         stateInitial,
-		streamTracks:  make(map[int]*streamTrack),
-		rtcpReceivers: make(map[int]*rtcpreceiver.RtcpReceiver),
-		terminate:     make(chan struct{}),
+		conn:                conn,
+		parent:              parent,
+		state:               stateInitial,
+		streamTracks:        make(map[int]*streamTrack),
+		rtcpReceivers:       make(map[int]*rtcpreceiver.RtcpReceiver),
+		terminate:           make(chan struct{}),
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)

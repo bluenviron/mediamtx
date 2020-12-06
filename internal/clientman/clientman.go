@@ -23,7 +23,6 @@ type Parent interface {
 type ClientManager struct {
 	rtspPort            int
 	readTimeout         time.Duration
-	writeTimeout        time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
 	protocols           map[base.StreamProtocol]struct{}
@@ -49,7 +48,6 @@ type ClientManager struct {
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
-	writeTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	protocols map[base.StreamProtocol]struct{},
@@ -63,7 +61,6 @@ func New(
 	cm := &ClientManager{
 		rtspPort:            rtspPort,
 		readTimeout:         readTimeout,
-		writeTimeout:        writeTimeout,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		protocols:           protocols,
@@ -101,7 +98,7 @@ outer:
 	for {
 		select {
 		case conn := <-cm.serverTCP.Accept():
-			c := client.New(cm.rtspPort, cm.readTimeout, cm.writeTimeout,
+			c := client.New(cm.rtspPort, cm.readTimeout,
 				cm.runOnConnect, cm.runOnConnectRestart, cm.protocols, &cm.wg,
 				cm.stats, cm.serverUDPRtp, cm.serverUDPRtcp, conn, cm)
 			cm.clients[c] = struct{}{}

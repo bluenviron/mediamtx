@@ -1,7 +1,10 @@
 package servertcp
 
 import (
-	"net"
+	"strconv"
+	"time"
+
+	"github.com/aler9/gortsplib"
 )
 
 // Parent is implemented by program.
@@ -13,27 +16,35 @@ type Parent interface {
 type Server struct {
 	parent Parent
 
-	listener *net.TCPListener
+	srv *gortsplib.Server
 
 	// out
-	accept chan net.Conn
+	accept chan *gortsplib.ServerConn
 	done   chan struct{}
 }
 
 // New allocates a Server.
-func New(port int, parent Parent) (*Server, error) {
-	listener, err := net.ListenTCP("tcp", &net.TCPAddr{
-		Port: port,
-	})
+func New(port int,
+	readTimeout time.Duration,
+	writeTimeout time.Duration,
+	parent Parent) (*Server, error) {
+
+	conf := gortsplib.ServerConf{
+		ReadTimeout:     readTimeout,
+		WriteTimeout:    writeTimeout,
+		ReadBufferCount: 1,
+	}
+
+	srv, err := conf.Serve(":"+strconv.FormatInt(int64(port), 10), nil)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Server{
-		parent:   parent,
-		listener: listener,
-		accept:   make(chan net.Conn),
-		done:     make(chan struct{}),
+		parent: parent,
+		srv:    srv,
+		accept: make(chan *gortsplib.ServerConn),
+		done:   make(chan struct{}),
 	}
 
 	parent.Log("[TCP server] opened on :%d", port)
@@ -49,7 +60,7 @@ func (s *Server) Close() {
 			co.Close()
 		}
 	}()
-	s.listener.Close()
+	s.srv.Close()
 	<-s.done
 }
 
@@ -57,7 +68,7 @@ func (s *Server) run() {
 	defer close(s.done)
 
 	for {
-		conn, err := s.listener.AcceptTCP()
+		conn, err := s.srv.Accept()
 		if err != nil {
 			break
 		}
@@ -69,6 +80,6 @@ func (s *Server) run() {
 }
 
 // Accept returns a channel to accept incoming connections.
-func (s *Server) Accept() <-chan net.Conn {
+func (s *Server) Accept() <-chan *gortsplib.ServerConn {
 	return s.accept
 }

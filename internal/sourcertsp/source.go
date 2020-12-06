@@ -105,13 +105,13 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.parent.Log("connecting to rtsp source")
 
-	var conn *gortsplib.ConnClient
+	var conn *gortsplib.ClientConn
 	var err error
 	dialDone := make(chan struct{}, 1)
 	go func() {
 		defer close(dialDone)
 
-		dialer := gortsplib.Dialer{
+		dialer := gortsplib.ClientConf{
 			StreamProtocol:  s.proto,
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,

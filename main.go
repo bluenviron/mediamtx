@@ -175,7 +175,8 @@ func (p *program) createDynamicResources(initial bool) error {
 	}
 
 	if p.serverTCP == nil {
-		p.serverTCP, err = servertcp.New(p.conf.RtspPort, p)
+		p.serverTCP, err = servertcp.New(p.conf.RtspPort, p.conf.ReadTimeout,
+			p.conf.WriteTimeout, p)
 		if err != nil {
 			return err
 		}
@@ -189,7 +190,7 @@ func (p *program) createDynamicResources(initial bool) error {
 
 	if p.clientMan == nil {
 		p.clientMan = clientman.New(p.conf.RtspPort, p.conf.ReadTimeout,
-			p.conf.WriteTimeout, p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
+			p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
 			p.conf.ProtocolsParsed, p.stats, p.serverUDPRtp, p.serverUDPRtcp,
 			p.pathMan, p.serverTCP, p)
 	}
@@ -274,7 +275,9 @@ func (p *program) reloadConf() error {
 	}
 
 	closeServerTCP := false
-	if conf.RtspPort != p.conf.RtspPort {
+	if conf.RtspPort != p.conf.RtspPort ||
+		conf.ReadTimeout != p.conf.ReadTimeout ||
+		conf.WriteTimeout != p.conf.WriteTimeout {
 		closeServerTCP = true
 	}
 
@@ -295,7 +298,6 @@ func (p *program) reloadConf() error {
 		closePathMan ||
 		conf.RtspPort != p.conf.RtspPort ||
 		conf.ReadTimeout != p.conf.ReadTimeout ||
-		conf.WriteTimeout != p.conf.WriteTimeout ||
 		conf.RunOnConnect != p.conf.RunOnConnect ||
 		conf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		!reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) {
