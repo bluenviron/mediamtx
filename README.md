@@ -17,7 +17,7 @@ Features:
 * Redirect to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Reload the configuration without disconnecting existing clients (hot reloading)
-* Compatible with Linux, Windows and Mac, does not require any dependency or interpreter, it's a single executable
+* Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 ## Installation and basic usage
 

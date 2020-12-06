@@ -285,8 +285,7 @@ func TestPublish(t *testing.T) {
 			require.NoError(t, err)
 			defer cnt2.close()
 
-			code := cnt2.wait()
-			require.Equal(t, 0, code)
+			require.Equal(t, 0, cnt2.wait())
 		})
 	}
 }
@@ -334,8 +333,7 @@ func TestRead(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt2.close()
 
-				code := cnt2.wait()
-				require.Equal(t, 0, code)
+				require.Equal(t, 0, cnt2.wait())
 
 			default:
 				args := []string{}
@@ -348,8 +346,7 @@ func TestRead(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt2.close()
 
-				code := cnt2.wait()
-				require.Equal(t, 0, code)
+				require.Equal(t, 0, cnt2.wait())
 			}
 		})
 	}
@@ -384,8 +381,7 @@ func TestTCPOnly(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt2.close()
 
-	code := cnt2.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestPathWithSlash(t *testing.T) {
@@ -417,8 +413,7 @@ func TestPathWithSlash(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt2.close()
 
-	code := cnt2.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestPathWithQuery(t *testing.T) {
@@ -450,8 +445,7 @@ func TestPathWithQuery(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt2.close()
 
-	code := cnt2.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestAuth(t *testing.T) {
@@ -490,8 +484,7 @@ func TestAuth(t *testing.T) {
 		require.NoError(t, err)
 		defer cnt2.close()
 
-		code := cnt2.wait()
-		require.Equal(t, 0, code)
+		require.Equal(t, 0, cnt2.wait())
 	})
 
 	for _, soft := range []string{
@@ -534,8 +527,7 @@ func TestAuth(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt2.close()
 
-				code := cnt2.wait()
-				require.Equal(t, 0, code)
+				require.Equal(t, 0, cnt2.wait())
 
 			} else {
 				cnt2, err := newContainer("vlc", "dest", []string{
@@ -544,11 +536,34 @@ func TestAuth(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt2.close()
 
-				code := cnt2.wait()
-				require.Equal(t, 0, code)
+				require.Equal(t, 0, cnt2.wait())
 			}
 		})
 	}
+}
+
+func TestAuthIpFail(t *testing.T) {
+	p, err := testProgram("paths:\n" +
+		"  all:\n" +
+		"    publishIps: [127.0.0.1/32]\n")
+	require.NoError(t, err)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "/emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"-rtsp_transport", "udp",
+		"rtsp://" + ownDockerIP + ":8554/test/stream",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	require.NotEqual(t, 0, cnt1.wait())
 }
 
 func TestSourceRtsp(t *testing.T) {
@@ -604,8 +619,7 @@ func TestSourceRtsp(t *testing.T) {
 			require.NoError(t, err)
 			defer cnt2.close()
 
-			code := cnt2.wait()
-			require.Equal(t, 0, code)
+			require.Equal(t, 0, cnt2.wait())
 		})
 	}
 }
@@ -649,8 +663,7 @@ func TestSourceRtmp(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt3.close()
 
-	code := cnt3.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt3.wait())
 }
 
 func TestRedirect(t *testing.T) {
@@ -688,8 +701,7 @@ func TestRedirect(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt2.close()
 
-	code := cnt2.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestFallback(t *testing.T) {
@@ -726,8 +738,7 @@ func TestFallback(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt2.close()
 
-	code := cnt2.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestRunOnDemand(t *testing.T) {
@@ -748,8 +759,7 @@ func TestRunOnDemand(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt1.close()
 
-	code := cnt1.wait()
-	require.Equal(t, 0, code)
+	require.Equal(t, 0, cnt1.wait())
 }
 
 func TestHotReloading(t *testing.T) {
@@ -782,8 +792,7 @@ func TestHotReloading(t *testing.T) {
 		require.NoError(t, err)
 		defer cnt1.close()
 
-		code := cnt1.wait()
-		require.Equal(t, 0, code)
+		require.Equal(t, 0, cnt1.wait())
 	}()
 
 	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
@@ -807,8 +816,7 @@ func TestHotReloading(t *testing.T) {
 		require.NoError(t, err)
 		defer cnt1.close()
 
-		code := cnt1.wait()
-		require.Equal(t, 1, code)
+		require.Equal(t, 1, cnt1.wait())
 	}()
 
 	func() {
@@ -821,7 +829,6 @@ func TestHotReloading(t *testing.T) {
 		require.NoError(t, err)
 		defer cnt1.close()
 
-		code := cnt1.wait()
-		require.Equal(t, 0, code)
+		require.Equal(t, 0, cnt1.wait())
 	}()
 }

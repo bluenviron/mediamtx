@@ -248,8 +248,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			return errAuthCritical{&base.Response{
 				StatusCode: base.StatusUnauthorized,
 				Header: base.Header{
-					"CSeq":             req.Header["CSeq"],
-					"WWW-Authenticate": c.authHelper.GenerateHeader(),
+					"CSeq": req.Header["CSeq"],
 				},
 			}}
 		}
