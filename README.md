@@ -113,7 +113,16 @@ paths:
     source: rtsp://original-url
 ```
 
-After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section.
+After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section:
+
+```yml
+paths:
+  proxied1:
+    source: rtsp://url1
+
+  proxied2:
+    source: rtsp://url1
+```
 
 It's possible to save bandwidth by enabling the on-demand mode: the stream will be pulled only when at least a client is connected:
 
