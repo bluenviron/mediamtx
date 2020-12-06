@@ -27,6 +27,7 @@ var version = "v0.0.0"
 type program struct {
 	confPath      string
 	conf          *conf.Conf
+	confFound     bool
 	stats         *stats.Stats
 	logHandler    *loghandler.LogHandler
 	metrics       *metrics.Metrics
@@ -63,7 +64,7 @@ func newProgram(args []string) (*program, error) {
 	}
 
 	var err error
-	p.conf, err = conf.Load(p.confPath)
+	p.conf, p.confFound, err = conf.Load(p.confPath)
 	if err != nil {
 		return nil, err
 	}
@@ -74,10 +75,12 @@ func newProgram(args []string) (*program, error) {
 		return nil, err
 	}
 
-	p.confWatcher, err = confwatcher.New(p.confPath)
-	if err != nil {
-		p.closeAllResources()
-		return nil, err
+	if p.confFound {
+		p.confWatcher, err = confwatcher.New(p.confPath)
+		if err != nil {
+			p.closeAllResources()
+			return nil, err
+		}
 	}
 
 	go p.run()
@@ -102,10 +105,17 @@ func (p *program) Log(format string, args ...interface{}) {
 func (p *program) run() {
 	defer close(p.done)
 
+	confChanged := func() chan struct{} {
+		if p.confWatcher != nil {
+			return p.confWatcher.Watch()
+		}
+		return make(chan struct{})
+	}()
+
 outer:
 	for {
 		select {
-		case <-p.confWatcher.Watch():
+		case <-confChanged:
 			err := p.reloadConf()
 			if err != nil {
 				p.Log("ERR: %s", err)
@@ -136,6 +146,10 @@ func (p *program) createDynamicResources(initial bool) error {
 
 	if initial {
 		p.Log("rtsp-simple-server %s", version)
+
+		if !p.confFound {
+			p.Log("configuration file not found, using the default one")
+		}
 	}
 
 	if p.conf.Metrics {
@@ -239,7 +253,7 @@ func (p *program) closeAllResources() {
 func (p *program) reloadConf() error {
 	p.Log("reloading configuration")
 
-	conf, err := conf.Load(p.confPath)
+	conf, _, err := conf.Load(p.confPath)
 	if err != nil {
 		return err
 	}

@@ -145,45 +145,45 @@ func (conf *Conf) fillAndCheck() error {
 }
 
 // Load loads a Conf.
-func Load(fpath string) (*Conf, error) {
+func Load(fpath string) (*Conf, bool, error) {
 	conf := &Conf{}
 
 	// read from file
-	err := func() error {
+	found, err := func() (bool, error) {
 		// rtsp-simple-server.yml is optional
 		if fpath == "rtsp-simple-server.yml" {
 			if _, err := os.Stat(fpath); err != nil {
-				return nil
+				return false, nil
 			}
 		}
 
 		f, err := os.Open(fpath)
 		if err != nil {
-			return err
+			return false, err
 		}
 		defer f.Close()
 
 		err = yaml.NewDecoder(f).Decode(conf)
 		if err != nil {
-			return err
+			return false, err
 		}
 
-		return nil
+		return true, nil
 	}()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	// read from environment
 	err = confenv.Load("RTSP", conf)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	err = conf.fillAndCheck()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return conf, nil
+	return conf, found, nil
 }

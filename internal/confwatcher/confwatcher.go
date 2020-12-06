@@ -1,7 +1,6 @@
 package confwatcher
 
 import (
-	"os"
 	"path/filepath"
 	"time"
 
@@ -29,15 +28,13 @@ func New(confPath string) (*ConfWatcher, error) {
 		return nil, err
 	}
 
-	if _, err := os.Stat(confPath); err == nil {
-		// use absolute path to support Darwin
-		absolutePath, _ := filepath.Abs(confPath)
+	// use absolute path to support Darwin
+	absolutePath, _ := filepath.Abs(confPath)
 
-		err := inner.Add(absolutePath)
-		if err != nil {
-			inner.Close()
-			return nil, err
-		}
+	err = inner.Add(absolutePath)
+	if err != nil {
+		inner.Close()
+		return nil, err
 	}
 
 	w := &ConfWatcher{
