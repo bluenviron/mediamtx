@@ -18,8 +18,3 @@ jobs:
     - uses: golangci/golangci-lint-action@v2
       with:
         version: v1.33
-        args: >
-          --disable=errcheck
-          --enable=gofmt
-          --enable=golint
-          --enable=misspell
