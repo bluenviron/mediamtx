@@ -6,3 +6,6 @@ linters:
   - gofmt
   - golint
   - misspell
+
+issues:
+  exclude-use-default: false

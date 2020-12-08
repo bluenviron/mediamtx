@@ -13,13 +13,12 @@ import (
 // Level is a log level.
 type Level int
 
+// Log levels.
 const (
 	Debug Level = iota
 	Info
 	Warn
 )
-
-// Log levels.
 
 // Destination is a log destination.
 type Destination int
@@ -102,6 +101,7 @@ func itoa(buf *[]byte, i int, wid int) {
 	*buf = append(*buf, b[bp:]...)
 }
 
+// Log writes a log entry.
 func (lh *Logger) Log(level Level, format string, args ...interface{}) {
 	if level < lh.level {
 		return
