@@ -6,7 +6,9 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/base"
 
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -16,7 +18,7 @@ const (
 
 // Parent is implemented by path.Path.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 	OnSourceSetReady(gortsplib.Tracks)
 	OnSourceSetNotReady()
 	OnFrame(int, gortsplib.StreamType, []byte)
@@ -56,7 +58,7 @@ func New(ur string,
 	}
 
 	atomic.AddInt64(s.stats.CountSourcesRtsp, +1)
-	s.parent.Log("rtsp source started")
+	s.log(logger.Info, "started")
 
 	s.wg.Add(1)
 	go s.run()
@@ -66,7 +68,7 @@ func New(ur string,
 // Close closes a Source.
 func (s *Source) Close() {
 	atomic.AddInt64(s.stats.CountSourcesRtsp, -1)
-	s.parent.Log("rtsp source stopped")
+	s.log(logger.Info, "stopped")
 	close(s.terminate)
 }
 
@@ -75,6 +77,10 @@ func (s *Source) IsSource() {}
 
 // IsSourceExternal implements path.sourceExternal.
 func (s *Source) IsSourceExternal() {}
+
+func (s *Source) log(level logger.Level, format string, args ...interface{}) {
+	s.parent.Log(level, "[rtsp source] "+format, args...)
+}
 
 func (s *Source) run() {
 	defer s.wg.Done()
@@ -103,7 +109,7 @@ func (s *Source) run() {
 }
 
 func (s *Source) runInner() bool {
-	s.parent.Log("connecting to rtsp source")
+	s.log(logger.Info, "connecting")
 
 	var conn *gortsplib.ClientConn
 	var err error
@@ -111,13 +117,19 @@ func (s *Source) runInner() bool {
 	go func() {
 		defer close(dialDone)
 
-		dialer := gortsplib.ClientConf{
+		conf := gortsplib.ClientConf{
 			StreamProtocol:  s.proto,
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
 			ReadBufferCount: 2,
+			OnRequest: func(req *base.Request) {
+				s.log(logger.Debug, "c->s %v", req)
+			},
+			OnResponse: func(res *base.Response) {
+				s.log(logger.Debug, "s->c %v", res)
+			},
 		}
-		conn, err = dialer.DialRead(s.ur)
+		conn, err = conf.DialRead(s.ur)
 	}()
 
 	select {
@@ -127,13 +139,13 @@ func (s *Source) runInner() bool {
 	}
 
 	if err != nil {
-		s.parent.Log("rtsp source ERR: %s", err)
+		s.log(logger.Info, "ERR: %s", err)
 		return true
 	}
 
 	tracks := conn.Tracks()
 
-	s.parent.Log("rtsp source ready")
+	s.log(logger.Info, "ready")
 	s.parent.OnSourceSetReady(tracks)
 	defer s.parent.OnSourceSetNotReady()
 
@@ -150,7 +162,7 @@ func (s *Source) runInner() bool {
 
 		case err := <-readerDone:
 			conn.Close()
-			s.parent.Log("rtsp source ERR: %s", err)
+			s.log(logger.Info, "ERR: %s", err)
 			return true
 		}
 	}

@@ -11,13 +11,14 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/path"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 // Parent is implemented by program.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 }
 
 // PathManager is a path.Path manager.
@@ -92,8 +93,8 @@ func (pm *PathManager) Close() {
 }
 
 // Log is the main logging function.
-func (pm *PathManager) Log(format string, args ...interface{}) {
-	pm.parent.Log(format, args...)
+func (pm *PathManager) Log(level logger.Level, format string, args ...interface{}) {
+	pm.parent.Log(level, format, args...)
 }
 
 func (pm *PathManager) run() {

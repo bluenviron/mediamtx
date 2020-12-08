@@ -10,11 +10,16 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/confenv"
-	"github.com/aler9/rtsp-simple-server/internal/loghandler"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
 // Conf is the main program configuration.
 type Conf struct {
+	LogLevel              string                                `yaml:"logLevel"`
+	LogLevelParsed        logger.Level                          `yaml:"-" json:"-"`
+	LogDestinations       []string                              `yaml:"logDestinations"`
+	LogDestinationsParsed map[logger.Destination]struct{}       `yaml:"-" json:"-"`
+	LogFile               string                                `yaml:"logFile"`
 	Protocols             []string                              `yaml:"protocols"`
 	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	RtspPort              int                                   `yaml:"rtspPort"`
@@ -28,13 +33,49 @@ type Conf struct {
 	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-" json:"-"`
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
-	LogDestinations       []string                              `yaml:"logDestinations"`
-	LogDestinationsParsed map[loghandler.Destination]struct{}   `yaml:"-" json:"-"`
-	LogFile               string                                `yaml:"logFile"`
 	Paths                 map[string]*PathConf                  `yaml:"paths"`
 }
 
 func (conf *Conf) fillAndCheck() error {
+	switch conf.LogLevel {
+	case "warn":
+		conf.LogLevelParsed = logger.Warn
+
+	case "", "info":
+		conf.LogLevelParsed = logger.Info
+
+	case "debug":
+		conf.LogLevelParsed = logger.Debug
+
+	default:
+		return fmt.Errorf("unsupported log level: %s", conf.LogLevel)
+	}
+
+	if len(conf.LogDestinations) == 0 {
+		conf.LogDestinations = []string{"stdout"}
+	}
+
+	conf.LogDestinationsParsed = make(map[logger.Destination]struct{})
+	for _, dest := range conf.LogDestinations {
+		switch dest {
+		case "stdout":
+			conf.LogDestinationsParsed[logger.DestinationStdout] = struct{}{}
+
+		case "file":
+			conf.LogDestinationsParsed[logger.DestinationFile] = struct{}{}
+
+		case "syslog":
+			conf.LogDestinationsParsed[logger.DestinationSyslog] = struct{}{}
+
+		default:
+			return fmt.Errorf("unsupported log destination: %s", dest)
+		}
+	}
+
+	if conf.LogFile == "" {
+		conf.LogFile = "rtsp-simple-server.log"
+	}
+
 	if len(conf.Protocols) == 0 {
 		conf.Protocols = []string{"udp", "tcp"}
 	}
@@ -92,29 +133,6 @@ func (conf *Conf) fillAndCheck() error {
 		default:
 			return fmt.Errorf("unsupported authentication method: %s", method)
 		}
-	}
-
-	if len(conf.LogDestinations) == 0 {
-		conf.LogDestinations = []string{"stdout"}
-	}
-	conf.LogDestinationsParsed = make(map[loghandler.Destination]struct{})
-	for _, dest := range conf.LogDestinations {
-		switch dest {
-		case "stdout":
-			conf.LogDestinationsParsed[loghandler.DestinationStdout] = struct{}{}
-
-		case "file":
-			conf.LogDestinationsParsed[loghandler.DestinationFile] = struct{}{}
-
-		case "syslog":
-			conf.LogDestinationsParsed[loghandler.DestinationSyslog] = struct{}{}
-
-		default:
-			return fmt.Errorf("unsupported log destination: %s", dest)
-		}
-	}
-	if conf.LogFile == "" {
-		conf.LogFile = "rtsp-simple-server.log"
 	}
 
 	if len(conf.Paths) == 0 {

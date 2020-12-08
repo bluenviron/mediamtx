@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertmp"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -27,7 +28,7 @@ func newEmptyTimer() *time.Timer {
 
 // Parent is implemented by pathman.PathMan.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 	OnPathClose(*Path)
 	OnPathClientClose(*client.Client)
 }
@@ -230,8 +231,8 @@ func (pa *Path) Close() {
 }
 
 // Log is the main logging function.
-func (pa *Path) Log(format string, args ...interface{}) {
-	pa.parent.Log("[path "+pa.name+"] "+format, args...)
+func (pa *Path) Log(level logger.Level, format string, args ...interface{}) {
+	pa.parent.Log(level, "[path "+pa.name+"] "+format, args...)
 }
 
 func (pa *Path) run() {
@@ -246,7 +247,7 @@ func (pa *Path) run() {
 
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
-		pa.Log("on init command started")
+		pa.Log(logger.Info, "on init command started")
 		onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
 			Path: pa.name,
 			Port: strconv.FormatInt(int64(pa.rtspPort), 10),
@@ -280,7 +281,7 @@ outer:
 
 		case <-pa.runOnDemandCloseTimer.C:
 			pa.runOnDemandCloseTimerStarted = false
-			pa.Log("on demand command stopped")
+			pa.Log(logger.Info, "on demand command stopped")
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
 
@@ -364,7 +365,7 @@ outer:
 	pa.closeTimer.Stop()
 
 	if onInitCmd != nil {
-		pa.Log("on init command stopped")
+		pa.Log(logger.Info, "on init command stopped")
 		onInitCmd.Close()
 	}
 
@@ -374,7 +375,7 @@ outer:
 	pa.sourceWg.Wait()
 
 	if pa.onDemandCmd != nil {
-		pa.Log("on demand command stopped")
+		pa.Log(logger.Info, "on demand command stopped")
 		pa.onDemandCmd.Close()
 	}
 
@@ -609,7 +610,7 @@ func (pa *Path) onClientDescribe(c *client.Client) {
 	// start on-demand command
 	if pa.conf.RunOnDemand != "" {
 		if pa.onDemandCmd == nil {
-			pa.Log("on demand command started")
+			pa.Log(logger.Info, "on demand command started")
 			pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand, pa.conf.RunOnDemandRestart, externalcmd.Environment{
 				Path: pa.name,
 				Port: strconv.FormatInt(int64(pa.rtspPort), 10),

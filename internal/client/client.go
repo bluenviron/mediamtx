@@ -19,6 +19,7 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/serverudp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
@@ -88,7 +89,7 @@ type Path interface {
 
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 	OnClientClose(*Client)
 	OnClientDescribe(*Client, string, *base.Request) (Path, error)
 	OnClientAnnounce(*Client, string, gortsplib.Tracks, *base.Request) (Path, error)
@@ -162,7 +163,7 @@ func New(
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
-	c.log("connected")
+	c.log(logger.Info, "connected")
 
 	c.wg.Add(1)
 	go c.run()
@@ -178,8 +179,8 @@ func (c *Client) Close() {
 // IsSource implements path.source.
 func (c *Client) IsSource() {}
 
-func (c *Client) log(format string, args ...interface{}) {
-	c.parent.Log("[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
+func (c *Client) log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }
 
 func (c *Client) ip() net.IP {
@@ -198,7 +199,7 @@ var errStateInitial = errors.New("initial")
 
 func (c *Client) run() {
 	defer c.wg.Done()
-	defer c.log("disconnected")
+	defer c.log(logger.Info, "disconnected")
 
 	if c.runOnConnect != "" {
 		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
@@ -243,7 +244,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 		ip := c.ip()
 
 		if !ipEqualOrInRange(ip, ips) {
-			c.log("ERR: ip '%s' not allowed", ip)
+			c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
 
 			return errAuthCritical{&base.Response{
 				StatusCode: base.StatusUnauthorized,
@@ -274,7 +275,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			// 4) with password and username
 			// therefore we must allow up to 3 failures
 			if c.authFailures > 3 {
-				c.log("ERR: unauthorized: %s", err)
+				c.log(logger.Info, "ERR: unauthorized: %s", err)
 
 				return errAuthCritical{&base.Response{
 					StatusCode: base.StatusUnauthorized,
@@ -286,7 +287,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			}
 
 			if c.authFailures > 1 {
-				c.log("WARN: unauthorized: %s", err)
+				c.log(logger.Debug, "WARN: unauthorized: %s", err)
 			}
 
 			return errAuthNotCritical{&base.Response{
@@ -318,10 +319,15 @@ func (c *Client) checkState(allowed map[state]struct{}) error {
 		allowedList, c.state)
 }
 
-func (c *Client) writeResError(cseq base.HeaderValue, code base.StatusCode, err error) {
-	c.log("ERR: %s", err)
+func (c *Client) writeRes(res *base.Response) {
+	c.log(logger.Debug, "s->c %v", res)
+	c.conn.WriteResponse(res)
+}
 
-	c.conn.WriteResponse(&base.Response{
+func (c *Client) writeResError(cseq base.HeaderValue, code base.StatusCode, err error) {
+	c.log(logger.Info, "ERR: %s", err)
+
+	c.writeRes(&base.Response{
 		StatusCode: code,
 		Header: base.Header{
 			"CSeq": cseq,
@@ -330,7 +336,7 @@ func (c *Client) writeResError(cseq base.HeaderValue, code base.StatusCode, err 
 }
 
 func (c *Client) handleRequest(req *base.Request) error {
-	c.log(string(req.Method))
+	c.log(logger.Debug, "[c->s] %v", req)
 
 	cseq, ok := req.Header["CSeq"]
 	if !ok || len(cseq) != 1 {
@@ -340,7 +346,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 
 	switch req.Method {
 	case base.Options:
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq": cseq,
@@ -360,7 +366,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 
 		// GET_PARAMETER is used like a ping
 	case base.GetParameter:
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq":         cseq,
@@ -392,12 +398,12 @@ func (c *Client) handleRequest(req *base.Request) error {
 			switch terr := err.(type) {
 			case errAuthNotCritical:
 				close(c.describeData)
-				c.conn.WriteResponse(terr.Response)
+				c.writeRes(terr.Response)
 				return nil
 
 			case errAuthCritical:
 				close(c.describeData)
-				c.conn.WriteResponse(terr.Response)
+				c.writeRes(terr.Response)
 				return errStateTerminate
 
 			default:
@@ -462,11 +468,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 		if err != nil {
 			switch terr := err.(type) {
 			case errAuthNotCritical:
-				c.conn.WriteResponse(terr.Response)
+				c.writeRes(terr.Response)
 				return nil
 
 			case errAuthCritical:
-				c.conn.WriteResponse(terr.Response)
+				c.writeRes(terr.Response)
 				return errStateTerminate
 
 			default:
@@ -483,7 +489,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 		c.path = path
 		c.state = statePreRecord
 
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq": cseq,
@@ -560,11 +566,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 				if err != nil {
 					switch terr := err.(type) {
 					case errAuthNotCritical:
-						c.conn.WriteResponse(terr.Response)
+						c.writeRes(terr.Response)
 						return nil
 
 					case errAuthCritical:
-						c.conn.WriteResponse(terr.Response)
+						c.writeRes(terr.Response)
 						return errStateTerminate
 
 					default:
@@ -592,7 +598,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 					ServerPorts: &[2]int{c.serverUDPRtp.Port(), c.serverUDPRtcp.Port()},
 				}
 
-				c.conn.WriteResponse(&base.Response{
+				c.writeRes(&base.Response{
 					StatusCode: base.StatusOK,
 					Header: base.Header{
 						"CSeq":      cseq,
@@ -618,11 +624,11 @@ func (c *Client) handleRequest(req *base.Request) error {
 			if err != nil {
 				switch terr := err.(type) {
 				case errAuthNotCritical:
-					c.conn.WriteResponse(terr.Response)
+					c.writeRes(terr.Response)
 					return nil
 
 				case errAuthCritical:
-					c.conn.WriteResponse(terr.Response)
+					c.writeRes(terr.Response)
 					return errStateTerminate
 
 				default:
@@ -647,7 +653,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 				InterleavedIds: &interleavedIds,
 			}
 
-			c.conn.WriteResponse(&base.Response{
+			c.writeRes(&base.Response{
 				StatusCode: base.StatusOK,
 				Header: base.Header{
 					"CSeq":      cseq,
@@ -709,7 +715,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 					ServerPorts: &[2]int{c.serverUDPRtp.Port(), c.serverUDPRtcp.Port()},
 				}
 
-				c.conn.WriteResponse(&base.Response{
+				c.writeRes(&base.Response{
 					StatusCode: base.StatusOK,
 					Header: base.Header{
 						"CSeq":      cseq,
@@ -760,7 +766,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 				InterleavedIds: &interleavedIds,
 			}
 
-			c.conn.WriteResponse(&base.Response{
+			c.writeRes(&base.Response{
 				StatusCode: base.StatusOK,
 				Header: base.Header{
 					"CSeq":      cseq,
@@ -810,7 +816,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 		// write response before setting state
 		// otherwise, in case of TCP connections, RTP packets could be sent
 		// before the response
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq":    cseq,
@@ -851,7 +857,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errStateTerminate
 		}
 
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq":    cseq,
@@ -872,7 +878,7 @@ func (c *Client) handleRequest(req *base.Request) error {
 			return errStateTerminate
 		}
 
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq":    cseq,
@@ -928,7 +934,7 @@ func (c *Client) runInitial() bool {
 		default:
 			c.conn.Close()
 			if err != io.EOF && err != errStateTerminate {
-				c.log("ERR: %s", err)
+				c.log(logger.Info, "ERR: %s", err)
 			}
 
 			c.parent.OnClientClose(c)
@@ -959,7 +965,7 @@ func (c *Client) runWaitingDescribe() bool {
 		}
 
 		if res.redirect != "" {
-			c.conn.WriteResponse(&base.Response{
+			c.writeRes(&base.Response{
 				StatusCode: base.StatusMovedPermanently,
 				Header: base.Header{
 					"CSeq":     c.describeCSeq,
@@ -969,7 +975,7 @@ func (c *Client) runWaitingDescribe() bool {
 			return true
 		}
 
-		c.conn.WriteResponse(&base.Response{
+		c.writeRes(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"CSeq":         c.describeCSeq,
@@ -1006,7 +1012,7 @@ func (c *Client) runPlay() bool {
 	c.state = statePlay
 	c.path.OnClientPlay(c)
 
-	c.log("is reading from path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
+	c.log(logger.Info, "is reading from path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -1059,7 +1065,7 @@ func (c *Client) runPlayUDP() bool {
 
 		c.conn.Close()
 		if err != io.EOF && err != errStateTerminate {
-			c.log("ERR: %s", err)
+			c.log(logger.Info, "ERR: %s", err)
 		}
 
 		c.path.OnClientRemove(c)
@@ -1139,7 +1145,7 @@ func (c *Client) runPlayTCP() bool {
 
 		c.conn.Close()
 		if err != io.EOF && err != errStateTerminate {
-			c.log("ERR: %s", err)
+			c.log(logger.Info, "ERR: %s", err)
 		}
 
 		c.path.OnClientRemove(c)
@@ -1189,7 +1195,7 @@ func (c *Client) runRecord() bool {
 	c.state = stateRecord
 	c.path.OnClientRecord(c)
 
-	c.log("is publishing to path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
+	c.log(logger.Info, "is publishing to path '%s', %d %s with %s", c.path.Name(), len(c.streamTracks), func() string {
 		if len(c.streamTracks) == 1 {
 			return "track"
 		}
@@ -1285,7 +1291,7 @@ func (c *Client) runRecordUDP() bool {
 
 		c.conn.Close()
 		if err != io.EOF && err != errStateTerminate {
-			c.log("ERR: %s", err)
+			c.log(logger.Info, "ERR: %s", err)
 		}
 
 		for _, track := range c.streamTracks {
@@ -1328,7 +1334,7 @@ func (c *Client) runRecordUDP() bool {
 						}
 					}()
 
-					c.log("ERR: no packets received recently (maybe there's a firewall/NAT in between)")
+					c.log(logger.Info, "ERR: no packets received recently (maybe there's a firewall/NAT in between)")
 					c.conn.Close()
 					<-readerDone
 
@@ -1426,7 +1432,7 @@ func (c *Client) runRecordTCP() bool {
 
 		c.conn.Close()
 		if err != io.EOF && err != errStateTerminate {
-			c.log("ERR: %s", err)
+			c.log(logger.Info, "ERR: %s", err)
 		}
 
 		c.path.OnClientRemove(c)

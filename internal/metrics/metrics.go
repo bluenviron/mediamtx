@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -18,7 +19,7 @@ const (
 
 // Parent is implemented by program.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 }
 
 // Metrics is a metrics exporter.
@@ -49,7 +50,7 @@ func New(stats *stats.Stats, parent Parent) (*Metrics, error) {
 		Handler: m.mux,
 	}
 
-	parent.Log("[metrics] opened on " + address)
+	parent.Log(logger.Info, "[metrics] opened on "+address)
 
 	go m.run()
 	return m, nil

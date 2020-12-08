@@ -102,14 +102,14 @@ func (c *container) ip() string {
 	return string(out[:len(out)-1])
 }
 
-func testProgram(conf string) (*program, error) {
+func testProgram(conf string) (*program, bool) {
 	if conf == "" {
 		return newProgram([]string{})
 	}
 
 	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
 	defer os.Remove(tmpf.Name())
 
@@ -158,8 +158,8 @@ func TestEnvironment(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCEONDEMAND", "yes")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCEONDEMAND")
 
-	p, err := testProgram("")
-	require.NoError(t, err)
+	p, ok := testProgram("")
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	require.Equal(t, "test=cmd", p.conf.RunOnConnect)
@@ -217,8 +217,8 @@ func TestEnvironmentNoFile(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
 
-	p, err := testProgram("{}")
-	require.NoError(t, err)
+	p, ok := testProgram("{}")
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	pa, ok := p.conf.Paths["cam1"]
@@ -244,8 +244,8 @@ func TestPublish(t *testing.T) {
 		{"gstreamer", "tcp"},
 	} {
 		t.Run(conf.publishSoft+"_"+conf.publishProto, func(t *testing.T) {
-			p, err := testProgram("")
-			require.NoError(t, err)
+			p, ok := testProgram("readTimeout: 20s")
+			require.Equal(t, true, ok)
 			defer p.close()
 
 			time.Sleep(1 * time.Second)
@@ -303,8 +303,8 @@ func TestRead(t *testing.T) {
 		{"vlc", "tcp"},
 	} {
 		t.Run(conf.readSoft+"_"+conf.readProto, func(t *testing.T) {
-			p, err := testProgram("")
-			require.NoError(t, err)
+			p, ok := testProgram("")
+			require.Equal(t, true, ok)
 			defer p.close()
 
 			time.Sleep(1 * time.Second)
@@ -355,8 +355,8 @@ func TestRead(t *testing.T) {
 }
 
 func TestTCPOnly(t *testing.T) {
-	p, err := testProgram("protocols: [tcp]\n")
-	require.NoError(t, err)
+	p, ok := testProgram("protocols: [tcp]\n")
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	time.Sleep(1 * time.Second)
@@ -387,8 +387,8 @@ func TestTCPOnly(t *testing.T) {
 }
 
 func TestPathWithSlash(t *testing.T) {
-	p, err := testProgram("")
-	require.NoError(t, err)
+	p, ok := testProgram("")
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	time.Sleep(1 * time.Second)
@@ -419,8 +419,8 @@ func TestPathWithSlash(t *testing.T) {
 }
 
 func TestPathWithQuery(t *testing.T) {
-	p, err := testProgram("")
-	require.NoError(t, err)
+	p, ok := testProgram("")
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	time.Sleep(1 * time.Second)
@@ -452,12 +452,12 @@ func TestPathWithQuery(t *testing.T) {
 
 func TestAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
-		p, err := testProgram("paths:\n" +
+		p, ok := testProgram("paths:\n" +
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: test!$()*+.;<=>[]^_-{}\n" +
 			"    publishIps: [172.17.0.0/16]\n")
-		require.NoError(t, err)
+		require.Equal(t, true, ok)
 		defer p.close()
 
 		time.Sleep(1 * time.Second)
@@ -494,12 +494,12 @@ func TestAuth(t *testing.T) {
 		"vlc",
 	} {
 		t.Run("read_"+soft, func(t *testing.T) {
-			p, err := testProgram("paths:\n" +
+			p, ok := testProgram("paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: test!$()*+.;<=>[]^_-{}\n" +
 				"    readIps: [172.17.0.0/16]\n")
-			require.NoError(t, err)
+			require.Equal(t, true, ok)
 			defer p.close()
 
 			time.Sleep(1 * time.Second)
@@ -545,10 +545,10 @@ func TestAuth(t *testing.T) {
 }
 
 func TestAuthIpFail(t *testing.T) {
-	p, err := testProgram("paths:\n" +
+	p, ok := testProgram("paths:\n" +
 		"  all:\n" +
 		"    publishIps: [127.0.0.1/32]\n")
-	require.NoError(t, err)
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	time.Sleep(1 * time.Second)
@@ -574,11 +574,11 @@ func TestSourceRtsp(t *testing.T) {
 		"tcp",
 	} {
 		t.Run(proto, func(t *testing.T) {
-			p1, err := testProgram("paths:\n" +
+			p1, ok := testProgram("paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: testpass\n")
-			require.NoError(t, err)
+			require.Equal(t, true, ok)
 			defer p1.close()
 
 			time.Sleep(1 * time.Second)
@@ -597,7 +597,7 @@ func TestSourceRtsp(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			p2, err := testProgram("rtspPort: 8555\n" +
+			p2, ok := testProgram("rtspPort: 8555\n" +
 				"rtpPort: 8100\n" +
 				"rtcpPort: 8101\n" +
 				"\n" +
@@ -606,7 +606,7 @@ func TestSourceRtsp(t *testing.T) {
 				"    source: rtsp://testuser:testpass@localhost:8554/teststream\n" +
 				"    sourceProtocol: " + proto + "\n" +
 				"    sourceOnDemand: yes\n")
-			require.NoError(t, err)
+			require.Equal(t, true, ok)
 			defer p2.close()
 
 			time.Sleep(1 * time.Second)
@@ -646,11 +646,11 @@ func TestSourceRtmp(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	p, err := testProgram("paths:\n" +
+	p, ok := testProgram("paths:\n" +
 		"  proxied:\n" +
 		"    source: rtmp://" + cnt1.ip() + "/stream/test\n" +
 		"    sourceOnDemand: yes\n")
-	require.NoError(t, err)
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	time.Sleep(1 * time.Second)
@@ -669,12 +669,12 @@ func TestSourceRtmp(t *testing.T) {
 }
 
 func TestRedirect(t *testing.T) {
-	p1, err := testProgram("paths:\n" +
+	p1, ok := testProgram("paths:\n" +
 		"  path1:\n" +
 		"    source: redirect\n" +
 		"    sourceRedirect: rtsp://" + ownDockerIP + ":8554/path2\n" +
 		"  path2:\n")
-	require.NoError(t, err)
+	require.Equal(t, true, ok)
 	defer p1.close()
 
 	time.Sleep(1 * time.Second)
@@ -707,11 +707,11 @@ func TestRedirect(t *testing.T) {
 }
 
 func TestFallback(t *testing.T) {
-	p1, err := testProgram("paths:\n" +
+	p1, ok := testProgram("paths:\n" +
 		"  path1:\n" +
 		"    fallback: rtsp://" + ownDockerIP + ":8554/path2\n" +
 		"  path2:\n")
-	require.NoError(t, err)
+	require.Equal(t, true, ok)
 	defer p1.close()
 
 	time.Sleep(1 * time.Second)
@@ -744,10 +744,10 @@ func TestFallback(t *testing.T) {
 }
 
 func TestRunOnDemand(t *testing.T) {
-	p1, err := testProgram("paths:\n" +
+	p1, ok := testProgram("paths:\n" +
 		"  all:\n" +
 		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n")
-	require.NoError(t, err)
+	require.Equal(t, true, ok)
 	defer p1.close()
 
 	time.Sleep(1 * time.Second)
@@ -778,8 +778,8 @@ func TestHotReloading(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(confPath)
 
-	p, err := newProgram([]string{confPath})
-	require.NoError(t, err)
+	p, ok := newProgram([]string{confPath})
+	require.Equal(t, true, ok)
 	defer p.close()
 
 	time.Sleep(1 * time.Second)

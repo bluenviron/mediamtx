@@ -7,6 +7,8 @@ import (
 
 	// start pprof
 	_ "net/http/pprof"
+
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
 const (
@@ -15,7 +17,7 @@ const (
 
 // Parent is implemented by program.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 }
 
 // Pprof is a performance metrics exporter.
@@ -39,7 +41,7 @@ func New(parent Parent) (*Pprof, error) {
 		Handler: http.DefaultServeMux,
 	}
 
-	parent.Log("[pprof] opened on " + address)
+	parent.Log(logger.Info, "[pprof] opened on "+address)
 
 	go pp.run()
 	return pp, nil

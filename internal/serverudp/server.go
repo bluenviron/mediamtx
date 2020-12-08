@@ -8,6 +8,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/multibuffer"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
 const (
@@ -29,7 +30,7 @@ type publisherData struct {
 
 // Parent is implemented by program.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 }
 
 type publisherAddr struct {
@@ -96,7 +97,7 @@ func New(writeTimeout time.Duration,
 	} else {
 		label = "RTCP"
 	}
-	parent.Log("[UDP/"+label+" server] opened on :%d", port)
+	parent.Log(logger.Info, "[UDP/"+label+" server] opened on :%d", port)
 
 	go s.run()
 	return s, nil

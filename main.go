@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"sync/atomic"
@@ -13,7 +12,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/clientman"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/confwatcher"
-	"github.com/aler9/rtsp-simple-server/internal/loghandler"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/metrics"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
@@ -29,7 +28,7 @@ type program struct {
 	conf          *conf.Conf
 	confFound     bool
 	stats         *stats.Stats
-	logHandler    *loghandler.LogHandler
+	logger        *logger.Logger
 	metrics       *metrics.Metrics
 	pprof         *pprof.Pprof
 	serverUDPRtp  *serverudp.Server
@@ -43,7 +42,7 @@ type program struct {
 	done      chan struct{}
 }
 
-func newProgram(args []string) (*program, error) {
+func newProgram(args []string) (*program, bool) {
 	k := kingpin.New("rtsp-simple-server",
 		"rtsp-simple-server "+version+"\n\nRTSP server.")
 
@@ -66,26 +65,29 @@ func newProgram(args []string) (*program, error) {
 	var err error
 	p.conf, p.confFound, err = conf.Load(p.confPath)
 	if err != nil {
-		return nil, err
+		p.Log(logger.Info, "ERR: %s", err)
+		return nil, false
 	}
 
 	err = p.createDynamicResources(true)
 	if err != nil {
+		p.Log(logger.Info, "ERR: %s", err)
 		p.closeAllResources()
-		return nil, err
+		return nil, false
 	}
 
 	if p.confFound {
 		p.confWatcher, err = confwatcher.New(p.confPath)
 		if err != nil {
+			p.Log(logger.Info, "ERR: %s", err)
 			p.closeAllResources()
-			return nil, err
+			return nil, false
 		}
 	}
 
 	go p.run()
 
-	return p, nil
+	return p, true
 }
 
 func (p *program) close() {
@@ -93,12 +95,12 @@ func (p *program) close() {
 	<-p.done
 }
 
-func (p *program) Log(format string, args ...interface{}) {
+func (p *program) Log(level logger.Level, format string, args ...interface{}) {
 	countClients := atomic.LoadInt64(p.stats.CountClients)
 	countPublishers := atomic.LoadInt64(p.stats.CountPublishers)
 	countReaders := atomic.LoadInt64(p.stats.CountReaders)
 
-	log.Printf("[%d/%d/%d] "+format, append([]interface{}{countClients,
+	p.logger.Log(level, "[%d/%d/%d] "+format, append([]interface{}{countClients,
 		countPublishers, countReaders}, args...)...)
 }
 
@@ -118,7 +120,7 @@ outer:
 		case <-confChanged:
 			err := p.reloadConf()
 			if err != nil {
-				p.Log("ERR: %s", err)
+				p.Log(logger.Info, "ERR: %s", err)
 				break outer
 			}
 
@@ -137,18 +139,19 @@ func (p *program) createDynamicResources(initial bool) error {
 		p.stats = stats.New()
 	}
 
-	if p.logHandler == nil {
-		p.logHandler, err = loghandler.New(p.conf.LogDestinationsParsed, p.conf.LogFile)
+	if p.logger == nil {
+		p.logger, err = logger.New(p.conf.LogLevelParsed, p.conf.LogDestinationsParsed,
+			p.conf.LogFile)
 		if err != nil {
 			return err
 		}
 	}
 
 	if initial {
-		p.Log("rtsp-simple-server %s", version)
+		p.Log(logger.Info, "rtsp-simple-server %s", version)
 
 		if !p.confFound {
-			p.Log("configuration file not found, using the default one")
+			p.Log(logger.Warn, "configuration file not found, using the default one")
 		}
 	}
 
@@ -245,23 +248,23 @@ func (p *program) closeAllResources() {
 		p.pprof.Close()
 	}
 
-	if p.logHandler != nil {
-		p.logHandler.Close()
+	if p.logger != nil {
+		p.logger.Close()
 	}
 }
 
 func (p *program) reloadConf() error {
-	p.Log("reloading configuration")
+	p.Log(logger.Info, "reloading configuration")
 
 	conf, _, err := conf.Load(p.confPath)
 	if err != nil {
 		return err
 	}
 
-	closeLogHandler := false
+	closeLogger := false
 	if !reflect.DeepEqual(conf.LogDestinationsParsed, p.conf.LogDestinationsParsed) ||
 		conf.LogFile != p.conf.LogFile {
-		closeLogHandler = true
+		closeLogger = true
 	}
 
 	closeMetrics := false
@@ -353,9 +356,9 @@ func (p *program) reloadConf() error {
 		p.metrics = nil
 	}
 
-	if closeLogHandler {
-		p.logHandler.Close()
-		p.logHandler = nil
+	if closeLogger {
+		p.logger.Close()
+		p.logger = nil
 	}
 
 	p.conf = conf
@@ -363,9 +366,9 @@ func (p *program) reloadConf() error {
 }
 
 func main() {
-	p, err := newProgram(os.Args[1:])
-	if err != nil {
-		log.Fatal("ERR: ", err)
+	p, ok := newProgram(os.Args[1:])
+	if !ok {
+		os.Exit(1)
 	}
 
 	<-p.done

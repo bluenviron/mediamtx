@@ -8,6 +8,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/servertcp"
 	"github.com/aler9/rtsp-simple-server/internal/serverudp"
@@ -16,7 +17,7 @@ import (
 
 // Parent is implemented by program.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 }
 
 // ClientManager is a client.Client manager.
@@ -87,8 +88,8 @@ func (cm *ClientManager) Close() {
 }
 
 // Log is the main logging function.
-func (cm *ClientManager) Log(format string, args ...interface{}) {
-	cm.parent.Log(format, args...)
+func (cm *ClientManager) Log(level logger.Level, format string, args ...interface{}) {
+	cm.parent.Log(level, format, args...)
 }
 
 func (cm *ClientManager) run() {

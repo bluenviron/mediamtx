@@ -5,11 +5,13 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
 // Parent is implemented by program.
 type Parent interface {
-	Log(string, ...interface{})
+	Log(logger.Level, string, ...interface{})
 }
 
 // Server is a RTSP TCP server.
@@ -47,7 +49,7 @@ func New(port int,
 		done:   make(chan struct{}),
 	}
 
-	parent.Log("[TCP server] opened on :%d", port)
+	parent.Log(logger.Info, "[TCP server] opened on :%d", port)
 
 	go s.run()
 	return s, nil

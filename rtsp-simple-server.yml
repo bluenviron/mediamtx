@@ -1,4 +1,6 @@
 
+# sets the verbosity of the program; available values are "warn", "info", "debug"
+logLevel: info
 # destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
 # if "file" is in logDestinations, this is the file which will receive the logs.
@@ -49,7 +51,9 @@ paths:
 
     # if the source is an RTSP url, this is the protocol that will be used to
     # pull the stream. available options are "automatic", "udp", "tcp".
+    # the tcp protocol can help to overcome the error "no packets received recently".
     sourceProtocol: automatic
+
     # if the source is an RTSP or RTMP url, it will be pulled only when at least
     # one reader is connected, saving bandwidth.
     sourceOnDemand: no
