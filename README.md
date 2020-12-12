@@ -19,7 +19,32 @@ Features:
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
-## Installation and basic usage
+## Table of contents
+
+* [Installation](#installation)
+  * [Standard](#standard)
+  * [Docker](#docker)
+* [Basic usage](#basic-usage)
+* [Advanced usage and FAQs](#advanced-usage-and-faqs)
+  * [Configuration](#configuration)
+  * [RTSP proxy mode](#rtsp-proxy-mode)
+  * [Publish a webcam](#publish-a-webcam)
+  * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
+  * [Generate HLS](#generate-hls)
+  * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
+  * [On-demand publishing](#on-demand-publishing)
+  * [Redirect to another server](#redirect-to-another-server)
+  * [Fallback stream](#fallback-stream)
+  * [Authentication](#authentication)
+  * [Start on boot with systemd](#start-on-boot-with-systemd)
+  * [Monitoring](#monitoring)
+  * [Command-line usage](#command-line-usage)
+  * [Compile and run from source](#compile-and-run-from-source)
+* [Links](#links)
+
+## Installation
+
+### Standard
 
 1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/rtsp-simple-server/releases).
 
@@ -29,7 +54,23 @@ Features:
    ./rtsp-simple-server
    ```
 
-3. Publish a stream. For instance, you can publish a video/audio file with _FFmpeg_:
+### Docker
+
+Download and launch the image:
+
+```
+docker run --rm -it --network=host aler9/rtsp-simple-server
+```
+
+The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. This issue can be avoided by disabling UDP and exposing the RTSP port:
+
+```
+docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
+```
+
+## Basic usage
+
+1. Publish a stream. For instance, you can publish a video/audio file with _FFmpeg_:
 
    ```
    ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
@@ -41,7 +82,7 @@ Features:
    gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
 
-4. Open the stream. For instance, you can open the stream with _VLC_:
+2. Open the stream. For instance, you can open the stream with _VLC_:
 
    ```
    vlc rtsp://localhost:8554/mystream
@@ -60,20 +101,6 @@ Features:
    ```
 
 ## Advanced usage and FAQs
-
-### Usage with Docker
-
-Download and launch the image:
-
-```
-docker run --rm -it --network=host aler9/rtsp-simple-server
-```
-
-The `--network=host` argument is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes RTSP routing impossible. This issue can be avoided by disabling UDP and exposing the RTSP port:
-
-```
-docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
-```
 
 ### Configuration
 
@@ -361,7 +388,7 @@ There are multiple ways to monitor the server usage over time:
   go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
   ```
 
-### Full command-line usage
+### Command-line usage
 
 ```
 usage: rtsp-simple-server [<flags>]
