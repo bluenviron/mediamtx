@@ -218,6 +218,10 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
 	}
 
+	if pconf.RunOnPublish != "" && pconf.Source != "record" {
+		return fmt.Errorf("'runOnPublish' is useless when source is not 'record', since the stream is not provided by a publisher, but by another source")
+	}
+
 	if pconf.RunOnDemandStartTimeout == 0 {
 		pconf.RunOnDemandStartTimeout = 10 * time.Second
 	}
