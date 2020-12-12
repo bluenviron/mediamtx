@@ -37,7 +37,7 @@ func New(port int,
 		ReadBufferCount: 1,
 	}
 
-	srv, err := conf.Serve(":"+strconv.FormatInt(int64(port), 10), nil)
+	srv, err := conf.Serve(":" + strconv.FormatInt(int64(port), 10))
 	if err != nil {
 		return nil, err
 	}

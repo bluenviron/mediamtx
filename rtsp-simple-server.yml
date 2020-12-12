@@ -51,7 +51,7 @@ paths:
 
     # if the source is an RTSP url, this is the protocol that will be used to
     # pull the stream. available options are "automatic", "udp", "tcp".
-    # the tcp protocol can help to overcome the error "no packets received recently".
+    # the tcp protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
 
     # if the source is an RTSP or RTMP url, it will be pulled only when at least

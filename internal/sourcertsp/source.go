@@ -149,7 +149,7 @@ func (s *Source) runInner() bool {
 	s.parent.OnSourceSetReady(tracks)
 	defer s.parent.OnSourceSetNotReady()
 
-	readerDone := conn.OnFrame(func(trackID int, streamType gortsplib.StreamType, content []byte) {
+	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, content []byte) {
 		s.parent.OnFrame(trackID, streamType, content)
 	})
 
@@ -157,10 +157,10 @@ func (s *Source) runInner() bool {
 		select {
 		case <-s.terminate:
 			conn.Close()
-			<-readerDone
+			<-done
 			return false
 
-		case err := <-readerDone:
+		case err := <-done:
 			conn.Close()
 			s.log(logger.Info, "ERR: %s", err)
 			return true
