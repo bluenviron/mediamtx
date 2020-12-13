@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
 	"github.com/aler9/rtsp-simple-server/internal/servertcp"
+	"github.com/aler9/rtsp-simple-server/internal/servertls"
 	"github.com/aler9/rtsp-simple-server/internal/serverudp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
@@ -34,6 +35,7 @@ type program struct {
 	serverUDPRtp  *serverudp.Server
 	serverUDPRtcp *serverudp.Server
 	serverTCP     *servertcp.Server
+	serverTLS     *servertls.Server
 	pathMan       *pathman.PathManager
 	clientMan     *clientman.ClientManager
 	confWatcher   *confwatcher.ConfWatcher
@@ -69,10 +71,10 @@ func newProgram(args []string) (*program, bool) {
 		return nil, false
 	}
 
-	err = p.createDynamicResources(true)
+	err = p.createResources(true)
 	if err != nil {
 		p.Log(logger.Info, "ERR: %s", err)
-		p.closeAllResources()
+		p.closeResources(nil)
 		return nil, false
 	}
 
@@ -80,7 +82,7 @@ func newProgram(args []string) (*program, bool) {
 		p.confWatcher, err = confwatcher.New(p.confPath)
 		if err != nil {
 			p.Log(logger.Info, "ERR: %s", err)
-			p.closeAllResources()
+			p.closeResources(nil)
 			return nil, false
 		}
 	}
@@ -129,10 +131,14 @@ outer:
 		}
 	}
 
-	p.closeAllResources()
+	p.closeResources(nil)
+
+	if p.confWatcher != nil {
+		p.confWatcher.Close()
+	}
 }
 
-func (p *program) createDynamicResources(initial bool) error {
+func (p *program) createResources(initial bool) error {
 	var err error
 
 	if p.stats == nil {
@@ -149,7 +155,6 @@ func (p *program) createDynamicResources(initial bool) error {
 
 	if initial {
 		p.Log(logger.Info, "rtsp-simple-server %s", version)
-
 		if !p.confFound {
 			p.Log(logger.Warn, "configuration file not found, using the default one")
 		}
@@ -192,10 +197,22 @@ func (p *program) createDynamicResources(initial bool) error {
 	}
 
 	if p.serverTCP == nil {
-		p.serverTCP, err = servertcp.New(p.conf.RtspPort, p.conf.ReadTimeout,
-			p.conf.WriteTimeout, p)
-		if err != nil {
-			return err
+		if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
+			p.serverTCP, err = servertcp.New(p.conf.RtspPort, p.conf.ReadTimeout,
+				p.conf.WriteTimeout, p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if p.serverTLS == nil {
+		if p.conf.EncryptionParsed == conf.EncryptionYes || p.conf.EncryptionParsed == conf.EncryptionOptional {
+			p.serverTLS, err = servertls.New(p.conf.RtspsPort, p.conf.ReadTimeout,
+				p.conf.WriteTimeout, p.conf.ServerKey, p.conf.ServerCert, p)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -209,129 +226,113 @@ func (p *program) createDynamicResources(initial bool) error {
 		p.clientMan = clientman.New(p.conf.RtspPort, p.conf.ReadTimeout,
 			p.conf.RunOnConnect, p.conf.RunOnConnectRestart,
 			p.conf.ProtocolsParsed, p.stats, p.serverUDPRtp, p.serverUDPRtcp,
-			p.pathMan, p.serverTCP, p)
+			p.pathMan, p.serverTCP, p.serverTLS, p)
 	}
 
 	return nil
 }
 
-func (p *program) closeAllResources() {
-	if p.confWatcher != nil {
-		p.confWatcher.Close()
-	}
-
-	if p.clientMan != nil {
-		p.clientMan.Close()
-	}
-
-	if p.pathMan != nil {
-		p.pathMan.Close()
-	}
-
-	if p.serverTCP != nil {
-		p.serverTCP.Close()
-	}
-
-	if p.serverUDPRtcp != nil {
-		p.serverUDPRtcp.Close()
-	}
-
-	if p.serverUDPRtp != nil {
-		p.serverUDPRtp.Close()
-	}
-
-	if p.metrics != nil {
-		p.metrics.Close()
-	}
-
-	if p.pprof != nil {
-		p.pprof.Close()
-	}
-
-	if p.logger != nil {
-		p.logger.Close()
-	}
-}
-
-func (p *program) reloadConf() error {
-	p.Log(logger.Info, "reloading configuration")
-
-	conf, _, err := conf.Load(p.confPath)
-	if err != nil {
-		return err
-	}
-
+func (p *program) closeResources(newConf *conf.Conf) {
 	closeLogger := false
-	if !reflect.DeepEqual(conf.LogDestinationsParsed, p.conf.LogDestinationsParsed) ||
-		conf.LogFile != p.conf.LogFile {
+	if newConf == nil ||
+		!reflect.DeepEqual(newConf.LogDestinationsParsed, p.conf.LogDestinationsParsed) ||
+		newConf.LogFile != p.conf.LogFile {
 		closeLogger = true
 	}
 
 	closeMetrics := false
-	if conf.Metrics != p.conf.Metrics {
+	if newConf == nil ||
+		newConf.Metrics != p.conf.Metrics {
 		closeMetrics = true
 	}
 
 	closePprof := false
-	if conf.Pprof != p.conf.Pprof {
+	if newConf == nil ||
+		newConf.Pprof != p.conf.Pprof {
 		closePprof = true
 	}
 
 	closeServerUDPRtp := false
-	if !reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
-		conf.WriteTimeout != p.conf.WriteTimeout ||
-		conf.RtpPort != p.conf.RtpPort {
+	if newConf == nil ||
+		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.RtpPort != p.conf.RtpPort {
 		closeServerUDPRtp = true
 	}
 
 	closeServerUDPRtcp := false
-	if !reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
-		conf.WriteTimeout != p.conf.WriteTimeout ||
-		conf.RtcpPort != p.conf.RtcpPort {
+	if newConf == nil ||
+		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.RtcpPort != p.conf.RtcpPort {
 		closeServerUDPRtcp = true
 	}
 
 	closeServerTCP := false
-	if conf.RtspPort != p.conf.RtspPort ||
-		conf.ReadTimeout != p.conf.ReadTimeout ||
-		conf.WriteTimeout != p.conf.WriteTimeout {
+	if newConf == nil ||
+		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.RtspPort != p.conf.RtspPort ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout {
 		closeServerTCP = true
 	}
 
+	closeServerTLS := false
+	if newConf == nil ||
+		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.RtspsPort != p.conf.RtspsPort ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout {
+		closeServerTLS = true
+	}
+
 	closePathMan := false
-	if conf.RtspPort != p.conf.RtspPort ||
-		conf.ReadTimeout != p.conf.ReadTimeout ||
-		conf.WriteTimeout != p.conf.WriteTimeout ||
-		!reflect.DeepEqual(conf.AuthMethodsParsed, p.conf.AuthMethodsParsed) {
+	if newConf == nil ||
+		newConf.RtspPort != p.conf.RtspPort ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) {
 		closePathMan = true
-	} else if !reflect.DeepEqual(conf.Paths, p.conf.Paths) {
-		p.pathMan.OnProgramConfReload(conf.Paths)
+	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.pathMan.OnProgramConfReload(newConf.Paths)
 	}
 
 	closeClientMan := false
-	if closeServerUDPRtp ||
+	if newConf == nil ||
+		closeServerUDPRtp ||
 		closeServerUDPRtcp ||
 		closeServerTCP ||
+		closeServerTLS ||
 		closePathMan ||
-		conf.RtspPort != p.conf.RtspPort ||
-		conf.ReadTimeout != p.conf.ReadTimeout ||
-		conf.RunOnConnect != p.conf.RunOnConnect ||
-		conf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
-		!reflect.DeepEqual(conf.ProtocolsParsed, p.conf.ProtocolsParsed) {
+		newConf.RtspPort != p.conf.RtspPort ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) {
 		closeClientMan = true
 	}
 
-	if closeClientMan {
+	closeStats := false
+	if newConf == nil {
+		closeStats = true
+	}
+
+	if closeClientMan && p.clientMan != nil {
 		p.clientMan.Close()
 		p.clientMan = nil
 	}
 
-	if closePathMan {
+	if closePathMan && p.pathMan != nil {
 		p.pathMan.Close()
 		p.pathMan = nil
 	}
 
-	if closeServerTCP {
+	if closeServerTLS && p.serverTLS != nil {
+		p.serverTLS.Close()
+		p.serverTLS = nil
+	}
+
+	if closeServerTCP && p.serverTCP != nil {
 		p.serverTCP.Close()
 		p.serverTCP = nil
 	}
@@ -356,13 +357,28 @@ func (p *program) reloadConf() error {
 		p.metrics = nil
 	}
 
-	if closeLogger {
+	if closeLogger && p.logger != nil {
 		p.logger.Close()
 		p.logger = nil
 	}
 
-	p.conf = conf
-	return p.createDynamicResources(false)
+	if closeStats && p.stats != nil {
+		p.stats.Close()
+	}
+}
+
+func (p *program) reloadConf() error {
+	p.Log(logger.Info, "reloading configuration")
+
+	newConf, _, err := conf.Load(p.confPath)
+	if err != nil {
+		return err
+	}
+
+	p.closeResources(newConf)
+
+	p.conf = newConf
+	return p.createResources(false)
 }
 
 func main() {
@@ -370,6 +386,5 @@ func main() {
 	if !ok {
 		os.Exit(1)
 	}
-
 	<-p.done
 }

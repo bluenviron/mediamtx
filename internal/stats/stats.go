@@ -30,3 +30,7 @@ func New() *Stats {
 		CountSourcesRtmpRunning: ptrInt64(),
 	}
 }
+
+// Close closes a stats.
+func (s *Stats) Close() {
+}

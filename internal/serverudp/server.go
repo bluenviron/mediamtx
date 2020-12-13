@@ -49,7 +49,7 @@ func (p *publisherAddr) fill(ip net.IP, port int) {
 	}
 }
 
-// Server is a RTSP UDP server.
+// Server is a UDP server that can be used to send and receive both RTP and RTCP.
 type Server struct {
 	writeTimeout time.Duration
 	streamType   gortsplib.StreamType

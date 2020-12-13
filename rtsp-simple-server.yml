@@ -1,26 +1,38 @@
 
-# sets the verbosity of the program; available values are "warn", "info", "debug"
+# sets the verbosity of the program; available values are "warn", "info", "debug".
 logLevel: info
 # destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
 # if "file" is in logDestinations, this is the file which will receive the logs.
 logFile: rtsp-simple-server.log
 
-# supported stream protocols (the handshake is always performed with TCP).
+# supported stream protocols.
+# UDP is the most performant, but can cause problems if there's a NAT between
+# server and clients, and doesn't support encryption.
+# TCP is the most versatile, and does support encryption.
+# The handshake is always performed with TCP.
 protocols: [udp, tcp]
-# port of the TCP RTSP listener.
+# encrypt handshake and TCP streams with TLS (RTSPS).
+# available values are "no", "yes", "optional".
+encryption: no
+# port of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
 rtspPort: 8554
-# port of the UDP RTP listener (used only if udp is in protocols).
+# port of the TCP/TLS/RTSPS listener. This is used only if encryption is "yes" or "optional".
+rtspsPort: 8555
+# port of the UDP/RTP listener. This is used only if "udp" is in protocols.
 rtpPort: 8000
-# port of the UDP RTCP listener (used only if udp is in protocols).
+# port of the UDP/RTCP listener. This is used only if "udp" is in protocols.
 rtcpPort: 8001
+# path to the server key. This is used only if encryption is "yes" or "optional".
+serverKey: server.key
+# path to the server certificate. This is used only if encryption is "yes" or "optional".
+serverCert: server.crt
+# authentication methods.
+authMethods: [basic, digest]
 # timeout of read operations.
 readTimeout: 10s
 # timeout of write operations.
 writeTimeout: 10s
-# supported authentication methods (both are insecure, use RTSP inside a VPN
-# to enforce security).
-authMethods: [basic, digest]
 
 # enable Prometheus-compatible metrics on port 9998.
 metrics: no

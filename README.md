@@ -12,6 +12,7 @@ Features:
 * Read and publish live streams with UDP and TCP
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MP3, AAC, Opus, PCM)
 * Serve multiple streams at once in separate paths
+* Encrypt streams with TLS (RTSPS)
 * Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
 * Authenticate readers and publishers separately
 * Redirect to other RTSP servers (load balancing)
@@ -27,10 +28,11 @@ Features:
 * [Basic usage](#basic-usage)
 * [Advanced usage and FAQs](#advanced-usage-and-faqs)
   * [Configuration](#configuration)
+  * [Encryption](#encryption)
   * [RTSP proxy mode](#rtsp-proxy-mode)
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
-  * [Generate HLS](#generate-hls)
+  * [Convert streams to HLS](#convert-streams-to-hls)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [On-demand publishing](#on-demand-publishing)
   * [Redirect to another server](#redirect-to-another-server)
@@ -104,25 +106,67 @@ docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
 
 ### Configuration
 
-To see or change the configuration, edit the `rtsp-simple-server.yml` file, that is:
+All the configuration parameters are listed and commented in the [configuration file](rtsp-simple-server.yml).
 
-* included the release bundle
-* available in the root folder of the Docker image (`/rtsp-simple-server.yml`)
-* also [available here](rtsp-simple-server.yml).
+There are two ways to change the configuration:
 
-Every configuration parameter can be overridden by environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspPort` parameter can be overridden in the following way:
+* By editing the `rtsp-simple-server.yml` file, that is
 
-```
-RTSP_RTSPPORT=8555 ./rtsp-simple-server
-```
+  * included into the release bundle
+  * available in the root folder of the Docker image (`/rtsp-simple-server.yml`)
+  * also [available here](rtsp-simple-server.yml).
 
-Parameters in maps can be overridden by using underscores, in the following way:
+* By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspPort` parameter can be overridden in the following way:
 
-```
-RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
-```
+   ```
+   RTSP_RTSPPORT=8555 ./rtsp-simple-server
+   ```
+
+   Parameters in maps can be overridden by using underscores, in the following way:
+
+   ```
+   RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
+   ```
+
+   This method is particularly useful when running rtsp-simple-server with Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
+
+   ```
+   docker run --rm -it --network=host -e RTSP_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server
+   ```
 
 The configuration can be changed dinamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
+
+### Encryption
+
+Incoming and outgoing streams can be encrypted with TLS (obtaining the RTSPS protocol). A TLS certificate must be installed on the server; if the server is installed on a machine that is publicly accessible from the internet, a certificate can be requested from a Certificate authority by using tools like [Certbot](https://certbot.eff.org/); otherwise, a self-signed certificate can be generated with openSSL:
+
+```
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+```
+
+Edit `rtsp-simple-server.yml`, and set the `protocols`, `encrypt`, `serverKey` and `serverCert` parameters:
+
+```yml
+protocols: [tcp]
+encryption: optional
+serverKey: server.key
+serverCert: server.crt
+```
+
+Streams can then be published and read with the `rtsps` scheme and the 8555 port:
+
+```
+ffmpeg -i rtsps://...
+```
+
+If the client is _GStreamer_ and the server certificate is self signed, remember to disable the certificate validation:
+
+```
+gst-launch-1.0 rtspsrc location=rtsps://... tls-validation-flags=0
+```
+
+If the client is _VLC_, encryption can't be deployed, since _VLC_ doesn't support it.
 
 ### RTSP proxy mode
 
@@ -210,9 +254,9 @@ paths:
 
 After starting the server, the webcam is available on `rtsp://localhost:8554/cam`.
 
-### Generate HLS
+### Convert streams to HLS
 
-Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+HLS is a media format that allows live streams be embedded in web pages, inside standard `<video>` HTML tags. To generate HLS whenever someone publishes a stream, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:
@@ -221,9 +265,9 @@ paths:
     runOnPublishRestart: yes
 ```
 
-Every time someone publishes a stream, the server will produce HLS segments, that can be served by a web server.
+The resulting files (`stream.m3u8` and a lot of `.ts` segments) can be served by a web server.
 
-The example above makes the assumption that the incoming stream is encoded with H264 and AAC, since they are the only codecs supported by HLS; if the incoming stream is encoded with different codecs, it must be converted:
+The example above makes the assumption that published streams are encoded with H264 and AAC, since they are the only codecs supported by HLS; if streams make use of different codecs, they must be converted:
 
 ```yml
 paths:
@@ -307,7 +351,7 @@ paths:
     readPass: userpassword
 ```
 
-WARNING: RTSP is a plain protocol, and the credentials can be intercepted and read by malicious users (even if hashed, since the only supported hash method is md5, which is broken). If you need a secure channel, use RTSP inside a VPN.
+**WARNING**: enable encryption or use a VPN to ensure that no one is intercepting and reading the credentials.
 
 ### Start on boot with systemd
 

@@ -128,6 +128,7 @@ type Client struct {
 
 // New allocates a Client.
 func New(
+	isTLS bool,
 	rtspPort int,
 	readTimeout time.Duration,
 	runOnConnect string,
@@ -159,7 +160,12 @@ func New(
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
-	c.log(logger.Info, "connected")
+	c.log(logger.Info, "connected (%s)", func() string {
+		if isTLS {
+			return "encrypted"
+		}
+		return "plain"
+	}())
 
 	c.wg.Add(1)
 	go c.run()
@@ -811,7 +817,7 @@ func (c *Client) run() {
 	select {
 	case err := <-readDone:
 		c.conn.Close()
-		if err != io.EOF && err != errTerminated {
+		if err != io.EOF && err != gortsplib.ErrServerTeardown && err != errTerminated {
 			c.log(logger.Info, "ERR: %s", err)
 		}
 

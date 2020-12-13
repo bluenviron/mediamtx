@@ -1,6 +1,7 @@
-package servertcp
+package servertls
 
 import (
+	"crypto/tls"
 	"strconv"
 	"time"
 
@@ -14,7 +15,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Server is a TCP/RTSP listener.
+// Server is a TCP/TLS/RTSPS listener.
 type Server struct {
 	parent Parent
 
@@ -29,9 +30,17 @@ type Server struct {
 func New(port int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	serverKey string,
+	serverCert string,
 	parent Parent) (*Server, error) {
 
+	cert, err := tls.LoadX509KeyPair(serverCert, serverKey)
+	if err != nil {
+		return nil, err
+	}
+
 	conf := gortsplib.ServerConf{
+		TLSConfig:       &tls.Config{Certificates: []tls.Certificate{cert}},
 		ReadTimeout:     readTimeout,
 		WriteTimeout:    writeTimeout,
 		ReadBufferCount: 1,
@@ -49,7 +58,7 @@ func New(port int,
 		done:   make(chan struct{}),
 	}
 
-	parent.Log(logger.Info, "[TCP/RTSP server] opened on :%d", port)
+	parent.Log(logger.Info, "[TCP/TLS/RTSPS server] opened on :%d", port)
 
 	go s.run()
 	return s, nil

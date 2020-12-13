@@ -11,6 +11,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/servertcp"
+	"github.com/aler9/rtsp-simple-server/internal/servertls"
 	"github.com/aler9/rtsp-simple-server/internal/serverudp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
@@ -32,6 +33,7 @@ type ClientManager struct {
 	serverUDPRtcp       *serverudp.Server
 	pathMan             *pathman.PathManager
 	serverTCP           *servertcp.Server
+	serverTLS           *servertls.Server
 	parent              Parent
 
 	clients map[*client.Client]struct{}
@@ -57,6 +59,7 @@ func New(
 	serverUDPRtcp *serverudp.Server,
 	pathMan *pathman.PathManager,
 	serverTCP *servertcp.Server,
+	serverTLS *servertls.Server,
 	parent Parent) *ClientManager {
 
 	cm := &ClientManager{
@@ -70,6 +73,7 @@ func New(
 		serverUDPRtcp:       serverUDPRtcp,
 		pathMan:             pathMan,
 		serverTCP:           serverTCP,
+		serverTLS:           serverTLS,
 		parent:              parent,
 		clients:             make(map[*client.Client]struct{}),
 		clientClose:         make(chan *client.Client),
@@ -95,11 +99,31 @@ func (cm *ClientManager) Log(level logger.Level, format string, args ...interfac
 func (cm *ClientManager) run() {
 	defer close(cm.done)
 
+	tcpAccept := func() chan *gortsplib.ServerConn {
+		if cm.serverTCP != nil {
+			return cm.serverTCP.Accept()
+		}
+		return make(chan *gortsplib.ServerConn)
+	}()
+
+	tlsAccept := func() chan *gortsplib.ServerConn {
+		if cm.serverTLS != nil {
+			return cm.serverTLS.Accept()
+		}
+		return make(chan *gortsplib.ServerConn)
+	}()
+
 outer:
 	for {
 		select {
-		case conn := <-cm.serverTCP.Accept():
-			c := client.New(cm.rtspPort, cm.readTimeout,
+		case conn := <-tcpAccept:
+			c := client.New(false, cm.rtspPort, cm.readTimeout,
+				cm.runOnConnect, cm.runOnConnectRestart, cm.protocols, &cm.wg,
+				cm.stats, cm.serverUDPRtp, cm.serverUDPRtcp, conn, cm)
+			cm.clients[c] = struct{}{}
+
+		case conn := <-tlsAccept:
+			c := client.New(true, cm.rtspPort, cm.readTimeout,
 				cm.runOnConnect, cm.runOnConnectRestart, cm.protocols, &cm.wg,
 				cm.stats, cm.serverUDPRtp, cm.serverUDPRtcp, conn, cm)
 			cm.clients[c] = struct{}{}

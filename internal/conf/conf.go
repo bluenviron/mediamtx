@@ -13,6 +13,16 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+// Encryption is an encryption policy.
+type Encryption int
+
+// encryption policies.
+const (
+	EncryptionNo Encryption = iota
+	EncryptionOptional
+	EncryptionYes
+)
+
 // Conf is the main program configuration.
 type Conf struct {
 	LogLevel              string                                `yaml:"logLevel"`
@@ -22,26 +32,34 @@ type Conf struct {
 	LogFile               string                                `yaml:"logFile"`
 	Protocols             []string                              `yaml:"protocols"`
 	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
+	Encryption            string                                `yaml:"encryption"`
+	EncryptionParsed      Encryption                            `yaml:"-" json:"-"`
 	RtspPort              int                                   `yaml:"rtspPort"`
+	RtspsPort             int                                   `yaml:"rtspsPort"`
 	RtpPort               int                                   `yaml:"rtpPort"`
 	RtcpPort              int                                   `yaml:"rtcpPort"`
-	RunOnConnect          string                                `yaml:"runOnConnect"`
-	RunOnConnectRestart   bool                                  `yaml:"runOnConnectRestart"`
-	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
-	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
+	ServerKey             string                                `yaml:"serverKey"`
+	ServerCert            string                                `yaml:"serverCert"`
 	AuthMethods           []string                              `yaml:"authMethods"`
 	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-" json:"-"`
+	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
+	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
+	RunOnConnect          string                                `yaml:"runOnConnect"`
+	RunOnConnectRestart   bool                                  `yaml:"runOnConnectRestart"`
 	Paths                 map[string]*PathConf                  `yaml:"paths"`
 }
 
 func (conf *Conf) fillAndCheck() error {
+	if conf.LogLevel == "" {
+		conf.LogLevel = "info"
+	}
 	switch conf.LogLevel {
 	case "warn":
 		conf.LogLevelParsed = logger.Warn
 
-	case "", "info":
+	case "info":
 		conf.LogLevelParsed = logger.Info
 
 	case "debug":
@@ -54,7 +72,6 @@ func (conf *Conf) fillAndCheck() error {
 	if len(conf.LogDestinations) == 0 {
 		conf.LogDestinations = []string{"stdout"}
 	}
-
 	conf.LogDestinationsParsed = make(map[logger.Destination]struct{})
 	for _, dest := range conf.LogDestinations {
 		switch dest {
@@ -96,8 +113,32 @@ func (conf *Conf) fillAndCheck() error {
 		return fmt.Errorf("no protocols provided")
 	}
 
+	if conf.Encryption == "" {
+		conf.Encryption = "no"
+	}
+	switch conf.Encryption {
+	case "no":
+		conf.EncryptionParsed = EncryptionNo
+
+	case "optional":
+		conf.EncryptionParsed = EncryptionOptional
+
+	case "yes":
+		conf.EncryptionParsed = EncryptionYes
+
+		if _, ok := conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
+			return fmt.Errorf("encryption can't be used with the UDP stream protocol")
+		}
+
+	default:
+		return fmt.Errorf("unsupported encryption value: '%s'", conf.Encryption)
+	}
+
 	if conf.RtspPort == 0 {
 		conf.RtspPort = 8554
+	}
+	if conf.RtspsPort == 0 {
+		conf.RtspsPort = 8555
 	}
 	if conf.RtpPort == 0 {
 		conf.RtpPort = 8000
@@ -112,11 +153,11 @@ func (conf *Conf) fillAndCheck() error {
 		return fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
 
-	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 10 * time.Second
+	if conf.ServerKey == "" {
+		conf.ServerKey = "server.key"
 	}
-	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 10 * time.Second
+	if conf.ServerCert == "" {
+		conf.ServerCert = "server.crt"
 	}
 
 	if len(conf.AuthMethods) == 0 {
@@ -133,6 +174,13 @@ func (conf *Conf) fillAndCheck() error {
 		default:
 			return fmt.Errorf("unsupported authentication method: %s", method)
 		}
+	}
+
+	if conf.ReadTimeout == 0 {
+		conf.ReadTimeout = 10 * time.Second
+	}
+	if conf.WriteTimeout == 0 {
+		conf.WriteTimeout = 10 * time.Second
 	}
 
 	if len(conf.Paths) == 0 {
