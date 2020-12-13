@@ -28,6 +28,7 @@ const (
 	checkStreamInterval    = 5 * time.Second
 	receiverReportInterval = 10 * time.Second
 	sessionID              = "12345678"
+	pauseAfterAuthError    = 2 * time.Second
 )
 
 type streamTrack struct {
@@ -234,6 +235,14 @@ func (c *Client) run() {
 				return terr.Response, nil
 
 			case errAuthCritical:
+				// wait some seconds to stop brute force attacks
+				t := time.NewTimer(pauseAfterAuthError)
+				defer t.Stop()
+				select {
+				case <-t.C:
+				case <-c.terminate:
+				}
+
 				return terr.Response, errTerminated
 
 			default:
@@ -317,6 +326,14 @@ func (c *Client) run() {
 				return terr.Response, nil
 
 			case errAuthCritical:
+				// wait some seconds to stop brute force attacks
+				t := time.NewTimer(pauseAfterAuthError)
+				defer t.Stop()
+				select {
+				case <-t.C:
+				case <-c.terminate:
+				}
+
 				return terr.Response, errTerminated
 
 			default:
@@ -415,6 +432,14 @@ func (c *Client) run() {
 						return terr.Response, nil
 
 					case errAuthCritical:
+						// wait some seconds to stop brute force attacks
+						t := time.NewTimer(pauseAfterAuthError)
+						defer t.Stop()
+						select {
+						case <-t.C:
+						case <-c.terminate:
+						}
+
 						return terr.Response, errTerminated
 
 					default:
@@ -473,6 +498,14 @@ func (c *Client) run() {
 					return terr.Response, nil
 
 				case errAuthCritical:
+					// wait some seconds to stop brute force attacks
+					t := time.NewTimer(pauseAfterAuthError)
+					defer t.Stop()
+					select {
+					case <-t.C:
+					case <-c.terminate:
+					}
+
 					return terr.Response, errTerminated
 
 				default:
