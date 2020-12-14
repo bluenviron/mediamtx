@@ -699,6 +699,68 @@ func TestSourceRtsp(t *testing.T) {
 	}
 }
 
+func TestSourceRtsps(t *testing.T) {
+	serverCertFpath, err := writeTempFile(serverCert)
+	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
+
+	serverKeyFpath, err := writeTempFile(serverKey)
+	require.NoError(t, err)
+	defer os.Remove(serverKeyFpath)
+
+	p, ok := testProgram("readTimeout: 20s\n" +
+		"protocols: [tcp]\n" +
+		"encryption: yes\n" +
+		"serverCert: " + serverCertFpath + "\n" +
+		"serverKey: " + serverKeyFpath + "\n" +
+		"paths:\n" +
+		"  all:\n" +
+		"    readUser: testuser\n" +
+		"    readPass: testpass\n")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"rtsps://" + ownDockerIP + ":8555/teststream",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	time.Sleep(1 * time.Second)
+
+	p2, ok := testProgram("rtspPort: 8556\n" +
+		"rtpPort: 8100\n" +
+		"rtcpPort: 8101\n" +
+		"\n" +
+		"paths:\n" +
+		"  proxied:\n" +
+		"    source: rtsps://testuser:testpass@localhost:8555/teststream\n" +
+		"    sourceOnDemand: yes\n")
+	require.Equal(t, true, ok)
+	defer p2.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt2, err := newContainer("ffmpeg", "dest", []string{
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://" + ownDockerIP + ":8556/proxied",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	require.Equal(t, 0, cnt2.wait())
+}
+
 func TestSourceRtmp(t *testing.T) {
 	cnt1, err := newContainer("nginx-rtmp", "rtmpserver", []string{})
 	require.NoError(t, err)

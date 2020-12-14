@@ -475,11 +475,13 @@ func (pa *Path) exhaustChannels() {
 
 func (pa *Path) hasExternalSource() bool {
 	return strings.HasPrefix(pa.conf.Source, "rtsp://") ||
+		strings.HasPrefix(pa.conf.Source, "rtsps://") ||
 		strings.HasPrefix(pa.conf.Source, "rtmp://")
 }
 
 func (pa *Path) startExternalSource() {
-	if strings.HasPrefix(pa.conf.Source, "rtsp://") {
+	if strings.HasPrefix(pa.conf.Source, "rtsp://") ||
+		strings.HasPrefix(pa.conf.Source, "rtsps://") {
 		pa.source = sourcertsp.New(pa.conf.Source, pa.conf.SourceProtocolParsed,
 			pa.readTimeout, pa.writeTimeout, &pa.sourceWg, pa.stats, pa)
 

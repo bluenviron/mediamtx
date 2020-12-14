@@ -74,14 +74,15 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 	if pconf.Source == "record" {
 
-	} else if strings.HasPrefix(pconf.Source, "rtsp://") {
+	} else if strings.HasPrefix(pconf.Source, "rtsp://") ||
+		strings.HasPrefix(pconf.Source, "rtsps://") {
 		if pconf.Regexp != nil {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 		}
 
 		u, err := base.ParseURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -119,10 +120,10 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		u, err := url.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid rtmp url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid RTMP url", pconf.Source)
 		}
 		if u.Scheme != "rtmp" {
-			return fmt.Errorf("'%s' is not a valid rtmp url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid RTMP url", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -141,7 +142,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		_, err := base.ParseURL(pconf.SourceRedirect)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.SourceRedirect)
+			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.SourceRedirect)
 		}
 
 	} else {
@@ -159,7 +160,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	if pconf.Fallback != "" {
 		_, err := base.ParseURL(pconf.Fallback)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid rtsp url", pconf.Fallback)
+			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.Fallback)
 		}
 	}
 

@@ -57,6 +57,7 @@ paths:
     # source of the stream - this can be:
     # * record -> the stream is provided by a RTSP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
+    # * rtsps://existing-url -> the stream is pulled from another RTSP server
     # * rtmp://existing-url -> the stream is pulled from a RTMP server
     # * redirect -> the stream is provided by another path or server
     source: record

@@ -157,13 +157,13 @@ serverCert: server.crt
 Streams can then be published and read with the `rtsps` scheme and the 8555 port:
 
 ```
-ffmpeg -i rtsps://...
+ffmpeg -i rtsps://ip:8555/...
 ```
 
 If the client is _GStreamer_ and the server certificate is self signed, remember to disable the certificate validation:
 
 ```
-gst-launch-1.0 rtspsrc location=rtsps://... tls-validation-flags=0
+gst-launch-1.0 rtspsrc location=rtsps://ip:8555/... tls-validation-flags=0
 ```
 
 If the client is _VLC_, encryption can't be deployed, since _VLC_ doesn't support it.
@@ -256,7 +256,7 @@ After starting the server, the webcam is available on `rtsp://localhost:8554/cam
 
 ### Convert streams to HLS
 
-HLS is a media format that allows live streams be embedded in web pages, inside standard `<video>` HTML tags. To generate HLS whenever someone publishes a stream, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+HLS is a media format that allows to embed live streams into web pages, inside standard `<video>` HTML tags. To generate HLS whenever someone publishes a stream, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:
