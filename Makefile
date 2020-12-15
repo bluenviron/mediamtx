@@ -124,7 +124,7 @@ export DOCKERFILE_RELEASE
 
 release:
 	echo "$$DOCKERFILE_RELEASE" | docker build . -f - -t temp \
-	&& docker run --rm -it -v $(PWD):/out \
+	&& docker run --rm -v $(PWD):/out \
 	temp sh -c "rm -rf /out/release && cp -r /s/release /out/"
 
 release-nodocker:
@@ -175,6 +175,8 @@ export DOCKERFILE_DOCKERHUB
 dockerhub:
 	$(eval export DOCKER_CLI_EXPERIMENTAL=enabled)
 	$(eval VERSION := $(shell git describe --tags))
+
+	docker login -u $(DOCKER_USER) -p $(DOCKER_PASSWORD)
 
 	docker buildx rm builder 2>/dev/null || true
 	rm -rf $$HOME/.docker/manifests/*

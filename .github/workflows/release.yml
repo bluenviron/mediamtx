@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  github:
+    name: github
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: make release
+
+    - uses: actions/create-release@v1
+      id: create_release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: ${{ github.ref }}
+
+    - uses: actions/github-script@v2
+      env:
+        RELEASE_ID: ${{ steps.create_release.outputs.id }}
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs').promises;
+          const { repo: { owner, repo } } = context;
+
+          for (let file of await fs.readdir('./release/')) {
+            await github.repos.uploadReleaseAsset({
+              owner,
+              repo,
+              release_id: process.env.RELEASE_ID,
+              name: file,
+              data: await fs.readFile(`./release/${file}`)
+            });
+          }
+
+  dockerhub:
+    name: dockerhub
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: make dockerhub
+      env:
+        DOCKER_USER: ${{ secrets.DOCKER_USER }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
