@@ -113,8 +113,6 @@ type Client struct {
 	streamTracks      map[int]*streamTrack
 	rtcpReceivers     map[int]*rtcpreceiver.RtcpReceiver
 	udpLastFrameTimes []*int64
-	writeFrameEnable  bool
-	writeFrameMutex   sync.Mutex
 	onReadCmd         *externalcmd.Cmd
 	onPublishCmd      *externalcmd.Cmd
 
@@ -775,10 +773,17 @@ func (c *Client) run() {
 
 		switch c.state {
 		case statePlay:
+			if c.streamProtocol == gortsplib.StreamProtocolTCP {
+				c.conn.EnableFrames(false)
+			}
 			c.stopPlay()
 			c.state = statePrePlay
 
 		case stateRecord:
+			if c.streamProtocol == gortsplib.StreamProtocolTCP {
+				c.conn.EnableFrames(false)
+				c.conn.EnableReadTimeout(false)
+			}
 			c.stopRecord()
 			c.state = statePreRecord
 		}
@@ -951,10 +956,6 @@ func (c *Client) checkState(allowed map[state]struct{}) error {
 }
 
 func (c *Client) startPlay() {
-	if c.streamProtocol == gortsplib.StreamProtocolTCP {
-		c.writeFrameEnable = true
-	}
-
 	c.state = statePlay
 	c.path.OnClientPlay(c)
 
@@ -973,25 +974,11 @@ func (c *Client) startPlay() {
 	}
 
 	if c.streamProtocol == gortsplib.StreamProtocolTCP {
-		c.writeFrameMutex.Lock()
-		c.writeFrameEnable = true
-		c.writeFrameMutex.Unlock()
-
-		c.conn.EnableReadFrames(true)
-		c.conn.EnableReadTimeout(false)
+		c.conn.EnableFrames(true)
 	}
 }
 
 func (c *Client) stopPlay() {
-	if c.streamProtocol == gortsplib.StreamProtocolTCP {
-		c.conn.EnableReadFrames(false)
-		c.conn.EnableReadTimeout(false)
-
-		c.writeFrameMutex.Lock()
-		c.writeFrameEnable = false
-		c.writeFrameMutex.Unlock()
-	}
-
 	if c.path.Conf().RunOnRead != "" {
 		c.onReadCmd.Close()
 	}
@@ -1053,7 +1040,7 @@ func (c *Client) startRecord() {
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
 		go c.backgroundRecordUDP()
 	} else {
-		c.conn.EnableReadFrames(true)
+		c.conn.EnableFrames(true)
 		c.conn.EnableReadTimeout(true)
 		go c.backgroundRecordTCP()
 	}
@@ -1068,10 +1055,6 @@ func (c *Client) stopRecord() {
 			c.serverUDPRtp.RemovePublisher(c.ip(), track.rtpPort, c)
 			c.serverUDPRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
 		}
-
-	} else {
-		c.conn.EnableReadFrames(false)
-		c.conn.EnableReadTimeout(false)
 	}
 
 	if c.path.Conf().RunOnPublish != "" {
@@ -1173,11 +1156,7 @@ func (c *Client) OnReaderFrame(trackID int, streamType base.StreamType, buf []by
 		}
 
 	} else {
-		c.writeFrameMutex.Lock()
-		if c.writeFrameEnable {
-			c.conn.WriteFrame(trackID, streamType, buf)
-		}
-		c.writeFrameMutex.Unlock()
+		c.conn.WriteFrame(trackID, streamType, buf)
 	}
 }
 
