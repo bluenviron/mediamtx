@@ -462,7 +462,7 @@ func (c *Client) run() {
 					rtcpPort: (*th.ClientPorts)[1],
 				}
 
-				th := &headers.Transport{
+				th := headers.Transport{
 					Protocol: gortsplib.StreamProtocolUDP,
 					Delivery: func() *base.StreamDelivery {
 						v := base.StreamDeliveryUnicast
@@ -530,7 +530,7 @@ func (c *Client) run() {
 
 			interleavedIds := [2]int{trackID * 2, (trackID * 2) + 1}
 
-			th := &headers.Transport{
+			th := headers.Transport{
 				Protocol:       gortsplib.StreamProtocolTCP,
 				InterleavedIds: &interleavedIds,
 			}
@@ -591,7 +591,7 @@ func (c *Client) run() {
 					rtcpPort: (*th.ClientPorts)[1],
 				}
 
-				th := &headers.Transport{
+				th := headers.Transport{
 					Protocol: gortsplib.StreamProtocolUDP,
 					Delivery: func() *base.StreamDelivery {
 						v := base.StreamDeliveryUnicast
@@ -650,7 +650,7 @@ func (c *Client) run() {
 				rtcpPort: 0,
 			}
 
-			ht := &headers.Transport{
+			ht := headers.Transport{
 				Protocol:       gortsplib.StreamProtocolTCP,
 				InterleavedIds: &interleavedIds,
 			}
