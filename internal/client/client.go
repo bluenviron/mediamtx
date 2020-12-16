@@ -778,6 +778,7 @@ func (c *Client) run() {
 			}
 			c.stopPlay()
 			c.state = statePrePlay
+			c.path.OnClientPause(c)
 
 		case stateRecord:
 			if c.streamProtocol == gortsplib.StreamProtocolTCP {
@@ -786,6 +787,7 @@ func (c *Client) run() {
 			}
 			c.stopRecord()
 			c.state = statePreRecord
+			c.path.OnClientPause(c)
 		}
 
 		return &base.Response{
