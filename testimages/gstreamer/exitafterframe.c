@@ -1,6 +1,5 @@
 
 #include <gst/gst.h>
-#include <gst/video/video.h>
 
 GType gst_exitafterframe_get_type ();
 
@@ -68,8 +67,6 @@ static void
 gst_exitafterframe_init (GstExitAfterFrame* filter)
 {
   GstElement* element = GST_ELEMENT(filter);
-
-  g_print("[lasermqtt] init()\n");
 
   filter->sinkpad = gst_pad_new_from_static_template(&sink_factory, "sink");
   gst_pad_set_chain_function(filter->sinkpad, gst_exitafterframe_chain);
