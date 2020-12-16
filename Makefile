@@ -61,7 +61,7 @@ lint:
 
 stress:
 	docker build -q . -f stress/$(NAME)/Dockerfile -t temp
-	docker run --rm -it --network=host temp
+	docker run --rm -it -p 9999:9999 temp
 
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)
