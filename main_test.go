@@ -386,6 +386,8 @@ func TestPublishRead(t *testing.T) {
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
+
+				time.Sleep(1 * time.Second)
 			}
 
 			time.Sleep(1 * time.Second)

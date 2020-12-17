@@ -1,5 +1,5 @@
 ######################################
-FROM ubuntu:20.04 AS exitafterframe
+FROM ubuntu:20.04 AS build
 
 RUN apt update && apt install -y --no-install-recommends \
     pkg-config \
@@ -36,7 +36,7 @@ RUN apt update && apt install -y --no-install-recommends \
     gstreamer1.0-libav \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=exitafterframe /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libexitafterframe.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
+COPY --from=build /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libexitafterframe.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
 COPY emptyvideo.ts /
 
