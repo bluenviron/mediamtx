@@ -114,7 +114,6 @@ There are two ways to change the configuration:
 
   * included into the release bundle
   * available in the root folder of the Docker image (`/rtsp-simple-server.yml`)
-  * also [available here](rtsp-simple-server.yml).
 
 * By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspPort` parameter can be overridden in the following way:
 
@@ -154,7 +153,7 @@ serverKey: server.key
 serverCert: server.crt
 ```
 
-Streams can then be published and read with the `rtsps` scheme and the 8555 port:
+Streams can then be published and read with the `rtsps` scheme and the `8555` port:
 
 ```
 ffmpeg -i rtsps://ip:8555/...
