@@ -380,7 +380,7 @@ func TestPublishRead(t *testing.T) {
 
 			case "gstreamer":
 				cnt1, err := newContainer("gstreamer", "source", []string{
-					"filesrc location=emptyvideo.ts ! tsdemux ! queue ! video/x-h264 ! h264parse config-interval=1 ! rtspclientsink " +
+					"filesrc location=emptyvideo.ts ! tsdemux ! video/x-h264 ! rtspclientsink " +
 						"location=" + proto + "://" + ownDockerIP + ":" + port + "/teststream " +
 						"protocols=" + conf.publisherProto + " tls-validation-flags=0 latency=0 timeout=0 rtx-time=0",
 				})
