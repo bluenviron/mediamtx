@@ -117,13 +117,13 @@ func (conf *Conf) fillAndCheck() error {
 		conf.Encryption = "no"
 	}
 	switch conf.Encryption {
-	case "no":
+	case "no", "false":
 		conf.EncryptionParsed = EncryptionNo
 
 	case "optional":
 		conf.EncryptionParsed = EncryptionOptional
 
-	case "yes":
+	case "yes", "true":
 		conf.EncryptionParsed = EncryptionYes
 
 		if _, ok := conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
