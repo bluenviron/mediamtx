@@ -67,7 +67,7 @@ func newProgram(args []string) (*program, bool) {
 	var err error
 	p.conf, p.confFound, err = conf.Load(p.confPath)
 	if err != nil {
-		p.Log(logger.Info, "ERR: %s", err)
+		fmt.Printf("ERR: %s\n", err)
 		return nil, false
 	}
 
