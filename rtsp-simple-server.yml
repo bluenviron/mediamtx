@@ -13,19 +13,19 @@ logFile: rtsp-simple-server.log
 # The handshake is always performed with TCP.
 protocols: [udp, tcp]
 # encrypt handshake and TCP streams with TLS (RTSPS).
-# available values are "no", "yes", "optional".
+# available values are "no", "strict", "optional".
 encryption: no
 # port of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
 rtspPort: 8554
-# port of the TCP/TLS/RTSPS listener. This is used only if encryption is "yes" or "optional".
+# port of the TCP/TLS/RTSPS listener. This is used only if encryption is "strict" or "optional".
 rtspsPort: 8555
 # port of the UDP/RTP listener. This is used only if "udp" is in protocols.
 rtpPort: 8000
 # port of the UDP/RTCP listener. This is used only if "udp" is in protocols.
 rtcpPort: 8001
-# path to the server key. This is used only if encryption is "yes" or "optional".
+# path to the server key. This is used only if encryption is "strict" or "optional".
 serverKey: server.key
-# path to the server certificate. This is used only if encryption is "yes" or "optional".
+# path to the server certificate. This is used only if encryption is "strict" or "optional".
 serverCert: server.crt
 # authentication methods.
 authMethods: [basic, digest]

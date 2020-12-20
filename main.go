@@ -207,7 +207,7 @@ func (p *program) createResources(initial bool) error {
 	}
 
 	if p.serverTLS == nil {
-		if p.conf.EncryptionParsed == conf.EncryptionYes || p.conf.EncryptionParsed == conf.EncryptionOptional {
+		if p.conf.EncryptionParsed == conf.EncryptionStrict || p.conf.EncryptionParsed == conf.EncryptionOptional {
 			p.serverTLS, err = servertls.New(p.conf.RtspsPort, p.conf.ReadTimeout,
 				p.conf.WriteTimeout, p.conf.ServerKey, p.conf.ServerCert, p)
 			if err != nil {

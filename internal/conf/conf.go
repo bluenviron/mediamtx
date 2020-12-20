@@ -20,7 +20,7 @@ type Encryption int
 const (
 	EncryptionNo Encryption = iota
 	EncryptionOptional
-	EncryptionYes
+	EncryptionStrict
 )
 
 // Conf is the main program configuration.
@@ -123,8 +123,8 @@ func (conf *Conf) fillAndCheck() error {
 	case "optional":
 		conf.EncryptionParsed = EncryptionOptional
 
-	case "yes", "true":
-		conf.EncryptionParsed = EncryptionYes
+	case "strict", "yes", "true":
+		conf.EncryptionParsed = EncryptionStrict
 
 		if _, ok := conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
 			return fmt.Errorf("encryption can't be used with the UDP stream protocol")
