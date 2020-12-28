@@ -354,7 +354,9 @@ paths:
 
 ### Start on boot with systemd
 
-Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
+Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.  You have two choices:  install a release bundle or build and install yourself.
+
+#### Release Bundle
 
 Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), unzip it, and move the executable and configuration in the system:
 
@@ -368,9 +370,15 @@ Create the service:
 ```
 sudo tee /etc/systemd/system/rtsp-simple-server.service >/dev/null << EOF
 [Unit]
+Description=Simple RTSP Server/Proxy
 After=network.target
+
 [Service]
+Type=notify
 ExecStart=/usr/local/bin/rtsp-simple-server /usr/local/etc/rtsp-simple-server.yml
+WatchdogSec=30s
+Restart=on-failure
+
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -382,6 +390,17 @@ Enable and start the service:
 sudo systemctl enable rtsp-simple-server
 sudo systemctl start rtsp-simple-server
 ```
+#### Build from Scratch
+
+You must have golang installed and able to build.  Make targets have been provided:
+
+```
+make build
+make install
+make enable
+make start
+```
+
 
 ### Monitoring
 

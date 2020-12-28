@@ -1,0 +1,12 @@
+[Unit]
+Description=Simple RTSP Server/Proxy
+After=network.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/bin/rtsp-simple-server /usr/local/etc/rtsp-simple-server.yml
+WatchdogSec=30s
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

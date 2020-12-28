@@ -216,3 +216,21 @@ dockerhub:
 
 	docker buildx rm builder
 	rm -rf $$HOME/.docker/manifests/*
+
+build:
+	go build
+
+clean:
+	-rm rtsp-simple-server
+	-rm *~
+
+install: build
+	-sudo cp ./rtsp-simple-server.service /etc/systemd/system/
+	-sudo cp ./rtsp-simple-server /usr/local/bin/rtsp-simple-server
+	-sudo cp ./rtsp-simple-server.yml /usr/local/etc/
+
+enable:
+	sudo systemctl enable rtsp-simple-server
+
+start:
+	sudo systemctl start rtsp-simple-server
