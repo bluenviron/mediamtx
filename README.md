@@ -196,7 +196,7 @@ paths:
     readPass: userpass
 ```
 
-If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed values; a value must be converted into sha256:
+If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed strings; a string must be hashed with sha256 and encoded with base64:
 
 ```
 echo -n "userpass" | openssl dgst -binary -sha256 | openssl base64
@@ -211,7 +211,7 @@ paths:
     readPass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
 ```
 
-**WARNING**: enable encryption or use a VPN to ensure that no one is intercepting and reading the credentials.
+**WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials.
 
 ### RTSP proxy mode
 

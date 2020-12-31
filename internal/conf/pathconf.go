@@ -164,28 +164,47 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		}
 	}
 
+	if (pconf.PublishUser != "" && pconf.PublishPass == "") || (pconf.PublishUser == "" && pconf.PublishPass != "") {
+		return fmt.Errorf("read username and password must be both filled")
+	}
 	if pconf.PublishUser != "" {
+		if pconf.Source != "record" {
+			return fmt.Errorf("'publishUser' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		}
+
 		if !strings.HasPrefix(pconf.PublishUser, "sha256:") && !reUserPass.MatchString(pconf.PublishUser) {
 			return fmt.Errorf("publish username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 	if pconf.PublishPass != "" {
+		if pconf.Source != "record" {
+			return fmt.Errorf("'publishPass' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		}
+
 		if !strings.HasPrefix(pconf.PublishPass, "sha256:") && !reUserPass.MatchString(pconf.PublishPass) {
 			return fmt.Errorf("publish password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-	if len(pconf.PublishIps) > 0 {
-		var err error
-		pconf.PublishIpsParsed, err = parseIPCidrList(pconf.PublishIps)
-		if err != nil {
-			return err
-		}
-	} else {
-		// the configuration file doesn't use nil dicts - avoid test fails by using nil
+	if len(pconf.PublishIps) == 0 {
 		pconf.PublishIps = nil
 	}
+	var err error
+	pconf.PublishIpsParsed, err = func() ([]interface{}, error) {
+		if len(pconf.PublishIps) == 0 {
+			return nil, nil
+		}
 
-	if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
+		if pconf.Source != "record" {
+			return nil, fmt.Errorf("'publishIps' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		}
+
+		return parseIPCidrList(pconf.PublishIps)
+	}()
+	if err != nil {
+		return err
+	}
+
+	if (pconf.ReadUser != "" && pconf.ReadPass == "") || (pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 	if pconf.ReadUser != "" {
@@ -198,18 +217,14 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("read password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-	if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
-		return fmt.Errorf("read username and password must be both filled")
-	}
-	if len(pconf.ReadIps) > 0 {
-		var err error
-		pconf.ReadIpsParsed, err = parseIPCidrList(pconf.ReadIps)
-		if err != nil {
-			return err
-		}
-	} else {
-		// the configuration file doesn't use nil dicts - avoid test fails by using nil
+	if len(pconf.ReadIps) == 0 {
 		pconf.ReadIps = nil
+	}
+	pconf.ReadIpsParsed, err = func() ([]interface{}, error) {
+		return parseIPCidrList(pconf.ReadIps)
+	}()
+	if err != nil {
+		return err
 	}
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
@@ -217,7 +232,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 
 	if pconf.RunOnPublish != "" && pconf.Source != "record" {
-		return fmt.Errorf("'runOnPublish' is useless when source is not 'record', since the stream is not provided by a publisher, but by another source")
+		return fmt.Errorf("'runOnPublish' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
 	}
 
 	if pconf.RunOnDemandStartTimeout == 0 {
