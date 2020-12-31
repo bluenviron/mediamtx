@@ -165,17 +165,15 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 
 	if pconf.PublishUser != "" {
-		if !reUserPass.MatchString(pconf.PublishUser) {
+		if !strings.HasPrefix(pconf.PublishUser, "sha256:") && !reUserPass.MatchString(pconf.PublishUser) {
 			return fmt.Errorf("publish username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-
 	if pconf.PublishPass != "" {
-		if !reUserPass.MatchString(pconf.PublishPass) {
+		if !strings.HasPrefix(pconf.PublishPass, "sha256:") && !reUserPass.MatchString(pconf.PublishPass) {
 			return fmt.Errorf("publish password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-
 	if len(pconf.PublishIps) > 0 {
 		var err error
 		pconf.PublishIpsParsed, err = parseIPCidrList(pconf.PublishIps)
@@ -191,19 +189,18 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 	if pconf.ReadUser != "" {
-		if !reUserPass.MatchString(pconf.ReadUser) {
+		if !strings.HasPrefix(pconf.ReadUser, "sha256:") && !reUserPass.MatchString(pconf.ReadUser) {
 			return fmt.Errorf("read username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 	if pconf.ReadPass != "" {
-		if !reUserPass.MatchString(pconf.ReadPass) {
+		if !strings.HasPrefix(pconf.ReadPass, "sha256:") && !reUserPass.MatchString(pconf.ReadPass) {
 			return fmt.Errorf("read password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
 	if pconf.ReadUser != "" && pconf.ReadPass == "" || pconf.ReadUser == "" && pconf.ReadPass != "" {
 		return fmt.Errorf("read username and password must be both filled")
 	}
-
 	if len(pconf.ReadIps) > 0 {
 		var err error
 		pconf.ReadIpsParsed, err = parseIPCidrList(pconf.ReadIps)

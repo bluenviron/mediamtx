@@ -85,15 +85,19 @@ paths:
     fallback:
 
     # username required to publish.
+    # sha256-hashed values can be inserted with the "sha256:" prefix.
     publishUser:
     # password required to publish.
+    # sha256-hashed values can be inserted with the "sha256:" prefix.
     publishPass:
     # ips or networks (x.x.x.x/24) allowed to publish.
     publishIps: []
 
     # username required to read.
+    # sha256-hashed values can be inserted with the "sha256:" prefix.
     readUser:
     # password required to read.
+    # sha256-hashed values can be inserted with the "sha256:" prefix.
     readPass:
     # ips or networks (x.x.x.x/24) allowed to read.
     readIps: []

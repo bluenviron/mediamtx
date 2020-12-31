@@ -29,6 +29,7 @@ Features:
 * [Advanced usage and FAQs](#advanced-usage-and-faqs)
   * [Configuration](#configuration)
   * [Encryption](#encryption)
+  * [Authentication](#authentication)
   * [RTSP proxy mode](#rtsp-proxy-mode)
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
@@ -37,7 +38,6 @@ Features:
   * [On-demand publishing](#on-demand-publishing)
   * [Redirect to another server](#redirect-to-another-server)
   * [Fallback stream](#fallback-stream)
-  * [Authentication](#authentication)
   * [Start on boot with systemd](#start-on-boot-with-systemd)
   * [Monitoring](#monitoring)
   * [Command-line usage](#command-line-usage)
@@ -166,6 +166,52 @@ gst-launch-1.0 rtspsrc location=rtsps://ip:8555/... tls-validation-flags=0
 ```
 
 If the client is _VLC_, encryption can't be deployed, since _VLC_ doesn't support it.
+
+### Authentication
+
+Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  all:
+    publishUser: admin
+    publishPass: mypassword
+```
+
+Only publishers that provide both username and password will be able to proceed:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
+```
+
+It's possible to setup authentication for readers too:
+
+```yml
+paths:
+  all:
+    publishUser: admin
+    publishPass: mypass
+
+    readUser: user
+    readPass: userpass
+```
+
+If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed values; a value must be converted into sha256:
+
+```
+echo -n "userpass" | openssl dgst -binary -sha256 | openssl base64
+```
+
+Then stored with the `sha256:` prefix:
+
+```yml
+paths:
+  all:
+    readUser: sha256:j1tsRqDEw9xvq/D7/9tMx6Jh/jMhk3UfjwIB2f1zgMo=
+    readPass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
+```
+
+**WARNING**: enable encryption or use a VPN to ensure that no one is intercepting and reading the credentials.
 
 ### RTSP proxy mode
 
@@ -320,37 +366,6 @@ paths:
   withfallback:
     fallback: rtsp://otherurl/otherpath
 ```
-
-### Authentication
-
-Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-
-```yml
-paths:
-  all:
-    publishUser: admin
-    publishPass: mypassword
-```
-
-Only publishers that provide both username and password will be able to proceed:
-
-```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
-```
-
-It's possible to setup authentication for readers too:
-
-```yml
-paths:
-  all:
-    publishUser: admin
-    publishPass: mypassword
-
-    readUser: user
-    readPass: userpassword
-```
-
-**WARNING**: enable encryption or use a VPN to ensure that no one is intercepting and reading the credentials.
 
 ### Start on boot with systemd
 

@@ -619,6 +619,41 @@ func TestAuth(t *testing.T) {
 	}
 }
 
+func TestAuthHashed(t *testing.T) {
+	p, ok := testProgram("paths:\n" +
+		"  all:\n" +
+		"    readUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
+		"    readPass: sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w=\n")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	time.Sleep(1 * time.Second)
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"-rtsp_transport", "udp",
+		"rtsp://" + ownDockerIP + ":8554/test/stream",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	cnt2, err := newContainer("ffmpeg", "dest", []string{
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://testuser:testpass@" + ownDockerIP + ":8554/test/stream",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+
+	require.Equal(t, 0, cnt2.wait())
+}
+
 func TestAuthIpFail(t *testing.T) {
 	p, ok := testProgram("paths:\n" +
 		"  all:\n" +

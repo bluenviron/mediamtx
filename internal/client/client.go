@@ -107,7 +107,7 @@ type Client struct {
 	path              Path
 	authUser          string
 	authPass          string
-	authHelper        *auth.Server
+	authValidator     *auth.Validator
 	authFailures      int
 	streamProtocol    gortsplib.StreamProtocol
 	streamTracks      map[int]*streamTrack
@@ -896,14 +896,14 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 
 	// validate user
 	if user != "" {
-		// reset authHelper every time the credentials change
-		if c.authHelper == nil || c.authUser != user || c.authPass != pass {
+		// reset authValidator every time the credentials change
+		if c.authValidator == nil || c.authUser != user || c.authPass != pass {
 			c.authUser = user
 			c.authPass = pass
-			c.authHelper = auth.NewServer(user, pass, authMethods)
+			c.authValidator = auth.NewValidator(user, pass, authMethods)
 		}
 
-		err := c.authHelper.ValidateHeader(req.Header["Authorization"], req.Method, req.URL)
+		err := c.authValidator.ValidateHeader(req.Header["Authorization"], req.Method, req.URL)
 		if err != nil {
 			c.authFailures++
 
@@ -919,7 +919,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 				return errAuthCritical{&base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
-						"WWW-Authenticate": c.authHelper.GenerateHeader(),
+						"WWW-Authenticate": c.authValidator.GenerateHeader(),
 					},
 				}}
 			}
@@ -931,7 +931,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			return errAuthNotCritical{&base.Response{
 				StatusCode: base.StatusUnauthorized,
 				Header: base.Header{
-					"WWW-Authenticate": c.authHelper.GenerateHeader(),
+					"WWW-Authenticate": c.authValidator.GenerateHeader(),
 				},
 			}}
 		}
