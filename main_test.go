@@ -654,6 +654,126 @@ func TestAuthHashed(t *testing.T) {
 	require.Equal(t, 0, cnt2.wait())
 }
 
+func TestAuthFail(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		user string
+		pass string
+	}{
+		{
+			"publish_wronguser",
+			"test1user",
+			"testpass",
+		},
+		{
+			"publish_wrongpass",
+			"testuser",
+			"test1pass",
+		},
+		{
+			"publish_wrongboth",
+			"test1user",
+			"test1pass",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			p, ok := testProgram("paths:\n" +
+				"  all:\n" +
+				"    publishUser: testuser\n" +
+				"    publishPass: testpass\n")
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ca.user + ":" + ca.pass + "@" + ownDockerIP + ":8554/test/stream",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ownDockerIP + ":8554/test/stream",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+
+			require.Equal(t, 1, cnt2.wait())
+		})
+	}
+
+	for _, ca := range []struct {
+		name string
+		user string
+		pass string
+	}{
+		{
+			"read_wronguser",
+			"test1user",
+			"testpass",
+		},
+		{
+			"read_wrongpass",
+			"testuser",
+			"test1pass",
+		},
+		{
+			"read_wrongboth",
+			"test1user",
+			"test1pass",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			p, ok := testProgram("paths:\n" +
+				"  all:\n" +
+				"    readUser: testuser\n" +
+				"    readPass: testpass\n")
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ownDockerIP + ":8554/test/stream",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
+
+			time.Sleep(1 * time.Second)
+
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ca.user + ":" + ca.pass + "@" + ownDockerIP + ":8554/test/stream",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+
+			require.Equal(t, 1, cnt2.wait())
+		})
+	}
+}
+
 func TestAuthIpFail(t *testing.T) {
 	p, ok := testProgram("paths:\n" +
 		"  all:\n" +
