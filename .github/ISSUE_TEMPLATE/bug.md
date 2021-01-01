@@ -38,6 +38,10 @@ Description
 
 ## Describe how to replicate the issue
 
+<!--
+the maintainers must be able to REPLICATE your issue to solve it - therefore, describe in a very detailed way how to replicate it.
+-->
+
 1. start the server
 2. publish with ...
 3. read with ...
