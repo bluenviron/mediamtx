@@ -1,11 +1,15 @@
 ---
-name: 'Bug: communication with an external camera or another software'
-about: Bug that arises when using the software with an external camera or another software
+name: 'Bug'
+about: Bug
 title: ''
 labels: ''
 assignees: ''
 
 ---
+
+<!--
+To increase the probability of your issue getting fixed, open an issue FOR EACH problem. Please do not report multiple problems in a single issue, otherwise they'll probably never get ALL fixed.
+-->
 
 ## Which version are you using?
 
@@ -28,19 +32,27 @@ Architecture
 - [ ] arm7
 - [ ] arm6
 
-## Describe the problem
+## Describe the issue
 
 Description
+
+## Describe how to replicate the issue
+
+1. start the server
+2. publish with ...
+3. read with ...
 
 ## Did you attach a network dump?
 
 <!--
-The most helpful content you can provide to fix a communication issue between rtsp-simple-server and an external hardware or software, is a dump of the data exchanged between the server and the target (network dump), that can be generated in this way:
+If the bug arises when using rtsp-simple-server with an external hardware or software, the most helpful content you can provide is a dump of the data exchanged between the server and the target (network dump), that can be generated in this way:
 1) Download wireshark (https://www.wireshark.org/)
 2) Start capturing on the interface used for exchanging RTSP (if the server and the target software are both installed on your pc, the interface is probably "loopback", otherwise it's the one of your network card)
 3) Start the server and replicate the issue
 4) Stop capturing, save the result in .pcap format
 5) Attach
 -->
+
+<!-- OTHERWISE, delete this section -->
 
 yes / no
