@@ -27,4 +27,6 @@ for i in $(seq 1 $READER_COUNT); do
     -i rtsp://localhost:8554/source -c copy -f mpegts -y /dev/null &
 done
 
-wait
+sleep 5
+
+go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=15

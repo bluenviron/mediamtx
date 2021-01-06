@@ -13,7 +13,7 @@ RUN go mod download
 COPY . ./
 RUN go build -o /rtsp-simple-server .
 
-COPY stress/proxy/start.sh /
+COPY bench/proxy/start.sh /
 RUN chmod +x /start.sh
 
 ENTRYPOINT [ "/start.sh" ]

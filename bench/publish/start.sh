@@ -20,4 +20,6 @@ for i in $(seq 1 $PUBLISHER_COUNT); do
     -rtsp_transport $PUBLISHER_PROTOCOL rtsp://localhost:8554/source$i &
 done
 
-wait
+sleep 5
+
+go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=15

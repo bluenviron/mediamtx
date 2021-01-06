@@ -13,7 +13,7 @@ RUN go mod download
 COPY . ./
 RUN go build -o /rtsp-simple-server .
 
-COPY stress/read/start.sh /
+COPY bench/publish/start.sh /
 RUN chmod +x /start.sh
 
 ENTRYPOINT [ "/start.sh" ]

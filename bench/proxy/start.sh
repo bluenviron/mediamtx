@@ -34,4 +34,8 @@ for i in $(seq 1 $PROXY_COUNT); do
 done
 echo -e "$CONF" > /proxy.conf
 
-/rtsp-simple-server /proxy.conf
+/rtsp-simple-server /proxy.conf &
+
+sleep 5
+
+go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=15

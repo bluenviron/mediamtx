@@ -13,7 +13,7 @@ help:
 	@echo "  format         format source files"
 	@echo "  test           run tests"
 	@echo "  lint           run linters"
-	@echo "  stress NAME=n  run stress environment"
+	@echo "  bench NAME=n  run bench environment"
 	@echo "  run            run app"
 	@echo "  release        build release assets"
 	@echo "  dockerhub      build and push docker hub images"
@@ -60,8 +60,8 @@ lint:
 	$(GO_LINT_IMAGE) \
 	golangci-lint run -v
 
-stress:
-	docker build -q . -f stress/$(NAME)/Dockerfile -t temp
+bench:
+	docker build -q . -f bench/$(NAME)/Dockerfile -t temp
 	docker run --rm -it -p 9999:9999 temp
 
 define DOCKERFILE_RUN
