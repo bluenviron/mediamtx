@@ -1,4 +1,4 @@
-package servertcp
+package serverplain
 
 import (
 	"strconv"
@@ -29,12 +29,16 @@ type Server struct {
 func New(port int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	udpRTPListener *gortsplib.ServerUDPListener,
+	udpRTCPListener *gortsplib.ServerUDPListener,
 	parent Parent) (*Server, error) {
 
 	conf := gortsplib.ServerConf{
 		ReadTimeout:     readTimeout,
 		WriteTimeout:    writeTimeout,
 		ReadBufferCount: 1,
+		UDPRTPListener:  udpRTPListener,
+		UDPRTCPListener: udpRTCPListener,
 	}
 
 	srv, err := conf.Serve(":" + strconv.FormatInt(int64(port), 10))

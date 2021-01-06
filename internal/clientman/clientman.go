@@ -10,9 +10,8 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
-	"github.com/aler9/rtsp-simple-server/internal/servertcp"
+	"github.com/aler9/rtsp-simple-server/internal/serverplain"
 	"github.com/aler9/rtsp-simple-server/internal/servertls"
-	"github.com/aler9/rtsp-simple-server/internal/serverudp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -29,10 +28,8 @@ type ClientManager struct {
 	runOnConnectRestart bool
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
-	serverUDPRtp        *serverudp.Server
-	serverUDPRtcp       *serverudp.Server
 	pathMan             *pathman.PathManager
-	serverTCP           *servertcp.Server
+	serverTCP           *serverplain.Server
 	serverTLS           *servertls.Server
 	parent              Parent
 
@@ -55,10 +52,8 @@ func New(
 	runOnConnectRestart bool,
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
-	serverUDPRtp *serverudp.Server,
-	serverUDPRtcp *serverudp.Server,
 	pathMan *pathman.PathManager,
-	serverTCP *servertcp.Server,
+	serverTCP *serverplain.Server,
 	serverTLS *servertls.Server,
 	parent Parent) *ClientManager {
 
@@ -69,8 +64,6 @@ func New(
 		runOnConnectRestart: runOnConnectRestart,
 		protocols:           protocols,
 		stats:               stats,
-		serverUDPRtp:        serverUDPRtp,
-		serverUDPRtcp:       serverUDPRtcp,
 		pathMan:             pathMan,
 		serverTCP:           serverTCP,
 		serverTLS:           serverTLS,
@@ -117,15 +110,29 @@ outer:
 	for {
 		select {
 		case conn := <-tcpAccept:
-			c := client.New(false, cm.rtspPort, cm.readTimeout,
-				cm.runOnConnect, cm.runOnConnectRestart, cm.protocols, &cm.wg,
-				cm.stats, cm.serverUDPRtp, cm.serverUDPRtcp, conn, cm)
+			c := client.New(false,
+				cm.rtspPort,
+				cm.readTimeout,
+				cm.runOnConnect,
+				cm.runOnConnectRestart,
+				cm.protocols,
+				&cm.wg,
+				cm.stats,
+				conn,
+				cm)
 			cm.clients[c] = struct{}{}
 
 		case conn := <-tlsAccept:
-			c := client.New(true, cm.rtspPort, cm.readTimeout,
-				cm.runOnConnect, cm.runOnConnectRestart, cm.protocols, &cm.wg,
-				cm.stats, cm.serverUDPRtp, cm.serverUDPRtcp, conn, cm)
+			c := client.New(true,
+				cm.rtspPort,
+				cm.readTimeout,
+				cm.runOnConnect,
+				cm.runOnConnectRestart,
+				cm.protocols,
+				&cm.wg,
+				cm.stats,
+				conn,
+				cm)
 			cm.clients[c] = struct{}{}
 
 		case c := <-cm.pathMan.ClientClose():

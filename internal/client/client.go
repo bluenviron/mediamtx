@@ -20,7 +20,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/serverudp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -98,8 +97,6 @@ type Client struct {
 	protocols           map[gortsplib.StreamProtocol]struct{}
 	wg                  *sync.WaitGroup
 	stats               *stats.Stats
-	serverUDPRtp        *serverudp.Server
-	serverUDPRtcp       *serverudp.Server
 	conn                *gortsplib.ServerConn
 	parent              Parent
 
@@ -111,7 +108,7 @@ type Client struct {
 	authFailures      int
 	streamProtocol    gortsplib.StreamProtocol
 	streamTracks      map[int]*streamTrack
-	rtcpReceivers     map[int]*rtcpreceiver.RtcpReceiver
+	rtcpReceivers     map[int]*rtcpreceiver.RTCPReceiver
 	udpLastFrameTimes []*int64
 	onReadCmd         *externalcmd.Cmd
 	onPublishCmd      *externalcmd.Cmd
@@ -134,8 +131,6 @@ func New(
 	protocols map[gortsplib.StreamProtocol]struct{},
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
-	serverUDPRtp *serverudp.Server,
-	serverUDPRtcp *serverudp.Server,
 	conn *gortsplib.ServerConn,
 	parent Parent) *Client {
 
@@ -147,13 +142,11 @@ func New(
 		protocols:           protocols,
 		wg:                  wg,
 		stats:               stats,
-		serverUDPRtp:        serverUDPRtp,
-		serverUDPRtcp:       serverUDPRtcp,
 		conn:                conn,
 		parent:              parent,
 		state:               stateInitial,
 		streamTracks:        make(map[int]*streamTrack),
-		rtcpReceivers:       make(map[int]*rtcpreceiver.RtcpReceiver),
+		rtcpReceivers:       make(map[int]*rtcpreceiver.RTCPReceiver),
 		terminate:           make(chan struct{}),
 	}
 
@@ -185,10 +178,6 @@ func (c *Client) log(level logger.Level, format string, args ...interface{}) {
 
 func (c *Client) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
-}
-
-func (c *Client) zone() string {
-	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).Zone
 }
 
 var errTerminated = errors.New("terminated")
@@ -462,21 +451,10 @@ func (c *Client) run() {
 					rtcpPort: (*th.ClientPorts)[1],
 				}
 
-				th := headers.Transport{
-					Protocol: gortsplib.StreamProtocolUDP,
-					Delivery: func() *base.StreamDelivery {
-						v := base.StreamDeliveryUnicast
-						return &v
-					}(),
-					ClientPorts: th.ClientPorts,
-					ServerPorts: &[2]int{c.serverUDPRtp.Port(), c.serverUDPRtcp.Port()},
-				}
-
 				return &base.Response{
 					StatusCode: base.StatusOK,
 					Header: base.Header{
-						"Transport": th.Write(),
-						"Session":   base.HeaderValue{sessionID},
+						"Session": base.HeaderValue{sessionID},
 					},
 				}, nil
 			}
@@ -528,18 +506,10 @@ func (c *Client) run() {
 				rtcpPort: 0,
 			}
 
-			interleavedIds := [2]int{trackID * 2, (trackID * 2) + 1}
-
-			th := headers.Transport{
-				Protocol:       gortsplib.StreamProtocolTCP,
-				InterleavedIds: &interleavedIds,
-			}
-
 			return &base.Response{
 				StatusCode: base.StatusOK,
 				Header: base.Header{
-					"Transport": th.Write(),
-					"Session":   base.HeaderValue{sessionID},
+					"Session": base.HeaderValue{sessionID},
 				},
 			}, nil
 
@@ -591,21 +561,10 @@ func (c *Client) run() {
 					rtcpPort: (*th.ClientPorts)[1],
 				}
 
-				th := headers.Transport{
-					Protocol: gortsplib.StreamProtocolUDP,
-					Delivery: func() *base.StreamDelivery {
-						v := base.StreamDeliveryUnicast
-						return &v
-					}(),
-					ClientPorts: th.ClientPorts,
-					ServerPorts: &[2]int{c.serverUDPRtp.Port(), c.serverUDPRtcp.Port()},
-				}
-
 				return &base.Response{
 					StatusCode: base.StatusOK,
 					Header: base.Header{
-						"Transport": th.Write(),
-						"Session":   base.HeaderValue{sessionID},
+						"Session": base.HeaderValue{sessionID},
 					},
 				}, nil
 			}
@@ -650,16 +609,10 @@ func (c *Client) run() {
 				rtcpPort: 0,
 			}
 
-			ht := headers.Transport{
-				Protocol:       gortsplib.StreamProtocolTCP,
-				InterleavedIds: &interleavedIds,
-			}
-
 			return &base.Response{
 				StatusCode: base.StatusOK,
 				Header: base.Header{
-					"Transport": ht.Write(),
-					"Session":   base.HeaderValue{sessionID},
+					"Session": base.HeaderValue{sessionID},
 				},
 			}, nil
 
@@ -773,18 +726,11 @@ func (c *Client) run() {
 
 		switch c.state {
 		case statePlay:
-			if c.streamProtocol == gortsplib.StreamProtocolTCP {
-				c.conn.EnableFrames(false)
-			}
 			c.stopPlay()
 			c.state = statePrePlay
 			c.path.OnClientPause(c)
 
 		case stateRecord:
-			if c.streamProtocol == gortsplib.StreamProtocolTCP {
-				c.conn.EnableFrames(false)
-				c.conn.EnableReadTimeout(false)
-			}
 			c.stopRecord()
 			c.state = statePreRecord
 			c.path.OnClientPause(c)
@@ -798,14 +744,24 @@ func (c *Client) run() {
 		}, nil
 	}
 
-	onFrame := func(trackID int, streamType gortsplib.StreamType, content []byte) {
-		if c.state == stateRecord {
+	onFrame := func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+		if c.state != stateRecord {
+			return
+		}
+
+		if c.streamProtocol == gortsplib.StreamProtocolUDP {
+			now := time.Now()
+			atomic.StoreInt64(c.udpLastFrameTimes[trackID], now.Unix())
+			c.rtcpReceivers[trackID].ProcessFrame(now, streamType, payload)
+			c.path.OnFrame(trackID, streamType, payload)
+
+		} else {
 			if trackID >= len(c.streamTracks) {
 				return
 			}
 
-			c.rtcpReceivers[trackID].ProcessFrame(time.Now(), streamType, content)
-			c.path.OnFrame(trackID, streamType, content)
+			c.rtcpReceivers[trackID].ProcessFrame(time.Now(), streamType, payload)
+			c.path.OnFrame(trackID, streamType, payload)
 		}
 	}
 
@@ -974,10 +930,6 @@ func (c *Client) startPlay() {
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
 	}
-
-	if c.streamProtocol == gortsplib.StreamProtocolTCP {
-		c.conn.EnableFrames(true)
-	}
 }
 
 func (c *Client) stopPlay() {
@@ -1004,28 +956,13 @@ func (c *Client) startRecord() {
 			c.udpLastFrameTimes[trackID] = &v
 		}
 
-		for trackID, track := range c.streamTracks {
-			c.serverUDPRtp.AddPublisher(c.ip(), track.rtpPort, c, trackID)
-			c.serverUDPRtcp.AddPublisher(c.ip(), track.rtcpPort, c, trackID)
-		}
-
 		// open the firewall by sending packets to the counterpart
-		for _, track := range c.streamTracks {
-			c.serverUDPRtp.Write(
-				[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
-				&net.UDPAddr{
-					IP:   c.ip(),
-					Zone: c.zone(),
-					Port: track.rtpPort,
-				})
+		for trackID := range c.streamTracks {
+			c.conn.WriteFrame(trackID, gortsplib.StreamTypeRTP,
+				[]byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
 
-			c.serverUDPRtcp.Write(
-				[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00},
-				&net.UDPAddr{
-					IP:   c.ip(),
-					Zone: c.zone(),
-					Port: track.rtcpPort,
-				})
+			c.conn.WriteFrame(trackID, gortsplib.StreamTypeRTCP,
+				[]byte{0x80, 0xc9, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00})
 		}
 	}
 
@@ -1042,8 +979,6 @@ func (c *Client) startRecord() {
 	if c.streamProtocol == gortsplib.StreamProtocolUDP {
 		go c.backgroundRecordUDP()
 	} else {
-		c.conn.EnableFrames(true)
-		c.conn.EnableReadTimeout(true)
 		go c.backgroundRecordTCP()
 	}
 }
@@ -1051,13 +986,6 @@ func (c *Client) startRecord() {
 func (c *Client) stopRecord() {
 	close(c.backgroundRecordTerminate)
 	<-c.backgroundRecordDone
-
-	if c.streamProtocol == gortsplib.StreamProtocolUDP {
-		for _, track := range c.streamTracks {
-			c.serverUDPRtp.RemovePublisher(c.ip(), track.rtpPort, c)
-			c.serverUDPRtcp.RemovePublisher(c.ip(), track.rtcpPort, c)
-		}
-	}
 
 	if c.path.Conf().RunOnPublish != "" {
 		c.onPublishCmd.Close()
@@ -1092,11 +1020,7 @@ func (c *Client) backgroundRecordUDP() {
 			now := time.Now()
 			for trackID := range c.streamTracks {
 				r := c.rtcpReceivers[trackID].Report(now)
-				c.serverUDPRtcp.Write(r, &net.UDPAddr{
-					IP:   c.ip(),
-					Zone: c.zone(),
-					Port: c.streamTracks[trackID].rtcpPort,
-				})
+				c.conn.WriteFrame(trackID, gortsplib.StreamTypeRTP, r)
 			}
 
 		case <-c.backgroundRecordTerminate:
@@ -1117,7 +1041,7 @@ func (c *Client) backgroundRecordTCP() {
 			now := time.Now()
 			for trackID := range c.streamTracks {
 				r := c.rtcpReceivers[trackID].Report(now)
-				c.conn.WriteFrame(trackID, gortsplib.StreamTypeRtcp, r)
+				c.conn.WriteFrame(trackID, gortsplib.StreamTypeRTCP, r)
 			}
 
 		case <-c.backgroundRecordTerminate:
@@ -1126,40 +1050,14 @@ func (c *Client) backgroundRecordTCP() {
 	}
 }
 
-// OnUDPPublisherFrame implements serverudp.Publisher.
-func (c *Client) OnUDPPublisherFrame(trackID int, streamType base.StreamType, buf []byte) {
-	now := time.Now()
-	atomic.StoreInt64(c.udpLastFrameTimes[trackID], now.Unix())
-	c.rtcpReceivers[trackID].ProcessFrame(now, streamType, buf)
-	c.path.OnFrame(trackID, streamType, buf)
-}
-
 // OnReaderFrame implements path.Reader.
 func (c *Client) OnReaderFrame(trackID int, streamType base.StreamType, buf []byte) {
-	track, ok := c.streamTracks[trackID]
+	_, ok := c.streamTracks[trackID]
 	if !ok {
 		return
 	}
 
-	if c.streamProtocol == gortsplib.StreamProtocolUDP {
-		if streamType == gortsplib.StreamTypeRtp {
-			c.serverUDPRtp.Write(buf, &net.UDPAddr{
-				IP:   c.ip(),
-				Zone: c.zone(),
-				Port: track.rtpPort,
-			})
-
-		} else {
-			c.serverUDPRtcp.Write(buf, &net.UDPAddr{
-				IP:   c.ip(),
-				Zone: c.zone(),
-				Port: track.rtcpPort,
-			})
-		}
-
-	} else {
-		c.conn.WriteFrame(trackID, streamType, buf)
-	}
+	c.conn.WriteFrame(trackID, streamType, buf)
 }
 
 // OnPathDescribeData is called by path.Path.

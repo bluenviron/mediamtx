@@ -36,8 +36,8 @@ type Conf struct {
 	EncryptionParsed      Encryption                            `yaml:"-" json:"-"`
 	RtspPort              int                                   `yaml:"rtspPort"`
 	RtspsPort             int                                   `yaml:"rtspsPort"`
-	RtpPort               int                                   `yaml:"rtpPort"`
-	RtcpPort              int                                   `yaml:"rtcpPort"`
+	RTPPort               int                                   `yaml:"rtpPort"`
+	RTCPPort              int                                   `yaml:"rtcpPort"`
 	ServerKey             string                                `yaml:"serverKey"`
 	ServerCert            string                                `yaml:"serverCert"`
 	AuthMethods           []string                              `yaml:"authMethods"`
@@ -140,16 +140,16 @@ func (conf *Conf) fillAndCheck() error {
 	if conf.RtspsPort == 0 {
 		conf.RtspsPort = 8555
 	}
-	if conf.RtpPort == 0 {
-		conf.RtpPort = 8000
+	if conf.RTPPort == 0 {
+		conf.RTPPort = 8000
 	}
-	if (conf.RtpPort % 2) != 0 {
+	if (conf.RTPPort % 2) != 0 {
 		return fmt.Errorf("rtp port must be even")
 	}
-	if conf.RtcpPort == 0 {
-		conf.RtcpPort = 8001
+	if conf.RTCPPort == 0 {
+		conf.RTCPPort = 8001
 	}
-	if conf.RtcpPort != (conf.RtpPort + 1) {
+	if conf.RTCPPort != (conf.RTPPort + 1) {
 		return fmt.Errorf("rtcp and rtp ports must be consecutive")
 	}
 

@@ -298,7 +298,7 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 `)
 
 func TestPublishRead(t *testing.T) {
-	for _, conf := range []struct {
+	for _, ca := range []struct {
 		encrypted      bool
 		publisherSoft  string
 		publisherProto string
@@ -321,17 +321,17 @@ func TestPublishRead(t *testing.T) {
 		{true, "gstreamer", "tcp", "ffmpeg", "tcp"},
 	} {
 		encryptedStr := func() string {
-			if conf.encrypted {
+			if ca.encrypted {
 				return "encrypted"
 			}
 			return "plain"
 		}()
 
-		t.Run(encryptedStr+"_"+conf.publisherSoft+"_"+conf.publisherProto+"_"+
-			conf.readerSoft+"_"+conf.readerProto, func(t *testing.T) {
+		t.Run(encryptedStr+"_"+ca.publisherSoft+"_"+ca.publisherProto+"_"+
+			ca.readerSoft+"_"+ca.readerProto, func(t *testing.T) {
 			var proto string
 			var port string
-			if !conf.encrypted {
+			if !ca.encrypted {
 				proto = "rtsp"
 				port = "8554"
 
@@ -362,7 +362,7 @@ func TestPublishRead(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			switch conf.publisherSoft {
+			switch ca.publisherSoft {
 			case "ffmpeg":
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
@@ -370,7 +370,7 @@ func TestPublishRead(t *testing.T) {
 					"-i", "emptyvideo.ts",
 					"-c", "copy",
 					"-f", "rtsp",
-					"-rtsp_transport", conf.publisherProto,
+					"-rtsp_transport", ca.publisherProto,
 					proto + "://" + ownDockerIP + ":" + port + "/teststream",
 				})
 				require.NoError(t, err)
@@ -382,7 +382,7 @@ func TestPublishRead(t *testing.T) {
 				cnt1, err := newContainer("gstreamer", "source", []string{
 					"filesrc location=emptyvideo.ts ! tsdemux ! video/x-h264 ! rtspclientsink " +
 						"location=" + proto + "://" + ownDockerIP + ":" + port + "/teststream " +
-						"protocols=" + conf.publisherProto + " tls-validation-flags=0 latency=0 timeout=0 rtx-time=0",
+						"protocols=" + ca.publisherProto + " tls-validation-flags=0 latency=0 timeout=0 rtx-time=0",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -392,10 +392,10 @@ func TestPublishRead(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			switch conf.readerSoft {
+			switch ca.readerSoft {
 			case "ffmpeg":
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
-					"-rtsp_transport", conf.readerProto,
+					"-rtsp_transport", ca.readerProto,
 					"-i", proto + "://" + ownDockerIP + ":" + port + "/teststream",
 					"-vframes", "1",
 					"-f", "image2",
@@ -416,7 +416,7 @@ func TestPublishRead(t *testing.T) {
 
 			case "vlc":
 				args := []string{}
-				if conf.readerProto == "tcp" {
+				if ca.readerProto == "tcp" {
 					args = append(args, "--rtsp-tcp")
 				}
 				args = append(args, proto+"://"+ownDockerIP+":"+port+"/teststream")

@@ -149,8 +149,8 @@ func (s *Source) runInner() bool {
 	s.parent.OnSourceSetReady(tracks)
 	defer s.parent.OnSourceSetNotReady()
 
-	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, content []byte) {
-		s.parent.OnFrame(trackID, streamType, content)
+	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+		s.parent.OnFrame(trackID, streamType, payload)
 	})
 
 	for {

@@ -191,11 +191,11 @@ func (s *Source) runInner() bool {
 	var tracks gortsplib.Tracks
 
 	var videoTrack *gortsplib.Track
-	var videoRtcpSender *rtcpsender.RtcpSender
+	var videoRTCPSender *rtcpsender.RTCPSender
 	var h264Encoder *rtph264.Encoder
 
 	var audioTrack *gortsplib.Track
-	var audioRtcpSender *rtcpsender.RtcpSender
+	var audioRTCPSender *rtcpsender.RTCPSender
 	var aacEncoder *rtpaac.Encoder
 
 	if h264Sps != nil {
@@ -206,7 +206,7 @@ func (s *Source) runInner() bool {
 		}
 
 		clockRate, _ := videoTrack.ClockRate()
-		videoRtcpSender = rtcpsender.New(clockRate)
+		videoRTCPSender = rtcpsender.New(clockRate)
 
 		h264Encoder, err = rtph264.NewEncoder(96)
 		if err != nil {
@@ -225,7 +225,7 @@ func (s *Source) runInner() bool {
 		}
 
 		clockRate, _ := audioTrack.ClockRate()
-		audioRtcpSender = rtcpsender.New(clockRate)
+		audioRTCPSender = rtcpsender.New(clockRate)
 
 		aacEncoder, err = rtpaac.NewEncoder(96, clockRate)
 		if err != nil {
@@ -262,17 +262,17 @@ func (s *Source) runInner() bool {
 			case <-t.C:
 				now := time.Now()
 
-				if videoRtcpSender != nil {
-					r := videoRtcpSender.Report(now)
+				if videoRTCPSender != nil {
+					r := videoRTCPSender.Report(now)
 					if r != nil {
-						s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRtcp, r)
+						s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTCP, r)
 					}
 				}
 
-				if audioRtcpSender != nil {
-					r := audioRtcpSender.Report(now)
+				if audioRTCPSender != nil {
+					r := audioRTCPSender.Report(now)
 					if r != nil {
-						s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRtcp, r)
+						s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTCP, r)
 					}
 				}
 
@@ -313,8 +313,8 @@ func (s *Source) runInner() bool {
 				}
 
 				for _, f := range frames {
-					videoRtcpSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRtp, f)
-					s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRtp, f)
+					videoRTCPSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRTP, f)
+					s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, f)
 				}
 
 			case av.AAC:
@@ -330,8 +330,8 @@ func (s *Source) runInner() bool {
 				}
 
 				for _, f := range frames {
-					audioRtcpSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRtp, f)
-					s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRtp, f)
+					audioRTCPSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRTP, f)
+					s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, f)
 				}
 
 			default:
