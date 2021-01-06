@@ -15,7 +15,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/aler9/gortsplib/pkg/rtcpreceiver"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -24,10 +23,8 @@ import (
 )
 
 const (
-	checkStreamInterval    = 5 * time.Second
-	receiverReportInterval = 10 * time.Second
-	sessionID              = "12345678"
-	pauseAfterAuthError    = 2 * time.Second
+	sessionID           = "12345678"
+	pauseAfterAuthError = 2 * time.Second
 )
 
 type describeData struct {
@@ -69,22 +66,17 @@ type Client struct {
 	conn                *gortsplib.ServerConn
 	parent              Parent
 
-	path              Path
-	authUser          string
-	authPass          string
-	authValidator     *auth.Validator
-	authFailures      int
-	rtcpReceivers     map[int]*rtcpreceiver.RTCPReceiver
-	udpLastFrameTimes []*int64
-	onReadCmd         *externalcmd.Cmd
-	onPublishCmd      *externalcmd.Cmd
+	path          Path
+	authUser      string
+	authPass      string
+	authValidator *auth.Validator
+	authFailures  int
+	onReadCmd     *externalcmd.Cmd
+	onPublishCmd  *externalcmd.Cmd
 
 	// in
 	describeData chan describeData // from path
 	terminate    chan struct{}
-
-	backgroundRecordTerminate chan struct{}
-	backgroundRecordDone      chan struct{}
 }
 
 // New allocates a Client.
@@ -110,7 +102,6 @@ func New(
 		stats:               stats,
 		conn:                conn,
 		parent:              parent,
-		rtcpReceivers:       make(map[int]*rtcpreceiver.RTCPReceiver),
 		terminate:           make(chan struct{}),
 	}
 
@@ -280,11 +271,6 @@ func (c *Client) run() {
 					StatusCode: base.StatusBadRequest,
 				}, err
 			}
-		}
-
-		for trackID, t := range tracks {
-			clockRate, _ := t.ClockRate()
-			c.rtcpReceivers[trackID] = rtcpreceiver.New(nil, clockRate)
 		}
 
 		c.path = path
@@ -498,12 +484,6 @@ func (c *Client) run() {
 			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath)
 		}
 
-		if c.conn.TracksLen() != c.path.SourceTrackCount() {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("not all tracks have been setup")
-		}
-
 		c.startRecord()
 
 		return &base.Response{
@@ -538,16 +518,7 @@ func (c *Client) run() {
 			return
 		}
 
-		if *c.conn.TracksProtocol() == gortsplib.StreamProtocolUDP {
-			now := time.Now()
-			atomic.StoreInt64(c.udpLastFrameTimes[trackID], now.Unix())
-			c.rtcpReceivers[trackID].ProcessFrame(now, streamType, payload)
-			c.path.OnFrame(trackID, streamType, payload)
-
-		} else {
-			c.rtcpReceivers[trackID].ProcessFrame(time.Now(), streamType, payload)
-			c.path.OnFrame(trackID, streamType, payload)
-		}
+		c.path.OnFrame(trackID, streamType, payload)
 	}
 
 	readDone := c.conn.Read(gortsplib.ServerConnReadHandlers{
@@ -718,94 +689,17 @@ func (c *Client) startRecord() {
 		return "tracks"
 	}(), *c.conn.TracksProtocol())
 
-	if *c.conn.TracksProtocol() == gortsplib.StreamProtocolUDP {
-		c.udpLastFrameTimes = make([]*int64, c.conn.TracksLen())
-		for trackID := range c.conn.Tracks() {
-			v := time.Now().Unix()
-			c.udpLastFrameTimes[trackID] = &v
-		}
-	}
-
 	if c.path.Conf().RunOnPublish != "" {
 		c.onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
 			Path: c.path.Name(),
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
 	}
-
-	c.backgroundRecordTerminate = make(chan struct{})
-	c.backgroundRecordDone = make(chan struct{})
-
-	if *c.conn.TracksProtocol() == gortsplib.StreamProtocolUDP {
-		go c.backgroundRecordUDP()
-	} else {
-		go c.backgroundRecordTCP()
-	}
 }
 
 func (c *Client) stopRecord() {
-	close(c.backgroundRecordTerminate)
-	<-c.backgroundRecordDone
-
 	if c.path.Conf().RunOnPublish != "" {
 		c.onPublishCmd.Close()
-	}
-}
-
-func (c *Client) backgroundRecordUDP() {
-	defer close(c.backgroundRecordDone)
-
-	checkStreamTicker := time.NewTicker(checkStreamInterval)
-	defer checkStreamTicker.Stop()
-
-	receiverReportTicker := time.NewTicker(receiverReportInterval)
-	defer receiverReportTicker.Stop()
-
-	for {
-		select {
-		case <-checkStreamTicker.C:
-			now := time.Now()
-			for _, lastUnix := range c.udpLastFrameTimes {
-				last := time.Unix(atomic.LoadInt64(lastUnix), 0)
-
-				if now.Sub(last) >= c.readTimeout {
-					c.log(logger.Info, "ERR: no UDP packets received recently (maybe there's a firewall/NAT in between)")
-					c.conn.Close()
-					return
-				}
-			}
-
-		case <-receiverReportTicker.C:
-			now := time.Now()
-			for trackID := range c.conn.Tracks() {
-				r := c.rtcpReceivers[trackID].Report(now)
-				c.conn.WriteFrame(trackID, gortsplib.StreamTypeRTP, r)
-			}
-
-		case <-c.backgroundRecordTerminate:
-			return
-		}
-	}
-}
-
-func (c *Client) backgroundRecordTCP() {
-	defer close(c.backgroundRecordDone)
-
-	receiverReportTicker := time.NewTicker(receiverReportInterval)
-	defer receiverReportTicker.Stop()
-
-	for {
-		select {
-		case <-receiverReportTicker.C:
-			now := time.Now()
-			for trackID := range c.conn.Tracks() {
-				r := c.rtcpReceivers[trackID].Report(now)
-				c.conn.WriteFrame(trackID, gortsplib.StreamTypeRTCP, r)
-			}
-
-		case <-c.backgroundRecordTerminate:
-			return
-		}
 	}
 }
 
