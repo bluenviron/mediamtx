@@ -53,7 +53,7 @@ func New(port int,
 		done:   make(chan struct{}),
 	}
 
-	parent.Log(logger.Info, "[TCP/RTSP server] opened on :%d", port)
+	parent.Log(logger.Info, "[TCP/RTSP listener] opened on :%d", port)
 
 	go s.run()
 	return s, nil

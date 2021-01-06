@@ -296,7 +296,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerUDPRTCP = true
 	}
 
-	closeServerTCP := false
+	closeServerPlain := false
 	if newConf == nil ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.RtspPort != p.conf.RtspPort ||
@@ -304,7 +304,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		closeServerUDPRTP ||
 		closeServerUDPRTCP {
-		closeServerTCP = true
+		closeServerPlain = true
 	}
 
 	closeServerTLS := false
@@ -329,7 +329,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closeClientMan := false
 	if newConf == nil ||
-		closeServerTCP ||
+		closeServerPlain ||
 		closeServerTLS ||
 		closePathMan ||
 		newConf.RtspPort != p.conf.RtspPort ||
@@ -360,7 +360,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		p.serverTLS = nil
 	}
 
-	if closeServerTCP && p.serverTCP != nil {
+	if closeServerPlain && p.serverTCP != nil {
 		p.serverTCP.Close()
 		p.serverTCP = nil
 	}
