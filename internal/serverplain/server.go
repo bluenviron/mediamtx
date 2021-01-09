@@ -36,7 +36,6 @@ func New(port int,
 	conf := gortsplib.ServerConf{
 		ReadTimeout:     readTimeout,
 		WriteTimeout:    writeTimeout,
-		ReadBufferCount: 1,
 		UDPRTPListener:  udpRTPListener,
 		UDPRTCPListener: udpRTCPListener,
 	}

@@ -40,10 +40,9 @@ func New(port int,
 	}
 
 	conf := gortsplib.ServerConf{
-		TLSConfig:       &tls.Config{Certificates: []tls.Certificate{cert}},
-		ReadTimeout:     readTimeout,
-		WriteTimeout:    writeTimeout,
-		ReadBufferCount: 1,
+		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{cert}},
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
 	}
 
 	srv, err := conf.Serve(":" + strconv.FormatInt(int64(port), 10))

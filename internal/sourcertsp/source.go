@@ -121,7 +121,7 @@ func (s *Source) runInner() bool {
 			StreamProtocol:  s.proto,
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
-			ReadBufferCount: 2,
+			ReadBufferCount: 1024,
 			OnRequest: func(req *base.Request) {
 				s.log(logger.Debug, "c->s %v", req)
 			},
