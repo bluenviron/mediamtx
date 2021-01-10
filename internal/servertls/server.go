@@ -30,6 +30,7 @@ type Server struct {
 func New(port int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	readBufferCount uint64,
 	serverKey string,
 	serverCert string,
 	parent Parent) (*Server, error) {
@@ -40,9 +41,10 @@ func New(port int,
 	}
 
 	conf := gortsplib.ServerConf{
-		TLSConfig:    &tls.Config{Certificates: []tls.Certificate{cert}},
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
+		TLSConfig:       &tls.Config{Certificates: []tls.Certificate{cert}},
+		ReadTimeout:     readTimeout,
+		WriteTimeout:    writeTimeout,
+		ReadBufferCount: readBufferCount,
 	}
 
 	srv, err := conf.Serve(":" + strconv.FormatInt(int64(port), 10))

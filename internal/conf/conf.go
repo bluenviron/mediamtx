@@ -44,6 +44,7 @@ type Conf struct {
 	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-" json:"-"`
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
+	ReadBufferCount       uint64                                `yaml:"readBufferCount"`
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
 	RunOnConnect          string                                `yaml:"runOnConnect"`
@@ -181,6 +182,9 @@ func (conf *Conf) fillAndCheck() error {
 	}
 	if conf.WriteTimeout == 0 {
 		conf.WriteTimeout = 10 * time.Second
+	}
+	if conf.ReadBufferCount == 0 {
+		conf.ReadBufferCount = 512
 	}
 
 	if len(conf.Paths) == 0 {

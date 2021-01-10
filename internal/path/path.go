@@ -140,15 +140,16 @@ const (
 
 // Path is a path.
 type Path struct {
-	rtspPort     int
-	readTimeout  time.Duration
-	writeTimeout time.Duration
-	confName     string
-	conf         *conf.PathConf
-	name         string
-	wg           *sync.WaitGroup
-	stats        *stats.Stats
-	parent       Parent
+	rtspPort        int
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+	readBufferCount uint64
+	confName        string
+	conf            *conf.PathConf
+	name            string
+	wg              *sync.WaitGroup
+	stats           *stats.Stats
+	parent          Parent
 
 	clients                      map[*client.Client]clientState
 	clientsWg                    sync.WaitGroup
@@ -185,6 +186,7 @@ func New(
 	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	readBufferCount uint64,
 	confName string,
 	conf *conf.PathConf,
 	name string,
@@ -196,6 +198,7 @@ func New(
 		rtspPort:              rtspPort,
 		readTimeout:           readTimeout,
 		writeTimeout:          writeTimeout,
+		readBufferCount:       readBufferCount,
 		confName:              confName,
 		conf:                  conf,
 		name:                  name,
@@ -482,11 +485,22 @@ func (pa *Path) hasExternalSource() bool {
 func (pa *Path) startExternalSource() {
 	if strings.HasPrefix(pa.conf.Source, "rtsp://") ||
 		strings.HasPrefix(pa.conf.Source, "rtsps://") {
-		pa.source = sourcertsp.New(pa.conf.Source, pa.conf.SourceProtocolParsed,
-			pa.readTimeout, pa.writeTimeout, &pa.sourceWg, pa.stats, pa)
+		pa.source = sourcertsp.New(
+			pa.conf.Source,
+			pa.conf.SourceProtocolParsed,
+			pa.readTimeout,
+			pa.writeTimeout,
+			pa.readBufferCount,
+			&pa.sourceWg,
+			pa.stats,
+			pa)
 
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
-		pa.source = sourcertmp.New(pa.conf.Source, &pa.sourceWg, pa.stats, pa)
+		pa.source = sourcertmp.New(
+			pa.conf.Source,
+			&pa.sourceWg,
+			pa.stats,
+			pa)
 	}
 }
 

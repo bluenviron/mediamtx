@@ -29,6 +29,7 @@ type Server struct {
 func New(port int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	readBufferCount uint64,
 	udpRTPListener *gortsplib.ServerUDPListener,
 	udpRTCPListener *gortsplib.ServerUDPListener,
 	parent Parent) (*Server, error) {
@@ -36,6 +37,7 @@ func New(port int,
 	conf := gortsplib.ServerConf{
 		ReadTimeout:     readTimeout,
 		WriteTimeout:    writeTimeout,
+		ReadBufferCount: readBufferCount,
 		UDPRTPListener:  udpRTPListener,
 		UDPRTCPListener: udpRTCPListener,
 	}

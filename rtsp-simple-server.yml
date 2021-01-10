@@ -33,6 +33,10 @@ authMethods: [basic, digest]
 readTimeout: 10s
 # timeout of write operations.
 writeTimeout: 10s
+# number of read buffers.
+# a higher number allows a higher throughput,
+# a lower number allows to save RAM.
+readBufferCount: 512
 
 # enable Prometheus-compatible metrics on port 9998.
 metrics: no

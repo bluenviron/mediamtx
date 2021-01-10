@@ -23,13 +23,14 @@ type Parent interface {
 
 // PathManager is a path.Path manager.
 type PathManager struct {
-	rtspPort     int
-	readTimeout  time.Duration
-	writeTimeout time.Duration
-	authMethods  []headers.AuthMethod
-	pathConfs    map[string]*conf.PathConf
-	stats        *stats.Stats
-	parent       Parent
+	rtspPort        int
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+	readBufferCount uint64
+	authMethods     []headers.AuthMethod
+	pathConfs       map[string]*conf.PathConf
+	stats           *stats.Stats
+	parent          Parent
 
 	paths map[string]*path.Path
 	wg    sync.WaitGroup
@@ -52,6 +53,7 @@ func New(
 	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	readBufferCount uint64,
 	authMethods []headers.AuthMethod,
 	pathConfs map[string]*conf.PathConf,
 	stats *stats.Stats,
@@ -61,6 +63,7 @@ func New(
 		rtspPort:        rtspPort,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
+		readBufferCount: readBufferCount,
 		authMethods:     authMethods,
 		pathConfs:       pathConfs,
 		stats:           stats,
@@ -160,8 +163,17 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
-					pathName, pathConf, req.PathName, &pm.wg, pm.stats, pm)
+				pa := path.New(
+					pm.rtspPort,
+					pm.readTimeout,
+					pm.writeTimeout,
+					pm.readBufferCount,
+					pathName,
+					pathConf,
+					req.PathName,
+					&pm.wg,
+					pm.stats,
+					pm)
 				pm.paths[req.PathName] = pa
 			}
 
@@ -183,8 +195,17 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
-					pathName, pathConf, req.PathName, &pm.wg, pm.stats, pm)
+				pa := path.New(
+					pm.rtspPort,
+					pm.readTimeout,
+					pm.writeTimeout,
+					pm.readBufferCount,
+					pathName,
+					pathConf,
+					req.PathName,
+					&pm.wg,
+					pm.stats,
+					pm)
 				pm.paths[req.PathName] = pa
 			}
 
@@ -257,8 +278,17 @@ outer:
 func (pm *PathManager) createPaths() {
 	for pathName, pathConf := range pm.pathConfs {
 		if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
-			pa := path.New(pm.rtspPort, pm.readTimeout, pm.writeTimeout,
-				pathName, pathConf, pathName, &pm.wg, pm.stats, pm)
+			pa := path.New(
+				pm.rtspPort,
+				pm.readTimeout,
+				pm.writeTimeout,
+				pm.readBufferCount,
+				pathName,
+				pathConf,
+				pathName,
+				&pm.wg,
+				pm.stats,
+				pm)
 			pm.paths[pathName] = pa
 		}
 	}

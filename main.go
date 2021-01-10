@@ -34,7 +34,7 @@ type program struct {
 	pprof         *pprof.Pprof
 	serverUDPRTP  *gortsplib.ServerUDPListener
 	serverUDPRTCP *gortsplib.ServerUDPListener
-	serverTCP     *serverplain.Server
+	serverPlain   *serverplain.Server
 	serverTLS     *servertls.Server
 	pathMan       *pathman.PathManager
 	clientMan     *clientman.ClientManager
@@ -202,12 +202,13 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.serverTCP == nil {
+	if p.serverPlain == nil {
 		if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
-			p.serverTCP, err = serverplain.New(
+			p.serverPlain, err = serverplain.New(
 				p.conf.RtspPort,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
+				p.conf.ReadBufferCount,
 				p.serverUDPRTP,
 				p.serverUDPRTCP,
 				p)
@@ -223,6 +224,7 @@ func (p *program) createResources(initial bool) error {
 				p.conf.RtspsPort,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
+				p.conf.ReadBufferCount,
 				p.conf.ServerKey,
 				p.conf.ServerCert,
 				p)
@@ -237,6 +239,7 @@ func (p *program) createResources(initial bool) error {
 			p.conf.RtspPort,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
+			p.conf.ReadBufferCount,
 			p.conf.AuthMethodsParsed,
 			p.conf.Paths,
 			p.stats,
@@ -252,7 +255,7 @@ func (p *program) createResources(initial bool) error {
 			p.conf.ProtocolsParsed,
 			p.stats,
 			p.pathMan,
-			p.serverTCP,
+			p.serverPlain,
 			p.serverTLS,
 			p)
 	}
@@ -302,6 +305,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.RtspPort != p.conf.RtspPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeServerUDPRTP ||
 		closeServerUDPRTCP {
 		closeServerPlain = true
@@ -312,7 +316,8 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.RtspsPort != p.conf.RtspsPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		newConf.WriteTimeout != p.conf.WriteTimeout {
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount {
 		closeServerTLS = true
 	}
 
@@ -321,6 +326,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.RtspPort != p.conf.RtspPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) {
 		closePathMan = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
@@ -360,9 +366,9 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		p.serverTLS = nil
 	}
 
-	if closeServerPlain && p.serverTCP != nil {
-		p.serverTCP.Close()
-		p.serverTCP = nil
+	if closeServerPlain && p.serverPlain != nil {
+		p.serverPlain.Close()
+		p.serverPlain = nil
 	}
 
 	if closeServerUDPRTCP && p.serverUDPRTCP != nil {

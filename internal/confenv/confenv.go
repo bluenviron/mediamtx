@@ -41,6 +41,16 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 		}
 		return nil
 
+	case reflect.Uint64:
+		if ev, ok := env[envKey]; ok {
+			iv, err := strconv.ParseUint(ev, 10, 64)
+			if err != nil {
+				return fmt.Errorf("%s: %s", envKey, err)
+			}
+			rv.SetUint(iv)
+		}
+		return nil
+
 	case reflect.Bool:
 		if ev, ok := env[envKey]; ok {
 			switch strings.ToLower(ev) {

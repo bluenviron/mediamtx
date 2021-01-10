@@ -26,13 +26,14 @@ type Parent interface {
 
 // Source is a RTSP source.
 type Source struct {
-	ur           string
-	proto        *gortsplib.StreamProtocol
-	readTimeout  time.Duration
-	writeTimeout time.Duration
-	wg           *sync.WaitGroup
-	stats        *stats.Stats
-	parent       Parent
+	ur              string
+	proto           *gortsplib.StreamProtocol
+	readTimeout     time.Duration
+	writeTimeout    time.Duration
+	readBufferCount uint64
+	wg              *sync.WaitGroup
+	stats           *stats.Stats
+	parent          Parent
 
 	// in
 	terminate chan struct{}
@@ -43,18 +44,20 @@ func New(ur string,
 	proto *gortsplib.StreamProtocol,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
+	readBufferCount uint64,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
 	s := &Source{
-		ur:           ur,
-		proto:        proto,
-		readTimeout:  readTimeout,
-		writeTimeout: writeTimeout,
-		wg:           wg,
-		stats:        stats,
-		parent:       parent,
-		terminate:    make(chan struct{}),
+		ur:              ur,
+		proto:           proto,
+		readTimeout:     readTimeout,
+		writeTimeout:    writeTimeout,
+		readBufferCount: readBufferCount,
+		wg:              wg,
+		stats:           stats,
+		parent:          parent,
+		terminate:       make(chan struct{}),
 	}
 
 	atomic.AddInt64(s.stats.CountSourcesRtsp, +1)
@@ -121,7 +124,7 @@ func (s *Source) runInner() bool {
 			StreamProtocol:  s.proto,
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
-			ReadBufferCount: 1024,
+			ReadBufferCount: s.readBufferCount,
 			OnRequest: func(req *base.Request) {
 				s.log(logger.Debug, "c->s %v", req)
 			},

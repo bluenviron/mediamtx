@@ -29,7 +29,7 @@ type ClientManager struct {
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
 	pathMan             *pathman.PathManager
-	serverTCP           *serverplain.Server
+	serverPlain         *serverplain.Server
 	serverTLS           *servertls.Server
 	parent              Parent
 
@@ -53,7 +53,7 @@ func New(
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
 	pathMan *pathman.PathManager,
-	serverTCP *serverplain.Server,
+	serverPlain *serverplain.Server,
 	serverTLS *servertls.Server,
 	parent Parent) *ClientManager {
 
@@ -65,7 +65,7 @@ func New(
 		protocols:           protocols,
 		stats:               stats,
 		pathMan:             pathMan,
-		serverTCP:           serverTCP,
+		serverPlain:         serverPlain,
 		serverTLS:           serverTLS,
 		parent:              parent,
 		clients:             make(map[*client.Client]struct{}),
@@ -93,8 +93,8 @@ func (cm *ClientManager) run() {
 	defer close(cm.done)
 
 	tcpAccept := func() chan *gortsplib.ServerConn {
-		if cm.serverTCP != nil {
-			return cm.serverTCP.Accept()
+		if cm.serverPlain != nil {
+			return cm.serverPlain.Accept()
 		}
 		return make(chan *gortsplib.ServerConn)
 	}()
