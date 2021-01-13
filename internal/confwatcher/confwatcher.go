@@ -1,6 +1,7 @@
 package confwatcher
 
 import (
+	"os"
 	"path/filepath"
 	"time"
 
@@ -24,12 +25,16 @@ type ConfWatcher struct {
 
 // New allocates a ConfWatcher.
 func New(confPath string) (*ConfWatcher, error) {
+	if _, err := os.Stat(confPath); err != nil {
+		return nil, err
+	}
+
 	inner, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
-	// use absolute path to support Darwin
+	// use absolute paths to support Darwin
 	absolutePath, _ := filepath.Abs(confPath)
 	parentPath := filepath.Dir(absolutePath)
 
