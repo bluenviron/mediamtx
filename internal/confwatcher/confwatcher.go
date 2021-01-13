@@ -83,7 +83,7 @@ outer:
 			eventPath, _ := filepath.Abs(event.Name)
 
 			if currentWatchedPath == "" {
-				// Watched file was removed wait for write event to trigger reload
+				// watched file was removed; wait for write event to trigger reload
 				previousWatchedPath = ""
 			} else if currentWatchedPath != previousWatchedPath ||
 				(eventPath == currentWatchedPath &&

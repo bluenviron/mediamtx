@@ -29,7 +29,7 @@ func TestNoFile(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestFileWrite(t *testing.T) {
+func TestWrite(t *testing.T) {
 	fpath, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
 
@@ -54,7 +54,7 @@ func TestFileWrite(t *testing.T) {
 	}
 }
 
-func TestFileWriteMultipleTimes(t *testing.T) {
+func TestWriteMultipleTimes(t *testing.T) {
 	fpath, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
 
@@ -97,7 +97,7 @@ func TestFileWriteMultipleTimes(t *testing.T) {
 	}
 }
 
-/*func TestFileDeleteCreate(t *testing.T) {
+func TestDeleteCreate(t *testing.T) {
 	fpath, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
 
@@ -105,22 +105,52 @@ func TestFileWriteMultipleTimes(t *testing.T) {
 	require.NoError(t, err)
 	defer w.Close()
 
-    os.Remove(fpath)
-    time.Sleep(10 * time.Millisecond)
+	os.Remove(fpath)
+	time.Sleep(10 * time.Millisecond)
 
-    func() {
-        f, err := os.Create(fpath)
-        require.NoError(t, err)
-        defer f.Close()
+	func() {
+		f, err := os.Create(fpath)
+		require.NoError(t, err)
+		defer f.Close()
 
-        _, err = f.Write([]byte("{}"))
-        require.NoError(t, err)
-    }()
+		_, err = f.Write([]byte("{}"))
+		require.NoError(t, err)
+	}()
 
 	select {
 	case <-w.Watch():
-	//case <-time.After(500 * time.Millisecond):
-	//	t.Errorf("timed out")
-    //    return
+	case <-time.After(500 * time.Millisecond):
+		t.Errorf("timed out")
+		return
 	}
-}*/
+}
+
+func TestSymlinkDeleteCreate(t *testing.T) {
+	fpath, err := writeTempFile([]byte("{}"))
+	require.NoError(t, err)
+
+	err = os.Symlink(fpath, fpath+"-sym")
+	require.NoError(t, err)
+
+	w, err := New(fpath + "-sym")
+	require.NoError(t, err)
+	defer w.Close()
+
+	os.Remove(fpath)
+
+	func() {
+		f, err := os.Create(fpath)
+		require.NoError(t, err)
+		defer f.Close()
+
+		_, err = f.Write([]byte("{}"))
+		require.NoError(t, err)
+	}()
+
+	select {
+	case <-w.Watch():
+	case <-time.After(500 * time.Millisecond):
+		t.Errorf("timed out")
+		return
+	}
+}
