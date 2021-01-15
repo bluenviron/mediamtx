@@ -64,7 +64,7 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this makes impossible finding out the publisher of the packets. This issue can be avoided by disabling UDP and exposing the RTSP port:
+The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow to find out the publisher of the packets. This issue can be avoided by disabling UDP and exposing the RTSP port:
 
 ```
 docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
@@ -131,7 +131,7 @@ There are two ways to change the configuration:
    RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
    ```
 
-   This method is particularly useful when running rtsp-simple-server with Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
+   This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
 
    ```
    docker run --rm -it --network=host -e RTSP_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server

@@ -164,7 +164,10 @@ func (p *program) createResources(initial bool) error {
 
 	if p.conf.Metrics {
 		if p.metrics == nil {
-			p.metrics, err = metrics.New(p.stats, p)
+			p.metrics, err = metrics.New(
+				p.conf.ListenIP,
+				p.stats,
+				p)
 			if err != nil {
 				return err
 			}
@@ -173,7 +176,9 @@ func (p *program) createResources(initial bool) error {
 
 	if p.conf.Pprof {
 		if p.pprof == nil {
-			p.pprof, err = pprof.New(p)
+			p.pprof, err = pprof.New(
+				p.conf.ListenIP,
+				p)
 			if err != nil {
 				return err
 			}
@@ -277,13 +282,15 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closeMetrics := false
 	if newConf == nil ||
-		newConf.Metrics != p.conf.Metrics {
+		newConf.Metrics != p.conf.Metrics ||
+		newConf.ListenIP != p.conf.ListenIP {
 		closeMetrics = true
 	}
 
 	closePprof := false
 	if newConf == nil ||
-		newConf.Pprof != p.conf.Pprof {
+		newConf.Pprof != p.conf.Pprof ||
+		newConf.ListenIP != p.conf.ListenIP {
 		closePprof = true
 	}
 

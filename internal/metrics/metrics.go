@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	address = ":9998"
+	port = 9998
 )
 
 func formatMetric(key string, value int64, nowUnix int64) string {
@@ -37,7 +37,13 @@ type Metrics struct {
 }
 
 // New allocates a metrics.
-func New(stats *stats.Stats, parent Parent) (*Metrics, error) {
+func New(
+	listenIP string,
+	stats *stats.Stats,
+	parent Parent,
+) (*Metrics, error) {
+
+	address := listenIP + ":" + strconv.FormatInt(port, 10)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

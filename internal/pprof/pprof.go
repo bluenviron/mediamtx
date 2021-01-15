@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strconv"
 
 	// start pprof
 	_ "net/http/pprof"
@@ -12,7 +13,7 @@ import (
 )
 
 const (
-	address = ":9999"
+	port = 9999
 )
 
 // Parent is implemented by program.
@@ -27,7 +28,11 @@ type Pprof struct {
 }
 
 // New allocates a Pprof.
-func New(parent Parent) (*Pprof, error) {
+func New(
+	listenIP string,
+	parent Parent,
+) (*Pprof, error) {
+	address := listenIP + ":" + strconv.FormatInt(port, 10)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
