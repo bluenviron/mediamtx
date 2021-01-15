@@ -34,6 +34,7 @@ type Conf struct {
 	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	Encryption            string                                `yaml:"encryption"`
 	EncryptionParsed      Encryption                            `yaml:"-" json:"-"`
+	ListenIP              string                                `yaml:"listenIP"`
 	RtspPort              int                                   `yaml:"rtspPort"`
 	RtspsPort             int                                   `yaml:"rtspsPort"`
 	RTPPort               int                                   `yaml:"rtpPort"`

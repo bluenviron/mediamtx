@@ -13,11 +13,14 @@ type Parent interface {
 }
 
 // New allocates a gortsplib.ServerUDPListener.
-func New(port int,
+func New(
+	listenIP string,
+	port int,
 	streamType gortsplib.StreamType,
 	parent Parent) (*gortsplib.ServerUDPListener, error) {
 
-	listener, err := gortsplib.NewServerUDPListener(":" + strconv.FormatInt(int64(port), 10))
+	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
+	listener, err := gortsplib.NewServerUDPListener(address)
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +31,7 @@ func New(port int,
 		}
 		return "RTCP"
 	}()
-	parent.Log(logger.Info, "[UDP/"+label+" listener] opened on :%d", port)
+	parent.Log(logger.Info, "[UDP/"+label+" listener] opened on %s", address)
 
 	return listener, nil
 }

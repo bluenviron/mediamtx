@@ -183,6 +183,7 @@ func (p *program) createResources(initial bool) error {
 	if _, ok := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]; ok {
 		if p.serverUDPRTP == nil {
 			p.serverUDPRTP, err = serverudpl.New(
+				p.conf.ListenIP,
 				p.conf.RTPPort,
 				gortsplib.StreamTypeRTP,
 				p)
@@ -193,6 +194,7 @@ func (p *program) createResources(initial bool) error {
 
 		if p.serverUDPRTCP == nil {
 			p.serverUDPRTCP, err = serverudpl.New(
+				p.conf.ListenIP,
 				p.conf.RTCPPort,
 				gortsplib.StreamTypeRTCP,
 				p)
@@ -205,6 +207,7 @@ func (p *program) createResources(initial bool) error {
 	if p.serverPlain == nil {
 		if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
 			p.serverPlain, err = serverplain.New(
+				p.conf.ListenIP,
 				p.conf.RtspPort,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -221,6 +224,7 @@ func (p *program) createResources(initial bool) error {
 	if p.serverTLS == nil {
 		if p.conf.EncryptionParsed == conf.EncryptionStrict || p.conf.EncryptionParsed == conf.EncryptionOptional {
 			p.serverTLS, err = servertls.New(
+				p.conf.ListenIP,
 				p.conf.RtspsPort,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -286,22 +290,25 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeServerUDPRTP := false
 	if newConf == nil ||
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
-		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.RTPPort != p.conf.RTPPort {
+		newConf.ListenIP != p.conf.ListenIP ||
+		newConf.RTPPort != p.conf.RTPPort ||
+		newConf.WriteTimeout != p.conf.WriteTimeout {
 		closeServerUDPRTP = true
 	}
 
 	closeServerUDPRTCP := false
 	if newConf == nil ||
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
-		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.RTCPPort != p.conf.RTCPPort {
+		newConf.ListenIP != p.conf.ListenIP ||
+		newConf.RTCPPort != p.conf.RTCPPort ||
+		newConf.WriteTimeout != p.conf.WriteTimeout {
 		closeServerUDPRTCP = true
 	}
 
 	closeServerPlain := false
 	if newConf == nil ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.ListenIP != p.conf.ListenIP ||
 		newConf.RtspPort != p.conf.RtspPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -314,6 +321,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeServerTLS := false
 	if newConf == nil ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.ListenIP != p.conf.ListenIP ||
 		newConf.RtspsPort != p.conf.RtspsPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||

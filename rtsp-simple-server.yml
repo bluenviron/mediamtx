@@ -15,6 +15,8 @@ protocols: [udp, tcp]
 # encrypt handshake and TCP streams with TLS (RTSPS).
 # available values are "no", "strict", "optional".
 encryption: no
+# listen IP. If provided, all listeners will listen on this specific IP.
+listenIP:
 # port of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
 rtspPort: 8554
 # port of the TCP/TLS/RTSPS listener. This is used only if encryption is "strict" or "optional".

@@ -26,7 +26,9 @@ type Server struct {
 }
 
 // New allocates a Server.
-func New(port int,
+func New(
+	listenIP string,
+	port int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount uint64,
@@ -42,7 +44,8 @@ func New(port int,
 		UDPRTCPListener: udpRTCPListener,
 	}
 
-	srv, err := conf.Serve(":" + strconv.FormatInt(int64(port), 10))
+	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
+	srv, err := conf.Serve(address)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +57,7 @@ func New(port int,
 		done:   make(chan struct{}),
 	}
 
-	parent.Log(logger.Info, "[TCP/RTSP listener] opened on :%d", port)
+	parent.Log(logger.Info, "[TCP/RTSP listener] opened on %s", address)
 
 	go s.run()
 	return s, nil
