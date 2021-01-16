@@ -2,13 +2,13 @@ name: lint
 
 on:
   push:
-    branches: [master]
+    branches: [ master ]
   pull_request:
-    branches: [master]
+    branches: [ master ]
 
 jobs:
-  lint:
-    name: lint
+  golangci-lint:
+    name: golangci-lint
 
     runs-on: ubuntu-latest
 
@@ -18,3 +18,18 @@ jobs:
     - uses: golangci/golangci-lint-action@v2
       with:
         version: v1.33
+
+  go-mod-tidy:
+    name: go-mod-tidy
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+
+    - run: |
+        go mod download
+        go mod tidy
+        git diff --exit-code
