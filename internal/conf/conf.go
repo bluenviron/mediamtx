@@ -1,12 +1,15 @@
 package conf
 
 import (
+	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"time"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/yaml.v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/confenv"
@@ -22,6 +25,25 @@ const (
 	EncryptionOptional
 	EncryptionStrict
 )
+
+func decrypt(key string, byts []byte) ([]byte, error) {
+	enc, err := base64.StdEncoding.DecodeString(string(byts))
+	if err != nil {
+		return nil, err
+	}
+
+	var secretKey [32]byte
+	copy(secretKey[:], key)
+
+	var decryptNonce [24]byte
+	copy(decryptNonce[:], enc[:24])
+	decrypted, ok := secretbox.Open(nil, enc[24:], &decryptNonce, &secretKey)
+	if !ok {
+		return nil, fmt.Errorf("decryption error")
+	}
+
+	return decrypted, nil
+}
 
 // Conf is the main program configuration.
 type Conf struct {
@@ -228,15 +250,21 @@ func Load(fpath string) (*Conf, bool, error) {
 			}
 		}
 
-		f, err := os.Open(fpath)
+		byts, err := ioutil.ReadFile(fpath)
 		if err != nil {
-			return false, err
+			return true, err
 		}
-		defer f.Close()
 
-		err = yaml.NewDecoder(f).Decode(conf)
+		if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok {
+			byts, err = decrypt(key, byts)
+			if err != nil {
+				return true, err
+			}
+		}
+
+		err = yaml.Unmarshal(byts, conf)
 		if err != nil {
-			return false, err
+			return true, err
 		}
 
 		return true, nil

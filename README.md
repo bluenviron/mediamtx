@@ -30,6 +30,7 @@ Features:
   * [Configuration](#configuration)
   * [Encryption](#encryption)
   * [Authentication](#authentication)
+  * [Encrypt the configuration](#encrypt-the-configuration)
   * [RTSP proxy mode](#rtsp-proxy-mode)
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
@@ -216,6 +217,26 @@ paths:
 ```
 
 **WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials.
+
+### Encrypt the configuration
+
+The configuration file can be entirely encrypted for security purposes.
+
+An online encryption tool is [available here](https://play.golang.org/p/rX29jwObNe4).
+
+The encryption procedure is the following:
+
+1. NaCL's `crypto_secretbox` function is applied to the content of the configuration. NaCL is a cryptographic library available for [C/C++](https://nacl.cr.yp.to/secretbox.html), [Go](https://pkg.go.dev/golang.org/x/crypto/nacl/secretbox), [C#](https://github.com/somdoron/NaCl.net) and many other languages;
+
+2. The string is prefixed with the nonce;
+
+3. The string is encoded with base64.
+
+After performing the encryption, it's enough to put the base64-encoded result into the configuration file, and launch the server with the `RTSP_CONFKEY` variable:
+
+```
+RTSP_CONFKEY=mykey ./rtsp-simple-server
+```
 
 ### RTSP proxy mode
 

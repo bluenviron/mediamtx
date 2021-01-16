@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -13,6 +16,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/nacl/secretbox"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 )
@@ -243,6 +247,41 @@ func TestEnvironmentNoFile(t *testing.T) {
 		RunOnDemandStartTimeout:    10 * time.Second,
 		RunOnDemandCloseAfter:      10 * time.Second,
 	}, pa)
+}
+
+func TestEncryptedConf(t *testing.T) {
+	key := "testing123testin"
+	plaintext := `
+paths:
+  path1:
+  path2:
+`
+
+	encryptedConf := func() string {
+		var secretKey [32]byte
+		copy(secretKey[:], key[:])
+
+		var nonce [24]byte
+		if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
+			panic(err)
+		}
+
+		encrypted := secretbox.Seal(nonce[:], []byte(plaintext), &nonce, &secretKey)
+		return base64.StdEncoding.EncodeToString(encrypted)
+	}()
+
+	os.Setenv("RTSP_CONFKEY", key)
+	defer os.Unsetenv("RTSP_CONFKEY")
+
+	p, ok := testProgram(encryptedConf)
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	_, ok = p.conf.Paths["path1"]
+	require.Equal(t, true, ok)
+
+	_, ok = p.conf.Paths["path2"]
+	require.Equal(t, true, ok)
 }
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----
