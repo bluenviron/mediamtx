@@ -155,7 +155,7 @@ outer:
 			}
 
 			err = req.Client.Authenticate(pm.authMethods, pathConf.ReadIpsParsed,
-				pathConf.ReadUser, pathConf.ReadPass, req.Req)
+				pathConf.ReadUser, pathConf.ReadPass, req.Req, nil)
 			if err != nil {
 				req.Res <- path.ClientDescribeRes{nil, err} //nolint:govet
 				continue
@@ -187,7 +187,8 @@ outer:
 			}
 
 			err = req.Client.Authenticate(pm.authMethods,
-				pathConf.PublishIpsParsed, pathConf.PublishUser, pathConf.PublishPass, req.Req)
+				pathConf.PublishIpsParsed, pathConf.PublishUser,
+				pathConf.PublishPass, req.Req, nil)
 			if err != nil {
 				req.Res <- path.ClientAnnounceRes{nil, err} //nolint:govet
 				continue
@@ -223,8 +224,17 @@ outer:
 				continue
 			}
 
+			// VLC strips the control attribute
+			// provide an alternative URL without the control attribute
+			altURL := &base.URL{
+				Scheme: req.Req.URL.Scheme,
+				Host:   req.Req.URL.Host,
+				Path:   "/" + req.PathName + "/",
+			}
+
 			err = req.Client.Authenticate(pm.authMethods,
-				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass, req.Req)
+				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass,
+				req.Req, altURL)
 			if err != nil {
 				req.Res <- path.ClientSetupPlayRes{nil, err} //nolint:govet
 				continue

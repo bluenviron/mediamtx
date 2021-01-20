@@ -158,16 +158,16 @@ func (c *Client) run() {
 	}
 
 	onDescribe := func(req *base.Request) (*base.Response, error) {
-		basePath, ok := req.URL.BasePath()
+		reqPath, ok := req.URL.RTSPPath()
 		if !ok {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("unable to find base path (%s)", req.URL)
+			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
 		c.describeData = make(chan describeData)
 
-		path, err := c.parent.OnClientDescribe(c, basePath, req)
+		path, err := c.parent.OnClientDescribe(c, reqPath, req)
 		if err != nil {
 			switch terr := err.(type) {
 			case errAuthNotCritical:
@@ -199,7 +199,7 @@ func (c *Client) run() {
 			c.path = nil
 
 			if res.err != nil {
-				c.log(logger.Info, "no one is publishing to path '%s'", basePath)
+				c.log(logger.Info, "no one is publishing to path '%s'", reqPath)
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
 				}, nil
@@ -242,14 +242,14 @@ func (c *Client) run() {
 	}
 
 	onAnnounce := func(req *base.Request, tracks gortsplib.Tracks) (*base.Response, error) {
-		basePath, ok := req.URL.BasePath()
+		reqPath, ok := req.URL.RTSPPath()
 		if !ok {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("unable to find base path (%s)", req.URL)
+			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
-		path, err := c.parent.OnClientAnnounce(c, basePath, tracks, req)
+		path, err := c.parent.OnClientAnnounce(c, reqPath, tracks, req)
 		if err != nil {
 			switch terr := err.(type) {
 			case errAuthNotCritical:
@@ -281,19 +281,28 @@ func (c *Client) run() {
 	}
 
 	onSetup := func(req *base.Request, th *headers.Transport, trackID int) (*base.Response, error) {
-		basePath, _, ok := req.URL.BasePathControlAttr()
-		if !ok {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("unable to find control attribute (%s)", req.URL)
-		}
-
 		switch c.conn.State() {
 		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
-			if c.path != nil && basePath != c.path.Name() {
+			pathAndQuery, ok := req.URL.RTSPPathAndQuery()
+			if !ok {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath)
+				}, fmt.Errorf("invalid path (%s)", req.URL)
+			}
+
+			_, pathAndQuery, ok = base.PathSplitControlAttribute(pathAndQuery)
+			if !ok {
+				return &base.Response{
+					StatusCode: base.StatusBadRequest,
+				}, fmt.Errorf("invalid path (%s)", req.URL)
+			}
+
+			reqPath, _ := base.PathSplitQuery(pathAndQuery)
+
+			if c.path != nil && reqPath != c.path.Name() {
+				return &base.Response{
+					StatusCode: base.StatusBadRequest,
+				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 			}
 
 			// play with UDP
@@ -304,7 +313,7 @@ func (c *Client) run() {
 					}, nil
 				}
 
-				path, err := c.parent.OnClientSetupPlay(c, basePath, trackID, req)
+				path, err := c.parent.OnClientSetupPlay(c, reqPath, trackID, req)
 				if err != nil {
 					switch terr := err.(type) {
 					case errAuthNotCritical:
@@ -346,7 +355,7 @@ func (c *Client) run() {
 				}, nil
 			}
 
-			path, err := c.parent.OnClientSetupPlay(c, basePath, trackID, req)
+			path, err := c.parent.OnClientSetupPlay(c, reqPath, trackID, req)
 			if err != nil {
 				switch terr := err.(type) {
 				case errAuthNotCritical:
@@ -380,11 +389,18 @@ func (c *Client) run() {
 			}, nil
 
 		default: // record
-			// after ANNOUNCE, c.path is already set
-			if basePath != c.path.Name() {
+			reqPathAndQuery, ok := req.URL.RTSPPathAndQuery()
+			if !ok {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath)
+				}, fmt.Errorf("invalid path (%s)", req.URL)
+			}
+
+			if !strings.HasPrefix(reqPathAndQuery, c.path.Name()) {
+				return &base.Response{
+						StatusCode: base.StatusBadRequest,
+					}, fmt.Errorf("invalid path: must begin with '%s', but is '%s'",
+						c.path.Name(), reqPathAndQuery)
 			}
 
 			// record with UDP
@@ -393,18 +409,6 @@ func (c *Client) run() {
 					return &base.Response{
 						StatusCode: base.StatusUnsupportedTransport,
 					}, nil
-				}
-
-				if th.ClientPorts == nil {
-					return &base.Response{
-						StatusCode: base.StatusBadRequest,
-					}, fmt.Errorf("transport header does not have valid client ports (%s)", req.Header["Transport"])
-				}
-
-				if c.conn.TracksLen() >= c.path.SourceTrackCount() {
-					return &base.Response{
-						StatusCode: base.StatusBadRequest,
-					}, fmt.Errorf("all the tracks have already been setup")
 				}
 
 				return &base.Response{
@@ -423,12 +427,6 @@ func (c *Client) run() {
 				}, nil
 			}
 
-			if c.conn.TracksLen() >= c.path.SourceTrackCount() {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("all the tracks have already been setup")
-			}
-
 			return &base.Response{
 				StatusCode: base.StatusOK,
 				Header: base.Header{
@@ -440,20 +438,20 @@ func (c *Client) run() {
 
 	onPlay := func(req *base.Request) (*base.Response, error) {
 		if c.conn.State() == gortsplib.ServerConnStatePrePlay {
-			basePath, ok := req.URL.BasePath()
+			reqPath, ok := req.URL.RTSPPath()
 			if !ok {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("unable to find base path (%s)", req.URL)
+				}, fmt.Errorf("invalid path (%s)", req.URL)
 			}
 
 			// path can end with a slash, remove it
-			basePath = strings.TrimSuffix(basePath, "/")
+			reqPath = strings.TrimSuffix(reqPath, "/")
 
-			if basePath != c.path.Name() {
+			if reqPath != c.path.Name() {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath)
+				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 			}
 
 			c.startPlay()
@@ -468,20 +466,20 @@ func (c *Client) run() {
 	}
 
 	onRecord := func(req *base.Request) (*base.Response, error) {
-		basePath, ok := req.URL.BasePath()
+		reqPath, ok := req.URL.RTSPPath()
 		if !ok {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("unable to find base path (%s)", req.URL)
+			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
 		// path can end with a slash, remove it
-		basePath = strings.TrimSuffix(basePath, "/")
+		reqPath = strings.TrimSuffix(reqPath, "/")
 
-		if basePath != c.path.Name() {
+		if reqPath != c.path.Name() {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), basePath)
+			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 		}
 
 		c.startRecord()
@@ -592,7 +590,8 @@ func (errAuthCritical) Error() string {
 }
 
 // Authenticate performs an authentication.
-func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{}, user string, pass string, req *base.Request) error {
+func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{},
+	user string, pass string, req *base.Request, altURL *base.URL) error {
 	// validate ip
 	if ips != nil {
 		ip := c.ip()
@@ -615,7 +614,8 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			c.authValidator = auth.NewValidator(user, pass, authMethods)
 		}
 
-		err := c.authValidator.ValidateHeader(req.Header["Authorization"], req.Method, req.URL)
+		err := c.authValidator.ValidateHeader(req.Header["Authorization"],
+			req.Method, req.URL, altURL)
 		if err != nil {
 			c.authFailures++
 
@@ -658,12 +658,15 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 func (c *Client) startPlay() {
 	c.path.OnClientPlay(c)
 
-	c.log(logger.Info, "is reading from path '%s', %d %s with %s", c.path.Name(), c.conn.TracksLen(), func() string {
-		if c.conn.TracksLen() == 1 {
-			return "track"
-		}
-		return "tracks"
-	}(), *c.conn.TracksProtocol())
+	c.log(logger.Info, "is reading from path '%s', %d %s with %s", c.path.Name(),
+		c.conn.SetuppedTracksLen(),
+		func() string {
+			if c.conn.SetuppedTracksLen() == 1 {
+				return "track"
+			}
+			return "tracks"
+		}(),
+		*c.conn.SetuppedTracksProtocol())
 
 	if c.path.Conf().RunOnRead != "" {
 		c.onReadCmd = externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
@@ -682,12 +685,15 @@ func (c *Client) stopPlay() {
 func (c *Client) startRecord() {
 	c.path.OnClientRecord(c)
 
-	c.log(logger.Info, "is publishing to path '%s', %d %s with %s", c.path.Name(), c.conn.TracksLen(), func() string {
-		if c.conn.TracksLen() == 1 {
-			return "track"
-		}
-		return "tracks"
-	}(), *c.conn.TracksProtocol())
+	c.log(logger.Info, "is publishing to path '%s', %d %s with %s", c.path.Name(),
+		c.conn.SetuppedTracksLen(),
+		func() string {
+			if c.conn.SetuppedTracksLen() == 1 {
+				return "track"
+			}
+			return "tracks"
+		}(),
+		*c.conn.SetuppedTracksProtocol())
 
 	if c.path.Conf().RunOnPublish != "" {
 		c.onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
@@ -705,7 +711,7 @@ func (c *Client) stopRecord() {
 
 // OnReaderFrame implements path.Reader.
 func (c *Client) OnReaderFrame(trackID int, streamType base.StreamType, buf []byte) {
-	if !c.conn.HasTrack(trackID) {
+	if !c.conn.HasSetuppedTrack(trackID) {
 		return
 	}
 

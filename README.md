@@ -10,7 +10,7 @@ _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP server a
 Features:
 
 * Read and publish live streams with UDP and TCP
-* Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MP3, AAC, Opus, PCM)
+* Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM)
 * Serve multiple streams at once in separate paths
 * Encrypt streams with TLS (RTSPS)
 * Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
