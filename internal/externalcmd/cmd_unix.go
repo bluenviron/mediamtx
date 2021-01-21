@@ -5,6 +5,7 @@ package externalcmd
 import (
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 func (e *Cmd) runInner() bool {
@@ -15,6 +16,7 @@ func (e *Cmd) runInner() bool {
 		"RTSP_PORT="+e.env.Port,
 	)
 
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -31,7 +33,7 @@ func (e *Cmd) runInner() bool {
 
 	select {
 	case <-e.terminate:
-		cmd.Process.Signal(os.Interrupt)
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
 		<-cmdDone
 		return false
 
