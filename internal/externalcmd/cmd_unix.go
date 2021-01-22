@@ -33,7 +33,7 @@ func (e *Cmd) runInner() bool {
 
 	select {
 	case <-e.terminate:
-		syscall.Kill(-cmd.Process.Pid, syscall.SIGTERM)
+		syscall.Kill(-cmd.Process.Pid, syscall.SIGINT)
 		<-cmdDone
 		return false
 
