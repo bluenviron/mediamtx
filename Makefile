@@ -53,6 +53,7 @@ test:
 test-nodocker:
 	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
 	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
+	go test -race -v ./internal/...
 	go test -race -v .
 
 lint:
