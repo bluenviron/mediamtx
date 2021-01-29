@@ -1,24 +1,16 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/base64"
-	"io"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/crypto/nacl/secretbox"
-
-	"github.com/aler9/rtsp-simple-server/internal/conf"
 )
 
 var ownDockerIP = func() string {
@@ -133,155 +125,6 @@ func testProgram(conf string) (*program, bool) {
 	defer os.Remove(tmpf)
 
 	return newProgram([]string{tmpf})
-}
-
-func TestEnvironment(t *testing.T) {
-	// string
-	os.Setenv("RTSP_RUNONCONNECT", "test=cmd")
-	defer os.Unsetenv("RTSP_RUNONCONNECT")
-
-	// int
-	os.Setenv("RTSP_RTSPPORT", "8555")
-	defer os.Unsetenv("RTSP_RTSPPORT")
-
-	// bool
-	os.Setenv("RTSP_METRICS", "yes")
-	defer os.Unsetenv("RTSP_METRICS")
-
-	// duration
-	os.Setenv("RTSP_READTIMEOUT", "22s")
-	defer os.Unsetenv("RTSP_READTIMEOUT")
-
-	// slice
-	os.Setenv("RTSP_LOGDESTINATIONS", "stdout,file")
-	defer os.Unsetenv("RTSP_LOGDESTINATIONS")
-
-	// map key
-	os.Setenv("RTSP_PATHS_TEST2", "")
-	defer os.Unsetenv("RTSP_PATHS_TEST2")
-
-	// map values, "all" path
-	os.Setenv("RTSP_PATHS_ALL_READUSER", "testuser")
-	defer os.Unsetenv("RTSP_PATHS_ALL_READUSER")
-	os.Setenv("RTSP_PATHS_ALL_READPASS", "testpass")
-	defer os.Unsetenv("RTSP_PATHS_ALL_READPASS")
-
-	// map values, generic path
-	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
-	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
-	os.Setenv("RTSP_PATHS_CAM1_SOURCEPROTOCOL", "tcp")
-	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCEPROTOCOL")
-	os.Setenv("RTSP_PATHS_CAM1_SOURCEONDEMAND", "yes")
-	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCEONDEMAND")
-
-	p, ok := testProgram("")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	require.Equal(t, "test=cmd", p.conf.RunOnConnect)
-
-	require.Equal(t, 8555, p.conf.RtspPort)
-
-	require.Equal(t, true, p.conf.Metrics)
-
-	require.Equal(t, 22*time.Second, p.conf.ReadTimeout)
-
-	require.Equal(t, []string{"stdout", "file"}, p.conf.LogDestinations)
-
-	pa, ok := p.conf.Paths["test2"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &conf.PathConf{
-		Source:                     "record",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
-	}, pa)
-
-	pa, ok = p.conf.Paths["~^.*$"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &conf.PathConf{
-		Regexp:                     regexp.MustCompile("^.*$"),
-		Source:                     "record",
-		SourceProtocol:             "automatic",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		ReadUser:                   "testuser",
-		ReadPass:                   "testpass",
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
-	}, pa)
-
-	pa, ok = p.conf.Paths["cam1"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &conf.PathConf{
-		Source:         "rtsp://testing",
-		SourceProtocol: "tcp",
-		SourceProtocolParsed: func() *gortsplib.StreamProtocol {
-			v := gortsplib.StreamProtocolTCP
-			return &v
-		}(),
-		SourceOnDemand:             true,
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
-	}, pa)
-}
-
-func TestEnvironmentNoFile(t *testing.T) {
-	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
-	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
-
-	p, ok := testProgram("{}")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	pa, ok := p.conf.Paths["cam1"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &conf.PathConf{
-		Source:                     "rtsp://testing",
-		SourceProtocol:             "automatic",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
-	}, pa)
-}
-
-func TestEncryptedConf(t *testing.T) {
-	key := "testing123testin"
-	plaintext := `
-paths:
-  path1:
-  path2:
-`
-
-	encryptedConf := func() string {
-		var secretKey [32]byte
-		copy(secretKey[:], key[:])
-
-		var nonce [24]byte
-		if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-			panic(err)
-		}
-
-		encrypted := secretbox.Seal(nonce[:], []byte(plaintext), &nonce, &secretKey)
-		return base64.StdEncoding.EncodeToString(encrypted)
-	}()
-
-	os.Setenv("RTSP_CONFKEY", key)
-	defer os.Unsetenv("RTSP_CONFKEY")
-
-	p, ok := testProgram(encryptedConf)
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	_, ok = p.conf.Paths["path1"]
-	require.Equal(t, true, ok)
-
-	_, ok = p.conf.Paths["path2"]
-	require.Equal(t, true, ok)
 }
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----
