@@ -3,7 +3,7 @@ FROM amd64/alpine:3.12
 RUN apk add --no-cache \
     ffmpeg
 
-COPY emptyvideo.ts /
+COPY *.ts /
 
 COPY start.sh /
 RUN chmod +x /start.sh

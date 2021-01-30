@@ -651,7 +651,8 @@ func TestSource(t *testing.T) {
 		"rtsp_udp",
 		"rtsp_tcp",
 		"rtsps",
-		"rtmp",
+		"rtmp_videoaudio",
+		"rtmp_video",
 	} {
 		t.Run(source, func(t *testing.T) {
 			switch source {
@@ -730,15 +731,20 @@ func TestSource(t *testing.T) {
 				require.Equal(t, true, ok)
 				defer p2.close()
 
-			case "rtmp":
+			case "rtmp_videoaudio", "rtmp_video":
 				cnt1, err := newContainer("nginx-rtmp", "rtmpserver", []string{})
 				require.NoError(t, err)
 				defer cnt1.close()
 
+				input := "emptyvideoaudio.ts"
+				if source == "rtmp_video" {
+					input = "emptyvideo.ts"
+				}
+
 				cnt2, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
-					"-i", "emptyvideo.ts",
+					"-i", input,
 					"-c", "copy",
 					"-f", "flv",
 					"rtmp://" + cnt1.ip() + "/stream/test",
