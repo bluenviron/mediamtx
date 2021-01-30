@@ -247,8 +247,6 @@ func TestPublishRead(t *testing.T) {
 				defer p.close()
 			}
 
-			time.Sleep(1 * time.Second)
-
 			switch ca.publisherSoft {
 			case "ffmpeg":
 				cnt1, err := newContainer("ffmpeg", "source", []string{
@@ -320,8 +318,6 @@ func TestTCPOnly(t *testing.T) {
 	p, ok := testProgram("protocols: [tcp]\n")
 	require.Equal(t, true, ok)
 	defer p.close()
-
-	time.Sleep(1 * time.Second)
 
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
@@ -542,8 +538,6 @@ func TestAuthFail(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			time.Sleep(1 * time.Second)
-
 			cnt1, err := newContainer("ffmpeg", "source", []string{
 				"-re",
 				"-stream_loop", "-1",
@@ -601,8 +595,6 @@ func TestAuthFail(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			time.Sleep(1 * time.Second)
-
 			cnt1, err := newContainer("ffmpeg", "source", []string{
 				"-re",
 				"-stream_loop", "-1",
@@ -638,8 +630,6 @@ func TestAuthIpFail(t *testing.T) {
 		"    publishIps: [127.0.0.1/32]\n")
 	require.Equal(t, true, ok)
 	defer p.close()
-
-	time.Sleep(1 * time.Second)
 
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
@@ -791,8 +781,6 @@ func TestRedirect(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p1.close()
 
-	time.Sleep(1 * time.Second)
-
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
 		"-stream_loop", "-1",
@@ -827,8 +815,6 @@ func TestFallback(t *testing.T) {
 		"  path2:\n")
 	require.Equal(t, true, ok)
 	defer p1.close()
-
-	time.Sleep(1 * time.Second)
 
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
