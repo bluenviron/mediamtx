@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -10,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -918,24 +923,77 @@ func TestFallback(t *testing.T) {
 }
 
 func TestRunOnDemand(t *testing.T) {
-	p1, ok := testProgram("paths:\n" +
-		"  all:\n" +
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n")
+	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
+	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh -e
+trap 'touch %s; kill $(jobs -p)' INT
+ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
+wait
+`, doneFile)))
+	require.NoError(t, err)
+	defer os.Remove(onDemandFile)
+
+	err = os.Chmod(onDemandFile, 0755)
+	require.NoError(t, err)
+
+	p1, ok := testProgram(fmt.Sprintf("paths:\n"+
+		"  all:\n"+
+		"    runOnDemand: %s\n", onDemandFile))
 	require.Equal(t, true, ok)
 	defer p1.close()
 
-	time.Sleep(1 * time.Second)
+	func() {
+		conn, err := net.Dial("tcp", ownDockerIP+":8554")
+		require.NoError(t, err)
+		defer conn.Close()
+		bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
-	cnt1, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "rtsp://" + ownDockerIP + ":8554/ondemand",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
+		err = base.Request{
+			Method: base.Describe,
+			URL:    base.MustParseURL("rtsp://localhost:8554/ondemand"),
+			Header: base.Header{
+				"CSeq": base.HeaderValue{"1"},
+			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
 
-	require.Equal(t, 0, cnt1.wait())
+		var res base.Response
+		err = res.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.StatusOK, res.StatusCode)
+
+		err = base.Request{
+			Method: base.Setup,
+			URL:    base.MustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
+			Header: base.Header{
+				"CSeq": base.HeaderValue{"2"},
+				"Transport": headers.Transport{
+					Protocol: gortsplib.StreamProtocolTCP,
+					Delivery: func() *base.StreamDelivery {
+						v := base.StreamDeliveryUnicast
+						return &v
+					}(),
+					Mode: func() *headers.TransportMode {
+						v := headers.TransportModePlay
+						return &v
+					}(),
+					InterleavedIds: &[2]int{0, 1},
+				}.Write(),
+			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		err = res.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.StatusOK, res.StatusCode)
+	}()
+
+	for {
+		_, err := os.Stat(doneFile)
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func TestHotReloading(t *testing.T) {
