@@ -27,6 +27,74 @@ const (
 	pauseAfterAuthError = 2 * time.Second
 )
 
+// DescribeRes is a client describe response.
+type DescribeRes struct {
+	Path Path
+	Err  error
+}
+
+// DescribeReq is a client describe request.
+type DescribeReq struct {
+	Client   *Client
+	PathName string
+	Req      *base.Request
+	Res      chan DescribeRes
+}
+
+// AnnounceRes is a client announce response.
+type AnnounceRes struct {
+	Path Path
+	Err  error
+}
+
+// AnnounceReq is a client announce request.
+type AnnounceReq struct {
+	Client   *Client
+	PathName string
+	Tracks   gortsplib.Tracks
+	Req      *base.Request
+	Res      chan AnnounceRes
+}
+
+// SetupPlayRes is a setup/play response.
+type SetupPlayRes struct {
+	Path Path
+	Err  error
+}
+
+// SetupPlayReq is a setup/play request.
+type SetupPlayReq struct {
+	Client   *Client
+	PathName string
+	TrackID  int
+	Req      *base.Request
+	Res      chan SetupPlayRes
+}
+
+// RemoveReq is a remove request.
+type RemoveReq struct {
+	Client *Client
+	Res    chan struct{}
+}
+
+// PlayReq is a play request.
+type PlayReq struct {
+	Client *Client
+	Res    chan struct{}
+}
+
+// RecordReq is a record request.
+type RecordReq struct {
+	Client *Client
+	Res    chan struct{}
+}
+
+// PauseReq is a pause request.
+type PauseReq struct {
+	Client *Client
+	Res    chan struct{}
+}
+
 type describeData struct {
 	sdp      []byte
 	redirect string
@@ -38,10 +106,10 @@ type Path interface {
 	Name() string
 	SourceTrackCount() int
 	Conf() *conf.PathConf
-	OnClientRemove(*Client)
-	OnClientPlay(*Client)
-	OnClientRecord(*Client)
-	OnClientPause(*Client)
+	OnClientRemove(RemoveReq)
+	OnClientPlay(PlayReq)
+	OnClientRecord(RecordReq)
+	OnClientPause(PauseReq)
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
@@ -49,12 +117,12 @@ type Path interface {
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnClientClose(*Client)
-	OnClientDescribe(*Client, string, *base.Request) (Path, error)
-	OnClientAnnounce(*Client, string, gortsplib.Tracks, *base.Request) (Path, error)
-	OnClientSetupPlay(*Client, string, int, *base.Request) (Path, error)
+	OnClientDescribe(DescribeReq)
+	OnClientAnnounce(AnnounceReq)
+	OnClientSetupPlay(SetupPlayReq)
 }
 
-// Client is a RTSP client.
+// Client is a RTSP
 type Client struct {
 	rtspPort            int
 	readTimeout         time.Duration
@@ -167,35 +235,37 @@ func (c *Client) run() {
 
 		c.describeData = make(chan describeData)
 
-		path, err := c.parent.OnClientDescribe(c, reqPath, req)
-		if err != nil {
-			switch terr := err.(type) {
+		resc := make(chan DescribeRes)
+		c.parent.OnClientDescribe(DescribeReq{c, reqPath, req, resc})
+		res := <-resc
+
+		if res.Err != nil {
+			switch terr := res.Err.(type) {
 			case errAuthNotCritical:
 				return terr.Response, nil
 
 			case errAuthCritical:
 				// wait some seconds to stop brute force attacks
-				t := time.NewTimer(pauseAfterAuthError)
-				defer t.Stop()
 				select {
-				case <-t.C:
+				case <-time.After(pauseAfterAuthError):
 				case <-c.terminate:
 				}
-
 				return terr.Response, errTerminated
 
 			default:
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, err
+				}, res.Err
 			}
 		}
 
-		c.path = path
+		c.path = res.Path
 
 		select {
 		case res := <-c.describeData:
-			c.path.OnClientRemove(c)
+			resc := make(chan struct{})
+			c.path.OnClientRemove(RemoveReq{c, resc})
+			<-resc
 			c.path = nil
 
 			if res.err != nil {
@@ -230,7 +300,9 @@ func (c *Client) run() {
 				}
 			}()
 
-			c.path.OnClientRemove(c)
+			resc := make(chan struct{})
+			c.path.OnClientRemove(RemoveReq{c, resc})
+			<-resc
 			c.path = nil
 
 			close(c.describeData)
@@ -249,31 +321,31 @@ func (c *Client) run() {
 			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
-		path, err := c.parent.OnClientAnnounce(c, reqPath, tracks, req)
-		if err != nil {
-			switch terr := err.(type) {
+		resc := make(chan AnnounceRes)
+		c.parent.OnClientAnnounce(AnnounceReq{c, reqPath, tracks, req, resc})
+		res := <-resc
+
+		if res.Err != nil {
+			switch terr := res.Err.(type) {
 			case errAuthNotCritical:
 				return terr.Response, nil
 
 			case errAuthCritical:
 				// wait some seconds to stop brute force attacks
-				t := time.NewTimer(pauseAfterAuthError)
-				defer t.Stop()
 				select {
-				case <-t.C:
+				case <-time.After(pauseAfterAuthError):
 				case <-c.terminate:
 				}
-
 				return terr.Response, errTerminated
 
 			default:
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, err
+				}, res.Err
 			}
 		}
 
-		c.path = path
+		c.path = res.Path
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
@@ -313,31 +385,31 @@ func (c *Client) run() {
 					}, nil
 				}
 
-				path, err := c.parent.OnClientSetupPlay(c, reqPath, trackID, req)
-				if err != nil {
-					switch terr := err.(type) {
+				resc := make(chan SetupPlayRes)
+				c.parent.OnClientSetupPlay(SetupPlayReq{c, reqPath, trackID, req, resc})
+				res := <-resc
+
+				if res.Err != nil {
+					switch terr := res.Err.(type) {
 					case errAuthNotCritical:
 						return terr.Response, nil
 
 					case errAuthCritical:
 						// wait some seconds to stop brute force attacks
-						t := time.NewTimer(pauseAfterAuthError)
-						defer t.Stop()
 						select {
-						case <-t.C:
+						case <-time.After(pauseAfterAuthError):
 						case <-c.terminate:
 						}
-
 						return terr.Response, errTerminated
 
 					default:
 						return &base.Response{
 							StatusCode: base.StatusBadRequest,
-						}, err
+						}, res.Err
 					}
 				}
 
-				c.path = path
+				c.path = res.Path
 
 				return &base.Response{
 					StatusCode: base.StatusOK,
@@ -355,31 +427,31 @@ func (c *Client) run() {
 				}, nil
 			}
 
-			path, err := c.parent.OnClientSetupPlay(c, reqPath, trackID, req)
-			if err != nil {
-				switch terr := err.(type) {
+			resc := make(chan SetupPlayRes)
+			c.parent.OnClientSetupPlay(SetupPlayReq{c, reqPath, trackID, req, resc})
+			res := <-resc
+
+			if res.Err != nil {
+				switch terr := res.Err.(type) {
 				case errAuthNotCritical:
 					return terr.Response, nil
 
 				case errAuthCritical:
 					// wait some seconds to stop brute force attacks
-					t := time.NewTimer(pauseAfterAuthError)
-					defer t.Stop()
 					select {
-					case <-t.C:
+					case <-time.After(pauseAfterAuthError):
 					case <-c.terminate:
 					}
-
 					return terr.Response, errTerminated
 
 				default:
 					return &base.Response{
 						StatusCode: base.StatusBadRequest,
-					}, err
+					}, res.Err
 				}
 			}
 
-			c.path = path
+			c.path = res.Path
 
 			return &base.Response{
 				StatusCode: base.StatusOK,
@@ -496,11 +568,15 @@ func (c *Client) run() {
 		switch c.conn.State() {
 		case gortsplib.ServerConnStatePlay:
 			c.stopPlay()
-			c.path.OnClientPause(c)
+			res := make(chan struct{})
+			c.path.OnClientPause(PauseReq{c, res})
+			<-res
 
 		case gortsplib.ServerConnStateRecord:
 			c.stopRecord()
-			c.path.OnClientPause(c)
+			res := make(chan struct{})
+			c.path.OnClientPause(PauseReq{c, res})
+			<-res
 		}
 
 		return &base.Response{
@@ -547,7 +623,9 @@ func (c *Client) run() {
 		}
 
 		if c.path != nil {
-			c.path.OnClientRemove(c)
+			res := make(chan struct{})
+			c.path.OnClientRemove(RemoveReq{c, res})
+			<-res
 			c.path = nil
 		}
 
@@ -567,7 +645,9 @@ func (c *Client) run() {
 		}
 
 		if c.path != nil {
-			c.path.OnClientRemove(c)
+			res := make(chan struct{})
+			c.path.OnClientRemove(RemoveReq{c, res})
+			<-res
 			c.path = nil
 		}
 	}
@@ -656,7 +736,9 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 }
 
 func (c *Client) startPlay() {
-	c.path.OnClientPlay(c)
+	res := make(chan struct{})
+	c.path.OnClientPlay(PlayReq{c, res})
+	<-res
 
 	c.log(logger.Info, "is reading from path '%s', %d %s with %s", c.path.Name(),
 		c.conn.SetuppedTracksLen(),
@@ -683,7 +765,9 @@ func (c *Client) stopPlay() {
 }
 
 func (c *Client) startRecord() {
-	c.path.OnClientRecord(c)
+	res := make(chan struct{})
+	c.path.OnClientRecord(RecordReq{c, res})
+	<-res
 
 	c.log(logger.Info, "is publishing to path '%s', %d %s with %s", c.path.Name(),
 		c.conn.SetuppedTracksLen(),

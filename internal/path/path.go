@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -54,70 +53,6 @@ type sourceExternal interface {
 type sourceRedirect struct{}
 
 func (*sourceRedirect) IsSource() {}
-
-// ClientDescribeRes is a client describe response.
-type ClientDescribeRes struct {
-	Path client.Path
-	Err  error
-}
-
-// ClientDescribeReq is a client describe request.
-type ClientDescribeReq struct {
-	Res      chan ClientDescribeRes
-	Client   *client.Client
-	PathName string
-	Req      *base.Request
-}
-
-// ClientAnnounceRes is a client announce response.
-type ClientAnnounceRes struct {
-	Path client.Path
-	Err  error
-}
-
-// ClientAnnounceReq is a client announce request.
-type ClientAnnounceReq struct {
-	Res      chan ClientAnnounceRes
-	Client   *client.Client
-	PathName string
-	Tracks   gortsplib.Tracks
-	Req      *base.Request
-}
-
-// ClientSetupPlayRes is a setup/play response.
-type ClientSetupPlayRes struct {
-	Path client.Path
-	Err  error
-}
-
-// ClientSetupPlayReq is a setup/play request.
-type ClientSetupPlayReq struct {
-	Res      chan ClientSetupPlayRes
-	Client   *client.Client
-	PathName string
-	TrackID  int
-	Req      *base.Request
-}
-
-type clientRemoveReq struct {
-	res    chan struct{}
-	client *client.Client
-}
-
-type clientPlayReq struct {
-	res    chan struct{}
-	client *client.Client
-}
-
-type clientRecordReq struct {
-	res    chan struct{}
-	client *client.Client
-}
-
-type clientPauseReq struct {
-	res    chan struct{}
-	client *client.Client
-}
 
 type clientState int
 
@@ -169,15 +104,15 @@ type Path struct {
 	closeTimerStarted            bool
 
 	// in
-	sourceSetReady    chan struct{}           // from source
-	sourceSetNotReady chan struct{}           // from source
-	clientDescribe    chan ClientDescribeReq  // from program
-	clientAnnounce    chan ClientAnnounceReq  // from program
-	clientSetupPlay   chan ClientSetupPlayReq // from program
-	clientPlay        chan clientPlayReq      // from client
-	clientRecord      chan clientRecordReq    // from client
-	clientPause       chan clientPauseReq     // from client
-	clientRemove      chan clientRemoveReq    // from client
+	sourceSetReady    chan struct{}            // from source
+	sourceSetNotReady chan struct{}            // from source
+	clientDescribe    chan client.DescribeReq  // from program
+	clientAnnounce    chan client.AnnounceReq  // from program
+	clientSetupPlay   chan client.SetupPlayReq // from program
+	clientPlay        chan client.PlayReq      // from client
+	clientRecord      chan client.RecordReq    // from client
+	clientPause       chan client.PauseReq     // from client
+	clientRemove      chan client.RemoveReq    // from client
 	terminate         chan struct{}
 }
 
@@ -213,13 +148,13 @@ func New(
 		closeTimer:            newEmptyTimer(),
 		sourceSetReady:        make(chan struct{}),
 		sourceSetNotReady:     make(chan struct{}),
-		clientDescribe:        make(chan ClientDescribeReq),
-		clientAnnounce:        make(chan ClientAnnounceReq),
-		clientSetupPlay:       make(chan ClientSetupPlayReq),
-		clientPlay:            make(chan clientPlayReq),
-		clientRecord:          make(chan clientRecordReq),
-		clientPause:           make(chan clientPauseReq),
-		clientRemove:          make(chan clientRemoveReq),
+		clientDescribe:        make(chan client.DescribeReq),
+		clientAnnounce:        make(chan client.AnnounceReq),
+		clientSetupPlay:       make(chan client.SetupPlayReq),
+		clientPlay:            make(chan client.PlayReq),
+		clientRecord:          make(chan client.RecordReq),
+		clientPause:           make(chan client.PauseReq),
+		clientRemove:          make(chan client.RemoveReq),
 		terminate:             make(chan struct{}),
 	}
 
@@ -304,57 +239,57 @@ outer:
 
 		case req := <-pa.clientDescribe:
 			if _, ok := pa.clients[req.Client]; ok {
-				req.Res <- ClientDescribeRes{nil, fmt.Errorf("already subscribed")}
+				req.Res <- client.DescribeRes{nil, fmt.Errorf("already subscribed")} //nolint:govet
 				continue
 			}
 
 			// reply immediately
-			req.Res <- ClientDescribeRes{pa, nil}
+			req.Res <- client.DescribeRes{pa, nil} //nolint:govet
 
 			pa.onClientDescribe(req.Client)
 
 		case req := <-pa.clientSetupPlay:
 			err := pa.onClientSetupPlay(req.Client, req.TrackID)
 			if err != nil {
-				req.Res <- ClientSetupPlayRes{nil, err}
+				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue
 			}
-			req.Res <- ClientSetupPlayRes{pa, nil}
+			req.Res <- client.SetupPlayRes{pa, nil} //nolint:govet
 
 		case req := <-pa.clientPlay:
-			pa.onClientPlay(req.client)
-			close(req.res)
+			pa.onClientPlay(req.Client)
+			close(req.Res)
 
 		case req := <-pa.clientAnnounce:
 			err := pa.onClientAnnounce(req.Client, req.Tracks)
 			if err != nil {
-				req.Res <- ClientAnnounceRes{nil, err}
+				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
 				continue
 			}
-			req.Res <- ClientAnnounceRes{pa, nil}
+			req.Res <- client.AnnounceRes{pa, nil} //nolint:govet
 
 		case req := <-pa.clientRecord:
-			pa.onClientRecord(req.client)
-			close(req.res)
+			pa.onClientRecord(req.Client)
+			close(req.Res)
 
 		case req := <-pa.clientPause:
-			pa.onClientPause(req.client)
-			close(req.res)
+			pa.onClientPause(req.Client)
+			close(req.Res)
 
 		case req := <-pa.clientRemove:
-			if _, ok := pa.clients[req.client]; !ok {
-				close(req.res)
+			if _, ok := pa.clients[req.Client]; !ok {
+				close(req.Res)
 				continue
 			}
 
-			if pa.clients[req.client] != clientStatePreRemove {
-				pa.removeClient(req.client)
+			if pa.clients[req.Client] != clientStatePreRemove {
+				pa.removeClient(req.Client)
 			}
 
-			delete(pa.clients, req.client)
+			delete(pa.clients, req.Client)
 			pa.clientsWg.Done()
 
-			close(req.res)
+			close(req.Res)
 
 		case <-pa.terminate:
 			pa.exhaustChannels()
@@ -426,51 +361,51 @@ func (pa *Path) exhaustChannels() {
 				if !ok {
 					return
 				}
-				req.Res <- ClientDescribeRes{nil, fmt.Errorf("terminated")}
+				req.Res <- client.DescribeRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientAnnounce:
 				if !ok {
 					return
 				}
-				req.Res <- ClientAnnounceRes{nil, fmt.Errorf("terminated")}
+				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientSetupPlay:
 				if !ok {
 					return
 				}
-				req.Res <- ClientSetupPlayRes{nil, fmt.Errorf("terminated")}
+				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientPlay:
 				if !ok {
 					return
 				}
-				close(req.res)
+				close(req.Res)
 
 			case req, ok := <-pa.clientRecord:
 				if !ok {
 					return
 				}
-				close(req.res)
+				close(req.Res)
 
 			case req, ok := <-pa.clientPause:
 				if !ok {
 					return
 				}
-				close(req.res)
+				close(req.Res)
 
 			case req, ok := <-pa.clientRemove:
 				if !ok {
 					return
 				}
 
-				if _, ok := pa.clients[req.client]; !ok {
-					close(req.res)
+				if _, ok := pa.clients[req.Client]; !ok {
+					close(req.Res)
 					continue
 				}
 
 				pa.clientsWg.Done()
 
-				close(req.res)
+				close(req.Res)
 			}
 		}
 	}()
@@ -847,46 +782,38 @@ func (pa *Path) OnSourceSetNotReady() {
 }
 
 // OnPathManDescribe is called by pathman.PathMan.
-func (pa *Path) OnPathManDescribe(req ClientDescribeReq) {
+func (pa *Path) OnPathManDescribe(req client.DescribeReq) {
 	pa.clientDescribe <- req
 }
 
 // OnPathManSetupPlay is called by pathman.PathMan.
-func (pa *Path) OnPathManSetupPlay(req ClientSetupPlayReq) {
+func (pa *Path) OnPathManSetupPlay(req client.SetupPlayReq) {
 	pa.clientSetupPlay <- req
 }
 
 // OnPathManAnnounce is called by pathman.PathMan.
-func (pa *Path) OnPathManAnnounce(req ClientAnnounceReq) {
+func (pa *Path) OnPathManAnnounce(req client.AnnounceReq) {
 	pa.clientAnnounce <- req
 }
 
 // OnClientRemove is called by client.Client.
-func (pa *Path) OnClientRemove(c *client.Client) {
-	res := make(chan struct{})
-	pa.clientRemove <- clientRemoveReq{res, c}
-	<-res
+func (pa *Path) OnClientRemove(req client.RemoveReq) {
+	pa.clientRemove <- req
 }
 
 // OnClientPlay is called by client.Client.
-func (pa *Path) OnClientPlay(c *client.Client) {
-	res := make(chan struct{})
-	pa.clientPlay <- clientPlayReq{res, c}
-	<-res
+func (pa *Path) OnClientPlay(req client.PlayReq) {
+	pa.clientPlay <- req
 }
 
 // OnClientRecord is called by client.Client.
-func (pa *Path) OnClientRecord(c *client.Client) {
-	res := make(chan struct{})
-	pa.clientRecord <- clientRecordReq{res, c}
-	<-res
+func (pa *Path) OnClientRecord(req client.RecordReq) {
+	pa.clientRecord <- req
 }
 
 // OnClientPause is called by client.Client.
-func (pa *Path) OnClientPause(c *client.Client) {
-	res := make(chan struct{})
-	pa.clientPause <- clientPauseReq{res, c}
-	<-res
+func (pa *Path) OnClientPause(req client.PauseReq) {
+	pa.clientPause <- req
 }
 
 // OnFrame is called by a source or by a client.Client.

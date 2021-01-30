@@ -173,16 +173,16 @@ func (cm *ClientManager) OnClientClose(c *client.Client) {
 }
 
 // OnClientDescribe is called by client.Client.
-func (cm *ClientManager) OnClientDescribe(c *client.Client, pathName string, req *base.Request) (client.Path, error) {
-	return cm.pathMan.OnClientDescribe(c, pathName, req)
+func (cm *ClientManager) OnClientDescribe(req client.DescribeReq) {
+	cm.pathMan.OnClientDescribe(req)
 }
 
 // OnClientAnnounce is called by client.Client.
-func (cm *ClientManager) OnClientAnnounce(c *client.Client, pathName string, tracks gortsplib.Tracks, req *base.Request) (client.Path, error) {
-	return cm.pathMan.OnClientAnnounce(c, pathName, tracks, req)
+func (cm *ClientManager) OnClientAnnounce(req client.AnnounceReq) {
+	cm.pathMan.OnClientAnnounce(req)
 }
 
 // OnClientSetupPlay is called by client.Client.
-func (cm *ClientManager) OnClientSetupPlay(c *client.Client, pathName string, trackID int, req *base.Request) (client.Path, error) {
-	return cm.pathMan.OnClientSetupPlay(c, pathName, trackID, req)
+func (cm *ClientManager) OnClientSetupPlay(req client.SetupPlayReq) {
+	cm.pathMan.OnClientSetupPlay(req)
 }
