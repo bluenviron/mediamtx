@@ -9,12 +9,12 @@ _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP/RTMP ser
 
 Features:
 
-* Read and publish live streams with UDP and TCP
+* Publish live streams with RTSP (with UDP or TCP) or RTMP
+* Read live streams with RTSP
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM)
+* Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
 * Serve multiple streams at once in separate paths
 * Encrypt streams with TLS (RTSPS)
-* Publish legacy RTMP streams
-* Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
 * Authenticate readers and publishers separately
 * Redirect to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
@@ -181,14 +181,14 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yml
 paths:
   all:
-    publishUser: admin
-    publishPass: mypassword
+    publishUser: myuser
+    publishPass: mypass
 ```
 
 Only publishers that provide both username and password will be able to proceed:
 
 ```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://admin:mypassword@localhost:8554/mystream
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://myuser:mypass@localhost:8554/mystream
 ```
 
 It's possible to setup authentication for readers too:
@@ -196,7 +196,7 @@ It's possible to setup authentication for readers too:
 ```yml
 paths:
   all:
-    publishUser: admin
+    publishUser: myuser
     publishPass: mypass
 
     readUser: user
@@ -278,7 +278,31 @@ paths:
 
 ### RTMP server
 
-asdasd
+RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, most RTSP codecs, feedback mechanism). If there is need of receiving streams from a software that supports only RTMP (for instance, OBS Studio), it's possible to turn on a RTMP listener:
+
+```yml
+rtmpEnable: yes
+```
+
+Streams can then be published with the RTMP protocol, for instance with _FFmpeg_:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream
+```
+
+or _GStreamer_:
+
+```
+gst-launch-1.0 -v flvmux name=s ! rtmpsink location=rtmp://localhost/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.video d.audio_0 ! queue ! s.audio
+```
+
+Credentials can be provided by appending to the URL the `user` and `pass` parameters:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
+```
+
+At the moment, the RTMP listener supports only the H264 and AAC codecs.
 
 ### Publish a webcam
 
@@ -287,7 +311,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: ffmpeg -f v4l2 -i /dev/asdasdvideo0 -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
