@@ -6,7 +6,10 @@ logDestinations: [stdout]
 # if "file" is in logDestinations, this is the file which will receive the logs.
 logFile: rtsp-simple-server.log
 
-# supported stream protocols.
+# listen IP. If provided, all listeners will listen on this specific IP.
+listenIP:
+
+# supported RTSP stream protocols.
 # UDP is the most performant, but can cause problems if there's a NAT between
 # server and clients, and doesn't support encryption.
 # TCP is the most versatile, and does support encryption.
@@ -15,8 +18,6 @@ protocols: [udp, tcp]
 # encrypt handshake and TCP streams with TLS (RTSPS).
 # available values are "no", "strict", "optional".
 encryption: no
-# listen IP. If provided, all listeners will listen on this specific IP.
-listenIP:
 # port of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
 rtspPort: 8554
 # port of the TCP/TLS/RTSPS listener. This is used only if encryption is "strict" or "optional".
@@ -39,6 +40,11 @@ writeTimeout: 10s
 # a higher number allows a higher throughput,
 # a lower number allows to save RAM.
 readBufferCount: 512
+
+# enable a RTMP listener that allows to receive streams with RTMP.
+rtmpEnable: no
+# port of the RTMP listener.
+rtmpPort: 1935
 
 # enable Prometheus-compatible metrics on port 9998.
 metrics: no

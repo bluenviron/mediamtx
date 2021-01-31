@@ -849,6 +849,26 @@ func TestFallback(t *testing.T) {
 	require.Equal(t, 0, cnt2.wait())
 }
 
+func TestRTMP(t *testing.T) {
+	p, ok := testProgram("paths:\n" +
+		"rtmpEnable: yes\n")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "emptyvideo.ts",
+		"-c", "copy",
+		"-f", "flv",
+		"rtmp://test:tast@" + ownDockerIP + ":1935/test1/test2",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	time.Sleep(1 * time.Second)
+}
+
 func TestRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh -e

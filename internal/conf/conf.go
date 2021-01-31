@@ -213,7 +213,7 @@ func (conf *Conf) fillAndCheck() error {
 	}
 
 	if conf.RTMPPort == 0 {
-		conf.RTMPPort = 8888
+		conf.RTMPPort = 1935
 	}
 
 	if len(conf.Paths) == 0 {

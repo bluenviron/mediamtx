@@ -13,7 +13,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Server is a TCP/TLS/RTSPS listener.
+// Server is a RTSP listener.
 type Server struct {
 	parent Parent
 
@@ -54,6 +54,7 @@ func New(
 	parent.Log(logger.Info, "[%s listener] opened on %s", label, address)
 
 	go s.run()
+
 	return s, nil
 }
 

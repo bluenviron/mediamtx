@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/metrics"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
+	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/serverudpl"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -36,6 +37,7 @@ type program struct {
 	serverUDPRTCP *gortsplib.ServerUDPListener
 	serverPlain   *serverrtsp.Server
 	serverTLS     *serverrtsp.Server
+	serverRTMP    *serverrtmp.Server
 	pathMan       *pathman.PathManager
 	clientMan     *clientman.ClientManager
 	confWatcher   *confwatcher.ConfWatcher
@@ -209,8 +211,8 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.serverPlain == nil {
-		if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
+	if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
+		if p.serverPlain == nil {
 			conf := gortsplib.ServerConf{
 				ReadTimeout:     p.conf.ReadTimeout,
 				WriteTimeout:    p.conf.WriteTimeout,
@@ -230,8 +232,8 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.serverTLS == nil {
-		if p.conf.EncryptionParsed == conf.EncryptionStrict || p.conf.EncryptionParsed == conf.EncryptionOptional {
+	if p.conf.EncryptionParsed == conf.EncryptionStrict || p.conf.EncryptionParsed == conf.EncryptionOptional {
+		if p.serverTLS == nil {
 			cert, err := tls.LoadX509KeyPair(p.conf.ServerCert, p.conf.ServerKey)
 			if err != nil {
 				return err
@@ -248,6 +250,18 @@ func (p *program) createResources(initial bool) error {
 				p.conf.ListenIP,
 				p.conf.RTSPSPort,
 				conf,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if p.conf.RTMPEnable {
+		if p.serverRTMP == nil {
+			p.serverRTMP, err = serverrtmp.New(
+				p.conf.ListenIP,
+				p.conf.RTMPPort,
 				p)
 			if err != nil {
 				return err
