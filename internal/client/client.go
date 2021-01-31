@@ -27,10 +27,21 @@ const (
 	pauseAfterAuthError = 2 * time.Second
 )
 
+// ErrNoOnePublishing is a "no one is publishing" error.
+type ErrNoOnePublishing struct {
+	PathName string
+}
+
+// Error implements the error interface.
+func (e ErrNoOnePublishing) Error() string {
+	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
+}
+
 // DescribeRes is a client describe response.
 type DescribeRes struct {
-	Path Path
-	Err  error
+	SDP      []byte
+	Redirect string
+	Err      error
 }
 
 // DescribeReq is a client describe request.
@@ -95,12 +106,6 @@ type PauseReq struct {
 	Res    chan struct{}
 }
 
-type describeData struct {
-	sdp      []byte
-	redirect string
-	err      error
-}
-
 // Path is implemented by path.Path.
 type Path interface {
 	Name() string
@@ -143,8 +148,7 @@ type Client struct {
 	onPublishCmd  *externalcmd.Cmd
 
 	// in
-	describeData chan describeData // from path
-	terminate    chan struct{}
+	terminate chan struct{}
 }
 
 // New allocates a Client.
@@ -233,8 +237,6 @@ func (c *Client) run() {
 			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
-		c.describeData = make(chan describeData)
-
 		resc := make(chan DescribeRes)
 		c.parent.OnClientDescribe(DescribeReq{c, reqPath, req, resc})
 		res := <-resc
@@ -252,6 +254,11 @@ func (c *Client) run() {
 				}
 				return terr.Response, errTerminated
 
+			case ErrNoOnePublishing:
+				return &base.Response{
+					StatusCode: base.StatusNotFound,
+				}, res.Err
+
 			default:
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
@@ -259,58 +266,23 @@ func (c *Client) run() {
 			}
 		}
 
-		c.path = res.Path
-
-		select {
-		case res := <-c.describeData:
-			resc := make(chan struct{})
-			c.path.OnClientRemove(RemoveReq{c, resc})
-			<-resc
-			c.path = nil
-
-			if res.err != nil {
-				c.log(logger.Info, "no one is publishing to path '%s'", reqPath)
-				return &base.Response{
-					StatusCode: base.StatusNotFound,
-				}, nil
-			}
-
-			if res.redirect != "" {
-				return &base.Response{
-					StatusCode: base.StatusMovedPermanently,
-					Header: base.Header{
-						"Location": base.HeaderValue{res.redirect},
-					},
-				}, nil
-			}
-
+		if res.Redirect != "" {
 			return &base.Response{
-				StatusCode: base.StatusOK,
+				StatusCode: base.StatusMovedPermanently,
 				Header: base.Header{
-					"Content-Base": base.HeaderValue{req.URL.String() + "/"},
-					"Content-Type": base.HeaderValue{"application/sdp"},
+					"Location": base.HeaderValue{res.Redirect},
 				},
-				Body: res.sdp,
 			}, nil
-
-		case <-c.terminate:
-			ch := c.describeData
-			go func() {
-				for range ch {
-				}
-			}()
-
-			resc := make(chan struct{})
-			c.path.OnClientRemove(RemoveReq{c, resc})
-			<-resc
-			c.path = nil
-
-			close(c.describeData)
-
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, errTerminated
 		}
+
+		return &base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Content-Base": base.HeaderValue{req.URL.String() + "/"},
+				"Content-Type": base.HeaderValue{"application/sdp"},
+			},
+			Body: res.SDP,
+		}, nil
 	}
 
 	onAnnounce := func(req *base.Request, tracks gortsplib.Tracks) (*base.Response, error) {
@@ -353,6 +325,20 @@ func (c *Client) run() {
 	}
 
 	onSetup := func(req *base.Request, th *headers.Transport, trackID int) (*base.Response, error) {
+		if th.Protocol == gortsplib.StreamProtocolUDP {
+			if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
+				return &base.Response{
+					StatusCode: base.StatusUnsupportedTransport,
+				}, nil
+			}
+		} else {
+			if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
+				return &base.Response{
+					StatusCode: base.StatusUnsupportedTransport,
+				}, nil
+			}
+		}
+
 		switch c.conn.State() {
 		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
 			pathAndQuery, ok := req.URL.RTSPPathAndQuery()
@@ -377,56 +363,6 @@ func (c *Client) run() {
 				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 			}
 
-			// play with UDP
-			if th.Protocol == gortsplib.StreamProtocolUDP {
-				if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
-					return &base.Response{
-						StatusCode: base.StatusUnsupportedTransport,
-					}, nil
-				}
-
-				resc := make(chan SetupPlayRes)
-				c.parent.OnClientSetupPlay(SetupPlayReq{c, reqPath, trackID, req, resc})
-				res := <-resc
-
-				if res.Err != nil {
-					switch terr := res.Err.(type) {
-					case errAuthNotCritical:
-						return terr.Response, nil
-
-					case errAuthCritical:
-						// wait some seconds to stop brute force attacks
-						select {
-						case <-time.After(pauseAfterAuthError):
-						case <-c.terminate:
-						}
-						return terr.Response, errTerminated
-
-					default:
-						return &base.Response{
-							StatusCode: base.StatusBadRequest,
-						}, res.Err
-					}
-				}
-
-				c.path = res.Path
-
-				return &base.Response{
-					StatusCode: base.StatusOK,
-					Header: base.Header{
-						"Session": base.HeaderValue{sessionID},
-					},
-				}, nil
-			}
-
-			// play with TCP
-
-			if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
-				return &base.Response{
-					StatusCode: base.StatusUnsupportedTransport,
-				}, nil
-			}
-
 			resc := make(chan SetupPlayRes)
 			c.parent.OnClientSetupPlay(SetupPlayReq{c, reqPath, trackID, req, resc})
 			res := <-resc
@@ -444,6 +380,11 @@ func (c *Client) run() {
 					}
 					return terr.Response, errTerminated
 
+				case ErrNoOnePublishing:
+					return &base.Response{
+						StatusCode: base.StatusNotFound,
+					}, res.Err
+
 				default:
 					return &base.Response{
 						StatusCode: base.StatusBadRequest,
@@ -452,13 +393,6 @@ func (c *Client) run() {
 			}
 
 			c.path = res.Path
-
-			return &base.Response{
-				StatusCode: base.StatusOK,
-				Header: base.Header{
-					"Session": base.HeaderValue{sessionID},
-				},
-			}, nil
 
 		default: // record
 			reqPathAndQuery, ok := req.URL.RTSPPathAndQuery()
@@ -474,38 +408,14 @@ func (c *Client) run() {
 					}, fmt.Errorf("invalid path: must begin with '%s', but is '%s'",
 						c.path.Name(), reqPathAndQuery)
 			}
-
-			// record with UDP
-			if th.Protocol == gortsplib.StreamProtocolUDP {
-				if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
-					return &base.Response{
-						StatusCode: base.StatusUnsupportedTransport,
-					}, nil
-				}
-
-				return &base.Response{
-					StatusCode: base.StatusOK,
-					Header: base.Header{
-						"Session": base.HeaderValue{sessionID},
-					},
-				}, nil
-			}
-
-			// record with TCP
-
-			if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
-				return &base.Response{
-					StatusCode: base.StatusUnsupportedTransport,
-				}, nil
-			}
-
-			return &base.Response{
-				StatusCode: base.StatusOK,
-				Header: base.Header{
-					"Session": base.HeaderValue{sessionID},
-				},
-			}, nil
 		}
+
+		return &base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Session": base.HeaderValue{sessionID},
+			},
+		}, nil
 	}
 
 	onPlay := func(req *base.Request) (*base.Response, error) {
@@ -800,9 +710,4 @@ func (c *Client) OnReaderFrame(trackID int, streamType base.StreamType, buf []by
 	}
 
 	c.conn.WriteFrame(trackID, streamType, buf)
-}
-
-// OnPathDescribeData is called by path.Path.
-func (c *Client) OnPathDescribeData(sdp []byte, redirect string, err error) {
-	c.describeData <- describeData{sdp, redirect, err}
 }

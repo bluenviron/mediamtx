@@ -149,14 +149,14 @@ outer:
 		case req := <-pm.clientDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- client.DescribeRes{nil, err} //nolint:govet
+				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
 				continue
 			}
 
 			err = req.Client.Authenticate(pm.authMethods, pathConf.ReadIpsParsed,
 				pathConf.ReadUser, pathConf.ReadPass, req.Req, nil)
 			if err != nil {
-				req.Res <- client.DescribeRes{nil, err} //nolint:govet
+				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
 				continue
 			}
 
@@ -212,12 +212,7 @@ outer:
 			pm.paths[req.PathName].OnPathManAnnounce(req)
 
 		case req := <-pm.clientSetupPlay:
-			if _, ok := pm.paths[req.PathName]; !ok {
-				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("no one is publishing to path '%s'", req.PathName)} //nolint:govet
-				continue
-			}
-
-			_, pathConf, err := pm.findPathConf(req.PathName)
+			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue
@@ -237,6 +232,22 @@ outer:
 			if err != nil {
 				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue
+			}
+
+			// create path if it doesn't exist
+			if _, ok := pm.paths[req.PathName]; !ok {
+				pa := path.New(
+					pm.rtspPort,
+					pm.readTimeout,
+					pm.writeTimeout,
+					pm.readBufferCount,
+					pathName,
+					pathConf,
+					req.PathName,
+					&pm.wg,
+					pm.stats,
+					pm)
+				pm.paths[req.PathName] = pa
 			}
 
 			pm.paths[req.PathName].OnPathManSetupPlay(req)
@@ -259,13 +270,22 @@ outer:
 					return
 				}
 
-			case req := <-pm.clientDescribe:
-				req.Res <- client.DescribeRes{nil, fmt.Errorf("terminated")} //nolint:govet
+			case req, ok := <-pm.clientDescribe:
+				if !ok {
+					return
+				}
+				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
-			case req := <-pm.clientAnnounce:
+			case req, ok := <-pm.clientAnnounce:
+				if !ok {
+					return
+				}
 				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
-			case req := <-pm.clientSetupPlay:
+			case req, ok := <-pm.clientSetupPlay:
+				if !ok {
+					return
+				}
 				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 			}
 		}

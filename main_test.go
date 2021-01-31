@@ -862,65 +862,162 @@ wait
 	err = os.Chmod(onDemandFile, 0755)
 	require.NoError(t, err)
 
-	p1, ok := testProgram(fmt.Sprintf("paths:\n"+
-		"  all:\n"+
-		"    runOnDemand: %s\n", onDemandFile))
-	require.Equal(t, true, ok)
-	defer p1.close()
+	t.Run("describe", func(t *testing.T) {
+		defer os.Remove(doneFile)
 
-	func() {
-		conn, err := net.Dial("tcp", ownDockerIP+":8554")
-		require.NoError(t, err)
-		defer conn.Close()
-		bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+		p1, ok := testProgram(fmt.Sprintf("paths:\n"+
+			"  all:\n"+
+			"    runOnDemand: %s\n"+
+			"    runOnDemandCloseAfter: 2s\n", onDemandFile))
+		require.Equal(t, true, ok)
+		defer p1.close()
 
-		err = base.Request{
-			Method: base.Describe,
-			URL:    base.MustParseURL("rtsp://localhost:8554/ondemand"),
-			Header: base.Header{
-				"CSeq": base.HeaderValue{"1"},
-			},
-		}.Write(bconn.Writer)
-		require.NoError(t, err)
+		func() {
+			conn, err := net.Dial("tcp", ownDockerIP+":8554")
+			require.NoError(t, err)
+			defer conn.Close()
+			bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
-		var res base.Response
-		err = res.Read(bconn.Reader)
-		require.NoError(t, err)
-		require.Equal(t, base.StatusOK, res.StatusCode)
+			err = base.Request{
+				Method: base.Describe,
+				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand"),
+				Header: base.Header{
+					"CSeq": base.HeaderValue{"1"},
+				},
+			}.Write(bconn.Writer)
+			require.NoError(t, err)
 
-		err = base.Request{
-			Method: base.Setup,
-			URL:    base.MustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
-			Header: base.Header{
-				"CSeq": base.HeaderValue{"2"},
-				"Transport": headers.Transport{
-					Protocol: gortsplib.StreamProtocolTCP,
-					Delivery: func() *base.StreamDelivery {
-						v := base.StreamDeliveryUnicast
-						return &v
-					}(),
-					Mode: func() *headers.TransportMode {
-						v := headers.TransportModePlay
-						return &v
-					}(),
-					InterleavedIds: &[2]int{0, 1},
-				}.Write(),
-			},
-		}.Write(bconn.Writer)
-		require.NoError(t, err)
+			var res base.Response
+			err = res.Read(bconn.Reader)
+			require.NoError(t, err)
+			require.Equal(t, base.StatusOK, res.StatusCode)
+		}()
 
-		err = res.Read(bconn.Reader)
-		require.NoError(t, err)
-		require.Equal(t, base.StatusOK, res.StatusCode)
-	}()
-
-	for {
-		_, err := os.Stat(doneFile)
-		if err == nil {
-			break
+		for {
+			_, err := os.Stat(doneFile)
+			if err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
 		}
-		time.Sleep(500 * time.Millisecond)
-	}
+	})
+
+	t.Run("describe and setup", func(t *testing.T) {
+		defer os.Remove(doneFile)
+
+		p1, ok := testProgram(fmt.Sprintf("paths:\n"+
+			"  all:\n"+
+			"    runOnDemand: %s\n"+
+			"    runOnDemandCloseAfter: 2s\n", onDemandFile))
+		require.Equal(t, true, ok)
+		defer p1.close()
+
+		func() {
+			conn, err := net.Dial("tcp", ownDockerIP+":8554")
+			require.NoError(t, err)
+			defer conn.Close()
+			bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+			err = base.Request{
+				Method: base.Describe,
+				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand"),
+				Header: base.Header{
+					"CSeq": base.HeaderValue{"1"},
+				},
+			}.Write(bconn.Writer)
+			require.NoError(t, err)
+
+			var res base.Response
+			err = res.Read(bconn.Reader)
+			require.NoError(t, err)
+			require.Equal(t, base.StatusOK, res.StatusCode)
+
+			err = base.Request{
+				Method: base.Setup,
+				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
+				Header: base.Header{
+					"CSeq": base.HeaderValue{"2"},
+					"Transport": headers.Transport{
+						Protocol: gortsplib.StreamProtocolTCP,
+						Delivery: func() *base.StreamDelivery {
+							v := base.StreamDeliveryUnicast
+							return &v
+						}(),
+						Mode: func() *headers.TransportMode {
+							v := headers.TransportModePlay
+							return &v
+						}(),
+						InterleavedIds: &[2]int{0, 1},
+					}.Write(),
+				},
+			}.Write(bconn.Writer)
+			require.NoError(t, err)
+
+			err = res.Read(bconn.Reader)
+			require.NoError(t, err)
+			require.Equal(t, base.StatusOK, res.StatusCode)
+		}()
+
+		for {
+			_, err := os.Stat(doneFile)
+			if err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	})
+
+	t.Run("setup", func(t *testing.T) {
+		defer os.Remove(doneFile)
+
+		p1, ok := testProgram(fmt.Sprintf("paths:\n"+
+			"  all:\n"+
+			"    runOnDemand: %s\n"+
+			"    runOnDemandCloseAfter: 2s\n", onDemandFile))
+		require.Equal(t, true, ok)
+		defer p1.close()
+
+		func() {
+			conn, err := net.Dial("tcp", ownDockerIP+":8554")
+			require.NoError(t, err)
+			defer conn.Close()
+			bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+			err = base.Request{
+				Method: base.Setup,
+				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
+				Header: base.Header{
+					"CSeq": base.HeaderValue{"1"},
+					"Transport": headers.Transport{
+						Protocol: gortsplib.StreamProtocolTCP,
+						Delivery: func() *base.StreamDelivery {
+							v := base.StreamDeliveryUnicast
+							return &v
+						}(),
+						Mode: func() *headers.TransportMode {
+							v := headers.TransportModePlay
+							return &v
+						}(),
+						InterleavedIds: &[2]int{0, 1},
+					}.Write(),
+				},
+			}.Write(bconn.Writer)
+			require.NoError(t, err)
+
+			var res base.Response
+			err = res.Read(bconn.Reader)
+			require.NoError(t, err)
+			require.Equal(t, base.StatusOK, res.StatusCode)
+		}()
+
+		for {
+			_, err := os.Stat(doneFile)
+			if err == nil {
+				break
+			}
+			time.Sleep(500 * time.Millisecond)
+		}
+	})
 }
 
 func TestHotReloading(t *testing.T) {
