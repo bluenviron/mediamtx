@@ -37,6 +37,23 @@ func (e ErrNoOnePublishing) Error() string {
 	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
 }
 
+func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
+	for _, item := range ips {
+		switch titem := item.(type) {
+		case net.IP:
+			if titem.Equal(ip) {
+				return true
+			}
+
+		case *net.IPNet:
+			if titem.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
@@ -488,8 +505,10 @@ func (c *Client) run() {
 }
 
 // Authenticate performs an authentication.
-func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{},
-	user string, pass string, req *base.Request, altURL *base.URL) error {
+func (c *Client) Authenticate(authMethods []headers.AuthMethod,
+	pathName string, ips []interface{},
+	user string, pass string, req interface{}) error {
+
 	// validate ip
 	if ips != nil {
 		ip := c.ip()
@@ -505,6 +524,8 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 
 	// validate user
 	if user != "" {
+		reqRTSP := req.(*base.Request)
+
 		// reset authValidator every time the credentials change
 		if c.authValidator == nil || c.authUser != user || c.authPass != pass {
 			c.authUser = user
@@ -512,8 +533,21 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			c.authValidator = auth.NewValidator(user, pass, authMethods)
 		}
 
-		err := c.authValidator.ValidateHeader(req.Header["Authorization"],
-			req.Method, req.URL, altURL)
+		// VLC strips the control attribute
+		// provide an alternative URL without the control attribute
+		altURL := func() *base.URL {
+			if reqRTSP.Method != base.Setup {
+				return nil
+			}
+			return &base.URL{
+				Scheme: reqRTSP.URL.Scheme,
+				Host:   reqRTSP.URL.Host,
+				Path:   "/" + pathName + "/",
+			}
+		}()
+
+		err := c.authValidator.ValidateHeader(reqRTSP.Header["Authorization"],
+			reqRTSP.Method, reqRTSP.URL, altURL)
 		if err != nil {
 			c.authFailures++
 

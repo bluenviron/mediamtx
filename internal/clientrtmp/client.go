@@ -3,6 +3,7 @@ package clientrtmp
 import (
 	"fmt"
 	"io"
+	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -26,6 +27,23 @@ import (
 const (
 	pauseAfterAuthError = 2 * time.Second
 )
+
+func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
+	for _, item := range ips {
+		switch titem := item.(type) {
+		case net.IP:
+			if titem.Equal(ip) {
+				return true
+			}
+
+		case *net.IPNet:
+			if titem.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
@@ -88,6 +106,10 @@ func (c *Client) IsSource() {}
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.conn.NConn.RemoteAddr().String()}, args...)...)
+}
+
+func (c *Client) ip() net.IP {
+	return c.conn.NConn.RemoteAddr().(*net.TCPAddr).IP
 }
 
 func (c *Client) run() {
@@ -165,13 +187,13 @@ func (c *Client) run() {
 		pathName := strings.TrimPrefix(ur.Path, "/")
 
 		resc := make(chan client.AnnounceRes)
-		c.parent.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, nil, resc}) //nolint:govet
+		c.parent.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, ur.Query(), resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
 			switch res.Err.(type) {
 			case client.ErrAuthNotCritical:
-				return err
+				return res.Err
 
 			case client.ErrAuthCritical:
 				// wait some seconds to stop brute force attacks
@@ -179,10 +201,10 @@ func (c *Client) run() {
 				case <-time.After(pauseAfterAuthError):
 				case <-c.terminate:
 				}
-				return err
+				return res.Err
 
 			default:
-				return err
+				return res.Err
 			}
 		}
 
@@ -304,10 +326,33 @@ func (c *Client) run() {
 }
 
 // Authenticate performs an authentication.
-func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{},
-	user string, pass string, req *base.Request, altURL *base.URL) error {
+func (c *Client) Authenticate(authMethods []headers.AuthMethod,
+	pathName string, ips []interface{},
+	user string, pass string, req interface{}) error {
 
-	// TODO
+	// validate ip
+	if ips != nil {
+		ip := c.ip()
+
+		if !ipEqualOrInRange(ip, ips) {
+			c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
+
+			return client.ErrAuthCritical{&base.Response{ //nolint:govet
+				StatusCode: base.StatusUnauthorized,
+			}}
+		}
+	}
+
+	// validate user
+	if user != "" {
+		values := req.(url.Values)
+
+		if values.Get("user") != user ||
+			values.Get("pass") != pass {
+			return client.ErrAuthCritical{nil} //nolint:govet
+		}
+	}
+
 	return nil
 }
 

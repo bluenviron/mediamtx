@@ -506,6 +506,40 @@ func TestAuth(t *testing.T) {
 		defer cnt2.close()
 		require.Equal(t, 0, cnt2.wait())
 	})
+
+	t.Run("rtmp", func(t *testing.T) {
+		p, ok := testProgram("rtmpEnable: yes\n" +
+			"paths:\n" +
+			"  all:\n" +
+			"    publishUser: testuser\n" +
+			"    publishPass: testpass\n")
+		require.Equal(t, true, ok)
+		defer p.close()
+
+		cnt1, err := newContainer("ffmpeg", "source", []string{
+			"-re",
+			"-stream_loop", "-1",
+			"-i", "emptyvideo.ts",
+			"-c", "copy",
+			"-f", "flv",
+			"rtmp://" + ownDockerIP + "/test1/test2?user=testuser&pass=testpass",
+		})
+		require.NoError(t, err)
+		defer cnt1.close()
+
+		time.Sleep(1 * time.Second)
+
+		cnt2, err := newContainer("ffmpeg", "dest", []string{
+			"-rtsp_transport", "udp",
+			"-i", "rtsp://" + ownDockerIP + ":8554/test1/test2",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer cnt2.close()
+		require.Equal(t, 0, cnt2.wait())
+	})
 }
 
 func TestAuthFail(t *testing.T) {
@@ -845,8 +879,7 @@ func TestFallback(t *testing.T) {
 }
 
 func TestRTMP(t *testing.T) {
-	p, ok := testProgram("paths:\n" +
-		"rtmpEnable: yes\n")
+	p, ok := testProgram("rtmpEnable: yes\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 
@@ -856,7 +889,7 @@ func TestRTMP(t *testing.T) {
 		"-i", "emptyvideo.ts",
 		"-c", "copy",
 		"-f", "flv",
-		"rtmp://test:tast@" + ownDockerIP + ":1935/test1/test2",
+		"rtmp://" + ownDockerIP + "/test1/test2",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()

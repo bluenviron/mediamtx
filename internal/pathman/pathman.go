@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
@@ -153,8 +152,9 @@ outer:
 				continue
 			}
 
-			err = req.Client.Authenticate(pm.authMethods, pathConf.ReadIpsParsed,
-				pathConf.ReadUser, pathConf.ReadPass, req.Req, nil)
+			err = req.Client.Authenticate(pm.authMethods, req.PathName,
+				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass,
+				req.Req)
 			if err != nil {
 				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
 				continue
@@ -185,9 +185,9 @@ outer:
 				continue
 			}
 
-			err = req.Client.Authenticate(pm.authMethods,
+			err = req.Client.Authenticate(pm.authMethods, req.PathName,
 				pathConf.PublishIpsParsed, pathConf.PublishUser,
-				pathConf.PublishPass, req.Req, nil)
+				pathConf.PublishPass, req.Req)
 			if err != nil {
 				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
 				continue
@@ -218,23 +218,9 @@ outer:
 				continue
 			}
 
-			// VLC strips the control attribute
-			// provide an alternative URL without the control attribute
-			altURL := func() *base.URL {
-				if req.Req == nil {
-					return nil
-				}
-
-				return &base.URL{
-					Scheme: req.Req.URL.Scheme,
-					Host:   req.Req.URL.Host,
-					Path:   "/" + req.PathName + "/",
-				}
-			}()
-
 			err = req.Client.Authenticate(pm.authMethods,
-				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass,
-				req.Req, altURL)
+				req.PathName, pathConf.ReadIpsParsed, pathConf.ReadUser,
+				pathConf.ReadPass, req.Req)
 			if err != nil {
 				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue

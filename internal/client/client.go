@@ -15,8 +15,9 @@ type Client interface {
 	IsClient()
 	IsSource()
 	Close()
-	Authenticate([]headers.AuthMethod, []interface{}, string, string,
-		*base.Request, *base.URL) error
+	Authenticate([]headers.AuthMethod,
+		string, []interface{},
+		string, string, interface{}) error
 	OnReaderFrame(int, gortsplib.StreamType, []byte)
 }
 
@@ -81,7 +82,7 @@ type AnnounceReq struct {
 	Client   Client
 	PathName string
 	Tracks   gortsplib.Tracks
-	Req      *base.Request
+	Req      interface{}
 	Res      chan AnnounceRes
 }
 
