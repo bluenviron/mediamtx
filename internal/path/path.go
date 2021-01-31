@@ -432,6 +432,7 @@ func (pa *Path) startExternalSource() {
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
 		pa.source = sourcertmp.New(
 			pa.conf.Source,
+			pa.readTimeout,
 			&pa.sourceWg,
 			pa.stats,
 			pa)

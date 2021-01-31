@@ -37,10 +37,11 @@ type Parent interface {
 
 // Source is a RTMP source.
 type Source struct {
-	ur     string
-	wg     *sync.WaitGroup
-	stats  *stats.Stats
-	parent Parent
+	ur          string
+	readTimeout time.Duration
+	wg          *sync.WaitGroup
+	stats       *stats.Stats
+	parent      Parent
 
 	// in
 	terminate chan struct{}
@@ -48,15 +49,17 @@ type Source struct {
 
 // New allocates a Source.
 func New(ur string,
+	readTimeout time.Duration,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
 	s := &Source{
-		ur:        ur,
-		wg:        wg,
-		stats:     stats,
-		parent:    parent,
-		terminate: make(chan struct{}),
+		ur:          ur,
+		readTimeout: readTimeout,
+		wg:          wg,
+		stats:       stats,
+		parent:      parent,
+		terminate:   make(chan struct{}),
 	}
 
 	atomic.AddInt64(s.stats.CountSourcesRtmp, +1)
@@ -169,6 +172,9 @@ func (s *Source) runInner() bool {
 	var audioTrack *gortsplib.Track
 	var audioRTCPSender *rtcpsender.RTCPSender
 	var aacEncoder *rtpaac.Encoder
+
+	// configuration must be completed within readTimeout
+	nconn.SetReadDeadline(time.Now().Add(s.readTimeout))
 
 	confDone := make(chan error)
 	go func() {
@@ -331,6 +337,7 @@ func (s *Source) runInner() bool {
 	go func() {
 		readerDone <- func() error {
 			for {
+				nconn.SetReadDeadline(time.Now().Add(s.readTimeout))
 				pkt, err := conn.ReadPacket()
 				if err != nil {
 					return err
