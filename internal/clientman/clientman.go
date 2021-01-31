@@ -160,7 +160,10 @@ outer:
 
 		case conn := <-rtmpAccept:
 			c := clientrtmp.New(
+				cm.rtspPort,
 				cm.readTimeout,
+				cm.runOnConnect,
+				cm.runOnConnectRestart,
 				&cm.wg,
 				cm.stats,
 				conn,
