@@ -5,11 +5,11 @@
 [![Lint](https://github.com/aler9/rtsp-simple-server/workflows/lint/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP/RTMP server and RTSP/RTMP proxy, a software that allows multiple users to publish, read and proxy live video and audio streams over time. RTSP is a standard protocol that describes how to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP/RTMP server and proxy, a software that allows multiple users to publish, read and proxy live video and audio streams. RTSP is a specification that describes how to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers.
 
 Features:
 
-* Publish live streams with RTSP (with UDP or TCP) or RTMP
+* Publish live streams with RTSP (UDP or TCP mode) or RTMP
 * Read live streams with RTSP
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM)
 * Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
@@ -278,7 +278,7 @@ paths:
 
 ### RTMP server
 
-RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, most RTSP codecs, feedback mechanism). If there is need of receiving streams from a software that supports only RTMP (for instance, OBS Studio), it's possible to turn on a RTMP listener:
+RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, most RTSP codecs, feedback mechanism). If there is need of receiving streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones), it's possible to turn on a RTMP listener:
 
 ```yml
 rtmpEnable: yes
@@ -287,7 +287,7 @@ rtmpEnable: yes
 Streams can then be published with the RTMP protocol, for instance with _FFmpeg_:
 
 ```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost/mystream
 ```
 
 or _GStreamer_:
@@ -302,7 +302,7 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
 
-At the moment, the RTMP listener supports only the H264 and AAC codecs.
+At the moment the RTMP listener supports only the H264 and AAC codecs.
 
 ### Publish a webcam
 
