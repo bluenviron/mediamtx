@@ -4,11 +4,10 @@ import (
 	"sync"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
 )
 
 type reader interface {
-	OnReaderFrame(int, base.StreamType, []byte)
+	OnReaderFrame(int, gortsplib.StreamType, []byte)
 }
 
 type readersMap struct {

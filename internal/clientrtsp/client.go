@@ -16,7 +16,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -37,97 +37,16 @@ func (e ErrNoOnePublishing) Error() string {
 	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
 }
 
-// DescribeRes is a client describe response.
-type DescribeRes struct {
-	SDP      []byte
-	Redirect string
-	Err      error
-}
-
-// DescribeReq is a client describe request.
-type DescribeReq struct {
-	Client   *Client
-	PathName string
-	Req      *base.Request
-	Res      chan DescribeRes
-}
-
-// AnnounceRes is a client announce response.
-type AnnounceRes struct {
-	Path Path
-	Err  error
-}
-
-// AnnounceReq is a client announce request.
-type AnnounceReq struct {
-	Client   *Client
-	PathName string
-	Tracks   gortsplib.Tracks
-	Req      *base.Request
-	Res      chan AnnounceRes
-}
-
-// SetupPlayRes is a setup/play response.
-type SetupPlayRes struct {
-	Path Path
-	Err  error
-}
-
-// SetupPlayReq is a setup/play request.
-type SetupPlayReq struct {
-	Client   *Client
-	PathName string
-	TrackID  int
-	Req      *base.Request
-	Res      chan SetupPlayRes
-}
-
-// RemoveReq is a remove request.
-type RemoveReq struct {
-	Client *Client
-	Res    chan struct{}
-}
-
-// PlayReq is a play request.
-type PlayReq struct {
-	Client *Client
-	Res    chan struct{}
-}
-
-// RecordReq is a record request.
-type RecordReq struct {
-	Client *Client
-	Res    chan struct{}
-}
-
-// PauseReq is a pause request.
-type PauseReq struct {
-	Client *Client
-	Res    chan struct{}
-}
-
-// Path is implemented by path.Path.
-type Path interface {
-	Name() string
-	SourceTrackCount() int
-	Conf() *conf.PathConf
-	OnClientRemove(RemoveReq)
-	OnClientPlay(PlayReq)
-	OnClientRecord(RecordReq)
-	OnClientPause(PauseReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
-}
-
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(*Client)
-	OnClientDescribe(DescribeReq)
-	OnClientAnnounce(AnnounceReq)
-	OnClientSetupPlay(SetupPlayReq)
+	OnClientClose(client.Client)
+	OnClientDescribe(client.DescribeReq)
+	OnClientAnnounce(client.AnnounceReq)
+	OnClientSetupPlay(client.SetupPlayReq)
 }
 
-// Client is a RTSP
+// Client is a RTSP client.
 type Client struct {
 	rtspPort            int
 	readTimeout         time.Duration
@@ -139,7 +58,7 @@ type Client struct {
 	conn                *gortsplib.ServerConn
 	parent              Parent
 
-	path          Path
+	path          client.Path
 	authUser      string
 	authPass      string
 	authValidator *auth.Validator
@@ -187,6 +106,7 @@ func New(
 
 	c.wg.Add(1)
 	go c.run()
+
 	return c
 }
 
@@ -195,6 +115,9 @@ func (c *Client) Close() {
 	atomic.AddInt64(c.stats.CountClients, -1)
 	close(c.terminate)
 }
+
+// IsClient implements client.Client.
+func (c *Client) IsClient() {}
 
 // IsSource implements path.source.
 func (c *Client) IsSource() {}
@@ -237,16 +160,16 @@ func (c *Client) run() {
 			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
-		resc := make(chan DescribeRes)
-		c.parent.OnClientDescribe(DescribeReq{c, reqPath, req, resc})
+		resc := make(chan client.DescribeRes)
+		c.parent.OnClientDescribe(client.DescribeReq{c, reqPath, req, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
 			switch terr := res.Err.(type) {
-			case errAuthNotCritical:
+			case client.ErrAuthNotCritical:
 				return terr.Response, nil
 
-			case errAuthCritical:
+			case client.ErrAuthCritical:
 				// wait some seconds to stop brute force attacks
 				select {
 				case <-time.After(pauseAfterAuthError):
@@ -293,16 +216,16 @@ func (c *Client) run() {
 			}, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
-		resc := make(chan AnnounceRes)
-		c.parent.OnClientAnnounce(AnnounceReq{c, reqPath, tracks, req, resc})
+		resc := make(chan client.AnnounceRes)
+		c.parent.OnClientAnnounce(client.AnnounceReq{c, reqPath, tracks, req, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
 			switch terr := res.Err.(type) {
-			case errAuthNotCritical:
+			case client.ErrAuthNotCritical:
 				return terr.Response, nil
 
-			case errAuthCritical:
+			case client.ErrAuthCritical:
 				// wait some seconds to stop brute force attacks
 				select {
 				case <-time.After(pauseAfterAuthError):
@@ -363,16 +286,16 @@ func (c *Client) run() {
 				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 			}
 
-			resc := make(chan SetupPlayRes)
-			c.parent.OnClientSetupPlay(SetupPlayReq{c, reqPath, trackID, req, resc})
+			resc := make(chan client.SetupPlayRes)
+			c.parent.OnClientSetupPlay(client.SetupPlayReq{c, reqPath, trackID, req, resc}) //nolint:govet
 			res := <-resc
 
 			if res.Err != nil {
 				switch terr := res.Err.(type) {
-				case errAuthNotCritical:
+				case client.ErrAuthNotCritical:
 					return terr.Response, nil
 
-				case errAuthCritical:
+				case client.ErrAuthCritical:
 					// wait some seconds to stop brute force attacks
 					select {
 					case <-time.After(pauseAfterAuthError):
@@ -436,7 +359,7 @@ func (c *Client) run() {
 				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 			}
 
-			c.startPlay()
+			c.playStart()
 		}
 
 		return &base.Response{
@@ -464,7 +387,7 @@ func (c *Client) run() {
 			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
 		}
 
-		c.startRecord()
+		c.recordStart()
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
@@ -477,15 +400,15 @@ func (c *Client) run() {
 	onPause := func(req *base.Request) (*base.Response, error) {
 		switch c.conn.State() {
 		case gortsplib.ServerConnStatePlay:
-			c.stopPlay()
+			c.playStop()
 			res := make(chan struct{})
-			c.path.OnClientPause(PauseReq{c, res})
+			c.path.OnClientPause(client.PauseReq{c, res}) //nolint:govet
 			<-res
 
 		case gortsplib.ServerConnStateRecord:
-			c.stopRecord()
+			c.recordStop()
 			res := make(chan struct{})
-			c.path.OnClientPause(PauseReq{c, res})
+			c.path.OnClientPause(client.PauseReq{c, res}) //nolint:govet
 			<-res
 		}
 
@@ -520,21 +443,22 @@ func (c *Client) run() {
 	select {
 	case err := <-readDone:
 		c.conn.Close()
+
 		if err != io.EOF && err != gortsplib.ErrServerTeardown && err != errTerminated {
 			c.log(logger.Info, "ERR: %s", err)
 		}
 
 		switch c.conn.State() {
 		case gortsplib.ServerConnStatePlay:
-			c.stopPlay()
+			c.playStop()
 
 		case gortsplib.ServerConnStateRecord:
-			c.stopRecord()
+			c.recordStop()
 		}
 
 		if c.path != nil {
 			res := make(chan struct{})
-			c.path.OnClientRemove(RemoveReq{c, res})
+			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
 			<-res
 			c.path = nil
 		}
@@ -548,35 +472,19 @@ func (c *Client) run() {
 
 		switch c.conn.State() {
 		case gortsplib.ServerConnStatePlay:
-			c.stopPlay()
+			c.playStop()
 
 		case gortsplib.ServerConnStateRecord:
-			c.stopRecord()
+			c.recordStop()
 		}
 
 		if c.path != nil {
 			res := make(chan struct{})
-			c.path.OnClientRemove(RemoveReq{c, res})
+			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
 			<-res
 			c.path = nil
 		}
 	}
-}
-
-type errAuthNotCritical struct {
-	*base.Response
-}
-
-func (errAuthNotCritical) Error() string {
-	return "auth not critical"
-}
-
-type errAuthCritical struct {
-	*base.Response
-}
-
-func (errAuthCritical) Error() string {
-	return "auth critical"
 }
 
 // Authenticate performs an authentication.
@@ -589,7 +497,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 		if !ipEqualOrInRange(ip, ips) {
 			c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
 
-			return errAuthCritical{&base.Response{
+			return client.ErrAuthCritical{&base.Response{ //nolint:govet
 				StatusCode: base.StatusUnauthorized,
 			}}
 		}
@@ -618,7 +526,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 			if c.authFailures > 3 {
 				c.log(logger.Info, "ERR: unauthorized: %s", err)
 
-				return errAuthCritical{&base.Response{
+				return client.ErrAuthCritical{&base.Response{ //nolint:govet
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
 						"WWW-Authenticate": c.authValidator.GenerateHeader(),
@@ -630,7 +538,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 				c.log(logger.Debug, "WARN: unauthorized: %s", err)
 			}
 
-			return errAuthNotCritical{&base.Response{
+			return client.ErrAuthNotCritical{&base.Response{ //nolint:govet
 				StatusCode: base.StatusUnauthorized,
 				Header: base.Header{
 					"WWW-Authenticate": c.authValidator.GenerateHeader(),
@@ -645,12 +553,13 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod, ips []interface{
 	return nil
 }
 
-func (c *Client) startPlay() {
-	res := make(chan struct{})
-	c.path.OnClientPlay(PlayReq{c, res})
-	<-res
+func (c *Client) playStart() {
+	resc := make(chan struct{})
+	c.path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
+	<-resc
 
-	c.log(logger.Info, "is reading from path '%s', %d %s with %s", c.path.Name(),
+	c.log(logger.Info, "is reading from path '%s', %d %s with %s",
+		c.path.Name(),
 		c.conn.SetuppedTracksLen(),
 		func() string {
 			if c.conn.SetuppedTracksLen() == 1 {
@@ -668,18 +577,19 @@ func (c *Client) startPlay() {
 	}
 }
 
-func (c *Client) stopPlay() {
+func (c *Client) playStop() {
 	if c.path.Conf().RunOnRead != "" {
 		c.onReadCmd.Close()
 	}
 }
 
-func (c *Client) startRecord() {
-	res := make(chan struct{})
-	c.path.OnClientRecord(RecordReq{c, res})
-	<-res
+func (c *Client) recordStart() {
+	resc := make(chan struct{})
+	c.path.OnClientRecord(client.RecordReq{c, resc}) //nolint:govet
+	<-resc
 
-	c.log(logger.Info, "is publishing to path '%s', %d %s with %s", c.path.Name(),
+	c.log(logger.Info, "is publishing to path '%s', %d %s with %s",
+		c.path.Name(),
 		c.conn.SetuppedTracksLen(),
 		func() string {
 			if c.conn.SetuppedTracksLen() == 1 {
@@ -697,14 +607,14 @@ func (c *Client) startRecord() {
 	}
 }
 
-func (c *Client) stopRecord() {
+func (c *Client) recordStop() {
 	if c.path.Conf().RunOnPublish != "" {
 		c.onPublishCmd.Close()
 	}
 }
 
 // OnReaderFrame implements path.Reader.
-func (c *Client) OnReaderFrame(trackID int, streamType base.StreamType, buf []byte) {
+func (c *Client) OnReaderFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
 	if !c.conn.HasSetuppedTrack(trackID) {
 		return
 	}

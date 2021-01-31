@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/rtcpsender"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
@@ -16,7 +15,7 @@ import (
 	"github.com/notedit/rtmp/format/rtmp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtmpinfo"
+	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -113,13 +112,15 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.log(logger.Info, "connecting")
 
-	var rconn *rtmp.Conn
-	var nconn net.Conn
+	var conn rtmputils.ConnPair
 	var err error
 	dialDone := make(chan struct{}, 1)
 	go func() {
 		defer close(dialDone)
+		var rconn *rtmp.Conn
+		var nconn net.Conn
 		rconn, nconn, err = rtmp.NewClient().Dial(s.ur, rtmp.PrepareReading)
+		conn = rtmputils.ConnPair{rconn, nconn} //nolint:govet
 	}()
 
 	select {
@@ -135,17 +136,18 @@ func (s *Source) runInner() bool {
 
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
-	confDone := make(chan struct{})
+	metadataDone := make(chan struct{})
 	go func() {
-		defer close(confDone)
-		videoTrack, audioTrack, err = rtmpinfo.Info(rconn, nconn, s.readTimeout)
+		defer close(metadataDone)
+		videoTrack, audioTrack, err = rtmputils.Metadata(
+			conn, s.readTimeout) //nolint:govet
 	}()
 
 	select {
-	case <-confDone:
+	case <-metadataDone:
 	case <-s.terminate:
-		nconn.Close()
-		<-confDone
+		conn.NConn.Close()
+		<-metadataDone
 		return false
 	}
 
@@ -155,34 +157,29 @@ func (s *Source) runInner() bool {
 	}
 
 	var tracks gortsplib.Tracks
-	var videoRTCPSender *rtcpsender.RTCPSender
-	var h264Encoder *rtph264.Encoder
-	var audioRTCPSender *rtcpsender.RTCPSender
-	var aacEncoder *rtpaac.Encoder
 
+	var h264Encoder *rtph264.Encoder
 	if videoTrack != nil {
-		clockRate, _ := videoTrack.ClockRate()
+		var err error
 		h264Encoder, err = rtph264.NewEncoder(96)
 		if err != nil {
-			nconn.Close()
+			conn.NConn.Close()
 			s.log(logger.Info, "ERR: %s", err)
 			return true
 		}
-
-		videoRTCPSender = rtcpsender.New(clockRate)
 		tracks = append(tracks, videoTrack)
 	}
 
+	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
 		clockRate, _ := audioTrack.ClockRate()
+		var err error
 		aacEncoder, err = rtpaac.NewEncoder(96, clockRate)
 		if err != nil {
-			nconn.Close()
+			conn.NConn.Close()
 			s.log(logger.Info, "ERR: %s", err)
 			return true
 		}
-
-		audioRTCPSender = rtcpsender.New(clockRate)
 		tracks = append(tracks, audioTrack)
 	}
 
@@ -194,45 +191,15 @@ func (s *Source) runInner() bool {
 	s.parent.OnSourceSetReady(tracks)
 	defer s.parent.OnSourceSetNotReady()
 
-	rtcpTerminate := make(chan struct{})
-	rtcpDone := make(chan struct{})
-	go func() {
-		close(rtcpDone)
-
-		t := time.NewTicker(10 * time.Second)
-		defer t.Stop()
-
-		for {
-			select {
-			case <-t.C:
-				now := time.Now()
-
-				if videoRTCPSender != nil {
-					r := videoRTCPSender.Report(now)
-					if r != nil {
-						s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTCP, r)
-					}
-				}
-
-				if audioRTCPSender != nil {
-					r := audioRTCPSender.Report(now)
-					if r != nil {
-						s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTCP, r)
-					}
-				}
-
-			case <-rtcpTerminate:
-				return
-			}
-		}
-	}()
-
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
+			rtcpSenders := rtmputils.NewRTCPSenderSet(tracks, s.parent.OnFrame)
+			defer rtcpSenders.Close()
+
 			for {
-				nconn.SetReadDeadline(time.Now().Add(s.readTimeout))
-				pkt, err := rconn.ReadPacket()
+				conn.NConn.SetReadDeadline(time.Now().Add(s.readTimeout))
+				pkt, err := conn.RConn.ReadPacket()
 				if err != nil {
 					return err
 				}
@@ -240,7 +207,7 @@ func (s *Source) runInner() bool {
 				switch pkt.Type {
 				case av.H264:
 					if videoTrack == nil {
-						return fmt.Errorf("rtmp source ERR: received an H264 frame, but track is not setup up")
+						return fmt.Errorf("ERR: received an H264 frame, but track is not set up")
 					}
 
 					// decode from AVCC format
@@ -256,13 +223,13 @@ func (s *Source) runInner() bool {
 					}
 
 					for _, f := range frames {
-						videoRTCPSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRTP, f)
+						rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(), gortsplib.StreamTypeRTP, f)
 						s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, f)
 					}
 
 				case av.AAC:
 					if audioTrack == nil {
-						return fmt.Errorf("rtmp source ERR: received an AAC frame, but track is not setup up")
+						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
 					frames, err := aacEncoder.Write(pkt.Time+pkt.CTime, pkt.Data)
@@ -271,12 +238,12 @@ func (s *Source) runInner() bool {
 					}
 
 					for _, f := range frames {
-						audioRTCPSender.ProcessFrame(time.Now(), gortsplib.StreamTypeRTP, f)
+						rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(), gortsplib.StreamTypeRTP, f)
 						s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, f)
 					}
 
 				default:
-					return fmt.Errorf("rtmp source ERR: unexpected packet: %v", pkt.Type)
+					return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)
 				}
 			}
 		}()
@@ -285,19 +252,13 @@ func (s *Source) runInner() bool {
 	for {
 		select {
 		case err := <-readerDone:
-			nconn.Close()
+			conn.NConn.Close()
 			s.log(logger.Info, "ERR: %s", err)
-
-			close(rtcpTerminate)
-			<-rtcpDone
 			return true
 
 		case <-s.terminate:
-			nconn.Close()
+			conn.NConn.Close()
 			<-readerDone
-
-			close(rtcpTerminate)
-			<-rtcpDone
 			return false
 		}
 	}

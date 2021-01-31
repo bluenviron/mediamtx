@@ -1,7 +1,6 @@
 package serverrtmp
 
 import (
-	"fmt"
 	"net"
 	"strconv"
 	"sync"
@@ -9,6 +8,7 @@ import (
 	"github.com/notedit/rtmp/format/rtmp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
 )
 
 // Parent is implemented by program.
@@ -21,6 +21,8 @@ type Server struct {
 	l   net.Listener
 	srv *rtmp.Server
 	wg  sync.WaitGroup
+
+	accept chan rtmputils.ConnPair
 }
 
 // New allocates a Server.
@@ -36,7 +38,8 @@ func New(
 	}
 
 	s := &Server{
-		l: l,
+		l:      l,
+		accept: make(chan rtmputils.ConnPair),
 	}
 
 	s.srv = rtmp.NewServer()
@@ -52,8 +55,14 @@ func New(
 
 // Close closes a Server.
 func (s *Server) Close() {
+	go func() {
+		for co := range s.accept {
+			co.NConn.Close()
+		}
+	}()
 	s.l.Close()
 	s.wg.Wait()
+	close(s.accept)
 }
 
 func (s *Server) run() {
@@ -74,14 +83,10 @@ func (s *Server) run() {
 }
 
 func (s *Server) innerHandleConn(rconn *rtmp.Conn, nconn net.Conn) {
-	defer nconn.Close()
+	s.accept <- rtmputils.ConnPair{rconn, nconn} //nolint:govet
+}
 
-	err := func() error {
-		if !rconn.Publishing {
-			return fmt.Errorf("not publishing")
-		}
-
-		return nil
-	}()
-	fmt.Println("ERR", err)
+// Accept returns a channel to accept incoming connections.
+func (s *Server) Accept() chan rtmputils.ConnPair {
+	return s.accept
 }

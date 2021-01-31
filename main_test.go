@@ -561,7 +561,6 @@ func TestAuthFail(t *testing.T) {
 			})
 			require.NoError(t, err)
 			defer cnt2.close()
-
 			require.Equal(t, 1, cnt2.wait())
 		})
 	}
@@ -618,7 +617,6 @@ func TestAuthFail(t *testing.T) {
 			})
 			require.NoError(t, err)
 			defer cnt2.close()
-
 			require.Equal(t, 1, cnt2.wait())
 		})
 	}
@@ -642,7 +640,6 @@ func TestAuthIpFail(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
-
 	require.NotEqual(t, 0, cnt1.wait())
 }
 
@@ -810,7 +807,6 @@ func TestRedirect(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer cnt2.close()
-
 	require.Equal(t, 0, cnt2.wait())
 }
 
@@ -845,7 +841,6 @@ func TestFallback(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer cnt2.close()
-
 	require.Equal(t, 0, cnt2.wait())
 }
 
@@ -867,6 +862,17 @@ func TestRTMP(t *testing.T) {
 	defer cnt1.close()
 
 	time.Sleep(1 * time.Second)
+
+	cnt2, err := newContainer("ffmpeg", "dest", []string{
+		"-rtsp_transport", "udp",
+		"-i", "rtsp://" + ownDockerIP + ":8554/test1/test2",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer cnt2.close()
+	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestRunOnDemand(t *testing.T) {
@@ -1069,7 +1075,6 @@ func TestHotReloading(t *testing.T) {
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
-
 		require.Equal(t, 0, cnt1.wait())
 	}()
 
@@ -1093,7 +1098,6 @@ func TestHotReloading(t *testing.T) {
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
-
 		require.Equal(t, 1, cnt1.wait())
 	}()
 
@@ -1106,7 +1110,6 @@ func TestHotReloading(t *testing.T) {
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
-
 		require.Equal(t, 0, cnt1.wait())
 	}()
 }

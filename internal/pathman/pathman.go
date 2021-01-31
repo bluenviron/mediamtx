@@ -8,7 +8,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
-	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/path"
@@ -37,13 +37,13 @@ type PathManager struct {
 	// in
 	confReload      chan map[string]*conf.PathConf
 	pathClose       chan *path.Path
-	clientDescribe  chan clientrtsp.DescribeReq
-	clientAnnounce  chan clientrtsp.AnnounceReq
-	clientSetupPlay chan clientrtsp.SetupPlayReq
+	clientDescribe  chan client.DescribeReq
+	clientAnnounce  chan client.AnnounceReq
+	clientSetupPlay chan client.SetupPlayReq
 	terminate       chan struct{}
 
 	// out
-	clientClose chan *clientrtsp.Client
+	clientClose chan client.Client
 	done        chan struct{}
 }
 
@@ -70,11 +70,11 @@ func New(
 		paths:           make(map[string]*path.Path),
 		confReload:      make(chan map[string]*conf.PathConf),
 		pathClose:       make(chan *path.Path),
-		clientDescribe:  make(chan clientrtsp.DescribeReq),
-		clientAnnounce:  make(chan clientrtsp.AnnounceReq),
-		clientSetupPlay: make(chan clientrtsp.SetupPlayReq),
+		clientDescribe:  make(chan client.DescribeReq),
+		clientAnnounce:  make(chan client.AnnounceReq),
+		clientSetupPlay: make(chan client.SetupPlayReq),
 		terminate:       make(chan struct{}),
-		clientClose:     make(chan *clientrtsp.Client),
+		clientClose:     make(chan client.Client),
 		done:            make(chan struct{}),
 	}
 
@@ -149,14 +149,14 @@ outer:
 		case req := <-pm.clientDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- clientrtsp.DescribeRes{nil, "", err} //nolint:govet
+				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
 				continue
 			}
 
 			err = req.Client.Authenticate(pm.authMethods, pathConf.ReadIpsParsed,
 				pathConf.ReadUser, pathConf.ReadPass, req.Req, nil)
 			if err != nil {
-				req.Res <- clientrtsp.DescribeRes{nil, "", err} //nolint:govet
+				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
 				continue
 			}
 
@@ -181,7 +181,7 @@ outer:
 		case req := <-pm.clientAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- clientrtsp.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -189,7 +189,7 @@ outer:
 				pathConf.PublishIpsParsed, pathConf.PublishUser,
 				pathConf.PublishPass, req.Req, nil)
 			if err != nil {
-				req.Res <- clientrtsp.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -214,23 +214,29 @@ outer:
 		case req := <-pm.clientSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- clientrtsp.SetupPlayRes{nil, err} //nolint:govet
+				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue
 			}
 
 			// VLC strips the control attribute
 			// provide an alternative URL without the control attribute
-			altURL := &base.URL{
-				Scheme: req.Req.URL.Scheme,
-				Host:   req.Req.URL.Host,
-				Path:   "/" + req.PathName + "/",
-			}
+			altURL := func() *base.URL {
+				if req.Req == nil {
+					return nil
+				}
+
+				return &base.URL{
+					Scheme: req.Req.URL.Scheme,
+					Host:   req.Req.URL.Host,
+					Path:   "/" + req.PathName + "/",
+				}
+			}()
 
 			err = req.Client.Authenticate(pm.authMethods,
 				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass,
 				req.Req, altURL)
 			if err != nil {
-				req.Res <- clientrtsp.SetupPlayRes{nil, err} //nolint:govet
+				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -274,19 +280,19 @@ outer:
 				if !ok {
 					return
 				}
-				req.Res <- clientrtsp.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pm.clientAnnounce:
 				if !ok {
 					return
 				}
-				req.Res <- clientrtsp.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pm.clientSetupPlay:
 				if !ok {
 					return
 				}
-				req.Res <- clientrtsp.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 			}
 		}
 	}()
@@ -355,26 +361,26 @@ func (pm *PathManager) OnPathClose(pa *path.Path) {
 }
 
 // OnPathClientClose is called by path.Path.
-func (pm *PathManager) OnPathClientClose(c *clientrtsp.Client) {
+func (pm *PathManager) OnPathClientClose(c client.Client) {
 	pm.clientClose <- c
 }
 
-// OnClientDescribe is called by clientrtsp.Client.
-func (pm *PathManager) OnClientDescribe(req clientrtsp.DescribeReq) {
+// OnClientDescribe is called by clientman.ClientMan.
+func (pm *PathManager) OnClientDescribe(req client.DescribeReq) {
 	pm.clientDescribe <- req
 }
 
-// OnClientAnnounce is called by clientrtsp.Client.
-func (pm *PathManager) OnClientAnnounce(req clientrtsp.AnnounceReq) {
+// OnClientAnnounce is called by clientman.ClientMan.
+func (pm *PathManager) OnClientAnnounce(req client.AnnounceReq) {
 	pm.clientAnnounce <- req
 }
 
-// OnClientSetupPlay is called by clientrtsp.Client.
-func (pm *PathManager) OnClientSetupPlay(req clientrtsp.SetupPlayReq) {
+// OnClientSetupPlay is called by clientman.ClientMan.
+func (pm *PathManager) OnClientSetupPlay(req client.SetupPlayReq) {
 	pm.clientSetupPlay <- req
 }
 
-// ClientClose is called by clientrtsp.Client.
-func (pm *PathManager) ClientClose() chan *clientrtsp.Client {
+// ClientClose is called by clientman.ClientMan.
+func (pm *PathManager) ClientClose() chan client.Client {
 	return pm.clientClose
 }

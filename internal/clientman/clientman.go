@@ -7,12 +7,23 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
+	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/pathman"
+	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
+
+// PathManager is implemented by pathman.PathManager.
+type PathManager interface {
+	ClientClose() chan client.Client
+	OnClientDescribe(client.DescribeReq)
+	OnClientAnnounce(client.AnnounceReq)
+	OnClientSetupPlay(client.SetupPlayReq)
+}
 
 // Parent is implemented by program.
 type Parent interface {
@@ -27,16 +38,17 @@ type ClientManager struct {
 	runOnConnectRestart bool
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
-	pathMan             *pathman.PathManager
+	pathMan             PathManager
 	serverPlain         *serverrtsp.Server
 	serverTLS           *serverrtsp.Server
+	serverRTMP          *serverrtmp.Server
 	parent              Parent
 
-	clients map[*clientrtsp.Client]struct{}
+	clients map[client.Client]struct{}
 	wg      sync.WaitGroup
 
 	// in
-	clientClose chan *clientrtsp.Client
+	clientClose chan client.Client
 	terminate   chan struct{}
 
 	// out
@@ -51,9 +63,10 @@ func New(
 	runOnConnectRestart bool,
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
-	pathMan *pathman.PathManager,
+	pathMan PathManager,
 	serverPlain *serverrtsp.Server,
 	serverTLS *serverrtsp.Server,
+	serverRTMP *serverrtmp.Server,
 	parent Parent) *ClientManager {
 
 	cm := &ClientManager{
@@ -66,14 +79,16 @@ func New(
 		pathMan:             pathMan,
 		serverPlain:         serverPlain,
 		serverTLS:           serverTLS,
+		serverRTMP:          serverRTMP,
 		parent:              parent,
-		clients:             make(map[*clientrtsp.Client]struct{}),
-		clientClose:         make(chan *clientrtsp.Client),
+		clients:             make(map[client.Client]struct{}),
+		clientClose:         make(chan client.Client),
 		terminate:           make(chan struct{}),
 		done:                make(chan struct{}),
 	}
 
 	go cm.run()
+
 	return cm
 }
 
@@ -105,11 +120,19 @@ func (cm *ClientManager) run() {
 		return make(chan *gortsplib.ServerConn)
 	}()
 
+	rtmpAccept := func() chan rtmputils.ConnPair {
+		if cm.serverRTMP != nil {
+			return cm.serverRTMP.Accept()
+		}
+		return make(chan rtmputils.ConnPair)
+	}()
+
 outer:
 	for {
 		select {
 		case conn := <-tcpAccept:
-			c := clientrtsp.New(false,
+			c := clientrtsp.New(
+				false,
 				cm.rtspPort,
 				cm.readTimeout,
 				cm.runOnConnect,
@@ -122,12 +145,22 @@ outer:
 			cm.clients[c] = struct{}{}
 
 		case conn := <-tlsAccept:
-			c := clientrtsp.New(true,
+			c := clientrtsp.New(
+				true,
 				cm.rtspPort,
 				cm.readTimeout,
 				cm.runOnConnect,
 				cm.runOnConnectRestart,
 				cm.protocols,
+				&cm.wg,
+				cm.stats,
+				conn,
+				cm)
+			cm.clients[c] = struct{}{}
+
+		case conn := <-rtmpAccept:
+			c := clientrtmp.New(
+				cm.readTimeout,
 				&cm.wg,
 				cm.stats,
 				conn,
@@ -167,21 +200,21 @@ outer:
 }
 
 // OnClientClose is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientClose(c *clientrtsp.Client) {
+func (cm *ClientManager) OnClientClose(c client.Client) {
 	cm.clientClose <- c
 }
 
 // OnClientDescribe is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientDescribe(req clientrtsp.DescribeReq) {
+func (cm *ClientManager) OnClientDescribe(req client.DescribeReq) {
 	cm.pathMan.OnClientDescribe(req)
 }
 
 // OnClientAnnounce is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientAnnounce(req clientrtsp.AnnounceReq) {
+func (cm *ClientManager) OnClientAnnounce(req client.AnnounceReq) {
 	cm.pathMan.OnClientAnnounce(req)
 }
 
 // OnClientSetupPlay is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientSetupPlay(req clientrtsp.SetupPlayReq) {
+func (cm *ClientManager) OnClientSetupPlay(req client.SetupPlayReq) {
 	cm.pathMan.OnClientSetupPlay(req)
 }

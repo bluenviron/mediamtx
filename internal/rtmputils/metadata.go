@@ -1,8 +1,7 @@
-package rtmpinfo
+package rtmputils
 
 import (
 	"fmt"
-	"net"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -44,16 +43,16 @@ func readMetadata(rconn *rtmp.Conn) (flvio.AMFMap, error) {
 	return ma, nil
 }
 
-// Info extracts track informations from a RTMP connection.
-func Info(rconn *rtmp.Conn, nconn net.Conn, readTimeout time.Duration) (
+// Metadata extracts track informations from a RTMP connection that is publishing.
+func Metadata(conn ConnPair, readTimeout time.Duration) (
 	*gortsplib.Track, *gortsplib.Track, error) {
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
 
 	// configuration must be completed within readTimeout
-	nconn.SetReadDeadline(time.Now().Add(readTimeout))
+	conn.NConn.SetReadDeadline(time.Now().Add(readTimeout))
 
-	md, err := readMetadata(rconn)
+	md, err := readMetadata(conn.RConn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -87,7 +86,7 @@ func Info(rconn *rtmp.Conn, nconn net.Conn, readTimeout time.Duration) (
 
 	for {
 		var pkt av.Packet
-		pkt, err = rconn.ReadPacket()
+		pkt, err = conn.RConn.ReadPacket()
 		if err != nil {
 			return nil, nil, err
 		}

@@ -211,7 +211,8 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
+	if p.conf.EncryptionParsed == conf.EncryptionNo ||
+		p.conf.EncryptionParsed == conf.EncryptionOptional {
 		if p.serverPlain == nil {
 			conf := gortsplib.ServerConf{
 				ReadTimeout:     p.conf.ReadTimeout,
@@ -232,7 +233,8 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.EncryptionParsed == conf.EncryptionStrict || p.conf.EncryptionParsed == conf.EncryptionOptional {
+	if p.conf.EncryptionParsed == conf.EncryptionStrict ||
+		p.conf.EncryptionParsed == conf.EncryptionOptional {
 		if p.serverTLS == nil {
 			cert, err := tls.LoadX509KeyPair(p.conf.ServerCert, p.conf.ServerKey)
 			if err != nil {
@@ -292,6 +294,7 @@ func (p *program) createResources(initial bool) error {
 			p.pathMan,
 			p.serverPlain,
 			p.serverTLS,
+			p.serverRTMP,
 			p)
 	}
 
@@ -362,6 +365,15 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerTLS = true
 	}
 
+	closeServerRTMP := false
+	if newConf == nil ||
+		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.ListenIP != p.conf.ListenIP ||
+		newConf.RTMPPort != p.conf.RTMPPort ||
+		newConf.ReadTimeout != p.conf.ReadTimeout {
+		closeServerRTMP = true
+	}
+
 	closePathMan := false
 	if newConf == nil ||
 		newConf.RTSPPort != p.conf.RTSPPort ||
@@ -378,6 +390,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if newConf == nil ||
 		closeServerPlain ||
 		closeServerTLS ||
+		closeServerRTMP ||
 		closePathMan ||
 		newConf.RTSPPort != p.conf.RTSPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -400,6 +413,11 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if closePathMan && p.pathMan != nil {
 		p.pathMan.Close()
 		p.pathMan = nil
+	}
+
+	if closeServerRTMP && p.serverRTMP != nil {
+		p.serverRTMP.Close()
+		p.serverRTMP = nil
 	}
 
 	if closeServerTLS && p.serverTLS != nil {
