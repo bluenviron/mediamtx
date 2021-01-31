@@ -52,13 +52,13 @@ type Conf struct {
 	LogDestinations       []string                              `yaml:"logDestinations"`
 	LogDestinationsParsed map[logger.Destination]struct{}       `yaml:"-" json:"-"`
 	LogFile               string                                `yaml:"logFile"`
+	ListenIP              string                                `yaml:"listenIP"`
 	Protocols             []string                              `yaml:"protocols"`
 	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	Encryption            string                                `yaml:"encryption"`
 	EncryptionParsed      Encryption                            `yaml:"-" json:"-"`
-	ListenIP              string                                `yaml:"listenIP"`
-	RtspPort              int                                   `yaml:"rtspPort"`
-	RtspsPort             int                                   `yaml:"rtspsPort"`
+	RTSPPort              int                                   `yaml:"rtspPort"`
+	RTSPSPort             int                                   `yaml:"rtspsPort"`
 	RTPPort               int                                   `yaml:"rtpPort"`
 	RTCPPort              int                                   `yaml:"rtcpPort"`
 	ServerKey             string                                `yaml:"serverKey"`
@@ -68,6 +68,8 @@ type Conf struct {
 	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
 	ReadBufferCount       uint64                                `yaml:"readBufferCount"`
+	RTMPEnable            bool                                  `yaml:"rtmpEnable"`
+	RTMPPort              int                                   `yaml:"rtmpPort"`
 	Metrics               bool                                  `yaml:"metrics"`
 	Pprof                 bool                                  `yaml:"pprof"`
 	RunOnConnect          string                                `yaml:"runOnConnect"`
@@ -158,11 +160,11 @@ func (conf *Conf) fillAndCheck() error {
 		return fmt.Errorf("unsupported encryption value: '%s'", conf.Encryption)
 	}
 
-	if conf.RtspPort == 0 {
-		conf.RtspPort = 8554
+	if conf.RTSPPort == 0 {
+		conf.RTSPPort = 8554
 	}
-	if conf.RtspsPort == 0 {
-		conf.RtspsPort = 8555
+	if conf.RTSPSPort == 0 {
+		conf.RTSPSPort = 8555
 	}
 	if conf.RTPPort == 0 {
 		conf.RTPPort = 8000
@@ -208,6 +210,10 @@ func (conf *Conf) fillAndCheck() error {
 	}
 	if conf.ReadBufferCount == 0 {
 		conf.ReadBufferCount = 512
+	}
+
+	if conf.RTMPPort == 0 {
+		conf.RTMPPort = 8888
 	}
 
 	if len(conf.Paths) == 0 {

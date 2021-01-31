@@ -1,8 +1,7 @@
-package serverplain
+package serverrtsp
 
 import (
 	"strconv"
-	"time"
 
 	"github.com/aler9/gortsplib"
 
@@ -14,7 +13,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Server is a TCP/RTSP listener.
+// Server is a TCP/TLS/RTSPS listener.
 type Server struct {
 	parent Parent
 
@@ -29,20 +28,8 @@ type Server struct {
 func New(
 	listenIP string,
 	port int,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
-	readBufferCount uint64,
-	udpRTPListener *gortsplib.ServerUDPListener,
-	udpRTCPListener *gortsplib.ServerUDPListener,
+	conf gortsplib.ServerConf,
 	parent Parent) (*Server, error) {
-
-	conf := gortsplib.ServerConf{
-		ReadTimeout:     readTimeout,
-		WriteTimeout:    writeTimeout,
-		ReadBufferCount: readBufferCount,
-		UDPRTPListener:  udpRTPListener,
-		UDPRTCPListener: udpRTCPListener,
-	}
 
 	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
 	srv, err := conf.Serve(address)
@@ -57,7 +44,14 @@ func New(
 		done:   make(chan struct{}),
 	}
 
-	parent.Log(logger.Info, "[TCP/RTSP listener] opened on %s", address)
+	label := func() string {
+		if conf.TLSConfig != nil {
+			return "TCP/TLS/RTSPS"
+		}
+		return "TCP/RTSP"
+	}()
+
+	parent.Log(logger.Info, "[%s listener] opened on %s", label, address)
 
 	go s.run()
 	return s, nil

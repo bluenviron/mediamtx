@@ -10,8 +10,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
-	"github.com/aler9/rtsp-simple-server/internal/serverplain"
-	"github.com/aler9/rtsp-simple-server/internal/servertls"
+	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -29,8 +28,8 @@ type ClientManager struct {
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
 	pathMan             *pathman.PathManager
-	serverPlain         *serverplain.Server
-	serverTLS           *servertls.Server
+	serverPlain         *serverrtsp.Server
+	serverTLS           *serverrtsp.Server
 	parent              Parent
 
 	clients map[*client.Client]struct{}
@@ -53,8 +52,8 @@ func New(
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
 	pathMan *pathman.PathManager,
-	serverPlain *serverplain.Server,
-	serverTLS *servertls.Server,
+	serverPlain *serverrtsp.Server,
+	serverTLS *serverrtsp.Server,
 	parent Parent) *ClientManager {
 
 	cm := &ClientManager{

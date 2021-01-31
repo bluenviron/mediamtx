@@ -79,7 +79,7 @@ func TestEnvironment(t *testing.T) {
 
 	require.Equal(t, "test=cmd", conf.RunOnConnect)
 
-	require.Equal(t, 8555, conf.RtspPort)
+	require.Equal(t, 8555, conf.RTSPPort)
 
 	require.Equal(t, true, conf.Metrics)
 

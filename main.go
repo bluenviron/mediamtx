@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 	"reflect"
@@ -16,8 +17,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/metrics"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
-	"github.com/aler9/rtsp-simple-server/internal/serverplain"
-	"github.com/aler9/rtsp-simple-server/internal/servertls"
+	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/serverudpl"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
@@ -34,8 +34,8 @@ type program struct {
 	pprof         *pprof.Pprof
 	serverUDPRTP  *gortsplib.ServerUDPListener
 	serverUDPRTCP *gortsplib.ServerUDPListener
-	serverPlain   *serverplain.Server
-	serverTLS     *servertls.Server
+	serverPlain   *serverrtsp.Server
+	serverTLS     *serverrtsp.Server
 	pathMan       *pathman.PathManager
 	clientMan     *clientman.ClientManager
 	confWatcher   *confwatcher.ConfWatcher
@@ -211,14 +211,18 @@ func (p *program) createResources(initial bool) error {
 
 	if p.serverPlain == nil {
 		if p.conf.EncryptionParsed == conf.EncryptionNo || p.conf.EncryptionParsed == conf.EncryptionOptional {
-			p.serverPlain, err = serverplain.New(
+			conf := gortsplib.ServerConf{
+				ReadTimeout:     p.conf.ReadTimeout,
+				WriteTimeout:    p.conf.WriteTimeout,
+				ReadBufferCount: p.conf.ReadBufferCount,
+				UDPRTPListener:  p.serverUDPRTP,
+				UDPRTCPListener: p.serverUDPRTCP,
+			}
+
+			p.serverPlain, err = serverrtsp.New(
 				p.conf.ListenIP,
-				p.conf.RtspPort,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
-				p.serverUDPRTP,
-				p.serverUDPRTCP,
+				p.conf.RTSPPort,
+				conf,
 				p)
 			if err != nil {
 				return err
@@ -228,14 +232,22 @@ func (p *program) createResources(initial bool) error {
 
 	if p.serverTLS == nil {
 		if p.conf.EncryptionParsed == conf.EncryptionStrict || p.conf.EncryptionParsed == conf.EncryptionOptional {
-			p.serverTLS, err = servertls.New(
+			cert, err := tls.LoadX509KeyPair(p.conf.ServerCert, p.conf.ServerKey)
+			if err != nil {
+				return err
+			}
+
+			conf := gortsplib.ServerConf{
+				TLSConfig:       &tls.Config{Certificates: []tls.Certificate{cert}},
+				ReadTimeout:     p.conf.ReadTimeout,
+				WriteTimeout:    p.conf.WriteTimeout,
+				ReadBufferCount: p.conf.ReadBufferCount,
+			}
+
+			p.serverTLS, err = serverrtsp.New(
 				p.conf.ListenIP,
-				p.conf.RtspsPort,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
-				p.conf.ServerKey,
-				p.conf.ServerCert,
+				p.conf.RTSPSPort,
+				conf,
 				p)
 			if err != nil {
 				return err
@@ -245,7 +257,7 @@ func (p *program) createResources(initial bool) error {
 
 	if p.pathMan == nil {
 		p.pathMan = pathman.New(
-			p.conf.RtspPort,
+			p.conf.RTSPPort,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
@@ -257,7 +269,7 @@ func (p *program) createResources(initial bool) error {
 
 	if p.clientMan == nil {
 		p.clientMan = clientman.New(
-			p.conf.RtspPort,
+			p.conf.RTSPPort,
 			p.conf.ReadTimeout,
 			p.conf.RunOnConnect,
 			p.conf.RunOnConnectRestart,
@@ -316,7 +328,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if newConf == nil ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.RtspPort != p.conf.RtspPort ||
+		newConf.RTSPPort != p.conf.RTSPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -329,7 +341,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if newConf == nil ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.RtspsPort != p.conf.RtspsPort ||
+		newConf.RTSPSPort != p.conf.RTSPSPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount {
@@ -338,7 +350,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closePathMan := false
 	if newConf == nil ||
-		newConf.RtspPort != p.conf.RtspPort ||
+		newConf.RTSPPort != p.conf.RTSPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -353,7 +365,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerPlain ||
 		closeServerTLS ||
 		closePathMan ||
-		newConf.RtspPort != p.conf.RtspPort ||
+		newConf.RTSPPort != p.conf.RTSPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
