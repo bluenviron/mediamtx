@@ -10,7 +10,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -29,11 +29,11 @@ func newEmptyTimer() *time.Timer {
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnPathClose(*Path)
-	OnPathClientClose(*client.Client)
+	OnPathClientClose(*clientrtsp.Client)
 }
 
 // a source can be
-// * client.Client
+// * clientrtsp.Client
 // * sourcertsp.Source
 // * sourcertmp.Source
 // * sourceRedirect
@@ -85,10 +85,10 @@ type Path struct {
 	stats           *stats.Stats
 	parent          Parent
 
-	clients                      map[*client.Client]clientState
+	clients                      map[*clientrtsp.Client]clientState
 	clientsWg                    sync.WaitGroup
-	describeRequests             []client.DescribeReq
-	setupPlayRequests            []client.SetupPlayReq
+	describeRequests             []clientrtsp.DescribeReq
+	setupPlayRequests            []clientrtsp.SetupPlayReq
 	source                       source
 	sourceTrackCount             int
 	sourceSdp                    []byte
@@ -105,15 +105,15 @@ type Path struct {
 	closeTimerStarted            bool
 
 	// in
-	sourceSetReady    chan struct{}            // from source
-	sourceSetNotReady chan struct{}            // from source
-	clientDescribe    chan client.DescribeReq  // from program
-	clientAnnounce    chan client.AnnounceReq  // from program
-	clientSetupPlay   chan client.SetupPlayReq // from program
-	clientPlay        chan client.PlayReq      // from client
-	clientRecord      chan client.RecordReq    // from client
-	clientPause       chan client.PauseReq     // from client
-	clientRemove      chan client.RemoveReq    // from client
+	sourceSetReady    chan struct{}                // from source
+	sourceSetNotReady chan struct{}                // from source
+	clientDescribe    chan clientrtsp.DescribeReq  // from program
+	clientAnnounce    chan clientrtsp.AnnounceReq  // from program
+	clientSetupPlay   chan clientrtsp.SetupPlayReq // from program
+	clientPlay        chan clientrtsp.PlayReq      // from client
+	clientRecord      chan clientrtsp.RecordReq    // from client
+	clientPause       chan clientrtsp.PauseReq     // from client
+	clientRemove      chan clientrtsp.RemoveReq    // from client
 	terminate         chan struct{}
 }
 
@@ -141,7 +141,7 @@ func New(
 		wg:                    wg,
 		stats:                 stats,
 		parent:                parent,
-		clients:               make(map[*client.Client]clientState),
+		clients:               make(map[*clientrtsp.Client]clientState),
 		readers:               newReadersMap(),
 		describeTimer:         newEmptyTimer(),
 		sourceCloseTimer:      newEmptyTimer(),
@@ -149,13 +149,13 @@ func New(
 		closeTimer:            newEmptyTimer(),
 		sourceSetReady:        make(chan struct{}),
 		sourceSetNotReady:     make(chan struct{}),
-		clientDescribe:        make(chan client.DescribeReq),
-		clientAnnounce:        make(chan client.AnnounceReq),
-		clientSetupPlay:       make(chan client.SetupPlayReq),
-		clientPlay:            make(chan client.PlayReq),
-		clientRecord:          make(chan client.RecordReq),
-		clientPause:           make(chan client.PauseReq),
-		clientRemove:          make(chan client.RemoveReq),
+		clientDescribe:        make(chan clientrtsp.DescribeReq),
+		clientAnnounce:        make(chan clientrtsp.AnnounceReq),
+		clientSetupPlay:       make(chan clientrtsp.SetupPlayReq),
+		clientPlay:            make(chan clientrtsp.PlayReq),
+		clientRecord:          make(chan clientrtsp.RecordReq),
+		clientPause:           make(chan clientrtsp.PauseReq),
+		clientRemove:          make(chan clientrtsp.RemoveReq),
 		terminate:             make(chan struct{}),
 	}
 
@@ -198,12 +198,12 @@ outer:
 		select {
 		case <-pa.describeTimer.C:
 			for _, req := range pa.describeRequests {
-				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
+				req.Res <- clientrtsp.DescribeRes{nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
 			}
 			pa.describeRequests = nil
 
 			for _, req := range pa.setupPlayRequests {
-				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
+				req.Res <- clientrtsp.SetupPlayRes{nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
 			}
 			pa.setupPlayRequests = nil
 
@@ -254,10 +254,10 @@ outer:
 		case req := <-pa.clientAnnounce:
 			err := pa.onClientAnnounce(req.Client, req.Tracks)
 			if err != nil {
-				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- clientrtsp.AnnounceRes{nil, err} //nolint:govet
 				continue
 			}
-			req.Res <- client.AnnounceRes{pa, nil} //nolint:govet
+			req.Res <- clientrtsp.AnnounceRes{pa, nil} //nolint:govet
 
 		case req := <-pa.clientRecord:
 			pa.onClientRecord(req.Client)
@@ -309,11 +309,11 @@ outer:
 	}
 
 	for _, req := range pa.describeRequests {
-		req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- clientrtsp.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 	}
 
 	for _, req := range pa.setupPlayRequests {
-		req.Res <- client.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- clientrtsp.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 	}
 
 	for c, state := range pa.clients {
@@ -360,19 +360,19 @@ func (pa *Path) exhaustChannels() {
 				if !ok {
 					return
 				}
-				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- clientrtsp.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientAnnounce:
 				if !ok {
 					return
 				}
-				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- clientrtsp.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientSetupPlay:
 				if !ok {
 					return
 				}
-				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- clientrtsp.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientPlay:
 				if !ok {
@@ -457,7 +457,7 @@ func (pa *Path) hasClientsNotSources() bool {
 	return false
 }
 
-func (pa *Path) addClient(c *client.Client, state clientState) {
+func (pa *Path) addClient(c *clientrtsp.Client, state clientState) {
 	if _, ok := pa.clients[c]; ok {
 		panic("client already added")
 	}
@@ -466,7 +466,7 @@ func (pa *Path) addClient(c *client.Client, state clientState) {
 	pa.clientsWg.Add(1)
 }
 
-func (pa *Path) removeClient(c *client.Client) {
+func (pa *Path) removeClient(c *clientrtsp.Client) {
 	state := pa.clients[c]
 	pa.clients[c] = clientStatePreRemove
 
@@ -506,7 +506,7 @@ func (pa *Path) onSourceSetReady() {
 	pa.sourceState = sourceStateReady
 
 	for _, req := range pa.describeRequests {
-		req.Res <- client.DescribeRes{pa.sourceSdp, "", nil} //nolint:govet
+		req.Res <- clientrtsp.DescribeRes{pa.sourceSdp, "", nil} //nolint:govet
 	}
 	pa.describeRequests = nil
 
@@ -576,9 +576,9 @@ func (pa *Path) fixedPublisherStart() {
 	}
 }
 
-func (pa *Path) onClientDescribe(req client.DescribeReq) {
+func (pa *Path) onClientDescribe(req clientrtsp.DescribeReq) {
 	if _, ok := pa.clients[req.Client]; ok {
-		req.Res <- client.DescribeRes{nil, "", fmt.Errorf("already subscribed")} //nolint:govet
+		req.Res <- clientrtsp.DescribeRes{nil, "", fmt.Errorf("already subscribed")} //nolint:govet
 		return
 	}
 
@@ -586,13 +586,13 @@ func (pa *Path) onClientDescribe(req client.DescribeReq) {
 	pa.scheduleClose()
 
 	if _, ok := pa.source.(*sourceRedirect); ok {
-		req.Res <- client.DescribeRes{nil, pa.conf.SourceRedirect, nil} //nolint:govet
+		req.Res <- clientrtsp.DescribeRes{nil, pa.conf.SourceRedirect, nil} //nolint:govet
 		return
 	}
 
 	switch pa.sourceState {
 	case sourceStateReady:
-		req.Res <- client.DescribeRes{pa.sourceSdp, "", nil} //nolint:govet
+		req.Res <- clientrtsp.DescribeRes{pa.sourceSdp, "", nil} //nolint:govet
 		return
 
 	case sourceStateWaitingDescribe:
@@ -601,18 +601,18 @@ func (pa *Path) onClientDescribe(req client.DescribeReq) {
 
 	case sourceStateNotReady:
 		if pa.conf.Fallback != "" {
-			req.Res <- client.DescribeRes{nil, pa.conf.Fallback, nil} //nolint:govet
+			req.Res <- clientrtsp.DescribeRes{nil, pa.conf.Fallback, nil} //nolint:govet
 			return
 		}
 
-		req.Res <- client.DescribeRes{nil, "", client.ErrNoOnePublishing{pa.name}} //nolint:govet
+		req.Res <- clientrtsp.DescribeRes{nil, "", clientrtsp.ErrNoOnePublishing{pa.name}} //nolint:govet
 		return
 	}
 }
 
-func (pa *Path) onClientSetupPlayPost(req client.SetupPlayReq) {
+func (pa *Path) onClientSetupPlayPost(req clientrtsp.SetupPlayReq) {
 	if req.TrackID >= pa.sourceTrackCount {
-		req.Res <- client.SetupPlayRes{nil, fmt.Errorf("track %d does not exist", req.TrackID)} //nolint:govet
+		req.Res <- clientrtsp.SetupPlayRes{nil, fmt.Errorf("track %d does not exist", req.TrackID)} //nolint:govet
 		return
 	}
 
@@ -632,10 +632,10 @@ func (pa *Path) onClientSetupPlayPost(req client.SetupPlayReq) {
 		pa.addClient(req.Client, clientStatePrePlay)
 	}
 
-	req.Res <- client.SetupPlayRes{pa, nil} //nolint:govet
+	req.Res <- clientrtsp.SetupPlayRes{pa, nil} //nolint:govet
 }
 
-func (pa *Path) onClientSetupPlay(req client.SetupPlayReq) {
+func (pa *Path) onClientSetupPlay(req clientrtsp.SetupPlayReq) {
 	pa.fixedPublisherStart()
 	pa.scheduleClose()
 
@@ -649,12 +649,12 @@ func (pa *Path) onClientSetupPlay(req client.SetupPlayReq) {
 		return
 
 	case sourceStateNotReady:
-		req.Res <- client.SetupPlayRes{nil, client.ErrNoOnePublishing{pa.name}} //nolint:govet
+		req.Res <- clientrtsp.SetupPlayRes{nil, clientrtsp.ErrNoOnePublishing{pa.name}} //nolint:govet
 		return
 	}
 }
 
-func (pa *Path) onClientPlay(c *client.Client) {
+func (pa *Path) onClientPlay(c *clientrtsp.Client) {
 	state, ok := pa.clients[c]
 	if !ok {
 		return
@@ -670,7 +670,7 @@ func (pa *Path) onClientPlay(c *client.Client) {
 	pa.readers.add(c)
 }
 
-func (pa *Path) onClientAnnounce(c *client.Client, tracks gortsplib.Tracks) error {
+func (pa *Path) onClientAnnounce(c *clientrtsp.Client, tracks gortsplib.Tracks) error {
 	if _, ok := pa.clients[c]; ok {
 		return fmt.Errorf("already subscribed")
 	}
@@ -687,7 +687,7 @@ func (pa *Path) onClientAnnounce(c *client.Client, tracks gortsplib.Tracks) erro
 	return nil
 }
 
-func (pa *Path) onClientRecord(c *client.Client) {
+func (pa *Path) onClientRecord(c *clientrtsp.Client) {
 	state, ok := pa.clients[c]
 	if !ok {
 		return
@@ -703,7 +703,7 @@ func (pa *Path) onClientRecord(c *client.Client) {
 	pa.onSourceSetReady()
 }
 
-func (pa *Path) onClientPause(c *client.Client) {
+func (pa *Path) onClientPause(c *clientrtsp.Client) {
 	state, ok := pa.clients[c]
 	if !ok {
 		return
@@ -803,41 +803,41 @@ func (pa *Path) OnSourceSetNotReady() {
 }
 
 // OnPathManDescribe is called by pathman.PathMan.
-func (pa *Path) OnPathManDescribe(req client.DescribeReq) {
+func (pa *Path) OnPathManDescribe(req clientrtsp.DescribeReq) {
 	pa.clientDescribe <- req
 }
 
 // OnPathManSetupPlay is called by pathman.PathMan.
-func (pa *Path) OnPathManSetupPlay(req client.SetupPlayReq) {
+func (pa *Path) OnPathManSetupPlay(req clientrtsp.SetupPlayReq) {
 	pa.clientSetupPlay <- req
 }
 
 // OnPathManAnnounce is called by pathman.PathMan.
-func (pa *Path) OnPathManAnnounce(req client.AnnounceReq) {
+func (pa *Path) OnPathManAnnounce(req clientrtsp.AnnounceReq) {
 	pa.clientAnnounce <- req
 }
 
-// OnClientRemove is called by client.Client.
-func (pa *Path) OnClientRemove(req client.RemoveReq) {
+// OnClientRemove is called by clientrtsp.Client.
+func (pa *Path) OnClientRemove(req clientrtsp.RemoveReq) {
 	pa.clientRemove <- req
 }
 
-// OnClientPlay is called by client.Client.
-func (pa *Path) OnClientPlay(req client.PlayReq) {
+// OnClientPlay is called by clientrtsp.Client.
+func (pa *Path) OnClientPlay(req clientrtsp.PlayReq) {
 	pa.clientPlay <- req
 }
 
-// OnClientRecord is called by client.Client.
-func (pa *Path) OnClientRecord(req client.RecordReq) {
+// OnClientRecord is called by clientrtsp.Client.
+func (pa *Path) OnClientRecord(req clientrtsp.RecordReq) {
 	pa.clientRecord <- req
 }
 
-// OnClientPause is called by client.Client.
-func (pa *Path) OnClientPause(req client.PauseReq) {
+// OnClientPause is called by clientrtsp.Client.
+func (pa *Path) OnClientPause(req clientrtsp.PauseReq) {
 	pa.clientPause <- req
 }
 
-// OnFrame is called by a source or by a client.Client.
+// OnFrame is called by a source or by a clientrtsp.Client.
 func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
 	pa.readers.forwardFrame(trackID, streamType, buf)
 }

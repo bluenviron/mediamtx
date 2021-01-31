@@ -7,7 +7,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
+	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
@@ -19,7 +19,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// ClientManager is a client.Client manager.
+// ClientManager is a clientrtsp.Client manager.
 type ClientManager struct {
 	rtspPort            int
 	readTimeout         time.Duration
@@ -32,11 +32,11 @@ type ClientManager struct {
 	serverTLS           *serverrtsp.Server
 	parent              Parent
 
-	clients map[*client.Client]struct{}
+	clients map[*clientrtsp.Client]struct{}
 	wg      sync.WaitGroup
 
 	// in
-	clientClose chan *client.Client
+	clientClose chan *clientrtsp.Client
 	terminate   chan struct{}
 
 	// out
@@ -67,8 +67,8 @@ func New(
 		serverPlain:         serverPlain,
 		serverTLS:           serverTLS,
 		parent:              parent,
-		clients:             make(map[*client.Client]struct{}),
-		clientClose:         make(chan *client.Client),
+		clients:             make(map[*clientrtsp.Client]struct{}),
+		clientClose:         make(chan *clientrtsp.Client),
 		terminate:           make(chan struct{}),
 		done:                make(chan struct{}),
 	}
@@ -109,7 +109,7 @@ outer:
 	for {
 		select {
 		case conn := <-tcpAccept:
-			c := client.New(false,
+			c := clientrtsp.New(false,
 				cm.rtspPort,
 				cm.readTimeout,
 				cm.runOnConnect,
@@ -122,7 +122,7 @@ outer:
 			cm.clients[c] = struct{}{}
 
 		case conn := <-tlsAccept:
-			c := client.New(true,
+			c := clientrtsp.New(true,
 				cm.rtspPort,
 				cm.readTimeout,
 				cm.runOnConnect,
@@ -166,22 +166,22 @@ outer:
 	close(cm.clientClose)
 }
 
-// OnClientClose is called by client.Client.
-func (cm *ClientManager) OnClientClose(c *client.Client) {
+// OnClientClose is called by clientrtsp.Client.
+func (cm *ClientManager) OnClientClose(c *clientrtsp.Client) {
 	cm.clientClose <- c
 }
 
-// OnClientDescribe is called by client.Client.
-func (cm *ClientManager) OnClientDescribe(req client.DescribeReq) {
+// OnClientDescribe is called by clientrtsp.Client.
+func (cm *ClientManager) OnClientDescribe(req clientrtsp.DescribeReq) {
 	cm.pathMan.OnClientDescribe(req)
 }
 
-// OnClientAnnounce is called by client.Client.
-func (cm *ClientManager) OnClientAnnounce(req client.AnnounceReq) {
+// OnClientAnnounce is called by clientrtsp.Client.
+func (cm *ClientManager) OnClientAnnounce(req clientrtsp.AnnounceReq) {
 	cm.pathMan.OnClientAnnounce(req)
 }
 
-// OnClientSetupPlay is called by client.Client.
-func (cm *ClientManager) OnClientSetupPlay(req client.SetupPlayReq) {
+// OnClientSetupPlay is called by clientrtsp.Client.
+func (cm *ClientManager) OnClientSetupPlay(req clientrtsp.SetupPlayReq) {
 	cm.pathMan.OnClientSetupPlay(req)
 }

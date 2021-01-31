@@ -6,44 +6,10 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/notedit/rtmp/av"
-	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/notedit/rtmp/format/rtmp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
-
-const (
-	codecH264 = 7
-	codecAAC  = 10
-)
-
-func readMetadata(conn *rtmp.Conn) (flvio.AMFMap, error) {
-	pkt, err := conn.ReadPacket()
-	if err != nil {
-		return nil, err
-	}
-
-	if pkt.Type != av.Metadata {
-		return nil, fmt.Errorf("first packet must be metadata")
-	}
-
-	arr, err := flvio.ParseAMFVals(pkt.Data, false)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(arr) != 1 {
-		return nil, fmt.Errorf("invalid metadata")
-	}
-
-	ma, ok := arr[0].(flvio.AMFMap)
-	if !ok {
-		return nil, fmt.Errorf("invalid metadata")
-	}
-
-	return ma, nil
-}
 
 // Parent is implemented by program.
 type Parent interface {
