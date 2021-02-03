@@ -314,34 +314,40 @@ func TestPublishRead(t *testing.T) {
 	}
 }
 
-func TestTCPOnly(t *testing.T) {
-	p, ok := testProgram("protocols: [tcp]\n")
-	require.Equal(t, true, ok)
-	defer p.close()
+func TestAutomaticProtocol(t *testing.T) {
+	for _, source := range []string{
+		"ffmpeg",
+	} {
+		t.Run(source, func(t *testing.T) {
+			p, ok := testProgram("protocols: [tcp]\n")
+			require.Equal(t, true, ok)
+			defer p.close()
 
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
-		"-c", "copy",
-		"-f", "rtsp",
-		"-rtsp_transport", "tcp",
-		"rtsp://" + ownDockerIP + ":8554/teststream",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
+			switch source {
+			case "ffmpeg":
+				cnt1, err := newContainer("ffmpeg", "source", []string{
+					"-re",
+					"-stream_loop", "-1",
+					"-i", "emptyvideo.ts",
+					"-c", "copy",
+					"-f", "rtsp",
+					"rtsp://" + ownDockerIP + ":8554/teststream",
+				})
+				require.NoError(t, err)
+				defer cnt1.close()
+			}
 
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-rtsp_transport", "tcp",
-		"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
-
-	require.Equal(t, 0, cnt2.wait())
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+			require.Equal(t, 0, cnt2.wait())
+		})
+	}
 }
 
 func TestPath(t *testing.T) {
