@@ -5,17 +5,17 @@
 [![Lint](https://github.com/aler9/rtsp-simple-server/workflows/lint/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9%2Frtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP/RTMP server and proxy, a software that allows multiple users to publish, read and proxy live video and audio streams. RTSP is a specification that describes how to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP/RTMP server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP is a specification that describes how to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers.
 
 Features:
 
 * Publish live streams with RTSP (UDP or TCP mode) or RTMP
 * Read live streams with RTSP
+* Pull and serve streams from other RTSP / RTMP servers or cameras, always or on-demand (RTSP proxy)
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM)
-* Pull and serve streams from other RTSP or RTMP servers, always or on-demand (RTSP proxy)
 * Serve multiple streams at once in separate paths
 * Encrypt streams with TLS (RTSPS)
-* Authenticate readers and publishers separately
+* Authenticate readers and publishers
 * Redirect to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Reload the configuration without disconnecting existing clients (hot reloading)
@@ -242,7 +242,7 @@ RTSP_CONFKEY=mykey ./rtsp-simple-server
 
 ### RTSP proxy mode
 
-_rtsp-simple-server_ is also a RTSP proxy, that is usually deployed in one of these scenarios:
+_rtsp-simple-server_ is also a RTSP and RTMP proxy, that is usually deployed in one of these scenarios:
 
 * when there are multiple users that are receiving a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
 * when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
