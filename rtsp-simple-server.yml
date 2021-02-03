@@ -1,4 +1,7 @@
 
+###############################################
+# General options
+
 # sets the verbosity of the program; available values are "warn", "info", "debug".
 logLevel: info
 # destinations of log messages; available values are "stdout", "file" and "syslog".
@@ -8,6 +11,29 @@ logFile: rtsp-simple-server.log
 
 # listen IP. If provided, all listeners will listen on this specific IP.
 listenIP:
+# timeout of read operations.
+readTimeout: 10s
+# timeout of write operations.
+writeTimeout: 10s
+# number of read buffers.
+# a higher number allows a higher throughput,
+# a lower number allows to save RAM.
+readBufferCount: 512
+
+# enable Prometheus-compatible metrics on port 9998.
+metrics: no
+# enable pprof on port 9999 to monitor performances.
+pprof: no
+
+# command to run when a client connects to the server.
+# this is terminated with SIGINT when a client disconnects from the server.
+# the server port is available in the RTSP_PORT variable.
+runOnConnect:
+# the restart parameter allows to restart the command if it exits suddenly.
+runOnConnectRestart: no
+
+###############################################
+# RTSP options
 
 # supported RTSP stream protocols.
 # UDP is the most performant, but can cause problems if there's a NAT between
@@ -32,31 +58,17 @@ serverKey: server.key
 serverCert: server.crt
 # authentication methods.
 authMethods: [basic, digest]
-# timeout of read operations.
-readTimeout: 10s
-# timeout of write operations.
-writeTimeout: 10s
-# number of read buffers.
-# a higher number allows a higher throughput,
-# a lower number allows to save RAM.
-readBufferCount: 512
+
+###############################################
+# RTMP options
 
 # enable a RTMP listener that allows to receive streams with RTMP.
 rtmpEnable: no
 # port of the RTMP listener.
 rtmpPort: 1935
 
-# enable Prometheus-compatible metrics on port 9998.
-metrics: no
-# enable pprof on port 9999 to monitor performances.
-pprof: no
-
-# command to run when a client connects to the server.
-# this is terminated with SIGINT when a client disconnects from the server.
-# the server port is available in the RTSP_PORT variable.
-# the restart parameter allows to restart the command if it exits suddenly.
-runOnConnect:
-runOnConnectRestart: no
+###############################################
+# Path options
 
 # these settings are path-dependent.
 # it's possible to use regular expressions by using a tilde as prefix.
@@ -67,7 +79,7 @@ runOnConnectRestart: no
 paths:
   all:
     # source of the stream - this can be:
-    # * record -> the stream is provided by a RTSP client
+    # * record -> the stream is published by a RTSP or RTMP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
     # * rtsps://existing-url -> the stream is pulled from another RTSP server
     # * rtmp://existing-url -> the stream is pulled from a RTMP server
@@ -119,8 +131,8 @@ paths:
     # this is terminated with SIGINT when the program closes.
     # the path name is available in the RTSP_PATH variable.
     # the server port is available in the RTSP_PORT variable.
-    # the restart parameter allows to restart the command if it exits suddenly.
     runOnInit:
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnInitRestart: no
 
     # command to run when this path is requested.
@@ -128,8 +140,8 @@ paths:
     # this is terminated with SIGINT when the path is not requested anymore.
     # the path name is available in the RTSP_PATH variable.
     # the server port is available in the RTSP_PORT variable.
-    # the restart parameter allows to restart the command if it exits suddenly.
     runOnDemand:
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnDemandRestart: no
     # readers will be put on hold until the runOnDemand command starts publishing
     # or until this amount of time has passed.
@@ -142,14 +154,14 @@ paths:
     # this is terminated with SIGINT when a client stops publishing.
     # the path name is available in the RTSP_PATH variable.
     # the server port is available in the RTSP_PORT variable.
-    # the restart parameter allows to restart the command if it exits suddenly.
     runOnPublish:
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnPublishRestart: no
 
     # command to run when a clients starts reading.
     # this is terminated with SIGINT when a client stops reading.
     # the path name is available in the RTSP_PATH variable.
     # the server port is available in the RTSP_PORT variable.
-    # the restart parameter allows to restart the command if it exits suddenly.
     runOnRead:
+    # the restart parameter allows to restart the command if it exits suddenly.
     runOnReadRestart: no

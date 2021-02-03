@@ -47,34 +47,37 @@ func decrypt(key string, byts []byte) ([]byte, error) {
 
 // Conf is the main program configuration.
 type Conf struct {
-	LogLevel              string                                `yaml:"logLevel"`
-	LogLevelParsed        logger.Level                          `yaml:"-" json:"-"`
-	LogDestinations       []string                              `yaml:"logDestinations"`
-	LogDestinationsParsed map[logger.Destination]struct{}       `yaml:"-" json:"-"`
-	LogFile               string                                `yaml:"logFile"`
-	ListenIP              string                                `yaml:"listenIP"`
-	Protocols             []string                              `yaml:"protocols"`
-	ProtocolsParsed       map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
-	Encryption            string                                `yaml:"encryption"`
-	EncryptionParsed      Encryption                            `yaml:"-" json:"-"`
-	RTSPPort              int                                   `yaml:"rtspPort"`
-	RTSPSPort             int                                   `yaml:"rtspsPort"`
-	RTPPort               int                                   `yaml:"rtpPort"`
-	RTCPPort              int                                   `yaml:"rtcpPort"`
-	ServerKey             string                                `yaml:"serverKey"`
-	ServerCert            string                                `yaml:"serverCert"`
-	AuthMethods           []string                              `yaml:"authMethods"`
-	AuthMethodsParsed     []headers.AuthMethod                  `yaml:"-" json:"-"`
-	ReadTimeout           time.Duration                         `yaml:"readTimeout"`
-	WriteTimeout          time.Duration                         `yaml:"writeTimeout"`
-	ReadBufferCount       uint64                                `yaml:"readBufferCount"`
-	RTMPEnable            bool                                  `yaml:"rtmpEnable"`
-	RTMPPort              int                                   `yaml:"rtmpPort"`
-	Metrics               bool                                  `yaml:"metrics"`
-	Pprof                 bool                                  `yaml:"pprof"`
-	RunOnConnect          string                                `yaml:"runOnConnect"`
-	RunOnConnectRestart   bool                                  `yaml:"runOnConnectRestart"`
-	Paths                 map[string]*PathConf                  `yaml:"paths"`
+	LogLevel              string                          `yaml:"logLevel"`
+	LogLevelParsed        logger.Level                    `yaml:"-" json:"-"`
+	LogDestinations       []string                        `yaml:"logDestinations"`
+	LogDestinationsParsed map[logger.Destination]struct{} `yaml:"-" json:"-"`
+	LogFile               string                          `yaml:"logFile"`
+	ListenIP              string                          `yaml:"listenIP"`
+	ReadTimeout           time.Duration                   `yaml:"readTimeout"`
+	WriteTimeout          time.Duration                   `yaml:"writeTimeout"`
+	ReadBufferCount       uint64                          `yaml:"readBufferCount"`
+	Metrics               bool                            `yaml:"metrics"`
+	Pprof                 bool                            `yaml:"pprof"`
+	RunOnConnect          string                          `yaml:"runOnConnect"`
+	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
+
+	Protocols         []string                              `yaml:"protocols"`
+	ProtocolsParsed   map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
+	Encryption        string                                `yaml:"encryption"`
+	EncryptionParsed  Encryption                            `yaml:"-" json:"-"`
+	RTSPPort          int                                   `yaml:"rtspPort"`
+	RTSPSPort         int                                   `yaml:"rtspsPort"`
+	RTPPort           int                                   `yaml:"rtpPort"`
+	RTCPPort          int                                   `yaml:"rtcpPort"`
+	ServerKey         string                                `yaml:"serverKey"`
+	ServerCert        string                                `yaml:"serverCert"`
+	AuthMethods       []string                              `yaml:"authMethods"`
+	AuthMethodsParsed []headers.AuthMethod                  `yaml:"-" json:"-"`
+
+	RTMPEnable bool `yaml:"rtmpEnable"`
+	RTMPPort   int  `yaml:"rtmpPort"`
+
+	Paths map[string]*PathConf `yaml:"paths"`
 }
 
 func (conf *Conf) fillAndCheck() error {
@@ -117,6 +120,15 @@ func (conf *Conf) fillAndCheck() error {
 
 	if conf.LogFile == "" {
 		conf.LogFile = "rtsp-simple-server.log"
+	}
+	if conf.ReadTimeout == 0 {
+		conf.ReadTimeout = 10 * time.Second
+	}
+	if conf.WriteTimeout == 0 {
+		conf.WriteTimeout = 10 * time.Second
+	}
+	if conf.ReadBufferCount == 0 {
+		conf.ReadBufferCount = 512
 	}
 
 	if len(conf.Protocols) == 0 {
@@ -200,16 +212,6 @@ func (conf *Conf) fillAndCheck() error {
 		default:
 			return fmt.Errorf("unsupported authentication method: %s", method)
 		}
-	}
-
-	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 10 * time.Second
-	}
-	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 10 * time.Second
-	}
-	if conf.ReadBufferCount == 0 {
-		conf.ReadBufferCount = 512
 	}
 
 	if conf.RTMPPort == 0 {
