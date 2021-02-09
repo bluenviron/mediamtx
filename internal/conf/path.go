@@ -197,6 +197,12 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
 	}
 
+	if pconf.SourceOnDemand {
+		if pconf.Source != "record" {
+			return fmt.Errorf("'sourceOnDemand' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		}
+	}
+
 	if pconf.SourceOnDemandStartTimeout == 0 {
 		pconf.SourceOnDemandStartTimeout = 10 * time.Second
 	}
