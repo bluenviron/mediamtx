@@ -851,37 +851,51 @@ func TestRedirect(t *testing.T) {
 }
 
 func TestFallback(t *testing.T) {
-	p1, ok := testProgram("paths:\n" +
-		"  path1:\n" +
-		"    fallback: rtsp://" + ownDockerIP + ":8554/path2\n" +
-		"  path2:\n")
-	require.Equal(t, true, ok)
-	defer p1.close()
+	for _, ca := range []string{
+		"absolute",
+		"relative",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			val := func() string {
+				if ca == "absolute" {
+					return "rtsp://" + ownDockerIP + ":8554/path2"
+				}
+				return "/path2"
+			}()
 
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
-		"-c", "copy",
-		"-f", "rtsp",
-		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIP + ":8554/path2",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
+			p1, ok := testProgram("paths:\n" +
+				"  path1:\n" +
+				"    fallback: " + val + "\n" +
+				"  path2:\n")
+			require.Equal(t, true, ok)
+			defer p1.close()
 
-	time.Sleep(1 * time.Second)
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ownDockerIP + ":8554/path2",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
 
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIP + ":8554/path1",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
-	require.Equal(t, 0, cnt2.wait())
+			time.Sleep(1 * time.Second)
+
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ownDockerIP + ":8554/path1",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+			require.Equal(t, 0, cnt2.wait())
+		})
+	}
 }
 
 func TestRTMP(t *testing.T) {

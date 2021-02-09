@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/base"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
@@ -598,7 +599,19 @@ func (pa *Path) onClientDescribe(req client.DescribeReq) {
 
 	case sourceStateNotReady:
 		if pa.conf.Fallback != "" {
-			req.Res <- client.DescribeRes{nil, pa.conf.Fallback, nil} //nolint:govet
+			fallbackURL := func() string {
+				if strings.HasPrefix(pa.conf.Fallback, "/") {
+					ur := base.URL{
+						Scheme: req.Req.URL.Scheme,
+						User:   req.Req.URL.User,
+						Host:   req.Req.URL.Host,
+						Path:   pa.conf.Fallback,
+					}
+					return ur.String()
+				}
+				return pa.conf.Fallback
+			}()
+			req.Res <- client.DescribeRes{nil, fallbackURL, nil} //nolint:govet
 			return
 		}
 

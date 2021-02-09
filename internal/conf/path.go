@@ -198,8 +198,8 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 
 	if pconf.SourceOnDemand {
-		if pconf.Source != "record" {
-			return fmt.Errorf("'sourceOnDemand' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		if pconf.Source == "record" {
+			return fmt.Errorf("'sourceOnDemand' is useless when source is 'record'")
 		}
 	}
 
@@ -212,9 +212,17 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 
 	if pconf.Fallback != "" {
-		_, err := base.ParseURL(pconf.Fallback)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.Fallback)
+		if strings.HasPrefix(pconf.Fallback, "/") {
+			err := CheckPathName(pconf.Fallback[1:])
+			if err != nil {
+				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
+			}
+
+		} else {
+			_, err := base.ParseURL(pconf.Fallback)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid RTSP url", pconf.Fallback)
+			}
 		}
 	}
 
@@ -223,7 +231,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 	}
 	if pconf.PublishUser != "" {
 		if pconf.Source != "record" {
-			return fmt.Errorf("'publishUser' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+			return fmt.Errorf("'publishUser' is useless when source is not 'record'")
 		}
 
 		if !strings.HasPrefix(pconf.PublishUser, "sha256:") && !reUserPass.MatchString(pconf.PublishUser) {

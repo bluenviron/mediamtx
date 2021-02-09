@@ -86,12 +86,12 @@ paths:
     # * redirect -> the stream is provided by another path or server
     source: record
 
-    # if the source is an RTSP url, this is the protocol that will be used to
+    # if the source is an RTSP URL, this is the protocol that will be used to
     # pull the stream. available options are "automatic", "udp", "tcp".
     # the tcp protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
 
-    # if the source is an RTSP or RTMP url, it will be pulled only when at least
+    # if the source is an RTSP or RTMP URL, it will be pulled only when at least
     # one reader is connected, saving bandwidth.
     sourceOnDemand: no
     # if sourceOnDemand is "yes", readers will be put on hold until the source is
@@ -101,11 +101,12 @@ paths:
     # readers connected and this amount of time has passed.
     sourceOnDemandCloseAfter: 10s
 
-    # if the source is "redirect", this is the RTSP url which clients will be
+    # if the source is "redirect", this is the RTSP URL which clients will be
     # redirected to.
     sourceRedirect:
 
-    # fallback url to redirect clients to when nobody is publishing to this path.
+    # fallback stream to redirect clients to when nobody is publishing to this path.
+    # this can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
 
     # username required to publish.

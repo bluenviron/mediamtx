@@ -414,12 +414,12 @@ paths:
 
 ### Fallback stream
 
-If no one is publishing to the server, readers can be redirected to a fallback URL that is serving a fallback stream:
+If no one is publishing to the server, readers can be redirected to a fallback path or URL that is serving a fallback stream:
 
 ```yml
 paths:
   withfallback:
-    fallback: rtsp://otherurl/otherpath
+    fallback: /otherpath
 ```
 
 ### Start on boot with systemd
