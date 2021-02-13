@@ -19,6 +19,8 @@ jobs:
       with:
         go-version: "1.15"
 
+    - run: sudo apt-get install -y --no-install-recommends ffmpeg
+
     - run: make test-nodocker
 
     - run: bash <(curl -s https://codecov.io/bash)

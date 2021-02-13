@@ -930,8 +930,8 @@ func TestRTMP(t *testing.T) {
 
 func TestRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
-	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh -e
-trap 'touch %s; kill $(jobs -p)' INT
+	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh
+trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' INT
 ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
 wait
 `, doneFile)))
