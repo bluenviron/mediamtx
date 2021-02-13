@@ -43,18 +43,22 @@ COPY . ./
 endef
 export DOCKERFILE_TEST
 
+test-internal:
+	go test -v -race -coverprofile=coverage-internal.txt ./internal/...
+
+test-root:
+	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
+	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
+	go test -v -race -coverprofile=coverage-root.txt .
+
+test-nodocker: test-internal test-root
+
 test:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
 	docker run --rm \
 	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	temp \
 	make test-nodocker
-
-test-nodocker:
-	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
-	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	go test -race -v ./internal/...
-	go test -race -v .
 
 lint:
 	docker run --rm -v $(PWD):/app -w /app \
