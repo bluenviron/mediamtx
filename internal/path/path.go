@@ -685,8 +685,22 @@ func (pa *Path) onClientAnnounce(c client.Client, tracks gortsplib.Tracks) error
 		return fmt.Errorf("already subscribed")
 	}
 
-	if pa.source != nil || pa.hasExternalSource() {
-		return fmt.Errorf("someone is already publishing to path '%s'", pa.name)
+	if pa.hasExternalSource() {
+		return fmt.Errorf("path '%s' is assigned to an external source", pa.name)
+	}
+
+	if pa.source != nil {
+		pa.Log(logger.Info, "disconnecting existing publisher")
+		curPublisher := pa.source.(client.Client)
+		pa.removeClient(curPublisher)
+		pa.parent.OnPathClientClose(curPublisher)
+
+		// prevent path closure
+		if pa.closeTimerStarted {
+			pa.closeTimer.Stop()
+			pa.closeTimer = newEmptyTimer()
+			pa.closeTimerStarted = false
+		}
 	}
 
 	pa.addClient(c, clientStatePreRecord)
