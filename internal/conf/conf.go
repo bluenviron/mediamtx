@@ -55,7 +55,7 @@ type Conf struct {
 	ListenIP              string                          `yaml:"listenIP"`
 	ReadTimeout           time.Duration                   `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                   `yaml:"writeTimeout"`
-	ReadBufferCount       uint64                          `yaml:"readBufferCount"`
+	ReadBufferCount       int                             `yaml:"readBufferCount"`
 	Metrics               bool                            `yaml:"metrics"`
 	Pprof                 bool                            `yaml:"pprof"`
 	RunOnConnect          string                          `yaml:"runOnConnect"`
@@ -73,6 +73,7 @@ type Conf struct {
 	ServerCert        string                                `yaml:"serverCert"`
 	AuthMethods       []string                              `yaml:"authMethods"`
 	AuthMethodsParsed []headers.AuthMethod                  `yaml:"-" json:"-"`
+	ReadBufferSize    int                                   `yaml:"readBufferSize"`
 
 	RTMPEnable bool `yaml:"rtmpEnable"`
 	RTMPPort   int  `yaml:"rtmpPort"`

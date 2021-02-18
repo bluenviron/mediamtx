@@ -277,6 +277,7 @@ func (p *program) createResources(initial bool) error {
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
+			p.conf.ReadBufferSize,
 			p.conf.AuthMethodsParsed,
 			p.conf.Paths,
 			p.stats,
@@ -380,6 +381,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
 		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) {
 		closePathMan = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {

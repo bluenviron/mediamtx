@@ -79,7 +79,8 @@ type Path struct {
 	rtspPort        int
 	readTimeout     time.Duration
 	writeTimeout    time.Duration
-	readBufferCount uint64
+	readBufferCount int
+	readBufferSize  int
 	confName        string
 	conf            *conf.PathConf
 	name            string
@@ -124,7 +125,8 @@ func New(
 	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
-	readBufferCount uint64,
+	readBufferCount int,
+	readBufferSize int,
 	confName string,
 	conf *conf.PathConf,
 	name string,
@@ -137,6 +139,7 @@ func New(
 		readTimeout:           readTimeout,
 		writeTimeout:          writeTimeout,
 		readBufferCount:       readBufferCount,
+		readBufferSize:        readBufferSize,
 		confName:              confName,
 		conf:                  conf,
 		name:                  name,
@@ -427,6 +430,7 @@ func (pa *Path) startExternalSource() {
 			pa.readTimeout,
 			pa.writeTimeout,
 			pa.readBufferCount,
+			pa.readBufferSize,
 			&pa.sourceWg,
 			pa.stats,
 			pa)

@@ -24,7 +24,8 @@ type PathManager struct {
 	rtspPort        int
 	readTimeout     time.Duration
 	writeTimeout    time.Duration
-	readBufferCount uint64
+	readBufferCount int
+	readBufferSize  int
 	authMethods     []headers.AuthMethod
 	pathConfs       map[string]*conf.PathConf
 	stats           *stats.Stats
@@ -51,7 +52,8 @@ func New(
 	rtspPort int,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
-	readBufferCount uint64,
+	readBufferCount int,
+	readBufferSize int,
 	authMethods []headers.AuthMethod,
 	pathConfs map[string]*conf.PathConf,
 	stats *stats.Stats,
@@ -62,6 +64,7 @@ func New(
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
+		readBufferSize:  readBufferSize,
 		authMethods:     authMethods,
 		pathConfs:       pathConfs,
 		stats:           stats,
@@ -162,18 +165,7 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(
-					pm.rtspPort,
-					pm.readTimeout,
-					pm.writeTimeout,
-					pm.readBufferCount,
-					pathName,
-					pathConf,
-					req.PathName,
-					&pm.wg,
-					pm.stats,
-					pm)
-				pm.paths[req.PathName] = pa
+				pm.paths[req.PathName] = pm.createPath(pathName, pathConf, req.PathName)
 			}
 
 			pm.paths[req.PathName].OnPathManDescribe(req)
@@ -195,18 +187,7 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(
-					pm.rtspPort,
-					pm.readTimeout,
-					pm.writeTimeout,
-					pm.readBufferCount,
-					pathName,
-					pathConf,
-					req.PathName,
-					&pm.wg,
-					pm.stats,
-					pm)
-				pm.paths[req.PathName] = pa
+				pm.paths[req.PathName] = pm.createPath(pathName, pathConf, req.PathName)
 			}
 
 			pm.paths[req.PathName].OnPathManAnnounce(req)
@@ -218,9 +199,13 @@ outer:
 				continue
 			}
 
-			err = req.Client.Authenticate(pm.authMethods,
-				req.PathName, pathConf.ReadIpsParsed, pathConf.ReadUser,
-				pathConf.ReadPass, req.Req)
+			err = req.Client.Authenticate(
+				pm.authMethods,
+				req.PathName,
+				pathConf.ReadIpsParsed,
+				pathConf.ReadUser,
+				pathConf.ReadPass,
+				req.Req)
 			if err != nil {
 				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
 				continue
@@ -233,6 +218,7 @@ outer:
 					pm.readTimeout,
 					pm.writeTimeout,
 					pm.readBufferCount,
+					pm.readBufferSize,
 					pathName,
 					pathConf,
 					req.PathName,
@@ -296,21 +282,25 @@ outer:
 	close(pm.clientSetupPlay)
 }
 
+func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) *path.Path {
+	return path.New(
+		pm.rtspPort,
+		pm.readTimeout,
+		pm.writeTimeout,
+		pm.readBufferCount,
+		pm.readBufferSize,
+		confName,
+		conf,
+		name,
+		&pm.wg,
+		pm.stats,
+		pm)
+}
+
 func (pm *PathManager) createPaths() {
 	for pathName, pathConf := range pm.pathConfs {
 		if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
-			pa := path.New(
-				pm.rtspPort,
-				pm.readTimeout,
-				pm.writeTimeout,
-				pm.readBufferCount,
-				pathName,
-				pathConf,
-				pathName,
-				&pm.wg,
-				pm.stats,
-				pm)
-			pm.paths[pathName] = pa
+			pm.paths[pathName] = pm.createPath(pathName, pathConf, pathName)
 		}
 	}
 }

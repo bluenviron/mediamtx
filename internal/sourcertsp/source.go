@@ -30,7 +30,8 @@ type Source struct {
 	proto           *gortsplib.StreamProtocol
 	readTimeout     time.Duration
 	writeTimeout    time.Duration
-	readBufferCount uint64
+	readBufferCount int
+	readBufferSize  int
 	wg              *sync.WaitGroup
 	stats           *stats.Stats
 	parent          Parent
@@ -44,7 +45,8 @@ func New(ur string,
 	proto *gortsplib.StreamProtocol,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
-	readBufferCount uint64,
+	readBufferCount int,
+	readBufferSize int,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
@@ -54,6 +56,7 @@ func New(ur string,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
+		readBufferSize:  readBufferSize,
 		wg:              wg,
 		stats:           stats,
 		parent:          parent,
@@ -125,6 +128,7 @@ func (s *Source) runInner() bool {
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
 			ReadBufferCount: s.readBufferCount,
+			ReadBufferSize:  s.readBufferSize,
 			OnRequest: func(req *base.Request) {
 				s.log(logger.Debug, "c->s %v", req)
 			},
