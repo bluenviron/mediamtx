@@ -138,6 +138,9 @@ func (c *Client) run() {
 	if !c.conn.RConn.Publishing {
 		c.conn.NConn.Close()
 		c.log(logger.Info, "ERR: client is not publishing")
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
 		return
 	}
 
