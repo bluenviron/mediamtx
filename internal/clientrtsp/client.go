@@ -297,6 +297,10 @@ func (c *Client) run() {
 
 			reqPath, _ := base.PathSplitQuery(pathAndQuery)
 
+			// path can end with a slash, remove it
+			// this is needed to support reading mpegts with ffmpeg
+			reqPath = strings.TrimSuffix(reqPath, "/")
+
 			if c.path != nil && reqPath != c.path.Name() {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
