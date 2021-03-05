@@ -57,27 +57,62 @@ func Metadata(conn ConnPair, readTimeout time.Duration) (
 		return nil, nil, err
 	}
 
-	hasVideo := false
-	if v, ok := md.GetFloat64("videocodecid"); ok {
-		switch v {
-		case codecH264:
-			hasVideo = true
-		case 0:
-		default:
-			return nil, nil, fmt.Errorf("unsupported video codec %v", v)
+	hasVideo, err := func() (bool, error) {
+		v, ok := md.GetV("videocodecid")
+		if !ok {
+			return false, nil
 		}
 
+		switch vt := v.(type) {
+		case float64:
+			switch vt {
+			case 0:
+				return false, nil
+
+			case codecH264:
+				return true, nil
+			}
+
+		case string:
+			switch vt {
+			case "avc1":
+				return true, nil
+			}
+		}
+
+		return false, fmt.Errorf("unsupported video codec %v", v)
+	}()
+	if err != nil {
+		return nil, nil, err
 	}
 
-	hasAudio := false
-	if v, ok := md.GetFloat64("audiocodecid"); ok {
-		switch v {
-		case codecAAC:
-			hasAudio = true
-		case 0:
-		default:
-			return nil, nil, fmt.Errorf("unsupported audio codec %v", v)
+	hasAudio, err := func() (bool, error) {
+		v, ok := md.GetV("audiocodecid")
+		if !ok {
+			return false, nil
 		}
+
+		switch vt := v.(type) {
+		case float64:
+			switch vt {
+			case 0:
+				return false, nil
+
+			case codecAAC:
+				return true, nil
+			}
+
+		case string:
+			switch vt {
+			case "mp4a":
+				return true, nil
+			}
+		}
+
+		return false, fmt.Errorf("unsupported audio codec %v", v)
+	}()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	if !hasVideo && !hasAudio {
