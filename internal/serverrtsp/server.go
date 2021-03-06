@@ -19,9 +19,7 @@ type Parent interface {
 type Server struct {
 	parent Parent
 
-	srv             *gortsplib.Server
-	udpRTPListener  *gortsplib.ServerUDPListener
-	udpRTCPListener *gortsplib.ServerUDPListener
+	srv *gortsplib.Server
 
 	// out
 	accept chan *gortsplib.ServerConn
@@ -50,20 +48,8 @@ func New(
 	}
 
 	if useUDP {
-		address := listenIP + ":" + strconv.FormatInt(int64(rtpPort), 10)
-		var err error
-		conf.UDPRTPListener, err = gortsplib.NewServerUDPListener(address)
-		if err != nil {
-			return nil, err
-		}
-		parent.Log(logger.Info, "[RTSP/UDP/RTP listener] opened on %s", address)
-
-		address = listenIP + ":" + strconv.FormatInt(int64(rtcpPort), 10)
-		conf.UDPRTCPListener, err = gortsplib.NewServerUDPListener(address)
-		if err != nil {
-			return nil, err
-		}
-		parent.Log(logger.Info, "[RTSP/UDP/RTCP listener] opened on %s", address)
+		conf.UDPRTPAddress = listenIP + ":" + strconv.FormatInt(int64(rtpPort), 10)
+		conf.UDPRTCPAddress = listenIP + ":" + strconv.FormatInt(int64(rtcpPort), 10)
 	}
 
 	if useTLS {
@@ -82,13 +68,15 @@ func New(
 	}
 
 	s := &Server{
-		parent:          parent,
-		srv:             srv,
-		udpRTPListener:  conf.UDPRTPListener,
-		udpRTCPListener: conf.UDPRTCPListener,
-		accept:          make(chan *gortsplib.ServerConn),
-		done:            make(chan struct{}),
+		parent: parent,
+		srv:    srv,
+		accept: make(chan *gortsplib.ServerConn),
+		done:   make(chan struct{}),
 	}
+
+	parent.Log(logger.Info, "[RTSP/UDP/RTP listener] opened on %s", conf.UDPRTPAddress)
+
+	parent.Log(logger.Info, "[RTSP/UDP/RTCP listener] opened on %s", conf.UDPRTCPAddress)
 
 	label := func() string {
 		if conf.TLSConfig != nil {
@@ -112,15 +100,6 @@ func (s *Server) Close() {
 	}()
 
 	s.srv.Close()
-
-	if s.udpRTPListener != nil {
-		s.udpRTPListener.Close()
-	}
-
-	if s.udpRTCPListener != nil {
-		s.udpRTCPListener.Close()
-	}
-
 	<-s.done
 }
 
