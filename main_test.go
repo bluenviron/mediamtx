@@ -315,181 +315,6 @@ func TestRTSPPublishRead(t *testing.T) {
 	}
 }
 
-func TestRTSPAutomaticProtocol(t *testing.T) {
-	for _, source := range []string{
-		"ffmpeg",
-	} {
-		t.Run(source, func(t *testing.T) {
-			p, ok := testProgram("protocols: [tcp]\n")
-			require.Equal(t, true, ok)
-			defer p.close()
-
-			switch source {
-			case "ffmpeg":
-				cnt1, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", "emptyvideo.ts",
-					"-c", "copy",
-					"-f", "rtsp",
-					"rtsp://" + ownDockerIP + ":8554/teststream",
-				})
-				require.NoError(t, err)
-				defer cnt1.close()
-			}
-
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
-			require.NoError(t, err)
-			defer cnt2.close()
-			require.Equal(t, 0, cnt2.wait())
-		})
-	}
-}
-
-func TestRTSPPublisherOverride(t *testing.T) {
-	p, ok := testProgram("")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	publish := func() (net.Conn, error) {
-		conn, err := net.Dial("tcp", "127.0.0.1:8554")
-		if err != nil {
-			return nil, err
-		}
-		bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
-		var tracks gortsplib.Tracks
-
-		videoTrack, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-
-		tracks = append(tracks, videoTrack)
-
-		for i, t := range tracks {
-			t.Media.Attributes = append(t.Media.Attributes, psdp.Attribute{
-				Key:   "control",
-				Value: "trackID=" + strconv.FormatInt(int64(i), 10),
-			})
-		}
-
-		err = base.Request{
-			Method: base.Announce,
-			URL:    base.MustParseURL("rtsp://localhost:8554/mypath"),
-			Header: base.Header{
-				"CSeq":         base.HeaderValue{"1"},
-				"Content-Type": base.HeaderValue{"application/sdp"},
-			},
-			Body: tracks.Write(),
-		}.Write(bconn.Writer)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-
-		var res base.Response
-		err = res.Read(bconn.Reader)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-		require.Equal(t, base.StatusOK, res.StatusCode)
-
-		err = base.Request{
-			Method: base.Setup,
-			URL:    base.MustParseURL("rtsp://localhost:8554/mypath/trackID=0"),
-			Header: base.Header{
-				"CSeq": base.HeaderValue{"2"},
-				"Transport": headers.Transport{
-					Protocol: gortsplib.StreamProtocolTCP,
-					Delivery: func() *base.StreamDelivery {
-						v := base.StreamDeliveryUnicast
-						return &v
-					}(),
-					Mode: func() *headers.TransportMode {
-						v := headers.TransportModeRecord
-						return &v
-					}(),
-					InterleavedIds: &[2]int{0, 1},
-				}.Write(),
-			},
-		}.Write(bconn.Writer)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-
-		err = res.Read(bconn.Reader)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-		require.Equal(t, base.StatusOK, res.StatusCode)
-
-		return conn, nil
-	}
-
-	conn1, err := publish()
-	require.NoError(t, err)
-	defer conn1.Close()
-
-	conn2, err := publish()
-	require.NoError(t, err)
-	defer conn2.Close()
-}
-
-func TestRTSPPath(t *testing.T) {
-	for _, ca := range []struct {
-		name string
-		path string
-	}{
-		{
-			"with slash",
-			"test/stream",
-		},
-		{
-			"with query",
-			"test?param1=val&param2=val",
-		},
-	} {
-		t.Run(ca.name, func(t *testing.T) {
-			p, ok := testProgram("")
-			require.Equal(t, true, ok)
-			defer p.close()
-
-			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-re",
-				"-stream_loop", "-1",
-				"-i", "emptyvideo.ts",
-				"-c", "copy",
-				"-f", "rtsp",
-				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIP + ":8554/" + ca.path,
-			})
-			require.NoError(t, err)
-			defer cnt1.close()
-
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIP + ":8554/" + ca.path,
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
-			require.NoError(t, err)
-			defer cnt2.close()
-			require.Equal(t, 0, cnt2.wait())
-		})
-	}
-}
-
 func TestRTSPAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("paths:\n" +
@@ -742,6 +567,181 @@ func TestRTSPAuthIpFail(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt1.close()
 	require.NotEqual(t, 0, cnt1.wait())
+}
+
+func TestRTSPAutomaticProtocol(t *testing.T) {
+	for _, source := range []string{
+		"ffmpeg",
+	} {
+		t.Run(source, func(t *testing.T) {
+			p, ok := testProgram("protocols: [tcp]\n")
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			switch source {
+			case "ffmpeg":
+				cnt1, err := newContainer("ffmpeg", "source", []string{
+					"-re",
+					"-stream_loop", "-1",
+					"-i", "emptyvideo.ts",
+					"-c", "copy",
+					"-f", "rtsp",
+					"rtsp://" + ownDockerIP + ":8554/teststream",
+				})
+				require.NoError(t, err)
+				defer cnt1.close()
+			}
+
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+			require.Equal(t, 0, cnt2.wait())
+		})
+	}
+}
+
+func TestRTSPPublisherOverride(t *testing.T) {
+	p, ok := testProgram("")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	publish := func() (net.Conn, error) {
+		conn, err := net.Dial("tcp", "127.0.0.1:8554")
+		if err != nil {
+			return nil, err
+		}
+		bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+		var tracks gortsplib.Tracks
+
+		videoTrack, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		tracks = append(tracks, videoTrack)
+
+		for i, t := range tracks {
+			t.Media.Attributes = append(t.Media.Attributes, psdp.Attribute{
+				Key:   "control",
+				Value: "trackID=" + strconv.FormatInt(int64(i), 10),
+			})
+		}
+
+		err = base.Request{
+			Method: base.Announce,
+			URL:    base.MustParseURL("rtsp://localhost:8554/mypath"),
+			Header: base.Header{
+				"CSeq":         base.HeaderValue{"1"},
+				"Content-Type": base.HeaderValue{"application/sdp"},
+			},
+			Body: tracks.Write(),
+		}.Write(bconn.Writer)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		var res base.Response
+		err = res.Read(bconn.Reader)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		require.Equal(t, base.StatusOK, res.StatusCode)
+
+		err = base.Request{
+			Method: base.Setup,
+			URL:    base.MustParseURL("rtsp://localhost:8554/mypath/trackID=0"),
+			Header: base.Header{
+				"CSeq": base.HeaderValue{"2"},
+				"Transport": headers.Transport{
+					Protocol: gortsplib.StreamProtocolTCP,
+					Delivery: func() *base.StreamDelivery {
+						v := base.StreamDeliveryUnicast
+						return &v
+					}(),
+					Mode: func() *headers.TransportMode {
+						v := headers.TransportModeRecord
+						return &v
+					}(),
+					InterleavedIds: &[2]int{0, 1},
+				}.Write(),
+			},
+		}.Write(bconn.Writer)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+
+		err = res.Read(bconn.Reader)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		require.Equal(t, base.StatusOK, res.StatusCode)
+
+		return conn, nil
+	}
+
+	conn1, err := publish()
+	require.NoError(t, err)
+	defer conn1.Close()
+
+	conn2, err := publish()
+	require.NoError(t, err)
+	defer conn2.Close()
+}
+
+func TestRTSPPath(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		path string
+	}{
+		{
+			"with slash",
+			"test/stream",
+		},
+		{
+			"with query",
+			"test?param1=val&param2=val",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			p, ok := testProgram("")
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "emptyvideo.ts",
+				"-c", "copy",
+				"-f", "rtsp",
+				"-rtsp_transport", "udp",
+				"rtsp://" + ownDockerIP + ":8554/" + ca.path,
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
+
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ownDockerIP + ":8554/" + ca.path,
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+			require.Equal(t, 0, cnt2.wait())
+		})
+	}
 }
 
 func TestRTMPPublish(t *testing.T) {
