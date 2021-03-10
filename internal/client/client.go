@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
@@ -8,17 +10,14 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 )
 
-// Client can be
-// *clientrtsp.Client
-// *clientrtmp.Client
-type Client interface {
-	IsClient()
-	IsSource()
-	Close()
-	Authenticate([]headers.AuthMethod,
-		string, []interface{},
-		string, string, interface{}) error
-	OnReaderFrame(int, gortsplib.StreamType, []byte)
+// ErrNoOnePublishing is a "no one is publishing" error.
+type ErrNoOnePublishing struct {
+	PathName string
+}
+
+// Error implements the error interface.
+func (e ErrNoOnePublishing) Error() string {
+	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
 }
 
 // ErrAuthNotCritical is a non-critical authentication error.
@@ -52,22 +51,22 @@ type DescribeRes struct {
 type DescribeReq struct {
 	Client   Client
 	PathName string
-	Req      *base.Request
+	Data     *base.Request
 	Res      chan DescribeRes
 }
 
 // SetupPlayRes is a setup/play response.
 type SetupPlayRes struct {
-	Path Path
-	Err  error
+	Path   Path
+	Tracks gortsplib.Tracks
+	Err    error
 }
 
 // SetupPlayReq is a setup/play request.
 type SetupPlayReq struct {
 	Client   Client
 	PathName string
-	TrackID  int
-	Req      *base.Request
+	Data     interface{}
 	Res      chan SetupPlayRes
 }
 
@@ -82,7 +81,7 @@ type AnnounceReq struct {
 	Client   Client
 	PathName string
 	Tracks   gortsplib.Tracks
-	Req      interface{}
+	Data     interface{}
 	Res      chan AnnounceRes
 }
 
@@ -113,11 +112,21 @@ type PauseReq struct {
 // Path is implemented by path.Path.
 type Path interface {
 	Name() string
-	SourceTrackCount() int
 	Conf() *conf.PathConf
 	OnClientRemove(RemoveReq)
 	OnClientPlay(PlayReq)
 	OnClientRecord(RecordReq)
 	OnClientPause(PauseReq)
 	OnFrame(int, gortsplib.StreamType, []byte)
+}
+
+// Client is implemented by all client*.
+type Client interface {
+	IsClient()
+	IsSource()
+	Close()
+	Authenticate([]headers.AuthMethod,
+		string, []interface{},
+		string, string, interface{}) error
+	OnIncomingFrame(int, gortsplib.StreamType, []byte)
 }

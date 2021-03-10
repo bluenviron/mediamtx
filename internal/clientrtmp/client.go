@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
@@ -47,10 +48,19 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 	return false
 }
 
+func pathNameAndQuery(inURL *url.URL) (string, url.Values) {
+	// remove trailing slashes inserted by OBS and some other clients
+	tmp := strings.TrimSuffix(inURL.String(), "/")
+	ur, _ := url.Parse(tmp)
+	pathName := strings.TrimPrefix(ur.Path, "/")
+	return pathName, ur.Query()
+}
+
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnClientClose(client.Client)
+	OnClientSetupPlay(client.SetupPlayReq)
 	OnClientAnnounce(client.AnnounceReq)
 }
 
@@ -58,14 +68,21 @@ type Parent interface {
 type Client struct {
 	rtspPort            int
 	readTimeout         time.Duration
+	writeTimeout        time.Duration
+	readBufferCount     int
 	runOnConnect        string
 	runOnConnectRestart bool
 	stats               *stats.Stats
 	wg                  *sync.WaitGroup
-	conn                rtmputils.ConnPair
+	conn                *rtmputils.Conn
 	parent              Parent
 
-	path client.Path
+	// read mode only
+	h264Decoder *rtph264.Decoder
+	videoTrack  *gortsplib.Track
+	aacDecoder  *rtpaac.Decoder
+	audioTrack  *gortsplib.Track
+	ringBuffer  *ringbuffer.RingBuffer
 
 	// in
 	terminate chan struct{}
@@ -75,16 +92,20 @@ type Client struct {
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
+	writeTimeout time.Duration,
+	readBufferCount int,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
-	conn rtmputils.ConnPair,
+	conn *rtmputils.Conn,
 	parent Parent) *Client {
 
 	c := &Client{
 		rtspPort:            rtspPort,
 		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		readBufferCount:     readBufferCount,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		wg:                  wg,
@@ -116,11 +137,11 @@ func (c *Client) IsClient() {}
 func (c *Client) IsSource() {}
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.conn.NConn.RemoteAddr().String()}, args...)...)
+	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
 }
 
 func (c *Client) ip() net.IP {
-	return c.conn.NConn.RemoteAddr().(*net.TCPAddr).IP
+	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
 func (c *Client) run() {
@@ -135,9 +156,44 @@ func (c *Client) run() {
 		defer onConnectCmd.Close()
 	}
 
-	if !c.conn.RConn.Publishing {
-		c.conn.NConn.Close()
-		c.log(logger.Info, "ERR: client is not publishing")
+	if c.conn.IsPublishing() {
+		c.runPublish()
+	} else {
+		c.runRead()
+	}
+}
+
+func (c *Client) runRead() {
+	var path client.Path
+	var tracks gortsplib.Tracks
+
+	err := func() error {
+		pathName, query := pathNameAndQuery(c.conn.URL())
+
+		resc := make(chan client.SetupPlayRes)
+		c.parent.OnClientSetupPlay(client.SetupPlayReq{c, pathName, query, resc}) //nolint:govet
+		res := <-resc
+
+		if res.Err != nil {
+			switch res.Err.(type) {
+			case client.ErrAuthCritical:
+				// wait some seconds to stop brute force attacks
+				select {
+				case <-time.After(pauseAfterAuthError):
+				case <-c.terminate:
+				}
+			}
+			return res.Err
+		}
+
+		path = res.Path
+		tracks = res.Tracks
+
+		return nil
+	}()
+	if err != nil {
+		c.log(logger.Info, "ERR: %s", err)
+		c.conn.NetConn().Close()
 
 		c.parent.OnClientClose(c)
 		<-c.terminate
@@ -145,122 +201,285 @@ func (c *Client) run() {
 	}
 
 	var videoTrack *gortsplib.Track
+	var h264SPS []byte
+	var h264PPS []byte
+	var audioTrack *gortsplib.Track
+	var aacConfig []byte
+
+	err = func() error {
+		for i, t := range tracks {
+			if t.IsH264() {
+				if videoTrack != nil {
+					return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
+				}
+				videoTrack = t
+
+				var err error
+				h264SPS, h264PPS, err = t.ExtractDataH264()
+				if err != nil {
+					return err
+				}
+
+			} else if t.IsAAC() {
+				if audioTrack != nil {
+					return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
+				}
+				audioTrack = t
+
+				var err error
+				aacConfig, err = t.ExtractDataAAC()
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		if videoTrack == nil && audioTrack == nil {
+			return fmt.Errorf("unable to find a video or audio track")
+		}
+
+		c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+		rtmputils.WriteMetadata(c.conn, videoTrack, audioTrack)
+
+		if videoTrack != nil {
+			codec := h264.Codec{
+				SPS: map[int][]byte{
+					0: h264SPS,
+				},
+				PPS: map[int][]byte{
+					0: h264PPS,
+				},
+			}
+			b := make([]byte, 128)
+			var n int
+			codec.ToConfig(b, &n)
+			b = b[:n]
+
+			c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+			c.conn.WritePacket(av.Packet{
+				Type: av.H264DecoderConfig,
+				Data: b,
+			})
+
+			c.h264Decoder = rtph264.NewDecoder()
+			c.videoTrack = videoTrack
+		}
+
+		if audioTrack != nil {
+			c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+			c.conn.WritePacket(av.Packet{
+				Type: av.AACDecoderConfig,
+				Data: aacConfig,
+			})
+
+			c.aacDecoder = rtpaac.NewDecoder(48000)
+			c.audioTrack = audioTrack
+		}
+
+		c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
+
+		resc := make(chan struct{})
+		path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
+		<-resc
+
+		c.log(logger.Info, "is reading from path '%s'", path.Name())
+
+		return nil
+	}()
+	if err != nil {
+		c.conn.NetConn().Close()
+		c.log(logger.Info, "ERR: %v", err)
+
+		res := make(chan struct{})
+		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		<-res
+		path = nil
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+	}
+
+	writerDone := make(chan error)
+	go func() {
+		writerDone <- func() error {
+			videoInitialized := false
+			var videoStartDTS time.Time
+			var videoBuf [][]byte
+			var videoPTS time.Duration
+
+			for {
+				data, ok := c.ringBuffer.Pull()
+				if !ok {
+					return fmt.Errorf("terminated")
+				}
+
+				now := time.Now()
+
+				switch tdata := data.(type) {
+				case *rtph264.NALUAndTimestamp:
+					if !videoInitialized {
+						videoInitialized = true
+						videoStartDTS = now
+						videoPTS = tdata.Timestamp
+					}
+
+					// aggregate NALUs by PTS
+					if tdata.Timestamp != videoPTS {
+						pkt := av.Packet{
+							Type: av.H264,
+							Data: h264.FillNALUsAVCC(videoBuf),
+							Time: now.Sub(videoStartDTS),
+						}
+
+						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+						err := c.conn.WritePacket(pkt)
+						if err != nil {
+							return err
+						}
+
+						videoBuf = nil
+					}
+
+					videoPTS = tdata.Timestamp
+					videoBuf = append(videoBuf, tdata.NALU)
+
+				case *rtpaac.AUAndTimestamp:
+					pkt := av.Packet{
+						Type: av.AAC,
+						Data: tdata.AU,
+						Time: tdata.Timestamp,
+					}
+
+					c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+					err := c.conn.WritePacket(pkt)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		}()
+	}()
+
+	select {
+	case err := <-writerDone:
+		c.conn.NetConn().Close()
+
+		if err != io.EOF {
+			c.log(logger.Info, "ERR: %s", err)
+		}
+
+		res := make(chan struct{})
+		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		<-res
+		path = nil
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+
+	case <-c.terminate:
+		res := make(chan struct{})
+		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		<-res
+
+		c.ringBuffer.Close()
+		c.conn.NetConn().Close()
+		<-writerDone
+		path = nil
+	}
+}
+
+func (c *Client) runPublish() {
+	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
 	var err error
 	var tracks gortsplib.Tracks
 	var h264Encoder *rtph264.Encoder
 	var aacEncoder *rtpaac.Encoder
+	var path client.Path
 
-	metadataDone := make(chan struct{})
+	setupDone := make(chan struct{})
 	go func() {
-		defer close(metadataDone)
+		defer close(setupDone)
 		err = func() error {
-			videoTrack, audioTrack, err = rtmputils.Metadata(c.conn, c.readTimeout)
+			c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
+			videoTrack, audioTrack, err = rtmputils.ReadMetadata(c.conn)
 			if err != nil {
 				return err
 			}
 
 			if videoTrack != nil {
-				var err error
-				h264Encoder, err = rtph264.NewEncoder(96)
-				if err != nil {
-					return err
-				}
+				h264Encoder = rtph264.NewEncoder(96, nil, nil, nil)
 				tracks = append(tracks, videoTrack)
 			}
 
 			if audioTrack != nil {
 				clockRate, _ := audioTrack.ClockRate()
-				var err error
-				aacEncoder, err = rtpaac.NewEncoder(96, clockRate)
-				if err != nil {
-					return err
-				}
+				aacEncoder = rtpaac.NewEncoder(96, clockRate, nil, nil, nil)
 				tracks = append(tracks, audioTrack)
 			}
 
 			for i, t := range tracks {
 				t.ID = i
 			}
+
+			pathName, query := pathNameAndQuery(c.conn.URL())
+
+			resc := make(chan client.AnnounceRes)
+			c.parent.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, query, resc}) //nolint:govet
+			res := <-resc
+
+			if res.Err != nil {
+				switch res.Err.(type) {
+				case client.ErrAuthCritical:
+					// wait some seconds to stop brute force attacks
+					select {
+					case <-time.After(pauseAfterAuthError):
+					case <-c.terminate:
+					}
+				}
+				return res.Err
+			}
+
+			resc2 := make(chan struct{})
+			res.Path.OnClientRecord(client.RecordReq{c, resc2}) //nolint:govet
+			<-resc2
+			path = res.Path
+
+			c.log(logger.Info, "is publishing to path '%s', %d %s",
+				path.Name(),
+				len(tracks),
+				func() string {
+					if len(tracks) == 1 {
+						return "track"
+					}
+					return "tracks"
+				}())
+
 			return nil
 		}()
 	}()
 
 	select {
-	case <-metadataDone:
+	case <-setupDone:
 	case <-c.terminate:
-		c.conn.NConn.Close()
-		<-metadataDone
+		c.conn.NetConn().Close()
+		<-setupDone
 	}
 
 	if err != nil {
-		c.conn.NConn.Close()
+		c.conn.NetConn().Close()
 		c.log(logger.Info, "ERR: %s", err)
 
 		c.parent.OnClientClose(c)
 		<-c.terminate
 		return
 	}
-
-	err = func() error {
-		// remove trailing slash, that is inserted by OBS
-		tmp := strings.TrimSuffix(c.conn.RConn.URL.String(), "/")
-		ur, _ := url.Parse(tmp)
-		pathName := strings.TrimPrefix(ur.Path, "/")
-
-		resc := make(chan client.AnnounceRes)
-		c.parent.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, ur.Query(), resc}) //nolint:govet
-		res := <-resc
-
-		if res.Err != nil {
-			switch res.Err.(type) {
-			case client.ErrAuthNotCritical:
-				return res.Err
-
-			case client.ErrAuthCritical:
-				// wait some seconds to stop brute force attacks
-				select {
-				case <-time.After(pauseAfterAuthError):
-				case <-c.terminate:
-				}
-				return res.Err
-
-			default:
-				return res.Err
-			}
-		}
-
-		c.path = res.Path
-		return nil
-	}()
-	if err != nil {
-		c.log(logger.Info, "ERR: %s", err)
-		c.conn.NConn.Close()
-
-		c.parent.OnClientClose(c)
-		<-c.terminate
-		return
-	}
-
-	resc := make(chan struct{})
-	c.path.OnClientRecord(client.RecordReq{c, resc}) //nolint:govet
-	<-resc
-
-	c.log(logger.Info, "is publishing to path '%s', %d %s",
-		c.path.Name(),
-		len(tracks),
-		func() string {
-			if len(tracks) == 1 {
-				return "track"
-			}
-			return "tracks"
-		}())
 
 	var onPublishCmd *externalcmd.Cmd
-	if c.path.Conf().RunOnPublish != "" {
-		onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish,
-			c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
-				Path: c.path.Name(),
+	if path.Conf().RunOnPublish != "" {
+		onPublishCmd = externalcmd.New(path.Conf().RunOnPublish,
+			path.Conf().RunOnPublishRestart, externalcmd.Environment{
+				Path: path.Name(),
 				Port: strconv.FormatInt(int64(c.rtspPort), 10),
 			})
 	}
@@ -269,17 +488,17 @@ func (c *Client) run() {
 		if path.Conf().RunOnPublish != "" {
 			onPublishCmd.Close()
 		}
-	}(c.path)
+	}(path)
 
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
-			rtcpSenders := rtmputils.NewRTCPSenderSet(tracks, c.path.OnFrame)
+			rtcpSenders := rtmputils.NewRTCPSenderSet(tracks, path.OnFrame)
 			defer rtcpSenders.Close()
 
 			for {
-				c.conn.NConn.SetReadDeadline(time.Now().Add(c.readTimeout))
-				pkt, err := c.conn.RConn.ReadPacket()
+				c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
+				pkt, err := c.conn.ReadPacket()
 				if err != nil {
 					return err
 				}
@@ -296,15 +515,20 @@ func (c *Client) run() {
 						return fmt.Errorf("invalid NALU format (%d)", typ)
 					}
 
-					// encode into RTP/H264 format
-					frames, err := h264Encoder.Write(pkt.Time+pkt.CTime, nalus)
-					if err != nil {
-						return err
-					}
+					for _, nalu := range nalus {
+						frames, err := h264Encoder.Encode(&rtph264.NALUAndTimestamp{
+							Timestamp: pkt.Time + pkt.CTime,
+							NALU:      nalu,
+						})
+						if err != nil {
+							return err
+						}
 
-					for _, f := range frames {
-						rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(), gortsplib.StreamTypeRTP, f)
-						c.path.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, f)
+						for _, frame := range frames {
+							rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(),
+								gortsplib.StreamTypeRTP, frame)
+							path.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, frame)
+						}
 					}
 
 				case av.AAC:
@@ -312,15 +536,17 @@ func (c *Client) run() {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frames, err := aacEncoder.Write(pkt.Time+pkt.CTime, pkt.Data)
+					frame, err := aacEncoder.Encode(&rtpaac.AUAndTimestamp{
+						Timestamp: pkt.Time,
+						AU:        pkt.Data,
+					})
 					if err != nil {
 						return err
 					}
 
-					for _, f := range frames {
-						rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(), gortsplib.StreamTypeRTP, f)
-						c.path.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, f)
-					}
+					rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(),
+						gortsplib.StreamTypeRTP, frame)
+					path.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, frame)
 
 				default:
 					return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)
@@ -331,32 +557,28 @@ func (c *Client) run() {
 
 	select {
 	case err := <-readerDone:
-		c.conn.NConn.Close()
+		c.conn.NetConn().Close()
 
 		if err != io.EOF {
 			c.log(logger.Info, "ERR: %s", err)
 		}
 
-		if c.path != nil {
-			res := make(chan struct{})
-			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
-			<-res
-			c.path = nil
-		}
+		res := make(chan struct{})
+		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		<-res
+		path = nil
 
 		c.parent.OnClientClose(c)
 		<-c.terminate
 
 	case <-c.terminate:
-		c.conn.NConn.Close()
+		c.conn.NetConn().Close()
 		<-readerDone
 
-		if c.path != nil {
-			res := make(chan struct{})
-			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
-			<-res
-			c.path = nil
-		}
+		res := make(chan struct{})
+		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		<-res
+		path = nil
 	}
 }
 
@@ -391,6 +613,39 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod,
 	return nil
 }
 
-// OnReaderFrame implements path.Reader.
-func (c *Client) OnReaderFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+// OnIncomingFrame implements path.Reader.
+func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+	if streamType == gortsplib.StreamTypeRTP {
+		if c.videoTrack != nil {
+			if trackID == c.videoTrack.ID {
+				nts, err := c.h264Decoder.Decode(buf)
+				if err != nil {
+					if err != rtph264.ErrMorePacketsNeeded {
+						c.log(logger.Debug, "ERR while decoding video track: %v", err)
+					}
+					return
+				}
+
+				for _, nt := range nts {
+					c.ringBuffer.Push(nt)
+				}
+				return
+			}
+		}
+
+		if c.audioTrack != nil {
+			if trackID == c.audioTrack.ID {
+				ats, err := c.aacDecoder.Decode(buf)
+				if err != nil {
+					c.log(logger.Debug, "ERR while decoding audio track: %v", err)
+					return
+				}
+
+				for _, at := range ats {
+					c.ringBuffer.Push(at)
+				}
+				return
+			}
+		}
+	}
 }

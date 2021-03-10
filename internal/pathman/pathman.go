@@ -38,8 +38,8 @@ type PathManager struct {
 	confReload      chan map[string]*conf.PathConf
 	pathClose       chan *path.Path
 	clientDescribe  chan client.DescribeReq
-	clientAnnounce  chan client.AnnounceReq
 	clientSetupPlay chan client.SetupPlayReq
+	clientAnnounce  chan client.AnnounceReq
 	terminate       chan struct{}
 
 	// out
@@ -73,8 +73,8 @@ func New(
 		confReload:      make(chan map[string]*conf.PathConf),
 		pathClose:       make(chan *path.Path),
 		clientDescribe:  make(chan client.DescribeReq),
-		clientAnnounce:  make(chan client.AnnounceReq),
 		clientSetupPlay: make(chan client.SetupPlayReq),
+		clientAnnounce:  make(chan client.AnnounceReq),
 		terminate:       make(chan struct{}),
 		clientClose:     make(chan client.Client),
 		done:            make(chan struct{}),
@@ -155,9 +155,13 @@ outer:
 				continue
 			}
 
-			err = req.Client.Authenticate(pm.authMethods, req.PathName,
-				pathConf.ReadIpsParsed, pathConf.ReadUser, pathConf.ReadPass,
-				req.Req)
+			err = req.Client.Authenticate(
+				pm.authMethods,
+				req.PathName,
+				pathConf.ReadIpsParsed,
+				pathConf.ReadUser,
+				pathConf.ReadPass,
+				req.Data)
 			if err != nil {
 				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
 				continue
@@ -165,37 +169,15 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.paths[req.PathName] = pm.createPath(pathName, pathConf, req.PathName)
+				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
 			pm.paths[req.PathName].OnPathManDescribe(req)
 
-		case req := <-pm.clientAnnounce:
-			pathName, pathConf, err := pm.findPathConf(req.PathName)
-			if err != nil {
-				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
-				continue
-			}
-
-			err = req.Client.Authenticate(pm.authMethods, req.PathName,
-				pathConf.PublishIpsParsed, pathConf.PublishUser,
-				pathConf.PublishPass, req.Req)
-			if err != nil {
-				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
-				continue
-			}
-
-			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.paths[req.PathName] = pm.createPath(pathName, pathConf, req.PathName)
-			}
-
-			pm.paths[req.PathName].OnPathManAnnounce(req)
-
 		case req := <-pm.clientSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
+				req.Res <- client.SetupPlayRes{nil, nil, err} //nolint:govet
 				continue
 			}
 
@@ -205,30 +187,44 @@ outer:
 				pathConf.ReadIpsParsed,
 				pathConf.ReadUser,
 				pathConf.ReadPass,
-				req.Req)
+				req.Data)
 			if err != nil {
-				req.Res <- client.SetupPlayRes{nil, err} //nolint:govet
+				req.Res <- client.SetupPlayRes{nil, nil, err} //nolint:govet
 				continue
 			}
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pa := path.New(
-					pm.rtspPort,
-					pm.readTimeout,
-					pm.writeTimeout,
-					pm.readBufferCount,
-					pm.readBufferSize,
-					pathName,
-					pathConf,
-					req.PathName,
-					&pm.wg,
-					pm.stats,
-					pm)
-				pm.paths[req.PathName] = pa
+				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
 			pm.paths[req.PathName].OnPathManSetupPlay(req)
+
+		case req := <-pm.clientAnnounce:
+			pathName, pathConf, err := pm.findPathConf(req.PathName)
+			if err != nil {
+				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
+				continue
+			}
+
+			err = req.Client.Authenticate(
+				pm.authMethods,
+				req.PathName,
+				pathConf.PublishIpsParsed,
+				pathConf.PublishUser,
+				pathConf.PublishPass,
+				req.Data)
+			if err != nil {
+				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
+				continue
+			}
+
+			// create path if it doesn't exist
+			if _, ok := pm.paths[req.PathName]; !ok {
+				pm.createPath(pathName, pathConf, req.PathName)
+			}
+
+			pm.paths[req.PathName].OnPathManAnnounce(req)
 
 		case <-pm.terminate:
 			break outer
@@ -254,17 +250,17 @@ outer:
 				}
 				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
+			case req, ok := <-pm.clientSetupPlay:
+				if !ok {
+					return
+				}
+				req.Res <- client.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+
 			case req, ok := <-pm.clientAnnounce:
 				if !ok {
 					return
 				}
 				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
-
-			case req, ok := <-pm.clientSetupPlay:
-				if !ok {
-					return
-				}
-				req.Res <- client.SetupPlayRes{nil, fmt.Errorf("terminated")} //nolint:govet
 			}
 		}
 	}()
@@ -278,12 +274,12 @@ outer:
 	close(pm.clientClose)
 	close(pm.pathClose)
 	close(pm.clientDescribe)
-	close(pm.clientAnnounce)
 	close(pm.clientSetupPlay)
+	close(pm.clientAnnounce)
 }
 
-func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) *path.Path {
-	return path.New(
+func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) {
+	pm.paths[name] = path.New(
 		pm.rtspPort,
 		pm.readTimeout,
 		pm.writeTimeout,
@@ -300,7 +296,7 @@ func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name str
 func (pm *PathManager) createPaths() {
 	for pathName, pathConf := range pm.pathConfs {
 		if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
-			pm.paths[pathName] = pm.createPath(pathName, pathConf, pathName)
+			pm.createPath(pathName, pathConf, pathName)
 		}
 	}
 }

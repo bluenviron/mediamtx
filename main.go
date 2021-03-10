@@ -257,6 +257,8 @@ func (p *program) createResources(initial bool) error {
 		p.clientMan = clientman.New(
 			p.conf.RTSPPort,
 			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.ReadBufferCount,
 			p.conf.RunOnConnect,
 			p.conf.RunOnConnectRestart,
 			p.conf.ProtocolsParsed,
@@ -350,6 +352,8 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closePathMan ||
 		newConf.RTSPPort != p.conf.RTSPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) {

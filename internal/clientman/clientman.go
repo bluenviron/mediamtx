@@ -34,6 +34,8 @@ type Parent interface {
 type ClientManager struct {
 	rtspPort            int
 	readTimeout         time.Duration
+	writeTimeout        time.Duration
+	readBufferCount     int
 	runOnConnect        string
 	runOnConnectRestart bool
 	protocols           map[base.StreamProtocol]struct{}
@@ -59,6 +61,8 @@ type ClientManager struct {
 func New(
 	rtspPort int,
 	readTimeout time.Duration,
+	writeTimeout time.Duration,
+	readBufferCount int,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	protocols map[base.StreamProtocol]struct{},
@@ -72,6 +76,8 @@ func New(
 	cm := &ClientManager{
 		rtspPort:            rtspPort,
 		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		readBufferCount:     readBufferCount,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		protocols:           protocols,
@@ -120,11 +126,11 @@ func (cm *ClientManager) run() {
 		return make(chan *gortsplib.ServerConn)
 	}()
 
-	rtmpAccept := func() chan rtmputils.ConnPair {
+	rtmpAccept := func() chan *rtmputils.Conn {
 		if cm.serverRTMP != nil {
 			return cm.serverRTMP.Accept()
 		}
-		return make(chan rtmputils.ConnPair)
+		return make(chan *rtmputils.Conn)
 	}()
 
 outer:
@@ -162,6 +168,8 @@ outer:
 			c := clientrtmp.New(
 				cm.rtspPort,
 				cm.readTimeout,
+				cm.writeTimeout,
+				cm.readBufferCount,
 				cm.runOnConnect,
 				cm.runOnConnectRestart,
 				&cm.wg,

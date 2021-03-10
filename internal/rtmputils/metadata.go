@@ -2,13 +2,11 @@ package rtmputils
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/aler9/gortsplib"
 	"github.com/notedit/rtmp/av"
 	"github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
-	"github.com/notedit/rtmp/format/rtmp"
 )
 
 const (
@@ -16,8 +14,8 @@ const (
 	codecAAC  = 10
 )
 
-func readMetadata(rconn *rtmp.Conn) (flvio.AMFMap, error) {
-	pkt, err := rconn.ReadPacket()
+func readMetadata(conn *Conn) (flvio.AMFMap, error) {
+	pkt, err := conn.ReadPacket()
 	if err != nil {
 		return nil, err
 	}
@@ -43,16 +41,12 @@ func readMetadata(rconn *rtmp.Conn) (flvio.AMFMap, error) {
 	return ma, nil
 }
 
-// Metadata extracts track informations from a RTMP connection that is publishing.
-func Metadata(conn ConnPair, readTimeout time.Duration) (
-	*gortsplib.Track, *gortsplib.Track, error) {
+// ReadMetadata extracts track informations from a RTMP connection that is publishing.
+func ReadMetadata(conn *Conn) (*gortsplib.Track, *gortsplib.Track, error) {
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
 
-	// configuration must be completed within readTimeout
-	conn.NConn.SetReadDeadline(time.Now().Add(readTimeout))
-
-	md, err := readMetadata(conn.RConn)
+	md, err := readMetadata(conn)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -121,7 +115,7 @@ func Metadata(conn ConnPair, readTimeout time.Duration) (
 
 	for {
 		var pkt av.Packet
-		pkt, err = conn.RConn.ReadPacket()
+		pkt, err = conn.ReadPacket()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -164,4 +158,39 @@ func Metadata(conn ConnPair, readTimeout time.Duration) (
 			return videoTrack, audioTrack, nil
 		}
 	}
+}
+
+// WriteMetadata writes track informations to a RTMP connection that is reading.
+func WriteMetadata(conn *Conn, videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
+	return conn.WritePacket(av.Packet{
+		Type: av.Metadata,
+		Data: flvio.FillAMF0ValMalloc(flvio.AMFMap{
+			{
+				K: "videodatarate",
+				V: float64(0),
+			},
+			{
+				K: "videocodecid",
+				V: func() float64 {
+					if videoTrack != nil {
+						return codecH264
+					}
+					return 0
+				}(),
+			},
+			{
+				K: "audiodatarate",
+				V: float64(0),
+			},
+			{
+				K: "audiocodecid",
+				V: func() float64 {
+					if audioTrack != nil {
+						return codecAAC
+					}
+					return 0
+				}(),
+			},
+		}),
+	})
 }

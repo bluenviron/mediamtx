@@ -22,7 +22,7 @@ type Server struct {
 	srv *rtmp.Server
 	wg  sync.WaitGroup
 
-	accept chan rtmputils.ConnPair
+	accept chan *rtmputils.Conn
 }
 
 // New allocates a Server.
@@ -39,7 +39,7 @@ func New(
 
 	s := &Server{
 		l:      l,
-		accept: make(chan rtmputils.ConnPair),
+		accept: make(chan *rtmputils.Conn),
 	}
 
 	s.srv = rtmp.NewServer()
@@ -57,7 +57,7 @@ func New(
 func (s *Server) Close() {
 	go func() {
 		for co := range s.accept {
-			co.NConn.Close()
+			co.NetConn().Close()
 		}
 	}()
 	s.l.Close()
@@ -83,10 +83,10 @@ func (s *Server) run() {
 }
 
 func (s *Server) innerHandleConn(rconn *rtmp.Conn, nconn net.Conn) {
-	s.accept <- rtmputils.ConnPair{rconn, nconn} //nolint:govet
+	s.accept <- rtmputils.NewConn(rconn, nconn)
 }
 
 // Accept returns a channel to accept incoming connections.
-func (s *Server) Accept() chan rtmputils.ConnPair {
+func (s *Server) Accept() chan *rtmputils.Conn {
 	return s.accept
 }

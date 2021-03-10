@@ -112,7 +112,7 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.log(logger.Info, "connecting")
 
-	var conn rtmputils.ConnPair
+	var conn *rtmputils.Conn
 	var err error
 	dialDone := make(chan struct{}, 1)
 	go func() {
@@ -120,7 +120,7 @@ func (s *Source) runInner() bool {
 		var rconn *rtmp.Conn
 		var nconn net.Conn
 		rconn, nconn, err = rtmp.NewClient().Dial(s.ur, rtmp.PrepareReading)
-		conn = rtmputils.ConnPair{rconn, nconn} //nolint:govet
+		conn = rtmputils.NewConn(rconn, nconn)
 	}()
 
 	select {
@@ -139,14 +139,14 @@ func (s *Source) runInner() bool {
 	metadataDone := make(chan struct{})
 	go func() {
 		defer close(metadataDone)
-		videoTrack, audioTrack, err = rtmputils.Metadata(
-			conn, s.readTimeout) //nolint:govet
+		conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
+		videoTrack, audioTrack, err = rtmputils.ReadMetadata(conn)
 	}()
 
 	select {
 	case <-metadataDone:
 	case <-s.terminate:
-		conn.NConn.Close()
+		conn.NetConn().Close()
 		<-metadataDone
 		return false
 	}
@@ -160,26 +160,14 @@ func (s *Source) runInner() bool {
 
 	var h264Encoder *rtph264.Encoder
 	if videoTrack != nil {
-		var err error
-		h264Encoder, err = rtph264.NewEncoder(96)
-		if err != nil {
-			conn.NConn.Close()
-			s.log(logger.Info, "ERR: %s", err)
-			return true
-		}
+		h264Encoder = rtph264.NewEncoder(96, nil, nil, nil)
 		tracks = append(tracks, videoTrack)
 	}
 
 	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
 		clockRate, _ := audioTrack.ClockRate()
-		var err error
-		aacEncoder, err = rtpaac.NewEncoder(96, clockRate)
-		if err != nil {
-			conn.NConn.Close()
-			s.log(logger.Info, "ERR: %s", err)
-			return true
-		}
+		aacEncoder = rtpaac.NewEncoder(96, clockRate, nil, nil, nil)
 		tracks = append(tracks, audioTrack)
 	}
 
@@ -198,8 +186,8 @@ func (s *Source) runInner() bool {
 			defer rtcpSenders.Close()
 
 			for {
-				conn.NConn.SetReadDeadline(time.Now().Add(s.readTimeout))
-				pkt, err := conn.RConn.ReadPacket()
+				conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
+				pkt, err := conn.ReadPacket()
 				if err != nil {
 					return err
 				}
@@ -216,15 +204,21 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("invalid NALU format (%d)", typ)
 					}
 
-					// encode into RTP/H264 format
-					frames, err := h264Encoder.Write(pkt.Time+pkt.CTime, nalus)
-					if err != nil {
-						return err
-					}
+					for _, nalu := range nalus {
+						// encode into RTP/H264 format
+						frames, err := h264Encoder.Encode(&rtph264.NALUAndTimestamp{
+							Timestamp: pkt.Time + pkt.CTime,
+							NALU:      nalu,
+						})
+						if err != nil {
+							return err
+						}
 
-					for _, f := range frames {
-						rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(), gortsplib.StreamTypeRTP, f)
-						s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, f)
+						for _, frame := range frames {
+							rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(),
+								gortsplib.StreamTypeRTP, frame)
+							s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, frame)
+						}
 					}
 
 				case av.AAC:
@@ -232,15 +226,17 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frames, err := aacEncoder.Write(pkt.Time+pkt.CTime, pkt.Data)
+					frame, err := aacEncoder.Encode(&rtpaac.AUAndTimestamp{
+						Timestamp: pkt.Time + pkt.CTime,
+						AU:        pkt.Data,
+					})
 					if err != nil {
 						return err
 					}
 
-					for _, f := range frames {
-						rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(), gortsplib.StreamTypeRTP, f)
-						s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, f)
-					}
+					rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(),
+						gortsplib.StreamTypeRTP, frame)
+					s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, frame)
 
 				default:
 					return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)
@@ -252,12 +248,12 @@ func (s *Source) runInner() bool {
 	for {
 		select {
 		case err := <-readerDone:
-			conn.NConn.Close()
+			conn.NetConn().Close()
 			s.log(logger.Info, "ERR: %s", err)
 			return true
 
 		case <-s.terminate:
-			conn.NConn.Close()
+			conn.NetConn().Close()
 			<-readerDone
 			return false
 		}
