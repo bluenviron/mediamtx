@@ -11,7 +11,6 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.0
 	github.com/pion/rtp v1.6.2 // indirect
-	github.com/pion/sdp/v3 v3.0.2
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6

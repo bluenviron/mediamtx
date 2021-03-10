@@ -15,7 +15,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
-	psdp "github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -610,93 +609,41 @@ func TestRTSPPublisherOverride(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	publish := func() (net.Conn, error) {
-		conn, err := net.Dial("tcp", "127.0.0.1:8554")
-		if err != nil {
-			return nil, err
-		}
-		bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
-		var tracks gortsplib.Tracks
-
-		videoTrack, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-
-		tracks = append(tracks, videoTrack)
-
-		for i, t := range tracks {
-			t.Media.Attributes = append(t.Media.Attributes, psdp.Attribute{
-				Key:   "control",
-				Value: "trackID=" + strconv.FormatInt(int64(i), 10),
-			})
-		}
-
-		err = base.Request{
-			Method: base.Announce,
-			URL:    base.MustParseURL("rtsp://localhost:8554/mypath"),
-			Header: base.Header{
-				"CSeq":         base.HeaderValue{"1"},
-				"Content-Type": base.HeaderValue{"application/sdp"},
-			},
-			Body: tracks.Write(),
-		}.Write(bconn.Writer)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-
-		var res base.Response
-		err = res.Read(bconn.Reader)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-		require.Equal(t, base.StatusOK, res.StatusCode)
-
-		err = base.Request{
-			Method: base.Setup,
-			URL:    base.MustParseURL("rtsp://localhost:8554/mypath/trackID=0"),
-			Header: base.Header{
-				"CSeq": base.HeaderValue{"2"},
-				"Transport": headers.Transport{
-					Protocol: gortsplib.StreamProtocolTCP,
-					Delivery: func() *base.StreamDelivery {
-						v := base.StreamDeliveryUnicast
-						return &v
-					}(),
-					Mode: func() *headers.TransportMode {
-						v := headers.TransportModeRecord
-						return &v
-					}(),
-					InterleavedIds: &[2]int{0, 1},
-				}.Write(),
-			},
-		}.Write(bconn.Writer)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-
-		err = res.Read(bconn.Reader)
-		if err != nil {
-			conn.Close()
-			return nil, err
-		}
-		require.Equal(t, base.StatusOK, res.StatusCode)
-
-		return conn, nil
-	}
-
-	conn1, err := publish()
+	source1, err := newContainer("ffmpeg", "source1", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"rtsp://" + ownDockerIP + ":8554/teststream",
+	})
 	require.NoError(t, err)
-	defer conn1.Close()
+	defer source1.close()
 
-	conn2, err := publish()
+	time.Sleep(1 * time.Second)
+
+	source2, err := newContainer("ffmpeg", "source2", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "emptyvideo.ts",
+		"-c", "copy",
+		"-f", "rtsp",
+		"rtsp://" + ownDockerIP + ":8554/teststream",
+	})
 	require.NoError(t, err)
-	defer conn2.Close()
+	defer source2.close()
+
+	time.Sleep(1 * time.Second)
+
+	dest, err := newContainer("ffmpeg", "dest", []string{
+		"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
+		"-vframes", "1",
+		"-f", "image2",
+		"-y", "/dev/null",
+	})
+	require.NoError(t, err)
+	defer dest.close()
+	require.Equal(t, 0, dest.wait())
 }
 
 func TestRTSPPath(t *testing.T) {
