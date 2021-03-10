@@ -74,7 +74,7 @@ docker run --rm -it --network=host aler9/rtsp-simple-server
 The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow to find out the publisher of the packets. This issue can be avoided by disabling UDP and exposing the RTSP port:
 
 ```
-docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 aler9/rtsp-simple-server
+docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 aler9/rtsp-simple-server
 ```
 
 ## Basic usage
