@@ -35,6 +35,8 @@ runOnConnectRestart: no
 ###############################################
 # RTSP options
 
+# disable support for the RTSP protocol.
+rtspDisable: no
 # supported RTSP stream protocols.
 # UDP is the most performant, but can cause problems if there's a NAT between
 # server and clients, and doesn't support encryption.
@@ -66,8 +68,8 @@ readBufferSize: 2048
 ###############################################
 # RTMP options
 
-# enable a RTMP listener that allows to receive streams with RTMP.
-rtmpEnable: no
+# disable support for the RTMP protocol.
+rtmpDisable: no
 # port of the RTMP listener.
 rtmpPort: 1935
 

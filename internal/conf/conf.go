@@ -63,6 +63,7 @@ type Conf struct {
 	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
 
 	// rtsp
+	RTSPDisable       bool                                  `yaml:"rtspDisable"`
 	Protocols         []string                              `yaml:"protocols"`
 	ProtocolsParsed   map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	Encryption        string                                `yaml:"encryption"`
@@ -78,8 +79,8 @@ type Conf struct {
 	ReadBufferSize    int                                   `yaml:"readBufferSize"`
 
 	// rtmp
-	RTMPEnable bool `yaml:"rtmpEnable"`
-	RTMPPort   int  `yaml:"rtmpPort"`
+	RTMPDisable bool `yaml:"rtmpDisable"`
+	RTMPPort    int  `yaml:"rtmpPort"`
 
 	// path
 	Paths map[string]*PathConf `yaml:"paths"`

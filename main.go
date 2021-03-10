@@ -183,8 +183,9 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.EncryptionParsed == conf.EncryptionNo ||
-		p.conf.EncryptionParsed == conf.EncryptionOptional {
+	if !p.conf.RTSPDisable &&
+		(p.conf.EncryptionParsed == conf.EncryptionNo ||
+			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPPlain == nil {
 			_, useUDP := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]
 			p.serverRTSPPlain, err = serverrtsp.New(
@@ -207,8 +208,9 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.EncryptionParsed == conf.EncryptionStrict ||
-		p.conf.EncryptionParsed == conf.EncryptionOptional {
+	if !p.conf.RTSPDisable &&
+		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
+			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPTLS == nil {
 			p.serverRTSPTLS, err = serverrtsp.New(
 				p.conf.ListenIP,
@@ -230,7 +232,7 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.RTMPEnable {
+	if !p.conf.RTMPDisable {
 		if p.serverRTMP == nil {
 			p.serverRTMP, err = serverrtmp.New(
 				p.conf.ListenIP,
@@ -299,6 +301,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closeServerPlain := false
 	if newConf == nil ||
+		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.ListenIP != p.conf.ListenIP ||
 		newConf.RTSPPort != p.conf.RTSPPort ||
@@ -313,6 +316,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closeServerTLS := false
 	if newConf == nil ||
+		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.ListenIP != p.conf.ListenIP ||
 		newConf.RTSPSPort != p.conf.RTSPSPort ||
@@ -326,7 +330,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closeServerRTMP := false
 	if newConf == nil ||
-		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.ListenIP != p.conf.ListenIP ||
 		newConf.RTMPPort != p.conf.RTMPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout {

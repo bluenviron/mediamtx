@@ -282,13 +282,11 @@ paths:
 
 ### RTMP protocol
 
-RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, most RTSP codecs, feedback mechanism). If there is need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones), it's possible to turn on a RTMP listener:
+RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
 
-```yml
-rtmpEnable: yes
-```
+At the moment, only the H264 and AAC codecs can be used with the RTMP listener.
 
-Streams can then be published or read with the RTMP protocol, for instance with _FFmpeg_:
+Streams can be published or read with the RTMP protocol, for instance with _FFmpeg_:
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost/mystream
@@ -305,8 +303,6 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
-
-At the moment the RTMP listener supports only the H264 and AAC codecs.
 
 ### Publish a webcam
 
