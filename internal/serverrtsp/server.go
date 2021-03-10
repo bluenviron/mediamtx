@@ -33,6 +33,7 @@ func New(
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
+	readBufferSize int,
 	useUDP bool,
 	rtpPort int,
 	rtcpPort int,
@@ -45,6 +46,7 @@ func New(
 		ReadTimeout:     readTimeout,
 		WriteTimeout:    writeTimeout,
 		ReadBufferCount: readBufferCount,
+		ReadBufferSize:  readBufferSize,
 	}
 
 	if useUDP {

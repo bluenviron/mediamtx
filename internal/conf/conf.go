@@ -47,6 +47,7 @@ func decrypt(key string, byts []byte) ([]byte, error) {
 
 // Conf is the main program configuration.
 type Conf struct {
+	// general
 	LogLevel              string                          `yaml:"logLevel"`
 	LogLevelParsed        logger.Level                    `yaml:"-" json:"-"`
 	LogDestinations       []string                        `yaml:"logDestinations"`
@@ -61,6 +62,7 @@ type Conf struct {
 	RunOnConnect          string                          `yaml:"runOnConnect"`
 	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
 
+	// rtsp
 	Protocols         []string                              `yaml:"protocols"`
 	ProtocolsParsed   map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	Encryption        string                                `yaml:"encryption"`
@@ -75,9 +77,11 @@ type Conf struct {
 	AuthMethodsParsed []headers.AuthMethod                  `yaml:"-" json:"-"`
 	ReadBufferSize    int                                   `yaml:"readBufferSize"`
 
+	// rtmp
 	RTMPEnable bool `yaml:"rtmpEnable"`
 	RTMPPort   int  `yaml:"rtmpPort"`
 
+	// path
 	Paths map[string]*PathConf `yaml:"paths"`
 }
 
