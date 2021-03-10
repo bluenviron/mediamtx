@@ -284,7 +284,7 @@ paths:
 
 RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
 
-At the moment, only the H264 and AAC codecs can be used with the RTMP listener.
+At the moment, only the H264 and AAC codecs can be used with the RTMP protocol.
 
 Streams can be published or read with the RTMP protocol, for instance with _FFmpeg_:
 
