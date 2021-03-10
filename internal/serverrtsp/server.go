@@ -74,9 +74,13 @@ func New(
 		done:   make(chan struct{}),
 	}
 
-	parent.Log(logger.Info, "[RTSP/UDP/RTP listener] opened on %s", conf.UDPRTPAddress)
+	if conf.UDPRTPAddress != "" {
+		parent.Log(logger.Info, "[RTSP/UDP/RTP listener] opened on %s", conf.UDPRTPAddress)
+	}
 
-	parent.Log(logger.Info, "[RTSP/UDP/RTCP listener] opened on %s", conf.UDPRTCPAddress)
+	if conf.UDPRTCPAddress != "" {
+		parent.Log(logger.Info, "[RTSP/UDP/RTCP listener] opened on %s", conf.UDPRTCPAddress)
+	}
 
 	label := func() string {
 		if conf.TLSConfig != nil {
