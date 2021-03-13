@@ -20,8 +20,11 @@ writeTimeout: 10s
 # a lower number allows to save RAM.
 readBufferCount: 512
 
-# enable Prometheus-compatible metrics on port 9998.
+# enable Prometheus-compatible metrics.
 metrics: no
+# port of the metrics listener.
+metricsPort: 9998
+
 # enable pprof on port 9999 to monitor performances.
 pprof: no
 
