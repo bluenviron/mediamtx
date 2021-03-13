@@ -592,16 +592,18 @@ func (c *Client) playStart() {
 	c.path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
 	<-resc
 
+	tracksLen := len(c.conn.Tracks())
+
 	c.log(logger.Info, "is reading from path '%s', %d %s with %s",
 		c.path.Name(),
-		c.conn.SetuppedTracksLen(),
+		tracksLen,
 		func() string {
-			if c.conn.SetuppedTracksLen() == 1 {
+			if tracksLen == 1 {
 				return "track"
 			}
 			return "tracks"
 		}(),
-		*c.conn.SetuppedTracksProtocol())
+		*c.conn.StreamProtocol())
 
 	if c.path.Conf().RunOnRead != "" {
 		c.onReadCmd = externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
@@ -622,16 +624,18 @@ func (c *Client) recordStart() {
 	c.path.OnClientRecord(client.RecordReq{c, resc}) //nolint:govet
 	<-resc
 
+	tracksLen := len(c.conn.Tracks())
+
 	c.log(logger.Info, "is publishing to path '%s', %d %s with %s",
 		c.path.Name(),
-		c.conn.SetuppedTracksLen(),
+		tracksLen,
 		func() string {
-			if c.conn.SetuppedTracksLen() == 1 {
+			if tracksLen == 1 {
 				return "track"
 			}
 			return "tracks"
 		}(),
-		*c.conn.SetuppedTracksProtocol())
+		*c.conn.StreamProtocol())
 
 	if c.path.Conf().RunOnPublish != "" {
 		c.onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
@@ -649,7 +653,7 @@ func (c *Client) recordStop() {
 
 // OnIncomingFrame implements path.Reader.
 func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
-	if !c.conn.HasSetuppedTrack(trackID) {
+	if !c.conn.HasTrack(trackID) {
 		return
 	}
 
