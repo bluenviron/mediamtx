@@ -58,6 +58,7 @@ type Conf struct {
 	WriteTimeout          time.Duration                   `yaml:"writeTimeout"`
 	ReadBufferCount       int                             `yaml:"readBufferCount"`
 	Metrics               bool                            `yaml:"metrics"`
+	MetricsPort           int                             `yaml:"metricsPort"`
 	Pprof                 bool                            `yaml:"pprof"`
 	RunOnConnect          string                          `yaml:"runOnConnect"`
 	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
@@ -135,6 +136,10 @@ func (conf *Conf) fillAndCheck() error {
 	}
 	if conf.ReadBufferCount == 0 {
 		conf.ReadBufferCount = 512
+	}
+
+	if conf.MetricsPort == 0 {
+		conf.MetricsPort = 9998
 	}
 
 	if len(conf.Protocols) == 0 {

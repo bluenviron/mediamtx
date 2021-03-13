@@ -164,6 +164,7 @@ func (p *program) createResources(initial bool) error {
 		if p.metrics == nil {
 			p.metrics, err = metrics.New(
 				p.conf.ListenIP,
+				p.conf.MetricsPort,
 				p.stats,
 				p)
 			if err != nil {
@@ -288,7 +289,8 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeMetrics := false
 	if newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
-		newConf.ListenIP != p.conf.ListenIP {
+		newConf.ListenIP != p.conf.ListenIP ||
+		newConf.MetricsPort != p.conf.MetricsPort {
 		closeMetrics = true
 	}
 

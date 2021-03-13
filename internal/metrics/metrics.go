@@ -13,10 +13,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
-const (
-	port = 9998
-)
-
 func formatMetric(key string, value int64, nowUnix int64) string {
 	return key + " " + strconv.FormatInt(value, 10) + " " +
 		strconv.FormatInt(nowUnix, 10) + "\n"
@@ -39,11 +35,12 @@ type Metrics struct {
 // New allocates a metrics.
 func New(
 	listenIP string,
+	port int,
 	stats *stats.Stats,
 	parent Parent,
 ) (*Metrics, error) {
 
-	address := listenIP + ":" + strconv.FormatInt(port, 10)
+	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
