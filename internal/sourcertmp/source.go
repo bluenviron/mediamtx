@@ -26,8 +26,8 @@ const (
 // Parent is implemeneted by path.Path.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnSourceSetReady(gortsplib.Tracks)
-	OnSourceSetNotReady()
+	OnExtSourceSetReady(gortsplib.Tracks)
+	OnExtSourceSetNotReady()
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
@@ -76,8 +76,8 @@ func (s *Source) Close() {
 // IsSource implements path.source.
 func (s *Source) IsSource() {}
 
-// IsSourceExternal implements path.sourceExternal.
-func (s *Source) IsSourceExternal() {}
+// IsExtSource implements path.extSource.
+func (s *Source) IsExtSource() {}
 
 func (s *Source) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[rtmp source] "+format, args...)
@@ -93,11 +93,8 @@ func (s *Source) run() {
 				return false
 			}
 
-			t := time.NewTimer(retryPause)
-			defer t.Stop()
-
 			select {
-			case <-t.C:
+			case <-time.After(retryPause):
 				return true
 			case <-s.terminate:
 				return false
@@ -176,8 +173,8 @@ func (s *Source) runInner() bool {
 	}
 
 	s.log(logger.Info, "ready")
-	s.parent.OnSourceSetReady(tracks)
-	defer s.parent.OnSourceSetNotReady()
+	s.parent.OnExtSourceSetReady(tracks)
+	defer s.parent.OnExtSourceSetNotReady()
 
 	readerDone := make(chan error)
 	go func() {

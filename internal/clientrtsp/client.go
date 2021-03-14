@@ -254,7 +254,7 @@ func (c *Client) run() {
 		}, nil
 	}
 
-	onSetup := func(req *base.Request, th *headers.Transport, trackID int) (*base.Response, error) {
+	onSetup := func(req *base.Request, th *headers.Transport, reqPath string, trackID int) (*base.Response, error) {
 		if th.Protocol == gortsplib.StreamProtocolUDP {
 			if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
 				return &base.Response{
@@ -271,26 +271,6 @@ func (c *Client) run() {
 
 		switch c.conn.State() {
 		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
-			pathAndQuery, ok := req.URL.RTSPPathAndQuery()
-			if !ok {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("invalid path (%s)", req.URL)
-			}
-
-			_, pathAndQuery, ok = base.PathSplitControlAttribute(pathAndQuery)
-			if !ok {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("invalid path (%s)", req.URL)
-			}
-
-			reqPath, _ := base.PathSplitQuery(pathAndQuery)
-
-			// path can end with a slash, remove it
-			// this is needed to support reading mpegts with ffmpeg
-			reqPath = strings.TrimSuffix(reqPath, "/")
-
 			if c.path != nil && reqPath != c.path.Name() {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
@@ -332,21 +312,6 @@ func (c *Client) run() {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
 				}, fmt.Errorf("track %d does not exist", trackID)
-			}
-
-		default: // record
-			reqPathAndQuery, ok := req.URL.RTSPPathAndQuery()
-			if !ok {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("invalid path (%s)", req.URL)
-			}
-
-			if !strings.HasPrefix(reqPathAndQuery, c.path.Name()) {
-				return &base.Response{
-						StatusCode: base.StatusBadRequest,
-					}, fmt.Errorf("invalid path: must begin with '%s', but is '%s'",
-						c.path.Name(), reqPathAndQuery)
 			}
 		}
 

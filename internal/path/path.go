@@ -38,16 +38,20 @@ type source interface {
 	IsSource()
 }
 
-// sourceExternal is implemented by all source*.
-type sourceExternal interface {
+// extSource is implemented by all external sources.
+type extSource interface {
 	IsSource()
-	IsSourceExternal()
+	IsExtSource()
 	Close()
 }
 
 type sourceRedirect struct{}
 
 func (*sourceRedirect) IsSource() {}
+
+type extSourceSetReadyReq struct {
+	tracks gortsplib.Tracks
+}
 
 type clientState int
 
@@ -100,16 +104,16 @@ type Path struct {
 	closeTimerStarted            bool
 
 	// in
-	sourceSetReady    chan struct{} // from source
-	sourceSetNotReady chan struct{} // from source
-	clientDescribe    chan client.DescribeReq
-	clientSetupPlay   chan client.SetupPlayReq
-	clientAnnounce    chan client.AnnounceReq
-	clientPlay        chan client.PlayReq
-	clientRecord      chan client.RecordReq
-	clientPause       chan client.PauseReq
-	clientRemove      chan client.RemoveReq
-	terminate         chan struct{}
+	extSourceSetReady    chan extSourceSetReadyReq // from external source
+	extSourceSetNotReady chan struct{}             // from external source
+	clientDescribe       chan client.DescribeReq
+	clientSetupPlay      chan client.SetupPlayReq
+	clientAnnounce       chan client.AnnounceReq
+	clientPlay           chan client.PlayReq
+	clientRecord         chan client.RecordReq
+	clientPause          chan client.PauseReq
+	clientRemove         chan client.RemoveReq
+	terminate            chan struct{}
 }
 
 // New allocates a Path.
@@ -144,8 +148,8 @@ func New(
 		sourceCloseTimer:      newEmptyTimer(),
 		runOnDemandCloseTimer: newEmptyTimer(),
 		closeTimer:            newEmptyTimer(),
-		sourceSetReady:        make(chan struct{}),
-		sourceSetNotReady:     make(chan struct{}),
+		extSourceSetReady:     make(chan extSourceSetReadyReq),
+		extSourceSetNotReady:  make(chan struct{}),
 		clientDescribe:        make(chan client.DescribeReq),
 		clientSetupPlay:       make(chan client.SetupPlayReq),
 		clientAnnounce:        make(chan client.AnnounceReq),
@@ -213,7 +217,7 @@ outer:
 
 		case <-pa.sourceCloseTimer.C:
 			pa.sourceCloseTimerStarted = false
-			pa.source.(sourceExternal).Close()
+			pa.source.(extSource).Close()
 			pa.source = nil
 
 			pa.scheduleClose()
@@ -232,10 +236,11 @@ outer:
 			<-pa.terminate
 			break outer
 
-		case <-pa.sourceSetReady:
+		case req := <-pa.extSourceSetReady:
+			pa.sourceTracks = req.tracks
 			pa.onSourceSetReady()
 
-		case <-pa.sourceSetNotReady:
+		case <-pa.extSourceSetNotReady:
 			pa.onSourceSetNotReady()
 
 		case req := <-pa.clientDescribe:
@@ -290,7 +295,7 @@ outer:
 		onInitCmd.Close()
 	}
 
-	if source, ok := pa.source.(sourceExternal); ok {
+	if source, ok := pa.source.(extSource); ok {
 		source.Close()
 	}
 	pa.sourceWg.Wait()
@@ -323,8 +328,8 @@ outer:
 	}
 	pa.clientsWg.Wait()
 
-	close(pa.sourceSetReady)
-	close(pa.sourceSetNotReady)
+	close(pa.extSourceSetReady)
+	close(pa.extSourceSetNotReady)
 	close(pa.clientDescribe)
 	close(pa.clientSetupPlay)
 	close(pa.clientAnnounce)
@@ -338,12 +343,12 @@ func (pa *Path) exhaustChannels() {
 	go func() {
 		for {
 			select {
-			case _, ok := <-pa.sourceSetReady:
+			case _, ok := <-pa.extSourceSetReady:
 				if !ok {
 					return
 				}
 
-			case _, ok := <-pa.sourceSetNotReady:
+			case _, ok := <-pa.extSourceSetNotReady:
 				if !ok {
 					return
 				}
@@ -487,12 +492,12 @@ func (pa *Path) removeClient(c client.Client) {
 }
 
 func (pa *Path) onSourceSetReady() {
+	pa.sourceState = sourceStateReady
+
 	if pa.sourceState == sourceStateWaitingDescribe {
 		pa.describeTimer.Stop()
 		pa.describeTimer = newEmptyTimer()
 	}
-
-	pa.sourceState = sourceStateReady
 
 	for _, req := range pa.describeRequests {
 		req.Res <- client.DescribeRes{pa.sourceTracks.Write(), "", nil} //nolint:govet
@@ -792,15 +797,14 @@ func (pa *Path) Name() string {
 	return pa.name
 }
 
-// OnSourceSetReady is called by a source.
-func (pa *Path) OnSourceSetReady(tracks gortsplib.Tracks) {
-	pa.sourceTracks = tracks
-	pa.sourceSetReady <- struct{}{}
+// OnExtSourceSetReady is called by a external source.
+func (pa *Path) OnExtSourceSetReady(tracks gortsplib.Tracks) {
+	pa.extSourceSetReady <- extSourceSetReadyReq{tracks}
 }
 
-// OnSourceSetNotReady is called by a source.
-func (pa *Path) OnSourceSetNotReady() {
-	pa.sourceSetNotReady <- struct{}{}
+// OnExtSourceSetNotReady is called by a external source.
+func (pa *Path) OnExtSourceSetNotReady() {
+	pa.extSourceSetNotReady <- struct{}{}
 }
 
 // OnPathManDescribe is called by pathman.PathMan.

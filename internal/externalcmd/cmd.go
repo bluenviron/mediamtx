@@ -62,11 +62,8 @@ func (e *Cmd) run() {
 				return false
 			}
 
-			t := time.NewTimer(retryPause)
-			defer t.Stop()
-
 			select {
-			case <-t.C:
+			case <-time.After(retryPause):
 				return true
 			case <-e.terminate:
 				return false
