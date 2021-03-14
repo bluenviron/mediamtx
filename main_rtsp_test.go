@@ -489,51 +489,6 @@ func TestRTSPPublisherOverride(t *testing.T) {
 	require.Equal(t, 0, dest.wait())
 }
 
-func TestRTSPPath(t *testing.T) {
-	for _, ca := range []struct {
-		name string
-		path string
-	}{
-		{
-			"with slash",
-			"test/stream",
-		},
-		{
-			"with query",
-			"test?param1=val&param2=val",
-		},
-	} {
-		t.Run(ca.name, func(t *testing.T) {
-			p, ok := testProgram("rtmpDisable: yes\n")
-			require.Equal(t, true, ok)
-			defer p.close()
-
-			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-re",
-				"-stream_loop", "-1",
-				"-i", "emptyvideo.ts",
-				"-c", "copy",
-				"-f", "rtsp",
-				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIP + ":8554/" + ca.path,
-			})
-			require.NoError(t, err)
-			defer cnt1.close()
-
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIP + ":8554/" + ca.path,
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
-			require.NoError(t, err)
-			defer cnt2.close()
-			require.Equal(t, 0, cnt2.wait())
-		})
-	}
-}
-
 func TestRTSPNonCompliantFrameSize(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtmpDisable: yes\n" +
