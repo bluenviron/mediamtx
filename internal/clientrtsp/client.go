@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -159,16 +158,9 @@ func (c *Client) run() {
 		c.log(logger.Debug, "[s->c] %v", res)
 	}
 
-	onDescribe := func(req *base.Request) (*base.Response, []byte, error) {
-		reqPath, ok := req.URL.RTSPPath()
-		if !ok {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, nil, fmt.Errorf("invalid path (%s)", req.URL)
-		}
-
+	onDescribe := func(ctx *gortsplib.ServerConnDescribeCtx) (*base.Response, []byte, error) {
 		resc := make(chan client.DescribeRes)
-		c.parent.OnClientDescribe(client.DescribeReq{c, reqPath, req, resc}) //nolint:govet
+		c.parent.OnClientDescribe(client.DescribeReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
@@ -210,16 +202,9 @@ func (c *Client) run() {
 		}, res.SDP, nil
 	}
 
-	onAnnounce := func(req *base.Request, tracks gortsplib.Tracks) (*base.Response, error) {
-		reqPath, ok := req.URL.RTSPPath()
-		if !ok {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("invalid path (%s)", req.URL)
-		}
-
+	onAnnounce := func(ctx *gortsplib.ServerConnAnnounceCtx) (*base.Response, error) {
 		resc := make(chan client.AnnounceRes)
-		c.parent.OnClientAnnounce(client.AnnounceReq{c, reqPath, tracks, req, resc}) //nolint:govet
+		c.parent.OnClientAnnounce(client.AnnounceReq{c, ctx.Path, ctx.Tracks, ctx.Req, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
@@ -249,8 +234,8 @@ func (c *Client) run() {
 		}, nil
 	}
 
-	onSetup := func(req *base.Request, th *headers.Transport, reqPath string, trackID int) (*base.Response, error) {
-		if th.Protocol == gortsplib.StreamProtocolUDP {
+	onSetup := func(ctx *gortsplib.ServerConnSetupCtx) (*base.Response, error) {
+		if ctx.Transport.Protocol == gortsplib.StreamProtocolUDP {
 			if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
 				return &base.Response{
 					StatusCode: base.StatusUnsupportedTransport,
@@ -267,7 +252,7 @@ func (c *Client) run() {
 		switch c.conn.State() {
 		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
 			resc := make(chan client.SetupPlayRes)
-			c.parent.OnClientSetupPlay(client.SetupPlayReq{c, reqPath, req, resc}) //nolint:govet
+			c.parent.OnClientSetupPlay(client.SetupPlayReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
 			res := <-resc
 
 			if res.Err != nil {
@@ -297,10 +282,10 @@ func (c *Client) run() {
 
 			c.path = res.Path
 
-			if trackID >= len(res.Tracks) {
+			if ctx.TrackID >= len(res.Tracks) {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("track %d does not exist", trackID)
+				}, fmt.Errorf("track %d does not exist", ctx.TrackID)
 			}
 		}
 
@@ -312,22 +297,12 @@ func (c *Client) run() {
 		}, nil
 	}
 
-	onPlay := func(req *base.Request) (*base.Response, error) {
+	onPlay := func(ctx *gortsplib.ServerConnPlayCtx) (*base.Response, error) {
 		if c.conn.State() == gortsplib.ServerConnStatePrePlay {
-			reqPath, ok := req.URL.RTSPPath()
-			if !ok {
+			if ctx.Path != c.path.Name() {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("invalid path (%s)", req.URL)
-			}
-
-			// path can end with a slash, remove it
-			reqPath = strings.TrimSuffix(reqPath, "/")
-
-			if reqPath != c.path.Name() {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
+				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), ctx.Path)
 			}
 
 			c.playStart()
@@ -341,21 +316,11 @@ func (c *Client) run() {
 		}, nil
 	}
 
-	onRecord := func(req *base.Request) (*base.Response, error) {
-		reqPath, ok := req.URL.RTSPPath()
-		if !ok {
+	onRecord := func(ctx *gortsplib.ServerConnRecordCtx) (*base.Response, error) {
+		if ctx.Path != c.path.Name() {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("invalid path (%s)", req.URL)
-		}
-
-		// path can end with a slash, remove it
-		reqPath = strings.TrimSuffix(reqPath, "/")
-
-		if reqPath != c.path.Name() {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
+			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), ctx.Path)
 		}
 
 		c.recordStart()
@@ -368,7 +333,7 @@ func (c *Client) run() {
 		}, nil
 	}
 
-	onPause := func(req *base.Request) (*base.Response, error) {
+	onPause := func(ctx *gortsplib.ServerConnPauseCtx) (*base.Response, error) {
 		switch c.conn.State() {
 		case gortsplib.ServerConnStatePlay:
 			c.playStop()
