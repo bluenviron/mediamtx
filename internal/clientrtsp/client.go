@@ -271,12 +271,6 @@ func (c *Client) run() {
 
 		switch c.conn.State() {
 		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
-			if c.path != nil && reqPath != c.path.Name() {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), reqPath)
-			}
-
 			resc := make(chan client.SetupPlayRes)
 			c.parent.OnClientSetupPlay(client.SetupPlayReq{c, reqPath, req, resc}) //nolint:govet
 			res := <-resc
@@ -557,7 +551,7 @@ func (c *Client) playStart() {
 	c.path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
 	<-resc
 
-	tracksLen := len(c.conn.Tracks())
+	tracksLen := len(c.conn.SetuppedTracks())
 
 	c.log(logger.Info, "is reading from path '%s', %d %s with %s",
 		c.path.Name(),
@@ -589,7 +583,7 @@ func (c *Client) recordStart() {
 	c.path.OnClientRecord(client.RecordReq{c, resc}) //nolint:govet
 	<-resc
 
-	tracksLen := len(c.conn.Tracks())
+	tracksLen := len(c.conn.SetuppedTracks())
 
 	c.log(logger.Info, "is publishing to path '%s', %d %s with %s",
 		c.path.Name(),
@@ -618,7 +612,7 @@ func (c *Client) recordStop() {
 
 // OnIncomingFrame implements path.Reader.
 func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
-	if !c.conn.HasTrack(trackID) {
+	if _, ok := c.conn.SetuppedTracks()[trackID]; !ok {
 		return
 	}
 
