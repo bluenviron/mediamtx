@@ -159,12 +159,12 @@ func (c *Client) run() {
 		c.log(logger.Debug, "[s->c] %v", res)
 	}
 
-	onDescribe := func(req *base.Request) (*base.Response, error) {
+	onDescribe := func(req *base.Request) (*base.Response, []byte, error) {
 		reqPath, ok := req.URL.RTSPPath()
 		if !ok {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("invalid path (%s)", req.URL)
+			}, nil, fmt.Errorf("invalid path (%s)", req.URL)
 		}
 
 		resc := make(chan client.DescribeRes)
@@ -174,7 +174,7 @@ func (c *Client) run() {
 		if res.Err != nil {
 			switch terr := res.Err.(type) {
 			case client.ErrAuthNotCritical:
-				return terr.Response, nil
+				return terr.Response, nil, nil
 
 			case client.ErrAuthCritical:
 				// wait some seconds to stop brute force attacks
@@ -182,17 +182,17 @@ func (c *Client) run() {
 				case <-time.After(pauseAfterAuthError):
 				case <-c.terminate:
 				}
-				return terr.Response, errTerminated
+				return terr.Response, nil, errTerminated
 
 			case client.ErrNoOnePublishing:
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
-				}, res.Err
+				}, nil, res.Err
 
 			default:
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, res.Err
+				}, nil, res.Err
 			}
 		}
 
@@ -202,17 +202,12 @@ func (c *Client) run() {
 				Header: base.Header{
 					"Location": base.HeaderValue{res.Redirect},
 				},
-			}, nil
+			}, nil, nil
 		}
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-			Header: base.Header{
-				"Content-Base": base.HeaderValue{req.URL.String() + "/"},
-				"Content-Type": base.HeaderValue{"application/sdp"},
-			},
-			Body: res.SDP,
-		}, nil
+		}, res.SDP, nil
 	}
 
 	onAnnounce := func(req *base.Request, tracks gortsplib.Tracks) (*base.Response, error) {
