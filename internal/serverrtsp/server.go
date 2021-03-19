@@ -3,6 +3,7 @@ package serverrtsp
 import (
 	"crypto/tls"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -17,9 +18,11 @@ type Parent interface {
 
 // Server is a RTSP listener.
 type Server struct {
+	useTLS bool
 	parent Parent
 
-	srv *gortsplib.Server
+	srv    *gortsplib.Server
+	closed uint32
 
 	// out
 	accept chan *gortsplib.ServerConn
@@ -70,6 +73,7 @@ func New(
 	}
 
 	s := &Server{
+		useTLS: useTLS,
 		parent: parent,
 		srv:    srv,
 		accept: make(chan *gortsplib.ServerConn),
@@ -84,17 +88,21 @@ func New(
 		parent.Log(logger.Info, "[RTSP/UDP/RTCP listener] opened on %s", conf.UDPRTCPAddress)
 	}
 
-	label := func() string {
-		if conf.TLSConfig != nil {
-			return "RTSP/TLS"
-		}
-		return "RTSP/TCP"
-	}()
-	parent.Log(logger.Info, "[%s listener] opened on %s", label, address)
+	s.log(logger.Info, "opened on %s", address)
 
 	go s.run()
 
 	return s, nil
+}
+
+func (s *Server) log(level logger.Level, format string, args ...interface{}) {
+	label := func() string {
+		if s.useTLS {
+			return "RTSP/TLS"
+		}
+		return "RTSP/TCP"
+	}()
+	s.parent.Log(level, "[%s listener] "+format, append([]interface{}{label}, args...)...)
 }
 
 // Close closes a Server.
@@ -104,7 +112,7 @@ func (s *Server) Close() {
 			co.Close()
 		}
 	}()
-
+	atomic.StoreUint32(&s.closed, 1)
 	s.srv.Close()
 	<-s.done
 }
@@ -115,7 +123,11 @@ func (s *Server) run() {
 	for {
 		conn, err := s.srv.Accept()
 		if err != nil {
-			break
+			if atomic.LoadUint32(&s.closed) == 1 {
+				break
+			}
+			s.log(logger.Warn, "ERR: %s", err)
+			continue
 		}
 
 		s.accept <- conn

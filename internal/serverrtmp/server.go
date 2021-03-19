@@ -4,6 +4,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/notedit/rtmp/format/rtmp"
 
@@ -18,9 +19,12 @@ type Parent interface {
 
 // Server is a RTMP listener.
 type Server struct {
-	l   net.Listener
-	srv *rtmp.Server
-	wg  sync.WaitGroup
+	parent Parent
+
+	l      net.Listener
+	srv    *rtmp.Server
+	closed uint32
+	wg     sync.WaitGroup
 
 	accept chan *rtmputils.Conn
 }
@@ -38,6 +42,7 @@ func New(
 	}
 
 	s := &Server{
+		parent: parent,
 		l:      l,
 		accept: make(chan *rtmputils.Conn),
 	}
@@ -45,12 +50,16 @@ func New(
 	s.srv = rtmp.NewServer()
 	s.srv.HandleConn = s.innerHandleConn
 
-	parent.Log(logger.Info, "[RTMP listener] opened on %s", address)
+	s.log(logger.Info, "opened on %s", address)
 
 	s.wg.Add(1)
 	go s.run()
 
 	return s, nil
+}
+
+func (s *Server) log(level logger.Level, format string, args ...interface{}) {
+	s.parent.Log(level, "[RTMP listener] "+format, append([]interface{}{}, args...)...)
 }
 
 // Close closes a Server.
@@ -60,6 +69,7 @@ func (s *Server) Close() {
 			co.NetConn().Close()
 		}
 	}()
+	atomic.StoreUint32(&s.closed, 1)
 	s.l.Close()
 	s.wg.Wait()
 	close(s.accept)
@@ -71,7 +81,11 @@ func (s *Server) run() {
 	for {
 		nconn, err := s.l.Accept()
 		if err != nil {
-			break
+			if atomic.LoadUint32(&s.closed) == 1 {
+				break
+			}
+			s.log(logger.Warn, "ERR: %s", err)
+			continue
 		}
 
 		s.wg.Add(1)
