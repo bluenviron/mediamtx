@@ -51,6 +51,11 @@ func (*sourceRedirect) IsSource() {}
 
 type extSourceSetReadyReq struct {
 	tracks gortsplib.Tracks
+	res    chan struct{}
+}
+
+type extSourceSetNotReadyReq struct {
+	res chan struct{}
 }
 
 type clientState int
@@ -91,6 +96,7 @@ type Path struct {
 	setupPlayRequests            []client.SetupPlayReq
 	source                       source
 	sourceTracks                 gortsplib.Tracks
+	sourceTrackStartingPoints    []*client.TrackStartingPoint
 	readers                      *readersMap
 	onDemandCmd                  *externalcmd.Cmd
 	describeTimer                *time.Timer
@@ -104,14 +110,15 @@ type Path struct {
 	closeTimerStarted            bool
 
 	// in
-	extSourceSetReady    chan extSourceSetReadyReq // from external source
-	extSourceSetNotReady chan struct{}             // from external source
+	extSourceSetReady    chan extSourceSetReadyReq    // from external source
+	extSourceSetNotReady chan extSourceSetNotReadyReq // from external source
 	clientDescribe       chan client.DescribeReq
 	clientSetupPlay      chan client.SetupPlayReq
 	clientAnnounce       chan client.AnnounceReq
 	clientPlay           chan client.PlayReq
 	clientRecord         chan client.RecordReq
 	clientPause          chan client.PauseReq
+	clientStartingPoint  chan client.StartingPointReq
 	clientRemove         chan client.RemoveReq
 	terminate            chan struct{}
 }
@@ -149,13 +156,14 @@ func New(
 		runOnDemandCloseTimer: newEmptyTimer(),
 		closeTimer:            newEmptyTimer(),
 		extSourceSetReady:     make(chan extSourceSetReadyReq),
-		extSourceSetNotReady:  make(chan struct{}),
+		extSourceSetNotReady:  make(chan extSourceSetNotReadyReq),
 		clientDescribe:        make(chan client.DescribeReq),
 		clientSetupPlay:       make(chan client.SetupPlayReq),
 		clientAnnounce:        make(chan client.AnnounceReq),
 		clientPlay:            make(chan client.PlayReq),
 		clientRecord:          make(chan client.RecordReq),
 		clientPause:           make(chan client.PauseReq),
+		clientStartingPoint:   make(chan client.StartingPointReq),
 		clientRemove:          make(chan client.RemoveReq),
 		terminate:             make(chan struct{}),
 	}
@@ -238,10 +246,13 @@ outer:
 
 		case req := <-pa.extSourceSetReady:
 			pa.sourceTracks = req.tracks
+			pa.sourceTrackStartingPoints = make([]*client.TrackStartingPoint, len(req.tracks))
 			pa.onSourceSetReady()
+			close(req.res)
 
-		case <-pa.extSourceSetNotReady:
+		case req := <-pa.extSourceSetNotReady:
 			pa.onSourceSetNotReady()
+			close(req.res)
 
 		case req := <-pa.clientDescribe:
 			pa.onClientDescribe(req)
@@ -253,16 +264,16 @@ outer:
 			pa.onClientAnnounce(req)
 
 		case req := <-pa.clientPlay:
-			pa.onClientPlay(req.Client)
-			close(req.Res)
+			pa.onClientPlay(req)
 
 		case req := <-pa.clientRecord:
-			pa.onClientRecord(req.Client)
-			close(req.Res)
+			pa.onClientRecord(req)
 
 		case req := <-pa.clientPause:
-			pa.onClientPause(req.Client)
-			close(req.Res)
+			pa.onClientPause(req)
+
+		case req := <-pa.clientStartingPoint:
+			pa.onClientStartingPoint(req)
 
 		case req := <-pa.clientRemove:
 			if _, ok := pa.clients[req.Client]; !ok {
@@ -336,6 +347,7 @@ outer:
 	close(pa.clientPlay)
 	close(pa.clientRecord)
 	close(pa.clientPause)
+	close(pa.clientStartingPoint)
 	close(pa.clientRemove)
 }
 
@@ -343,15 +355,17 @@ func (pa *Path) exhaustChannels() {
 	go func() {
 		for {
 			select {
-			case _, ok := <-pa.extSourceSetReady:
+			case req, ok := <-pa.extSourceSetReady:
 				if !ok {
 					return
 				}
+				close(req.res)
 
-			case _, ok := <-pa.extSourceSetNotReady:
+			case req, ok := <-pa.extSourceSetNotReady:
 				if !ok {
 					return
 				}
+				close(req.res)
 
 			case req, ok := <-pa.clientDescribe:
 				if !ok {
@@ -388,6 +402,11 @@ func (pa *Path) exhaustChannels() {
 					return
 				}
 				close(req.Res)
+
+			case _, ok := <-pa.clientStartingPoint:
+				if !ok {
+					return
+				}
 
 			case req, ok := <-pa.clientRemove:
 				if !ok {
@@ -655,19 +674,18 @@ func (pa *Path) onClientSetupPlayPost(req client.SetupPlayReq) {
 	req.Res <- client.SetupPlayRes{pa, pa.sourceTracks, nil} //nolint:govet
 }
 
-func (pa *Path) onClientPlay(c client.Client) {
-	state, ok := pa.clients[c]
-	if !ok {
-		return
-	}
-
-	if state != clientStatePrePlay {
-		return
-	}
-
+func (pa *Path) onClientPlay(req client.PlayReq) {
 	atomic.AddInt64(pa.stats.CountReaders, 1)
-	pa.clients[c] = clientStatePlay
-	pa.readers.add(c)
+	pa.clients[req.Client] = clientStatePlay
+	pa.readers.add(req.Client)
+
+	// clone slice, do not clone items
+	cl := make([]*client.TrackStartingPoint, len(pa.sourceTrackStartingPoints))
+	for k, v := range pa.sourceTrackStartingPoints {
+		cl[k] = v
+	}
+
+	req.Res <- client.PlayRes{cl} // nolint:govet
 }
 
 func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
@@ -699,40 +717,50 @@ func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
 
 	pa.source = req.Client
 	pa.sourceTracks = req.Tracks
+	pa.sourceTrackStartingPoints = make([]*client.TrackStartingPoint, len(req.Tracks))
 	req.Res <- client.AnnounceRes{pa, nil} //nolint:govet
 }
 
-func (pa *Path) onClientRecord(c client.Client) {
-	state, ok := pa.clients[c]
-	if !ok {
-		return
-	}
-
-	if state != clientStatePreRecord {
+func (pa *Path) onClientRecord(req client.RecordReq) {
+	if state, ok := pa.clients[req.Client]; !ok || state != clientStatePreRecord {
+		close(req.Res)
 		return
 	}
 
 	atomic.AddInt64(pa.stats.CountPublishers, 1)
-	pa.clients[c] = clientStateRecord
+	pa.clients[req.Client] = clientStateRecord
 	pa.onSourceSetReady()
+
+	close(req.Res)
 }
 
-func (pa *Path) onClientPause(c client.Client) {
-	state, ok := pa.clients[c]
+func (pa *Path) onClientPause(req client.PauseReq) {
+	state, ok := pa.clients[req.Client]
 	if !ok {
+		close(req.Res)
 		return
 	}
 
 	if state == clientStatePlay {
 		atomic.AddInt64(pa.stats.CountReaders, -1)
-		pa.clients[c] = clientStatePrePlay
-		pa.readers.remove(c)
+		pa.clients[req.Client] = clientStatePrePlay
+		pa.readers.remove(req.Client)
 
 	} else if state == clientStateRecord {
 		atomic.AddInt64(pa.stats.CountPublishers, -1)
-		pa.clients[c] = clientStatePreRecord
+		pa.clients[req.Client] = clientStatePreRecord
 		pa.onSourceSetNotReady()
 	}
+
+	close(req.Res)
+}
+
+func (pa *Path) onClientStartingPoint(req client.StartingPointReq) {
+	if state, ok := pa.clients[req.Client]; !ok || state != clientStateRecord {
+		return
+	}
+
+	pa.sourceTrackStartingPoints[req.TrackID] = req.SP
 }
 
 func (pa *Path) scheduleSourceClose() {
@@ -799,12 +827,16 @@ func (pa *Path) Name() string {
 
 // OnExtSourceSetReady is called by a external source.
 func (pa *Path) OnExtSourceSetReady(tracks gortsplib.Tracks) {
-	pa.extSourceSetReady <- extSourceSetReadyReq{tracks}
+	res := make(chan struct{})
+	pa.extSourceSetReady <- extSourceSetReadyReq{tracks, res}
+	<-res
 }
 
 // OnExtSourceSetNotReady is called by a external source.
 func (pa *Path) OnExtSourceSetNotReady() {
-	pa.extSourceSetNotReady <- struct{}{}
+	res := make(chan struct{})
+	pa.extSourceSetNotReady <- extSourceSetNotReadyReq{res}
+	<-res
 }
 
 // OnPathManDescribe is called by pathman.PathMan.
@@ -842,7 +874,12 @@ func (pa *Path) OnClientPause(req client.PauseReq) {
 	pa.clientPause <- req
 }
 
+// OnClientStartingPoint is called by clientrtsp.Client.
+func (pa *Path) OnClientStartingPoint(req client.StartingPointReq) {
+	pa.clientStartingPoint <- req
+}
+
 // OnFrame is called by a source or by a clientrtsp.Client.
-func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
-	pa.readers.forwardFrame(trackID, streamType, buf)
+func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+	pa.readers.forwardFrame(trackID, streamType, payload)
 }

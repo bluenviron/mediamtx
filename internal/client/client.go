@@ -91,10 +91,22 @@ type RemoveReq struct {
 	Res    chan struct{}
 }
 
+// TrackStartingPoint is the starting point of a track.
+type TrackStartingPoint struct {
+	Filled         bool // used by clientrtsp to avoid mutexes
+	SequenceNumber uint16
+	Timestamp      uint32
+}
+
+// PlayRes is a play response.
+type PlayRes struct {
+	TrackStartingPoints []*TrackStartingPoint
+}
+
 // PlayReq is a play request.
 type PlayReq struct {
 	Client Client
-	Res    chan struct{}
+	Res    chan PlayRes
 }
 
 // RecordReq is a record request.
@@ -109,6 +121,13 @@ type PauseReq struct {
 	Res    chan struct{}
 }
 
+// StartingPointReq is a starting point request.
+type StartingPointReq struct {
+	Client  Client
+	TrackID int
+	SP      *TrackStartingPoint
+}
+
 // Path is implemented by path.Path.
 type Path interface {
 	Name() string
@@ -117,6 +136,7 @@ type Path interface {
 	OnClientPlay(PlayReq)
 	OnClientRecord(RecordReq)
 	OnClientPause(PauseReq)
+	OnClientStartingPoint(StartingPointReq)
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 

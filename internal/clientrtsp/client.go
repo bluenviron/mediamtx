@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -64,13 +65,18 @@ type Client struct {
 	conn                *gortsplib.ServerConn
 	parent              Parent
 
-	path          client.Path
-	authUser      string
-	authPass      string
-	authValidator *auth.Validator
-	authFailures  int
-	onReadCmd     *externalcmd.Cmd
-	onPublishCmd  *externalcmd.Cmd
+	path                client.Path
+	trackStartingPoints []*client.TrackStartingPoint
+	authUser            string
+	authPass            string
+	authValidator       *auth.Validator
+	authFailures        int
+
+	// read only
+	onReadCmd *externalcmd.Cmd
+
+	// publish only
+	onPublishCmd *externalcmd.Cmd
 
 	// in
 	terminate chan struct{}
@@ -229,6 +235,11 @@ func (c *Client) run() {
 
 		c.path = res.Path
 
+		c.trackStartingPoints = make([]*client.TrackStartingPoint, len(ctx.Tracks))
+		for i := range ctx.Tracks {
+			c.trackStartingPoints[i] = &client.TrackStartingPoint{}
+		}
+
 		return &base.Response{
 			StatusCode: base.StatusOK,
 		}, nil
@@ -305,14 +316,42 @@ func (c *Client) run() {
 				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), ctx.Path)
 			}
 
-			c.playStart()
+			res := c.playStart()
+			c.trackStartingPoints = res.TrackStartingPoints
+		}
+
+		h := base.Header{
+			"Session": base.HeaderValue{sessionID},
+		}
+
+		// add RTP-Info
+		var ri headers.RTPInfo
+		for id, v := range c.trackStartingPoints {
+			if v == nil {
+				continue
+			}
+
+			u := &base.URL{
+				Scheme: ctx.Req.URL.Scheme,
+				User:   ctx.Req.URL.User,
+				Host:   ctx.Req.URL.Host,
+				Path:   "/" + c.path.Name(),
+			}
+			u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(id), 10))
+
+			ri = append(ri, &headers.RTPInfoEntry{
+				URL:            u,
+				SequenceNumber: v.SequenceNumber,
+				Timestamp:      v.Timestamp,
+			})
+		}
+		if len(ri) > 0 {
+			h["RTP-Info"] = ri.Write()
 		}
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-			Header: base.Header{
-				"Session": base.HeaderValue{sessionID},
-			},
+			Header:     h,
 		}, nil
 	}
 
@@ -359,6 +398,23 @@ func (c *Client) run() {
 	onFrame := func(trackID int, streamType gortsplib.StreamType, payload []byte) {
 		if c.conn.State() != gortsplib.ServerConnStateRecord {
 			return
+		}
+
+		if streamType == gortsplib.StreamTypeRTP &&
+			!c.trackStartingPoints[trackID].Filled {
+
+			pkt := rtp.Packet{}
+			err := pkt.Unmarshal(payload)
+			if err != nil {
+				return
+			}
+
+			sp := c.trackStartingPoints[trackID]
+			sp.Filled = true
+			sp.SequenceNumber = pkt.SequenceNumber
+			sp.Timestamp = pkt.Timestamp
+
+			c.path.OnClientStartingPoint(client.StartingPointReq{c, trackID, sp}) // nolint:govet
 		}
 
 		c.path.OnFrame(trackID, streamType, payload)
@@ -506,10 +562,10 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod,
 	return nil
 }
 
-func (c *Client) playStart() {
-	resc := make(chan struct{})
+func (c *Client) playStart() client.PlayRes {
+	resc := make(chan client.PlayRes)
 	c.path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
-	<-resc
+	res := <-resc
 
 	tracksLen := len(c.conn.SetuppedTracks())
 
@@ -530,6 +586,8 @@ func (c *Client) playStart() {
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
 	}
+
+	return res
 }
 
 func (c *Client) playStop() {
@@ -571,10 +629,10 @@ func (c *Client) recordStop() {
 }
 
 // OnIncomingFrame implements path.Reader.
-func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if _, ok := c.conn.SetuppedTracks()[trackID]; !ok {
 		return
 	}
 
-	c.conn.WriteFrame(trackID, streamType, buf)
+	c.conn.WriteFrame(trackID, streamType, payload)
 }

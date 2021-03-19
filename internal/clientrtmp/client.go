@@ -283,7 +283,7 @@ func (c *Client) runRead() {
 
 		c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
 
-		resc := make(chan struct{})
+		resc := make(chan client.PlayRes)
 		path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
 		<-resc
 
@@ -358,10 +358,8 @@ func (c *Client) runRead() {
 						videoPTS = nt.Timestamp
 						videoBuf = append(videoBuf, nt.NALU)
 					}
-					continue
-				}
 
-				if c.audioTrack != nil && pair.trackID == c.audioTrack.ID {
+				} else if c.audioTrack != nil && pair.trackID == c.audioTrack.ID {
 					ats, err := c.aacDecoder.Decode(pair.buf)
 					if err != nil {
 						c.log(logger.Debug, "ERR while decoding audio track: %v", err)
@@ -381,7 +379,6 @@ func (c *Client) runRead() {
 							return err
 						}
 					}
-					continue
 				}
 			}
 		}()
