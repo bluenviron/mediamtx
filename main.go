@@ -16,6 +16,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/metrics"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
+	"github.com/aler9/rtsp-simple-server/internal/rlimit"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -55,6 +56,11 @@ func newProgram(args []string) (*program, bool) {
 		fmt.Println(version)
 		os.Exit(0)
 	}
+
+	// on Linux, try to raise the number of file descriptors that can be opened
+	// to allow the maximum possible number of clients
+	// do not check for errors
+	rlimit.Raise()
 
 	p := &program{
 		confPath:  *argConfPath,
