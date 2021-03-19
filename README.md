@@ -36,8 +36,9 @@ Features:
   * [Encryption](#encryption)
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
-  * [RTSP proxy mode](#rtsp-proxy-mode)
+  * [Proxy mode](#proxy-mode)
   * [RTMP protocol](#rtmp-protocol)
+  * [Publish from OBS Studio](#publish-from-obs-studio)
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
   * [Convert streams to HLS](#convert-streams-to-hls)
@@ -244,7 +245,7 @@ After performing the encryption, it's enough to put the base64-encoded result in
 RTSP_CONFKEY=mykey ./rtsp-simple-server
 ```
 
-### RTSP proxy mode
+### Proxy mode
 
 _rtsp-simple-server_ is also a RTSP and RTMP proxy, that is usually deployed in one of these scenarios:
 
@@ -304,6 +305,18 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
 
+### Publish from OBS Studio
+
+In `Settings -> Stream`, use the following parameters:
+
+* Server: `rtmp://localhost/mystream`
+* Stream key: (leave empty)
+
+If credentials are in use, use the following parameters:
+
+* Server: `rtmp://localhost/mystream?user=myuser&pass=mypass`
+* Stream key: (leave empty)
+
 ### Publish a webcam
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
@@ -311,7 +324,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/asdasdvideo0 -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
