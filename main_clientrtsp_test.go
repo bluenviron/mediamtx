@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRTSPPublishRead(t *testing.T) {
+func TestClientRTSPPublishRead(t *testing.T) {
 	for _, ca := range []struct {
 		encrypted      bool
 		publisherSoft  string
@@ -149,7 +149,7 @@ func TestRTSPPublishRead(t *testing.T) {
 	}
 }
 
-func TestRTSPAuth(t *testing.T) {
+func TestClientRTSPAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtmpDisable: yes\n" +
 			"paths:\n" +
@@ -271,7 +271,7 @@ func TestRTSPAuth(t *testing.T) {
 	})
 }
 
-func TestRTSPAuthFail(t *testing.T) {
+func TestClientRTSPAuthFail(t *testing.T) {
 	for _, ca := range []struct {
 		name string
 		user string
@@ -389,7 +389,7 @@ func TestRTSPAuthFail(t *testing.T) {
 	}
 }
 
-func TestRTSPAuthIpFail(t *testing.T) {
+func TestClientRTSPAuthIpFail(t *testing.T) {
 	p, ok := testProgram("rtmpDisable: yes\n" +
 		"paths:\n" +
 		"  all:\n" +
@@ -411,7 +411,7 @@ func TestRTSPAuthIpFail(t *testing.T) {
 	require.NotEqual(t, 0, cnt1.wait())
 }
 
-func TestRTSPAutomaticProtocol(t *testing.T) {
+func TestClientRTSPAutomaticProtocol(t *testing.T) {
 	for _, source := range []string{
 		"ffmpeg",
 	} {
@@ -448,7 +448,7 @@ func TestRTSPAutomaticProtocol(t *testing.T) {
 	}
 }
 
-func TestRTSPPublisherOverride(t *testing.T) {
+func TestClientRTSPPublisherOverride(t *testing.T) {
 	p, ok := testProgram("rtmpDisable: yes\n")
 	require.Equal(t, true, ok)
 	defer p.close()
@@ -490,7 +490,7 @@ func TestRTSPPublisherOverride(t *testing.T) {
 	require.Equal(t, 0, dest.wait())
 }
 
-func TestRTSPNonCompliantFrameSize(t *testing.T) {
+func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtmpDisable: yes\n" +
 			"readBufferSize: 4500\n")
@@ -580,7 +580,7 @@ func TestRTSPNonCompliantFrameSize(t *testing.T) {
 	})
 }
 
-func TestRTSPRTPInfo(t *testing.T) {
+func TestClientRTSPRTPInfo(t *testing.T) {
 	p, ok := testProgram("rtmpDisable: yes\n")
 	require.Equal(t, true, ok)
 	defer p.close()
@@ -683,7 +683,7 @@ func TestRTSPRTPInfo(t *testing.T) {
 	}()
 }
 
-func TestRTSPRedirect(t *testing.T) {
+func TestClientRTSPRedirect(t *testing.T) {
 	p1, ok := testProgram("rtmpDisable: yes\n" +
 		"paths:\n" +
 		"  path1:\n" +
@@ -719,7 +719,7 @@ func TestRTSPRedirect(t *testing.T) {
 	require.Equal(t, 0, cnt2.wait())
 }
 
-func TestRTSPFallback(t *testing.T) {
+func TestClientRTSPFallback(t *testing.T) {
 	for _, ca := range []string{
 		"absolute",
 		"relative",
@@ -768,7 +768,7 @@ func TestRTSPFallback(t *testing.T) {
 	}
 }
 
-func TestRTSPRunOnDemand(t *testing.T) {
+func TestClientRTSPRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh
 trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' INT

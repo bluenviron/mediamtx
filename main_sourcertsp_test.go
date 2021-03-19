@@ -8,17 +8,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSource(t *testing.T) {
+func TestSourceRTSP(t *testing.T) {
 	for _, source := range []string{
-		"rtsp_udp",
-		"rtsp_tcp",
-		"rtsps",
-		"rtmp_videoaudio",
-		"rtmp_video",
+		"udp",
+		"tcp",
+		"tls",
 	} {
 		t.Run(source, func(t *testing.T) {
 			switch source {
-			case "rtsp_udp", "rtsp_tcp":
+			case "udp", "tcp":
 				p1, ok := testProgram("rtmpDisable: yes\n" +
 					"rtspPort: 8555\n" +
 					"rtpPort: 8100\n" +
@@ -46,12 +44,12 @@ func TestSource(t *testing.T) {
 					"paths:\n" +
 					"  proxied:\n" +
 					"    source: rtsp://testuser:testpass@localhost:8555/teststream\n" +
-					"    sourceProtocol: " + source[len("rtsp_"):] + "\n" +
+					"    sourceProtocol: " + source[len(""):] + "\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
 				defer p2.close()
 
-			case "rtsps":
+			case "tls":
 				serverCertFpath, err := writeTempFile(serverCert)
 				require.NoError(t, err)
 				defer os.Remove(serverCertFpath)
@@ -96,36 +94,6 @@ func TestSource(t *testing.T) {
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
 				defer p2.close()
-
-			case "rtmp_videoaudio", "rtmp_video":
-				cnt1, err := newContainer("nginx-rtmp", "rtmpserver", []string{})
-				require.NoError(t, err)
-				defer cnt1.close()
-
-				input := "emptyvideoaudio.ts"
-				if source == "rtmp_video" {
-					input = "emptyvideo.ts"
-				}
-
-				cnt2, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", input,
-					"-c", "copy",
-					"-f", "flv",
-					"rtmp://" + cnt1.ip() + "/stream/test",
-				})
-				require.NoError(t, err)
-				defer cnt2.close()
-
-				time.Sleep(1 * time.Second)
-
-				p, ok := testProgram("paths:\n" +
-					"  proxied:\n" +
-					"    source: rtmp://" + cnt1.ip() + "/stream/test\n" +
-					"    sourceOnDemand: yes\n")
-				require.Equal(t, true, ok)
-				defer p.close()
 			}
 
 			time.Sleep(1 * time.Second)

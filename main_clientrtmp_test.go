@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRTMPPublish(t *testing.T) {
+func TestClientRTMPPublish(t *testing.T) {
 	p, ok := testProgram("")
 	require.Equal(t, true, ok)
 	defer p.close()
@@ -37,7 +37,7 @@ func TestRTMPPublish(t *testing.T) {
 	require.Equal(t, 0, cnt2.wait())
 }
 
-func TestRTMPRead(t *testing.T) {
+func TestClientRTMPRead(t *testing.T) {
 	p, ok := testProgram("")
 	require.Equal(t, true, ok)
 	defer p.close()
@@ -66,7 +66,7 @@ func TestRTMPRead(t *testing.T) {
 	require.Equal(t, 0, cnt2.wait())
 }
 
-func TestRTMPAuth(t *testing.T) {
+func TestClientRTMPAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtspDisable: yes\n" +
 			"paths:\n" +
@@ -134,7 +134,7 @@ func TestRTMPAuth(t *testing.T) {
 	})
 }
 
-func TestRTMPAuthFail(t *testing.T) {
+func TestClientRTMPAuthFail(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtspDisable: yes\n" +
 			"paths:\n" +
