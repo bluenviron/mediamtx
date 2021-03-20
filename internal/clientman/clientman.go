@@ -198,13 +198,22 @@ outer:
 	}
 
 	go func() {
-		for range cm.clientClose {
+		for {
+			select {
+			case _, ok := <-cm.clientClose:
+				if !ok {
+					return
+				}
+
+			case <-cm.pathMan.ClientClose():
+			}
 		}
 	}()
 
 	for c := range cm.clients {
 		c.Close()
 	}
+
 	cm.wg.Wait()
 
 	close(cm.clientClose)

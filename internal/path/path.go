@@ -287,7 +287,6 @@ outer:
 
 			delete(pa.clients, req.Client)
 			pa.clientsWg.Done()
-
 			close(req.Res)
 
 		case <-pa.terminate:
@@ -419,7 +418,6 @@ func (pa *Path) exhaustChannels() {
 				}
 
 				pa.clientsWg.Done()
-
 				close(req.Res)
 			}
 		}
