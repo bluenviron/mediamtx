@@ -14,6 +14,7 @@ import (
 	"github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/rtmp"
 
+	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -26,7 +27,7 @@ const (
 // Parent is implemeneted by path.Path.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnExtSourceSetReady(gortsplib.Tracks)
+	OnExtSourceSetReady(gortsplib.Tracks, []*client.TrackStartingPoint)
 	OnExtSourceSetNotReady()
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
@@ -173,7 +174,8 @@ func (s *Source) runInner() bool {
 	}
 
 	s.log(logger.Info, "ready")
-	s.parent.OnExtSourceSetReady(tracks)
+	s.parent.OnExtSourceSetReady(tracks,
+		make([]*client.TrackStartingPoint, len(tracks)))
 	defer s.parent.OnExtSourceSetNotReady()
 
 	readerDone := make(chan error)

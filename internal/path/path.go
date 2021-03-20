@@ -50,8 +50,9 @@ type sourceRedirect struct{}
 func (*sourceRedirect) IsSource() {}
 
 type extSourceSetReadyReq struct {
-	tracks gortsplib.Tracks
-	res    chan struct{}
+	tracks         gortsplib.Tracks
+	startingPoints []*client.TrackStartingPoint
+	res            chan struct{}
 }
 
 type extSourceSetNotReadyReq struct {
@@ -246,7 +247,7 @@ outer:
 
 		case req := <-pa.extSourceSetReady:
 			pa.sourceTracks = req.tracks
-			pa.sourceTrackStartingPoints = make([]*client.TrackStartingPoint, len(req.tracks))
+			pa.sourceTrackStartingPoints = req.startingPoints
 			pa.onSourceSetReady()
 			close(req.res)
 
@@ -820,9 +821,10 @@ func (pa *Path) Name() string {
 }
 
 // OnExtSourceSetReady is called by a external source.
-func (pa *Path) OnExtSourceSetReady(tracks gortsplib.Tracks) {
+func (pa *Path) OnExtSourceSetReady(tracks gortsplib.Tracks,
+	startingPoints []*client.TrackStartingPoint) {
 	res := make(chan struct{})
-	pa.extSourceSetReady <- extSourceSetReadyReq{tracks, res}
+	pa.extSourceSetReady <- extSourceSetReadyReq{tracks, startingPoints, res}
 	<-res
 }
 

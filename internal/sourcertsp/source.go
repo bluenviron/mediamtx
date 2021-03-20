@@ -8,6 +8,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
+	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
@@ -19,7 +20,7 @@ const (
 // Parent is implemented by path.Path.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnExtSourceSetReady(gortsplib.Tracks)
+	OnExtSourceSetReady(gortsplib.Tracks, []*client.TrackStartingPoint)
 	OnExtSourceSetNotReady()
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
@@ -147,8 +148,47 @@ func (s *Source) runInner() bool {
 		return true
 	}
 
+	startingPoints := make([]*client.TrackStartingPoint, len(conn.Tracks()))
+
+	if conn.RTPInfo() != nil {
+		for _, info := range *conn.RTPInfo() {
+			ipath, ok := info.URL.RTSPPath()
+			if !ok {
+				continue
+			}
+
+			trackID := func() int {
+				for _, tr := range conn.Tracks() {
+					u, err := tr.URL()
+					if err != nil {
+						continue
+					}
+
+					tpath, ok := u.RTSPPath()
+					if !ok {
+						continue
+					}
+
+					if tpath == ipath {
+						return tr.ID
+					}
+				}
+				return -1
+			}()
+			if trackID < 0 {
+				continue
+			}
+
+			startingPoints[trackID] = &client.TrackStartingPoint{
+				Filled:         true,
+				SequenceNumber: info.SequenceNumber,
+				Timestamp:      info.Timestamp,
+			}
+		}
+	}
+
 	s.log(logger.Info, "ready")
-	s.parent.OnExtSourceSetReady(conn.Tracks())
+	s.parent.OnExtSourceSetReady(conn.Tracks(), startingPoints)
 	defer s.parent.OnExtSourceSetNotReady()
 
 	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {

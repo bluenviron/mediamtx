@@ -1,10 +1,16 @@
 package main
 
 import (
+	"bufio"
+	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -110,4 +116,165 @@ func TestSourceRTSP(t *testing.T) {
 			require.Equal(t, 0, cnt3.wait())
 		})
 	}
+}
+
+func TestSourceRTSPRTPInfo(t *testing.T) {
+	l, err := net.Listen("tcp", "localhost:8555")
+	require.NoError(t, err)
+	defer l.Close()
+
+	serverDone := make(chan struct{})
+	defer func() { <-serverDone }()
+	go func() {
+		defer close(serverDone)
+
+		conn, err := l.Accept()
+		require.NoError(t, err)
+		bconn := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+
+		var req base.Request
+		err = req.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.Options, req.Method)
+
+		err = base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Public": base.HeaderValue{strings.Join([]string{
+					string(base.Describe),
+					string(base.Setup),
+					string(base.Play),
+				}, ", ")},
+			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		err = req.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.Describe, req.Method)
+
+		track1, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+		require.NoError(t, err)
+
+		track2, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+		require.NoError(t, err)
+
+		err = base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Content-Type": base.HeaderValue{"application/sdp"},
+			},
+			Body: gortsplib.Tracks{track1, track2}.Write(),
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		err = req.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.Setup, req.Method)
+
+		var th headers.Transport
+		err = th.Read(req.Header["Transport"])
+		require.NoError(t, err)
+
+		err = base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Transport": headers.Transport{
+					Protocol: gortsplib.StreamProtocolTCP,
+					Delivery: func() *base.StreamDelivery {
+						v := base.StreamDeliveryUnicast
+						return &v
+					}(),
+					ClientPorts:    th.ClientPorts,
+					InterleavedIds: &[2]int{0, 1},
+				}.Write(),
+			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		err = req.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.Setup, req.Method)
+
+		err = th.Read(req.Header["Transport"])
+		require.NoError(t, err)
+
+		err = base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Transport": headers.Transport{
+					Protocol: gortsplib.StreamProtocolTCP,
+					Delivery: func() *base.StreamDelivery {
+						v := base.StreamDeliveryUnicast
+						return &v
+					}(),
+					ClientPorts:    th.ClientPorts,
+					InterleavedIds: &[2]int{2, 3},
+				}.Write(),
+			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		err = req.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.Play, req.Method)
+
+		err = base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"RTP-Info": headers.RTPInfo{
+					{
+						URL:            base.MustParseURL("rtsp://127.0.0.1/stream/trackID=1"),
+						SequenceNumber: 34254,
+						Timestamp:      156457686,
+					},
+				}.Write(),
+			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		err = req.Read(bconn.Reader)
+		require.NoError(t, err)
+		require.Equal(t, base.Teardown, req.Method)
+
+		err = base.Response{
+			StatusCode: base.StatusOK,
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		conn.Close()
+	}()
+
+	p1, ok := testProgram("rtmpDisable: yes\n" +
+		"paths:\n" +
+		"  proxied:\n" +
+		"    source: rtsp://localhost:8555/stream\n" +
+		"    sourceProtocol: tcp\n")
+	require.Equal(t, true, ok)
+	defer p1.close()
+
+	time.Sleep(1 * time.Second)
+
+	conf := gortsplib.ClientConf{
+		StreamProtocol: func() *gortsplib.StreamProtocol {
+			v := gortsplib.StreamProtocolTCP
+			return &v
+		}(),
+	}
+
+	dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8554/proxied")
+	require.NoError(t, err)
+	defer dest.Close()
+
+	require.Equal(t, &headers.RTPInfo{
+		&headers.RTPInfoEntry{
+			URL: &base.URL{
+				Scheme: "rtsp",
+				Host:   ownDockerIP + ":8554",
+				Path:   "/proxied/trackID=1",
+			},
+			SequenceNumber: 34254,
+			Timestamp:      156457686,
+		},
+	}, dest.RTPInfo())
 }
