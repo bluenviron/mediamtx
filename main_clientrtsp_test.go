@@ -421,8 +421,7 @@ func TestClientRTSPAutomaticProtocol(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			switch source {
-			case "ffmpeg":
+			if source == "ffmpeg" {
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",

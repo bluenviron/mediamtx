@@ -180,8 +180,7 @@ func (c *Client) runRead() {
 		res := <-resc
 
 		if res.Err != nil {
-			switch res.Err.(type) {
-			case client.ErrAuthCritical:
+			if _, ok := res.Err.(client.ErrAuthCritical); ok {
 				// wait some seconds to stop brute force attacks
 				select {
 				case <-time.After(pauseAfterAuthError):
@@ -453,8 +452,7 @@ func (c *Client) runPublish() {
 			res := <-resc
 
 			if res.Err != nil {
-				switch res.Err.(type) {
-				case client.ErrAuthCritical:
+				if _, ok := res.Err.(client.ErrAuthCritical); ok {
 					// wait some seconds to stop brute force attacks
 					select {
 					case <-time.After(pauseAfterAuthError):

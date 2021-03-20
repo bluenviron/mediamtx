@@ -12,8 +12,7 @@ import (
 func load(env map[string]string, envKey string, rv reflect.Value) error {
 	rt := rv.Type()
 
-	switch rt {
-	case reflect.TypeOf(time.Duration(0)):
+	if rt == reflect.TypeOf(time.Duration(0)) {
 		if ev, ok := env[envKey]; ok {
 			d, err := time.ParseDuration(ev)
 			if err != nil {

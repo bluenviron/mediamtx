@@ -1,6 +1,7 @@
 
 linters:
   enable:
+  - gocritic
   - gofmt
   - golint
   - misspell

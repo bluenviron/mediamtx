@@ -68,8 +68,7 @@ func ReadMetadata(conn *Conn) (*gortsplib.Track, *gortsplib.Track, error) {
 			}
 
 		case string:
-			switch vt {
-			case "avc1":
+			if vt == "avc1" {
 				return true, nil
 			}
 		}
@@ -97,8 +96,7 @@ func ReadMetadata(conn *Conn) (*gortsplib.Track, *gortsplib.Track, error) {
 			}
 
 		case string:
-			switch vt {
-			case "mp4a":
+			if vt == "mp4a" {
 				return true, nil
 			}
 		}

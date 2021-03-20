@@ -120,10 +120,11 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		pconf.Source = "record"
 	}
 
-	if pconf.Source == "record" {
+	switch {
+	case pconf.Source == "record":
 
-	} else if strings.HasPrefix(pconf.Source, "rtsp://") ||
-		strings.HasPrefix(pconf.Source, "rtsps://") {
+	case strings.HasPrefix(pconf.Source, "rtsp://") ||
+		strings.HasPrefix(pconf.Source, "rtsps://"):
 		if pconf.Regexp != nil {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 		}
@@ -161,7 +162,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
 		}
 
-	} else if strings.HasPrefix(pconf.Source, "rtmp://") {
+	case strings.HasPrefix(pconf.Source, "rtmp://"):
 		if pconf.Regexp != nil {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
 		}
@@ -183,7 +184,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			}
 		}
 
-	} else if pconf.Source == "redirect" {
+	case pconf.Source == "redirect":
 		if pconf.SourceRedirect == "" {
 			return fmt.Errorf("source redirect must be filled")
 		}
@@ -193,7 +194,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.SourceRedirect)
 		}
 
-	} else {
+	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
 	}
 

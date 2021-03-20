@@ -556,12 +556,10 @@ func (pa *Path) fixedPublisherStart() {
 				pa.sourceState = sourceStateWaitingDescribe
 			}
 
-		} else {
 			// reset timer
-			if pa.sourceCloseTimerStarted {
-				pa.sourceCloseTimer.Stop()
-				pa.sourceCloseTimer = time.NewTimer(pa.conf.SourceOnDemandCloseAfter)
-			}
+		} else if pa.sourceCloseTimerStarted {
+			pa.sourceCloseTimer.Stop()
+			pa.sourceCloseTimer = time.NewTimer(pa.conf.SourceOnDemandCloseAfter)
 		}
 	}
 
@@ -579,12 +577,10 @@ func (pa *Path) fixedPublisherStart() {
 				pa.sourceState = sourceStateWaitingDescribe
 			}
 
-		} else {
 			// reset timer
-			if pa.runOnDemandCloseTimerStarted {
-				pa.runOnDemandCloseTimer.Stop()
-				pa.runOnDemandCloseTimer = time.NewTimer(pa.conf.RunOnDemandCloseAfter)
-			}
+		} else if pa.runOnDemandCloseTimerStarted {
+			pa.runOnDemandCloseTimer.Stop()
+			pa.runOnDemandCloseTimer = time.NewTimer(pa.conf.RunOnDemandCloseAfter)
 		}
 	}
 }

@@ -17,7 +17,7 @@ jobs:
 
     - uses: golangci/golangci-lint-action@v2
       with:
-        version: v1.33
+        version: v1.38
 
   go-mod-tidy:
     name: go-mod-tidy
