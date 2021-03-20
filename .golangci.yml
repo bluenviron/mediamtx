@@ -5,6 +5,7 @@ linters:
   - gofmt
   - golint
   - misspell
+  - prealloc
   - unconvert
   disable:
   - errcheck
