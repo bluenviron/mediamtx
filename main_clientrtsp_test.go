@@ -867,7 +867,7 @@ wait
 							v := headers.TransportModePlay
 							return &v
 						}(),
-						InterleavedIds: &[2]int{0, 1},
+						InterleavedIDs: &[2]int{0, 1},
 					}.Write(),
 				},
 			}.Write(bconn.Writer)
@@ -919,7 +919,7 @@ wait
 							v := headers.TransportModePlay
 							return &v
 						}(),
-						InterleavedIds: &[2]int{0, 1},
+						InterleavedIDs: &[2]int{0, 1},
 					}.Write(),
 				},
 			}.Write(bconn.Writer)

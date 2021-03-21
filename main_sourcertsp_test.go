@@ -186,7 +186,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 						return &v
 					}(),
 					ClientPorts:    th.ClientPorts,
-					InterleavedIds: &[2]int{0, 1},
+					InterleavedIDs: &[2]int{0, 1},
 				}.Write(),
 			},
 		}.Write(bconn.Writer)
@@ -209,7 +209,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 						return &v
 					}(),
 					ClientPorts:    th.ClientPorts,
-					InterleavedIds: &[2]int{2, 3},
+					InterleavedIDs: &[2]int{2, 3},
 				}.Write(),
 			},
 		}.Write(bconn.Writer)

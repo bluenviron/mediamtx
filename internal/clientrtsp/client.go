@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/aler9/gortsplib/pkg/liberrors"
 	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
@@ -436,8 +437,10 @@ func (c *Client) run() {
 	case err := <-readDone:
 		c.conn.Close()
 
-		if err != io.EOF && err != gortsplib.ErrServerTeardown && err != errTerminated {
-			c.log(logger.Info, "ERR: %s", err)
+		if err != io.EOF && err != errTerminated {
+			if _, ok := err.(liberrors.ErrServerTeardown); !ok {
+				c.log(logger.Info, "ERR: %s", err)
+			}
 		}
 
 		switch c.conn.State() {
