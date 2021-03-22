@@ -114,8 +114,12 @@ paths:
     # redirected to.
     sourceRedirect:
 
-    # fallback stream to redirect clients to when nobody is publishing to this path.
-    # this can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
+    # if the source is "record" and a client is publishing, do not allow another
+    # client to disconnect the former and publish in its place.
+    disablePublisherOverride: no
+
+    # if the source is "record" and no one is publishing, redirect readers to this
+    # path. It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
 
     # username required to publish.

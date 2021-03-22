@@ -448,45 +448,91 @@ func TestClientRTSPAutomaticProtocol(t *testing.T) {
 }
 
 func TestClientRTSPPublisherOverride(t *testing.T) {
-	p, ok := testProgram("rtmpDisable: yes\n")
-	require.Equal(t, true, ok)
-	defer p.close()
+	t.Run("enabled", func(t *testing.T) {
+		p, ok := testProgram("rtmpDisable: yes\n")
+		require.Equal(t, true, ok)
+		defer p.close()
 
-	source1, err := newContainer("ffmpeg", "source1", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "rtsp",
-		"rtsp://" + ownDockerIP + ":8554/teststream",
+		source1, err := newContainer("ffmpeg", "source1", []string{
+			"-re",
+			"-stream_loop", "-1",
+			"-i", "emptyvideo.mkv",
+			"-c", "copy",
+			"-f", "rtsp",
+			"rtsp://" + ownDockerIP + ":8554/teststream",
+		})
+		require.NoError(t, err)
+		defer source1.close()
+
+		time.Sleep(1 * time.Second)
+
+		source2, err := newContainer("ffmpeg", "source2", []string{
+			"-re",
+			"-stream_loop", "-1",
+			"-i", "emptyvideo.mkv",
+			"-c", "copy",
+			"-f", "rtsp",
+			"rtsp://" + ownDockerIP + ":8554/teststream",
+		})
+		require.NoError(t, err)
+		defer source2.close()
+
+		time.Sleep(1 * time.Second)
+
+		dest, err := newContainer("ffmpeg", "dest", []string{
+			"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer dest.close()
+		require.Equal(t, 0, dest.wait())
 	})
-	require.NoError(t, err)
-	defer source1.close()
 
-	time.Sleep(1 * time.Second)
+	t.Run("disabled", func(t *testing.T) {
+		p, ok := testProgram("rtmpDisable: yes\n" +
+			"paths:\n" +
+			"  all:\n" +
+			"    disablePublisherOverride: yes\n")
+		require.Equal(t, true, ok)
+		defer p.close()
 
-	source2, err := newContainer("ffmpeg", "source2", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "rtsp",
-		"rtsp://" + ownDockerIP + ":8554/teststream",
+		source1, err := newContainer("ffmpeg", "source1", []string{
+			"-re",
+			"-stream_loop", "-1",
+			"-i", "emptyvideo.mkv",
+			"-c", "copy",
+			"-f", "rtsp",
+			"rtsp://" + ownDockerIP + ":8554/teststream",
+		})
+		require.NoError(t, err)
+		defer source1.close()
+
+		time.Sleep(1 * time.Second)
+
+		source2, err := newContainer("ffmpeg", "source2", []string{
+			"-re",
+			"-stream_loop", "-1",
+			"-i", "emptyvideo.mkv",
+			"-c", "copy",
+			"-f", "rtsp",
+			"rtsp://" + ownDockerIP + ":8554/teststream",
+		})
+		require.NoError(t, err)
+		defer source2.close()
+		require.NotEqual(t, 0, source2.wait())
+
+		dest, err := newContainer("ffmpeg", "dest", []string{
+			"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
+			"-vframes", "1",
+			"-f", "image2",
+			"-y", "/dev/null",
+		})
+		require.NoError(t, err)
+		defer dest.close()
+		require.Equal(t, 0, dest.wait())
 	})
-	require.NoError(t, err)
-	defer source2.close()
-
-	time.Sleep(1 * time.Second)
-
-	dest, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer dest.close()
-	require.Equal(t, 0, dest.wait())
 }
 
 func TestClientRTSPNonCompliantFrameSize(t *testing.T) {

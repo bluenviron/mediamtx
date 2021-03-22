@@ -689,6 +689,11 @@ func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
 	}
 
 	if pa.source != nil {
+		if pa.conf.DisablePublisherOverride {
+			req.Res <- client.AnnounceRes{nil, fmt.Errorf("another client is already publishing on path '%s'", pa.name)} //nolint:govet
+			return
+		}
+
 		pa.Log(logger.Info, "disconnecting existing publisher")
 		curPublisher := pa.source.(client.Client)
 		pa.removeClient(curPublisher)

@@ -74,6 +74,7 @@ type PathConf struct {
 	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter"`
 	SourceRedirect             string                    `yaml:"sourceRedirect"`
+	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride"`
 	Fallback                   string                    `yaml:"fallback"`
 	RunOnInit                  string                    `yaml:"runOnInit"`
 	RunOnInitRestart           bool                      `yaml:"runOnInitRestart"`
