@@ -590,14 +590,7 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 	track2, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
 	require.NoError(t, err)
 
-	conf := gortsplib.ClientConf{
-		StreamProtocol: func() *gortsplib.StreamProtocol {
-			v := gortsplib.StreamProtocolTCP
-			return &v
-		}(),
-	}
-
-	source, err := conf.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+	source, err := gortsplib.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
 		gortsplib.Tracks{track1, track2})
 	require.NoError(t, err)
 	defer source.Close()
@@ -620,7 +613,7 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	func() {
-		dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+		dest, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
 		require.NoError(t, err)
 		defer dest.Close()
 
@@ -655,7 +648,7 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	func() {
-		dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+		dest, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
 		require.NoError(t, err)
 		defer dest.Close()
 

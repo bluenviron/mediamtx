@@ -15,12 +15,13 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/gortsplib/pkg/liberrors"
-	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
+	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -66,17 +67,18 @@ type Client struct {
 	conn                *gortsplib.ServerConn
 	parent              Parent
 
-	path                client.Path
-	trackStartingPoints []*client.TrackStartingPoint
-	authUser            string
-	authPass            string
-	authValidator       *auth.Validator
-	authFailures        int
+	path          client.Path
+	authUser      string
+	authPass      string
+	authValidator *auth.Validator
+	authFailures  int
 
 	// read only
-	onReadCmd *externalcmd.Cmd
+	trackStartingPoints []source.TrackStartingPoint
+	onReadCmd           *externalcmd.Cmd
 
 	// publish only
+	sp           *streamproc.StreamProc
 	onPublishCmd *externalcmd.Cmd
 
 	// in
@@ -236,11 +238,6 @@ func (c *Client) run() {
 
 		c.path = res.Path
 
-		c.trackStartingPoints = make([]*client.TrackStartingPoint, len(ctx.Tracks))
-		for i := range ctx.Tracks {
-			c.trackStartingPoints[i] = &client.TrackStartingPoint{}
-		}
-
 		return &base.Response{
 			StatusCode: base.StatusOK,
 		}, nil
@@ -327,8 +324,12 @@ func (c *Client) run() {
 
 		// add RTP-Info
 		var ri headers.RTPInfo
-		for id, v := range c.trackStartingPoints {
-			if v == nil {
+		for trackID, v := range c.trackStartingPoints {
+			if !v.Filled {
+				continue
+			}
+
+			if _, ok := c.conn.SetuppedTracks()[trackID]; !ok {
 				continue
 			}
 
@@ -338,7 +339,7 @@ func (c *Client) run() {
 				Host:   ctx.Req.URL.Host,
 				Path:   "/" + c.path.Name(),
 			}
-			u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(id), 10))
+			u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(trackID), 10))
 
 			ri = append(ri, &headers.RTPInfoEntry{
 				URL:            u,
@@ -401,24 +402,7 @@ func (c *Client) run() {
 			return
 		}
 
-		if streamType == gortsplib.StreamTypeRTP &&
-			!c.trackStartingPoints[trackID].Filled {
-
-			pkt := rtp.Packet{}
-			err := pkt.Unmarshal(payload)
-			if err != nil {
-				return
-			}
-
-			sp := c.trackStartingPoints[trackID]
-			sp.Filled = true
-			sp.SequenceNumber = pkt.SequenceNumber
-			sp.Timestamp = pkt.Timestamp
-
-			c.path.OnClientStartingPoint(client.StartingPointReq{c, trackID, sp}) // nolint:govet
-		}
-
-		c.path.OnFrame(trackID, streamType, payload)
+		c.sp.OnFrame(trackID, streamType, payload)
 	}
 
 	readDone := c.conn.Read(gortsplib.ServerConnReadHandlers{
@@ -604,7 +588,7 @@ func (c *Client) recordStart() {
 	c.path.OnClientRecord(client.RecordReq{c, resc}) //nolint:govet
 	<-resc
 
-	tracksLen := len(c.conn.SetuppedTracks())
+	tracksLen := len(c.conn.AnnouncedTracks())
 
 	c.log(logger.Info, "is publishing to path '%s', %d %s with %s",
 		c.path.Name(),
@@ -623,6 +607,8 @@ func (c *Client) recordStart() {
 			Port: strconv.FormatInt(int64(c.rtspPort), 10),
 		})
 	}
+
+	c.sp = streamproc.New(c, c.path, make([]source.TrackStartingPoint, len(c.conn.AnnouncedTracks())))
 }
 
 func (c *Client) recordStop() {

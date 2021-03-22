@@ -15,6 +15,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertmp"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -33,31 +34,9 @@ type Parent interface {
 	OnPathClientClose(client.Client)
 }
 
-// source is implemented by all sources (client* and source*).
-type source interface {
-	IsSource()
-}
-
-// extSource is implemented by all external sources.
-type extSource interface {
-	IsSource()
-	IsExtSource()
-	Close()
-}
-
 type sourceRedirect struct{}
 
 func (*sourceRedirect) IsSource() {}
-
-type extSourceSetReadyReq struct {
-	tracks         gortsplib.Tracks
-	startingPoints []*client.TrackStartingPoint
-	res            chan struct{}
-}
-
-type extSourceSetNotReadyReq struct {
-	res chan struct{}
-}
 
 type clientState int
 
@@ -95,9 +74,9 @@ type Path struct {
 	clientsWg                    sync.WaitGroup
 	describeRequests             []client.DescribeReq
 	setupPlayRequests            []client.SetupPlayReq
-	source                       source
+	source                       source.Source
 	sourceTracks                 gortsplib.Tracks
-	sourceTrackStartingPoints    []*client.TrackStartingPoint
+	sourceTrackStartingPoints    []source.TrackStartingPoint
 	readers                      *readersMap
 	onDemandCmd                  *externalcmd.Cmd
 	describeTimer                *time.Timer
@@ -111,15 +90,15 @@ type Path struct {
 	closeTimerStarted            bool
 
 	// in
-	extSourceSetReady    chan extSourceSetReadyReq    // from external source
-	extSourceSetNotReady chan extSourceSetNotReadyReq // from external source
+	setStartingPoint     chan source.SetStartingPointReq
+	extSourceSetReady    chan source.ExtSetReadyReq
+	extSourceSetNotReady chan source.ExtSetNotReadyReq
 	clientDescribe       chan client.DescribeReq
 	clientSetupPlay      chan client.SetupPlayReq
 	clientAnnounce       chan client.AnnounceReq
 	clientPlay           chan client.PlayReq
 	clientRecord         chan client.RecordReq
 	clientPause          chan client.PauseReq
-	clientStartingPoint  chan client.StartingPointReq
 	clientRemove         chan client.RemoveReq
 	terminate            chan struct{}
 }
@@ -156,15 +135,15 @@ func New(
 		sourceCloseTimer:      newEmptyTimer(),
 		runOnDemandCloseTimer: newEmptyTimer(),
 		closeTimer:            newEmptyTimer(),
-		extSourceSetReady:     make(chan extSourceSetReadyReq),
-		extSourceSetNotReady:  make(chan extSourceSetNotReadyReq),
+		setStartingPoint:      make(chan source.SetStartingPointReq),
+		extSourceSetReady:     make(chan source.ExtSetReadyReq),
+		extSourceSetNotReady:  make(chan source.ExtSetNotReadyReq),
 		clientDescribe:        make(chan client.DescribeReq),
 		clientSetupPlay:       make(chan client.SetupPlayReq),
 		clientAnnounce:        make(chan client.AnnounceReq),
 		clientPlay:            make(chan client.PlayReq),
 		clientRecord:          make(chan client.RecordReq),
 		clientPause:           make(chan client.PauseReq),
-		clientStartingPoint:   make(chan client.StartingPointReq),
 		clientRemove:          make(chan client.RemoveReq),
 		terminate:             make(chan struct{}),
 	}
@@ -226,7 +205,7 @@ outer:
 
 		case <-pa.sourceCloseTimer.C:
 			pa.sourceCloseTimerStarted = false
-			pa.source.(extSource).Close()
+			pa.source.(source.ExtSource).Close()
 			pa.source = nil
 
 			pa.scheduleClose()
@@ -245,15 +224,25 @@ outer:
 			<-pa.terminate
 			break outer
 
+		case req := <-pa.setStartingPoint:
+			pa.onSetStartingPoint(req)
+
 		case req := <-pa.extSourceSetReady:
-			pa.sourceTracks = req.tracks
-			pa.sourceTrackStartingPoints = req.startingPoints
+			pa.sourceTracks = req.Tracks
+
+			// clone
+			cl := make([]source.TrackStartingPoint, len(req.StartingPoints))
+			for k, v := range req.StartingPoints {
+				cl[k] = v
+			}
+			pa.sourceTrackStartingPoints = cl
+
 			pa.onSourceSetReady()
-			close(req.res)
+			close(req.Res)
 
 		case req := <-pa.extSourceSetNotReady:
 			pa.onSourceSetNotReady()
-			close(req.res)
+			close(req.Res)
 
 		case req := <-pa.clientDescribe:
 			pa.onClientDescribe(req)
@@ -272,9 +261,6 @@ outer:
 
 		case req := <-pa.clientPause:
 			pa.onClientPause(req)
-
-		case req := <-pa.clientStartingPoint:
-			pa.onClientStartingPoint(req)
 
 		case req := <-pa.clientRemove:
 			if _, ok := pa.clients[req.Client]; !ok {
@@ -306,7 +292,7 @@ outer:
 		onInitCmd.Close()
 	}
 
-	if source, ok := pa.source.(extSource); ok {
+	if source, ok := pa.source.(source.ExtSource); ok {
 		source.Close()
 	}
 	pa.sourceWg.Wait()
@@ -339,6 +325,7 @@ outer:
 	}
 	pa.clientsWg.Wait()
 
+	close(pa.setStartingPoint)
 	close(pa.extSourceSetReady)
 	close(pa.extSourceSetNotReady)
 	close(pa.clientDescribe)
@@ -347,7 +334,6 @@ outer:
 	close(pa.clientPlay)
 	close(pa.clientRecord)
 	close(pa.clientPause)
-	close(pa.clientStartingPoint)
 	close(pa.clientRemove)
 }
 
@@ -355,17 +341,22 @@ func (pa *Path) exhaustChannels() {
 	go func() {
 		for {
 			select {
+			case _, ok := <-pa.setStartingPoint:
+				if !ok {
+					return
+				}
+
 			case req, ok := <-pa.extSourceSetReady:
 				if !ok {
 					return
 				}
-				close(req.res)
+				close(req.Res)
 
 			case req, ok := <-pa.extSourceSetNotReady:
 				if !ok {
 					return
 				}
-				close(req.res)
+				close(req.Res)
 
 			case req, ok := <-pa.clientDescribe:
 				if !ok {
@@ -402,11 +393,6 @@ func (pa *Path) exhaustChannels() {
 					return
 				}
 				close(req.Res)
-
-			case _, ok := <-pa.clientStartingPoint:
-				if !ok {
-					return
-				}
 
 			case req, ok := <-pa.clientRemove:
 				if !ok {
@@ -584,6 +570,14 @@ func (pa *Path) fixedPublisherStart() {
 	}
 }
 
+func (pa *Path) onSetStartingPoint(req source.SetStartingPointReq) {
+	if req.Source != pa.source {
+		return
+	}
+
+	pa.sourceTrackStartingPoints[req.TrackID] = req.StartingPoint
+}
+
 func (pa *Path) onClientDescribe(req client.DescribeReq) {
 	if _, ok := pa.clients[req.Client]; ok {
 		req.Res <- client.DescribeRes{nil, "", fmt.Errorf("already subscribed")} //nolint:govet
@@ -674,8 +668,8 @@ func (pa *Path) onClientPlay(req client.PlayReq) {
 	pa.clients[req.Client] = clientStatePlay
 	pa.readers.add(req.Client)
 
-	// clone slice, do not clone items
-	cl := make([]*client.TrackStartingPoint, len(pa.sourceTrackStartingPoints))
+	// clone
+	cl := make([]source.TrackStartingPoint, len(pa.sourceTrackStartingPoints))
 	for k, v := range pa.sourceTrackStartingPoints {
 		cl[k] = v
 	}
@@ -712,7 +706,7 @@ func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
 
 	pa.source = req.Client
 	pa.sourceTracks = req.Tracks
-	pa.sourceTrackStartingPoints = make([]*client.TrackStartingPoint, len(req.Tracks))
+	pa.sourceTrackStartingPoints = make([]source.TrackStartingPoint, len(req.Tracks))
 	req.Res <- client.AnnounceRes{pa, nil} //nolint:govet
 }
 
@@ -748,14 +742,6 @@ func (pa *Path) onClientPause(req client.PauseReq) {
 	}
 
 	close(req.Res)
-}
-
-func (pa *Path) onClientStartingPoint(req client.StartingPointReq) {
-	if state, ok := pa.clients[req.Client]; !ok || state != clientStateRecord {
-		return
-	}
-
-	pa.sourceTrackStartingPoints[req.TrackID] = req.SP
 }
 
 func (pa *Path) scheduleSourceClose() {
@@ -820,19 +806,24 @@ func (pa *Path) Name() string {
 	return pa.name
 }
 
-// OnExtSourceSetReady is called by a external source.
-func (pa *Path) OnExtSourceSetReady(tracks gortsplib.Tracks,
-	startingPoints []*client.TrackStartingPoint) {
-	res := make(chan struct{})
-	pa.extSourceSetReady <- extSourceSetReadyReq{tracks, startingPoints, res}
-	<-res
+// OnSetStartingPoint is called by a source.
+func (pa *Path) OnSetStartingPoint(req source.SetStartingPointReq) {
+	pa.setStartingPoint <- req
 }
 
-// OnExtSourceSetNotReady is called by a external source.
-func (pa *Path) OnExtSourceSetNotReady() {
-	res := make(chan struct{})
-	pa.extSourceSetNotReady <- extSourceSetNotReadyReq{res}
-	<-res
+// OnFrame is called by a source.
+func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+	pa.readers.forwardFrame(trackID, streamType, payload)
+}
+
+// OnExtSourceSetReady is called by an external source.
+func (pa *Path) OnExtSourceSetReady(req source.ExtSetReadyReq) {
+	pa.extSourceSetReady <- req
+}
+
+// OnExtSourceSetNotReady is called by an external source.
+func (pa *Path) OnExtSourceSetNotReady(req source.ExtSetNotReadyReq) {
+	pa.extSourceSetNotReady <- req
 }
 
 // OnPathManDescribe is called by pathman.PathMan.
@@ -850,32 +841,22 @@ func (pa *Path) OnPathManAnnounce(req client.AnnounceReq) {
 	pa.clientAnnounce <- req
 }
 
-// OnClientRemove is called by clientrtsp.Client.
+// OnClientRemove is called by a client.
 func (pa *Path) OnClientRemove(req client.RemoveReq) {
 	pa.clientRemove <- req
 }
 
-// OnClientPlay is called by clientrtsp.Client.
+// OnClientPlay is called by a client.
 func (pa *Path) OnClientPlay(req client.PlayReq) {
 	pa.clientPlay <- req
 }
 
-// OnClientRecord is called by clientrtsp.Client.
+// OnClientRecord is called by a client.
 func (pa *Path) OnClientRecord(req client.RecordReq) {
 	pa.clientRecord <- req
 }
 
-// OnClientPause is called by clientrtsp.Client.
+// OnClientPause is called by a client.
 func (pa *Path) OnClientPause(req client.PauseReq) {
 	pa.clientPause <- req
-}
-
-// OnClientStartingPoint is called by clientrtsp.Client.
-func (pa *Path) OnClientStartingPoint(req client.StartingPointReq) {
-	pa.clientStartingPoint <- req
-}
-
-// OnFrame is called by a source or by a clientrtsp.Client.
-func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	pa.readers.forwardFrame(trackID, streamType, payload)
 }

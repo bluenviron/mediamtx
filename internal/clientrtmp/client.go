@@ -23,8 +23,11 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
+	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -512,11 +515,18 @@ func (c *Client) runPublish() {
 		}
 	}(path)
 
+	sp := streamproc.New(c, path, make([]source.TrackStartingPoint, len(tracks)))
+
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
-			rtcpSenders := rtmputils.NewRTCPSenderSet(tracks, path.OnFrame)
+			rtcpSenders := rtcpsenderset.New(tracks, path.OnFrame)
 			defer rtcpSenders.Close()
+
+			onFrame := func(trackID int, payload []byte) {
+				rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+				sp.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+			}
 
 			for {
 				c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
@@ -547,9 +557,7 @@ func (c *Client) runPublish() {
 						}
 
 						for _, frame := range frames {
-							rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(),
-								gortsplib.StreamTypeRTP, frame)
-							path.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, frame)
+							onFrame(videoTrack.ID, frame)
 						}
 					}
 
@@ -566,9 +574,7 @@ func (c *Client) runPublish() {
 						return err
 					}
 
-					rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(),
-						gortsplib.StreamTypeRTP, frame)
-					path.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, frame)
+					onFrame(audioTrack.ID, frame)
 
 				default:
 					return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)

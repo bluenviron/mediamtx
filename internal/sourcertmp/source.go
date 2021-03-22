@@ -14,10 +14,12 @@ import (
 	"github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/rtmp"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
+	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -27,12 +29,13 @@ const (
 // Parent is implemeneted by path.Path.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnExtSourceSetReady(gortsplib.Tracks, []*client.TrackStartingPoint)
-	OnExtSourceSetNotReady()
+	OnExtSourceSetReady(req source.ExtSetReadyReq)
+	OnExtSourceSetNotReady(req source.ExtSetNotReadyReq)
+	OnSetStartingPoint(source.SetStartingPointReq)
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
-// Source is a RTMP source.
+// Source is a RTMP external source.
 type Source struct {
 	ur          string
 	readTimeout time.Duration
@@ -74,7 +77,7 @@ func (s *Source) Close() {
 	close(s.terminate)
 }
 
-// IsSource implements path.source.
+// IsSource implements source.Source.
 func (s *Source) IsSource() {}
 
 // IsExtSource implements path.extSource.
@@ -174,15 +177,33 @@ func (s *Source) runInner() bool {
 	}
 
 	s.log(logger.Info, "ready")
-	s.parent.OnExtSourceSetReady(tracks,
-		make([]*client.TrackStartingPoint, len(tracks)))
-	defer s.parent.OnExtSourceSetNotReady()
+	res := make(chan struct{})
+	s.parent.OnExtSourceSetReady(source.ExtSetReadyReq{
+		Tracks:         tracks,
+		StartingPoints: make([]source.TrackStartingPoint, len(tracks)),
+		Res:            res,
+	})
+	<-res
+	defer func() {
+		res := make(chan struct{})
+		s.parent.OnExtSourceSetNotReady(source.ExtSetNotReadyReq{
+			Res: res,
+		})
+		<-res
+	}()
 
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
-			rtcpSenders := rtmputils.NewRTCPSenderSet(tracks, s.parent.OnFrame)
+			rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnFrame)
 			defer rtcpSenders.Close()
+
+			sp := streamproc.New(s, s.parent, make([]source.TrackStartingPoint, len(tracks)))
+
+			onFrame := func(trackID int, payload []byte) {
+				rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+				sp.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, payload)
+			}
 
 			for {
 				conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
@@ -214,9 +235,7 @@ func (s *Source) runInner() bool {
 						}
 
 						for _, frame := range frames {
-							rtcpSenders.ProcessFrame(videoTrack.ID, time.Now(),
-								gortsplib.StreamTypeRTP, frame)
-							s.parent.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, frame)
+							onFrame(videoTrack.ID, frame)
 						}
 					}
 
@@ -233,9 +252,7 @@ func (s *Source) runInner() bool {
 						return err
 					}
 
-					rtcpSenders.ProcessFrame(audioTrack.ID, time.Now(),
-						gortsplib.StreamTypeRTP, frame)
-					s.parent.OnFrame(audioTrack.ID, gortsplib.StreamTypeRTP, frame)
+					onFrame(audioTrack.ID, frame)
 
 				default:
 					return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)

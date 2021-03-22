@@ -11,6 +11,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -219,6 +220,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, base.Play, req.Method)
 
+		// provide a partial RTP-Info with only one track
 		err = base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
@@ -230,6 +232,28 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 					},
 				}.Write(),
 			},
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		// send a packet to fill the missing RTP-Info track
+		pkt := rtp.Packet{
+			Header: rtp.Header{
+				Version:        0x80,
+				PayloadType:    96,
+				SequenceNumber: 87,
+				Timestamp:      756436454,
+				SSRC:           96342362,
+			},
+			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		}
+
+		buf, err := pkt.Marshal()
+		require.NoError(t, err)
+
+		err = base.InterleavedFrame{
+			TrackID:    0,
+			StreamType: gortsplib.StreamTypeRTP,
+			Payload:    buf,
 		}.Write(bconn.Writer)
 		require.NoError(t, err)
 
@@ -253,16 +277,9 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p1.close()
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
-	conf := gortsplib.ClientConf{
-		StreamProtocol: func() *gortsplib.StreamProtocol {
-			v := gortsplib.StreamProtocolTCP
-			return &v
-		}(),
-	}
-
-	dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8554/proxied")
+	dest, err := gortsplib.DialRead("rtsp://127.0.1.2:8554/proxied")
 	require.NoError(t, err)
 	defer dest.Close()
 
@@ -270,7 +287,16 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 		&headers.RTPInfoEntry{
 			URL: &base.URL{
 				Scheme: "rtsp",
-				Host:   ownDockerIP + ":8554",
+				Host:   "127.0.1.2:8554",
+				Path:   "/proxied/trackID=0",
+			},
+			SequenceNumber: 87,
+			Timestamp:      756436454,
+		},
+		&headers.RTPInfoEntry{
+			URL: &base.URL{
+				Scheme: "rtsp",
+				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=1",
 			},
 			SequenceNumber: 34254,

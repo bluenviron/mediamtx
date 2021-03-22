@@ -8,9 +8,10 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
+	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -20,12 +21,13 @@ const (
 // Parent is implemented by path.Path.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnExtSourceSetReady(gortsplib.Tracks, []*client.TrackStartingPoint)
-	OnExtSourceSetNotReady()
+	OnExtSourceSetReady(req source.ExtSetReadyReq)
+	OnExtSourceSetNotReady(req source.ExtSetNotReadyReq)
+	OnSetStartingPoint(source.SetStartingPointReq)
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
-// Source is a RTSP source.
+// Source is a RTSP external source.
 type Source struct {
 	ur              string
 	proto           *gortsplib.StreamProtocol
@@ -79,7 +81,7 @@ func (s *Source) Close() {
 	close(s.terminate)
 }
 
-// IsSource implements path.source.
+// IsSource implements source.Source.
 func (s *Source) IsSource() {}
 
 // IsExtSource implements path.extSource.
@@ -148,7 +150,7 @@ func (s *Source) runInner() bool {
 		return true
 	}
 
-	startingPoints := make([]*client.TrackStartingPoint, len(conn.Tracks()))
+	trackStartingPoints := make([]source.TrackStartingPoint, len(conn.Tracks()))
 
 	if conn.RTPInfo() != nil {
 		for _, info := range *conn.RTPInfo() {
@@ -179,20 +181,32 @@ func (s *Source) runInner() bool {
 				continue
 			}
 
-			startingPoints[trackID] = &client.TrackStartingPoint{
-				Filled:         true,
-				SequenceNumber: info.SequenceNumber,
-				Timestamp:      info.Timestamp,
-			}
+			trackStartingPoints[trackID].Filled = true
+			trackStartingPoints[trackID].SequenceNumber = info.SequenceNumber
+			trackStartingPoints[trackID].Timestamp = info.Timestamp
 		}
 	}
 
 	s.log(logger.Info, "ready")
-	s.parent.OnExtSourceSetReady(conn.Tracks(), startingPoints)
-	defer s.parent.OnExtSourceSetNotReady()
+	res := make(chan struct{})
+	s.parent.OnExtSourceSetReady(source.ExtSetReadyReq{
+		Tracks:         conn.Tracks(),
+		StartingPoints: trackStartingPoints,
+		Res:            res,
+	})
+	<-res
+	defer func() {
+		res := make(chan struct{})
+		s.parent.OnExtSourceSetNotReady(source.ExtSetNotReadyReq{
+			Res: res,
+		})
+		<-res
+	}()
+
+	sp := streamproc.New(s, s.parent, trackStartingPoints)
 
 	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-		s.parent.OnFrame(trackID, streamType, payload)
+		sp.OnFrame(trackID, streamType, payload)
 	})
 
 	for {

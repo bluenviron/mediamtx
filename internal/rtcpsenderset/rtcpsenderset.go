@@ -1,4 +1,4 @@
-package rtmputils
+package rtcpsenderset
 
 import (
 	"time"
@@ -19,8 +19,8 @@ type RTCPSenderSet struct {
 	done chan struct{}
 }
 
-// NewRTCPSenderSet allocates a RTCPSenderSet.
-func NewRTCPSenderSet(
+// New allocates a RTCPSenderSet.
+func New(
 	tracks gortsplib.Tracks,
 	onFrame func(int, gortsplib.StreamType, []byte),
 ) *RTCPSenderSet {
@@ -72,8 +72,7 @@ func (s *RTCPSenderSet) run() {
 	}
 }
 
-// ProcessFrame sends a frame to the senders.
-func (s *RTCPSenderSet) ProcessFrame(trackID int, t time.Time,
-	streamType gortsplib.StreamType, f []byte) {
-	s.senders[trackID].ProcessFrame(t, streamType, f)
+// OnFrame sends a frame to the senders.
+func (s *RTCPSenderSet) OnFrame(trackID int, streamType gortsplib.StreamType, f []byte) {
+	s.senders[trackID].ProcessFrame(time.Now(), streamType, f)
 }

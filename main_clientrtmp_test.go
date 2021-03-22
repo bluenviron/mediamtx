@@ -4,6 +4,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -207,4 +210,48 @@ func TestClientRTMPAuthFail(t *testing.T) {
 		defer cnt2.close()
 		require.NotEqual(t, 0, cnt2.wait())
 	})
+}
+
+func TestClientRTMPRTPInfo(t *testing.T) {
+	p, ok := testProgram("")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	cnt1, err := newContainer("ffmpeg", "source", []string{
+		"-re",
+		"-stream_loop", "-1",
+		"-i", "emptyvideoaudio.mkv",
+		"-c", "copy",
+		"-f", "flv",
+		"rtmp://" + ownDockerIP + ":1935/teststream",
+	})
+	require.NoError(t, err)
+	defer cnt1.close()
+
+	time.Sleep(1 * time.Second)
+
+	dest, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+	require.NoError(t, err)
+	defer dest.Close()
+
+	require.Equal(t, &headers.RTPInfo{
+		&headers.RTPInfoEntry{
+			URL: &base.URL{
+				Scheme: "rtsp",
+				Host:   ownDockerIP + ":8554",
+				Path:   "/teststream/trackID=0",
+			},
+			SequenceNumber: (*dest.RTPInfo())[0].SequenceNumber,
+			Timestamp:      (*dest.RTPInfo())[0].Timestamp,
+		},
+		&headers.RTPInfoEntry{
+			URL: &base.URL{
+				Scheme: "rtsp",
+				Host:   ownDockerIP + ":8554",
+				Path:   "/teststream/trackID=1",
+			},
+			SequenceNumber: (*dest.RTPInfo())[1].SequenceNumber,
+			Timestamp:      (*dest.RTPInfo())[1].Timestamp,
+		},
+	}, dest.RTPInfo())
 }

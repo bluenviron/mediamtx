@@ -8,6 +8,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 )
 
 // ErrNoOnePublishing is a "no one is publishing" error.
@@ -40,14 +41,26 @@ func (ErrAuthCritical) Error() string {
 	return "critical authentication error"
 }
 
-// DescribeRes is a client describe response.
+// Path is implemented by path.Path.
+type Path interface {
+	Name() string
+	Conf() *conf.PathConf
+	OnClientRemove(RemoveReq)
+	OnClientPlay(PlayReq)
+	OnClientRecord(RecordReq)
+	OnClientPause(PauseReq)
+	OnSetStartingPoint(source.SetStartingPointReq)
+	OnFrame(int, gortsplib.StreamType, []byte)
+}
+
+// DescribeRes is a describe response.
 type DescribeRes struct {
 	SDP      []byte
 	Redirect string
 	Err      error
 }
 
-// DescribeReq is a client describe request.
+// DescribeReq is a describe request.
 type DescribeReq struct {
 	Client   Client
 	PathName string
@@ -70,13 +83,13 @@ type SetupPlayReq struct {
 	Res      chan SetupPlayRes
 }
 
-// AnnounceRes is a client announce response.
+// AnnounceRes is a announce response.
 type AnnounceRes struct {
 	Path Path
 	Err  error
 }
 
-// AnnounceReq is a client announce request.
+// AnnounceReq is a announce request.
 type AnnounceReq struct {
 	Client   Client
 	PathName string
@@ -91,16 +104,9 @@ type RemoveReq struct {
 	Res    chan struct{}
 }
 
-// TrackStartingPoint is the starting point of a track.
-type TrackStartingPoint struct {
-	Filled         bool // used by clientrtsp to avoid mutexes
-	SequenceNumber uint16
-	Timestamp      uint32
-}
-
 // PlayRes is a play response.
 type PlayRes struct {
-	TrackStartingPoints []*TrackStartingPoint
+	TrackStartingPoints []source.TrackStartingPoint
 }
 
 // PlayReq is a play request.
@@ -119,25 +125,6 @@ type RecordReq struct {
 type PauseReq struct {
 	Client Client
 	Res    chan struct{}
-}
-
-// StartingPointReq is a starting point request.
-type StartingPointReq struct {
-	Client  Client
-	TrackID int
-	SP      *TrackStartingPoint
-}
-
-// Path is implemented by path.Path.
-type Path interface {
-	Name() string
-	Conf() *conf.PathConf
-	OnClientRemove(RemoveReq)
-	OnClientPlay(PlayReq)
-	OnClientRecord(RecordReq)
-	OnClientPause(PauseReq)
-	OnClientStartingPoint(StartingPointReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // Client is implemented by all client*.
