@@ -37,7 +37,7 @@ func TestSourceRTSP(t *testing.T) {
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
-					"-i", "emptyvideo.ts",
+					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
 					"-rtsp_transport", "udp",
@@ -83,7 +83,7 @@ func TestSourceRTSP(t *testing.T) {
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
-					"-i", "emptyvideo.ts",
+					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
 					"rtsps://" + ownDockerIP + ":8555/teststream",

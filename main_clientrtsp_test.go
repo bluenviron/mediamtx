@@ -87,7 +87,7 @@ func TestClientRTSPPublishRead(t *testing.T) {
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
-					"-i", "emptyvideo.ts",
+					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
 					"-rtsp_transport", ca.publisherProto,
@@ -100,7 +100,7 @@ func TestClientRTSPPublishRead(t *testing.T) {
 
 			case "gstreamer":
 				cnt1, err := newContainer("gstreamer", "source", []string{
-					"filesrc location=emptyvideo.ts ! tsdemux ! video/x-h264 ! rtspclientsink " +
+					"filesrc location=emptyvideo.mkv ! matroskademux ! video/x-h264 ! rtspclientsink " +
 						"location=" + proto + "://" + ownDockerIP + ":" + port + "/teststream " +
 						"protocols=" + ca.publisherProto + " tls-validation-flags=0 latency=0 timeout=0 rtx-time=0",
 				})
@@ -163,7 +163,7 @@ func TestClientRTSPAuth(t *testing.T) {
 		cnt1, err := newContainer("ffmpeg", "source", []string{
 			"-re",
 			"-stream_loop", "-1",
-			"-i", "emptyvideo.ts",
+			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "rtsp",
 			"-rtsp_transport", "udp",
@@ -203,7 +203,7 @@ func TestClientRTSPAuth(t *testing.T) {
 			cnt1, err := newContainer("ffmpeg", "source", []string{
 				"-re",
 				"-stream_loop", "-1",
-				"-i", "emptyvideo.ts",
+				"-i", "emptyvideo.mkv",
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
@@ -249,7 +249,7 @@ func TestClientRTSPAuth(t *testing.T) {
 		cnt1, err := newContainer("ffmpeg", "source", []string{
 			"-re",
 			"-stream_loop", "-1",
-			"-i", "emptyvideo.ts",
+			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "rtsp",
 			"-rtsp_transport", "udp",
@@ -306,7 +306,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			cnt1, err := newContainer("ffmpeg", "source", []string{
 				"-re",
 				"-stream_loop", "-1",
-				"-i", "emptyvideo.ts",
+				"-i", "emptyvideo.mkv",
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
@@ -364,7 +364,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			cnt1, err := newContainer("ffmpeg", "source", []string{
 				"-re",
 				"-stream_loop", "-1",
-				"-i", "emptyvideo.ts",
+				"-i", "emptyvideo.mkv",
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
@@ -400,7 +400,7 @@ func TestClientRTSPAuthIpFail(t *testing.T) {
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
 		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
+		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
@@ -425,7 +425,7 @@ func TestClientRTSPAutomaticProtocol(t *testing.T) {
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
-					"-i", "emptyvideo.ts",
+					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
 					"rtsp://" + ownDockerIP + ":8554/teststream",
@@ -455,7 +455,7 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 	source1, err := newContainer("ffmpeg", "source1", []string{
 		"-re",
 		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
+		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
 		"rtsp://" + ownDockerIP + ":8554/teststream",
@@ -468,7 +468,7 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 	source2, err := newContainer("ffmpeg", "source2", []string{
 		"-re",
 		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
+		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
 		"rtsp://" + ownDockerIP + ":8554/teststream",
@@ -695,7 +695,7 @@ func TestClientRTSPRedirect(t *testing.T) {
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
 		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
+		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
@@ -742,7 +742,7 @@ func TestClientRTSPFallback(t *testing.T) {
 			cnt1, err := newContainer("ffmpeg", "source", []string{
 				"-re",
 				"-stream_loop", "-1",
-				"-i", "emptyvideo.ts",
+				"-i", "emptyvideo.mkv",
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
@@ -771,7 +771,7 @@ func TestClientRTSPRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh
 trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' INT
-ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.ts -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
+ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
 wait
 `, doneFile)))
 	require.NoError(t, err)

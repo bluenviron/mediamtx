@@ -8,33 +8,40 @@ import (
 )
 
 func TestClientRTMPPublish(t *testing.T) {
-	p, ok := testProgram("")
-	require.Equal(t, true, ok)
-	defer p.close()
+	for _, source := range []string{
+		"videoaudio",
+		"video",
+	} {
+		t.Run(source, func(t *testing.T) {
+			p, ok := testProgram("")
+			require.Equal(t, true, ok)
+			defer p.close()
 
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
-		"-c", "copy",
-		"-f", "flv",
-		"rtmp://" + ownDockerIP + ":1935/test1/test2",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
+			cnt1, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "empty" + source + ".mkv",
+				"-c", "copy",
+				"-f", "flv",
+				"rtmp://" + ownDockerIP + ":1935/test1/test2",
+			})
+			require.NoError(t, err)
+			defer cnt1.close()
 
-	time.Sleep(1 * time.Second)
+			time.Sleep(1 * time.Second)
 
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIP + ":8554/test1/test2",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
-	require.Equal(t, 0, cnt2.wait())
+			cnt2, err := newContainer("ffmpeg", "dest", []string{
+				"-rtsp_transport", "udp",
+				"-i", "rtsp://" + ownDockerIP + ":8554/test1/test2",
+				"-vframes", "1",
+				"-f", "image2",
+				"-y", "/dev/null",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
+			require.Equal(t, 0, cnt2.wait())
+		})
+	}
 }
 
 func TestClientRTMPRead(t *testing.T) {
@@ -45,7 +52,7 @@ func TestClientRTMPRead(t *testing.T) {
 	cnt1, err := newContainer("ffmpeg", "source", []string{
 		"-re",
 		"-stream_loop", "-1",
-		"-i", "emptyvideo.ts",
+		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
 		"rtsp://" + ownDockerIP + ":8554/teststream",
@@ -79,7 +86,7 @@ func TestClientRTMPAuth(t *testing.T) {
 		cnt1, err := newContainer("ffmpeg", "source", []string{
 			"-re",
 			"-stream_loop", "-1",
-			"-i", "emptyvideo.ts",
+			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
 			"rtmp://" + ownDockerIP + "/teststream?user=testuser&pass=testpass",
@@ -112,7 +119,7 @@ func TestClientRTMPAuth(t *testing.T) {
 		cnt1, err := newContainer("ffmpeg", "source", []string{
 			"-re",
 			"-stream_loop", "-1",
-			"-i", "emptyvideo.ts",
+			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
 			"rtmp://" + ownDockerIP + "/teststream",
@@ -147,7 +154,7 @@ func TestClientRTMPAuthFail(t *testing.T) {
 		cnt1, err := newContainer("ffmpeg", "source", []string{
 			"-re",
 			"-stream_loop", "-1",
-			"-i", "emptyvideo.ts",
+			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
 			"rtmp://" + ownDockerIP + "/teststream?user=testuser&pass=testpass",
@@ -180,7 +187,7 @@ func TestClientRTMPAuthFail(t *testing.T) {
 		cnt1, err := newContainer("ffmpeg", "source", []string{
 			"-re",
 			"-stream_loop", "-1",
-			"-i", "emptyvideo.ts",
+			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
 			"rtmp://" + ownDockerIP + "/teststream",

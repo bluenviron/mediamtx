@@ -38,7 +38,7 @@ RUN apt update && apt install -y --no-install-recommends \
 
 COPY --from=build /usr/lib/x86_64-linux-gnu/gstreamer-1.0/libexitafterframe.so /usr/lib/x86_64-linux-gnu/gstreamer-1.0/
 
-COPY emptyvideo.ts /
+COPY emptyvideo.mkv /
 
 COPY start.sh /
 RUN chmod +x /start.sh

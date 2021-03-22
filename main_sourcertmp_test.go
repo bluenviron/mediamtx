@@ -19,15 +19,10 @@ func TestSourceRTMP(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt1.close()
 
-				input := "emptyvideoaudio.ts"
-				if source == "video" {
-					input = "emptyvideo.ts"
-				}
-
 				cnt2, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
-					"-i", input,
+					"-i", "empty" + source + ".mkv",
 					"-c", "copy",
 					"-f", "flv",
 					"rtmp://" + cnt1.ip() + "/stream/test",
