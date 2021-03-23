@@ -220,23 +220,34 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, base.Play, req.Method)
 
-		// provide a partial RTP-Info with only one track
 		err = base.Response{
 			StatusCode: base.StatusOK,
-			Header: base.Header{
-				"RTP-Info": headers.RTPInfo{
-					{
-						URL:            base.MustParseURL("rtsp://127.0.0.1/stream/trackID=1"),
-						SequenceNumber: 34254,
-						Timestamp:      156457686,
-					},
-				}.Write(),
-			},
+			Header:     base.Header{},
 		}.Write(bconn.Writer)
 		require.NoError(t, err)
 
-		// send a packet to fill the missing RTP-Info track
 		pkt := rtp.Packet{
+			Header: rtp.Header{
+				Version:        0x80,
+				PayloadType:    96,
+				SequenceNumber: 34254,
+				Timestamp:      156457686,
+				SSRC:           96342362,
+			},
+			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		}
+
+		buf, err := pkt.Marshal()
+		require.NoError(t, err)
+
+		err = base.InterleavedFrame{
+			TrackID:    1,
+			StreamType: gortsplib.StreamTypeRTP,
+			Payload:    buf,
+		}.Write(bconn.Writer)
+		require.NoError(t, err)
+
+		pkt = rtp.Packet{
 			Header: rtp.Header{
 				Version:        0x80,
 				PayloadType:    96,
@@ -247,7 +258,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 			Payload: []byte{0x01, 0x02, 0x03, 0x04},
 		}
 
-		buf, err := pkt.Marshal()
+		buf, err = pkt.Marshal()
 		require.NoError(t, err)
 
 		err = base.InterleavedFrame{
@@ -277,7 +288,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p1.close()
 
-	time.Sleep(500 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 
 	dest, err := gortsplib.DialRead("rtsp://127.0.1.2:8554/proxied")
 	require.NoError(t, err)
@@ -290,8 +301,8 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=0",
 			},
-			SequenceNumber: 87,
-			Timestamp:      756436454,
+			SequenceNumber: 0,
+			Timestamp:      (*dest.RTPInfo())[0].Timestamp,
 		},
 		&headers.RTPInfoEntry{
 			URL: &base.URL{
@@ -299,8 +310,8 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=1",
 			},
-			SequenceNumber: 34254,
-			Timestamp:      156457686,
+			SequenceNumber: 0,
+			Timestamp:      (*dest.RTPInfo())[1].Timestamp,
 		},
 	}, dest.RTPInfo())
 }

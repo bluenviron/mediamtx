@@ -19,6 +19,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/sourcertmp"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
+	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 func newEmptyTimer() *time.Timer {
@@ -76,7 +77,8 @@ type Path struct {
 	setupPlayRequests            []client.SetupPlayReq
 	source                       source.Source
 	sourceTracks                 gortsplib.Tracks
-	sourceTrackStartingPoints    []source.TrackStartingPoint
+	sourceTrackStartingPoints    []streamproc.TrackStartingPoint
+	sp                           *streamproc.StreamProc
 	readers                      *readersMap
 	onDemandCmd                  *externalcmd.Cmd
 	describeTimer                *time.Timer
@@ -90,7 +92,6 @@ type Path struct {
 	closeTimerStarted            bool
 
 	// in
-	setStartingPoint     chan source.SetStartingPointReq
 	extSourceSetReady    chan source.ExtSetReadyReq
 	extSourceSetNotReady chan source.ExtSetNotReadyReq
 	clientDescribe       chan client.DescribeReq
@@ -100,6 +101,7 @@ type Path struct {
 	clientRecord         chan client.RecordReq
 	clientPause          chan client.PauseReq
 	clientRemove         chan client.RemoveReq
+	spSetStartingPoint   chan streamproc.SetStartingPointReq
 	terminate            chan struct{}
 }
 
@@ -135,7 +137,6 @@ func New(
 		sourceCloseTimer:      newEmptyTimer(),
 		runOnDemandCloseTimer: newEmptyTimer(),
 		closeTimer:            newEmptyTimer(),
-		setStartingPoint:      make(chan source.SetStartingPointReq),
 		extSourceSetReady:     make(chan source.ExtSetReadyReq),
 		extSourceSetNotReady:  make(chan source.ExtSetNotReadyReq),
 		clientDescribe:        make(chan client.DescribeReq),
@@ -145,6 +146,7 @@ func New(
 		clientRecord:          make(chan client.RecordReq),
 		clientPause:           make(chan client.PauseReq),
 		clientRemove:          make(chan client.RemoveReq),
+		spSetStartingPoint:    make(chan streamproc.SetStartingPointReq),
 		terminate:             make(chan struct{}),
 	}
 
@@ -224,21 +226,12 @@ outer:
 			<-pa.terminate
 			break outer
 
-		case req := <-pa.setStartingPoint:
-			pa.onSetStartingPoint(req)
-
 		case req := <-pa.extSourceSetReady:
 			pa.sourceTracks = req.Tracks
-
-			// clone
-			cl := make([]source.TrackStartingPoint, len(req.StartingPoints))
-			for k, v := range req.StartingPoints {
-				cl[k] = v
-			}
-			pa.sourceTrackStartingPoints = cl
-
+			pa.sourceTrackStartingPoints = make([]streamproc.TrackStartingPoint, len(req.Tracks))
+			pa.sp = streamproc.New(pa, len(req.Tracks))
 			pa.onSourceSetReady()
-			close(req.Res)
+			req.Res <- source.ExtSetReadyRes{SP: pa.sp}
 
 		case req := <-pa.extSourceSetNotReady:
 			pa.onSourceSetNotReady()
@@ -275,6 +268,9 @@ outer:
 			delete(pa.clients, req.Client)
 			pa.clientsWg.Done()
 			close(req.Res)
+
+		case req := <-pa.spSetStartingPoint:
+			pa.onSPSetStartingPoint(req)
 
 		case <-pa.terminate:
 			pa.exhaustChannels()
@@ -325,7 +321,6 @@ outer:
 	}
 	pa.clientsWg.Wait()
 
-	close(pa.setStartingPoint)
 	close(pa.extSourceSetReady)
 	close(pa.extSourceSetNotReady)
 	close(pa.clientDescribe)
@@ -335,17 +330,13 @@ outer:
 	close(pa.clientRecord)
 	close(pa.clientPause)
 	close(pa.clientRemove)
+	close(pa.spSetStartingPoint)
 }
 
 func (pa *Path) exhaustChannels() {
 	go func() {
 		for {
 			select {
-			case _, ok := <-pa.setStartingPoint:
-				if !ok {
-					return
-				}
-
 			case req, ok := <-pa.extSourceSetReady:
 				if !ok {
 					return
@@ -406,6 +397,12 @@ func (pa *Path) exhaustChannels() {
 
 				pa.clientsWg.Done()
 				close(req.Res)
+
+			case _, ok := <-pa.spSetStartingPoint:
+				if !ok {
+					return
+				}
+
 			}
 		}
 	}()
@@ -570,14 +567,6 @@ func (pa *Path) fixedPublisherStart() {
 	}
 }
 
-func (pa *Path) onSetStartingPoint(req source.SetStartingPointReq) {
-	if req.Source != pa.source {
-		return
-	}
-
-	pa.sourceTrackStartingPoints[req.TrackID] = req.StartingPoint
-}
-
 func (pa *Path) onClientDescribe(req client.DescribeReq) {
 	if _, ok := pa.clients[req.Client]; ok {
 		req.Res <- client.DescribeRes{nil, "", fmt.Errorf("already subscribed")} //nolint:govet
@@ -669,7 +658,7 @@ func (pa *Path) onClientPlay(req client.PlayReq) {
 	pa.readers.add(req.Client)
 
 	// clone
-	cl := make([]source.TrackStartingPoint, len(pa.sourceTrackStartingPoints))
+	cl := make([]streamproc.TrackStartingPoint, len(pa.sourceTrackStartingPoints))
 	for k, v := range pa.sourceTrackStartingPoints {
 		cl[k] = v
 	}
@@ -711,13 +700,12 @@ func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
 
 	pa.source = req.Client
 	pa.sourceTracks = req.Tracks
-	pa.sourceTrackStartingPoints = make([]source.TrackStartingPoint, len(req.Tracks))
 	req.Res <- client.AnnounceRes{pa, nil} //nolint:govet
 }
 
 func (pa *Path) onClientRecord(req client.RecordReq) {
 	if state, ok := pa.clients[req.Client]; !ok || state != clientStatePreRecord {
-		close(req.Res)
+		req.Res <- client.RecordRes{SP: nil, Err: fmt.Errorf("not recording anymore")}
 		return
 	}
 
@@ -725,7 +713,10 @@ func (pa *Path) onClientRecord(req client.RecordReq) {
 	pa.clients[req.Client] = clientStateRecord
 	pa.onSourceSetReady()
 
-	close(req.Res)
+	pa.sourceTrackStartingPoints = make([]streamproc.TrackStartingPoint, len(pa.sourceTracks))
+	pa.sp = streamproc.New(pa, len(pa.sourceTracks))
+
+	req.Res <- client.RecordRes{SP: pa.sp, Err: nil}
 }
 
 func (pa *Path) onClientPause(req client.PauseReq) {
@@ -747,6 +738,14 @@ func (pa *Path) onClientPause(req client.PauseReq) {
 	}
 
 	close(req.Res)
+}
+
+func (pa *Path) onSPSetStartingPoint(req streamproc.SetStartingPointReq) {
+	if req.SP != pa.sp {
+		return
+	}
+
+	pa.sourceTrackStartingPoints[req.TrackID] = req.StartingPoint
 }
 
 func (pa *Path) scheduleSourceClose() {
@@ -811,16 +810,6 @@ func (pa *Path) Name() string {
 	return pa.name
 }
 
-// OnSetStartingPoint is called by a source.
-func (pa *Path) OnSetStartingPoint(req source.SetStartingPointReq) {
-	pa.setStartingPoint <- req
-}
-
-// OnFrame is called by a source.
-func (pa *Path) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	pa.readers.forwardFrame(trackID, streamType, payload)
-}
-
 // OnExtSourceSetReady is called by an external source.
 func (pa *Path) OnExtSourceSetReady(req source.ExtSetReadyReq) {
 	pa.extSourceSetReady <- req
@@ -864,4 +853,14 @@ func (pa *Path) OnClientRecord(req client.RecordReq) {
 // OnClientPause is called by a client.
 func (pa *Path) OnClientPause(req client.PauseReq) {
 	pa.clientPause <- req
+}
+
+// OnSPSetStartingPoint is called by streamproc.StreamProc.
+func (pa *Path) OnSPSetStartingPoint(req streamproc.SetStartingPointReq) {
+	pa.spSetStartingPoint <- req
+}
+
+// OnSPFrame is called by streamproc.StreamProc.
+func (pa *Path) OnSPFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+	pa.readers.forwardFrame(trackID, streamType, payload)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/source"
+	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 // ErrNoOnePublishing is a "no one is publishing" error.
@@ -49,8 +49,6 @@ type Path interface {
 	OnClientPlay(PlayReq)
 	OnClientRecord(RecordReq)
 	OnClientPause(PauseReq)
-	OnSetStartingPoint(source.SetStartingPointReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // DescribeRes is a describe response.
@@ -106,7 +104,7 @@ type RemoveReq struct {
 
 // PlayRes is a play response.
 type PlayRes struct {
-	TrackStartingPoints []source.TrackStartingPoint
+	TrackStartingPoints []streamproc.TrackStartingPoint
 }
 
 // PlayReq is a play request.
@@ -115,10 +113,16 @@ type PlayReq struct {
 	Res    chan PlayRes
 }
 
+// RecordRes is a record response.
+type RecordRes struct {
+	SP  *streamproc.StreamProc
+	Err error
+}
+
 // RecordReq is a record request.
 type RecordReq struct {
 	Client Client
-	Res    chan struct{}
+	Res    chan RecordRes
 }
 
 // PauseReq is a pause request.
@@ -135,5 +139,5 @@ type Client interface {
 	Authenticate([]headers.AuthMethod,
 		string, []interface{},
 		string, string, interface{}) error
-	OnIncomingFrame(int, gortsplib.StreamType, []byte)
+	OnFrame(int, gortsplib.StreamType, []byte)
 }

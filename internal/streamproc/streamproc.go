@@ -1,31 +1,43 @@
 package streamproc
 
 import (
+	"time"
+
 	"github.com/aler9/gortsplib"
 	"github.com/pion/rtp"
-
-	"github.com/aler9/rtsp-simple-server/internal/source"
 )
+
+// TrackStartingPoint is the starting point of a track.
+type TrackStartingPoint struct {
+	Filled  bool // used to avoid mutexes
+	RTPTime uint32
+	NTPTime time.Time
+}
 
 // Path is implemented by path.path.
 type Path interface {
-	OnSetStartingPoint(source.SetStartingPointReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
+	OnSPSetStartingPoint(SetStartingPointReq)
+	OnSPFrame(int, gortsplib.StreamType, []byte)
+}
+
+// SetStartingPointReq is a set starting point request.
+type SetStartingPointReq struct {
+	SP            *StreamProc
+	TrackID       int
+	StartingPoint TrackStartingPoint
 }
 
 // StreamProc is a stream processor, an intermediate layer between a source and a path.
 type StreamProc struct {
-	source         source.Source
 	path           Path
-	startingPoints []source.TrackStartingPoint
+	startingPoints []TrackStartingPoint
 }
 
 // New allocates a StreamProc.
-func New(source source.Source, path Path, startingPoints []source.TrackStartingPoint) *StreamProc {
+func New(path Path, tracksLen int) *StreamProc {
 	return &StreamProc{
-		source:         source,
 		path:           path,
-		startingPoints: startingPoints,
+		startingPoints: make([]TrackStartingPoint, tracksLen),
 	}
 }
 
@@ -40,15 +52,15 @@ func (sp *StreamProc) OnFrame(trackID int, streamType gortsplib.StreamType, payl
 		}
 
 		sp.startingPoints[trackID].Filled = true
-		sp.startingPoints[trackID].SequenceNumber = pkt.SequenceNumber
-		sp.startingPoints[trackID].Timestamp = pkt.Timestamp
+		sp.startingPoints[trackID].RTPTime = pkt.Timestamp
+		sp.startingPoints[trackID].NTPTime = time.Now()
 
-		sp.path.OnSetStartingPoint(source.SetStartingPointReq{
-			Source:        sp.source,
+		sp.path.OnSPSetStartingPoint(SetStartingPointReq{
+			SP:            sp,
 			TrackID:       trackID,
 			StartingPoint: sp.startingPoints[trackID],
 		})
 	}
 
-	sp.path.OnFrame(trackID, streamType, payload)
+	sp.path.OnSPFrame(trackID, streamType, payload)
 }

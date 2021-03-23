@@ -19,7 +19,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
 	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
-	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -31,8 +30,6 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnExtSourceSetReady(req source.ExtSetReadyReq)
 	OnExtSourceSetNotReady(req source.ExtSetNotReadyReq)
-	OnSetStartingPoint(source.SetStartingPointReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // Source is a RTMP external source.
@@ -177,13 +174,14 @@ func (s *Source) runInner() bool {
 	}
 
 	s.log(logger.Info, "ready")
-	res := make(chan struct{})
+
+	cres := make(chan source.ExtSetReadyRes)
 	s.parent.OnExtSourceSetReady(source.ExtSetReadyReq{
-		Tracks:         tracks,
-		StartingPoints: make([]source.TrackStartingPoint, len(tracks)),
-		Res:            res,
+		Tracks: tracks,
+		Res:    cres,
 	})
-	<-res
+	res := <-cres
+
 	defer func() {
 		res := make(chan struct{})
 		s.parent.OnExtSourceSetNotReady(source.ExtSetNotReadyReq{
@@ -195,14 +193,12 @@ func (s *Source) runInner() bool {
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
-			rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnFrame)
+			rtcpSenders := rtcpsenderset.New(tracks, res.SP.OnFrame)
 			defer rtcpSenders.Close()
-
-			sp := streamproc.New(s, s.parent, make([]source.TrackStartingPoint, len(tracks)))
 
 			onFrame := func(trackID int, payload []byte) {
 				rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-				sp.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, payload)
+				res.SP.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, payload)
 			}
 
 			for {

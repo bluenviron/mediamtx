@@ -11,7 +11,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
-	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -23,8 +22,6 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnExtSourceSetReady(req source.ExtSetReadyReq)
 	OnExtSourceSetNotReady(req source.ExtSetNotReadyReq)
-	OnSetStartingPoint(source.SetStartingPointReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // Source is a RTSP external source.
@@ -150,51 +147,15 @@ func (s *Source) runInner() bool {
 		return true
 	}
 
-	trackStartingPoints := make([]source.TrackStartingPoint, len(conn.Tracks()))
-
-	if conn.RTPInfo() != nil {
-		for _, info := range *conn.RTPInfo() {
-			ipath, ok := info.URL.RTSPPath()
-			if !ok {
-				continue
-			}
-
-			trackID := func() int {
-				for _, tr := range conn.Tracks() {
-					u, err := tr.URL()
-					if err != nil {
-						continue
-					}
-
-					tpath, ok := u.RTSPPath()
-					if !ok {
-						continue
-					}
-
-					if tpath == ipath {
-						return tr.ID
-					}
-				}
-				return -1
-			}()
-			if trackID < 0 {
-				continue
-			}
-
-			trackStartingPoints[trackID].Filled = true
-			trackStartingPoints[trackID].SequenceNumber = info.SequenceNumber
-			trackStartingPoints[trackID].Timestamp = info.Timestamp
-		}
-	}
-
 	s.log(logger.Info, "ready")
-	res := make(chan struct{})
+
+	cres := make(chan source.ExtSetReadyRes)
 	s.parent.OnExtSourceSetReady(source.ExtSetReadyReq{
-		Tracks:         conn.Tracks(),
-		StartingPoints: trackStartingPoints,
-		Res:            res,
+		Tracks: conn.Tracks(),
+		Res:    cres,
 	})
-	<-res
+	res := <-cres
+
 	defer func() {
 		res := make(chan struct{})
 		s.parent.OnExtSourceSetNotReady(source.ExtSetNotReadyReq{
@@ -203,10 +164,8 @@ func (s *Source) runInner() bool {
 		<-res
 	}()
 
-	sp := streamproc.New(s, s.parent, trackStartingPoints)
-
 	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-		sp.OnFrame(trackID, streamType, payload)
+		res.SP.OnFrame(trackID, streamType, payload)
 	})
 
 	for {

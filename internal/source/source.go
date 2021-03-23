@@ -4,13 +4,6 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-// TrackStartingPoint is the starting point of a track.
-type TrackStartingPoint struct {
-	Filled         bool // used to avoid mutexes
-	SequenceNumber uint16
-	Timestamp      uint32
-}
-
 // Source is implemented by all sources (clients and external sources).
 type Source interface {
 	IsSource()
@@ -23,18 +16,20 @@ type ExtSource interface {
 	Close()
 }
 
-// SetStartingPointReq is a set starting point request.
-type SetStartingPointReq struct {
-	Source        Source
-	TrackID       int
-	StartingPoint TrackStartingPoint
+// StreamProc is implemented by streamproc.StreamProc.
+type StreamProc interface {
+	OnFrame(int, gortsplib.StreamType, []byte)
+}
+
+// ExtSetReadyRes is a set ready response.
+type ExtSetReadyRes struct {
+	SP StreamProc
 }
 
 // ExtSetReadyReq is a set ready request.
 type ExtSetReadyReq struct {
-	Tracks         gortsplib.Tracks
-	StartingPoints []TrackStartingPoint
-	Res            chan struct{}
+	Tracks gortsplib.Tracks
+	Res    chan ExtSetReadyRes
 }
 
 // ExtSetNotReadyReq is a set not ready request.

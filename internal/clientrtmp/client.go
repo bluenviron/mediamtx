@@ -25,9 +25,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
-	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
-	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -465,21 +463,7 @@ func (c *Client) runPublish() {
 				return res.Err
 			}
 
-			resc2 := make(chan struct{})
-			res.Path.OnClientRecord(client.RecordReq{c, resc2}) //nolint:govet
-			<-resc2
 			path = res.Path
-
-			c.log(logger.Info, "is publishing to path '%s', %d %s",
-				path.Name(),
-				len(tracks),
-				func() string {
-					if len(tracks) == 1 {
-						return "track"
-					}
-					return "tracks"
-				}())
-
 			return nil
 		}()
 	}()
@@ -500,32 +484,48 @@ func (c *Client) runPublish() {
 		return
 	}
 
-	var onPublishCmd *externalcmd.Cmd
-	if path.Conf().RunOnPublish != "" {
-		onPublishCmd = externalcmd.New(path.Conf().RunOnPublish,
-			path.Conf().RunOnPublishRestart, externalcmd.Environment{
-				Path: path.Name(),
-				Port: strconv.FormatInt(int64(c.rtspPort), 10),
-			})
-	}
-
-	defer func(path client.Path) {
-		if path.Conf().RunOnPublish != "" {
-			onPublishCmd.Close()
-		}
-	}(path)
-
-	sp := streamproc.New(c, path, make([]source.TrackStartingPoint, len(tracks)))
-
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
-			rtcpSenders := rtcpsenderset.New(tracks, path.OnFrame)
+			resc := make(chan client.RecordRes)
+			path.OnClientRecord(client.RecordReq{Client: c, Res: resc})
+			res := <-resc
+
+			if res.Err != nil {
+				return res.Err
+			}
+
+			c.log(logger.Info, "is publishing to path '%s', %d %s",
+				path.Name(),
+				len(tracks),
+				func() string {
+					if len(tracks) == 1 {
+						return "track"
+					}
+					return "tracks"
+				}())
+
+			var onPublishCmd *externalcmd.Cmd
+			if path.Conf().RunOnPublish != "" {
+				onPublishCmd = externalcmd.New(path.Conf().RunOnPublish,
+					path.Conf().RunOnPublishRestart, externalcmd.Environment{
+						Path: path.Name(),
+						Port: strconv.FormatInt(int64(c.rtspPort), 10),
+					})
+			}
+
+			defer func(path client.Path) {
+				if path.Conf().RunOnPublish != "" {
+					onPublishCmd.Close()
+				}
+			}(path)
+
+			rtcpSenders := rtcpsenderset.New(tracks, res.SP.OnFrame)
 			defer rtcpSenders.Close()
 
 			onFrame := func(trackID int, payload []byte) {
 				rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-				sp.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+				res.SP.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
 			}
 
 			for {
@@ -641,8 +641,8 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod,
 	return nil
 }
 
-// OnIncomingFrame implements path.Reader.
-func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+// OnFrame implements path.Reader.
+func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		c.ringBuffer.Push(trackIDBufPair{trackID, buf})
 	}

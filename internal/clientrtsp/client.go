@@ -19,7 +19,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
@@ -74,8 +73,8 @@ type Client struct {
 	authFailures  int
 
 	// read only
-	trackStartingPoints []source.TrackStartingPoint
-	onReadCmd           *externalcmd.Cmd
+	setuppedTracks map[int]*gortsplib.Track
+	onReadCmd      *externalcmd.Cmd
 
 	// publish only
 	sp           *streamproc.StreamProc
@@ -296,6 +295,11 @@ func (c *Client) run() {
 					StatusCode: base.StatusBadRequest,
 				}, fmt.Errorf("track %d does not exist", ctx.TrackID)
 			}
+
+			if c.setuppedTracks == nil {
+				c.setuppedTracks = make(map[int]*gortsplib.Track)
+			}
+			c.setuppedTracks[ctx.TrackID] = res.Tracks[ctx.TrackID]
 		}
 
 		return &base.Response{
@@ -307,6 +311,10 @@ func (c *Client) run() {
 	}
 
 	onPlay := func(ctx *gortsplib.ServerConnPlayCtx) (*base.Response, error) {
+		h := base.Header{
+			"Session": base.HeaderValue{sessionID},
+		}
+
 		if c.conn.State() == gortsplib.ServerConnStatePrePlay {
 			if ctx.Path != c.path.Name() {
 				return &base.Response{
@@ -315,40 +323,40 @@ func (c *Client) run() {
 			}
 
 			res := c.playStart()
-			c.trackStartingPoints = res.TrackStartingPoints
-		}
 
-		h := base.Header{
-			"Session": base.HeaderValue{sessionID},
-		}
+			// add RTP-Info
+			var ri headers.RTPInfo
+			for trackID, v := range res.TrackStartingPoints {
+				if !v.Filled {
+					continue
+				}
 
-		// add RTP-Info
-		var ri headers.RTPInfo
-		for trackID, v := range c.trackStartingPoints {
-			if !v.Filled {
-				continue
+				track, ok := c.setuppedTracks[trackID]
+				if !ok {
+					continue
+				}
+
+				u := &base.URL{
+					Scheme: ctx.Req.URL.Scheme,
+					User:   ctx.Req.URL.User,
+					Host:   ctx.Req.URL.Host,
+					Path:   "/" + c.path.Name(),
+				}
+				u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(trackID), 10))
+
+				clockRate, _ := track.ClockRate()
+				ts := uint32(uint64(time.Since(v.NTPTime).Seconds()*float64(clockRate)) +
+					uint64(v.RTPTime))
+
+				ri = append(ri, &headers.RTPInfoEntry{
+					URL:            u,
+					SequenceNumber: 0,
+					Timestamp:      ts,
+				})
 			}
-
-			if _, ok := c.conn.SetuppedTracks()[trackID]; !ok {
-				continue
+			if len(ri) > 0 {
+				h["RTP-Info"] = ri.Write()
 			}
-
-			u := &base.URL{
-				Scheme: ctx.Req.URL.Scheme,
-				User:   ctx.Req.URL.User,
-				Host:   ctx.Req.URL.Host,
-				Path:   "/" + c.path.Name(),
-			}
-			u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(trackID), 10))
-
-			ri = append(ri, &headers.RTPInfoEntry{
-				URL:            u,
-				SequenceNumber: v.SequenceNumber,
-				Timestamp:      v.Timestamp,
-			})
-		}
-		if len(ri) > 0 {
-			h["RTP-Info"] = ri.Write()
 		}
 
 		return &base.Response{
@@ -364,7 +372,12 @@ func (c *Client) run() {
 			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), ctx.Path)
 		}
 
-		c.recordStart()
+		err := c.recordStart()
+		if err != nil {
+			return &base.Response{
+				StatusCode: base.StatusBadRequest,
+			}, err
+		}
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
@@ -583,10 +596,16 @@ func (c *Client) playStop() {
 	}
 }
 
-func (c *Client) recordStart() {
-	resc := make(chan struct{})
-	c.path.OnClientRecord(client.RecordReq{c, resc}) //nolint:govet
-	<-resc
+func (c *Client) recordStart() error {
+	resc := make(chan client.RecordRes)
+	c.path.OnClientRecord(client.RecordReq{Client: c, Res: resc})
+	res := <-resc
+
+	if res.Err != nil {
+		return res.Err
+	}
+
+	c.sp = res.SP
 
 	tracksLen := len(c.conn.AnnouncedTracks())
 
@@ -608,7 +627,7 @@ func (c *Client) recordStart() {
 		})
 	}
 
-	c.sp = streamproc.New(c, c.path, make([]source.TrackStartingPoint, len(c.conn.AnnouncedTracks())))
+	return nil
 }
 
 func (c *Client) recordStop() {
@@ -617,8 +636,8 @@ func (c *Client) recordStop() {
 	}
 }
 
-// OnIncomingFrame implements path.Reader.
-func (c *Client) OnIncomingFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+// OnFrame implements path.Reader.
+func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if _, ok := c.conn.SetuppedTracks()[trackID]; !ok {
 		return
 	}
