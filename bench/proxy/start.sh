@@ -12,7 +12,7 @@ CONF="${CONF}rtpPort: 8002\n"
 CONF="${CONF}rtcpPort: 8003\n"
 echo -e "$CONF" > /source.conf
 
-/rtsp-simple-server /source.conf &
+RTSP_RTMPDISABLE=yes /rtsp-simple-server /source.conf &
 
 sleep 1
 
@@ -34,7 +34,7 @@ for i in $(seq 1 $PROXY_COUNT); do
 done
 echo -e "$CONF" > /proxy.conf
 
-/rtsp-simple-server /proxy.conf &
+RTSP_RTMPDISABLE=yes /rtsp-simple-server /proxy.conf &
 
 sleep 5
 
