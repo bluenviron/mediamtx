@@ -77,7 +77,6 @@ type Path struct {
 	setupPlayRequests            []client.SetupPlayReq
 	source                       source.Source
 	sourceTracks                 gortsplib.Tracks
-	sourceTrackStartingPoints    []streamproc.TrackStartingPoint
 	sp                           *streamproc.StreamProc
 	readers                      *readersMap
 	onDemandCmd                  *externalcmd.Cmd
@@ -101,7 +100,6 @@ type Path struct {
 	clientRecord         chan client.RecordReq
 	clientPause          chan client.PauseReq
 	clientRemove         chan client.RemoveReq
-	spSetStartingPoint   chan streamproc.SetStartingPointReq
 	terminate            chan struct{}
 }
 
@@ -146,7 +144,6 @@ func New(
 		clientRecord:          make(chan client.RecordReq),
 		clientPause:           make(chan client.PauseReq),
 		clientRemove:          make(chan client.RemoveReq),
-		spSetStartingPoint:    make(chan streamproc.SetStartingPointReq),
 		terminate:             make(chan struct{}),
 	}
 
@@ -228,7 +225,6 @@ outer:
 
 		case req := <-pa.extSourceSetReady:
 			pa.sourceTracks = req.Tracks
-			pa.sourceTrackStartingPoints = make([]streamproc.TrackStartingPoint, len(req.Tracks))
 			pa.sp = streamproc.New(pa, len(req.Tracks))
 			pa.onSourceSetReady()
 			req.Res <- source.ExtSetReadyRes{SP: pa.sp}
@@ -268,9 +264,6 @@ outer:
 			delete(pa.clients, req.Client)
 			pa.clientsWg.Done()
 			close(req.Res)
-
-		case req := <-pa.spSetStartingPoint:
-			pa.onSPSetStartingPoint(req)
 
 		case <-pa.terminate:
 			pa.exhaustChannels()
@@ -330,7 +323,6 @@ outer:
 	close(pa.clientRecord)
 	close(pa.clientPause)
 	close(pa.clientRemove)
-	close(pa.spSetStartingPoint)
 }
 
 func (pa *Path) exhaustChannels() {
@@ -397,12 +389,6 @@ func (pa *Path) exhaustChannels() {
 
 				pa.clientsWg.Done()
 				close(req.Res)
-
-			case _, ok := <-pa.spSetStartingPoint:
-				if !ok {
-					return
-				}
-
 			}
 		}
 	}()
@@ -657,13 +643,7 @@ func (pa *Path) onClientPlay(req client.PlayReq) {
 	pa.clients[req.Client] = clientStatePlay
 	pa.readers.add(req.Client)
 
-	// clone
-	cl := make([]streamproc.TrackStartingPoint, len(pa.sourceTrackStartingPoints))
-	for k, v := range pa.sourceTrackStartingPoints {
-		cl[k] = v
-	}
-
-	req.Res <- client.PlayRes{cl} // nolint:govet
+	req.Res <- client.PlayRes{TrackInfos: pa.sp.TrackInfos()}
 }
 
 func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
@@ -713,7 +693,6 @@ func (pa *Path) onClientRecord(req client.RecordReq) {
 	pa.clients[req.Client] = clientStateRecord
 	pa.onSourceSetReady()
 
-	pa.sourceTrackStartingPoints = make([]streamproc.TrackStartingPoint, len(pa.sourceTracks))
 	pa.sp = streamproc.New(pa, len(pa.sourceTracks))
 
 	req.Res <- client.RecordRes{SP: pa.sp, Err: nil}
@@ -738,14 +717,6 @@ func (pa *Path) onClientPause(req client.PauseReq) {
 	}
 
 	close(req.Res)
-}
-
-func (pa *Path) onSPSetStartingPoint(req streamproc.SetStartingPointReq) {
-	if req.SP != pa.sp {
-		return
-	}
-
-	pa.sourceTrackStartingPoints[req.TrackID] = req.StartingPoint
 }
 
 func (pa *Path) scheduleSourceClose() {
@@ -853,11 +824,6 @@ func (pa *Path) OnClientRecord(req client.RecordReq) {
 // OnClientPause is called by a client.
 func (pa *Path) OnClientPause(req client.PauseReq) {
 	pa.clientPause <- req
-}
-
-// OnSPSetStartingPoint is called by streamproc.StreamProc.
-func (pa *Path) OnSPSetStartingPoint(req streamproc.SetStartingPointReq) {
-	pa.spSetStartingPoint <- req
 }
 
 // OnSPFrame is called by streamproc.StreamProc.

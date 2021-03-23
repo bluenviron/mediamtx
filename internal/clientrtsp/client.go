@@ -326,8 +326,8 @@ func (c *Client) run() {
 
 			// add RTP-Info
 			var ri headers.RTPInfo
-			for trackID, v := range res.TrackStartingPoints {
-				if !v.Filled {
+			for trackID, ti := range res.TrackInfos {
+				if !ti.Initialized {
 					continue
 				}
 
@@ -345,13 +345,14 @@ func (c *Client) run() {
 				u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(trackID), 10))
 
 				clockRate, _ := track.ClockRate()
-				ts := uint32(uint64(time.Since(v.NTPTime).Seconds()*float64(clockRate)) +
-					uint64(v.RTPTime))
+				ts := uint32(uint64(time.Since(ti.NTPTime).Seconds()*float64(clockRate)) +
+					uint64(ti.RTPTime))
+				lsn := ti.LastSequenceNumber
 
 				ri = append(ri, &headers.RTPInfoEntry{
 					URL:            u,
-					SequenceNumber: 0,
-					Timestamp:      ts,
+					SequenceNumber: &lsn,
+					Timestamp:      &ts,
 				})
 			}
 			if len(ri) > 0 {

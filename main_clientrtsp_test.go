@@ -670,8 +670,11 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 					Host:   ownDockerIP + ":8554",
 					Path:   "/teststream/trackID=0",
 				},
-				SequenceNumber: 0,
-				Timestamp:      (*dest.RTPInfo())[0].Timestamp,
+				SequenceNumber: func() *uint16 {
+					v := uint16(556)
+					return &v
+				}(),
+				Timestamp: (*dest.RTPInfo())[0].Timestamp,
 			},
 		}, dest.RTPInfo())
 	}()
@@ -705,8 +708,11 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 					Host:   ownDockerIP + ":8554",
 					Path:   "/teststream/trackID=0",
 				},
-				SequenceNumber: 0,
-				Timestamp:      (*dest.RTPInfo())[0].Timestamp,
+				SequenceNumber: func() *uint16 {
+					v := uint16(556)
+					return &v
+				}(),
+				Timestamp: (*dest.RTPInfo())[0].Timestamp,
 			},
 			&headers.RTPInfoEntry{
 				URL: &base.URL{
@@ -714,8 +720,11 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 					Host:   ownDockerIP + ":8554",
 					Path:   "/teststream/trackID=1",
 				},
-				SequenceNumber: 0,
-				Timestamp:      (*dest.RTPInfo())[1].Timestamp,
+				SequenceNumber: func() *uint16 {
+					v := uint16(87)
+					return &v
+				}(),
+				Timestamp: (*dest.RTPInfo())[1].Timestamp,
 			},
 		}, dest.RTPInfo())
 	}()

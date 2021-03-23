@@ -104,7 +104,7 @@ type RemoveReq struct {
 
 // PlayRes is a play response.
 type PlayRes struct {
-	TrackStartingPoints []streamproc.TrackStartingPoint
+	TrackInfos []streamproc.TrackInfo
 }
 
 // PlayReq is a play request.

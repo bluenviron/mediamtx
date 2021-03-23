@@ -301,8 +301,11 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=0",
 			},
-			SequenceNumber: 0,
-			Timestamp:      (*dest.RTPInfo())[0].Timestamp,
+			SequenceNumber: func() *uint16 {
+				v := uint16(87)
+				return &v
+			}(),
+			Timestamp: (*dest.RTPInfo())[0].Timestamp,
 		},
 		&headers.RTPInfoEntry{
 			URL: &base.URL{
@@ -310,8 +313,11 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=1",
 			},
-			SequenceNumber: 0,
-			Timestamp:      (*dest.RTPInfo())[1].Timestamp,
+			SequenceNumber: func() *uint16 {
+				v := uint16(34254)
+				return &v
+			}(),
+			Timestamp: (*dest.RTPInfo())[1].Timestamp,
 		},
 	}, dest.RTPInfo())
 }
