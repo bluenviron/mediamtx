@@ -220,19 +220,21 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("invalid NALU format (%d)", typ)
 					}
 
-					for _, nalu := range nalus {
-						// encode into RTP/H264 format
-						frames, err := h264Encoder.Encode(&rtph264.NALUAndTimestamp{
+					var nts []*rtph264.NALUAndTimestamp
+					for _, nt := range nalus {
+						nts = append(nts, &rtph264.NALUAndTimestamp{
 							Timestamp: pkt.Time + pkt.CTime,
-							NALU:      nalu,
+							NALU:      nt,
 						})
-						if err != nil {
-							return err
-						}
+					}
 
-						for _, frame := range frames {
-							onFrame(videoTrack.ID, frame)
-						}
+					frames, err := h264Encoder.Encode(nts)
+					if err != nil {
+						return fmt.Errorf("ERR while encoding H264: %v", err)
+					}
+
+					for _, frame := range frames {
+						onFrame(videoTrack.ID, frame)
 					}
 
 				case av.AAC:
@@ -240,12 +242,14 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frame, err := aacEncoder.Encode(&rtpaac.AUAndTimestamp{
-						Timestamp: pkt.Time + pkt.CTime,
-						AU:        pkt.Data,
+					frame, err := aacEncoder.Encode([]*rtpaac.AUAndTimestamp{
+						{
+							Timestamp: pkt.Time + pkt.CTime,
+							AU:        pkt.Data,
+						},
 					})
 					if err != nil {
-						return err
+						return fmt.Errorf("ERR while encoding AAC: %v", err)
 					}
 
 					onFrame(audioTrack.ID, frame)

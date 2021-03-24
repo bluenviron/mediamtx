@@ -5,7 +5,7 @@ go 1.15
 require (
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
-	github.com/aler9/gortsplib v0.0.0-20210323202043-7e9e266054fc
+	github.com/aler9/gortsplib v0.0.0-20210324140122-134201bc94ab
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
