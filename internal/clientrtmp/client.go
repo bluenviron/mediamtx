@@ -570,7 +570,7 @@ func (c *Client) runPublish() {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frame, err := aacEncoder.Encode([]*rtpaac.AUAndTimestamp{
+					frames, err := aacEncoder.Encode([]*rtpaac.AUAndTimestamp{
 						{
 							Timestamp: pkt.Time + pkt.CTime,
 							AU:        pkt.Data,
@@ -580,7 +580,9 @@ func (c *Client) runPublish() {
 						return fmt.Errorf("ERR while encoding AAC: %v", err)
 					}
 
-					onFrame(audioTrack.ID, frame)
+					for _, frame := range frames {
+						onFrame(audioTrack.ID, frame)
+					}
 
 				default:
 					return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)
