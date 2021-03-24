@@ -277,7 +277,8 @@ func (c *Client) runRead() {
 				Data: aacConfig,
 			})
 
-			c.aacDecoder = rtpaac.NewDecoder(48000)
+			clockRate, _ := audioTrack.ClockRate()
+			c.aacDecoder = rtpaac.NewDecoder(clockRate)
 			c.audioTrack = audioTrack
 		}
 
