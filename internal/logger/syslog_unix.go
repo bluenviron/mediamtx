@@ -1,6 +1,6 @@
 // +build !windows
 
-package syslog
+package logger
 
 import (
 	"io"
@@ -11,8 +11,7 @@ type syslog struct {
 	inner *native.Writer
 }
 
-// New allocates a io.WriteCloser that writes to the system log.
-func New(prefix string) (io.WriteCloser, error) {
+func newSyslog(prefix string) (io.WriteCloser, error) {
 	inner, err := native.New(native.LOG_INFO|native.LOG_DAEMON, prefix)
 	if err != nil {
 		return nil, err
@@ -23,12 +22,10 @@ func New(prefix string) (io.WriteCloser, error) {
 	}, nil
 }
 
-// Close implements io.WriteCloser.
 func (ls *syslog) Close() error {
 	return ls.inner.Close()
 }
 
-// Write implements io.WriteCloser.
 func (ls *syslog) Write(p []byte) (int, error) {
 	return ls.inner.Write(p)
 }

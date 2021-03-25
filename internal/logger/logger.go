@@ -6,8 +6,6 @@ import (
 	"os"
 	"sync"
 	"time"
-
-	"github.com/aler9/rtsp-simple-server/internal/syslog"
 )
 
 // Level is a log level.
@@ -63,7 +61,7 @@ func New(level Level, destinations map[Destination]struct{}, filePath string) (*
 
 	if _, ok := destinations[DestinationSyslog]; ok {
 		var err error
-		lh.syslog, err = syslog.New("rtsp-simple-server")
+		lh.syslog, err = newSyslog("rtsp-simple-server")
 		if err != nil {
 			lh.Close()
 			return nil, err
