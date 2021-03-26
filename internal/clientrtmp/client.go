@@ -50,10 +50,10 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 }
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values) {
-	// remove trailing slashes inserted by OBS and some other clients
-	tmp := strings.TrimSuffix(inURL.String(), "/")
+	// remove leading and trailing slashes inserted by OBS and some other clients
+	tmp := strings.TrimRight(inURL.String(), "/")
 	ur, _ := url.Parse(tmp)
-	pathName := strings.TrimPrefix(ur.Path, "/")
+	pathName := strings.TrimLeft(ur.Path, "/")
 	return pathName, ur.Query()
 }
 
