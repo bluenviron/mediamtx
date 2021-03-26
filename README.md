@@ -307,15 +307,17 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystr
 
 ### Publish from OBS Studio
 
-In `Settings -> Stream`, use the following parameters:
+In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
-* Server: `rtmp://localhost/mystream`
-* Stream key: (leave empty)
+* Service: `Custom...`
+* Server: `rtmp://localhost`
+* Stream key: `mystream`
 
 If credentials are in use, use the following parameters:
 
-* Server: `rtmp://localhost/mystream?user=myuser&pass=mypass`
-* Stream key: (leave empty)
+* Service: `Custom...`
+* Server: `rtmp://localhost`
+* Stream key: `mystream?user=myuser&pass=mypass`
 
 ### Publish a webcam
 
