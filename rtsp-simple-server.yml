@@ -25,8 +25,10 @@ metrics: no
 # port of the metrics listener.
 metricsPort: 9998
 
-# enable pprof on port 9999 to monitor performances.
+# enable pprof to monitor performances.
 pprof: no
+# port of the pprof listener.
+pprofPort: 9999
 
 # command to run when a client connects to the server.
 # this is terminated with SIGINT when a client disconnects from the server.

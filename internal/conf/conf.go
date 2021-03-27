@@ -60,6 +60,7 @@ type Conf struct {
 	Metrics               bool                            `yaml:"metrics"`
 	MetricsPort           int                             `yaml:"metricsPort"`
 	Pprof                 bool                            `yaml:"pprof"`
+	PprofPort             int                             `yaml:"pprofPort"`
 	RunOnConnect          string                          `yaml:"runOnConnect"`
 	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
 
@@ -140,6 +141,10 @@ func (conf *Conf) fillAndCheck() error {
 
 	if conf.MetricsPort == 0 {
 		conf.MetricsPort = 9998
+	}
+
+	if conf.PprofPort == 0 {
+		conf.MetricsPort = 9999
 	}
 
 	if len(conf.Protocols) == 0 {

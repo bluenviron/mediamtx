@@ -183,6 +183,7 @@ func (p *program) createResources(initial bool) error {
 		if p.pprof == nil {
 			p.pprof, err = pprof.New(
 				p.conf.ListenIP,
+				p.conf.PprofPort,
 				p)
 			if err != nil {
 				return err
@@ -303,7 +304,8 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closePprof := false
 	if newConf == nil ||
 		newConf.Pprof != p.conf.Pprof ||
-		newConf.ListenIP != p.conf.ListenIP {
+		newConf.ListenIP != p.conf.ListenIP ||
+		newConf.PprofPort != p.conf.PprofPort {
 		closePprof = true
 	}
 

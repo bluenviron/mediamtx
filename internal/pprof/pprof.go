@@ -12,10 +12,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-const (
-	port = 9999
-)
-
 // Parent is implemented by program.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
@@ -30,9 +26,10 @@ type Pprof struct {
 // New allocates a Pprof.
 func New(
 	listenIP string,
+	port int,
 	parent Parent,
 ) (*Pprof, error) {
-	address := listenIP + ":" + strconv.FormatInt(port, 10)
+	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
