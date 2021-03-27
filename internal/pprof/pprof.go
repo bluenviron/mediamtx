@@ -17,25 +17,25 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Pprof is a performance metrics exporter.
-type Pprof struct {
+// PPROF is a performance metrics exporter.
+type PPROF struct {
 	listener net.Listener
 	server   *http.Server
 }
 
-// New allocates a Pprof.
+// New allocates a PPROF.
 func New(
 	listenIP string,
 	port int,
 	parent Parent,
-) (*Pprof, error) {
+) (*PPROF, error) {
 	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
 
-	pp := &Pprof{
+	pp := &PPROF{
 		listener: listener,
 	}
 
@@ -49,12 +49,12 @@ func New(
 	return pp, nil
 }
 
-// Close closes a Pprof.
-func (pp *Pprof) Close() {
+// Close closes a PPROF.
+func (pp *PPROF) Close() {
 	pp.server.Shutdown(context.Background())
 }
 
-func (pp *Pprof) run() {
+func (pp *PPROF) run() {
 	err := pp.server.Serve(pp.listener)
 	if err != http.ErrServerClosed {
 		panic(err)

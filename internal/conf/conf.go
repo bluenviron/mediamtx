@@ -59,8 +59,8 @@ type Conf struct {
 	ReadBufferCount       int                             `yaml:"readBufferCount"`
 	Metrics               bool                            `yaml:"metrics"`
 	MetricsPort           int                             `yaml:"metricsPort"`
-	Pprof                 bool                            `yaml:"pprof"`
-	PprofPort             int                             `yaml:"pprofPort"`
+	PPROF                 bool                            `yaml:"pprof"`
+	PPROFPort             int                             `yaml:"pprofPort"`
 	RunOnConnect          string                          `yaml:"runOnConnect"`
 	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
 
@@ -143,7 +143,7 @@ func (conf *Conf) fillAndCheck() error {
 		conf.MetricsPort = 9998
 	}
 
-	if conf.PprofPort == 0 {
+	if conf.PPROFPort == 0 {
 		conf.MetricsPort = 9999
 	}
 

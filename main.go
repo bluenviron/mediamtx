@@ -31,7 +31,7 @@ type program struct {
 	stats           *stats.Stats
 	logger          *logger.Logger
 	metrics         *metrics.Metrics
-	pprof           *pprof.Pprof
+	pprof           *pprof.PPROF
 	serverRTSPPlain *serverrtsp.Server
 	serverRTSPTLS   *serverrtsp.Server
 	serverRTMP      *serverrtmp.Server
@@ -179,11 +179,11 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.Pprof {
+	if p.conf.PPROF {
 		if p.pprof == nil {
 			p.pprof, err = pprof.New(
 				p.conf.ListenIP,
-				p.conf.PprofPort,
+				p.conf.PPROFPort,
 				p)
 			if err != nil {
 				return err
@@ -301,12 +301,12 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeMetrics = true
 	}
 
-	closePprof := false
+	closePPROF := false
 	if newConf == nil ||
-		newConf.Pprof != p.conf.Pprof ||
+		newConf.PPROF != p.conf.PPROF ||
 		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.PprofPort != p.conf.PprofPort {
-		closePprof = true
+		newConf.PPROFPort != p.conf.PPROFPort {
+		closePPROF = true
 	}
 
 	closeServerPlain := false
@@ -406,7 +406,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		p.serverRTSPPlain = nil
 	}
 
-	if closePprof && p.pprof != nil {
+	if closePPROF && p.pprof != nil {
 		p.pprof.Close()
 		p.pprof = nil
 	}

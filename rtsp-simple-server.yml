@@ -25,7 +25,7 @@ metrics: no
 # port of the metrics listener.
 metricsPort: 9998
 
-# enable pprof to monitor performances.
+# enable pprof-compatible endpoint to monitor performances.
 pprof: no
 # port of the pprof listener.
 pprofPort: 9999
