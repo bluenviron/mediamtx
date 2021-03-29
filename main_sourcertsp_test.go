@@ -296,11 +296,11 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 
 	require.Equal(t, &headers.RTPInfo{
 		&headers.RTPInfoEntry{
-			URL: &base.URL{
+			URL: (&base.URL{
 				Scheme: "rtsp",
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=0",
-			},
+			}).String(),
 			SequenceNumber: func() *uint16 {
 				v := uint16(87)
 				return &v
@@ -308,11 +308,11 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 			Timestamp: (*dest.RTPInfo())[0].Timestamp,
 		},
 		&headers.RTPInfoEntry{
-			URL: &base.URL{
+			URL: (&base.URL{
 				Scheme: "rtsp",
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=1",
-			},
+			}).String(),
 			SequenceNumber: func() *uint16 {
 				v := uint16(34254)
 				return &v

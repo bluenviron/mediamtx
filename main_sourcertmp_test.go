@@ -92,11 +92,11 @@ func TestSourceRTMPRTPInfo(t *testing.T) {
 
 	require.Equal(t, &headers.RTPInfo{
 		&headers.RTPInfoEntry{
-			URL: &base.URL{
+			URL: (&base.URL{
 				Scheme: "rtsp",
 				Host:   "127.0.1.2:8554",
 				Path:   "/proxied/trackID=0",
-			},
+			}).String(),
 			SequenceNumber: (*dest.RTPInfo())[0].SequenceNumber,
 			Timestamp:      (*dest.RTPInfo())[0].Timestamp,
 		},

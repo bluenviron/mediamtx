@@ -350,7 +350,7 @@ func (c *Client) run() {
 				lsn := ti.LastSequenceNumber
 
 				ri = append(ri, &headers.RTPInfoEntry{
-					URL:            u,
+					URL:            u.String(),
 					SequenceNumber: &lsn,
 					Timestamp:      &ts,
 				})

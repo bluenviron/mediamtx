@@ -665,11 +665,11 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 
 		require.Equal(t, &headers.RTPInfo{
 			&headers.RTPInfoEntry{
-				URL: &base.URL{
+				URL: (&base.URL{
 					Scheme: "rtsp",
 					Host:   ownDockerIP + ":8554",
 					Path:   "/teststream/trackID=0",
-				},
+				}).String(),
 				SequenceNumber: func() *uint16 {
 					v := uint16(556)
 					return &v
@@ -703,11 +703,11 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 
 		require.Equal(t, &headers.RTPInfo{
 			&headers.RTPInfoEntry{
-				URL: &base.URL{
+				URL: (&base.URL{
 					Scheme: "rtsp",
 					Host:   ownDockerIP + ":8554",
 					Path:   "/teststream/trackID=0",
-				},
+				}).String(),
 				SequenceNumber: func() *uint16 {
 					v := uint16(556)
 					return &v
@@ -715,11 +715,11 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 				Timestamp: (*dest.RTPInfo())[0].Timestamp,
 			},
 			&headers.RTPInfoEntry{
-				URL: &base.URL{
+				URL: (&base.URL{
 					Scheme: "rtsp",
 					Host:   ownDockerIP + ":8554",
 					Path:   "/teststream/trackID=1",
-				},
+				}).String(),
 				SequenceNumber: func() *uint16 {
 					v := uint16(87)
 					return &v

@@ -236,20 +236,20 @@ func TestClientRTMPRTPInfo(t *testing.T) {
 
 	require.Equal(t, &headers.RTPInfo{
 		&headers.RTPInfoEntry{
-			URL: &base.URL{
+			URL: (&base.URL{
 				Scheme: "rtsp",
 				Host:   ownDockerIP + ":8554",
 				Path:   "/teststream/trackID=0",
-			},
+			}).String(),
 			SequenceNumber: (*dest.RTPInfo())[0].SequenceNumber,
 			Timestamp:      (*dest.RTPInfo())[0].Timestamp,
 		},
 		&headers.RTPInfoEntry{
-			URL: &base.URL{
+			URL: (&base.URL{
 				Scheme: "rtsp",
 				Host:   ownDockerIP + ":8554",
 				Path:   "/teststream/trackID=1",
-			},
+			}).String(),
 			SequenceNumber: (*dest.RTPInfo())[1].SequenceNumber,
 			Timestamp:      (*dest.RTPInfo())[1].Timestamp,
 		},
