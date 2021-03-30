@@ -1,6 +1,6 @@
 ---
-name: 'Bug'
-about: Bug
+name: Bug
+about: Report a bug
 title: ''
 labels: ''
 assignees: ''
@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 <!--
-To increase the probability of your issue getting fixed, open an issue FOR EACH problem. Please do not report multiple problems in a single issue, otherwise they'll probably never get ALL fixed.
+To increase the chance of your issue getting fixed, open an issue FOR EACH problem. Please do not report multiple problems in a single issue, otherwise they'll probably never get ALL fixed.
 -->
 
 ## Which version are you using?
