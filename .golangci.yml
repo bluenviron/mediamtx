@@ -1,6 +1,7 @@
 
 linters:
   enable:
+  - exportloopref
   - gocritic
   - gofmt
   - golint
