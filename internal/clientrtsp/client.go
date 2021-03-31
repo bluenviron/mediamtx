@@ -45,13 +45,17 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 	return false
 }
 
+// PathMan is implemented by pathman.PathMan.
+type PathMan interface {
+	OnClientDescribe(client.DescribeReq)
+	OnClientSetupPlay(client.SetupPlayReq)
+	OnClientAnnounce(client.AnnounceReq)
+}
+
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnClientClose(client.Client)
-	OnClientDescribe(client.DescribeReq)
-	OnClientAnnounce(client.AnnounceReq)
-	OnClientSetupPlay(client.SetupPlayReq)
 }
 
 // Client is a RTSP client.
@@ -64,6 +68,7 @@ type Client struct {
 	wg                  *sync.WaitGroup
 	stats               *stats.Stats
 	conn                *gortsplib.ServerConn
+	pathMan             PathMan
 	parent              Parent
 
 	path          client.Path
@@ -95,6 +100,7 @@ func New(
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	conn *gortsplib.ServerConn,
+	pathMan PathMan,
 	parent Parent) *Client {
 
 	c := &Client{
@@ -106,6 +112,7 @@ func New(
 		wg:                  wg,
 		stats:               stats,
 		conn:                conn,
+		pathMan:             pathMan,
 		parent:              parent,
 		terminate:           make(chan struct{}),
 	}
@@ -168,7 +175,7 @@ func (c *Client) run() {
 
 	onDescribe := func(ctx *gortsplib.ServerConnDescribeCtx) (*base.Response, []byte, error) {
 		resc := make(chan client.DescribeRes)
-		c.parent.OnClientDescribe(client.DescribeReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
+		c.pathMan.OnClientDescribe(client.DescribeReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
@@ -212,7 +219,7 @@ func (c *Client) run() {
 
 	onAnnounce := func(ctx *gortsplib.ServerConnAnnounceCtx) (*base.Response, error) {
 		resc := make(chan client.AnnounceRes)
-		c.parent.OnClientAnnounce(client.AnnounceReq{c, ctx.Path, ctx.Tracks, ctx.Req, resc}) //nolint:govet
+		c.pathMan.OnClientAnnounce(client.AnnounceReq{c, ctx.Path, ctx.Tracks, ctx.Req, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
@@ -260,7 +267,7 @@ func (c *Client) run() {
 		switch c.conn.State() {
 		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
 			resc := make(chan client.SetupPlayRes)
-			c.parent.OnClientSetupPlay(client.SetupPlayReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
+			c.pathMan.OnClientSetupPlay(client.SetupPlayReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
 			res := <-resc
 
 			if res.Err != nil {

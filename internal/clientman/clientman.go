@@ -30,7 +30,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// ClientManager is a clientrtsp.Client manager.
+// ClientManager is a client manager.
 type ClientManager struct {
 	rtspPort            int
 	readTimeout         time.Duration
@@ -147,6 +147,7 @@ outer:
 				&cm.wg,
 				cm.stats,
 				conn,
+				cm.pathMan,
 				cm)
 			cm.clients[c] = struct{}{}
 
@@ -161,6 +162,7 @@ outer:
 				&cm.wg,
 				cm.stats,
 				conn,
+				cm.pathMan,
 				cm)
 			cm.clients[c] = struct{}{}
 
@@ -175,6 +177,7 @@ outer:
 				&cm.wg,
 				cm.stats,
 				conn,
+				cm.pathMan,
 				cm)
 			cm.clients[c] = struct{}{}
 
@@ -219,22 +222,7 @@ outer:
 	close(cm.clientClose)
 }
 
-// OnClientClose is called by clientrtsp.Client.
+// OnClientClose is called by a client.
 func (cm *ClientManager) OnClientClose(c client.Client) {
 	cm.clientClose <- c
-}
-
-// OnClientDescribe is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientDescribe(req client.DescribeReq) {
-	cm.pathMan.OnClientDescribe(req)
-}
-
-// OnClientAnnounce is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientAnnounce(req client.AnnounceReq) {
-	cm.pathMan.OnClientAnnounce(req)
-}
-
-// OnClientSetupPlay is called by clientrtsp.Client.
-func (cm *ClientManager) OnClientSetupPlay(req client.SetupPlayReq) {
-	cm.pathMan.OnClientSetupPlay(req)
 }

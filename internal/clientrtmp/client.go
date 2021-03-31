@@ -62,12 +62,16 @@ type trackIDBufPair struct {
 	buf     []byte
 }
 
+// PathMan is implemented by pathman.PathMan.
+type PathMan interface {
+	OnClientSetupPlay(client.SetupPlayReq)
+	OnClientAnnounce(client.AnnounceReq)
+}
+
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnClientClose(client.Client)
-	OnClientSetupPlay(client.SetupPlayReq)
-	OnClientAnnounce(client.AnnounceReq)
 }
 
 // Client is a RTMP client.
@@ -81,6 +85,7 @@ type Client struct {
 	stats               *stats.Stats
 	wg                  *sync.WaitGroup
 	conn                *rtmputils.Conn
+	pathMan             PathMan
 	parent              Parent
 
 	// read mode only
@@ -105,6 +110,7 @@ func New(
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	conn *rtmputils.Conn,
+	pathMan PathMan,
 	parent Parent) *Client {
 
 	c := &Client{
@@ -117,6 +123,7 @@ func New(
 		wg:                  wg,
 		stats:               stats,
 		conn:                conn,
+		pathMan:             pathMan,
 		parent:              parent,
 		terminate:           make(chan struct{}),
 	}
@@ -177,7 +184,7 @@ func (c *Client) runRead() {
 		pathName, query := pathNameAndQuery(c.conn.URL())
 
 		resc := make(chan client.SetupPlayRes)
-		c.parent.OnClientSetupPlay(client.SetupPlayReq{c, pathName, query, resc}) //nolint:govet
+		c.pathMan.OnClientSetupPlay(client.SetupPlayReq{c, pathName, query, resc}) //nolint:govet
 		res := <-resc
 
 		if res.Err != nil {
@@ -450,7 +457,7 @@ func (c *Client) runPublish() {
 			pathName, query := pathNameAndQuery(c.conn.URL())
 
 			resc := make(chan client.AnnounceRes)
-			c.parent.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, query, resc}) //nolint:govet
+			c.pathMan.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, query, resc}) //nolint:govet
 			res := <-resc
 
 			if res.Err != nil {
