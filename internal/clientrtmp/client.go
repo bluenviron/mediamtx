@@ -310,6 +310,7 @@ func (c *Client) runRead() {
 
 		c.parent.OnClientClose(c)
 		<-c.terminate
+		return
 	}
 
 	writerDone := make(chan error)
