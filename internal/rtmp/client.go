@@ -11,5 +11,8 @@ func Dial(address string) (*Conn, error) {
 		return nil, err
 	}
 
-	return NewConn(rconn, nconn), nil
+	return &Conn{
+		rconn: rconn,
+		nconn: nconn,
+	}, nil
 }

@@ -8,18 +8,10 @@ import (
 	"github.com/notedit/rtmp/format/rtmp"
 )
 
-// Conn contains a RTMP connection and a net connection.
+// Conn is a RTMP connection.
 type Conn struct {
 	rconn *rtmp.Conn
 	nconn net.Conn
-}
-
-// NewConn allocates a Conn.
-func NewConn(rconn *rtmp.Conn, nconn net.Conn) *Conn {
-	return &Conn{
-		rconn: rconn,
-		nconn: nconn,
-	}
 }
 
 // NetConn returns the underlying net.Conn.

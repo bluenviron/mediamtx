@@ -169,6 +169,17 @@ func (c *Client) run() {
 		defer onConnectCmd.Close()
 	}
 
+	c.conn.NetConn().SetDeadline(time.Now().Add(c.readTimeout))
+	err := c.conn.ServerHandshake()
+	if err != nil {
+		c.log(logger.Info, "ERR: %s", err)
+		c.conn.NetConn().Close()
+
+		c.parent.OnClientClose(c)
+		<-c.terminate
+		return
+	}
+
 	if c.conn.IsPublishing() {
 		c.runPublish()
 	} else {

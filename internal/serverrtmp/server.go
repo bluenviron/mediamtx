@@ -3,10 +3,7 @@ package serverrtmp
 import (
 	"net"
 	"strconv"
-	"sync"
 	"sync/atomic"
-
-	nrtmp "github.com/notedit/rtmp/format/rtmp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
@@ -22,11 +19,11 @@ type Server struct {
 	parent Parent
 
 	l      net.Listener
-	srv    *nrtmp.Server
 	closed uint32
-	wg     sync.WaitGroup
 
+	// out
 	accept chan *rtmp.Conn
+	done   chan struct{}
 }
 
 // New allocates a Server.
@@ -45,14 +42,11 @@ func New(
 		parent: parent,
 		l:      l,
 		accept: make(chan *rtmp.Conn),
+		done:   make(chan struct{}),
 	}
-
-	s.srv = nrtmp.NewServer()
-	s.srv.HandleConn = s.innerHandleConn
 
 	s.log(logger.Info, "opened on %s", address)
 
-	s.wg.Add(1)
 	go s.run()
 
 	return s, nil
@@ -71,12 +65,11 @@ func (s *Server) Close() {
 	}()
 	atomic.StoreUint32(&s.closed, 1)
 	s.l.Close()
-	s.wg.Wait()
-	close(s.accept)
+	<-s.done
 }
 
 func (s *Server) run() {
-	defer s.wg.Done()
+	defer close(s.done)
 
 	for {
 		nconn, err := s.l.Accept()
@@ -88,16 +81,10 @@ func (s *Server) run() {
 			continue
 		}
 
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
-			s.srv.HandleNetConn(nconn)
-		}()
+		s.accept <- rtmp.NewServerConn(nconn)
 	}
-}
 
-func (s *Server) innerHandleConn(rconn *nrtmp.Conn, nconn net.Conn) {
-	s.accept <- rtmp.NewConn(rconn, nconn)
+	close(s.accept)
 }
 
 // Accept returns a channel to accept incoming connections.
