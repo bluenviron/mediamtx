@@ -479,12 +479,12 @@ func (pa *Path) removeClient(c client.Client) {
 }
 
 func (pa *Path) onSourceSetReady() {
-	pa.sourceState = sourceStateReady
-
 	if pa.sourceState == sourceStateWaitingDescribe {
 		pa.describeTimer.Stop()
 		pa.describeTimer = newEmptyTimer()
 	}
+
+	pa.sourceState = sourceStateReady
 
 	for _, req := range pa.describeRequests {
 		req.Res <- client.DescribeRes{pa.sourceTracks.Write(), "", nil} //nolint:govet
