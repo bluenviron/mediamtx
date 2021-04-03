@@ -18,7 +18,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	rh264 "github.com/notedit/rtmp/codec/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -255,36 +254,15 @@ func (c *Client) runRead() {
 		c.conn.WriteMetadata(videoTrack, audioTrack)
 
 		if videoTrack != nil {
-			codec := rh264.Codec{
-				SPS: map[int][]byte{
-					0: h264SPS,
-				},
-				PPS: map[int][]byte{
-					0: h264PPS,
-				},
-			}
-			b := make([]byte, 128)
-			var n int
-			codec.ToConfig(b, &n)
-			b = b[:n]
-
 			c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-			c.conn.WritePacket(av.Packet{
-				Type: av.H264DecoderConfig,
-				Data: b,
-			})
-
+			c.conn.WriteH264Config(h264SPS, h264PPS)
 			c.h264Decoder = rtph264.NewDecoder()
 			c.videoTrack = videoTrack
 		}
 
 		if audioTrack != nil {
 			c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-			c.conn.WritePacket(av.Packet{
-				Type: av.AACDecoderConfig,
-				Data: aacConfig,
-			})
-
+			c.conn.WriteAACConfig(aacConfig)
 			clockRate, _ := audioTrack.ClockRate()
 			c.aacDecoder = rtpaac.NewDecoder(clockRate)
 			c.audioTrack = audioTrack
@@ -350,23 +328,11 @@ func (c *Client) runRead() {
 
 						// aggregate NALUs by PTS
 						if nt.Timestamp != videoPTS {
-							data, err := h264.EncodeAVCC(videoBuf)
-							if err != nil {
-								return err
-							}
-
-							pkt := av.Packet{
-								Type: av.H264,
-								Data: data,
-								Time: now.Sub(videoStartDTS),
-							}
-
 							c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-							err = c.conn.WritePacket(pkt)
+							err := c.conn.WriteH264(videoBuf, now.Sub(videoStartDTS))
 							if err != nil {
 								return err
 							}
-
 							videoBuf = nil
 						}
 
@@ -382,14 +348,8 @@ func (c *Client) runRead() {
 					}
 
 					for _, at := range ats {
-						pkt := av.Packet{
-							Type: av.AAC,
-							Data: at.AU,
-							Time: at.Timestamp,
-						}
-
 						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-						err := c.conn.WritePacket(pkt)
+						err := c.conn.WriteAAC(at.AU, at.Timestamp)
 						if err != nil {
 							return err
 						}

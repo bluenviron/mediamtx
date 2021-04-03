@@ -2,7 +2,6 @@ package sourcertmp
 
 import (
 	"fmt"
-	"net"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	"github.com/notedit/rtmp/format/rtmp"
 
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -115,10 +113,7 @@ func (s *Source) runInner() bool {
 	dialDone := make(chan struct{}, 1)
 	go func() {
 		defer close(dialDone)
-		var rconn *rtmp.Conn
-		var nconn net.Conn
-		rconn, nconn, err = rtmp.NewClient().Dial(s.ur, rtmp.PrepareReading)
-		conn = rtmputils.NewConn(rconn, nconn)
+		conn, err = rtmputils.Dial(s.ur)
 	}()
 
 	select {
