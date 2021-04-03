@@ -1,4 +1,4 @@
-package rtmputils
+package rtmp
 
 import (
 	"time"

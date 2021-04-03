@@ -1,11 +1,11 @@
-package rtmputils
+package rtmp
 
 import (
 	"fmt"
 
 	"github.com/aler9/gortsplib"
 	"github.com/notedit/rtmp/av"
-	rh264 "github.com/notedit/rtmp/codec/h264"
+	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 )
 
@@ -125,7 +125,7 @@ func (conn *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 				return nil, nil, fmt.Errorf("video track setupped twice")
 			}
 
-			codec, err := rh264.FromDecoderConfig(pkt.Data)
+			codec, err := nh264.FromDecoderConfig(pkt.Data)
 			if err != nil {
 				return nil, nil, err
 			}

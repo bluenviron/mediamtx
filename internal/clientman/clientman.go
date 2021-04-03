@@ -11,7 +11,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -126,11 +126,11 @@ func (cm *ClientManager) run() {
 		return make(chan *gortsplib.ServerConn)
 	}()
 
-	rtmpAccept := func() chan *rtmputils.Conn {
+	rtmpAccept := func() chan *rtmp.Conn {
 		if cm.serverRTMP != nil {
 			return cm.serverRTMP.Accept()
 		}
-		return make(chan *rtmputils.Conn)
+		return make(chan *rtmp.Conn)
 	}()
 
 outer:

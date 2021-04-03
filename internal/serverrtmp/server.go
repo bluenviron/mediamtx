@@ -6,10 +6,10 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/notedit/rtmp/format/rtmp"
+	nrtmp "github.com/notedit/rtmp/format/rtmp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
 // Parent is implemented by program.
@@ -22,11 +22,11 @@ type Server struct {
 	parent Parent
 
 	l      net.Listener
-	srv    *rtmp.Server
+	srv    *nrtmp.Server
 	closed uint32
 	wg     sync.WaitGroup
 
-	accept chan *rtmputils.Conn
+	accept chan *rtmp.Conn
 }
 
 // New allocates a Server.
@@ -44,10 +44,10 @@ func New(
 	s := &Server{
 		parent: parent,
 		l:      l,
-		accept: make(chan *rtmputils.Conn),
+		accept: make(chan *rtmp.Conn),
 	}
 
-	s.srv = rtmp.NewServer()
+	s.srv = nrtmp.NewServer()
 	s.srv.HandleConn = s.innerHandleConn
 
 	s.log(logger.Info, "opened on %s", address)
@@ -96,11 +96,11 @@ func (s *Server) run() {
 	}
 }
 
-func (s *Server) innerHandleConn(rconn *rtmp.Conn, nconn net.Conn) {
-	s.accept <- rtmputils.NewConn(rconn, nconn)
+func (s *Server) innerHandleConn(rconn *nrtmp.Conn, nconn net.Conn) {
+	s.accept <- rtmp.NewConn(rconn, nconn)
 }
 
 // Accept returns a channel to accept incoming connections.
-func (s *Server) Accept() chan *rtmputils.Conn {
+func (s *Server) Accept() chan *rtmp.Conn {
 	return s.accept
 }

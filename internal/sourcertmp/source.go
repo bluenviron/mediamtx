@@ -14,7 +14,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
-	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
@@ -108,12 +108,12 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.log(logger.Info, "connecting")
 
-	var conn *rtmputils.Conn
+	var conn *rtmp.Conn
 	var err error
 	dialDone := make(chan struct{}, 1)
 	go func() {
 		defer close(dialDone)
-		conn, err = rtmputils.Dial(s.ur)
+		conn, err = rtmp.Dial(s.ur)
 	}()
 
 	select {

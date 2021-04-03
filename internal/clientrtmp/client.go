@@ -24,7 +24,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
-	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -84,7 +84,7 @@ type Client struct {
 	runOnConnectRestart bool
 	stats               *stats.Stats
 	wg                  *sync.WaitGroup
-	conn                *rtmputils.Conn
+	conn                *rtmp.Conn
 	pathMan             PathMan
 	parent              Parent
 
@@ -109,7 +109,7 @@ func New(
 	runOnConnectRestart bool,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
-	conn *rtmputils.Conn,
+	conn *rtmp.Conn,
 	pathMan PathMan,
 	parent Parent) *Client {
 
