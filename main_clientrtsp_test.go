@@ -448,91 +448,70 @@ func TestClientRTSPAutomaticProtocol(t *testing.T) {
 }
 
 func TestClientRTSPPublisherOverride(t *testing.T) {
-	t.Run("enabled", func(t *testing.T) {
-		p, ok := testProgram("rtmpDisable: yes\n")
-		require.Equal(t, true, ok)
-		defer p.close()
+	for _, ca := range []string{
+		"enabled",
+		"disabled",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			conf := "rtmpDisable: yes\n" +
+				"protocols: [tcp]\n"
+			if ca == "disabled" {
+				conf += "paths:\n" +
+					"  all:\n" +
+					"    disablePublisherOverride: yes\n"
+			}
+			p, ok := testProgram(conf)
+			require.Equal(t, true, ok)
+			defer p.close()
 
-		source1, err := newContainer("ffmpeg", "source1", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "rtsp",
-			"rtsp://" + ownDockerIP + ":8554/teststream",
+			track, err := gortsplib.NewTrackH264(68, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04})
+			require.NoError(t, err)
+
+			s1, err := gortsplib.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+				gortsplib.Tracks{track})
+			require.NoError(t, err)
+			defer s1.Close()
+
+			s2, err := gortsplib.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+				gortsplib.Tracks{track})
+			if ca == "enabled" {
+				require.NoError(t, err)
+				defer s2.Close()
+			} else {
+				require.Error(t, err)
+			}
+
+			d1, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+			require.NoError(t, err)
+			defer d1.Close()
+
+			recv := make(chan struct{})
+			d1.ReadFrames(func(trackID int, streamType base.StreamType, payload []byte) {
+				if ca == "enabled" {
+					require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
+				} else {
+					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+				}
+				close(recv)
+			})
+
+			err = s1.WriteFrame(track.ID, gortsplib.StreamTypeRTP,
+				[]byte{0x01, 0x02, 0x03, 0x04})
+			if ca == "enabled" {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			if ca == "enabled" {
+				err = s2.WriteFrame(track.ID, gortsplib.StreamTypeRTP,
+					[]byte{0x05, 0x06, 0x07, 0x08})
+				require.NoError(t, err)
+			}
+
+			<-recv
 		})
-		require.NoError(t, err)
-		defer source1.close()
-
-		time.Sleep(1 * time.Second)
-
-		source2, err := newContainer("ffmpeg", "source2", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "rtsp",
-			"rtsp://" + ownDockerIP + ":8554/teststream",
-		})
-		require.NoError(t, err)
-		defer source2.close()
-
-		time.Sleep(1 * time.Second)
-
-		dest, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
-		require.NoError(t, err)
-		defer dest.close()
-		require.Equal(t, 0, dest.wait())
-	})
-
-	t.Run("disabled", func(t *testing.T) {
-		p, ok := testProgram("rtmpDisable: yes\n" +
-			"paths:\n" +
-			"  all:\n" +
-			"    disablePublisherOverride: yes\n")
-		require.Equal(t, true, ok)
-		defer p.close()
-
-		source1, err := newContainer("ffmpeg", "source1", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "rtsp",
-			"rtsp://" + ownDockerIP + ":8554/teststream",
-		})
-		require.NoError(t, err)
-		defer source1.close()
-
-		time.Sleep(1 * time.Second)
-
-		source2, err := newContainer("ffmpeg", "source2", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "rtsp",
-			"rtsp://" + ownDockerIP + ":8554/teststream",
-		})
-		require.NoError(t, err)
-		defer source2.close()
-		require.NotEqual(t, 0, source2.wait())
-
-		dest, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
-		require.NoError(t, err)
-		defer dest.close()
-		require.Equal(t, 0, dest.wait())
-	})
+	}
 }
 
 func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
@@ -550,6 +529,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 				v := gortsplib.StreamProtocolTCP
 				return &v
 			}(),
+			ReadBufferSize: 4500,
 		}
 
 		source, err := conf.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
@@ -557,14 +537,27 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 		defer source.Close()
 
-		buf := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
-		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, buf)
+		dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+		require.NoError(t, err)
+		defer dest.Close()
+
+		input := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
+
+		recvDone := make(chan struct{})
+		recvErr := dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+			require.Equal(t, gortsplib.StreamTypeRTP, streamType)
+			require.Equal(t, input, payload)
+			close(recvDone)
+		})
+
+		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, input)
 		require.NoError(t, err)
 
-		time.Sleep(100 * time.Millisecond)
-
-		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, buf)
-		require.NoError(t, err)
+		select {
+		case <-recvDone:
+		case err := <-recvErr:
+			t.Error(err)
+		}
 	})
 
 	t.Run("proxy", func(t *testing.T) {
@@ -596,7 +589,8 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			"rtspPort: 8555\n" +
 			"paths:\n" +
 			"  teststream:\n" +
-			"    source: rtsp://" + ownDockerIP + ":8554/teststream\n")
+			"    source: rtsp://" + ownDockerIP + ":8554/teststream\n" +
+			"    sourceProtocol: tcp\n")
 		require.Equal(t, true, ok)
 		defer p2.close()
 
@@ -606,21 +600,22 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 		defer dest.Close()
 
-		done := make(chan struct{})
-		cerr := dest.ReadFrames(func(trackID int, typ gortsplib.StreamType, buf []byte) {
-			if typ == gortsplib.StreamTypeRTP {
-				close(done)
-			}
+		input := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
+
+		recvDone := make(chan struct{})
+		recvErr := dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+			require.Equal(t, gortsplib.StreamTypeRTP, streamType)
+			require.Equal(t, input, payload)
+			close(recvDone)
 		})
 
-		buf := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
-		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, buf)
+		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, input)
 		require.NoError(t, err)
 
 		select {
-		case err := <-cerr:
+		case <-recvDone:
+		case err := <-recvErr:
 			t.Error(err)
-		case <-done:
 		}
 	})
 }
