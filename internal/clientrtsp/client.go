@@ -347,9 +347,8 @@ func (c *Client) run() {
 					Scheme: ctx.Req.URL.Scheme,
 					User:   ctx.Req.URL.User,
 					Host:   ctx.Req.URL.Host,
-					Path:   "/" + c.path.Name(),
+					Path:   "/" + c.path.Name() + "/trackID=" + strconv.FormatInt(int64(trackID), 10),
 				}
-				u.AddControlAttribute("trackID=" + strconv.FormatInt(int64(trackID), 10))
 
 				clockRate, _ := track.ClockRate()
 				ts := uint32(uint64(time.Since(ti.NTPTime).Seconds()*float64(clockRate)) +
