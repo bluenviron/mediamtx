@@ -363,11 +363,11 @@ Then edit `rtsp-simple-server.yml` and replace everything inside section `paths`
 ```yml
 paths:
   cam:
-    runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! rtspclientsink location=rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! h264parse ! rtspclientsink location=rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
-After starting the server, the webcam is available on `rtsp://localhost:8554/cam`.
+After starting the server, the camera is available on `rtsp://localhost:8554/cam`.
 
 ### Convert streams to HLS
 
