@@ -11,9 +11,9 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	"github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/rtmp"
 
+	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
@@ -214,16 +214,16 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("ERR: received an H264 frame, but track is not set up")
 					}
 
-					// decode from AVCC format
-					nalus, typ := h264.SplitNALUs(pkt.Data)
-					if typ != h264.NALU_AVCC {
-						return fmt.Errorf("invalid NALU format (%d)", typ)
+					nalus, err := h264.DecodeAVCC(pkt.Data)
+					if err != nil {
+						return err
 					}
 
+					ts := pkt.Time + pkt.CTime
 					var nts []*rtph264.NALUAndTimestamp
 					for _, nt := range nalus {
 						nts = append(nts, &rtph264.NALUAndTimestamp{
-							Timestamp: pkt.Time + pkt.CTime,
+							Timestamp: ts,
 							NALU:      nt,
 						})
 					}

@@ -18,10 +18,11 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	"github.com/notedit/rtmp/codec/h264"
+	rh264 "github.com/notedit/rtmp/codec/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
+	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmputils"
@@ -254,7 +255,7 @@ func (c *Client) runRead() {
 		c.conn.WriteMetadata(videoTrack, audioTrack)
 
 		if videoTrack != nil {
-			codec := h264.Codec{
+			codec := rh264.Codec{
 				SPS: map[int][]byte{
 					0: h264SPS,
 				},
@@ -349,14 +350,19 @@ func (c *Client) runRead() {
 
 						// aggregate NALUs by PTS
 						if nt.Timestamp != videoPTS {
+							data, err := h264.EncodeAVCC(videoBuf)
+							if err != nil {
+								return err
+							}
+
 							pkt := av.Packet{
 								Type: av.H264,
-								Data: h264.FillNALUsAVCC(videoBuf),
+								Data: data,
 								Time: now.Sub(videoStartDTS),
 							}
 
 							c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-							err := c.conn.WritePacket(pkt)
+							err = c.conn.WritePacket(pkt)
 							if err != nil {
 								return err
 							}
@@ -550,16 +556,16 @@ func (c *Client) runPublish() {
 						return fmt.Errorf("ERR: received an H264 frame, but track is not set up")
 					}
 
-					// decode from AVCC format
-					nalus, typ := h264.SplitNALUs(pkt.Data)
-					if typ != h264.NALU_AVCC {
-						return fmt.Errorf("invalid NALU format (%d)", typ)
+					nalus, err := h264.DecodeAVCC(pkt.Data)
+					if err != nil {
+						return err
 					}
 
+					ts := pkt.Time + pkt.CTime
 					var nts []*rtph264.NALUAndTimestamp
 					for _, nt := range nalus {
 						nts = append(nts, &rtph264.NALUAndTimestamp{
-							Timestamp: pkt.Time + pkt.CTime,
+							Timestamp: ts,
 							NALU:      nt,
 						})
 					}
