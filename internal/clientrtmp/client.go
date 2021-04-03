@@ -251,7 +251,7 @@ func (c *Client) runRead() {
 		}
 
 		c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-		rtmputils.WriteMetadata(c.conn, videoTrack, audioTrack)
+		c.conn.WriteMetadata(videoTrack, audioTrack)
 
 		if videoTrack != nil {
 			codec := h264.Codec{
@@ -435,7 +435,7 @@ func (c *Client) runPublish() {
 		defer close(setupDone)
 		err = func() error {
 			c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
-			videoTrack, audioTrack, err = rtmputils.ReadMetadata(c.conn)
+			videoTrack, audioTrack, err = c.conn.ReadMetadata()
 			if err != nil {
 				return err
 			}

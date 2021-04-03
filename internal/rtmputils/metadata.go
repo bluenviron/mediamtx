@@ -14,39 +14,37 @@ const (
 	codecAAC  = 10
 )
 
-func readMetadata(conn *Conn) (flvio.AMFMap, error) {
-	pkt, err := conn.ReadPacket()
-	if err != nil {
-		return nil, err
-	}
-
-	if pkt.Type != av.Metadata {
-		return nil, fmt.Errorf("first packet must be metadata")
-	}
-
-	arr, err := flvio.ParseAMFVals(pkt.Data, false)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(arr) != 1 {
-		return nil, fmt.Errorf("invalid metadata")
-	}
-
-	ma, ok := arr[0].(flvio.AMFMap)
-	if !ok {
-		return nil, fmt.Errorf("invalid metadata")
-	}
-
-	return ma, nil
-}
-
-// ReadMetadata extracts track informations from a RTMP connection that is publishing.
-func ReadMetadata(conn *Conn) (*gortsplib.Track, *gortsplib.Track, error) {
+// ReadMetadata extracts track informations from a connection that is publishing.
+func (conn *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
 
-	md, err := readMetadata(conn)
+	md, err := func() (flvio.AMFMap, error) {
+		pkt, err := conn.ReadPacket()
+		if err != nil {
+			return nil, err
+		}
+
+		if pkt.Type != av.Metadata {
+			return nil, fmt.Errorf("first packet must be metadata")
+		}
+
+		arr, err := flvio.ParseAMFVals(pkt.Data, false)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(arr) != 1 {
+			return nil, fmt.Errorf("invalid metadata")
+		}
+
+		ma, ok := arr[0].(flvio.AMFMap)
+		if !ok {
+			return nil, fmt.Errorf("invalid metadata")
+		}
+
+		return ma, nil
+	}()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,8 +156,8 @@ func ReadMetadata(conn *Conn) (*gortsplib.Track, *gortsplib.Track, error) {
 	}
 }
 
-// WriteMetadata writes track informations to a RTMP connection that is reading.
-func WriteMetadata(conn *Conn, videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
+// WriteMetadata writes track informations to a connection that is reading.
+func (conn *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
 	return conn.WritePacket(av.Packet{
 		Type: av.Metadata,
 		Data: flvio.FillAMF0ValMalloc(flvio.AMFMap{

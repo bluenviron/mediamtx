@@ -138,7 +138,7 @@ func (s *Source) runInner() bool {
 	go func() {
 		defer close(metadataDone)
 		conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
-		videoTrack, audioTrack, err = rtmputils.ReadMetadata(conn)
+		videoTrack, audioTrack, err = conn.ReadMetadata()
 	}()
 
 	select {
