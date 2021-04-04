@@ -325,7 +325,7 @@ func (c *Client) runRead() {
 					nts, err := c.h264Decoder.Decode(pair.buf)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded {
-							c.log(logger.Debug, "ERR while decoding video track: %v", err)
+							c.log(logger.Warn, "unable to decode video track: %v", err)
 						}
 						continue
 					}
@@ -338,6 +338,7 @@ func (c *Client) runRead() {
 						}
 
 						// aggregate NALUs by PTS
+						// this delays the stream by one frame, but is required by RTMP
 						if nt.Timestamp != videoPTS {
 							c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 							err := c.conn.WriteH264(videoBuf, now.Sub(videoStartDTS))
@@ -354,7 +355,7 @@ func (c *Client) runRead() {
 				} else if c.audioTrack != nil && pair.trackID == c.audioTrack.ID {
 					ats, err := c.aacDecoder.Decode(pair.buf)
 					if err != nil {
-						c.log(logger.Debug, "ERR while decoding audio track: %v", err)
+						c.log(logger.Warn, "unable to decode audio track: %v", err)
 						continue
 					}
 
