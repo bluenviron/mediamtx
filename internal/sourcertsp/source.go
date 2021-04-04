@@ -168,17 +168,15 @@ func (s *Source) runInner() bool {
 		res.SP.OnFrame(trackID, streamType, payload)
 	})
 
-	for {
-		select {
-		case <-s.terminate:
-			conn.Close()
-			<-done
-			return false
+	select {
+	case <-s.terminate:
+		conn.Close()
+		<-done
+		return false
 
-		case err := <-done:
-			conn.Close()
-			s.log(logger.Info, "ERR: %s", err)
-			return true
-		}
+	case err := <-done:
+		s.log(logger.Info, "ERR: %s", err)
+		conn.Close()
+		return true
 	}
 }

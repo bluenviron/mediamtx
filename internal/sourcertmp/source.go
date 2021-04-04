@@ -258,17 +258,15 @@ func (s *Source) runInner() bool {
 		}()
 	}()
 
-	for {
-		select {
-		case err := <-readerDone:
-			conn.NetConn().Close()
-			s.log(logger.Info, "ERR: %s", err)
-			return true
+	select {
+	case <-s.terminate:
+		conn.NetConn().Close()
+		<-readerDone
+		return false
 
-		case <-s.terminate:
-			conn.NetConn().Close()
-			<-readerDone
-			return false
-		}
+	case err := <-readerDone:
+		s.log(logger.Info, "ERR: %s", err)
+		conn.NetConn().Close()
+		return true
 	}
 }
