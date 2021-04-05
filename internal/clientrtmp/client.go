@@ -223,6 +223,7 @@ func (c *Client) runRead() {
 	var videoTrack *gortsplib.Track
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
+	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
 	err = func() error {
@@ -241,8 +242,8 @@ func (c *Client) runRead() {
 				}
 
 				audioTrack = t
-				clockRate, _ := audioTrack.ClockRate()
-				aacDecoder = rtpaac.NewDecoder(clockRate)
+				audioClockRate, _ = audioTrack.ClockRate()
+				aacDecoder = rtpaac.NewDecoder(audioClockRate)
 			}
 		}
 
@@ -284,9 +285,8 @@ func (c *Client) runRead() {
 	go func() {
 		writerDone <- func() error {
 			videoInitialized := false
-			var videoStartDTS time.Time
 			var videoBuf [][]byte
-			var videoPTS time.Duration
+			var videoStartDTS time.Time
 
 			for {
 				data, ok := c.ringBuffer.Pull()
@@ -295,10 +295,8 @@ func (c *Client) runRead() {
 				}
 				pair := data.(trackIDPayloadPair)
 
-				now := time.Now()
-
 				if videoTrack != nil && pair.trackID == videoTrack.ID {
-					nts, err := h264Decoder.Decode(pair.buf)
+					nalus, _, err := h264Decoder.Decode(pair.buf)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded {
 							c.log(logger.Warn, "unable to decode video track: %v", err)
@@ -306,46 +304,44 @@ func (c *Client) runRead() {
 						continue
 					}
 
-					for _, nt := range nts {
+					if !videoInitialized {
+						videoInitialized = true
+						videoStartDTS = time.Now()
+					}
+
+					for _, nalu := range nalus {
 						// remove SPS, PPS and AUD, not needed by RTMP
-						typ := h264.NALUType(nt.NALU[0] & 0x1F)
+						typ := h264.NALUType(nalu[0] & 0x1F)
 						switch typ {
 						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
 							continue
 						}
 
-						if !videoInitialized {
-							videoInitialized = true
-							videoStartDTS = now
-							videoPTS = nt.Timestamp
-						}
+						videoBuf = append(videoBuf, nalu)
+					}
 
-						// aggregate NALUs by PTS.
-						// for instance, aggregate a SEI and a IDR.
-						// this delays the stream by one frame, but is required by RTMP.
-						if nt.Timestamp != videoPTS {
-							c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-							err := c.conn.WriteH264(videoBuf, now.Sub(videoStartDTS))
-							if err != nil {
-								return err
-							}
-							videoBuf = nil
+					// RTP marker means that all the NALUs with the same PTS have been received.
+					// send them together.
+					marker := (pair.buf[1] >> 7 & 0x1) > 0
+					if marker {
+						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+						err := c.conn.WriteH264(videoBuf, time.Since(videoStartDTS))
+						if err != nil {
+							return err
 						}
-
-						videoPTS = nt.Timestamp
-						videoBuf = append(videoBuf, nt.NALU)
+						videoBuf = nil
 					}
 
 				} else if audioTrack != nil && pair.trackID == audioTrack.ID {
-					ats, err := aacDecoder.Decode(pair.buf)
+					aus, pts, err := aacDecoder.Decode(pair.buf)
 					if err != nil {
 						c.log(logger.Warn, "unable to decode audio track: %v", err)
 						continue
 					}
 
-					for _, at := range ats {
+					for i, au := range aus {
 						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-						err := c.conn.WriteAAC(at.AU, at.Timestamp)
+						err := c.conn.WriteAAC(au, pts+time.Duration(i)*1000*time.Second/time.Duration(audioClockRate))
 						if err != nil {
 							return err
 						}
@@ -520,8 +516,7 @@ func (c *Client) runPublish() {
 						return err
 					}
 
-					ts := pkt.Time + pkt.CTime
-					var nts []*rtph264.NALUAndTimestamp
+					var outNALUs [][]byte
 					for _, nalu := range nalus {
 						// remove SPS, PPS and AUD, not needed by RTSP / RTMP
 						typ := h264.NALUType(nalu[0] & 0x1F)
@@ -530,13 +525,10 @@ func (c *Client) runPublish() {
 							continue
 						}
 
-						nts = append(nts, &rtph264.NALUAndTimestamp{
-							Timestamp: ts,
-							NALU:      nalu,
-						})
+						outNALUs = append(outNALUs, nalu)
 					}
 
-					frames, err := h264Encoder.Encode(nts)
+					frames, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
 					if err != nil {
 						return fmt.Errorf("ERR while encoding H264: %v", err)
 					}
@@ -550,12 +542,7 @@ func (c *Client) runPublish() {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frames, err := aacEncoder.Encode([]*rtpaac.AUAndTimestamp{
-						{
-							Timestamp: pkt.Time + pkt.CTime,
-							AU:        pkt.Data,
-						},
-					})
+					frames, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
 					if err != nil {
 						return fmt.Errorf("ERR while encoding AAC: %v", err)
 					}

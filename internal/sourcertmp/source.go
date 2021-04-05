@@ -214,16 +214,19 @@ func (s *Source) runInner() bool {
 						return err
 					}
 
-					ts := pkt.Time + pkt.CTime
-					var nts []*rtph264.NALUAndTimestamp
-					for _, nt := range nalus {
-						nts = append(nts, &rtph264.NALUAndTimestamp{
-							Timestamp: ts,
-							NALU:      nt,
-						})
+					var outNALUs [][]byte
+					for _, nalu := range nalus {
+						// remove SPS, PPS and AUD, not needed by RTSP / RTMP
+						typ := h264.NALUType(nalu[0] & 0x1F)
+						switch typ {
+						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+							continue
+						}
+
+						outNALUs = append(outNALUs, nalu)
 					}
 
-					frames, err := h264Encoder.Encode(nts)
+					frames, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
 					if err != nil {
 						return fmt.Errorf("ERR while encoding H264: %v", err)
 					}
@@ -237,12 +240,7 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frames, err := aacEncoder.Encode([]*rtpaac.AUAndTimestamp{
-						{
-							Timestamp: pkt.Time + pkt.CTime,
-							AU:        pkt.Data,
-						},
-					})
+					frames, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
 					if err != nil {
 						return fmt.Errorf("ERR while encoding AAC: %v", err)
 					}
