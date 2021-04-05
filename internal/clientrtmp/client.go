@@ -287,6 +287,7 @@ func (c *Client) runRead() {
 			videoInitialized := false
 			var videoBuf [][]byte
 			var videoStartDTS time.Time
+			var videoLastDTS time.Duration
 
 			for {
 				data, ok := c.ringBuffer.Pull()
@@ -325,7 +326,17 @@ func (c *Client) runRead() {
 					marker := (pair.buf[1] >> 7 & 0x1) > 0
 					if marker {
 						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-						err := c.conn.WriteH264(videoBuf, time.Since(videoStartDTS))
+
+						dts := time.Since(videoStartDTS)
+
+						// avoid duplicate DTS
+						// (RTMP has a resolution of 1ms)
+						if int64(dts/time.Millisecond) <= (int64(videoLastDTS / time.Millisecond)) {
+							dts = videoLastDTS + time.Millisecond
+						}
+						videoLastDTS = dts
+
+						err := c.conn.WriteH264(videoBuf, dts)
 						if err != nil {
 							return err
 						}
