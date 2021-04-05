@@ -325,8 +325,6 @@ func (c *Client) runRead() {
 					// send them together.
 					marker := (pair.buf[1] >> 7 & 0x1) > 0
 					if marker {
-						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-
 						dts := time.Since(videoStartDTS)
 
 						// avoid duplicate DTS
@@ -336,6 +334,7 @@ func (c *Client) runRead() {
 						}
 						videoLastDTS = dts
 
+						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 						err := c.conn.WriteH264(videoBuf, dts)
 						if err != nil {
 							return err
@@ -346,7 +345,9 @@ func (c *Client) runRead() {
 				} else if audioTrack != nil && pair.trackID == audioTrack.ID {
 					aus, pts, err := aacDecoder.Decode(pair.buf)
 					if err != nil {
-						c.log(logger.Warn, "unable to decode audio track: %v", err)
+						if err != rtpaac.ErrMorePacketsNeeded {
+							c.log(logger.Warn, "unable to decode audio track: %v", err)
+						}
 						continue
 					}
 
