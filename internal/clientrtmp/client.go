@@ -169,7 +169,8 @@ func (c *Client) run() {
 		defer onConnectCmd.Close()
 	}
 
-	c.conn.NetConn().SetDeadline(time.Now().Add(c.readTimeout))
+	c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
+	c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 	err := c.conn.ServerHandshake()
 	if err != nil {
 		c.log(logger.Info, "ERR: %s", err)
@@ -302,6 +303,9 @@ func (c *Client) runRead() {
 		<-c.terminate
 		return
 	}
+
+	// disable read deadline
+	c.conn.NetConn().SetReadDeadline(time.Time{})
 
 	writerDone := make(chan error)
 	go func() {
@@ -470,6 +474,9 @@ func (c *Client) runPublish() {
 		<-c.terminate
 		return
 	}
+
+	// disable write deadline
+	c.conn.NetConn().SetWriteDeadline(time.Time{})
 
 	readerDone := make(chan error)
 	go func() {
