@@ -15,12 +15,12 @@ const (
 )
 
 // ReadMetadata extracts track informations from a connection that is publishing.
-func (conn *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
+func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
 
 	md, err := func() (flvio.AMFMap, error) {
-		pkt, err := conn.ReadPacket()
+		pkt, err := c.ReadPacket()
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +111,7 @@ func (conn *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 
 	for {
 		var pkt av.Packet
-		pkt, err = conn.ReadPacket()
+		pkt, err = c.ReadPacket()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -157,8 +157,8 @@ func (conn *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 }
 
 // WriteMetadata writes track informations to a connection that is reading.
-func (conn *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
-	return conn.WritePacket(av.Packet{
+func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
+	err := c.WritePacket(av.Packet{
 		Type: av.Metadata,
 		Data: flvio.FillAMF0ValMalloc(flvio.AMFMap{
 			{
@@ -189,4 +189,52 @@ func (conn *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortspl
 			},
 		}),
 	})
+	if err != nil {
+		return err
+	}
+
+	if videoTrack != nil {
+		sps, pps, err := videoTrack.ExtractDataH264()
+		if err != nil {
+			return err
+		}
+
+		codec := nh264.Codec{
+			SPS: map[int][]byte{
+				0: sps,
+			},
+			PPS: map[int][]byte{
+				0: pps,
+			},
+		}
+		b := make([]byte, 128)
+		var n int
+		codec.ToConfig(b, &n)
+		b = b[:n]
+
+		err = c.WritePacket(av.Packet{
+			Type: av.H264DecoderConfig,
+			Data: b,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	if audioTrack != nil {
+		config, err := audioTrack.ExtractDataAAC()
+		if err != nil {
+			return err
+		}
+
+		err = c.WritePacket(av.Packet{
+			Type: av.AACDecoderConfig,
+			Data: config,
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

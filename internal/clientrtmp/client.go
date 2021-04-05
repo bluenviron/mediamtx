@@ -88,12 +88,8 @@ type Client struct {
 	pathMan             PathMan
 	parent              Parent
 
-	// read mode only
-	h264Decoder *rtph264.Decoder
-	videoTrack  *gortsplib.Track
-	aacDecoder  *rtpaac.Decoder
-	audioTrack  *gortsplib.Track
-	ringBuffer  *ringbuffer.RingBuffer
+	// read mode
+	ringBuffer *ringbuffer.RingBuffer
 
 	// in
 	terminate chan struct{}
@@ -225,10 +221,9 @@ func (c *Client) runRead() {
 	}
 
 	var videoTrack *gortsplib.Track
-	var h264SPS []byte
-	var h264PPS []byte
+	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
-	var aacConfig []byte
+	var aacDecoder *rtpaac.Decoder
 
 	err = func() error {
 		for i, t := range tracks {
@@ -236,25 +231,18 @@ func (c *Client) runRead() {
 				if videoTrack != nil {
 					return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
 				}
-				videoTrack = t
 
-				var err error
-				h264SPS, h264PPS, err = t.ExtractDataH264()
-				if err != nil {
-					return err
-				}
+				videoTrack = t
+				h264Decoder = rtph264.NewDecoder()
 
 			} else if t.IsAAC() {
 				if audioTrack != nil {
 					return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
 				}
-				audioTrack = t
 
-				var err error
-				aacConfig, err = t.ExtractDataAAC()
-				if err != nil {
-					return err
-				}
+				audioTrack = t
+				clockRate, _ := audioTrack.ClockRate()
+				aacDecoder = rtpaac.NewDecoder(clockRate)
 			}
 		}
 
@@ -264,21 +252,6 @@ func (c *Client) runRead() {
 
 		c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 		c.conn.WriteMetadata(videoTrack, audioTrack)
-
-		if videoTrack != nil {
-			c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-			c.conn.WriteH264Config(h264SPS, h264PPS)
-			c.h264Decoder = rtph264.NewDecoder()
-			c.videoTrack = videoTrack
-		}
-
-		if audioTrack != nil {
-			c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-			c.conn.WriteAACConfig(aacConfig)
-			clockRate, _ := audioTrack.ClockRate()
-			c.aacDecoder = rtpaac.NewDecoder(clockRate)
-			c.audioTrack = audioTrack
-		}
 
 		c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
 
@@ -325,8 +298,8 @@ func (c *Client) runRead() {
 
 				now := time.Now()
 
-				if c.videoTrack != nil && pair.trackID == c.videoTrack.ID {
-					nts, err := c.h264Decoder.Decode(pair.buf)
+				if videoTrack != nil && pair.trackID == videoTrack.ID {
+					nts, err := h264Decoder.Decode(pair.buf)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded {
 							c.log(logger.Warn, "unable to decode video track: %v", err)
@@ -356,8 +329,8 @@ func (c *Client) runRead() {
 						videoBuf = append(videoBuf, nt.NALU)
 					}
 
-				} else if c.audioTrack != nil && pair.trackID == c.audioTrack.ID {
-					ats, err := c.aacDecoder.Decode(pair.buf)
+				} else if audioTrack != nil && pair.trackID == audioTrack.ID {
+					ats, err := aacDecoder.Decode(pair.buf)
 					if err != nil {
 						c.log(logger.Warn, "unable to decode audio track: %v", err)
 						continue
