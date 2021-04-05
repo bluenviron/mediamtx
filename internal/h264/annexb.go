@@ -4,93 +4,6 @@ import (
 	"fmt"
 )
 
-func removeAntiCompetition(nalu []byte) []byte {
-	// 0x00 0x00 0x03 0x00 -> 0x00 0x00 0x00
-	// 0x00 0x00 0x03 0x01 -> 0x00 0x00 0x01
-	// 0x00 0x00 0x03 0x02 -> 0x00 0x00 0x02
-	// 0x00 0x00 0x03 0x03 -> 0x00 0x00 0x03
-
-	var ret []byte
-	step := 0
-	start := 0
-
-	for i, b := range nalu {
-		switch step {
-		case 0:
-			if b == 0 {
-				step++
-			}
-
-		case 1:
-			if b == 0 {
-				step++
-			} else {
-				step = 0
-			}
-
-		case 2:
-			if b == 3 {
-				step++
-			} else {
-				step = 0
-			}
-
-		case 3:
-			switch b {
-			case 3, 2, 1, 0:
-				ret = append(ret, nalu[start:i-3]...)
-				ret = append(ret, []byte{0x00, 0x00, b}...)
-				step = 0
-				start = i + 1
-
-			default:
-				step = 0
-			}
-		}
-	}
-
-	ret = append(ret, nalu[start:]...)
-
-	return ret
-}
-
-func addAntiCompetition(dest []byte, nalu []byte) []byte {
-	step := 0
-	start := 0
-
-	for i, b := range nalu {
-		switch step {
-		case 0:
-			if b == 0 {
-				step++
-			}
-
-		case 1:
-			if b == 0 {
-				step++
-			} else {
-				step = 0
-			}
-
-		case 2:
-			switch b {
-			case 3, 2, 1, 0:
-				dest = append(dest, nalu[start:i-2]...)
-				dest = append(dest, []byte{0x00, 0x00, 0x03, b}...)
-				step = 0
-				start = i + 1
-
-			default:
-				step = 0
-			}
-		}
-	}
-
-	dest = append(dest, nalu[start:]...)
-
-	return dest
-}
-
 // DecodeAnnexB decodes NALUs from the Annex-B code stream format.
 func DecodeAnnexB(byts []byte) ([][]byte, error) {
 	bl := len(byts)
@@ -134,7 +47,7 @@ func DecodeAnnexB(byts []byte) ([][]byte, error) {
 				if len(nalu) == 0 {
 					return nil, fmt.Errorf("empty NALU")
 				}
-				ret = append(ret, removeAntiCompetition(nalu))
+				ret = append(ret, nalu)
 				start = i + 1
 			}
 			zeros = 0
@@ -148,7 +61,7 @@ func DecodeAnnexB(byts []byte) ([][]byte, error) {
 	if len(nalu) == 0 {
 		return nil, fmt.Errorf("empty NALU")
 	}
-	ret = append(ret, removeAntiCompetition(nalu))
+	ret = append(ret, nalu)
 
 	return ret, nil
 }
@@ -159,7 +72,7 @@ func EncodeAnnexB(nalus [][]byte) ([]byte, error) {
 
 	for _, nalu := range nalus {
 		ret = append(ret, []byte{0x00, 0x00, 0x00, 0x01}...)
-		ret = addAntiCompetition(ret, nalu)
+		ret = append(ret, nalu...)
 	}
 
 	return ret, nil

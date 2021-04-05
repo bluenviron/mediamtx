@@ -57,7 +57,7 @@ func pathNameAndQuery(inURL *url.URL) (string, url.Values) {
 	return pathName, ur.Query()
 }
 
-type trackIDBufPair struct {
+type trackIDPayloadPair struct {
 	trackID int
 	buf     []byte
 }
@@ -82,8 +82,8 @@ type Client struct {
 	readBufferCount     int
 	runOnConnect        string
 	runOnConnectRestart bool
-	stats               *stats.Stats
 	wg                  *sync.WaitGroup
+	stats               *stats.Stats
 	conn                *rtmp.Conn
 	pathMan             PathMan
 	parent              Parent
@@ -293,8 +293,7 @@ func (c *Client) runRead() {
 				if !ok {
 					return fmt.Errorf("terminated")
 				}
-
-				pair := data.(trackIDBufPair)
+				pair := data.(trackIDPayloadPair)
 
 				now := time.Now()
 
@@ -308,14 +307,22 @@ func (c *Client) runRead() {
 					}
 
 					for _, nt := range nts {
+						// remove SPS, PPS and AUD, not needed by RTMP
+						typ := h264.NALUType(nt.NALU[0] & 0x1F)
+						switch typ {
+						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+							continue
+						}
+
 						if !videoInitialized {
 							videoInitialized = true
 							videoStartDTS = now
 							videoPTS = nt.Timestamp
 						}
 
-						// aggregate NALUs by PTS
-						// this delays the stream by one frame, but is required by RTMP
+						// aggregate NALUs by PTS.
+						// for instance, aggregate a SEI and a IDR.
+						// this delays the stream by one frame, but is required by RTMP.
 						if nt.Timestamp != videoPTS {
 							c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 							err := c.conn.WriteH264(videoBuf, now.Sub(videoStartDTS))
@@ -515,10 +522,17 @@ func (c *Client) runPublish() {
 
 					ts := pkt.Time + pkt.CTime
 					var nts []*rtph264.NALUAndTimestamp
-					for _, nt := range nalus {
+					for _, nalu := range nalus {
+						// remove SPS, PPS and AUD, not needed by RTSP / RTMP
+						typ := h264.NALUType(nalu[0] & 0x1F)
+						switch typ {
+						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+							continue
+						}
+
 						nts = append(nts, &rtph264.NALUAndTimestamp{
 							Timestamp: ts,
-							NALU:      nt,
+							NALU:      nalu,
 						})
 					}
 
@@ -616,8 +630,8 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod,
 }
 
 // OnFrame implements path.Reader.
-func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
-		c.ringBuffer.Push(trackIDBufPair{trackID, buf})
+		c.ringBuffer.Push(trackIDPayloadPair{trackID, payload})
 	}
 }
