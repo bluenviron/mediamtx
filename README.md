@@ -483,7 +483,7 @@ There are multiple ways to monitor the server usage over time:
 * A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
 
   ```
-  wget -qO- localhost:9998
+  wget -qO- localhost:9998/metrics
   ```
 
   Obtaining:
