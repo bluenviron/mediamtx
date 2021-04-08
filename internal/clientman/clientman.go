@@ -1,6 +1,7 @@
 package clientman
 
 import (
+	"net"
 	"sync"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -126,11 +126,11 @@ func (cm *ClientManager) run() {
 		return make(chan *gortsplib.ServerConn)
 	}()
 
-	rtmpAccept := func() chan *rtmp.Conn {
+	rtmpAccept := func() chan net.Conn {
 		if cm.serverRTMP != nil {
 			return cm.serverRTMP.Accept()
 		}
-		return make(chan *rtmp.Conn)
+		return make(chan net.Conn)
 	}()
 
 outer:
@@ -166,7 +166,7 @@ outer:
 				cm)
 			cm.clients[c] = struct{}{}
 
-		case conn := <-rtmpAccept:
+		case nconn := <-rtmpAccept:
 			c := clientrtmp.New(
 				cm.rtspPort,
 				cm.readTimeout,
@@ -176,7 +176,7 @@ outer:
 				cm.runOnConnectRestart,
 				&cm.wg,
 				cm.stats,
-				conn,
+				nconn,
 				cm.pathMan,
 				cm)
 			cm.clients[c] = struct{}{}

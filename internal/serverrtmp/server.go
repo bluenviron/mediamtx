@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
 // Parent is implemented by program.
@@ -22,7 +21,7 @@ type Server struct {
 	closed uint32
 
 	// out
-	accept chan *rtmp.Conn
+	accept chan net.Conn
 	done   chan struct{}
 }
 
@@ -41,7 +40,7 @@ func New(
 	s := &Server{
 		parent: parent,
 		l:      l,
-		accept: make(chan *rtmp.Conn),
+		accept: make(chan net.Conn),
 		done:   make(chan struct{}),
 	}
 
@@ -60,7 +59,7 @@ func (s *Server) log(level logger.Level, format string, args ...interface{}) {
 func (s *Server) Close() {
 	go func() {
 		for co := range s.accept {
-			co.NetConn().Close()
+			co.Close()
 		}
 	}()
 	atomic.StoreUint32(&s.closed, 1)
@@ -81,13 +80,13 @@ func (s *Server) run() {
 			continue
 		}
 
-		s.accept <- rtmp.NewServerConn(nconn)
+		s.accept <- nconn
 	}
 
 	close(s.accept)
 }
 
 // Accept returns a channel to accept incoming connections.
-func (s *Server) Accept() chan *rtmp.Conn {
+func (s *Server) Accept() chan net.Conn {
 	return s.accept
 }

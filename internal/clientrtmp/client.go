@@ -105,7 +105,7 @@ func New(
 	runOnConnectRestart bool,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
-	conn *rtmp.Conn,
+	nconn net.Conn,
 	pathMan PathMan,
 	parent Parent) *Client {
 
@@ -118,7 +118,7 @@ func New(
 		runOnConnectRestart: runOnConnectRestart,
 		wg:                  wg,
 		stats:               stats,
-		conn:                conn,
+		conn:                rtmp.NewServerConn(nconn),
 		pathMan:             pathMan,
 		parent:              parent,
 		terminate:           make(chan struct{}),
