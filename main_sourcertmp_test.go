@@ -35,7 +35,8 @@ func TestSourceRTMP(t *testing.T) {
 
 				time.Sleep(1 * time.Second)
 
-				p, ok := testProgram("paths:\n" +
+				p, ok := testProgram("hlsDisable: yes\n" +
+					"paths:\n" +
 					"  proxied:\n" +
 					"    source: rtmp://" + cnt1.ip() + "/stream/test\n" +
 					"    sourceOnDemand: yes\n")

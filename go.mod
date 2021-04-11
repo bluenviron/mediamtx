@@ -6,6 +6,7 @@ require (
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/aler9/gortsplib v0.0.0-20210417174800-805d578b6c63
+	github.com/asticode/go-astits v0.0.0-00010101000000-000000000000
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -18,3 +19,5 @@ require (
 )
 
 replace github.com/notedit/rtmp => github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927
+
+replace github.com/asticode/go-astits => github.com/aler9/go-astits v0.0.0-20210405093936-0a65b1259eb7

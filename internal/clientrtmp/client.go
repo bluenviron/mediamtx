@@ -191,14 +191,18 @@ func (c *Client) run() {
 
 func (c *Client) runRead() {
 	var path client.Path
-	var tracks gortsplib.Tracks
+	var videoTrack *gortsplib.Track
+	var h264Decoder *rtph264.Decoder
+	var audioTrack *gortsplib.Track
+	var audioClockRate int
+	var aacDecoder *rtpaac.Decoder
 
 	err := func() error {
 		pathName, query := pathNameAndQuery(c.conn.URL())
 
-		resc := make(chan client.SetupPlayRes)
-		c.pathMan.OnClientSetupPlay(client.SetupPlayReq{c, pathName, query, resc}) //nolint:govet
-		res := <-resc
+		sres := make(chan client.SetupPlayRes)
+		c.pathMan.OnClientSetupPlay(client.SetupPlayReq{c, pathName, query, sres}) //nolint:govet
+		res := <-sres
 
 		if res.Err != nil {
 			if _, ok := res.Err.(client.ErrAuthCritical); ok {
@@ -212,27 +216,8 @@ func (c *Client) runRead() {
 		}
 
 		path = res.Path
-		tracks = res.Tracks
 
-		return nil
-	}()
-	if err != nil {
-		c.log(logger.Info, "ERR: %s", err)
-		c.conn.NetConn().Close()
-
-		c.parent.OnClientClose(c)
-		<-c.terminate
-		return
-	}
-
-	var videoTrack *gortsplib.Track
-	var h264Decoder *rtph264.Decoder
-	var audioTrack *gortsplib.Track
-	var audioClockRate int
-	var aacDecoder *rtpaac.Decoder
-
-	err = func() error {
-		for i, t := range tracks {
+		for i, t := range res.Tracks {
 			if t.IsH264() {
 				if videoTrack != nil {
 					return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
@@ -259,29 +244,30 @@ func (c *Client) runRead() {
 		c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 		c.conn.WriteMetadata(videoTrack, audioTrack)
 
-		c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
-
-		resc := make(chan client.PlayRes)
-		path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
-		<-resc
-
-		c.log(logger.Info, "is reading from path '%s'", path.Name())
-
 		return nil
 	}()
 	if err != nil {
 		c.conn.NetConn().Close()
 		c.log(logger.Info, "ERR: %v", err)
 
-		res := make(chan struct{})
-		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
-		<-res
-		path = nil
+		if path != nil {
+			res := make(chan struct{})
+			path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+			<-res
+		}
 
 		c.parent.OnClientClose(c)
 		<-c.terminate
 		return
 	}
+
+	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
+
+	pres := make(chan client.PlayRes)
+	path.OnClientPlay(client.PlayReq{c, pres}) //nolint:govet
+	<-pres
+
+	c.log(logger.Info, "is reading from path '%s'", path.Name())
 
 	// disable read deadline
 	c.conn.NetConn().SetReadDeadline(time.Time{})
@@ -381,7 +367,6 @@ func (c *Client) runRead() {
 		res := make(chan struct{})
 		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
 		<-res
-		path = nil
 
 		c.parent.OnClientClose(c)
 		<-c.terminate
@@ -394,7 +379,6 @@ func (c *Client) runRead() {
 		c.ringBuffer.Close()
 		c.conn.NetConn().Close()
 		<-writerDone
-		path = nil
 	}
 }
 

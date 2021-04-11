@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
 	"github.com/aler9/rtsp-simple-server/internal/rlimit"
+	"github.com/aler9/rtsp-simple-server/internal/serverhls"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -35,6 +36,7 @@ type program struct {
 	serverRTSPPlain *serverrtsp.Server
 	serverRTSPTLS   *serverrtsp.Server
 	serverRTMP      *serverrtmp.Server
+	serverHLS       *serverhls.Server
 	pathMan         *pathman.PathManager
 	clientMan       *clientman.ClientManager
 	confWatcher     *confwatcher.ConfWatcher
@@ -252,6 +254,18 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
+	if !p.conf.HLSDisable {
+		if p.serverHLS == nil {
+			p.serverHLS, err = serverhls.New(
+				p.conf.ListenIP,
+				p.conf.HLSPort,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	if p.pathMan == nil {
 		p.pathMan = pathman.New(
 			p.conf.RTSPPort,
@@ -267,6 +281,8 @@ func (p *program) createResources(initial bool) error {
 
 	if p.clientMan == nil {
 		p.clientMan = clientman.New(
+			p.conf.HLSSegmentCount,
+			p.conf.HLSSegmentDuration,
 			p.conf.RTSPPort,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
@@ -279,6 +295,7 @@ func (p *program) createResources(initial bool) error {
 			p.serverRTSPPlain,
 			p.serverRTSPTLS,
 			p.serverRTMP,
+			p.serverHLS,
 			p)
 	}
 
@@ -347,6 +364,14 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerRTMP = true
 	}
 
+	closeServerHLS := false
+	if newConf == nil ||
+		newConf.HLSDisable != p.conf.HLSDisable ||
+		newConf.ListenIP != p.conf.ListenIP ||
+		newConf.HLSPort != p.conf.HLSPort {
+		closeServerHLS = true
+	}
+
 	closePathMan := false
 	if newConf == nil ||
 		newConf.RTSPPort != p.conf.RTSPPort ||
@@ -365,7 +390,10 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerPlain ||
 		closeServerTLS ||
 		closeServerRTMP ||
+		closeServerHLS ||
 		closePathMan ||
+		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
+		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
 		newConf.RTSPPort != p.conf.RTSPPort ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -389,6 +417,11 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if closePathMan && p.pathMan != nil {
 		p.pathMan.Close()
 		p.pathMan = nil
+	}
+
+	if closeServerHLS && p.serverHLS != nil {
+		p.serverHLS.Close()
+		p.serverHLS = nil
 	}
 
 	if closeServerRTMP && p.serverRTMP != nil {

@@ -56,6 +56,7 @@ func TestClientRTSPPublishRead(t *testing.T) {
 				port = "8554"
 
 				p, ok := testProgram("rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
 					"readTimeout: 20s\n")
 				require.Equal(t, true, ok)
 				defer p.close()
@@ -73,6 +74,7 @@ func TestClientRTSPPublishRead(t *testing.T) {
 				defer os.Remove(serverKeyFpath)
 
 				p, ok := testProgram("rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
 					"readTimeout: 20s\n" +
 					"protocols: [tcp]\n" +
 					"encryption: yes\n" +
@@ -152,6 +154,7 @@ func TestClientRTSPPublishRead(t *testing.T) {
 func TestClientRTSPAuth(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishUser: testuser\n" +
@@ -192,6 +195,7 @@ func TestClientRTSPAuth(t *testing.T) {
 	} {
 		t.Run("read_"+soft, func(t *testing.T) {
 			p, ok := testProgram("rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
 				"paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
@@ -239,6 +243,7 @@ func TestClientRTSPAuth(t *testing.T) {
 
 	t.Run("hashed", func(t *testing.T) {
 		p, ok := testProgram("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    readUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
@@ -294,12 +299,12 @@ func TestClientRTSPAuthFail(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			p, ok := testProgram(
-				"rtmpDisable: yes\n" +
-					"paths:\n" +
-					"  all:\n" +
-					"    publishUser: testuser\n" +
-					"    publishPass: testpass\n")
+			p, ok := testProgram("rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
+				"paths:\n" +
+				"  all:\n" +
+				"    publishUser: testuser\n" +
+				"    publishPass: testpass\n")
 			require.Equal(t, true, ok)
 			defer p.close()
 
@@ -352,12 +357,12 @@ func TestClientRTSPAuthFail(t *testing.T) {
 		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
-			p, ok := testProgram(
-				"rtmpDisable: yes\n" +
-					"paths:\n" +
-					"  all:\n" +
-					"    readUser: testuser\n" +
-					"    readPass: testpass\n")
+			p, ok := testProgram("rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
+				"paths:\n" +
+				"  all:\n" +
+				"    readUser: testuser\n" +
+				"    readPass: testpass\n")
 			require.Equal(t, true, ok)
 			defer p.close()
 
@@ -391,6 +396,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 
 func TestClientRTSPAuthIpFail(t *testing.T) {
 	p, ok := testProgram("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
 		"paths:\n" +
 		"  all:\n" +
 		"    publishIps: [127.0.0.1/32]\n")
@@ -417,6 +423,7 @@ func TestClientRTSPAutomaticProtocol(t *testing.T) {
 	} {
 		t.Run(source, func(t *testing.T) {
 			p, ok := testProgram("rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
 				"protocols: [tcp]\n")
 			require.Equal(t, true, ok)
 			defer p.close()
@@ -517,6 +524,7 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
 		p, ok := testProgram("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
 			"readBufferSize: 4500\n")
 		require.Equal(t, true, ok)
 		defer p.close()
@@ -562,6 +570,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 
 	t.Run("proxy", func(t *testing.T) {
 		p1, ok := testProgram("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
 			"protocols: [tcp]\n" +
 			"readBufferSize: 4500\n")
 		require.Equal(t, true, ok)
@@ -584,6 +593,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		defer source.Close()
 
 		p2, ok := testProgram("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
 			"protocols: [tcp]\n" +
 			"readBufferSize: 4500\n" +
 			"rtspPort: 8555\n" +
@@ -621,7 +631,8 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 }
 
 func TestClientRTSPRTPInfo(t *testing.T) {
-	p, ok := testProgram("rtmpDisable: yes\n")
+	p, ok := testProgram("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 
@@ -727,6 +738,7 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 
 func TestClientRTSPRedirect(t *testing.T) {
 	p1, ok := testProgram("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
 		"paths:\n" +
 		"  path1:\n" +
 		"    source: redirect\n" +
@@ -775,6 +787,7 @@ func TestClientRTSPFallback(t *testing.T) {
 			}()
 
 			p1, ok := testProgram("rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
 				"paths:\n" +
 				"  path1:\n" +
 				"    fallback: " + val + "\n" +
@@ -827,6 +840,7 @@ wait
 		defer os.Remove(doneFile)
 
 		p1, ok := testProgram(fmt.Sprintf("rtmpDisable: yes\n"+
+			"hlsDisable: yes\n"+
 			"paths:\n"+
 			"  all:\n"+
 			"    runOnDemand: %s\n"+
@@ -868,6 +882,7 @@ wait
 		defer os.Remove(doneFile)
 
 		p1, ok := testProgram(fmt.Sprintf("rtmpDisable: yes\n"+
+			"hlsDisable: yes\n"+
 			"paths:\n"+
 			"  all:\n"+
 			"    runOnDemand: %s\n"+
@@ -934,6 +949,7 @@ wait
 		defer os.Remove(doneFile)
 
 		p1, ok := testProgram(fmt.Sprintf("rtmpDisable: yes\n"+
+			"hlsDisable: yes\n"+
 			"paths:\n"+
 			"  all:\n"+
 			"    runOnDemand: %s\n"+
