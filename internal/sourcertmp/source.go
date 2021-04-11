@@ -226,13 +226,13 @@ func (s *Source) runInner() bool {
 						outNALUs = append(outNALUs, nalu)
 					}
 
-					frames, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
+					pkts, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
 					if err != nil {
 						return fmt.Errorf("ERR while encoding H264: %v", err)
 					}
 
-					for _, frame := range frames {
-						onFrame(videoTrack.ID, frame)
+					for _, pkt := range pkts {
+						onFrame(videoTrack.ID, pkt)
 					}
 
 				case av.AAC:
@@ -240,13 +240,13 @@ func (s *Source) runInner() bool {
 						return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 					}
 
-					frames, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
+					pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
 					if err != nil {
 						return fmt.Errorf("ERR while encoding AAC: %v", err)
 					}
 
-					for _, frame := range frames {
-						onFrame(audioTrack.ID, frame)
+					for _, pkt := range pkts {
+						onFrame(audioTrack.ID, pkt)
 					}
 
 				default:

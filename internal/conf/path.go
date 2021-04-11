@@ -80,6 +80,16 @@ type PathConf struct {
 	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride"`
 	Fallback                   string                    `yaml:"fallback"`
 
+	// authentication
+	PublishUser      string        `yaml:"publishUser"`
+	PublishPass      string        `yaml:"publishPass"`
+	PublishIps       []string      `yaml:"publishIps"`
+	PublishIpsParsed []interface{} `yaml:"-" json:"-"`
+	ReadUser         string        `yaml:"readUser"`
+	ReadPass         string        `yaml:"readPass"`
+	ReadIps          []string      `yaml:"readIps"`
+	ReadIpsParsed    []interface{} `yaml:"-" json:"-"`
+
 	// custom commands
 	RunOnInit               string        `yaml:"runOnInit"`
 	RunOnInitRestart        bool          `yaml:"runOnInitRestart"`
@@ -91,16 +101,6 @@ type PathConf struct {
 	RunOnPublishRestart     bool          `yaml:"runOnPublishRestart"`
 	RunOnRead               string        `yaml:"runOnRead"`
 	RunOnReadRestart        bool          `yaml:"runOnReadRestart"`
-
-	// authentication
-	PublishUser      string        `yaml:"publishUser"`
-	PublishPass      string        `yaml:"publishPass"`
-	PublishIps       []string      `yaml:"publishIps"`
-	PublishIpsParsed []interface{} `yaml:"-" json:"-"`
-	ReadUser         string        `yaml:"readUser"`
-	ReadPass         string        `yaml:"readPass"`
-	ReadIps          []string      `yaml:"readIps"`
-	ReadIpsParsed    []interface{} `yaml:"-" json:"-"`
 }
 
 func (pconf *PathConf) fillAndCheck(name string) error {

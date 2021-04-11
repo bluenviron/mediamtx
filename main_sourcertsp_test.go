@@ -25,6 +25,7 @@ func TestSourceRTSP(t *testing.T) {
 			switch source {
 			case "udp", "tcp":
 				p1, ok := testProgram("rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
 					"rtspPort: 8555\n" +
 					"rtpPort: 8100\n" +
 					"rtcpPort: 8101\n" +
@@ -48,6 +49,7 @@ func TestSourceRTSP(t *testing.T) {
 				defer cnt1.close()
 
 				p2, ok := testProgram("rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
 					"paths:\n" +
 					"  proxied:\n" +
 					"    source: rtsp://testuser:testpass@localhost:8555/teststream\n" +
@@ -66,6 +68,7 @@ func TestSourceRTSP(t *testing.T) {
 				defer os.Remove(serverKeyFpath)
 
 				p, ok := testProgram("rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
 					"rtspPort: 8555\n" +
 					"rtpPort: 8100\n" +
 					"rtcpPort: 8101\n" +
@@ -95,6 +98,7 @@ func TestSourceRTSP(t *testing.T) {
 				time.Sleep(1 * time.Second)
 
 				p2, ok := testProgram("rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
 					"paths:\n" +
 					"  proxied:\n" +
 					"    source: rtsps://testuser:testpass@localhost:8555/teststream\n" +
@@ -282,6 +286,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 	}()
 
 	p1, ok := testProgram("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
 		"paths:\n" +
 		"  proxied:\n" +
 		"    source: rtsp://localhost:8555/stream\n" +

@@ -82,6 +82,22 @@ rtmpDisable: no
 rtmpPort: 1935
 
 ###############################################
+# HLS options
+
+# disable support for the HLS protocol.
+hlsDisable: no
+# port of the HLS listener.
+hlsPort: 8888
+# number of HLS segments to generate.
+# increasing segments allows more buffering,
+# decreasing segments decrease latency.
+hlsSegmentCount: 3
+# minimum duration of each segment.
+# the real segment duration is also influenced by the interval of IDR frames
+# (since the server edit the segment duration to include at least one IDR frame).
+hlsSegmentDuration: 1s
+
+###############################################
 # Path options
 
 # these settings are path-dependent.
