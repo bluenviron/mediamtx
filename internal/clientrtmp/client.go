@@ -30,6 +30,11 @@ import (
 
 const (
 	pauseAfterAuthError = 2 * time.Second
+
+	// an offset is needed to
+	// - avoid negative PTS values
+	// - avoid PTS < DTS during startup
+	ptsOffset = 2 * time.Second
 )
 
 func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
@@ -284,10 +289,8 @@ func (c *Client) runRead() {
 	writerDone := make(chan error)
 	go func() {
 		writerDone <- func() error {
-			videoInitialized := false
 			var videoBuf [][]byte
-			var videoStartDTS time.Time
-			var videoLastDTS time.Duration
+			videoDTSEst := h264.NewDTSEstimator()
 
 			for {
 				data, ok := c.ringBuffer.Pull()
@@ -297,17 +300,12 @@ func (c *Client) runRead() {
 				pair := data.(trackIDPayloadPair)
 
 				if videoTrack != nil && pair.trackID == videoTrack.ID {
-					nalus, _, err := h264Decoder.Decode(pair.buf)
+					nalus, pts, err := h264Decoder.Decode(pair.buf)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded {
 							c.log(logger.Warn, "unable to decode video track: %v", err)
 						}
 						continue
-					}
-
-					if !videoInitialized {
-						videoInitialized = true
-						videoStartDTS = time.Now()
 					}
 
 					for _, nalu := range nalus {
@@ -325,20 +323,23 @@ func (c *Client) runRead() {
 					// send them together.
 					marker := (pair.buf[1] >> 7 & 0x1) > 0
 					if marker {
-						dts := time.Since(videoStartDTS)
-
-						// avoid duplicate DTS
-						// (RTMP has a resolution of 1ms)
-						if int64(dts/time.Millisecond) <= (int64(videoLastDTS / time.Millisecond)) {
-							dts = videoLastDTS + time.Millisecond
-						}
-						videoLastDTS = dts
-
-						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-						err := c.conn.WriteH264(videoBuf, dts)
+						data, err := h264.EncodeAVCC(videoBuf)
 						if err != nil {
 							return err
 						}
+
+						dts := videoDTSEst.Feed(pts + ptsOffset)
+						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+						err = c.conn.WritePacket(av.Packet{
+							Type:  av.H264,
+							Data:  data,
+							Time:  dts,
+							CTime: pts + ptsOffset - dts,
+						})
+						if err != nil {
+							return err
+						}
+
 						videoBuf = nil
 					}
 
@@ -352,8 +353,14 @@ func (c *Client) runRead() {
 					}
 
 					for i, au := range aus {
+						auPTS := pts + ptsOffset + time.Duration(i)*1000*time.Second/time.Duration(audioClockRate)
+
 						c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
-						err := c.conn.WriteAAC(au, pts+time.Duration(i)*1000*time.Second/time.Duration(audioClockRate))
+						err := c.conn.WritePacket(av.Packet{
+							Type: av.AAC,
+							Data: au,
+							Time: auPTS,
+						})
 						if err != nil {
 							return err
 						}

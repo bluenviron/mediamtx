@@ -77,11 +77,11 @@ type Client struct {
 	authValidator *auth.Validator
 	authFailures  int
 
-	// read only
+	// read
 	setuppedTracks map[int]*gortsplib.Track
 	onReadCmd      *externalcmd.Cmd
 
-	// publish only
+	// publish
 	sp           *streamproc.StreamProc
 	onPublishCmd *externalcmd.Cmd
 

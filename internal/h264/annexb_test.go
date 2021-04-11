@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var annexBCases = []struct {
+var casesAnnexB = []struct {
 	name   string
 	encin  []byte
 	encout []byte
@@ -66,7 +66,7 @@ var annexBCases = []struct {
 }
 
 func TestAnnexBDecode(t *testing.T) {
-	for _, ca := range annexBCases {
+	for _, ca := range casesAnnexB {
 		t.Run(ca.name, func(t *testing.T) {
 			dec, err := DecodeAnnexB(ca.encin)
 			require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestAnnexBDecode(t *testing.T) {
 }
 
 func TestAnnexBEncode(t *testing.T) {
-	for _, ca := range annexBCases {
+	for _, ca := range casesAnnexB {
 		t.Run(ca.name, func(t *testing.T) {
 			enc, err := EncodeAnnexB(ca.dec)
 			require.NoError(t, err)
