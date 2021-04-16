@@ -66,34 +66,41 @@ func CheckPathName(name string) error {
 
 // PathConf is a path configuration.
 type PathConf struct {
-	Regexp                     *regexp.Regexp            `yaml:"-" json:"-"`
+	Regexp *regexp.Regexp `yaml:"-" json:"-"`
+
+	// source
 	Source                     string                    `yaml:"source"`
 	SourceProtocol             string                    `yaml:"sourceProtocol"`
 	SourceProtocolParsed       *gortsplib.StreamProtocol `yaml:"-" json:"-"`
+	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
 	SourceOnDemand             bool                      `yaml:"sourceOnDemand"`
 	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter"`
 	SourceRedirect             string                    `yaml:"sourceRedirect"`
 	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride"`
 	Fallback                   string                    `yaml:"fallback"`
-	RunOnInit                  string                    `yaml:"runOnInit"`
-	RunOnInitRestart           bool                      `yaml:"runOnInitRestart"`
-	RunOnDemand                string                    `yaml:"runOnDemand"`
-	RunOnDemandRestart         bool                      `yaml:"runOnDemandRestart"`
-	RunOnDemandStartTimeout    time.Duration             `yaml:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter      time.Duration             `yaml:"runOnDemandCloseAfter"`
-	RunOnPublish               string                    `yaml:"runOnPublish"`
-	RunOnPublishRestart        bool                      `yaml:"runOnPublishRestart"`
-	RunOnRead                  string                    `yaml:"runOnRead"`
-	RunOnReadRestart           bool                      `yaml:"runOnReadRestart"`
-	PublishUser                string                    `yaml:"publishUser"`
-	PublishPass                string                    `yaml:"publishPass"`
-	PublishIps                 []string                  `yaml:"publishIps"`
-	PublishIpsParsed           []interface{}             `yaml:"-" json:"-"`
-	ReadUser                   string                    `yaml:"readUser"`
-	ReadPass                   string                    `yaml:"readPass"`
-	ReadIps                    []string                  `yaml:"readIps"`
-	ReadIpsParsed              []interface{}             `yaml:"-" json:"-"`
+
+	// custom commands
+	RunOnInit               string        `yaml:"runOnInit"`
+	RunOnInitRestart        bool          `yaml:"runOnInitRestart"`
+	RunOnDemand             string        `yaml:"runOnDemand"`
+	RunOnDemandRestart      bool          `yaml:"runOnDemandRestart"`
+	RunOnDemandStartTimeout time.Duration `yaml:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter   time.Duration `yaml:"runOnDemandCloseAfter"`
+	RunOnPublish            string        `yaml:"runOnPublish"`
+	RunOnPublishRestart     bool          `yaml:"runOnPublishRestart"`
+	RunOnRead               string        `yaml:"runOnRead"`
+	RunOnReadRestart        bool          `yaml:"runOnReadRestart"`
+
+	// authentication
+	PublishUser      string        `yaml:"publishUser"`
+	PublishPass      string        `yaml:"publishPass"`
+	PublishIps       []string      `yaml:"publishIps"`
+	PublishIpsParsed []interface{} `yaml:"-" json:"-"`
+	ReadUser         string        `yaml:"readUser"`
+	ReadPass         string        `yaml:"readPass"`
+	ReadIps          []string      `yaml:"readIps"`
+	ReadIpsParsed    []interface{} `yaml:"-" json:"-"`
 }
 
 func (pconf *PathConf) fillAndCheck(name string) error {
@@ -161,6 +168,10 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		default:
 			return fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
+		}
+
+		if strings.HasPrefix(pconf.Source, "rtsps://") && pconf.SourceFingerprint == "" {
+			return fmt.Errorf("sourceFingerprint is required with a RTSPS URL")
 		}
 
 	case strings.HasPrefix(pconf.Source, "rtmp://"):

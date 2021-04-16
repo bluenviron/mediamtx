@@ -1,6 +1,11 @@
 package sourcertsp
 
 import (
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
+	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,6 +33,7 @@ type Parent interface {
 type Source struct {
 	ur              string
 	proto           *gortsplib.StreamProtocol
+	fingerprint     string
 	readTimeout     time.Duration
 	writeTimeout    time.Duration
 	readBufferCount int
@@ -41,8 +47,10 @@ type Source struct {
 }
 
 // New allocates a Source.
-func New(ur string,
+func New(
+	ur string,
 	proto *gortsplib.StreamProtocol,
+	fingerprint string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
@@ -53,6 +61,7 @@ func New(ur string,
 	s := &Source{
 		ur:              ur,
 		proto:           proto,
+		fingerprint:     fingerprint,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
@@ -121,7 +130,23 @@ func (s *Source) runInner() bool {
 		defer close(dialDone)
 
 		conf := gortsplib.ClientConf{
-			StreamProtocol:  s.proto,
+			StreamProtocol: s.proto,
+			TLSConfig: &tls.Config{
+				InsecureSkipVerify: true,
+				VerifyConnection: func(cs tls.ConnectionState) error {
+					h := sha256.New()
+					h.Write(cs.PeerCertificates[0].Raw)
+					hstr := hex.EncodeToString(h.Sum(nil))
+					fingerprintLower := strings.ToLower(s.fingerprint)
+
+					if hstr != fingerprintLower {
+						return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
+							fingerprintLower, hstr)
+					}
+
+					return nil
+				},
+			},
 			ReadTimeout:     s.readTimeout,
 			WriteTimeout:    s.writeTimeout,
 			ReadBufferCount: s.readBufferCount,

@@ -406,6 +406,7 @@ func (pa *Path) startExternalSource() {
 		pa.source = sourcertsp.New(
 			pa.conf.Source,
 			pa.conf.SourceProtocolParsed,
+			pa.conf.SourceFingerprint,
 			pa.readTimeout,
 			pa.writeTimeout,
 			pa.readBufferCount,

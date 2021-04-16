@@ -98,6 +98,7 @@ func TestSourceRTSP(t *testing.T) {
 					"paths:\n" +
 					"  proxied:\n" +
 					"    source: rtsps://testuser:testpass@localhost:8555/teststream\n" +
+					"    sourceFingerprint: 33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
 				defer p2.close()

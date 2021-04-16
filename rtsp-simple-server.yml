@@ -60,6 +60,9 @@ rtpPort: 8000
 # port of the UDP/RTCP listener. This is used only if "udp" is in protocols.
 rtcpPort: 8001
 # path to the server key. This is used only if encryption is "strict" or "optional".
+# this can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 serverKey: server.key
 # path to the server certificate. This is used only if encryption is "strict" or "optional".
 serverCert: server.crt
@@ -92,15 +95,22 @@ paths:
     # source of the stream - this can be:
     # * record -> the stream is published by a RTSP or RTMP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
-    # * rtsps://existing-url -> the stream is pulled from another RTSP server
+    # * rtsps://existing-url -> the stream is pulled from another RTSP server, with RTSPS
     # * rtmp://existing-url -> the stream is pulled from a RTMP server
     # * redirect -> the stream is provided by another path or server
     source: record
 
-    # if the source is an RTSP URL, this is the protocol that will be used to
+    # if the source is an RTSP or RTSPS URL, this is the protocol that will be used to
     # pull the stream. available options are "automatic", "udp", "tcp".
     # the tcp protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
+
+    # if the source is an RTSPS URL, the fingerprint of the certificate of the source
+    # must be provided in order to prevent man-in-the-middle attacks.
+    # it can be obtained from the source by running:
+    # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+    # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+    sourceFingerprint:
 
     # if the source is an RTSP or RTMP URL, it will be pulled only when at least
     # one reader is connected, saving bandwidth.

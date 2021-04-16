@@ -149,7 +149,7 @@ The configuration can be changed dinamically when the server is running (hot rel
 
 ### Encryption
 
-Incoming and outgoing streams can be encrypted with TLS (obtaining the RTSPS protocol). A TLS certificate must be installed on the server; if the server is installed on a machine that is publicly accessible from the internet, a certificate can be requested from a Certificate authority by using tools like [Certbot](https://certbot.eff.org/); otherwise, a self-signed certificate can be generated with openSSL:
+Incoming and outgoing streams can be encrypted with TLS (obtaining the RTSPS protocol). A self-signed TLS certificate is needed and can be generated with openSSL:
 
 ```
 openssl genrsa -out server.key 2048
@@ -171,7 +171,7 @@ Streams can then be published and read with the `rtsps` scheme and the `8555` po
 ffmpeg -i rtsps://ip:8555/...
 ```
 
-If the client is _GStreamer_ and the server certificate is self signed, remember to disable the certificate validation:
+If the client is _GStreamer_, disable the certificate validation:
 
 ```
 gst-launch-1.0 rtspsrc location=rtsps://ip:8555/... tls-validation-flags=0
