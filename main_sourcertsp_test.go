@@ -321,4 +321,7 @@ func TestSourceRTSPRTPInfo(t *testing.T) {
 			Timestamp: (*dest.RTPInfo())[1].Timestamp,
 		},
 	}, dest.RTPInfo())
+
+	require.Less(t, uint32(756436454), *(*dest.RTPInfo())[0].Timestamp)
+	require.Less(t, uint32(156457686), *(*dest.RTPInfo())[1].Timestamp)
 }
