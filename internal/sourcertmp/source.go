@@ -193,7 +193,7 @@ func (s *Source) runInner() bool {
 
 			onFrame := func(trackID int, payload []byte) {
 				rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-				res.SP.OnFrame(videoTrack.ID, gortsplib.StreamTypeRTP, payload)
+				res.SP.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
 			}
 
 			for {
