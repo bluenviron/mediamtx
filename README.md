@@ -376,7 +376,7 @@ HLS is a media format that allows to embed live streams into web pages, inside s
 ```yml
 paths:
   all:
-    runOnPublish: ffmpeg -re -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
+    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
     runOnPublishRestart: yes
 ```
 
@@ -387,7 +387,7 @@ The example above makes the assumption that published streams are encoded with H
 ```yml
 paths:
   all:
-    runOnPublish: ffmpeg -re -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:a aac -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
+    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:a aac -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
     runOnPublishRestart: yes
 ```
 
