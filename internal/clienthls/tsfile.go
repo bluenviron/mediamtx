@@ -52,6 +52,10 @@ func newTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *tsFile
 		t.mux.SetPCRPID(257)
 	}
 
+	// write PMT at the beginning of every segment
+	// so no packets are lost
+	t.mux.WriteTables()
+
 	return t
 }
 
