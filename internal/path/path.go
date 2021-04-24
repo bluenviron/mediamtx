@@ -420,6 +420,7 @@ func (pa *Path) startExternalSource() {
 		pa.source = sourcertmp.New(
 			pa.conf.Source,
 			pa.readTimeout,
+			pa.writeTimeout,
 			&pa.sourceWg,
 			pa.stats,
 			pa)

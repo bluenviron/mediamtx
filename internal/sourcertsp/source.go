@@ -121,7 +121,7 @@ func (s *Source) run() {
 }
 
 func (s *Source) runInner() bool {
-	s.log(logger.Info, "connecting")
+	s.log(logger.Debug, "connecting")
 
 	var conn *gortsplib.ClientConn
 	var err error
