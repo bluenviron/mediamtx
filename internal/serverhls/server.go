@@ -110,7 +110,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	res := <-cres
 
 	if res != nil {
-		io.Copy(w, res)
+		buf := make([]byte, 4096)
+		for {
+			n, err := res.Read(buf)
+			if err != nil {
+				return
+			}
+
+			_, err = w.Write(buf[:n])
+			if err != nil {
+				return
+			}
+
+			w.(http.Flusher).Flush()
+		}
 	}
 }
 
