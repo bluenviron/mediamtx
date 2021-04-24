@@ -12,27 +12,19 @@ type multiAccessBufferReader struct {
 }
 
 func (r *multiAccessBufferReader) Read(p []byte) (int, error) {
-	newReadPos := r.readPos + len(p)
+	r.m.mutex.Lock()
+	defer r.m.mutex.Unlock()
 
-	curBuf, err := func() ([]byte, error) {
-		r.m.mutex.Lock()
-		defer r.m.mutex.Unlock()
-
-		if r.m.closed && r.readPos >= r.m.writePos {
-			return nil, io.EOF
-		}
-
-		for !r.m.closed && newReadPos >= r.m.writePos {
-			r.m.cond.Wait()
-		}
-
-		return r.m.buf.Bytes(), nil
-	}()
-	if err != nil {
-		return 0, err
+	if r.m.closed && r.m.writePos == r.readPos {
+		return 0, io.EOF
 	}
 
-	n := copy(p, curBuf[r.readPos:])
+	for !r.m.closed && r.m.writePos == r.readPos {
+		r.m.cond.Wait()
+	}
+
+	buf := r.m.buf.Bytes()
+	n := copy(p, buf[r.readPos:])
 	r.readPos += n
 
 	return n, nil
