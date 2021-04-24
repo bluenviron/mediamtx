@@ -596,7 +596,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			"hlsDisable: yes\n" +
 			"protocols: [tcp]\n" +
 			"readBufferSize: 4500\n" +
-			"rtspPort: 8555\n" +
+			"rtspAddress: :8555\n" +
 			"paths:\n" +
 			"  teststream:\n" +
 			"    source: rtsp://" + ownDockerIP + ":8554/teststream\n" +

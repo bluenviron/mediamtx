@@ -34,13 +34,11 @@ type Metrics struct {
 
 // New allocates a metrics.
 func New(
-	listenIP string,
-	port int,
+	address string,
 	stats *stats.Stats,
 	parent Parent,
 ) (*Metrics, error) {
 
-	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

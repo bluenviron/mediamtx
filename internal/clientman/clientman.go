@@ -36,7 +36,7 @@ type Parent interface {
 type ClientManager struct {
 	hlsSegmentCount     int
 	hlsSegmentDuration  time.Duration
-	rtspPort            int
+	rtspAddress         string
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
 	readBufferCount     int
@@ -67,7 +67,7 @@ type ClientManager struct {
 func New(
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
-	rtspPort int,
+	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
@@ -85,7 +85,7 @@ func New(
 	cm := &ClientManager{
 		hlsSegmentCount:     hlsSegmentCount,
 		hlsSegmentDuration:  hlsSegmentDuration,
-		rtspPort:            rtspPort,
+		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
 		readBufferCount:     readBufferCount,
@@ -159,7 +159,7 @@ outer:
 		case conn := <-tcpAccept:
 			c := clientrtsp.New(
 				false,
-				cm.rtspPort,
+				cm.rtspAddress,
 				cm.readTimeout,
 				cm.runOnConnect,
 				cm.runOnConnectRestart,
@@ -174,7 +174,7 @@ outer:
 		case conn := <-tlsAccept:
 			c := clientrtsp.New(
 				true,
-				cm.rtspPort,
+				cm.rtspAddress,
 				cm.readTimeout,
 				cm.runOnConnect,
 				cm.runOnConnectRestart,
@@ -188,7 +188,7 @@ outer:
 
 		case nconn := <-rtmpAccept:
 			c := clientrtmp.New(
-				cm.rtspPort,
+				cm.rtspAddress,
 				cm.readTimeout,
 				cm.writeTimeout,
 				cm.readBufferCount,

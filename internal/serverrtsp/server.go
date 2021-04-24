@@ -2,7 +2,6 @@ package serverrtsp
 
 import (
 	"crypto/tls"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -31,15 +30,14 @@ type Server struct {
 
 // New allocates a Server.
 func New(
-	listenIP string,
-	port int,
+	address string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
 	readBufferSize int,
 	useUDP bool,
-	rtpPort int,
-	rtcpPort int,
+	rtpAddress string,
+	rtcpAddress string,
 	useTLS bool,
 	serverCert string,
 	serverKey string,
@@ -53,8 +51,8 @@ func New(
 	}
 
 	if useUDP {
-		conf.UDPRTPAddress = listenIP + ":" + strconv.FormatInt(int64(rtpPort), 10)
-		conf.UDPRTCPAddress = listenIP + ":" + strconv.FormatInt(int64(rtcpPort), 10)
+		conf.UDPRTPAddress = rtpAddress
+		conf.UDPRTCPAddress = rtcpAddress
 	}
 
 	if useTLS {
@@ -66,7 +64,6 @@ func New(
 		conf.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 	}
 
-	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
 	srv, err := conf.Serve(address)
 	if err != nil {
 		return nil, err

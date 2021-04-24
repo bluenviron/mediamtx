@@ -53,14 +53,13 @@ type Conf struct {
 	LogDestinations       []string                        `yaml:"logDestinations"`
 	LogDestinationsParsed map[logger.Destination]struct{} `yaml:"-" json:"-"`
 	LogFile               string                          `yaml:"logFile"`
-	ListenIP              string                          `yaml:"listenIP"`
 	ReadTimeout           time.Duration                   `yaml:"readTimeout"`
 	WriteTimeout          time.Duration                   `yaml:"writeTimeout"`
 	ReadBufferCount       int                             `yaml:"readBufferCount"`
 	Metrics               bool                            `yaml:"metrics"`
-	MetricsPort           int                             `yaml:"metricsPort"`
+	MetricsAddress        string                          `yaml:"metricsAddress"`
 	PPROF                 bool                            `yaml:"pprof"`
-	PPROFPort             int                             `yaml:"pprofPort"`
+	PPROFAddress          string                          `yaml:"pprofAddress"`
 	RunOnConnect          string                          `yaml:"runOnConnect"`
 	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart"`
 
@@ -70,10 +69,10 @@ type Conf struct {
 	ProtocolsParsed   map[gortsplib.StreamProtocol]struct{} `yaml:"-" json:"-"`
 	Encryption        string                                `yaml:"encryption"`
 	EncryptionParsed  Encryption                            `yaml:"-" json:"-"`
-	RTSPPort          int                                   `yaml:"rtspPort"`
-	RTSPSPort         int                                   `yaml:"rtspsPort"`
-	RTPPort           int                                   `yaml:"rtpPort"`
-	RTCPPort          int                                   `yaml:"rtcpPort"`
+	RTSPAddress       string                                `yaml:"rtspAddress"`
+	RTSPSAddress      string                                `yaml:"rtspsAddress"`
+	RTPAddress        string                                `yaml:"rtpAddress"`
+	RTCPAddress       string                                `yaml:"rtcpAddress"`
 	ServerKey         string                                `yaml:"serverKey"`
 	ServerCert        string                                `yaml:"serverCert"`
 	AuthMethods       []string                              `yaml:"authMethods"`
@@ -81,12 +80,12 @@ type Conf struct {
 	ReadBufferSize    int                                   `yaml:"readBufferSize"`
 
 	// rtmp
-	RTMPDisable bool `yaml:"rtmpDisable"`
-	RTMPPort    int  `yaml:"rtmpPort"`
+	RTMPDisable bool   `yaml:"rtmpDisable"`
+	RTMPAddress string `yaml:"rtmpAddress"`
 
 	// hls
 	HLSDisable         bool          `yaml:"hlsDisable"`
-	HLSPort            int           `yaml:"hlsPort"`
+	HLSAddress         string        `yaml:"hlsAddress"`
 	HLSSegmentCount    int           `yaml:"hlsSegmentCount"`
 	HLSSegmentDuration time.Duration `yaml:"hlsSegmentDuration"`
 
@@ -145,12 +144,12 @@ func (conf *Conf) fillAndCheck() error {
 		conf.ReadBufferCount = 512
 	}
 
-	if conf.MetricsPort == 0 {
-		conf.MetricsPort = 9998
+	if conf.MetricsAddress == "" {
+		conf.MetricsAddress = ":9998"
 	}
 
-	if conf.PPROFPort == 0 {
-		conf.MetricsPort = 9999
+	if conf.PPROFAddress == "" {
+		conf.MetricsAddress = ":9999"
 	}
 
 	if len(conf.Protocols) == 0 {
@@ -194,23 +193,17 @@ func (conf *Conf) fillAndCheck() error {
 		return fmt.Errorf("unsupported encryption value: '%s'", conf.Encryption)
 	}
 
-	if conf.RTSPPort == 0 {
-		conf.RTSPPort = 8554
+	if conf.RTSPAddress == "" {
+		conf.RTSPAddress = ":8554"
 	}
-	if conf.RTSPSPort == 0 {
-		conf.RTSPSPort = 8555
+	if conf.RTSPSAddress == "" {
+		conf.RTSPSAddress = ":8555"
 	}
-	if conf.RTPPort == 0 {
-		conf.RTPPort = 8000
+	if conf.RTPAddress == "" {
+		conf.RTPAddress = ":8000"
 	}
-	if (conf.RTPPort % 2) != 0 {
-		return fmt.Errorf("rtp port must be even")
-	}
-	if conf.RTCPPort == 0 {
-		conf.RTCPPort = 8001
-	}
-	if conf.RTCPPort != (conf.RTPPort + 1) {
-		return fmt.Errorf("rtcp and rtp ports must be consecutive")
+	if conf.RTCPAddress == "" {
+		conf.RTCPAddress = ":8001"
 	}
 
 	if conf.ServerKey == "" {
@@ -236,12 +229,12 @@ func (conf *Conf) fillAndCheck() error {
 		}
 	}
 
-	if conf.RTMPPort == 0 {
-		conf.RTMPPort = 1935
+	if conf.RTMPAddress == "" {
+		conf.RTMPAddress = ":1935"
 	}
 
-	if conf.HLSPort == 0 {
-		conf.HLSPort = 8888
+	if conf.HLSAddress == "" {
+		conf.HLSAddress = ":8888"
 	}
 	if conf.HLSSegmentCount == 0 {
 		conf.HLSSegmentCount = 5

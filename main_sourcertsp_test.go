@@ -26,9 +26,9 @@ func TestSourceRTSP(t *testing.T) {
 			case "udp", "tcp":
 				p1, ok := testProgram("rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
-					"rtspPort: 8555\n" +
-					"rtpPort: 8100\n" +
-					"rtcpPort: 8101\n" +
+					"rtspAddress: :8555\n" +
+					"rtpAddress: :8100\n" +
+					"rtcpAddress: :8101\n" +
 					"paths:\n" +
 					"  all:\n" +
 					"    readUser: testuser\n" +
@@ -69,9 +69,9 @@ func TestSourceRTSP(t *testing.T) {
 
 				p, ok := testProgram("rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
-					"rtspPort: 8555\n" +
-					"rtpPort: 8100\n" +
-					"rtcpPort: 8101\n" +
+					"rtspAddress: :8555\n" +
+					"rtpAddress: :8100\n" +
+					"rtcpAddress: :8101\n" +
 					"readTimeout: 20s\n" +
 					"protocols: [tcp]\n" +
 					"encryption: yes\n" +

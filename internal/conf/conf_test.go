@@ -36,8 +36,8 @@ func TestEnvironment(t *testing.T) {
 	defer os.Unsetenv("RTSP_RUNONCONNECT")
 
 	// int
-	os.Setenv("RTSP_RTSPPORT", "8555")
-	defer os.Unsetenv("RTSP_RTSPPORT")
+	os.Setenv("RTSP_READBUFFERCOUNT", "3000")
+	defer os.Unsetenv("RTSP_READBUFFERCOUNT")
 
 	// bool
 	os.Setenv("RTSP_METRICS", "yes")
@@ -79,7 +79,7 @@ func TestEnvironment(t *testing.T) {
 
 	require.Equal(t, "test=cmd", conf.RunOnConnect)
 
-	require.Equal(t, 8555, conf.RTSPPort)
+	require.Equal(t, 3000, conf.ReadBufferCount)
 
 	require.Equal(t, true, conf.Metrics)
 

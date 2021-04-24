@@ -127,10 +127,10 @@ There are two ways to change the configuration:
     docker run --rm -it --network=host -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml aler9/rtsp-simple-server
     ```
 
-* By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspPort` parameter can be overridden in the following way:
+* By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
    ```
-   RTSP_RTSPPORT=8555 ./rtsp-simple-server
+   RTSP_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
    ```
 
    Parameters in maps can be overridden by using underscores, in the following way:

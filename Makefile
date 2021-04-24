@@ -84,9 +84,9 @@ endef
 export DOCKERFILE_RUN
 
 define CONFIG_RUN
-#rtspPort: 8555
-#rtpPort: 8002
-#rtcpPort: 8003
+#rtspAddress: :8555
+#rtpAddress: :8002
+#rtcpAddress: :8003
 #metrics: yes
 #pprof: yes
 

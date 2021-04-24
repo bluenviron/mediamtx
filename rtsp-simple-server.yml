@@ -9,8 +9,6 @@ logDestinations: [stdout]
 # if "file" is in logDestinations, this is the file which will receive the logs.
 logFile: rtsp-simple-server.log
 
-# listen IP. If provided, all listeners will listen on this specific IP.
-listenIP:
 # timeout of read operations.
 readTimeout: 10s
 # timeout of write operations.
@@ -22,13 +20,13 @@ readBufferCount: 512
 
 # enable Prometheus-compatible metrics.
 metrics: no
-# port of the metrics listener.
-metricsPort: 9998
+# address of the metrics listener.
+metricsAddress: :9998
 
 # enable pprof-compatible endpoint to monitor performances.
 pprof: no
-# port of the pprof listener.
-pprofPort: 9999
+# address of the pprof listener.
+pprofAddress: :9999
 
 # command to run when a client connects to the server.
 # this is terminated with SIGINT when a client disconnects from the server.
@@ -51,14 +49,14 @@ protocols: [udp, tcp]
 # encrypt handshake and TCP streams with TLS (RTSPS).
 # available values are "no", "strict", "optional".
 encryption: no
-# port of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
-rtspPort: 8554
-# port of the TCP/TLS/RTSPS listener. This is used only if encryption is "strict" or "optional".
-rtspsPort: 8555
-# port of the UDP/RTP listener. This is used only if "udp" is in protocols.
-rtpPort: 8000
-# port of the UDP/RTCP listener. This is used only if "udp" is in protocols.
-rtcpPort: 8001
+# address of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
+rtspAddress: :8554
+# address of the TCP/TLS/RTSPS listener. This is used only if encryption is "strict" or "optional".
+rtspsAddress: :8555
+# address of the UDP/RTP listener. This is used only if "udp" is in protocols.
+rtpAddress: :8000
+# address of the UDP/RTCP listener. This is used only if "udp" is in protocols.
+rtcpAddress: :8001
 # path to the server key. This is used only if encryption is "strict" or "optional".
 # this can be generated with:
 # openssl genrsa -out server.key 2048
@@ -78,16 +76,16 @@ readBufferSize: 2048
 
 # disable support for the RTMP protocol.
 rtmpDisable: no
-# port of the RTMP listener.
-rtmpPort: 1935
+# address of the RTMP listener.
+rtmpAddress: :1935
 
 ###############################################
 # HLS options
 
 # disable support for the HLS protocol.
 hlsDisable: no
-# port of the HLS listener.
-hlsPort: 8888
+# address of the HLS listener.
+hlsAddress: :8888
 # number of HLS segments to generate.
 # increasing segments allows more buffering,
 # decreasing segments decrease latency.

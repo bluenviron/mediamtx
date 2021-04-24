@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"strconv"
 
 	// start pprof
 	_ "net/http/pprof"
@@ -25,11 +24,10 @@ type PPROF struct {
 
 // New allocates a PPROF.
 func New(
-	listenIP string,
-	port int,
+	address string,
 	parent Parent,
 ) (*PPROF, error) {
-	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
+
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

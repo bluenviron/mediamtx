@@ -7,9 +7,9 @@ PROXY_PROTOCOL=tcp
 # source
 
 CONF=""
-CONF="${CONF}rtspPort: 8555\n"
-CONF="${CONF}rtpPort: 8002\n"
-CONF="${CONF}rtcpPort: 8003\n"
+CONF="${CONF}rtspAddress: :8555\n"
+CONF="${CONF}rtpAddress: :8002\n"
+CONF="${CONF}rtcpAddress: :8003\n"
 echo -e "$CONF" > /source.conf
 
 RTSP_RTMPDISABLE=yes /rtsp-simple-server /source.conf &

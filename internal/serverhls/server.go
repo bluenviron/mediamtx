@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -38,11 +37,10 @@ type Server struct {
 
 // New allocates a Server.
 func New(
-	listenIP string,
-	port int,
+	address string,
 	parent Parent,
 ) (*Server, error) {
-	address := listenIP + ":" + strconv.FormatInt(int64(port), 10)
+
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

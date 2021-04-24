@@ -60,7 +60,7 @@ type Parent interface {
 
 // Client is a RTSP client.
 type Client struct {
-	rtspPort            int
+	rtspAddress         string
 	readTimeout         time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
@@ -92,7 +92,7 @@ type Client struct {
 // New allocates a Client.
 func New(
 	isTLS bool,
-	rtspPort int,
+	rtspAddress string,
 	readTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
@@ -104,7 +104,7 @@ func New(
 	parent Parent) *Client {
 
 	c := &Client{
-		rtspPort:            rtspPort,
+		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
@@ -158,9 +158,10 @@ func (c *Client) run() {
 	defer c.log(logger.Info, "disconnected")
 
 	if c.runOnConnect != "" {
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
 			Path: "",
-			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+			Port: port,
 		})
 		defer onConnectCmd.Close()
 	}
@@ -588,9 +589,10 @@ func (c *Client) playStart() client.PlayRes {
 		*c.conn.StreamProtocol())
 
 	if c.path.Conf().RunOnRead != "" {
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		c.onReadCmd = externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
 			Path: c.path.Name(),
-			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+			Port: port,
 		})
 	}
 
@@ -628,9 +630,10 @@ func (c *Client) recordStart() error {
 		*c.conn.StreamProtocol())
 
 	if c.path.Conf().RunOnPublish != "" {
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		c.onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
 			Path: c.path.Name(),
-			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+			Port: port,
 		})
 	}
 

@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -81,7 +80,7 @@ type Parent interface {
 
 // Client is a RTMP client.
 type Client struct {
-	rtspPort            int
+	rtspAddress         string
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
 	readBufferCount     int
@@ -102,7 +101,7 @@ type Client struct {
 
 // New allocates a Client.
 func New(
-	rtspPort int,
+	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
@@ -115,7 +114,7 @@ func New(
 	parent Parent) *Client {
 
 	c := &Client{
-		rtspPort:            rtspPort,
+		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
 		readBufferCount:     readBufferCount,
@@ -163,9 +162,10 @@ func (c *Client) run() {
 	defer c.log(logger.Info, "disconnected")
 
 	if c.runOnConnect != "" {
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
 			Path: "",
-			Port: strconv.FormatInt(int64(c.rtspPort), 10),
+			Port: port,
 		})
 		defer onConnectCmd.Close()
 	}
@@ -480,10 +480,11 @@ func (c *Client) runPublish() {
 
 			var onPublishCmd *externalcmd.Cmd
 			if path.Conf().RunOnPublish != "" {
+				_, port, _ := net.SplitHostPort(c.rtspAddress)
 				onPublishCmd = externalcmd.New(path.Conf().RunOnPublish,
 					path.Conf().RunOnPublishRestart, externalcmd.Environment{
 						Path: path.Name(),
-						Port: strconv.FormatInt(int64(c.rtspPort), 10),
+						Port: port,
 					})
 			}
 

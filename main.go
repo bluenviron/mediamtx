@@ -171,8 +171,7 @@ func (p *program) createResources(initial bool) error {
 	if p.conf.Metrics {
 		if p.metrics == nil {
 			p.metrics, err = metrics.New(
-				p.conf.ListenIP,
-				p.conf.MetricsPort,
+				p.conf.MetricsAddress,
 				p.stats,
 				p)
 			if err != nil {
@@ -184,8 +183,7 @@ func (p *program) createResources(initial bool) error {
 	if p.conf.PPROF {
 		if p.pprof == nil {
 			p.pprof, err = pprof.New(
-				p.conf.ListenIP,
-				p.conf.PPROFPort,
+				p.conf.PPROFAddress,
 				p)
 			if err != nil {
 				return err
@@ -199,15 +197,14 @@ func (p *program) createResources(initial bool) error {
 		if p.serverRTSPPlain == nil {
 			_, useUDP := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]
 			p.serverRTSPPlain, err = serverrtsp.New(
-				p.conf.ListenIP,
-				p.conf.RTSPPort,
+				p.conf.RTSPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
 				p.conf.ReadBufferSize,
 				useUDP,
-				p.conf.RTPPort,
-				p.conf.RTCPPort,
+				p.conf.RTPAddress,
+				p.conf.RTCPAddress,
 				false,
 				"",
 				"",
@@ -223,15 +220,14 @@ func (p *program) createResources(initial bool) error {
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPTLS == nil {
 			p.serverRTSPTLS, err = serverrtsp.New(
-				p.conf.ListenIP,
-				p.conf.RTSPSPort,
+				p.conf.RTSPSAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
 				p.conf.ReadBufferSize,
 				false,
-				0,
-				0,
+				"",
+				"",
 				true,
 				p.conf.ServerCert,
 				p.conf.ServerKey,
@@ -245,8 +241,7 @@ func (p *program) createResources(initial bool) error {
 	if !p.conf.RTMPDisable {
 		if p.serverRTMP == nil {
 			p.serverRTMP, err = serverrtmp.New(
-				p.conf.ListenIP,
-				p.conf.RTMPPort,
+				p.conf.RTMPAddress,
 				p)
 			if err != nil {
 				return err
@@ -257,8 +252,7 @@ func (p *program) createResources(initial bool) error {
 	if !p.conf.HLSDisable {
 		if p.serverHLS == nil {
 			p.serverHLS, err = serverhls.New(
-				p.conf.ListenIP,
-				p.conf.HLSPort,
+				p.conf.HLSAddress,
 				p)
 			if err != nil {
 				return err
@@ -268,7 +262,7 @@ func (p *program) createResources(initial bool) error {
 
 	if p.pathMan == nil {
 		p.pathMan = pathman.New(
-			p.conf.RTSPPort,
+			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
@@ -283,7 +277,7 @@ func (p *program) createResources(initial bool) error {
 		p.clientMan = clientman.New(
 			p.conf.HLSSegmentCount,
 			p.conf.HLSSegmentDuration,
-			p.conf.RTSPPort,
+			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
@@ -313,16 +307,14 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeMetrics := false
 	if newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
-		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.MetricsPort != p.conf.MetricsPort {
+		newConf.MetricsAddress != p.conf.MetricsAddress {
 		closeMetrics = true
 	}
 
 	closePPROF := false
 	if newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
-		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.PPROFPort != p.conf.PPROFPort {
+		newConf.PPROFAddress != p.conf.PPROFAddress {
 		closePPROF = true
 	}
 
@@ -330,14 +322,13 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
-		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.RTSPPort != p.conf.RTSPPort ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
-		newConf.RTPPort != p.conf.RTPPort ||
-		newConf.RTCPPort != p.conf.RTCPPort {
+		newConf.RTPAddress != p.conf.RTPAddress ||
+		newConf.RTCPAddress != p.conf.RTCPAddress {
 		closeServerPlain = true
 	}
 
@@ -345,8 +336,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
-		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.RTSPSPort != p.conf.RTSPSPort ||
+		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -358,8 +348,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeServerRTMP := false
 	if newConf == nil ||
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
-		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.RTMPPort != p.conf.RTMPPort ||
+		newConf.RTMPAddress != p.conf.RTMPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout {
 		closeServerRTMP = true
 	}
@@ -367,14 +356,13 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeServerHLS := false
 	if newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
-		newConf.ListenIP != p.conf.ListenIP ||
-		newConf.HLSPort != p.conf.HLSPort {
+		newConf.HLSAddress != p.conf.HLSAddress {
 		closeServerHLS = true
 	}
 
 	closePathMan := false
 	if newConf == nil ||
-		newConf.RTSPPort != p.conf.RTSPPort ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -394,7 +382,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closePathMan ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
-		newConf.RTSPPort != p.conf.RTSPPort ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||

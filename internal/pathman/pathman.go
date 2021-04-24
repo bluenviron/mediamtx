@@ -21,7 +21,7 @@ type Parent interface {
 
 // PathManager is a path.Path manager.
 type PathManager struct {
-	rtspPort        int
+	rtspAddress     string
 	readTimeout     time.Duration
 	writeTimeout    time.Duration
 	readBufferCount int
@@ -49,7 +49,7 @@ type PathManager struct {
 
 // New allocates a PathManager.
 func New(
-	rtspPort int,
+	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
@@ -60,7 +60,7 @@ func New(
 	parent Parent) *PathManager {
 
 	pm := &PathManager{
-		rtspPort:        rtspPort,
+		rtspAddress:     rtspAddress,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
@@ -280,7 +280,7 @@ outer:
 
 func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) {
 	pm.paths[name] = path.New(
-		pm.rtspPort,
+		pm.rtspAddress,
 		pm.readTimeout,
 		pm.writeTimeout,
 		pm.readBufferCount,
