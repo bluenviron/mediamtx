@@ -295,7 +295,7 @@ func (c *Client) runRead() {
 					}
 
 					for _, nalu := range nalus {
-						// remove SPS, PPS and AUD, not needed by RTMP
+						// remove SPS, PPS and AUD, not needed by RTSP
 						typ := h264.NALUType(nalu[0] & 0x1F)
 						switch typ {
 						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
@@ -521,8 +521,9 @@ func (c *Client) runPublish() {
 					}
 
 					var outNALUs [][]byte
+
 					for _, nalu := range nalus {
-						// remove SPS, PPS and AUD, not needed by RTSP / RTMP
+						// remove SPS, PPS and AUD, not needed by RTSP
 						typ := h264.NALUType(nalu[0] & 0x1F)
 						switch typ {
 						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
@@ -530,6 +531,10 @@ func (c *Client) runPublish() {
 						}
 
 						outNALUs = append(outNALUs, nalu)
+					}
+
+					if len(outNALUs) == 0 {
+						continue
 					}
 
 					frames, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
