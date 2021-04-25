@@ -72,7 +72,7 @@ func New(
 		terminate:       make(chan struct{}),
 	}
 
-	atomic.AddInt64(s.stats.CountSourcesRtsp, +1)
+	atomic.AddInt64(s.stats.CountSourcesRTSP, +1)
 	s.log(logger.Info, "started")
 
 	s.wg.Add(1)
@@ -82,7 +82,7 @@ func New(
 
 // Close closes a Source.
 func (s *Source) Close() {
-	atomic.AddInt64(s.stats.CountSourcesRtsp, -1)
+	atomic.AddInt64(s.stats.CountSourcesRTSP, -1)
 	s.log(logger.Info, "stopped")
 	close(s.terminate)
 }

@@ -12,10 +12,10 @@ type Stats struct {
 	CountClients            *int64
 	CountPublishers         *int64
 	CountReaders            *int64
-	CountSourcesRtsp        *int64
-	CountSourcesRtspRunning *int64
-	CountSourcesRtmp        *int64
-	CountSourcesRtmpRunning *int64
+	CountSourcesRTSP        *int64
+	CountSourcesRTSPRunning *int64
+	CountSourcesRTMP        *int64
+	CountSourcesRTMPRunning *int64
 }
 
 // New allocates a Stats.
@@ -24,10 +24,10 @@ func New() *Stats {
 		CountClients:            ptrInt64(),
 		CountPublishers:         ptrInt64(),
 		CountReaders:            ptrInt64(),
-		CountSourcesRtsp:        ptrInt64(),
-		CountSourcesRtspRunning: ptrInt64(),
-		CountSourcesRtmp:        ptrInt64(),
-		CountSourcesRtmpRunning: ptrInt64(),
+		CountSourcesRTSP:        ptrInt64(),
+		CountSourcesRTSPRunning: ptrInt64(),
+		CountSourcesRTMP:        ptrInt64(),
+		CountSourcesRTMPRunning: ptrInt64(),
 	}
 }
 
