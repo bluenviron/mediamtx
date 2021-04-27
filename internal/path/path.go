@@ -11,10 +11,10 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertmp"
 	"github.com/aler9/rtsp-simple-server/internal/sourcertsp"
@@ -70,10 +70,10 @@ type Path struct {
 	stats           *stats.Stats
 	parent          Parent
 
-	clients                      map[client.Client]clientState
-	clientsWg                    sync.WaitGroup
-	describeRequests             []client.DescribeReq
-	setupPlayRequests            []client.SetupPlayReq
+	readPublishers               map[readpublisher.ReadPublisher]clientState
+	readPublishersWg             sync.WaitGroup
+	describeRequests             []readpublisher.DescribeReq
+	setupPlayRequests            []readpublisher.SetupPlayReq
 	source                       source.Source
 	sourceTracks                 gortsplib.Tracks
 	sp                           *streamproc.StreamProc
@@ -92,13 +92,13 @@ type Path struct {
 	// in
 	extSourceSetReady    chan source.ExtSetReadyReq
 	extSourceSetNotReady chan source.ExtSetNotReadyReq
-	clientDescribe       chan client.DescribeReq
-	clientSetupPlay      chan client.SetupPlayReq
-	clientAnnounce       chan client.AnnounceReq
-	clientPlay           chan client.PlayReq
-	clientRecord         chan client.RecordReq
-	clientPause          chan client.PauseReq
-	clientRemove         chan client.RemoveReq
+	clientDescribe       chan readpublisher.DescribeReq
+	clientSetupPlay      chan readpublisher.SetupPlayReq
+	clientAnnounce       chan readpublisher.AnnounceReq
+	clientPlay           chan readpublisher.PlayReq
+	clientRecord         chan readpublisher.RecordReq
+	clientPause          chan readpublisher.PauseReq
+	clientRemove         chan readpublisher.RemoveReq
 	terminate            chan struct{}
 }
 
@@ -128,7 +128,7 @@ func New(
 		wg:                    wg,
 		stats:                 stats,
 		parent:                parent,
-		clients:               make(map[client.Client]clientState),
+		readPublishers:        make(map[readpublisher.ReadPublisher]clientState),
 		readers:               newReadersMap(),
 		describeTimer:         newEmptyTimer(),
 		sourceCloseTimer:      newEmptyTimer(),
@@ -136,13 +136,13 @@ func New(
 		closeTimer:            newEmptyTimer(),
 		extSourceSetReady:     make(chan source.ExtSetReadyReq),
 		extSourceSetNotReady:  make(chan source.ExtSetNotReadyReq),
-		clientDescribe:        make(chan client.DescribeReq),
-		clientSetupPlay:       make(chan client.SetupPlayReq),
-		clientAnnounce:        make(chan client.AnnounceReq),
-		clientPlay:            make(chan client.PlayReq),
-		clientRecord:          make(chan client.RecordReq),
-		clientPause:           make(chan client.PauseReq),
-		clientRemove:          make(chan client.RemoveReq),
+		clientDescribe:        make(chan readpublisher.DescribeReq),
+		clientSetupPlay:       make(chan readpublisher.SetupPlayReq),
+		clientAnnounce:        make(chan readpublisher.AnnounceReq),
+		clientPlay:            make(chan readpublisher.PlayReq),
+		clientRecord:          make(chan readpublisher.RecordReq),
+		clientPause:           make(chan readpublisher.PauseReq),
+		clientRemove:          make(chan readpublisher.RemoveReq),
 		terminate:             make(chan struct{}),
 	}
 
@@ -186,16 +186,16 @@ outer:
 		select {
 		case <-pa.describeTimer.C:
 			for _, req := range pa.describeRequests {
-				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
 			}
 			pa.describeRequests = nil
 
 			for _, req := range pa.setupPlayRequests {
-				req.Res <- client.SetupPlayRes{nil, nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
 			}
 			pa.setupPlayRequests = nil
 
-			// set state after removeClient(), so schedule* works once
+			// set state after removeReadPublisher(), so schedule* works once
 			pa.sourceState = sourceStateNotReady
 
 			pa.scheduleSourceClose()
@@ -234,35 +234,35 @@ outer:
 			close(req.Res)
 
 		case req := <-pa.clientDescribe:
-			pa.onClientDescribe(req)
+			pa.onReadPublisherDescribe(req)
 
 		case req := <-pa.clientSetupPlay:
-			pa.onClientSetupPlay(req)
+			pa.onReadPublisherSetupPlay(req)
 
 		case req := <-pa.clientAnnounce:
-			pa.onClientAnnounce(req)
+			pa.onReadPublisherAnnounce(req)
 
 		case req := <-pa.clientPlay:
-			pa.onClientPlay(req)
+			pa.onReadPublisherPlay(req)
 
 		case req := <-pa.clientRecord:
-			pa.onClientRecord(req)
+			pa.onReadPublisherRecord(req)
 
 		case req := <-pa.clientPause:
-			pa.onClientPause(req)
+			pa.onReadPublisherPause(req)
 
 		case req := <-pa.clientRemove:
-			if _, ok := pa.clients[req.Client]; !ok {
+			if _, ok := pa.readPublishers[req.ReadPublisher]; !ok {
 				close(req.Res)
 				continue
 			}
 
-			if pa.clients[req.Client] != clientStatePreRemove {
-				pa.removeClient(req.Client)
+			if pa.readPublishers[req.ReadPublisher] != clientStatePreRemove {
+				pa.removeReadPublisher(req.ReadPublisher)
 			}
 
-			delete(pa.clients, req.Client)
-			pa.clientsWg.Done()
+			delete(pa.readPublishers, req.ReadPublisher)
+			pa.readPublishersWg.Done()
 			close(req.Res)
 
 		case <-pa.terminate:
@@ -292,14 +292,14 @@ outer:
 	}
 
 	for _, req := range pa.describeRequests {
-		req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 	}
 
 	for _, req := range pa.setupPlayRequests {
-		req.Res <- client.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
 	}
 
-	for c, state := range pa.clients {
+	for c, state := range pa.readPublishers {
 		if state != clientStatePreRemove {
 			switch state {
 			case clientStatePlay:
@@ -312,7 +312,7 @@ outer:
 			c.CloseRequest()
 		}
 	}
-	pa.clientsWg.Wait()
+	pa.readPublishersWg.Wait()
 
 	close(pa.extSourceSetReady)
 	close(pa.extSourceSetNotReady)
@@ -345,19 +345,19 @@ func (pa *Path) exhaustChannels() {
 				if !ok {
 					return
 				}
-				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientSetupPlay:
 				if !ok {
 					return
 				}
-				req.Res <- client.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientAnnounce:
 				if !ok {
 					return
 				}
-				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pa.clientPlay:
 				if !ok {
@@ -382,12 +382,12 @@ func (pa *Path) exhaustChannels() {
 					return
 				}
 
-				if _, ok := pa.clients[req.Client]; !ok {
+				if _, ok := pa.readPublishers[req.ReadPublisher]; !ok {
 					close(req.Res)
 					continue
 				}
 
-				pa.clientsWg.Done()
+				pa.readPublishersWg.Done()
 				close(req.Res)
 			}
 		}
@@ -426,8 +426,8 @@ func (pa *Path) startExternalSource() {
 	}
 }
 
-func (pa *Path) hasClients() bool {
-	for _, state := range pa.clients {
+func (pa *Path) hasReadPublishers() bool {
+	for _, state := range pa.readPublishers {
 		if state != clientStatePreRemove {
 			return true
 		}
@@ -435,8 +435,8 @@ func (pa *Path) hasClients() bool {
 	return false
 }
 
-func (pa *Path) hasClientsNotSources() bool {
-	for c, state := range pa.clients {
+func (pa *Path) hasReadPublishersNotSources() bool {
+	for c, state := range pa.readPublishers {
 		if state != clientStatePreRemove && c != pa.source {
 			return true
 		}
@@ -444,14 +444,14 @@ func (pa *Path) hasClientsNotSources() bool {
 	return false
 }
 
-func (pa *Path) addClient(c client.Client, state clientState) {
-	pa.clients[c] = state
-	pa.clientsWg.Add(1)
+func (pa *Path) addReadPublisher(c readpublisher.ReadPublisher, state clientState) {
+	pa.readPublishers[c] = state
+	pa.readPublishersWg.Add(1)
 }
 
-func (pa *Path) removeClient(c client.Client) {
-	state := pa.clients[c]
-	pa.clients[c] = clientStatePreRemove
+func (pa *Path) removeReadPublisher(c readpublisher.ReadPublisher) {
+	state := pa.readPublishers[c]
+	pa.readPublishers[c] = clientStatePreRemove
 
 	switch state {
 	case clientStatePlay:
@@ -466,10 +466,10 @@ func (pa *Path) removeClient(c client.Client) {
 	if pa.source == c {
 		pa.source = nil
 
-		// close all clients that are reading or waiting to read
-		for oc, state := range pa.clients {
+		// close all readPublishers that are reading or waiting to read
+		for oc, state := range pa.readPublishers {
 			if state != clientStatePreRemove {
-				pa.removeClient(oc)
+				pa.removeReadPublisher(oc)
 				oc.CloseRequest()
 			}
 		}
@@ -489,12 +489,12 @@ func (pa *Path) onSourceSetReady() {
 	pa.sourceState = sourceStateReady
 
 	for _, req := range pa.describeRequests {
-		req.Res <- client.DescribeRes{pa.sourceTracks.Write(), "", nil} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{pa.sourceTracks.Write(), "", nil} //nolint:govet
 	}
 	pa.describeRequests = nil
 
 	for _, req := range pa.setupPlayRequests {
-		pa.onClientSetupPlayPost(req)
+		pa.onReadPublisherSetupPlayPost(req)
 	}
 	pa.setupPlayRequests = nil
 
@@ -506,10 +506,10 @@ func (pa *Path) onSourceSetReady() {
 func (pa *Path) onSourceSetNotReady() {
 	pa.sourceState = sourceStateNotReady
 
-	// close all clients that are reading or waiting to read
-	for c, state := range pa.clients {
+	// close all readPublishers that are reading or waiting to read
+	for c, state := range pa.readPublishers {
 		if c != pa.source && state != clientStatePreRemove {
-			pa.removeClient(c)
+			pa.removeReadPublisher(c)
 			c.CloseRequest()
 		}
 	}
@@ -556,9 +556,9 @@ func (pa *Path) fixedPublisherStart() {
 	}
 }
 
-func (pa *Path) onClientDescribe(req client.DescribeReq) {
-	if _, ok := pa.clients[req.Client]; ok {
-		req.Res <- client.DescribeRes{nil, "", fmt.Errorf("already subscribed")} //nolint:govet
+func (pa *Path) onReadPublisherDescribe(req readpublisher.DescribeReq) {
+	if _, ok := pa.readPublishers[req.ReadPublisher]; ok {
+		req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("already subscribed")} //nolint:govet
 		return
 	}
 
@@ -566,13 +566,13 @@ func (pa *Path) onClientDescribe(req client.DescribeReq) {
 	pa.scheduleClose()
 
 	if _, ok := pa.source.(*sourceRedirect); ok {
-		req.Res <- client.DescribeRes{nil, pa.conf.SourceRedirect, nil} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{nil, pa.conf.SourceRedirect, nil} //nolint:govet
 		return
 	}
 
 	switch pa.sourceState {
 	case sourceStateReady:
-		req.Res <- client.DescribeRes{pa.sourceTracks.Write(), "", nil} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{pa.sourceTracks.Write(), "", nil} //nolint:govet
 		return
 
 	case sourceStateWaitingDescribe:
@@ -593,22 +593,22 @@ func (pa *Path) onClientDescribe(req client.DescribeReq) {
 				}
 				return pa.conf.Fallback
 			}()
-			req.Res <- client.DescribeRes{nil, fallbackURL, nil} //nolint:govet
+			req.Res <- readpublisher.DescribeRes{nil, fallbackURL, nil} //nolint:govet
 			return
 		}
 
-		req.Res <- client.DescribeRes{nil, "", client.ErrNoOnePublishing{pa.name}} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{nil, "", readpublisher.ErrNoOnePublishing{pa.name}} //nolint:govet
 		return
 	}
 }
 
-func (pa *Path) onClientSetupPlay(req client.SetupPlayReq) {
+func (pa *Path) onReadPublisherSetupPlay(req readpublisher.SetupPlayReq) {
 	pa.fixedPublisherStart()
 	pa.scheduleClose()
 
 	switch pa.sourceState {
 	case sourceStateReady:
-		pa.onClientSetupPlayPost(req)
+		pa.onReadPublisherSetupPlayPost(req)
 		return
 
 	case sourceStateWaitingDescribe:
@@ -616,13 +616,13 @@ func (pa *Path) onClientSetupPlay(req client.SetupPlayReq) {
 		return
 
 	case sourceStateNotReady:
-		req.Res <- client.SetupPlayRes{nil, nil, client.ErrNoOnePublishing{pa.name}} //nolint:govet
+		req.Res <- readpublisher.SetupPlayRes{nil, nil, readpublisher.ErrNoOnePublishing{pa.name}} //nolint:govet
 		return
 	}
 }
 
-func (pa *Path) onClientSetupPlayPost(req client.SetupPlayReq) {
-	if _, ok := pa.clients[req.Client]; !ok {
+func (pa *Path) onReadPublisherSetupPlayPost(req readpublisher.SetupPlayReq) {
+	if _, ok := pa.readPublishers[req.ReadPublisher]; !ok {
 		// prevent on-demand source from closing
 		if pa.sourceCloseTimerStarted {
 			pa.sourceCloseTimer = newEmptyTimer()
@@ -635,40 +635,40 @@ func (pa *Path) onClientSetupPlayPost(req client.SetupPlayReq) {
 			pa.runOnDemandCloseTimerStarted = false
 		}
 
-		pa.addClient(req.Client, clientStatePrePlay)
+		pa.addReadPublisher(req.ReadPublisher, clientStatePrePlay)
 	}
 
-	req.Res <- client.SetupPlayRes{pa, pa.sourceTracks, nil} //nolint:govet
+	req.Res <- readpublisher.SetupPlayRes{pa, pa.sourceTracks, nil} //nolint:govet
 }
 
-func (pa *Path) onClientPlay(req client.PlayReq) {
+func (pa *Path) onReadPublisherPlay(req readpublisher.PlayReq) {
 	atomic.AddInt64(pa.stats.CountReaders, 1)
-	pa.clients[req.Client] = clientStatePlay
-	pa.readers.add(req.Client)
+	pa.readPublishers[req.ReadPublisher] = clientStatePlay
+	pa.readers.add(req.ReadPublisher)
 
-	req.Res <- client.PlayRes{TrackInfos: pa.sp.TrackInfos()}
+	req.Res <- readpublisher.PlayRes{TrackInfos: pa.sp.TrackInfos()}
 }
 
-func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
-	if _, ok := pa.clients[req.Client]; ok {
-		req.Res <- client.AnnounceRes{nil, fmt.Errorf("already publishing or reading")} //nolint:govet
+func (pa *Path) onReadPublisherAnnounce(req readpublisher.AnnounceReq) {
+	if _, ok := pa.readPublishers[req.ReadPublisher]; ok {
+		req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("already publishing or reading")} //nolint:govet
 		return
 	}
 
 	if pa.hasExternalSource() {
-		req.Res <- client.AnnounceRes{nil, fmt.Errorf("path '%s' is assigned to an external source", pa.name)} //nolint:govet
+		req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("path '%s' is assigned to an external source", pa.name)} //nolint:govet
 		return
 	}
 
 	if pa.source != nil {
 		if pa.conf.DisablePublisherOverride {
-			req.Res <- client.AnnounceRes{nil, fmt.Errorf("another client is already publishing on path '%s'", pa.name)} //nolint:govet
+			req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("another client is already publishing on path '%s'", pa.name)} //nolint:govet
 			return
 		}
 
 		pa.Log(logger.Info, "disconnecting existing publisher")
-		curPublisher := pa.source.(client.Client)
-		pa.removeClient(curPublisher)
+		curPublisher := pa.source.(readpublisher.ReadPublisher)
+		pa.removeReadPublisher(curPublisher)
 		curPublisher.CloseRequest()
 
 		// prevent path closure
@@ -679,30 +679,30 @@ func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
 		}
 	}
 
-	pa.addClient(req.Client, clientStatePreRecord)
+	pa.addReadPublisher(req.ReadPublisher, clientStatePreRecord)
 
-	pa.source = req.Client
+	pa.source = req.ReadPublisher
 	pa.sourceTracks = req.Tracks
-	req.Res <- client.AnnounceRes{pa, nil} //nolint:govet
+	req.Res <- readpublisher.AnnounceRes{pa, nil} //nolint:govet
 }
 
-func (pa *Path) onClientRecord(req client.RecordReq) {
-	if state, ok := pa.clients[req.Client]; !ok || state != clientStatePreRecord {
-		req.Res <- client.RecordRes{SP: nil, Err: fmt.Errorf("not recording anymore")}
+func (pa *Path) onReadPublisherRecord(req readpublisher.RecordReq) {
+	if state, ok := pa.readPublishers[req.ReadPublisher]; !ok || state != clientStatePreRecord {
+		req.Res <- readpublisher.RecordRes{SP: nil, Err: fmt.Errorf("not recording anymore")}
 		return
 	}
 
 	atomic.AddInt64(pa.stats.CountPublishers, 1)
-	pa.clients[req.Client] = clientStateRecord
+	pa.readPublishers[req.ReadPublisher] = clientStateRecord
 	pa.onSourceSetReady()
 
 	pa.sp = streamproc.New(pa, len(pa.sourceTracks))
 
-	req.Res <- client.RecordRes{SP: pa.sp, Err: nil}
+	req.Res <- readpublisher.RecordRes{SP: pa.sp, Err: nil}
 }
 
-func (pa *Path) onClientPause(req client.PauseReq) {
-	state, ok := pa.clients[req.Client]
+func (pa *Path) onReadPublisherPause(req readpublisher.PauseReq) {
+	state, ok := pa.readPublishers[req.ReadPublisher]
 	if !ok {
 		close(req.Res)
 		return
@@ -710,12 +710,12 @@ func (pa *Path) onClientPause(req client.PauseReq) {
 
 	if state == clientStatePlay {
 		atomic.AddInt64(pa.stats.CountReaders, -1)
-		pa.clients[req.Client] = clientStatePrePlay
-		pa.readers.remove(req.Client)
+		pa.readPublishers[req.ReadPublisher] = clientStatePrePlay
+		pa.readers.remove(req.ReadPublisher)
 
 	} else if state == clientStateRecord {
 		atomic.AddInt64(pa.stats.CountPublishers, -1)
-		pa.clients[req.Client] = clientStatePreRecord
+		pa.readPublishers[req.ReadPublisher] = clientStatePreRecord
 		pa.onSourceSetNotReady()
 	}
 
@@ -729,7 +729,7 @@ func (pa *Path) scheduleSourceClose() {
 
 	if pa.sourceCloseTimerStarted ||
 		pa.sourceState == sourceStateWaitingDescribe ||
-		pa.hasClients() {
+		pa.hasReadPublishers() {
 		return
 	}
 
@@ -745,7 +745,7 @@ func (pa *Path) scheduleRunOnDemandClose() {
 
 	if pa.runOnDemandCloseTimerStarted ||
 		pa.sourceState == sourceStateWaitingDescribe ||
-		pa.hasClientsNotSources() {
+		pa.hasReadPublishersNotSources() {
 		return
 	}
 
@@ -756,7 +756,7 @@ func (pa *Path) scheduleRunOnDemandClose() {
 
 func (pa *Path) scheduleClose() {
 	if pa.conf.Regexp != nil &&
-		!pa.hasClients() &&
+		!pa.hasReadPublishers() &&
 		pa.source == nil &&
 		pa.sourceState != sourceStateWaitingDescribe &&
 		!pa.sourceCloseTimerStarted &&
@@ -795,37 +795,37 @@ func (pa *Path) OnExtSourceSetNotReady(req source.ExtSetNotReadyReq) {
 }
 
 // OnPathManDescribe is called by pathman.PathMan.
-func (pa *Path) OnPathManDescribe(req client.DescribeReq) {
+func (pa *Path) OnPathManDescribe(req readpublisher.DescribeReq) {
 	pa.clientDescribe <- req
 }
 
 // OnPathManSetupPlay is called by pathman.PathMan.
-func (pa *Path) OnPathManSetupPlay(req client.SetupPlayReq) {
+func (pa *Path) OnPathManSetupPlay(req readpublisher.SetupPlayReq) {
 	pa.clientSetupPlay <- req
 }
 
 // OnPathManAnnounce is called by pathman.PathMan.
-func (pa *Path) OnPathManAnnounce(req client.AnnounceReq) {
+func (pa *Path) OnPathManAnnounce(req readpublisher.AnnounceReq) {
 	pa.clientAnnounce <- req
 }
 
-// OnClientRemove is called by a client.
-func (pa *Path) OnClientRemove(req client.RemoveReq) {
+// OnReadPublisherRemove is called by a readpublisher.
+func (pa *Path) OnReadPublisherRemove(req readpublisher.RemoveReq) {
 	pa.clientRemove <- req
 }
 
-// OnClientPlay is called by a client.
-func (pa *Path) OnClientPlay(req client.PlayReq) {
+// OnReadPublisherPlay is called by a readpublisher.
+func (pa *Path) OnReadPublisherPlay(req readpublisher.PlayReq) {
 	pa.clientPlay <- req
 }
 
-// OnClientRecord is called by a client.
-func (pa *Path) OnClientRecord(req client.RecordReq) {
+// OnReadPublisherRecord is called by a readpublisher.
+func (pa *Path) OnReadPublisherRecord(req readpublisher.RecordReq) {
 	pa.clientRecord <- req
 }
 
-// OnClientPause is called by a client.
-func (pa *Path) OnClientPause(req client.PauseReq) {
+// OnReadPublisherPause is called by a readpublisher.
+func (pa *Path) OnReadPublisherPause(req readpublisher.PauseReq) {
 	pa.clientPause <- req
 }
 

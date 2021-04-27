@@ -18,10 +18,10 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -68,11 +68,11 @@ type trackIDPayloadPair struct {
 
 // PathMan is implemented by pathman.PathMan.
 type PathMan interface {
-	OnClientSetupPlay(client.SetupPlayReq)
-	OnClientAnnounce(client.AnnounceReq)
+	OnReadPublisherSetupPlay(readpublisher.SetupPlayReq)
+	OnReadPublisherAnnounce(readpublisher.AnnounceReq)
 }
 
-// Parent is implemented by clientman.ClientMan.
+// Parent is implemented by serverrtmp.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnClientClose(*Client)
@@ -149,8 +149,8 @@ func (c *Client) CloseRequest() {
 	c.parent.OnClientClose(c)
 }
 
-// IsClient implements client.Client.
-func (c *Client) IsClient() {}
+// IsReadPublisher implements readpublisher.ReadPublisher.
+func (c *Client) IsReadPublisher() {}
 
 // IsSource implements path.source.
 func (c *Client) IsSource() {}
@@ -195,7 +195,7 @@ func (c *Client) run() {
 }
 
 func (c *Client) runRead() {
-	var path client.Path
+	var path readpublisher.Path
 	var videoTrack *gortsplib.Track
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
@@ -205,12 +205,12 @@ func (c *Client) runRead() {
 	err := func() error {
 		pathName, query := pathNameAndQuery(c.conn.URL())
 
-		sres := make(chan client.SetupPlayRes)
-		c.pathMan.OnClientSetupPlay(client.SetupPlayReq{c, pathName, query, sres}) //nolint:govet
+		sres := make(chan readpublisher.SetupPlayRes)
+		c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{c, pathName, query, sres}) //nolint:govet
 		res := <-sres
 
 		if res.Err != nil {
-			if _, ok := res.Err.(client.ErrAuthCritical); ok {
+			if _, ok := res.Err.(readpublisher.ErrAuthCritical); ok {
 				// wait some seconds to stop brute force attacks
 				select {
 				case <-time.After(pauseAfterAuthError):
@@ -257,7 +257,7 @@ func (c *Client) runRead() {
 
 		if path != nil {
 			res := make(chan struct{})
-			path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+			path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 			<-res
 		}
 
@@ -268,8 +268,8 @@ func (c *Client) runRead() {
 
 	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
 
-	pres := make(chan client.PlayRes)
-	path.OnClientPlay(client.PlayReq{c, pres}) //nolint:govet
+	pres := make(chan readpublisher.PlayRes)
+	path.OnReadPublisherPlay(readpublisher.PlayReq{c, pres}) //nolint:govet
 	<-pres
 
 	c.log(logger.Info, "is reading from path '%s'", path.Name())
@@ -370,7 +370,7 @@ func (c *Client) runRead() {
 		}
 
 		res := make(chan struct{})
-		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 		<-res
 
 		c.parent.OnClientClose(c)
@@ -378,7 +378,7 @@ func (c *Client) runRead() {
 
 	case <-c.terminate:
 		res := make(chan struct{})
-		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 		<-res
 
 		c.ringBuffer.Close()
@@ -394,7 +394,7 @@ func (c *Client) runPublish() {
 	var tracks gortsplib.Tracks
 	var h264Encoder *rtph264.Encoder
 	var aacEncoder *rtpaac.Encoder
-	var path client.Path
+	var path readpublisher.Path
 
 	setupDone := make(chan struct{})
 	go func() {
@@ -423,12 +423,12 @@ func (c *Client) runPublish() {
 
 			pathName, query := pathNameAndQuery(c.conn.URL())
 
-			resc := make(chan client.AnnounceRes)
-			c.pathMan.OnClientAnnounce(client.AnnounceReq{c, pathName, tracks, query, resc}) //nolint:govet
+			resc := make(chan readpublisher.AnnounceRes)
+			c.pathMan.OnReadPublisherAnnounce(readpublisher.AnnounceReq{c, pathName, tracks, query, resc}) //nolint:govet
 			res := <-resc
 
 			if res.Err != nil {
-				if _, ok := res.Err.(client.ErrAuthCritical); ok {
+				if _, ok := res.Err.(readpublisher.ErrAuthCritical); ok {
 					// wait some seconds to stop brute force attacks
 					select {
 					case <-time.After(pauseAfterAuthError):
@@ -465,8 +465,8 @@ func (c *Client) runPublish() {
 	readerDone := make(chan error)
 	go func() {
 		readerDone <- func() error {
-			resc := make(chan client.RecordRes)
-			path.OnClientRecord(client.RecordReq{Client: c, Res: resc})
+			resc := make(chan readpublisher.RecordRes)
+			path.OnReadPublisherRecord(readpublisher.RecordReq{ReadPublisher: c, Res: resc})
 			res := <-resc
 
 			if res.Err != nil {
@@ -493,7 +493,7 @@ func (c *Client) runPublish() {
 					})
 			}
 
-			defer func(path client.Path) {
+			defer func(path readpublisher.Path) {
 				if path.Conf().RunOnPublish != "" {
 					onPublishCmd.Close()
 				}
@@ -581,7 +581,7 @@ func (c *Client) runPublish() {
 		}
 
 		res := make(chan struct{})
-		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 		<-res
 		path = nil
 
@@ -593,7 +593,7 @@ func (c *Client) runPublish() {
 		<-readerDone
 
 		res := make(chan struct{})
-		path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+		path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 		<-res
 		path = nil
 	}
@@ -611,7 +611,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod,
 		if !ipEqualOrInRange(ip, ips) {
 			c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
 
-			return client.ErrAuthCritical{&base.Response{ //nolint:govet
+			return readpublisher.ErrAuthCritical{&base.Response{ //nolint:govet
 				StatusCode: base.StatusUnauthorized,
 			}}
 		}
@@ -623,7 +623,7 @@ func (c *Client) Authenticate(authMethods []headers.AuthMethod,
 
 		if values.Get("user") != user ||
 			values.Get("pass") != pass {
-			return client.ErrAuthCritical{nil} //nolint:govet
+			return readpublisher.ErrAuthCritical{nil} //nolint:govet
 		}
 	}
 

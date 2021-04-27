@@ -4,12 +4,12 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-// Source is implemented by all sources (clients and external sources).
+// Source is a source.
 type Source interface {
 	IsSource()
 }
 
-// ExtSource is implemented by all external sources.
+// ExtSource is an external source.
 type ExtSource interface {
 	IsSource()
 	IsExtSource()

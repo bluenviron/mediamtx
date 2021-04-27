@@ -206,7 +206,7 @@ func (s *Server) doClientClose(c *clienthls.Client) {
 	c.Close()
 }
 
-// OnClientClose is called by a client.
+// OnClientClose is called by a readpublisher.
 func (s *Server) OnClientClose(c *clienthls.Client) {
 	s.clientClose <- c
 }

@@ -18,9 +18,9 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -116,10 +116,10 @@ type trackIDPayloadPair struct {
 
 // PathMan is implemented by pathman.PathMan.
 type PathMan interface {
-	OnClientSetupPlay(client.SetupPlayReq)
+	OnReadPublisherSetupPlay(readpublisher.SetupPlayReq)
 }
 
-// Parent is implemented by clientman.ClientMan.
+// Parent is implemented by serverhls.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnClientClose(*Client)
@@ -136,7 +136,7 @@ type Client struct {
 	pathMan            PathMan
 	parent             Parent
 
-	path            client.Path
+	path            readpublisher.Path
 	ringBuffer      *ringbuffer.RingBuffer
 	tsQueue         []*tsFile
 	tsByName        map[string]*tsFile
@@ -196,8 +196,8 @@ func (c *Client) CloseRequest() {
 	c.parent.OnClientClose(c)
 }
 
-// IsClient implements client.Client.
-func (c *Client) IsClient() {}
+// IsReadPublisher implements readpublisher.ReadPublisher.
+func (c *Client) IsReadPublisher() {}
 
 // IsSource implements path.source.
 func (c *Client) IsSource() {}
@@ -206,7 +206,7 @@ func (c *Client) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.pathName}, args...)...)
 }
 
-// PathName returns the path name of the client.
+// PathName returns the path name of the readpublisher.
 func (c *Client) PathName() string {
 	return c.pathName
 }
@@ -223,8 +223,8 @@ func (c *Client) run() {
 	var aacDecoder *rtpaac.Decoder
 
 	err := func() error {
-		pres := make(chan client.SetupPlayRes)
-		c.pathMan.OnClientSetupPlay(client.SetupPlayReq{c, c.pathName, nil, pres}) //nolint:govet
+		pres := make(chan readpublisher.SetupPlayRes)
+		c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{c, c.pathName, nil, pres}) //nolint:govet
 		res := <-pres
 
 		if res.Err != nil {
@@ -286,7 +286,7 @@ func (c *Client) run() {
 
 		if c.path != nil {
 			res := make(chan struct{})
-			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+			c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 			<-res
 		}
 
@@ -315,8 +315,8 @@ func (c *Client) run() {
 
 	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
 
-	resc := make(chan client.PlayRes)
-	c.path.OnClientPlay(client.PlayReq{c, resc}) //nolint:govet
+	resc := make(chan readpublisher.PlayRes)
+	c.path.OnReadPublisherPlay(readpublisher.PlayReq{c, resc}) //nolint:govet
 	<-resc
 
 	c.log(logger.Info, "is reading from path '%s'", c.pathName)
@@ -483,7 +483,7 @@ func (c *Client) run() {
 				<-writerDone
 
 				res := make(chan struct{})
-				c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+				c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 				<-res
 
 				c.parent.OnClientClose(c)
@@ -495,7 +495,7 @@ func (c *Client) run() {
 			c.log(logger.Info, "ERR: %s", err)
 
 			res := make(chan struct{})
-			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+			c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 			<-res
 
 			c.parent.OnClientClose(c)
@@ -504,7 +504,7 @@ func (c *Client) run() {
 
 		case <-c.terminate:
 			res := make(chan struct{})
-			c.path.OnClientRemove(client.RemoveReq{c, res}) //nolint:govet
+			c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 			<-res
 
 			c.ringBuffer.Close()

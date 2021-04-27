@@ -7,10 +7,10 @@ import (
 
 	"github.com/aler9/gortsplib/pkg/headers"
 
-	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/path"
+	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -37,9 +37,9 @@ type PathManager struct {
 	// in
 	confReload      chan map[string]*conf.PathConf
 	pathClose       chan *path.Path
-	clientDescribe  chan client.DescribeReq
-	clientSetupPlay chan client.SetupPlayReq
-	clientAnnounce  chan client.AnnounceReq
+	clientDescribe  chan readpublisher.DescribeReq
+	clientSetupPlay chan readpublisher.SetupPlayReq
+	clientAnnounce  chan readpublisher.AnnounceReq
 	terminate       chan struct{}
 
 	// out
@@ -71,9 +71,9 @@ func New(
 		paths:           make(map[string]*path.Path),
 		confReload:      make(chan map[string]*conf.PathConf),
 		pathClose:       make(chan *path.Path),
-		clientDescribe:  make(chan client.DescribeReq),
-		clientSetupPlay: make(chan client.SetupPlayReq),
-		clientAnnounce:  make(chan client.AnnounceReq),
+		clientDescribe:  make(chan readpublisher.DescribeReq),
+		clientSetupPlay: make(chan readpublisher.SetupPlayReq),
+		clientAnnounce:  make(chan readpublisher.AnnounceReq),
 		terminate:       make(chan struct{}),
 		done:            make(chan struct{}),
 	}
@@ -145,11 +145,11 @@ outer:
 		case req := <-pm.clientDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{nil, "", err} //nolint:govet
 				continue
 			}
 
-			err = req.Client.Authenticate(
+			err = req.ReadPublisher.Authenticate(
 				pm.authMethods,
 				req.PathName,
 				pathConf.ReadIpsParsed,
@@ -157,7 +157,7 @@ outer:
 				pathConf.ReadPass,
 				req.Data)
 			if err != nil {
-				req.Res <- client.DescribeRes{nil, "", err} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{nil, "", err} //nolint:govet
 				continue
 			}
 
@@ -171,11 +171,11 @@ outer:
 		case req := <-pm.clientSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- client.SetupPlayRes{nil, nil, err} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{nil, nil, err} //nolint:govet
 				continue
 			}
 
-			err = req.Client.Authenticate(
+			err = req.ReadPublisher.Authenticate(
 				pm.authMethods,
 				req.PathName,
 				pathConf.ReadIpsParsed,
@@ -183,7 +183,7 @@ outer:
 				pathConf.ReadPass,
 				req.Data)
 			if err != nil {
-				req.Res <- client.SetupPlayRes{nil, nil, err} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{nil, nil, err} //nolint:govet
 				continue
 			}
 
@@ -197,11 +197,11 @@ outer:
 		case req := <-pm.clientAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- readpublisher.AnnounceRes{nil, err} //nolint:govet
 				continue
 			}
 
-			err = req.Client.Authenticate(
+			err = req.ReadPublisher.Authenticate(
 				pm.authMethods,
 				req.PathName,
 				pathConf.PublishIpsParsed,
@@ -209,7 +209,7 @@ outer:
 				pathConf.PublishPass,
 				req.Data)
 			if err != nil {
-				req.Res <- client.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- readpublisher.AnnounceRes{nil, err} //nolint:govet
 				continue
 			}
 
@@ -242,19 +242,19 @@ outer:
 				if !ok {
 					return
 				}
-				req.Res <- client.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pm.clientSetupPlay:
 				if !ok {
 					return
 				}
-				req.Res <- client.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
 
 			case req, ok := <-pm.clientAnnounce:
 				if !ok {
 					return
 				}
-				req.Res <- client.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
+				req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
 			}
 		}
 	}()
@@ -325,17 +325,17 @@ func (pm *PathManager) OnPathClose(pa *path.Path) {
 	pm.pathClose <- pa
 }
 
-// OnClientDescribe is called by clientman.ClientMan.
-func (pm *PathManager) OnClientDescribe(req client.DescribeReq) {
+// OnReadPublisherDescribe is called by clientman.ClientMan.
+func (pm *PathManager) OnReadPublisherDescribe(req readpublisher.DescribeReq) {
 	pm.clientDescribe <- req
 }
 
-// OnClientAnnounce is called by clientman.ClientMan.
-func (pm *PathManager) OnClientAnnounce(req client.AnnounceReq) {
+// OnReadPublisherAnnounce is called by clientman.ClientMan.
+func (pm *PathManager) OnReadPublisherAnnounce(req readpublisher.AnnounceReq) {
 	pm.clientAnnounce <- req
 }
 
-// OnClientSetupPlay is called by clientman.ClientMan.
-func (pm *PathManager) OnClientSetupPlay(req client.SetupPlayReq) {
+// OnReadPublisherSetupPlay is called by clientman.ClientMan.
+func (pm *PathManager) OnReadPublisherSetupPlay(req readpublisher.SetupPlayReq) {
 	pm.clientSetupPlay <- req
 }
