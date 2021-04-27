@@ -90,7 +90,7 @@ func (s *Source) Close() {
 // IsSource implements source.Source.
 func (s *Source) IsSource() {}
 
-// IsExtSource implements path.extSource.
+// IsExtSource implements source.ExtSource.
 func (s *Source) IsExtSource() {}
 
 func (s *Source) log(level logger.Level, format string, args ...interface{}) {
