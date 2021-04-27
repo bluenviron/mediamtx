@@ -9,7 +9,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/aler9/rtsp-simple-server/internal/clientman"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/confwatcher"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -33,12 +32,11 @@ type program struct {
 	logger          *logger.Logger
 	metrics         *metrics.Metrics
 	pprof           *pprof.PPROF
+	pathMan         *pathman.PathManager
 	serverRTSPPlain *serverrtsp.Server
 	serverRTSPTLS   *serverrtsp.Server
 	serverRTMP      *serverrtmp.Server
 	serverHLS       *serverhls.Server
-	pathMan         *pathman.PathManager
-	clientMan       *clientman.ClientManager
 	confWatcher     *confwatcher.ConfWatcher
 
 	terminate chan struct{}
@@ -191,17 +189,6 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.HLSDisable {
-		if p.serverHLS == nil {
-			p.serverHLS, err = serverhls.New(
-				p.conf.HLSAddress,
-				p)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	if p.pathMan == nil {
 		p.pathMan = pathman.New(
 			p.conf.RTSPAddress,
@@ -212,23 +199,6 @@ func (p *program) createResources(initial bool) error {
 			p.conf.AuthMethodsParsed,
 			p.conf.Paths,
 			p.stats,
-			p)
-	}
-
-	if p.clientMan == nil {
-		p.clientMan = clientman.New(
-			p.conf.HLSSegmentCount,
-			p.conf.HLSSegmentDuration,
-			p.conf.RTSPAddress,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.ReadBufferCount,
-			p.conf.RunOnConnect,
-			p.conf.RunOnConnectRestart,
-			p.conf.ProtocolsParsed,
-			p.stats,
-			p.pathMan,
-			p.serverHLS,
 			p)
 	}
 
@@ -310,6 +280,22 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
+	if !p.conf.HLSDisable {
+		if p.serverHLS == nil {
+			p.serverHLS, err = serverhls.New(
+				p.conf.HLSAddress,
+				p.conf.HLSSegmentCount,
+				p.conf.HLSSegmentDuration,
+				p.conf.ReadBufferCount,
+				p.stats,
+				p.pathMan,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -342,14 +328,6 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closePPROF = true
 	}
 
-	closeServerHLS := false
-	if newConf == nil ||
-		newConf.HLSDisable != p.conf.HLSDisable ||
-		newConf.HLSAddress != p.conf.HLSAddress ||
-		closeStats {
-		closeServerHLS = true
-	}
-
 	closePathMan := false
 	if newConf == nil ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
@@ -362,23 +340,6 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closePathMan = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathMan.OnProgramConfReload(newConf.Paths)
-	}
-
-	closeClientMan := false
-	if newConf == nil ||
-		closeServerHLS ||
-		closePathMan ||
-		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
-		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
-		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		newConf.RunOnConnect != p.conf.RunOnConnect ||
-		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
-		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
-		closeStats {
-		closeClientMan = true
 	}
 
 	closeServerPlain := false
@@ -435,6 +396,18 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerRTMP = true
 	}
 
+	closeServerHLS := false
+	if newConf == nil ||
+		newConf.HLSDisable != p.conf.HLSDisable ||
+		newConf.HLSAddress != p.conf.HLSAddress ||
+		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
+		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		closeStats ||
+		closePathMan {
+		closeServerHLS = true
+	}
+
 	if closeServerTLS && p.serverRTSPTLS != nil {
 		p.serverRTSPTLS.Close()
 		p.serverRTSPTLS = nil
@@ -443,11 +416,6 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if closeServerPlain && p.serverRTSPPlain != nil {
 		p.serverRTSPPlain.Close()
 		p.serverRTSPPlain = nil
-	}
-
-	if closeClientMan && p.clientMan != nil {
-		p.clientMan.Close()
-		p.clientMan = nil
 	}
 
 	if closePathMan && p.pathMan != nil {

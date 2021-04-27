@@ -97,7 +97,7 @@ func (s *Server) run() {
 	defer close(s.done)
 
 	s.wg.Add(1)
-	clientNew := make(chan net.Conn)
+	connNew := make(chan net.Conn)
 	acceptErr := make(chan error)
 	go func() {
 		defer s.wg.Done()
@@ -108,7 +108,7 @@ func (s *Server) run() {
 					return err
 				}
 
-				clientNew <- conn
+				connNew <- conn
 			}
 		}()
 	}()
@@ -120,7 +120,7 @@ outer:
 			s.Log(logger.Warn, "ERR: %s", err)
 			break outer
 
-		case nconn := <-clientNew:
+		case nconn := <-connNew:
 			c := clientrtmp.New(
 				s.rtspAddress,
 				s.readTimeout,
@@ -154,7 +154,7 @@ outer:
 					return
 				}
 
-			case conn, ok := <-clientNew:
+			case conn, ok := <-connNew:
 				if !ok {
 					return
 				}
@@ -177,7 +177,7 @@ outer:
 	s.wg.Wait()
 
 	close(acceptErr)
-	close(clientNew)
+	close(connNew)
 	close(s.clientClose)
 }
 

@@ -3,6 +3,7 @@ package clienthls
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -20,7 +21,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/serverhls"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -100,6 +100,15 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 	return false
 }
 
+// Request is an HTTP request received by an HLS server.
+type Request struct {
+	Path    string
+	Subpath string
+	Req     *http.Request
+	W       http.ResponseWriter
+	Res     chan io.Reader
+}
+
 type trackIDPayloadPair struct {
 	trackID int
 	buf     []byte
@@ -113,7 +122,7 @@ type PathMan interface {
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(client.Client)
+	OnClientClose(*Client)
 }
 
 // Client is a HLS client.
@@ -136,7 +145,7 @@ type Client struct {
 	lastRequestTime int64
 
 	// in
-	request   chan serverhls.Request
+	request   chan Request
 	terminate chan struct{}
 }
 
@@ -162,12 +171,12 @@ func New(
 		parent:             parent,
 		lastRequestTime:    time.Now().Unix(),
 		tsByName:           make(map[string]*tsFile),
-		request:            make(chan serverhls.Request),
+		request:            make(chan Request),
 		terminate:          make(chan struct{}),
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
-	c.log(logger.Info, "connected (HLS)")
+	c.log(logger.Info, "connected")
 
 	c.wg.Add(1)
 	go c.run()
@@ -178,6 +187,7 @@ func New(
 // Close closes a Client.
 func (c *Client) Close() {
 	atomic.AddInt64(c.stats.CountClients, -1)
+	c.log(logger.Info, "disconnected")
 	close(c.terminate)
 }
 
@@ -193,7 +203,7 @@ func (c *Client) IsClient() {}
 func (c *Client) IsSource() {}
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[client hls/%s] "+format, append([]interface{}{c.pathName}, args...)...)
+	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.pathName}, args...)...)
 }
 
 // PathName returns the path name of the client.
@@ -203,7 +213,6 @@ func (c *Client) PathName() string {
 
 func (c *Client) run() {
 	defer c.wg.Done()
-	defer c.log(logger.Info, "disconnected")
 
 	var videoTrack *gortsplib.Track
 	var h264SPS []byte
@@ -586,7 +595,7 @@ func (c *Client) runRequestHandler(done chan struct{}) {
 }
 
 // OnRequest is called by clientman.ClientMan.
-func (c *Client) OnRequest(req serverhls.Request) {
+func (c *Client) OnRequest(req Request) {
 	c.request <- req
 }
 

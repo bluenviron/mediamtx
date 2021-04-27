@@ -129,7 +129,7 @@ func New(
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
-	c.log(logger.Info, "connected (RTMP)")
+	c.log(logger.Info, "connected")
 
 	c.wg.Add(1)
 	go c.run()
@@ -140,6 +140,7 @@ func New(
 // Close closes a Client.
 func (c *Client) Close() {
 	atomic.AddInt64(c.stats.CountClients, -1)
+	c.log(logger.Info, "disconnected")
 	close(c.terminate)
 }
 
@@ -164,7 +165,6 @@ func (c *Client) ip() net.IP {
 
 func (c *Client) run() {
 	defer c.wg.Done()
-	defer c.log(logger.Info, "disconnected")
 
 	if c.runOnConnect != "" {
 		_, port, _ := net.SplitHostPort(c.rtspAddress)

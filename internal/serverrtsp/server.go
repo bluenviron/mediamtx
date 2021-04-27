@@ -141,7 +141,7 @@ func (s *Server) run() {
 	defer close(s.done)
 
 	s.wg.Add(1)
-	clientNew := make(chan *gortsplib.ServerConn)
+	connNew := make(chan *gortsplib.ServerConn)
 	acceptErr := make(chan error)
 	go func() {
 		defer s.wg.Done()
@@ -152,7 +152,7 @@ func (s *Server) run() {
 					return err
 				}
 
-				clientNew <- conn
+				connNew <- conn
 			}
 		}()
 	}()
@@ -164,7 +164,7 @@ outer:
 			s.Log(logger.Warn, "ERR: %s", err)
 			break outer
 
-		case conn := <-clientNew:
+		case conn := <-connNew:
 			c := clientrtsp.New(
 				s.isTLS,
 				s.rtspAddress,
@@ -198,7 +198,7 @@ outer:
 					return
 				}
 
-			case conn, ok := <-clientNew:
+			case conn, ok := <-connNew:
 				if !ok {
 					return
 				}
@@ -221,7 +221,7 @@ outer:
 	s.wg.Wait()
 
 	close(acceptErr)
-	close(clientNew)
+	close(connNew)
 	close(s.clientClose)
 }
 
