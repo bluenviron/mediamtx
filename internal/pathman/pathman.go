@@ -43,8 +43,7 @@ type PathManager struct {
 	terminate       chan struct{}
 
 	// out
-	clientClose chan client.Client
-	done        chan struct{}
+	done chan struct{}
 }
 
 // New allocates a PathManager.
@@ -76,7 +75,6 @@ func New(
 		clientSetupPlay: make(chan client.SetupPlayReq),
 		clientAnnounce:  make(chan client.AnnounceReq),
 		terminate:       make(chan struct{}),
-		clientClose:     make(chan client.Client),
 		done:            make(chan struct{}),
 	}
 
@@ -88,10 +86,6 @@ func New(
 
 // Close closes a PathManager.
 func (pm *PathManager) Close() {
-	go func() {
-		for range pm.clientClose {
-		}
-	}()
 	close(pm.terminate)
 	<-pm.done
 }
@@ -271,7 +265,6 @@ outer:
 	pm.wg.Wait()
 
 	close(pm.confReload)
-	close(pm.clientClose)
 	close(pm.pathClose)
 	close(pm.clientDescribe)
 	close(pm.clientSetupPlay)
@@ -332,11 +325,6 @@ func (pm *PathManager) OnPathClose(pa *path.Path) {
 	pm.pathClose <- pa
 }
 
-// OnPathClientClose is called by path.Path.
-func (pm *PathManager) OnPathClientClose(c client.Client) {
-	pm.clientClose <- c
-}
-
 // OnClientDescribe is called by clientman.ClientMan.
 func (pm *PathManager) OnClientDescribe(req client.DescribeReq) {
 	pm.clientDescribe <- req
@@ -350,9 +338,4 @@ func (pm *PathManager) OnClientAnnounce(req client.AnnounceReq) {
 // OnClientSetupPlay is called by clientman.ClientMan.
 func (pm *PathManager) OnClientSetupPlay(req client.SetupPlayReq) {
 	pm.clientSetupPlay <- req
-}
-
-// ClientClose is called by clientman.ClientMan.
-func (pm *PathManager) ClientClose() chan client.Client {
-	return pm.clientClose
 }

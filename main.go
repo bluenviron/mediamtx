@@ -191,53 +191,6 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.RTSPDisable &&
-		(p.conf.EncryptionParsed == conf.EncryptionNo ||
-			p.conf.EncryptionParsed == conf.EncryptionOptional) {
-		if p.serverRTSPPlain == nil {
-			_, useUDP := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]
-			p.serverRTSPPlain, err = serverrtsp.New(
-				p.conf.RTSPAddress,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
-				p.conf.ReadBufferSize,
-				useUDP,
-				p.conf.RTPAddress,
-				p.conf.RTCPAddress,
-				false,
-				"",
-				"",
-				p)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if !p.conf.RTSPDisable &&
-		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
-			p.conf.EncryptionParsed == conf.EncryptionOptional) {
-		if p.serverRTSPTLS == nil {
-			p.serverRTSPTLS, err = serverrtsp.New(
-				p.conf.RTSPSAddress,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
-				p.conf.ReadBufferSize,
-				false,
-				"",
-				"",
-				true,
-				p.conf.ServerCert,
-				p.conf.ServerKey,
-				p)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	if !p.conf.RTMPDisable {
 		if p.serverRTMP == nil {
 			p.serverRTMP, err = serverrtmp.New(
@@ -286,17 +239,79 @@ func (p *program) createResources(initial bool) error {
 			p.conf.ProtocolsParsed,
 			p.stats,
 			p.pathMan,
-			p.serverRTSPPlain,
-			p.serverRTSPTLS,
 			p.serverRTMP,
 			p.serverHLS,
 			p)
+	}
+
+	if !p.conf.RTSPDisable &&
+		(p.conf.EncryptionParsed == conf.EncryptionNo ||
+			p.conf.EncryptionParsed == conf.EncryptionOptional) {
+		if p.serverRTSPPlain == nil {
+			_, useUDP := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]
+			p.serverRTSPPlain, err = serverrtsp.New(
+				p.conf.RTSPAddress,
+				p.conf.ReadTimeout,
+				p.conf.WriteTimeout,
+				p.conf.ReadBufferCount,
+				p.conf.ReadBufferSize,
+				useUDP,
+				p.conf.RTPAddress,
+				p.conf.RTCPAddress,
+				false,
+				"",
+				"",
+				p.conf.RTSPAddress,
+				p.conf.ProtocolsParsed,
+				p.conf.RunOnConnect,
+				p.conf.RunOnConnectRestart,
+				p.stats,
+				p.pathMan,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if !p.conf.RTSPDisable &&
+		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
+			p.conf.EncryptionParsed == conf.EncryptionOptional) {
+		if p.serverRTSPTLS == nil {
+			p.serverRTSPTLS, err = serverrtsp.New(
+				p.conf.RTSPSAddress,
+				p.conf.ReadTimeout,
+				p.conf.WriteTimeout,
+				p.conf.ReadBufferCount,
+				p.conf.ReadBufferSize,
+				false,
+				"",
+				"",
+				true,
+				p.conf.ServerCert,
+				p.conf.ServerKey,
+				p.conf.RTSPAddress,
+				p.conf.ProtocolsParsed,
+				p.conf.RunOnConnect,
+				p.conf.RunOnConnectRestart,
+				p.stats,
+				p.pathMan,
+				p)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
 }
 
 func (p *program) closeResources(newConf *conf.Conf) {
+	closeStats := false
+	if newConf == nil {
+		closeStats = true
+	}
+
 	closeLogger := false
 	if newConf == nil ||
 		!reflect.DeepEqual(newConf.LogDestinationsParsed, p.conf.LogDestinationsParsed) ||
@@ -307,15 +322,66 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	closeMetrics := false
 	if newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
-		newConf.MetricsAddress != p.conf.MetricsAddress {
+		newConf.MetricsAddress != p.conf.MetricsAddress ||
+		closeStats {
 		closeMetrics = true
 	}
 
 	closePPROF := false
 	if newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
-		newConf.PPROFAddress != p.conf.PPROFAddress {
+		newConf.PPROFAddress != p.conf.PPROFAddress ||
+		closeStats {
 		closePPROF = true
+	}
+
+	closeServerRTMP := false
+	if newConf == nil ||
+		newConf.RTMPDisable != p.conf.RTMPDisable ||
+		newConf.RTMPAddress != p.conf.RTMPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeStats {
+		closeServerRTMP = true
+	}
+
+	closeServerHLS := false
+	if newConf == nil ||
+		newConf.HLSDisable != p.conf.HLSDisable ||
+		newConf.HLSAddress != p.conf.HLSAddress ||
+		closeStats {
+		closeServerHLS = true
+	}
+
+	closePathMan := false
+	if newConf == nil ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
+		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
+		closeStats {
+		closePathMan = true
+	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.pathMan.OnProgramConfReload(newConf.Paths)
+	}
+
+	closeClientMan := false
+	if newConf == nil ||
+		closeServerRTMP ||
+		closeServerHLS ||
+		closePathMan ||
+		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
+		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		closeStats {
+		closeClientMan = true
 	}
 
 	closeServerPlain := false
@@ -328,7 +394,13 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		newConf.RTPAddress != p.conf.RTPAddress ||
-		newConf.RTCPAddress != p.conf.RTCPAddress {
+		newConf.RTCPAddress != p.conf.RTCPAddress ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		closeStats ||
+		closePathMan {
 		closeServerPlain = true
 	}
 
@@ -341,60 +413,24 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		newConf.ServerCert != p.conf.ServerCert ||
-		newConf.ServerKey != p.conf.ServerKey {
+		newConf.ServerKey != p.conf.ServerKey ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		closeStats ||
+		closePathMan {
 		closeServerTLS = true
 	}
 
-	closeServerRTMP := false
-	if newConf == nil ||
-		newConf.RTMPDisable != p.conf.RTMPDisable ||
-		newConf.RTMPAddress != p.conf.RTMPAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout {
-		closeServerRTMP = true
+	if closeServerTLS && p.serverRTSPTLS != nil {
+		p.serverRTSPTLS.Close()
+		p.serverRTSPTLS = nil
 	}
 
-	closeServerHLS := false
-	if newConf == nil ||
-		newConf.HLSDisable != p.conf.HLSDisable ||
-		newConf.HLSAddress != p.conf.HLSAddress {
-		closeServerHLS = true
-	}
-
-	closePathMan := false
-	if newConf == nil ||
-		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
-		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) {
-		closePathMan = true
-	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.pathMan.OnProgramConfReload(newConf.Paths)
-	}
-
-	closeClientMan := false
-	if newConf == nil ||
-		closeServerPlain ||
-		closeServerTLS ||
-		closeServerRTMP ||
-		closeServerHLS ||
-		closePathMan ||
-		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
-		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
-		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		newConf.RunOnConnect != p.conf.RunOnConnect ||
-		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
-		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) {
-		closeClientMan = true
-	}
-
-	closeStats := false
-	if newConf == nil {
-		closeStats = true
+	if closeServerPlain && p.serverRTSPPlain != nil {
+		p.serverRTSPPlain.Close()
+		p.serverRTSPPlain = nil
 	}
 
 	if closeClientMan && p.clientMan != nil {
@@ -415,16 +451,6 @@ func (p *program) closeResources(newConf *conf.Conf) {
 	if closeServerRTMP && p.serverRTMP != nil {
 		p.serverRTMP.Close()
 		p.serverRTMP = nil
-	}
-
-	if closeServerTLS && p.serverRTSPTLS != nil {
-		p.serverRTSPTLS.Close()
-		p.serverRTSPTLS = nil
-	}
-
-	if closeServerPlain && p.serverRTSPPlain != nil {
-		p.serverRTSPPlain.Close()
-		p.serverRTSPPlain = nil
 	}
 
 	if closePPROF && p.pprof != nil {

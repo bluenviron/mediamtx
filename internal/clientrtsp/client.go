@@ -55,7 +55,7 @@ type PathMan interface {
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(client.Client)
+	OnClientClose(*Client)
 }
 
 // Client is a RTSP client.
@@ -118,12 +118,7 @@ func New(
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
-	c.log(logger.Info, "connected (%s)", func() string {
-		if isTLS {
-			return "RTSP/TLS"
-		}
-		return "RTSP/TCP"
-	}())
+	c.log(logger.Info, "connected")
 
 	c.wg.Add(1)
 	go c.run()
@@ -134,7 +129,13 @@ func New(
 // Close closes a Client.
 func (c *Client) Close() {
 	atomic.AddInt64(c.stats.CountClients, -1)
+	c.log(logger.Info, "disconnected")
 	close(c.terminate)
+}
+
+// CloseRequest closes a Client.
+func (c *Client) CloseRequest() {
+	c.parent.OnClientClose(c)
 }
 
 // IsClient implements client.Client.
@@ -155,7 +156,6 @@ var errTerminated = errors.New("terminated")
 
 func (c *Client) run() {
 	defer c.wg.Done()
-	defer c.log(logger.Info, "disconnected")
 
 	if c.runOnConnect != "" {
 		_, port, _ := net.SplitHostPort(c.rtspAddress)

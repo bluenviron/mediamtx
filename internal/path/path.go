@@ -32,7 +32,6 @@ func newEmptyTimer() *time.Timer {
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnPathClose(*Path)
-	OnPathClientClose(client.Client)
 }
 
 type sourceRedirect struct{}
@@ -310,7 +309,7 @@ outer:
 			case clientStateRecord:
 				atomic.AddInt64(pa.stats.CountPublishers, -1)
 			}
-			pa.parent.OnPathClientClose(c)
+			c.CloseRequest()
 		}
 	}
 	pa.clientsWg.Wait()
@@ -471,7 +470,7 @@ func (pa *Path) removeClient(c client.Client) {
 		for oc, state := range pa.clients {
 			if state != clientStatePreRemove {
 				pa.removeClient(oc)
-				pa.parent.OnPathClientClose(oc)
+				oc.CloseRequest()
 			}
 		}
 	}
@@ -511,7 +510,7 @@ func (pa *Path) onSourceSetNotReady() {
 	for c, state := range pa.clients {
 		if c != pa.source && state != clientStatePreRemove {
 			pa.removeClient(c)
-			pa.parent.OnPathClientClose(c)
+			c.CloseRequest()
 		}
 	}
 }
@@ -670,7 +669,7 @@ func (pa *Path) onClientAnnounce(req client.AnnounceReq) {
 		pa.Log(logger.Info, "disconnecting existing publisher")
 		curPublisher := pa.source.(client.Client)
 		pa.removeClient(curPublisher)
-		pa.parent.OnPathClientClose(curPublisher)
+		curPublisher.CloseRequest()
 
 		// prevent path closure
 		if pa.closeTimerStarted {

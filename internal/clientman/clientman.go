@@ -5,23 +5,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/clienthls"
 	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
-	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/serverhls"
 	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
-	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 // PathManager is implemented by pathman.PathManager.
 type PathManager interface {
-	ClientClose() chan client.Client
 	OnClientDescribe(client.DescribeReq)
 	OnClientAnnounce(client.AnnounceReq)
 	OnClientSetupPlay(client.SetupPlayReq)
@@ -45,8 +41,6 @@ type ClientManager struct {
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
 	pathMan             PathManager
-	serverPlain         *serverrtsp.Server
-	serverTLS           *serverrtsp.Server
 	serverRTMP          *serverrtmp.Server
 	serverHLS           *serverhls.Server
 	parent              Parent
@@ -76,8 +70,6 @@ func New(
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
 	pathMan PathManager,
-	serverPlain *serverrtsp.Server,
-	serverTLS *serverrtsp.Server,
 	serverRTMP *serverrtmp.Server,
 	serverHLS *serverhls.Server,
 	parent Parent) *ClientManager {
@@ -94,8 +86,6 @@ func New(
 		protocols:           protocols,
 		stats:               stats,
 		pathMan:             pathMan,
-		serverPlain:         serverPlain,
-		serverTLS:           serverTLS,
 		serverRTMP:          serverRTMP,
 		serverHLS:           serverHLS,
 		parent:              parent,
@@ -125,20 +115,6 @@ func (cm *ClientManager) Log(level logger.Level, format string, args ...interfac
 func (cm *ClientManager) run() {
 	defer close(cm.done)
 
-	tcpAccept := func() chan *gortsplib.ServerConn {
-		if cm.serverPlain != nil {
-			return cm.serverPlain.Accept()
-		}
-		return make(chan *gortsplib.ServerConn)
-	}()
-
-	tlsAccept := func() chan *gortsplib.ServerConn {
-		if cm.serverTLS != nil {
-			return cm.serverTLS.Accept()
-		}
-		return make(chan *gortsplib.ServerConn)
-	}()
-
 	rtmpAccept := func() chan net.Conn {
 		if cm.serverRTMP != nil {
 			return cm.serverRTMP.Accept()
@@ -156,36 +132,6 @@ func (cm *ClientManager) run() {
 outer:
 	for {
 		select {
-		case conn := <-tcpAccept:
-			c := clientrtsp.New(
-				false,
-				cm.rtspAddress,
-				cm.readTimeout,
-				cm.runOnConnect,
-				cm.runOnConnectRestart,
-				cm.protocols,
-				&cm.wg,
-				cm.stats,
-				conn,
-				cm.pathMan,
-				cm)
-			cm.clients[c] = struct{}{}
-
-		case conn := <-tlsAccept:
-			c := clientrtsp.New(
-				true,
-				cm.rtspAddress,
-				cm.readTimeout,
-				cm.runOnConnect,
-				cm.runOnConnectRestart,
-				cm.protocols,
-				&cm.wg,
-				cm.stats,
-				conn,
-				cm.pathMan,
-				cm)
-			cm.clients[c] = struct{}{}
-
 		case nconn := <-rtmpAccept:
 			c := clientrtmp.New(
 				cm.rtspAddress,
@@ -218,12 +164,6 @@ outer:
 			}
 			c.OnRequest(req)
 
-		case c := <-cm.pathMan.ClientClose():
-			if _, ok := cm.clients[c]; !ok {
-				continue
-			}
-			cm.onClientClose(c)
-
 		case c := <-cm.clientClose:
 			if _, ok := cm.clients[c]; !ok {
 				continue
@@ -236,15 +176,7 @@ outer:
 	}
 
 	go func() {
-		for {
-			select {
-			case _, ok := <-cm.clientClose:
-				if !ok {
-					return
-				}
-
-			case <-cm.pathMan.ClientClose():
-			}
+		for range cm.clientClose {
 		}
 	}()
 

@@ -136,6 +136,7 @@ type Client interface {
 	IsClient()
 	IsSource()
 	Close()
+	CloseRequest()
 	Authenticate([]headers.AuthMethod,
 		string, []interface{},
 		string, string, interface{}) error

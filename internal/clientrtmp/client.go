@@ -143,6 +143,11 @@ func (c *Client) Close() {
 	close(c.terminate)
 }
 
+// CloseRequest closes a Client.
+func (c *Client) CloseRequest() {
+	c.parent.OnClientClose(c)
+}
+
 // IsClient implements client.Client.
 func (c *Client) IsClient() {}
 
