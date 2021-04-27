@@ -75,7 +75,7 @@ type PathMan interface {
 // Parent is implemented by clientman.ClientMan.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(client.Client)
+	OnClientClose(*Client)
 }
 
 // Client is a RTMP client.

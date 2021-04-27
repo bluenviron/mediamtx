@@ -191,17 +191,6 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.RTMPDisable {
-		if p.serverRTMP == nil {
-			p.serverRTMP, err = serverrtmp.New(
-				p.conf.RTMPAddress,
-				p)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
 	if !p.conf.HLSDisable {
 		if p.serverHLS == nil {
 			p.serverHLS, err = serverhls.New(
@@ -239,7 +228,6 @@ func (p *program) createResources(initial bool) error {
 			p.conf.ProtocolsParsed,
 			p.stats,
 			p.pathMan,
-			p.serverRTMP,
 			p.serverHLS,
 			p)
 	}
@@ -303,6 +291,25 @@ func (p *program) createResources(initial bool) error {
 		}
 	}
 
+	if !p.conf.RTMPDisable {
+		if p.serverRTMP == nil {
+			p.serverRTMP, err = serverrtmp.New(
+				p.conf.RTMPAddress,
+				p.conf.ReadTimeout,
+				p.conf.WriteTimeout,
+				p.conf.ReadBufferCount,
+				p.conf.RTSPAddress,
+				p.conf.RunOnConnect,
+				p.conf.RunOnConnectRestart,
+				p.stats,
+				p.pathMan,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -335,15 +342,6 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closePPROF = true
 	}
 
-	closeServerRTMP := false
-	if newConf == nil ||
-		newConf.RTMPDisable != p.conf.RTMPDisable ||
-		newConf.RTMPAddress != p.conf.RTMPAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		closeStats {
-		closeServerRTMP = true
-	}
-
 	closeServerHLS := false
 	if newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
@@ -368,7 +366,6 @@ func (p *program) closeResources(newConf *conf.Conf) {
 
 	closeClientMan := false
 	if newConf == nil ||
-		closeServerRTMP ||
 		closeServerHLS ||
 		closePathMan ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
@@ -421,6 +418,21 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeStats ||
 		closePathMan {
 		closeServerTLS = true
+	}
+
+	closeServerRTMP := false
+	if newConf == nil ||
+		newConf.RTMPDisable != p.conf.RTMPDisable ||
+		newConf.RTMPAddress != p.conf.RTMPAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		closeStats ||
+		closePathMan {
+		closeServerRTMP = true
 	}
 
 	if closeServerTLS && p.serverRTSPTLS != nil {

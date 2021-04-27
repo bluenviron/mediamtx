@@ -1,7 +1,6 @@
 package clientman
 
 import (
-	"net"
 	"sync"
 	"time"
 
@@ -9,10 +8,8 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/client"
 	"github.com/aler9/rtsp-simple-server/internal/clienthls"
-	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/serverhls"
-	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -41,7 +38,6 @@ type ClientManager struct {
 	protocols           map[base.StreamProtocol]struct{}
 	stats               *stats.Stats
 	pathMan             PathManager
-	serverRTMP          *serverrtmp.Server
 	serverHLS           *serverhls.Server
 	parent              Parent
 
@@ -70,7 +66,6 @@ func New(
 	protocols map[base.StreamProtocol]struct{},
 	stats *stats.Stats,
 	pathMan PathManager,
-	serverRTMP *serverrtmp.Server,
 	serverHLS *serverhls.Server,
 	parent Parent) *ClientManager {
 
@@ -86,7 +81,6 @@ func New(
 		protocols:           protocols,
 		stats:               stats,
 		pathMan:             pathMan,
-		serverRTMP:          serverRTMP,
 		serverHLS:           serverHLS,
 		parent:              parent,
 		clients:             make(map[client.Client]struct{}),
@@ -115,13 +109,6 @@ func (cm *ClientManager) Log(level logger.Level, format string, args ...interfac
 func (cm *ClientManager) run() {
 	defer close(cm.done)
 
-	rtmpAccept := func() chan net.Conn {
-		if cm.serverRTMP != nil {
-			return cm.serverRTMP.Accept()
-		}
-		return make(chan net.Conn)
-	}()
-
 	hlsRequest := func() chan serverhls.Request {
 		if cm.serverHLS != nil {
 			return cm.serverHLS.Request()
@@ -132,21 +119,6 @@ func (cm *ClientManager) run() {
 outer:
 	for {
 		select {
-		case nconn := <-rtmpAccept:
-			c := clientrtmp.New(
-				cm.rtspAddress,
-				cm.readTimeout,
-				cm.writeTimeout,
-				cm.readBufferCount,
-				cm.runOnConnect,
-				cm.runOnConnectRestart,
-				&cm.wg,
-				cm.stats,
-				nconn,
-				cm.pathMan,
-				cm)
-			cm.clients[c] = struct{}{}
-
 		case req := <-hlsRequest:
 			c, ok := cm.clientsByHLSPath[req.Path]
 			if !ok {

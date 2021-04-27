@@ -2,9 +2,13 @@ package serverrtmp
 
 import (
 	"net"
-	"sync/atomic"
+	"sync"
+	"time"
 
+	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/pathman"
+	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
 // Parent is implemented by program.
@@ -14,19 +18,39 @@ type Parent interface {
 
 // Server is a RTMP listener.
 type Server struct {
-	parent Parent
+	readTimeout         time.Duration
+	writeTimeout        time.Duration
+	readBufferCount     int
+	rtspAddress         string
+	runOnConnect        string
+	runOnConnectRestart bool
+	stats               *stats.Stats
+	pathMan             *pathman.PathManager
+	parent              Parent
 
-	l      net.Listener
-	closed uint32
+	l       net.Listener
+	wg      sync.WaitGroup
+	clients map[*clientrtmp.Client]struct{}
+
+	// in
+	clientClose chan *clientrtmp.Client
+	terminate   chan struct{}
 
 	// out
-	accept chan net.Conn
-	done   chan struct{}
+	done chan struct{}
 }
 
 // New allocates a Server.
 func New(
 	address string,
+	readTimeout time.Duration,
+	writeTimeout time.Duration,
+	readBufferCount int,
+	rtspAddress string,
+	runOnConnect string,
+	runOnConnectRestart bool,
+	stats *stats.Stats,
+	pathMan *pathman.PathManager,
 	parent Parent) (*Server, error) {
 
 	l, err := net.Listen("tcp", address)
@@ -35,55 +59,134 @@ func New(
 	}
 
 	s := &Server{
-		parent: parent,
-		l:      l,
-		accept: make(chan net.Conn),
-		done:   make(chan struct{}),
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		readBufferCount:     readBufferCount,
+		rtspAddress:         rtspAddress,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		stats:               stats,
+		pathMan:             pathMan,
+		parent:              parent,
+		l:                   l,
+		clients:             make(map[*clientrtmp.Client]struct{}),
+		clientClose:         make(chan *clientrtmp.Client),
+		terminate:           make(chan struct{}),
+		done:                make(chan struct{}),
 	}
 
-	s.log(logger.Info, "opened on %s", address)
+	s.Log(logger.Info, "listener opened on %s", address)
 
 	go s.run()
 
 	return s, nil
 }
 
-func (s *Server) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[RTMP listener] "+format, append([]interface{}{}, args...)...)
+// Log is the main logging function.
+func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
+	s.parent.Log(level, "[RTMP] "+format, append([]interface{}{}, args...)...)
 }
 
 // Close closes a Server.
 func (s *Server) Close() {
-	go func() {
-		for co := range s.accept {
-			co.Close()
-		}
-	}()
-	atomic.StoreUint32(&s.closed, 1)
-	s.l.Close()
+	close(s.terminate)
 	<-s.done
 }
 
 func (s *Server) run() {
 	defer close(s.done)
 
-	for {
-		nconn, err := s.l.Accept()
-		if err != nil {
-			if atomic.LoadUint32(&s.closed) == 1 {
-				break
-			}
-			s.log(logger.Warn, "ERR: %s", err)
-			continue
-		}
+	s.wg.Add(1)
+	clientNew := make(chan net.Conn)
+	acceptErr := make(chan error)
+	go func() {
+		defer s.wg.Done()
+		acceptErr <- func() error {
+			for {
+				conn, err := s.l.Accept()
+				if err != nil {
+					return err
+				}
 
-		s.accept <- nconn
+				clientNew <- conn
+			}
+		}()
+	}()
+
+outer:
+	for {
+		select {
+		case err := <-acceptErr:
+			s.Log(logger.Warn, "ERR: %s", err)
+			break outer
+
+		case nconn := <-clientNew:
+			c := clientrtmp.New(
+				s.rtspAddress,
+				s.readTimeout,
+				s.writeTimeout,
+				s.readBufferCount,
+				s.runOnConnect,
+				s.runOnConnectRestart,
+				&s.wg,
+				s.stats,
+				nconn,
+				s.pathMan,
+				s)
+			s.clients[c] = struct{}{}
+
+		case c := <-s.clientClose:
+			if _, ok := s.clients[c]; !ok {
+				continue
+			}
+			s.doClientClose(c)
+
+		case <-s.terminate:
+			break outer
+		}
 	}
 
-	close(s.accept)
+	go func() {
+		for {
+			select {
+			case _, ok := <-acceptErr:
+				if !ok {
+					return
+				}
+
+			case conn, ok := <-clientNew:
+				if !ok {
+					return
+				}
+				conn.Close()
+
+			case _, ok := <-s.clientClose:
+				if !ok {
+					return
+				}
+			}
+		}
+	}()
+
+	s.l.Close()
+
+	for c := range s.clients {
+		s.doClientClose(c)
+	}
+
+	s.wg.Wait()
+
+	close(acceptErr)
+	close(clientNew)
+	close(s.clientClose)
 }
 
-// Accept returns a channel to accept incoming connections.
-func (s *Server) Accept() chan net.Conn {
-	return s.accept
+func (s *Server) doClientClose(c *clientrtmp.Client) {
+	delete(s.clients, c)
+	c.Close()
+}
+
+// OnClientClose is called by a client.
+func (s *Server) OnClientClose(c *clientrtmp.Client) {
+	s.clientClose <- c
 }
