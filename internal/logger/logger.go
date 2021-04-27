@@ -1,11 +1,14 @@
 package logger
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/gookit/color"
 )
 
 // Level is a log level.
@@ -36,11 +39,13 @@ const (
 type Logger struct {
 	level        Level
 	destinations map[Destination]struct{}
-	mutex        sync.Mutex
-	buffer       []byte
 
-	file   *os.File
-	syslog io.WriteCloser
+	mutex        sync.Mutex
+	file         *os.File
+	syslog       io.WriteCloser
+	stdoutBuffer bytes.Buffer
+	fileBuffer   bytes.Buffer
+	syslogBuffer bytes.Buffer
 }
 
 // New allocates a log handler.
@@ -83,7 +88,7 @@ func (lh *Logger) Close() {
 }
 
 // https://golang.org/src/log/log.go#L78
-func itoa(buf *[]byte, i int, wid int) {
+func itoa(i int, wid int) []byte {
 	// Assemble decimal in reverse order.
 	var b [20]byte
 	bp := len(b) - 1
@@ -96,7 +101,66 @@ func itoa(buf *[]byte, i int, wid int) {
 	}
 	// i < 10
 	b[bp] = byte('0' + i)
-	*buf = append(*buf, b[bp:]...)
+	return b[bp:]
+}
+
+func writeTime(buf *bytes.Buffer, doColor bool) {
+	var intbuf bytes.Buffer
+
+	// date
+	now := time.Now()
+	year, month, day := now.Date()
+	intbuf.Write(itoa(year, 4))
+	intbuf.WriteByte('/')
+	intbuf.Write(itoa(int(month), 2))
+	intbuf.WriteByte('/')
+	intbuf.Write(itoa(day, 2))
+	intbuf.WriteByte(' ')
+
+	// time
+	hour, min, sec := now.Clock()
+	intbuf.Write(itoa(hour, 2))
+	intbuf.WriteByte(':')
+	intbuf.Write(itoa(min, 2))
+	intbuf.WriteByte(':')
+	intbuf.Write(itoa(sec, 2))
+	intbuf.WriteByte(' ')
+
+	if doColor {
+		buf.WriteString(color.RenderString(color.Gray.Code(), intbuf.String()))
+	} else {
+		buf.WriteString(intbuf.String())
+	}
+}
+
+func writeLevel(buf *bytes.Buffer, level Level, doColor bool) {
+	switch level {
+	case Debug:
+		if doColor {
+			buf.WriteString(color.RenderString(color.Debug.Code(), "D "))
+		} else {
+			buf.WriteString("D ")
+		}
+
+	case Info:
+		if doColor {
+			buf.WriteString(color.RenderString(color.Green.Code(), "I "))
+		} else {
+			buf.WriteString("I ")
+		}
+
+	case Warn:
+		if doColor {
+			buf.WriteString(color.RenderString(color.Warn.Code(), "W "))
+		} else {
+			buf.WriteString("W ")
+		}
+	}
+}
+
+func writeContent(buf *bytes.Buffer, format string, args []interface{}) {
+	buf.Write([]byte(fmt.Sprintf(format, args...)))
+	buf.WriteByte('\n')
 }
 
 // Log writes a log entry.
@@ -108,51 +172,27 @@ func (lh *Logger) Log(level Level, format string, args ...interface{}) {
 	lh.mutex.Lock()
 	defer lh.mutex.Unlock()
 
-	lh.buffer = lh.buffer[:0]
-
-	// date
-	now := time.Now()
-	year, month, day := now.Date()
-	itoa(&lh.buffer, year, 4)
-	lh.buffer = append(lh.buffer, '/')
-	itoa(&lh.buffer, int(month), 2)
-	lh.buffer = append(lh.buffer, '/')
-	itoa(&lh.buffer, day, 2)
-	lh.buffer = append(lh.buffer, ' ')
-
-	// time
-	hour, min, sec := now.Clock()
-	itoa(&lh.buffer, hour, 2)
-	lh.buffer = append(lh.buffer, ':')
-	itoa(&lh.buffer, min, 2)
-	lh.buffer = append(lh.buffer, ':')
-	itoa(&lh.buffer, sec, 2)
-	lh.buffer = append(lh.buffer, ' ')
-
-	// level
-	switch level {
-	case Debug:
-		lh.buffer = append(lh.buffer, "[D] "...)
-
-	case Info:
-		lh.buffer = append(lh.buffer, "[I] "...)
-
-	case Warn:
-		lh.buffer = append(lh.buffer, "[W] "...)
-	}
-
-	// content
-	lh.buffer = append(lh.buffer, fmt.Sprintf(format, args...)...)
-	lh.buffer = append(lh.buffer, '\n')
-
-	// output
 	if _, ok := lh.destinations[DestinationStdout]; ok {
-		print(string(lh.buffer))
+		lh.stdoutBuffer.Reset()
+		writeTime(&lh.stdoutBuffer, true)
+		writeLevel(&lh.stdoutBuffer, level, true)
+		writeContent(&lh.stdoutBuffer, format, args)
+		print(lh.stdoutBuffer.String())
 	}
+
 	if _, ok := lh.destinations[DestinationFile]; ok {
-		lh.file.Write(lh.buffer)
+		lh.fileBuffer.Reset()
+		writeTime(&lh.fileBuffer, false)
+		writeLevel(&lh.fileBuffer, level, false)
+		writeContent(&lh.fileBuffer, format, args)
+		lh.file.Write(lh.fileBuffer.Bytes())
 	}
+
 	if _, ok := lh.destinations[DestinationSyslog]; ok {
-		lh.syslog.Write(lh.buffer)
+		lh.syslogBuffer.Reset()
+		writeTime(&lh.syslogBuffer, false)
+		writeLevel(&lh.syslogBuffer, level, false)
+		writeContent(&lh.syslogBuffer, format, args)
+		lh.syslog.Write(lh.syslogBuffer.Bytes())
 	}
 }
