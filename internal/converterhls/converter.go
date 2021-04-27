@@ -475,7 +475,7 @@ func (c *Converter) run() {
 		case <-closeCheckTicker.C:
 			t := time.Unix(atomic.LoadInt64(&c.lastRequestTime), 0)
 			if time.Since(t) >= closeAfterInactivity {
-				c.log(logger.Info, "closing due to inactivity")
+				c.log(logger.Info, "destroying due to inactivity")
 
 				c.ringBuffer.Close()
 				<-writerDone
