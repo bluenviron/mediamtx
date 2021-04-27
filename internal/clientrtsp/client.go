@@ -141,7 +141,7 @@ func (c *Client) CloseRequest() {
 // IsReadPublisher implements readpublisher.ReadPublisher.
 func (c *Client) IsReadPublisher() {}
 
-// IsSource implements path.source.
+// IsSource implements source.Source.
 func (c *Client) IsSource() {}
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {

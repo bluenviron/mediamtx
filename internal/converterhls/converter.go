@@ -1,4 +1,4 @@
-package clienthls
+package converterhls
 
 import (
 	"bytes"
@@ -122,11 +122,11 @@ type PathMan interface {
 // Parent is implemented by serverhls.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(*Client)
+	OnConverterClose(*Converter)
 }
 
-// Client is a HLS client.
-type Client struct {
+// Converter is an HLS converter.
+type Converter struct {
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
 	readBufferCount    int
@@ -149,7 +149,7 @@ type Client struct {
 	terminate chan struct{}
 }
 
-// New allocates a Client.
+// New allocates a Converter.
 func New(
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
@@ -158,9 +158,9 @@ func New(
 	stats *stats.Stats,
 	pathName string,
 	pathMan PathMan,
-	parent Parent) *Client {
+	parent Parent) *Converter {
 
-	c := &Client{
+	c := &Converter{
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
 		readBufferCount:    readBufferCount,
@@ -175,8 +175,7 @@ func New(
 		terminate:          make(chan struct{}),
 	}
 
-	atomic.AddInt64(c.stats.CountClients, 1)
-	c.log(logger.Info, "connected")
+	c.log(logger.Info, "created")
 
 	c.wg.Add(1)
 	go c.run()
@@ -184,34 +183,33 @@ func New(
 	return c
 }
 
-// Close closes a Client.
-func (c *Client) Close() {
-	atomic.AddInt64(c.stats.CountClients, -1)
-	c.log(logger.Info, "disconnected")
+// Close closes a Converter.
+func (c *Converter) Close() {
+	c.log(logger.Info, "destroyed")
 	close(c.terminate)
 }
 
-// CloseRequest closes a Client.
-func (c *Client) CloseRequest() {
-	c.parent.OnClientClose(c)
+// CloseRequest closes a Converter.
+func (c *Converter) CloseRequest() {
+	c.parent.OnConverterClose(c)
 }
 
 // IsReadPublisher implements readpublisher.ReadPublisher.
-func (c *Client) IsReadPublisher() {}
+func (c *Converter) IsReadPublisher() {}
 
-// IsSource implements path.source.
-func (c *Client) IsSource() {}
+// IsSource implements source.Source.
+func (c *Converter) IsSource() {}
 
-func (c *Client) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.pathName}, args...)...)
+func (c *Converter) log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[converter %s] "+format, append([]interface{}{c.pathName}, args...)...)
 }
 
 // PathName returns the path name of the readpublisher.
-func (c *Client) PathName() string {
+func (c *Converter) PathName() string {
 	return c.pathName
 }
 
-func (c *Client) run() {
+func (c *Converter) run() {
 	defer c.wg.Done()
 
 	var videoTrack *gortsplib.Track
@@ -290,7 +288,7 @@ func (c *Client) run() {
 			<-res
 		}
 
-		c.parent.OnClientClose(c)
+		c.parent.OnConverterClose(c)
 		<-c.terminate
 
 		close(c.request)
@@ -319,7 +317,7 @@ func (c *Client) run() {
 	c.path.OnReadPublisherPlay(readpublisher.PlayReq{c, resc}) //nolint:govet
 	<-resc
 
-	c.log(logger.Info, "is reading from path '%s'", c.pathName)
+	c.log(logger.Info, "is reading")
 
 	writerDone := make(chan error)
 	go func() {
@@ -486,7 +484,7 @@ func (c *Client) run() {
 				c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 				<-res
 
-				c.parent.OnClientClose(c)
+				c.parent.OnConverterClose(c)
 				<-c.terminate
 				return
 			}
@@ -498,7 +496,7 @@ func (c *Client) run() {
 			c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 			<-res
 
-			c.parent.OnClientClose(c)
+			c.parent.OnConverterClose(c)
 			<-c.terminate
 			return
 
@@ -514,7 +512,7 @@ func (c *Client) run() {
 	}
 }
 
-func (c *Client) runRequestHandler(done chan struct{}) {
+func (c *Converter) runRequestHandler(done chan struct{}) {
 	defer close(done)
 
 	for preq := range c.request {
@@ -594,20 +592,20 @@ func (c *Client) runRequestHandler(done chan struct{}) {
 	}
 }
 
-// OnRequest is called by clientman.ClientMan.
-func (c *Client) OnRequest(req Request) {
+// OnRequest is called by serverhls.Server.
+func (c *Converter) OnRequest(req Request) {
 	c.request <- req
 }
 
 // Authenticate performs an authentication.
-func (c *Client) Authenticate(authMethods []headers.AuthMethod,
+func (c *Converter) Authenticate(authMethods []headers.AuthMethod,
 	pathName string, ips []interface{},
 	user string, pass string, req interface{}) error {
 	return nil
 }
 
 // OnFrame implements path.Reader.
-func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+func (c *Converter) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		c.ringBuffer.Push(trackIDPayloadPair{trackID, payload})
 	}

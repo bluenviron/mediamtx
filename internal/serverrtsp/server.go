@@ -230,7 +230,7 @@ func (s *Server) doClientClose(c *clientrtsp.Client) {
 	c.Close()
 }
 
-// OnClientClose is called by a readpublisher.
+// OnClientClose is called by clientrtsp.Client.
 func (s *Server) OnClientClose(c *clientrtsp.Client) {
 	s.clientClose <- c
 }

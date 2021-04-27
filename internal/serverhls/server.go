@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/clienthls"
+	"github.com/aler9/rtsp-simple-server/internal/converterhls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -29,13 +29,13 @@ type Server struct {
 	pathMan            *pathman.PathManager
 	parent             Parent
 
-	ln      net.Listener
-	wg      sync.WaitGroup
-	clients map[string]*clienthls.Client
+	ln         net.Listener
+	wg         sync.WaitGroup
+	converters map[string]*converterhls.Converter
 
 	// in
-	request     chan clienthls.Request
-	clientClose chan *clienthls.Client
+	request     chan converterhls.Request
+	clientClose chan *converterhls.Converter
 	terminate   chan struct{}
 
 	// out
@@ -66,9 +66,9 @@ func New(
 		pathMan:            pathMan,
 		parent:             parent,
 		ln:                 ln,
-		clients:            make(map[string]*clienthls.Client),
-		request:            make(chan clienthls.Request),
-		clientClose:        make(chan *clienthls.Client),
+		converters:         make(map[string]*converterhls.Converter),
+		request:            make(chan converterhls.Request),
+		clientClose:        make(chan *converterhls.Converter),
 		terminate:          make(chan struct{}),
 		done:               make(chan struct{}),
 	}
@@ -101,9 +101,9 @@ outer:
 	for {
 		select {
 		case req := <-s.request:
-			c, ok := s.clients[req.Path]
+			c, ok := s.converters[req.Path]
 			if !ok {
-				c = clienthls.New(
+				c = converterhls.New(
 					s.hlsSegmentCount,
 					s.hlsSegmentDuration,
 					s.readBufferCount,
@@ -112,15 +112,15 @@ outer:
 					req.Path,
 					s.pathMan,
 					s)
-				s.clients[req.Path] = c
+				s.converters[req.Path] = c
 			}
 			c.OnRequest(req)
 
 		case c := <-s.clientClose:
-			if c2, ok := s.clients[c.PathName()]; !ok || c2 != c {
+			if c2, ok := s.converters[c.PathName()]; !ok || c2 != c {
 				continue
 			}
-			s.doClientClose(c)
+			s.doConverterClose(c)
 
 		case <-s.terminate:
 			break outer
@@ -144,8 +144,8 @@ outer:
 		}
 	}()
 
-	for _, c := range s.clients {
-		s.doClientClose(c)
+	for _, c := range s.converters {
+		s.doConverterClose(c)
 	}
 
 	hs.Shutdown(context.Background())
@@ -156,7 +156,7 @@ outer:
 
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.Log(logger.Info, "%s %s from %s", r.Method, r.URL.Path, r.RemoteAddr)
+	s.Log(logger.Info, "[client %s] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
 
 	// remove leading prefix
 	path := r.URL.Path[1:]
@@ -174,7 +174,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cres := make(chan io.Reader)
-	s.request <- clienthls.Request{
+	s.request <- converterhls.Request{
 		Path:    parts[0],
 		Subpath: parts[1],
 		Req:     r,
@@ -201,12 +201,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) doClientClose(c *clienthls.Client) {
-	delete(s.clients, c.PathName())
+func (s *Server) doConverterClose(c *converterhls.Converter) {
+	delete(s.converters, c.PathName())
 	c.Close()
 }
 
-// OnClientClose is called by a readpublisher.
-func (s *Server) OnClientClose(c *clienthls.Client) {
+// OnConverterClose is called by converterhls.Converter.
+func (s *Server) OnConverterClose(c *converterhls.Converter) {
 	s.clientClose <- c
 }

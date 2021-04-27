@@ -1,4 +1,4 @@
-package clienthls
+package converterhls
 
 import (
 	"io"
