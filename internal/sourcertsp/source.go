@@ -129,7 +129,7 @@ func (s *Source) runInner() bool {
 	go func() {
 		defer close(dialDone)
 
-		conf := gortsplib.ClientConf{
+		client := &gortsplib.Client{
 			StreamProtocol: s.proto,
 			TLSConfig: &tls.Config{
 				InsecureSkipVerify: true,
@@ -158,7 +158,8 @@ func (s *Source) runInner() bool {
 				s.log(logger.Debug, "s->c %v", res)
 			},
 		}
-		conn, err = conf.DialRead(s.ur)
+
+		conn, err = client.DialRead(s.ur)
 	}()
 
 	select {

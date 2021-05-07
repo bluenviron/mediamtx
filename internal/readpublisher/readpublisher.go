@@ -2,6 +2,7 @@ package readpublisher
 
 import (
 	"fmt"
+	"net"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
@@ -10,6 +11,16 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
+
+// Path is implemented by path.Path.
+type Path interface {
+	Name() string
+	Conf() *conf.PathConf
+	OnReadPublisherRemove(RemoveReq)
+	OnReadPublisherPlay(PlayReq)
+	OnReadPublisherRecord(RecordReq)
+	OnReadPublisherPause(PauseReq)
+}
 
 // ErrNoOnePublishing is a "no one is publishing" error.
 type ErrNoOnePublishing struct {
@@ -33,7 +44,8 @@ func (ErrAuthNotCritical) Error() string {
 
 // ErrAuthCritical is a critical authentication error.
 type ErrAuthCritical struct {
-	*base.Response
+	Message  string
+	Response *base.Response
 }
 
 // Error implements the error interface.
@@ -41,14 +53,13 @@ func (ErrAuthCritical) Error() string {
 	return "critical authentication error"
 }
 
-// Path is implemented by path.Path.
-type Path interface {
-	Name() string
-	Conf() *conf.PathConf
-	OnReadPublisherRemove(RemoveReq)
-	OnReadPublisherPlay(PlayReq)
-	OnReadPublisherRecord(RecordReq)
-	OnReadPublisherPause(PauseReq)
+// ReadPublisher is an entity that can read/publish from/to a path.
+type ReadPublisher interface {
+	IsReadPublisher()
+	IsSource()
+	Close()
+	RequestClose()
+	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // DescribeRes is a describe response.
@@ -60,10 +71,11 @@ type DescribeRes struct {
 
 // DescribeReq is a describe request.
 type DescribeReq struct {
-	ReadPublisher ReadPublisher
-	PathName      string
-	Data          *base.Request
-	Res           chan DescribeRes
+	PathName            string
+	URL                 *base.URL
+	IP                  net.IP
+	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
+	Res                 chan DescribeRes
 }
 
 // SetupPlayRes is a setup/play response.
@@ -75,10 +87,11 @@ type SetupPlayRes struct {
 
 // SetupPlayReq is a setup/play request.
 type SetupPlayReq struct {
-	ReadPublisher ReadPublisher
-	PathName      string
-	Data          interface{}
-	Res           chan SetupPlayRes
+	Author              ReadPublisher
+	PathName            string
+	IP                  net.IP
+	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
+	Res                 chan SetupPlayRes
 }
 
 // AnnounceRes is a announce response.
@@ -89,17 +102,18 @@ type AnnounceRes struct {
 
 // AnnounceReq is a announce request.
 type AnnounceReq struct {
-	ReadPublisher ReadPublisher
-	PathName      string
-	Tracks        gortsplib.Tracks
-	Data          interface{}
-	Res           chan AnnounceRes
+	Author              ReadPublisher
+	PathName            string
+	Tracks              gortsplib.Tracks
+	IP                  net.IP
+	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
+	Res                 chan AnnounceRes
 }
 
 // RemoveReq is a remove request.
 type RemoveReq struct {
-	ReadPublisher ReadPublisher
-	Res           chan struct{}
+	Author ReadPublisher
+	Res    chan struct{}
 }
 
 // PlayRes is a play response.
@@ -109,8 +123,8 @@ type PlayRes struct {
 
 // PlayReq is a play request.
 type PlayReq struct {
-	ReadPublisher ReadPublisher
-	Res           chan PlayRes
+	Author ReadPublisher
+	Res    chan PlayRes
 }
 
 // RecordRes is a record response.
@@ -121,24 +135,12 @@ type RecordRes struct {
 
 // RecordReq is a record request.
 type RecordReq struct {
-	ReadPublisher ReadPublisher
-	Res           chan RecordRes
+	Author ReadPublisher
+	Res    chan RecordRes
 }
 
 // PauseReq is a pause request.
 type PauseReq struct {
-	ReadPublisher ReadPublisher
-	Res           chan struct{}
-}
-
-// ReadPublisher is an entity that can read/publish from/to a path.
-type ReadPublisher interface {
-	IsReadPublisher()
-	IsSource()
-	Close()
-	CloseRequest()
-	Authenticate([]headers.AuthMethod,
-		string, []interface{},
-		string, string, interface{}) error
-	OnFrame(int, gortsplib.StreamType, []byte)
+	Author ReadPublisher
+	Res    chan struct{}
 }

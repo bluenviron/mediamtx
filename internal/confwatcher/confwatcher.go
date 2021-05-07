@@ -105,7 +105,7 @@ outer:
 	close(w.signal)
 }
 
-// Watch returns a channel that is called when the configuration file has changed.
+// Watch returns a channel that is called after the configuration file has changed.
 func (w *ConfWatcher) Watch() chan struct{} {
 	return w.signal
 }

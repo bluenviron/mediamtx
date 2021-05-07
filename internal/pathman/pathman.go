@@ -2,9 +2,11 @@ package pathman
 
 import (
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
+	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -13,6 +15,23 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
+
+func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
+	for _, item := range ips {
+		switch titem := item.(type) {
+		case net.IP:
+			if titem.Equal(ip) {
+				return true
+			}
+
+		case *net.IPNet:
+			if titem.Contains(ip) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 // Parent is implemented by program.
 type Parent interface {
@@ -149,13 +168,14 @@ outer:
 				continue
 			}
 
-			err = req.ReadPublisher.Authenticate(
-				pm.authMethods,
+			err = pm.authenticate(
+				req.IP,
+				req.ValidateCredentials,
 				req.PathName,
-				pathConf.ReadIpsParsed,
+				pathConf.ReadIPsParsed,
 				pathConf.ReadUser,
 				pathConf.ReadPass,
-				req.Data)
+			)
 			if err != nil {
 				req.Res <- readpublisher.DescribeRes{nil, "", err} //nolint:govet
 				continue
@@ -175,13 +195,14 @@ outer:
 				continue
 			}
 
-			err = req.ReadPublisher.Authenticate(
-				pm.authMethods,
+			err = pm.authenticate(
+				req.IP,
+				req.ValidateCredentials,
 				req.PathName,
-				pathConf.ReadIpsParsed,
+				pathConf.ReadIPsParsed,
 				pathConf.ReadUser,
 				pathConf.ReadPass,
-				req.Data)
+			)
 			if err != nil {
 				req.Res <- readpublisher.SetupPlayRes{nil, nil, err} //nolint:govet
 				continue
@@ -201,13 +222,14 @@ outer:
 				continue
 			}
 
-			err = req.ReadPublisher.Authenticate(
-				pm.authMethods,
+			err = pm.authenticate(
+				req.IP,
+				req.ValidateCredentials,
 				req.PathName,
-				pathConf.PublishIpsParsed,
+				pathConf.PublishIPsParsed,
 				pathConf.PublishUser,
 				pathConf.PublishPass,
-				req.Data)
+			)
 			if err != nil {
 				req.Res <- readpublisher.AnnounceRes{nil, err} //nolint:govet
 				continue
@@ -338,4 +360,36 @@ func (pm *PathManager) OnReadPublisherAnnounce(req readpublisher.AnnounceReq) {
 // OnReadPublisherSetupPlay is called by clientman.ClientMan.
 func (pm *PathManager) OnReadPublisherSetupPlay(req readpublisher.SetupPlayReq) {
 	pm.clientSetupPlay <- req
+}
+
+func (pm *PathManager) authenticate(
+	ip net.IP,
+	validateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error,
+	pathName string,
+	pathIPs []interface{},
+	pathUser string,
+	pathPass string,
+) error {
+
+	// validate ip
+	if pathIPs != nil && ip != nil {
+		if !ipEqualOrInRange(ip, pathIPs) {
+			return readpublisher.ErrAuthCritical{
+				Message: fmt.Sprintf("IP '%s' not allowed", ip),
+				Response: &base.Response{
+					StatusCode: base.StatusUnauthorized,
+				},
+			}
+		}
+	}
+
+	// validate user
+	if pathUser != "" && validateCredentials != nil {
+		err := validateCredentials(pm.authMethods, pathUser, pathPass)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

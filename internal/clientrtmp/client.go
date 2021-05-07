@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
@@ -35,23 +34,6 @@ const (
 	// - avoid PTS < DTS during startup
 	ptsOffset = 2 * time.Second
 )
-
-func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
-	for _, item := range ips {
-		switch titem := item.(type) {
-		case net.IP:
-			if titem.Equal(ip) {
-				return true
-			}
-
-		case *net.IPNet:
-			if titem.Contains(ip) {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values) {
 	// remove leading and trailing slashes inserted by OBS and some other clients
@@ -144,8 +126,8 @@ func (c *Client) Close() {
 	close(c.terminate)
 }
 
-// CloseRequest closes a Client.
-func (c *Client) CloseRequest() {
+// RequestClose closes a Client.
+func (c *Client) RequestClose() {
 	c.parent.OnClientClose(c)
 }
 
@@ -206,7 +188,14 @@ func (c *Client) runRead() {
 		pathName, query := pathNameAndQuery(c.conn.URL())
 
 		sres := make(chan readpublisher.SetupPlayRes)
-		c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{c, pathName, query, sres}) //nolint:govet
+		c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{
+			Author:   c,
+			PathName: pathName,
+			IP:       c.ip(),
+			ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
+				return c.validateCredentials(authMethods, pathUser, pathPass, query)
+			},
+			Res: sres})
 		res := <-sres
 
 		if res.Err != nil {
@@ -424,7 +413,16 @@ func (c *Client) runPublish() {
 			pathName, query := pathNameAndQuery(c.conn.URL())
 
 			resc := make(chan readpublisher.AnnounceRes)
-			c.pathMan.OnReadPublisherAnnounce(readpublisher.AnnounceReq{c, pathName, tracks, query, resc}) //nolint:govet
+			c.pathMan.OnReadPublisherAnnounce(readpublisher.AnnounceReq{
+				Author:   c,
+				PathName: pathName,
+				Tracks:   tracks,
+				IP:       c.ip(),
+				ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
+					return c.validateCredentials(authMethods, pathUser, pathPass, query)
+				},
+				Res: resc,
+			})
 			res := <-resc
 
 			if res.Err != nil {
@@ -466,7 +464,7 @@ func (c *Client) runPublish() {
 	go func() {
 		readerDone <- func() error {
 			resc := make(chan readpublisher.RecordRes)
-			path.OnReadPublisherRecord(readpublisher.RecordReq{ReadPublisher: c, Res: resc})
+			path.OnReadPublisherRecord(readpublisher.RecordReq{Author: c, Res: resc})
 			res := <-resc
 
 			if res.Err != nil {
@@ -599,32 +597,16 @@ func (c *Client) runPublish() {
 	}
 }
 
-// Authenticate performs an authentication.
-func (c *Client) Authenticate(authMethods []headers.AuthMethod,
-	pathName string, ips []interface{},
-	user string, pass string, req interface{}) error {
+func (c *Client) validateCredentials(
+	authMethods []headers.AuthMethod,
+	pathUser string,
+	pathPass string,
+	query url.Values,
+) error {
 
-	// validate ip
-	if ips != nil {
-		ip := c.ip()
-
-		if !ipEqualOrInRange(ip, ips) {
-			c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
-
-			return readpublisher.ErrAuthCritical{&base.Response{ //nolint:govet
-				StatusCode: base.StatusUnauthorized,
-			}}
-		}
-	}
-
-	// validate user
-	if user != "" {
-		values := req.(url.Values)
-
-		if values.Get("user") != user ||
-			values.Get("pass") != pass {
-			return readpublisher.ErrAuthCritical{nil} //nolint:govet
-		}
+	if query.Get("user") != pathUser ||
+		query.Get("pass") != pathPass {
+		return readpublisher.ErrAuthCritical{}
 	}
 
 	return nil

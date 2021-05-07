@@ -2,11 +2,8 @@ package clientrtsp
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net"
-	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -20,42 +17,28 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
-	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
-	sessionID           = "12345678"
 	pauseAfterAuthError = 2 * time.Second
 )
 
-func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
-	for _, item := range ips {
-		switch titem := item.(type) {
-		case net.IP:
-			if titem.Equal(ip) {
-				return true
-			}
+var errTerminated = errors.New("terminated")
 
-		case *net.IPNet:
-			if titem.Contains(ip) {
-				return true
-			}
-		}
-	}
-	return false
+func isTeardownErr(err error) bool {
+	_, ok := err.(liberrors.ErrServerSessionTeardown)
+	return ok
 }
 
 // PathMan is implemented by pathman.PathMan.
 type PathMan interface {
 	OnReadPublisherDescribe(readpublisher.DescribeReq)
-	OnReadPublisherSetupPlay(readpublisher.SetupPlayReq)
-	OnReadPublisherAnnounce(readpublisher.AnnounceReq)
 }
 
 // Parent is implemented by serverrtsp.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(*Client)
+	// OnClientClose(*Client)
 }
 
 // Client is a RTSP client.
@@ -64,43 +47,27 @@ type Client struct {
 	readTimeout         time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
-	protocols           map[gortsplib.StreamProtocol]struct{}
-	wg                  *sync.WaitGroup
+	pathMan             PathMan
 	stats               *stats.Stats
 	conn                *gortsplib.ServerConn
-	pathMan             PathMan
 	parent              Parent
 
-	path          readpublisher.Path
+	onConnectCmd  *externalcmd.Cmd
 	authUser      string
 	authPass      string
 	authValidator *auth.Validator
 	authFailures  int
-
-	// read
-	setuppedTracks map[int]*gortsplib.Track
-	onReadCmd      *externalcmd.Cmd
-
-	// publish
-	sp           *streamproc.StreamProc
-	onPublishCmd *externalcmd.Cmd
-
-	// in
-	terminate chan struct{}
 }
 
 // New allocates a Client.
 func New(
-	isTLS bool,
 	rtspAddress string,
 	readTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
-	protocols map[gortsplib.StreamProtocol]struct{},
-	wg *sync.WaitGroup,
+	pathMan PathMan,
 	stats *stats.Stats,
 	conn *gortsplib.ServerConn,
-	pathMan PathMan,
 	parent Parent) *Client {
 
 	c := &Client{
@@ -108,549 +75,181 @@ func New(
 		readTimeout:         readTimeout,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
-		protocols:           protocols,
-		wg:                  wg,
+		pathMan:             pathMan,
 		stats:               stats,
 		conn:                conn,
-		pathMan:             pathMan,
 		parent:              parent,
-		terminate:           make(chan struct{}),
 	}
 
 	atomic.AddInt64(c.stats.CountClients, 1)
 	c.log(logger.Info, "connected")
 
-	c.wg.Add(1)
-	go c.run()
+	if c.runOnConnect != "" {
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
+		c.onConnectCmd = externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
+			Path: "",
+			Port: port,
+		})
+	}
 
 	return c
 }
 
 // Close closes a Client.
-func (c *Client) Close() {
+func (c *Client) Close(err error) {
+	if err != io.EOF && err != errTerminated && !isTeardownErr(err) {
+		c.log(logger.Info, "ERR: %v", err)
+	}
+
 	atomic.AddInt64(c.stats.CountClients, -1)
 	c.log(logger.Info, "disconnected")
-	close(c.terminate)
+
+	if c.onConnectCmd != nil {
+		c.onConnectCmd.Close()
+	}
 }
-
-// CloseRequest closes a Client.
-func (c *Client) CloseRequest() {
-	c.parent.OnClientClose(c)
-}
-
-// IsReadPublisher implements readpublisher.ReadPublisher.
-func (c *Client) IsReadPublisher() {}
-
-// IsSource implements source.Source.
-func (c *Client) IsSource() {}
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
+}
+
+// Conn returns the RTSP connection.
+func (c *Client) Conn() *gortsplib.ServerConn {
+	return c.conn
 }
 
 func (c *Client) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
-var errTerminated = errors.New("terminated")
-
-func (c *Client) run() {
-	defer c.wg.Done()
-
-	if c.runOnConnect != "" {
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
-			Path: "",
-			Port: port,
-		})
-		defer onConnectCmd.Close()
-	}
-
-	onRequest := func(req *base.Request) {
-		c.log(logger.Debug, "[c->s] %v", req)
-	}
-
-	onResponse := func(res *base.Response) {
-		c.log(logger.Debug, "[s->c] %v", res)
-	}
-
-	onDescribe := func(ctx *gortsplib.ServerConnDescribeCtx) (*base.Response, []byte, error) {
-		resc := make(chan readpublisher.DescribeRes)
-		c.pathMan.OnReadPublisherDescribe(readpublisher.DescribeReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
-		res := <-resc
-
-		if res.Err != nil {
-			switch terr := res.Err.(type) {
-			case readpublisher.ErrAuthNotCritical:
-				return terr.Response, nil, nil
-
-			case readpublisher.ErrAuthCritical:
-				// wait some seconds to stop brute force attacks
-				select {
-				case <-time.After(pauseAfterAuthError):
-				case <-c.terminate:
-				}
-				return terr.Response, nil, errTerminated
-
-			case readpublisher.ErrNoOnePublishing:
-				return &base.Response{
-					StatusCode: base.StatusNotFound,
-				}, nil, res.Err
-
-			default:
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, nil, res.Err
-			}
-		}
-
-		if res.Redirect != "" {
-			return &base.Response{
-				StatusCode: base.StatusMovedPermanently,
-				Header: base.Header{
-					"Location": base.HeaderValue{res.Redirect},
-				},
-			}, nil, nil
-		}
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-		}, res.SDP, nil
-	}
-
-	onAnnounce := func(ctx *gortsplib.ServerConnAnnounceCtx) (*base.Response, error) {
-		resc := make(chan readpublisher.AnnounceRes)
-		c.pathMan.OnReadPublisherAnnounce(readpublisher.AnnounceReq{c, ctx.Path, ctx.Tracks, ctx.Req, resc}) //nolint:govet
-		res := <-resc
-
-		if res.Err != nil {
-			switch terr := res.Err.(type) {
-			case readpublisher.ErrAuthNotCritical:
-				return terr.Response, nil
-
-			case readpublisher.ErrAuthCritical:
-				// wait some seconds to stop brute force attacks
-				select {
-				case <-time.After(pauseAfterAuthError):
-				case <-c.terminate:
-				}
-				return terr.Response, errTerminated
-
-			default:
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, res.Err
-			}
-		}
-
-		c.path = res.Path
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-		}, nil
-	}
-
-	onSetup := func(ctx *gortsplib.ServerConnSetupCtx) (*base.Response, error) {
-		if ctx.Transport.Protocol == gortsplib.StreamProtocolUDP {
-			if _, ok := c.protocols[gortsplib.StreamProtocolUDP]; !ok {
-				return &base.Response{
-					StatusCode: base.StatusUnsupportedTransport,
-				}, nil
-			}
-		} else {
-			if _, ok := c.protocols[gortsplib.StreamProtocolTCP]; !ok {
-				return &base.Response{
-					StatusCode: base.StatusUnsupportedTransport,
-				}, nil
-			}
-		}
-
-		switch c.conn.State() {
-		case gortsplib.ServerConnStateInitial, gortsplib.ServerConnStatePrePlay: // play
-			resc := make(chan readpublisher.SetupPlayRes)
-			c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{c, ctx.Path, ctx.Req, resc}) //nolint:govet
-			res := <-resc
-
-			if res.Err != nil {
-				switch terr := res.Err.(type) {
-				case readpublisher.ErrAuthNotCritical:
-					return terr.Response, nil
-
-				case readpublisher.ErrAuthCritical:
-					// wait some seconds to stop brute force attacks
-					select {
-					case <-time.After(pauseAfterAuthError):
-					case <-c.terminate:
-					}
-					return terr.Response, errTerminated
-
-				case readpublisher.ErrNoOnePublishing:
-					return &base.Response{
-						StatusCode: base.StatusNotFound,
-					}, res.Err
-
-				default:
-					return &base.Response{
-						StatusCode: base.StatusBadRequest,
-					}, res.Err
-				}
-			}
-
-			c.path = res.Path
-
-			if ctx.TrackID >= len(res.Tracks) {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("track %d does not exist", ctx.TrackID)
-			}
-
-			if c.setuppedTracks == nil {
-				c.setuppedTracks = make(map[int]*gortsplib.Track)
-			}
-			c.setuppedTracks[ctx.TrackID] = res.Tracks[ctx.TrackID]
-		}
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-			Header: base.Header{
-				"Session": base.HeaderValue{sessionID},
-			},
-		}, nil
-	}
-
-	onPlay := func(ctx *gortsplib.ServerConnPlayCtx) (*base.Response, error) {
-		h := base.Header{
-			"Session": base.HeaderValue{sessionID},
-		}
-
-		if c.conn.State() == gortsplib.ServerConnStatePrePlay {
-			if ctx.Path != c.path.Name() {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), ctx.Path)
-			}
-
-			res := c.playStart()
-
-			// add RTP-Info
-			var ri headers.RTPInfo
-			for trackID, ti := range res.TrackInfos {
-				if ti.LastTimeNTP == 0 {
-					continue
-				}
-
-				track, ok := c.setuppedTracks[trackID]
-				if !ok {
-					continue
-				}
-
-				u := &base.URL{
-					Scheme: ctx.Req.URL.Scheme,
-					User:   ctx.Req.URL.User,
-					Host:   ctx.Req.URL.Host,
-					Path:   "/" + c.path.Name() + "/trackID=" + strconv.FormatInt(int64(trackID), 10),
-				}
-
-				clockRate, _ := track.ClockRate()
-				ts := uint32(uint64(ti.LastTimeRTP) +
-					uint64(time.Since(time.Unix(ti.LastTimeNTP, 0)).Seconds()*float64(clockRate)))
-				lsn := ti.LastSequenceNumber
-
-				ri = append(ri, &headers.RTPInfoEntry{
-					URL:            u.String(),
-					SequenceNumber: &lsn,
-					Timestamp:      &ts,
-				})
-			}
-			if len(ri) > 0 {
-				h["RTP-Info"] = ri.Write()
-			}
-		}
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-			Header:     h,
-		}, nil
-	}
-
-	onRecord := func(ctx *gortsplib.ServerConnRecordCtx) (*base.Response, error) {
-		if ctx.Path != c.path.Name() {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("path has changed, was '%s', now is '%s'", c.path.Name(), ctx.Path)
-		}
-
-		err := c.recordStart()
-		if err != nil {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, err
-		}
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-			Header: base.Header{
-				"Session": base.HeaderValue{sessionID},
-			},
-		}, nil
-	}
-
-	onPause := func(ctx *gortsplib.ServerConnPauseCtx) (*base.Response, error) {
-		switch c.conn.State() {
-		case gortsplib.ServerConnStatePlay:
-			c.playStop()
-			res := make(chan struct{})
-			c.path.OnReadPublisherPause(readpublisher.PauseReq{c, res}) //nolint:govet
-			<-res
-
-		case gortsplib.ServerConnStateRecord:
-			c.recordStop()
-			res := make(chan struct{})
-			c.path.OnReadPublisherPause(readpublisher.PauseReq{c, res}) //nolint:govet
-			<-res
-		}
-
-		return &base.Response{
-			StatusCode: base.StatusOK,
-			Header: base.Header{
-				"Session": base.HeaderValue{sessionID},
-			},
-		}, nil
-	}
-
-	onFrame := func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-		if c.conn.State() != gortsplib.ServerConnStateRecord {
-			return
-		}
-
-		c.sp.OnFrame(trackID, streamType, payload)
-	}
-
-	readDone := c.conn.Read(gortsplib.ServerConnReadHandlers{
-		OnRequest:  onRequest,
-		OnResponse: onResponse,
-		OnDescribe: onDescribe,
-		OnAnnounce: onAnnounce,
-		OnSetup:    onSetup,
-		OnPlay:     onPlay,
-		OnRecord:   onRecord,
-		OnPause:    onPause,
-		OnFrame:    onFrame,
-	})
-
-	select {
-	case err := <-readDone:
-		c.conn.Close()
-
-		if err != io.EOF && err != errTerminated {
-			if _, ok := err.(liberrors.ErrServerTeardown); !ok {
-				c.log(logger.Info, "ERR: %s", err)
-			}
-		}
-
-		switch c.conn.State() {
-		case gortsplib.ServerConnStatePlay:
-			c.playStop()
-
-		case gortsplib.ServerConnStateRecord:
-			c.recordStop()
-		}
-
-		if c.path != nil {
-			res := make(chan struct{})
-			c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
-			<-res
-			c.path = nil
-		}
-
-		c.parent.OnClientClose(c)
-		<-c.terminate
-
-	case <-c.terminate:
-		c.conn.Close()
-		<-readDone
-
-		switch c.conn.State() {
-		case gortsplib.ServerConnStatePlay:
-			c.playStop()
-
-		case gortsplib.ServerConnStateRecord:
-			c.recordStop()
-		}
-
-		if c.path != nil {
-			res := make(chan struct{})
-			c.path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
-			<-res
-			c.path = nil
-		}
-	}
+// OnRequest is called by serverrtsp.Server.
+func (c *Client) OnRequest(req *base.Request) {
+	c.log(logger.Debug, "[c->s] %v", req)
 }
 
-// Authenticate performs an authentication.
-func (c *Client) Authenticate(authMethods []headers.AuthMethod,
-	pathName string, ips []interface{},
-	user string, pass string, req interface{}) error {
+// OnResponse is called by serverrtsp.Server.
+func (c *Client) OnResponse(res *base.Response) {
+	c.log(logger.Debug, "[s->c] %v", res)
+}
 
-	// validate ip
-	if ips != nil {
-		ip := c.ip()
+// OnDescribe is called by serverrtsp.Server.
+func (c *Client) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
+	resc := make(chan readpublisher.DescribeRes)
+	c.pathMan.OnReadPublisherDescribe(readpublisher.DescribeReq{
+		PathName: ctx.Path,
+		URL:      ctx.Req.URL,
+		IP:       c.ip(),
+		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
+			return c.ValidateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
+		},
+		Res: resc,
+	})
+	res := <-resc
 
-		if !ipEqualOrInRange(ip, ips) {
-			c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
+	if res.Err != nil {
+		switch terr := res.Err.(type) {
+		case readpublisher.ErrAuthNotCritical:
+			return terr.Response, nil, nil
 
-			return readpublisher.ErrAuthCritical{&base.Response{ //nolint:govet
-				StatusCode: base.StatusUnauthorized,
-			}}
+		case readpublisher.ErrAuthCritical:
+			c.log(logger.Info, "ERR: %v", terr.Message)
+
+			// wait some seconds to stop brute force attacks
+			<-time.After(pauseAfterAuthError)
+			return terr.Response, nil, errTerminated
+
+		case readpublisher.ErrNoOnePublishing:
+			return &base.Response{
+				StatusCode: base.StatusNotFound,
+			}, nil, res.Err
+
+		default:
+			return &base.Response{
+				StatusCode: base.StatusBadRequest,
+			}, nil, res.Err
 		}
 	}
 
-	// validate user
-	if user != "" {
-		reqRTSP := req.(*base.Request)
+	if res.Redirect != "" {
+		return &base.Response{
+			StatusCode: base.StatusMovedPermanently,
+			Header: base.Header{
+				"Location": base.HeaderValue{res.Redirect},
+			},
+		}, nil, nil
+	}
 
-		// reset authValidator every time the credentials change
-		if c.authValidator == nil || c.authUser != user || c.authPass != pass {
-			c.authUser = user
-			c.authPass = pass
-			c.authValidator = auth.NewValidator(user, pass, authMethods)
+	return &base.Response{
+		StatusCode: base.StatusOK,
+	}, res.SDP, nil
+}
+
+// ValidateCredentials allows to validate the credentials of a path.
+func (c *Client) ValidateCredentials(
+	authMethods []headers.AuthMethod,
+	pathUser string,
+	pathPass string,
+	pathName string,
+	req *base.Request,
+) error {
+
+	// reset authValidator every time the credentials change
+	if c.authValidator == nil || c.authUser != pathUser || c.authPass != pathPass {
+		c.authUser = pathUser
+		c.authPass = pathPass
+		c.authValidator = auth.NewValidator(pathUser, pathPass, authMethods)
+	}
+
+	// VLC strips the control attribute
+	// provide an alternative URL without the control attribute
+	altURL := func() *base.URL {
+		if req.Method != base.Setup {
+			return nil
 		}
+		return &base.URL{
+			Scheme: req.URL.Scheme,
+			Host:   req.URL.Host,
+			Path:   "/" + pathName + "/",
+		}
+	}()
 
-		// VLC strips the control attribute
-		// provide an alternative URL without the control attribute
-		altURL := func() *base.URL {
-			if reqRTSP.Method != base.Setup {
-				return nil
-			}
-			return &base.URL{
-				Scheme: reqRTSP.URL.Scheme,
-				Host:   reqRTSP.URL.Host,
-				Path:   "/" + pathName + "/",
-			}
-		}()
+	err := c.authValidator.ValidateHeader(req.Header["Authorization"],
+		req.Method, req.URL, altURL)
+	if err != nil {
+		c.authFailures++
 
-		err := c.authValidator.ValidateHeader(reqRTSP.Header["Authorization"],
-			reqRTSP.Method, reqRTSP.URL, altURL)
-		if err != nil {
-			c.authFailures++
-
-			// vlc with login prompt sends 4 requests:
-			// 1) without credentials
-			// 2) with password but without username
-			// 3) without credentials
-			// 4) with password and username
-			// therefore we must allow up to 3 failures
-			if c.authFailures > 3 {
-				c.log(logger.Info, "ERR: unauthorized: %s", err)
-
-				return readpublisher.ErrAuthCritical{&base.Response{ //nolint:govet
+		// vlc with login prompt sends 4 requests:
+		// 1) without credentials
+		// 2) with password but without username
+		// 3) without credentials
+		// 4) with password and username
+		// therefore we must allow up to 3 failures
+		if c.authFailures > 3 {
+			return readpublisher.ErrAuthCritical{
+				Message: "unauthorized: " + err.Error(),
+				Response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
 						"WWW-Authenticate": c.authValidator.GenerateHeader(),
 					},
-				}}
-			}
-
-			if c.authFailures > 1 {
-				c.log(logger.Debug, "WARN: unauthorized: %s", err)
-			}
-
-			return readpublisher.ErrAuthNotCritical{&base.Response{ //nolint:govet
-				StatusCode: base.StatusUnauthorized,
-				Header: base.Header{
-					"WWW-Authenticate": c.authValidator.GenerateHeader(),
 				},
-			}}
+			}
 		}
+
+		if c.authFailures > 1 {
+			c.log(logger.Debug, "WARN: unauthorized: %s", err)
+		}
+
+		return readpublisher.ErrAuthNotCritical{&base.Response{ //nolint:govet
+			StatusCode: base.StatusUnauthorized,
+			Header: base.Header{
+				"WWW-Authenticate": c.authValidator.GenerateHeader(),
+			},
+		}}
 	}
 
 	// login successful, reset authFailures
 	c.authFailures = 0
 
 	return nil
-}
-
-func (c *Client) playStart() readpublisher.PlayRes {
-	resc := make(chan readpublisher.PlayRes)
-	c.path.OnReadPublisherPlay(readpublisher.PlayReq{c, resc}) //nolint:govet
-	res := <-resc
-
-	tracksLen := len(c.conn.SetuppedTracks())
-
-	c.log(logger.Info, "is reading from path '%s', %d %s with %s",
-		c.path.Name(),
-		tracksLen,
-		func() string {
-			if tracksLen == 1 {
-				return "track"
-			}
-			return "tracks"
-		}(),
-		*c.conn.StreamProtocol())
-
-	if c.path.Conf().RunOnRead != "" {
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		c.onReadCmd = externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
-			Path: c.path.Name(),
-			Port: port,
-		})
-	}
-
-	return res
-}
-
-func (c *Client) playStop() {
-	if c.path.Conf().RunOnRead != "" {
-		c.onReadCmd.Close()
-	}
-}
-
-func (c *Client) recordStart() error {
-	resc := make(chan readpublisher.RecordRes)
-	c.path.OnReadPublisherRecord(readpublisher.RecordReq{ReadPublisher: c, Res: resc})
-	res := <-resc
-
-	if res.Err != nil {
-		return res.Err
-	}
-
-	c.sp = res.SP
-
-	tracksLen := len(c.conn.AnnouncedTracks())
-
-	c.log(logger.Info, "is publishing to path '%s', %d %s with %s",
-		c.path.Name(),
-		tracksLen,
-		func() string {
-			if tracksLen == 1 {
-				return "track"
-			}
-			return "tracks"
-		}(),
-		*c.conn.StreamProtocol())
-
-	if c.path.Conf().RunOnPublish != "" {
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		c.onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish, c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
-			Path: c.path.Name(),
-			Port: port,
-		})
-	}
-
-	return nil
-}
-
-func (c *Client) recordStop() {
-	if c.path.Conf().RunOnPublish != "" {
-		c.onPublishCmd.Close()
-	}
-}
-
-// OnFrame implements path.Reader.
-func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	if _, ok := c.conn.SetuppedTracks()[trackID]; !ok {
-		return
-	}
-
-	c.conn.WriteFrame(trackID, streamType, payload)
 }

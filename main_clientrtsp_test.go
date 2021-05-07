@@ -532,7 +532,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
 		require.NoError(t, err)
 
-		conf := gortsplib.ClientConf{
+		client := &gortsplib.Client{
 			StreamProtocol: func() *gortsplib.StreamProtocol {
 				v := gortsplib.StreamProtocolTCP
 				return &v
@@ -540,12 +540,12 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			ReadBufferSize: 4500,
 		}
 
-		source, err := conf.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+		source, err := client.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
 
-		dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+		dest, err := client.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
 		require.NoError(t, err)
 		defer dest.Close()
 
@@ -579,7 +579,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
 		require.NoError(t, err)
 
-		conf := gortsplib.ClientConf{
+		client := &gortsplib.Client{
 			StreamProtocol: func() *gortsplib.StreamProtocol {
 				v := gortsplib.StreamProtocolTCP
 				return &v
@@ -587,7 +587,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			ReadBufferSize: 4500,
 		}
 
-		source, err := conf.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+		source, err := client.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
@@ -606,7 +606,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 
 		time.Sleep(100 * time.Millisecond)
 
-		dest, err := conf.DialRead("rtsp://" + ownDockerIP + ":8555/teststream")
+		dest, err := client.DialRead("rtsp://" + ownDockerIP + ":8555/teststream")
 		require.NoError(t, err)
 		defer dest.Close()
 
@@ -827,7 +827,7 @@ func TestClientRTSPRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh
 trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' INT
-ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
+(ffmpeg -hide_banner -loglevel error -re -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH; sleep 86400) &
 wait
 `, doneFile)))
 	require.NoError(t, err)

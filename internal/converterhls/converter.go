@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
@@ -189,8 +188,8 @@ func (c *Converter) Close() {
 	close(c.terminate)
 }
 
-// CloseRequest closes a Converter.
-func (c *Converter) CloseRequest() {
+// RequestClose closes a Converter.
+func (c *Converter) RequestClose() {
 	c.parent.OnConverterClose(c)
 }
 
@@ -222,7 +221,13 @@ func (c *Converter) run() {
 
 	err := func() error {
 		pres := make(chan readpublisher.SetupPlayRes)
-		c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{c, c.pathName, nil, pres}) //nolint:govet
+		c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{
+			Author:              c,
+			PathName:            c.pathName,
+			IP:                  nil,
+			ValidateCredentials: nil,
+			Res:                 pres,
+		})
 		res := <-pres
 
 		if res.Err != nil {
@@ -522,10 +527,10 @@ func (c *Converter) runRequestHandler(done chan struct{}) {
 
 		conf := c.path.Conf()
 
-		if conf.ReadIpsParsed != nil {
+		if conf.ReadIPsParsed != nil {
 			tmp, _, _ := net.SplitHostPort(req.Req.RemoteAddr)
 			ip := net.ParseIP(tmp)
-			if !ipEqualOrInRange(ip, conf.ReadIpsParsed) {
+			if !ipEqualOrInRange(ip, conf.ReadIPsParsed) {
 				c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
 				req.W.WriteHeader(http.StatusUnauthorized)
 				req.Res <- nil
@@ -595,13 +600,6 @@ func (c *Converter) runRequestHandler(done chan struct{}) {
 // OnRequest is called by serverhls.Server.
 func (c *Converter) OnRequest(req Request) {
 	c.request <- req
-}
-
-// Authenticate performs an authentication.
-func (c *Converter) Authenticate(authMethods []headers.AuthMethod,
-	pathName string, ips []interface{},
-	user string, pass string, req interface{}) error {
-	return nil
 }
 
 // OnFrame implements path.Reader.

@@ -83,12 +83,12 @@ type PathConf struct {
 	// authentication
 	PublishUser      string        `yaml:"publishUser"`
 	PublishPass      string        `yaml:"publishPass"`
-	PublishIps       []string      `yaml:"publishIps"`
-	PublishIpsParsed []interface{} `yaml:"-" json:"-"`
+	PublishIPs       []string      `yaml:"publishIps"`
+	PublishIPsParsed []interface{} `yaml:"-" json:"-"`
 	ReadUser         string        `yaml:"readUser"`
 	ReadPass         string        `yaml:"readPass"`
-	ReadIps          []string      `yaml:"readIps"`
-	ReadIpsParsed    []interface{} `yaml:"-" json:"-"`
+	ReadIPs          []string      `yaml:"readIps"`
+	ReadIPsParsed    []interface{} `yaml:"-" json:"-"`
 
 	// custom commands
 	RunOnInit               string        `yaml:"runOnInit"`
@@ -260,12 +260,12 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("publish password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-	if len(pconf.PublishIps) == 0 {
-		pconf.PublishIps = nil
+	if len(pconf.PublishIPs) == 0 {
+		pconf.PublishIPs = nil
 	}
 	var err error
-	pconf.PublishIpsParsed, err = func() ([]interface{}, error) {
-		if len(pconf.PublishIps) == 0 {
+	pconf.PublishIPsParsed, err = func() ([]interface{}, error) {
+		if len(pconf.PublishIPs) == 0 {
 			return nil, nil
 		}
 
@@ -273,7 +273,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return nil, fmt.Errorf("'publishIps' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
 		}
 
-		return parseIPCidrList(pconf.PublishIps)
+		return parseIPCidrList(pconf.PublishIPs)
 	}()
 	if err != nil {
 		return err
@@ -292,11 +292,11 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("read password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-	if len(pconf.ReadIps) == 0 {
-		pconf.ReadIps = nil
+	if len(pconf.ReadIPs) == 0 {
+		pconf.ReadIPs = nil
 	}
-	pconf.ReadIpsParsed, err = func() ([]interface{}, error) {
-		return parseIPCidrList(pconf.ReadIps)
+	pconf.ReadIPsParsed, err = func() ([]interface{}, error) {
+		return parseIPCidrList(pconf.ReadIPs)
 	}()
 	if err != nil {
 		return err
