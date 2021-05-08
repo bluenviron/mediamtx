@@ -138,7 +138,7 @@ func (c *Client) IsReadPublisher() {}
 func (c *Client) IsSource() {}
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[client %s] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr().String()}, args...)...)
+	c.parent.Log(level, "[client %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
 func (c *Client) ip() net.IP {

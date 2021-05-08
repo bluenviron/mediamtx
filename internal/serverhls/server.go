@@ -156,7 +156,7 @@ outer:
 
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.Log(logger.Info, "[client %s] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+	s.Log(logger.Info, "[client %v] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
 
 	// remove leading prefix
 	path := r.URL.Path[1:]

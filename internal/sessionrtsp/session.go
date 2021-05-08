@@ -39,6 +39,7 @@ type Parent interface {
 type Session struct {
 	rtspAddress string
 	protocols   map[gortsplib.StreamProtocol]struct{}
+	visualID    string
 	ss          *gortsplib.ServerSession
 	pathMan     PathMan
 	parent      Parent
@@ -54,19 +55,22 @@ type Session struct {
 func New(
 	rtspAddress string,
 	protocols map[gortsplib.StreamProtocol]struct{},
+	visualID string,
 	ss *gortsplib.ServerSession,
+	sc *gortsplib.ServerConn,
 	pathMan PathMan,
 	parent Parent) *Session {
 
 	s := &Session{
 		rtspAddress: rtspAddress,
 		protocols:   protocols,
+		visualID:    visualID,
 		ss:          ss,
 		pathMan:     pathMan,
 		parent:      parent,
 	}
 
-	s.log(logger.Info, "created")
+	s.log(logger.Info, "created by %v", sc.NetConn().RemoteAddr())
 
 	return s
 }
@@ -106,8 +110,13 @@ func (s *Session) IsReadPublisher() {}
 // IsSource implements source.Source.
 func (s *Session) IsSource() {}
 
+// VisualID returns the visual ID of the session.
+func (s *Session) VisualID() string {
+	return s.visualID
+}
+
 func (s *Session) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[session %s] "+format, append([]interface{}{"TODO"}, args...)...)
+	s.parent.Log(level, "[session %s] "+format, append([]interface{}{s.visualID}, args...)...)
 }
 
 // OnAnnounce is called by serverrtsp.Server.
