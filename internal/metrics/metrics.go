@@ -77,7 +77,6 @@ func (m *Metrics) run() {
 func (m *Metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	nowUnix := time.Now().UnixNano() / 1000000
 
-	countClients := atomic.LoadInt64(m.stats.CountClients)
 	countPublishers := atomic.LoadInt64(m.stats.CountPublishers)
 	countReaders := atomic.LoadInt64(m.stats.CountReaders)
 	countSourcesRTSP := atomic.LoadInt64(m.stats.CountSourcesRTSP)
@@ -86,16 +85,17 @@ func (m *Metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 	countSourcesRTMPRunning := atomic.LoadInt64(m.stats.CountSourcesRTMPRunning)
 
 	out := ""
-	out += formatMetric("rtsp_clients{state=\"idle\"}",
-		countClients-countPublishers-countReaders, nowUnix)
+
 	out += formatMetric("rtsp_clients{state=\"publishing\"}",
 		countPublishers, nowUnix)
 	out += formatMetric("rtsp_clients{state=\"reading\"}",
 		countReaders, nowUnix)
+
 	out += formatMetric("rtsp_sources{type=\"rtsp\",state=\"idle\"}",
 		countSourcesRTSP-countSourcesRTSPRunning, nowUnix)
 	out += formatMetric("rtsp_sources{type=\"rtsp\",state=\"running\"}",
 		countSourcesRTSPRunning, nowUnix)
+
 	out += formatMetric("rtsp_sources{type=\"rtmp\",state=\"idle\"}",
 		countSourcesRTMP-countSourcesRTMPRunning, nowUnix)
 	out += formatMetric("rtsp_sources{type=\"rtmp\",state=\"running\"}",

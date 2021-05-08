@@ -102,11 +102,10 @@ func (p *program) close() {
 }
 
 func (p *program) Log(level logger.Level, format string, args ...interface{}) {
-	countClients := atomic.LoadInt64(p.stats.CountClients)
 	countPublishers := atomic.LoadInt64(p.stats.CountPublishers)
 	countReaders := atomic.LoadInt64(p.stats.CountReaders)
 
-	p.logger.Log(level, "[%d/%d/%d] "+format, append([]interface{}{countClients,
+	p.logger.Log(level, "[%d/%d] "+format, append([]interface{}{
 		countPublishers, countReaders}, args...)...)
 }
 

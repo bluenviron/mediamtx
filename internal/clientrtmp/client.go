@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -110,7 +109,6 @@ func New(
 		terminate:           make(chan struct{}),
 	}
 
-	atomic.AddInt64(c.stats.CountClients, 1)
 	c.log(logger.Info, "connected")
 
 	c.wg.Add(1)
@@ -121,7 +119,6 @@ func New(
 
 // Close closes a Client.
 func (c *Client) Close() {
-	atomic.AddInt64(c.stats.CountClients, -1)
 	c.log(logger.Info, "disconnected")
 	close(c.terminate)
 }

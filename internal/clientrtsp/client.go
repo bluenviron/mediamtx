@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -79,7 +78,6 @@ func New(
 		parent:              parent,
 	}
 
-	atomic.AddInt64(c.stats.CountClients, 1)
 	c.log(logger.Info, "connected")
 
 	if c.runOnConnect != "" {
@@ -99,7 +97,6 @@ func (c *Client) Close(err error) {
 		c.log(logger.Info, "ERR: %v", err)
 	}
 
-	atomic.AddInt64(c.stats.CountClients, -1)
 	c.log(logger.Info, "disconnected")
 
 	if c.onConnectCmd != nil {

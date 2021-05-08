@@ -475,10 +475,10 @@ There are multiple ways to monitor the server usage over time:
 * The current number of clients, publishers and readers is printed in each log line; for instance, the line:
 
   ```
-  2020/01/01 00:00:00 [2/1/1] [client 127.0.0.1:44428] OPTION
+  2020/01/01 00:00:00 [3/2] [client 127.0.0.1:44428] OPTION
   ```
 
-  means that there are 2 clients, 1 publisher and 1 reader.
+  means that there are 3 publishers and 2 readers.
 
 * A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
 
@@ -489,7 +489,6 @@ There are multiple ways to monitor the server usage over time:
   Obtaining:
 
   ```
-  rtsp_clients{state="idle"} 2 1596122687740
   rtsp_clients{state="publishing"} 15 1596122687740
   rtsp_clients{state="reading"} 8 1596122687740
   rtsp_sources{type="rtsp",state="idle"} 3 1596122687740
@@ -500,7 +499,6 @@ There are multiple ways to monitor the server usage over time:
 
   where:
 
-  * `rtsp_clients{state="idle"}` is the count of clients that are neither publishing nor reading
   * `rtsp_clients{state="publishing"}` is the count of clients that are publishing
   * `rtsp_clients{state="reading"}` is the count of clients that are reading
   * `rtsp_sources{type="rtsp",state="idle"}` is the count of rtsp sources that are not running
