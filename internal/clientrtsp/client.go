@@ -23,8 +23,6 @@ const (
 	pauseAfterAuthError = 2 * time.Second
 )
 
-var errTerminated = errors.New("terminated")
-
 func isTeardownErr(err error) bool {
 	_, ok := err.(liberrors.ErrServerSessionTeardown)
 	return ok
@@ -97,7 +95,7 @@ func New(
 
 // Close closes a Client.
 func (c *Client) Close(err error) {
-	if err != io.EOF && err != errTerminated && !isTeardownErr(err) {
+	if err != io.EOF && !isTeardownErr(err) {
 		c.log(logger.Info, "ERR: %v", err)
 	}
 
@@ -152,11 +150,10 @@ func (c *Client) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Re
 			return terr.Response, nil, nil
 
 		case readpublisher.ErrAuthCritical:
-			c.log(logger.Info, "ERR: %v", terr.Message)
-
 			// wait some seconds to stop brute force attacks
 			<-time.After(pauseAfterAuthError)
-			return terr.Response, nil, errTerminated
+
+			return terr.Response, nil, errors.New(terr.Message)
 
 		case readpublisher.ErrNoOnePublishing:
 			return &base.Response{
