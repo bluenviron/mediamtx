@@ -16,8 +16,8 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/source"
-	"github.com/aler9/rtsp-simple-server/internal/sourcertmp"
-	"github.com/aler9/rtsp-simple-server/internal/sourcertsp"
+	"github.com/aler9/rtsp-simple-server/internal/rtmpsource"
+	"github.com/aler9/rtsp-simple-server/internal/rtspsource"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
@@ -403,7 +403,7 @@ func (pa *Path) hasExternalSource() bool {
 func (pa *Path) startExternalSource() {
 	if strings.HasPrefix(pa.conf.Source, "rtsp://") ||
 		strings.HasPrefix(pa.conf.Source, "rtsps://") {
-		pa.source = sourcertsp.New(
+		pa.source = rtspsource.New(
 			pa.conf.Source,
 			pa.conf.SourceProtocolParsed,
 			pa.conf.SourceFingerprint,
@@ -416,7 +416,7 @@ func (pa *Path) startExternalSource() {
 			pa)
 
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
-		pa.source = sourcertmp.New(
+		pa.source = rtmpsource.New(
 			pa.conf.Source,
 			pa.readTimeout,
 			pa.writeTimeout,

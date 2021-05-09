@@ -1,4 +1,4 @@
-package serverhls
+package hlsserver
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/converterhls"
+	"github.com/aler9/rtsp-simple-server/internal/hlsconverter"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -31,11 +31,11 @@ type Server struct {
 
 	ln         net.Listener
 	wg         sync.WaitGroup
-	converters map[string]*converterhls.Converter
+	converters map[string]*hlsconverter.Converter
 
 	// in
-	request   chan converterhls.Request
-	connClose chan *converterhls.Converter
+	request   chan hlsconverter.Request
+	connClose chan *hlsconverter.Converter
 	terminate chan struct{}
 
 	// out
@@ -66,9 +66,9 @@ func New(
 		pathMan:            pathMan,
 		parent:             parent,
 		ln:                 ln,
-		converters:         make(map[string]*converterhls.Converter),
-		request:            make(chan converterhls.Request),
-		connClose:          make(chan *converterhls.Converter),
+		converters:         make(map[string]*hlsconverter.Converter),
+		request:            make(chan hlsconverter.Request),
+		connClose:          make(chan *hlsconverter.Converter),
 		terminate:          make(chan struct{}),
 		done:               make(chan struct{}),
 	}
@@ -103,7 +103,7 @@ outer:
 		case req := <-s.request:
 			c, ok := s.converters[req.Path]
 			if !ok {
-				c = converterhls.New(
+				c = hlsconverter.New(
 					s.hlsSegmentCount,
 					s.hlsSegmentDuration,
 					s.readBufferCount,
@@ -174,7 +174,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cres := make(chan io.Reader)
-	s.request <- converterhls.Request{
+	s.request <- hlsconverter.Request{
 		Path:    parts[0],
 		Subpath: parts[1],
 		Req:     r,
@@ -201,12 +201,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) doConverterClose(c *converterhls.Converter) {
+func (s *Server) doConverterClose(c *hlsconverter.Converter) {
 	delete(s.converters, c.PathName())
 	c.ParentClose()
 }
 
-// OnConverterClose is called by converterhls.Converter.
-func (s *Server) OnConverterClose(c *converterhls.Converter) {
+// OnConverterClose is called by hlsconverter.Converter.
+func (s *Server) OnConverterClose(c *hlsconverter.Converter) {
 	s.connClose <- c
 }

@@ -1,4 +1,4 @@
-package connrtsp
+package rtspconn
 
 import (
 	"errors"
@@ -37,7 +37,7 @@ type PathMan interface {
 	OnReadPublisherDescribe(readpublisher.DescribeReq)
 }
 
-// Parent is implemented by serverrtsp.Server.
+// Parent is implemented by rtspserver.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -121,17 +121,17 @@ func (c *Conn) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
-// OnRequest is called by serverrtsp.Server.
+// OnRequest is called by rtspserver.Server.
 func (c *Conn) OnRequest(req *base.Request) {
 	c.log(logger.Debug, "[c->s] %v", req)
 }
 
-// OnResponse is called by serverrtsp.Server.
+// OnResponse is called by rtspserver.Server.
 func (c *Conn) OnResponse(res *base.Response) {
 	c.log(logger.Debug, "[s->c] %v", res)
 }
 
-// OnDescribe is called by serverrtsp.Server.
+// OnDescribe is called by rtspserver.Server.
 func (c *Conn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
 	resc := make(chan readpublisher.DescribeRes)
 	c.pathMan.OnReadPublisherDescribe(readpublisher.DescribeReq{

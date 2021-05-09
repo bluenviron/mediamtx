@@ -1,4 +1,4 @@
-package converterhls
+package hlsconverter
 
 import (
 	"bytes"
@@ -119,7 +119,7 @@ type PathMan interface {
 	OnReadPublisherSetupPlay(readpublisher.SetupPlayReq)
 }
 
-// Parent is implemented by serverhls.Server.
+// Parent is implemented by hlsserver.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnConverterClose(*Converter)
@@ -594,7 +594,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 	}
 }
 
-// OnRequest is called by serverhls.Server.
+// OnRequest is called by hlsserver.Server.
 func (c *Converter) OnRequest(req Request) {
 	c.request <- req
 }

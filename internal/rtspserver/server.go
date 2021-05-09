@@ -1,4 +1,4 @@
-package serverrtsp
+package rtspserver
 
 import (
 	"crypto/rand"
@@ -11,14 +11,14 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/rtsp-simple-server/internal/connrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
-	"github.com/aler9/rtsp-simple-server/internal/sessionrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/rtspsession"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
-func newSessionVisualID(sessions map[*gortsplib.ServerSession]*sessionrtsp.Session) (string, error) {
+func newSessionVisualID(sessions map[*gortsplib.ServerSession]*rtspsession.Session) (string, error) {
 	for {
 		b := make([]byte, 4)
 		_, err := rand.Read(b)
@@ -61,8 +61,8 @@ type Server struct {
 
 	srv      *gortsplib.Server
 	mutex    sync.RWMutex
-	conns    map[*gortsplib.ServerConn]*connrtsp.Conn
-	sessions map[*gortsplib.ServerSession]*sessionrtsp.Session
+	conns    map[*gortsplib.ServerConn]*rtspconn.Conn
+	sessions map[*gortsplib.ServerSession]*rtspsession.Session
 
 	// in
 	terminate chan struct{}
@@ -100,8 +100,8 @@ func New(
 		stats:       stats,
 		pathMan:     pathMan,
 		parent:      parent,
-		conns:       make(map[*gortsplib.ServerConn]*connrtsp.Conn),
-		sessions:    make(map[*gortsplib.ServerSession]*sessionrtsp.Session),
+		conns:       make(map[*gortsplib.ServerConn]*rtspconn.Conn),
+		sessions:    make(map[*gortsplib.ServerSession]*rtspsession.Session),
 		terminate:   make(chan struct{}),
 		done:        make(chan struct{}),
 	}
@@ -199,7 +199,7 @@ outer:
 
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *Server) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	c := connrtsp.New(
+	c := rtspconn.New(
 		s.rtspAddress,
 		s.readTimeout,
 		s.runOnConnect,
@@ -250,7 +250,7 @@ func (s *Server) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	// use a new random ID
 	visualID, _ := newSessionVisualID(s.sessions)
 
-	se := sessionrtsp.New(
+	se := rtspsession.New(
 		s.rtspAddress,
 		s.protocols,
 		visualID,

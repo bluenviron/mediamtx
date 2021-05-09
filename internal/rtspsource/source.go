@@ -1,4 +1,4 @@
-package sourcertsp
+package rtspsource
 
 import (
 	"crypto/sha256"

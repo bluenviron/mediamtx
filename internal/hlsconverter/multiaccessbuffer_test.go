@@ -1,4 +1,4 @@
-package converterhls
+package hlsconverter
 
 import (
 	"io"

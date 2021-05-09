@@ -1,4 +1,4 @@
-package sourcertmp
+package rtmpsource
 
 import (
 	"context"

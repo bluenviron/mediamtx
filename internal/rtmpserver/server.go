@@ -1,11 +1,11 @@
-package serverrtmp
+package rtmpserver
 
 import (
 	"net"
 	"sync"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/connrtmp"
+	"github.com/aler9/rtsp-simple-server/internal/rtmpconn"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -30,10 +30,10 @@ type Server struct {
 
 	l     net.Listener
 	wg    sync.WaitGroup
-	conns map[*connrtmp.Conn]struct{}
+	conns map[*rtmpconn.Conn]struct{}
 
 	// in
-	connClose chan *connrtmp.Conn
+	connClose chan *rtmpconn.Conn
 	terminate chan struct{}
 
 	// out
@@ -69,8 +69,8 @@ func New(
 		pathMan:             pathMan,
 		parent:              parent,
 		l:                   l,
-		conns:               make(map[*connrtmp.Conn]struct{}),
-		connClose:           make(chan *connrtmp.Conn),
+		conns:               make(map[*rtmpconn.Conn]struct{}),
+		connClose:           make(chan *rtmpconn.Conn),
 		terminate:           make(chan struct{}),
 		done:                make(chan struct{}),
 	}
@@ -121,7 +121,7 @@ outer:
 			break outer
 
 		case nconn := <-connNew:
-			c := connrtmp.New(
+			c := rtmpconn.New(
 				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,
@@ -181,13 +181,13 @@ outer:
 	close(s.connClose)
 }
 
-func (s *Server) doConnClose(c *connrtmp.Conn) {
+func (s *Server) doConnClose(c *rtmpconn.Conn) {
 	delete(s.conns, c)
 	c.ParentClose()
 	c.Close()
 }
 
-// OnConnClose is called by connrtmp.Conn.
-func (s *Server) OnConnClose(c *connrtmp.Conn) {
+// OnConnClose is called by rtmpconn.Conn.
+func (s *Server) OnConnClose(c *rtmpconn.Conn) {
 	s.connClose <- c
 }

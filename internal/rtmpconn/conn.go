@@ -1,4 +1,4 @@
-package connrtmp
+package rtmpconn
 
 import (
 	"context"
@@ -54,7 +54,7 @@ type PathMan interface {
 	OnReadPublisherAnnounce(readpublisher.AnnounceReq)
 }
 
-// Parent is implemented by serverrtmp.Server.
+// Parent is implemented by rtmpserver.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnConnClose(*Conn)

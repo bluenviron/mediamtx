@@ -16,9 +16,9 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
 	"github.com/aler9/rtsp-simple-server/internal/rlimit"
-	"github.com/aler9/rtsp-simple-server/internal/serverhls"
-	"github.com/aler9/rtsp-simple-server/internal/serverrtmp"
-	"github.com/aler9/rtsp-simple-server/internal/serverrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/hlsserver"
+	"github.com/aler9/rtsp-simple-server/internal/rtmpserver"
+	"github.com/aler9/rtsp-simple-server/internal/rtspserver"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )
 
@@ -33,10 +33,10 @@ type program struct {
 	metrics         *metrics.Metrics
 	pprof           *pprof.PPROF
 	pathMan         *pathman.PathManager
-	serverRTSPPlain *serverrtsp.Server
-	serverRTSPTLS   *serverrtsp.Server
-	serverRTMP      *serverrtmp.Server
-	serverHLS       *serverhls.Server
+	serverRTSPPlain *rtspserver.Server
+	serverRTSPTLS   *rtspserver.Server
+	serverRTMP      *rtmpserver.Server
+	serverHLS       *hlsserver.Server
 	confWatcher     *confwatcher.ConfWatcher
 
 	terminate chan struct{}
@@ -206,7 +206,7 @@ func (p *program) createResources(initial bool) error {
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPPlain == nil {
 			_, useUDP := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]
-			p.serverRTSPPlain, err = serverrtsp.New(
+			p.serverRTSPPlain, err = rtspserver.New(
 				p.conf.RTSPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -235,7 +235,7 @@ func (p *program) createResources(initial bool) error {
 		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPTLS == nil {
-			p.serverRTSPTLS, err = serverrtsp.New(
+			p.serverRTSPTLS, err = rtspserver.New(
 				p.conf.RTSPSAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -262,7 +262,7 @@ func (p *program) createResources(initial bool) error {
 
 	if !p.conf.RTMPDisable {
 		if p.serverRTMP == nil {
-			p.serverRTMP, err = serverrtmp.New(
+			p.serverRTMP, err = rtmpserver.New(
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -281,7 +281,7 @@ func (p *program) createResources(initial bool) error {
 
 	if !p.conf.HLSDisable {
 		if p.serverHLS == nil {
-			p.serverHLS, err = serverhls.New(
+			p.serverHLS, err = hlsserver.New(
 				p.conf.HLSAddress,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,

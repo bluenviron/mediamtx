@@ -1,4 +1,4 @@
-package sessionrtsp
+package rtspsession
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
-	"github.com/aler9/rtsp-simple-server/internal/connrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
@@ -30,7 +30,7 @@ type PathMan interface {
 	OnReadPublisherAnnounce(readpublisher.AnnounceReq)
 }
 
-// Parent is implemented by serverrtsp.Server.
+// Parent is implemented by rtspserver.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -119,8 +119,8 @@ func (s *Session) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[session %s] "+format, append([]interface{}{s.visualID}, args...)...)
 }
 
-// OnAnnounce is called by serverrtsp.Server.
-func (s *Session) OnAnnounce(c *connrtsp.Conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+// OnAnnounce is called by rtspserver.Server.
+func (s *Session) OnAnnounce(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	resc := make(chan readpublisher.AnnounceRes)
 	s.pathMan.OnReadPublisherAnnounce(readpublisher.AnnounceReq{
 		Author:   s,
@@ -159,8 +159,8 @@ func (s *Session) OnAnnounce(c *connrtsp.Conn, ctx *gortsplib.ServerHandlerOnAnn
 	}, nil
 }
 
-// OnSetup is called by serverrtsp.Server.
-func (s *Session) OnSetup(c *connrtsp.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
+// OnSetup is called by rtspserver.Server.
+func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
 	if ctx.Transport.Protocol == gortsplib.StreamProtocolUDP {
 		if _, ok := s.protocols[gortsplib.StreamProtocolUDP]; !ok {
 			return &base.Response{
@@ -232,7 +232,7 @@ func (s *Session) OnSetup(c *connrtsp.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 	}, nil
 }
 
-// OnPlay is called by serverrtsp.Server.
+// OnPlay is called by rtspserver.Server.
 func (s *Session) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 	h := make(base.Header)
 
@@ -309,7 +309,7 @@ func (s *Session) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response,
 	}, nil
 }
 
-// OnRecord is called by serverrtsp.Server.
+// OnRecord is called by rtspserver.Server.
 func (s *Session) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	if ctx.Path != s.path.Name() {
 		return &base.Response{
@@ -355,7 +355,7 @@ func (s *Session) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Respo
 	}, nil
 }
 
-// OnPause is called by serverrtsp.Server.
+// OnPause is called by rtspserver.Server.
 func (s *Session) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStatePlay:
@@ -391,7 +391,7 @@ func (s *Session) OnFrame(trackID int, streamType gortsplib.StreamType, payload 
 	s.ss.WriteFrame(trackID, streamType, payload)
 }
 
-// OnIncomingFrame is called by serverrtsp.Server.
+// OnIncomingFrame is called by rtspserver.Server.
 func (s *Session) OnIncomingFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 	if s.ss.State() != gortsplib.ServerSessionStateRecord {
 		return
