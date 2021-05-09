@@ -7,6 +7,7 @@ PROXY_PROTOCOL=tcp
 # source
 
 CONF=""
+CONF="${CONF}hlsDisable: yes\n"
 CONF="${CONF}rtspAddress: :8555\n"
 CONF="${CONF}rtpAddress: :8002\n"
 CONF="${CONF}rtcpAddress: :8003\n"
@@ -25,6 +26,7 @@ sleep 1
 # proxy
 
 CONF=""
+CONF="${CONF}hlsDisable: yes\n"
 CONF="${CONF}pprof: yes\n"
 CONF="${CONF}paths:\n"
 for i in $(seq 1 $PROXY_COUNT); do
