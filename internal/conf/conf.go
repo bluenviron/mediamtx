@@ -149,7 +149,7 @@ func (conf *Conf) fillAndCheck() error {
 	}
 
 	if conf.PPROFAddress == "" {
-		conf.MetricsAddress = ":9999"
+		conf.PPROFAddress = ":9999"
 	}
 
 	if len(conf.Protocols) == 0 {
