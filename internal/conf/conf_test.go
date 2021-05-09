@@ -6,11 +6,9 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"regexp"
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
 )
@@ -30,44 +28,9 @@ func writeTempFile(byts []byte) (string, error) {
 	return tmpf.Name(), nil
 }
 
-func TestEnvironment(t *testing.T) {
-	// string
-	os.Setenv("RTSP_RUNONCONNECT", "test=cmd")
-	defer os.Unsetenv("RTSP_RUNONCONNECT")
-
-	// int
-	os.Setenv("RTSP_READBUFFERCOUNT", "3000")
-	defer os.Unsetenv("RTSP_READBUFFERCOUNT")
-
-	// bool
-	os.Setenv("RTSP_METRICS", "yes")
-	defer os.Unsetenv("RTSP_METRICS")
-
-	// duration
-	os.Setenv("RTSP_READTIMEOUT", "22s")
-	defer os.Unsetenv("RTSP_READTIMEOUT")
-
-	// slice
-	os.Setenv("RTSP_LOGDESTINATIONS", "stdout,file")
-	defer os.Unsetenv("RTSP_LOGDESTINATIONS")
-
-	// map key
-	os.Setenv("RTSP_PATHS_TEST2", "")
-	defer os.Unsetenv("RTSP_PATHS_TEST2")
-
-	// map values, "all" path
-	os.Setenv("RTSP_PATHS_ALL_READUSER", "testuser")
-	defer os.Unsetenv("RTSP_PATHS_ALL_READUSER")
-	os.Setenv("RTSP_PATHS_ALL_READPASS", "testpass")
-	defer os.Unsetenv("RTSP_PATHS_ALL_READPASS")
-
-	// map values, generic path
+func TestWithFileAndEnv(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
-	os.Setenv("RTSP_PATHS_CAM1_SOURCEPROTOCOL", "tcp")
-	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCEPROTOCOL")
-	os.Setenv("RTSP_PATHS_CAM1_SOURCEONDEMAND", "yes")
-	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCEONDEMAND")
 
 	tmpf, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
@@ -77,49 +40,11 @@ func TestEnvironment(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, hasFile)
 
-	require.Equal(t, "test=cmd", conf.RunOnConnect)
-
-	require.Equal(t, 3000, conf.ReadBufferCount)
-
-	require.Equal(t, true, conf.Metrics)
-
-	require.Equal(t, 22*time.Second, conf.ReadTimeout)
-
-	require.Equal(t, []string{"stdout", "file"}, conf.LogDestinations)
-
-	pa, ok := conf.Paths["test2"]
+	pa, ok := conf.Paths["cam1"]
 	require.Equal(t, true, ok)
 	require.Equal(t, &PathConf{
-		Source:                     "record",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
-	}, pa)
-
-	pa, ok = conf.Paths["~^.*$"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &PathConf{
-		Regexp:                     regexp.MustCompile("^.*$"),
-		Source:                     "record",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		ReadUser:                   "testuser",
-		ReadPass:                   "testpass",
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
-	}, pa)
-
-	pa, ok = conf.Paths["cam1"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &PathConf{
-		Source:         "rtsp://testing",
-		SourceProtocol: "tcp",
-		SourceProtocolParsed: func() *gortsplib.StreamProtocol {
-			v := gortsplib.StreamProtocolTCP
-			return &v
-		}(),
-		SourceOnDemand:             true,
+		Source:                     "rtsp://testing",
+		SourceProtocol:             "automatic",
 		SourceOnDemandStartTimeout: 10 * time.Second,
 		SourceOnDemandCloseAfter:   10 * time.Second,
 		RunOnDemandStartTimeout:    10 * time.Second,
@@ -127,7 +52,7 @@ func TestEnvironment(t *testing.T) {
 	}, pa)
 }
 
-func TestEnvironmentNoFile(t *testing.T) {
+func TestWithEnvOnly(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
 

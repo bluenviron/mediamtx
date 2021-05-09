@@ -9,14 +9,14 @@ import (
 	"time"
 )
 
-func load(env map[string]string, envKey string, rv reflect.Value) error {
+func load(env map[string]string, prefix string, rv reflect.Value) error {
 	rt := rv.Type()
 
 	if rt == reflect.TypeOf(time.Duration(0)) {
-		if ev, ok := env[envKey]; ok {
+		if ev, ok := env[prefix]; ok {
 			d, err := time.ParseDuration(ev)
 			if err != nil {
-				return fmt.Errorf("%s: %s", envKey, err)
+				return fmt.Errorf("%s: %s", prefix, err)
 			}
 			rv.Set(reflect.ValueOf(d))
 		}
@@ -25,33 +25,33 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 
 	switch rt.Kind() {
 	case reflect.String:
-		if ev, ok := env[envKey]; ok {
+		if ev, ok := env[prefix]; ok {
 			rv.SetString(ev)
 		}
 		return nil
 
 	case reflect.Int:
-		if ev, ok := env[envKey]; ok {
+		if ev, ok := env[prefix]; ok {
 			iv, err := strconv.ParseInt(ev, 10, 64)
 			if err != nil {
-				return fmt.Errorf("%s: %s", envKey, err)
+				return fmt.Errorf("%s: %s", prefix, err)
 			}
 			rv.SetInt(iv)
 		}
 		return nil
 
 	case reflect.Uint64:
-		if ev, ok := env[envKey]; ok {
+		if ev, ok := env[prefix]; ok {
 			iv, err := strconv.ParseUint(ev, 10, 64)
 			if err != nil {
-				return fmt.Errorf("%s: %s", envKey, err)
+				return fmt.Errorf("%s: %s", prefix, err)
 			}
 			rv.SetUint(iv)
 		}
 		return nil
 
 	case reflect.Bool:
-		if ev, ok := env[envKey]; ok {
+		if ev, ok := env[prefix]; ok {
 			switch strings.ToLower(ev) {
 			case "yes", "true":
 				rv.SetBool(true)
@@ -60,14 +60,14 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 				rv.SetBool(false)
 
 			default:
-				return fmt.Errorf("%s: invalid value '%s'", envKey, ev)
+				return fmt.Errorf("%s: invalid value '%s'", prefix, ev)
 			}
 		}
 		return nil
 
 	case reflect.Slice:
 		if rt.Elem().Kind() == reflect.String {
-			if ev, ok := env[envKey]; ok {
+			if ev, ok := env[prefix]; ok {
 				nv := reflect.Zero(rt)
 				for _, sv := range strings.Split(ev, ",") {
 					nv = reflect.Append(nv, reflect.ValueOf(sv))
@@ -79,11 +79,11 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 
 	case reflect.Map:
 		for k := range env {
-			if !strings.HasPrefix(k, envKey+"_") {
+			if !strings.HasPrefix(k, prefix+"_") {
 				continue
 			}
 
-			mapKey := strings.Split(k[len(envKey+"_"):], "_")[0]
+			mapKey := strings.Split(k[len(prefix+"_"):], "_")[0]
 			if len(mapKey) == 0 {
 				continue
 			}
@@ -106,7 +106,7 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 				rv.SetMapIndex(reflect.ValueOf(mapKeyLower), nv)
 			}
 
-			err := load(env, envKey+"_"+mapKey, nv.Elem())
+			err := load(env, prefix+"_"+mapKey, nv.Elem())
 			if err != nil {
 				return err
 			}
@@ -123,7 +123,7 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 				continue
 			}
 
-			err := load(env, envKey+"_"+strings.ToUpper(f.Name), rv.Field(i))
+			err := load(env, prefix+"_"+strings.ToUpper(f.Name), rv.Field(i))
 			if err != nil {
 				return err
 			}
@@ -135,12 +135,12 @@ func load(env map[string]string, envKey string, rv reflect.Value) error {
 }
 
 // Load fills a structure with data from the environment.
-func Load(envKey string, v interface{}) error {
+func Load(prefix string, v interface{}) error {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {
 		tmp := strings.SplitN(kv, "=", 2)
 		env[tmp[0]] = tmp[1]
 	}
 
-	return load(env, envKey, reflect.ValueOf(v).Elem())
+	return load(env, prefix, reflect.ValueOf(v).Elem())
 }
