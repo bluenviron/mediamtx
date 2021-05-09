@@ -475,7 +475,7 @@ There are multiple ways to monitor the server usage over time:
 * The current number of clients, publishers and readers is printed in each log line; for instance, the line:
 
   ```
-  2020/01/01 00:00:00 [3/2] [client 127.0.0.1:44428] OPTION
+  2020/01/01 00:00:00 [3/2] [conn 127.0.0.1:44428] OPTION
   ```
 
   means that there are 3 publishers and 2 readers.

@@ -235,7 +235,7 @@ func (c *Converter) run() {
 
 	go func() {
 		for req := range c.request {
-			req.W.WriteHeader(http.StatusInternalServerError)
+			req.W.WriteHeader(http.StatusNotFound)
 			req.Res <- nil
 		}
 	}()
@@ -337,6 +337,8 @@ func (c *Converter) runInner(ctx context.Context) error {
 	resc := make(chan readpublisher.PlayRes)
 	c.path.OnReadPublisherPlay(readpublisher.PlayReq{c, resc}) //nolint:govet
 	<-resc
+
+	c.log(logger.Info, "is converting into HLS")
 
 	writerDone := make(chan error)
 	go func() {
@@ -496,14 +498,14 @@ func (c *Converter) runInner(ctx context.Context) error {
 			if time.Since(t) >= closeAfterInactivity {
 				c.ringBuffer.Close()
 				<-writerDone
-				return fmt.Errorf("TODO")
+				return nil
 			}
 
 		case err := <-writerDone:
 			return err
 
 		case <-ctx.Done():
-			return fmt.Errorf("TODO")
+			return nil
 		}
 	}
 }

@@ -11,9 +11,9 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
+	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
 	"github.com/aler9/rtsp-simple-server/internal/rtspsession"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 )

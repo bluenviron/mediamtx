@@ -2,6 +2,7 @@ package rtmpconn
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -141,7 +142,7 @@ func (c *Conn) IsReadPublisher() {}
 func (c *Conn) IsSource() {}
 
 func (c *Conn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[client %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
+	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
 func (c *Conn) ip() net.IP {
@@ -223,9 +224,10 @@ func (c *Conn) runRead(ctx context.Context) error {
 	res := <-sres
 
 	if res.Err != nil {
-		if _, ok := res.Err.(readpublisher.ErrAuthCritical); ok {
+		if terr, ok := res.Err.(readpublisher.ErrAuthCritical); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(pauseAfterAuthError)
+			return errors.New(terr.Message)
 		}
 		return res.Err
 	}
@@ -403,9 +405,10 @@ func (c *Conn) runPublish(ctx context.Context) error {
 	res := <-resc
 
 	if res.Err != nil {
-		if _, ok := res.Err.(readpublisher.ErrAuthCritical); ok {
+		if terr, ok := res.Err.(readpublisher.ErrAuthCritical); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(pauseAfterAuthError)
+			return errors.New(terr.Message)
 		}
 		return res.Err
 	}
@@ -529,7 +532,9 @@ func (c *Conn) validateCredentials(
 
 	if query.Get("user") != pathUser ||
 		query.Get("pass") != pathPass {
-		return readpublisher.ErrAuthCritical{}
+		return readpublisher.ErrAuthCritical{
+			Message: "wrong username or password",
+		}
 	}
 
 	return nil

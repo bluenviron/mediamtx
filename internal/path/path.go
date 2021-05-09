@@ -15,9 +15,9 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
-	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/rtmpsource"
 	"github.com/aler9/rtsp-simple-server/internal/rtspsource"
+	"github.com/aler9/rtsp-simple-server/internal/source"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
 	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )

@@ -11,18 +11,16 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
+	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
 	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
 	pauseAfterAuthError = 2 * time.Second
 )
-
-var errTerminated = errors.New("terminated")
 
 // PathMan is implemented by pathman.PathMan.
 type PathMan interface {
@@ -195,11 +193,10 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 				return terr.Response, nil
 
 			case readpublisher.ErrAuthCritical:
-				s.log(logger.Info, "ERR: %v", terr.Message)
-
 				// wait some seconds to stop brute force attacks
 				<-time.After(pauseAfterAuthError)
-				return terr.Response, errTerminated
+
+				return terr.Response, errors.New(terr.Message)
 
 			case readpublisher.ErrNoOnePublishing:
 				return &base.Response{

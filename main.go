@@ -11,12 +11,12 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/confwatcher"
+	"github.com/aler9/rtsp-simple-server/internal/hlsserver"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/metrics"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/pprof"
 	"github.com/aler9/rtsp-simple-server/internal/rlimit"
-	"github.com/aler9/rtsp-simple-server/internal/hlsserver"
 	"github.com/aler9/rtsp-simple-server/internal/rtmpserver"
 	"github.com/aler9/rtsp-simple-server/internal/rtspserver"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
