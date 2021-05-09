@@ -174,7 +174,7 @@ func New(
 		terminate:          make(chan struct{}),
 	}
 
-	c.log(logger.Info, "created")
+	c.log(logger.Info, "opened")
 
 	c.wg.Add(1)
 	go c.run()
@@ -184,7 +184,7 @@ func New(
 
 // Close closes a Converter.
 func (c *Converter) Close() {
-	c.log(logger.Info, "destroyed")
+	c.log(logger.Info, "closed")
 	close(c.terminate)
 }
 
@@ -321,8 +321,6 @@ func (c *Converter) run() {
 	resc := make(chan readpublisher.PlayRes)
 	c.path.OnReadPublisherPlay(readpublisher.PlayReq{c, resc}) //nolint:govet
 	<-resc
-
-	c.log(logger.Info, "is reading")
 
 	writerDone := make(chan error)
 	go func() {

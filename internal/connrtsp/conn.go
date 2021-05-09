@@ -1,4 +1,4 @@
-package clientrtsp
+package connrtsp
 
 import (
 	"errors"
@@ -42,8 +42,8 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Client is a RTSP client.
-type Client struct {
+// Conn is a RTSP server-side connection.
+type Conn struct {
 	rtspAddress         string
 	readTimeout         time.Duration
 	runOnConnect        string
@@ -60,7 +60,7 @@ type Client struct {
 	authFailures  int
 }
 
-// New allocates a Client.
+// New allocates a Conn.
 func New(
 	rtspAddress string,
 	readTimeout time.Duration,
@@ -69,9 +69,9 @@ func New(
 	pathMan PathMan,
 	stats *stats.Stats,
 	conn *gortsplib.ServerConn,
-	parent Parent) *Client {
+	parent Parent) *Conn {
 
-	c := &Client{
+	c := &Conn{
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		runOnConnect:        runOnConnect,
@@ -82,7 +82,7 @@ func New(
 		parent:              parent,
 	}
 
-	c.log(logger.Info, "connected")
+	c.log(logger.Info, "opened")
 
 	if c.runOnConnect != "" {
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
@@ -95,44 +95,44 @@ func New(
 	return c
 }
 
-// Close closes a Client.
-func (c *Client) Close(err error) {
+// Close closes a Conn.
+func (c *Conn) Close(err error) {
 	if err != io.EOF && !isTeardownErr(err) && !isTerminatedErr(err) {
 		c.log(logger.Info, "ERR: %v", err)
 	}
 
-	c.log(logger.Info, "disconnected")
+	c.log(logger.Info, "closed")
 
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()
 	}
 }
 
-func (c *Client) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[client %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
+func (c *Conn) log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
 // Conn returns the RTSP connection.
-func (c *Client) Conn() *gortsplib.ServerConn {
+func (c *Conn) Conn() *gortsplib.ServerConn {
 	return c.conn
 }
 
-func (c *Client) ip() net.IP {
+func (c *Conn) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
 // OnRequest is called by serverrtsp.Server.
-func (c *Client) OnRequest(req *base.Request) {
+func (c *Conn) OnRequest(req *base.Request) {
 	c.log(logger.Debug, "[c->s] %v", req)
 }
 
 // OnResponse is called by serverrtsp.Server.
-func (c *Client) OnResponse(res *base.Response) {
+func (c *Conn) OnResponse(res *base.Response) {
 	c.log(logger.Debug, "[s->c] %v", res)
 }
 
 // OnDescribe is called by serverrtsp.Server.
-func (c *Client) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
+func (c *Conn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
 	resc := make(chan readpublisher.DescribeRes)
 	c.pathMan.OnReadPublisherDescribe(readpublisher.DescribeReq{
 		PathName: ctx.Path,
@@ -183,7 +183,7 @@ func (c *Client) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Re
 }
 
 // ValidateCredentials allows to validate the credentials of a path.
-func (c *Client) ValidateCredentials(
+func (c *Conn) ValidateCredentials(
 	authMethods []headers.AuthMethod,
 	pathUser string,
 	pathPass string,

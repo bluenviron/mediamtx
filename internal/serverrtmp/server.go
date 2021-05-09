@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/clientrtmp"
+	"github.com/aler9/rtsp-simple-server/internal/connrtmp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/stats"
@@ -16,7 +16,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Server is a RTMP listener.
+// Server is a RTMP server.
 type Server struct {
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
@@ -28,13 +28,13 @@ type Server struct {
 	pathMan             *pathman.PathManager
 	parent              Parent
 
-	l       net.Listener
-	wg      sync.WaitGroup
-	clients map[*clientrtmp.Client]struct{}
+	l     net.Listener
+	wg    sync.WaitGroup
+	conns map[*connrtmp.Conn]struct{}
 
 	// in
-	clientClose chan *clientrtmp.Client
-	terminate   chan struct{}
+	connClose chan *connrtmp.Conn
+	terminate chan struct{}
 
 	// out
 	done chan struct{}
@@ -69,8 +69,8 @@ func New(
 		pathMan:             pathMan,
 		parent:              parent,
 		l:                   l,
-		clients:             make(map[*clientrtmp.Client]struct{}),
-		clientClose:         make(chan *clientrtmp.Client),
+		conns:               make(map[*connrtmp.Conn]struct{}),
+		connClose:           make(chan *connrtmp.Conn),
 		terminate:           make(chan struct{}),
 		done:                make(chan struct{}),
 	}
@@ -121,7 +121,7 @@ outer:
 			break outer
 
 		case nconn := <-connNew:
-			c := clientrtmp.New(
+			c := connrtmp.New(
 				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,
@@ -133,13 +133,13 @@ outer:
 				nconn,
 				s.pathMan,
 				s)
-			s.clients[c] = struct{}{}
+			s.conns[c] = struct{}{}
 
-		case c := <-s.clientClose:
-			if _, ok := s.clients[c]; !ok {
+		case c := <-s.connClose:
+			if _, ok := s.conns[c]; !ok {
 				continue
 			}
-			s.doClientClose(c)
+			s.doConnClose(c)
 
 		case <-s.terminate:
 			break outer
@@ -160,7 +160,7 @@ outer:
 				}
 				conn.Close()
 
-			case _, ok := <-s.clientClose:
+			case _, ok := <-s.connClose:
 				if !ok {
 					return
 				}
@@ -170,23 +170,23 @@ outer:
 
 	s.l.Close()
 
-	for c := range s.clients {
-		s.doClientClose(c)
+	for c := range s.conns {
+		s.doConnClose(c)
 	}
 
 	s.wg.Wait()
 
 	close(acceptErr)
 	close(connNew)
-	close(s.clientClose)
+	close(s.connClose)
 }
 
-func (s *Server) doClientClose(c *clientrtmp.Client) {
-	delete(s.clients, c)
+func (s *Server) doConnClose(c *connrtmp.Conn) {
+	delete(s.conns, c)
 	c.Close()
 }
 
-// OnClientClose is called by clientrtmp.Client.
-func (s *Server) OnClientClose(c *clientrtmp.Client) {
-	s.clientClose <- c
+// OnConnClose is called by connrtmp.Conn.
+func (s *Server) OnConnClose(c *connrtmp.Conn) {
+	s.connClose <- c
 }

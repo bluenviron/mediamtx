@@ -11,7 +11,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
-	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/connrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
@@ -35,7 +35,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Session is a RTSP session.
+// Session is a RTSP server-side session.
 type Session struct {
 	rtspAddress string
 	protocols   map[gortsplib.StreamProtocol]struct{}
@@ -70,7 +70,7 @@ func New(
 		parent:      parent,
 	}
 
-	s.log(logger.Info, "created by %v", sc.NetConn().RemoteAddr())
+	s.log(logger.Info, "opened by %v", sc.NetConn().RemoteAddr())
 
 	return s
 }
@@ -96,7 +96,7 @@ func (s *Session) Close() {
 		s.path = nil
 	}
 
-	s.log(logger.Info, "destroyed")
+	s.log(logger.Info, "closed")
 }
 
 // RequestClose closes a Session.
@@ -120,7 +120,7 @@ func (s *Session) log(level logger.Level, format string, args ...interface{}) {
 }
 
 // OnAnnounce is called by serverrtsp.Server.
-func (s *Session) OnAnnounce(c *clientrtsp.Client, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+func (s *Session) OnAnnounce(c *connrtsp.Conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	resc := make(chan readpublisher.AnnounceRes)
 	s.pathMan.OnReadPublisherAnnounce(readpublisher.AnnounceReq{
 		Author:   s,
@@ -160,7 +160,7 @@ func (s *Session) OnAnnounce(c *clientrtsp.Client, ctx *gortsplib.ServerHandlerO
 }
 
 // OnSetup is called by serverrtsp.Server.
-func (s *Session) OnSetup(c *clientrtsp.Client, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
+func (s *Session) OnSetup(c *connrtsp.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
 	if ctx.Transport.Protocol == gortsplib.StreamProtocolUDP {
 		if _, ok := s.protocols[gortsplib.StreamProtocolUDP]; !ok {
 			return &base.Response{

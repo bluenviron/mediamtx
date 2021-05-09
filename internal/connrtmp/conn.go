@@ -1,4 +1,4 @@
-package clientrtmp
+package connrtmp
 
 import (
 	"fmt"
@@ -56,11 +56,11 @@ type PathMan interface {
 // Parent is implemented by serverrtmp.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	OnClientClose(*Client)
+	OnConnClose(*Conn)
 }
 
-// Client is a RTMP client.
-type Client struct {
+// Conn is a server-side RTMP connection.
+type Conn struct {
 	rtspAddress         string
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
@@ -80,7 +80,7 @@ type Client struct {
 	terminate chan struct{}
 }
 
-// New allocates a Client.
+// New allocates a Conn.
 func New(
 	rtspAddress string,
 	readTimeout time.Duration,
@@ -92,9 +92,9 @@ func New(
 	stats *stats.Stats,
 	nconn net.Conn,
 	pathMan PathMan,
-	parent Parent) *Client {
+	parent Parent) *Conn {
 
-	c := &Client{
+	c := &Conn{
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
@@ -109,7 +109,7 @@ func New(
 		terminate:           make(chan struct{}),
 	}
 
-	c.log(logger.Info, "connected")
+	c.log(logger.Info, "opened")
 
 	c.wg.Add(1)
 	go c.run()
@@ -117,32 +117,32 @@ func New(
 	return c
 }
 
-// Close closes a Client.
-func (c *Client) Close() {
-	c.log(logger.Info, "disconnected")
+// Close closes a Conn.
+func (c *Conn) Close() {
+	c.log(logger.Info, "closed")
 	close(c.terminate)
 }
 
-// RequestClose closes a Client.
-func (c *Client) RequestClose() {
-	c.parent.OnClientClose(c)
+// RequestClose closes a Conn.
+func (c *Conn) RequestClose() {
+	c.parent.OnConnClose(c)
 }
 
 // IsReadPublisher implements readpublisher.ReadPublisher.
-func (c *Client) IsReadPublisher() {}
+func (c *Conn) IsReadPublisher() {}
 
 // IsSource implements source.Source.
-func (c *Client) IsSource() {}
+func (c *Conn) IsSource() {}
 
-func (c *Client) log(level logger.Level, format string, args ...interface{}) {
+func (c *Conn) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[client %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
-func (c *Client) ip() net.IP {
+func (c *Conn) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
-func (c *Client) run() {
+func (c *Conn) run() {
 	defer c.wg.Done()
 
 	if c.runOnConnect != "" {
@@ -161,7 +161,7 @@ func (c *Client) run() {
 		c.log(logger.Info, "ERR: %s", err)
 		c.conn.NetConn().Close()
 
-		c.parent.OnClientClose(c)
+		c.parent.OnConnClose(c)
 		<-c.terminate
 		return
 	}
@@ -173,7 +173,7 @@ func (c *Client) run() {
 	}
 }
 
-func (c *Client) runRead() {
+func (c *Conn) runRead() {
 	var path readpublisher.Path
 	var videoTrack *gortsplib.Track
 	var h264Decoder *rtph264.Decoder
@@ -247,7 +247,7 @@ func (c *Client) runRead() {
 			<-res
 		}
 
-		c.parent.OnClientClose(c)
+		c.parent.OnConnClose(c)
 		<-c.terminate
 		return
 	}
@@ -359,7 +359,7 @@ func (c *Client) runRead() {
 		path.OnReadPublisherRemove(readpublisher.RemoveReq{c, res}) //nolint:govet
 		<-res
 
-		c.parent.OnClientClose(c)
+		c.parent.OnConnClose(c)
 		<-c.terminate
 
 	case <-c.terminate:
@@ -373,7 +373,7 @@ func (c *Client) runRead() {
 	}
 }
 
-func (c *Client) runPublish() {
+func (c *Conn) runPublish() {
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
 	var err error
@@ -449,7 +449,7 @@ func (c *Client) runPublish() {
 		c.conn.NetConn().Close()
 		c.log(logger.Info, "ERR: %s", err)
 
-		c.parent.OnClientClose(c)
+		c.parent.OnConnClose(c)
 		<-c.terminate
 		return
 	}
@@ -580,7 +580,7 @@ func (c *Client) runPublish() {
 		<-res
 		path = nil
 
-		c.parent.OnClientClose(c)
+		c.parent.OnConnClose(c)
 		<-c.terminate
 
 	case <-c.terminate:
@@ -594,7 +594,7 @@ func (c *Client) runPublish() {
 	}
 }
 
-func (c *Client) validateCredentials(
+func (c *Conn) validateCredentials(
 	pathUser string,
 	pathPass string,
 	query url.Values,
@@ -609,7 +609,7 @@ func (c *Client) validateCredentials(
 }
 
 // OnFrame implements path.Reader.
-func (c *Client) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+func (c *Conn) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		c.ringBuffer.Push(trackIDPayloadPair{trackID, payload})
 	}

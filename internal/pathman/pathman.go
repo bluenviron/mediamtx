@@ -54,12 +54,12 @@ type PathManager struct {
 	wg    sync.WaitGroup
 
 	// in
-	confReload      chan map[string]*conf.PathConf
-	pathClose       chan *path.Path
-	clientDescribe  chan readpublisher.DescribeReq
-	clientSetupPlay chan readpublisher.SetupPlayReq
-	clientAnnounce  chan readpublisher.AnnounceReq
-	terminate       chan struct{}
+	confReload  chan map[string]*conf.PathConf
+	pathClose   chan *path.Path
+	rpDescribe  chan readpublisher.DescribeReq
+	rpSetupPlay chan readpublisher.SetupPlayReq
+	rpAnnounce  chan readpublisher.AnnounceReq
+	terminate   chan struct{}
 
 	// out
 	done chan struct{}
@@ -90,9 +90,9 @@ func New(
 		paths:           make(map[string]*path.Path),
 		confReload:      make(chan map[string]*conf.PathConf),
 		pathClose:       make(chan *path.Path),
-		clientDescribe:  make(chan readpublisher.DescribeReq),
-		clientSetupPlay: make(chan readpublisher.SetupPlayReq),
-		clientAnnounce:  make(chan readpublisher.AnnounceReq),
+		rpDescribe:      make(chan readpublisher.DescribeReq),
+		rpSetupPlay:     make(chan readpublisher.SetupPlayReq),
+		rpAnnounce:      make(chan readpublisher.AnnounceReq),
 		terminate:       make(chan struct{}),
 		done:            make(chan struct{}),
 	}
@@ -161,7 +161,7 @@ outer:
 			delete(pm.paths, pa.Name())
 			pa.Close()
 
-		case req := <-pm.clientDescribe:
+		case req := <-pm.rpDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- readpublisher.DescribeRes{nil, "", err} //nolint:govet
@@ -188,7 +188,7 @@ outer:
 
 			pm.paths[req.PathName].OnPathManDescribe(req)
 
-		case req := <-pm.clientSetupPlay:
+		case req := <-pm.rpSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- readpublisher.SetupPlayRes{nil, nil, err} //nolint:govet
@@ -215,7 +215,7 @@ outer:
 
 			pm.paths[req.PathName].OnPathManSetupPlay(req)
 
-		case req := <-pm.clientAnnounce:
+		case req := <-pm.rpAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- readpublisher.AnnounceRes{nil, err} //nolint:govet
@@ -260,19 +260,19 @@ outer:
 					return
 				}
 
-			case req, ok := <-pm.clientDescribe:
+			case req, ok := <-pm.rpDescribe:
 				if !ok {
 					return
 				}
 				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
 
-			case req, ok := <-pm.clientSetupPlay:
+			case req, ok := <-pm.rpSetupPlay:
 				if !ok {
 					return
 				}
 				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
 
-			case req, ok := <-pm.clientAnnounce:
+			case req, ok := <-pm.rpAnnounce:
 				if !ok {
 					return
 				}
@@ -288,9 +288,9 @@ outer:
 
 	close(pm.confReload)
 	close(pm.pathClose)
-	close(pm.clientDescribe)
-	close(pm.clientSetupPlay)
-	close(pm.clientAnnounce)
+	close(pm.rpDescribe)
+	close(pm.rpSetupPlay)
+	close(pm.rpAnnounce)
 }
 
 func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) {
@@ -347,19 +347,19 @@ func (pm *PathManager) OnPathClose(pa *path.Path) {
 	pm.pathClose <- pa
 }
 
-// OnReadPublisherDescribe is called by clientman.ClientMan.
+// OnReadPublisherDescribe is called by a ReadPublisher.
 func (pm *PathManager) OnReadPublisherDescribe(req readpublisher.DescribeReq) {
-	pm.clientDescribe <- req
+	pm.rpDescribe <- req
 }
 
-// OnReadPublisherAnnounce is called by clientman.ClientMan.
+// OnReadPublisherAnnounce is called by a ReadPublisher.
 func (pm *PathManager) OnReadPublisherAnnounce(req readpublisher.AnnounceReq) {
-	pm.clientAnnounce <- req
+	pm.rpAnnounce <- req
 }
 
-// OnReadPublisherSetupPlay is called by clientman.ClientMan.
+// OnReadPublisherSetupPlay is called by a ReadPublisher.
 func (pm *PathManager) OnReadPublisherSetupPlay(req readpublisher.SetupPlayReq) {
-	pm.clientSetupPlay <- req
+	pm.rpSetupPlay <- req
 }
 
 func (pm *PathManager) authenticate(

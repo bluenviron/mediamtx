@@ -11,7 +11,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/rtsp-simple-server/internal/clientrtsp"
+	"github.com/aler9/rtsp-simple-server/internal/connrtsp"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/sessionrtsp"
@@ -47,7 +47,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
-// Server is a RTSP listener.
+// Server is a RTSP server.
 type Server struct {
 	readTimeout         time.Duration
 	isTLS               bool
@@ -61,7 +61,7 @@ type Server struct {
 
 	srv      *gortsplib.Server
 	mutex    sync.RWMutex
-	clients  map[*gortsplib.ServerConn]*clientrtsp.Client
+	conns    map[*gortsplib.ServerConn]*connrtsp.Conn
 	sessions map[*gortsplib.ServerSession]*sessionrtsp.Session
 
 	// in
@@ -100,7 +100,7 @@ func New(
 		stats:       stats,
 		pathMan:     pathMan,
 		parent:      parent,
-		clients:     make(map[*gortsplib.ServerConn]*clientrtsp.Client),
+		conns:       make(map[*gortsplib.ServerConn]*connrtsp.Conn),
 		sessions:    make(map[*gortsplib.ServerSession]*sessionrtsp.Session),
 		terminate:   make(chan struct{}),
 		done:        make(chan struct{}),
@@ -199,7 +199,7 @@ outer:
 
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *Server) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	c := clientrtsp.New(
+	c := connrtsp.New(
 		s.rtspAddress,
 		s.readTimeout,
 		s.runOnConnect,
@@ -210,15 +210,15 @@ func (s *Server) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 		s)
 
 	s.mutex.Lock()
-	s.clients[ctx.Conn] = c
+	s.conns[ctx.Conn] = c
 	s.mutex.Unlock()
 }
 
 // OnConnClose implements gortsplib.ServerHandlerOnConnClose.
 func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	s.mutex.Lock()
-	c := s.clients[ctx.Conn]
-	delete(s.clients, ctx.Conn)
+	c := s.conns[ctx.Conn]
+	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
 
 	c.Close(ctx.Error)
@@ -227,7 +227,7 @@ func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 // OnRequest implements gortsplib.ServerHandlerOnRequest.
 func (s *Server) OnRequest(sc *gortsplib.ServerConn, req *base.Request) {
 	s.mutex.Lock()
-	c := s.clients[sc]
+	c := s.conns[sc]
 	s.mutex.Unlock()
 
 	c.OnRequest(req)
@@ -236,7 +236,7 @@ func (s *Server) OnRequest(sc *gortsplib.ServerConn, req *base.Request) {
 // OnResponse implements gortsplib.ServerHandlerOnResponse.
 func (s *Server) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
 	s.mutex.Lock()
-	c := s.clients[sc]
+	c := s.conns[sc]
 	s.mutex.Unlock()
 
 	c.OnResponse(res)
@@ -276,7 +276,7 @@ func (s *Server) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
 // OnDescribe implements gortsplib.ServerHandlerOnDescribe.
 func (s *Server) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
 	s.mutex.RLock()
-	c := s.clients[ctx.Conn]
+	c := s.conns[ctx.Conn]
 	s.mutex.RUnlock()
 	return c.OnDescribe(ctx)
 }
@@ -284,7 +284,7 @@ func (s *Server) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Re
 // OnAnnounce implements gortsplib.ServerHandlerOnAnnounce.
 func (s *Server) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	s.mutex.RLock()
-	c := s.clients[ctx.Conn]
+	c := s.conns[ctx.Conn]
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
 	return se.OnAnnounce(c, ctx)
@@ -293,7 +293,7 @@ func (s *Server) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Re
 // OnSetup implements gortsplib.ServerHandlerOnSetup.
 func (s *Server) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
 	s.mutex.RLock()
-	c := s.clients[ctx.Conn]
+	c := s.conns[ctx.Conn]
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
 	return se.OnSetup(c, ctx)

@@ -34,9 +34,9 @@ type Server struct {
 	converters map[string]*converterhls.Converter
 
 	// in
-	request     chan converterhls.Request
-	clientClose chan *converterhls.Converter
-	terminate   chan struct{}
+	request   chan converterhls.Request
+	connClose chan *converterhls.Converter
+	terminate chan struct{}
 
 	// out
 	done chan struct{}
@@ -68,7 +68,7 @@ func New(
 		ln:                 ln,
 		converters:         make(map[string]*converterhls.Converter),
 		request:            make(chan converterhls.Request),
-		clientClose:        make(chan *converterhls.Converter),
+		connClose:          make(chan *converterhls.Converter),
 		terminate:          make(chan struct{}),
 		done:               make(chan struct{}),
 	}
@@ -116,7 +116,7 @@ outer:
 			}
 			c.OnRequest(req)
 
-		case c := <-s.clientClose:
+		case c := <-s.connClose:
 			if c2, ok := s.converters[c.PathName()]; !ok || c2 != c {
 				continue
 			}
@@ -136,7 +136,7 @@ outer:
 				}
 				req.Res <- nil
 
-			case _, ok := <-s.clientClose:
+			case _, ok := <-s.connClose:
 				if !ok {
 					return
 				}
@@ -151,12 +151,12 @@ outer:
 	hs.Shutdown(context.Background())
 
 	close(s.request)
-	close(s.clientClose)
+	close(s.connClose)
 }
 
 // ServeHTTP implements http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	s.Log(logger.Info, "[client %v] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
+	s.Log(logger.Info, "[conn %v] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
 
 	// remove leading prefix
 	path := r.URL.Path[1:]
@@ -208,5 +208,5 @@ func (s *Server) doConverterClose(c *converterhls.Converter) {
 
 // OnConverterClose is called by converterhls.Converter.
 func (s *Server) OnConverterClose(c *converterhls.Converter) {
-	s.clientClose <- c
+	s.connClose <- c
 }
