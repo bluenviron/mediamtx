@@ -190,7 +190,7 @@ func (c *Client) runRead() {
 			PathName: pathName,
 			IP:       c.ip(),
 			ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-				return c.validateCredentials(authMethods, pathUser, pathPass, query)
+				return c.validateCredentials(pathUser, pathPass, query)
 			},
 			Res: sres})
 		res := <-sres
@@ -416,7 +416,7 @@ func (c *Client) runPublish() {
 				Tracks:   tracks,
 				IP:       c.ip(),
 				ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-					return c.validateCredentials(authMethods, pathUser, pathPass, query)
+					return c.validateCredentials(pathUser, pathPass, query)
 				},
 				Res: resc,
 			})
@@ -595,7 +595,6 @@ func (c *Client) runPublish() {
 }
 
 func (c *Client) validateCredentials(
-	authMethods []headers.AuthMethod,
 	pathUser string,
 	pathPass string,
 	query url.Values,
