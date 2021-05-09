@@ -221,7 +221,7 @@ func (s *Server) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
 
-	c.Close(ctx.Error)
+	c.ParentClose(ctx.Error)
 }
 
 // OnRequest implements gortsplib.ServerHandlerOnRequest.
@@ -270,7 +270,7 @@ func (s *Server) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
 	delete(s.sessions, ctx.Session)
 	s.mutex.Unlock()
 
-	se.Close()
+	se.ParentClose()
 }
 
 // OnDescribe implements gortsplib.ServerHandlerOnDescribe.

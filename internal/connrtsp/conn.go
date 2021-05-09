@@ -95,8 +95,8 @@ func New(
 	return c
 }
 
-// Close closes a Conn.
-func (c *Conn) Close(err error) {
+// ParentClose closes a Conn.
+func (c *Conn) ParentClose(err error) {
 	if err != io.EOF && !isTeardownErr(err) && !isTerminatedErr(err) {
 		c.log(logger.Info, "ERR: %v", err)
 	}

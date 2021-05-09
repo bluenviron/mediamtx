@@ -203,7 +203,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) doConverterClose(c *converterhls.Converter) {
 	delete(s.converters, c.PathName())
-	c.Close()
+	c.ParentClose()
 }
 
 // OnConverterClose is called by converterhls.Converter.

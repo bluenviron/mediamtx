@@ -182,14 +182,14 @@ func New(
 	return c
 }
 
-// Close closes a Converter.
-func (c *Converter) Close() {
+// ParentClose closes a Converter.
+func (c *Converter) ParentClose() {
 	c.log(logger.Info, "closed")
 	close(c.terminate)
 }
 
-// RequestClose closes a Converter.
-func (c *Converter) RequestClose() {
+// Close closes a Converter.
+func (c *Converter) Close() {
 	c.parent.OnConverterClose(c)
 }
 

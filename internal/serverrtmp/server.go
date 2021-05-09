@@ -183,6 +183,7 @@ outer:
 
 func (s *Server) doConnClose(c *connrtmp.Conn) {
 	delete(s.conns, c)
+	c.ParentClose()
 	c.Close()
 }
 

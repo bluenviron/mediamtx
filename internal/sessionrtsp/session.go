@@ -75,8 +75,8 @@ func New(
 	return s
 }
 
-// Close closes a Session.
-func (s *Session) Close() {
+// ParentClose closes a Session.
+func (s *Session) ParentClose() {
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStatePlay:
 		if s.onReadCmd != nil {
@@ -99,8 +99,8 @@ func (s *Session) Close() {
 	s.log(logger.Info, "closed")
 }
 
-// RequestClose closes a Session.
-func (s *Session) RequestClose() {
+// Close closes a Session.
+func (s *Session) Close() {
 	s.ss.Close()
 }
 

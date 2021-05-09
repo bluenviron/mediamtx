@@ -58,7 +58,6 @@ type ReadPublisher interface {
 	IsReadPublisher()
 	IsSource()
 	Close()
-	RequestClose()
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 

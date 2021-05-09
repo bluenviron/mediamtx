@@ -309,7 +309,7 @@ outer:
 			case readPublisherStateRecord:
 				atomic.AddInt64(pa.stats.CountPublishers, -1)
 			}
-			c.RequestClose()
+			c.Close()
 		}
 	}
 	pa.readPublishersWg.Wait()
@@ -470,7 +470,7 @@ func (pa *Path) removeReadPublisher(c readpublisher.ReadPublisher) {
 		for oc, state := range pa.readPublishers {
 			if state != readPublisherStatePreRemove {
 				pa.removeReadPublisher(oc)
-				oc.RequestClose()
+				oc.Close()
 			}
 		}
 	}
@@ -510,7 +510,7 @@ func (pa *Path) onSourceSetNotReady() {
 	for c, state := range pa.readPublishers {
 		if c != pa.source && state != readPublisherStatePreRemove {
 			pa.removeReadPublisher(c)
-			c.RequestClose()
+			c.Close()
 		}
 	}
 }
@@ -661,10 +661,10 @@ func (pa *Path) onReadPublisherAnnounce(req readpublisher.AnnounceReq) {
 			return
 		}
 
-		pa.Log(logger.Info, "disconnecting existing publisher")
+		pa.Log(logger.Info, "closing existing publisher")
 		curPublisher := pa.source.(readpublisher.ReadPublisher)
 		pa.removeReadPublisher(curPublisher)
-		curPublisher.RequestClose()
+		curPublisher.Close()
 
 		// prevent path closure
 		if pa.closeTimerStarted {
