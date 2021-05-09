@@ -161,13 +161,13 @@ func (c *Conn) run() {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	connErr := make(chan error)
+	runErr := make(chan error)
 	go func() {
-		connErr <- c.runInner(ctx)
+		runErr <- c.runInner(ctx)
 	}()
 
 	select {
-	case err := <-connErr:
+	case err := <-runErr:
 		cancel()
 
 		if err != io.EOF {
@@ -176,7 +176,7 @@ func (c *Conn) run() {
 
 	case <-c.terminate:
 		cancel()
-		<-connErr
+		<-runErr
 	}
 
 	if c.path != nil {

@@ -112,9 +112,9 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	done := make(chan error)
+	runErr := make(chan error)
 	go func() {
-		done <- func() error {
+		runErr <- func() error {
 			s.log(logger.Debug, "connecting")
 
 			ctx2, cancel2 := context.WithTimeout(ctx, s.readTimeout)
@@ -261,14 +261,14 @@ func (s *Source) runInner() bool {
 	}()
 
 	select {
-	case err := <-done:
+	case err := <-runErr:
 		cancel()
 		s.log(logger.Info, "ERR: %s", err)
 		return true
 
 	case <-s.terminate:
 		cancel()
-		<-done
+		<-runErr
 		return false
 	}
 }
