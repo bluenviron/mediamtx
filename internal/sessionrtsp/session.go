@@ -140,11 +140,10 @@ func (s *Session) OnAnnounce(c *clientrtsp.Client, ctx *gortsplib.ServerHandlerO
 			return terr.Response, nil
 
 		case readpublisher.ErrAuthCritical:
-			s.log(logger.Info, "ERR: %v", terr.Message)
-
 			// wait some seconds to stop brute force attacks
 			<-time.After(pauseAfterAuthError)
-			return terr.Response, errTerminated
+
+			return terr.Response, errors.New(terr.Message)
 
 		default:
 			return &base.Response{

@@ -27,6 +27,11 @@ func isTeardownErr(err error) bool {
 	return ok
 }
 
+func isTerminatedErr(err error) bool {
+	_, ok := err.(liberrors.ErrServerTerminated)
+	return ok
+}
+
 // PathMan is implemented by pathman.PathMan.
 type PathMan interface {
 	OnReadPublisherDescribe(readpublisher.DescribeReq)
@@ -35,7 +40,6 @@ type PathMan interface {
 // Parent is implemented by serverrtsp.Server.
 type Parent interface {
 	Log(logger.Level, string, ...interface{})
-	// OnClientClose(*Client)
 }
 
 // Client is a RTSP client.
@@ -93,7 +97,7 @@ func New(
 
 // Close closes a Client.
 func (c *Client) Close(err error) {
-	if err != io.EOF && !isTeardownErr(err) {
+	if err != io.EOF && !isTeardownErr(err) && !isTerminatedErr(err) {
 		c.log(logger.Info, "ERR: %v", err)
 	}
 
