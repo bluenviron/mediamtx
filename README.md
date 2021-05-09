@@ -9,16 +9,20 @@
 [![Release](https://img.shields.io/github/v/release/aler9/rtsp-simple-server)](https://github.com/aler9/rtsp-simple-server/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP / RTMP server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP is a specification that describes how to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers.
+_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP / RTMP / HLS server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP, RTMP and HLS are independent protocols that allows to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers; in particular:
+
+* RTSP is the fastest way to publish and receive streams
+* RTMP allows to interact with legacy server or software (like OBS Studio)
+* HLS allows to embed streams into a web page
 
 Features:
 
-* Publish live streams with RTSP (UDP or TCP mode) or RTMP
-* Read live streams with RTSP or RTMP
-* Pull and serve streams from other RTSP / RTMP servers or cameras, always or on-demand (RTSP proxy)
+* Publish live streams with RTSP (UDP, TCP or TLS mode) or RTMP
+* Read live streams with RTSP, RTMP or HLS
+* Pull and serve streams from other RTSP or RTMP servers or cameras, always or on-demand (RTSP proxy)
+* Streams are automatically converted from a protocol to another (for instance, it's possible to publish with RTSP and read with HLS)
 * Each stream can have multiple video and audio tracks, encoded with any codec (including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG)
 * Serve multiple streams at once in separate paths
-* Encrypt streams with TLS (RTSPS)
 * Authenticate readers and publishers
 * Redirect readers to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
@@ -38,10 +42,10 @@ Features:
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Proxy mode](#proxy-mode)
   * [RTMP protocol](#rtmp-protocol)
+  * [HLS protocol](#hls-protocol)
   * [Publish from OBS Studio](#publish-from-obs-studio)
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
-  * [Convert streams to HLS](#convert-streams-to-hls)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [On-demand publishing](#on-demand-publishing)
   * [Redirect to another server](#redirect-to-another-server)
@@ -305,6 +309,16 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
 
+### HLS protocol
+
+HLS is a media format that allows to embed live streams into web pages, inside standard `<video>` HTML tags. Every stream published to the server can be accessed with a web browser by visiting
+
+```
+http://localhost:8888/mystream
+```
+
+where `mystream` is the name of a stream that is being published.
+
 ### Publish from OBS Studio
 
 In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
@@ -368,28 +382,6 @@ paths:
 ```
 
 After starting the server, the camera is available on `rtsp://localhost:8554/cam`.
-
-### Convert streams to HLS
-
-HLS is a media format that allows to embed live streams into web pages, inside standard `<video>` HTML tags. To generate HLS whenever someone publishes a stream, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-
-```yml
-paths:
-  all:
-    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
-    runOnPublishRestart: yes
-```
-
-The resulting files (`stream.m3u8` and a lot of `.ts` segments) can be served by a web server.
-
-The example above makes the assumption that published streams are encoded with H264 and AAC, since they are the only codecs supported by HLS; if streams make use of different codecs, they must be converted:
-
-```yml
-paths:
-  all:
-    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:a aac -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -f hls -hls_time 1 -hls_list_size 3 -hls_flags delete_segments -hls_allow_cache 0 stream.m3u8
-    runOnPublishRestart: yes
-```
 
 ### Remuxing, re-encoding, compression
 
