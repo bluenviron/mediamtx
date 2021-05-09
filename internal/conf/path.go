@@ -139,7 +139,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		u, err := base.ParseURL(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -181,10 +181,10 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		u, err := url.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTMP url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
 		}
 		if u.Scheme != "rtmp" {
-			return fmt.Errorf("'%s' is not a valid RTMP url", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -203,7 +203,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		_, err := base.ParseURL(pconf.SourceRedirect)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP url", pconf.SourceRedirect)
+			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
 		}
 
 	default:
@@ -234,7 +234,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		} else {
 			_, err := base.ParseURL(pconf.Fallback)
 			if err != nil {
-				return fmt.Errorf("'%s' is not a valid RTSP url", pconf.Fallback)
+				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
 			}
 		}
 	}
