@@ -1,6 +1,7 @@
 package rtspserver
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
@@ -59,16 +60,13 @@ type Server struct {
 	pathMan             *pathman.PathManager
 	parent              Parent
 
-	srv      *gortsplib.Server
-	mutex    sync.RWMutex
-	conns    map[*gortsplib.ServerConn]*rtspconn.Conn
-	sessions map[*gortsplib.ServerSession]*rtspsession.Session
-
-	// in
-	terminate chan struct{}
-
-	// out
-	done chan struct{}
+	ctx       context.Context
+	ctxCancel func()
+	wg        sync.WaitGroup
+	srv       *gortsplib.Server
+	mutex     sync.RWMutex
+	conns     map[*gortsplib.ServerConn]*rtspconn.Conn
+	sessions  map[*gortsplib.ServerSession]*rtspsession.Session
 }
 
 // New allocates a Server.
@@ -92,6 +90,8 @@ func New(
 	pathMan *pathman.PathManager,
 	parent Parent) (*Server, error) {
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	s := &Server{
 		readTimeout: readTimeout,
 		isTLS:       isTLS,
@@ -100,10 +100,10 @@ func New(
 		stats:       stats,
 		pathMan:     pathMan,
 		parent:      parent,
+		ctx:         ctx,
+		ctxCancel:   ctxCancel,
 		conns:       make(map[*gortsplib.ServerConn]*rtspconn.Conn),
 		sessions:    make(map[*gortsplib.ServerSession]*rtspsession.Session),
-		terminate:   make(chan struct{}),
-		done:        make(chan struct{}),
 	}
 
 	s.srv = &gortsplib.Server{
@@ -143,6 +143,7 @@ func New(
 
 	s.Log(logger.Info, "TCP listener opened on %s", address)
 
+	s.wg.Add(1)
 	go s.run()
 
 	return s, nil
@@ -161,18 +162,24 @@ func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
 
 // Close closes a Server.
 func (s *Server) Close() {
-	close(s.terminate)
-	<-s.done
+	s.ctxCancel()
+	s.wg.Wait()
 }
 
 func (s *Server) run() {
-	defer close(s.done)
+	defer s.wg.Done()
 
-	serverDone := make(chan struct{})
+	s.wg.Add(1)
 	serverErr := make(chan error)
 	go func() {
-		defer close(serverDone)
-		serverErr <- s.srv.Wait()
+		defer s.wg.Done()
+
+		err := s.srv.Wait()
+
+		select {
+		case serverErr <- err:
+		case <-s.ctx.Done():
+		}
 	}()
 
 outer:
@@ -181,20 +188,13 @@ outer:
 		s.Log(logger.Warn, "ERR: %s", err)
 		break outer
 
-	case <-s.terminate:
+	case <-s.ctx.Done():
 		break outer
 	}
 
-	go func() {
-		for range serverErr {
-		}
-	}()
+	s.ctxCancel()
 
 	s.srv.Close()
-
-	<-serverDone
-
-	close(serverErr)
 }
 
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.

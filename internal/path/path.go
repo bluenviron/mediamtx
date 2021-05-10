@@ -1,6 +1,7 @@
 package path
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strings"
@@ -70,8 +71,9 @@ type Path struct {
 	stats           *stats.Stats
 	parent          Parent
 
+	ctx                          context.Context
+	ctxCancel                    func()
 	readPublishers               map[readpublisher.ReadPublisher]readPublisherState
-	readPublishersWg             sync.WaitGroup
 	describeRequests             []readpublisher.DescribeReq
 	setupPlayRequests            []readpublisher.SetupPlayReq
 	source                       source.Source
@@ -99,7 +101,6 @@ type Path struct {
 	recordReq            chan readpublisher.RecordReq
 	pauseReq             chan readpublisher.PauseReq
 	removeReq            chan readpublisher.RemoveReq
-	terminate            chan struct{}
 }
 
 // New allocates a Path.
@@ -116,6 +117,8 @@ func New(
 	stats *stats.Stats,
 	parent Parent) *Path {
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	pa := &Path{
 		rtspAddress:           rtspAddress,
 		readTimeout:           readTimeout,
@@ -128,6 +131,8 @@ func New(
 		wg:                    wg,
 		stats:                 stats,
 		parent:                parent,
+		ctx:                   ctx,
+		ctxCancel:             ctxCancel,
 		readPublishers:        make(map[readpublisher.ReadPublisher]readPublisherState),
 		readers:               newReadersMap(),
 		describeTimer:         newEmptyTimer(),
@@ -143,7 +148,6 @@ func New(
 		recordReq:             make(chan readpublisher.RecordReq),
 		pauseReq:              make(chan readpublisher.PauseReq),
 		removeReq:             make(chan readpublisher.RemoveReq),
-		terminate:             make(chan struct{}),
 	}
 
 	pa.wg.Add(1)
@@ -153,7 +157,7 @@ func New(
 
 // Close closes a path.
 func (pa *Path) Close() {
-	close(pa.terminate)
+	pa.ctxCancel()
 }
 
 // Log is the main logging function.
@@ -218,9 +222,6 @@ outer:
 			pa.scheduleClose()
 
 		case <-pa.closeTimer.C:
-			pa.exhaustChannels()
-			pa.parent.OnPathClose(pa)
-			<-pa.terminate
 			break outer
 
 		case req := <-pa.extSourceSetReady:
@@ -262,14 +263,14 @@ outer:
 			}
 
 			delete(pa.readPublishers, req.Author)
-			pa.readPublishersWg.Done()
 			close(req.Res)
 
-		case <-pa.terminate:
-			pa.exhaustChannels()
+		case <-pa.ctx.Done():
 			break outer
 		}
 	}
+
+	pa.ctxCancel()
 
 	pa.describeTimer.Stop()
 	pa.sourceCloseTimer.Stop()
@@ -312,86 +313,8 @@ outer:
 			c.Close()
 		}
 	}
-	pa.readPublishersWg.Wait()
 
-	close(pa.extSourceSetReady)
-	close(pa.extSourceSetNotReady)
-	close(pa.describeReq)
-	close(pa.setupPlayReq)
-	close(pa.announceReq)
-	close(pa.playReq)
-	close(pa.recordReq)
-	close(pa.pauseReq)
-	close(pa.removeReq)
-}
-
-func (pa *Path) exhaustChannels() {
-	go func() {
-		for {
-			select {
-			case req, ok := <-pa.extSourceSetReady:
-				if !ok {
-					return
-				}
-				close(req.Res)
-
-			case req, ok := <-pa.extSourceSetNotReady:
-				if !ok {
-					return
-				}
-				close(req.Res)
-
-			case req, ok := <-pa.describeReq:
-				if !ok {
-					return
-				}
-				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
-
-			case req, ok := <-pa.setupPlayReq:
-				if !ok {
-					return
-				}
-				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
-
-			case req, ok := <-pa.announceReq:
-				if !ok {
-					return
-				}
-				req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
-
-			case req, ok := <-pa.playReq:
-				if !ok {
-					return
-				}
-				close(req.Res)
-
-			case req, ok := <-pa.recordReq:
-				if !ok {
-					return
-				}
-				close(req.Res)
-
-			case req, ok := <-pa.pauseReq:
-				if !ok {
-					return
-				}
-				close(req.Res)
-
-			case req, ok := <-pa.removeReq:
-				if !ok {
-					return
-				}
-
-				if _, ok := pa.readPublishers[req.Author]; !ok {
-					close(req.Res)
-					continue
-				}
-
-				pa.readPublishersWg.Done()
-				close(req.Res)
-			}
-		}
-	}()
+	pa.parent.OnPathClose(pa)
 }
 
 func (pa *Path) hasExternalSource() bool {
@@ -446,7 +369,6 @@ func (pa *Path) hasReadPublishersNotSources() bool {
 
 func (pa *Path) addReadPublisher(c readpublisher.ReadPublisher, state readPublisherState) {
 	pa.readPublishers[c] = state
-	pa.readPublishersWg.Add(1)
 }
 
 func (pa *Path) removeReadPublisher(c readpublisher.ReadPublisher) {
@@ -781,47 +703,83 @@ func (pa *Path) Name() string {
 
 // OnExtSourceSetReady is called by an external source.
 func (pa *Path) OnExtSourceSetReady(req source.ExtSetReadyReq) {
-	pa.extSourceSetReady <- req
+	select {
+	case pa.extSourceSetReady <- req:
+	case <-pa.ctx.Done():
+		close(req.Res)
+	}
 }
 
 // OnExtSourceSetNotReady is called by an external source.
 func (pa *Path) OnExtSourceSetNotReady(req source.ExtSetNotReadyReq) {
-	pa.extSourceSetNotReady <- req
+	select {
+	case pa.extSourceSetNotReady <- req:
+	case <-pa.ctx.Done():
+		close(req.Res)
+	}
 }
 
 // OnPathManDescribe is called by pathman.PathMan.
 func (pa *Path) OnPathManDescribe(req readpublisher.DescribeReq) {
-	pa.describeReq <- req
+	select {
+	case pa.describeReq <- req:
+	case <-pa.ctx.Done():
+		req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+	}
 }
 
 // OnPathManSetupPlay is called by pathman.PathMan.
 func (pa *Path) OnPathManSetupPlay(req readpublisher.SetupPlayReq) {
-	pa.setupPlayReq <- req
+	select {
+	case pa.setupPlayReq <- req:
+	case <-pa.ctx.Done():
+		req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+	}
 }
 
 // OnPathManAnnounce is called by pathman.PathMan.
 func (pa *Path) OnPathManAnnounce(req readpublisher.AnnounceReq) {
-	pa.announceReq <- req
-}
-
-// OnReadPublisherRemove is called by a readpublisher.
-func (pa *Path) OnReadPublisherRemove(req readpublisher.RemoveReq) {
-	pa.removeReq <- req
+	select {
+	case pa.announceReq <- req:
+	case <-pa.ctx.Done():
+		req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
+	}
 }
 
 // OnReadPublisherPlay is called by a readpublisher.
 func (pa *Path) OnReadPublisherPlay(req readpublisher.PlayReq) {
-	pa.playReq <- req
+	select {
+	case pa.playReq <- req:
+	case <-pa.ctx.Done():
+		close(req.Res)
+	}
 }
 
 // OnReadPublisherRecord is called by a readpublisher.
 func (pa *Path) OnReadPublisherRecord(req readpublisher.RecordReq) {
-	pa.recordReq <- req
+	select {
+	case pa.recordReq <- req:
+	case <-pa.ctx.Done():
+		close(req.Res)
+	}
 }
 
 // OnReadPublisherPause is called by a readpublisher.
 func (pa *Path) OnReadPublisherPause(req readpublisher.PauseReq) {
-	pa.pauseReq <- req
+	select {
+	case pa.pauseReq <- req:
+	case <-pa.ctx.Done():
+		close(req.Res)
+	}
+}
+
+// OnReadPublisherRemove is called by a readpublisher.
+func (pa *Path) OnReadPublisherRemove(req readpublisher.RemoveReq) {
+	select {
+	case pa.removeReq <- req:
+	case <-pa.ctx.Done():
+		close(req.Res)
+	}
 }
 
 // OnSPFrame is called by streamproc.StreamProc.

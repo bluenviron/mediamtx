@@ -43,8 +43,8 @@ type Source struct {
 	stats           *stats.Stats
 	parent          Parent
 
-	// in
-	terminate chan struct{}
+	ctx       context.Context
+	ctxCancel func()
 }
 
 // New allocates a Source.
@@ -59,6 +59,9 @@ func New(
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	s := &Source{
 		ur:              ur,
 		proto:           proto,
@@ -70,7 +73,8 @@ func New(
 		wg:              wg,
 		stats:           stats,
 		parent:          parent,
-		terminate:       make(chan struct{}),
+		ctx:             ctx,
+		ctxCancel:       ctxCancel,
 	}
 
 	atomic.AddInt64(s.stats.CountSourcesRTSP, +1)
@@ -85,7 +89,7 @@ func New(
 func (s *Source) Close() {
 	atomic.AddInt64(s.stats.CountSourcesRTSP, -1)
 	s.log(logger.Info, "stopped")
-	close(s.terminate)
+	s.ctxCancel()
 }
 
 // IsSource implements source.Source.
@@ -111,7 +115,7 @@ func (s *Source) run() {
 			select {
 			case <-time.After(retryPause):
 				return true
-			case <-s.terminate:
+			case <-s.ctx.Done():
 				return false
 			}
 		}()
@@ -119,6 +123,8 @@ func (s *Source) run() {
 			break
 		}
 	}
+
+	s.ctxCancel()
 }
 
 func (s *Source) runInner() bool {
@@ -154,24 +160,24 @@ func (s *Source) runInner() bool {
 		},
 	}
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
 
 	var conn *gortsplib.ClientConn
 	var err error
 	dialDone := make(chan struct{})
 	go func() {
 		defer close(dialDone)
-		conn, err = client.DialReadContext(ctx, s.ur)
+		conn, err = client.DialReadContext(innerCtx, s.ur)
 	}()
 
 	select {
-	case <-s.terminate:
-		ctxCancel()
+	case <-s.ctx.Done():
+		innerCtxCancel()
 		<-dialDone
 		return false
 
 	case <-dialDone:
-		ctxCancel()
+		innerCtxCancel()
 	}
 
 	if err != nil {
@@ -204,7 +210,7 @@ func (s *Source) runInner() bool {
 	}()
 
 	select {
-	case <-s.terminate:
+	case <-s.ctx.Done():
 		conn.Close()
 		<-readErr
 		return false

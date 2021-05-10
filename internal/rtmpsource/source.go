@@ -40,8 +40,8 @@ type Source struct {
 	stats        *stats.Stats
 	parent       Parent
 
-	// in
-	terminate chan struct{}
+	ctx       context.Context
+	ctxCancel func()
 }
 
 // New allocates a Source.
@@ -51,6 +51,9 @@ func New(ur string,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	s := &Source{
 		ur:           ur,
 		readTimeout:  readTimeout,
@@ -58,7 +61,8 @@ func New(ur string,
 		wg:           wg,
 		stats:        stats,
 		parent:       parent,
-		terminate:    make(chan struct{}),
+		ctx:          ctx,
+		ctxCancel:    ctxCancel,
 	}
 
 	atomic.AddInt64(s.stats.CountSourcesRTMP, +1)
@@ -73,7 +77,7 @@ func New(ur string,
 func (s *Source) Close() {
 	atomic.AddInt64(s.stats.CountSourcesRTMPRunning, -1)
 	s.log(logger.Info, "stopped")
-	close(s.terminate)
+	s.ctxCancel()
 }
 
 // IsSource implements source.Source.
@@ -99,7 +103,7 @@ func (s *Source) run() {
 			select {
 			case <-time.After(retryPause):
 				return true
-			case <-s.terminate:
+			case <-s.ctx.Done():
 				return false
 			}
 		}()
@@ -107,6 +111,8 @@ func (s *Source) run() {
 			break
 		}
 	}
+
+	s.ctxCancel()
 }
 
 func (s *Source) runInner() bool {
@@ -266,7 +272,7 @@ func (s *Source) runInner() bool {
 		s.log(logger.Info, "ERR: %s", err)
 		return true
 
-	case <-s.terminate:
+	case <-s.ctx.Done():
 		cancel()
 		<-runErr
 		return false

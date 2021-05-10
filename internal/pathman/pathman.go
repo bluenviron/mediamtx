@@ -1,6 +1,7 @@
 package pathman
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"sync"
@@ -50,8 +51,10 @@ type PathManager struct {
 	stats           *stats.Stats
 	parent          Parent
 
-	paths map[string]*path.Path
-	wg    sync.WaitGroup
+	ctx       context.Context
+	ctxCancel func()
+	wg        sync.WaitGroup
+	paths     map[string]*path.Path
 
 	// in
 	confReload  chan map[string]*conf.PathConf
@@ -59,10 +62,6 @@ type PathManager struct {
 	rpDescribe  chan readpublisher.DescribeReq
 	rpSetupPlay chan readpublisher.SetupPlayReq
 	rpAnnounce  chan readpublisher.AnnounceReq
-	terminate   chan struct{}
-
-	// out
-	done chan struct{}
 }
 
 // New allocates a PathManager.
@@ -77,6 +76,8 @@ func New(
 	stats *stats.Stats,
 	parent Parent) *PathManager {
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	pm := &PathManager{
 		rtspAddress:     rtspAddress,
 		readTimeout:     readTimeout,
@@ -87,26 +88,28 @@ func New(
 		pathConfs:       pathConfs,
 		stats:           stats,
 		parent:          parent,
+		ctx:             ctx,
+		ctxCancel:       ctxCancel,
 		paths:           make(map[string]*path.Path),
 		confReload:      make(chan map[string]*conf.PathConf),
 		pathClose:       make(chan *path.Path),
 		rpDescribe:      make(chan readpublisher.DescribeReq),
 		rpSetupPlay:     make(chan readpublisher.SetupPlayReq),
 		rpAnnounce:      make(chan readpublisher.AnnounceReq),
-		terminate:       make(chan struct{}),
-		done:            make(chan struct{}),
 	}
 
 	pm.createPaths()
 
+	pm.wg.Add(1)
 	go pm.run()
+
 	return pm
 }
 
 // Close closes a PathManager.
 func (pm *PathManager) Close() {
-	close(pm.terminate)
-	<-pm.done
+	pm.ctxCancel()
+	pm.wg.Wait()
 }
 
 // Log is the main logging function.
@@ -115,7 +118,7 @@ func (pm *PathManager) Log(level logger.Level, format string, args ...interface{
 }
 
 func (pm *PathManager) run() {
-	defer close(pm.done)
+	defer pm.wg.Done()
 
 outer:
 	for {
@@ -155,7 +158,7 @@ outer:
 			pm.createPaths()
 
 		case pa := <-pm.pathClose:
-			if _, ok := pm.paths[pa.Name()]; !ok {
+			if pmpa, ok := pm.paths[pa.Name()]; !ok || pmpa != pa {
 				continue
 			}
 			delete(pm.paths, pa.Name())
@@ -242,55 +245,16 @@ outer:
 
 			pm.paths[req.PathName].OnPathManAnnounce(req)
 
-		case <-pm.terminate:
+		case <-pm.ctx.Done():
 			break outer
 		}
 	}
 
-	go func() {
-		for {
-			select {
-			case _, ok := <-pm.confReload:
-				if !ok {
-					return
-				}
-
-			case _, ok := <-pm.pathClose:
-				if !ok {
-					return
-				}
-
-			case req, ok := <-pm.rpDescribe:
-				if !ok {
-					return
-				}
-				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
-
-			case req, ok := <-pm.rpSetupPlay:
-				if !ok {
-					return
-				}
-				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
-
-			case req, ok := <-pm.rpAnnounce:
-				if !ok {
-					return
-				}
-				req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
-			}
-		}
-	}()
+	pm.ctxCancel()
 
 	for _, pa := range pm.paths {
 		pa.Close()
 	}
-	pm.wg.Wait()
-
-	close(pm.confReload)
-	close(pm.pathClose)
-	close(pm.rpDescribe)
-	close(pm.rpSetupPlay)
-	close(pm.rpAnnounce)
 }
 
 func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) {
@@ -339,27 +303,56 @@ func (pm *PathManager) findPathConf(name string) (string, *conf.PathConf, error)
 
 // OnProgramConfReload is called by program.
 func (pm *PathManager) OnProgramConfReload(pathConfs map[string]*conf.PathConf) {
-	pm.confReload <- pathConfs
+	select {
+	case pm.confReload <- pathConfs:
+	case <-pm.ctx.Done():
+	}
 }
 
 // OnPathClose is called by path.Path.
 func (pm *PathManager) OnPathClose(pa *path.Path) {
-	pm.pathClose <- pa
+	select {
+	case pm.pathClose <- pa:
+	case <-pm.ctx.Done():
+	}
 }
 
 // OnReadPublisherDescribe is called by a ReadPublisher.
 func (pm *PathManager) OnReadPublisherDescribe(req readpublisher.DescribeReq) {
-	pm.rpDescribe <- req
+	select {
+	case pm.rpDescribe <- req:
+	case <-pm.ctx.Done():
+		req.Res <- readpublisher.DescribeRes{
+			SDP:      nil,
+			Redirect: "",
+			Err:      fmt.Errorf("terminated"),
+		}
+	}
 }
 
 // OnReadPublisherAnnounce is called by a ReadPublisher.
 func (pm *PathManager) OnReadPublisherAnnounce(req readpublisher.AnnounceReq) {
-	pm.rpAnnounce <- req
+	select {
+	case pm.rpAnnounce <- req:
+	case <-pm.ctx.Done():
+		req.Res <- readpublisher.AnnounceRes{
+			Path: nil,
+			Err:  fmt.Errorf("terminated"),
+		}
+	}
 }
 
 // OnReadPublisherSetupPlay is called by a ReadPublisher.
 func (pm *PathManager) OnReadPublisherSetupPlay(req readpublisher.SetupPlayReq) {
-	pm.rpSetupPlay <- req
+	select {
+	case pm.rpSetupPlay <- req:
+	case <-pm.ctx.Done():
+		req.Res <- readpublisher.SetupPlayRes{
+			Path:   nil,
+			Tracks: nil,
+			Err:    fmt.Errorf("terminated"),
+		}
+	}
 }
 
 func (pm *PathManager) authenticate(

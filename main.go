@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -25,6 +26,8 @@ import (
 var version = "v0.0.0"
 
 type program struct {
+	ctx             context.Context
+	ctxCancel       func()
 	confPath        string
 	conf            *conf.Conf
 	confFound       bool
@@ -39,8 +42,8 @@ type program struct {
 	serverHLS       *hlsserver.Server
 	confWatcher     *confwatcher.ConfWatcher
 
-	terminate chan struct{}
-	done      chan struct{}
+	// out
+	done chan struct{}
 }
 
 func newProgram(args []string) (*program, bool) {
@@ -62,9 +65,12 @@ func newProgram(args []string) (*program, bool) {
 	// do not check for errors
 	rlimit.Raise()
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	p := &program{
+		ctx:       ctx,
+		ctxCancel: ctxCancel,
 		confPath:  *argConfPath,
-		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
 
@@ -97,7 +103,7 @@ func newProgram(args []string) (*program, bool) {
 }
 
 func (p *program) close() {
-	close(p.terminate)
+	p.ctxCancel()
 	<-p.done
 }
 
@@ -129,10 +135,12 @@ outer:
 				break outer
 			}
 
-		case <-p.terminate:
+		case <-p.ctx.Done():
 			break outer
 		}
 	}
+
+	p.ctxCancel()
 
 	p.closeResources(nil)
 

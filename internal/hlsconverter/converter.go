@@ -136,6 +136,8 @@ type Converter struct {
 	pathMan            PathMan
 	parent             Parent
 
+	ctx             context.Context
+	ctxCancel       func()
 	path            readpublisher.Path
 	ringBuffer      *ringbuffer.RingBuffer
 	tsQueue         []*tsFile
@@ -145,9 +147,7 @@ type Converter struct {
 	lastRequestTime int64
 
 	// in
-	request         chan Request
-	terminate       chan struct{}
-	parentTerminate chan struct{}
+	request chan Request
 }
 
 // New allocates a Converter.
@@ -161,6 +161,8 @@ func New(
 	pathMan PathMan,
 	parent Parent) *Converter {
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	c := &Converter{
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
@@ -170,11 +172,11 @@ func New(
 		pathName:           pathName,
 		pathMan:            pathMan,
 		parent:             parent,
+		ctx:                ctx,
+		ctxCancel:          ctxCancel,
 		lastRequestTime:    time.Now().Unix(),
 		tsByName:           make(map[string]*tsFile),
 		request:            make(chan Request),
-		terminate:          make(chan struct{}, 1),
-		parentTerminate:    make(chan struct{}),
 	}
 
 	c.log(logger.Info, "opened")
@@ -188,15 +190,11 @@ func New(
 // ParentClose closes a Converter.
 func (c *Converter) ParentClose() {
 	c.log(logger.Info, "closed")
-	close(c.parentTerminate)
 }
 
 // Close closes a Converter.
 func (c *Converter) Close() {
-	select {
-	case c.terminate <- struct{}{}:
-	default:
-	}
+	c.ctxCancel()
 }
 
 // IsReadPublisher implements readpublisher.ReadPublisher.
@@ -217,28 +215,23 @@ func (c *Converter) PathName() string {
 func (c *Converter) run() {
 	defer c.wg.Done()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
 	runErr := make(chan error)
 	go func() {
-		runErr <- c.runInner(ctx)
+		runErr <- c.runInner(innerCtx)
 	}()
 
 	select {
 	case err := <-runErr:
-		cancel()
+		innerCtxCancel()
 		c.log(logger.Info, "ERR: %s", err)
 
-	case <-c.terminate:
-		cancel()
+	case <-c.ctx.Done():
+		innerCtxCancel()
 		<-runErr
 	}
 
-	go func() {
-		for req := range c.request {
-			req.W.WriteHeader(http.StatusNotFound)
-			req.Res <- nil
-		}
-	}()
+	c.ctxCancel()
 
 	if c.path != nil {
 		res := make(chan struct{})
@@ -247,12 +240,9 @@ func (c *Converter) run() {
 	}
 
 	c.parent.OnConverterClose(c)
-	<-c.parentTerminate
-
-	close(c.request)
 }
 
-func (c *Converter) runInner(ctx context.Context) error {
+func (c *Converter) runInner(innerCtx context.Context) error {
 	pres := make(chan readpublisher.SetupPlayRes)
 	c.pathMan.OnReadPublisherSetupPlay(readpublisher.SetupPlayReq{
 		Author:              c,
@@ -504,7 +494,7 @@ func (c *Converter) runInner(ctx context.Context) error {
 		case err := <-writerDone:
 			return err
 
-		case <-ctx.Done():
+		case <-innerCtx.Done():
 			return nil
 		}
 	}
@@ -598,7 +588,12 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 
 // OnRequest is called by hlsserver.Server.
 func (c *Converter) OnRequest(req Request) {
-	c.request <- req
+	select {
+	case c.request <- req:
+	case <-c.ctx.Done():
+		req.W.WriteHeader(http.StatusNotFound)
+		req.Res <- nil
+	}
 }
 
 // OnFrame implements path.Reader.

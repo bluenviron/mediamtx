@@ -1,6 +1,7 @@
 package rtmpserver
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -28,16 +29,14 @@ type Server struct {
 	pathMan             *pathman.PathManager
 	parent              Parent
 
-	l     net.Listener
-	wg    sync.WaitGroup
-	conns map[*rtmpconn.Conn]struct{}
+	ctx       context.Context
+	ctxCancel func()
+	wg        sync.WaitGroup
+	l         net.Listener
+	conns     map[*rtmpconn.Conn]struct{}
 
 	// in
 	connClose chan *rtmpconn.Conn
-	terminate chan struct{}
-
-	// out
-	done chan struct{}
 }
 
 // New allocates a Server.
@@ -58,6 +57,8 @@ func New(
 		return nil, err
 	}
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	s := &Server{
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
@@ -68,15 +69,16 @@ func New(
 		stats:               stats,
 		pathMan:             pathMan,
 		parent:              parent,
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
 		l:                   l,
 		conns:               make(map[*rtmpconn.Conn]struct{}),
 		connClose:           make(chan *rtmpconn.Conn),
-		terminate:           make(chan struct{}),
-		done:                make(chan struct{}),
 	}
 
 	s.Log(logger.Info, "listener opened on %s", address)
 
+	s.wg.Add(1)
 	go s.run()
 
 	return s, nil
@@ -89,28 +91,37 @@ func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
 
 // Close closes a Server.
 func (s *Server) Close() {
-	close(s.terminate)
-	<-s.done
+	s.ctxCancel()
+	s.wg.Wait()
 }
 
 func (s *Server) run() {
-	defer close(s.done)
+	defer s.wg.Done()
 
 	s.wg.Add(1)
 	connNew := make(chan net.Conn)
 	acceptErr := make(chan error)
 	go func() {
 		defer s.wg.Done()
-		acceptErr <- func() error {
+		err := func() error {
 			for {
 				conn, err := s.l.Accept()
 				if err != nil {
 					return err
 				}
 
-				connNew <- conn
+				select {
+				case connNew <- conn:
+				case <-s.ctx.Done():
+					conn.Close()
+				}
 			}
 		}()
+
+		select {
+		case acceptErr <- err:
+		case <-s.ctx.Done():
+		}
 	}()
 
 outer:
@@ -141,44 +152,18 @@ outer:
 			}
 			s.doConnClose(c)
 
-		case <-s.terminate:
+		case <-s.ctx.Done():
 			break outer
 		}
 	}
 
-	go func() {
-		for {
-			select {
-			case _, ok := <-acceptErr:
-				if !ok {
-					return
-				}
-
-			case conn, ok := <-connNew:
-				if !ok {
-					return
-				}
-				conn.Close()
-
-			case _, ok := <-s.connClose:
-				if !ok {
-					return
-				}
-			}
-		}
-	}()
+	s.ctxCancel()
 
 	s.l.Close()
 
 	for c := range s.conns {
 		s.doConnClose(c)
 	}
-
-	s.wg.Wait()
-
-	close(acceptErr)
-	close(connNew)
-	close(s.connClose)
 }
 
 func (s *Server) doConnClose(c *rtmpconn.Conn) {
@@ -189,5 +174,8 @@ func (s *Server) doConnClose(c *rtmpconn.Conn) {
 
 // OnConnClose is called by rtmpconn.Conn.
 func (s *Server) OnConnClose(c *rtmpconn.Conn) {
-	s.connClose <- c
+	select {
+	case s.connClose <- c:
+	case <-s.ctx.Done():
+	}
 }

@@ -75,12 +75,10 @@ type Conn struct {
 	pathMan             PathMan
 	parent              Parent
 
+	ctx        context.Context
+	ctxCancel  func()
 	path       readpublisher.Path
 	ringBuffer *ringbuffer.RingBuffer // read
-
-	// in
-	terminate       chan struct{}
-	parentTerminate chan struct{}
 }
 
 // New allocates a Conn.
@@ -97,6 +95,8 @@ func New(
 	pathMan PathMan,
 	parent Parent) *Conn {
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	c := &Conn{
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
@@ -109,8 +109,8 @@ func New(
 		conn:                rtmp.NewServerConn(nconn),
 		pathMan:             pathMan,
 		parent:              parent,
-		terminate:           make(chan struct{}, 1),
-		parentTerminate:     make(chan struct{}),
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
 	}
 
 	c.log(logger.Info, "opened")
@@ -124,15 +124,11 @@ func New(
 // ParentClose closes a Conn.
 func (c *Conn) ParentClose() {
 	c.log(logger.Info, "closed")
-	close(c.parentTerminate)
 }
 
 // Close closes a Conn.
 func (c *Conn) Close() {
-	select {
-	case c.terminate <- struct{}{}:
-	default:
-	}
+	c.ctxCancel()
 }
 
 // IsReadPublisher implements readpublisher.ReadPublisher.
@@ -175,10 +171,12 @@ func (c *Conn) run() {
 			c.log(logger.Info, "ERR: %s", err)
 		}
 
-	case <-c.terminate:
+	case <-c.ctx.Done():
 		cancel()
 		<-runErr
 	}
+
+	c.ctxCancel()
 
 	if c.path != nil {
 		res := make(chan struct{})
@@ -187,7 +185,6 @@ func (c *Conn) run() {
 	}
 
 	c.parent.OnConnClose(c)
-	<-c.parentTerminate
 }
 
 func (c *Conn) runInner(ctx context.Context) error {

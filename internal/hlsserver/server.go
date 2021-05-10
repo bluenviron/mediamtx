@@ -29,17 +29,15 @@ type Server struct {
 	pathMan            *pathman.PathManager
 	parent             Parent
 
-	ln         net.Listener
+	ctx        context.Context
+	ctxCancel  func()
 	wg         sync.WaitGroup
+	ln         net.Listener
 	converters map[string]*hlsconverter.Converter
 
 	// in
 	request   chan hlsconverter.Request
 	connClose chan *hlsconverter.Converter
-	terminate chan struct{}
-
-	// out
-	done chan struct{}
 }
 
 // New allocates a Server.
@@ -58,6 +56,8 @@ func New(
 		return nil, err
 	}
 
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	s := &Server{
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
@@ -65,16 +65,17 @@ func New(
 		stats:              stats,
 		pathMan:            pathMan,
 		parent:             parent,
+		ctx:                ctx,
+		ctxCancel:          ctxCancel,
 		ln:                 ln,
 		converters:         make(map[string]*hlsconverter.Converter),
 		request:            make(chan hlsconverter.Request),
 		connClose:          make(chan *hlsconverter.Converter),
-		terminate:          make(chan struct{}),
-		done:               make(chan struct{}),
 	}
 
 	s.Log(logger.Info, "listener opened on "+address)
 
+	s.wg.Add(1)
 	go s.run()
 
 	return s, nil
@@ -87,12 +88,12 @@ func (s *Server) Log(level logger.Level, format string, args ...interface{}) {
 
 // Close closes all the server resources.
 func (s *Server) Close() {
-	close(s.terminate)
-	<-s.done
+	s.ctxCancel()
+	s.wg.Wait()
 }
 
 func (s *Server) run() {
-	defer close(s.done)
+	defer s.wg.Done()
 
 	hs := &http.Server{Handler: s}
 	go hs.Serve(s.ln)
@@ -122,36 +123,18 @@ outer:
 			}
 			s.doConverterClose(c)
 
-		case <-s.terminate:
+		case <-s.ctx.Done():
 			break outer
 		}
 	}
 
-	go func() {
-		for {
-			select {
-			case req, ok := <-s.request:
-				if !ok {
-					return
-				}
-				req.Res <- nil
-
-			case _, ok := <-s.connClose:
-				if !ok {
-					return
-				}
-			}
-		}
-	}()
+	s.ctxCancel()
 
 	for _, c := range s.converters {
 		s.doConverterClose(c)
 	}
 
 	hs.Shutdown(context.Background())
-
-	close(s.request)
-	close(s.connClose)
 }
 
 // ServeHTTP implements http.Handler.
@@ -174,30 +157,36 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cres := make(chan io.Reader)
-	s.request <- hlsconverter.Request{
+	hreq := hlsconverter.Request{
 		Path:    parts[0],
 		Subpath: parts[1],
 		Req:     r,
 		W:       w,
 		Res:     cres,
 	}
-	res := <-cres
 
-	if res != nil {
-		buf := make([]byte, 4096)
-		for {
-			n, err := res.Read(buf)
-			if err != nil {
-				return
+	select {
+	case s.request <- hreq:
+		res := <-cres
+
+		if res != nil {
+			buf := make([]byte, 4096)
+			for {
+				n, err := res.Read(buf)
+				if err != nil {
+					return
+				}
+
+				_, err = w.Write(buf[:n])
+				if err != nil {
+					return
+				}
+
+				w.(http.Flusher).Flush()
 			}
-
-			_, err = w.Write(buf[:n])
-			if err != nil {
-				return
-			}
-
-			w.(http.Flusher).Flush()
 		}
+
+	case <-s.ctx.Done():
 	}
 }
 
@@ -208,5 +197,8 @@ func (s *Server) doConverterClose(c *hlsconverter.Converter) {
 
 // OnConverterClose is called by hlsconverter.Converter.
 func (s *Server) OnConverterClose(c *hlsconverter.Converter) {
-	s.connClose <- c
+	select {
+	case s.connClose <- c:
+	case <-s.ctx.Done():
+	}
 }
