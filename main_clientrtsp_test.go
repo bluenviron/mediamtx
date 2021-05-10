@@ -452,15 +452,19 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 			require.NoError(t, err)
 			defer d1.Close()
 
-			recv := make(chan struct{})
-			d1.ReadFrames(func(trackID int, streamType base.StreamType, payload []byte) {
-				if ca == "enabled" {
-					require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
-				} else {
-					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
-				}
-				close(recv)
-			})
+			readDone := make(chan struct{})
+			frameRecv := make(chan struct{})
+			go func() {
+				defer close(readDone)
+				d1.ReadFrames(func(trackID int, streamType base.StreamType, payload []byte) {
+					if ca == "enabled" {
+						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
+					} else {
+						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+					}
+					close(frameRecv)
+				})
+			}()
 
 			err = s1.WriteFrame(track.ID, gortsplib.StreamTypeRTP,
 				[]byte{0x01, 0x02, 0x03, 0x04})
@@ -476,7 +480,10 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			<-recv
+			<-frameRecv
+
+			d1.Close()
+			<-readDone
 		})
 	}
 }
@@ -511,21 +518,24 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 
 		input := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
 
-		recvDone := make(chan struct{})
-		recvErr := dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-			require.Equal(t, gortsplib.StreamTypeRTP, streamType)
-			require.Equal(t, input, payload)
-			close(recvDone)
-		})
+		readDone := make(chan struct{})
+		frameRecv := make(chan struct{})
+		go func() {
+			defer close(readDone)
+			dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+				require.Equal(t, gortsplib.StreamTypeRTP, streamType)
+				require.Equal(t, input, payload)
+				close(frameRecv)
+			})
+		}()
 
 		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, input)
 		require.NoError(t, err)
 
-		select {
-		case <-recvDone:
-		case err := <-recvErr:
-			t.Error(err)
-		}
+		<-frameRecv
+
+		dest.Close()
+		<-readDone
 	})
 
 	t.Run("proxy", func(t *testing.T) {
@@ -572,21 +582,24 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 
 		input := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
 
-		recvDone := make(chan struct{})
-		recvErr := dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-			require.Equal(t, gortsplib.StreamTypeRTP, streamType)
-			require.Equal(t, input, payload)
-			close(recvDone)
-		})
+		readDone := make(chan struct{})
+		frameRecv := make(chan struct{})
+		go func() {
+			defer close(readDone)
+			dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+				require.Equal(t, gortsplib.StreamTypeRTP, streamType)
+				require.Equal(t, input, payload)
+				close(frameRecv)
+			})
+		}()
 
 		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, input)
 		require.NoError(t, err)
 
-		select {
-		case <-recvDone:
-		case err := <-recvErr:
-			t.Error(err)
-		}
+		<-frameRecv
+
+		dest.Close()
+		<-readDone
 	})
 }
 

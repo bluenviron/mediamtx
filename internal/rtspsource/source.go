@@ -1,6 +1,7 @@
 package rtspsource
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -123,49 +124,54 @@ func (s *Source) run() {
 func (s *Source) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
+	client := &gortsplib.Client{
+		StreamProtocol: s.proto,
+		TLSConfig: &tls.Config{
+			InsecureSkipVerify: true,
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				h := sha256.New()
+				h.Write(cs.PeerCertificates[0].Raw)
+				hstr := hex.EncodeToString(h.Sum(nil))
+				fingerprintLower := strings.ToLower(s.fingerprint)
+
+				if hstr != fingerprintLower {
+					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
+						fingerprintLower, hstr)
+				}
+
+				return nil
+			},
+		},
+		ReadTimeout:     s.readTimeout,
+		WriteTimeout:    s.writeTimeout,
+		ReadBufferCount: s.readBufferCount,
+		ReadBufferSize:  s.readBufferSize,
+		OnRequest: func(req *base.Request) {
+			s.log(logger.Debug, "c->s %v", req)
+		},
+		OnResponse: func(res *base.Response) {
+			s.log(logger.Debug, "s->c %v", res)
+		},
+	}
+
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	var conn *gortsplib.ClientConn
 	var err error
-	dialDone := make(chan struct{}, 1)
+	dialDone := make(chan struct{})
 	go func() {
 		defer close(dialDone)
-
-		client := &gortsplib.Client{
-			StreamProtocol: s.proto,
-			TLSConfig: &tls.Config{
-				InsecureSkipVerify: true,
-				VerifyConnection: func(cs tls.ConnectionState) error {
-					h := sha256.New()
-					h.Write(cs.PeerCertificates[0].Raw)
-					hstr := hex.EncodeToString(h.Sum(nil))
-					fingerprintLower := strings.ToLower(s.fingerprint)
-
-					if hstr != fingerprintLower {
-						return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
-							fingerprintLower, hstr)
-					}
-
-					return nil
-				},
-			},
-			ReadTimeout:     s.readTimeout,
-			WriteTimeout:    s.writeTimeout,
-			ReadBufferCount: s.readBufferCount,
-			ReadBufferSize:  s.readBufferSize,
-			OnRequest: func(req *base.Request) {
-				s.log(logger.Debug, "c->s %v", req)
-			},
-			OnResponse: func(res *base.Response) {
-				s.log(logger.Debug, "s->c %v", res)
-			},
-		}
-
-		conn, err = client.DialRead(s.ur)
+		conn, err = client.DialReadContext(ctx, s.ur)
 	}()
 
 	select {
 	case <-s.terminate:
+		ctxCancel()
+		<-dialDone
 		return false
+
 	case <-dialDone:
+		ctxCancel()
 	}
 
 	if err != nil {
@@ -190,17 +196,20 @@ func (s *Source) runInner() bool {
 		<-res
 	}()
 
-	done := conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-		res.SP.OnFrame(trackID, streamType, payload)
-	})
+	readErr := make(chan error)
+	go func() {
+		readErr <- conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
+			res.SP.OnFrame(trackID, streamType, payload)
+		})
+	}()
 
 	select {
 	case <-s.terminate:
 		conn.Close()
-		<-done
+		<-readErr
 		return false
 
-	case err := <-done:
+	case err := <-readErr:
 		s.log(logger.Info, "ERR: %s", err)
 		conn.Close()
 		return true
