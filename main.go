@@ -198,6 +198,7 @@ func (p *program) createResources(initial bool) error {
 
 	if p.pathMan == nil {
 		p.pathMan = pathman.New(
+			p.ctx,
 			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
@@ -215,6 +216,7 @@ func (p *program) createResources(initial bool) error {
 		if p.serverRTSPPlain == nil {
 			_, useUDP := p.conf.ProtocolsParsed[gortsplib.StreamProtocolUDP]
 			p.serverRTSPPlain, err = rtspserver.New(
+				p.ctx,
 				p.conf.RTSPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -244,6 +246,7 @@ func (p *program) createResources(initial bool) error {
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPTLS == nil {
 			p.serverRTSPTLS, err = rtspserver.New(
+				p.ctx,
 				p.conf.RTSPSAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -271,6 +274,7 @@ func (p *program) createResources(initial bool) error {
 	if !p.conf.RTMPDisable {
 		if p.serverRTMP == nil {
 			p.serverRTMP, err = rtmpserver.New(
+				p.ctx,
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -290,6 +294,7 @@ func (p *program) createResources(initial bool) error {
 	if !p.conf.HLSDisable {
 		if p.serverHLS == nil {
 			p.serverHLS, err = hlsserver.New(
+				p.ctx,
 				p.conf.HLSAddress,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,

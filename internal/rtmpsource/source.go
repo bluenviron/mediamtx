@@ -45,14 +45,16 @@ type Source struct {
 }
 
 // New allocates a Source.
-func New(ur string,
+func New(
+	ctxParent context.Context,
+	ur string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Source{
 		ur:           ur,
@@ -116,14 +118,14 @@ func (s *Source) run() {
 }
 
 func (s *Source) runInner() bool {
-	ctx, cancel := context.WithCancel(context.Background())
+	innerCtx, innerCtxCancel := context.WithCancel(s.ctx)
 
 	runErr := make(chan error)
 	go func() {
 		runErr <- func() error {
 			s.log(logger.Debug, "connecting")
 
-			ctx2, cancel2 := context.WithTimeout(ctx, s.readTimeout)
+			ctx2, cancel2 := context.WithTimeout(innerCtx, s.readTimeout)
 			defer cancel2()
 
 			conn, err := rtmp.DialContext(ctx2, s.ur)
@@ -258,7 +260,7 @@ func (s *Source) runInner() bool {
 				conn.NetConn().Close()
 				return err
 
-			case <-ctx.Done():
+			case <-innerCtx.Done():
 				conn.NetConn().Close()
 				<-readDone
 				return nil
@@ -268,12 +270,12 @@ func (s *Source) runInner() bool {
 
 	select {
 	case err := <-runErr:
-		cancel()
+		innerCtxCancel()
 		s.log(logger.Info, "ERR: %s", err)
 		return true
 
 	case <-s.ctx.Done():
-		cancel()
+		innerCtxCancel()
 		<-runErr
 		return false
 	}

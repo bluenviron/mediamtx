@@ -42,6 +42,7 @@ type Server struct {
 
 // New allocates a Server.
 func New(
+	ctxParent context.Context,
 	address string,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
@@ -56,7 +57,7 @@ func New(
 		return nil, err
 	}
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Server{
 		hlsSegmentCount:    hlsSegmentCount,
@@ -105,6 +106,7 @@ outer:
 			c, ok := s.converters[req.Path]
 			if !ok {
 				c = hlsconverter.New(
+					s.ctx,
 					s.hlsSegmentCount,
 					s.hlsSegmentDuration,
 					s.readBufferCount,

@@ -83,6 +83,7 @@ type Conn struct {
 
 // New allocates a Conn.
 func New(
+	ctxParent context.Context,
 	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -95,7 +96,7 @@ func New(
 	pathMan PathMan,
 	parent Parent) *Conn {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	c := &Conn{
 		rtspAddress:         rtspAddress,
@@ -157,7 +158,7 @@ func (c *Conn) run() {
 		defer onConnectCmd.Close()
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.ctx)
 	runErr := make(chan error)
 	go func() {
 		runErr <- c.runInner(ctx)

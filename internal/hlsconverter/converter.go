@@ -152,6 +152,7 @@ type Converter struct {
 
 // New allocates a Converter.
 func New(
+	ctxParent context.Context,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
 	readBufferCount int,
@@ -161,7 +162,7 @@ func New(
 	pathMan PathMan,
 	parent Parent) *Converter {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	c := &Converter{
 		hlsSegmentCount:    hlsSegmentCount,
@@ -495,6 +496,8 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 			return err
 
 		case <-innerCtx.Done():
+			c.ringBuffer.Close()
+			<-writerDone
 			return nil
 		}
 	}

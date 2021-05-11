@@ -66,6 +66,7 @@ type PathManager struct {
 
 // New allocates a PathManager.
 func New(
+	ctxParent context.Context,
 	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -76,7 +77,7 @@ func New(
 	stats *stats.Stats,
 	parent Parent) *PathManager {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	pm := &PathManager{
 		rtspAddress:     rtspAddress,
@@ -251,14 +252,11 @@ outer:
 	}
 
 	pm.ctxCancel()
-
-	for _, pa := range pm.paths {
-		pa.Close()
-	}
 }
 
 func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) {
 	pm.paths[name] = path.New(
+		pm.ctx,
 		pm.rtspAddress,
 		pm.readTimeout,
 		pm.writeTimeout,

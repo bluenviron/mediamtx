@@ -71,6 +71,7 @@ type Server struct {
 
 // New allocates a Server.
 func New(
+	ctxParent context.Context,
 	address string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -90,7 +91,7 @@ func New(
 	pathMan *pathman.PathManager,
 	parent Parent) (*Server, error) {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Server{
 		readTimeout: readTimeout,

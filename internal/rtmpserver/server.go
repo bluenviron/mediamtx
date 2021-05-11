@@ -41,6 +41,7 @@ type Server struct {
 
 // New allocates a Server.
 func New(
+	ctxParent context.Context,
 	address string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -57,7 +58,7 @@ func New(
 		return nil, err
 	}
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Server{
 		readTimeout:         readTimeout,
@@ -133,6 +134,7 @@ outer:
 
 		case nconn := <-connNew:
 			c := rtmpconn.New(
+				s.ctx,
 				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,

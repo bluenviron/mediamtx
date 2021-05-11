@@ -105,6 +105,7 @@ type Path struct {
 
 // New allocates a Path.
 func New(
+	ctxParent context.Context,
 	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -117,7 +118,7 @@ func New(
 	stats *stats.Stats,
 	parent Parent) *Path {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	pa := &Path{
 		rtspAddress:           rtspAddress,
@@ -327,6 +328,7 @@ func (pa *Path) startExternalSource() {
 	if strings.HasPrefix(pa.conf.Source, "rtsp://") ||
 		strings.HasPrefix(pa.conf.Source, "rtsps://") {
 		pa.source = rtspsource.New(
+			pa.ctx,
 			pa.conf.Source,
 			pa.conf.SourceProtocolParsed,
 			pa.conf.SourceFingerprint,
@@ -340,6 +342,7 @@ func (pa *Path) startExternalSource() {
 
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
 		pa.source = rtmpsource.New(
+			pa.ctx,
 			pa.conf.Source,
 			pa.readTimeout,
 			pa.writeTimeout,

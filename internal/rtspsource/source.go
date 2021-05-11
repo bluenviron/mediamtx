@@ -49,6 +49,7 @@ type Source struct {
 
 // New allocates a Source.
 func New(
+	ctxParent context.Context,
 	ur string,
 	proto *gortsplib.StreamProtocol,
 	fingerprint string,
@@ -60,7 +61,7 @@ func New(
 	stats *stats.Stats,
 	parent Parent) *Source {
 
-	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Source{
 		ur:              ur,
