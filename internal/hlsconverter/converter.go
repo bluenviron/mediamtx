@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -337,6 +338,7 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 			startPCR := time.Now()
 			var videoBuf [][]byte
 			videoDTSEst := h264.NewDTSEstimator()
+			videoInitialized := false
 			audioAUCount := 0
 
 			for {
@@ -347,7 +349,26 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 				pair := data.(trackIDPayloadPair)
 
 				if videoTrack != nil && pair.trackID == videoTrack.ID {
-					nalus, pts, err := h264Decoder.Decode(pair.buf)
+					var pkt rtp.Packet
+					err := pkt.Unmarshal(pair.buf)
+					if err != nil {
+						c.log(logger.Warn, "unable to decode RTP packet: %v", err)
+						continue
+					}
+
+					// skip packets that are part of frames sent before
+					// the initialization of the converter
+					if !videoInitialized {
+						typ := pkt.Payload[0] & 0x1F
+						start := pkt.Payload[1] >> 7
+						if typ == 28 && start != 1 { // FU-A
+							continue
+						}
+
+						videoInitialized = true
+					}
+
+					nalus, pts, err := h264Decoder.DecodeRTP(&pkt)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded {
 							c.log(logger.Warn, "unable to decode video track: %v", err)
