@@ -1,7 +1,9 @@
 
 linters:
   enable:
+  - bodyclose
   - exportloopref
+  - gochecknoinits
   - gocritic
   - gofmt
   - golint
