@@ -558,10 +558,15 @@ func (pa *Path) onReadPublisherSetupPlayPost(req readpublisher.SetupPlayReq) {
 		pa.addReadPublisher(req.Author, readPublisherStatePrePlay)
 	}
 
+	var ti []streamproc.TrackInfo
+	if pa.sp != nil {
+		ti = pa.sp.TrackInfos()
+	}
+
 	req.Res <- readpublisher.SetupPlayRes{
 		Path:       pa,
 		Tracks:     pa.sourceTracks,
-		TrackInfos: pa.sp.TrackInfos(),
+		TrackInfos: ti,
 	}
 }
 

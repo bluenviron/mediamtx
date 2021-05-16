@@ -224,7 +224,7 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 		s.setuppedTracks[ctx.TrackID] = res.Tracks[ctx.TrackID]
 
 		var ssrc *uint32
-		if res.TrackInfos[ctx.TrackID].LastSSRC != 0 {
+		if res.TrackInfos != nil && res.TrackInfos[ctx.TrackID].LastSSRC != 0 {
 			ssrc = &res.TrackInfos[ctx.TrackID].LastSSRC
 		}
 
