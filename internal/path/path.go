@@ -191,12 +191,12 @@ outer:
 		select {
 		case <-pa.describeTimer.C:
 			for _, req := range pa.describeRequests {
-				req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{Err: fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			}
 			pa.describeRequests = nil
 
 			for _, req := range pa.setupPlayRequests {
-				req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("publisher of path '%s' has timed out", pa.name)} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{Err: fmt.Errorf("publisher of path '%s' has timed out", pa.name)}
 			}
 			pa.setupPlayRequests = nil
 
@@ -294,11 +294,11 @@ outer:
 	}
 
 	for _, req := range pa.describeRequests {
-		req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{Err: fmt.Errorf("terminated")}
 	}
 
 	for _, req := range pa.setupPlayRequests {
-		req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.SetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 
 	for c, state := range pa.readPublishers {
@@ -517,7 +517,7 @@ func (pa *Path) onReadPublisherDescribe(req readpublisher.DescribeReq) {
 			return
 		}
 
-		req.Res <- readpublisher.DescribeRes{nil, "", readpublisher.ErrNoOnePublishing{pa.name}} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{Err: readpublisher.ErrNoOnePublishing{PathName: pa.name}}
 		return
 	}
 }
@@ -536,7 +536,7 @@ func (pa *Path) onReadPublisherSetupPlay(req readpublisher.SetupPlayReq) {
 		return
 
 	case sourceStateNotReady:
-		req.Res <- readpublisher.SetupPlayRes{nil, nil, readpublisher.ErrNoOnePublishing{pa.name}} //nolint:govet
+		req.Res <- readpublisher.SetupPlayRes{Err: readpublisher.ErrNoOnePublishing{PathName: pa.name}}
 		return
 	}
 }
@@ -558,7 +558,11 @@ func (pa *Path) onReadPublisherSetupPlayPost(req readpublisher.SetupPlayReq) {
 		pa.addReadPublisher(req.Author, readPublisherStatePrePlay)
 	}
 
-	req.Res <- readpublisher.SetupPlayRes{pa, pa.sourceTracks, nil} //nolint:govet
+	req.Res <- readpublisher.SetupPlayRes{
+		Path:       pa,
+		Tracks:     pa.sourceTracks,
+		TrackInfos: pa.sp.TrackInfos(),
+	}
 }
 
 func (pa *Path) onReadPublisherPlay(req readpublisher.PlayReq) {
@@ -571,18 +575,18 @@ func (pa *Path) onReadPublisherPlay(req readpublisher.PlayReq) {
 
 func (pa *Path) onReadPublisherAnnounce(req readpublisher.AnnounceReq) {
 	if _, ok := pa.readPublishers[req.Author]; ok {
-		req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("already publishing or reading")} //nolint:govet
+		req.Res <- readpublisher.AnnounceRes{Err: fmt.Errorf("already publishing or reading")}
 		return
 	}
 
 	if pa.hasExternalSource() {
-		req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("path '%s' is assigned to an external source", pa.name)} //nolint:govet
+		req.Res <- readpublisher.AnnounceRes{Err: fmt.Errorf("path '%s' is assigned to an external source", pa.name)}
 		return
 	}
 
 	if pa.source != nil {
 		if pa.conf.DisablePublisherOverride {
-			req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("another client is already publishing on path '%s'", pa.name)} //nolint:govet
+			req.Res <- readpublisher.AnnounceRes{Err: fmt.Errorf("another client is already publishing on path '%s'", pa.name)}
 			return
 		}
 
@@ -608,7 +612,7 @@ func (pa *Path) onReadPublisherAnnounce(req readpublisher.AnnounceReq) {
 
 func (pa *Path) onReadPublisherRecord(req readpublisher.RecordReq) {
 	if state, ok := pa.readPublishers[req.Author]; !ok || state != readPublisherStatePreRecord {
-		req.Res <- readpublisher.RecordRes{SP: nil, Err: fmt.Errorf("not recording anymore")}
+		req.Res <- readpublisher.RecordRes{Err: fmt.Errorf("not recording anymore")}
 		return
 	}
 
@@ -727,7 +731,7 @@ func (pa *Path) OnPathManDescribe(req readpublisher.DescribeReq) {
 	select {
 	case pa.describeReq <- req:
 	case <-pa.ctx.Done():
-		req.Res <- readpublisher.DescribeRes{nil, "", fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.DescribeRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -736,7 +740,7 @@ func (pa *Path) OnPathManSetupPlay(req readpublisher.SetupPlayReq) {
 	select {
 	case pa.setupPlayReq <- req:
 	case <-pa.ctx.Done():
-		req.Res <- readpublisher.SetupPlayRes{nil, nil, fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.SetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -745,7 +749,7 @@ func (pa *Path) OnPathManAnnounce(req readpublisher.AnnounceReq) {
 	select {
 	case pa.announceReq <- req:
 	case <-pa.ctx.Done():
-		req.Res <- readpublisher.AnnounceRes{nil, fmt.Errorf("terminated")} //nolint:govet
+		req.Res <- readpublisher.AnnounceRes{Err: fmt.Errorf("terminated")}
 	}
 }
 

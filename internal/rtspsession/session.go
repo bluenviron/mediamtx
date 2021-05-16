@@ -158,18 +158,18 @@ func (s *Session) OnAnnounce(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnAnn
 }
 
 // OnSetup is called by rtspserver.Server.
-func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
+func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *uint32, error) {
 	if ctx.Transport.Protocol == gortsplib.StreamProtocolUDP {
 		if _, ok := s.protocols[gortsplib.StreamProtocolUDP]; !ok {
 			return &base.Response{
 				StatusCode: base.StatusUnsupportedTransport,
-			}, nil
+			}, nil, nil
 		}
 	} else {
 		if _, ok := s.protocols[gortsplib.StreamProtocolTCP]; !ok {
 			return &base.Response{
 				StatusCode: base.StatusUnsupportedTransport,
-			}, nil
+			}, nil, nil
 		}
 	}
 
@@ -190,23 +190,23 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 		if res.Err != nil {
 			switch terr := res.Err.(type) {
 			case readpublisher.ErrAuthNotCritical:
-				return terr.Response, nil
+				return terr.Response, nil, nil
 
 			case readpublisher.ErrAuthCritical:
 				// wait some seconds to stop brute force attacks
 				<-time.After(pauseAfterAuthError)
 
-				return terr.Response, errors.New(terr.Message)
+				return terr.Response, nil, errors.New(terr.Message)
 
 			case readpublisher.ErrNoOnePublishing:
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
-				}, res.Err
+				}, nil, res.Err
 
 			default:
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, res.Err
+				}, nil, res.Err
 			}
 		}
 
@@ -215,18 +215,27 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 		if ctx.TrackID >= len(res.Tracks) {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("track %d does not exist", ctx.TrackID)
+			}, nil, fmt.Errorf("track %d does not exist", ctx.TrackID)
 		}
 
 		if s.setuppedTracks == nil {
 			s.setuppedTracks = make(map[int]*gortsplib.Track)
 		}
 		s.setuppedTracks[ctx.TrackID] = res.Tracks[ctx.TrackID]
+
+		var ssrc *uint32
+		if res.TrackInfos[ctx.TrackID].LastSSRC != 0 {
+			ssrc = &res.TrackInfos[ctx.TrackID].LastSSRC
+		}
+
+		return &base.Response{
+			StatusCode: base.StatusOK,
+		}, ssrc, nil
 	}
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, nil
+	}, nil, nil
 }
 
 // OnPlay is called by rtspserver.Server.

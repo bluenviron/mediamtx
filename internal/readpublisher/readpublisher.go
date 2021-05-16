@@ -79,9 +79,10 @@ type DescribeReq struct {
 
 // SetupPlayRes is a setup/play response.
 type SetupPlayRes struct {
-	Path   Path
-	Tracks gortsplib.Tracks
-	Err    error
+	Path       Path
+	Tracks     gortsplib.Tracks
+	TrackInfos []streamproc.TrackInfo
+	Err        error
 }
 
 // SetupPlayReq is a setup/play request.

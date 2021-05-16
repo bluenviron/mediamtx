@@ -238,12 +238,14 @@ func (c *Conn) ValidateCredentials(
 			c.log(logger.Debug, "WARN: unauthorized: %s", err)
 		}
 
-		return readpublisher.ErrAuthNotCritical{&base.Response{ //nolint:govet
-			StatusCode: base.StatusUnauthorized,
-			Header: base.Header{
-				"WWW-Authenticate": c.authValidator.GenerateHeader(),
+		return readpublisher.ErrAuthNotCritical{
+			Response: &base.Response{
+				StatusCode: base.StatusUnauthorized,
+				Header: base.Header{
+					"WWW-Authenticate": c.authValidator.GenerateHeader(),
+				},
 			},
-		}}
+		}
 	}
 
 	// login successful, reset authFailures

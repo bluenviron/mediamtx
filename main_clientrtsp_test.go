@@ -603,7 +603,55 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 	})
 }
 
-func TestClientRTSPRTPInfo(t *testing.T) {
+func TestClientRTSPAdditionalInfos(t *testing.T) {
+	getInfos := func() (*headers.RTPInfo, []*uint32, error) {
+		u, err := base.ParseURL("rtsp://" + ownDockerIP + ":8554/teststream")
+		if err != nil {
+			return nil, nil, err
+		}
+
+		conn, err := gortsplib.Dial(u.Scheme, u.Host)
+		if err != nil {
+			return nil, nil, err
+		}
+		defer conn.Close()
+
+		tracks, _, err := conn.Describe(u)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ssrcs := make([]*uint32, len(tracks))
+
+		for i, t := range tracks {
+			res, err := conn.Setup(headers.TransportModePlay, t, 0, 0)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			var th headers.Transport
+			err = th.Read(res.Header["Transport"])
+			if err != nil {
+				return nil, nil, err
+			}
+
+			ssrcs[i] = th.SSRC
+		}
+
+		res, err := conn.Play()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		var ri headers.RTPInfo
+		err = ri.Read(res.Header["RTP-Info"])
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return &ri, ssrcs, nil
+	}
+
 	p, ok := testProgram("rtmpDisable: yes\n" +
 		"hlsDisable: yes\n")
 	require.Equal(t, true, ok)
@@ -637,26 +685,29 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 	err = source.WriteFrame(track1.ID, gortsplib.StreamTypeRTP, buf)
 	require.NoError(t, err)
 
-	func() {
-		dest, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
-		require.NoError(t, err)
-		defer dest.Close()
-
-		require.Equal(t, &headers.RTPInfo{
-			&headers.RTPInfoEntry{
-				URL: (&base.URL{
-					Scheme: "rtsp",
-					Host:   ownDockerIP + ":8554",
-					Path:   "/teststream/trackID=0",
-				}).String(),
-				SequenceNumber: func() *uint16 {
-					v := uint16(556)
-					return &v
-				}(),
-				Timestamp: (*dest.RTPInfo())[0].Timestamp,
-			},
-		}, dest.RTPInfo())
-	}()
+	rtpInfo, ssrcs, err := getInfos()
+	require.NoError(t, err)
+	require.Equal(t, &headers.RTPInfo{
+		&headers.RTPInfoEntry{
+			URL: (&base.URL{
+				Scheme: "rtsp",
+				Host:   ownDockerIP + ":8554",
+				Path:   "/teststream/trackID=0",
+			}).String(),
+			SequenceNumber: func() *uint16 {
+				v := uint16(556)
+				return &v
+			}(),
+			Timestamp: (*rtpInfo)[0].Timestamp,
+		},
+	}, rtpInfo)
+	require.Equal(t, []*uint32{
+		func() *uint32 {
+			v := uint32(96342362)
+			return &v
+		}(),
+		nil,
+	}, ssrcs)
 
 	pkt = rtp.Packet{
 		Header: rtp.Header{
@@ -664,7 +715,7 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 			PayloadType:    96,
 			SequenceNumber: 87,
 			Timestamp:      756436454,
-			SSRC:           96342362,
+			SSRC:           536474323,
 		},
 		Payload: []byte{0x01, 0x02, 0x03, 0x04},
 	}
@@ -675,38 +726,44 @@ func TestClientRTSPRTPInfo(t *testing.T) {
 	err = source.WriteFrame(track2.ID, gortsplib.StreamTypeRTP, buf)
 	require.NoError(t, err)
 
-	func() {
-		dest, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
-		require.NoError(t, err)
-		defer dest.Close()
-
-		require.Equal(t, &headers.RTPInfo{
-			&headers.RTPInfoEntry{
-				URL: (&base.URL{
-					Scheme: "rtsp",
-					Host:   ownDockerIP + ":8554",
-					Path:   "/teststream/trackID=0",
-				}).String(),
-				SequenceNumber: func() *uint16 {
-					v := uint16(556)
-					return &v
-				}(),
-				Timestamp: (*dest.RTPInfo())[0].Timestamp,
-			},
-			&headers.RTPInfoEntry{
-				URL: (&base.URL{
-					Scheme: "rtsp",
-					Host:   ownDockerIP + ":8554",
-					Path:   "/teststream/trackID=1",
-				}).String(),
-				SequenceNumber: func() *uint16 {
-					v := uint16(87)
-					return &v
-				}(),
-				Timestamp: (*dest.RTPInfo())[1].Timestamp,
-			},
-		}, dest.RTPInfo())
-	}()
+	rtpInfo, ssrcs, err = getInfos()
+	require.NoError(t, err)
+	require.Equal(t, &headers.RTPInfo{
+		&headers.RTPInfoEntry{
+			URL: (&base.URL{
+				Scheme: "rtsp",
+				Host:   ownDockerIP + ":8554",
+				Path:   "/teststream/trackID=0",
+			}).String(),
+			SequenceNumber: func() *uint16 {
+				v := uint16(556)
+				return &v
+			}(),
+			Timestamp: (*rtpInfo)[0].Timestamp,
+		},
+		&headers.RTPInfoEntry{
+			URL: (&base.URL{
+				Scheme: "rtsp",
+				Host:   ownDockerIP + ":8554",
+				Path:   "/teststream/trackID=1",
+			}).String(),
+			SequenceNumber: func() *uint16 {
+				v := uint16(87)
+				return &v
+			}(),
+			Timestamp: (*rtpInfo)[1].Timestamp,
+		},
+	}, rtpInfo)
+	require.Equal(t, []*uint32{
+		func() *uint32 {
+			v := uint32(96342362)
+			return &v
+		}(),
+		func() *uint32 {
+			v := uint32(536474323)
+			return &v
+		}(),
+	}, ssrcs)
 }
 
 func TestClientRTSPRedirect(t *testing.T) {

@@ -18,12 +18,14 @@ type TrackInfo struct {
 	LastSequenceNumber uint16
 	LastTimeRTP        uint32
 	LastTimeNTP        int64
+	LastSSRC           uint32
 }
 
 type track struct {
 	lastSequenceNumber uint32
 	lastTimeRTP        uint32
 	lastTimeNTP        int64
+	lastSSRC           uint32
 }
 
 // StreamProc is a stream processor, an intermediate layer between a source and a path.
@@ -54,6 +56,7 @@ func (sp *StreamProc) TrackInfos() []TrackInfo {
 			LastSequenceNumber: uint16(atomic.LoadUint32(&track.lastSequenceNumber)),
 			LastTimeRTP:        atomic.LoadUint32(&track.lastTimeRTP),
 			LastTimeNTP:        atomic.LoadInt64(&track.lastTimeNTP),
+			LastSSRC:           atomic.LoadUint32(&track.lastSSRC),
 		}
 	}
 	return ret
@@ -64,14 +67,15 @@ func (sp *StreamProc) OnFrame(trackID int, streamType gortsplib.StreamType, payl
 	if streamType == gortsplib.StreamTypeRTP && len(payload) >= 8 {
 		track := sp.tracks[trackID]
 
-		// store last sequence number
-		sequenceNumber := binary.BigEndian.Uint16(payload[2 : 2+2])
+		sequenceNumber := binary.BigEndian.Uint16(payload[2:4])
 		atomic.StoreUint32(&track.lastSequenceNumber, uint32(sequenceNumber))
 
-		// store last RTP time and correspondent NTP time
-		timestamp := binary.BigEndian.Uint32(payload[4 : 4+4])
+		timestamp := binary.BigEndian.Uint32(payload[4:8])
 		atomic.StoreUint32(&track.lastTimeRTP, timestamp)
 		atomic.StoreInt64(&track.lastTimeNTP, time.Now().Unix())
+
+		ssrc := binary.BigEndian.Uint32(payload[8:12])
+		atomic.StoreUint32(&track.lastSSRC, ssrc)
 	}
 
 	sp.path.OnSPFrame(trackID, streamType, payload)

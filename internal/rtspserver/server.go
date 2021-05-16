@@ -292,7 +292,7 @@ func (s *Server) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Re
 }
 
 // OnSetup implements gortsplib.ServerHandlerOnSetup.
-func (s *Server) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, error) {
+func (s *Server) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *uint32, error) {
 	s.mutex.RLock()
 	c := s.conns[ctx.Conn]
 	se := s.sessions[ctx.Session]

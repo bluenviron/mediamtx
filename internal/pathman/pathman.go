@@ -168,7 +168,7 @@ outer:
 		case req := <-pm.rpDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- readpublisher.DescribeRes{nil, "", err} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{Err: err}
 				continue
 			}
 
@@ -181,7 +181,7 @@ outer:
 				pathConf.ReadPass,
 			)
 			if err != nil {
-				req.Res <- readpublisher.DescribeRes{nil, "", err} //nolint:govet
+				req.Res <- readpublisher.DescribeRes{Err: err}
 				continue
 			}
 
@@ -195,7 +195,7 @@ outer:
 		case req := <-pm.rpSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- readpublisher.SetupPlayRes{nil, nil, err} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{Err: err}
 				continue
 			}
 
@@ -208,7 +208,7 @@ outer:
 				pathConf.ReadPass,
 			)
 			if err != nil {
-				req.Res <- readpublisher.SetupPlayRes{nil, nil, err} //nolint:govet
+				req.Res <- readpublisher.SetupPlayRes{Err: err}
 				continue
 			}
 
@@ -222,7 +222,7 @@ outer:
 		case req := <-pm.rpAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- readpublisher.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- readpublisher.AnnounceRes{Err: err}
 				continue
 			}
 
@@ -235,7 +235,7 @@ outer:
 				pathConf.PublishPass,
 			)
 			if err != nil {
-				req.Res <- readpublisher.AnnounceRes{nil, err} //nolint:govet
+				req.Res <- readpublisher.AnnounceRes{Err: err}
 				continue
 			}
 
