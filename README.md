@@ -12,7 +12,7 @@
 _rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP / RTMP / HLS server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP, RTMP and HLS are independent protocols that allows to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers; in particular:
 
 * RTSP is the fastest way to publish and receive streams
-* RTMP allows to interact with legacy server or software (like OBS Studio)
+* RTMP allows to interact with legacy servers or software (like OBS Studio)
 * HLS allows to embed streams into a web page
 
 Features:
