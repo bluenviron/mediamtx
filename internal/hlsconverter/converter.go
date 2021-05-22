@@ -600,6 +600,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 				req.Res <- f.buf.NewReader()
 
 			case req.Subpath == "":
+				req.W.Header().Add("Access-Control-Allow-Origin", "*")
 				req.Res <- bytes.NewReader([]byte(index))
 
 			default:
