@@ -51,7 +51,6 @@ func New(
 	pathMan *pathman.PathManager,
 	parent Parent,
 ) (*Server, error) {
-
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

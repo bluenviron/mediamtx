@@ -60,9 +60,11 @@ func newContainer(image string, name string, args []string) (*container, error) 
 	exec.Command("docker", "kill", "rtsp-simple-server-test-"+name).Run()
 	exec.Command("docker", "wait", "rtsp-simple-server-test-"+name).Run()
 
-	cmd := []string{"docker", "run",
+	cmd := []string{
+		"docker", "run",
 		"--name=rtsp-simple-server-test-" + name,
-		"rtsp-simple-server-test-" + image}
+		"rtsp-simple-server-test-" + image,
+	}
 	cmd = append(cmd, args...)
 	ecmd := exec.Command(cmd[0], cmd[1:]...)
 	ecmd.Stdout = nil
@@ -189,7 +191,7 @@ func TestHotReloading(t *testing.T) {
 		"    runOnInit: echo aaa\n"+
 		"  test4:\n"+
 		"    runOnInit: echo bbb\n"),
-		0644)
+		0o644)
 	require.NoError(t, err)
 	defer os.Remove(confPath)
 
@@ -217,7 +219,7 @@ func TestHotReloading(t *testing.T) {
 		"  test3:\n"+
 		"  test4:\n"+
 		"    runOnInit: echo bbb\n"),
-		0644)
+		0o644)
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)

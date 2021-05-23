@@ -6,6 +6,7 @@ linters:
   - gochecknoinits
   - gocritic
   - gofmt
+  - gofumpt
   - golint
   - misspell
   - prealloc

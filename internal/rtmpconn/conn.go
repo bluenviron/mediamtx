@@ -95,7 +95,6 @@ func New(
 	nconn net.Conn,
 	pathMan PathMan,
 	parent Parent) *Conn {
-
 	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	c := &Conn{
@@ -218,7 +217,8 @@ func (c *Conn) runRead(ctx context.Context) error {
 		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
-		Res: sres})
+		Res: sres,
+	})
 	res := <-sres
 
 	if res.Err != nil {
@@ -527,7 +527,6 @@ func (c *Conn) validateCredentials(
 	pathPass string,
 	query url.Values,
 ) error {
-
 	if query.Get("user") != pathUser ||
 		query.Get("pass") != pathPass {
 		return readpublisher.ErrAuthCritical{

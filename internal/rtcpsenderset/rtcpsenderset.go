@@ -24,7 +24,6 @@ func New(
 	tracks gortsplib.Tracks,
 	onFrame func(int, gortsplib.StreamType, []byte),
 ) *RTCPSenderSet {
-
 	s := &RTCPSenderSet{
 		onFrame:   onFrame,
 		terminate: make(chan struct{}),

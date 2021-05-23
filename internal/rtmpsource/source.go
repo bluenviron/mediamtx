@@ -53,7 +53,6 @@ func New(
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Source {
-
 	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Source{
@@ -72,6 +71,7 @@ func New(
 
 	s.wg.Add(1)
 	go s.run()
+
 	return s
 }
 

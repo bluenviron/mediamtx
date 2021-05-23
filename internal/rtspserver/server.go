@@ -90,7 +90,6 @@ func New(
 	stats *stats.Stats,
 	pathMan *pathman.PathManager,
 	parent Parent) (*Server, error) {
-
 	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	s := &Server{

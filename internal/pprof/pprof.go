@@ -27,7 +27,6 @@ func New(
 	address string,
 	parent Parent,
 ) (*PPROF, error) {
-
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

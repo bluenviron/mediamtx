@@ -162,7 +162,6 @@ func New(
 	pathName string,
 	pathMan PathMan,
 	parent Parent) *Converter {
-
 	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	c := &Converter{
@@ -425,7 +424,6 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 								}
 								c.tsMutex.Unlock()
 							}
-
 						} else {
 							if !curTSFile.firstPacketWritten {
 								continue

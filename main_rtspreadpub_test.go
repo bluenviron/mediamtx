@@ -863,7 +863,7 @@ wait
 	require.NoError(t, err)
 	defer os.Remove(onDemandFile)
 
-	err = os.Chmod(onDemandFile, 0755)
+	err = os.Chmod(onDemandFile, 0o755)
 	require.NoError(t, err)
 
 	t.Run("describe", func(t *testing.T) {

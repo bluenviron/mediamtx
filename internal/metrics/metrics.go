@@ -38,7 +38,6 @@ func New(
 	stats *stats.Stats,
 	parent Parent,
 ) (*Metrics, error) {
-
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

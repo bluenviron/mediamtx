@@ -117,7 +117,6 @@ func New(
 	wg *sync.WaitGroup,
 	stats *stats.Stats,
 	parent Parent) *Path {
-
 	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	pa := &Path{
@@ -171,7 +170,6 @@ func (pa *Path) run() {
 
 	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
-
 	} else if pa.hasExternalSource() && !pa.conf.SourceOnDemand {
 		pa.startExternalSource()
 	}
@@ -339,7 +337,6 @@ func (pa *Path) startExternalSource() {
 			&pa.sourceWg,
 			pa.stats,
 			pa)
-
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
 		pa.source = rtmpsource.New(
 			pa.ctx,

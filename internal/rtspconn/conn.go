@@ -70,7 +70,6 @@ func New(
 	stats *stats.Stats,
 	conn *gortsplib.ServerConn,
 	parent Parent) *Conn {
-
 	c := &Conn{
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
@@ -190,7 +189,6 @@ func (c *Conn) ValidateCredentials(
 	pathName string,
 	req *base.Request,
 ) error {
-
 	// reset authValidator every time the credentials change
 	if c.authValidator == nil || c.authUser != pathUser || c.authPass != pathPass {
 		c.authUser = pathUser

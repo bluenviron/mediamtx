@@ -58,7 +58,6 @@ func New(
 	sc *gortsplib.ServerConn,
 	pathMan PathMan,
 	parent Parent) *Session {
-
 	s := &Session{
 		rtspAddress: rtspAddress,
 		protocols:   protocols,

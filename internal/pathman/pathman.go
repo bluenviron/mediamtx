@@ -76,7 +76,6 @@ func New(
 	pathConfs map[string]*conf.PathConf,
 	stats *stats.Stats,
 	parent Parent) *PathManager {
-
 	ctx, ctxCancel := context.WithCancel(ctxParent)
 
 	pm := &PathManager{
@@ -361,7 +360,6 @@ func (pm *PathManager) authenticate(
 	pathUser string,
 	pathPass string,
 ) error {
-
 	// validate ip
 	if pathIPs != nil && ip != nil {
 		if !ipEqualOrInRange(ip, pathIPs) {

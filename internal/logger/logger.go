@@ -57,7 +57,7 @@ func New(level Level, destinations map[Destination]struct{}, filePath string) (*
 
 	if _, ok := destinations[DestinationFile]; ok {
 		var err error
-		lh.file, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		lh.file, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		if err != nil {
 			lh.Close()
 			return nil, err

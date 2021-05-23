@@ -26,12 +26,20 @@ $(blank)
 endef
 
 mod-tidy:
-	docker run --rm -it -v $(PWD):/s amd64/$(BASE_IMAGE) \
-	sh -c "apk add git && cd /s && GOPROXY=direct go get && go mod tidy"
+	docker run --rm -it -v $(PWD):/s -w /s amd64/$(BASE_IMAGE) \
+	sh -c "apk add git && GOPROXY=direct go get && go mod tidy"
+
+define DOCKERFILE_FORMAT
+FROM $(BASE_IMAGE)
+RUN apk add --no-cache git
+RUN GO111MODULE=on go get mvdan.cc/gofumpt
+endef
+export DOCKERFILE_FORMAT
 
 format:
-	docker run --rm -it -v $(PWD):/s amd64/$(BASE_IMAGE) \
-	sh -c "cd /s && find . -type f -name '*.go' | xargs gofmt -l -w -s"
+	echo "$$DOCKERFILE_FORMAT" | docker build -q . -f - -t temp
+	docker run --rm -it -v $(PWD):/s -w /s temp \
+	sh -c "find . -type f -name '*.go' | xargs gofumpt -l -w"
 
 define DOCKERFILE_TEST
 FROM amd64/$(BASE_IMAGE)
