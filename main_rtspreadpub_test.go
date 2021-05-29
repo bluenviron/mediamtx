@@ -17,6 +17,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func mustParseURL(s string) *base.URL {
+	u, err := base.ParseURL(s)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 func TestClientRTSPPublishRead(t *testing.T) {
 	for _, ca := range []struct {
 		encrypted      bool
@@ -638,7 +646,7 @@ func TestClientRTSPAdditionalInfos(t *testing.T) {
 			ssrcs[i] = th.SSRC
 		}
 
-		res, err := conn.Play()
+		res, err := conn.Play(nil)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -886,7 +894,7 @@ wait
 
 			err = base.Request{
 				Method: base.Describe,
-				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand"),
+				URL:    mustParseURL("rtsp://localhost:8554/ondemand"),
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"1"},
 				},
@@ -928,7 +936,7 @@ wait
 
 			err = base.Request{
 				Method: base.Describe,
-				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand"),
+				URL:    mustParseURL("rtsp://localhost:8554/ondemand"),
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"1"},
 				},
@@ -942,7 +950,7 @@ wait
 
 			err = base.Request{
 				Method: base.Setup,
-				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
+				URL:    mustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"2"},
 					"Transport": headers.Transport{
@@ -995,7 +1003,7 @@ wait
 
 			err = base.Request{
 				Method: base.Setup,
-				URL:    base.MustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
+				URL:    mustParseURL("rtsp://localhost:8554/ondemand/trackID=0"),
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"1"},
 					"Transport": headers.Transport{
