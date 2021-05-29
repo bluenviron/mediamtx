@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -143,27 +144,35 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.Log(logger.Info, "[conn %v] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
 
 	// remove leading prefix
-	path := r.URL.Path[1:]
+	pa := r.URL.Path[1:]
 
-	if path == "" || path == "favicon.ico" {
+	if pa == "" || pa == "favicon.ico" {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	parts := strings.SplitN(path, "/", 2)
-	if len(parts) < 2 {
-		w.Header().Add("Location", parts[0]+"/")
+	pa, fname := func() (string, string) {
+		if strings.HasSuffix(pa, ".ts") || strings.HasSuffix(pa, ".m3u8") {
+			return path.Dir(pa), path.Base(pa)
+		}
+		return pa, ""
+	}()
+
+	if fname == "" && !strings.HasSuffix(pa, "/") {
+		w.Header().Add("Location", "/"+pa+"/")
 		w.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
 
+	pa = strings.TrimSuffix(pa, "/")
+
 	cres := make(chan io.Reader)
 	hreq := hlsconverter.Request{
-		Path:    parts[0],
-		Subpath: parts[1],
-		Req:     r,
-		W:       w,
-		Res:     cres,
+		Path:     pa,
+		FileName: fname,
+		Req:      r,
+		W:        w,
+		Res:      cres,
 	}
 
 	select {

@@ -103,11 +103,11 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 
 // Request is an HTTP request received by an HLS server.
 type Request struct {
-	Path    string
-	Subpath string
-	Req     *http.Request
-	W       http.ResponseWriter
-	Res     chan io.Reader
+	Path     string
+	FileName string
+	Req      *http.Request
+	W        http.ResponseWriter
+	Res      chan io.Reader
 }
 
 type trackIDPayloadPair struct {
@@ -559,7 +559,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 			}
 
 			switch {
-			case req.Subpath == "stream.m3u8":
+			case req.FileName == "stream.m3u8":
 				func() {
 					c.tsMutex.Lock()
 					defer c.tsMutex.Unlock()
@@ -582,8 +582,8 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 					req.Res <- bytes.NewReader([]byte(cnt))
 				}()
 
-			case strings.HasSuffix(req.Subpath, ".ts"):
-				base := strings.TrimSuffix(req.Subpath, ".ts")
+			case strings.HasSuffix(req.FileName, ".ts"):
+				base := strings.TrimSuffix(req.FileName, ".ts")
 
 				c.tsMutex.Lock()
 				f, ok := c.tsByName[base]
@@ -597,7 +597,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 
 				req.Res <- f.buf.NewReader()
 
-			case req.Subpath == "":
+			case req.FileName == "":
 				req.W.Header().Add("Access-Control-Allow-Origin", "*")
 				req.Res <- bytes.NewReader([]byte(index))
 
