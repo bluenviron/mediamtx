@@ -137,18 +137,9 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 		}
 
-		u, err := base.ParseURL(pconf.Source)
+		_, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
-		}
-
-		if u.User != nil {
-			pass, _ := u.User.Password()
-			user := u.User.Username()
-			if user != "" && pass == "" ||
-				user == "" && pass != "" {
-				return fmt.Errorf("username and password must be both provided")
-			}
 		}
 
 		if pconf.SourceProtocol == "" {

@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/auth"
+	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/stretchr/testify/require"
 )
 
@@ -115,4 +118,60 @@ func TestSourceRTSP(t *testing.T) {
 			require.Equal(t, 0, cnt3.wait())
 		})
 	}
+}
+
+type testServerNoPassword struct {
+	authValidator *auth.Validator
+	done          chan struct{}
+}
+
+func (sh *testServerNoPassword) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
+	if sh.authValidator == nil {
+		sh.authValidator = auth.NewValidator("testuser", "", nil)
+	}
+
+	err := sh.authValidator.ValidateHeader(ctx.Req.Header["Authorization"],
+		ctx.Req.Method, ctx.Req.URL, nil)
+	if err != nil {
+		return &base.Response{
+			StatusCode: base.StatusUnauthorized,
+			Header: base.Header{
+				"WWW-Authenticate": sh.authValidator.GenerateHeader(),
+			},
+		}, nil, nil
+	}
+
+	track, _ := gortsplib.NewTrackH264(96, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x05, 0x06})
+
+	return &base.Response{
+		StatusCode: base.StatusOK,
+	}, gortsplib.Tracks{track}.Write(), nil
+}
+
+// called after receiving a SETUP request.
+func (sh *testServerNoPassword) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *uint32, error) {
+	close(sh.done)
+	return &base.Response{
+		StatusCode: base.StatusOK,
+	}, nil, nil
+}
+
+func TestSourceRTSPNoPassword(t *testing.T) {
+	done := make(chan struct{})
+	s := gortsplib.Server{Handler: &testServerNoPassword{done: done}}
+	err := s.Start("127.0.0.1:8555")
+	require.NoError(t, err)
+	defer s.Close()
+
+	p, ok := testProgram("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
+		"paths:\n" +
+		"  proxied:\n" +
+		"    source: rtsp://testuser:@127.0.0.1:8555/teststream\n" +
+		"    sourceProtocol: tcp\n")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	<-done
+	// require.Equal(t, 0, cnt.wait())
 }
