@@ -209,8 +209,7 @@ func (c *Conn) ValidateCredentials(
 		}
 	}()
 
-	err := c.authValidator.ValidateHeader(req.Header["Authorization"],
-		req.Method, req.URL, altURL)
+	err := c.authValidator.ValidateRequest(req, altURL)
 	if err != nil {
 		c.authFailures++
 
@@ -225,9 +224,6 @@ func (c *Conn) ValidateCredentials(
 				Message: "unauthorized: " + err.Error(),
 				Response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
-					Header: base.Header{
-						"WWW-Authenticate": c.authValidator.GenerateHeader(),
-					},
 				},
 			}
 		}
@@ -240,7 +236,7 @@ func (c *Conn) ValidateCredentials(
 			Response: &base.Response{
 				StatusCode: base.StatusUnauthorized,
 				Header: base.Header{
-					"WWW-Authenticate": c.authValidator.GenerateHeader(),
+					"WWW-Authenticate": c.authValidator.Header(),
 				},
 			},
 		}

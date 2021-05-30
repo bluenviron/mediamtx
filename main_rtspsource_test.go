@@ -24,13 +24,12 @@ func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 		sh.authValidator = auth.NewValidator(sh.user, sh.pass, nil)
 	}
 
-	err := sh.authValidator.ValidateHeader(ctx.Req.Header["Authorization"],
-		ctx.Req.Method, ctx.Req.URL, nil)
+	err := sh.authValidator.ValidateRequest(ctx.Req, nil)
 	if err != nil {
 		return &base.Response{
 			StatusCode: base.StatusUnauthorized,
 			Header: base.Header{
-				"WWW-Authenticate": sh.authValidator.GenerateHeader(),
+				"WWW-Authenticate": sh.authValidator.Header(),
 			},
 		}, nil, nil
 	}
