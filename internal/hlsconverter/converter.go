@@ -533,6 +533,8 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 		case preq := <-c.request:
 			req := preq
 
+			req.W.Header().Add("Access-Control-Allow-Origin", "*")
+
 			atomic.StoreInt64(&c.lastRequestTime, time.Now().Unix())
 
 			conf := c.path.Conf()
@@ -598,7 +600,6 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 				req.Res <- f.buf.NewReader()
 
 			case req.FileName == "":
-				req.W.Header().Add("Access-Control-Allow-Origin", "*")
 				req.Res <- bytes.NewReader([]byte(index))
 
 			default:
