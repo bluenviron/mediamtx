@@ -72,6 +72,7 @@ type PathConf struct {
 	Source                     string                    `yaml:"source"`
 	SourceProtocol             string                    `yaml:"sourceProtocol"`
 	SourceProtocolParsed       *gortsplib.StreamProtocol `yaml:"-" json:"-"`
+	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable"`
 	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
 	SourceOnDemand             bool                      `yaml:"sourceOnDemand"`
 	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout"`

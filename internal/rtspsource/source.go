@@ -34,6 +34,7 @@ type Parent interface {
 type Source struct {
 	ur              string
 	proto           *gortsplib.StreamProtocol
+	anyPortEnable   bool
 	fingerprint     string
 	readTimeout     time.Duration
 	writeTimeout    time.Duration
@@ -52,6 +53,7 @@ func New(
 	ctxParent context.Context,
 	ur string,
 	proto *gortsplib.StreamProtocol,
+	anyPortEnable bool,
 	fingerprint string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -65,6 +67,7 @@ func New(
 	s := &Source{
 		ur:              ur,
 		proto:           proto,
+		anyPortEnable:   anyPortEnable,
 		fingerprint:     fingerprint,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
@@ -153,6 +156,7 @@ func (s *Source) runInner() bool {
 		WriteTimeout:    s.writeTimeout,
 		ReadBufferCount: s.readBufferCount,
 		ReadBufferSize:  s.readBufferSize,
+		AnyPortEnable:   s.anyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.log(logger.Debug, "c->s %v", req)
 		},

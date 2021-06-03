@@ -329,6 +329,7 @@ func (pa *Path) startExternalSource() {
 			pa.ctx,
 			pa.conf.Source,
 			pa.conf.SourceProtocolParsed,
+			pa.conf.SourceAnyPortEnable,
 			pa.conf.SourceFingerprint,
 			pa.readTimeout,
 			pa.writeTimeout,
