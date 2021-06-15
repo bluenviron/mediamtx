@@ -33,9 +33,10 @@ func TestSourceRTMP(t *testing.T) {
 				time.Sleep(1 * time.Second)
 
 				p, ok := testProgram("hlsDisable: yes\n" +
+					"rtmpDisable: yes\n" +
 					"paths:\n" +
 					"  proxied:\n" +
-					"    source: rtmp://" + cnt1.ip() + "/stream/test\n" +
+					"    source: rtmp://localhost/stream/test\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
 				defer p.close()
@@ -45,7 +46,7 @@ func TestSourceRTMP(t *testing.T) {
 
 			cnt3, err := newContainer("ffmpeg", "dest", []string{
 				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIP + ":8554/proxied",
+				"-i", "rtsp://localhost:8554/proxied",
 				"-vframes", "1",
 				"-f", "image2",
 				"-y", "/dev/null",

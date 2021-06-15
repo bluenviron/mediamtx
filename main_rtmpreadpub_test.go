@@ -23,7 +23,7 @@ func TestClientRTMPPublish(t *testing.T) {
 				"-i", "empty" + source + ".mkv",
 				"-c", "copy",
 				"-f", "flv",
-				"rtmp://" + ownDockerIP + ":1935/test1/test2",
+				"rtmp://localhost:1935/test1/test2",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -32,7 +32,7 @@ func TestClientRTMPPublish(t *testing.T) {
 
 			cnt2, err := newContainer("ffmpeg", "dest", []string{
 				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIP + ":8554/test1/test2",
+				"-i", "rtsp://localhost:8554/test1/test2",
 				"-vframes", "1",
 				"-f", "image2",
 				"-y", "/dev/null",
@@ -55,7 +55,7 @@ func TestClientRTMPRead(t *testing.T) {
 		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
-		"rtsp://" + ownDockerIP + ":8554/teststream",
+		"rtsp://localhost:8554/teststream",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -63,7 +63,7 @@ func TestClientRTMPRead(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "rtmp://" + ownDockerIP + ":1935/teststream",
+		"-i", "rtmp://localhost:1935/teststream",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -81,7 +81,7 @@ func TestClientRTMPAuth(t *testing.T) {
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: testpass\n" +
-			"    readIps: [172.17.0.0/16]\n")
+			"    readIps: [127.0.0.0/16]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -91,7 +91,7 @@ func TestClientRTMPAuth(t *testing.T) {
 			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
-			"rtmp://" + ownDockerIP + "/teststream?user=testuser&pass=testpass",
+			"rtmp://localhost/teststream?user=testuser&pass=testpass",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -99,7 +99,7 @@ func TestClientRTMPAuth(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtmp://" + ownDockerIP + "/teststream",
+			"-i", "rtmp://127.0.0.1/teststream",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -116,7 +116,7 @@ func TestClientRTMPAuth(t *testing.T) {
 			"  all:\n" +
 			"    readUser: testuser\n" +
 			"    readPass: testpass\n" +
-			"    readIps: [172.17.0.0/16]\n")
+			"    readIps: [127.0.0.0/16]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -126,7 +126,7 @@ func TestClientRTMPAuth(t *testing.T) {
 			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
-			"rtmp://" + ownDockerIP + "/teststream",
+			"rtmp://localhost/teststream",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -134,7 +134,7 @@ func TestClientRTMPAuth(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtmp://" + ownDockerIP + "/teststream?user=testuser&pass=testpass",
+			"-i", "rtmp://127.0.0.1/teststream?user=testuser&pass=testpass",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -162,7 +162,7 @@ func TestClientRTMPAuthFail(t *testing.T) {
 			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
-			"rtmp://" + ownDockerIP + "/teststream?user=testuser&pass=testpass",
+			"rtmp://localhost/teststream?user=testuser&pass=testpass",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -170,7 +170,7 @@ func TestClientRTMPAuthFail(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtmp://" + ownDockerIP + "/teststream",
+			"-i", "rtmp://localhost/teststream",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -196,7 +196,7 @@ func TestClientRTMPAuthFail(t *testing.T) {
 			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
-			"rtmp://" + ownDockerIP + "/teststream",
+			"rtmp://localhost/teststream",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -204,7 +204,7 @@ func TestClientRTMPAuthFail(t *testing.T) {
 		time.Sleep(1 * time.Second)
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtmp://" + ownDockerIP + "/teststream?user=testuser&pass=testpass",
+			"-i", "rtmp://localhost/teststream?user=testuser&pass=testpass",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",

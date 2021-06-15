@@ -267,7 +267,7 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 	var aacConfig rtpaac.MPEG4AudioConfig
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.Tracks {
+	for i, t := range res.Stream.Tracks() {
 		if t.IsH264() {
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)

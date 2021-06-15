@@ -18,7 +18,7 @@ func TestClientHLSRead(t *testing.T) {
 		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
-		"rtsp://" + ownDockerIP + ":8554/test/stream",
+		"rtsp://localhost:8554/test/stream",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -26,7 +26,7 @@ func TestClientHLSRead(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "http://" + ownDockerIP + ":8888/test/stream/stream.m3u8",
+		"-i", "http://localhost:8888/test/stream/stream.m3u8",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -42,7 +42,7 @@ func TestClientHLSReadAuth(t *testing.T) {
 			"  all:\n" +
 			"    readUser: testuser\n" +
 			"    readPass: testpass\n" +
-			"    readIps: [172.17.0.0/16]\n")
+			"    readIps: [127.0.0.0/16]\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 
@@ -52,7 +52,7 @@ func TestClientHLSReadAuth(t *testing.T) {
 		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
-		"rtsp://" + ownDockerIP + ":8554/teststream",
+		"rtsp://localhost:8554/teststream",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -60,7 +60,7 @@ func TestClientHLSReadAuth(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "http://testuser:testpass@" + ownDockerIP + ":8888/teststream/stream.m3u8",
+		"-i", "http://testuser:testpass@127.0.0.1:8888/teststream/stream.m3u8",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",

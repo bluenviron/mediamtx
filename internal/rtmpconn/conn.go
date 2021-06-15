@@ -238,7 +238,7 @@ func (c *Conn) runRead(ctx context.Context) error {
 	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.Tracks {
+	for i, t := range res.Stream.Tracks() {
 		if t.IsH264() {
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
@@ -450,12 +450,12 @@ func (c *Conn) runPublish(ctx context.Context) error {
 		}
 	}(c.path)
 
-	rtcpSenders := rtcpsenderset.New(tracks, rres.SP.OnFrame)
+	rtcpSenders := rtcpsenderset.New(tracks, c.path.OnFrame)
 	defer rtcpSenders.Close()
 
 	onFrame := func(trackID int, payload []byte) {
 		rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-		rres.SP.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+		c.path.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
 	}
 
 	for {

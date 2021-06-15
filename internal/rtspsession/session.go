@@ -4,18 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strconv"
 	"time"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/readpublisher"
 	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
-	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 const (
@@ -36,7 +35,7 @@ type Parent interface {
 // Session is a RTSP server-side session.
 type Session struct {
 	rtspAddress string
-	protocols   map[gortsplib.StreamProtocol]struct{}
+	protocols   map[conf.Protocol]struct{}
 	visualID    string
 	ss          *gortsplib.ServerSession
 	pathMan     PathMan
@@ -45,14 +44,13 @@ type Session struct {
 	path           readpublisher.Path
 	setuppedTracks map[int]*gortsplib.Track // read
 	onReadCmd      *externalcmd.Cmd         // read
-	sp             *streamproc.StreamProc   // publish
 	onPublishCmd   *externalcmd.Cmd         // publish
 }
 
 // New allocates a Session.
 func New(
 	rtspAddress string,
-	protocols map[gortsplib.StreamProtocol]struct{},
+	protocols map[conf.Protocol]struct{},
 	visualID string,
 	ss *gortsplib.ServerSession,
 	sc *gortsplib.ServerConn,
@@ -107,9 +105,19 @@ func (s *Session) IsReadPublisher() {}
 // IsSource implements source.Source.
 func (s *Session) IsSource() {}
 
+// IsRTSPSession implements path.rtspSession.
+func (s *Session) IsRTSPSession() {}
+
 // VisualID returns the visual ID of the session.
 func (s *Session) VisualID() string {
 	return s.visualID
+}
+
+func (s *Session) displayedProtocol() string {
+	if *s.ss.SetuppedDelivery() == base.StreamDeliveryMulticast {
+		return "UDP-multicast"
+	}
+	return s.ss.SetuppedProtocol().String()
 }
 
 func (s *Session) log(level logger.Level, format string, args ...interface{}) {
@@ -157,19 +165,25 @@ func (s *Session) OnAnnounce(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnAnn
 }
 
 // OnSetup is called by rtspserver.Server.
-func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *uint32, error) {
-	if ctx.Transport.Protocol == gortsplib.StreamProtocolUDP {
-		if _, ok := s.protocols[gortsplib.StreamProtocolUDP]; !ok {
+func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+	if ctx.Transport.Protocol == base.StreamProtocolUDP {
+		if _, ok := s.protocols[conf.ProtocolUDP]; !ok {
 			return &base.Response{
 				StatusCode: base.StatusUnsupportedTransport,
 			}, nil, nil
 		}
-	} else {
-		if _, ok := s.protocols[gortsplib.StreamProtocolTCP]; !ok {
-			return &base.Response{
-				StatusCode: base.StatusUnsupportedTransport,
-			}, nil, nil
+
+		if ctx.Transport.Delivery != nil && *ctx.Transport.Delivery == base.StreamDeliveryMulticast {
+			if _, ok := s.protocols[conf.ProtocolMulticast]; !ok {
+				return &base.Response{
+					StatusCode: base.StatusUnsupportedTransport,
+				}, nil, nil
+			}
 		}
+	} else if _, ok := s.protocols[conf.ProtocolTCP]; !ok {
+		return &base.Response{
+			StatusCode: base.StatusUnsupportedTransport,
+		}, nil, nil
 	}
 
 	switch s.ss.State() {
@@ -211,7 +225,7 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 
 		s.path = res.Path
 
-		if ctx.TrackID >= len(res.Tracks) {
+		if ctx.TrackID >= len(res.Stream.Tracks()) {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
 			}, nil, fmt.Errorf("track %d does not exist", ctx.TrackID)
@@ -220,21 +234,17 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 		if s.setuppedTracks == nil {
 			s.setuppedTracks = make(map[int]*gortsplib.Track)
 		}
-		s.setuppedTracks[ctx.TrackID] = res.Tracks[ctx.TrackID]
-
-		var ssrc *uint32
-		if res.TrackInfos != nil && res.TrackInfos[ctx.TrackID].LastSSRC != 0 {
-			ssrc = &res.TrackInfos[ctx.TrackID].LastSSRC
-		}
+		s.setuppedTracks[ctx.TrackID] = res.Stream.Tracks()[ctx.TrackID]
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, ssrc, nil
-	}
+		}, res.Stream, nil
 
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil, nil
+	default: // record
+		return &base.Response{
+			StatusCode: base.StatusOK,
+		}, nil, nil
+	}
 }
 
 // OnPlay is called by rtspserver.Server.
@@ -250,7 +260,7 @@ func (s *Session) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response,
 
 		resc := make(chan readpublisher.PlayRes)
 		s.path.OnReadPublisherPlay(readpublisher.PlayReq{s, resc}) //nolint:govet
-		res := <-resc
+		<-resc
 
 		tracksLen := len(s.ss.SetuppedTracks())
 
@@ -263,7 +273,7 @@ func (s *Session) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response,
 				}
 				return "tracks"
 			}(),
-			*s.ss.StreamProtocol())
+			s.displayedProtocol())
 
 		if s.path.Conf().RunOnRead != "" {
 			_, port, _ := net.SplitHostPort(s.rtspAddress)
@@ -271,40 +281,6 @@ func (s *Session) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response,
 				Path: s.path.Name(),
 				Port: port,
 			})
-		}
-
-		// add RTP-Info
-		var ri headers.RTPInfo
-		for trackID, ti := range res.TrackInfos {
-			if ti.LastTimeNTP == 0 {
-				continue
-			}
-
-			track, ok := s.setuppedTracks[trackID]
-			if !ok {
-				continue
-			}
-
-			u := &base.URL{
-				Scheme: ctx.Req.URL.Scheme,
-				User:   ctx.Req.URL.User,
-				Host:   ctx.Req.URL.Host,
-				Path:   "/" + s.path.Name() + "/trackID=" + strconv.FormatInt(int64(trackID), 10),
-			}
-
-			clockRate, _ := track.ClockRate()
-			ts := uint32(uint64(ti.LastTimeRTP) +
-				uint64(time.Since(time.Unix(ti.LastTimeNTP, 0)).Seconds()*float64(clockRate)))
-			lsn := ti.LastSequenceNumber
-
-			ri = append(ri, &headers.RTPInfoEntry{
-				URL:            u.String(),
-				SequenceNumber: &lsn,
-				Timestamp:      &ts,
-			})
-		}
-		if len(ri) > 0 {
-			h["RTP-Info"] = ri.Write()
 		}
 	}
 
@@ -332,8 +308,6 @@ func (s *Session) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Respo
 		}, res.Err
 	}
 
-	s.sp = res.SP
-
 	tracksLen := len(s.ss.AnnouncedTracks())
 
 	s.log(logger.Info, "is publishing to path '%s', %d %s with %s",
@@ -345,7 +319,7 @@ func (s *Session) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Respo
 			}
 			return "tracks"
 		}(),
-		*s.ss.StreamProtocol())
+		s.displayedProtocol())
 
 	if s.path.Conf().RunOnPublish != "" {
 		_, port, _ := net.SplitHostPort(s.rtspAddress)
@@ -389,10 +363,6 @@ func (s *Session) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Respons
 
 // OnFrame implements path.Reader.
 func (s *Session) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	if _, ok := s.ss.SetuppedTracks()[trackID]; !ok {
-		return
-	}
-
 	s.ss.WriteFrame(trackID, streamType, payload)
 }
 
@@ -402,5 +372,5 @@ func (s *Session) OnIncomingFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 		return
 	}
 
-	s.sp.OnFrame(ctx.TrackID, ctx.StreamType, ctx.Payload)
+	s.path.OnFrame(ctx.TrackID, ctx.StreamType, ctx.Payload)
 }

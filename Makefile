@@ -64,6 +64,7 @@ test-nodocker: test-internal test-root
 test:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
 	docker run --rm \
+	--network=host \
 	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	temp \
 	make test-nodocker
