@@ -12,6 +12,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/pathman"
 	"github.com/aler9/rtsp-simple-server/internal/rtspconn"
@@ -53,7 +54,7 @@ type Server struct {
 	readTimeout         time.Duration
 	isTLS               bool
 	rtspAddress         string
-	protocols           map[base.StreamProtocol]struct{}
+	protocols           map[conf.Protocol]struct{}
 	runOnConnect        string
 	runOnConnectRestart bool
 	stats               *stats.Stats
@@ -84,7 +85,7 @@ func New(
 	serverCert string,
 	serverKey string,
 	rtspAddress string,
-	protocols map[base.StreamProtocol]struct{},
+	protocols map[conf.Protocol]struct{},
 	runOnConnect string,
 	runOnConnectRestart bool,
 	stats *stats.Stats,
@@ -274,7 +275,7 @@ func (s *Server) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCtx) {
 }
 
 // OnDescribe implements gortsplib.ServerHandlerOnDescribe.
-func (s *Server) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
+func (s *Server) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	s.mutex.RLock()
 	c := s.conns[ctx.Conn]
 	s.mutex.RUnlock()
@@ -291,7 +292,7 @@ func (s *Server) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Re
 }
 
 // OnSetup implements gortsplib.ServerHandlerOnSetup.
-func (s *Server) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *uint32, error) {
+func (s *Server) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	s.mutex.RLock()
 	c := s.conns[ctx.Conn]
 	se := s.sessions[ctx.Session]

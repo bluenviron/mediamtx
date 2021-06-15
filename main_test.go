@@ -2,7 +2,6 @@ package main
 
 import (
 	"io/ioutil"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,41 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 )
-
-var ownDockerIP = func() string {
-	out, err := exec.Command("docker", "network", "inspect", "bridge",
-		"-f", "{{range .IPAM.Config}}{{.Subnet}}{{end}}").Output()
-	if err != nil {
-		panic(err)
-	}
-
-	_, ipnet, err := net.ParseCIDR(string(out[:len(out)-1]))
-	if err != nil {
-		panic(err)
-	}
-
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		panic(err)
-	}
-
-	for _, i := range ifaces {
-		addrs, err := i.Addrs()
-		if err != nil {
-			continue
-		}
-
-		for _, addr := range addrs {
-			if v, ok := addr.(*net.IPNet); ok {
-				if ipnet.Contains(v.IP) {
-					return v.IP.String()
-				}
-			}
-		}
-	}
-
-	panic("IP not found")
-}()
 
 type container struct {
 	name string
@@ -60,8 +24,10 @@ func newContainer(image string, name string, args []string) (*container, error) 
 	exec.Command("docker", "kill", "rtsp-simple-server-test-"+name).Run()
 	exec.Command("docker", "wait", "rtsp-simple-server-test-"+name).Run()
 
+	// --network=host is needed to test multicast
 	cmd := []string{
 		"docker", "run",
+		"--network=host",
 		"--name=rtsp-simple-server-test-" + name,
 		"rtsp-simple-server-test-" + image,
 	}
@@ -203,7 +169,7 @@ func TestHotReloading(t *testing.T) {
 
 	func() {
 		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIP + ":8554/test1",
+			"-i", "rtsp://localhost:8554/test1",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -226,7 +192,7 @@ func TestHotReloading(t *testing.T) {
 
 	func() {
 		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIP + ":8554/test1",
+			"-i", "rtsp://localhost:8554/test1",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -238,7 +204,7 @@ func TestHotReloading(t *testing.T) {
 
 	func() {
 		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://" + ownDockerIP + ":8554/test2",
+			"-i", "rtsp://localhost:8554/test2",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",

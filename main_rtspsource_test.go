@@ -16,10 +16,12 @@ type testServer struct {
 	user          string
 	pass          string
 	authValidator *auth.Validator
-	done          chan struct{}
+	stream        *gortsplib.ServerStream
+
+	done chan struct{}
 }
 
-func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
+func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	if sh.authValidator == nil {
 		sh.authValidator = auth.NewValidator(sh.user, sh.pass, nil)
 	}
@@ -35,26 +37,27 @@ func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 	}
 
 	track, _ := gortsplib.NewTrackH264(96, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x05, 0x06})
+	sh.stream = gortsplib.NewServerStream(gortsplib.Tracks{track})
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, gortsplib.Tracks{track}.Write(), nil
+	}, sh.stream, nil
 }
 
-func (sh *testServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *uint32, error) {
+func (sh *testServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	if sh.done != nil {
 		close(sh.done)
 	}
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, nil, nil
+	}, sh.stream, nil
 }
 
 func (sh *testServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 	go func() {
 		time.Sleep(1 * time.Second)
-		ctx.Session.WriteFrame(0, gortsplib.StreamTypeRTP, []byte{0x01, 0x02, 0x03, 0x04})
+		sh.stream.WriteFrame(0, gortsplib.StreamTypeRTP, []byte{0x01, 0x02, 0x03, 0x04})
 	}()
 
 	return &base.Response{
@@ -125,8 +128,10 @@ func TestSourceRTSP(t *testing.T) {
 			go func() {
 				defer close(readDone)
 				conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
-					close(received)
+					if streamType == gortsplib.StreamTypeRTP {
+						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+						close(received)
+					}
 				})
 			}()
 

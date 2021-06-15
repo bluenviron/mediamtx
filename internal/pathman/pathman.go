@@ -319,11 +319,7 @@ func (pm *PathManager) OnReadPublisherDescribe(req readpublisher.DescribeReq) {
 	select {
 	case pm.rpDescribe <- req:
 	case <-pm.ctx.Done():
-		req.Res <- readpublisher.DescribeRes{
-			SDP:      nil,
-			Redirect: "",
-			Err:      fmt.Errorf("terminated"),
-		}
+		req.Res <- readpublisher.DescribeRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -332,10 +328,7 @@ func (pm *PathManager) OnReadPublisherAnnounce(req readpublisher.AnnounceReq) {
 	select {
 	case pm.rpAnnounce <- req:
 	case <-pm.ctx.Done():
-		req.Res <- readpublisher.AnnounceRes{
-			Path: nil,
-			Err:  fmt.Errorf("terminated"),
-		}
+		req.Res <- readpublisher.AnnounceRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -344,11 +337,7 @@ func (pm *PathManager) OnReadPublisherSetupPlay(req readpublisher.SetupPlayReq) 
 	select {
 	case pm.rpSetupPlay <- req:
 	case <-pm.ctx.Done():
-		req.Res <- readpublisher.SetupPlayRes{
-			Path:   nil,
-			Tracks: nil,
-			Err:    fmt.Errorf("terminated"),
-		}
+		req.Res <- readpublisher.SetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 }
 

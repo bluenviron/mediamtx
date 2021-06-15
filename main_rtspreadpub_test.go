@@ -13,7 +13,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,39 +26,31 @@ func mustParseURL(s string) *base.URL {
 
 func TestClientRTSPPublishRead(t *testing.T) {
 	for _, ca := range []struct {
-		encrypted      bool
 		publisherSoft  string
 		publisherProto string
 		readerSoft     string
 		readerProto    string
 	}{
-		{false, "ffmpeg", "udp", "ffmpeg", "udp"},
-		{false, "ffmpeg", "udp", "ffmpeg", "tcp"},
-		{false, "ffmpeg", "udp", "gstreamer", "udp"},
-		{false, "ffmpeg", "udp", "gstreamer", "tcp"},
-		{false, "ffmpeg", "udp", "vlc", "udp"},
-		{false, "ffmpeg", "udp", "vlc", "tcp"},
-
-		{false, "ffmpeg", "tcp", "ffmpeg", "udp"},
-		{false, "gstreamer", "udp", "ffmpeg", "udp"},
-		{false, "gstreamer", "tcp", "ffmpeg", "udp"},
-
-		{true, "ffmpeg", "tcp", "ffmpeg", "tcp"},
-		{true, "ffmpeg", "tcp", "gstreamer", "tcp"},
-		{true, "gstreamer", "tcp", "ffmpeg", "tcp"},
+		{"ffmpeg", "udp", "ffmpeg", "udp"},
+		{"ffmpeg", "udp", "ffmpeg", "multicast"},
+		{"ffmpeg", "udp", "ffmpeg", "tcp"},
+		{"ffmpeg", "udp", "gstreamer", "udp"},
+		{"ffmpeg", "udp", "gstreamer", "multicast"},
+		{"ffmpeg", "udp", "gstreamer", "tcp"},
+		{"ffmpeg", "udp", "vlc", "udp"},
+		{"ffmpeg", "udp", "vlc", "tcp"},
+		{"ffmpeg", "tcp", "ffmpeg", "udp"},
+		{"gstreamer", "udp", "ffmpeg", "udp"},
+		{"gstreamer", "tcp", "ffmpeg", "udp"},
+		{"ffmpeg", "tls", "ffmpeg", "tls"},
+		{"ffmpeg", "tls", "gstreamer", "tls"},
+		{"gstreamer", "tls", "ffmpeg", "tls"},
 	} {
-		encryptedStr := func() string {
-			if ca.encrypted {
-				return "encrypted"
-			}
-			return "plain"
-		}()
-
-		t.Run(encryptedStr+"_"+ca.publisherSoft+"_"+ca.publisherProto+"_"+
+		t.Run(ca.publisherSoft+"_"+ca.publisherProto+"_"+
 			ca.readerSoft+"_"+ca.readerProto, func(t *testing.T) {
 			var proto string
 			var port string
-			if !ca.encrypted {
+			if ca.publisherProto != "tls" {
 				proto = "rtsp"
 				port = "8554"
 
@@ -94,14 +85,25 @@ func TestClientRTSPPublishRead(t *testing.T) {
 
 			switch ca.publisherSoft {
 			case "ffmpeg":
+				ps := func() string {
+					switch ca.publisherProto {
+					case "udp", "tcp":
+						return ca.publisherProto
+
+					default: // tls
+						return "tcp"
+					}
+				}()
+
 				cnt1, err := newContainer("ffmpeg", "source", []string{
 					"-re",
 					"-stream_loop", "-1",
 					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
-					"-rtsp_transport", ca.publisherProto,
-					proto + "://" + ownDockerIP + ":" + port + "/teststream",
+					"-rtsp_transport",
+					ps,
+					proto + "://localhost:" + port + "/teststream",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -109,10 +111,20 @@ func TestClientRTSPPublishRead(t *testing.T) {
 				time.Sleep(1 * time.Second)
 
 			case "gstreamer":
+				ps := func() string {
+					switch ca.publisherProto {
+					case "udp", "tcp":
+						return ca.publisherProto
+
+					default: // tls
+						return "tcp"
+					}
+				}()
+
 				cnt1, err := newContainer("gstreamer", "source", []string{
 					"filesrc location=emptyvideo.mkv ! matroskademux ! video/x-h264 ! rtspclientsink " +
-						"location=" + proto + "://" + ownDockerIP + ":" + port + "/teststream " +
-						"protocols=" + ca.publisherProto + " tls-validation-flags=0 latency=0 timeout=0 rtx-time=0",
+						"location=" + proto + "://localhost:" + port + "/teststream " +
+						"protocols=" + ps + " tls-validation-flags=0 latency=0 timeout=0 rtx-time=0",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -124,9 +136,22 @@ func TestClientRTSPPublishRead(t *testing.T) {
 
 			switch ca.readerSoft {
 			case "ffmpeg":
+				ps := func() string {
+					switch ca.readerProto {
+					case "udp", "tcp":
+						return ca.publisherProto
+
+					case "multicast":
+						return "udp_multicast"
+
+					default: // tls
+						return "tcp"
+					}
+				}()
+
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
-					"-rtsp_transport", ca.readerProto,
-					"-i", proto + "://" + ownDockerIP + ":" + port + "/teststream",
+					"-rtsp_transport", ps,
+					"-i", proto + "://localhost:" + port + "/teststream",
 					"-vframes", "1",
 					"-f", "image2",
 					"-y", "/dev/null",
@@ -136,8 +161,21 @@ func TestClientRTSPPublishRead(t *testing.T) {
 				require.Equal(t, 0, cnt2.wait())
 
 			case "gstreamer":
+				ps := func() string {
+					switch ca.readerProto {
+					case "udp", "tcp":
+						return ca.publisherProto
+
+					case "multicast":
+						return "udp-mcast"
+
+					default: // tls
+						return "tcp"
+					}
+				}()
+
 				cnt2, err := newContainer("gstreamer", "read", []string{
-					"rtspsrc location=" + proto + "://" + ownDockerIP + ":" + port + "/teststream protocols=tcp tls-validation-flags=0 latency=0 " +
+					"rtspsrc location=" + proto + "://127.0.0.1:" + port + "/teststream protocols=" + ps + " tls-validation-flags=0 latency=0 " +
 						"! application/x-rtp,media=video ! decodebin ! exitafterframe ! fakesink",
 				})
 				require.NoError(t, err)
@@ -149,7 +187,7 @@ func TestClientRTSPPublishRead(t *testing.T) {
 				if ca.readerProto == "tcp" {
 					args = append(args, "--rtsp-tcp")
 				}
-				args = append(args, proto+"://"+ownDockerIP+":"+port+"/teststream")
+				args = append(args, proto+"://localhost:"+port+"/teststream")
 				cnt2, err := newContainer("vlc", "dest", args)
 				require.NoError(t, err)
 				defer cnt2.close()
@@ -167,7 +205,7 @@ func TestClientRTSPAuth(t *testing.T) {
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: test!$()*+.;<=>[]^_-{}\n" +
-			"    publishIps: [172.17.0.0/16]\n")
+			"    publishIps: [127.0.0.0/16]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -178,7 +216,7 @@ func TestClientRTSPAuth(t *testing.T) {
 			"-c", "copy",
 			"-f", "rtsp",
 			"-rtsp_transport", "udp",
-			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIP + ":8554/test/stream",
+			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@127.0.0.1:8554/test/stream",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
@@ -187,7 +225,7 @@ func TestClientRTSPAuth(t *testing.T) {
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
 			"-rtsp_transport", "udp",
-			"-i", "rtsp://" + ownDockerIP + ":8554/test/stream",
+			"-i", "rtsp://localhost:8554/test/stream",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -208,7 +246,7 @@ func TestClientRTSPAuth(t *testing.T) {
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: test!$()*+.;<=>[]^_-{}\n" +
-				"    readIps: [172.17.0.0/16]\n")
+				"    readIps: [127.0.0.0/16]\n")
 			require.Equal(t, true, ok)
 			defer p.close()
 
@@ -219,7 +257,7 @@ func TestClientRTSPAuth(t *testing.T) {
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIP + ":8554/test/stream",
+				"rtsp://localhost:8554/test/stream",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -229,7 +267,7 @@ func TestClientRTSPAuth(t *testing.T) {
 			if soft == "ffmpeg" {
 				cnt2, err := newContainer("ffmpeg", "dest", []string{
 					"-rtsp_transport", "udp",
-					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIP + ":8554/test/stream",
+					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@127.0.0.1:8554/test/stream",
 					"-vframes", "1",
 					"-f", "image2",
 					"-y", "/dev/null",
@@ -240,7 +278,7 @@ func TestClientRTSPAuth(t *testing.T) {
 
 			} else {
 				cnt2, err := newContainer("vlc", "dest", []string{
-					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@" + ownDockerIP + ":8554/test/stream",
+					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@localhost:8554/test/stream",
 				})
 				require.NoError(t, err)
 				defer cnt2.close()
@@ -266,14 +304,14 @@ func TestClientRTSPAuth(t *testing.T) {
 			"-c", "copy",
 			"-f", "rtsp",
 			"-rtsp_transport", "udp",
-			"rtsp://" + ownDockerIP + ":8554/test/stream",
+			"rtsp://localhost:8554/test/stream",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
 
 		cnt2, err := newContainer("ffmpeg", "dest", []string{
 			"-rtsp_transport", "udp",
-			"-i", "rtsp://testuser:testpass@" + ownDockerIP + ":8554/test/stream",
+			"-i", "rtsp://testuser:testpass@localhost:8554/test/stream",
 			"-vframes", "1",
 			"-f", "image2",
 			"-y", "/dev/null",
@@ -320,7 +358,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = gortsplib.DialPublish(
-				"rtsp://"+ca.user+":"+ca.pass+"@"+ownDockerIP+":8554/test/stream",
+				"rtsp://"+ca.user+":"+ca.pass+"@localhost:8554/test/stream",
 				gortsplib.Tracks{track},
 			)
 			require.Equal(t, "wrong status code: 401 (Unauthorized)", err.Error())
@@ -359,7 +397,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			defer p.close()
 
 			_, err := gortsplib.DialRead(
-				"rtsp://" + ca.user + ":" + ca.pass + "@" + ownDockerIP + ":8554/test/stream",
+				"rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream",
 			)
 			require.Equal(t, "wrong status code: 401 (Unauthorized)", err.Error())
 		})
@@ -370,7 +408,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			"hlsDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
-			"    publishIps: [127.0.0.1/32]\n")
+			"    publishIps: [128.0.0.1/32]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -378,7 +416,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = gortsplib.DialPublish(
-			"rtsp://"+ownDockerIP+":8554/test/stream",
+			"rtsp://localhost:8554/test/stream",
 			gortsplib.Tracks{track},
 		)
 		require.Equal(t, "wrong status code: 401 (Unauthorized)", err.Error())
@@ -403,14 +441,14 @@ func TestClientRTSPAutomaticProtocol(t *testing.T) {
 					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
-					"rtsp://" + ownDockerIP + ":8554/teststream",
+					"rtsp://localhost:8554/teststream",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
 			}
 
 			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-i", "rtsp://" + ownDockerIP + ":8554/teststream",
+				"-i", "rtsp://localhost:8554/teststream",
 				"-vframes", "1",
 				"-f", "image2",
 				"-y", "/dev/null",
@@ -442,12 +480,12 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 			track, err := gortsplib.NewTrackH264(68, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04})
 			require.NoError(t, err)
 
-			s1, err := gortsplib.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+			s1, err := gortsplib.DialPublish("rtsp://localhost:8554/teststream",
 				gortsplib.Tracks{track})
 			require.NoError(t, err)
 			defer s1.Close()
 
-			s2, err := gortsplib.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+			s2, err := gortsplib.DialPublish("rtsp://localhost:8554/teststream",
 				gortsplib.Tracks{track})
 			if ca == "enabled" {
 				require.NoError(t, err)
@@ -456,7 +494,7 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 				require.Error(t, err)
 			}
 
-			d1, err := gortsplib.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+			d1, err := gortsplib.DialRead("rtsp://localhost:8554/teststream")
 			require.NoError(t, err)
 			defer d1.Close()
 
@@ -465,12 +503,14 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 			go func() {
 				defer close(readDone)
 				d1.ReadFrames(func(trackID int, streamType base.StreamType, payload []byte) {
-					if ca == "enabled" {
-						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
-					} else {
-						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+					if streamType == gortsplib.StreamTypeRTP {
+						if ca == "enabled" {
+							require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
+						} else {
+							require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+						}
+						close(frameRecv)
 					}
-					close(frameRecv)
 				})
 			}()
 
@@ -508,19 +548,19 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
-			StreamProtocol: func() *gortsplib.StreamProtocol {
-				v := gortsplib.StreamProtocolTCP
+			StreamProtocol: func() *base.StreamProtocol {
+				v := base.StreamProtocolTCP
 				return &v
 			}(),
 			ReadBufferSize: 4500,
 		}
 
-		source, err := client.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+		source, err := client.DialPublish("rtsp://localhost:8554/teststream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
 
-		dest, err := client.DialRead("rtsp://" + ownDockerIP + ":8554/teststream")
+		dest, err := client.DialRead("rtsp://localhost:8554/teststream")
 		require.NoError(t, err)
 		defer dest.Close()
 
@@ -558,14 +598,14 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
-			StreamProtocol: func() *gortsplib.StreamProtocol {
-				v := gortsplib.StreamProtocolTCP
+			StreamProtocol: func() *base.StreamProtocol {
+				v := base.StreamProtocolTCP
 				return &v
 			}(),
 			ReadBufferSize: 4500,
 		}
 
-		source, err := client.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
+		source, err := client.DialPublish("rtsp://localhost:8554/teststream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
@@ -577,14 +617,14 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			"rtspAddress: :8555\n" +
 			"paths:\n" +
 			"  teststream:\n" +
-			"    source: rtsp://" + ownDockerIP + ":8554/teststream\n" +
+			"    source: rtsp://localhost:8554/teststream\n" +
 			"    sourceProtocol: tcp\n")
 		require.Equal(t, true, ok)
 		defer p2.close()
 
 		time.Sleep(100 * time.Millisecond)
 
-		dest, err := client.DialRead("rtsp://" + ownDockerIP + ":8555/teststream")
+		dest, err := client.DialRead("rtsp://localhost:8555/teststream")
 		require.NoError(t, err)
 		defer dest.Close()
 
@@ -611,176 +651,13 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 	})
 }
 
-func TestClientRTSPAdditionalInfos(t *testing.T) {
-	getInfos := func() (*headers.RTPInfo, []*uint32, error) {
-		u, err := base.ParseURL("rtsp://" + ownDockerIP + ":8554/teststream")
-		if err != nil {
-			return nil, nil, err
-		}
-
-		conn, err := gortsplib.Dial(u.Scheme, u.Host)
-		if err != nil {
-			return nil, nil, err
-		}
-		defer conn.Close()
-
-		tracks, _, err := conn.Describe(u)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		ssrcs := make([]*uint32, len(tracks))
-
-		for i, t := range tracks {
-			res, err := conn.Setup(headers.TransportModePlay, t, 0, 0)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			var th headers.Transport
-			err = th.Read(res.Header["Transport"])
-			if err != nil {
-				return nil, nil, err
-			}
-
-			ssrcs[i] = th.SSRC
-		}
-
-		res, err := conn.Play(nil)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		var ri headers.RTPInfo
-		err = ri.Read(res.Header["RTP-Info"])
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return &ri, ssrcs, nil
-	}
-
-	p, ok := testProgram("rtmpDisable: yes\n" +
-		"hlsDisable: yes\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	track1, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
-	require.NoError(t, err)
-
-	track2, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
-	require.NoError(t, err)
-
-	source, err := gortsplib.DialPublish("rtsp://"+ownDockerIP+":8554/teststream",
-		gortsplib.Tracks{track1, track2})
-	require.NoError(t, err)
-	defer source.Close()
-
-	pkt := rtp.Packet{
-		Header: rtp.Header{
-			Version:        0x80,
-			PayloadType:    96,
-			SequenceNumber: 556,
-			Timestamp:      984512368,
-			SSRC:           96342362,
-		},
-		Payload: []byte{0x01, 0x02, 0x03, 0x04},
-	}
-
-	buf, err := pkt.Marshal()
-	require.NoError(t, err)
-
-	err = source.WriteFrame(track1.ID, gortsplib.StreamTypeRTP, buf)
-	require.NoError(t, err)
-
-	rtpInfo, ssrcs, err := getInfos()
-	require.NoError(t, err)
-	require.Equal(t, &headers.RTPInfo{
-		&headers.RTPInfoEntry{
-			URL: (&base.URL{
-				Scheme: "rtsp",
-				Host:   ownDockerIP + ":8554",
-				Path:   "/teststream/trackID=0",
-			}).String(),
-			SequenceNumber: func() *uint16 {
-				v := uint16(556)
-				return &v
-			}(),
-			Timestamp: (*rtpInfo)[0].Timestamp,
-		},
-	}, rtpInfo)
-	require.Equal(t, []*uint32{
-		func() *uint32 {
-			v := uint32(96342362)
-			return &v
-		}(),
-		nil,
-	}, ssrcs)
-
-	pkt = rtp.Packet{
-		Header: rtp.Header{
-			Version:        0x80,
-			PayloadType:    96,
-			SequenceNumber: 87,
-			Timestamp:      756436454,
-			SSRC:           536474323,
-		},
-		Payload: []byte{0x01, 0x02, 0x03, 0x04},
-	}
-
-	buf, err = pkt.Marshal()
-	require.NoError(t, err)
-
-	err = source.WriteFrame(track2.ID, gortsplib.StreamTypeRTP, buf)
-	require.NoError(t, err)
-
-	rtpInfo, ssrcs, err = getInfos()
-	require.NoError(t, err)
-	require.Equal(t, &headers.RTPInfo{
-		&headers.RTPInfoEntry{
-			URL: (&base.URL{
-				Scheme: "rtsp",
-				Host:   ownDockerIP + ":8554",
-				Path:   "/teststream/trackID=0",
-			}).String(),
-			SequenceNumber: func() *uint16 {
-				v := uint16(556)
-				return &v
-			}(),
-			Timestamp: (*rtpInfo)[0].Timestamp,
-		},
-		&headers.RTPInfoEntry{
-			URL: (&base.URL{
-				Scheme: "rtsp",
-				Host:   ownDockerIP + ":8554",
-				Path:   "/teststream/trackID=1",
-			}).String(),
-			SequenceNumber: func() *uint16 {
-				v := uint16(87)
-				return &v
-			}(),
-			Timestamp: (*rtpInfo)[1].Timestamp,
-		},
-	}, rtpInfo)
-	require.Equal(t, []*uint32{
-		func() *uint32 {
-			v := uint32(96342362)
-			return &v
-		}(),
-		func() *uint32 {
-			v := uint32(536474323)
-			return &v
-		}(),
-	}, ssrcs)
-}
-
 func TestClientRTSPRedirect(t *testing.T) {
 	p1, ok := testProgram("rtmpDisable: yes\n" +
 		"hlsDisable: yes\n" +
 		"paths:\n" +
 		"  path1:\n" +
 		"    source: redirect\n" +
-		"    sourceRedirect: rtsp://" + ownDockerIP + ":8554/path2\n" +
+		"    sourceRedirect: rtsp://localhost:8554/path2\n" +
 		"  path2:\n")
 	require.Equal(t, true, ok)
 	defer p1.close()
@@ -792,7 +669,7 @@ func TestClientRTSPRedirect(t *testing.T) {
 		"-c", "copy",
 		"-f", "rtsp",
 		"-rtsp_transport", "udp",
-		"rtsp://" + ownDockerIP + ":8554/path2",
+		"rtsp://localhost:8554/path2",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -801,7 +678,7 @@ func TestClientRTSPRedirect(t *testing.T) {
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
 		"-rtsp_transport", "udp",
-		"-i", "rtsp://" + ownDockerIP + ":8554/path1",
+		"-i", "rtsp://localhost:8554/path1",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -819,7 +696,7 @@ func TestClientRTSPFallback(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			val := func() string {
 				if ca == "absolute" {
-					return "rtsp://" + ownDockerIP + ":8554/path2"
+					return "rtsp://localhost:8554/path2"
 				}
 				return "/path2"
 			}()
@@ -840,7 +717,7 @@ func TestClientRTSPFallback(t *testing.T) {
 				"-c", "copy",
 				"-f", "rtsp",
 				"-rtsp_transport", "udp",
-				"rtsp://" + ownDockerIP + ":8554/path2",
+				"rtsp://localhost:8554/path2",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -849,7 +726,7 @@ func TestClientRTSPFallback(t *testing.T) {
 
 			cnt2, err := newContainer("ffmpeg", "dest", []string{
 				"-rtsp_transport", "udp",
-				"-i", "rtsp://" + ownDockerIP + ":8554/path1",
+				"-i", "rtsp://localhost:8554/path1",
 				"-vframes", "1",
 				"-f", "image2",
 				"-y", "/dev/null",
@@ -954,7 +831,7 @@ wait
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"2"},
 					"Transport": headers.Transport{
-						Protocol: gortsplib.StreamProtocolTCP,
+						Protocol: base.StreamProtocolTCP,
 						Delivery: func() *base.StreamDelivery {
 							v := base.StreamDeliveryUnicast
 							return &v
@@ -1007,7 +884,7 @@ wait
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"1"},
 					"Transport": headers.Transport{
-						Protocol: gortsplib.StreamProtocolTCP,
+						Protocol: base.StreamProtocolTCP,
 						Delivery: func() *base.StreamDelivery {
 							v := base.StreamDeliveryUnicast
 							return &v

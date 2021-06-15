@@ -9,7 +9,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/streamproc"
 )
 
 // Path is implemented by path.Path.
@@ -20,6 +19,7 @@ type Path interface {
 	OnReadPublisherPlay(PlayReq)
 	OnReadPublisherRecord(RecordReq)
 	OnReadPublisherPause(PauseReq)
+	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // ErrNoOnePublishing is a "no one is publishing" error.
@@ -63,7 +63,7 @@ type ReadPublisher interface {
 
 // DescribeRes is a describe response.
 type DescribeRes struct {
-	SDP      []byte
+	Stream   *gortsplib.ServerStream
 	Redirect string
 	Err      error
 }
@@ -79,10 +79,9 @@ type DescribeReq struct {
 
 // SetupPlayRes is a setup/play response.
 type SetupPlayRes struct {
-	Path       Path
-	Tracks     gortsplib.Tracks
-	TrackInfos []streamproc.TrackInfo
-	Err        error
+	Path   Path
+	Stream *gortsplib.ServerStream
+	Err    error
 }
 
 // SetupPlayReq is a setup/play request.
@@ -117,9 +116,7 @@ type RemoveReq struct {
 }
 
 // PlayRes is a play response.
-type PlayRes struct {
-	TrackInfos []streamproc.TrackInfo
-}
+type PlayRes struct{}
 
 // PlayReq is a play request.
 type PlayReq struct {
@@ -129,7 +126,6 @@ type PlayReq struct {
 
 // RecordRes is a record response.
 type RecordRes struct {
-	SP  *streamproc.StreamProc
 	Err error
 }
 

@@ -131,7 +131,7 @@ func (c *Conn) OnResponse(res *base.Response) {
 }
 
 // OnDescribe is called by rtspserver.Server.
-func (c *Conn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, []byte, error) {
+func (c *Conn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	resc := make(chan readpublisher.DescribeRes)
 	c.pathMan.OnReadPublisherDescribe(readpublisher.DescribeReq{
 		PathName: ctx.Path,
@@ -178,7 +178,7 @@ func (c *Conn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Resp
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, res.SDP, nil
+	}, res.Stream, nil
 }
 
 // ValidateCredentials allows to validate the credentials of a path.

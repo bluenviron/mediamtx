@@ -29,6 +29,7 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnExtSourceSetReady(req source.ExtSetReadyReq)
 	OnExtSourceSetNotReady(req source.ExtSetNotReadyReq)
+	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // Source is a RTMP external source.
@@ -177,7 +178,7 @@ func (s *Source) runInner() bool {
 						Tracks: tracks,
 						Res:    cres,
 					})
-					res := <-cres
+					<-cres
 
 					defer func() {
 						res := make(chan struct{})
@@ -187,12 +188,12 @@ func (s *Source) runInner() bool {
 						<-res
 					}()
 
-					rtcpSenders := rtcpsenderset.New(tracks, res.SP.OnFrame)
+					rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnFrame)
 					defer rtcpSenders.Close()
 
 					onFrame := func(trackID int, payload []byte) {
 						rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-						res.SP.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+						s.parent.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
 					}
 
 					for {

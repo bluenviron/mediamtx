@@ -28,12 +28,13 @@ type Parent interface {
 	Log(logger.Level, string, ...interface{})
 	OnExtSourceSetReady(req source.ExtSetReadyReq)
 	OnExtSourceSetNotReady(req source.ExtSetNotReadyReq)
+	OnFrame(int, gortsplib.StreamType, []byte)
 }
 
 // Source is a RTSP external source.
 type Source struct {
 	ur              string
-	proto           *gortsplib.StreamProtocol
+	proto           *base.StreamProtocol
 	anyPortEnable   bool
 	fingerprint     string
 	readTimeout     time.Duration
@@ -52,7 +53,7 @@ type Source struct {
 func New(
 	ctxParent context.Context,
 	ur string,
-	proto *gortsplib.StreamProtocol,
+	proto *base.StreamProtocol,
 	anyPortEnable bool,
 	fingerprint string,
 	readTimeout time.Duration,
@@ -197,7 +198,7 @@ func (s *Source) runInner() bool {
 		Tracks: conn.Tracks(),
 		Res:    cres,
 	})
-	res := <-cres
+	<-cres
 
 	defer func() {
 		res := make(chan struct{})
@@ -210,7 +211,7 @@ func (s *Source) runInner() bool {
 	readErr := make(chan error)
 	go func() {
 		readErr <- conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-			res.SP.OnFrame(trackID, streamType, payload)
+			s.parent.OnFrame(trackID, streamType, payload)
 		})
 	}()
 

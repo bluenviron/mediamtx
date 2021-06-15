@@ -16,15 +16,8 @@ type ExtSource interface {
 	Close()
 }
 
-// StreamProc is implemented by streamproc.StreamProc.
-type StreamProc interface {
-	OnFrame(int, gortsplib.StreamType, []byte)
-}
-
 // ExtSetReadyRes is a set ready response.
-type ExtSetReadyRes struct {
-	SP StreamProc
-}
+type ExtSetReadyRes struct{}
 
 // ExtSetReadyReq is a set ready request.
 type ExtSetReadyReq struct {
