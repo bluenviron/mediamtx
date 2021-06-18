@@ -361,7 +361,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 				"rtsp://"+ca.user+":"+ca.pass+"@localhost:8554/test/stream",
 				gortsplib.Tracks{track},
 			)
-			require.Equal(t, "wrong status code: 401 (Unauthorized)", err.Error())
+			require.Equal(t, "invalid status code: 401 (Unauthorized)", err.Error())
 		})
 	}
 
@@ -399,7 +399,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			_, err := gortsplib.DialRead(
 				"rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream",
 			)
-			require.Equal(t, "wrong status code: 401 (Unauthorized)", err.Error())
+			require.Equal(t, "invalid status code: 401 (Unauthorized)", err.Error())
 		})
 	}
 
@@ -419,7 +419,7 @@ func TestClientRTSPAuthFail(t *testing.T) {
 			"rtsp://localhost:8554/test/stream",
 			gortsplib.Tracks{track},
 		)
-		require.Equal(t, "wrong status code: 401 (Unauthorized)", err.Error())
+		require.Equal(t, "invalid status code: 401 (Unauthorized)", err.Error())
 	})
 }
 
@@ -548,8 +548,8 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
-			StreamProtocol: func() *base.StreamProtocol {
-				v := base.StreamProtocolTCP
+			Protocol: func() *gortsplib.ClientProtocol {
+				v := gortsplib.ClientProtocolTCP
 				return &v
 			}(),
 			ReadBufferSize: 4500,
@@ -598,8 +598,8 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
-			StreamProtocol: func() *base.StreamProtocol {
-				v := base.StreamProtocolTCP
+			Protocol: func() *gortsplib.ClientProtocol {
+				v := gortsplib.ClientProtocolTCP
 				return &v
 			}(),
 			ReadBufferSize: 4500,

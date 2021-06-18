@@ -34,7 +34,7 @@ type Parent interface {
 // Source is a RTSP external source.
 type Source struct {
 	ur              string
-	proto           *base.StreamProtocol
+	proto           *gortsplib.ClientProtocol
 	anyPortEnable   bool
 	fingerprint     string
 	readTimeout     time.Duration
@@ -53,7 +53,7 @@ type Source struct {
 func New(
 	ctxParent context.Context,
 	ur string,
-	proto *base.StreamProtocol,
+	proto *gortsplib.ClientProtocol,
 	anyPortEnable bool,
 	fingerprint string,
 	readTimeout time.Duration,
@@ -136,7 +136,7 @@ func (s *Source) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
 	client := &gortsplib.Client{
-		StreamProtocol: s.proto,
+		Protocol: s.proto,
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			VerifyConnection: func(cs tls.ConnectionState) error {

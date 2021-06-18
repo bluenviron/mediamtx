@@ -116,8 +116,8 @@ paths:
     source: record
 
     # if the source is an RTSP or RTSPS URL, this is the protocol that will be used to
-    # pull the stream. available options are "automatic", "udp", "tcp".
-    # the tcp protocol can help to overcome the error "no UDP packets received recently".
+    # pull the stream. available options are "automatic", "udp", "multicast", "tcp".
+    # the TCP protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
 
     # if the source is an RTSP or RTSPS URL, this allows to support cameras that

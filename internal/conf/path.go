@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 )
 
@@ -68,17 +69,17 @@ type PathConf struct {
 	Regexp *regexp.Regexp `yaml:"-" json:"-"`
 
 	// source
-	Source                     string               `yaml:"source"`
-	SourceProtocol             string               `yaml:"sourceProtocol"`
-	SourceProtocolParsed       *base.StreamProtocol `yaml:"-" json:"-"`
-	SourceAnyPortEnable        bool                 `yaml:"sourceAnyPortEnable"`
-	SourceFingerprint          string               `yaml:"sourceFingerprint" json:"sourceFingerprint"`
-	SourceOnDemand             bool                 `yaml:"sourceOnDemand"`
-	SourceOnDemandStartTimeout time.Duration        `yaml:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   time.Duration        `yaml:"sourceOnDemandCloseAfter"`
-	SourceRedirect             string               `yaml:"sourceRedirect"`
-	DisablePublisherOverride   bool                 `yaml:"disablePublisherOverride"`
-	Fallback                   string               `yaml:"fallback"`
+	Source                     string                    `yaml:"source"`
+	SourceProtocol             string                    `yaml:"sourceProtocol"`
+	SourceProtocolParsed       *gortsplib.ClientProtocol `yaml:"-" json:"-"`
+	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable"`
+	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
+	SourceOnDemand             bool                      `yaml:"sourceOnDemand"`
+	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter"`
+	SourceRedirect             string                    `yaml:"sourceRedirect"`
+	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride"`
+	Fallback                   string                    `yaml:"fallback"`
 
 	// authentication
 	PublishUser      string        `yaml:"publishUser"`
@@ -148,11 +149,15 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 		switch pconf.SourceProtocol {
 		case "udp":
-			v := base.StreamProtocolUDP
+			v := gortsplib.ClientProtocolUDP
+			pconf.SourceProtocolParsed = &v
+
+		case "multicast":
+			v := gortsplib.ClientProtocolMulticast
 			pconf.SourceProtocolParsed = &v
 
 		case "tcp":
-			v := base.StreamProtocolTCP
+			v := gortsplib.ClientProtocolTCP
 			pconf.SourceProtocolParsed = &v
 
 		case "automatic":
