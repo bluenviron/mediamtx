@@ -226,7 +226,9 @@ func (c *Converter) run() {
 	select {
 	case err := <-runErr:
 		innerCtxCancel()
-		c.log(logger.Info, "ERR: %s", err)
+		if err != nil {
+			c.log(logger.Info, "ERR: %s", err)
+		}
 
 	case <-c.ctx.Done():
 		innerCtxCancel()
