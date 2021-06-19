@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"net"
 	"net/http"
 	"strconv"
@@ -144,7 +145,7 @@ type Converter struct {
 	tsQueue         []*tsFile
 	tsByName        map[string]*tsFile
 	tsDeleteCount   int
-	tsMutex         sync.Mutex
+	tsMutex         sync.RWMutex
 	lastRequestTime int64
 
 	// in
@@ -406,41 +407,49 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 							return false
 						}()
 
-						if isIDR {
-							if curTSFile.firstPacketWritten &&
-								time.Since(curTSFile.firstPacketWrittenTime) >= c.hlsSegmentDuration {
-								if curTSFile != nil {
-									curTSFile.Close()
-								}
+						err := func() error {
+							c.tsMutex.Lock()
+							defer c.tsMutex.Unlock()
 
-								curTSFile = newTSFile(videoTrack, audioTrack)
-								c.tsMutex.Lock()
-								c.tsByName[curTSFile.Name()] = curTSFile
-								c.tsQueue = append(c.tsQueue, curTSFile)
-								if len(c.tsQueue) > c.hlsSegmentCount {
-									delete(c.tsByName, c.tsQueue[0].Name())
-									c.tsQueue = c.tsQueue[1:]
-									c.tsDeleteCount++
-								}
-								c.tsMutex.Unlock()
-							}
-						} else {
-							if !curTSFile.firstPacketWritten {
-								continue
-							}
-						}
+							if isIDR {
+								if curTSFile.firstPacketWritten &&
+									curTSFile.Duration() >= c.hlsSegmentDuration {
+									if curTSFile != nil {
+										curTSFile.Close()
+									}
 
-						curTSFile.SetPCR(time.Since(startPCR))
-						err := curTSFile.WriteH264(
-							videoDTSEst.Feed(pts+ptsOffset),
-							pts+ptsOffset,
-							isIDR,
-							videoBuf)
+									curTSFile = newTSFile(videoTrack, audioTrack)
+
+									c.tsByName[curTSFile.Name()] = curTSFile
+									c.tsQueue = append(c.tsQueue, curTSFile)
+									if len(c.tsQueue) > c.hlsSegmentCount {
+										delete(c.tsByName, c.tsQueue[0].Name())
+										c.tsQueue = c.tsQueue[1:]
+										c.tsDeleteCount++
+									}
+								}
+							} else {
+								if !curTSFile.firstPacketWritten {
+									return nil
+								}
+							}
+
+							curTSFile.SetPCR(time.Since(startPCR))
+							err := curTSFile.WriteH264(
+								videoDTSEst.Feed(pts+ptsOffset),
+								pts+ptsOffset,
+								isIDR,
+								videoBuf)
+							if err != nil {
+								return err
+							}
+
+							videoBuf = nil
+							return nil
+						}()
 						if err != nil {
 							return err
 						}
-
-						videoBuf = nil
 					}
 
 				} else if audioTrack != nil && pair.trackID == audioTrack.ID {
@@ -452,46 +461,54 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 						continue
 					}
 
-					if videoTrack == nil {
-						if curTSFile.firstPacketWritten &&
-							(time.Since(curTSFile.firstPacketWrittenTime) >= c.hlsSegmentDuration &&
-								audioAUCount >= segmentMinAUCount) {
+					err = func() error {
+						c.tsMutex.Lock()
+						defer c.tsMutex.Unlock()
 
-							if curTSFile != nil {
-								curTSFile.Close()
+						if videoTrack == nil {
+							if curTSFile.firstPacketWritten &&
+								curTSFile.Duration() >= c.hlsSegmentDuration &&
+								audioAUCount >= segmentMinAUCount {
+
+								if curTSFile != nil {
+									curTSFile.Close()
+								}
+
+								audioAUCount = 0
+								curTSFile = newTSFile(videoTrack, audioTrack)
+								c.tsByName[curTSFile.Name()] = curTSFile
+								c.tsQueue = append(c.tsQueue, curTSFile)
+								if len(c.tsQueue) > c.hlsSegmentCount {
+									delete(c.tsByName, c.tsQueue[0].Name())
+									c.tsQueue = c.tsQueue[1:]
+									c.tsDeleteCount++
+								}
 							}
-
-							audioAUCount = 0
-							curTSFile = newTSFile(videoTrack, audioTrack)
-							c.tsMutex.Lock()
-							c.tsByName[curTSFile.Name()] = curTSFile
-							c.tsQueue = append(c.tsQueue, curTSFile)
-							if len(c.tsQueue) > c.hlsSegmentCount {
-								delete(c.tsByName, c.tsQueue[0].Name())
-								c.tsQueue = c.tsQueue[1:]
-								c.tsDeleteCount++
+						} else {
+							if !curTSFile.firstPacketWritten {
+								return nil
 							}
-							c.tsMutex.Unlock()
 						}
-					} else {
-						if !curTSFile.firstPacketWritten {
-							continue
-						}
-					}
 
-					for i, au := range aus {
-						auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(aacConfig.SampleRate)
+						for i, au := range aus {
+							auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(aacConfig.SampleRate)
 
-						audioAUCount++
-						curTSFile.SetPCR(time.Since(startPCR))
-						err := curTSFile.WriteAAC(
-							aacConfig.SampleRate,
-							aacConfig.ChannelCount,
-							auPTS+ptsOffset,
-							au)
-						if err != nil {
-							return err
+							audioAUCount++
+							curTSFile.SetPCR(time.Since(startPCR))
+							err := curTSFile.WriteAAC(
+								aacConfig.SampleRate,
+								aacConfig.ChannelCount,
+								auPTS+ptsOffset,
+								au)
+							if err != nil {
+								return err
+							}
 						}
+
+						return nil
+					}()
+					if err != nil {
+						return err
 					}
 				}
 			}
@@ -563,8 +580,8 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 			switch {
 			case req.FileName == "stream.m3u8":
 				func() {
-					c.tsMutex.Lock()
-					defer c.tsMutex.Unlock()
+					c.tsMutex.RLock()
+					defer c.tsMutex.RUnlock()
 
 					if len(c.tsQueue) == 0 {
 						req.W.WriteHeader(http.StatusNotFound)
@@ -575,21 +592,38 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 					cnt := "#EXTM3U\n"
 					cnt += "#EXT-X-VERSION:3\n"
 					cnt += "#EXT-X-ALLOW-CACHE:NO\n"
-					cnt += "#EXT-X-TARGETDURATION:10\n"
+
+					targetDuration := func() uint {
+						ret := uint(math.Ceil(c.hlsSegmentDuration.Seconds()))
+
+						// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
+						for _, f := range c.tsQueue {
+							v2 := uint(math.Round(f.Duration().Seconds()))
+							if v2 > ret {
+								ret = v2
+							}
+						}
+
+						return ret
+					}()
+					cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
+
 					cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(c.tsDeleteCount), 10) + "\n"
+
 					for _, f := range c.tsQueue {
-						cnt += "#EXTINF:10,\n"
+						cnt += "#EXTINF:" + strconv.FormatFloat(f.Duration().Seconds(), 'f', -1, 64) + ",\n"
 						cnt += f.Name() + ".ts\n"
 					}
+
 					req.Res <- bytes.NewReader([]byte(cnt))
 				}()
 
 			case strings.HasSuffix(req.FileName, ".ts"):
 				base := strings.TrimSuffix(req.FileName, ".ts")
 
-				c.tsMutex.Lock()
+				c.tsMutex.RLock()
 				f, ok := c.tsByName[base]
-				c.tsMutex.Unlock()
+				c.tsMutex.RUnlock()
 
 				if !ok {
 					req.W.WriteHeader(http.StatusNotFound)

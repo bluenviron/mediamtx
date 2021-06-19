@@ -13,13 +13,14 @@ import (
 )
 
 type tsFile struct {
-	name                   string
-	buf                    *multiAccessBuffer
-	mux                    *astits.Muxer
-	pcrTrackIsVideo        bool
-	pcr                    time.Duration
-	firstPacketWritten     bool
-	firstPacketWrittenTime time.Time
+	name               string
+	buf                *multiAccessBuffer
+	mux                *astits.Muxer
+	pcrTrackIsVideo    bool
+	pcr                time.Duration
+	firstPacketWritten bool
+	minPTS             time.Duration
+	maxPTS             time.Duration
 }
 
 func newTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *tsFile {
@@ -67,12 +68,8 @@ func (t *tsFile) Name() string {
 	return t.name
 }
 
-func (t *tsFile) FirstPacketWritten() bool {
-	return t.firstPacketWritten
-}
-
-func (t *tsFile) FirstPacketWrittenTime() time.Time {
-	return t.firstPacketWrittenTime
+func (t *tsFile) Duration() time.Duration {
+	return t.maxPTS - t.minPTS
 }
 
 func (t *tsFile) SetPCR(pcr time.Duration) {
@@ -80,9 +77,19 @@ func (t *tsFile) SetPCR(pcr time.Duration) {
 }
 
 func (t *tsFile) WriteH264(dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
-	if !t.firstPacketWritten {
-		t.firstPacketWritten = true
-		t.firstPacketWrittenTime = time.Now()
+	if t.pcrTrackIsVideo {
+		if !t.firstPacketWritten {
+			t.firstPacketWritten = true
+			t.minPTS = pts
+			t.maxPTS = pts
+		} else {
+			if pts < t.minPTS {
+				t.minPTS = pts
+			}
+			if pts > t.maxPTS {
+				t.maxPTS = pts
+			}
+		}
 	}
 
 	enc, err := h264.EncodeAnnexB(nalus)
@@ -119,9 +126,19 @@ func (t *tsFile) WriteH264(dts time.Duration, pts time.Duration, isIDR bool, nal
 }
 
 func (t *tsFile) WriteAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
-	if !t.firstPacketWritten {
-		t.firstPacketWritten = true
-		t.firstPacketWrittenTime = time.Now()
+	if !t.pcrTrackIsVideo {
+		if !t.firstPacketWritten {
+			t.firstPacketWritten = true
+			t.minPTS = pts
+			t.maxPTS = pts
+		} else {
+			if pts < t.minPTS {
+				t.minPTS = pts
+			}
+			if pts > t.maxPTS {
+				t.maxPTS = pts
+			}
+		}
 	}
 
 	adtsPkt, err := aac.EncodeADTS([]*aac.ADTSPacket{
