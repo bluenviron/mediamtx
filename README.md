@@ -52,6 +52,7 @@ Features:
   * [Fallback stream](#fallback-stream)
   * [Start on boot with systemd](#start-on-boot-with-systemd)
   * [Monitoring](#monitoring)
+  * [Corrupted frames](#corrupted-frames)
   * [Command-line usage](#command-line-usage)
   * [Compile and run from source](#compile-and-run-from-source)
 * [Links](#links)
@@ -504,6 +505,37 @@ There are multiple ways to monitor the server usage over time:
   go tool pprof -text http://localhost:9999/debug/pprof/goroutine
   go tool pprof -text http://localhost:9999/debug/pprof/heap
   go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
+  ```
+
+### Corrupted frames
+
+In some scenarios, the server can send incomplete or corrupted frames. This can be caused by multiple reasons:
+
+* the packet buffer of the server is too small and can't handle the stream throughput. A solution consists in increasing its size:
+
+  ```yml
+  readBufferCount: 1024
+  ```
+
+* The stream throughput is too big and the stream can't be sent correctly with the UDP stream protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
+
+  ```yml
+  protocols: [tcp]
+  ```
+
+  In case the source is a camera:
+
+  ```yml
+  paths:
+    test:
+      source: rtsp://..
+      sourceProtocol: tcp
+  ```
+
+* the software that is generating the stream (a camera or FFmpeg) is generating non-conformant RTP packets, with a payload bigger than the maximum allowed (that is 1460 due to the UDP MTU). A solution consists in increasing the buffer size:
+
+  ```yml
+  readBufferSize: 8192
   ```
 
 ### Command-line usage
