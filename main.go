@@ -215,6 +215,7 @@ func (p *program) createResources(initial bool) error {
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
 		if p.serverRTSPPlain == nil {
 			_, useUDP := p.conf.ProtocolsParsed[conf.ProtocolUDP]
+			_, useMulticast := p.conf.ProtocolsParsed[conf.ProtocolMulticast]
 			p.serverRTSPPlain, err = rtspserver.New(
 				p.ctx,
 				p.conf.RTSPAddress,
@@ -223,8 +224,12 @@ func (p *program) createResources(initial bool) error {
 				p.conf.ReadBufferCount,
 				p.conf.ReadBufferSize,
 				useUDP,
+				useMulticast,
 				p.conf.RTPAddress,
 				p.conf.RTCPAddress,
+				p.conf.MulticastIPRange,
+				p.conf.MulticastRTPPort,
+				p.conf.MulticastRTCPPort,
 				false,
 				"",
 				"",
@@ -253,8 +258,12 @@ func (p *program) createResources(initial bool) error {
 				p.conf.ReadBufferCount,
 				p.conf.ReadBufferSize,
 				false,
+				false,
 				"",
 				"",
+				"",
+				0,
+				0,
 				true,
 				p.conf.ServerCert,
 				p.conf.ServerKey,
@@ -365,6 +374,9 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		newConf.RTPAddress != p.conf.RTPAddress ||
 		newConf.RTCPAddress != p.conf.RTCPAddress ||
+		newConf.MulticastIPRange != p.conf.MulticastIPRange ||
+		newConf.MulticastRTPPort != p.conf.MulticastRTPPort ||
+		newConf.MulticastRTCPPort != p.conf.MulticastRTCPPort ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||

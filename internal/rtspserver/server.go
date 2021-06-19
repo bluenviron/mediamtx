@@ -79,8 +79,12 @@ func New(
 	readBufferCount int,
 	readBufferSize int,
 	useUDP bool,
+	useMulticast bool,
 	rtpAddress string,
 	rtcpAddress string,
+	multicastIPRange string,
+	multicastRTPPort int,
+	multicastRTCPPort int,
 	isTLS bool,
 	serverCert string,
 	serverKey string,
@@ -118,6 +122,12 @@ func New(
 	if useUDP {
 		s.srv.UDPRTPAddress = rtpAddress
 		s.srv.UDPRTCPAddress = rtcpAddress
+	}
+
+	if useMulticast {
+		s.srv.MulticastIPRange = multicastIPRange
+		s.srv.MulticastRTPPort = multicastRTPPort
+		s.srv.MulticastRTCPPort = multicastRTCPPort
 	}
 
 	if isTLS {

@@ -82,6 +82,9 @@ type Conf struct {
 	RTSPSAddress      string                `yaml:"rtspsAddress"`
 	RTPAddress        string                `yaml:"rtpAddress"`
 	RTCPAddress       string                `yaml:"rtcpAddress"`
+	MulticastIPRange  string                `yaml:"multicastIPRange"`
+	MulticastRTPPort  int                   `yaml:"multicastRTPPort"`
+	MulticastRTCPPort int                   `yaml:"multicastRTCPPort"`
 	ServerKey         string                `yaml:"serverKey"`
 	ServerCert        string                `yaml:"serverCert"`
 	AuthMethods       []string              `yaml:"authMethods"`
@@ -216,6 +219,15 @@ func (conf *Conf) fillAndCheck() error {
 	}
 	if conf.RTCPAddress == "" {
 		conf.RTCPAddress = ":8001"
+	}
+	if conf.MulticastIPRange == "" {
+		conf.MulticastIPRange = "224.1.0.0/16"
+	}
+	if conf.MulticastRTPPort == 0 {
+		conf.MulticastRTPPort = 8002
+	}
+	if conf.MulticastRTCPPort == 0 {
+		conf.MulticastRTCPPort = 8003
 	}
 
 	if conf.ServerKey == "" {

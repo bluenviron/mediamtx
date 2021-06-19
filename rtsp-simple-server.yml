@@ -1,6 +1,6 @@
 
 ###############################################
-# General options
+# General parameters
 
 # sets the verbosity of the program; available values are "warn", "info", "debug".
 logLevel: info
@@ -36,7 +36,7 @@ runOnConnect:
 runOnConnectRestart: no
 
 ###############################################
-# RTSP options
+# RTSP parameters
 
 # disable support for the RTSP protocol.
 rtspDisable: no
@@ -50,20 +50,26 @@ protocols: [udp, multicast, tcp]
 # encrypt handshake and TCP streams with TLS (RTSPS).
 # available values are "no", "strict", "optional".
 encryption: no
-# address of the TCP/RTSP listener. This is used only if encryption is "no" or "optional".
+# address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
-# address of the TCP/TLS/RTSPS listener. This is used only if encryption is "strict" or "optional".
+# address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
 rtspsAddress: :8555
-# address of the UDP/RTP listener. This is used only if "udp" is in protocols.
+# address of the UDP/RTP listener. This is needed only when "udp" is in protocols.
 rtpAddress: :8000
-# address of the UDP/RTCP listener. This is used only if "udp" is in protocols.
+# address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.
 rtcpAddress: :8001
-# path to the server key. This is used only if encryption is "strict" or "optional".
+# IP range of all UDP-multicast listeners. This is needed only when "udp" is in protocols.
+multicastIPRange: 224.1.0.0/16
+# port of all UDP-multicast/RTP listeners. This is needed only when "udp" is in protocols.
+multicastRTPPort: 8002
+# port of all UDP-multicast/RTCP listeners. This is needed only when "udp" is in protocols.
+multicastRTCPPort: 8003
+# path to the server key. This is needed only when encryption is "strict" or "optional".
 # this can be generated with:
 # openssl genrsa -out server.key 2048
 # openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 serverKey: server.key
-# path to the server certificate. This is used only if encryption is "strict" or "optional".
+# path to the server certificate. This is needed only when encryption is "strict" or "optional".
 serverCert: server.crt
 # authentication methods.
 authMethods: [basic, digest]
@@ -73,7 +79,7 @@ authMethods: [basic, digest]
 readBufferSize: 2048
 
 ###############################################
-# RTMP options
+# RTMP parameters
 
 # disable support for the RTMP protocol.
 rtmpDisable: no
@@ -81,7 +87,7 @@ rtmpDisable: no
 rtmpAddress: :1935
 
 ###############################################
-# HLS options
+# HLS parameters
 
 # disable support for the HLS protocol.
 hlsDisable: no
@@ -97,7 +103,7 @@ hlsSegmentCount: 3
 hlsSegmentDuration: 1s
 
 ###############################################
-# Path options
+# Path parameters
 
 # these settings are path-dependent.
 # it's possible to use regular expressions by using a tilde as prefix.
@@ -116,7 +122,7 @@ paths:
     source: record
 
     # if the source is an RTSP or RTSPS URL, this is the protocol that will be used to
-    # pull the stream. available options are "automatic", "udp", "multicast", "tcp".
+    # pull the stream. available values are "automatic", "udp", "multicast", "tcp".
     # the TCP protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
 
