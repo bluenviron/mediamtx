@@ -1,4 +1,4 @@
-FROM golang:1.15-alpine3.12
+FROM golang:1.16-alpine3.12
 
 RUN apk add --no-cache \
     ffmpeg

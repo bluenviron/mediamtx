@@ -557,7 +557,7 @@ Args:
 
 ### Compile and run from source
 
-Install Go 1.15, download the repository, open a terminal in it and run:
+Install Go 1.16, download the repository, open a terminal in it and run:
 
 ```
 go run .
