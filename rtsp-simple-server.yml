@@ -58,11 +58,11 @@ rtspsAddress: :8555
 rtpAddress: :8000
 # address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.
 rtcpAddress: :8001
-# IP range of all UDP-multicast listeners. This is needed only when "udp" is in protocols.
+# IP range of all UDP-multicast listeners. This is needed only when "multicast" is in protocols.
 multicastIPRange: 224.1.0.0/16
-# port of all UDP-multicast/RTP listeners. This is needed only when "udp" is in protocols.
+# port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in protocols.
 multicastRTPPort: 8002
-# port of all UDP-multicast/RTCP listeners. This is needed only when "udp" is in protocols.
+# port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in protocols.
 multicastRTCPPort: 8003
 # path to the server key. This is needed only when encryption is "strict" or "optional".
 # this can be generated with:
