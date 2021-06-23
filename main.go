@@ -307,6 +307,7 @@ func (p *program) createResources(initial bool) error {
 				p.conf.HLSAddress,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,
+				p.conf.HLSAllowOrigin,
 				p.conf.ReadBufferCount,
 				p.stats,
 				p.pathMan,
@@ -426,6 +427,7 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		newConf.HLSAddress != p.conf.HLSAddress ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeStats ||
 		closePathMan {

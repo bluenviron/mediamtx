@@ -100,6 +100,7 @@ type Conf struct {
 	HLSAddress         string        `yaml:"hlsAddress"`
 	HLSSegmentCount    int           `yaml:"hlsSegmentCount"`
 	HLSSegmentDuration time.Duration `yaml:"hlsSegmentDuration"`
+	HLSAllowOrigin     string        `yaml:"hlsAllowOrigin"`
 
 	// path
 	Paths map[string]*PathConf `yaml:"paths"`
@@ -265,6 +266,9 @@ func (conf *Conf) fillAndCheck() error {
 	}
 	if conf.HLSSegmentDuration == 0 {
 		conf.HLSSegmentDuration = 1 * time.Second
+	}
+	if conf.HLSAllowOrigin == "" {
+		conf.HLSAllowOrigin = "*"
 	}
 
 	if len(conf.Paths) == 0 {

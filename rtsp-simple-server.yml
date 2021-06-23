@@ -98,9 +98,12 @@ hlsAddress: :8888
 # decreasing segments decrease latency.
 hlsSegmentCount: 3
 # minimum duration of each segment.
-# the real segment duration is also influenced by the interval of IDR frames
-# (since the server edit the segment duration to include at least one IDR frame).
+# the real segment duration is also influenced by the interval between IDR frames,
+# since the server changes the segment duration to include at least one IDR frame in each.
 hlsSegmentDuration: 1s
+# value of the Access-Control-Allow-Origin header provided in every HTTP response.
+# This allows to play the HLS stream from an external website.
+hlsAllowOrigin: '*'
 
 ###############################################
 # Path parameters

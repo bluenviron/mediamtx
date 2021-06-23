@@ -552,8 +552,6 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 		case preq := <-c.request:
 			req := preq
 
-			req.W.Header().Add("Access-Control-Allow-Origin", "*")
-
 			atomic.StoreInt64(&c.lastRequestTime, time.Now().Unix())
 
 			conf := c.path.Conf()

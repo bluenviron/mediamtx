@@ -25,6 +25,7 @@ type Parent interface {
 type Server struct {
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
+	hlsAllowOrigin     string
 	readBufferCount    int
 	stats              *stats.Stats
 	pathMan            *pathman.PathManager
@@ -47,6 +48,7 @@ func New(
 	address string,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
+	hlsAllowOrigin string,
 	readBufferCount int,
 	stats *stats.Stats,
 	pathMan *pathman.PathManager,
@@ -62,6 +64,7 @@ func New(
 	s := &Server{
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
+		hlsAllowOrigin:     hlsAllowOrigin,
 		readBufferCount:    readBufferCount,
 		stats:              stats,
 		pathMan:            pathMan,
@@ -145,6 +148,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// remove leading prefix
 	pa := r.URL.Path[1:]
+
+	w.Header().Add("Access-Control-Allow-Origin", s.hlsAllowOrigin)
 
 	if pa == "" || pa == "favicon.ico" {
 		w.WriteHeader(http.StatusNotFound)
