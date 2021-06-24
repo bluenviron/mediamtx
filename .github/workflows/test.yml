@@ -19,7 +19,7 @@ jobs:
       with:
         go-version: "1.16"
 
-    - run: sudo apt-get install -y --no-install-recommends ffmpeg
+    - run: sudo apt update && sudo apt install -y --no-install-recommends ffmpeg
 
     - run: make test-nodocker
 
