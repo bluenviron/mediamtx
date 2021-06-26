@@ -153,10 +153,13 @@ func (s *Source) runInner() bool {
 					}
 
 					var tracks gortsplib.Tracks
+					videoTrackID := -1
+					audioTrackID := -1
 
 					var h264Encoder *rtph264.Encoder
 					if videoTrack != nil {
 						h264Encoder = rtph264.NewEncoder(96, nil, nil, nil)
+						videoTrackID = len(tracks)
 						tracks = append(tracks, videoTrack)
 					}
 
@@ -164,11 +167,8 @@ func (s *Source) runInner() bool {
 					if audioTrack != nil {
 						clockRate, _ := audioTrack.ClockRate()
 						aacEncoder = rtpaac.NewEncoder(96, clockRate, nil, nil, nil)
+						audioTrackID = len(tracks)
 						tracks = append(tracks, audioTrack)
-					}
-
-					for i, t := range tracks {
-						t.ID = i
 					}
 
 					s.log(logger.Info, "ready")
@@ -232,7 +232,7 @@ func (s *Source) runInner() bool {
 							}
 
 							for _, pkt := range pkts {
-								onFrame(videoTrack.ID, pkt)
+								onFrame(videoTrackID, pkt)
 							}
 
 						case av.AAC:
@@ -246,7 +246,7 @@ func (s *Source) runInner() bool {
 							}
 
 							for _, pkt := range pkts {
-								onFrame(audioTrack.ID, pkt)
+								onFrame(audioTrackID, pkt)
 							}
 
 						default:

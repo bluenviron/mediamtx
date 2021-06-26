@@ -514,7 +514,7 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 				})
 			}()
 
-			err = s1.WriteFrame(track.ID, gortsplib.StreamTypeRTP,
+			err = s1.WriteFrame(0, gortsplib.StreamTypeRTP,
 				[]byte{0x01, 0x02, 0x03, 0x04})
 			if ca == "enabled" {
 				require.Error(t, err)
@@ -523,7 +523,7 @@ func TestClientRTSPPublisherOverride(t *testing.T) {
 			}
 
 			if ca == "enabled" {
-				err = s2.WriteFrame(track.ID, gortsplib.StreamTypeRTP,
+				err = s2.WriteFrame(0, gortsplib.StreamTypeRTP,
 					[]byte{0x05, 0x06, 0x07, 0x08})
 				require.NoError(t, err)
 			}
@@ -577,7 +577,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			})
 		}()
 
-		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, input)
+		err = source.WriteFrame(0, gortsplib.StreamTypeRTP, input)
 		require.NoError(t, err)
 
 		<-frameRecv
@@ -641,7 +641,7 @@ func TestClientRTSPNonCompliantFrameSize(t *testing.T) {
 			})
 		}()
 
-		err = source.WriteFrame(track.ID, gortsplib.StreamTypeRTP, input)
+		err = source.WriteFrame(0, gortsplib.StreamTypeRTP, input)
 		require.NoError(t, err)
 
 		<-frameRecv

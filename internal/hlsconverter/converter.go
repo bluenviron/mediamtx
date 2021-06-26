@@ -263,10 +263,12 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 
 	c.path = res.Path
 	var videoTrack *gortsplib.Track
+	videoTrackID := -1
 	var h264SPS []byte
 	var h264PPS []byte
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
+	audioTrackID := -1
 	var aacConfig rtpaac.MPEG4AudioConfig
 	var aacDecoder *rtpaac.Decoder
 
@@ -275,7 +277,9 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)
 			}
+
 			videoTrack = t
+			videoTrackID = i
 
 			var err error
 			h264SPS, h264PPS, err = t.ExtractDataH264()
@@ -289,7 +293,9 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 			if audioTrack != nil {
 				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)
 			}
+
 			audioTrack = t
+			audioTrackID = i
 
 			byts, err := t.ExtractDataAAC()
 			if err != nil {
@@ -350,7 +356,7 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 				}
 				pair := data.(trackIDPayloadPair)
 
-				if videoTrack != nil && pair.trackID == videoTrack.ID {
+				if videoTrack != nil && pair.trackID == videoTrackID {
 					var pkt rtp.Packet
 					err := pkt.Unmarshal(pair.buf)
 					if err != nil {
@@ -454,7 +460,7 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 						}
 					}
 
-				} else if audioTrack != nil && pair.trackID == audioTrack.ID {
+				} else if audioTrack != nil && pair.trackID == audioTrackID {
 					aus, pts, err := aacDecoder.Decode(pair.buf)
 					if err != nil {
 						if err != rtpaac.ErrMorePacketsNeeded {

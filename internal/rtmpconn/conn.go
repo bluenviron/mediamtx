@@ -233,8 +233,10 @@ func (c *Conn) runRead(ctx context.Context) error {
 	c.path = res.Path
 
 	var videoTrack *gortsplib.Track
+	videoTrackID := -1
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
+	audioTrackID := -1
 	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
@@ -245,6 +247,7 @@ func (c *Conn) runRead(ctx context.Context) error {
 			}
 
 			videoTrack = t
+			videoTrackID = i
 			h264Decoder = rtph264.NewDecoder()
 
 		} else if t.IsAAC() {
@@ -253,6 +256,7 @@ func (c *Conn) runRead(ctx context.Context) error {
 			}
 
 			audioTrack = t
+			audioTrackID = i
 			audioClockRate, _ = audioTrack.ClockRate()
 			aacDecoder = rtpaac.NewDecoder(audioClockRate)
 		}
@@ -291,7 +295,7 @@ func (c *Conn) runRead(ctx context.Context) error {
 		}
 		pair := data.(trackIDPayloadPair)
 
-		if videoTrack != nil && pair.trackID == videoTrack.ID {
+		if videoTrack != nil && pair.trackID == videoTrackID {
 			nalus, pts, err := h264Decoder.Decode(pair.buf)
 			if err != nil {
 				if err != rtph264.ErrMorePacketsNeeded {
@@ -335,7 +339,7 @@ func (c *Conn) runRead(ctx context.Context) error {
 				videoBuf = nil
 			}
 
-		} else if audioTrack != nil && pair.trackID == audioTrack.ID {
+		} else if audioTrack != nil && pair.trackID == audioTrackID {
 			aus, pts, err := aacDecoder.Decode(pair.buf)
 			if err != nil {
 				if err != rtpaac.ErrMorePacketsNeeded {
@@ -369,22 +373,22 @@ func (c *Conn) runPublish(ctx context.Context) error {
 	}
 
 	var tracks gortsplib.Tracks
-	var h264Encoder *rtph264.Encoder
-	var aacEncoder *rtpaac.Encoder
+	videoTrackID := -1
+	audioTrackID := -1
 
+	var h264Encoder *rtph264.Encoder
 	if videoTrack != nil {
 		h264Encoder = rtph264.NewEncoder(96, nil, nil, nil)
+		videoTrackID = len(tracks)
 		tracks = append(tracks, videoTrack)
 	}
 
+	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
 		clockRate, _ := audioTrack.ClockRate()
 		aacEncoder = rtpaac.NewEncoder(96, clockRate, nil, nil, nil)
+		audioTrackID = len(tracks)
 		tracks = append(tracks, audioTrack)
-	}
-
-	for i, t := range tracks {
-		t.ID = i
 	}
 
 	pathName, query := pathNameAndQuery(c.conn.URL())
@@ -499,7 +503,7 @@ func (c *Conn) runPublish(ctx context.Context) error {
 			}
 
 			for _, frame := range frames {
-				onFrame(videoTrack.ID, frame)
+				onFrame(videoTrackID, frame)
 			}
 
 		case av.AAC:
@@ -513,7 +517,7 @@ func (c *Conn) runPublish(ctx context.Context) error {
 			}
 
 			for _, frame := range frames {
-				onFrame(audioTrack.ID, frame)
+				onFrame(audioTrackID, frame)
 			}
 
 		default:
