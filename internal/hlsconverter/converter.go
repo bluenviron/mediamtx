@@ -405,7 +405,7 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 					// send them together.
 					marker := (pair.buf[1] >> 7 & 0x1) > 0
 					if marker {
-						isIDR := func() bool {
+						bufferHasIDR := func() bool {
 							for _, nalu := range videoBuf {
 								typ := h264.NALUType(nalu[0] & 0x1F)
 								if typ == h264.NALUTypeIDR {
@@ -415,11 +415,20 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 							return false
 						}()
 
+						// we received a marker packet but
+						// - no IDR has been stored yet in current file
+						// - there's no IDR in the buffer
+						// data cannot be parsed, clear buffer
+						if !bufferHasIDR && !curTSFile.firstPacketWritten {
+							videoBuf = nil
+							continue
+						}
+
 						err := func() error {
 							c.tsMutex.Lock()
 							defer c.tsMutex.Unlock()
 
-							if isIDR {
+							if bufferHasIDR {
 								if curTSFile.firstPacketWritten &&
 									curTSFile.Duration() >= c.hlsSegmentDuration {
 									if curTSFile != nil {
@@ -436,17 +445,13 @@ func (c *Converter) runInner(innerCtx context.Context) error {
 										c.tsDeleteCount++
 									}
 								}
-							} else {
-								if !curTSFile.firstPacketWritten {
-									return nil
-								}
 							}
 
 							curTSFile.SetPCR(time.Since(startPCR))
 							err := curTSFile.WriteH264(
 								videoDTSEst.Feed(pts+ptsOffset),
 								pts+ptsOffset,
-								isIDR,
+								bufferHasIDR,
 								videoBuf)
 							if err != nil {
 								return err
