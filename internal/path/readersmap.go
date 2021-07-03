@@ -35,11 +35,11 @@ func (m *readersMap) remove(reader reader) {
 	delete(m.ma, reader)
 }
 
-func (m *readersMap) forwardFrame(trackID int, streamType gortsplib.StreamType, buf []byte) {
+func (m *readersMap) forwardFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for c := range m.ma {
-		c.OnFrame(trackID, streamType, buf)
+		c.OnFrame(trackID, streamType, payload)
 	}
 }
