@@ -629,6 +629,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 						cnt += f.Name() + ".ts\n"
 					}
 
+					req.W.Header().Set("Content-Type", `application/x-mpegURL`)
 					req.Res <- bytes.NewReader([]byte(cnt))
 				}()
 
@@ -645,6 +646,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 					continue
 				}
 
+				req.W.Header().Set("Content-Type", `video/MP2T`)
 				req.Res <- f.buf.NewReader()
 
 			case req.FileName == "":
