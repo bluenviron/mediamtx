@@ -9,7 +9,7 @@ jobs:
   github:
     name: github
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
@@ -46,7 +46,7 @@ jobs:
   dockerhub:
     name: dockerhub
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
