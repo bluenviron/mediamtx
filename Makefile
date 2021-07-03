@@ -167,10 +167,10 @@ release-nodocker:
 	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=arm GOARM=6 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm6.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_armv6.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o tmp/rtsp-simple-server
-	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm7.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
+	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_armv7.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
 
 	GOOS=linux GOARCH=arm64 $(GOBUILD) -o tmp/rtsp-simple-server
 	tar -C tmp -czf $(PWD)/release/rtsp-simple-server_$(VERSION)_linux_arm64v8.tar.gz --owner=0 --group=0 rtsp-simple-server rtsp-simple-server.yml
