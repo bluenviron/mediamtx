@@ -12,6 +12,7 @@ help:
 	@echo "  mod-tidy       run go mod tidy"
 	@echo "  format         format source files"
 	@echo "  test           run tests"
+	@echo "  test32         run tests on a 32-bit system"
 	@echo "  lint           run linters"
 	@echo "  bench NAME=n  run bench environment"
 	@echo "  run            run app"
@@ -42,8 +43,9 @@ format:
 	sh -c "find . -type f -name '*.go' | xargs gofumpt -l -w"
 
 define DOCKERFILE_TEST
-FROM amd64/$(BASE_IMAGE)
-RUN apk add --no-cache make docker-cli git ffmpeg gcc musl-dev
+ARG ARCH
+FROM $$ARCH/$(BASE_IMAGE)
+RUN apk add --no-cache make docker-cli ffmpeg gcc musl-dev
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
@@ -51,23 +53,31 @@ COPY . ./
 endef
 export DOCKERFILE_TEST
 
-test-internal:
-	go test -v -race -coverprofile=coverage-internal.txt ./internal/...
-
-test-root:
-	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
-	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	go test -v -race -coverprofile=coverage-root.txt .
-
-test-nodocker: test-internal test-root
-
 test:
-	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp
+	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=amd64
+	docker run --rm \
+	--network=host \
+	-v /var/run/docker.sock:/var/run/docker.sock:ro \
+	temp \
+	make test-nodocker OPTS="-race -coverprofile=coverage-internal.txt"
+
+test32:
+	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=i386
 	docker run --rm \
 	--network=host \
 	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	temp \
 	make test-nodocker
+
+test-internal:
+	go test -v $(OPTS) ./internal/...
+
+test-root:
+	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
+	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
+	go test -v $(OPTS) .
+
+test-nodocker: test-internal test-root
 
 lint:
 	docker run --rm -v $(PWD):/app -w /app \
@@ -80,7 +90,7 @@ bench:
 
 define DOCKERFILE_RUN
 FROM amd64/$(BASE_IMAGE)
-RUN apk add --no-cache git ffmpeg
+RUN apk add --no-cache ffmpeg
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
