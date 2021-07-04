@@ -2,7 +2,11 @@ package core
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
+	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -31,7 +35,9 @@ type rtmpServer struct {
 	conns     map[*rtmpConn]struct{}
 
 	// in
-	connClose chan *rtmpConn
+	connClose        chan *rtmpConn
+	apiRTMPConnsList chan apiRTMPConnsListReq
+	apiRTMPConnsKick chan apiRTMPConnsKickReq
 }
 
 func newRTMPServer(
@@ -68,6 +74,8 @@ func newRTMPServer(
 		l:                   l,
 		conns:               make(map[*rtmpConn]struct{}),
 		connClose:           make(chan *rtmpConn),
+		apiRTMPConnsList:    make(chan apiRTMPConnsListReq),
+		apiRTMPConnsKick:    make(chan apiRTMPConnsKickReq),
 	}
 
 	s.Log(logger.Info, "listener opened on %s", address)
@@ -85,6 +93,7 @@ func (s *rtmpServer) Log(level logger.Level, format string, args ...interface{})
 func (s *rtmpServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
+	s.Log(logger.Info, "closed")
 }
 
 func (s *rtmpServer) run() {
@@ -124,8 +133,11 @@ outer:
 			break outer
 
 		case nconn := <-connNew:
+			id, _ := s.newConnID()
+
 			c := newRTMPConn(
 				s.ctx,
+				id,
 				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,
@@ -145,6 +157,31 @@ outer:
 			}
 			s.doConnClose(c)
 
+		case req := <-s.apiRTMPConnsList:
+			for c := range s.conns {
+				req.Data.Items = append(req.Data.Items, apiRTMPConnsListItem{
+					ID:         c.ID(),
+					RemoteAddr: c.RemoteAddr().String(),
+				})
+			}
+			req.Res <- apiRTMPConnsListRes{}
+
+		case req := <-s.apiRTMPConnsKick:
+			res := func() bool {
+				for c := range s.conns {
+					if c.ID() == req.ID {
+						c.Close()
+						return true
+					}
+				}
+				return false
+			}()
+			if res {
+				req.Res <- apiRTMPConnsKickRes{}
+			} else {
+				req.Res <- apiRTMPConnsKickRes{fmt.Errorf("not found")}
+			}
+
 		case <-s.ctx.Done():
 			break outer
 		}
@@ -159,6 +196,34 @@ outer:
 	}
 }
 
+func (s *rtmpServer) newConnID() (string, error) {
+	for {
+		b := make([]byte, 4)
+		_, err := rand.Read(b)
+		if err != nil {
+			return "", err
+		}
+
+		u := binary.LittleEndian.Uint32(b)
+		u %= 899999999
+		u += 100000000
+
+		id := strconv.FormatUint(uint64(u), 10)
+
+		alreadyPresent := func() bool {
+			for c := range s.conns {
+				if c.ID() == id {
+					return true
+				}
+			}
+			return false
+		}()
+		if !alreadyPresent {
+			return id, nil
+		}
+	}
+}
+
 func (s *rtmpServer) doConnClose(c *rtmpConn) {
 	delete(s.conns, c)
 	c.ParentClose()
@@ -170,5 +235,27 @@ func (s *rtmpServer) OnConnClose(c *rtmpConn) {
 	select {
 	case s.connClose <- c:
 	case <-s.ctx.Done():
+	}
+}
+
+// OnAPIRTMPConnsList is called by api.
+func (s *rtmpServer) OnAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes {
+	req.Res = make(chan apiRTMPConnsListRes)
+	select {
+	case s.apiRTMPConnsList <- req:
+		return <-req.Res
+	case <-s.ctx.Done():
+		return apiRTMPConnsListRes{Err: fmt.Errorf("terminated")}
+	}
+}
+
+// OnAPIRTMPConnsKick is called by api.
+func (s *rtmpServer) OnAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes {
+	req.Res = make(chan apiRTMPConnsKickRes)
+	select {
+	case s.apiRTMPConnsKick <- req:
+		return <-req.Res
+	case <-s.ctx.Done():
+		return apiRTMPConnsKickRes{Err: fmt.Errorf("terminated")}
 	}
 }

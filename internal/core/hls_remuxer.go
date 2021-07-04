@@ -495,3 +495,10 @@ func (r *hlsRemuxer) OnReaderFrame(trackID int, streamType gortsplib.StreamType,
 		r.ringBuffer.Push(hlsRemuxerTrackIDPayloadPair{trackID, payload})
 	}
 }
+
+// OnReaderAPIDescribe implements reader.
+func (r *hlsRemuxer) OnReaderAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+	}{"hlsremuxer"}
+}

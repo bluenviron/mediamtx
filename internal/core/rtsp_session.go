@@ -25,8 +25,9 @@ type rtspSessionParent interface {
 type rtspSession struct {
 	rtspAddress string
 	protocols   map[conf.Protocol]struct{}
-	visualID    string
+	id          string
 	ss          *gortsplib.ServerSession
+	author      *gortsplib.ServerConn
 	pathManager *pathManager
 	parent      rtspSessionParent
 
@@ -38,7 +39,7 @@ type rtspSession struct {
 func newRTSPSession(
 	rtspAddress string,
 	protocols map[conf.Protocol]struct{},
-	visualID string,
+	id string,
 	ss *gortsplib.ServerSession,
 	sc *gortsplib.ServerConn,
 	pathManager *pathManager,
@@ -46,13 +47,14 @@ func newRTSPSession(
 	s := &rtspSession{
 		rtspAddress: rtspAddress,
 		protocols:   protocols,
-		visualID:    visualID,
+		id:          id,
 		ss:          ss,
+		author:      sc,
 		pathManager: pathManager,
 		parent:      parent,
 	}
 
-	s.log(logger.Info, "opened by %v", sc.NetConn().RemoteAddr())
+	s.log(logger.Info, "opened by %v", s.author.NetConn().RemoteAddr())
 
 	return s
 }
@@ -83,15 +85,17 @@ func (s *rtspSession) Close() {
 	s.ss.Close()
 }
 
-// IsSource implements source.
-func (s *rtspSession) IsSource() {}
-
 // IsRTSPSession implements pathRTSPSession.
 func (s *rtspSession) IsRTSPSession() {}
 
-// VisualID returns the visual ID of the session.
-func (s *rtspSession) VisualID() string {
-	return s.visualID
+// ID returns the public ID of the session.
+func (s *rtspSession) ID() string {
+	return s.id
+}
+
+// RemoteAddr returns the remote address of the author of the session.
+func (s *rtspSession) RemoteAddr() net.Addr {
+	return s.author.NetConn().RemoteAddr()
 }
 
 func (s *rtspSession) displayedProtocol() string {
@@ -102,7 +106,7 @@ func (s *rtspSession) displayedProtocol() string {
 }
 
 func (s *rtspSession) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[session %s] "+format, append([]interface{}{s.visualID}, args...)...)
+	s.parent.Log(level, "[session %s] "+format, append([]interface{}{s.id}, args...)...)
 }
 
 // OnAnnounce is called by rtspServer.
@@ -298,6 +302,22 @@ func (s *rtspSession) OnReaderFrame(trackID int, streamType gortsplib.StreamType
 	s.ss.WriteFrame(trackID, streamType, payload)
 }
 
+// OnReaderAPIDescribe implements reader.
+func (s *rtspSession) OnReaderAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	}{"rtspsession", s.id}
+}
+
+// OnSourceAPIDescribe implements source.
+func (s *rtspSession) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	}{"rtspsession", s.id}
+}
+
 // OnPublisherAccepted implements publisher.
 func (s *rtspSession) OnPublisherAccepted(tracksLen int) {
 	s.log(logger.Info, "is publishing to path '%s', %d %s with %s",
@@ -312,8 +332,8 @@ func (s *rtspSession) OnPublisherAccepted(tracksLen int) {
 		s.displayedProtocol())
 }
 
-// OnIncomingFrame is called by rtspServer.
-func (s *rtspSession) OnIncomingFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
+// OnFrame is called by rtspServer.
+func (s *rtspSession) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 	if s.ss.State() != gortsplib.ServerSessionStateRecord {
 		return
 	}

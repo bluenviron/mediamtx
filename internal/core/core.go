@@ -19,21 +19,25 @@ var version = "v0.0.0"
 
 // Core is an instance of rtsp-simple-server.
 type Core struct {
-	ctx             context.Context
-	ctxCancel       func()
-	confPath        string
-	conf            *conf.Conf
-	confFound       bool
-	stats           *stats
-	logger          *logger.Logger
-	metrics         *metrics
-	pprof           *pprof
-	pathManager     *pathManager
-	rtspServerPlain *rtspServer
-	rtspServerTLS   *rtspServer
-	rtmpServer      *rtmpServer
-	hlsServer       *hlsServer
-	confWatcher     *confwatcher.ConfWatcher
+	ctx         context.Context
+	ctxCancel   func()
+	confPath    string
+	conf        *conf.Conf
+	confFound   bool
+	stats       *stats
+	logger      *logger.Logger
+	metrics     *metrics
+	pprof       *pprof
+	pathManager *pathManager
+	rtspServer  *rtspServer
+	rtspsServer *rtspServer
+	rtmpServer  *rtmpServer
+	hlsServer   *hlsServer
+	api         *api
+	confWatcher *confwatcher.ConfWatcher
+
+	// in
+	apiConfigSet chan *conf.Conf
 
 	// out
 	done chan struct{}
@@ -62,10 +66,11 @@ func New(args []string) (*Core, bool) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	p := &Core{
-		ctx:       ctx,
-		ctxCancel: ctxCancel,
-		confPath:  *argConfPath,
-		done:      make(chan struct{}),
+		ctx:          ctx,
+		ctxCancel:    ctxCancel,
+		confPath:     *argConfPath,
+		apiConfigSet: make(chan *conf.Conf),
+		done:         make(chan struct{}),
 	}
 
 	var err error
@@ -130,7 +135,24 @@ outer:
 	for {
 		select {
 		case <-confChanged:
-			err := p.reloadConf()
+			p.Log(logger.Info, "reloading configuration (file changed)")
+
+			newConf, _, err := conf.Load(p.confPath)
+			if err != nil {
+				p.Log(logger.Info, "ERR: %s", err)
+				break outer
+			}
+
+			err = p.reloadConf(newConf)
+			if err != nil {
+				p.Log(logger.Info, "ERR: %s", err)
+				break outer
+			}
+
+		case newConf := <-p.apiConfigSet:
+			p.Log(logger.Info, "reloading configuration (API request)")
+
+			err := p.reloadConf(newConf)
 			if err != nil {
 				p.Log(logger.Info, "ERR: %s", err)
 				break outer
@@ -213,10 +235,10 @@ func (p *Core) createResources(initial bool) error {
 	if !p.conf.RTSPDisable &&
 		(p.conf.EncryptionParsed == conf.EncryptionNo ||
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
-		if p.rtspServerPlain == nil {
+		if p.rtspServer == nil {
 			_, useUDP := p.conf.ProtocolsParsed[conf.ProtocolUDP]
 			_, useMulticast := p.conf.ProtocolsParsed[conf.ProtocolMulticast]
-			p.rtspServerPlain, err = newRTSPServer(
+			p.rtspServer, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPAddress,
 				p.conf.AuthMethodsParsed,
@@ -250,8 +272,8 @@ func (p *Core) createResources(initial bool) error {
 	if !p.conf.RTSPDisable &&
 		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
-		if p.rtspServerTLS == nil {
-			p.rtspServerTLS, err = newRTSPServer(
+		if p.rtspsServer == nil {
+			p.rtspsServer, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPSAddress,
 				p.conf.AuthMethodsParsed,
@@ -321,6 +343,22 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
+	if p.conf.API {
+		if p.api == nil {
+			p.api, err = newAPI(
+				p.conf.APIAddress,
+				p.conf,
+				p.pathManager,
+				p.rtspServer,
+				p.rtspsServer,
+				p.rtmpServer,
+				p)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -366,7 +404,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.pathManager.OnConfReload(newConf.Paths)
 	}
 
-	closeServerPlain := false
+	closeRTSPServer := false
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
@@ -387,10 +425,10 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeStats ||
 		closePathManager {
-		closeServerPlain = true
+		closeRTSPServer = true
 	}
 
-	closeServerTLS := false
+	closeRTSPSServer := false
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
@@ -407,10 +445,10 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeStats ||
 		closePathManager {
-		closeServerTLS = true
+		closeRTSPSServer = true
 	}
 
-	closeServerRTMP := false
+	closeRTMPServer := false
 	if newConf == nil ||
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
@@ -422,10 +460,10 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeStats ||
 		closePathManager {
-		closeServerRTMP = true
+		closeRTMPServer = true
 	}
 
-	closeServerHLS := false
+	closeHLSServer := false
 	if newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
@@ -436,17 +474,37 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeStats ||
 		closePathManager {
-		closeServerHLS = true
+		closeHLSServer = true
 	}
 
-	if closeServerTLS && p.rtspServerTLS != nil {
-		p.rtspServerTLS.close()
-		p.rtspServerTLS = nil
+	closeAPI := false
+	if newConf == nil ||
+		newConf.API != p.conf.API ||
+		newConf.APIAddress != p.conf.APIAddress ||
+		closePathManager ||
+		closeRTSPServer ||
+		closeRTSPSServer ||
+		closeRTMPServer {
+		closeAPI = true
 	}
 
-	if closeServerPlain && p.rtspServerPlain != nil {
-		p.rtspServerPlain.close()
-		p.rtspServerPlain = nil
+	if p.api != nil {
+		if closeAPI {
+			p.api.close()
+			p.api = nil
+		} else {
+			p.api.OnConfReload(newConf)
+		}
+	}
+
+	if closeRTSPSServer && p.rtspsServer != nil {
+		p.rtspsServer.close()
+		p.rtspsServer = nil
+	}
+
+	if closeRTSPServer && p.rtspServer != nil {
+		p.rtspServer.close()
+		p.rtspServer = nil
 	}
 
 	if closePathManager && p.pathManager != nil {
@@ -454,12 +512,12 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.pathManager = nil
 	}
 
-	if closeServerHLS && p.hlsServer != nil {
+	if closeHLSServer && p.hlsServer != nil {
 		p.hlsServer.close()
 		p.hlsServer = nil
 	}
 
-	if closeServerRTMP && p.rtmpServer != nil {
+	if closeRTMPServer && p.rtmpServer != nil {
 		p.rtmpServer.close()
 		p.rtmpServer = nil
 	}
@@ -484,16 +542,17 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 	}
 }
 
-func (p *Core) reloadConf() error {
-	p.Log(logger.Info, "reloading configuration")
-
-	newConf, _, err := conf.Load(p.confPath)
-	if err != nil {
-		return err
-	}
-
+func (p *Core) reloadConf(newConf *conf.Conf) error {
 	p.closeResources(newConf)
 
 	p.conf = newConf
 	return p.createResources(false)
+}
+
+// OnAPIConfigSet is called by api.
+func (p *Core) OnAPIConfigSet(conf *conf.Conf) {
+	select {
+	case p.apiConfigSet <- conf:
+	case <-p.ctx.Done():
+	}
 }

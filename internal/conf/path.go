@@ -69,42 +69,42 @@ type PathConf struct {
 	Regexp *regexp.Regexp `yaml:"-" json:"-"`
 
 	// source
-	Source                     string                    `yaml:"source"`
-	SourceProtocol             string                    `yaml:"sourceProtocol"`
+	Source                     string                    `yaml:"source" json:"source"`
+	SourceProtocol             string                    `yaml:"sourceProtocol" json:"sourceProtocol"`
 	SourceProtocolParsed       *gortsplib.ClientProtocol `yaml:"-" json:"-"`
-	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable"`
-	SourceFingerprint          string                    `yaml:"sourceFingerprint"`
-	SourceOnDemand             bool                      `yaml:"sourceOnDemand"`
-	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter"`
-	SourceRedirect             string                    `yaml:"sourceRedirect"`
-	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride"`
-	Fallback                   string                    `yaml:"fallback"`
+	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable" json:"sourceAnyPortEnable"`
+	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
+	SourceOnDemand             bool                      `yaml:"sourceOnDemand" json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout" json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter" json:"sourceOnDemandCloseAfter"`
+	SourceRedirect             string                    `yaml:"sourceRedirect" json:"sourceRedirect"`
+	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride" json:"disablePublisherOverride"`
+	Fallback                   string                    `yaml:"fallback" json:"fallback"`
 
 	// authentication
-	PublishUser      string        `yaml:"publishUser"`
-	PublishPass      string        `yaml:"publishPass"`
-	PublishIPs       []string      `yaml:"publishIPs"`
+	PublishUser      string        `yaml:"publishUser" json:"publishUser"`
+	PublishPass      string        `yaml:"publishPass" json:"publishPass"`
+	PublishIPs       []string      `yaml:"publishIPs" json:"publishIPs"`
 	PublishIPsParsed []interface{} `yaml:"-" json:"-"`
-	ReadUser         string        `yaml:"readUser"`
-	ReadPass         string        `yaml:"readPass"`
-	ReadIPs          []string      `yaml:"readIPs"`
+	ReadUser         string        `yaml:"readUser" json:"readUser"`
+	ReadPass         string        `yaml:"readPass" json:"readPass"`
+	ReadIPs          []string      `yaml:"readIPs" json:"readIPs"`
 	ReadIPsParsed    []interface{} `yaml:"-" json:"-"`
 
 	// custom commands
-	RunOnInit               string        `yaml:"runOnInit"`
-	RunOnInitRestart        bool          `yaml:"runOnInitRestart"`
-	RunOnDemand             string        `yaml:"runOnDemand"`
-	RunOnDemandRestart      bool          `yaml:"runOnDemandRestart"`
-	RunOnDemandStartTimeout time.Duration `yaml:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter   time.Duration `yaml:"runOnDemandCloseAfter"`
-	RunOnPublish            string        `yaml:"runOnPublish"`
-	RunOnPublishRestart     bool          `yaml:"runOnPublishRestart"`
-	RunOnRead               string        `yaml:"runOnRead"`
-	RunOnReadRestart        bool          `yaml:"runOnReadRestart"`
+	RunOnInit               string        `yaml:"runOnInit" json:"runOnInit"`
+	RunOnInitRestart        bool          `yaml:"runOnInitRestart" json:"runOnInitRestart"`
+	RunOnDemand             string        `yaml:"runOnDemand" json:"runOnDemand"`
+	RunOnDemandRestart      bool          `yaml:"runOnDemandRestart" json:"runOnDemandRestart"`
+	RunOnDemandStartTimeout time.Duration `yaml:"runOnDemandStartTimeout" json:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter   time.Duration `yaml:"runOnDemandCloseAfter" json:"runOnDemandCloseAfter"`
+	RunOnPublish            string        `yaml:"runOnPublish" json:"runOnPublish"`
+	RunOnPublishRestart     bool          `yaml:"runOnPublishRestart" json:"runOnPublishRestart"`
+	RunOnRead               string        `yaml:"runOnRead" json:"runOnRead"`
+	RunOnReadRestart        bool          `yaml:"runOnReadRestart" json:"runOnReadRestart"`
 }
 
-func (pconf *PathConf) fillAndCheck(name string) error {
+func (pconf *PathConf) checkAndFillMissing(name string) error {
 	if name == "" {
 		return fmt.Errorf("path name can not be empty")
 	}

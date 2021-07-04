@@ -7,8 +7,8 @@ require (
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/aler9/gortsplib v0.0.0-20210731192657-45db8582b0b3
 	github.com/asticode/go-astits v1.9.0
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/gin-gonic/gin v1.7.2
 	github.com/gookit/color v1.4.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2

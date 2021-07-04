@@ -41,6 +41,7 @@ type pathManager struct {
 	readerSetupPlay   chan pathReaderSetupPlayReq
 	publisherAnnounce chan pathPublisherAnnounceReq
 	hlsServerSet      chan *hlsServer
+	apiPathsList      chan apiPathsListReq1
 }
 
 func newPathManager(
@@ -74,6 +75,7 @@ func newPathManager(
 		readerSetupPlay:   make(chan pathReaderSetupPlayReq),
 		publisherAnnounce: make(chan pathPublisherAnnounceReq),
 		hlsServerSet:      make(chan *hlsServer),
+		apiPathsList:      make(chan apiPathsListReq1),
 	}
 
 	for pathName, pathConf := range pm.pathConfs {
@@ -238,6 +240,17 @@ outer:
 		case s := <-pm.hlsServerSet:
 			pm.hlsServer = s
 
+		case req := <-pm.apiPathsList:
+			paths := make(map[string]*path)
+
+			for name, pa := range pm.paths {
+				paths[name] = pa
+			}
+
+			req.Res <- apiPathsListRes1{
+				Paths: paths,
+			}
+
 		case <-pm.ctx.Done():
 			break outer
 		}
@@ -394,5 +407,16 @@ func (pm *pathManager) OnHLSServer(s *hlsServer) {
 	select {
 	case pm.hlsServerSet <- s:
 	case <-pm.ctx.Done():
+	}
+}
+
+// OnAPIPathsList is called by api.
+func (pm *pathManager) OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1 {
+	req.Res = make(chan apiPathsListRes1)
+	select {
+	case pm.apiPathsList <- req:
+		return <-req.Res
+	case <-pm.ctx.Done():
+		return apiPathsListRes1{Err: fmt.Errorf("terminated")}
 	}
 }

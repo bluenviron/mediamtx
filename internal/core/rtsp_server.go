@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/binary"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -16,30 +17,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
-
-func newSessionVisualID(sessions map[*gortsplib.ServerSession]*rtspSession) (string, error) {
-	for {
-		b := make([]byte, 4)
-		_, err := rand.Read(b)
-		if err != nil {
-			return "", err
-		}
-
-		id := strconv.FormatUint(uint64(binary.LittleEndian.Uint32(b)), 10)
-
-		alreadyPresent := func() bool {
-			for _, s := range sessions {
-				if s.VisualID() == id {
-					return true
-				}
-			}
-			return false
-		}()
-		if !alreadyPresent {
-			return id, nil
-		}
-	}
-}
 
 type rtspServerParent interface {
 	Log(logger.Level, string, ...interface{})
@@ -170,6 +147,7 @@ func (s *rtspServer) Log(level logger.Level, format string, args ...interface{})
 func (s *rtspServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
+	s.Log(logger.Info, "closed")
 }
 
 func (s *rtspServer) run() {
@@ -201,6 +179,34 @@ outer:
 	s.ctxCancel()
 
 	s.srv.Close()
+}
+
+func (s *rtspServer) newSessionID() (string, error) {
+	for {
+		b := make([]byte, 4)
+		_, err := rand.Read(b)
+		if err != nil {
+			return "", err
+		}
+
+		u := binary.LittleEndian.Uint32(b)
+		u %= 899999999
+		u += 100000000
+
+		id := strconv.FormatUint(uint64(u), 10)
+
+		alreadyPresent := func() bool {
+			for _, s := range s.sessions {
+				if s.ID() == id {
+					return true
+				}
+			}
+			return false
+		}()
+		if !alreadyPresent {
+			return id, nil
+		}
+	}
 }
 
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
@@ -253,14 +259,12 @@ func (s *rtspServer) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
 func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	s.mutex.Lock()
 
-	// do not use ss.ID() in logs, since it allows to take ownership of a session
-	// use a new random ID
-	visualID, _ := newSessionVisualID(s.sessions)
+	id, _ := s.newSessionID()
 
 	se := newRTSPSession(
 		s.rtspAddress,
 		s.protocols,
-		visualID,
+		id,
 		ctx.Session,
 		ctx.Conn,
 		s.pathManager,
@@ -335,5 +339,46 @@ func (s *rtspServer) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	se.OnIncomingFrame(ctx)
+	se.OnFrame(ctx)
+}
+
+// OnAPIRTSPSessionsList is called by api.
+func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes {
+	select {
+	case <-s.ctx.Done():
+		return apiRTSPSessionsListRes{Err: fmt.Errorf("terminated")}
+	default:
+	}
+
+	s.mutex.RLock()
+	for _, s := range s.sessions {
+		req.Data.Items = append(req.Data.Items, apiRTSPSessionsItem{
+			ID:         s.ID(),
+			RemoteAddr: s.RemoteAddr().String(),
+		})
+	}
+	s.mutex.RUnlock()
+
+	return apiRTSPSessionsListRes{}
+}
+
+// OnAPIRTSPSessionsKick is called by api.
+func (s *rtspServer) OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes {
+	select {
+	case <-s.ctx.Done():
+		return apiRTSPSessionsKickRes{Err: fmt.Errorf("terminated")}
+	default:
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	for _, s := range s.sessions {
+		if s.ID() == req.ID {
+			s.Close()
+			return apiRTSPSessionsKickRes{}
+		}
+	}
+
+	return apiRTSPSessionsKickRes{Err: fmt.Errorf("not found")}
 }
