@@ -104,11 +104,11 @@ func ipEqualOrInRange(ip net.IP, ips []interface{}) bool {
 
 // Request is an HTTP request received by an HLS server.
 type Request struct {
-	Path     string
-	FileName string
-	Req      *http.Request
-	W        http.ResponseWriter
-	Res      chan io.Reader
+	Dir  string
+	File string
+	Req  *http.Request
+	W    http.ResponseWriter
+	Res  chan io.Reader
 }
 
 type trackIDPayloadPair struct {
@@ -592,7 +592,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 			}
 
 			switch {
-			case req.FileName == "stream.m3u8":
+			case req.File == "stream.m3u8":
 				func() {
 					c.tsMutex.RLock()
 					defer c.tsMutex.RUnlock()
@@ -633,8 +633,8 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 					req.Res <- bytes.NewReader([]byte(cnt))
 				}()
 
-			case strings.HasSuffix(req.FileName, ".ts"):
-				base := strings.TrimSuffix(req.FileName, ".ts")
+			case strings.HasSuffix(req.File, ".ts"):
+				base := strings.TrimSuffix(req.File, ".ts")
 
 				c.tsMutex.RLock()
 				f, ok := c.tsByName[base]
@@ -649,7 +649,7 @@ func (c *Converter) runRequestHandler(terminate chan struct{}, done chan struct{
 				req.W.Header().Set("Content-Type", `video/MP2T`)
 				req.Res <- f.buf.NewReader()
 
-			case req.FileName == "":
+			case req.File == "":
 				req.Res <- bytes.NewReader([]byte(index))
 
 			default:

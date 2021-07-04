@@ -106,7 +106,7 @@ outer:
 	for {
 		select {
 		case req := <-s.request:
-			c, ok := s.converters[req.Path]
+			c, ok := s.converters[req.Dir]
 			if !ok {
 				c = hlsconverter.New(
 					s.ctx,
@@ -115,10 +115,10 @@ outer:
 					s.readBufferCount,
 					&s.wg,
 					s.stats,
-					req.Path,
+					req.Dir,
 					s.pathMan,
 					s)
-				s.converters[req.Path] = c
+				s.converters[req.Dir] = c
 			}
 			c.OnRequest(req)
 
@@ -164,28 +164,28 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pa, fname := func() (string, string) {
+	dir, fname := func() (string, string) {
 		if strings.HasSuffix(pa, ".ts") || strings.HasSuffix(pa, ".m3u8") {
 			return path.Dir(pa), path.Base(pa)
 		}
 		return pa, ""
 	}()
 
-	if fname == "" && !strings.HasSuffix(pa, "/") {
-		w.Header().Add("Location", "/"+pa+"/")
+	if fname == "" && !strings.HasSuffix(dir, "/") {
+		w.Header().Add("Location", "/"+dir+"/")
 		w.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
 
-	pa = strings.TrimSuffix(pa, "/")
+	dir = strings.TrimSuffix(dir, "/")
 
 	cres := make(chan io.Reader)
 	hreq := hlsconverter.Request{
-		Path:     pa,
-		FileName: fname,
-		Req:      r,
-		W:        w,
-		Res:      cres,
+		Dir:  dir,
+		File: fname,
+		Req:  r,
+		W:    w,
+		Res:  cres,
 	}
 
 	select {
