@@ -1,5 +1,9 @@
 package stats
 
+import (
+	"sync/atomic"
+)
+
 func ptrInt64() *int64 {
 	v := int64(0)
 	return &v
@@ -10,6 +14,7 @@ type Stats struct {
 	// use pointers to avoid a crash on 32bit platforms
 	// https://github.com/golang/go/issues/9959
 	CountPublishers         *int64
+	PublishersPaths         atomic.Value
 	CountReaders            *int64
 	CountSourcesRTSP        *int64
 	CountSourcesRTSPRunning *int64

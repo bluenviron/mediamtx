@@ -5,7 +5,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"reflect"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -38,7 +40,6 @@ func New(
 	stats *stats.Stats,
 	parent Parent,
 ) (*Metrics, error) {
-
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
@@ -79,6 +80,15 @@ func (m *Metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 
 	countPublishers := atomic.LoadInt64(m.stats.CountPublishers)
 	countReaders := atomic.LoadInt64(m.stats.CountReaders)
+	loaded_data := m.stats.PublishersPaths.Load()
+	var data []string
+	if reflect.TypeOf(loaded_data) == nil {
+
+		//pass
+	} else {
+		data = loaded_data.([]string)
+	}
+	publishersPaths := data
 	countSourcesRTSP := atomic.LoadInt64(m.stats.CountSourcesRTSP)
 	countSourcesRTSPRunning := atomic.LoadInt64(m.stats.CountSourcesRTSPRunning)
 	countSourcesRTMP := atomic.LoadInt64(m.stats.CountSourcesRTMP)
@@ -90,7 +100,7 @@ func (m *Metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 		countPublishers, nowUnix)
 	out += formatMetric("rtsp_clients{state=\"reading\"}",
 		countReaders, nowUnix)
-
+	out += "rtsp_paths[" + strings.Join(publishersPaths, ",") + "]\n"
 	out += formatMetric("rtsp_sources{type=\"rtsp\",state=\"idle\"}",
 		countSourcesRTSP-countSourcesRTSPRunning, nowUnix)
 	out += formatMetric("rtsp_sources{type=\"rtsp\",state=\"running\"}",
