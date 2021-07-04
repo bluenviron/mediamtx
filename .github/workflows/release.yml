@@ -7,8 +7,6 @@ on:
 
 jobs:
   github:
-    name: github
-
     runs-on: ubuntu-20.04
 
     steps:
@@ -44,8 +42,6 @@ jobs:
           }
 
   dockerhub:
-    name: dockerhub
-
     runs-on: ubuntu-20.04
 
     steps:

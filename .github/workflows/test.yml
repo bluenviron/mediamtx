@@ -8,8 +8,6 @@ on:
 
 jobs:
   test:
-    name: test
-
     runs-on: ubuntu-20.04
 
     steps:
@@ -20,8 +18,6 @@ jobs:
     - run: bash <(curl -s https://codecov.io/bash)
 
   test32:
-    name: test32
-
     runs-on: ubuntu-20.04
 
     steps:
