@@ -35,10 +35,10 @@ type program struct {
 	metrics         *metrics.Metrics
 	pprof           *pprof.PPROF
 	pathMan         *pathman.PathManager
-	serverRTSPPlain *rtspserver.Server
-	serverRTSPTLS   *rtspserver.Server
-	serverRTMP      *rtmpserver.Server
-	serverHLS       *hlsserver.Server
+	rtspServerPlain *rtspserver.Server
+	rtspServerTLS   *rtspserver.Server
+	rtmpServer      *rtmpserver.Server
+	hlsServer       *hlsserver.Server
 	confWatcher     *confwatcher.ConfWatcher
 
 	// out
@@ -213,10 +213,10 @@ func (p *program) createResources(initial bool) error {
 	if !p.conf.RTSPDisable &&
 		(p.conf.EncryptionParsed == conf.EncryptionNo ||
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
-		if p.serverRTSPPlain == nil {
+		if p.rtspServerPlain == nil {
 			_, useUDP := p.conf.ProtocolsParsed[conf.ProtocolUDP]
 			_, useMulticast := p.conf.ProtocolsParsed[conf.ProtocolMulticast]
-			p.serverRTSPPlain, err = rtspserver.New(
+			p.rtspServerPlain, err = rtspserver.New(
 				p.ctx,
 				p.conf.RTSPAddress,
 				p.conf.ReadTimeout,
@@ -249,8 +249,8 @@ func (p *program) createResources(initial bool) error {
 	if !p.conf.RTSPDisable &&
 		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
 			p.conf.EncryptionParsed == conf.EncryptionOptional) {
-		if p.serverRTSPTLS == nil {
-			p.serverRTSPTLS, err = rtspserver.New(
+		if p.rtspServerTLS == nil {
+			p.rtspServerTLS, err = rtspserver.New(
 				p.ctx,
 				p.conf.RTSPSAddress,
 				p.conf.ReadTimeout,
@@ -281,8 +281,8 @@ func (p *program) createResources(initial bool) error {
 	}
 
 	if !p.conf.RTMPDisable {
-		if p.serverRTMP == nil {
-			p.serverRTMP, err = rtmpserver.New(
+		if p.rtmpServer == nil {
+			p.rtmpServer, err = rtmpserver.New(
 				p.ctx,
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
@@ -301,8 +301,8 @@ func (p *program) createResources(initial bool) error {
 	}
 
 	if !p.conf.HLSDisable {
-		if p.serverHLS == nil {
-			p.serverHLS, err = hlsserver.New(
+		if p.hlsServer == nil {
+			p.hlsServer, err = hlsserver.New(
 				p.ctx,
 				p.conf.HLSAddress,
 				p.conf.HLSSegmentCount,
@@ -434,14 +434,14 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		closeServerHLS = true
 	}
 
-	if closeServerTLS && p.serverRTSPTLS != nil {
-		p.serverRTSPTLS.Close()
-		p.serverRTSPTLS = nil
+	if closeServerTLS && p.rtspServerTLS != nil {
+		p.rtspServerTLS.Close()
+		p.rtspServerTLS = nil
 	}
 
-	if closeServerPlain && p.serverRTSPPlain != nil {
-		p.serverRTSPPlain.Close()
-		p.serverRTSPPlain = nil
+	if closeServerPlain && p.rtspServerPlain != nil {
+		p.rtspServerPlain.Close()
+		p.rtspServerPlain = nil
 	}
 
 	if closePathMan && p.pathMan != nil {
@@ -449,14 +449,14 @@ func (p *program) closeResources(newConf *conf.Conf) {
 		p.pathMan = nil
 	}
 
-	if closeServerHLS && p.serverHLS != nil {
-		p.serverHLS.Close()
-		p.serverHLS = nil
+	if closeServerHLS && p.hlsServer != nil {
+		p.hlsServer.Close()
+		p.hlsServer = nil
 	}
 
-	if closeServerRTMP && p.serverRTMP != nil {
-		p.serverRTMP.Close()
-		p.serverRTMP = nil
+	if closeServerRTMP && p.rtmpServer != nil {
+		p.rtmpServer.Close()
+		p.rtmpServer = nil
 	}
 
 	if closePPROF && p.pprof != nil {

@@ -102,7 +102,7 @@ type Conf struct {
 	HLSSegmentDuration time.Duration `yaml:"hlsSegmentDuration"`
 	HLSAllowOrigin     string        `yaml:"hlsAllowOrigin"`
 
-	// path
+	// paths
 	Paths map[string]*PathConf `yaml:"paths"`
 }
 
