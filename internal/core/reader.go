@@ -9,4 +9,5 @@ type reader interface {
 	Close()
 	OnReaderAccepted()
 	OnReaderFrame(int, gortsplib.StreamType, []byte)
+	OnReaderAPIDescribe() interface{}
 }

@@ -94,6 +94,7 @@ func (s *hlsServer) Log(level logger.Level, format string, args ...interface{}) 
 func (s *hlsServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
+	s.Log(logger.Info, "closed")
 }
 
 func (s *hlsServer) run() {

@@ -63,7 +63,12 @@ type pathRTSPSession interface {
 
 type sourceRedirect struct{}
 
-func (*sourceRedirect) IsSource() {}
+// OnSourceAPIDescribe implements source.
+func (*sourceRedirect) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+	}{"redirect"}
+}
 
 type pathReaderState int
 
@@ -241,6 +246,7 @@ type path struct {
 	readerSetupPlay         chan pathReaderSetupPlayReq
 	readerPlay              chan pathReaderPlayReq
 	readerPause             chan pathReaderPauseReq
+	apiPathsList            chan apiPathsListReq2
 }
 
 func newPath(
@@ -287,7 +293,10 @@ func newPath(
 		readerSetupPlay:         make(chan pathReaderSetupPlayReq),
 		readerPlay:              make(chan pathReaderPlayReq),
 		readerPause:             make(chan pathReaderPauseReq),
+		apiPathsList:            make(chan apiPathsListReq2),
 	}
+
+	pa.Log(logger.Info, "created")
 
 	pa.wg.Add(1)
 	go pa.run()
@@ -297,6 +306,7 @@ func newPath(
 
 func (pa *path) Close() {
 	pa.ctxCancel()
+	pa.Log(logger.Info, "destroyed")
 }
 
 // Log is the main logging function.
@@ -414,6 +424,28 @@ outer:
 
 		case req := <-pa.readerPause:
 			pa.onReaderPause(req)
+
+		case req := <-pa.apiPathsList:
+			req.Data.Items = append(req.Data.Items, apiPathsItem{
+				Name:     pa.name,
+				ConfName: pa.confName,
+				Conf:     pa.conf,
+				Source: func() interface{} {
+					if pa.source == nil {
+						return nil
+					}
+					return pa.source.OnSourceAPIDescribe()
+				}(),
+				SourceReady: pa.sourceReady,
+				Readers: func() []interface{} {
+					ret := []interface{}{}
+					for r := range pa.readers {
+						ret = append(ret, r.OnReaderAPIDescribe())
+					}
+					return ret
+				}(),
+			})
+			req.Res <- apiPathsListRes2{}
 
 		case <-pa.ctx.Done():
 			break outer
@@ -939,4 +971,15 @@ func (pa *path) OnSourceFrame(trackID int, streamType gortsplib.StreamType, payl
 
 	// forward to non-RTSP readers
 	pa.nonRTSPReaders.forwardFrame(trackID, streamType, payload)
+}
+
+// OnAPIPathsList is called by api.
+func (pa *path) OnAPIPathsList(req apiPathsListReq2) apiPathsListRes2 {
+	req.Res = make(chan apiPathsListRes2)
+	select {
+	case pa.apiPathsList <- req:
+		return <-req.Res
+	case <-pa.ctx.Done():
+		return apiPathsListRes2{Err: fmt.Errorf("terminated")}
+	}
 }

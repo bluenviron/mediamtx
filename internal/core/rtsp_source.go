@@ -91,12 +91,6 @@ func (s *rtspSource) Close() {
 	s.ctxCancel()
 }
 
-// IsSource implements source.
-func (s *rtspSource) IsSource() {}
-
-// IsSourceStatic implements sourceStatic.
-func (s *rtspSource) IsSourceStatic() {}
-
 func (s *rtspSource) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[rtsp source] "+format, args...)
 }
@@ -213,4 +207,11 @@ func (s *rtspSource) runInner() bool {
 		conn.Close()
 		return true
 	}
+}
+
+// OnSourceAPIDescribe implements source.
+func (*rtspSource) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+	}{"rtspSource"}
 }

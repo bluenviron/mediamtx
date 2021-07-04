@@ -53,6 +53,7 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
+	id                  string
 	rtspAddress         string
 	readTimeout         time.Duration
 	writeTimeout        time.Duration
@@ -73,6 +74,7 @@ type rtmpConn struct {
 
 func newRTMPConn(
 	parentCtx context.Context,
+	id string,
 	rtspAddress string,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
@@ -87,6 +89,7 @@ func newRTMPConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
+		id:                  id,
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
@@ -120,8 +123,15 @@ func (c *rtmpConn) Close() {
 	c.ctxCancel()
 }
 
-// IsSource implements source.
-func (c *rtmpConn) IsSource() {}
+// ID returns the ID of the Conn.
+func (c *rtmpConn) ID() string {
+	return c.id
+}
+
+// RemoteAddr returns the remote address of the Conn.
+func (c *rtmpConn) RemoteAddr() net.Addr {
+	return c.conn.NetConn().RemoteAddr()
+}
 
 func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
@@ -515,6 +525,22 @@ func (c *rtmpConn) OnReaderFrame(trackID int, streamType gortsplib.StreamType, p
 	if streamType == gortsplib.StreamTypeRTP {
 		c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})
 	}
+}
+
+// OnReaderAPIDescribe implements reader.
+func (c *rtmpConn) OnReaderAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	}{"rtmpconn", c.id}
+}
+
+// OnSourceAPIDescribe implements source.
+func (c *rtmpConn) OnSourceAPIDescribe() interface{} {
+	return struct {
+		Type string `json:"type"`
+		ID   string `json:"id"`
+	}{"rtmpconn", c.id}
 }
 
 // OnPublisherAccepted implements publisher.

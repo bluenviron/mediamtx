@@ -18,6 +18,11 @@ writeTimeout: 10s
 # a lower number allows to save RAM.
 readBufferCount: 512
 
+# enable the HTTP API.
+api: no
+# address of the API listener.
+apiAddress: :9997
+
 # enable Prometheus-compatible metrics.
 metrics: no
 # address of the metrics listener.
