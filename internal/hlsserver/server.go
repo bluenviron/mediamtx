@@ -150,6 +150,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pa := r.URL.Path[1:]
 
 	w.Header().Add("Access-Control-Allow-Origin", s.hlsAllowOrigin)
+	w.Header().Add("Access-Control-Allow-Credentials", "true")
+
+	if r.Method == "OPTIONS" {
+		w.Header().Add("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Add("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	if pa == "" || pa == "favicon.ico" {
 		w.WriteHeader(http.StatusNotFound)
