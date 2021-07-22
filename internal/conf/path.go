@@ -17,7 +17,7 @@ const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
 
 var reUserPass = regexp.MustCompile(`^[a-zA-Z0-9!\$\(\)\*\+\.;<=>\[\]\^_\-\{\}]+$`)
 
-var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/]+$`)
+var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
 
 func parseIPCidrList(in []string) ([]interface{}, error) {
 	if len(in) == 0 {
@@ -58,7 +58,7 @@ func CheckPathName(name string) error {
 	}
 
 	if !rePathName.MatchString(name) {
-		return fmt.Errorf("can contain only alfanumeric characters, underscore, minus or slash")
+		return fmt.Errorf("can contain only alfanumeric characters, underscore, dot, tilde, minus or slash")
 	}
 
 	return nil
