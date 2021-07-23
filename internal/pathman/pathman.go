@@ -285,13 +285,13 @@ func (pm *PathManager) findPathConf(name string) (string, *conf.PathConf, error)
 
 	// normal path
 	if pathConf, ok := pm.pathConfs[name]; ok {
-		return name, pathConf, nil
+		return name, pathConf.GetInstance(name), nil
 	}
 
 	// regular expression path
 	for pathName, pathConf := range pm.pathConfs {
 		if pathConf.Regexp != nil && pathConf.Regexp.MatchString(name) {
-			return pathName, pathConf, nil
+			return pathName, pathConf.GetInstance(name), nil
 		}
 	}
 

@@ -104,6 +104,29 @@ type PathConf struct {
 	RunOnReadRestart        bool          `yaml:"runOnReadRestart"`
 }
 
+func (pconf *PathConf) GetInstance(name string) *PathConf {
+	if pconf.Regexp == nil {
+		return pconf
+	}
+
+	// make a copy of the existing struct
+	p := *pconf
+	pi := &p
+
+	matches := pi.Regexp.FindAllStringSubmatch(name, -1)[0]
+	subExpNames := pi.Regexp.SubexpNames()
+	for i, match := range matches {
+		subExpName := subExpNames[i]
+		if subExpName == "" {
+			continue
+		}
+
+		pi.Source = strings.ReplaceAll(pi.Source, "{"+subExpName+"}", match)
+	}
+
+	return pi
+}
+
 func (pconf *PathConf) fillAndCheck(name string) error {
 	if name == "" {
 		return fmt.Errorf("path name can not be empty")
@@ -134,10 +157,6 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 
 	case strings.HasPrefix(pconf.Source, "rtsp://") ||
 		strings.HasPrefix(pconf.Source, "rtsps://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
-		}
-
 		_, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
@@ -171,10 +190,6 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		}
 
 	case strings.HasPrefix(pconf.Source, "rtmp://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
-		}
-
 		u, err := url.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
