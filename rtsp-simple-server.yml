@@ -220,3 +220,6 @@ paths:
     runOnRead:
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnReadRestart: no
+
+    # Call this URL on Connects to validate or redirect the client
+    httpCallback:

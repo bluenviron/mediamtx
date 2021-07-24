@@ -102,6 +102,7 @@ type PathConf struct {
 	RunOnPublishRestart     bool          `yaml:"runOnPublishRestart"`
 	RunOnRead               string        `yaml:"runOnRead"`
 	RunOnReadRestart        bool          `yaml:"runOnReadRestart"`
+	HTTPCallback            string        `yaml:"httpCallback"`
 }
 
 func (pconf *PathConf) GetInstance(name string) *PathConf {

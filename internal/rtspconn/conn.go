@@ -140,7 +140,9 @@ func (c *Conn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Resp
 		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
 			return c.ValidateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
 		},
-		Res: resc,
+		Res:        resc,
+		RemoteAddr: c.conn.NetConn().RemoteAddr().String(),
+		LocalAddr:  c.conn.NetConn().LocalAddr().String(),
 	})
 	res := <-resc
 

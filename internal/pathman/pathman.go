@@ -1,15 +1,17 @@
 package pathman
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
-
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/path"
@@ -147,9 +149,9 @@ outer:
 
 			// remove paths associated with a conf which doesn't exist anymore
 			// or has changed
-			for _, pa := range pm.paths {
+			for name, pa := range pm.paths {
 				if pathConf, ok := pm.pathConfs[pa.ConfName()]; !ok || pathConf != pa.Conf() {
-					delete(pm.paths, pa.Name())
+					delete(pm.paths, name)
 					pa.Close()
 				}
 			}
@@ -158,7 +160,7 @@ outer:
 			pm.createPaths()
 
 		case pa := <-pm.pathClose:
-			if pmpa, ok := pm.paths[pa.Name()]; !ok || pmpa != pa {
+			if pmpa, ok := pm.paths[pa.Conf().Source]; !ok || pmpa != pa {
 				continue
 			}
 			delete(pm.paths, pa.Name())
@@ -171,6 +173,27 @@ outer:
 				continue
 			}
 
+			action, err := pm.DoAuthRequest(pathConf, PlayRequestPayload{
+				RemoteAddr: req.RemoteAddr,
+				LocalAddr:  req.LocalAddr,
+				Path:       req.PathName,
+			})
+			if err != nil {
+				req.Res <- readpublisher.DescribeRes{Err: err}
+				continue
+			}
+
+			if action.Close {
+				req.Res <- readpublisher.DescribeRes{Err: fmt.Errorf("not allowed")}
+				continue
+			}
+
+			if action.Target != "" {
+				p := *pathConf
+				pathConf = &p
+				pathConf.Source = action.Target
+			}
+
 			err = pm.authenticate(
 				req.IP,
 				req.ValidateCredentials,
@@ -185,17 +208,38 @@ outer:
 			}
 
 			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName)
+			if _, ok := pm.paths[pathConf.Source]; !ok {
+				pm.paths[pathConf.Source] = pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPathManDescribe(req)
+			pm.paths[pathConf.Source].OnPathManDescribe(req)
 
 		case req := <-pm.rpSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- readpublisher.SetupPlayRes{Err: err}
 				continue
+			}
+
+			action, err := pm.DoAuthRequest(pathConf, PlayRequestPayload{
+				RemoteAddr: req.RemoteAddr,
+				LocalAddr:  req.LocalAddr,
+				Path:       req.PathName,
+			})
+			if err != nil {
+				req.Res <- readpublisher.SetupPlayRes{Err: err}
+				continue
+			}
+
+			if action.Close {
+				req.Res <- readpublisher.SetupPlayRes{Err: fmt.Errorf("not allowed")}
+				continue
+			}
+
+			if action.Target != "" {
+				p := *pathConf
+				pathConf = &p
+				pathConf.Source = action.Target
 			}
 
 			err = pm.authenticate(
@@ -211,12 +255,11 @@ outer:
 				continue
 			}
 
-			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName)
+			if _, ok := pm.paths[pathConf.Source]; !ok {
+				pm.paths[pathConf.Source] = pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPathManSetupPlay(req)
+			pm.paths[pathConf.Source].OnPathManSetupPlay(req)
 
 		case req := <-pm.rpAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
@@ -239,11 +282,11 @@ outer:
 			}
 
 			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
+			if _, ok := pm.paths[pathConf.Source]; !ok {
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPathManAnnounce(req)
+			pm.paths[pathConf.Source].OnPathManAnnounce(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -253,8 +296,8 @@ outer:
 	pm.ctxCancel()
 }
 
-func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) {
-	pm.paths[name] = path.New(
+func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name string) *path.Path {
+	return path.New(
 		pm.ctx,
 		pm.rtspAddress,
 		pm.readTimeout,
@@ -271,7 +314,7 @@ func (pm *PathManager) createPath(confName string, conf *conf.PathConf, name str
 
 func (pm *PathManager) createPaths() {
 	for pathName, pathConf := range pm.pathConfs {
-		if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
+		if _, ok := pm.paths[pathConf.Source]; !ok && pathConf.Regexp == nil {
 			pm.createPath(pathName, pathConf, pathName)
 		}
 	}
@@ -370,4 +413,54 @@ func (pm *PathManager) authenticate(
 	}
 
 	return nil
+}
+
+type PlayRequestPayload struct {
+	RemoteAddr string `json:"remote_addr"`
+	LocalAddr  string `json:"local_addr"`
+	Path       string `json:"path"`
+}
+
+type PlayRequestAction struct {
+	Close  bool
+	Target string
+}
+
+func (pm *PathManager) DoAuthRequest(pathConf *conf.PathConf, p PlayRequestPayload) (*PlayRequestAction, error) {
+	var a PlayRequestAction
+
+	if pathConf.HTTPCallback == "" {
+		return &a, nil
+	}
+
+	data, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+
+	c := http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+
+	resp, err := c.Post(pathConf.HTTPCallback, "application/json", bytes.NewReader(data))
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode <= 299:
+	case resp.StatusCode >= 300 && resp.StatusCode <= 399:
+		a.Target = resp.Header.Get("Location")
+		if a.Target == "" {
+			return nil, fmt.Errorf("invalid location header in redirect response. closing connection")
+		}
+	case resp.StatusCode >= 400 && resp.StatusCode <= 499:
+		a.Close = true
+	default:
+		return nil, fmt.Errorf("invalid redirect response. closing connection")
+	}
+
+	return &a, nil
 }

@@ -196,7 +196,9 @@ func (s *Session) OnSetup(c *rtspconn.Conn, ctx *gortsplib.ServerHandlerOnSetupC
 			ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
 				return c.ValidateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
 			},
-			Res: resc,
+			Res:        resc,
+			RemoteAddr: ctx.Conn.NetConn().RemoteAddr().String(),
+			LocalAddr:  ctx.Conn.NetConn().LocalAddr().String(),
 		})
 		res := <-resc
 

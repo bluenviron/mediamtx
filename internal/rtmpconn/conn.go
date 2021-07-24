@@ -217,7 +217,9 @@ func (c *Conn) runRead(ctx context.Context) error {
 		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
-		Res: sres,
+		Res:        sres,
+		RemoteAddr: c.conn.NetConn().RemoteAddr().String(),
+		LocalAddr:  c.conn.NetConn().LocalAddr().String(),
 	})
 	res := <-sres
 

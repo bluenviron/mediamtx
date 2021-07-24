@@ -75,6 +75,8 @@ type DescribeReq struct {
 	IP                  net.IP
 	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
 	Res                 chan DescribeRes
+	RemoteAddr          string
+	LocalAddr           string
 }
 
 // SetupPlayRes is a setup/play response.
@@ -91,6 +93,8 @@ type SetupPlayReq struct {
 	IP                  net.IP
 	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
 	Res                 chan SetupPlayRes
+	RemoteAddr          string
+	LocalAddr           string
 }
 
 // AnnounceRes is a announce response.
