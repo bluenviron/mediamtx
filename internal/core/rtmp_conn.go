@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/h264"
@@ -290,9 +291,16 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		pair := data.(rtmpConnTrackIDPayloadPair)
 
 		if videoTrack != nil && pair.trackID == videoTrackID {
-			nalus, pts, err := h264Decoder.Decode(pair.buf)
+			var pkt rtp.Packet
+			err := pkt.Unmarshal(pair.buf)
 			if err != nil {
-				if err != rtph264.ErrMorePacketsNeeded {
+				c.log(logger.Warn, "unable to decode RTP packet: %v", err)
+				continue
+			}
+
+			nalus, pts, err := h264Decoder.DecodeRTP(&pkt)
+			if err != nil {
+				if err != rtph264.ErrMorePacketsNeeded && err != rtph264.ErrNonStartingPacketAndNoPrevious {
 					c.log(logger.Warn, "unable to decode video track: %v", err)
 				}
 				continue
@@ -311,8 +319,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 			// RTP marker means that all the NALUs with the same PTS have been received.
 			// send them together.
-			marker := (pair.buf[1] >> 7 & 0x1) > 0
-			if marker {
+			if pkt.Marker {
 				data, err := h264.EncodeAVCC(videoBuf)
 				if err != nil {
 					return err
@@ -334,7 +341,14 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 		} else if audioTrack != nil && pair.trackID == audioTrackID {
-			aus, pts, err := aacDecoder.Decode(pair.buf)
+			var pkt rtp.Packet
+			err := pkt.Unmarshal(pair.buf)
+			if err != nil {
+				c.log(logger.Warn, "unable to decode RTP packet: %v", err)
+				continue
+			}
+
+			aus, pts, err := aacDecoder.DecodeRTP(&pkt)
 			if err != nil {
 				if err != rtpaac.ErrMorePacketsNeeded {
 					c.log(logger.Warn, "unable to decode audio track: %v", err)

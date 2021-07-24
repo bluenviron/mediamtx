@@ -61,7 +61,7 @@ func (m *multiAccessBuffer) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (m *multiAccessBuffer) NewReader() *multiAccessBufferReader {
+func (m *multiAccessBuffer) NewReader() io.Reader {
 	return &multiAccessBufferReader{
 		m: m,
 	}

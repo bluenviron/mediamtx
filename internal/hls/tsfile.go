@@ -6,15 +6,13 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/gortsplib"
 	"github.com/asticode/go-astits"
 
 	"github.com/aler9/rtsp-simple-server/internal/aac"
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 )
 
-// TSFile is a MPEG-TS file.
-type TSFile struct {
+type tsFile struct {
 	name               string
 	buf                *multiAccessBuffer
 	mux                *astits.Muxer
@@ -25,30 +23,29 @@ type TSFile struct {
 	maxPTS             time.Duration
 }
 
-// NewTSFile allocates a TSFile.
-func NewTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *TSFile {
-	t := &TSFile{
+func newTSFile(hasVideoTrack bool, hasAudioTrack bool) *tsFile {
+	t := &tsFile{
 		buf:  newMultiAccessBuffer(),
 		name: strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
 	t.mux = astits.NewMuxer(context.Background(), t.buf)
 
-	if videoTrack != nil {
+	if hasVideoTrack {
 		t.mux.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 256,
 			StreamType:    astits.StreamTypeH264Video,
 		})
 	}
 
-	if audioTrack != nil {
+	if hasAudioTrack {
 		t.mux.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 257,
 			StreamType:    astits.StreamTypeAACAudio,
 		})
 	}
 
-	if videoTrack != nil {
+	if hasVideoTrack {
 		t.pcrTrackIsVideo = true
 		t.mux.SetPCRPID(256)
 	} else {
@@ -63,38 +60,23 @@ func NewTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *TSFile
 	return t
 }
 
-// Close closes a TSFile.
-func (t *TSFile) Close() error {
+func (t *tsFile) close() error {
 	return t.buf.Close()
 }
 
-// Name returns the file name.
-func (t *TSFile) Name() string {
-	return t.name
-}
-
-// Duration returns the file duration.
-func (t *TSFile) Duration() time.Duration {
+func (t *tsFile) duration() time.Duration {
 	return t.maxPTS - t.minPTS
 }
 
-// FirstPacketWritten returns whether a packet ha been written into the file.
-func (t *TSFile) FirstPacketWritten() bool {
-	return t.firstPacketWritten
-}
-
-// SetPCR sets the PCR.
-func (t *TSFile) SetPCR(pcr time.Duration) {
+func (t *tsFile) setPCR(pcr time.Duration) {
 	t.pcr = pcr
 }
 
-// NewReader allocates a reader to read the file.
-func (t *TSFile) NewReader() io.Reader {
+func (t *tsFile) newReader() io.Reader {
 	return t.buf.NewReader()
 }
 
-// WriteH264 writes H264 NALUs into the file.
-func (t *TSFile) WriteH264(dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
+func (t *tsFile) writeH264(dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
 	if t.pcrTrackIsVideo {
 		if !t.firstPacketWritten {
 			t.firstPacketWritten = true
@@ -143,8 +125,7 @@ func (t *TSFile) WriteH264(dts time.Duration, pts time.Duration, isIDR bool, nal
 	return err
 }
 
-// WriteAAC writes AAC AUs into the file.
-func (t *TSFile) WriteAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
+func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
 	if !t.pcrTrackIsVideo {
 		if !t.firstPacketWritten {
 			t.firstPacketWritten = true

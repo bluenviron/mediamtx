@@ -5,10 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,12 +24,6 @@ import (
 )
 
 const (
-	// an offset is needed to
-	// - avoid negative PTS values
-	// - avoid PTS < DTS during startup
-	hlsConverterPTSOffset = 2 * time.Second
-
-	segmentMinAUCount    = 100
 	closeCheckPeriod     = 1 * time.Second
 	closeAfterInactivity = 60 * time.Second
 )
@@ -116,15 +108,12 @@ type hlsConverter struct {
 	pathMan            hlsConverterPathMan
 	parent             hlsConverterParent
 
-	ctx                         context.Context
-	ctxCancel                   func()
-	path                        readPublisherPath
-	ringBuffer                  *ringbuffer.RingBuffer
-	tsQueue                     []*hls.TSFile
-	tsByName                    map[string]*hls.TSFile
-	tsDeleteCount               int
-	tsMutex                     sync.RWMutex
-	lasthlsConverterRequestTime *int64
+	ctx             context.Context
+	ctxCancel       func()
+	path            readPublisherPath
+	ringBuffer      *ringbuffer.RingBuffer
+	lastRequestTime *int64
+	muxer           *hls.Muxer
 
 	// in
 	request chan hlsConverterRequest
@@ -153,12 +142,11 @@ func newHLSConverter(
 		parent:             parent,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
-		lasthlsConverterRequestTime: func() *int64 {
+		lastRequestTime: func() *int64 {
 			v := time.Now().Unix()
 			return &v
 		}(),
-		tsByName: make(map[string]*hls.TSFile),
-		request:  make(chan hlsConverterRequest),
+		request: make(chan hlsConverterRequest),
 	}
 
 	c.log(logger.Info, "opened")
@@ -294,14 +282,19 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 		return fmt.Errorf("unable to find a video or audio track")
 	}
 
-	curTSFile := hls.NewTSFile(videoTrack, audioTrack)
-	c.tsByName[curTSFile.Name()] = curTSFile
-	c.tsQueue = append(c.tsQueue, curTSFile)
+	var err error
+	c.muxer, err = hls.NewMuxer(
+		c.hlsSegmentCount,
+		c.hlsSegmentDuration,
+		videoTrack,
+		audioTrack,
+	)
+	if err != nil {
+		return err
+	}
+	defer c.muxer.Close()
 
-	defer func() {
-		curTSFile.Close()
-	}()
-
+	// start request handler only after muxer has been inizialized
 	requestHandlerTerminate := make(chan struct{})
 	requestHandlerDone := make(chan struct{})
 	go c.runRequestHandler(requestHandlerTerminate, requestHandlerDone)
@@ -322,11 +315,7 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 	writerDone := make(chan error)
 	go func() {
 		writerDone <- func() error {
-			startPCR := time.Now()
 			var videoBuf [][]byte
-			videoDTSEst := h264.NewDTSEstimator()
-			videoInitialized := false
-			audioAUCount := 0
 
 			for {
 				data, ok := c.ringBuffer.Pull()
@@ -343,21 +332,9 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 						continue
 					}
 
-					// skip packets that are part of frames sent before
-					// the initialization of the converter
-					if !videoInitialized {
-						typ := pkt.Payload[0] & 0x1F
-						start := pkt.Payload[1] >> 7
-						if typ == 28 && start != 1 { // FU-A
-							continue
-						}
-
-						videoInitialized = true
-					}
-
 					nalus, pts, err := h264Decoder.DecodeRTP(&pkt)
 					if err != nil {
-						if err != rtph264.ErrMorePacketsNeeded {
+						if err != rtph264.ErrMorePacketsNeeded && err != rtph264.ErrNonStartingPacketAndNoPrevious {
 							c.log(logger.Warn, "unable to decode video track: %v", err)
 						}
 						continue
@@ -382,70 +359,24 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 
 					// RTP marker means that all the NALUs with the same PTS have been received.
 					// send them together.
-					marker := (pair.buf[1] >> 7 & 0x1) > 0
-					if marker {
-						bufferHasIDR := func() bool {
-							for _, nalu := range videoBuf {
-								typ := h264.NALUType(nalu[0] & 0x1F)
-								if typ == h264.NALUTypeIDR {
-									return true
-								}
-							}
-							return false
-						}()
-
-						// we received a marker packet but
-						// - no IDR has been stored yet in current file
-						// - there's no IDR in the buffer
-						// data cannot be parsed, clear buffer
-						if !bufferHasIDR && !curTSFile.FirstPacketWritten() {
-							videoBuf = nil
-							continue
-						}
-
-						err := func() error {
-							c.tsMutex.Lock()
-							defer c.tsMutex.Unlock()
-
-							if bufferHasIDR {
-								if curTSFile.FirstPacketWritten() &&
-									curTSFile.Duration() >= c.hlsSegmentDuration {
-									if curTSFile != nil {
-										curTSFile.Close()
-									}
-
-									curTSFile = hls.NewTSFile(videoTrack, audioTrack)
-
-									c.tsByName[curTSFile.Name()] = curTSFile
-									c.tsQueue = append(c.tsQueue, curTSFile)
-									if len(c.tsQueue) > c.hlsSegmentCount {
-										delete(c.tsByName, c.tsQueue[0].Name())
-										c.tsQueue = c.tsQueue[1:]
-										c.tsDeleteCount++
-									}
-								}
-							}
-
-							curTSFile.SetPCR(time.Since(startPCR))
-							err := curTSFile.WriteH264(
-								videoDTSEst.Feed(pts+hlsConverterPTSOffset),
-								pts+hlsConverterPTSOffset,
-								bufferHasIDR,
-								videoBuf)
-							if err != nil {
-								return err
-							}
-
-							videoBuf = nil
-							return nil
-						}()
+					if pkt.Marker {
+						err := c.muxer.WriteH264(pts, videoBuf)
 						if err != nil {
 							return err
 						}
+
+						videoBuf = nil
 					}
 
 				} else if audioTrack != nil && pair.trackID == audioTrackID {
-					aus, pts, err := aacDecoder.Decode(pair.buf)
+					var pkt rtp.Packet
+					err := pkt.Unmarshal(pair.buf)
+					if err != nil {
+						c.log(logger.Warn, "unable to decode RTP packet: %v", err)
+						continue
+					}
+
+					aus, pts, err := aacDecoder.DecodeRTP(&pkt)
 					if err != nil {
 						if err != rtpaac.ErrMorePacketsNeeded {
 							c.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -453,52 +384,7 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 						continue
 					}
 
-					err = func() error {
-						c.tsMutex.Lock()
-						defer c.tsMutex.Unlock()
-
-						if videoTrack == nil {
-							if curTSFile.FirstPacketWritten() &&
-								curTSFile.Duration() >= c.hlsSegmentDuration &&
-								audioAUCount >= segmentMinAUCount {
-
-								if curTSFile != nil {
-									curTSFile.Close()
-								}
-
-								audioAUCount = 0
-								curTSFile = hls.NewTSFile(videoTrack, audioTrack)
-								c.tsByName[curTSFile.Name()] = curTSFile
-								c.tsQueue = append(c.tsQueue, curTSFile)
-								if len(c.tsQueue) > c.hlsSegmentCount {
-									delete(c.tsByName, c.tsQueue[0].Name())
-									c.tsQueue = c.tsQueue[1:]
-									c.tsDeleteCount++
-								}
-							}
-						} else {
-							if !curTSFile.FirstPacketWritten() {
-								return nil
-							}
-						}
-
-						for i, au := range aus {
-							auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(aacConfig.SampleRate)
-
-							audioAUCount++
-							curTSFile.SetPCR(time.Since(startPCR))
-							err := curTSFile.WriteAAC(
-								aacConfig.SampleRate,
-								aacConfig.ChannelCount,
-								auPTS+hlsConverterPTSOffset,
-								au)
-							if err != nil {
-								return err
-							}
-						}
-
-						return nil
-					}()
+					err = c.muxer.WriteAAC(pts, aus)
 					if err != nil {
 						return err
 					}
@@ -513,7 +399,7 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 	for {
 		select {
 		case <-closeCheckTicker.C:
-			t := time.Unix(atomic.LoadInt64(c.lasthlsConverterRequestTime), 0)
+			t := time.Unix(atomic.LoadInt64(c.lastRequestTime), 0)
 			if time.Since(t) >= closeAfterInactivity {
 				c.ringBuffer.Close()
 				<-writerDone
@@ -542,7 +428,7 @@ func (c *hlsConverter) runRequestHandler(terminate chan struct{}, done chan stru
 		case preq := <-c.request:
 			req := preq
 
-			atomic.StoreInt64(c.lasthlsConverterRequestTime, time.Now().Unix())
+			atomic.StoreInt64(c.lastRequestTime, time.Now().Unix())
 
 			conf := c.path.Conf()
 
@@ -569,61 +455,26 @@ func (c *hlsConverter) runRequestHandler(terminate chan struct{}, done chan stru
 
 			switch {
 			case req.File == "stream.m3u8":
-				func() {
-					c.tsMutex.RLock()
-					defer c.tsMutex.RUnlock()
+				r := c.muxer.Playlist()
+				if r == nil {
+					req.W.WriteHeader(http.StatusNotFound)
+					req.Res <- nil
+					continue
+				}
 
-					if len(c.tsQueue) == 0 {
-						req.W.WriteHeader(http.StatusNotFound)
-						req.Res <- nil
-						return
-					}
-
-					cnt := "#EXTM3U\n"
-					cnt += "#EXT-X-VERSION:3\n"
-					cnt += "#EXT-X-ALLOW-CACHE:NO\n"
-
-					targetDuration := func() uint {
-						ret := uint(math.Ceil(c.hlsSegmentDuration.Seconds()))
-
-						// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
-						for _, f := range c.tsQueue {
-							v2 := uint(math.Round(f.Duration().Seconds()))
-							if v2 > ret {
-								ret = v2
-							}
-						}
-
-						return ret
-					}()
-					cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
-
-					cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(c.tsDeleteCount), 10) + "\n"
-
-					for _, f := range c.tsQueue {
-						cnt += "#EXTINF:" + strconv.FormatFloat(f.Duration().Seconds(), 'f', -1, 64) + ",\n"
-						cnt += f.Name() + ".ts\n"
-					}
-
-					req.W.Header().Set("Content-Type", `application/x-mpegURL`)
-					req.Res <- bytes.NewReader([]byte(cnt))
-				}()
+				req.W.Header().Set("Content-Type", `application/x-mpegURL`)
+				req.Res <- r
 
 			case strings.HasSuffix(req.File, ".ts"):
-				base := strings.TrimSuffix(req.File, ".ts")
-
-				c.tsMutex.RLock()
-				f, ok := c.tsByName[base]
-				c.tsMutex.RUnlock()
-
-				if !ok {
+				r := c.muxer.TSFile(req.File)
+				if r == nil {
 					req.W.WriteHeader(http.StatusNotFound)
 					req.Res <- nil
 					continue
 				}
 
 				req.W.Header().Set("Content-Type", `video/MP2T`)
-				req.Res <- f.NewReader()
+				req.Res <- r
 
 			case req.File == "":
 				req.Res <- bytes.NewReader([]byte(index))
