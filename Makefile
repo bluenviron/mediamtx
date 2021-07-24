@@ -49,7 +49,6 @@ RUN apk add --no-cache make docker-cli ffmpeg gcc musl-dev
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
-COPY . ./
 endef
 export DOCKERFILE_TEST
 
@@ -58,26 +57,44 @@ test:
 	docker run --rm \
 	--network=host \
 	-v /var/run/docker.sock:/var/run/docker.sock:ro \
+	-v $(PWD):/s \
 	temp \
-	make test-nodocker OPTS="-race -coverprofile=coverage-internal.txt"
+	make test-nodocker COVERAGE=1
 
 test32:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=i386
 	docker run --rm \
 	--network=host \
 	-v /var/run/docker.sock:/var/run/docker.sock:ro \
+	-v $(PWD):/s \
 	temp \
-	make test-nodocker
+	make test-nodocker COVERAGE=0
+
+ifeq ($(COVERAGE),1)
+TEST_INTERNAL_OPTS=-race -coverprofile=coverage-internal.txt
+TEST_CORE_OPTS=-race -coverprofile=coverage-core.txt
+endif
 
 test-internal:
-	go test -v $(OPTS) ./internal/...
+	go test -v $(TEST_INTERNAL_OPTS) \
+	./internal/aac \
+	./internal/conf \
+	./internal/confenv \
+	./internal/confwatcher \
+	./internal/externalcmd \
+	./internal/h264 \
+	./internal/hls \
+	./internal/logger \
+	./internal/rlimit \
+	./internal/rtcpsenderset \
+	./internal/rtmp
 
-test-root:
+test-core:
 	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
 	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	go test -v $(OPTS) .
+	go test -v $(TEST_CORE_OPTS) ./internal/core
 
-test-nodocker: test-internal test-root
+test-nodocker: test-internal test-core
 
 lint:
 	docker run --rm -v $(PWD):/app -w /app \
