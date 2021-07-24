@@ -58,7 +58,7 @@ func CheckPathName(name string) error {
 	}
 
 	if !rePathName.MatchString(name) {
-		return fmt.Errorf("can contain only alfanumeric characters, underscore, dot, tilde, minus or slash")
+		return fmt.Errorf("can contain only alphanumeric characters, underscore, dot, tilde, minus or slash")
 	}
 
 	return nil
