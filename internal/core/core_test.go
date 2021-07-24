@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
 )
 
@@ -168,15 +169,11 @@ func TestCoreHotReloading(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	func() {
-		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://localhost:8554/test1",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
+		conn, err := gortsplib.DialRead(
+			"rtsp://localhost:8554/test1",
+		)
 		require.NoError(t, err)
-		defer cnt1.close()
-		require.Equal(t, 0, cnt1.wait())
+		defer conn.Close()
 	}()
 
 	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
@@ -191,26 +188,17 @@ func TestCoreHotReloading(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	func() {
-		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://localhost:8554/test1",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
-		require.NoError(t, err)
-		defer cnt1.close()
-		require.Equal(t, 1, cnt1.wait())
+		_, err := gortsplib.DialRead(
+			"rtsp://localhost:8554/test1",
+		)
+		require.Equal(t, "invalid status code: 400 (Bad Request)", err.Error())
 	}()
 
 	func() {
-		cnt1, err := newContainer("ffmpeg", "dest", []string{
-			"-i", "rtsp://localhost:8554/test2",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
+		conn, err := gortsplib.DialRead(
+			"rtsp://localhost:8554/test2",
+		)
 		require.NoError(t, err)
-		defer cnt1.close()
-		require.Equal(t, 0, cnt1.wait())
+		defer conn.Close()
 	}()
 }
