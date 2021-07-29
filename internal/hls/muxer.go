@@ -141,7 +141,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if m.videoTrack != nil {
+	if m.videoTrack == nil {
 		if m.tsCurrent.firstPacketWritten &&
 			m.tsCurrent.duration() >= m.hlsSegmentDuration &&
 			m.audioAUCount >= segmentMinAUCount {
