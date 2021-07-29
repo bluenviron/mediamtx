@@ -30,11 +30,11 @@ type hlsServer struct {
 	ctxCancel  func()
 	wg         sync.WaitGroup
 	ln         net.Listener
-	converters map[string]*hlsConverter
+	converters map[string]*hlsRemuxer
 
 	// in
-	request   chan hlsConverterRequest
-	connClose chan *hlsConverter
+	request   chan hlsRemuxerRequest
+	connClose chan *hlsRemuxer
 }
 
 func newHLSServer(
@@ -66,9 +66,9 @@ func newHLSServer(
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
 		ln:                 ln,
-		converters:         make(map[string]*hlsConverter),
-		request:            make(chan hlsConverterRequest),
-		connClose:          make(chan *hlsConverter),
+		converters:         make(map[string]*hlsRemuxer),
+		request:            make(chan hlsRemuxerRequest),
+		connClose:          make(chan *hlsRemuxer),
 	}
 
 	s.Log(logger.Info, "listener opened on "+address)
@@ -101,7 +101,7 @@ outer:
 		case req := <-s.request:
 			c, ok := s.converters[req.Dir]
 			if !ok {
-				c = newHLSConverter(
+				c = newHLSRemuxer(
 					s.ctx,
 					s.hlsSegmentCount,
 					s.hlsSegmentDuration,
@@ -119,7 +119,7 @@ outer:
 			if c2, ok := s.converters[c.PathName()]; !ok || c2 != c {
 				continue
 			}
-			s.doConverterClose(c)
+			s.doRemuxerClose(c)
 
 		case <-s.ctx.Done():
 			break outer
@@ -129,7 +129,7 @@ outer:
 	s.ctxCancel()
 
 	for _, c := range s.converters {
-		s.doConverterClose(c)
+		s.doRemuxerClose(c)
 	}
 
 	hs.Shutdown(context.Background())
@@ -173,7 +173,7 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dir = strings.TrimSuffix(dir, "/")
 
 	cres := make(chan io.Reader)
-	hreq := hlsConverterRequest{
+	hreq := hlsRemuxerRequest{
 		Dir:  dir,
 		File: fname,
 		Req:  r,
@@ -206,12 +206,12 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *hlsServer) doConverterClose(c *hlsConverter) {
+func (s *hlsServer) doRemuxerClose(c *hlsRemuxer) {
 	delete(s.converters, c.PathName())
 	c.ParentClose()
 }
 
-func (s *hlsServer) OnConverterClose(c *hlsConverter) {
+func (s *hlsServer) OnRemuxerClose(c *hlsRemuxer) {
 	select {
 	case s.connClose <- c:
 	case <-s.ctx.Done():

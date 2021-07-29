@@ -76,7 +76,7 @@ create();
 </html>
 `
 
-type hlsConverterRequest struct {
+type hlsRemuxerRequest struct {
 	Dir  string
 	File string
 	Req  *http.Request
@@ -84,29 +84,29 @@ type hlsConverterRequest struct {
 	Res  chan io.Reader
 }
 
-type hlsConverterTrackIDPayloadPair struct {
+type hlsRemuxerTrackIDPayloadPair struct {
 	trackID int
 	buf     []byte
 }
 
-type hlsConverterPathMan interface {
+type hlsRemuxerPathMan interface {
 	OnReadPublisherSetupPlay(readPublisherSetupPlayReq)
 }
 
-type hlsConverterParent interface {
+type hlsRemuxerParent interface {
 	Log(logger.Level, string, ...interface{})
-	OnConverterClose(*hlsConverter)
+	OnRemuxerClose(*hlsRemuxer)
 }
 
-type hlsConverter struct {
+type hlsRemuxer struct {
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
 	readBufferCount    int
 	wg                 *sync.WaitGroup
 	stats              *stats
 	pathName           string
-	pathMan            hlsConverterPathMan
-	parent             hlsConverterParent
+	pathMan            hlsRemuxerPathMan
+	parent             hlsRemuxerParent
 
 	ctx             context.Context
 	ctxCancel       func()
@@ -116,10 +116,10 @@ type hlsConverter struct {
 	muxer           *hls.Muxer
 
 	// in
-	request chan hlsConverterRequest
+	request chan hlsRemuxerRequest
 }
 
-func newHLSConverter(
+func newHLSRemuxer(
 	parentCtx context.Context,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
@@ -127,11 +127,11 @@ func newHLSConverter(
 	wg *sync.WaitGroup,
 	stats *stats,
 	pathName string,
-	pathMan hlsConverterPathMan,
-	parent hlsConverterParent) *hlsConverter {
+	pathMan hlsRemuxerPathMan,
+	parent hlsRemuxerParent) *hlsRemuxer {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
-	c := &hlsConverter{
+	c := &hlsRemuxer{
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
 		readBufferCount:    readBufferCount,
@@ -146,7 +146,7 @@ func newHLSConverter(
 			v := time.Now().Unix()
 			return &v
 		}(),
-		request: make(chan hlsConverterRequest),
+		request: make(chan hlsRemuxerRequest),
 	}
 
 	c.log(logger.Info, "opened")
@@ -157,31 +157,31 @@ func newHLSConverter(
 	return c
 }
 
-// ParentClose closes a Converter.
-func (c *hlsConverter) ParentClose() {
+// ParentClose closes a Remuxer.
+func (c *hlsRemuxer) ParentClose() {
 	c.log(logger.Info, "closed")
 }
 
-func (c *hlsConverter) Close() {
+func (c *hlsRemuxer) Close() {
 	c.ctxCancel()
 }
 
 // IsReadPublisher implements readPublisher.
-func (c *hlsConverter) IsReadPublisher() {}
+func (c *hlsRemuxer) IsReadPublisher() {}
 
 // IsSource implements source.
-func (c *hlsConverter) IsSource() {}
+func (c *hlsRemuxer) IsSource() {}
 
-func (c *hlsConverter) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[converter %s] "+format, append([]interface{}{c.pathName}, args...)...)
+func (c *hlsRemuxer) log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[remuxer %s] "+format, append([]interface{}{c.pathName}, args...)...)
 }
 
 // PathName returns the path name of the readPublisher
-func (c *hlsConverter) PathName() string {
+func (c *hlsRemuxer) PathName() string {
 	return c.pathName
 }
 
-func (c *hlsConverter) run() {
+func (c *hlsRemuxer) run() {
 	defer c.wg.Done()
 
 	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
@@ -210,10 +210,10 @@ func (c *hlsConverter) run() {
 		<-res
 	}
 
-	c.parent.OnConverterClose(c)
+	c.parent.OnRemuxerClose(c)
 }
 
-func (c *hlsConverter) runInner(innerCtx context.Context) error {
+func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 	pres := make(chan readPublisherSetupPlayRes)
 	c.pathMan.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
 		Author:              c,
@@ -310,7 +310,7 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 	c.path.OnReadPublisherPlay(readPublisherPlayReq{c, resc}) //nolint:govet
 	<-resc
 
-	c.log(logger.Info, "is converting into HLS")
+	c.log(logger.Info, "is remuxing into HLS")
 
 	writerDone := make(chan error)
 	go func() {
@@ -322,7 +322,7 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 				if !ok {
 					return fmt.Errorf("terminated")
 				}
-				pair := data.(hlsConverterTrackIDPayloadPair)
+				pair := data.(hlsRemuxerTrackIDPayloadPair)
 
 				if videoTrack != nil && pair.trackID == videoTrackID {
 					var pkt rtp.Packet
@@ -417,7 +417,7 @@ func (c *hlsConverter) runInner(innerCtx context.Context) error {
 	}
 }
 
-func (c *hlsConverter) runRequestHandler(terminate chan struct{}, done chan struct{}) {
+func (c *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct{}) {
 	defer close(done)
 
 	for {
@@ -488,7 +488,7 @@ func (c *hlsConverter) runRequestHandler(terminate chan struct{}, done chan stru
 }
 
 // OnRequest is called by hlsserver.Server.
-func (c *hlsConverter) OnRequest(req hlsConverterRequest) {
+func (c *hlsRemuxer) OnRequest(req hlsRemuxerRequest) {
 	select {
 	case c.request <- req:
 	case <-c.ctx.Done():
@@ -498,8 +498,8 @@ func (c *hlsConverter) OnRequest(req hlsConverterRequest) {
 }
 
 // OnFrame implements path.Reader.
-func (c *hlsConverter) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+func (c *hlsRemuxer) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
-		c.ringBuffer.Push(hlsConverterTrackIDPayloadPair{trackID, payload})
+		c.ringBuffer.Push(hlsRemuxerTrackIDPayloadPair{trackID, payload})
 	}
 }
