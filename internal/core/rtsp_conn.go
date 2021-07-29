@@ -132,7 +132,7 @@ func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.
 		URL:      ctx.Req.URL,
 		IP:       c.ip(),
 		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-			return c.ValidateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
+			return c.validateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
 		},
 		Res: resc,
 	})
@@ -175,8 +175,7 @@ func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.
 	}, res.Stream, nil
 }
 
-// ValidateCredentials allows to validate the credentials of a path.
-func (c *rtspConn) ValidateCredentials(
+func (c *rtspConn) validateCredentials(
 	authMethods []headers.AuthMethod,
 	pathUser string,
 	pathPass string,
