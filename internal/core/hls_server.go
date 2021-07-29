@@ -189,7 +189,7 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			buf := make([]byte, 4096)
 			for {
 				n, err := res.Read(buf)
-				if err != nil {
+				if n == 0 {
 					return
 				}
 
