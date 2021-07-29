@@ -104,22 +104,21 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if idrPresent {
-		if m.tsCurrent.firstPacketWritten &&
-			m.tsCurrent.duration() >= m.hlsSegmentDuration {
-			if m.tsCurrent != nil {
-				m.tsCurrent.close()
-			}
+	if idrPresent &&
+		m.tsCurrent.firstPacketWritten &&
+		m.tsCurrent.duration() >= m.hlsSegmentDuration {
+		if m.tsCurrent != nil {
+			m.tsCurrent.close()
+		}
 
-			m.tsCurrent = newTSFile(m.videoTrack != nil, m.audioTrack != nil)
+		m.tsCurrent = newTSFile(m.videoTrack != nil, m.audioTrack != nil)
 
-			m.tsByName[m.tsCurrent.name] = m.tsCurrent
-			m.tsQueue = append(m.tsQueue, m.tsCurrent)
-			if len(m.tsQueue) > m.hlsSegmentCount {
-				delete(m.tsByName, m.tsQueue[0].name)
-				m.tsQueue = m.tsQueue[1:]
-				m.tsDeleteCount++
-			}
+		m.tsByName[m.tsCurrent.name] = m.tsCurrent
+		m.tsQueue = append(m.tsQueue, m.tsCurrent)
+		if len(m.tsQueue) > m.hlsSegmentCount {
+			delete(m.tsByName, m.tsQueue[0].name)
+			m.tsQueue = m.tsQueue[1:]
+			m.tsDeleteCount++
 		}
 	}
 
@@ -142,9 +141,9 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	defer m.mutex.Unlock()
 
 	if m.videoTrack == nil {
-		if m.tsCurrent.firstPacketWritten &&
-			m.tsCurrent.duration() >= m.hlsSegmentDuration &&
-			m.audioAUCount >= segmentMinAUCount {
+		if m.audioAUCount >= segmentMinAUCount &&
+			m.tsCurrent.firstPacketWritten &&
+			m.tsCurrent.duration() >= m.hlsSegmentDuration {
 
 			if m.tsCurrent != nil {
 				m.tsCurrent.close()

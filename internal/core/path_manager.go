@@ -16,6 +16,7 @@ import (
 
 type pathManagerParent interface {
 	Log(logger.Level, string, ...interface{})
+	OnPathSourceReady(*path)
 }
 
 type pathManager struct {
@@ -280,6 +281,11 @@ func (pm *pathManager) OnConfReload(pathConfs map[string]*conf.PathConf) {
 	case pm.confReload <- pathConfs:
 	case <-pm.ctx.Done():
 	}
+}
+
+// OnPathSourceReady is called by path.
+func (pm *pathManager) OnPathSourceReady(pa *path) {
+	pm.parent.OnPathSourceReady(pa)
 }
 
 // OnPathClose is called by path.

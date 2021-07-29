@@ -175,7 +175,10 @@ func (c *rtmpConn) run() {
 
 	if c.path != nil {
 		res := make(chan struct{})
-		c.path.OnReadPublisherRemove(readPublisherRemoveReq{c, res}) //nolint:govet
+		c.path.OnReadPublisherRemove(readPublisherRemoveReq{
+			Author: c,
+			Res:    res,
+		})
 		<-res
 	}
 
@@ -272,10 +275,11 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}()
 
 	pres := make(chan readPublisherPlayRes)
-	c.path.OnReadPublisherPlay(readPublisherPlayReq{c, pres}) //nolint:govet
+	c.path.OnReadPublisherPlay(readPublisherPlayReq{
+		Author: c,
+		Res:    pres,
+	})
 	<-pres
-
-	c.log(logger.Info, "is reading from path '%s'", c.path.Name())
 
 	// disable read deadline
 	c.conn.NetConn().SetReadDeadline(time.Time{})
@@ -436,38 +440,12 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		return rres.Err
 	}
 
-	c.log(logger.Info, "is publishing to path '%s', %d %s",
-		c.path.Name(),
-		len(tracks),
-		func() string {
-			if len(tracks) == 1 {
-				return "track"
-			}
-			return "tracks"
-		}())
-
-	var onPublishCmd *externalcmd.Cmd
-	if c.path.Conf().RunOnPublish != "" {
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		onPublishCmd = externalcmd.New(c.path.Conf().RunOnPublish,
-			c.path.Conf().RunOnPublishRestart, externalcmd.Environment{
-				Path: c.path.Name(),
-				Port: port,
-			})
-	}
-
-	defer func(path readPublisherPath) {
-		if path.Conf().RunOnPublish != "" {
-			onPublishCmd.Close()
-		}
-	}(c.path)
-
-	rtcpSenders := rtcpsenderset.New(tracks, c.path.OnFrame)
+	rtcpSenders := rtcpsenderset.New(tracks, c.path.OnSourceFrame)
 	defer rtcpSenders.Close()
 
 	onFrame := func(trackID int, payload []byte) {
 		rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-		c.path.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+		c.path.OnSourceFrame(trackID, gortsplib.StreamTypeRTP, payload)
 	}
 
 	for {
@@ -549,7 +527,25 @@ func (c *rtmpConn) validateCredentials(
 	return nil
 }
 
-// OnFrame implements path.Reader.
+// OnReaderAccepted implements readPublisher.
+func (c *rtmpConn) OnReaderAccepted() {
+	c.log(logger.Info, "is reading from path '%s'", c.path.Name())
+}
+
+// OnPublisherAccepted implements readPublisher.
+func (c *rtmpConn) OnPublisherAccepted(tracksLen int) {
+	c.log(logger.Info, "is publishing to path '%s', %d %s",
+		c.path.Name(),
+		tracksLen,
+		func() string {
+			if tracksLen == 1 {
+				return "track"
+			}
+			return "tracks"
+		}())
+}
+
+// OnFrame implements readPublisher.
 func (c *rtmpConn) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})

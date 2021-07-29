@@ -24,9 +24,9 @@ const (
 
 type rtmpSourceParent interface {
 	Log(logger.Level, string, ...interface{})
-	OnsourceExternalSetReady(req sourceExtSetReadyReq)
-	OnsourceExternalSetNotReady(req sourceExtSetNotReadyReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
+	OnSourceExternalSetReady(req sourceExtSetReadyReq)
+	OnSourceExternalSetNotReady(req sourceExtSetNotReadyReq)
+	OnSourceFrame(int, gortsplib.StreamType, []byte)
 }
 
 type rtmpSource struct {
@@ -169,7 +169,7 @@ func (s *rtmpSource) runInner() bool {
 					s.log(logger.Info, "ready")
 
 					cres := make(chan sourceExtSetReadyRes)
-					s.parent.OnsourceExternalSetReady(sourceExtSetReadyReq{
+					s.parent.OnSourceExternalSetReady(sourceExtSetReadyReq{
 						Tracks: tracks,
 						Res:    cres,
 					})
@@ -177,18 +177,18 @@ func (s *rtmpSource) runInner() bool {
 
 					defer func() {
 						res := make(chan struct{})
-						s.parent.OnsourceExternalSetNotReady(sourceExtSetNotReadyReq{
+						s.parent.OnSourceExternalSetNotReady(sourceExtSetNotReadyReq{
 							Res: res,
 						})
 						<-res
 					}()
 
-					rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnFrame)
+					rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnSourceFrame)
 					defer rtcpSenders.Close()
 
 					onFrame := func(trackID int, payload []byte) {
 						rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-						s.parent.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
+						s.parent.OnSourceFrame(trackID, gortsplib.StreamTypeRTP, payload)
 					}
 
 					for {

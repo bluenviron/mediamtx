@@ -114,17 +114,17 @@ func (c *rtspConn) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
-// OnRequest is called by rtspserver.Server.
+// OnRequest is called by rtspServer.
 func (c *rtspConn) OnRequest(req *base.Request) {
 	c.log(logger.Debug, "[c->s] %v", req)
 }
 
-// OnResponse is called by rtspserver.Server.
+// OnResponse is called by rtspServer.
 func (c *rtspConn) OnResponse(res *base.Response) {
 	c.log(logger.Debug, "[s->c] %v", res)
 }
 
-// OnDescribe is called by rtspserver.Server.
+// OnDescribe is called by rtspServer.
 func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	resc := make(chan readPublisherDescribeRes)
 	c.pathMan.OnReadPublisherDescribe(readPublisherDescribeReq{

@@ -18,7 +18,7 @@ type readPublisherPath interface {
 	OnReadPublisherPlay(readPublisherPlayReq)
 	OnReadPublisherRecord(readPublisherRecordReq)
 	OnReadPublisherPause(readPublisherPauseReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
+	OnSourceFrame(int, gortsplib.StreamType, []byte)
 }
 
 type readPublisherErrNoOnePublishing struct {
@@ -53,6 +53,8 @@ type readPublisher interface {
 	IsReadPublisher()
 	IsSource()
 	Close()
+	OnReaderAccepted()
+	OnPublisherAccepted(tracksLen int)
 	OnFrame(int, gortsplib.StreamType, []byte)
 }
 

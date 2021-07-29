@@ -93,6 +93,9 @@ rtmpAddress: :1935
 hlsDisable: no
 # address of the HLS listener.
 hlsAddress: :8888
+# whether to always start the HLS remuxer; otherwise, it is started only
+# after an HLS stream is requested.
+hlsAlwaysRemux: no
 # number of HLS segments to generate.
 # increasing segments allows more buffering,
 # decreasing segments decrease latency.

@@ -98,6 +98,7 @@ type Conf struct {
 	// hls
 	HLSDisable         bool          `yaml:"hlsDisable"`
 	HLSAddress         string        `yaml:"hlsAddress"`
+	HLSAlwaysRemux     bool          `yaml:"hlsAlwaysRemux"`
 	HLSSegmentCount    int           `yaml:"hlsSegmentCount"`
 	HLSSegmentDuration time.Duration `yaml:"hlsSegmentDuration"`
 	HLSAllowOrigin     string        `yaml:"hlsAllowOrigin"`

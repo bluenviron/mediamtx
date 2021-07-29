@@ -18,6 +18,7 @@ type hlsServerParent interface {
 }
 
 type hlsServer struct {
+	hlsAlwaysRemux     bool
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
 	hlsAllowOrigin     string
@@ -26,20 +27,22 @@ type hlsServer struct {
 	pathMan            *pathManager
 	parent             hlsServerParent
 
-	ctx        context.Context
-	ctxCancel  func()
-	wg         sync.WaitGroup
-	ln         net.Listener
-	converters map[string]*hlsRemuxer
+	ctx       context.Context
+	ctxCancel func()
+	wg        sync.WaitGroup
+	ln        net.Listener
+	remuxers  map[string]*hlsRemuxer
 
 	// in
-	request   chan hlsRemuxerRequest
-	connClose chan *hlsRemuxer
+	pathSourceReady chan *path
+	request         chan hlsRemuxerRequest
+	connClose       chan *hlsRemuxer
 }
 
 func newHLSServer(
 	parentCtx context.Context,
 	address string,
+	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
 	hlsAllowOrigin string,
@@ -56,6 +59,7 @@ func newHLSServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &hlsServer{
+		hlsAlwaysRemux:     hlsAlwaysRemux,
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
 		hlsAllowOrigin:     hlsAllowOrigin,
@@ -66,7 +70,8 @@ func newHLSServer(
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
 		ln:                 ln,
-		converters:         make(map[string]*hlsRemuxer),
+		remuxers:           make(map[string]*hlsRemuxer),
+		pathSourceReady:    make(chan *path),
 		request:            make(chan hlsRemuxerRequest),
 		connClose:          make(chan *hlsRemuxer),
 	}
@@ -98,25 +103,17 @@ func (s *hlsServer) run() {
 outer:
 	for {
 		select {
-		case req := <-s.request:
-			c, ok := s.converters[req.Dir]
-			if !ok {
-				c = newHLSRemuxer(
-					s.ctx,
-					s.hlsSegmentCount,
-					s.hlsSegmentDuration,
-					s.readBufferCount,
-					&s.wg,
-					s.stats,
-					req.Dir,
-					s.pathMan,
-					s)
-				s.converters[req.Dir] = c
+		case pa := <-s.pathSourceReady:
+			if s.hlsAlwaysRemux {
+				s.createRemuxer(pa.Name())
 			}
-			c.OnRequest(req)
+
+		case req := <-s.request:
+			r := s.createRemuxer(req.Dir)
+			r.OnRequest(req)
 
 		case c := <-s.connClose:
-			if c2, ok := s.converters[c.PathName()]; !ok || c2 != c {
+			if c2, ok := s.remuxers[c.PathName()]; !ok || c2 != c {
 				continue
 			}
 			s.doRemuxerClose(c)
@@ -128,7 +125,7 @@ outer:
 
 	s.ctxCancel()
 
-	for _, c := range s.converters {
+	for _, c := range s.remuxers {
 		s.doRemuxerClose(c)
 	}
 
@@ -189,7 +186,7 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			buf := make([]byte, 4096)
 			for {
 				n, err := res.Read(buf)
-				if n == 0 {
+				if err != nil {
 					return
 				}
 
@@ -206,14 +203,42 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *hlsServer) createRemuxer(pathName string) *hlsRemuxer {
+	r, ok := s.remuxers[pathName]
+	if !ok {
+		r = newHLSRemuxer(
+			s.ctx,
+			s.hlsAlwaysRemux,
+			s.hlsSegmentCount,
+			s.hlsSegmentDuration,
+			s.readBufferCount,
+			&s.wg,
+			s.stats,
+			pathName,
+			s.pathMan,
+			s)
+		s.remuxers[pathName] = r
+	}
+	return r
+}
+
 func (s *hlsServer) doRemuxerClose(c *hlsRemuxer) {
-	delete(s.converters, c.PathName())
+	delete(s.remuxers, c.PathName())
 	c.ParentClose()
 }
 
+// OnRemuxerClose is called by hlsRemuxer.
 func (s *hlsServer) OnRemuxerClose(c *hlsRemuxer) {
 	select {
 	case s.connClose <- c:
+	case <-s.ctx.Done():
+	}
+}
+
+// OnPathSourceReady is called by core.
+func (s *hlsServer) OnPathSourceReady(pa *path) {
+	select {
+	case s.pathSourceReady <- pa:
 	case <-s.ctx.Done():
 	}
 }

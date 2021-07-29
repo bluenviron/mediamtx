@@ -23,9 +23,9 @@ const (
 
 type rtspSourceParent interface {
 	Log(logger.Level, string, ...interface{})
-	OnsourceExternalSetReady(req sourceExtSetReadyReq)
-	OnsourceExternalSetNotReady(req sourceExtSetNotReadyReq)
-	OnFrame(int, gortsplib.StreamType, []byte)
+	OnSourceExternalSetReady(req sourceExtSetReadyReq)
+	OnSourceExternalSetNotReady(req sourceExtSetNotReadyReq)
+	OnSourceFrame(int, gortsplib.StreamType, []byte)
 }
 
 type rtspSource struct {
@@ -188,7 +188,7 @@ func (s *rtspSource) runInner() bool {
 	s.log(logger.Info, "ready")
 
 	cres := make(chan sourceExtSetReadyRes)
-	s.parent.OnsourceExternalSetReady(sourceExtSetReadyReq{
+	s.parent.OnSourceExternalSetReady(sourceExtSetReadyReq{
 		Tracks: conn.Tracks(),
 		Res:    cres,
 	})
@@ -196,7 +196,7 @@ func (s *rtspSource) runInner() bool {
 
 	defer func() {
 		res := make(chan struct{})
-		s.parent.OnsourceExternalSetNotReady(sourceExtSetNotReadyReq{
+		s.parent.OnSourceExternalSetNotReady(sourceExtSetNotReadyReq{
 			Res: res,
 		})
 		<-res
@@ -205,7 +205,7 @@ func (s *rtspSource) runInner() bool {
 	readErr := make(chan error)
 	go func() {
 		readErr <- conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-			s.parent.OnFrame(trackID, streamType, payload)
+			s.parent.OnSourceFrame(trackID, streamType, payload)
 		})
 	}()
 

@@ -25,6 +25,7 @@ func newEmptyTimer() *time.Timer {
 
 type pathParent interface {
 	Log(logger.Level, string, ...interface{})
+	OnPathSourceReady(*path)
 	OnPathClose(*path)
 }
 
@@ -54,34 +55,30 @@ const (
 	sourceStateReady
 )
 
-type reader interface {
-	OnFrame(int, gortsplib.StreamType, []byte)
-}
-
-type readersMap struct {
+type pathReadersMap struct {
 	mutex sync.RWMutex
-	ma    map[reader]struct{}
+	ma    map[readPublisher]struct{}
 }
 
-func newReadersMap() *readersMap {
-	return &readersMap{
-		ma: make(map[reader]struct{}),
+func newPathReadersMap() *pathReadersMap {
+	return &pathReadersMap{
+		ma: make(map[readPublisher]struct{}),
 	}
 }
 
-func (m *readersMap) add(reader reader) {
+func (m *pathReadersMap) add(r readPublisher) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.ma[reader] = struct{}{}
+	m.ma[r] = struct{}{}
 }
 
-func (m *readersMap) remove(reader reader) {
+func (m *pathReadersMap) remove(r readPublisher) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	delete(m.ma, reader)
+	delete(m.ma, r)
 }
 
-func (m *readersMap) forwardFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+func (m *pathReadersMap) forwardFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -110,8 +107,9 @@ type path struct {
 	setupPlayRequests            []readPublisherSetupPlayReq
 	source                       source
 	sourceStream                 *gortsplib.ServerStream
-	nonRTSPReaders               *readersMap
+	nonRTSPReaders               *pathReadersMap
 	onDemandCmd                  *externalcmd.Cmd
+	onPublishCmd                 *externalcmd.Cmd
 	describeTimer                *time.Timer
 	sourceCloseTimer             *time.Timer
 	sourceCloseTimerStarted      bool
@@ -164,7 +162,7 @@ func newPath(
 		ctx:                   ctx,
 		ctxCancel:             ctxCancel,
 		readPublishers:        make(map[readPublisher]readPublisherState),
-		nonRTSPReaders:        newReadersMap(),
+		nonRTSPReaders:        newPathReadersMap(),
 		describeTimer:         newEmptyTimer(),
 		sourceCloseTimer:      newEmptyTimer(),
 		runOnDemandCloseTimer: newEmptyTimer(),
@@ -462,10 +460,17 @@ func (pa *path) onSourceSetReady() {
 	pa.scheduleSourceClose()
 	pa.scheduleRunOnDemandClose()
 	pa.scheduleClose()
+
+	pa.parent.OnPathSourceReady(pa)
 }
 
 func (pa *path) onSourceSetNotReady() {
 	pa.sourceState = sourceStateNotReady
+
+	if pa.onPublishCmd != nil {
+		pa.onPublishCmd.Close()
+		pa.onPublishCmd = nil
+	}
 
 	// close all readPublishers that are reading or waiting to read
 	for c, state := range pa.readPublishers {
@@ -553,7 +558,7 @@ func (pa *path) onReadPublisherDescribe(req readPublisherDescribeReq) {
 				}
 				return pa.conf.Fallback
 			}()
-			req.Res <- readPublisherDescribeRes{nil, fallbackURL, nil} //nolint:govet
+			req.Res <- readPublisherDescribeRes{Redirect: fallbackURL}
 			return
 		}
 
@@ -612,6 +617,8 @@ func (pa *path) onReadPublisherPlay(req readPublisherPlayReq) {
 		pa.nonRTSPReaders.add(req.Author)
 	}
 
+	req.Author.OnReaderAccepted()
+
 	req.Res <- readPublisherPlayRes{}
 }
 
@@ -649,7 +656,7 @@ func (pa *path) onReadPublisherAnnounce(req readPublisherAnnounceReq) {
 
 	pa.source = req.Author
 	pa.sourceStream = gortsplib.NewServerStream(req.Tracks)
-	req.Res <- readPublisherAnnounceRes{pa, nil} //nolint:govet
+	req.Res <- readPublisherAnnounceRes{Path: pa}
 }
 
 func (pa *path) onReadPublisherRecord(req readPublisherRecordReq) {
@@ -660,7 +667,18 @@ func (pa *path) onReadPublisherRecord(req readPublisherRecordReq) {
 
 	atomic.AddInt64(pa.stats.CountPublishers, 1)
 	pa.readPublishers[req.Author] = readPublisherStateRecord
+
+	req.Author.OnPublisherAccepted(len(pa.sourceStream.Tracks()))
+
 	pa.onSourceSetReady()
+
+	if pa.conf.RunOnPublish != "" {
+		_, port, _ := net.SplitHostPort(pa.rtspAddress)
+		pa.onPublishCmd = externalcmd.New(pa.conf.RunOnPublish, pa.conf.RunOnPublishRestart, externalcmd.Environment{
+			Path: pa.name,
+			Port: port,
+		})
+	}
 
 	req.Res <- readPublisherRecordRes{}
 }
@@ -751,8 +769,8 @@ func (pa *path) Name() string {
 	return pa.name
 }
 
-// OnsourceExternalSetReady is called by an external source.
-func (pa *path) OnsourceExternalSetReady(req sourceExtSetReadyReq) {
+// OnSourceExternalSetReady is called by an external source.
+func (pa *path) OnSourceExternalSetReady(req sourceExtSetReadyReq) {
 	select {
 	case pa.extSourceSetReady <- req:
 	case <-pa.ctx.Done():
@@ -760,8 +778,8 @@ func (pa *path) OnsourceExternalSetReady(req sourceExtSetReadyReq) {
 	}
 }
 
-// OnsourceExternalSetNotReady is called by an external source.
-func (pa *path) OnsourceExternalSetNotReady(req sourceExtSetNotReadyReq) {
+// OnSourceExternalSetNotReady is called by an external source.
+func (pa *path) OnSourceExternalSetNotReady(req sourceExtSetNotReadyReq) {
 	select {
 	case pa.extSourceSetNotReady <- req:
 	case <-pa.ctx.Done():
@@ -769,7 +787,7 @@ func (pa *path) OnsourceExternalSetNotReady(req sourceExtSetNotReadyReq) {
 	}
 }
 
-// OnPathManDescribe is called by pathman.PathMan.
+// OnPathManDescribe is called by pathManager.
 func (pa *path) OnPathManDescribe(req readPublisherDescribeReq) {
 	select {
 	case pa.describeReq <- req:
@@ -778,7 +796,7 @@ func (pa *path) OnPathManDescribe(req readPublisherDescribeReq) {
 	}
 }
 
-// OnPathManSetupPlay is called by pathman.PathMan.
+// OnPathManSetupPlay is called by pathManager.
 func (pa *path) OnPathManSetupPlay(req readPublisherSetupPlayReq) {
 	select {
 	case pa.setupPlayReq <- req:
@@ -787,7 +805,7 @@ func (pa *path) OnPathManSetupPlay(req readPublisherSetupPlayReq) {
 	}
 }
 
-// OnPathManAnnounce is called by pathman.PathMan.
+// OnPathManAnnounce is called by pathManager.
 func (pa *path) OnPathManAnnounce(req readPublisherAnnounceReq) {
 	select {
 	case pa.announceReq <- req:
@@ -796,7 +814,7 @@ func (pa *path) OnPathManAnnounce(req readPublisherAnnounceReq) {
 	}
 }
 
-// OnReadPublisherPlay is called by a readPublisher
+// OnReadPublisherPlay is called by a readPublisher.
 func (pa *path) OnReadPublisherPlay(req readPublisherPlayReq) {
 	select {
 	case pa.playReq <- req:
@@ -805,7 +823,7 @@ func (pa *path) OnReadPublisherPlay(req readPublisherPlayReq) {
 	}
 }
 
-// OnReadPublisherRecord is called by a readPublisher
+// OnReadPublisherRecord is called by a readPublisher.
 func (pa *path) OnReadPublisherRecord(req readPublisherRecordReq) {
 	select {
 	case pa.recordReq <- req:
@@ -814,7 +832,7 @@ func (pa *path) OnReadPublisherRecord(req readPublisherRecordReq) {
 	}
 }
 
-// OnReadPublisherPause is called by a readPublisher
+// OnReadPublisherPause is called by a readPublisher.
 func (pa *path) OnReadPublisherPause(req readPublisherPauseReq) {
 	select {
 	case pa.pauseReq <- req:
@@ -823,7 +841,7 @@ func (pa *path) OnReadPublisherPause(req readPublisherPauseReq) {
 	}
 }
 
-// OnReadPublisherRemove is called by a readPublisher
+// OnReadPublisherRemove is called by a readPublisher.
 func (pa *path) OnReadPublisherRemove(req readPublisherRemoveReq) {
 	select {
 	case pa.removeReq <- req:
@@ -832,8 +850,8 @@ func (pa *path) OnReadPublisherRemove(req readPublisherRemoveReq) {
 	}
 }
 
-// OnFrame is called by a readpublisher
-func (pa *path) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+// OnFrame is called by a source.
+func (pa *path) OnSourceFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	pa.sourceStream.WriteFrame(trackID, streamType, payload)
 
 	pa.nonRTSPReaders.forwardFrame(trackID, streamType, payload)

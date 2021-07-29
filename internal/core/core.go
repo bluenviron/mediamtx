@@ -35,6 +35,9 @@ type Core struct {
 	hlsServer       *hlsServer
 	confWatcher     *confwatcher.ConfWatcher
 
+	// in
+	pathSourceReady chan *path
+
 	// out
 	done chan struct{}
 }
@@ -62,10 +65,11 @@ func New(args []string) (*Core, bool) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	p := &Core{
-		ctx:       ctx,
-		ctxCancel: ctxCancel,
-		confPath:  *argConfPath,
-		done:      make(chan struct{}),
+		ctx:             ctx,
+		ctxCancel:       ctxCancel,
+		confPath:        *argConfPath,
+		pathSourceReady: make(chan *path),
+		done:            make(chan struct{}),
 	}
 
 	var err error
@@ -134,6 +138,11 @@ outer:
 			if err != nil {
 				p.Log(logger.Info, "ERR: %s", err)
 				break outer
+			}
+
+		case pa := <-p.pathSourceReady:
+			if p.hlsServer != nil {
+				p.hlsServer.OnPathSourceReady(pa)
 			}
 
 		case <-p.ctx.Done():
@@ -306,6 +315,7 @@ func (p *Core) createResources(initial bool) error {
 			p.hlsServer, err = newHLSServer(
 				p.ctx,
 				p.conf.HLSAddress,
+				p.conf.HLSAlwaysRemux,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,
 				p.conf.HLSAllowOrigin,
@@ -426,6 +436,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 	if newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
+		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
@@ -492,4 +503,12 @@ func (p *Core) reloadConf() error {
 
 	p.conf = newConf
 	return p.createResources(false)
+}
+
+// OnPathSourceReady is called by pathManager.
+func (p *Core) OnPathSourceReady(pa *path) {
+	select {
+	case p.pathSourceReady <- pa:
+	case <-p.done:
+	}
 }

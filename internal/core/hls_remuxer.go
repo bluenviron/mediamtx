@@ -99,6 +99,7 @@ type hlsRemuxerParent interface {
 }
 
 type hlsRemuxer struct {
+	hlsAlwaysRemux     bool
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
 	readBufferCount    int
@@ -121,6 +122,7 @@ type hlsRemuxer struct {
 
 func newHLSRemuxer(
 	parentCtx context.Context,
+	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
 	readBufferCount int,
@@ -131,7 +133,8 @@ func newHLSRemuxer(
 	parent hlsRemuxerParent) *hlsRemuxer {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
-	c := &hlsRemuxer{
+	r := &hlsRemuxer{
+		hlsAlwaysRemux:     hlsAlwaysRemux,
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
 		readBufferCount:    readBufferCount,
@@ -149,75 +152,78 @@ func newHLSRemuxer(
 		request: make(chan hlsRemuxerRequest),
 	}
 
-	c.log(logger.Info, "opened")
+	r.log(logger.Info, "created")
 
-	c.wg.Add(1)
-	go c.run()
+	r.wg.Add(1)
+	go r.run()
 
-	return c
+	return r
 }
 
 // ParentClose closes a Remuxer.
-func (c *hlsRemuxer) ParentClose() {
-	c.log(logger.Info, "closed")
+func (r *hlsRemuxer) ParentClose() {
+	r.log(logger.Info, "destroyed")
 }
 
-func (c *hlsRemuxer) Close() {
-	c.ctxCancel()
+func (r *hlsRemuxer) Close() {
+	r.ctxCancel()
 }
 
 // IsReadPublisher implements readPublisher.
-func (c *hlsRemuxer) IsReadPublisher() {}
+func (r *hlsRemuxer) IsReadPublisher() {}
 
 // IsSource implements source.
-func (c *hlsRemuxer) IsSource() {}
+func (r *hlsRemuxer) IsSource() {}
 
-func (c *hlsRemuxer) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[remuxer %s] "+format, append([]interface{}{c.pathName}, args...)...)
+func (r *hlsRemuxer) log(level logger.Level, format string, args ...interface{}) {
+	r.parent.Log(level, "[remuxer %s] "+format, append([]interface{}{r.pathName}, args...)...)
 }
 
 // PathName returns the path name of the readPublisher
-func (c *hlsRemuxer) PathName() string {
-	return c.pathName
+func (r *hlsRemuxer) PathName() string {
+	return r.pathName
 }
 
-func (c *hlsRemuxer) run() {
-	defer c.wg.Done()
+func (r *hlsRemuxer) run() {
+	defer r.wg.Done()
 
 	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
 	runErr := make(chan error)
 	go func() {
-		runErr <- c.runInner(innerCtx)
+		runErr <- r.runInner(innerCtx)
 	}()
 
 	select {
 	case err := <-runErr:
 		innerCtxCancel()
 		if err != nil {
-			c.log(logger.Info, "ERR: %s", err)
+			r.log(logger.Info, "ERR: %s", err)
 		}
 
-	case <-c.ctx.Done():
+	case <-r.ctx.Done():
 		innerCtxCancel()
 		<-runErr
 	}
 
-	c.ctxCancel()
+	r.ctxCancel()
 
-	if c.path != nil {
+	if r.path != nil {
 		res := make(chan struct{})
-		c.path.OnReadPublisherRemove(readPublisherRemoveReq{c, res}) //nolint:govet
+		r.path.OnReadPublisherRemove(readPublisherRemoveReq{
+			Author: r,
+			Res:    res,
+		})
 		<-res
 	}
 
-	c.parent.OnRemuxerClose(c)
+	r.parent.OnRemuxerClose(r)
 }
 
-func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
+func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
 	pres := make(chan readPublisherSetupPlayRes)
-	c.pathMan.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
-		Author:              c,
-		PathName:            c.pathName,
+	r.pathMan.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+		Author:              r,
+		PathName:            r.pathName,
 		IP:                  nil,
 		ValidateCredentials: nil,
 		Res:                 pres,
@@ -228,7 +234,7 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 		return res.Err
 	}
 
-	c.path = res.Path
+	r.path = res.Path
 	var videoTrack *gortsplib.Track
 	videoTrackID := -1
 	var h264SPS []byte
@@ -283,34 +289,35 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 	}
 
 	var err error
-	c.muxer, err = hls.NewMuxer(
-		c.hlsSegmentCount,
-		c.hlsSegmentDuration,
+	r.muxer, err = hls.NewMuxer(
+		r.hlsSegmentCount,
+		r.hlsSegmentDuration,
 		videoTrack,
 		audioTrack,
 	)
 	if err != nil {
 		return err
 	}
-	defer c.muxer.Close()
+	defer r.muxer.Close()
 
 	// start request handler only after muxer has been inizialized
 	requestHandlerTerminate := make(chan struct{})
 	requestHandlerDone := make(chan struct{})
-	go c.runRequestHandler(requestHandlerTerminate, requestHandlerDone)
+	go r.runRequestHandler(requestHandlerTerminate, requestHandlerDone)
 
 	defer func() {
 		close(requestHandlerTerminate)
 		<-requestHandlerDone
 	}()
 
-	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
+	r.ringBuffer = ringbuffer.New(uint64(r.readBufferCount))
 
 	resc := make(chan readPublisherPlayRes)
-	c.path.OnReadPublisherPlay(readPublisherPlayReq{c, resc}) //nolint:govet
+	r.path.OnReadPublisherPlay(readPublisherPlayReq{
+		Author: r,
+		Res:    resc,
+	})
 	<-resc
-
-	c.log(logger.Info, "is remuxing into HLS")
 
 	writerDone := make(chan error)
 	go func() {
@@ -318,7 +325,7 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 			var videoBuf [][]byte
 
 			for {
-				data, ok := c.ringBuffer.Pull()
+				data, ok := r.ringBuffer.Pull()
 				if !ok {
 					return fmt.Errorf("terminated")
 				}
@@ -328,14 +335,14 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 					var pkt rtp.Packet
 					err := pkt.Unmarshal(pair.buf)
 					if err != nil {
-						c.log(logger.Warn, "unable to decode RTP packet: %v", err)
+						r.log(logger.Warn, "unable to decode RTP packet: %v", err)
 						continue
 					}
 
 					nalus, pts, err := h264Decoder.DecodeRTP(&pkt)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded && err != rtph264.ErrNonStartingPacketAndNoPrevious {
-							c.log(logger.Warn, "unable to decode video track: %v", err)
+							r.log(logger.Warn, "unable to decode video track: %v", err)
 						}
 						continue
 					}
@@ -360,7 +367,7 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 					// RTP marker means that all the NALUs with the same PTS have been received.
 					// send them together.
 					if pkt.Marker {
-						err := c.muxer.WriteH264(pts, videoBuf)
+						err := r.muxer.WriteH264(pts, videoBuf)
 						if err != nil {
 							return err
 						}
@@ -372,19 +379,19 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 					var pkt rtp.Packet
 					err := pkt.Unmarshal(pair.buf)
 					if err != nil {
-						c.log(logger.Warn, "unable to decode RTP packet: %v", err)
+						r.log(logger.Warn, "unable to decode RTP packet: %v", err)
 						continue
 					}
 
 					aus, pts, err := aacDecoder.DecodeRTP(&pkt)
 					if err != nil {
 						if err != rtpaac.ErrMorePacketsNeeded {
-							c.log(logger.Warn, "unable to decode audio track: %v", err)
+							r.log(logger.Warn, "unable to decode audio track: %v", err)
 						}
 						continue
 					}
 
-					err = c.muxer.WriteAAC(pts, aus)
+					err = r.muxer.WriteAAC(pts, aus)
 					if err != nil {
 						return err
 					}
@@ -399,9 +406,9 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 	for {
 		select {
 		case <-closeCheckTicker.C:
-			t := time.Unix(atomic.LoadInt64(c.lastRequestTime), 0)
-			if time.Since(t) >= closeAfterInactivity {
-				c.ringBuffer.Close()
+			t := time.Unix(atomic.LoadInt64(r.lastRequestTime), 0)
+			if !r.hlsAlwaysRemux && time.Since(t) >= closeAfterInactivity {
+				r.ringBuffer.Close()
 				<-writerDone
 				return nil
 			}
@@ -410,14 +417,14 @@ func (c *hlsRemuxer) runInner(innerCtx context.Context) error {
 			return err
 
 		case <-innerCtx.Done():
-			c.ringBuffer.Close()
+			r.ringBuffer.Close()
 			<-writerDone
 			return nil
 		}
 	}
 }
 
-func (c *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct{}) {
+func (r *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct{}) {
 	defer close(done)
 
 	for {
@@ -425,18 +432,18 @@ func (c *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct
 		case <-terminate:
 			return
 
-		case preq := <-c.request:
+		case preq := <-r.request:
 			req := preq
 
-			atomic.StoreInt64(c.lastRequestTime, time.Now().Unix())
+			atomic.StoreInt64(r.lastRequestTime, time.Now().Unix())
 
-			conf := c.path.Conf()
+			conf := r.path.Conf()
 
 			if conf.ReadIPsParsed != nil {
 				tmp, _, _ := net.SplitHostPort(req.Req.RemoteAddr)
 				ip := net.ParseIP(tmp)
 				if !ipEqualOrInRange(ip, conf.ReadIPsParsed) {
-					c.log(logger.Info, "ERR: ip '%s' not allowed", ip)
+					r.log(logger.Info, "ERR: ip '%s' not allowed", ip)
 					req.W.WriteHeader(http.StatusUnauthorized)
 					req.Res <- nil
 					continue
@@ -455,7 +462,7 @@ func (c *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct
 
 			switch {
 			case req.File == "stream.m3u8":
-				r := c.muxer.Playlist()
+				r := r.muxer.Playlist()
 				if r == nil {
 					req.W.WriteHeader(http.StatusNotFound)
 					req.Res <- nil
@@ -466,7 +473,7 @@ func (c *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct
 				req.Res <- r
 
 			case strings.HasSuffix(req.File, ".ts"):
-				r := c.muxer.TSFile(req.File)
+				r := r.muxer.TSFile(req.File)
 				if r == nil {
 					req.W.WriteHeader(http.StatusNotFound)
 					req.Res <- nil
@@ -488,18 +495,27 @@ func (c *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct
 }
 
 // OnRequest is called by hlsserver.Server.
-func (c *hlsRemuxer) OnRequest(req hlsRemuxerRequest) {
+func (r *hlsRemuxer) OnRequest(req hlsRemuxerRequest) {
 	select {
-	case c.request <- req:
-	case <-c.ctx.Done():
+	case r.request <- req:
+	case <-r.ctx.Done():
 		req.W.WriteHeader(http.StatusNotFound)
 		req.Res <- nil
 	}
 }
 
-// OnFrame implements path.Reader.
-func (c *hlsRemuxer) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+// OnReaderAccepted implements readPublisher.
+func (r *hlsRemuxer) OnReaderAccepted() {
+	r.log(logger.Info, "is remuxing into HLS")
+}
+
+// OnPublisherAccepted implements readPublisher.
+func (r *hlsRemuxer) OnPublisherAccepted(tracksLen int) {
+}
+
+// OnFrame implements readPublisher.
+func (r *hlsRemuxer) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
-		c.ringBuffer.Push(hlsRemuxerTrackIDPayloadPair{trackID, payload})
+		r.ringBuffer.Push(hlsRemuxerTrackIDPayloadPair{trackID, payload})
 	}
 }
