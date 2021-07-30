@@ -146,14 +146,22 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", s.hlsAllowOrigin)
 	w.Header().Add("Access-Control-Allow-Credentials", "true")
 
-	if r.Method == http.MethodOptions {
+	switch r.Method {
+	case http.MethodGet:
+
+	case http.MethodOptions:
 		w.Header().Add("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Add("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
 		w.WriteHeader(http.StatusOK)
 		return
+
+	default:
+		w.WriteHeader(http.StatusNotFound)
+		return
 	}
 
-	if pa == "" || pa == "favicon.ico" {
+	switch pa {
+	case "", "favicon.ico":
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
