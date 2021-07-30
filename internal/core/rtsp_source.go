@@ -187,19 +187,12 @@ func (s *rtspSource) runInner() bool {
 
 	s.log(logger.Info, "ready")
 
-	cres := make(chan sourceExtSetReadyRes)
 	s.parent.OnSourceExternalSetReady(sourceExtSetReadyReq{
 		Tracks: conn.Tracks(),
-		Res:    cres,
 	})
-	<-cres
 
 	defer func() {
-		res := make(chan struct{})
-		s.parent.OnSourceExternalSetNotReady(sourceExtSetNotReadyReq{
-			Res: res,
-		})
-		<-res
+		s.parent.OnSourceExternalSetNotReady(sourceExtSetNotReadyReq{})
 	}()
 
 	readErr := make(chan error)

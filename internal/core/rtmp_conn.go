@@ -48,11 +48,6 @@ type rtmpConnTrackIDPayloadPair struct {
 	buf     []byte
 }
 
-type rtmpConnPathMan interface {
-	OnReadPublisherSetupPlay(readPublisherSetupPlayReq)
-	OnReadPublisherAnnounce(readPublisherAnnounceReq)
-}
-
 type rtmpConnParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnConnClose(*rtmpConn)
@@ -68,7 +63,7 @@ type rtmpConn struct {
 	wg                  *sync.WaitGroup
 	stats               *stats
 	conn                *rtmp.Conn
-	pathManager         rtmpConnPathMan
+	pathManager         *pathManager
 	parent              rtmpConnParent
 
 	ctx        context.Context
@@ -88,7 +83,7 @@ func newRTMPConn(
 	wg *sync.WaitGroup,
 	stats *stats,
 	nconn net.Conn,
-	pathManager rtmpConnPathMan,
+	pathManager *pathManager,
 	parent rtmpConnParent) *rtmpConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -174,12 +169,7 @@ func (c *rtmpConn) run() {
 	c.ctxCancel()
 
 	if c.path != nil {
-		res := make(chan struct{})
-		c.path.OnReadPublisherRemove(readPublisherRemoveReq{
-			Author: c,
-			Res:    res,
-		})
-		<-res
+		c.path.OnReadPublisherRemove(readPublisherRemoveReq{Author: c})
 	}
 
 	c.parent.OnConnClose(c)
@@ -207,17 +197,14 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 func (c *rtmpConn) runRead(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
-	sres := make(chan readPublisherSetupPlayRes)
-	c.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+	res := c.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
 		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
-		Res: sres,
 	})
-	res := <-sres
 
 	if res.Err != nil {
 		if terr, ok := res.Err.(readPublisherErrAuthCritical); ok {
@@ -274,12 +261,9 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		c.ringBuffer.Close()
 	}()
 
-	pres := make(chan readPublisherPlayRes)
 	c.path.OnReadPublisherPlay(readPublisherPlayReq{
 		Author: c,
-		Res:    pres,
 	})
-	<-pres
 
 	// disable read deadline
 	c.conn.NetConn().SetReadDeadline(time.Time{})
@@ -405,8 +389,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
-	resc := make(chan readPublisherAnnounceRes)
-	c.pathManager.OnReadPublisherAnnounce(readPublisherAnnounceReq{
+	res := c.pathManager.OnReadPublisherAnnounce(readPublisherAnnounceReq{
 		Author:   c,
 		PathName: pathName,
 		Tracks:   tracks,
@@ -414,9 +397,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
-		Res: resc,
 	})
-	res := <-resc
 
 	if res.Err != nil {
 		if terr, ok := res.Err.(readPublisherErrAuthCritical); ok {
@@ -432,10 +413,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	// disable write deadline
 	c.conn.NetConn().SetWriteDeadline(time.Time{})
 
-	rresc := make(chan readPublisherRecordRes)
-	c.path.OnReadPublisherRecord(readPublisherRecordReq{Author: c, Res: rresc})
-	rres := <-rresc
-
+	rres := c.path.OnReadPublisherRecord(readPublisherRecordReq{Author: c})
 	if rres.Err != nil {
 		return rres.Err
 	}

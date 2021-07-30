@@ -165,6 +165,7 @@ func (s *rtmpServer) doConnClose(c *rtmpConn) {
 	c.Close()
 }
 
+// OnConnClose is called by rtmpConn.
 func (s *rtmpServer) OnConnClose(c *rtmpConn) {
 	select {
 	case s.connClose <- c:

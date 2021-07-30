@@ -204,27 +204,19 @@ func (r *hlsRemuxer) run() {
 	r.ctxCancel()
 
 	if r.path != nil {
-		res := make(chan struct{})
-		r.path.OnReadPublisherRemove(readPublisherRemoveReq{
-			Author: r,
-			Res:    res,
-		})
-		<-res
+		r.path.OnReadPublisherRemove(readPublisherRemoveReq{Author: r})
 	}
 
 	r.parent.OnRemuxerClose(r)
 }
 
 func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
-	pres := make(chan readPublisherSetupPlayRes)
-	r.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+	res := r.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
 		Author:              r,
 		PathName:            r.pathName,
 		IP:                  nil,
 		ValidateCredentials: nil,
-		Res:                 pres,
 	})
-	res := <-pres
 
 	if res.Err != nil {
 		return res.Err
@@ -308,12 +300,9 @@ func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
 
 	r.ringBuffer = ringbuffer.New(uint64(r.readBufferCount))
 
-	resc := make(chan readPublisherPlayRes)
 	r.path.OnReadPublisherPlay(readPublisherPlayReq{
 		Author: r,
-		Res:    resc,
 	})
-	<-resc
 
 	writerDone := make(chan error)
 	go func() {
@@ -490,7 +479,7 @@ func (r *hlsRemuxer) runRequestHandler(terminate chan struct{}, done chan struct
 	}
 }
 
-// OnRequest is called by hlsserver.Server.
+// OnRequest is called by hlsserver.Server (forwarded from ServeHTTP).
 func (r *hlsRemuxer) OnRequest(req hlsRemuxerRequest) {
 	select {
 	case r.request <- req:

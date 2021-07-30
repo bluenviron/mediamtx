@@ -16,7 +16,7 @@ type readPublisherPath interface {
 	Conf() *conf.PathConf
 	OnReadPublisherRemove(readPublisherRemoveReq)
 	OnReadPublisherPlay(readPublisherPlayReq)
-	OnReadPublisherRecord(readPublisherRecordReq)
+	OnReadPublisherRecord(readPublisherRecordReq) readPublisherRecordRes
 	OnReadPublisherPause(readPublisherPauseReq)
 	OnSourceFrame(int, gortsplib.StreamType, []byte)
 }
@@ -105,11 +105,9 @@ type readPublisherRemoveReq struct {
 	Res    chan struct{}
 }
 
-type readPublisherPlayRes struct{}
-
 type readPublisherPlayReq struct {
 	Author readPublisher
-	Res    chan readPublisherPlayRes
+	Res    chan struct{}
 }
 
 type readPublisherRecordRes struct {

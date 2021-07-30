@@ -619,7 +619,7 @@ func (pa *path) onReadPublisherPlay(req readPublisherPlayReq) {
 
 	req.Author.OnReaderAccepted()
 
-	req.Res <- readPublisherPlayRes{}
+	close(req.Res)
 }
 
 func (pa *path) onReadPublisherAnnounce(req readPublisherAnnounceReq) {
@@ -771,23 +771,25 @@ func (pa *path) Name() string {
 
 // OnSourceExternalSetReady is called by an external source.
 func (pa *path) OnSourceExternalSetReady(req sourceExtSetReadyReq) {
+	req.Res = make(chan sourceExtSetReadyRes)
 	select {
 	case pa.extSourceSetReady <- req:
+		<-req.Res
 	case <-pa.ctx.Done():
-		close(req.Res)
 	}
 }
 
 // OnSourceExternalSetNotReady is called by an external source.
 func (pa *path) OnSourceExternalSetNotReady(req sourceExtSetNotReadyReq) {
+	req.Res = make(chan struct{})
 	select {
 	case pa.extSourceSetNotReady <- req:
+		<-req.Res
 	case <-pa.ctx.Done():
-		close(req.Res)
 	}
 }
 
-// OnPathManDescribe is called by pathManager.
+// OnPathManDescribe is called by pathManager (forwarded from a readPublisher).
 func (pa *path) OnPathManDescribe(req readPublisherDescribeReq) {
 	select {
 	case pa.describeReq <- req:
@@ -796,7 +798,7 @@ func (pa *path) OnPathManDescribe(req readPublisherDescribeReq) {
 	}
 }
 
-// OnPathManSetupPlay is called by pathManager.
+// OnPathManSetupPlay is called by pathManager (forwarded from a readPublisher).
 func (pa *path) OnPathManSetupPlay(req readPublisherSetupPlayReq) {
 	select {
 	case pa.setupPlayReq <- req:
@@ -805,7 +807,7 @@ func (pa *path) OnPathManSetupPlay(req readPublisherSetupPlayReq) {
 	}
 }
 
-// OnPathManAnnounce is called by pathManager.
+// OnPathManAnnounce is called by pathManager (forwarded from a readPublisher).
 func (pa *path) OnPathManAnnounce(req readPublisherAnnounceReq) {
 	select {
 	case pa.announceReq <- req:
@@ -816,43 +818,50 @@ func (pa *path) OnPathManAnnounce(req readPublisherAnnounceReq) {
 
 // OnReadPublisherPlay is called by a readPublisher.
 func (pa *path) OnReadPublisherPlay(req readPublisherPlayReq) {
+	req.Res = make(chan struct{})
 	select {
 	case pa.playReq <- req:
+		<-req.Res
 	case <-pa.ctx.Done():
-		close(req.Res)
 	}
 }
 
 // OnReadPublisherRecord is called by a readPublisher.
-func (pa *path) OnReadPublisherRecord(req readPublisherRecordReq) {
+func (pa *path) OnReadPublisherRecord(req readPublisherRecordReq) readPublisherRecordRes {
+	req.Res = make(chan readPublisherRecordRes)
 	select {
 	case pa.recordReq <- req:
+		return <-req.Res
 	case <-pa.ctx.Done():
-		close(req.Res)
+		return readPublisherRecordRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
 // OnReadPublisherPause is called by a readPublisher.
 func (pa *path) OnReadPublisherPause(req readPublisherPauseReq) {
+	req.Res = make(chan struct{})
 	select {
 	case pa.pauseReq <- req:
+		<-req.Res
 	case <-pa.ctx.Done():
-		close(req.Res)
 	}
 }
 
 // OnReadPublisherRemove is called by a readPublisher.
 func (pa *path) OnReadPublisherRemove(req readPublisherRemoveReq) {
+	req.Res = make(chan struct{})
 	select {
 	case pa.removeReq <- req:
+		<-req.Res
 	case <-pa.ctx.Done():
-		close(req.Res)
 	}
 }
 
 // OnFrame is called by a source.
 func (pa *path) OnSourceFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+	// forward to RTSP readers
 	pa.sourceStream.WriteFrame(trackID, streamType, payload)
 
+	// forward to non-RTSP readers
 	pa.nonRTSPReaders.forwardFrame(trackID, streamType, payload)
 }

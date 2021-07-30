@@ -30,10 +30,6 @@ func isTerminatedErr(err error) bool {
 	return ok
 }
 
-type rtspConnPathMan interface {
-	OnReadPublisherDescribe(readPublisherDescribeReq)
-}
-
 type rtspConnParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -43,7 +39,7 @@ type rtspConn struct {
 	readTimeout         time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
-	pathManager         rtspConnPathMan
+	pathManager         *pathManager
 	stats               *stats
 	conn                *gortsplib.ServerConn
 	parent              rtspConnParent
@@ -60,7 +56,7 @@ func newRTSPConn(
 	readTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
-	pathManager rtspConnPathMan,
+	pathManager *pathManager,
 	stats *stats,
 	conn *gortsplib.ServerConn,
 	parent rtspConnParent) *rtspConn {
@@ -112,67 +108,6 @@ func (c *rtspConn) Conn() *gortsplib.ServerConn {
 
 func (c *rtspConn) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
-}
-
-// OnRequest is called by rtspServer.
-func (c *rtspConn) OnRequest(req *base.Request) {
-	c.log(logger.Debug, "[c->s] %v", req)
-}
-
-// OnResponse is called by rtspServer.
-func (c *rtspConn) OnResponse(res *base.Response) {
-	c.log(logger.Debug, "[s->c] %v", res)
-}
-
-// OnDescribe is called by rtspServer.
-func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	resc := make(chan readPublisherDescribeRes)
-	c.pathManager.OnReadPublisherDescribe(readPublisherDescribeReq{
-		PathName: ctx.Path,
-		URL:      ctx.Req.URL,
-		IP:       c.ip(),
-		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-			return c.validateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
-		},
-		Res: resc,
-	})
-	res := <-resc
-
-	if res.Err != nil {
-		switch terr := res.Err.(type) {
-		case readPublisherErrAuthNotCritical:
-			return terr.Response, nil, nil
-
-		case readPublisherErrAuthCritical:
-			// wait some seconds to stop brute force attacks
-			<-time.After(rtspConnPauseAfterAuthError)
-
-			return terr.Response, nil, errors.New(terr.Message)
-
-		case readPublisherErrNoOnePublishing:
-			return &base.Response{
-				StatusCode: base.StatusNotFound,
-			}, nil, res.Err
-
-		default:
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, nil, res.Err
-		}
-	}
-
-	if res.Redirect != "" {
-		return &base.Response{
-			StatusCode: base.StatusMovedPermanently,
-			Header: base.Header{
-				"Location": base.HeaderValue{res.Redirect},
-			},
-		}, nil, nil
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, res.Stream, nil
 }
 
 func (c *rtspConn) validateCredentials(
@@ -239,4 +174,62 @@ func (c *rtspConn) validateCredentials(
 	c.authFailures = 0
 
 	return nil
+}
+
+// OnRequest is called by rtspServer.
+func (c *rtspConn) OnRequest(req *base.Request) {
+	c.log(logger.Debug, "[c->s] %v", req)
+}
+
+// OnResponse is called by rtspServer.
+func (c *rtspConn) OnResponse(res *base.Response) {
+	c.log(logger.Debug, "[s->c] %v", res)
+}
+
+// OnDescribe is called by rtspServer.
+func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+	res := c.pathManager.OnReadPublisherDescribe(readPublisherDescribeReq{
+		PathName: ctx.Path,
+		URL:      ctx.Req.URL,
+		IP:       c.ip(),
+		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
+			return c.validateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
+		},
+	})
+
+	if res.Err != nil {
+		switch terr := res.Err.(type) {
+		case readPublisherErrAuthNotCritical:
+			return terr.Response, nil, nil
+
+		case readPublisherErrAuthCritical:
+			// wait some seconds to stop brute force attacks
+			<-time.After(rtspConnPauseAfterAuthError)
+
+			return terr.Response, nil, errors.New(terr.Message)
+
+		case readPublisherErrNoOnePublishing:
+			return &base.Response{
+				StatusCode: base.StatusNotFound,
+			}, nil, res.Err
+
+		default:
+			return &base.Response{
+				StatusCode: base.StatusBadRequest,
+			}, nil, res.Err
+		}
+	}
+
+	if res.Redirect != "" {
+		return &base.Response{
+			StatusCode: base.StatusMovedPermanently,
+			Header: base.Header{
+				"Location": base.HeaderValue{res.Redirect},
+			},
+		}, nil, nil
+	}
+
+	return &base.Response{
+		StatusCode: base.StatusOK,
+	}, res.Stream, nil
 }

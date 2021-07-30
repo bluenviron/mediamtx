@@ -168,19 +168,12 @@ func (s *rtmpSource) runInner() bool {
 
 					s.log(logger.Info, "ready")
 
-					cres := make(chan sourceExtSetReadyRes)
 					s.parent.OnSourceExternalSetReady(sourceExtSetReadyReq{
 						Tracks: tracks,
-						Res:    cres,
 					})
-					<-cres
 
 					defer func() {
-						res := make(chan struct{})
-						s.parent.OnSourceExternalSetNotReady(sourceExtSetNotReadyReq{
-							Res: res,
-						})
-						<-res
+						s.parent.OnSourceExternalSetNotReady(sourceExtSetNotReadyReq{})
 					}()
 
 					rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnSourceFrame)

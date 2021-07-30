@@ -287,65 +287,6 @@ func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error)
 	return "", nil, fmt.Errorf("unable to find a valid configuration for path '%s'", name)
 }
 
-// OnConfReload is called by core.
-func (pm *pathManager) OnConfReload(pathConfs map[string]*conf.PathConf) {
-	select {
-	case pm.confReload <- pathConfs:
-	case <-pm.ctx.Done():
-	}
-}
-
-// OnPathSourceReady is called by path.
-func (pm *pathManager) OnPathSourceReady(pa *path) {
-	select {
-	case pm.pathSourceReady <- pa:
-	case <-pm.ctx.Done():
-	}
-}
-
-// OnPathClose is called by path.
-func (pm *pathManager) OnPathClose(pa *path) {
-	select {
-	case pm.pathClose <- pa:
-	case <-pm.ctx.Done():
-	}
-}
-
-// OnReadPublisherDescribe is called by a ReadPublisher.
-func (pm *pathManager) OnReadPublisherDescribe(req readPublisherDescribeReq) {
-	select {
-	case pm.rpDescribe <- req:
-	case <-pm.ctx.Done():
-		req.Res <- readPublisherDescribeRes{Err: fmt.Errorf("terminated")}
-	}
-}
-
-// OnReadPublisherAnnounce is called by a ReadPublisher.
-func (pm *pathManager) OnReadPublisherAnnounce(req readPublisherAnnounceReq) {
-	select {
-	case pm.rpAnnounce <- req:
-	case <-pm.ctx.Done():
-		req.Res <- readPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
-	}
-}
-
-// OnReadPublisherSetupPlay is called by a ReadPublisher.
-func (pm *pathManager) OnReadPublisherSetupPlay(req readPublisherSetupPlayReq) {
-	select {
-	case pm.rpSetupPlay <- req:
-	case <-pm.ctx.Done():
-		req.Res <- readPublisherSetupPlayRes{Err: fmt.Errorf("terminated")}
-	}
-}
-
-// OnHLSServer is called by hlsServer.
-func (pm *pathManager) OnHLSServer(s *hlsServer) {
-	select {
-	case pm.hlsServerSet <- s:
-	case <-pm.ctx.Done():
-	}
-}
-
 func (pm *pathManager) authenticate(
 	ip net.IP,
 	validateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error,
@@ -375,4 +316,69 @@ func (pm *pathManager) authenticate(
 	}
 
 	return nil
+}
+
+// OnConfReload is called by core.
+func (pm *pathManager) OnConfReload(pathConfs map[string]*conf.PathConf) {
+	select {
+	case pm.confReload <- pathConfs:
+	case <-pm.ctx.Done():
+	}
+}
+
+// OnPathSourceReady is called by path.
+func (pm *pathManager) OnPathSourceReady(pa *path) {
+	select {
+	case pm.pathSourceReady <- pa:
+	case <-pm.ctx.Done():
+	}
+}
+
+// OnPathClose is called by path.
+func (pm *pathManager) OnPathClose(pa *path) {
+	select {
+	case pm.pathClose <- pa:
+	case <-pm.ctx.Done():
+	}
+}
+
+// OnReadPublisherDescribe is called by a readPublisher.
+func (pm *pathManager) OnReadPublisherDescribe(req readPublisherDescribeReq) readPublisherDescribeRes {
+	req.Res = make(chan readPublisherDescribeRes)
+	select {
+	case pm.rpDescribe <- req:
+		return <-req.Res
+	case <-pm.ctx.Done():
+		return readPublisherDescribeRes{Err: fmt.Errorf("terminated")}
+	}
+}
+
+// OnReadPublisherAnnounce is called by a readPublisher.
+func (pm *pathManager) OnReadPublisherAnnounce(req readPublisherAnnounceReq) readPublisherAnnounceRes {
+	req.Res = make(chan readPublisherAnnounceRes)
+	select {
+	case pm.rpAnnounce <- req:
+		return <-req.Res
+	case <-pm.ctx.Done():
+		return readPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
+	}
+}
+
+// OnReadPublisherSetupPlay is called by a readPublisher.
+func (pm *pathManager) OnReadPublisherSetupPlay(req readPublisherSetupPlayReq) readPublisherSetupPlayRes {
+	req.Res = make(chan readPublisherSetupPlayRes)
+	select {
+	case pm.rpSetupPlay <- req:
+		return <-req.Res
+	case <-pm.ctx.Done():
+		return readPublisherSetupPlayRes{Err: fmt.Errorf("terminated")}
+	}
+}
+
+// OnHLSServer is called by hlsServer.
+func (pm *pathManager) OnHLSServer(s *hlsServer) {
+	select {
+	case pm.hlsServerSet <- s:
+	case <-pm.ctx.Done():
+	}
 }

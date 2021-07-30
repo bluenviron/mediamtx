@@ -107,11 +107,11 @@ outer:
 		select {
 		case pa := <-s.pathSourceReady:
 			if s.hlsAlwaysRemux {
-				s.createRemuxer(pa.Name())
+				s.findOrCreateRemuxer(pa.Name())
 			}
 
 		case req := <-s.request:
-			r := s.createRemuxer(req.Dir)
+			r := s.findOrCreateRemuxer(req.Dir)
 			r.OnRequest(req)
 
 		case c := <-s.connClose:
@@ -146,7 +146,7 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", s.hlsAllowOrigin)
 	w.Header().Add("Access-Control-Allow-Credentials", "true")
 
-	if r.Method == "OPTIONS" {
+	if r.Method == http.MethodOptions {
 		w.Header().Add("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Add("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
 		w.WriteHeader(http.StatusOK)
@@ -207,7 +207,7 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *hlsServer) createRemuxer(pathName string) *hlsRemuxer {
+func (s *hlsServer) findOrCreateRemuxer(pathName string) *hlsRemuxer {
 	r, ok := s.remuxers[pathName]
 	if !ok {
 		r = newHLSRemuxer(
