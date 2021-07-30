@@ -43,7 +43,7 @@ type rtspConn struct {
 	readTimeout         time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
-	pathMan             rtspConnPathMan
+	pathManager         rtspConnPathMan
 	stats               *stats
 	conn                *gortsplib.ServerConn
 	parent              rtspConnParent
@@ -60,7 +60,7 @@ func newRTSPConn(
 	readTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
-	pathMan rtspConnPathMan,
+	pathManager rtspConnPathMan,
 	stats *stats,
 	conn *gortsplib.ServerConn,
 	parent rtspConnParent) *rtspConn {
@@ -69,7 +69,7 @@ func newRTSPConn(
 		readTimeout:         readTimeout,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
-		pathMan:             pathMan,
+		pathManager:         pathManager,
 		stats:               stats,
 		conn:                conn,
 		parent:              parent,
@@ -127,7 +127,7 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 // OnDescribe is called by rtspServer.
 func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	resc := make(chan readPublisherDescribeRes)
-	c.pathMan.OnReadPublisherDescribe(readPublisherDescribeReq{
+	c.pathManager.OnReadPublisherDescribe(readPublisherDescribeReq{
 		PathName: ctx.Path,
 		URL:      ctx.Req.URL,
 		IP:       c.ip(),

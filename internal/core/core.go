@@ -28,15 +28,12 @@ type Core struct {
 	logger          *logger.Logger
 	metrics         *metrics
 	pprof           *pprof
-	pathMan         *pathManager
+	pathManager     *pathManager
 	rtspServerPlain *rtspServer
 	rtspServerTLS   *rtspServer
 	rtmpServer      *rtmpServer
 	hlsServer       *hlsServer
 	confWatcher     *confwatcher.ConfWatcher
-
-	// in
-	pathSourceReady chan *path
 
 	// out
 	done chan struct{}
@@ -65,11 +62,10 @@ func New(args []string) (*Core, bool) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	p := &Core{
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		confPath:        *argConfPath,
-		pathSourceReady: make(chan *path),
-		done:            make(chan struct{}),
+		ctx:       ctx,
+		ctxCancel: ctxCancel,
+		confPath:  *argConfPath,
+		done:      make(chan struct{}),
 	}
 
 	var err error
@@ -140,11 +136,6 @@ outer:
 				break outer
 			}
 
-		case pa := <-p.pathSourceReady:
-			if p.hlsServer != nil {
-				p.hlsServer.OnPathSourceReady(pa)
-			}
-
 		case <-p.ctx.Done():
 			break outer
 		}
@@ -206,8 +197,8 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if p.pathMan == nil {
-		p.pathMan = newPathManager(
+	if p.pathManager == nil {
+		p.pathManager = newPathManager(
 			p.ctx,
 			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
@@ -248,7 +239,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.stats,
-				p.pathMan,
+				p.pathManager,
 				p)
 			if err != nil {
 				return err
@@ -282,7 +273,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.stats,
-				p.pathMan,
+				p.pathManager,
 				p)
 			if err != nil {
 				return err
@@ -302,7 +293,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.stats,
-				p.pathMan,
+				p.pathManager,
 				p)
 			if err != nil {
 				return err
@@ -321,7 +312,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSAllowOrigin,
 				p.conf.ReadBufferCount,
 				p.stats,
-				p.pathMan,
+				p.pathManager,
 				p)
 			if err != nil {
 				return err
@@ -372,7 +363,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		closeStats {
 		closePathMan = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.pathMan.OnConfReload(newConf.Paths)
+		p.pathManager.OnConfReload(newConf.Paths)
 	}
 
 	closeServerPlain := false
@@ -456,9 +447,9 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.rtspServerPlain = nil
 	}
 
-	if closePathMan && p.pathMan != nil {
-		p.pathMan.close()
-		p.pathMan = nil
+	if closePathMan && p.pathManager != nil {
+		p.pathManager.close()
+		p.pathManager = nil
 	}
 
 	if closeServerHLS && p.hlsServer != nil {
@@ -503,12 +494,4 @@ func (p *Core) reloadConf() error {
 
 	p.conf = newConf
 	return p.createResources(false)
-}
-
-// OnPathSourceReady is called by pathManager.
-func (p *Core) OnPathSourceReady(pa *path) {
-	select {
-	case p.pathSourceReady <- pa:
-	case <-p.done:
-	}
 }

@@ -33,7 +33,7 @@ type rtspSession struct {
 	protocols   map[conf.Protocol]struct{}
 	visualID    string
 	ss          *gortsplib.ServerSession
-	pathMan     rtspSessionPathMan
+	pathManager rtspSessionPathMan
 	parent      rtspSessionParent
 
 	path           readPublisherPath
@@ -47,14 +47,14 @@ func newRTSPSession(
 	visualID string,
 	ss *gortsplib.ServerSession,
 	sc *gortsplib.ServerConn,
-	pathMan rtspSessionPathMan,
+	pathManager rtspSessionPathMan,
 	parent rtspSessionParent) *rtspSession {
 	s := &rtspSession{
 		rtspAddress: rtspAddress,
 		protocols:   protocols,
 		visualID:    visualID,
 		ss:          ss,
-		pathMan:     pathMan,
+		pathManager: pathManager,
 		parent:      parent,
 	}
 
@@ -117,7 +117,7 @@ func (s *rtspSession) log(level logger.Level, format string, args ...interface{}
 // OnAnnounce is called by rtspServer.
 func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	resc := make(chan readPublisherAnnounceRes)
-	s.pathMan.OnReadPublisherAnnounce(readPublisherAnnounceReq{
+	s.pathManager.OnReadPublisherAnnounce(readPublisherAnnounceReq{
 		Author:   s,
 		PathName: ctx.Path,
 		Tracks:   ctx.Tracks,
@@ -179,7 +179,7 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
 		resc := make(chan readPublisherSetupPlayRes)
-		s.pathMan.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+		s.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
 			Author:   s,
 			PathName: ctx.Path,
 			IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,

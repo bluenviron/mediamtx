@@ -52,7 +52,7 @@ type rtspServer struct {
 	runOnConnect        string
 	runOnConnectRestart bool
 	stats               *stats
-	pathMan             *pathManager
+	pathManager         *pathManager
 	parent              rtspServerParent
 
 	ctx       context.Context
@@ -86,7 +86,7 @@ func newRTSPServer(
 	runOnConnect string,
 	runOnConnectRestart bool,
 	stats *stats,
-	pathMan *pathManager,
+	pathManager *pathManager,
 	parent rtspServerParent) (*rtspServer, error) {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -96,7 +96,7 @@ func newRTSPServer(
 		rtspAddress: rtspAddress,
 		protocols:   protocols,
 		stats:       stats,
-		pathMan:     pathMan,
+		pathManager: pathManager,
 		parent:      parent,
 		ctx:         ctx,
 		ctxCancel:   ctxCancel,
@@ -206,7 +206,7 @@ func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 		s.readTimeout,
 		s.runOnConnect,
 		s.runOnConnectRestart,
-		s.pathMan,
+		s.pathManager,
 		s.stats,
 		ctx.Conn,
 		s)
@@ -258,7 +258,7 @@ func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx)
 		visualID,
 		ctx.Session,
 		ctx.Conn,
-		s.pathMan,
+		s.pathManager,
 		s)
 
 	s.sessions[ctx.Session] = se

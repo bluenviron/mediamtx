@@ -21,7 +21,7 @@ type rtmpServer struct {
 	runOnConnect        string
 	runOnConnectRestart bool
 	stats               *stats
-	pathMan             *pathManager
+	pathManager         *pathManager
 	parent              rtmpServerParent
 
 	ctx       context.Context
@@ -44,7 +44,7 @@ func newRTMPServer(
 	runOnConnect string,
 	runOnConnectRestart bool,
 	stats *stats,
-	pathMan *pathManager,
+	pathManager *pathManager,
 	parent rtmpServerParent) (*rtmpServer, error) {
 	l, err := net.Listen("tcp", address)
 	if err != nil {
@@ -61,7 +61,7 @@ func newRTMPServer(
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		stats:               stats,
-		pathMan:             pathMan,
+		pathManager:         pathManager,
 		parent:              parent,
 		ctx:                 ctx,
 		ctxCancel:           ctxCancel,
@@ -135,7 +135,7 @@ outer:
 				&s.wg,
 				s.stats,
 				nconn,
-				s.pathMan,
+				s.pathManager,
 				s)
 			s.conns[c] = struct{}{}
 

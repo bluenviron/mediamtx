@@ -24,7 +24,7 @@ type hlsServer struct {
 	hlsAllowOrigin     string
 	readBufferCount    int
 	stats              *stats
-	pathMan            *pathManager
+	pathManager        *pathManager
 	parent             hlsServerParent
 
 	ctx       context.Context
@@ -48,7 +48,7 @@ func newHLSServer(
 	hlsAllowOrigin string,
 	readBufferCount int,
 	stats *stats,
-	pathMan *pathManager,
+	pathManager *pathManager,
 	parent hlsServerParent,
 ) (*hlsServer, error) {
 	ln, err := net.Listen("tcp", address)
@@ -65,7 +65,7 @@ func newHLSServer(
 		hlsAllowOrigin:     hlsAllowOrigin,
 		readBufferCount:    readBufferCount,
 		stats:              stats,
-		pathMan:            pathMan,
+		pathManager:        pathManager,
 		parent:             parent,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
@@ -80,6 +80,8 @@ func newHLSServer(
 
 	s.wg.Add(1)
 	go s.run()
+
+	s.pathManager.OnHLSServer(s)
 
 	return s, nil
 }
@@ -130,6 +132,8 @@ outer:
 	}
 
 	hs.Shutdown(context.Background())
+
+	s.pathManager.OnHLSServer(nil)
 }
 
 // ServeHTTP implements http.Handler.
@@ -215,7 +219,7 @@ func (s *hlsServer) createRemuxer(pathName string) *hlsRemuxer {
 			&s.wg,
 			s.stats,
 			pathName,
-			s.pathMan,
+			s.pathManager,
 			s)
 		s.remuxers[pathName] = r
 	}

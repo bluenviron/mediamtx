@@ -16,7 +16,6 @@ import (
 
 type pathManagerParent interface {
 	Log(logger.Level, string, ...interface{})
-	OnPathSourceReady(*path)
 }
 
 type pathManager struct {
@@ -33,14 +32,17 @@ type pathManager struct {
 	ctx       context.Context
 	ctxCancel func()
 	wg        sync.WaitGroup
+	hlsServer *hlsServer
 	paths     map[string]*path
 
 	// in
-	confReload  chan map[string]*conf.PathConf
-	pathClose   chan *path
-	rpDescribe  chan readPublisherDescribeReq
-	rpSetupPlay chan readPublisherSetupPlayReq
-	rpAnnounce  chan readPublisherAnnounceReq
+	confReload      chan map[string]*conf.PathConf
+	pathClose       chan *path
+	pathSourceReady chan *path
+	rpDescribe      chan readPublisherDescribeReq
+	rpSetupPlay     chan readPublisherSetupPlayReq
+	rpAnnounce      chan readPublisherAnnounceReq
+	hlsServerSet    chan *hlsServer
 }
 
 func newPathManager(
@@ -71,9 +73,11 @@ func newPathManager(
 		paths:           make(map[string]*path),
 		confReload:      make(chan map[string]*conf.PathConf),
 		pathClose:       make(chan *path),
+		pathSourceReady: make(chan *path),
 		rpDescribe:      make(chan readPublisherDescribeReq),
 		rpSetupPlay:     make(chan readPublisherSetupPlayReq),
 		rpAnnounce:      make(chan readPublisherAnnounceReq),
+		hlsServerSet:    make(chan *hlsServer),
 	}
 
 	pm.createPaths()
@@ -140,6 +144,11 @@ outer:
 			}
 			delete(pm.paths, pa.Name())
 			pa.Close()
+
+		case pa := <-pm.pathSourceReady:
+			if pm.hlsServer != nil {
+				pm.hlsServer.OnPathSourceReady(pa)
+			}
 
 		case req := <-pm.rpDescribe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
@@ -222,6 +231,9 @@ outer:
 
 			pm.paths[req.PathName].OnPathManAnnounce(req)
 
+		case s := <-pm.hlsServerSet:
+			pm.hlsServer = s
+
 		case <-pm.ctx.Done():
 			break outer
 		}
@@ -285,7 +297,10 @@ func (pm *pathManager) OnConfReload(pathConfs map[string]*conf.PathConf) {
 
 // OnPathSourceReady is called by path.
 func (pm *pathManager) OnPathSourceReady(pa *path) {
-	pm.parent.OnPathSourceReady(pa)
+	select {
+	case pm.pathSourceReady <- pa:
+	case <-pm.ctx.Done():
+	}
 }
 
 // OnPathClose is called by path.
@@ -320,6 +335,14 @@ func (pm *pathManager) OnReadPublisherSetupPlay(req readPublisherSetupPlayReq) {
 	case pm.rpSetupPlay <- req:
 	case <-pm.ctx.Done():
 		req.Res <- readPublisherSetupPlayRes{Err: fmt.Errorf("terminated")}
+	}
+}
+
+// OnHLSServer is called by hlsServer.
+func (pm *pathManager) OnHLSServer(s *hlsServer) {
+	select {
+	case pm.hlsServerSet <- s:
+	case <-pm.ctx.Done():
 	}
 }
 

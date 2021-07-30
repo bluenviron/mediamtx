@@ -89,10 +89,6 @@ type hlsRemuxerTrackIDPayloadPair struct {
 	buf     []byte
 }
 
-type hlsRemuxerPathMan interface {
-	OnReadPublisherSetupPlay(readPublisherSetupPlayReq)
-}
-
 type hlsRemuxerParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnRemuxerClose(*hlsRemuxer)
@@ -106,7 +102,7 @@ type hlsRemuxer struct {
 	wg                 *sync.WaitGroup
 	stats              *stats
 	pathName           string
-	pathMan            hlsRemuxerPathMan
+	pathManager        *pathManager
 	parent             hlsRemuxerParent
 
 	ctx             context.Context
@@ -129,7 +125,7 @@ func newHLSRemuxer(
 	wg *sync.WaitGroup,
 	stats *stats,
 	pathName string,
-	pathMan hlsRemuxerPathMan,
+	pathManager *pathManager,
 	parent hlsRemuxerParent) *hlsRemuxer {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -141,7 +137,7 @@ func newHLSRemuxer(
 		wg:                 wg,
 		stats:              stats,
 		pathName:           pathName,
-		pathMan:            pathMan,
+		pathManager:        pathManager,
 		parent:             parent,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
@@ -221,7 +217,7 @@ func (r *hlsRemuxer) run() {
 
 func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
 	pres := make(chan readPublisherSetupPlayRes)
-	r.pathMan.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+	r.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
 		Author:              r,
 		PathName:            r.pathName,
 		IP:                  nil,

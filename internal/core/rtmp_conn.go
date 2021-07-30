@@ -68,7 +68,7 @@ type rtmpConn struct {
 	wg                  *sync.WaitGroup
 	stats               *stats
 	conn                *rtmp.Conn
-	pathMan             rtmpConnPathMan
+	pathManager         rtmpConnPathMan
 	parent              rtmpConnParent
 
 	ctx        context.Context
@@ -88,7 +88,7 @@ func newRTMPConn(
 	wg *sync.WaitGroup,
 	stats *stats,
 	nconn net.Conn,
-	pathMan rtmpConnPathMan,
+	pathManager rtmpConnPathMan,
 	parent rtmpConnParent) *rtmpConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -102,7 +102,7 @@ func newRTMPConn(
 		wg:                  wg,
 		stats:               stats,
 		conn:                rtmp.NewServerConn(nconn),
-		pathMan:             pathMan,
+		pathManager:         pathManager,
 		parent:              parent,
 		ctx:                 ctx,
 		ctxCancel:           ctxCancel,
@@ -208,7 +208,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
 	sres := make(chan readPublisherSetupPlayRes)
-	c.pathMan.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+	c.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
@@ -406,7 +406,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
 	resc := make(chan readPublisherAnnounceRes)
-	c.pathMan.OnReadPublisherAnnounce(readPublisherAnnounceReq{
+	c.pathManager.OnReadPublisherAnnounce(readPublisherAnnounceReq{
 		Author:   c,
 		PathName: pathName,
 		Tracks:   tracks,
