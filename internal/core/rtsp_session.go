@@ -31,7 +31,7 @@ type rtspSession struct {
 	pathManager *pathManager
 	parent      rtspSessionParent
 
-	path           readPublisherPath
+	path           *path
 	setuppedTracks map[int]*gortsplib.Track // read
 	onReadCmd      *externalcmd.Cmd         // read
 }

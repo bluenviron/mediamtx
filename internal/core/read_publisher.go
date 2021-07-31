@@ -7,19 +7,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
-
-	"github.com/aler9/rtsp-simple-server/internal/conf"
 )
-
-type readPublisherPath interface {
-	Name() string
-	Conf() *conf.PathConf
-	OnReadPublisherRemove(readPublisherRemoveReq)
-	OnReadPublisherPlay(readPublisherPlayReq)
-	OnReadPublisherRecord(readPublisherRecordReq) readPublisherRecordRes
-	OnReadPublisherPause(readPublisherPauseReq)
-	OnSourceFrame(int, gortsplib.StreamType, []byte)
-}
 
 type readPublisherErrNoOnePublishing struct {
 	PathName string
@@ -73,7 +61,7 @@ type readPublisherDescribeReq struct {
 }
 
 type readPublisherSetupPlayRes struct {
-	Path   readPublisherPath
+	Path   *path
 	Stream *gortsplib.ServerStream
 	Err    error
 }
@@ -87,7 +75,7 @@ type readPublisherSetupPlayReq struct {
 }
 
 type readPublisherAnnounceRes struct {
-	Path readPublisherPath
+	Path *path
 	Err  error
 }
 

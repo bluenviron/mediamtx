@@ -107,7 +107,7 @@ type hlsRemuxer struct {
 
 	ctx             context.Context
 	ctxCancel       func()
-	path            readPublisherPath
+	path            *path
 	ringBuffer      *ringbuffer.RingBuffer
 	lastRequestTime *int64
 	muxer           *hls.Muxer

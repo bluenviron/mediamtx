@@ -68,7 +68,7 @@ type rtmpConn struct {
 
 	ctx        context.Context
 	ctxCancel  func()
-	path       readPublisherPath
+	path       *path
 	ringBuffer *ringbuffer.RingBuffer // read
 }
 
