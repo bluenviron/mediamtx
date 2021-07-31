@@ -228,12 +228,6 @@ func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 	h := make(base.Header)
 
 	if s.ss.State() == gortsplib.ServerSessionStatePrePlay {
-		if ctx.Path != s.path.Name() {
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, fmt.Errorf("path has changed, was '%s', now is '%s'", s.path.Name(), ctx.Path)
-		}
-
 		s.path.OnReaderPlay(pathReaderPlayReq{Author: s})
 
 		if s.path.Conf().RunOnRead != "" {
@@ -253,12 +247,6 @@ func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 // OnRecord is called by rtspServer.
 func (s *rtspSession) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	if ctx.Path != s.path.Name() {
-		return &base.Response{
-			StatusCode: base.StatusBadRequest,
-		}, fmt.Errorf("path has changed, was '%s', now is '%s'", s.path.Name(), ctx.Path)
-	}
-
 	res := s.path.OnPublisherRecord(pathPublisherRecordReq{Author: s})
 	if res.Err != nil {
 		return &base.Response{
