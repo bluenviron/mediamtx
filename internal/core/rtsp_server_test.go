@@ -205,7 +205,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: test!$()*+.;<=>[]^_-{}\n" +
-			"    publishIps: [127.0.0.0/16]\n")
+			"    publishIPs: [127.0.0.0/16]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -246,7 +246,7 @@ func TestRTSPServerAuth(t *testing.T) {
 				"  all:\n" +
 				"    readUser: testuser\n" +
 				"    readPass: test!$()*+.;<=>[]^_-{}\n" +
-				"    readIps: [127.0.0.0/16]\n")
+				"    readIPs: [127.0.0.0/16]\n")
 			require.Equal(t, true, ok)
 			defer p.close()
 
@@ -408,7 +408,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			"hlsDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
-			"    publishIps: [128.0.0.1/32]\n")
+			"    publishIPs: [128.0.0.1/32]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 

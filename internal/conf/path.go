@@ -84,11 +84,11 @@ type PathConf struct {
 	// authentication
 	PublishUser      string        `yaml:"publishUser"`
 	PublishPass      string        `yaml:"publishPass"`
-	PublishIPs       []string      `yaml:"publishIps"`
+	PublishIPs       []string      `yaml:"publishIPs"`
 	PublishIPsParsed []interface{} `yaml:"-" json:"-"`
 	ReadUser         string        `yaml:"readUser"`
 	ReadPass         string        `yaml:"readPass"`
-	ReadIPs          []string      `yaml:"readIps"`
+	ReadIPs          []string      `yaml:"readIPs"`
 	ReadIPsParsed    []interface{} `yaml:"-" json:"-"`
 
 	// custom commands
@@ -266,7 +266,7 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		}
 
 		if pconf.Source != "record" {
-			return nil, fmt.Errorf("'publishIps' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+			return nil, fmt.Errorf("'publishIPs' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
 		}
 
 		return parseIPCidrList(pconf.PublishIPs)

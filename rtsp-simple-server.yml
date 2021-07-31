@@ -173,7 +173,7 @@ paths:
     # sha256-hashed values can be inserted with the "sha256:" prefix.
     publishPass:
     # ips or networks (x.x.x.x/24) allowed to publish.
-    publishIps: []
+    publishIPs: []
 
     # username required to read.
     # sha256-hashed values can be inserted with the "sha256:" prefix.
@@ -182,7 +182,7 @@ paths:
     # sha256-hashed values can be inserted with the "sha256:" prefix.
     readPass:
     # ips or networks (x.x.x.x/24) allowed to read.
-    readIps: []
+    readIPs: []
 
     # command to run when this path is initialized.
     # this can be used to publish a stream and keep it always opened.

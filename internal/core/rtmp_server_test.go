@@ -81,7 +81,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			"  all:\n" +
 			"    publishUser: testuser\n" +
 			"    publishPass: testpass\n" +
-			"    readIps: [127.0.0.0/16]\n")
+			"    readIPs: [127.0.0.0/16]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -116,7 +116,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			"  all:\n" +
 			"    readUser: testuser\n" +
 			"    readPass: testpass\n" +
-			"    readIps: [127.0.0.0/16]\n")
+			"    readIPs: [127.0.0.0/16]\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
