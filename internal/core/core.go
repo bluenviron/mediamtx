@@ -352,7 +352,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		closePPROF = true
 	}
 
-	closePathMan := false
+	closePathManager := false
 	if newConf == nil ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -361,7 +361,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
 		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
 		closeStats {
-		closePathMan = true
+		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.OnConfReload(newConf.Paths)
 	}
@@ -385,7 +385,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeStats ||
-		closePathMan {
+		closePathManager {
 		closeServerPlain = true
 	}
 
@@ -404,7 +404,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeStats ||
-		closePathMan {
+		closePathManager {
 		closeServerTLS = true
 	}
 
@@ -419,7 +419,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeStats ||
-		closePathMan {
+		closePathManager {
 		closeServerRTMP = true
 	}
 
@@ -433,7 +433,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeStats ||
-		closePathMan {
+		closePathManager {
 		closeServerHLS = true
 	}
 
@@ -447,7 +447,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		p.rtspServerPlain = nil
 	}
 
-	if closePathMan && p.pathManager != nil {
+	if closePathManager && p.pathManager != nil {
 		p.pathManager.close()
 		p.pathManager = nil
 	}
