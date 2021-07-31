@@ -1,26 +1,13 @@
 package core
 
-import (
-	"github.com/aler9/gortsplib"
-)
-
+// source is an entity that can provide a stream, statically or dynamically.
 type source interface {
 	IsSource()
 }
 
-type sourceExternal interface {
-	IsSource()
-	IsSourceExternal()
+// sourceStatic is an entity that can provide a static stream.
+type sourceStatic interface {
+	source
+	IsSourceStatic()
 	Close()
-}
-
-type sourceExtSetReadyRes struct{}
-
-type sourceExtSetReadyReq struct {
-	Tracks gortsplib.Tracks
-	Res    chan sourceExtSetReadyRes
-}
-
-type sourceExtSetNotReadyReq struct {
-	Res chan struct{}
 }

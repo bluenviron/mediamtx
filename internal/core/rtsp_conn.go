@@ -148,7 +148,7 @@ func (c *rtspConn) validateCredentials(
 		// 4) with password and username
 		// therefore we must allow up to 3 failures
 		if c.authFailures > 3 {
-			return readPublisherErrAuthCritical{
+			return pathErrAuthCritical{
 				Message: "unauthorized: " + err.Error(),
 				Response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
@@ -160,7 +160,7 @@ func (c *rtspConn) validateCredentials(
 			c.log(logger.Debug, "WARN: unauthorized: %s", err)
 		}
 
-		return readPublisherErrAuthNotCritical{
+		return pathErrAuthNotCritical{
 			Response: &base.Response{
 				StatusCode: base.StatusUnauthorized,
 				Header: base.Header{
@@ -188,7 +188,7 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 
 // OnDescribe is called by rtspServer.
 func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	res := c.pathManager.OnReadPublisherDescribe(readPublisherDescribeReq{
+	res := c.pathManager.OnDescribe(pathDescribeReq{
 		PathName: ctx.Path,
 		URL:      ctx.Req.URL,
 		IP:       c.ip(),
@@ -199,16 +199,16 @@ func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.
 
 	if res.Err != nil {
 		switch terr := res.Err.(type) {
-		case readPublisherErrAuthNotCritical:
+		case pathErrAuthNotCritical:
 			return terr.Response, nil, nil
 
-		case readPublisherErrAuthCritical:
+		case pathErrAuthCritical:
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtspConnPauseAfterAuthError)
 
 			return terr.Response, nil, errors.New(terr.Message)
 
-		case readPublisherErrNoOnePublishing:
+		case pathErrNoOnePublishing:
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
 			}, nil, res.Err

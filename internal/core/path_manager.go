@@ -36,13 +36,13 @@ type pathManager struct {
 	paths     map[string]*path
 
 	// in
-	confReload      chan map[string]*conf.PathConf
-	pathClose       chan *path
-	pathSourceReady chan *path
-	rpDescribe      chan readPublisherDescribeReq
-	rpSetupPlay     chan readPublisherSetupPlayReq
-	rpAnnounce      chan readPublisherAnnounceReq
-	hlsServerSet    chan *hlsServer
+	confReload        chan map[string]*conf.PathConf
+	pathClose         chan *path
+	pathSourceReady   chan *path
+	describe          chan pathDescribeReq
+	readerSetupPlay   chan pathReaderSetupPlayReq
+	publisherAnnounce chan pathPublisherAnnounceReq
+	hlsServerSet      chan *hlsServer
 }
 
 func newPathManager(
@@ -59,25 +59,25 @@ func newPathManager(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pm := &pathManager{
-		rtspAddress:     rtspAddress,
-		readTimeout:     readTimeout,
-		writeTimeout:    writeTimeout,
-		readBufferCount: readBufferCount,
-		readBufferSize:  readBufferSize,
-		authMethods:     authMethods,
-		pathConfs:       pathConfs,
-		stats:           stats,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		paths:           make(map[string]*path),
-		confReload:      make(chan map[string]*conf.PathConf),
-		pathClose:       make(chan *path),
-		pathSourceReady: make(chan *path),
-		rpDescribe:      make(chan readPublisherDescribeReq),
-		rpSetupPlay:     make(chan readPublisherSetupPlayReq),
-		rpAnnounce:      make(chan readPublisherAnnounceReq),
-		hlsServerSet:    make(chan *hlsServer),
+		rtspAddress:       rtspAddress,
+		readTimeout:       readTimeout,
+		writeTimeout:      writeTimeout,
+		readBufferCount:   readBufferCount,
+		readBufferSize:    readBufferSize,
+		authMethods:       authMethods,
+		pathConfs:         pathConfs,
+		stats:             stats,
+		parent:            parent,
+		ctx:               ctx,
+		ctxCancel:         ctxCancel,
+		paths:             make(map[string]*path),
+		confReload:        make(chan map[string]*conf.PathConf),
+		pathClose:         make(chan *path),
+		pathSourceReady:   make(chan *path),
+		describe:          make(chan pathDescribeReq),
+		readerSetupPlay:   make(chan pathReaderSetupPlayReq),
+		publisherAnnounce: make(chan pathPublisherAnnounceReq),
+		hlsServerSet:      make(chan *hlsServer),
 	}
 
 	pm.createPaths()
@@ -150,10 +150,10 @@ outer:
 				pm.hlsServer.OnPathSourceReady(pa)
 			}
 
-		case req := <-pm.rpDescribe:
+		case req := <-pm.describe:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- readPublisherDescribeRes{Err: err}
+				req.Res <- pathDescribeRes{Err: err}
 				continue
 			}
 
@@ -166,7 +166,7 @@ outer:
 				pathConf.ReadPass,
 			)
 			if err != nil {
-				req.Res <- readPublisherDescribeRes{Err: err}
+				req.Res <- pathDescribeRes{Err: err}
 				continue
 			}
 
@@ -175,12 +175,12 @@ outer:
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPathManDescribe(req)
+			pm.paths[req.PathName].OnDescribe(req)
 
-		case req := <-pm.rpSetupPlay:
+		case req := <-pm.readerSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- readPublisherSetupPlayRes{Err: err}
+				req.Res <- pathReaderSetupPlayRes{Err: err}
 				continue
 			}
 
@@ -193,7 +193,7 @@ outer:
 				pathConf.ReadPass,
 			)
 			if err != nil {
-				req.Res <- readPublisherSetupPlayRes{Err: err}
+				req.Res <- pathReaderSetupPlayRes{Err: err}
 				continue
 			}
 
@@ -202,12 +202,12 @@ outer:
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPathManSetupPlay(req)
+			pm.paths[req.PathName].OnReaderSetupPlay(req)
 
-		case req := <-pm.rpAnnounce:
+		case req := <-pm.publisherAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
 			if err != nil {
-				req.Res <- readPublisherAnnounceRes{Err: err}
+				req.Res <- pathPublisherAnnounceRes{Err: err}
 				continue
 			}
 
@@ -220,7 +220,7 @@ outer:
 				pathConf.PublishPass,
 			)
 			if err != nil {
-				req.Res <- readPublisherAnnounceRes{Err: err}
+				req.Res <- pathPublisherAnnounceRes{Err: err}
 				continue
 			}
 
@@ -229,7 +229,7 @@ outer:
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPathManAnnounce(req)
+			pm.paths[req.PathName].OnPublisherAnnounce(req)
 
 		case s := <-pm.hlsServerSet:
 			pm.hlsServer = s
@@ -298,7 +298,7 @@ func (pm *pathManager) authenticate(
 	// validate ip
 	if pathIPs != nil && ip != nil {
 		if !ipEqualOrInRange(ip, pathIPs) {
-			return readPublisherErrAuthCritical{
+			return pathErrAuthCritical{
 				Message: fmt.Sprintf("IP '%s' not allowed", ip),
 				Response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
@@ -342,36 +342,36 @@ func (pm *pathManager) OnPathClose(pa *path) {
 	}
 }
 
-// OnReadPublisherDescribe is called by a readPublisher.
-func (pm *pathManager) OnReadPublisherDescribe(req readPublisherDescribeReq) readPublisherDescribeRes {
-	req.Res = make(chan readPublisherDescribeRes)
+// OnDescribe is called by a reader or publisher.
+func (pm *pathManager) OnDescribe(req pathDescribeReq) pathDescribeRes {
+	req.Res = make(chan pathDescribeRes)
 	select {
-	case pm.rpDescribe <- req:
+	case pm.describe <- req:
 		return <-req.Res
 	case <-pm.ctx.Done():
-		return readPublisherDescribeRes{Err: fmt.Errorf("terminated")}
+		return pathDescribeRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// OnReadPublisherAnnounce is called by a readPublisher.
-func (pm *pathManager) OnReadPublisherAnnounce(req readPublisherAnnounceReq) readPublisherAnnounceRes {
-	req.Res = make(chan readPublisherAnnounceRes)
+// OnPublisherAnnounce is called by a publisher.
+func (pm *pathManager) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
+	req.Res = make(chan pathPublisherAnnounceRes)
 	select {
-	case pm.rpAnnounce <- req:
+	case pm.publisherAnnounce <- req:
 		return <-req.Res
 	case <-pm.ctx.Done():
-		return readPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
+		return pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// OnReadPublisherSetupPlay is called by a readPublisher.
-func (pm *pathManager) OnReadPublisherSetupPlay(req readPublisherSetupPlayReq) readPublisherSetupPlayRes {
-	req.Res = make(chan readPublisherSetupPlayRes)
+// OnReaderSetupPlay is called by a reader.
+func (pm *pathManager) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
+	req.Res = make(chan pathReaderSetupPlayRes)
 	select {
-	case pm.rpSetupPlay <- req:
+	case pm.readerSetupPlay <- req:
 		return <-req.Res
 	case <-pm.ctx.Done():
-		return readPublisherSetupPlayRes{Err: fmt.Errorf("terminated")}
+		return pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 }
 

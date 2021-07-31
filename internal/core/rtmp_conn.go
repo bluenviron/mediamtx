@@ -121,9 +121,6 @@ func (c *rtmpConn) Close() {
 	c.ctxCancel()
 }
 
-// IsReadPublisher implements readPublisher.
-func (c *rtmpConn) IsReadPublisher() {}
-
 // IsSource implements source.
 func (c *rtmpConn) IsSource() {}
 
@@ -168,10 +165,6 @@ func (c *rtmpConn) run() {
 
 	c.ctxCancel()
 
-	if c.path != nil {
-		c.path.OnReadPublisherRemove(readPublisherRemoveReq{Author: c})
-	}
-
 	c.parent.OnConnClose(c)
 }
 
@@ -197,7 +190,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 func (c *rtmpConn) runRead(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
-	res := c.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+	res := c.pathManager.OnReaderSetupPlay(pathReaderSetupPlayReq{
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
@@ -207,7 +200,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	})
 
 	if res.Err != nil {
-		if terr, ok := res.Err.(readPublisherErrAuthCritical); ok {
+		if terr, ok := res.Err.(pathErrAuthCritical); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
 			return errors.New(terr.Message)
@@ -216,6 +209,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}
 
 	c.path = res.Path
+
+	defer func() {
+		c.path.OnReaderRemove(pathReaderRemoveReq{Author: c})
+	}()
 
 	var videoTrack *gortsplib.Track
 	videoTrackID := -1
@@ -261,7 +258,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		c.ringBuffer.Close()
 	}()
 
-	c.path.OnReadPublisherPlay(readPublisherPlayReq{
+	c.path.OnReaderPlay(pathReaderPlayReq{
 		Author: c,
 	})
 
@@ -389,7 +386,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
-	res := c.pathManager.OnReadPublisherAnnounce(readPublisherAnnounceReq{
+	res := c.pathManager.OnPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   c,
 		PathName: pathName,
 		Tracks:   tracks,
@@ -400,7 +397,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	})
 
 	if res.Err != nil {
-		if terr, ok := res.Err.(readPublisherErrAuthCritical); ok {
+		if terr, ok := res.Err.(pathErrAuthCritical); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
 			return errors.New(terr.Message)
@@ -410,10 +407,14 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 	c.path = res.Path
 
+	defer func() {
+		c.path.OnPublisherRemove(pathPublisherRemoveReq{Author: c})
+	}()
+
 	// disable write deadline
 	c.conn.NetConn().SetWriteDeadline(time.Time{})
 
-	rres := c.path.OnReadPublisherRecord(readPublisherRecordReq{Author: c})
+	rres := c.path.OnPublisherRecord(pathPublisherRecordReq{Author: c})
 	if rres.Err != nil {
 		return rres.Err
 	}
@@ -497,7 +498,7 @@ func (c *rtmpConn) validateCredentials(
 ) error {
 	if query.Get("user") != pathUser ||
 		query.Get("pass") != pathPass {
-		return readPublisherErrAuthCritical{
+		return pathErrAuthCritical{
 			Message: "wrong username or password",
 		}
 	}
@@ -505,12 +506,19 @@ func (c *rtmpConn) validateCredentials(
 	return nil
 }
 
-// OnReaderAccepted implements readPublisher.
+// OnReaderAccepted implements reader.
 func (c *rtmpConn) OnReaderAccepted() {
 	c.log(logger.Info, "is reading from path '%s'", c.path.Name())
 }
 
-// OnPublisherAccepted implements readPublisher.
+// OnReaderFrame implements reader.
+func (c *rtmpConn) OnReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+	if streamType == gortsplib.StreamTypeRTP {
+		c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})
+	}
+}
+
+// OnPublisherAccepted implements publisher.
 func (c *rtmpConn) OnPublisherAccepted(tracksLen int) {
 	c.log(logger.Info, "is publishing to path '%s', %d %s",
 		c.path.Name(),
@@ -521,11 +529,4 @@ func (c *rtmpConn) OnPublisherAccepted(tracksLen int) {
 			}
 			return "tracks"
 		}())
-}
-
-// OnFrame implements readPublisher.
-func (c *rtmpConn) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	if streamType == gortsplib.StreamTypeRTP {
-		c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})
-	}
 }

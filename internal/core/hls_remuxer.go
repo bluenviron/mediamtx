@@ -165,17 +165,11 @@ func (r *hlsRemuxer) Close() {
 	r.ctxCancel()
 }
 
-// IsReadPublisher implements readPublisher.
-func (r *hlsRemuxer) IsReadPublisher() {}
-
-// IsSource implements source.
-func (r *hlsRemuxer) IsSource() {}
-
 func (r *hlsRemuxer) log(level logger.Level, format string, args ...interface{}) {
 	r.parent.Log(level, "[remuxer %s] "+format, append([]interface{}{r.pathName}, args...)...)
 }
 
-// PathName returns the path name of the readPublisher
+// PathName returns the path name.
 func (r *hlsRemuxer) PathName() string {
 	return r.pathName
 }
@@ -203,15 +197,11 @@ func (r *hlsRemuxer) run() {
 
 	r.ctxCancel()
 
-	if r.path != nil {
-		r.path.OnReadPublisherRemove(readPublisherRemoveReq{Author: r})
-	}
-
 	r.parent.OnRemuxerClose(r)
 }
 
 func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
-	res := r.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+	res := r.pathManager.OnReaderSetupPlay(pathReaderSetupPlayReq{
 		Author:              r,
 		PathName:            r.pathName,
 		IP:                  nil,
@@ -223,6 +213,11 @@ func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
 	}
 
 	r.path = res.Path
+
+	defer func() {
+		r.path.OnReaderRemove(pathReaderRemoveReq{Author: r})
+	}()
+
 	var videoTrack *gortsplib.Track
 	videoTrackID := -1
 	var h264SPS []byte
@@ -300,7 +295,7 @@ func (r *hlsRemuxer) runInner(innerCtx context.Context) error {
 
 	r.ringBuffer = ringbuffer.New(uint64(r.readBufferCount))
 
-	r.path.OnReadPublisherPlay(readPublisherPlayReq{
+	r.path.OnReaderPlay(pathReaderPlayReq{
 		Author: r,
 	})
 
@@ -489,17 +484,13 @@ func (r *hlsRemuxer) OnRequest(req hlsRemuxerRequest) {
 	}
 }
 
-// OnReaderAccepted implements readPublisher.
+// OnReaderAccepted implements reader.
 func (r *hlsRemuxer) OnReaderAccepted() {
 	r.log(logger.Info, "is remuxing into HLS")
 }
 
-// OnPublisherAccepted implements readPublisher.
-func (r *hlsRemuxer) OnPublisherAccepted(tracksLen int) {
-}
-
-// OnFrame implements readPublisher.
-func (r *hlsRemuxer) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+// OnReaderFrame implements reader.
+func (r *hlsRemuxer) OnReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		r.ringBuffer.Push(hlsRemuxerTrackIDPayloadPair{trackID, payload})
 	}

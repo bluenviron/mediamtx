@@ -66,8 +66,13 @@ func (s *rtspSession) ParentClose() {
 		}
 	}
 
-	if s.path != nil {
-		s.path.OnReadPublisherRemove(readPublisherRemoveReq{Author: s})
+	switch s.ss.State() {
+	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
+		s.path.OnReaderRemove(pathReaderRemoveReq{Author: s})
+		s.path = nil
+
+	case gortsplib.ServerSessionStatePreRecord, gortsplib.ServerSessionStateRecord:
+		s.path.OnPublisherRemove(pathPublisherRemoveReq{Author: s})
 		s.path = nil
 	}
 
@@ -79,13 +84,10 @@ func (s *rtspSession) Close() {
 	s.ss.Close()
 }
 
-// IsReadPublisher implements readPublisher.
-func (s *rtspSession) IsReadPublisher() {}
-
 // IsSource implements source.
 func (s *rtspSession) IsSource() {}
 
-// IsRTSPSession implements path.rtspSession.
+// IsRTSPSession implements pathRTSPSession.
 func (s *rtspSession) IsRTSPSession() {}
 
 // VisualID returns the visual ID of the session.
@@ -106,7 +108,7 @@ func (s *rtspSession) log(level logger.Level, format string, args ...interface{}
 
 // OnAnnounce is called by rtspServer.
 func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	res := s.pathManager.OnReadPublisherAnnounce(readPublisherAnnounceReq{
+	res := s.pathManager.OnPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   s,
 		PathName: ctx.Path,
 		Tracks:   ctx.Tracks,
@@ -118,10 +120,10 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 
 	if res.Err != nil {
 		switch terr := res.Err.(type) {
-		case readPublisherErrAuthNotCritical:
+		case pathErrAuthNotCritical:
 			return terr.Response, nil
 
-		case readPublisherErrAuthCritical:
+		case pathErrAuthCritical:
 			// wait some seconds to stop brute force attacks
 			<-time.After(pauseAfterAuthError)
 
@@ -165,7 +167,7 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
-		res := s.pathManager.OnReadPublisherSetupPlay(readPublisherSetupPlayReq{
+		res := s.pathManager.OnReaderSetupPlay(pathReaderSetupPlayReq{
 			Author:   s,
 			PathName: ctx.Path,
 			IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
@@ -176,16 +178,16 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		if res.Err != nil {
 			switch terr := res.Err.(type) {
-			case readPublisherErrAuthNotCritical:
+			case pathErrAuthNotCritical:
 				return terr.Response, nil, nil
 
-			case readPublisherErrAuthCritical:
+			case pathErrAuthCritical:
 				// wait some seconds to stop brute force attacks
 				<-time.After(pauseAfterAuthError)
 
 				return terr.Response, nil, errors.New(terr.Message)
 
-			case readPublisherErrNoOnePublishing:
+			case pathErrNoOnePublishing:
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
 				}, nil, res.Err
@@ -232,9 +234,7 @@ func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 			}, fmt.Errorf("path has changed, was '%s', now is '%s'", s.path.Name(), ctx.Path)
 		}
 
-		s.path.OnReadPublisherPlay(readPublisherPlayReq{
-			Author: s,
-		})
+		s.path.OnReaderPlay(pathReaderPlayReq{Author: s})
 
 		if s.path.Conf().RunOnRead != "" {
 			_, port, _ := net.SplitHostPort(s.rtspAddress)
@@ -259,7 +259,7 @@ func (s *rtspSession) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 		}, fmt.Errorf("path has changed, was '%s', now is '%s'", s.path.Name(), ctx.Path)
 	}
 
-	res := s.path.OnReadPublisherRecord(readPublisherRecordReq{Author: s})
+	res := s.path.OnPublisherRecord(pathPublisherRecordReq{Author: s})
 	if res.Err != nil {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,
@@ -279,10 +279,10 @@ func (s *rtspSession) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 			s.onReadCmd.Close()
 		}
 
-		s.path.OnReadPublisherPause(readPublisherPauseReq{Author: s})
+		s.path.OnReaderPause(pathReaderPauseReq{Author: s})
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.OnReadPublisherPause(readPublisherPauseReq{Author: s})
+		s.path.OnPublisherPause(pathPublisherPauseReq{Author: s})
 	}
 
 	return &base.Response{
@@ -290,7 +290,7 @@ func (s *rtspSession) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 	}, nil
 }
 
-// OnReaderAccepted implements readPublisher.
+// OnReaderAccepted implements reader.
 func (s *rtspSession) OnReaderAccepted() {
 	tracksLen := len(s.ss.SetuppedTracks())
 
@@ -306,7 +306,12 @@ func (s *rtspSession) OnReaderAccepted() {
 		s.displayedProtocol())
 }
 
-// OnPublisherAccepted implements readPublisher.
+// OnReaderFrame implements reader.
+func (s *rtspSession) OnReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+	s.ss.WriteFrame(trackID, streamType, payload)
+}
+
+// OnPublisherAccepted implements publisher.
 func (s *rtspSession) OnPublisherAccepted(tracksLen int) {
 	s.log(logger.Info, "is publishing to path '%s', %d %s with %s",
 		s.path.Name(),
@@ -318,11 +323,6 @@ func (s *rtspSession) OnPublisherAccepted(tracksLen int) {
 			return "tracks"
 		}(),
 		s.displayedProtocol())
-}
-
-// OnFrame implements readPublisher.
-func (s *rtspSession) OnFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	s.ss.WriteFrame(trackID, streamType, payload)
 }
 
 // OnIncomingFrame is called by rtspServer.
