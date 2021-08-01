@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -24,7 +23,6 @@ type pathManager struct {
 	writeTimeout    time.Duration
 	readBufferCount int
 	readBufferSize  int
-	authMethods     []headers.AuthMethod
 	pathConfs       map[string]*conf.PathConf
 	stats           *stats
 	parent          pathManagerParent
@@ -52,7 +50,6 @@ func newPathManager(
 	writeTimeout time.Duration,
 	readBufferCount int,
 	readBufferSize int,
-	authMethods []headers.AuthMethod,
 	pathConfs map[string]*conf.PathConf,
 	stats *stats,
 	parent pathManagerParent) *pathManager {
@@ -64,7 +61,6 @@ func newPathManager(
 		writeTimeout:      writeTimeout,
 		readBufferCount:   readBufferCount,
 		readBufferSize:    readBufferSize,
-		authMethods:       authMethods,
 		pathConfs:         pathConfs,
 		stats:             stats,
 		parent:            parent,
@@ -289,7 +285,7 @@ func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error)
 
 func (pm *pathManager) authenticate(
 	ip net.IP,
-	validateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error,
+	validateCredentials func(pathUser string, pathPass string) error,
 	pathName string,
 	pathIPs []interface{},
 	pathUser string,
@@ -309,7 +305,7 @@ func (pm *pathManager) authenticate(
 
 	// validate user
 	if pathUser != "" && validateCredentials != nil {
-		err := validateCredentials(pm.authMethods, pathUser, pathPass)
+		err := validateCredentials(pathUser, pathPass)
 		if err != nil {
 			return err
 		}

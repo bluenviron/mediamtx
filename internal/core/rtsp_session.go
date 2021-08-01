@@ -8,7 +8,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -113,8 +112,8 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 		PathName: ctx.Path,
 		Tracks:   ctx.Tracks,
 		IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
-		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-			return c.validateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
+		ValidateCredentials: func(pathUser string, pathPass string) error {
+			return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
 		},
 	})
 
@@ -171,8 +170,8 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			Author:   s,
 			PathName: ctx.Path,
 			IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
-			ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-				return c.validateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
+			ValidateCredentials: func(pathUser string, pathPass string) error {
+				return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
 			},
 		})
 

@@ -12,7 +12,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
-	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -110,7 +109,7 @@ type pathDescribeReq struct {
 	PathName            string
 	URL                 *base.URL
 	IP                  net.IP
-	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
+	ValidateCredentials func(pathUser string, pathPass string) error
 	Res                 chan pathDescribeRes
 }
 
@@ -124,7 +123,7 @@ type pathReaderSetupPlayReq struct {
 	Author              reader
 	PathName            string
 	IP                  net.IP
-	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
+	ValidateCredentials func(pathUser string, pathPass string) error
 	Res                 chan pathReaderSetupPlayRes
 }
 
@@ -138,7 +137,7 @@ type pathPublisherAnnounceReq struct {
 	PathName            string
 	Tracks              gortsplib.Tracks
 	IP                  net.IP
-	ValidateCredentials func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error
+	ValidateCredentials func(pathUser string, pathPass string) error
 	Res                 chan pathPublisherAnnounceRes
 }
 

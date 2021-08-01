@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
@@ -194,7 +193,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
-		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
+		ValidateCredentials: func(pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
 	})
@@ -391,7 +390,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		PathName: pathName,
 		Tracks:   tracks,
 		IP:       c.ip(),
-		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
+		ValidateCredentials: func(pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
 	})

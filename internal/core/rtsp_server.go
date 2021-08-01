@@ -11,6 +11,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/headers"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -45,6 +46,7 @@ type rtspServerParent interface {
 }
 
 type rtspServer struct {
+	authMethods         []headers.AuthMethod
 	readTimeout         time.Duration
 	isTLS               bool
 	rtspAddress         string
@@ -67,6 +69,7 @@ type rtspServer struct {
 func newRTSPServer(
 	parentCtx context.Context,
 	address string,
+	authMethods []headers.AuthMethod,
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	readBufferCount int,
@@ -91,6 +94,7 @@ func newRTSPServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtspServer{
+		authMethods: authMethods,
 		readTimeout: readTimeout,
 		isTLS:       isTLS,
 		rtspAddress: rtspAddress,
@@ -203,6 +207,7 @@ outer:
 func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	c := newRTSPConn(
 		s.rtspAddress,
+		s.authMethods,
 		s.readTimeout,
 		s.runOnConnect,
 		s.runOnConnectRestart,

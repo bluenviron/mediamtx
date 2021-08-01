@@ -205,7 +205,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
 			p.conf.ReadBufferSize,
-			p.conf.AuthMethodsParsed,
 			p.conf.Paths,
 			p.stats,
 			p)
@@ -220,6 +219,7 @@ func (p *Core) createResources(initial bool) error {
 			p.rtspServerPlain, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPAddress,
+				p.conf.AuthMethodsParsed,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
@@ -254,6 +254,7 @@ func (p *Core) createResources(initial bool) error {
 			p.rtspServerTLS, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPSAddress,
+				p.conf.AuthMethodsParsed,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
@@ -359,7 +360,6 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
-		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
 		closeStats {
 		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
@@ -371,6 +371,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -394,6 +395,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
+		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||

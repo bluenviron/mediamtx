@@ -36,6 +36,7 @@ type rtspConnParent interface {
 
 type rtspConn struct {
 	rtspAddress         string
+	authMethods         []headers.AuthMethod
 	readTimeout         time.Duration
 	runOnConnect        string
 	runOnConnectRestart bool
@@ -53,6 +54,7 @@ type rtspConn struct {
 
 func newRTSPConn(
 	rtspAddress string,
+	authMethods []headers.AuthMethod,
 	readTimeout time.Duration,
 	runOnConnect string,
 	runOnConnectRestart bool,
@@ -62,6 +64,7 @@ func newRTSPConn(
 	parent rtspConnParent) *rtspConn {
 	c := &rtspConn{
 		rtspAddress:         rtspAddress,
+		authMethods:         authMethods,
 		readTimeout:         readTimeout,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
@@ -111,7 +114,6 @@ func (c *rtspConn) ip() net.IP {
 }
 
 func (c *rtspConn) validateCredentials(
-	authMethods []headers.AuthMethod,
 	pathUser string,
 	pathPass string,
 	pathName string,
@@ -121,7 +123,7 @@ func (c *rtspConn) validateCredentials(
 	if c.authValidator == nil || c.authUser != pathUser || c.authPass != pathPass {
 		c.authUser = pathUser
 		c.authPass = pathPass
-		c.authValidator = auth.NewValidator(pathUser, pathPass, authMethods)
+		c.authValidator = auth.NewValidator(pathUser, pathPass, c.authMethods)
 	}
 
 	// VLC strips the control attribute
@@ -192,8 +194,8 @@ func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.
 		PathName: ctx.Path,
 		URL:      ctx.Req.URL,
 		IP:       c.ip(),
-		ValidateCredentials: func(authMethods []headers.AuthMethod, pathUser string, pathPass string) error {
-			return c.validateCredentials(authMethods, pathUser, pathPass, ctx.Path, ctx.Req)
+		ValidateCredentials: func(pathUser string, pathPass string) error {
+			return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
 		},
 	})
 
