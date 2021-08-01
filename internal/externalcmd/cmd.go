@@ -38,6 +38,7 @@ func New(cmdstr string, restart bool, env Environment) *Cmd {
 	}
 
 	go e.run()
+
 	return e
 }
 

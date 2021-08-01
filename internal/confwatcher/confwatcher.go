@@ -52,6 +52,7 @@ func New(confPath string) (*ConfWatcher, error) {
 	}
 
 	go w.run()
+
 	return w, nil
 }
 

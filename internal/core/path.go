@@ -294,6 +294,7 @@ func newPath(
 
 	pa.wg.Add(1)
 	go pa.run()
+
 	return pa
 }
 
