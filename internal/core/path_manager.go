@@ -76,7 +76,11 @@ func newPathManager(
 		hlsServerSet:      make(chan *hlsServer),
 	}
 
-	pm.createPaths()
+	for pathName, pathConf := range pm.pathConfs {
+		if pathConf.Regexp == nil {
+			pm.createPath(pathName, pathConf, pathName)
+		}
+	}
 
 	pm.wg.Add(1)
 	go pm.run()
@@ -131,8 +135,12 @@ outer:
 				}
 			}
 
-			// add paths
-			pm.createPaths()
+			// add new paths
+			for pathName, pathConf := range pm.pathConfs {
+				if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
+					pm.createPath(pathName, pathConf, pathName)
+				}
+			}
 
 		case pa := <-pm.pathClose:
 			if pmpa, ok := pm.paths[pa.Name()]; !ok || pmpa != pa {
@@ -171,7 +179,7 @@ outer:
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnDescribe(req)
+			req.Res <- pathDescribeRes{Path: pm.paths[req.PathName]}
 
 		case req := <-pm.readerSetupPlay:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
@@ -198,7 +206,7 @@ outer:
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnReaderSetupPlay(req)
+			req.Res <- pathReaderSetupPlayRes{Path: pm.paths[req.PathName]}
 
 		case req := <-pm.publisherAnnounce:
 			pathName, pathConf, err := pm.findPathConf(req.PathName)
@@ -225,7 +233,7 @@ outer:
 				pm.createPath(pathName, pathConf, req.PathName)
 			}
 
-			pm.paths[req.PathName].OnPublisherAnnounce(req)
+			req.Res <- pathPublisherAnnounceRes{Path: pm.paths[req.PathName]}
 
 		case s := <-pm.hlsServerSet:
 			pm.hlsServer = s
@@ -252,14 +260,6 @@ func (pm *pathManager) createPath(confName string, conf *conf.PathConf, name str
 		&pm.wg,
 		pm.stats,
 		pm)
-}
-
-func (pm *pathManager) createPaths() {
-	for pathName, pathConf := range pm.pathConfs {
-		if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
-			pm.createPath(pathName, pathConf, pathName)
-		}
-	}
 }
 
 func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error) {
@@ -343,7 +343,13 @@ func (pm *pathManager) OnDescribe(req pathDescribeReq) pathDescribeRes {
 	req.Res = make(chan pathDescribeRes)
 	select {
 	case pm.describe <- req:
-		return <-req.Res
+		res := <-req.Res
+		if res.Err != nil {
+			return res
+		}
+
+		return res.Path.OnDescribe(req)
+
 	case <-pm.ctx.Done():
 		return pathDescribeRes{Err: fmt.Errorf("terminated")}
 	}
@@ -354,7 +360,13 @@ func (pm *pathManager) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPub
 	req.Res = make(chan pathPublisherAnnounceRes)
 	select {
 	case pm.publisherAnnounce <- req:
-		return <-req.Res
+		res := <-req.Res
+		if res.Err != nil {
+			return res
+		}
+
+		return res.Path.OnPublisherAnnounce(req)
+
 	case <-pm.ctx.Done():
 		return pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
 	}
@@ -365,7 +377,13 @@ func (pm *pathManager) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderS
 	req.Res = make(chan pathReaderSetupPlayRes)
 	select {
 	case pm.readerSetupPlay <- req:
-		return <-req.Res
+		res := <-req.Res
+		if res.Err != nil {
+			return res
+		}
+
+		return res.Path.OnReaderSetupPlay(req)
+
 	case <-pm.ctx.Done():
 		return pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
 	}

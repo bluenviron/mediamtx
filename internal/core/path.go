@@ -100,6 +100,7 @@ type pathPublisherRemoveReq struct {
 }
 
 type pathDescribeRes struct {
+	Path     *path
 	Stream   *gortsplib.ServerStream
 	Redirect string
 	Err      error
@@ -881,12 +882,13 @@ func (pa *path) OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
 	}
 }
 
-// OnDescribe is called by pathManager (asynchronous).
-func (pa *path) OnDescribe(req pathDescribeReq) {
+// OnDescribe is called by a reader or publisher through pathManager.
+func (pa *path) OnDescribe(req pathDescribeReq) pathDescribeRes {
 	select {
 	case pa.describe <- req:
+		return <-req.Res
 	case <-pa.ctx.Done():
-		req.Res <- pathDescribeRes{Err: fmt.Errorf("terminated")}
+		return pathDescribeRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -900,12 +902,13 @@ func (pa *path) OnPublisherRemove(req pathPublisherRemoveReq) {
 	}
 }
 
-// OnPublisherAnnounce is called by pathManager (asynchronous).
-func (pa *path) OnPublisherAnnounce(req pathPublisherAnnounceReq) {
+// OnPublisherAnnounce is called by a publisher through pathManager.
+func (pa *path) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
 	select {
 	case pa.publisherAnnounce <- req:
+		return <-req.Res
 	case <-pa.ctx.Done():
-		req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
+		return pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -940,12 +943,13 @@ func (pa *path) OnReaderRemove(req pathReaderRemoveReq) {
 	}
 }
 
-// OnReaderSetupPlay is called by pathManager (asynchronous).
-func (pa *path) OnReaderSetupPlay(req pathReaderSetupPlayReq) {
+// OnReaderSetupPlay is called by a reader through pathManager.
+func (pa *path) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
 	select {
 	case pa.readerSetupPlay <- req:
+		return <-req.Res
 	case <-pa.ctx.Done():
-		req.Res <- pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
+		return pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
