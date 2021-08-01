@@ -328,7 +328,7 @@ func (pa *path) run() {
 	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
 	} else if pa.hasStaticSource() && !pa.conf.SourceOnDemand {
-		pa.startExternalSource()
+		pa.startStaticSource()
 	}
 
 	var onInitCmd *externalcmd.Cmd
@@ -396,10 +396,10 @@ outer:
 			pa.onPublisherRemove(req)
 
 		case req := <-pa.publisherAnnounce:
-			pa.onAnnounce(req)
+			pa.onPublisherAnnounce(req)
 
 		case req := <-pa.publisherRecord:
-			pa.onRecord(req)
+			pa.onPublisherRecord(req)
 
 		case req := <-pa.publisherPause:
 			pa.onPublisherPause(req)
@@ -408,10 +408,10 @@ outer:
 			pa.onReaderRemove(req)
 
 		case req := <-pa.readerSetupPlay:
-			pa.onSetupPlay(req)
+			pa.onReaderSetupPlay(req)
 
 		case req := <-pa.readerPlay:
-			pa.onPlay(req)
+			pa.onReaderPlay(req)
 
 		case req := <-pa.readerPause:
 			pa.onReaderPause(req)
@@ -478,7 +478,7 @@ func (pa *path) hasStaticSource() bool {
 		strings.HasPrefix(pa.conf.Source, "rtmp://")
 }
 
-func (pa *path) startExternalSource() {
+func (pa *path) startStaticSource() {
 	if strings.HasPrefix(pa.conf.Source, "rtsp://") ||
 		strings.HasPrefix(pa.conf.Source, "rtsps://") {
 		pa.source = newRTSPSource(
@@ -504,14 +504,6 @@ func (pa *path) startExternalSource() {
 			pa.stats,
 			pa)
 	}
-}
-
-func (pa *path) hasReadersOrPublisher() bool {
-	return len(pa.readers) > 0 || pa.source != nil
-}
-
-func (pa *path) hasReaders() bool {
-	return len(pa.readers) > 0
 }
 
 func (pa *path) removeReader(r reader) {
@@ -556,7 +548,7 @@ func (pa *path) fixedPublisherStart() {
 	if pa.hasStaticSource() {
 		// start on-demand source
 		if pa.source == nil {
-			pa.startExternalSource()
+			pa.startStaticSource()
 
 			if pa.sourceState != pathSourceStateCreating {
 				pa.describeTimer = time.NewTimer(pa.conf.SourceOnDemandStartTimeout)
@@ -609,7 +601,7 @@ func (pa *path) onSourceSetReady() {
 	pa.describeRequests = nil
 
 	for _, req := range pa.setupPlayRequests {
-		pa.onSetupPlayPost(req)
+		pa.onReaderSetupPlayPost(req)
 	}
 	pa.setupPlayRequests = nil
 
@@ -632,20 +624,6 @@ func (pa *path) onSourceSetNotReady() {
 		pa.removeReader(r)
 		r.Close()
 	}
-}
-
-func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
-	if _, ok := pa.readers[req.Author]; ok {
-		pa.removeReader(req.Author)
-	}
-	close(req.Res)
-}
-
-func (pa *path) onPublisherRemove(req pathPublisherRemoveReq) {
-	if pa.source == req.Author {
-		pa.removePublisher(req.Author)
-	}
-	close(req.Res)
 }
 
 func (pa *path) onDescribe(req pathDescribeReq) {
@@ -693,68 +671,20 @@ func (pa *path) onDescribe(req pathDescribeReq) {
 	}
 }
 
-func (pa *path) onSetupPlay(req pathReaderSetupPlayReq) {
-	pa.fixedPublisherStart()
-	pa.scheduleClose()
-
-	switch pa.sourceState {
-	case pathSourceStateReady:
-		pa.onSetupPlayPost(req)
-		return
-
-	case pathSourceStateCreating:
-		pa.setupPlayRequests = append(pa.setupPlayRequests, req)
-		return
-
-	case pathSourceStateNotReady:
-		req.Res <- pathReaderSetupPlayRes{Err: pathErrNoOnePublishing{PathName: pa.name}}
-		return
+func (pa *path) onPublisherRemove(req pathPublisherRemoveReq) {
+	if pa.source == req.Author {
+		pa.removePublisher(req.Author)
 	}
-}
-
-func (pa *path) onSetupPlayPost(req pathReaderSetupPlayReq) {
-	if _, ok := pa.readers[req.Author]; !ok {
-		// prevent on-demand source from closing
-		if pa.sourceCloseTimerStarted {
-			pa.sourceCloseTimer = newEmptyTimer()
-			pa.sourceCloseTimerStarted = false
-		}
-
-		// prevent on-demand command from closing
-		if pa.runOnDemandCloseTimerStarted {
-			pa.runOnDemandCloseTimer = newEmptyTimer()
-			pa.runOnDemandCloseTimerStarted = false
-		}
-
-		pa.readers[req.Author] = pathReaderStatePrePlay
-	}
-
-	req.Res <- pathReaderSetupPlayRes{
-		Path:   pa,
-		Stream: pa.stream,
-	}
-}
-
-func (pa *path) onPlay(req pathReaderPlayReq) {
-	atomic.AddInt64(pa.stats.CountReaders, 1)
-	pa.readers[req.Author] = pathReaderStatePlay
-
-	if _, ok := req.Author.(pathRTSPSession); !ok {
-		pa.nonRTSPReaders.add(req.Author)
-	}
-
-	req.Author.OnReaderAccepted()
-
 	close(req.Res)
 }
 
-func (pa *path) onAnnounce(req pathPublisherAnnounceReq) {
-	if pa.hasStaticSource() {
-		req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("path '%s' is assigned to a static source", pa.name)}
-		return
-	}
-
+func (pa *path) onPublisherAnnounce(req pathPublisherAnnounceReq) {
 	if pa.source != nil {
+		if pa.hasStaticSource() {
+			req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("path '%s' is assigned to a static source", pa.name)}
+			return
+		}
+
 		if pa.conf.DisablePublisherOverride {
 			req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("another publisher is already publishing to path '%s'", pa.name)}
 			return
@@ -778,7 +708,7 @@ func (pa *path) onAnnounce(req pathPublisherAnnounceReq) {
 	req.Res <- pathPublisherAnnounceRes{Path: pa}
 }
 
-func (pa *path) onRecord(req pathPublisherRecordReq) {
+func (pa *path) onPublisherRecord(req pathPublisherRecordReq) {
 	if pa.source != req.Author {
 		req.Res <- pathPublisherRecordRes{Err: fmt.Errorf("publisher is not assigned to this path anymore")}
 		return
@@ -801,6 +731,76 @@ func (pa *path) onRecord(req pathPublisherRecordReq) {
 	req.Res <- pathPublisherRecordRes{}
 }
 
+func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
+	if req.Author == pa.source && pa.sourceState == pathSourceStateReady {
+		atomic.AddInt64(pa.stats.CountPublishers, -1)
+		pa.onSourceSetNotReady()
+	}
+	close(req.Res)
+}
+
+func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
+	if _, ok := pa.readers[req.Author]; ok {
+		pa.removeReader(req.Author)
+	}
+	close(req.Res)
+}
+
+func (pa *path) onReaderSetupPlay(req pathReaderSetupPlayReq) {
+	pa.fixedPublisherStart()
+	pa.scheduleClose()
+
+	switch pa.sourceState {
+	case pathSourceStateReady:
+		pa.onReaderSetupPlayPost(req)
+		return
+
+	case pathSourceStateCreating:
+		pa.setupPlayRequests = append(pa.setupPlayRequests, req)
+		return
+
+	case pathSourceStateNotReady:
+		req.Res <- pathReaderSetupPlayRes{Err: pathErrNoOnePublishing{PathName: pa.name}}
+		return
+	}
+}
+
+func (pa *path) onReaderSetupPlayPost(req pathReaderSetupPlayReq) {
+	if _, ok := pa.readers[req.Author]; !ok {
+		// prevent on-demand source from closing
+		if pa.sourceCloseTimerStarted {
+			pa.sourceCloseTimer = newEmptyTimer()
+			pa.sourceCloseTimerStarted = false
+		}
+
+		// prevent on-demand command from closing
+		if pa.runOnDemandCloseTimerStarted {
+			pa.runOnDemandCloseTimer = newEmptyTimer()
+			pa.runOnDemandCloseTimerStarted = false
+		}
+
+		pa.readers[req.Author] = pathReaderStatePrePlay
+	}
+
+	req.Res <- pathReaderSetupPlayRes{
+		Path:   pa,
+		Stream: pa.stream,
+	}
+}
+
+func (pa *path) onReaderPlay(req pathReaderPlayReq) {
+	atomic.AddInt64(pa.stats.CountReaders, 1)
+	pa.readers[req.Author] = pathReaderStatePlay
+
+	if _, ok := req.Author.(pathRTSPSession); !ok {
+		pa.nonRTSPReaders.add(req.Author)
+	}
+
+	req.Author.OnReaderAccepted()
+
+	close(req.Res)
+}
+
 func (pa *path) onReaderPause(req pathReaderPauseReq) {
 	if state, ok := pa.readers[req.Author]; ok && state == pathReaderStatePlay {
 		atomic.AddInt64(pa.stats.CountReaders, -1)
@@ -813,14 +813,6 @@ func (pa *path) onReaderPause(req pathReaderPauseReq) {
 	close(req.Res)
 }
 
-func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
-	if req.Author == pa.source && pa.sourceState == pathSourceStateReady {
-		atomic.AddInt64(pa.stats.CountPublishers, -1)
-		pa.onSourceSetNotReady()
-	}
-	close(req.Res)
-}
-
 func (pa *path) scheduleSourceClose() {
 	if !pa.hasStaticSource() || !pa.conf.SourceOnDemand || pa.source == nil {
 		return
@@ -828,7 +820,8 @@ func (pa *path) scheduleSourceClose() {
 
 	if pa.sourceCloseTimerStarted ||
 		pa.sourceState == pathSourceStateCreating ||
-		pa.hasReadersOrPublisher() {
+		len(pa.readers) > 0 ||
+		pa.source != nil {
 		return
 	}
 
@@ -844,7 +837,7 @@ func (pa *path) scheduleRunOnDemandClose() {
 
 	if pa.runOnDemandCloseTimerStarted ||
 		pa.sourceState == pathSourceStateCreating ||
-		pa.hasReaders() {
+		len(pa.readers) > 0 {
 		return
 	}
 
@@ -855,7 +848,7 @@ func (pa *path) scheduleRunOnDemandClose() {
 
 func (pa *path) scheduleClose() {
 	if pa.conf.Regexp != nil &&
-		!pa.hasReadersOrPublisher() &&
+		len(pa.readers) == 0 &&
 		pa.source == nil &&
 		pa.sourceState != pathSourceStateCreating &&
 		!pa.sourceCloseTimerStarted &&
