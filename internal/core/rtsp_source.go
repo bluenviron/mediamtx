@@ -192,7 +192,7 @@ func (s *rtspSource) runInner() bool {
 	})
 
 	defer func() {
-		s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
+		s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
 	}()
 
 	readErr := make(chan error)

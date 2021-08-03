@@ -306,6 +306,10 @@ func (pconf *PathConf) fillAndCheck(name string) error {
 		return fmt.Errorf("'runOnPublish' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
 	}
 
+	if pconf.RunOnDemand != "" && pconf.Source != "record" {
+		return fmt.Errorf("'runOnDemand' can be used only when source is 'record'")
+	}
+
 	if pconf.RunOnDemandStartTimeout == 0 {
 		pconf.RunOnDemandStartTimeout = 10 * time.Second
 	}

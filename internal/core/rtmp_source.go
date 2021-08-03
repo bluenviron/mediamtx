@@ -173,7 +173,7 @@ func (s *rtmpSource) runInner() bool {
 					})
 
 					defer func() {
-						s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
+						s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
 					}()
 
 					rtcpSenders := rtcpsenderset.New(tracks, s.parent.OnSourceFrame)
