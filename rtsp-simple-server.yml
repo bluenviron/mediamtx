@@ -21,7 +21,7 @@ readBufferCount: 512
 # enable the HTTP API.
 api: no
 # address of the API listener.
-apiAddress: :9997
+apiAddress: 127.0.0.1:9997
 
 # enable Prometheus-compatible metrics.
 metrics: no
