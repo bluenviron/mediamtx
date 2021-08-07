@@ -17,7 +17,8 @@ help:
 	@echo "  lint           run linters"
 	@echo "  bench NAME=n   run bench environment"
 	@echo "  run            run app"
-	@echo "  api-lint"      run api linters"
+	@echo "  apidocs-lint   run api docs linters"
+	@echo "  apidocs-gen    generate HTML from api docs"
 	@echo "  release        build release assets"
 	@echo "  dockerhub      build and push docker hub images"
 	@echo ""
@@ -155,14 +156,14 @@ run:
 	temp \
 	sh -c "/out"
 
-define DOCKERFILE_API_LINT
+define DOCKERFILE_APIDOCS_LINT
 FROM $(NODE_IMAGE)
 RUN yarn global add @redocly/openapi-cli@1.0.0-beta.54
 endef
-export DOCKERFILE_API_LINT
+export DOCKERFILE_APIDOCS_LINT
 
-api-lint:
-	echo "$$DOCKERFILE_API_LINT" | docker build . -f - -t temp
+apidocs-lint:
+	echo "$$DOCKERFILE_APIDOCS_LINT" | docker build . -f - -t temp
 	docker run --rm -v $(PWD)/apidocs:/s -w /s temp \
 	sh -c "openapi lint openapi.yaml"
 
@@ -176,6 +177,17 @@ COPY . ./
 RUN make release-nodocker
 endef
 export DOCKERFILE_RELEASE
+
+define DOCKERFILE_APIDOCS_GEN
+FROM $(NODE_IMAGE)
+RUN yarn global add redoc-cli@0.12.2
+endef
+export DOCKERFILE_APIDOCS_GEN
+
+apidocs-gen:
+	echo "$$DOCKERFILE_APIDOCS_GEN" | docker build . -f - -t temp
+	docker run --rm -v $(PWD)/apidocs:/s -w /s temp \
+	sh -c "redoc-cli bundle openapi.yaml"
 
 release:
 	echo "$$DOCKERFILE_RELEASE" | docker build . -f - -t temp

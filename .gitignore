@@ -1,3 +1,4 @@
 /tmp
 /release
 /coverage*.txt
+/apidocs/*.html

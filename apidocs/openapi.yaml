@@ -181,40 +181,60 @@ components:
           $ref: '#/components/schemas/PathConf'
         source:
           oneOf:
-          - type: object
-            properties:
-              type:
-                type: string
-                enum: ['rtspsession']
-              id:
-                type: string
-          - type: object
-            properties:
-              type:
-                type: string
-                enum: ['rtmpconn']
-              id:
-                type: string
+          - $ref: '#/components/schemas/PathSourceRTSPSession'
+          - $ref: '#/components/schemas/PathSourceRTMPConn'
         sourceReady:
           type: boolean
         readers:
           type: array
           items:
             oneOf:
-            - type: object
-              properties:
-                type:
-                  type: string
-                  enum: ['rtspsession']
-                id:
-                  type: string
-            - type: object
-              properties:
-                type:
-                  type: string
-                  enum: ['rtmpconn']
-                id:
-                  type: string
+            - $ref: '#/components/schemas/PathReaderRTSPSession'
+            - $ref: '#/components/schemas/PathReaderRTMPConn'
+            - $ref: '#/components/schemas/PathReaderHLSMuxer'
+
+    PathSourceRTSPSession:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtspsession]
+        id:
+          type: string
+
+    PathSourceRTMPConn:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtmpconn]
+        id:
+          type: string
+
+    PathReaderRTSPSession:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtspsession]
+        id:
+          type: string
+
+    PathReaderRTMPConn:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtmpconn]
+        id:
+          type: string
+
+    PathReaderHLSMuxer:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [hlsmuxer]
 
     RTSPSession:
       type: object
@@ -248,6 +268,13 @@ paths:
     post:
       operationId: configSet
       summary: changes the current configuration.
+      description: all fields are optional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Conf'
       responses:
         '200':
           description: the request was successful.
@@ -260,7 +287,7 @@ paths:
     post:
       operationId: configPathsAdd
       summary: adds the configuration of a path.
-      description: ''
+      description: all fields are optional.
       parameters:
       - name: name
         in: path
@@ -268,6 +295,12 @@ paths:
         description: the name of the path.
         schema:
           type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathConf'
       responses:
         '200':
           description: the request was successful.
@@ -280,7 +313,7 @@ paths:
     post:
       operationId: configPathsEdit
       summary: changes the configuration of a path.
-      description: ''
+      description: all fields are optional.
       parameters:
       - name: name
         in: path
@@ -288,6 +321,12 @@ paths:
         description: the name of the path.
         schema:
           type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathConf'
       responses:
         '200':
           description: the request was successful.

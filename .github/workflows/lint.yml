@@ -32,10 +32,10 @@ jobs:
         go mod tidy
         git diff --exit-code
 
-  api:
+  apidocs:
     runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
 
-    - run: make api-lint
+    - run: make apidocs-lint
