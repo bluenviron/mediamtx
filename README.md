@@ -55,8 +55,8 @@ Plus:
   * [Redirect to another server](#redirect-to-another-server)
   * [Fallback stream](#fallback-stream)
   * [Start on boot with systemd](#start-on-boot-with-systemd)
-  * [Monitoring](#monitoring)
   * [Corrupted frames](#corrupted-frames)
+  * [Monitoring](#monitoring)
   * [HTTP API](#http-api)
   * [Command-line usage](#command-line-usage)
   * [Compile and run from source](#compile-and-run-from-source)
@@ -466,17 +466,42 @@ sudo systemctl enable rtsp-simple-server
 sudo systemctl start rtsp-simple-server
 ```
 
+### Corrupted frames
+
+In some scenarios, the server can send incomplete or corrupted frames. This can be caused by multiple reasons:
+
+* the packet buffer of the server is too small and can't handle the stream throughput. A solution consists in increasing its size:
+
+  ```yml
+  readBufferCount: 1024
+  ```
+
+* The stream throughput is too big and the stream can't be sent correctly with the UDP stream protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
+
+  ```yml
+  protocols: [tcp]
+  ```
+
+  In case the source is a camera:
+
+  ```yml
+  paths:
+    test:
+      source: rtsp://..
+      sourceProtocol: tcp
+  ```
+
+* the software that is generating the stream (a camera or FFmpeg) is generating non-conformant RTP packets, with a payload bigger than the maximum allowed (that is 1460 due to the UDP MTU). A solution consists in increasing the buffer size:
+
+  ```yml
+  readBufferSize: 8192
+  ```
+
 ### Monitoring
 
 There are multiple ways to monitor the server usage over time:
 
-* The current number of clients, publishers and readers is printed in each log line; for instance, the line:
-
-  ```
-  2020/01/01 00:00:00 [3/2] [conn 127.0.0.1:44428] OPTION
-  ```
-
-  means that there are 3 publishers and 2 readers.
+* Use the [HTTP API](#http-api), described below.
 
 * A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
 
@@ -510,37 +535,6 @@ There are multiple ways to monitor the server usage over time:
   go tool pprof -text http://localhost:9999/debug/pprof/goroutine
   go tool pprof -text http://localhost:9999/debug/pprof/heap
   go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
-  ```
-
-### Corrupted frames
-
-In some scenarios, the server can send incomplete or corrupted frames. This can be caused by multiple reasons:
-
-* the packet buffer of the server is too small and can't handle the stream throughput. A solution consists in increasing its size:
-
-  ```yml
-  readBufferCount: 1024
-  ```
-
-* The stream throughput is too big and the stream can't be sent correctly with the UDP stream protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
-
-  ```yml
-  protocols: [tcp]
-  ```
-
-  In case the source is a camera:
-
-  ```yml
-  paths:
-    test:
-      source: rtsp://..
-      sourceProtocol: tcp
-  ```
-
-* the software that is generating the stream (a camera or FFmpeg) is generating non-conformant RTP packets, with a payload bigger than the maximum allowed (that is 1460 due to the UDP MTU). A solution consists in increasing the buffer size:
-
-  ```yml
-  readBufferSize: 8192
   ```
 
 ### HTTP API
