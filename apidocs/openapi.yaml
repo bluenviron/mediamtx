@@ -9,7 +9,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:9997/v1
+  - url: http://localhost:9997
 
 components:
   schemas:
@@ -249,7 +249,7 @@ components:
           type: string
 
 paths:
-  /config/get:
+  /v1/config/get:
     get:
       operationId: configGet
       summary: returns the current configuration.
@@ -264,7 +264,7 @@ paths:
         '500':
           description: internal server error.
 
-  /config/set:
+  /v1/config/set:
     post:
       operationId: configSet
       summary: changes the current configuration.
@@ -283,7 +283,7 @@ paths:
         '500':
           description: internal server error.
 
-  /config/paths/add/{name}:
+  /v1/config/paths/add/{name}:
     post:
       operationId: configPathsAdd
       summary: adds the configuration of a path.
@@ -309,7 +309,7 @@ paths:
         '500':
           description: internal server error.
 
-  /config/paths/edit/{name}:
+  /v1/config/paths/edit/{name}:
     post:
       operationId: configPathsEdit
       summary: changes the configuration of a path.
@@ -335,7 +335,7 @@ paths:
         '500':
           description: internal server error.
 
-  /config/paths/remove/{name}:
+  /v1/config/paths/remove/{name}:
     post:
       operationId: configPathsRemove
       summary: removes the configuration of a path.
@@ -355,7 +355,7 @@ paths:
         '500':
           description: internal server error.
 
-  /paths/list:
+  /v1/paths/list:
     get:
       operationId: pathsList
       summary: returns all active paths.
@@ -375,7 +375,7 @@ paths:
         '500':
           description: internal server error.
 
-  /rtspsessions/list:
+  /v1/rtspsessions/list:
     get:
       operationId: rtspSessionsList
       summary: returns all active RTSP sessions.
@@ -395,7 +395,7 @@ paths:
         '500':
           description: internal server error.
 
-  /rtspsessions/kick/{id}:
+  /v1/rtspsessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
       summary: kicks out a RTSP session from the server.
@@ -415,7 +415,7 @@ paths:
         '500':
           description: internal server error.
 
-  /rtmpconns/list:
+  /v1/rtmpconns/list:
     get:
       operationId: rtmpConnsList
       summary: returns all active RTMP connections.
@@ -435,7 +435,7 @@ paths:
         '500':
           description: internal server error.
 
-  /rtmpconns/kick/{id}:
+  /v1/rtmpconns/kick/{id}:
     post:
       operationId: rtmpConnsKick
       summary: kicks out a RTMP connection from the server.
