@@ -137,7 +137,6 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 }
 
 type apiPathsItem struct {
-	Name        string         `json:"name"`
 	ConfName    string         `json:"confName"`
 	Conf        *conf.PathConf `json:"conf"`
 	Source      interface{}    `json:"source"`
@@ -146,7 +145,7 @@ type apiPathsItem struct {
 }
 
 type apiPathsListData struct {
-	Items []apiPathsItem `json:"items"`
+	Items map[string]apiPathsItem `json:"items"`
 }
 
 type apiPathsListRes1 struct {
@@ -167,13 +166,12 @@ type apiPathsListReq2 struct {
 	Res  chan apiPathsListRes2
 }
 
-type apiRTSPSessionsItem struct {
-	ID         string `json:"id"`
+type apiRTSPSessionsListItem struct {
 	RemoteAddr string `json:"remoteAddr"`
 }
 
 type apiRTSPSessionsListData struct {
-	Items []apiRTSPSessionsItem `json:"items"`
+	Items map[string]apiRTSPSessionsListItem `json:"items"`
 }
 
 type apiRTSPSessionsListRes struct {
@@ -193,12 +191,11 @@ type apiRTSPSessionsKickReq struct {
 }
 
 type apiRTMPConnsListItem struct {
-	ID         string `json:"id"`
 	RemoteAddr string `json:"remoteAddr"`
 }
 
 type apiRTMPConnsListData struct {
-	Items []apiRTMPConnsListItem `json:"items"`
+	Items map[string]apiRTMPConnsListItem `json:"items"`
 }
 
 type apiRTMPConnsListRes struct {
@@ -357,6 +354,10 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 		return
 	}
 
+	a.mutex.Lock()
+	a.conf = &newConf
+	a.mutex.Unlock()
+
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
 	go a.parent.OnAPIConfigSet(&newConf)
@@ -393,6 +394,10 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 		return
 	}
 
+	a.mutex.Lock()
+	a.conf = &newConf
+	a.mutex.Unlock()
+
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
 	go a.parent.OnAPIConfigSet(&newConf)
@@ -428,6 +433,10 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 		return
 	}
 
+	a.mutex.Lock()
+	a.conf = &newConf
+	a.mutex.Unlock()
+
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
 	go a.parent.OnAPIConfigSet(&newConf)
@@ -456,6 +465,10 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
+	a.mutex.Lock()
+	a.conf = &newConf
+	a.mutex.Unlock()
+
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
 	go a.parent.OnAPIConfigSet(&newConf)
@@ -465,7 +478,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 
 func (a *api) onPathsList(ctx *gin.Context) {
 	data := apiPathsListData{
-		Items: []apiPathsItem{},
+		Items: make(map[string]apiPathsItem),
 	}
 
 	res := a.pathManager.OnAPIPathsList(apiPathsListReq1{})
@@ -488,7 +501,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 	}
 
 	data := apiRTSPSessionsListData{
-		Items: []apiRTSPSessionsItem{},
+		Items: make(map[string]apiRTSPSessionsListItem),
 	}
 
 	if a.rtspServer != nil {
@@ -544,7 +557,7 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	}
 
 	data := apiRTMPConnsListData{
-		Items: []apiRTMPConnsListItem{},
+		Items: make(map[string]apiRTMPConnsListItem),
 	}
 
 	res := a.rtmpServer.OnAPIRTMPConnsList(apiRTMPConnsListReq{Data: &data})

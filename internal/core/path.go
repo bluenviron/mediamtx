@@ -426,8 +426,7 @@ outer:
 			pa.onReaderPause(req)
 
 		case req := <-pa.apiPathsList:
-			req.Data.Items = append(req.Data.Items, apiPathsItem{
-				Name:     pa.name,
+			req.Data.Items[pa.name] = apiPathsItem{
 				ConfName: pa.confName,
 				Conf:     pa.conf,
 				Source: func() interface{} {
@@ -444,7 +443,7 @@ outer:
 					}
 					return ret
 				}(),
-			})
+			}
 			req.Res <- apiPathsListRes2{}
 
 		case <-pa.ctx.Done():
