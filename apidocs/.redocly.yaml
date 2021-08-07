@@ -1,3 +1,0 @@
-lint:
-  extends:
-    - recommended
