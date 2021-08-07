@@ -126,11 +126,11 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	}
 
 	if pconf.Source == "" {
-		pconf.Source = "record"
+		pconf.Source = "publisher"
 	}
 
 	switch {
-	case pconf.Source == "record":
+	case pconf.Source == "publisher":
 
 	case strings.HasPrefix(pconf.Source, "rtsp://") ||
 		strings.HasPrefix(pconf.Source, "rtsps://"):
@@ -207,8 +207,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	}
 
 	if pconf.SourceOnDemand {
-		if pconf.Source == "record" {
-			return fmt.Errorf("'sourceOnDemand' is useless when source is 'record'")
+		if pconf.Source == "publisher" {
+			return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
 		}
 	}
 
@@ -239,8 +239,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 	if pconf.PublishUser != "" {
-		if pconf.Source != "record" {
-			return fmt.Errorf("'publishUser' is useless when source is not 'record'")
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'publishUser' is useless when source is not 'publisher'")
 		}
 
 		if !strings.HasPrefix(pconf.PublishUser, "sha256:") && !reUserPass.MatchString(pconf.PublishUser) {
@@ -248,8 +248,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		}
 	}
 	if pconf.PublishPass != "" {
-		if pconf.Source != "record" {
-			return fmt.Errorf("'publishPass' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'publishPass' is useless when source is not 'publisher', since the stream is not provided by a publisher, but by a fixed source")
 		}
 
 		if !strings.HasPrefix(pconf.PublishPass, "sha256:") && !reUserPass.MatchString(pconf.PublishPass) {
@@ -265,8 +265,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			return nil, nil
 		}
 
-		if pconf.Source != "record" {
-			return nil, fmt.Errorf("'publishIPs' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+		if pconf.Source != "publisher" {
+			return nil, fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since the stream is not provided by a publisher, but by a fixed source")
 		}
 
 		return parseIPCidrList(pconf.PublishIPs)
@@ -302,12 +302,12 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
 	}
 
-	if pconf.RunOnPublish != "" && pconf.Source != "record" {
-		return fmt.Errorf("'runOnPublish' is useless when source is not 'record', since the stream is not provided by a publisher, but by a fixed source")
+	if pconf.RunOnPublish != "" && pconf.Source != "publisher" {
+		return fmt.Errorf("'runOnPublish' is useless when source is not 'publisher', since the stream is not provided by a publisher, but by a fixed source")
 	}
 
-	if pconf.RunOnDemand != "" && pconf.Source != "record" {
-		return fmt.Errorf("'runOnDemand' can be used only when source is 'record'")
+	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {
+		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
 	}
 
 	if pconf.RunOnDemandStartTimeout == 0 {
