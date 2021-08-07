@@ -216,11 +216,11 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 
 	if conf.MetricsAddress == "" {
-		conf.MetricsAddress = ":9998"
+		conf.MetricsAddress = "127.0.0.1:9998"
 	}
 
 	if conf.PPROFAddress == "" {
-		conf.PPROFAddress = ":9999"
+		conf.PPROFAddress = "127.0.0.1:9999"
 	}
 
 	if len(conf.Protocols) == 0 {
