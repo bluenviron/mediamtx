@@ -1,10 +1,13 @@
 package core
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"reflect"
 	"sync"
 	"time"
@@ -258,17 +261,17 @@ func newAPI(
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-
-	router.GET("/config/get", a.onConfigGet)
-	router.POST("/config/set", a.onConfigSet)
-	router.POST("/config/paths/add/:name", a.onConfigPathsAdd)
-	router.POST("/config/paths/edit/:name", a.onConfigPathsEdit)
-	router.POST("/config/paths/delete/:name", a.onConfigPathsDelete)
-	router.GET("/paths/list", a.onPathsList)
-	router.GET("/rtspsessions/list", a.onRTSPSessionsList)
-	router.POST("/rtspsessions/kick/:id", a.onRTSPSessionsKick)
-	router.GET("/rtmpconns/list", a.onRTMPConnsList)
-	router.POST("/rtmpconns/kick/:id", a.onRTMPConnsKick)
+	group := router.Group("/", a.mwLog)
+	group.GET("/config/get", a.onConfigGet)
+	group.POST("/config/set", a.onConfigSet)
+	group.POST("/config/paths/add/:name", a.onConfigPathsAdd)
+	group.POST("/config/paths/edit/:name", a.onConfigPathsEdit)
+	group.POST("/config/paths/delete/:name", a.onConfigPathsDelete)
+	group.GET("/paths/list", a.onPathsList)
+	group.GET("/rtspsessions/list", a.onRTSPSessionsList)
+	group.POST("/rtspsessions/kick/:id", a.onRTSPSessionsKick)
+	group.GET("/rtmpconns/list", a.onRTMPConnsList)
+	group.POST("/rtmpconns/kick/:id", a.onRTMPConnsKick)
 
 	a.s = &http.Server{
 		Handler: router,
@@ -289,6 +292,41 @@ func (a *api) close() {
 // Log is the main logging function.
 func (a *api) log(level logger.Level, format string, args ...interface{}) {
 	a.parent.Log(level, "[API] "+format, args...)
+}
+
+type logWriter struct {
+	gin.ResponseWriter
+	buf bytes.Buffer
+}
+
+func (w *logWriter) Write(b []byte) (int, error) {
+	w.buf.Write(b)
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *logWriter) WriteString(s string) (int, error) {
+	w.buf.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
+}
+
+func (a *api) mwLog(ctx *gin.Context) {
+	byts, _ := httputil.DumpRequest(ctx.Request, true)
+	a.log(logger.Debug, "[c->s] %s", string(byts))
+
+	blw := &logWriter{ResponseWriter: ctx.Writer}
+	ctx.Writer = blw
+
+	ctx.Next()
+
+	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
+
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "HTTP/1.1 %d %s\n", ctx.Writer.Status(), http.StatusText(ctx.Writer.Status()))
+	ctx.Writer.Header().Write(&buf)
+	buf.Write([]byte("\n"))
+	buf.Write(blw.buf.Bytes())
+
+	a.log(logger.Debug, "[s->c] %s", buf.String())
 }
 
 func (a *api) onConfigGet(ctx *gin.Context) {
