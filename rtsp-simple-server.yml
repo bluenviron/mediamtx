@@ -125,12 +125,12 @@ hlsAllowOrigin: '*'
 paths:
   all:
     # source of the stream - this can be:
-    # * record -> the stream is published by a RTSP or RTMP client
+    # * publisher -> the stream is published by a RTSP or RTMP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
     # * rtsps://existing-url -> the stream is pulled from another RTSP server, with RTSPS
     # * rtmp://existing-url -> the stream is pulled from a RTMP server
     # * redirect -> the stream is provided by another path or server
-    source: record
+    source: publisher
 
     # if the source is an RTSP or RTSPS URL, this is the protocol that will be used to
     # pull the stream. available values are "automatic", "udp", "multicast", "tcp".
@@ -163,11 +163,11 @@ paths:
     # redirected to.
     sourceRedirect:
 
-    # if the source is "record" and a client is publishing, do not allow another
+    # if the source is "publisher" and a client is publishing, do not allow another
     # client to disconnect the former and publish in its place.
     disablePublisherOverride: no
 
-    # if the source is "record" and no one is publishing, redirect readers to this
+    # if the source is "publisher" and no one is publishing, redirect readers to this
     # path. It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
 
