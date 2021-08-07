@@ -352,10 +352,9 @@ func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSe
 
 	s.mutex.RLock()
 	for _, s := range s.sessions {
-		req.Data.Items = append(req.Data.Items, apiRTSPSessionsItem{
-			ID:         s.ID(),
+		req.Data.Items[s.ID()] = apiRTSPSessionsListItem{
 			RemoteAddr: s.RemoteAddr().String(),
-		})
+		}
 	}
 	s.mutex.RUnlock()
 

@@ -159,10 +159,9 @@ outer:
 
 		case req := <-s.apiRTMPConnsList:
 			for c := range s.conns {
-				req.Data.Items = append(req.Data.Items, apiRTMPConnsListItem{
-					ID:         c.ID(),
+				req.Data.Items[c.ID()] = apiRTMPConnsListItem{
 					RemoteAddr: c.RemoteAddr().String(),
-				})
+				}
 			}
 			req.Res <- apiRTMPConnsListRes{}
 
