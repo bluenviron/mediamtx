@@ -1,6 +1,7 @@
 
 BASE_IMAGE = golang:1.16-alpine3.13
 LINT_IMAGE = golangci/golangci-lint:v1.38.0
+NODE_IMAGE = node:14-alpine3.13
 
 .PHONY: $(shell ls)
 
@@ -14,8 +15,9 @@ help:
 	@echo "  test           run tests"
 	@echo "  test32         run tests on a 32-bit system"
 	@echo "  lint           run linters"
-	@echo "  bench NAME=n  run bench environment"
+	@echo "  bench NAME=n   run bench environment"
 	@echo "  run            run app"
+	@echo "  api-lint"      run api linters"
 	@echo "  release        build release assets"
 	@echo "  dockerhub      build and push docker hub images"
 	@echo ""
@@ -27,7 +29,7 @@ $(blank)
 endef
 
 mod-tidy:
-	docker run --rm -it -v $(PWD):/s -w /s amd64/$(BASE_IMAGE) \
+	docker run --rm -it -v $(PWD):/s -w /s $(BASE_IMAGE) \
 	sh -c "apk add git && GOPROXY=direct go get && go mod tidy"
 
 define DOCKERFILE_FORMAT
@@ -106,7 +108,7 @@ bench:
 	docker run --rm -it -p 9999:9999 temp
 
 define DOCKERFILE_RUN
-FROM amd64/$(BASE_IMAGE)
+FROM $(BASE_IMAGE)
 RUN apk add --no-cache ffmpeg
 WORKDIR /s
 COPY go.mod go.sum ./
@@ -153,8 +155,19 @@ run:
 	temp \
 	sh -c "/out"
 
+define DOCKERFILE_API_LINT
+FROM $(NODE_IMAGE)
+RUN yarn global add @redocly/openapi-cli@1.0.0-beta.54
+endef
+export DOCKERFILE_API_LINT
+
+api-lint:
+	echo "$$DOCKERFILE_API_LINT" | docker build . -f - -t temp
+	docker run --rm -v $(PWD)/apidocs:/s -w /s temp \
+	sh -c "openapi lint openapi.yaml"
+
 define DOCKERFILE_RELEASE
-FROM amd64/$(BASE_IMAGE)
+FROM $(BASE_IMAGE)
 RUN apk add --no-cache zip make git tar
 WORKDIR /s
 COPY go.mod go.sum ./
@@ -165,8 +178,8 @@ endef
 export DOCKERFILE_RELEASE
 
 release:
-	echo "$$DOCKERFILE_RELEASE" | docker build . -f - -t temp \
-	&& docker run --rm -v $(PWD):/out \
+	echo "$$DOCKERFILE_RELEASE" | docker build . -f - -t temp
+	docker run --rm -v $(PWD):/out \
 	temp sh -c "rm -rf /out/release && cp -r /s/release /out/"
 
 release-nodocker:

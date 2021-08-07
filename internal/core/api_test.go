@@ -125,7 +125,7 @@ func TestAPIConfigPathsEdit(t *testing.T) {
 	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out.Paths["mypath"].Source)
 }
 
-func TestAPIConfigPathsDelete(t *testing.T) {
+func TestAPIConfigPathsRemove(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.close()
@@ -136,7 +136,7 @@ func TestAPIConfigPathsDelete(t *testing.T) {
 	}, nil)
 	require.NoError(t, err)
 
-	err = httpRequest(http.MethodPost, "http://localhost:9997/config/paths/delete/mypath", nil, nil)
+	err = httpRequest(http.MethodPost, "http://localhost:9997/config/paths/remove/mypath", nil, nil)
 	require.NoError(t, err)
 
 	var out struct {
