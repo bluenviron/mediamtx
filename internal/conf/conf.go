@@ -212,7 +212,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 
 	if conf.APIAddress == "" {
-		conf.APIAddress = ":9997"
+		conf.APIAddress = "127.0.0.1:9997"
 	}
 
 	if conf.MetricsAddress == "" {
