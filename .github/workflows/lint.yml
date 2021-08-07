@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  golangci-lint:
+  code:
     runs-on: ubuntu-20.04
 
     steps:
@@ -17,7 +17,7 @@ jobs:
       with:
         version: v1.38
 
-  go-mod-tidy:
+  mod-tidy:
     runs-on: ubuntu-20.04
 
     steps:
@@ -31,3 +31,11 @@ jobs:
         go mod download
         go mod tidy
         git diff --exit-code
+
+  api:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - run: make api-lint
