@@ -231,7 +231,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.Stream.Tracks() {
+	for i, t := range res.Stream.tracks() {
 		if t.IsH264() {
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
@@ -398,7 +398,6 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	res := c.pathManager.OnPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   c,
 		PathName: pathName,
-		Tracks:   tracks,
 		IP:       c.ip(),
 		ValidateCredentials: func(pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, query)
@@ -423,17 +422,20 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	// disable write deadline
 	c.conn.NetConn().SetWriteDeadline(time.Time{})
 
-	rres := c.path.OnPublisherRecord(pathPublisherRecordReq{Author: c})
+	rres := c.path.OnPublisherRecord(pathPublisherRecordReq{
+		Author: c,
+		Tracks: tracks,
+	})
 	if rres.Err != nil {
 		return rres.Err
 	}
 
-	rtcpSenders := rtcpsenderset.New(tracks, c.path.OnSourceFrame)
+	rtcpSenders := rtcpsenderset.New(tracks, rres.Stream.onFrame)
 	defer rtcpSenders.Close()
 
 	onFrame := func(trackID int, payload []byte) {
 		rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-		c.path.OnSourceFrame(trackID, gortsplib.StreamTypeRTP, payload)
+		rres.Stream.onFrame(trackID, gortsplib.StreamTypeRTP, payload)
 	}
 
 	for {

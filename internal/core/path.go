@@ -86,9 +86,14 @@ const (
 	pathOnDemandStateClosing
 )
 
+type pathSourceStaticSetReadyRes struct {
+	Stream *stream
+	Err    error
+}
+
 type pathSourceStaticSetReadyReq struct {
 	Tracks gortsplib.Tracks
-	Res    chan struct{}
+	Res    chan pathSourceStaticSetReadyRes
 }
 
 type pathSourceStaticSetNotReadyReq struct {
@@ -108,7 +113,7 @@ type pathPublisherRemoveReq struct {
 
 type pathDescribeRes struct {
 	Path     *path
-	Stream   *gortsplib.ServerStream
+	Stream   *stream
 	Redirect string
 	Err      error
 }
@@ -123,7 +128,7 @@ type pathDescribeReq struct {
 
 type pathReaderSetupPlayRes struct {
 	Path   *path
-	Stream *gortsplib.ServerStream
+	Stream *stream
 	Err    error
 }
 
@@ -143,7 +148,6 @@ type pathPublisherAnnounceRes struct {
 type pathPublisherAnnounceReq struct {
 	Author              publisher
 	PathName            string
-	Tracks              gortsplib.Tracks
 	IP                  net.IP
 	ValidateCredentials func(pathUser string, pathPass string) error
 	Res                 chan pathPublisherAnnounceRes
@@ -155,11 +159,13 @@ type pathReaderPlayReq struct {
 }
 
 type pathPublisherRecordRes struct {
-	Err error
+	Stream *stream
+	Err    error
 }
 
 type pathPublisherRecordReq struct {
 	Author publisher
+	Tracks gortsplib.Tracks
 	Res    chan pathPublisherRecordRes
 }
 
@@ -171,38 +177,6 @@ type pathReaderPauseReq struct {
 type pathPublisherPauseReq struct {
 	Author publisher
 	Res    chan struct{}
-}
-
-type pathReadersMap struct {
-	mutex sync.RWMutex
-	ma    map[reader]struct{}
-}
-
-func newPathReadersMap() *pathReadersMap {
-	return &pathReadersMap{
-		ma: make(map[reader]struct{}),
-	}
-}
-
-func (m *pathReadersMap) add(r reader) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.ma[r] = struct{}{}
-}
-
-func (m *pathReadersMap) remove(r reader) {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	delete(m.ma, r)
-}
-
-func (m *pathReadersMap) forwardFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	for c := range m.ma {
-		c.OnReaderFrame(trackID, streamType, payload)
-	}
 }
 
 type path struct {
@@ -223,11 +197,10 @@ type path struct {
 	source             source
 	sourceReady        bool
 	sourceStaticWg     sync.WaitGroup
-	stream             *gortsplib.ServerStream
 	readers            map[reader]pathReaderState
 	describeRequests   []pathDescribeReq
 	setupPlayRequests  []pathReaderSetupPlayReq
-	nonRTSPReaders     *pathReadersMap
+	stream             *stream
 	onDemandCmd        *externalcmd.Cmd
 	onPublishCmd       *externalcmd.Cmd
 	onDemandReadyTimer *time.Timer
@@ -279,7 +252,6 @@ func newPath(
 		ctx:                     ctx,
 		ctxCancel:               ctxCancel,
 		readers:                 make(map[reader]pathReaderState),
-		nonRTSPReaders:          newPathReadersMap(),
 		onDemandReadyTimer:      newEmptyTimer(),
 		onDemandCloseTimer:      newEmptyTimer(),
 		sourceStaticSetReady:    make(chan pathSourceStaticSetReadyReq),
@@ -376,13 +348,16 @@ outer:
 			}
 
 		case req := <-pa.sourceStaticSetReady:
-			pa.stream = gortsplib.NewServerStream(req.Tracks)
-			pa.sourceSetReady()
-			close(req.Res)
+			pa.sourceSetReady(req.Tracks)
+			req.Res <- pathSourceStaticSetReadyRes{Stream: pa.stream}
 
 		case req := <-pa.sourceStaticSetNotReady:
 			if req.Source == pa.source {
-				pa.sourceSetNotReady()
+				if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
+					pa.onDemandCloseSource()
+				} else {
+					pa.sourceSetNotReady()
+				}
 			}
 			close(req.Res)
 
@@ -472,10 +447,6 @@ outer:
 	for rp, state := range pa.readers {
 		if state == pathReaderStatePlay {
 			atomic.AddInt64(pa.stats.CountReaders, -1)
-
-			if _, ok := rp.(pathRTSPSession); !ok {
-				pa.nonRTSPReaders.remove(rp)
-			}
 		}
 		rp.Close()
 	}
@@ -483,6 +454,10 @@ outer:
 	if pa.onDemandCmd != nil {
 		pa.Log(logger.Info, "on demand command stopped")
 		pa.onDemandCmd.Close()
+	}
+
+	if pa.stream != nil {
+		pa.stream.close()
 	}
 
 	if pa.source != nil {
@@ -550,7 +525,11 @@ func (pa *path) onDemandCloseSource() {
 	pa.onDemandState = pathOnDemandStateInitial
 
 	if pa.hasStaticSource() {
-		pa.staticSourceDelete()
+		if pa.sourceReady {
+			pa.sourceSetNotReady()
+		}
+		pa.source.(sourceStatic).Close()
+		pa.source = nil
 	} else {
 		pa.Log(logger.Info, "on demand command stopped")
 		pa.onDemandCmd.Close()
@@ -563,8 +542,9 @@ func (pa *path) onDemandCloseSource() {
 	}
 }
 
-func (pa *path) sourceSetReady() {
+func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 	pa.sourceReady = true
+	pa.stream = newStream(tracks)
 
 	if pa.isOnDemand() {
 		pa.onDemandReadyTimer.Stop()
@@ -593,12 +573,6 @@ func (pa *path) sourceSetReady() {
 }
 
 func (pa *path) sourceSetNotReady() {
-	pa.sourceReady = false
-
-	if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
-		pa.onDemandCloseSource()
-	}
-
 	if pa.onPublishCmd != nil {
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
@@ -608,6 +582,10 @@ func (pa *path) sourceSetNotReady() {
 		pa.doReaderRemove(r)
 		r.Close()
 	}
+
+	pa.sourceReady = false
+	pa.stream.close()
+	pa.stream = nil
 }
 
 func (pa *path) staticSourceCreate() {
@@ -638,25 +616,12 @@ func (pa *path) staticSourceCreate() {
 	}
 }
 
-func (pa *path) staticSourceDelete() {
-	pa.sourceReady = false
-
-	pa.source.(sourceStatic).Close()
-	pa.source = nil
-
-	pa.stream.Close()
-	pa.stream = nil
-}
-
 func (pa *path) doReaderRemove(r reader) {
 	state := pa.readers[r]
 
 	if state == pathReaderStatePlay {
 		atomic.AddInt64(pa.stats.CountReaders, -1)
-
-		if _, ok := r.(pathRTSPSession); !ok {
-			pa.nonRTSPReaders.remove(r)
-		}
+		pa.stream.readerRemove(r)
 	}
 
 	delete(pa.readers, r)
@@ -665,12 +630,15 @@ func (pa *path) doReaderRemove(r reader) {
 func (pa *path) doPublisherRemove() {
 	if pa.sourceReady {
 		atomic.AddInt64(pa.stats.CountPublishers, -1)
-		pa.sourceSetNotReady()
+
+		if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
+			pa.onDemandCloseSource()
+		} else {
+			pa.sourceSetNotReady()
+		}
 	}
 
 	pa.source = nil
-	pa.stream.Close()
-	pa.stream = nil
 
 	for r := range pa.readers {
 		pa.doReaderRemove(r)
@@ -746,7 +714,6 @@ func (pa *path) onPublisherAnnounce(req pathPublisherAnnounceReq) {
 	}
 
 	pa.source = req.Author
-	pa.stream = gortsplib.NewServerStream(req.Tracks)
 
 	req.Res <- pathPublisherAnnounceRes{Path: pa}
 }
@@ -759,9 +726,9 @@ func (pa *path) onPublisherRecord(req pathPublisherRecordReq) {
 
 	atomic.AddInt64(pa.stats.CountPublishers, 1)
 
-	req.Author.OnPublisherAccepted(len(pa.stream.Tracks()))
+	req.Author.OnPublisherAccepted(len(req.Tracks))
 
-	pa.sourceSetReady()
+	pa.sourceSetReady(req.Tracks)
 
 	if pa.conf.RunOnPublish != "" {
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
@@ -771,13 +738,18 @@ func (pa *path) onPublisherRecord(req pathPublisherRecordReq) {
 		})
 	}
 
-	req.Res <- pathPublisherRecordRes{}
+	req.Res <- pathPublisherRecordRes{Stream: pa.stream}
 }
 
 func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
 	if req.Author == pa.source && pa.sourceReady {
 		atomic.AddInt64(pa.stats.CountPublishers, -1)
-		pa.sourceSetNotReady()
+
+		if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
+			pa.onDemandCloseSource()
+		} else {
+			pa.sourceSetNotReady()
+		}
 	}
 	close(req.Res)
 }
@@ -831,9 +803,7 @@ func (pa *path) onReaderPlay(req pathReaderPlayReq) {
 	atomic.AddInt64(pa.stats.CountReaders, 1)
 	pa.readers[req.Author] = pathReaderStatePlay
 
-	if _, ok := req.Author.(pathRTSPSession); !ok {
-		pa.nonRTSPReaders.add(req.Author)
-	}
+	pa.stream.readerAdd(req.Author)
 
 	req.Author.OnReaderAccepted()
 
@@ -844,21 +814,19 @@ func (pa *path) onReaderPause(req pathReaderPauseReq) {
 	if state, ok := pa.readers[req.Author]; ok && state == pathReaderStatePlay {
 		atomic.AddInt64(pa.stats.CountReaders, -1)
 		pa.readers[req.Author] = pathReaderStatePrePlay
-
-		if _, ok := req.Author.(pathRTSPSession); !ok {
-			pa.nonRTSPReaders.remove(req.Author)
-		}
+		pa.stream.readerRemove(req.Author)
 	}
 	close(req.Res)
 }
 
 // OnSourceStaticSetReady is called by a sourceStatic.
-func (pa *path) OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) {
-	req.Res = make(chan struct{})
+func (pa *path) OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
+	req.Res = make(chan pathSourceStaticSetReadyRes)
 	select {
 	case pa.sourceStaticSetReady <- req:
-		<-req.Res
+		return <-req.Res
 	case <-pa.ctx.Done():
+		return pathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -961,15 +929,6 @@ func (pa *path) OnReaderPause(req pathReaderPauseReq) {
 		<-req.Res
 	case <-pa.ctx.Done():
 	}
-}
-
-// OnSourceFrame is called by a source.
-func (pa *path) OnSourceFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	// forward to RTSP readers
-	pa.stream.WriteFrame(trackID, streamType, payload)
-
-	// forward to non-RTSP readers
-	pa.nonRTSPReaders.forwardFrame(trackID, streamType, payload)
 }
 
 // OnAPIPathsList is called by api.

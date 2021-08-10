@@ -233,5 +233,5 @@ func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, res.Stream, nil
+	}, res.Stream.rtspStream, nil
 }

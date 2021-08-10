@@ -31,9 +31,11 @@ type rtspSession struct {
 	pathManager *pathManager
 	parent      rtspSessionParent
 
-	path           *path
-	setuppedTracks map[int]*gortsplib.Track // read
-	onReadCmd      *externalcmd.Cmd         // read
+	path            *path
+	setuppedTracks  map[int]*gortsplib.Track // read
+	onReadCmd       *externalcmd.Cmd         // read
+	announcedTracks gortsplib.Tracks         // publish
+	stream          *stream                  // publish
 }
 
 func newRTSPSession(
@@ -114,7 +116,6 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	res := s.pathManager.OnPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   s,
 		PathName: ctx.Path,
-		Tracks:   ctx.Tracks,
 		IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
 		ValidateCredentials: func(pathUser string, pathPass string) error {
 			return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
@@ -140,6 +141,7 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	}
 
 	s.path = res.Path
+	s.announcedTracks = ctx.Tracks
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -204,7 +206,7 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		s.path = res.Path
 
-		if ctx.TrackID >= len(res.Stream.Tracks()) {
+		if ctx.TrackID >= len(res.Stream.tracks()) {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
 			}, nil, fmt.Errorf("track %d does not exist", ctx.TrackID)
@@ -213,11 +215,11 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		if s.setuppedTracks == nil {
 			s.setuppedTracks = make(map[int]*gortsplib.Track)
 		}
-		s.setuppedTracks[ctx.TrackID] = res.Stream.Tracks()[ctx.TrackID]
+		s.setuppedTracks[ctx.TrackID] = res.Stream.tracks()[ctx.TrackID]
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, res.Stream, nil
+		}, res.Stream.rtspStream, nil
 
 	default: // record
 		return &base.Response{
@@ -250,12 +252,17 @@ func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 // OnRecord is called by rtspServer.
 func (s *rtspSession) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	res := s.path.OnPublisherRecord(pathPublisherRecordReq{Author: s})
+	res := s.path.OnPublisherRecord(pathPublisherRecordReq{
+		Author: s,
+		Tracks: s.announcedTracks,
+	})
 	if res.Err != nil {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,
 		}, res.Err
 	}
+
+	s.stream = res.Stream
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
@@ -338,5 +345,5 @@ func (s *rtspSession) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 		return
 	}
 
-	s.path.OnSourceFrame(ctx.TrackID, ctx.StreamType, ctx.Payload)
+	s.stream.onFrame(ctx.TrackID, ctx.StreamType, ctx.Payload)
 }
