@@ -182,6 +182,7 @@ components:
         source:
           oneOf:
           - $ref: '#/components/schemas/PathSourceRTSPSession'
+          - $ref: '#/components/schemas/PathSourceRTSPSSession'
           - $ref: '#/components/schemas/PathSourceRTMPConn'
         sourceReady:
           type: boolean
@@ -190,6 +191,7 @@ components:
           items:
             oneOf:
             - $ref: '#/components/schemas/PathReaderRTSPSession'
+            - $ref: '#/components/schemas/PathReaderRTSPSSession'
             - $ref: '#/components/schemas/PathReaderRTMPConn'
             - $ref: '#/components/schemas/PathReaderHLSMuxer'
 
@@ -199,6 +201,15 @@ components:
         type:
           type: string
           enum: [rtspsession]
+        id:
+          type: string
+
+    PathSourceRTSPSSession:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtspssession]
         id:
           type: string
 
@@ -220,6 +231,15 @@ components:
         id:
           type: string
 
+    PathReaderRTSPSSession:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtspssession]
+        id:
+          type: string
+
     PathReaderRTMPConn:
       type: object
       properties:
@@ -237,6 +257,15 @@ components:
           enum: [hlsmuxer]
 
     RTSPSession:
+      type: object
+      properties:
+        remoteAddr:
+          type: string
+        state:
+          type: string
+          enum: [idle, read, publish]
+
+    RTSPSSession:
       type: object
       properties:
         remoteAddr:
@@ -405,6 +434,46 @@ paths:
     post:
       operationId: rtspSessionsKick
       summary: kicks out a RTSP session from the server.
+      description: ''
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: the ID of the session.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v1/rtspssessions/list:
+    get:
+      operationId: rtspsSessionsList
+      summary: returns all active RTSPS sessions.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                items:
+                  type: object
+                  additionalProperties:
+                    $ref: '#/components/schemas/RTSPSSession'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v1/rtspssessions/kick/{id}:
+    post:
+      operationId: rtspsSessionsKick
+      summary: kicks out a RTSPS session from the server.
       description: ''
       parameters:
       - name: id

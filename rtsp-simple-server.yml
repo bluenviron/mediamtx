@@ -103,7 +103,7 @@ hlsAddress: :8888
 hlsAlwaysRemux: no
 # number of HLS segments to generate.
 # increasing segments allows more buffering,
-# decreasing segments decrease latency.
+# decreasing segments decreases latency.
 hlsSegmentCount: 3
 # minimum duration of each segment.
 # the real segment duration is also influenced by the interval between IDR frames,

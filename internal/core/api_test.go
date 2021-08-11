@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -164,136 +165,170 @@ func TestAPIPathsList(t *testing.T) {
 	require.Equal(t, true, ok)
 }
 
-func TestAPIRTSPSessionsList(t *testing.T) {
-	p, ok := newInstance("api: yes\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+func TestAPIList(t *testing.T) {
+	serverCertFpath, err := writeTempFile(serverCert)
 	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
 
-	source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
-		gortsplib.Tracks{track})
+	serverKeyFpath, err := writeTempFile(serverKey)
 	require.NoError(t, err)
-	defer source.Close()
+	defer os.Remove(serverKeyFpath)
 
-	var out struct {
-		Items map[string]struct {
-			State string `json:"state"`
-		} `json:"items"`
+	for _, ca := range []string{
+		"rtsp",
+		"rtsps",
+		"rtmp",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			p, ok := newInstance("api: yes\n" +
+				"encryption: optional\n" +
+				"serverCert: " + serverCertFpath + "\n" +
+				"serverKey: " + serverKeyFpath + "\n")
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+			require.NoError(t, err)
+
+			switch ca {
+			case "rtsp":
+				source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+					gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer source.Close()
+
+			case "rtsps":
+				source, err := gortsplib.DialPublish("rtsps://localhost:8555/mypath",
+					gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer source.Close()
+
+			case "rtmp":
+				cnt1, err := newContainer("ffmpeg", "source", []string{
+					"-re",
+					"-stream_loop", "-1",
+					"-i", "emptyvideo.mkv",
+					"-c", "copy",
+					"-f", "flv",
+					"rtmp://localhost:1935/test1/test2",
+				})
+				require.NoError(t, err)
+				defer cnt1.close()
+			}
+
+			var pa string
+			switch ca {
+			case "rtsp":
+				pa = "rtspsessions"
+
+			case "rtsps":
+				pa = "rtspssessions"
+
+			case "rtmp":
+				pa = "rtmpconns"
+			}
+
+			var out struct {
+				Items map[string]struct {
+					State string `json:"state"`
+				} `json:"items"`
+			}
+			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out)
+			require.NoError(t, err)
+
+			var firstID string
+			for k := range out.Items {
+				firstID = k
+			}
+
+			require.Equal(t, "publish", out.Items[firstID].State)
+		})
 	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtspsessions/list", nil, &out)
-	require.NoError(t, err)
-
-	var firstID string
-	for k := range out.Items {
-		firstID = k
-	}
-
-	require.Equal(t, "publish", out.Items[firstID].State)
 }
 
-func TestAPIRTSPSessionsKick(t *testing.T) {
-	p, ok := newInstance("api: yes\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+func TestAPIKick(t *testing.T) {
+	serverCertFpath, err := writeTempFile(serverCert)
 	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
 
-	source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
-		gortsplib.Tracks{track})
+	serverKeyFpath, err := writeTempFile(serverKey)
 	require.NoError(t, err)
-	defer source.Close()
+	defer os.Remove(serverKeyFpath)
 
-	var out1 struct {
-		Items map[string]struct{} `json:"items"`
+	for _, ca := range []string{
+		"rtsp",
+		"rtsps",
+		"rtmp",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			p, ok := newInstance("api: yes\n" +
+				"encryption: optional\n" +
+				"serverCert: " + serverCertFpath + "\n" +
+				"serverKey: " + serverKeyFpath + "\n")
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+			require.NoError(t, err)
+
+			switch ca {
+			case "rtsp":
+				source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+					gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer source.Close()
+
+			case "rtsps":
+				source, err := gortsplib.DialPublish("rtsps://localhost:8555/mypath",
+					gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer source.Close()
+
+			case "rtmp":
+				cnt1, err := newContainer("ffmpeg", "source", []string{
+					"-re",
+					"-stream_loop", "-1",
+					"-i", "emptyvideo.mkv",
+					"-c", "copy",
+					"-f", "flv",
+					"rtmp://localhost:1935/test1/test2",
+				})
+				require.NoError(t, err)
+				defer cnt1.close()
+			}
+
+			var pa string
+			switch ca {
+			case "rtsp":
+				pa = "rtspsessions"
+
+			case "rtsps":
+				pa = "rtspssessions"
+
+			case "rtmp":
+				pa = "rtmpconns"
+			}
+
+			var out1 struct {
+				Items map[string]struct{} `json:"items"`
+			}
+			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out1)
+			require.NoError(t, err)
+
+			var firstID string
+			for k := range out1.Items {
+				firstID = k
+			}
+
+			err = httpRequest(http.MethodPost, "http://localhost:9997/v1/"+pa+"/kick/"+firstID, nil, nil)
+			require.NoError(t, err)
+
+			var out2 struct {
+				Items map[string]struct{} `json:"items"`
+			}
+			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out2)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(out2.Items))
+		})
 	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtspsessions/list", nil, &out1)
-	require.NoError(t, err)
-
-	var firstID string
-	for k := range out1.Items {
-		firstID = k
-	}
-
-	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/rtspsessions/kick/"+firstID, nil, nil)
-	require.NoError(t, err)
-
-	var out2 struct {
-		Items map[string]struct{} `json:"items"`
-	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtspsessions/list", nil, &out2)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(out2.Items))
-}
-
-func TestAPIRTMPConnsList(t *testing.T) {
-	p, ok := newInstance("api: yes\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "flv",
-		"rtmp://localhost:1935/test1/test2",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
-
-	var out struct {
-		Items map[string]struct {
-			State string `json:"state"`
-		} `json:"items"`
-	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtmpconns/list", nil, &out)
-	require.NoError(t, err)
-
-	var firstID string
-	for k := range out.Items {
-		firstID = k
-	}
-
-	require.Equal(t, "publish", out.Items[firstID].State)
-}
-
-func TestAPIRTSPConnsKick(t *testing.T) {
-	p, ok := newInstance("api: yes\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "flv",
-		"rtmp://localhost:1935/test1/test2",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
-
-	var out1 struct {
-		Items map[string]struct{} `json:"items"`
-	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtmpconns/list", nil, &out1)
-	require.NoError(t, err)
-
-	var firstID string
-	for k := range out1.Items {
-		firstID = k
-	}
-
-	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/rtmpconns/kick/"+firstID, nil, nil)
-	require.NoError(t, err)
-
-	var out2 struct {
-		Items map[string]struct{} `json:"items"`
-	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtmpconns/list", nil, &out2)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(out2.Items))
 }

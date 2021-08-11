@@ -283,6 +283,8 @@ func newAPI(
 	group.GET("/v1/paths/list", a.onPathsList)
 	group.GET("/v1/rtspsessions/list", a.onRTSPSessionsList)
 	group.POST("/v1/rtspsessions/kick/:id", a.onRTSPSessionsKick)
+	group.GET("/v1/rtspssessions/list", a.onRTSPSSessionsList)
+	group.POST("/v1/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
 	group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
 
@@ -511,7 +513,7 @@ func (a *api) onPathsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	if a.rtspServer == nil && a.rtspsServer == nil {
+	if reflect.ValueOf(a.rtspServer).IsNil() {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -520,54 +522,70 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 		Items: make(map[string]apiRTSPSessionsListItem),
 	}
 
-	if !reflect.ValueOf(a.rtspServer).IsNil() {
-		res := a.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
-		if res.Err != nil {
-			ctx.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-	}
-
-	if !reflect.ValueOf(a.rtspsServer).IsNil() {
-		res := a.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
-		if res.Err != nil {
-			ctx.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
+	res := a.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
+	if res.Err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
 	}
 
 	ctx.JSON(http.StatusOK, data)
 }
 
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
-	if a.rtspServer == nil && a.rtspsServer == nil {
+	if reflect.ValueOf(a.rtspServer).IsNil() {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
 	id := ctx.Param("id")
 
-	if a.rtspServer != nil {
-		res := a.rtspServer.OnAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
-		if res.Err == nil {
-			ctx.Status(http.StatusOK)
-			return
-		}
+	res := a.rtspServer.OnAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
+	if res.Err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
-	if a.rtspsServer != nil {
-		res := a.rtspsServer.OnAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
-		if res.Err != nil {
-			ctx.Status(http.StatusOK)
-			return
-		}
+	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
+	if reflect.ValueOf(a.rtspsServer).IsNil() {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
 	}
 
-	ctx.AbortWithStatus(http.StatusNotFound)
+	data := apiRTSPSessionsListData{
+		Items: make(map[string]apiRTSPSessionsListItem),
+	}
+
+	res := a.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
+	if res.Err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
+	if reflect.ValueOf(a.rtspsServer).IsNil() {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	id := ctx.Param("id")
+
+	res := a.rtspsServer.OnAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
+	if res.Err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	ctx.Status(http.StatusOK)
 }
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	if a.rtmpServer == nil {
+	if reflect.ValueOf(a.rtmpServer).IsNil() {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -593,7 +611,7 @@ func (a *api) OnConfReload(conf *conf.Conf) {
 }
 
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
-	if a.rtmpServer == nil {
+	if reflect.ValueOf(a.rtmpServer).IsNil() {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
