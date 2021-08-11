@@ -70,6 +70,8 @@ type rtmpConn struct {
 	ctxCancel  func()
 	path       *path
 	ringBuffer *ringbuffer.RingBuffer // read
+	state      gortsplib.ServerSessionState
+	stateMutex sync.Mutex
 }
 
 func newRTMPConn(
@@ -139,6 +141,12 @@ func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
 
 func (c *rtmpConn) ip() net.IP {
 	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
+}
+
+func (c *rtmpConn) safeState() gortsplib.ServerSessionState {
+	c.stateMutex.Lock()
+	defer c.stateMutex.Unlock()
+	return c.state
 }
 
 func (c *rtmpConn) run() {
@@ -222,6 +230,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	defer func() {
 		c.path.OnReaderRemove(pathReaderRemoveReq{Author: c})
 	}()
+
+	c.stateMutex.Lock()
+	c.state = gortsplib.ServerSessionStateRead
+	c.stateMutex.Unlock()
 
 	var videoTrack *gortsplib.Track
 	videoTrackID := -1
@@ -418,6 +430,10 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	defer func() {
 		c.path.OnPublisherRemove(pathPublisherRemoveReq{Author: c})
 	}()
+
+	c.stateMutex.Lock()
+	c.state = gortsplib.ServerSessionStatePublish
+	c.stateMutex.Unlock()
 
 	// disable write deadline
 	c.conn.NetConn().SetWriteDeadline(time.Time{})

@@ -354,6 +354,18 @@ func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSe
 	for _, s := range s.sessions {
 		req.Data.Items[s.ID()] = apiRTSPSessionsListItem{
 			RemoteAddr: s.RemoteAddr().String(),
+			State: func() string {
+				switch s.safeState() {
+				case gortsplib.ServerSessionStatePreRead,
+					gortsplib.ServerSessionStateRead:
+					return "read"
+
+				case gortsplib.ServerSessionStatePrePublish,
+					gortsplib.ServerSessionStatePublish:
+					return "publish"
+				}
+				return "idle"
+			}(),
 		}
 	}
 	s.mutex.RUnlock()

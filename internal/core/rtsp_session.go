@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -32,6 +33,8 @@ type rtspSession struct {
 	parent      rtspSessionParent
 
 	path            *path
+	state           gortsplib.ServerSessionState
+	stateMutex      sync.Mutex
 	setuppedTracks  map[int]*gortsplib.Track // read
 	onReadCmd       *externalcmd.Cmd         // read
 	announcedTracks gortsplib.Tracks         // publish
@@ -63,18 +66,18 @@ func newRTSPSession(
 
 // ParentClose closes a Session.
 func (s *rtspSession) ParentClose() {
-	if s.ss.State() == gortsplib.ServerSessionStatePlay {
+	if s.ss.State() == gortsplib.ServerSessionStateRead {
 		if s.onReadCmd != nil {
 			s.onReadCmd.Close()
 		}
 	}
 
 	switch s.ss.State() {
-	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
+	case gortsplib.ServerSessionStatePreRead, gortsplib.ServerSessionStateRead:
 		s.path.OnReaderRemove(pathReaderRemoveReq{Author: s})
 		s.path = nil
 
-	case gortsplib.ServerSessionStatePreRecord, gortsplib.ServerSessionStateRecord:
+	case gortsplib.ServerSessionStatePrePublish, gortsplib.ServerSessionStatePublish:
 		s.path.OnPublisherRemove(pathPublisherRemoveReq{Author: s})
 		s.path = nil
 	}
@@ -93,6 +96,12 @@ func (s *rtspSession) IsRTSPSession() {}
 // ID returns the public ID of the session.
 func (s *rtspSession) ID() string {
 	return s.id
+}
+
+func (s *rtspSession) safeState() gortsplib.ServerSessionState {
+	s.stateMutex.Lock()
+	defer s.stateMutex.Unlock()
+	return s.state
 }
 
 // RemoteAddr returns the remote address of the author of the session.
@@ -143,6 +152,10 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	s.path = res.Path
 	s.announcedTracks = ctx.Tracks
 
+	s.stateMutex.Lock()
+	s.state = gortsplib.ServerSessionStatePrePublish
+	s.stateMutex.Unlock()
+
 	return &base.Response{
 		StatusCode: base.StatusOK,
 	}, nil
@@ -171,7 +184,7 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 	}
 
 	switch s.ss.State() {
-	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
+	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePreRead: // play
 		res := s.pathManager.OnReaderSetupPlay(pathReaderSetupPlayReq{
 			Author:   s,
 			PathName: ctx.Path,
@@ -217,6 +230,10 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		}
 		s.setuppedTracks[ctx.TrackID] = res.Stream.tracks()[ctx.TrackID]
 
+		s.stateMutex.Lock()
+		s.state = gortsplib.ServerSessionStatePreRead
+		s.stateMutex.Unlock()
+
 		return &base.Response{
 			StatusCode: base.StatusOK,
 		}, res.Stream.rtspStream, nil
@@ -232,7 +249,7 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 	h := make(base.Header)
 
-	if s.ss.State() == gortsplib.ServerSessionStatePrePlay {
+	if s.ss.State() == gortsplib.ServerSessionStatePreRead {
 		s.path.OnReaderPlay(pathReaderPlayReq{Author: s})
 
 		if s.path.Conf().RunOnRead != "" {
@@ -242,6 +259,10 @@ func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 				Port: port,
 			})
 		}
+
+		s.stateMutex.Lock()
+		s.state = gortsplib.ServerSessionStateRead
+		s.stateMutex.Unlock()
 	}
 
 	return &base.Response{
@@ -264,6 +285,10 @@ func (s *rtspSession) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 	s.stream = res.Stream
 
+	s.stateMutex.Lock()
+	s.state = gortsplib.ServerSessionStatePublish
+	s.stateMutex.Unlock()
+
 	return &base.Response{
 		StatusCode: base.StatusOK,
 	}, nil
@@ -272,15 +297,23 @@ func (s *rtspSession) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 // OnPause is called by rtspServer.
 func (s *rtspSession) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
 	switch s.ss.State() {
-	case gortsplib.ServerSessionStatePlay:
+	case gortsplib.ServerSessionStateRead:
 		if s.onReadCmd != nil {
 			s.onReadCmd.Close()
 		}
 
 		s.path.OnReaderPause(pathReaderPauseReq{Author: s})
 
-	case gortsplib.ServerSessionStateRecord:
+		s.stateMutex.Lock()
+		s.state = gortsplib.ServerSessionStatePreRead
+		s.stateMutex.Unlock()
+
+	case gortsplib.ServerSessionStatePublish:
 		s.path.OnPublisherPause(pathPublisherPauseReq{Author: s})
+
+		s.stateMutex.Lock()
+		s.state = gortsplib.ServerSessionStatePrePublish
+		s.stateMutex.Unlock()
 	}
 
 	return &base.Response{
@@ -341,7 +374,7 @@ func (s *rtspSession) OnPublisherAccepted(tracksLen int) {
 
 // OnFrame is called by rtspServer.
 func (s *rtspSession) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
-	if s.ss.State() != gortsplib.ServerSessionStateRecord {
+	if s.ss.State() != gortsplib.ServerSessionStatePublish {
 		return
 	}
 

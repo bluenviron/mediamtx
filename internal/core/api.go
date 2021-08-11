@@ -168,6 +168,7 @@ type apiPathsListReq2 struct {
 
 type apiRTSPSessionsListItem struct {
 	RemoteAddr string `json:"remoteAddr"`
+	State      string `json:"state"`
 }
 
 type apiRTSPSessionsListData struct {
@@ -192,6 +193,7 @@ type apiRTSPSessionsKickReq struct {
 
 type apiRTMPConnsListItem struct {
 	RemoteAddr string `json:"remoteAddr"`
+	State      string `json:"state"`
 }
 
 type apiRTMPConnsListData struct {

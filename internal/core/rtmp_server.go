@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aler9/gortsplib"
+
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -161,6 +163,16 @@ outer:
 			for c := range s.conns {
 				req.Data.Items[c.ID()] = apiRTMPConnsListItem{
 					RemoteAddr: c.RemoteAddr().String(),
+					State: func() string {
+						switch c.safeState() {
+						case gortsplib.ServerSessionStateRead:
+							return "read"
+
+						case gortsplib.ServerSessionStatePublish:
+							return "publish"
+						}
+						return "idle"
+					}(),
 				}
 			}
 			req.Res <- apiRTMPConnsListRes{}

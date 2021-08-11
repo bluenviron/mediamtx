@@ -241,12 +241,18 @@ components:
       properties:
         remoteAddr:
           type: string
+        state:
+          type: string
+          enum: [idle, read, publish]
 
     RTMPConn:
       type: object
       properties:
         remoteAddr:
           type: string
+        state:
+          type: string
+          enum: [idle, read, publish]
 
 paths:
   /v1/config/get:

@@ -178,11 +178,19 @@ func TestAPIRTSPSessionsList(t *testing.T) {
 	defer source.Close()
 
 	var out struct {
-		Items map[string]struct{} `json:"items"`
+		Items map[string]struct {
+			State string `json:"state"`
+		} `json:"items"`
 	}
 	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtspsessions/list", nil, &out)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(out.Items))
+
+	var firstID string
+	for k := range out.Items {
+		firstID = k
+	}
+
+	require.Equal(t, "publish", out.Items[firstID].State)
 }
 
 func TestAPIRTSPSessionsKick(t *testing.T) {
@@ -237,11 +245,19 @@ func TestAPIRTMPConnsList(t *testing.T) {
 	defer cnt1.close()
 
 	var out struct {
-		Items map[string]struct{} `json:"items"`
+		Items map[string]struct {
+			State string `json:"state"`
+		} `json:"items"`
 	}
 	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/rtmpconns/list", nil, &out)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(out.Items))
+
+	var firstID string
+	for k := range out.Items {
+		firstID = k
+	}
+
+	require.Equal(t, "publish", out.Items[firstID].State)
 }
 
 func TestAPIRTSPConnsKick(t *testing.T) {
