@@ -36,7 +36,7 @@ type hlsServer struct {
 	// in
 	pathSourceReady chan *path
 	request         chan hlsRemuxerRequest
-	connClose       chan *hlsRemuxer
+	remuxerClose    chan *hlsRemuxer
 }
 
 func newHLSServer(
@@ -73,7 +73,7 @@ func newHLSServer(
 		remuxers:           make(map[string]*hlsRemuxer),
 		pathSourceReady:    make(chan *path),
 		request:            make(chan hlsRemuxerRequest),
-		connClose:          make(chan *hlsRemuxer),
+		remuxerClose:       make(chan *hlsRemuxer),
 	}
 
 	s.Log(logger.Info, "listener opened on "+address)
@@ -115,7 +115,7 @@ outer:
 			r := s.findOrCreateRemuxer(req.Dir)
 			r.OnRequest(req)
 
-		case c := <-s.connClose:
+		case c := <-s.remuxerClose:
 			if c2, ok := s.remuxers[c.PathName()]; !ok || c2 != c {
 				continue
 			}
@@ -226,7 +226,6 @@ func (s *hlsServer) findOrCreateRemuxer(pathName string) *hlsRemuxer {
 			s.hlsSegmentDuration,
 			s.readBufferCount,
 			&s.wg,
-			s.stats,
 			pathName,
 			s.pathManager,
 			s)
@@ -243,7 +242,7 @@ func (s *hlsServer) doRemuxerClose(c *hlsRemuxer) {
 // OnRemuxerClose is called by hlsRemuxer.
 func (s *hlsServer) OnRemuxerClose(c *hlsRemuxer) {
 	select {
-	case s.connClose <- c:
+	case s.remuxerClose <- c:
 	case <-s.ctx.Done():
 	}
 }

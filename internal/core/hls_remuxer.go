@@ -89,6 +89,10 @@ type hlsRemuxerTrackIDPayloadPair struct {
 	buf     []byte
 }
 
+type hlsRemuxerPathManager interface {
+	OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+}
+
 type hlsRemuxerParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnRemuxerClose(*hlsRemuxer)
@@ -100,9 +104,8 @@ type hlsRemuxer struct {
 	hlsSegmentDuration time.Duration
 	readBufferCount    int
 	wg                 *sync.WaitGroup
-	stats              *stats
 	pathName           string
-	pathManager        *pathManager
+	pathManager        hlsRemuxerPathManager
 	parent             hlsRemuxerParent
 
 	ctx             context.Context
@@ -124,9 +127,8 @@ func newHLSRemuxer(
 	hlsSegmentDuration time.Duration,
 	readBufferCount int,
 	wg *sync.WaitGroup,
-	stats *stats,
 	pathName string,
-	pathManager *pathManager,
+	pathManager hlsRemuxerPathManager,
 	parent hlsRemuxerParent) *hlsRemuxer {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -136,7 +138,6 @@ func newHLSRemuxer(
 		hlsSegmentDuration: hlsSegmentDuration,
 		readBufferCount:    readBufferCount,
 		wg:                 wg,
-		stats:              stats,
 		pathName:           pathName,
 		pathManager:        pathManager,
 		parent:             parent,

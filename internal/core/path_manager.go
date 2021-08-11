@@ -13,6 +13,10 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+type pathManagerHLSServer interface {
+	OnPathSourceReady(pa *path)
+}
+
 type pathManagerParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -30,7 +34,7 @@ type pathManager struct {
 	ctx       context.Context
 	ctxCancel func()
 	wg        sync.WaitGroup
-	hlsServer *hlsServer
+	hlsServer pathManagerHLSServer
 	paths     map[string]*path
 
 	// in
@@ -40,7 +44,7 @@ type pathManager struct {
 	describe          chan pathDescribeReq
 	readerSetupPlay   chan pathReaderSetupPlayReq
 	publisherAnnounce chan pathPublisherAnnounceReq
-	hlsServerSet      chan *hlsServer
+	hlsServerSet      chan pathManagerHLSServer
 	apiPathsList      chan apiPathsListReq1
 }
 
@@ -74,7 +78,7 @@ func newPathManager(
 		describe:          make(chan pathDescribeReq),
 		readerSetupPlay:   make(chan pathReaderSetupPlayReq),
 		publisherAnnounce: make(chan pathPublisherAnnounceReq),
-		hlsServerSet:      make(chan *hlsServer),
+		hlsServerSet:      make(chan pathManagerHLSServer),
 		apiPathsList:      make(chan apiPathsListReq1),
 	}
 
@@ -403,7 +407,7 @@ func (pm *pathManager) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderS
 }
 
 // OnHLSServer is called by hlsServer.
-func (pm *pathManager) OnHLSServer(s *hlsServer) {
+func (pm *pathManager) OnHLSServer(s pathManagerHLSServer) {
 	select {
 	case pm.hlsServerSet <- s:
 	case <-pm.ctx.Done():

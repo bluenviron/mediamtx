@@ -366,60 +366,42 @@ outer:
 			}
 
 		case req := <-pa.describe:
-			pa.onDescribe(req)
+			pa.handleDescribe(req)
 
 		case req := <-pa.publisherRemove:
-			pa.onPublisherRemove(req)
+			pa.handlePublisherRemove(req)
 
 			if pa.source == nil && pa.conf.Regexp != nil {
 				break outer
 			}
 
 		case req := <-pa.publisherAnnounce:
-			pa.onPublisherAnnounce(req)
+			pa.handlePublisherAnnounce(req)
 
 		case req := <-pa.publisherRecord:
-			pa.onPublisherRecord(req)
+			pa.handlePublisherRecord(req)
 
 		case req := <-pa.publisherPause:
-			pa.onPublisherPause(req)
+			pa.handlePublisherPause(req)
 
 			if pa.source == nil && pa.conf.Regexp != nil {
 				break outer
 			}
 
 		case req := <-pa.readerRemove:
-			pa.onReaderRemove(req)
+			pa.handleReaderRemove(req)
 
 		case req := <-pa.readerSetupPlay:
-			pa.onReaderSetupPlay(req)
+			pa.handleReaderSetupPlay(req)
 
 		case req := <-pa.readerPlay:
-			pa.onReaderPlay(req)
+			pa.handleReaderPlay(req)
 
 		case req := <-pa.readerPause:
-			pa.onReaderPause(req)
+			pa.handleReaderPause(req)
 
 		case req := <-pa.apiPathsList:
-			req.Data.Items[pa.name] = apiPathsItem{
-				ConfName: pa.confName,
-				Conf:     pa.conf,
-				Source: func() interface{} {
-					if pa.source == nil {
-						return nil
-					}
-					return pa.source.OnSourceAPIDescribe()
-				}(),
-				SourceReady: pa.sourceReady,
-				Readers: func() []interface{} {
-					ret := []interface{}{}
-					for r := range pa.readers {
-						ret = append(ret, r.OnReaderAPIDescribe())
-					}
-					return ret
-				}(),
-			}
-			req.Res <- apiPathsListRes2{}
+			pa.handleAPIPathsList(req)
 
 		case <-pa.ctx.Done():
 			break outer
@@ -558,7 +540,7 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 		pa.describeRequests = nil
 
 		for _, req := range pa.setupPlayRequests {
-			pa.onReaderSetupPlayPost(req)
+			pa.handleReaderSetupPlayPost(req)
 		}
 		pa.setupPlayRequests = nil
 
@@ -646,7 +628,7 @@ func (pa *path) doPublisherRemove() {
 	}
 }
 
-func (pa *path) onDescribe(req pathDescribeReq) {
+func (pa *path) handleDescribe(req pathDescribeReq) {
 	if _, ok := pa.source.(*sourceRedirect); ok {
 		req.Res <- pathDescribeRes{
 			Redirect: pa.conf.SourceRedirect,
@@ -689,14 +671,14 @@ func (pa *path) onDescribe(req pathDescribeReq) {
 	req.Res <- pathDescribeRes{Err: pathErrNoOnePublishing{PathName: pa.name}}
 }
 
-func (pa *path) onPublisherRemove(req pathPublisherRemoveReq) {
+func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
 	if pa.source == req.Author {
 		pa.doPublisherRemove()
 	}
 	close(req.Res)
 }
 
-func (pa *path) onPublisherAnnounce(req pathPublisherAnnounceReq) {
+func (pa *path) handlePublisherAnnounce(req pathPublisherAnnounceReq) {
 	if pa.source != nil {
 		if pa.hasStaticSource() {
 			req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("path '%s' is assigned to a static source", pa.name)}
@@ -718,7 +700,7 @@ func (pa *path) onPublisherAnnounce(req pathPublisherAnnounceReq) {
 	req.Res <- pathPublisherAnnounceRes{Path: pa}
 }
 
-func (pa *path) onPublisherRecord(req pathPublisherRecordReq) {
+func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 	if pa.source != req.Author {
 		req.Res <- pathPublisherRecordRes{Err: fmt.Errorf("publisher is not assigned to this path anymore")}
 		return
@@ -741,7 +723,7 @@ func (pa *path) onPublisherRecord(req pathPublisherRecordReq) {
 	req.Res <- pathPublisherRecordRes{Stream: pa.stream}
 }
 
-func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
+func (pa *path) handlePublisherPause(req pathPublisherPauseReq) {
 	if req.Author == pa.source && pa.sourceReady {
 		atomic.AddInt64(pa.stats.CountPublishers, -1)
 
@@ -754,7 +736,7 @@ func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
 	close(req.Res)
 }
 
-func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
+func (pa *path) handleReaderRemove(req pathReaderRemoveReq) {
 	if _, ok := pa.readers[req.Author]; ok {
 		pa.doReaderRemove(req.Author)
 	}
@@ -767,9 +749,9 @@ func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
 	}
 }
 
-func (pa *path) onReaderSetupPlay(req pathReaderSetupPlayReq) {
+func (pa *path) handleReaderSetupPlay(req pathReaderSetupPlayReq) {
 	if pa.sourceReady {
-		pa.onReaderSetupPlayPost(req)
+		pa.handleReaderSetupPlayPost(req)
 		return
 	}
 
@@ -784,7 +766,7 @@ func (pa *path) onReaderSetupPlay(req pathReaderSetupPlayReq) {
 	req.Res <- pathReaderSetupPlayRes{Err: pathErrNoOnePublishing{PathName: pa.name}}
 }
 
-func (pa *path) onReaderSetupPlayPost(req pathReaderSetupPlayReq) {
+func (pa *path) handleReaderSetupPlayPost(req pathReaderSetupPlayReq) {
 	pa.readers[req.Author] = pathReaderStatePrePlay
 
 	if pa.isOnDemand() && pa.onDemandState == pathOnDemandStateClosing {
@@ -799,7 +781,7 @@ func (pa *path) onReaderSetupPlayPost(req pathReaderSetupPlayReq) {
 	}
 }
 
-func (pa *path) onReaderPlay(req pathReaderPlayReq) {
+func (pa *path) handleReaderPlay(req pathReaderPlayReq) {
 	atomic.AddInt64(pa.stats.CountReaders, 1)
 	pa.readers[req.Author] = pathReaderStatePlay
 
@@ -810,13 +792,35 @@ func (pa *path) onReaderPlay(req pathReaderPlayReq) {
 	close(req.Res)
 }
 
-func (pa *path) onReaderPause(req pathReaderPauseReq) {
+func (pa *path) handleReaderPause(req pathReaderPauseReq) {
 	if state, ok := pa.readers[req.Author]; ok && state == pathReaderStatePlay {
 		atomic.AddInt64(pa.stats.CountReaders, -1)
 		pa.readers[req.Author] = pathReaderStatePrePlay
 		pa.stream.readerRemove(req.Author)
 	}
 	close(req.Res)
+}
+
+func (pa *path) handleAPIPathsList(req apiPathsListReq2) {
+	req.Data.Items[pa.name] = apiPathsItem{
+		ConfName: pa.confName,
+		Conf:     pa.conf,
+		Source: func() interface{} {
+			if pa.source == nil {
+				return nil
+			}
+			return pa.source.OnSourceAPIDescribe()
+		}(),
+		SourceReady: pa.sourceReady,
+		Readers: func() []interface{} {
+			ret := []interface{}{}
+			for r := range pa.readers {
+				ret = append(ret, r.OnReaderAPIDescribe())
+			}
+			return ret
+		}(),
+	}
+	req.Res <- apiPathsListRes2{}
 }
 
 // OnSourceStaticSetReady is called by a sourceStatic.

@@ -19,6 +19,11 @@ const (
 	pauseAfterAuthError = 2 * time.Second
 )
 
+type rtspSessionPathManager interface {
+	OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
+	OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+}
+
 type rtspSessionParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -29,7 +34,7 @@ type rtspSession struct {
 	id          string
 	ss          *gortsplib.ServerSession
 	author      *gortsplib.ServerConn
-	pathManager *pathManager
+	pathManager rtspSessionPathManager
 	parent      rtspSessionParent
 
 	path            *path
@@ -47,7 +52,7 @@ func newRTSPSession(
 	id string,
 	ss *gortsplib.ServerSession,
 	sc *gortsplib.ServerConn,
-	pathManager *pathManager,
+	pathManager rtspSessionPathManager,
 	parent rtspSessionParent) *rtspSession {
 	s := &rtspSession{
 		rtspAddress: rtspAddress,

@@ -47,6 +47,11 @@ type rtmpConnTrackIDPayloadPair struct {
 	buf     []byte
 }
 
+type rtmpConnPathManager interface {
+	OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
+}
+
 type rtmpConnParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnConnClose(*rtmpConn)
@@ -63,7 +68,7 @@ type rtmpConn struct {
 	wg                  *sync.WaitGroup
 	stats               *stats
 	conn                *rtmp.Conn
-	pathManager         *pathManager
+	pathManager         rtmpConnPathManager
 	parent              rtmpConnParent
 
 	ctx        context.Context
@@ -86,7 +91,7 @@ func newRTMPConn(
 	wg *sync.WaitGroup,
 	stats *stats,
 	nconn net.Conn,
-	pathManager *pathManager,
+	pathManager rtmpConnPathManager,
 	parent rtmpConnParent) *rtmpConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 

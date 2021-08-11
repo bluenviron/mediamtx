@@ -218,6 +218,20 @@ type apiRTMPConnsKickReq struct {
 	Res chan apiRTMPConnsKickRes
 }
 
+type apiPathManager interface {
+	OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1
+}
+
+type apiRTSPServer interface {
+	OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes
+	OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes
+}
+
+type apiRTMPServer interface {
+	OnAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
+	OnAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes
+}
+
 type apiParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnAPIConfigSet(conf *conf.Conf)
@@ -225,10 +239,10 @@ type apiParent interface {
 
 type api struct {
 	conf        *conf.Conf
-	pathManager *pathManager
-	rtspServer  *rtspServer
-	rtspsServer *rtspServer
-	rtmpServer  *rtmpServer
+	pathManager apiPathManager
+	rtspServer  apiRTSPServer
+	rtspsServer apiRTSPServer
+	rtmpServer  apiRTMPServer
 	parent      apiParent
 
 	mutex sync.Mutex
@@ -238,10 +252,10 @@ type api struct {
 func newAPI(
 	address string,
 	conf *conf.Conf,
-	pathManager *pathManager,
-	rtspServer *rtspServer,
-	rtspsServer *rtspServer,
-	rtmpServer *rtmpServer,
+	pathManager apiPathManager,
+	rtspServer apiRTSPServer,
+	rtspsServer apiRTSPServer,
+	rtmpServer apiRTMPServer,
 	parent apiParent,
 ) (*api, error) {
 	ln, err := net.Listen("tcp", address)
@@ -506,7 +520,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 		Items: make(map[string]apiRTSPSessionsListItem),
 	}
 
-	if a.rtspServer != nil {
+	if !reflect.ValueOf(a.rtspServer).IsNil() {
 		res := a.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
 		if res.Err != nil {
 			ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -514,7 +528,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 		}
 	}
 
-	if a.rtspsServer != nil {
+	if !reflect.ValueOf(a.rtspsServer).IsNil() {
 		res := a.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
 		if res.Err != nil {
 			ctx.AbortWithStatus(http.StatusInternalServerError)
