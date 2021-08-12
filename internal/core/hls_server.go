@@ -23,7 +23,6 @@ type hlsServer struct {
 	hlsSegmentDuration time.Duration
 	hlsAllowOrigin     string
 	readBufferCount    int
-	stats              *stats
 	pathManager        *pathManager
 	parent             hlsServerParent
 
@@ -47,7 +46,6 @@ func newHLSServer(
 	hlsSegmentDuration time.Duration,
 	hlsAllowOrigin string,
 	readBufferCount int,
-	stats *stats,
 	pathManager *pathManager,
 	parent hlsServerParent,
 ) (*hlsServer, error) {
@@ -64,7 +62,6 @@ func newHLSServer(
 		hlsSegmentDuration: hlsSegmentDuration,
 		hlsAllowOrigin:     hlsAllowOrigin,
 		readBufferCount:    readBufferCount,
-		stats:              stats,
 		pathManager:        pathManager,
 		parent:             parent,
 		ctx:                ctx,
@@ -78,10 +75,10 @@ func newHLSServer(
 
 	s.Log(logger.Info, "listener opened on "+address)
 
+	s.pathManager.OnHLSServerSet(s)
+
 	s.wg.Add(1)
 	go s.run()
-
-	s.pathManager.OnHLSServer(s)
 
 	return s, nil
 }
@@ -130,7 +127,7 @@ outer:
 
 	hs.Shutdown(context.Background())
 
-	s.pathManager.OnHLSServer(nil)
+	s.pathManager.OnHLSServerSet(nil)
 }
 
 // ServeHTTP implements http.Handler.

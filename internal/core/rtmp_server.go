@@ -26,7 +26,7 @@ type rtmpServer struct {
 	rtspAddress         string
 	runOnConnect        string
 	runOnConnectRestart bool
-	stats               *stats
+	metrics             *metrics
 	pathManager         *pathManager
 	parent              rtmpServerParent
 
@@ -51,7 +51,7 @@ func newRTMPServer(
 	rtspAddress string,
 	runOnConnect string,
 	runOnConnectRestart bool,
-	stats *stats,
+	metrics *metrics,
 	pathManager *pathManager,
 	parent rtmpServerParent) (*rtmpServer, error) {
 	l, err := net.Listen("tcp", address)
@@ -68,7 +68,7 @@ func newRTMPServer(
 		rtspAddress:         rtspAddress,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
-		stats:               stats,
+		metrics:             metrics,
 		pathManager:         pathManager,
 		parent:              parent,
 		ctx:                 ctx,
@@ -81,6 +81,10 @@ func newRTMPServer(
 	}
 
 	s.Log(logger.Info, "listener opened on %s", address)
+
+	if s.metrics != nil {
+		s.metrics.OnRTMPServerSet(s)
+	}
 
 	s.wg.Add(1)
 	go s.run()
@@ -147,7 +151,6 @@ outer:
 				s.runOnConnect,
 				s.runOnConnectRestart,
 				&s.wg,
-				s.stats,
 				nconn,
 				s.pathManager,
 				s)
@@ -160,8 +163,12 @@ outer:
 			delete(s.conns, c)
 
 		case req := <-s.apiRTMPConnsList:
+			data := &apiRTMPConnsListData{
+				Items: make(map[string]apiRTMPConnsListItem),
+			}
+
 			for c := range s.conns {
-				req.Data.Items[c.ID()] = apiRTMPConnsListItem{
+				data.Items[c.ID()] = apiRTMPConnsListItem{
 					RemoteAddr: c.RemoteAddr().String(),
 					State: func() string {
 						switch c.safeState() {
@@ -175,7 +182,8 @@ outer:
 					}(),
 				}
 			}
-			req.Res <- apiRTMPConnsListRes{}
+
+			req.Res <- apiRTMPConnsListRes{Data: data}
 
 		case req := <-s.apiRTMPConnsKick:
 			res := func() bool {
@@ -202,6 +210,10 @@ outer:
 	s.ctxCancel()
 
 	s.l.Close()
+
+	if s.metrics != nil {
+		s.metrics.OnRTMPServerSet(s)
+	}
 }
 
 func (s *rtmpServer) newConnID() (string, error) {

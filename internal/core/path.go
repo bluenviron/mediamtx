@@ -820,7 +820,7 @@ func (pa *path) handleAPIPathsList(req apiPathsListReq2) {
 			return ret
 		}(),
 	}
-	req.Res <- apiPathsListRes2{}
+	close(req.Res)
 }
 
 // OnSourceStaticSetReady is called by a sourceStatic.
@@ -936,12 +936,12 @@ func (pa *path) OnReaderPause(req pathReaderPauseReq) {
 }
 
 // OnAPIPathsList is called by api.
-func (pa *path) OnAPIPathsList(req apiPathsListReq2) apiPathsListRes2 {
-	req.Res = make(chan apiPathsListRes2)
+func (pa *path) OnAPIPathsList(req apiPathsListReq2) {
+	req.Res = make(chan struct{})
 	select {
 	case pa.apiPathsList <- req:
-		return <-req.Res
+		<-req.Res
+
 	case <-pa.ctx.Done():
-		return apiPathsListRes2{Err: fmt.Errorf("terminated")}
 	}
 }

@@ -29,6 +29,7 @@ type pathManager struct {
 	readBufferSize  int
 	pathConfs       map[string]*conf.PathConf
 	stats           *stats
+	metrics         *metrics
 	parent          pathManagerParent
 
 	ctx       context.Context
@@ -57,6 +58,7 @@ func newPathManager(
 	readBufferSize int,
 	pathConfs map[string]*conf.PathConf,
 	stats *stats,
+	metrics *metrics,
 	parent pathManagerParent) *pathManager {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -68,6 +70,7 @@ func newPathManager(
 		readBufferSize:    readBufferSize,
 		pathConfs:         pathConfs,
 		stats:             stats,
+		metrics:           metrics,
 		parent:            parent,
 		ctx:               ctx,
 		ctxCancel:         ctxCancel,
@@ -86,6 +89,10 @@ func newPathManager(
 		if pathConf.Regexp == nil {
 			pm.createPath(pathName, pathConf, pathName)
 		}
+	}
+
+	if pm.metrics != nil {
+		pm.metrics.OnPathManagerSet(pm)
 	}
 
 	pm.wg.Add(1)
@@ -261,6 +268,10 @@ outer:
 	}
 
 	pm.ctxCancel()
+
+	if pm.metrics != nil {
+		pm.metrics.OnPathManagerSet(nil)
+	}
 }
 
 func (pm *pathManager) createPath(confName string, conf *conf.PathConf, name string) {
@@ -406,8 +417,8 @@ func (pm *pathManager) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderS
 	}
 }
 
-// OnHLSServer is called by hlsServer.
-func (pm *pathManager) OnHLSServer(s pathManagerHLSServer) {
+// OnHLSServerSet is called by hlsServer.
+func (pm *pathManager) OnHLSServerSet(s pathManagerHLSServer) {
 	select {
 	case pm.hlsServerSet <- s:
 	case <-pm.ctx.Done():
@@ -419,7 +430,18 @@ func (pm *pathManager) OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1 {
 	req.Res = make(chan apiPathsListRes1)
 	select {
 	case pm.apiPathsList <- req:
-		return <-req.Res
+		res1 := <-req.Res
+
+		res1.Data = &apiPathsListData{
+			Items: make(map[string]apiPathsItem),
+		}
+
+		for _, pa := range res1.Paths {
+			pa.OnAPIPathsList(apiPathsListReq2{Data: res1.Data})
+		}
+
+		return res1
+
 	case <-pm.ctx.Done():
 		return apiPathsListRes1{Err: fmt.Errorf("terminated")}
 	}

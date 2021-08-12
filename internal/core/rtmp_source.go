@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -61,7 +60,6 @@ func newRTMPSource(
 		ctxCancel:    ctxCancel,
 	}
 
-	atomic.AddInt64(s.stats.CountSourcesRTMP, +1)
 	s.log(logger.Info, "started")
 
 	s.wg.Add(1)
@@ -72,7 +70,6 @@ func newRTMPSource(
 
 // Close closes a Source.
 func (s *rtmpSource) Close() {
-	atomic.AddInt64(s.stats.CountSourcesRTMPRunning, -1)
 	s.log(logger.Info, "stopped")
 	s.ctxCancel()
 }

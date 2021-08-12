@@ -30,7 +30,7 @@ type rtspServer struct {
 	protocols           map[conf.Protocol]struct{}
 	runOnConnect        string
 	runOnConnectRestart bool
-	stats               *stats
+	metrics             *metrics
 	pathManager         *pathManager
 	parent              rtspServerParent
 
@@ -65,7 +65,7 @@ func newRTSPServer(
 	protocols map[conf.Protocol]struct{},
 	runOnConnect string,
 	runOnConnectRestart bool,
-	stats *stats,
+	metrics *metrics,
 	pathManager *pathManager,
 	parent rtspServerParent) (*rtspServer, error) {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -76,7 +76,7 @@ func newRTSPServer(
 		isTLS:       isTLS,
 		rtspAddress: rtspAddress,
 		protocols:   protocols,
-		stats:       stats,
+		metrics:     metrics,
 		pathManager: pathManager,
 		parent:      parent,
 		ctx:         ctx,
@@ -127,6 +127,14 @@ func newRTSPServer(
 	}
 
 	s.Log(logger.Info, "TCP listener opened on %s", address)
+
+	if s.metrics != nil {
+		if !isTLS {
+			s.metrics.OnRTSPServerSet(s)
+		} else {
+			s.metrics.OnRTSPSServerSet(s)
+		}
+	}
 
 	s.wg.Add(1)
 	go s.run()
@@ -179,6 +187,14 @@ outer:
 	s.ctxCancel()
 
 	s.srv.Close()
+
+	if s.metrics != nil {
+		if !s.isTLS {
+			s.metrics.OnRTSPServerSet(nil)
+		} else {
+			s.metrics.OnRTSPSServerSet(nil)
+		}
+	}
 }
 
 func (s *rtspServer) newSessionID() (string, error) {
@@ -218,7 +234,6 @@ func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 		s.runOnConnect,
 		s.runOnConnectRestart,
 		s.pathManager,
-		s.stats,
 		ctx.Conn,
 		s)
 
@@ -344,7 +359,7 @@ func (s *rtspServer) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 	se.OnFrame(ctx)
 }
 
-// OnAPIRTSPSessionsList is called by api.
+// OnAPIRTSPSessionsList is called by api and metrics.
 func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes {
 	select {
 	case <-s.ctx.Done():
@@ -353,8 +368,14 @@ func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSe
 	}
 
 	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	data := &apiRTSPSessionsListData{
+		Items: make(map[string]apiRTSPSessionsListItem),
+	}
+
 	for _, s := range s.sessions {
-		req.Data.Items[s.ID()] = apiRTSPSessionsListItem{
+		data.Items[s.ID()] = apiRTSPSessionsListItem{
 			RemoteAddr: s.RemoteAddr().String(),
 			State: func() string {
 				switch s.safeState() {
@@ -370,9 +391,8 @@ func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSe
 			}(),
 		}
 	}
-	s.mutex.RUnlock()
 
-	return apiRTSPSessionsListRes{}
+	return apiRTSPSessionsListRes{Data: data}
 }
 
 // OnAPIRTSPSessionsKick is called by api.

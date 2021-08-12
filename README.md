@@ -56,8 +56,9 @@ Plus:
   * [Fallback stream](#fallback-stream)
   * [Start on boot with systemd](#start-on-boot-with-systemd)
   * [Corrupted frames](#corrupted-frames)
-  * [Monitoring](#monitoring)
   * [HTTP API](#http-api)
+  * [Metrics](#metrics)
+  * [Pprof](#pprof)
   * [Command-line usage](#command-line-usage)
   * [Compile and run from source](#compile-and-run-from-source)
 * [Links](#links)
@@ -497,46 +498,6 @@ In some scenarios, the server can send incomplete or corrupted frames. This can 
   readBufferSize: 8192
   ```
 
-### Monitoring
-
-There are multiple ways to monitor the server usage over time:
-
-* Use the [HTTP API](#http-api), described below.
-
-* A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
-
-  ```
-  wget -qO- localhost:9998/metrics
-  ```
-
-  Obtaining:
-
-  ```
-  rtsp_clients{state="publishing"} 15 1596122687740
-  rtsp_clients{state="reading"} 8 1596122687740
-  rtsp_sources{type="rtsp",state="idle"} 3 1596122687740
-  rtsp_sources{type="rtsp",state="running"} 2 1596122687740
-  rtsp_sources{type="rtmp",state="idle"} 1 1596122687740
-  rtsp_sources{type="rtmp",state="running"} 0 1596122687740
-  ```
-
-  where:
-
-  * `rtsp_clients{state="publishing"}` is the count of clients that are publishing
-  * `rtsp_clients{state="reading"}` is the count of clients that are reading
-  * `rtsp_sources{type="rtsp",state="idle"}` is the count of rtsp sources that are not running
-  * `rtsp_sources{type="rtsp",state="running"}` is the count of rtsp sources that are running
-  * `rtsp_sources{type="rtmp",state="idle"}` is the count of rtmp sources that are not running
-  * `rtsp_sources{type="rtmp",state="running"}` is the count of rtmp sources that are running
-
-* A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
-
-  ```
-  go tool pprof -text http://localhost:9999/debug/pprof/goroutine
-  go tool pprof -text http://localhost:9999/debug/pprof/heap
-  go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
-  ```
-
 ### HTTP API
 
 The server can be queried and controlled with an HTTP API, that must be enabled by setting the `api` parameter in the configuration:
@@ -552,6 +513,54 @@ curl http//127.0.0.1:9997/list
 ```
 
 Full documentation of the API is available on the [dedicated site](https://aler9.github.io/rtsp-simple-server/).
+
+### Metrics
+
+A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+
+```
+wget -qO- localhost:9998/metrics
+```
+
+Obtaining:
+
+```
+paths{state="ready"} 2 1628760831152
+paths{state="notReady"} 0 1628760831152
+rtsp_sessions{state="idle"} 0 1628760831152
+rtsp_sessions{state="read"} 0 1628760831152
+rtsp_sessions{state="publish"} 1 1628760831152
+rtsps_sessions{state="idle"} 0 1628760831152
+rtsps_sessions{state="read"} 0 1628760831152
+rtsps_sessions{state="publish"} 0 1628760831152
+rtmp_conns{state="idle"} 0 1628760831152
+rtmp_conns{state="read"} 0 1628760831152
+rtmp_conns{state="publish"} 1 1628760831152
+```
+
+where:
+
+* `paths{state="ready"}` is the count of paths that are ready
+* `paths{state="notReady"}` is the count of paths that are not ready
+* `rtsp_sessions{state="idle"}` is the count of RTSP sessions that are idle
+* `rtsp_sessions{state="read"}` is the count of RTSP sessions that are reading
+* `rtsp_sessions{state="publish"}` is the counf ot RTSP sessions that are publishing
+* `rtsps_sessions{state="idle"}` is the count of RTSPS sessions that are idle
+* `rtsps_sessions{state="read"}` is the count of RTSPS sessions that are reading
+* `rtsps_sessions{state="publish"}` is the counf ot RTSPS sessions that are publishing
+* `rtmp_conns{state="idle"}` is the count of RTMP connections that are idle
+* `rtmp_conns{state="read"}` is the count of RTMP connections that are reading
+* `rtmp_conns{state="publish"}` is the count of RTMP connections that are publishing
+
+### PProf
+
+A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
+
+```
+go tool pprof -text http://localhost:9999/debug/pprof/goroutine
+go tool pprof -text http://localhost:9999/debug/pprof/heap
+go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
+```
 
 ### Command-line usage
 

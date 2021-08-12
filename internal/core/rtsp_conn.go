@@ -41,7 +41,6 @@ type rtspConn struct {
 	runOnConnect        string
 	runOnConnectRestart bool
 	pathManager         *pathManager
-	stats               *stats
 	conn                *gortsplib.ServerConn
 	parent              rtspConnParent
 
@@ -59,7 +58,6 @@ func newRTSPConn(
 	runOnConnect string,
 	runOnConnectRestart bool,
 	pathManager *pathManager,
-	stats *stats,
 	conn *gortsplib.ServerConn,
 	parent rtspConnParent) *rtspConn {
 	c := &rtspConn{
@@ -69,7 +67,6 @@ func newRTSPConn(
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		pathManager:         pathManager,
-		stats:               stats,
 		conn:                conn,
 		parent:              parent,
 	}

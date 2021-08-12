@@ -18,6 +18,10 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+func interfaceIsEmpty(i interface{}) bool {
+	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
+}
+
 func fillStruct(dest interface{}, source interface{}) {
 	rvsource := reflect.ValueOf(source)
 	rvdest := reflect.ValueOf(dest)
@@ -149,6 +153,7 @@ type apiPathsListData struct {
 }
 
 type apiPathsListRes1 struct {
+	Data  *apiPathsListData
 	Paths map[string]*path
 	Err   error
 }
@@ -157,13 +162,9 @@ type apiPathsListReq1 struct {
 	Res chan apiPathsListRes1
 }
 
-type apiPathsListRes2 struct {
-	Err error
-}
-
 type apiPathsListReq2 struct {
 	Data *apiPathsListData
-	Res  chan apiPathsListRes2
+	Res  chan struct{}
 }
 
 type apiRTSPSessionsListItem struct {
@@ -176,12 +177,11 @@ type apiRTSPSessionsListData struct {
 }
 
 type apiRTSPSessionsListRes struct {
-	Err error
+	Data *apiRTSPSessionsListData
+	Err  error
 }
 
-type apiRTSPSessionsListReq struct {
-	Data *apiRTSPSessionsListData
-}
+type apiRTSPSessionsListReq struct{}
 
 type apiRTSPSessionsKickRes struct {
 	Err error
@@ -201,12 +201,12 @@ type apiRTMPConnsListData struct {
 }
 
 type apiRTMPConnsListRes struct {
-	Err error
+	Data *apiRTMPConnsListData
+	Err  error
 }
 
 type apiRTMPConnsListReq struct {
-	Data *apiRTMPConnsListData
-	Res  chan apiRTMPConnsListRes
+	Res chan apiRTMPConnsListRes
 }
 
 type apiRTMPConnsKickRes struct {
@@ -495,44 +495,32 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 }
 
 func (a *api) onPathsList(ctx *gin.Context) {
-	data := apiPathsListData{
-		Items: make(map[string]apiPathsItem),
-	}
-
 	res := a.pathManager.OnAPIPathsList(apiPathsListReq1{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	for _, pa := range res.Paths {
-		pa.OnAPIPathsList(apiPathsListReq2{Data: &data})
-	}
-
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, res.Data)
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	if reflect.ValueOf(a.rtspServer).IsNil() {
+	if interfaceIsEmpty(a.rtspServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	data := apiRTSPSessionsListData{
-		Items: make(map[string]apiRTSPSessionsListItem),
-	}
-
-	res := a.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
+	res := a.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, res.Data)
 }
 
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
-	if reflect.ValueOf(a.rtspServer).IsNil() {
+	if interfaceIsEmpty(a.rtspServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -549,26 +537,22 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
-	if reflect.ValueOf(a.rtspsServer).IsNil() {
+	if interfaceIsEmpty(a.rtspsServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	data := apiRTSPSessionsListData{
-		Items: make(map[string]apiRTSPSessionsListItem),
-	}
-
-	res := a.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{Data: &data})
+	res := a.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, res.Data)
 }
 
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
-	if reflect.ValueOf(a.rtspsServer).IsNil() {
+	if interfaceIsEmpty(a.rtspsServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -585,22 +569,18 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	if reflect.ValueOf(a.rtmpServer).IsNil() {
+	if interfaceIsEmpty(a.rtmpServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
-	data := apiRTMPConnsListData{
-		Items: make(map[string]apiRTMPConnsListItem),
-	}
-
-	res := a.rtmpServer.OnAPIRTMPConnsList(apiRTMPConnsListReq{Data: &data})
+	res := a.rtmpServer.OnAPIRTMPConnsList(apiRTMPConnsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, data)
+	ctx.JSON(http.StatusOK, res.Data)
 }
 
 // OnConfReload is called by core.
@@ -611,7 +591,7 @@ func (a *api) OnConfReload(conf *conf.Conf) {
 }
 
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
-	if reflect.ValueOf(a.rtmpServer).IsNil() {
+	if interfaceIsEmpty(a.rtmpServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}

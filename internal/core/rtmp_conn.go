@@ -66,7 +66,6 @@ type rtmpConn struct {
 	runOnConnect        string
 	runOnConnectRestart bool
 	wg                  *sync.WaitGroup
-	stats               *stats
 	conn                *rtmp.Conn
 	pathManager         rtmpConnPathManager
 	parent              rtmpConnParent
@@ -89,7 +88,6 @@ func newRTMPConn(
 	runOnConnect string,
 	runOnConnectRestart bool,
 	wg *sync.WaitGroup,
-	stats *stats,
 	nconn net.Conn,
 	pathManager rtmpConnPathManager,
 	parent rtmpConnParent) *rtmpConn {
@@ -104,7 +102,6 @@ func newRTMPConn(
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		wg:                  wg,
-		stats:               stats,
 		conn:                rtmp.NewServerConn(nconn),
 		pathManager:         pathManager,
 		parent:              parent,

@@ -200,7 +200,6 @@ func (p *Core) createResources(initial bool) error {
 		if p.metrics == nil {
 			p.metrics, err = newMetrics(
 				p.conf.MetricsAddress,
-				p.stats,
 				p)
 			if err != nil {
 				return err
@@ -229,6 +228,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadBufferSize,
 			p.conf.Paths,
 			p.stats,
+			p.metrics,
 			p)
 	}
 
@@ -260,7 +260,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.ProtocolsParsed,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
-				p.stats,
+				p.metrics,
 				p.pathManager,
 				p)
 			if err != nil {
@@ -295,7 +295,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.ProtocolsParsed,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
-				p.stats,
+				p.metrics,
 				p.pathManager,
 				p)
 			if err != nil {
@@ -315,7 +315,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RTSPAddress,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
-				p.stats,
+				p.metrics,
 				p.pathManager,
 				p)
 			if err != nil {
@@ -334,7 +334,6 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSSegmentDuration,
 				p.conf.HLSAllowOrigin,
 				p.conf.ReadBufferCount,
-				p.stats,
 				p.pathManager,
 				p)
 			if err != nil {
@@ -378,16 +377,14 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 	closeMetrics := false
 	if newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
-		newConf.MetricsAddress != p.conf.MetricsAddress ||
-		closeStats {
+		newConf.MetricsAddress != p.conf.MetricsAddress {
 		closeMetrics = true
 	}
 
 	closePPROF := false
 	if newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
-		newConf.PPROFAddress != p.conf.PPROFAddress ||
-		closeStats {
+		newConf.PPROFAddress != p.conf.PPROFAddress {
 		closePPROF = true
 	}
 
@@ -398,7 +395,8 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
-		closeStats {
+		closeStats ||
+		closeMetrics {
 		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.OnConfReload(newConf.Paths)
@@ -423,7 +421,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
-		closeStats ||
+		closeMetrics ||
 		closePathManager {
 		closeRTSPServer = true
 	}
@@ -443,7 +441,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
-		closeStats ||
+		closeMetrics ||
 		closePathManager {
 		closeRTSPSServer = true
 	}
@@ -458,7 +456,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
-		closeStats ||
+		closeMetrics ||
 		closePathManager {
 		closeRTMPServer = true
 	}
@@ -472,7 +470,6 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		closeStats ||
 		closePathManager {
 		closeHLSServer = true
 	}

@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -75,7 +74,6 @@ func newRTSPSource(
 		ctxCancel:       ctxCancel,
 	}
 
-	atomic.AddInt64(s.stats.CountSourcesRTSP, +1)
 	s.log(logger.Info, "started")
 
 	s.wg.Add(1)
@@ -85,7 +83,6 @@ func newRTSPSource(
 }
 
 func (s *rtspSource) Close() {
-	atomic.AddInt64(s.stats.CountSourcesRTSP, -1)
 	s.log(logger.Info, "stopped")
 	s.ctxCancel()
 }
