@@ -119,7 +119,7 @@ outer:
 			if c2, ok := s.remuxers[c.PathName()]; !ok || c2 != c {
 				continue
 			}
-			s.doRemuxerClose(c)
+			delete(s.remuxers, c.PathName())
 
 		case <-s.ctx.Done():
 			break outer
@@ -127,10 +127,6 @@ outer:
 	}
 
 	s.ctxCancel()
-
-	for _, c := range s.remuxers {
-		s.doRemuxerClose(c)
-	}
 
 	hs.Shutdown(context.Background())
 
@@ -232,11 +228,6 @@ func (s *hlsServer) findOrCreateRemuxer(pathName string) *hlsRemuxer {
 		s.remuxers[pathName] = r
 	}
 	return r
-}
-
-func (s *hlsServer) doRemuxerClose(c *hlsRemuxer) {
-	delete(s.remuxers, c.PathName())
-	c.ParentClose()
 }
 
 // OnRemuxerClose is called by hlsRemuxer.

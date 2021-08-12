@@ -234,7 +234,7 @@ func (s *rtspServer) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
 
-	c.ParentClose(ctx.Error)
+	c.OnClose(ctx.Error)
 }
 
 // OnRequest implements gortsplib.ServerHandlerOnRequest.
@@ -281,7 +281,9 @@ func (s *rtspServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCt
 	delete(s.sessions, ctx.Session)
 	s.mutex.Unlock()
 
-	se.ParentClose()
+	if se != nil {
+		se.OnClose()
+	}
 }
 
 // OnDescribe implements gortsplib.ServerHandlerOnDescribe.
@@ -384,9 +386,11 @@ func (s *rtspServer) OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSe
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	for _, s := range s.sessions {
-		if s.ID() == req.ID {
-			s.Close()
+	for key, se := range s.sessions {
+		if se.ID() == req.ID {
+			se.Close()
+			delete(s.sessions, key)
+			se.OnClose()
 			return apiRTSPSessionsKickRes{}
 		}
 	}

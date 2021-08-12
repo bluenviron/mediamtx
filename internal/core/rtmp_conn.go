@@ -120,11 +120,6 @@ func newRTMPConn(
 	return c
 }
 
-// ParentClose closes a Conn.
-func (c *rtmpConn) ParentClose() {
-	c.log(logger.Info, "closed")
-}
-
 // Close closes a Conn.
 func (c *rtmpConn) Close() {
 	c.ctxCancel()
@@ -156,6 +151,7 @@ func (c *rtmpConn) safeState() gortsplib.ServerSessionState {
 
 func (c *rtmpConn) run() {
 	defer c.wg.Done()
+	defer c.log(logger.Info, "closed")
 
 	if c.runOnConnect != "" {
 		_, port, _ := net.SplitHostPort(c.rtspAddress)

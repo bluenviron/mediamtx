@@ -69,27 +69,6 @@ func newRTSPSession(
 	return s
 }
 
-// ParentClose closes a Session.
-func (s *rtspSession) ParentClose() {
-	if s.ss.State() == gortsplib.ServerSessionStateRead {
-		if s.onReadCmd != nil {
-			s.onReadCmd.Close()
-		}
-	}
-
-	switch s.ss.State() {
-	case gortsplib.ServerSessionStatePreRead, gortsplib.ServerSessionStateRead:
-		s.path.OnReaderRemove(pathReaderRemoveReq{Author: s})
-		s.path = nil
-
-	case gortsplib.ServerSessionStatePrePublish, gortsplib.ServerSessionStatePublish:
-		s.path.OnPublisherRemove(pathPublisherRemoveReq{Author: s})
-		s.path = nil
-	}
-
-	s.log(logger.Info, "closed")
-}
-
 // Close closes a Session.
 func (s *rtspSession) Close() {
 	s.ss.Close()
@@ -123,6 +102,27 @@ func (s *rtspSession) displayedProtocol() string {
 
 func (s *rtspSession) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[session %s] "+format, append([]interface{}{s.id}, args...)...)
+}
+
+// OnClose is called by rtspServer.
+func (s *rtspSession) OnClose() {
+	if s.ss.State() == gortsplib.ServerSessionStateRead {
+		if s.onReadCmd != nil {
+			s.onReadCmd.Close()
+		}
+	}
+
+	switch s.ss.State() {
+	case gortsplib.ServerSessionStatePreRead, gortsplib.ServerSessionStateRead:
+		s.path.OnReaderRemove(pathReaderRemoveReq{Author: s})
+		s.path = nil
+
+	case gortsplib.ServerSessionStatePrePublish, gortsplib.ServerSessionStatePublish:
+		s.path.OnPublisherRemove(pathPublisherRemoveReq{Author: s})
+		s.path = nil
+	}
+
+	s.log(logger.Info, "closed")
 }
 
 // OnAnnounce is called by rtspServer.

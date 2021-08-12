@@ -158,11 +158,6 @@ func newHLSRemuxer(
 	return r
 }
 
-// ParentClose closes a Remuxer.
-func (r *hlsRemuxer) ParentClose() {
-	r.log(logger.Info, "destroyed")
-}
-
 func (r *hlsRemuxer) Close() {
 	r.ctxCancel()
 }
@@ -178,6 +173,7 @@ func (r *hlsRemuxer) PathName() string {
 
 func (r *hlsRemuxer) run() {
 	defer r.wg.Done()
+	defer r.log(logger.Info, "destroyed")
 
 	remuxerCtx, remuxerCtxCancel := context.WithCancel(context.Background())
 	remuxerReady := make(chan struct{})

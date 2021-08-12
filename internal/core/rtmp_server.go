@@ -157,7 +157,7 @@ outer:
 			if _, ok := s.conns[c]; !ok {
 				continue
 			}
-			s.doConnClose(c)
+			delete(s.conns, c)
 
 		case req := <-s.apiRTMPConnsList:
 			for c := range s.conns {
@@ -181,6 +181,7 @@ outer:
 			res := func() bool {
 				for c := range s.conns {
 					if c.ID() == req.ID {
+						delete(s.conns, c)
 						c.Close()
 						return true
 					}
@@ -201,10 +202,6 @@ outer:
 	s.ctxCancel()
 
 	s.l.Close()
-
-	for c := range s.conns {
-		s.doConnClose(c)
-	}
 }
 
 func (s *rtmpServer) newConnID() (string, error) {
@@ -233,12 +230,6 @@ func (s *rtmpServer) newConnID() (string, error) {
 			return id, nil
 		}
 	}
-}
-
-func (s *rtmpServer) doConnClose(c *rtmpConn) {
-	delete(s.conns, c)
-	c.ParentClose()
-	c.Close()
 }
 
 // OnConnClose is called by rtmpConn.

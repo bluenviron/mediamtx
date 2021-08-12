@@ -87,19 +87,6 @@ func newRTSPConn(
 	return c
 }
 
-// ParentClose closes a Conn.
-func (c *rtspConn) ParentClose(err error) {
-	if err != io.EOF && !isTeardownErr(err) && !isTerminatedErr(err) {
-		c.log(logger.Info, "ERR: %v", err)
-	}
-
-	c.log(logger.Info, "closed")
-
-	if c.onConnectCmd != nil {
-		c.onConnectCmd.Close()
-	}
-}
-
 func (c *rtspConn) log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
@@ -176,6 +163,19 @@ func (c *rtspConn) validateCredentials(
 	c.authFailures = 0
 
 	return nil
+}
+
+// OnClose is called by rtspServer.
+func (c *rtspConn) OnClose(err error) {
+	if err != io.EOF && !isTeardownErr(err) && !isTerminatedErr(err) {
+		c.log(logger.Info, "ERR: %v", err)
+	}
+
+	c.log(logger.Info, "closed")
+
+	if c.onConnectCmd != nil {
+		c.onConnectCmd.Close()
+	}
 }
 
 // OnRequest is called by rtspServer.
