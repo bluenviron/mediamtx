@@ -5,6 +5,7 @@ package externalcmd
 import (
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 func (e *Cmd) runInner() bool {
@@ -31,7 +32,7 @@ func (e *Cmd) runInner() bool {
 
 	select {
 	case <-e.terminate:
-		cmd.Process.Signal(os.Interrupt)
+		syscall.Kill(cmd.Process.Pid, syscall.SIGQUIT)
 		<-cmdDone
 		return false
 
