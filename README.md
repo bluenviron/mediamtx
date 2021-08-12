@@ -58,7 +58,7 @@ Plus:
   * [Corrupted frames](#corrupted-frames)
   * [HTTP API](#http-api)
   * [Metrics](#metrics)
-  * [Pprof](#pprof)
+  * [pprof](#pprof)
   * [Command-line usage](#command-line-usage)
   * [Compile and run from source](#compile-and-run-from-source)
 * [Links](#links)
@@ -552,7 +552,7 @@ where:
 * `rtmp_conns{state="read"}` is the count of RTMP connections that are reading
 * `rtmp_conns{state="publish"}` is the count of RTMP connections that are publishing
 
-### PProf
+### pprof
 
 A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
 
