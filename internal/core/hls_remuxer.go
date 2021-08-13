@@ -287,7 +287,7 @@ func (r *hlsRemuxer) runRemuxer(remuxerCtx context.Context, remuxerReady chan st
 	}
 
 	if videoTrack == nil && audioTrack == nil {
-		return fmt.Errorf("unable to find a video or audio track")
+		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
 	var err error
