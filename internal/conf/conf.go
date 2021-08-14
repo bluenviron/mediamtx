@@ -320,7 +320,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.HLSAddress = ":8888"
 	}
 	if conf.HLSSegmentCount == 0 {
-		conf.HLSSegmentCount = 5
+		conf.HLSSegmentCount = 3
 	}
 	if conf.HLSSegmentDuration == 0 {
 		conf.HLSSegmentDuration = 1 * time.Second
