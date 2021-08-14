@@ -332,7 +332,7 @@ The direct HLS URL, that can be used to read the stream with Javascript librarie
 http://localhost:8888/mystream/stream.m3u8
 ```
 
-Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js/), must be used to load the stream.
+Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream.
 
 ### Publish from OBS Studio
 

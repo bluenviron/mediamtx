@@ -183,7 +183,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	return nil
 }
 
-// Playlist returns a reader to read the HLS playlist in M3U8 format.
+// Playlist returns a reader to read the playlist.
 func (m *Muxer) Playlist() io.Reader {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
@@ -221,7 +221,7 @@ func (m *Muxer) Playlist() io.Reader {
 	return bytes.NewReader([]byte(cnt))
 }
 
-// TSFile returns a reader to read a given MPEG-TS file.
+// TSFile returns a reader to read a MPEG-TS file.
 func (m *Muxer) TSFile(fname string) io.Reader {
 	base := strings.TrimSuffix(fname, ".ts")
 
