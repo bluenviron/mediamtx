@@ -337,7 +337,7 @@ func (a *api) mwLog(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
 
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "HTTP/1.1 %d %s\n", ctx.Writer.Status(), http.StatusText(ctx.Writer.Status()))
+	fmt.Fprintf(&buf, "%s %d %s\n", ctx.Request.Proto, ctx.Writer.Status(), http.StatusText(ctx.Writer.Status()))
 	ctx.Writer.Header().Write(&buf)
 	buf.Write([]byte("\n"))
 	buf.Write(blw.buf.Bytes())
