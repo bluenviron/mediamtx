@@ -48,24 +48,29 @@ const index = `<!DOCTYPE html>
 const create = () => {
 	const video = document.getElementById('video');
 
-	const hls = new Hls({
-		progressive: false,
-	});
+	if (video.canPlayType('application/vnd.apple.mpegurl')) {
+		video.src = 'stream.m3u8';
+		video.play();
+	} else {
+		const hls = new Hls({
+			progressive: false,
+		});
 
-	hls.on(Hls.Events.ERROR, (evt, data) => {
-		if (data.fatal) {
-			hls.destroy();
+		hls.on(Hls.Events.ERROR, (evt, data) => {
+			if (data.fatal) {
+				hls.destroy();
 
-			setTimeout(() => {
-				create();
-			}, 2000);
-		}
-	});
+				setTimeout(() => {
+					create();
+				}, 2000);
+			}
+		});
 
-	hls.loadSource('stream.m3u8');
-	hls.attachMedia(video);
+		hls.loadSource('stream.m3u8');
+		hls.attachMedia(video);
 
-	video.play();
+		video.play();
+	}
 }
 create();
 
