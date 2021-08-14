@@ -18,10 +18,10 @@ type tsFile struct {
 	name               string
 	buf                *multiAccessBuffer
 	mux                *astits.Muxer
-	pcr                time.Duration
 	firstPacketWritten bool
 	minPTS             time.Duration
 	maxPTS             time.Duration
+	startPCR           time.Time
 }
 
 func newTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *tsFile {
@@ -69,8 +69,8 @@ func (t *tsFile) duration() time.Duration {
 	return t.maxPTS - t.minPTS
 }
 
-func (t *tsFile) setPCR(pcr time.Duration) {
-	t.pcr = pcr
+func (t *tsFile) setStartPCR(startPCR time.Time) {
+	t.startPCR = startPCR
 }
 
 func (t *tsFile) newReader() io.Reader {
@@ -81,7 +81,6 @@ func (t *tsFile) writeH264(
 	h264SPS []byte, h264PPS []byte,
 	dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
 	if !t.firstPacketWritten {
-		t.firstPacketWritten = true
 		t.minPTS = pts
 		t.maxPTS = pts
 	} else {
@@ -115,15 +114,28 @@ func (t *tsFile) writeH264(
 		filteredNALUs = append(filteredNALUs, nalu)
 	}
 
+	var af *astits.PacketAdaptationField
+
+	if isIDR {
+		if af == nil {
+			af = &astits.PacketAdaptationField{}
+		}
+		af.RandomAccessIndicator = true
+	}
+
+	if !t.firstPacketWritten {
+		t.firstPacketWritten = true
+		if af == nil {
+			af = &astits.PacketAdaptationField{}
+		}
+		af.HasPCR = true
+		pcr := time.Since(t.startPCR)
+		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
+	}
+
 	enc, err := h264.EncodeAnnexB(filteredNALUs)
 	if err != nil {
 		return err
-	}
-
-	af := &astits.PacketAdaptationField{
-		RandomAccessIndicator: isIDR,
-		HasPCR:                true,
-		PCR:                   &astits.ClockReference{Base: int64(t.pcr.Seconds() * 90000)},
 	}
 
 	_, err = t.mux.WriteData(&astits.MuxerData{
@@ -148,7 +160,6 @@ func (t *tsFile) writeH264(
 func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
 	if t.videoTrack == nil {
 		if !t.firstPacketWritten {
-			t.firstPacketWritten = true
 			t.minPTS = pts
 			t.maxPTS = pts
 		} else {
@@ -176,9 +187,11 @@ func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, a
 		RandomAccessIndicator: true,
 	}
 
-	if t.videoTrack == nil {
+	if t.videoTrack == nil && !t.firstPacketWritten {
+		t.firstPacketWritten = true
 		af.HasPCR = true
-		af.PCR = &astits.ClockReference{Base: int64(t.pcr.Seconds() * 90000)}
+		pcr := time.Since(t.startPCR)
+		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
 	}
 
 	_, err = t.mux.WriteData(&astits.MuxerData{

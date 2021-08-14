@@ -34,7 +34,6 @@ type Muxer struct {
 	h264SPS       []byte
 	h264PPS       []byte
 	aacConfig     rtpaac.MPEG4AudioConfig
-	startPCR      time.Time
 	videoDTSEst   *h264.DTSEstimator
 	audioAUCount  int
 	tsCurrent     *tsFile
@@ -42,6 +41,7 @@ type Muxer struct {
 	tsByName      map[string]*tsFile
 	tsDeleteCount int
 	mutex         sync.RWMutex
+	startPCR      time.Time
 	startPTS      time.Duration
 }
 
@@ -82,7 +82,6 @@ func NewMuxer(
 		h264SPS:            h264SPS,
 		h264PPS:            h264PPS,
 		aacConfig:          aacConfig,
-		startPCR:           time.Now(),
 		videoDTSEst:        h264.NewDTSEstimator(),
 		tsCurrent:          newTSFile(videoTrack, audioTrack),
 		tsByName:           make(map[string]*tsFile),
@@ -122,11 +121,10 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 	if idrPresent &&
 		m.tsCurrent.firstPacketWritten &&
 		m.tsCurrent.duration() >= m.hlsSegmentDuration {
-		if m.tsCurrent != nil {
-			m.tsCurrent.close()
-		}
+		m.tsCurrent.close()
 
 		m.tsCurrent = newTSFile(m.videoTrack, m.audioTrack)
+		m.tsCurrent.setStartPCR(m.startPCR)
 
 		m.tsByName[m.tsCurrent.name] = m.tsCurrent
 		m.tsQueue = append(m.tsQueue, m.tsCurrent)
@@ -136,11 +134,12 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 			m.tsDeleteCount++
 		}
 	} else if !m.tsCurrent.firstPacketWritten {
+		m.startPCR = time.Now()
 		m.startPTS = pts
+		m.tsCurrent.setStartPCR(m.startPCR)
 	}
 
 	pts = pts + ptsOffset - m.startPTS
-	m.tsCurrent.setPCR(time.Since(m.startPCR))
 	err := m.tsCurrent.writeH264(
 		m.h264SPS,
 		m.h264PPS,
@@ -164,13 +163,13 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 		if m.audioAUCount >= segmentMinAUCount &&
 			m.tsCurrent.firstPacketWritten &&
 			m.tsCurrent.duration() >= m.hlsSegmentDuration {
-
-			if m.tsCurrent != nil {
-				m.tsCurrent.close()
-			}
+			m.tsCurrent.close()
 
 			m.audioAUCount = 0
+
 			m.tsCurrent = newTSFile(m.videoTrack, m.audioTrack)
+			m.tsCurrent.setStartPCR(m.startPCR)
+
 			m.tsByName[m.tsCurrent.name] = m.tsCurrent
 			m.tsQueue = append(m.tsQueue, m.tsCurrent)
 			if len(m.tsQueue) > m.hlsSegmentCount {
@@ -179,7 +178,9 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 				m.tsDeleteCount++
 			}
 		} else if !m.tsCurrent.firstPacketWritten {
+			m.startPCR = time.Now()
 			m.startPTS = pts
+			m.tsCurrent.setStartPCR(m.startPCR)
 		}
 	} else {
 		if !m.tsCurrent.firstPacketWritten {
@@ -192,8 +193,6 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	for i, au := range aus {
 		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConfig.SampleRate)
 
-		m.audioAUCount++
-		m.tsCurrent.setPCR(time.Since(m.startPCR))
 		err := m.tsCurrent.writeAAC(
 			m.aacConfig.SampleRate,
 			m.aacConfig.ChannelCount,
@@ -202,6 +201,8 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 		if err != nil {
 			return err
 		}
+
+		m.audioAUCount++
 	}
 
 	return nil
