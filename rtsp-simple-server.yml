@@ -98,16 +98,16 @@ rtmpAddress: :1935
 hlsDisable: no
 # address of the HLS listener.
 hlsAddress: :8888
-# whether to always start the HLS remuxer; otherwise, it is started only
-# after an HLS stream is requested.
+# by default, HLS is generated only when requested by a user;
+# this option allows to generate it always, avoiding an initial delay.
 hlsAlwaysRemux: no
 # number of HLS segments to generate.
 # increasing segments allows more buffering,
 # decreasing segments decreases latency.
 hlsSegmentCount: 3
 # minimum duration of each segment.
-# the real segment duration is also influenced by the interval between IDR frames,
-# since the server changes the segment duration to include at least one IDR frame in each.
+# the final segment duration is also influenced by the interval between IDR frames,
+# since the server changes the segment duration to include at least a IDR frame in each one.
 hlsSegmentDuration: 1s
 # value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.

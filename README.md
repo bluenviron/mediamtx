@@ -318,13 +318,21 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystr
 
 ### HLS protocol
 
-HLS is a media format that allows to embed live streams into web pages, inside standard `<video>` HTML tags. Every stream published to the server can be accessed with a web browser by visiting
+HLS is a media format that allows to embed live streams into web pages. Every stream published to the server can be accessed with a web browser by visiting:
 
 ```
 http://localhost:8888/mystream
 ```
 
 where `mystream` is the name of a stream that is being published.
+
+The direct HLS URL, that can be used to read the stream with Javascript libraries (hls.js) can be obtained by appending `/stream.m3u8`:
+
+```
+http://localhost:8888/mystream/stream.m3u8
+```
+
+Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js/), must be used to load the stream.
 
 ### Publish from OBS Studio
 
