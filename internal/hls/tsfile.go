@@ -90,6 +90,9 @@ func (t *tsFile) writeH264(dts time.Duration, pts time.Duration, isIDR bool, nal
 		}
 	}
 
+	// prepend an AUD. This is required by video.js and iOS
+	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
+
 	enc, err := h264.EncodeAnnexB(nalus)
 	if err != nil {
 		return err
