@@ -42,6 +42,7 @@ type Muxer struct {
 	tsByName      map[string]*tsFile
 	tsDeleteCount int
 	mutex         sync.RWMutex
+	startPTS      time.Duration
 }
 
 // NewMuxer allocates a Muxer.
@@ -134,14 +135,17 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 			m.tsQueue = m.tsQueue[1:]
 			m.tsDeleteCount++
 		}
+	} else if !m.tsCurrent.firstPacketWritten {
+		m.startPTS = pts
 	}
 
+	pts = pts + ptsOffset - m.startPTS
 	m.tsCurrent.setPCR(time.Since(m.startPCR))
 	err := m.tsCurrent.writeH264(
 		m.h264SPS,
 		m.h264PPS,
-		m.videoDTSEst.Feed(pts+ptsOffset),
-		pts+ptsOffset,
+		m.videoDTSEst.Feed(pts),
+		pts,
 		idrPresent,
 		nalus)
 	if err != nil {
@@ -174,12 +178,16 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 				m.tsQueue = m.tsQueue[1:]
 				m.tsDeleteCount++
 			}
+		} else if !m.tsCurrent.firstPacketWritten {
+			m.startPTS = pts
 		}
 	} else {
 		if !m.tsCurrent.firstPacketWritten {
 			return nil
 		}
 	}
+
+	pts = pts + ptsOffset - m.startPTS
 
 	for i, au := range aus {
 		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConfig.SampleRate)
@@ -189,7 +197,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 		err := m.tsCurrent.writeAAC(
 			m.aacConfig.SampleRate,
 			m.aacConfig.ChannelCount,
-			auPTS+ptsOffset,
+			auPTS,
 			au)
 		if err != nil {
 			return err
