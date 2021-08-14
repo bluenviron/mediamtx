@@ -274,6 +274,7 @@ func newAPI(
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
+	router.NoRoute(a.mwLog)
 	group := router.Group("/", a.mwLog)
 	group.GET("/v1/config/get", a.onConfigGet)
 	group.POST("/v1/config/set", a.onConfigSet)
