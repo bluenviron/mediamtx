@@ -217,6 +217,11 @@ outer:
 
 	r.ctxCancel()
 
+	for _, req := range r.requests {
+		req.W.WriteHeader(http.StatusNotFound)
+		req.Res <- nil
+	}
+
 	r.parent.OnRemuxerClose(r)
 }
 

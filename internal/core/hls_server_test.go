@@ -1,11 +1,26 @@
 package core
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestHLSServerNotFound(t *testing.T) {
+	p, ok := newInstance("")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:8888/stream/", nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
 
 func TestHLSServerRead(t *testing.T) {
 	p, ok := newInstance("")
