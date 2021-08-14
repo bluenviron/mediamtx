@@ -311,7 +311,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			for _, nalu := range nalus {
-				// remove SPS, PPS and AUD, not needed by RTSP
+				// remove SPS, PPS and AUD, not needed by RTMP
 				typ := h264.NALUType(nalu[0] & 0x1F)
 				switch typ {
 				case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
