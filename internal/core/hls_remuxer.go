@@ -32,17 +32,25 @@ const index = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <style>
+#video-wrapper {
+	width: 100%;
+	padding-bottom: 56.25%;
+	position: relative;
+}
 #video {
-	width: 600px;
-	height: 600px;
+	position: absolute;
+	width: 100%;
+	height: 100%;
 	background: black;
 }
 </style>
 </head>
 <body>
 
+<div id="video-wrapper"><video id="video" muted controls></video></div>
+
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.0.0"></script>
-<video id="video" muted controls></video>
+
 <script>
 
 const create = () => {
