@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/asticode/go-astits"
 
 	"github.com/aler9/rtsp-simple-server/internal/aac"
@@ -13,7 +14,7 @@ import (
 )
 
 type tsFile struct {
-	hasVideoTrack      bool
+	videoTrack         *gortsplib.Track
 	name               string
 	buf                *multiAccessBuffer
 	mux                *astits.Muxer
@@ -23,30 +24,30 @@ type tsFile struct {
 	maxPTS             time.Duration
 }
 
-func newTSFile(hasVideoTrack bool, hasAudioTrack bool) *tsFile {
+func newTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *tsFile {
 	t := &tsFile{
-		hasVideoTrack: hasVideoTrack,
-		name:          strconv.FormatInt(time.Now().Unix(), 10),
-		buf:           newMultiAccessBuffer(),
+		videoTrack: videoTrack,
+		name:       strconv.FormatInt(time.Now().Unix(), 10),
+		buf:        newMultiAccessBuffer(),
 	}
 
 	t.mux = astits.NewMuxer(context.Background(), t.buf)
 
-	if hasVideoTrack {
+	if videoTrack != nil {
 		t.mux.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 256,
 			StreamType:    astits.StreamTypeH264Video,
 		})
 	}
 
-	if hasAudioTrack {
+	if audioTrack != nil {
 		t.mux.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 257,
 			StreamType:    astits.StreamTypeAACAudio,
 		})
 	}
 
-	if hasVideoTrack {
+	if videoTrack != nil {
 		t.mux.SetPCRPID(256)
 	} else {
 		t.mux.SetPCRPID(257)
@@ -76,7 +77,9 @@ func (t *tsFile) newReader() io.Reader {
 	return t.buf.NewReader()
 }
 
-func (t *tsFile) writeH264(dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
+func (t *tsFile) writeH264(
+	h264SPS []byte, h264PPS []byte,
+	dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
 	if !t.firstPacketWritten {
 		t.firstPacketWritten = true
 		t.minPTS = pts
@@ -90,10 +93,29 @@ func (t *tsFile) writeH264(dts time.Duration, pts time.Duration, isIDR bool, nal
 		}
 	}
 
-	// prepend an AUD. This is required by video.js and iOS
-	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
+	filteredNALUs := [][]byte{
+		// prepend an AUD. This is required by video.js and iOS
+		{byte(h264.NALUTypeAccessUnitDelimiter), 240},
+	}
 
-	enc, err := h264.EncodeAnnexB(nalus)
+	for _, nalu := range nalus {
+		// remove existing SPS, PPS, AUD
+		typ := h264.NALUType(nalu[0] & 0x1F)
+		switch typ {
+		case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+			continue
+		}
+
+		// add SPS and PPS before IDR
+		if typ == h264.NALUTypeIDR {
+			filteredNALUs = append(filteredNALUs, h264SPS)
+			filteredNALUs = append(filteredNALUs, h264PPS)
+		}
+
+		filteredNALUs = append(filteredNALUs, nalu)
+	}
+
+	enc, err := h264.EncodeAnnexB(filteredNALUs)
 	if err != nil {
 		return err
 	}
@@ -124,7 +146,7 @@ func (t *tsFile) writeH264(dts time.Duration, pts time.Duration, isIDR bool, nal
 }
 
 func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
-	if !t.hasVideoTrack {
+	if t.videoTrack == nil {
 		if !t.firstPacketWritten {
 			t.firstPacketWritten = true
 			t.minPTS = pts
@@ -154,7 +176,7 @@ func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, a
 		RandomAccessIndicator: true,
 	}
 
-	if !t.hasVideoTrack {
+	if t.videoTrack == nil {
 		af.HasPCR = true
 		af.PCR = &astits.ClockReference{Base: int64(t.pcr.Seconds() * 90000)}
 	}

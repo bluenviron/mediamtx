@@ -17,7 +17,7 @@ func checkTSPacket(t *testing.T, byts []byte, pid int, afc int) {
 }
 
 func TestMuxer(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04})
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08})
 	require.NoError(t, err)
 
 	audioTrack, err := gortsplib.NewTrackAAC(97, []byte{17, 144})
@@ -92,12 +92,11 @@ func TestMuxer(t *testing.T) {
 	byts = byts[4+alen+20:]
 	require.Equal(t,
 		[]byte{
-			0, 0, 0, 1, 9, 240,
-			0, 0, 0, 1, 5,
-			0, 0, 0, 1, 9,
-			0, 0, 0, 1, 8,
-			0, 0, 0, 1, 7,
+			0, 0, 0, 1, 9, 240, // AUD
+			0, 0, 0, 1, 7, 1, 2, 3, // SPS
+			0, 0, 0, 1, 8, // PPS
+			0, 0, 0, 1, 5, // IDR
 		},
-		byts[:26],
+		byts[:24],
 	)
 }

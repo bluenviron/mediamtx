@@ -31,6 +31,8 @@ type Muxer struct {
 	videoTrack         *gortsplib.Track
 	audioTrack         *gortsplib.Track
 
+	h264SPS       []byte
+	h264PPS       []byte
 	aacConfig     rtpaac.MPEG4AudioConfig
 	startPCR      time.Time
 	videoDTSEst   *h264.DTSEstimator
@@ -48,6 +50,16 @@ func NewMuxer(
 	hlsSegmentDuration time.Duration,
 	videoTrack *gortsplib.Track,
 	audioTrack *gortsplib.Track) (*Muxer, error) {
+	var h264SPS []byte
+	var h264PPS []byte
+	if videoTrack != nil {
+		var err error
+		h264SPS, h264PPS, err = videoTrack.ExtractDataH264()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var aacConfig rtpaac.MPEG4AudioConfig
 	if audioTrack != nil {
 		byts, err := audioTrack.ExtractDataAAC()
@@ -66,10 +78,12 @@ func NewMuxer(
 		hlsSegmentDuration: hlsSegmentDuration,
 		videoTrack:         videoTrack,
 		audioTrack:         audioTrack,
+		h264SPS:            h264SPS,
+		h264PPS:            h264PPS,
 		aacConfig:          aacConfig,
 		startPCR:           time.Now(),
 		videoDTSEst:        h264.NewDTSEstimator(),
-		tsCurrent:          newTSFile(videoTrack != nil, audioTrack != nil),
+		tsCurrent:          newTSFile(videoTrack, audioTrack),
 		tsByName:           make(map[string]*tsFile),
 	}
 
@@ -111,7 +125,7 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 			m.tsCurrent.close()
 		}
 
-		m.tsCurrent = newTSFile(m.videoTrack != nil, m.audioTrack != nil)
+		m.tsCurrent = newTSFile(m.videoTrack, m.audioTrack)
 
 		m.tsByName[m.tsCurrent.name] = m.tsCurrent
 		m.tsQueue = append(m.tsQueue, m.tsCurrent)
@@ -124,6 +138,8 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 
 	m.tsCurrent.setPCR(time.Since(m.startPCR))
 	err := m.tsCurrent.writeH264(
+		m.h264SPS,
+		m.h264PPS,
 		m.videoDTSEst.Feed(pts+ptsOffset),
 		pts+ptsOffset,
 		idrPresent,
@@ -150,7 +166,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 			}
 
 			m.audioAUCount = 0
-			m.tsCurrent = newTSFile(m.videoTrack != nil, m.audioTrack != nil)
+			m.tsCurrent = newTSFile(m.videoTrack, m.audioTrack)
 			m.tsByName[m.tsCurrent.name] = m.tsCurrent
 			m.tsQueue = append(m.tsQueue, m.tsCurrent)
 			if len(m.tsQueue) > m.hlsSegmentCount {

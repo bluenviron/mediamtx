@@ -18,7 +18,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/pion/rtp"
 
-	"github.com/aler9/rtsp-simple-server/internal/h264"
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -244,8 +243,6 @@ func (r *hlsRemuxer) runRemuxer(remuxerCtx context.Context, remuxerReady chan st
 
 	var videoTrack *gortsplib.Track
 	videoTrackID := -1
-	var h264SPS []byte
-	var h264PPS []byte
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
 	audioTrackID := -1
@@ -260,12 +257,6 @@ func (r *hlsRemuxer) runRemuxer(remuxerCtx context.Context, remuxerReady chan st
 
 			videoTrack = t
 			videoTrackID = i
-
-			var err error
-			h264SPS, h264PPS, err = t.ExtractDataH264()
-			if err != nil {
-				return err
-			}
 
 			h264Decoder = rtph264.NewDecoder()
 
@@ -341,22 +332,7 @@ func (r *hlsRemuxer) runRemuxer(remuxerCtx context.Context, remuxerReady chan st
 						continue
 					}
 
-					for _, nalu := range nalus {
-						// remove SPS, PPS, AUD
-						typ := h264.NALUType(nalu[0] & 0x1F)
-						switch typ {
-						case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
-							continue
-						}
-
-						// add SPS and PPS before IDR
-						if typ == h264.NALUTypeIDR {
-							videoBuf = append(videoBuf, h264SPS)
-							videoBuf = append(videoBuf, h264PPS)
-						}
-
-						videoBuf = append(videoBuf, nalu)
-					}
+					videoBuf = append(videoBuf, nalus...)
 
 					// RTP marker means that all the NALUs with the same PTS have been received.
 					// send them together.
