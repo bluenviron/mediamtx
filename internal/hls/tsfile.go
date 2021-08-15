@@ -78,9 +78,14 @@ func (t *tsFile) newReader() io.Reader {
 }
 
 func (t *tsFile) writeH264(
-	h264SPS []byte, h264PPS []byte,
-	dts time.Duration, pts time.Duration, isIDR bool, nalus [][]byte) error {
+	h264SPS []byte,
+	h264PPS []byte,
+	dts time.Duration,
+	pts time.Duration,
+	isIDR bool,
+	nalus [][]byte) error {
 	if !t.firstPacketWritten {
+		t.firstPacketWritten = true
 		t.minPTS = pts
 		t.maxPTS = pts
 	} else {
@@ -121,13 +126,8 @@ func (t *tsFile) writeH264(
 			af = &astits.PacketAdaptationField{}
 		}
 		af.RandomAccessIndicator = true
-	}
 
-	if !t.firstPacketWritten {
-		t.firstPacketWritten = true
-		if af == nil {
-			af = &astits.PacketAdaptationField{}
-		}
+		// send PCR with every IDR
 		af.HasPCR = true
 		pcr := time.Since(t.startPCR)
 		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
@@ -160,6 +160,7 @@ func (t *tsFile) writeH264(
 func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
 	if t.videoTrack == nil {
 		if !t.firstPacketWritten {
+			t.firstPacketWritten = true
 			t.minPTS = pts
 			t.maxPTS = pts
 		} else {
@@ -187,8 +188,8 @@ func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, a
 		RandomAccessIndicator: true,
 	}
 
-	if t.videoTrack == nil && !t.firstPacketWritten {
-		t.firstPacketWritten = true
+	if t.videoTrack == nil {
+		// if audio is the only track, send PCR with every AU
 		af.HasPCR = true
 		pcr := time.Since(t.startPCR)
 		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
