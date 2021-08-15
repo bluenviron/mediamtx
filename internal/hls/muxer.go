@@ -213,10 +213,6 @@ func (m *Muxer) Playlist() io.Reader {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
-	if len(m.tsQueue) == 0 {
-		return nil
-	}
-
 	cnt := "#EXTM3U\n"
 	cnt += "#EXT-X-VERSION:3\n"
 	cnt += "#EXT-X-ALLOW-CACHE:NO\n"

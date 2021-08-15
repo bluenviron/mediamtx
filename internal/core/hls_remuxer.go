@@ -435,15 +435,8 @@ func (r *hlsRemuxer) handleRequest(req hlsRemuxerRequest) {
 
 	switch {
 	case req.File == "stream.m3u8":
-		r := r.muxer.Playlist()
-		if r == nil {
-			req.W.WriteHeader(http.StatusNotFound)
-			req.Res <- nil
-			return
-		}
-
 		req.W.Header().Set("Content-Type", `application/x-mpegURL`)
-		req.Res <- r
+		req.Res <- r.muxer.Playlist()
 
 	case strings.HasSuffix(req.File, ".ts"):
 		r := r.muxer.TSFile(req.File)
