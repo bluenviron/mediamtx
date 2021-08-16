@@ -326,10 +326,10 @@ http://localhost:8888/mystream
 
 where `mystream` is the name of a stream that is being published.
 
-The direct HLS URL, that can be used to read the stream with Javascript libraries (hls.js) can be obtained by appending `/stream.m3u8`:
+The direct HLS URL, that can be used to read the stream with players (VLC) or Javascript libraries (hls.js) can be obtained by appending `/index.m3u8`:
 
 ```
-http://localhost:8888/mystream/stream.m3u8
+http://localhost:8888/mystream/index.m3u8
 ```
 
 Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream.

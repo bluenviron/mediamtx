@@ -57,7 +57,7 @@ const create = () => {
 	const video = document.getElementById('video');
 
 	if (video.canPlayType('application/vnd.apple.mpegurl')) {
-		video.src = 'stream.m3u8';
+		video.src = 'index.m3u8';
 		video.play();
 	} else {
 		const hls = new Hls({
@@ -74,7 +74,7 @@ const create = () => {
 			}
 		});
 
-		hls.loadSource('stream.m3u8');
+		hls.loadSource('index.m3u8');
 		hls.attachMedia(video);
 
 		video.play();
@@ -434,9 +434,13 @@ func (r *hlsRemuxer) handleRequest(req hlsRemuxerRequest) {
 	}
 
 	switch {
+	case req.File == "index.m3u8":
+		req.W.Header().Set("Content-Type", `application/x-mpegURL`)
+		req.Res <- r.muxer.PrimaryPlaylist()
+
 	case req.File == "stream.m3u8":
 		req.W.Header().Set("Content-Type", `application/x-mpegURL`)
-		req.Res <- r.muxer.Playlist()
+		req.Res <- r.muxer.StreamPlaylist()
 
 	case strings.HasSuffix(req.File, ".ts"):
 		r := r.muxer.TSFile(req.File)

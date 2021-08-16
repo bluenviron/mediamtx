@@ -2,6 +2,7 @@ package hls
 
 import (
 	"bytes"
+	"encoding/hex"
 	"io"
 	"math"
 	"strconv"
@@ -208,14 +209,33 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	return nil
 }
 
-// Playlist returns a reader to read the playlist.
-func (m *Muxer) Playlist() io.Reader {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
+// PrimaryPlaylist returns a reader to read the primary playlist
+func (m *Muxer) PrimaryPlaylist() io.Reader {
+	var codecs []string
 
+	if m.videoTrack != nil {
+		codecs = append(codecs, "avc1."+hex.EncodeToString(m.h264SPS[1:4]))
+	}
+
+	if m.audioTrack != nil {
+		codecs = append(codecs, "mp4a.40.2")
+	}
+
+	cnt := "#EXTM3U\n"
+	cnt += "#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n"
+	cnt += "stream.m3u8\n"
+
+	return bytes.NewReader([]byte(cnt))
+}
+
+// StreamPlaylist returns a reader to read the stream playlist.
+func (m *Muxer) StreamPlaylist() io.Reader {
 	cnt := "#EXTM3U\n"
 	cnt += "#EXT-X-VERSION:3\n"
 	cnt += "#EXT-X-ALLOW-CACHE:NO\n"
+
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	targetDuration := func() uint {
 		ret := uint(math.Ceil(m.hlsSegmentDuration.Seconds()))

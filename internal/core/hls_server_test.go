@@ -41,7 +41,7 @@ func TestHLSServerRead(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "http://localhost:8888/test/stream/stream.m3u8",
+		"-i", "http://localhost:8888/test/stream/index.m3u8",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -75,7 +75,7 @@ func TestHLSServerReadAuth(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "http://testuser:testpass@127.0.0.1:8888/teststream/stream.m3u8",
+		"-i", "http://testuser:testpass@127.0.0.1:8888/teststream/index.m3u8",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",

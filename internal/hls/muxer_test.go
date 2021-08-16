@@ -64,7 +64,14 @@ func TestMuxer(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.Playlist())
+	byts, err := ioutil.ReadAll(m.PrimaryPlaylist())
+	require.NoError(t, err)
+
+	require.Equal(t, "#EXTM3U\n"+
+		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203,mp4a.40.2\"\n"+
+		"stream.m3u8\n", string(byts))
+
+	byts, err = ioutil.ReadAll(m.StreamPlaylist())
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
