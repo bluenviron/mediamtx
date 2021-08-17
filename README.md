@@ -112,7 +112,7 @@ docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 aler9/rtsp-s
    or _GStreamer_:
 
    ```
-   gst-launch-1.0 rtspsrc location=rtsp://localhost:8554/mystream name=s s. ! application/x-rtp,media=video ! decodebin ! autovideosink s. ! application/x-rtp,media=audio ! decodebin ! audioconvert ! audioresample ! autoaudiosink
+   gst-play-1.0 rtsp://localhost:8554/mystream
    ```
 
    or _FFmpeg_:
