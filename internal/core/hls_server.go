@@ -30,12 +30,12 @@ type hlsServer struct {
 	ctxCancel func()
 	wg        sync.WaitGroup
 	ln        net.Listener
-	remuxers  map[string]*hlsRemuxer
+	muxers    map[string]*hlsMuxer
 
 	// in
 	pathSourceReady chan *path
-	request         chan hlsRemuxerRequest
-	remuxerClose    chan *hlsRemuxer
+	request         chan hlsMuxerRequest
+	muxerClose      chan *hlsMuxer
 }
 
 func newHLSServer(
@@ -67,10 +67,10 @@ func newHLSServer(
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
 		ln:                 ln,
-		remuxers:           make(map[string]*hlsRemuxer),
+		muxers:             make(map[string]*hlsMuxer),
 		pathSourceReady:    make(chan *path),
-		request:            make(chan hlsRemuxerRequest),
-		remuxerClose:       make(chan *hlsRemuxer),
+		request:            make(chan hlsMuxerRequest),
+		muxerClose:         make(chan *hlsMuxer),
 	}
 
 	s.Log(logger.Info, "listener opened on "+address)
@@ -105,18 +105,18 @@ outer:
 		select {
 		case pa := <-s.pathSourceReady:
 			if s.hlsAlwaysRemux {
-				s.findOrCreateRemuxer(pa.Name())
+				s.findOrCreateMuxer(pa.Name())
 			}
 
 		case req := <-s.request:
-			r := s.findOrCreateRemuxer(req.Dir)
+			r := s.findOrCreateMuxer(req.Dir)
 			r.OnRequest(req)
 
-		case c := <-s.remuxerClose:
-			if c2, ok := s.remuxers[c.PathName()]; !ok || c2 != c {
+		case c := <-s.muxerClose:
+			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
 				continue
 			}
-			delete(s.remuxers, c.PathName())
+			delete(s.muxers, c.PathName())
 
 		case <-s.ctx.Done():
 			break outer
@@ -176,7 +176,7 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	dir = strings.TrimSuffix(dir, "/")
 
 	cres := make(chan io.Reader)
-	hreq := hlsRemuxerRequest{
+	hreq := hlsMuxerRequest{
 		Dir:  dir,
 		File: fname,
 		Req:  r,
@@ -209,10 +209,10 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *hlsServer) findOrCreateRemuxer(pathName string) *hlsRemuxer {
-	r, ok := s.remuxers[pathName]
+func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
+	r, ok := s.muxers[pathName]
 	if !ok {
-		r = newHLSRemuxer(
+		r = newHLSMuxer(
 			s.ctx,
 			s.hlsAlwaysRemux,
 			s.hlsSegmentCount,
@@ -222,15 +222,15 @@ func (s *hlsServer) findOrCreateRemuxer(pathName string) *hlsRemuxer {
 			pathName,
 			s.pathManager,
 			s)
-		s.remuxers[pathName] = r
+		s.muxers[pathName] = r
 	}
 	return r
 }
 
-// OnRemuxerClose is called by hlsRemuxer.
-func (s *hlsServer) OnRemuxerClose(c *hlsRemuxer) {
+// OnMuxerClose is called by hlsMuxer.
+func (s *hlsServer) OnMuxerClose(c *hlsMuxer) {
 	select {
-	case s.remuxerClose <- c:
+	case s.muxerClose <- c:
 	case <-s.ctx.Done():
 	}
 }

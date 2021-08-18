@@ -254,7 +254,7 @@ components:
       properties:
         type:
           type: string
-          enum: [hlsmuxer]
+          enum: [hlsMuxer]
 
     RTSPSession:
       type: object
