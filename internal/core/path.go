@@ -92,6 +92,7 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
+	Source sourceStatic
 	Tracks gortsplib.Tracks
 	Res    chan pathSourceStaticSetReadyRes
 }
@@ -348,8 +349,12 @@ outer:
 			}
 
 		case req := <-pa.sourceStaticSetReady:
-			pa.sourceSetReady(req.Tracks)
-			req.Res <- pathSourceStaticSetReadyRes{Stream: pa.stream}
+			if req.Source == pa.source {
+				pa.sourceSetReady(req.Tracks)
+				req.Res <- pathSourceStaticSetReadyRes{Stream: pa.stream}
+			} else {
+				req.Res <- pathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
+			}
 
 		case req := <-pa.sourceStaticSetNotReady:
 			if req.Source == pa.source {

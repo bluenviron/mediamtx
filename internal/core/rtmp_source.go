@@ -159,6 +159,7 @@ func (s *rtmpSource) runInner() bool {
 					s.log(logger.Info, "ready")
 
 					res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
+						Source: s,
 						Tracks: tracks,
 					})
 					if res.Err != nil {

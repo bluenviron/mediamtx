@@ -178,6 +178,7 @@ func (s *rtspSource) runInner() bool {
 	s.log(logger.Info, "ready")
 
 	res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
+		Source: s,
 		Tracks: conn.Tracks(),
 	})
 	if res.Err != nil {
