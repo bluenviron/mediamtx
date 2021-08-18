@@ -9,11 +9,11 @@
 [![Release](https://img.shields.io/github/v/release/aler9/rtsp-simple-server)](https://github.com/aler9/rtsp-simple-server/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a simple, ready-to-use and zero-dependency RTSP / RTMP / HLS server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP, RTMP and HLS are independent protocols that allows to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers; in particular:
+_rtsp-simple-server_ is a ready-to-use and zero-dependency RTSP / RTMP / HLS server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP, RTMP and HLS are independent protocols that allows to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers; in particular:
 
-* RTSP is the fastest way to publish and receive streams
-* RTMP allows to interact with legacy servers or software (like OBS Studio)
-* HLS allows to embed streams into a web page
+* RTSP is the fastest way to publish and read streams
+* RTMP allows to interact with legacy servers or software
+* HLS allows to view streams from a web page
 
 Features:
 
@@ -27,8 +27,8 @@ Plus:
 
 * Serve multiple streams at once in separate paths
 * Authenticate readers and publishers
-* Redirect readers to other RTSP servers (load balancing)
 * Query and control the server through an HTTP API
+* Redirect readers to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
