@@ -589,7 +589,6 @@ func (pa *path) staticSourceCreate() {
 			pa.readBufferCount,
 			pa.readBufferSize,
 			&pa.sourceStaticWg,
-			pa.stats,
 			pa)
 	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
 		pa.source = newRTMPSource(
@@ -598,7 +597,6 @@ func (pa *path) staticSourceCreate() {
 			pa.readTimeout,
 			pa.writeTimeout,
 			&pa.sourceStaticWg,
-			pa.stats,
 			pa)
 	}
 }

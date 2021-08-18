@@ -32,7 +32,6 @@ type rtmpSource struct {
 	readTimeout  time.Duration
 	writeTimeout time.Duration
 	wg           *sync.WaitGroup
-	stats        *stats
 	parent       rtmpSourceParent
 
 	ctx       context.Context
@@ -45,7 +44,6 @@ func newRTMPSource(
 	readTimeout time.Duration,
 	writeTimeout time.Duration,
 	wg *sync.WaitGroup,
-	stats *stats,
 	parent rtmpSourceParent) *rtmpSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -54,7 +52,6 @@ func newRTMPSource(
 		readTimeout:  readTimeout,
 		writeTimeout: writeTimeout,
 		wg:           wg,
-		stats:        stats,
 		parent:       parent,
 		ctx:          ctx,
 		ctxCancel:    ctxCancel,

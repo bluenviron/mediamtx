@@ -36,7 +36,6 @@ type rtspSource struct {
 	readBufferCount int
 	readBufferSize  int
 	wg              *sync.WaitGroup
-	stats           *stats
 	parent          rtspSourceParent
 
 	ctx       context.Context
@@ -54,7 +53,6 @@ func newRTSPSource(
 	readBufferCount int,
 	readBufferSize int,
 	wg *sync.WaitGroup,
-	stats *stats,
 	parent rtspSourceParent) *rtspSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -68,7 +66,6 @@ func newRTSPSource(
 		readBufferCount: readBufferCount,
 		readBufferSize:  readBufferSize,
 		wg:              wg,
-		stats:           stats,
 		parent:          parent,
 		ctx:             ctx,
 		ctxCancel:       ctxCancel,
