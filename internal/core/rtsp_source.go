@@ -175,8 +175,6 @@ func (s *rtspSource) runInner() bool {
 		return true
 	}
 
-	s.log(logger.Info, "ready")
-
 	res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
 		Source: s,
 		Tracks: conn.Tracks(),
@@ -185,6 +183,8 @@ func (s *rtspSource) runInner() bool {
 		s.log(logger.Info, "ERR: %s", err)
 		return true
 	}
+
+	s.log(logger.Info, "ready")
 
 	defer func() {
 		s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})

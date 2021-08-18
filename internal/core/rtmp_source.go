@@ -156,8 +156,6 @@ func (s *rtmpSource) runInner() bool {
 						tracks = append(tracks, audioTrack)
 					}
 
-					s.log(logger.Info, "ready")
-
 					res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
 						Source: s,
 						Tracks: tracks,
@@ -165,6 +163,8 @@ func (s *rtmpSource) runInner() bool {
 					if res.Err != nil {
 						return err
 					}
+
+					s.log(logger.Info, "ready")
 
 					defer func() {
 						s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
