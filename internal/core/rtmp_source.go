@@ -78,22 +78,17 @@ func (s *rtmpSource) log(level logger.Level, format string, args ...interface{})
 func (s *rtmpSource) run() {
 	defer s.wg.Done()
 
+outer:
 	for {
-		ok := func() bool {
-			ok := s.runInner()
-			if !ok {
-				return false
-			}
-
-			select {
-			case <-time.After(rtmpSourceRetryPause):
-				return true
-			case <-s.ctx.Done():
-				return false
-			}
-		}()
+		ok := s.runInner()
 		if !ok {
-			break
+			break outer
+		}
+
+		select {
+		case <-time.After(rtmpSourceRetryPause):
+		case <-s.ctx.Done():
+			break outer
 		}
 	}
 
@@ -158,7 +153,7 @@ func (s *rtmpSource) runInner() bool {
 						Tracks: tracks,
 					})
 					if res.Err != nil {
-						return err
+						return res.Err
 					}
 
 					s.log(logger.Info, "ready")

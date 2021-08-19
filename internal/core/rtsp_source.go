@@ -177,7 +177,7 @@ func (s *rtspSource) runInner() bool {
 		Tracks: conn.Tracks(),
 	})
 	if res.Err != nil {
-		s.log(logger.Info, "ERR: %s", err)
+		s.log(logger.Info, "ERR: %s", res.Err)
 		return true
 	}
 
