@@ -61,7 +61,7 @@ func New(args []string) (*Core, bool) {
 	// on Linux, try to raise the number of file descriptors that can be opened
 	// to allow the maximum possible number of clients
 	// do not check for errors
-	rlimit.Raise()
+	_ = rlimit.Raise()
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
