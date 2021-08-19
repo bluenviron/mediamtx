@@ -45,10 +45,7 @@ type metrics struct {
 	rtmpServer  metricsRTMPServer
 }
 
-func newMetrics(
-	address string,
-	parent metricsParent,
-) (*metrics, error) {
+func newMetrics(address string, parent metricsParent) (*metrics, error) {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
