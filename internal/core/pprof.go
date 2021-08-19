@@ -20,10 +20,7 @@ type pprof struct {
 	server   *http.Server
 }
 
-func newPPROF(
-	address string,
-	parent pprofParent,
-) (*pprof, error) {
+func newPPROF(address string, parent pprofParent, ) (*pprof, error) {
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
