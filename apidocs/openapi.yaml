@@ -202,7 +202,7 @@ components:
       properties:
         type:
           type: string
-          enum: [rtspsession]
+          enum: [rtspSession]
         id:
           type: string
 
@@ -211,7 +211,7 @@ components:
       properties:
         type:
           type: string
-          enum: [rtspssession]
+          enum: [rtspsSession]
         id:
           type: string
 
@@ -220,7 +220,7 @@ components:
       properties:
         type:
           type: string
-          enum: [rtmpconn]
+          enum: [rtmpConn]
         id:
           type: string
 
@@ -243,7 +243,7 @@ components:
       properties:
         type:
           type: string
-          enum: [rtspsession]
+          enum: [rtspSession]
         id:
           type: string
 
@@ -252,7 +252,7 @@ components:
       properties:
         type:
           type: string
-          enum: [rtspssession]
+          enum: [rtspsSession]
         id:
           type: string
 
@@ -261,7 +261,7 @@ components:
       properties:
         type:
           type: string
-          enum: [rtmpconn]
+          enum: [rtmpConn]
         id:
           type: string
 

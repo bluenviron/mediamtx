@@ -352,7 +352,7 @@ func (s *rtspSession) OnReaderAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtspsession", s.id}
+	}{"rtspSession", s.id}
 }
 
 // OnSourceAPIDescribe implements source.
@@ -360,7 +360,7 @@ func (s *rtspSession) OnSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtspsession", s.id}
+	}{"rtspSession", s.id}
 }
 
 // OnPublisherAccepted implements publisher.

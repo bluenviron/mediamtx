@@ -548,7 +548,7 @@ func (c *rtmpConn) OnReaderAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtmpconn", c.id}
+	}{"rtmpConn", c.id}
 }
 
 // OnSourceAPIDescribe implements source.
@@ -556,7 +556,7 @@ func (c *rtmpConn) OnSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtmpconn", c.id}
+	}{"rtmpConn", c.id}
 }
 
 // OnPublisherAccepted implements publisher.
