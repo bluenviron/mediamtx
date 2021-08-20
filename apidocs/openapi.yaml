@@ -184,6 +184,8 @@ components:
           - $ref: '#/components/schemas/PathSourceRTSPSession'
           - $ref: '#/components/schemas/PathSourceRTSPSSession'
           - $ref: '#/components/schemas/PathSourceRTMPConn'
+          - $ref: '#/components/schemas/PathSourceRTSPSource'
+          - $ref: '#/components/schemas/PathSourceRTMPSource'
         sourceReady:
           type: boolean
         readers:
@@ -221,6 +223,20 @@ components:
           enum: [rtmpconn]
         id:
           type: string
+
+    PathSourceRTSPSource:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtspSource]
+
+    PathSourceRTMPSource:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtmpSource]
 
     PathReaderRTSPSession:
       type: object
