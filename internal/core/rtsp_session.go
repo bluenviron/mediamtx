@@ -29,6 +29,7 @@ type rtspSessionParent interface {
 }
 
 type rtspSession struct {
+	isTLS       bool
 	rtspAddress string
 	protocols   map[conf.Protocol]struct{}
 	id          string
@@ -47,6 +48,7 @@ type rtspSession struct {
 }
 
 func newRTSPSession(
+	isTLS bool,
 	rtspAddress string,
 	protocols map[conf.Protocol]struct{},
 	id string,
@@ -55,6 +57,7 @@ func newRTSPSession(
 	pathManager rtspSessionPathManager,
 	parent rtspSessionParent) *rtspSession {
 	s := &rtspSession{
+		isTLS:       isTLS,
 		rtspAddress: rtspAddress,
 		protocols:   protocols,
 		id:          id,
@@ -349,18 +352,32 @@ func (s *rtspSession) OnReaderFrame(trackID int, streamType gortsplib.StreamType
 
 // OnReaderAPIDescribe implements reader.
 func (s *rtspSession) OnReaderAPIDescribe() interface{} {
+	var typ string
+	if s.isTLS {
+		typ = "rtspsSession"
+	} else {
+		typ = "rtspSession"
+	}
+
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtspSession", s.id}
+	}{typ, s.id}
 }
 
 // OnSourceAPIDescribe implements source.
 func (s *rtspSession) OnSourceAPIDescribe() interface{} {
+	var typ string
+	if s.isTLS {
+		typ = "rtspsSession"
+	} else {
+		typ = "rtspSession"
+	}
+
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtspSession", s.id}
+	}{typ, s.id}
 }
 
 // OnPublisherAccepted implements publisher.

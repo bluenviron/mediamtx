@@ -277,6 +277,7 @@ func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx)
 	id, _ := s.newSessionID()
 
 	se := newRTSPSession(
+		s.isTLS,
 		s.rtspAddress,
 		s.protocols,
 		id,

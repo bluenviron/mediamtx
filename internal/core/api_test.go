@@ -150,19 +150,59 @@ func TestAPIConfigPathsRemove(t *testing.T) {
 }
 
 func TestAPIPathsList(t *testing.T) {
+	serverCertFpath, err := writeTempFile(serverCert)
+	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
+
+	serverKeyFpath, err := writeTempFile(serverKey)
+	require.NoError(t, err)
+	defer os.Remove(serverKeyFpath)
+
 	p, ok := newInstance("api: yes\n" +
+		"encryption: optional\n" +
+		"serverCert: " + serverCertFpath + "\n" +
+		"serverKey: " + serverKeyFpath + "\n" +
 		"paths:\n" +
 		"  mypath:\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 
 	var out struct {
-		Items map[string]interface{} `json:"items"`
+		Items map[string]struct {
+			Source struct {
+				Type string `json:"type"`
+			} `json:"source"`
+		} `json:"items"`
 	}
-	err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 	require.NoError(t, err)
 	_, ok = out.Items["mypath"]
 	require.Equal(t, true, ok)
+
+	track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+	require.NoError(t, err)
+
+	func() {
+		source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+			gortsplib.Tracks{track})
+		require.NoError(t, err)
+		defer source.Close()
+
+		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		require.NoError(t, err)
+		require.Equal(t, "rtspSession", out.Items["mypath"].Source.Type)
+	}()
+
+	func() {
+		source, err := gortsplib.DialPublish("rtsps://localhost:8555/mypath",
+			gortsplib.Tracks{track})
+		require.NoError(t, err)
+		defer source.Close()
+
+		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		require.NoError(t, err)
+		require.Equal(t, "rtspsSession", out.Items["mypath"].Source.Type)
+	}()
 }
 
 func TestAPIList(t *testing.T) {
