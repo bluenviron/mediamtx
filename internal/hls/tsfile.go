@@ -119,12 +119,15 @@ func (t *tsFile) writeH264(
 		filteredNALUs = append(filteredNALUs, nalu)
 	}
 
+	enc, err := h264.EncodeAnnexB(filteredNALUs)
+	if err != nil {
+		return err
+	}
+
 	var af *astits.PacketAdaptationField
 
 	if isIDR {
-		if af == nil {
-			af = &astits.PacketAdaptationField{}
-		}
+		af = &astits.PacketAdaptationField{}
 		af.RandomAccessIndicator = true
 
 		// send PCR with every IDR
@@ -133,9 +136,17 @@ func (t *tsFile) writeH264(
 		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
 	}
 
-	enc, err := h264.EncodeAnnexB(filteredNALUs)
-	if err != nil {
-		return err
+	oh := &astits.PESOptionalHeader{
+		MarkerBits: 2,
+	}
+
+	if dts == pts {
+		oh.PTSDTSIndicator = astits.PTSDTSIndicatorOnlyPTS
+		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
+	} else {
+		oh.PTSDTSIndicator = astits.PTSDTSIndicatorBothPresent
+		oh.DTS = &astits.ClockReference{Base: int64(dts.Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
 	}
 
 	_, err = t.mux.WriteData(&astits.MuxerData{
@@ -143,13 +154,8 @@ func (t *tsFile) writeH264(
 		AdaptationField: af,
 		PES: &astits.PESData{
 			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorBothPresent,
-					DTS:             &astits.ClockReference{Base: int64(dts.Seconds() * 90000)},
-					PTS:             &astits.ClockReference{Base: int64(pts.Seconds() * 90000)},
-				},
-				StreamID: 224, // = video
+				OptionalHeader: oh,
+				StreamID:       224, // = video
 			},
 			Data: enc,
 		},
@@ -188,8 +194,8 @@ func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, a
 		RandomAccessIndicator: true,
 	}
 
+	// if audio is the only track, send PCR with every AU
 	if t.videoTrack == nil {
-		// if audio is the only track, send PCR with every AU
 		af.HasPCR = true
 		pcr := time.Since(t.startPCR)
 		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
