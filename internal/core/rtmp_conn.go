@@ -329,13 +329,26 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 					return err
 				}
 
-				dts := videoDTSEst.Feed(pts + rtmpConnPTSOffset)
+				idrPresent := func() bool {
+					for _, nalu := range nalus {
+						typ := h264.NALUType(nalu[0] & 0x1F)
+						if typ == h264.NALUTypeIDR {
+							return true
+						}
+					}
+					return false
+				}()
+
+				pts += rtmpConnPTSOffset
+
+				dts := videoDTSEst.Feed(idrPresent, pts)
+
 				c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 				err = c.conn.WritePacket(av.Packet{
 					Type:  av.H264,
 					Data:  data,
 					Time:  dts,
-					CTime: pts + rtmpConnPTSOffset - dts,
+					CTime: pts - dts,
 				})
 				if err != nil {
 					return err

@@ -20,7 +20,7 @@ func NewDTSEstimator() *DTSEstimator {
 }
 
 // Feed provides PTS to the estimator, and returns the estimated DTS.
-func (d *DTSEstimator) Feed(pts time.Duration) time.Duration {
+func (d *DTSEstimator) Feed(idrPresent bool, pts time.Duration) time.Duration {
 	if d.initializing > 0 {
 		d.initializing--
 		dts := d.prevDTS + time.Millisecond
@@ -31,6 +31,12 @@ func (d *DTSEstimator) Feed(pts time.Duration) time.Duration {
 	}
 
 	dts := func() time.Duration {
+		// IDR
+		if idrPresent {
+			// DTS is always PTS
+			return pts
+		}
+
 		// P or I frame
 		if pts > d.prevPTS {
 			// previous frame was B
