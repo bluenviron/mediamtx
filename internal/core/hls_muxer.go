@@ -47,7 +47,7 @@ const index = `<!DOCTYPE html>
 </head>
 <body>
 
-<div id="video-wrapper"><video id="video" muted controls></video></div>
+<div id="video-wrapper"><video id="video" muted controls autoplay></video></div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.0.0"></script>
 
@@ -57,8 +57,14 @@ const create = () => {
 	const video = document.getElementById('video');
 
 	if (video.canPlayType('application/vnd.apple.mpegurl')) {
-		video.src = 'index.m3u8';
-		video.play();
+		// since it's not possible to detect timeout errors in iOS,
+		// wait for the playlist to be available before starting the stream
+		fetch('stream.m3u8')
+			.then(() => {
+				video.src = 'index.m3u8';
+				video.play();
+			});
+
 	} else {
 		const hls = new Hls({
 			progressive: false,
@@ -68,9 +74,7 @@ const create = () => {
 			if (data.fatal) {
 				hls.destroy();
 
-				setTimeout(() => {
-					create();
-				}, 2000);
+				setTimeout(create, 2000);
 			}
 		});
 
@@ -79,8 +83,9 @@ const create = () => {
 
 		video.play();
 	}
-}
-create();
+};
+
+window.addEventListener('DOMContentLoaded', create);
 
 </script>
 
@@ -443,7 +448,7 @@ func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) {
 		req.Res <- r.muxer.StreamPlaylist()
 
 	case strings.HasSuffix(req.File, ".ts"):
-		r := r.muxer.TSFile(req.File)
+		r := r.muxer.Segment(req.File)
 		if r == nil {
 			req.W.WriteHeader(http.StatusNotFound)
 			req.Res <- nil

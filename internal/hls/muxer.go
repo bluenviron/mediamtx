@@ -1,13 +1,7 @@
 package hls
 
 import (
-	"bytes"
-	"encoding/hex"
 	"io"
-	"math"
-	"strconv"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -32,18 +26,16 @@ type Muxer struct {
 	videoTrack         *gortsplib.Track
 	audioTrack         *gortsplib.Track
 
-	h264SPS       []byte
-	h264PPS       []byte
-	aacConfig     rtpaac.MPEG4AudioConfig
-	videoDTSEst   *h264.DTSEstimator
-	audioAUCount  int
-	tsCurrent     *tsFile
-	tsQueue       []*tsFile
-	tsByName      map[string]*tsFile
-	tsDeleteCount int
-	mutex         sync.RWMutex
-	startPCR      time.Time
-	startPTS      time.Duration
+	h264SPS         []byte
+	h264PPS         []byte
+	aacConfig       rtpaac.MPEG4AudioConfig
+	videoDTSEst     *h264.DTSEstimator
+	audioAUCount    int
+	currentSegment  *segment
+	startPCR        time.Time
+	startPTS        time.Duration
+	primaryPlaylist *primaryPlaylist
+	streamPlaylist  *streamPlaylist
 }
 
 // NewMuxer allocates a Muxer.
@@ -84,19 +76,17 @@ func NewMuxer(
 		h264PPS:            h264PPS,
 		aacConfig:          aacConfig,
 		videoDTSEst:        h264.NewDTSEstimator(),
-		tsCurrent:          newTSFile(videoTrack, audioTrack),
-		tsByName:           make(map[string]*tsFile),
+		currentSegment:     newSegment(videoTrack, audioTrack, h264SPS, h264PPS),
+		primaryPlaylist:    newPrimaryPlaylist(videoTrack, audioTrack, h264SPS, h264PPS),
+		streamPlaylist:     newStreamPlaylist(hlsSegmentCount),
 	}
-
-	m.tsByName[m.tsCurrent.name] = m.tsCurrent
-	m.tsQueue = append(m.tsQueue, m.tsCurrent)
 
 	return m, nil
 }
 
 // Close closes a Muxer.
 func (m *Muxer) Close() {
-	m.tsCurrent.close()
+	m.streamPlaylist.close()
 }
 
 // WriteH264 writes H264 NALUs, grouped by PTS, into the muxer.
@@ -112,38 +102,27 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 	}()
 
 	// skip group silently until we find one with a IDR
-	if !m.tsCurrent.firstPacketWritten && !idrPresent {
+	if !m.currentSegment.firstPacketWritten && !idrPresent {
 		return nil
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	if m.currentSegment.firstPacketWritten {
+		if idrPresent &&
+			m.currentSegment.duration() >= m.hlsSegmentDuration {
+			m.streamPlaylist.pushSegment(m.currentSegment)
 
-	if idrPresent &&
-		m.tsCurrent.firstPacketWritten &&
-		m.tsCurrent.duration() >= m.hlsSegmentDuration {
-		m.tsCurrent.close()
-
-		m.tsCurrent = newTSFile(m.videoTrack, m.audioTrack)
-		m.tsCurrent.setStartPCR(m.startPCR)
-
-		m.tsByName[m.tsCurrent.name] = m.tsCurrent
-		m.tsQueue = append(m.tsQueue, m.tsCurrent)
-		if len(m.tsQueue) > m.hlsSegmentCount {
-			delete(m.tsByName, m.tsQueue[0].name)
-			m.tsQueue = m.tsQueue[1:]
-			m.tsDeleteCount++
+			m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264SPS, m.h264PPS)
+			m.currentSegment.setStartPCR(m.startPCR)
 		}
-	} else if !m.tsCurrent.firstPacketWritten {
+	} else {
 		m.startPCR = time.Now()
 		m.startPTS = pts
-		m.tsCurrent.setStartPCR(m.startPCR)
+		m.currentSegment.setStartPCR(m.startPCR)
 	}
 
 	pts = pts + ptsOffset - m.startPTS
-	err := m.tsCurrent.writeH264(
-		m.h264SPS,
-		m.h264PPS,
+
+	err := m.currentSegment.writeH264(
 		m.videoDTSEst.Feed(pts),
 		pts,
 		idrPresent,
@@ -157,34 +136,24 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 
 // WriteAAC writes AAC AUs, grouped by PTS, into the muxer.
 func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
 	if m.videoTrack == nil {
-		if m.audioAUCount >= segmentMinAUCount &&
-			m.tsCurrent.firstPacketWritten &&
-			m.tsCurrent.duration() >= m.hlsSegmentDuration {
-			m.tsCurrent.close()
+		if m.currentSegment.firstPacketWritten {
+			if m.audioAUCount >= segmentMinAUCount &&
+				m.currentSegment.duration() >= m.hlsSegmentDuration {
+				m.audioAUCount = 0
 
-			m.audioAUCount = 0
+				m.streamPlaylist.pushSegment(m.currentSegment)
 
-			m.tsCurrent = newTSFile(m.videoTrack, m.audioTrack)
-			m.tsCurrent.setStartPCR(m.startPCR)
-
-			m.tsByName[m.tsCurrent.name] = m.tsCurrent
-			m.tsQueue = append(m.tsQueue, m.tsCurrent)
-			if len(m.tsQueue) > m.hlsSegmentCount {
-				delete(m.tsByName, m.tsQueue[0].name)
-				m.tsQueue = m.tsQueue[1:]
-				m.tsDeleteCount++
+				m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264SPS, m.h264PPS)
+				m.currentSegment.setStartPCR(m.startPCR)
 			}
-		} else if !m.tsCurrent.firstPacketWritten {
+		} else {
 			m.startPCR = time.Now()
 			m.startPTS = pts
-			m.tsCurrent.setStartPCR(m.startPCR)
+			m.currentSegment.setStartPCR(m.startPCR)
 		}
 	} else {
-		if !m.tsCurrent.firstPacketWritten {
+		if !m.currentSegment.firstPacketWritten {
 			return nil
 		}
 	}
@@ -194,7 +163,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	for i, au := range aus {
 		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConfig.SampleRate)
 
-		err := m.tsCurrent.writeAAC(
+		err := m.currentSegment.writeAAC(
 			m.aacConfig.SampleRate,
 			m.aacConfig.ChannelCount,
 			auPTS,
@@ -211,68 +180,15 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 
 // PrimaryPlaylist returns a reader to read the primary playlist
 func (m *Muxer) PrimaryPlaylist() io.Reader {
-	var codecs []string
-
-	if m.videoTrack != nil {
-		codecs = append(codecs, "avc1."+hex.EncodeToString(m.h264SPS[1:4]))
-	}
-
-	if m.audioTrack != nil {
-		codecs = append(codecs, "mp4a.40.2")
-	}
-
-	cnt := "#EXTM3U\n"
-	cnt += "#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n"
-	cnt += "stream.m3u8\n"
-
-	return bytes.NewReader([]byte(cnt))
+	return m.primaryPlaylist.reader()
 }
 
 // StreamPlaylist returns a reader to read the stream playlist.
 func (m *Muxer) StreamPlaylist() io.Reader {
-	cnt := "#EXTM3U\n"
-	cnt += "#EXT-X-VERSION:3\n"
-	cnt += "#EXT-X-ALLOW-CACHE:NO\n"
-
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	targetDuration := func() uint {
-		ret := uint(math.Ceil(m.hlsSegmentDuration.Seconds()))
-
-		// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
-		for _, f := range m.tsQueue {
-			v2 := uint(math.Round(f.duration().Seconds()))
-			if v2 > ret {
-				ret = v2
-			}
-		}
-
-		return ret
-	}()
-	cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
-
-	cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(m.tsDeleteCount), 10) + "\n"
-
-	for _, f := range m.tsQueue {
-		cnt += "#EXTINF:" + strconv.FormatFloat(f.duration().Seconds(), 'f', -1, 64) + ",\n"
-		cnt += f.name + ".ts\n"
-	}
-
-	return bytes.NewReader([]byte(cnt))
+	return m.streamPlaylist.reader()
 }
 
-// TSFile returns a reader to read a MPEG-TS file.
-func (m *Muxer) TSFile(fname string) io.Reader {
-	base := strings.TrimSuffix(fname, ".ts")
-
-	m.mutex.RLock()
-	f, ok := m.tsByName[base]
-	m.mutex.RUnlock()
-
-	if !ok {
-		return nil
-	}
-
-	return f.newReader()
+// Segment returns a reader to read a segment.
+func (m *Muxer) Segment(fname string) io.Reader {
+	return m.streamPlaylist.segment(fname)
 }

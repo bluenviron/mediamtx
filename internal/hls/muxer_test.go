@@ -80,13 +80,11 @@ func TestMuxer(t *testing.T) {
 		`#EXT-X-TARGETDURATION:2\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
 		`#EXTINF:2,\n` +
-		`([0-9]+\.ts)\n` +
-		`#EXTINF:0,\n` +
 		`([0-9]+\.ts)\n$`)
 	ma := re.FindStringSubmatch(string(byts))
-	require.NotEqual(t, nil, ma)
+	require.NotEqual(t, 0, len(ma))
 
-	byts, err = ioutil.ReadAll(m.TSFile(ma[1]))
+	byts, err = ioutil.ReadAll(m.Segment(ma[1]))
 	require.NoError(t, err)
 
 	checkTSPacket(t, byts, 0, 1)
@@ -106,4 +104,30 @@ func TestMuxer(t *testing.T) {
 		},
 		byts[:24],
 	)
+}
+
+func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08})
+	require.NoError(t, err)
+
+	audioTrack, err := gortsplib.NewTrackAAC(97, []byte{17, 144})
+	require.NoError(t, err)
+
+	m, err := NewMuxer(3, 1*time.Second, videoTrack, audioTrack)
+	require.NoError(t, err)
+
+	// group with IDR
+	err = m.WriteH264(2*time.Second, [][]byte{
+		{5}, // IDR
+		{9}, // AUD
+		{8}, // PPS
+		{7}, // SPS
+	})
+	require.NoError(t, err)
+
+	m.Close()
+
+	byts, err := ioutil.ReadAll(m.StreamPlaylist())
+	require.NoError(t, err)
+	require.Equal(t, []byte{}, byts)
 }

@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"strconv"
@@ -13,10 +14,13 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 )
 
-type tsFile struct {
-	videoTrack         *gortsplib.Track
+type segment struct {
+	videoTrack *gortsplib.Track
+	h264SPS    []byte
+	h264PPS    []byte
+
 	name               string
-	buf                *multiAccessBuffer
+	buf                bytes.Buffer
 	mux                *astits.Muxer
 	firstPacketWritten bool
 	minPTS             time.Duration
@@ -25,14 +29,20 @@ type tsFile struct {
 	pcrSendCounter     int
 }
 
-func newTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *tsFile {
-	t := &tsFile{
+func newSegment(
+	videoTrack *gortsplib.Track,
+	audioTrack *gortsplib.Track,
+	h264SPS []byte,
+	h264PPS []byte,
+) *segment {
+	t := &segment{
 		videoTrack: videoTrack,
+		h264SPS:    h264SPS,
+		h264PPS:    h264PPS,
 		name:       strconv.FormatInt(time.Now().Unix(), 10),
-		buf:        newMultiAccessBuffer(),
 	}
 
-	t.mux = astits.NewMuxer(context.Background(), t.buf)
+	t.mux = astits.NewMuxer(context.Background(), &t.buf)
 
 	if videoTrack != nil {
 		t.mux.AddElementaryStream(astits.PMTElementaryStream{
@@ -62,25 +72,19 @@ func newTSFile(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) *tsFile
 	return t
 }
 
-func (t *tsFile) close() error {
-	return t.buf.Close()
-}
-
-func (t *tsFile) duration() time.Duration {
+func (t *segment) duration() time.Duration {
 	return t.maxPTS - t.minPTS
 }
 
-func (t *tsFile) setStartPCR(startPCR time.Time) {
+func (t *segment) setStartPCR(startPCR time.Time) {
 	t.startPCR = startPCR
 }
 
-func (t *tsFile) newReader() io.Reader {
-	return t.buf.NewReader()
+func (t *segment) reader() io.Reader {
+	return bytes.NewReader(t.buf.Bytes())
 }
 
-func (t *tsFile) writeH264(
-	h264SPS []byte,
-	h264PPS []byte,
+func (t *segment) writeH264(
 	dts time.Duration,
 	pts time.Duration,
 	isIDR bool,
@@ -113,8 +117,8 @@ func (t *tsFile) writeH264(
 
 		// add SPS and PPS before IDR
 		if typ == h264.NALUTypeIDR {
-			filteredNALUs = append(filteredNALUs, h264SPS)
-			filteredNALUs = append(filteredNALUs, h264PPS)
+			filteredNALUs = append(filteredNALUs, t.h264SPS)
+			filteredNALUs = append(filteredNALUs, t.h264PPS)
 		}
 
 		filteredNALUs = append(filteredNALUs, nalu)
@@ -172,7 +176,7 @@ func (t *tsFile) writeH264(
 	return err
 }
 
-func (t *tsFile) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
+func (t *segment) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
 	if t.videoTrack == nil {
 		if !t.firstPacketWritten {
 			t.firstPacketWritten = true
