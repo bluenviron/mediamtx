@@ -27,7 +27,7 @@ func TestMetrics(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+	track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 	require.NoError(t, err)
 
 	source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",

@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/notedit/rtmp/av"
 	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
@@ -121,6 +122,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 			if !hasVideo {
 				return nil, nil, fmt.Errorf("unexpected video packet")
 			}
+
 			if videoTrack != nil {
 				return nil, nil, fmt.Errorf("video track setupped twice")
 			}
@@ -130,7 +132,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 				return nil, nil, err
 			}
 
-			videoTrack, err = gortsplib.NewTrackH264(96, codec.SPS[0], codec.PPS[0])
+			videoTrack, err = gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: codec.SPS[0], PPS: codec.PPS[0]})
 			if err != nil {
 				return nil, nil, err
 			}
@@ -139,11 +141,23 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 			if !hasAudio {
 				return nil, nil, fmt.Errorf("unexpected audio packet")
 			}
+
 			if audioTrack != nil {
 				return nil, nil, fmt.Errorf("audio track setupped twice")
 			}
 
-			audioTrack, err = gortsplib.NewTrackAAC(96, pkt.Data)
+			var mpegConf rtpaac.MPEG4AudioConfig
+			err := mpegConf.Decode(pkt.Data)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			audioTrack, err = gortsplib.NewTrackAAC(96, &gortsplib.TrackConfigAAC{
+				Type:              int(mpegConf.Type),
+				SampleRate:        mpegConf.SampleRate,
+				ChannelCount:      mpegConf.ChannelCount,
+				AOTSpecificConfig: mpegConf.AOTSpecificConfig,
+			})
 			if err != nil {
 				return nil, nil, err
 			}
@@ -194,17 +208,17 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 	}
 
 	if videoTrack != nil {
-		sps, pps, err := videoTrack.ExtractDataH264()
+		conf, err := videoTrack.ExtractConfigH264()
 		if err != nil {
 			return err
 		}
 
 		codec := nh264.Codec{
 			SPS: map[int][]byte{
-				0: sps,
+				0: conf.SPS,
 			},
 			PPS: map[int][]byte{
-				0: pps,
+				0: conf.PPS,
 			},
 		}
 		b := make([]byte, 128)
@@ -222,14 +236,24 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 	}
 
 	if audioTrack != nil {
-		config, err := audioTrack.ExtractDataAAC()
+		conf, err := audioTrack.ExtractConfigAAC()
+		if err != nil {
+			return err
+		}
+
+		enc, err := rtpaac.MPEG4AudioConfig{
+			Type:              rtpaac.MPEG4AudioType(conf.Type),
+			SampleRate:        conf.SampleRate,
+			ChannelCount:      conf.ChannelCount,
+			AOTSpecificConfig: conf.AOTSpecificConfig,
+		}.Encode()
 		if err != nil {
 			return err
 		}
 
 		err = c.WritePacket(av.Packet{
 			Type: av.AACDecoderConfig,
-			Data: config,
+			Data: enc,
 		})
 		if err != nil {
 			return err

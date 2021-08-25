@@ -16,8 +16,8 @@ import (
 
 type segment struct {
 	videoTrack *gortsplib.Track
-	h264SPS    []byte
-	h264PPS    []byte
+	h264Conf   *gortsplib.TrackConfigH264
+	aacConf    *gortsplib.TrackConfigAAC
 
 	name               string
 	buf                bytes.Buffer
@@ -32,13 +32,13 @@ type segment struct {
 func newSegment(
 	videoTrack *gortsplib.Track,
 	audioTrack *gortsplib.Track,
-	h264SPS []byte,
-	h264PPS []byte,
+	h264Conf *gortsplib.TrackConfigH264,
+	aacConf *gortsplib.TrackConfigAAC,
 ) *segment {
 	t := &segment{
 		videoTrack: videoTrack,
-		h264SPS:    h264SPS,
-		h264PPS:    h264PPS,
+		h264Conf:   h264Conf,
+		aacConf:    aacConf,
 		name:       strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
@@ -117,8 +117,8 @@ func (t *segment) writeH264(
 
 		// add SPS and PPS before IDR
 		if typ == h264.NALUTypeIDR {
-			filteredNALUs = append(filteredNALUs, t.h264SPS)
-			filteredNALUs = append(filteredNALUs, t.h264PPS)
+			filteredNALUs = append(filteredNALUs, t.h264Conf.SPS)
+			filteredNALUs = append(filteredNALUs, t.h264Conf.PPS)
 		}
 
 		filteredNALUs = append(filteredNALUs, nalu)
@@ -176,7 +176,9 @@ func (t *segment) writeH264(
 	return err
 }
 
-func (t *segment) writeAAC(sampleRate int, channelCount int, pts time.Duration, au []byte) error {
+func (t *segment) writeAAC(
+	pts time.Duration,
+	au []byte) error {
 	if t.videoTrack == nil {
 		if !t.firstPacketWritten {
 			t.firstPacketWritten = true
@@ -194,8 +196,8 @@ func (t *segment) writeAAC(sampleRate int, channelCount int, pts time.Duration, 
 
 	adtsPkt, err := aac.EncodeADTS([]*aac.ADTSPacket{
 		{
-			SampleRate:   sampleRate,
-			ChannelCount: channelCount,
+			SampleRate:   t.aacConf.SampleRate,
+			ChannelCount: t.aacConf.ChannelCount,
 			Frame:        au,
 		},
 	})

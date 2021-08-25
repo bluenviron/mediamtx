@@ -354,7 +354,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(68, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04})
+			track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
 			_, err = gortsplib.DialPublish(
@@ -412,7 +412,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track, err := gortsplib.NewTrackH264(68, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04})
+		track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
 		_, err = gortsplib.DialPublish(
@@ -477,7 +477,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(68, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04})
+			track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
 			s1, err := gortsplib.DialPublish("rtsp://localhost:8554/teststream",
@@ -544,7 +544,7 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+		track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
@@ -594,7 +594,7 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p1.close()
 
-		track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+		track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{

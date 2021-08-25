@@ -263,7 +263,6 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.Track
 	audioTrackID := -1
-	var aacConfig rtpaac.MPEG4AudioConfig
 	var aacDecoder *rtpaac.Decoder
 
 	for i, t := range res.Stream.tracks() {
@@ -285,17 +284,12 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			audioTrack = t
 			audioTrackID = i
 
-			byts, err := t.ExtractDataAAC()
+			conf, err := t.ExtractConfigAAC()
 			if err != nil {
 				return err
 			}
 
-			err = aacConfig.Decode(byts)
-			if err != nil {
-				return err
-			}
-
-			aacDecoder = rtpaac.NewDecoder(aacConfig.SampleRate)
+			aacDecoder = rtpaac.NewDecoder(conf.SampleRate)
 		}
 	}
 

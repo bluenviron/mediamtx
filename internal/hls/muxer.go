@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
 
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 )
@@ -26,9 +25,8 @@ type Muxer struct {
 	videoTrack         *gortsplib.Track
 	audioTrack         *gortsplib.Track
 
-	h264SPS         []byte
-	h264PPS         []byte
-	aacConfig       rtpaac.MPEG4AudioConfig
+	h264Conf        *gortsplib.TrackConfigH264
+	aacConf         *gortsplib.TrackConfigAAC
 	videoDTSEst     *h264.DTSEstimator
 	audioAUCount    int
 	currentSegment  *segment
@@ -44,24 +42,19 @@ func NewMuxer(
 	hlsSegmentDuration time.Duration,
 	videoTrack *gortsplib.Track,
 	audioTrack *gortsplib.Track) (*Muxer, error) {
-	var h264SPS []byte
-	var h264PPS []byte
+	var h264Conf *gortsplib.TrackConfigH264
 	if videoTrack != nil {
 		var err error
-		h264SPS, h264PPS, err = videoTrack.ExtractDataH264()
+		h264Conf, err = videoTrack.ExtractConfigH264()
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	var aacConfig rtpaac.MPEG4AudioConfig
+	var aacConf *gortsplib.TrackConfigAAC
 	if audioTrack != nil {
-		byts, err := audioTrack.ExtractDataAAC()
-		if err != nil {
-			return nil, err
-		}
-
-		err = aacConfig.Decode(byts)
+		var err error
+		aacConf, err = audioTrack.ExtractConfigAAC()
 		if err != nil {
 			return nil, err
 		}
@@ -72,12 +65,11 @@ func NewMuxer(
 		hlsSegmentDuration: hlsSegmentDuration,
 		videoTrack:         videoTrack,
 		audioTrack:         audioTrack,
-		h264SPS:            h264SPS,
-		h264PPS:            h264PPS,
-		aacConfig:          aacConfig,
+		h264Conf:           h264Conf,
+		aacConf:            aacConf,
 		videoDTSEst:        h264.NewDTSEstimator(),
-		currentSegment:     newSegment(videoTrack, audioTrack, h264SPS, h264PPS),
-		primaryPlaylist:    newPrimaryPlaylist(videoTrack, audioTrack, h264SPS, h264PPS),
+		currentSegment:     newSegment(videoTrack, audioTrack, h264Conf, aacConf),
+		primaryPlaylist:    newPrimaryPlaylist(videoTrack, audioTrack, h264Conf),
 		streamPlaylist:     newStreamPlaylist(hlsSegmentCount),
 	}
 
@@ -111,7 +103,7 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 			m.currentSegment.duration() >= m.hlsSegmentDuration {
 			m.streamPlaylist.pushSegment(m.currentSegment)
 
-			m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264SPS, m.h264PPS)
+			m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264Conf, m.aacConf)
 			m.currentSegment.setStartPCR(m.startPCR)
 		}
 	} else {
@@ -144,7 +136,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 
 				m.streamPlaylist.pushSegment(m.currentSegment)
 
-				m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264SPS, m.h264PPS)
+				m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264Conf, m.aacConf)
 				m.currentSegment.setStartPCR(m.startPCR)
 			}
 		} else {
@@ -161,13 +153,9 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	pts = pts + ptsOffset - m.startPTS
 
 	for i, au := range aus {
-		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConfig.SampleRate)
+		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConf.SampleRate)
 
-		err := m.currentSegment.writeAAC(
-			m.aacConfig.SampleRate,
-			m.aacConfig.ChannelCount,
-			auPTS,
-			au)
+		err := m.currentSegment.writeAAC(auPTS, au)
 		if err != nil {
 			return err
 		}

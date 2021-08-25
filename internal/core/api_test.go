@@ -179,7 +179,7 @@ func TestAPIPathsList(t *testing.T) {
 	_, ok = out.Items["mypath"]
 	require.Equal(t, true, ok)
 
-	track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+	track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 	require.NoError(t, err)
 
 	func() {
@@ -227,7 +227,7 @@ func TestAPIList(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+			track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
 			switch ca {
@@ -308,7 +308,7 @@ func TestAPIKick(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(96, []byte("123456"), []byte("123456"))
+			track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
 			switch ca {

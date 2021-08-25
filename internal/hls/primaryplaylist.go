@@ -12,8 +12,7 @@ import (
 type primaryPlaylist struct {
 	videoTrack *gortsplib.Track
 	audioTrack *gortsplib.Track
-	h264SPS    []byte
-	h264PPS    []byte
+	h264Conf   *gortsplib.TrackConfigH264
 
 	breader *bytes.Reader
 }
@@ -21,20 +20,18 @@ type primaryPlaylist struct {
 func newPrimaryPlaylist(
 	videoTrack *gortsplib.Track,
 	audioTrack *gortsplib.Track,
-	h264SPS []byte,
-	h264PPS []byte,
+	h264Conf *gortsplib.TrackConfigH264,
 ) *primaryPlaylist {
 	p := &primaryPlaylist{
 		videoTrack: videoTrack,
 		audioTrack: audioTrack,
-		h264SPS:    h264SPS,
-		h264PPS:    h264PPS,
+		h264Conf:   h264Conf,
 	}
 
 	var codecs []string
 
 	if p.videoTrack != nil {
-		codecs = append(codecs, "avc1."+hex.EncodeToString(p.h264SPS[1:4]))
+		codecs = append(codecs, "avc1."+hex.EncodeToString(p.h264Conf.SPS[1:4]))
 	}
 
 	if p.audioTrack != nil {

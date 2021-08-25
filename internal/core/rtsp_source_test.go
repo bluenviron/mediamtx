@@ -36,7 +36,7 @@ func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*ba
 		}, nil, nil
 	}
 
-	track, _ := gortsplib.NewTrackH264(96, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x05, 0x06})
+	track, _ := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
 	sh.stream = gortsplib.NewServerStream(gortsplib.Tracks{track})
 
 	return &base.Response{
