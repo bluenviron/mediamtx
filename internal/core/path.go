@@ -518,9 +518,11 @@ func (pa *path) onDemandCloseSource() {
 		pa.source.(sourceStatic).Close()
 		pa.source = nil
 	} else {
-		pa.Log(logger.Info, "on demand command stopped")
-		pa.onDemandCmd.Close()
-		pa.onDemandCmd = nil
+		if pa.onDemandCmd != nil {
+			pa.Log(logger.Info, "on demand command stopped")
+			pa.onDemandCmd.Close()
+			pa.onDemandCmd = nil
+		}
 
 		if pa.source != nil {
 			pa.source.(publisher).Close()
