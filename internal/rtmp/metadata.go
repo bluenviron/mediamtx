@@ -107,7 +107,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 	}
 
 	if !hasVideo && !hasAudio {
-		return nil, nil, fmt.Errorf("stream has no tracks")
+		return nil, nil, fmt.Errorf("stream doesn't contain tracks with supported codecs (H264 or AAC)")
 	}
 
 	for {
