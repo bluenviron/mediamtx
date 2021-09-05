@@ -192,6 +192,29 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			}
 		}
 
+	case strings.HasPrefix(pconf.Source, "http://") ||
+		strings.HasPrefix(pconf.Source, "https://"):
+		if pconf.Regexp != nil {
+			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source; use another path")
+		}
+
+		u, err := url.Parse(pconf.Source)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
+		}
+		if u.Scheme != "http" && u.Scheme != "https" {
+			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
+		}
+
+		if u.User != nil {
+			pass, _ := u.User.Password()
+			user := u.User.Username()
+			if user != "" && pass == "" ||
+				user == "" && pass != "" {
+				return fmt.Errorf("username and password must be both provided")
+			}
+		}
+
 	case pconf.Source == "redirect":
 		if pconf.SourceRedirect == "" {
 			return fmt.Errorf("source redirect must be filled")
