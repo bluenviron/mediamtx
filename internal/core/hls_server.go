@@ -187,22 +187,8 @@ func (s *hlsServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	select {
 	case s.request <- hreq:
 		res := <-cres
-
 		if res != nil {
-			buf := make([]byte, 4096)
-			for {
-				n, err := res.Read(buf)
-				if err != nil {
-					return
-				}
-
-				_, err = w.Write(buf[:n])
-				if err != nil {
-					return
-				}
-
-				w.(http.Flusher).Flush()
-			}
+			io.Copy(w, res)
 		}
 
 	case <-s.ctx.Done():
