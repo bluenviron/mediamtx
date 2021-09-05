@@ -52,6 +52,7 @@ Plus:
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
+  * [Save published videos to disk](#save-published-videos-to-disk)
   * [On-demand publishing](#on-demand-publishing)
   * [Redirect to another server](#redirect-to-another-server)
   * [Fallback stream](#fallback-stream)
@@ -410,6 +411,18 @@ paths:
   all:
   original:
     runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    runOnPublishRestart: yes
+```
+
+### Save published videos to disk
+
+To Save published videos to disk, it's enough to put _FFmpeg_ inside `runOnPublish`:
+
+```yml
+paths:
+  all:
+  original:
+    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f segment -strftime 1 -segment_time 60 -segment_format mp4 saved_%Y-%m-%d_%H-%M-%S.mp4
     runOnPublishRestart: yes
 ```
 
