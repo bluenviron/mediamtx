@@ -198,7 +198,7 @@ func (t *segment) writeAAC(
 		{
 			SampleRate:   t.aacConf.SampleRate,
 			ChannelCount: t.aacConf.ChannelCount,
-			Frame:        au,
+			AU:           au,
 		},
 	})
 	if err != nil {

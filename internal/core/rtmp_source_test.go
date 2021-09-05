@@ -13,34 +13,31 @@ func TestRTMPSource(t *testing.T) {
 		"video",
 	} {
 		t.Run(source, func(t *testing.T) {
-			switch source {
-			case "videoaudio", "video":
-				cnt1, err := newContainer("nginx-rtmp", "rtmpserver", []string{})
-				require.NoError(t, err)
-				defer cnt1.close()
+			cnt1, err := newContainer("nginx-rtmp", "rtmpserver", []string{})
+			require.NoError(t, err)
+			defer cnt1.close()
 
-				cnt2, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", "empty" + source + ".mkv",
-					"-c", "copy",
-					"-f", "flv",
-					"rtmp://" + cnt1.ip() + "/stream/test",
-				})
-				require.NoError(t, err)
-				defer cnt2.close()
+			cnt2, err := newContainer("ffmpeg", "source", []string{
+				"-re",
+				"-stream_loop", "-1",
+				"-i", "empty" + source + ".mkv",
+				"-c", "copy",
+				"-f", "flv",
+				"rtmp://" + cnt1.ip() + "/stream/test",
+			})
+			require.NoError(t, err)
+			defer cnt2.close()
 
-				time.Sleep(1 * time.Second)
+			time.Sleep(1 * time.Second)
 
-				p, ok := newInstance("hlsDisable: yes\n" +
-					"rtmpDisable: yes\n" +
-					"paths:\n" +
-					"  proxied:\n" +
-					"    source: rtmp://localhost/stream/test\n" +
-					"    sourceOnDemand: yes\n")
-				require.Equal(t, true, ok)
-				defer p.close()
-			}
+			p, ok := newInstance("hlsDisable: yes\n" +
+				"rtmpDisable: yes\n" +
+				"paths:\n" +
+				"  proxied:\n" +
+				"    source: rtmp://localhost/stream/test\n" +
+				"    sourceOnDemand: yes\n")
+			require.Equal(t, true, ok)
+			defer p.close()
 
 			time.Sleep(1 * time.Second)
 

@@ -465,7 +465,9 @@ outer:
 func (pa *path) hasStaticSource() bool {
 	return strings.HasPrefix(pa.conf.Source, "rtsp://") ||
 		strings.HasPrefix(pa.conf.Source, "rtsps://") ||
-		strings.HasPrefix(pa.conf.Source, "rtmp://")
+		strings.HasPrefix(pa.conf.Source, "rtmp://") ||
+		strings.HasPrefix(pa.conf.Source, "http://") ||
+		strings.HasPrefix(pa.conf.Source, "https://")
 }
 
 func (pa *path) isOnDemand() bool {
@@ -578,8 +580,9 @@ func (pa *path) sourceSetNotReady() {
 }
 
 func (pa *path) staticSourceCreate() {
-	if strings.HasPrefix(pa.conf.Source, "rtsp://") ||
-		strings.HasPrefix(pa.conf.Source, "rtsps://") {
+	switch {
+	case strings.HasPrefix(pa.conf.Source, "rtsp://") ||
+		strings.HasPrefix(pa.conf.Source, "rtsps://"):
 		pa.source = newRTSPSource(
 			pa.ctx,
 			pa.conf.Source,
@@ -592,12 +595,19 @@ func (pa *path) staticSourceCreate() {
 			pa.readBufferSize,
 			&pa.sourceStaticWg,
 			pa)
-	} else if strings.HasPrefix(pa.conf.Source, "rtmp://") {
+	case strings.HasPrefix(pa.conf.Source, "rtmp://"):
 		pa.source = newRTMPSource(
 			pa.ctx,
 			pa.conf.Source,
 			pa.readTimeout,
 			pa.writeTimeout,
+			&pa.sourceStaticWg,
+			pa)
+	case strings.HasPrefix(pa.conf.Source, "http://") ||
+		strings.HasPrefix(pa.conf.Source, "https://"):
+		pa.source = newHLSSource(
+			pa.ctx,
+			pa.conf.Source,
 			&pa.sourceStaticWg,
 			pa)
 	}

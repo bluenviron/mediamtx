@@ -9,19 +9,20 @@
 [![Release](https://img.shields.io/github/v/release/aler9/rtsp-simple-server)](https://github.com/aler9/rtsp-simple-server/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 
-_rtsp-simple-server_ is a ready-to-use and zero-dependency RTSP / RTMP / HLS server and proxy, a software that allows users to publish, read and proxy live video and audio streams. RTSP, RTMP and HLS are independent protocols that allows to perform these operations with the help of a server, that is contacted by both publishers and readers and relays the publisher's streams to the readers; in particular:
+_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams through various protocols:
 
-* RTSP is the fastest way to publish and read streams
-* RTMP allows to interact with legacy servers or software
-* HLS allows to view streams from a web page
+|protocol|description|publish|read|proxy|
+|--------|-----------|-------|----|-----|
+|RTSP|fastest way to publish and read streams|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
+|RTMP|allows to interact with legacy software|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
+|HLS|allows to embed streams into a web page|:x:|:heavy_check_mark:|:heavy_check_mark:|
 
 Features:
 
-* Publish live streams with RTSP (UDP, TCP or TLS mode) or RTMP
-* Read live streams with RTSP (UDP, UDP-multicast, TCP or TLS mode), RTMP or HLS
-* Pull and serve streams from other RTSP or RTMP servers or cameras, always or on-demand (RTSP proxy)
+* Publish and read live streams
+* Act as a proxy and serve streams from other servers or cameras, always or on-demand
 * Each stream can have multiple video and audio tracks, encoded with any codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
-* Streams are automatically converted from a protocol to another. For instance, it's possible to publish with RTSP and read with HLS
+* Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
 
 Plus:
 
@@ -127,18 +128,20 @@ docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 aler9/rtsp-s
 
 All the configuration parameters are listed and commented in the [configuration file](rtsp-simple-server.yml).
 
-There are two ways to change the configuration:
+There are 3 ways to change the configuration:
 
-* By editing the `rtsp-simple-server.yml` file, that is
+1. By editing the `rtsp-simple-server.yml` file, that is
 
-  * included into the release bundle
-  * available in the root folder of the Docker image (`/rtsp-simple-server.yml`); it can be overridden in this way:
+   * included into the release bundle
+   * available in the root folder of the Docker image (`/rtsp-simple-server.yml`); it can be overridden in this way:
 
-    ```
-    docker run --rm -it --network=host -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml aler9/rtsp-simple-server
-    ```
+     ```
+     docker run --rm -it --network=host -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml aler9/rtsp-simple-server
+     ```
 
-* By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
+   The configuration can be changed dinamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
+
+2. By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
    ```
    RTSP_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
@@ -156,7 +159,7 @@ There are two ways to change the configuration:
    docker run --rm -it --network=host -e RTSP_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server
    ```
 
-The configuration can be changed dinamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
+3. By using the [HTTP API](#http-api).
 
 ### Encryption
 
@@ -258,7 +261,7 @@ RTSP_CONFKEY=mykey ./rtsp-simple-server
 
 ### Proxy mode
 
-_rtsp-simple-server_ is also a RTSP and RTMP proxy, that is usually deployed in one of these scenarios:
+_rtsp-simple-server_ is also a proxy, that is usually deployed in one of these scenarios:
 
 * when there are multiple users that are receiving a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
 * when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
