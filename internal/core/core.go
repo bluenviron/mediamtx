@@ -83,7 +83,7 @@ func New(args []string) (*Core, bool) {
 	err = p.createResources(true)
 	if err != nil {
 		p.Log(logger.Info, "ERR: %s", err)
-		p.closeResources(nil)
+		p.closeResources(nil, false)
 		return nil, false
 	}
 
@@ -91,7 +91,7 @@ func New(args []string) (*Core, bool) {
 		p.confWatcher, err = confwatcher.New(p.confPath)
 		if err != nil {
 			p.Log(logger.Info, "ERR: %s", err)
-			p.closeResources(nil)
+			p.closeResources(nil, false)
 			return nil, false
 		}
 	}
@@ -143,7 +143,7 @@ outer:
 				break outer
 			}
 
-			err = p.reloadConf(newConf)
+			err = p.reloadConf(newConf, false)
 			if err != nil {
 				p.Log(logger.Info, "ERR: %s", err)
 				break outer
@@ -152,7 +152,7 @@ outer:
 		case newConf := <-p.apiConfigSet:
 			p.Log(logger.Info, "reloading configuration (API request)")
 
-			err := p.reloadConf(newConf)
+			err := p.reloadConf(newConf, true)
 			if err != nil {
 				p.Log(logger.Info, "ERR: %s", err)
 				break outer
@@ -165,7 +165,7 @@ outer:
 
 	p.ctxCancel()
 
-	p.closeResources(nil)
+	p.closeResources(nil, false)
 
 	if p.confWatcher != nil {
 		p.confWatcher.Close()
@@ -361,7 +361,7 @@ func (p *Core) createResources(initial bool) error {
 	return nil
 }
 
-func (p *Core) closeResources(newConf *conf.Conf) {
+func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeStats := false
 	if newConf == nil {
 		closeStats = true
@@ -489,7 +489,7 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 		if closeAPI {
 			p.api.close()
 			p.api = nil
-		} else {
+		} else if !calledByAPI { // avoid a loop
 			p.api.OnConfReload(newConf)
 		}
 	}
@@ -539,8 +539,8 @@ func (p *Core) closeResources(newConf *conf.Conf) {
 	}
 }
 
-func (p *Core) reloadConf(newConf *conf.Conf) error {
-	p.closeResources(newConf)
+func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
+	p.closeResources(newConf, calledByAPI)
 
 	p.conf = newConf
 	return p.createResources(false)

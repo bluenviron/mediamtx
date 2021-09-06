@@ -361,10 +361,10 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 	}
 
 	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	var newConf conf.Conf
 	cloneStruct(a.conf, &newConf)
-	a.mutex.Unlock()
-
 	fillStruct(&newConf, in)
 
 	err = newConf.CheckAndFillMissing()
@@ -373,9 +373,7 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.Lock()
 	a.conf = &newConf
-	a.mutex.Unlock()
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
@@ -394,9 +392,10 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	name := ctx.Param("name")
 
 	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	var newConf conf.Conf
 	cloneStruct(a.conf, &newConf)
-	a.mutex.Unlock()
 
 	if _, ok := newConf.Paths[name]; ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -413,9 +412,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.Lock()
 	a.conf = &newConf
-	a.mutex.Unlock()
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
@@ -434,9 +431,10 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 	name := ctx.Param("name")
 
 	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	var newConf conf.Conf
 	cloneStruct(a.conf, &newConf)
-	a.mutex.Unlock()
 
 	newConfPath, ok := newConf.Paths[name]
 	if !ok {
@@ -452,9 +450,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.Lock()
 	a.conf = &newConf
-	a.mutex.Unlock()
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
@@ -467,9 +463,10 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	name := ctx.Param("name")
 
 	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
 	var newConf conf.Conf
 	cloneStruct(a.conf, &newConf)
-	a.mutex.Unlock()
 
 	if _, ok := newConf.Paths[name]; !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -484,9 +481,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.Lock()
 	a.conf = &newConf
-	a.mutex.Unlock()
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
