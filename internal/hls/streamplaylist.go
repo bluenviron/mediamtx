@@ -9,15 +9,14 @@ import (
 	"sync"
 )
 
-type readerFunc struct {
-	wrapped func() []byte
-	reader  *bytes.Reader
+type asyncReader struct {
+	generator func() []byte
+	reader    *bytes.Reader
 }
 
-func (r *readerFunc) Read(buf []byte) (int, error) {
+func (r *asyncReader) Read(buf []byte) (int, error) {
 	if r.reader == nil {
-		cnt := r.wrapped()
-		r.reader = bytes.NewReader(cnt)
+		r.reader = bytes.NewReader(r.generator())
 	}
 	return r.reader.Read(buf)
 }
@@ -53,7 +52,7 @@ func (p *streamPlaylist) close() {
 }
 
 func (p *streamPlaylist) reader() io.Reader {
-	return &readerFunc{wrapped: func() []byte {
+	return &asyncReader{generator: func() []byte {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
 

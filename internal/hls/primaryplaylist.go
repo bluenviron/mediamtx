@@ -14,7 +14,7 @@ type primaryPlaylist struct {
 	audioTrack *gortsplib.Track
 	h264Conf   *gortsplib.TrackConfigH264
 
-	breader *bytes.Reader
+	cnt []byte
 }
 
 func newPrimaryPlaylist(
@@ -38,15 +38,13 @@ func newPrimaryPlaylist(
 		codecs = append(codecs, "mp4a.40.2")
 	}
 
-	cnt := "#EXTM3U\n"
-	cnt += "#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n"
-	cnt += "stream.m3u8\n"
-
-	p.breader = bytes.NewReader([]byte(cnt))
+	p.cnt = []byte("#EXTM3U\n" +
+		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
+		"stream.m3u8\n")
 
 	return p
 }
 
 func (p *primaryPlaylist) reader() io.Reader {
-	return p.breader
+	return bytes.NewReader(p.cnt)
 }
