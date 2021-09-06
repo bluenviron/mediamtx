@@ -3,7 +3,7 @@ openapi: 3.0.0
 info:
   version: 1.0.0
   title: rtsp-simple-server API
-  description: API of rtsp-simple-server, a RTSP / RTMP / HLS server and proxy.
+  description: API of rtsp-simple-server, a server and proxy that supports various protocols.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
