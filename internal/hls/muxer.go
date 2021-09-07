@@ -10,10 +10,8 @@ import (
 )
 
 const (
-	// an offset is needed to
-	// - avoid negative PTS values
-	// - avoid PTS < DTS during startup
-	ptsOffset = 2 * time.Second
+	// an offset between PCR and PTS/DTS is needed to avoid PCR > PTS
+	pcrOffset = 500 * time.Millisecond
 
 	segmentMinAUCount = 100
 )
@@ -67,7 +65,6 @@ func NewMuxer(
 		audioTrack:         audioTrack,
 		h264Conf:           h264Conf,
 		aacConf:            aacConf,
-		videoDTSEst:        h264.NewDTSEstimator(),
 		currentSegment:     newSegment(videoTrack, audioTrack, h264Conf, aacConf),
 		primaryPlaylist:    newPrimaryPlaylist(videoTrack, audioTrack, h264Conf),
 		streamPlaylist:     newStreamPlaylist(hlsSegmentCount),
@@ -110,13 +107,14 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 		m.startPCR = time.Now()
 		m.startPTS = pts
 		m.currentSegment.setStartPCR(m.startPCR)
+		m.videoDTSEst = h264.NewDTSEstimator()
 	}
 
-	pts = pts + ptsOffset - m.startPTS
+	pts -= m.startPTS
 
 	err := m.currentSegment.writeH264(
-		m.videoDTSEst.Feed(idrPresent, pts),
-		pts,
+		m.videoDTSEst.Feed(pts)+pcrOffset,
+		pts+pcrOffset,
 		idrPresent,
 		nalus)
 	if err != nil {
@@ -150,7 +148,7 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 		}
 	}
 
-	pts = pts + ptsOffset - m.startPTS
+	pts = pts - m.startPTS + pcrOffset
 
 	for i, au := range aus {
 		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConf.SampleRate)

@@ -93,8 +93,7 @@ func TestMuxer(t *testing.T) {
 	byts = byts[188:]
 
 	checkTSPacket(t, byts, 256, 3)
-	alen := int(byts[4])
-	byts = byts[4+alen+20:]
+	byts = byts[4+145+15:]
 	require.Equal(t,
 		[]byte{
 			0, 0, 0, 1, 9, 240, // AUD

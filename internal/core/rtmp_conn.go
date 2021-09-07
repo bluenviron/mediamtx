@@ -27,11 +27,6 @@ import (
 
 const (
 	rtmpConnPauseAfterAuthError = 2 * time.Second
-
-	// an offset is needed to
-	// - avoid negative PTS values
-	// - avoid PTS < DTS during startup
-	rtmpConnPTSOffset = 2 * time.Second
 )
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values) {
@@ -285,7 +280,9 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	c.conn.NetConn().SetReadDeadline(time.Time{})
 
 	var videoBuf [][]byte
-	videoDTSEst := h264.NewDTSEstimator()
+	var videoStartPTS time.Duration
+	var videoDTSEst *h264.DTSEstimator
+	videoFirstIDRFound := false
 
 	for {
 		data, ok := c.ringBuffer.Pull()
@@ -324,11 +321,6 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			// RTP marker means that all the NALUs with the same PTS have been received.
 			// send them together.
 			if pkt.Marker {
-				data, err := h264.EncodeAVCC(videoBuf)
-				if err != nil {
-					return err
-				}
-
 				idrPresent := func() bool {
 					for _, nalu := range nalus {
 						typ := h264.NALUType(nalu[0] & 0x1F)
@@ -339,9 +331,25 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 					return false
 				}()
 
-				pts += rtmpConnPTSOffset
+				// wait until we receive an IDR
+				if !videoFirstIDRFound {
+					if !idrPresent {
+						videoBuf = nil
+						continue
+					}
 
-				dts := videoDTSEst.Feed(idrPresent, pts)
+					videoFirstIDRFound = true
+					videoStartPTS = pts
+					videoDTSEst = h264.NewDTSEstimator()
+				}
+
+				data, err := h264.EncodeAVCC(videoBuf)
+				if err != nil {
+					return err
+				}
+
+				pts -= videoStartPTS
+				dts := videoDTSEst.Feed(pts)
 
 				c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 				err = c.conn.WritePacket(av.Packet{
@@ -373,18 +381,27 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			for i, au := range aus {
-				auPTS := pts + rtmpConnPTSOffset + time.Duration(i)*1000*time.Second/time.Duration(audioClockRate)
+			if videoTrack != nil && !videoFirstIDRFound {
+				continue
+			}
 
+			pts -= videoStartPTS
+			if pts < 0 {
+				continue
+			}
+
+			for _, au := range aus {
 				c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
-					Time: auPTS,
+					Time: pts,
 				})
 				if err != nil {
 					return err
 				}
+
+				pts += 1000 * time.Second / time.Duration(audioClockRate)
 			}
 		}
 	}
