@@ -9,7 +9,7 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-type primaryPlaylist struct {
+type muxerPrimaryPlaylist struct {
 	videoTrack *gortsplib.Track
 	audioTrack *gortsplib.Track
 	h264Conf   *gortsplib.TrackConfigH264
@@ -17,12 +17,12 @@ type primaryPlaylist struct {
 	cnt []byte
 }
 
-func newPrimaryPlaylist(
+func newMuxerPrimaryPlaylist(
 	videoTrack *gortsplib.Track,
 	audioTrack *gortsplib.Track,
 	h264Conf *gortsplib.TrackConfigH264,
-) *primaryPlaylist {
-	p := &primaryPlaylist{
+) *muxerPrimaryPlaylist {
+	p := &muxerPrimaryPlaylist{
 		videoTrack: videoTrack,
 		audioTrack: audioTrack,
 		h264Conf:   h264Conf,
@@ -45,6 +45,6 @@ func newPrimaryPlaylist(
 	return p
 }
 
-func (p *primaryPlaylist) reader() io.Reader {
+func (p *muxerPrimaryPlaylist) reader() io.Reader {
 	return bytes.NewReader(p.cnt)
 }

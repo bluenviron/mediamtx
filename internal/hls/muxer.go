@@ -5,8 +5,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-
-	"github.com/aler9/rtsp-simple-server/internal/h264"
 )
 
 const (
@@ -18,20 +16,9 @@ const (
 
 // Muxer is a HLS muxer.
 type Muxer struct {
-	hlsSegmentCount    int
-	hlsSegmentDuration time.Duration
-	videoTrack         *gortsplib.Track
-	audioTrack         *gortsplib.Track
-
-	h264Conf        *gortsplib.TrackConfigH264
-	aacConf         *gortsplib.TrackConfigAAC
-	videoDTSEst     *h264.DTSEstimator
-	audioAUCount    int
-	currentSegment  *segment
-	startPCR        time.Time
-	startPTS        time.Duration
-	primaryPlaylist *primaryPlaylist
-	streamPlaylist  *streamPlaylist
+	primaryPlaylist *muxerPrimaryPlaylist
+	streamPlaylist  *muxerStreamPlaylist
+	tsGenerator     *muxerTSGenerator
 }
 
 // NewMuxer allocates a Muxer.
@@ -58,16 +45,23 @@ func NewMuxer(
 		}
 	}
 
+	primaryPlaylist := newMuxerPrimaryPlaylist(videoTrack, audioTrack, h264Conf)
+
+	streamPlaylist := newMuxerStreamPlaylist(hlsSegmentCount)
+
+	tsGenerator := newMuxerTSGenerator(
+		hlsSegmentCount,
+		hlsSegmentDuration,
+		videoTrack,
+		audioTrack,
+		h264Conf,
+		aacConf,
+		streamPlaylist)
+
 	m := &Muxer{
-		hlsSegmentCount:    hlsSegmentCount,
-		hlsSegmentDuration: hlsSegmentDuration,
-		videoTrack:         videoTrack,
-		audioTrack:         audioTrack,
-		h264Conf:           h264Conf,
-		aacConf:            aacConf,
-		currentSegment:     newSegment(videoTrack, audioTrack, h264Conf, aacConf),
-		primaryPlaylist:    newPrimaryPlaylist(videoTrack, audioTrack, h264Conf),
-		streamPlaylist:     newStreamPlaylist(hlsSegmentCount),
+		primaryPlaylist: primaryPlaylist,
+		streamPlaylist:  streamPlaylist,
+		tsGenerator:     tsGenerator,
 	}
 
 	return m, nil
@@ -80,93 +74,15 @@ func (m *Muxer) Close() {
 
 // WriteH264 writes H264 NALUs, grouped by PTS, into the muxer.
 func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
-	idrPresent := func() bool {
-		for _, nalu := range nalus {
-			typ := h264.NALUType(nalu[0] & 0x1F)
-			if typ == h264.NALUTypeIDR {
-				return true
-			}
-		}
-		return false
-	}()
-
-	// skip group silently until we find one with a IDR
-	if !m.currentSegment.firstPacketWritten && !idrPresent {
-		return nil
-	}
-
-	if m.currentSegment.firstPacketWritten {
-		if idrPresent &&
-			m.currentSegment.duration() >= m.hlsSegmentDuration {
-			m.streamPlaylist.pushSegment(m.currentSegment)
-
-			m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264Conf, m.aacConf)
-			m.currentSegment.setStartPCR(m.startPCR)
-		}
-	} else {
-		m.startPCR = time.Now()
-		m.startPTS = pts
-		m.currentSegment.setStartPCR(m.startPCR)
-		m.videoDTSEst = h264.NewDTSEstimator()
-	}
-
-	pts -= m.startPTS
-
-	err := m.currentSegment.writeH264(
-		m.videoDTSEst.Feed(pts)+pcrOffset,
-		pts+pcrOffset,
-		idrPresent,
-		nalus)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return m.tsGenerator.writeH264(pts, nalus)
 }
 
 // WriteAAC writes AAC AUs, grouped by PTS, into the muxer.
 func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
-	if m.videoTrack == nil {
-		if m.currentSegment.firstPacketWritten {
-			if m.audioAUCount >= segmentMinAUCount &&
-				m.currentSegment.duration() >= m.hlsSegmentDuration {
-				m.audioAUCount = 0
-
-				m.streamPlaylist.pushSegment(m.currentSegment)
-
-				m.currentSegment = newSegment(m.videoTrack, m.audioTrack, m.h264Conf, m.aacConf)
-				m.currentSegment.setStartPCR(m.startPCR)
-			}
-		} else {
-			m.startPCR = time.Now()
-			m.startPTS = pts
-			m.currentSegment.setStartPCR(m.startPCR)
-		}
-	} else {
-		if !m.currentSegment.firstPacketWritten {
-			return nil
-		}
-	}
-
-	pts = pts - m.startPTS + pcrOffset
-
-	for _, au := range aus {
-		err := m.currentSegment.writeAAC(pts, au)
-		if err != nil {
-			return err
-		}
-
-		if m.videoTrack == nil {
-			m.audioAUCount++
-		}
-
-		pts += 1000 * time.Second / time.Duration(m.aacConf.SampleRate)
-	}
-
-	return nil
+	return m.tsGenerator.writeAAC(pts, aus)
 }
 
-// PrimaryPlaylist returns a reader to read the primary playlist
+// PrimaryPlaylist returns a reader to read the primary playlist.
 func (m *Muxer) PrimaryPlaylist() io.Reader {
 	return m.primaryPlaylist.reader()
 }
@@ -176,7 +92,7 @@ func (m *Muxer) StreamPlaylist() io.Reader {
 	return m.streamPlaylist.reader()
 }
 
-// Segment returns a reader to read a segment.
+// Segment returns a reader to read a segment listed in the stream playlist.
 func (m *Muxer) Segment(fname string) io.Reader {
 	return m.streamPlaylist.segment(fname)
 }

@@ -21,27 +21,27 @@ func (r *asyncReader) Read(buf []byte) (int, error) {
 	return r.reader.Read(buf)
 }
 
-type streamPlaylist struct {
+type muxerStreamPlaylist struct {
 	hlsSegmentCount int
 
 	mutex              sync.Mutex
 	cond               *sync.Cond
 	closed             bool
-	segments           []*segment
-	segmentByName      map[string]*segment
+	segments           []*muxerTSSegment
+	segmentByName      map[string]*muxerTSSegment
 	segmentDeleteCount int
 }
 
-func newStreamPlaylist(hlsSegmentCount int) *streamPlaylist {
-	p := &streamPlaylist{
+func newMuxerStreamPlaylist(hlsSegmentCount int) *muxerStreamPlaylist {
+	p := &muxerStreamPlaylist{
 		hlsSegmentCount: hlsSegmentCount,
-		segmentByName:   make(map[string]*segment),
+		segmentByName:   make(map[string]*muxerTSSegment),
 	}
 	p.cond = sync.NewCond(&p.mutex)
 	return p
 }
 
-func (p *streamPlaylist) close() {
+func (p *muxerStreamPlaylist) close() {
 	func() {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
@@ -51,7 +51,7 @@ func (p *streamPlaylist) close() {
 	p.cond.Broadcast()
 }
 
-func (p *streamPlaylist) reader() io.Reader {
+func (p *muxerStreamPlaylist) reader() io.Reader {
 	return &asyncReader{generator: func() []byte {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
@@ -94,7 +94,7 @@ func (p *streamPlaylist) reader() io.Reader {
 	}}
 }
 
-func (p *streamPlaylist) segment(fname string) io.Reader {
+func (p *muxerStreamPlaylist) segment(fname string) io.Reader {
 	base := strings.TrimSuffix(fname, ".ts")
 
 	p.mutex.Lock()
@@ -108,7 +108,7 @@ func (p *streamPlaylist) segment(fname string) io.Reader {
 	return f.reader()
 }
 
-func (p *streamPlaylist) pushSegment(t *segment) {
+func (p *muxerStreamPlaylist) pushSegment(t *muxerTSSegment) {
 	func() {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
