@@ -158,7 +158,9 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 			return err
 		}
 
-		m.audioAUCount++
+		if m.videoTrack == nil {
+			m.audioAUCount++
+		}
 	}
 
 	return nil
