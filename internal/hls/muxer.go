@@ -150,10 +150,8 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 
 	pts = pts - m.startPTS + pcrOffset
 
-	for i, au := range aus {
-		auPTS := pts + time.Duration(i)*1000*time.Second/time.Duration(m.aacConf.SampleRate)
-
-		err := m.currentSegment.writeAAC(auPTS, au)
+	for _, au := range aus {
+		err := m.currentSegment.writeAAC(pts, au)
 		if err != nil {
 			return err
 		}
@@ -161,6 +159,8 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 		if m.videoTrack == nil {
 			m.audioAUCount++
 		}
+
+		pts += 1000 * time.Second / time.Duration(m.aacConf.SampleRate)
 	}
 
 	return nil
