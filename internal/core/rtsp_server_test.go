@@ -175,7 +175,8 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				}()
 
 				cnt2, err := newContainer("gstreamer", "read", []string{
-					"rtspsrc location=" + proto + "://127.0.0.1:" + port + "/teststream protocols=" + ps + " tls-validation-flags=0 latency=0 " +
+					"rtspsrc location=" + proto + "://127.0.0.1:" + port + "/teststream protocols=" + ps +
+						" tls-validation-flags=0 latency=0 " +
 						"! application/x-rtp,media=video ! decodebin ! exitafterframe ! fakesink",
 				})
 				require.NoError(t, err)
@@ -354,7 +355,8 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+			track, err := gortsplib.NewTrackH264(96,
+				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
 			_, err = gortsplib.DialPublish(
@@ -412,7 +414,8 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
 		_, err = gortsplib.DialPublish(
@@ -477,7 +480,8 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+			track, err := gortsplib.NewTrackH264(96,
+				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
 			s1, err := gortsplib.DialPublish("rtsp://localhost:8554/teststream",
@@ -544,7 +548,8 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
@@ -594,7 +599,8 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p1.close()
 
-		track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
@@ -742,7 +748,8 @@ func TestRTSPServerRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh
 trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' QUIT
-ffmpeg -hide_banner -loglevel error -re -i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
+ffmpeg -hide_banner -loglevel error -re `+
+		`-i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
 wait
 `, doneFile)))
 	require.NoError(t, err)

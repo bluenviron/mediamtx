@@ -303,7 +303,8 @@ func (s *rtspServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCt
 }
 
 // OnDescribe implements gortsplib.ServerHandlerOnDescribe.
-func (s *rtspServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+func (s *rtspServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+) (*base.Response, *gortsplib.ServerStream, error) {
 	s.mutex.RLock()
 	c := s.conns[ctx.Conn]
 	s.mutex.RUnlock()

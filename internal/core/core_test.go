@@ -153,7 +153,8 @@ func TestCoreHotReloading(t *testing.T) {
 
 	err := ioutil.WriteFile(confPath, []byte("paths:\n"+
 		"  test1:\n"+
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"+
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re "+
+		"-i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"+
 		"  test3:\n"+
 		"    runOnInit: echo aaa\n"+
 		"  test4:\n"+
@@ -178,7 +179,8 @@ func TestCoreHotReloading(t *testing.T) {
 
 	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
 		"  test2:\n"+
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re -i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"+
+		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re "+
+		"-i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"+
 		"  test3:\n"+
 		"  test4:\n"+
 		"    runOnInit: echo bbb\n"),

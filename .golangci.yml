@@ -9,6 +9,7 @@ linters:
   - gofumpt
   - golint
   - misspell
+  - lll
   - prealloc
   - unconvert
   disable:

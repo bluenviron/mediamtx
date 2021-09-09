@@ -75,7 +75,7 @@ type PathConf struct {
 	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable" json:"sourceAnyPortEnable"`
 	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
 	SourceOnDemand             bool                      `yaml:"sourceOnDemand" json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout" json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout" json:"sourceOnDemandStartTimeout"` //nolint:lll
 	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter" json:"sourceOnDemandCloseAfter"`
 	SourceRedirect             string                    `yaml:"sourceRedirect" json:"sourceRedirect"`
 	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride" json:"disablePublisherOverride"`
@@ -272,7 +272,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	}
 	if pconf.PublishPass != "" {
 		if pconf.Source != "publisher" {
-			return fmt.Errorf("'publishPass' is useless when source is not 'publisher', since the stream is not provided by a publisher, but by a fixed source")
+			return fmt.Errorf("'publishPass' is useless when source is not 'publisher', since " +
+				"the stream is not provided by a publisher, but by a fixed source")
 		}
 
 		if !strings.HasPrefix(pconf.PublishPass, "sha256:") && !reUserPass.MatchString(pconf.PublishPass) {
@@ -289,7 +290,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		}
 
 		if pconf.Source != "publisher" {
-			return nil, fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since the stream is not provided by a publisher, but by a fixed source")
+			return nil, fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
+				"the stream is not provided by a publisher, but by a fixed source")
 		}
 
 		return parseIPCidrList(pconf.PublishIPs)
@@ -326,7 +328,8 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	}
 
 	if pconf.RunOnPublish != "" && pconf.Source != "publisher" {
-		return fmt.Errorf("'runOnPublish' is useless when source is not 'publisher', since the stream is not provided by a publisher, but by a fixed source")
+		return fmt.Errorf("'runOnPublish' is useless when source is not 'publisher', since " +
+			"the stream is not provided by a publisher, but by a fixed source")
 	}
 
 	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {

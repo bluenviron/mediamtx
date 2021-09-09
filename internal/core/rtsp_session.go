@@ -170,7 +170,8 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 }
 
 // OnSetup is called by rtspServer.
-func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCtx,
+) (*base.Response, *gortsplib.ServerStream, error) {
 	if ctx.Transport.Protocol == base.StreamProtocolUDP {
 		if _, ok := s.protocols[conf.ProtocolUDP]; !ok {
 			return &base.Response{

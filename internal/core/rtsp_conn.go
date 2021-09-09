@@ -186,7 +186,8 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 }
 
 // OnDescribe is called by rtspServer.
-func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+) (*base.Response, *gortsplib.ServerStream, error) {
 	res := c.pathManager.OnDescribe(pathDescribeReq{
 		PathName: ctx.Path,
 		URL:      ctx.Req.URL,
