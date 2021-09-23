@@ -278,9 +278,9 @@ func newAPI(
 	group := router.Group("/", a.mwLog)
 	group.GET("/v1/config/get", a.onConfigGet)
 	group.POST("/v1/config/set", a.onConfigSet)
-	group.POST("/v1/config/paths/add/:name", a.onConfigPathsAdd)
-	group.POST("/v1/config/paths/edit/:name", a.onConfigPathsEdit)
-	group.POST("/v1/config/paths/remove/:name", a.onConfigPathsDelete)
+	group.POST("/v1/config/paths/add/*name", a.onConfigPathsAdd)
+	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
+	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
 	group.GET("/v1/paths/list", a.onPathsList)
 	group.GET("/v1/rtspsessions/list", a.onRTSPSessionsList)
 	group.POST("/v1/rtspsessions/kick/:id", a.onRTSPSessionsKick)
@@ -383,13 +383,18 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 }
 
 func (a *api) onConfigPathsAdd(ctx *gin.Context) {
+	name := ctx.Param("name")
+	if len(name) < 2 || name[0] != '/' {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	name = name[1:]
+
 	in, err := loadConfPathData(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-
-	name := ctx.Param("name")
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -422,13 +427,18 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 }
 
 func (a *api) onConfigPathsEdit(ctx *gin.Context) {
+	name := ctx.Param("name")
+	if len(name) < 2 || name[0] != '/' {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	name = name[1:]
+
 	in, err := loadConfPathData(ctx)
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-
-	name := ctx.Param("name")
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -461,6 +471,11 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 
 func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	name := ctx.Param("name")
+	if len(name) < 2 || name[0] != '/' {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	name = name[1:]
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()

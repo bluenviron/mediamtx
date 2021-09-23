@@ -87,7 +87,7 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/mypath", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
@@ -97,7 +97,7 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
 	require.NoError(t, err)
 	require.Equal(t, "rtsp://127.0.0.1:9999/mypath",
-		out["paths"].(map[string]interface{})["mypath"].(map[string]interface{})["source"])
+		out["paths"].(map[string]interface{})["my/path"].(map[string]interface{})["source"])
 }
 
 func TestAPIConfigPathsEdit(t *testing.T) {
@@ -105,13 +105,13 @@ func TestAPIConfigPathsEdit(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/mypath", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 	require.NoError(t, err)
 
-	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/edit/mypath", map[string]interface{}{
+	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/edit/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9998/mypath",
 		"sourceOnDemand": true,
 	}, nil)
@@ -124,7 +124,7 @@ func TestAPIConfigPathsEdit(t *testing.T) {
 	}
 	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
 	require.NoError(t, err)
-	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out.Paths["mypath"].Source)
+	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out.Paths["my/path"].Source)
 }
 
 func TestAPIConfigPathsRemove(t *testing.T) {
@@ -132,13 +132,13 @@ func TestAPIConfigPathsRemove(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/mypath", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 	require.NoError(t, err)
 
-	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/remove/mypath", nil, nil)
+	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/remove/my/path", nil, nil)
 	require.NoError(t, err)
 
 	var out struct {
@@ -146,7 +146,7 @@ func TestAPIConfigPathsRemove(t *testing.T) {
 	}
 	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
 	require.NoError(t, err)
-	_, ok = out.Paths["mypath"]
+	_, ok = out.Paths["my/path"]
 	require.Equal(t, false, ok)
 }
 
