@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
-
-	"github.com/aler9/rtsp-simple-server/internal/aac"
 )
 
 const (

@@ -80,7 +80,6 @@ endif
 
 test-internal:
 	go test -v $(TEST_INTERNAL_OPTS) \
-	./internal/aac \
 	./internal/conf \
 	./internal/confenv \
 	./internal/confwatcher \

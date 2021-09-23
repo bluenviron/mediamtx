@@ -13,13 +13,13 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/asticode/go-astits"
 	"github.com/grafov/m3u8"
 
-	"github.com/aler9/rtsp-simple-server/internal/aac"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/notedit/rtmp/av"
 	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
@@ -146,7 +146,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 				return nil, nil, fmt.Errorf("audio track setupped twice")
 			}
 
-			var mpegConf rtpaac.MPEG4AudioConfig
+			var mpegConf aac.MPEG4AudioConfig
 			err := mpegConf.Decode(pkt.Data)
 			if err != nil {
 				return nil, nil, err
@@ -241,8 +241,8 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 			return err
 		}
 
-		enc, err := rtpaac.MPEG4AudioConfig{
-			Type:              rtpaac.MPEG4AudioType(conf.Type),
+		enc, err := aac.MPEG4AudioConfig{
+			Type:              aac.MPEG4AudioType(conf.Type),
 			SampleRate:        conf.SampleRate,
 			ChannelCount:      conf.ChannelCount,
 			AOTSpecificConfig: conf.AOTSpecificConfig,
