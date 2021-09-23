@@ -110,7 +110,7 @@ func (t *muxerTSSegment) writeH264(
 		PES: &astits.PESData{
 			Header: &astits.PESHeader{
 				OptionalHeader: oh,
-				StreamID:       224, // = video
+				StreamID:       224, // video
 			},
 			Data: enc,
 		},
@@ -162,7 +162,7 @@ func (t *muxerTSSegment) writeAAC(
 					PTS:             &astits.ClockReference{Base: int64(pts.Seconds() * 90000)},
 				},
 				PacketLength: uint16(len(enc) + 8),
-				StreamID:     192, // = audio
+				StreamID:     192, // audio
 			},
 			Data: enc,
 		},

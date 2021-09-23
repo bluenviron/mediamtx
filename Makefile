@@ -85,7 +85,6 @@ test-internal:
 	./internal/confenv \
 	./internal/confwatcher \
 	./internal/externalcmd \
-	./internal/h264 \
 	./internal/hls \
 	./internal/logger \
 	./internal/rlimit \

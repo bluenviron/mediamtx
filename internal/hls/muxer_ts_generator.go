@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
 
 	"github.com/aler9/rtsp-simple-server/internal/aac"
-	"github.com/aler9/rtsp-simple-server/internal/h264"
 )
 
 const (
@@ -117,8 +117,8 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 	dts := m.videoDTSEst.Feed(pts-m.startPTS) + pcrOffset
 	pts = pts - m.startPTS + pcrOffset
 
+	// prepend an AUD. This is required by video.js and iOS
 	filteredNALUs := [][]byte{
-		// prepend an AUD. This is required by video.js and iOS
 		{byte(h264.NALUTypeAccessUnitDelimiter), 240},
 	}
 
@@ -130,7 +130,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 			continue
 		}
 
-		// add SPS and PPS before IDR
+		// add SPS and PPS before every IDR
 		if typ == h264.NALUTypeIDR {
 			filteredNALUs = append(filteredNALUs, m.h264Conf.SPS)
 			filteredNALUs = append(filteredNALUs, m.h264Conf.PPS)
