@@ -7,13 +7,6 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-const (
-	// an offset between PCR and PTS/DTS is needed to avoid PCR > PTS
-	pcrOffset = 500 * time.Millisecond
-
-	segmentMinAUCount = 100
-)
-
 // Muxer is a HLS muxer.
 type Muxer struct {
 	primaryPlaylist *muxerPrimaryPlaylist

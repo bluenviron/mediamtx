@@ -11,6 +11,13 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/h264"
 )
 
+const (
+	// an offset between PCR and PTS/DTS is needed to avoid PCR > PTS
+	pcrOffset = 500 * time.Millisecond
+
+	segmentMinAUCount = 100
+)
+
 type muxerTSGenerator struct {
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
