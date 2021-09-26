@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/aler9/gortsplib/pkg/base"
 
@@ -23,8 +22,8 @@ type pathManagerParent interface {
 
 type pathManager struct {
 	rtspAddress     string
-	readTimeout     time.Duration
-	writeTimeout    time.Duration
+	readTimeout     conf.StringDuration
+	writeTimeout    conf.StringDuration
 	readBufferCount int
 	readBufferSize  int
 	pathConfs       map[string]*conf.PathConf
@@ -52,8 +51,8 @@ type pathManager struct {
 func newPathManager(
 	parentCtx context.Context,
 	rtspAddress string,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	readBufferSize int,
 	pathConfs map[string]*conf.PathConf,

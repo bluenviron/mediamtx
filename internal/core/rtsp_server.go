@@ -24,7 +24,7 @@ type rtspServerParent interface {
 
 type rtspServer struct {
 	authMethods         []headers.AuthMethod
-	readTimeout         time.Duration
+	readTimeout         conf.StringDuration
 	isTLS               bool
 	rtspAddress         string
 	protocols           map[conf.Protocol]struct{}
@@ -47,8 +47,8 @@ func newRTSPServer(
 	parentCtx context.Context,
 	address string,
 	authMethods []headers.AuthMethod,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	readBufferSize int,
 	useUDP bool,
@@ -87,8 +87,8 @@ func newRTSPServer(
 
 	s.srv = &gortsplib.Server{
 		Handler:         s,
-		ReadTimeout:     readTimeout,
-		WriteTimeout:    writeTimeout,
+		ReadTimeout:     time.Duration(readTimeout),
+		WriteTimeout:    time.Duration(writeTimeout),
 		ReadBufferCount: readBufferCount,
 		ReadBufferSize:  readBufferSize,
 	}

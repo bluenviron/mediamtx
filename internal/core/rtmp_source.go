@@ -12,6 +12,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
@@ -29,8 +30,8 @@ type rtmpSourceParent interface {
 
 type rtmpSource struct {
 	ur           string
-	readTimeout  time.Duration
-	writeTimeout time.Duration
+	readTimeout  conf.StringDuration
+	writeTimeout conf.StringDuration
 	wg           *sync.WaitGroup
 	parent       rtmpSourceParent
 
@@ -41,8 +42,8 @@ type rtmpSource struct {
 func newRTMPSource(
 	parentCtx context.Context,
 	ur string,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	wg *sync.WaitGroup,
 	parent rtmpSourceParent) *rtmpSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -103,7 +104,7 @@ func (s *rtmpSource) runInner() bool {
 		runErr <- func() error {
 			s.log(logger.Debug, "connecting")
 
-			ctx2, cancel2 := context.WithTimeout(innerCtx, s.readTimeout)
+			ctx2, cancel2 := context.WithTimeout(innerCtx, time.Duration(s.readTimeout))
 			defer cancel2()
 
 			conn, err := rtmp.DialContext(ctx2, s.ur)
@@ -114,8 +115,8 @@ func (s *rtmpSource) runInner() bool {
 			readDone := make(chan error)
 			go func() {
 				readDone <- func() error {
-					conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
-					conn.NetConn().SetWriteDeadline(time.Now().Add(s.writeTimeout))
+					conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+					conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
 					err = conn.ClientHandshake()
 					if err != nil {
 						return err
@@ -123,7 +124,7 @@ func (s *rtmpSource) runInner() bool {
 
 					conn.NetConn().SetWriteDeadline(time.Time{})
 
-					conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
+					conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 					videoTrack, audioTrack, err := conn.ReadMetadata()
 					if err != nil {
 						return err
@@ -171,7 +172,7 @@ func (s *rtmpSource) runInner() bool {
 					}
 
 					for {
-						conn.NetConn().SetReadDeadline(time.Now().Add(s.readTimeout))
+						conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 						pkt, err := conn.ReadPacket()
 						if err != nil {
 							return err

@@ -182,8 +182,8 @@ type pathPublisherPauseReq struct {
 
 type path struct {
 	rtspAddress     string
-	readTimeout     time.Duration
-	writeTimeout    time.Duration
+	readTimeout     conf.StringDuration
+	writeTimeout    conf.StringDuration
 	readBufferCount int
 	readBufferSize  int
 	confName        string
@@ -226,8 +226,8 @@ type path struct {
 func newPath(
 	parentCtx context.Context,
 	rtspAddress string,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	readBufferSize int,
 	confName string,
@@ -478,7 +478,7 @@ func (pa *path) onDemandStartSource() {
 	pa.onDemandReadyTimer.Stop()
 	if pa.hasStaticSource() {
 		pa.staticSourceCreate()
-		pa.onDemandReadyTimer = time.NewTimer(pa.conf.SourceOnDemandStartTimeout)
+		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
 
 	} else {
 		pa.Log(logger.Info, "on demand command started")
@@ -487,7 +487,7 @@ func (pa *path) onDemandStartSource() {
 			Path: pa.name,
 			Port: port,
 		})
-		pa.onDemandReadyTimer = time.NewTimer(pa.conf.RunOnDemandStartTimeout)
+		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandStartTimeout))
 	}
 
 	pa.onDemandState = pathOnDemandStateWaitingReady
@@ -496,9 +496,9 @@ func (pa *path) onDemandStartSource() {
 func (pa *path) onDemandScheduleClose() {
 	pa.onDemandCloseTimer.Stop()
 	if pa.hasStaticSource() {
-		pa.onDemandCloseTimer = time.NewTimer(pa.conf.SourceOnDemandCloseAfter)
+		pa.onDemandCloseTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandCloseAfter))
 	} else {
-		pa.onDemandCloseTimer = time.NewTimer(pa.conf.RunOnDemandCloseAfter)
+		pa.onDemandCloseTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandCloseAfter))
 	}
 
 	pa.onDemandState = pathOnDemandStateClosing

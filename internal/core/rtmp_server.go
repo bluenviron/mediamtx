@@ -8,10 +8,10 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/aler9/gortsplib"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -20,8 +20,8 @@ type rtmpServerParent interface {
 }
 
 type rtmpServer struct {
-	readTimeout         time.Duration
-	writeTimeout        time.Duration
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
 	readBufferCount     int
 	rtspAddress         string
 	runOnConnect        string
@@ -45,8 +45,8 @@ type rtmpServer struct {
 func newRTMPServer(
 	parentCtx context.Context,
 	address string,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	rtspAddress string,
 	runOnConnect string,

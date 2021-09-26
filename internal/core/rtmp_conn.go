@@ -19,6 +19,7 @@ import (
 	"github.com/notedit/rtmp/av"
 	"github.com/pion/rtp"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
@@ -55,8 +56,8 @@ type rtmpConnParent interface {
 type rtmpConn struct {
 	id                  string
 	rtspAddress         string
-	readTimeout         time.Duration
-	writeTimeout        time.Duration
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
 	readBufferCount     int
 	runOnConnect        string
 	runOnConnectRestart bool
@@ -77,8 +78,8 @@ func newRTMPConn(
 	parentCtx context.Context,
 	id string,
 	rtspAddress string,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	runOnConnect string,
 	runOnConnectRestart bool,
@@ -184,8 +185,8 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 		c.conn.NetConn().Close()
 	}()
 
-	c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
-	c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	c.conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+	c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 	err := c.conn.ServerHandshake()
 	if err != nil {
 		return err
@@ -262,7 +263,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
-	c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 	c.conn.WriteMetadata(videoTrack, audioTrack)
 
 	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
@@ -351,7 +352,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				pts -= videoStartPTS
 				dts := videoDTSEst.Feed(pts)
 
-				c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+				c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err = c.conn.WritePacket(av.Packet{
 					Type:  av.H264,
 					Data:  data,
@@ -391,7 +392,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			for _, au := range aus {
-				c.conn.NetConn().SetWriteDeadline(time.Now().Add(c.writeTimeout))
+				c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
@@ -408,7 +409,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 }
 
 func (c *rtmpConn) runPublish(ctx context.Context) error {
-	c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
+	c.conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	videoTrack, audioTrack, err := c.conn.ReadMetadata()
 	if err != nil {
 		return err
@@ -483,7 +484,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	}
 
 	for {
-		c.conn.NetConn().SetReadDeadline(time.Now().Add(c.readTimeout))
+		c.conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 		pkt, err := c.conn.ReadPacket()
 		if err != nil {
 			return err

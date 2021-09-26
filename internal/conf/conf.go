@@ -61,8 +61,8 @@ type Conf struct {
 	LogDestinations       []string                        `yaml:"logDestinations" json:"logDestinations"`
 	LogDestinationsParsed map[logger.Destination]struct{} `yaml:"-" json:"-"`
 	LogFile               string                          `yaml:"logFile" json:"logFile"`
-	ReadTimeout           time.Duration                   `yaml:"readTimeout" json:"readTimeout"`
-	WriteTimeout          time.Duration                   `yaml:"writeTimeout" json:"writeTimeout"`
+	ReadTimeout           StringDuration                  `yaml:"readTimeout" json:"readTimeout"`
+	WriteTimeout          StringDuration                  `yaml:"writeTimeout" json:"writeTimeout"`
 	ReadBufferCount       int                             `yaml:"readBufferCount" json:"readBufferCount"`
 	API                   bool                            `yaml:"api" json:"api"`
 	APIAddress            string                          `yaml:"apiAddress" json:"apiAddress"`
@@ -97,12 +97,12 @@ type Conf struct {
 	RTMPAddress string `yaml:"rtmpAddress" json:"rtmpAddress"`
 
 	// hls
-	HLSDisable         bool          `yaml:"hlsDisable" json:"hlsDisable"`
-	HLSAddress         string        `yaml:"hlsAddress" json:"hlsAddress"`
-	HLSAlwaysRemux     bool          `yaml:"hlsAlwaysRemux" json:"hlsAlwaysRemux"`
-	HLSSegmentCount    int           `yaml:"hlsSegmentCount" json:"hlsSegmentCount"`
-	HLSSegmentDuration time.Duration `yaml:"hlsSegmentDuration" json:"hlsSegmentDuration"`
-	HLSAllowOrigin     string        `yaml:"hlsAllowOrigin" json:"hlsAllowOrigin"`
+	HLSDisable         bool           `yaml:"hlsDisable" json:"hlsDisable"`
+	HLSAddress         string         `yaml:"hlsAddress" json:"hlsAddress"`
+	HLSAlwaysRemux     bool           `yaml:"hlsAlwaysRemux" json:"hlsAlwaysRemux"`
+	HLSSegmentCount    int            `yaml:"hlsSegmentCount" json:"hlsSegmentCount"`
+	HLSSegmentDuration StringDuration `yaml:"hlsSegmentDuration" json:"hlsSegmentDuration"`
+	HLSAllowOrigin     string         `yaml:"hlsAllowOrigin" json:"hlsAllowOrigin"`
 
 	// paths
 	Paths map[string]*PathConf `yaml:"paths" json:"paths"`
@@ -201,10 +201,10 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.LogFile = "rtsp-simple-server.log"
 	}
 	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 10 * time.Second
+		conf.ReadTimeout = 10 * StringDuration(time.Second)
 	}
 	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 10 * time.Second
+		conf.WriteTimeout = 10 * StringDuration(time.Second)
 	}
 	if conf.ReadBufferCount == 0 {
 		conf.ReadBufferCount = 512
@@ -322,7 +322,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.HLSSegmentCount = 3
 	}
 	if conf.HLSSegmentDuration == 0 {
-		conf.HLSSegmentDuration = 1 * time.Second
+		conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
 	}
 	if conf.HLSAllowOrigin == "" {
 		conf.HLSAllowOrigin = "*"

@@ -8,8 +8,8 @@ import (
 	gopath "path"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -20,7 +20,7 @@ type hlsServerParent interface {
 type hlsServer struct {
 	hlsAlwaysRemux     bool
 	hlsSegmentCount    int
-	hlsSegmentDuration time.Duration
+	hlsSegmentDuration conf.StringDuration
 	hlsAllowOrigin     string
 	readBufferCount    int
 	pathManager        *pathManager
@@ -43,7 +43,7 @@ func newHLSServer(
 	address string,
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
-	hlsSegmentDuration time.Duration,
+	hlsSegmentDuration conf.StringDuration,
 	hlsAllowOrigin string,
 	readBufferCount int,
 	pathManager *pathManager,

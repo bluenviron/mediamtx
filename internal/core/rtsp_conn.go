@@ -12,6 +12,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/gortsplib/pkg/liberrors"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -37,7 +38,7 @@ type rtspConnParent interface {
 type rtspConn struct {
 	rtspAddress         string
 	authMethods         []headers.AuthMethod
-	readTimeout         time.Duration
+	readTimeout         conf.StringDuration
 	runOnConnect        string
 	runOnConnectRestart bool
 	pathManager         *pathManager
@@ -54,7 +55,7 @@ type rtspConn struct {
 func newRTSPConn(
 	rtspAddress string,
 	authMethods []headers.AuthMethod,
-	readTimeout time.Duration,
+	readTimeout conf.StringDuration,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	pathManager *pathManager,

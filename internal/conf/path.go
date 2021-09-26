@@ -75,8 +75,8 @@ type PathConf struct {
 	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable" json:"sourceAnyPortEnable"`
 	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
 	SourceOnDemand             bool                      `yaml:"sourceOnDemand" json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout time.Duration             `yaml:"sourceOnDemandStartTimeout" json:"sourceOnDemandStartTimeout"` //nolint:lll
-	SourceOnDemandCloseAfter   time.Duration             `yaml:"sourceOnDemandCloseAfter" json:"sourceOnDemandCloseAfter"`
+	SourceOnDemandStartTimeout StringDuration            `yaml:"sourceOnDemandStartTimeout" json:"sourceOnDemandStartTimeout"` //nolint:lll
+	SourceOnDemandCloseAfter   StringDuration            `yaml:"sourceOnDemandCloseAfter" json:"sourceOnDemandCloseAfter"`
 	SourceRedirect             string                    `yaml:"sourceRedirect" json:"sourceRedirect"`
 	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride" json:"disablePublisherOverride"`
 	Fallback                   string                    `yaml:"fallback" json:"fallback"`
@@ -92,16 +92,16 @@ type PathConf struct {
 	ReadIPsParsed    []interface{} `yaml:"-" json:"-"`
 
 	// custom commands
-	RunOnInit               string        `yaml:"runOnInit" json:"runOnInit"`
-	RunOnInitRestart        bool          `yaml:"runOnInitRestart" json:"runOnInitRestart"`
-	RunOnDemand             string        `yaml:"runOnDemand" json:"runOnDemand"`
-	RunOnDemandRestart      bool          `yaml:"runOnDemandRestart" json:"runOnDemandRestart"`
-	RunOnDemandStartTimeout time.Duration `yaml:"runOnDemandStartTimeout" json:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter   time.Duration `yaml:"runOnDemandCloseAfter" json:"runOnDemandCloseAfter"`
-	RunOnPublish            string        `yaml:"runOnPublish" json:"runOnPublish"`
-	RunOnPublishRestart     bool          `yaml:"runOnPublishRestart" json:"runOnPublishRestart"`
-	RunOnRead               string        `yaml:"runOnRead" json:"runOnRead"`
-	RunOnReadRestart        bool          `yaml:"runOnReadRestart" json:"runOnReadRestart"`
+	RunOnInit               string         `yaml:"runOnInit" json:"runOnInit"`
+	RunOnInitRestart        bool           `yaml:"runOnInitRestart" json:"runOnInitRestart"`
+	RunOnDemand             string         `yaml:"runOnDemand" json:"runOnDemand"`
+	RunOnDemandRestart      bool           `yaml:"runOnDemandRestart" json:"runOnDemandRestart"`
+	RunOnDemandStartTimeout StringDuration `yaml:"runOnDemandStartTimeout" json:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter   StringDuration `yaml:"runOnDemandCloseAfter" json:"runOnDemandCloseAfter"`
+	RunOnPublish            string         `yaml:"runOnPublish" json:"runOnPublish"`
+	RunOnPublishRestart     bool           `yaml:"runOnPublishRestart" json:"runOnPublishRestart"`
+	RunOnRead               string         `yaml:"runOnRead" json:"runOnRead"`
+	RunOnReadRestart        bool           `yaml:"runOnReadRestart" json:"runOnReadRestart"`
 }
 
 func (pconf *PathConf) checkAndFillMissing(name string) error {
@@ -236,11 +236,11 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	}
 
 	if pconf.SourceOnDemandStartTimeout == 0 {
-		pconf.SourceOnDemandStartTimeout = 10 * time.Second
+		pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	}
 
 	if pconf.SourceOnDemandCloseAfter == 0 {
-		pconf.SourceOnDemandCloseAfter = 10 * time.Second
+		pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
 	}
 
 	if pconf.Fallback != "" {
@@ -337,11 +337,11 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	}
 
 	if pconf.RunOnDemandStartTimeout == 0 {
-		pconf.RunOnDemandStartTimeout = 10 * time.Second
+		pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	}
 
 	if pconf.RunOnDemandCloseAfter == 0 {
-		pconf.RunOnDemandCloseAfter = 10 * time.Second
+		pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
 	}
 
 	return nil

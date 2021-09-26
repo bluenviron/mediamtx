@@ -18,6 +18,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/pion/rtp"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -117,7 +118,7 @@ type hlsMuxerParent interface {
 type hlsMuxer struct {
 	hlsAlwaysRemux     bool
 	hlsSegmentCount    int
-	hlsSegmentDuration time.Duration
+	hlsSegmentDuration conf.StringDuration
 	readBufferCount    int
 	wg                 *sync.WaitGroup
 	pathName           string
@@ -140,7 +141,7 @@ func newHLSMuxer(
 	parentCtx context.Context,
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
-	hlsSegmentDuration time.Duration,
+	hlsSegmentDuration conf.StringDuration,
 	readBufferCount int,
 	wg *sync.WaitGroup,
 	pathName string,
@@ -300,7 +301,7 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	var err error
 	r.muxer, err = hls.NewMuxer(
 		r.hlsSegmentCount,
-		r.hlsSegmentDuration,
+		time.Duration(r.hlsSegmentDuration),
 		videoTrack,
 		audioTrack,
 	)

@@ -28,7 +28,32 @@ func writeTempFile(byts []byte) (string, error) {
 	return tmpf.Name(), nil
 }
 
-func TestWithFileAndEnv(t *testing.T) {
+func TestConfFromFile(t *testing.T) {
+	tmpf, err := writeTempFile([]byte(`
+paths:
+  cam1:
+    runOnDemandStartTimeout: 5s
+`))
+	require.NoError(t, err)
+	defer os.Remove(tmpf)
+
+	conf, hasFile, err := Load(tmpf)
+	require.NoError(t, err)
+	require.Equal(t, true, hasFile)
+
+	pa, ok := conf.Paths["cam1"]
+	require.Equal(t, true, ok)
+	require.Equal(t, &PathConf{
+		Source:                     "publisher",
+		SourceProtocol:             "",
+		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
+		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
+		RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
+		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
+	}, pa)
+}
+
+func TestConfFromFileAndEnv(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
 
@@ -45,14 +70,14 @@ func TestWithFileAndEnv(t *testing.T) {
 	require.Equal(t, &PathConf{
 		Source:                     "rtsp://testing",
 		SourceProtocol:             "automatic",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
+		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
+		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
+		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
+		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
 	}, pa)
 }
 
-func TestWithEnvOnly(t *testing.T) {
+func TestConfFromEnvOnly(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
 
@@ -65,14 +90,14 @@ func TestWithEnvOnly(t *testing.T) {
 	require.Equal(t, &PathConf{
 		Source:                     "rtsp://testing",
 		SourceProtocol:             "automatic",
-		SourceOnDemandStartTimeout: 10 * time.Second,
-		SourceOnDemandCloseAfter:   10 * time.Second,
-		RunOnDemandStartTimeout:    10 * time.Second,
-		RunOnDemandCloseAfter:      10 * time.Second,
+		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
+		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
+		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
+		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
 	}, pa)
 }
 
-func TestEncryption(t *testing.T) {
+func TestConfEncryption(t *testing.T) {
 	key := "testing123testin"
 	plaintext := `
 paths:

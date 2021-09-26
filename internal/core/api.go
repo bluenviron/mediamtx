@@ -10,7 +10,6 @@ import (
 	"net/http/httputil"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -47,20 +46,20 @@ func cloneStruct(dest interface{}, source interface{}) {
 func loadConfData(ctx *gin.Context) (interface{}, error) {
 	var in struct {
 		// general
-		LogLevel            *string        `json:"logLevel"`
-		LogDestinations     *[]string      `json:"logDestinations"`
-		LogFile             *string        `json:"logFile"`
-		ReadTimeout         *time.Duration `json:"readTimeout"`
-		WriteTimeout        *time.Duration `json:"writeTimeout"`
-		ReadBufferCount     *int           `json:"readBufferCount"`
-		API                 *bool          `json:"api"`
-		APIAddress          *string        `json:"apiAddress"`
-		Metrics             *bool          `json:"metrics"`
-		MetricsAddress      *string        `json:"metricsAddress"`
-		PPROF               *bool          `json:"pprof"`
-		PPROFAddress        *string        `json:"pprofAddress"`
-		RunOnConnect        *string        `json:"runOnConnect"`
-		RunOnConnectRestart *bool          `json:"runOnConnectRestart"`
+		LogLevel            *string              `json:"logLevel"`
+		LogDestinations     *[]string            `json:"logDestinations"`
+		LogFile             *string              `json:"logFile"`
+		ReadTimeout         *conf.StringDuration `json:"readTimeout"`
+		WriteTimeout        *conf.StringDuration `json:"writeTimeout"`
+		ReadBufferCount     *int                 `json:"readBufferCount"`
+		API                 *bool                `json:"api"`
+		APIAddress          *string              `json:"apiAddress"`
+		Metrics             *bool                `json:"metrics"`
+		MetricsAddress      *string              `json:"metricsAddress"`
+		PPROF               *bool                `json:"pprof"`
+		PPROFAddress        *string              `json:"pprofAddress"`
+		RunOnConnect        *string              `json:"runOnConnect"`
+		RunOnConnectRestart *bool                `json:"runOnConnectRestart"`
 
 		// rtsp
 		RTSPDisable       *bool     `json:"rtspDisable"`
@@ -83,12 +82,12 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 		RTMPAddress *string `json:"rtmpAddress"`
 
 		// hls
-		HLSDisable         *bool          `json:"hlsDisable"`
-		HLSAddress         *string        `json:"hlsAddress"`
-		HLSAlwaysRemux     *bool          `json:"hlsAlwaysRemux"`
-		HLSSegmentCount    *int           `json:"hlsSegmentCount"`
-		HLSSegmentDuration *time.Duration `json:"hlsSegmentDuration"`
-		HLSAllowOrigin     *string        `json:"hlsAllowOrigin"`
+		HLSDisable         *bool                `json:"hlsDisable"`
+		HLSAddress         *string              `json:"hlsAddress"`
+		HLSAlwaysRemux     *bool                `json:"hlsAlwaysRemux"`
+		HLSSegmentCount    *int                 `json:"hlsSegmentCount"`
+		HLSSegmentDuration *conf.StringDuration `json:"hlsSegmentDuration"`
+		HLSAllowOrigin     *string              `json:"hlsAllowOrigin"`
 	}
 	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
 	if err != nil {
@@ -101,16 +100,16 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 	var in struct {
 		// source
-		Source                     *string        `json:"source"`
-		SourceProtocol             *string        `json:"sourceProtocol"`
-		SourceAnyPortEnable        *bool          `json:"sourceAnyPortEnable"`
-		SourceFingerprint          *string        `json:"sourceFingerprint"`
-		SourceOnDemand             *bool          `json:"sourceOnDemand"`
-		SourceOnDemandStartTimeout *time.Duration `json:"sourceOnDemandStartTimeout"`
-		SourceOnDemandCloseAfter   *time.Duration `json:"sourceOnDemandCloseAfter"`
-		SourceRedirect             *string        `json:"sourceRedirect"`
-		DisablePublisherOverride   *bool          `json:"disablePublisherOverride"`
-		Fallback                   *string        `json:"fallback"`
+		Source                     *string              `json:"source"`
+		SourceProtocol             *string              `json:"sourceProtocol"`
+		SourceAnyPortEnable        *bool                `json:"sourceAnyPortEnable"`
+		SourceFingerprint          *string              `json:"sourceFingerprint"`
+		SourceOnDemand             *bool                `json:"sourceOnDemand"`
+		SourceOnDemandStartTimeout *conf.StringDuration `json:"sourceOnDemandStartTimeout"`
+		SourceOnDemandCloseAfter   *conf.StringDuration `json:"sourceOnDemandCloseAfter"`
+		SourceRedirect             *string              `json:"sourceRedirect"`
+		DisablePublisherOverride   *bool                `json:"disablePublisherOverride"`
+		Fallback                   *string              `json:"fallback"`
 
 		// authentication
 		PublishUser *string   `json:"publishUser"`
@@ -121,16 +120,16 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		ReadIPs     *[]string `json:"readIPs"`
 
 		// custom commands
-		RunOnInit               *string        `json:"runOnInit"`
-		RunOnInitRestart        *bool          `json:"runOnInitRestart"`
-		RunOnDemand             *string        `json:"runOnDemand"`
-		RunOnDemandRestart      *bool          `json:"runOnDemandRestart"`
-		RunOnDemandStartTimeout *time.Duration `json:"runOnDemandStartTimeout"`
-		RunOnDemandCloseAfter   *time.Duration `json:"runOnDemandCloseAfter"`
-		RunOnPublish            *string        `json:"runOnPublish"`
-		RunOnPublishRestart     *bool          `json:"runOnPublishRestart"`
-		RunOnRead               *string        `json:"runOnRead"`
-		RunOnReadRestart        *bool          `json:"runOnReadRestart"`
+		RunOnInit               *string              `json:"runOnInit"`
+		RunOnInitRestart        *bool                `json:"runOnInitRestart"`
+		RunOnDemand             *string              `json:"runOnDemand"`
+		RunOnDemandRestart      *bool                `json:"runOnDemandRestart"`
+		RunOnDemandStartTimeout *conf.StringDuration `json:"runOnDemandStartTimeout"`
+		RunOnDemandCloseAfter   *conf.StringDuration `json:"runOnDemandCloseAfter"`
+		RunOnPublish            *string              `json:"runOnPublish"`
+		RunOnPublishRestart     *bool                `json:"runOnPublishRestart"`
+		RunOnRead               *string              `json:"runOnRead"`
+		RunOnReadRestart        *bool                `json:"runOnReadRestart"`
 	}
 	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
 	if err != nil {

@@ -26,9 +26,9 @@ components:
         logFile:
           type: string
         readTimeout:
-          type: integer
+          type: string
         writeTimeout:
-          type: integer
+          type: string
         readBufferCount:
           type: integer
         api:
@@ -98,7 +98,7 @@ components:
         hlsSegmentCount:
           type: integer
         hlsSegmentDuration:
-          type: integer
+          type: string
         hlsAllowOrigin:
           type: string
 
@@ -122,9 +122,9 @@ components:
         sourceOnDemand:
           type: boolean
         sourceOnDemandStartTimeout:
-          type: integer
+          type: string
         sourceOnDemandCloseAfter:
-          type: integer
+          type: string
         sourceRedirect:
           type: string
         disablePublisherOverride:
@@ -160,9 +160,9 @@ components:
         runOnDemandRestart:
           type: boolean
         runOnDemandStartTimeout:
-          type: integer
+          type: string
         runOnDemandCloseAfter:
-          type: integer
+          type: string
         runOnPublish:
           type: string
         runOnPublishRestart:

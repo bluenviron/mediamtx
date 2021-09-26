@@ -12,13 +12,13 @@ import (
 func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) error {
 	rt := rv.Type()
 
-	if rt == reflect.TypeOf(time.Duration(0)) {
+	if rt == reflect.TypeOf(StringDuration(0)) {
 		if ev, ok := env[prefix]; ok {
 			d, err := time.ParseDuration(ev)
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
 			}
-			rv.Set(reflect.ValueOf(d))
+			rv.Set(reflect.ValueOf(StringDuration(d)))
 		}
 		return nil
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -31,8 +32,8 @@ type rtspSource struct {
 	proto           *gortsplib.ClientProtocol
 	anyPortEnable   bool
 	fingerprint     string
-	readTimeout     time.Duration
-	writeTimeout    time.Duration
+	readTimeout     conf.StringDuration
+	writeTimeout    conf.StringDuration
 	readBufferCount int
 	readBufferSize  int
 	wg              *sync.WaitGroup
@@ -48,8 +49,8 @@ func newRTSPSource(
 	proto *gortsplib.ClientProtocol,
 	anyPortEnable bool,
 	fingerprint string,
-	readTimeout time.Duration,
-	writeTimeout time.Duration,
+	readTimeout conf.StringDuration,
+	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	readBufferSize int,
 	wg *sync.WaitGroup,
@@ -134,8 +135,8 @@ func (s *rtspSource) runInner() bool {
 				return nil
 			},
 		},
-		ReadTimeout:     s.readTimeout,
-		WriteTimeout:    s.writeTimeout,
+		ReadTimeout:     time.Duration(s.readTimeout),
+		WriteTimeout:    time.Duration(s.writeTimeout),
 		ReadBufferCount: s.readBufferCount,
 		ReadBufferSize:  s.readBufferSize,
 		AnyPortEnable:   s.anyPortEnable,

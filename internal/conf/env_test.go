@@ -23,7 +23,7 @@ type testStruct struct {
 	MyBool bool
 
 	// duration
-	MyDuration time.Duration
+	MyDuration StringDuration
 
 	// slice
 	MySlice []string
@@ -61,7 +61,7 @@ func TestEnvironment(t *testing.T) {
 	require.Equal(t, "testcontent", s.MyString)
 	require.Equal(t, 123, s.MyInt)
 	require.Equal(t, true, s.MyBool)
-	require.Equal(t, 22*time.Second, s.MyDuration)
+	require.Equal(t, 22*StringDuration(time.Second), s.MyDuration)
 	require.Equal(t, []string{"el1", "el2"}, s.MySlice)
 
 	_, ok := s.MyMap["mykey"]
