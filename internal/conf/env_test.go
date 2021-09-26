@@ -1,4 +1,4 @@
-package confenv
+package conf
 
 import (
 	"os"
@@ -32,7 +32,7 @@ type testStruct struct {
 	MyMap map[string]*mapEntry
 }
 
-func Test(t *testing.T) {
+func TestEnvironment(t *testing.T) {
 	os.Setenv("MYPREFIX_MYSTRING", "testcontent")
 	defer os.Unsetenv("MYPREFIX_MYSTRING")
 
@@ -55,7 +55,7 @@ func Test(t *testing.T) {
 	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE")
 
 	var s testStruct
-	err := Load("MYPREFIX", &s)
+	err := loadFromEnvironment("MYPREFIX", &s)
 	require.NoError(t, err)
 
 	require.Equal(t, "testcontent", s.MyString)

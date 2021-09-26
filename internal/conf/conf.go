@@ -11,7 +11,6 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/yaml.v2"
 
-	"github.com/aler9/rtsp-simple-server/internal/confenv"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -146,7 +145,7 @@ func Load(fpath string) (*Conf, bool, error) {
 	}
 
 	// read from environment
-	err = confenv.Load("RTSP", conf)
+	err = loadFromEnvironment("RTSP", conf)
 	if err != nil {
 		return nil, false, err
 	}

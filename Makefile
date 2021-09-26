@@ -81,7 +81,6 @@ endif
 test-internal:
 	go test -v $(TEST_INTERNAL_OPTS) \
 	./internal/conf \
-	./internal/confenv \
 	./internal/confwatcher \
 	./internal/externalcmd \
 	./internal/hls \

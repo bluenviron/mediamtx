@@ -1,4 +1,4 @@
-package confenv
+package conf
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func load(env map[string]string, prefix string, rv reflect.Value) error {
+func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) error {
 	rt := rv.Type()
 
 	if rt == reflect.TypeOf(time.Duration(0)) {
@@ -106,7 +106,7 @@ func load(env map[string]string, prefix string, rv reflect.Value) error {
 				rv.SetMapIndex(reflect.ValueOf(mapKeyLower), nv)
 			}
 
-			err := load(env, prefix+"_"+mapKey, nv.Elem())
+			err := loadEnvInternal(env, prefix+"_"+mapKey, nv.Elem())
 			if err != nil {
 				return err
 			}
@@ -119,11 +119,11 @@ func load(env map[string]string, prefix string, rv reflect.Value) error {
 			f := rt.Field(i)
 
 			// load only public fields
-			if f.Tag.Get("yaml") == "-" {
+			if f.Tag.Get("json") == "-" {
 				continue
 			}
 
-			err := load(env, prefix+"_"+strings.ToUpper(f.Name), rv.Field(i))
+			err := loadEnvInternal(env, prefix+"_"+strings.ToUpper(f.Name), rv.Field(i))
 			if err != nil {
 				return err
 			}
@@ -134,13 +134,12 @@ func load(env map[string]string, prefix string, rv reflect.Value) error {
 	return fmt.Errorf("unsupported type: %v", rt)
 }
 
-// Load fills a structure with data from the environment.
-func Load(prefix string, v interface{}) error {
+func loadFromEnvironment(prefix string, v interface{}) error {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {
 		tmp := strings.SplitN(kv, "=", 2)
 		env[tmp[0]] = tmp[1]
 	}
 
-	return load(env, prefix, reflect.ValueOf(v).Elem())
+	return loadEnvInternal(env, prefix, reflect.ValueOf(v).Elem())
 }
