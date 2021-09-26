@@ -290,7 +290,7 @@ func (pm *pathManager) createPath(confName string, conf *conf.PathConf, name str
 }
 
 func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error) {
-	err := conf.CheckPathName(name)
+	err := conf.IsValidPathName(name)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
 	}

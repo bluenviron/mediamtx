@@ -54,7 +54,7 @@ rtspDisable: no
 protocols: [udp, multicast, tcp]
 # encrypt handshake and TCP streams with TLS (RTSPS).
 # available values are "no", "strict", "optional".
-encryption: no
+encryption: "no"
 # address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
 # address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
