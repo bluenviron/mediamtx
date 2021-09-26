@@ -2,6 +2,7 @@ package conf
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -53,98 +54,134 @@ func decrypt(key string, byts []byte) ([]byte, error) {
 	return decrypted, nil
 }
 
-// Conf is the main program configuration.
+func loadFromFile(fpath string, conf *Conf) (bool, error) {
+	// rtsp-simple-server.yml is optional
+	// other configuration files are not
+	if fpath == "rtsp-simple-server.yml" {
+		if _, err := os.Stat(fpath); err != nil {
+			return false, nil
+		}
+	}
+
+	byts, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return true, err
+	}
+
+	if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok {
+		byts, err = decrypt(key, byts)
+		if err != nil {
+			return true, err
+		}
+	}
+
+	// load YAML config into a generic map
+	var temp interface{}
+	err = yaml.Unmarshal(byts, &temp)
+	if err != nil {
+		return true, err
+	}
+
+	// convert interface{} keys into string keys to avoid JSON errors
+	var convert func(i interface{}) interface{}
+	convert = func(i interface{}) interface{} {
+		switch x := i.(type) {
+		case map[interface{}]interface{}:
+			m2 := map[string]interface{}{}
+			for k, v := range x {
+				m2[k.(string)] = convert(v)
+			}
+			return m2
+		case []interface{}:
+			a2 := make([]interface{}, len(x))
+			for i, v := range x {
+				a2[i] = convert(v)
+			}
+			return a2
+		}
+		return i
+	}
+	temp = convert(temp)
+
+	// convert the generic map into JSON
+	byts, err = json.Marshal(temp)
+	if err != nil {
+		return true, err
+	}
+
+	// load the configuration from JSON
+	err = json.Unmarshal(byts, conf)
+	if err != nil {
+		return true, err
+	}
+
+	return true, nil
+}
+
+// Conf is a configuration.
 type Conf struct {
 	// general
-	LogLevel              string                          `yaml:"logLevel" json:"logLevel"`
-	LogLevelParsed        logger.Level                    `yaml:"-" json:"-"`
-	LogDestinations       []string                        `yaml:"logDestinations" json:"logDestinations"`
-	LogDestinationsParsed map[logger.Destination]struct{} `yaml:"-" json:"-"`
-	LogFile               string                          `yaml:"logFile" json:"logFile"`
-	ReadTimeout           StringDuration                  `yaml:"readTimeout" json:"readTimeout"`
-	WriteTimeout          StringDuration                  `yaml:"writeTimeout" json:"writeTimeout"`
-	ReadBufferCount       int                             `yaml:"readBufferCount" json:"readBufferCount"`
-	API                   bool                            `yaml:"api" json:"api"`
-	APIAddress            string                          `yaml:"apiAddress" json:"apiAddress"`
-	Metrics               bool                            `yaml:"metrics" json:"metrics"`
-	MetricsAddress        string                          `yaml:"metricsAddress" json:"metricsAddress"`
-	PPROF                 bool                            `yaml:"pprof" json:"pprof"`
-	PPROFAddress          string                          `yaml:"pprofAddress" json:"pprofAddress"`
-	RunOnConnect          string                          `yaml:"runOnConnect" json:"runOnConnect"`
-	RunOnConnectRestart   bool                            `yaml:"runOnConnectRestart" json:"runOnConnectRestart"`
+	LogLevel              string                          `json:"logLevel"`
+	LogLevelParsed        logger.Level                    `json:"-"`
+	LogDestinations       []string                        `json:"logDestinations"`
+	LogDestinationsParsed map[logger.Destination]struct{} `json:"-"`
+	LogFile               string                          `json:"logFile"`
+	ReadTimeout           StringDuration                  `json:"readTimeout"`
+	WriteTimeout          StringDuration                  `json:"writeTimeout"`
+	ReadBufferCount       int                             `json:"readBufferCount"`
+	API                   bool                            `json:"api"`
+	APIAddress            string                          `json:"apiAddress"`
+	Metrics               bool                            `json:"metrics"`
+	MetricsAddress        string                          `json:"metricsAddress"`
+	PPROF                 bool                            `json:"pprof"`
+	PPROFAddress          string                          `json:"pprofAddress"`
+	RunOnConnect          string                          `json:"runOnConnect"`
+	RunOnConnectRestart   bool                            `json:"runOnConnectRestart"`
 
-	// rtsp
-	RTSPDisable       bool                  `yaml:"rtspDisable" json:"rtspDisable"`
-	Protocols         []string              `yaml:"protocols" json:"protocols"`
-	ProtocolsParsed   map[Protocol]struct{} `yaml:"-" json:"-"`
-	Encryption        string                `yaml:"encryption" json:"encryption"`
-	EncryptionParsed  Encryption            `yaml:"-" json:"-"`
-	RTSPAddress       string                `yaml:"rtspAddress" json:"rtspAddress"`
-	RTSPSAddress      string                `yaml:"rtspsAddress" json:"rtspsAddress"`
-	RTPAddress        string                `yaml:"rtpAddress" json:"rtpAddress"`
-	RTCPAddress       string                `yaml:"rtcpAddress" json:"rtcpAddress"`
-	MulticastIPRange  string                `yaml:"multicastIPRange" json:"multicastIPRange"`
-	MulticastRTPPort  int                   `yaml:"multicastRTPPort" json:"multicastRTPPort"`
-	MulticastRTCPPort int                   `yaml:"multicastRTCPPort" json:"multicastRTCPPort"`
-	ServerKey         string                `yaml:"serverKey" json:"serverKey"`
-	ServerCert        string                `yaml:"serverCert" json:"serverCert"`
-	AuthMethods       []string              `yaml:"authMethods" json:"authMethods"`
-	AuthMethodsParsed []headers.AuthMethod  `yaml:"-" json:"-"`
-	ReadBufferSize    int                   `yaml:"readBufferSize" json:"readBufferSize"`
+	// RTSP
+	RTSPDisable       bool                  `json:"rtspDisable"`
+	Protocols         []string              `json:"protocols"`
+	ProtocolsParsed   map[Protocol]struct{} `json:"-"`
+	Encryption        string                `json:"encryption"`
+	EncryptionParsed  Encryption            `json:"-"`
+	RTSPAddress       string                `json:"rtspAddress"`
+	RTSPSAddress      string                `json:"rtspsAddress"`
+	RTPAddress        string                `json:"rtpAddress"`
+	RTCPAddress       string                `json:"rtcpAddress"`
+	MulticastIPRange  string                `json:"multicastIPRange"`
+	MulticastRTPPort  int                   `json:"multicastRTPPort"`
+	MulticastRTCPPort int                   `json:"multicastRTCPPort"`
+	ServerKey         string                `json:"serverKey"`
+	ServerCert        string                `json:"serverCert"`
+	AuthMethods       []string              `json:"authMethods"`
+	AuthMethodsParsed []headers.AuthMethod  `json:"-"`
+	ReadBufferSize    int                   `json:"readBufferSize"`
 
-	// rtmp
-	RTMPDisable bool   `yaml:"rtmpDisable" json:"rtmpDisable"`
-	RTMPAddress string `yaml:"rtmpAddress" json:"rtmpAddress"`
+	// RTMP
+	RTMPDisable bool   `json:"rtmpDisable"`
+	RTMPAddress string `json:"rtmpAddress"`
 
-	// hls
-	HLSDisable         bool           `yaml:"hlsDisable" json:"hlsDisable"`
-	HLSAddress         string         `yaml:"hlsAddress" json:"hlsAddress"`
-	HLSAlwaysRemux     bool           `yaml:"hlsAlwaysRemux" json:"hlsAlwaysRemux"`
-	HLSSegmentCount    int            `yaml:"hlsSegmentCount" json:"hlsSegmentCount"`
-	HLSSegmentDuration StringDuration `yaml:"hlsSegmentDuration" json:"hlsSegmentDuration"`
-	HLSAllowOrigin     string         `yaml:"hlsAllowOrigin" json:"hlsAllowOrigin"`
+	// HLS
+	HLSDisable         bool           `json:"hlsDisable"`
+	HLSAddress         string         `json:"hlsAddress"`
+	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
+	HLSSegmentCount    int            `json:"hlsSegmentCount"`
+	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
+	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
 
 	// paths
-	Paths map[string]*PathConf `yaml:"paths" json:"paths"`
+	Paths map[string]*PathConf `json:"paths"`
 }
 
 // Load loads a Conf.
 func Load(fpath string) (*Conf, bool, error) {
 	conf := &Conf{}
 
-	// read from file
-	found, err := func() (bool, error) {
-		// rtsp-simple-server.yml is optional
-		if fpath == "rtsp-simple-server.yml" {
-			if _, err := os.Stat(fpath); err != nil {
-				return false, nil
-			}
-		}
-
-		byts, err := ioutil.ReadFile(fpath)
-		if err != nil {
-			return true, err
-		}
-
-		if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok {
-			byts, err = decrypt(key, byts)
-			if err != nil {
-				return true, err
-			}
-		}
-
-		err = yaml.Unmarshal(byts, conf)
-		if err != nil {
-			return true, err
-		}
-
-		return true, nil
-	}()
+	found, err := loadFromFile(fpath, conf)
 	if err != nil {
 		return nil, false, err
 	}
 
-	// read from environment
 	err = loadFromEnvironment("RTSP", conf)
 	if err != nil {
 		return nil, false, err
@@ -158,7 +195,7 @@ func Load(fpath string) (*Conf, bool, error) {
 	return conf, found, nil
 }
 
-// CheckAndFillMissing checks the configuration for errors and fill missing fields.
+// CheckAndFillMissing checks the configuration for errors and fills missing fields.
 func (conf *Conf) CheckAndFillMissing() error {
 	if conf.LogLevel == "" {
 		conf.LogLevel = "info"

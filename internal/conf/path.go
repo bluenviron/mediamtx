@@ -43,8 +43,8 @@ func parseIPCidrList(in []string) ([]interface{}, error) {
 	return ret, nil
 }
 
-// CheckPathName checks if a path name is valid.
-func CheckPathName(name string) error {
+// IsValidPathName checks if a path name is valid.
+func IsValidPathName(name string) error {
 	if name == "" {
 		return fmt.Errorf("cannot be empty")
 	}
@@ -66,42 +66,42 @@ func CheckPathName(name string) error {
 
 // PathConf is a path configuration.
 type PathConf struct {
-	Regexp *regexp.Regexp `yaml:"-" json:"-"`
+	Regexp *regexp.Regexp `json:"-"`
 
 	// source
-	Source                     string                    `yaml:"source" json:"source"`
-	SourceProtocol             string                    `yaml:"sourceProtocol" json:"sourceProtocol"`
-	SourceProtocolParsed       *gortsplib.ClientProtocol `yaml:"-" json:"-"`
-	SourceAnyPortEnable        bool                      `yaml:"sourceAnyPortEnable" json:"sourceAnyPortEnable"`
-	SourceFingerprint          string                    `yaml:"sourceFingerprint" json:"sourceFingerprint"`
-	SourceOnDemand             bool                      `yaml:"sourceOnDemand" json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout StringDuration            `yaml:"sourceOnDemandStartTimeout" json:"sourceOnDemandStartTimeout"` //nolint:lll
-	SourceOnDemandCloseAfter   StringDuration            `yaml:"sourceOnDemandCloseAfter" json:"sourceOnDemandCloseAfter"`
-	SourceRedirect             string                    `yaml:"sourceRedirect" json:"sourceRedirect"`
-	DisablePublisherOverride   bool                      `yaml:"disablePublisherOverride" json:"disablePublisherOverride"`
-	Fallback                   string                    `yaml:"fallback" json:"fallback"`
+	Source                     string                    `json:"source"`
+	SourceProtocol             string                    `json:"sourceProtocol"`
+	SourceProtocolParsed       *gortsplib.ClientProtocol `json:"-"`
+	SourceAnyPortEnable        bool                      `json:"sourceAnyPortEnable"`
+	SourceFingerprint          string                    `json:"sourceFingerprint"`
+	SourceOnDemand             bool                      `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout StringDuration            `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   StringDuration            `json:"sourceOnDemandCloseAfter"`
+	SourceRedirect             string                    `json:"sourceRedirect"`
+	DisablePublisherOverride   bool                      `json:"disablePublisherOverride"`
+	Fallback                   string                    `json:"fallback"`
 
 	// authentication
-	PublishUser      string        `yaml:"publishUser" json:"publishUser"`
-	PublishPass      string        `yaml:"publishPass" json:"publishPass"`
-	PublishIPs       []string      `yaml:"publishIPs" json:"publishIPs"`
-	PublishIPsParsed []interface{} `yaml:"-" json:"-"`
-	ReadUser         string        `yaml:"readUser" json:"readUser"`
-	ReadPass         string        `yaml:"readPass" json:"readPass"`
-	ReadIPs          []string      `yaml:"readIPs" json:"readIPs"`
-	ReadIPsParsed    []interface{} `yaml:"-" json:"-"`
+	PublishUser      string        `json:"publishUser"`
+	PublishPass      string        `json:"publishPass"`
+	PublishIPs       []string      `json:"publishIPs"`
+	PublishIPsParsed []interface{} `json:"-"`
+	ReadUser         string        `json:"readUser"`
+	ReadPass         string        `json:"readPass"`
+	ReadIPs          []string      `json:"readIPs"`
+	ReadIPsParsed    []interface{} `json:"-"`
 
 	// custom commands
-	RunOnInit               string         `yaml:"runOnInit" json:"runOnInit"`
-	RunOnInitRestart        bool           `yaml:"runOnInitRestart" json:"runOnInitRestart"`
-	RunOnDemand             string         `yaml:"runOnDemand" json:"runOnDemand"`
-	RunOnDemandRestart      bool           `yaml:"runOnDemandRestart" json:"runOnDemandRestart"`
-	RunOnDemandStartTimeout StringDuration `yaml:"runOnDemandStartTimeout" json:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter   StringDuration `yaml:"runOnDemandCloseAfter" json:"runOnDemandCloseAfter"`
-	RunOnPublish            string         `yaml:"runOnPublish" json:"runOnPublish"`
-	RunOnPublishRestart     bool           `yaml:"runOnPublishRestart" json:"runOnPublishRestart"`
-	RunOnRead               string         `yaml:"runOnRead" json:"runOnRead"`
-	RunOnReadRestart        bool           `yaml:"runOnReadRestart" json:"runOnReadRestart"`
+	RunOnInit               string         `json:"runOnInit"`
+	RunOnInitRestart        bool           `json:"runOnInitRestart"`
+	RunOnDemand             string         `json:"runOnDemand"`
+	RunOnDemandRestart      bool           `json:"runOnDemandRestart"`
+	RunOnDemandStartTimeout StringDuration `json:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter   StringDuration `json:"runOnDemandCloseAfter"`
+	RunOnPublish            string         `json:"runOnPublish"`
+	RunOnPublishRestart     bool           `json:"runOnPublishRestart"`
+	RunOnRead               string         `json:"runOnRead"`
+	RunOnReadRestart        bool           `json:"runOnReadRestart"`
 }
 
 func (pconf *PathConf) checkAndFillMissing(name string) error {
@@ -111,7 +111,7 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 
 	// normal path
 	if name[0] != '~' {
-		err := CheckPathName(name)
+		err := IsValidPathName(name)
 		if err != nil {
 			return fmt.Errorf("invalid path name: %s (%s)", err, name)
 		}
@@ -245,7 +245,7 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 
 	if pconf.Fallback != "" {
 		if strings.HasPrefix(pconf.Fallback, "/") {
-			err := CheckPathName(pconf.Fallback[1:])
+			err := IsValidPathName(pconf.Fallback[1:])
 			if err != nil {
 				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
 			}

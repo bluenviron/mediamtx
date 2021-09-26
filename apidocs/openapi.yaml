@@ -303,7 +303,7 @@ paths:
   /v1/config/get:
     get:
       operationId: configGet
-      summary: returns the current configuration.
+      summary: returns the configuration.
       description: ''
       responses:
         '200':
@@ -318,7 +318,7 @@ paths:
   /v1/config/set:
     post:
       operationId: configSet
-      summary: changes the current configuration.
+      summary: changes the configuration.
       description: all fields are optional.
       requestBody:
         required: true
