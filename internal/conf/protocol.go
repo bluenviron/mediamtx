@@ -63,7 +63,7 @@ func (d *Protocols) UnmarshalJSON(b []byte) error {
 			(*d)[ProtocolTCP] = struct{}{}
 
 		default:
-			return fmt.Errorf("unsupported protocol: %s", proto)
+			return fmt.Errorf("invalid protocol: %s", proto)
 		}
 	}
 

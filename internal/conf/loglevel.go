@@ -46,7 +46,7 @@ func (d *LogLevel) UnmarshalJSON(b []byte) error {
 		*d = LogLevel(logger.Debug)
 
 	default:
-		return fmt.Errorf("unsupported log level: %s", in)
+		return fmt.Errorf("invalid log level: %s", in)
 	}
 
 	return nil

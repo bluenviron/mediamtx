@@ -43,7 +43,7 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 			*d = append(*d, headers.AuthDigest)
 
 		default:
-			return fmt.Errorf("unsupported authentication method: %s", in)
+			return fmt.Errorf("invalid authentication method: %s", in)
 		}
 	}
 

@@ -57,7 +57,7 @@ func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 			(*d)[logger.DestinationSyslog] = struct{}{}
 
 		default:
-			return fmt.Errorf("unsupported log destination: %s", proto)
+			return fmt.Errorf("invalid log destination: %s", proto)
 		}
 	}
 
