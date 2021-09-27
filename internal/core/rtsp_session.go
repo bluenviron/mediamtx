@@ -134,7 +134,7 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 		Author:   s,
 		PathName: ctx.Path,
 		IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
-		ValidateCredentials: func(pathUser string, pathPass string) error {
+		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
 			return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
 		},
 	})
@@ -198,7 +198,7 @@ func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			Author:   s,
 			PathName: ctx.Path,
 			IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
-			ValidateCredentials: func(pathUser string, pathPass string) error {
+			ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
 				return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
 			},
 		})

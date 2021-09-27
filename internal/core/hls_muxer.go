@@ -424,7 +424,7 @@ func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) {
 
 	if conf.ReadUser != "" {
 		user, pass, ok := req.Req.BasicAuth()
-		if !ok || user != conf.ReadUser || pass != conf.ReadPass {
+		if !ok || user != string(conf.ReadUser) || pass != string(conf.ReadPass) {
 			req.W.Header().Set("WWW-Authenticate", `Basic realm="rtsp-simple-server"`)
 			req.W.WriteHeader(http.StatusUnauthorized)
 			req.Res <- nil

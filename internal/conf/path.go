@@ -11,10 +11,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 )
 
-const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
-
-var reUserPass = regexp.MustCompile(`^[a-zA-Z0-9!\$\(\)\*\+\.;<=>\[\]\^_\-\{\}]+$`)
-
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
 
 // IsValidPathName checks if a path name is valid.
@@ -55,12 +51,12 @@ type PathConf struct {
 	Fallback                   string         `json:"fallback"`
 
 	// authentication
-	PublishUser string    `json:"publishUser"`
-	PublishPass string    `json:"publishPass"`
-	PublishIPs  IPsOrNets `json:"publishIPs"`
-	ReadUser    string    `json:"readUser"`
-	ReadPass    string    `json:"readPass"`
-	ReadIPs     IPsOrNets `json:"readIPs"`
+	PublishUser Credential `json:"publishUser"`
+	PublishPass Credential `json:"publishPass"`
+	PublishIPs  IPsOrNets  `json:"publishIPs"`
+	ReadUser    Credential `json:"readUser"`
+	ReadPass    Credential `json:"readPass"`
+	ReadIPs     IPsOrNets  `json:"readIPs"`
 
 	// custom commands
 	RunOnInit               string         `json:"runOnInit"`
@@ -211,25 +207,9 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 
-	if pconf.PublishUser != "" {
-		if pconf.Source != "publisher" {
-			return fmt.Errorf("'publishUser' is useless when source is not 'publisher'")
-		}
-
-		if !strings.HasPrefix(pconf.PublishUser, "sha256:") && !reUserPass.MatchString(pconf.PublishUser) {
-			return fmt.Errorf("publish username contains unsupported characters (supported are %s)", userPassSupportedChars)
-		}
-	}
-
-	if pconf.PublishPass != "" {
-		if pconf.Source != "publisher" {
-			return fmt.Errorf("'publishPass' is useless when source is not 'publisher', since " +
-				"the stream is not provided by a publisher, but by a fixed source")
-		}
-
-		if !strings.HasPrefix(pconf.PublishPass, "sha256:") && !reUserPass.MatchString(pconf.PublishPass) {
-			return fmt.Errorf("publish password contains unsupported characters (supported are %s)", userPassSupportedChars)
-		}
+	if pconf.PublishUser != "" && pconf.Source != "publisher" {
+		return fmt.Errorf("'publishUser' is useless when source is not 'publisher', since " +
+			"the stream is not provided by a publisher, but by a fixed source")
 	}
 
 	if len(pconf.PublishIPs) > 0 && pconf.Source != "publisher" {
@@ -240,18 +220,6 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
 		(pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
-	}
-
-	if pconf.ReadUser != "" {
-		if !strings.HasPrefix(pconf.ReadUser, "sha256:") && !reUserPass.MatchString(pconf.ReadUser) {
-			return fmt.Errorf("read username contains unsupported characters (supported are %s)", userPassSupportedChars)
-		}
-	}
-
-	if pconf.ReadPass != "" {
-		if !strings.HasPrefix(pconf.ReadPass, "sha256:") && !reUserPass.MatchString(pconf.ReadPass) {
-			return fmt.Errorf("read password contains unsupported characters (supported are %s)", userPassSupportedChars)
-		}
 	}
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
