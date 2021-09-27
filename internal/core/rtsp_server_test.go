@@ -210,30 +210,15 @@ func TestRTSPServerAuth(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		cnt1, err := newContainer("ffmpeg", "source", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "rtsp",
-			"-rtsp_transport", "udp",
-			"rtsp://testuser:test!$()*+.;<=>[]^_-{}@127.0.0.1:8554/test/stream",
-		})
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
-		defer cnt1.close()
 
-		time.Sleep(1 * time.Second)
-
-		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-rtsp_transport", "udp",
-			"-i", "rtsp://localhost:8554/test/stream",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
+		source, err := gortsplib.DialPublish(
+			"rtsp://testuser:test%21%24%28%29%2A%2B.%3B%3C%3D%3E%5B%5D%5E_-%7B%7D@127.0.0.1:8554/test/stream",
+			gortsplib.Tracks{track})
 		require.NoError(t, err)
-		defer cnt2.close()
-		require.Equal(t, 0, cnt2.wait())
+		defer source.Close()
 	})
 
 	for _, soft := range []string{
@@ -293,33 +278,20 @@ func TestRTSPServerAuth(t *testing.T) {
 			"hlsDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
-			"    readUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
-			"    readPass: sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w=\n")
+			"    publishUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
+			"    publishPass: sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w=\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		cnt1, err := newContainer("ffmpeg", "source", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "rtsp",
-			"-rtsp_transport", "udp",
-			"rtsp://localhost:8554/test/stream",
-		})
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
-		defer cnt1.close()
 
-		cnt2, err := newContainer("ffmpeg", "dest", []string{
-			"-rtsp_transport", "udp",
-			"-i", "rtsp://testuser:testpass@localhost:8554/test/stream",
-			"-vframes", "1",
-			"-f", "image2",
-			"-y", "/dev/null",
-		})
+		source, err := gortsplib.DialPublish(
+			"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
+			gortsplib.Tracks{track})
 		require.NoError(t, err)
-		defer cnt2.close()
-		require.Equal(t, 0, cnt2.wait())
+		defer source.Close()
 	})
 }
 
