@@ -29,27 +29,57 @@ func writeTempFile(byts []byte) (string, error) {
 }
 
 func TestConfFromFile(t *testing.T) {
-	tmpf, err := writeTempFile([]byte(`
-paths:
-  cam1:
-    runOnDemandStartTimeout: 5s
-`))
-	require.NoError(t, err)
-	defer os.Remove(tmpf)
+	func() {
+		tmpf, err := writeTempFile([]byte(
+			"paths:\n" +
+				"  cam1:\n" +
+				"    runOnDemandStartTimeout: 5s\n"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
 
-	conf, hasFile, err := Load(tmpf)
-	require.NoError(t, err)
-	require.Equal(t, true, hasFile)
+		conf, hasFile, err := Load(tmpf)
+		require.NoError(t, err)
+		require.Equal(t, true, hasFile)
 
-	pa, ok := conf.Paths["cam1"]
-	require.Equal(t, true, ok)
-	require.Equal(t, &PathConf{
-		Source:                     "publisher",
-		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
-		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
-		RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
-		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
-	}, pa)
+		pa, ok := conf.Paths["cam1"]
+		require.Equal(t, true, ok)
+		require.Equal(t, &PathConf{
+			Source:                     "publisher",
+			SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
+			SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
+			RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
+			RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
+		}, pa)
+	}()
+
+	func() {
+		tmpf, err := writeTempFile([]byte(``))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		_, _, err = Load(tmpf)
+		require.NoError(t, err)
+	}()
+
+	func() {
+		tmpf, err := writeTempFile([]byte(`paths:`))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		_, _, err = Load(tmpf)
+		require.NoError(t, err)
+	}()
+
+	func() {
+		tmpf, err := writeTempFile([]byte(
+			"paths:\n" +
+				"  mypath:\n"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		_, _, err = Load(tmpf)
+		require.NoError(t, err)
+	}()
 }
 
 func TestConfFromFileAndEnv(t *testing.T) {
@@ -96,11 +126,9 @@ func TestConfFromEnvOnly(t *testing.T) {
 
 func TestConfEncryption(t *testing.T) {
 	key := "testing123testin"
-	plaintext := `
-paths:
-  path1:
-  path2:
-`
+	plaintext := "paths:\n" +
+		"  path1:\n" +
+		"  path2:\n"
 
 	encryptedConf := func() string {
 		var secretKey [32]byte
@@ -131,4 +159,26 @@ paths:
 
 	_, ok = conf.Paths["path2"]
 	require.Equal(t, true, ok)
+}
+
+func TestConfErrorNonExistentParameter(t *testing.T) {
+	func() {
+		tmpf, err := writeTempFile([]byte(`invalid: param`))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		_, _, err = Load(tmpf)
+		require.Equal(t, "non-existent parameter: 'invalid'", err.Error())
+	}()
+
+	func() {
+		tmpf, err := writeTempFile([]byte("paths:\n" +
+			"  mypath:\n" +
+			"    invalid: parameter\n"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		_, _, err = Load(tmpf)
+		require.Equal(t, "parameter paths, key mypath: non-existent parameter: 'invalid'", err.Error())
+	}()
 }

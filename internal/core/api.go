@@ -39,49 +39,49 @@ func fillStruct(dest interface{}, source interface{}) {
 }
 
 func cloneStruct(dest interface{}, source interface{}) {
-	enc, _ := json.Marshal(dest)
-	_ = json.Unmarshal(enc, source)
+	enc, _ := json.Marshal(source)
+	_ = json.Unmarshal(enc, dest)
 }
 
 func loadConfData(ctx *gin.Context) (interface{}, error) {
 	var in struct {
 		// general
-		LogLevel            *string              `json:"logLevel"`
-		LogDestinations     *[]string            `json:"logDestinations"`
-		LogFile             *string              `json:"logFile"`
-		ReadTimeout         *conf.StringDuration `json:"readTimeout"`
-		WriteTimeout        *conf.StringDuration `json:"writeTimeout"`
-		ReadBufferCount     *int                 `json:"readBufferCount"`
-		API                 *bool                `json:"api"`
-		APIAddress          *string              `json:"apiAddress"`
-		Metrics             *bool                `json:"metrics"`
-		MetricsAddress      *string              `json:"metricsAddress"`
-		PPROF               *bool                `json:"pprof"`
-		PPROFAddress        *string              `json:"pprofAddress"`
-		RunOnConnect        *string              `json:"runOnConnect"`
-		RunOnConnectRestart *bool                `json:"runOnConnectRestart"`
+		LogLevel            *conf.LogLevel        `json:"logLevel"`
+		LogDestinations     *conf.LogDestinations `json:"logDestinations"`
+		LogFile             *string               `json:"logFile"`
+		ReadTimeout         *conf.StringDuration  `json:"readTimeout"`
+		WriteTimeout        *conf.StringDuration  `json:"writeTimeout"`
+		ReadBufferCount     *int                  `json:"readBufferCount"`
+		API                 *bool                 `json:"api"`
+		APIAddress          *string               `json:"apiAddress"`
+		Metrics             *bool                 `json:"metrics"`
+		MetricsAddress      *string               `json:"metricsAddress"`
+		PPROF               *bool                 `json:"pprof"`
+		PPROFAddress        *string               `json:"pprofAddress"`
+		RunOnConnect        *string               `json:"runOnConnect"`
+		RunOnConnectRestart *bool                 `json:"runOnConnectRestart"`
 
-		// rtsp
-		RTSPDisable       *bool     `json:"rtspDisable"`
-		Protocols         *[]string `json:"protocols"`
-		Encryption        *string   `json:"encryption"`
-		RTSPAddress       *string   `json:"rtspAddress"`
-		RTSPSAddress      *string   `json:"rtspsAddress"`
-		RTPAddress        *string   `json:"rtpAddress"`
-		RTCPAddress       *string   `json:"rtcpAddress"`
-		MulticastIPRange  *string   `json:"multicastIPRange"`
-		MulticastRTPPort  *int      `json:"multicastRTPPort"`
-		MulticastRTCPPort *int      `json:"multicastRTCPPort"`
-		ServerKey         *string   `json:"serverKey"`
-		ServerCert        *string   `json:"serverCert"`
-		AuthMethods       *[]string `json:"authMethods"`
-		ReadBufferSize    *int      `json:"readBufferSize"`
+		// RTSP
+		RTSPDisable       *bool             `json:"rtspDisable"`
+		Protocols         *conf.Protocols   `json:"protocols"`
+		Encryption        *conf.Encryption  `json:"encryption"`
+		RTSPAddress       *string           `json:"rtspAddress"`
+		RTSPSAddress      *string           `json:"rtspsAddress"`
+		RTPAddress        *string           `json:"rtpAddress"`
+		RTCPAddress       *string           `json:"rtcpAddress"`
+		MulticastIPRange  *string           `json:"multicastIPRange"`
+		MulticastRTPPort  *int              `json:"multicastRTPPort"`
+		MulticastRTCPPort *int              `json:"multicastRTCPPort"`
+		ServerKey         *string           `json:"serverKey"`
+		ServerCert        *string           `json:"serverCert"`
+		AuthMethods       *conf.AuthMethods `json:"authMethods"`
+		ReadBufferSize    *int              `json:"readBufferSize"`
 
-		// rtmp
+		// RTMP
 		RTMPDisable *bool   `json:"rtmpDisable"`
 		RTMPAddress *string `json:"rtmpAddress"`
 
-		// hls
+		// HLS
 		HLSDisable         *bool                `json:"hlsDisable"`
 		HLSAddress         *string              `json:"hlsAddress"`
 		HLSAlwaysRemux     *bool                `json:"hlsAlwaysRemux"`
@@ -101,7 +101,7 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 	var in struct {
 		// source
 		Source                     *string              `json:"source"`
-		SourceProtocol             *string              `json:"sourceProtocol"`
+		SourceProtocol             *conf.SourceProtocol `json:"sourceProtocol"`
 		SourceAnyPortEnable        *bool                `json:"sourceAnyPortEnable"`
 		SourceFingerprint          *string              `json:"sourceFingerprint"`
 		SourceOnDemand             *bool                `json:"sourceOnDemand"`
@@ -112,12 +112,12 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		Fallback                   *string              `json:"fallback"`
 
 		// authentication
-		PublishUser *string   `json:"publishUser"`
-		PublishPass *string   `json:"publishPass"`
-		PublishIPs  *[]string `json:"publishIPs"`
-		ReadUser    *string   `json:"readUser"`
-		ReadPass    *string   `json:"readPass"`
-		ReadIPs     *[]string `json:"readIPs"`
+		PublishUser *string         `json:"publishUser"`
+		PublishPass *string         `json:"publishPass"`
+		PublishIPs  *conf.IPsOrNets `json:"publishIPs"`
+		ReadUser    *string         `json:"readUser"`
+		ReadPass    *string         `json:"readPass"`
+		ReadIPs     *conf.IPsOrNets `json:"readIPs"`
 
 		// custom commands
 		RunOnInit               *string              `json:"runOnInit"`
@@ -363,7 +363,7 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 	defer a.mutex.Unlock()
 
 	var newConf conf.Conf
-	cloneStruct(a.conf, &newConf)
+	cloneStruct(&newConf, a.conf)
 	fillStruct(&newConf, in)
 
 	err = newConf.CheckAndFillMissing()
@@ -399,15 +399,16 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	defer a.mutex.Unlock()
 
 	var newConf conf.Conf
-	cloneStruct(a.conf, &newConf)
+	cloneStruct(&newConf, a.conf)
 
 	if _, ok := newConf.Paths[name]; ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	newConfPath := &conf.PathConf{}
 
+	newConfPath := &conf.PathConf{}
 	fillStruct(newConfPath, in)
+
 	newConf.Paths[name] = newConfPath
 
 	err = newConf.CheckAndFillMissing()
@@ -443,7 +444,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 	defer a.mutex.Unlock()
 
 	var newConf conf.Conf
-	cloneStruct(a.conf, &newConf)
+	cloneStruct(&newConf, a.conf)
 
 	newConfPath, ok := newConf.Paths[name]
 	if !ok {
@@ -480,7 +481,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	defer a.mutex.Unlock()
 
 	var newConf conf.Conf
-	cloneStruct(a.conf, &newConf)
+	cloneStruct(&newConf, a.conf)
 
 	if _, ok := newConf.Paths[name]; !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)

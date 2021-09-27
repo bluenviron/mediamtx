@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"time"
 
 	"github.com/aler9/gortsplib/pkg/headers"
@@ -72,6 +73,7 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 				m2[k.(string)] = convert(v)
 			}
 			return m2
+
 		case []interface{}:
 			a2 := make([]interface{}, len(x))
 			for i, v := range x {
@@ -79,9 +81,58 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 			}
 			return a2
 		}
+
 		return i
 	}
 	temp = convert(temp)
+
+	// check for non-existent parameters
+	var checkNonExistentFields func(what interface{}, ref interface{}) error
+	checkNonExistentFields = func(what interface{}, ref interface{}) error {
+		if what == nil {
+			return nil
+		}
+
+		ma, ok := what.(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("not a map")
+		}
+
+		for k, v := range ma {
+			fi := func() reflect.Type {
+				rr := reflect.TypeOf(ref)
+				for i := 0; i < rr.NumField(); i++ {
+					f := rr.Field(i)
+					if f.Tag.Get("json") == k {
+						return f.Type
+					}
+				}
+				return nil
+			}()
+			if fi == nil {
+				return fmt.Errorf("non-existent parameter: '%s'", k)
+			}
+
+			if fi == reflect.TypeOf(map[string]*PathConf{}) && v != nil {
+				ma2, ok := v.(map[string]interface{})
+				if !ok {
+					return fmt.Errorf("parameter %s is not a map", k)
+				}
+
+				for k2, v2 := range ma2 {
+					err := checkNonExistentFields(v2, reflect.Zero(fi.Elem().Elem()).Interface())
+					if err != nil {
+						return fmt.Errorf("parameter %s, key %s: %s", k, k2, err)
+					}
+				}
+			}
+		}
+		return nil
+	}
+	err = checkNonExistentFields(temp, Conf{})
+	if err != nil {
+		return true, err
+	}
 
 	// convert the generic map into JSON
 	byts, err = json.Marshal(temp)
@@ -170,7 +221,7 @@ func Load(fpath string) (*Conf, bool, error) {
 	return conf, found, nil
 }
 
-// CheckAndFillMissing checks the configuration for errors and fills missing fields.
+// CheckAndFillMissing checks the configuration for errors and fills missing parameters.
 func (conf *Conf) CheckAndFillMissing() error {
 	if conf.LogLevel == 0 {
 		conf.LogLevel = LogLevel(logger.Info)
