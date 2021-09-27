@@ -29,7 +29,7 @@ type rtspSourceParent interface {
 
 type rtspSource struct {
 	ur              string
-	proto           *gortsplib.ClientProtocol
+	proto           conf.SourceProtocol
 	anyPortEnable   bool
 	fingerprint     string
 	readTimeout     conf.StringDuration
@@ -46,7 +46,7 @@ type rtspSource struct {
 func newRTSPSource(
 	parentCtx context.Context,
 	ur string,
-	proto *gortsplib.ClientProtocol,
+	proto conf.SourceProtocol,
 	anyPortEnable bool,
 	fingerprint string,
 	readTimeout conf.StringDuration,
@@ -118,7 +118,7 @@ func (s *rtspSource) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
 	client := &gortsplib.Client{
-		Protocol: s.proto,
+		Protocol: s.proto.ClientProtocol,
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			VerifyConnection: func(cs tls.ConnectionState) error {

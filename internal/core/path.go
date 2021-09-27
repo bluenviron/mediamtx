@@ -586,7 +586,7 @@ func (pa *path) staticSourceCreate() {
 		pa.source = newRTSPSource(
 			pa.ctx,
 			pa.conf.Source,
-			pa.conf.SourceProtocolParsed,
+			pa.conf.SourceProtocol,
 			pa.conf.SourceAnyPortEnable,
 			pa.conf.SourceFingerprint,
 			pa.readTimeout,

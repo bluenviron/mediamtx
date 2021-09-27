@@ -1,36 +1,35 @@
 package conf
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) error {
 	rt := rv.Type()
 
-	if rt == reflect.TypeOf(StringDuration(0)) {
+	if i, ok := rv.Addr().Interface().(json.Unmarshaler); ok {
 		if ev, ok := env[prefix]; ok {
-			d, err := time.ParseDuration(ev)
+			err := i.UnmarshalJSON([]byte(`"` + ev + `"`))
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
 			}
-			rv.Set(reflect.ValueOf(StringDuration(d)))
 		}
 		return nil
 	}
 
-	switch rt.Kind() {
-	case reflect.String:
+	switch rt {
+	case reflect.TypeOf(""):
 		if ev, ok := env[prefix]; ok {
 			rv.SetString(ev)
 		}
 		return nil
 
-	case reflect.Int:
+	case reflect.TypeOf(int(0)):
 		if ev, ok := env[prefix]; ok {
 			iv, err := strconv.ParseInt(ev, 10, 64)
 			if err != nil {
@@ -40,7 +39,7 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 		}
 		return nil
 
-	case reflect.Uint64:
+	case reflect.TypeOf(uint64(0)):
 		if ev, ok := env[prefix]; ok {
 			iv, err := strconv.ParseUint(ev, 10, 64)
 			if err != nil {
@@ -50,7 +49,7 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 		}
 		return nil
 
-	case reflect.Bool:
+	case reflect.TypeOf(bool(false)):
 		if ev, ok := env[prefix]; ok {
 			switch strings.ToLower(ev) {
 			case "yes", "true":
@@ -64,7 +63,9 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 			}
 		}
 		return nil
+	}
 
+	switch rt.Kind() {
 	case reflect.Slice:
 		if rt.Elem().Kind() == reflect.String {
 			if ev, ok := env[prefix]; ok {

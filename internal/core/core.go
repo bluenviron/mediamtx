@@ -182,8 +182,8 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.logger == nil {
 		p.logger, err = logger.New(
-			p.conf.LogLevelParsed,
-			p.conf.LogDestinationsParsed,
+			logger.Level(p.conf.LogLevel),
+			p.conf.LogDestinations,
 			p.conf.LogFile)
 		if err != nil {
 			return err
@@ -234,15 +234,15 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if !p.conf.RTSPDisable &&
-		(p.conf.EncryptionParsed == conf.EncryptionNo ||
-			p.conf.EncryptionParsed == conf.EncryptionOptional) {
+		(p.conf.Encryption == conf.EncryptionNo ||
+			p.conf.Encryption == conf.EncryptionOptional) {
 		if p.rtspServer == nil {
-			_, useUDP := p.conf.ProtocolsParsed[conf.ProtocolUDP]
-			_, useMulticast := p.conf.ProtocolsParsed[conf.ProtocolMulticast]
+			_, useUDP := p.conf.Protocols[conf.ProtocolUDP]
+			_, useMulticast := p.conf.Protocols[conf.ProtocolMulticast]
 			p.rtspServer, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPAddress,
-				p.conf.AuthMethodsParsed,
+				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
@@ -258,7 +258,7 @@ func (p *Core) createResources(initial bool) error {
 				"",
 				"",
 				p.conf.RTSPAddress,
-				p.conf.ProtocolsParsed,
+				p.conf.Protocols,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.metrics,
@@ -271,13 +271,13 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if !p.conf.RTSPDisable &&
-		(p.conf.EncryptionParsed == conf.EncryptionStrict ||
-			p.conf.EncryptionParsed == conf.EncryptionOptional) {
+		(p.conf.Encryption == conf.EncryptionStrict ||
+			p.conf.Encryption == conf.EncryptionOptional) {
 		if p.rtspsServer == nil {
 			p.rtspsServer, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPSAddress,
-				p.conf.AuthMethodsParsed,
+				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
@@ -293,7 +293,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.ServerCert,
 				p.conf.ServerKey,
 				p.conf.RTSPAddress,
-				p.conf.ProtocolsParsed,
+				p.conf.Protocols,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.metrics,
@@ -370,7 +370,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closeLogger := false
 	if newConf == nil ||
-		!reflect.DeepEqual(newConf.LogDestinationsParsed, p.conf.LogDestinationsParsed) ||
+		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
 		newConf.LogFile != p.conf.LogFile {
 		closeLogger = true
 	}
@@ -406,20 +406,20 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeRTSPServer := false
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
-		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
+		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RTPAddress != p.conf.RTPAddress ||
 		newConf.RTCPAddress != p.conf.RTCPAddress ||
 		newConf.MulticastIPRange != p.conf.MulticastIPRange ||
 		newConf.MulticastRTPPort != p.conf.MulticastRTPPort ||
 		newConf.MulticastRTCPPort != p.conf.MulticastRTCPPort ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
@@ -430,16 +430,16 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeRTSPSServer := false
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
-		newConf.EncryptionParsed != p.conf.EncryptionParsed ||
+		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
-		!reflect.DeepEqual(newConf.AuthMethodsParsed, p.conf.AuthMethodsParsed) ||
+		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		newConf.ServerCert != p.conf.ServerCert ||
 		newConf.ServerKey != p.conf.ServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.ProtocolsParsed, p.conf.ProtocolsParsed) ||
+		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||

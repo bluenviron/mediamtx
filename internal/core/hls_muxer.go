@@ -411,10 +411,10 @@ func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) {
 
 	conf := r.path.Conf()
 
-	if conf.ReadIPsParsed != nil {
+	if conf.ReadIPs != nil {
 		tmp, _, _ := net.SplitHostPort(req.Req.RemoteAddr)
 		ip := net.ParseIP(tmp)
-		if !ipEqualOrInRange(ip, conf.ReadIPsParsed) {
+		if !ipEqualOrInRange(ip, conf.ReadIPs) {
 			r.log(logger.Info, "ERR: ip '%s' not allowed", ip)
 			req.W.WriteHeader(http.StatusUnauthorized)
 			req.Res <- nil
