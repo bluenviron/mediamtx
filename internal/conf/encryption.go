@@ -51,7 +51,7 @@ func (d *Encryption) UnmarshalJSON(b []byte) error {
 		*d = EncryptionStrict
 
 	default:
-		return fmt.Errorf("unsupported encryption value: '%s'", in)
+		return fmt.Errorf("invalid encryption value: '%s'", in)
 	}
 
 	return nil

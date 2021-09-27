@@ -57,7 +57,7 @@ func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 	case "automatic":
 
 	default:
-		return fmt.Errorf("unsupported protocol '%s'", in)
+		return fmt.Errorf("invalid protocol '%s'", in)
 	}
 
 	return nil
