@@ -21,6 +21,7 @@ type Protocols map[Protocol]struct{}
 // MarshalJSON marshals a Protocols into JSON.
 func (d Protocols) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
+	i := 0
 
 	for p := range d {
 		var v string
@@ -36,7 +37,8 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 			v = "tcp"
 		}
 
-		out = append(out, v)
+		out[i] = v
+		i++
 	}
 
 	return json.Marshal(out)
