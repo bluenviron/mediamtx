@@ -3,13 +3,11 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 )
 
@@ -18,30 +16,6 @@ const userPassSupportedChars = "A-Z,0-9,!,$,(,),*,+,.,;,<,=,>,[,],^,_,-,{,}"
 var reUserPass = regexp.MustCompile(`^[a-zA-Z0-9!\$\(\)\*\+\.;<=>\[\]\^_\-\{\}]+$`)
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
-
-func parseIPCidrList(in []string) ([]interface{}, error) {
-	if len(in) == 0 {
-		return nil, nil
-	}
-
-	var ret []interface{}
-	for _, t := range in {
-		_, ipnet, err := net.ParseCIDR(t)
-		if err == nil {
-			ret = append(ret, ipnet)
-			continue
-		}
-
-		ip := net.ParseIP(t)
-		if ip != nil {
-			ret = append(ret, ip)
-			continue
-		}
-
-		return nil, fmt.Errorf("unable to parse ip/network '%s'", t)
-	}
-	return ret, nil
-}
 
 // IsValidPathName checks if a path name is valid.
 func IsValidPathName(name string) error {
@@ -69,27 +43,24 @@ type PathConf struct {
 	Regexp *regexp.Regexp `json:"-"`
 
 	// source
-	Source                     string                    `json:"source"`
-	SourceProtocol             string                    `json:"sourceProtocol"`
-	SourceProtocolParsed       *gortsplib.ClientProtocol `json:"-"`
-	SourceAnyPortEnable        bool                      `json:"sourceAnyPortEnable"`
-	SourceFingerprint          string                    `json:"sourceFingerprint"`
-	SourceOnDemand             bool                      `json:"sourceOnDemand"`
-	SourceOnDemandStartTimeout StringDuration            `json:"sourceOnDemandStartTimeout"`
-	SourceOnDemandCloseAfter   StringDuration            `json:"sourceOnDemandCloseAfter"`
-	SourceRedirect             string                    `json:"sourceRedirect"`
-	DisablePublisherOverride   bool                      `json:"disablePublisherOverride"`
-	Fallback                   string                    `json:"fallback"`
+	Source                     string         `json:"source"`
+	SourceProtocol             SourceProtocol `json:"sourceProtocol"`
+	SourceAnyPortEnable        bool           `json:"sourceAnyPortEnable"`
+	SourceFingerprint          string         `json:"sourceFingerprint"`
+	SourceOnDemand             bool           `json:"sourceOnDemand"`
+	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
+	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
+	SourceRedirect             string         `json:"sourceRedirect"`
+	DisablePublisherOverride   bool           `json:"disablePublisherOverride"`
+	Fallback                   string         `json:"fallback"`
 
 	// authentication
-	PublishUser      string        `json:"publishUser"`
-	PublishPass      string        `json:"publishPass"`
-	PublishIPs       []string      `json:"publishIPs"`
-	PublishIPsParsed []interface{} `json:"-"`
-	ReadUser         string        `json:"readUser"`
-	ReadPass         string        `json:"readPass"`
-	ReadIPs          []string      `json:"readIPs"`
-	ReadIPsParsed    []interface{} `json:"-"`
+	PublishUser string    `json:"publishUser"`
+	PublishPass string    `json:"publishPass"`
+	PublishIPs  IPsOrNets `json:"publishIPs"`
+	ReadUser    string    `json:"readUser"`
+	ReadPass    string    `json:"readPass"`
+	ReadIPs     IPsOrNets `json:"readIPs"`
 
 	// custom commands
 	RunOnInit               string         `json:"runOnInit"`
@@ -141,29 +112,6 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		_, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
-		}
-
-		if pconf.SourceProtocol == "" {
-			pconf.SourceProtocol = "automatic"
-		}
-
-		switch pconf.SourceProtocol {
-		case "udp":
-			v := gortsplib.ClientProtocolUDP
-			pconf.SourceProtocolParsed = &v
-
-		case "multicast":
-			v := gortsplib.ClientProtocolMulticast
-			pconf.SourceProtocolParsed = &v
-
-		case "tcp":
-			v := gortsplib.ClientProtocolTCP
-			pconf.SourceProtocolParsed = &v
-
-		case "automatic":
-
-		default:
-			return fmt.Errorf("unsupported protocol '%s'", pconf.SourceProtocol)
 		}
 
 		if strings.HasPrefix(pconf.Source, "rtsps://") && pconf.SourceFingerprint == "" {
@@ -258,9 +206,11 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 		}
 	}
 
-	if (pconf.PublishUser != "" && pconf.PublishPass == "") || (pconf.PublishUser == "" && pconf.PublishPass != "") {
+	if (pconf.PublishUser != "" && pconf.PublishPass == "") ||
+		(pconf.PublishUser == "" && pconf.PublishPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
+
 	if pconf.PublishUser != "" {
 		if pconf.Source != "publisher" {
 			return fmt.Errorf("'publishUser' is useless when source is not 'publisher'")
@@ -270,6 +220,7 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			return fmt.Errorf("publish username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
+
 	if pconf.PublishPass != "" {
 		if pconf.Source != "publisher" {
 			return fmt.Errorf("'publishPass' is useless when source is not 'publisher', since " +
@@ -280,47 +231,27 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			return fmt.Errorf("publish password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
-	if len(pconf.PublishIPs) == 0 {
-		pconf.PublishIPs = nil
-	}
-	var err error
-	pconf.PublishIPsParsed, err = func() ([]interface{}, error) {
-		if len(pconf.PublishIPs) == 0 {
-			return nil, nil
-		}
 
-		if pconf.Source != "publisher" {
-			return nil, fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
-				"the stream is not provided by a publisher, but by a fixed source")
-		}
-
-		return parseIPCidrList(pconf.PublishIPs)
-	}()
-	if err != nil {
-		return err
+	if len(pconf.PublishIPs) > 0 && pconf.Source != "publisher" {
+		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
+			"the stream is not provided by a publisher, but by a fixed source")
 	}
 
-	if (pconf.ReadUser != "" && pconf.ReadPass == "") || (pconf.ReadUser == "" && pconf.ReadPass != "") {
+	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
+		(pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
+
 	if pconf.ReadUser != "" {
 		if !strings.HasPrefix(pconf.ReadUser, "sha256:") && !reUserPass.MatchString(pconf.ReadUser) {
 			return fmt.Errorf("read username contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
 	}
+
 	if pconf.ReadPass != "" {
 		if !strings.HasPrefix(pconf.ReadPass, "sha256:") && !reUserPass.MatchString(pconf.ReadPass) {
 			return fmt.Errorf("read password contains unsupported characters (supported are %s)", userPassSupportedChars)
 		}
-	}
-	if len(pconf.ReadIPs) == 0 {
-		pconf.ReadIPs = nil
-	}
-	pconf.ReadIPsParsed, err = func() ([]interface{}, error) {
-		return parseIPCidrList(pconf.ReadIPs)
-	}()
-	if err != nil {
-		return err
 	}
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {

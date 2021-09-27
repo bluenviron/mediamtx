@@ -177,7 +177,7 @@ outer:
 				req.IP,
 				req.ValidateCredentials,
 				req.PathName,
-				pathConf.ReadIPsParsed,
+				pathConf.ReadIPs,
 				pathConf.ReadUser,
 				pathConf.ReadPass,
 			)
@@ -204,7 +204,7 @@ outer:
 				req.IP,
 				req.ValidateCredentials,
 				req.PathName,
-				pathConf.ReadIPsParsed,
+				pathConf.ReadIPs,
 				pathConf.ReadUser,
 				pathConf.ReadPass,
 			)
@@ -231,7 +231,7 @@ outer:
 				req.IP,
 				req.ValidateCredentials,
 				req.PathName,
-				pathConf.PublishIPsParsed,
+				pathConf.PublishIPs,
 				pathConf.PublishUser,
 				pathConf.PublishPass,
 			)

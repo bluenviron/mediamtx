@@ -45,7 +45,6 @@ paths:
 	require.Equal(t, true, ok)
 	require.Equal(t, &PathConf{
 		Source:                     "publisher",
-		SourceProtocol:             "",
 		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
 		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
 		RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
@@ -69,7 +68,6 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.Equal(t, true, ok)
 	require.Equal(t, &PathConf{
 		Source:                     "rtsp://testing",
-		SourceProtocol:             "automatic",
 		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
 		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
 		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
@@ -89,7 +87,6 @@ func TestConfFromEnvOnly(t *testing.T) {
 	require.Equal(t, true, ok)
 	require.Equal(t, &PathConf{
 		Source:                     "rtsp://testing",
-		SourceProtocol:             "automatic",
 		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
 		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
 		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),

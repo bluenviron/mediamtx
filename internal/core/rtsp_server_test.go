@@ -76,7 +76,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 					"hlsDisable: yes\n" +
 					"readTimeout: 20s\n" +
 					"protocols: [tcp]\n" +
-					"encryption: yes\n" +
+					"encryption: \"yes\"\n" +
 					"serverCert: " + serverCertFpath + "\n" +
 					"serverKey: " + serverKeyFpath + "\n")
 				require.Equal(t, true, ok)
