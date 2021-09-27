@@ -205,7 +205,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
-		ValidateCredentials: func(pathUser string, pathPass string) error {
+		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
 	})
@@ -440,7 +440,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
-		ValidateCredentials: func(pathUser string, pathPass string) error {
+		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
 			return c.validateCredentials(pathUser, pathPass, query)
 		},
 	})
@@ -548,12 +548,12 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 }
 
 func (c *rtmpConn) validateCredentials(
-	pathUser string,
-	pathPass string,
+	pathUser conf.Credential,
+	pathPass conf.Credential,
 	query url.Values,
 ) error {
-	if query.Get("user") != pathUser ||
-		query.Get("pass") != pathPass {
+	if query.Get("user") != string(pathUser) ||
+		query.Get("pass") != string(pathPass) {
 		return pathErrAuthCritical{
 			Message: "wrong username or password",
 		}

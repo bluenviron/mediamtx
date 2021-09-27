@@ -123,7 +123,7 @@ type pathDescribeReq struct {
 	PathName            string
 	URL                 *base.URL
 	IP                  net.IP
-	ValidateCredentials func(pathUser string, pathPass string) error
+	ValidateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error
 	Res                 chan pathDescribeRes
 }
 
@@ -137,7 +137,7 @@ type pathReaderSetupPlayReq struct {
 	Author              reader
 	PathName            string
 	IP                  net.IP
-	ValidateCredentials func(pathUser string, pathPass string) error
+	ValidateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error
 	Res                 chan pathReaderSetupPlayRes
 }
 
@@ -150,7 +150,7 @@ type pathPublisherAnnounceReq struct {
 	Author              publisher
 	PathName            string
 	IP                  net.IP
-	ValidateCredentials func(pathUser string, pathPass string) error
+	ValidateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error
 	Res                 chan pathPublisherAnnounceRes
 }
 

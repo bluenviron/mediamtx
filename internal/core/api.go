@@ -112,12 +112,12 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		Fallback                   *string              `json:"fallback"`
 
 		// authentication
-		PublishUser *string         `json:"publishUser"`
-		PublishPass *string         `json:"publishPass"`
-		PublishIPs  *conf.IPsOrNets `json:"publishIPs"`
-		ReadUser    *string         `json:"readUser"`
-		ReadPass    *string         `json:"readPass"`
-		ReadIPs     *conf.IPsOrNets `json:"readIPs"`
+		PublishUser *conf.Credential `json:"publishUser"`
+		PublishPass *conf.Credential `json:"publishPass"`
+		PublishIPs  *conf.IPsOrNets  `json:"publishIPs"`
+		ReadUser    *conf.Credential `json:"readUser"`
+		ReadPass    *conf.Credential `json:"readPass"`
+		ReadIPs     *conf.IPsOrNets  `json:"readIPs"`
 
 		// custom commands
 		RunOnInit               *string              `json:"runOnInit"`

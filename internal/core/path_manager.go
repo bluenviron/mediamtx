@@ -312,11 +312,11 @@ func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error)
 
 func (pm *pathManager) authenticate(
 	ip net.IP,
-	validateCredentials func(pathUser string, pathPass string) error,
+	validateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error,
 	pathName string,
 	pathIPs []interface{},
-	pathUser string,
-	pathPass string,
+	pathUser conf.Credential,
+	pathPass conf.Credential,
 ) error {
 	// validate ip
 	if pathIPs != nil && ip != nil {
