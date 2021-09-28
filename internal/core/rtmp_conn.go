@@ -280,7 +280,6 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	// disable read deadline
 	c.conn.NetConn().SetReadDeadline(time.Time{})
 
-	var videoBuf [][]byte
 	var videoStartPTS time.Duration
 	var videoDTSEst *h264.DTSEstimator
 	videoFirstIDRFound := false
@@ -300,13 +299,15 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			nalus, pts, err := h264Decoder.DecodeRTP(&pkt)
+			nalus, pts, err := h264Decoder.DecodeUntilMarker(&pkt)
 			if err != nil {
 				if err != rtph264.ErrMorePacketsNeeded && err != rtph264.ErrNonStartingPacketAndNoPrevious {
 					c.log(logger.Warn, "unable to decode video track: %v", err)
 				}
 				continue
 			}
+
+			var nalusFiltered [][]byte
 
 			for _, nalu := range nalus {
 				// remove SPS, PPS and AUD, not needed by RTMP
@@ -316,54 +317,47 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 					continue
 				}
 
-				videoBuf = append(videoBuf, nalu)
+				nalusFiltered = append(nalusFiltered, nalu)
 			}
 
-			// RTP marker means that all the NALUs with the same PTS have been received.
-			// send them together.
-			if pkt.Marker {
-				idrPresent := func() bool {
-					for _, nalu := range nalus {
-						typ := h264.NALUType(nalu[0] & 0x1F)
-						if typ == h264.NALUTypeIDR {
-							return true
-						}
+			idrPresent := func() bool {
+				for _, nalu := range nalus {
+					typ := h264.NALUType(nalu[0] & 0x1F)
+					if typ == h264.NALUTypeIDR {
+						return true
 					}
-					return false
-				}()
+				}
+				return false
+			}()
 
-				// wait until we receive an IDR
-				if !videoFirstIDRFound {
-					if !idrPresent {
-						videoBuf = nil
-						continue
-					}
-
-					videoFirstIDRFound = true
-					videoStartPTS = pts
-					videoDTSEst = h264.NewDTSEstimator()
+			// wait until we receive an IDR
+			if !videoFirstIDRFound {
+				if !idrPresent {
+					continue
 				}
 
-				data, err := h264.EncodeAVCC(videoBuf)
-				if err != nil {
-					return err
-				}
+				videoFirstIDRFound = true
+				videoStartPTS = pts
+				videoDTSEst = h264.NewDTSEstimator()
+			}
 
-				pts -= videoStartPTS
-				dts := videoDTSEst.Feed(pts)
+			data, err := h264.EncodeAVCC(nalusFiltered)
+			if err != nil {
+				return err
+			}
 
-				c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-				err = c.conn.WritePacket(av.Packet{
-					Type:  av.H264,
-					Data:  data,
-					Time:  dts,
-					CTime: pts - dts,
-				})
-				if err != nil {
-					return err
-				}
+			pts -= videoStartPTS
+			dts := videoDTSEst.Feed(pts)
 
-				videoBuf = nil
+			c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+			err = c.conn.WritePacket(av.Packet{
+				Type:  av.H264,
+				Data:  data,
+				Time:  dts,
+				CTime: pts - dts,
+			})
+			if err != nil {
+				return err
 			}
 
 		} else if audioTrack != nil && pair.trackID == audioTrackID {
@@ -374,7 +368,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			aus, pts, err := aacDecoder.DecodeRTP(&pkt)
+			aus, pts, err := aacDecoder.Decode(&pkt)
 			if err != nil {
 				if err != rtpaac.ErrMorePacketsNeeded {
 					c.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -518,13 +512,22 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 				continue
 			}
 
-			frames, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
+			pkts, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
 			if err != nil {
 				return fmt.Errorf("ERR while encoding H264: %v", err)
 			}
 
-			for _, frame := range frames {
-				onFrame(videoTrackID, frame)
+			bytss := make([][]byte, len(pkts))
+			for i, pkt := range pkts {
+				byts, err := pkt.Marshal()
+				if err != nil {
+					return fmt.Errorf("error while encoding H264: %v", err)
+				}
+				bytss[i] = byts
+			}
+
+			for _, byts := range bytss {
+				onFrame(videoTrackID, byts)
 			}
 
 		case av.AAC:
@@ -532,13 +535,22 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 				return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
 			}
 
-			frames, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
+			pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
 			if err != nil {
 				return fmt.Errorf("ERR while encoding AAC: %v", err)
 			}
 
-			for _, frame := range frames {
-				onFrame(audioTrackID, frame)
+			bytss := make([][]byte, len(pkts))
+			for i, pkt := range pkts {
+				byts, err := pkt.Marshal()
+				if err != nil {
+					return fmt.Errorf("error while encoding AAC: %v", err)
+				}
+				bytss[i] = byts
+			}
+
+			for _, byts := range bytss {
+				onFrame(audioTrackID, byts)
 			}
 
 		default:

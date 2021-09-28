@@ -319,8 +319,6 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	writerDone := make(chan error)
 	go func() {
 		writerDone <- func() error {
-			var videoBuf [][]byte
-
 			for {
 				data, ok := r.ringBuffer.Pull()
 				if !ok {
@@ -336,25 +334,18 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 
-					nalus, pts, err := h264Decoder.DecodeRTP(&pkt)
+					nalus, pts, err := h264Decoder.DecodeUntilMarker(&pkt)
 					if err != nil {
-						if err != rtph264.ErrMorePacketsNeeded && err != rtph264.ErrNonStartingPacketAndNoPrevious {
+						if err != rtph264.ErrMorePacketsNeeded &&
+							err != rtph264.ErrNonStartingPacketAndNoPrevious {
 							r.log(logger.Warn, "unable to decode video track: %v", err)
 						}
 						continue
 					}
 
-					videoBuf = append(videoBuf, nalus...)
-
-					// RTP marker means that all the NALUs with the same PTS have been received.
-					// send them together.
-					if pkt.Marker {
-						err := r.muxer.WriteH264(pts, videoBuf)
-						if err != nil {
-							return err
-						}
-
-						videoBuf = nil
+					err = r.muxer.WriteH264(pts, nalus)
+					if err != nil {
+						return err
 					}
 
 				} else if audioTrack != nil && pair.trackID == audioTrackID {
@@ -365,7 +356,7 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 
-					aus, pts, err := aacDecoder.DecodeRTP(&pkt)
+					aus, pts, err := aacDecoder.Decode(&pkt)
 					if err != nil {
 						if err != rtpaac.ErrMorePacketsNeeded {
 							r.log(logger.Warn, "unable to decode audio track: %v", err)

@@ -245,8 +245,17 @@ func (p *clientVideoProcessor) doProcess(
 		return fmt.Errorf("error while encoding H264: %v", err)
 	}
 
-	for _, pkt := range pkts {
-		p.onFrame(pkt)
+	bytss := make([][]byte, len(pkts))
+	for i, pkt := range pkts {
+		byts, err := pkt.Marshal()
+		if err != nil {
+			return fmt.Errorf("error while encoding H264: %v", err)
+		}
+		bytss[i] = byts
+	}
+
+	for _, byts := range bytss {
+		p.onFrame(byts)
 	}
 
 	return nil
@@ -369,8 +378,17 @@ func (p *clientAudioProcessor) doProcess(
 		return fmt.Errorf("error while encoding AAC: %v", err)
 	}
 
-	for _, pkt := range pkts {
-		p.onFrame(pkt)
+	bytss := make([][]byte, len(pkts))
+	for i, pkt := range pkts {
+		byts, err := pkt.Marshal()
+		if err != nil {
+			return fmt.Errorf("error while encoding AAC: %v", err)
+		}
+		bytss[i] = byts
+	}
+
+	for _, byts := range bytss {
+		p.onFrame(byts)
 	}
 
 	return nil

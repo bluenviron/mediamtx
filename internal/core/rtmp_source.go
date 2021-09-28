@@ -206,8 +206,17 @@ func (s *rtmpSource) runInner() bool {
 								return fmt.Errorf("ERR while encoding H264: %v", err)
 							}
 
-							for _, pkt := range pkts {
-								onFrame(videoTrackID, pkt)
+							bytss := make([][]byte, len(pkts))
+							for i, pkt := range pkts {
+								byts, err := pkt.Marshal()
+								if err != nil {
+									return fmt.Errorf("error while encoding H264: %v", err)
+								}
+								bytss[i] = byts
+							}
+
+							for _, byts := range bytss {
+								onFrame(videoTrackID, byts)
 							}
 
 						case av.AAC:
@@ -220,8 +229,17 @@ func (s *rtmpSource) runInner() bool {
 								return fmt.Errorf("ERR while encoding AAC: %v", err)
 							}
 
-							for _, pkt := range pkts {
-								onFrame(audioTrackID, pkt)
+							bytss := make([][]byte, len(pkts))
+							for i, pkt := range pkts {
+								byts, err := pkt.Marshal()
+								if err != nil {
+									return fmt.Errorf("error while encoding AAC: %v", err)
+								}
+								bytss[i] = byts
+							}
+
+							for _, byts := range bytss {
+								onFrame(audioTrackID, byts)
 							}
 
 						default:
