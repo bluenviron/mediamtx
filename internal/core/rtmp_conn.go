@@ -277,6 +277,15 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		Author: c,
 	})
 
+	if c.path.Conf().RunOnRead != "" {
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
+		onReadCmd := externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
+			Path: c.path.Name(),
+			Port: port,
+		})
+		defer onReadCmd.Close()
+	}
+
 	// disable read deadline
 	c.conn.NetConn().SetReadDeadline(time.Time{})
 
