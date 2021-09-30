@@ -21,3 +21,5 @@ require (
 )
 
 replace github.com/notedit/rtmp => github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927
+
+replace github.com/asticode/go-astits => github.com/aler9/go-astits v0.0.0-20210930094507-ed7aeae3b4b4
