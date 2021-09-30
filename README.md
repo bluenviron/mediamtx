@@ -361,7 +361,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
@@ -370,11 +370,12 @@ If the platform is Windows:
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
 Where `USB2.0 HD UVC WebCam` is the name of your webcam, that can be obtained with:
+
 ```
 ffmpeg -list_devices true -f dshow -i dummy
 ```
