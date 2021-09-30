@@ -241,9 +241,6 @@ func (s *rtmpSource) runInner() bool {
 							for _, byts := range bytss {
 								onFrame(audioTrackID, byts)
 							}
-
-						default:
-							return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)
 						}
 					}
 				}()

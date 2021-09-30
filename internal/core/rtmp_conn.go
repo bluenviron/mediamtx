@@ -552,9 +552,6 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			for _, byts := range bytss {
 				onFrame(audioTrackID, byts)
 			}
-
-		default:
-			return fmt.Errorf("ERR: unexpected packet: %v", pkt.Type)
 		}
 	}
 }
