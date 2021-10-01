@@ -299,6 +299,38 @@ components:
           type: string
           enum: [idle, read, publish]
 
+    PathsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Path'
+
+    RtspSessionsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RTSPSession'
+
+    RtspsSessionsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RTSPSSession'
+
+    RtmpConnsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RTMPConn'
+
 paths:
   /v1/config/get:
     get:
@@ -417,10 +449,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  type: object
-                  additionalProperties:
-                    $ref: '#/components/schemas/Path'
+                $ref: '#/components/schemas/PathsList'                    
         '400':
           description: invalid request.
         '500':
@@ -437,10 +466,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  type: object
-                  additionalProperties:
-                    $ref: '#/components/schemas/RTSPSession'
+                $ref: '#/components/schemas/RtspSessionsList'
         '400':
           description: invalid request.
         '500':
@@ -477,10 +503,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  type: object
-                  additionalProperties:
-                    $ref: '#/components/schemas/RTSPSSession'
+                $ref: '#/components/schemas/RtspsSessionsList'
         '400':
           description: invalid request.
         '500':
@@ -517,10 +540,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  type: object
-                  additionalProperties:
-                    $ref: '#/components/schemas/RTMPConn'
+                $ref: '#/components/schemas/RtmpConnsList'
         '400':
           description: invalid request.
         '500':
