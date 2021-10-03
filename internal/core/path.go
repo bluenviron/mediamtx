@@ -419,8 +419,8 @@ outer:
 	pa.onDemandCloseTimer.Stop()
 
 	if onInitCmd != nil {
-		pa.Log(logger.Info, "runOnInit command stopped")
 		onInitCmd.Close()
+		pa.Log(logger.Info, "runOnInit command stopped")
 	}
 
 	for _, req := range pa.describeRequests {
@@ -439,8 +439,8 @@ outer:
 	}
 
 	if pa.onDemandCmd != nil {
-		pa.Log(logger.Info, "runOnDemand command stopped")
 		pa.onDemandCmd.Close()
+		pa.Log(logger.Info, "runOnDemand command stopped")
 	}
 
 	if pa.stream != nil {
@@ -521,9 +521,9 @@ func (pa *path) onDemandCloseSource() {
 		pa.source = nil
 	} else {
 		if pa.onDemandCmd != nil {
-			pa.Log(logger.Info, "runOnDemand command stopped")
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
+			pa.Log(logger.Info, "runOnDemand command stopped")
 		}
 
 		if pa.source != nil {
@@ -565,9 +565,9 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 
 func (pa *path) sourceSetNotReady() {
 	if pa.onPublishCmd != nil {
-		pa.Log(logger.Info, "runOnPublish command stopped")
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
+		pa.Log(logger.Info, "runOnPublish command stopped")
 	}
 
 	for r := range pa.readers {
