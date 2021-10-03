@@ -719,7 +719,7 @@ func TestRTSPServerFallback(t *testing.T) {
 func TestRTSPServerRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 	onDemandFile, err := writeTempFile([]byte(fmt.Sprintf(`#!/bin/sh
-trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' QUIT
+trap 'touch %s; [ -z "$(jobs -p)" ] || kill $(jobs -p)' INT
 ffmpeg -hide_banner -loglevel error -re `+
 		`-i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH &
 wait
