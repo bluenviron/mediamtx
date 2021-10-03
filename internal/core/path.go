@@ -438,11 +438,6 @@ outer:
 		rp.Close()
 	}
 
-	if pa.onDemandCmd != nil {
-		pa.onDemandCmd.Close()
-		pa.Log(logger.Info, "runOnDemand command stopped")
-	}
-
 	if pa.stream != nil {
 		pa.stream.close()
 	}
@@ -457,6 +452,16 @@ outer:
 			}
 			source.Close()
 		}
+	}
+
+	// close onDemandCmd after the source has been closed.
+	// this avoids a deadlock in which onDemandCmd is a
+	// RTSP publisher that sends a TEARDOWN request and waits
+	// for the response (like FFmpeg), but it can't since
+	/// the path is already waiting for the command to close.
+	if pa.onDemandCmd != nil {
+		pa.onDemandCmd.Close()
+		pa.Log(logger.Info, "runOnDemand command stopped")
 	}
 
 	pa.parent.OnPathClose(pa)
@@ -520,15 +525,20 @@ func (pa *path) onDemandCloseSource() {
 		pa.source.(sourceStatic).Close()
 		pa.source = nil
 	} else {
+		if pa.source != nil {
+			pa.source.(publisher).Close()
+			pa.doPublisherRemove()
+		}
+
+		// close onDemandCmd after the source has been closed.
+		// this avoids a deadlock in which onDemandCmd is a
+		// RTSP publisher that sends a TEARDOWN request and waits
+		// for the response (like FFmpeg), but it can't since
+		/// the path is already waiting for the command to close.
 		if pa.onDemandCmd != nil {
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
 			pa.Log(logger.Info, "runOnDemand command stopped")
-		}
-
-		if pa.source != nil {
-			pa.source.(publisher).Close()
-			pa.doPublisherRemove()
 		}
 	}
 }
