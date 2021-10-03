@@ -565,6 +565,7 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 
 func (pa *path) sourceSetNotReady() {
 	if pa.onPublishCmd != nil {
+		pa.Log(logger.Info, "on publish command stopped")
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
 	}
@@ -728,6 +729,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 	pa.sourceSetReady(req.Tracks)
 
 	if pa.conf.RunOnPublish != "" {
+		pa.Log(logger.Info, "on publish command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onPublishCmd = externalcmd.New(pa.conf.RunOnPublish, pa.conf.RunOnPublishRestart, externalcmd.Environment{
 			Path: pa.name,
