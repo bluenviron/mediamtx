@@ -639,14 +639,14 @@ func (pa *path) doPublisherRemove() {
 		} else {
 			pa.sourceSetNotReady()
 		}
+	} else {
+		for r := range pa.readers {
+			pa.doReaderRemove(r)
+			r.Close()
+		}
 	}
 
 	pa.source = nil
-
-	for r := range pa.readers {
-		pa.doReaderRemove(r)
-		r.Close()
-	}
 }
 
 func (pa *path) handleDescribe(req pathDescribeReq) {
