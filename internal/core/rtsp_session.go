@@ -112,6 +112,8 @@ func (s *rtspSession) OnClose() {
 	if s.ss.State() == gortsplib.ServerSessionStateRead {
 		if s.onReadCmd != nil {
 			s.onReadCmd.Close()
+			s.onReadCmd = nil
+			s.log(logger.Info, "runOnRead command stopped")
 		}
 	}
 
@@ -262,6 +264,7 @@ func (s *rtspSession) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 		s.path.OnReaderPlay(pathReaderPlayReq{Author: s})
 
 		if s.path.Conf().RunOnRead != "" {
+			s.log(logger.Info, "runOnRead command started")
 			_, port, _ := net.SplitHostPort(s.rtspAddress)
 			s.onReadCmd = externalcmd.New(s.path.Conf().RunOnRead, s.path.Conf().RunOnReadRestart, externalcmd.Environment{
 				Path: s.path.Name(),
@@ -308,6 +311,7 @@ func (s *rtspSession) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStateRead:
 		if s.onReadCmd != nil {
+			s.log(logger.Info, "runOnRead command stopped")
 			s.onReadCmd.Close()
 		}
 

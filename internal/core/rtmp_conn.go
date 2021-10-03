@@ -147,12 +147,17 @@ func (c *rtmpConn) run() {
 	defer c.log(logger.Info, "closed")
 
 	if c.runOnConnect != "" {
+		c.log(logger.Info, "runOnConnect command started")
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
 			Path: "",
 			Port: port,
 		})
-		defer onConnectCmd.Close()
+
+		defer func() {
+			onConnectCmd.Close()
+			c.log(logger.Info, "runOnConnect command stopped")
+		}()
 	}
 
 	ctx, cancel := context.WithCancel(c.ctx)
@@ -278,12 +283,16 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	})
 
 	if c.path.Conf().RunOnRead != "" {
+		c.log(logger.Info, "runOnRead command started")
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		onReadCmd := externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
 			Path: c.path.Name(),
 			Port: port,
 		})
-		defer onReadCmd.Close()
+		defer func() {
+			onReadCmd.Close()
+			c.log(logger.Info, "runOnRead command stopped")
+		}()
 	}
 
 	// disable read deadline

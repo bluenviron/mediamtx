@@ -75,6 +75,7 @@ func newRTSPConn(
 	c.log(logger.Info, "opened")
 
 	if c.runOnConnect != "" {
+		c.log(logger.Info, "runOnConnect command started")
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		c.onConnectCmd = externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
 			Path: "",
@@ -173,6 +174,7 @@ func (c *rtspConn) OnClose(err error) {
 
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()
+		c.log(logger.Info, "runOnConnect command stopped")
 	}
 }
 
