@@ -313,7 +313,7 @@ func (pa *path) run() {
 
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
-		pa.Log(logger.Info, "on init command started")
+		pa.Log(logger.Info, "runOnInit command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -419,7 +419,7 @@ outer:
 	pa.onDemandCloseTimer.Stop()
 
 	if onInitCmd != nil {
-		pa.Log(logger.Info, "on init command stopped")
+		pa.Log(logger.Info, "runOnInit command stopped")
 		onInitCmd.Close()
 	}
 
@@ -439,7 +439,7 @@ outer:
 	}
 
 	if pa.onDemandCmd != nil {
-		pa.Log(logger.Info, "on demand command stopped")
+		pa.Log(logger.Info, "runOnDemand command stopped")
 		pa.onDemandCmd.Close()
 	}
 
@@ -481,7 +481,7 @@ func (pa *path) onDemandStartSource() {
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
 
 	} else {
-		pa.Log(logger.Info, "on demand command started")
+		pa.Log(logger.Info, "runOnDemand command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand, pa.conf.RunOnDemandRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -521,7 +521,7 @@ func (pa *path) onDemandCloseSource() {
 		pa.source = nil
 	} else {
 		if pa.onDemandCmd != nil {
-			pa.Log(logger.Info, "on demand command stopped")
+			pa.Log(logger.Info, "runOnDemand command stopped")
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
 		}
@@ -565,7 +565,7 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 
 func (pa *path) sourceSetNotReady() {
 	if pa.onPublishCmd != nil {
-		pa.Log(logger.Info, "on publish command stopped")
+		pa.Log(logger.Info, "runOnPublish command stopped")
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
 	}
@@ -729,7 +729,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 	pa.sourceSetReady(req.Tracks)
 
 	if pa.conf.RunOnPublish != "" {
-		pa.Log(logger.Info, "on publish command started")
+		pa.Log(logger.Info, "runOnPublish command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onPublishCmd = externalcmd.New(pa.conf.RunOnPublish, pa.conf.RunOnPublishRestart, externalcmd.Environment{
 			Path: pa.name,
