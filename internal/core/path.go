@@ -458,7 +458,7 @@ outer:
 	// this avoids a deadlock in which onDemandCmd is a
 	// RTSP publisher that sends a TEARDOWN request and waits
 	// for the response (like FFmpeg), but it can't since
-	/// the path is already waiting for the command to close.
+	// the path is already waiting for the command to close.
 	if pa.onDemandCmd != nil {
 		pa.onDemandCmd.Close()
 		pa.Log(logger.Info, "runOnDemand command stopped")
@@ -534,7 +534,7 @@ func (pa *path) onDemandCloseSource() {
 		// this avoids a deadlock in which onDemandCmd is a
 		// RTSP publisher that sends a TEARDOWN request and waits
 		// for the response (like FFmpeg), but it can't since
-		/// the path is already waiting for the command to close.
+		// the path is already waiting for the command to close.
 		if pa.onDemandCmd != nil {
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
@@ -583,7 +583,7 @@ func (pa *path) sourceSetNotReady() {
 	// this avoids a deadlock in which onPublishCmd is a
 	// RTSP reader that sends a TEARDOWN request and waits
 	// for the response (like FFmpeg), but it can't since
-	/// the path is already waiting for the command to close.
+	// the path is already waiting for the command to close.
 	if pa.onPublishCmd != nil {
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
