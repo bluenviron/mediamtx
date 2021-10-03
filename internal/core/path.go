@@ -564,15 +564,20 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 }
 
 func (pa *path) sourceSetNotReady() {
+	for r := range pa.readers {
+		pa.doReaderRemove(r)
+		r.Close()
+	}
+
+	// close onPublishCmd after all readers have been closed.
+	// this avoids a deadlock in which onPublishCmd is a
+	// RTSP reader that sends a TEARDOWN request and waits
+	// for the response (like FFmpeg), but it can't since
+	/// the path is already waiting for the command to close.
 	if pa.onPublishCmd != nil {
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
 		pa.Log(logger.Info, "runOnPublish command stopped")
-	}
-
-	for r := range pa.readers {
-		pa.doReaderRemove(r)
-		r.Close()
 	}
 
 	pa.sourceReady = false
