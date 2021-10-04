@@ -86,6 +86,9 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
 
+	os.Setenv("RTSP_PROTOCOLS", "tcp")
+	defer os.Unsetenv("RTSP_PROTOCOLS")
+
 	tmpf, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
@@ -93,6 +96,8 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	conf, hasFile, err := Load(tmpf)
 	require.NoError(t, err)
 	require.Equal(t, true, hasFile)
+
+	require.Equal(t, Protocols{ProtocolTCP: {}}, conf.Protocols)
 
 	pa, ok := conf.Paths["cam1"]
 	require.Equal(t, true, ok)

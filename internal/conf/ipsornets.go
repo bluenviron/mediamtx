@@ -22,16 +22,16 @@ func (d IPsOrNets) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals a IPsOrNets from JSON.
 func (d *IPsOrNets) UnmarshalJSON(b []byte) error {
-	var in []string
-	if err := json.Unmarshal(b, &in); err != nil {
+	slice, err := unmarshalStringSlice(b)
+	if err != nil {
 		return err
 	}
 
-	if len(in) == 0 {
+	if len(slice) == 0 {
 		return nil
 	}
 
-	for _, t := range in {
+	for _, t := range slice {
 		if _, ipnet, err := net.ParseCIDR(t); err == nil {
 			*d = append(*d, ipnet)
 		} else if ip := net.ParseIP(t); ip != nil {

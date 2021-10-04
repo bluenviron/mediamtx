@@ -46,14 +46,14 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals a Protocols from JSON.
 func (d *Protocols) UnmarshalJSON(b []byte) error {
-	var in []string
-	if err := json.Unmarshal(b, &in); err != nil {
+	slice, err := unmarshalStringSlice(b)
+	if err != nil {
 		return err
 	}
 
 	*d = make(Protocols)
 
-	for _, proto := range in {
+	for _, proto := range slice {
 		switch proto {
 		case "udp":
 			(*d)[ProtocolUDP] = struct{}{}
