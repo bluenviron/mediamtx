@@ -66,18 +66,6 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 	}
 
 	switch rt.Kind() {
-	case reflect.Slice:
-		if rt.Elem().Kind() == reflect.String {
-			if ev, ok := env[prefix]; ok {
-				nv := reflect.Zero(rt)
-				for _, sv := range strings.Split(ev, ",") {
-					nv = reflect.Append(nv, reflect.ValueOf(sv))
-				}
-				rv.Set(nv)
-			}
-			return nil
-		}
-
 	case reflect.Map:
 		for k := range env {
 			if !strings.HasPrefix(k, prefix+"_") {

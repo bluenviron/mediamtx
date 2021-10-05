@@ -25,9 +25,6 @@ type testStruct struct {
 	// duration
 	MyDuration StringDuration
 
-	// slice
-	MySlice []string
-
 	// map
 	MyMap map[string]*mapEntry
 }
@@ -45,9 +42,6 @@ func TestEnvironment(t *testing.T) {
 	os.Setenv("MYPREFIX_MYDURATION", "22s")
 	defer os.Unsetenv("MYPREFIX_MYDURATION")
 
-	os.Setenv("MYPREFIX_MYSLICE", "el1,el2")
-	defer os.Unsetenv("MYPREFIX_MYSLICE")
-
 	os.Setenv("MYPREFIX_MYMAP_MYKEY", "")
 	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY")
 
@@ -62,7 +56,6 @@ func TestEnvironment(t *testing.T) {
 	require.Equal(t, 123, s.MyInt)
 	require.Equal(t, true, s.MyBool)
 	require.Equal(t, 22*StringDuration(time.Second), s.MyDuration)
-	require.Equal(t, []string{"el1", "el2"}, s.MySlice)
 
 	_, ok := s.MyMap["mykey"]
 	require.Equal(t, true, ok)
