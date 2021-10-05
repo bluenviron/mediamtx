@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
+
+	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
 func writeTempFile(byts []byte) (string, error) {
@@ -30,16 +32,18 @@ func writeTempFile(byts []byte) (string, error) {
 
 func TestConfFromFile(t *testing.T) {
 	func() {
-		tmpf, err := writeTempFile([]byte(
+		tmpf, err := writeTempFile([]byte("logLevel: debug\n" +
 			"paths:\n" +
-				"  cam1:\n" +
-				"    runOnDemandStartTimeout: 5s\n"))
+			"  cam1:\n" +
+			"    runOnDemandStartTimeout: 5s\n"))
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
 		conf, hasFile, err := Load(tmpf)
 		require.NoError(t, err)
 		require.Equal(t, true, hasFile)
+
+		require.Equal(t, LogLevel(logger.Debug), conf.LogLevel)
 
 		pa, ok := conf.Paths["cam1"]
 		require.Equal(t, true, ok)
