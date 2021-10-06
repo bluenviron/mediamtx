@@ -319,7 +319,7 @@ paths:
     post:
       operationId: configSet
       summary: changes the configuration.
-      description: all fields are optional.
+      description: all fields are optional. paths can't be edited with this request, use /v1/config/paths/{operation}/{name} to edit them.
       requestBody:
         required: true
         content:
