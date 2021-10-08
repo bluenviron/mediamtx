@@ -38,14 +38,14 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals a LogDestinations from JSON.
 func (d *LogDestinations) UnmarshalJSON(b []byte) error {
-	var in []string
-	if err := json.Unmarshal(b, &in); err != nil {
+	slice, err := unmarshalStringSlice(b)
+	if err != nil {
 		return err
 	}
 
 	*d = make(LogDestinations)
 
-	for _, proto := range in {
+	for _, proto := range slice {
 		switch proto {
 		case "stdout":
 			(*d)[logger.DestinationStdout] = struct{}{}

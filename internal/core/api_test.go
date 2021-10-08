@@ -72,6 +72,7 @@ func TestAPIConfigSet(t *testing.T) {
 	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/set", map[string]interface{}{
 		"rtmpDisable": true,
 		"readTimeout": "7s",
+		"protocols":   []string{"tcp"},
 	}, nil)
 	require.NoError(t, err)
 
@@ -82,6 +83,7 @@ func TestAPIConfigSet(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, out["rtmpDisable"])
 	require.Equal(t, "7s", out["readTimeout"])
+	require.Equal(t, []interface{}{"tcp"}, out["protocols"])
 }
 
 func TestAPIConfigPathsAdd(t *testing.T) {

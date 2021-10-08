@@ -313,7 +313,7 @@ func (pa *path) run() {
 
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
-		pa.Log(logger.Info, "on init command started")
+		pa.Log(logger.Info, "runOnInit command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -419,8 +419,8 @@ outer:
 	pa.onDemandCloseTimer.Stop()
 
 	if onInitCmd != nil {
-		pa.Log(logger.Info, "on init command stopped")
 		onInitCmd.Close()
+		pa.Log(logger.Info, "runOnInit command stopped")
 	}
 
 	for _, req := range pa.describeRequests {
@@ -438,11 +438,6 @@ outer:
 		rp.Close()
 	}
 
-	if pa.onDemandCmd != nil {
-		pa.Log(logger.Info, "on demand command stopped")
-		pa.onDemandCmd.Close()
-	}
-
 	if pa.stream != nil {
 		pa.stream.close()
 	}
@@ -457,6 +452,16 @@ outer:
 			}
 			source.Close()
 		}
+	}
+
+	// close onDemandCmd after the source has been closed.
+	// this avoids a deadlock in which onDemandCmd is a
+	// RTSP publisher that sends a TEARDOWN request and waits
+	// for the response (like FFmpeg), but it can't since
+	// the path is already waiting for the command to close.
+	if pa.onDemandCmd != nil {
+		pa.onDemandCmd.Close()
+		pa.Log(logger.Info, "runOnDemand command stopped")
 	}
 
 	pa.parent.OnPathClose(pa)
@@ -481,7 +486,7 @@ func (pa *path) onDemandStartSource() {
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
 
 	} else {
-		pa.Log(logger.Info, "on demand command started")
+		pa.Log(logger.Info, "runOnDemand command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand, pa.conf.RunOnDemandRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -520,15 +525,20 @@ func (pa *path) onDemandCloseSource() {
 		pa.source.(sourceStatic).Close()
 		pa.source = nil
 	} else {
-		if pa.onDemandCmd != nil {
-			pa.Log(logger.Info, "on demand command stopped")
-			pa.onDemandCmd.Close()
-			pa.onDemandCmd = nil
-		}
-
 		if pa.source != nil {
 			pa.source.(publisher).Close()
 			pa.doPublisherRemove()
+		}
+
+		// close onDemandCmd after the source has been closed.
+		// this avoids a deadlock in which onDemandCmd is a
+		// RTSP publisher that sends a TEARDOWN request and waits
+		// for the response (like FFmpeg), but it can't since
+		// the path is already waiting for the command to close.
+		if pa.onDemandCmd != nil {
+			pa.onDemandCmd.Close()
+			pa.onDemandCmd = nil
+			pa.Log(logger.Info, "runOnDemand command stopped")
 		}
 	}
 }
@@ -564,14 +574,20 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 }
 
 func (pa *path) sourceSetNotReady() {
-	if pa.onPublishCmd != nil {
-		pa.onPublishCmd.Close()
-		pa.onPublishCmd = nil
-	}
-
 	for r := range pa.readers {
 		pa.doReaderRemove(r)
 		r.Close()
+	}
+
+	// close onPublishCmd after all readers have been closed.
+	// this avoids a deadlock in which onPublishCmd is a
+	// RTSP reader that sends a TEARDOWN request and waits
+	// for the response (like FFmpeg), but it can't since
+	// the path is already waiting for the command to close.
+	if pa.onPublishCmd != nil {
+		pa.onPublishCmd.Close()
+		pa.onPublishCmd = nil
+		pa.Log(logger.Info, "runOnPublish command stopped")
 	}
 
 	pa.sourceReady = false
@@ -633,14 +649,14 @@ func (pa *path) doPublisherRemove() {
 		} else {
 			pa.sourceSetNotReady()
 		}
+	} else {
+		for r := range pa.readers {
+			pa.doReaderRemove(r)
+			r.Close()
+		}
 	}
 
 	pa.source = nil
-
-	for r := range pa.readers {
-		pa.doReaderRemove(r)
-		r.Close()
-	}
 }
 
 func (pa *path) handleDescribe(req pathDescribeReq) {
@@ -728,6 +744,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 	pa.sourceSetReady(req.Tracks)
 
 	if pa.conf.RunOnPublish != "" {
+		pa.Log(logger.Info, "runOnPublish command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onPublishCmd = externalcmd.New(pa.conf.RunOnPublish, pa.conf.RunOnPublishRestart, externalcmd.Environment{
 			Path: pa.name,
