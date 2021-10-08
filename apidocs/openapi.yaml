@@ -307,7 +307,7 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/Path'
 
-    RtspSessionsList:
+    RTSPSessionsList:
       type: object
       properties:
         items:
@@ -315,7 +315,7 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/RTSPSession'
 
-    RtspsSessionsList:
+    RTSPSSessionsList:
       type: object
       properties:
         items:
@@ -323,7 +323,7 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/RTSPSSession'
 
-    RtmpConnsList:
+    RTMPConnsList:
       type: object
       properties:
         items:
@@ -466,7 +466,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RtspSessionsList'
+                $ref: '#/components/schemas/RTSPSessionsList'
         '400':
           description: invalid request.
         '500':
@@ -503,7 +503,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RtspsSessionsList'
+                $ref: '#/components/schemas/RTSPSSessionsList'
         '400':
           description: invalid request.
         '500':
@@ -540,7 +540,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RtmpConnsList'
+                $ref: '#/components/schemas/RTMPConnsList'
         '400':
           description: invalid request.
         '500':
