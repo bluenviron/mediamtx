@@ -31,7 +31,7 @@ func TestMetrics(t *testing.T) {
 		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 	require.NoError(t, err)
 
-	source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+	source, err := gortsplib.DialPublish("rtsp://localhost:8554/rtsp_path",
 		gortsplib.Tracks{track})
 	require.NoError(t, err)
 	defer source.Close()
@@ -42,7 +42,7 @@ func TestMetrics(t *testing.T) {
 		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "flv",
-		"rtmp://localhost:1935/test1/test2",
+		"rtmp://localhost:1935/rtmp_path",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -66,16 +66,16 @@ func TestMetrics(t *testing.T) {
 	}
 
 	require.Equal(t, map[string]string{
-		"paths{state=\"notReady\"}":         "0",
-		"paths{state=\"ready\"}":            "2",
-		"rtmp_conns{state=\"idle\"}":        "0",
-		"rtmp_conns{state=\"publish\"}":     "1",
-		"rtmp_conns{state=\"read\"}":        "0",
-		"rtsp_sessions{state=\"idle\"}":     "0",
-		"rtsp_sessions{state=\"publish\"}":  "1",
-		"rtsp_sessions{state=\"read\"}":     "0",
-		"rtsps_sessions{state=\"idle\"}":    "0",
-		"rtsps_sessions{state=\"publish\"}": "0",
-		"rtsps_sessions{state=\"read\"}":    "0",
+		"paths{name=\"rtsp_path\",state=\"ready\"}": "1",
+		"paths{name=\"rtmp_path\",state=\"ready\"}": "1",
+		"rtmp_conns{state=\"idle\"}":                "0",
+		"rtmp_conns{state=\"publish\"}":             "1",
+		"rtmp_conns{state=\"read\"}":                "0",
+		"rtsp_sessions{state=\"idle\"}":             "0",
+		"rtsp_sessions{state=\"publish\"}":          "1",
+		"rtsp_sessions{state=\"read\"}":             "0",
+		"rtsps_sessions{state=\"idle\"}":            "0",
+		"rtsps_sessions{state=\"publish\"}":         "0",
+		"rtsps_sessions{state=\"read\"}":            "0",
 	}, vals)
 }
