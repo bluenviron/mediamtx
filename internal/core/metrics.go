@@ -7,16 +7,14 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-func formatMetric(key string, value int64, nowUnix int64) string {
-	return key + " " + strconv.FormatInt(value, 10) + " " +
-		strconv.FormatInt(nowUnix, 10) + "\n"
+func formatMetric(key string, value int64) string {
+	return key + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
 type metricsPathManager interface {
@@ -83,27 +81,17 @@ func (m *metrics) run() {
 }
 
 func (m *metrics) onMetrics(ctx *gin.Context) {
-	nowUnix := time.Now().UnixNano() / 1000000
-
 	out := ""
 
 	res := m.pathManager.onAPIPathsList(apiPathsListReq1{})
 	if res.Err == nil {
-		readyCount := int64(0)
-		notReadyCount := int64(0)
-
-		for _, p := range res.Data.Items {
+		for name, p := range res.Data.Items {
 			if p.SourceReady {
-				readyCount++
+				out += formatMetric("paths{name=\""+name+"\",state=\"ready\"}", 1)
 			} else {
-				notReadyCount++
+				out += formatMetric("paths{name=\""+name+"\",state=\"notReady\"}", 1)
 			}
 		}
-
-		out += formatMetric("paths{state=\"ready\"}",
-			readyCount, nowUnix)
-		out += formatMetric("paths{state=\"notReady\"}",
-			notReadyCount, nowUnix)
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
@@ -125,11 +113,11 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			}
 
 			out += formatMetric("rtsp_sessions{state=\"idle\"}",
-				idleCount, nowUnix)
+				idleCount)
 			out += formatMetric("rtsp_sessions{state=\"read\"}",
-				readCount, nowUnix)
+				readCount)
 			out += formatMetric("rtsp_sessions{state=\"publish\"}",
-				publishCount, nowUnix)
+				publishCount)
 		}
 	}
 
@@ -152,11 +140,11 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			}
 
 			out += formatMetric("rtsps_sessions{state=\"idle\"}",
-				idleCount, nowUnix)
+				idleCount)
 			out += formatMetric("rtsps_sessions{state=\"read\"}",
-				readCount, nowUnix)
+				readCount)
 			out += formatMetric("rtsps_sessions{state=\"publish\"}",
-				publishCount, nowUnix)
+				publishCount)
 		}
 	}
 
@@ -179,11 +167,11 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			}
 
 			out += formatMetric("rtmp_conns{state=\"idle\"}",
-				idleCount, nowUnix)
+				idleCount)
 			out += formatMetric("rtmp_conns{state=\"read\"}",
-				readCount, nowUnix)
+				readCount)
 			out += formatMetric("rtmp_conns{state=\"publish\"}",
-				publishCount, nowUnix)
+				publishCount)
 		}
 	}
 
