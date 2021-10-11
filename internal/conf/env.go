@@ -1,7 +1,6 @@
 package conf
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -9,12 +8,16 @@ import (
 	"strings"
 )
 
+type envUnmarshaler interface {
+	unmarshalEnv(string) error
+}
+
 func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) error {
 	rt := rv.Type()
 
-	if i, ok := rv.Addr().Interface().(json.Unmarshaler); ok {
+	if i, ok := rv.Addr().Interface().(envUnmarshaler); ok {
 		if ev, ok := env[prefix]; ok {
-			err := i.UnmarshalJSON([]byte(`"` + ev + `"`))
+			err := i.unmarshalEnv(ev)
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
 			}

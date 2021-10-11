@@ -35,3 +35,7 @@ func (d *Credential) UnmarshalJSON(b []byte) error {
 	*d = Credential(in)
 	return nil
 }
+
+func (d *Credential) unmarshalEnv(s string) error {
+	return d.UnmarshalJSON([]byte(`"` + s + `"`))
+}

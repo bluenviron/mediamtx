@@ -29,3 +29,7 @@ func (d *StringDuration) UnmarshalJSON(b []byte) error {
 
 	return nil
 }
+
+func (d *StringDuration) unmarshalEnv(s string) error {
+	return d.UnmarshalJSON([]byte(`"` + s + `"`))
+}

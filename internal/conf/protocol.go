@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // Protocol is a RTSP stream protocol.
@@ -46,14 +47,14 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals a Protocols from JSON.
 func (d *Protocols) UnmarshalJSON(b []byte) error {
-	slice, err := unmarshalStringSlice(b)
-	if err != nil {
+	var in []string
+	if err := json.Unmarshal(b, &in); err != nil {
 		return err
 	}
 
 	*d = make(Protocols)
 
-	for _, proto := range slice {
+	for _, proto := range in {
 		switch proto {
 		case "udp":
 			(*d)[ProtocolUDP] = struct{}{}
@@ -70,4 +71,9 @@ func (d *Protocols) UnmarshalJSON(b []byte) error {
 	}
 
 	return nil
+}
+
+func (d *Protocols) unmarshalEnv(s string) error {
+	byts, _ := json.Marshal(strings.Split(s, ","))
+	return d.UnmarshalJSON(byts)
 }

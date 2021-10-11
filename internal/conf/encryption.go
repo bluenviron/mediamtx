@@ -56,3 +56,7 @@ func (d *Encryption) UnmarshalJSON(b []byte) error {
 
 	return nil
 }
+
+func (d *Encryption) unmarshalEnv(s string) error {
+	return d.UnmarshalJSON([]byte(`"` + s + `"`))
+}

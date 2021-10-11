@@ -62,3 +62,7 @@ func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 
 	return nil
 }
+
+func (d *SourceProtocol) unmarshalEnv(s string) error {
+	return d.UnmarshalJSON([]byte(`"` + s + `"`))
+}

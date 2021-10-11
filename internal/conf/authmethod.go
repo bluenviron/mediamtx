@@ -8,34 +8,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/headers"
 )
 
-func unmarshalStringSlice(b []byte) ([]string, error) {
-	var in interface{}
-	if err := json.Unmarshal(b, &in); err != nil {
-		return nil, err
-	}
-
-	var slice []string
-
-	switch it := in.(type) {
-	case string: // from environment variables
-		slice = strings.Split(it, ",")
-
-	case []interface{}: // from yaml
-		for _, e := range it {
-			et, ok := e.(string)
-			if !ok {
-				return nil, fmt.Errorf("cannot unmarshal from %T", e)
-			}
-			slice = append(slice, et)
-		}
-
-	default:
-		return nil, fmt.Errorf("cannot unmarshal from %T", in)
-	}
-
-	return slice, nil
-}
-
 // AuthMethods is the authMethods parameter.
 type AuthMethods []headers.AuthMethod
 
@@ -58,12 +30,12 @@ func (d AuthMethods) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals a AuthMethods from JSON.
 func (d *AuthMethods) UnmarshalJSON(b []byte) error {
-	slice, err := unmarshalStringSlice(b)
-	if err != nil {
+	var in []string
+	if err := json.Unmarshal(b, &in); err != nil {
 		return err
 	}
 
-	for _, v := range slice {
+	for _, v := range in {
 		switch v {
 		case "basic":
 			*d = append(*d, headers.AuthBasic)
@@ -77,4 +49,9 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 	}
 
 	return nil
+}
+
+func (d *AuthMethods) unmarshalEnv(s string) error {
+	byts, _ := json.Marshal(strings.Split(s, ","))
+	return d.UnmarshalJSON(byts)
 }

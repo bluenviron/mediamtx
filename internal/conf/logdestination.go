@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -38,14 +39,14 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshals a LogDestinations from JSON.
 func (d *LogDestinations) UnmarshalJSON(b []byte) error {
-	slice, err := unmarshalStringSlice(b)
-	if err != nil {
+	var in []string
+	if err := json.Unmarshal(b, &in); err != nil {
 		return err
 	}
 
 	*d = make(LogDestinations)
 
-	for _, proto := range slice {
+	for _, proto := range in {
 		switch proto {
 		case "stdout":
 			(*d)[logger.DestinationStdout] = struct{}{}
@@ -62,4 +63,9 @@ func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 	}
 
 	return nil
+}
+
+func (d *LogDestinations) unmarshalEnv(s string) error {
+	byts, _ := json.Marshal(strings.Split(s, ","))
+	return d.UnmarshalJSON(byts)
 }
