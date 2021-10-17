@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -33,6 +34,8 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 		out[i] = v
 		i++
 	}
+
+	sort.Strings(out)
 
 	return json.Marshal(out)
 }

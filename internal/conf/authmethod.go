@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/aler9/gortsplib/pkg/headers"
@@ -13,17 +14,19 @@ type AuthMethods []headers.AuthMethod
 
 // MarshalJSON marshals a AuthMethods into JSON.
 func (d AuthMethods) MarshalJSON() ([]byte, error) {
-	var out []string
+	out := make([]string, len(d))
 
-	for _, v := range d {
+	for i, v := range d {
 		switch v {
 		case headers.AuthBasic:
-			out = append(out, "basic")
+			out[i] = "basic"
 
 		default:
-			out = append(out, "digest")
+			out[i] = "digest"
 		}
 	}
+
+	sort.Strings(out)
 
 	return json.Marshal(out)
 }

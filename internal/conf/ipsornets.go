@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 )
 
@@ -17,6 +18,8 @@ func (d IPsOrNets) MarshalJSON() ([]byte, error) {
 	for i, v := range d {
 		out[i] = v.(fmt.Stringer).String()
 	}
+
+	sort.Strings(out)
 
 	return json.Marshal(out)
 }

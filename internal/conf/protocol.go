@@ -3,6 +3,7 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -41,6 +42,8 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 		out[i] = v
 		i++
 	}
+
+	sort.Strings(out)
 
 	return json.Marshal(out)
 }
