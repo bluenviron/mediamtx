@@ -334,8 +334,10 @@ func (a *api) log(level logger.Level, format string, args ...interface{}) {
 }
 
 func (a *api) mwLog(ctx *gin.Context) {
+	a.log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
+
 	byts, _ := httputil.DumpRequest(ctx.Request, true)
-	a.log(logger.Debug, "[c->s] %s", string(byts))
+	a.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
 
 	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
 	ctx.Writer = logw
@@ -344,7 +346,7 @@ func (a *api) mwLog(ctx *gin.Context) {
 
 	ctx.Next()
 
-	a.log(logger.Debug, "[s->c] %s", logw.dump())
+	a.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
 func (a *api) onConfigGet(ctx *gin.Context) {
