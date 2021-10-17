@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	gopath "path"
 	"strings"
 	"sync"
@@ -137,10 +138,13 @@ outer:
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {
-	s.Log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
+	s.Log(logger.Info, "[client %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
 
-	// remove leading prefix
-	pa := ctx.Request.URL.Path[1:]
+	byts, _ := httputil.DumpRequest(ctx.Request, true)
+	s.Log(logger.Debug, "[client %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
+
+	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
+	ctx.Writer = logw
 
 	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
 	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.hlsAllowOrigin)
@@ -159,6 +163,9 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 		ctx.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
+
+	// remove leading prefix
+	pa := ctx.Request.URL.Path[1:]
 
 	switch pa {
 	case "", "favicon.ico":
@@ -204,6 +211,8 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	case <-s.ctx.Done():
 	}
+
+	s.Log(logger.Debug, "[client %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
 func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {

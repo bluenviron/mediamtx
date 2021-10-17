@@ -17,6 +17,32 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+type httpLogWriter struct {
+	gin.ResponseWriter
+	buf bytes.Buffer
+}
+
+func (w *httpLogWriter) Write(b []byte) (int, error) {
+	w.buf.Write(b)
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *httpLogWriter) WriteString(s string) (int, error) {
+	w.buf.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
+}
+
+func (w *httpLogWriter) dump() string {
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%s %d %s\n", "HTTP/1.1", w.ResponseWriter.Status(), http.StatusText(w.ResponseWriter.Status()))
+	w.ResponseWriter.Header().Write(&buf)
+	buf.Write([]byte("\n"))
+	if w.buf.Len() > 0 {
+		fmt.Fprintf(&buf, "(body of %d bytes)", w.buf.Len())
+	}
+	return buf.String()
+}
+
 func interfaceIsEmpty(i interface{}) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
 }
@@ -307,39 +333,18 @@ func (a *api) log(level logger.Level, format string, args ...interface{}) {
 	a.parent.Log(level, "[API] "+format, args...)
 }
 
-type logWriter struct {
-	gin.ResponseWriter
-	buf bytes.Buffer
-}
-
-func (w *logWriter) Write(b []byte) (int, error) {
-	w.buf.Write(b)
-	return w.ResponseWriter.Write(b)
-}
-
-func (w *logWriter) WriteString(s string) (int, error) {
-	w.buf.WriteString(s)
-	return w.ResponseWriter.WriteString(s)
-}
-
 func (a *api) mwLog(ctx *gin.Context) {
 	byts, _ := httputil.DumpRequest(ctx.Request, true)
 	a.log(logger.Debug, "[c->s] %s", string(byts))
 
-	blw := &logWriter{ResponseWriter: ctx.Writer}
-	ctx.Writer = blw
+	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
+	ctx.Writer = logw
 
 	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
 
 	ctx.Next()
 
-	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "%s %d %s\n", ctx.Request.Proto, ctx.Writer.Status(), http.StatusText(ctx.Writer.Status()))
-	ctx.Writer.Header().Write(&buf)
-	buf.Write([]byte("\n"))
-	buf.Write(blw.buf.Bytes())
-
-	a.log(logger.Debug, "[s->c] %s", buf.String())
+	a.log(logger.Debug, "[s->c] %s", logw.dump())
 }
 
 func (a *api) onConfigGet(ctx *gin.Context) {
