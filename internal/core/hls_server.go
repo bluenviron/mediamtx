@@ -142,15 +142,16 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	// remove leading prefix
 	pa := ctx.Request.URL.Path[1:]
 
-	ctx.Writer.Header().Add("Access-Control-Allow-Origin", s.hlsAllowOrigin)
-	ctx.Writer.Header().Add("Access-Control-Allow-Credentials", "true")
+	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.hlsAllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
 	switch ctx.Request.Method {
 	case http.MethodGet:
 
 	case http.MethodOptions:
-		ctx.Writer.Header().Add("Access-Control-Allow-Methods", "GET, OPTIONS")
-		ctx.Writer.Header().Add("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
 		ctx.Writer.WriteHeader(http.StatusOK)
 		return
 
@@ -173,7 +174,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	}()
 
 	if fname == "" && !strings.HasSuffix(dir, "/") {
-		ctx.Writer.Header().Add("Location", "/"+dir+"/")
+		ctx.Writer.Header().Set("Location", "/"+dir+"/")
 		ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 		return
 	}
