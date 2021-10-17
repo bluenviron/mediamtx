@@ -100,7 +100,6 @@ func (s *hlsServer) close() {
 func (s *hlsServer) run() {
 	defer s.wg.Done()
 
-	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.NoRoute(s.onRequest)
 

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync/atomic"
 
+	"github.com/gin-gonic/gin"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -63,6 +64,8 @@ func New(args []string) (*Core, bool) {
 	// to allow the maximum possible number of clients
 	// do not check for errors
 	rlimit.Raise()
+
+	gin.SetMode(gin.ReleaseMode)
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 

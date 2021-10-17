@@ -297,7 +297,6 @@ func newAPI(
 		parent:      parent,
 	}
 
-	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.NoRoute(a.mwLog)
 	group := router.Group("/", a.mwLog)
