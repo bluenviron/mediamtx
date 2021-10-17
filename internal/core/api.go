@@ -288,9 +288,7 @@ func newAPI(
 	group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
 	group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
 
-	a.s = &http.Server{
-		Handler: router,
-	}
+	a.s = &http.Server{Handler: router}
 
 	go a.s.Serve(ln)
 

@@ -93,12 +93,17 @@ window.addEventListener('DOMContentLoaded', create);
 </html>
 `
 
+type hlsMuxerResponse struct {
+	Status int
+	Header map[string]string
+	Body   io.Reader
+}
+
 type hlsMuxerRequest struct {
 	Dir  string
 	File string
 	Req  *http.Request
-	W    http.ResponseWriter
-	Res  chan io.Reader
+	Res  chan hlsMuxerResponse
 }
 
 type hlsMuxerTrackIDPayloadPair struct {
@@ -211,7 +216,7 @@ outer:
 
 		case req := <-r.request:
 			if isReady {
-				r.handleRequest(req)
+				req.Res <- r.handleRequest(req)
 			} else {
 				r.requests = append(r.requests, req)
 			}
@@ -219,7 +224,7 @@ outer:
 		case <-innerReady:
 			isReady = true
 			for _, req := range r.requests {
-				r.handleRequest(req)
+				req.Res <- r.handleRequest(req)
 			}
 			r.requests = nil
 
@@ -235,8 +240,7 @@ outer:
 	r.ctxCancel()
 
 	for _, req := range r.requests {
-		req.W.WriteHeader(http.StatusNotFound)
-		req.Res <- nil
+		req.Res <- hlsMuxerResponse{Status: http.StatusNotFound}
 	}
 
 	r.parent.OnMuxerClose(r)
@@ -397,7 +401,7 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 }
 
-func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) {
+func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 	atomic.StoreInt64(r.lastRequestTime, time.Now().Unix())
 
 	conf := r.path.Conf()
@@ -407,48 +411,66 @@ func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) {
 		ip := net.ParseIP(tmp)
 		if !ipEqualOrInRange(ip, conf.ReadIPs) {
 			r.log(logger.Info, "ERR: ip '%s' not allowed", ip)
-			req.W.WriteHeader(http.StatusUnauthorized)
-			req.Res <- nil
-			return
+			return hlsMuxerResponse{Status: http.StatusUnauthorized}
 		}
 	}
 
 	if conf.ReadUser != "" {
 		user, pass, ok := req.Req.BasicAuth()
 		if !ok || user != string(conf.ReadUser) || pass != string(conf.ReadPass) {
-			req.W.Header().Set("WWW-Authenticate", `Basic realm="rtsp-simple-server"`)
-			req.W.WriteHeader(http.StatusUnauthorized)
-			req.Res <- nil
-			return
+			return hlsMuxerResponse{
+				Status: http.StatusUnauthorized,
+				Header: map[string]string{
+					"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
+				},
+			}
 		}
 	}
 
 	switch {
 	case req.File == "index.m3u8":
-		req.W.Header().Set("Content-Type", `application/x-mpegURL`)
-		req.Res <- r.muxer.PrimaryPlaylist()
+		return hlsMuxerResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": `application/x-mpegURL`,
+			},
+			Body: r.muxer.PrimaryPlaylist(),
+		}
 
 	case req.File == "stream.m3u8":
-		req.W.Header().Set("Content-Type", `application/x-mpegURL`)
-		req.Res <- r.muxer.StreamPlaylist()
+		return hlsMuxerResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": `application/x-mpegURL`,
+			},
+			Body: r.muxer.StreamPlaylist(),
+		}
 
 	case strings.HasSuffix(req.File, ".ts"):
 		r := r.muxer.Segment(req.File)
 		if r == nil {
-			req.W.WriteHeader(http.StatusNotFound)
-			req.Res <- nil
-			return
+			return hlsMuxerResponse{Status: http.StatusNotFound}
 		}
 
-		req.W.Header().Set("Content-Type", `video/MP2T`)
-		req.Res <- r
+		return hlsMuxerResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": `video/MP2T`,
+			},
+			Body: r,
+		}
 
 	case req.File == "":
-		req.Res <- bytes.NewReader([]byte(index))
+		return hlsMuxerResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": `text/html`,
+			},
+			Body: bytes.NewReader([]byte(index)),
+		}
 
 	default:
-		req.W.WriteHeader(http.StatusNotFound)
-		req.Res <- nil
+		return hlsMuxerResponse{Status: http.StatusNotFound}
 	}
 }
 
@@ -457,8 +479,7 @@ func (r *hlsMuxer) OnRequest(req hlsMuxerRequest) {
 	select {
 	case r.request <- req:
 	case <-r.ctx.Done():
-		req.W.WriteHeader(http.StatusNotFound)
-		req.Res <- nil
+		req.Res <- hlsMuxerResponse{Status: http.StatusNotFound}
 	}
 }
 
