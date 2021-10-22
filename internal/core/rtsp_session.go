@@ -167,22 +167,11 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 // OnSetup is called by rtspServer.
 func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
-	switch ctx.Transport {
-	case gortsplib.TransportUDP:
-		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportUDP)]; !ok {
-			return &base.Response{
-				StatusCode: base.StatusUnsupportedTransport,
-			}, nil, nil
-		}
-
-	case gortsplib.TransportUDPMulticast:
-		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]; !ok {
-			return &base.Response{
-				StatusCode: base.StatusUnsupportedTransport,
-			}, nil, nil
-		}
-
-	default: // TCP
+	// in case the client is setupping a stream with UDP or UDP-multicast, and these
+	// transport protocols are disabled, gortsplib already blocks the request.
+	// we have only to handle the case in which the transport protocol is TCP
+	// and it is disabled.
+	if ctx.Transport == gortsplib.TransportTCP {
 		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportTCP)]; !ok {
 			return &base.Response{
 				StatusCode: base.StatusUnsupportedTransport,
