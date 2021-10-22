@@ -42,29 +42,33 @@ Plus:
   * [Standard](#standard)
   * [Docker](#docker)
 * [Basic usage](#basic-usage)
-* [Advanced usage and FAQs](#advanced-usage-and-faqs)
+* [General FAQs](#general-faqs)
   * [Configuration](#configuration)
-  * [Encryption](#encryption)
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Proxy mode](#proxy-mode)
-  * [RTMP protocol](#rtmp-protocol)
-  * [HLS protocol](#hls-protocol)
-  * [Publish from OBS Studio](#publish-from-obs-studio)
   * [Publish a webcam](#publish-a-webcam)
   * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Save published videos to disk](#save-published-videos-to-disk)
   * [On-demand publishing](#on-demand-publishing)
-  * [Redirect to another server](#redirect-to-another-server)
-  * [Fallback stream](#fallback-stream)
   * [Start on boot with systemd](#start-on-boot-with-systemd)
-  * [Corrupted frames](#corrupted-frames)
   * [HTTP API](#http-api)
   * [Metrics](#metrics)
   * [pprof](#pprof)
-  * [Command-line usage](#command-line-usage)
   * [Compile and run from source](#compile-and-run-from-source)
+* [RTSP protocol FAQs](#rtsp-protocol-faqs)
+  * [RTSP general usage](#rtsp-general-usage)
+  * [Encryption](#encryption)
+  * [Multicast](#multicast)
+  * [Redirect to another server](#redirect-to-another-server)
+  * [Fallback stream](#fallback-stream)
+  * [Corrupted frames](#corrupted-frames)
+* [RTMP protocol FAQs](#rtmp-protocol-faqs)
+  * [RTMP general usage](#rtmp-general-usage)
+  * [Publish from OBS Studio](#publish-from-obs-studio)
+* [HLS protocol FAQs](#hls-protocol-faqs)
+  * [HLS general usage](#hls-general-usage)
 * [Links](#links)
 
 ## Installation
@@ -127,7 +131,7 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
    ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
    ```
 
-## Advanced usage and FAQs
+## General FAQs
 
 ### Configuration
 
@@ -165,38 +169,6 @@ There are 3 ways to change the configuration:
    ```
 
 3. By using the [HTTP API](#http-api).
-
-### Encryption
-
-Incoming and outgoing streams can be encrypted with TLS (obtaining the RTSPS protocol). A self-signed TLS certificate is needed and can be generated with openSSL:
-
-```
-openssl genrsa -out server.key 2048
-openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-```
-
-Edit `rtsp-simple-server.yml`, and set the `protocols`, `encrypt`, `serverKey` and `serverCert` parameters:
-
-```yml
-protocols: [tcp]
-encryption: optional
-serverKey: server.key
-serverCert: server.crt
-```
-
-Streams can then be published and read with the `rtsps` scheme and the `8555` port:
-
-```
-ffmpeg -i rtsps://ip:8555/...
-```
-
-If the client is _GStreamer_, disable the certificate validation:
-
-```
-gst-launch-1.0 rtspsrc location=rtsps://ip:8555/... tls-validation-flags=0
-```
-
-If the client is _VLC_, encryption can't be deployed, since _VLC_ doesn't support it.
 
 ### Authentication
 
@@ -268,7 +240,7 @@ RTSP_CONFKEY=mykey ./rtsp-simple-server
 
 _rtsp-simple-server_ is also a proxy, that is usually deployed in one of these scenarios:
 
-* when there are multiple users that are receiving a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
+* when there are multiple users that are reading a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
 * when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
@@ -299,62 +271,6 @@ paths:
     source: rtsp://original-url
     sourceOnDemand: yes
 ```
-
-### RTMP protocol
-
-RTMP is a protocol that is used to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
-
-At the moment, only the H264 and AAC codecs can be used with the RTMP protocol.
-
-Streams can be published or read with the RTMP protocol, for instance with _FFmpeg_:
-
-```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost/mystream
-```
-
-or _GStreamer_:
-
-```
-gst-launch-1.0 -v flvmux name=s ! rtmpsink location=rtmp://localhost/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.video d.audio_0 ! queue ! s.audio
-```
-
-Credentials can be provided by appending to the URL the `user` and `pass` parameters:
-
-```
-ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
-```
-
-### HLS protocol
-
-HLS is a media format that allows to embed live streams into web pages. Every stream published to the server can be accessed with a web browser by visiting:
-
-```
-http://localhost:8888/mystream
-```
-
-where `mystream` is the name of a stream that is being published.
-
-The direct HLS URL, that can be used to read the stream with players (VLC) or Javascript libraries (hls.js) can be obtained by appending `/index.m3u8`:
-
-```
-http://localhost:8888/mystream/index.m3u8
-```
-
-Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream.
-
-### Publish from OBS Studio
-
-In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
-
-* Service: `Custom...`
-* Server: `rtmp://localhost`
-* Stream key: `mystream`
-
-If credentials are in use, use the following parameters:
-
-* Service: `Custom...`
-* Server: `rtmp://localhost`
-* Stream key: `mystream?user=myuser&pass=mypass`
 
 ### Publish a webcam
 
@@ -444,27 +360,6 @@ paths:
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
 
-### Redirect to another server
-
-To redirect to another server, use the `redirect` source:
-
-```yml
-paths:
-  redirected:
-    source: redirect
-    sourceRedirect: rtsp://otherurl/otherpath
-```
-
-### Fallback stream
-
-If no one is publishing to the server, readers can be redirected to a fallback path or URL that is serving a fallback stream:
-
-```yml
-paths:
-  withfallback:
-    fallback: /otherpath
-```
-
 ### Start on boot with systemd
 
 Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
@@ -495,37 +390,6 @@ Enable and start the service:
 sudo systemctl enable rtsp-simple-server
 sudo systemctl start rtsp-simple-server
 ```
-
-### Corrupted frames
-
-In some scenarios, the server can send incomplete or corrupted frames. This can be caused by multiple reasons:
-
-* the packet buffer of the server is too small and can't handle the stream throughput. A solution consists in increasing its size:
-
-  ```yml
-  readBufferCount: 1024
-  ```
-
-* The stream throughput is too big and the stream can't be sent correctly with the UDP transport. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
-
-  ```yml
-  protocols: [tcp]
-  ```
-
-  In case the source is a camera:
-
-  ```yml
-  paths:
-    test:
-      source: rtsp://..
-      sourceProtocol: tcp
-  ```
-
-* the software that is generating the stream (a camera or FFmpeg) is generating non-conformant RTP packets, with a payload bigger than the maximum allowed (that is 1460 due to the UDP MTU). A solution consists in increasing the buffer size:
-
-  ```yml
-  readBufferSize: 8192
-  ```
 
 ### HTTP API
 
@@ -591,23 +455,6 @@ go tool pprof -text http://localhost:9999/debug/pprof/heap
 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 ```
 
-### Command-line usage
-
-```
-usage: rtsp-simple-server [<flags>]
-
-rtsp-simple-server v0.0.0
-
-RTSP server.
-
-Flags:
-  --help     Show context-sensitive help (also try --help-long and --help-man).
-  --version  print version
-
-Args:
-  [<confpath>]  path to a config file. The default is rtsp-simple-server.yml.
-```
-
 ### Compile and run from source
 
 Install Go 1.16, download the repository, open a terminal in it and run:
@@ -621,6 +468,194 @@ You can perform the entire operation inside Docker:
 ```
 make run
 ```
+
+## RTSP protocol FAQs
+
+### RTSP general usage
+
+RTSP is a standardized protocol that allows to publish and read streams; in particular, it supports different underlying transport protocols, that can be chosen by clients during the handshake with the server:
+
+* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients, and doesn't support encryption.
+* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP.
+* TCP: the most versatile, does support encryption.
+
+The default transport protocol is UDP. To change the transport protocol, you have to tune the configuration of your client of choice.
+
+You can use _FFmpeg_ to publish a stream with the TCP transport protocol:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:8554/mystream
+```
+
+and you can use _FFmpeg_ to read that stream with the TCP transport protocol:
+
+```
+ffmpeg -re -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
+```
+
+### Encryption
+
+Incoming and outgoing RTSP streams can be encrypted with TLS (obtaining the RTSPS protocol). A self-signed TLS certificate is needed and can be generated with openSSL:
+
+```
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+```
+
+Edit `rtsp-simple-server.yml`, and set the `protocols`, `encrypt`, `serverKey` and `serverCert` parameters:
+
+```yml
+protocols: [tcp]
+encryption: optional
+serverKey: server.key
+serverCert: server.crt
+```
+
+Streams can then be published and read with the `rtsps` scheme and the `8555` port:
+
+```
+ffmpeg -i rtsps://ip:8555/...
+```
+
+If the client is _GStreamer_, disable the certificate validation:
+
+```
+gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8555/...
+```
+
+At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the stream by using the proxy mode, and reading the proxied stream with _VLC_.
+
+### Multicast
+
+The RTSP protocol supports the UDP-multicast transport protocol, that allows a server to send packets once, regardless of the number of connected readers, saving bandwidth.
+
+This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to pull the stream from the existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
+
+To request and read a stream with UDP-multicast, you can use _FFmpeg_:
+
+```
+ffmpeg -re -rtsp_transport udp_multicast -i rtsp://localhost:8554/mystream -c copy output.mp4
+```
+
+or _GStreamer_:
+
+```
+gst-launch-1.0 rtspsrc protocols=udp-mcast location=rtsps://ip:8555/...
+```
+
+At the moment _VLC_ doesn't support the UDP-multicast transport protocol. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the stream by using the proxy mode, and reading the proxied stream with _VLC_.
+
+### Redirect to another server
+
+To redirect to another server, use the `redirect` source:
+
+```yml
+paths:
+  redirected:
+    source: redirect
+    sourceRedirect: rtsp://otherurl/otherpath
+```
+
+### Fallback stream
+
+If no one is publishing to the server, readers can be redirected to a fallback path or URL that is serving a fallback stream:
+
+```yml
+paths:
+  withfallback:
+    fallback: /otherpath
+```
+
+### Corrupted frames
+
+In some scenarios, when reading RTSP from the server, decoded frames can be corrupted or incomplete. This can be caused by multiple reasons:
+
+* the packet buffer of the server is too small and can't handle the stream throughput. A solution consists in increasing its size:
+
+  ```yml
+  readBufferCount: 1024
+  ```
+
+* The stream throughput is too big and the stream can't be sent correctly with the UDP transport. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
+
+  ```yml
+  protocols: [tcp]
+  ```
+
+  In case the source is a camera:
+
+  ```yml
+  paths:
+    test:
+      source: rtsp://..
+      sourceProtocol: tcp
+  ```
+
+* the software that is generating the stream (a camera or FFmpeg) is generating non-conformant RTP packets, with a payload bigger than the maximum allowed (that is 1460 due to the UDP MTU). A solution consists in increasing the buffer size:
+
+  ```yml
+  readBufferSize: 8192
+  ```
+
+## RTMP protocol FAQs
+
+### RTMP general usage
+
+RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
+
+At the moment, only the H264 and AAC codecs can be used with the RTMP protocol.
+
+Streams can be published or read with the RTMP protocol, for instance with _FFmpeg_:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost/mystream
+```
+
+or _GStreamer_:
+
+```
+gst-launch-1.0 -v flvmux name=s ! rtmpsink location=rtmp://localhost/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.video d.audio_0 ! queue ! s.audio
+```
+
+Credentials can be provided by appending to the URL the `user` and `pass` parameters:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
+```
+
+### Publish from OBS Studio
+
+OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
+
+* Service: `Custom...`
+* Server: `rtmp://localhost`
+* Stream key: `mystream`
+
+If credentials are in use, use the following parameters:
+
+* Service: `Custom...`
+* Server: `rtmp://localhost`
+* Stream key: `mystream?user=myuser&pass=mypass`
+
+## HLS protocol FAQs
+
+### HLS general usage
+
+HLS is a media format that allows to embed live streams into web pages. Every stream published to the server can be accessed with a web browser by visiting:
+
+```
+http://localhost:8888/mystream
+```
+
+where `mystream` is the name of a stream that is being published.
+
+The direct HLS URL, that can be used to read the stream with players (VLC) or Javascript libraries (hls.js) can be obtained by appending `/index.m3u8`:
+
+```
+http://localhost:8888/mystream/index.m3u8
+```
+
+Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream.
 
 ## Links
 
