@@ -45,7 +45,7 @@ runOnConnectRestart: no
 
 # disable support for the RTSP protocol.
 rtspDisable: no
-# supported RTSP stream protocols.
+# supported RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
 # server and clients, and doesn't support encryption.
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.

@@ -5,17 +5,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/aler9/gortsplib"
 )
 
-// Protocol is a RTSP stream protocol.
-type Protocol int
-
-// supported RTSP protocols.
-const (
-	ProtocolUDP Protocol = iota
-	ProtocolMulticast
-	ProtocolTCP
-)
+// Protocol is a RTSP transport.
+type Protocol gortsplib.Transport
 
 // Protocols is the protocols parameter.
 type Protocols map[Protocol]struct{}
@@ -29,10 +24,10 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 		var v string
 
 		switch p {
-		case ProtocolUDP:
+		case Protocol(gortsplib.TransportUDP):
 			v = "udp"
 
-		case ProtocolMulticast:
+		case Protocol(gortsplib.TransportUDPMulticast):
 			v = "multicast"
 
 		default:
@@ -60,13 +55,13 @@ func (d *Protocols) UnmarshalJSON(b []byte) error {
 	for _, proto := range in {
 		switch proto {
 		case "udp":
-			(*d)[ProtocolUDP] = struct{}{}
+			(*d)[Protocol(gortsplib.TransportUDP)] = struct{}{}
 
 		case "multicast":
-			(*d)[ProtocolMulticast] = struct{}{}
+			(*d)[Protocol(gortsplib.TransportUDPMulticast)] = struct{}{}
 
 		case "tcp":
-			(*d)[ProtocolTCP] = struct{}{}
+			(*d)[Protocol(gortsplib.TransportTCP)] = struct{}{}
 
 		default:
 			return fmt.Errorf("invalid protocol: %s", proto)

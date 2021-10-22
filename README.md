@@ -506,7 +506,7 @@ In some scenarios, the server can send incomplete or corrupted frames. This can 
   readBufferCount: 1024
   ```
 
-* The stream throughput is too big and the stream can't be sent correctly with the UDP stream protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
+* The stream throughput is too big and the stream can't be sent correctly with the UDP transport. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
 
   ```yml
   protocols: [tcp]

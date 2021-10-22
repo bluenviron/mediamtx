@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
 
@@ -101,7 +102,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, true, hasFile)
 
-	require.Equal(t, Protocols{ProtocolTCP: {}}, conf.Protocols)
+	require.Equal(t, Protocols{Protocol(gortsplib.TransportTCP): {}}, conf.Protocols)
 
 	pa, ok := conf.Paths["cam1"]
 	require.Equal(t, true, ok)

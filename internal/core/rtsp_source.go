@@ -118,7 +118,7 @@ func (s *rtspSource) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
 	client := &gortsplib.Client{
-		Protocol: s.proto.ClientProtocol,
+		Transport: s.proto.Transport,
 		TLSConfig: &tls.Config{
 			InsecureSkipVerify: true,
 			VerifyConnection: func(cs tls.ConnectionState) error {

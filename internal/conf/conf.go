@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/headers"
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/yaml.v2"
@@ -261,15 +262,15 @@ func (conf *Conf) CheckAndFillMissing() error {
 
 	if len(conf.Protocols) == 0 {
 		conf.Protocols = Protocols{
-			ProtocolUDP:       {},
-			ProtocolMulticast: {},
-			ProtocolTCP:       {},
+			Protocol(gortsplib.TransportUDP):          {},
+			Protocol(gortsplib.TransportUDPMulticast): {},
+			Protocol(gortsplib.TransportTCP):          {},
 		}
 	}
 
 	if conf.Encryption == EncryptionStrict {
-		if _, ok := conf.Protocols[ProtocolUDP]; ok {
-			return fmt.Errorf("strict encryption can't be used with the UDP stream protocol")
+		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDP)]; ok {
+			return fmt.Errorf("strict encryption can't be used with the UDP transport")
 		}
 	}
 

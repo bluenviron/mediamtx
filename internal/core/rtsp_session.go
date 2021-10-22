@@ -96,13 +96,6 @@ func (s *rtspSession) RemoteAddr() net.Addr {
 	return s.author.NetConn().RemoteAddr()
 }
 
-func (s *rtspSession) displayedProtocol() string {
-	if *s.ss.SetuppedDelivery() == base.StreamDeliveryMulticast {
-		return "UDP-multicast"
-	}
-	return s.ss.SetuppedProtocol().String()
-}
-
 func (s *rtspSession) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[session %s] "+format, append([]interface{}{s.id}, args...)...)
 }
@@ -174,24 +167,27 @@ func (s *rtspSession) OnAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 // OnSetup is called by rtspServer.
 func (s *rtspSession) OnSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
-	if ctx.Transport.Protocol == base.StreamProtocolUDP {
-		if _, ok := s.protocols[conf.ProtocolUDP]; !ok {
+	switch ctx.Transport {
+	case gortsplib.TransportUDP:
+		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportUDP)]; !ok {
 			return &base.Response{
 				StatusCode: base.StatusUnsupportedTransport,
 			}, nil, nil
 		}
 
-		if ctx.Transport.Delivery != nil && *ctx.Transport.Delivery == base.StreamDeliveryMulticast {
-			if _, ok := s.protocols[conf.ProtocolMulticast]; !ok {
-				return &base.Response{
-					StatusCode: base.StatusUnsupportedTransport,
-				}, nil, nil
-			}
+	case gortsplib.TransportUDPMulticast:
+		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]; !ok {
+			return &base.Response{
+				StatusCode: base.StatusUnsupportedTransport,
+			}, nil, nil
 		}
-	} else if _, ok := s.protocols[conf.ProtocolTCP]; !ok {
-		return &base.Response{
-			StatusCode: base.StatusUnsupportedTransport,
-		}, nil, nil
+
+	default: // TCP
+		if _, ok := s.protocols[conf.Protocol(gortsplib.TransportTCP)]; !ok {
+			return &base.Response{
+				StatusCode: base.StatusUnsupportedTransport,
+			}, nil, nil
+		}
 	}
 
 	switch s.ss.State() {
@@ -347,7 +343,7 @@ func (s *rtspSession) OnReaderAccepted() {
 			}
 			return "tracks"
 		}(),
-		s.displayedProtocol())
+		s.ss.SetuppedTransport())
 }
 
 // OnReaderFrame implements reader.
@@ -396,7 +392,7 @@ func (s *rtspSession) OnPublisherAccepted(tracksLen int) {
 			}
 			return "tracks"
 		}(),
-		s.displayedProtocol())
+		s.ss.SetuppedTransport())
 }
 
 // OnFrame is called by rtspServer.

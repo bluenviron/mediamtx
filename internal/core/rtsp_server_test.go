@@ -175,8 +175,9 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				}()
 
 				cnt2, err := newContainer("gstreamer", "read", []string{
-					"rtspsrc location=" + proto + "://127.0.0.1:" + port + "/teststream protocols=" + ps +
-						" tls-validation-flags=0 latency=0 " +
+					"rtspsrc location=" + proto + "://127.0.0.1:" + port + "/teststream " +
+						"protocols=" + ps + " " +
+						"tls-validation-flags=0 latency=0 " +
 						"! application/x-rtp,media=video ! decodebin ! exitafterframe ! fakesink",
 				})
 				require.NoError(t, err)
@@ -525,8 +526,8 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
-			Protocol: func() *gortsplib.ClientProtocol {
-				v := gortsplib.ClientProtocolTCP
+			Transport: func() *gortsplib.Transport {
+				v := gortsplib.TransportTCP
 				return &v
 			}(),
 			ReadBufferSize: 4500,
@@ -576,8 +577,8 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		require.NoError(t, err)
 
 		client := &gortsplib.Client{
-			Protocol: func() *gortsplib.ClientProtocol {
-				v := gortsplib.ClientProtocolTCP
+			Transport: func() *gortsplib.Transport {
+				v := gortsplib.TransportTCP
 				return &v
 			}(),
 			ReadBufferSize: 4500,
@@ -810,9 +811,9 @@ wait
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"2"},
 					"Transport": headers.Transport{
-						Protocol: base.StreamProtocolTCP,
-						Delivery: func() *base.StreamDelivery {
-							v := base.StreamDeliveryUnicast
+						Protocol: headers.TransportProtocolTCP,
+						Delivery: func() *headers.TransportDelivery {
+							v := headers.TransportDeliveryUnicast
 							return &v
 						}(),
 						Mode: func() *headers.TransportMode {
@@ -863,9 +864,9 @@ wait
 				Header: base.Header{
 					"CSeq": base.HeaderValue{"1"},
 					"Transport": headers.Transport{
-						Protocol: base.StreamProtocolTCP,
-						Delivery: func() *base.StreamDelivery {
-							v := base.StreamDeliveryUnicast
+						Protocol: headers.TransportProtocolTCP,
+						Delivery: func() *headers.TransportDelivery {
+							v := headers.TransportDeliveryUnicast
 							return &v
 						}(),
 						Mode: func() *headers.TransportMode {
