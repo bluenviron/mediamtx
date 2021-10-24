@@ -129,6 +129,7 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		Source                     *string              `json:"source"`
 		SourceProtocol             *conf.SourceProtocol `json:"sourceProtocol"`
 		SourceAnyPortEnable        *bool                `json:"sourceAnyPortEnable"`
+		SourceRetryPause           *conf.StringDuration `json:"sourceRetryPause"`
 		SourceFingerprint          *string              `json:"sourceFingerprint"`
 		SourceOnDemand             *bool                `json:"sourceOnDemand"`
 		SourceOnDemandStartTimeout *conf.StringDuration `json:"sourceOnDemandStartTimeout"`

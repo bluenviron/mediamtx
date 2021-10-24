@@ -17,10 +17,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-const (
-	rtspSourceRetryPause = 5 * time.Second
-)
-
 type rtspSourceParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
@@ -48,6 +44,7 @@ func newRTSPSource(
 	ur string,
 	proto conf.SourceProtocol,
 	anyPortEnable bool,
+	retryPause conf.StringDuration,
 	fingerprint string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -75,7 +72,7 @@ func newRTSPSource(
 	s.log(logger.Info, "started")
 
 	s.wg.Add(1)
-	go s.run()
+	go s.run(retryPause)
 
 	return s
 }
@@ -89,7 +86,7 @@ func (s *rtspSource) log(level logger.Level, format string, args ...interface{})
 	s.parent.Log(level, "[rtsp source] "+format, args...)
 }
 
-func (s *rtspSource) run() {
+func (s *rtspSource) run(retryPause conf.StringDuration) {
 	defer s.wg.Done()
 
 	for {
@@ -100,7 +97,7 @@ func (s *rtspSource) run() {
 			}
 
 			select {
-			case <-time.After(rtspSourceRetryPause):
+			case <-time.After(time.Duration(retryPause)):
 				return true
 			case <-s.ctx.Done():
 				return false

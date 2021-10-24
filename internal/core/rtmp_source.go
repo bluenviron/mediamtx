@@ -18,10 +18,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
-const (
-	rtmpSourceRetryPause = 5 * time.Second
-)
-
 type rtmpSourceParent interface {
 	Log(logger.Level, string, ...interface{})
 	OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
@@ -42,6 +38,7 @@ type rtmpSource struct {
 func newRTMPSource(
 	parentCtx context.Context,
 	ur string,
+	retryPause conf.StringDuration,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	wg *sync.WaitGroup,
@@ -61,7 +58,7 @@ func newRTMPSource(
 	s.log(logger.Info, "started")
 
 	s.wg.Add(1)
-	go s.run()
+	go s.run(retryPause)
 
 	return s
 }
@@ -76,7 +73,7 @@ func (s *rtmpSource) log(level logger.Level, format string, args ...interface{})
 	s.parent.Log(level, "[rtmp source] "+format, args...)
 }
 
-func (s *rtmpSource) run() {
+func (s *rtmpSource) run(retryPause conf.StringDuration) {
 	defer s.wg.Done()
 
 outer:
@@ -87,7 +84,7 @@ outer:
 		}
 
 		select {
-		case <-time.After(rtmpSourceRetryPause):
+		case <-time.After(time.Duration(retryPause)):
 		case <-s.ctx.Done():
 			break outer
 		}

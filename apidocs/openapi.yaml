@@ -117,6 +117,8 @@ components:
           type: string
         sourceAnyPortEnable:
           type: boolean
+        sourceRetryPause:
+          type: string
         sourceFingerprint:
           type: string
         sourceOnDemand:

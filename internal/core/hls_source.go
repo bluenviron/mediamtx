@@ -8,12 +8,9 @@ import (
 	"github.com/aler9/gortsplib"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
-)
-
-const (
-	hlsSourceRetryPause = 5 * time.Second
 )
 
 type hlsSourceParent interface {
@@ -34,6 +31,7 @@ type hlsSource struct {
 func newHLSSource(
 	parentCtx context.Context,
 	ur string,
+	retryPause conf.StringDuration,
 	wg *sync.WaitGroup,
 	parent hlsSourceParent) *hlsSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -49,7 +47,7 @@ func newHLSSource(
 	s.Log(logger.Info, "started")
 
 	s.wg.Add(1)
-	go s.run()
+	go s.run(retryPause)
 
 	return s
 }
@@ -63,7 +61,7 @@ func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) 
 	s.parent.Log(level, "[hls source] "+format, args...)
 }
 
-func (s *hlsSource) run() {
+func (s *hlsSource) run(retryPause conf.StringDuration) {
 	defer s.wg.Done()
 
 outer:
@@ -74,7 +72,7 @@ outer:
 		}
 
 		select {
-		case <-time.After(hlsSourceRetryPause):
+		case <-time.After(time.Duration(retryPause)):
 		case <-s.ctx.Done():
 			break outer
 		}

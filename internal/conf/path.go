@@ -42,6 +42,7 @@ type PathConf struct {
 	Source                     string         `json:"source"`
 	SourceProtocol             SourceProtocol `json:"sourceProtocol"`
 	SourceAnyPortEnable        bool           `json:"sourceAnyPortEnable"`
+	SourceRetryPause           StringDuration `json:"sourceRetryPause"`
 	SourceFingerprint          string         `json:"sourceFingerprint"`
 	SourceOnDemand             bool           `json:"sourceOnDemand"`
 	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
@@ -200,6 +201,10 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
 			}
 		}
+	}
+
+	if pconf.SourceRetryPause == 0 {
+		pconf.SourceRetryPause = 5 * StringDuration(time.Second)
 	}
 
 	if (pconf.PublishUser != "" && pconf.PublishPass == "") ||

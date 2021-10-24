@@ -604,6 +604,7 @@ func (pa *path) staticSourceCreate() {
 			pa.conf.Source,
 			pa.conf.SourceProtocol,
 			pa.conf.SourceAnyPortEnable,
+			pa.conf.SourceRetryPause,
 			pa.conf.SourceFingerprint,
 			pa.readTimeout,
 			pa.writeTimeout,
@@ -615,6 +616,7 @@ func (pa *path) staticSourceCreate() {
 		pa.source = newRTMPSource(
 			pa.ctx,
 			pa.conf.Source,
+			pa.conf.SourceRetryPause,
 			pa.readTimeout,
 			pa.writeTimeout,
 			&pa.sourceStaticWg,
@@ -624,6 +626,7 @@ func (pa *path) staticSourceCreate() {
 		pa.source = newHLSSource(
 			pa.ctx,
 			pa.conf.Source,
+			pa.conf.SourceRetryPause,
 			&pa.sourceStaticWg,
 			pa)
 	}
