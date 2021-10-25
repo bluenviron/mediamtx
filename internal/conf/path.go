@@ -110,10 +110,6 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
 		}
 
-		if strings.HasPrefix(pconf.Source, "rtsps://") && pconf.SourceFingerprint == "" {
-			return fmt.Errorf("sourceFingerprint is required with a RTSPS URL")
-		}
-
 	case strings.HasPrefix(pconf.Source, "rtmp://"):
 		if pconf.Regexp != nil {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
