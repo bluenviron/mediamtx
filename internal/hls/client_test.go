@@ -116,6 +116,7 @@ func TestClient(t *testing.T) {
 
 	c := NewClient(
 		"http://localhost:5780/stream.m3u8",
+		"",
 		onTracks,
 		onFrame,
 		testClientParent{},

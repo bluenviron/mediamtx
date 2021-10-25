@@ -144,9 +144,9 @@ paths:
     # when interacting with old cameras that require it.
     sourceAnyPortEnable: no
 
-    # if the source is a RTSPS URL, and the source certificate is self-signed
+    # if the source is a RTSPS or HTTPS URL, and the source certificate is self-signed
     # or invalid, you can provide the fingerprint of the certificate in order to
-    # validate it anyway, and at the same time prevent man-in-the-middle attacks.
+    # validate it anyway.
     # the fingerprint can be obtained by running:
     # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
     # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'

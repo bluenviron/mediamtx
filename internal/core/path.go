@@ -624,6 +624,7 @@ func (pa *path) staticSourceCreate() {
 		pa.source = newHLSSource(
 			pa.ctx,
 			pa.conf.Source,
+			pa.conf.SourceFingerprint,
 			&pa.sourceStaticWg,
 			pa)
 	}
