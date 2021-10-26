@@ -3,6 +3,9 @@ package hls
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -428,6 +431,7 @@ type Client struct {
 
 	ctx                   context.Context
 	ctxCancel             func()
+	httpClient            *http.Client
 	urlParsed             *url.URL
 	lastDownloadTime      time.Time
 	downloadedSegmentURIs []string
@@ -455,19 +459,44 @@ type Client struct {
 // NewClient allocates a Client.
 func NewClient(
 	ur string,
+	fingerprint string,
 	onTracks func(*gortsplib.Track, *gortsplib.Track) error,
 	onFrame func(bool, []byte),
 	parent ClientParent,
 ) *Client {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
+	tlsConfig := &tls.Config{}
+
+	if fingerprint != "" {
+		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+			h := sha256.New()
+			h.Write(cs.PeerCertificates[0].Raw)
+			hstr := hex.EncodeToString(h.Sum(nil))
+			fingerprintLower := strings.ToLower(fingerprint)
+
+			if hstr != fingerprintLower {
+				return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
+					fingerprintLower, hstr)
+			}
+
+			return nil
+		}
+	}
+
 	c := &Client{
-		ur:            ur,
-		onTracks:      onTracks,
-		onFrame:       onFrame,
-		parent:        parent,
-		ctx:           ctx,
-		ctxCancel:     ctxCancel,
+		ur:        ur,
+		onTracks:  onTracks,
+		onFrame:   onFrame,
+		parent:    parent,
+		ctx:       ctx,
+		ctxCancel: ctxCancel,
+		httpClient: &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: tlsConfig,
+			},
+		},
 		segmentQueue:  newClientSegmentQueue(),
 		allocateProcs: make(chan clientAllocateProcsReq),
 		outErr:        make(chan error, 1),
@@ -690,7 +719,7 @@ func (c *Client) downloadPlaylist(innerCtx context.Context) (m3u8.Playlist, erro
 		return nil, err
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +749,7 @@ func (c *Client) downloadSegment(innerCtx context.Context, segmentURI string) ([
 		return nil, err
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

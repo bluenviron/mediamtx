@@ -20,9 +20,10 @@ type hlsSourceParent interface {
 }
 
 type hlsSource struct {
-	ur     string
-	wg     *sync.WaitGroup
-	parent hlsSourceParent
+	ur          string
+	fingerprint string
+	wg          *sync.WaitGroup
+	parent      hlsSourceParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -32,16 +33,18 @@ func newHLSSource(
 	parentCtx context.Context,
 	ur string,
 	retryPause conf.StringDuration,
+	fingerprint string,
 	wg *sync.WaitGroup,
 	parent hlsSourceParent) *hlsSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &hlsSource{
-		ur:        ur,
-		wg:        wg,
-		parent:    parent,
-		ctx:       ctx,
-		ctxCancel: ctxCancel,
+		ur:          ur,
+		fingerprint: fingerprint,
+		wg:          wg,
+		parent:      parent,
+		ctx:         ctx,
+		ctxCancel:   ctxCancel,
 	}
 
 	s.Log(logger.Info, "started")
@@ -139,6 +142,7 @@ func (s *hlsSource) runInner() bool {
 
 	c := hls.NewClient(
 		s.ur,
+		s.fingerprint,
 		onTracks,
 		onFrame,
 		s,

@@ -627,6 +627,7 @@ func (pa *path) staticSourceCreate() {
 			pa.ctx,
 			pa.conf.Source,
 			pa.conf.SourceRetryPause,
+			pa.conf.SourceFingerprint,
 			&pa.sourceStaticWg,
 			pa)
 	}

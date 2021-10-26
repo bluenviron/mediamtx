@@ -45,7 +45,7 @@ runOnConnectRestart: no
 
 # disable support for the RTSP protocol.
 rtspDisable: no
-# supported RTSP stream protocols.
+# supported RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
 # server and clients, and doesn't support encryption.
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
@@ -127,9 +127,10 @@ paths:
     # source of the stream - this can be:
     # * publisher -> the stream is published by a RTSP or RTMP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
-    # * rtsps://existing-url -> the stream is pulled from another RTSP server, with RTSPS
+    # * rtsps://existing-url -> the stream is pulled from another RTSP server with RTSPS
     # * rtmp://existing-url -> the stream is pulled from another RTMP server
     # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
+    # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
     # * redirect -> the stream is provided by another path or server
     source: publisher
 
@@ -146,9 +147,10 @@ paths:
     # duration of the pause between connection retries.
     sourceRetryPause: 5s
 
-    # if the source is an RTSPS URL, the fingerprint of the certificate of the source
-    # must be provided in order to prevent man-in-the-middle attacks.
-    # it can be obtained from the source by running:
+    # if the source is a RTSPS or HTTPS URL, and the source certificate is self-signed
+    # or invalid, you can provide the fingerprint of the certificate in order to
+    # validate it anyway.
+    # the fingerprint can be obtained by running:
     # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
     # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
     sourceFingerprint:

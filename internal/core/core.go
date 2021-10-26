@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sync/atomic"
 
+	"github.com/aler9/gortsplib"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/alecthomas/kingpin.v2"
 
@@ -240,8 +241,8 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.Encryption == conf.EncryptionNo ||
 			p.conf.Encryption == conf.EncryptionOptional) {
 		if p.rtspServer == nil {
-			_, useUDP := p.conf.Protocols[conf.ProtocolUDP]
-			_, useMulticast := p.conf.Protocols[conf.ProtocolMulticast]
+			_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
+			_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 			p.rtspServer, err = newRTSPServer(
 				p.ctx,
 				p.conf.RTSPAddress,

@@ -114,24 +114,28 @@ func (s *rtspSource) run(retryPause conf.StringDuration) {
 func (s *rtspSource) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
+	tlsConfig := &tls.Config{}
+
+	if s.fingerprint != "" {
+		tlsConfig.InsecureSkipVerify = true
+		tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+			h := sha256.New()
+			h.Write(cs.PeerCertificates[0].Raw)
+			hstr := hex.EncodeToString(h.Sum(nil))
+			fingerprintLower := strings.ToLower(s.fingerprint)
+
+			if hstr != fingerprintLower {
+				return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
+					fingerprintLower, hstr)
+			}
+
+			return nil
+		}
+	}
+
 	client := &gortsplib.Client{
-		Protocol: s.proto.ClientProtocol,
-		TLSConfig: &tls.Config{
-			InsecureSkipVerify: true,
-			VerifyConnection: func(cs tls.ConnectionState) error {
-				h := sha256.New()
-				h.Write(cs.PeerCertificates[0].Raw)
-				hstr := hex.EncodeToString(h.Sum(nil))
-				fingerprintLower := strings.ToLower(s.fingerprint)
-
-				if hstr != fingerprintLower {
-					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
-						fingerprintLower, hstr)
-				}
-
-				return nil
-			},
-		},
+		Transport:       s.proto.Transport,
+		TLSConfig:       tlsConfig,
 		ReadTimeout:     time.Duration(s.readTimeout),
 		WriteTimeout:    time.Duration(s.writeTimeout),
 		ReadBufferCount: s.readBufferCount,

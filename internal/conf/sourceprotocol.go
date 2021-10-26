@@ -9,21 +9,21 @@ import (
 
 // SourceProtocol is the sourceProtocol parameter.
 type SourceProtocol struct {
-	*gortsplib.ClientProtocol
+	*gortsplib.Transport
 }
 
 // MarshalJSON marshals a SourceProtocol into JSON.
 func (d SourceProtocol) MarshalJSON() ([]byte, error) {
 	var out string
 
-	if d.ClientProtocol == nil {
+	if d.Transport == nil {
 		out = "automatic"
 	} else {
-		switch *d.ClientProtocol {
-		case gortsplib.ClientProtocolUDP:
+		switch *d.Transport {
+		case gortsplib.TransportUDP:
 			out = "udp"
 
-		case gortsplib.ClientProtocolMulticast:
+		case gortsplib.TransportUDPMulticast:
 			out = "multicast"
 
 		default:
@@ -43,16 +43,16 @@ func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 
 	switch in {
 	case "udp":
-		v := gortsplib.ClientProtocolUDP
-		d.ClientProtocol = &v
+		v := gortsplib.TransportUDP
+		d.Transport = &v
 
 	case "multicast":
-		v := gortsplib.ClientProtocolMulticast
-		d.ClientProtocol = &v
+		v := gortsplib.TransportUDPMulticast
+		d.Transport = &v
 
 	case "tcp":
-		v := gortsplib.ClientProtocolTCP
-		d.ClientProtocol = &v
+		v := gortsplib.TransportTCP
+		d.Transport = &v
 
 	case "automatic":
 
