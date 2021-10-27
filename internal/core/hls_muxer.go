@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -195,7 +196,6 @@ func (r *hlsMuxer) PathName() string {
 
 func (r *hlsMuxer) run() {
 	defer r.wg.Done()
-	defer r.log(logger.Info, "destroyed")
 
 	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
 	innerReady := make(chan struct{})
@@ -206,36 +206,34 @@ func (r *hlsMuxer) run() {
 
 	isReady := false
 
-outer:
-	for {
-		select {
-		case <-r.ctx.Done():
-			innerCtxCancel()
-			<-innerErr
-			break outer
+	err := func() error {
+		for {
+			select {
+			case <-r.ctx.Done():
+				innerCtxCancel()
+				<-innerErr
+				return errors.New("terminated")
 
-		case req := <-r.request:
-			if isReady {
-				req.Res <- r.handleRequest(req)
-			} else {
-				r.requests = append(r.requests, req)
-			}
+			case req := <-r.request:
+				if isReady {
+					req.Res <- r.handleRequest(req)
+				} else {
+					r.requests = append(r.requests, req)
+				}
 
-		case <-innerReady:
-			isReady = true
-			for _, req := range r.requests {
-				req.Res <- r.handleRequest(req)
-			}
-			r.requests = nil
+			case <-innerReady:
+				isReady = true
+				for _, req := range r.requests {
+					req.Res <- r.handleRequest(req)
+				}
+				r.requests = nil
 
-		case err := <-innerErr:
-			innerCtxCancel()
-			if err != nil {
-				r.log(logger.Info, "ERR: %s", err)
+			case err := <-innerErr:
+				innerCtxCancel()
+				return err
 			}
-			break outer
 		}
-	}
+	}()
 
 	r.ctxCancel()
 
@@ -244,6 +242,8 @@ outer:
 	}
 
 	r.parent.OnMuxerClose(r)
+
+	r.log(logger.Info, "destroyed (%v)", err)
 }
 
 func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {

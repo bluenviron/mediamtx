@@ -87,7 +87,7 @@ func New(args []string) (*Core, bool) {
 
 	err = p.createResources(true)
 	if err != nil {
-		p.Log(logger.Info, "ERR: %s", err)
+		p.Log(logger.Error, "%s", err)
 		p.closeResources(nil, false)
 		return nil, false
 	}
@@ -95,7 +95,7 @@ func New(args []string) (*Core, bool) {
 	if p.confFound {
 		p.confWatcher, err = confwatcher.New(p.confPath)
 		if err != nil {
-			p.Log(logger.Info, "ERR: %s", err)
+			p.Log(logger.Error, "%s", err)
 			p.closeResources(nil, false)
 			return nil, false
 		}
@@ -144,13 +144,13 @@ outer:
 
 			newConf, _, err := conf.Load(p.confPath)
 			if err != nil {
-				p.Log(logger.Info, "ERR: %s", err)
+				p.Log(logger.Error, "%s", err)
 				break outer
 			}
 
 			err = p.reloadConf(newConf, false)
 			if err != nil {
-				p.Log(logger.Info, "ERR: %s", err)
+				p.Log(logger.Error, "%s", err)
 				break outer
 			}
 
@@ -159,7 +159,7 @@ outer:
 
 			err := p.reloadConf(newConf, true)
 			if err != nil {
-				p.Log(logger.Info, "ERR: %s", err)
+				p.Log(logger.Error, "%s", err)
 				break outer
 			}
 

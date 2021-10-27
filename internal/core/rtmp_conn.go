@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"strings"
@@ -144,44 +143,45 @@ func (c *rtmpConn) safeState() gortsplib.ServerSessionState {
 
 func (c *rtmpConn) run() {
 	defer c.wg.Done()
-	defer c.log(logger.Info, "closed")
 
-	if c.runOnConnect != "" {
-		c.log(logger.Info, "runOnConnect command started")
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
-			Path: "",
-			Port: port,
-		})
+	err := func() error {
+		if c.runOnConnect != "" {
+			c.log(logger.Info, "runOnConnect command started")
+			_, port, _ := net.SplitHostPort(c.rtspAddress)
+			onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
+				Path: "",
+				Port: port,
+			})
 
-		defer func() {
-			onConnectCmd.Close()
-			c.log(logger.Info, "runOnConnect command stopped")
-		}()
-	}
-
-	ctx, cancel := context.WithCancel(c.ctx)
-	runErr := make(chan error)
-	go func() {
-		runErr <- c.runInner(ctx)
-	}()
-
-	select {
-	case err := <-runErr:
-		cancel()
-
-		if err != io.EOF {
-			c.log(logger.Info, "ERR: %s", err)
+			defer func() {
+				onConnectCmd.Close()
+				c.log(logger.Info, "runOnConnect command stopped")
+			}()
 		}
 
-	case <-c.ctx.Done():
-		cancel()
-		<-runErr
-	}
+		ctx, cancel := context.WithCancel(c.ctx)
+		runErr := make(chan error)
+		go func() {
+			runErr <- c.runInner(ctx)
+		}()
+
+		select {
+		case err := <-runErr:
+			cancel()
+			return err
+
+		case <-c.ctx.Done():
+			cancel()
+			<-runErr
+			return errors.New("terminated")
+		}
+	}()
 
 	c.ctxCancel()
 
 	c.parent.OnConnClose(c)
+
+	c.log(logger.Info, "closed (%v)", err)
 }
 
 func (c *rtmpConn) runInner(ctx context.Context) error {
@@ -505,7 +505,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		switch pkt.Type {
 		case av.H264:
 			if videoTrack == nil {
-				return fmt.Errorf("ERR: received an H264 frame, but track is not set up")
+				return fmt.Errorf("received an H264 frame, but track is not set up")
 			}
 
 			nalus, err := h264.DecodeAVCC(pkt.Data)
@@ -532,7 +532,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 			pkts, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
 			if err != nil {
-				return fmt.Errorf("ERR while encoding H264: %v", err)
+				return fmt.Errorf("error while encoding H264: %v", err)
 			}
 
 			bytss := make([][]byte, len(pkts))
@@ -550,12 +550,12 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 		case av.AAC:
 			if audioTrack == nil {
-				return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
+				return fmt.Errorf("received an AAC frame, but track is not set up")
 			}
 
 			pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
 			if err != nil {
-				return fmt.Errorf("ERR while encoding AAC: %v", err)
+				return fmt.Errorf("error while encoding AAC: %v", err)
 			}
 
 			bytss := make([][]byte, len(pkts))

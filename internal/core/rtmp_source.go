@@ -181,7 +181,7 @@ func (s *rtmpSource) runInner() bool {
 						switch pkt.Type {
 						case av.H264:
 							if videoTrack == nil {
-								return fmt.Errorf("ERR: received an H264 frame, but track is not set up")
+								return fmt.Errorf("received an H264 frame, but track is not set up")
 							}
 
 							nalus, err := h264.DecodeAVCC(pkt.Data)
@@ -203,7 +203,7 @@ func (s *rtmpSource) runInner() bool {
 
 							pkts, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
 							if err != nil {
-								return fmt.Errorf("ERR while encoding H264: %v", err)
+								return fmt.Errorf("error while encoding H264: %v", err)
 							}
 
 							bytss := make([][]byte, len(pkts))
@@ -221,12 +221,12 @@ func (s *rtmpSource) runInner() bool {
 
 						case av.AAC:
 							if audioTrack == nil {
-								return fmt.Errorf("ERR: received an AAC frame, but track is not set up")
+								return fmt.Errorf("received an AAC frame, but track is not set up")
 							}
 
 							pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
 							if err != nil {
-								return fmt.Errorf("ERR while encoding AAC: %v", err)
+								return fmt.Errorf("error while encoding AAC: %v", err)
 							}
 
 							bytss := make([][]byte, len(pkts))

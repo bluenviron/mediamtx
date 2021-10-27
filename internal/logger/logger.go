@@ -19,6 +19,7 @@ const (
 	Debug Level = iota + 1
 	Info
 	Warn
+	Error
 )
 
 // Destination is a log destination.
@@ -137,25 +138,33 @@ func writeLevel(buf *bytes.Buffer, level Level, doColor bool) {
 	switch level {
 	case Debug:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Debug.Code(), "D "))
+			buf.WriteString(color.RenderString(color.Debug.Code(), "D"))
 		} else {
-			buf.WriteString("D ")
+			buf.WriteString("D")
 		}
 
 	case Info:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Green.Code(), "I "))
+			buf.WriteString(color.RenderString(color.Green.Code(), "I"))
 		} else {
-			buf.WriteString("I ")
+			buf.WriteString("I")
 		}
 
 	case Warn:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Warn.Code(), "W "))
+			buf.WriteString(color.RenderString(color.Warn.Code(), "W"))
 		} else {
-			buf.WriteString("W ")
+			buf.WriteString("W")
+		}
+
+	case Error:
+		if doColor {
+			buf.WriteString(color.RenderString(color.Error.Code(), "E"))
+		} else {
+			buf.WriteString("E")
 		}
 	}
+	buf.WriteByte(' ')
 }
 
 func writeContent(buf *bytes.Buffer, format string, args []interface{}) {
