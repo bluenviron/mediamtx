@@ -101,7 +101,7 @@ func (s *rtspSession) log(level logger.Level, format string, args ...interface{}
 }
 
 // OnClose is called by rtspServer.
-func (s *rtspSession) OnClose() {
+func (s *rtspSession) OnClose(err error) {
 	if s.ss.State() == gortsplib.ServerSessionStateRead {
 		if s.onReadCmd != nil {
 			s.onReadCmd.Close()
@@ -120,7 +120,7 @@ func (s *rtspSession) OnClose() {
 		s.path = nil
 	}
 
-	s.log(logger.Info, "closed")
+	s.log(logger.Info, "closed (%v)", err)
 }
 
 // OnAnnounce is called by rtspServer.

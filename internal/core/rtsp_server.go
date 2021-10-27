@@ -13,6 +13,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/aler9/gortsplib/pkg/liberrors"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -298,7 +299,7 @@ func (s *rtspServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCt
 	s.mutex.Unlock()
 
 	if se != nil {
-		se.OnClose()
+		se.OnClose(ctx.Error)
 	}
 }
 
@@ -412,7 +413,7 @@ func (s *rtspServer) OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSe
 		if se.ID() == req.ID {
 			se.Close()
 			delete(s.sessions, key)
-			se.OnClose()
+			se.OnClose(liberrors.ErrServerTerminated{})
 			return apiRTSPSessionsKickRes{}
 		}
 	}

@@ -2,7 +2,6 @@ package core
 
 import (
 	"errors"
-	"io"
 	"net"
 	"time"
 
@@ -10,7 +9,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/aler9/gortsplib/pkg/liberrors"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -20,16 +18,6 @@ import (
 const (
 	rtspConnPauseAfterAuthError = 2 * time.Second
 )
-
-func isTeardownErr(err error) bool {
-	_, ok := err.(liberrors.ErrServerSessionTeardown)
-	return ok
-}
-
-func isTerminatedErr(err error) bool {
-	_, ok := err.(liberrors.ErrServerTerminated)
-	return ok
-}
 
 type rtspConnParent interface {
 	Log(logger.Level, string, ...interface{})
@@ -166,11 +154,7 @@ func (c *rtspConn) validateCredentials(
 
 // OnClose is called by rtspServer.
 func (c *rtspConn) OnClose(err error) {
-	if err != io.EOF && !isTeardownErr(err) && !isTerminatedErr(err) {
-		c.log(logger.Info, "ERR: %v", err)
-	}
-
-	c.log(logger.Info, "closed")
+	c.log(logger.Info, "closed (%v)", err)
 
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()
