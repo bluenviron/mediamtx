@@ -138,30 +138,30 @@ func writeLevel(buf *bytes.Buffer, level Level, doColor bool) {
 	switch level {
 	case Debug:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Debug.Code(), "D"))
+			buf.WriteString(color.RenderString(color.Debug.Code(), "DEB"))
 		} else {
-			buf.WriteString("D")
+			buf.WriteString("DEB")
 		}
 
 	case Info:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Green.Code(), "I"))
+			buf.WriteString(color.RenderString(color.Green.Code(), "INF"))
 		} else {
-			buf.WriteString("I")
+			buf.WriteString("INF")
 		}
 
 	case Warn:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Warn.Code(), "W"))
+			buf.WriteString(color.RenderString(color.Warn.Code(), "WAR"))
 		} else {
-			buf.WriteString("W")
+			buf.WriteString("WAR")
 		}
 
 	case Error:
 		if doColor {
-			buf.WriteString(color.RenderString(color.Error.Code(), "E"))
+			buf.WriteString(color.RenderString(color.Error.Code(), "ERR"))
 		} else {
-			buf.WriteString("E")
+			buf.WriteString("ERR")
 		}
 	}
 	buf.WriteByte(' ')
