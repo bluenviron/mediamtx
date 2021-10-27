@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
+
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -35,7 +37,6 @@ type metricsParent interface {
 
 type metrics struct {
 	listener net.Listener
-	mux      *http.ServeMux
 	server   *http.Server
 
 	mutex       sync.Mutex
@@ -58,12 +59,10 @@ func newMetrics(
 		listener: listener,
 	}
 
-	m.mux = http.NewServeMux()
-	m.mux.HandleFunc("/metrics", m.onMetrics)
+	router := gin.New()
+	router.GET("/metrics", m.onMetrics)
 
-	m.server = &http.Server{
-		Handler: m.mux,
-	}
+	m.server = &http.Server{Handler: router}
 
 	parent.Log(logger.Info, "[metrics] opened on "+address)
 
@@ -83,7 +82,7 @@ func (m *metrics) run() {
 	}
 }
 
-func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
+func (m *metrics) onMetrics(ctx *gin.Context) {
 	nowUnix := time.Now().UnixNano() / 1000000
 
 	out := ""
@@ -188,8 +187,8 @@ func (m *metrics) onMetrics(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	w.WriteHeader(http.StatusOK)
-	io.WriteString(w, out)
+	ctx.Writer.WriteHeader(http.StatusOK)
+	io.WriteString(ctx.Writer, out)
 }
 
 // OnPathManagerSet is called by pathManager.
