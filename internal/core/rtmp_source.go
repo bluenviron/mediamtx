@@ -23,8 +23,8 @@ const (
 )
 
 type rtmpSourceParent interface {
-	Log(logger.Level, string, ...interface{})
-	OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	log(logger.Level, string, ...interface{})
+	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
@@ -67,13 +67,13 @@ func newRTMPSource(
 }
 
 // Close closes a Source.
-func (s *rtmpSource) Close() {
+func (s *rtmpSource) close() {
 	s.log(logger.Info, "stopped")
 	s.ctxCancel()
 }
 
 func (s *rtmpSource) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[rtmp source] "+format, args...)
+	s.parent.log(level, "[rtmp source] "+format, args...)
 }
 
 func (s *rtmpSource) run() {
@@ -149,7 +149,7 @@ func (s *rtmpSource) runInner() bool {
 						tracks = append(tracks, audioTrack)
 					}
 
-					res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
+					res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
 						Source: s,
 						Tracks: tracks,
 					})
@@ -272,8 +272,8 @@ func (s *rtmpSource) runInner() bool {
 	}
 }
 
-// OnSourceAPIDescribe implements source.
-func (*rtmpSource) OnSourceAPIDescribe() interface{} {
+// onSourceAPIDescribe implements source.
+func (*rtmpSource) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"rtmpSource"}

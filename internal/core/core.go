@@ -404,7 +404,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics {
 		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.pathManager.OnConfReload(newConf.Paths)
+		p.pathManager.onConfReload(newConf.Paths)
 	}
 
 	closeRTSPServer := false
@@ -495,7 +495,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.api.close()
 			p.api = nil
 		} else if !calledByAPI { // avoid a loop
-			p.api.OnConfReload(newConf)
+			p.api.onConfReload(newConf)
 		}
 	}
 
@@ -551,8 +551,8 @@ func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
 	return p.createResources(false)
 }
 
-// OnAPIConfigSet is called by api.
-func (p *Core) OnAPIConfigSet(conf *conf.Conf) {
+// onAPIConfigSet is called by api.
+func (p *Core) onAPIConfigSet(conf *conf.Conf) {
 	select {
 	case p.apiConfigSet <- conf:
 	case <-p.ctx.Done():

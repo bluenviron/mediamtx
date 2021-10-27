@@ -20,7 +20,7 @@ const (
 )
 
 type rtspConnParent interface {
-	Log(logger.Level, string, ...interface{})
+	log(logger.Level, string, ...interface{})
 }
 
 type rtspConn struct {
@@ -75,7 +75,7 @@ func newRTSPConn(
 }
 
 func (c *rtspConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
+	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
 // Conn returns the RTSP connection.
@@ -152,8 +152,8 @@ func (c *rtspConn) validateCredentials(
 	return nil
 }
 
-// OnClose is called by rtspServer.
-func (c *rtspConn) OnClose(err error) {
+// onClose is called by rtspServer.
+func (c *rtspConn) onClose(err error) {
 	c.log(logger.Info, "closed (%v)", err)
 
 	if c.onConnectCmd != nil {
@@ -162,8 +162,8 @@ func (c *rtspConn) OnClose(err error) {
 	}
 }
 
-// OnRequest is called by rtspServer.
-func (c *rtspConn) OnRequest(req *base.Request) {
+// onRequest is called by rtspServer.
+func (c *rtspConn) onRequest(req *base.Request) {
 	c.log(logger.Debug, "[c->s] %v", req)
 }
 
@@ -172,10 +172,10 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 	c.log(logger.Debug, "[s->c] %v", res)
 }
 
-// OnDescribe is called by rtspServer.
-func (c *rtspConn) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+// onDescribe is called by rtspServer.
+func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
-	res := c.pathManager.OnDescribe(pathDescribeReq{
+	res := c.pathManager.onDescribe(pathDescribeReq{
 		PathName: ctx.Path,
 		URL:      ctx.Req.URL,
 		IP:       c.ip(),

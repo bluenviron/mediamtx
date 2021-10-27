@@ -13,7 +13,7 @@ import (
 )
 
 type pathManagerHLSServer interface {
-	OnPathSourceReady(pa *path)
+	onPathSourceReady(pa *path)
 }
 
 type pathManagerParent interface {
@@ -91,7 +91,7 @@ func newPathManager(
 	}
 
 	if pm.metrics != nil {
-		pm.metrics.OnPathManagerSet(pm)
+		pm.metrics.onPathManagerSet(pm)
 	}
 
 	pm.wg.Add(1)
@@ -106,7 +106,7 @@ func (pm *pathManager) close() {
 }
 
 // Log is the main logging function.
-func (pm *pathManager) Log(level logger.Level, format string, args ...interface{}) {
+func (pm *pathManager) log(level logger.Level, format string, args ...interface{}) {
 	pm.parent.Log(level, format, args...)
 }
 
@@ -143,7 +143,7 @@ outer:
 			for _, pa := range pm.paths {
 				if pathConf, ok := pm.pathConfs[pa.ConfName()]; !ok || pathConf != pa.Conf() {
 					delete(pm.paths, pa.Name())
-					pa.Close()
+					pa.close()
 				}
 			}
 
@@ -159,11 +159,11 @@ outer:
 				continue
 			}
 			delete(pm.paths, pa.Name())
-			pa.Close()
+			pa.close()
 
 		case pa := <-pm.pathSourceReady:
 			if pm.hlsServer != nil {
-				pm.hlsServer.OnPathSourceReady(pa)
+				pm.hlsServer.onPathSourceReady(pa)
 			}
 
 		case req := <-pm.describe:
@@ -269,7 +269,7 @@ outer:
 	pm.ctxCancel()
 
 	if pm.metrics != nil {
-		pm.metrics.OnPathManagerSet(nil)
+		pm.metrics.onPathManagerSet(nil)
 	}
 }
 
@@ -341,32 +341,32 @@ func (pm *pathManager) authenticate(
 	return nil
 }
 
-// OnConfReload is called by core.
-func (pm *pathManager) OnConfReload(pathConfs map[string]*conf.PathConf) {
+// onConfReload is called by core.
+func (pm *pathManager) onConfReload(pathConfs map[string]*conf.PathConf) {
 	select {
 	case pm.confReload <- pathConfs:
 	case <-pm.ctx.Done():
 	}
 }
 
-// OnPathSourceReady is called by path.
-func (pm *pathManager) OnPathSourceReady(pa *path) {
+// onPathSourceReady is called by path.
+func (pm *pathManager) onPathSourceReady(pa *path) {
 	select {
 	case pm.pathSourceReady <- pa:
 	case <-pm.ctx.Done():
 	}
 }
 
-// OnPathClose is called by path.
-func (pm *pathManager) OnPathClose(pa *path) {
+// onPathClose is called by path.
+func (pm *pathManager) onPathClose(pa *path) {
 	select {
 	case pm.pathClose <- pa:
 	case <-pm.ctx.Done():
 	}
 }
 
-// OnDescribe is called by a reader or publisher.
-func (pm *pathManager) OnDescribe(req pathDescribeReq) pathDescribeRes {
+// onDescribe is called by a reader or publisher.
+func (pm *pathManager) onDescribe(req pathDescribeReq) pathDescribeRes {
 	req.Res = make(chan pathDescribeRes)
 	select {
 	case pm.describe <- req:
@@ -375,15 +375,15 @@ func (pm *pathManager) OnDescribe(req pathDescribeReq) pathDescribeRes {
 			return res
 		}
 
-		return res.Path.OnDescribe(req)
+		return res.Path.onDescribe(req)
 
 	case <-pm.ctx.Done():
 		return pathDescribeRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// OnPublisherAnnounce is called by a publisher.
-func (pm *pathManager) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
+// onPublisherAnnounce is called by a publisher.
+func (pm *pathManager) onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
 	req.Res = make(chan pathPublisherAnnounceRes)
 	select {
 	case pm.publisherAnnounce <- req:
@@ -392,15 +392,15 @@ func (pm *pathManager) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPub
 			return res
 		}
 
-		return res.Path.OnPublisherAnnounce(req)
+		return res.Path.onPublisherAnnounce(req)
 
 	case <-pm.ctx.Done():
 		return pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// OnReaderSetupPlay is called by a reader.
-func (pm *pathManager) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
+// onReaderSetupPlay is called by a reader.
+func (pm *pathManager) onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
 	req.Res = make(chan pathReaderSetupPlayRes)
 	select {
 	case pm.readerSetupPlay <- req:
@@ -409,23 +409,23 @@ func (pm *pathManager) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderS
 			return res
 		}
 
-		return res.Path.OnReaderSetupPlay(req)
+		return res.Path.onReaderSetupPlay(req)
 
 	case <-pm.ctx.Done():
 		return pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// OnHLSServerSet is called by hlsServer.
-func (pm *pathManager) OnHLSServerSet(s pathManagerHLSServer) {
+// onHLSServerSet is called by hlsServer.
+func (pm *pathManager) onHLSServerSet(s pathManagerHLSServer) {
 	select {
 	case pm.hlsServerSet <- s:
 	case <-pm.ctx.Done():
 	}
 }
 
-// OnAPIPathsList is called by api.
-func (pm *pathManager) OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1 {
+// onAPIPathsList is called by api.
+func (pm *pathManager) onAPIPathsList(req apiPathsListReq1) apiPathsListRes1 {
 	req.Res = make(chan apiPathsListRes1)
 	select {
 	case pm.apiPathsList <- req:
@@ -436,7 +436,7 @@ func (pm *pathManager) OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1 {
 		}
 
 		for _, pa := range res1.Paths {
-			pa.OnAPIPathsList(apiPathsListReq2{Data: res1.Data})
+			pa.onAPIPathsList(apiPathsListReq2{Data: res1.Data})
 		}
 
 		return res1

@@ -120,20 +120,20 @@ func newRTSPServer(
 	}
 
 	if s.srv.UDPRTPAddress != "" {
-		s.Log(logger.Info, "UDP/RTP listener opened on %s", s.srv.UDPRTPAddress)
+		s.log(logger.Info, "UDP/RTP listener opened on %s", s.srv.UDPRTPAddress)
 	}
 
 	if s.srv.UDPRTCPAddress != "" {
-		s.Log(logger.Info, "UDP/RTCP listener opened on %s", s.srv.UDPRTCPAddress)
+		s.log(logger.Info, "UDP/RTCP listener opened on %s", s.srv.UDPRTCPAddress)
 	}
 
-	s.Log(logger.Info, "TCP listener opened on %s", address)
+	s.log(logger.Info, "TCP listener opened on %s", address)
 
 	if s.metrics != nil {
 		if !isTLS {
-			s.metrics.OnRTSPServerSet(s)
+			s.metrics.onRTSPServerSet(s)
 		} else {
-			s.metrics.OnRTSPSServerSet(s)
+			s.metrics.onRTSPSServerSet(s)
 		}
 	}
 
@@ -143,7 +143,7 @@ func newRTSPServer(
 	return s, nil
 }
 
-func (s *rtspServer) Log(level logger.Level, format string, args ...interface{}) {
+func (s *rtspServer) log(level logger.Level, format string, args ...interface{}) {
 	label := func() string {
 		if s.isTLS {
 			return "RTSPS"
@@ -156,7 +156,7 @@ func (s *rtspServer) Log(level logger.Level, format string, args ...interface{})
 func (s *rtspServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
-	s.Log(logger.Info, "closed")
+	s.log(logger.Info, "closed")
 }
 
 func (s *rtspServer) run() {
@@ -178,7 +178,7 @@ func (s *rtspServer) run() {
 outer:
 	select {
 	case err := <-serverErr:
-		s.Log(logger.Warn, "ERR: %s", err)
+		s.log(logger.Warn, "ERR: %s", err)
 		break outer
 
 	case <-s.ctx.Done():
@@ -191,9 +191,9 @@ outer:
 
 	if s.metrics != nil {
 		if !s.isTLS {
-			s.metrics.OnRTSPServerSet(nil)
+			s.metrics.onRTSPServerSet(nil)
 		} else {
-			s.metrics.OnRTSPSServerSet(nil)
+			s.metrics.onRTSPSServerSet(nil)
 		}
 	}
 }
@@ -250,7 +250,7 @@ func (s *rtspServer) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
 
-	c.OnClose(ctx.Error)
+	c.onClose(ctx.Error)
 }
 
 // OnRequest implements gortsplib.ServerHandlerOnRequest.
@@ -259,7 +259,7 @@ func (s *rtspServer) OnRequest(sc *gortsplib.ServerConn, req *base.Request) {
 	c := s.conns[sc]
 	s.mutex.Unlock()
 
-	c.OnRequest(req)
+	c.onRequest(req)
 }
 
 // OnResponse implements gortsplib.ServerHandlerOnResponse.
@@ -299,7 +299,7 @@ func (s *rtspServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCt
 	s.mutex.Unlock()
 
 	if se != nil {
-		se.OnClose(ctx.Error)
+		se.onClose(ctx.Error)
 	}
 }
 
@@ -309,7 +309,7 @@ func (s *rtspServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	s.mutex.RLock()
 	c := s.conns[ctx.Conn]
 	s.mutex.RUnlock()
-	return c.OnDescribe(ctx)
+	return c.onDescribe(ctx)
 }
 
 // OnAnnounce implements gortsplib.ServerHandlerOnAnnounce.
@@ -318,7 +318,7 @@ func (s *rtspServer) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*bas
 	c := s.conns[ctx.Conn]
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	return se.OnAnnounce(c, ctx)
+	return se.onAnnounce(c, ctx)
 }
 
 // OnSetup implements gortsplib.ServerHandlerOnSetup.
@@ -327,7 +327,7 @@ func (s *rtspServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Resp
 	c := s.conns[ctx.Conn]
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	return se.OnSetup(c, ctx)
+	return se.onSetup(c, ctx)
 }
 
 // OnPlay implements gortsplib.ServerHandlerOnPlay.
@@ -335,7 +335,7 @@ func (s *rtspServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respon
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	return se.OnPlay(ctx)
+	return se.onPlay(ctx)
 }
 
 // OnRecord implements gortsplib.ServerHandlerOnRecord.
@@ -343,7 +343,7 @@ func (s *rtspServer) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Re
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	return se.OnRecord(ctx)
+	return se.onRecord(ctx)
 }
 
 // OnPause implements gortsplib.ServerHandlerOnPause.
@@ -351,7 +351,7 @@ func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Resp
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	return se.OnPause(ctx)
+	return se.onPause(ctx)
 }
 
 // OnFrame implements gortsplib.ServerHandlerOnFrame.
@@ -359,11 +359,11 @@ func (s *rtspServer) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	se.OnFrame(ctx)
+	se.onFrame(ctx)
 }
 
-// OnAPIRTSPSessionsList is called by api and metrics.
-func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes {
+// onAPIRTSPSessionsList is called by api and metrics.
+func (s *rtspServer) onAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes {
 	select {
 	case <-s.ctx.Done():
 		return apiRTSPSessionsListRes{Err: fmt.Errorf("terminated")}
@@ -398,8 +398,8 @@ func (s *rtspServer) OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSe
 	return apiRTSPSessionsListRes{Data: data}
 }
 
-// OnAPIRTSPSessionsKick is called by api.
-func (s *rtspServer) OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes {
+// onAPIRTSPSessionsKick is called by api.
+func (s *rtspServer) onAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes {
 	select {
 	case <-s.ctx.Done():
 		return apiRTSPSessionsKickRes{Err: fmt.Errorf("terminated")}
@@ -411,9 +411,9 @@ func (s *rtspServer) OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSe
 
 	for key, se := range s.sessions {
 		if se.ID() == req.ID {
-			se.Close()
+			se.close()
 			delete(s.sessions, key)
-			se.OnClose(liberrors.ErrServerTerminated{})
+			se.onClose(liberrors.ErrServerTerminated{})
 			return apiRTSPSessionsKickRes{}
 		}
 	}

@@ -17,8 +17,8 @@ const (
 )
 
 type hlsSourceParent interface {
-	Log(logger.Level, string, ...interface{})
-	OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	log(logger.Level, string, ...interface{})
+	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
@@ -57,13 +57,13 @@ func newHLSSource(
 	return s
 }
 
-func (s *hlsSource) Close() {
+func (s *hlsSource) close() {
 	s.Log(logger.Info, "stopped")
 	s.ctxCancel()
 }
 
 func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[hls source] "+format, args...)
+	s.parent.log(level, "[hls source] "+format, args...)
 }
 
 func (s *hlsSource) run() {
@@ -112,7 +112,7 @@ func (s *hlsSource) runInner() bool {
 			tracks = append(tracks, audioTrack)
 		}
 
-		res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
+		res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
 			Source: s,
 			Tracks: tracks,
 		})
@@ -162,8 +162,8 @@ func (s *hlsSource) runInner() bool {
 	}
 }
 
-// OnSourceAPIDescribe implements source.
-func (*hlsSource) OnSourceAPIDescribe() interface{} {
+// onSourceAPIDescribe implements source.
+func (*hlsSource) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"hlsSource"}

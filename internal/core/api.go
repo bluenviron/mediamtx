@@ -244,22 +244,22 @@ type apiRTMPConnsKickReq struct {
 }
 
 type apiPathManager interface {
-	OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1
+	onAPIPathsList(req apiPathsListReq1) apiPathsListRes1
 }
 
 type apiRTSPServer interface {
-	OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes
-	OnAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes
+	onAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes
+	onAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes
 }
 
 type apiRTMPServer interface {
-	OnAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
-	OnAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes
+	onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
+	onAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes
 }
 
 type apiParent interface {
 	Log(logger.Level, string, ...interface{})
-	OnAPIConfigSet(conf *conf.Conf)
+	onAPIConfigSet(conf *conf.Conf)
 }
 
 type api struct {
@@ -380,7 +380,7 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.OnAPIConfigSet(&newConf)
+	go a.parent.onAPIConfigSet(&newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -425,7 +425,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.OnAPIConfigSet(&newConf)
+	go a.parent.onAPIConfigSet(&newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -468,7 +468,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.OnAPIConfigSet(&newConf)
+	go a.parent.onAPIConfigSet(&newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -504,13 +504,13 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.OnAPIConfigSet(&newConf)
+	go a.parent.onAPIConfigSet(&newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
 func (a *api) onPathsList(ctx *gin.Context) {
-	res := a.pathManager.OnAPIPathsList(apiPathsListReq1{})
+	res := a.pathManager.onAPIPathsList(apiPathsListReq1{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -525,7 +525,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 		return
 	}
 
-	res := a.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{})
+	res := a.rtspServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -542,7 +542,7 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 
 	id := ctx.Param("id")
 
-	res := a.rtspServer.OnAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
+	res := a.rtspServer.onAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -557,7 +557,7 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 		return
 	}
 
-	res := a.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{})
+	res := a.rtspsServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -574,7 +574,7 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 
 	id := ctx.Param("id")
 
-	res := a.rtspsServer.OnAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
+	res := a.rtspsServer.onAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -589,7 +589,7 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 		return
 	}
 
-	res := a.rtmpServer.OnAPIRTMPConnsList(apiRTMPConnsListReq{})
+	res := a.rtmpServer.onAPIRTMPConnsList(apiRTMPConnsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -598,8 +598,8 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res.Data)
 }
 
-// OnConfReload is called by core.
-func (a *api) OnConfReload(conf *conf.Conf) {
+// onConfReload is called by core.
+func (a *api) onConfReload(conf *conf.Conf) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.conf = conf
@@ -613,7 +613,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 
 	id := ctx.Param("id")
 
-	res := a.rtmpServer.OnAPIRTMPConnsKick(apiRTMPConnsKickReq{ID: id})
+	res := a.rtmpServer.onAPIRTMPConnsKick(apiRTMPConnsKickReq{ID: id})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return

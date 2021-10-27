@@ -113,12 +113,12 @@ type hlsMuxerTrackIDPayloadPair struct {
 }
 
 type hlsMuxerPathManager interface {
-	OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
 }
 
 type hlsMuxerParent interface {
-	Log(logger.Level, string, ...interface{})
-	OnMuxerClose(*hlsMuxer)
+	log(logger.Level, string, ...interface{})
+	onMuxerClose(*hlsMuxer)
 }
 
 type hlsMuxer struct {
@@ -181,12 +181,12 @@ func newHLSMuxer(
 	return r
 }
 
-func (r *hlsMuxer) Close() {
+func (r *hlsMuxer) close() {
 	r.ctxCancel()
 }
 
 func (r *hlsMuxer) log(level logger.Level, format string, args ...interface{}) {
-	r.parent.Log(level, "[muxer %s] "+format, append([]interface{}{r.pathName}, args...)...)
+	r.parent.log(level, "[muxer %s] "+format, append([]interface{}{r.pathName}, args...)...)
 }
 
 // PathName returns the path name.
@@ -241,13 +241,13 @@ func (r *hlsMuxer) run() {
 		req.Res <- hlsMuxerResponse{Status: http.StatusNotFound}
 	}
 
-	r.parent.OnMuxerClose(r)
+	r.parent.onMuxerClose(r)
 
 	r.log(logger.Info, "destroyed (%v)", err)
 }
 
 func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
-	res := r.pathManager.OnReaderSetupPlay(pathReaderSetupPlayReq{
+	res := r.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
 		Author:              r,
 		PathName:            r.pathName,
 		IP:                  nil,
@@ -260,7 +260,7 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	r.path = res.Path
 
 	defer func() {
-		r.path.OnReaderRemove(pathReaderRemoveReq{Author: r})
+		r.path.onReaderRemove(pathReaderRemoveReq{Author: r})
 	}()
 
 	var videoTrack *gortsplib.Track
@@ -318,7 +318,7 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	r.ringBuffer = ringbuffer.New(uint64(r.readBufferCount))
 
-	r.path.OnReaderPlay(pathReaderPlayReq{Author: r})
+	r.path.onReaderPlay(pathReaderPlayReq{Author: r})
 
 	writerDone := make(chan error)
 	go func() {
@@ -474,8 +474,8 @@ func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 	}
 }
 
-// OnRequest is called by hlsserver.Server (forwarded from ServeHTTP).
-func (r *hlsMuxer) OnRequest(req hlsMuxerRequest) {
+// onRequest is called by hlsserver.Server (forwarded from ServeHTTP).
+func (r *hlsMuxer) onRequest(req hlsMuxerRequest) {
 	select {
 	case r.request <- req:
 	case <-r.ctx.Done():
@@ -483,20 +483,20 @@ func (r *hlsMuxer) OnRequest(req hlsMuxerRequest) {
 	}
 }
 
-// OnReaderAccepted implements reader.
-func (r *hlsMuxer) OnReaderAccepted() {
+// onReaderAccepted implements reader.
+func (r *hlsMuxer) onReaderAccepted() {
 	r.log(logger.Info, "is converting into HLS")
 }
 
-// OnReaderFrame implements reader.
-func (r *hlsMuxer) OnReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+// onReaderFrame implements reader.
+func (r *hlsMuxer) onReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		r.ringBuffer.Push(hlsMuxerTrackIDPayloadPair{trackID, payload})
 	}
 }
 
-// OnReaderAPIDescribe implements reader.
-func (r *hlsMuxer) OnReaderAPIDescribe() interface{} {
+// onReaderAPIDescribe implements reader.
+func (r *hlsMuxer) onReaderAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"hlsMuxer"}

@@ -80,10 +80,10 @@ func newRTMPServer(
 		apiRTMPConnsKick:    make(chan apiRTMPConnsKickReq),
 	}
 
-	s.Log(logger.Info, "listener opened on %s", address)
+	s.log(logger.Info, "listener opened on %s", address)
 
 	if s.metrics != nil {
-		s.metrics.OnRTMPServerSet(s)
+		s.metrics.onRTMPServerSet(s)
 	}
 
 	s.wg.Add(1)
@@ -92,14 +92,14 @@ func newRTMPServer(
 	return s, nil
 }
 
-func (s *rtmpServer) Log(level logger.Level, format string, args ...interface{}) {
+func (s *rtmpServer) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[RTMP] "+format, append([]interface{}{}, args...)...)
 }
 
 func (s *rtmpServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
-	s.Log(logger.Info, "closed")
+	s.log(logger.Info, "closed")
 }
 
 func (s *rtmpServer) run() {
@@ -135,7 +135,7 @@ outer:
 	for {
 		select {
 		case err := <-acceptErr:
-			s.Log(logger.Warn, "ERR: %s", err)
+			s.log(logger.Warn, "ERR: %s", err)
 			break outer
 
 		case nconn := <-connNew:
@@ -190,7 +190,7 @@ outer:
 				for c := range s.conns {
 					if c.ID() == req.ID {
 						delete(s.conns, c)
-						c.Close()
+						c.close()
 						return true
 					}
 				}
@@ -212,7 +212,7 @@ outer:
 	s.l.Close()
 
 	if s.metrics != nil {
-		s.metrics.OnRTMPServerSet(s)
+		s.metrics.onRTMPServerSet(s)
 	}
 }
 
@@ -244,16 +244,16 @@ func (s *rtmpServer) newConnID() (string, error) {
 	}
 }
 
-// OnConnClose is called by rtmpConn.
-func (s *rtmpServer) OnConnClose(c *rtmpConn) {
+// onConnClose is called by rtmpConn.
+func (s *rtmpServer) onConnClose(c *rtmpConn) {
 	select {
 	case s.connClose <- c:
 	case <-s.ctx.Done():
 	}
 }
 
-// OnAPIRTMPConnsList is called by api.
-func (s *rtmpServer) OnAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes {
+// onAPIRTMPConnsList is called by api.
+func (s *rtmpServer) onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes {
 	req.Res = make(chan apiRTMPConnsListRes)
 	select {
 	case s.apiRTMPConnsList <- req:
@@ -263,8 +263,8 @@ func (s *rtmpServer) OnAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsLis
 	}
 }
 
-// OnAPIRTMPConnsKick is called by api.
-func (s *rtmpServer) OnAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes {
+// onAPIRTMPConnsKick is called by api.
+func (s *rtmpServer) onAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes {
 	req.Res = make(chan apiRTMPConnsKickRes)
 	select {
 	case s.apiRTMPConnsKick <- req:

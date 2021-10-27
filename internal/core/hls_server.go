@@ -76,9 +76,9 @@ func newHLSServer(
 		muxerClose:         make(chan *hlsMuxer),
 	}
 
-	s.Log(logger.Info, "listener opened on "+address)
+	s.log(logger.Info, "listener opened on "+address)
 
-	s.pathManager.OnHLSServerSet(s)
+	s.pathManager.onHLSServerSet(s)
 
 	s.wg.Add(1)
 	go s.run()
@@ -87,14 +87,14 @@ func newHLSServer(
 }
 
 // Log is the main logging function.
-func (s *hlsServer) Log(level logger.Level, format string, args ...interface{}) {
+func (s *hlsServer) log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[HLS] "+format, append([]interface{}{}, args...)...)
 }
 
 func (s *hlsServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
-	s.Log(logger.Info, "closed")
+	s.log(logger.Info, "closed")
 }
 
 func (s *hlsServer) run() {
@@ -116,7 +116,7 @@ outer:
 
 		case req := <-s.request:
 			r := s.findOrCreateMuxer(req.Dir)
-			r.OnRequest(req)
+			r.onRequest(req)
 
 		case c := <-s.muxerClose:
 			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
@@ -133,14 +133,14 @@ outer:
 
 	hs.Shutdown(context.Background())
 
-	s.pathManager.OnHLSServerSet(nil)
+	s.pathManager.onHLSServerSet(nil)
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {
-	s.Log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
+	s.log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
 
 	byts, _ := httputil.DumpRequest(ctx.Request, true)
-	s.Log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
+	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
 
 	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
 	ctx.Writer = logw
@@ -211,7 +211,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	case <-s.ctx.Done():
 	}
 
-	s.Log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
+	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
 func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
@@ -232,16 +232,16 @@ func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
 	return r
 }
 
-// OnMuxerClose is called by hlsMuxer.
-func (s *hlsServer) OnMuxerClose(c *hlsMuxer) {
+// onMuxerClose is called by hlsMuxer.
+func (s *hlsServer) onMuxerClose(c *hlsMuxer) {
 	select {
 	case s.muxerClose <- c:
 	case <-s.ctx.Done():
 	}
 }
 
-// OnPathSourceReady is called by core.
-func (s *hlsServer) OnPathSourceReady(pa *path) {
+// onPathSourceReady is called by core.
+func (s *hlsServer) onPathSourceReady(pa *path) {
 	select {
 	case s.pathSourceReady <- pa:
 	case <-s.ctx.Done():

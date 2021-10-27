@@ -20,15 +20,15 @@ func formatMetric(key string, value int64, nowUnix int64) string {
 }
 
 type metricsPathManager interface {
-	OnAPIPathsList(req apiPathsListReq1) apiPathsListRes1
+	onAPIPathsList(req apiPathsListReq1) apiPathsListRes1
 }
 
 type metricsRTSPServer interface {
-	OnAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes
+	onAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes
 }
 
 type metricsRTMPServer interface {
-	OnAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
+	onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
 }
 
 type metricsParent interface {
@@ -87,7 +87,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	out := ""
 
-	res := m.pathManager.OnAPIPathsList(apiPathsListReq1{})
+	res := m.pathManager.onAPIPathsList(apiPathsListReq1{})
 	if res.Err == nil {
 		readyCount := int64(0)
 		notReadyCount := int64(0)
@@ -107,7 +107,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
-		res := m.rtspServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{})
+		res := m.rtspServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 		if res.Err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -134,7 +134,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspsServer) {
-		res := m.rtspsServer.OnAPIRTSPSessionsList(apiRTSPSessionsListReq{})
+		res := m.rtspsServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 		if res.Err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -161,7 +161,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
-		res := m.rtmpServer.OnAPIRTMPConnsList(apiRTMPConnsListReq{})
+		res := m.rtmpServer.onAPIRTMPConnsList(apiRTMPConnsListReq{})
 		if res.Err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -191,29 +191,29 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	io.WriteString(ctx.Writer, out)
 }
 
-// OnPathManagerSet is called by pathManager.
-func (m *metrics) OnPathManagerSet(s metricsPathManager) {
+// onPathManagerSet is called by pathManager.
+func (m *metrics) onPathManagerSet(s metricsPathManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.pathManager = s
 }
 
-// OnRTSPServer is called by rtspServer (plain).
-func (m *metrics) OnRTSPServerSet(s metricsRTSPServer) {
+// onRTSPServer is called by rtspServer (plain).
+func (m *metrics) onRTSPServerSet(s metricsRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspServer = s
 }
 
-// OnRTSPServer is called by rtspServer (plain).
-func (m *metrics) OnRTSPSServerSet(s metricsRTSPServer) {
+// onRTSPServer is called by rtspServer (plain).
+func (m *metrics) onRTSPSServerSet(s metricsRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspsServer = s
 }
 
-// OnRTMPServerSet is called by rtmpServer.
-func (m *metrics) OnRTMPServerSet(s metricsRTMPServer) {
+// onRTMPServerSet is called by rtmpServer.
+func (m *metrics) onRTMPServerSet(s metricsRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s

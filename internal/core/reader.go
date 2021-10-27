@@ -6,8 +6,8 @@ import (
 
 // reader is an entity that can read a stream.
 type reader interface {
-	Close()
-	OnReaderAccepted()
-	OnReaderFrame(int, gortsplib.StreamType, []byte)
-	OnReaderAPIDescribe() interface{}
+	close()
+	onReaderAccepted()
+	onReaderFrame(int, gortsplib.StreamType, []byte)
+	onReaderAPIDescribe() interface{}
 }

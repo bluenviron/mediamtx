@@ -43,13 +43,13 @@ type rtmpConnTrackIDPayloadPair struct {
 }
 
 type rtmpConnPathManager interface {
-	OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
-	OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
+	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
 }
 
 type rtmpConnParent interface {
-	Log(logger.Level, string, ...interface{})
-	OnConnClose(*rtmpConn)
+	log(logger.Level, string, ...interface{})
+	onConnClose(*rtmpConn)
 }
 
 type rtmpConn struct {
@@ -113,7 +113,7 @@ func newRTMPConn(
 }
 
 // Close closes a Conn.
-func (c *rtmpConn) Close() {
+func (c *rtmpConn) close() {
 	c.ctxCancel()
 }
 
@@ -128,7 +128,7 @@ func (c *rtmpConn) RemoteAddr() net.Addr {
 }
 
 func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
+	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
 func (c *rtmpConn) ip() net.IP {
@@ -179,7 +179,7 @@ func (c *rtmpConn) run() {
 
 	c.ctxCancel()
 
-	c.parent.OnConnClose(c)
+	c.parent.onConnClose(c)
 
 	c.log(logger.Info, "closed (%v)", err)
 }
@@ -206,7 +206,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 func (c *rtmpConn) runRead(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
-	res := c.pathManager.OnReaderSetupPlay(pathReaderSetupPlayReq{
+	res := c.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
@@ -227,7 +227,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	c.path = res.Path
 
 	defer func() {
-		c.path.OnReaderRemove(pathReaderRemoveReq{Author: c})
+		c.path.onReaderRemove(pathReaderRemoveReq{Author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -278,7 +278,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		c.ringBuffer.Close()
 	}()
 
-	c.path.OnReaderPlay(pathReaderPlayReq{
+	c.path.onReaderPlay(pathReaderPlayReq{
 		Author: c,
 	})
 
@@ -448,7 +448,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
-	res := c.pathManager.OnPublisherAnnounce(pathPublisherAnnounceReq{
+	res := c.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   c,
 		PathName: pathName,
 		IP:       c.ip(),
@@ -469,7 +469,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	c.path = res.Path
 
 	defer func() {
-		c.path.OnPublisherRemove(pathPublisherRemoveReq{Author: c})
+		c.path.onPublisherRemove(pathPublisherRemoveReq{Author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -479,7 +479,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	// disable write deadline
 	c.conn.NetConn().SetWriteDeadline(time.Time{})
 
-	rres := c.path.OnPublisherRecord(pathPublisherRecordReq{
+	rres := c.path.onPublisherRecord(pathPublisherRecordReq{
 		Author: c,
 		Tracks: tracks,
 	})
@@ -589,36 +589,36 @@ func (c *rtmpConn) validateCredentials(
 	return nil
 }
 
-// OnReaderAccepted implements reader.
-func (c *rtmpConn) OnReaderAccepted() {
+// onReaderAccepted implements reader.
+func (c *rtmpConn) onReaderAccepted() {
 	c.log(logger.Info, "is reading from path '%s'", c.path.Name())
 }
 
-// OnReaderFrame implements reader.
-func (c *rtmpConn) OnReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+// onReaderFrame implements reader.
+func (c *rtmpConn) onReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
 	if streamType == gortsplib.StreamTypeRTP {
 		c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})
 	}
 }
 
-// OnReaderAPIDescribe implements reader.
-func (c *rtmpConn) OnReaderAPIDescribe() interface{} {
+// onReaderAPIDescribe implements reader.
+func (c *rtmpConn) onReaderAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
 	}{"rtmpConn", c.id}
 }
 
-// OnSourceAPIDescribe implements source.
-func (c *rtmpConn) OnSourceAPIDescribe() interface{} {
+// onSourceAPIDescribe implements source.
+func (c *rtmpConn) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
 	}{"rtmpConn", c.id}
 }
 
-// OnPublisherAccepted implements publisher.
-func (c *rtmpConn) OnPublisherAccepted(tracksLen int) {
+// onPublisherAccepted implements publisher.
+func (c *rtmpConn) onPublisherAccepted(tracksLen int) {
 	c.log(logger.Info, "is publishing to path '%s', %d %s",
 		c.path.Name(),
 		tracksLen,

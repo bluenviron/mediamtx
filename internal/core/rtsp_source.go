@@ -22,8 +22,8 @@ const (
 )
 
 type rtspSourceParent interface {
-	Log(logger.Level, string, ...interface{})
-	OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	log(logger.Level, string, ...interface{})
+	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
@@ -80,13 +80,13 @@ func newRTSPSource(
 	return s
 }
 
-func (s *rtspSource) Close() {
+func (s *rtspSource) close() {
 	s.log(logger.Info, "stopped")
 	s.ctxCancel()
 }
 
 func (s *rtspSource) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[rtsp source] "+format, args...)
+	s.parent.log(level, "[rtsp source] "+format, args...)
 }
 
 func (s *rtspSource) run() {
@@ -177,7 +177,7 @@ func (s *rtspSource) runInner() bool {
 		return true
 	}
 
-	res := s.parent.OnSourceStaticSetReady(pathSourceStaticSetReadyReq{
+	res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
 		Source: s,
 		Tracks: conn.Tracks(),
 	})
@@ -212,8 +212,8 @@ func (s *rtspSource) runInner() bool {
 	}
 }
 
-// OnSourceAPIDescribe implements source.
-func (*rtspSource) OnSourceAPIDescribe() interface{} {
+// onSourceAPIDescribe implements source.
+func (*rtspSource) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"rtspSource"}

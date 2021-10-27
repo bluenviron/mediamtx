@@ -52,9 +52,9 @@ func (pathErrAuthCritical) Error() string {
 }
 
 type pathParent interface {
-	Log(logger.Level, string, ...interface{})
-	OnPathSourceReady(*path)
-	OnPathClose(*path)
+	log(logger.Level, string, ...interface{})
+	onPathSourceReady(*path)
+	onPathClose(*path)
 }
 
 type pathRTSPSession interface {
@@ -63,8 +63,8 @@ type pathRTSPSession interface {
 
 type sourceRedirect struct{}
 
-// OnSourceAPIDescribe implements source.
-func (*sourceRedirect) OnSourceAPIDescribe() interface{} {
+// onSourceAPIDescribe implements source.
+func (*sourceRedirect) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"redirect"}
@@ -269,7 +269,7 @@ func newPath(
 		apiPathsList:            make(chan apiPathsListReq2),
 	}
 
-	pa.Log(logger.Info, "created")
+	pa.log(logger.Info, "created")
 
 	pa.wg.Add(1)
 	go pa.run()
@@ -277,14 +277,14 @@ func newPath(
 	return pa
 }
 
-func (pa *path) Close() {
+func (pa *path) close() {
 	pa.ctxCancel()
-	pa.Log(logger.Info, "destroyed")
+	pa.log(logger.Info, "destroyed")
 }
 
 // Log is the main logging function.
-func (pa *path) Log(level logger.Level, format string, args ...interface{}) {
-	pa.parent.Log(level, "[path "+pa.name+"] "+format, args...)
+func (pa *path) log(level logger.Level, format string, args ...interface{}) {
+	pa.parent.log(level, "[path "+pa.name+"] "+format, args...)
 }
 
 // ConfName returns the configuration name of this path.
@@ -313,7 +313,7 @@ func (pa *path) run() {
 
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
-		pa.Log(logger.Info, "runOnInit command started")
+		pa.log(logger.Info, "runOnInit command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -420,7 +420,7 @@ outer:
 
 	if onInitCmd != nil {
 		onInitCmd.Close()
-		pa.Log(logger.Info, "runOnInit command stopped")
+		pa.log(logger.Info, "runOnInit command stopped")
 	}
 
 	for _, req := range pa.describeRequests {
@@ -435,7 +435,7 @@ outer:
 		if state == pathReaderStatePlay {
 			atomic.AddInt64(pa.stats.CountReaders, -1)
 		}
-		rp.Close()
+		rp.close()
 	}
 
 	if pa.stream != nil {
@@ -444,13 +444,13 @@ outer:
 
 	if pa.source != nil {
 		if source, ok := pa.source.(sourceStatic); ok {
-			source.Close()
+			source.close()
 			pa.sourceStaticWg.Wait()
 		} else if source, ok := pa.source.(publisher); ok {
 			if pa.sourceReady {
 				atomic.AddInt64(pa.stats.CountPublishers, -1)
 			}
-			source.Close()
+			source.close()
 		}
 	}
 
@@ -461,10 +461,10 @@ outer:
 	// the path is already waiting for the command to close.
 	if pa.onDemandCmd != nil {
 		pa.onDemandCmd.Close()
-		pa.Log(logger.Info, "runOnDemand command stopped")
+		pa.log(logger.Info, "runOnDemand command stopped")
 	}
 
-	pa.parent.OnPathClose(pa)
+	pa.parent.onPathClose(pa)
 }
 
 func (pa *path) hasStaticSource() bool {
@@ -486,7 +486,7 @@ func (pa *path) onDemandStartSource() {
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
 
 	} else {
-		pa.Log(logger.Info, "runOnDemand command started")
+		pa.log(logger.Info, "runOnDemand command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand, pa.conf.RunOnDemandRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -522,11 +522,11 @@ func (pa *path) onDemandCloseSource() {
 		if pa.sourceReady {
 			pa.sourceSetNotReady()
 		}
-		pa.source.(sourceStatic).Close()
+		pa.source.(sourceStatic).close()
 		pa.source = nil
 	} else {
 		if pa.source != nil {
-			pa.source.(publisher).Close()
+			pa.source.(publisher).close()
 			pa.doPublisherRemove()
 		}
 
@@ -538,7 +538,7 @@ func (pa *path) onDemandCloseSource() {
 		if pa.onDemandCmd != nil {
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
-			pa.Log(logger.Info, "runOnDemand command stopped")
+			pa.log(logger.Info, "runOnDemand command stopped")
 		}
 	}
 }
@@ -570,13 +570,13 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 		}
 	}
 
-	pa.parent.OnPathSourceReady(pa)
+	pa.parent.onPathSourceReady(pa)
 }
 
 func (pa *path) sourceSetNotReady() {
 	for r := range pa.readers {
 		pa.doReaderRemove(r)
-		r.Close()
+		r.close()
 	}
 
 	// close onPublishCmd after all readers have been closed.
@@ -587,7 +587,7 @@ func (pa *path) sourceSetNotReady() {
 	if pa.onPublishCmd != nil {
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
-		pa.Log(logger.Info, "runOnPublish command stopped")
+		pa.log(logger.Info, "runOnPublish command stopped")
 	}
 
 	pa.sourceReady = false
@@ -653,7 +653,7 @@ func (pa *path) doPublisherRemove() {
 	} else {
 		for r := range pa.readers {
 			pa.doReaderRemove(r)
-			r.Close()
+			r.close()
 		}
 	}
 
@@ -722,8 +722,8 @@ func (pa *path) handlePublisherAnnounce(req pathPublisherAnnounceReq) {
 			return
 		}
 
-		pa.Log(logger.Info, "closing existing publisher")
-		pa.source.(publisher).Close()
+		pa.log(logger.Info, "closing existing publisher")
+		pa.source.(publisher).close()
 		pa.doPublisherRemove()
 	}
 
@@ -740,12 +740,12 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 
 	atomic.AddInt64(pa.stats.CountPublishers, 1)
 
-	req.Author.OnPublisherAccepted(len(req.Tracks))
+	req.Author.onPublisherAccepted(len(req.Tracks))
 
 	pa.sourceSetReady(req.Tracks)
 
 	if pa.conf.RunOnPublish != "" {
-		pa.Log(logger.Info, "runOnPublish command started")
+		pa.log(logger.Info, "runOnPublish command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)
 		pa.onPublishCmd = externalcmd.New(pa.conf.RunOnPublish, pa.conf.RunOnPublishRestart, externalcmd.Environment{
 			Path: pa.name,
@@ -820,7 +820,7 @@ func (pa *path) handleReaderPlay(req pathReaderPlayReq) {
 
 	pa.stream.readerAdd(req.Author)
 
-	req.Author.OnReaderAccepted()
+	req.Author.onReaderAccepted()
 
 	close(req.Res)
 }
@@ -842,13 +842,13 @@ func (pa *path) handleAPIPathsList(req apiPathsListReq2) {
 			if pa.source == nil {
 				return nil
 			}
-			return pa.source.OnSourceAPIDescribe()
+			return pa.source.onSourceAPIDescribe()
 		}(),
 		SourceReady: pa.sourceReady,
 		Readers: func() []interface{} {
 			ret := []interface{}{}
 			for r := range pa.readers {
-				ret = append(ret, r.OnReaderAPIDescribe())
+				ret = append(ret, r.onReaderAPIDescribe())
 			}
 			return ret
 		}(),
@@ -856,8 +856,8 @@ func (pa *path) handleAPIPathsList(req apiPathsListReq2) {
 	close(req.Res)
 }
 
-// OnSourceStaticSetReady is called by a sourceStatic.
-func (pa *path) OnSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
+// onSourceStaticSetReady is called by a sourceStatic.
+func (pa *path) onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
 	req.Res = make(chan pathSourceStaticSetReadyRes)
 	select {
 	case pa.sourceStaticSetReady <- req:
@@ -877,8 +877,8 @@ func (pa *path) OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
 	}
 }
 
-// OnDescribe is called by a reader or publisher through pathManager.
-func (pa *path) OnDescribe(req pathDescribeReq) pathDescribeRes {
+// onDescribe is called by a reader or publisher through pathManager.
+func (pa *path) onDescribe(req pathDescribeReq) pathDescribeRes {
 	select {
 	case pa.describe <- req:
 		return <-req.Res
@@ -887,8 +887,8 @@ func (pa *path) OnDescribe(req pathDescribeReq) pathDescribeRes {
 	}
 }
 
-// OnPublisherRemove is called by a publisher.
-func (pa *path) OnPublisherRemove(req pathPublisherRemoveReq) {
+// onPublisherRemove is called by a publisher.
+func (pa *path) onPublisherRemove(req pathPublisherRemoveReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.publisherRemove <- req:
@@ -897,8 +897,8 @@ func (pa *path) OnPublisherRemove(req pathPublisherRemoveReq) {
 	}
 }
 
-// OnPublisherAnnounce is called by a publisher through pathManager.
-func (pa *path) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
+// onPublisherAnnounce is called by a publisher through pathManager.
+func (pa *path) onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
 	select {
 	case pa.publisherAnnounce <- req:
 		return <-req.Res
@@ -907,8 +907,8 @@ func (pa *path) OnPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherA
 	}
 }
 
-// OnPublisherRecord is called by a publisher.
-func (pa *path) OnPublisherRecord(req pathPublisherRecordReq) pathPublisherRecordRes {
+// onPublisherRecord is called by a publisher.
+func (pa *path) onPublisherRecord(req pathPublisherRecordReq) pathPublisherRecordRes {
 	req.Res = make(chan pathPublisherRecordRes)
 	select {
 	case pa.publisherRecord <- req:
@@ -918,8 +918,8 @@ func (pa *path) OnPublisherRecord(req pathPublisherRecordReq) pathPublisherRecor
 	}
 }
 
-// OnPublisherPause is called by a publisher.
-func (pa *path) OnPublisherPause(req pathPublisherPauseReq) {
+// onPublisherPause is called by a publisher.
+func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.publisherPause <- req:
@@ -928,8 +928,8 @@ func (pa *path) OnPublisherPause(req pathPublisherPauseReq) {
 	}
 }
 
-// OnReaderRemove is called by a reader.
-func (pa *path) OnReaderRemove(req pathReaderRemoveReq) {
+// onReaderRemove is called by a reader.
+func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.readerRemove <- req:
@@ -938,8 +938,8 @@ func (pa *path) OnReaderRemove(req pathReaderRemoveReq) {
 	}
 }
 
-// OnReaderSetupPlay is called by a reader through pathManager.
-func (pa *path) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
+// onReaderSetupPlay is called by a reader through pathManager.
+func (pa *path) onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
 	select {
 	case pa.readerSetupPlay <- req:
 		return <-req.Res
@@ -948,8 +948,8 @@ func (pa *path) OnReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPla
 	}
 }
 
-// OnReaderPlay is called by a reader.
-func (pa *path) OnReaderPlay(req pathReaderPlayReq) {
+// onReaderPlay is called by a reader.
+func (pa *path) onReaderPlay(req pathReaderPlayReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.readerPlay <- req:
@@ -958,8 +958,8 @@ func (pa *path) OnReaderPlay(req pathReaderPlayReq) {
 	}
 }
 
-// OnReaderPause is called by a reader.
-func (pa *path) OnReaderPause(req pathReaderPauseReq) {
+// onReaderPause is called by a reader.
+func (pa *path) onReaderPause(req pathReaderPauseReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.readerPause <- req:
@@ -968,8 +968,8 @@ func (pa *path) OnReaderPause(req pathReaderPauseReq) {
 	}
 }
 
-// OnAPIPathsList is called by api.
-func (pa *path) OnAPIPathsList(req apiPathsListReq2) {
+// onAPIPathsList is called by api.
+func (pa *path) onAPIPathsList(req apiPathsListReq2) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.apiPathsList <- req:

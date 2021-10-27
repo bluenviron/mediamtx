@@ -40,7 +40,7 @@ func (m *streamNonRTSPReadersMap) forwardFrame(trackID int, streamType gortsplib
 	defer m.mutex.RUnlock()
 
 	for c := range m.ma {
-		c.OnReaderFrame(trackID, streamType, payload)
+		c.onReaderFrame(trackID, streamType, payload)
 	}
 }
 
