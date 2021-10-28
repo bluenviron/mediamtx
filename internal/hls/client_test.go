@@ -197,7 +197,7 @@ func TestClient(t *testing.T) {
 				prefix = "https"
 			}
 
-			c := NewClient(
+			c, err := NewClient(
 				prefix+"://localhost:5780/stream.m3u8",
 				"33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
 				func(*gortsplib.Track, *gortsplib.Track) error {
@@ -210,6 +210,7 @@ func TestClient(t *testing.T) {
 				},
 				testClientParent{},
 			)
+			require.NoError(t, err)
 
 			<-frameRecv
 

@@ -142,13 +142,17 @@ func (s *hlsSource) runInner() bool {
 		}
 	}
 
-	c := hls.NewClient(
+	c, err := hls.NewClient(
 		s.ur,
 		s.fingerprint,
 		onTracks,
 		onFrame,
 		s,
 	)
+	if err != nil {
+		s.Log(logger.Info, "ERR: %v", err)
+		return true
+	}
 
 	select {
 	case err := <-c.Wait():

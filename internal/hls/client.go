@@ -424,15 +424,15 @@ type ClientParent interface {
 
 // Client is a HLS client.
 type Client struct {
-	ur       string
 	onTracks func(*gortsplib.Track, *gortsplib.Track) error
 	onFrame  func(bool, []byte)
 	parent   ClientParent
 
 	ctx                   context.Context
 	ctxCancel             func()
+	primaryPlaylistURL    *url.URL
+	streamPlaylistURL     *url.URL
 	httpClient            *http.Client
-	urlParsed             *url.URL
 	lastDownloadTime      time.Time
 	downloadedSegmentURIs []string
 	segmentQueue          *clientSegmentQueue
@@ -458,12 +458,17 @@ type Client struct {
 
 // NewClient allocates a Client.
 func NewClient(
-	ur string,
+	primaryPlaylistURLStr string,
 	fingerprint string,
 	onTracks func(*gortsplib.Track, *gortsplib.Track) error,
 	onFrame func(bool, []byte),
 	parent ClientParent,
-) *Client {
+) (*Client, error) {
+	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	tlsConfig := &tls.Config{}
@@ -486,12 +491,12 @@ func NewClient(
 	}
 
 	c := &Client{
-		ur:        ur,
-		onTracks:  onTracks,
-		onFrame:   onFrame,
-		parent:    parent,
-		ctx:       ctx,
-		ctxCancel: ctxCancel,
+		onTracks:           onTracks,
+		onFrame:            onFrame,
+		parent:             parent,
+		ctx:                ctx,
+		ctxCancel:          ctxCancel,
+		primaryPlaylistURL: primaryPlaylistURL,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: tlsConfig,
@@ -504,7 +509,7 @@ func NewClient(
 
 	go c.run()
 
-	return c
+	return c, nil
 }
 
 func (c *Client) log(level logger.Level, format string, args ...interface{}) {
@@ -611,7 +616,7 @@ func (c *Client) fillSegmentQueue(innerCtx context.Context) (bool, error) {
 	c.lastDownloadTime = now
 
 	pl, err := func() (*m3u8.MediaPlaylist, error) {
-		if c.urlParsed == nil {
+		if c.streamPlaylistURL == nil {
 			return c.downloadPrimaryPlaylist(innerCtx)
 		}
 		return c.downloadStreamPlaylist(innerCtx)
@@ -652,21 +657,16 @@ func (c *Client) segmentWasDownloaded(ur string) bool {
 }
 
 func (c *Client) downloadPrimaryPlaylist(innerCtx context.Context) (*m3u8.MediaPlaylist, error) {
-	c.log(logger.Debug, "downloading primary playlist %s", c.ur)
+	c.log(logger.Debug, "downloading primary playlist %s", c.primaryPlaylistURL)
 
-	var err error
-	c.urlParsed, err = url.Parse(c.ur)
-	if err != nil {
-		return nil, err
-	}
-
-	pl, err := c.downloadPlaylist(innerCtx)
+	pl, err := c.downloadPlaylist(innerCtx, c.primaryPlaylistURL)
 	if err != nil {
 		return nil, err
 	}
 
 	switch plt := pl.(type) {
 	case *m3u8.MediaPlaylist:
+		c.streamPlaylistURL = c.primaryPlaylistURL
 		return plt, nil
 
 	case *m3u8.MasterPlaylist:
@@ -683,12 +683,12 @@ func (c *Client) downloadPrimaryPlaylist(innerCtx context.Context) (*m3u8.MediaP
 			return nil, fmt.Errorf("no variants found")
 		}
 
-		u, err := clientURLAbsolute(c.urlParsed, chosenVariant.URI)
+		u, err := clientURLAbsolute(c.primaryPlaylistURL, chosenVariant.URI)
 		if err != nil {
 			return nil, err
 		}
 
-		c.urlParsed = u
+		c.streamPlaylistURL = u
 
 		return c.downloadStreamPlaylist(innerCtx)
 
@@ -698,9 +698,9 @@ func (c *Client) downloadPrimaryPlaylist(innerCtx context.Context) (*m3u8.MediaP
 }
 
 func (c *Client) downloadStreamPlaylist(innerCtx context.Context) (*m3u8.MediaPlaylist, error) {
-	c.log(logger.Debug, "downloading stream playlist %s", c.urlParsed.String())
+	c.log(logger.Debug, "downloading stream playlist %s", c.streamPlaylistURL.String())
 
-	pl, err := c.downloadPlaylist(innerCtx)
+	pl, err := c.downloadPlaylist(innerCtx, c.streamPlaylistURL)
 	if err != nil {
 		return nil, err
 	}
@@ -713,8 +713,8 @@ func (c *Client) downloadStreamPlaylist(innerCtx context.Context) (*m3u8.MediaPl
 	return plt, nil
 }
 
-func (c *Client) downloadPlaylist(innerCtx context.Context) (m3u8.Playlist, error) {
-	req, err := http.NewRequestWithContext(innerCtx, http.MethodGet, c.urlParsed.String(), nil)
+func (c *Client) downloadPlaylist(innerCtx context.Context, ur *url.URL) (m3u8.Playlist, error) {
+	req, err := http.NewRequestWithContext(innerCtx, http.MethodGet, ur.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -738,7 +738,7 @@ func (c *Client) downloadPlaylist(innerCtx context.Context) (m3u8.Playlist, erro
 }
 
 func (c *Client) downloadSegment(innerCtx context.Context, segmentURI string) ([]byte, error) {
-	u, err := clientURLAbsolute(c.urlParsed, segmentURI)
+	u, err := clientURLAbsolute(c.streamPlaylistURL, segmentURI)
 	if err != nil {
 		return nil, err
 	}
