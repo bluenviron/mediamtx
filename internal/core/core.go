@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"reflect"
-	"sync/atomic"
 
 	"github.com/aler9/gortsplib"
 	"github.com/gin-gonic/gin"
@@ -26,7 +25,6 @@ type Core struct {
 	confPath    string
 	conf        *conf.Conf
 	confFound   bool
-	stats       *stats
 	logger      *logger.Logger
 	metrics     *metrics
 	pprof       *pprof
@@ -118,12 +116,7 @@ func (p *Core) Wait() {
 
 // Log is the main logging function.
 func (p *Core) Log(level logger.Level, format string, args ...interface{}) {
-	countPublishers := atomic.LoadInt64(p.stats.CountPublishers)
-	countReaders := atomic.LoadInt64(p.stats.CountReaders)
-
-	p.logger.Log(level, "[%d/%d] "+format, append([]interface{}{
-		countPublishers, countReaders,
-	}, args...)...)
+	p.logger.Log(level, format, args...)
 }
 
 func (p *Core) run() {
@@ -180,10 +173,6 @@ outer:
 func (p *Core) createResources(initial bool) error {
 	var err error
 
-	if p.stats == nil {
-		p.stats = newStats()
-	}
-
 	if p.logger == nil {
 		p.logger, err = logger.New(
 			logger.Level(p.conf.LogLevel),
@@ -232,7 +221,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadBufferCount,
 			p.conf.ReadBufferSize,
 			p.conf.Paths,
-			p.stats,
 			p.metrics,
 			p)
 	}
@@ -367,11 +355,6 @@ func (p *Core) createResources(initial bool) error {
 }
 
 func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
-	closeStats := false
-	if newConf == nil {
-		closeStats = true
-	}
-
 	closeLogger := false
 	if newConf == nil ||
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
@@ -400,7 +383,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
-		closeStats ||
 		closeMetrics {
 		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
@@ -537,10 +519,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeLogger && p.logger != nil {
 		p.logger.Close()
 		p.logger = nil
-	}
-
-	if closeStats && p.stats != nil {
-		p.stats.close()
 	}
 }
 

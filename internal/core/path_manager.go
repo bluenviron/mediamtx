@@ -27,7 +27,6 @@ type pathManager struct {
 	readBufferCount int
 	readBufferSize  int
 	pathConfs       map[string]*conf.PathConf
-	stats           *stats
 	metrics         *metrics
 	parent          pathManagerParent
 
@@ -56,7 +55,6 @@ func newPathManager(
 	readBufferCount int,
 	readBufferSize int,
 	pathConfs map[string]*conf.PathConf,
-	stats *stats,
 	metrics *metrics,
 	parent pathManagerParent) *pathManager {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -68,7 +66,6 @@ func newPathManager(
 		readBufferCount:   readBufferCount,
 		readBufferSize:    readBufferSize,
 		pathConfs:         pathConfs,
-		stats:             stats,
 		metrics:           metrics,
 		parent:            parent,
 		ctx:               ctx,
@@ -285,7 +282,6 @@ func (pm *pathManager) createPath(confName string, conf *conf.PathConf, name str
 		conf,
 		name,
 		&pm.wg,
-		pm.stats,
 		pm)
 }
 

@@ -6,7 +6,6 @@ import (
 	"net"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -190,7 +189,6 @@ type path struct {
 	conf            *conf.PathConf
 	name            string
 	wg              *sync.WaitGroup
-	stats           *stats
 	parent          pathParent
 
 	ctx                context.Context
@@ -234,7 +232,6 @@ func newPath(
 	conf *conf.PathConf,
 	name string,
 	wg *sync.WaitGroup,
-	stats *stats,
 	parent pathParent) *path {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -248,7 +245,6 @@ func newPath(
 		conf:                    conf,
 		name:                    name,
 		wg:                      wg,
-		stats:                   stats,
 		parent:                  parent,
 		ctx:                     ctx,
 		ctxCancel:               ctxCancel,
@@ -431,10 +427,7 @@ outer:
 		req.Res <- pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
 	}
 
-	for rp, state := range pa.readers {
-		if state == pathReaderStatePlay {
-			atomic.AddInt64(pa.stats.CountReaders, -1)
-		}
+	for rp := range pa.readers {
 		rp.close()
 	}
 
@@ -447,9 +440,6 @@ outer:
 			source.close()
 			pa.sourceStaticWg.Wait()
 		} else if source, ok := pa.source.(publisher); ok {
-			if pa.sourceReady {
-				atomic.AddInt64(pa.stats.CountPublishers, -1)
-			}
 			source.close()
 		}
 	}
@@ -634,7 +624,6 @@ func (pa *path) doReaderRemove(r reader) {
 	state := pa.readers[r]
 
 	if state == pathReaderStatePlay {
-		atomic.AddInt64(pa.stats.CountReaders, -1)
 		pa.stream.readerRemove(r)
 	}
 
@@ -643,8 +632,6 @@ func (pa *path) doReaderRemove(r reader) {
 
 func (pa *path) doPublisherRemove() {
 	if pa.sourceReady {
-		atomic.AddInt64(pa.stats.CountPublishers, -1)
-
 		if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
 			pa.onDemandCloseSource()
 		} else {
@@ -738,8 +725,6 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 		return
 	}
 
-	atomic.AddInt64(pa.stats.CountPublishers, 1)
-
 	req.Author.onPublisherAccepted(len(req.Tracks))
 
 	pa.sourceSetReady(req.Tracks)
@@ -758,8 +743,6 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 
 func (pa *path) handlePublisherPause(req pathPublisherPauseReq) {
 	if req.Author == pa.source && pa.sourceReady {
-		atomic.AddInt64(pa.stats.CountPublishers, -1)
-
 		if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
 			pa.onDemandCloseSource()
 		} else {
@@ -815,7 +798,6 @@ func (pa *path) handleReaderSetupPlayPost(req pathReaderSetupPlayReq) {
 }
 
 func (pa *path) handleReaderPlay(req pathReaderPlayReq) {
-	atomic.AddInt64(pa.stats.CountReaders, 1)
 	pa.readers[req.Author] = pathReaderStatePlay
 
 	pa.stream.readerAdd(req.Author)
@@ -827,7 +809,6 @@ func (pa *path) handleReaderPlay(req pathReaderPlayReq) {
 
 func (pa *path) handleReaderPause(req pathReaderPauseReq) {
 	if state, ok := pa.readers[req.Author]; ok && state == pathReaderStatePlay {
-		atomic.AddInt64(pa.stats.CountReaders, -1)
 		pa.readers[req.Author] = pathReaderStatePrePlay
 		pa.stream.readerRemove(req.Author)
 	}
