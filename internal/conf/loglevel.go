@@ -15,6 +15,9 @@ func (d LogLevel) MarshalJSON() ([]byte, error) {
 	var out string
 
 	switch d {
+	case LogLevel(logger.Error):
+		out = "error"
+
 	case LogLevel(logger.Warn):
 		out = "warn"
 
@@ -36,6 +39,9 @@ func (d *LogLevel) UnmarshalJSON(b []byte) error {
 	}
 
 	switch in {
+	case "error":
+		*d = LogLevel(logger.Error)
+
 	case "warn":
 		*d = LogLevel(logger.Warn)
 

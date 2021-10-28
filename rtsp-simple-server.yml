@@ -2,7 +2,7 @@
 ###############################################
 # General parameters
 
-# sets the verbosity of the program; available values are "warn", "info", "debug".
+# sets the verbosity of the program; available values are "error", "warn", "info", "debug".
 logLevel: info
 # destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
