@@ -162,17 +162,9 @@ func (s *rtspServer) close() {
 func (s *rtspServer) run() {
 	defer s.wg.Done()
 
-	s.wg.Add(1)
 	serverErr := make(chan error)
 	go func() {
-		defer s.wg.Done()
-
-		err := s.srv.Wait()
-
-		select {
-		case serverErr <- err:
-		case <-s.ctx.Done():
-		}
+		serverErr <- s.srv.Wait()
 	}()
 
 outer:
@@ -182,12 +174,12 @@ outer:
 		break outer
 
 	case <-s.ctx.Done():
+		s.srv.Close()
+		<-serverErr
 		break outer
 	}
 
 	s.ctxCancel()
-
-	s.srv.Close()
 
 	if s.metrics != nil {
 		if !s.isTLS {
