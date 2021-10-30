@@ -15,7 +15,7 @@ jobs:
 
     - uses: golangci/golangci-lint-action@v2
       with:
-        version: v1.38
+        version: v1.40
 
   mod-tidy:
     runs-on: ubuntu-20.04

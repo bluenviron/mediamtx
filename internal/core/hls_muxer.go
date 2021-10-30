@@ -280,7 +280,6 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			videoTrackID = i
 
 			h264Decoder = rtph264.NewDecoder()
-
 		} else if t.IsAAC() {
 			if audioTrack != nil {
 				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)
@@ -351,7 +350,6 @@ func (r *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 					if err != nil {
 						return err
 					}
-
 				} else if audioTrack != nil && pair.trackID == audioTrackID {
 					var pkt rtp.Packet
 					err := pkt.Unmarshal(pair.buf)

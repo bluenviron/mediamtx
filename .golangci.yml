@@ -2,6 +2,7 @@
 linters:
   enable:
   - bodyclose
+  - dupl
   - exportloopref
   - gochecknoinits
   - gocritic
@@ -12,6 +13,7 @@ linters:
   - lll
   - prealloc
   - unconvert
+  - whitespace
   disable:
   - errcheck
 

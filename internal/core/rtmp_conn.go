@@ -251,7 +251,6 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			videoTrack = t
 			videoTrackID = i
 			h264Decoder = rtph264.NewDecoder()
-
 		} else if t.IsAAC() {
 			if audioTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
@@ -377,7 +376,6 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-
 		} else if audioTrack != nil && pair.trackID == audioTrackID {
 			var pkt rtp.Packet
 			err := pkt.Unmarshal(pair.buf)

@@ -474,7 +474,6 @@ func (pa *path) onDemandStartSource() {
 	if pa.hasStaticSource() {
 		pa.staticSourceCreate()
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
-
 	} else {
 		pa.log(logger.Info, "runOnDemand command started")
 		_, port, _ := net.SplitHostPort(pa.rtspAddress)

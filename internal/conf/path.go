@@ -189,7 +189,6 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			if err != nil {
 				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
 			}
-
 		} else {
 			_, err := base.ParseURL(pconf.Fallback)
 			if err != nil {

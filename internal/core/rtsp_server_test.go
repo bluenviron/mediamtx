@@ -59,7 +59,6 @@ func TestRTSPServerPublishRead(t *testing.T) {
 					"readTimeout: 20s\n")
 				require.Equal(t, true, ok)
 				defer p.close()
-
 			} else {
 				proto = "rtsps"
 				port = "8555"
@@ -262,7 +261,6 @@ func TestRTSPServerAuth(t *testing.T) {
 				require.NoError(t, err)
 				defer cnt2.close()
 				require.Equal(t, 0, cnt2.wait())
-
 			} else {
 				cnt2, err := newContainer("vlc", "dest", []string{
 					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@localhost:8554/test/stream",

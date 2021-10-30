@@ -885,7 +885,6 @@ func (c *Client) processSegment(innerCtx context.Context, byts []byte) error {
 			dts -= c.clockStartPTS
 
 			c.videoProc.process(data.PES.Data, pts, dts)
-
 		} else if c.audioPID != nil && data.PID == *c.audioPID {
 			pts -= c.clockStartPTS
 

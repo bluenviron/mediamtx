@@ -1,6 +1,6 @@
 
 BASE_IMAGE = golang:1.16-alpine3.13
-LINT_IMAGE = golangci/golangci-lint:v1.38.0
+LINT_IMAGE = golangci/golangci-lint:v1.40
 NODE_IMAGE = node:14-alpine3.13
 
 .PHONY: $(shell ls)
@@ -43,7 +43,7 @@ export DOCKERFILE_FORMAT
 format:
 	echo "$$DOCKERFILE_FORMAT" | docker build -q . -f - -t temp
 	docker run --rm -it -v $(PWD):/s -w /s temp \
-	sh -c "find . -type f -name '*.go' | xargs gofumpt -l -w"
+	sh -c "gofumpt -l -w ."
 
 define DOCKERFILE_TEST
 ARG ARCH
