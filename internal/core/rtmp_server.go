@@ -135,7 +135,7 @@ outer:
 	for {
 		select {
 		case err := <-acceptErr:
-			s.log(logger.Warn, "ERR: %s", err)
+			s.log(logger.Error, "%s", err)
 			break outer
 
 		case nconn := <-connNew:

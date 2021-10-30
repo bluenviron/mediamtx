@@ -170,7 +170,7 @@ func (s *rtspServer) run() {
 outer:
 	select {
 	case err := <-serverErr:
-		s.log(logger.Warn, "ERR: %s", err)
+		s.log(logger.Error, "%s", err)
 		break outer
 
 	case <-s.ctx.Done():
