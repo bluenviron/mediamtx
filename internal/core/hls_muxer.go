@@ -408,7 +408,7 @@ func (r *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 		tmp, _, _ := net.SplitHostPort(req.Req.RemoteAddr)
 		ip := net.ParseIP(tmp)
 		if !ipEqualOrInRange(ip, conf.ReadIPs) {
-			r.log(logger.Info, "ERR: ip '%s' not allowed", ip)
+			r.log(logger.Info, "ip '%s' not allowed", ip)
 			return hlsMuxerResponse{Status: http.StatusUnauthorized}
 		}
 	}

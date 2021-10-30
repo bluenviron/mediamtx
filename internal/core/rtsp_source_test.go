@@ -27,7 +27,7 @@ func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		sh.authValidator = auth.NewValidator(sh.user, sh.pass, nil)
 	}
 
-	err := sh.authValidator.ValidateRequest(ctx.Req, nil)
+	err := sh.authValidator.ValidateRequest(ctx.Req)
 	if err != nil {
 		return &base.Response{
 			StatusCode: base.StatusUnauthorized,
@@ -100,6 +100,7 @@ func TestRTSPSource(t *testing.T) {
 
 			err := s.Start("127.0.0.1:8555")
 			require.NoError(t, err)
+			defer s.Wait()
 			defer s.Close()
 
 			if source == "udp" || source == "tcp" {
@@ -149,6 +150,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	s := gortsplib.Server{Handler: &testServer{user: "testuser", done: done}}
 	err := s.Start("127.0.0.1:8555")
 	require.NoError(t, err)
+	defer s.Wait()
 	defer s.Close()
 
 	p, ok := newInstance("rtmpDisable: yes\n" +

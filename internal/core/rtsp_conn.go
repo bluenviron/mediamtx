@@ -90,7 +90,6 @@ func (c *rtspConn) ip() net.IP {
 func (c *rtspConn) validateCredentials(
 	pathUser conf.Credential,
 	pathPass conf.Credential,
-	pathName string,
 	req *base.Request,
 ) error {
 	// reset authValidator every time the credentials change
@@ -100,20 +99,7 @@ func (c *rtspConn) validateCredentials(
 		c.authValidator = auth.NewValidator(string(pathUser), string(pathPass), c.authMethods)
 	}
 
-	// VLC strips the control attribute
-	// provide an alternative URL without the control attribute
-	altURL := func() *base.URL {
-		if req.Method != base.Setup {
-			return nil
-		}
-		return &base.URL{
-			Scheme: req.URL.Scheme,
-			Host:   req.URL.Host,
-			Path:   "/" + pathName + "/",
-		}
-	}()
-
-	err := c.authValidator.ValidateRequest(req, altURL)
+	err := c.authValidator.ValidateRequest(req)
 	if err != nil {
 		c.authFailures++
 
@@ -180,7 +166,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		URL:      ctx.Req.URL,
 		IP:       c.ip(),
 		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
-			return c.validateCredentials(pathUser, pathPass, ctx.Path, ctx.Req)
+			return c.validateCredentials(pathUser, pathPass, ctx.Req)
 		},
 	})
 
