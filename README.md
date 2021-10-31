@@ -18,16 +18,17 @@ Features:
 * Act as a proxy and serve streams from other servers or cameras, always or on-demand
 * Each stream can have multiple video and audio tracks, encoded with any codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
+* Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 Plus:
 
 * Serve multiple streams at once in separate paths
 * Authenticate readers and publishers
 * Query and control the server through an HTTP API
+* Read Prometheus-compatible metrics
 * Redirect readers to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Reload the configuration without disconnecting existing clients (hot reloading)
-* Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 [![Test](https://github.com/aler9/rtsp-simple-server/workflows/test/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:test)
 [![Lint](https://github.com/aler9/rtsp-simple-server/workflows/lint/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:lint)
@@ -230,7 +231,7 @@ The encryption procedure is the following:
 
 3. The string is encoded with base64.
 
-After performing the encryption, it's enough to put the base64-encoded result into the configuration file, and launch the server with the `RTSP_CONFKEY` variable:
+After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `RTSP_CONFKEY` variable:
 
 ```
 RTSP_CONFKEY=mykey ./rtsp-simple-server
@@ -337,7 +338,7 @@ paths:
 
 ### Save published videos to disk
 
-To Save published videos to disk, it's enough to put _FFmpeg_ inside `runOnPublish`:
+To Save published videos to disk, put an _FFmpeg_ command inside `runOnPublish`:
 
 ```yml
 paths:
