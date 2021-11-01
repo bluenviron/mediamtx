@@ -100,10 +100,11 @@ func (q *clientSegmentQueue) waitAndPull(ctx context.Context) ([]byte, error) {
 	q.mutex.Lock()
 
 	for len(q.queue) == 0 {
+		didPush := q.didPush
 		q.mutex.Unlock()
 
 		select {
-		case <-q.didPush:
+		case <-didPush:
 		case <-ctx.Done():
 			return nil, fmt.Errorf("terminated")
 		}
