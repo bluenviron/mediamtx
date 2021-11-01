@@ -60,8 +60,9 @@ Plus:
   * [Compile and run from source](#compile-and-run-from-source)
 * [RTSP protocol FAQs](#rtsp-protocol-faqs)
   * [RTSP general usage](#rtsp-general-usage)
+  * [TCP transport](#tcp-transport)
+  * [UDP-multicast transport](#udp-multicast-transport)
   * [Encryption](#encryption)
-  * [Multicast](#multicast)
   * [Redirect to another server](#redirect-to-another-server)
   * [Fallback stream](#fallback-stream)
   * [Corrupted frames](#corrupted-frames)
@@ -92,10 +93,10 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow to find out the publisher of the packets. This issue can be avoided by disabling UDP and exposing the RTSP port:
+The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to find out the author of the packets. This issue can be avoided by disabling the UDP transport protocol:
 
 ```
-docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 aler9/rtsp-simple-server
+docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 aler9/rtsp-simple-server
 ```
 
 Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for a custom command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/issues/183#issuecomment-760856015).
@@ -305,13 +306,13 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 Install dependencies:
 
-1. Gstreamer
+1. _Gstreamer_ and _h264parse_:
 
    ```
-   sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp
+   sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-plugins-bad
    ```
 
-2. gst-rpicamsrc, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
+2. _gst-rpicamsrc_, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
 
 Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
@@ -472,13 +473,17 @@ make run
 
 ### RTSP general usage
 
-RTSP is a standardized protocol that allows to publish and read streams; in particular, it supports different underlying transport protocols, that can be chosen by clients during the handshake with the server:
+RTSP is a standardized protocol that allows to publish and read streams; in particular, it supports different underlying transport protocols, that are chosen by clients during the handshake with the server:
 
-* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients, and doesn't support encryption.
-* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP.
+* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients. It doesn't support encryption.
+* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP. It doesn't support encryption.
 * TCP: the most versatile, does support encryption.
 
 The default transport protocol is UDP. To change the transport protocol, you have to tune the configuration of your client of choice.
+
+### TCP transport
+
+The RTSP protocol supports the TCP transport protocol, that allows to receive packets even when there's a NAT/firewall between server and clients, and supports encryption (see [Encryption](#encryption)).
 
 You can use _FFmpeg_ to publish a stream with the TCP transport protocol:
 
@@ -486,11 +491,43 @@ You can use _FFmpeg_ to publish a stream with the TCP transport protocol:
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp -rtsp_transport tcp rtsp://localhost:8554/mystream
 ```
 
-and you can use _FFmpeg_ to read that stream with the TCP transport protocol:
+You can use _FFmpeg_ to read that stream with the TCP transport protocol:
 
 ```
 ffmpeg -re -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
 ```
+
+You can use _Gstreamer_ to read that stream with the TCP transport protocol:
+
+```
+gst-launch-1.0 rtspsrc protocols=tcp rtsp://localhost:8554/mystream ! fakesink
+```
+
+You can use _VLC_ to read that stream with the TCP transport protocol:
+
+```
+vlc --rtsp-tcp rtsp://localhost:8554/mystream
+```
+
+### UDP-multicast transport
+
+The RTSP protocol supports the UDP-multicast transport protocol, that allows a server to send packets once, regardless of the number of connected readers, saving bandwidth.
+
+This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to pull the stream from the existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
+
+To request and read a stream with UDP-multicast, you can use _FFmpeg_:
+
+```
+ffmpeg -re -rtsp_transport udp_multicast -i rtsp://localhost:8554/mystream -c copy output.mp4
+```
+
+or _GStreamer_:
+
+```
+gst-launch-1.0 rtspsrc protocols=udp-mcast location=rtsps://ip:8555/...
+```
+
+At the moment _VLC_ doesn't support the UDP-multicast transport protocol. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the stream with the proxy mode and UDP-multicast, and reading the proxied stream with _VLC_.
 
 ### Encryption
 
@@ -522,27 +559,7 @@ If the client is _GStreamer_, disable the certificate validation:
 gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8555/...
 ```
 
-At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the stream by using the proxy mode, and reading the proxied stream with _VLC_.
-
-### Multicast
-
-The RTSP protocol supports the UDP-multicast transport protocol, that allows a server to send packets once, regardless of the number of connected readers, saving bandwidth.
-
-This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to pull the stream from the existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
-
-To request and read a stream with UDP-multicast, you can use _FFmpeg_:
-
-```
-ffmpeg -re -rtsp_transport udp_multicast -i rtsp://localhost:8554/mystream -c copy output.mp4
-```
-
-or _GStreamer_:
-
-```
-gst-launch-1.0 rtspsrc protocols=udp-mcast location=rtsps://ip:8555/...
-```
-
-At the moment _VLC_ doesn't support the UDP-multicast transport protocol. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the stream by using the proxy mode, and reading the proxied stream with _VLC_.
+At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the encrypted stream with the proxy mode, and reading the proxied stream with _VLC_.
 
 ### Redirect to another server
 
