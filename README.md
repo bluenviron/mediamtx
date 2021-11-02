@@ -434,7 +434,7 @@ rtmp_conns{state="publish"} 1
 
 where:
 
-* `paths{name="<path_name>",state="ready"} 1` is a metric for every path that shows the path state
+* `paths{name="<path_name>",state="ready"} 1` is replicated for every path and shows the name and state of every path
 * `rtsp_sessions{state="idle"}` is the count of RTSP sessions that are idle
 * `rtsp_sessions{state="read"}` is the count of RTSP sessions that are reading
 * `rtsp_sessions{state="publish"}` is the counf ot RTSP sessions that are publishing
