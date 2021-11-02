@@ -19,18 +19,19 @@ v0.0.0
 
 <!-- fill checkboxes with a x. Example: [x] Linux -->
 
-OS
-
-- [ ] Linux
-- [ ] Windows
-- [ ] macOS
-
-Architecture
-
-- [ ] amd64
-- [ ] arm64
-- [ ] arm7
-- [ ] arm6
+- [ ] Linux amd64 standard
+- [ ] Linux amd64 Docker
+- [ ] Linux arm64 standard
+- [ ] Linux arm64 Docker
+- [ ] Linux arm7 standard
+- [ ] Linux arm7 Docker
+- [ ] Linux arm6 standard
+- [ ] Linux arm6 Docker
+- [ ] Windows amd64 standard
+- [ ] Windows amd64 Docker (WSL backend)
+- [ ] macOS amd64 standard
+- [ ] macOS amd64 Docker
+- [ ] Other (please describe)
 
 ## Describe the issue
 
