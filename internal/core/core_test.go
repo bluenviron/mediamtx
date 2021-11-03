@@ -153,12 +153,8 @@ func TestCoreHotReloading(t *testing.T) {
 
 	err := ioutil.WriteFile(confPath, []byte("paths:\n"+
 		"  test1:\n"+
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re "+
-		"-i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"+
-		"  test3:\n"+
-		"    runOnInit: echo aaa\n"+
-		"  test4:\n"+
-		"    runOnInit: echo bbb\n"),
+		"    publishUser: myuser\n"+
+		"    publishPass: mypass\n"),
 		0o644)
 	require.NoError(t, err)
 	defer os.Remove(confPath)
@@ -167,39 +163,32 @@ func TestCoreHotReloading(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	time.Sleep(1 * time.Second)
-
 	func() {
-		conn, err := gortsplib.DialRead(
-			"rtsp://localhost:8554/test1",
-		)
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
-		defer conn.Close()
+
+		_, err = gortsplib.DialPublish(
+			"rtsp://localhost:8554/test1",
+			gortsplib.Tracks{track})
+		require.EqualError(t, err, "invalid status code: 401 (Unauthorized)")
 	}()
 
 	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
-		"  test2:\n"+
-		"    runOnDemand: ffmpeg -hide_banner -loglevel error -re "+
-		"-i ../../testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH\n"+
-		"  test3:\n"+
-		"  test4:\n"+
-		"    runOnInit: echo bbb\n"),
+		"  test1:\n"),
 		0o644)
 	require.NoError(t, err)
 
 	time.Sleep(1 * time.Second)
 
 	func() {
-		_, err := gortsplib.DialRead(
-			"rtsp://localhost:8554/test1",
-		)
-		require.EqualError(t, err, "invalid status code: 400 (Bad Request)")
-	}()
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		require.NoError(t, err)
 
-	func() {
-		conn, err := gortsplib.DialRead(
-			"rtsp://localhost:8554/test2",
-		)
+		conn, err := gortsplib.DialPublish(
+			"rtsp://localhost:8554/test1",
+			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer conn.Close()
 	}()

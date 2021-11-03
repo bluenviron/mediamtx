@@ -48,7 +48,7 @@ format:
 define DOCKERFILE_TEST
 ARG ARCH
 FROM $$ARCH/$(BASE_IMAGE)
-RUN apk add --no-cache make docker-cli ffmpeg gcc musl-dev
+RUN apk add --no-cache make docker-cli gcc musl-dev
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
