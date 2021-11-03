@@ -178,7 +178,7 @@ func TestConfErrorNonExistentParameter(t *testing.T) {
 		defer os.Remove(tmpf)
 
 		_, _, err = Load(tmpf)
-		require.Equal(t, "non-existent parameter: 'invalid'", err.Error())
+		require.EqualError(t, err, "non-existent parameter: 'invalid'")
 	}()
 
 	func() {
@@ -189,6 +189,6 @@ func TestConfErrorNonExistentParameter(t *testing.T) {
 		defer os.Remove(tmpf)
 
 		_, _, err = Load(tmpf)
-		require.Equal(t, "parameter paths, key mypath: non-existent parameter: 'invalid'", err.Error())
+		require.EqualError(t, err, "parameter paths, key mypath: non-existent parameter: 'invalid'")
 	}()
 }

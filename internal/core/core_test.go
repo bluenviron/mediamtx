@@ -193,7 +193,7 @@ func TestCoreHotReloading(t *testing.T) {
 		_, err := gortsplib.DialRead(
 			"rtsp://localhost:8554/test1",
 		)
-		require.Equal(t, "invalid status code: 400 (Bad Request)", err.Error())
+		require.EqualError(t, err, "invalid status code: 400 (Bad Request)")
 	}()
 
 	func() {

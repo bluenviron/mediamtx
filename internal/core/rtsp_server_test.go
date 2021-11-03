@@ -334,7 +334,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 				"rtsp://"+ca.user+":"+ca.pass+"@localhost:8554/test/stream",
 				gortsplib.Tracks{track},
 			)
-			require.Equal(t, "invalid status code: 401 (Unauthorized)", err.Error())
+			require.EqualError(t, err, "invalid status code: 401 (Unauthorized)")
 		})
 	}
 
@@ -372,7 +372,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			_, err := gortsplib.DialRead(
 				"rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream",
 			)
-			require.Equal(t, "invalid status code: 401 (Unauthorized)", err.Error())
+			require.EqualError(t, err, "invalid status code: 401 (Unauthorized)")
 		})
 	}
 
@@ -393,7 +393,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			"rtsp://localhost:8554/test/stream",
 			gortsplib.Tracks{track},
 		)
-		require.Equal(t, "invalid status code: 401 (Unauthorized)", err.Error())
+		require.EqualError(t, err, "invalid status code: 401 (Unauthorized)")
 	})
 }
 
