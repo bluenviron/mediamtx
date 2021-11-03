@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -10,6 +11,9 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/headers"
+	psdp "github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -148,6 +152,157 @@ func newInstance(conf string) (*Core, bool) {
 	return New([]string{tmpf})
 }
 
+func TestCorePathAutoDeletion(t *testing.T) {
+	for _, ca := range []string{"describe", "setup"} {
+		t.Run(ca, func(t *testing.T) {
+			p, ok := New([]string{})
+			require.Equal(t, true, ok)
+			defer p.close()
+
+			func() {
+				conn, err := gortsplib.Dial("rtsp", "localhost:8554")
+				require.NoError(t, err)
+				defer conn.Close()
+
+				if ca == "describe" {
+					ur, err := base.ParseURL("rtsp://localhost:8554/mypath")
+					require.NoError(t, err)
+
+					_, _, _, err = conn.Describe(ur)
+					require.EqualError(t, err, "bad status code: 404 (Not Found)")
+				} else {
+					baseURL, err := base.ParseURL("rtsp://localhost:8554/mypath/")
+					require.NoError(t, err)
+
+					track, err := gortsplib.NewTrackH264(96,
+						&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+					require.NoError(t, err)
+
+					track.Media.Attributes = append(track.Media.Attributes, psdp.Attribute{
+						Key:   "control",
+						Value: "trackID=0",
+					})
+
+					_, err = conn.Setup(headers.TransportModePlay, baseURL, track, 0, 0)
+					require.EqualError(t, err, "bad status code: 404 (Not Found)")
+				}
+			}()
+
+			res := p.pathManager.onAPIPathsList(apiPathsListReq1{})
+			require.NoError(t, res.Err)
+
+			require.Equal(t, 0, len(res.Data.Items))
+		})
+	}
+}
+
+func TestCorePathRunOnDemand(t *testing.T) {
+	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
+
+	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
+	err := ioutil.WriteFile(srcFile, []byte(`
+package main
+
+import (
+	"os"
+	"os/signal"
+	"syscall"
+	"io/ioutil"
+	"github.com/aler9/gortsplib"
+)
+
+func main() {
+	track, err := gortsplib.NewTrackH264(96,
+		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+	if err != nil {
+		panic(err)
+	}
+
+	source, err := gortsplib.DialPublish(
+		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("RTSP_PATH"),
+		gortsplib.Tracks{track})
+	if err != nil {
+		panic(err)
+	}
+	defer source.Close()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT)
+	<-c
+
+	err = ioutil.WriteFile("`+doneFile+`", []byte(""), 0644)
+	if err != nil {
+		panic(err)
+	}
+}
+`), 0o644)
+	require.NoError(t, err)
+
+	execFile := filepath.Join(os.TempDir(), "ondemand_cmd")
+	cmd := exec.Command("go", "build", "-o", execFile, srcFile)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	require.NoError(t, err)
+	defer os.Remove(execFile)
+
+	os.Remove(srcFile)
+
+	for _, ca := range []string{"describe", "setup", "describe and setup"} {
+		t.Run(ca, func(t *testing.T) {
+			defer os.Remove(doneFile)
+
+			p1, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
+				"hlsDisable: yes\n"+
+				"paths:\n"+
+				"  all:\n"+
+				"    runOnDemand: %s\n"+
+				"    runOnDemandCloseAfter: 1s\n", execFile))
+			require.Equal(t, true, ok)
+			defer p1.close()
+
+			func() {
+				conn, err := gortsplib.Dial("rtsp", "localhost:8554")
+				require.NoError(t, err)
+				defer conn.Close()
+
+				if ca == "describe" || ca == "describe and setup" {
+					ur, err := base.ParseURL("rtsp://localhost:8554/ondemand")
+					require.NoError(t, err)
+
+					_, _, _, err = conn.Describe(ur)
+					require.NoError(t, err)
+				}
+
+				if ca == "setup" || ca == "describe and setup" {
+					baseURL, err := base.ParseURL("rtsp://localhost:8554/ondemand/")
+					require.NoError(t, err)
+
+					track, err := gortsplib.NewTrackH264(96,
+						&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+					require.NoError(t, err)
+
+					track.Media.Attributes = append(track.Media.Attributes, psdp.Attribute{
+						Key:   "control",
+						Value: "trackID=0",
+					})
+
+					_, err = conn.Setup(headers.TransportModePlay, baseURL, track, 0, 0)
+					require.NoError(t, err)
+				}
+			}()
+
+			for {
+				_, err := os.Stat(doneFile)
+				if err == nil {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+		})
+	}
+}
+
 func TestCoreHotReloading(t *testing.T) {
 	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
 
@@ -171,7 +326,7 @@ func TestCoreHotReloading(t *testing.T) {
 		_, err = gortsplib.DialPublish(
 			"rtsp://localhost:8554/test1",
 			gortsplib.Tracks{track})
-		require.EqualError(t, err, "invalid status code: 401 (Unauthorized)")
+		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	}()
 
 	err = ioutil.WriteFile(confPath, []byte("paths:\n"+

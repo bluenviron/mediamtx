@@ -369,6 +369,14 @@ outer:
 		case req := <-pa.describe:
 			pa.handleDescribe(req)
 
+			if pa.conf.Regexp != nil &&
+				pa.source == nil &&
+				len(pa.readers) == 0 &&
+				len(pa.describeRequests) == 0 &&
+				len(pa.setupPlayRequests) == 0 {
+				break outer
+			}
+
 		case req := <-pa.publisherRemove:
 			pa.handlePublisherRemove(req)
 
@@ -394,6 +402,14 @@ outer:
 
 		case req := <-pa.readerSetupPlay:
 			pa.handleReaderSetupPlay(req)
+
+			if pa.conf.Regexp != nil &&
+				pa.source == nil &&
+				len(pa.readers) == 0 &&
+				len(pa.describeRequests) == 0 &&
+				len(pa.setupPlayRequests) == 0 {
+				break outer
+			}
 
 		case req := <-pa.readerPlay:
 			pa.handleReaderPlay(req)
