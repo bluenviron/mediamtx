@@ -275,7 +275,6 @@ func newPath(
 
 func (pa *path) close() {
 	pa.ctxCancel()
-	pa.log(logger.Info, "closed")
 }
 
 // Log is the main logging function.
@@ -317,113 +316,106 @@ func (pa *path) run() {
 		})
 	}
 
-outer:
-	for {
-		select {
-		case <-pa.onDemandReadyTimer.C:
-			for _, req := range pa.describeRequests {
-				req.Res <- pathDescribeRes{Err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
-			}
-			pa.describeRequests = nil
-
-			for _, req := range pa.setupPlayRequests {
-				req.Res <- pathReaderSetupPlayRes{Err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
-			}
-			pa.setupPlayRequests = nil
-
-			pa.onDemandCloseSource()
-
-			if pa.conf.Regexp != nil {
-				break outer
-			}
-
-		case <-pa.onDemandCloseTimer.C:
-			pa.onDemandCloseSource()
-
-			if pa.conf.Regexp != nil {
-				break outer
-			}
-
-		case req := <-pa.sourceStaticSetReady:
-			if req.Source == pa.source {
-				pa.sourceSetReady(req.Tracks)
-				req.Res <- pathSourceStaticSetReadyRes{Stream: pa.stream}
-			} else {
-				req.Res <- pathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
-			}
-
-		case req := <-pa.sourceStaticSetNotReady:
-			if req.Source == pa.source {
-				if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
-					pa.onDemandCloseSource()
-				} else {
-					pa.sourceSetNotReady()
+	err := func() error {
+		for {
+			select {
+			case <-pa.onDemandReadyTimer.C:
+				for _, req := range pa.describeRequests {
+					req.Res <- pathDescribeRes{Err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
 				}
+				pa.describeRequests = nil
+
+				for _, req := range pa.setupPlayRequests {
+					req.Res <- pathReaderSetupPlayRes{Err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+				}
+				pa.setupPlayRequests = nil
+
+				pa.onDemandCloseSource()
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case <-pa.onDemandCloseTimer.C:
+				pa.onDemandCloseSource()
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.sourceStaticSetReady:
+				if req.Source == pa.source {
+					pa.sourceSetReady(req.Tracks)
+					req.Res <- pathSourceStaticSetReadyRes{Stream: pa.stream}
+				} else {
+					req.Res <- pathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
+				}
+
+			case req := <-pa.sourceStaticSetNotReady:
+				if req.Source == pa.source {
+					if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
+						pa.onDemandCloseSource()
+					} else {
+						pa.sourceSetNotReady()
+					}
+				}
+				close(req.Res)
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.describe:
+				pa.handleDescribe(req)
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.publisherRemove:
+				pa.handlePublisherRemove(req)
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.publisherAnnounce:
+				pa.handlePublisherAnnounce(req)
+
+			case req := <-pa.publisherRecord:
+				pa.handlePublisherRecord(req)
+
+			case req := <-pa.publisherPause:
+				pa.handlePublisherPause(req)
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.readerRemove:
+				pa.handleReaderRemove(req)
+
+			case req := <-pa.readerSetupPlay:
+				pa.handleReaderSetupPlay(req)
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.readerPlay:
+				pa.handleReaderPlay(req)
+
+			case req := <-pa.readerPause:
+				pa.handleReaderPause(req)
+
+			case req := <-pa.apiPathsList:
+				pa.handleAPIPathsList(req)
+
+			case <-pa.ctx.Done():
+				return fmt.Errorf("terminated")
 			}
-			close(req.Res)
-
-			if pa.source == nil && pa.conf.Regexp != nil {
-				break outer
-			}
-
-		case req := <-pa.describe:
-			pa.handleDescribe(req)
-
-			if pa.conf.Regexp != nil &&
-				pa.source == nil &&
-				len(pa.readers) == 0 &&
-				len(pa.describeRequests) == 0 &&
-				len(pa.setupPlayRequests) == 0 {
-				break outer
-			}
-
-		case req := <-pa.publisherRemove:
-			pa.handlePublisherRemove(req)
-
-			if pa.source == nil && pa.conf.Regexp != nil {
-				break outer
-			}
-
-		case req := <-pa.publisherAnnounce:
-			pa.handlePublisherAnnounce(req)
-
-		case req := <-pa.publisherRecord:
-			pa.handlePublisherRecord(req)
-
-		case req := <-pa.publisherPause:
-			pa.handlePublisherPause(req)
-
-			if pa.source == nil && pa.conf.Regexp != nil {
-				break outer
-			}
-
-		case req := <-pa.readerRemove:
-			pa.handleReaderRemove(req)
-
-		case req := <-pa.readerSetupPlay:
-			pa.handleReaderSetupPlay(req)
-
-			if pa.conf.Regexp != nil &&
-				pa.source == nil &&
-				len(pa.readers) == 0 &&
-				len(pa.describeRequests) == 0 &&
-				len(pa.setupPlayRequests) == 0 {
-				break outer
-			}
-
-		case req := <-pa.readerPlay:
-			pa.handleReaderPlay(req)
-
-		case req := <-pa.readerPause:
-			pa.handleReaderPause(req)
-
-		case req := <-pa.apiPathsList:
-			pa.handleAPIPathsList(req)
-
-		case <-pa.ctx.Done():
-			break outer
 		}
-	}
+	}()
 
 	pa.ctxCancel()
 
@@ -470,7 +462,17 @@ outer:
 		pa.log(logger.Info, "runOnDemand command stopped")
 	}
 
+	pa.log(logger.Info, "closed (%v)", err)
+
 	pa.parent.onPathClose(pa)
+}
+
+func (pa *path) shouldClose() bool {
+	return pa.conf.Regexp != nil &&
+		pa.source == nil &&
+		len(pa.readers) == 0 &&
+		len(pa.describeRequests) == 0 &&
+		len(pa.setupPlayRequests) == 0
 }
 
 func (pa *path) hasStaticSource() bool {
