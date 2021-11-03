@@ -399,43 +399,6 @@ func TestRTSPServerAuthFail(t *testing.T) {
 	})
 }
 
-func TestRTSPServerAutomaticProtocol(t *testing.T) {
-	for _, source := range []string{
-		"ffmpeg",
-	} {
-		t.Run(source, func(t *testing.T) {
-			p, ok := newInstance("rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"protocols: [tcp]\n")
-			require.Equal(t, true, ok)
-			defer p.close()
-
-			if source == "ffmpeg" {
-				cnt1, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", "emptyvideo.mkv",
-					"-c", "copy",
-					"-f", "rtsp",
-					"rtsp://localhost:8554/teststream",
-				})
-				require.NoError(t, err)
-				defer cnt1.close()
-			}
-
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-i", "rtsp://localhost:8554/teststream",
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
-			require.NoError(t, err)
-			defer cnt2.close()
-			require.Equal(t, 0, cnt2.wait())
-		})
-	}
-}
-
 func TestRTSPServerPublisherOverride(t *testing.T) {
 	for _, ca := range []string{
 		"enabled",
