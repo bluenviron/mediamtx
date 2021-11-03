@@ -265,7 +265,7 @@ func newPath(
 		apiPathsList:            make(chan apiPathsListReq2),
 	}
 
-	pa.log(logger.Info, "created")
+	pa.log(logger.Info, "opened")
 
 	pa.wg.Add(1)
 	go pa.run()
@@ -275,7 +275,7 @@ func newPath(
 
 func (pa *path) close() {
 	pa.ctxCancel()
-	pa.log(logger.Info, "destroyed")
+	pa.log(logger.Info, "closed")
 }
 
 // Log is the main logging function.
