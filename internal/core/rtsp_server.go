@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -119,15 +120,19 @@ func newRTSPServer(
 		return nil, err
 	}
 
+	var temp []string
+
+	temp = append(temp, fmt.Sprintf("%s (TCP)", address))
+
 	if s.srv.UDPRTPAddress != "" {
-		s.log(logger.Info, "UDP/RTP listener opened on %s", s.srv.UDPRTPAddress)
+		temp = append(temp, fmt.Sprintf("%s (UDP/RTP)", s.srv.UDPRTPAddress))
 	}
 
 	if s.srv.UDPRTCPAddress != "" {
-		s.log(logger.Info, "UDP/RTCP listener opened on %s", s.srv.UDPRTCPAddress)
+		temp = append(temp, fmt.Sprintf("%s (UDP/RTCP)", s.srv.UDPRTCPAddress))
 	}
 
-	s.log(logger.Info, "TCP listener opened on %s", address)
+	s.log(logger.Info, "listener opened on "+strings.Join(temp, ", "))
 
 	if s.metrics != nil {
 		if !isTLS {
