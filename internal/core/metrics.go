@@ -34,8 +34,8 @@ type metricsParent interface {
 }
 
 type metrics struct {
-	listener net.Listener
-	server   *http.Server
+	ln     net.Listener
+	server *http.Server
 
 	mutex       sync.Mutex
 	pathManager metricsPathManager
@@ -48,13 +48,13 @@ func newMetrics(
 	address string,
 	parent metricsParent,
 ) (*metrics, error) {
-	listener, err := net.Listen("tcp", address)
+	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
 
 	m := &metrics{
-		listener: listener,
+		ln: ln,
 	}
 
 	router := gin.New()
@@ -74,7 +74,7 @@ func (m *metrics) close() {
 }
 
 func (m *metrics) run() {
-	err := m.server.Serve(m.listener)
+	err := m.server.Serve(m.ln)
 	if err != http.ErrServerClosed {
 		panic(err)
 	}

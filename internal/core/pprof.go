@@ -16,21 +16,21 @@ type pprofParent interface {
 }
 
 type pprof struct {
-	listener net.Listener
-	server   *http.Server
+	ln     net.Listener
+	server *http.Server
 }
 
 func newPPROF(
 	address string,
 	parent pprofParent,
 ) (*pprof, error) {
-	listener, err := net.Listen("tcp", address)
+	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
 	}
 
 	pp := &pprof{
-		listener: listener,
+		ln: ln,
 	}
 
 	pp.server = &http.Server{
@@ -49,7 +49,7 @@ func (pp *pprof) close() {
 }
 
 func (pp *pprof) run() {
-	err := pp.server.Serve(pp.listener)
+	err := pp.server.Serve(pp.ln)
 	if err != http.ErrServerClosed {
 		panic(err)
 	}
