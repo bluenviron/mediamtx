@@ -18,7 +18,7 @@ func formatMetric(key string, value int64) string {
 }
 
 type metricsPathManager interface {
-	onAPIPathsList(req apiPathsListReq1) apiPathsListRes1
+	onAPIPathsList(req apiPathsListReq) apiPathsListRes
 }
 
 type metricsRTSPServer interface {
@@ -83,7 +83,7 @@ func (m *metrics) run() {
 func (m *metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
-	res := m.pathManager.onAPIPathsList(apiPathsListReq1{})
+	res := m.pathManager.onAPIPathsList(apiPathsListReq{})
 	if res.Err == nil {
 		for name, p := range res.Data.Items {
 			if p.SourceReady {

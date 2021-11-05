@@ -165,7 +165,7 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 	return in, err
 }
 
-type apiPathsItem struct {
+type apiPathsListItem struct {
 	ConfName    string         `json:"confName"`
 	Conf        *conf.PathConf `json:"conf"`
 	Source      interface{}    `json:"source"`
@@ -174,20 +174,20 @@ type apiPathsItem struct {
 }
 
 type apiPathsListData struct {
-	Items map[string]apiPathsItem `json:"items"`
+	Items map[string]apiPathsListItem `json:"items"`
 }
 
-type apiPathsListRes1 struct {
+type apiPathsListRes struct {
 	Data  *apiPathsListData
 	Paths map[string]*path
 	Err   error
 }
 
-type apiPathsListReq1 struct {
-	Res chan apiPathsListRes1
+type apiPathsListReq struct {
+	Res chan apiPathsListRes
 }
 
-type apiPathsListReq2 struct {
+type apiPathsListSubReq struct {
 	Data *apiPathsListData
 	Res  chan struct{}
 }
@@ -243,8 +243,31 @@ type apiRTMPConnsKickReq struct {
 	Res chan apiRTMPConnsKickRes
 }
 
+type apiHLSMuxersListItem struct {
+	LastRequest string `json:"lastRequest"`
+}
+
+type apiHLSMuxersListData struct {
+	Items map[string]apiHLSMuxersListItem `json:"items"`
+}
+
+type apiHLSMuxersListRes struct {
+	Data   *apiHLSMuxersListData
+	Muxers map[string]*hlsMuxer
+	Err    error
+}
+
+type apiHLSMuxersListReq struct {
+	Res chan apiHLSMuxersListRes
+}
+
+type apiHLSMuxersListSubReq struct {
+	Data *apiHLSMuxersListData
+	Res  chan struct{}
+}
+
 type apiPathManager interface {
-	onAPIPathsList(req apiPathsListReq1) apiPathsListRes1
+	onAPIPathsList(req apiPathsListReq) apiPathsListRes
 }
 
 type apiRTSPServer interface {
@@ -255,6 +278,10 @@ type apiRTSPServer interface {
 type apiRTMPServer interface {
 	onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
 	onAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes
+}
+
+type apiHLSServer interface {
+	onAPIHLSMuxersList(req apiHLSMuxersListReq) apiHLSMuxersListRes
 }
 
 type apiParent interface {
@@ -268,6 +295,7 @@ type api struct {
 	rtspServer  apiRTSPServer
 	rtspsServer apiRTSPServer
 	rtmpServer  apiRTMPServer
+	hlsServer   apiHLSServer
 	parent      apiParent
 
 	mutex sync.Mutex
@@ -281,6 +309,7 @@ func newAPI(
 	rtspServer apiRTSPServer,
 	rtspsServer apiRTSPServer,
 	rtmpServer apiRTMPServer,
+	hlsServer apiHLSServer,
 	parent apiParent,
 ) (*api, error) {
 	ln, err := net.Listen("tcp", address)
@@ -294,6 +323,7 @@ func newAPI(
 		rtspServer:  rtspServer,
 		rtspsServer: rtspsServer,
 		rtmpServer:  rtmpServer,
+		hlsServer:   hlsServer,
 		parent:      parent,
 	}
 
@@ -312,6 +342,7 @@ func newAPI(
 	group.POST("/v1/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
 	group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
+	group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
 
 	a.s = &http.Server{Handler: router}
 
@@ -510,7 +541,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 }
 
 func (a *api) onPathsList(ctx *gin.Context) {
-	res := a.pathManager.onAPIPathsList(apiPathsListReq1{})
+	res := a.pathManager.onAPIPathsList(apiPathsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -598,13 +629,6 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res.Data)
 }
 
-// onConfReload is called by core.
-func (a *api) onConfReload(conf *conf.Conf) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	a.conf = conf
-}
-
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	if interfaceIsEmpty(a.rtmpServer) {
 		ctx.AbortWithStatus(http.StatusNotFound)
@@ -620,4 +644,26 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onHLSMuxersList(ctx *gin.Context) {
+	if interfaceIsEmpty(a.hlsServer) {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	res := a.hlsServer.onAPIHLSMuxersList(apiHLSMuxersListReq{})
+	if res.Err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res.Data)
+}
+
+// onConfReload is called by core.
+func (a *api) onConfReload(conf *conf.Conf) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.conf = conf
 }

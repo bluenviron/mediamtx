@@ -218,7 +218,7 @@ type path struct {
 	readerSetupPlay         chan pathReaderSetupPlayReq
 	readerPlay              chan pathReaderPlayReq
 	readerPause             chan pathReaderPauseReq
-	apiPathsList            chan apiPathsListReq2
+	apiPathsList            chan apiPathsListSubReq
 }
 
 func newPath(
@@ -262,7 +262,7 @@ func newPath(
 		readerSetupPlay:         make(chan pathReaderSetupPlayReq),
 		readerPlay:              make(chan pathReaderPlayReq),
 		readerPause:             make(chan pathReaderPauseReq),
-		apiPathsList:            make(chan apiPathsListReq2),
+		apiPathsList:            make(chan apiPathsListSubReq),
 	}
 
 	pa.log(logger.Info, "opened")
@@ -832,8 +832,8 @@ func (pa *path) handleReaderPause(req pathReaderPauseReq) {
 	close(req.Res)
 }
 
-func (pa *path) handleAPIPathsList(req apiPathsListReq2) {
-	req.Data.Items[pa.name] = apiPathsItem{
+func (pa *path) handleAPIPathsList(req apiPathsListSubReq) {
+	req.Data.Items[pa.name] = apiPathsListItem{
 		ConfName: pa.confName,
 		Conf:     pa.conf,
 		Source: func() interface{} {
@@ -967,7 +967,7 @@ func (pa *path) onReaderPause(req pathReaderPauseReq) {
 }
 
 // onAPIPathsList is called by api.
-func (pa *path) onAPIPathsList(req apiPathsListReq2) {
+func (pa *path) onAPIPathsList(req apiPathsListSubReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.apiPathsList <- req:

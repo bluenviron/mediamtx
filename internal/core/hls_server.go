@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -36,9 +37,10 @@ type hlsServer struct {
 	muxers    map[string]*hlsMuxer
 
 	// in
-	pathSourceReady chan *path
-	request         chan hlsMuxerRequest
-	muxerClose      chan *hlsMuxer
+	pathSourceReady  chan *path
+	request          chan hlsMuxerRequest
+	muxerClose       chan *hlsMuxer
+	apiHLSMuxersList chan apiHLSMuxersListReq
 }
 
 func newHLSServer(
@@ -74,6 +76,7 @@ func newHLSServer(
 		pathSourceReady:    make(chan *path),
 		request:            make(chan hlsMuxerRequest),
 		muxerClose:         make(chan *hlsMuxer),
+		apiHLSMuxersList:   make(chan apiHLSMuxersListReq),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
@@ -123,6 +126,17 @@ outer:
 				continue
 			}
 			delete(s.muxers, c.PathName())
+
+		case req := <-s.apiHLSMuxersList:
+			muxers := make(map[string]*hlsMuxer)
+
+			for name, m := range s.muxers {
+				muxers[name] = m
+			}
+
+			req.Res <- apiHLSMuxersListRes{
+				Muxers: muxers,
+			}
 
 		case <-s.ctx.Done():
 			break outer
@@ -219,6 +233,7 @@ func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
 	if !ok {
 		r = newHLSMuxer(
 			s.ctx,
+			pathName,
 			s.hlsAlwaysRemux,
 			s.hlsSegmentCount,
 			s.hlsSegmentDuration,
@@ -245,5 +260,27 @@ func (s *hlsServer) onPathSourceReady(pa *path) {
 	select {
 	case s.pathSourceReady <- pa:
 	case <-s.ctx.Done():
+	}
+}
+
+// onAPIHLSMuxersList is called by api.
+func (s *hlsServer) onAPIHLSMuxersList(req apiHLSMuxersListReq) apiHLSMuxersListRes {
+	req.Res = make(chan apiHLSMuxersListRes)
+	select {
+	case s.apiHLSMuxersList <- req:
+		res := <-req.Res
+
+		res.Data = &apiHLSMuxersListData{
+			Items: make(map[string]apiHLSMuxersListItem),
+		}
+
+		for _, pa := range res.Muxers {
+			pa.onAPIHLSMuxersList(apiHLSMuxersListSubReq{Data: res.Data})
+		}
+
+		return res
+
+	case <-s.ctx.Done():
+		return apiHLSMuxersListRes{Err: fmt.Errorf("terminated")}
 	}
 }

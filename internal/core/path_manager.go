@@ -44,7 +44,7 @@ type pathManager struct {
 	readerSetupPlay   chan pathReaderSetupPlayReq
 	publisherAnnounce chan pathPublisherAnnounceReq
 	hlsServerSet      chan pathManagerHLSServer
-	apiPathsList      chan apiPathsListReq1
+	apiPathsList      chan apiPathsListReq
 }
 
 func newPathManager(
@@ -78,7 +78,7 @@ func newPathManager(
 		readerSetupPlay:   make(chan pathReaderSetupPlayReq),
 		publisherAnnounce: make(chan pathPublisherAnnounceReq),
 		hlsServerSet:      make(chan pathManagerHLSServer),
-		apiPathsList:      make(chan apiPathsListReq1),
+		apiPathsList:      make(chan apiPathsListReq),
 	}
 
 	for pathName, pathConf := range pm.pathConfs {
@@ -254,7 +254,7 @@ outer:
 				paths[name] = pa
 			}
 
-			req.Res <- apiPathsListRes1{
+			req.Res <- apiPathsListRes{
 				Paths: paths,
 			}
 
@@ -421,23 +421,23 @@ func (pm *pathManager) onHLSServerSet(s pathManagerHLSServer) {
 }
 
 // onAPIPathsList is called by api.
-func (pm *pathManager) onAPIPathsList(req apiPathsListReq1) apiPathsListRes1 {
-	req.Res = make(chan apiPathsListRes1)
+func (pm *pathManager) onAPIPathsList(req apiPathsListReq) apiPathsListRes {
+	req.Res = make(chan apiPathsListRes)
 	select {
 	case pm.apiPathsList <- req:
-		res1 := <-req.Res
+		res := <-req.Res
 
-		res1.Data = &apiPathsListData{
-			Items: make(map[string]apiPathsItem),
+		res.Data = &apiPathsListData{
+			Items: make(map[string]apiPathsListItem),
 		}
 
-		for _, pa := range res1.Paths {
-			pa.onAPIPathsList(apiPathsListReq2{Data: res1.Data})
+		for _, pa := range res.Paths {
+			pa.onAPIPathsList(apiPathsListSubReq{Data: res.Data})
 		}
 
-		return res1
+		return res
 
 	case <-pm.ctx.Done():
-		return apiPathsListRes1{Err: fmt.Errorf("terminated")}
+		return apiPathsListRes{Err: fmt.Errorf("terminated")}
 	}
 }

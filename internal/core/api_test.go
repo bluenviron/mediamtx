@@ -224,12 +224,20 @@ func TestAPIList(t *testing.T) {
 		"rtsp",
 		"rtsps",
 		"rtmp",
+		"hls",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			p, ok := newInstance("api: yes\n" +
-				"encryption: optional\n" +
-				"serverCert: " + serverCertFpath + "\n" +
-				"serverKey: " + serverKeyFpath + "\n")
+			conf := "api: yes\n"
+
+			if ca == "rtsps" {
+				conf += "protocols: [tcp]\n"
+				conf += "encryption: strict\n"
+			}
+
+			conf += "serverCert: " + serverCertFpath + "\n"
+			conf += "serverKey: " + serverKeyFpath + "\n"
+
+			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
 			defer p.close()
 
@@ -261,34 +269,66 @@ func TestAPIList(t *testing.T) {
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
+
+			case "hls":
+				source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+					gortsplib.Tracks{track})
+				require.NoError(t, err)
+				defer source.Close()
+
+				func() {
+					res, err := http.Get("http://localhost:8888/mypath/index.m3u8")
+					require.NoError(t, err)
+					defer res.Body.Close()
+					require.Equal(t, 200, res.StatusCode)
+				}()
 			}
 
-			var pa string
 			switch ca {
-			case "rtsp":
-				pa = "rtspsessions"
+			case "rtsp", "rtsps", "rtmp":
+				var pa string
+				switch ca {
+				case "rtsp":
+					pa = "rtspsessions"
 
-			case "rtsps":
-				pa = "rtspssessions"
+				case "rtsps":
+					pa = "rtspssessions"
 
-			case "rtmp":
-				pa = "rtmpconns"
+				case "rtmp":
+					pa = "rtmpconns"
+				}
+
+				var out struct {
+					Items map[string]struct {
+						State string `json:"state"`
+					} `json:"items"`
+				}
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out)
+				require.NoError(t, err)
+
+				var firstID string
+				for k := range out.Items {
+					firstID = k
+				}
+
+				require.Equal(t, "publish", out.Items[firstID].State)
+
+			case "hls":
+				var out struct {
+					Items map[string]struct {
+						LastRequest string `json:"lastRequest"`
+					} `json:"items"`
+				}
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/hlsmuxers/list", nil, &out)
+				require.NoError(t, err)
+
+				var firstID string
+				for k := range out.Items {
+					firstID = k
+				}
+
+				require.NotEqual(t, "", out.Items[firstID].LastRequest)
 			}
-
-			var out struct {
-				Items map[string]struct {
-					State string `json:"state"`
-				} `json:"items"`
-			}
-			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out)
-			require.NoError(t, err)
-
-			var firstID string
-			for k := range out.Items {
-				firstID = k
-			}
-
-			require.Equal(t, "publish", out.Items[firstID].State)
 		})
 	}
 }

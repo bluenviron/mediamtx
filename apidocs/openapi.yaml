@@ -307,6 +307,12 @@ components:
           type: string
           enum: [idle, read, publish]
 
+    HLSMuxer:
+      type: object
+      properties:
+        lastRequest:
+          type: string
+
     PathsList:
       type: object
       properties:
@@ -338,6 +344,14 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/RTMPConn'
+
+    HLSMuxersList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HLSMuxer'
 
 paths:
   /v1/config/get:
@@ -569,6 +583,23 @@ paths:
       responses:
         '200':
           description: the request was successful.
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v1/hlsmuxers/list:
+    get:
+      operationId: hlsMuxersList
+      summary: returns all active HLS muxers.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HLSMuxersList'
         '400':
           description: invalid request.
         '500':

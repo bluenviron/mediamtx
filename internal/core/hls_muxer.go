@@ -122,6 +122,7 @@ type hlsMuxerParent interface {
 }
 
 type hlsMuxer struct {
+	name               string
 	hlsAlwaysRemux     bool
 	hlsSegmentCount    int
 	hlsSegmentDuration conf.StringDuration
@@ -140,11 +141,13 @@ type hlsMuxer struct {
 	requests        []hlsMuxerRequest
 
 	// in
-	request chan hlsMuxerRequest
+	request          chan hlsMuxerRequest
+	apiHLSMuxersList chan apiHLSMuxersListSubReq
 }
 
 func newHLSMuxer(
 	parentCtx context.Context,
+	name string,
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
@@ -156,6 +159,7 @@ func newHLSMuxer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	m := &hlsMuxer{
+		name:               name,
 		hlsAlwaysRemux:     hlsAlwaysRemux,
 		hlsSegmentCount:    hlsSegmentCount,
 		hlsSegmentDuration: hlsSegmentDuration,
@@ -170,7 +174,8 @@ func newHLSMuxer(
 			v := time.Now().Unix()
 			return &v
 		}(),
-		request: make(chan hlsMuxerRequest),
+		request:          make(chan hlsMuxerRequest),
+		apiHLSMuxersList: make(chan apiHLSMuxersListSubReq),
 	}
 
 	m.log(logger.Info, "opened")
@@ -220,6 +225,12 @@ func (m *hlsMuxer) run() {
 				} else {
 					m.requests = append(m.requests, req)
 				}
+
+			case req := <-m.apiHLSMuxersList:
+				req.Data.Items[m.name] = apiHLSMuxersListItem{
+					LastRequest: time.Unix(atomic.LoadInt64(m.lastRequestTime), 0).String(),
+				}
+				close(req.Res)
 
 			case <-innerReady:
 				isReady = true
@@ -498,4 +509,15 @@ func (m *hlsMuxer) onReaderAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"hlsMuxer"}
+}
+
+// onAPIHLSMuxersList is called by api.
+func (m *hlsMuxer) onAPIHLSMuxersList(req apiHLSMuxersListSubReq) {
+	req.Res = make(chan struct{})
+	select {
+	case m.apiHLSMuxersList <- req:
+		<-req.Res
+
+	case <-m.ctx.Done():
+	}
 }

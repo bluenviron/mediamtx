@@ -344,6 +344,7 @@ func (p *Core) createResources(initial bool) error {
 				p.rtspServer,
 				p.rtspsServer,
 				p.rtmpServer,
+				p.hlsServer,
 				p)
 			if err != nil {
 				return err
@@ -468,7 +469,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager ||
 		closeRTSPServer ||
 		closeRTSPSServer ||
-		closeRTMPServer {
+		closeRTMPServer ||
+		closeHLSServer {
 		closeAPI = true
 	}
 
