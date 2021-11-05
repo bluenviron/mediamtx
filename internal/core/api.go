@@ -330,19 +330,32 @@ func newAPI(
 	router := gin.New()
 	router.NoRoute(a.mwLog)
 	group := router.Group("/", a.mwLog)
+
 	group.GET("/v1/config/get", a.onConfigGet)
 	group.POST("/v1/config/set", a.onConfigSet)
 	group.POST("/v1/config/paths/add/*name", a.onConfigPathsAdd)
 	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
 	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
 	group.GET("/v1/paths/list", a.onPathsList)
-	group.GET("/v1/rtspsessions/list", a.onRTSPSessionsList)
-	group.POST("/v1/rtspsessions/kick/:id", a.onRTSPSessionsKick)
-	group.GET("/v1/rtspssessions/list", a.onRTSPSSessionsList)
-	group.POST("/v1/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
-	group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
-	group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
-	group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
+
+	if !interfaceIsEmpty(a.rtspServer) {
+		group.GET("/v1/rtspsessions/list", a.onRTSPSessionsList)
+		group.POST("/v1/rtspsessions/kick/:id", a.onRTSPSessionsKick)
+	}
+
+	if !interfaceIsEmpty(a.rtspsServer) {
+		group.GET("/v1/rtspssessions/list", a.onRTSPSSessionsList)
+		group.POST("/v1/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
+	}
+
+	if !interfaceIsEmpty(a.rtmpServer) {
+		group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
+		group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
+	}
+
+	if !interfaceIsEmpty(a.hlsServer) {
+		group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
+	}
 
 	a.s = &http.Server{Handler: router}
 
@@ -551,11 +564,6 @@ func (a *api) onPathsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	if interfaceIsEmpty(a.rtspServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	res := a.rtspServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -566,11 +574,6 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
-	if interfaceIsEmpty(a.rtspServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	id := ctx.Param("id")
 
 	res := a.rtspServer.onAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
@@ -583,11 +586,6 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
-	if interfaceIsEmpty(a.rtspsServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	res := a.rtspsServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -598,11 +596,6 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
-	if interfaceIsEmpty(a.rtspsServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	id := ctx.Param("id")
 
 	res := a.rtspsServer.onAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
@@ -615,11 +608,6 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	if interfaceIsEmpty(a.rtmpServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	res := a.rtmpServer.onAPIRTMPConnsList(apiRTMPConnsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
@@ -630,11 +618,6 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
-	if interfaceIsEmpty(a.rtmpServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	id := ctx.Param("id")
 
 	res := a.rtmpServer.onAPIRTMPConnsKick(apiRTMPConnsKickReq{ID: id})
@@ -647,11 +630,6 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	if interfaceIsEmpty(a.hlsServer) {
-		ctx.AbortWithStatus(http.StatusNotFound)
-		return
-	}
-
 	res := a.hlsServer.onAPIHLSMuxersList(apiHLSMuxersListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
