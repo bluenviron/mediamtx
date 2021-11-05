@@ -13,7 +13,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-func formatMetric(key string, value int64) string {
+func metric(key string, value int64) string {
 	return key + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
@@ -29,6 +29,10 @@ type metricsRTMPServer interface {
 	onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
 }
 
+type metricsHLSServer interface {
+	onAPIHLSMuxersList(req apiHLSMuxersListReq) apiHLSMuxersListRes
+}
+
 type metricsParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -42,6 +46,7 @@ type metrics struct {
 	rtspServer  metricsRTSPServer
 	rtspsServer metricsRTSPServer
 	rtmpServer  metricsRTMPServer
+	hlsServer   metricsHLSServer
 }
 
 func newMetrics(
@@ -87,9 +92,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	if res.Err == nil {
 		for name, p := range res.Data.Items {
 			if p.SourceReady {
-				out += formatMetric("paths{name=\""+name+"\",state=\"ready\"}", 1)
+				out += metric("paths{name=\""+name+"\",state=\"ready\"}", 1)
 			} else {
-				out += formatMetric("paths{name=\""+name+"\",state=\"notReady\"}", 1)
+				out += metric("paths{name=\""+name+"\",state=\"notReady\"}", 1)
 			}
 		}
 	}
@@ -112,11 +117,11 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 				}
 			}
 
-			out += formatMetric("rtsp_sessions{state=\"idle\"}",
+			out += metric("rtsp_sessions{state=\"idle\"}",
 				idleCount)
-			out += formatMetric("rtsp_sessions{state=\"read\"}",
+			out += metric("rtsp_sessions{state=\"read\"}",
 				readCount)
-			out += formatMetric("rtsp_sessions{state=\"publish\"}",
+			out += metric("rtsp_sessions{state=\"publish\"}",
 				publishCount)
 		}
 	}
@@ -139,11 +144,11 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 				}
 			}
 
-			out += formatMetric("rtsps_sessions{state=\"idle\"}",
+			out += metric("rtsps_sessions{state=\"idle\"}",
 				idleCount)
-			out += formatMetric("rtsps_sessions{state=\"read\"}",
+			out += metric("rtsps_sessions{state=\"read\"}",
 				readCount)
-			out += formatMetric("rtsps_sessions{state=\"publish\"}",
+			out += metric("rtsps_sessions{state=\"publish\"}",
 				publishCount)
 		}
 	}
@@ -166,12 +171,21 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 				}
 			}
 
-			out += formatMetric("rtmp_conns{state=\"idle\"}",
+			out += metric("rtmp_conns{state=\"idle\"}",
 				idleCount)
-			out += formatMetric("rtmp_conns{state=\"read\"}",
+			out += metric("rtmp_conns{state=\"read\"}",
 				readCount)
-			out += formatMetric("rtmp_conns{state=\"publish\"}",
+			out += metric("rtmp_conns{state=\"publish\"}",
 				publishCount)
+		}
+	}
+
+	if !interfaceIsEmpty(m.hlsServer) {
+		res := m.hlsServer.onAPIHLSMuxersList(apiHLSMuxersListReq{})
+		if res.Err == nil {
+			for name := range res.Data.Items {
+				out += metric("hls_muxers{name=\""+name+"\"}", 1)
+			}
 		}
 	}
 
@@ -205,4 +219,11 @@ func (m *metrics) onRTMPServerSet(s metricsRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s
+}
+
+// onHLSServerSet is called by hlsServer.
+func (m *metrics) onHLSServerSet(s metricsHLSServer) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.hlsServer = s
 }

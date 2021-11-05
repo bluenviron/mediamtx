@@ -47,6 +47,13 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, err)
 	defer cnt1.close()
 
+	func() {
+		res, err := http.Get("http://localhost:8888/rtsp_path/index.m3u8")
+		require.NoError(t, err)
+		defer res.Body.Close()
+		require.Equal(t, 200, res.StatusCode)
+	}()
+
 	req, err := http.NewRequest(http.MethodGet, "http://localhost:9998/metrics", nil)
 	require.NoError(t, err)
 
@@ -66,6 +73,7 @@ func TestMetrics(t *testing.T) {
 	}
 
 	require.Equal(t, map[string]string{
+		"hls_muxers{name=\"rtsp_path\"}":            "1",
 		"paths{name=\"rtsp_path\",state=\"ready\"}": "1",
 		"paths{name=\"rtmp_path\",state=\"ready\"}": "1",
 		"rtmp_conns{state=\"idle\"}":                "0",

@@ -28,6 +28,7 @@ type hlsServer struct {
 	hlsAllowOrigin     string
 	readBufferCount    int
 	pathManager        *pathManager
+	metrics            *metrics
 	parent             hlsServerParent
 
 	ctx       context.Context
@@ -52,6 +53,7 @@ func newHLSServer(
 	hlsAllowOrigin string,
 	readBufferCount int,
 	pathManager *pathManager,
+	metrics *metrics,
 	parent hlsServerParent,
 ) (*hlsServer, error) {
 	ln, err := net.Listen("tcp", address)
@@ -69,6 +71,7 @@ func newHLSServer(
 		readBufferCount:    readBufferCount,
 		pathManager:        pathManager,
 		parent:             parent,
+		metrics:            metrics,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
 		ln:                 ln,
@@ -82,6 +85,10 @@ func newHLSServer(
 	s.log(logger.Info, "listener opened on "+address)
 
 	s.pathManager.onHLSServerSet(s)
+
+	if s.metrics != nil {
+		s.metrics.onHLSServerSet(s)
+	}
 
 	s.wg.Add(1)
 	go s.run()
@@ -148,6 +155,10 @@ outer:
 	hs.Shutdown(context.Background())
 
 	s.pathManager.onHLSServerSet(nil)
+
+	if s.metrics != nil {
+		s.metrics.onHLSServerSet(nil)
+	}
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {

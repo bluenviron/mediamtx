@@ -430,6 +430,7 @@ rtsps_sessions{state="publish"} 0
 rtmp_conns{state="idle"} 0
 rtmp_conns{state="read"} 0
 rtmp_conns{state="publish"} 1
+hls_muxers{name="<name>"} 1
 ```
 
 where:
@@ -444,6 +445,7 @@ where:
 * `rtmp_conns{state="idle"}` is the count of RTMP connections that are idle
 * `rtmp_conns{state="read"}` is the count of RTMP connections that are reading
 * `rtmp_conns{state="publish"}` is the count of RTMP connections that are publishing
+* `hls_muxers{name="<name>"}` is replicated for every HLS muxer and shows the name and state of every HLS muxer
 
 ### pprof
 

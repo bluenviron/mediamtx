@@ -328,6 +328,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSAllowOrigin,
 				p.conf.ReadBufferCount,
 				p.pathManager,
+				p.metrics,
 				p)
 			if err != nil {
 				return err
@@ -458,7 +459,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		closePathManager {
+		closePathManager ||
+		closeMetrics {
 		closeHLSServer = true
 	}
 
