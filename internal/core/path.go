@@ -179,6 +179,33 @@ type pathPublisherPauseReq struct {
 	Res    chan struct{}
 }
 
+type pathAPIPathsListItem struct {
+	ConfName    string         `json:"confName"`
+	Conf        *conf.PathConf `json:"conf"`
+	Source      interface{}    `json:"source"`
+	SourceReady bool           `json:"sourceReady"`
+	Readers     []interface{}  `json:"readers"`
+}
+
+type pathAPIPathsListData struct {
+	Items map[string]pathAPIPathsListItem `json:"items"`
+}
+
+type pathAPIPathsListRes struct {
+	Data  *pathAPIPathsListData
+	Paths map[string]*path
+	Err   error
+}
+
+type pathAPIPathsListReq struct {
+	Res chan pathAPIPathsListRes
+}
+
+type pathAPIPathsListSubReq struct {
+	Data *pathAPIPathsListData
+	Res  chan struct{}
+}
+
 type path struct {
 	rtspAddress     string
 	readTimeout     conf.StringDuration
@@ -218,7 +245,7 @@ type path struct {
 	readerSetupPlay         chan pathReaderSetupPlayReq
 	readerPlay              chan pathReaderPlayReq
 	readerPause             chan pathReaderPauseReq
-	apiPathsList            chan apiPathsListSubReq
+	apiPathsList            chan pathAPIPathsListSubReq
 }
 
 func newPath(
@@ -262,7 +289,7 @@ func newPath(
 		readerSetupPlay:         make(chan pathReaderSetupPlayReq),
 		readerPlay:              make(chan pathReaderPlayReq),
 		readerPause:             make(chan pathReaderPauseReq),
-		apiPathsList:            make(chan apiPathsListSubReq),
+		apiPathsList:            make(chan pathAPIPathsListSubReq),
 	}
 
 	pa.log(logger.Info, "opened")
@@ -832,8 +859,8 @@ func (pa *path) handleReaderPause(req pathReaderPauseReq) {
 	close(req.Res)
 }
 
-func (pa *path) handleAPIPathsList(req apiPathsListSubReq) {
-	req.Data.Items[pa.name] = apiPathsListItem{
+func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
+	req.Data.Items[pa.name] = pathAPIPathsListItem{
 		ConfName: pa.confName,
 		Conf:     pa.conf,
 		Source: func() interface{} {
@@ -967,7 +994,7 @@ func (pa *path) onReaderPause(req pathReaderPauseReq) {
 }
 
 // onAPIPathsList is called by api.
-func (pa *path) onAPIPathsList(req apiPathsListSubReq) {
+func (pa *path) onAPIPathsList(req pathAPIPathsListSubReq) {
 	req.Res = make(chan struct{})
 	select {
 	case pa.apiPathsList <- req:

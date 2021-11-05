@@ -15,6 +15,33 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+type rtmpServerAPIConnsListItem struct {
+	RemoteAddr string `json:"remoteAddr"`
+	State      string `json:"state"`
+}
+
+type rtmpServerAPIConnsListData struct {
+	Items map[string]rtmpServerAPIConnsListItem `json:"items"`
+}
+
+type rtmpServerAPIConnsListRes struct {
+	Data *rtmpServerAPIConnsListData
+	Err  error
+}
+
+type rtmpServerAPIConnsListReq struct {
+	Res chan rtmpServerAPIConnsListRes
+}
+
+type rtmpServerAPIConnsKickRes struct {
+	Err error
+}
+
+type rtmpServerAPIConnsKickReq struct {
+	ID  string
+	Res chan rtmpServerAPIConnsKickRes
+}
+
 type rtmpServerParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -37,9 +64,9 @@ type rtmpServer struct {
 	conns     map[*rtmpConn]struct{}
 
 	// in
-	connClose        chan *rtmpConn
-	apiRTMPConnsList chan apiRTMPConnsListReq
-	apiRTMPConnsKick chan apiRTMPConnsKickReq
+	connClose    chan *rtmpConn
+	apiConnsList chan rtmpServerAPIConnsListReq
+	apiConnsKick chan rtmpServerAPIConnsKickReq
 }
 
 func newRTMPServer(
@@ -76,8 +103,8 @@ func newRTMPServer(
 		l:                   l,
 		conns:               make(map[*rtmpConn]struct{}),
 		connClose:           make(chan *rtmpConn),
-		apiRTMPConnsList:    make(chan apiRTMPConnsListReq),
-		apiRTMPConnsKick:    make(chan apiRTMPConnsKickReq),
+		apiConnsList:        make(chan rtmpServerAPIConnsListReq),
+		apiConnsKick:        make(chan rtmpServerAPIConnsKickReq),
 	}
 
 	s.log(logger.Info, "listener opened on %s", address)
@@ -162,13 +189,13 @@ outer:
 			}
 			delete(s.conns, c)
 
-		case req := <-s.apiRTMPConnsList:
-			data := &apiRTMPConnsListData{
-				Items: make(map[string]apiRTMPConnsListItem),
+		case req := <-s.apiConnsList:
+			data := &rtmpServerAPIConnsListData{
+				Items: make(map[string]rtmpServerAPIConnsListItem),
 			}
 
 			for c := range s.conns {
-				data.Items[c.ID()] = apiRTMPConnsListItem{
+				data.Items[c.ID()] = rtmpServerAPIConnsListItem{
 					RemoteAddr: c.RemoteAddr().String(),
 					State: func() string {
 						switch c.safeState() {
@@ -183,9 +210,9 @@ outer:
 				}
 			}
 
-			req.Res <- apiRTMPConnsListRes{Data: data}
+			req.Res <- rtmpServerAPIConnsListRes{Data: data}
 
-		case req := <-s.apiRTMPConnsKick:
+		case req := <-s.apiConnsKick:
 			res := func() bool {
 				for c := range s.conns {
 					if c.ID() == req.ID {
@@ -197,9 +224,9 @@ outer:
 				return false
 			}()
 			if res {
-				req.Res <- apiRTMPConnsKickRes{}
+				req.Res <- rtmpServerAPIConnsKickRes{}
 			} else {
-				req.Res <- apiRTMPConnsKickRes{fmt.Errorf("not found")}
+				req.Res <- rtmpServerAPIConnsKickRes{fmt.Errorf("not found")}
 			}
 
 		case <-s.ctx.Done():
@@ -252,24 +279,26 @@ func (s *rtmpServer) onConnClose(c *rtmpConn) {
 	}
 }
 
-// onAPIRTMPConnsList is called by api.
-func (s *rtmpServer) onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes {
-	req.Res = make(chan apiRTMPConnsListRes)
+// onAPIConnsList is called by api.
+func (s *rtmpServer) onAPIConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes {
+	req.Res = make(chan rtmpServerAPIConnsListRes)
 	select {
-	case s.apiRTMPConnsList <- req:
+	case s.apiConnsList <- req:
 		return <-req.Res
+
 	case <-s.ctx.Done():
-		return apiRTMPConnsListRes{Err: fmt.Errorf("terminated")}
+		return rtmpServerAPIConnsListRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// onAPIRTMPConnsKick is called by api.
-func (s *rtmpServer) onAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes {
-	req.Res = make(chan apiRTMPConnsKickRes)
+// onAPIConnsKick is called by api.
+func (s *rtmpServer) onAPIConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes {
+	req.Res = make(chan rtmpServerAPIConnsKickRes)
 	select {
-	case s.apiRTMPConnsKick <- req:
+	case s.apiConnsKick <- req:
 		return <-req.Res
+
 	case <-s.ctx.Done():
-		return apiRTMPConnsKickRes{Err: fmt.Errorf("terminated")}
+		return rtmpServerAPIConnsKickRes{Err: fmt.Errorf("terminated")}
 	}
 }

@@ -165,123 +165,22 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 	return in, err
 }
 
-type apiPathsListItem struct {
-	ConfName    string         `json:"confName"`
-	Conf        *conf.PathConf `json:"conf"`
-	Source      interface{}    `json:"source"`
-	SourceReady bool           `json:"sourceReady"`
-	Readers     []interface{}  `json:"readers"`
-}
-
-type apiPathsListData struct {
-	Items map[string]apiPathsListItem `json:"items"`
-}
-
-type apiPathsListRes struct {
-	Data  *apiPathsListData
-	Paths map[string]*path
-	Err   error
-}
-
-type apiPathsListReq struct {
-	Res chan apiPathsListRes
-}
-
-type apiPathsListSubReq struct {
-	Data *apiPathsListData
-	Res  chan struct{}
-}
-
-type apiRTSPSessionsListItem struct {
-	RemoteAddr string `json:"remoteAddr"`
-	State      string `json:"state"`
-}
-
-type apiRTSPSessionsListData struct {
-	Items map[string]apiRTSPSessionsListItem `json:"items"`
-}
-
-type apiRTSPSessionsListRes struct {
-	Data *apiRTSPSessionsListData
-	Err  error
-}
-
-type apiRTSPSessionsListReq struct{}
-
-type apiRTSPSessionsKickRes struct {
-	Err error
-}
-
-type apiRTSPSessionsKickReq struct {
-	ID string
-}
-
-type apiRTMPConnsListItem struct {
-	RemoteAddr string `json:"remoteAddr"`
-	State      string `json:"state"`
-}
-
-type apiRTMPConnsListData struct {
-	Items map[string]apiRTMPConnsListItem `json:"items"`
-}
-
-type apiRTMPConnsListRes struct {
-	Data *apiRTMPConnsListData
-	Err  error
-}
-
-type apiRTMPConnsListReq struct {
-	Res chan apiRTMPConnsListRes
-}
-
-type apiRTMPConnsKickRes struct {
-	Err error
-}
-
-type apiRTMPConnsKickReq struct {
-	ID  string
-	Res chan apiRTMPConnsKickRes
-}
-
-type apiHLSMuxersListItem struct {
-	LastRequest string `json:"lastRequest"`
-}
-
-type apiHLSMuxersListData struct {
-	Items map[string]apiHLSMuxersListItem `json:"items"`
-}
-
-type apiHLSMuxersListRes struct {
-	Data   *apiHLSMuxersListData
-	Muxers map[string]*hlsMuxer
-	Err    error
-}
-
-type apiHLSMuxersListReq struct {
-	Res chan apiHLSMuxersListRes
-}
-
-type apiHLSMuxersListSubReq struct {
-	Data *apiHLSMuxersListData
-	Res  chan struct{}
-}
-
 type apiPathManager interface {
-	onAPIPathsList(req apiPathsListReq) apiPathsListRes
+	onAPIPathsList(req pathAPIPathsListReq) pathAPIPathsListRes
 }
 
 type apiRTSPServer interface {
-	onAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes
-	onAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes
+	onAPISessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes
+	onAPISessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes
 }
 
 type apiRTMPServer interface {
-	onAPIRTMPConnsList(req apiRTMPConnsListReq) apiRTMPConnsListRes
-	onAPIRTMPConnsKick(req apiRTMPConnsKickReq) apiRTMPConnsKickRes
+	onAPIConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes
+	onAPIConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes
 }
 
 type apiHLSServer interface {
-	onAPIHLSMuxersList(req apiHLSMuxersListReq) apiHLSMuxersListRes
+	onAPIHLSMuxersList(req hlsServerMuxersListReq) hlsServerMuxersListRes
 }
 
 type apiParent interface {
@@ -336,6 +235,7 @@ func newAPI(
 	group.POST("/v1/config/paths/add/*name", a.onConfigPathsAdd)
 	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
 	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
+
 	group.GET("/v1/paths/list", a.onPathsList)
 
 	if !interfaceIsEmpty(a.rtspServer) {
@@ -554,7 +454,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 }
 
 func (a *api) onPathsList(ctx *gin.Context) {
-	res := a.pathManager.onAPIPathsList(apiPathsListReq{})
+	res := a.pathManager.onAPIPathsList(pathAPIPathsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -564,7 +464,7 @@ func (a *api) onPathsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	res := a.rtspServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
+	res := a.rtspServer.onAPISessionsList(rtspServerAPISessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -576,7 +476,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtspServer.onAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
+	res := a.rtspServer.onAPISessionsKick(rtspServerAPISessionsKickReq{ID: id})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -586,7 +486,7 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
-	res := a.rtspsServer.onAPIRTSPSessionsList(apiRTSPSessionsListReq{})
+	res := a.rtspsServer.onAPISessionsList(rtspServerAPISessionsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -598,7 +498,7 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtspsServer.onAPIRTSPSessionsKick(apiRTSPSessionsKickReq{ID: id})
+	res := a.rtspsServer.onAPISessionsKick(rtspServerAPISessionsKickReq{ID: id})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -608,7 +508,7 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	res := a.rtmpServer.onAPIRTMPConnsList(apiRTMPConnsListReq{})
+	res := a.rtmpServer.onAPIConnsList(rtmpServerAPIConnsListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -620,7 +520,7 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtmpServer.onAPIRTMPConnsKick(apiRTMPConnsKickReq{ID: id})
+	res := a.rtmpServer.onAPIConnsKick(rtmpServerAPIConnsKickReq{ID: id})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -630,7 +530,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	res := a.hlsServer.onAPIHLSMuxersList(apiHLSMuxersListReq{})
+	res := a.hlsServer.onAPIHLSMuxersList(hlsServerMuxersListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return

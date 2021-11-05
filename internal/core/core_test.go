@@ -188,7 +188,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 				}
 			}()
 
-			res := p.pathManager.onAPIPathsList(apiPathsListReq{})
+			res := p.pathManager.onAPIPathsList(pathAPIPathsListReq{})
 			require.NoError(t, res.Err)
 
 			require.Equal(t, 0, len(res.Data.Items))

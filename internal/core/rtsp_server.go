@@ -20,6 +20,30 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+type rtspServerAPISessionsListItem struct {
+	RemoteAddr string `json:"remoteAddr"`
+	State      string `json:"state"`
+}
+
+type rtspServerAPISessionsListData struct {
+	Items map[string]rtspServerAPISessionsListItem `json:"items"`
+}
+
+type rtspServerAPISessionsListRes struct {
+	Data *rtspServerAPISessionsListData
+	Err  error
+}
+
+type rtspServerAPISessionsListReq struct{}
+
+type rtspServerAPISessionsKickRes struct {
+	Err error
+}
+
+type rtspServerAPISessionsKickReq struct {
+	ID string
+}
+
 type rtspServerParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -359,23 +383,23 @@ func (s *rtspServer) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
 	se.onFrame(ctx)
 }
 
-// onAPIRTSPSessionsList is called by api and metrics.
-func (s *rtspServer) onAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSessionsListRes {
+// onAPISessionsList is called by api and metrics.
+func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes {
 	select {
 	case <-s.ctx.Done():
-		return apiRTSPSessionsListRes{Err: fmt.Errorf("terminated")}
+		return rtspServerAPISessionsListRes{Err: fmt.Errorf("terminated")}
 	default:
 	}
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data := &apiRTSPSessionsListData{
-		Items: make(map[string]apiRTSPSessionsListItem),
+	data := &rtspServerAPISessionsListData{
+		Items: make(map[string]rtspServerAPISessionsListItem),
 	}
 
 	for _, s := range s.sessions {
-		data.Items[s.ID()] = apiRTSPSessionsListItem{
+		data.Items[s.ID()] = rtspServerAPISessionsListItem{
 			RemoteAddr: s.RemoteAddr().String(),
 			State: func() string {
 				switch s.safeState() {
@@ -392,14 +416,14 @@ func (s *rtspServer) onAPIRTSPSessionsList(req apiRTSPSessionsListReq) apiRTSPSe
 		}
 	}
 
-	return apiRTSPSessionsListRes{Data: data}
+	return rtspServerAPISessionsListRes{Data: data}
 }
 
-// onAPIRTSPSessionsKick is called by api.
-func (s *rtspServer) onAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSessionsKickRes {
+// onAPISessionsKick is called by api.
+func (s *rtspServer) onAPISessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes {
 	select {
 	case <-s.ctx.Done():
-		return apiRTSPSessionsKickRes{Err: fmt.Errorf("terminated")}
+		return rtspServerAPISessionsKickRes{Err: fmt.Errorf("terminated")}
 	default:
 	}
 
@@ -411,9 +435,9 @@ func (s *rtspServer) onAPIRTSPSessionsKick(req apiRTSPSessionsKickReq) apiRTSPSe
 			se.close()
 			delete(s.sessions, key)
 			se.onClose(liberrors.ErrServerTerminated{})
-			return apiRTSPSessionsKickRes{}
+			return rtspServerAPISessionsKickRes{}
 		}
 	}
 
-	return apiRTSPSessionsKickRes{Err: fmt.Errorf("not found")}
+	return rtspServerAPISessionsKickRes{Err: fmt.Errorf("not found")}
 }

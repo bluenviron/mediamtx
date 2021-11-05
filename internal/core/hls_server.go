@@ -17,6 +17,29 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+type hlsServerMuxersListItem struct {
+	LastRequest string `json:"lastRequest"`
+}
+
+type hlsServerMuxersListData struct {
+	Items map[string]hlsServerMuxersListItem `json:"items"`
+}
+
+type hlsServerMuxersListRes struct {
+	Data   *hlsServerMuxersListData
+	Muxers map[string]*hlsMuxer
+	Err    error
+}
+
+type hlsServerMuxersListReq struct {
+	Res chan hlsServerMuxersListRes
+}
+
+type hlsServerMuxersListSubReq struct {
+	Data *hlsServerMuxersListData
+	Res  chan struct{}
+}
+
 type hlsServerParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -38,10 +61,10 @@ type hlsServer struct {
 	muxers    map[string]*hlsMuxer
 
 	// in
-	pathSourceReady  chan *path
-	request          chan hlsMuxerRequest
-	muxerClose       chan *hlsMuxer
-	apiHLSMuxersList chan apiHLSMuxersListReq
+	pathSourceReady chan *path
+	request         chan hlsMuxerRequest
+	muxerClose      chan *hlsMuxer
+	apiMuxersList   chan hlsServerMuxersListReq
 }
 
 func newHLSServer(
@@ -79,7 +102,7 @@ func newHLSServer(
 		pathSourceReady:    make(chan *path),
 		request:            make(chan hlsMuxerRequest),
 		muxerClose:         make(chan *hlsMuxer),
-		apiHLSMuxersList:   make(chan apiHLSMuxersListReq),
+		apiMuxersList:      make(chan hlsServerMuxersListReq),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
@@ -134,14 +157,14 @@ outer:
 			}
 			delete(s.muxers, c.PathName())
 
-		case req := <-s.apiHLSMuxersList:
+		case req := <-s.apiMuxersList:
 			muxers := make(map[string]*hlsMuxer)
 
 			for name, m := range s.muxers {
 				muxers[name] = m
 			}
 
-			req.Res <- apiHLSMuxersListRes{
+			req.Res <- hlsServerMuxersListRes{
 				Muxers: muxers,
 			}
 
@@ -275,23 +298,23 @@ func (s *hlsServer) onPathSourceReady(pa *path) {
 }
 
 // onAPIHLSMuxersList is called by api.
-func (s *hlsServer) onAPIHLSMuxersList(req apiHLSMuxersListReq) apiHLSMuxersListRes {
-	req.Res = make(chan apiHLSMuxersListRes)
+func (s *hlsServer) onAPIHLSMuxersList(req hlsServerMuxersListReq) hlsServerMuxersListRes {
+	req.Res = make(chan hlsServerMuxersListRes)
 	select {
-	case s.apiHLSMuxersList <- req:
+	case s.apiMuxersList <- req:
 		res := <-req.Res
 
-		res.Data = &apiHLSMuxersListData{
-			Items: make(map[string]apiHLSMuxersListItem),
+		res.Data = &hlsServerMuxersListData{
+			Items: make(map[string]hlsServerMuxersListItem),
 		}
 
 		for _, pa := range res.Muxers {
-			pa.onAPIHLSMuxersList(apiHLSMuxersListSubReq{Data: res.Data})
+			pa.onAPIHLSMuxersList(hlsServerMuxersListSubReq{Data: res.Data})
 		}
 
 		return res
 
 	case <-s.ctx.Done():
-		return apiHLSMuxersListRes{Err: fmt.Errorf("terminated")}
+		return hlsServerMuxersListRes{Err: fmt.Errorf("terminated")}
 	}
 }
