@@ -303,7 +303,7 @@ func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error)
 		}
 	}
 
-	return "", nil, fmt.Errorf("unable to find a valid configuration for path '%s'", name)
+	return "", nil, fmt.Errorf("path '%s' is not configured", name)
 }
 
 func (pm *pathManager) authenticate(

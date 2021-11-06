@@ -23,7 +23,9 @@ func TestMetrics(t *testing.T) {
 	p, ok := newInstance("metrics: yes\n" +
 		"encryption: optional\n" +
 		"serverCert: " + serverCertFpath + "\n" +
-		"serverKey: " + serverKeyFpath + "\n")
+		"serverKey: " + serverKeyFpath + "\n" +
+		"paths:\n" +
+		"  all:\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 

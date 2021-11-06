@@ -13,7 +13,9 @@ func TestRTMPServerPublish(t *testing.T) {
 		"video",
 	} {
 		t.Run(source, func(t *testing.T) {
-			p, ok := newInstance("hlsDisable: yes\n")
+			p, ok := newInstance("hlsDisable: yes\n" +
+				"paths:\n" +
+				"  all:\n")
 			require.Equal(t, true, ok)
 			defer p.close()
 
@@ -45,7 +47,9 @@ func TestRTMPServerPublish(t *testing.T) {
 }
 
 func TestRTMPServerRead(t *testing.T) {
-	p, ok := newInstance("hlsDisable: yes\n")
+	p, ok := newInstance("hlsDisable: yes\n" +
+		"paths:\n" +
+		"  all:\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 

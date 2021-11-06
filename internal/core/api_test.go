@@ -230,12 +230,14 @@ func TestAPIList(t *testing.T) {
 			conf := "api: yes\n"
 
 			if ca == "rtsps" {
-				conf += "protocols: [tcp]\n"
-				conf += "encryption: strict\n"
+				conf += "protocols: [tcp]\n" +
+					"encryption: strict\n" +
+					"serverCert: " + serverCertFpath + "\n" +
+					"serverKey: " + serverKeyFpath + "\n"
 			}
 
-			conf += "serverCert: " + serverCertFpath + "\n"
-			conf += "serverKey: " + serverKeyFpath + "\n"
+			conf += "paths:\n" +
+				"  all:\n"
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
@@ -348,10 +350,19 @@ func TestAPIKick(t *testing.T) {
 		"rtmp",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			p, ok := newInstance("api: yes\n" +
-				"encryption: optional\n" +
-				"serverCert: " + serverCertFpath + "\n" +
-				"serverKey: " + serverKeyFpath + "\n")
+			conf := "api: yes\n"
+
+			if ca == "rtsps" {
+				conf += "protocols: [tcp]\n" +
+					"encryption: strict\n" +
+					"serverCert: " + serverCertFpath + "\n" +
+					"serverKey: " + serverKeyFpath + "\n"
+			}
+
+			conf += "paths:\n" +
+				"  all:\n"
+
+			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
 			defer p.close()
 

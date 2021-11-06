@@ -338,10 +338,10 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.HLSAllowOrigin = "*"
 	}
 
-	if len(conf.Paths) == 0 {
-		conf.Paths = map[string]*PathConf{
-			"all": {},
-		}
+	// do not add automatically "all", since user may want to
+	// initialize all paths through API or hot reloading.
+	if conf.Paths == nil {
+		conf.Paths = make(map[string]*PathConf)
 	}
 
 	// "all" is an alias for "~^.*$"

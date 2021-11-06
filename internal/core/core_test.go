@@ -155,7 +155,8 @@ func newInstance(conf string) (*Core, bool) {
 func TestCorePathAutoDeletion(t *testing.T) {
 	for _, ca := range []string{"describe", "setup"} {
 		t.Run(ca, func(t *testing.T) {
-			p, ok := New([]string{})
+			p, ok := newInstance("paths:\n" +
+				"  all:\n")
 			require.Equal(t, true, ok)
 			defer p.close()
 

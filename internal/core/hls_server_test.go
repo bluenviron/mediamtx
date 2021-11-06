@@ -23,7 +23,8 @@ func TestHLSServerNotFound(t *testing.T) {
 }
 
 func TestHLSServerRead(t *testing.T) {
-	p, ok := newInstance("")
+	p, ok := newInstance("paths:\n" +
+		"  all:\n")
 	require.Equal(t, true, ok)
 	defer p.close()
 

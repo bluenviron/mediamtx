@@ -43,7 +43,9 @@ func TestRTSPServerPublishRead(t *testing.T) {
 
 				p, ok := newInstance("rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
-					"readTimeout: 20s\n")
+					"readTimeout: 20s\n" +
+					"paths:\n" +
+					"  all:\n")
 				require.Equal(t, true, ok)
 				defer p.close()
 			} else {
@@ -64,7 +66,9 @@ func TestRTSPServerPublishRead(t *testing.T) {
 					"protocols: [tcp]\n" +
 					"encryption: \"yes\"\n" +
 					"serverCert: " + serverCertFpath + "\n" +
-					"serverKey: " + serverKeyFpath + "\n")
+					"serverKey: " + serverKeyFpath + "\n" +
+					"paths:\n" +
+					"  all:\n")
 				require.Equal(t, true, ok)
 				defer p.close()
 			}
@@ -391,12 +395,14 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "rtmpDisable: yes\n" +
-				"protocols: [tcp]\n"
+				"protocols: [tcp]\n" +
+				"paths:\n" +
+				"  all:\n"
+
 			if ca == "disabled" {
-				conf += "paths:\n" +
-					"  all:\n" +
-					"    disablePublisherOverride: yes\n"
+				conf += "    disablePublisherOverride: yes\n"
 			}
+
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
 			defer p.close()
@@ -463,9 +469,12 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 
 func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 	t.Run("publish", func(t *testing.T) {
-		p, ok := newInstance("rtmpDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"readBufferSize: 4500\n")
+		p, ok := newInstance(
+			"rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
+				"readBufferSize: 4500\n" +
+				"paths:\n" +
+				"  all:\n")
 		require.Equal(t, true, ok)
 		defer p.close()
 
@@ -516,7 +525,9 @@ func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
 		p1, ok := newInstance("rtmpDisable: yes\n" +
 			"hlsDisable: yes\n" +
 			"protocols: [tcp]\n" +
-			"readBufferSize: 4500\n")
+			"readBufferSize: 4500\n" +
+			"paths:\n" +
+			"  all:\n")
 		require.Equal(t, true, ok)
 		defer p1.close()
 
