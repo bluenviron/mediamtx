@@ -30,7 +30,7 @@ type metricsRTMPServer interface {
 }
 
 type metricsHLSServer interface {
-	onAPIHLSMuxersList(req hlsServerMuxersListReq) hlsServerMuxersListRes
+	onAPIHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes
 }
 
 type metricsParent interface {
@@ -181,7 +181,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsServer) {
-		res := m.hlsServer.onAPIHLSMuxersList(hlsServerMuxersListReq{})
+		res := m.hlsServer.onAPIHLSMuxersList(hlsServerAPIMuxersListReq{})
 		if res.Err == nil {
 			for name := range res.Data.Items {
 				out += metric("hls_muxers{name=\""+name+"\"}", 1)

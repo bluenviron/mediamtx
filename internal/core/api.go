@@ -180,7 +180,7 @@ type apiRTMPServer interface {
 }
 
 type apiHLSServer interface {
-	onAPIHLSMuxersList(req hlsServerMuxersListReq) hlsServerMuxersListRes
+	onAPIHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes
 }
 
 type apiParent interface {
@@ -530,7 +530,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	res := a.hlsServer.onAPIHLSMuxersList(hlsServerMuxersListReq{})
+	res := a.hlsServer.onAPIHLSMuxersList(hlsServerAPIMuxersListReq{})
 	if res.Err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return

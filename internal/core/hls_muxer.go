@@ -141,8 +141,8 @@ type hlsMuxer struct {
 	requests        []hlsMuxerRequest
 
 	// in
-	request             chan hlsMuxerRequest
-	hlsServerMuxersList chan hlsServerMuxersListSubReq
+	request                chan hlsMuxerRequest
+	hlsServerAPIMuxersList chan hlsServerAPIMuxersListSubReq
 }
 
 func newHLSMuxer(
@@ -174,8 +174,8 @@ func newHLSMuxer(
 			v := time.Now().Unix()
 			return &v
 		}(),
-		request:             make(chan hlsMuxerRequest),
-		hlsServerMuxersList: make(chan hlsServerMuxersListSubReq),
+		request:                make(chan hlsMuxerRequest),
+		hlsServerAPIMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
 
 	m.log(logger.Info, "opened")
@@ -226,8 +226,8 @@ func (m *hlsMuxer) run() {
 					m.requests = append(m.requests, req)
 				}
 
-			case req := <-m.hlsServerMuxersList:
-				req.Data.Items[m.name] = hlsServerMuxersListItem{
+			case req := <-m.hlsServerAPIMuxersList:
+				req.Data.Items[m.name] = hlsServerAPIMuxersListItem{
 					LastRequest: time.Unix(atomic.LoadInt64(m.lastRequestTime), 0).String(),
 				}
 				close(req.Res)
@@ -512,10 +512,10 @@ func (m *hlsMuxer) onReaderAPIDescribe() interface{} {
 }
 
 // onAPIHLSMuxersList is called by api.
-func (m *hlsMuxer) onAPIHLSMuxersList(req hlsServerMuxersListSubReq) {
+func (m *hlsMuxer) onAPIHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
 	req.Res = make(chan struct{})
 	select {
-	case m.hlsServerMuxersList <- req:
+	case m.hlsServerAPIMuxersList <- req:
 		<-req.Res
 
 	case <-m.ctx.Done():
