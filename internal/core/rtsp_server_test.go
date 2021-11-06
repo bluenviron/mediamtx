@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"os"
 	"testing"
 	"time"
@@ -465,128 +464,6 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			<-readDone
 		})
 	}
-}
-
-func TestRTSPServerNonCompliantFrameSize(t *testing.T) {
-	t.Run("publish", func(t *testing.T) {
-		p, ok := newInstance(
-			"rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"readBufferSize: 4500\n" +
-				"paths:\n" +
-				"  all:\n")
-		require.Equal(t, true, ok)
-		defer p.close()
-
-		track, err := gortsplib.NewTrackH264(96,
-			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
-		require.NoError(t, err)
-
-		client := &gortsplib.Client{
-			Transport: func() *gortsplib.Transport {
-				v := gortsplib.TransportTCP
-				return &v
-			}(),
-			ReadBufferSize: 4500,
-		}
-
-		source, err := client.DialPublish("rtsp://localhost:8554/teststream",
-			gortsplib.Tracks{track})
-		require.NoError(t, err)
-		defer source.Close()
-
-		dest, err := client.DialRead("rtsp://localhost:8554/teststream")
-		require.NoError(t, err)
-		defer dest.Close()
-
-		input := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
-
-		readDone := make(chan struct{})
-		frameRecv := make(chan struct{})
-		go func() {
-			defer close(readDone)
-			dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-				require.Equal(t, gortsplib.StreamTypeRTP, streamType)
-				require.Equal(t, input, payload)
-				close(frameRecv)
-			})
-		}()
-
-		err = source.WriteFrame(0, gortsplib.StreamTypeRTP, input)
-		require.NoError(t, err)
-
-		<-frameRecv
-
-		dest.Close()
-		<-readDone
-	})
-
-	t.Run("proxy", func(t *testing.T) {
-		p1, ok := newInstance("rtmpDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"protocols: [tcp]\n" +
-			"readBufferSize: 4500\n" +
-			"paths:\n" +
-			"  all:\n")
-		require.Equal(t, true, ok)
-		defer p1.close()
-
-		track, err := gortsplib.NewTrackH264(96,
-			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
-		require.NoError(t, err)
-
-		client := &gortsplib.Client{
-			Transport: func() *gortsplib.Transport {
-				v := gortsplib.TransportTCP
-				return &v
-			}(),
-			ReadBufferSize: 4500,
-		}
-
-		source, err := client.DialPublish("rtsp://localhost:8554/teststream",
-			gortsplib.Tracks{track})
-		require.NoError(t, err)
-		defer source.Close()
-
-		p2, ok := newInstance("rtmpDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"protocols: [tcp]\n" +
-			"readBufferSize: 4500\n" +
-			"rtspAddress: :8555\n" +
-			"paths:\n" +
-			"  teststream:\n" +
-			"    source: rtsp://localhost:8554/teststream\n" +
-			"    sourceProtocol: tcp\n")
-		require.Equal(t, true, ok)
-		defer p2.close()
-
-		time.Sleep(100 * time.Millisecond)
-
-		dest, err := client.DialRead("rtsp://localhost:8555/teststream")
-		require.NoError(t, err)
-		defer dest.Close()
-
-		input := bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04, 0x05}, 4096/5)
-
-		readDone := make(chan struct{})
-		frameRecv := make(chan struct{})
-		go func() {
-			defer close(readDone)
-			dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-				require.Equal(t, gortsplib.StreamTypeRTP, streamType)
-				require.Equal(t, input, payload)
-				close(frameRecv)
-			})
-		}()
-
-		err = source.WriteFrame(0, gortsplib.StreamTypeRTP, input)
-		require.NoError(t, err)
-
-		<-frameRecv
-
-		dest.Close()
-		<-readDone
-	})
 }
 
 func TestRTSPServerRedirect(t *testing.T) {
