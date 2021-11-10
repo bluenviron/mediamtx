@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"reflect"
 
 	"github.com/aler9/gortsplib"
@@ -129,6 +130,9 @@ func (p *Core) run() {
 		return make(chan struct{})
 	}()
 
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
 outer:
 	for {
 		select {
@@ -155,6 +159,10 @@ outer:
 				p.Log(logger.Error, "%s", err)
 				break outer
 			}
+
+		case <-interrupt:
+			p.Log(logger.Info, "shutting down gracefully")
+			break outer
 
 		case <-p.ctx.Done():
 			break outer
