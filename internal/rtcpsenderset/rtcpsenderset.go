@@ -9,8 +9,8 @@ import (
 
 // RTCPSenderSet is a set of RTCP senders.
 type RTCPSenderSet struct {
-	onFrame func(int, gortsplib.StreamType, []byte)
-	senders []*rtcpsender.RTCPSender
+	onPacketRTCP func(int, []byte)
+	senders      []*rtcpsender.RTCPSender
 
 	// in
 	terminate chan struct{}
@@ -22,12 +22,12 @@ type RTCPSenderSet struct {
 // New allocates a RTCPSenderSet.
 func New(
 	tracks gortsplib.Tracks,
-	onFrame func(int, gortsplib.StreamType, []byte),
+	onPacketRTCP func(int, []byte),
 ) *RTCPSenderSet {
 	s := &RTCPSenderSet{
-		onFrame:   onFrame,
-		terminate: make(chan struct{}),
-		done:      make(chan struct{}),
+		onPacketRTCP: onPacketRTCP,
+		terminate:    make(chan struct{}),
+		done:         make(chan struct{}),
 	}
 
 	s.senders = make([]*rtcpsender.RTCPSender, len(tracks))
@@ -61,7 +61,7 @@ func (s *RTCPSenderSet) run() {
 			for i, sender := range s.senders {
 				r := sender.Report(now)
 				if r != nil {
-					s.onFrame(i, gortsplib.StreamTypeRTCP, r)
+					s.onPacketRTCP(i, r)
 				}
 			}
 
@@ -71,7 +71,12 @@ func (s *RTCPSenderSet) run() {
 	}
 }
 
-// OnFrame sends a frame to the senders.
-func (s *RTCPSenderSet) OnFrame(trackID int, streamType gortsplib.StreamType, f []byte) {
-	s.senders[trackID].ProcessFrame(time.Now(), streamType, f)
+// OnPacketRTP sends a RTP packet to the senders.
+func (s *RTCPSenderSet) OnPacketRTP(trackID int, payload []byte) {
+	s.senders[trackID].ProcessPacketRTP(time.Now(), payload)
+}
+
+// OnPacketRTCP sends a RTCP packet to the senders.
+func (s *RTCPSenderSet) OnPacketRTCP(trackID int, payload []byte) {
+	s.senders[trackID].ProcessPacketRTCP(time.Now(), payload)
 }

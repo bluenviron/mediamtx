@@ -485,12 +485,12 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		return rres.Err
 	}
 
-	rtcpSenders := rtcpsenderset.New(tracks, rres.Stream.onFrame)
+	rtcpSenders := rtcpsenderset.New(tracks, rres.Stream.onPacketRTCP)
 	defer rtcpSenders.Close()
 
-	onFrame := func(trackID int, payload []byte) {
-		rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-		rres.Stream.onFrame(trackID, gortsplib.StreamTypeRTP, payload)
+	onPacketRTP := func(trackID int, payload []byte) {
+		rtcpSenders.OnPacketRTP(trackID, payload)
+		rres.Stream.onPacketRTP(trackID, payload)
 	}
 
 	for {
@@ -503,7 +503,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		switch pkt.Type {
 		case av.H264:
 			if videoTrack == nil {
-				return fmt.Errorf("received an H264 frame, but track is not set up")
+				return fmt.Errorf("received an H264 packet, but track is not set up")
 			}
 
 			nalus, err := h264.DecodeAVCC(pkt.Data)
@@ -543,12 +543,12 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			}
 
 			for _, byts := range bytss {
-				onFrame(videoTrackID, byts)
+				onPacketRTP(videoTrackID, byts)
 			}
 
 		case av.AAC:
 			if audioTrack == nil {
-				return fmt.Errorf("received an AAC frame, but track is not set up")
+				return fmt.Errorf("received an AAC packet, but track is not set up")
 			}
 
 			pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
@@ -566,7 +566,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			}
 
 			for _, byts := range bytss {
-				onFrame(audioTrackID, byts)
+				onPacketRTP(audioTrackID, byts)
 			}
 		}
 	}
@@ -592,11 +592,13 @@ func (c *rtmpConn) onReaderAccepted() {
 	c.log(logger.Info, "is reading from path '%s'", c.path.Name())
 }
 
-// onReaderFrame implements reader.
-func (c *rtmpConn) onReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	if streamType == gortsplib.StreamTypeRTP {
-		c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})
-	}
+// onReaderPacketRTP implements reader.
+func (c *rtmpConn) onReaderPacketRTP(trackID int, payload []byte) {
+	c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, payload})
+}
+
+// onReaderPacketRTCP implements reader.
+func (c *rtmpConn) onReaderPacketRTCP(trackID int, payload []byte) {
 }
 
 // onReaderAPIDescribe implements reader.

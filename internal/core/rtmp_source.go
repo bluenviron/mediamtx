@@ -163,12 +163,12 @@ func (s *rtmpSource) runInner() bool {
 						s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
 					}()
 
-					rtcpSenders := rtcpsenderset.New(tracks, res.Stream.onFrame)
+					rtcpSenders := rtcpsenderset.New(tracks, res.Stream.onPacketRTCP)
 					defer rtcpSenders.Close()
 
-					onFrame := func(trackID int, payload []byte) {
-						rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-						res.Stream.onFrame(trackID, gortsplib.StreamTypeRTP, payload)
+					onPacketRTP := func(trackID int, payload []byte) {
+						rtcpSenders.OnPacketRTP(trackID, payload)
+						res.Stream.onPacketRTP(trackID, payload)
 					}
 
 					for {
@@ -181,7 +181,7 @@ func (s *rtmpSource) runInner() bool {
 						switch pkt.Type {
 						case av.H264:
 							if videoTrack == nil {
-								return fmt.Errorf("received an H264 frame, but track is not set up")
+								return fmt.Errorf("received an H264 packet, but track is not set up")
 							}
 
 							nalus, err := h264.DecodeAVCC(pkt.Data)
@@ -216,12 +216,12 @@ func (s *rtmpSource) runInner() bool {
 							}
 
 							for _, byts := range bytss {
-								onFrame(videoTrackID, byts)
+								onPacketRTP(videoTrackID, byts)
 							}
 
 						case av.AAC:
 							if audioTrack == nil {
-								return fmt.Errorf("received an AAC frame, but track is not set up")
+								return fmt.Errorf("received an AAC packet, but track is not set up")
 							}
 
 							pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
@@ -239,7 +239,7 @@ func (s *rtmpSource) runInner() bool {
 							}
 
 							for _, byts := range bytss {
-								onFrame(audioTrackID, byts)
+								onPacketRTP(audioTrackID, byts)
 							}
 						}
 					}

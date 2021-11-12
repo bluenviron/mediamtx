@@ -118,7 +118,6 @@ func (s *rtspSource) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
 	tlsConfig := &tls.Config{}
-
 	if s.fingerprint != "" {
 		tlsConfig.InsecureSkipVerify = true
 		tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
@@ -136,7 +135,7 @@ func (s *rtspSource) runInner() bool {
 		}
 	}
 
-	client := &gortsplib.Client{
+	c := &gortsplib.Client{
 		Transport:       s.proto.Transport,
 		TLSConfig:       tlsConfig,
 		ReadTimeout:     time.Duration(s.readTimeout),
@@ -152,63 +151,78 @@ func (s *rtspSource) runInner() bool {
 		},
 	}
 
-	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
-
-	var conn *gortsplib.ClientConn
-	var err error
-	dialDone := make(chan struct{})
-	go func() {
-		defer close(dialDone)
-		conn, err = client.DialReadContext(innerCtx, s.ur)
-	}()
-
-	select {
-	case <-s.ctx.Done():
-		innerCtxCancel()
-		<-dialDone
-		return false
-
-	case <-dialDone:
-		innerCtxCancel()
-	}
-
+	u, err := base.ParseURL(s.ur)
 	if err != nil {
 		s.log(logger.Info, "ERR: %s", err)
 		return true
 	}
 
-	res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-		Source: s,
-		Tracks: conn.Tracks(),
-	})
-	if res.Err != nil {
-		s.log(logger.Info, "ERR: %s", res.Err)
+	err = c.Start(u.Scheme, u.Host)
+	if err != nil {
+		s.log(logger.Info, "ERR: %s", err)
 		return true
 	}
 
-	s.log(logger.Info, "ready")
-
-	defer func() {
-		s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
-	}()
-
 	readErr := make(chan error)
 	go func() {
-		readErr <- conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-			res.Stream.onFrame(trackID, streamType, payload)
-		})
+		readErr <- func() error {
+			_, err = c.Options(u)
+			if err != nil {
+				return err
+			}
+
+			tracks, baseURL, _, err := c.Describe(u)
+			if err != nil {
+				return err
+			}
+
+			for _, t := range tracks {
+				_, err := c.Setup(true, baseURL, t, 0, 0)
+				if err != nil {
+					panic(err)
+				}
+			}
+
+			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
+				Source: s,
+				Tracks: c.Tracks(),
+			})
+			if res.Err != nil {
+				return res.Err
+			}
+
+			s.log(logger.Info, "ready")
+
+			defer func() {
+				s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
+			}()
+
+			c.OnPacketRTP = func(trackID int, payload []byte) {
+				res.Stream.onPacketRTP(trackID, payload)
+			}
+
+			c.OnPacketRTCP = func(trackID int, payload []byte) {
+				res.Stream.onPacketRTCP(trackID, payload)
+			}
+
+			_, err = c.Play(nil)
+			if err != nil {
+				return err
+			}
+
+			return c.Wait()
+		}()
 	}()
 
 	select {
-	case <-s.ctx.Done():
-		conn.Close()
-		<-readErr
-		return false
-
 	case err := <-readErr:
 		s.log(logger.Info, "ERR: %s", err)
-		conn.Close()
 		return true
+
+	case <-s.ctx.Done():
+		c.Close()
+		<-readErr
+		return false
 	}
 }
 

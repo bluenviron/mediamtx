@@ -12,7 +12,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/headers"
 	psdp "github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
 )
@@ -161,15 +160,17 @@ func TestCorePathAutoDeletion(t *testing.T) {
 			defer p.close()
 
 			func() {
-				conn, err := gortsplib.Dial("rtsp", "localhost:8554")
+				c := gortsplib.Client{}
+
+				err := c.Start("rtsp", "localhost:8554")
 				require.NoError(t, err)
-				defer conn.Close()
+				defer c.Close()
 
 				if ca == "describe" {
 					ur, err := base.ParseURL("rtsp://localhost:8554/mypath")
 					require.NoError(t, err)
 
-					_, _, _, err = conn.Describe(ur)
+					_, _, _, err = c.Describe(ur)
 					require.EqualError(t, err, "bad status code: 404 (Not Found)")
 				} else {
 					baseURL, err := base.ParseURL("rtsp://localhost:8554/mypath/")
@@ -184,7 +185,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 						Value: "trackID=0",
 					})
 
-					_, err = conn.Setup(headers.TransportModePlay, baseURL, track, 0, 0)
+					_, err = c.Setup(true, baseURL, track, 0, 0)
 					require.EqualError(t, err, "bad status code: 404 (Not Found)")
 				}
 			}()
@@ -219,7 +220,9 @@ func main() {
 		panic(err)
 	}
 
-	source, err := gortsplib.DialPublish(
+	source := gortsplib.Client{}
+
+	err = source.StartPublishing(
 		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("RTSP_PATH"),
 		gortsplib.Tracks{track})
 	if err != nil {
@@ -263,15 +266,17 @@ func main() {
 			defer p1.close()
 
 			func() {
-				conn, err := gortsplib.Dial("rtsp", "localhost:8554")
+				c := gortsplib.Client{}
+
+				err := c.Start("rtsp", "localhost:8554")
 				require.NoError(t, err)
-				defer conn.Close()
+				defer c.Close()
 
 				if ca == "describe" || ca == "describe and setup" {
 					ur, err := base.ParseURL("rtsp://localhost:8554/ondemand")
 					require.NoError(t, err)
 
-					_, _, _, err = conn.Describe(ur)
+					_, _, _, err = c.Describe(ur)
 					require.NoError(t, err)
 				}
 
@@ -288,7 +293,7 @@ func main() {
 						Value: "trackID=0",
 					})
 
-					_, err = conn.Setup(headers.TransportModePlay, baseURL, track, 0, 0)
+					_, err = c.Setup(true, baseURL, track, 0, 0)
 					require.NoError(t, err)
 				}
 			}()
@@ -324,7 +329,9 @@ func TestCoreHotReloading(t *testing.T) {
 			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
-		_, err = gortsplib.DialPublish(
+		c := gortsplib.Client{}
+
+		err = c.StartPublishing(
 			"rtsp://localhost:8554/test1",
 			gortsplib.Tracks{track})
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
@@ -342,7 +349,9 @@ func TestCoreHotReloading(t *testing.T) {
 			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
-		conn, err := gortsplib.DialPublish(
+		conn := gortsplib.Client{}
+
+		err = conn.StartPublishing(
 			"rtsp://localhost:8554/test1",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)

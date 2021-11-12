@@ -117,6 +117,7 @@ func newRTSPServer(
 		WriteTimeout:    time.Duration(writeTimeout),
 		ReadBufferCount: readBufferCount,
 		ReadBufferSize:  readBufferSize,
+		RTSPAddress:     address,
 	}
 
 	if useUDP {
@@ -139,7 +140,7 @@ func newRTSPServer(
 		s.srv.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 	}
 
-	err := s.srv.Start(address)
+	err := s.srv.Start()
 	if err != nil {
 		return nil, err
 	}
@@ -375,12 +376,20 @@ func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Resp
 	return se.onPause(ctx)
 }
 
-// OnFrame implements gortsplib.ServerHandlerOnFrame.
-func (s *rtspServer) OnFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
+// OnPacketRTP implements gortsplib.ServerHandlerOnPacket.
+func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
-	se.onFrame(ctx)
+	se.onPacketRTP(ctx)
+}
+
+// OnPacketRTCP implements gortsplib.ServerHandlerOnPacket.
+func (s *rtspServer) OnPacketRTCP(ctx *gortsplib.ServerHandlerOnPacketRTCPCtx) {
+	s.mutex.RLock()
+	se := s.sessions[ctx.Session]
+	s.mutex.RUnlock()
+	se.onPacketRTCP(ctx)
 }
 
 // onAPISessionsList is called by api and metrics.

@@ -497,11 +497,13 @@ func (m *hlsMuxer) onReaderAccepted() {
 	m.log(logger.Info, "is converting into HLS")
 }
 
-// onReaderFrame implements reader.
-func (m *hlsMuxer) onReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	if streamType == gortsplib.StreamTypeRTP {
-		m.ringBuffer.Push(hlsMuxerTrackIDPayloadPair{trackID, payload})
-	}
+// onReaderPacketRTP implements reader.
+func (m *hlsMuxer) onReaderPacketRTP(trackID int, payload []byte) {
+	m.ringBuffer.Push(hlsMuxerTrackIDPayloadPair{trackID, payload})
+}
+
+// onReaderPacketRTCP implements reader.
+func (m *hlsMuxer) onReaderPacketRTCP(trackID int, payload []byte) {
 }
 
 // onReaderAPIDescribe implements reader.

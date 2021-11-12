@@ -190,7 +190,7 @@ func TestClient(t *testing.T) {
 			require.NoError(t, err)
 			defer ts.close()
 
-			frameRecv := make(chan struct{})
+			packetRecv := make(chan struct{})
 
 			prefix := "http"
 			if mode == "tls" {
@@ -206,13 +206,13 @@ func TestClient(t *testing.T) {
 				func(isVideo bool, byts []byte) {
 					require.Equal(t, true, isVideo)
 					require.Equal(t, byte(0x05), byts[12])
-					close(frameRecv)
+					close(packetRecv)
 				},
 				testClientParent{},
 			)
 			require.NoError(t, err)
 
-			<-frameRecv
+			<-packetRecv
 
 			c.Close()
 			c.Wait()

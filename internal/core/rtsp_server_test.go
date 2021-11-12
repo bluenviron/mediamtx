@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/stretchr/testify/require"
 )
 
@@ -204,7 +203,9 @@ func TestRTSPServerAuth(t *testing.T) {
 			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
-		source, err := gortsplib.DialPublish(
+		source := gortsplib.Client{}
+
+		err = source.StartPublishing(
 			"rtsp://testuser:test%21%24%28%29%2A%2B.%3B%3C%3D%3E%5B%5D%5E_-%7B%7D@127.0.0.1:8554/test/stream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
@@ -276,7 +277,9 @@ func TestRTSPServerAuth(t *testing.T) {
 			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
-		source, err := gortsplib.DialPublish(
+		source := gortsplib.Client{}
+
+		err = source.StartPublishing(
 			"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
@@ -320,7 +323,9 @@ func TestRTSPServerAuthFail(t *testing.T) {
 				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
-			_, err = gortsplib.DialPublish(
+			c := gortsplib.Client{}
+
+			err = c.StartPublishing(
 				"rtsp://"+ca.user+":"+ca.pass+"@localhost:8554/test/stream",
 				gortsplib.Tracks{track},
 			)
@@ -359,7 +364,9 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			_, err := gortsplib.DialRead(
+			c := gortsplib.Client{}
+
+			err := c.StartReading(
 				"rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream",
 			)
 			require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
@@ -379,7 +386,9 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 		require.NoError(t, err)
 
-		_, err = gortsplib.DialPublish(
+		c := gortsplib.Client{}
+
+		err = c.StartPublishing(
 			"rtsp://localhost:8554/test/stream",
 			gortsplib.Tracks{track},
 		)
@@ -410,12 +419,16 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 			require.NoError(t, err)
 
-			s1, err := gortsplib.DialPublish("rtsp://localhost:8554/teststream",
+			s1 := gortsplib.Client{}
+
+			err = s1.StartPublishing("rtsp://localhost:8554/teststream",
 				gortsplib.Tracks{track})
 			require.NoError(t, err)
 			defer s1.Close()
 
-			s2, err := gortsplib.DialPublish("rtsp://localhost:8554/teststream",
+			s2 := gortsplib.Client{}
+
+			err = s2.StartPublishing("rtsp://localhost:8554/teststream",
 				gortsplib.Tracks{track})
 			if ca == "enabled" {
 				require.NoError(t, err)
@@ -424,27 +437,24 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 				require.Error(t, err)
 			}
 
-			d1, err := gortsplib.DialRead("rtsp://localhost:8554/teststream")
-			require.NoError(t, err)
-			defer d1.Close()
-
-			readDone := make(chan struct{})
 			frameRecv := make(chan struct{})
-			go func() {
-				defer close(readDone)
-				d1.ReadFrames(func(trackID int, streamType base.StreamType, payload []byte) {
-					if streamType == gortsplib.StreamTypeRTP {
-						if ca == "enabled" {
-							require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
-						} else {
-							require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
-						}
-						close(frameRecv)
-					}
-				})
-			}()
 
-			err = s1.WriteFrame(0, gortsplib.StreamTypeRTP,
+			c := gortsplib.Client{
+				OnPacketRTP: func(trackID int, payload []byte) {
+					if ca == "enabled" {
+						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
+					} else {
+						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+					}
+					close(frameRecv)
+				},
+			}
+
+			err = c.StartReading("rtsp://localhost:8554/teststream")
+			require.NoError(t, err)
+			defer c.Close()
+
+			err = s1.WritePacketRTP(0,
 				[]byte{0x01, 0x02, 0x03, 0x04})
 			if ca == "enabled" {
 				require.Error(t, err)
@@ -453,15 +463,12 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			}
 
 			if ca == "enabled" {
-				err = s2.WriteFrame(0, gortsplib.StreamTypeRTP,
+				err = s2.WritePacketRTP(0,
 					[]byte{0x05, 0x06, 0x07, 0x08})
 				require.NoError(t, err)
 			}
 
 			<-frameRecv
-
-			d1.Close()
-			<-readDone
 		})
 	}
 }

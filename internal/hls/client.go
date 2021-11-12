@@ -133,9 +133,9 @@ type clientVideoProcessorData struct {
 }
 
 type clientVideoProcessor struct {
-	ctx     context.Context
-	onTrack func(*gortsplib.Track) error
-	onFrame func([]byte)
+	ctx      context.Context
+	onTrack  func(*gortsplib.Track) error
+	onPacket func([]byte)
 
 	queue         chan clientVideoProcessorData
 	sps           []byte
@@ -147,13 +147,13 @@ type clientVideoProcessor struct {
 func newClientVideoProcessor(
 	ctx context.Context,
 	onTrack func(*gortsplib.Track) error,
-	onFrame func([]byte),
+	onPacket func([]byte),
 ) *clientVideoProcessor {
 	p := &clientVideoProcessor{
-		ctx:     ctx,
-		onTrack: onTrack,
-		onFrame: onFrame,
-		queue:   make(chan clientVideoProcessorData, clientQueueSize),
+		ctx:      ctx,
+		onTrack:  onTrack,
+		onPacket: onPacket,
+		queue:    make(chan clientVideoProcessorData, clientQueueSize),
 	}
 
 	return p
@@ -259,7 +259,7 @@ func (p *clientVideoProcessor) doProcess(
 	}
 
 	for _, byts := range bytss {
-		p.onFrame(byts)
+		p.onPacket(byts)
 	}
 
 	return nil
@@ -289,9 +289,9 @@ type clientAudioProcessorData struct {
 }
 
 type clientAudioProcessor struct {
-	ctx     context.Context
-	onTrack func(*gortsplib.Track) error
-	onFrame func([]byte)
+	ctx      context.Context
+	onTrack  func(*gortsplib.Track) error
+	onPacket func([]byte)
 
 	queue         chan clientAudioProcessorData
 	conf          *gortsplib.TrackConfigAAC
@@ -302,13 +302,13 @@ type clientAudioProcessor struct {
 func newClientAudioProcessor(
 	ctx context.Context,
 	onTrack func(*gortsplib.Track) error,
-	onFrame func([]byte),
+	onPacket func([]byte),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{
-		ctx:     ctx,
-		onTrack: onTrack,
-		onFrame: onFrame,
-		queue:   make(chan clientAudioProcessorData, clientQueueSize),
+		ctx:      ctx,
+		onTrack:  onTrack,
+		onPacket: onPacket,
+		queue:    make(chan clientAudioProcessorData, clientQueueSize),
 	}
 
 	return p
@@ -392,7 +392,7 @@ func (p *clientAudioProcessor) doProcess(
 	}
 
 	for _, byts := range bytss {
-		p.onFrame(byts)
+		p.onPacket(byts)
 	}
 
 	return nil
@@ -426,7 +426,7 @@ type ClientParent interface {
 // Client is a HLS client.
 type Client struct {
 	onTracks func(*gortsplib.Track, *gortsplib.Track) error
-	onFrame  func(bool, []byte)
+	onPacket func(bool, []byte)
 	parent   ClientParent
 
 	ctx                   context.Context
@@ -462,7 +462,7 @@ func NewClient(
 	primaryPlaylistURLStr string,
 	fingerprint string,
 	onTracks func(*gortsplib.Track, *gortsplib.Track) error,
-	onFrame func(bool, []byte),
+	onPacket func(bool, []byte),
 	parent ClientParent,
 ) (*Client, error) {
 	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
@@ -493,7 +493,7 @@ func NewClient(
 
 	c := &Client{
 		onTracks:           onTracks,
-		onFrame:            onFrame,
+		onPacket:           onPacket,
 		parent:             parent,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
@@ -546,7 +546,7 @@ func (c *Client) runInner() error {
 				c.videoProc = newClientVideoProcessor(
 					innerCtx,
 					c.onVideoTrack,
-					c.onVideoFrame)
+					c.onVideoPacket)
 
 				go func() { errChan <- c.videoProc.run() }()
 			}
@@ -555,7 +555,7 @@ func (c *Client) runInner() error {
 				c.audioProc = newClientAudioProcessor(
 					innerCtx,
 					c.onAudioTrack,
-					c.onAudioFrame)
+					c.onAudioPacket)
 
 				go func() { errChan <- c.audioProc.run() }()
 			}
@@ -924,16 +924,16 @@ func (c *Client) initializeTracks() error {
 	return c.onTracks(c.videoTrack, c.audioTrack)
 }
 
-func (c *Client) onVideoFrame(payload []byte) {
+func (c *Client) onVideoPacket(payload []byte) {
 	c.tracksMutex.RLock()
 	defer c.tracksMutex.RUnlock()
 
-	c.onFrame(true, payload)
+	c.onPacket(true, payload)
 }
 
-func (c *Client) onAudioFrame(payload []byte) {
+func (c *Client) onAudioPacket(payload []byte) {
 	c.tracksMutex.RLock()
 	defer c.tracksMutex.RUnlock()
 
-	c.onFrame(false, payload)
+	c.onPacket(false, payload)
 }

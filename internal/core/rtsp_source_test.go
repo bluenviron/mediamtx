@@ -59,7 +59,7 @@ func (sh *testServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Res
 func (sh *testServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 	go func() {
 		time.Sleep(1 * time.Second)
-		sh.stream.WriteFrame(0, gortsplib.StreamTypeRTP, []byte{0x01, 0x02, 0x03, 0x04})
+		sh.stream.WritePacketRTP(0, []byte{0x01, 0x02, 0x03, 0x04})
 	}()
 
 	return &base.Response{
@@ -75,7 +75,8 @@ func TestRTSPSource(t *testing.T) {
 	} {
 		t.Run(source, func(t *testing.T) {
 			s := gortsplib.Server{
-				Handler: &testServer{user: "testuser", pass: "testpass"},
+				Handler:     &testServer{user: "testuser", pass: "testpass"},
+				RTSPAddress: "127.0.0.1:8555",
 			}
 
 			switch source {
@@ -98,7 +99,7 @@ func TestRTSPSource(t *testing.T) {
 				s.TLSConfig = &tls.Config{Certificates: []tls.Certificate{cert}}
 			}
 
-			err := s.Start("127.0.0.1:8555")
+			err := s.Start()
 			require.NoError(t, err)
 			defer s.Wait()
 			defer s.Close()
@@ -123,32 +124,31 @@ func TestRTSPSource(t *testing.T) {
 
 			time.Sleep(1 * time.Second)
 
-			conn, err := gortsplib.DialRead("rtsp://127.0.0.1:8554/proxied")
-			require.NoError(t, err)
-
-			readDone := make(chan struct{})
 			received := make(chan struct{})
-			go func() {
-				defer close(readDone)
-				conn.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-					if streamType == gortsplib.StreamTypeRTP {
-						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
-						close(received)
-					}
-				})
-			}()
+
+			c := gortsplib.Client{
+				OnPacketRTP: func(trackID int, payload []byte) {
+					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+					close(received)
+				},
+			}
+
+			err = c.StartReading("rtsp://127.0.0.1:8554/proxied")
+			require.NoError(t, err)
+			defer c.Close()
 
 			<-received
-			conn.Close()
-			<-readDone
 		})
 	}
 }
 
 func TestRTSPSourceNoPassword(t *testing.T) {
 	done := make(chan struct{})
-	s := gortsplib.Server{Handler: &testServer{user: "testuser", done: done}}
-	err := s.Start("127.0.0.1:8555")
+	s := gortsplib.Server{
+		Handler:     &testServer{user: "testuser", done: done},
+		RTSPAddress: "127.0.0.1:8555",
+	}
+	err := s.Start()
 	require.NoError(t, err)
 	defer s.Wait()
 	defer s.Close()

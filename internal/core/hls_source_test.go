@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -132,28 +131,21 @@ func TestHLSSource(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	dest, err := gortsplib.DialRead("rtsp://localhost:8554/proxied")
-	require.NoError(t, err)
-
-	rtcpRecv := int64(0)
-	readDone := make(chan struct{})
 	frameRecv := make(chan struct{})
-	go func() {
-		defer close(readDone)
-		dest.ReadFrames(func(trackID int, streamType gortsplib.StreamType, payload []byte) {
-			if atomic.SwapInt64(&rtcpRecv, 1) == 0 {
-			} else {
-				require.Equal(t, gortsplib.StreamTypeRTP, streamType)
-				var pkt rtp.Packet
-				err := pkt.Unmarshal(payload)
-				require.NoError(t, err)
-				require.Equal(t, []byte{0x05}, pkt.Payload)
-				close(frameRecv)
-			}
-		})
-	}()
+
+	c := gortsplib.Client{
+		OnPacketRTP: func(trackID int, payload []byte) {
+			var pkt rtp.Packet
+			err := pkt.Unmarshal(payload)
+			require.NoError(t, err)
+			require.Equal(t, []byte{0x05}, pkt.Payload)
+			close(frameRecv)
+		},
+	}
+
+	err = c.StartReading("rtsp://localhost:8554/proxied")
+	require.NoError(t, err)
+	defer c.Close()
 
 	<-frameRecv
-	dest.Close()
-	<-readDone
 }

@@ -123,12 +123,12 @@ func (s *hlsSource) runInner() bool {
 		s.Log(logger.Info, "ready")
 
 		stream = res.Stream
-		rtcpSenders = rtcpsenderset.New(tracks, stream.onFrame)
+		rtcpSenders = rtcpsenderset.New(tracks, stream.onPacketRTCP)
 
 		return nil
 	}
 
-	onFrame := func(isVideo bool, payload []byte) {
+	onPacket := func(isVideo bool, payload []byte) {
 		var trackID int
 		if isVideo {
 			trackID = videoTrackID
@@ -137,8 +137,8 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		if stream != nil {
-			rtcpSenders.OnFrame(trackID, gortsplib.StreamTypeRTP, payload)
-			stream.onFrame(trackID, gortsplib.StreamTypeRTP, payload)
+			rtcpSenders.OnPacketRTP(trackID, payload)
+			stream.onPacketRTP(trackID, payload)
 		}
 	}
 
@@ -146,7 +146,7 @@ func (s *hlsSource) runInner() bool {
 		s.ur,
 		s.fingerprint,
 		onTracks,
-		onFrame,
+		onPacket,
 		s,
 	)
 	if err != nil {

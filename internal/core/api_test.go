@@ -189,7 +189,9 @@ func TestAPIPathsList(t *testing.T) {
 	require.NoError(t, err)
 
 	func() {
-		source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+		source := gortsplib.Client{}
+
+		err = source.StartPublishing("rtsp://localhost:8554/mypath",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
@@ -200,7 +202,9 @@ func TestAPIPathsList(t *testing.T) {
 	}()
 
 	func() {
-		source, err := gortsplib.DialPublish("rtsps://localhost:8555/mypath",
+		source := gortsplib.Client{}
+
+		err := source.StartPublishing("rtsps://localhost:8555/mypath",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
@@ -249,13 +253,17 @@ func TestAPIList(t *testing.T) {
 
 			switch ca {
 			case "rtsp":
-				source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+				source := gortsplib.Client{}
+
+				err := source.StartPublishing("rtsp://localhost:8554/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()
 
 			case "rtsps":
-				source, err := gortsplib.DialPublish("rtsps://localhost:8555/mypath",
+				source := gortsplib.Client{}
+
+				err := source.StartPublishing("rtsps://localhost:8555/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()
@@ -273,7 +281,9 @@ func TestAPIList(t *testing.T) {
 				defer cnt1.close()
 
 			case "hls":
-				source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+				source := gortsplib.Client{}
+
+				err := source.StartPublishing("rtsp://localhost:8554/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()
@@ -372,13 +382,17 @@ func TestAPIKick(t *testing.T) {
 
 			switch ca {
 			case "rtsp":
-				source, err := gortsplib.DialPublish("rtsp://localhost:8554/mypath",
+				source := gortsplib.Client{}
+
+				err := source.StartPublishing("rtsp://localhost:8554/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()
 
 			case "rtsps":
-				source, err := gortsplib.DialPublish("rtsps://localhost:8555/mypath",
+				source := gortsplib.Client{}
+
+				err := source.StartPublishing("rtsps://localhost:8555/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()

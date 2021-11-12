@@ -335,9 +335,14 @@ func (s *rtspSession) onReaderAccepted() {
 		s.ss.SetuppedTransport())
 }
 
-// onReaderFrame implements reader.
-func (s *rtspSession) onReaderFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
-	s.ss.WriteFrame(trackID, streamType, payload)
+// onReaderPacketRTP implements reader.
+func (s *rtspSession) onReaderPacketRTP(trackID int, payload []byte) {
+	s.ss.WritePacketRTP(trackID, payload)
+}
+
+// onReaderPacketRTCP implements reader.
+func (s *rtspSession) onReaderPacketRTCP(trackID int, payload []byte) {
+	s.ss.WritePacketRTCP(trackID, payload)
 }
 
 // onReaderAPIDescribe implements reader.
@@ -384,11 +389,20 @@ func (s *rtspSession) onPublisherAccepted(tracksLen int) {
 		s.ss.SetuppedTransport())
 }
 
-// onFrame is called by rtspServer.
-func (s *rtspSession) onFrame(ctx *gortsplib.ServerHandlerOnFrameCtx) {
+// onPacketRTP is called by rtspServer.
+func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	if s.ss.State() != gortsplib.ServerSessionStatePublish {
 		return
 	}
 
-	s.stream.onFrame(ctx.TrackID, ctx.StreamType, ctx.Payload)
+	s.stream.onPacketRTP(ctx.TrackID, ctx.Payload)
+}
+
+// onPacketRTCP is called by rtspServer.
+func (s *rtspSession) onPacketRTCP(ctx *gortsplib.ServerHandlerOnPacketRTCPCtx) {
+	if s.ss.State() != gortsplib.ServerSessionStatePublish {
+		return
+	}
+
+	s.stream.onPacketRTCP(ctx.TrackID, ctx.Payload)
 }

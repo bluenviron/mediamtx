@@ -35,12 +35,21 @@ func (m *streamNonRTSPReadersMap) remove(r reader) {
 	delete(m.ma, r)
 }
 
-func (m *streamNonRTSPReadersMap) forwardFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+func (m *streamNonRTSPReadersMap) forwardPacketRTP(trackID int, payload []byte) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for c := range m.ma {
-		c.onReaderFrame(trackID, streamType, payload)
+		c.onReaderPacketRTP(trackID, payload)
+	}
+}
+
+func (m *streamNonRTSPReadersMap) forwardPacketRTCP(trackID int, payload []byte) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	for c := range m.ma {
+		c.onReaderPacketRTCP(trackID, payload)
 	}
 }
 
@@ -78,10 +87,18 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) onFrame(trackID int, streamType gortsplib.StreamType, payload []byte) {
+func (s *stream) onPacketRTP(trackID int, payload []byte) {
 	// forward to RTSP readers
-	s.rtspStream.WriteFrame(trackID, streamType, payload)
+	s.rtspStream.WritePacketRTP(trackID, payload)
 
 	// forward to non-RTSP readers
-	s.nonRTSPReaders.forwardFrame(trackID, streamType, payload)
+	s.nonRTSPReaders.forwardPacketRTP(trackID, payload)
+}
+
+func (s *stream) onPacketRTCP(trackID int, payload []byte) {
+	// forward to RTSP readers
+	s.rtspStream.WritePacketRTCP(trackID, payload)
+
+	// forward to non-RTSP readers
+	s.nonRTSPReaders.forwardPacketRTCP(trackID, payload)
 }
