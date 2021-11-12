@@ -1,5 +1,5 @@
 
-BASE_IMAGE = golang:1.16-alpine3.13
+BASE_IMAGE = golang:1.17-alpine3.13
 LINT_IMAGE = golangci/golangci-lint:v1.40
 NODE_IMAGE = node:14-alpine3.13
 

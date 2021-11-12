@@ -459,7 +459,7 @@ go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 
 ### Compile and run from source
 
-Install Go 1.16, download the repository, open a terminal in it and run:
+Install Go 1.17, download the repository, open a terminal in it and run:
 
 ```
 go run .
