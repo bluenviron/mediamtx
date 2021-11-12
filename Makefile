@@ -36,7 +36,7 @@ mod-tidy:
 define DOCKERFILE_FORMAT
 FROM $(BASE_IMAGE)
 RUN apk add --no-cache git
-RUN GO111MODULE=on go get mvdan.cc/gofumpt
+RUN GO111MODULE=on go get mvdan.cc/gofumpt@v0.2.0
 endef
 export DOCKERFILE_FORMAT
 
