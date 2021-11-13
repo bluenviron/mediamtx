@@ -179,7 +179,7 @@ func (s *rtspSource) runInner() bool {
 			for _, t := range tracks {
 				_, err := c.Setup(true, baseURL, t, 0, 0)
 				if err != nil {
-					panic(err)
+					return err
 				}
 			}
 
