@@ -139,9 +139,9 @@ paths:
     # the TCP protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
 
-    # if the source is an RTSP or RTSPS URL, this allows to support cameras that
-    # don't provide server ports. This is a security issue and must be enabled only
-    # when interacting with old cameras that require it.
+    # if the source is an RTSP or RTSPS URL, this allows to support sources that
+    # don't provide server ports or use random server ports. This is a security issue
+    # and must be used only when interacting with sources that require it.
     sourceAnyPortEnable: no
 
     # if the source is a RTSPS or HTTPS URL, and the source certificate is self-signed
