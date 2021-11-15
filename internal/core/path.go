@@ -292,7 +292,7 @@ func newPath(
 		apiPathsList:            make(chan pathAPIPathsListSubReq),
 	}
 
-	pa.log(logger.Info, "opened")
+	pa.log(logger.Debug, "opened")
 
 	pa.wg.Add(1)
 	go pa.run()
@@ -489,7 +489,7 @@ func (pa *path) run() {
 		pa.log(logger.Info, "runOnDemand command stopped")
 	}
 
-	pa.log(logger.Info, "closed (%v)", err)
+	pa.log(logger.Debug, "closed (%v)", err)
 
 	pa.parent.onPathClose(pa)
 }
