@@ -16,6 +16,8 @@ type pprofParent interface {
 }
 
 type pprof struct {
+	parent pprofParent
+
 	ln     net.Listener
 	server *http.Server
 }
@@ -30,14 +32,15 @@ func newPPROF(
 	}
 
 	pp := &pprof{
-		ln: ln,
+		parent: parent,
+		ln:     ln,
 	}
 
 	pp.server = &http.Server{
 		Handler: http.DefaultServeMux,
 	}
 
-	parent.Log(logger.Info, "[pprof] opened on "+address)
+	pp.log(logger.Info, "listener opened on "+address)
 
 	go pp.run()
 
@@ -46,6 +49,11 @@ func newPPROF(
 
 func (pp *pprof) close() {
 	pp.server.Shutdown(context.Background())
+	pp.log(logger.Info, "listener closed")
+}
+
+func (pp *pprof) log(level logger.Level, format string, args ...interface{}) {
+	pp.parent.Log(level, "[pprof] "+format, args...)
 }
 
 func (pp *pprof) run() {

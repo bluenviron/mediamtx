@@ -38,9 +38,10 @@ type metricsParent interface {
 }
 
 type metrics struct {
-	ln     net.Listener
-	server *http.Server
+	parent metricsParent
 
+	ln          net.Listener
+	server      *http.Server
 	mutex       sync.Mutex
 	pathManager metricsPathManager
 	rtspServer  metricsRTSPServer
@@ -59,7 +60,8 @@ func newMetrics(
 	}
 
 	m := &metrics{
-		ln: ln,
+		parent: parent,
+		ln:     ln,
 	}
 
 	router := gin.New()
@@ -67,7 +69,7 @@ func newMetrics(
 
 	m.server = &http.Server{Handler: router}
 
-	parent.Log(logger.Info, "[metrics] opened on "+address)
+	m.log(logger.Info, "listener opened on "+address)
 
 	go m.run()
 
@@ -76,6 +78,11 @@ func newMetrics(
 
 func (m *metrics) close() {
 	m.server.Shutdown(context.Background())
+	m.log(logger.Info, "listener closed")
+}
+
+func (m *metrics) log(level logger.Level, format string, args ...interface{}) {
+	m.parent.Log(level, "[metrics] "+format, args...)
 }
 
 func (m *metrics) run() {

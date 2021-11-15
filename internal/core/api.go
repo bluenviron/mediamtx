@@ -240,10 +240,9 @@ func newAPI(
 
 func (a *api) close() {
 	a.s.Shutdown(context.Background())
-	a.log(logger.Info, "closed")
+	a.log(logger.Info, "listener closed")
 }
 
-// Log is the main logging function.
 func (a *api) log(level logger.Level, format string, args ...interface{}) {
 	a.parent.Log(level, "[API] "+format, args...)
 }

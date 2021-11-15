@@ -186,7 +186,7 @@ func (s *rtspServer) log(level logger.Level, format string, args ...interface{})
 func (s *rtspServer) close() {
 	s.ctxCancel()
 	s.wg.Wait()
-	s.log(logger.Info, "closed")
+	s.log(logger.Info, "listener closed")
 }
 
 func (s *rtspServer) run() {
