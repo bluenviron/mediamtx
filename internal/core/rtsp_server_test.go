@@ -23,6 +23,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 		{"ffmpeg", "udp", "gstreamer", "multicast"},
 		{"ffmpeg", "udp", "gstreamer", "tcp"},
 		{"ffmpeg", "udp", "vlc", "udp"},
+		{"ffmpeg", "udp", "vlc", "multicast"},
 		{"ffmpeg", "udp", "vlc", "tcp"},
 		{"ffmpeg", "tcp", "ffmpeg", "udp"},
 		{"gstreamer", "udp", "ffmpeg", "udp"},
@@ -177,7 +178,13 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				if ca.readerProto == "tcp" {
 					args = append(args, "--rtsp-tcp")
 				}
-				args = append(args, proto+"://localhost:"+port+"/teststream")
+
+				ur := proto + "://localhost:" + port + "/teststream"
+				if ca.readerProto == "multicast" {
+					ur += "?vlcmulticast"
+				}
+
+				args = append(args, ur)
 				cnt2, err := newContainer("vlc", "dest", args)
 				require.NoError(t, err)
 				defer cnt2.close()

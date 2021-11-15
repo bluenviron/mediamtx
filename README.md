@@ -515,7 +515,7 @@ vlc --rtsp-tcp rtsp://localhost:8554/mystream
 
 The RTSP protocol supports the UDP-multicast transport protocol, that allows a server to send packets once, regardless of the number of connected readers, saving bandwidth.
 
-This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to pull the stream from the existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
+This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to read existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
 
 To request and read a stream with UDP-multicast, you can use _FFmpeg_:
 
@@ -529,7 +529,11 @@ or _GStreamer_:
 gst-launch-1.0 rtspsrc protocols=udp-mcast location=rtsps://ip:8555/...
 ```
 
-At the moment _VLC_ doesn't support the UDP-multicast transport protocol. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the stream with the proxy mode and UDP-multicast, and reading the proxied stream with _VLC_.
+or _VLC_ (append `?vlcmulticast` to the URL):
+
+```
+vlc rtsp://localhost:8554/mystream?vlcmulticast
+```
 
 ### Encryption
 
