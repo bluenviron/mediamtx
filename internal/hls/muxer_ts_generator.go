@@ -26,7 +26,7 @@ type muxerTSGenerator struct {
 	aacConf            *gortsplib.TrackConfigAAC
 	streamPlaylist     *muxerStreamPlaylist
 
-	tm             *astits.Muxer
+	tsmuxer        *astits.Muxer
 	currentSegment *muxerTSSegment
 	videoDTSEst    *h264.DTSEstimator
 	audioAUCount   int
@@ -53,29 +53,29 @@ func newMuxerTSGenerator(
 		aacConf:            aacConf,
 	}
 
-	m.tm = astits.NewMuxer(context.Background(), m)
+	m.tsmuxer = astits.NewMuxer(context.Background(), m)
 
 	if videoTrack != nil {
-		m.tm.AddElementaryStream(astits.PMTElementaryStream{
+		m.tsmuxer.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 256,
 			StreamType:    astits.StreamTypeH264Video,
 		})
 	}
 
 	if audioTrack != nil {
-		m.tm.AddElementaryStream(astits.PMTElementaryStream{
+		m.tsmuxer.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 257,
 			StreamType:    astits.StreamTypeAACAudio,
 		})
 	}
 
 	if videoTrack != nil {
-		m.tm.SetPCRPID(256)
+		m.tsmuxer.SetPCRPID(256)
 	} else {
-		m.tm.SetPCRPID(257)
+		m.tsmuxer.SetPCRPID(257)
 	}
 
-	m.currentSegment = newMuxerTSSegment(m.videoTrack, m)
+	m.currentSegment = newMuxerTSSegment(m.videoTrack, m.tsmuxer)
 
 	return m
 }
@@ -105,7 +105,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 		if idrPresent &&
 			m.currentSegment.duration() >= m.hlsSegmentDuration {
 			m.streamPlaylist.pushSegment(m.currentSegment)
-			m.currentSegment = newMuxerTSSegment(m.videoTrack, m)
+			m.currentSegment = newMuxerTSSegment(m.videoTrack, m.tsmuxer)
 		}
 	} else {
 		m.startPCR = time.Now()
@@ -154,7 +154,7 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 				m.currentSegment.duration() >= m.hlsSegmentDuration {
 				m.audioAUCount = 0
 				m.streamPlaylist.pushSegment(m.currentSegment)
-				m.currentSegment = newMuxerTSSegment(m.videoTrack, m)
+				m.currentSegment = newMuxerTSSegment(m.videoTrack, m.tsmuxer)
 			}
 		} else {
 			m.startPCR = time.Now()

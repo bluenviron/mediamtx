@@ -12,7 +12,7 @@ import (
 
 type muxerTSSegment struct {
 	videoTrack *gortsplib.Track
-	tsgen      *muxerTSGenerator
+	tsmuxer    *astits.Muxer
 
 	name               string
 	buf                bytes.Buffer
@@ -24,11 +24,11 @@ type muxerTSSegment struct {
 
 func newMuxerTSSegment(
 	videoTrack *gortsplib.Track,
-	tsgen *muxerTSGenerator,
+	tsmuxer *astits.Muxer,
 ) *muxerTSSegment {
 	t := &muxerTSSegment{
 		videoTrack: videoTrack,
-		tsgen:      tsgen,
+		tsmuxer:    tsmuxer,
 		name:       strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
@@ -104,7 +104,7 @@ func (t *muxerTSSegment) writeH264(
 		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
 	}
 
-	_, err := t.tsgen.tm.WriteData(&astits.MuxerData{
+	_, err := t.tsmuxer.WriteData(&astits.MuxerData{
 		PID:             256,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -151,7 +151,7 @@ func (t *muxerTSSegment) writeAAC(
 		}
 	}
 
-	_, err := t.tsgen.tm.WriteData(&astits.MuxerData{
+	_, err := t.tsmuxer.WriteData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
 		PES: &astits.PESData{
