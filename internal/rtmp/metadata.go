@@ -207,10 +207,17 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 		return err
 	}
 
+	return nil
+}
+
+func (c *Conn) WriteCodec(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track, vConf *gortsplib.TrackConfigH264) error {
 	if videoTrack != nil {
 		conf, err := videoTrack.ExtractConfigH264()
 		if err != nil {
-			return err
+			if vConf == nil {
+				return err
+			}
+			conf = vConf
 		}
 
 		codec := nh264.Codec{

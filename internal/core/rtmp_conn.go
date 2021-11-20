@@ -300,6 +300,9 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var videoStartPTS time.Duration
 	var videoDTSEst *h264.DTSEstimator
 	videoFirstIDRFound := false
+	var videoSPS []byte
+	var videoPPS []byte
+	sendVideoSPSAndPPS := false
 
 	for {
 		data, ok := c.ringBuffer.Pull()
@@ -330,11 +333,25 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				// remove SPS, PPS and AUD, not needed by RTMP
 				typ := h264.NALUType(nalu[0] & 0x1F)
 				switch typ {
-				case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+				case h264.NALUTypeSPS:
+					videoSPS = nalu
+					continue
+				case h264.NALUTypePPS:
+					videoPPS = nalu
+					continue
+				case h264.NALUTypeAccessUnitDelimiter:
 					continue
 				}
 
 				nalusFiltered = append(nalusFiltered, nalu)
+			}
+
+			if videoSPS != nil && videoPPS != nil && !sendVideoSPSAndPPS {
+				c.conn.WriteCodec(videoTrack, audioTrack, &gortsplib.TrackConfigH264{
+					SPS: videoSPS,
+					PPS: videoPPS,
+				})
+				sendVideoSPSAndPPS = true
 			}
 
 			idrPresent := func() bool {
