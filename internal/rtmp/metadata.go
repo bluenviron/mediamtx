@@ -210,22 +210,14 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 	return nil
 }
 
-func (c *Conn) WriteCodec(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track, vConf *gortsplib.TrackConfigH264) error {
-	if videoTrack != nil {
-		conf, err := videoTrack.ExtractConfigH264()
-		if err != nil {
-			if vConf == nil {
-				return err
-			}
-			conf = vConf
-		}
-
+func (c *Conn) WriteCodec(videoConf *gortsplib.TrackConfigH264, audioTrack *gortsplib.Track) error {
+	if videoConf != nil {
 		codec := nh264.Codec{
 			SPS: map[int][]byte{
-				0: conf.SPS,
+				0: videoConf.SPS,
 			},
 			PPS: map[int][]byte{
-				0: conf.PPS,
+				0: videoConf.PPS,
 			},
 		}
 		b := make([]byte, 128)
@@ -233,7 +225,7 @@ func (c *Conn) WriteCodec(videoTrack *gortsplib.Track, audioTrack *gortsplib.Tra
 		codec.ToConfig(b, &n)
 		b = b[:n]
 
-		err = c.WritePacket(av.Packet{
+		err := c.WritePacket(av.Packet{
 			Type: av.H264DecoderConfig,
 			Data: b,
 		})

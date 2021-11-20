@@ -304,6 +304,14 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var videoPPS []byte
 	sendVideoSPSAndPPS := false
 
+	if videoTrack != nil {
+		conf, err := videoTrack.ExtractConfigH264()
+		if err == nil {
+			c.conn.WriteCodec(conf, audioTrack)
+			sendVideoSPSAndPPS = true
+		}
+	}
+
 	for {
 		data, ok := c.ringBuffer.Pull()
 		if !ok {
@@ -347,10 +355,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			if videoSPS != nil && videoPPS != nil && !sendVideoSPSAndPPS {
-				c.conn.WriteCodec(videoTrack, audioTrack, &gortsplib.TrackConfigH264{
+				c.conn.WriteCodec(&gortsplib.TrackConfigH264{
 					SPS: videoSPS,
 					PPS: videoPPS,
-				})
+				}, audioTrack)
 				sendVideoSPSAndPPS = true
 			}
 
