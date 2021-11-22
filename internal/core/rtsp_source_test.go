@@ -13,58 +13,22 @@ import (
 )
 
 type testServer struct {
-	user          string
-	pass          string
-	authValidator *auth.Validator
-	stream        *gortsplib.ServerStream
-
-	done chan struct{}
+	onDescribe func(*gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error)
+	onSetup    func(*gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error)
+	onPlay     func(*gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error)
 }
 
 func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
-	if sh.authValidator == nil {
-		sh.authValidator = auth.NewValidator(sh.user, sh.pass, nil)
-	}
-
-	err := sh.authValidator.ValidateRequest(ctx.Req)
-	if err != nil {
-		return &base.Response{
-			StatusCode: base.StatusUnauthorized,
-			Header: base.Header{
-				"WWW-Authenticate": sh.authValidator.Header(),
-			},
-		}, nil, nil
-	}
-
-	track, _ := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
-	sh.stream = gortsplib.NewServerStream(gortsplib.Tracks{track})
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
+	return sh.onDescribe(ctx)
 }
 
 func (sh *testServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	if sh.done != nil {
-		close(sh.done)
-	}
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, sh.stream, nil
+	return sh.onSetup(ctx)
 }
 
 func (sh *testServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-	go func() {
-		time.Sleep(1 * time.Second)
-		sh.stream.WritePacketRTP(0, []byte{0x01, 0x02, 0x03, 0x04})
-	}()
-
-	return &base.Response{
-		StatusCode: base.StatusOK,
-	}, nil
+	return sh.onPlay(ctx)
 }
 
 func TestRTSPSource(t *testing.T) {
@@ -74,8 +38,49 @@ func TestRTSPSource(t *testing.T) {
 		"tls",
 	} {
 		t.Run(source, func(t *testing.T) {
+			track, _ := gortsplib.NewTrackH264(96,
+				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
+			stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+			var authValidator *auth.Validator
+
 			s := gortsplib.Server{
-				Handler:     &testServer{user: "testuser", pass: "testpass"},
+				Handler: &testServer{
+					onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+					) (*base.Response, *gortsplib.ServerStream, error) {
+						if authValidator == nil {
+							authValidator = auth.NewValidator("testuser", "testpass", nil)
+						}
+
+						err := authValidator.ValidateRequest(ctx.Req)
+						if err != nil {
+							return &base.Response{
+								StatusCode: base.StatusUnauthorized,
+								Header: base.Header{
+									"WWW-Authenticate": authValidator.Header(),
+								},
+							}, nil, nil
+						}
+
+						return &base.Response{
+							StatusCode: base.StatusOK,
+						}, stream, nil
+					},
+					onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+						return &base.Response{
+							StatusCode: base.StatusOK,
+						}, stream, nil
+					},
+					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+						go func() {
+							time.Sleep(1 * time.Second)
+							stream.WritePacketRTP(0, []byte{0x01, 0x02, 0x03, 0x04})
+						}()
+
+						return &base.Response{
+							StatusCode: base.StatusOK,
+						}, nil
+					},
+				},
 				RTSPAddress: "127.0.0.1:8555",
 			}
 
@@ -143,9 +148,45 @@ func TestRTSPSource(t *testing.T) {
 }
 
 func TestRTSPSourceNoPassword(t *testing.T) {
+	track, _ := gortsplib.NewTrackH264(96,
+		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
+	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+	var authValidator *auth.Validator
 	done := make(chan struct{})
+
 	s := gortsplib.Server{
-		Handler:     &testServer{user: "testuser", done: done},
+		Handler: &testServer{
+			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				if authValidator == nil {
+					authValidator = auth.NewValidator("testuser", "", nil)
+				}
+
+				err := authValidator.ValidateRequest(ctx.Req)
+				if err != nil {
+					return &base.Response{
+						StatusCode: base.StatusUnauthorized,
+						Header: base.Header{
+							"WWW-Authenticate": authValidator.Header(),
+						},
+					}, nil, nil
+				}
+
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				close(done)
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, nil
+			},
+		},
 		RTSPAddress: "127.0.0.1:8555",
 	}
 	err := s.Start()
