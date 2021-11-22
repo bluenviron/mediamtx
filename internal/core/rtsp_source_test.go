@@ -9,6 +9,9 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/pion/rtp"
+	psdp "github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -204,4 +207,117 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	defer p.close()
 
 	<-done
+}
+
+func TestRTSPSourceMissingH264Params(t *testing.T) {
+	track, _ := gortsplib.NewTrackH264(96,
+		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
+	var newattrs []psdp.Attribute
+	for _, attr := range track.Media.Attributes {
+		if attr.Key != "fmtp" {
+			newattrs = append(newattrs, attr)
+		}
+	}
+	track.Media.Attributes = newattrs
+
+	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+
+	s := gortsplib.Server{
+		Handler: &testServer{
+			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+				go func() {
+					time.Sleep(500 * time.Millisecond)
+
+					enc := rtph264.NewEncoder(96, nil, nil, nil)
+
+					pkts, err := enc.Encode([][]byte{{5}}, 0) // IDR
+					require.NoError(t, err)
+					byts, _ := pkts[0].Marshal()
+					stream.WritePacketRTP(0, byts)
+
+					pkts, err = enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
+					require.NoError(t, err)
+					byts, _ = pkts[0].Marshal()
+					stream.WritePacketRTP(0, byts)
+
+					pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
+					require.NoError(t, err)
+					byts, _ = pkts[0].Marshal()
+					stream.WritePacketRTP(0, byts)
+
+					pkts, err = enc.Encode([][]byte{{5, 1}}, 0) // IDR
+					require.NoError(t, err)
+					byts, _ = pkts[0].Marshal()
+					stream.WritePacketRTP(0, byts)
+
+					time.Sleep(500 * time.Millisecond)
+
+					pkts, err = enc.Encode([][]byte{{5, 2}}, 0) // IDR
+					require.NoError(t, err)
+					byts, _ = pkts[0].Marshal()
+					stream.WritePacketRTP(0, byts)
+				}()
+
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, nil
+			},
+		},
+		RTSPAddress: "127.0.0.1:8555",
+	}
+	err := s.Start()
+	require.NoError(t, err)
+	defer s.Wait()
+	defer s.Close()
+
+	p, ok := newInstance("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
+		"paths:\n" +
+		"  proxied:\n" +
+		"    source: rtsp://127.0.0.1:8555/teststream\n" +
+		"    sourceOnDemand: yes\n")
+	require.Equal(t, true, ok)
+	defer p.close()
+
+	received := make(chan struct{})
+	decoder := rtph264.NewDecoder()
+
+	c := gortsplib.Client{
+		OnPacketRTP: func(trackID int, payload []byte) {
+			var pkt rtp.Packet
+			err := pkt.Unmarshal(payload)
+			if err != nil {
+				return
+			}
+
+			nalus, _, err := decoder.Decode(&pkt)
+			if err != nil {
+				return
+			}
+
+			require.Equal(t, [][]byte{{0x05, 0x02}}, nalus)
+			close(received)
+		},
+	}
+
+	err = c.StartReading("rtsp://127.0.0.1:8554/proxied")
+	require.NoError(t, err)
+	defer c.Close()
+
+	conf, err := c.Tracks()[0].ExtractConfigH264()
+	require.NoError(t, err)
+	require.Equal(t, []byte{7, 1, 2, 3}, conf.SPS)
+	require.Equal(t, []byte{8}, conf.PPS)
+
+	<-received
 }
