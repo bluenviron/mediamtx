@@ -125,6 +125,35 @@ func (s *rtspSession) onClose(err error) {
 
 // onAnnounce is called by rtspServer.
 func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+	for i, track := range ctx.Tracks {
+		if track.IsH264() {
+			_, err := track.ExtractConfigH264()
+			if err != nil {
+				return &base.Response{
+					StatusCode: base.StatusBadRequest,
+				}, fmt.Errorf("track %d is not valid", i+1)
+			}
+		}
+
+		if track.IsAAC() {
+			_, err := track.ExtractConfigAAC()
+			if err != nil {
+				return &base.Response{
+					StatusCode: base.StatusBadRequest,
+				}, fmt.Errorf("track %d is not valid", i+1)
+			}
+		}
+
+		if track.IsOpus() {
+			_, err := track.ExtractConfigOpus()
+			if err != nil {
+				return &base.Response{
+					StatusCode: base.StatusBadRequest,
+				}, fmt.Errorf("track %d is not valid", i+1)
+			}
+		}
+	}
+
 	res := s.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   s,
 		PathName: ctx.Path,
