@@ -1,4 +1,4 @@
-FROM amd64/alpine:3.12
+FROM amd64/alpine:3.14
 
 RUN apk add --no-cache \
     nginx-mod-rtmp
