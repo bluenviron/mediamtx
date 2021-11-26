@@ -48,8 +48,6 @@ Plus:
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Proxy mode](#proxy-mode)
-  * [Publish a webcam](#publish-a-webcam)
-  * [Publish a Raspberry Pi Camera](#publish-a-raspberry-pi-camera)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Save published videos to disk](#save-published-videos-to-disk)
   * [On-demand publishing](#on-demand-publishing)
@@ -58,6 +56,10 @@ Plus:
   * [Metrics](#metrics)
   * [pprof](#pprof)
   * [Compile and run from source](#compile-and-run-from-source)
+* [Publish to the server](#publish-to-the-server)
+  * [Webcam](#webcam)
+  * [Raspberry Pi Camera](#raspberry-pi-camera)
+  * [OBS Studio](#obs-studio)
 * [RTSP protocol FAQs](#rtsp-protocol-faqs)
   * [RTSP general usage](#rtsp-general-usage)
   * [TCP transport](#tcp-transport)
@@ -68,7 +70,6 @@ Plus:
   * [Corrupted frames](#corrupted-frames)
 * [RTMP protocol FAQs](#rtmp-protocol-faqs)
   * [RTMP general usage](#rtmp-general-usage)
-  * [Publish from OBS Studio](#publish-from-obs-studio)
 * [HLS protocol FAQs](#hls-protocol-faqs)
   * [HLS general usage](#hls-general-usage)
   * [Decrease delay](#decrease-delay)
@@ -115,6 +116,8 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
    ```
    gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
+
+   To publish from other hardware / software, take a look at the [Publish to the server](#publish-to-the-server) section.
 
 2. Open the stream. For instance, you can open the stream with _VLC_:
 
@@ -275,57 +278,6 @@ paths:
     sourceOnDemand: yes
 ```
 
-### Publish a webcam
-
-Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-
-```yml
-paths:
-  cam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
-    runOnInitRestart: yes
-```
-
-If the platform is Windows:
-
-```yml
-paths:
-  cam:
-    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
-    runOnInitRestart: yes
-```
-
-Where `USB2.0 HD UVC WebCam` is the name of your webcam, that can be obtained with:
-
-```
-ffmpeg -list_devices true -f dshow -i dummy
-```
-
-After starting the server, the webcam can be reached on `rtsp://localhost:8554/cam`.
-
-### Publish a Raspberry Pi Camera
-
-Install dependencies:
-
-1. _Gstreamer_ and _h264parse_:
-
-   ```
-   sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-plugins-bad
-   ```
-
-2. _gst-rpicamsrc_, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
-
-Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
-
-```yml
-paths:
-  cam:
-    runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! h264parse ! rtspclientsink location=rtsp://localhost:$RTSP_PORT/$RTSP_PATH
-    runOnInitRestart: yes
-```
-
-After starting the server, the camera is available on `rtsp://localhost:8554/cam`.
-
 ### Remuxing, re-encoding, compression
 
 To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
@@ -471,6 +423,73 @@ You can perform the entire operation inside Docker:
 ```
 make run
 ```
+
+## Publish to the server
+
+### Webcam
+
+To publish the video stream of a generic webcam to the server, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  cam:
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInitRestart: yes
+```
+
+If the platform is Windows:
+
+```yml
+paths:
+  cam:
+    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInitRestart: yes
+```
+
+Where `USB2.0 HD UVC WebCam` is the name of your webcam, that can be obtained with:
+
+```
+ffmpeg -list_devices true -f dshow -i dummy
+```
+
+After starting the server, the webcam can be reached on `rtsp://localhost:8554/cam`.
+
+### Raspberry Pi Camera
+
+To publish the video stream of a Raspberry Pi Camera to the server, install a couple of dependencies:
+
+1. _Gstreamer_ and _h264parse_:
+
+   ```
+   sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-plugins-bad
+   ```
+
+2. _gst-rpicamsrc_, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
+
+Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  cam:
+    runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! h264parse ! rtspclientsink location=rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInitRestart: yes
+```
+
+After starting the server, the camera is available on `rtsp://localhost:8554/cam`.
+
+### OBS Studio
+
+OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
+
+* Service: `Custom...`
+* Server: `rtmp://localhost`
+* Stream key: `mystream`
+
+If credentials are in use, use the following parameters:
+
+* Service: `Custom...`
+* Server: `rtmp://localhost`
+* Stream key: `mystream?user=myuser&pass=mypass`
 
 ## RTSP protocol FAQs
 
@@ -645,20 +664,6 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
-
-### Publish from OBS Studio
-
-OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
-
-* Service: `Custom...`
-* Server: `rtmp://localhost`
-* Stream key: `mystream`
-
-If credentials are in use, use the following parameters:
-
-* Service: `Custom...`
-* Server: `rtmp://localhost`
-* Stream key: `mystream?user=myuser&pass=mypass`
 
 ## HLS protocol FAQs
 
