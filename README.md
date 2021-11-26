@@ -71,6 +71,7 @@ Plus:
   * [Publish from OBS Studio](#publish-from-obs-studio)
 * [HLS protocol FAQs](#hls-protocol-faqs)
   * [HLS general usage](#hls-general-usage)
+  * [Decrease delay](#decrease-delay)
 * [Links](#links)
 
 ## Installation
@@ -678,6 +679,19 @@ http://localhost:8888/mystream/index.m3u8
 ```
 
 Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream.
+
+### Decrease delay
+
+HLS works by splitting the stream into segments and serving these segments with the standard HTTP protocol. Delay is introduced since a client must wait for the server to generate segments before downloading them. This delay amounts to 1-15 seconds depending on some factors:
+
+* the number of segments
+* the duration of each segment
+
+To decrease the delay, it's possible to decrease the number of segments by editing the `hlsSegmentCount` parameter (decreasing stream stability) and decrease the duration of each segment. The duration of each segments depends on the `hlsSegmentDuration`, but also on the original stream, since the duration is prolonged to include at least one IDR frame (complete frame that can be decoded independently from the others) into each segment. Therefore, the stream must be tuned by either acting on the original hardware (for instance, there's a setting _Key-Frame Interval_ in most cameras, that must be reduced) or re-encoding the stream, setting a low IDR frame interval (`-g` option):
+
+```
+ffmpeg -i rtsp://original-stream -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+```
 
 ## Links
 
