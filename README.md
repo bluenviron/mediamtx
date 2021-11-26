@@ -60,6 +60,7 @@ Plus:
   * [Webcam](#webcam)
   * [Raspberry Pi Camera](#raspberry-pi-camera)
   * [OBS Studio](#obs-studio)
+  * [OpenCV](#opencv)
 * [RTSP protocol FAQs](#rtsp-protocol-faqs)
   * [RTSP general usage](#rtsp-general-usage)
   * [TCP transport](#tcp-transport)
@@ -490,6 +491,52 @@ If credentials are in use, use the following parameters:
 * Service: `Custom...`
 * Server: `rtmp://localhost`
 * Stream key: `mystream?user=myuser&pass=mypass`
+
+### OpenCV
+
+To publish a video stream from OpenCV to the server, OpenCV must be compiled with GStreamer support, by following this procedure:
+
+```
+sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+git clone --depth=1 -b 4.5.4 https://github.com/opencv/opencv
+cd opencv
+mkdir build && cd build
+cmake -D WITH_GSTREAMER=ON ..
+make -j$(nproc)
+sudo make install
+```
+
+Videos can then be published with `VideoWriter`:
+
+```python
+import cv2
+import numpy as np
+from time import sleep
+
+fps = 20
+width = 800
+height = 600
+
+out = cv2.VideoWriter('appsrc ! videoconvert' + \
+    ' ! x264enc speed-preset=veryfast tune=zerolatency bitrate=800' + \
+    ' ! rtspclientsink location=rtsp://localhost:8554/mystream',
+    cv2.CAP_GSTREAMER, 0, fps, (width, height), True)
+if not out.isOpened():
+    raise Exception("can't open video writer")
+
+while True:
+    frame = np.zeros((height, width, 3), np.uint8)
+
+    # create a red rectangle
+    for y in range(0, int(frame.shape[0] / 2)):
+        for x in range(0, int(frame.shape[1] / 2)):
+            frame[y][x] = (0, 0, 255)
+
+    out.write(frame)
+    print("frame written to the server")
+
+    sleep(1 / fps)
+```
 
 ## RTSP protocol FAQs
 
