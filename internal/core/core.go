@@ -86,7 +86,11 @@ func New(args []string) (*Core, bool) {
 
 	err = p.createResources(true)
 	if err != nil {
-		p.Log(logger.Error, "%s", err)
+		if p.logger != nil {
+			p.Log(logger.Error, "%s", err)
+		} else {
+			fmt.Printf("ERR: %s\n", err)
+		}
 		p.closeResources(nil, false)
 		return nil, false
 	}
