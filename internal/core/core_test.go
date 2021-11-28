@@ -185,7 +185,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 						Value: "trackID=0",
 					})
 
-					_, err = c.Setup(true, baseURL, track, 0, 0)
+					_, err = c.Setup(true, track, baseURL, 0, 0)
 					require.EqualError(t, err, "bad status code: 404 (Not Found)")
 				}
 			}()
@@ -293,7 +293,7 @@ func main() {
 						Value: "trackID=0",
 					})
 
-					_, err = c.Setup(true, baseURL, track, 0, 0)
+					_, err = c.Setup(true, track, baseURL, 0, 0)
 					require.NoError(t, err)
 				}
 			}()
