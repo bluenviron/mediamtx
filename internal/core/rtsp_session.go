@@ -131,7 +131,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 			if err != nil {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("track %d is not valid", i+1)
+				}, fmt.Errorf("H264 track %d is not valid: %v", i+1, err)
 			}
 		}
 
@@ -140,7 +140,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 			if err != nil {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("track %d is not valid", i+1)
+				}, fmt.Errorf("AAC track %d is not valid: %v", i+1, err)
 			}
 		}
 
@@ -149,7 +149,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 			if err != nil {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("track %d is not valid", i+1)
+				}, fmt.Errorf("Opus track %d is not valid: %v", i+1, err)
 			}
 		}
 	}
