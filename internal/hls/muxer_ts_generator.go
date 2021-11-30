@@ -107,8 +107,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 
 		// add SPS and PPS before every IDR
 		if typ == h264.NALUTypeIDR {
-			filteredNALUs = append(filteredNALUs, m.h264Conf.SPS)
-			filteredNALUs = append(filteredNALUs, m.h264Conf.PPS)
+			filteredNALUs = append(filteredNALUs, m.h264Conf.SPS, m.h264Conf.PPS)
 		}
 
 		filteredNALUs = append(filteredNALUs, nalu)
