@@ -12,23 +12,23 @@ import (
 
 type muxerTSSegment struct {
 	videoTrack *gortsplib.Track
-	tsmuxer    *astits.Muxer
+	writer     *muxerTSWriter
 
 	name               string
 	buf                bytes.Buffer
 	firstPacketWritten bool
-	minPTS             time.Duration
-	maxPTS             time.Duration
+	startPTS           time.Duration
+	endPTS             time.Duration
 	pcrSendCounter     int
 }
 
 func newMuxerTSSegment(
 	videoTrack *gortsplib.Track,
-	tsmuxer *astits.Muxer,
+	writer *muxerTSWriter,
 ) *muxerTSSegment {
 	t := &muxerTSSegment{
 		videoTrack: videoTrack,
-		tsmuxer:    tsmuxer,
+		writer:     writer,
 		name:       strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
@@ -37,11 +37,13 @@ func newMuxerTSSegment(
 	// - AdaptationField != nil
 	// - RandomAccessIndicator = true
 
+	writer.currentSegment = t
+
 	return t
 }
 
 func (t *muxerTSSegment) duration() time.Duration {
-	return t.maxPTS - t.minPTS
+	return t.endPTS - t.startPTS
 }
 
 func (t *muxerTSSegment) write(p []byte) (int, error) {
@@ -60,15 +62,7 @@ func (t *muxerTSSegment) writeH264(
 	enc []byte) error {
 	if !t.firstPacketWritten {
 		t.firstPacketWritten = true
-		t.minPTS = pts
-		t.maxPTS = pts
-	} else {
-		if pts < t.minPTS {
-			t.minPTS = pts
-		}
-		if pts > t.maxPTS {
-			t.maxPTS = pts
-		}
+		t.startPTS = pts
 	}
 
 	var af *astits.PacketAdaptationField
@@ -104,7 +98,7 @@ func (t *muxerTSSegment) writeH264(
 		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
 	}
 
-	_, err := t.tsmuxer.WriteData(&astits.MuxerData{
+	_, err := t.writer.WriteData(&astits.MuxerData{
 		PID:             256,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -125,15 +119,7 @@ func (t *muxerTSSegment) writeAAC(
 	if t.videoTrack == nil {
 		if !t.firstPacketWritten {
 			t.firstPacketWritten = true
-			t.minPTS = pts
-			t.maxPTS = pts
-		} else {
-			if pts < t.minPTS {
-				t.minPTS = pts
-			}
-			if pts > t.maxPTS {
-				t.maxPTS = pts
-			}
+			t.startPTS = pts
 		}
 	}
 
@@ -151,7 +137,7 @@ func (t *muxerTSSegment) writeAAC(
 		}
 	}
 
-	_, err := t.tsmuxer.WriteData(&astits.MuxerData{
+	_, err := t.writer.WriteData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
 		PES: &astits.PESData{

@@ -79,9 +79,9 @@ func TestMuxer(t *testing.T) {
 	re := regexp.MustCompile(`^#EXTM3U\n` +
 		`#EXT-X-VERSION:3\n` +
 		`#EXT-X-ALLOW-CACHE:NO\n` +
-		`#EXT-X-TARGETDURATION:2\n` +
+		`#EXT-X-TARGETDURATION:4\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
-		`#EXTINF:2,\n` +
+		`#EXTINF:4,\n` +
 		`([0-9]+\.ts)\n$`)
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
