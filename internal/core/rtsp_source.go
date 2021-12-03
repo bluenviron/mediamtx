@@ -120,21 +120,24 @@ func (s *rtspSource) run() {
 func (s *rtspSource) runInner() bool {
 	s.log(logger.Debug, "connecting")
 
-	tlsConfig := &tls.Config{}
+	var tlsConfig *tls.Config
+
 	if s.fingerprint != "" {
-		tlsConfig.InsecureSkipVerify = true
-		tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
-			h := sha256.New()
-			h.Write(cs.PeerCertificates[0].Raw)
-			hstr := hex.EncodeToString(h.Sum(nil))
-			fingerprintLower := strings.ToLower(s.fingerprint)
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: true,
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				h := sha256.New()
+				h.Write(cs.PeerCertificates[0].Raw)
+				hstr := hex.EncodeToString(h.Sum(nil))
+				fingerprintLower := strings.ToLower(s.fingerprint)
 
-			if hstr != fingerprintLower {
-				return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
-					fingerprintLower, hstr)
-			}
+				if hstr != fingerprintLower {
+					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
+						fingerprintLower, hstr)
+				}
 
-			return nil
+				return nil
+			},
 		}
 	}
 

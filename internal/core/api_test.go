@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -202,7 +203,9 @@ func TestAPIPathsList(t *testing.T) {
 	}()
 
 	func() {
-		source := gortsplib.Client{}
+		source := gortsplib.Client{
+			TLSConfig: &tls.Config{InsecureSkipVerify: true},
+		}
 
 		err := source.StartPublishing("rtsps://localhost:8555/mypath",
 			gortsplib.Tracks{track})
@@ -261,7 +264,9 @@ func TestAPIList(t *testing.T) {
 				defer source.Close()
 
 			case "rtsps":
-				source := gortsplib.Client{}
+				source := gortsplib.Client{
+					TLSConfig: &tls.Config{InsecureSkipVerify: true},
+				}
 
 				err := source.StartPublishing("rtsps://localhost:8555/mypath",
 					gortsplib.Tracks{track})
@@ -390,7 +395,9 @@ func TestAPIKick(t *testing.T) {
 				defer source.Close()
 
 			case "rtsps":
-				source := gortsplib.Client{}
+				source := gortsplib.Client{
+					TLSConfig: &tls.Config{InsecureSkipVerify: true},
+				}
 
 				err := source.StartPublishing("rtsps://localhost:8555/mypath",
 					gortsplib.Tracks{track})
