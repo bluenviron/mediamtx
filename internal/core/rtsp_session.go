@@ -366,12 +366,12 @@ func (s *rtspSession) onReaderAccepted() {
 
 // onReaderPacketRTP implements reader.
 func (s *rtspSession) onReaderPacketRTP(trackID int, payload []byte) {
-	s.ss.WritePacketRTP(trackID, payload)
+	// packets are routed to the session by gortsplib.ServerStream.
 }
 
 // onReaderPacketRTCP implements reader.
 func (s *rtspSession) onReaderPacketRTCP(trackID int, payload []byte) {
-	s.ss.WritePacketRTCP(trackID, payload)
+	// packets are routed to the session by gortsplib.ServerStream.
 }
 
 // onReaderAPIDescribe implements reader.

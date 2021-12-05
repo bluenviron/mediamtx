@@ -75,8 +75,3 @@ func (s *RTCPSenderSet) run() {
 func (s *RTCPSenderSet) OnPacketRTP(trackID int, payload []byte) {
 	s.senders[trackID].ProcessPacketRTP(time.Now(), payload)
 }
-
-// OnPacketRTCP sends a RTCP packet to the senders.
-func (s *RTCPSenderSet) OnPacketRTCP(trackID int, payload []byte) {
-	s.senders[trackID].ProcessPacketRTCP(time.Now(), payload)
-}
