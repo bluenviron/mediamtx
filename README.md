@@ -57,10 +57,10 @@ Plus:
   * [pprof](#pprof)
   * [Compile and run from source](#compile-and-run-from-source)
 * [Publish to the server](#publish-to-the-server)
-  * [Webcam](#webcam)
-  * [Raspberry Pi Camera](#raspberry-pi-camera)
-  * [OBS Studio](#obs-studio)
-  * [OpenCV](#opencv)
+  * [From a webcam](#from-a-webcam)
+  * [From a Raspberry Pi Camera](#from-a-raspberry-pi-camera)
+  * [From OBS Studio](#from-obs-studio)
+  * [From OpenCV](#from-opencv)
 * [RTSP protocol FAQs](#rtsp-protocol-faqs)
   * [RTSP general usage](#rtsp-general-usage)
   * [TCP transport](#tcp-transport)
@@ -427,7 +427,7 @@ make run
 
 ## Publish to the server
 
-### Webcam
+### From a webcam
 
 To publish the video stream of a generic webcam to the server, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
@@ -455,7 +455,7 @@ ffmpeg -list_devices true -f dshow -i dummy
 
 After starting the server, the webcam can be reached on `rtsp://localhost:8554/cam`.
 
-### Raspberry Pi Camera
+### From a Raspberry Pi Camera
 
 To publish the video stream of a Raspberry Pi Camera to the server, install a couple of dependencies:
 
@@ -478,7 +478,7 @@ paths:
 
 After starting the server, the camera is available on `rtsp://localhost:8554/cam`.
 
-### OBS Studio
+### From OBS Studio
 
 OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
@@ -492,7 +492,7 @@ If credentials are in use, use the following parameters:
 * Server: `rtmp://localhost`
 * Stream key: `mystream?user=myuser&pass=mypass`
 
-### OpenCV
+### From OpenCV
 
 To publish a video stream from OpenCV to the server, OpenCV must be compiled with GStreamer support, by following this procedure:
 
