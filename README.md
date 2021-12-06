@@ -43,7 +43,7 @@ Plus:
   * [Standard](#standard)
   * [Docker](#docker)
 * [Basic usage](#basic-usage)
-* [General FAQs](#general-faqs)
+* [General](#general)
   * [Configuration](#configuration)
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
@@ -61,7 +61,7 @@ Plus:
   * [From a Raspberry Pi Camera](#from-a-raspberry-pi-camera)
   * [From OBS Studio](#from-obs-studio)
   * [From OpenCV](#from-opencv)
-* [RTSP protocol FAQs](#rtsp-protocol-faqs)
+* [RTSP protocol](#rtsp-protocol)
   * [RTSP general usage](#rtsp-general-usage)
   * [TCP transport](#tcp-transport)
   * [UDP-multicast transport](#udp-multicast-transport)
@@ -69,9 +69,9 @@ Plus:
   * [Redirect to another server](#redirect-to-another-server)
   * [Fallback stream](#fallback-stream)
   * [Corrupted frames](#corrupted-frames)
-* [RTMP protocol FAQs](#rtmp-protocol-faqs)
+* [RTMP protocol](#rtmp-protocol)
   * [RTMP general usage](#rtmp-general-usage)
-* [HLS protocol FAQs](#hls-protocol-faqs)
+* [HLS protocol](#hls-protocol)
   * [HLS general usage](#hls-general-usage)
   * [Decrease delay](#decrease-delay)
 * [Links](#links)
@@ -138,7 +138,7 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
    ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
    ```
 
-## General FAQs
+## General
 
 ### Configuration
 
@@ -538,7 +538,7 @@ while True:
     sleep(1 / fps)
 ```
 
-## RTSP protocol FAQs
+## RTSP protocol
 
 ### RTSP general usage
 
@@ -686,7 +686,7 @@ In some scenarios, when reading RTSP from the server, decoded frames can be corr
   readBufferSize: 8192
   ```
 
-## RTMP protocol FAQs
+## RTMP protocol
 
 ### RTMP general usage
 
@@ -712,7 +712,7 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
 
-## HLS protocol FAQs
+## HLS protocol
 
 ### HLS general usage
 
