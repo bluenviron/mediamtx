@@ -18,10 +18,6 @@ Features:
 * Act as a proxy and serve streams from other servers or cameras, always or on-demand
 * Each stream can have multiple video and audio tracks, encoded with any codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
-* Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
-
-Plus:
-
 * Serve multiple streams at once in separate paths
 * Authenticate readers and publishers
 * Query and control the server through an HTTP API
@@ -29,6 +25,7 @@ Plus:
 * Redirect readers to other RTSP servers (load balancing)
 * Run custom commands when clients connect, disconnect, read or publish streams
 * Reload the configuration without disconnecting existing clients (hot reloading)
+* Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 [![Test](https://github.com/aler9/rtsp-simple-server/workflows/test/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:test)
 [![Lint](https://github.com/aler9/rtsp-simple-server/workflows/lint/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:lint)
