@@ -524,8 +524,10 @@ func (pa *path) externalCmdEnv() externalcmd.Environment {
 		"RTSP_PORT": port,
 	}
 
-	for i, ma := range pa.matches[1:] {
-		env[strconv.FormatInt(int64(i+1), 10)] = ma
+	if len(pa.matches) > 1 {
+		for i, ma := range pa.matches[1:] {
+			env[strconv.FormatInt(int64(i+1), 10)] = ma
+		}
 	}
 
 	return env
