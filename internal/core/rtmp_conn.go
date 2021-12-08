@@ -148,10 +148,13 @@ func (c *rtmpConn) run() {
 		if c.runOnConnect != "" {
 			c.log(logger.Info, "runOnConnect command started")
 			_, port, _ := net.SplitHostPort(c.rtspAddress)
-			onConnectCmd := externalcmd.New(c.runOnConnect, c.runOnConnectRestart, externalcmd.Environment{
-				Path: "",
-				Port: port,
-			})
+			onConnectCmd := externalcmd.New(
+				c.runOnConnect,
+				c.runOnConnectRestart,
+				externalcmd.Environment{
+					"RTSP_PATH": "",
+					"RTSP_PORT": port,
+				})
 
 			defer func() {
 				onConnectCmd.Close()
@@ -283,11 +286,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		onReadCmd := externalcmd.New(c.path.Conf().RunOnRead, c.path.Conf().RunOnReadRestart, externalcmd.Environment{
-			Path: c.path.Name(),
-			Port: port,
-		})
+		onReadCmd := externalcmd.New(
+			c.path.Conf().RunOnRead,
+			c.path.Conf().RunOnReadRestart,
+			c.path.externalCmdEnv())
 		defer func() {
 			onReadCmd.Close()
 			c.log(logger.Info, "runOnRead command stopped")

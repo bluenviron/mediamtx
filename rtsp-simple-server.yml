@@ -35,7 +35,8 @@ pprofAddress: 127.0.0.1:9999
 
 # command to run when a client connects to the server.
 # this is terminated with SIGINT when a client disconnects from the server.
-# the server port is available in the RTSP_PORT variable.
+# the following environment variables are available:
+# * RTSP_PORT: server port
 runOnConnect:
 # the restart parameter allows to restart the command if it exits suddenly.
 runOnConnectRestart: no
@@ -116,7 +117,7 @@ hlsAllowOrigin: '*'
 ###############################################
 # Path parameters
 
-# these settings are path-dependent.
+# these settings are path-dependent, and the map key is the name of the path.
 # it's possible to use regular expressions by using a tilde as prefix.
 # for example, "~^(test1|test2)$" will match both "test1" and "test2".
 # for example, "~^prefix" will match all paths that start with "prefix".
@@ -195,8 +196,11 @@ paths:
     # command to run when this path is initialized.
     # this can be used to publish a stream and keep it always opened.
     # this is terminated with SIGINT when the program closes.
-    # the path name is available in the RTSP_PATH variable.
-    # the server port is available in the RTSP_PORT variable.
+    # the following environment variables are available:
+    # * RTSP_PATH: path name
+    # * RTSP_PORT: server port
+    # * 1, 2, ...: regular expression groups, if path name is
+    #   a regular expression.
     runOnInit:
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnInitRestart: no
@@ -204,8 +208,11 @@ paths:
     # command to run when this path is requested.
     # this can be used to publish a stream on demand.
     # this is terminated with SIGINT when the path is not requested anymore.
-    # the path name is available in the RTSP_PATH variable.
-    # the server port is available in the RTSP_PORT variable.
+    # the following environment variables are available:
+    # * RTSP_PATH: path name
+    # * RTSP_PORT: server port
+    # * 1, 2, ...: regular expression groups, if path name is
+    #   a regular expression.
     runOnDemand:
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnDemandRestart: no
@@ -218,16 +225,22 @@ paths:
 
     # command to run when a client starts publishing.
     # this is terminated with SIGINT when a client stops publishing.
-    # the path name is available in the RTSP_PATH variable.
-    # the server port is available in the RTSP_PORT variable.
+    # the following environment variables are available:
+    # * RTSP_PATH: path name
+    # * RTSP_PORT: server port
+    # * 1, 2, ...: regular expression groups, if path name is
+    #   a regular expression.
     runOnPublish:
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnPublishRestart: no
 
     # command to run when a clients starts reading.
     # this is terminated with SIGINT when a client stops reading.
-    # the path name is available in the RTSP_PATH variable.
-    # the server port is available in the RTSP_PORT variable.
+    # the following environment variables are available:
+    # * RTSP_PATH: path name
+    # * RTSP_PORT: server port
+    # * 1, 2, ...: regular expression groups, if path name is
+    #   a regular expression.
     runOnRead:
     # the restart parameter allows to restart the command if it exits suddenly.
     runOnReadRestart: no

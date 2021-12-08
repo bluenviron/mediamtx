@@ -9,10 +9,7 @@ const (
 )
 
 // Environment is a Cmd environment.
-type Environment struct {
-	Path string
-	Port string
-}
+type Environment map[string]string
 
 // Cmd is an external command.
 type Cmd struct {

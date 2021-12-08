@@ -214,6 +214,10 @@ import (
 )
 
 func main() {
+	if os.Getenv("1") != "on" {
+		panic("environment not set")
+	}
+
 	track, err := gortsplib.NewTrackH264(96,
 		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
 	if err != nil {
@@ -259,7 +263,7 @@ func main() {
 			p1, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
 				"hlsDisable: yes\n"+
 				"paths:\n"+
-				"  all:\n"+
+				"  '~^(on)demand$':\n"+
 				"    runOnDemand: %s\n"+
 				"    runOnDemandCloseAfter: 1s\n", execFile))
 			require.Equal(t, true, ok)

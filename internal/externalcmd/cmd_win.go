@@ -12,11 +12,13 @@ import (
 )
 
 func (e *Cmd) runInner() bool {
-	// on Windows the shell is not used and command is started directly
-	// variables are replaced manually in order to guarantee compatibility
-	// with Linux commands
-	tmp := strings.ReplaceAll(e.cmdstr, "$RTSP_PATH", e.env.Path)
-	tmp = strings.ReplaceAll(tmp, "$RTSP_PORT", e.env.Port)
+	// On Windows, the shell is not used and command is started directly.
+	// Variables are replaced manually in order to guarantee compatibility
+	// with Linux commands.
+	tmp := e.cmdstr
+	for key, val := range e.env {
+		tmp = strings.ReplaceAll(tmp, "$"+key, val)
+	}
 	parts, err := shellquote.Split(tmp)
 	if err != nil {
 		return true
@@ -24,10 +26,10 @@ func (e *Cmd) runInner() bool {
 
 	cmd := exec.Command(parts[0], parts[1:]...)
 
-	cmd.Env = append(os.Environ(),
-		"RTSP_PATH="+e.env.Path,
-		"RTSP_PORT="+e.env.Port,
-	)
+	cmd.Env = append([]string(nil), os.Environ()...)
+	for key, val := range e.env {
+		cmd.Env = append(cmd.Env, key+"="+val)
+	}
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -45,8 +47,8 @@ func (e *Cmd) runInner() bool {
 
 	select {
 	case <-e.terminate:
-		// on Windows it's not possible to send os.Interrupt to a process
-		// Kill() is the only supported way
+		// on Windows, it's not possible to send os.Interrupt to a process.
+		// Kill() is the only supported way.
 		cmd.Process.Kill()
 		<-cmdDone
 		return false

@@ -12,10 +12,10 @@ import (
 func (e *Cmd) runInner() bool {
 	cmd := exec.Command("/bin/sh", "-c", "exec "+e.cmdstr)
 
-	cmd.Env = append(os.Environ(),
-		"RTSP_PATH="+e.env.Path,
-		"RTSP_PORT="+e.env.Port,
-	)
+	cmd.Env = append([]string(nil), os.Environ()...)
+	for key, val := range e.env {
+		cmd.Env = append(cmd.Env, key+"="+val)
+	}
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

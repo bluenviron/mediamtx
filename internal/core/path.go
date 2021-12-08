@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -215,6 +216,7 @@ type path struct {
 	confName        string
 	conf            *conf.PathConf
 	name            string
+	matches         []string
 	wg              *sync.WaitGroup
 	parent          pathParent
 
@@ -258,6 +260,7 @@ func newPath(
 	confName string,
 	conf *conf.PathConf,
 	name string,
+	matches []string,
 	wg *sync.WaitGroup,
 	parent pathParent) *path {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -271,6 +274,7 @@ func newPath(
 		confName:                confName,
 		conf:                    conf,
 		name:                    name,
+		matches:                 matches,
 		wg:                      wg,
 		parent:                  parent,
 		ctx:                     ctx,
@@ -336,11 +340,10 @@ func (pa *path) run() {
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
 		pa.log(logger.Info, "runOnInit command started")
-		_, port, _ := net.SplitHostPort(pa.rtspAddress)
-		onInitCmd = externalcmd.New(pa.conf.RunOnInit, pa.conf.RunOnInitRestart, externalcmd.Environment{
-			Path: pa.name,
-			Port: port,
-		})
+		onInitCmd = externalcmd.New(
+			pa.conf.RunOnInit,
+			pa.conf.RunOnInitRestart,
+			pa.externalCmdEnv())
 	}
 
 	err := func() error {
@@ -514,6 +517,20 @@ func (pa *path) isOnDemand() bool {
 	return (pa.hasStaticSource() && pa.conf.SourceOnDemand) || pa.conf.RunOnDemand != ""
 }
 
+func (pa *path) externalCmdEnv() externalcmd.Environment {
+	_, port, _ := net.SplitHostPort(pa.rtspAddress)
+	env := externalcmd.Environment{
+		"RTSP_PATH": pa.name,
+		"RTSP_PORT": port,
+	}
+
+	for i, ma := range pa.matches[1:] {
+		env[strconv.FormatInt(int64(i+1), 10)] = ma
+	}
+
+	return env
+}
+
 func (pa *path) onDemandStartSource() {
 	pa.onDemandReadyTimer.Stop()
 	if pa.hasStaticSource() {
@@ -521,11 +538,10 @@ func (pa *path) onDemandStartSource() {
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
 	} else {
 		pa.log(logger.Info, "runOnDemand command started")
-		_, port, _ := net.SplitHostPort(pa.rtspAddress)
-		pa.onDemandCmd = externalcmd.New(pa.conf.RunOnDemand, pa.conf.RunOnDemandRestart, externalcmd.Environment{
-			Path: pa.name,
-			Port: port,
-		})
+		pa.onDemandCmd = externalcmd.New(
+			pa.conf.RunOnDemand,
+			pa.conf.RunOnDemandRestart,
+			pa.externalCmdEnv())
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandStartTimeout))
 	}
 
@@ -775,11 +791,10 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 
 	if pa.conf.RunOnPublish != "" {
 		pa.log(logger.Info, "runOnPublish command started")
-		_, port, _ := net.SplitHostPort(pa.rtspAddress)
-		pa.onPublishCmd = externalcmd.New(pa.conf.RunOnPublish, pa.conf.RunOnPublishRestart, externalcmd.Environment{
-			Path: pa.name,
-			Port: port,
-		})
+		pa.onPublishCmd = externalcmd.New(
+			pa.conf.RunOnPublish,
+			pa.conf.RunOnPublishRestart,
+			pa.externalCmdEnv())
 	}
 
 	req.Res <- pathPublisherRecordRes{Stream: pa.stream}

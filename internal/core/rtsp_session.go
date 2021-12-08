@@ -30,7 +30,6 @@ type rtspSessionParent interface {
 
 type rtspSession struct {
 	isTLS       bool
-	rtspAddress string
 	protocols   map[conf.Protocol]struct{}
 	id          string
 	ss          *gortsplib.ServerSession
@@ -49,7 +48,6 @@ type rtspSession struct {
 
 func newRTSPSession(
 	isTLS bool,
-	rtspAddress string,
 	protocols map[conf.Protocol]struct{},
 	id string,
 	ss *gortsplib.ServerSession,
@@ -58,7 +56,6 @@ func newRTSPSession(
 	parent rtspSessionParent) *rtspSession {
 	s := &rtspSession{
 		isTLS:       isTLS,
-		rtspAddress: rtspAddress,
 		protocols:   protocols,
 		id:          id,
 		ss:          ss,
@@ -279,11 +276,10 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 		if s.path.Conf().RunOnRead != "" {
 			s.log(logger.Info, "runOnRead command started")
-			_, port, _ := net.SplitHostPort(s.rtspAddress)
-			s.onReadCmd = externalcmd.New(s.path.Conf().RunOnRead, s.path.Conf().RunOnReadRestart, externalcmd.Environment{
-				Path: s.path.Name(),
-				Port: port,
-			})
+			s.onReadCmd = externalcmd.New(
+				s.path.Conf().RunOnRead,
+				s.path.Conf().RunOnReadRestart,
+				s.path.externalCmdEnv())
 		}
 
 		s.stateMutex.Lock()

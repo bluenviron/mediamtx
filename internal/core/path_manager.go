@@ -83,7 +83,7 @@ func newPathManager(
 
 	for pathName, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
-			pm.createPath(pathName, pathConf, pathName)
+			pm.createPath(pathName, pathConf, pathName, nil)
 		}
 	}
 
@@ -147,7 +147,7 @@ outer:
 			// add new paths
 			for pathName, pathConf := range pm.pathConfs {
 				if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
-					pm.createPath(pathName, pathConf, pathName)
+					pm.createPath(pathName, pathConf, pathName, nil)
 				}
 			}
 
@@ -164,7 +164,7 @@ outer:
 			}
 
 		case req := <-pm.describe:
-			pathName, pathConf, err := pm.findPathConf(req.PathName)
+			pathName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- pathDescribeRes{Err: err}
 				continue
@@ -185,13 +185,13 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName)
+				pm.createPath(pathName, pathConf, req.PathName, pathMatches)
 			}
 
 			req.Res <- pathDescribeRes{Path: pm.paths[req.PathName]}
 
 		case req := <-pm.readerSetupPlay:
-			pathName, pathConf, err := pm.findPathConf(req.PathName)
+			pathName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- pathReaderSetupPlayRes{Err: err}
 				continue
@@ -212,13 +212,13 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName)
+				pm.createPath(pathName, pathConf, req.PathName, pathMatches)
 			}
 
 			req.Res <- pathReaderSetupPlayRes{Path: pm.paths[req.PathName]}
 
 		case req := <-pm.publisherAnnounce:
-			pathName, pathConf, err := pm.findPathConf(req.PathName)
+			pathName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- pathPublisherAnnounceRes{Err: err}
 				continue
@@ -239,7 +239,7 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName)
+				pm.createPath(pathName, pathConf, req.PathName, pathMatches)
 			}
 
 			req.Res <- pathPublisherAnnounceRes{Path: pm.paths[req.PathName]}
@@ -270,7 +270,11 @@ outer:
 	}
 }
 
-func (pm *pathManager) createPath(confName string, conf *conf.PathConf, name string) {
+func (pm *pathManager) createPath(
+	confName string,
+	conf *conf.PathConf,
+	name string,
+	matches []string) {
 	pm.paths[name] = newPath(
 		pm.ctx,
 		pm.rtspAddress,
@@ -281,29 +285,33 @@ func (pm *pathManager) createPath(confName string, conf *conf.PathConf, name str
 		confName,
 		conf,
 		name,
+		matches,
 		&pm.wg,
 		pm)
 }
 
-func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, error) {
+func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, []string, error) {
 	err := conf.IsValidPathName(name)
 	if err != nil {
-		return "", nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
+		return "", nil, nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
 	}
 
 	// normal path
 	if pathConf, ok := pm.pathConfs[name]; ok {
-		return name, pathConf, nil
+		return name, pathConf, nil, nil
 	}
 
 	// regular expression path
 	for pathName, pathConf := range pm.pathConfs {
-		if pathConf.Regexp != nil && pathConf.Regexp.MatchString(name) {
-			return pathName, pathConf, nil
+		if pathConf.Regexp != nil {
+			m := pathConf.Regexp.FindStringSubmatch(name)
+			if m != nil {
+				return pathName, pathConf, m, nil
+			}
 		}
 	}
 
-	return "", nil, fmt.Errorf("path '%s' is not configured", name)
+	return "", nil, nil, fmt.Errorf("path '%s' is not configured", name)
 }
 
 func (pm *pathManager) authenticate(
