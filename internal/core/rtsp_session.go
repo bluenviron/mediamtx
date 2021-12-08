@@ -279,7 +279,10 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 			s.onReadCmd = externalcmd.New(
 				s.path.Conf().RunOnRead,
 				s.path.Conf().RunOnReadRestart,
-				s.path.externalCmdEnv())
+				s.path.externalCmdEnv(),
+				func(co int) {
+					s.log(logger.Info, "runOnRead command exited with code %d", co)
+				})
 		}
 
 		s.stateMutex.Lock()

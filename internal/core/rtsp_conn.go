@@ -71,6 +71,9 @@ func newRTSPConn(
 			externalcmd.Environment{
 				"RTSP_PATH": "",
 				"RTSP_PORT": port,
+			},
+			func(co int) {
+				c.log(logger.Info, "runOnInit command exited with code %d", co)
 			})
 	}
 

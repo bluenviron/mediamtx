@@ -16,6 +16,7 @@ type Cmd struct {
 	cmdstr  string
 	restart bool
 	env     Environment
+	onExit  func(int)
 
 	// in
 	terminate chan struct{}
@@ -25,11 +26,17 @@ type Cmd struct {
 }
 
 // New allocates an Cmd.
-func New(cmdstr string, restart bool, env Environment) *Cmd {
+func New(
+	cmdstr string,
+	restart bool,
+	env Environment,
+	onExit func(int),
+) *Cmd {
 	e := &Cmd{
 		cmdstr:    cmdstr,
 		restart:   restart,
 		env:       env,
+		onExit:    onExit,
 		terminate: make(chan struct{}),
 		done:      make(chan struct{}),
 	}
@@ -50,10 +57,12 @@ func (e *Cmd) run() {
 
 	for {
 		ok := func() bool {
-			ok := e.runInner()
+			c, ok := e.runInner()
 			if !ok {
 				return false
 			}
+
+			e.onExit(c)
 
 			if !e.restart {
 				<-e.terminate

@@ -154,6 +154,9 @@ func (c *rtmpConn) run() {
 				externalcmd.Environment{
 					"RTSP_PATH": "",
 					"RTSP_PORT": port,
+				},
+				func(co int) {
+					c.log(logger.Info, "runOnConnect command exited with code %d", co)
 				})
 
 			defer func() {
@@ -289,7 +292,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		onReadCmd := externalcmd.New(
 			c.path.Conf().RunOnRead,
 			c.path.Conf().RunOnReadRestart,
-			c.path.externalCmdEnv())
+			c.path.externalCmdEnv(),
+			func(co int) {
+				c.log(logger.Info, "runOnRead command exited with code %d", co)
+			})
 		defer func() {
 			onReadCmd.Close()
 			c.log(logger.Info, "runOnRead command stopped")

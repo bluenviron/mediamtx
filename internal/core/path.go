@@ -343,7 +343,10 @@ func (pa *path) run() {
 		onInitCmd = externalcmd.New(
 			pa.conf.RunOnInit,
 			pa.conf.RunOnInitRestart,
-			pa.externalCmdEnv())
+			pa.externalCmdEnv(),
+			func(co int) {
+				pa.log(logger.Info, "runOnInit command exited with code %d", co)
+			})
 	}
 
 	err := func() error {
@@ -543,7 +546,10 @@ func (pa *path) onDemandStartSource() {
 		pa.onDemandCmd = externalcmd.New(
 			pa.conf.RunOnDemand,
 			pa.conf.RunOnDemandRestart,
-			pa.externalCmdEnv())
+			pa.externalCmdEnv(),
+			func(co int) {
+				pa.log(logger.Info, "runOnDemand command exited with code %d", co)
+			})
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandStartTimeout))
 	}
 
@@ -796,7 +802,10 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 		pa.onPublishCmd = externalcmd.New(
 			pa.conf.RunOnPublish,
 			pa.conf.RunOnPublishRestart,
-			pa.externalCmdEnv())
+			pa.externalCmdEnv(),
+			func(co int) {
+				pa.log(logger.Info, "runOnPublish command exited with code %d", co)
+			})
 	}
 
 	req.Res <- pathPublisherRecordRes{Stream: pa.stream}

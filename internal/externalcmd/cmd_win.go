@@ -11,7 +11,7 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-func (e *Cmd) runInner() bool {
+func (e *Cmd) runInner() (int, bool) {
 	// On Windows, the shell is not used and command is started directly.
 	// Variables are replaced manually in order to guarantee compatibility
 	// with Linux commands.
@@ -21,7 +21,7 @@ func (e *Cmd) runInner() bool {
 	}
 	parts, err := shellquote.Split(tmp)
 	if err != nil {
-		return true
+		return 0, true
 	}
 
 	cmd := exec.Command(parts[0], parts[1:]...)
@@ -36,13 +36,22 @@ func (e *Cmd) runInner() bool {
 
 	err = cmd.Start()
 	if err != nil {
-		return true
+		return 0, true
 	}
 
-	cmdDone := make(chan struct{})
+	cmdDone := make(chan int)
 	go func() {
-		defer close(cmdDone)
-		cmd.Wait()
+		cmdDone <- func() int {
+			err := cmd.Wait()
+			if err == nil {
+				return 0
+			}
+			ee, ok := err.(*exec.ExitError)
+			if !ok {
+				return 0
+			}
+			return ee.ExitCode()
+		}()
 	}()
 
 	select {
@@ -51,9 +60,9 @@ func (e *Cmd) runInner() bool {
 		// Kill() is the only supported way.
 		cmd.Process.Kill()
 		<-cmdDone
-		return false
+		return 0, false
 
-	case <-cmdDone:
-		return true
+	case c := <-cmdDone:
+		return c, true
 	}
 }
