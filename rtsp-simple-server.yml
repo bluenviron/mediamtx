@@ -2,130 +2,129 @@
 ###############################################
 # General parameters
 
-# sets the verbosity of the program; available values are "error", "warn", "info", "debug".
+# Sets the verbosity of the program; available values are "error", "warn", "info", "debug".
 logLevel: info
-# destinations of log messages; available values are "stdout", "file" and "syslog".
+# Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
-# if "file" is in logDestinations, this is the file which will receive the logs.
+# If "file" is in logDestinations, this is the file which will receive the logs.
 logFile: rtsp-simple-server.log
 
-# timeout of read operations.
+# Timeout of read operations.
 readTimeout: 10s
-# timeout of write operations.
+# Timeout of write operations.
 writeTimeout: 10s
-# number of read buffers.
-# a higher number allows a higher throughput,
-# a lower number allows to save RAM.
+# Number of read buffers.
+# A higher number allows a wider throughput, a lower number allows to save RAM.
 readBufferCount: 512
 
-# enable the HTTP API.
+# Enable the HTTP API.
 api: no
-# address of the API listener.
+# Address of the API listener.
 apiAddress: 127.0.0.1:9997
 
-# enable Prometheus-compatible metrics.
+# Enable Prometheus-compatible metrics.
 metrics: no
-# address of the metrics listener.
+# Address of the metrics listener.
 metricsAddress: 127.0.0.1:9998
 
-# enable pprof-compatible endpoint to monitor performances.
+# Enable pprof-compatible endpoint to monitor performances.
 pprof: no
-# address of the pprof listener.
+# Address of the pprof listener.
 pprofAddress: 127.0.0.1:9999
 
-# command to run when a client connects to the server.
-# this is terminated with SIGINT when a client disconnects from the server.
-# the following environment variables are available:
+# Command to run when a client connects to the server.
+# This is terminated with SIGINT when a client disconnects from the server.
+# The following environment variables are available:
 # * RTSP_PORT: server port
 runOnConnect:
-# the restart parameter allows to restart the command if it exits suddenly.
+# Restart the command if it exits suddenly.
 runOnConnectRestart: no
 
 ###############################################
 # RTSP parameters
 
-# disable support for the RTSP protocol.
+# Disable support for the RTSP protocol.
 rtspDisable: no
-# supported RTSP transport protocols.
+# List of enabled RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
 # server and clients, and doesn't support encryption.
 # UDP-multicast allows to save bandwidth when clients are all in the same LAN.
 # TCP is the most versatile, and does support encryption.
 # The handshake is always performed with TCP.
 protocols: [udp, multicast, tcp]
-# encrypt handshake and TCP streams with TLS (RTSPS).
-# available values are "no", "strict", "optional".
+# Encrypt handshake and TCP streams with TLS (RTSPS).
+# Available values are "no", "strict", "optional".
 encryption: "no"
-# address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
+# Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
-# address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
+# Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
 rtspsAddress: :8555
-# address of the UDP/RTP listener. This is needed only when "udp" is in protocols.
+# Address of the UDP/RTP listener. This is needed only when "udp" is in protocols.
 rtpAddress: :8000
-# address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.
+# Address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.
 rtcpAddress: :8001
 # IP range of all UDP-multicast listeners. This is needed only when "multicast" is in protocols.
 multicastIPRange: 224.1.0.0/16
-# port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in protocols.
+# Port of all UDP-multicast/RTP listeners. This is needed only when "multicast" is in protocols.
 multicastRTPPort: 8002
-# port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in protocols.
+# Port of all UDP-multicast/RTCP listeners. This is needed only when "multicast" is in protocols.
 multicastRTCPPort: 8003
-# path to the server key. This is needed only when encryption is "strict" or "optional".
-# this can be generated with:
+# Path to the server key. This is needed only when encryption is "strict" or "optional".
+# This can be generated with:
 # openssl genrsa -out server.key 2048
 # openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 serverKey: server.key
-# path to the server certificate. This is needed only when encryption is "strict" or "optional".
+# Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 serverCert: server.crt
-# authentication methods.
+# Authentication methods.
 authMethods: [basic, digest]
-# read buffer size.
-# this doesn't influence throughput and shouldn't be touched unless the server
+# Read buffer size.
+# This doesn't influence throughput and shouldn't be touched unless the server
 # reports errors about the buffer size.
 readBufferSize: 2048
 
 ###############################################
 # RTMP parameters
 
-# disable support for the RTMP protocol.
+# Disable support for the RTMP protocol.
 rtmpDisable: no
-# address of the RTMP listener.
+# Address of the RTMP listener.
 rtmpAddress: :1935
 
 ###############################################
 # HLS parameters
 
-# disable support for the HLS protocol.
+# Disable support for the HLS protocol.
 hlsDisable: no
-# address of the HLS listener.
+# Address of the HLS listener.
 hlsAddress: :8888
-# by default, HLS is generated only when requested by a user;
-# this option allows to generate it always, avoiding an initial delay.
+# By default, HLS is generated only when requested by a user.
+# This option allows to generate it always, avoiding the delay between request and generation.
 hlsAlwaysRemux: no
-# number of HLS segments to generate.
-# increasing segments allows more buffering,
-# decreasing segments decreases latency.
+# Number of HLS segments to generate.
+# Increasing segments allows more buffering,
+# Decreasing segments decreases latency.
 hlsSegmentCount: 3
-# minimum duration of each segment.
-# the final segment duration is also influenced by the interval between IDR frames,
+# Minimum duration of each segment.
+# The final segment duration is also influenced by the interval between IDR frames,
 # since the server changes the segment duration to include at least a IDR frame in each one.
 hlsSegmentDuration: 1s
-# value of the Access-Control-Allow-Origin header provided in every HTTP response.
+# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
 hlsAllowOrigin: '*'
 
 ###############################################
 # Path parameters
 
-# these settings are path-dependent, and the map key is the name of the path.
-# it's possible to use regular expressions by using a tilde as prefix.
-# for example, "~^(test1|test2)$" will match both "test1" and "test2".
-# for example, "~^prefix" will match all paths that start with "prefix".
-# the settings under the path "all" are applied to all paths that do not match
+# These settings are path-dependent, and the map key is the name of the path.
+# It's possible to use regular expressions by using a tilde as prefix.
+# For example, "~^(test1|test2)$" will match both "test1" and "test2".
+# For example, "~^prefix" will match all paths that start with "prefix".
+# The settings under the path "all" are applied to all paths that do not match
 # another entry.
 paths:
   all:
-    # source of the stream - this can be:
+    # Source of the stream. This can be:
     # * publisher -> the stream is published by a RTSP or RTMP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server
     # * rtsps://existing-url -> the stream is pulled from another RTSP server with RTSPS
@@ -135,112 +134,110 @@ paths:
     # * redirect -> the stream is provided by another path or server
     source: publisher
 
-    # if the source is an RTSP or RTSPS URL, this is the protocol that will be used to
+    # If the source is an RTSP or RTSPS URL, this is the protocol that will be used to
     # pull the stream. available values are "automatic", "udp", "multicast", "tcp".
-    # the TCP protocol can help to overcome the error "no UDP packets received recently".
     sourceProtocol: automatic
 
-    # if the source is an RTSP or RTSPS URL, this allows to support sources that
+    # Tf the source is an RTSP or RTSPS URL, this allows to support sources that
     # don't provide server ports or use random server ports. This is a security issue
     # and must be used only when interacting with sources that require it.
     sourceAnyPortEnable: no
 
-    # if the source is a RTSPS or HTTPS URL, and the source certificate is self-signed
+    # If the source is a RTSPS or HTTPS URL, and the source certificate is self-signed
     # or invalid, you can provide the fingerprint of the certificate in order to
-    # validate it anyway.
-    # the fingerprint can be obtained by running:
+    # validate it anyway. It can be obtained by running:
     # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
     # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
     sourceFingerprint:
 
-    # if the source is an RTSP or RTMP URL, it will be pulled only when at least
+    # If the source is an RTSP or RTMP URL, it will be pulled only when at least
     # one reader is connected, saving bandwidth.
     sourceOnDemand: no
-    # if sourceOnDemand is "yes", readers will be put on hold until the source is
+    # If sourceOnDemand is "yes", readers will be put on hold until the source is
     # ready or until this amount of time has passed.
     sourceOnDemandStartTimeout: 10s
-    # if sourceOnDemand is "yes", the source will be closed when there are no
+    # If sourceOnDemand is "yes", the source will be closed when there are no
     # readers connected and this amount of time has passed.
     sourceOnDemandCloseAfter: 10s
 
-    # if the source is "redirect", this is the RTSP URL which clients will be
+    # If the source is "redirect", this is the RTSP URL which clients will be
     # redirected to.
     sourceRedirect:
 
-    # if the source is "publisher" and a client is publishing, do not allow another
+    # If the source is "publisher" and a client is publishing, do not allow another
     # client to disconnect the former and publish in its place.
     disablePublisherOverride: no
 
-    # if the source is "publisher" and no one is publishing, redirect readers to this
+    # If the source is "publisher" and no one is publishing, redirect readers to this
     # path. It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
 
-    # username required to publish.
-    # sha256-hashed values can be inserted with the "sha256:" prefix.
+    # Username required to publish.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
     publishUser:
-    # password required to publish.
-    # sha256-hashed values can be inserted with the "sha256:" prefix.
+    # Password required to publish.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
     publishPass:
-    # ips or networks (x.x.x.x/24) allowed to publish.
+    # IPs or networks (x.x.x.x/24) allowed to publish.
     publishIPs: []
 
-    # username required to read.
-    # sha256-hashed values can be inserted with the "sha256:" prefix.
+    # Username required to read.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
     readUser:
     # password required to read.
-    # sha256-hashed values can be inserted with the "sha256:" prefix.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
     readPass:
-    # ips or networks (x.x.x.x/24) allowed to read.
+    # IPs or networks (x.x.x.x/24) allowed to read.
     readIPs: []
 
-    # command to run when this path is initialized.
-    # this can be used to publish a stream and keep it always opened.
-    # this is terminated with SIGINT when the program closes.
-    # the following environment variables are available:
+    # Command to run when this path is initialized.
+    # This can be used to publish a stream and keep it always opened.
+    # This is terminated with SIGINT when the program closes.
+    # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
     # * 1, 2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnInit:
-    # the restart parameter allows to restart the command if it exits suddenly.
+    # Restart the command if it exits suddenly.
     runOnInitRestart: no
 
-    # command to run when this path is requested.
-    # this can be used to publish a stream on demand.
-    # this is terminated with SIGINT when the path is not requested anymore.
-    # the following environment variables are available:
+    # Command to run when this path is requested.
+    # This can be used to publish a stream on demand.
+    # This is terminated with SIGINT when the path is not requested anymore.
+    # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
     # * 1, 2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnDemand:
-    # the restart parameter allows to restart the command if it exits suddenly.
+    # Restart the command if it exits suddenly.
     runOnDemandRestart: no
-    # readers will be put on hold until the runOnDemand command starts publishing
+    # Readers will be put on hold until the runOnDemand command starts publishing
     # or until this amount of time has passed.
     runOnDemandStartTimeout: 10s
-    # the runOnDemand command will be closed when there are no
+    # The command will be closed when there are no
     # readers connected and this amount of time has passed.
     runOnDemandCloseAfter: 10s
 
-    # command to run when a client starts publishing.
-    # this is terminated with SIGINT when a client stops publishing.
-    # the following environment variables are available:
+    # Command to run when a client starts publishing.
+    # This is terminated with SIGINT when a client stops publishing.
+    # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
     # * 1, 2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnPublish:
-    # the restart parameter allows to restart the command if it exits suddenly.
+    # Restart the command if it exits suddenly.
     runOnPublishRestart: no
 
-    # command to run when a clients starts reading.
-    # this is terminated with SIGINT when a client stops reading.
-    # the following environment variables are available:
+    # Command to run when a clients starts reading.
+    # This is terminated with SIGINT when a client stops reading.
+    # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
     # * 1, 2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnRead:
-    # the restart parameter allows to restart the command if it exits suddenly.
+    # Restart the command if it exits suddenly.
     runOnReadRestart: no
