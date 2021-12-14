@@ -515,7 +515,7 @@ width = 800
 height = 600
 
 out = cv2.VideoWriter('appsrc ! videoconvert' + \
-    ' ! x264enc speed-preset=veryfast tune=zerolatency bitrate=800' + \
+    ' ! x264enc speed-preset=ultrafast tune=zerolatency bitrate=600' + \
     ' ! rtspclientsink location=rtsp://localhost:8554/mystream',
     cv2.CAP_GSTREAMER, 0, fps, (width, height), True)
 if not out.isOpened():
