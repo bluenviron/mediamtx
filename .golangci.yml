@@ -8,10 +8,10 @@ linters:
   - gocritic
   - gofmt
   - gofumpt
-  - golint
   - misspell
   - lll
   - prealloc
+  - revive
   - unconvert
   - whitespace
   disable:
