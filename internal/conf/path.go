@@ -58,7 +58,7 @@ type PathConf struct {
 	ReadPass    Credential `json:"readPass"`
 	ReadIPs     IPsOrNets  `json:"readIPs"`
 
-	// custom commands
+	// external commands
 	RunOnInit               string         `json:"runOnInit"`
 	RunOnInitRestart        bool           `json:"runOnInitRestart"`
 	RunOnDemand             string         `json:"runOnDemand"`

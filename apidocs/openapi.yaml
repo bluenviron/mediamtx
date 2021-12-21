@@ -48,7 +48,7 @@ components:
         runOnConnectRestart:
           type: boolean
 
-        # rtsp
+        # RTSP
         rtspDisable:
           type: boolean
         protocols:
@@ -82,13 +82,13 @@ components:
         readBufferSize:
           type: integer
 
-        # rtmp
+        # RTMP
         rtmpDisable:
           type: boolean
         rtmpAddress:
           type: string
 
-        # hls
+        # HLS
         hlsDisable:
           type: boolean
         hlsAddress:
@@ -150,7 +150,7 @@ components:
           items:
             type: string
 
-        # custom commands
+        # external commands
         runOnInit:
           type: string
         runOnInitRestart:

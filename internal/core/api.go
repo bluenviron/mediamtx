@@ -117,7 +117,7 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		ReadPass    *conf.Credential `json:"readPass"`
 		ReadIPs     *conf.IPsOrNets  `json:"readIPs"`
 
-		// custom commands
+		// external commands
 		RunOnInit               *string              `json:"runOnInit"`
 		RunOnInitRestart        *bool                `json:"runOnInitRestart"`
 		RunOnDemand             *string              `json:"runOnDemand"`
