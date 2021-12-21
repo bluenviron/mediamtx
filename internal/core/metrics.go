@@ -77,8 +77,8 @@ func newMetrics(
 }
 
 func (m *metrics) close() {
+	m.log(logger.Info, "listener is closing")
 	m.server.Shutdown(context.Background())
-	m.log(logger.Info, "listener closed")
 }
 
 func (m *metrics) log(level logger.Level, format string, args ...interface{}) {

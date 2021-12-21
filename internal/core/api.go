@@ -239,8 +239,8 @@ func newAPI(
 }
 
 func (a *api) close() {
+	a.log(logger.Info, "listener is closing")
 	a.s.Shutdown(context.Background())
-	a.log(logger.Info, "listener closed")
 }
 
 func (a *api) log(level logger.Level, format string, args ...interface{}) {

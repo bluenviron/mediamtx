@@ -48,8 +48,8 @@ func newPPROF(
 }
 
 func (pp *pprof) close() {
+	pp.log(logger.Info, "listener is closing")
 	pp.server.Shutdown(context.Background())
-	pp.log(logger.Info, "listener closed")
 }
 
 func (pp *pprof) log(level logger.Level, format string, args ...interface{}) {
