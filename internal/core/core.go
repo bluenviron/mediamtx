@@ -198,7 +198,7 @@ func (p *Core) createResources(initial bool) error {
 	if initial {
 		p.Log(logger.Info, "rtsp-simple-server %s", version)
 		if !p.confFound {
-			p.Log(logger.Warn, "configuration file not found, using the default one")
+			p.Log(logger.Warn, "configuration file not found, using an empty configuration")
 		}
 	}
 
