@@ -13,6 +13,7 @@ type Environment map[string]string
 
 // Cmd is an external command.
 type Cmd struct {
+	pool    *Pool
 	cmdstr  string
 	restart bool
 	env     Environment
@@ -20,40 +21,39 @@ type Cmd struct {
 
 	// in
 	terminate chan struct{}
-
-	// out
-	done chan struct{}
 }
 
-// New allocates an Cmd.
-func New(
+// NewCmd allocates a Cmd.
+func NewCmd(
+	pool *Pool,
 	cmdstr string,
 	restart bool,
 	env Environment,
 	onExit func(int),
 ) *Cmd {
 	e := &Cmd{
+		pool:      pool,
 		cmdstr:    cmdstr,
 		restart:   restart,
 		env:       env,
 		onExit:    onExit,
 		terminate: make(chan struct{}),
-		done:      make(chan struct{}),
 	}
+
+	pool.wg.Add(1)
 
 	go e.run()
 
 	return e
 }
 
-// Close closes an Cmd.
+// Close closes the command. It doesn't wait for the command to exit.
 func (e *Cmd) Close() {
 	close(e.terminate)
-	<-e.done
 }
 
 func (e *Cmd) run() {
-	defer close(e.done)
+	defer e.pool.wg.Done()
 
 	for {
 		ok := func() bool {

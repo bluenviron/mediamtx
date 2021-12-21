@@ -29,13 +29,14 @@ type rtspSessionParent interface {
 }
 
 type rtspSession struct {
-	isTLS       bool
-	protocols   map[conf.Protocol]struct{}
-	id          string
-	ss          *gortsplib.ServerSession
-	author      *gortsplib.ServerConn
-	pathManager rtspSessionPathManager
-	parent      rtspSessionParent
+	externalCmdPool *externalcmd.Pool
+	isTLS           bool
+	protocols       map[conf.Protocol]struct{}
+	id              string
+	ss              *gortsplib.ServerSession
+	author          *gortsplib.ServerConn
+	pathManager     rtspSessionPathManager
+	parent          rtspSessionParent
 
 	path            *path
 	state           gortsplib.ServerSessionState
@@ -47,6 +48,7 @@ type rtspSession struct {
 }
 
 func newRTSPSession(
+	externalCmdPool *externalcmd.Pool,
 	isTLS bool,
 	protocols map[conf.Protocol]struct{},
 	id string,
@@ -55,13 +57,14 @@ func newRTSPSession(
 	pathManager rtspSessionPathManager,
 	parent rtspSessionParent) *rtspSession {
 	s := &rtspSession{
-		isTLS:       isTLS,
-		protocols:   protocols,
-		id:          id,
-		ss:          ss,
-		author:      sc,
-		pathManager: pathManager,
-		parent:      parent,
+		externalCmdPool: externalCmdPool,
+		isTLS:           isTLS,
+		protocols:       protocols,
+		id:              id,
+		ss:              ss,
+		author:          sc,
+		pathManager:     pathManager,
+		parent:          parent,
 	}
 
 	s.log(logger.Info, "opened by %v", s.author.NetConn().RemoteAddr())
@@ -276,7 +279,8 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 		if s.path.Conf().RunOnRead != "" {
 			s.log(logger.Info, "runOnRead command started")
-			s.onReadCmd = externalcmd.New(
+			s.onReadCmd = externalcmd.NewCmd(
+				s.externalCmdPool,
 				s.path.Conf().RunOnRead,
 				s.path.Conf().RunOnReadRestart,
 				s.path.externalCmdEnv(),

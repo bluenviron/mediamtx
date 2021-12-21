@@ -23,7 +23,7 @@ Features:
 * Query and control the server through an HTTP API
 * Read Prometheus-compatible metrics
 * Redirect readers to other RTSP servers (load balancing)
-* Run custom commands when clients connect, disconnect, read or publish streams
+* Run external commands when clients connect, disconnect, read or publish streams
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
@@ -99,7 +99,7 @@ The `--network=host` flag is mandatory since Docker can change the source port o
 docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 aler9/rtsp-simple-server
 ```
 
-Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for a custom command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
+Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
 
 ## Basic usage
 

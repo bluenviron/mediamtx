@@ -13,6 +13,7 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/confwatcher"
+	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rlimit"
 )
@@ -21,21 +22,22 @@ var version = "v0.0.0"
 
 // Core is an instance of rtsp-simple-server.
 type Core struct {
-	ctx         context.Context
-	ctxCancel   func()
-	confPath    string
-	conf        *conf.Conf
-	confFound   bool
-	logger      *logger.Logger
-	metrics     *metrics
-	pprof       *pprof
-	pathManager *pathManager
-	rtspServer  *rtspServer
-	rtspsServer *rtspServer
-	rtmpServer  *rtmpServer
-	hlsServer   *hlsServer
-	api         *api
-	confWatcher *confwatcher.ConfWatcher
+	ctx             context.Context
+	ctxCancel       func()
+	confPath        string
+	conf            *conf.Conf
+	confFound       bool
+	logger          *logger.Logger
+	externalCmdPool *externalcmd.Pool
+	metrics         *metrics
+	pprof           *pprof
+	pathManager     *pathManager
+	rtspServer      *rtspServer
+	rtspsServer     *rtspServer
+	rtmpServer      *rtmpServer
+	hlsServer       *hlsServer
+	api             *api
+	confWatcher     *confwatcher.ConfWatcher
 
 	// in
 	apiConfigSet chan *conf.Conf
@@ -93,15 +95,6 @@ func New(args []string) (*Core, bool) {
 		}
 		p.closeResources(nil, false)
 		return nil, false
-	}
-
-	if p.confFound {
-		p.confWatcher, err = confwatcher.New(p.confPath)
-		if err != nil {
-			p.Log(logger.Error, "%s", err)
-			p.closeResources(nil, false)
-			return nil, false
-		}
 	}
 
 	go p.run()
@@ -176,10 +169,6 @@ outer:
 	p.ctxCancel()
 
 	p.closeResources(nil, false)
-
-	if p.confWatcher != nil {
-		p.confWatcher.Close()
-	}
 }
 
 func (p *Core) createResources(initial bool) error {
@@ -200,6 +189,10 @@ func (p *Core) createResources(initial bool) error {
 		if !p.confFound {
 			p.Log(logger.Warn, "configuration file not found, using an empty configuration")
 		}
+	}
+
+	if initial {
+		p.externalCmdPool = externalcmd.NewPool()
 	}
 
 	if p.conf.Metrics {
@@ -227,6 +220,7 @@ func (p *Core) createResources(initial bool) error {
 	if p.pathManager == nil {
 		p.pathManager = newPathManager(
 			p.ctx,
+			p.externalCmdPool,
 			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
@@ -245,6 +239,7 @@ func (p *Core) createResources(initial bool) error {
 			_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 			p.rtspServer, err = newRTSPServer(
 				p.ctx,
+				p.externalCmdPool,
 				p.conf.RTSPAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -280,6 +275,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtspsServer == nil {
 			p.rtspsServer, err = newRTSPServer(
 				p.ctx,
+				p.externalCmdPool,
 				p.conf.RTSPSAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -313,6 +309,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtmpServer == nil {
 			p.rtmpServer, err = newRTMPServer(
 				p.ctx,
+				p.externalCmdPool,
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -362,6 +359,13 @@ func (p *Core) createResources(initial bool) error {
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	if initial && p.confFound {
+		p.confWatcher, err = confwatcher.New(p.confPath)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -488,6 +492,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeAPI = true
 	}
 
+	if newConf == nil && p.confWatcher != nil {
+		p.confWatcher.Close()
+		p.confWatcher = nil
+	}
+
 	if p.api != nil {
 		if closeAPI {
 			p.api.close()
@@ -532,7 +541,12 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		p.metrics = nil
 	}
 
-	if closeLogger && p.logger != nil {
+	if newConf == nil {
+		p.Log(logger.Info, "waiting for external commands")
+		p.externalCmdPool.Close()
+	}
+
+	if closeLogger {
 		p.logger.Close()
 		p.logger = nil
 	}

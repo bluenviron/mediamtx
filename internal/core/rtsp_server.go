@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/liberrors"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -49,6 +50,7 @@ type rtspServerParent interface {
 }
 
 type rtspServer struct {
+	externalCmdPool     *externalcmd.Pool
 	authMethods         []headers.AuthMethod
 	readTimeout         conf.StringDuration
 	isTLS               bool
@@ -71,6 +73,7 @@ type rtspServer struct {
 
 func newRTSPServer(
 	parentCtx context.Context,
+	externalCmdPool *externalcmd.Pool,
 	address string,
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
@@ -97,18 +100,19 @@ func newRTSPServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtspServer{
-		authMethods: authMethods,
-		readTimeout: readTimeout,
-		isTLS:       isTLS,
-		rtspAddress: rtspAddress,
-		protocols:   protocols,
-		metrics:     metrics,
-		pathManager: pathManager,
-		parent:      parent,
-		ctx:         ctx,
-		ctxCancel:   ctxCancel,
-		conns:       make(map[*gortsplib.ServerConn]*rtspConn),
-		sessions:    make(map[*gortsplib.ServerSession]*rtspSession),
+		externalCmdPool: externalCmdPool,
+		authMethods:     authMethods,
+		readTimeout:     readTimeout,
+		isTLS:           isTLS,
+		rtspAddress:     rtspAddress,
+		protocols:       protocols,
+		metrics:         metrics,
+		pathManager:     pathManager,
+		parent:          parent,
+		ctx:             ctx,
+		ctxCancel:       ctxCancel,
+		conns:           make(map[*gortsplib.ServerConn]*rtspConn),
+		sessions:        make(map[*gortsplib.ServerSession]*rtspSession),
 	}
 
 	s.srv = &gortsplib.Server{
@@ -251,6 +255,7 @@ func (s *rtspServer) newSessionID() (string, error) {
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	c := newRTSPConn(
+		s.externalCmdPool,
 		s.rtspAddress,
 		s.authMethods,
 		s.readTimeout,
@@ -300,6 +305,7 @@ func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx)
 	id, _ := s.newSessionID()
 
 	se := newRTSPSession(
+		s.externalCmdPool,
 		s.isTLS,
 		s.protocols,
 		id,

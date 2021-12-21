@@ -53,6 +53,7 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
+	externalCmdPool     *externalcmd.Pool
 	id                  string
 	rtspAddress         string
 	readTimeout         conf.StringDuration
@@ -75,6 +76,7 @@ type rtmpConn struct {
 
 func newRTMPConn(
 	parentCtx context.Context,
+	externalCmdPool *externalcmd.Pool,
 	id string,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
@@ -89,6 +91,7 @@ func newRTMPConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
+		externalCmdPool:     externalCmdPool,
 		id:                  id,
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
@@ -148,7 +151,8 @@ func (c *rtmpConn) run() {
 		if c.runOnConnect != "" {
 			c.log(logger.Info, "runOnConnect command started")
 			_, port, _ := net.SplitHostPort(c.rtspAddress)
-			onConnectCmd := externalcmd.New(
+			onConnectCmd := externalcmd.NewCmd(
+				c.externalCmdPool,
 				c.runOnConnect,
 				c.runOnConnectRestart,
 				externalcmd.Environment{
@@ -289,7 +293,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
-		onReadCmd := externalcmd.New(
+		onReadCmd := externalcmd.NewCmd(
+			c.externalCmdPool,
 			c.path.Conf().RunOnRead,
 			c.path.Conf().RunOnReadRestart,
 			c.path.externalCmdEnv(),

@@ -208,6 +208,7 @@ type pathAPIPathsListSubReq struct {
 }
 
 type path struct {
+	externalCmdPool *externalcmd.Pool
 	rtspAddress     string
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
@@ -252,6 +253,7 @@ type path struct {
 
 func newPath(
 	parentCtx context.Context,
+	externalCmdPool *externalcmd.Pool,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -266,6 +268,7 @@ func newPath(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pa := &path{
+		externalCmdPool:         externalCmdPool,
 		rtspAddress:             rtspAddress,
 		readTimeout:             readTimeout,
 		writeTimeout:            writeTimeout,
@@ -340,7 +343,8 @@ func (pa *path) run() {
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
 		pa.log(logger.Info, "runOnInit command started")
-		onInitCmd = externalcmd.New(
+		onInitCmd = externalcmd.NewCmd(
+			pa.externalCmdPool,
 			pa.conf.RunOnInit,
 			pa.conf.RunOnInitRestart,
 			pa.externalCmdEnv(),
@@ -485,11 +489,6 @@ func (pa *path) run() {
 		}
 	}
 
-	// close onDemandCmd after the source has been closed.
-	// this avoids a deadlock in which onDemandCmd is a
-	// RTSP publisher that sends a TEARDOWN request and waits
-	// for the response (like FFmpeg), but it can't since
-	// the path is already waiting for the command to close.
 	if pa.onDemandCmd != nil {
 		pa.onDemandCmd.Close()
 		pa.log(logger.Info, "runOnDemand command stopped")
@@ -543,7 +542,8 @@ func (pa *path) onDemandStartSource() {
 		pa.onDemandReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
 	} else {
 		pa.log(logger.Info, "runOnDemand command started")
-		pa.onDemandCmd = externalcmd.New(
+		pa.onDemandCmd = externalcmd.NewCmd(
+			pa.externalCmdPool,
 			pa.conf.RunOnDemand,
 			pa.conf.RunOnDemandRestart,
 			pa.externalCmdEnv(),
@@ -588,11 +588,6 @@ func (pa *path) onDemandCloseSource() {
 			pa.doPublisherRemove()
 		}
 
-		// close onDemandCmd after the source has been closed.
-		// this avoids a deadlock in which onDemandCmd is a
-		// RTSP publisher that sends a TEARDOWN request and waits
-		// for the response (like FFmpeg), but it can't since
-		// the path is already waiting for the command to close.
 		if pa.onDemandCmd != nil {
 			pa.onDemandCmd.Close()
 			pa.onDemandCmd = nil
@@ -637,11 +632,6 @@ func (pa *path) sourceSetNotReady() {
 		r.close()
 	}
 
-	// close onPublishCmd after all readers have been closed.
-	// this avoids a deadlock in which onPublishCmd is a
-	// RTSP reader that sends a TEARDOWN request and waits
-	// for the response (like FFmpeg), but it can't since
-	// the path is already waiting for the command to close.
 	if pa.onPublishCmd != nil {
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
@@ -799,7 +789,8 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 
 	if pa.conf.RunOnPublish != "" {
 		pa.log(logger.Info, "runOnPublish command started")
-		pa.onPublishCmd = externalcmd.New(
+		pa.onPublishCmd = externalcmd.NewCmd(
+			pa.externalCmdPool,
 			pa.conf.RunOnPublish,
 			pa.conf.RunOnPublishRestart,
 			pa.externalCmdEnv(),

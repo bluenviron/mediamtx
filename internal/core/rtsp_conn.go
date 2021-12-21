@@ -24,6 +24,7 @@ type rtspConnParent interface {
 }
 
 type rtspConn struct {
+	externalCmdPool     *externalcmd.Pool
 	rtspAddress         string
 	authMethods         []headers.AuthMethod
 	readTimeout         conf.StringDuration
@@ -41,6 +42,7 @@ type rtspConn struct {
 }
 
 func newRTSPConn(
+	externalCmdPool *externalcmd.Pool,
 	rtspAddress string,
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
@@ -50,6 +52,7 @@ func newRTSPConn(
 	conn *gortsplib.ServerConn,
 	parent rtspConnParent) *rtspConn {
 	c := &rtspConn{
+		externalCmdPool:     externalCmdPool,
 		rtspAddress:         rtspAddress,
 		authMethods:         authMethods,
 		readTimeout:         readTimeout,
@@ -65,7 +68,8 @@ func newRTSPConn(
 	if c.runOnConnect != "" {
 		c.log(logger.Info, "runOnConnect command started")
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		c.onConnectCmd = externalcmd.New(
+		c.onConnectCmd = externalcmd.NewCmd(
+			c.externalCmdPool,
 			c.runOnConnect,
 			c.runOnConnectRestart,
 			externalcmd.Environment{

@@ -12,6 +12,7 @@ import (
 	"github.com/aler9/gortsplib"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -47,6 +48,7 @@ type rtmpServerParent interface {
 }
 
 type rtmpServer struct {
+	externalCmdPool     *externalcmd.Pool
 	readTimeout         conf.StringDuration
 	writeTimeout        conf.StringDuration
 	readBufferCount     int
@@ -71,6 +73,7 @@ type rtmpServer struct {
 
 func newRTMPServer(
 	parentCtx context.Context,
+	externalCmdPool *externalcmd.Pool,
 	address string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -89,6 +92,7 @@ func newRTMPServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtmpServer{
+		externalCmdPool:     externalCmdPool,
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
 		readBufferCount:     readBufferCount,
@@ -170,6 +174,7 @@ outer:
 
 			c := newRTMPConn(
 				s.ctx,
+				s.externalCmdPool,
 				id,
 				s.rtspAddress,
 				s.readTimeout,

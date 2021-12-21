@@ -9,6 +9,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -21,6 +22,7 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
+	externalCmdPool *externalcmd.Pool
 	rtspAddress     string
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
@@ -49,6 +51,7 @@ type pathManager struct {
 
 func newPathManager(
 	parentCtx context.Context,
+	externalCmdPool *externalcmd.Pool,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -60,6 +63,7 @@ func newPathManager(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pm := &pathManager{
+		externalCmdPool:   externalCmdPool,
 		rtspAddress:       rtspAddress,
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
@@ -277,6 +281,7 @@ func (pm *pathManager) createPath(
 	matches []string) {
 	pm.paths[name] = newPath(
 		pm.ctx,
+		pm.externalCmdPool,
 		pm.rtspAddress,
 		pm.readTimeout,
 		pm.writeTimeout,
