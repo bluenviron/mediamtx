@@ -25,20 +25,14 @@ func DialContext(ctx context.Context, address string) (*Conn, error) {
 		return nil, err
 	}
 
-	rw := &bufio.ReadWriter{
-		Reader: bufio.NewReaderSize(nconn, 4096),
-		Writer: bufio.NewWriterSize(nconn, 4096),
-	}
-	rconn := rtmp.NewConn(rw)
+	rconn := rtmp.NewConn(&bufio.ReadWriter{
+		Reader: bufio.NewReaderSize(nconn, readBufferSize),
+		Writer: bufio.NewWriterSize(nconn, writeBufferSize),
+	})
 	rconn.URL = u
 
 	return &Conn{
 		rconn: rconn,
 		nconn: nconn,
 	}, nil
-}
-
-// ClientHandshake performs the handshake of a client-side connection.
-func (c *Conn) ClientHandshake() error {
-	return c.rconn.Prepare(rtmp.StageGotPublishOrPlayCommand, rtmp.PrepareReading)
 }
