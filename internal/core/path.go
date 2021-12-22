@@ -39,7 +39,8 @@ func (e pathErrNoOnePublishing) Error() string {
 }
 
 type pathErrAuthNotCritical struct {
-	*base.Response
+	Message  string
+	Response *base.Response
 }
 
 // Error implements the error interface.

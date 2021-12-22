@@ -91,7 +91,7 @@ test-internal:
 test-core:
 	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
 	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
-	go test -v $(TEST_CORE_OPTS) ./internal/core
+	go test -v $(TEST_CORE_OPTS) -run HLSServerAuth ./internal/core
 
 test-nodocker: test-internal test-core
 
