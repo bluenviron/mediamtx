@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -153,20 +154,21 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 // Conf is a configuration.
 type Conf struct {
 	// general
-	LogLevel            LogLevel        `json:"logLevel"`
-	LogDestinations     LogDestinations `json:"logDestinations"`
-	LogFile             string          `json:"logFile"`
-	ReadTimeout         StringDuration  `json:"readTimeout"`
-	WriteTimeout        StringDuration  `json:"writeTimeout"`
-	ReadBufferCount     int             `json:"readBufferCount"`
-	API                 bool            `json:"api"`
-	APIAddress          string          `json:"apiAddress"`
-	Metrics             bool            `json:"metrics"`
-	MetricsAddress      string          `json:"metricsAddress"`
-	PPROF               bool            `json:"pprof"`
-	PPROFAddress        string          `json:"pprofAddress"`
-	RunOnConnect        string          `json:"runOnConnect"`
-	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
+	LogLevel                  LogLevel        `json:"logLevel"`
+	LogDestinations           LogDestinations `json:"logDestinations"`
+	LogFile                   string          `json:"logFile"`
+	ReadTimeout               StringDuration  `json:"readTimeout"`
+	WriteTimeout              StringDuration  `json:"writeTimeout"`
+	ReadBufferCount           int             `json:"readBufferCount"`
+	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
+	API                       bool            `json:"api"`
+	APIAddress                string          `json:"apiAddress"`
+	Metrics                   bool            `json:"metrics"`
+	MetricsAddress            string          `json:"metricsAddress"`
+	PPROF                     bool            `json:"pprof"`
+	PPROFAddress              string          `json:"pprofAddress"`
+	RunOnConnect              string          `json:"runOnConnect"`
+	RunOnConnectRestart       bool            `json:"runOnConnectRestart"`
 
 	// RTSP
 	RTSPDisable       bool        `json:"rtspDisable"`
@@ -246,6 +248,13 @@ func (conf *Conf) CheckAndFillMissing() error {
 
 	if conf.ReadBufferCount == 0 {
 		conf.ReadBufferCount = 512
+	}
+
+	if conf.ExternalAuthenticationURL != "" {
+		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&
+			!strings.HasPrefix(conf.ExternalAuthenticationURL, "https://") {
+			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
+		}
 	}
 
 	if conf.APIAddress == "" {
@@ -356,7 +365,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 			pconf = conf.Paths[name]
 		}
 
-		err := pconf.checkAndFillMissing(name)
+		err := pconf.checkAndFillMissing(conf, name)
 		if err != nil {
 			return err
 		}

@@ -195,78 +195,65 @@ func TestRTSPServerPublishRead(t *testing.T) {
 }
 
 func TestRTSPServerAuth(t *testing.T) {
-	t.Run("publish", func(t *testing.T) {
-		p, ok := newInstance("rtmpDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"paths:\n" +
-			"  all:\n" +
-			"    publishUser: testuser\n" +
-			"    publishPass: test!$()*+.;<=>[]^_-{}\n" +
-			"    publishIPs: [127.0.0.0/16]\n")
-		require.Equal(t, true, ok)
-		defer p.close()
-
-		track, err := gortsplib.NewTrackH264(96,
-			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
-		require.NoError(t, err)
-
-		source := gortsplib.Client{}
-
-		err = source.StartPublishing(
-			"rtsp://testuser:test%21%24%28%29%2A%2B.%3B%3C%3D%3E%5B%5D%5E_-%7B%7D@127.0.0.1:8554/test/stream",
-			gortsplib.Tracks{track})
-		require.NoError(t, err)
-		defer source.Close()
-	})
-
-	for _, soft := range []string{
-		"ffmpeg",
-		"vlc",
+	for _, ca := range []string{
+		"internal",
+		"external",
 	} {
-		t.Run("read_"+soft, func(t *testing.T) {
-			p, ok := newInstance("rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"paths:\n" +
-				"  all:\n" +
-				"    readUser: testuser\n" +
-				"    readPass: test!$()*+.;<=>[]^_-{}\n" +
-				"    readIPs: [127.0.0.0/16]\n")
+		t.Run(ca, func(t *testing.T) {
+			var conf string
+			if ca == "internal" {
+				conf = "rtmpDisable: yes\n" +
+					"hlsDisable: yes\n" +
+					"paths:\n" +
+					"  all:\n" +
+					"    publishUser: testpublisher\n" +
+					"    publishPass: testpass\n" +
+					"    publishIPs: [127.0.0.0/16]\n" +
+					"    readUser: testreader\n" +
+					"    readPass: testpass\n" +
+					"    readIPs: [127.0.0.0/16]\n"
+			} else {
+				conf = "externalAuthenticationURL: http://localhost:9120/auth\n" +
+					"paths:\n" +
+					"  all:\n"
+			}
+
+			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-re",
-				"-stream_loop", "-1",
-				"-i", "emptyvideo.mkv",
-				"-c", "copy",
-				"-f", "rtsp",
-				"-rtsp_transport", "udp",
-				"rtsp://localhost:8554/test/stream",
-			})
-			require.NoError(t, err)
-			defer cnt1.close()
-
-			time.Sleep(1 * time.Second)
-
-			if soft == "ffmpeg" {
-				cnt2, err := newContainer("ffmpeg", "dest", []string{
-					"-rtsp_transport", "udp",
-					"-i", "rtsp://testuser:test!$()*+.;<=>[]^_-{}@127.0.0.1:8554/test/stream",
-					"-vframes", "1",
-					"-f", "image2",
-					"-y", "/dev/null",
-				})
+			var a *testHTTPAuthenticator
+			if ca == "external" {
+				var err error
+				a, err = newTestHTTPAuthenticator("publish")
 				require.NoError(t, err)
-				defer cnt2.close()
-				require.Equal(t, 0, cnt2.wait())
-			} else {
-				cnt2, err := newContainer("vlc", "dest", []string{
-					"rtsp://testuser:test!$()*+.;<=>[]^_-{}@localhost:8554/test/stream",
-				})
-				require.NoError(t, err)
-				defer cnt2.close()
-				require.Equal(t, 0, cnt2.wait())
 			}
+
+			track, err := gortsplib.NewTrackH264(96,
+				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+			require.NoError(t, err)
+
+			source := gortsplib.Client{}
+
+			err = source.StartPublishing(
+				"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream",
+				gortsplib.Tracks{track})
+			require.NoError(t, err)
+			defer source.Close()
+
+			if ca == "external" {
+				a.close()
+				var err error
+				a, err = newTestHTTPAuthenticator("read")
+				require.NoError(t, err)
+				defer a.close()
+			}
+
+			reader := gortsplib.Client{}
+
+			err = reader.StartReading("rtsp://testreader:testpass@127.0.0.1:8554/teststream")
+			require.NoError(t, err)
+			defer reader.Close()
 		})
 	}
 
@@ -397,6 +384,30 @@ func TestRTSPServerAuthFail(t *testing.T) {
 
 		err = c.StartPublishing(
 			"rtsp://localhost:8554/test/stream",
+			gortsplib.Tracks{track},
+		)
+		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
+	})
+
+	t.Run("external", func(t *testing.T) {
+		p, ok := newInstance("externalAuthenticationURL: http://localhost:9120/auth\n" +
+			"paths:\n" +
+			"  all:\n")
+		require.Equal(t, true, ok)
+		defer p.close()
+
+		a, err := newTestHTTPAuthenticator("publish")
+		require.NoError(t, err)
+		defer a.close()
+
+		track, err := gortsplib.NewTrackH264(96,
+			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		require.NoError(t, err)
+
+		c := gortsplib.Client{}
+
+		err = c.StartPublishing(
+			"rtsp://testpublisher2:testpass@localhost:8554/teststream",
 			gortsplib.Tracks{track},
 		)
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")

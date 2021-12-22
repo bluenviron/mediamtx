@@ -23,6 +23,12 @@ func newEmptyTimer() *time.Timer {
 	return t
 }
 
+type authenticateFunc func(
+	pathIPs []interface{},
+	pathUser conf.Credential,
+	pathPass conf.Credential,
+) error
+
 type pathErrNoOnePublishing struct {
 	PathName string
 }
@@ -120,11 +126,10 @@ type pathDescribeRes struct {
 }
 
 type pathDescribeReq struct {
-	PathName            string
-	URL                 *base.URL
-	IP                  net.IP
-	ValidateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error
-	Res                 chan pathDescribeRes
+	PathName     string
+	URL          *base.URL
+	Authenticate authenticateFunc
+	Res          chan pathDescribeRes
 }
 
 type pathReaderSetupPlayRes struct {
@@ -134,11 +139,10 @@ type pathReaderSetupPlayRes struct {
 }
 
 type pathReaderSetupPlayReq struct {
-	Author              reader
-	PathName            string
-	IP                  net.IP
-	ValidateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error
-	Res                 chan pathReaderSetupPlayRes
+	Author       reader
+	PathName     string
+	Authenticate authenticateFunc
+	Res          chan pathReaderSetupPlayRes
 }
 
 type pathPublisherAnnounceRes struct {
@@ -147,11 +151,10 @@ type pathPublisherAnnounceRes struct {
 }
 
 type pathPublisherAnnounceReq struct {
-	Author              publisher
-	PathName            string
-	IP                  net.IP
-	ValidateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error
-	Res                 chan pathPublisherAnnounceRes
+	Author       publisher
+	PathName     string
+	Authenticate authenticateFunc
+	Res          chan pathPublisherAnnounceRes
 }
 
 type pathReaderPlayReq struct {
@@ -208,7 +211,6 @@ type pathAPIPathsListSubReq struct {
 }
 
 type path struct {
-	externalCmdPool *externalcmd.Pool
 	rtspAddress     string
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
@@ -219,6 +221,7 @@ type path struct {
 	name            string
 	matches         []string
 	wg              *sync.WaitGroup
+	externalCmdPool *externalcmd.Pool
 	parent          pathParent
 
 	ctx                context.Context
@@ -253,7 +256,6 @@ type path struct {
 
 func newPath(
 	parentCtx context.Context,
-	externalCmdPool *externalcmd.Pool,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -264,11 +266,11 @@ func newPath(
 	name string,
 	matches []string,
 	wg *sync.WaitGroup,
+	externalCmdPool *externalcmd.Pool,
 	parent pathParent) *path {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pa := &path{
-		externalCmdPool:         externalCmdPool,
 		rtspAddress:             rtspAddress,
 		readTimeout:             readTimeout,
 		writeTimeout:            writeTimeout,
@@ -279,6 +281,7 @@ func newPath(
 		name:                    name,
 		matches:                 matches,
 		wg:                      wg,
+		externalCmdPool:         externalCmdPool,
 		parent:                  parent,
 		ctx:                     ctx,
 		ctxCancel:               ctxCancel,

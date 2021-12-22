@@ -50,17 +50,18 @@ type rtspServerParent interface {
 }
 
 type rtspServer struct {
-	externalCmdPool     *externalcmd.Pool
-	authMethods         []headers.AuthMethod
-	readTimeout         conf.StringDuration
-	isTLS               bool
-	rtspAddress         string
-	protocols           map[conf.Protocol]struct{}
-	runOnConnect        string
-	runOnConnectRestart bool
-	metrics             *metrics
-	pathManager         *pathManager
-	parent              rtspServerParent
+	externalAuthenticationURL string
+	authMethods               []headers.AuthMethod
+	readTimeout               conf.StringDuration
+	isTLS                     bool
+	rtspAddress               string
+	protocols                 map[conf.Protocol]struct{}
+	runOnConnect              string
+	runOnConnectRestart       bool
+	externalCmdPool           *externalcmd.Pool
+	metrics                   *metrics
+	pathManager               *pathManager
+	parent                    rtspServerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -73,7 +74,7 @@ type rtspServer struct {
 
 func newRTSPServer(
 	parentCtx context.Context,
-	externalCmdPool *externalcmd.Pool,
+	externalAuthenticationURL string,
 	address string,
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
@@ -94,25 +95,27 @@ func newRTSPServer(
 	protocols map[conf.Protocol]struct{},
 	runOnConnect string,
 	runOnConnectRestart bool,
+	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
 	pathManager *pathManager,
 	parent rtspServerParent) (*rtspServer, error) {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtspServer{
-		externalCmdPool: externalCmdPool,
-		authMethods:     authMethods,
-		readTimeout:     readTimeout,
-		isTLS:           isTLS,
-		rtspAddress:     rtspAddress,
-		protocols:       protocols,
-		metrics:         metrics,
-		pathManager:     pathManager,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		conns:           make(map[*gortsplib.ServerConn]*rtspConn),
-		sessions:        make(map[*gortsplib.ServerSession]*rtspSession),
+		externalAuthenticationURL: externalAuthenticationURL,
+		authMethods:               authMethods,
+		readTimeout:               readTimeout,
+		isTLS:                     isTLS,
+		rtspAddress:               rtspAddress,
+		protocols:                 protocols,
+		externalCmdPool:           externalCmdPool,
+		metrics:                   metrics,
+		pathManager:               pathManager,
+		parent:                    parent,
+		ctx:                       ctx,
+		ctxCancel:                 ctxCancel,
+		conns:                     make(map[*gortsplib.ServerConn]*rtspConn),
+		sessions:                  make(map[*gortsplib.ServerSession]*rtspSession),
 	}
 
 	s.srv = &gortsplib.Server{
@@ -255,12 +258,13 @@ func (s *rtspServer) newSessionID() (string, error) {
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	c := newRTSPConn(
-		s.externalCmdPool,
+		s.externalAuthenticationURL,
 		s.rtspAddress,
 		s.authMethods,
 		s.readTimeout,
 		s.runOnConnect,
 		s.runOnConnectRestart,
+		s.externalCmdPool,
 		s.pathManager,
 		ctx.Conn,
 		s)
@@ -305,12 +309,12 @@ func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx)
 	id, _ := s.newSessionID()
 
 	se := newRTSPSession(
-		s.externalCmdPool,
 		s.isTLS,
 		s.protocols,
 		id,
 		ctx.Session,
 		ctx.Conn,
+		s.externalCmdPool,
 		s.pathManager,
 		s)
 

@@ -45,14 +45,15 @@ type hlsServerParent interface {
 }
 
 type hlsServer struct {
-	hlsAlwaysRemux     bool
-	hlsSegmentCount    int
-	hlsSegmentDuration conf.StringDuration
-	hlsAllowOrigin     string
-	readBufferCount    int
-	pathManager        *pathManager
-	metrics            *metrics
-	parent             hlsServerParent
+	externalAuthenticationURL string
+	hlsAlwaysRemux            bool
+	hlsSegmentCount           int
+	hlsSegmentDuration        conf.StringDuration
+	hlsAllowOrigin            string
+	readBufferCount           int
+	pathManager               *pathManager
+	metrics                   *metrics
+	parent                    hlsServerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -70,6 +71,7 @@ type hlsServer struct {
 func newHLSServer(
 	parentCtx context.Context,
 	address string,
+	externalAuthenticationURL string,
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
@@ -87,22 +89,23 @@ func newHLSServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &hlsServer{
-		hlsAlwaysRemux:     hlsAlwaysRemux,
-		hlsSegmentCount:    hlsSegmentCount,
-		hlsSegmentDuration: hlsSegmentDuration,
-		hlsAllowOrigin:     hlsAllowOrigin,
-		readBufferCount:    readBufferCount,
-		pathManager:        pathManager,
-		parent:             parent,
-		metrics:            metrics,
-		ctx:                ctx,
-		ctxCancel:          ctxCancel,
-		ln:                 ln,
-		muxers:             make(map[string]*hlsMuxer),
-		pathSourceReady:    make(chan *path),
-		request:            make(chan hlsMuxerRequest),
-		muxerClose:         make(chan *hlsMuxer),
-		apiMuxersList:      make(chan hlsServerAPIMuxersListReq),
+		externalAuthenticationURL: externalAuthenticationURL,
+		hlsAlwaysRemux:            hlsAlwaysRemux,
+		hlsSegmentCount:           hlsSegmentCount,
+		hlsSegmentDuration:        hlsSegmentDuration,
+		hlsAllowOrigin:            hlsAllowOrigin,
+		readBufferCount:           readBufferCount,
+		pathManager:               pathManager,
+		parent:                    parent,
+		metrics:                   metrics,
+		ctx:                       ctx,
+		ctxCancel:                 ctxCancel,
+		ln:                        ln,
+		muxers:                    make(map[string]*hlsMuxer),
+		pathSourceReady:           make(chan *path),
+		request:                   make(chan hlsMuxerRequest),
+		muxerClose:                make(chan *hlsMuxer),
+		apiMuxersList:             make(chan hlsServerAPIMuxersListReq),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
@@ -268,6 +271,7 @@ func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
 		r = newHLSMuxer(
 			s.ctx,
 			pathName,
+			s.externalAuthenticationURL,
 			s.hlsAlwaysRemux,
 			s.hlsSegmentCount,
 			s.hlsSegmentDuration,

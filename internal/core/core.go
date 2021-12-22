@@ -220,13 +220,13 @@ func (p *Core) createResources(initial bool) error {
 	if p.pathManager == nil {
 		p.pathManager = newPathManager(
 			p.ctx,
-			p.externalCmdPool,
 			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
 			p.conf.ReadBufferSize,
 			p.conf.Paths,
+			p.externalCmdPool,
 			p.metrics,
 			p)
 	}
@@ -239,7 +239,7 @@ func (p *Core) createResources(initial bool) error {
 			_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 			p.rtspServer, err = newRTSPServer(
 				p.ctx,
-				p.externalCmdPool,
+				p.conf.ExternalAuthenticationURL,
 				p.conf.RTSPAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -260,6 +260,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.Protocols,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
+				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
 				p)
@@ -275,7 +276,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtspsServer == nil {
 			p.rtspsServer, err = newRTSPServer(
 				p.ctx,
-				p.externalCmdPool,
+				p.conf.ExternalAuthenticationURL,
 				p.conf.RTSPSAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -296,6 +297,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.Protocols,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
+				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
 				p)
@@ -309,7 +311,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtmpServer == nil {
 			p.rtmpServer, err = newRTMPServer(
 				p.ctx,
-				p.externalCmdPool,
+				p.conf.ExternalAuthenticationURL,
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -317,6 +319,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RTSPAddress,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
+				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
 				p)
@@ -331,6 +334,7 @@ func (p *Core) createResources(initial bool) error {
 			p.hlsServer, err = newHLSServer(
 				p.ctx,
 				p.conf.HLSAddress,
+				p.conf.ExternalAuthenticationURL,
 				p.conf.HLSAlwaysRemux,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,
@@ -411,6 +415,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.Encryption != p.conf.Encryption ||
+		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -435,6 +440,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.Encryption != p.conf.Encryption ||
+		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -455,6 +461,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if newConf == nil ||
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
+		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -470,6 +477,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
+		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||

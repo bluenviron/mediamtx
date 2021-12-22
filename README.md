@@ -19,7 +19,7 @@ Features:
 * Each stream can have multiple video and audio tracks, encoded with any codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
 * Serve multiple streams at once in separate paths
-* Authenticate readers and publishers
+* Authenticate users; use internal or external authentication
 * Query and control the server through an HTTP API
 * Read Prometheus-compatible metrics
 * Redirect readers to other RTSP servers (load balancing)
@@ -219,6 +219,26 @@ paths:
 ```
 
 **WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials.
+
+Credentials can be sent to an external server:
+
+```yml
+externalAuthenticationURL: http://myauthserver/auth
+```
+
+Each time a user needs to be authenticated, the specified URL will be requested with the POST method and this payload:
+
+```json
+{
+  "ip": "ip",
+  "user": "user",
+  "password": "password",
+  "path": "path",
+  "action": "read|publish"
+}
+```
+
+If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails.
 
 ### Encrypt the configuration
 

@@ -53,18 +53,19 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
-	externalCmdPool     *externalcmd.Pool
-	id                  string
-	rtspAddress         string
-	readTimeout         conf.StringDuration
-	writeTimeout        conf.StringDuration
-	readBufferCount     int
-	runOnConnect        string
-	runOnConnectRestart bool
-	wg                  *sync.WaitGroup
-	conn                *rtmp.Conn
-	pathManager         rtmpConnPathManager
-	parent              rtmpConnParent
+	id                        string
+	externalAuthenticationURL string
+	rtspAddress               string
+	readTimeout               conf.StringDuration
+	writeTimeout              conf.StringDuration
+	readBufferCount           int
+	runOnConnect              string
+	runOnConnectRestart       bool
+	wg                        *sync.WaitGroup
+	conn                      *rtmp.Conn
+	externalCmdPool           *externalcmd.Pool
+	pathManager               rtmpConnPathManager
+	parent                    rtmpConnParent
 
 	ctx        context.Context
 	ctxCancel  func()
@@ -76,8 +77,8 @@ type rtmpConn struct {
 
 func newRTMPConn(
 	parentCtx context.Context,
-	externalCmdPool *externalcmd.Pool,
 	id string,
+	externalAuthenticationURL string,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -86,25 +87,27 @@ func newRTMPConn(
 	runOnConnectRestart bool,
 	wg *sync.WaitGroup,
 	nconn net.Conn,
+	externalCmdPool *externalcmd.Pool,
 	pathManager rtmpConnPathManager,
 	parent rtmpConnParent) *rtmpConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
-		externalCmdPool:     externalCmdPool,
-		id:                  id,
-		rtspAddress:         rtspAddress,
-		readTimeout:         readTimeout,
-		writeTimeout:        writeTimeout,
-		readBufferCount:     readBufferCount,
-		runOnConnect:        runOnConnect,
-		runOnConnectRestart: runOnConnectRestart,
-		wg:                  wg,
-		conn:                rtmp.NewServerConn(nconn),
-		pathManager:         pathManager,
-		parent:              parent,
-		ctx:                 ctx,
-		ctxCancel:           ctxCancel,
+		id:                        id,
+		externalAuthenticationURL: externalAuthenticationURL,
+		rtspAddress:               rtspAddress,
+		readTimeout:               readTimeout,
+		writeTimeout:              writeTimeout,
+		readBufferCount:           readBufferCount,
+		runOnConnect:              runOnConnect,
+		runOnConnectRestart:       runOnConnectRestart,
+		wg:                        wg,
+		conn:                      rtmp.NewServerConn(nconn),
+		externalCmdPool:           externalCmdPool,
+		pathManager:               pathManager,
+		parent:                    parent,
+		ctx:                       ctx,
+		ctxCancel:                 ctxCancel,
 	}
 
 	c.log(logger.Info, "opened")
@@ -219,9 +222,11 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	res := c.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
 		Author:   c,
 		PathName: pathName,
-		IP:       c.ip(),
-		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
-			return c.validateCredentials(pathUser, pathPass, query)
+		Authenticate: func(
+			pathIPs []interface{},
+			pathUser conf.Credential,
+			pathPass conf.Credential) error {
+			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "read", query)
 		},
 	})
 
@@ -462,9 +467,11 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	res := c.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   c,
 		PathName: pathName,
-		IP:       c.ip(),
-		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
-			return c.validateCredentials(pathUser, pathPass, query)
+		Authenticate: func(
+			pathIPs []interface{},
+			pathUser conf.Credential,
+			pathPass conf.Credential) error {
+			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "publish", query)
 		},
 	})
 
@@ -585,15 +592,44 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	}
 }
 
-func (c *rtmpConn) validateCredentials(
+func (c *rtmpConn) authenticate(
+	pathName string,
+	pathIPs []interface{},
 	pathUser conf.Credential,
 	pathPass conf.Credential,
+	action string,
 	query url.Values,
 ) error {
-	if query.Get("user") != string(pathUser) ||
-		query.Get("pass") != string(pathPass) {
-		return pathErrAuthCritical{
-			Message: "wrong username or password",
+	if c.externalAuthenticationURL != "" {
+		err := externalAuth(
+			c.externalAuthenticationURL,
+			c.ip().String(),
+			query.Get("user"),
+			query.Get("pass"),
+			pathName,
+			action)
+		if err != nil {
+			return pathErrAuthCritical{
+				Message: fmt.Sprintf("external authentication failed: %s", err),
+			}
+		}
+	}
+
+	if pathIPs != nil {
+		ip := c.ip()
+		if !ipEqualOrInRange(ip, pathIPs) {
+			return pathErrAuthCritical{
+				Message: fmt.Sprintf("IP '%s' not allowed", ip),
+			}
+		}
+	}
+
+	if pathUser != "" {
+		if query.Get("user") != string(pathUser) ||
+			query.Get("pass") != string(pathPass) {
+			return pathErrAuthCritical{
+				Message: "invalid credentials",
+			}
 		}
 	}
 

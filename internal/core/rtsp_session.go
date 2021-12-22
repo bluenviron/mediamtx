@@ -29,12 +29,12 @@ type rtspSessionParent interface {
 }
 
 type rtspSession struct {
-	externalCmdPool *externalcmd.Pool
 	isTLS           bool
 	protocols       map[conf.Protocol]struct{}
 	id              string
 	ss              *gortsplib.ServerSession
 	author          *gortsplib.ServerConn
+	externalCmdPool *externalcmd.Pool
 	pathManager     rtspSessionPathManager
 	parent          rtspSessionParent
 
@@ -48,21 +48,21 @@ type rtspSession struct {
 }
 
 func newRTSPSession(
-	externalCmdPool *externalcmd.Pool,
 	isTLS bool,
 	protocols map[conf.Protocol]struct{},
 	id string,
 	ss *gortsplib.ServerSession,
 	sc *gortsplib.ServerConn,
+	externalCmdPool *externalcmd.Pool,
 	pathManager rtspSessionPathManager,
 	parent rtspSessionParent) *rtspSession {
 	s := &rtspSession{
-		externalCmdPool: externalCmdPool,
 		isTLS:           isTLS,
 		protocols:       protocols,
 		id:              id,
 		ss:              ss,
 		author:          sc,
+		externalCmdPool: externalCmdPool,
 		pathManager:     pathManager,
 		parent:          parent,
 	}
@@ -157,9 +157,11 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	res := s.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
 		Author:   s,
 		PathName: ctx.Path,
-		IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
-		ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
-			return c.validateCredentials(pathUser, pathPass, ctx.Req)
+		Authenticate: func(
+			pathIPs []interface{},
+			pathUser conf.Credential,
+			pathPass conf.Credential) error {
+			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "publish", ctx.Req)
 		},
 	})
 
@@ -213,9 +215,11 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		res := s.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
 			Author:   s,
 			PathName: ctx.Path,
-			IP:       ctx.Conn.NetConn().RemoteAddr().(*net.TCPAddr).IP,
-			ValidateCredentials: func(pathUser conf.Credential, pathPass conf.Credential) error {
-				return c.validateCredentials(pathUser, pathPass, ctx.Req)
+			Authenticate: func(
+				pathIPs []interface{},
+				pathUser conf.Credential,
+				pathPass conf.Credential) error {
+				return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Req)
 			},
 		})
 

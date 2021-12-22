@@ -71,7 +71,7 @@ type PathConf struct {
 	RunOnReadRestart        bool           `json:"runOnReadRestart"`
 }
 
-func (pconf *PathConf) checkAndFillMissing(name string) error {
+func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 	if name == "" {
 		return fmt.Errorf("path name can not be empty")
 	}
@@ -207,14 +207,30 @@ func (pconf *PathConf) checkAndFillMissing(name string) error {
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
 
+	if pconf.PublishUser != "" && conf.ExternalAuthenticationURL != "" {
+		return fmt.Errorf("'publishUser' can't be used with 'externalAuthenticationURL'")
+	}
+
 	if len(pconf.PublishIPs) > 0 && pconf.Source != "publisher" {
 		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
 
+	if len(pconf.PublishIPs) > 0 && conf.ExternalAuthenticationURL != "" {
+		return fmt.Errorf("'publishIPs' can't be used with 'externalAuthenticationURL'")
+	}
+
 	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
 		(pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
+	}
+
+	if pconf.ReadUser != "" && conf.ExternalAuthenticationURL != "" {
+		return fmt.Errorf("'readUser' can't be used with 'externalAuthenticationURL'")
+	}
+
+	if len(pconf.ReadIPs) > 0 && conf.ExternalAuthenticationURL != "" {
+		return fmt.Errorf("'readIPs' can't be used with 'externalAuthenticationURL'")
 	}
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {

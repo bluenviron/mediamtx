@@ -44,20 +44,21 @@ func cloneStruct(dest interface{}, source interface{}) {
 func loadConfData(ctx *gin.Context) (interface{}, error) {
 	var in struct {
 		// general
-		LogLevel            *conf.LogLevel        `json:"logLevel"`
-		LogDestinations     *conf.LogDestinations `json:"logDestinations"`
-		LogFile             *string               `json:"logFile"`
-		ReadTimeout         *conf.StringDuration  `json:"readTimeout"`
-		WriteTimeout        *conf.StringDuration  `json:"writeTimeout"`
-		ReadBufferCount     *int                  `json:"readBufferCount"`
-		API                 *bool                 `json:"api"`
-		APIAddress          *string               `json:"apiAddress"`
-		Metrics             *bool                 `json:"metrics"`
-		MetricsAddress      *string               `json:"metricsAddress"`
-		PPROF               *bool                 `json:"pprof"`
-		PPROFAddress        *string               `json:"pprofAddress"`
-		RunOnConnect        *string               `json:"runOnConnect"`
-		RunOnConnectRestart *bool                 `json:"runOnConnectRestart"`
+		LogLevel                  *conf.LogLevel        `json:"logLevel"`
+		LogDestinations           *conf.LogDestinations `json:"logDestinations"`
+		LogFile                   *string               `json:"logFile"`
+		ReadTimeout               *conf.StringDuration  `json:"readTimeout"`
+		WriteTimeout              *conf.StringDuration  `json:"writeTimeout"`
+		ReadBufferCount           *int                  `json:"readBufferCount"`
+		ExternalAuthenticationURL *string               `json:"externalAuthenticationURL"`
+		API                       *bool                 `json:"api"`
+		APIAddress                *string               `json:"apiAddress"`
+		Metrics                   *bool                 `json:"metrics"`
+		MetricsAddress            *string               `json:"metricsAddress"`
+		PPROF                     *bool                 `json:"pprof"`
+		PPROFAddress              *string               `json:"pprofAddress"`
+		RunOnConnect              *string               `json:"runOnConnect"`
+		RunOnConnectRestart       *bool                 `json:"runOnConnectRestart"`
 
 		// RTSP
 		RTSPDisable       *bool             `json:"rtspDisable"`

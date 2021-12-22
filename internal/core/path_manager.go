@@ -3,10 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
-	"net"
 	"sync"
-
-	"github.com/aler9/gortsplib/pkg/base"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -22,13 +19,13 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	externalCmdPool *externalcmd.Pool
 	rtspAddress     string
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
 	readBufferSize  int
 	pathConfs       map[string]*conf.PathConf
+	externalCmdPool *externalcmd.Pool
 	metrics         *metrics
 	parent          pathManagerParent
 
@@ -51,25 +48,25 @@ type pathManager struct {
 
 func newPathManager(
 	parentCtx context.Context,
-	externalCmdPool *externalcmd.Pool,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	readBufferSize int,
 	pathConfs map[string]*conf.PathConf,
+	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
 	parent pathManagerParent) *pathManager {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pm := &pathManager{
-		externalCmdPool:   externalCmdPool,
 		rtspAddress:       rtspAddress,
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
 		readBufferCount:   readBufferCount,
 		readBufferSize:    readBufferSize,
 		pathConfs:         pathConfs,
+		externalCmdPool:   externalCmdPool,
 		metrics:           metrics,
 		parent:            parent,
 		ctx:               ctx,
@@ -85,9 +82,9 @@ func newPathManager(
 		apiPathsList:      make(chan pathAPIPathsListReq),
 	}
 
-	for pathName, pathConf := range pm.pathConfs {
+	for pathConfName, pathConf := range pm.pathConfs {
 		if pathConf.Regexp == nil {
-			pm.createPath(pathName, pathConf, pathName, nil)
+			pm.createPath(pathConfName, pathConf, pathConfName, nil)
 		}
 	}
 
@@ -119,23 +116,23 @@ outer:
 		select {
 		case pathConfs := <-pm.confReload:
 			// remove confs
-			for pathName := range pm.pathConfs {
-				if _, ok := pathConfs[pathName]; !ok {
-					delete(pm.pathConfs, pathName)
+			for pathConfName := range pm.pathConfs {
+				if _, ok := pathConfs[pathConfName]; !ok {
+					delete(pm.pathConfs, pathConfName)
 				}
 			}
 
 			// update confs
-			for pathName, oldConf := range pm.pathConfs {
-				if !oldConf.Equal(pathConfs[pathName]) {
-					pm.pathConfs[pathName] = pathConfs[pathName]
+			for pathConfName, oldConf := range pm.pathConfs {
+				if !oldConf.Equal(pathConfs[pathConfName]) {
+					pm.pathConfs[pathConfName] = pathConfs[pathConfName]
 				}
 			}
 
 			// add confs
-			for pathName, pathConf := range pathConfs {
-				if _, ok := pm.pathConfs[pathName]; !ok {
-					pm.pathConfs[pathName] = pathConf
+			for pathConfName, pathConf := range pathConfs {
+				if _, ok := pm.pathConfs[pathConfName]; !ok {
+					pm.pathConfs[pathConfName] = pathConf
 				}
 			}
 
@@ -149,9 +146,9 @@ outer:
 			}
 
 			// add new paths
-			for pathName, pathConf := range pm.pathConfs {
-				if _, ok := pm.paths[pathName]; !ok && pathConf.Regexp == nil {
-					pm.createPath(pathName, pathConf, pathName, nil)
+			for pathConfName, pathConf := range pm.pathConfs {
+				if _, ok := pm.paths[pathConfName]; !ok && pathConf.Regexp == nil {
+					pm.createPath(pathConfName, pathConf, pathConfName, nil)
 				}
 			}
 
@@ -168,20 +165,16 @@ outer:
 			}
 
 		case req := <-pm.describe:
-			pathName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
+			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- pathDescribeRes{Err: err}
 				continue
 			}
 
-			err = pm.authenticate(
-				req.IP,
-				req.ValidateCredentials,
-				req.PathName,
+			err = req.Authenticate(
 				pathConf.ReadIPs,
 				pathConf.ReadUser,
-				pathConf.ReadPass,
-			)
+				pathConf.ReadPass)
 			if err != nil {
 				req.Res <- pathDescribeRes{Err: err}
 				continue
@@ -189,53 +182,47 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName, pathMatches)
+				pm.createPath(pathConfName, pathConf, req.PathName, pathMatches)
 			}
 
 			req.Res <- pathDescribeRes{Path: pm.paths[req.PathName]}
 
 		case req := <-pm.readerSetupPlay:
-			pathName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
+			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- pathReaderSetupPlayRes{Err: err}
 				continue
 			}
 
-			err = pm.authenticate(
-				req.IP,
-				req.ValidateCredentials,
-				req.PathName,
-				pathConf.ReadIPs,
-				pathConf.ReadUser,
-				pathConf.ReadPass,
-			)
-			if err != nil {
-				req.Res <- pathReaderSetupPlayRes{Err: err}
-				continue
+			if req.Authenticate != nil {
+				err = req.Authenticate(
+					pathConf.ReadIPs,
+					pathConf.ReadUser,
+					pathConf.ReadPass)
+				if err != nil {
+					req.Res <- pathReaderSetupPlayRes{Err: err}
+					continue
+				}
 			}
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName, pathMatches)
+				pm.createPath(pathConfName, pathConf, req.PathName, pathMatches)
 			}
 
 			req.Res <- pathReaderSetupPlayRes{Path: pm.paths[req.PathName]}
 
 		case req := <-pm.publisherAnnounce:
-			pathName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
+			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
 			if err != nil {
 				req.Res <- pathPublisherAnnounceRes{Err: err}
 				continue
 			}
 
-			err = pm.authenticate(
-				req.IP,
-				req.ValidateCredentials,
-				req.PathName,
+			err = req.Authenticate(
 				pathConf.PublishIPs,
 				pathConf.PublishUser,
-				pathConf.PublishPass,
-			)
+				pathConf.PublishPass)
 			if err != nil {
 				req.Res <- pathPublisherAnnounceRes{Err: err}
 				continue
@@ -243,7 +230,7 @@ outer:
 
 			// create path if it doesn't exist
 			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathName, pathConf, req.PathName, pathMatches)
+				pm.createPath(pathConfName, pathConf, req.PathName, pathMatches)
 			}
 
 			req.Res <- pathPublisherAnnounceRes{Path: pm.paths[req.PathName]}
@@ -275,23 +262,23 @@ outer:
 }
 
 func (pm *pathManager) createPath(
-	confName string,
-	conf *conf.PathConf,
+	pathConfName string,
+	pathConf *conf.PathConf,
 	name string,
 	matches []string) {
 	pm.paths[name] = newPath(
 		pm.ctx,
-		pm.externalCmdPool,
 		pm.rtspAddress,
 		pm.readTimeout,
 		pm.writeTimeout,
 		pm.readBufferCount,
 		pm.readBufferSize,
-		confName,
-		conf,
+		pathConfName,
+		pathConf,
 		name,
 		matches,
 		&pm.wg,
+		pm.externalCmdPool,
 		pm)
 }
 
@@ -307,47 +294,16 @@ func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, []stri
 	}
 
 	// regular expression path
-	for pathName, pathConf := range pm.pathConfs {
+	for pathConfName, pathConf := range pm.pathConfs {
 		if pathConf.Regexp != nil {
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
-				return pathName, pathConf, m, nil
+				return pathConfName, pathConf, m, nil
 			}
 		}
 	}
 
 	return "", nil, nil, fmt.Errorf("path '%s' is not configured", name)
-}
-
-func (pm *pathManager) authenticate(
-	ip net.IP,
-	validateCredentials func(pathUser conf.Credential, pathPass conf.Credential) error,
-	pathName string,
-	pathIPs []interface{},
-	pathUser conf.Credential,
-	pathPass conf.Credential,
-) error {
-	// validate ip
-	if pathIPs != nil && ip != nil {
-		if !ipEqualOrInRange(ip, pathIPs) {
-			return pathErrAuthCritical{
-				Message: fmt.Sprintf("IP '%s' not allowed", ip),
-				Response: &base.Response{
-					StatusCode: base.StatusUnauthorized,
-				},
-			}
-		}
-	}
-
-	// validate user
-	if pathUser != "" && validateCredentials != nil {
-		err := validateCredentials(pathUser, pathPass)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // onConfReload is called by core.

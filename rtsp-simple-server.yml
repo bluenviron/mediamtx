@@ -17,6 +17,20 @@ writeTimeout: 10s
 # A higher number allows a wider throughput, a lower number allows to save RAM.
 readBufferCount: 512
 
+# HTTP URL to perform external authentication.
+# Every time a user wants to authenticate, the server calls this URL
+# with the POST method and a body containing:
+# {
+#   "ip": "ip",
+#   "user": "user",
+#   "password": "password",
+#   "path": "path",
+#   "action": "read|publish"
+# }
+# If the response code is 20x, authentication is accepted, otherwise
+# it is discarded.
+externalAuthenticationURL:
+
 # Enable the HTTP API.
 api: no
 # Address of the API listener.

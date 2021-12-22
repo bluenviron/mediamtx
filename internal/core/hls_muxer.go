@@ -122,15 +122,16 @@ type hlsMuxerParent interface {
 }
 
 type hlsMuxer struct {
-	name               string
-	hlsAlwaysRemux     bool
-	hlsSegmentCount    int
-	hlsSegmentDuration conf.StringDuration
-	readBufferCount    int
-	wg                 *sync.WaitGroup
-	pathName           string
-	pathManager        hlsMuxerPathManager
-	parent             hlsMuxerParent
+	name                      string
+	externalAuthenticationURL string
+	hlsAlwaysRemux            bool
+	hlsSegmentCount           int
+	hlsSegmentDuration        conf.StringDuration
+	readBufferCount           int
+	wg                        *sync.WaitGroup
+	pathName                  string
+	pathManager               hlsMuxerPathManager
+	parent                    hlsMuxerParent
 
 	ctx             context.Context
 	ctxCancel       func()
@@ -148,6 +149,7 @@ type hlsMuxer struct {
 func newHLSMuxer(
 	parentCtx context.Context,
 	name string,
+	externalAuthenticationURL string,
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
@@ -159,17 +161,18 @@ func newHLSMuxer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	m := &hlsMuxer{
-		name:               name,
-		hlsAlwaysRemux:     hlsAlwaysRemux,
-		hlsSegmentCount:    hlsSegmentCount,
-		hlsSegmentDuration: hlsSegmentDuration,
-		readBufferCount:    readBufferCount,
-		wg:                 wg,
-		pathName:           pathName,
-		pathManager:        pathManager,
-		parent:             parent,
-		ctx:                ctx,
-		ctxCancel:          ctxCancel,
+		name:                      name,
+		externalAuthenticationURL: externalAuthenticationURL,
+		hlsAlwaysRemux:            hlsAlwaysRemux,
+		hlsSegmentCount:           hlsSegmentCount,
+		hlsSegmentDuration:        hlsSegmentDuration,
+		readBufferCount:           readBufferCount,
+		wg:                        wg,
+		pathName:                  pathName,
+		pathManager:               pathManager,
+		parent:                    parent,
+		ctx:                       ctx,
+		ctxCancel:                 ctxCancel,
 		lastRequestTime: func() *int64 {
 			v := time.Now().Unix()
 			return &v
@@ -259,10 +262,9 @@ func (m *hlsMuxer) run() {
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
 	res := m.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
-		Author:              m,
-		PathName:            m.pathName,
-		IP:                  nil,
-		ValidateCredentials: nil,
+		Author:       m,
+		PathName:     m.pathName,
+		Authenticate: nil,
 	})
 	if res.Err != nil {
 		return res.Err
@@ -413,26 +415,20 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
-	conf := m.path.Conf()
-
-	if conf.ReadIPs != nil {
-		tmp, _, _ := net.SplitHostPort(req.Req.RemoteAddr)
-		ip := net.ParseIP(tmp)
-		if !ipEqualOrInRange(ip, conf.ReadIPs) {
-			m.log(logger.Info, "ip '%s' not allowed", ip)
-			return hlsMuxerResponse{Status: http.StatusUnauthorized}
-		}
-	}
-
-	if conf.ReadUser != "" {
-		user, pass, ok := req.Req.BasicAuth()
-		if !ok || user != string(conf.ReadUser) || pass != string(conf.ReadPass) {
+	err := m.authenticate(req.Req)
+	if err != nil {
+		if terr, ok := err.(pathErrAuthCritical); ok {
+			m.log(logger.Info, "authentication error: %s", terr.Message)
 			return hlsMuxerResponse{
 				Status: http.StatusUnauthorized,
-				Header: map[string]string{
-					"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
-				},
 			}
+		}
+
+		return hlsMuxerResponse{
+			Status: http.StatusUnauthorized,
+			Header: map[string]string{
+				"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
+			},
 		}
 	}
 
@@ -481,6 +477,58 @@ func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 	default:
 		return hlsMuxerResponse{Status: http.StatusNotFound}
 	}
+}
+
+func (m *hlsMuxer) authenticate(req *http.Request) error {
+	pathConf := m.path.Conf()
+	pathIPs := pathConf.ReadIPs
+	pathUser := pathConf.ReadUser
+	pathPass := pathConf.ReadPass
+
+	if m.externalAuthenticationURL != "" {
+		tmp, _, _ := net.SplitHostPort(req.RemoteAddr)
+		ip := net.ParseIP(tmp)
+		user, pass, _ := req.BasicAuth()
+
+		err := externalAuth(
+			m.externalAuthenticationURL,
+			ip.String(),
+			user,
+			pass,
+			m.pathName,
+			"read")
+		if err != nil {
+			return pathErrAuthCritical{
+				Message: fmt.Sprintf("external authentication failed: %s", err),
+			}
+		}
+	}
+
+	if pathIPs != nil {
+		tmp, _, _ := net.SplitHostPort(req.RemoteAddr)
+		ip := net.ParseIP(tmp)
+
+		if !ipEqualOrInRange(ip, pathIPs) {
+			return pathErrAuthCritical{
+				Message: fmt.Sprintf("IP '%s' not allowed", ip),
+			}
+		}
+	}
+
+	if pathUser != "" {
+		user, pass, ok := req.BasicAuth()
+		if !ok {
+			return pathErrAuthNotCritical{}
+		}
+
+		if user != string(pathUser) || pass != string(pathPass) {
+			return pathErrAuthCritical{
+				Message: "invalid credentials",
+			}
+		}
+	}
+
+	return nil
 }
 
 // onRequest is called by hlsserver.Server (forwarded from ServeHTTP).
