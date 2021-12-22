@@ -19,7 +19,7 @@ type testHTTPAuthenticator struct {
 }
 
 func newTestHTTPAuthenticator(action string) (*testHTTPAuthenticator, error) {
-	ln, err := net.Listen("tcp", "localhost:9120")
+	ln, err := net.Listen("tcp", "127.0.0.1:9120")
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func TestHLSServerNotFound(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 
-	req, err := http.NewRequest(http.MethodGet, "http://localhost:8888/stream/", nil)
+	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/stream/", nil)
 	require.NoError(t, err)
 
 	res, err := http.DefaultClient.Do(req)
@@ -98,7 +98,7 @@ func TestHLSServerRead(t *testing.T) {
 		"-i", "emptyvideo.mkv",
 		"-c", "copy",
 		"-f", "rtsp",
-		"rtsp://localhost:8554/test/stream",
+		"rtsp://127.0.0.1:8554/test/stream",
 	})
 	require.NoError(t, err)
 	defer cnt1.close()
@@ -106,7 +106,7 @@ func TestHLSServerRead(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "http://localhost:8888/test/stream/index.m3u8",
+		"-i", "http://127.0.0.1:8888/test/stream/index.m3u8",
 		"-vframes", "1",
 		"-f", "image2",
 		"-y", "/dev/null",
@@ -134,7 +134,8 @@ func TestHLSServerAuth(t *testing.T) {
 						"    readPass: testpass\n" +
 						"    readIPs: [127.0.0.0/16]\n"
 				} else {
-					conf = "externalAuthenticationURL: http://localhost:9120/auth\n" +
+					conf = "logLevel: debug\n" +
+						"externalAuthenticationURL: http://127.0.0.1:9120/auth\n" +
 						"paths:\n" +
 						"  all:\n"
 				}
@@ -156,7 +157,7 @@ func TestHLSServerAuth(t *testing.T) {
 					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
-					"rtsp://testpublisher:testpass@localhost:8554/teststream",
+					"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
