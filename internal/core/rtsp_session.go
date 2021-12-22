@@ -168,6 +168,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	if res.Err != nil {
 		switch terr := res.Err.(type) {
 		case pathErrAuthNotCritical:
+			s.log(logger.Debug, "non-critical authentication error: %s", terr.Message)
 			return terr.Response, nil
 
 		case pathErrAuthCritical:
@@ -226,6 +227,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		if res.Err != nil {
 			switch terr := res.Err.(type) {
 			case pathErrAuthNotCritical:
+				s.log(logger.Debug, "non-critical authentication error: %s", terr.Message)
 				return terr.Response, nil, nil
 
 			case pathErrAuthCritical:

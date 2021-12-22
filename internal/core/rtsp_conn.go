@@ -147,6 +147,7 @@ func (c *rtspConn) authenticate(
 
 			v := "IPCAM"
 			return pathErrAuthNotCritical{
+				Message: "unauthorized: " + err.Error(),
 				Response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
@@ -253,6 +254,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	if res.Err != nil {
 		switch terr := res.Err.(type) {
 		case pathErrAuthNotCritical:
+			c.log(logger.Debug, "non-critical authentication error: %s", terr.Message)
 			return terr.Response, nil, nil
 
 		case pathErrAuthCritical:
