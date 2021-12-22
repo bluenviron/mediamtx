@@ -15,7 +15,7 @@ const (
 	codecAAC  = 10
 )
 
-// ReadMetadata extracts track informations from a connection that is publishing.
+// ReadMetadata reads track informations.
 func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 	var videoTrack *gortsplib.Track
 	var audioTrack *gortsplib.Track
@@ -170,7 +170,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 	}
 }
 
-// WriteMetadata writes track informations to a connection that is reading.
+// WriteMetadata writes track informations.
 func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
 	err := c.WritePacket(av.Packet{
 		Type: av.Metadata,

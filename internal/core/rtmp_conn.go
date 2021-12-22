@@ -127,15 +127,15 @@ func (c *rtmpConn) ID() string {
 
 // RemoteAddr returns the remote address of the Conn.
 func (c *rtmpConn) RemoteAddr() net.Addr {
-	return c.conn.NetConn().RemoteAddr()
+	return c.conn.RemoteAddr()
 }
 
 func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
+	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.conn.RemoteAddr()}, args...)...)
 }
 
 func (c *rtmpConn) ip() net.IP {
-	return c.conn.NetConn().RemoteAddr().(*net.TCPAddr).IP
+	return c.conn.RemoteAddr().(*net.TCPAddr).IP
 }
 
 func (c *rtmpConn) safeState() gortsplib.ServerSessionState {
@@ -197,11 +197,11 @@ func (c *rtmpConn) run() {
 func (c *rtmpConn) runInner(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
-		c.conn.NetConn().Close()
+		c.conn.Close()
 	}()
 
-	c.conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+	c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+	c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 	err := c.conn.ServerHandshake()
 	if err != nil {
 		return err
@@ -277,7 +277,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
-	c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+	c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 	c.conn.WriteMetadata(videoTrack, audioTrack)
 
 	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
@@ -308,7 +308,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}
 
 	// disable read deadline
-	c.conn.NetConn().SetReadDeadline(time.Time{})
+	c.conn.SetReadDeadline(time.Time{})
 
 	var videoStartPTS time.Duration
 	var videoDTSEst *h264.DTSEstimator
@@ -379,7 +379,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			pts -= videoStartPTS
 			dts := videoDTSEst.Feed(pts)
 
-			c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+			c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 			err = c.conn.WritePacket(av.Packet{
 				Type:  av.H264,
 				Data:  data,
@@ -415,7 +415,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			for _, au := range aus {
-				c.conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+				c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
@@ -432,7 +432,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 }
 
 func (c *rtmpConn) runPublish(ctx context.Context) error {
-	c.conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+	c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	videoTrack, audioTrack, err := c.conn.ReadMetadata()
 	if err != nil {
 		return err
@@ -488,7 +488,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	c.stateMutex.Unlock()
 
 	// disable write deadline
-	c.conn.NetConn().SetWriteDeadline(time.Time{})
+	c.conn.SetWriteDeadline(time.Time{})
 
 	rres := c.path.onPublisherRecord(pathPublisherRecordReq{
 		Author: c,
@@ -507,7 +507,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	}
 
 	for {
-		c.conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+		c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 		pkt, err := c.conn.ReadPacket()
 		if err != nil {
 			return err

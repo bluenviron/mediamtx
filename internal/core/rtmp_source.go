@@ -115,16 +115,16 @@ func (s *rtmpSource) runInner() bool {
 			readDone := make(chan error)
 			go func() {
 				readDone <- func() error {
-					conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-					conn.NetConn().SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
+					conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+					conn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
 					err = conn.ClientHandshake()
 					if err != nil {
 						return err
 					}
 
-					conn.NetConn().SetWriteDeadline(time.Time{})
+					conn.SetWriteDeadline(time.Time{})
 
-					conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+					conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 					videoTrack, audioTrack, err := conn.ReadMetadata()
 					if err != nil {
 						return err
@@ -172,7 +172,7 @@ func (s *rtmpSource) runInner() bool {
 					}
 
 					for {
-						conn.NetConn().SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+						conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 						pkt, err := conn.ReadPacket()
 						if err != nil {
 							return err
@@ -248,11 +248,11 @@ func (s *rtmpSource) runInner() bool {
 
 			select {
 			case err := <-readDone:
-				conn.NetConn().Close()
+				conn.Close()
 				return err
 
 			case <-innerCtx.Done():
-				conn.NetConn().Close()
+				conn.Close()
 				<-readDone
 				return nil
 			}

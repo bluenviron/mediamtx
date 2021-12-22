@@ -3,6 +3,7 @@ package rtmp
 import (
 	"net"
 	"net/url"
+	"time"
 
 	"github.com/notedit/rtmp/av"
 	"github.com/notedit/rtmp/format/rtmp"
@@ -14,9 +15,24 @@ type Conn struct {
 	nconn net.Conn
 }
 
-// NetConn returns the underlying net.Conn.
-func (c *Conn) NetConn() net.Conn {
-	return c.nconn
+// Close closes the connection.
+func (c *Conn) Close() error {
+	return c.nconn.Close()
+}
+
+// SetReadDeadline sets the read deadline.
+func (c *Conn) SetReadDeadline(t time.Time) error {
+	return c.nconn.SetReadDeadline(t)
+}
+
+// SetWriteDeadline sets the write deadline.
+func (c *Conn) SetWriteDeadline(t time.Time) error {
+	return c.nconn.SetWriteDeadline(t)
+}
+
+// RemoteAddr returns the remote network address.
+func (c *Conn) RemoteAddr() net.Addr {
+	return c.nconn.RemoteAddr()
 }
 
 // IsPublishing returns whether the connection is publishing.
