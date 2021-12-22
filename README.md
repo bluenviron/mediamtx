@@ -220,7 +220,7 @@ paths:
 
 **WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials.
 
-Credentials can be sent to an external server:
+Authentication can be delegated to an external HTTP server:
 
 ```yml
 externalAuthenticationURL: http://myauthserver/auth
