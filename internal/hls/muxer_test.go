@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/stretchr/testify/require"
 )
 
@@ -89,13 +90,17 @@ func TestMuxer(t *testing.T) {
 	byts, err = ioutil.ReadAll(m.Segment(ma[1]))
 	require.NoError(t, err)
 
+	// PMT
 	checkTSPacket(t, byts, 0, 1)
 	byts = byts[188:]
+
+	// PAT
 	checkTSPacket(t, byts, 4096, 1)
 	byts = byts[188:]
 
+	// PES (H264)
 	checkTSPacket(t, byts, 256, 3)
-	byts = byts[4+145+15:]
+	byts = byts[164:]
 	require.Equal(t,
 		[]byte{
 			0, 0, 0, 1, 9, 240, // AUD
@@ -105,6 +110,18 @@ func TestMuxer(t *testing.T) {
 		},
 		byts[:24],
 	)
+	byts = byts[24:]
+
+	// PES (AAC)
+	checkTSPacket(t, byts, 257, 3)
+	byts = byts[177:]
+	aus, err := aac.DecodeADTS(byts[:11])
+	require.NoError(t, err)
+	require.Equal(t, 1, len(aus))
+	require.Equal(t, 2, aus[0].Type)
+	require.Equal(t, 44100, aus[0].SampleRate)
+	require.Equal(t, 2, aus[0].ChannelCount)
+	require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, aus[0].AU)
 }
 
 func TestMuxerCloseBeforeFirstSegment(t *testing.T) {

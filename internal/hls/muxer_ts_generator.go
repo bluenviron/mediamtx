@@ -148,6 +148,7 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 	for _, au := range aus {
 		enc, err := aac.EncodeADTS([]*aac.ADTSPacket{
 			{
+				Type:         m.aacConf.Type,
 				SampleRate:   m.aacConf.SampleRate,
 				ChannelCount: m.aacConf.ChannelCount,
 				AU:           au,
