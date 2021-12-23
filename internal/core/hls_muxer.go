@@ -398,7 +398,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			if !m.hlsAlwaysRemux && time.Since(t) >= closeAfterInactivity {
 				m.ringBuffer.Close()
 				<-writerDone
-				return nil
+				return fmt.Errorf("not used anymore")
 			}
 
 		case err := <-writerDone:
@@ -407,7 +407,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		case <-innerCtx.Done():
 			m.ringBuffer.Close()
 			<-writerDone
-			return nil
+			return fmt.Errorf("terminated")
 		}
 	}
 }
