@@ -114,14 +114,18 @@ func TestMuxer(t *testing.T) {
 
 	// PES (AAC)
 	checkTSPacket(t, byts, 257, 3)
-	byts = byts[177:]
-	aus, err := aac.DecodeADTS(byts[:11])
+	byts = byts[166:]
+	aus, err := aac.DecodeADTS(byts[:22])
 	require.NoError(t, err)
-	require.Equal(t, 1, len(aus))
+	require.Equal(t, 2, len(aus))
 	require.Equal(t, 2, aus[0].Type)
 	require.Equal(t, 44100, aus[0].SampleRate)
 	require.Equal(t, 2, aus[0].ChannelCount)
 	require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, aus[0].AU)
+	require.Equal(t, 2, aus[1].Type)
+	require.Equal(t, 44100, aus[1].SampleRate)
+	require.Equal(t, 2, aus[1].ChannelCount)
+	require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, aus[1].AU)
 }
 
 func TestMuxerCloseBeforeFirstSegment(t *testing.T) {

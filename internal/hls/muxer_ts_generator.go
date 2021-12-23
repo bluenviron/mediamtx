@@ -145,29 +145,29 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 		}
 	}
 
-	for _, au := range aus {
-		enc, err := aac.EncodeADTS([]*aac.ADTSPacket{
-			{
-				Type:         m.aacConf.Type,
-				SampleRate:   m.aacConf.SampleRate,
-				ChannelCount: m.aacConf.ChannelCount,
-				AU:           au,
-			},
-		})
-		if err != nil {
-			return err
-		}
+	pkts := make([]*aac.ADTSPacket, len(aus))
 
-		err = m.currentSegment.writeAAC(m.startPCR, pts, enc)
-		if err != nil {
-			return err
+	for i, au := range aus {
+		pkts[i] = &aac.ADTSPacket{
+			Type:         m.aacConf.Type,
+			SampleRate:   m.aacConf.SampleRate,
+			ChannelCount: m.aacConf.ChannelCount,
+			AU:           au,
 		}
+	}
 
-		if m.videoTrack == nil {
-			m.audioAUCount++
-		}
+	enc, err := aac.EncodeADTS(pkts)
+	if err != nil {
+		return err
+	}
 
-		pts += 1000 * time.Second / time.Duration(m.aacConf.SampleRate)
+	err = m.currentSegment.writeAAC(m.startPCR, pts, enc)
+	if err != nil {
+		return err
+	}
+
+	if m.videoTrack == nil {
+		m.audioAUCount += len(aus)
 	}
 
 	return nil
