@@ -108,6 +108,7 @@ func (c *rtspConn) authenticate(
 	pathPass conf.Credential,
 	action string,
 	req *base.Request,
+	query string,
 ) error {
 	if c.externalAuthenticationURL != "" {
 		username := ""
@@ -126,7 +127,8 @@ func (c *rtspConn) authenticate(
 			username,
 			password,
 			pathName,
-			action)
+			action,
+			query)
 		if err != nil {
 			c.authFailures++
 
@@ -247,7 +249,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
-			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Req)
+			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Req, ctx.Query)
 		},
 	})
 

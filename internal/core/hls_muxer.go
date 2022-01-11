@@ -496,7 +496,8 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 			user,
 			pass,
 			m.pathName,
-			"read")
+			"read",
+			req.URL.RawQuery)
 		if err != nil {
 			return pathErrAuthCritical{
 				message: fmt.Sprintf("external authentication failed: %s", err),

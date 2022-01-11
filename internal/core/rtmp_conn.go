@@ -29,12 +29,12 @@ const (
 	rtmpConnPauseAfterAuthError = 2 * time.Second
 )
 
-func pathNameAndQuery(inURL *url.URL) (string, url.Values) {
+func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 	// remove leading and trailing slashes inserted by OBS and some other clients
 	tmp := strings.TrimRight(inURL.String(), "/")
 	ur, _ := url.Parse(tmp)
 	pathName := strings.TrimLeft(ur.Path, "/")
-	return pathName, ur.Query()
+	return pathName, ur.Query(), ur.RawQuery
 }
 
 type rtmpConnTrackIDPayloadPair struct {
@@ -217,7 +217,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 }
 
 func (c *rtmpConn) runRead(ctx context.Context) error {
-	pathName, query := pathNameAndQuery(c.conn.URL())
+	pathName, query, rawQuery := pathNameAndQuery(c.conn.URL())
 
 	res := c.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
 		author:   c,
@@ -226,7 +226,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
-			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "read", query)
+			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "read", query, rawQuery)
 		},
 	})
 
@@ -462,7 +462,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		tracks = append(tracks, audioTrack)
 	}
 
-	pathName, query := pathNameAndQuery(c.conn.URL())
+	pathName, query, rawQuery := pathNameAndQuery(c.conn.URL())
 
 	res := c.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
 		author:   c,
@@ -471,7 +471,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
-			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "publish", query)
+			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "publish", query, rawQuery)
 		},
 	})
 
@@ -599,6 +599,7 @@ func (c *rtmpConn) authenticate(
 	pathPass conf.Credential,
 	action string,
 	query url.Values,
+	rawQuery string,
 ) error {
 	if c.externalAuthenticationURL != "" {
 		err := externalAuth(
@@ -607,7 +608,8 @@ func (c *rtmpConn) authenticate(
 			query.Get("user"),
 			query.Get("pass"),
 			pathName,
-			action)
+			action,
+			rawQuery)
 		if err != nil {
 			return pathErrAuthCritical{
 				message: fmt.Sprintf("external authentication failed: %s", err),
