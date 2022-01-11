@@ -26,6 +26,7 @@ readBufferCount: 512
 #   "password": "password",
 #   "path": "path",
 #   "action": "read|publish"
+#   "query": "url's raw query"
 # }
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.
