@@ -25,7 +25,7 @@ const (
 type rtmpSourceParent interface {
 	log(logger.Level, string, ...interface{})
 	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtmpSource struct {
@@ -149,25 +149,25 @@ func (s *rtmpSource) runInner() bool {
 					}
 
 					res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-						Source: s,
-						Tracks: tracks,
+						source: s,
+						tracks: tracks,
 					})
-					if res.Err != nil {
-						return res.Err
+					if res.err != nil {
+						return res.err
 					}
 
 					s.log(logger.Info, "ready")
 
 					defer func() {
-						s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
+						s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 					}()
 
-					rtcpSenders := rtcpsenderset.New(tracks, res.Stream.onPacketRTCP)
+					rtcpSenders := rtcpsenderset.New(tracks, res.stream.onPacketRTCP)
 					defer rtcpSenders.Close()
 
 					onPacketRTP := func(trackID int, payload []byte) {
 						rtcpSenders.OnPacketRTP(trackID, payload)
-						res.Stream.onPacketRTP(trackID, payload)
+						res.stream.onPacketRTP(trackID, payload)
 					}
 
 					for {

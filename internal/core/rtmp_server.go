@@ -26,21 +26,21 @@ type rtmpServerAPIConnsListData struct {
 }
 
 type rtmpServerAPIConnsListRes struct {
-	Data *rtmpServerAPIConnsListData
-	Err  error
+	data *rtmpServerAPIConnsListData
+	err  error
 }
 
 type rtmpServerAPIConnsListReq struct {
-	Res chan rtmpServerAPIConnsListRes
+	res chan rtmpServerAPIConnsListRes
 }
 
 type rtmpServerAPIConnsKickRes struct {
-	Err error
+	err error
 }
 
 type rtmpServerAPIConnsKickReq struct {
-	ID  string
-	Res chan rtmpServerAPIConnsKickRes
+	id  string
+	res chan rtmpServerAPIConnsKickRes
 }
 
 type rtmpServerParent interface {
@@ -219,12 +219,12 @@ outer:
 				}
 			}
 
-			req.Res <- rtmpServerAPIConnsListRes{Data: data}
+			req.res <- rtmpServerAPIConnsListRes{data: data}
 
 		case req := <-s.apiConnsKick:
 			res := func() bool {
 				for c := range s.conns {
-					if c.ID() == req.ID {
+					if c.ID() == req.id {
 						delete(s.conns, c)
 						c.close()
 						return true
@@ -233,9 +233,9 @@ outer:
 				return false
 			}()
 			if res {
-				req.Res <- rtmpServerAPIConnsKickRes{}
+				req.res <- rtmpServerAPIConnsKickRes{}
 			} else {
-				req.Res <- rtmpServerAPIConnsKickRes{fmt.Errorf("not found")}
+				req.res <- rtmpServerAPIConnsKickRes{fmt.Errorf("not found")}
 			}
 
 		case <-s.ctx.Done():
@@ -290,24 +290,24 @@ func (s *rtmpServer) onConnClose(c *rtmpConn) {
 
 // onAPIConnsList is called by api.
 func (s *rtmpServer) onAPIConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes {
-	req.Res = make(chan rtmpServerAPIConnsListRes)
+	req.res = make(chan rtmpServerAPIConnsListRes)
 	select {
 	case s.apiConnsList <- req:
-		return <-req.Res
+		return <-req.res
 
 	case <-s.ctx.Done():
-		return rtmpServerAPIConnsListRes{Err: fmt.Errorf("terminated")}
+		return rtmpServerAPIConnsListRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onAPIConnsKick is called by api.
 func (s *rtmpServer) onAPIConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes {
-	req.Res = make(chan rtmpServerAPIConnsKickRes)
+	req.res = make(chan rtmpServerAPIConnsKickRes)
 	select {
 	case s.apiConnsKick <- req:
-		return <-req.Res
+		return <-req.res
 
 	case <-s.ctx.Done():
-		return rtmpServerAPIConnsKickRes{Err: fmt.Errorf("terminated")}
+		return rtmpServerAPIConnsKickRes{err: fmt.Errorf("terminated")}
 	}
 }

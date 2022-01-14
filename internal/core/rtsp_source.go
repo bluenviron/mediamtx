@@ -27,7 +27,7 @@ const (
 type rtspSourceParent interface {
 	log(logger.Level, string, ...interface{})
 	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtspSource struct {
@@ -195,25 +195,25 @@ func (s *rtspSource) runInner() bool {
 			}
 
 			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-				Source: s,
-				Tracks: c.Tracks(),
+				source: s,
+				tracks: c.Tracks(),
 			})
-			if res.Err != nil {
-				return res.Err
+			if res.err != nil {
+				return res.err
 			}
 
 			s.log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
+				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 			}()
 
 			c.OnPacketRTP = func(trackID int, payload []byte) {
-				res.Stream.onPacketRTP(trackID, payload)
+				res.stream.onPacketRTP(trackID, payload)
 			}
 
 			c.OnPacketRTCP = func(trackID int, payload []byte) {
-				res.Stream.onPacketRTCP(trackID, payload)
+				res.stream.onPacketRTCP(trackID, payload)
 			}
 
 			_, err = c.Play(nil)
@@ -358,23 +358,23 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 		tracks[h264TrackID] = track
 
 		res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-			Source: s,
-			Tracks: tracks,
+			source: s,
+			tracks: tracks,
 		})
-		if res.Err != nil {
-			return res.Err
+		if res.err != nil {
+			return res.err
 		}
 
 		func() {
 			streamMutex.Lock()
 			defer streamMutex.Unlock()
-			stream = res.Stream
+			stream = res.stream
 		}()
 
 		s.log(logger.Info, "ready")
 
 		defer func() {
-			s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
+			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 		}()
 	}
 

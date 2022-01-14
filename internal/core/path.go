@@ -30,17 +30,17 @@ type authenticateFunc func(
 ) error
 
 type pathErrNoOnePublishing struct {
-	PathName string
+	pathName string
 }
 
 // Error implements the error interface.
 func (e pathErrNoOnePublishing) Error() string {
-	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
+	return fmt.Sprintf("no one is publishing to path '%s'", e.pathName)
 }
 
 type pathErrAuthNotCritical struct {
-	Message  string
-	Response *base.Response
+	message  string
+	response *base.Response
 }
 
 // Error implements the error interface.
@@ -49,8 +49,8 @@ func (pathErrAuthNotCritical) Error() string {
 }
 
 type pathErrAuthCritical struct {
-	Message  string
-	Response *base.Response
+	message  string
+	response *base.Response
 }
 
 // Error implements the error interface.
@@ -94,94 +94,94 @@ const (
 )
 
 type pathSourceStaticSetReadyRes struct {
-	Stream *stream
-	Err    error
+	stream *stream
+	err    error
 }
 
 type pathSourceStaticSetReadyReq struct {
-	Source sourceStatic
-	Tracks gortsplib.Tracks
-	Res    chan pathSourceStaticSetReadyRes
+	source sourceStatic
+	tracks gortsplib.Tracks
+	res    chan pathSourceStaticSetReadyRes
 }
 
 type pathSourceStaticSetNotReadyReq struct {
-	Source sourceStatic
-	Res    chan struct{}
+	source sourceStatic
+	res    chan struct{}
 }
 
 type pathReaderRemoveReq struct {
-	Author reader
-	Res    chan struct{}
+	author reader
+	res    chan struct{}
 }
 
 type pathPublisherRemoveReq struct {
-	Author publisher
-	Res    chan struct{}
+	author publisher
+	res    chan struct{}
 }
 
 type pathDescribeRes struct {
-	Path     *path
-	Stream   *stream
-	Redirect string
-	Err      error
+	path     *path
+	stream   *stream
+	redirect string
+	err      error
 }
 
 type pathDescribeReq struct {
-	PathName     string
-	URL          *base.URL
-	Authenticate authenticateFunc
-	Res          chan pathDescribeRes
+	pathName     string
+	url          *base.URL
+	authenticate authenticateFunc
+	res          chan pathDescribeRes
 }
 
 type pathReaderSetupPlayRes struct {
-	Path   *path
-	Stream *stream
-	Err    error
+	path   *path
+	stream *stream
+	err    error
 }
 
 type pathReaderSetupPlayReq struct {
-	Author       reader
-	PathName     string
-	Authenticate authenticateFunc
-	Res          chan pathReaderSetupPlayRes
+	author       reader
+	pathName     string
+	authenticate authenticateFunc
+	res          chan pathReaderSetupPlayRes
 }
 
 type pathPublisherAnnounceRes struct {
-	Path *path
-	Err  error
+	path *path
+	err  error
 }
 
 type pathPublisherAnnounceReq struct {
-	Author       publisher
-	PathName     string
-	Authenticate authenticateFunc
-	Res          chan pathPublisherAnnounceRes
+	author       publisher
+	pathName     string
+	authenticate authenticateFunc
+	res          chan pathPublisherAnnounceRes
 }
 
 type pathReaderPlayReq struct {
-	Author reader
-	Res    chan struct{}
+	author reader
+	res    chan struct{}
 }
 
 type pathPublisherRecordRes struct {
-	Stream *stream
-	Err    error
+	stream *stream
+	err    error
 }
 
 type pathPublisherRecordReq struct {
-	Author publisher
-	Tracks gortsplib.Tracks
-	Res    chan pathPublisherRecordRes
+	author publisher
+	tracks gortsplib.Tracks
+	res    chan pathPublisherRecordRes
 }
 
 type pathReaderPauseReq struct {
-	Author reader
-	Res    chan struct{}
+	author reader
+	res    chan struct{}
 }
 
 type pathPublisherPauseReq struct {
-	Author publisher
-	Res    chan struct{}
+	author publisher
+	res    chan struct{}
 }
 
 type pathAPIPathsListItem struct {
@@ -197,18 +197,18 @@ type pathAPIPathsListData struct {
 }
 
 type pathAPIPathsListRes struct {
-	Data  *pathAPIPathsListData
-	Paths map[string]*path
-	Err   error
+	data  *pathAPIPathsListData
+	paths map[string]*path
+	err   error
 }
 
 type pathAPIPathsListReq struct {
-	Res chan pathAPIPathsListRes
+	res chan pathAPIPathsListRes
 }
 
 type pathAPIPathsListSubReq struct {
-	Data *pathAPIPathsListData
-	Res  chan struct{}
+	data *pathAPIPathsListData
+	res  chan struct{}
 }
 
 type path struct {
@@ -362,12 +362,12 @@ func (pa *path) run() {
 			select {
 			case <-pa.onDemandReadyTimer.C:
 				for _, req := range pa.describeRequests {
-					req.Res <- pathDescribeRes{Err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+					req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
 				}
 				pa.describeRequests = nil
 
 				for _, req := range pa.setupPlayRequests {
-					req.Res <- pathReaderSetupPlayRes{Err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+					req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
 				}
 				pa.setupPlayRequests = nil
 
@@ -385,22 +385,22 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.sourceStaticSetReady:
-				if req.Source == pa.source {
-					pa.sourceSetReady(req.Tracks)
-					req.Res <- pathSourceStaticSetReadyRes{Stream: pa.stream}
+				if req.source == pa.source {
+					pa.sourceSetReady(req.tracks)
+					req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
 				} else {
-					req.Res <- pathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
+					req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
 				}
 
 			case req := <-pa.sourceStaticSetNotReady:
-				if req.Source == pa.source {
+				if req.source == pa.source {
 					if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
 						pa.onDemandCloseSource()
 					} else {
 						pa.sourceSetNotReady()
 					}
 				}
-				close(req.Res)
+				close(req.res)
 
 				if pa.shouldClose() {
 					return fmt.Errorf("not in use")
@@ -469,11 +469,11 @@ func (pa *path) run() {
 	}
 
 	for _, req := range pa.describeRequests {
-		req.Res <- pathDescribeRes{Err: fmt.Errorf("terminated")}
+		req.res <- pathDescribeRes{err: fmt.Errorf("terminated")}
 	}
 
 	for _, req := range pa.setupPlayRequests {
-		req.Res <- pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
+		req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("terminated")}
 	}
 
 	for rp := range pa.readers {
@@ -609,8 +609,8 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 		pa.onDemandReadyTimer = newEmptyTimer()
 
 		for _, req := range pa.describeRequests {
-			req.Res <- pathDescribeRes{
-				Stream: pa.stream,
+			req.res <- pathDescribeRes{
+				stream: pa.stream,
 			}
 		}
 		pa.describeRequests = nil
@@ -711,15 +711,15 @@ func (pa *path) doPublisherRemove() {
 
 func (pa *path) handleDescribe(req pathDescribeReq) {
 	if _, ok := pa.source.(*sourceRedirect); ok {
-		req.Res <- pathDescribeRes{
-			Redirect: pa.conf.SourceRedirect,
+		req.res <- pathDescribeRes{
+			redirect: pa.conf.SourceRedirect,
 		}
 		return
 	}
 
 	if pa.sourceReady {
-		req.Res <- pathDescribeRes{
-			Stream: pa.stream,
+		req.res <- pathDescribeRes{
+			stream: pa.stream,
 		}
 		return
 	}
@@ -736,38 +736,38 @@ func (pa *path) handleDescribe(req pathDescribeReq) {
 		fallbackURL := func() string {
 			if strings.HasPrefix(pa.conf.Fallback, "/") {
 				ur := base.URL{
-					Scheme: req.URL.Scheme,
-					User:   req.URL.User,
-					Host:   req.URL.Host,
+					Scheme: req.url.Scheme,
+					User:   req.url.User,
+					Host:   req.url.Host,
 					Path:   pa.conf.Fallback,
 				}
 				return ur.String()
 			}
 			return pa.conf.Fallback
 		}()
-		req.Res <- pathDescribeRes{Redirect: fallbackURL}
+		req.res <- pathDescribeRes{redirect: fallbackURL}
 		return
 	}
 
-	req.Res <- pathDescribeRes{Err: pathErrNoOnePublishing{PathName: pa.name}}
+	req.res <- pathDescribeRes{err: pathErrNoOnePublishing{pathName: pa.name}}
 }
 
 func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
-	if pa.source == req.Author {
+	if pa.source == req.author {
 		pa.doPublisherRemove()
 	}
-	close(req.Res)
+	close(req.res)
 }
 
 func (pa *path) handlePublisherAnnounce(req pathPublisherAnnounceReq) {
 	if pa.source != nil {
 		if pa.hasStaticSource() {
-			req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("path '%s' is assigned to a static source", pa.name)}
+			req.res <- pathPublisherAnnounceRes{err: fmt.Errorf("path '%s' is assigned to a static source", pa.name)}
 			return
 		}
 
 		if pa.conf.DisablePublisherOverride {
-			req.Res <- pathPublisherAnnounceRes{Err: fmt.Errorf("another publisher is already publishing to path '%s'", pa.name)}
+			req.res <- pathPublisherAnnounceRes{err: fmt.Errorf("another publisher is already publishing to path '%s'", pa.name)}
 			return
 		}
 
@@ -776,20 +776,20 @@ func (pa *path) handlePublisherAnnounce(req pathPublisherAnnounceReq) {
 		pa.doPublisherRemove()
 	}
 
-	pa.source = req.Author
+	pa.source = req.author
 
-	req.Res <- pathPublisherAnnounceRes{Path: pa}
+	req.res <- pathPublisherAnnounceRes{path: pa}
 }
 
 func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
-	if pa.source != req.Author {
-		req.Res <- pathPublisherRecordRes{Err: fmt.Errorf("publisher is not assigned to this path anymore")}
+	if pa.source != req.author {
+		req.res <- pathPublisherRecordRes{err: fmt.Errorf("publisher is not assigned to this path anymore")}
 		return
 	}
 
-	req.Author.onPublisherAccepted(len(req.Tracks))
+	req.author.onPublisherAccepted(len(req.tracks))
 
-	pa.sourceSetReady(req.Tracks)
+	pa.sourceSetReady(req.tracks)
 
 	if pa.conf.RunOnPublish != "" {
 		pa.log(logger.Info, "runOnPublish command started")
@@ -803,25 +803,25 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 			})
 	}
 
-	req.Res <- pathPublisherRecordRes{Stream: pa.stream}
+	req.res <- pathPublisherRecordRes{stream: pa.stream}
 }
 
 func (pa *path) handlePublisherPause(req pathPublisherPauseReq) {
-	if req.Author == pa.source && pa.sourceReady {
+	if req.author == pa.source && pa.sourceReady {
 		if pa.isOnDemand() && pa.onDemandState != pathOnDemandStateInitial {
 			pa.onDemandCloseSource()
 		} else {
 			pa.sourceSetNotReady()
 		}
 	}
-	close(req.Res)
+	close(req.res)
 }
 
 func (pa *path) handleReaderRemove(req pathReaderRemoveReq) {
-	if _, ok := pa.readers[req.Author]; ok {
-		pa.doReaderRemove(req.Author)
+	if _, ok := pa.readers[req.author]; ok {
+		pa.doReaderRemove(req.author)
 	}
-	close(req.Res)
+	close(req.res)
 
 	if pa.isOnDemand() &&
 		len(pa.readers) == 0 &&
@@ -844,11 +844,11 @@ func (pa *path) handleReaderSetupPlay(req pathReaderSetupPlayReq) {
 		return
 	}
 
-	req.Res <- pathReaderSetupPlayRes{Err: pathErrNoOnePublishing{PathName: pa.name}}
+	req.res <- pathReaderSetupPlayRes{err: pathErrNoOnePublishing{pathName: pa.name}}
 }
 
 func (pa *path) handleReaderSetupPlayPost(req pathReaderSetupPlayReq) {
-	pa.readers[req.Author] = pathReaderStatePrePlay
+	pa.readers[req.author] = pathReaderStatePrePlay
 
 	if pa.isOnDemand() && pa.onDemandState == pathOnDemandStateClosing {
 		pa.onDemandState = pathOnDemandStateReady
@@ -856,32 +856,32 @@ func (pa *path) handleReaderSetupPlayPost(req pathReaderSetupPlayReq) {
 		pa.onDemandCloseTimer = newEmptyTimer()
 	}
 
-	req.Res <- pathReaderSetupPlayRes{
-		Path:   pa,
-		Stream: pa.stream,
+	req.res <- pathReaderSetupPlayRes{
+		path:   pa,
+		stream: pa.stream,
 	}
 }
 
 func (pa *path) handleReaderPlay(req pathReaderPlayReq) {
-	pa.readers[req.Author] = pathReaderStatePlay
+	pa.readers[req.author] = pathReaderStatePlay
 
-	pa.stream.readerAdd(req.Author)
+	pa.stream.readerAdd(req.author)
 
-	req.Author.onReaderAccepted()
+	req.author.onReaderAccepted()
 
-	close(req.Res)
+	close(req.res)
 }
 
 func (pa *path) handleReaderPause(req pathReaderPauseReq) {
-	if state, ok := pa.readers[req.Author]; ok && state == pathReaderStatePlay {
-		pa.readers[req.Author] = pathReaderStatePrePlay
-		pa.stream.readerRemove(req.Author)
+	if state, ok := pa.readers[req.author]; ok && state == pathReaderStatePlay {
+		pa.readers[req.author] = pathReaderStatePrePlay
+		pa.stream.readerRemove(req.author)
 	}
-	close(req.Res)
+	close(req.res)
 }
 
 func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
-	req.Data.Items[pa.name] = pathAPIPathsListItem{
+	req.data.Items[pa.name] = pathAPIPathsListItem{
 		ConfName: pa.confName,
 		Conf:     pa.conf,
 		Source: func() interface{} {
@@ -899,26 +899,26 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 			return ret
 		}(),
 	}
-	close(req.Res)
+	close(req.res)
 }
 
 // onSourceStaticSetReady is called by a sourceStatic.
 func (pa *path) onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
-	req.Res = make(chan pathSourceStaticSetReadyRes)
+	req.res = make(chan pathSourceStaticSetReadyRes)
 	select {
 	case pa.sourceStaticSetReady <- req:
-		return <-req.Res
+		return <-req.res
 	case <-pa.ctx.Done():
-		return pathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
+		return pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
 	}
 }
 
-// OnSourceStaticSetNotReady is called by a sourceStatic.
-func (pa *path) OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
-	req.Res = make(chan struct{})
+// onSourceStaticSetNotReady is called by a sourceStatic.
+func (pa *path) onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
+	req.res = make(chan struct{})
 	select {
 	case pa.sourceStaticSetNotReady <- req:
-		<-req.Res
+		<-req.res
 	case <-pa.ctx.Done():
 	}
 }
@@ -927,18 +927,18 @@ func (pa *path) OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
 func (pa *path) onDescribe(req pathDescribeReq) pathDescribeRes {
 	select {
 	case pa.describe <- req:
-		return <-req.Res
+		return <-req.res
 	case <-pa.ctx.Done():
-		return pathDescribeRes{Err: fmt.Errorf("terminated")}
+		return pathDescribeRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onPublisherRemove is called by a publisher.
 func (pa *path) onPublisherRemove(req pathPublisherRemoveReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case pa.publisherRemove <- req:
-		<-req.Res
+		<-req.res
 	case <-pa.ctx.Done():
 	}
 }
@@ -947,39 +947,39 @@ func (pa *path) onPublisherRemove(req pathPublisherRemoveReq) {
 func (pa *path) onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
 	select {
 	case pa.publisherAnnounce <- req:
-		return <-req.Res
+		return <-req.res
 	case <-pa.ctx.Done():
-		return pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
+		return pathPublisherAnnounceRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onPublisherRecord is called by a publisher.
 func (pa *path) onPublisherRecord(req pathPublisherRecordReq) pathPublisherRecordRes {
-	req.Res = make(chan pathPublisherRecordRes)
+	req.res = make(chan pathPublisherRecordRes)
 	select {
 	case pa.publisherRecord <- req:
-		return <-req.Res
+		return <-req.res
 	case <-pa.ctx.Done():
-		return pathPublisherRecordRes{Err: fmt.Errorf("terminated")}
+		return pathPublisherRecordRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onPublisherPause is called by a publisher.
 func (pa *path) onPublisherPause(req pathPublisherPauseReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case pa.publisherPause <- req:
-		<-req.Res
+		<-req.res
 	case <-pa.ctx.Done():
 	}
 }
 
 // onReaderRemove is called by a reader.
 func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case pa.readerRemove <- req:
-		<-req.Res
+		<-req.res
 	case <-pa.ctx.Done():
 	}
 }
@@ -988,38 +988,38 @@ func (pa *path) onReaderRemove(req pathReaderRemoveReq) {
 func (pa *path) onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
 	select {
 	case pa.readerSetupPlay <- req:
-		return <-req.Res
+		return <-req.res
 	case <-pa.ctx.Done():
-		return pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
+		return pathReaderSetupPlayRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onReaderPlay is called by a reader.
 func (pa *path) onReaderPlay(req pathReaderPlayReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case pa.readerPlay <- req:
-		<-req.Res
+		<-req.res
 	case <-pa.ctx.Done():
 	}
 }
 
 // onReaderPause is called by a reader.
 func (pa *path) onReaderPause(req pathReaderPauseReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case pa.readerPause <- req:
-		<-req.Res
+		<-req.res
 	case <-pa.ctx.Done():
 	}
 }
 
 // onAPIPathsList is called by api.
 func (pa *path) onAPIPathsList(req pathAPIPathsListSubReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case pa.apiPathsList <- req:
-		<-req.Res
+		<-req.res
 
 	case <-pa.ctx.Done():
 	}

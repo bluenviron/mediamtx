@@ -96,8 +96,8 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
 	res := m.pathManager.onAPIPathsList(pathAPIPathsListReq{})
-	if res.Err == nil {
-		for name, p := range res.Data.Items {
+	if res.err == nil {
+		for name, p := range res.data.Items {
 			if p.SourceReady {
 				out += metric("paths{name=\""+name+"\",state=\"ready\"}", 1)
 			} else {
@@ -108,12 +108,12 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspServer) {
 		res := m.rtspServer.onAPISessionsList(rtspServerAPISessionsListReq{})
-		if res.Err == nil {
+		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
 			publishCount := int64(0)
 
-			for _, i := range res.Data.Items {
+			for _, i := range res.data.Items {
 				switch i.State {
 				case "idle":
 					idleCount++
@@ -135,12 +135,12 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspsServer) {
 		res := m.rtspsServer.onAPISessionsList(rtspServerAPISessionsListReq{})
-		if res.Err == nil {
+		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
 			publishCount := int64(0)
 
-			for _, i := range res.Data.Items {
+			for _, i := range res.data.Items {
 				switch i.State {
 				case "idle":
 					idleCount++
@@ -162,12 +162,12 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtmpServer) {
 		res := m.rtmpServer.onAPIConnsList(rtmpServerAPIConnsListReq{})
-		if res.Err == nil {
+		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
 			publishCount := int64(0)
 
-			for _, i := range res.Data.Items {
+			for _, i := range res.data.Items {
 				switch i.State {
 				case "idle":
 					idleCount++
@@ -189,8 +189,8 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.hlsServer) {
 		res := m.hlsServer.onAPIHLSMuxersList(hlsServerAPIMuxersListReq{})
-		if res.Err == nil {
-			for name := range res.Data.Items {
+		if res.err == nil {
+			for name := range res.data.Items {
 				out += metric("hls_muxers{name=\""+name+"\"}", 1)
 			}
 		}

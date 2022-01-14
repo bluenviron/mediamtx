@@ -138,8 +138,8 @@ func (c *rtspConn) authenticate(
 			// therefore we must allow up to 3 failures
 			if c.authFailures > 3 {
 				return pathErrAuthCritical{
-					Message: "unauthorized: " + err.Error(),
-					Response: &base.Response{
+					message: "unauthorized: " + err.Error(),
+					response: &base.Response{
 						StatusCode: base.StatusUnauthorized,
 					},
 				}
@@ -147,8 +147,8 @@ func (c *rtspConn) authenticate(
 
 			v := "IPCAM"
 			return pathErrAuthNotCritical{
-				Message: "unauthorized: " + err.Error(),
-				Response: &base.Response{
+				message: "unauthorized: " + err.Error(),
+				response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
 						"WWW-Authenticate": headers.Authenticate{
@@ -165,8 +165,8 @@ func (c *rtspConn) authenticate(
 		ip := c.ip()
 		if !ipEqualOrInRange(ip, pathIPs) {
 			return pathErrAuthCritical{
-				Message: fmt.Sprintf("IP '%s' not allowed", ip),
-				Response: &base.Response{
+				message: fmt.Sprintf("IP '%s' not allowed", ip),
+				response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
 				},
 			}
@@ -193,15 +193,15 @@ func (c *rtspConn) authenticate(
 			// therefore we must allow up to 3 failures
 			if c.authFailures > 3 {
 				return pathErrAuthCritical{
-					Message: "unauthorized: " + err.Error(),
-					Response: &base.Response{
+					message: "unauthorized: " + err.Error(),
+					response: &base.Response{
 						StatusCode: base.StatusUnauthorized,
 					},
 				}
 			}
 
 			return pathErrAuthNotCritical{
-				Response: &base.Response{
+				response: &base.Response{
 					StatusCode: base.StatusUnauthorized,
 					Header: base.Header{
 						"WWW-Authenticate": c.authValidator.Header(),
@@ -241,9 +241,9 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
 	res := c.pathManager.onDescribe(pathDescribeReq{
-		PathName: ctx.Path,
-		URL:      ctx.Req.URL,
-		Authenticate: func(
+		pathName: ctx.Path,
+		url:      ctx.Req.URL,
+		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
@@ -251,40 +251,40 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		},
 	})
 
-	if res.Err != nil {
-		switch terr := res.Err.(type) {
+	if res.err != nil {
+		switch terr := res.err.(type) {
 		case pathErrAuthNotCritical:
-			c.log(logger.Debug, "non-critical authentication error: %s", terr.Message)
-			return terr.Response, nil, nil
+			c.log(logger.Debug, "non-critical authentication error: %s", terr.message)
+			return terr.response, nil, nil
 
 		case pathErrAuthCritical:
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtspConnPauseAfterAuthError)
 
-			return terr.Response, nil, errors.New(terr.Message)
+			return terr.response, nil, errors.New(terr.message)
 
 		case pathErrNoOnePublishing:
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
-			}, nil, res.Err
+			}, nil, res.err
 
 		default:
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, nil, res.Err
+			}, nil, res.err
 		}
 	}
 
-	if res.Redirect != "" {
+	if res.redirect != "" {
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{
-				"Location": base.HeaderValue{res.Redirect},
+				"Location": base.HeaderValue{res.redirect},
 			},
 		}, nil, nil
 	}
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, res.Stream.rtspStream, nil
+	}, res.stream.rtspStream, nil
 }

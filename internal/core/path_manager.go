@@ -165,75 +165,75 @@ outer:
 			}
 
 		case req := <-pm.describe:
-			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
+			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.pathName)
 			if err != nil {
-				req.Res <- pathDescribeRes{Err: err}
+				req.res <- pathDescribeRes{err: err}
 				continue
 			}
 
-			err = req.Authenticate(
+			err = req.authenticate(
 				pathConf.ReadIPs,
 				pathConf.ReadUser,
 				pathConf.ReadPass)
 			if err != nil {
-				req.Res <- pathDescribeRes{Err: err}
+				req.res <- pathDescribeRes{err: err}
 				continue
 			}
 
 			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathConfName, pathConf, req.PathName, pathMatches)
+			if _, ok := pm.paths[req.pathName]; !ok {
+				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
 			}
 
-			req.Res <- pathDescribeRes{Path: pm.paths[req.PathName]}
+			req.res <- pathDescribeRes{path: pm.paths[req.pathName]}
 
 		case req := <-pm.readerSetupPlay:
-			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
+			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.pathName)
 			if err != nil {
-				req.Res <- pathReaderSetupPlayRes{Err: err}
+				req.res <- pathReaderSetupPlayRes{err: err}
 				continue
 			}
 
-			if req.Authenticate != nil {
-				err = req.Authenticate(
+			if req.authenticate != nil {
+				err = req.authenticate(
 					pathConf.ReadIPs,
 					pathConf.ReadUser,
 					pathConf.ReadPass)
 				if err != nil {
-					req.Res <- pathReaderSetupPlayRes{Err: err}
+					req.res <- pathReaderSetupPlayRes{err: err}
 					continue
 				}
 			}
 
 			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathConfName, pathConf, req.PathName, pathMatches)
+			if _, ok := pm.paths[req.pathName]; !ok {
+				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
 			}
 
-			req.Res <- pathReaderSetupPlayRes{Path: pm.paths[req.PathName]}
+			req.res <- pathReaderSetupPlayRes{path: pm.paths[req.pathName]}
 
 		case req := <-pm.publisherAnnounce:
-			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.PathName)
+			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.pathName)
 			if err != nil {
-				req.Res <- pathPublisherAnnounceRes{Err: err}
+				req.res <- pathPublisherAnnounceRes{err: err}
 				continue
 			}
 
-			err = req.Authenticate(
+			err = req.authenticate(
 				pathConf.PublishIPs,
 				pathConf.PublishUser,
 				pathConf.PublishPass)
 			if err != nil {
-				req.Res <- pathPublisherAnnounceRes{Err: err}
+				req.res <- pathPublisherAnnounceRes{err: err}
 				continue
 			}
 
 			// create path if it doesn't exist
-			if _, ok := pm.paths[req.PathName]; !ok {
-				pm.createPath(pathConfName, pathConf, req.PathName, pathMatches)
+			if _, ok := pm.paths[req.pathName]; !ok {
+				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
 			}
 
-			req.Res <- pathPublisherAnnounceRes{Path: pm.paths[req.PathName]}
+			req.res <- pathPublisherAnnounceRes{path: pm.paths[req.pathName]}
 
 		case s := <-pm.hlsServerSet:
 			pm.hlsServer = s
@@ -245,8 +245,8 @@ outer:
 				paths[name] = pa
 			}
 
-			req.Res <- pathAPIPathsListRes{
-				Paths: paths,
+			req.res <- pathAPIPathsListRes{
+				paths: paths,
 			}
 
 		case <-pm.ctx.Done():
@@ -332,52 +332,52 @@ func (pm *pathManager) onPathClose(pa *path) {
 
 // onDescribe is called by a reader or publisher.
 func (pm *pathManager) onDescribe(req pathDescribeReq) pathDescribeRes {
-	req.Res = make(chan pathDescribeRes)
+	req.res = make(chan pathDescribeRes)
 	select {
 	case pm.describe <- req:
-		res := <-req.Res
-		if res.Err != nil {
+		res := <-req.res
+		if res.err != nil {
 			return res
 		}
 
-		return res.Path.onDescribe(req)
+		return res.path.onDescribe(req)
 
 	case <-pm.ctx.Done():
-		return pathDescribeRes{Err: fmt.Errorf("terminated")}
+		return pathDescribeRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onPublisherAnnounce is called by a publisher.
 func (pm *pathManager) onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes {
-	req.Res = make(chan pathPublisherAnnounceRes)
+	req.res = make(chan pathPublisherAnnounceRes)
 	select {
 	case pm.publisherAnnounce <- req:
-		res := <-req.Res
-		if res.Err != nil {
+		res := <-req.res
+		if res.err != nil {
 			return res
 		}
 
-		return res.Path.onPublisherAnnounce(req)
+		return res.path.onPublisherAnnounce(req)
 
 	case <-pm.ctx.Done():
-		return pathPublisherAnnounceRes{Err: fmt.Errorf("terminated")}
+		return pathPublisherAnnounceRes{err: fmt.Errorf("terminated")}
 	}
 }
 
 // onReaderSetupPlay is called by a reader.
 func (pm *pathManager) onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes {
-	req.Res = make(chan pathReaderSetupPlayRes)
+	req.res = make(chan pathReaderSetupPlayRes)
 	select {
 	case pm.readerSetupPlay <- req:
-		res := <-req.Res
-		if res.Err != nil {
+		res := <-req.res
+		if res.err != nil {
 			return res
 		}
 
-		return res.Path.onReaderSetupPlay(req)
+		return res.path.onReaderSetupPlay(req)
 
 	case <-pm.ctx.Done():
-		return pathReaderSetupPlayRes{Err: fmt.Errorf("terminated")}
+		return pathReaderSetupPlayRes{err: fmt.Errorf("terminated")}
 	}
 }
 
@@ -391,22 +391,22 @@ func (pm *pathManager) onHLSServerSet(s pathManagerHLSServer) {
 
 // onAPIPathsList is called by api.
 func (pm *pathManager) onAPIPathsList(req pathAPIPathsListReq) pathAPIPathsListRes {
-	req.Res = make(chan pathAPIPathsListRes)
+	req.res = make(chan pathAPIPathsListRes)
 	select {
 	case pm.apiPathsList <- req:
-		res := <-req.Res
+		res := <-req.res
 
-		res.Data = &pathAPIPathsListData{
+		res.data = &pathAPIPathsListData{
 			Items: make(map[string]pathAPIPathsListItem),
 		}
 
-		for _, pa := range res.Paths {
-			pa.onAPIPathsList(pathAPIPathsListSubReq{Data: res.Data})
+		for _, pa := range res.paths {
+			pa.onAPIPathsList(pathAPIPathsListSubReq{data: res.data})
 		}
 
 		return res
 
 	case <-pm.ctx.Done():
-		return pathAPIPathsListRes{Err: fmt.Errorf("terminated")}
+		return pathAPIPathsListRes{err: fmt.Errorf("terminated")}
 	}
 }

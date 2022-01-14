@@ -19,7 +19,7 @@ const (
 type hlsSourceParent interface {
 	log(logger.Level, string, ...interface{})
 	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	OnSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type hlsSource struct {
@@ -94,7 +94,7 @@ func (s *hlsSource) runInner() bool {
 
 	defer func() {
 		if stream != nil {
-			s.parent.OnSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{Source: s})
+			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 			rtcpSenders.Close()
 		}
 	}()
@@ -113,16 +113,16 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-			Source: s,
-			Tracks: tracks,
+			source: s,
+			tracks: tracks,
 		})
-		if res.Err != nil {
-			return res.Err
+		if res.err != nil {
+			return res.err
 		}
 
 		s.Log(logger.Info, "ready")
 
-		stream = res.Stream
+		stream = res.stream
 		rtcpSenders = rtcpsenderset.New(tracks, stream.onPacketRTCP)
 
 		return nil

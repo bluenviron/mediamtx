@@ -26,18 +26,18 @@ type hlsServerAPIMuxersListData struct {
 }
 
 type hlsServerAPIMuxersListRes struct {
-	Data   *hlsServerAPIMuxersListData
-	Muxers map[string]*hlsMuxer
-	Err    error
+	data   *hlsServerAPIMuxersListData
+	muxers map[string]*hlsMuxer
+	err    error
 }
 
 type hlsServerAPIMuxersListReq struct {
-	Res chan hlsServerAPIMuxersListRes
+	res chan hlsServerAPIMuxersListRes
 }
 
 type hlsServerAPIMuxersListSubReq struct {
-	Data *hlsServerAPIMuxersListData
-	Res  chan struct{}
+	data *hlsServerAPIMuxersListData
+	res  chan struct{}
 }
 
 type hlsServerParent interface {
@@ -151,7 +151,7 @@ outer:
 			}
 
 		case req := <-s.request:
-			r := s.findOrCreateMuxer(req.Dir)
+			r := s.findOrCreateMuxer(req.dir)
 			r.onRequest(req)
 
 		case c := <-s.muxerClose:
@@ -167,8 +167,8 @@ outer:
 				muxers[name] = m
 			}
 
-			req.Res <- hlsServerAPIMuxersListRes{
-				Muxers: muxers,
+			req.res <- hlsServerAPIMuxersListRes{
+				muxers: muxers,
 			}
 
 		case <-s.ctx.Done():
@@ -240,23 +240,23 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	cres := make(chan hlsMuxerResponse)
 	hreq := hlsMuxerRequest{
-		Dir:  dir,
-		File: fname,
-		Req:  ctx.Request,
-		Res:  cres,
+		dir:  dir,
+		file: fname,
+		req:  ctx.Request,
+		res:  cres,
 	}
 
 	select {
 	case s.request <- hreq:
 		res := <-cres
 
-		for k, v := range res.Header {
+		for k, v := range res.header {
 			ctx.Writer.Header().Set(k, v)
 		}
-		ctx.Writer.WriteHeader(res.Status)
+		ctx.Writer.WriteHeader(res.status)
 
-		if res.Body != nil {
-			io.Copy(ctx.Writer, res.Body)
+		if res.body != nil {
+			io.Copy(ctx.Writer, res.body)
 		}
 
 	case <-s.ctx.Done():
@@ -303,22 +303,22 @@ func (s *hlsServer) onPathSourceReady(pa *path) {
 
 // onAPIHLSMuxersList is called by api.
 func (s *hlsServer) onAPIHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes {
-	req.Res = make(chan hlsServerAPIMuxersListRes)
+	req.res = make(chan hlsServerAPIMuxersListRes)
 	select {
 	case s.apiMuxersList <- req:
-		res := <-req.Res
+		res := <-req.res
 
-		res.Data = &hlsServerAPIMuxersListData{
+		res.data = &hlsServerAPIMuxersListData{
 			Items: make(map[string]hlsServerAPIMuxersListItem),
 		}
 
-		for _, pa := range res.Muxers {
-			pa.onAPIHLSMuxersList(hlsServerAPIMuxersListSubReq{Data: res.Data})
+		for _, pa := range res.muxers {
+			pa.onAPIHLSMuxersList(hlsServerAPIMuxersListSubReq{data: res.data})
 		}
 
 		return res
 
 	case <-s.ctx.Done():
-		return hlsServerAPIMuxersListRes{Err: fmt.Errorf("terminated")}
+		return hlsServerAPIMuxersListRes{err: fmt.Errorf("terminated")}
 	}
 }

@@ -112,11 +112,11 @@ func (s *rtspSession) onClose(err error) {
 
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStatePreRead, gortsplib.ServerSessionStateRead:
-		s.path.onReaderRemove(pathReaderRemoveReq{Author: s})
+		s.path.onReaderRemove(pathReaderRemoveReq{author: s})
 		s.path = nil
 
 	case gortsplib.ServerSessionStatePrePublish, gortsplib.ServerSessionStatePublish:
-		s.path.onPublisherRemove(pathPublisherRemoveReq{Author: s})
+		s.path.onPublisherRemove(pathPublisherRemoveReq{author: s})
 		s.path = nil
 	}
 
@@ -155,9 +155,9 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	}
 
 	res := s.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
-		Author:   s,
-		PathName: ctx.Path,
-		Authenticate: func(
+		author:   s,
+		pathName: ctx.Path,
+		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
@@ -165,26 +165,26 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 		},
 	})
 
-	if res.Err != nil {
-		switch terr := res.Err.(type) {
+	if res.err != nil {
+		switch terr := res.err.(type) {
 		case pathErrAuthNotCritical:
-			s.log(logger.Debug, "non-critical authentication error: %s", terr.Message)
-			return terr.Response, nil
+			s.log(logger.Debug, "non-critical authentication error: %s", terr.message)
+			return terr.response, nil
 
 		case pathErrAuthCritical:
 			// wait some seconds to stop brute force attacks
 			<-time.After(pauseAfterAuthError)
 
-			return terr.Response, errors.New(terr.Message)
+			return terr.response, errors.New(terr.message)
 
 		default:
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, res.Err
+			}, res.err
 		}
 	}
 
-	s.path = res.Path
+	s.path = res.path
 	s.announcedTracks = ctx.Tracks
 
 	s.stateMutex.Lock()
@@ -214,9 +214,9 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePreRead: // play
 		res := s.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
-			Author:   s,
-			PathName: ctx.Path,
-			Authenticate: func(
+			author:   s,
+			pathName: ctx.Path,
+			authenticate: func(
 				pathIPs []interface{},
 				pathUser conf.Credential,
 				pathPass conf.Credential) error {
@@ -224,33 +224,33 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			},
 		})
 
-		if res.Err != nil {
-			switch terr := res.Err.(type) {
+		if res.err != nil {
+			switch terr := res.err.(type) {
 			case pathErrAuthNotCritical:
-				s.log(logger.Debug, "non-critical authentication error: %s", terr.Message)
-				return terr.Response, nil, nil
+				s.log(logger.Debug, "non-critical authentication error: %s", terr.message)
+				return terr.response, nil, nil
 
 			case pathErrAuthCritical:
 				// wait some seconds to stop brute force attacks
 				<-time.After(pauseAfterAuthError)
 
-				return terr.Response, nil, errors.New(terr.Message)
+				return terr.response, nil, errors.New(terr.message)
 
 			case pathErrNoOnePublishing:
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
-				}, nil, res.Err
+				}, nil, res.err
 
 			default:
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, nil, res.Err
+				}, nil, res.err
 			}
 		}
 
-		s.path = res.Path
+		s.path = res.path
 
-		if ctx.TrackID >= len(res.Stream.tracks()) {
+		if ctx.TrackID >= len(res.stream.tracks()) {
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
 			}, nil, fmt.Errorf("track %d does not exist", ctx.TrackID)
@@ -259,7 +259,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		if s.setuppedTracks == nil {
 			s.setuppedTracks = make(map[int]*gortsplib.Track)
 		}
-		s.setuppedTracks[ctx.TrackID] = res.Stream.tracks()[ctx.TrackID]
+		s.setuppedTracks[ctx.TrackID] = res.stream.tracks()[ctx.TrackID]
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePreRead
@@ -267,7 +267,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, res.Stream.rtspStream, nil
+		}, res.stream.rtspStream, nil
 
 	default: // record
 		return &base.Response{
@@ -281,7 +281,7 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 	h := make(base.Header)
 
 	if s.ss.State() == gortsplib.ServerSessionStatePreRead {
-		s.path.onReaderPlay(pathReaderPlayReq{Author: s})
+		s.path.onReaderPlay(pathReaderPlayReq{author: s})
 
 		if s.path.Conf().RunOnRead != "" {
 			s.log(logger.Info, "runOnRead command started")
@@ -309,16 +309,16 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 // onRecord is called by rtspServer.
 func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	res := s.path.onPublisherRecord(pathPublisherRecordReq{
-		Author: s,
-		Tracks: s.announcedTracks,
+		author: s,
+		tracks: s.announcedTracks,
 	})
-	if res.Err != nil {
+	if res.err != nil {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,
-		}, res.Err
+		}, res.err
 	}
 
-	s.stream = res.Stream
+	s.stream = res.stream
 
 	s.stateMutex.Lock()
 	s.state = gortsplib.ServerSessionStatePublish
@@ -338,14 +338,14 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 			s.onReadCmd.Close()
 		}
 
-		s.path.onReaderPause(pathReaderPauseReq{Author: s})
+		s.path.onReaderPause(pathReaderPauseReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePreRead
 		s.stateMutex.Unlock()
 
 	case gortsplib.ServerSessionStatePublish:
-		s.path.onPublisherPause(pathPublisherPauseReq{Author: s})
+		s.path.onPublisherPause(pathPublisherPauseReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePublish

@@ -95,16 +95,16 @@ window.addEventListener('DOMContentLoaded', create);
 `
 
 type hlsMuxerResponse struct {
-	Status int
-	Header map[string]string
-	Body   io.Reader
+	status int
+	header map[string]string
+	body   io.Reader
 }
 
 type hlsMuxerRequest struct {
-	Dir  string
-	File string
-	Req  *http.Request
-	Res  chan hlsMuxerResponse
+	dir  string
+	file string
+	req  *http.Request
+	res  chan hlsMuxerResponse
 }
 
 type hlsMuxerTrackIDPayloadPair struct {
@@ -224,21 +224,21 @@ func (m *hlsMuxer) run() {
 
 			case req := <-m.request:
 				if isReady {
-					req.Res <- m.handleRequest(req)
+					req.res <- m.handleRequest(req)
 				} else {
 					m.requests = append(m.requests, req)
 				}
 
 			case req := <-m.hlsServerAPIMuxersList:
-				req.Data.Items[m.name] = hlsServerAPIMuxersListItem{
+				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
 					LastRequest: time.Unix(atomic.LoadInt64(m.lastRequestTime), 0).String(),
 				}
-				close(req.Res)
+				close(req.res)
 
 			case <-innerReady:
 				isReady = true
 				for _, req := range m.requests {
-					req.Res <- m.handleRequest(req)
+					req.res <- m.handleRequest(req)
 				}
 				m.requests = nil
 
@@ -252,7 +252,7 @@ func (m *hlsMuxer) run() {
 	m.ctxCancel()
 
 	for _, req := range m.requests {
-		req.Res <- hlsMuxerResponse{Status: http.StatusNotFound}
+		req.res <- hlsMuxerResponse{status: http.StatusNotFound}
 	}
 
 	m.parent.onMuxerClose(m)
@@ -262,18 +262,18 @@ func (m *hlsMuxer) run() {
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
 	res := m.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
-		Author:       m,
-		PathName:     m.pathName,
-		Authenticate: nil,
+		author:       m,
+		pathName:     m.pathName,
+		authenticate: nil,
 	})
-	if res.Err != nil {
-		return res.Err
+	if res.err != nil {
+		return res.err
 	}
 
-	m.path = res.Path
+	m.path = res.path
 
 	defer func() {
-		m.path.onReaderRemove(pathReaderRemoveReq{Author: m})
+		m.path.onReaderRemove(pathReaderRemoveReq{author: m})
 	}()
 
 	var videoTrack *gortsplib.Track
@@ -283,7 +283,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	audioTrackID := -1
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.Stream.tracks() {
+	for i, t := range res.stream.tracks() {
 		if t.IsH264() {
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)
@@ -330,7 +330,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.ringBuffer = ringbuffer.New(uint64(m.readBufferCount))
 
-	m.path.onReaderPlay(pathReaderPlayReq{Author: m})
+	m.path.onReaderPlay(pathReaderPlayReq{author: m})
 
 	writerDone := make(chan error)
 	go func() {
@@ -415,67 +415,67 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
-	err := m.authenticate(req.Req)
+	err := m.authenticate(req.req)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
-			m.log(logger.Info, "authentication error: %s", terr.Message)
+			m.log(logger.Info, "authentication error: %s", terr.message)
 			return hlsMuxerResponse{
-				Status: http.StatusUnauthorized,
+				status: http.StatusUnauthorized,
 			}
 		}
 
 		return hlsMuxerResponse{
-			Status: http.StatusUnauthorized,
-			Header: map[string]string{
+			status: http.StatusUnauthorized,
+			header: map[string]string{
 				"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
 			},
 		}
 	}
 
 	switch {
-	case req.File == "index.m3u8":
+	case req.file == "index.m3u8":
 		return hlsMuxerResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
+			status: http.StatusOK,
+			header: map[string]string{
 				"Content-Type": `application/x-mpegURL`,
 			},
-			Body: m.muxer.PrimaryPlaylist(),
+			body: m.muxer.PrimaryPlaylist(),
 		}
 
-	case req.File == "stream.m3u8":
+	case req.file == "stream.m3u8":
 		return hlsMuxerResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
+			status: http.StatusOK,
+			header: map[string]string{
 				"Content-Type": `application/x-mpegURL`,
 			},
-			Body: m.muxer.StreamPlaylist(),
+			body: m.muxer.StreamPlaylist(),
 		}
 
-	case strings.HasSuffix(req.File, ".ts"):
-		r := m.muxer.Segment(req.File)
+	case strings.HasSuffix(req.file, ".ts"):
+		r := m.muxer.Segment(req.file)
 		if r == nil {
-			return hlsMuxerResponse{Status: http.StatusNotFound}
+			return hlsMuxerResponse{status: http.StatusNotFound}
 		}
 
 		return hlsMuxerResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
+			status: http.StatusOK,
+			header: map[string]string{
 				"Content-Type": `video/MP2T`,
 			},
-			Body: r,
+			body: r,
 		}
 
-	case req.File == "":
+	case req.file == "":
 		return hlsMuxerResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
+			status: http.StatusOK,
+			header: map[string]string{
 				"Content-Type": `text/html`,
 			},
-			Body: bytes.NewReader([]byte(index)),
+			body: bytes.NewReader([]byte(index)),
 		}
 
 	default:
-		return hlsMuxerResponse{Status: http.StatusNotFound}
+		return hlsMuxerResponse{status: http.StatusNotFound}
 	}
 }
 
@@ -499,7 +499,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 			"read")
 		if err != nil {
 			return pathErrAuthCritical{
-				Message: fmt.Sprintf("external authentication failed: %s", err),
+				message: fmt.Sprintf("external authentication failed: %s", err),
 			}
 		}
 	}
@@ -510,7 +510,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 
 		if !ipEqualOrInRange(ip, pathIPs) {
 			return pathErrAuthCritical{
-				Message: fmt.Sprintf("IP '%s' not allowed", ip),
+				message: fmt.Sprintf("IP '%s' not allowed", ip),
 			}
 		}
 	}
@@ -523,7 +523,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 
 		if user != string(pathUser) || pass != string(pathPass) {
 			return pathErrAuthCritical{
-				Message: "invalid credentials",
+				message: "invalid credentials",
 			}
 		}
 	}
@@ -536,7 +536,7 @@ func (m *hlsMuxer) onRequest(req hlsMuxerRequest) {
 	select {
 	case m.request <- req:
 	case <-m.ctx.Done():
-		req.Res <- hlsMuxerResponse{Status: http.StatusNotFound}
+		req.res <- hlsMuxerResponse{status: http.StatusNotFound}
 	}
 }
 
@@ -563,10 +563,10 @@ func (m *hlsMuxer) onReaderAPIDescribe() interface{} {
 
 // onAPIHLSMuxersList is called by api.
 func (m *hlsMuxer) onAPIHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
-	req.Res = make(chan struct{})
+	req.res = make(chan struct{})
 	select {
 	case m.hlsServerAPIMuxersList <- req:
-		<-req.Res
+		<-req.res
 
 	case <-m.ctx.Done():
 	}

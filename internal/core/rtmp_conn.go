@@ -220,9 +220,9 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
 	res := c.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
-		Author:   c,
-		PathName: pathName,
-		Authenticate: func(
+		author:   c,
+		pathName: pathName,
+		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
@@ -230,19 +230,19 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		},
 	})
 
-	if res.Err != nil {
-		if terr, ok := res.Err.(pathErrAuthCritical); ok {
+	if res.err != nil {
+		if terr, ok := res.err.(pathErrAuthCritical); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
-			return errors.New(terr.Message)
+			return errors.New(terr.message)
 		}
-		return res.Err
+		return res.err
 	}
 
-	c.path = res.Path
+	c.path = res.path
 
 	defer func() {
-		c.path.onReaderRemove(pathReaderRemoveReq{Author: c})
+		c.path.onReaderRemove(pathReaderRemoveReq{author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -257,7 +257,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.Stream.tracks() {
+	for i, t := range res.stream.tracks() {
 		if t.IsH264() {
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
@@ -293,7 +293,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}()
 
 	c.path.onReaderPlay(pathReaderPlayReq{
-		Author: c,
+		author: c,
 	})
 
 	if c.path.Conf().RunOnRead != "" {
@@ -465,9 +465,9 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	pathName, query := pathNameAndQuery(c.conn.URL())
 
 	res := c.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
-		Author:   c,
-		PathName: pathName,
-		Authenticate: func(
+		author:   c,
+		pathName: pathName,
+		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
@@ -475,19 +475,19 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		},
 	})
 
-	if res.Err != nil {
-		if terr, ok := res.Err.(pathErrAuthCritical); ok {
+	if res.err != nil {
+		if terr, ok := res.err.(pathErrAuthCritical); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
-			return errors.New(terr.Message)
+			return errors.New(terr.message)
 		}
-		return res.Err
+		return res.err
 	}
 
-	c.path = res.Path
+	c.path = res.path
 
 	defer func() {
-		c.path.onPublisherRemove(pathPublisherRemoveReq{Author: c})
+		c.path.onPublisherRemove(pathPublisherRemoveReq{author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -498,19 +498,19 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	c.conn.SetWriteDeadline(time.Time{})
 
 	rres := c.path.onPublisherRecord(pathPublisherRecordReq{
-		Author: c,
-		Tracks: tracks,
+		author: c,
+		tracks: tracks,
 	})
-	if rres.Err != nil {
-		return rres.Err
+	if rres.err != nil {
+		return rres.err
 	}
 
-	rtcpSenders := rtcpsenderset.New(tracks, rres.Stream.onPacketRTCP)
+	rtcpSenders := rtcpsenderset.New(tracks, rres.stream.onPacketRTCP)
 	defer rtcpSenders.Close()
 
 	onPacketRTP := func(trackID int, payload []byte) {
 		rtcpSenders.OnPacketRTP(trackID, payload)
-		rres.Stream.onPacketRTP(trackID, payload)
+		rres.stream.onPacketRTP(trackID, payload)
 	}
 
 	for {
@@ -610,7 +610,7 @@ func (c *rtmpConn) authenticate(
 			action)
 		if err != nil {
 			return pathErrAuthCritical{
-				Message: fmt.Sprintf("external authentication failed: %s", err),
+				message: fmt.Sprintf("external authentication failed: %s", err),
 			}
 		}
 	}
@@ -619,7 +619,7 @@ func (c *rtmpConn) authenticate(
 		ip := c.ip()
 		if !ipEqualOrInRange(ip, pathIPs) {
 			return pathErrAuthCritical{
-				Message: fmt.Sprintf("IP '%s' not allowed", ip),
+				message: fmt.Sprintf("IP '%s' not allowed", ip),
 			}
 		}
 	}
@@ -628,7 +628,7 @@ func (c *rtmpConn) authenticate(
 		if query.Get("user") != string(pathUser) ||
 			query.Get("pass") != string(pathPass) {
 			return pathErrAuthCritical{
-				Message: "invalid credentials",
+				message: "invalid credentials",
 			}
 		}
 	}

@@ -427,29 +427,29 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 
 func (a *api) onPathsList(ctx *gin.Context) {
 	res := a.pathManager.onAPIPathsList(pathAPIPathsListReq{})
-	if res.Err != nil {
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, res.Data)
+	ctx.JSON(http.StatusOK, res.data)
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 	res := a.rtspServer.onAPISessionsList(rtspServerAPISessionsListReq{})
-	if res.Err != nil {
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, res.Data)
+	ctx.JSON(http.StatusOK, res.data)
 }
 
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtspServer.onAPISessionsKick(rtspServerAPISessionsKickReq{ID: id})
-	if res.Err != nil {
+	res := a.rtspServer.onAPISessionsKick(rtspServerAPISessionsKickReq{id: id})
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -459,19 +459,19 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 	res := a.rtspsServer.onAPISessionsList(rtspServerAPISessionsListReq{})
-	if res.Err != nil {
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, res.Data)
+	ctx.JSON(http.StatusOK, res.data)
 }
 
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtspsServer.onAPISessionsKick(rtspServerAPISessionsKickReq{ID: id})
-	if res.Err != nil {
+	res := a.rtspsServer.onAPISessionsKick(rtspServerAPISessionsKickReq{id: id})
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -481,19 +481,19 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	res := a.rtmpServer.onAPIConnsList(rtmpServerAPIConnsListReq{})
-	if res.Err != nil {
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, res.Data)
+	ctx.JSON(http.StatusOK, res.data)
 }
 
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtmpServer.onAPIConnsKick(rtmpServerAPIConnsKickReq{ID: id})
-	if res.Err != nil {
+	res := a.rtmpServer.onAPIConnsKick(rtmpServerAPIConnsKickReq{id: id})
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
@@ -503,12 +503,12 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
 	res := a.hlsServer.onAPIHLSMuxersList(hlsServerAPIMuxersListReq{})
-	if res.Err != nil {
+	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, res.Data)
+	ctx.JSON(http.StatusOK, res.data)
 }
 
 // onConfReload is called by core.

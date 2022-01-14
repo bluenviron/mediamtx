@@ -31,18 +31,18 @@ type rtspServerAPISessionsListData struct {
 }
 
 type rtspServerAPISessionsListRes struct {
-	Data *rtspServerAPISessionsListData
-	Err  error
+	data *rtspServerAPISessionsListData
+	err  error
 }
 
 type rtspServerAPISessionsListReq struct{}
 
 type rtspServerAPISessionsKickRes struct {
-	Err error
+	err error
 }
 
 type rtspServerAPISessionsKickReq struct {
-	ID string
+	id string
 }
 
 type rtspServerParent interface {
@@ -405,7 +405,7 @@ func (s *rtspServer) OnPacketRTCP(ctx *gortsplib.ServerHandlerOnPacketRTCPCtx) {
 func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes {
 	select {
 	case <-s.ctx.Done():
-		return rtspServerAPISessionsListRes{Err: fmt.Errorf("terminated")}
+		return rtspServerAPISessionsListRes{err: fmt.Errorf("terminated")}
 	default:
 	}
 
@@ -434,14 +434,14 @@ func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspSer
 		}
 	}
 
-	return rtspServerAPISessionsListRes{Data: data}
+	return rtspServerAPISessionsListRes{data: data}
 }
 
 // onAPISessionsKick is called by api.
 func (s *rtspServer) onAPISessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes {
 	select {
 	case <-s.ctx.Done():
-		return rtspServerAPISessionsKickRes{Err: fmt.Errorf("terminated")}
+		return rtspServerAPISessionsKickRes{err: fmt.Errorf("terminated")}
 	default:
 	}
 
@@ -449,7 +449,7 @@ func (s *rtspServer) onAPISessionsKick(req rtspServerAPISessionsKickReq) rtspSer
 	defer s.mutex.RUnlock()
 
 	for key, se := range s.sessions {
-		if se.ID() == req.ID {
+		if se.ID() == req.id {
 			se.close()
 			delete(s.sessions, key)
 			se.onClose(liberrors.ErrServerTerminated{})
@@ -457,5 +457,5 @@ func (s *rtspServer) onAPISessionsKick(req rtspServerAPISessionsKickReq) rtspSer
 		}
 	}
 
-	return rtspServerAPISessionsKickRes{Err: fmt.Errorf("not found")}
+	return rtspServerAPISessionsKickRes{err: fmt.Errorf("not found")}
 }
