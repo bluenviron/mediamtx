@@ -3,7 +3,7 @@ module github.com/aler9/rtsp-simple-server
 go 1.17
 
 require (
-	github.com/aler9/gortsplib v0.0.0-20220118105213-c7d8083a4c75
+	github.com/aler9/gortsplib v0.0.0-20220118152024-3084b62da2ae
 	github.com/asticode/go-astits v1.10.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.7.2
