@@ -476,13 +476,7 @@ func (pa *path) run() {
 		req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("terminated")}
 	}
 
-	for rp := range pa.readers {
-		rp.close()
-	}
-
-	if pa.stream != nil {
-		pa.stream.close()
-	}
+	pa.sourceSetNotReady()
 
 	if pa.source != nil {
 		if source, ok := pa.source.(sourceStatic); ok {
@@ -639,12 +633,15 @@ func (pa *path) sourceSetNotReady() {
 	if pa.onPublishCmd != nil {
 		pa.onPublishCmd.Close()
 		pa.onPublishCmd = nil
-		pa.log(logger.Info, "runOnPublish command stopped")
+		pa.log(logger.Info, "runOnReady command stopped")
 	}
 
 	pa.sourceReady = false
-	pa.stream.close()
-	pa.stream = nil
+
+	if pa.stream != nil {
+		pa.stream.close()
+		pa.stream = nil
+	}
 }
 
 func (pa *path) staticSourceCreate() {
