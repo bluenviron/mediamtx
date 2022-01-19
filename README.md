@@ -46,7 +46,7 @@ Features:
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Proxy mode](#proxy-mode)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
-  * [Save published videos to disk](#save-published-videos-to-disk)
+  * [Save streams to disk](#save-streams-to-disk)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot with systemd](#start-on-boot-with-systemd)
   * [HTTP API](#http-api)
@@ -304,20 +304,20 @@ To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstream
 paths:
   all:
   original:
-    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
-    runOnPublishRestart: yes
+    runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    runOnReadyRestart: yes
 ```
 
-### Save published videos to disk
+### Save streams to disk
 
-To Save published videos to disk, put an _FFmpeg_ command inside `runOnPublish`:
+To save available streams to disk, you can use the `runOnReady` parameter and _FFmpeg_:
 
 ```yml
 paths:
   all:
   original:
-    runOnPublish: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f segment -strftime 1 -segment_time 60 -segment_format mp4 saved_%Y-%m-%d_%H-%M-%S.mp4
-    runOnPublishRestart: yes
+    runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f segment -strftime 1 -segment_time 60 -segment_format mp4 saved_%Y-%m-%d_%H-%M-%S.mp4
+    runOnReadyRestart: yes
 ```
 
 ### On-demand publishing

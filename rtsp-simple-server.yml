@@ -234,16 +234,17 @@ paths:
     # readers connected and this amount of time has passed.
     runOnDemandCloseAfter: 10s
 
-    # Command to run when a client starts publishing.
-    # This is terminated with SIGINT when a client stops publishing.
+    # Command to run when the stream is ready to be read, whether it is
+    # published by a client or read by a server / camera.
+    # This is terminated with SIGINT when the stream is not ready anymore.
     # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
     # * 1, 2, ...: regular expression groups, if path name is
     #   a regular expression.
-    runOnPublish:
+    runOnReady:
     # Restart the command if it exits suddenly.
-    runOnPublishRestart: no
+    runOnReadyRestart: no
 
     # Command to run when a clients starts reading.
     # This is terminated with SIGINT when a client stops reading.

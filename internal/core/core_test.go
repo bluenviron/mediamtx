@@ -313,6 +313,36 @@ func main() {
 	}
 }
 
+func TestCorePathRunOnReady(t *testing.T) {
+	doneFile := filepath.Join(os.TempDir(), "onready_done")
+	defer os.Remove(doneFile)
+
+	p, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
+		"hlsDisable: yes\n"+
+		"paths:\n"+
+		"  test:\n"+
+		"    runOnReady: touch %s\n",
+		doneFile))
+	require.Equal(t, true, ok)
+	defer p.close()
+	track, err := gortsplib.NewTrackH264(96,
+		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+	require.NoError(t, err)
+
+	c := gortsplib.Client{}
+
+	err = c.StartPublishing(
+		"rtsp://localhost:8554/test",
+		gortsplib.Tracks{track})
+	require.NoError(t, err)
+	defer c.Close()
+
+	time.Sleep(1 * time.Second)
+
+	_, err = os.Stat(doneFile)
+	require.NoError(t, err)
+}
+
 func TestCoreHotReloading(t *testing.T) {
 	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
 

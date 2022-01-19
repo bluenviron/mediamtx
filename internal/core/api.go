@@ -125,8 +125,10 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		RunOnDemandRestart      *bool                `json:"runOnDemandRestart"`
 		RunOnDemandStartTimeout *conf.StringDuration `json:"runOnDemandStartTimeout"`
 		RunOnDemandCloseAfter   *conf.StringDuration `json:"runOnDemandCloseAfter"`
-		RunOnPublish            *string              `json:"runOnPublish"`
-		RunOnPublishRestart     *bool                `json:"runOnPublishRestart"`
+		RunOnReady              *string              `json:"runOnReady"`
+		RunOnReadyRestart       *bool                `json:"runOnReadyRestart"`
+		RunOnPublish            *string              `json:"runOnPublish"`        // deprecated, replaced by runOnReady
+		RunOnPublishRestart     *bool                `json:"runOnPublishRestart"` // deprecated, replaced by runOnReadyRestart
 		RunOnRead               *string              `json:"runOnRead"`
 		RunOnReadRestart        *bool                `json:"runOnReadRestart"`
 	}

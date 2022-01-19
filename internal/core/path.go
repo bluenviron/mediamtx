@@ -235,7 +235,7 @@ type path struct {
 	setupPlayRequests  []pathReaderSetupPlayReq
 	stream             *stream
 	onDemandCmd        *externalcmd.Cmd
-	onPublishCmd       *externalcmd.Cmd
+	onReadyCmd         *externalcmd.Cmd
 	onDemandReadyTimer *time.Timer
 	onDemandCloseTimer *time.Timer
 	onDemandState      pathOnDemandState
@@ -622,6 +622,18 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 	}
 
 	pa.parent.onPathSourceReady(pa)
+
+	if pa.conf.RunOnReady != "" {
+		pa.log(logger.Info, "runOnReady command started")
+		pa.onReadyCmd = externalcmd.NewCmd(
+			pa.externalCmdPool,
+			pa.conf.RunOnReady,
+			pa.conf.RunOnReadyRestart,
+			pa.externalCmdEnv(),
+			func(co int) {
+				pa.log(logger.Info, "runOnReady command exited with code %d", co)
+			})
+	}
 }
 
 func (pa *path) sourceSetNotReady() {
@@ -630,9 +642,9 @@ func (pa *path) sourceSetNotReady() {
 		r.close()
 	}
 
-	if pa.onPublishCmd != nil {
-		pa.onPublishCmd.Close()
-		pa.onPublishCmd = nil
+	if pa.onReadyCmd != nil {
+		pa.onReadyCmd.Close()
+		pa.onReadyCmd = nil
 		pa.log(logger.Info, "runOnReady command stopped")
 	}
 
@@ -695,11 +707,6 @@ func (pa *path) doPublisherRemove() {
 			pa.onDemandCloseSource()
 		} else {
 			pa.sourceSetNotReady()
-		}
-	} else {
-		for r := range pa.readers {
-			pa.doReaderRemove(r)
-			r.close()
 		}
 	}
 
@@ -787,18 +794,6 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 	req.author.onPublisherAccepted(len(req.tracks))
 
 	pa.sourceSetReady(req.tracks)
-
-	if pa.conf.RunOnPublish != "" {
-		pa.log(logger.Info, "runOnPublish command started")
-		pa.onPublishCmd = externalcmd.NewCmd(
-			pa.externalCmdPool,
-			pa.conf.RunOnPublish,
-			pa.conf.RunOnPublishRestart,
-			pa.externalCmdEnv(),
-			func(co int) {
-				pa.log(logger.Info, "runOnPublish command exited with code %d", co)
-			})
-	}
 
 	req.res <- pathPublisherRecordRes{stream: pa.stream}
 }

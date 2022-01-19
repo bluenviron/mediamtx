@@ -165,9 +165,9 @@ components:
           type: string
         runOnDemandCloseAfter:
           type: string
-        runOnPublish:
+        runOnReady:
           type: string
-        runOnPublishRestart:
+        runOnReadyRestart:
           type: boolean
         runOnRead:
           type: string

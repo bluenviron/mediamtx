@@ -65,8 +65,10 @@ type PathConf struct {
 	RunOnDemandRestart      bool           `json:"runOnDemandRestart"`
 	RunOnDemandStartTimeout StringDuration `json:"runOnDemandStartTimeout"`
 	RunOnDemandCloseAfter   StringDuration `json:"runOnDemandCloseAfter"`
-	RunOnPublish            string         `json:"runOnPublish"`
-	RunOnPublishRestart     bool           `json:"runOnPublishRestart"`
+	RunOnReady              string         `json:"runOnReady"`
+	RunOnReadyRestart       bool           `json:"runOnReadyRestart"`
+	RunOnPublish            string         `json:"runOnPublish"`        // deprecated, replaced by runOnReady
+	RunOnPublishRestart     bool           `json:"runOnPublishRestart"` // deprecated, replaced by runOnReadyRestart
 	RunOnRead               string         `json:"runOnRead"`
 	RunOnReadRestart        bool           `json:"runOnReadRestart"`
 }
@@ -237,13 +239,16 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
 	}
 
-	if pconf.RunOnPublish != "" && pconf.Source != "publisher" {
-		return fmt.Errorf("'runOnPublish' is useless when source is not 'publisher', since " +
-			"the stream is not provided by a publisher, but by a fixed source")
-	}
-
 	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
+	}
+
+	if pconf.RunOnPublish != "" {
+		pconf.RunOnReady = pconf.RunOnPublish
+	}
+
+	if pconf.RunOnPublishRestart {
+		pconf.RunOnReadyRestart = true
 	}
 
 	if pconf.RunOnDemandStartTimeout == 0 {
