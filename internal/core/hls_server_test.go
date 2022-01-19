@@ -134,8 +134,7 @@ func TestHLSServerAuth(t *testing.T) {
 						"    readPass: testpass\n" +
 						"    readIPs: [127.0.0.0/16]\n"
 				} else {
-					conf = "logLevel: debug\n" +
-						"externalAuthenticationURL: http://127.0.0.1:9120/auth\n" +
+					conf = "externalAuthenticationURL: http://127.0.0.1:9120/auth\n" +
 						"paths:\n" +
 						"  all:\n"
 				}
