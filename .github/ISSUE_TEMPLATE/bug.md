@@ -47,6 +47,15 @@ the maintainers must be able to REPLICATE your issue to solve it - therefore, de
 2. publish with ...
 3. read with ...
 
+## Did you attach the server logs?
+
+<!--
+Server logs are sometimes useful to identify the issue.
+If you think this is the case, set the parameter 'logLevel' to 'debug' and attach the server logs.
+-->
+
+yes / no
+
 ## Did you attach a network dump?
 
 <!--
@@ -57,7 +66,5 @@ If the bug arises when using rtsp-simple-server with an external hardware or sof
 4) Stop capturing, save the result in .pcap format
 5) Attach
 -->
-
-<!-- OTHERWISE, delete this section -->
 
 yes / no
