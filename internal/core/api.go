@@ -127,10 +127,12 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		RunOnDemandCloseAfter   *conf.StringDuration `json:"runOnDemandCloseAfter"`
 		RunOnReady              *string              `json:"runOnReady"`
 		RunOnReadyRestart       *bool                `json:"runOnReadyRestart"`
-		RunOnPublish            *string              `json:"runOnPublish"`        // deprecated, replaced by runOnReady
-		RunOnPublishRestart     *bool                `json:"runOnPublishRestart"` // deprecated, replaced by runOnReadyRestart
 		RunOnRead               *string              `json:"runOnRead"`
 		RunOnReadRestart        *bool                `json:"runOnReadRestart"`
+
+		// deprecated, replaced by runOnReady. TODO: remove in next version
+		RunOnPublish        *string `json:"runOnPublish"`
+		RunOnPublishRestart *bool   `json:"runOnPublishRestart"`
 	}
 	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
 	if err != nil {
