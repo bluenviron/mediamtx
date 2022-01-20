@@ -140,8 +140,8 @@ paths:
   all:
     # Source of the stream. This can be:
     # * publisher -> the stream is published by a RTSP or RTMP client
-    # * rtsp://existing-url -> the stream is pulled from another RTSP server
-    # * rtsps://existing-url -> the stream is pulled from another RTSP server with RTSPS
+    # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
+    # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
     # * rtmp://existing-url -> the stream is pulled from another RTMP server
     # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
     # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
@@ -235,7 +235,7 @@ paths:
     runOnDemandCloseAfter: 10s
 
     # Command to run when the stream is ready to be read, whether it is
-    # published by a client or read by a server / camera.
+    # published by a client or pulled from a server / camera.
     # This is terminated with SIGINT when the stream is not ready anymore.
     # The following environment variables are available:
     # * RTSP_PATH: path name
