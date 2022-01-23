@@ -48,6 +48,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		Password string `json:"password"`
 		Path     string `json:"path"`
 		Action   string `json:"action"`
+		Query    string `json:"query"`
 	}
 	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
 	if err != nil {
@@ -66,7 +67,10 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		in.User != user ||
 		in.Password != "testpass" ||
 		in.Path != "teststream" ||
-		in.Action != ts.action {
+		in.Action != ts.action ||
+		(in.Query != "user=testreader&pass=testpass&param=value" &&
+			in.Query != "user=testpublisher&pass=testpass&param=value" &&
+			in.Query != "param=value") {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
@@ -156,7 +160,7 @@ func TestHLSServerAuth(t *testing.T) {
 					"-i", "emptyvideo.mkv",
 					"-c", "copy",
 					"-f", "rtsp",
-					"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream",
+					"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream?param=value",
 				})
 				require.NoError(t, err)
 				defer cnt1.close()
@@ -178,7 +182,7 @@ func TestHLSServerAuth(t *testing.T) {
 					usr = "testreader2"
 				}
 
-				res, err := http.Get("http://" + usr + ":testpass@127.0.0.1:8888/teststream/index.m3u8")
+				res, err := http.Get("http://" + usr + ":testpass@127.0.0.1:8888/teststream/index.m3u8?param=value")
 				require.NoError(t, err)
 				defer res.Body.Close()
 

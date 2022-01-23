@@ -236,7 +236,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			source := gortsplib.Client{}
 
 			err = source.StartPublishing(
-				"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream",
+				"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream?param=value",
 				gortsplib.Tracks{track})
 			require.NoError(t, err)
 			defer source.Close()
@@ -251,7 +251,7 @@ func TestRTSPServerAuth(t *testing.T) {
 
 			reader := gortsplib.Client{}
 
-			err = reader.StartReading("rtsp://testreader:testpass@127.0.0.1:8554/teststream")
+			err = reader.StartReading("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
 			require.NoError(t, err)
 			defer reader.Close()
 		})
@@ -407,7 +407,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		c := gortsplib.Client{}
 
 		err = c.StartPublishing(
-			"rtsp://testpublisher2:testpass@localhost:8554/teststream",
+			"rtsp://testpublisher2:testpass@localhost:8554/teststream?param=value",
 			gortsplib.Tracks{track},
 		)
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")

@@ -120,7 +120,7 @@ func TestRTMPServerAuth(t *testing.T) {
 				"-i", "emptyvideo.mkv",
 				"-c", "copy",
 				"-f", "flv",
-				"rtmp://127.0.0.1/teststream?user=testpublisher&pass=testpass",
+				"rtmp://127.0.0.1/teststream?user=testpublisher&pass=testpass&param=value",
 			})
 			require.NoError(t, err)
 			defer cnt1.close()
@@ -135,7 +135,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			}
 
 			conn, err := rtmp.DialContext(context.Background(),
-				"rtmp://127.0.0.1/teststream?user=testreader&pass=testpass")
+				"rtmp://127.0.0.1/teststream?user=testreader&pass=testpass&param=value")
 			require.NoError(t, err)
 			defer conn.Close()
 
@@ -189,7 +189,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			"-i", "emptyvideo.mkv",
 			"-c", "copy",
 			"-f", "flv",
-			"rtmp://localhost/teststream?user=testuser2&pass=testpass",
+			"rtmp://localhost/teststream?user=testuser2&pass=testpass&param=value",
 		})
 		require.NoError(t, err)
 		defer cnt1.close()
