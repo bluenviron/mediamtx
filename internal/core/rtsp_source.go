@@ -168,6 +168,7 @@ func (s *rtspSource) runInner() bool {
 		s.log(logger.Info, "ERR: %s", err)
 		return true
 	}
+	defer c.Close()
 
 	readErr := make(chan error)
 	go func() {
@@ -231,7 +232,6 @@ func (s *rtspSource) runInner() bool {
 		return true
 
 	case <-s.ctx.Done():
-		c.Close()
 		<-readErr
 		return false
 	}
