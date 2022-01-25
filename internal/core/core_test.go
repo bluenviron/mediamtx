@@ -214,7 +214,7 @@ import (
 )
 
 func main() {
-	if os.Getenv("1") != "on" {
+	if os.Getenv("G1") != "on" {
 		panic("environment not set")
 	}
 

@@ -211,7 +211,7 @@ paths:
     # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
-    # * 1, 2, ...: regular expression groups, if path name is
+    # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnInit:
     # Restart the command if it exits suddenly.
@@ -223,7 +223,7 @@ paths:
     # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
-    # * 1, 2, ...: regular expression groups, if path name is
+    # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnDemand:
     # Restart the command if it exits suddenly.
@@ -241,7 +241,7 @@ paths:
     # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
-    # * 1, 2, ...: regular expression groups, if path name is
+    # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnReady:
     # Restart the command if it exits suddenly.
@@ -252,7 +252,7 @@ paths:
     # The following environment variables are available:
     # * RTSP_PATH: path name
     # * RTSP_PORT: server port
-    # * 1, 2, ...: regular expression groups, if path name is
+    # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnRead:
     # Restart the command if it exits suddenly.
