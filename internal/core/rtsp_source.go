@@ -232,6 +232,7 @@ func (s *rtspSource) runInner() bool {
 		return true
 
 	case <-s.ctx.Done():
+		c.Close()
 		<-readErr
 		return false
 	}
