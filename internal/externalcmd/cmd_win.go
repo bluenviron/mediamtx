@@ -6,25 +6,17 @@ package externalcmd
 import (
 	"os"
 	"os/exec"
-	"strings"
 
 	"github.com/kballard/go-shellquote"
 )
 
 func (e *Cmd) runInner() (int, bool) {
-	// On Windows, the shell is not used and command is started directly.
-	// Variables are replaced manually in order to guarantee compatibility
-	// with Linux commands.
-	tmp := e.cmdstr
-	for key, val := range e.env {
-		tmp = strings.ReplaceAll(tmp, "$"+key, val)
-	}
-	parts, err := shellquote.Split(tmp)
+	cmdparts, err := shellquote.Split(e.cmdstr)
 	if err != nil {
 		return 0, true
 	}
 
-	cmd := exec.Command(parts[0], parts[1:]...)
+	cmd := exec.Command(cmdparts[0], cmdparts[1:]...)
 
 	cmd.Env = append([]string(nil), os.Environ()...)
 	for key, val := range e.env {

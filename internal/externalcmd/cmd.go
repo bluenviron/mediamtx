@@ -1,6 +1,7 @@
 package externalcmd
 
 import (
+	"strings"
 	"time"
 )
 
@@ -31,6 +32,10 @@ func NewCmd(
 	env Environment,
 	onExit func(int),
 ) *Cmd {
+	for key, val := range env {
+		cmdstr = strings.ReplaceAll(cmdstr, "$"+key, val)
+	}
+
 	e := &Cmd{
 		pool:      pool,
 		cmdstr:    cmdstr,

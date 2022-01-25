@@ -7,10 +7,17 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+
+	"github.com/kballard/go-shellquote"
 )
 
 func (e *Cmd) runInner() (int, bool) {
-	cmd := exec.Command("/bin/sh", "-c", "exec "+e.cmdstr)
+	cmdparts, err := shellquote.Split(e.cmdstr)
+	if err != nil {
+		return 0, true
+	}
+
+	cmd := exec.Command(cmdparts[0], cmdparts[1:]...)
 
 	cmd.Env = append([]string(nil), os.Environ()...)
 	for key, val := range e.env {
@@ -20,7 +27,7 @@ func (e *Cmd) runInner() (int, bool) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Start()
+	err = cmd.Start()
 	if err != nil {
 		return 0, true
 	}
