@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"log"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -30,6 +31,7 @@ type muxerTSGenerator struct {
 	audioAUCount   int
 	startPCR       time.Time
 	startPTS       time.Duration
+	segmentCounter int
 }
 
 func newMuxerTSGenerator(
@@ -89,6 +91,12 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 			m.currentSegment.endPTS = pts
 			m.streamPlaylist.pushSegment(m.currentSegment)
 			m.currentSegment = newMuxerTSSegment(m.videoTrack, m.writer)
+			m.segmentCounter = 0
+		} else {
+			m.segmentCounter++
+			if m.segmentCounter >= 500 {
+				log.Println("SC", m.segmentCounter)
+			}
 		}
 	}
 
