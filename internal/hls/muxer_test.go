@@ -17,7 +17,7 @@ func checkTSPacket(t *testing.T, byts []byte, pid int, afc int) {
 	require.Equal(t, uint8(afc), (byts[3]>>4)&0x03)                            // adaptation field control
 }
 
-func TestMuxer(t *testing.T) {
+func TestMuxerVideoAudio(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96,
 		&gortsplib.TrackConfigH264{SPS: []byte{0x07, 0x01, 0x02, 0x03}, PPS: []byte{0x08}})
 	require.NoError(t, err)
@@ -126,6 +126,55 @@ func TestMuxer(t *testing.T) {
 	require.Equal(t, 44100, aus[1].SampleRate)
 	require.Equal(t, 2, aus[1].ChannelCount)
 	require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, aus[1].AU)
+}
+
+func TestMuxerAudio(t *testing.T) {
+	audioTrack, err := gortsplib.NewTrackAAC(97,
+		&gortsplib.TrackConfigAAC{Type: 2, SampleRate: 44100, ChannelCount: 2})
+	require.NoError(t, err)
+
+	m, err := NewMuxer(3, 1*time.Second, nil, audioTrack)
+	require.NoError(t, err)
+	defer m.Close()
+
+	for i := 0; i < 100; i++ {
+		err = m.WriteAAC(1*time.Second, [][]byte{
+			{0x01, 0x02, 0x03, 0x04},
+		})
+		require.NoError(t, err)
+	}
+
+	err = m.WriteAAC(2*time.Second, [][]byte{
+		{0x01, 0x02, 0x03, 0x04},
+		{0x05, 0x06, 0x07, 0x08},
+	})
+	require.NoError(t, err)
+
+	err = m.WriteAAC(3*time.Second, [][]byte{
+		{0x01, 0x02, 0x03, 0x04},
+		{0x05, 0x06, 0x07, 0x08},
+	})
+	require.NoError(t, err)
+
+	byts, err := ioutil.ReadAll(m.PrimaryPlaylist())
+	require.NoError(t, err)
+
+	require.Equal(t, "#EXTM3U\n"+
+		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"mp4a.40.2\"\n"+
+		"stream.m3u8\n", string(byts))
+
+	byts, err = ioutil.ReadAll(m.StreamPlaylist())
+	require.NoError(t, err)
+
+	re := regexp.MustCompile(`^#EXTM3U\n` +
+		`#EXT-X-VERSION:3\n` +
+		`#EXT-X-ALLOW-CACHE:NO\n` +
+		`#EXT-X-TARGETDURATION:1\n` +
+		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`#EXTINF:1,\n` +
+		`([0-9]+\.ts)\n$`)
+	ma := re.FindStringSubmatch(string(byts))
+	require.NotEqual(t, 0, len(ma))
 }
 
 func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
