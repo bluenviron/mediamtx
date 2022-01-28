@@ -14,12 +14,11 @@ type muxerTSSegment struct {
 	videoTrack *gortsplib.Track
 	writer     *muxerTSWriter
 
-	name               string
-	buf                bytes.Buffer
-	firstPacketWritten bool
-	startPTS           time.Duration
-	endPTS             time.Duration
-	pcrSendCounter     int
+	name           string
+	buf            bytes.Buffer
+	startPTS       *time.Duration
+	endPTS         time.Duration
+	pcrSendCounter int
 }
 
 func newMuxerTSSegment(
@@ -43,7 +42,7 @@ func newMuxerTSSegment(
 }
 
 func (t *muxerTSSegment) duration() time.Duration {
-	return t.endPTS - t.startPTS
+	return t.endPTS - *t.startPTS
 }
 
 func (t *muxerTSSegment) write(p []byte) (int, error) {
@@ -60,9 +59,8 @@ func (t *muxerTSSegment) writeH264(
 	pts time.Duration,
 	idrPresent bool,
 	enc []byte) error {
-	if !t.firstPacketWritten {
-		t.firstPacketWritten = true
-		t.startPTS = pts
+	if t.startPTS == nil {
+		t.startPTS = &pts
 	}
 
 	var af *astits.PacketAdaptationField
@@ -116,11 +114,8 @@ func (t *muxerTSSegment) writeAAC(
 	startPCR time.Time,
 	pts time.Duration,
 	enc []byte) error {
-	if t.videoTrack == nil {
-		if !t.firstPacketWritten {
-			t.firstPacketWritten = true
-			t.startPTS = pts
-		}
+	if t.startPTS == nil {
+		t.startPTS = &pts
 	}
 
 	af := &astits.PacketAdaptationField{
