@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +19,12 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
+
+type testLogger struct{}
+
+func (testLogger) Log(level logger.Level, format string, args ...interface{}) {
+	log.Printf(format, args...)
+}
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----
 MIIDazCCAlOgAwIBAgIUXw1hEC3LFpTsllv7D3ARJyEq7sIwDQYJKoZIhvcNAQEL
@@ -179,10 +186,6 @@ func (ts *testHLSServer) close() {
 	ts.s.Shutdown(context.Background())
 }
 
-type testClientParent struct{}
-
-func (testClientParent) Log(level logger.Level, format string, args ...interface{}) {}
-
 func TestClient(t *testing.T) {
 	for _, mode := range []string{"plain", "tls"} {
 		t.Run(mode, func(t *testing.T) {
@@ -208,7 +211,7 @@ func TestClient(t *testing.T) {
 					require.Equal(t, byte(0x05), byts[12])
 					close(packetRecv)
 				},
-				testClientParent{},
+				testLogger{},
 			)
 			require.NoError(t, err)
 

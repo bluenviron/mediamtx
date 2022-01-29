@@ -2,6 +2,7 @@ package hls
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"time"
@@ -11,6 +12,7 @@ import (
 )
 
 type muxerTSSegment struct {
+	hlsSegmentMaxSize uint64
 	videoTrack gortsplib.Track
 	writer     *muxerTSWriter
 
@@ -19,16 +21,19 @@ type muxerTSSegment struct {
 	startPTS       *time.Duration
 	endPTS         time.Duration
 	pcrSendCounter int
+	audioAUCount   int
 }
 
 func newMuxerTSSegment(
+	hlsSegmentMaxSize uint64,
 	videoTrack gortsplib.Track,
 	writer *muxerTSWriter,
 ) *muxerTSSegment {
 	t := &muxerTSSegment{
-		videoTrack: videoTrack,
-		writer:     writer,
-		name:       strconv.FormatInt(time.Now().Unix(), 10),
+		hlsSegmentMaxSize: hlsSegmentMaxSize,
+		videoTrack:        videoTrack,
+		writer:            writer,
+		name:              strconv.FormatInt(time.Now().Unix(), 10),
 	}
 
 	// WriteTable() is called automatically when WriteData() is called with
@@ -46,6 +51,10 @@ func (t *muxerTSSegment) duration() time.Duration {
 }
 
 func (t *muxerTSSegment) write(p []byte) (int, error) {
+	if uint64(len(p)+t.buf.Len()) > t.hlsSegmentMaxSize {
+		return 0, fmt.Errorf("reached maximum segment size")
+	}
+
 	return t.buf.Write(p)
 }
 
@@ -59,10 +68,6 @@ func (t *muxerTSSegment) writeH264(
 	pts time.Duration,
 	idrPresent bool,
 	enc []byte) error {
-	if t.startPTS == nil {
-		t.startPTS = &pts
-	}
-
 	var af *astits.PacketAdaptationField
 
 	if idrPresent {
@@ -107,22 +112,26 @@ func (t *muxerTSSegment) writeH264(
 			Data: enc,
 		},
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if t.startPTS == nil {
+		t.startPTS = &pts
+	}
+	t.endPTS = pts // save endPTS in case next write fails
+	return nil
 }
 
 func (t *muxerTSSegment) writeAAC(
 	startPCR time.Time,
 	pts time.Duration,
-	enc []byte) error {
-	if t.startPTS == nil {
-		t.startPTS = &pts
-	}
-
+	enc []byte,
+	ausLen int) error {
 	af := &astits.PacketAdaptationField{
 		RandomAccessIndicator: true,
 	}
 
-	// if audio is the only track
 	if t.videoTrack == nil {
 		// send PCR once in a while
 		if t.pcrSendCounter == 0 {
@@ -148,5 +157,17 @@ func (t *muxerTSSegment) writeAAC(
 			Data: enc,
 		},
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	if t.videoTrack == nil {
+		t.audioAUCount += ausLen
+	}
+
+	if t.startPTS == nil {
+		t.startPTS = &pts
+	}
+	t.endPTS = pts // save endPTS in case next write fails
+	return nil
 }

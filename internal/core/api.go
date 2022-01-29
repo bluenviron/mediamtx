@@ -86,6 +86,7 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 		HLSAlwaysRemux     *bool                `json:"hlsAlwaysRemux"`
 		HLSSegmentCount    *int                 `json:"hlsSegmentCount"`
 		HLSSegmentDuration *conf.StringDuration `json:"hlsSegmentDuration"`
+		HLSSegmentMaxSize  *conf.StringSize     `json:"hlsSegmentMaxSize"`
 		HLSAllowOrigin     *string              `json:"hlsAllowOrigin"`
 	}
 	err := json.NewDecoder(ctx.Request.Body).Decode(&in)

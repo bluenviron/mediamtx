@@ -127,6 +127,7 @@ type hlsMuxer struct {
 	hlsAlwaysRemux            bool
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
+	hlsSegmentMaxSize         conf.StringSize
 	readBufferCount           int
 	wg                        *sync.WaitGroup
 	pathName                  string
@@ -153,6 +154,7 @@ func newHLSMuxer(
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
+	hlsSegmentMaxSize conf.StringSize,
 	readBufferCount int,
 	wg *sync.WaitGroup,
 	pathName string,
@@ -166,6 +168,7 @@ func newHLSMuxer(
 		hlsAlwaysRemux:            hlsAlwaysRemux,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
+		hlsSegmentMaxSize:         hlsSegmentMaxSize,
 		readBufferCount:           readBufferCount,
 		wg:                        wg,
 		pathName:                  pathName,
@@ -313,6 +316,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	m.muxer, err = hls.NewMuxer(
 		m.hlsSegmentCount,
 		time.Duration(m.hlsSegmentDuration),
+		uint64(m.hlsSegmentMaxSize),
 		videoTrack,
 		audioTrack,
 	)
@@ -356,7 +360,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 					err = m.muxer.WriteH264(pts, nalus)
 					if err != nil {
-						return err
+						m.log(logger.Warn, "unable to write segment: %v", err)
+						continue
 					}
 				} else if audioTrack != nil && pair.trackID == audioTrackID {
 					var pkt rtp.Packet
@@ -376,7 +381,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 					err = m.muxer.WriteAAC(pts, aus)
 					if err != nil {
-						return err
+						m.log(logger.Warn, "unable to write segment: %v", err)
+						continue
 					}
 				}
 			}

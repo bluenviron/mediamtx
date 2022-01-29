@@ -196,6 +196,7 @@ type Conf struct {
 	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
 	HLSSegmentCount    int            `json:"hlsSegmentCount"`
 	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
+	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
 	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
 
 	// paths
@@ -341,6 +342,10 @@ func (conf *Conf) CheckAndFillMissing() error {
 
 	if conf.HLSSegmentDuration == 0 {
 		conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
+	}
+
+	if conf.HLSSegmentMaxSize == 0 {
+		conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	}
 
 	if conf.HLSAllowOrigin == "" {

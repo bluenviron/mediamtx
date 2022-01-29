@@ -3,6 +3,7 @@ module github.com/aler9/rtsp-simple-server
 go 1.17
 
 require (
+	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 	github.com/aler9/gortsplib v0.0.0-20220130155047-8c02b12955f8
 	github.com/asticode/go-astits v1.10.0
 	github.com/fsnotify/fsnotify v1.4.9
@@ -27,7 +28,7 @@ require (
 	github.com/go-playground/locales v0.13.0 // indirect
 	github.com/go-playground/universal-translator v0.17.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
-	github.com/golang/protobuf v1.3.3 // indirect
+	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/icza/bitio v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	golang.org/x/net v0.0.0-20210610132358-84b48f89b13b // indirect
 	golang.org/x/sys v0.0.0-20210423082822-04245dca01da // indirect
+	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
 

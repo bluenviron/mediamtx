@@ -101,6 +101,8 @@ components:
           type: integer
         hlsSegmentDuration:
           type: string
+        hlsSegmentMaxSize:
+          type: string
         hlsAllowOrigin:
           type: string
 

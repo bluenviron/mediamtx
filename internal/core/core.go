@@ -338,6 +338,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSAlwaysRemux,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,
+				p.conf.HLSSegmentMaxSize,
 				p.conf.HLSAllowOrigin,
 				p.conf.ReadBufferCount,
 				p.pathManager,
@@ -481,6 +482,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closePathManager ||

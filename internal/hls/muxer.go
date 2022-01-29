@@ -19,6 +19,7 @@ type Muxer struct {
 func NewMuxer(
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
+	hlsSegmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC) (*Muxer, error) {
 	if videoTrack != nil {
@@ -34,6 +35,7 @@ func NewMuxer(
 	tsGenerator := newMuxerTSGenerator(
 		hlsSegmentCount,
 		hlsSegmentDuration,
+		hlsSegmentMaxSize,
 		videoTrack,
 		audioTrack,
 		streamPlaylist)

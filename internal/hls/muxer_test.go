@@ -24,7 +24,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, videoTrack, audioTrack)
+	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, audioTrack)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -130,7 +130,7 @@ func TestMuxerAudio(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, nil, audioTrack)
+	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, nil, audioTrack)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -178,7 +178,7 @@ func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, videoTrack, nil)
+	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 
 	// group with IDR
@@ -195,4 +195,46 @@ func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
 	byts, err := ioutil.ReadAll(m.StreamPlaylist())
 	require.NoError(t, err)
 	require.Equal(t, []byte{}, byts)
+}
+
+func TestMuxerMaxSegmentSize(t *testing.T) {
+	videoTrack, err := gortsplib.NewTrackH264(96,[]byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
+	require.NoError(t, err)
+
+	m, err := NewMuxer(3, 1*time.Second, 0, videoTrack, nil)
+	require.NoError(t, err)
+	defer m.Close()
+
+	err = m.WriteH264(2*time.Second, [][]byte{
+		{5},
+	})
+	require.EqualError(t, err, "reached maximum segment size")
+}
+
+func TestMuxerDoubleRead(t *testing.T) {
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
+	require.NoError(t, err)
+
+	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	require.NoError(t, err)
+	defer m.Close()
+
+	err = m.WriteH264(0, [][]byte{
+		{5},
+		{1},
+	})
+	require.NoError(t, err)
+
+	err = m.WriteH264(2*time.Second, [][]byte{
+		{5},
+		{2},
+	})
+	require.NoError(t, err)
+
+	byts1, err := ioutil.ReadAll(m.streamPlaylist.segments[0].reader())
+	require.NoError(t, err)
+
+	byts2, err := ioutil.ReadAll(m.streamPlaylist.segments[0].reader())
+	require.NoError(t, err)
+	require.Equal(t, byts1, byts2)
 }

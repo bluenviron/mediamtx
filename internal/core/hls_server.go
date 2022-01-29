@@ -49,6 +49,7 @@ type hlsServer struct {
 	hlsAlwaysRemux            bool
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
+	hlsSegmentMaxSize         conf.StringSize
 	hlsAllowOrigin            string
 	readBufferCount           int
 	pathManager               *pathManager
@@ -75,6 +76,7 @@ func newHLSServer(
 	hlsAlwaysRemux bool,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
+	hlsSegmentMaxSize conf.StringSize,
 	hlsAllowOrigin string,
 	readBufferCount int,
 	pathManager *pathManager,
@@ -93,6 +95,7 @@ func newHLSServer(
 		hlsAlwaysRemux:            hlsAlwaysRemux,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
+		hlsSegmentMaxSize:         hlsSegmentMaxSize,
 		hlsAllowOrigin:            hlsAllowOrigin,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
@@ -275,6 +278,7 @@ func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
 			s.hlsAlwaysRemux,
 			s.hlsSegmentCount,
 			s.hlsSegmentDuration,
+			s.hlsSegmentMaxSize,
 			s.readBufferCount,
 			&s.wg,
 			pathName,

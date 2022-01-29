@@ -124,6 +124,9 @@ hlsSegmentCount: 3
 # The final segment duration is also influenced by the interval between IDR frames,
 # since the server changes the segment duration to include at least a IDR frame in each one.
 hlsSegmentDuration: 1s
+# Maximum size of each segment.
+# This prevents RAM exhaustion.
+hlsSegmentMaxSize: 50M
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
 hlsAllowOrigin: '*'
