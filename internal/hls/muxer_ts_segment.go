@@ -13,8 +13,8 @@ import (
 
 type muxerTSSegment struct {
 	hlsSegmentMaxSize uint64
-	videoTrack gortsplib.Track
-	writer     *muxerTSWriter
+	videoTrack        gortsplib.Track
+	writer            *muxerTSWriter
 
 	name           string
 	buf            bytes.Buffer

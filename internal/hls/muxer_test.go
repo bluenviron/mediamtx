@@ -198,7 +198,7 @@ func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
 }
 
 func TestMuxerMaxSegmentSize(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96,[]byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
 	m, err := NewMuxer(3, 1*time.Second, 0, videoTrack, nil)

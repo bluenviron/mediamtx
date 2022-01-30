@@ -125,16 +125,6 @@ func (s *rtspSession) onClose(err error) {
 
 // onAnnounce is called by rtspServer.
 func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	for i, track := range ctx.Tracks {
-		if th264, ok := track.(*gortsplib.TrackH264); ok {
-			if th264.SPS() == nil || th264.PPS() == nil {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("track %d can't be used: H264 SPS or PPS not provided into the SDP", i)
-			}
-		}
-	}
-
 	res := s.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
 		author:   s,
 		pathName: ctx.Path,
