@@ -13,7 +13,7 @@ import (
 
 type muxerTSSegment struct {
 	hlsSegmentMaxSize uint64
-	videoTrack        gortsplib.Track
+	videoTrack        *gortsplib.TrackH264
 	writer            *muxerTSWriter
 
 	name           string
@@ -26,7 +26,7 @@ type muxerTSSegment struct {
 
 func newMuxerTSSegment(
 	hlsSegmentMaxSize uint64,
-	videoTrack gortsplib.Track,
+	videoTrack *gortsplib.TrackH264,
 	writer *muxerTSWriter,
 ) *muxerTSSegment {
 	t := &muxerTSSegment{
