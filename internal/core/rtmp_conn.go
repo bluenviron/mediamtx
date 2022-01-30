@@ -249,32 +249,33 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	c.state = gortsplib.ServerSessionStateRead
 	c.stateMutex.Unlock()
 
-	var videoTrack *gortsplib.Track
+	var videoTrack *gortsplib.TrackH264
 	videoTrackID := -1
 	var h264Decoder *rtph264.Decoder
-	var audioTrack *gortsplib.Track
+	var audioTrack *gortsplib.TrackAAC
 	audioTrackID := -1
 	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.stream.tracks() {
-		if t.IsH264() {
+	for i, track := range res.stream.tracks() {
+		switch tt := track.(type) {
+		case *gortsplib.TrackH264:
 			if videoTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
 			}
 
-			videoTrack = t
+			videoTrack = tt
 			videoTrackID = i
 			h264Decoder = rtph264.NewDecoder()
-		} else if t.IsAAC() {
+
+		case *gortsplib.TrackAAC:
 			if audioTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
 			}
 
-			audioTrack = t
+			audioTrack = tt
 			audioTrackID = i
-			audioClockRate, _ = audioTrack.ClockRate()
-			aacDecoder = rtpaac.NewDecoder(audioClockRate)
+			aacDecoder = rtpaac.NewDecoder(track.ClockRate())
 		}
 	}
 
@@ -283,7 +284,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}
 
 	c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	c.conn.WriteMetadata(videoTrack, audioTrack)
+	err := c.conn.WriteMetadata(videoTrack, audioTrack)
+	if err != nil {
+		return err
+	}
 
 	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
 
@@ -456,8 +460,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
-		clockRate, _ := audioTrack.ClockRate()
-		aacEncoder = rtpaac.NewEncoder(96, clockRate, nil, nil, nil)
+		aacEncoder = rtpaac.NewEncoder(96, audioTrack.ClockRate(), nil, nil, nil)
 		audioTrackID = len(tracks)
 		tracks = append(tracks, audioTrack)
 	}

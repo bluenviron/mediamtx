@@ -41,10 +41,10 @@ type rtspSession struct {
 	path            *path
 	state           gortsplib.ServerSessionState
 	stateMutex      sync.Mutex
-	setuppedTracks  map[int]*gortsplib.Track // read
-	onReadCmd       *externalcmd.Cmd         // read
-	announcedTracks gortsplib.Tracks         // publish
-	stream          *stream                  // publish
+	setuppedTracks  map[int]gortsplib.Track // read
+	onReadCmd       *externalcmd.Cmd        // read
+	announcedTracks gortsplib.Tracks        // publish
+	stream          *stream                 // publish
 }
 
 func newRTSPSession(
@@ -126,30 +126,11 @@ func (s *rtspSession) onClose(err error) {
 // onAnnounce is called by rtspServer.
 func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
 	for i, track := range ctx.Tracks {
-		if track.IsH264() {
-			_, err := track.ExtractConfigH264()
-			if err != nil {
+		if th264, ok := track.(*gortsplib.TrackH264); ok {
+			if th264.SPS() == nil || th264.PPS() == nil {
 				return &base.Response{
 					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("H264 track %d is not valid: %v", i+1, err)
-			}
-		}
-
-		if track.IsAAC() {
-			_, err := track.ExtractConfigAAC()
-			if err != nil {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("AAC track %d is not valid: %v", i+1, err)
-			}
-		}
-
-		if track.IsOpus() {
-			_, err := track.ExtractConfigOpus()
-			if err != nil {
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, fmt.Errorf("Opus track %d is not valid: %v", i+1, err)
+				}, fmt.Errorf("track %d can't be used: H264 SPS or PPS not provided into the SDP", i)
 			}
 		}
 	}
@@ -257,7 +238,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		}
 
 		if s.setuppedTracks == nil {
-			s.setuppedTracks = make(map[int]*gortsplib.Track)
+			s.setuppedTracks = make(map[int]gortsplib.Track)
 		}
 		s.setuppedTracks[ctx.TrackID] = res.stream.tracks()[ctx.TrackID]
 

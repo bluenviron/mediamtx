@@ -30,7 +30,7 @@ func TestMetrics(t *testing.T) {
 	defer p.close()
 
 	track, err := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
 	require.NoError(t, err)
 
 	source := gortsplib.Client{}

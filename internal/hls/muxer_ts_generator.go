@@ -28,10 +28,8 @@ func idrPresent(nalus [][]byte) bool {
 type muxerTSGenerator struct {
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
-	videoTrack         *gortsplib.Track
-	audioTrack         *gortsplib.Track
-	h264Conf           *gortsplib.TrackConfigH264
-	aacConf            *gortsplib.TrackConfigAAC
+	videoTrack         *gortsplib.TrackH264
+	audioTrack         *gortsplib.TrackAAC
 	streamPlaylist     *muxerStreamPlaylist
 
 	writer         *muxerTSWriter
@@ -45,10 +43,8 @@ type muxerTSGenerator struct {
 func newMuxerTSGenerator(
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
-	videoTrack *gortsplib.Track,
-	audioTrack *gortsplib.Track,
-	h264Conf *gortsplib.TrackConfigH264,
-	aacConf *gortsplib.TrackConfigAAC,
+	videoTrack *gortsplib.TrackH264,
+	audioTrack *gortsplib.TrackAAC,
 	streamPlaylist *muxerStreamPlaylist,
 ) *muxerTSGenerator {
 	m := &muxerTSGenerator{
@@ -56,8 +52,6 @@ func newMuxerTSGenerator(
 		hlsSegmentDuration: hlsSegmentDuration,
 		videoTrack:         videoTrack,
 		audioTrack:         audioTrack,
-		h264Conf:           h264Conf,
-		aacConf:            aacConf,
 		streamPlaylist:     streamPlaylist,
 		writer:             newMuxerTSWriter(videoTrack, audioTrack),
 	}
@@ -109,7 +103,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 
 		case h264.NALUTypeIDR:
 			// add SPS and PPS before every IDR
-			filteredNALUs = append(filteredNALUs, m.h264Conf.SPS, m.h264Conf.PPS)
+			filteredNALUs = append(filteredNALUs, m.videoTrack.SPS(), m.videoTrack.PPS())
 		}
 
 		filteredNALUs = append(filteredNALUs, nalu)
@@ -157,9 +151,9 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 
 	for i, au := range aus {
 		pkts[i] = &aac.ADTSPacket{
-			Type:         m.aacConf.Type,
-			SampleRate:   m.aacConf.SampleRate,
-			ChannelCount: m.aacConf.ChannelCount,
+			Type:         m.audioTrack.Type(),
+			SampleRate:   m.audioTrack.ClockRate(),
+			ChannelCount: m.audioTrack.ChannelCount(),
 			AU:           au,
 		}
 	}

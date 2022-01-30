@@ -276,37 +276,32 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		m.path.onReaderRemove(pathReaderRemoveReq{author: m})
 	}()
 
-	var videoTrack *gortsplib.Track
+	var videoTrack *gortsplib.TrackH264
 	videoTrackID := -1
 	var h264Decoder *rtph264.Decoder
-	var audioTrack *gortsplib.Track
+	var audioTrack *gortsplib.TrackAAC
 	audioTrackID := -1
 	var aacDecoder *rtpaac.Decoder
 
-	for i, t := range res.stream.tracks() {
-		if t.IsH264() {
+	for i, track := range res.stream.tracks() {
+		switch tt := track.(type) {
+		case *gortsplib.TrackH264:
 			if videoTrack != nil {
-				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)
+				return fmt.Errorf("can't encode track %d with HLS: too many tracks", i+1)
 			}
 
-			videoTrack = t
+			videoTrack = tt
 			videoTrackID = i
-
 			h264Decoder = rtph264.NewDecoder()
-		} else if t.IsAAC() {
+
+		case *gortsplib.TrackAAC:
 			if audioTrack != nil {
-				return fmt.Errorf("can't read track %d with HLS: too many tracks", i+1)
+				return fmt.Errorf("can't encode track %d with HLS: too many tracks", i+1)
 			}
 
-			audioTrack = t
+			audioTrack = tt
 			audioTrackID = i
-
-			conf, err := t.ExtractConfigAAC()
-			if err != nil {
-				return err
-			}
-
-			aacDecoder = rtpaac.NewDecoder(conf.SampleRate)
+			aacDecoder = rtpaac.NewDecoder(track.ClockRate())
 		}
 	}
 

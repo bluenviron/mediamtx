@@ -1,8 +1,11 @@
 package core
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,7 +15,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
-	psdp "github.com/pion/sdp/v3"
+	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/stretchr/testify/require"
 )
 
@@ -160,33 +163,61 @@ func TestCorePathAutoDeletion(t *testing.T) {
 			defer p.close()
 
 			func() {
-				c := gortsplib.Client{}
-
-				err := c.Start("rtsp", "localhost:8554")
+				conn, err := net.Dial("tcp", "localhost:8554")
 				require.NoError(t, err)
-				defer c.Close()
+				defer conn.Close()
+				br := bufio.NewReader(conn)
 
 				if ca == "describe" {
-					ur, err := base.ParseURL("rtsp://localhost:8554/mypath")
+					u, err := base.ParseURL("rtsp://localhost:8554/mypath")
 					require.NoError(t, err)
 
-					_, _, _, err = c.Describe(ur)
-					require.EqualError(t, err, "bad status code: 404 (Not Found)")
+					var bb bytes.Buffer
+					base.Request{
+						Method: base.Describe,
+						URL:    u,
+						Header: base.Header{
+							"CSeq": base.HeaderValue{"1"},
+						},
+					}.Write(&bb)
+					_, err = conn.Write(bb.Bytes())
+					require.NoError(t, err)
+
+					var res base.Response
+					err = res.Read(br)
+					require.NoError(t, err)
+					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
-					baseURL, err := base.ParseURL("rtsp://localhost:8554/mypath/")
+					u, err := base.ParseURL("rtsp://localhost:8554/mypath/trackID=0")
 					require.NoError(t, err)
 
-					track, err := gortsplib.NewTrackH264(96,
-						&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+					var bb bytes.Buffer
+					base.Request{
+						Method: base.Setup,
+						URL:    u,
+						Header: base.Header{
+							"CSeq": base.HeaderValue{"1"},
+							"Transport": headers.Transport{
+								Mode: func() *headers.TransportMode {
+									v := headers.TransportModePlay
+									return &v
+								}(),
+								Delivery: func() *headers.TransportDelivery {
+									v := headers.TransportDeliveryUnicast
+									return &v
+								}(),
+								Protocol:    headers.TransportProtocolUDP,
+								ClientPorts: &[2]int{35466, 35467},
+							}.Write(),
+						},
+					}.Write(&bb)
+					_, err = conn.Write(bb.Bytes())
 					require.NoError(t, err)
 
-					track.Media.Attributes = append(track.Media.Attributes, psdp.Attribute{
-						Key:   "control",
-						Value: "trackID=0",
-					})
-
-					_, err = c.Setup(true, track, baseURL, 0, 0)
-					require.EqualError(t, err, "bad status code: 404 (Not Found)")
+					var res base.Response
+					err = res.Read(br)
+					require.NoError(t, err)
+					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				}
 			}()
 
@@ -219,7 +250,7 @@ func main() {
 	}
 
 	track, err := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -270,35 +301,59 @@ func main() {
 			defer p1.close()
 
 			func() {
-				c := gortsplib.Client{}
-
-				err := c.Start("rtsp", "localhost:8554")
+				conn, err := net.Dial("tcp", "localhost:8554")
 				require.NoError(t, err)
-				defer c.Close()
+				defer conn.Close()
+				br := bufio.NewReader(conn)
 
 				if ca == "describe" || ca == "describe and setup" {
-					ur, err := base.ParseURL("rtsp://localhost:8554/ondemand")
+					u, err := base.ParseURL("rtsp://localhost:8554/ondemand")
 					require.NoError(t, err)
 
-					_, _, _, err = c.Describe(ur)
+					var bb bytes.Buffer
+					base.Request{
+						Method: base.Describe,
+						URL:    u,
+						Header: base.Header{
+							"CSeq": base.HeaderValue{"1"},
+						},
+					}.Write(&bb)
+					_, err = conn.Write(bb.Bytes())
 					require.NoError(t, err)
+
+					var res base.Response
+					err = res.Read(br)
+					require.NoError(t, err)
+					require.Equal(t, base.StatusOK, res.StatusCode)
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					baseURL, err := base.ParseURL("rtsp://localhost:8554/ondemand/")
+					u, err := base.ParseURL("rtsp://localhost:8554/ondemand/trackID=0")
 					require.NoError(t, err)
 
-					track, err := gortsplib.NewTrackH264(96,
-						&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+					var bb bytes.Buffer
+					base.Request{
+						Method: base.Setup,
+						URL:    u,
+						Header: base.Header{
+							"CSeq": base.HeaderValue{"2"},
+							"Transport": headers.Transport{
+								Mode: func() *headers.TransportMode {
+									v := headers.TransportModePlay
+									return &v
+								}(),
+								Protocol:       headers.TransportProtocolTCP,
+								InterleavedIDs: &[2]int{0, 1},
+							}.Write(),
+						},
+					}.Write(&bb)
+					_, err = conn.Write(bb.Bytes())
 					require.NoError(t, err)
 
-					track.Media.Attributes = append(track.Media.Attributes, psdp.Attribute{
-						Key:   "control",
-						Value: "trackID=0",
-					})
-
-					_, err = c.Setup(true, track, baseURL, 0, 0)
+					var res base.Response
+					err = res.Read(br)
 					require.NoError(t, err)
+					require.Equal(t, base.StatusOK, res.StatusCode)
 				}
 			}()
 
@@ -326,7 +381,7 @@ func TestCorePathRunOnReady(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.close()
 	track, err := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+		[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
 	require.NoError(t, err)
 
 	c := gortsplib.Client{}
@@ -360,7 +415,7 @@ func TestCoreHotReloading(t *testing.T) {
 
 	func() {
 		track, err := gortsplib.NewTrackH264(96,
-			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
 		require.NoError(t, err)
 
 		c := gortsplib.Client{}
@@ -380,7 +435,7 @@ func TestCoreHotReloading(t *testing.T) {
 
 	func() {
 		track, err := gortsplib.NewTrackH264(96,
-			&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x01, 0x02, 0x03, 0x04}})
+			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
 		require.NoError(t, err)
 
 		conn := gortsplib.Client{}

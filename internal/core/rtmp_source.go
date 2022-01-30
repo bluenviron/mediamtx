@@ -142,8 +142,7 @@ func (s *rtmpSource) runInner() bool {
 
 					var aacEncoder *rtpaac.Encoder
 					if audioTrack != nil {
-						clockRate, _ := audioTrack.ClockRate()
-						aacEncoder = rtpaac.NewEncoder(96, clockRate, nil, nil, nil)
+						aacEncoder = rtpaac.NewEncoder(96, audioTrack.ClockRate(), nil, nil, nil)
 						audioTrackID = len(tracks)
 						tracks = append(tracks, audioTrack)
 					}

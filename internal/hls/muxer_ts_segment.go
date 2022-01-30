@@ -11,7 +11,7 @@ import (
 )
 
 type muxerTSSegment struct {
-	videoTrack *gortsplib.Track
+	videoTrack gortsplib.Track
 	writer     *muxerTSWriter
 
 	name           string
@@ -22,7 +22,7 @@ type muxerTSSegment struct {
 }
 
 func newMuxerTSSegment(
-	videoTrack *gortsplib.Track,
+	videoTrack gortsplib.Track,
 	writer *muxerTSWriter,
 ) *muxerTSSegment {
 	t := &muxerTSSegment{

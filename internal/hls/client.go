@@ -134,7 +134,7 @@ type clientVideoProcessorData struct {
 
 type clientVideoProcessor struct {
 	ctx      context.Context
-	onTrack  func(*gortsplib.Track) error
+	onTrack  func(gortsplib.Track) error
 	onPacket func([]byte)
 
 	queue         chan clientVideoProcessorData
@@ -146,7 +146,7 @@ type clientVideoProcessor struct {
 
 func newClientVideoProcessor(
 	ctx context.Context,
-	onTrack func(*gortsplib.Track) error,
+	onTrack func(gortsplib.Track) error,
 	onPacket func([]byte),
 ) *clientVideoProcessor {
 	p := &clientVideoProcessor{
@@ -203,7 +203,7 @@ func (p *clientVideoProcessor) doProcess(
 				p.sps = append([]byte(nil), nalu...)
 
 				if p.encoder == nil && p.pps != nil {
-					err := p.initializeTrack()
+					err := p.initializeEncoder()
 					if err != nil {
 						return err
 					}
@@ -218,7 +218,7 @@ func (p *clientVideoProcessor) doProcess(
 				p.pps = append([]byte(nil), nalu...)
 
 				if p.encoder == nil && p.sps != nil {
-					err := p.initializeTrack()
+					err := p.initializeEncoder()
 					if err != nil {
 						return err
 					}
@@ -272,8 +272,8 @@ func (p *clientVideoProcessor) process(
 	p.queue <- clientVideoProcessorData{data, pts, dts}
 }
 
-func (p *clientVideoProcessor) initializeTrack() error {
-	track, err := gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: p.sps, PPS: p.pps})
+func (p *clientVideoProcessor) initializeEncoder() error {
+	track, err := gortsplib.NewTrackH264(96, p.sps, p.pps, nil)
 	if err != nil {
 		return err
 	}
@@ -290,18 +290,17 @@ type clientAudioProcessorData struct {
 
 type clientAudioProcessor struct {
 	ctx      context.Context
-	onTrack  func(*gortsplib.Track) error
+	onTrack  func(gortsplib.Track) error
 	onPacket func([]byte)
 
 	queue         chan clientAudioProcessorData
-	conf          *gortsplib.TrackConfigAAC
 	encoder       *rtpaac.Encoder
 	clockStartRTC time.Time
 }
 
 func newClientAudioProcessor(
 	ctx context.Context,
-	onTrack func(*gortsplib.Track) error,
+	onTrack func(gortsplib.Track) error,
 	onPacket func([]byte),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{
@@ -354,27 +353,22 @@ func (p *clientAudioProcessor) doProcess(
 			}
 		}
 
-		if p.conf == nil {
-			p.conf = &gortsplib.TrackConfigAAC{
-				Type:         pkt.Type,
-				SampleRate:   pkt.SampleRate,
-				ChannelCount: pkt.ChannelCount,
+		if p.encoder == nil {
+			track, err := gortsplib.NewTrackAAC(97, pkt.Type, pkt.SampleRate, pkt.ChannelCount, nil)
+			if err != nil {
+				return err
 			}
 
-			if p.encoder == nil {
-				err := p.initializeTrack()
-				if err != nil {
-					return err
-				}
+			p.encoder = rtpaac.NewEncoder(97, track.ClockRate(), nil, nil, nil)
+
+			err = p.onTrack(track)
+			if err != nil {
+				return err
 			}
 		}
 
 		aus = append(aus, pkt.AU)
 		pktPts += 1000 * time.Second / time.Duration(pkt.SampleRate)
-	}
-
-	if p.encoder == nil {
-		return nil
 	}
 
 	pkts, err := p.encoder.Encode(aus, pts)
@@ -407,17 +401,6 @@ func (p *clientAudioProcessor) process(
 	}
 }
 
-func (p *clientAudioProcessor) initializeTrack() error {
-	track, err := gortsplib.NewTrackAAC(97, p.conf)
-	if err != nil {
-		return err
-	}
-
-	p.encoder = rtpaac.NewEncoder(97, p.conf.SampleRate, nil, nil, nil)
-
-	return p.onTrack(track)
-}
-
 // ClientParent is the parent of a Client.
 type ClientParent interface {
 	Log(level logger.Level, format string, args ...interface{})
@@ -425,7 +408,7 @@ type ClientParent interface {
 
 // Client is a HLS client.
 type Client struct {
-	onTracks func(*gortsplib.Track, *gortsplib.Track) error
+	onTracks func(gortsplib.Track, gortsplib.Track) error
 	onPacket func(bool, []byte)
 	parent   ClientParent
 
@@ -447,8 +430,8 @@ type Client struct {
 	audioProc *clientAudioProcessor
 
 	tracksMutex sync.RWMutex
-	videoTrack  *gortsplib.Track
-	audioTrack  *gortsplib.Track
+	videoTrack  gortsplib.Track
+	audioTrack  gortsplib.Track
 
 	// in
 	allocateProcs chan clientAllocateProcsReq
@@ -461,7 +444,7 @@ type Client struct {
 func NewClient(
 	primaryPlaylistURLStr string,
 	fingerprint string,
-	onTracks func(*gortsplib.Track, *gortsplib.Track) error,
+	onTracks func(gortsplib.Track, gortsplib.Track) error,
 	onPacket func(bool, []byte),
 	parent ClientParent,
 ) (*Client, error) {
@@ -896,33 +879,33 @@ func (c *Client) processSegment(innerCtx context.Context, byts []byte) error {
 	}
 }
 
-func (c *Client) onVideoTrack(track *gortsplib.Track) error {
+func (c *Client) onVideoTrack(track gortsplib.Track) error {
 	c.tracksMutex.Lock()
 	defer c.tracksMutex.Unlock()
 
 	c.videoTrack = track
 
 	if c.audioPID == nil || c.audioTrack != nil {
-		return c.initializeTracks()
+		return c.initializeEncoders()
 	}
 
 	return nil
 }
 
-func (c *Client) onAudioTrack(track *gortsplib.Track) error {
+func (c *Client) onAudioTrack(track gortsplib.Track) error {
 	c.tracksMutex.Lock()
 	defer c.tracksMutex.Unlock()
 
 	c.audioTrack = track
 
 	if c.videoPID == nil || c.videoTrack != nil {
-		return c.initializeTracks()
+		return c.initializeEncoders()
 	}
 
 	return nil
 }
 
-func (c *Client) initializeTracks() error {
+func (c *Client) initializeEncoders() error {
 	return c.onTracks(c.videoTrack, c.audioTrack)
 }
 

@@ -18,12 +18,10 @@ func checkTSPacket(t *testing.T, byts []byte, pid int, afc int) {
 }
 
 func TestMuxerVideoAudio(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x07, 0x01, 0x02, 0x03}, PPS: []byte{0x08}})
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	audioTrack, err := gortsplib.NewTrackAAC(97,
-		&gortsplib.TrackConfigAAC{Type: 2, SampleRate: 44100, ChannelCount: 2})
+	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
 	require.NoError(t, err)
 
 	m, err := NewMuxer(3, 1*time.Second, videoTrack, audioTrack)
@@ -129,8 +127,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 }
 
 func TestMuxerAudio(t *testing.T) {
-	audioTrack, err := gortsplib.NewTrackAAC(97,
-		&gortsplib.TrackConfigAAC{Type: 2, SampleRate: 44100, ChannelCount: 2})
+	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
 	require.NoError(t, err)
 
 	m, err := NewMuxer(3, 1*time.Second, nil, audioTrack)
@@ -178,15 +175,10 @@ func TestMuxerAudio(t *testing.T) {
 }
 
 func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x07, 0x01, 0x02, 0x03}, PPS: []byte{0x08}})
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	audioTrack, err := gortsplib.NewTrackAAC(97,
-		&gortsplib.TrackConfigAAC{Type: 2, SampleRate: 44100, ChannelCount: 2})
-	require.NoError(t, err)
-
-	m, err := NewMuxer(3, 1*time.Second, videoTrack, audioTrack)
+	m, err := NewMuxer(3, 1*time.Second, videoTrack, nil)
 	require.NoError(t, err)
 
 	// group with IDR

@@ -11,7 +11,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/pion/rtp"
-	psdp "github.com/pion/sdp/v3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,8 +40,7 @@ func TestRTSPSource(t *testing.T) {
 		"tls",
 	} {
 		t.Run(source, func(t *testing.T) {
-			track, _ := gortsplib.NewTrackH264(96,
-				&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
+			track, _ := gortsplib.NewTrackH264(96, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x05, 0x06}, nil)
 			stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
 			var authValidator *auth.Validator
 
@@ -151,8 +149,7 @@ func TestRTSPSource(t *testing.T) {
 }
 
 func TestRTSPSourceNoPassword(t *testing.T) {
-	track, _ := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
+	track, _ := gortsplib.NewTrackH264(96, []byte{0x01, 0x02, 0x03, 0x04}, []byte{0x05, 0x06}, nil)
 	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
 	var authValidator *auth.Validator
 	done := make(chan struct{})
@@ -210,15 +207,8 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 }
 
 func TestRTSPSourceMissingH264Params(t *testing.T) {
-	track, _ := gortsplib.NewTrackH264(96,
-		&gortsplib.TrackConfigH264{SPS: []byte{0x01, 0x02, 0x03, 0x04}, PPS: []byte{0x05, 0x06}})
-	var newattrs []psdp.Attribute
-	for _, attr := range track.Media.Attributes {
-		if attr.Key != "fmtp" {
-			newattrs = append(newattrs, attr)
-		}
-	}
-	track.Media.Attributes = newattrs
+	track, err := gortsplib.NewTrackH264(96, nil, nil, nil)
+	require.NoError(t, err)
 
 	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
 
@@ -275,7 +265,7 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 		},
 		RTSPAddress: "127.0.0.1:8555",
 	}
-	err := s.Start()
+	err = s.Start()
 	require.NoError(t, err)
 	defer s.Wait()
 	defer s.Close()
@@ -314,10 +304,10 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	conf, err := c.Tracks()[0].ExtractConfigH264()
-	require.NoError(t, err)
-	require.Equal(t, []byte{7, 1, 2, 3}, conf.SPS)
-	require.Equal(t, []byte{8}, conf.PPS)
+	h264Track, ok := c.Tracks()[0].(*gortsplib.TrackH264)
+	require.Equal(t, true, ok)
+	require.Equal(t, []byte{7, 1, 2, 3}, h264Track.SPS())
+	require.Equal(t, []byte{8}, h264Track.PPS())
 
 	<-received
 }

@@ -13,8 +13,8 @@ type muxerTSWriter struct {
 }
 
 func newMuxerTSWriter(
-	videoTrack *gortsplib.Track,
-	audioTrack *gortsplib.Track) *muxerTSWriter {
+	videoTrack gortsplib.Track,
+	audioTrack gortsplib.Track) *muxerTSWriter {
 	w := &muxerTSWriter{}
 
 	w.innerMuxer = astits.NewMuxer(context.Background(), w)

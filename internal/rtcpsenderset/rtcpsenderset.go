@@ -31,9 +31,8 @@ func New(
 	}
 
 	s.senders = make([]*rtcpsender.RTCPSender, len(tracks))
-	for i, t := range tracks {
-		clockRate, _ := t.ClockRate()
-		s.senders[i] = rtcpsender.New(clockRate)
+	for i, track := range tracks {
+		s.senders[i] = rtcpsender.New(track.ClockRate())
 	}
 
 	go s.run()

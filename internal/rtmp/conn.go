@@ -82,9 +82,9 @@ func (c *Conn) WritePacket(pkt av.Packet) error {
 }
 
 // ReadMetadata reads track informations.
-func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
-	var videoTrack *gortsplib.Track
-	var audioTrack *gortsplib.Track
+func (c *Conn) ReadMetadata() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+	var videoTrack *gortsplib.TrackH264
+	var audioTrack *gortsplib.TrackAAC
 
 	md, err := func() (flvio.AMFMap, error) {
 		pkt, err := c.ReadPacket()
@@ -198,7 +198,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 				return nil, nil, err
 			}
 
-			videoTrack, err = gortsplib.NewTrackH264(96, &gortsplib.TrackConfigH264{SPS: codec.SPS[0], PPS: codec.PPS[0]})
+			videoTrack, err = gortsplib.NewTrackH264(96, codec.SPS[0], codec.PPS[0], nil)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -218,12 +218,8 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 				return nil, nil, err
 			}
 
-			audioTrack, err = gortsplib.NewTrackAAC(96, &gortsplib.TrackConfigAAC{
-				Type:              int(mpegConf.Type),
-				SampleRate:        mpegConf.SampleRate,
-				ChannelCount:      mpegConf.ChannelCount,
-				AOTSpecificConfig: mpegConf.AOTSpecificConfig,
-			})
+			audioTrack, err = gortsplib.NewTrackAAC(96, int(mpegConf.Type), mpegConf.SampleRate,
+				mpegConf.ChannelCount, mpegConf.AOTSpecificConfig)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -237,7 +233,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.Track, *gortsplib.Track, error) {
 }
 
 // WriteMetadata writes track informations.
-func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.Track) error {
+func (c *Conn) WriteMetadata(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) error {
 	err := c.WritePacket(av.Packet{
 		Type: av.Metadata,
 		Data: flvio.FillAMF0ValMalloc(flvio.AMFMap{
@@ -274,17 +270,16 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 	}
 
 	if videoTrack != nil {
-		conf, err := videoTrack.ExtractConfigH264()
-		if err != nil {
-			return err
+		if videoTrack.SPS() == nil || videoTrack.PPS() == nil {
+			return fmt.Errorf("invalid H264 track: SPS or PPS not provided into the SDP")
 		}
 
 		codec := nh264.Codec{
 			SPS: map[int][]byte{
-				0: conf.SPS,
+				0: videoTrack.SPS(),
 			},
 			PPS: map[int][]byte{
-				0: conf.PPS,
+				0: videoTrack.PPS(),
 			},
 		}
 		b := make([]byte, 128)
@@ -302,16 +297,11 @@ func (c *Conn) WriteMetadata(videoTrack *gortsplib.Track, audioTrack *gortsplib.
 	}
 
 	if audioTrack != nil {
-		conf, err := audioTrack.ExtractConfigAAC()
-		if err != nil {
-			return err
-		}
-
 		enc, err := aac.MPEG4AudioConfig{
-			Type:              aac.MPEG4AudioType(conf.Type),
-			SampleRate:        conf.SampleRate,
-			ChannelCount:      conf.ChannelCount,
-			AOTSpecificConfig: conf.AOTSpecificConfig,
+			Type:              aac.MPEG4AudioType(audioTrack.Type()),
+			SampleRate:        audioTrack.ClockRate(),
+			ChannelCount:      audioTrack.ChannelCount(),
+			AOTSpecificConfig: audioTrack.AOTSpecificConfig(),
 		}.Encode()
 		if err != nil {
 			return err

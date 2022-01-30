@@ -3,7 +3,7 @@ module github.com/aler9/rtsp-simple-server
 go 1.17
 
 require (
-	github.com/aler9/gortsplib v0.0.0-20220130132715-cd0db96a5d41
+	github.com/aler9/gortsplib v0.0.0-20220130155047-8c02b12955f8
 	github.com/asticode/go-astits v1.10.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.7.2
@@ -12,7 +12,6 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/rtp v1.6.2
-	github.com/pion/sdp/v3 v3.0.2
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
@@ -37,6 +36,7 @@ require (
 	github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/rtcp v1.2.4 // indirect
+	github.com/pion/sdp/v3 v3.0.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/ugorji/go/codec v1.1.7 // indirect
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect

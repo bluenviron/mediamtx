@@ -239,20 +239,21 @@ func (s *rtspSource) runInner() bool {
 }
 
 func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortsplib.Tracks) error {
-	h264TrackID := func() int {
+	h264Track, h264TrackID := func() (*gortsplib.TrackH264, int) {
 		for i, t := range tracks {
-			if t.IsH264() {
-				return i
+			if th264, ok := t.(*gortsplib.TrackH264); ok {
+				if th264.SPS() == nil {
+					return th264, i
+				}
 			}
 		}
-		return -1
+		return nil, -1
 	}()
 	if h264TrackID < 0 {
 		return nil
 	}
 
-	_, err := tracks[h264TrackID].ExtractConfigH264()
-	if err == nil {
+	if h264Track.SPS() != nil && h264Track.PPS() != nil {
 		return nil
 	}
 
@@ -261,7 +262,6 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 
 	var streamMutex sync.RWMutex
 	var stream *stream
-	var payloadType uint8
 	decoder := rtph264.NewDecoder()
 	var sps []byte
 	var pps []byte
@@ -293,8 +293,6 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 				return
 			}
 
-			payloadType = pkt.Header.PayloadType
-
 			for _, nalu := range nalus {
 				typ := h264.NALUType(nalu[0] & 0x1F)
 				switch typ {
@@ -325,7 +323,7 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 		}
 	}
 
-	_, err = c.Play(nil)
+	_, err := c.Play(nil)
 	if err != nil {
 		return err
 	}
@@ -348,15 +346,8 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 	case <-paramsReceived:
 		s.log(logger.Info, "H264 parameters extracted")
 
-		track, err := gortsplib.NewTrackH264(payloadType, &gortsplib.TrackConfigH264{
-			SPS: sps,
-			PPS: pps,
-		})
-		if err != nil {
-			return err
-		}
-
-		tracks[h264TrackID] = track
+		h264Track.SetSPS(sps)
+		h264Track.SetPPS(pps)
 
 		res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
 			source: s,
