@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/aler9/gortsplib"
@@ -21,6 +22,7 @@ func newMuxerPrimaryPlaylist(
 	videoTrack *gortsplib.Track,
 	audioTrack *gortsplib.Track,
 	h264Conf *gortsplib.TrackConfigH264,
+	aacConf *gortsplib.TrackConfigAAC,
 ) *muxerPrimaryPlaylist {
 	p := &muxerPrimaryPlaylist{
 		videoTrack: videoTrack,
@@ -34,8 +36,9 @@ func newMuxerPrimaryPlaylist(
 		codecs = append(codecs, "avc1."+hex.EncodeToString(p.h264Conf.SPS[1:4]))
 	}
 
+	// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
 	if p.audioTrack != nil {
-		codecs = append(codecs, "mp4a.40.2")
+		codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(aacConf.Type), 10))
 	}
 
 	p.cnt = []byte("#EXTM3U\n" +

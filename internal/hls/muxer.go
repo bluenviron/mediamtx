@@ -38,7 +38,7 @@ func NewMuxer(
 		}
 	}
 
-	primaryPlaylist := newMuxerPrimaryPlaylist(videoTrack, audioTrack, h264Conf)
+	primaryPlaylist := newMuxerPrimaryPlaylist(videoTrack, audioTrack, h264Conf, aacConf)
 
 	streamPlaylist := newMuxerStreamPlaylist(hlsSegmentCount)
 
