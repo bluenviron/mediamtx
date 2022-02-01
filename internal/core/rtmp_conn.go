@@ -254,7 +254,6 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var h264Decoder *rtph264.Decoder
 	var audioTrack *gortsplib.TrackAAC
 	audioTrackID := -1
-	var audioClockRate int
 	var aacDecoder *rtpaac.Decoder
 
 	for i, track := range res.stream.tracks() {
@@ -434,7 +433,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 					return err
 				}
 
-				pts += 1000 * time.Second / time.Duration(audioClockRate)
+				pts += 1000 * time.Second / time.Duration(audioTrack.ClockRate())
 			}
 		}
 	}
