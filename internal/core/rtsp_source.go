@@ -328,19 +328,21 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 		return err
 	}
 
-	waitError := make(chan error)
+	readErr := make(chan error)
 	go func() {
-		waitError <- c.Wait()
+		readErr <- c.Wait()
 	}()
 
 	timeout := time.NewTimer(15 * time.Second)
 	defer timeout.Stop()
 
 	select {
-	case err := <-waitError:
+	case err := <-readErr:
 		return err
 
 	case <-timeout.C:
+		c.Close()
+		<-readErr
 		return fmt.Errorf("source did not send H264 parameters in time")
 
 	case <-paramsReceived:
@@ -354,6 +356,8 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 			tracks: tracks,
 		})
 		if res.err != nil {
+			c.Close()
+			<-readErr
 			return res.err
 		}
 
@@ -368,9 +372,9 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 		defer func() {
 			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 		}()
-	}
 
-	return <-waitError
+		return <-readErr
+	}
 }
 
 // onSourceAPIDescribe implements source.
