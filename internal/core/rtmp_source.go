@@ -124,7 +124,7 @@ func (s *rtmpSource) runInner() bool {
 
 					conn.SetWriteDeadline(time.Time{})
 					conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-					videoTrack, audioTrack, err := conn.ReadMetadata()
+					videoTrack, audioTrack, err := conn.ReadTracks()
 					if err != nil {
 						return err
 					}

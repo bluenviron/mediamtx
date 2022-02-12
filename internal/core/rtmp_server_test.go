@@ -142,7 +142,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			err = conn.ClientHandshake()
 			require.NoError(t, err)
 
-			_, _, err = conn.ReadMetadata()
+			_, _, err = conn.ReadTracks()
 			require.NoError(t, err)
 		})
 	}

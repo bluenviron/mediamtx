@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -81,39 +82,30 @@ func (c *Conn) WritePacket(pkt av.Packet) error {
 	return c.rconn.FlushWrite()
 }
 
-// ReadMetadata reads track informations.
-func (c *Conn) ReadMetadata() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
-	var videoTrack *gortsplib.TrackH264
-	var audioTrack *gortsplib.TrackAAC
+func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
+	codec, err := nh264.FromDecoderConfig(data)
+	if err != nil {
+		return nil, err
+	}
 
-	md, err := func() (flvio.AMFMap, error) {
-		pkt, err := c.ReadPacket()
-		if err != nil {
-			return nil, err
-		}
+	return gortsplib.NewTrackH264(96, codec.SPS[0], codec.PPS[0], nil)
+}
 
-		if pkt.Type != av.Metadata {
-			return nil, fmt.Errorf("first packet must be metadata")
-		}
+var errEmptyMetadata = errors.New("metadata is empty")
 
-		arr, err := flvio.ParseAMFVals(pkt.Data, false)
-		if err != nil {
-			return nil, err
-		}
-
-		if len(arr) != 1 {
-			return nil, fmt.Errorf("invalid metadata")
-		}
-
-		ma, ok := arr[0].(flvio.AMFMap)
-		if !ok {
-			return nil, fmt.Errorf("invalid metadata")
-		}
-
-		return ma, nil
-	}()
+func (c *Conn) readTracksFromMetadata(pkt av.Packet) (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+	arr, err := flvio.ParseAMFVals(pkt.Data, false)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if len(arr) != 1 {
+		return nil, nil, fmt.Errorf("invalid metadata")
+	}
+
+	md, ok := arr[0].(flvio.AMFMap)
+	if !ok {
+		return nil, nil, fmt.Errorf("invalid metadata")
 	}
 
 	hasVideo, err := func() (bool, error) {
@@ -173,8 +165,11 @@ func (c *Conn) ReadMetadata() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error)
 	}
 
 	if !hasVideo && !hasAudio {
-		return nil, nil, fmt.Errorf("stream doesn't contain tracks with supported codecs (H264 or AAC)")
+		return nil, nil, errEmptyMetadata
 	}
+
+	var videoTrack *gortsplib.TrackH264
+	var audioTrack *gortsplib.TrackAAC
 
 	for {
 		var pkt av.Packet
@@ -193,12 +188,7 @@ func (c *Conn) ReadMetadata() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error)
 				return nil, nil, fmt.Errorf("video track setupped twice")
 			}
 
-			codec, err := nh264.FromDecoderConfig(pkt.Data)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			videoTrack, err = gortsplib.NewTrackH264(96, codec.SPS[0], codec.PPS[0], nil)
+			videoTrack, err = trackFromH264DecoderConfig(pkt.Data)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -232,8 +222,55 @@ func (c *Conn) ReadMetadata() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error)
 	}
 }
 
-// WriteMetadata writes track informations.
-func (c *Conn) WriteMetadata(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) error {
+// ReadTracks reads track informations.
+func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+	pkt, err := c.ReadPacket()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	switch pkt.Type {
+	case av.Metadata:
+		videoTrack, audioTrack, err := c.readTracksFromMetadata(pkt)
+		if err != nil {
+			if err == errEmptyMetadata {
+				pkt, err := c.ReadPacket()
+				if err != nil {
+					return nil, nil, err
+				}
+
+				if pkt.Type != av.H264DecoderConfig {
+					return nil, nil, fmt.Errorf("unexpected packet (%v)", pkt.Type)
+				}
+
+				videoTrack, err := trackFromH264DecoderConfig(pkt.Data)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				return videoTrack, nil, nil
+			}
+
+			return nil, nil, err
+		}
+
+		return videoTrack, audioTrack, nil
+
+	case av.H264DecoderConfig:
+		videoTrack, err := trackFromH264DecoderConfig(pkt.Data)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		return videoTrack, nil, nil
+
+	default:
+		return nil, nil, fmt.Errorf("unexpected packet (%v)", pkt.Type)
+	}
+}
+
+// WriteTracks writes track informations.
+func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) error {
 	err := c.WritePacket(av.Packet{
 		Type: av.Metadata,
 		Data: flvio.FillAMF0ValMalloc(flvio.AMFMap{

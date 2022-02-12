@@ -283,7 +283,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}
 
 	c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	err := c.conn.WriteMetadata(videoTrack, audioTrack)
+	err := c.conn.WriteTracks(videoTrack, audioTrack)
 	if err != nil {
 		return err
 	}
@@ -441,7 +441,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 func (c *rtmpConn) runPublish(ctx context.Context) error {
 	c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	videoTrack, audioTrack, err := c.conn.ReadMetadata()
+	videoTrack, audioTrack, err := c.conn.ReadTracks()
 	if err != nil {
 		return err
 	}
