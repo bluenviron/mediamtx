@@ -48,7 +48,9 @@ Features:
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Save streams to disk](#save-streams-to-disk)
   * [On-demand publishing](#on-demand-publishing)
-  * [Start on boot with systemd](#start-on-boot-with-systemd)
+  * [Start on boot](#start-on-boot)
+    * [Linux](#linux)
+    * [Windows](#windows)
   * [HTTP API](#http-api)
   * [Metrics](#metrics)
   * [pprof](#pprof)
@@ -333,7 +335,9 @@ paths:
 
 The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
 
-### Start on boot with systemd
+### Start on boot
+
+#### Linux
 
 Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
 
@@ -363,6 +367,29 @@ Enable and start the service:
 sudo systemctl enable rtsp-simple-server
 sudo systemctl start rtsp-simple-server
 ```
+
+#### Windows
+
+Download the [WinSW v2 executable](https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe) and place it into the same folder of `rtsp-simple-server.exe`.
+
+In the same folder, create a file named `WinSW-x64.xml` with this content:
+
+```xml
+<service>
+  <id>rtsp-simple-server</id>
+  <name>rtsp-simple-server</name>
+  <description></description>
+  <executable>%BASE%/rtsp-simple-server.exe</executable>
+</service>
+```
+
+Open a terminal, navigate to the folder and run:
+
+```
+WinSW-x64 install
+```
+
+The server is now installed as a system service and will start at boot time.
 
 ### HTTP API
 
