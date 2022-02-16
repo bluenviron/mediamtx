@@ -370,6 +370,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Conf'
+        '400':
+          description: invalid request.
         '500':
           description: internal server error.
 
