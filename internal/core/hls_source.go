@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -128,7 +129,7 @@ func (s *hlsSource) runInner() bool {
 		return nil
 	}
 
-	onPacket := func(isVideo bool, payload []byte) {
+	onPacket := func(isVideo bool, pkt *rtp.Packet) {
 		var trackID int
 		if isVideo {
 			trackID = videoTrackID
@@ -137,8 +138,8 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		if stream != nil {
-			rtcpSenders.OnPacketRTP(trackID, payload)
-			stream.onPacketRTP(trackID, payload)
+			rtcpSenders.OnPacketRTP(trackID, pkt)
+			stream.onPacketRTP(trackID, pkt)
 		}
 	}
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -458,11 +459,11 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			frameRecv := make(chan struct{})
 
 			c := gortsplib.Client{
-				OnPacketRTP: func(trackID int, payload []byte) {
+				OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
 					if ca == "enabled" {
-						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, payload)
+						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, pkt.Payload)
 					} else {
-						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
 					}
 					close(frameRecv)
 				},
@@ -472,8 +473,17 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			require.NoError(t, err)
 			defer c.Close()
 
-			err = s1.WritePacketRTP(0,
-				[]byte{0x01, 0x02, 0x03, 0x04})
+			err = s1.WritePacketRTP(0, &rtp.Packet{
+				Header: rtp.Header{
+					Version:        0x02,
+					PayloadType:    97,
+					SequenceNumber: 57899,
+					Timestamp:      345234345,
+					SSRC:           978651231,
+					Marker:         true,
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			})
 			if ca == "enabled" {
 				require.Error(t, err)
 			} else {
@@ -481,8 +491,17 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			}
 
 			if ca == "enabled" {
-				err = s2.WritePacketRTP(0,
-					[]byte{0x05, 0x06, 0x07, 0x08})
+				err = s2.WritePacketRTP(0, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        0x02,
+						PayloadType:    97,
+						SequenceNumber: 57899,
+						Timestamp:      345234345,
+						SSRC:           978651231,
+						Marker:         true,
+					},
+					Payload: []byte{0x05, 0x06, 0x07, 0x08},
+				})
 				require.NoError(t, err)
 			}
 

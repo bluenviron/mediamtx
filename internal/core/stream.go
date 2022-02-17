@@ -4,6 +4,8 @@ import (
 	"sync"
 
 	"github.com/aler9/gortsplib"
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
 )
 
 type streamNonRTSPReadersMap struct {
@@ -35,21 +37,21 @@ func (m *streamNonRTSPReadersMap) remove(r reader) {
 	delete(m.ma, r)
 }
 
-func (m *streamNonRTSPReadersMap) forwardPacketRTP(trackID int, payload []byte) {
+func (m *streamNonRTSPReadersMap) forwardPacketRTP(trackID int, pkt *rtp.Packet) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for c := range m.ma {
-		c.onReaderPacketRTP(trackID, payload)
+		c.onReaderPacketRTP(trackID, pkt)
 	}
 }
 
-func (m *streamNonRTSPReadersMap) forwardPacketRTCP(trackID int, payload []byte) {
+func (m *streamNonRTSPReadersMap) forwardPacketRTCP(trackID int, pkt rtcp.Packet) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	for c := range m.ma {
-		c.onReaderPacketRTCP(trackID, payload)
+		c.onReaderPacketRTCP(trackID, pkt)
 	}
 }
 
@@ -87,18 +89,18 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) onPacketRTP(trackID int, payload []byte) {
+func (s *stream) onPacketRTP(trackID int, pkt *rtp.Packet) {
 	// forward to RTSP readers
-	s.rtspStream.WritePacketRTP(trackID, payload)
+	s.rtspStream.WritePacketRTP(trackID, pkt)
 
 	// forward to non-RTSP readers
-	s.nonRTSPReaders.forwardPacketRTP(trackID, payload)
+	s.nonRTSPReaders.forwardPacketRTP(trackID, pkt)
 }
 
-func (s *stream) onPacketRTCP(trackID int, payload []byte) {
+func (s *stream) onPacketRTCP(trackID int, pkt rtcp.Packet) {
 	// forward to RTSP readers
-	s.rtspStream.WritePacketRTCP(trackID, payload)
+	s.rtspStream.WritePacketRTCP(trackID, pkt)
 
 	// forward to non-RTSP readers
-	s.nonRTSPReaders.forwardPacketRTCP(trackID, payload)
+	s.nonRTSPReaders.forwardPacketRTCP(trackID, pkt)
 }

@@ -134,10 +134,7 @@ func TestHLSSource(t *testing.T) {
 	frameRecv := make(chan struct{})
 
 	c := gortsplib.Client{
-		OnPacketRTP: func(trackID int, payload []byte) {
-			var pkt rtp.Packet
-			err := pkt.Unmarshal(payload)
-			require.NoError(t, err)
+		OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
 			require.Equal(t, []byte{0x05}, pkt.Payload)
 			close(frameRecv)
 		},
