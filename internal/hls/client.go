@@ -22,6 +22,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/asticode/go-astits"
 	"github.com/grafov/m3u8"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -135,7 +136,7 @@ type clientVideoProcessorData struct {
 type clientVideoProcessor struct {
 	ctx      context.Context
 	onTrack  func(gortsplib.Track) error
-	onPacket func([]byte)
+	onPacket func(*rtp.Packet)
 
 	queue         chan clientVideoProcessorData
 	sps           []byte
@@ -147,7 +148,7 @@ type clientVideoProcessor struct {
 func newClientVideoProcessor(
 	ctx context.Context,
 	onTrack func(gortsplib.Track) error,
-	onPacket func([]byte),
+	onPacket func(*rtp.Packet),
 ) *clientVideoProcessor {
 	p := &clientVideoProcessor{
 		ctx:      ctx,
@@ -249,17 +250,8 @@ func (p *clientVideoProcessor) doProcess(
 		return fmt.Errorf("error while encoding H264: %v", err)
 	}
 
-	bytss := make([][]byte, len(pkts))
-	for i, pkt := range pkts {
-		byts, err := pkt.Marshal()
-		if err != nil {
-			return fmt.Errorf("error while encoding H264: %v", err)
-		}
-		bytss[i] = byts
-	}
-
-	for _, byts := range bytss {
-		p.onPacket(byts)
+	for _, pkt := range pkts {
+		p.onPacket(pkt)
 	}
 
 	return nil
@@ -291,7 +283,7 @@ type clientAudioProcessorData struct {
 type clientAudioProcessor struct {
 	ctx      context.Context
 	onTrack  func(gortsplib.Track) error
-	onPacket func([]byte)
+	onPacket func(*rtp.Packet)
 
 	queue         chan clientAudioProcessorData
 	encoder       *rtpaac.Encoder
@@ -301,7 +293,7 @@ type clientAudioProcessor struct {
 func newClientAudioProcessor(
 	ctx context.Context,
 	onTrack func(gortsplib.Track) error,
-	onPacket func([]byte),
+	onPacket func(*rtp.Packet),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{
 		ctx:      ctx,
@@ -376,17 +368,8 @@ func (p *clientAudioProcessor) doProcess(
 		return fmt.Errorf("error while encoding AAC: %v", err)
 	}
 
-	bytss := make([][]byte, len(pkts))
-	for i, pkt := range pkts {
-		byts, err := pkt.Marshal()
-		if err != nil {
-			return fmt.Errorf("error while encoding AAC: %v", err)
-		}
-		bytss[i] = byts
-	}
-
-	for _, byts := range bytss {
-		p.onPacket(byts)
+	for _, pkt := range pkts {
+		p.onPacket(pkt)
 	}
 
 	return nil
@@ -409,7 +392,7 @@ type ClientParent interface {
 // Client is a HLS client.
 type Client struct {
 	onTracks func(gortsplib.Track, gortsplib.Track) error
-	onPacket func(bool, []byte)
+	onPacket func(bool, *rtp.Packet)
 	parent   ClientParent
 
 	ctx                   context.Context
@@ -445,7 +428,7 @@ func NewClient(
 	primaryPlaylistURLStr string,
 	fingerprint string,
 	onTracks func(gortsplib.Track, gortsplib.Track) error,
-	onPacket func(bool, []byte),
+	onPacket func(bool, *rtp.Packet),
 	parent ClientParent,
 ) (*Client, error) {
 	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
@@ -909,16 +892,16 @@ func (c *Client) initializeEncoders() error {
 	return c.onTracks(c.videoTrack, c.audioTrack)
 }
 
-func (c *Client) onVideoPacket(payload []byte) {
+func (c *Client) onVideoPacket(pkt *rtp.Packet) {
 	c.tracksMutex.RLock()
 	defer c.tracksMutex.RUnlock()
 
-	c.onPacket(true, payload)
+	c.onPacket(true, pkt)
 }
 
-func (c *Client) onAudioPacket(payload []byte) {
+func (c *Client) onAudioPacket(pkt *rtp.Packet) {
 	c.tracksMutex.RLock()
 	defer c.tracksMutex.RUnlock()
 
-	c.onPacket(false, payload)
+	c.onPacket(false, pkt)
 }

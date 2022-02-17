@@ -11,6 +11,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -164,9 +165,9 @@ func (s *rtmpSource) runInner() bool {
 					rtcpSenders := rtcpsenderset.New(tracks, res.stream.onPacketRTCP)
 					defer rtcpSenders.Close()
 
-					onPacketRTP := func(trackID int, payload []byte) {
-						rtcpSenders.OnPacketRTP(trackID, payload)
-						res.stream.onPacketRTP(trackID, payload)
+					onPacketRTP := func(trackID int, pkt *rtp.Packet) {
+						rtcpSenders.OnPacketRTP(trackID, pkt)
+						res.stream.onPacketRTP(trackID, pkt)
 					}
 
 					for {
@@ -204,17 +205,8 @@ func (s *rtmpSource) runInner() bool {
 								return fmt.Errorf("error while encoding H264: %v", err)
 							}
 
-							bytss := make([][]byte, len(pkts))
-							for i, pkt := range pkts {
-								byts, err := pkt.Marshal()
-								if err != nil {
-									return fmt.Errorf("error while encoding H264: %v", err)
-								}
-								bytss[i] = byts
-							}
-
-							for _, byts := range bytss {
-								onPacketRTP(videoTrackID, byts)
+							for _, pkt := range pkts {
+								onPacketRTP(videoTrackID, pkt)
 							}
 
 						case av.AAC:
@@ -227,17 +219,8 @@ func (s *rtmpSource) runInner() bool {
 								return fmt.Errorf("error while encoding AAC: %v", err)
 							}
 
-							bytss := make([][]byte, len(pkts))
-							for i, pkt := range pkts {
-								byts, err := pkt.Marshal()
-								if err != nil {
-									return fmt.Errorf("error while encoding AAC: %v", err)
-								}
-								bytss[i] = byts
-							}
-
-							for _, byts := range bytss {
-								onPacketRTP(audioTrackID, byts)
+							for _, pkt := range pkts {
+								onPacketRTP(audioTrackID, pkt)
 							}
 						}
 					}

@@ -9,6 +9,8 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -345,12 +347,12 @@ func (s *rtspSession) onReaderAccepted() {
 }
 
 // onReaderPacketRTP implements reader.
-func (s *rtspSession) onReaderPacketRTP(trackID int, payload []byte) {
+func (s *rtspSession) onReaderPacketRTP(trackID int, pkt *rtp.Packet) {
 	// packets are routed to the session by gortsplib.ServerStream.
 }
 
 // onReaderPacketRTCP implements reader.
-func (s *rtspSession) onReaderPacketRTCP(trackID int, payload []byte) {
+func (s *rtspSession) onReaderPacketRTCP(trackID int, pkt rtcp.Packet) {
 	// packets are routed to the session by gortsplib.ServerStream.
 }
 
@@ -404,7 +406,7 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 		return
 	}
 
-	s.stream.onPacketRTP(ctx.TrackID, ctx.Payload)
+	s.stream.onPacketRTP(ctx.TrackID, ctx.Packet)
 }
 
 // onPacketRTCP is called by rtspServer.
@@ -413,5 +415,5 @@ func (s *rtspSession) onPacketRTCP(ctx *gortsplib.ServerHandlerOnPacketRTCPCtx) 
 		return
 	}
 
-	s.stream.onPacketRTCP(ctx.TrackID, ctx.Payload)
+	s.stream.onPacketRTCP(ctx.TrackID, ctx.Packet)
 }

@@ -5,11 +5,13 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/rtcpsender"
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
 )
 
 // RTCPSenderSet is a set of RTCP senders.
 type RTCPSenderSet struct {
-	onPacketRTCP func(int, []byte)
+	onPacketRTCP func(int, rtcp.Packet)
 	senders      []*rtcpsender.RTCPSender
 
 	// in
@@ -22,7 +24,7 @@ type RTCPSenderSet struct {
 // New allocates a RTCPSenderSet.
 func New(
 	tracks gortsplib.Tracks,
-	onPacketRTCP func(int, []byte),
+	onPacketRTCP func(int, rtcp.Packet),
 ) *RTCPSenderSet {
 	s := &RTCPSenderSet{
 		onPacketRTCP: onPacketRTCP,
@@ -71,6 +73,6 @@ func (s *RTCPSenderSet) run() {
 }
 
 // OnPacketRTP sends a RTP packet to the senders.
-func (s *RTCPSenderSet) OnPacketRTP(trackID int, payload []byte) {
-	s.senders[trackID].ProcessPacketRTP(time.Now(), payload)
+func (s *RTCPSenderSet) OnPacketRTP(trackID int, pkt *rtp.Packet) {
+	s.senders[trackID].ProcessPacketRTP(time.Now(), pkt)
 }

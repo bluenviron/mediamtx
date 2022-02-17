@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -109,7 +110,7 @@ type hlsMuxerRequest struct {
 
 type hlsMuxerTrackIDPayloadPair struct {
 	trackID int
-	buf     []byte
+	packet  *rtp.Packet
 }
 
 type hlsMuxerPathManager interface {
@@ -342,14 +343,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 				pair := data.(hlsMuxerTrackIDPayloadPair)
 
 				if videoTrack != nil && pair.trackID == videoTrackID {
-					var pkt rtp.Packet
-					err := pkt.Unmarshal(pair.buf)
-					if err != nil {
-						m.log(logger.Warn, "unable to decode RTP packet: %v", err)
-						continue
-					}
-
-					nalus, pts, err := h264Decoder.DecodeUntilMarker(&pkt)
+					nalus, pts, err := h264Decoder.DecodeUntilMarker(pair.packet)
 					if err != nil {
 						if err != rtph264.ErrMorePacketsNeeded &&
 							err != rtph264.ErrNonStartingPacketAndNoPrevious {
@@ -364,14 +358,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 				} else if audioTrack != nil && pair.trackID == audioTrackID {
-					var pkt rtp.Packet
-					err := pkt.Unmarshal(pair.buf)
-					if err != nil {
-						m.log(logger.Warn, "unable to decode RTP packet: %v", err)
-						continue
-					}
-
-					aus, pts, err := aacDecoder.Decode(&pkt)
+					aus, pts, err := aacDecoder.Decode(pair.packet)
 					if err != nil {
 						if err != rtpaac.ErrMorePacketsNeeded {
 							m.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -548,12 +535,12 @@ func (m *hlsMuxer) onReaderAccepted() {
 }
 
 // onReaderPacketRTP implements reader.
-func (m *hlsMuxer) onReaderPacketRTP(trackID int, payload []byte) {
-	m.ringBuffer.Push(hlsMuxerTrackIDPayloadPair{trackID, payload})
+func (m *hlsMuxer) onReaderPacketRTP(trackID int, pkt *rtp.Packet) {
+	m.ringBuffer.Push(hlsMuxerTrackIDPayloadPair{trackID, pkt})
 }
 
 // onReaderPacketRTCP implements reader.
-func (m *hlsMuxer) onReaderPacketRTCP(trackID int, payload []byte) {
+func (m *hlsMuxer) onReaderPacketRTCP(trackID int, pkt rtcp.Packet) {
 }
 
 // onReaderAPIDescribe implements reader.

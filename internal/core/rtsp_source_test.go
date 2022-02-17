@@ -74,7 +74,17 @@ func TestRTSPSource(t *testing.T) {
 					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 						go func() {
 							time.Sleep(1 * time.Second)
-							stream.WritePacketRTP(0, []byte{0x01, 0x02, 0x03, 0x04})
+							stream.WritePacketRTP(0, &rtp.Packet{
+								Header: rtp.Header{
+									Version:        0x02,
+									PayloadType:    97,
+									SequenceNumber: 57899,
+									Timestamp:      345234345,
+									SSRC:           978651231,
+									Marker:         true,
+								},
+								Payload: []byte{0x01, 0x02, 0x03, 0x04},
+							})
 						}()
 
 						return &base.Response{
@@ -133,8 +143,8 @@ func TestRTSPSource(t *testing.T) {
 			received := make(chan struct{})
 
 			c := gortsplib.Client{
-				OnPacketRTP: func(trackID int, payload []byte) {
-					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, payload)
+				OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
+					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
 					close(received)
 				},
 			}
@@ -232,30 +242,25 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 
 					pkts, err := enc.Encode([][]byte{{5}}, 0) // IDR
 					require.NoError(t, err)
-					byts, _ := pkts[0].Marshal()
-					stream.WritePacketRTP(0, byts)
+					stream.WritePacketRTP(0, pkts[0])
 
 					pkts, err = enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
 					require.NoError(t, err)
-					byts, _ = pkts[0].Marshal()
-					stream.WritePacketRTP(0, byts)
+					stream.WritePacketRTP(0, pkts[0])
 
 					pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
 					require.NoError(t, err)
-					byts, _ = pkts[0].Marshal()
-					stream.WritePacketRTP(0, byts)
+					stream.WritePacketRTP(0, pkts[0])
 
 					pkts, err = enc.Encode([][]byte{{5, 1}}, 0) // IDR
 					require.NoError(t, err)
-					byts, _ = pkts[0].Marshal()
-					stream.WritePacketRTP(0, byts)
+					stream.WritePacketRTP(0, pkts[0])
 
 					time.Sleep(500 * time.Millisecond)
 
 					pkts, err = enc.Encode([][]byte{{5, 2}}, 0) // IDR
 					require.NoError(t, err)
-					byts, _ = pkts[0].Marshal()
-					stream.WritePacketRTP(0, byts)
+					stream.WritePacketRTP(0, pkts[0])
 				}()
 
 				return &base.Response{
@@ -283,14 +288,8 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 	decoder := rtph264.NewDecoder()
 
 	c := gortsplib.Client{
-		OnPacketRTP: func(trackID int, payload []byte) {
-			var pkt rtp.Packet
-			err := pkt.Unmarshal(payload)
-			if err != nil {
-				return
-			}
-
-			nalus, _, err := decoder.Decode(&pkt)
+		OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
+			nalus, _, err := decoder.Decode(pkt)
 			if err != nil {
 				return
 			}
