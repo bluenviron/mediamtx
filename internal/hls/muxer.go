@@ -54,12 +54,12 @@ func (m *Muxer) Close() {
 	m.streamPlaylist.close()
 }
 
-// WriteH264 writes H264 NALUs, grouped by PTS, into the muxer.
+// WriteH264 writes H264 NALUs, grouped by timestamp, into the muxer.
 func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 	return m.tsGenerator.writeH264(pts, nalus)
 }
 
-// WriteAAC writes AAC AUs, grouped by PTS, into the muxer.
+// WriteAAC writes AAC AUs, grouped by timestamp, into the muxer.
 func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	return m.tsGenerator.writeAAC(pts, aus)
 }
