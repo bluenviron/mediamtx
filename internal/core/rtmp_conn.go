@@ -38,6 +38,14 @@ func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 	return pathName, ur.Query(), ur.RawQuery
 }
 
+type rtmpConnState int
+
+const (
+	rtmpConnStateIdle rtmpConnState = iota //nolint:deadcode,varcheck
+	rtmpConnStateRead
+	rtmpConnStatePublish
+)
+
 type rtmpConnTrackIDPayloadPair struct {
 	trackID int
 	packet  *rtp.Packet
@@ -72,7 +80,7 @@ type rtmpConn struct {
 	ctxCancel  func()
 	path       *path
 	ringBuffer *ringbuffer.RingBuffer // read
-	state      gortsplib.ServerSessionState
+	state      rtmpConnState
 	stateMutex sync.Mutex
 }
 
@@ -142,7 +150,7 @@ func (c *rtmpConn) ip() net.IP {
 	return c.conn.RemoteAddr().(*net.TCPAddr).IP
 }
 
-func (c *rtmpConn) safeState() gortsplib.ServerSessionState {
+func (c *rtmpConn) safeState() rtmpConnState {
 	c.stateMutex.Lock()
 	defer c.stateMutex.Unlock()
 	return c.state
@@ -247,7 +255,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}()
 
 	c.stateMutex.Lock()
-	c.state = gortsplib.ServerSessionStateRead
+	c.state = rtmpConnStateRead
 	c.stateMutex.Unlock()
 
 	var videoTrack *gortsplib.TrackH264
@@ -480,7 +488,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	}()
 
 	c.stateMutex.Lock()
-	c.state = gortsplib.ServerSessionStatePublish
+	c.state = rtmpConnStatePublish
 	c.stateMutex.Unlock()
 
 	// disable write deadline

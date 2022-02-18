@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/aler9/gortsplib"
-
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -208,10 +206,10 @@ outer:
 					RemoteAddr: c.RemoteAddr().String(),
 					State: func() string {
 						switch c.safeState() {
-						case gortsplib.ServerSessionStateRead:
+						case rtmpConnStateRead:
 							return "read"
 
-						case gortsplib.ServerSessionStatePublish:
+						case rtmpConnStatePublish:
 							return "publish"
 						}
 						return "idle"

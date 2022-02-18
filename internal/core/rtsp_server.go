@@ -421,12 +421,12 @@ func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspSer
 			RemoteAddr: s.RemoteAddr().String(),
 			State: func() string {
 				switch s.safeState() {
-				case gortsplib.ServerSessionStatePreRead,
-					gortsplib.ServerSessionStateRead:
+				case gortsplib.ServerSessionStatePrePlay,
+					gortsplib.ServerSessionStatePlay:
 					return "read"
 
-				case gortsplib.ServerSessionStatePrePublish,
-					gortsplib.ServerSessionStatePublish:
+				case gortsplib.ServerSessionStatePreRecord,
+					gortsplib.ServerSessionStateRecord:
 					return "publish"
 				}
 				return "idle"
