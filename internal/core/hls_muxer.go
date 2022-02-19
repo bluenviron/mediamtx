@@ -185,7 +185,7 @@ func newHLSMuxer(
 		hlsServerAPIMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
 
-	m.log(logger.Info, "opened")
+	m.log(logger.Info, "created")
 
 	m.wg.Add(1)
 	go m.run()
@@ -261,7 +261,7 @@ func (m *hlsMuxer) run() {
 
 	m.parent.onMuxerClose(m)
 
-	m.log(logger.Info, "closed (%v)", err)
+	m.log(logger.Info, "destroyed (%v)", err)
 }
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {

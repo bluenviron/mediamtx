@@ -69,7 +69,7 @@ func newRTSPSession(
 		parent:          parent,
 	}
 
-	s.log(logger.Info, "opened by %v", s.author.NetConn().RemoteAddr())
+	s.log(logger.Info, "created by %v", s.author.NetConn().RemoteAddr())
 
 	return s
 }
@@ -122,7 +122,7 @@ func (s *rtspSession) onClose(err error) {
 		s.path = nil
 	}
 
-	s.log(logger.Info, "closed (%v)", err)
+	s.log(logger.Info, "destroyed (%v)", err)
 }
 
 // onAnnounce is called by rtspServer.

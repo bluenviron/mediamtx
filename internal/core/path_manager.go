@@ -92,7 +92,7 @@ func newPathManager(
 		pm.metrics.onPathManagerSet(pm)
 	}
 
-	pm.log(logger.Debug, "path manager opened")
+	pm.log(logger.Debug, "path manager created")
 
 	pm.wg.Add(1)
 	go pm.run()
@@ -101,7 +101,7 @@ func newPathManager(
 }
 
 func (pm *pathManager) close() {
-	pm.log(logger.Debug, "path manager is closing")
+	pm.log(logger.Debug, "path manager is shutting down")
 	pm.ctxCancel()
 	pm.wg.Wait()
 }
