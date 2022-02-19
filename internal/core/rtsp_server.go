@@ -119,12 +119,13 @@ func newRTSPServer(
 	}
 
 	s.srv = &gortsplib.Server{
-		Handler:         s,
-		ReadTimeout:     time.Duration(readTimeout),
-		WriteTimeout:    time.Duration(writeTimeout),
-		ReadBufferCount: readBufferCount,
-		ReadBufferSize:  readBufferSize,
-		RTSPAddress:     address,
+		Handler:          s,
+		ReadTimeout:      time.Duration(readTimeout),
+		WriteTimeout:     time.Duration(writeTimeout),
+		ReadBufferCount:  readBufferCount,
+		ReadBufferSize:   readBufferSize,
+		WriteBufferCount: readBufferCount,
+		RTSPAddress:      address,
 	}
 
 	if useUDP {
