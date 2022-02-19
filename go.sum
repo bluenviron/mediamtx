@@ -4,8 +4,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafo
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d h1:UQZhZ2O0vMHr2cI+DC1Mbh0TJxzA3RcLoMsFw+aXw7E=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
-github.com/aler9/gortsplib v0.0.0-20220219145337-2844e6dfefb7 h1:cpzOk2+cILVqUCzIVZGK6/jl0XLyEeugvYT4NAUQaQY=
-github.com/aler9/gortsplib v0.0.0-20220219145337-2844e6dfefb7/go.mod h1:mst8cTkmxLn8Osiug8HBjMsNFRt0u7QHt5phJQ1tFVw=
+github.com/aler9/gortsplib v0.0.0-20220219182330-0e8595a31d6a h1:mGONNrTuq8HsvSG26JIEpnhwYGhBmCvyfK1+9ccr6r8=
+github.com/aler9/gortsplib v0.0.0-20220219182330-0e8595a31d6a/go.mod h1:mst8cTkmxLn8Osiug8HBjMsNFRt0u7QHt5phJQ1tFVw=
 github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927 h1:95mXJ5fUCYpBRdSOnLAQAdJHHKxxxJrVCiaqDi965YQ=
 github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927/go.mod h1:vzuE21rowz+lT1NGsWbreIvYulgBpCGnQyeTyFblUHc=
 github.com/asticode/go-astikit v0.20.0 h1:+7N+J4E4lWx2QOkRdOf6DafWJMv6O4RRfgClwQokrH8=
