@@ -174,11 +174,6 @@ func (s *rtspSource) runInner() bool {
 	readErr := make(chan error)
 	go func() {
 		readErr <- func() error {
-			_, err = c.Options(u)
-			if err != nil {
-				return err
-			}
-
 			tracks, baseURL, _, err := c.Describe(u)
 			if err != nil {
 				return err

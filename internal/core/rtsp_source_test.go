@@ -52,7 +52,7 @@ func TestRTSPSource(t *testing.T) {
 							authValidator = auth.NewValidator("testuser", "testpass", nil)
 						}
 
-						err := authValidator.ValidateRequest(ctx.Req)
+						err := authValidator.ValidateRequest(ctx.Request)
 						if err != nil {
 							return &base.Response{
 								StatusCode: base.StatusUnauthorized,
@@ -171,7 +171,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 					authValidator = auth.NewValidator("testuser", "", nil)
 				}
 
-				err := authValidator.ValidateRequest(ctx.Req)
+				err := authValidator.ValidateRequest(ctx.Request)
 				if err != nil {
 					return &base.Response{
 						StatusCode: base.StatusUnauthorized,

@@ -244,12 +244,12 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
 	res := c.pathManager.onDescribe(pathDescribeReq{
 		pathName: ctx.Path,
-		url:      ctx.Req.URL,
+		url:      ctx.Request.URL,
 		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
 			pathPass conf.Credential) error {
-			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Req, ctx.Query)
+			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Request, ctx.Query)
 		},
 	})
 
