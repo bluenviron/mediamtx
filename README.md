@@ -306,7 +306,7 @@ To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstream
 paths:
   all:
   original:
-    runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
     runOnReadyRestart: yes
 ```
 
@@ -478,7 +478,7 @@ To publish the video stream of a generic webcam to the server, edit `rtsp-simple
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: ffmpeg -f v4l2 -i /dev/video0 -pix_fmt yuv420p -preset ultrafast -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
@@ -487,7 +487,7 @@ If the platform is Windows:
 ```yml
 paths:
   cam:
-    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libx264 -preset ultrafast -tune zerolatency -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
+    runOnInit: ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -f rtsp rtsp://localhost:$RTSP_PORT/$RTSP_PATH
     runOnInitRestart: yes
 ```
 
@@ -786,7 +786,7 @@ HLS works by splitting the stream into segments and serving these segments with 
 To decrease the delay, it's possible to decrease the number of segments by editing the `hlsSegmentCount` parameter (decreasing stream stability) and decrease the duration of each segment. The duration of each segments depends on the `hlsSegmentDuration`, but also on the original stream, since the duration is prolonged to include at least one IDR frame (complete frame that can be decoded independently from the others) into each segment. Therefore, the stream must be tuned by either acting on the original hardware (for instance, there's a setting _Key-Frame Interval_ in most cameras, that must be reduced) or re-encoding the stream, setting a low IDR frame interval (`-g` option):
 
 ```
-ffmpeg -i rtsp://original-stream -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
 ```
 
 ## Links
