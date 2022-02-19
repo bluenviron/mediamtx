@@ -18,7 +18,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/asticode/go-astits"
 	"github.com/grafov/m3u8"
-	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -58,9 +57,10 @@ type ClientParent interface {
 
 // Client is a HLS client.
 type Client struct {
-	onTracks func(gortsplib.Track, gortsplib.Track) error
-	onPacket func(bool, *rtp.Packet)
-	parent   ClientParent
+	onTracks    func(gortsplib.Track, gortsplib.Track) error
+	onVideoData func(time.Duration, [][]byte)
+	onAudioData func(time.Duration, [][]byte)
+	parent      ClientParent
 
 	ctx                   context.Context
 	ctxCancel             func()
@@ -95,7 +95,8 @@ func NewClient(
 	primaryPlaylistURLStr string,
 	fingerprint string,
 	onTracks func(gortsplib.Track, gortsplib.Track) error,
-	onPacket func(bool, *rtp.Packet),
+	onVideoData func(time.Duration, [][]byte),
+	onAudioData func(time.Duration, [][]byte),
 	parent ClientParent,
 ) (*Client, error) {
 	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
@@ -128,7 +129,8 @@ func NewClient(
 
 	c := &Client{
 		onTracks:           onTracks,
-		onPacket:           onPacket,
+		onVideoData:        onVideoData,
+		onAudioData:        onAudioData,
 		parent:             parent,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
@@ -181,7 +183,11 @@ func (c *Client) runInner() error {
 				c.videoProc = newClientVideoProcessor(
 					innerCtx,
 					c.onVideoTrack,
-					c.onVideoPacket)
+					func(pts time.Duration, nalus [][]byte) {
+						c.tracksMutex.RLock()
+						defer c.tracksMutex.RUnlock()
+						c.onVideoData(pts, nalus)
+					})
 
 				go func() { errChan <- c.videoProc.run() }()
 			}
@@ -190,7 +196,11 @@ func (c *Client) runInner() error {
 				c.audioProc = newClientAudioProcessor(
 					innerCtx,
 					c.onAudioTrack,
-					c.onAudioPacket)
+					func(pts time.Duration, aus [][]byte) {
+						c.tracksMutex.RLock()
+						defer c.tracksMutex.RUnlock()
+						c.onAudioData(pts, aus)
+					})
 
 				go func() { errChan <- c.audioProc.run() }()
 			}
@@ -536,7 +546,7 @@ func (c *Client) onVideoTrack(track gortsplib.Track) error {
 	c.videoTrack = track
 
 	if c.audioPID == nil || c.audioTrack != nil {
-		return c.initializeEncoders()
+		return c.onTracks(c.videoTrack, c.audioTrack)
 	}
 
 	return nil
@@ -549,26 +559,8 @@ func (c *Client) onAudioTrack(track gortsplib.Track) error {
 	c.audioTrack = track
 
 	if c.videoPID == nil || c.videoTrack != nil {
-		return c.initializeEncoders()
+		return c.onTracks(c.videoTrack, c.audioTrack)
 	}
 
 	return nil
-}
-
-func (c *Client) initializeEncoders() error {
-	return c.onTracks(c.videoTrack, c.audioTrack)
-}
-
-func (c *Client) onVideoPacket(pkt *rtp.Packet) {
-	c.tracksMutex.RLock()
-	defer c.tracksMutex.RUnlock()
-
-	c.onPacket(true, pkt)
-}
-
-func (c *Client) onAudioPacket(pkt *rtp.Packet) {
-	c.tracksMutex.RLock()
-	defer c.tracksMutex.RUnlock()
-
-	c.onPacket(false, pkt)
 }

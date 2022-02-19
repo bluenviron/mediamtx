@@ -7,8 +7,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtph264"
-	"github.com/pion/rtp"
 )
 
 type clientVideoProcessorData struct {
@@ -18,27 +16,27 @@ type clientVideoProcessorData struct {
 }
 
 type clientVideoProcessor struct {
-	ctx      context.Context
-	onTrack  func(gortsplib.Track) error
-	onPacket func(*rtp.Packet)
+	ctx     context.Context
+	onTrack func(gortsplib.Track) error
+	onData  func(time.Duration, [][]byte)
 
-	queue         chan clientVideoProcessorData
-	sps           []byte
-	pps           []byte
-	encoder       *rtph264.Encoder
-	clockStartRTC time.Time
+	trackInitialized bool
+	queue            chan clientVideoProcessorData
+	sps              []byte
+	pps              []byte
+	clockStartRTC    time.Time
 }
 
 func newClientVideoProcessor(
 	ctx context.Context,
 	onTrack func(gortsplib.Track) error,
-	onPacket func(*rtp.Packet),
+	onData func(time.Duration, [][]byte),
 ) *clientVideoProcessor {
 	p := &clientVideoProcessor{
-		ctx:      ctx,
-		onTrack:  onTrack,
-		onPacket: onPacket,
-		queue:    make(chan clientVideoProcessorData, clientQueueSize),
+		ctx:     ctx,
+		onTrack: onTrack,
+		onData:  onData,
+		queue:   make(chan clientVideoProcessorData, clientQueueSize),
 	}
 
 	return p
@@ -87,8 +85,9 @@ func (p *clientVideoProcessor) doProcess(
 			if p.sps == nil {
 				p.sps = append([]byte(nil), nalu...)
 
-				if p.encoder == nil && p.pps != nil {
-					err := p.initializeEncoder()
+				if !p.trackInitialized && p.pps != nil {
+					p.trackInitialized = true
+					err := p.initializeTrack()
 					if err != nil {
 						return err
 					}
@@ -102,8 +101,9 @@ func (p *clientVideoProcessor) doProcess(
 			if p.pps == nil {
 				p.pps = append([]byte(nil), nalu...)
 
-				if p.encoder == nil && p.sps != nil {
-					err := p.initializeEncoder()
+				if !p.trackInitialized && p.sps != nil {
+					p.trackInitialized = true
+					err := p.initializeTrack()
 					if err != nil {
 						return err
 					}
@@ -125,19 +125,11 @@ func (p *clientVideoProcessor) doProcess(
 		return nil
 	}
 
-	if p.encoder == nil {
+	if !p.trackInitialized {
 		return nil
 	}
 
-	pkts, err := p.encoder.Encode(outNALUs, pts)
-	if err != nil {
-		return fmt.Errorf("error while encoding H264: %v", err)
-	}
-
-	for _, pkt := range pkts {
-		p.onPacket(pkt)
-	}
-
+	p.onData(pts, outNALUs)
 	return nil
 }
 
@@ -148,13 +140,11 @@ func (p *clientVideoProcessor) process(
 	p.queue <- clientVideoProcessorData{data, pts, dts}
 }
 
-func (p *clientVideoProcessor) initializeEncoder() error {
+func (p *clientVideoProcessor) initializeTrack() error {
 	track, err := gortsplib.NewTrackH264(96, p.sps, p.pps, nil)
 	if err != nil {
 		return err
 	}
-
-	p.encoder = rtph264.NewEncoder(96, nil, nil, nil)
 
 	return p.onTrack(track)
 }

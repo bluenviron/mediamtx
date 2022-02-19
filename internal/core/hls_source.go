@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/pion/rtp"
+	"github.com/aler9/gortsplib/pkg/rtpaac"
+	"github.com/aler9/gortsplib/pkg/rtph264"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -92,6 +93,8 @@ func (s *hlsSource) runInner() bool {
 	var rtcpSenders *rtcpsenderset.RTCPSenderSet
 	var videoTrackID int
 	var audioTrackID int
+	var videoEnc *rtph264.Encoder
+	var audioEnc *rtpaac.Encoder
 
 	defer func() {
 		if stream != nil {
@@ -105,11 +108,13 @@ func (s *hlsSource) runInner() bool {
 
 		if videoTrack != nil {
 			videoTrackID = len(tracks)
+			videoEnc = rtph264.NewEncoder(96, nil, nil, nil)
 			tracks = append(tracks, videoTrack)
 		}
 
 		if audioTrack != nil {
 			audioTrackID = len(tracks)
+			audioEnc = rtpaac.NewEncoder(97, audioTrack.ClockRate(), nil, nil, nil)
 			tracks = append(tracks, audioTrack)
 		}
 
@@ -129,17 +134,35 @@ func (s *hlsSource) runInner() bool {
 		return nil
 	}
 
-	onPacket := func(isVideo bool, pkt *rtp.Packet) {
-		var trackID int
-		if isVideo {
-			trackID = videoTrackID
-		} else {
-			trackID = audioTrackID
+	onVideoData := func(pts time.Duration, nalus [][]byte) {
+		if stream == nil {
+			return
 		}
 
-		if stream != nil {
-			rtcpSenders.OnPacketRTP(trackID, pkt)
-			stream.onPacketRTP(trackID, pkt)
+		pkts, err := videoEnc.Encode(nalus, pts)
+		if err != nil {
+			return
+		}
+
+		for _, pkt := range pkts {
+			rtcpSenders.OnPacketRTP(videoTrackID, pkt)
+			stream.onPacketRTP(videoTrackID, pkt)
+		}
+	}
+
+	onAudioData := func(pts time.Duration, aus [][]byte) {
+		if stream == nil {
+			return
+		}
+
+		pkts, err := audioEnc.Encode(aus, pts)
+		if err != nil {
+			return
+		}
+
+		for _, pkt := range pkts {
+			rtcpSenders.OnPacketRTP(audioTrackID, pkt)
+			stream.onPacketRTP(audioTrackID, pkt)
 		}
 	}
 
@@ -147,7 +170,8 @@ func (s *hlsSource) runInner() bool {
 		s.ur,
 		s.fingerprint,
 		onTracks,
-		onPacket,
+		onVideoData,
+		onAudioData,
 		s,
 	)
 	if err != nil {

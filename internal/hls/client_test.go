@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
-	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -207,10 +207,11 @@ func TestClient(t *testing.T) {
 				func(gortsplib.Track, gortsplib.Track) error {
 					return nil
 				},
-				func(isVideo bool, pkt *rtp.Packet) {
-					require.Equal(t, true, isVideo)
-					require.Equal(t, []byte{0x05}, pkt.Payload)
+				func(pts time.Duration, nalus [][]byte) {
+					require.Equal(t, [][]byte{{0x05}}, nalus)
 					close(packetRecv)
+				},
+				func(pts time.Duration, aus [][]byte) {
 				},
 				testLogger{},
 			)

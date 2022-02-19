@@ -7,8 +7,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
-	"github.com/pion/rtp"
 )
 
 type clientAudioProcessorData struct {
@@ -17,25 +15,25 @@ type clientAudioProcessorData struct {
 }
 
 type clientAudioProcessor struct {
-	ctx      context.Context
-	onTrack  func(gortsplib.Track) error
-	onPacket func(*rtp.Packet)
+	ctx     context.Context
+	onTrack func(gortsplib.Track) error
+	onData  func(time.Duration, [][]byte)
 
-	queue         chan clientAudioProcessorData
-	encoder       *rtpaac.Encoder
-	clockStartRTC time.Time
+	trackInitialized bool
+	queue            chan clientAudioProcessorData
+	clockStartRTC    time.Time
 }
 
 func newClientAudioProcessor(
 	ctx context.Context,
 	onTrack func(gortsplib.Track) error,
-	onPacket func(*rtp.Packet),
+	onData func(time.Duration, [][]byte),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{
-		ctx:      ctx,
-		onTrack:  onTrack,
-		onPacket: onPacket,
-		queue:    make(chan clientAudioProcessorData, clientQueueSize),
+		ctx:     ctx,
+		onTrack: onTrack,
+		onData:  onData,
+		queue:   make(chan clientAudioProcessorData, clientQueueSize),
 	}
 
 	return p
@@ -65,9 +63,7 @@ func (p *clientAudioProcessor) doProcess(
 	}
 
 	aus := make([][]byte, 0, len(adtsPkts))
-
 	pktPts := pts
-
 	now := time.Now()
 
 	for _, pkt := range adtsPkts {
@@ -81,13 +77,13 @@ func (p *clientAudioProcessor) doProcess(
 			}
 		}
 
-		if p.encoder == nil {
+		if !p.trackInitialized {
+			p.trackInitialized = true
+
 			track, err := gortsplib.NewTrackAAC(97, pkt.Type, pkt.SampleRate, pkt.ChannelCount, nil)
 			if err != nil {
 				return err
 			}
-
-			p.encoder = rtpaac.NewEncoder(97, track.ClockRate(), nil, nil, nil)
 
 			err = p.onTrack(track)
 			if err != nil {
@@ -99,15 +95,7 @@ func (p *clientAudioProcessor) doProcess(
 		pktPts += 1000 * time.Second / time.Duration(pkt.SampleRate)
 	}
 
-	pkts, err := p.encoder.Encode(aus, pts)
-	if err != nil {
-		return fmt.Errorf("error while encoding AAC: %v", err)
-	}
-
-	for _, pkt := range pkts {
-		p.onPacket(pkt)
-	}
-
+	p.onData(pts, aus)
 	return nil
 }
 
