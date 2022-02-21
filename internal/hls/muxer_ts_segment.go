@@ -119,7 +119,11 @@ func (t *muxerTSSegment) writeH264(
 	if t.startPTS == nil {
 		t.startPTS = &pts
 	}
-	t.endPTS = pts // save endPTS in case next write fails
+
+	if pts > t.endPTS {
+		t.endPTS = pts
+	}
+
 	return nil
 }
 
@@ -168,6 +172,10 @@ func (t *muxerTSSegment) writeAAC(
 	if t.startPTS == nil {
 		t.startPTS = &pts
 	}
-	t.endPTS = pts // save endPTS in case next write fails
+
+	if pts > t.endPTS {
+		t.endPTS = pts
+	}
+
 	return nil
 }
