@@ -80,12 +80,14 @@ func TestMuxerVideoAudio(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:4\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`\n` +
+		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:4,\n` +
 		`([0-9]+\.ts)\n$`)
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	byts, err = ioutil.ReadAll(m.Segment(ma[1]))
+	byts, err = ioutil.ReadAll(m.Segment(ma[2]))
 	require.NoError(t, err)
 
 	// PMT
@@ -168,6 +170,8 @@ func TestMuxerAudio(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:1\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`\n` +
+		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:1,\n` +
 		`([0-9]+\.ts)\n$`)
 	ma := re.FindStringSubmatch(string(byts))

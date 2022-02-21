@@ -16,6 +16,7 @@ type muxerTSSegment struct {
 	videoTrack        *gortsplib.TrackH264
 	writer            *muxerTSWriter
 
+	startTime      time.Time
 	name           string
 	buf            bytes.Buffer
 	startPTS       *time.Duration
@@ -29,11 +30,14 @@ func newMuxerTSSegment(
 	videoTrack *gortsplib.TrackH264,
 	writer *muxerTSWriter,
 ) *muxerTSSegment {
+	now := time.Now()
+
 	t := &muxerTSSegment{
 		hlsSegmentMaxSize: hlsSegmentMaxSize,
 		videoTrack:        videoTrack,
 		writer:            writer,
-		name:              strconv.FormatInt(time.Now().Unix(), 10),
+		startTime:         now,
+		name:              strconv.FormatInt(now.Unix(), 10),
 	}
 
 	// WriteTable() is called automatically when WriteData() is called with
