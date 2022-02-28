@@ -34,12 +34,15 @@ func clientURLAbsolute(base *url.URL, relative string) (*url.URL, error) {
 		return nil, err
 	}
 
-	if !u.IsAbs() {
+	if strings.HasPrefix(relative, "//") {
+		u.Scheme = base.Scheme
+	} else if !u.IsAbs() {
 		u = &url.URL{
-			Scheme: base.Scheme,
-			User:   base.User,
-			Host:   base.Host,
-			Path:   gopath.Join(gopath.Dir(base.Path), relative),
+			Scheme:   base.Scheme,
+			User:     base.User,
+			Host:     base.Host,
+			Path:     gopath.Join(gopath.Dir(base.Path), u.Path),
+			RawQuery: u.RawQuery,
 		}
 	}
 
