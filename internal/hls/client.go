@@ -10,7 +10,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	gopath "path"
 	"strings"
 	"sync"
 	"time"
@@ -33,20 +32,7 @@ func clientURLAbsolute(base *url.URL, relative string) (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	if strings.HasPrefix(relative, "//") {
-		u.Scheme = base.Scheme
-	} else if !u.IsAbs() {
-		u = &url.URL{
-			Scheme:   base.Scheme,
-			User:     base.User,
-			Host:     base.Host,
-			Path:     gopath.Join(gopath.Dir(base.Path), u.Path),
-			RawQuery: u.RawQuery,
-		}
-	}
-
-	return u, nil
+	return base.ResolveReference(u), nil
 }
 
 type clientAllocateProcsReq struct {
