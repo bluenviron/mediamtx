@@ -13,7 +13,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
-	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -134,8 +133,8 @@ func TestHLSSource(t *testing.T) {
 	frameRecv := make(chan struct{})
 
 	c := gortsplib.Client{
-		OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
-			require.Equal(t, []byte{0x05}, pkt.Payload)
+		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+			require.Equal(t, []byte{0x05}, ctx.Packet.Payload)
 			close(frameRecv)
 		},
 	}

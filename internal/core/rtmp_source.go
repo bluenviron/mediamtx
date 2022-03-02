@@ -165,6 +165,7 @@ func (s *rtmpSource) runInner() bool {
 					defer func() {
 						s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 					}()
+
 					for {
 						conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 						pkt, err := conn.ReadPacket()
@@ -195,13 +196,28 @@ func (s *rtmpSource) runInner() bool {
 								outNALUs = append(outNALUs, nalu)
 							}
 
-							pkts, err := h264Encoder.Encode(outNALUs, pkt.Time+pkt.CTime)
+							pts := pkt.Time + pkt.CTime
+
+							pkts, err := h264Encoder.Encode(outNALUs, pts)
 							if err != nil {
 								return fmt.Errorf("error while encoding H264: %v", err)
 							}
 
-							for _, pkt := range pkts {
-								res.stream.writePacketRTP(videoTrackID, pkt)
+							lastPkt := len(pkts) - 1
+							for i, pkt := range pkts {
+								if i != lastPkt {
+									res.stream.writeData(videoTrackID, &data{
+										rtp:          pkt,
+										ptsEqualsDTS: false,
+									})
+								} else {
+									res.stream.writeData(videoTrackID, &data{
+										rtp:          pkt,
+										ptsEqualsDTS: h264.IDRPresent(outNALUs),
+										h264NALUs:    outNALUs,
+										h264PTS:      pts,
+									})
+								}
 							}
 
 						case av.AAC:
@@ -215,7 +231,10 @@ func (s *rtmpSource) runInner() bool {
 							}
 
 							for _, pkt := range pkts {
-								res.stream.writePacketRTP(audioTrackID, pkt)
+								res.stream.writeData(audioTrackID, &data{
+									rtp:          pkt,
+									ptsEqualsDTS: true,
+								})
 							}
 						}
 					}

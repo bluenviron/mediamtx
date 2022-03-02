@@ -84,7 +84,7 @@ func TestRTSPSource(t *testing.T) {
 									Marker:         true,
 								},
 								Payload: []byte{0x01, 0x02, 0x03, 0x04},
-							})
+							}, true)
 						}()
 
 						return &base.Response{
@@ -143,8 +143,8 @@ func TestRTSPSource(t *testing.T) {
 			received := make(chan struct{})
 
 			c := gortsplib.Client{
-				OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
-					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
+				OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, ctx.Packet.Payload)
 					close(received)
 				},
 			}
@@ -243,25 +243,25 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 
 					pkts, err := enc.Encode([][]byte{{5}}, 0) // IDR
 					require.NoError(t, err)
-					stream.WritePacketRTP(0, pkts[0])
+					stream.WritePacketRTP(0, pkts[0], true)
 
 					pkts, err = enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
 					require.NoError(t, err)
-					stream.WritePacketRTP(0, pkts[0])
+					stream.WritePacketRTP(0, pkts[0], true)
 
 					pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
 					require.NoError(t, err)
-					stream.WritePacketRTP(0, pkts[0])
+					stream.WritePacketRTP(0, pkts[0], true)
 
 					pkts, err = enc.Encode([][]byte{{5, 1}}, 0) // IDR
 					require.NoError(t, err)
-					stream.WritePacketRTP(0, pkts[0])
+					stream.WritePacketRTP(0, pkts[0], true)
 
 					time.Sleep(500 * time.Millisecond)
 
 					pkts, err = enc.Encode([][]byte{{5, 2}}, 0) // IDR
 					require.NoError(t, err)
-					stream.WritePacketRTP(0, pkts[0])
+					stream.WritePacketRTP(0, pkts[0], true)
 				}()
 
 				return &base.Response{
@@ -286,17 +286,14 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 	defer p.close()
 
 	received := make(chan struct{})
-	decoder := &rtph264.Decoder{}
-	decoder.Init()
 
 	c := gortsplib.Client{
-		OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
-			nalus, _, err := decoder.Decode(pkt)
-			if err != nil {
+		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+			if ctx.H264NALUs == nil {
 				return
 			}
 
-			require.Equal(t, [][]byte{{0x05, 0x02}}, nalus)
+			require.Equal(t, [][]byte{{0x05, 0x02}}, ctx.H264NALUs)
 			close(received)
 		},
 	}

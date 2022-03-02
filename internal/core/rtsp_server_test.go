@@ -459,11 +459,11 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			frameRecv := make(chan struct{})
 
 			c := gortsplib.Client{
-				OnPacketRTP: func(trackID int, pkt *rtp.Packet) {
+				OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
 					if ca == "enabled" {
-						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, pkt.Payload)
+						require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, ctx.Packet.Payload)
 					} else {
-						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
+						require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, ctx.Packet.Payload)
 					}
 					close(frameRecv)
 				},
@@ -483,7 +483,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 					Marker:         true,
 				},
 				Payload: []byte{0x01, 0x02, 0x03, 0x04},
-			})
+			}, true)
 			if ca == "enabled" {
 				require.Error(t, err)
 			} else {
@@ -501,7 +501,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 						Marker:         true,
 					},
 					Payload: []byte{0x05, 0x06, 0x07, 0x08},
-				})
+				}, true)
 				require.NoError(t, err)
 			}
 
