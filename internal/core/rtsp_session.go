@@ -9,7 +9,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -42,10 +41,9 @@ type rtspSession struct {
 	path            *path
 	state           gortsplib.ServerSessionState
 	stateMutex      sync.Mutex
-	setuppedTracks  map[int]gortsplib.Track // read
-	onReadCmd       *externalcmd.Cmd        // read
-	announcedTracks gortsplib.Tracks        // publish
-	stream          *stream                 // publish
+	onReadCmd       *externalcmd.Cmd // read
+	announcedTracks gortsplib.Tracks // publish
+	stream          *stream          // publish
 }
 
 func newRTSPSession(
@@ -231,11 +229,6 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			}, nil, fmt.Errorf("track %d does not exist", ctx.TrackID)
 		}
 
-		if s.setuppedTracks == nil {
-			s.setuppedTracks = make(map[int]gortsplib.Track)
-		}
-		s.setuppedTracks[ctx.TrackID] = res.stream.tracks()[ctx.TrackID]
-
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay
 		s.stateMutex.Unlock()
@@ -348,8 +341,8 @@ func (s *rtspSession) onReaderAccepted() {
 		s.ss.SetuppedTransport())
 }
 
-// onReaderPacketRTP implements reader.
-func (s *rtspSession) onReaderPacketRTP(trackID int, pkt *rtp.Packet) {
+// onReaderData implements reader.
+func (s *rtspSession) onReaderData(trackID int, data *data) {
 	// packets are routed to the session by gortsplib.ServerStream.
 }
 
@@ -399,5 +392,17 @@ func (s *rtspSession) onPublisherAccepted(tracksLen int) {
 
 // onPacketRTP is called by rtspServer.
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
-	s.stream.writePacketRTP(ctx.TrackID, ctx.Packet)
+	if ctx.H264NALUs != nil {
+		s.stream.writeData(ctx.TrackID, &data{
+			rtp:          ctx.Packet,
+			ptsEqualsDTS: ctx.PTSEqualsDTS,
+			h264NALUs:    append([][]byte(nil), ctx.H264NALUs...),
+			h264PTS:      ctx.H264PTS,
+		})
+	} else {
+		s.stream.writeData(ctx.TrackID, &data{
+			rtp:          ctx.Packet,
+			ptsEqualsDTS: ctx.PTSEqualsDTS,
+		})
+	}
 }

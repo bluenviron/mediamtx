@@ -14,16 +14,6 @@ const (
 	segmentMinAUCount = 100
 )
 
-func idrPresent(nalus [][]byte) bool {
-	for _, nalu := range nalus {
-		typ := h264.NALUType(nalu[0] & 0x1F)
-		if typ == h264.NALUTypeIDR {
-			return true
-		}
-	}
-	return false
-}
-
 type writerFunc func(p []byte) (int, error)
 
 func (f writerFunc) Write(p []byte) (int, error) {
@@ -93,7 +83,7 @@ func newMuxerTSGenerator(
 
 func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 	now := time.Now()
-	idrPresent := idrPresent(nalus)
+	idrPresent := h264.IDRPresent(nalus)
 
 	if m.currentSegment == nil {
 		// skip groups silently until we find one with a IDR

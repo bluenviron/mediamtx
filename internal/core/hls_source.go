@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 
@@ -146,8 +147,21 @@ func (s *hlsSource) runInner() bool {
 			return
 		}
 
-		for _, pkt := range pkts {
-			stream.writePacketRTP(videoTrackID, pkt)
+		lastPkt := len(pkts) - 1
+		for i, pkt := range pkts {
+			if i != lastPkt {
+				stream.writeData(videoTrackID, &data{
+					rtp:          pkt,
+					ptsEqualsDTS: false,
+				})
+			} else {
+				stream.writeData(videoTrackID, &data{
+					rtp:          pkt,
+					ptsEqualsDTS: h264.IDRPresent(nalus),
+					h264NALUs:    nalus,
+					h264PTS:      pts,
+				})
+			}
 		}
 	}
 
@@ -162,7 +176,10 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		for _, pkt := range pkts {
-			stream.writePacketRTP(audioTrackID, pkt)
+			stream.writeData(audioTrackID, &data{
+				rtp:          pkt,
+				ptsEqualsDTS: true,
+			})
 		}
 	}
 
