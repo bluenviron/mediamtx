@@ -127,7 +127,7 @@ define CONFIG_RUN
 
 paths:
   all:
-#    runOnPublish: ffmpeg -i rtsp://localhost:$$RTSP_PORT/$$RTSP_PATH -c copy -f mpegts myfile_$$RTSP_PATH.ts
+#    runOnReady: ffmpeg -i rtsp://localhost:$$RTSP_PORT/$$RTSP_PATH -c copy -f mpegts myfile_$$RTSP_PATH.ts
 #    readUser: test
 #    readPass: tast
 #    runOnDemand: ffmpeg -re -stream_loop -1 -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/$$RTSP_PATH
@@ -139,7 +139,7 @@ paths:
 #    runOnDemand: ffmpeg -i rtsp://192.168.2.198:554/stream -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/proxied2
 
 #  original:
-#    runOnPublish: ffmpeg -i rtsp://localhost:554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
+#    runOnReady: ffmpeg -i rtsp://localhost:554/original -b:a 64k -c:v libx264 -preset ultrafast -b:v 500k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:8554/compressed
 
 endef
 export CONFIG_RUN

@@ -69,10 +69,6 @@ type PathConf struct {
 	RunOnReadyRestart       bool           `json:"runOnReadyRestart"`
 	RunOnRead               string         `json:"runOnRead"`
 	RunOnReadRestart        bool           `json:"runOnReadRestart"`
-
-	// deprecated, replaced by runOnReady. TODO: remove in next version
-	RunOnPublish        string `json:"runOnPublish"`
-	RunOnPublishRestart bool   `json:"runOnPublishRestart"`
 }
 
 func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
@@ -243,14 +239,6 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 
 	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
-	}
-
-	if pconf.RunOnPublish != "" {
-		pconf.RunOnReady = pconf.RunOnPublish
-	}
-
-	if pconf.RunOnPublishRestart {
-		pconf.RunOnReadyRestart = true
 	}
 
 	if pconf.RunOnDemandStartTimeout == 0 {
