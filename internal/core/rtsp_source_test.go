@@ -221,6 +221,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 	require.NoError(t, err)
 
 	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+	defer stream.Close()
 
 	s := gortsplib.Server{
 		Handler: &testServer{
@@ -267,6 +268,8 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
 	require.NoError(t, err)
 	stream.WritePacketRTP(0, pkts[0], true)
+
+	time.Sleep(1 * time.Second)
 
 	func() {
 		c := gortsplib.Client{}
