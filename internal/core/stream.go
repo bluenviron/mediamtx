@@ -1,9 +1,11 @@
 package core
 
 import (
+	"bytes"
 	"sync"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/h264"
 )
 
 type streamNonRTSPReadersMap struct {
@@ -78,7 +80,30 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
+func (s *stream) updateH264TrackParameters(h264track *gortsplib.TrackH264, nalus [][]byte) {
+	for _, nalu := range nalus {
+		typ := h264.NALUType(nalu[0] & 0x1F)
+
+		switch typ {
+		case h264.NALUTypeSPS:
+			if !bytes.Equal(nalu, h264track.SPS()) {
+				h264track.SetSPS(append([]byte(nil), nalu...))
+			}
+
+		case h264.NALUTypePPS:
+			if !bytes.Equal(nalu, h264track.PPS()) {
+				h264track.SetPPS(append([]byte(nil), nalu...))
+			}
+		}
+	}
+}
+
 func (s *stream) writeData(trackID int, data *data) {
+	track := s.rtspStream.Tracks()[trackID]
+	if h264track, ok := track.(*gortsplib.TrackH264); ok {
+		s.updateH264TrackParameters(h264track, data.h264NALUs)
+	}
+
 	// forward to RTSP readers
 	s.rtspStream.WritePacketRTP(trackID, data.rtp, data.ptsEqualsDTS)
 
