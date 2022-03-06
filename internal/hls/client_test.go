@@ -218,7 +218,11 @@ func TestClient(t *testing.T) {
 					return nil
 				},
 				func(pts time.Duration, nalus [][]byte) {
-					require.Equal(t, [][]byte{{0x05}}, nalus)
+					require.Equal(t, [][]byte{
+						{7, 1, 2, 3},
+						{8},
+						{0x05},
+					}, nalus)
 					close(packetRecv)
 				},
 				func(pts time.Duration, aus [][]byte) {
