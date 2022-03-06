@@ -23,11 +23,8 @@ type clientVideoProcessor struct {
 	onData  func(time.Duration, [][]byte)
 	logger  ClientLogger
 
-	trackInitialized bool
-	queue            chan clientVideoProcessorData
-	sps              []byte
-	pps              []byte
-	clockStartRTC    time.Time
+	queue         chan clientVideoProcessorData
+	clockStartRTC time.Time
 }
 
 func newClientVideoProcessor(
@@ -48,6 +45,16 @@ func newClientVideoProcessor(
 }
 
 func (p *clientVideoProcessor) run() error {
+	track, err := gortsplib.NewTrackH264(96, nil, nil, nil)
+	if err != nil {
+		return err
+	}
+
+	err = p.onTrack(track)
+	if err != nil {
+		return err
+	}
+
 	for {
 		select {
 		case item := <-p.queue:
@@ -87,40 +94,7 @@ func (p *clientVideoProcessor) doProcess(
 	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 
-		switch typ {
-		case h264.NALUTypeSPS:
-			if p.sps == nil {
-				p.sps = append([]byte(nil), nalu...)
-
-				if !p.trackInitialized && p.pps != nil {
-					p.trackInitialized = true
-					err := p.initializeTrack()
-					if err != nil {
-						return err
-					}
-				}
-			}
-
-			// remove since it's not needed
-			continue
-
-		case h264.NALUTypePPS:
-			if p.pps == nil {
-				p.pps = append([]byte(nil), nalu...)
-
-				if !p.trackInitialized && p.sps != nil {
-					p.trackInitialized = true
-					err := p.initializeTrack()
-					if err != nil {
-						return err
-					}
-				}
-			}
-
-			// remove since it's not needed
-			continue
-
-		case h264.NALUTypeAccessUnitDelimiter:
+		if typ == h264.NALUTypeAccessUnitDelimiter {
 			// remove since it's not needed
 			continue
 		}
@@ -129,10 +103,6 @@ func (p *clientVideoProcessor) doProcess(
 	}
 
 	if len(outNALUs) == 0 {
-		return nil
-	}
-
-	if !p.trackInitialized {
 		return nil
 	}
 
@@ -149,13 +119,4 @@ func (p *clientVideoProcessor) process(
 	case p.queue <- clientVideoProcessorData{data, pts, dts}:
 	case <-p.ctx.Done():
 	}
-}
-
-func (p *clientVideoProcessor) initializeTrack() error {
-	track, err := gortsplib.NewTrackH264(96, p.sps, p.pps, nil)
-	if err != nil {
-		return err
-	}
-
-	return p.onTrack(track)
 }
