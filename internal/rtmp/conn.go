@@ -306,11 +306,9 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 		return err
 	}
 
-	if videoTrack != nil {
-		if videoTrack.SPS() == nil || videoTrack.PPS() == nil {
-			return fmt.Errorf("invalid H264 track: SPS or PPS not provided into the SDP")
-		}
-
+	// write decoder config only if SPS and PPS are available.
+	// if they're not available yet, they're sent later as H264 NALUs.
+	if videoTrack != nil && videoTrack.SPS() != nil && videoTrack.PPS() != nil {
 		codec := nh264.Codec{
 			SPS: map[int][]byte{
 				0: videoTrack.SPS(),

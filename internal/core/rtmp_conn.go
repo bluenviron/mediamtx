@@ -16,6 +16,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
+	nh264 "github.com/notedit/rtmp/codec/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -341,22 +342,36 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			var nalusFiltered [][]byte
+			var filteredNALUs [][]byte
 
 			for _, nalu := range pair.data.h264NALUs {
-				// remove SPS, PPS and AUD, not needed by RTMP
 				typ := h264.NALUType(nalu[0] & 0x1F)
+
 				switch typ {
-				case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+				case h264.NALUTypeSPS, h264.NALUTypePPS:
+					// added automatically before every IDR
 					continue
+
+				case h264.NALUTypeAccessUnitDelimiter:
+					// not needed
+					continue
+
+				case h264.NALUTypeIDR:
+					// add SPS and PPS before every IDR
+					// TODO: send H264DecoderConfig instead of NALUs?
+					filteredNALUs = append(filteredNALUs, videoTrack.SPS(), videoTrack.PPS())
 				}
 
-				nalusFiltered = append(nalusFiltered, nalu)
+				filteredNALUs = append(filteredNALUs, nalu)
+			}
+
+			if filteredNALUs == nil {
+				continue
 			}
 
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
-				if !h264.IDRPresent(nalusFiltered) {
+				if !h264.IDRPresent(filteredNALUs) {
 					continue
 				}
 
@@ -365,7 +380,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				videoDTSEst = h264.NewDTSEstimator()
 			}
 
-			data, err := h264.EncodeAVCC(nalusFiltered)
+			data, err := h264.EncodeAVCC(filteredNALUs)
 			if err != nil {
 				return err
 			}
@@ -500,6 +515,40 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		}
 
 		switch pkt.Type {
+		case av.H264DecoderConfig:
+			codec, err := nh264.FromDecoderConfig(pkt.Data)
+			if err != nil {
+				return err
+			}
+
+			pts := pkt.Time + pkt.CTime
+			nalus := [][]byte{
+				codec.SPS[0],
+				codec.PPS[0],
+			}
+
+			pkts, err := h264Encoder.Encode(nalus, pts)
+			if err != nil {
+				return fmt.Errorf("error while encoding H264: %v", err)
+			}
+
+			lastPkt := len(pkts) - 1
+			for i, pkt := range pkts {
+				if i != lastPkt {
+					rres.stream.writeData(videoTrackID, &data{
+						rtp:          pkt,
+						ptsEqualsDTS: false,
+					})
+				} else {
+					rres.stream.writeData(videoTrackID, &data{
+						rtp:          pkt,
+						ptsEqualsDTS: h264.IDRPresent(nalus),
+						h264NALUs:    nalus,
+						h264PTS:      pts,
+					})
+				}
+			}
+
 		case av.H264:
 			if videoTrack == nil {
 				return fmt.Errorf("received an H264 packet, but track is not set up")
@@ -513,10 +562,9 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			var outNALUs [][]byte
 
 			for _, nalu := range nalus {
-				// remove SPS, PPS and AUD, not needed by RTSP
 				typ := h264.NALUType(nalu[0] & 0x1F)
-				switch typ {
-				case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
+				if typ == h264.NALUTypeAccessUnitDelimiter {
+					// not needed
 					continue
 				}
 
