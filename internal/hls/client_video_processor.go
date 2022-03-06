@@ -89,24 +89,7 @@ func (p *clientVideoProcessor) doProcess(
 		return nil
 	}
 
-	outNALUs := make([][]byte, 0, len(nalus))
-
-	for _, nalu := range nalus {
-		typ := h264.NALUType(nalu[0] & 0x1F)
-
-		if typ == h264.NALUTypeAccessUnitDelimiter {
-			// remove since it's not needed
-			continue
-		}
-
-		outNALUs = append(outNALUs, nalu)
-	}
-
-	if len(outNALUs) == 0 {
-		return nil
-	}
-
-	p.onData(pts, outNALUs)
+	p.onData(pts, nalus)
 	return nil
 }
 

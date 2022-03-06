@@ -115,11 +115,9 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 	dts := m.videoDTSEst.Feed(pts)
 
 	// prepend an AUD. This is required by video.js and iOS
-	filteredNALUs := [][]byte{
-		{byte(h264.NALUTypeAccessUnitDelimiter), 240},
-	}
+	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
 
-	enc, err := h264.EncodeAnnexB(filteredNALUs)
+	enc, err := h264.EncodeAnnexB(nalus)
 	if err != nil {
 		if m.currentSegment.buf.Len() > 0 {
 			m.streamPlaylist.pushSegment(m.currentSegment)
