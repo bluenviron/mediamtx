@@ -98,10 +98,39 @@ func (s *stream) updateH264TrackParameters(h264track *gortsplib.TrackH264, nalus
 	}
 }
 
+// remux is needed to
+// - fix corrupted streams
+// - make streams compatible with all protocols
+func (s *stream) remuxH264NALUs(h264track *gortsplib.TrackH264, data *data) {
+	var filteredNALUs [][]byte //nolint:prealloc
+
+	for _, nalu := range data.h264NALUs {
+		typ := h264.NALUType(nalu[0] & 0x1F)
+		switch typ {
+		case h264.NALUTypeSPS, h264.NALUTypePPS:
+			// remove since they're automatically added before every IDR
+			continue
+
+		case h264.NALUTypeAccessUnitDelimiter:
+			// remove since it is not needed
+			continue
+
+		case h264.NALUTypeIDR:
+			// add SPS and PPS before every IDR
+			filteredNALUs = append(filteredNALUs, h264track.SPS(), h264track.PPS())
+		}
+
+		filteredNALUs = append(filteredNALUs, nalu)
+	}
+
+	data.h264NALUs = filteredNALUs
+}
+
 func (s *stream) writeData(trackID int, data *data) {
 	track := s.rtspStream.Tracks()[trackID]
 	if h264track, ok := track.(*gortsplib.TrackH264); ok {
 		s.updateH264TrackParameters(h264track, data.h264NALUs)
+		s.remuxH264NALUs(h264track, data)
 	}
 
 	// forward to RTSP readers

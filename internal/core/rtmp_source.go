@@ -184,21 +184,9 @@ func (s *rtmpSource) runInner() bool {
 								return err
 							}
 
-							var outNALUs [][]byte
-							for _, nalu := range nalus {
-								// remove SPS, PPS and AUD, not needed by RTSP / RTMP
-								typ := h264.NALUType(nalu[0] & 0x1F)
-								switch typ {
-								case h264.NALUTypeSPS, h264.NALUTypePPS, h264.NALUTypeAccessUnitDelimiter:
-									continue
-								}
-
-								outNALUs = append(outNALUs, nalu)
-							}
-
 							pts := pkt.Time + pkt.CTime
 
-							pkts, err := h264Encoder.Encode(outNALUs, pts)
+							pkts, err := h264Encoder.Encode(nalus, pts)
 							if err != nil {
 								return fmt.Errorf("error while encoding H264: %v", err)
 							}
@@ -213,8 +201,8 @@ func (s *rtmpSource) runInner() bool {
 								} else {
 									res.stream.writeData(videoTrackID, &data{
 										rtp:          pkt,
-										ptsEqualsDTS: h264.IDRPresent(outNALUs),
-										h264NALUs:    outNALUs,
+										ptsEqualsDTS: h264.IDRPresent(nalus),
+										h264NALUs:    nalus,
 										h264PTS:      pts,
 									})
 								}

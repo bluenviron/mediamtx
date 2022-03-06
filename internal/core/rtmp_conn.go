@@ -342,36 +342,11 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			var filteredNALUs [][]byte
-
-			for _, nalu := range pair.data.h264NALUs {
-				typ := h264.NALUType(nalu[0] & 0x1F)
-
-				switch typ {
-				case h264.NALUTypeSPS, h264.NALUTypePPS:
-					// added automatically before every IDR
-					continue
-
-				case h264.NALUTypeAccessUnitDelimiter:
-					// not needed
-					continue
-
-				case h264.NALUTypeIDR:
-					// add SPS and PPS before every IDR
-					// TODO: send H264DecoderConfig instead of NALUs?
-					filteredNALUs = append(filteredNALUs, videoTrack.SPS(), videoTrack.PPS())
-				}
-
-				filteredNALUs = append(filteredNALUs, nalu)
-			}
-
-			if filteredNALUs == nil {
-				continue
-			}
+			// TODO: send H264DecoderConfig instead of NALUs?
 
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
-				if !h264.IDRPresent(filteredNALUs) {
+				if !h264.IDRPresent(pair.data.h264NALUs) {
 					continue
 				}
 
@@ -380,7 +355,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				videoDTSEst = h264.NewDTSEstimator()
 			}
 
-			data, err := h264.EncodeAVCC(filteredNALUs)
+			data, err := h264.EncodeAVCC(pair.data.h264NALUs)
 			if err != nil {
 				return err
 			}
@@ -559,25 +534,9 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 				return err
 			}
 
-			var outNALUs [][]byte
-
-			for _, nalu := range nalus {
-				typ := h264.NALUType(nalu[0] & 0x1F)
-				if typ == h264.NALUTypeAccessUnitDelimiter {
-					// not needed
-					continue
-				}
-
-				outNALUs = append(outNALUs, nalu)
-			}
-
-			if len(outNALUs) == 0 {
-				continue
-			}
-
 			pts := pkt.Time + pkt.CTime
 
-			pkts, err := h264Encoder.Encode(outNALUs, pts)
+			pkts, err := h264Encoder.Encode(nalus, pts)
 			if err != nil {
 				return fmt.Errorf("error while encoding H264: %v", err)
 			}
@@ -592,8 +551,8 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 				} else {
 					rres.stream.writeData(videoTrackID, &data{
 						rtp:          pkt,
-						ptsEqualsDTS: h264.IDRPresent(outNALUs),
-						h264NALUs:    outNALUs,
+						ptsEqualsDTS: h264.IDRPresent(nalus),
+						h264NALUs:    nalus,
 						h264PTS:      pts,
 					})
 				}
