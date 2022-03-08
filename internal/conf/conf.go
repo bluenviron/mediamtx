@@ -66,27 +66,41 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 	}
 
 	// convert interface{} keys into string keys to avoid JSON errors
-	var convert func(i interface{}) interface{}
-	convert = func(i interface{}) interface{} {
+	var convert func(i interface{}) (interface{}, error)
+	convert = func(i interface{}) (interface{}, error) {
 		switch x := i.(type) {
 		case map[interface{}]interface{}:
 			m2 := map[string]interface{}{}
 			for k, v := range x {
-				m2[k.(string)] = convert(v)
+				ks, ok := k.(string)
+				if !ok {
+					return nil, fmt.Errorf("integer keys are not supported (%v)", k)
+				}
+
+				m2[ks], err = convert(v)
+				if err != nil {
+					return nil, err
+				}
 			}
-			return m2
+			return m2, nil
 
 		case []interface{}:
 			a2 := make([]interface{}, len(x))
 			for i, v := range x {
-				a2[i] = convert(v)
+				a2[i], err = convert(v)
+				if err != nil {
+					return nil, err
+				}
 			}
-			return a2
+			return a2, nil
 		}
 
-		return i
+		return i, nil
 	}
-	temp = convert(temp)
+	temp, err = convert(temp)
+	if err != nil {
+		return false, err
+	}
 
 	// check for non-existent parameters
 	var checkNonExistentFields func(what interface{}, ref interface{}) error
