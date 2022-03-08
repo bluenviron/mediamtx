@@ -21,7 +21,7 @@ type clientVideoProcessor struct {
 	ctx     context.Context
 	onTrack func(gortsplib.Track) error
 	onData  func(time.Duration, [][]byte)
-	parent  ClientParent
+	logger  ClientLogger
 
 	trackInitialized bool
 	queue            chan clientVideoProcessorData
@@ -34,13 +34,13 @@ func newClientVideoProcessor(
 	ctx context.Context,
 	onTrack func(gortsplib.Track) error,
 	onData func(time.Duration, [][]byte),
-	parent ClientParent,
+	logger ClientLogger,
 ) *clientVideoProcessor {
 	p := &clientVideoProcessor{
 		ctx:     ctx,
 		onTrack: onTrack,
 		onData:  onData,
-		parent:  parent,
+		logger:  logger,
 		queue:   make(chan clientVideoProcessorData, clientQueueSize),
 	}
 
@@ -77,7 +77,7 @@ func (p *clientVideoProcessor) doProcess(
 
 	nalus, err := h264.DecodeAnnexB(data)
 	if err != nil {
-		p.parent.Log(logger.Warn, "unable to decode Annex-B: %s", err)
+		p.logger.Log(logger.Warn, "unable to decode Annex-B: %s", err)
 		return nil
 	}
 
