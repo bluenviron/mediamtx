@@ -39,8 +39,8 @@ type clientAllocateProcsReq struct {
 	res chan struct{}
 }
 
-// ClientParent is the parent of a Client.
-type ClientParent interface {
+// ClientLogger allows to receive log lines.
+type ClientLogger interface {
 	Log(level logger.Level, format string, args ...interface{})
 }
 
@@ -49,7 +49,7 @@ type Client struct {
 	onTracks    func(gortsplib.Track, gortsplib.Track) error
 	onVideoData func(time.Duration, [][]byte)
 	onAudioData func(time.Duration, [][]byte)
-	parent      ClientParent
+	logger      ClientLogger
 
 	ctx                   context.Context
 	ctxCancel             func()
@@ -86,7 +86,7 @@ func NewClient(
 	onTracks func(gortsplib.Track, gortsplib.Track) error,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, [][]byte),
-	parent ClientParent,
+	logger ClientLogger,
 ) (*Client, error) {
 	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
 	if err != nil {
@@ -120,7 +120,7 @@ func NewClient(
 		onTracks:           onTracks,
 		onVideoData:        onVideoData,
 		onAudioData:        onAudioData,
-		parent:             parent,
+		logger:             logger,
 		ctx:                ctx,
 		ctxCancel:          ctxCancel,
 		primaryPlaylistURL: primaryPlaylistURL,
@@ -137,10 +137,6 @@ func NewClient(
 	go c.run()
 
 	return c, nil
-}
-
-func (c *Client) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, format, args...)
 }
 
 // Close closes all the Client resources.
@@ -177,7 +173,7 @@ func (c *Client) runInner() error {
 						defer c.tracksMutex.RUnlock()
 						c.onVideoData(pts, nalus)
 					},
-					c.parent)
+					c.logger)
 
 				go func() { errChan <- c.videoProc.run() }()
 			}
@@ -293,7 +289,7 @@ func (c *Client) segmentWasDownloaded(ur string) bool {
 }
 
 func (c *Client) downloadPrimaryPlaylist(innerCtx context.Context) (*m3u8.MediaPlaylist, error) {
-	c.log(logger.Debug, "downloading primary playlist %s", c.primaryPlaylistURL)
+	c.logger.Log(logger.Debug, "downloading primary playlist %s", c.primaryPlaylistURL)
 
 	pl, err := c.downloadPlaylist(innerCtx, c.primaryPlaylistURL)
 	if err != nil {
@@ -334,7 +330,7 @@ func (c *Client) downloadPrimaryPlaylist(innerCtx context.Context) (*m3u8.MediaP
 }
 
 func (c *Client) downloadStreamPlaylist(innerCtx context.Context) (*m3u8.MediaPlaylist, error) {
-	c.log(logger.Debug, "downloading stream playlist %s", c.streamPlaylistURL.String())
+	c.logger.Log(logger.Debug, "downloading stream playlist %s", c.streamPlaylistURL.String())
 
 	pl, err := c.downloadPlaylist(innerCtx, c.streamPlaylistURL)
 	if err != nil {
@@ -379,7 +375,7 @@ func (c *Client) downloadSegment(innerCtx context.Context, segmentURI string) ([
 		return nil, err
 	}
 
-	c.log(logger.Debug, "downloading segment %s", u)
+	c.logger.Log(logger.Debug, "downloading segment %s", u)
 	req, err := http.NewRequestWithContext(innerCtx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
