@@ -137,7 +137,10 @@ func (p *clientVideoProcessor) process(
 	data []byte,
 	pts time.Duration,
 	dts time.Duration) {
-	p.queue <- clientVideoProcessorData{data, pts, dts}
+	select {
+	case p.queue <- clientVideoProcessorData{data, pts, dts}:
+	case <-p.ctx.Done():
+	}
 }
 
 func (p *clientVideoProcessor) initializeTrack() error {
