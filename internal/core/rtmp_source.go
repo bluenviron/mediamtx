@@ -11,7 +11,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	"github.com/pion/rtp"
+	"github.com/pion/rtp/v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"

@@ -10,7 +10,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/rtph264"
-	"github.com/pion/rtp"
+	"github.com/pion/rtp/v2"
 	"github.com/stretchr/testify/require"
 )
 

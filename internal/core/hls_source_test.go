@@ -13,7 +13,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
-	"github.com/pion/rtp"
+	"github.com/pion/rtp/v2"
 	"github.com/stretchr/testify/require"
 )
 

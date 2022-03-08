@@ -10,7 +10,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/pion/rtcp"
-	"github.com/pion/rtp"
+	"github.com/pion/rtp/v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
