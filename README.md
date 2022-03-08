@@ -353,7 +353,7 @@ Create the service:
 ```
 sudo tee /etc/systemd/system/rtsp-simple-server.service >/dev/null << EOF
 [Unit]
-After=network.target
+Wants=network.target
 [Service]
 ExecStart=/usr/local/bin/rtsp-simple-server /usr/local/etc/rtsp-simple-server.yml
 [Install]
