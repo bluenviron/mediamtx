@@ -98,7 +98,7 @@ type testHLSServer struct {
 	s *http.Server
 }
 
-func newTestHLSServer(encrypted bool) (*testHLSServer, error) {
+func newTestHLSServer(ca string) (*testHLSServer, error) {
 	ln, err := net.Listen("tcp", "localhost:5780")
 	if err != nil {
 		return nil, err
@@ -109,6 +109,11 @@ func newTestHLSServer(encrypted bool) (*testHLSServer, error) {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 
+	segment := "segment.ts"
+	if ca == "segment with query" {
+		segment = "segment.ts?key=val"
+	}
+
 	router.GET("/stream.m3u8", func(ctx *gin.Context) {
 		cnt := `#EXTM3U
 #EXT-X-VERSION:3
@@ -116,24 +121,25 @@ func newTestHLSServer(encrypted bool) (*testHLSServer, error) {
 #EXT-X-TARGETDURATION:2
 #EXT-X-MEDIA-SEQUENCE:0
 #EXTINF:2,
-segment.ts
-`
+` + segment + "\n"
 
 		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
 		io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 	})
 
 	router.GET("/segment.ts", func(ctx *gin.Context) {
-		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
-		mux := astits.NewMuxer(context.Background(), ctx.Writer)
+		if ca == "segment with query" && ctx.Query("key") != "val" {
+			return
+		}
 
+		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+
+		mux := astits.NewMuxer(context.Background(), ctx.Writer)
 		mux.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 256,
 			StreamType:    astits.StreamTypeH264Video,
 		})
-
 		mux.SetPCRPID(256)
-
 		mux.WriteTables()
 
 		enc, _ := h264.EncodeAnnexB([][]byte{
@@ -160,7 +166,7 @@ segment.ts
 
 	ts.s = &http.Server{Handler: router}
 
-	if encrypted {
+	if ca == "tls" {
 		go func() {
 			serverCertFpath, err := writeTempFile(serverCert)
 			if err != nil {
@@ -188,16 +194,20 @@ func (ts *testHLSServer) close() {
 }
 
 func TestClient(t *testing.T) {
-	for _, mode := range []string{"plain", "tls"} {
-		t.Run(mode, func(t *testing.T) {
-			ts, err := newTestHLSServer(mode == "tls")
+	for _, ca := range []string{
+		"plain",
+		"tls",
+		"segment with query",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			ts, err := newTestHLSServer(ca)
 			require.NoError(t, err)
 			defer ts.close()
 
 			packetRecv := make(chan struct{})
 
 			prefix := "http"
-			if mode == "tls" {
+			if ca == "tls" {
 				prefix = "https"
 			}
 
