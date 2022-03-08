@@ -176,7 +176,8 @@ func (c *Client) runInner() error {
 						c.tracksMutex.RLock()
 						defer c.tracksMutex.RUnlock()
 						c.onVideoData(pts, nalus)
-					})
+					},
+					c.parent)
 
 				go func() { errChan <- c.videoProc.run() }()
 			}
