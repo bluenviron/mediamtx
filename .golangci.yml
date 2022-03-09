@@ -1,6 +1,7 @@
 
 linters:
   enable:
+  - asciicheck
   - bodyclose
   - dupl
   - exportloopref
@@ -11,8 +12,10 @@ linters:
   - misspell
   - lll
   - prealloc
+  - predeclared
   - revive
   - unconvert
+  - wastedassign
   - whitespace
   disable:
   - errcheck
