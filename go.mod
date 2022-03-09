@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0-20211005130812-5bb3c17173e5
-	github.com/aler9/gortsplib v0.0.0-20220308114755-e12b22ae7783
+	github.com/aler9/gortsplib v0.0.0-20220309090315-218e5ae2268d
 	github.com/asticode/go-astits v1.10.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.7.2
