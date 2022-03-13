@@ -1,7 +1,6 @@
 
 linters:
   enable:
-  - asciicheck
   - bodyclose
   - dupl
   - exportloopref
@@ -12,13 +11,19 @@ linters:
   - misspell
   - lll
   - prealloc
-  - predeclared
   - revive
   - unconvert
-  - wastedassign
   - whitespace
   disable:
   - errcheck
 
 issues:
   exclude-use-default: false
+
+linters-settings:
+  govet:
+    enable-all: true
+    disable:
+    - fieldalignment
+    - reflectvaluecompare
+    - shadow

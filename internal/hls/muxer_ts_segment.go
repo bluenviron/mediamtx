@@ -75,9 +75,7 @@ func (t *muxerTSSegment) writeH264(
 	var af *astits.PacketAdaptationField
 
 	if idrPresent {
-		if af == nil {
-			af = &astits.PacketAdaptationField{}
-		}
+		af = &astits.PacketAdaptationField{}
 		af.RandomAccessIndicator = true
 	}
 
