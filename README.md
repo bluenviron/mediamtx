@@ -613,7 +613,7 @@ ffmpeg -re -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.
 You can use _GStreamer_ to read that stream with the TCP transport protocol:
 
 ```
-gst-launch-1.0 rtspsrc protocols=tcp rtsp://localhost:8554/mystream ! fakesink
+gst-launch-1.0 rtspsrc protocols=tcp location=rtsp://localhost:8554/mystream ! fakesink
 ```
 
 You can use _VLC_ to read that stream with the TCP transport protocol:
