@@ -34,41 +34,21 @@ func New(
 
 	s.senders = make([]*rtcpsender.RTCPSender, len(tracks))
 	for i, track := range tracks {
-		s.senders[i] = rtcpsender.New(track.ClockRate())
-	}
+		ci := i
 
-	go s.run()
+		s.senders[i] = rtcpsender.New(10*time.Second,
+			track.ClockRate(), func(pkt rtcp.Packet) {
+				onPacketRTCP(ci, pkt)
+			})
+	}
 
 	return s
 }
 
 // Close closes a RTCPSenderSet.
 func (s *RTCPSenderSet) Close() {
-	close(s.terminate)
-	<-s.done
-}
-
-func (s *RTCPSenderSet) run() {
-	defer close(s.done)
-
-	t := time.NewTicker(10 * time.Second)
-	defer t.Stop()
-
-	for {
-		select {
-		case <-t.C:
-			now := time.Now()
-
-			for i, sender := range s.senders {
-				r := sender.Report(now)
-				if r != nil {
-					s.onPacketRTCP(i, r)
-				}
-			}
-
-		case <-s.terminate:
-			return
-		}
+	for _, sender := range s.senders {
+		sender.Close()
 	}
 }
 
