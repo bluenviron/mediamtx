@@ -129,7 +129,7 @@ func (s *hlsSource) runInner() bool {
 		s.Log(logger.Info, "ready")
 
 		stream = res.stream
-		rtcpSenders = rtcpsenderset.New(tracks, stream.onPacketRTCP)
+		rtcpSenders = rtcpsenderset.New(tracks, stream.writePacketRTCP)
 
 		return nil
 	}
@@ -146,7 +146,7 @@ func (s *hlsSource) runInner() bool {
 
 		for _, pkt := range pkts {
 			rtcpSenders.OnPacketRTP(videoTrackID, pkt)
-			stream.onPacketRTP(videoTrackID, pkt)
+			stream.writePacketRTP(videoTrackID, pkt)
 		}
 	}
 
@@ -162,7 +162,7 @@ func (s *hlsSource) runInner() bool {
 
 		for _, pkt := range pkts {
 			rtcpSenders.OnPacketRTP(audioTrackID, pkt)
-			stream.onPacketRTP(audioTrackID, pkt)
+			stream.writePacketRTP(audioTrackID, pkt)
 		}
 	}
 

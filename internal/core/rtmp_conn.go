@@ -502,12 +502,12 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		return rres.err
 	}
 
-	rtcpSenders := rtcpsenderset.New(tracks, rres.stream.onPacketRTCP)
+	rtcpSenders := rtcpsenderset.New(tracks, rres.stream.writePacketRTCP)
 	defer rtcpSenders.Close()
 
 	onPacketRTP := func(trackID int, pkt *rtp.Packet) {
 		rtcpSenders.OnPacketRTP(trackID, pkt)
-		rres.stream.onPacketRTP(trackID, pkt)
+		rres.stream.writePacketRTP(trackID, pkt)
 	}
 
 	for {

@@ -162,12 +162,12 @@ func (s *rtmpSource) runInner() bool {
 						s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 					}()
 
-					rtcpSenders := rtcpsenderset.New(tracks, res.stream.onPacketRTCP)
+					rtcpSenders := rtcpsenderset.New(tracks, res.stream.writePacketRTCP)
 					defer rtcpSenders.Close()
 
 					onPacketRTP := func(trackID int, pkt *rtp.Packet) {
 						rtcpSenders.OnPacketRTP(trackID, pkt)
-						res.stream.onPacketRTP(trackID, pkt)
+						res.stream.writePacketRTP(trackID, pkt)
 					}
 
 					for {

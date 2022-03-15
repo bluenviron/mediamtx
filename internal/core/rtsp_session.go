@@ -406,7 +406,7 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 		return
 	}
 
-	s.stream.onPacketRTP(ctx.TrackID, ctx.Packet)
+	s.stream.writePacketRTP(ctx.TrackID, ctx.Packet)
 }
 
 // onPacketRTCP is called by rtspServer.
@@ -415,5 +415,5 @@ func (s *rtspSession) onPacketRTCP(ctx *gortsplib.ServerHandlerOnPacketRTCPCtx) 
 		return
 	}
 
-	s.stream.onPacketRTCP(ctx.TrackID, ctx.Packet)
+	s.stream.writePacketRTCP(ctx.TrackID, ctx.Packet)
 }

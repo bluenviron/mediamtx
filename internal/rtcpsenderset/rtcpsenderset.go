@@ -11,8 +11,8 @@ import (
 
 // RTCPSenderSet is a set of RTCP senders.
 type RTCPSenderSet struct {
-	onPacketRTCP func(int, rtcp.Packet)
-	senders      []*rtcpsender.RTCPSender
+	writePacketRTCP func(int, rtcp.Packet)
+	senders         []*rtcpsender.RTCPSender
 
 	// in
 	terminate chan struct{}
@@ -24,12 +24,12 @@ type RTCPSenderSet struct {
 // New allocates a RTCPSenderSet.
 func New(
 	tracks gortsplib.Tracks,
-	onPacketRTCP func(int, rtcp.Packet),
+	writePacketRTCP func(int, rtcp.Packet),
 ) *RTCPSenderSet {
 	s := &RTCPSenderSet{
-		onPacketRTCP: onPacketRTCP,
-		terminate:    make(chan struct{}),
-		done:         make(chan struct{}),
+		writePacketRTCP: writePacketRTCP,
+		terminate:       make(chan struct{}),
+		done:            make(chan struct{}),
 	}
 
 	s.senders = make([]*rtcpsender.RTCPSender, len(tracks))
@@ -38,7 +38,7 @@ func New(
 
 		s.senders[i] = rtcpsender.New(10*time.Second,
 			track.ClockRate(), func(pkt rtcp.Packet) {
-				onPacketRTCP(ci, pkt)
+				writePacketRTCP(ci, pkt)
 			})
 	}
 

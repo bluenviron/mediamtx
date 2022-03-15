@@ -206,11 +206,11 @@ func (s *rtspSource) runInner() bool {
 			}()
 
 			c.OnPacketRTP = func(trackID int, pkt *rtp.Packet) {
-				res.stream.onPacketRTP(trackID, pkt)
+				res.stream.writePacketRTP(trackID, pkt)
 			}
 
 			c.OnPacketRTCP = func(trackID int, pkt rtcp.Packet) {
-				res.stream.onPacketRTCP(trackID, pkt)
+				res.stream.writePacketRTCP(trackID, pkt)
 			}
 
 			_, err = c.Play(nil)
@@ -300,7 +300,7 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 				}
 			}
 		} else {
-			stream.onPacketRTP(trackID, pkt)
+			stream.writePacketRTP(trackID, pkt)
 		}
 	}
 
@@ -309,7 +309,7 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 		defer streamMutex.RUnlock()
 
 		if stream != nil {
-			stream.onPacketRTCP(trackID, pkt)
+			stream.writePacketRTCP(trackID, pkt)
 		}
 	}
 
