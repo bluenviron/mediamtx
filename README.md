@@ -300,7 +300,7 @@ paths:
 
 ### Remuxing, re-encoding, compression
 
-To change the format, codec or compression of a stream, use _FFmpeg_ or _Gstreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+To change the format, codec or compression of a stream, use _FFmpeg_ or _GStreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:
@@ -503,7 +503,7 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 To publish the video stream of a Raspberry Pi Camera to the server, install a couple of dependencies:
 
-1. _Gstreamer_ and _h264parse_:
+1. _GStreamer_ and _h264parse_:
 
    ```
    sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-plugins-bad
@@ -610,7 +610,7 @@ You can use _FFmpeg_ to read that stream with the TCP transport protocol:
 ffmpeg -re -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
 ```
 
-You can use _Gstreamer_ to read that stream with the TCP transport protocol:
+You can use _GStreamer_ to read that stream with the TCP transport protocol:
 
 ```
 gst-launch-1.0 rtspsrc protocols=tcp rtsp://localhost:8554/mystream ! fakesink
