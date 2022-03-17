@@ -87,7 +87,7 @@ func (p *muxerStreamPlaylist) reader() io.Reader {
 		cnt += "\n"
 
 		for _, s := range p.segments {
-			cnt += "#EXT-X-PROGRAM-DATE-TIME:" + s.startTime.Format("2006-01-02T15:04:05+07:00") + "\n" +
+			cnt += "#EXT-X-PROGRAM-DATE-TIME:" + s.startTime.Format("2006-01-02T15:04:05.999+07:00") + "\n" +
 				"#EXTINF:" + strconv.FormatFloat(s.duration().Seconds(), 'f', -1, 64) + ",\n" +
 				s.name + ".ts\n"
 		}
