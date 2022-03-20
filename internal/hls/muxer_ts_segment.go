@@ -14,7 +14,7 @@ import (
 type muxerTSSegment struct {
 	hlsSegmentMaxSize uint64
 	videoTrack        *gortsplib.TrackH264
-	writer            *muxerTSWriter
+	writeData         func(*astits.MuxerData) (int, error)
 
 	startTime      time.Time
 	name           string
@@ -28,14 +28,14 @@ type muxerTSSegment struct {
 func newMuxerTSSegment(
 	hlsSegmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	writer *muxerTSWriter,
+	writeData func(*astits.MuxerData) (int, error),
 ) *muxerTSSegment {
 	now := time.Now()
 
 	t := &muxerTSSegment{
 		hlsSegmentMaxSize: hlsSegmentMaxSize,
 		videoTrack:        videoTrack,
-		writer:            writer,
+		writeData:         writeData,
 		startTime:         now,
 		name:              strconv.FormatInt(now.Unix(), 10),
 	}
@@ -44,8 +44,6 @@ func newMuxerTSSegment(
 	// - PID == PCRPID
 	// - AdaptationField != nil
 	// - RandomAccessIndicator = true
-
-	writer.currentSegment = t
 
 	return t
 }
@@ -103,7 +101,7 @@ func (t *muxerTSSegment) writeH264(
 		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
 	}
 
-	_, err := t.writer.WriteData(&astits.MuxerData{
+	_, err := t.writeData(&astits.MuxerData{
 		PID:             256,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -147,7 +145,7 @@ func (t *muxerTSSegment) writeAAC(
 		}
 	}
 
-	_, err := t.writer.WriteData(&astits.MuxerData{
+	_, err := t.writeData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
 		PES: &astits.PESData{

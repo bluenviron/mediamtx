@@ -1,11 +1,13 @@
 package hls
 
 import (
+	"context"
 	"time"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/asticode/go-astits"
 )
 
 const (
@@ -25,6 +27,12 @@ func idrPresent(nalus [][]byte) bool {
 	return false
 }
 
+type writerFunc func(p []byte) (int, error)
+
+func (f writerFunc) Write(p []byte) (int, error) {
+	return f(p)
+}
+
 type muxerTSGenerator struct {
 	hlsSegmentCount    int
 	hlsSegmentDuration time.Duration
@@ -33,7 +41,7 @@ type muxerTSGenerator struct {
 	audioTrack         *gortsplib.TrackAAC
 	streamPlaylist     *muxerStreamPlaylist
 
-	writer         *muxerTSWriter
+	writer         *astits.Muxer
 	currentSegment *muxerTSSegment
 	videoDTSEst    *h264.DTSEstimator
 	startPCR       time.Time
@@ -55,7 +63,32 @@ func newMuxerTSGenerator(
 		videoTrack:         videoTrack,
 		audioTrack:         audioTrack,
 		streamPlaylist:     streamPlaylist,
-		writer:             newMuxerTSWriter(videoTrack, audioTrack),
+	}
+
+	m.writer = astits.NewMuxer(
+		context.Background(),
+		writerFunc(func(p []byte) (int, error) {
+			return m.currentSegment.write(p)
+		}))
+
+	if videoTrack != nil {
+		m.writer.AddElementaryStream(astits.PMTElementaryStream{
+			ElementaryPID: 256,
+			StreamType:    astits.StreamTypeH264Video,
+		})
+	}
+
+	if audioTrack != nil {
+		m.writer.AddElementaryStream(astits.PMTElementaryStream{
+			ElementaryPID: 257,
+			StreamType:    astits.StreamTypeAACAudio,
+		})
+	}
+
+	if videoTrack != nil {
+		m.writer.SetPCRPID(256)
+	} else {
+		m.writer.SetPCRPID(257)
 	}
 
 	return m
@@ -71,7 +104,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 		}
 
 		// create first segment
-		m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer)
+		m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer.WriteData)
 		m.startPCR = time.Now()
 		m.startPTS = pts
 		m.videoDTSEst = h264.NewDTSEstimator()
@@ -85,7 +118,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 			(pts-*m.currentSegment.startPTS) >= m.hlsSegmentDuration {
 			m.currentSegment.endPTS = pts
 			m.streamPlaylist.pushSegment(m.currentSegment)
-			m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer)
+			m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer.WriteData)
 		}
 	}
 
@@ -136,7 +169,7 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {
 			// create first segment
-			m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer)
+			m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer.WriteData)
 			m.startPCR = time.Now()
 			m.startPTS = pts
 			pts = pcrOffset
@@ -149,7 +182,7 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 				(pts-*m.currentSegment.startPTS) >= m.hlsSegmentDuration {
 				m.currentSegment.endPTS = pts
 				m.streamPlaylist.pushSegment(m.currentSegment)
-				m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer)
+				m.currentSegment = newMuxerTSSegment(m.hlsSegmentMaxSize, m.videoTrack, m.writer.WriteData)
 			}
 		}
 	} else {
