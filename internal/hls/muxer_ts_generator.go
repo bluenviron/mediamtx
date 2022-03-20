@@ -11,9 +11,6 @@ import (
 )
 
 const (
-	// an offset between PCR and PTS/DTS is needed to avoid PCR > PTS
-	pcrOffset = 500 * time.Millisecond
-
 	segmentMinAUCount = 100
 )
 
@@ -108,11 +105,11 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 		m.startPCR = now
 		m.currentSegment = newMuxerTSSegment(now, m.hlsSegmentMaxSize,
 			m.videoTrack, m.writer.WriteData)
-		m.startPTS = pts
 		m.videoDTSEst = h264.NewDTSEstimator()
-		pts = pcrOffset
+		m.startPTS = pts
+		pts = 0
 	} else {
-		pts = pts - m.startPTS + pcrOffset
+		pts -= m.startPTS
 
 		// switch segment
 		if idrPresent &&
@@ -125,7 +122,7 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 		}
 	}
 
-	dts := m.videoDTSEst.Feed(pts-m.startPTS) + pcrOffset
+	dts := m.videoDTSEst.Feed(pts)
 
 	// prepend an AUD. This is required by video.js and iOS
 	filteredNALUs := [][]byte{
@@ -156,7 +153,8 @@ func (m *muxerTSGenerator) writeH264(pts time.Duration, nalus [][]byte) error {
 		return err
 	}
 
-	err = m.currentSegment.writeH264(now.Sub(m.startPCR), dts, pts, idrPresent, enc)
+	err = m.currentSegment.writeH264(now.Sub(m.startPCR), dts,
+		pts, idrPresent, enc)
 	if err != nil {
 		if m.currentSegment.buf.Len() > 0 {
 			m.streamPlaylist.pushSegment(m.currentSegment)
@@ -178,9 +176,9 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 			m.currentSegment = newMuxerTSSegment(now, m.hlsSegmentMaxSize,
 				m.videoTrack, m.writer.WriteData)
 			m.startPTS = pts
-			pts = pcrOffset
+			pts = 0
 		} else {
-			pts = pts - m.startPTS + pcrOffset
+			pts -= m.startPTS
 
 			// switch segment
 			if m.currentSegment.audioAUCount >= segmentMinAUCount &&
@@ -198,7 +196,7 @@ func (m *muxerTSGenerator) writeAAC(pts time.Duration, aus [][]byte) error {
 			return nil
 		}
 
-		pts = pts - m.startPTS + pcrOffset
+		pts -= m.startPTS
 	}
 
 	pkts := make([]*aac.ADTSPacket, len(aus))

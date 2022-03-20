@@ -11,6 +11,11 @@ import (
 	"github.com/asticode/go-astits"
 )
 
+const (
+	// an offset between PCR and PTS/DTS is needed to avoid PCR > PTS
+	pcrOffset = 500 * time.Millisecond
+)
+
 type muxerTSSegment struct {
 	hlsSegmentMaxSize uint64
 	videoTrack        *gortsplib.TrackH264
@@ -93,11 +98,11 @@ func (t *muxerTSSegment) writeH264(
 
 	if dts == pts {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorOnlyPTS
-		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)}
 	} else {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorBothPresent
-		oh.DTS = &astits.ClockReference{Base: int64(dts.Seconds() * 90000)}
-		oh.PTS = &astits.ClockReference{Base: int64(pts.Seconds() * 90000)}
+		oh.DTS = &astits.ClockReference{Base: int64((dts + pcrOffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)}
 	}
 
 	_, err := t.writeData(&astits.MuxerData{
@@ -152,7 +157,7 @@ func (t *muxerTSSegment) writeAAC(
 				OptionalHeader: &astits.PESOptionalHeader{
 					MarkerBits:      2,
 					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64(pts.Seconds() * 90000)},
+					PTS:             &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)},
 				},
 				PacketLength: uint16(len(enc) + 8),
 				StreamID:     192, // audio
