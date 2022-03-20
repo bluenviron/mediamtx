@@ -16,7 +16,7 @@ type clientAudioProcessorData struct {
 
 type clientAudioProcessor struct {
 	ctx     context.Context
-	onTrack func(gortsplib.Track) error
+	onTrack func(*gortsplib.TrackAAC) error
 	onData  func(time.Duration, [][]byte)
 
 	trackInitialized bool
@@ -26,7 +26,7 @@ type clientAudioProcessor struct {
 
 func newClientAudioProcessor(
 	ctx context.Context,
-	onTrack func(gortsplib.Track) error,
+	onTrack func(*gortsplib.TrackAAC) error,
 	onData func(time.Duration, [][]byte),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{

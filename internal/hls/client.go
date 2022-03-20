@@ -46,7 +46,7 @@ type ClientLogger interface {
 
 // Client is a HLS client.
 type Client struct {
-	onTracks    func(gortsplib.Track, gortsplib.Track) error
+	onTracks    func(*gortsplib.TrackH264, *gortsplib.TrackAAC) error
 	onVideoData func(time.Duration, [][]byte)
 	onAudioData func(time.Duration, [][]byte)
 	logger      ClientLogger
@@ -69,8 +69,8 @@ type Client struct {
 	audioProc *clientAudioProcessor
 
 	tracksMutex sync.RWMutex
-	videoTrack  gortsplib.Track
-	audioTrack  gortsplib.Track
+	videoTrack  *gortsplib.TrackH264
+	audioTrack  *gortsplib.TrackAAC
 
 	// in
 	allocateProcs chan clientAllocateProcsReq
@@ -83,7 +83,7 @@ type Client struct {
 func NewClient(
 	primaryPlaylistURLStr string,
 	fingerprint string,
-	onTracks func(gortsplib.Track, gortsplib.Track) error,
+	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackAAC) error,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, [][]byte),
 	logger ClientLogger,
@@ -167,12 +167,8 @@ func (c *Client) runInner() error {
 			if c.videoPID != nil {
 				c.videoProc = newClientVideoProcessor(
 					innerCtx,
-					c.onVideoTrack,
-					func(pts time.Duration, nalus [][]byte) {
-						c.tracksMutex.RLock()
-						defer c.tracksMutex.RUnlock()
-						c.onVideoData(pts, nalus)
-					},
+					c.onVideoProcessorTrack,
+					c.onVideoProcessorData,
 					c.logger)
 
 				go func() { errChan <- c.videoProc.run() }()
@@ -181,12 +177,8 @@ func (c *Client) runInner() error {
 			if c.audioPID != nil {
 				c.audioProc = newClientAudioProcessor(
 					innerCtx,
-					c.onAudioTrack,
-					func(pts time.Duration, aus [][]byte) {
-						c.tracksMutex.RLock()
-						defer c.tracksMutex.RUnlock()
-						c.onAudioData(pts, aus)
-					})
+					c.onAudioProcessorTrack,
+					c.onAudioProcessorData)
 
 				go func() { errChan <- c.audioProc.run() }()
 			}
@@ -525,7 +517,7 @@ func (c *Client) processSegment(innerCtx context.Context, byts []byte) error {
 	}
 }
 
-func (c *Client) onVideoTrack(track gortsplib.Track) error {
+func (c *Client) onVideoProcessorTrack(track *gortsplib.TrackH264) error {
 	c.tracksMutex.Lock()
 	defer c.tracksMutex.Unlock()
 
@@ -538,7 +530,13 @@ func (c *Client) onVideoTrack(track gortsplib.Track) error {
 	return nil
 }
 
-func (c *Client) onAudioTrack(track gortsplib.Track) error {
+func (c *Client) onVideoProcessorData(pts time.Duration, nalus [][]byte) {
+	c.tracksMutex.RLock()
+	defer c.tracksMutex.RUnlock()
+	c.onVideoData(pts, nalus)
+}
+
+func (c *Client) onAudioProcessorTrack(track *gortsplib.TrackAAC) error {
 	c.tracksMutex.Lock()
 	defer c.tracksMutex.Unlock()
 
@@ -549,4 +547,10 @@ func (c *Client) onAudioTrack(track gortsplib.Track) error {
 	}
 
 	return nil
+}
+
+func (c *Client) onAudioProcessorData(pts time.Duration, aus [][]byte) {
+	c.tracksMutex.RLock()
+	defer c.tracksMutex.RUnlock()
+	c.onAudioData(pts, aus)
 }

@@ -103,7 +103,7 @@ func (s *hlsSource) runInner() bool {
 		}
 	}()
 
-	onTracks := func(videoTrack gortsplib.Track, audioTrack gortsplib.Track) error {
+	onTracks := func(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) error {
 		var tracks gortsplib.Tracks
 
 		if videoTrack != nil {

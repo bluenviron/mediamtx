@@ -19,7 +19,7 @@ type clientVideoProcessorData struct {
 
 type clientVideoProcessor struct {
 	ctx     context.Context
-	onTrack func(gortsplib.Track) error
+	onTrack func(*gortsplib.TrackH264) error
 	onData  func(time.Duration, [][]byte)
 	logger  ClientLogger
 
@@ -32,7 +32,7 @@ type clientVideoProcessor struct {
 
 func newClientVideoProcessor(
 	ctx context.Context,
-	onTrack func(gortsplib.Track) error,
+	onTrack func(*gortsplib.TrackH264) error,
 	onData func(time.Duration, [][]byte),
 	logger ClientLogger,
 ) *clientVideoProcessor {
