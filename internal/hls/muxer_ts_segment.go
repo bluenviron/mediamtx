@@ -26,12 +26,11 @@ type muxerTSSegment struct {
 }
 
 func newMuxerTSSegment(
+	now time.Time,
 	hlsSegmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	writeData func(*astits.MuxerData) (int, error),
 ) *muxerTSSegment {
-	now := time.Now()
-
 	t := &muxerTSSegment{
 		hlsSegmentMaxSize: hlsSegmentMaxSize,
 		videoTrack:        videoTrack,
@@ -65,7 +64,7 @@ func (t *muxerTSSegment) reader() io.Reader {
 }
 
 func (t *muxerTSSegment) writeH264(
-	startPCR time.Time,
+	pcr time.Duration,
 	dts time.Duration,
 	pts time.Duration,
 	idrPresent bool,
@@ -83,7 +82,7 @@ func (t *muxerTSSegment) writeH264(
 			af = &astits.PacketAdaptationField{}
 		}
 		af.HasPCR = true
-		af.PCR = &astits.ClockReference{Base: int64(time.Since(startPCR).Seconds() * 90000)}
+		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
 		t.pcrSendCounter = 3
 	}
 	t.pcrSendCounter--
@@ -128,7 +127,7 @@ func (t *muxerTSSegment) writeH264(
 }
 
 func (t *muxerTSSegment) writeAAC(
-	startPCR time.Time,
+	pcr time.Duration,
 	pts time.Duration,
 	enc []byte,
 	ausLen int) error {
@@ -140,7 +139,7 @@ func (t *muxerTSSegment) writeAAC(
 		// send PCR once in a while
 		if t.pcrSendCounter == 0 {
 			af.HasPCR = true
-			af.PCR = &astits.ClockReference{Base: int64(time.Since(startPCR).Seconds() * 90000)}
+			af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
 			t.pcrSendCounter = 3
 		}
 	}
