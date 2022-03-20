@@ -1,21 +1,17 @@
 package hls
 
 import (
+	"bytes"
+	"context"
 	"io/ioutil"
 	"regexp"
 	"testing"
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/asticode/go-astits"
 	"github.com/stretchr/testify/require"
 )
-
-func checkTSPacket(t *testing.T, byts []byte, pid int, afc int) {
-	require.Equal(t, byte(0x47), byts[0])                                      // sync bit
-	require.Equal(t, uint16(pid), (uint16(byts[1])<<8|uint16(byts[2]))&0x1fff) // PID
-	require.Equal(t, uint8(afc), (byts[3]>>4)&0x03)                            // adaptation field control
-}
 
 func TestMuxerVideoAudio(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
@@ -87,48 +83,176 @@ func TestMuxerVideoAudio(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	byts, err = ioutil.ReadAll(m.Segment(ma[2]))
-	require.NoError(t, err)
+	dem := astits.NewDemuxer(context.Background(), m.Segment(ma[2]),
+		astits.DemuxerOptPacketSize(188))
 
 	// PMT
-	checkTSPacket(t, byts, 0, 1)
-	byts = byts[188:]
+	pkt, err := dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		Header: &astits.PacketHeader{
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       0,
+		},
+		Payload: append([]byte{
+			0x00, 0x00, 0xb0, 0x0d, 0x00, 0x00, 0xc1, 0x00,
+			0x00, 0x00, 0x01, 0xf0, 0x00, 0x71, 0x10, 0xd8,
+			0x78,
+		}, bytes.Repeat([]byte{0xff}, 167)...),
+	}, pkt)
 
 	// PAT
-	checkTSPacket(t, byts, 4096, 1)
-	byts = byts[188:]
+	pkt, err = dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		Header: &astits.PacketHeader{
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       4096,
+		},
+		Payload: append([]byte{
+			0x00, 0x02, 0xb0, 0x17, 0x00, 0x01, 0xc1, 0x00,
+			0x00, 0xe1, 0x00, 0xf0, 0x00, 0x1b, 0xe1, 0x00,
+			0xf0, 0x00, 0x0f, 0xe1, 0x01, 0xf0, 0x00, 0x2f,
+			0x44, 0xb9, 0x9b,
+		}, bytes.Repeat([]byte{0xff}, 157)...),
+	}, pkt)
 
 	// PES (H264)
-	checkTSPacket(t, byts, 256, 3)
-	byts = byts[164:]
-	require.Equal(t,
-		[]byte{
+	pkt, err = dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		AdaptationField: &astits.PacketAdaptationField{
+			Length:                145,
+			StuffingLength:        138,
+			HasPCR:                true,
+			PCR:                   &astits.ClockReference{},
+			RandomAccessIndicator: true,
+		},
+		Header: &astits.PacketHeader{
+			HasAdaptationField:        true,
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       256,
+		},
+		Payload: append([]byte{
+			0x00, 0x00, 0x01, 0xe0, 0x00, 0x00, 0x80, 0x80,
+			0x05, 0x21, 0x00, 0x03, 0x5f, 0x91,
 			0, 0, 0, 1, 9, 240, // AUD
 			0, 0, 0, 1, 7, 1, 2, 3, // SPS
 			0, 0, 0, 1, 8, // PPS
 			0, 0, 0, 1, 5, // IDR
-		},
-		byts[:24],
-	)
-	byts = byts[24:]
+		}, bytes.Repeat([]byte{0xff}, 0)...),
+	}, pkt)
 
 	// PES (AAC)
-	checkTSPacket(t, byts, 257, 3)
-	byts = byts[166:]
-	aus, err := aac.DecodeADTS(byts[:22])
+	pkt, err = dem.NextPacket()
 	require.NoError(t, err)
-	require.Equal(t, 2, len(aus))
-	require.Equal(t, 2, aus[0].Type)
-	require.Equal(t, 44100, aus[0].SampleRate)
-	require.Equal(t, 2, aus[0].ChannelCount)
-	require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, aus[0].AU)
-	require.Equal(t, 2, aus[1].Type)
-	require.Equal(t, 44100, aus[1].SampleRate)
-	require.Equal(t, 2, aus[1].ChannelCount)
-	require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, aus[1].AU)
+	require.Equal(t, &astits.Packet{
+		AdaptationField: &astits.PacketAdaptationField{
+			Length:                147,
+			StuffingLength:        146,
+			RandomAccessIndicator: true,
+		},
+		Header: &astits.PacketHeader{
+			HasAdaptationField:        true,
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       257,
+		},
+		Payload: append([]byte{
+			0x00, 0x00, 0x01, 0xc0, 0x00, 0x1e, 0x80, 0x80,
+			0x05, 0x21, 0x00, 0x09, 0x1e, 0xb1, 0xff, 0xf1,
+			0x50, 0x80, 0x01, 0x7f, 0xfc, 0x01, 0x02, 0x03,
+			0x04, 0xff, 0xf1, 0x50, 0x80, 0x01, 0x7f, 0xfc,
+			0x05, 0x06, 0x07, 0x08,
+		}, bytes.Repeat([]byte{0xff}, 0)...),
+	}, pkt)
 }
 
-func TestMuxerAudio(t *testing.T) {
+func TestMuxerVideoOnly(t *testing.T) {
+	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
+	require.NoError(t, err)
+
+	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	require.NoError(t, err)
+	defer m.Close()
+
+	// group with IDR
+	err = m.WriteH264(2*time.Second, [][]byte{
+		{5}, // IDR
+		{9}, // AUD
+		{8}, // PPS
+		{7}, // SPS
+	})
+	require.NoError(t, err)
+
+	// group with IDR
+	err = m.WriteH264(6*time.Second, [][]byte{
+		{5}, // IDR
+	})
+	require.NoError(t, err)
+
+	byts, err := ioutil.ReadAll(m.PrimaryPlaylist())
+	require.NoError(t, err)
+
+	require.Equal(t, "#EXTM3U\n"+
+		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203\"\n"+
+		"stream.m3u8\n", string(byts))
+
+	byts, err = ioutil.ReadAll(m.StreamPlaylist())
+	require.NoError(t, err)
+
+	re := regexp.MustCompile(`^#EXTM3U\n` +
+		`#EXT-X-VERSION:3\n` +
+		`#EXT-X-ALLOW-CACHE:NO\n` +
+		`#EXT-X-TARGETDURATION:4\n` +
+		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`\n` +
+		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
+		`#EXTINF:4,\n` +
+		`([0-9]+\.ts)\n$`)
+	ma := re.FindStringSubmatch(string(byts))
+	require.NotEqual(t, 0, len(ma))
+
+	dem := astits.NewDemuxer(context.Background(), m.Segment(ma[2]),
+		astits.DemuxerOptPacketSize(188))
+
+	// PMT
+	pkt, err := dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		Header: &astits.PacketHeader{
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       0,
+		},
+		Payload: append([]byte{
+			0x00, 0x00, 0xb0, 0x0d, 0x00, 0x00, 0xc1, 0x00,
+			0x00, 0x00, 0x01, 0xf0, 0x00, 0x71, 0x10, 0xd8,
+			0x78,
+		}, bytes.Repeat([]byte{0xff}, 167)...),
+	}, pkt)
+
+	// PAT
+	pkt, err = dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		Header: &astits.PacketHeader{
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       4096,
+		},
+		Payload: append([]byte{
+			0x00, 0x02, 0xb0, 0x12, 0x00, 0x01, 0xc1, 0x00,
+			0x00, 0xe1, 0x00, 0xf0, 0x00, 0x1b, 0xe1, 0x00,
+			0xf0, 0x00, 0x15, 0xbd, 0x4d, 0x56,
+		}, bytes.Repeat([]byte{0xff}, 162)...),
+	}, pkt)
+}
+
+func TestMuxerAudioOnly(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
 	require.NoError(t, err)
 
@@ -176,6 +300,41 @@ func TestMuxerAudio(t *testing.T) {
 		`([0-9]+\.ts)\n$`)
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
+
+	dem := astits.NewDemuxer(context.Background(), m.Segment(ma[2]),
+		astits.DemuxerOptPacketSize(188))
+
+	// PMT
+	pkt, err := dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		Header: &astits.PacketHeader{
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       0,
+		},
+		Payload: append([]byte{
+			0x00, 0x00, 0xb0, 0x0d, 0x00, 0x00, 0xc1, 0x00,
+			0x00, 0x00, 0x01, 0xf0, 0x00, 0x71, 0x10, 0xd8,
+			0x78,
+		}, bytes.Repeat([]byte{0xff}, 167)...),
+	}, pkt)
+
+	// PAT
+	pkt, err = dem.NextPacket()
+	require.NoError(t, err)
+	require.Equal(t, &astits.Packet{
+		Header: &astits.PacketHeader{
+			HasPayload:                true,
+			PayloadUnitStartIndicator: true,
+			PID:                       4096,
+		},
+		Payload: append([]byte{
+			0x00, 0x02, 0xb0, 0x12, 0x00, 0x01, 0xc1, 0x00,
+			0x00, 0xe1, 0x01, 0xf0, 0x00, 0x0f, 0xe1, 0x01,
+			0xf0, 0x00, 0xec, 0xe2, 0xb0, 0x94,
+		}, bytes.Repeat([]byte{0xff}, 162)...),
+	}, pkt)
 }
 
 func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
