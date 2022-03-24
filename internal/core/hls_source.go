@@ -108,13 +108,18 @@ func (s *hlsSource) runInner() bool {
 
 		if videoTrack != nil {
 			videoTrackID = len(tracks)
-			videoEnc = rtph264.NewEncoder(96, nil, nil, nil)
+			videoEnc = &rtph264.Encoder{PayloadType: 96}
+			videoEnc.Init()
 			tracks = append(tracks, videoTrack)
 		}
 
 		if audioTrack != nil {
 			audioTrackID = len(tracks)
-			audioEnc = rtpaac.NewEncoder(97, audioTrack.ClockRate(), nil, nil, nil)
+			audioEnc = &rtpaac.Encoder{
+				PayloadType: 97,
+				SampleRate:  audioTrack.ClockRate(),
+			}
+			audioEnc.Init()
 			tracks = append(tracks, audioTrack)
 		}
 

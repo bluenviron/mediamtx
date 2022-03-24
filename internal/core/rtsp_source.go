@@ -258,7 +258,8 @@ func (s *rtspSource) handleMissingH264Params(c *gortsplib.Client, tracks gortspl
 
 	var streamMutex sync.RWMutex
 	var stream *stream
-	decoder := rtph264.NewDecoder()
+	decoder := &rtph264.Decoder{}
+	decoder.Init()
 	var sps []byte
 	var pps []byte
 	paramsReceived := make(chan struct{})

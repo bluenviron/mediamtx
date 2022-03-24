@@ -274,7 +274,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 			videoTrack = tt
 			videoTrackID = i
-			h264Decoder = rtph264.NewDecoder()
+			h264Decoder = &rtph264.Decoder{}
+			h264Decoder.Init()
 
 		case *gortsplib.TrackAAC:
 			if audioTrack != nil {
@@ -283,7 +284,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = rtpaac.NewDecoder(track.ClockRate())
+			aacDecoder = &rtpaac.Decoder{SampleRate: track.ClockRate()}
+			aacDecoder.Init()
 		}
 	}
 
@@ -447,14 +449,19 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 	var h264Encoder *rtph264.Encoder
 	if videoTrack != nil {
-		h264Encoder = rtph264.NewEncoder(96, nil, nil, nil)
+		h264Encoder = &rtph264.Encoder{PayloadType: 96}
+		h264Encoder.Init()
 		videoTrackID = len(tracks)
 		tracks = append(tracks, videoTrack)
 	}
 
 	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
-		aacEncoder = rtpaac.NewEncoder(96, audioTrack.ClockRate(), nil, nil, nil)
+		aacEncoder = &rtpaac.Encoder{
+			PayloadType: 97,
+			SampleRate:  audioTrack.ClockRate(),
+		}
+		aacEncoder.Init()
 		audioTrackID = len(tracks)
 		tracks = append(tracks, audioTrack)
 	}

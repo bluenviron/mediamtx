@@ -136,14 +136,19 @@ func (s *rtmpSource) runInner() bool {
 
 					var h264Encoder *rtph264.Encoder
 					if videoTrack != nil {
-						h264Encoder = rtph264.NewEncoder(96, nil, nil, nil)
+						h264Encoder = &rtph264.Encoder{PayloadType: 96}
+						h264Encoder.Init()
 						videoTrackID = len(tracks)
 						tracks = append(tracks, videoTrack)
 					}
 
 					var aacEncoder *rtpaac.Encoder
 					if audioTrack != nil {
-						aacEncoder = rtpaac.NewEncoder(96, audioTrack.ClockRate(), nil, nil, nil)
+						aacEncoder = &rtpaac.Encoder{
+							PayloadType: 97,
+							SampleRate:  audioTrack.ClockRate(),
+						}
+						aacEncoder.Init()
 						audioTrackID = len(tracks)
 						tracks = append(tracks, audioTrack)
 					}

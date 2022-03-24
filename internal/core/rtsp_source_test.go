@@ -238,7 +238,8 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 				go func() {
 					time.Sleep(500 * time.Millisecond)
 
-					enc := rtph264.NewEncoder(96, nil, nil, nil)
+					enc := &rtph264.Encoder{PayloadType: 96}
+					enc.Init()
 
 					pkts, err := enc.Encode([][]byte{{5}}, 0) // IDR
 					require.NoError(t, err)
@@ -285,7 +286,8 @@ func TestRTSPSourceMissingH264Params(t *testing.T) {
 	defer p.close()
 
 	received := make(chan struct{})
-	decoder := rtph264.NewDecoder()
+	decoder := &rtph264.Decoder{}
+	decoder.Init()
 
 	c := gortsplib.Client{
 		OnPacketRTP: func(trackID int, pkt *rtp.Packet) {

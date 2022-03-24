@@ -296,7 +296,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 			videoTrack = tt
 			videoTrackID = i
-			h264Decoder = rtph264.NewDecoder()
+			h264Decoder = &rtph264.Decoder{}
+			h264Decoder.Init()
 
 		case *gortsplib.TrackAAC:
 			if audioTrack != nil {
@@ -305,7 +306,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = rtpaac.NewDecoder(track.ClockRate())
+			aacDecoder = &rtpaac.Decoder{SampleRate: track.ClockRate()}
+			aacDecoder.Init()
 		}
 	}
 
