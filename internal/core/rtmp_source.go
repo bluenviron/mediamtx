@@ -11,11 +11,9 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	"github.com/pion/rtp/v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
@@ -166,15 +164,6 @@ func (s *rtmpSource) runInner() bool {
 					defer func() {
 						s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 					}()
-
-					rtcpSenders := rtcpsenderset.New(tracks, res.stream.writePacketRTCP)
-					defer rtcpSenders.Close()
-
-					onPacketRTP := func(trackID int, pkt *rtp.Packet) {
-						rtcpSenders.OnPacketRTP(trackID, pkt)
-						res.stream.writePacketRTP(trackID, pkt)
-					}
-
 					for {
 						conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 						pkt, err := conn.ReadPacket()
@@ -211,7 +200,7 @@ func (s *rtmpSource) runInner() bool {
 							}
 
 							for _, pkt := range pkts {
-								onPacketRTP(videoTrackID, pkt)
+								res.stream.writePacketRTP(videoTrackID, pkt)
 							}
 
 						case av.AAC:
@@ -225,7 +214,7 @@ func (s *rtmpSource) runInner() bool {
 							}
 
 							for _, pkt := range pkts {
-								onPacketRTP(audioTrackID, pkt)
+								res.stream.writePacketRTP(audioTrackID, pkt)
 							}
 						}
 					}

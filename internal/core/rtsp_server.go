@@ -394,14 +394,6 @@ func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	se.onPacketRTP(ctx)
 }
 
-// OnPacketRTCP implements gortsplib.ServerHandlerOnPacket.
-func (s *rtspServer) OnPacketRTCP(ctx *gortsplib.ServerHandlerOnPacketRTCPCtx) {
-	s.mutex.RLock()
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
-	se.onPacketRTCP(ctx)
-}
-
 // onAPISessionsList is called by api and metrics.
 func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes {
 	select {

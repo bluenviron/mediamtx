@@ -11,7 +11,6 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 )
 
 const (
@@ -90,7 +89,6 @@ outer:
 
 func (s *hlsSource) runInner() bool {
 	var stream *stream
-	var rtcpSenders *rtcpsenderset.RTCPSenderSet
 	var videoTrackID int
 	var audioTrackID int
 	var videoEnc *rtph264.Encoder
@@ -99,7 +97,6 @@ func (s *hlsSource) runInner() bool {
 	defer func() {
 		if stream != nil {
 			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
-			rtcpSenders.Close()
 		}
 	}()
 
@@ -134,7 +131,6 @@ func (s *hlsSource) runInner() bool {
 		s.Log(logger.Info, "ready")
 
 		stream = res.stream
-		rtcpSenders = rtcpsenderset.New(tracks, stream.writePacketRTCP)
 
 		return nil
 	}
@@ -150,7 +146,6 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		for _, pkt := range pkts {
-			rtcpSenders.OnPacketRTP(videoTrackID, pkt)
 			stream.writePacketRTP(videoTrackID, pkt)
 		}
 	}
@@ -166,7 +161,6 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		for _, pkt := range pkts {
-			rtcpSenders.OnPacketRTP(audioTrackID, pkt)
 			stream.writePacketRTP(audioTrackID, pkt)
 		}
 	}

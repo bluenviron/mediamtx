@@ -17,7 +17,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
-	"github.com/pion/rtcp"
 	"github.com/pion/rtp/v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -539,10 +538,6 @@ func (m *hlsMuxer) onReaderAccepted() {
 // onReaderPacketRTP implements reader.
 func (m *hlsMuxer) onReaderPacketRTP(trackID int, pkt *rtp.Packet) {
 	m.ringBuffer.Push(hlsMuxerTrackIDPayloadPair{trackID, pkt})
-}
-
-// onReaderPacketRTCP implements reader.
-func (m *hlsMuxer) onReaderPacketRTCP(trackID int, pkt rtcp.Packet) {
 }
 
 // onReaderAPIDescribe implements reader.

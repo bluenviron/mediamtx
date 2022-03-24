@@ -85,7 +85,6 @@ test-internal:
 	./internal/hls \
 	./internal/logger \
 	./internal/rlimit \
-	./internal/rtcpsenderset \
 	./internal/rtmp
 
 test-core:

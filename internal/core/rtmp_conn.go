@@ -16,13 +16,11 @@ import (
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/notedit/rtmp/av"
-	"github.com/pion/rtcp"
 	"github.com/pion/rtp/v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtcpsenderset"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
@@ -509,14 +507,6 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		return rres.err
 	}
 
-	rtcpSenders := rtcpsenderset.New(tracks, rres.stream.writePacketRTCP)
-	defer rtcpSenders.Close()
-
-	onPacketRTP := func(trackID int, pkt *rtp.Packet) {
-		rtcpSenders.OnPacketRTP(trackID, pkt)
-		rres.stream.writePacketRTP(trackID, pkt)
-	}
-
 	for {
 		c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 		pkt, err := c.conn.ReadPacket()
@@ -558,7 +548,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			}
 
 			for _, pkt := range pkts {
-				onPacketRTP(videoTrackID, pkt)
+				rres.stream.writePacketRTP(videoTrackID, pkt)
 			}
 
 		case av.AAC:
@@ -572,7 +562,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			}
 
 			for _, pkt := range pkts {
-				onPacketRTP(audioTrackID, pkt)
+				rres.stream.writePacketRTP(audioTrackID, pkt)
 			}
 		}
 	}
@@ -632,10 +622,6 @@ func (c *rtmpConn) onReaderAccepted() {
 // onReaderPacketRTP implements reader.
 func (c *rtmpConn) onReaderPacketRTP(trackID int, pkt *rtp.Packet) {
 	c.ringBuffer.Push(rtmpConnTrackIDPayloadPair{trackID, pkt})
-}
-
-// onReaderPacketRTCP implements reader.
-func (c *rtmpConn) onReaderPacketRTCP(trackID int, pkt rtcp.Packet) {
 }
 
 // onReaderAPIDescribe implements reader.
