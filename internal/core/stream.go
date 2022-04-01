@@ -4,7 +4,7 @@ import (
 	"sync"
 
 	"github.com/aler9/gortsplib"
-	"github.com/pion/rtp/v2"
+	"github.com/pion/rtp"
 )
 
 type streamNonRTSPReadersMap struct {

@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/pion/rtp/v2"
+	"github.com/pion/rtp"
 )
 
 // reader is an entity that can read a stream.
