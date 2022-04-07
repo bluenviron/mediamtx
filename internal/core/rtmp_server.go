@@ -83,7 +83,8 @@ func newRTMPServer(
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
 	pathManager *pathManager,
-	parent rtmpServerParent) (*rtmpServer, error) {
+	parent rtmpServerParent,
+) (*rtmpServer, error) {
 	l, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

@@ -57,7 +57,8 @@ func newRTSPSource(
 	readBufferCount int,
 	readBufferSize int,
 	wg *sync.WaitGroup,
-	parent rtspSourceParent) *rtspSource {
+	parent rtspSourceParent,
+) *rtspSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtspSource{

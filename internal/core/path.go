@@ -268,7 +268,8 @@ func newPath(
 	matches []string,
 	wg *sync.WaitGroup,
 	externalCmdPool *externalcmd.Pool,
-	parent pathParent) *path {
+	parent pathParent,
+) *path {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pa := &path{

@@ -159,7 +159,8 @@ func newHLSMuxer(
 	wg *sync.WaitGroup,
 	pathName string,
 	pathManager hlsMuxerPathManager,
-	parent hlsMuxerParent) *hlsMuxer {
+	parent hlsMuxerParent,
+) *hlsMuxer {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	m := &hlsMuxer{

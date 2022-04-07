@@ -56,7 +56,8 @@ func newRTSPSession(
 	sc *gortsplib.ServerConn,
 	externalCmdPool *externalcmd.Pool,
 	pathManager rtspSessionPathManager,
-	parent rtspSessionParent) *rtspSession {
+	parent rtspSessionParent,
+) *rtspSession {
 	s := &rtspSession{
 		isTLS:           isTLS,
 		protocols:       protocols,
@@ -132,7 +133,8 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
-			pathPass conf.Credential) error {
+			pathPass conf.Credential,
+		) error {
 			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "publish", ctx.Request, ctx.Query)
 		},
 	})
@@ -191,7 +193,8 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			authenticate: func(
 				pathIPs []interface{},
 				pathUser conf.Credential,
-				pathPass conf.Credential) error {
+				pathPass conf.Credential,
+			) error {
 				return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Request, ctx.Query)
 			},
 		})

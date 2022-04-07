@@ -56,7 +56,8 @@ func (p *clientAudioProcessor) run() error {
 
 func (p *clientAudioProcessor) doProcess(
 	data []byte,
-	pts time.Duration) error {
+	pts time.Duration,
+) error {
 	adtsPkts, err := aac.DecodeADTS(data)
 	if err != nil {
 		return err
@@ -101,7 +102,8 @@ func (p *clientAudioProcessor) doProcess(
 
 func (p *clientAudioProcessor) process(
 	data []byte,
-	pts time.Duration) {
+	pts time.Duration,
+) {
 	select {
 	case p.queue <- clientAudioProcessorData{data, pts}:
 	case <-p.ctx.Done():

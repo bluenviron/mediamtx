@@ -1,6 +1,6 @@
 
 BASE_IMAGE = golang:1.17-alpine3.14
-LINT_IMAGE = golangci/golangci-lint:v1.44.2
+LINT_IMAGE = golangci/golangci-lint:v1.45.2
 NODE_IMAGE = node:14-alpine3.14
 
 .PHONY: $(shell ls)
@@ -35,7 +35,7 @@ mod-tidy:
 
 define DOCKERFILE_FORMAT
 FROM $(BASE_IMAGE)
-RUN go install mvdan.cc/gofumpt@v0.2.0
+RUN go install mvdan.cc/gofumpt@v0.3.1
 endef
 export DOCKERFILE_FORMAT
 
