@@ -53,7 +53,8 @@ func newRTSPConn(
 	externalCmdPool *externalcmd.Pool,
 	pathManager *pathManager,
 	conn *gortsplib.ServerConn,
-	parent rtspConnParent) *rtspConn {
+	parent rtspConnParent,
+) *rtspConn {
 	c := &rtspConn{
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
@@ -248,7 +249,8 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
-			pathPass conf.Credential) error {
+			pathPass conf.Credential,
+		) error {
 			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, "read", ctx.Request, ctx.Query)
 		},
 	})

@@ -98,7 +98,8 @@ func newRTSPServer(
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
 	pathManager *pathManager,
-	parent rtspServerParent) (*rtspServer, error) {
+	parent rtspServerParent,
+) (*rtspServer, error) {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtspServer{

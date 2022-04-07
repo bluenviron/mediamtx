@@ -44,7 +44,8 @@ func newRTMPSource(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	wg *sync.WaitGroup,
-	parent rtmpSourceParent) *rtmpSource {
+	parent rtmpSourceParent,
+) *rtmpSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtmpSource{

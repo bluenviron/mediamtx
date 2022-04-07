@@ -65,7 +65,8 @@ func (p *clientVideoProcessor) run() error {
 func (p *clientVideoProcessor) doProcess(
 	data []byte,
 	pts time.Duration,
-	dts time.Duration) error {
+	dts time.Duration,
+) error {
 	elapsed := time.Since(p.clockStartRTC)
 	if dts > elapsed {
 		select {
@@ -142,7 +143,8 @@ func (p *clientVideoProcessor) doProcess(
 func (p *clientVideoProcessor) process(
 	data []byte,
 	pts time.Duration,
-	dts time.Duration) {
+	dts time.Duration,
+) {
 	select {
 	case p.queue <- clientVideoProcessorData{data, pts, dts}:
 	case <-p.ctx.Done():

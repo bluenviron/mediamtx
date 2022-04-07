@@ -96,7 +96,8 @@ func newRTMPConn(
 	nconn net.Conn,
 	externalCmdPool *externalcmd.Pool,
 	pathManager rtmpConnPathManager,
-	parent rtmpConnParent) *rtmpConn {
+	parent rtmpConnParent,
+) *rtmpConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
@@ -232,7 +233,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
-			pathPass conf.Credential) error {
+			pathPass conf.Credential,
+		) error {
 			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "read", query, rawQuery)
 		},
 	})
@@ -472,7 +474,8 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		authenticate: func(
 			pathIPs []interface{},
 			pathUser conf.Credential,
-			pathPass conf.Credential) error {
+			pathPass conf.Credential,
+		) error {
 			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "publish", query, rawQuery)
 		},
 	})

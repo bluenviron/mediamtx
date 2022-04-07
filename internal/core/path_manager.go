@@ -56,7 +56,8 @@ func newPathManager(
 	pathConfs map[string]*conf.PathConf,
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
-	parent pathManagerParent) *pathManager {
+	parent pathManagerParent,
+) *pathManager {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pm := &pathManager{
@@ -268,7 +269,8 @@ func (pm *pathManager) createPath(
 	pathConfName string,
 	pathConf *conf.PathConf,
 	name string,
-	matches []string) {
+	matches []string,
+) {
 	pm.paths[name] = newPath(
 		pm.ctx,
 		pm.rtspAddress,

@@ -38,7 +38,8 @@ func newHLSSource(
 	ur string,
 	fingerprint string,
 	wg *sync.WaitGroup,
-	parent hlsSourceParent) *hlsSource {
+	parent hlsSourceParent,
+) *hlsSource {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &hlsSource{
