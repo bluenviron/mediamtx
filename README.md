@@ -607,7 +607,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp -rtsp_transport tcp rtsp:/
 You can use _FFmpeg_ to read that stream with the TCP transport protocol:
 
 ```
-ffmpeg -re -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
+ffmpeg -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
 ```
 
 You can use _GStreamer_ to read that stream with the TCP transport protocol:
@@ -631,7 +631,7 @@ This mode must be requested by readers when handshaking with the server; once a 
 To request and read a stream with UDP-multicast, you can use _FFmpeg_:
 
 ```
-ffmpeg -re -rtsp_transport udp_multicast -i rtsp://localhost:8554/mystream -c copy output.mp4
+ffmpeg -rtsp_transport udp_multicast -i rtsp://localhost:8554/mystream -c copy output.mp4
 ```
 
 or _GStreamer_:
