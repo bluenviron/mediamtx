@@ -399,9 +399,5 @@ func (s *rtspSession) onPublisherAccepted(tracksLen int) {
 
 // onPacketRTP is called by rtspServer.
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
-	if s.ss.State() != gortsplib.ServerSessionStateRecord {
-		return
-	}
-
 	s.stream.writePacketRTP(ctx.TrackID, ctx.Packet)
 }
