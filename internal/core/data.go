@@ -7,6 +7,7 @@ import (
 )
 
 type data struct {
+	trackID      int
 	rtp          *rtp.Packet
 	ptsEqualsDTS bool
 	h264NALUs    [][]byte

@@ -150,12 +150,14 @@ func (s *hlsSource) runInner() bool {
 		lastPkt := len(pkts) - 1
 		for i, pkt := range pkts {
 			if i != lastPkt {
-				stream.writeData(videoTrackID, &data{
+				stream.writeData(&data{
+					trackID:      videoTrackID,
 					rtp:          pkt,
 					ptsEqualsDTS: false,
 				})
 			} else {
-				stream.writeData(videoTrackID, &data{
+				stream.writeData(&data{
+					trackID:      videoTrackID,
 					rtp:          pkt,
 					ptsEqualsDTS: h264.IDRPresent(nalus),
 					h264NALUs:    nalus,
@@ -176,7 +178,8 @@ func (s *hlsSource) runInner() bool {
 		}
 
 		for _, pkt := range pkts {
-			stream.writeData(audioTrackID, &data{
+			stream.writeData(&data{
+				trackID:      audioTrackID,
 				rtp:          pkt,
 				ptsEqualsDTS: true,
 			})

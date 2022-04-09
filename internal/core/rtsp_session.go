@@ -342,7 +342,7 @@ func (s *rtspSession) onReaderAccepted() {
 }
 
 // onReaderData implements reader.
-func (s *rtspSession) onReaderData(trackID int, data *data) {
+func (s *rtspSession) onReaderData(data *data) {
 	// packets are routed to the session by gortsplib.ServerStream.
 }
 
@@ -393,14 +393,16 @@ func (s *rtspSession) onPublisherAccepted(tracksLen int) {
 // onPacketRTP is called by rtspServer.
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	if ctx.H264NALUs != nil {
-		s.stream.writeData(ctx.TrackID, &data{
+		s.stream.writeData(&data{
+			trackID:      ctx.TrackID,
 			rtp:          ctx.Packet,
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 			h264NALUs:    append([][]byte(nil), ctx.H264NALUs...),
 			h264PTS:      ctx.H264PTS,
 		})
 	} else {
-		s.stream.writeData(ctx.TrackID, &data{
+		s.stream.writeData(&data{
+			trackID:      ctx.TrackID,
 			rtp:          ctx.Packet,
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 		})

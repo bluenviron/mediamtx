@@ -44,11 +44,6 @@ const (
 	rtmpConnStatePublish
 )
 
-type rtmpConnTrackIDDataPair struct {
-	trackID int
-	data    *data
-}
-
 type rtmpConnPathManager interface {
 	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
 	onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
@@ -331,14 +326,14 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	videoFirstIDRFound := false
 
 	for {
-		data, ok := c.ringBuffer.Pull()
+		item, ok := c.ringBuffer.Pull()
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
-		pair := data.(rtmpConnTrackIDDataPair)
+		data := item.(*data)
 
-		if videoTrack != nil && pair.trackID == videoTrackID {
-			if pair.data.h264NALUs == nil {
+		if videoTrack != nil && data.trackID == videoTrackID {
+			if data.h264NALUs == nil {
 				continue
 			}
 
@@ -346,35 +341,35 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
-				if !h264.IDRPresent(pair.data.h264NALUs) {
+				if !h264.IDRPresent(data.h264NALUs) {
 					continue
 				}
 
 				videoFirstIDRFound = true
-				videoStartPTS = pair.data.h264PTS
+				videoStartPTS = data.h264PTS
 				videoDTSEst = h264.NewDTSEstimator()
 			}
 
-			data, err := h264.EncodeAVCC(pair.data.h264NALUs)
+			avcc, err := h264.EncodeAVCC(data.h264NALUs)
 			if err != nil {
 				return err
 			}
 
-			pts := pair.data.h264PTS - videoStartPTS
+			pts := data.h264PTS - videoStartPTS
 			dts := videoDTSEst.Feed(pts)
 
 			c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 			err = c.conn.WritePacket(av.Packet{
 				Type:  av.H264,
-				Data:  data,
+				Data:  avcc,
 				Time:  dts,
 				CTime: pts - dts,
 			})
 			if err != nil {
 				return err
 			}
-		} else if audioTrack != nil && pair.trackID == audioTrackID {
-			aus, pts, err := aacDecoder.Decode(pair.data.rtp)
+		} else if audioTrack != nil && data.trackID == audioTrackID {
+			aus, pts, err := aacDecoder.Decode(data.rtp)
 			if err != nil {
 				if err != rtpaac.ErrMorePacketsNeeded {
 					c.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -510,12 +505,14 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			lastPkt := len(pkts) - 1
 			for i, pkt := range pkts {
 				if i != lastPkt {
-					rres.stream.writeData(videoTrackID, &data{
+					rres.stream.writeData(&data{
+						trackID:      videoTrackID,
 						rtp:          pkt,
 						ptsEqualsDTS: false,
 					})
 				} else {
-					rres.stream.writeData(videoTrackID, &data{
+					rres.stream.writeData(&data{
+						trackID:      videoTrackID,
 						rtp:          pkt,
 						ptsEqualsDTS: h264.IDRPresent(nalus),
 						h264NALUs:    nalus,
@@ -544,12 +541,14 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			lastPkt := len(pkts) - 1
 			for i, pkt := range pkts {
 				if i != lastPkt {
-					rres.stream.writeData(videoTrackID, &data{
+					rres.stream.writeData(&data{
+						trackID:      videoTrackID,
 						rtp:          pkt,
 						ptsEqualsDTS: false,
 					})
 				} else {
-					rres.stream.writeData(videoTrackID, &data{
+					rres.stream.writeData(&data{
+						trackID:      videoTrackID,
 						rtp:          pkt,
 						ptsEqualsDTS: h264.IDRPresent(nalus),
 						h264NALUs:    nalus,
@@ -569,7 +568,8 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 			}
 
 			for _, pkt := range pkts {
-				rres.stream.writeData(audioTrackID, &data{
+				rres.stream.writeData(&data{
+					trackID:      audioTrackID,
 					rtp:          pkt,
 					ptsEqualsDTS: true,
 				})
@@ -630,8 +630,8 @@ func (c *rtmpConn) onReaderAccepted() {
 }
 
 // onReaderData implements reader.
-func (c *rtmpConn) onReaderData(trackID int, data *data) {
-	c.ringBuffer.Push(rtmpConnTrackIDDataPair{trackID, data})
+func (c *rtmpConn) onReaderData(data *data) {
+	c.ringBuffer.Push(data)
 }
 
 // onReaderAPIDescribe implements reader.

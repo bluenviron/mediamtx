@@ -194,12 +194,14 @@ func (s *rtmpSource) runInner() bool {
 							lastPkt := len(pkts) - 1
 							for i, pkt := range pkts {
 								if i != lastPkt {
-									res.stream.writeData(videoTrackID, &data{
+									res.stream.writeData(&data{
+										trackID:      videoTrackID,
 										rtp:          pkt,
 										ptsEqualsDTS: false,
 									})
 								} else {
-									res.stream.writeData(videoTrackID, &data{
+									res.stream.writeData(&data{
+										trackID:      videoTrackID,
 										rtp:          pkt,
 										ptsEqualsDTS: h264.IDRPresent(nalus),
 										h264NALUs:    nalus,
@@ -219,7 +221,8 @@ func (s *rtmpSource) runInner() bool {
 							}
 
 							for _, pkt := range pkts {
-								res.stream.writeData(audioTrackID, &data{
+								res.stream.writeData(&data{
+									trackID:      audioTrackID,
 									rtp:          pkt,
 									ptsEqualsDTS: true,
 								})

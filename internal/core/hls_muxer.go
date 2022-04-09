@@ -105,11 +105,6 @@ type hlsMuxerRequest struct {
 	res  chan hlsMuxerResponse
 }
 
-type hlsMuxerTrackIDDataPair struct {
-	trackID int
-	data    *data
-}
-
 type hlsMuxerPathManager interface {
 	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
 }
@@ -333,24 +328,24 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	go func() {
 		writerDone <- func() error {
 			for {
-				data, ok := m.ringBuffer.Pull()
+				item, ok := m.ringBuffer.Pull()
 				if !ok {
 					return fmt.Errorf("terminated")
 				}
-				pair := data.(hlsMuxerTrackIDDataPair)
+				data := item.(*data)
 
-				if videoTrack != nil && pair.trackID == videoTrackID {
-					if pair.data.h264NALUs == nil {
+				if videoTrack != nil && data.trackID == videoTrackID {
+					if data.h264NALUs == nil {
 						continue
 					}
 
-					err = m.muxer.WriteH264(pair.data.h264PTS, pair.data.h264NALUs)
+					err = m.muxer.WriteH264(data.h264PTS, data.h264NALUs)
 					if err != nil {
 						m.log(logger.Warn, "unable to write segment: %v", err)
 						continue
 					}
-				} else if audioTrack != nil && pair.trackID == audioTrackID {
-					aus, pts, err := aacDecoder.Decode(pair.data.rtp)
+				} else if audioTrack != nil && data.trackID == audioTrackID {
+					aus, pts, err := aacDecoder.Decode(data.rtp)
 					if err != nil {
 						if err != rtpaac.ErrMorePacketsNeeded {
 							m.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -527,8 +522,8 @@ func (m *hlsMuxer) onReaderAccepted() {
 }
 
 // onReaderData implements reader.
-func (m *hlsMuxer) onReaderData(trackID int, data *data) {
-	m.ringBuffer.Push(hlsMuxerTrackIDDataPair{trackID, data})
+func (m *hlsMuxer) onReaderData(data *data) {
+	m.ringBuffer.Push(data)
 }
 
 // onReaderAPIDescribe implements reader.

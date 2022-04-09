@@ -4,6 +4,6 @@ package core
 type reader interface {
 	close()
 	onReaderAccepted()
-	onReaderData(int, *data)
+	onReaderData(*data)
 	onReaderAPIDescribe() interface{}
 }
