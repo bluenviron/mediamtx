@@ -628,6 +628,8 @@ The RTSP protocol supports the UDP-multicast transport protocol, that allows a s
 
 This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to read existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
 
+If you want to use the UDP-multicast protocol in a Wireless LAN, please be aware that the maximum bitrate supported by multicast is the one that corresponds to the lowest enabled WiFi data rate. For instance, if the 1 Mbps data rate is enabled on your router (and it is on most routers), the maximum bitrate will be 1 Mbps. To increase the maximum bitrate, use a cabled LAN or change your router settings.
+
 To request and read a stream with UDP-multicast, you can use _FFmpeg_:
 
 ```
