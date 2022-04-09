@@ -198,7 +198,6 @@ type Conf struct {
 	ServerKey         string      `json:"serverKey"`
 	ServerCert        string      `json:"serverCert"`
 	AuthMethods       AuthMethods `json:"authMethods"`
-	ReadBufferSize    int         `json:"readBufferSize"`
 
 	// RTMP
 	RTMPDisable bool   `json:"rtmpDisable"`

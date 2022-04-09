@@ -74,7 +74,6 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 		ServerKey         *string           `json:"serverKey"`
 		ServerCert        *string           `json:"serverCert"`
 		AuthMethods       *conf.AuthMethods `json:"authMethods"`
-		ReadBufferSize    *int              `json:"readBufferSize"`
 
 		// RTMP
 		RTMPDisable *bool   `json:"rtmpDisable"`

@@ -80,7 +80,6 @@ func newRTSPServer(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
-	readBufferSize int,
 	useUDP bool,
 	useMulticast bool,
 	rtpAddress string,
@@ -124,7 +123,6 @@ func newRTSPServer(
 		ReadTimeout:      time.Duration(readTimeout),
 		WriteTimeout:     time.Duration(writeTimeout),
 		ReadBufferCount:  readBufferCount,
-		ReadBufferSize:   readBufferSize,
 		WriteBufferCount: readBufferCount,
 		RTSPAddress:      address,
 	}

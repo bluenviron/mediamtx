@@ -23,7 +23,6 @@ type pathManager struct {
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
-	readBufferSize  int
 	pathConfs       map[string]*conf.PathConf
 	externalCmdPool *externalcmd.Pool
 	metrics         *metrics
@@ -52,7 +51,6 @@ func newPathManager(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
-	readBufferSize int,
 	pathConfs map[string]*conf.PathConf,
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
@@ -65,7 +63,6 @@ func newPathManager(
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
 		readBufferCount:   readBufferCount,
-		readBufferSize:    readBufferSize,
 		pathConfs:         pathConfs,
 		externalCmdPool:   externalCmdPool,
 		metrics:           metrics,
@@ -277,7 +274,6 @@ func (pm *pathManager) createPath(
 		pm.readTimeout,
 		pm.writeTimeout,
 		pm.readBufferCount,
-		pm.readBufferSize,
 		pathConfName,
 		pathConf,
 		name,

@@ -216,7 +216,6 @@ type path struct {
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
-	readBufferSize  int
 	confName        string
 	conf            *conf.PathConf
 	name            string
@@ -261,7 +260,6 @@ func newPath(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
-	readBufferSize int,
 	confName string,
 	conf *conf.PathConf,
 	name string,
@@ -277,7 +275,6 @@ func newPath(
 		readTimeout:             readTimeout,
 		writeTimeout:            writeTimeout,
 		readBufferCount:         readBufferCount,
-		readBufferSize:          readBufferSize,
 		confName:                confName,
 		conf:                    conf,
 		name:                    name,
@@ -670,7 +667,6 @@ func (pa *path) staticSourceCreate() {
 			pa.readTimeout,
 			pa.writeTimeout,
 			pa.readBufferCount,
-			pa.readBufferSize,
 			&pa.sourceStaticWg,
 			pa)
 	case strings.HasPrefix(pa.conf.Source, "rtmp://"):

@@ -224,7 +224,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
-			p.conf.ReadBufferSize,
 			p.conf.Paths,
 			p.externalCmdPool,
 			p.metrics,
@@ -245,7 +244,6 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
-				p.conf.ReadBufferSize,
 				useUDP,
 				useMulticast,
 				p.conf.RTPAddress,
@@ -282,7 +280,6 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
-				p.conf.ReadBufferSize,
 				false,
 				false,
 				"",
@@ -405,7 +402,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		newConf.ReadBufferSize != p.conf.ReadBufferSize ||
 		closeMetrics {
 		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {

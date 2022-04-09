@@ -81,8 +81,6 @@ components:
           type: array
           items:
             type: string
-        readBufferSize:
-          type: integer
 
         # RTMP
         rtmpDisable:

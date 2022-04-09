@@ -35,7 +35,6 @@ type rtspSource struct {
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
-	readBufferSize  int
 	wg              *sync.WaitGroup
 	parent          rtspSourceParent
 
@@ -52,7 +51,6 @@ func newRTSPSource(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
-	readBufferSize int,
 	wg *sync.WaitGroup,
 	parent rtspSourceParent,
 ) *rtspSource {
@@ -66,7 +64,6 @@ func newRTSPSource(
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
-		readBufferSize:  readBufferSize,
 		wg:              wg,
 		parent:          parent,
 		ctx:             ctx,
@@ -145,7 +142,6 @@ func (s *rtspSource) runInner() bool {
 		ReadTimeout:     time.Duration(s.readTimeout),
 		WriteTimeout:    time.Duration(s.writeTimeout),
 		ReadBufferCount: s.readBufferCount,
-		ReadBufferSize:  s.readBufferSize,
 		AnyPortEnable:   s.anyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.log(logger.Debug, "c->s %v", req)

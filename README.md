@@ -705,7 +705,7 @@ paths:
 
 In some scenarios, when reading RTSP from the server, decoded frames can be corrupted or incomplete. This can be caused by multiple reasons:
 
-* the packet buffer of the server is too small and can't handle the stream throughput. A solution consists in increasing its size:
+* the packet buffer of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
 
   ```yml
   readBufferCount: 1024
@@ -724,12 +724,6 @@ In some scenarios, when reading RTSP from the server, decoded frames can be corr
     test:
       source: rtsp://..
       sourceProtocol: tcp
-  ```
-
-* the software that is generating the stream (a camera or FFmpeg) is generating non-conformant RTP packets, with a payload bigger than the maximum allowed (that is 1460 due to the UDP MTU). A solution consists in increasing the buffer size:
-
-  ```yml
-  readBufferSize: 8192
   ```
 
 ## RTMP protocol

@@ -93,10 +93,6 @@ serverKey: server.key
 serverCert: server.crt
 # Authentication methods.
 authMethods: [basic, digest]
-# Read buffer size.
-# This doesn't influence throughput and shouldn't be touched unless the server
-# reports errors about the buffer size.
-readBufferSize: 2048
 
 ###############################################
 # RTMP parameters
