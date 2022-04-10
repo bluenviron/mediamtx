@@ -321,9 +321,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	// disable read deadline
 	c.conn.SetReadDeadline(time.Time{})
 
-	var videoStartPTS time.Duration
-	var videoDTSEst *h264.DTSEstimator
+	var videoInitialPTS *time.Duration
 	videoFirstIDRFound := false
+	var videoFirstIDRPTS time.Duration
+	var videoDTSEst *h264.DTSEstimator
 
 	for {
 		item, ok := c.ringBuffer.Pull()
@@ -337,6 +338,15 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
+			// video is decoded in another routine,
+			// while audio is decoded in this routine:
+			// we have to sync their PTS.
+			if videoInitialPTS == nil {
+				v := data.h264PTS
+				videoInitialPTS = &v
+			}
+			pts := data.h264PTS - *videoInitialPTS
+
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
 				if !h264.IDRPresent(data.h264NALUs) {
@@ -344,7 +354,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				}
 
 				videoFirstIDRFound = true
-				videoStartPTS = data.h264PTS
+				videoFirstIDRPTS = pts
 				videoDTSEst = h264.NewDTSEstimator()
 			}
 
@@ -376,7 +386,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				return err
 			}
 
-			pts := data.h264PTS - videoStartPTS
+			pts -= videoFirstIDRPTS
 			dts := videoDTSEst.Feed(pts)
 
 			c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
@@ -402,7 +412,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			pts -= videoStartPTS
+			pts -= videoFirstIDRPTS
 			if pts < 0 {
 				continue
 			}

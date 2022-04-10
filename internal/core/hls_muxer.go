@@ -327,6 +327,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	writerDone := make(chan error)
 	go func() {
 		writerDone <- func() error {
+			var videoInitialPTS *time.Duration
+
 			for {
 				item, ok := m.ringBuffer.Pull()
 				if !ok {
@@ -339,7 +341,16 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 
-					err = m.muxer.WriteH264(data.h264PTS, data.h264NALUs)
+					// video is decoded in another routine,
+					// while audio is decoded in this routine:
+					// we have to sync their PTS.
+					if videoInitialPTS == nil {
+						v := data.h264PTS
+						videoInitialPTS = &v
+					}
+					pts := data.h264PTS - *videoInitialPTS
+
+					err = m.muxer.WriteH264(pts, data.h264NALUs)
 					if err != nil {
 						m.log(logger.Warn, "unable to write segment: %v", err)
 						continue
