@@ -269,7 +269,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 	require.NoError(t, err)
 	stream.WritePacketRTP(0, pkts[0], true)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
 	func() {
 		c := gortsplib.Client{}
@@ -297,6 +297,8 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
 	require.NoError(t, err)
 	stream.WritePacketRTP(0, pkts[0], true)
+
+	time.Sleep(500 * time.Millisecond)
 
 	func() {
 		c := gortsplib.Client{}
