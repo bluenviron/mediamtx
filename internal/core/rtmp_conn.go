@@ -337,8 +337,6 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			// TODO: send H264DecoderConfig instead of NALUs?
-
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
 				if !h264.IDRPresent(data.h264NALUs) {
@@ -348,6 +346,29 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				videoFirstIDRFound = true
 				videoStartPTS = data.h264PTS
 				videoDTSEst = h264.NewDTSEstimator()
+			}
+
+			if h264.IDRPresent(data.h264NALUs) {
+				codec := nh264.Codec{
+					SPS: map[int][]byte{
+						0: videoTrack.SPS(),
+					},
+					PPS: map[int][]byte{
+						0: videoTrack.PPS(),
+					},
+				}
+				b := make([]byte, 128)
+				var n int
+				codec.ToConfig(b, &n)
+				b = b[:n]
+
+				err = c.conn.WritePacket(av.Packet{
+					Type: av.H264DecoderConfig,
+					Data: b,
+				})
+				if err != nil {
+					return err
+				}
 			}
 
 			avcc, err := h264.EncodeAVCC(data.h264NALUs)
