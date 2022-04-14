@@ -29,7 +29,10 @@ func newMuxerPrimaryPlaylist(
 	var codecs []string
 
 	if p.videoTrack != nil {
-		codecs = append(codecs, "avc1."+hex.EncodeToString(p.videoTrack.SPS()[1:4]))
+		sps := p.videoTrack.SPS()
+		if len(sps) >= 4 {
+			codecs = append(codecs, "avc1."+hex.EncodeToString(sps[1:4]))
+		}
 	}
 
 	// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
