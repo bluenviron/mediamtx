@@ -277,7 +277,7 @@ func TestReadTracks(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
 
-					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil)
+					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
 					require.NoError(t, err)
 					require.Equal(t, audioTrack2, audioTrack)
 
@@ -690,7 +690,7 @@ func TestWriteTracks(t *testing.T) {
 			nil)
 		require.NoError(t, err)
 
-		audioTrack, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil)
+		audioTrack, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
 		require.NoError(t, err)
 
 		err = rconn.WriteTracks(videoTrack, audioTrack)

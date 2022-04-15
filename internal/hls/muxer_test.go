@@ -17,7 +17,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
+	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
 	require.NoError(t, err)
 
 	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, audioTrack)
@@ -252,7 +252,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 }
 
 func TestMuxerAudioOnly(t *testing.T) {
-	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil)
+	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
 	require.NoError(t, err)
 
 	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, nil, audioTrack)

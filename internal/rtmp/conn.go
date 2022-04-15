@@ -209,7 +209,7 @@ func (c *Conn) readTracksFromMetadata(pkt av.Packet) (*gortsplib.TrackH264, *gor
 			}
 
 			audioTrack, err = gortsplib.NewTrackAAC(96, int(mpegConf.Type), mpegConf.SampleRate,
-				mpegConf.ChannelCount, mpegConf.AOTSpecificConfig)
+				mpegConf.ChannelCount, mpegConf.AOTSpecificConfig, 13, 3, 3)
 			if err != nil {
 				return nil, nil, err
 			}
