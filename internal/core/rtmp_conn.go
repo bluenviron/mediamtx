@@ -276,7 +276,12 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = &rtpaac.Decoder{SampleRate: track.ClockRate()}
+			aacDecoder = &rtpaac.Decoder{
+				SampleRate:       tt.ClockRate(),
+				SizeLength:       tt.SizeLength(),
+				IndexLength:      tt.IndexLength(),
+				IndexDeltaLength: tt.IndexDeltaLength(),
+			}
 			aacDecoder.Init()
 		}
 	}
@@ -456,8 +461,11 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
 		aacEncoder = &rtpaac.Encoder{
-			PayloadType: 97,
-			SampleRate:  audioTrack.ClockRate(),
+			PayloadType:      97,
+			SampleRate:       audioTrack.ClockRate(),
+			SizeLength:       13,
+			IndexLength:      3,
+			IndexDeltaLength: 3,
 		}
 		aacEncoder.Init()
 		audioTrackID = len(tracks)

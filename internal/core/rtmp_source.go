@@ -144,8 +144,11 @@ func (s *rtmpSource) runInner() bool {
 					var aacEncoder *rtpaac.Encoder
 					if audioTrack != nil {
 						aacEncoder = &rtpaac.Encoder{
-							PayloadType: 97,
-							SampleRate:  audioTrack.ClockRate(),
+							PayloadType:      97,
+							SampleRate:       audioTrack.ClockRate(),
+							SizeLength:       13,
+							IndexLength:      3,
+							IndexDeltaLength: 3,
 						}
 						aacEncoder.Init()
 						audioTrackID = len(tracks)
