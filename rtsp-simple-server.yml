@@ -73,7 +73,7 @@ encryption: "no"
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
 rtspAddress: :8554
 # Address of the TCP/TLS/RTSPS listener. This is needed only when encryption is "strict" or "optional".
-rtspsAddress: :8555
+rtspsAddress: :8322
 # Address of the UDP/RTP listener. This is needed only when "udp" is in protocols.
 rtpAddress: :8000
 # Address of the UDP/RTCP listener. This is needed only when "udp" is in protocols.

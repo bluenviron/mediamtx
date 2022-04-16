@@ -207,7 +207,7 @@ func TestAPIPathsList(t *testing.T) {
 			TLSConfig: &tls.Config{InsecureSkipVerify: true},
 		}
 
-		err := source.StartPublishing("rtsps://localhost:8555/mypath",
+		err := source.StartPublishing("rtsps://localhost:8322/mypath",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
@@ -268,7 +268,7 @@ func TestAPIList(t *testing.T) {
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
 
-				err := source.StartPublishing("rtsps://localhost:8555/mypath",
+				err := source.StartPublishing("rtsps://localhost:8322/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()
@@ -399,7 +399,7 @@ func TestAPIKick(t *testing.T) {
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
 
-				err := source.StartPublishing("rtsps://localhost:8555/mypath",
+				err := source.StartPublishing("rtsps://localhost:8322/mypath",
 					gortsplib.Tracks{track})
 				require.NoError(t, err)
 				defer source.Close()

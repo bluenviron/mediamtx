@@ -306,7 +306,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 
 	if conf.RTSPSAddress == "" {
-		conf.RTSPSAddress = ":8555"
+		conf.RTSPSAddress = ":8322"
 	}
 
 	if conf.RTPAddress == "" {

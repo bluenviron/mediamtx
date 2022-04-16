@@ -50,7 +50,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				defer p.close()
 			} else {
 				proto = "rtsps"
-				port = "8555"
+				port = "8322"
 
 				serverCertFpath, err := writeTempFile(serverCert)
 				require.NoError(t, err)

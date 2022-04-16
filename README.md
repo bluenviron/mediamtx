@@ -639,7 +639,7 @@ ffmpeg -rtsp_transport udp_multicast -i rtsp://localhost:8554/mystream -c copy o
 or _GStreamer_:
 
 ```
-gst-launch-1.0 rtspsrc protocols=udp-mcast location=rtsps://ip:8555/...
+gst-launch-1.0 rtspsrc protocols=udp-mcast location=rtsps://ip:8554/...
 ```
 
 or _VLC_ (append `?vlcmulticast` to the URL):
@@ -666,16 +666,16 @@ serverKey: server.key
 serverCert: server.crt
 ```
 
-Streams can then be published and read with the `rtsps` scheme and the `8555` port:
+Streams can then be published and read with the `rtsps` scheme and the `8322` port:
 
 ```
-ffmpeg -i rtsps://ip:8555/...
+ffmpeg -i rtsps://ip:8322/...
 ```
 
 If the client is _GStreamer_, disable the certificate validation:
 
 ```
-gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8555/...
+gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8322/...
 ```
 
 At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the encrypted stream with the proxy mode, and reading the proxied stream with _VLC_.
