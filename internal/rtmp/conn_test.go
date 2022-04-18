@@ -238,9 +238,19 @@ func (m chunk3) write(w io.Writer) error {
 }
 
 func TestReadTracks(t *testing.T) {
+	sps := []byte{
+		0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
+		0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+		0x00, 0x03, 0x00, 0x3d, 0x08,
+	}
+
+	pps := []byte{
+		0x68, 0xee, 0x3c, 0x80,
+	}
+
 	for _, ca := range []string{
 		"standard",
-		"empty metadata",
+		"metadata without codec id",
 		"no metadata",
 	} {
 		t.Run(ca, func(t *testing.T) {
@@ -264,16 +274,7 @@ func TestReadTracks(t *testing.T) {
 
 				switch ca {
 				case "standard":
-					videoTrack2, err := gortsplib.NewTrackH264(96,
-						[]byte{
-							0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
-							0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
-							0x00, 0x03, 0x00, 0x3d, 0x08,
-						},
-						[]byte{
-							0x68, 0xee, 0x3c, 0x80,
-						},
-						nil)
+					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
 
@@ -281,34 +282,15 @@ func TestReadTracks(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, audioTrack2, audioTrack)
 
-				case "empty metadata":
-					videoTrack2, err := gortsplib.NewTrackH264(96,
-						[]byte{
-							0x67, 0x64, 0x00, 0x32, 0xac, 0x2c, 0x6a, 0x80,
-							0xa8, 0x02, 0xfe, 0x9b, 0x82, 0x80, 0x82, 0xa0,
-							0x00, 0x00, 0x03, 0x00, 0x20, 0x00, 0x00, 0x06,
-							0x50, 0x80,
-						},
-						[]byte{
-							0x68, 0xee, 0x31, 0xb2, 0x1b,
-						},
-						nil)
+				case "metadata without codec id":
+					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
 
 					require.Equal(t, (*gortsplib.TrackAAC)(nil), audioTrack)
 
 				case "no metadata":
-					videoTrack2, err := gortsplib.NewTrackH264(96,
-						[]byte{
-							0x27, 0x42, 0xe0, 0x1f, 0x8d, 0x68, 0x05, 0x00,
-							0x5b, 0xa1, 0x00, 0x00, 0x03, 0x00, 0x01, 0x00,
-							0x00, 0x03, 0x00, 0x1e, 0x0f, 0x10, 0x7a, 0x80,
-						},
-						[]byte{
-							0x28, 0xce, 0x32, 0x48,
-						},
-						nil)
+					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
 
@@ -548,28 +530,22 @@ func TestReadTracks(t *testing.T) {
 				// C->S H264 decoder config
 				codec := nh264.Codec{
 					SPS: map[int][]byte{
-						0: {
-							0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
-							0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
-							0x00, 0x03, 0x00, 0x3d, 0x08,
-						},
+						0: sps,
 					},
 					PPS: map[int][]byte{
-						0: {
-							0x68, 0xee, 0x3c, 0x80,
-						},
+						0: pps,
 					},
 				}
 				b := make([]byte, 128)
 				var n int
 				codec.ToConfig(b, &n)
-				decConfig := b[:n]
+				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = chunk0{
 					chunkStreamID: 6,
 					typ:           flvio.TAG_VIDEO,
 					streamID:      1,
-					bodyLen:       uint32(len(decConfig) + 5),
-					body:          append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, decConfig...),
+					bodyLen:       uint32(len(body)),
+					body:          body,
 				}.write(conn)
 				require.NoError(t, err)
 
@@ -592,7 +568,7 @@ func TestReadTracks(t *testing.T) {
 				}.write(conn)
 				require.NoError(t, err)
 
-			case "empty metadata":
+			case "metadata without codec id":
 				// C->S metadata
 				byts = flvio.FillAMF0ValsMalloc([]interface{}{
 					"@setDataFrame",
@@ -622,39 +598,47 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
-				byts := []byte{
-					0x17, 0x00, 0x00, 0x00, 0x00, 0x01, 0x64, 0x00,
-					0x32, 0xff, 0xe1, 0x00, 0x1a, 0x67, 0x64, 0x00,
-					0x32, 0xac, 0x2c, 0x6a, 0x80, 0xa8, 0x02, 0xfe,
-					0x9b, 0x82, 0x80, 0x82, 0xa0, 0x00, 0x00, 0x03,
-					0x00, 0x20, 0x00, 0x00, 0x06, 0x50, 0x80, 0x01,
-					0x00, 0x05, 0x68, 0xee, 0x31, 0xb2, 0x1b,
+				codec := nh264.Codec{
+					SPS: map[int][]byte{
+						0: sps,
+					},
+					PPS: map[int][]byte{
+						0: pps,
+					},
 				}
+				b := make([]byte, 128)
+				var n int
+				codec.ToConfig(b, &n)
+				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = chunk0{
-					chunkStreamID: 21,
-					typ:           0x09,
+					chunkStreamID: 6,
+					typ:           flvio.TAG_VIDEO,
 					streamID:      1,
-					bodyLen:       uint32(len(byts)),
-					body:          byts,
+					bodyLen:       uint32(len(body)),
+					body:          body,
 				}.write(conn)
 				require.NoError(t, err)
 
 			case "no metadata":
 				// C->S H264 decoder config
-				byts := []byte{
-					0x17, 0x00, 0x00, 0x00, 0x00, 0x01, 0x42, 0xe0,
-					0x1f, 0xff, 0xe1, 0x00, 0x18, 0x27, 0x42, 0xe0,
-					0x1f, 0x8d, 0x68, 0x05, 0x00, 0x5b, 0xa1, 0x00,
-					0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x03, 0x00,
-					0x1e, 0x0f, 0x10, 0x7a, 0x80, 0x01, 0x00, 0x04,
-					0x28, 0xce, 0x32, 0x48,
+				codec := nh264.Codec{
+					SPS: map[int][]byte{
+						0: sps,
+					},
+					PPS: map[int][]byte{
+						0: pps,
+					},
 				}
+				b := make([]byte, 128)
+				var n int
+				codec.ToConfig(b, &n)
+				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = chunk0{
-					chunkStreamID: 4,
-					typ:           0x09,
+					chunkStreamID: 6,
+					typ:           flvio.TAG_VIDEO,
 					streamID:      1,
-					bodyLen:       uint32(len(byts)),
-					body:          byts,
+					bodyLen:       uint32(len(body)),
+					body:          body,
 				}.write(conn)
 				require.NoError(t, err)
 			}
