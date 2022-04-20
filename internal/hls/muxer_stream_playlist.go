@@ -84,6 +84,7 @@ func (p *muxerStreamPlaylist) reader() io.Reader {
 		cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
 
 		cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
+		cnt += "#EXT-X-INDEPENDENT-SEGMENTS\n"
 		cnt += "\n"
 
 		for _, s := range p.segments {

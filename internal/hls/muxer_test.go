@@ -75,6 +75,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:4\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`#EXT-X-INDEPENDENT-SEGMENTS\n` +
 		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:4,\n` +
@@ -208,6 +209,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:4\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`#EXT-X-INDEPENDENT-SEGMENTS\n` +
 		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:4,\n` +
@@ -293,6 +295,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:1\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`#EXT-X-INDEPENDENT-SEGMENTS\n` +
 		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:1,\n` +
