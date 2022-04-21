@@ -142,6 +142,7 @@ func (s *rtspSource) runInner() bool {
 		ReadTimeout:     time.Duration(s.readTimeout),
 		WriteTimeout:    time.Duration(s.writeTimeout),
 		ReadBufferCount: s.readBufferCount,
+		UserAgent:       "rtsp-simple-server " + version,
 		AnyPortEnable:   s.anyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.log(logger.Debug, "c->s %v", req)
