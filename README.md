@@ -541,11 +541,11 @@ If credentials are in use, use the following parameters:
 To publish a video stream from OpenCV to the server, OpenCV must be compiled with GStreamer support, by following this procedure:
 
 ```
-sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy
 git clone --depth=1 -b 4.5.4 https://github.com/opencv/opencv
 cd opencv
 mkdir build && cd build
-cmake -D WITH_GSTREAMER=ON ..
+cmake -D CMAKE_INSTALL_PREFIX=/usr -D WITH_GSTREAMER=ON ..
 make -j$(nproc)
 sudo make install
 ```
@@ -562,7 +562,7 @@ width = 800
 height = 600
 
 out = cv2.VideoWriter('appsrc ! videoconvert' + \
-    ' ! x264enc speed-preset=ultrafast bitrate=600' + \
+    ' ! x264enc speed-preset=ultrafast bitrate=600 key-int-max=40' + \
     ' ! rtspclientsink location=rtsp://localhost:8554/mystream',
     cv2.CAP_GSTREAMER, 0, fps, (width, height), True)
 if not out.isOpened():
