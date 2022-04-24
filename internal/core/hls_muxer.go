@@ -123,6 +123,7 @@ type hlsMuxer struct {
 	name                      string
 	externalAuthenticationURL string
 	hlsAlwaysRemux            bool
+	hlsVariant                conf.HLSVariant
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
 	hlsSegmentMaxSize         conf.StringSize
@@ -150,6 +151,7 @@ func newHLSMuxer(
 	name string,
 	externalAuthenticationURL string,
 	hlsAlwaysRemux bool,
+	hlsVariant conf.HLSVariant,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
 	hlsSegmentMaxSize conf.StringSize,
@@ -165,6 +167,7 @@ func newHLSMuxer(
 		name:                      name,
 		externalAuthenticationURL: externalAuthenticationURL,
 		hlsAlwaysRemux:            hlsAlwaysRemux,
+		hlsVariant:                hlsVariant,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
 		hlsSegmentMaxSize:         hlsSegmentMaxSize,
@@ -317,6 +320,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	var err error
 	m.muxer, err = hls.NewMuxer(
+		hls.MuxerVariant(m.hlsVariant),
 		m.hlsSegmentCount,
 		time.Duration(m.hlsSegmentDuration),
 		uint64(m.hlsSegmentMaxSize),

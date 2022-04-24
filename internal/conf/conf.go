@@ -207,6 +207,7 @@ type Conf struct {
 	HLSDisable         bool           `json:"hlsDisable"`
 	HLSAddress         string         `json:"hlsAddress"`
 	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
+	HLSVariant         HLSVariant     `json:"hlsVariant"`
 	HLSSegmentCount    int            `json:"hlsSegmentCount"`
 	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
 	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`

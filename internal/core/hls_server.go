@@ -47,6 +47,7 @@ type hlsServerParent interface {
 type hlsServer struct {
 	externalAuthenticationURL string
 	hlsAlwaysRemux            bool
+	hlsVariant                conf.HLSVariant
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
 	hlsSegmentMaxSize         conf.StringSize
@@ -74,6 +75,7 @@ func newHLSServer(
 	address string,
 	externalAuthenticationURL string,
 	hlsAlwaysRemux bool,
+	hlsVariant conf.HLSVariant,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
 	hlsSegmentMaxSize conf.StringSize,
@@ -93,6 +95,7 @@ func newHLSServer(
 	s := &hlsServer{
 		externalAuthenticationURL: externalAuthenticationURL,
 		hlsAlwaysRemux:            hlsAlwaysRemux,
+		hlsVariant:                hlsVariant,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
 		hlsSegmentMaxSize:         hlsSegmentMaxSize,
@@ -276,6 +279,7 @@ func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
 			pathName,
 			s.externalAuthenticationURL,
 			s.hlsAlwaysRemux,
+			s.hlsVariant,
 			s.hlsSegmentCount,
 			s.hlsSegmentDuration,
 			s.hlsSegmentMaxSize,

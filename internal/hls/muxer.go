@@ -7,6 +7,13 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
+type MuxerVariant int
+
+const (
+	MuxerVariantMPEGTS MuxerVariant = iota
+	MuxerVariantFMP4
+)
+
 // Muxer is a HLS muxer.
 type Muxer struct {
 	primaryPlaylist *muxerPrimaryPlaylist
@@ -16,6 +23,7 @@ type Muxer struct {
 
 // NewMuxer allocates a Muxer.
 func NewMuxer(
+	hlsVariant MuxerVariant,
 	hlsSegmentCount int,
 	hlsSegmentDuration time.Duration,
 	hlsSegmentMaxSize uint64,

@@ -95,6 +95,8 @@ components:
           type: string
         hlsAlwaysRemux:
           type: boolean
+        hlsVariant:
+          type: string
         hlsSegmentCount:
           type: integer
         hlsSegmentDuration:
