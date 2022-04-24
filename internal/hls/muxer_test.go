@@ -64,6 +64,8 @@ func TestMuxerVideoAudio(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
+		"#EXT-X-VERSION:3\n"+
+		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203,mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
@@ -198,6 +200,8 @@ func TestMuxerVideoOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
+		"#EXT-X-VERSION:3\n"+
+		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203\"\n"+
 		"stream.m3u8\n", string(byts))
 
@@ -284,6 +288,8 @@ func TestMuxerAudioOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
+		"#EXT-X-VERSION:3\n"+
+		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 

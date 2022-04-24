@@ -41,6 +41,8 @@ func newMuxerPrimaryPlaylist(
 	}
 
 	p.cnt = []byte("#EXTM3U\n" +
+		"#EXT-X-VERSION:3\n" +
+		"\n" +
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
 		"stream.m3u8\n")
 
