@@ -439,7 +439,7 @@ func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 			header: map[string]string{
 				"Content-Type": `application/x-mpegURL`,
 			},
-			body: m.muxer.PrimaryPlaylist(),
+			body: m.muxer.PrimaryPlaylistReader(),
 		}
 
 	case req.file == "stream.m3u8":
@@ -448,11 +448,11 @@ func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 			header: map[string]string{
 				"Content-Type": `application/x-mpegURL`,
 			},
-			body: m.muxer.StreamPlaylist(),
+			body: m.muxer.PlaylistReader(),
 		}
 
 	case strings.HasSuffix(req.file, ".ts"):
-		r := m.muxer.Segment(req.file)
+		r := m.muxer.SegmentReader(req.file)
 		if r == nil {
 			return hlsMuxerResponse{status: http.StatusNotFound}
 		}

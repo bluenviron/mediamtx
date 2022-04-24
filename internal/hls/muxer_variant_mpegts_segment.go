@@ -16,10 +16,10 @@ const (
 	pcrOffset = 500 * time.Millisecond
 )
 
-type muxerTSSegment struct {
-	hlsSegmentMaxSize uint64
-	videoTrack        *gortsplib.TrackH264
-	writeData         func(*astits.MuxerData) (int, error)
+type muxerVariantMPEGTSSegment struct {
+	segmentMaxSize uint64
+	videoTrack     *gortsplib.TrackH264
+	writeData      func(*astits.MuxerData) (int, error)
 
 	startTime      time.Time
 	name           string
@@ -30,18 +30,18 @@ type muxerTSSegment struct {
 	audioAUCount   int
 }
 
-func newMuxerTSSegment(
+func newMuxerVariantMPEGTSSegment(
 	now time.Time,
-	hlsSegmentMaxSize uint64,
+	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	writeData func(*astits.MuxerData) (int, error),
-) *muxerTSSegment {
-	t := &muxerTSSegment{
-		hlsSegmentMaxSize: hlsSegmentMaxSize,
-		videoTrack:        videoTrack,
-		writeData:         writeData,
-		startTime:         now,
-		name:              strconv.FormatInt(now.Unix(), 10),
+) *muxerVariantMPEGTSSegment {
+	t := &muxerVariantMPEGTSSegment{
+		segmentMaxSize: segmentMaxSize,
+		videoTrack:     videoTrack,
+		writeData:      writeData,
+		startTime:      now,
+		name:           strconv.FormatInt(now.Unix(), 10),
 	}
 
 	// WriteTable() is called automatically when WriteData() is called with
@@ -52,23 +52,23 @@ func newMuxerTSSegment(
 	return t
 }
 
-func (t *muxerTSSegment) duration() time.Duration {
+func (t *muxerVariantMPEGTSSegment) duration() time.Duration {
 	return t.endPTS - *t.startPTS
 }
 
-func (t *muxerTSSegment) write(p []byte) (int, error) {
-	if uint64(len(p)+t.buf.Len()) > t.hlsSegmentMaxSize {
+func (t *muxerVariantMPEGTSSegment) write(p []byte) (int, error) {
+	if uint64(len(p)+t.buf.Len()) > t.segmentMaxSize {
 		return 0, fmt.Errorf("reached maximum segment size")
 	}
 
 	return t.buf.Write(p)
 }
 
-func (t *muxerTSSegment) reader() io.Reader {
+func (t *muxerVariantMPEGTSSegment) reader() io.Reader {
 	return bytes.NewReader(t.buf.Bytes())
 }
 
-func (t *muxerTSSegment) writeH264(
+func (t *muxerVariantMPEGTSSegment) writeH264(
 	pcr time.Duration,
 	dts time.Duration,
 	pts time.Duration,
@@ -132,7 +132,7 @@ func (t *muxerTSSegment) writeH264(
 	return nil
 }
 
-func (t *muxerTSSegment) writeAAC(
+func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pcr time.Duration,
 	pts time.Duration,
 	enc []byte,

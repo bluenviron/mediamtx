@@ -21,27 +21,28 @@ func (r *asyncReader) Read(buf []byte) (int, error) {
 	return r.reader.Read(buf)
 }
 
-type muxerStreamPlaylist struct {
-	hlsSegmentCount int
+type muxerVariantMPEGTSPlaylist struct {
+	segmentCount int
 
 	mutex              sync.Mutex
 	cond               *sync.Cond
 	closed             bool
-	segments           []*muxerTSSegment
-	segmentByName      map[string]*muxerTSSegment
+	segments           []*muxerVariantMPEGTSSegment
+	segmentByName      map[string]*muxerVariantMPEGTSSegment
 	segmentDeleteCount int
 }
 
-func newMuxerStreamPlaylist(hlsSegmentCount int) *muxerStreamPlaylist {
-	p := &muxerStreamPlaylist{
-		hlsSegmentCount: hlsSegmentCount,
-		segmentByName:   make(map[string]*muxerTSSegment),
+func newMuxerVariantMPEGTSPlaylist(segmentCount int) *muxerVariantMPEGTSPlaylist {
+	p := &muxerVariantMPEGTSPlaylist{
+		segmentCount:  segmentCount,
+		segmentByName: make(map[string]*muxerVariantMPEGTSSegment),
 	}
 	p.cond = sync.NewCond(&p.mutex)
+
 	return p
 }
 
-func (p *muxerStreamPlaylist) close() {
+func (p *muxerVariantMPEGTSPlaylist) close() {
 	func() {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
@@ -51,7 +52,7 @@ func (p *muxerStreamPlaylist) close() {
 	p.cond.Broadcast()
 }
 
-func (p *muxerStreamPlaylist) reader() io.Reader {
+func (p *muxerVariantMPEGTSPlaylist) playlistReader() io.Reader {
 	return &asyncReader{generator: func() []byte {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
@@ -97,7 +98,7 @@ func (p *muxerStreamPlaylist) reader() io.Reader {
 	}}
 }
 
-func (p *muxerStreamPlaylist) segment(fname string) io.Reader {
+func (p *muxerVariantMPEGTSPlaylist) segmentReader(fname string) io.Reader {
 	base := strings.TrimSuffix(fname, ".ts")
 
 	p.mutex.Lock()
@@ -111,7 +112,7 @@ func (p *muxerStreamPlaylist) segment(fname string) io.Reader {
 	return f.reader()
 }
 
-func (p *muxerStreamPlaylist) pushSegment(t *muxerTSSegment) {
+func (p *muxerVariantMPEGTSPlaylist) pushSegment(t *muxerVariantMPEGTSSegment) {
 	func() {
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
@@ -119,7 +120,7 @@ func (p *muxerStreamPlaylist) pushSegment(t *muxerTSSegment) {
 		p.segmentByName[t.name] = t
 		p.segments = append(p.segments, t)
 
-		if len(p.segments) > p.hlsSegmentCount {
+		if len(p.segments) > p.segmentCount {
 			delete(p.segmentByName, p.segments[0].name)
 			p.segments = p.segments[1:]
 			p.segmentDeleteCount++
