@@ -1,7 +1,6 @@
 package hls
 
 import (
-	"bytes"
 	"encoding/hex"
 	"io"
 	"strconv"
@@ -13,42 +12,38 @@ import (
 type muxerPrimaryPlaylist struct {
 	videoTrack *gortsplib.TrackH264
 	audioTrack *gortsplib.TrackAAC
-
-	cnt []byte
 }
 
 func newMuxerPrimaryPlaylist(
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
 ) *muxerPrimaryPlaylist {
-	p := &muxerPrimaryPlaylist{
+	return &muxerPrimaryPlaylist{
 		videoTrack: videoTrack,
 		audioTrack: audioTrack,
 	}
-
-	var codecs []string
-
-	if p.videoTrack != nil {
-		sps := p.videoTrack.SPS()
-		if len(sps) >= 4 {
-			codecs = append(codecs, "avc1."+hex.EncodeToString(sps[1:4]))
-		}
-	}
-
-	// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
-	if p.audioTrack != nil {
-		codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(p.audioTrack.Type()), 10))
-	}
-
-	p.cnt = []byte("#EXTM3U\n" +
-		"#EXT-X-VERSION:3\n" +
-		"\n" +
-		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
-		"stream.m3u8\n")
-
-	return p
 }
 
 func (p *muxerPrimaryPlaylist) reader() io.Reader {
-	return bytes.NewReader(p.cnt)
+	return &asyncReader{generator: func() []byte {
+		var codecs []string
+
+		if p.videoTrack != nil {
+			sps := p.videoTrack.SPS()
+			if len(sps) >= 4 {
+				codecs = append(codecs, "avc1."+hex.EncodeToString(sps[1:4]))
+			}
+		}
+
+		// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
+		if p.audioTrack != nil {
+			codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(p.audioTrack.Type()), 10))
+		}
+
+		return []byte("#EXTM3U\n" +
+			"#EXT-X-VERSION:3\n" +
+			"\n" +
+			"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
+			"stream.m3u8\n")
+	}}
 }
