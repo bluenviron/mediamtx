@@ -10,15 +10,18 @@ import (
 )
 
 type muxerPrimaryPlaylist struct {
+	version    int
 	videoTrack *gortsplib.TrackH264
 	audioTrack *gortsplib.TrackAAC
 }
 
 func newMuxerPrimaryPlaylist(
+	version int,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
 ) *muxerPrimaryPlaylist {
 	return &muxerPrimaryPlaylist{
+		version:    version,
 		videoTrack: videoTrack,
 		audioTrack: audioTrack,
 	}
@@ -41,7 +44,7 @@ func (p *muxerPrimaryPlaylist) reader() io.Reader {
 		}
 
 		return []byte("#EXTM3U\n" +
-			"#EXT-X-VERSION:3\n" +
+			"#EXT-X-VERSION:" + strconv.FormatInt(int64(p.version), 10) + "\n" +
 			"\n" +
 			"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
 			"stream.m3u8\n")

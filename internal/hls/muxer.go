@@ -31,16 +31,34 @@ func NewMuxer(
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
 ) (*Muxer, error) {
-	return &Muxer{
-		primaryPlaylist: newMuxerPrimaryPlaylist(videoTrack, audioTrack),
-		variant: newMuxerVariantMPEGTS(
+	m := &Muxer{}
+
+	var version int
+	switch variant {
+	case MuxerVariantMPEGTS:
+		m.variant = newMuxerVariantMPEGTS(
 			segmentCount,
 			segmentDuration,
 			segmentMaxSize,
 			videoTrack,
 			audioTrack,
-		),
-	}, nil
+		)
+		version = 3
+
+	default:
+		m.variant = newMuxerVariantFMP4(
+			segmentCount,
+			segmentDuration,
+			segmentMaxSize,
+			videoTrack,
+			audioTrack,
+		)
+		version = 7
+	}
+
+	m.primaryPlaylist = newMuxerPrimaryPlaylist(version, videoTrack, audioTrack)
+
+	return m, nil
 }
 
 // Close closes a Muxer.

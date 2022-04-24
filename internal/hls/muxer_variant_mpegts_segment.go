@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
 )
 
@@ -19,6 +21,7 @@ const (
 type muxerVariantMPEGTSSegment struct {
 	segmentMaxSize uint64
 	videoTrack     *gortsplib.TrackH264
+	audioTrack     *gortsplib.TrackAAC
 	writeData      func(*astits.MuxerData) (int, error)
 
 	startTime      time.Time
@@ -31,17 +34,19 @@ type muxerVariantMPEGTSSegment struct {
 }
 
 func newMuxerVariantMPEGTSSegment(
-	now time.Time,
+	startTime time.Time,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
+	audioTrack *gortsplib.TrackAAC,
 	writeData func(*astits.MuxerData) (int, error),
 ) *muxerVariantMPEGTSSegment {
 	t := &muxerVariantMPEGTSSegment{
 		segmentMaxSize: segmentMaxSize,
 		videoTrack:     videoTrack,
+		audioTrack:     audioTrack,
 		writeData:      writeData,
-		startTime:      now,
-		name:           strconv.FormatInt(now.Unix(), 10),
+		startTime:      startTime,
+		name:           strconv.FormatInt(startTime.Unix(), 10),
 	}
 
 	// WriteTable() is called automatically when WriteData() is called with
@@ -73,8 +78,16 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 	dts time.Duration,
 	pts time.Duration,
 	idrPresent bool,
-	enc []byte,
+	nalus [][]byte,
 ) error {
+	// prepend an AUD. This is required by video.js and iOS
+	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
+
+	enc, err := h264.AnnexBEncode(nalus)
+	if err != nil {
+		return err
+	}
+
 	var af *astits.PacketAdaptationField
 
 	if idrPresent {
@@ -106,7 +119,7 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 		oh.PTS = &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)}
 	}
 
-	_, err := t.writeData(&astits.MuxerData{
+	_, err = t.writeData(&astits.MuxerData{
 		PID:             256,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -135,9 +148,24 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pcr time.Duration,
 	pts time.Duration,
-	enc []byte,
-	ausLen int,
+	aus [][]byte,
 ) error {
+	pkts := make([]*aac.ADTSPacket, len(aus))
+
+	for i, au := range aus {
+		pkts[i] = &aac.ADTSPacket{
+			Type:         t.audioTrack.Type(),
+			SampleRate:   t.audioTrack.ClockRate(),
+			ChannelCount: t.audioTrack.ChannelCount(),
+			AU:           au,
+		}
+	}
+
+	enc, err := aac.EncodeADTS(pkts)
+	if err != nil {
+		return err
+	}
+
 	af := &astits.PacketAdaptationField{
 		RandomAccessIndicator: true,
 	}
@@ -152,7 +180,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 		t.pcrSendCounter--
 	}
 
-	_, err := t.writeData(&astits.MuxerData{
+	_, err = t.writeData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -173,7 +201,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 	}
 
 	if t.videoTrack == nil {
-		t.audioAUCount += ausLen
+		t.audioAUCount += len(aus)
 	}
 
 	if t.startPTS == nil {

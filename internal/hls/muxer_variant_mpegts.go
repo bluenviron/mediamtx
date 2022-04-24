@@ -24,7 +24,6 @@ func newMuxerVariantMPEGTS(
 	v.playlist = newMuxerVariantMPEGTSPlaylist(segmentCount)
 
 	v.segmenter = newMuxerVariantMPEGTSSegmenter(
-		segmentCount,
 		segmentDuration,
 		segmentMaxSize,
 		videoTrack,
