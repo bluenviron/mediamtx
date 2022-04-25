@@ -66,7 +66,9 @@ const create = () => {
 
 	} else {
 		const hls = new Hls({
-			progressive: true,
+			progressive: false,
+			liveSyncDurationCount: 2,
+			liveMaxLatencyDurationCount: 3,
 		});
 
 		hls.on(Hls.Events.ERROR, (evt, data) => {
