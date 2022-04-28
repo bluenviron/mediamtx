@@ -149,6 +149,7 @@ func (t *muxerTSSegment) writeAAC(
 			af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
 			t.pcrSendCounter = 3
 		}
+		t.pcrSendCounter--
 	}
 
 	_, err := t.writeData(&astits.MuxerData{
