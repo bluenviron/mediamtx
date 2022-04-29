@@ -182,7 +182,7 @@ func (s *rtmpSource) runInner() bool {
 								return fmt.Errorf("received an H264 packet, but track is not set up")
 							}
 
-							nalus, err := h264.DecodeAVCC(pkt.Data)
+							nalus, err := h264.AVCCDecode(pkt.Data)
 							if err != nil {
 								return err
 							}

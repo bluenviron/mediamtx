@@ -70,7 +70,7 @@ func (ts *testHLSServer) onSegment(ctx *gin.Context) {
 
 	mux.WriteTables()
 
-	enc, _ := h264.EncodeAnnexB([][]byte{
+	enc, _ := h264.AnnexBEncode([][]byte{
 		{7, 1, 2, 3}, // SPS
 		{8},          // PPS
 	})
@@ -94,7 +94,7 @@ func (ts *testHLSServer) onSegment(ctx *gin.Context) {
 
 	time.Sleep(1 * time.Second)
 
-	enc, _ = h264.EncodeAnnexB([][]byte{
+	enc, _ = h264.AnnexBEncode([][]byte{
 		{5}, // IDR
 	})
 
