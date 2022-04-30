@@ -55,16 +55,10 @@ html, body {
 const create = () => {
 	const video = document.getElementById('video');
 
-	if (video.canPlayType('application/vnd.apple.mpegurl')) {
-		// since it's not possible to detect timeout errors in iOS,
-		// wait for the playlist to be available before starting the stream
-		fetch('stream.m3u8')
-			.then(() => {
-				video.src = 'index.m3u8';
-				video.play();
-			});
-
-	} else {
+	// always prefer hls.js over native HLS.
+	// this is because some Android versions support native HLS
+	// but doesn't support fMP4s.
+	if (Hls.isSupported()) {
 		const hls = new Hls({
 			progressive: true,
 			liveSyncDurationCount: 3,
@@ -83,6 +77,15 @@ const create = () => {
 		hls.attachMedia(video);
 
 		video.play();
+
+	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+		// since it's not possible to detect timeout errors in iOS,
+		// wait for the playlist to be available before starting the stream
+		fetch('stream.m3u8')
+			.then(() => {
+				video.src = 'index.m3u8';
+				video.play();
+			});
 	}
 };
 
