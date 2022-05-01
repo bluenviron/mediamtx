@@ -69,7 +69,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203,mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.PlaylistReader())
+	byts, err = ioutil.ReadAll(m.PlaylistReader("", "", ""))
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -205,7 +205,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.PlaylistReader())
+	byts, err = ioutil.ReadAll(m.PlaylistReader("", "", ""))
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -293,7 +293,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.PlaylistReader())
+	byts, err = ioutil.ReadAll(m.PlaylistReader("", "", ""))
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -363,7 +363,7 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 
 	m.Close()
 
-	byts, err := ioutil.ReadAll(m.PlaylistReader())
+	byts, err := ioutil.ReadAll(m.PlaylistReader("", "", ""))
 	require.NoError(t, err)
 	require.Equal(t, []byte{}, byts)
 }
@@ -402,7 +402,7 @@ func TestMuxerDoubleRead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PlaylistReader())
+	byts, err := ioutil.ReadAll(m.PlaylistReader("", "", ""))
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +

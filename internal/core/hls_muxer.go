@@ -16,6 +16,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
+	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/hls"
@@ -60,8 +61,6 @@ const create = () => {
 	// but doesn't support fMP4s.
 	if (Hls.isSupported()) {
 		const hls = new Hls({
-			liveSyncDurationCount: 3,
-			liveMaxLatencyDurationCount: 4,
 		});
 
 		hls.on(Hls.Events.ERROR, (evt, data) => {
@@ -105,7 +104,7 @@ type hlsMuxerResponse struct {
 type hlsMuxerRequest struct {
 	dir  string
 	file string
-	req  *http.Request
+	ctx  *gin.Context
 	res  chan hlsMuxerResponse
 }
 
@@ -414,7 +413,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
-	err := m.authenticate(req.req)
+	err := m.authenticate(req.ctx.Request)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			m.log(logger.Info, "authentication error: %s", terr.message)
@@ -442,15 +441,23 @@ func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 		}
 
 	case req.file == "stream.m3u8":
+		r := m.muxer.PlaylistReader(
+			req.ctx.Query("_HLS_msn"),
+			req.ctx.Query("_HLS_part"),
+			req.ctx.Query("_HLS_skip"))
+		if r == nil {
+			return hlsMuxerResponse{status: http.StatusNotFound}
+		}
+
 		return hlsMuxerResponse{
 			status: http.StatusOK,
 			header: map[string]string{
 				"Content-Type": `application/x-mpegURL`,
 			},
-			body: m.muxer.PlaylistReader(),
+			body: r,
 		}
 
-	case strings.HasSuffix(req.file, ".ts"), strings.HasSuffix(req.file, ".mp4"), strings.HasSuffix(req.file, ".m4s"):
+	case strings.HasSuffix(req.file, ".ts"), strings.HasSuffix(req.file, ".mp4"):
 		r := m.muxer.SegmentReader(req.file)
 		if r == nil {
 			return hlsMuxerResponse{status: http.StatusNotFound}
@@ -462,9 +469,6 @@ func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
 			contentType = "video/MP2T"
 
 		case strings.HasSuffix(req.file, ".mp4"):
-			contentType = "video/mp4"
-
-		case strings.HasSuffix(req.file, ".m4s"):
 			contentType = "video/mp4"
 		}
 

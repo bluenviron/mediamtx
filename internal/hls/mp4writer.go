@@ -7,13 +7,13 @@ import (
 	"github.com/orcaman/writerseeker"
 )
 
-type mp4writer struct {
+type mp4Writer struct {
 	buf *writerseeker.WriterSeeker
 	w   *mp4.Writer
 }
 
-func newMP4Writer() *mp4writer {
-	w := &mp4writer{
+func newMP4Writer() *mp4Writer {
+	w := &mp4Writer{
 		buf: &writerseeker.WriterSeeker{},
 	}
 
@@ -22,7 +22,7 @@ func newMP4Writer() *mp4writer {
 	return w
 }
 
-func (w *mp4writer) writeBoxStart(box mp4.IImmutableBox) (int, error) {
+func (w *mp4Writer) writeBoxStart(box mp4.IImmutableBox) (int, error) {
 	bi := &mp4.BoxInfo{
 		Type: box.GetType(),
 	}
@@ -40,12 +40,12 @@ func (w *mp4writer) writeBoxStart(box mp4.IImmutableBox) (int, error) {
 	return int(bi.Offset), nil
 }
 
-func (w *mp4writer) writeBoxEnd() error {
+func (w *mp4Writer) writeBoxEnd() error {
 	_, err := w.w.EndBox()
 	return err
 }
 
-func (w *mp4writer) writeBox(box mp4.IImmutableBox) (int, error) {
+func (w *mp4Writer) writeBox(box mp4.IImmutableBox) (int, error) {
 	off, err := w.writeBoxStart(box)
 	if err != nil {
 		return 0, err
@@ -59,7 +59,7 @@ func (w *mp4writer) writeBox(box mp4.IImmutableBox) (int, error) {
 	return off, nil
 }
 
-func (w *mp4writer) rewriteBox(off int, box mp4.IImmutableBox) error {
+func (w *mp4Writer) rewriteBox(off int, box mp4.IImmutableBox) error {
 	prevOff, err := w.w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -88,7 +88,7 @@ func (w *mp4writer) rewriteBox(off int, box mp4.IImmutableBox) error {
 	return nil
 }
 
-func (w *mp4writer) bytes() []byte {
+func (w *mp4Writer) bytes() []byte {
 	byts, _ := io.ReadAll(w.buf.Reader())
 	return byts
 }

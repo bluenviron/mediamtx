@@ -12,8 +12,9 @@ type HLSVariant hls.MuxerVariant
 
 // supported HLS variants.
 const (
-	HLSVariantMPEGTS HLSVariant = HLSVariant(hls.MuxerVariantMPEGTS)
-	HLSVariantFMP4   HLSVariant = HLSVariant(hls.MuxerVariantFMP4)
+	HLSVariantLowLatency HLSVariant = HLSVariant(hls.MuxerVariantLowLatency)
+	HLSVariantMPEGTS     HLSVariant = HLSVariant(hls.MuxerVariantMPEGTS)
+	HLSVariantFMP4       HLSVariant = HLSVariant(hls.MuxerVariantFMP4)
 )
 
 // MarshalJSON marshals a HLSVariant into JSON.
@@ -24,8 +25,11 @@ func (d HLSVariant) MarshalJSON() ([]byte, error) {
 	case HLSVariantMPEGTS:
 		out = "mpegts"
 
-	default:
+	case HLSVariantFMP4:
 		out = "fmp4"
+
+	default:
+		out = "lowLatency"
 	}
 
 	return json.Marshal(out)
@@ -44,6 +48,9 @@ func (d *HLSVariant) UnmarshalJSON(b []byte) error {
 
 	case "fmp4":
 		*d = HLSVariantFMP4
+
+	case "lowLatency":
+		*d = HLSVariantLowLatency
 
 	default:
 		return fmt.Errorf("invalid hlsVariant value: '%s'", in)

@@ -7,15 +7,6 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-// MuxerVariant is a muxer variant.
-type MuxerVariant int
-
-// supported variants.
-const (
-	MuxerVariantMPEGTS MuxerVariant = iota
-	MuxerVariantFMP4
-)
-
 // Muxer is a HLS muxer.
 type Muxer struct {
 	primaryPlaylist *muxerPrimaryPlaylist
@@ -45,8 +36,20 @@ func NewMuxer(
 		)
 		version = 3
 
-	default:
+	case MuxerVariantFMP4:
 		m.variant = newMuxerVariantFMP4(
+			false,
+			segmentCount,
+			segmentDuration,
+			segmentMaxSize,
+			videoTrack,
+			audioTrack,
+		)
+		version = 7
+
+	default: // MuxerVariantLowLatency
+		m.variant = newMuxerVariantFMP4(
+			true,
 			segmentCount,
 			segmentDuration,
 			segmentMaxSize,
@@ -82,8 +85,8 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 }
 
 // PlaylistReader returns a reader to read the stream playlist.
-func (m *Muxer) PlaylistReader() io.Reader {
-	return m.variant.playlistReader()
+func (m *Muxer) PlaylistReader(msn string, part string, skip string) io.Reader {
+	return m.variant.playlistReader(msn, part, skip)
 }
 
 // SegmentReader returns a reader to read a segment listed in the stream playlist.

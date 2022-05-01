@@ -232,8 +232,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	dir, fname := func() (string, string) {
 		if strings.HasSuffix(pa, ".ts") ||
 			strings.HasSuffix(pa, ".m3u8") ||
-			strings.HasSuffix(pa, ".mp4") ||
-			strings.HasSuffix(pa, ".m4s") {
+			strings.HasSuffix(pa, ".mp4") {
 			return gopath.Dir(pa), gopath.Base(pa)
 		}
 		return pa, ""
@@ -251,7 +250,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	hreq := hlsMuxerRequest{
 		dir:  dir,
 		file: fname,
-		req:  ctx.Request,
+		ctx:  ctx,
 		res:  cres,
 	}
 

@@ -9,37 +9,63 @@ import (
 )
 
 type muxerVariantFMP4Segmenter struct {
-	segmentDuration time.Duration
-	segmentMaxSize  uint64
-	videoTrack      *gortsplib.TrackH264
-	audioTrack      *gortsplib.TrackAAC
-	onSegmentReady  func(*muxerVariantFMP4Segment)
+	lowLatency         bool
+	segmentDuration    time.Duration
+	segmentMaxSize     uint64
+	videoTrack         *gortsplib.TrackH264
+	audioTrack         *gortsplib.TrackAAC
+	onSegmentFinalized func(*muxerVariantFMP4Segment)
+	onPartFinalized    func(*muxerVariantFMP4Part)
 
-	nextSequenceNumber int
-	currentSegment     *muxerVariantFMP4Segment
-	startTime          time.Time
-	startPTS           time.Duration
-	lastSPS            []byte
-	lastPPS            []byte
+	currentSegment *muxerVariantFMP4Segment
+	startPTS       time.Duration
+	lastSPS        []byte
+	lastPPS        []byte
+	nextSegmentID  uint64
+	nextPartID     uint64
 }
 
 func newMuxerVariantFMP4Segmenter(
+	lowLatency bool,
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
-	onSegmentReady func(*muxerVariantFMP4Segment),
+	onSegmentFinalized func(*muxerVariantFMP4Segment),
+	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segmenter {
 	m := &muxerVariantFMP4Segmenter{
+		lowLatency:         lowLatency,
 		segmentDuration:    segmentDuration,
 		segmentMaxSize:     segmentMaxSize,
 		videoTrack:         videoTrack,
 		audioTrack:         audioTrack,
-		onSegmentReady:     onSegmentReady,
-		nextSequenceNumber: 1,
+		onSegmentFinalized: onSegmentFinalized,
+		onPartFinalized:    onPartFinalized,
 	}
 
 	return m
+}
+
+func (m *muxerVariantFMP4Segmenter) reset() {
+	m.currentSegment = nil
+	m.startPTS = 0
+	m.lastSPS = nil
+	m.lastPPS = nil
+	m.nextSegmentID = 0
+	m.nextPartID = 0
+}
+
+func (m *muxerVariantFMP4Segmenter) genSegmentID() uint64 {
+	id := m.nextSegmentID
+	m.nextSegmentID++
+	return id
+}
+
+func (m *muxerVariantFMP4Segmenter) genPartID() uint64 {
+	id := m.nextPartID
+	m.nextPartID++
+	return id
 }
 
 func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte) error {
@@ -53,50 +79,72 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 		}
 
 		// create first segment
+		var err error
+		m.currentSegment, err = newMuxerVariantFMP4Segment(
+			m.lowLatency,
+			m.genSegmentID(),
+			now,
+			0,
+			m.segmentMaxSize,
+			m.videoTrack,
+			m.audioTrack,
+			m.genPartID,
+			m.onPartFinalized,
+		)
+		if err != nil {
+			return err
+		}
+
 		m.lastSPS = m.videoTrack.SPS()
 		m.lastPPS = m.videoTrack.PPS()
-		m.startTime = now
-		m.currentSegment = newMuxerVariantFMP4Segment(
-			m.nextSequenceNumber, now, m.segmentMaxSize, m.videoTrack, m.audioTrack)
-		m.nextSequenceNumber++
 		m.startPTS = pts
 		pts = 0
 	} else {
 		pts -= m.startPTS
 
 		// switch segment
-		if idrPresent &&
-			m.currentSegment.startPTS != nil {
+		if idrPresent {
 			sps := m.videoTrack.SPS()
 			pps := m.videoTrack.PPS()
 
-			if (pts-*m.currentSegment.startPTS) >= m.segmentDuration ||
+			if (pts-m.currentSegment.startDTS) >= m.segmentDuration ||
 				!bytes.Equal(m.lastSPS, sps) ||
 				!bytes.Equal(m.lastPPS, pps) {
-				err := m.currentSegment.finalize(&pts, m.startTime)
+				err := m.currentSegment.finalize()
 				if err != nil {
 					return err
 				}
+				m.onSegmentFinalized(m.currentSegment)
 
 				m.lastSPS = sps
 				m.lastPPS = pps
-				m.onSegmentReady(m.currentSegment)
-				m.currentSegment = newMuxerVariantFMP4Segment(
-					m.nextSequenceNumber, now, m.segmentMaxSize, m.videoTrack, m.audioTrack)
-				m.nextSequenceNumber++
+				m.currentSegment, err = newMuxerVariantFMP4Segment(
+					m.lowLatency,
+					m.genSegmentID(),
+					now,
+					pts,
+					m.segmentMaxSize,
+					m.videoTrack,
+					m.audioTrack,
+					m.genPartID,
+					m.onPartFinalized,
+				)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}
 
-	err := m.currentSegment.writeH264(pts, idrPresent, nalus)
+	err := m.currentSegment.writeH264(pts, nalus)
 	if err != nil {
-		err := m.currentSegment.finalize(nil, m.startTime)
+		err := m.currentSegment.finalize()
 		if err != nil {
 			return err
 		}
+		m.onSegmentFinalized(m.currentSegment)
 
-		m.onSegmentReady(m.currentSegment)
-		m.currentSegment = nil
+		m.reset()
 		return err
 	}
 
@@ -109,10 +157,22 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {
 			// create first segment
-			m.startTime = now
-			m.currentSegment = newMuxerVariantFMP4Segment(
-				m.nextSequenceNumber, now, m.segmentMaxSize, m.videoTrack, m.audioTrack)
-			m.nextSequenceNumber++
+			var err error
+			m.currentSegment, err = newMuxerVariantFMP4Segment(
+				m.lowLatency,
+				m.genSegmentID(),
+				now,
+				0,
+				m.segmentMaxSize,
+				m.videoTrack,
+				m.audioTrack,
+				m.genPartID,
+				m.onPartFinalized,
+			)
+			if err != nil {
+				return err
+			}
+
 			m.startPTS = pts
 			pts = 0
 		} else {
@@ -120,17 +180,27 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 
 			// switch segment
 			if m.currentSegment.audioAUCount >= segmentMinAUCount &&
-				m.currentSegment.startPTS != nil &&
-				(pts-*m.currentSegment.startPTS) >= m.segmentDuration {
-				err := m.currentSegment.finalize(&pts, m.startTime)
+				(pts-m.currentSegment.startDTS) >= m.segmentDuration {
+				err := m.currentSegment.finalize()
 				if err != nil {
 					return err
 				}
+				m.onSegmentFinalized(m.currentSegment)
 
-				m.onSegmentReady(m.currentSegment)
-				m.currentSegment = newMuxerVariantFMP4Segment(
-					m.nextSequenceNumber, now, m.segmentMaxSize, m.videoTrack, m.audioTrack)
-				m.nextSequenceNumber++
+				m.currentSegment, err = newMuxerVariantFMP4Segment(
+					m.lowLatency,
+					m.genSegmentID(),
+					now,
+					pts,
+					m.segmentMaxSize,
+					m.videoTrack,
+					m.audioTrack,
+					m.genPartID,
+					m.onPartFinalized,
+				)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	} else {
@@ -144,13 +214,13 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 
 	err := m.currentSegment.writeAAC(pts, aus)
 	if err != nil {
-		err := m.currentSegment.finalize(nil, m.startTime)
+		err := m.currentSegment.finalize()
 		if err != nil {
 			return err
 		}
+		m.onSegmentFinalized(m.currentSegment)
 
-		m.onSegmentReady(m.currentSegment)
-		m.currentSegment = nil
+		m.reset()
 		return err
 	}
 

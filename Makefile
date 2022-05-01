@@ -123,7 +123,7 @@ define CONFIG_RUN
 #rtcpAddress: :8003
 #metrics: yes
 #pprof: yes
-hlsVariant: fmp4
+hlsVariant: lowLatency
 hlsAlwaysRemux: yes
 
 paths:

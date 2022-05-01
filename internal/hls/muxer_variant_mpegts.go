@@ -48,7 +48,7 @@ func (v *muxerVariantMPEGTS) writeAAC(pts time.Duration, aus [][]byte) error {
 	return v.segmenter.writeAAC(pts, aus)
 }
 
-func (v *muxerVariantMPEGTS) playlistReader() io.Reader {
+func (v *muxerVariantMPEGTS) playlistReader(msn string, part string, skip string) io.Reader {
 	return v.playlist.playlistReader()
 }
 
