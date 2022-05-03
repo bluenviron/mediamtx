@@ -762,13 +762,15 @@ func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
 
 func (pa *path) handlePublisherAnnounce(req pathPublisherAnnounceReq) {
 	if pa.source != nil {
-		if pa.hasStaticSource() {
-			req.res <- pathPublisherAnnounceRes{err: fmt.Errorf("path '%s' is assigned to a static source", pa.name)}
+		if pa.conf.Source != "publisher" {
+			req.res <- pathPublisherAnnounceRes{
+				err: fmt.Errorf("can't publish to path '%s' since 'source' is not 'publisher'", pa.name),
+			}
 			return
 		}
 
 		if pa.conf.DisablePublisherOverride {
-			req.res <- pathPublisherAnnounceRes{err: fmt.Errorf("another publisher is already publishing to path '%s'", pa.name)}
+			req.res <- pathPublisherAnnounceRes{err: fmt.Errorf("someone is already publishing to path '%s'", pa.name)}
 			return
 		}
 
