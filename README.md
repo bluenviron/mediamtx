@@ -60,6 +60,8 @@ Features:
   * [From a Raspberry Pi Camera](#from-a-raspberry-pi-camera)
   * [From OBS Studio](#from-obs-studio)
   * [From OpenCV](#from-opencv)
+* [Read from the server](#read-from-the-server)
+  * [From VLC and Ubuntu](#from-vlc-and-ubuntu)
 * [RTSP protocol](#rtsp-protocol)
   * [RTSP general usage](#rtsp-general-usage)
   * [TCP transport](#tcp-transport)
@@ -580,6 +582,25 @@ while True:
     print("frame written to the server")
 
     sleep(1 / fps)
+```
+
+## Read from the server
+
+### From VLC and Ubuntu
+
+The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a [license issue](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=982299).
+
+To overcome the issue, remove the default VLC instance and install the snap version:
+
+```
+sudo apt purge -y vlc
+snap install vlc
+```
+
+Then use it to read the stream:
+
+```
+vlc rtsp://localhost:8554/mystream
 ```
 
 ## RTSP protocol
