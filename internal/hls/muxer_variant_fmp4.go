@@ -8,8 +8,7 @@ import (
 )
 
 const (
-	fmp4Timescale                = 90000
-	fmp4LowLatencyPartEntryCount = 5
+	fmp4VideoTimescale = 90000
 )
 
 type muxerVariantFMP4 struct {

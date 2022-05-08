@@ -51,13 +51,13 @@ type muxerVariantFMP4Segment struct {
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
-	sampleDuration time.Duration
-	entriesCount   int
-	entriesSize    uint64
-	audioAUCount   int
-	parts          []*muxerVariantFMP4Part
-	currentPart    *muxerVariantFMP4Part
-	duration       time.Duration
+	sampleDuration    time.Duration
+	videoEntriesCount int
+	audioEntriesCount int
+	entriesSize       uint64
+	parts             []*muxerVariantFMP4Part
+	currentPart       *muxerVariantFMP4Part
+	duration          time.Duration
 }
 
 func newMuxerVariantFMP4Segment(
@@ -83,14 +83,19 @@ func newMuxerVariantFMP4Segment(
 		onPartFinalized: onPartFinalized,
 	}
 
-	var spsp h264.SPS
-	err := spsp.Unmarshal(s.videoTrack.SPS())
-	if err != nil {
-		return nil, err
+	if s.videoTrack != nil {
+		var spsp h264.SPS
+		err := spsp.Unmarshal(s.videoTrack.SPS())
+		if err != nil {
+			return nil, err
+		}
+
+		s.sampleDuration = time.Duration(float64(time.Second) / spsp.FPS())
 	}
 
-	s.sampleDuration = time.Duration(float64(time.Second) / spsp.FPS())
 	s.currentPart = newMuxerVariantFMP4Part(
+		s.videoTrack,
+		s.audioTrack,
 		s.genPartID(),
 		s.startDTS,
 		s.sampleDuration,
@@ -117,7 +122,11 @@ func (s *muxerVariantFMP4Segment) finalize() error {
 	s.parts = append(s.parts, s.currentPart)
 	s.currentPart = nil
 
-	s.duration = time.Duration(s.entriesCount) * s.sampleDuration
+	if s.videoTrack != nil {
+		s.duration = time.Duration(s.videoEntriesCount) * s.sampleDuration
+	} else {
+		s.duration = time.Duration(s.audioEntriesCount) * 1024 * time.Second / time.Duration(s.audioTrack.ClockRate())
+	}
 
 	return nil
 }
@@ -126,25 +135,25 @@ func (s *muxerVariantFMP4Segment) writeH264(
 	pts time.Duration,
 	nalus [][]byte,
 ) error {
-	avcc, err := h264.AVCCEncode(nalus)
-	if err != nil {
-		return err
+	size := uint64(0)
+	for _, nalu := range nalus {
+		size += uint64(len(nalu))
 	}
-	avccl := uint64(len(avcc))
 
-	if (s.entriesSize + avccl) > s.segmentMaxSize {
+	if (s.entriesSize + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
 
-	err = s.currentPart.writeH264(pts, avcc)
+	err := s.currentPart.writeH264(pts, nalus)
 	if err != nil {
 		return err
 	}
 
-	s.entriesCount++
-	s.entriesSize += avccl
+	s.videoEntriesCount++
+	s.entriesSize += size
 
-	if s.lowLatency && len(s.currentPart.entries) > fmp4LowLatencyPartEntryCount {
+	if s.lowLatency && len(s.currentPart.videoEntries) > 5 &&
+		(s.audioTrack == nil || len(s.currentPart.audioEntries) > 5) {
 		err := s.currentPart.finalize()
 		if err != nil {
 			return err
@@ -154,8 +163,10 @@ func (s *muxerVariantFMP4Segment) writeH264(
 		s.onPartFinalized(s.currentPart)
 
 		s.currentPart = newMuxerVariantFMP4Part(
+			s.videoTrack,
+			s.audioTrack,
 			s.genPartID(),
-			s.startDTS+time.Duration(s.entriesCount)*s.sampleDuration,
+			s.startDTS+time.Duration(s.videoEntriesCount)*s.sampleDuration,
 			s.sampleDuration,
 		)
 	}
@@ -167,5 +178,41 @@ func (s *muxerVariantFMP4Segment) writeAAC(
 	pts time.Duration,
 	aus [][]byte,
 ) error {
+	size := uint64(0)
+	for _, au := range aus {
+		size += uint64(len(au))
+	}
+
+	if (s.entriesSize + size) > s.segmentMaxSize {
+		return fmt.Errorf("reached maximum segment size")
+	}
+
+	err := s.currentPart.writeAAC(pts, aus)
+	if err != nil {
+		return err
+	}
+
+	s.audioEntriesCount += len(aus)
+	s.entriesSize += size
+
+	if s.lowLatency && s.videoTrack == nil &&
+		len(s.currentPart.audioEntries) > 30 {
+		err := s.currentPart.finalize()
+		if err != nil {
+			return err
+		}
+
+		s.parts = append(s.parts, s.currentPart)
+		s.onPartFinalized(s.currentPart)
+
+		s.currentPart = newMuxerVariantFMP4Part(
+			s.videoTrack,
+			s.audioTrack,
+			s.genPartID(),
+			s.startDTS+time.Duration(s.audioEntriesCount)*1024*time.Second/time.Duration(s.audioTrack.ClockRate()),
+			s.sampleDuration,
+		)
+	}
+
 	return nil
 }

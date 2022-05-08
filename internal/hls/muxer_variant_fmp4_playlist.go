@@ -246,7 +246,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() []byte {
 			}
 			cnt += "\n"
 		}
-		cnt += "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"" + fmp4PartName(p.nextPartID) + ".mp4\"\n"
+		// cnt += "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"" + fmp4PartName(p.nextPartID) + ".mp4\"\n"
 	}
 
 	return []byte(cnt)
