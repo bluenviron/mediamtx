@@ -423,18 +423,16 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			for _, au := range aus {
+			for i, au := range aus {
 				c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
-					Time: pts,
+					Time: pts + time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(audioTrack.ClockRate()),
 				})
 				if err != nil {
 					return err
 				}
-
-				pts += aac.SamplesPerAccessUnit * time.Second / time.Duration(audioTrack.ClockRate())
 			}
 		}
 	}
