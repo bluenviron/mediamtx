@@ -64,20 +64,17 @@ func (p *clientAudioProcessor) doProcess(
 	}
 
 	aus := make([][]byte, 0, len(adtsPkts))
-	pktPts := pts
-	now := time.Now()
+
+	elapsed := time.Since(p.clockStartRTC)
+	if pts > elapsed {
+		select {
+		case <-p.ctx.Done():
+			return fmt.Errorf("terminated")
+		case <-time.After(pts - elapsed):
+		}
+	}
 
 	for _, pkt := range adtsPkts {
-		elapsed := now.Sub(p.clockStartRTC)
-
-		if pktPts > elapsed {
-			select {
-			case <-p.ctx.Done():
-				return fmt.Errorf("terminated")
-			case <-time.After(pktPts - elapsed):
-			}
-		}
-
 		if !p.trackInitialized {
 			p.trackInitialized = true
 
@@ -93,7 +90,6 @@ func (p *clientAudioProcessor) doProcess(
 		}
 
 		aus = append(aus, pkt.AU)
-		pktPts += aac.SamplesPerAccessUnit * time.Second / time.Duration(pkt.SampleRate)
 	}
 
 	p.onData(pts, aus)
