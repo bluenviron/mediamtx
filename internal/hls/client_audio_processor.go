@@ -93,7 +93,7 @@ func (p *clientAudioProcessor) doProcess(
 		}
 
 		aus = append(aus, pkt.AU)
-		pktPts += 1000 * time.Second / time.Duration(pkt.SampleRate)
+		pktPts += aac.SamplesPerAccessUnit * time.Second / time.Duration(pkt.SampleRate)
 	}
 
 	p.onData(pts, aus)

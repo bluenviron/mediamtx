@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
@@ -433,7 +434,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 					return err
 				}
 
-				pts += 1000 * time.Second / time.Duration(audioTrack.ClockRate())
+				pts += aac.SamplesPerAccessUnit * time.Second / time.Duration(audioTrack.ClockRate())
 			}
 		}
 	}
