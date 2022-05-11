@@ -2,7 +2,6 @@ package core
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -172,15 +171,14 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					u, err := base.ParseURL("rtsp://localhost:8554/mypath")
 					require.NoError(t, err)
 
-					var bb bytes.Buffer
-					base.Request{
+					byts, _ := base.Request{
 						Method: base.Describe,
 						URL:    u,
 						Header: base.Header{
 							"CSeq": base.HeaderValue{"1"},
 						},
-					}.Write(&bb)
-					_, err = conn.Write(bb.Bytes())
+					}.Write()
+					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
 					var res base.Response
@@ -191,8 +189,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					u, err := base.ParseURL("rtsp://localhost:8554/mypath/trackID=0")
 					require.NoError(t, err)
 
-					var bb bytes.Buffer
-					base.Request{
+					byts, _ := base.Request{
 						Method: base.Setup,
 						URL:    u,
 						Header: base.Header{
@@ -210,8 +207,8 @@ func TestCorePathAutoDeletion(t *testing.T) {
 								ClientPorts: &[2]int{35466, 35467},
 							}.Write(),
 						},
-					}.Write(&bb)
-					_, err = conn.Write(bb.Bytes())
+					}.Write()
+					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
 					var res base.Response
@@ -310,15 +307,14 @@ func main() {
 					u, err := base.ParseURL("rtsp://localhost:8554/ondemand")
 					require.NoError(t, err)
 
-					var bb bytes.Buffer
-					base.Request{
+					byts, _ := base.Request{
 						Method: base.Describe,
 						URL:    u,
 						Header: base.Header{
 							"CSeq": base.HeaderValue{"1"},
 						},
-					}.Write(&bb)
-					_, err = conn.Write(bb.Bytes())
+					}.Write()
+					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
 					var res base.Response
@@ -331,8 +327,7 @@ func main() {
 					u, err := base.ParseURL("rtsp://localhost:8554/ondemand/trackID=0")
 					require.NoError(t, err)
 
-					var bb bytes.Buffer
-					base.Request{
+					byts, _ := base.Request{
 						Method: base.Setup,
 						URL:    u,
 						Header: base.Header{
@@ -346,8 +341,8 @@ func main() {
 								InterleavedIDs: &[2]int{0, 1},
 							}.Write(),
 						},
-					}.Write(&bb)
-					_, err = conn.Write(bb.Bytes())
+					}.Write()
+					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
 					var res base.Response
