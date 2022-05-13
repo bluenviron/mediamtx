@@ -460,7 +460,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	var aacEncoder *rtpaac.Encoder
 	if audioTrack != nil {
 		aacEncoder = &rtpaac.Encoder{
-			PayloadType:      97,
+			PayloadType:      96,
 			SampleRate:       audioTrack.ClockRate(),
 			SizeLength:       13,
 			IndexLength:      3,

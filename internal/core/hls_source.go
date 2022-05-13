@@ -115,7 +115,7 @@ func (s *hlsSource) runInner() bool {
 		if audioTrack != nil {
 			audioTrackID = len(tracks)
 			audioEnc = &rtpaac.Encoder{
-				PayloadType:      97,
+				PayloadType:      96,
 				SampleRate:       audioTrack.ClockRate(),
 				SizeLength:       13,
 				IndexLength:      3,
