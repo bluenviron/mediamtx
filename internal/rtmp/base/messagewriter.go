@@ -20,8 +20,13 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 
 	var timestampDelta *uint32
 	if wc.lastTimestamp != nil {
-		v := msg.Timestamp - *wc.lastTimestamp
-		timestampDelta = &v
+		diff := int64(msg.Timestamp) - int64(*wc.lastTimestamp)
+
+		// use delta only if it is positive
+		if diff >= 0 {
+			v := uint32(diff)
+			timestampDelta = &v
+		}
 	}
 
 	for {
@@ -34,7 +39,7 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 			firstChunk = false
 
 			switch {
-			case wc.lastMessageStreamID == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
+			case wc.lastMessageStreamID == nil || timestampDelta == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
 				err := Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
 					Timestamp:       msg.Timestamp,
