@@ -1,6 +1,11 @@
 package base
 
 const (
+	// ControlChunkStreamID is the stream ID used for control messages.
+	ControlChunkStreamID = 2
+)
+
+const (
 	rtmpVersion = 0x03
 )
 

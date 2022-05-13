@@ -43,7 +43,7 @@ func (mw *MessageWriter) Write(msg *Message) error {
 			if v, ok := mw.lastMessageStreamIDPerChunkStreamID[msg.ChunkStreamID]; !ok || v != msg.MessageStreamID {
 				err := Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
-					Typ:             msg.Typ,
+					Type:            msg.Type,
 					MessageStreamID: msg.MessageStreamID,
 					BodyLen:         uint32(bodyLen),
 					Body:            msg.Body[pos : pos+chunkBodyLen],
@@ -56,7 +56,7 @@ func (mw *MessageWriter) Write(msg *Message) error {
 			} else {
 				err := Chunk1{
 					ChunkStreamID: msg.ChunkStreamID,
-					Typ:           msg.Typ,
+					Type:          msg.Type,
 					BodyLen:       uint32(bodyLen),
 					Body:          msg.Body[pos : pos+chunkBodyLen],
 				}.Write(mw.w)

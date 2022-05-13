@@ -12,7 +12,7 @@ import (
 // message after the first.
 type Chunk1 struct {
 	ChunkStreamID byte
-	Typ           byte
+	Type          MessageType
 	BodyLen       uint32
 	Body          []byte
 }
@@ -24,7 +24,7 @@ func (c Chunk1) Write(w io.Writer) error {
 	header[4] = byte(c.BodyLen >> 16)
 	header[5] = byte(c.BodyLen >> 8)
 	header[6] = byte(c.BodyLen)
-	header[7] = c.Typ
+	header[7] = byte(c.Type)
 	_, err := w.Write(header)
 	if err != nil {
 		return err

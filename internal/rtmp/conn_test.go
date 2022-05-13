@@ -153,7 +153,7 @@ func TestReadTracks(t *testing.T) {
 			})
 			err = mw.Write(&base.Message{
 				ChunkStreamID: 3,
-				Typ:           0x14,
+				Type:          0x14,
 				Body:          byts,
 			})
 			require.NoError(t, err)
@@ -163,8 +163,8 @@ func TestReadTracks(t *testing.T) {
 			err = c0.Read(conn, 128)
 			require.NoError(t, err)
 			require.Equal(t, base.Chunk0{
-				ChunkStreamID: 2,
-				Typ:           5,
+				ChunkStreamID: base.ControlChunkStreamID,
+				Type:          base.MessageTypeSetWindowAckSize,
 				BodyLen:       4,
 				Body:          []byte{0x00, 38, 37, 160},
 			}, c0)
@@ -173,8 +173,8 @@ func TestReadTracks(t *testing.T) {
 			err = c0.Read(conn, 128)
 			require.NoError(t, err)
 			require.Equal(t, base.Chunk0{
-				ChunkStreamID: 2,
-				Typ:           6,
+				ChunkStreamID: base.ControlChunkStreamID,
+				Type:          base.MessageTypeSetPeerBandwidth,
 				BodyLen:       5,
 				Body:          []byte{0x00, 0x26, 0x25, 0xa0, 0x02},
 			}, c0)
@@ -183,8 +183,8 @@ func TestReadTracks(t *testing.T) {
 			err = c0.Read(conn, 128)
 			require.NoError(t, err)
 			require.Equal(t, base.Chunk0{
-				ChunkStreamID: 2,
-				Typ:           1,
+				ChunkStreamID: base.ControlChunkStreamID,
+				Type:          base.MessageTypeSetChunkSize,
 				BodyLen:       4,
 				Body:          []byte{0x00, 0x01, 0x00, 0x00},
 			}, c0)
@@ -193,7 +193,7 @@ func TestReadTracks(t *testing.T) {
 			err = c0.Read(conn, 65536)
 			require.NoError(t, err)
 			require.Equal(t, uint8(3), c0.ChunkStreamID)
-			require.Equal(t, uint8(0x14), c0.Typ)
+			require.Equal(t, base.MessageType(0x14), c0.Type)
 			arr, err := flvio.ParseAMFVals(c0.Body, false)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
@@ -213,8 +213,8 @@ func TestReadTracks(t *testing.T) {
 
 			// C->S set chunk size
 			err = mw.Write(&base.Message{
-				ChunkStreamID: 2,
-				Typ:           1,
+				ChunkStreamID: base.ControlChunkStreamID,
+				Type:          base.MessageTypeSetChunkSize,
 				Body:          []byte{0x00, 0x01, 0x00, 0x00},
 			})
 			require.NoError(t, err)
@@ -224,7 +224,7 @@ func TestReadTracks(t *testing.T) {
 			// C->S releaseStream
 			err = mw.Write(&base.Message{
 				ChunkStreamID: 3,
-				Typ:           0x14,
+				Type:          0x14,
 				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"releaseStream",
 					float64(2),
@@ -237,7 +237,7 @@ func TestReadTracks(t *testing.T) {
 			// C->S FCPublish
 			err = mw.Write(&base.Message{
 				ChunkStreamID: 3,
-				Typ:           0x14,
+				Type:          0x14,
 				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"FCPublish",
 					float64(3),
@@ -250,7 +250,7 @@ func TestReadTracks(t *testing.T) {
 			// C->S createStream
 			err = mw.Write(&base.Message{
 				ChunkStreamID: 3,
-				Typ:           0x14,
+				Type:          0x14,
 				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"createStream",
 					float64(4),
@@ -263,7 +263,7 @@ func TestReadTracks(t *testing.T) {
 			err = c0.Read(conn, 65536)
 			require.NoError(t, err)
 			require.Equal(t, uint8(3), c0.ChunkStreamID)
-			require.Equal(t, uint8(0x14), c0.Typ)
+			require.Equal(t, base.MessageType(0x14), c0.Type)
 			arr, err = flvio.ParseAMFVals(c0.Body, false)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
@@ -276,7 +276,7 @@ func TestReadTracks(t *testing.T) {
 			// C->S publish
 			err = mw.Write(&base.Message{
 				ChunkStreamID:   8,
-				Typ:             0x14,
+				Type:            0x14,
 				MessageStreamID: 1,
 				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"publish",
@@ -292,7 +292,7 @@ func TestReadTracks(t *testing.T) {
 			err = c0.Read(conn, 65536)
 			require.NoError(t, err)
 			require.Equal(t, uint8(5), c0.ChunkStreamID)
-			require.Equal(t, uint8(0x14), c0.Typ)
+			require.Equal(t, base.MessageType(0x14), c0.Type)
 			arr, err = flvio.ParseAMFVals(c0.Body, false)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
@@ -333,7 +333,7 @@ func TestReadTracks(t *testing.T) {
 				})
 				err = mw.Write(&base.Message{
 					ChunkStreamID:   4,
-					Typ:             0x12,
+					Type:            0x12,
 					MessageStreamID: 1,
 					Body:            byts,
 				})
@@ -354,7 +354,7 @@ func TestReadTracks(t *testing.T) {
 				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = mw.Write(&base.Message{
 					ChunkStreamID:   6,
-					Typ:             flvio.TAG_VIDEO,
+					Type:            flvio.TAG_VIDEO,
 					MessageStreamID: 1,
 					Body:            body,
 				})
@@ -369,7 +369,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 				err = mw.Write(&base.Message{
 					ChunkStreamID:   4,
-					Typ:             flvio.TAG_AUDIO,
+					Type:            flvio.TAG_AUDIO,
 					MessageStreamID: 1,
 					Body: append([]byte{
 						flvio.SOUND_AAC<<4 | flvio.SOUND_44Khz<<2 | flvio.SOUND_16BIT<<1 | flvio.SOUND_STEREO,
@@ -400,7 +400,7 @@ func TestReadTracks(t *testing.T) {
 				})
 				err = mw.Write(&base.Message{
 					ChunkStreamID:   4,
-					Typ:             0x12,
+					Type:            0x12,
 					MessageStreamID: 1,
 					Body:            byts,
 				})
@@ -421,7 +421,7 @@ func TestReadTracks(t *testing.T) {
 				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = mw.Write(&base.Message{
 					ChunkStreamID:   6,
-					Typ:             flvio.TAG_VIDEO,
+					Type:            flvio.TAG_VIDEO,
 					MessageStreamID: 1,
 					Body:            body,
 				})
@@ -443,7 +443,7 @@ func TestReadTracks(t *testing.T) {
 				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = mw.Write(&base.Message{
 					ChunkStreamID:   6,
-					Typ:             flvio.TAG_VIDEO,
+					Type:            flvio.TAG_VIDEO,
 					MessageStreamID: 1,
 					Body:            body,
 				})
@@ -532,7 +532,7 @@ func TestWriteTracks(t *testing.T) {
 	})
 	err = mw.Write(&base.Message{
 		ChunkStreamID: 3,
-		Typ:           0x14,
+		Type:          0x14,
 		Body:          byts,
 	})
 	require.NoError(t, err)
@@ -542,8 +542,8 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 128)
 	require.NoError(t, err)
 	require.Equal(t, base.Chunk0{
-		ChunkStreamID: 2,
-		Typ:           5,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          base.MessageTypeSetWindowAckSize,
 		BodyLen:       4,
 		Body:          []byte{0x00, 38, 37, 160},
 	}, c0)
@@ -552,8 +552,8 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 128)
 	require.NoError(t, err)
 	require.Equal(t, base.Chunk0{
-		ChunkStreamID: 2,
-		Typ:           6,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          base.MessageTypeSetPeerBandwidth,
 		BodyLen:       5,
 		Body:          []byte{0x00, 0x26, 0x25, 0xa0, 0x02},
 	}, c0)
@@ -562,8 +562,8 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 128)
 	require.NoError(t, err)
 	require.Equal(t, base.Chunk0{
-		ChunkStreamID: 2,
-		Typ:           1,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          base.MessageTypeSetChunkSize,
 		BodyLen:       4,
 		Body:          []byte{0x00, 0x01, 0x00, 0x00},
 	}, c0)
@@ -572,7 +572,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(3), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x14), c0.Typ)
+	require.Equal(t, base.MessageType(0x14), c0.Type)
 	arr, err := flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -592,24 +592,26 @@ func TestWriteTracks(t *testing.T) {
 
 	// C->S window acknowledgement size
 	err = mw.Write(&base.Message{
-		ChunkStreamID: 2,
-		Typ:           0x05,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          base.MessageTypeSetWindowAckSize,
 		Body:          []byte{0x00, 0x26, 0x25, 0xa0},
 	})
 	require.NoError(t, err)
 
 	// C->S set chunk size
 	err = mw.Write(&base.Message{
-		ChunkStreamID: 2,
-		Typ:           1,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          base.MessageTypeSetChunkSize,
 		Body:          []byte{0x00, 0x01, 0x00, 0x00},
 	})
 	require.NoError(t, err)
 
+	mw.SetChunkSize(65536)
+
 	// C->S createStream
 	err = mw.Write(&base.Message{
 		ChunkStreamID: 3,
-		Typ:           0x14,
+		Type:          0x14,
 		Body: flvio.FillAMF0ValsMalloc([]interface{}{
 			"createStream",
 			float64(2),
@@ -622,7 +624,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(3), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x14), c0.Typ)
+	require.Equal(t, base.MessageType(0x14), c0.Type)
 	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -655,7 +657,7 @@ func TestWriteTracks(t *testing.T) {
 	})
 	err = mw.Write(&base.Message{
 		ChunkStreamID: 8,
-		Typ:           0x14,
+		Type:          0x14,
 		Body:          byts,
 	})
 	require.NoError(t, err)
@@ -664,8 +666,8 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, base.Chunk0{
-		ChunkStreamID: 2,
-		Typ:           4,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          4,
 		BodyLen:       6,
 		Body:          []byte{0x00, 0x04, 0x00, 0x00, 0x00, 0x01},
 	}, c0)
@@ -674,8 +676,8 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, base.Chunk0{
-		ChunkStreamID: 2,
-		Typ:           4,
+		ChunkStreamID: base.ControlChunkStreamID,
+		Type:          4,
 		BodyLen:       6,
 		Body:          []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
 	}, c0)
@@ -684,7 +686,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(5), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x14), c0.Typ)
+	require.Equal(t, base.MessageType(0x14), c0.Type)
 	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -702,7 +704,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(5), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x14), c0.Typ)
+	require.Equal(t, base.MessageType(0x14), c0.Type)
 	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -720,7 +722,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(5), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x14), c0.Typ)
+	require.Equal(t, base.MessageType(0x14), c0.Type)
 	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -738,7 +740,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(5), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x14), c0.Typ)
+	require.Equal(t, base.MessageType(0x14), c0.Type)
 	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -756,7 +758,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(4), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x12), c0.Typ)
+	require.Equal(t, base.MessageType(0x12), c0.Type)
 	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
@@ -773,7 +775,7 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(6), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x09), c0.Typ)
+	require.Equal(t, base.MessageType(0x09), c0.Type)
 	require.Equal(t, []byte{
 		0x17, 0x0, 0x0, 0x0, 0x0, 0x1, 0x64, 0x0,
 		0xc, 0xff, 0xe1, 0x0, 0x15, 0x67, 0x64, 0x0,
@@ -787,6 +789,6 @@ func TestWriteTracks(t *testing.T) {
 	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
 	require.Equal(t, uint8(4), c0.ChunkStreamID)
-	require.Equal(t, uint8(0x08), c0.Typ)
+	require.Equal(t, base.MessageType(0x08), c0.Type)
 	require.Equal(t, []byte{0xae, 0x0, 0x12, 0x10}, c0.Body)
 }

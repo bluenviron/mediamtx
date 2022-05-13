@@ -4,7 +4,7 @@ package base
 type Message struct {
 	ChunkStreamID   byte
 	Timestamp       uint32
-	Typ             byte
+	Type            MessageType
 	MessageStreamID uint32
 	Body            []byte
 }
