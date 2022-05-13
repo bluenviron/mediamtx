@@ -1,12 +1,6 @@
 package rtmp
 
 import (
-	"bytes"
-	"crypto/hmac"
-	"crypto/rand"
-	"crypto/sha256"
-	"fmt"
-	"io"
 	"net"
 	"net/url"
 	"strings"
@@ -17,28 +11,8 @@ import (
 	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
-)
 
-var (
-	hsClientFullKey = []byte{
-		'G', 'e', 'n', 'u', 'i', 'n', 'e', ' ', 'A', 'd', 'o', 'b', 'e', ' ',
-		'F', 'l', 'a', 's', 'h', ' ', 'P', 'l', 'a', 'y', 'e', 'r', ' ',
-		'0', '0', '1',
-		0xF0, 0xEE, 0xC2, 0x4A, 0x80, 0x68, 0xBE, 0xE8, 0x2E, 0x00, 0xD0, 0xD1,
-		0x02, 0x9E, 0x7E, 0x57, 0x6E, 0xEC, 0x5D, 0x2D, 0x29, 0x80, 0x6F, 0xAB,
-		0x93, 0xB8, 0xE6, 0x36, 0xCF, 0xEB, 0x31, 0xAE,
-	}
-	hsServerFullKey = []byte{
-		'G', 'e', 'n', 'u', 'i', 'n', 'e', ' ', 'A', 'd', 'o', 'b', 'e', ' ',
-		'F', 'l', 'a', 's', 'h', ' ', 'M', 'e', 'd', 'i', 'a', ' ',
-		'S', 'e', 'r', 'v', 'e', 'r', ' ',
-		'0', '0', '1',
-		0xF0, 0xEE, 0xC2, 0x4A, 0x80, 0x68, 0xBE, 0xE8, 0x2E, 0x00, 0xD0, 0xD1,
-		0x02, 0x9E, 0x7E, 0x57, 0x6E, 0xEC, 0x5D, 0x2D, 0x29, 0x80, 0x6F, 0xAB,
-		0x93, 0xB8, 0xE6, 0x36, 0xCF, 0xEB, 0x31, 0xAE,
-	}
-	hsClientPartialKey = hsClientFullKey[:30]
-	hsServerPartialKey = hsServerFullKey[:36]
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/base"
 )
 
 func splitPath(u *url.URL) (app, stream string) {
@@ -60,75 +34,6 @@ func splitPath(u *url.URL) (app, stream string) {
 	return
 }
 
-func hsMakeDigest(key []byte, src []byte, gap int) (dst []byte) {
-	h := hmac.New(sha256.New, key)
-	if gap <= 0 {
-		h.Write(src)
-	} else {
-		h.Write(src[:gap])
-		h.Write(src[gap+32:])
-	}
-	return h.Sum(nil)
-}
-
-func hsCalcDigestPos(p []byte, base int) (pos int) {
-	for i := 0; i < 4; i++ {
-		pos += int(p[base+i])
-	}
-	pos = (pos % 728) + base + 4
-	return
-}
-
-func hsFindDigest(p []byte, key []byte, base int) int {
-	gap := hsCalcDigestPos(p, base)
-	digest := hsMakeDigest(key, p, gap)
-	if !bytes.Equal(p[gap:gap+32], digest) {
-		return -1
-	}
-	return gap
-}
-
-func hsParse1(p []byte, peerkey []byte, key []byte) (ok bool, digest []byte) {
-	var pos int
-	if pos = hsFindDigest(p, peerkey, 772); pos == -1 {
-		if pos = hsFindDigest(p, peerkey, 8); pos == -1 {
-			return
-		}
-	}
-	ok = true
-	digest = hsMakeDigest(key, p[pos:pos+32], -1)
-	return
-}
-
-func writeHandshakeC2(w io.Writer, s0s1s2 []byte) error {
-	ok, key := hsParse1(s0s1s2[1:1537], hsServerPartialKey, hsClientFullKey)
-	if !ok {
-		panic("unable to parse s0s1s2")
-	}
-
-	buf := make([]byte, 1536)
-	rand.Read(buf)
-	gap := len(buf) - 32
-	digest := hsMakeDigest(key, buf, gap)
-	copy(buf[gap:], digest)
-	_, err := w.Write(buf)
-	return err
-}
-
-func writeHandshakeC0C1(w io.Writer) error {
-	buf := make([]byte, 1537)
-	buf[0] = 0x03
-	copy(buf[1:5], []byte{0x00, 0x00, 0x00, 0x00})
-	copy(buf[5:9], []byte{0x09, 0x00, 0x7c, 0x02})
-	rand.Read(buf[1+8:])
-	gap := hsCalcDigestPos(buf[1:], 8)
-	digest := hsMakeDigest(hsClientPartialKey, buf[1:], gap)
-	copy(buf[gap+1:], digest)
-
-	_, err := w.Write(buf)
-	return err
-}
-
 func getTcURL(u string) string {
 	ur, err := url.Parse(u)
 	if err != nil {
@@ -139,102 +44,6 @@ func getTcURL(u string) string {
 	nu.RawQuery = ""
 	nu.Path = "/"
 	return nu.String() + app
-}
-
-type chunk0 struct {
-	chunkStreamID byte
-	timestamp     uint32
-	typ           byte
-	streamID      uint32
-	bodyLen       uint32
-	body          []byte
-}
-
-func (m *chunk0) read(r io.Reader, chunkMaxBodyLen int) error {
-	header := make([]byte, 12)
-	_, err := r.Read(header)
-	if err != nil {
-		return err
-	}
-
-	if header[0]>>6 != 0 {
-		return fmt.Errorf("wrong chunk header type")
-	}
-
-	m.chunkStreamID = header[0] & 0x3F
-	m.timestamp = uint32(header[3])<<16 | uint32(header[2])<<8 | uint32(header[1])
-	m.bodyLen = uint32(header[4])<<16 | uint32(header[5])<<8 | uint32(header[6])
-	m.typ = header[7]
-	m.streamID = uint32(header[8])<<24 | uint32(header[9])<<16 | uint32(header[10])<<8 | uint32(header[11])
-
-	chunkBodyLen := int(m.bodyLen)
-	if chunkBodyLen > chunkMaxBodyLen {
-		chunkBodyLen = chunkMaxBodyLen
-	}
-
-	m.body = make([]byte, chunkBodyLen)
-	_, err = r.Read(m.body)
-	return err
-}
-
-func (m chunk0) write(w io.Writer) error {
-	header := make([]byte, 12)
-	header[0] = m.chunkStreamID
-	header[1] = byte(m.timestamp >> 16)
-	header[2] = byte(m.timestamp >> 8)
-	header[3] = byte(m.timestamp)
-	header[4] = byte(m.bodyLen >> 16)
-	header[5] = byte(m.bodyLen >> 8)
-	header[6] = byte(m.bodyLen)
-	header[7] = m.typ
-	header[8] = byte(m.streamID)
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(m.body)
-	return err
-}
-
-type chunk1 struct {
-	chunkStreamID byte
-	typ           byte
-	body          []byte
-}
-
-func (m chunk1) write(w io.Writer) error {
-	header := make([]byte, 8)
-	header[0] = 1<<6 | m.chunkStreamID
-	l := uint32(len(m.body))
-	header[4] = byte(l >> 16)
-	header[5] = byte(l >> 8)
-	header[6] = byte(l)
-	header[7] = m.typ
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(m.body)
-	return err
-}
-
-type chunk3 struct {
-	chunkStreamID byte
-	body          []byte
-}
-
-func (m chunk3) write(w io.Writer) error {
-	header := make([]byte, 1)
-	header[0] = 3<<6 | m.chunkStreamID
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(m.body)
-	return err
 }
 
 func TestReadTracks(t *testing.T) {
@@ -304,17 +113,25 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 			defer conn.Close()
 
-			// C->S handshake C0+C1
-			err = writeHandshakeC0C1(conn)
+			// C->S handshake C0
+			err = base.HandshakeC0{}.Write(conn)
 			require.NoError(t, err)
 
-			// S->C handshake S0+S1+S2
-			s0s1s2 := make([]byte, 1536*2+1)
-			_, err = conn.Read(s0s1s2)
+			// C->S handshake C1
+			err = base.HandshakeC1{}.Write(conn)
+			require.NoError(t, err)
+
+			// S->C handshake S0
+			err = base.HandshakeS0{}.Read(conn)
+			require.NoError(t, err)
+
+			// S->C handshake S1+S2
+			s1s2 := make([]byte, 1536*2)
+			_, err = conn.Read(s1s2)
 			require.NoError(t, err)
 
 			// C->S handshake C2
-			err = writeHandshakeC2(conn, s0s1s2)
+			err = base.HandshakeC2{}.Write(conn, s1s2)
 			require.NoError(t, err)
 
 			// C->S connect
@@ -332,56 +149,56 @@ func TestReadTracks(t *testing.T) {
 					{K: "videoFunction", V: 1},
 				},
 			})
-			err = chunk0{
-				chunkStreamID: 3,
-				typ:           0x14,
-				bodyLen:       uint32(len(byts)),
-				body:          byts[:128],
-			}.write(conn)
+			err = base.Chunk0{
+				ChunkStreamID: 3,
+				Typ:           0x14,
+				BodyLen:       uint32(len(byts)),
+				Body:          byts[:128],
+			}.Write(conn)
 			require.NoError(t, err)
-			err = chunk3{
-				chunkStreamID: 3,
-				body:          byts[128:],
-			}.write(conn)
+			err = base.Chunk3{
+				ChunkStreamID: 3,
+				Body:          byts[128:],
+			}.Write(conn)
 			require.NoError(t, err)
 
 			// S->C window acknowledgement size
-			var c0 chunk0
-			err = c0.read(conn, 128)
+			var c0 base.Chunk0
+			err = c0.Read(conn, 128)
 			require.NoError(t, err)
-			require.Equal(t, chunk0{
-				chunkStreamID: 2,
-				typ:           5,
-				bodyLen:       4,
-				body:          []byte{0x00, 38, 37, 160},
+			require.Equal(t, base.Chunk0{
+				ChunkStreamID: 2,
+				Typ:           5,
+				BodyLen:       4,
+				Body:          []byte{0x00, 38, 37, 160},
 			}, c0)
 
 			// S->C set peer bandwidth
-			err = c0.read(conn, 128)
+			err = c0.Read(conn, 128)
 			require.NoError(t, err)
-			require.Equal(t, chunk0{
-				chunkStreamID: 2,
-				typ:           6,
-				bodyLen:       5,
-				body:          []byte{0x00, 0x26, 0x25, 0xa0, 0x02},
+			require.Equal(t, base.Chunk0{
+				ChunkStreamID: 2,
+				Typ:           6,
+				BodyLen:       5,
+				Body:          []byte{0x00, 0x26, 0x25, 0xa0, 0x02},
 			}, c0)
 
 			// S->C set chunk size
-			err = c0.read(conn, 128)
+			err = c0.Read(conn, 128)
 			require.NoError(t, err)
-			require.Equal(t, chunk0{
-				chunkStreamID: 2,
-				typ:           1,
-				bodyLen:       4,
-				body:          []byte{0x00, 0x01, 0x00, 0x00},
+			require.Equal(t, base.Chunk0{
+				ChunkStreamID: 2,
+				Typ:           1,
+				BodyLen:       4,
+				Body:          []byte{0x00, 0x01, 0x00, 0x00},
 			}, c0)
 
 			// S->C result
-			err = c0.read(conn, 65536)
+			err = c0.Read(conn, 65536)
 			require.NoError(t, err)
-			require.Equal(t, uint8(3), c0.chunkStreamID)
-			require.Equal(t, uint8(0x14), c0.typ)
-			arr, err := flvio.ParseAMFVals(c0.body, false)
+			require.Equal(t, uint8(3), c0.ChunkStreamID)
+			require.Equal(t, uint8(0x14), c0.Typ)
+			arr, err := flvio.ParseAMFVals(c0.Body, false)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
 				"_result",
@@ -399,57 +216,57 @@ func TestReadTracks(t *testing.T) {
 			}, arr)
 
 			// C->S set chunk size
-			err = chunk0{
-				chunkStreamID: 2,
-				typ:           1,
-				bodyLen:       4,
-				body:          []byte{0x00, 0x01, 0x00, 0x00},
-			}.write(conn)
+			err = base.Chunk0{
+				ChunkStreamID: 2,
+				Typ:           1,
+				BodyLen:       4,
+				Body:          []byte{0x00, 0x01, 0x00, 0x00},
+			}.Write(conn)
 			require.NoError(t, err)
 
 			// C->S releaseStream
-			err = chunk1{
-				chunkStreamID: 3,
-				typ:           0x14,
-				body: flvio.FillAMF0ValsMalloc([]interface{}{
+			err = base.Chunk1{
+				ChunkStreamID: 3,
+				Typ:           0x14,
+				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"releaseStream",
 					float64(2),
 					nil,
 					"",
 				}),
-			}.write(conn)
+			}.Write(conn)
 			require.NoError(t, err)
 
 			// C->S FCPublish
-			err = chunk1{
-				chunkStreamID: 3,
-				typ:           0x14,
-				body: flvio.FillAMF0ValsMalloc([]interface{}{
+			err = base.Chunk1{
+				ChunkStreamID: 3,
+				Typ:           0x14,
+				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"FCPublish",
 					float64(3),
 					nil,
 					"",
 				}),
-			}.write(conn)
+			}.Write(conn)
 			require.NoError(t, err)
 
 			// C->S createStream
-			err = chunk3{
-				chunkStreamID: 3,
-				body: flvio.FillAMF0ValsMalloc([]interface{}{
+			err = base.Chunk3{
+				ChunkStreamID: 3,
+				Body: flvio.FillAMF0ValsMalloc([]interface{}{
 					"createStream",
 					float64(4),
 					nil,
 				}),
-			}.write(conn)
+			}.Write(conn)
 			require.NoError(t, err)
 
 			// S->C result
-			err = c0.read(conn, 65536)
+			err = c0.Read(conn, 65536)
 			require.NoError(t, err)
-			require.Equal(t, uint8(3), c0.chunkStreamID)
-			require.Equal(t, uint8(0x14), c0.typ)
-			arr, err = flvio.ParseAMFVals(c0.body, false)
+			require.Equal(t, uint8(3), c0.ChunkStreamID)
+			require.Equal(t, uint8(0x14), c0.Typ)
+			arr, err = flvio.ParseAMFVals(c0.Body, false)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
 				"_result",
@@ -466,21 +283,21 @@ func TestReadTracks(t *testing.T) {
 				"",
 				"live",
 			})
-			err = chunk0{
-				chunkStreamID: 8,
-				typ:           0x14,
-				streamID:      1,
-				bodyLen:       uint32(len(byts)),
-				body:          byts,
-			}.write(conn)
+			err = base.Chunk0{
+				ChunkStreamID: 8,
+				Typ:           0x14,
+				StreamID:      1,
+				BodyLen:       uint32(len(byts)),
+				Body:          byts,
+			}.Write(conn)
 			require.NoError(t, err)
 
 			// S->C onStatus
-			err = c0.read(conn, 65536)
+			err = c0.Read(conn, 65536)
 			require.NoError(t, err)
-			require.Equal(t, uint8(5), c0.chunkStreamID)
-			require.Equal(t, uint8(0x14), c0.typ)
-			arr, err = flvio.ParseAMFVals(c0.body, false)
+			require.Equal(t, uint8(5), c0.ChunkStreamID)
+			require.Equal(t, uint8(0x14), c0.Typ)
+			arr, err = flvio.ParseAMFVals(c0.Body, false)
 			require.NoError(t, err)
 			require.Equal(t, []interface{}{
 				"onStatus",
@@ -518,13 +335,13 @@ func TestReadTracks(t *testing.T) {
 						},
 					},
 				})
-				err = chunk0{
-					chunkStreamID: 4,
-					typ:           0x12,
-					streamID:      1,
-					bodyLen:       uint32(len(byts)),
-					body:          byts,
-				}.write(conn)
+				err = base.Chunk0{
+					ChunkStreamID: 4,
+					Typ:           0x12,
+					StreamID:      1,
+					BodyLen:       uint32(len(byts)),
+					Body:          byts,
+				}.Write(conn)
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
@@ -540,13 +357,13 @@ func TestReadTracks(t *testing.T) {
 				var n int
 				codec.ToConfig(b, &n)
 				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
-				err = chunk0{
-					chunkStreamID: 6,
-					typ:           flvio.TAG_VIDEO,
-					streamID:      1,
-					bodyLen:       uint32(len(body)),
-					body:          body,
-				}.write(conn)
+				err = base.Chunk0{
+					ChunkStreamID: 6,
+					Typ:           flvio.TAG_VIDEO,
+					StreamID:      1,
+					BodyLen:       uint32(len(body)),
+					Body:          body,
+				}.Write(conn)
 				require.NoError(t, err)
 
 				// C->S AAC decoder config
@@ -556,16 +373,16 @@ func TestReadTracks(t *testing.T) {
 					ChannelCount: 2,
 				}.Encode()
 				require.NoError(t, err)
-				err = chunk0{
-					chunkStreamID: 4,
-					typ:           flvio.TAG_AUDIO,
-					streamID:      1,
-					bodyLen:       uint32(len(enc) + 2),
-					body: append([]byte{
+				err = base.Chunk0{
+					ChunkStreamID: 4,
+					Typ:           flvio.TAG_AUDIO,
+					StreamID:      1,
+					BodyLen:       uint32(len(enc) + 2),
+					Body: append([]byte{
 						flvio.SOUND_AAC<<4 | flvio.SOUND_44Khz<<2 | flvio.SOUND_16BIT<<1 | flvio.SOUND_STEREO,
 						flvio.AAC_SEQHDR,
 					}, enc...),
-				}.write(conn)
+				}.Write(conn)
 				require.NoError(t, err)
 
 			case "metadata without codec id":
@@ -588,13 +405,13 @@ func TestReadTracks(t *testing.T) {
 						},
 					},
 				})
-				err = chunk0{
-					chunkStreamID: 4,
-					typ:           0x12,
-					streamID:      1,
-					bodyLen:       uint32(len(byts)),
-					body:          byts,
-				}.write(conn)
+				err = base.Chunk0{
+					ChunkStreamID: 4,
+					Typ:           0x12,
+					StreamID:      1,
+					BodyLen:       uint32(len(byts)),
+					Body:          byts,
+				}.Write(conn)
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
@@ -610,13 +427,13 @@ func TestReadTracks(t *testing.T) {
 				var n int
 				codec.ToConfig(b, &n)
 				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
-				err = chunk0{
-					chunkStreamID: 6,
-					typ:           flvio.TAG_VIDEO,
-					streamID:      1,
-					bodyLen:       uint32(len(body)),
-					body:          body,
-				}.write(conn)
+				err = base.Chunk0{
+					ChunkStreamID: 6,
+					Typ:           flvio.TAG_VIDEO,
+					StreamID:      1,
+					BodyLen:       uint32(len(body)),
+					Body:          body,
+				}.Write(conn)
 				require.NoError(t, err)
 
 			case "no metadata":
@@ -633,13 +450,13 @@ func TestReadTracks(t *testing.T) {
 				var n int
 				codec.ToConfig(b, &n)
 				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
-				err = chunk0{
-					chunkStreamID: 6,
-					typ:           flvio.TAG_VIDEO,
-					streamID:      1,
-					bodyLen:       uint32(len(body)),
-					body:          body,
-				}.write(conn)
+				err = base.Chunk0{
+					ChunkStreamID: 6,
+					Typ:           flvio.TAG_VIDEO,
+					StreamID:      1,
+					BodyLen:       uint32(len(body)),
+					Body:          body,
+				}.Write(conn)
 				require.NoError(t, err)
 			}
 
@@ -685,17 +502,25 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	// C->S handshake C0+C1
-	err = writeHandshakeC0C1(conn)
+	// C->S handshake C0
+	err = base.HandshakeC0{}.Write(conn)
 	require.NoError(t, err)
 
-	// S->C handshake S0+S1+S2
-	s0s1s2 := make([]byte, 1536*2+1)
-	_, err = conn.Read(s0s1s2)
+	// C-> handshake C1
+	err = base.HandshakeC1{}.Write(conn)
+	require.NoError(t, err)
+
+	// S->C handshake S0
+	err = base.HandshakeS0{}.Read(conn)
+	require.NoError(t, err)
+
+	// S->C handshake S1+S2
+	s1s2 := make([]byte, 1536*2)
+	_, err = conn.Read(s1s2)
 	require.NoError(t, err)
 
 	// C->S handshake C2
-	err = writeHandshakeC2(conn, s0s1s2)
+	err = base.HandshakeC2{}.Write(conn, s1s2)
 	require.NoError(t, err)
 
 	// C->S connect
@@ -713,56 +538,56 @@ func TestWriteTracks(t *testing.T) {
 			{K: "videoFunction", V: 1},
 		},
 	})
-	err = chunk0{
-		chunkStreamID: 3,
-		typ:           0x14,
-		bodyLen:       uint32(len(byts)),
-		body:          byts[:128],
-	}.write(conn)
+	err = base.Chunk0{
+		ChunkStreamID: 3,
+		Typ:           0x14,
+		BodyLen:       uint32(len(byts)),
+		Body:          byts[:128],
+	}.Write(conn)
 	require.NoError(t, err)
-	err = chunk3{
-		chunkStreamID: 3,
-		body:          byts[128:],
-	}.write(conn)
+	err = base.Chunk3{
+		ChunkStreamID: 3,
+		Body:          byts[128:],
+	}.Write(conn)
 	require.NoError(t, err)
 
 	// S->C window acknowledgement size
-	var c0 chunk0
-	err = c0.read(conn, 128)
+	var c0 base.Chunk0
+	err = c0.Read(conn, 128)
 	require.NoError(t, err)
-	require.Equal(t, chunk0{
-		chunkStreamID: 2,
-		typ:           5,
-		bodyLen:       4,
-		body:          []byte{0x00, 38, 37, 160},
+	require.Equal(t, base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           5,
+		BodyLen:       4,
+		Body:          []byte{0x00, 38, 37, 160},
 	}, c0)
 
 	// S->C set peer bandwidth
-	err = c0.read(conn, 128)
+	err = c0.Read(conn, 128)
 	require.NoError(t, err)
-	require.Equal(t, chunk0{
-		chunkStreamID: 2,
-		typ:           6,
-		bodyLen:       5,
-		body:          []byte{0x00, 0x26, 0x25, 0xa0, 0x02},
+	require.Equal(t, base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           6,
+		BodyLen:       5,
+		Body:          []byte{0x00, 0x26, 0x25, 0xa0, 0x02},
 	}, c0)
 
 	// S->C set chunk size
-	err = c0.read(conn, 128)
+	err = c0.Read(conn, 128)
 	require.NoError(t, err)
-	require.Equal(t, chunk0{
-		chunkStreamID: 2,
-		typ:           1,
-		bodyLen:       4,
-		body:          []byte{0x00, 0x01, 0x00, 0x00},
+	require.Equal(t, base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           1,
+		BodyLen:       4,
+		Body:          []byte{0x00, 0x01, 0x00, 0x00},
 	}, c0)
 
 	// S->C result
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(3), c0.chunkStreamID)
-	require.Equal(t, uint8(0x14), c0.typ)
-	arr, err := flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(3), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x14), c0.Typ)
+	arr, err := flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"_result",
@@ -780,41 +605,41 @@ func TestWriteTracks(t *testing.T) {
 	}, arr)
 
 	// C->S window acknowledgement size
-	err = chunk0{
-		chunkStreamID: 2,
-		typ:           0x05,
-		bodyLen:       4,
-		body:          []byte{0x00, 0x26, 0x25, 0xa0},
-	}.write(conn)
+	err = base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           0x05,
+		BodyLen:       4,
+		Body:          []byte{0x00, 0x26, 0x25, 0xa0},
+	}.Write(conn)
 	require.NoError(t, err)
 
 	// C->S set chunk size
-	err = chunk0{
-		chunkStreamID: 2,
-		typ:           1,
-		bodyLen:       4,
-		body:          []byte{0x00, 0x01, 0x00, 0x00},
-	}.write(conn)
+	err = base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           1,
+		BodyLen:       4,
+		Body:          []byte{0x00, 0x01, 0x00, 0x00},
+	}.Write(conn)
 	require.NoError(t, err)
 
 	// C->S createStream
-	err = chunk1{
-		chunkStreamID: 3,
-		typ:           0x14,
-		body: flvio.FillAMF0ValsMalloc([]interface{}{
+	err = base.Chunk1{
+		ChunkStreamID: 3,
+		Typ:           0x14,
+		Body: flvio.FillAMF0ValsMalloc([]interface{}{
 			"createStream",
 			float64(2),
 			nil,
 		}),
-	}.write(conn)
+	}.Write(conn)
 	require.NoError(t, err)
 
 	// S->C result
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(3), c0.chunkStreamID)
-	require.Equal(t, uint8(0x14), c0.typ)
-	arr, err = flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(3), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x14), c0.Typ)
+	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"_result",
@@ -830,11 +655,11 @@ func TestWriteTracks(t *testing.T) {
 		nil,
 		"",
 	})
-	err = chunk0{
-		chunkStreamID: 8,
-		bodyLen:       uint32(len(byts)),
-		body:          byts,
-	}.write(conn)
+	err = base.Chunk0{
+		ChunkStreamID: 8,
+		BodyLen:       uint32(len(byts)),
+		Body:          byts,
+	}.Write(conn)
 	require.NoError(t, err)
 
 	// C->S play
@@ -845,40 +670,40 @@ func TestWriteTracks(t *testing.T) {
 		"",
 		float64(-2000),
 	})
-	err = chunk0{
-		chunkStreamID: 8,
-		typ:           0x14,
-		bodyLen:       uint32(len(byts)),
-		body:          byts,
-	}.write(conn)
+	err = base.Chunk0{
+		ChunkStreamID: 8,
+		Typ:           0x14,
+		BodyLen:       uint32(len(byts)),
+		Body:          byts,
+	}.Write(conn)
 	require.NoError(t, err)
 
 	// S->C event "stream is recorded"
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, chunk0{
-		chunkStreamID: 2,
-		typ:           4,
-		bodyLen:       6,
-		body:          []byte{0x00, 0x04, 0x00, 0x00, 0x00, 0x01},
+	require.Equal(t, base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           4,
+		BodyLen:       6,
+		Body:          []byte{0x00, 0x04, 0x00, 0x00, 0x00, 0x01},
 	}, c0)
 
 	// S->C event "stream begin 1"
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, chunk0{
-		chunkStreamID: 2,
-		typ:           4,
-		bodyLen:       6,
-		body:          []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
+	require.Equal(t, base.Chunk0{
+		ChunkStreamID: 2,
+		Typ:           4,
+		BodyLen:       6,
+		Body:          []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x01},
 	}, c0)
 
 	// S->C onStatus
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(5), c0.chunkStreamID)
-	require.Equal(t, uint8(0x14), c0.typ)
-	arr, err = flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(5), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x14), c0.Typ)
+	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"onStatus",
@@ -892,11 +717,11 @@ func TestWriteTracks(t *testing.T) {
 	}, arr)
 
 	// S->C onStatus
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(5), c0.chunkStreamID)
-	require.Equal(t, uint8(0x14), c0.typ)
-	arr, err = flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(5), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x14), c0.Typ)
+	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"onStatus",
@@ -910,11 +735,11 @@ func TestWriteTracks(t *testing.T) {
 	}, arr)
 
 	// S->C onStatus
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(5), c0.chunkStreamID)
-	require.Equal(t, uint8(0x14), c0.typ)
-	arr, err = flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(5), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x14), c0.Typ)
+	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"onStatus",
@@ -928,11 +753,11 @@ func TestWriteTracks(t *testing.T) {
 	}, arr)
 
 	// S->C onStatus
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(5), c0.chunkStreamID)
-	require.Equal(t, uint8(0x14), c0.typ)
-	arr, err = flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(5), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x14), c0.Typ)
+	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"onStatus",
@@ -946,11 +771,11 @@ func TestWriteTracks(t *testing.T) {
 	}, arr)
 
 	// S->C onMetadata
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(4), c0.chunkStreamID)
-	require.Equal(t, uint8(0x12), c0.typ)
-	arr, err = flvio.ParseAMFVals(c0.body, false)
+	require.Equal(t, uint8(4), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x12), c0.Typ)
+	arr, err = flvio.ParseAMFVals(c0.Body, false)
 	require.NoError(t, err)
 	require.Equal(t, []interface{}{
 		"onMetaData",
@@ -963,10 +788,10 @@ func TestWriteTracks(t *testing.T) {
 	}, arr)
 
 	// S->C H264 decoder config
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(6), c0.chunkStreamID)
-	require.Equal(t, uint8(0x09), c0.typ)
+	require.Equal(t, uint8(6), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x09), c0.Typ)
 	require.Equal(t, []byte{
 		0x17, 0x0, 0x0, 0x0, 0x0, 0x1, 0x64, 0x0,
 		0xc, 0xff, 0xe1, 0x0, 0x15, 0x67, 0x64, 0x0,
@@ -974,12 +799,12 @@ func TestWriteTracks(t *testing.T) {
 		0x0, 0x3, 0x0, 0x2, 0x0, 0x0, 0x3, 0x0,
 		0x3d, 0x8, 0x1, 0x0, 0x4, 0x68, 0xee, 0x3c,
 		0x80,
-	}, c0.body)
+	}, c0.Body)
 
 	// S->C AAC decoder config
-	err = c0.read(conn, 65536)
+	err = c0.Read(conn, 65536)
 	require.NoError(t, err)
-	require.Equal(t, uint8(4), c0.chunkStreamID)
-	require.Equal(t, uint8(0x08), c0.typ)
-	require.Equal(t, []byte{0xae, 0x0, 0x12, 0x10}, c0.body)
+	require.Equal(t, uint8(4), c0.ChunkStreamID)
+	require.Equal(t, uint8(0x08), c0.Typ)
+	require.Equal(t, []byte{0xae, 0x0, 0x12, 0x10}, c0.Body)
 }
