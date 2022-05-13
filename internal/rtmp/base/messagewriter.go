@@ -7,12 +7,22 @@ import (
 type messageWriterChunkStream struct {
 	mw                  *MessageWriter
 	lastMessageStreamID *uint32
+	lastType            *MessageType
+	lastBodyLen         *int
+	lastTimestamp       *uint32
+	lastTimestampDelta  *uint32
 }
 
 func (wc *messageWriterChunkStream) write(msg *Message) error {
 	bodyLen := len(msg.Body)
 	pos := 0
 	firstChunk := true
+
+	var timestampDelta *uint32
+	if wc.lastTimestamp != nil {
+		v := msg.Timestamp - *wc.lastTimestamp
+		timestampDelta = &v
+	}
 
 	for {
 		chunkBodyLen := bodyLen - pos
@@ -23,7 +33,8 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 		if firstChunk {
 			firstChunk = false
 
-			if wc.lastMessageStreamID == nil || *wc.lastMessageStreamID != msg.MessageStreamID {
+			switch {
+			case wc.lastMessageStreamID == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
 				err := Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
 					Type:            msg.Type,
@@ -35,18 +46,50 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 					return err
 				}
 
-				v := msg.MessageStreamID
-				wc.lastMessageStreamID = &v
-			} else {
+			case wc.lastTimestampDelta == nil || *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
 				err := Chunk1{
+					ChunkStreamID:  msg.ChunkStreamID,
+					TimestampDelta: *timestampDelta,
+					Type:           msg.Type,
+					BodyLen:        uint32(bodyLen),
+					Body:           msg.Body[pos : pos+chunkBodyLen],
+				}.Write(wc.mw.w)
+				if err != nil {
+					return err
+				}
+
+			case *wc.lastTimestampDelta != *timestampDelta:
+				err := Chunk2{
+					ChunkStreamID:  msg.ChunkStreamID,
+					TimestampDelta: *timestampDelta,
+					Body:           msg.Body[pos : pos+chunkBodyLen],
+				}.Write(wc.mw.w)
+				if err != nil {
+					return err
+				}
+
+			default:
+				err := Chunk3{
 					ChunkStreamID: msg.ChunkStreamID,
-					Type:          msg.Type,
-					BodyLen:       uint32(bodyLen),
 					Body:          msg.Body[pos : pos+chunkBodyLen],
 				}.Write(wc.mw.w)
 				if err != nil {
 					return err
 				}
+			}
+
+			v1 := msg.MessageStreamID
+			wc.lastMessageStreamID = &v1
+			v2 := msg.Type
+			wc.lastType = &v2
+			v3 := bodyLen
+			wc.lastBodyLen = &v3
+			v4 := msg.Timestamp
+			wc.lastTimestamp = &v4
+
+			if timestampDelta != nil {
+				v5 := *timestampDelta
+				wc.lastTimestampDelta = &v5
 			}
 		} else {
 			err := Chunk3{
