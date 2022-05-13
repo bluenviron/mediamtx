@@ -13,23 +13,23 @@ import (
 type Chunk1 struct {
 	ChunkStreamID byte
 	Typ           byte
+	BodyLen       uint32
 	Body          []byte
 }
 
 // Write writes the chunk.
-func (m Chunk1) Write(w io.Writer) error {
+func (c Chunk1) Write(w io.Writer) error {
 	header := make([]byte, 8)
-	header[0] = 1<<6 | m.ChunkStreamID
-	l := uint32(len(m.Body))
-	header[4] = byte(l >> 16)
-	header[5] = byte(l >> 8)
-	header[6] = byte(l)
-	header[7] = m.Typ
+	header[0] = 1<<6 | c.ChunkStreamID
+	header[4] = byte(c.BodyLen >> 16)
+	header[5] = byte(c.BodyLen >> 8)
+	header[6] = byte(c.BodyLen)
+	header[7] = c.Typ
 	_, err := w.Write(header)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write(m.Body)
+	_, err = w.Write(c.Body)
 	return err
 }

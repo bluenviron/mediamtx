@@ -16,14 +16,14 @@ type Chunk3 struct {
 }
 
 // Write writes the chunk.
-func (m Chunk3) Write(w io.Writer) error {
+func (c Chunk3) Write(w io.Writer) error {
 	header := make([]byte, 1)
-	header[0] = 3<<6 | m.ChunkStreamID
+	header[0] = 3<<6 | c.ChunkStreamID
 	_, err := w.Write(header)
 	if err != nil {
 		return err
 	}
 
-	_, err = w.Write(m.Body)
+	_, err = w.Write(c.Body)
 	return err
 }
