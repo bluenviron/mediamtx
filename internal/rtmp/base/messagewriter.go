@@ -37,6 +37,7 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 			case wc.lastMessageStreamID == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
 				err := Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
+					Timestamp:       msg.Timestamp,
 					Type:            msg.Type,
 					MessageStreamID: msg.MessageStreamID,
 					BodyLen:         uint32(bodyLen),
@@ -46,7 +47,7 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 					return err
 				}
 
-			case wc.lastTimestampDelta == nil || *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
+			case *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
 				err := Chunk1{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
@@ -58,7 +59,7 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 					return err
 				}
 
-			case *wc.lastTimestampDelta != *timestampDelta:
+			case wc.lastTimestampDelta == nil || *wc.lastTimestampDelta != *timestampDelta:
 				err := Chunk2{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
