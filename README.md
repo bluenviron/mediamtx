@@ -74,6 +74,7 @@ Features:
   * [RTMP general usage](#rtmp-general-usage)
 * [HLS protocol](#hls-protocol)
   * [HLS general usage](#hls-general-usage)
+  * [Embedding](#embedding)
   * [Decrease delay](#decrease-delay)
 * [Links](#links)
 
@@ -785,13 +786,21 @@ http://localhost:8888/mystream
 
 where `mystream` is the name of a stream that is being published.
 
-The direct HLS URL, that can be used to read the stream with players (VLC) or Javascript libraries (hls.js) can be obtained by appending `/index.m3u8`:
+### Embedding
+
+The simples way to embed a live stream into a web page consists in using an iframe tag:
 
 ```
-http://localhost:8888/mystream/index.m3u8
+<iframe src="http://rtsp-simple-server-ip:8888/mystream" scrolling="no"></iframe>
 ```
 
-Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream.
+Alternatively you can create a video tag that points directly to the stream playlist:
+
+```
+<video src="http://localhost:8888/mystream/index.m3u8"></video>
+```
+
+Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream. You can find a working example by looking at the [source code of the HLS muxer](internal/core/hls_muxer.go).
 
 ### Decrease delay
 
