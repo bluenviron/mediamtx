@@ -1,6 +1,7 @@
 package base
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -16,6 +17,33 @@ type Chunk1 struct {
 	Type           MessageType
 	BodyLen        uint32
 	Body           []byte
+}
+
+// Read reads the chunk.
+func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen int) error {
+	header := make([]byte, 8)
+	_, err := r.Read(header)
+	if err != nil {
+		return err
+	}
+
+	if header[0]>>6 != 1 {
+		return fmt.Errorf("wrong chunk header type")
+	}
+
+	c.ChunkStreamID = header[0] & 0x3F
+	c.TimestampDelta = uint32(header[3])<<16 | uint32(header[2])<<8 | uint32(header[1])
+	c.BodyLen = uint32(header[4])<<16 | uint32(header[5])<<8 | uint32(header[6])
+	c.Type = MessageType(header[7])
+
+	chunkBodyLen := int(c.BodyLen)
+	if chunkBodyLen > chunkMaxBodyLen {
+		chunkBodyLen = chunkMaxBodyLen
+	}
+
+	c.Body = make([]byte, chunkBodyLen)
+	_, err = r.Read(c.Body)
+	return err
 }
 
 // Write writes the chunk.

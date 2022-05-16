@@ -122,7 +122,7 @@ type MessageWriter struct {
 	chunkStreams map[byte]*messageWriterChunkStream
 }
 
-// NewMessageWriter instantiates a MessageWriter.
+// NewMessageWriter allocates a MessageWriter.
 func NewMessageWriter(w io.Writer) *MessageWriter {
 	return &MessageWriter{
 		w:            w,
@@ -138,11 +138,11 @@ func (mw *MessageWriter) SetChunkSize(v int) {
 
 // Write writes a Message.
 func (mw *MessageWriter) Write(msg *Message) error {
-	cs, ok := mw.chunkStreams[msg.ChunkStreamID]
+	wc, ok := mw.chunkStreams[msg.ChunkStreamID]
 	if !ok {
-		cs = &messageWriterChunkStream{mw: mw}
-		mw.chunkStreams[msg.ChunkStreamID] = cs
+		wc = &messageWriterChunkStream{mw: mw}
+		mw.chunkStreams[msg.ChunkStreamID] = wc
 	}
 
-	return cs.write(msg)
+	return wc.write(msg)
 }

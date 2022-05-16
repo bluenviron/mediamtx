@@ -1,6 +1,7 @@
 package base
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -13,6 +14,25 @@ import (
 type Chunk3 struct {
 	ChunkStreamID byte
 	Body          []byte
+}
+
+// Read reads the chunk.
+func (c *Chunk3) Read(r io.Reader, chunkBodyLen int) error {
+	header := make([]byte, 1)
+	_, err := r.Read(header)
+	if err != nil {
+		return err
+	}
+
+	if header[0]>>6 != 2 {
+		return fmt.Errorf("wrong chunk header type")
+	}
+
+	c.ChunkStreamID = header[0] & 0x3F
+
+	c.Body = make([]byte, chunkBodyLen)
+	_, err = r.Read(c.Body)
+	return err
 }
 
 // Write writes the chunk.
