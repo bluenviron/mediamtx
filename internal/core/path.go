@@ -439,11 +439,7 @@ func (pa *path) run() {
 						}
 						pa.setupPlayRequestsOnHold = nil
 
-						if len(pa.readers) > 0 {
-							pa.onDemandStaticSourceState = pathOnDemandStateReady
-						} else {
-							pa.onDemandStaticSourceScheduleClose()
-						}
+						pa.onDemandStaticSourceScheduleClose()
 					}
 
 					req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
@@ -859,11 +855,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 		}
 		pa.setupPlayRequestsOnHold = nil
 
-		if len(pa.readers) > 0 {
-			pa.onDemandPublisherState = pathOnDemandStateReady
-		} else {
-			pa.onDemandPublisherScheduleClose()
-		}
+		pa.onDemandPublisherScheduleClose()
 	}
 
 	req.res <- pathPublisherRecordRes{stream: pa.stream}
@@ -887,10 +879,14 @@ func (pa *path) handleReaderRemove(req pathReaderRemoveReq) {
 	close(req.res)
 
 	if len(pa.readers) == 0 {
-		if pa.hasOnDemandStaticSource() && pa.onDemandStaticSourceState == pathOnDemandStateReady {
-			pa.onDemandStaticSourceScheduleClose()
-		} else if pa.hasOnDemandPublisher() && pa.onDemandPublisherState == pathOnDemandStateReady {
-			pa.onDemandPublisherScheduleClose()
+		if pa.hasOnDemandStaticSource() {
+			if pa.onDemandStaticSourceState == pathOnDemandStateReady {
+				pa.onDemandStaticSourceScheduleClose()
+			}
+		} else if pa.hasOnDemandPublisher() {
+			if pa.onDemandPublisherState == pathOnDemandStateReady {
+				pa.onDemandPublisherScheduleClose()
+			}
 		}
 	}
 }
@@ -923,10 +919,18 @@ func (pa *path) handleReaderSetupPlay(req pathReaderSetupPlayReq) {
 func (pa *path) handleReaderSetupPlayPost(req pathReaderSetupPlayReq) {
 	pa.readers[req.author] = pathReaderStatePrePlay
 
-	if pa.hasOnDemandPublisher() && pa.onDemandPublisherState == pathOnDemandStateClosing {
-		pa.onDemandPublisherState = pathOnDemandStateReady
-		pa.onDemandPublisherCloseTimer.Stop()
-		pa.onDemandPublisherCloseTimer = newEmptyTimer()
+	if pa.hasOnDemandStaticSource() {
+		if pa.onDemandStaticSourceState == pathOnDemandStateClosing {
+			pa.onDemandStaticSourceState = pathOnDemandStateReady
+			pa.onDemandStaticSourceCloseTimer.Stop()
+			pa.onDemandStaticSourceCloseTimer = newEmptyTimer()
+		}
+	} else if pa.hasOnDemandPublisher() {
+		if pa.onDemandPublisherState == pathOnDemandStateClosing {
+			pa.onDemandPublisherState = pathOnDemandStateReady
+			pa.onDemandPublisherCloseTimer.Stop()
+			pa.onDemandPublisherCloseTimer = newEmptyTimer()
+		}
 	}
 
 	req.res <- pathReaderSetupPlayRes{
