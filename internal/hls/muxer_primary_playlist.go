@@ -1,7 +1,9 @@
 package hls
 
 import (
+	"bytes"
 	"encoding/hex"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -33,7 +35,7 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: &asyncReader{generator: func() []byte {
+		Body: &asyncReader{generator: func() io.Reader {
 			var codecs []string
 
 			if p.videoTrack != nil {
@@ -50,19 +52,19 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 
 			switch {
 			case !p.fmp4:
-				return []byte("#EXTM3U\n" +
+				return bytes.NewReader([]byte("#EXTM3U\n" +
 					"#EXT-X-VERSION:3\n" +
 					"\n" +
 					"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
-					"stream.m3u8\n")
+					"stream.m3u8\n"))
 
 			default:
-				return []byte("#EXTM3U\n" +
+				return bytes.NewReader([]byte("#EXTM3U\n" +
 					"#EXT-X-VERSION:7\n" +
 					"\n" +
 					"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
 					"stream.m3u8\n" +
-					"\n")
+					"\n"))
 			}
 		}},
 	}

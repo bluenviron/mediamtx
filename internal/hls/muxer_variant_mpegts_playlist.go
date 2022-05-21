@@ -2,6 +2,7 @@ package hls
 
 import (
 	"bytes"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -10,15 +11,22 @@ import (
 )
 
 type asyncReader struct {
-	generator func() []byte
-	reader    *bytes.Reader
+	generated bool
+	generator func() io.Reader
+	inner     io.Reader
 }
 
 func (r *asyncReader) Read(buf []byte) (int, error) {
-	if r.reader == nil {
-		r.reader = bytes.NewReader(r.generator())
+	if !r.generated {
+		r.inner = r.generator()
+		r.generated = true
 	}
-	return r.reader.Read(buf)
+
+	if r.inner == nil {
+		return 0, io.EOF
+	}
+
+	return r.inner.Read(buf)
 }
 
 type muxerVariantMPEGTSPlaylist struct {
@@ -65,13 +73,46 @@ func (p *muxerVariantMPEGTSPlaylist) file(name string) *MuxerFileResponse {
 	}
 }
 
+func (p *muxerVariantMPEGTSPlaylist) playlist() io.Reader {
+	cnt := "#EXTM3U\n"
+	cnt += "#EXT-X-VERSION:3\n"
+	cnt += "#EXT-X-ALLOW-CACHE:NO\n"
+
+	targetDuration := func() uint {
+		ret := uint(0)
+
+		// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
+		for _, s := range p.segments {
+			v2 := uint(math.Round(s.duration().Seconds()))
+			if v2 > ret {
+				ret = v2
+			}
+		}
+
+		return ret
+	}()
+	cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
+
+	cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
+	cnt += "#EXT-X-INDEPENDENT-SEGMENTS\n"
+	cnt += "\n"
+
+	for _, s := range p.segments {
+		cnt += "#EXT-X-PROGRAM-DATE-TIME:" + s.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n" +
+			"#EXTINF:" + strconv.FormatFloat(s.duration().Seconds(), 'f', -1, 64) + ",\n" +
+			s.name + ".ts\n"
+	}
+
+	return bytes.NewReader([]byte(cnt))
+}
+
 func (p *muxerVariantMPEGTSPlaylist) playlistReader() *MuxerFileResponse {
 	return &MuxerFileResponse{
 		Status: http.StatusOK,
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: &asyncReader{generator: func() []byte {
+		Body: &asyncReader{generator: func() io.Reader {
 			p.mutex.Lock()
 			defer p.mutex.Unlock()
 
@@ -83,36 +124,7 @@ func (p *muxerVariantMPEGTSPlaylist) playlistReader() *MuxerFileResponse {
 				return nil
 			}
 
-			cnt := "#EXTM3U\n"
-			cnt += "#EXT-X-VERSION:3\n"
-			cnt += "#EXT-X-ALLOW-CACHE:NO\n"
-
-			targetDuration := func() uint {
-				ret := uint(0)
-
-				// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
-				for _, s := range p.segments {
-					v2 := uint(math.Round(s.duration().Seconds()))
-					if v2 > ret {
-						ret = v2
-					}
-				}
-
-				return ret
-			}()
-			cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
-
-			cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
-			cnt += "#EXT-X-INDEPENDENT-SEGMENTS\n"
-			cnt += "\n"
-
-			for _, s := range p.segments {
-				cnt += "#EXT-X-PROGRAM-DATE-TIME:" + s.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n" +
-					"#EXTINF:" + strconv.FormatFloat(s.duration().Seconds(), 'f', -1, 64) + ",\n" +
-					s.name + ".ts\n"
-			}
-
-			return []byte(cnt)
+			return p.playlist()
 		}},
 	}
 }

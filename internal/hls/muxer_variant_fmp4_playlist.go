@@ -1,6 +1,8 @@
 package hls
 
 import (
+	"bytes"
+	"io"
 	"math"
 	"net/http"
 	"strconv"
@@ -149,7 +151,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 				Header: map[string]string{
 					"Content-Type": `application/x-mpegURL`,
 				},
-				Body: &asyncReader{generator: func() []byte {
+				Body: &asyncReader{generator: func() io.Reader {
 					p.mutex.Lock()
 					defer p.mutex.Unlock()
 
@@ -186,7 +188,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: &asyncReader{generator: func() []byte {
+		Body: &asyncReader{generator: func() io.Reader {
 			p.mutex.Lock()
 			defer p.mutex.Unlock()
 
@@ -203,7 +205,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 	}
 }
 
-func (p *muxerVariantFMP4Playlist) fullPlaylist() []byte {
+func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 	cnt := "#EXTM3U\n"
 	cnt += "#EXT-X-VERSION:7\n"
 
@@ -271,10 +273,13 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() []byte {
 			}
 			cnt += "\n"
 		}
+
+		// preload hint must always be present
+		// otherwise hls.js goes into a loop
 		cnt += "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"" + fmp4PartName(p.nextPartID) + ".mp4\"\n"
 	}
 
-	return []byte(cnt)
+	return bytes.NewReader([]byte(cnt))
 }
 
 func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileResponse {
@@ -285,7 +290,7 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 			Header: map[string]string{
 				"Content-Type": "video/mp4",
 			},
-			Body: &asyncReader{generator: func() []byte {
+			Body: &asyncReader{generator: func() io.Reader {
 				p.mutex.Lock()
 				defer p.mutex.Unlock()
 
@@ -294,7 +299,7 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 					return nil
 				}
 
-				return byts
+				return bytes.NewReader(byts)
 			}},
 		}
 
@@ -322,19 +327,51 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 
 		p.mutex.Lock()
 		part, ok := p.partsByName[base]
+		nextPartID := p.nextPartID
 		p.mutex.Unlock()
 
-		if !ok {
-			return &MuxerFileResponse{Status: http.StatusNotFound}
+		if ok {
+			return &MuxerFileResponse{
+				Status: http.StatusOK,
+				Header: map[string]string{
+					"Content-Type": "video/mp4",
+				},
+				Body: part.reader(),
+			}
 		}
 
-		return &MuxerFileResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
-				"Content-Type": "video/mp4",
-			},
-			Body: part.reader(),
+		if fname == fmp4PartName(p.nextPartID) {
+			return &MuxerFileResponse{
+				Status: http.StatusOK,
+				Header: map[string]string{
+					"Content-Type": "video/mp4",
+				},
+				Body: &asyncReader{generator: func() io.Reader {
+					p.mutex.Lock()
+					defer p.mutex.Unlock()
+
+					for {
+						if p.closed {
+							break
+						}
+
+						if p.nextPartID > nextPartID {
+							break
+						}
+
+						p.cond.Wait()
+					}
+
+					if p.closed {
+						return nil
+					}
+
+					return p.partsByName[fmp4PartName(nextPartID)].reader()
+				}},
+			}
 		}
+
+		return &MuxerFileResponse{Status: http.StatusNotFound}
 
 	default:
 		return &MuxerFileResponse{Status: http.StatusNotFound}
