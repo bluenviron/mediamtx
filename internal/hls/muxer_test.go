@@ -60,7 +60,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PrimaryPlaylistReader())
+	byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
@@ -69,7 +69,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203,mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.PlaylistReader("", "", ""))
+	byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -85,7 +85,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	dem := astits.NewDemuxer(context.Background(), m.SegmentReader(ma[2]),
+	dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
 		astits.DemuxerOptPacketSize(188))
 
 	// PMT
@@ -196,7 +196,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PrimaryPlaylistReader())
+	byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
@@ -205,7 +205,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.PlaylistReader("", "", ""))
+	byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -221,7 +221,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	dem := astits.NewDemuxer(context.Background(), m.SegmentReader(ma[2]),
+	dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
 		astits.DemuxerOptPacketSize(188))
 
 	// PMT
@@ -284,7 +284,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PrimaryPlaylistReader())
+	byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
@@ -293,7 +293,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.PlaylistReader("", "", ""))
+	byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -309,7 +309,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	dem := astits.NewDemuxer(context.Background(), m.SegmentReader(ma[2]),
+	dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
 		astits.DemuxerOptPacketSize(188))
 
 	// PMT
@@ -363,7 +363,7 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 
 	m.Close()
 
-	byts, err := ioutil.ReadAll(m.PlaylistReader("", "", ""))
+	byts, err := ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 	require.Equal(t, []byte{}, byts)
 }
@@ -402,7 +402,7 @@ func TestMuxerDoubleRead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PlaylistReader("", "", ""))
+	byts, err := ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -418,10 +418,10 @@ func TestMuxerDoubleRead(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	byts1, err := ioutil.ReadAll(m.SegmentReader(ma[2]))
+	byts1, err := ioutil.ReadAll(m.File(ma[2], "", "", "").Body)
 	require.NoError(t, err)
 
-	byts2, err := ioutil.ReadAll(m.SegmentReader(ma[2]))
+	byts2, err := ioutil.ReadAll(m.File(ma[2], "", "", "").Body)
 	require.NoError(t, err)
 	require.Equal(t, byts1, byts2)
 }

@@ -1,8 +1,8 @@
 package hls
 
 import (
-	"io"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -110,14 +110,27 @@ func (p *muxerVariantFMP4Playlist) hasPart(segmentID uint64, partID uint64) bool
 	return true
 }
 
-func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip string) io.Reader {
+func (p *muxerVariantFMP4Playlist) file(name string, msn string, part string, skip string) *MuxerFileResponse {
+	switch {
+	case name == "stream.m3u8":
+		return p.playlistReader(msn, part, skip)
+
+	case strings.HasSuffix(name, ".mp4"):
+		return p.segmentReader(name)
+
+	default:
+		return &MuxerFileResponse{Status: http.StatusNotFound}
+	}
+}
+
+func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip string) *MuxerFileResponse {
 	if p.lowLatency {
 		var msnint uint64
 		if msn != "" {
 			var err error
 			msnint, err = strconv.ParseUint(msn, 10, 64)
 			if err != nil {
-				return nil
+				return &MuxerFileResponse{Status: http.StatusBadRequest}
 			}
 		}
 
@@ -126,56 +139,68 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 			var err error
 			partint, err = strconv.ParseUint(part, 10, 64)
 			if err != nil {
-				return nil
+				return &MuxerFileResponse{Status: http.StatusBadRequest}
 			}
 		}
 
 		if msn != "" {
-			return &asyncReader{generator: func() []byte {
-				p.mutex.Lock()
-				defer p.mutex.Unlock()
+			return &MuxerFileResponse{
+				Status: http.StatusOK,
+				Header: map[string]string{
+					"Content-Type": `application/x-mpegURL`,
+				},
+				Body: &asyncReader{generator: func() []byte {
+					p.mutex.Lock()
+					defer p.mutex.Unlock()
 
-				// If the _HLS_msn is greater than the Media Sequence Number of the last
-				// Media Segment in the current Playlist plus two, or if the _HLS_part
-				// exceeds the last Partial Segment in the current Playlist by the
-				// Advance Part Limit, then the server SHOULD immediately return Bad
-				// Request, such as HTTP 400.
-				if msnint > (p.nextSegmentID + 1) {
-					return nil
-				}
+					// If the _HLS_msn is greater than the Media Sequence Number of the last
+					// Media Segment in the current Playlist plus two, or if the _HLS_part
+					// exceeds the last Partial Segment in the current Playlist by the
+					// Advance Part Limit, then the server SHOULD immediately return Bad
+					// Request, such as HTTP 400.
+					if msnint > (p.nextSegmentID + 1) {
+						return nil
+					}
 
-				for !p.closed && !p.hasPart(msnint, partint) {
-					p.cond.Wait()
-				}
+					for !p.closed && !p.hasPart(msnint, partint) {
+						p.cond.Wait()
+					}
 
-				if p.closed {
-					return nil
-				}
+					if p.closed {
+						return nil
+					}
 
-				return p.fullPlaylist()
-			}}
+					return p.fullPlaylist()
+				}},
+			}
 		}
 
 		// part without msn is not supported.
 		if part != "" {
-			return nil
+			return &MuxerFileResponse{Status: http.StatusBadRequest}
 		}
 	}
 
-	return &asyncReader{generator: func() []byte {
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
+	return &MuxerFileResponse{
+		Status: http.StatusOK,
+		Header: map[string]string{
+			"Content-Type": `application/x-mpegURL`,
+		},
+		Body: &asyncReader{generator: func() []byte {
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
 
-		for !p.closed && !p.hasContent() {
-			p.cond.Wait()
-		}
+			for !p.closed && !p.hasContent() {
+				p.cond.Wait()
+			}
 
-		if p.closed {
-			return nil
-		}
+			if p.closed {
+				return nil
+			}
 
-		return p.fullPlaylist()
-	}}
+			return p.fullPlaylist()
+		}},
+	}
 }
 
 func (p *muxerVariantFMP4Playlist) fullPlaylist() []byte {
@@ -246,26 +271,32 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() []byte {
 			}
 			cnt += "\n"
 		}
-		// cnt += "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"" + fmp4PartName(p.nextPartID) + ".mp4\"\n"
+		cnt += "#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"" + fmp4PartName(p.nextPartID) + ".mp4\"\n"
 	}
 
 	return []byte(cnt)
 }
 
-func (p *muxerVariantFMP4Playlist) segmentReader(fname string) io.Reader {
+func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileResponse {
 	switch {
 	case fname == "init.mp4":
-		return &asyncReader{generator: func() []byte {
-			p.mutex.Lock()
-			defer p.mutex.Unlock()
+		return &MuxerFileResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": "video/mp4",
+			},
+			Body: &asyncReader{generator: func() []byte {
+				p.mutex.Lock()
+				defer p.mutex.Unlock()
 
-			byts, err := mp4InitGenerate(p.videoTrack, p.audioTrack)
-			if err != nil {
-				return nil
-			}
+				byts, err := mp4InitGenerate(p.videoTrack, p.audioTrack)
+				if err != nil {
+					return nil
+				}
 
-			return byts
-		}}
+				return byts
+			}},
+		}
 
 	case strings.HasPrefix(fname, "seg"):
 		base := strings.TrimSuffix(fname, ".mp4")
@@ -275,10 +306,16 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) io.Reader {
 		p.mutex.Unlock()
 
 		if !ok {
-			return nil
+			return &MuxerFileResponse{Status: http.StatusNotFound}
 		}
 
-		return segment.reader()
+		return &MuxerFileResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": "video/mp4",
+			},
+			Body: segment.reader(),
+		}
 
 	case strings.HasPrefix(fname, "part"):
 		base := strings.TrimSuffix(fname, ".mp4")
@@ -288,13 +325,20 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) io.Reader {
 		p.mutex.Unlock()
 
 		if !ok {
-			return nil
+			return &MuxerFileResponse{Status: http.StatusNotFound}
 		}
 
-		return part.reader()
-	}
+		return &MuxerFileResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
+				"Content-Type": "video/mp4",
+			},
+			Body: part.reader(),
+		}
 
-	return nil
+	default:
+		return &MuxerFileResponse{Status: http.StatusNotFound}
+	}
 }
 
 func (p *muxerVariantFMP4Playlist) onSegmentFinalized(segment *muxerVariantFMP4Segment) {

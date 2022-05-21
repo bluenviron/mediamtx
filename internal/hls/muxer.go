@@ -7,6 +7,13 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
+// MuxerFileResponse is a response of the Muxer's File() func.
+type MuxerFileResponse struct {
+	Status int
+	Header map[string]string
+	Body   io.Reader
+}
+
 // Muxer is a HLS muxer.
 type Muxer struct {
 	primaryPlaylist *muxerPrimaryPlaylist
@@ -24,7 +31,6 @@ func NewMuxer(
 ) (*Muxer, error) {
 	m := &Muxer{}
 
-	var version int
 	switch variant {
 	case MuxerVariantMPEGTS:
 		m.variant = newMuxerVariantMPEGTS(
@@ -34,7 +40,6 @@ func NewMuxer(
 			videoTrack,
 			audioTrack,
 		)
-		version = 3
 
 	case MuxerVariantFMP4:
 		m.variant = newMuxerVariantFMP4(
@@ -45,7 +50,6 @@ func NewMuxer(
 			videoTrack,
 			audioTrack,
 		)
-		version = 7
 
 	default: // MuxerVariantLowLatency
 		m.variant = newMuxerVariantFMP4(
@@ -56,10 +60,9 @@ func NewMuxer(
 			videoTrack,
 			audioTrack,
 		)
-		version = 7
 	}
 
-	m.primaryPlaylist = newMuxerPrimaryPlaylist(version, videoTrack, audioTrack)
+	m.primaryPlaylist = newMuxerPrimaryPlaylist(variant != MuxerVariantMPEGTS, videoTrack, audioTrack)
 
 	return m, nil
 }
@@ -67,11 +70,6 @@ func NewMuxer(
 // Close closes a Muxer.
 func (m *Muxer) Close() {
 	m.variant.close()
-}
-
-// PrimaryPlaylistReader returns a reader to read the primary playlist.
-func (m *Muxer) PrimaryPlaylistReader() io.Reader {
-	return m.primaryPlaylist.reader()
 }
 
 // WriteH264 writes H264 NALUs, grouped by timestamp.
@@ -84,12 +82,11 @@ func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
 	return m.variant.writeAAC(pts, aus)
 }
 
-// PlaylistReader returns a reader to read the stream playlist.
-func (m *Muxer) PlaylistReader(msn string, part string, skip string) io.Reader {
-	return m.variant.playlistReader(msn, part, skip)
-}
+// File returns a file reader.
+func (m *Muxer) File(name string, msn string, part string, skip string) *MuxerFileResponse {
+	if name == "index.m3u8" {
+		return m.primaryPlaylist.file()
+	}
 
-// SegmentReader returns a reader to read a segment listed in the stream playlist.
-func (m *Muxer) SegmentReader(fname string) io.Reader {
-	return m.variant.segmentReader(fname)
+	return m.variant.file(name, msn, part, skip)
 }

@@ -5,10 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -95,17 +93,11 @@ window.addEventListener('DOMContentLoaded', create);
 </html>
 `
 
-type hlsMuxerResponse struct {
-	status int
-	header map[string]string
-	body   io.Reader
-}
-
 type hlsMuxerRequest struct {
 	dir  string
 	file string
 	ctx  *gin.Context
-	res  chan hlsMuxerResponse
+	res  chan *hls.MuxerFileResponse
 }
 
 type hlsMuxerPathManager interface {
@@ -255,7 +247,7 @@ func (m *hlsMuxer) run() {
 	m.ctxCancel()
 
 	for _, req := range m.requests {
-		req.res <- hlsMuxerResponse{status: http.StatusNotFound}
+		req.res <- &hls.MuxerFileResponse{Status: http.StatusNotFound}
 	}
 
 	m.parent.onMuxerClose(m)
@@ -353,9 +345,6 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 
-					// video is decoded in another routine,
-					// while audio is decoded in this routine:
-					// we have to sync their PTS.
 					if videoInitialPTS == nil {
 						v := data.h264PTS
 						videoInitialPTS = &v
@@ -410,88 +399,41 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 }
 
-func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) hlsMuxerResponse {
+func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) *hls.MuxerFileResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
 	err := m.authenticate(req.ctx.Request)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			m.log(logger.Info, "authentication error: %s", terr.message)
-			return hlsMuxerResponse{
-				status: http.StatusUnauthorized,
+			return &hls.MuxerFileResponse{
+				Status: http.StatusUnauthorized,
 			}
 		}
 
-		return hlsMuxerResponse{
-			status: http.StatusUnauthorized,
-			header: map[string]string{
+		return &hls.MuxerFileResponse{
+			Status: http.StatusUnauthorized,
+			Header: map[string]string{
 				"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
 			},
 		}
 	}
 
-	switch {
-	case req.file == "index.m3u8":
-		return hlsMuxerResponse{
-			status: http.StatusOK,
-			header: map[string]string{
-				"Content-Type": `application/x-mpegURL`,
-			},
-			body: m.muxer.PrimaryPlaylistReader(),
-		}
-
-	case req.file == "stream.m3u8":
-		r := m.muxer.PlaylistReader(
-			req.ctx.Query("_HLS_msn"),
-			req.ctx.Query("_HLS_part"),
-			req.ctx.Query("_HLS_skip"))
-		if r == nil {
-			return hlsMuxerResponse{status: http.StatusNotFound}
-		}
-
-		return hlsMuxerResponse{
-			status: http.StatusOK,
-			header: map[string]string{
-				"Content-Type": `application/x-mpegURL`,
-			},
-			body: r,
-		}
-
-	case strings.HasSuffix(req.file, ".ts"), strings.HasSuffix(req.file, ".mp4"):
-		r := m.muxer.SegmentReader(req.file)
-		if r == nil {
-			return hlsMuxerResponse{status: http.StatusNotFound}
-		}
-
-		var contentType string
-		switch {
-		case strings.HasSuffix(req.file, ".ts"):
-			contentType = "video/MP2T"
-
-		case strings.HasSuffix(req.file, ".mp4"):
-			contentType = "video/mp4"
-		}
-
-		return hlsMuxerResponse{
-			status: http.StatusOK,
-			header: map[string]string{
-				"Content-Type": contentType,
-			},
-			body: r,
-		}
-
-	case req.file == "":
-		return hlsMuxerResponse{
-			status: http.StatusOK,
-			header: map[string]string{
+	if req.file == "" {
+		return &hls.MuxerFileResponse{
+			Status: http.StatusOK,
+			Header: map[string]string{
 				"Content-Type": `text/html`,
 			},
-			body: bytes.NewReader([]byte(index)),
+			Body: bytes.NewReader([]byte(index)),
 		}
-
-	default:
-		return hlsMuxerResponse{status: http.StatusNotFound}
 	}
+
+	return m.muxer.File(
+		req.file,
+		req.ctx.Query("_HLS_msn"),
+		req.ctx.Query("_HLS_part"),
+		req.ctx.Query("_HLS_skip"))
 }
 
 func (m *hlsMuxer) authenticate(req *http.Request) error {
@@ -552,7 +494,7 @@ func (m *hlsMuxer) onRequest(req hlsMuxerRequest) {
 	select {
 	case m.request <- req:
 	case <-m.ctx.Done():
-		req.res <- hlsMuxerResponse{status: http.StatusNotFound}
+		req.res <- &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
 	}
 }
 

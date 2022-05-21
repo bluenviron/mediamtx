@@ -14,6 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -246,7 +247,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	dir = strings.TrimSuffix(dir, "/")
 
-	cres := make(chan hlsMuxerResponse)
+	cres := make(chan *hls.MuxerFileResponse)
 	hreq := hlsMuxerRequest{
 		dir:  dir,
 		file: fname,
@@ -258,13 +259,13 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	case s.request <- hreq:
 		res := <-cres
 
-		for k, v := range res.header {
+		for k, v := range res.Header {
 			ctx.Writer.Header().Set(k, v)
 		}
-		ctx.Writer.WriteHeader(res.status)
+		ctx.Writer.WriteHeader(res.Status)
 
-		if res.body != nil {
-			io.Copy(ctx.Writer, res.body)
+		if res.Body != nil {
+			io.Copy(ctx.Writer, res.Body)
 		}
 
 	case <-s.ctx.Done():

@@ -1,7 +1,6 @@
 package hls
 
 import (
-	"io"
 	"time"
 )
 
@@ -19,6 +18,5 @@ type muxerVariant interface {
 	close()
 	writeH264(pts time.Duration, nalus [][]byte) error
 	writeAAC(pts time.Duration, aus [][]byte) error
-	playlistReader(msn string, part string, skip string) io.Reader
-	segmentReader(string) io.Reader
+	file(name string, msn string, part string, skip string) *MuxerFileResponse
 }

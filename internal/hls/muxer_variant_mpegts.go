@@ -1,7 +1,6 @@
 package hls
 
 import (
-	"io"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -48,10 +47,6 @@ func (v *muxerVariantMPEGTS) writeAAC(pts time.Duration, aus [][]byte) error {
 	return v.segmenter.writeAAC(pts, aus)
 }
 
-func (v *muxerVariantMPEGTS) playlistReader(msn string, part string, skip string) io.Reader {
-	return v.playlist.playlistReader()
-}
-
-func (v *muxerVariantMPEGTS) segmentReader(fname string) io.Reader {
-	return v.playlist.segmentReader(fname)
+func (v *muxerVariantMPEGTS) file(name string, msn string, part string, skip string) *MuxerFileResponse {
+	return v.playlist.file(name)
 }
