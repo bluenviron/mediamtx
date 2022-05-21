@@ -247,7 +247,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	dir = strings.TrimSuffix(dir, "/")
 
-	cres := make(chan *hls.MuxerFileResponse)
+	cres := make(chan func() *hls.MuxerFileResponse)
 	hreq := hlsMuxerRequest{
 		dir:  dir,
 		file: fname,
@@ -257,11 +257,14 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	select {
 	case s.request <- hreq:
-		res := <-cres
+		cb := <-cres
+
+		res := cb()
 
 		for k, v := range res.Header {
 			ctx.Writer.Header().Set(k, v)
 		}
+
 		ctx.Writer.WriteHeader(res.Status)
 
 		if res.Body != nil {

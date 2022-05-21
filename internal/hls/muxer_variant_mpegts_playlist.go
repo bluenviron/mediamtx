@@ -10,25 +10,6 @@ import (
 	"sync"
 )
 
-type asyncReader struct {
-	generated bool
-	generator func() io.Reader
-	inner     io.Reader
-}
-
-func (r *asyncReader) Read(buf []byte) (int, error) {
-	if !r.generated {
-		r.inner = r.generator()
-		r.generated = true
-	}
-
-	if r.inner == nil {
-		return 0, io.EOF
-	}
-
-	return r.inner.Read(buf)
-}
-
 type muxerVariantMPEGTSPlaylist struct {
 	segmentCount int
 
@@ -107,25 +88,23 @@ func (p *muxerVariantMPEGTSPlaylist) playlist() io.Reader {
 }
 
 func (p *muxerVariantMPEGTSPlaylist) playlistReader() *MuxerFileResponse {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.closed && len(p.segments) == 0 {
+		p.cond.Wait()
+	}
+
+	if p.closed {
+		return &MuxerFileResponse{Status: http.StatusInternalServerError}
+	}
+
 	return &MuxerFileResponse{
 		Status: http.StatusOK,
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: &asyncReader{generator: func() io.Reader {
-			p.mutex.Lock()
-			defer p.mutex.Unlock()
-
-			if !p.closed && len(p.segments) == 0 {
-				p.cond.Wait()
-			}
-
-			if p.closed {
-				return nil
-			}
-
-			return p.playlist()
-		}},
+		Body: p.playlist(),
 	}
 }
 

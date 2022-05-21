@@ -35,7 +35,7 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: &asyncReader{generator: func() io.Reader {
+		Body: func() io.Reader {
 			var codecs []string
 
 			if p.videoTrack != nil {
@@ -66,6 +66,6 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 					"stream.m3u8\n" +
 					"\n"))
 			}
-		}},
+		}(),
 	}
 }

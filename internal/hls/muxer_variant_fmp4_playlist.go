@@ -146,34 +146,32 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 		}
 
 		if msn != "" {
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
+
+			// If the _HLS_msn is greater than the Media Sequence Number of the last
+			// Media Segment in the current Playlist plus two, or if the _HLS_part
+			// exceeds the last Partial Segment in the current Playlist by the
+			// Advance Part Limit, then the server SHOULD immediately return Bad
+			// Request, such as HTTP 400.
+			if msnint > (p.nextSegmentID + 1) {
+				return &MuxerFileResponse{Status: http.StatusBadRequest}
+			}
+
+			for !p.closed && !p.hasPart(msnint, partint) {
+				p.cond.Wait()
+			}
+
+			if p.closed {
+				return &MuxerFileResponse{Status: http.StatusInternalServerError}
+			}
+
 			return &MuxerFileResponse{
 				Status: http.StatusOK,
 				Header: map[string]string{
 					"Content-Type": `application/x-mpegURL`,
 				},
-				Body: &asyncReader{generator: func() io.Reader {
-					p.mutex.Lock()
-					defer p.mutex.Unlock()
-
-					// If the _HLS_msn is greater than the Media Sequence Number of the last
-					// Media Segment in the current Playlist plus two, or if the _HLS_part
-					// exceeds the last Partial Segment in the current Playlist by the
-					// Advance Part Limit, then the server SHOULD immediately return Bad
-					// Request, such as HTTP 400.
-					if msnint > (p.nextSegmentID + 1) {
-						return nil
-					}
-
-					for !p.closed && !p.hasPart(msnint, partint) {
-						p.cond.Wait()
-					}
-
-					if p.closed {
-						return nil
-					}
-
-					return p.fullPlaylist()
-				}},
+				Body: p.fullPlaylist(),
 			}
 		}
 
@@ -183,25 +181,23 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 		}
 	}
 
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	for !p.closed && !p.hasContent() {
+		p.cond.Wait()
+	}
+
+	if p.closed {
+		return &MuxerFileResponse{Status: http.StatusInternalServerError}
+	}
+
 	return &MuxerFileResponse{
 		Status: http.StatusOK,
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: &asyncReader{generator: func() io.Reader {
-			p.mutex.Lock()
-			defer p.mutex.Unlock()
-
-			for !p.closed && !p.hasContent() {
-				p.cond.Wait()
-			}
-
-			if p.closed {
-				return nil
-			}
-
-			return p.fullPlaylist()
-		}},
+		Body: p.fullPlaylist(),
 	}
 }
 
@@ -285,22 +281,20 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileResponse {
 	switch {
 	case fname == "init.mp4":
+		p.mutex.Lock()
+		defer p.mutex.Unlock()
+
+		byts, err := mp4InitGenerate(p.videoTrack, p.audioTrack)
+		if err != nil {
+			return &MuxerFileResponse{Status: http.StatusInternalServerError}
+		}
+
 		return &MuxerFileResponse{
 			Status: http.StatusOK,
 			Header: map[string]string{
 				"Content-Type": "video/mp4",
 			},
-			Body: &asyncReader{generator: func() io.Reader {
-				p.mutex.Lock()
-				defer p.mutex.Unlock()
-
-				byts, err := mp4InitGenerate(p.videoTrack, p.audioTrack)
-				if err != nil {
-					return nil
-				}
-
-				return bytes.NewReader(byts)
-			}},
+			Body: bytes.NewReader(byts),
 		}
 
 	case strings.HasPrefix(fname, "seg"):
@@ -341,33 +335,31 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 		}
 
 		if fname == fmp4PartName(p.nextPartID) {
+			p.mutex.Lock()
+			defer p.mutex.Unlock()
+
+			for {
+				if p.closed {
+					break
+				}
+
+				if p.nextPartID > nextPartID {
+					break
+				}
+
+				p.cond.Wait()
+			}
+
+			if p.closed {
+				return &MuxerFileResponse{Status: http.StatusInternalServerError}
+			}
+
 			return &MuxerFileResponse{
 				Status: http.StatusOK,
 				Header: map[string]string{
 					"Content-Type": "video/mp4",
 				},
-				Body: &asyncReader{generator: func() io.Reader {
-					p.mutex.Lock()
-					defer p.mutex.Unlock()
-
-					for {
-						if p.closed {
-							break
-						}
-
-						if p.nextPartID > nextPartID {
-							break
-						}
-
-						p.cond.Wait()
-					}
-
-					if p.closed {
-						return nil
-					}
-
-					return p.partsByName[fmp4PartName(nextPartID)].reader()
-				}},
+				Body: p.partsByName[fmp4PartName(nextPartID)].reader(),
 			}
 		}
 

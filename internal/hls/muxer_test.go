@@ -363,9 +363,8 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 
 	m.Close()
 
-	byts, err := ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
-	require.NoError(t, err)
-	require.Equal(t, []byte{}, byts)
+	b := m.File("stream.m3u8", "", "", "").Body
+	require.Equal(t, nil, b)
 }
 
 func TestMuxerMaxSegmentSize(t *testing.T) {

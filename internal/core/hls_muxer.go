@@ -97,7 +97,7 @@ type hlsMuxerRequest struct {
 	dir  string
 	file string
 	ctx  *gin.Context
-	res  chan *hls.MuxerFileResponse
+	res  chan func() *hls.MuxerFileResponse
 }
 
 type hlsMuxerPathManager interface {
@@ -247,7 +247,9 @@ func (m *hlsMuxer) run() {
 	m.ctxCancel()
 
 	for _, req := range m.requests {
-		req.res <- &hls.MuxerFileResponse{Status: http.StatusNotFound}
+		req.res <- func() *hls.MuxerFileResponse {
+			return &hls.MuxerFileResponse{Status: http.StatusNotFound}
+		}
 	}
 
 	m.parent.onMuxerClose(m)
@@ -399,41 +401,49 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 }
 
-func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) *hls.MuxerFileResponse {
+func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) func() *hls.MuxerFileResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
 	err := m.authenticate(req.ctx.Request)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			m.log(logger.Info, "authentication error: %s", terr.message)
-			return &hls.MuxerFileResponse{
-				Status: http.StatusUnauthorized,
+			return func() *hls.MuxerFileResponse {
+				return &hls.MuxerFileResponse{
+					Status: http.StatusUnauthorized,
+				}
 			}
 		}
 
-		return &hls.MuxerFileResponse{
-			Status: http.StatusUnauthorized,
-			Header: map[string]string{
-				"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
-			},
+		return func() *hls.MuxerFileResponse {
+			return &hls.MuxerFileResponse{
+				Status: http.StatusUnauthorized,
+				Header: map[string]string{
+					"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
+				},
+			}
 		}
 	}
 
 	if req.file == "" {
-		return &hls.MuxerFileResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
-				"Content-Type": `text/html`,
-			},
-			Body: bytes.NewReader([]byte(index)),
+		return func() *hls.MuxerFileResponse {
+			return &hls.MuxerFileResponse{
+				Status: http.StatusOK,
+				Header: map[string]string{
+					"Content-Type": `text/html`,
+				},
+				Body: bytes.NewReader([]byte(index)),
+			}
 		}
 	}
 
-	return m.muxer.File(
-		req.file,
-		req.ctx.Query("_HLS_msn"),
-		req.ctx.Query("_HLS_part"),
-		req.ctx.Query("_HLS_skip"))
+	return func() *hls.MuxerFileResponse {
+		return m.muxer.File(
+			req.file,
+			req.ctx.Query("_HLS_msn"),
+			req.ctx.Query("_HLS_part"),
+			req.ctx.Query("_HLS_skip"))
+	}
 }
 
 func (m *hlsMuxer) authenticate(req *http.Request) error {
@@ -494,7 +504,9 @@ func (m *hlsMuxer) onRequest(req hlsMuxerRequest) {
 	select {
 	case m.request <- req:
 	case <-m.ctx.Done():
-		req.res <- &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
+		req.res <- func() *hls.MuxerFileResponse {
+			return &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
+		}
 	}
 }
 
