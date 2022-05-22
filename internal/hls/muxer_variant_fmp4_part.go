@@ -8,6 +8,7 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 )
 
@@ -135,7 +136,7 @@ func mp4PartGenerateAudioTraf(
 		},
 		TrackID: uint32(trackID),
 		// in AAC, an AU always contains 1024 samples
-		DefaultSampleDuration: 1024,
+		DefaultSampleDuration: aac.SamplesPerAccessUnit,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -356,7 +357,8 @@ func (p *muxerVariantFMP4Part) finalize() error {
 	if p.videoTrack != nil {
 		p.duration = time.Duration(len(p.videoEntries)) * p.sampleDuration
 	} else {
-		p.duration = time.Duration(len(p.audioEntries)) * 1024 * time.Second / time.Duration(p.audioTrack.ClockRate())
+		p.duration = time.Duration(len(p.audioEntries)) * aac.SamplesPerAccessUnit *
+			time.Second / time.Duration(p.audioTrack.ClockRate())
 	}
 
 	p.videoEntries = nil
@@ -380,9 +382,9 @@ func (p *muxerVariantFMP4Part) writeH264(pts time.Duration, nalus [][]byte) erro
 }
 
 func (p *muxerVariantFMP4Part) writeAAC(pts time.Duration, aus [][]byte) error {
-	for _, au := range aus {
+	for i, au := range aus {
 		p.audioEntries = append(p.audioEntries, fmp4PartAudioEntry{
-			pts: pts,
+			pts: pts + time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(p.audioTrack.ClockRate()),
 			au:  au,
 		})
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 )
 
@@ -125,7 +126,8 @@ func (s *muxerVariantFMP4Segment) finalize() error {
 	if s.videoTrack != nil {
 		s.duration = time.Duration(s.videoEntriesCount) * s.sampleDuration
 	} else {
-		s.duration = time.Duration(s.audioEntriesCount) * 1024 * time.Second / time.Duration(s.audioTrack.ClockRate())
+		s.duration = time.Duration(s.audioEntriesCount) * aac.SamplesPerAccessUnit *
+			time.Second / time.Duration(s.audioTrack.ClockRate())
 	}
 
 	return nil
@@ -209,7 +211,8 @@ func (s *muxerVariantFMP4Segment) writeAAC(
 			s.videoTrack,
 			s.audioTrack,
 			s.genPartID(),
-			s.startDTS+time.Duration(s.audioEntriesCount)*1024*time.Second/time.Duration(s.audioTrack.ClockRate()),
+			s.startDTS+time.Duration(s.audioEntriesCount)*aac.SamplesPerAccessUnit*
+				time.Second/time.Duration(s.audioTrack.ClockRate()),
 			s.sampleDuration,
 		)
 	}
