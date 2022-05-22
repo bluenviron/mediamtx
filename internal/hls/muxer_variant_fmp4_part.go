@@ -40,9 +40,12 @@ func mp4PartGenerateVideoTraf(
 		return nil, 0, err
 	}
 
+	flags := 0
+	flags |= 0x08 // default sample duration present
+
 	_, err = w.writeBox(&mp4.Tfhd{ // <tfhd/>
 		FullBox: mp4.FullBox{
-			Flags: [3]byte{2, 0, 56},
+			Flags: [3]byte{2, byte(flags >> 8), byte(flags)},
 		},
 		TrackID:               uint32(trackID),
 		DefaultSampleDuration: uint32(sampleDuration * fmp4VideoTimescale / time.Second),
@@ -62,10 +65,15 @@ func mp4PartGenerateVideoTraf(
 		return nil, 0, err
 	}
 
+	flags = 0
+	flags |= 0x01  // data offset present
+	flags |= 0x200 // sample size present
+	flags |= 0x800 // sample composition time offset present or v1
+
 	trun := &mp4.Trun{ // <trun/>
 		FullBox: mp4.FullBox{
 			Version: 1,
-			Flags:   [3]byte{0, 10, 5},
+			Flags:   [3]byte{0, byte(flags >> 8), byte(flags)},
 		},
 		SampleCount: uint32(len(videoEntries)),
 	}
@@ -118,9 +126,12 @@ func mp4PartGenerateAudioTraf(
 		return nil, 0, err
 	}
 
+	flags := 0
+	flags |= 0x08 // default sample duration present
+
 	_, err = w.writeBox(&mp4.Tfhd{ // <tfhd/>
 		FullBox: mp4.FullBox{
-			Flags: [3]byte{2, 0, 56},
+			Flags: [3]byte{2, byte(flags >> 8), byte(flags)},
 		},
 		TrackID: uint32(trackID),
 		// in AAC, an AU always contains 1024 samples
@@ -141,10 +152,14 @@ func mp4PartGenerateAudioTraf(
 		return nil, 0, err
 	}
 
+	flags = 0
+	flags |= 0x01  // data offset present
+	flags |= 0x200 // sample size present
+
 	trun := &mp4.Trun{ // <trun/>
 		FullBox: mp4.FullBox{
 			Version: 0,
-			Flags:   [3]byte{0, 0x02, 0x01},
+			Flags:   [3]byte{0, byte(flags >> 8), byte(flags)},
 		},
 		SampleCount: uint32(len(audioEntries)),
 	}
