@@ -113,10 +113,14 @@ func (s *muxerVariantFMP4Segment) reader() io.Reader {
 	return &partsReader{parts: s.parts}
 }
 
-func (s *muxerVariantFMP4Segment) finalize() error {
-	err := s.currentPart.finalize()
+func (s *muxerVariantFMP4Segment) finalize() (*fmp4PartAudioEntry, error) {
+	lastAudioEntry, err := s.currentPart.finalize()
 	if err != nil {
-		return err
+		return nil, err
+	}
+
+	if lastAudioEntry != nil {
+		s.audioEntriesCount--
 	}
 
 	s.onPartFinalized(s.currentPart)
@@ -130,7 +134,7 @@ func (s *muxerVariantFMP4Segment) finalize() error {
 			time.Second / time.Duration(s.audioTrack.ClockRate())
 	}
 
-	return nil
+	return lastAudioEntry, nil
 }
 
 func (s *muxerVariantFMP4Segment) writeH264(
@@ -154,9 +158,9 @@ func (s *muxerVariantFMP4Segment) writeH264(
 	s.videoEntriesCount++
 	s.entriesSize += size
 
-	if s.lowLatency && len(s.currentPart.videoEntries) > 5 &&
-		(s.audioTrack == nil || len(s.currentPart.audioEntries) > 5) {
-		err := s.currentPart.finalize()
+	if s.lowLatency && len(s.currentPart.videoEntries) >= fmp4MinVideoEntriesPerPart &&
+		(s.audioTrack == nil || len(s.currentPart.audioEntries) >= 2) {
+		lastAudioEntry, err := s.currentPart.finalize()
 		if err != nil {
 			return err
 		}
@@ -171,6 +175,10 @@ func (s *muxerVariantFMP4Segment) writeH264(
 			s.startDTS+time.Duration(s.videoEntriesCount)*s.sampleDuration,
 			s.sampleDuration,
 		)
+
+		if lastAudioEntry != nil {
+			s.currentPart.writeAAC(lastAudioEntry.pts, [][]byte{lastAudioEntry.au})
+		}
 	}
 
 	return nil
@@ -198,10 +206,14 @@ func (s *muxerVariantFMP4Segment) writeAAC(
 	s.entriesSize += size
 
 	if s.lowLatency && s.videoTrack == nil &&
-		len(s.currentPart.audioEntries) > 30 {
-		err := s.currentPart.finalize()
+		len(s.currentPart.audioEntries) > fmp4MinAudioEntriesPerPart {
+		lastAudioEntry, err := s.currentPart.finalize()
 		if err != nil {
 			return err
+		}
+
+		if lastAudioEntry != nil {
+			s.audioEntriesCount--
 		}
 
 		s.parts = append(s.parts, s.currentPart)
@@ -215,6 +227,11 @@ func (s *muxerVariantFMP4Segment) writeAAC(
 				time.Second/time.Duration(s.audioTrack.ClockRate()),
 			s.sampleDuration,
 		)
+
+		if lastAudioEntry != nil {
+			s.currentPart.writeAAC(lastAudioEntry.pts, [][]byte{lastAudioEntry.au})
+			s.audioEntriesCount++
+		}
 	}
 
 	return nil

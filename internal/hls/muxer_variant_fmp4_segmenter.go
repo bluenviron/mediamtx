@@ -110,7 +110,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 			if (pts-m.currentSegment.startDTS) >= m.segmentDuration ||
 				!bytes.Equal(m.lastSPS, sps) ||
 				!bytes.Equal(m.lastPPS, pps) {
-				err := m.currentSegment.finalize()
+				lastAudioEntry, err := m.currentSegment.finalize()
 				if err != nil {
 					return err
 				}
@@ -132,13 +132,17 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 				if err != nil {
 					return err
 				}
+
+				if lastAudioEntry != nil {
+					m.currentSegment.writeAAC(lastAudioEntry.pts, [][]byte{lastAudioEntry.au})
+				}
 			}
 		}
 	}
 
 	err := m.currentSegment.writeH264(pts, nalus)
 	if err != nil {
-		err := m.currentSegment.finalize()
+		_, err := m.currentSegment.finalize()
 		if err != nil {
 			return err
 		}
@@ -179,9 +183,9 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 			pts -= m.startPTS
 
 			// switch segment
-			if m.currentSegment.audioEntriesCount >= segmentMinAUCount &&
-				(pts-m.currentSegment.startDTS) >= m.segmentDuration {
-				err := m.currentSegment.finalize()
+			if (pts-m.currentSegment.startDTS) >= m.segmentDuration &&
+				m.currentSegment.audioEntriesCount >= segmentMinAUCount {
+				lastAudioEntry, err := m.currentSegment.finalize()
 				if err != nil {
 					return err
 				}
@@ -201,6 +205,10 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 				if err != nil {
 					return err
 				}
+
+				if lastAudioEntry != nil {
+					m.currentSegment.writeAAC(lastAudioEntry.pts, [][]byte{lastAudioEntry.au})
+				}
 			}
 		}
 	} else {
@@ -214,7 +222,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 
 	err := m.currentSegment.writeAAC(pts, aus)
 	if err != nil {
-		err := m.currentSegment.finalize()
+		_, err := m.currentSegment.finalize()
 		if err != nil {
 			return err
 		}

@@ -18,8 +18,9 @@ type fmp4PartVideoEntry struct {
 }
 
 type fmp4PartAudioEntry struct {
-	pts time.Duration
-	au  []byte
+	pts      time.Duration
+	au       []byte
+	duration time.Duration
 }
 
 func mp4PartGenerateVideoTraf(
@@ -128,15 +129,12 @@ func mp4PartGenerateAudioTraf(
 	}
 
 	flags := 0
-	flags |= 0x08 // default sample duration present
 
 	_, err = w.writeBox(&mp4.Tfhd{ // <tfhd/>
 		FullBox: mp4.FullBox{
 			Flags: [3]byte{2, byte(flags >> 8), byte(flags)},
 		},
 		TrackID: uint32(trackID),
-		// in AAC, an AU always contains 1024 samples
-		DefaultSampleDuration: aac.SamplesPerAccessUnit,
 	})
 	if err != nil {
 		return nil, 0, err
@@ -155,6 +153,7 @@ func mp4PartGenerateAudioTraf(
 
 	flags = 0
 	flags |= 0x01  // data offset present
+	flags |= 0x100 // sample duration present
 	flags |= 0x200 // sample size present
 
 	trun := &mp4.Trun{ // <trun/>
@@ -167,7 +166,8 @@ func mp4PartGenerateAudioTraf(
 
 	for _, e := range audioEntries {
 		trun.Entries = append(trun.Entries, mp4.TrunEntry{
-			SampleSize: uint32(len(e.au)),
+			SampleSize:     uint32(len(e.au)),
+			SampleDuration: uint32(e.duration * time.Duration(audioTrack.ClockRate()) / time.Second),
 		})
 	}
 
@@ -341,7 +341,18 @@ func (p *muxerVariantFMP4Part) reader() io.Reader {
 	return bytes.NewReader(p.rendered)
 }
 
-func (p *muxerVariantFMP4Part) finalize() error {
+func (p *muxerVariantFMP4Part) finalize() (*fmp4PartAudioEntry, error) {
+	for i := 0; i < len(p.audioEntries)-1; i++ {
+		p.audioEntries[i].duration = p.audioEntries[i+1].pts - p.audioEntries[i].pts
+	}
+
+	var lastAudioEntry *fmp4PartAudioEntry
+	if len(p.audioEntries) > 0 {
+		v := p.audioEntries[len(p.audioEntries)-1]
+		lastAudioEntry = &v
+		p.audioEntries = p.audioEntries[:len(p.audioEntries)-1]
+	}
+
 	var err error
 	p.rendered, err = mp4PartGenerate(
 		p.videoTrack,
@@ -351,7 +362,7 @@ func (p *muxerVariantFMP4Part) finalize() error {
 		p.startDTS,
 		p.sampleDuration)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if p.videoTrack != nil {
@@ -364,7 +375,7 @@ func (p *muxerVariantFMP4Part) finalize() error {
 	p.videoEntries = nil
 	p.audioEntries = nil
 
-	return nil
+	return lastAudioEntry, nil
 }
 
 func (p *muxerVariantFMP4Part) writeH264(pts time.Duration, nalus [][]byte) error {
