@@ -184,7 +184,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 
 			// switch segment
 			if (pts-m.currentSegment.startDTS) >= m.segmentDuration &&
-				m.currentSegment.audioEntriesCount >= segmentMinAUCount {
+				m.currentSegment.audioEntriesCount >= fmp4MinAudioEntriesPerPart {
 				lastAudioEntry, err := m.currentSegment.finalize()
 				if err != nil {
 					return err

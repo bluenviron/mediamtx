@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	segmentMinAUCount = 100
+	mpegtsSegmentMinAUCount = 100
 )
 
 type writerFunc func(p []byte) (int, error)
@@ -138,7 +138,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeAAC(pts time.Duration, aus [][]byte) 
 			pts -= m.startPTS
 
 			// switch segment
-			if m.currentSegment.audioAUCount >= segmentMinAUCount &&
+			if m.currentSegment.audioAUCount >= mpegtsSegmentMinAUCount &&
 				m.currentSegment.startPTS != nil &&
 				(pts-*m.currentSegment.startPTS) >= m.segmentDuration {
 				m.currentSegment.endPTS = pts

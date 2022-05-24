@@ -123,7 +123,8 @@ hlsVariant: lowLatency
 hlsSegmentCount: 3
 # Minimum duration of each segment.
 # The final segment duration is also influenced by the interval between IDR frames,
-# since the server changes the segment duration to include at least a IDR frame in each one.
+# since the server changes the duration in order to include at least one IDR frame
+# in each segment.
 hlsSegmentDuration: 1s
 # Maximum size of each segment.
 # This prevents RAM exhaustion.

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 )
 
@@ -123,15 +122,19 @@ func (s *muxerVariantFMP4Segment) finalize() (*fmp4PartAudioEntry, error) {
 		s.audioEntriesCount--
 	}
 
-	s.onPartFinalized(s.currentPart)
-	s.parts = append(s.parts, s.currentPart)
+	if s.currentPart.rendered != nil {
+		s.onPartFinalized(s.currentPart)
+		s.parts = append(s.parts, s.currentPart)
+	}
+
 	s.currentPart = nil
 
 	if s.videoTrack != nil {
 		s.duration = time.Duration(s.videoEntriesCount) * s.sampleDuration
 	} else {
-		s.duration = time.Duration(s.audioEntriesCount) * aac.SamplesPerAccessUnit *
-			time.Second / time.Duration(s.audioTrack.ClockRate())
+		start := s.parts[0].audioStartDTS
+		end := s.parts[len(s.parts)-1].audioEndDTS
+		s.duration = end - start
 	}
 
 	return lastAudioEntry, nil
@@ -158,8 +161,7 @@ func (s *muxerVariantFMP4Segment) writeH264(
 	s.videoEntriesCount++
 	s.entriesSize += size
 
-	if s.lowLatency && len(s.currentPart.videoEntries) >= fmp4MinVideoEntriesPerPart &&
-		(s.audioTrack == nil || len(s.currentPart.audioEntries) >= 2) {
+	if s.lowLatency && len(s.currentPart.videoEntries) >= fmp4MinVideoEntriesPerPart {
 		lastAudioEntry, err := s.currentPart.finalize()
 		if err != nil {
 			return err
@@ -223,8 +225,7 @@ func (s *muxerVariantFMP4Segment) writeAAC(
 			s.videoTrack,
 			s.audioTrack,
 			s.genPartID(),
-			s.startDTS+time.Duration(s.audioEntriesCount)*aac.SamplesPerAccessUnit*
-				time.Second/time.Duration(s.audioTrack.ClockRate()),
+			s.currentPart.audioEndDTS,
 			s.sampleDuration,
 		)
 

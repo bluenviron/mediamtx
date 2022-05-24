@@ -311,10 +311,12 @@ type muxerVariantFMP4Part struct {
 	startDTS       time.Duration
 	sampleDuration time.Duration
 
-	videoEntries []fmp4PartVideoEntry
-	audioEntries []fmp4PartAudioEntry
-	rendered     []byte
-	duration     time.Duration
+	videoEntries  []fmp4PartVideoEntry
+	audioEntries  []fmp4PartAudioEntry
+	rendered      []byte
+	duration      time.Duration
+	audioStartDTS time.Duration
+	audioEndDTS   time.Duration
 }
 
 func newMuxerVariantFMP4Part(
@@ -353,23 +355,26 @@ func (p *muxerVariantFMP4Part) finalize() (*fmp4PartAudioEntry, error) {
 		p.audioEntries = p.audioEntries[:len(p.audioEntries)-1]
 	}
 
-	var err error
-	p.rendered, err = mp4PartGenerate(
-		p.videoTrack,
-		p.audioTrack,
-		p.videoEntries,
-		p.audioEntries,
-		p.startDTS,
-		p.sampleDuration)
-	if err != nil {
-		return nil, err
-	}
+	if len(p.videoEntries) > 0 || len(p.audioEntries) > 0 {
+		var err error
+		p.rendered, err = mp4PartGenerate(
+			p.videoTrack,
+			p.audioTrack,
+			p.videoEntries,
+			p.audioEntries,
+			p.startDTS,
+			p.sampleDuration)
+		if err != nil {
+			return nil, err
+		}
 
-	if p.videoTrack != nil {
-		p.duration = time.Duration(len(p.videoEntries)) * p.sampleDuration
-	} else {
-		p.duration = time.Duration(len(p.audioEntries)) * aac.SamplesPerAccessUnit *
-			time.Second / time.Duration(p.audioTrack.ClockRate())
+		if p.videoTrack != nil {
+			p.duration = time.Duration(len(p.videoEntries)) * p.sampleDuration
+		} else {
+			p.audioStartDTS = p.audioEntries[0].pts
+			p.audioEndDTS = p.audioEntries[len(p.audioEntries)-1].pts + p.audioEntries[len(p.audioEntries)-1].duration
+			p.duration = p.audioEndDTS - p.audioStartDTS
+		}
 	}
 
 	p.videoEntries = nil
