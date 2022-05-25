@@ -191,10 +191,10 @@ outer:
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {
-	s.log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
+	s.log(logger.Info, "[conn %v] %s %s", ctx.ClientIP(), ctx.Request.Method, ctx.Request.URL.Path)
 
 	byts, _ := httputil.DumpRequest(ctx.Request, true)
-	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
+	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.ClientIP(), string(byts))
 
 	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
 	ctx.Writer = logw
@@ -265,7 +265,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	case <-s.ctx.Done():
 	}
 
-	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
+	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.ClientIP(), logw.dump())
 }
 
 func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
