@@ -90,7 +90,12 @@ func newMuxerVariantFMP4Segment(
 			return nil, err
 		}
 
-		s.sampleDuration = time.Duration(float64(time.Second) / spsp.FPS())
+		fps := spsp.FPS()
+		if fps == 0 {
+			return nil, fmt.Errorf("unable to obtain video FPS")
+		}
+
+		s.sampleDuration = time.Duration(float64(time.Second) / fps)
 	}
 
 	s.currentPart = newMuxerVariantFMP4Part(
