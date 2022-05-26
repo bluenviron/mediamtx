@@ -20,7 +20,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 50*1024*1024, videoTrack, audioTrack)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, audioTrack)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -177,7 +177,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -261,7 +261,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 50*1024*1024, nil, audioTrack)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, nil, audioTrack)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -349,7 +349,7 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 
 	// group with IDR
@@ -371,7 +371,7 @@ func TestMuxerMaxSegmentSize(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 0, videoTrack, nil)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -385,7 +385,7 @@ func TestMuxerDoubleRead(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 	defer m.Close()
 

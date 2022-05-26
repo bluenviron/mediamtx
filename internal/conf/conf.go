@@ -210,6 +210,7 @@ type Conf struct {
 	HLSVariant         HLSVariant     `json:"hlsVariant"`
 	HLSSegmentCount    int            `json:"hlsSegmentCount"`
 	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
+	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
 	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
 	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
 
@@ -356,6 +357,10 @@ func (conf *Conf) CheckAndFillMissing() error {
 
 	if conf.HLSSegmentDuration == 0 {
 		conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
+	}
+
+	if conf.HLSPartDuration == 0 {
+		conf.HLSPartDuration = 100 * StringDuration(time.Millisecond)
 	}
 
 	if conf.HLSSegmentMaxSize == 0 {

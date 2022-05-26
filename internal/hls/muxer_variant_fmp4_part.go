@@ -343,6 +343,20 @@ func (p *muxerVariantFMP4Part) reader() io.Reader {
 	return bytes.NewReader(p.rendered)
 }
 
+func (p *muxerVariantFMP4Part) partialDuration() time.Duration {
+	if p.videoTrack != nil {
+		return time.Duration(len(p.videoEntries)) * p.sampleDuration
+	}
+
+	if len(p.audioEntries) < 2 {
+		return 0
+	}
+
+	start := p.audioEntries[0].pts
+	end := p.audioEntries[len(p.audioEntries)-1].pts
+	return end - start
+}
+
 func (p *muxerVariantFMP4Part) finalize() (*fmp4PartAudioEntry, error) {
 	for i := 0; i < len(p.audioEntries)-1; i++ {
 		p.audioEntries[i].duration = p.audioEntries[i+1].pts - p.audioEntries[i].pts

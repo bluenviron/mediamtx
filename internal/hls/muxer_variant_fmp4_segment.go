@@ -45,6 +45,7 @@ type muxerVariantFMP4Segment struct {
 	id              uint64
 	startTime       time.Time
 	startDTS        time.Duration
+	partDuration    time.Duration
 	segmentMaxSize  uint64
 	videoTrack      *gortsplib.TrackH264
 	audioTrack      *gortsplib.TrackAAC
@@ -65,6 +66,7 @@ func newMuxerVariantFMP4Segment(
 	id uint64,
 	startTime time.Time,
 	startDTS time.Duration,
+	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
@@ -76,6 +78,7 @@ func newMuxerVariantFMP4Segment(
 		id:              id,
 		startTime:       startTime,
 		startDTS:        startDTS,
+		partDuration:    partDuration,
 		segmentMaxSize:  segmentMaxSize,
 		videoTrack:      videoTrack,
 		audioTrack:      audioTrack,
@@ -166,7 +169,8 @@ func (s *muxerVariantFMP4Segment) writeH264(
 	s.videoEntriesCount++
 	s.entriesSize += size
 
-	if s.lowLatency && len(s.currentPart.videoEntries) >= fmp4MinVideoEntriesPerPart {
+	if s.lowLatency &&
+		s.currentPart.partialDuration() >= s.partDuration {
 		lastAudioEntry, err := s.currentPart.finalize()
 		if err != nil {
 			return err
@@ -213,7 +217,7 @@ func (s *muxerVariantFMP4Segment) writeAAC(
 	s.entriesSize += size
 
 	if s.lowLatency && s.videoTrack == nil &&
-		len(s.currentPart.audioEntries) > fmp4MinAudioEntriesPerPart {
+		s.currentPart.partialDuration() >= s.partDuration {
 		lastAudioEntry, err := s.currentPart.finalize()
 		if err != nil {
 			return err

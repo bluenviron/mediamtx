@@ -116,6 +116,7 @@ type hlsMuxer struct {
 	hlsVariant                conf.HLSVariant
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
+	hlsPartDuration           conf.StringDuration
 	hlsSegmentMaxSize         conf.StringSize
 	readBufferCount           int
 	wg                        *sync.WaitGroup
@@ -144,6 +145,7 @@ func newHLSMuxer(
 	hlsVariant conf.HLSVariant,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
+	hlsPartDuration conf.StringDuration,
 	hlsSegmentMaxSize conf.StringSize,
 	readBufferCount int,
 	wg *sync.WaitGroup,
@@ -160,6 +162,7 @@ func newHLSMuxer(
 		hlsVariant:                hlsVariant,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
+		hlsPartDuration:           hlsPartDuration,
 		hlsSegmentMaxSize:         hlsSegmentMaxSize,
 		readBufferCount:           readBufferCount,
 		wg:                        wg,
@@ -315,6 +318,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		hls.MuxerVariant(m.hlsVariant),
 		m.hlsSegmentCount,
 		time.Duration(m.hlsSegmentDuration),
+		time.Duration(m.hlsPartDuration),
 		uint64(m.hlsSegmentMaxSize),
 		videoTrack,
 		audioTrack,

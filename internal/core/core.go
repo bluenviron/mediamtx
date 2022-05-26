@@ -336,6 +336,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSVariant,
 				p.conf.HLSSegmentCount,
 				p.conf.HLSSegmentDuration,
+				p.conf.HLSPartDuration,
 				p.conf.HLSSegmentMaxSize,
 				p.conf.HLSAllowOrigin,
 				p.conf.ReadBufferCount,
@@ -480,6 +481,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSVariant != p.conf.HLSVariant ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
 		newConf.HLSSegmentDuration != p.conf.HLSSegmentDuration ||
+		newConf.HLSPartDuration != p.conf.HLSPartDuration ||
 		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||

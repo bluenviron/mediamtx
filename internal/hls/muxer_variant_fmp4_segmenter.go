@@ -11,6 +11,7 @@ import (
 type muxerVariantFMP4Segmenter struct {
 	lowLatency         bool
 	segmentDuration    time.Duration
+	partDuration       time.Duration
 	segmentMaxSize     uint64
 	videoTrack         *gortsplib.TrackH264
 	audioTrack         *gortsplib.TrackAAC
@@ -28,6 +29,7 @@ type muxerVariantFMP4Segmenter struct {
 func newMuxerVariantFMP4Segmenter(
 	lowLatency bool,
 	segmentDuration time.Duration,
+	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
@@ -37,6 +39,7 @@ func newMuxerVariantFMP4Segmenter(
 	m := &muxerVariantFMP4Segmenter{
 		lowLatency:         lowLatency,
 		segmentDuration:    segmentDuration,
+		partDuration:       partDuration,
 		segmentMaxSize:     segmentMaxSize,
 		videoTrack:         videoTrack,
 		audioTrack:         audioTrack,
@@ -85,6 +88,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 			m.genSegmentID(),
 			now,
 			0,
+			m.partDuration,
 			m.segmentMaxSize,
 			m.videoTrack,
 			m.audioTrack,
@@ -123,6 +127,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 					m.genSegmentID(),
 					now,
 					pts,
+					m.partDuration,
 					m.segmentMaxSize,
 					m.videoTrack,
 					m.audioTrack,
@@ -167,6 +172,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 				m.genSegmentID(),
 				now,
 				0,
+				m.partDuration,
 				m.segmentMaxSize,
 				m.videoTrack,
 				m.audioTrack,
@@ -183,8 +189,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 			pts -= m.startPTS
 
 			// switch segment
-			if (pts-m.currentSegment.startDTS) >= m.segmentDuration &&
-				m.currentSegment.audioEntriesCount >= fmp4MinAudioEntriesPerPart {
+			if (pts - m.currentSegment.startDTS) >= m.segmentDuration {
 				lastAudioEntry, err := m.currentSegment.finalize()
 				if err != nil {
 					return err
@@ -196,6 +201,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 					m.genSegmentID(),
 					now,
 					pts,
+					m.partDuration,
 					m.segmentMaxSize,
 					m.videoTrack,
 					m.audioTrack,

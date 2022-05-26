@@ -51,6 +51,7 @@ type hlsServer struct {
 	hlsVariant                conf.HLSVariant
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
+	hlsPartDuration           conf.StringDuration
 	hlsSegmentMaxSize         conf.StringSize
 	hlsAllowOrigin            string
 	readBufferCount           int
@@ -79,6 +80,7 @@ func newHLSServer(
 	hlsVariant conf.HLSVariant,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
+	hlsPartDuration conf.StringDuration,
 	hlsSegmentMaxSize conf.StringSize,
 	hlsAllowOrigin string,
 	readBufferCount int,
@@ -99,6 +101,7 @@ func newHLSServer(
 		hlsVariant:                hlsVariant,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
+		hlsPartDuration:           hlsPartDuration,
 		hlsSegmentMaxSize:         hlsSegmentMaxSize,
 		hlsAllowOrigin:            hlsAllowOrigin,
 		readBufferCount:           readBufferCount,
@@ -288,6 +291,7 @@ func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
 			s.hlsVariant,
 			s.hlsSegmentCount,
 			s.hlsSegmentDuration,
+			s.hlsPartDuration,
 			s.hlsSegmentMaxSize,
 			s.readBufferCount,
 			&s.wg,

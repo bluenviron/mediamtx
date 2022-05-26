@@ -7,9 +7,7 @@ import (
 )
 
 const (
-	fmp4VideoTimescale         = 90000
-	fmp4MinVideoEntriesPerPart = 1
-	fmp4MinAudioEntriesPerPart = 1
+	fmp4VideoTimescale = 90000
 )
 
 type muxerVariantFMP4 struct {
@@ -21,6 +19,7 @@ func newMuxerVariantFMP4(
 	lowLatency bool,
 	segmentCount int,
 	segmentDuration time.Duration,
+	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
@@ -37,6 +36,7 @@ func newMuxerVariantFMP4(
 	v.segmenter = newMuxerVariantFMP4Segmenter(
 		lowLatency,
 		segmentDuration,
+		partDuration,
 		segmentMaxSize,
 		videoTrack,
 		audioTrack,

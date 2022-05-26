@@ -126,6 +126,9 @@ hlsSegmentCount: 3
 # since the server changes the duration in order to include at least one IDR frame
 # in each segment.
 hlsSegmentDuration: 1s
+# Minimum duration of each part.
+# Parts are used in Low-Latency HLS in place of segments.
+hlsPartDuration: 100ms
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
 hlsSegmentMaxSize: 50M

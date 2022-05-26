@@ -125,6 +125,7 @@ define CONFIG_RUN
 #pprof: yes
 hlsVariant: lowLatency
 hlsAlwaysRemux: yes
+hlsPartDuration: 500ms
 
 paths:
   all:
