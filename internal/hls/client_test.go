@@ -123,7 +123,7 @@ func newTestHLSServer(ca string) (*testHLSServer, error) {
 #EXTINF:2,
 ` + segment + "\n"
 
-		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+		ctx.Writer.Header().Set("Content-Type", `audio/mpegURL`)
 		io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 	})
 

@@ -33,7 +33,7 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 	return &MuxerFileResponse{
 		Status: http.StatusOK,
 		Header: map[string]string{
-			"Content-Type": `application/x-mpegURL`,
+			"Content-Type": `audio/mpegURL`,
 		},
 		Body: func() io.Reader {
 			var codecs []string
