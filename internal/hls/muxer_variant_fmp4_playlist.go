@@ -138,7 +138,11 @@ func (p *muxerVariantFMP4Playlist) file(name string, msn string, part string, sk
 }
 
 func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip string) *MuxerFileResponse {
+	isDeltaUpdate := false
+
 	if p.lowLatency {
+		isDeltaUpdate = skip == "YES" || skip == "v2"
+
 		var msnint uint64
 		if msn != "" {
 			var err error
@@ -183,7 +187,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 				Header: map[string]string{
 					"Content-Type": `application/x-mpegURL`,
 				},
-				Body: p.fullPlaylist(),
+				Body: p.fullPlaylist(isDeltaUpdate),
 			}
 		}
 
@@ -209,16 +213,18 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 		Header: map[string]string{
 			"Content-Type": `application/x-mpegURL`,
 		},
-		Body: p.fullPlaylist(),
+		Body: p.fullPlaylist(isDeltaUpdate),
 	}
 }
 
-func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
+func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 	cnt := "#EXTM3U\n"
-	cnt += "#EXT-X-VERSION:6\n"
+	cnt += "#EXT-X-VERSION:9\n"
 
 	targetDuration := targetDuration(p.segments)
 	cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
+
+	skipBoundary := float64(targetDuration * 6)
 
 	if p.lowLatency {
 		partTargetDuration := partTargetDuration(p.segments, p.nextSegmentParts)
@@ -239,17 +245,40 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 		// response to the _HLS_skip Delivery Directive.  Its value is the
 		// Skip Boundary, a decimal-floating-point number of seconds.  The
 		// Skip Boundary MUST be at least six times the Target Duration.
-		cnt += ",CAN-SKIP-UNTIL=" + strconv.FormatFloat(float64(targetDuration*6), 'f', -1, 64) + "\n"
+		cnt += ",CAN-SKIP-UNTIL=" + strconv.FormatFloat(skipBoundary, 'f', -1, 64)
+
+		cnt += "\n"
 
 		cnt += "#EXT-X-PART-INF:PART-TARGET=" + strconv.FormatFloat(partTargetDuration.Seconds(), 'f', -1, 64) + "\n"
 	}
 
 	cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
-	cnt += "#EXT-X-INDEPENDENT-SEGMENTS" + "\n"
-	cnt += "#EXT-X-MAP:URI=\"init.mp4\"\n"
+
+	skipped := 0
+
+	if !isDeltaUpdate {
+		cnt += "#EXT-X-MAP:URI=\"init.mp4\"\n"
+	} else {
+		var curDuration time.Duration
+		shown := 0
+		for _, segment := range p.segments {
+			curDuration += segment.renderedDuration
+			if curDuration.Seconds() >= skipBoundary {
+				break
+			}
+			shown++
+		}
+		skipped = len(p.segments) - shown
+		cnt += "#EXT-X-SKIP:SKIPPED-SEGMENTS=" + strconv.FormatInt(int64(skipped), 10) + "\n"
+	}
+
 	cnt += "\n"
 
 	for i, segment := range p.segments {
+		if i < skipped {
+			continue
+		}
+
 		cnt += "#EXT-X-PROGRAM-DATE-TIME:" + segment.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
 
 		if p.lowLatency && (len(p.segments)-i) <= 2 {

@@ -54,13 +54,15 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 			case !p.fmp4:
 				return bytes.NewReader([]byte("#EXTM3U\n" +
 					"#EXT-X-VERSION:3\n" +
+					"#EXT-X-INDEPENDENT-SEGMENTS\n" +
 					"\n" +
 					"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
 					"stream.m3u8\n"))
 
 			default:
 				return bytes.NewReader([]byte("#EXTM3U\n" +
-					"#EXT-X-VERSION:7\n" +
+					"#EXT-X-VERSION:9\n" +
+					"#EXT-X-INDEPENDENT-SEGMENTS\n" +
 					"\n" +
 					"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"" + strings.Join(codecs, ",") + "\"\n" +
 					"stream.m3u8\n" +
