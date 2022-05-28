@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aler9/gortsplib"
 )
@@ -24,6 +25,17 @@ func targetDuration(segments []*muxerVariantFMP4Segment) uint {
 	}
 
 	return ret
+}
+
+func partTargetDuration(segments []*muxerVariantFMP4Segment, nextSegmentParts []*muxerVariantFMP4Part) time.Duration {
+	var part *muxerVariantFMP4Part
+	if len(segments) > 0 {
+		part = segments[0].parts[0]
+	} else {
+		part = nextSegmentParts[0]
+	}
+
+	return part.renderedDuration
 }
 
 type muxerVariantFMP4Playlist struct {
@@ -203,18 +215,13 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 
 func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 	cnt := "#EXTM3U\n"
-	cnt += "#EXT-X-VERSION:7\n"
+	cnt += "#EXT-X-VERSION:6\n"
 
 	targetDuration := targetDuration(p.segments)
 	cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
 
 	if p.lowLatency {
-		var part *muxerVariantFMP4Part
-		if len(p.segments) > 0 {
-			part = p.segments[0].parts[0]
-		} else {
-			part = p.nextSegmentParts[0]
-		}
+		partTargetDuration := partTargetDuration(p.segments, p.nextSegmentParts)
 
 		// The value is an enumerated-string whose value is YES if the server
 		// supports Blocking Playlist Reload
@@ -226,7 +233,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 		// they should seek when playing in Low-Latency Mode.  Its value MUST
 		// be at least twice the Part Target Duration.  Its value SHOULD be
 		// at least three times the Part Target Duration.
-		cnt += ",PART-HOLD-BACK=" + strconv.FormatFloat((part.renderedDuration*2).Seconds(), 'f', -1, 64)
+		cnt += ",PART-HOLD-BACK=" + strconv.FormatFloat((partTargetDuration).Seconds()*2, 'f', -1, 64)
 
 		// Indicates that the Server can produce Playlist Delta Updates in
 		// response to the _HLS_skip Delivery Directive.  Its value is the
@@ -234,7 +241,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 		// Skip Boundary MUST be at least six times the Target Duration.
 		cnt += ",CAN-SKIP-UNTIL=" + strconv.FormatFloat(float64(targetDuration*6), 'f', -1, 64) + "\n"
 
-		cnt += "#EXT-X-PART-INF:PART-TARGET=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) + "\n"
+		cnt += "#EXT-X-PART-INF:PART-TARGET=" + strconv.FormatFloat(partTargetDuration.Seconds(), 'f', -1, 64) + "\n"
 	}
 
 	cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
