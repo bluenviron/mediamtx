@@ -282,10 +282,10 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 		cnt += "#EXT-X-PROGRAM-DATE-TIME:" + segment.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
 
 		if p.lowLatency && (len(p.segments)-i) <= 2 {
-			for i, part := range segment.parts {
+			for _, part := range segment.parts {
 				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
 					",URI=\"" + part.name() + ".mp4\""
-				if i == 0 {
+				if part.isIndependent {
 					cnt += ",INDEPENDENT=YES"
 				}
 				cnt += "\n"
@@ -297,10 +297,10 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 	}
 
 	if p.lowLatency {
-		for i, part := range p.nextSegmentParts {
+		for _, part := range p.nextSegmentParts {
 			cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
 				",URI=\"" + part.name() + ".mp4\""
-			if i == 0 {
+			if part.isIndependent {
 				cnt += ",INDEPENDENT=YES"
 			}
 			cnt += "\n"

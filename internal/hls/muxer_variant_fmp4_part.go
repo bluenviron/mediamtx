@@ -57,6 +57,7 @@ func mp4PartGenerateVideoTraf(
 	flags = 0
 	flags |= 0x01  // data offset present
 	flags |= 0x200 // sample size present
+	flags |= 0x400 // sample flags present
 	flags |= 0x800 // sample composition time offset present or v1
 
 	trun := &mp4.Trun{ // <trun/>
@@ -71,8 +72,14 @@ func mp4PartGenerateVideoTraf(
 		dts := startDTS + time.Duration(i)*videoSampleDuration
 		off := int32((e.pts - dts) * fmp4VideoTimescale / time.Second)
 
+		flags := uint32(0)
+		if !e.idrPresent {
+			flags |= 1 << 16 // sample_is_non_sync_sample
+		}
+
 		trun.Entries = append(trun.Entries, mp4.TrunEntry{
 			SampleSize:                    uint32(len(e.avcc)),
+			SampleFlags:                   flags,
 			SampleCompositionTimeOffsetV1: off,
 		})
 	}
@@ -295,6 +302,7 @@ type muxerVariantFMP4Part struct {
 	startDTS            time.Duration
 	videoSampleDuration time.Duration
 
+	isIndependent    bool
 	videoEntries     []*fmp4VideoEntry
 	audioEntries     []*fmp4AudioEntry
 	renderedContent  []byte
@@ -357,6 +365,9 @@ func (p *muxerVariantFMP4Part) finalize() error {
 }
 
 func (p *muxerVariantFMP4Part) writeH264(entry *fmp4VideoEntry) {
+	if entry.idrPresent {
+		p.isIndependent = true
+	}
 	p.videoEntries = append(p.videoEntries, entry)
 }
 
