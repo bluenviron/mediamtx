@@ -67,17 +67,14 @@ func mp4PartGenerateVideoTraf(
 		SampleCount: uint32(len(videoEntries)),
 	}
 
-	dts := startDTS
-
-	for _, e := range videoEntries {
+	for i, e := range videoEntries {
+		dts := startDTS + time.Duration(i)*videoSampleDuration
 		off := int32((e.pts - dts) * fmp4VideoTimescale / time.Second)
 
 		trun.Entries = append(trun.Entries, mp4.TrunEntry{
 			SampleSize:                    uint32(len(e.avcc)),
 			SampleCompositionTimeOffsetV1: off,
 		})
-
-		dts += videoSampleDuration
 	}
 
 	trunOffset, err := w.writeBox(trun)
