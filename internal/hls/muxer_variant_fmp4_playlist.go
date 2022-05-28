@@ -249,10 +249,10 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 	cnt += "#EXT-X-MAP:URI=\"init.mp4\"\n"
 	cnt += "\n"
 
-	for _, segment := range p.segments {
+	for i, segment := range p.segments {
 		cnt += "#EXT-X-PROGRAM-DATE-TIME:" + segment.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
 
-		if p.lowLatency {
+		if p.lowLatency && (len(p.segments)-i) <= 2 {
 			for i, part := range segment.parts {
 				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
 					",URI=\"" + part.name() + ".mp4\""
