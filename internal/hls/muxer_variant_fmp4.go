@@ -10,6 +10,23 @@ const (
 	fmp4VideoTimescale = 90000
 )
 
+type fmp4VideoEntry struct {
+	pts        time.Duration
+	avcc       []byte
+	idrPresent bool
+	next       *fmp4VideoEntry
+}
+
+type fmp4AudioEntry struct {
+	pts  time.Duration
+	au   []byte
+	next *fmp4AudioEntry
+}
+
+func (e fmp4AudioEntry) duration() time.Duration {
+	return e.next.pts - e.pts
+}
+
 type muxerVariantFMP4 struct {
 	playlist  *muxerVariantFMP4Playlist
 	segmenter *muxerVariantFMP4Segmenter

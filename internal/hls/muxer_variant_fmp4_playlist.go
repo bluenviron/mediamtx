@@ -17,7 +17,7 @@ func targetDuration(segments []*muxerVariantFMP4Segment) uint {
 
 	// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
 	for _, s := range segments {
-		v2 := uint(math.Round(s.duration.Seconds()))
+		v2 := uint(math.Round(s.renderedDuration.Seconds()))
 		if v2 > ret {
 			ret = v2
 		}
@@ -226,7 +226,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 		// they should seek when playing in Low-Latency Mode.  Its value MUST
 		// be at least twice the Part Target Duration.  Its value SHOULD be
 		// at least three times the Part Target Duration.
-		cnt += ",PART-HOLD-BACK=" + strconv.FormatFloat((part.duration*2).Seconds(), 'f', -1, 64)
+		cnt += ",PART-HOLD-BACK=" + strconv.FormatFloat((part.renderedDuration*2).Seconds(), 'f', -1, 64)
 
 		// Indicates that the Server can produce Playlist Delta Updates in
 		// response to the _HLS_skip Delivery Directive.  Its value is the
@@ -234,7 +234,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 		// Skip Boundary MUST be at least six times the Target Duration.
 		cnt += ",CAN-SKIP-UNTIL=" + strconv.FormatFloat(float64(targetDuration), 'f', -1, 64) + "\n"
 
-		cnt += "#EXT-X-PART-INF:PART-TARGET=" + strconv.FormatFloat(part.duration.Seconds(), 'f', -1, 64) + "\n"
+		cnt += "#EXT-X-PART-INF:PART-TARGET=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) + "\n"
 	}
 
 	cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
@@ -247,7 +247,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 
 		if p.lowLatency {
 			for i, part := range segment.parts {
-				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.duration.Seconds(), 'f', -1, 64) +
+				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
 					",URI=\"" + part.name() + ".mp4\""
 				if i == 0 {
 					cnt += ",INDEPENDENT=YES"
@@ -256,13 +256,13 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 			}
 		}
 
-		cnt += "#EXTINF:" + strconv.FormatFloat(segment.duration.Seconds(), 'f', -1, 64) + ",\n" +
+		cnt += "#EXTINF:" + strconv.FormatFloat(segment.renderedDuration.Seconds(), 'f', -1, 64) + ",\n" +
 			segment.name() + ".mp4\n"
 	}
 
 	if p.lowLatency {
 		for i, part := range p.nextSegmentParts {
-			cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.duration.Seconds(), 'f', -1, 64) +
+			cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
 				",URI=\"" + part.name() + ".mp4\""
 			if i == 0 {
 				cnt += ",INDEPENDENT=YES"
