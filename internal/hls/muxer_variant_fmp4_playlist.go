@@ -28,14 +28,23 @@ func targetDuration(segments []*muxerVariantFMP4Segment) uint {
 }
 
 func partTargetDuration(segments []*muxerVariantFMP4Segment, nextSegmentParts []*muxerVariantFMP4Part) time.Duration {
-	var part *muxerVariantFMP4Part
-	if len(segments) > 0 {
-		part = segments[0].parts[0]
-	} else {
-		part = nextSegmentParts[0]
+	var ret time.Duration
+
+	for _, seg := range segments {
+		for _, part := range seg.parts {
+			if part.renderedDuration > ret {
+				ret = part.renderedDuration
+			}
+		}
 	}
 
-	return part.renderedDuration
+	for _, part := range nextSegmentParts {
+		if part.renderedDuration > ret {
+			ret = part.renderedDuration
+		}
+	}
+
+	return ret
 }
 
 type muxerVariantFMP4Playlist struct {
@@ -239,7 +248,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 		// they should seek when playing in Low-Latency Mode.  Its value MUST
 		// be at least twice the Part Target Duration.  Its value SHOULD be
 		// at least three times the Part Target Duration.
-		cnt += ",PART-HOLD-BACK=" + strconv.FormatFloat((partTargetDuration).Seconds()*2, 'f', -1, 64)
+		cnt += ",PART-HOLD-BACK=" + strconv.FormatFloat((partTargetDuration).Seconds()*2.5, 'f', 5, 64)
 
 		// Indicates that the Server can produce Playlist Delta Updates in
 		// response to the _HLS_skip Delivery Directive.  Its value is the
@@ -283,7 +292,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 
 		if p.lowLatency && (len(p.segments)-i) <= 2 {
 			for _, part := range segment.parts {
-				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
+				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', 5, 64) +
 					",URI=\"" + part.name() + ".mp4\""
 				if part.isIndependent {
 					cnt += ",INDEPENDENT=YES"
@@ -292,13 +301,13 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 			}
 		}
 
-		cnt += "#EXTINF:" + strconv.FormatFloat(segment.renderedDuration.Seconds(), 'f', -1, 64) + ",\n" +
+		cnt += "#EXTINF:" + strconv.FormatFloat(segment.renderedDuration.Seconds(), 'f', 5, 64) + ",\n" +
 			segment.name() + ".mp4\n"
 	}
 
 	if p.lowLatency {
 		for _, part := range p.nextSegmentParts {
-			cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) +
+			cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', 5, 64) +
 				",URI=\"" + part.name() + ".mp4\""
 			if part.isIndependent {
 				cnt += ",INDEPENDENT=YES"

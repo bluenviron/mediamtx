@@ -316,13 +316,19 @@ func newMuxerVariantFMP4Part(
 	startDTS time.Duration,
 	videoSampleDuration time.Duration,
 ) *muxerVariantFMP4Part {
-	return &muxerVariantFMP4Part{
+	p := &muxerVariantFMP4Part{
 		videoTrack:          videoTrack,
 		audioTrack:          audioTrack,
 		id:                  id,
 		startDTS:            startDTS,
 		videoSampleDuration: videoSampleDuration,
 	}
+
+	if videoTrack == nil {
+		p.isIndependent = true
+	}
+
+	return p
 }
 
 func (p *muxerVariantFMP4Part) name() string {
