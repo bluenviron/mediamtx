@@ -232,7 +232,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist() io.Reader {
 		// response to the _HLS_skip Delivery Directive.  Its value is the
 		// Skip Boundary, a decimal-floating-point number of seconds.  The
 		// Skip Boundary MUST be at least six times the Target Duration.
-		cnt += ",CAN-SKIP-UNTIL=" + strconv.FormatFloat(float64(targetDuration), 'f', -1, 64) + "\n"
+		cnt += ",CAN-SKIP-UNTIL=" + strconv.FormatFloat(float64(targetDuration*6), 'f', -1, 64) + "\n"
 
 		cnt += "#EXT-X-PART-INF:PART-TARGET=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', -1, 64) + "\n"
 	}
