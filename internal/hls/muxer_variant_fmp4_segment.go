@@ -53,7 +53,7 @@ type muxerVariantFMP4Segment struct {
 	onPartFinalized func(*muxerVariantFMP4Part)
 
 	videoSampleDuration time.Duration
-	videoEntriesCount   int
+	videoSamplesCount   int
 	size                uint64
 	parts               []*muxerVariantFMP4Part
 	currentPart         *muxerVariantFMP4Part
@@ -120,8 +120,8 @@ func (s *muxerVariantFMP4Segment) reader() io.Reader {
 }
 
 func (s *muxerVariantFMP4Segment) finalize(
-	nextVideoEntry *fmp4VideoEntry,
-	nextAudioEntry *fmp4AudioEntry,
+	nextVideoSample *fmp4VideoSample,
+	nextAudioSample *fmp4AudioSample,
 ) error {
 	err := s.currentPart.finalize()
 	if err != nil {
@@ -136,24 +136,24 @@ func (s *muxerVariantFMP4Segment) finalize(
 	s.currentPart = nil
 
 	if s.videoTrack != nil {
-		s.renderedDuration = nextVideoEntry.pts - s.startDTS
+		s.renderedDuration = nextVideoSample.pts - s.startDTS
 	} else {
-		s.renderedDuration = nextAudioEntry.pts - s.startDTS
+		s.renderedDuration = nextAudioSample.pts - s.startDTS
 	}
 
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeH264(entry *fmp4VideoEntry) error {
-	size := uint64(len(entry.avcc))
+func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
+	size := uint64(len(sample.avcc))
 
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
 
-	s.currentPart.writeH264(entry)
+	s.currentPart.writeH264(sample)
 
-	s.videoEntriesCount++
+	s.videoSamplesCount++
 	s.size += size
 
 	if s.lowLatency &&
@@ -170,7 +170,7 @@ func (s *muxerVariantFMP4Segment) writeH264(entry *fmp4VideoEntry) error {
 			s.videoTrack,
 			s.audioTrack,
 			s.genPartID(),
-			s.startDTS+time.Duration(s.videoEntriesCount)*s.videoSampleDuration,
+			s.startDTS+time.Duration(s.videoSamplesCount)*s.videoSampleDuration,
 			s.videoSampleDuration,
 		)
 	}
@@ -178,14 +178,14 @@ func (s *muxerVariantFMP4Segment) writeH264(entry *fmp4VideoEntry) error {
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeAAC(entry *fmp4AudioEntry) error {
-	size := uint64(len(entry.au))
+func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample) error {
+	size := uint64(len(sample.au))
 
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
 
-	s.currentPart.writeAAC(entry)
+	s.currentPart.writeAAC(sample)
 
 	s.size += size
 
@@ -203,7 +203,7 @@ func (s *muxerVariantFMP4Segment) writeAAC(entry *fmp4AudioEntry) error {
 			s.videoTrack,
 			s.audioTrack,
 			s.genPartID(),
-			entry.next.pts,
+			sample.next.pts,
 			s.videoSampleDuration,
 		)
 	}

@@ -23,7 +23,7 @@ func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
 func mp4PartGenerateVideoTraf(
 	w *mp4Writer,
 	trackID int,
-	videoEntries []*fmp4VideoEntry,
+	videoSamples []*fmp4VideoSample,
 	startDTS time.Duration,
 	videoSampleDuration time.Duration,
 ) (*mp4.Trun, int, error) {
@@ -75,10 +75,10 @@ func mp4PartGenerateVideoTraf(
 			Version: 1,
 			Flags:   [3]byte{0, byte(flags >> 8), byte(flags)},
 		},
-		SampleCount: uint32(len(videoEntries)),
+		SampleCount: uint32(len(videoSamples)),
 	}
 
-	for i, e := range videoEntries {
+	for i, e := range videoSamples {
 		dts := startDTS + time.Duration(i)*videoSampleDuration
 		off := e.pts - dts + fmp4PTSDTSOffsetFrames*videoSampleDuration
 		if off < 0 {
@@ -114,7 +114,7 @@ func mp4PartGenerateAudioTraf(
 	w *mp4Writer,
 	trackID int,
 	audioTrack *gortsplib.TrackAAC,
-	audioEntries []*fmp4AudioEntry,
+	audioSamples []*fmp4AudioSample,
 ) (*mp4.Trun, int, error) {
 	/*
 		traf
@@ -123,7 +123,7 @@ func mp4PartGenerateAudioTraf(
 		- trun
 	*/
 
-	if len(audioEntries) == 0 {
+	if len(audioSamples) == 0 {
 		return nil, 0, nil
 	}
 
@@ -149,7 +149,7 @@ func mp4PartGenerateAudioTraf(
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
-		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(audioEntries[0].pts, time.Duration(audioTrack.ClockRate()))),
+		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(audioSamples[0].pts, time.Duration(audioTrack.ClockRate()))),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -165,13 +165,13 @@ func mp4PartGenerateAudioTraf(
 			Version: 0,
 			Flags:   [3]byte{0, byte(flags >> 8), byte(flags)},
 		},
-		SampleCount: uint32(len(audioEntries)),
+		SampleCount: uint32(len(audioSamples)),
 	}
 
-	for _, e := range audioEntries {
+	for _, e := range audioSamples {
 		trun.Entries = append(trun.Entries, mp4.TrunEntry{
-			SampleSize:     uint32(len(e.au)),
 			SampleDuration: uint32(durationGoToMp4(e.duration(), time.Duration(audioTrack.ClockRate()))),
+			SampleSize:     uint32(len(e.au)),
 		})
 	}
 
@@ -191,8 +191,8 @@ func mp4PartGenerateAudioTraf(
 func mp4PartGenerate(
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
-	videoEntries []*fmp4VideoEntry,
-	audioEntries []*fmp4AudioEntry,
+	videoSamples []*fmp4VideoSample,
+	audioSamples []*fmp4AudioSample,
 	startDTS time.Duration,
 	videoSampleDuration time.Duration,
 ) ([]byte, error) {
@@ -224,7 +224,7 @@ func mp4PartGenerate(
 	var videoTrunOffset int
 	if videoTrack != nil {
 		var err error
-		videoTrun, videoTrunOffset, err = mp4PartGenerateVideoTraf(w, trackID, videoEntries, startDTS, videoSampleDuration)
+		videoTrun, videoTrunOffset, err = mp4PartGenerateVideoTraf(w, trackID, videoSamples, startDTS, videoSampleDuration)
 		if err != nil {
 			return nil, err
 		}
@@ -236,7 +236,7 @@ func mp4PartGenerate(
 	var audioTrunOffset int
 	if audioTrack != nil {
 		var err error
-		audioTrun, audioTrunOffset, err = mp4PartGenerateAudioTraf(w, trackID, audioTrack, audioEntries)
+		audioTrun, audioTrunOffset, err = mp4PartGenerateAudioTraf(w, trackID, audioTrack, audioSamples)
 		if err != nil {
 			return nil, err
 		}
@@ -253,14 +253,14 @@ func mp4PartGenerate(
 	videoDataSize := 0
 
 	if videoTrack != nil {
-		for _, e := range videoEntries {
+		for _, e := range videoSamples {
 			dataSize += len(e.avcc)
 		}
 		videoDataSize = dataSize
 	}
 
 	if audioTrack != nil {
-		for _, e := range audioEntries {
+		for _, e := range audioSamples {
 			dataSize += len(e.au)
 		}
 	}
@@ -269,13 +269,13 @@ func mp4PartGenerate(
 	pos := 0
 
 	if videoTrack != nil {
-		for _, e := range videoEntries {
+		for _, e := range videoSamples {
 			pos += copy(mdat.Data[pos:], e.avcc)
 		}
 	}
 
 	if audioTrack != nil {
-		for _, e := range audioEntries {
+		for _, e := range audioSamples {
 			pos += copy(mdat.Data[pos:], e.au)
 		}
 	}
@@ -316,8 +316,8 @@ type muxerVariantFMP4Part struct {
 	videoSampleDuration time.Duration
 
 	isIndependent    bool
-	videoEntries     []*fmp4VideoEntry
-	audioEntries     []*fmp4AudioEntry
+	videoSamples     []*fmp4VideoSample
+	audioSamples     []*fmp4AudioSample
 	renderedContent  []byte
 	renderedDuration time.Duration
 }
@@ -354,20 +354,20 @@ func (p *muxerVariantFMP4Part) reader() io.Reader {
 
 func (p *muxerVariantFMP4Part) duration() time.Duration {
 	if p.videoTrack != nil {
-		return time.Duration(len(p.videoEntries)) * p.videoSampleDuration
+		return time.Duration(len(p.videoSamples)) * p.videoSampleDuration
 	}
 
-	return p.audioEntries[len(p.audioEntries)-1].next.pts - p.audioEntries[0].pts
+	return p.audioSamples[len(p.audioSamples)-1].next.pts - p.audioSamples[0].pts
 }
 
 func (p *muxerVariantFMP4Part) finalize() error {
-	if len(p.videoEntries) > 0 || len(p.audioEntries) > 0 {
+	if len(p.videoSamples) > 0 || len(p.audioSamples) > 0 {
 		var err error
 		p.renderedContent, err = mp4PartGenerate(
 			p.videoTrack,
 			p.audioTrack,
-			p.videoEntries,
-			p.audioEntries,
+			p.videoSamples,
+			p.audioSamples,
 			p.startDTS,
 			p.videoSampleDuration)
 		if err != nil {
@@ -377,19 +377,19 @@ func (p *muxerVariantFMP4Part) finalize() error {
 		p.renderedDuration = p.duration()
 	}
 
-	p.videoEntries = nil
-	p.audioEntries = nil
+	p.videoSamples = nil
+	p.audioSamples = nil
 
 	return nil
 }
 
-func (p *muxerVariantFMP4Part) writeH264(entry *fmp4VideoEntry) {
-	if entry.idrPresent {
+func (p *muxerVariantFMP4Part) writeH264(sample *fmp4VideoSample) {
+	if sample.idrPresent {
 		p.isIndependent = true
 	}
-	p.videoEntries = append(p.videoEntries, entry)
+	p.videoSamples = append(p.videoSamples, sample)
 }
 
-func (p *muxerVariantFMP4Part) writeAAC(entry *fmp4AudioEntry) {
-	p.audioEntries = append(p.audioEntries, entry)
+func (p *muxerVariantFMP4Part) writeAAC(sample *fmp4AudioSample) {
+	p.audioSamples = append(p.audioSamples, sample)
 }

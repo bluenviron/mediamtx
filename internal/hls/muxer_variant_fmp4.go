@@ -10,20 +10,20 @@ const (
 	fmp4VideoTimescale = 90000
 )
 
-type fmp4VideoEntry struct {
+type fmp4VideoSample struct {
 	pts        time.Duration
 	avcc       []byte
 	idrPresent bool
-	next       *fmp4VideoEntry
+	next       *fmp4VideoSample
 }
 
-type fmp4AudioEntry struct {
+type fmp4AudioSample struct {
 	pts  time.Duration
 	au   []byte
-	next *fmp4AudioEntry
+	next *fmp4AudioSample
 }
 
-func (e fmp4AudioEntry) duration() time.Duration {
+func (e fmp4AudioSample) duration() time.Duration {
 	return e.next.pts - e.pts
 }
 
