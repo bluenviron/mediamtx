@@ -324,7 +324,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		audioTrack,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("muxer error: %v", err)
 	}
 	defer m.muxer.Close()
 
@@ -359,8 +359,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 					err = m.muxer.WriteH264(pts, data.h264NALUs)
 					if err != nil {
-						m.log(logger.Warn, "unable to write segment: %v", err)
-						continue
+						return fmt.Errorf("muxer error: %v", err)
 					}
 				} else if audioTrack != nil && data.trackID == audioTrackID {
 					aus, pts, err := aacDecoder.Decode(data.rtp)
@@ -373,8 +372,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 					err = m.muxer.WriteAAC(pts, aus)
 					if err != nil {
-						m.log(logger.Warn, "unable to write segment: %v", err)
-						continue
+						return fmt.Errorf("muxer error: %v", err)
 					}
 				}
 			}
