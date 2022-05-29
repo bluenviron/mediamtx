@@ -45,7 +45,7 @@ html, body {
 </head>
 <body>
 
-<video id="video" muted controls autoplay></video>
+<video id="video" muted controls autoplay playsinline></video>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.1.5"></script>
 
