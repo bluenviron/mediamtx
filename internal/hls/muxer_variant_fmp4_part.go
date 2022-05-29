@@ -10,6 +10,7 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 )
 
 const (
@@ -361,7 +362,11 @@ func (p *muxerVariantFMP4Part) duration() time.Duration {
 		return ret
 	}
 
-	return p.audioSamples[len(p.audioSamples)-1].next.pts - p.audioSamples[0].pts
+	// use the sum of the default duration of all samples,
+	// not the real duration,
+	// otherwise on iPhone iOS the stream freezes.
+	return time.Duration(len(p.audioSamples)) * time.Second *
+		time.Duration(aac.SamplesPerAccessUnit) / time.Duration(p.audioTrack.ClockRate())
 }
 
 func (p *muxerVariantFMP4Part) finalize() error {

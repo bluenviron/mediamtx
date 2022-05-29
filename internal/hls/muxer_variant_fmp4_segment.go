@@ -141,7 +141,10 @@ func (s *muxerVariantFMP4Segment) finalize(
 	if s.videoTrack != nil {
 		s.renderedDuration = nextVideoSample.pts - s.startDTS
 	} else {
-		s.renderedDuration = nextAudioSample.pts - s.startDTS
+		s.renderedDuration = 0
+		for _, pa := range s.parts {
+			s.renderedDuration += pa.renderedDuration
+		}
 	}
 
 	return nil
