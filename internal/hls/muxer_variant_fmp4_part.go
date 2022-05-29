@@ -2,6 +2,7 @@ package hls
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math"
 	"strconv"
@@ -9,6 +10,10 @@ import (
 
 	"github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
+)
+
+const (
+	fmp4PTSDTSOffsetFrames = 2
 )
 
 func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
@@ -75,7 +80,10 @@ func mp4PartGenerateVideoTraf(
 
 	for i, e := range videoEntries {
 		dts := startDTS + time.Duration(i)*videoSampleDuration
-		off := int32(durationGoToMp4(e.pts-dts, fmp4VideoTimescale))
+		off := e.pts - dts + fmp4PTSDTSOffsetFrames*videoSampleDuration
+		if off < 0 {
+			return nil, 0, fmt.Errorf("detected negative offset between PTS and DTS")
+		}
 
 		flags := uint32(0)
 		if !e.idrPresent {
@@ -85,7 +93,7 @@ func mp4PartGenerateVideoTraf(
 		trun.Entries = append(trun.Entries, mp4.TrunEntry{
 			SampleSize:                    uint32(len(e.avcc)),
 			SampleFlags:                   flags,
-			SampleCompositionTimeOffsetV1: off,
+			SampleCompositionTimeOffsetV1: int32(durationGoToMp4(off, fmp4VideoTimescale)),
 		})
 	}
 
