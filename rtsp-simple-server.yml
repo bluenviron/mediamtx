@@ -128,7 +128,7 @@ hlsSegmentCount: 7
 hlsSegmentDuration: 1s
 # Minimum duration of each part.
 # Parts are used in Low-Latency HLS in place of segments.
-hlsPartDuration: 100ms
+hlsPartDuration: 200ms
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
 hlsSegmentMaxSize: 50M

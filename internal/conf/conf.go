@@ -372,7 +372,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 
 	if conf.HLSPartDuration == 0 {
-		conf.HLSPartDuration = 100 * StringDuration(time.Millisecond)
+		conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
 	}
 
 	if conf.HLSSegmentMaxSize == 0 {
