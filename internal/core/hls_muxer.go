@@ -140,6 +140,7 @@ type hlsMuxer struct {
 func newHLSMuxer(
 	parentCtx context.Context,
 	name string,
+	remoteAddr string,
 	externalAuthenticationURL string,
 	hlsAlwaysRemux bool,
 	hlsVariant conf.HLSVariant,
@@ -179,7 +180,12 @@ func newHLSMuxer(
 		hlsServerAPIMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
 
-	m.log(logger.Info, "created")
+	m.log(logger.Info, "created %s", func() string {
+		if remoteAddr == "" {
+			return "automatically"
+		}
+		return "(requested by " + remoteAddr + ")"
+	}())
 
 	m.wg.Add(1)
 	go m.run()

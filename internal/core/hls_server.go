@@ -157,11 +157,11 @@ outer:
 		select {
 		case pa := <-s.pathSourceReady:
 			if s.hlsAlwaysRemux {
-				s.findOrCreateMuxer(pa.Name())
+				s.findOrCreateMuxer(pa.Name(), "")
 			}
 
 		case req := <-s.request:
-			r := s.findOrCreateMuxer(req.dir)
+			r := s.findOrCreateMuxer(req.dir, req.ctx.Request.RemoteAddr)
 			r.onRequest(req)
 
 		case c := <-s.muxerClose:
@@ -198,7 +198,7 @@ outer:
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {
-	s.log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
+	s.log(logger.Debug, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
 
 	byts, _ := httputil.DumpRequest(ctx.Request, true)
 	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
@@ -234,8 +234,8 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	}
 
 	dir, fname := func() (string, string) {
-		if strings.HasSuffix(pa, ".ts") ||
-			strings.HasSuffix(pa, ".m3u8") ||
+		if strings.HasSuffix(pa, ".m3u8") ||
+			strings.HasSuffix(pa, ".ts") ||
 			strings.HasSuffix(pa, ".mp4") {
 			return gopath.Dir(pa), gopath.Base(pa)
 		}
@@ -280,12 +280,13 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
-func (s *hlsServer) findOrCreateMuxer(pathName string) *hlsMuxer {
+func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string) *hlsMuxer {
 	r, ok := s.muxers[pathName]
 	if !ok {
 		r = newHLSMuxer(
 			s.ctx,
 			pathName,
+			remoteAddr,
 			s.externalAuthenticationURL,
 			s.hlsAlwaysRemux,
 			s.hlsVariant,
