@@ -10,11 +10,60 @@ const (
 	fmp4VideoTimescale = 90000
 )
 
+func estimateDTSError(dts time.Duration, pts time.Duration, videoSampleDefaultDuration time.Duration) time.Duration {
+	v := pts
+
+	lastDiff := v - dts
+	if lastDiff < 0 {
+		lastDiff = -lastDiff
+	}
+
+	for {
+		sign := time.Duration(1)
+		if (v - dts) > 0 {
+			sign = -1
+		}
+
+		newV := v + sign*videoSampleDefaultDuration
+
+		diff := newV - dts
+		if diff < 0 {
+			diff = -diff
+		}
+
+		if diff > lastDiff {
+			break
+		}
+
+		v = newV
+		lastDiff = diff
+	}
+
+	return v - dts
+}
+
 type fmp4VideoSample struct {
 	pts        time.Duration
+	dts        time.Duration
 	avcc       []byte
 	idrPresent bool
 	next       *fmp4VideoSample
+}
+
+func (s *fmp4VideoSample) fillDTS(
+	videoSampleDefaultDuration time.Duration,
+	prevDTS time.Duration,
+) {
+	if s.idrPresent {
+		s.dts = s.pts
+	} else {
+		s.dts = prevDTS + videoSampleDefaultDuration
+		s.dts += estimateDTSError(s.dts, s.pts, videoSampleDefaultDuration)
+	}
+}
+
+func (s fmp4VideoSample) duration() time.Duration {
+	return s.next.dts - s.dts
 }
 
 type fmp4AudioSample struct {
@@ -23,8 +72,8 @@ type fmp4AudioSample struct {
 	next *fmp4AudioSample
 }
 
-func (e fmp4AudioSample) duration() time.Duration {
-	return e.next.pts - e.pts
+func (s fmp4AudioSample) duration() time.Duration {
+	return s.next.pts - s.pts
 }
 
 type muxerVariantFMP4 struct {
