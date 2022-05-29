@@ -118,6 +118,10 @@ func (s *muxerVariantFMP4Segment) reader() io.Reader {
 	return &partsReader{parts: s.parts}
 }
 
+func (s *muxerVariantFMP4Segment) getRenderedDuration() time.Duration {
+	return s.renderedDuration
+}
+
 func (s *muxerVariantFMP4Segment) finalize(
 	nextVideoSample *fmp4VideoSample,
 	nextAudioSample *fmp4AudioSample,

@@ -101,6 +101,7 @@ func newMuxerVariantFMP4(
 
 	v.segmenter = newMuxerVariantFMP4Segmenter(
 		lowLatency,
+		segmentCount,
 		segmentDuration,
 		partDuration,
 		segmentMaxSize,

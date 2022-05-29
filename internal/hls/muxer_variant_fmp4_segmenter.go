@@ -31,6 +31,7 @@ type muxerVariantFMP4Segmenter struct {
 
 func newMuxerVariantFMP4Segmenter(
 	lowLatency bool,
+	segmentCount int,
 	segmentDuration time.Duration,
 	partDuration time.Duration,
 	segmentMaxSize uint64,
@@ -48,6 +49,7 @@ func newMuxerVariantFMP4Segmenter(
 		audioTrack:         audioTrack,
 		onSegmentFinalized: onSegmentFinalized,
 		onPartFinalized:    onPartFinalized,
+		nextSegmentID:      uint64(segmentCount),
 	}
 }
 
@@ -81,8 +83,9 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) error {
 	sample.pts -= m.startPTS
 
-	// put one sample into a queue in order to
-	// - allow duration computation
+	// put sample into a queue in order to
+	// - allow to compute sample dts
+	// - allow to compute sample duration
 	// - check if next sample is IDR
 	sample, m.nextVideoSample = m.nextVideoSample, sample
 	if sample == nil {
@@ -181,7 +184,8 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error {
 	sample.pts -= m.startPTS
 
-	// put one sample into a queue in order to allow to compute the duration of each sample.
+	// put sample into a queue in order to
+	// allow to compute the sample duration
 	sample, m.nextAudioSample = m.nextAudioSample, sample
 	if sample == nil {
 		return nil

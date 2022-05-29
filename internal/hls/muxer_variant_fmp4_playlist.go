@@ -13,24 +13,44 @@ import (
 	"github.com/aler9/gortsplib"
 )
 
-func targetDuration(segments []*muxerVariantFMP4Segment) uint {
+type muxerVariantFMP4SegmentOrGap interface {
+	getRenderedDuration() time.Duration
+}
+
+type muxerVariantFMP4Gap struct {
+	renderedDuration time.Duration
+}
+
+func (g muxerVariantFMP4Gap) getRenderedDuration() time.Duration {
+	return g.renderedDuration
+}
+
+func targetDuration(segments []muxerVariantFMP4SegmentOrGap) uint {
 	ret := uint(0)
 
 	// EXTINF, when rounded to the nearest integer, must be <= EXT-X-TARGETDURATION
-	for _, s := range segments {
-		v2 := uint(math.Round(s.renderedDuration.Seconds()))
-		if v2 > ret {
-			ret = v2
+	for _, sog := range segments {
+		v := uint(math.Round(sog.getRenderedDuration().Seconds()))
+		if v > ret {
+			ret = v
 		}
 	}
 
 	return ret
 }
 
-func partTargetDuration(segments []*muxerVariantFMP4Segment, nextSegmentParts []*muxerVariantFMP4Part) time.Duration {
+func partTargetDuration(
+	segments []muxerVariantFMP4SegmentOrGap,
+	nextSegmentParts []*muxerVariantFMP4Part,
+) time.Duration {
 	var ret time.Duration
 
-	for _, seg := range segments {
+	for _, sog := range segments {
+		seg, ok := sog.(*muxerVariantFMP4Segment)
+		if !ok {
+			continue
+		}
+
 		for _, part := range seg.parts {
 			if part.renderedDuration > ret {
 				ret = part.renderedDuration
@@ -56,7 +76,7 @@ type muxerVariantFMP4Playlist struct {
 	mutex              sync.Mutex
 	cond               *sync.Cond
 	closed             bool
-	segments           []*muxerVariantFMP4Segment
+	segments           []muxerVariantFMP4SegmentOrGap
 	segmentsByName     map[string]*muxerVariantFMP4Segment
 	segmentDeleteCount int
 	parts              []*muxerVariantFMP4Part
@@ -96,8 +116,7 @@ func (p *muxerVariantFMP4Playlist) close() {
 }
 
 func (p *muxerVariantFMP4Playlist) hasContent() bool {
-	// wait for at least 2 segments, otherwise most clients have problems
-	return len(p.segments) >= 2
+	return len(p.segments) > 0
 }
 
 func (p *muxerVariantFMP4Playlist) hasPart(segmentID uint64, partID uint64) bool {
@@ -105,7 +124,12 @@ func (p *muxerVariantFMP4Playlist) hasPart(segmentID uint64, partID uint64) bool
 		return false
 	}
 
-	for _, seg := range p.segments {
+	for _, sop := range p.segments {
+		seg, ok := sop.(*muxerVariantFMP4Segment)
+		if !ok {
+			continue
+		}
+
 		if segmentID != seg.id {
 			continue
 		}
@@ -271,7 +295,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 		var curDuration time.Duration
 		shown := 0
 		for _, segment := range p.segments {
-			curDuration += segment.renderedDuration
+			curDuration += segment.getRenderedDuration()
 			if curDuration.Seconds() >= skipBoundary {
 				break
 			}
@@ -283,28 +307,36 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 
 	cnt += "\n"
 
-	for i, segment := range p.segments {
+	for i, sog := range p.segments {
 		if i < skipped {
 			continue
 		}
 
-		if (len(p.segments) - i) <= 2 {
-			cnt += "#EXT-X-PROGRAM-DATE-TIME:" + segment.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
-		}
-
-		if p.lowLatency && (len(p.segments)-i) <= 2 {
-			for _, part := range segment.parts {
-				cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', 5, 64) +
-					",URI=\"" + part.name() + ".mp4\""
-				if part.isIndependent {
-					cnt += ",INDEPENDENT=YES"
-				}
-				cnt += "\n"
+		switch seg := sog.(type) {
+		case *muxerVariantFMP4Segment:
+			if (len(p.segments) - i) <= 2 {
+				cnt += "#EXT-X-PROGRAM-DATE-TIME:" + seg.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
 			}
-		}
 
-		cnt += "#EXTINF:" + strconv.FormatFloat(segment.renderedDuration.Seconds(), 'f', 5, 64) + ",\n" +
-			segment.name() + ".mp4\n"
+			if p.lowLatency && (len(p.segments)-i) <= 2 {
+				for _, part := range seg.parts {
+					cnt += "#EXT-X-PART:DURATION=" + strconv.FormatFloat(part.renderedDuration.Seconds(), 'f', 5, 64) +
+						",URI=\"" + part.name() + ".mp4\""
+					if part.isIndependent {
+						cnt += ",INDEPENDENT=YES"
+					}
+					cnt += "\n"
+				}
+			}
+
+			cnt += "#EXTINF:" + strconv.FormatFloat(seg.renderedDuration.Seconds(), 'f', 5, 64) + ",\n" +
+				seg.name() + ".mp4\n"
+
+		case *muxerVariantFMP4Gap:
+			cnt += "#EXT-X-GAP\n" +
+				"#EXTINF:" + strconv.FormatFloat(seg.renderedDuration.Seconds(), 'f', 5, 64) + ",\n" +
+				"gap.mp4\n"
+		}
 	}
 
 	if p.lowLatency {
@@ -422,18 +454,32 @@ func (p *muxerVariantFMP4Playlist) onSegmentFinalized(segment *muxerVariantFMP4S
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
 
+		// create initial gap
+		if len(p.segments) == 0 {
+			for i := 0; i < p.segmentCount; i++ {
+				p.segments = append(p.segments, &muxerVariantFMP4Gap{
+					renderedDuration: segment.renderedDuration,
+				})
+			}
+		}
+
 		p.segmentsByName[segment.name()] = segment
 		p.segments = append(p.segments, segment)
 		p.nextSegmentID = segment.id + 1
 		p.nextSegmentParts = p.nextSegmentParts[:0]
 
 		if len(p.segments) > p.segmentCount {
-			for _, part := range p.segments[0].parts {
-				delete(p.partsByName, part.name())
-			}
-			p.parts = p.parts[len(p.segments[0].parts):]
+			toDelete := p.segments[0]
 
-			delete(p.segmentsByName, p.segments[0].name())
+			if toDeleteSeg, ok := toDelete.(*muxerVariantFMP4Segment); ok {
+				for _, part := range toDeleteSeg.parts {
+					delete(p.partsByName, part.name())
+				}
+				p.parts = p.parts[len(toDeleteSeg.parts):]
+
+				delete(p.segmentsByName, toDeleteSeg.name())
+			}
+
 			p.segments = p.segments[1:]
 			p.segmentDeleteCount++
 		}
