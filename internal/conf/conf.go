@@ -352,7 +352,19 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 
 	if conf.HLSSegmentCount == 0 {
-		conf.HLSSegmentCount = 3
+		conf.HLSSegmentCount = 7
+	}
+
+	switch conf.HLSVariant {
+	case HLSVariantLowLatency:
+		if conf.HLSSegmentCount < 7 {
+			return fmt.Errorf("Low-Latency HLS requires at least 7 segments")
+		}
+
+	default:
+		if conf.HLSSegmentCount < 3 {
+			return fmt.Errorf("The minimum number of HLS segments is 3")
+		}
 	}
 
 	if conf.HLSSegmentDuration == 0 {

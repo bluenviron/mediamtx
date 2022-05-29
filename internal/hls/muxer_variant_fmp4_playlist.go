@@ -288,7 +288,9 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 			continue
 		}
 
-		cnt += "#EXT-X-PROGRAM-DATE-TIME:" + segment.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
+		if (len(p.segments) - i) <= 2 {
+			cnt += "#EXT-X-PROGRAM-DATE-TIME:" + segment.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n"
+		}
 
 		if p.lowLatency && (len(p.segments)-i) <= 2 {
 			for _, part := range segment.parts {

@@ -120,7 +120,7 @@ hlsVariant: lowLatency
 # Number of HLS segments to keep on the server.
 # Segments allow to seek through the stream.
 # Their number doesn't influence latency.
-hlsSegmentCount: 3
+hlsSegmentCount: 7
 # Minimum duration of each segment.
 # The final segment duration is also influenced by the interval between IDR frames,
 # since the server changes the duration in order to include at least one IDR frame
