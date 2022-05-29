@@ -3,12 +3,17 @@ package hls
 import (
 	"bytes"
 	"io"
+	"math"
 	"strconv"
 	"time"
 
 	"github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
 )
+
+func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
+	return int64(math.Round(float64(v*timescale) / float64(time.Second)))
+}
 
 func mp4PartGenerateVideoTraf(
 	w *mp4Writer,
@@ -37,7 +42,7 @@ func mp4PartGenerateVideoTraf(
 			Flags: [3]byte{2, byte(flags >> 8), byte(flags)},
 		},
 		TrackID:               uint32(trackID),
-		DefaultSampleDuration: uint32(videoSampleDuration * fmp4VideoTimescale / time.Second),
+		DefaultSampleDuration: uint32(durationGoToMp4(videoSampleDuration, fmp4VideoTimescale)),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -48,7 +53,7 @@ func mp4PartGenerateVideoTraf(
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
-		BaseMediaDecodeTimeV1: uint64(startDTS * fmp4VideoTimescale / time.Second),
+		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(startDTS, fmp4VideoTimescale)),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -70,7 +75,7 @@ func mp4PartGenerateVideoTraf(
 
 	for i, e := range videoEntries {
 		dts := startDTS + time.Duration(i)*videoSampleDuration
-		off := int32((e.pts - dts) * fmp4VideoTimescale / time.Second)
+		off := int32(durationGoToMp4(e.pts-dts, fmp4VideoTimescale))
 
 		flags := uint32(0)
 		if !e.idrPresent {
@@ -136,7 +141,7 @@ func mp4PartGenerateAudioTraf(
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
-		BaseMediaDecodeTimeV1: uint64(audioEntries[0].pts * time.Duration(audioTrack.ClockRate()) / time.Second),
+		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(audioEntries[0].pts, time.Duration(audioTrack.ClockRate()))),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -158,7 +163,7 @@ func mp4PartGenerateAudioTraf(
 	for _, e := range audioEntries {
 		trun.Entries = append(trun.Entries, mp4.TrunEntry{
 			SampleSize:     uint32(len(e.au)),
-			SampleDuration: uint32(e.duration() * time.Duration(audioTrack.ClockRate()) / time.Second),
+			SampleDuration: uint32(durationGoToMp4(e.duration(), time.Duration(audioTrack.ClockRate()))),
 		})
 	}
 
