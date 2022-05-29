@@ -12,9 +12,9 @@ type HLSVariant hls.MuxerVariant
 
 // supported HLS variants.
 const (
-	HLSVariantLowLatency HLSVariant = HLSVariant(hls.MuxerVariantLowLatency)
 	HLSVariantMPEGTS     HLSVariant = HLSVariant(hls.MuxerVariantMPEGTS)
 	HLSVariantFMP4       HLSVariant = HLSVariant(hls.MuxerVariantFMP4)
+	HLSVariantLowLatency HLSVariant = HLSVariant(hls.MuxerVariantLowLatency)
 )
 
 // MarshalJSON marshals a HLSVariant into JSON.

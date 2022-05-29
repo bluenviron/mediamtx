@@ -9,9 +9,9 @@ type MuxerVariant int
 
 // supported variants.
 const (
-	MuxerVariantLowLatency MuxerVariant = iota
-	MuxerVariantMPEGTS
+	MuxerVariantMPEGTS MuxerVariant = iota
 	MuxerVariantFMP4
+	MuxerVariantLowLatency
 )
 
 type muxerVariant interface {
