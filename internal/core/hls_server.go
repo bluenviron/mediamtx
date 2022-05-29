@@ -2,8 +2,10 @@ package core
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -17,6 +19,12 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
+
+type nilWriter struct{}
+
+func (nilWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}
 
 type hlsServerAPIMuxersListItem struct {
 	LastRequest string `json:"lastRequest"`
@@ -63,6 +71,7 @@ type hlsServer struct {
 	ctxCancel func()
 	wg        sync.WaitGroup
 	ln        net.Listener
+	tlsConfig *tls.Config
 	muxers    map[string]*hlsMuxer
 
 	// in
@@ -83,6 +92,9 @@ func newHLSServer(
 	hlsPartDuration conf.StringDuration,
 	hlsSegmentMaxSize conf.StringSize,
 	hlsAllowOrigin string,
+	hlsEncryption bool,
+	hlsServerKey string,
+	hlsServerCert string,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -91,6 +103,19 @@ func newHLSServer(
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err
+	}
+
+	var tlsConfig *tls.Config
+	if hlsEncryption {
+		crt, err := tls.LoadX509KeyPair(hlsServerCert, hlsServerKey)
+		if err != nil {
+			ln.Close()
+			return nil, err
+		}
+
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{crt},
+		}
 	}
 
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -111,6 +136,7 @@ func newHLSServer(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
+		tlsConfig:                 tlsConfig,
 		muxers:                    make(map[string]*hlsMuxer),
 		pathSourceReady:           make(chan *path),
 		request:                   make(chan hlsMuxerRequest),
@@ -149,8 +175,17 @@ func (s *hlsServer) run() {
 	router := gin.New()
 	router.NoRoute(s.onRequest)
 
-	hs := &http.Server{Handler: router}
-	go hs.Serve(s.ln)
+	hs := &http.Server{
+		Handler:   router,
+		TLSConfig: s.tlsConfig,
+		ErrorLog:  log.New(&nilWriter{}, "", 0),
+	}
+
+	if s.tlsConfig != nil {
+		go hs.ServeTLS(s.ln, "", "")
+	} else {
+		go hs.Serve(s.ln)
+	}
 
 outer:
 	for {

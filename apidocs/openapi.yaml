@@ -101,9 +101,17 @@ components:
           type: integer
         hlsSegmentDuration:
           type: string
+        hlsPartDuration:
+          type: string
         hlsSegmentMaxSize:
           type: string
         hlsAllowOrigin:
+          type: string
+        hlsEncryption:
+          type: boolean
+        hlsServerKey:
+          type: string
+        hlsServerCert:
           type: string
 
         paths:

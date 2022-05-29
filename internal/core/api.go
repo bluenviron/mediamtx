@@ -89,6 +89,9 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 		HLSPartDuration    *conf.StringDuration `json:"hlsPartDuration"`
 		HLSSegmentMaxSize  *conf.StringSize     `json:"hlsSegmentMaxSize"`
 		HLSAllowOrigin     *string              `json:"hlsAllowOrigin"`
+		HLSEncryption      *bool                `json:"hlsEncryption"`
+		HLSServerKey       *string              `json:"hlsServerKey"`
+		HLSServerCert      *string              `json:"hlsServerCert"`
 	}
 	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
 	if err != nil {
