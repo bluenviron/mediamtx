@@ -112,9 +112,9 @@ hlsAddress: :8888
 # By default, HLS is generated only when requested by a user.
 # This option allows to generate it always, avoiding the delay between request and generation.
 hlsAlwaysRemux: no
-# Number of HLS segments to generate.
-# Increasing segments allows more buffering,
-# Decreasing segments decreases latency.
+# Number of HLS segments to keep on the server.
+# Segments allow to seek through the stream.
+# Their number doesn't influence latency.
 hlsSegmentCount: 3
 # Minimum duration of each segment.
 # The final segment duration is also influenced by the interval between IDR frames,
