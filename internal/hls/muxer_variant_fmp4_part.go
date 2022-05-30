@@ -2,7 +2,6 @@ package hls
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"math"
 	"strconv"
@@ -11,10 +10,6 @@ import (
 	"github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
-)
-
-const (
-	fmp4PTSDTSOffsetFrames = 2
 )
 
 func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
@@ -26,7 +21,6 @@ func mp4PartGenerateVideoTraf(
 	trackID int,
 	videoSamples []*fmp4VideoSample,
 	startDTS time.Duration,
-	videoSampleDefaultDuration time.Duration,
 ) (*mp4.Trun, int, error) {
 	/*
 		traf
@@ -79,10 +73,7 @@ func mp4PartGenerateVideoTraf(
 	}
 
 	for _, e := range videoSamples {
-		off := e.pts - e.dts + fmp4PTSDTSOffsetFrames*videoSampleDefaultDuration
-		if off < 0 {
-			return nil, 0, fmt.Errorf("detected negative offset between PTS and DTS")
-		}
+		off := e.pts - e.dts
 
 		flags := uint32(0)
 		if !e.idrPresent {
@@ -194,7 +185,6 @@ func mp4PartGenerate(
 	videoSamples []*fmp4VideoSample,
 	audioSamples []*fmp4AudioSample,
 	startDTS time.Duration,
-	videoSampleDefaultDuration time.Duration,
 ) ([]byte, error) {
 	/*
 		moof
@@ -225,7 +215,7 @@ func mp4PartGenerate(
 	if videoTrack != nil {
 		var err error
 		videoTrun, videoTrunOffset, err = mp4PartGenerateVideoTraf(
-			w, trackID, videoSamples, startDTS, videoSampleDefaultDuration)
+			w, trackID, videoSamples, startDTS)
 		if err != nil {
 			return nil, err
 		}
@@ -310,11 +300,10 @@ func fmp4PartName(id uint64) string {
 }
 
 type muxerVariantFMP4Part struct {
-	videoTrack                 *gortsplib.TrackH264
-	audioTrack                 *gortsplib.TrackAAC
-	id                         uint64
-	startDTS                   time.Duration
-	videoSampleDefaultDuration time.Duration
+	videoTrack *gortsplib.TrackH264
+	audioTrack *gortsplib.TrackAAC
+	id         uint64
+	startDTS   time.Duration
 
 	isIndependent    bool
 	videoSamples     []*fmp4VideoSample
@@ -328,14 +317,12 @@ func newMuxerVariantFMP4Part(
 	audioTrack *gortsplib.TrackAAC,
 	id uint64,
 	startDTS time.Duration,
-	videoSampleDefaultDuration time.Duration,
 ) *muxerVariantFMP4Part {
 	p := &muxerVariantFMP4Part{
-		videoTrack:                 videoTrack,
-		audioTrack:                 audioTrack,
-		id:                         id,
-		startDTS:                   startDTS,
-		videoSampleDefaultDuration: videoSampleDefaultDuration,
+		videoTrack: videoTrack,
+		audioTrack: audioTrack,
+		id:         id,
+		startDTS:   startDTS,
 	}
 
 	if videoTrack == nil {
@@ -377,8 +364,7 @@ func (p *muxerVariantFMP4Part) finalize() error {
 			p.audioTrack,
 			p.videoSamples,
 			p.audioSamples,
-			p.startDTS,
-			p.videoSampleDefaultDuration)
+			p.startDTS)
 		if err != nil {
 			return err
 		}

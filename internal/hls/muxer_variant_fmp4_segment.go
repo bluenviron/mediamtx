@@ -52,11 +52,12 @@ type muxerVariantFMP4Segment struct {
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
-	videoSampleDefaultDuration time.Duration
-	size                       uint64
-	parts                      []*muxerVariantFMP4Part
-	currentPart                *muxerVariantFMP4Part
-	renderedDuration           time.Duration
+	sps              *h264.SPS
+	size             uint64
+	parts            []*muxerVariantFMP4Part
+	currentPart      *muxerVariantFMP4Part
+	renderedDuration time.Duration
+	expectedPOC      uint32
 }
 
 func newMuxerVariantFMP4Segment(
@@ -91,12 +92,7 @@ func newMuxerVariantFMP4Segment(
 			return nil, err
 		}
 
-		fps := spsp.FPS()
-		if fps == 0 {
-			return nil, fmt.Errorf("unable to obtain video FPS")
-		}
-
-		s.videoSampleDefaultDuration = time.Duration(float64(time.Second) / fps)
+		s.sps = &spsp
 	}
 
 	s.currentPart = newMuxerVariantFMP4Part(
@@ -104,7 +100,6 @@ func newMuxerVariantFMP4Segment(
 		s.audioTrack,
 		s.genPartID(),
 		s.startDTS,
-		s.videoSampleDefaultDuration,
 	)
 
 	return s, nil
@@ -157,7 +152,10 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
 		return fmt.Errorf("reached maximum segment size")
 	}
 
-	sample.next.fillDTS(s.videoSampleDefaultDuration, sample.dts)
+	err := sample.next.fillDTS(sample, s.sps, &s.expectedPOC)
+	if err != nil {
+		return err
+	}
 
 	s.currentPart.writeH264(sample)
 
@@ -178,7 +176,6 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
 			s.audioTrack,
 			s.genPartID(),
 			sample.next.dts,
-			s.videoSampleDefaultDuration,
 		)
 	}
 
@@ -211,7 +208,6 @@ func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample) error {
 			s.audioTrack,
 			s.genPartID(),
 			sample.next.pts,
-			s.videoSampleDefaultDuration,
 		)
 	}
 

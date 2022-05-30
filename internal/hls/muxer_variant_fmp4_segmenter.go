@@ -75,6 +75,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 
 	return m.writeH264Entry(&fmp4VideoSample{
 		pts:        pts,
+		nalus:      nalus,
 		avcc:       avcc,
 		idrPresent: idrPresent,
 	})
