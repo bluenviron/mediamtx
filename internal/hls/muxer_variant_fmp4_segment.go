@@ -140,6 +140,7 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample, adjustedPar
 
 	s.size += size
 
+	// switch part
 	if s.lowLatency &&
 		s.currentPart.duration() >= adjustedPartDuration {
 		err := s.currentPart.finalize()
@@ -172,6 +173,7 @@ func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample, adjustedPart
 
 	s.size += size
 
+	// switch part
 	if s.lowLatency && s.videoTrack == nil &&
 		s.currentPart.duration() >= adjustedPartDuration {
 		err := s.currentPart.finalize()

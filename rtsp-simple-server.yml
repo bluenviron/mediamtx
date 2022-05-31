@@ -122,12 +122,16 @@ hlsVariant: mpegts
 # Their number doesn't influence latency.
 hlsSegmentCount: 7
 # Minimum duration of each segment.
+# A player usually puts 3 segments in a buffer before reproducing the stream.
 # The final segment duration is also influenced by the interval between IDR frames,
 # since the server changes the duration in order to include at least one IDR frame
 # in each segment.
 hlsSegmentDuration: 1s
 # Minimum duration of each part.
+# A player usually puts 3 parts in a buffer before reproducing the stream.
 # Parts are used in Low-Latency HLS in place of segments.
+# Part duration is influenced by the distance between video/audio samples
+# and is adjusted in order to produce segments with a similar duration.
 hlsPartDuration: 200ms
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
