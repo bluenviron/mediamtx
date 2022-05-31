@@ -9,6 +9,41 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 )
 
+func partDurationIsCompatible(partDuration time.Duration, sampleDuration time.Duration) bool {
+	if sampleDuration > partDuration {
+		return false
+	}
+
+	f := (partDuration / sampleDuration)
+	if (partDuration % sampleDuration) != 0 {
+		f++
+	}
+	f *= sampleDuration
+
+	return partDuration > ((f * 85) / 100)
+}
+
+func findCompatiblePartDuration(
+	minPartDuration time.Duration,
+	sampleDurations map[time.Duration]struct{},
+) time.Duration {
+	i := minPartDuration
+	for ; i < 5*time.Second; i += 5 * time.Millisecond {
+		isCompatible := func() bool {
+			for sd := range sampleDurations {
+				if !partDurationIsCompatible(i, sd) {
+					return false
+				}
+			}
+			return true
+		}()
+		if isCompatible {
+			break
+		}
+	}
+	return i
+}
+
 type muxerVariantFMP4Segmenter struct {
 	lowLatency         bool
 	segmentDuration    time.Duration
@@ -19,19 +54,22 @@ type muxerVariantFMP4Segmenter struct {
 	onSegmentFinalized func(*muxerVariantFMP4Segment)
 	onPartFinalized    func(*muxerVariantFMP4Part)
 
-	currentSegment   *muxerVariantFMP4Segment
-	startPTS         time.Duration
-	videoSPSP        *h264.SPS
-	videoSPS         []byte
-	videoPPS         []byte
-	videoNextSPSP    *h264.SPS
-	videoNextSPS     []byte
-	videoNextPPS     []byte
-	nextSegmentID    uint64
-	nextPartID       uint64
-	nextVideoSample  *fmp4VideoSample
-	nextAudioSample  *fmp4AudioSample
-	videoExpectedPOC uint32
+	currentSegment        *muxerVariantFMP4Segment
+	startPTS              time.Duration
+	videoSPSP             *h264.SPS
+	videoSPS              []byte
+	videoPPS              []byte
+	videoNextSPSP         *h264.SPS
+	videoNextSPS          []byte
+	videoNextPPS          []byte
+	nextSegmentID         uint64
+	nextPartID            uint64
+	nextVideoSample       *fmp4VideoSample
+	nextAudioSample       *fmp4AudioSample
+	videoExpectedPOC      uint32
+	firstSegmentFinalized bool
+	sampleDurations       map[time.Duration]struct{}
+	adjustedPartDuration  time.Duration
 }
 
 func newMuxerVariantFMP4Segmenter(
@@ -55,6 +93,7 @@ func newMuxerVariantFMP4Segmenter(
 		onSegmentFinalized: onSegmentFinalized,
 		onPartFinalized:    onPartFinalized,
 		nextSegmentID:      uint64(segmentCount),
+		sampleDurations:    make(map[time.Duration]struct{}),
 	}
 }
 
@@ -68,6 +107,25 @@ func (m *muxerVariantFMP4Segmenter) genPartID() uint64 {
 	id := m.nextPartID
 	m.nextPartID++
 	return id
+}
+
+func (m *muxerVariantFMP4Segmenter) adjustPartDuration(du time.Duration) {
+	if !m.lowLatency {
+		return
+	}
+	if m.firstSegmentFinalized {
+		return
+	}
+
+	// iPhone iOS fails if part durations are less than 85% of maximum part duration.
+	// find a part duration that is compatible with all received sample durations
+	if _, ok := m.sampleDurations[du]; !ok {
+		m.sampleDurations[du] = struct{}{}
+		m.adjustedPartDuration = findCompatiblePartDuration(
+			m.partDuration,
+			m.sampleDurations,
+		)
+	}
 }
 
 func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte) error {
@@ -140,7 +198,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 			m.genSegmentID(),
 			now,
 			0,
-			m.partDuration,
 			m.segmentMaxSize,
 			m.videoTrack,
 			m.audioTrack,
@@ -158,7 +215,9 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 		return err
 	}
 
-	err = m.currentSegment.writeH264(sample)
+	m.adjustPartDuration(sample.duration())
+
+	err = m.currentSegment.writeH264(sample, m.adjustedPartDuration)
 	if err != nil {
 		return err
 	}
@@ -173,18 +232,25 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 			}
 			m.onSegmentFinalized(m.currentSegment)
 
+			m.firstSegmentFinalized = true
+
 			m.currentSegment = newMuxerVariantFMP4Segment(
 				m.lowLatency,
 				m.genSegmentID(),
 				now,
 				sample.next.pts,
-				m.partDuration,
 				m.segmentMaxSize,
 				m.videoTrack,
 				m.audioTrack,
 				m.genPartID,
 				m.onPartFinalized,
 			)
+
+			// if SPS changed, reset adjusted part duration
+			if spsChanged {
+				m.firstSegmentFinalized = false
+				m.sampleDurations = make(map[time.Duration]struct{})
+			}
 		}
 	}
 
@@ -225,7 +291,6 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 				m.genSegmentID(),
 				now,
 				0,
-				m.partDuration,
 				m.segmentMaxSize,
 				m.videoTrack,
 				m.audioTrack,
@@ -244,7 +309,9 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 		}
 	}
 
-	err := m.currentSegment.writeAAC(sample)
+	m.adjustPartDuration(sample.duration())
+
+	err := m.currentSegment.writeAAC(sample, m.adjustedPartDuration)
 	if err != nil {
 		return err
 	}
@@ -258,12 +325,13 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 		}
 		m.onSegmentFinalized(m.currentSegment)
 
+		m.firstSegmentFinalized = true
+
 		m.currentSegment = newMuxerVariantFMP4Segment(
 			m.lowLatency,
 			m.genSegmentID(),
 			now,
 			sample.next.pts,
-			m.partDuration,
 			m.segmentMaxSize,
 			m.videoTrack,
 			m.audioTrack,

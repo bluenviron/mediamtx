@@ -44,7 +44,6 @@ type muxerVariantFMP4Segment struct {
 	id              uint64
 	startTime       time.Time
 	startDTS        time.Duration
-	partDuration    time.Duration
 	segmentMaxSize  uint64
 	videoTrack      *gortsplib.TrackH264
 	audioTrack      *gortsplib.TrackAAC
@@ -62,7 +61,6 @@ func newMuxerVariantFMP4Segment(
 	id uint64,
 	startTime time.Time,
 	startDTS time.Duration,
-	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
@@ -74,7 +72,6 @@ func newMuxerVariantFMP4Segment(
 		id:              id,
 		startTime:       startTime,
 		startDTS:        startDTS,
-		partDuration:    partDuration,
 		segmentMaxSize:  segmentMaxSize,
 		videoTrack:      videoTrack,
 		audioTrack:      audioTrack,
@@ -132,7 +129,7 @@ func (s *muxerVariantFMP4Segment) finalize(
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
+func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample, adjustedPartDuration time.Duration) error {
 	size := uint64(len(sample.avcc))
 
 	if (s.size + size) > s.segmentMaxSize {
@@ -144,7 +141,7 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
 	s.size += size
 
 	if s.lowLatency &&
-		s.currentPart.duration() >= s.partDuration {
+		s.currentPart.duration() >= adjustedPartDuration {
 		err := s.currentPart.finalize()
 		if err != nil {
 			return err
@@ -164,7 +161,7 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample) error {
+func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample, adjustedPartDuration time.Duration) error {
 	size := uint64(len(sample.au))
 
 	if (s.size + size) > s.segmentMaxSize {
@@ -176,7 +173,7 @@ func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample) error {
 	s.size += size
 
 	if s.lowLatency && s.videoTrack == nil &&
-		s.currentPart.duration() >= s.partDuration {
+		s.currentPart.duration() >= adjustedPartDuration {
 		err := s.currentPart.finalize()
 		if err != nil {
 			return err
