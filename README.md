@@ -779,7 +779,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystr
 
 ### HLS general usage
 
-HLS is a stream protocol that allows to embed live streams into web pages. It works by splitting the stream into segments and serving these segments with the HTTP protocol. Every stream published to the server can be accessed with a web browser by visiting:
+HLS is a protocol that allows to embed live streams into web pages. It works by splitting streams into segments, and by serving these segments with the HTTP protocol. Every stream published to the server can be accessed by visiting:
 
 ```
 http://localhost:8888/mystream
@@ -805,7 +805,7 @@ Please note that most browsers don't support HLS directly (except Safari); a Jav
 
 ### Low-Latency variant
 
-Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis#section-3.1) variant of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are served before the segment is complete.
+Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis) variant of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are served before the segment is complete.
 
 LL-HLS is disabled by default. To enable it, a TLS certificate is needed and can be generated with OpenSSL:
 
@@ -837,7 +837,7 @@ hlsPartDuration: 500ms
 
 ### Decreasing latency
 
-in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This delay amounts to 1-15 seconds depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is enabled.
+in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This latency amounts to 1-15secs depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is enabled.
 
 To decrease the latency, you can:
 
