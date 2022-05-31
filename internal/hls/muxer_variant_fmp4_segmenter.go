@@ -182,7 +182,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 		return nil
 	}
 	sample.next = m.nextVideoSample
-	sample.next.prev = sample
 
 	now := time.Now()
 
@@ -210,7 +209,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 		sample.next.pts -= m.startPTS
 	}
 
-	err := sample.next.fillDTS(m.videoNextSPSP, &m.videoExpectedPOC)
+	err := sample.next.fillDTS(sample, m.videoNextSPSP, &m.videoExpectedPOC)
 	if err != nil {
 		return err
 	}

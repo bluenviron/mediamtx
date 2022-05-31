@@ -138,12 +138,12 @@ type fmp4VideoSample struct {
 	nalus      [][]byte
 	avcc       []byte
 	idrPresent bool
-	prev       *fmp4VideoSample
 	next       *fmp4VideoSample
 	pocDiff    int32
 }
 
 func (s *fmp4VideoSample) fillDTS(
+	prev *fmp4VideoSample,
 	sps *h264.SPS,
 	expectedPOC *uint32,
 ) error {
@@ -164,13 +164,13 @@ func (s *fmp4VideoSample) fillDTS(
 		if s.pocDiff == 0 {
 			s.dts = s.pts
 		} else {
-			if s.prev.pocDiff == 0 {
+			if prev.pocDiff == 0 {
 				if s.pocDiff == -2 {
 					return fmt.Errorf("invalid frame POC")
 				}
-				s.dts = s.prev.pts + time.Duration(math.Round(float64(s.pts-s.prev.pts)/float64(s.pocDiff/2+1)))
+				s.dts = prev.pts + time.Duration(math.Round(float64(s.pts-prev.pts)/float64(s.pocDiff/2+1)))
 			} else {
-				s.dts = s.pts + time.Duration(math.Round(float64(s.prev.dts-s.prev.pts)*float64(s.pocDiff)/float64(s.prev.pocDiff)))
+				s.dts = s.pts + time.Duration(math.Round(float64(prev.dts-prev.pts)*float64(s.pocDiff)/float64(prev.pocDiff)))
 			}
 		}
 	}
