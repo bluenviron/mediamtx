@@ -20,7 +20,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, audioTrack)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, audioTrack)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -60,16 +60,17 @@ func TestMuxerVideoAudio(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PrimaryPlaylist())
+	byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
 		"#EXT-X-VERSION:3\n"+
+		"#EXT-X-INDEPENDENT-SEGMENTS\n"+
 		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203,mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.StreamPlaylist())
+	byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -77,7 +78,6 @@ func TestMuxerVideoAudio(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:4\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
-		`#EXT-X-INDEPENDENT-SEGMENTS\n` +
 		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:4,\n` +
@@ -85,7 +85,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	dem := astits.NewDemuxer(context.Background(), m.Segment(ma[2]),
+	dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
 		astits.DemuxerOptPacketSize(188))
 
 	// PMT
@@ -177,7 +177,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -196,16 +196,17 @@ func TestMuxerVideoOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PrimaryPlaylist())
+	byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
 		"#EXT-X-VERSION:3\n"+
+		"#EXT-X-INDEPENDENT-SEGMENTS\n"+
 		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.010203\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.StreamPlaylist())
+	byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -213,7 +214,6 @@ func TestMuxerVideoOnly(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:4\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
-		`#EXT-X-INDEPENDENT-SEGMENTS\n` +
 		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:4,\n` +
@@ -221,7 +221,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	dem := astits.NewDemuxer(context.Background(), m.Segment(ma[2]),
+	dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
 		astits.DemuxerOptPacketSize(188))
 
 	// PMT
@@ -261,7 +261,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, nil, audioTrack)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, nil, audioTrack)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -284,16 +284,17 @@ func TestMuxerAudioOnly(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.PrimaryPlaylist())
+	byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	require.Equal(t, "#EXTM3U\n"+
 		"#EXT-X-VERSION:3\n"+
+		"#EXT-X-INDEPENDENT-SEGMENTS\n"+
 		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"mp4a.40.2\"\n"+
 		"stream.m3u8\n", string(byts))
 
-	byts, err = ioutil.ReadAll(m.StreamPlaylist())
+	byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -301,7 +302,6 @@ func TestMuxerAudioOnly(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:1\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
-		`#EXT-X-INDEPENDENT-SEGMENTS\n` +
 		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:1,\n` +
@@ -309,7 +309,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	dem := astits.NewDemuxer(context.Background(), m.Segment(ma[2]),
+	dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
 		astits.DemuxerOptPacketSize(188))
 
 	// PMT
@@ -345,11 +345,11 @@ func TestMuxerAudioOnly(t *testing.T) {
 	}, pkt)
 }
 
-func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
+func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 
 	// group with IDR
@@ -363,16 +363,15 @@ func TestMuxerCloseBeforeFirstSegment(t *testing.T) {
 
 	m.Close()
 
-	byts, err := ioutil.ReadAll(m.StreamPlaylist())
-	require.NoError(t, err)
-	require.Equal(t, []byte{}, byts)
+	b := m.File("stream.m3u8", "", "", "").Body
+	require.Equal(t, nil, b)
 }
 
 func TestMuxerMaxSegmentSize(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, 0, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 0, videoTrack, nil)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -386,7 +385,7 @@ func TestMuxerDoubleRead(t *testing.T) {
 	videoTrack, err := gortsplib.NewTrackH264(96, []byte{0x07, 0x01, 0x02, 0x03}, []byte{0x08}, nil)
 	require.NoError(t, err)
 
-	m, err := NewMuxer(3, 1*time.Second, 50*1024*1024, videoTrack, nil)
+	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
 	defer m.Close()
 
@@ -402,10 +401,25 @@ func TestMuxerDoubleRead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts1, err := ioutil.ReadAll(m.streamPlaylist.segments[0].reader())
+	byts, err := ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
-	byts2, err := ioutil.ReadAll(m.streamPlaylist.segments[0].reader())
+	re := regexp.MustCompile(`^#EXTM3U\n` +
+		`#EXT-X-VERSION:3\n` +
+		`#EXT-X-ALLOW-CACHE:NO\n` +
+		`#EXT-X-TARGETDURATION:2\n` +
+		`#EXT-X-MEDIA-SEQUENCE:0\n` +
+		`\n` +
+		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
+		`#EXTINF:2,\n` +
+		`([0-9]+\.ts)\n$`)
+	ma := re.FindStringSubmatch(string(byts))
+	require.NotEqual(t, 0, len(ma))
+
+	byts1, err := ioutil.ReadAll(m.File(ma[2], "", "", "").Body)
+	require.NoError(t, err)
+
+	byts2, err := ioutil.ReadAll(m.File(ma[2], "", "", "").Body)
 	require.NoError(t, err)
 	require.Equal(t, byts1, byts2)
 }

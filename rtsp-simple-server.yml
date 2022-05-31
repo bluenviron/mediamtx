@@ -112,20 +112,43 @@ hlsAddress: :8888
 # By default, HLS is generated only when requested by a user.
 # This option allows to generate it always, avoiding the delay between request and generation.
 hlsAlwaysRemux: no
+# Variant of the HLS protocol to use. Available options are:
+# * mpegts - uses MPEG-TS segments, for maximum compatibility.
+# * fmp4 - uses fragmented MP4 segments, more efficient.
+# * lowLatency - uses Low-Latency HLS.
+hlsVariant: mpegts
 # Number of HLS segments to keep on the server.
 # Segments allow to seek through the stream.
 # Their number doesn't influence latency.
-hlsSegmentCount: 3
+hlsSegmentCount: 7
 # Minimum duration of each segment.
+# A player usually puts 3 segments in a buffer before reproducing the stream.
 # The final segment duration is also influenced by the interval between IDR frames,
-# since the server changes the segment duration to include at least a IDR frame in each one.
+# since the server changes the duration in order to include at least one IDR frame
+# in each segment.
 hlsSegmentDuration: 1s
+# Minimum duration of each part.
+# A player usually puts 3 parts in a buffer before reproducing the stream.
+# Parts are used in Low-Latency HLS in place of segments.
+# Part duration is influenced by the distance between video/audio samples
+# and is adjusted in order to produce segments with a similar duration.
+hlsPartDuration: 200ms
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
 hlsSegmentMaxSize: 50M
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
 hlsAllowOrigin: '*'
+# Enable TLS/HTTPS on the HLS server.
+# This is required for Low-Latency HLS.
+hlsEncryption: no
+# Path to the server key. This is needed only when encryption is yes.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+hlsServerKey: server.key
+# Path to the server certificate.
+hlsServerCert: server.crt
 
 ###############################################
 # Path parameters

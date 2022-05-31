@@ -9,7 +9,7 @@ _rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that
 |--------|-----------|-------|----|-----|
 |RTSP|fastest way to publish and read streams|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
 |RTMP|allows to interact with legacy software|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|HLS|allows to embed streams into a web page|:x:|:heavy_check_mark:|:heavy_check_mark:|
+|Low-Latency HLS|allows to embed streams into a web page|:x:|:heavy_check_mark:|:heavy_check_mark:|
 
 Features:
 
@@ -75,7 +75,8 @@ Features:
 * [HLS protocol](#hls-protocol)
   * [HLS general usage](#hls-general-usage)
   * [Embedding](#embedding)
-  * [Decrease delay](#decrease-delay)
+  * [Low-Latency variant](#low-latency-variant)
+  * [Decreasing latency](#decreasing-latency)
 * [Links](#links)
 
 ## Installation
@@ -672,7 +673,7 @@ vlc rtsp://localhost:8554/mystream?vlcmulticast
 
 ### Encryption
 
-Incoming and outgoing RTSP streams can be encrypted with TLS (obtaining the RTSPS protocol). A self-signed TLS certificate is needed and can be generated with openSSL:
+Incoming and outgoing RTSP streams can be encrypted with TLS (obtaining the RTSPS protocol). A TLS certificate is needed and can be generated with OpenSSL:
 
 ```
 openssl genrsa -out server.key 2048
@@ -778,7 +779,7 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystr
 
 ### HLS general usage
 
-HLS is a media format that allows to embed live streams into web pages. Every stream published to the server can be accessed with a web browser by visiting:
+HLS is a stream protocol that allows to embed live streams into web pages. It works by splitting the stream into segments and serving these segments with the HTTP protocol. Every stream published to the server can be accessed with a web browser by visiting:
 
 ```
 http://localhost:8888/mystream
@@ -802,18 +803,59 @@ Alternatively you can create a video tag that points directly to the stream play
 
 Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream. You can find a working example by looking at the [source code of the HLS muxer](internal/core/hls_muxer.go).
 
-### Decrease delay
+### Low-Latency variant
 
-HLS works by splitting the stream into segments and serving these segments with the standard HTTP protocol. Delay is introduced since a client must wait for the server to generate segments before downloading them. This delay amounts to 1-15 seconds depending on some factors:
+Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis#section-3.1) variant of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are served before the segment is complete.
 
-* the number of segments
-* the duration of each segment
-
-To decrease the delay, it's possible to decrease the number of segments by editing the `hlsSegmentCount` parameter (decreasing stream stability) and decrease the duration of each segment. The duration of each segments depends on the `hlsSegmentDuration`, but also on the original stream, since the duration is prolonged to include at least one IDR frame (complete frame that can be decoded independently from the others) into each segment. Therefore, the stream must be tuned by either acting on the original hardware (for instance, there's a setting _Key-Frame Interval_ in most cameras, that must be reduced) or re-encoding the stream, setting a low IDR frame interval (`-g` option):
+LL-HLS is disabled by default. To enable it, a TLS certificate is needed and can be generated with OpenSSL:
 
 ```
-ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 ```
+
+Set the `hlsVariant`, `hlsEncryption`, `hlsServerKey` and `hlsServerCert` parameters in the configuration file:
+
+```yml
+hlsVariant: lowLatency
+hlsEncryption: yes
+hlsServerKey: server.key
+hlsServerCert: server.crt
+```
+
+Every stream published to the server can then be read with LL-HLS by visiting:
+
+```
+https://localhost:8888/mystream
+```
+
+If the stream is not shown correctly, try tuning the `hlsPartDuration` parameter, for instance:
+
+```yml
+hlsPartDuration: 500ms
+```
+
+### Decreasing latency
+
+in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This delay amounts to 1-15 seconds depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is enabled.
+
+To decrease the latency, you can:
+
+* enable the Low-Latency variant of the HLS protocol, as explained in the previous section;
+
+* if Low-latency is enabled, try decreasing the `hlsPartDuration` parameter;
+
+* try decreasing the `hlsSegmentDuration` parameter;
+
+* The segment duration is influenced by the interval between the IDR frames of the video track. An IDR frame is a frame that can be decoded independently from the others. The server changes the segment duration in order to include at least one IDR frame into each segment. Therefore, you need to decrease the interval between the IDR frames. This can be done in two ways:
+
+  * if the stream is being hardware-generated (i.e. by a camera), there's usually a setting called _Key-Frame Interval_ in the camera configuration page
+
+  * otherwise, the stream must be re-encoded. It's possible to tune the IDR frame interval by using ffmpeg's `-g` option:
+
+    ```
+    ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    ```
 
 ## Links
 

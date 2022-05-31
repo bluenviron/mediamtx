@@ -95,13 +95,23 @@ components:
           type: string
         hlsAlwaysRemux:
           type: boolean
+        hlsVariant:
+          type: string
         hlsSegmentCount:
           type: integer
         hlsSegmentDuration:
           type: string
+        hlsPartDuration:
+          type: string
         hlsSegmentMaxSize:
           type: string
         hlsAllowOrigin:
+          type: string
+        hlsEncryption:
+          type: boolean
+        hlsServerKey:
+          type: string
+        hlsServerCert:
           type: string
 
         paths:

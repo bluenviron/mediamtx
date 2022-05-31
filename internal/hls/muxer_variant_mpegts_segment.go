@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/asticode/go-astits"
 )
 
@@ -16,10 +18,11 @@ const (
 	pcrOffset = 500 * time.Millisecond
 )
 
-type muxerTSSegment struct {
-	hlsSegmentMaxSize uint64
-	videoTrack        *gortsplib.TrackH264
-	writeData         func(*astits.MuxerData) (int, error)
+type muxerVariantMPEGTSSegment struct {
+	segmentMaxSize uint64
+	videoTrack     *gortsplib.TrackH264
+	audioTrack     *gortsplib.TrackAAC
+	writeData      func(*astits.MuxerData) (int, error)
 
 	startTime      time.Time
 	name           string
@@ -30,18 +33,20 @@ type muxerTSSegment struct {
 	audioAUCount   int
 }
 
-func newMuxerTSSegment(
-	now time.Time,
-	hlsSegmentMaxSize uint64,
+func newMuxerVariantMPEGTSSegment(
+	startTime time.Time,
+	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
+	audioTrack *gortsplib.TrackAAC,
 	writeData func(*astits.MuxerData) (int, error),
-) *muxerTSSegment {
-	t := &muxerTSSegment{
-		hlsSegmentMaxSize: hlsSegmentMaxSize,
-		videoTrack:        videoTrack,
-		writeData:         writeData,
-		startTime:         now,
-		name:              strconv.FormatInt(now.Unix(), 10),
+) *muxerVariantMPEGTSSegment {
+	t := &muxerVariantMPEGTSSegment{
+		segmentMaxSize: segmentMaxSize,
+		videoTrack:     videoTrack,
+		audioTrack:     audioTrack,
+		writeData:      writeData,
+		startTime:      startTime,
+		name:           strconv.FormatInt(startTime.Unix(), 10),
 	}
 
 	// WriteTable() is called automatically when WriteData() is called with
@@ -52,29 +57,37 @@ func newMuxerTSSegment(
 	return t
 }
 
-func (t *muxerTSSegment) duration() time.Duration {
+func (t *muxerVariantMPEGTSSegment) duration() time.Duration {
 	return t.endPTS - *t.startPTS
 }
 
-func (t *muxerTSSegment) write(p []byte) (int, error) {
-	if uint64(len(p)+t.buf.Len()) > t.hlsSegmentMaxSize {
+func (t *muxerVariantMPEGTSSegment) write(p []byte) (int, error) {
+	if uint64(len(p)+t.buf.Len()) > t.segmentMaxSize {
 		return 0, fmt.Errorf("reached maximum segment size")
 	}
 
 	return t.buf.Write(p)
 }
 
-func (t *muxerTSSegment) reader() io.Reader {
+func (t *muxerVariantMPEGTSSegment) reader() io.Reader {
 	return bytes.NewReader(t.buf.Bytes())
 }
 
-func (t *muxerTSSegment) writeH264(
+func (t *muxerVariantMPEGTSSegment) writeH264(
 	pcr time.Duration,
 	dts time.Duration,
 	pts time.Duration,
 	idrPresent bool,
-	enc []byte,
+	nalus [][]byte,
 ) error {
+	// prepend an AUD. This is required by video.js and iOS
+	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
+
+	enc, err := h264.AnnexBEncode(nalus)
+	if err != nil {
+		return err
+	}
+
 	var af *astits.PacketAdaptationField
 
 	if idrPresent {
@@ -106,7 +119,7 @@ func (t *muxerTSSegment) writeH264(
 		oh.PTS = &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)}
 	}
 
-	_, err := t.writeData(&astits.MuxerData{
+	_, err = t.writeData(&astits.MuxerData{
 		PID:             256,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -132,12 +145,27 @@ func (t *muxerTSSegment) writeH264(
 	return nil
 }
 
-func (t *muxerTSSegment) writeAAC(
+func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pcr time.Duration,
 	pts time.Duration,
-	enc []byte,
-	ausLen int,
+	aus [][]byte,
 ) error {
+	pkts := make([]*aac.ADTSPacket, len(aus))
+
+	for i, au := range aus {
+		pkts[i] = &aac.ADTSPacket{
+			Type:         t.audioTrack.Type(),
+			SampleRate:   t.audioTrack.ClockRate(),
+			ChannelCount: t.audioTrack.ChannelCount(),
+			AU:           au,
+		}
+	}
+
+	enc, err := aac.EncodeADTS(pkts)
+	if err != nil {
+		return err
+	}
+
 	af := &astits.PacketAdaptationField{
 		RandomAccessIndicator: true,
 	}
@@ -152,7 +180,7 @@ func (t *muxerTSSegment) writeAAC(
 		t.pcrSendCounter--
 	}
 
-	_, err := t.writeData(&astits.MuxerData{
+	_, err = t.writeData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
 		PES: &astits.PESData{
@@ -173,7 +201,7 @@ func (t *muxerTSSegment) writeAAC(
 	}
 
 	if t.videoTrack == nil {
-		t.audioAUCount += ausLen
+		t.audioAUCount += len(aus)
 	}
 
 	if t.startPTS == nil {
