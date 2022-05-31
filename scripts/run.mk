@@ -18,6 +18,12 @@ define CONFIG_RUN
 #rtcpAddress: :8003
 #metrics: yes
 #pprof: yes
+hlsVariant: lowLatency
+hlsAlwaysRemux: yes
+#hlsPartDuration: 200ms
+hlsEncryption: yes
+hlsServerKey: /s/server.key
+hlsServerCert: /s/server.crt
 
 paths:
   all:
