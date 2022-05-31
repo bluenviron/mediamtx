@@ -213,6 +213,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 	if err != nil {
 		return err
 	}
+	sample.next.nalus = nil
 
 	m.adjustPartDuration(sample.duration())
 
