@@ -3,6 +3,7 @@ package hls
 import (
 	"bytes"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -167,9 +168,9 @@ func (s *fmp4VideoSample) fillDTS(
 				if s.pocDiff == -2 {
 					return fmt.Errorf("invalid frame POC")
 				}
-				s.dts = prev.pts + time.Duration(float64(s.pts-prev.pts)/float64(s.pocDiff/2+1))
+				s.dts = prev.pts + time.Duration(math.Round(float64(s.pts-prev.pts)/float64(s.pocDiff/2+1)))
 			} else {
-				s.dts = s.pts + time.Duration(float64(s.pocDiff)/float64(prev.pocDiff)*float64(prev.dts-prev.pts))
+				s.dts = s.pts + time.Duration(math.Round(float64(prev.dts-prev.pts)*float64(s.pocDiff)/float64(prev.pocDiff)))
 			}
 		}
 	}
