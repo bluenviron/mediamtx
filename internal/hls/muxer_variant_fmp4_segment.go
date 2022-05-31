@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
 )
 
 type partsReader struct {
@@ -52,12 +51,10 @@ type muxerVariantFMP4Segment struct {
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
-	sps              *h264.SPS
 	size             uint64
 	parts            []*muxerVariantFMP4Part
 	currentPart      *muxerVariantFMP4Part
 	renderedDuration time.Duration
-	expectedPOC      uint32
 }
 
 func newMuxerVariantFMP4Segment(
@@ -71,7 +68,7 @@ func newMuxerVariantFMP4Segment(
 	audioTrack *gortsplib.TrackAAC,
 	genPartID func() uint64,
 	onPartFinalized func(*muxerVariantFMP4Part),
-) (*muxerVariantFMP4Segment, error) {
+) *muxerVariantFMP4Segment {
 	s := &muxerVariantFMP4Segment{
 		lowLatency:      lowLatency,
 		id:              id,
@@ -85,16 +82,6 @@ func newMuxerVariantFMP4Segment(
 		onPartFinalized: onPartFinalized,
 	}
 
-	if s.videoTrack != nil {
-		var spsp h264.SPS
-		err := spsp.Unmarshal(s.videoTrack.SPS())
-		if err != nil {
-			return nil, err
-		}
-
-		s.sps = &spsp
-	}
-
 	s.currentPart = newMuxerVariantFMP4Part(
 		s.videoTrack,
 		s.audioTrack,
@@ -102,7 +89,7 @@ func newMuxerVariantFMP4Segment(
 		s.startDTS,
 	)
 
-	return s, nil
+	return s
 }
 
 func (s *muxerVariantFMP4Segment) name() string {
@@ -150,11 +137,6 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample) error {
 
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
-	}
-
-	err := sample.next.fillDTS(sample, s.sps, &s.expectedPOC)
-	if err != nil {
-		return err
 	}
 
 	s.currentPart.writeH264(sample)

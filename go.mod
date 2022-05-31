@@ -11,6 +11,7 @@ require (
 	github.com/gin-gonic/gin v1.7.2
 	github.com/gookit/color v1.4.2
 	github.com/grafov/m3u8 v0.11.1
+	github.com/icza/bitio v1.1.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2
 	github.com/orcaman/writerseeker v0.0.0-20200621085525-1d3f536ff85e
@@ -32,7 +33,6 @@ require (
 	github.com/go-playground/validator/v10 v10.4.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/uuid v1.1.2 // indirect
-	github.com/icza/bitio v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.12 // indirect

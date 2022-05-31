@@ -19,14 +19,19 @@ type muxerVariantFMP4Segmenter struct {
 	onSegmentFinalized func(*muxerVariantFMP4Segment)
 	onPartFinalized    func(*muxerVariantFMP4Part)
 
-	currentSegment  *muxerVariantFMP4Segment
-	startPTS        time.Duration
-	lastSPS         []byte
-	lastPPS         []byte
-	nextSegmentID   uint64
-	nextPartID      uint64
-	nextVideoSample *fmp4VideoSample
-	nextAudioSample *fmp4AudioSample
+	currentSegment   *muxerVariantFMP4Segment
+	startPTS         time.Duration
+	videoSPSP        *h264.SPS
+	videoSPS         []byte
+	videoPPS         []byte
+	videoNextSPSP    *h264.SPS
+	videoNextSPS     []byte
+	videoNextPPS     []byte
+	nextSegmentID    uint64
+	nextPartID       uint64
+	nextVideoSample  *fmp4VideoSample
+	nextAudioSample  *fmp4AudioSample
+	videoExpectedPOC uint32
 }
 
 func newMuxerVariantFMP4Segmenter(
@@ -82,9 +87,35 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 }
 
 func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) error {
+	// put SPS/PPS into a queue in order to sync them with the sample queue
+	m.videoSPSP = m.videoNextSPSP
+	m.videoSPS = m.videoNextSPS
+	m.videoPPS = m.videoNextPPS
+	spsChanged := false
+	if sample.idrPresent {
+		videoNextSPS := m.videoTrack.SPS()
+		videoNextPPS := m.videoTrack.PPS()
+
+		if m.videoSPS == nil ||
+			!bytes.Equal(m.videoNextSPS, videoNextSPS) ||
+			!bytes.Equal(m.videoNextPPS, videoNextPPS) {
+			spsChanged = true
+
+			var videoSPSP h264.SPS
+			err := videoSPSP.Unmarshal(videoNextSPS)
+			if err != nil {
+				return err
+			}
+
+			m.videoNextSPSP = &videoSPSP
+			m.videoNextSPS = videoNextSPS
+			m.videoNextPPS = videoNextPPS
+		}
+	}
+
 	sample.pts -= m.startPTS
 
-	// put sample into a queue in order to
+	// put samples into a queue in order to
 	// - allow to compute sample dts
 	// - allow to compute sample duration
 	// - check if next sample is IDR
@@ -93,6 +124,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 		return nil
 	}
 	sample.next = m.nextVideoSample
+	sample.next.prev = sample
 
 	now := time.Now()
 
@@ -103,8 +135,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 		}
 
 		// create first segment
-		var err error
-		m.currentSegment, err = newMuxerVariantFMP4Segment(
+		m.currentSegment = newMuxerVariantFMP4Segment(
 			m.lowLatency,
 			m.genSegmentID(),
 			now,
@@ -116,39 +147,33 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 			m.genPartID,
 			m.onPartFinalized,
 		)
-		if err != nil {
-			return err
-		}
 
-		m.lastSPS = m.videoTrack.SPS()
-		m.lastPPS = m.videoTrack.PPS()
 		m.startPTS = sample.pts
 		sample.pts = 0
 		sample.next.pts -= m.startPTS
 	}
 
-	err := m.currentSegment.writeH264(sample)
+	err := sample.next.fillDTS(m.videoNextSPSP, &m.videoExpectedPOC)
+	if err != nil {
+		return err
+	}
+
+	err = m.currentSegment.writeH264(sample)
 	if err != nil {
 		return err
 	}
 
 	// switch segment
 	if sample.next.idrPresent {
-		sps := m.videoTrack.SPS()
-		pps := m.videoTrack.PPS()
-
 		if (sample.next.pts-m.currentSegment.startDTS) >= m.segmentDuration ||
-			!bytes.Equal(m.lastSPS, sps) ||
-			!bytes.Equal(m.lastPPS, pps) {
+			spsChanged {
 			err := m.currentSegment.finalize(sample.next, nil)
 			if err != nil {
 				return err
 			}
 			m.onSegmentFinalized(m.currentSegment)
 
-			m.lastSPS = sps
-			m.lastPPS = pps
-			m.currentSegment, err = newMuxerVariantFMP4Segment(
+			m.currentSegment = newMuxerVariantFMP4Segment(
 				m.lowLatency,
 				m.genSegmentID(),
 				now,
@@ -160,9 +185,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 				m.genPartID,
 				m.onPartFinalized,
 			)
-			if err != nil {
-				return err
-			}
 		}
 	}
 
@@ -185,7 +207,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error {
 	sample.pts -= m.startPTS
 
-	// put sample into a queue in order to
+	// put samples into a queue in order to
 	// allow to compute the sample duration
 	sample, m.nextAudioSample = m.nextAudioSample, sample
 	if sample == nil {
@@ -198,8 +220,7 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {
 			// create first segment
-			var err error
-			m.currentSegment, err = newMuxerVariantFMP4Segment(
+			m.currentSegment = newMuxerVariantFMP4Segment(
 				m.lowLatency,
 				m.genSegmentID(),
 				now,
@@ -211,9 +232,6 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 				m.genPartID,
 				m.onPartFinalized,
 			)
-			if err != nil {
-				return err
-			}
 
 			m.startPTS = sample.pts
 			sample.pts = 0
@@ -240,7 +258,7 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 		}
 		m.onSegmentFinalized(m.currentSegment)
 
-		m.currentSegment, err = newMuxerVariantFMP4Segment(
+		m.currentSegment = newMuxerVariantFMP4Segment(
 			m.lowLatency,
 			m.genSegmentID(),
 			now,
@@ -252,9 +270,6 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 			m.genPartID,
 			m.onPartFinalized,
 		)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
