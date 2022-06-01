@@ -866,6 +866,8 @@ Related projects
 * https://github.com/pion/rtcp (RTCP library used internally)
 * https://github.com/pion/rtp (RTP library used internally)
 * https://github.com/notedit/rtmp (RTMP library used internally)
+* https://github.com/asticode/go-astits (MPEG-TS library used internally)
+* https://github.com/abema/go-mp4 (MP4 library used internally)
 * https://github.com/flaviostutz/rtsp-relay
 
 IETF Standards
