@@ -89,6 +89,5 @@ func (w *mp4Writer) rewriteBox(off int, box mp4.IImmutableBox) error {
 }
 
 func (w *mp4Writer) bytes() []byte {
-	byts, _ := io.ReadAll(w.buf.Reader())
-	return byts
+	return w.buf.Bytes()
 }

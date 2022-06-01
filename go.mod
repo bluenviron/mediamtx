@@ -13,8 +13,8 @@ require (
 	github.com/grafov/m3u8 v0.11.1
 	github.com/icza/bitio v1.1.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
-	github.com/notedit/rtmp v0.0.2
-	github.com/orcaman/writerseeker v0.0.0-20200621085525-1d3f536ff85e
+	github.com/notedit/rtmp v0.0.0
+	github.com/orcaman/writerseeker v0.0.0
 	github.com/pion/rtp v1.7.13
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
@@ -51,3 +51,5 @@ require (
 )
 
 replace github.com/notedit/rtmp => github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927
+
+replace github.com/orcaman/writerseeker => github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82
