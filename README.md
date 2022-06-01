@@ -872,9 +872,11 @@ Related projects
 
 IETF Standards
 
-* RTSP 1.0 https://tools.ietf.org/html/rfc2326
-* RTSP 2.0 https://tools.ietf.org/html/rfc7826
-* HTTP 1.1 https://tools.ietf.org/html/rfc2616
+* RTSP 1.0 https://datatracker.ietf.org/doc/html/rfc2326
+* RTSP 2.0 https://datatracker.ietf.org/doc/html/rfc7826
+* HTTP 1.1 https://datatracker.ietf.org/doc/html/rfc2616
+* HLS https://datatracker.ietf.org/doc/html/rfc8216
+* HLS v2 https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis
 
 Conventions
 
