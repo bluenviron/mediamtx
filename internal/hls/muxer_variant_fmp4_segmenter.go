@@ -56,17 +56,14 @@ type muxerVariantFMP4Segmenter struct {
 
 	currentSegment        *muxerVariantFMP4Segment
 	startPTS              time.Duration
-	videoSPSP             *h264.SPS
 	videoSPS              []byte
 	videoPPS              []byte
-	videoNextSPSP         *h264.SPS
-	videoNextSPS          []byte
-	videoNextPPS          []byte
+	videoSPSP             *h264.SPS
+	videoDTSExtractor     *h264.DTSExtractor
 	nextSegmentID         uint64
 	nextPartID            uint64
 	nextVideoSample       *fmp4VideoSample
 	nextAudioSample       *fmp4AudioSample
-	videoExpectedPOC      uint32
 	firstSegmentFinalized bool
 	sampleDurations       map[time.Duration]struct{}
 	adjustedPartDuration  time.Duration
@@ -92,6 +89,7 @@ func newMuxerVariantFMP4Segmenter(
 		audioTrack:         audioTrack,
 		onSegmentFinalized: onSegmentFinalized,
 		onPartFinalized:    onPartFinalized,
+		videoDTSExtractor:  h264.NewDTSExtractor(),
 		nextSegmentID:      uint64(segmentCount),
 		sampleDurations:    make(map[time.Duration]struct{}),
 	}
@@ -109,16 +107,13 @@ func (m *muxerVariantFMP4Segmenter) genPartID() uint64 {
 	return id
 }
 
+// iPhone iOS fails if part durations are less than 85% of maximum part duration.
+// find a part duration that is compatible with all received sample durations
 func (m *muxerVariantFMP4Segmenter) adjustPartDuration(du time.Duration) {
-	if !m.lowLatency {
-		return
-	}
-	if m.firstSegmentFinalized {
+	if !m.lowLatency || m.firstSegmentFinalized {
 		return
 	}
 
-	// iPhone iOS fails if part durations are less than 85% of maximum part duration.
-	// find a part duration that is compatible with all received sample durations
 	if _, ok := m.sampleDurations[du]; !ok {
 		m.sampleDurations[du] = struct{}{}
 		m.adjustedPartDuration = findCompatiblePartDuration(
@@ -145,36 +140,44 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 }
 
 func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) error {
-	// put SPS/PPS into a queue in order to sync them with the sample queue
-	m.videoSPSP = m.videoNextSPSP
-	m.videoSPS = m.videoNextSPS
-	m.videoPPS = m.videoNextPPS
+	// parse SPS
 	spsChanged := false
 	if sample.idrPresent {
-		videoNextSPS := m.videoTrack.SPS()
-		videoNextPPS := m.videoTrack.PPS()
+		videoSPS := m.videoTrack.SPS()
+		videoPPS := m.videoTrack.PPS()
 
 		if m.videoSPS == nil ||
-			!bytes.Equal(m.videoNextSPS, videoNextSPS) ||
-			!bytes.Equal(m.videoNextPPS, videoNextPPS) {
+			!bytes.Equal(m.videoSPS, videoSPS) ||
+			!bytes.Equal(m.videoPPS, videoPPS) {
 			spsChanged = true
 
 			var videoSPSP h264.SPS
-			err := videoSPSP.Unmarshal(videoNextSPS)
+			err := videoSPSP.Unmarshal(videoSPS)
 			if err != nil {
 				return err
 			}
 
-			m.videoNextSPSP = &videoSPSP
-			m.videoNextSPS = videoNextSPS
-			m.videoNextPPS = videoNextPPS
+			m.videoSPS = videoSPS
+			m.videoPPS = videoPPS
+			m.videoSPSP = &videoSPSP
 		}
 	}
 
+	// fill DTS
+	if m.videoSPSP != nil {
+		var err error
+		sample.dts, err = m.videoDTSExtractor.Extract(
+			sample.nalus, sample.idrPresent, sample.pts, m.videoSPSP)
+		if err != nil {
+			return err
+		}
+		sample.nalus = nil
+	}
+
 	sample.pts -= m.startPTS
+	sample.dts -= m.startPTS
 
 	// put samples into a queue in order to
-	// - allow to compute sample dts
 	// - allow to compute sample duration
 	// - check if next sample is IDR
 	sample, m.nextVideoSample = m.nextVideoSample, sample
@@ -206,18 +209,14 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 
 		m.startPTS = sample.pts
 		sample.pts = 0
+		sample.dts = 0
 		sample.next.pts -= m.startPTS
+		sample.next.dts -= m.startPTS
 	}
-
-	err := sample.next.fillDTS(sample, m.videoNextSPSP, &m.videoExpectedPOC)
-	if err != nil {
-		return err
-	}
-	sample.next.nalus = nil
 
 	m.adjustPartDuration(sample.duration())
 
-	err = m.currentSegment.writeH264(sample, m.adjustedPartDuration)
+	err := m.currentSegment.writeH264(sample, m.adjustedPartDuration)
 	if err != nil {
 		return err
 	}
