@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	// an offset between PCR and PTS/DTS is needed to avoid PCR > PTS
-	pcrOffset = 500 * time.Millisecond
+	mpegtsPCROffset    = 400 * time.Millisecond // 2 samples @ 5fps
+	mpegtsPTSDTSOffset = 400 * time.Millisecond // 2 samples @ 5fps
 )
 
 type muxerVariantMPEGTSSegment struct {
@@ -110,13 +110,15 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 		MarkerBits: 2,
 	}
 
+	pts += mpegtsPTSDTSOffset
+
 	if dts == pts {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorOnlyPTS
-		oh.PTS = &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
 	} else {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorBothPresent
-		oh.DTS = &astits.ClockReference{Base: int64((dts + pcrOffset).Seconds() * 90000)}
-		oh.PTS = &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)}
+		oh.DTS = &astits.ClockReference{Base: int64((dts + mpegtsPCROffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
 	}
 
 	_, err = t.writeData(&astits.MuxerData{
@@ -180,6 +182,8 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 		t.pcrSendCounter--
 	}
 
+	pts += mpegtsPTSDTSOffset
+
 	_, err = t.writeData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
@@ -188,7 +192,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 				OptionalHeader: &astits.PESOptionalHeader{
 					MarkerBits:      2,
 					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64((pts + pcrOffset).Seconds() * 90000)},
+					PTS:             &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)},
 				},
 				PacketLength: uint16(len(enc) + 8),
 				StreamID:     192, // audio

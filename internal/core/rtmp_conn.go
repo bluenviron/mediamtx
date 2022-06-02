@@ -27,6 +27,7 @@ import (
 
 const (
 	rtmpConnPauseAfterAuthError = 2 * time.Second
+	rtmpPTSDTSOffset            = 400 * time.Millisecond // 2 samples @ 5fps
 )
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
@@ -330,7 +331,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var videoInitialPTS *time.Duration
 	videoFirstIDRFound := false
 	var videoFirstIDRPTS time.Duration
-	var videoDTSEst *h264.DTSEstimator
+	videoDTSExtractor := h264.NewDTSExtractor()
+	var videoSPS *h264.SPS
 
 	for {
 		item, ok := c.ringBuffer.Pull()
@@ -361,16 +363,18 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 				videoFirstIDRFound = true
 				videoFirstIDRPTS = pts
-				videoDTSEst = h264.NewDTSEstimator()
 			}
 
 			if h264.IDRPresent(data.h264NALUs) {
+				sps := videoTrack.SPS()
+				pps := videoTrack.PPS()
+
 				codec := nh264.Codec{
 					SPS: map[int][]byte{
-						0: videoTrack.SPS(),
+						0: sps,
 					},
 					PPS: map[int][]byte{
-						0: videoTrack.PPS(),
+						0: pps,
 					},
 				}
 				b := make([]byte, 128)
@@ -385,6 +389,13 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
+
+				var psps h264.SPS
+				err := psps.Unmarshal(sps)
+				if err != nil {
+					return err
+				}
+				videoSPS = &psps
 			}
 
 			avcc, err := h264.AVCCEncode(data.h264NALUs)
@@ -393,14 +404,18 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			pts -= videoFirstIDRPTS
-			dts := videoDTSEst.Feed(pts)
+			dts, err := videoDTSExtractor.Extract(
+				data.h264NALUs, h264.IDRPresent(data.h264NALUs), pts, videoSPS)
+			if err != nil {
+				return err
+			}
 
 			c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 			err = c.conn.WritePacket(av.Packet{
 				Type:  av.H264,
 				Data:  avcc,
 				Time:  dts,
-				CTime: pts - dts,
+				CTime: rtmpPTSDTSOffset + pts - dts,
 			})
 			if err != nil {
 				return err
@@ -428,7 +443,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
-					Time: pts + time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(audioTrack.ClockRate()),
+					Time: rtmpPTSDTSOffset + pts +
+						time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(audioTrack.ClockRate()),
 				})
 				if err != nil {
 					return err

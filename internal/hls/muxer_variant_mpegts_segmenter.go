@@ -26,11 +26,12 @@ type muxerVariantMPEGTSSegmenter struct {
 	audioTrack      *gortsplib.TrackAAC
 	onSegmentReady  func(*muxerVariantMPEGTSSegment)
 
-	writer         *astits.Muxer
-	currentSegment *muxerVariantMPEGTSSegment
-	videoDTSEst    *h264.DTSEstimator
-	startPCR       time.Time
-	startPTS       time.Duration
+	writer            *astits.Muxer
+	currentSegment    *muxerVariantMPEGTSSegment
+	videoSPS          *h264.SPS
+	videoDTSExtractor *h264.DTSExtractor
+	startPCR          time.Time
+	startPTS          time.Duration
 }
 
 func newMuxerVariantMPEGTSSegmenter(
@@ -41,11 +42,12 @@ func newMuxerVariantMPEGTSSegmenter(
 	onSegmentReady func(*muxerVariantMPEGTSSegment),
 ) *muxerVariantMPEGTSSegmenter {
 	m := &muxerVariantMPEGTSSegmenter{
-		segmentDuration: segmentDuration,
-		segmentMaxSize:  segmentMaxSize,
-		videoTrack:      videoTrack,
-		audioTrack:      audioTrack,
-		onSegmentReady:  onSegmentReady,
+		segmentDuration:   segmentDuration,
+		segmentMaxSize:    segmentMaxSize,
+		videoTrack:        videoTrack,
+		audioTrack:        audioTrack,
+		onSegmentReady:    onSegmentReady,
+		videoDTSExtractor: h264.NewDTSExtractor(),
 	}
 
 	m.writer = astits.NewMuxer(
@@ -91,7 +93,6 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 		m.currentSegment = newMuxerVariantMPEGTSSegment(now, m.segmentMaxSize,
 			m.videoTrack, m.audioTrack, m.writer.WriteData)
 		m.startPCR = now
-		m.videoDTSEst = h264.NewDTSEstimator()
 		m.startPTS = pts
 		pts = 0
 	} else {
@@ -108,10 +109,27 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 		}
 	}
 
-	dts := m.videoDTSEst.Feed(pts)
+	if idrPresent {
+		sps := m.videoTrack.SPS()
+		var psps h264.SPS
+		err := psps.Unmarshal(sps)
+		if err != nil {
+			return err
+		}
+		m.videoSPS = &psps
+	}
 
-	err := m.currentSegment.writeH264(now.Sub(m.startPCR), dts,
-		pts, idrPresent, nalus)
+	dts, err := m.videoDTSExtractor.Extract(nalus, idrPresent, pts, m.videoSPS)
+	if err != nil {
+		return err
+	}
+
+	err = m.currentSegment.writeH264(
+		now.Sub(m.startPCR),
+		dts,
+		pts,
+		idrPresent,
+		nalus)
 	if err != nil {
 		if m.currentSegment.buf.Len() > 0 {
 			m.onSegmentReady(m.currentSegment)
