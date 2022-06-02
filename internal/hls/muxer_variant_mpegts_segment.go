@@ -188,7 +188,8 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 				OptionalHeader: &astits.PESOptionalHeader{
 					MarkerBits:      2,
 					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset + mpegtsPCROffset).Seconds() * 90000)},
+					PTS: &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset +
+						mpegtsPCROffset).Seconds() * 90000)},
 				},
 				PacketLength: uint16(len(enc) + 8),
 				StreamID:     192, // audio

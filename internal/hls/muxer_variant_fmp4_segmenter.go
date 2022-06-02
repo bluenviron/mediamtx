@@ -57,7 +57,6 @@ type muxerVariantFMP4Segmenter struct {
 	videoFirstIDRReceived bool
 	videoDTSExtractor     *h264.DTSExtractor
 	videoSPS              []byte
-	startPTS              time.Duration
 	currentSegment        *muxerVariantFMP4Segment
 	nextSegmentID         uint64
 	nextPartID            uint64
@@ -157,9 +156,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 	}
 	sample.nalus = nil
 
-	sample.pts -= m.startPTS
-	sample.dts -= m.startPTS
-
 	// put samples into a queue in order to
 	// - allow to compute sample duration
 	// - check if next sample is IDR
@@ -184,12 +180,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 			m.genPartID,
 			m.onPartFinalized,
 		)
-
-		m.startPTS = sample.pts
-		sample.pts = 0
-		sample.dts = 0
-		sample.next.pts -= m.startPTS
-		sample.next.dts -= m.startPTS
 	}
 
 	m.adjustPartDuration(sample.duration())
@@ -252,8 +242,6 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) er
 }
 
 func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error {
-	sample.pts -= m.startPTS
-
 	// put samples into a queue in order to
 	// allow to compute the sample duration
 	sample, m.nextAudioSample = m.nextAudioSample, sample
@@ -278,10 +266,6 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4AudioSample) error
 				m.genPartID,
 				m.onPartFinalized,
 			)
-
-			m.startPTS = sample.pts
-			sample.pts = 0
-			sample.next.pts -= m.startPTS
 		}
 	} else {
 		// wait for the video track

@@ -367,6 +367,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				videoDTSExtractor = h264.NewDTSExtractor()
 			}
 
+			// normalize as this is expected in RTMP
 			pts -= videoFirstIDRPTS
 
 			dts, err := videoDTSExtractor.Extract(data.h264NALUs, pts)

@@ -95,6 +95,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 		m.videoDTSExtractor = h264.NewDTSExtractor()
 		pts = 0
 	} else {
+		// normalize in order to sync with PCR
 		pts -= m.startPTS
 
 		// switch segment
