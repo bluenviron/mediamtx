@@ -57,7 +57,6 @@ type muxerVariantFMP4Segmenter struct {
 	currentSegment        *muxerVariantFMP4Segment
 	startPTS              time.Duration
 	videoSPS              []byte
-	videoPPS              []byte
 	videoSPSP             *h264.SPS
 	videoDTSExtractor     *h264.DTSExtractor
 	nextSegmentID         uint64
@@ -144,11 +143,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 	spsChanged := false
 	if sample.idrPresent {
 		videoSPS := m.videoTrack.SPS()
-		videoPPS := m.videoTrack.PPS()
-
-		if m.videoSPS == nil ||
-			!bytes.Equal(m.videoSPS, videoSPS) ||
-			!bytes.Equal(m.videoPPS, videoPPS) {
+		if m.videoSPS == nil || !bytes.Equal(m.videoSPS, videoSPS) {
 			spsChanged = true
 
 			var videoSPSP h264.SPS
@@ -158,7 +153,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 			}
 
 			m.videoSPS = videoSPS
-			m.videoPPS = videoPPS
 			m.videoSPSP = &videoSPSP
 		}
 	}
