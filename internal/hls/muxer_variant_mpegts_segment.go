@@ -110,15 +110,13 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 		MarkerBits: 2,
 	}
 
-	pts += mpegtsPTSDTSOffset
-
-	if dts == pts {
+	if dts == (pts + mpegtsPTSDTSOffset) {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorOnlyPTS
-		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset + mpegtsPCROffset).Seconds() * 90000)}
 	} else {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorBothPresent
 		oh.DTS = &astits.ClockReference{Base: int64((dts + mpegtsPCROffset).Seconds() * 90000)}
-		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset + mpegtsPCROffset).Seconds() * 90000)}
 	}
 
 	_, err = t.writeData(&astits.MuxerData{
@@ -182,8 +180,6 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 		t.pcrSendCounter--
 	}
 
-	pts += mpegtsPTSDTSOffset
-
 	_, err = t.writeData(&astits.MuxerData{
 		PID:             257,
 		AdaptationField: af,
@@ -192,7 +188,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 				OptionalHeader: &astits.PESOptionalHeader{
 					MarkerBits:      2,
 					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)},
+					PTS:             &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset + mpegtsPCROffset).Seconds() * 90000)},
 				},
 				PacketLength: uint16(len(enc) + 8),
 				StreamID:     192, // audio

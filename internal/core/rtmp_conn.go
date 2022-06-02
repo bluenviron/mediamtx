@@ -331,8 +331,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	var videoInitialPTS *time.Duration
 	videoFirstIDRFound := false
 	var videoFirstIDRPTS time.Duration
-	videoDTSExtractor := h264.NewDTSExtractor()
-	var videoSPS *h264.SPS
+	var videoDTSExtractor *h264.DTSExtractor
 
 	for {
 		item, ok := c.ringBuffer.Pull()
@@ -355,17 +354,28 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 			pts := data.h264PTS - *videoInitialPTS
 
+			idrPresent := h264.IDRPresent(data.h264NALUs)
+
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
-				if !h264.IDRPresent(data.h264NALUs) {
+				if !idrPresent {
 					continue
 				}
 
 				videoFirstIDRFound = true
 				videoFirstIDRPTS = pts
+				videoDTSExtractor = h264.NewDTSExtractor()
 			}
 
-			if h264.IDRPresent(data.h264NALUs) {
+			pts -= videoFirstIDRPTS
+
+			dts, err := videoDTSExtractor.Extract(data.h264NALUs, pts)
+			if err != nil {
+				return err
+			}
+
+			// insert a H264DecoderConfig before every IDR
+			if idrPresent {
 				sps := videoTrack.SPS()
 				pps := videoTrack.PPS()
 
@@ -389,23 +399,9 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
-
-				var psps h264.SPS
-				err := psps.Unmarshal(sps)
-				if err != nil {
-					return err
-				}
-				videoSPS = &psps
 			}
 
 			avcc, err := h264.AVCCEncode(data.h264NALUs)
-			if err != nil {
-				return err
-			}
-
-			pts -= videoFirstIDRPTS
-			dts, err := videoDTSExtractor.Extract(
-				data.h264NALUs, h264.IDRPresent(data.h264NALUs), pts, videoSPS)
 			if err != nil {
 				return err
 			}
@@ -568,7 +564,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 					rres.stream.writeData(&data{
 						trackID:      videoTrackID,
 						rtp:          pkt,
-						ptsEqualsDTS: h264.IDRPresent(nalus),
+						ptsEqualsDTS: false,
 						h264NALUs:    nalus,
 						h264PTS:      pts,
 					})

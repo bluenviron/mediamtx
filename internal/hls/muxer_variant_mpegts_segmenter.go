@@ -28,7 +28,6 @@ type muxerVariantMPEGTSSegmenter struct {
 
 	writer            *astits.Muxer
 	currentSegment    *muxerVariantMPEGTSSegment
-	videoSPS          *h264.SPS
 	videoDTSExtractor *h264.DTSExtractor
 	startPCR          time.Time
 	startPTS          time.Duration
@@ -42,12 +41,11 @@ func newMuxerVariantMPEGTSSegmenter(
 	onSegmentReady func(*muxerVariantMPEGTSSegment),
 ) *muxerVariantMPEGTSSegmenter {
 	m := &muxerVariantMPEGTSSegmenter{
-		segmentDuration:   segmentDuration,
-		segmentMaxSize:    segmentMaxSize,
-		videoTrack:        videoTrack,
-		audioTrack:        audioTrack,
-		onSegmentReady:    onSegmentReady,
-		videoDTSExtractor: h264.NewDTSExtractor(),
+		segmentDuration: segmentDuration,
+		segmentMaxSize:  segmentMaxSize,
+		videoTrack:      videoTrack,
+		audioTrack:      audioTrack,
+		onSegmentReady:  onSegmentReady,
 	}
 
 	m.writer = astits.NewMuxer(
@@ -94,6 +92,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 			m.videoTrack, m.audioTrack, m.writer.WriteData)
 		m.startPCR = now
 		m.startPTS = pts
+		m.videoDTSExtractor = h264.NewDTSExtractor()
 		pts = 0
 	} else {
 		pts -= m.startPTS
@@ -109,17 +108,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 		}
 	}
 
-	if idrPresent {
-		sps := m.videoTrack.SPS()
-		var psps h264.SPS
-		err := psps.Unmarshal(sps)
-		if err != nil {
-			return err
-		}
-		m.videoSPS = &psps
-	}
-
-	dts, err := m.videoDTSExtractor.Extract(nalus, idrPresent, pts, m.videoSPS)
+	dts, err := m.videoDTSExtractor.Extract(nalus, pts)
 	if err != nil {
 		return err
 	}
