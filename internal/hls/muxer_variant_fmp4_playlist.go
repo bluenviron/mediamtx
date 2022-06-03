@@ -116,7 +116,10 @@ func (p *muxerVariantFMP4Playlist) close() {
 }
 
 func (p *muxerVariantFMP4Playlist) hasContent() bool {
-	return len(p.segments) > 0
+	if p.lowLatency {
+		return len(p.segments) >= 1
+	}
+	return len(p.segments) >= 2
 }
 
 func (p *muxerVariantFMP4Playlist) hasPart(segmentID uint64, partID uint64) bool {
@@ -438,7 +441,7 @@ func (p *muxerVariantFMP4Playlist) onSegmentFinalized(segment *muxerVariantFMP4S
 		defer p.mutex.Unlock()
 
 		// create initial gap
-		if len(p.segments) == 0 {
+		if p.lowLatency && len(p.segments) == 0 {
 			for i := 0; i < p.segmentCount; i++ {
 				p.segments = append(p.segments, &muxerVariantFMP4Gap{
 					renderedDuration: segment.renderedDuration,
