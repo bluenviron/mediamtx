@@ -27,7 +27,6 @@ import (
 
 const (
 	rtmpConnPauseAfterAuthError = 2 * time.Second
-	rtmpPTSDTSOffset            = 400 * time.Millisecond // 2 samples @ 5fps
 )
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
@@ -330,7 +329,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 	var videoInitialPTS *time.Duration
 	videoFirstIDRFound := false
-	var videoFirstIDRPTS time.Duration
+	var videoStartDTS time.Duration
 	var videoDTSExtractor *h264.DTSExtractor
 
 	for {
@@ -352,9 +351,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				v := data.h264PTS
 				videoInitialPTS = &v
 			}
-			pts := data.h264PTS - *videoInitialPTS
 
+			pts := data.h264PTS - *videoInitialPTS
 			idrPresent := h264.IDRPresent(data.h264NALUs)
+			var dts time.Duration
 
 			// wait until we receive an IDR
 			if !videoFirstIDRFound {
@@ -363,16 +363,26 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				}
 
 				videoFirstIDRFound = true
-				videoFirstIDRPTS = pts
 				videoDTSExtractor = h264.NewDTSExtractor()
-			}
 
-			// normalize as this is expected in RTMP
-			pts -= videoFirstIDRPTS
+				var err error
+				dts, err = videoDTSExtractor.Extract(data.h264NALUs, pts)
+				if err != nil {
+					return err
+				}
 
-			dts, err := videoDTSExtractor.Extract(data.h264NALUs, pts)
-			if err != nil {
-				return err
+				videoStartDTS = dts
+				dts = 0
+				pts -= videoStartDTS
+			} else {
+				var err error
+				dts, err = videoDTSExtractor.Extract(data.h264NALUs, pts)
+				if err != nil {
+					return err
+				}
+
+				dts -= videoStartDTS
+				pts -= videoStartDTS
 			}
 
 			// insert a H264DecoderConfig before every IDR
@@ -412,7 +422,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				Type:  av.H264,
 				Data:  avcc,
 				Time:  dts,
-				CTime: rtmpPTSDTSOffset + pts - dts,
+				CTime: pts - dts,
 			})
 			if err != nil {
 				return err
@@ -430,7 +440,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				continue
 			}
 
-			pts -= videoFirstIDRPTS
+			pts -= videoStartDTS
 			if pts < 0 {
 				continue
 			}
@@ -440,8 +450,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
-					Time: rtmpPTSDTSOffset + pts +
-						time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(audioTrack.ClockRate()),
+					Time: pts + time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(audioTrack.ClockRate()),
 				})
 				if err != nil {
 					return err

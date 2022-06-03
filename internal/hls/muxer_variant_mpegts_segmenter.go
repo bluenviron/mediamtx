@@ -30,7 +30,7 @@ type muxerVariantMPEGTSSegmenter struct {
 	currentSegment    *muxerVariantMPEGTSSegment
 	videoDTSExtractor *h264.DTSExtractor
 	startPCR          time.Time
-	startPTS          time.Duration
+	startDTS          time.Duration
 }
 
 func newMuxerVariantMPEGTSSegmenter(
@@ -80,6 +80,7 @@ func newMuxerVariantMPEGTSSegmenter(
 func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byte) error {
 	now := time.Now()
 	idrPresent := h264.IDRPresent(nalus)
+	var dts time.Duration
 
 	if m.currentSegment == nil {
 		// skip groups silently until we find one with a IDR
@@ -87,44 +88,49 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 			return nil
 		}
 
+		m.videoDTSExtractor = h264.NewDTSExtractor()
+
+		var err error
+		dts, err = m.videoDTSExtractor.Extract(nalus, pts)
+		if err != nil {
+			return err
+		}
+
+		m.startPCR = now
+		m.startDTS = dts
+		dts = 0
+		pts -= m.startDTS
+
 		// create first segment
 		m.currentSegment = newMuxerVariantMPEGTSSegment(now, m.segmentMaxSize,
 			m.videoTrack, m.audioTrack, m.writer.WriteData)
-		m.startPCR = now
-		m.startPTS = pts
-		m.videoDTSExtractor = h264.NewDTSExtractor()
-		pts = 0
 	} else {
-		// normalize in order to sync with PCR
-		pts -= m.startPTS
+		var err error
+		dts, err = m.videoDTSExtractor.Extract(nalus, pts)
+		if err != nil {
+			return err
+		}
+
+		dts -= m.startDTS
+		pts -= m.startDTS
 
 		// switch segment
 		if idrPresent &&
-			m.currentSegment.startPTS != nil &&
-			(pts-*m.currentSegment.startPTS) >= m.segmentDuration {
-			m.currentSegment.endPTS = pts
+			(dts-*m.currentSegment.startDTS) >= m.segmentDuration {
+			m.currentSegment.endDTS = dts
 			m.onSegmentReady(m.currentSegment)
 			m.currentSegment = newMuxerVariantMPEGTSSegment(now, m.segmentMaxSize,
 				m.videoTrack, m.audioTrack, m.writer.WriteData)
 		}
 	}
 
-	dts, err := m.videoDTSExtractor.Extract(nalus, pts)
-	if err != nil {
-		return err
-	}
-
-	err = m.currentSegment.writeH264(
+	err := m.currentSegment.writeH264(
 		now.Sub(m.startPCR),
 		dts,
 		pts,
 		idrPresent,
 		nalus)
 	if err != nil {
-		if m.currentSegment.buf.Len() > 0 {
-			m.onSegmentReady(m.currentSegment)
-		}
-		m.currentSegment = nil
 		return err
 	}
 
@@ -136,20 +142,20 @@ func (m *muxerVariantMPEGTSSegmenter) writeAAC(pts time.Duration, aus [][]byte) 
 
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {
+			m.startPCR = now
+			m.startDTS = pts
+			pts = 0
+
 			// create first segment
 			m.currentSegment = newMuxerVariantMPEGTSSegment(now, m.segmentMaxSize,
 				m.videoTrack, m.audioTrack, m.writer.WriteData)
-			m.startPCR = now
-			m.startPTS = pts
-			pts = 0
 		} else {
-			pts -= m.startPTS
+			pts -= m.startDTS
 
 			// switch segment
 			if m.currentSegment.audioAUCount >= mpegtsSegmentMinAUCount &&
-				m.currentSegment.startPTS != nil &&
-				(pts-*m.currentSegment.startPTS) >= m.segmentDuration {
-				m.currentSegment.endPTS = pts
+				(pts-*m.currentSegment.startDTS) >= m.segmentDuration {
+				m.currentSegment.endDTS = pts
 				m.onSegmentReady(m.currentSegment)
 				m.currentSegment = newMuxerVariantMPEGTSSegment(now, m.segmentMaxSize,
 					m.videoTrack, m.audioTrack, m.writer.WriteData)
@@ -161,15 +167,11 @@ func (m *muxerVariantMPEGTSSegmenter) writeAAC(pts time.Duration, aus [][]byte) 
 			return nil
 		}
 
-		pts -= m.startPTS
+		pts -= m.startDTS
 	}
 
 	err := m.currentSegment.writeAAC(now.Sub(m.startPCR), pts, aus)
 	if err != nil {
-		if m.currentSegment.buf.Len() > 0 {
-			m.onSegmentReady(m.currentSegment)
-		}
-		m.currentSegment = nil
 		return err
 	}
 

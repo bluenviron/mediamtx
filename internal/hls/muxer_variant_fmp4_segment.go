@@ -83,7 +83,6 @@ func newMuxerVariantFMP4Segment(
 		s.videoTrack,
 		s.audioTrack,
 		s.genPartID(),
-		s.startDTS,
 	)
 
 	return s
@@ -118,7 +117,7 @@ func (s *muxerVariantFMP4Segment) finalize(
 	s.currentPart = nil
 
 	if s.videoTrack != nil {
-		s.renderedDuration = nextVideoSample.pts - s.startDTS
+		s.renderedDuration = nextVideoSample.dts - s.startDTS
 	} else {
 		s.renderedDuration = 0
 		for _, pa := range s.parts {
@@ -155,7 +154,6 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4VideoSample, adjustedPar
 			s.videoTrack,
 			s.audioTrack,
 			s.genPartID(),
-			sample.next.dts,
 		)
 	}
 
@@ -188,7 +186,6 @@ func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4AudioSample, adjustedPart
 			s.videoTrack,
 			s.audioTrack,
 			s.genPartID(),
-			sample.next.pts,
 		)
 	}
 

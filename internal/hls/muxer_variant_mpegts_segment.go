@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	mpegtsPCROffset    = 400 * time.Millisecond // 2 samples @ 5fps
-	mpegtsPTSDTSOffset = 400 * time.Millisecond // 2 samples @ 5fps
+	mpegtsPCROffset = 400 * time.Millisecond // 2 samples @ 5fps
 )
 
 type muxerVariantMPEGTSSegment struct {
@@ -27,8 +26,8 @@ type muxerVariantMPEGTSSegment struct {
 	startTime      time.Time
 	name           string
 	buf            bytes.Buffer
-	startPTS       *time.Duration
-	endPTS         time.Duration
+	startDTS       *time.Duration
+	endDTS         time.Duration
 	pcrSendCounter int
 	audioAUCount   int
 }
@@ -58,7 +57,7 @@ func newMuxerVariantMPEGTSSegment(
 }
 
 func (t *muxerVariantMPEGTSSegment) duration() time.Duration {
-	return t.endPTS - *t.startPTS
+	return t.endDTS - *t.startDTS
 }
 
 func (t *muxerVariantMPEGTSSegment) write(p []byte) (int, error) {
@@ -110,13 +109,13 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 		MarkerBits: 2,
 	}
 
-	if dts == (pts + mpegtsPTSDTSOffset) {
+	if dts == pts {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorOnlyPTS
-		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset + mpegtsPCROffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
 	} else {
 		oh.PTSDTSIndicator = astits.PTSDTSIndicatorBothPresent
 		oh.DTS = &astits.ClockReference{Base: int64((dts + mpegtsPCROffset).Seconds() * 90000)}
-		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset + mpegtsPCROffset).Seconds() * 90000)}
+		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
 	}
 
 	_, err = t.writeData(&astits.MuxerData{
@@ -134,13 +133,11 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 		return err
 	}
 
-	if t.startPTS == nil {
-		t.startPTS = &pts
+	if t.startDTS == nil {
+		t.startDTS = &dts
 	}
 
-	if pts > t.endPTS {
-		t.endPTS = pts
-	}
+	t.endDTS = dts
 
 	return nil
 }
@@ -188,8 +185,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 				OptionalHeader: &astits.PESOptionalHeader{
 					MarkerBits:      2,
 					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS: &astits.ClockReference{Base: int64((pts + mpegtsPTSDTSOffset +
-						mpegtsPCROffset).Seconds() * 90000)},
+					PTS:             &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)},
 				},
 				PacketLength: uint16(len(enc) + 8),
 				StreamID:     192, // audio
@@ -203,14 +199,12 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 
 	if t.videoTrack == nil {
 		t.audioAUCount += len(aus)
-	}
 
-	if t.startPTS == nil {
-		t.startPTS = &pts
-	}
+		if t.startDTS == nil {
+			t.startDTS = &pts
+		}
 
-	if pts > t.endPTS {
-		t.endPTS = pts
+		t.endDTS = pts
 	}
 
 	return nil

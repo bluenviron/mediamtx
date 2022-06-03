@@ -20,7 +20,6 @@ func mp4PartGenerateVideoTraf(
 	w *mp4Writer,
 	trackID int,
 	videoSamples []*fmp4VideoSample,
-	startDTS time.Duration,
 ) (*mp4.Trun, int, error) {
 	/*
 		traf
@@ -51,7 +50,7 @@ func mp4PartGenerateVideoTraf(
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
-		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(startDTS, fmp4VideoTimescale)),
+		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(videoSamples[0].dts, fmp4VideoTimescale)),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -184,7 +183,6 @@ func mp4PartGenerate(
 	audioTrack *gortsplib.TrackAAC,
 	videoSamples []*fmp4VideoSample,
 	audioSamples []*fmp4AudioSample,
-	startDTS time.Duration,
 ) ([]byte, error) {
 	/*
 		moof
@@ -215,7 +213,7 @@ func mp4PartGenerate(
 	if videoTrack != nil {
 		var err error
 		videoTrun, videoTrunOffset, err = mp4PartGenerateVideoTraf(
-			w, trackID, videoSamples, startDTS)
+			w, trackID, videoSamples)
 		if err != nil {
 			return nil, err
 		}
@@ -303,7 +301,6 @@ type muxerVariantFMP4Part struct {
 	videoTrack *gortsplib.TrackH264
 	audioTrack *gortsplib.TrackAAC
 	id         uint64
-	startDTS   time.Duration
 
 	isIndependent    bool
 	videoSamples     []*fmp4VideoSample
@@ -316,13 +313,11 @@ func newMuxerVariantFMP4Part(
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackAAC,
 	id uint64,
-	startDTS time.Duration,
 ) *muxerVariantFMP4Part {
 	p := &muxerVariantFMP4Part{
 		videoTrack: videoTrack,
 		audioTrack: audioTrack,
 		id:         id,
-		startDTS:   startDTS,
 	}
 
 	if videoTrack == nil {
@@ -363,8 +358,7 @@ func (p *muxerVariantFMP4Part) finalize() error {
 			p.videoTrack,
 			p.audioTrack,
 			p.videoSamples,
-			p.audioSamples,
-			p.startDTS)
+			p.audioSamples)
 		if err != nil {
 			return err
 		}
