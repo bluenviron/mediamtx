@@ -359,23 +359,6 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 
 func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileResponse {
 	switch {
-	case fname == "init.mp4":
-		p.mutex.Lock()
-		defer p.mutex.Unlock()
-
-		byts, err := mp4InitGenerate(p.videoTrack, p.audioTrack)
-		if err != nil {
-			return &MuxerFileResponse{Status: http.StatusInternalServerError}
-		}
-
-		return &MuxerFileResponse{
-			Status: http.StatusOK,
-			Header: map[string]string{
-				"Content-Type": "video/mp4",
-			},
-			Body: bytes.NewReader(byts),
-		}
-
 	case strings.HasPrefix(fname, "seg"):
 		base := strings.TrimSuffix(fname, ".mp4")
 
