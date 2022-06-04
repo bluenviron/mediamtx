@@ -13,6 +13,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 
+	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -151,7 +152,7 @@ func (s *rtspSource) runInner() bool {
 		},
 	}
 
-	u, err := base.ParseURL(s.ur)
+	u, err := url.Parse(s.ur)
 	if err != nil {
 		s.log(logger.Info, "ERR: %s", err)
 		return true

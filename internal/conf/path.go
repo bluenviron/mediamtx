@@ -3,12 +3,12 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
+	gourl "net/url"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/url"
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
@@ -105,7 +105,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
 		}
 
-		_, err := base.ParseURL(pconf.Source)
+		_, err := url.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
 		}
@@ -115,7 +115,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
 		}
 
-		u, err := url.Parse(pconf.Source)
+		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
 		}
@@ -138,7 +138,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source; use another path")
 		}
 
-		u, err := url.Parse(pconf.Source)
+		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
 		}
@@ -160,7 +160,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			return fmt.Errorf("source redirect must be filled")
 		}
 
-		_, err := base.ParseURL(pconf.SourceRedirect)
+		_, err := url.Parse(pconf.SourceRedirect)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
 		}
@@ -190,7 +190,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
 			}
 		} else {
-			_, err := base.ParseURL(pconf.Fallback)
+			_, err := url.Parse(pconf.Fallback)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
 			}

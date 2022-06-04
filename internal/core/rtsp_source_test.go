@@ -10,6 +10,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -274,7 +275,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 	func() {
 		c := gortsplib.Client{}
 
-		u, err := base.ParseURL("rtsp://127.0.0.1:8554/proxied")
+		u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
 		require.NoError(t, err)
 
 		err = c.Start(u.Scheme, u.Host)
@@ -303,7 +304,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 	func() {
 		c := gortsplib.Client{}
 
-		u, err := base.ParseURL("rtsp://127.0.0.1:8554/proxied")
+		u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
 		require.NoError(t, err)
 
 		err = c.Start(u.Scheme, u.Host)

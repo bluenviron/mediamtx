@@ -15,6 +15,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -168,7 +169,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 				br := bufio.NewReader(conn)
 
 				if ca == "describe" {
-					u, err := base.ParseURL("rtsp://localhost:8554/mypath")
+					u, err := url.Parse("rtsp://localhost:8554/mypath")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -186,7 +187,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
-					u, err := base.ParseURL("rtsp://localhost:8554/mypath/trackID=0")
+					u, err := url.Parse("rtsp://localhost:8554/mypath/trackID=0")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -304,7 +305,7 @@ func main() {
 				br := bufio.NewReader(conn)
 
 				if ca == "describe" || ca == "describe and setup" {
-					u, err := base.ParseURL("rtsp://localhost:8554/ondemand")
+					u, err := url.Parse("rtsp://localhost:8554/ondemand")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -324,7 +325,7 @@ func main() {
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					u, err := base.ParseURL("rtsp://localhost:8554/ondemand/trackID=0")
+					u, err := url.Parse("rtsp://localhost:8554/ondemand/trackID=0")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{

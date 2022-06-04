@@ -11,6 +11,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/url"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -119,7 +120,7 @@ type pathDescribeRes struct {
 
 type pathDescribeReq struct {
 	pathName     string
-	url          *base.URL
+	url          *url.URL
 	authenticate authenticateFunc
 	res          chan pathDescribeRes
 }
@@ -781,7 +782,7 @@ func (pa *path) handleDescribe(req pathDescribeReq) {
 	if pa.conf.Fallback != "" {
 		fallbackURL := func() string {
 			if strings.HasPrefix(pa.conf.Fallback, "/") {
-				ur := base.URL{
+				ur := url.URL{
 					Scheme: req.url.Scheme,
 					User:   req.url.User,
 					Host:   req.url.Host,
