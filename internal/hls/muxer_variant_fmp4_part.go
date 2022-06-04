@@ -7,9 +7,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/abema/go-mp4"
+	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
+
+	"github.com/aler9/rtsp-simple-server/internal/mp4"
 )
 
 func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
@@ -17,10 +19,10 @@ func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
 }
 
 func mp4PartGenerateVideoTraf(
-	w *mp4Writer,
+	w *mp4.Writer,
 	trackID int,
 	videoSamples []*fmp4VideoSample,
-) (*mp4.Trun, int, error) {
+) (*gomp4.Trun, int, error) {
 	/*
 		traf
 		- tfhd
@@ -28,15 +30,15 @@ func mp4PartGenerateVideoTraf(
 		- trun
 	*/
 
-	_, err := w.writeBoxStart(&mp4.Traf{}) // <traf>
+	_, err := w.WriteBoxStart(&gomp4.Traf{}) // <traf>
 	if err != nil {
 		return nil, 0, err
 	}
 
 	flags := 0
 
-	_, err = w.writeBox(&mp4.Tfhd{ // <tfhd/>
-		FullBox: mp4.FullBox{
+	_, err = w.WriteBox(&gomp4.Tfhd{ // <tfhd/>
+		FullBox: gomp4.FullBox{
 			Flags: [3]byte{2, byte(flags >> 8), byte(flags)},
 		},
 		TrackID: uint32(trackID),
@@ -45,8 +47,8 @@ func mp4PartGenerateVideoTraf(
 		return nil, 0, err
 	}
 
-	_, err = w.writeBox(&mp4.Tfdt{ // <tfdt/>
-		FullBox: mp4.FullBox{
+	_, err = w.WriteBox(&gomp4.Tfdt{ // <tfdt/>
+		FullBox: gomp4.FullBox{
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
@@ -63,8 +65,8 @@ func mp4PartGenerateVideoTraf(
 	flags |= 0x400 // sample flags present
 	flags |= 0x800 // sample composition time offset present or v1
 
-	trun := &mp4.Trun{ // <trun/>
-		FullBox: mp4.FullBox{
+	trun := &gomp4.Trun{ // <trun/>
+		FullBox: gomp4.FullBox{
 			Version: 1,
 			Flags:   [3]byte{0, byte(flags >> 8), byte(flags)},
 		},
@@ -79,7 +81,7 @@ func mp4PartGenerateVideoTraf(
 			flags |= 1 << 16 // sample_is_non_sync_sample
 		}
 
-		trun.Entries = append(trun.Entries, mp4.TrunEntry{
+		trun.Entries = append(trun.Entries, gomp4.TrunEntry{
 			SampleDuration:                uint32(durationGoToMp4(e.duration(), fmp4VideoTimescale)),
 			SampleSize:                    uint32(len(e.avcc)),
 			SampleFlags:                   flags,
@@ -87,12 +89,12 @@ func mp4PartGenerateVideoTraf(
 		})
 	}
 
-	trunOffset, err := w.writeBox(trun)
+	trunOffset, err := w.WriteBox(trun)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = w.writeBoxEnd() // </traf>
+	err = w.WriteBoxEnd() // </traf>
 	if err != nil {
 		return nil, 0, err
 	}
@@ -101,11 +103,11 @@ func mp4PartGenerateVideoTraf(
 }
 
 func mp4PartGenerateAudioTraf(
-	w *mp4Writer,
+	w *mp4.Writer,
 	trackID int,
 	audioTrack *gortsplib.TrackAAC,
 	audioSamples []*fmp4AudioSample,
-) (*mp4.Trun, int, error) {
+) (*gomp4.Trun, int, error) {
 	/*
 		traf
 		- tfhd
@@ -117,15 +119,15 @@ func mp4PartGenerateAudioTraf(
 		return nil, 0, nil
 	}
 
-	_, err := w.writeBoxStart(&mp4.Traf{}) // <traf>
+	_, err := w.WriteBoxStart(&gomp4.Traf{}) // <traf>
 	if err != nil {
 		return nil, 0, err
 	}
 
 	flags := 0
 
-	_, err = w.writeBox(&mp4.Tfhd{ // <tfhd/>
-		FullBox: mp4.FullBox{
+	_, err = w.WriteBox(&gomp4.Tfhd{ // <tfhd/>
+		FullBox: gomp4.FullBox{
 			Flags: [3]byte{2, byte(flags >> 8), byte(flags)},
 		},
 		TrackID: uint32(trackID),
@@ -134,8 +136,8 @@ func mp4PartGenerateAudioTraf(
 		return nil, 0, err
 	}
 
-	_, err = w.writeBox(&mp4.Tfdt{ // <tfdt/>
-		FullBox: mp4.FullBox{
+	_, err = w.WriteBox(&gomp4.Tfdt{ // <tfdt/>
+		FullBox: gomp4.FullBox{
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
@@ -150,8 +152,8 @@ func mp4PartGenerateAudioTraf(
 	flags |= 0x100 // sample duration present
 	flags |= 0x200 // sample size present
 
-	trun := &mp4.Trun{ // <trun/>
-		FullBox: mp4.FullBox{
+	trun := &gomp4.Trun{ // <trun/>
+		FullBox: gomp4.FullBox{
 			Version: 0,
 			Flags:   [3]byte{0, byte(flags >> 8), byte(flags)},
 		},
@@ -159,18 +161,18 @@ func mp4PartGenerateAudioTraf(
 	}
 
 	for _, e := range audioSamples {
-		trun.Entries = append(trun.Entries, mp4.TrunEntry{
+		trun.Entries = append(trun.Entries, gomp4.TrunEntry{
 			SampleDuration: uint32(durationGoToMp4(e.duration(), time.Duration(audioTrack.ClockRate()))),
 			SampleSize:     uint32(len(e.au)),
 		})
 	}
 
-	trunOffset, err := w.writeBox(trun)
+	trunOffset, err := w.WriteBox(trun)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	err = w.writeBoxEnd() // </traf>
+	err = w.WriteBoxEnd() // </traf>
 	if err != nil {
 		return nil, 0, err
 	}
@@ -192,14 +194,14 @@ func mp4PartGenerate(
 		mdat
 	*/
 
-	w := newMP4Writer()
+	w := mp4.NewWriter()
 
-	moofOffset, err := w.writeBoxStart(&mp4.Moof{}) // <moof>
+	moofOffset, err := w.WriteBoxStart(&gomp4.Moof{}) // <moof>
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = w.writeBox(&mp4.Mfhd{ // <mfhd/>
+	_, err = w.WriteBox(&gomp4.Mfhd{ // <mfhd/>
 		SequenceNumber: 0,
 	})
 	if err != nil {
@@ -208,7 +210,7 @@ func mp4PartGenerate(
 
 	trackID := 1
 
-	var videoTrun *mp4.Trun
+	var videoTrun *gomp4.Trun
 	var videoTrunOffset int
 	if videoTrack != nil {
 		var err error
@@ -221,7 +223,7 @@ func mp4PartGenerate(
 		trackID++
 	}
 
-	var audioTrun *mp4.Trun
+	var audioTrun *gomp4.Trun
 	var audioTrunOffset int
 	if audioTrack != nil {
 		var err error
@@ -231,12 +233,12 @@ func mp4PartGenerate(
 		}
 	}
 
-	err = w.writeBoxEnd() // </moof>
+	err = w.WriteBoxEnd() // </moof>
 	if err != nil {
 		return nil, err
 	}
 
-	mdat := &mp4.Mdat{} // <mdat/>
+	mdat := &gomp4.Mdat{} // <mdat/>
 
 	dataSize := 0
 	videoDataSize := 0
@@ -269,14 +271,14 @@ func mp4PartGenerate(
 		}
 	}
 
-	mdatOffset, err := w.writeBox(mdat)
+	mdatOffset, err := w.WriteBox(mdat)
 	if err != nil {
 		return nil, err
 	}
 
 	if videoTrack != nil {
 		videoTrun.DataOffset = int32(mdatOffset - moofOffset + 8)
-		err = w.rewriteBox(videoTrunOffset, videoTrun)
+		err = w.RewriteBox(videoTrunOffset, videoTrun)
 		if err != nil {
 			return nil, err
 		}
@@ -284,13 +286,13 @@ func mp4PartGenerate(
 
 	if audioTrack != nil && audioTrun != nil {
 		audioTrun.DataOffset = int32(videoDataSize + mdatOffset - moofOffset + 8)
-		err = w.rewriteBox(audioTrunOffset, audioTrun)
+		err = w.RewriteBox(audioTrunOffset, audioTrun)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return w.bytes(), nil
+	return w.Bytes(), nil
 }
 
 func fmp4PartName(id uint64) string {
