@@ -8,8 +8,8 @@ import (
 
 var errMoreChunksNeeded = errors.New("more chunks are needed")
 
-type messageReaderChunkStream struct {
-	mr                 *MessageReader
+type rawRawMessageReaderChunkStream struct {
+	mr                 *RawMessageReader
 	curTimestamp       *uint32
 	curType            *MessageType
 	curMessageStreamID *uint32
@@ -17,7 +17,7 @@ type messageReaderChunkStream struct {
 	curBody            *[]byte
 }
 
-func (rc *messageReaderChunkStream) read(typ byte) (*Message, error) {
+func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 	switch typ {
 	case 0:
 		if rc.curBody != nil {
@@ -44,7 +44,7 @@ func (rc *messageReaderChunkStream) read(typ byte) (*Message, error) {
 			return nil, errMoreChunksNeeded
 		}
 
-		return &Message{
+		return &RawMessage{
 			Timestamp:       c0.Timestamp,
 			Type:            c0.Type,
 			MessageStreamID: c0.MessageStreamID,
@@ -78,7 +78,7 @@ func (rc *messageReaderChunkStream) read(typ byte) (*Message, error) {
 			return nil, errMoreChunksNeeded
 		}
 
-		return &Message{
+		return &RawMessage{
 			Timestamp:       *rc.curTimestamp + c1.TimestampDelta,
 			Type:            c1.Type,
 			MessageStreamID: *rc.curMessageStreamID,
@@ -113,7 +113,7 @@ func (rc *messageReaderChunkStream) read(typ byte) (*Message, error) {
 			return nil, errMoreChunksNeeded
 		}
 
-		return &Message{
+		return &RawMessage{
 			Timestamp:       *rc.curTimestamp + c2.TimestampDelta,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
@@ -149,7 +149,7 @@ func (rc *messageReaderChunkStream) read(typ byte) (*Message, error) {
 		body := *rc.curBody
 		rc.curBody = nil
 
-		return &Message{
+		return &RawMessage{
 			Timestamp:       *rc.curTimestamp,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
@@ -158,28 +158,28 @@ func (rc *messageReaderChunkStream) read(typ byte) (*Message, error) {
 	}
 }
 
-// MessageReader is a message reader.
-type MessageReader struct {
+// RawMessageReader is a message reader.
+type RawMessageReader struct {
 	r            *bufio.Reader
 	chunkSize    int
-	chunkStreams map[byte]*messageReaderChunkStream
+	chunkStreams map[byte]*rawRawMessageReaderChunkStream
 }
 
-// NewMessageReader allocates a MessageReader.
-func NewMessageReader(r *bufio.Reader) *MessageReader {
-	return &MessageReader{
+// NewRawMessageReader allocates a RawMessageReader.
+func NewRawMessageReader(r *bufio.Reader) *RawMessageReader {
+	return &RawMessageReader{
 		r:            r,
 		chunkSize:    128,
-		chunkStreams: make(map[byte]*messageReaderChunkStream),
+		chunkStreams: make(map[byte]*rawRawMessageReaderChunkStream),
 	}
 }
 
 // SetChunkSize sets the maximum chunk size.
-func (mr *MessageReader) SetChunkSize(v int) {
+func (mr *RawMessageReader) SetChunkSize(v int) {
 	mr.chunkSize = v
 }
 
-func (mr *MessageReader) Read() (*Message, error) {
+func (mr *RawMessageReader) Read() (*RawMessage, error) {
 	for {
 		byt, err := mr.r.ReadByte()
 		if err != nil {
@@ -191,7 +191,7 @@ func (mr *MessageReader) Read() (*Message, error) {
 
 		rc, ok := mr.chunkStreams[chunkStreamID]
 		if !ok {
-			rc = &messageReaderChunkStream{mr: mr}
+			rc = &rawRawMessageReaderChunkStream{mr: mr}
 			mr.chunkStreams[chunkStreamID] = rc
 		}
 

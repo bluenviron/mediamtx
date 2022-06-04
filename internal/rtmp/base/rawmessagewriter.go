@@ -4,8 +4,8 @@ import (
 	"io"
 )
 
-type messageWriterChunkStream struct {
-	mw                  *MessageWriter
+type rawMessageWriterChunkStream struct {
+	mw                  *RawMessageWriter
 	lastMessageStreamID *uint32
 	lastType            *MessageType
 	lastBodyLen         *int
@@ -13,7 +13,7 @@ type messageWriterChunkStream struct {
 	lastTimestampDelta  *uint32
 }
 
-func (wc *messageWriterChunkStream) write(msg *Message) error {
+func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 	bodyLen := len(msg.Body)
 	pos := 0
 	firstChunk := true
@@ -115,32 +115,32 @@ func (wc *messageWriterChunkStream) write(msg *Message) error {
 	}
 }
 
-// MessageWriter is a message writer.
-type MessageWriter struct {
+// RawMessageWriter is a message writer.
+type RawMessageWriter struct {
 	w            io.Writer
 	chunkSize    int
-	chunkStreams map[byte]*messageWriterChunkStream
+	chunkStreams map[byte]*rawMessageWriterChunkStream
 }
 
-// NewMessageWriter allocates a MessageWriter.
-func NewMessageWriter(w io.Writer) *MessageWriter {
-	return &MessageWriter{
+// NewRawMessageWriter allocates a RawMessageWriter.
+func NewRawMessageWriter(w io.Writer) *RawMessageWriter {
+	return &RawMessageWriter{
 		w:            w,
 		chunkSize:    128,
-		chunkStreams: make(map[byte]*messageWriterChunkStream),
+		chunkStreams: make(map[byte]*rawMessageWriterChunkStream),
 	}
 }
 
 // SetChunkSize sets the maximum chunk size.
-func (mw *MessageWriter) SetChunkSize(v int) {
+func (mw *RawMessageWriter) SetChunkSize(v int) {
 	mw.chunkSize = v
 }
 
 // Write writes a Message.
-func (mw *MessageWriter) Write(msg *Message) error {
+func (mw *RawMessageWriter) Write(msg *RawMessage) error {
 	wc, ok := mw.chunkStreams[msg.ChunkStreamID]
 	if !ok {
-		wc = &messageWriterChunkStream{mw: mw}
+		wc = &rawMessageWriterChunkStream{mw: mw}
 		mw.chunkStreams[msg.ChunkStreamID] = wc
 	}
 

@@ -1,7 +1,7 @@
 package base
 
-// Message is a message.
-type Message struct {
+// RawMessage is a message.
+type RawMessage struct {
 	ChunkStreamID   byte
 	Timestamp       uint32
 	Type            MessageType

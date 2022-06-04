@@ -13,10 +13,11 @@ const (
 
 	MessageTypeUserControl MessageType = 4
 
-	MessageTypeDataAMF3    MessageType = 15
 	MessageTypeCommandAMF3 MessageType = 17
-	MessageTypeDataAMF0    MessageType = 18
 	MessageTypeCommandAMF0 MessageType = 20
+
+	MessageTypeDataAMF3 MessageType = 15
+	MessageTypeDataAMF0 MessageType = 18
 
 	MessageTypeAudio MessageType = 8
 	MessageTypeVideo MessageType = 9
