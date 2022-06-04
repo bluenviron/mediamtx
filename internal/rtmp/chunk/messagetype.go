@@ -1,4 +1,4 @@
-package base
+package chunk
 
 // MessageType is a message type.
 type MessageType byte

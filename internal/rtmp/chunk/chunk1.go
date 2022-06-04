@@ -1,7 +1,6 @@
-package base
+package chunk
 
 import (
-	"fmt"
 	"io"
 )
 
@@ -27,12 +26,8 @@ func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen int) error {
 		return err
 	}
 
-	if header[0]>>6 != 1 {
-		return fmt.Errorf("wrong chunk header type")
-	}
-
 	c.ChunkStreamID = header[0] & 0x3F
-	c.TimestampDelta = uint32(header[3])<<16 | uint32(header[2])<<8 | uint32(header[1])
+	c.TimestampDelta = uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3])
 	c.BodyLen = uint32(header[4])<<16 | uint32(header[5])<<8 | uint32(header[6])
 	c.Type = MessageType(header[7])
 

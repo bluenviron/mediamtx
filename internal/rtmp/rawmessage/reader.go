@@ -1,30 +1,33 @@
-package base
+package rawmessage
 
 import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
+
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 )
 
 var errMoreChunksNeeded = errors.New("more chunks are needed")
 
-type rawRawMessageReaderChunkStream struct {
-	mr                 *RawMessageReader
+type readerChunkStream struct {
+	mr                 *Reader
 	curTimestamp       *uint32
-	curType            *MessageType
+	curType            *chunk.MessageType
 	curMessageStreamID *uint32
 	curBodyLen         *uint32
 	curBody            *[]byte
 }
 
-func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
+func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 	switch typ {
 	case 0:
 		if rc.curBody != nil {
 			return nil, fmt.Errorf("received type 0 chunk but expected type 3 chunk")
 		}
 
-		var c0 Chunk0
+		var c0 chunk.Chunk0
 		err := c0.Read(rc.mr.r, rc.mr.chunkSize)
 		if err != nil {
 			return nil, err
@@ -44,7 +47,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 			return nil, errMoreChunksNeeded
 		}
 
-		return &RawMessage{
+		return &Message{
 			Timestamp:       c0.Timestamp,
 			Type:            c0.Type,
 			MessageStreamID: c0.MessageStreamID,
@@ -60,7 +63,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 			return nil, fmt.Errorf("received type 1 chunk but expected type 3 chunk")
 		}
 
-		var c1 Chunk1
+		var c1 chunk.Chunk1
 		err := c1.Read(rc.mr.r, rc.mr.chunkSize)
 		if err != nil {
 			return nil, err
@@ -78,7 +81,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 			return nil, errMoreChunksNeeded
 		}
 
-		return &RawMessage{
+		return &Message{
 			Timestamp:       *rc.curTimestamp + c1.TimestampDelta,
 			Type:            c1.Type,
 			MessageStreamID: *rc.curMessageStreamID,
@@ -99,7 +102,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 			chunkBodyLen = rc.mr.chunkSize
 		}
 
-		var c2 Chunk2
+		var c2 chunk.Chunk2
 		err := c2.Read(rc.mr.r, chunkBodyLen)
 		if err != nil {
 			return nil, err
@@ -113,7 +116,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 			return nil, errMoreChunksNeeded
 		}
 
-		return &RawMessage{
+		return &Message{
 			Timestamp:       *rc.curTimestamp + c2.TimestampDelta,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
@@ -134,7 +137,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 			chunkBodyLen = rc.mr.chunkSize
 		}
 
-		var c3 Chunk3
+		var c3 chunk.Chunk3
 		err := c3.Read(rc.mr.r, chunkBodyLen)
 		if err != nil {
 			return nil, err
@@ -149,7 +152,7 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 		body := *rc.curBody
 		rc.curBody = nil
 
-		return &RawMessage{
+		return &Message{
 			Timestamp:       *rc.curTimestamp,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
@@ -158,30 +161,31 @@ func (rc *rawRawMessageReaderChunkStream) read(typ byte) (*RawMessage, error) {
 	}
 }
 
-// RawMessageReader is a message reader.
-type RawMessageReader struct {
+// Reader is a raw message reader.
+type Reader struct {
 	r            *bufio.Reader
 	chunkSize    int
-	chunkStreams map[byte]*rawRawMessageReaderChunkStream
+	chunkStreams map[byte]*readerChunkStream
 }
 
-// NewRawMessageReader allocates a RawMessageReader.
-func NewRawMessageReader(r *bufio.Reader) *RawMessageReader {
-	return &RawMessageReader{
-		r:            r,
+// NewReader allocates a Reader.
+func NewReader(r io.Reader) *Reader {
+	return &Reader{
+		r:            bufio.NewReader(r),
 		chunkSize:    128,
-		chunkStreams: make(map[byte]*rawRawMessageReaderChunkStream),
+		chunkStreams: make(map[byte]*readerChunkStream),
 	}
 }
 
 // SetChunkSize sets the maximum chunk size.
-func (mr *RawMessageReader) SetChunkSize(v int) {
-	mr.chunkSize = v
+func (r *Reader) SetChunkSize(v int) {
+	r.chunkSize = v
 }
 
-func (mr *RawMessageReader) Read() (*RawMessage, error) {
+// Read reads a Message.
+func (r *Reader) Read() (*Message, error) {
 	for {
-		byt, err := mr.r.ReadByte()
+		byt, err := r.r.ReadByte()
 		if err != nil {
 			return nil, err
 		}
@@ -189,13 +193,13 @@ func (mr *RawMessageReader) Read() (*RawMessage, error) {
 		typ := byt >> 6
 		chunkStreamID := byt & 0x3F
 
-		rc, ok := mr.chunkStreams[chunkStreamID]
+		rc, ok := r.chunkStreams[chunkStreamID]
 		if !ok {
-			rc = &rawRawMessageReaderChunkStream{mr: mr}
-			mr.chunkStreams[chunkStreamID] = rc
+			rc = &readerChunkStream{mr: r}
+			r.chunkStreams[chunkStreamID] = rc
 		}
 
-		mr.r.UnreadByte()
+		r.r.UnreadByte()
 
 		msg, err := rc.read(typ)
 		if err != nil {

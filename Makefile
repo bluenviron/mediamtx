@@ -85,7 +85,7 @@ test-internal:
 	./internal/hls \
 	./internal/logger \
 	./internal/rlimit \
-	./internal/rtmp
+	./internal/rtmp/...
 
 test-core:
 	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \

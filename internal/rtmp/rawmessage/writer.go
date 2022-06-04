@@ -1,19 +1,21 @@
-package base
+package rawmessage
 
 import (
 	"io"
+
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 )
 
-type rawMessageWriterChunkStream struct {
-	mw                  *RawMessageWriter
+type writerChunkStream struct {
+	mw                  *Writer
 	lastMessageStreamID *uint32
-	lastType            *MessageType
+	lastType            *chunk.MessageType
 	lastBodyLen         *int
 	lastTimestamp       *uint32
 	lastTimestampDelta  *uint32
 }
 
-func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
+func (wc *writerChunkStream) write(msg *Message) error {
 	bodyLen := len(msg.Body)
 	pos := 0
 	firstChunk := true
@@ -40,7 +42,7 @@ func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 
 			switch {
 			case wc.lastMessageStreamID == nil || timestampDelta == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
-				err := Chunk0{
+				err := chunk.Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
 					Timestamp:       msg.Timestamp,
 					Type:            msg.Type,
@@ -53,7 +55,7 @@ func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 				}
 
 			case *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
-				err := Chunk1{
+				err := chunk.Chunk1{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
 					Type:           msg.Type,
@@ -65,7 +67,7 @@ func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 				}
 
 			case wc.lastTimestampDelta == nil || *wc.lastTimestampDelta != *timestampDelta:
-				err := Chunk2{
+				err := chunk.Chunk2{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
 					Body:           msg.Body[pos : pos+chunkBodyLen],
@@ -75,7 +77,7 @@ func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 				}
 
 			default:
-				err := Chunk3{
+				err := chunk.Chunk3{
 					ChunkStreamID: msg.ChunkStreamID,
 					Body:          msg.Body[pos : pos+chunkBodyLen],
 				}.Write(wc.mw.w)
@@ -98,7 +100,7 @@ func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 				wc.lastTimestampDelta = &v5
 			}
 		} else {
-			err := Chunk3{
+			err := chunk.Chunk3{
 				ChunkStreamID: msg.ChunkStreamID,
 				Body:          msg.Body[pos : pos+chunkBodyLen],
 			}.Write(wc.mw.w)
@@ -115,33 +117,33 @@ func (wc *rawMessageWriterChunkStream) write(msg *RawMessage) error {
 	}
 }
 
-// RawMessageWriter is a message writer.
-type RawMessageWriter struct {
+// Writer is a raw message writer.
+type Writer struct {
 	w            io.Writer
 	chunkSize    int
-	chunkStreams map[byte]*rawMessageWriterChunkStream
+	chunkStreams map[byte]*writerChunkStream
 }
 
-// NewRawMessageWriter allocates a RawMessageWriter.
-func NewRawMessageWriter(w io.Writer) *RawMessageWriter {
-	return &RawMessageWriter{
+// NewWriter allocates a Writer.
+func NewWriter(w io.Writer) *Writer {
+	return &Writer{
 		w:            w,
 		chunkSize:    128,
-		chunkStreams: make(map[byte]*rawMessageWriterChunkStream),
+		chunkStreams: make(map[byte]*writerChunkStream),
 	}
 }
 
 // SetChunkSize sets the maximum chunk size.
-func (mw *RawMessageWriter) SetChunkSize(v int) {
-	mw.chunkSize = v
+func (w *Writer) SetChunkSize(v int) {
+	w.chunkSize = v
 }
 
 // Write writes a Message.
-func (mw *RawMessageWriter) Write(msg *RawMessage) error {
-	wc, ok := mw.chunkStreams[msg.ChunkStreamID]
+func (w *Writer) Write(msg *Message) error {
+	wc, ok := w.chunkStreams[msg.ChunkStreamID]
 	if !ok {
-		wc = &rawMessageWriterChunkStream{mw: mw}
-		mw.chunkStreams[msg.ChunkStreamID] = wc
+		wc = &writerChunkStream{mw: w}
+		w.chunkStreams[msg.ChunkStreamID] = wc
 	}
 
 	return wc.write(msg)

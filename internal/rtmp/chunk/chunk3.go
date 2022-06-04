@@ -1,7 +1,6 @@
-package base
+package chunk
 
 import (
-	"fmt"
 	"io"
 )
 
@@ -22,10 +21,6 @@ func (c *Chunk3) Read(r io.Reader, chunkBodyLen int) error {
 	_, err := r.Read(header)
 	if err != nil {
 		return err
-	}
-
-	if header[0]>>6 != 2 {
-		return fmt.Errorf("wrong chunk header type")
 	}
 
 	c.ChunkStreamID = header[0] & 0x3F
