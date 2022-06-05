@@ -115,31 +115,34 @@ func TestReadTracks(t *testing.T) {
 			defer conn.Close()
 
 			// C->S handshake C0
-			err = handshake.C0{}.Write(conn)
+			err = handshake.C0S0{}.Write(conn)
 			require.NoError(t, err)
 
 			// C->S handshake C1
-			err = handshake.C1{}.Write(conn)
+			err = handshake.C1S1{}.Write(conn, true)
 			require.NoError(t, err)
 
 			// S->C handshake S0
-			err = handshake.S0{}.Read(conn)
+			err = handshake.C0S0{}.Read(conn)
 			require.NoError(t, err)
 
-			// S->C handshake S1+S2
-			s1s2 := make([]byte, 1536*2)
-			_, err = conn.Read(s1s2)
+			// S->C handshake S1
+			s1 := handshake.C1S1{}
+			err = s1.Read(conn, false)
+			require.NoError(t, err)
+
+			// S->C handshake S2
+			err = (&handshake.C2S2{}).Read(conn)
 			require.NoError(t, err)
 
 			// C->S handshake C2
-			err = handshake.C2{}.Write(conn, s1s2)
+			err = handshake.C2S2{}.Write(conn, s1.Key)
 			require.NoError(t, err)
 
 			mw := message.NewWriter(conn)
 			mr := message.NewReader(conn)
 
 			// C->S connect
-
 			err = mw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Payload: []interface{}{
@@ -471,24 +474,28 @@ func TestWriteTracks(t *testing.T) {
 	defer conn.Close()
 
 	// C->S handshake C0
-	err = handshake.C0{}.Write(conn)
+	err = handshake.C0S0{}.Write(conn)
 	require.NoError(t, err)
 
 	// C-> handshake C1
-	err = handshake.C1{}.Write(conn)
+	err = handshake.C1S1{}.Write(conn, true)
 	require.NoError(t, err)
 
 	// S->C handshake S0
-	err = handshake.S0{}.Read(conn)
+	err = handshake.C0S0{}.Read(conn)
 	require.NoError(t, err)
 
-	// S->C handshake S1+S2
-	s1s2 := make([]byte, 1536*2)
-	_, err = conn.Read(s1s2)
+	// S->C handshake S1
+	s1 := handshake.C1S1{}
+	err = s1.Read(conn, false)
+	require.NoError(t, err)
+
+	// S->C handshake S2
+	err = (&handshake.C2S2{}).Read(conn)
 	require.NoError(t, err)
 
 	// C->S handshake C2
-	err = handshake.C2{}.Write(conn, s1s2)
+	err = handshake.C2S2{}.Write(conn, s1.Key)
 	require.NoError(t, err)
 
 	mw := message.NewWriter(conn)
