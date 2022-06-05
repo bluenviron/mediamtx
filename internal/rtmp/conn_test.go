@@ -625,17 +625,15 @@ func TestWriteTracks(t *testing.T) {
 	// S->C event "stream is recorded"
 	msg, err = mr.Read()
 	require.NoError(t, err)
-	require.Equal(t, &message.MsgUserControl{
-		Type:    4,
-		Payload: []byte{0x00, 0x00, 0x00, 0x01},
+	require.Equal(t, &message.MsgUserControlStreamIsRecorded{
+		StreamID: 1,
 	}, msg)
 
 	// S->C event "stream begin 1"
 	msg, err = mr.Read()
 	require.NoError(t, err)
-	require.Equal(t, &message.MsgUserControl{
-		Type:    0,
-		Payload: []byte{0x00, 0x00, 0x00, 0x01},
+	require.Equal(t, &message.MsgUserControlStreamBegin{
+		StreamID: 1,
 	}, msg)
 
 	// S->C onStatus

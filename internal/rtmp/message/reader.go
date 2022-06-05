@@ -1,6 +1,7 @@
 package message
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io"
 
@@ -8,8 +9,8 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
 )
 
-func messageFromType(typ chunk.MessageType) (Message, error) {
-	switch typ {
+func allocateMessage(raw *rawmessage.Message) (Message, error) {
+	switch raw.Type {
 	case chunk.MessageTypeSetChunkSize:
 		return &MsgSetChunkSize{}, nil
 
@@ -20,7 +21,36 @@ func messageFromType(typ chunk.MessageType) (Message, error) {
 		return &MsgSetPeerBandwidth{}, nil
 
 	case chunk.MessageTypeUserControl:
-		return &MsgUserControl{}, nil
+		if len(raw.Body) < 2 {
+			return nil, fmt.Errorf("invalid body size")
+		}
+
+		subType := binary.BigEndian.Uint16(raw.Body)
+		switch subType {
+		case UserControlTypeStreamBegin:
+			return &MsgUserControlStreamBegin{}, nil
+
+		case UserControlTypeStreamEOF:
+			return &MsgUserControlStreamEOF{}, nil
+
+		case UserControlTypeStreamDry:
+			return &MsgUserControlStreamDry{}, nil
+
+		case UserControlTypeSetBufferLength:
+			return &MsgUserControlSetBufferLength{}, nil
+
+		case UserControlTypeStreamIsRecorded:
+			return &MsgUserControlStreamIsRecorded{}, nil
+
+		case UserControlTypePingRequest:
+			return &MsgUserControlPingRequest{}, nil
+
+		case UserControlTypePingResponse:
+			return &MsgUserControlPingResponse{}, nil
+
+		default:
+			return nil, fmt.Errorf("invalid user control type")
+		}
 
 	case chunk.MessageTypeCommandAMF0:
 		return &MsgCommandAMF0{}, nil
@@ -63,7 +93,7 @@ func (r *Reader) Read() (Message, error) {
 		return nil, err
 	}
 
-	msg, err := messageFromType(raw.Type)
+	msg, err := allocateMessage(raw)
 	if err != nil {
 		return nil, err
 	}
