@@ -60,23 +60,21 @@ func hsFindDigest(p []byte, key []byte, base int) int {
 	return gap
 }
 
-func hsParse1(p []byte, peerkey []byte, key []byte) (ok bool, digest []byte) {
+func hsParse1(p []byte, peerkey []byte, key []byte) (bool, []byte) {
 	var pos int
 	if pos = hsFindDigest(p, peerkey, 772); pos == -1 {
 		if pos = hsFindDigest(p, peerkey, 8); pos == -1 {
-			return
+			return false, nil
 		}
 	}
-	ok = true
-	digest = hsMakeDigest(key, p[pos:pos+32], -1)
-	return
+	return true, hsMakeDigest(key, p[pos:pos+32], -1)
 }
 
 // C1S1 is a C1 or S1 packet.
 type C1S1 struct {
 	Time   uint32
 	Random []byte
-	Key    []byte
+	Digest []byte
 }
 
 // Read reads a C1S1.
@@ -97,20 +95,20 @@ func (c *C1S1) Read(r io.Reader, isC1 bool) error {
 		peerKey = hsServerPartialKey
 		key = hsClientFullKey
 	}
-	ok, key := hsParse1(buf, peerKey, key)
+	ok, digest := hsParse1(buf, peerKey, key)
 	if !ok {
 		return fmt.Errorf("unable to validate C1/S1 signature")
 	}
 
 	c.Time = binary.BigEndian.Uint32(buf)
 	c.Random = buf[8:]
-	c.Key = key
+	c.Digest = digest
 
 	return nil
 }
 
 // Write writes a C1S1.
-func (c C1S1) Write(w io.Writer, isC1 bool) error {
+func (c *C1S1) Write(w io.Writer, isC1 bool) error {
 	buf := make([]byte, 1536)
 
 	binary.BigEndian.PutUint32(buf, c.Time)
@@ -132,6 +130,8 @@ func (c C1S1) Write(w io.Writer, isC1 bool) error {
 	}
 	digest := hsMakeDigest(key, buf, gap)
 	copy(buf[gap:], digest)
+	pos := hsFindDigest(buf, hsClientPartialKey, 8)
+	c.Digest = hsMakeDigest(hsServerFullKey, buf[pos:pos+32], -1)
 
 	_, err := w.Write(buf)
 	return err
