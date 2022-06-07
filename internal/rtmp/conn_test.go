@@ -62,7 +62,7 @@ func TestReadTracks(t *testing.T) {
 	for _, ca := range []string{
 		"standard",
 		"metadata without codec id",
-		"no metadata",
+		"no metadata, video + audio",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -100,7 +100,7 @@ func TestReadTracks(t *testing.T) {
 
 					require.Equal(t, (*gortsplib.TrackAAC)(nil), audioTrack)
 
-				case "no metadata":
+				case "no metadata, video + audio":
 					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
@@ -341,11 +341,12 @@ func TestReadTracks(t *testing.T) {
 				b := make([]byte, 128)
 				var n int
 				codec.ToConfig(b, &n)
-				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = mw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
-					Body:            body,
+					IsKeyFrame:      true,
+					H264Type:        flvio.AVC_SEQHDR,
+					Payload:         b[:n],
 				})
 				require.NoError(t, err)
 
@@ -359,10 +360,11 @@ func TestReadTracks(t *testing.T) {
 				err = mw.Write(&message.MsgAudio{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
-					Body: append([]byte{
-						flvio.SOUND_AAC<<4 | flvio.SOUND_44Khz<<2 | flvio.SOUND_16BIT<<1 | flvio.SOUND_STEREO,
-						flvio.AAC_SEQHDR,
-					}, enc...),
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         flvio.AAC_SEQHDR,
+					Payload:         enc,
 				})
 				require.NoError(t, err)
 
@@ -404,15 +406,16 @@ func TestReadTracks(t *testing.T) {
 				b := make([]byte, 128)
 				var n int
 				codec.ToConfig(b, &n)
-				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = mw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
-					Body:            body,
+					IsKeyFrame:      true,
+					H264Type:        flvio.AVC_SEQHDR,
+					Payload:         b[:n],
 				})
 				require.NoError(t, err)
 
-			case "no metadata":
+			case "no metadata, video + audio":
 				// C->S H264 decoder config
 				codec := nh264.Codec{
 					SPS: map[int][]byte{
@@ -425,11 +428,12 @@ func TestReadTracks(t *testing.T) {
 				b := make([]byte, 128)
 				var n int
 				codec.ToConfig(b, &n)
-				body := append([]byte{flvio.FRAME_KEY<<4 | flvio.VIDEO_H264, 0, 0, 0, 0}, b[:n]...)
 				err = mw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
-					Body:            body,
+					IsKeyFrame:      true,
+					H264Type:        flvio.AVC_SEQHDR,
+					Payload:         b[:n],
 				})
 				require.NoError(t, err)
 			}
@@ -743,8 +747,10 @@ func TestWriteTracks(t *testing.T) {
 	require.Equal(t, &message.MsgVideo{
 		ChunkStreamID:   6,
 		MessageStreamID: 16777216,
-		Body: []byte{
-			0x17, 0x0, 0x0, 0x0, 0x0, 0x1, 0x64, 0x0,
+		IsKeyFrame:      true,
+		H264Type:        flvio.AVC_SEQHDR,
+		Payload: []byte{
+			0x1, 0x64, 0x0,
 			0xc, 0xff, 0xe1, 0x0, 0x15, 0x67, 0x64, 0x0,
 			0xc, 0xac, 0x3b, 0x50, 0xb0, 0x4b, 0x42, 0x0,
 			0x0, 0x3, 0x0, 0x2, 0x0, 0x0, 0x3, 0x0,
@@ -759,6 +765,10 @@ func TestWriteTracks(t *testing.T) {
 	require.Equal(t, &message.MsgAudio{
 		ChunkStreamID:   4,
 		MessageStreamID: 16777216,
-		Body:            []byte{0xae, 0x0, 0x12, 0x10},
+		Rate:            flvio.SOUND_44Khz,
+		Depth:           flvio.SOUND_16BIT,
+		Channels:        flvio.SOUND_STEREO,
+		AACType:         flvio.AAC_SEQHDR,
+		Payload:         []byte{0x12, 0x10},
 	}, msg)
 }

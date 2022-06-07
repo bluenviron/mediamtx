@@ -10,6 +10,7 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/notedit/rtmp/av"
+	nhaac "github.com/notedit/rtmp/codec/aac"
 	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/notedit/rtmp/format/rtmp"
@@ -344,6 +345,11 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 
 		err = c.WritePacket(av.Packet{
 			Type: av.AACDecoderConfig,
+			AAC: &nhaac.Codec{
+				Config: nhaac.MPEG4AudioConfig{
+					ChannelLayout: nhaac.CH_STEREO,
+				},
+			},
 			Data: enc,
 		})
 		if err != nil {
