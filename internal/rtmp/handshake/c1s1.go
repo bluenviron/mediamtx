@@ -33,15 +33,15 @@ var (
 	hsServerPartialKey = hsServerFullKey[:36]
 )
 
-func hsCalcDigestPos(p []byte, base int) (pos int) {
+func hsCalcDigestPos(p []byte, base int) int {
+	pos := 0
 	for i := 0; i < 4; i++ {
 		pos += int(p[base+i])
 	}
-	pos = (pos % 728) + base + 4
-	return
+	return (pos % 728) + base + 4
 }
 
-func hsMakeDigest(key []byte, src []byte, gap int) (dst []byte) {
+func hsMakeDigest(key []byte, src []byte, gap int) []byte {
 	h := hmac.New(sha256.New, key)
 	if gap <= 0 {
 		h.Write(src)

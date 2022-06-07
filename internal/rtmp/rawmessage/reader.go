@@ -17,6 +17,7 @@ type readerChunkStream struct {
 	curMessageStreamID *uint32
 	curBodyLen         *uint32
 	curBody            *[]byte
+	curTimestampDelta  *uint32
 }
 
 func (rc *readerChunkStream) read(typ byte) (*Message, error) {
@@ -40,6 +41,7 @@ func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 		rc.curTimestamp = &v3
 		v4 := c0.BodyLen
 		rc.curBodyLen = &v4
+		rc.curTimestampDelta = nil
 
 		if c0.BodyLen != uint32(len(c0.Body)) {
 			rc.curBody = &c0.Body
@@ -74,6 +76,8 @@ func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 		rc.curTimestamp = &v3
 		v4 := c1.BodyLen
 		rc.curBodyLen = &v4
+		v5 := c1.TimestampDelta
+		rc.curTimestampDelta = &v5
 
 		if c1.BodyLen != uint32(len(c1.Body)) {
 			rc.curBody = &c1.Body
@@ -81,7 +85,7 @@ func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 		}
 
 		return &Message{
-			Timestamp:       *rc.curTimestamp + c1.TimestampDelta,
+			Timestamp:       *rc.curTimestamp,
 			Type:            c1.Type,
 			MessageStreamID: *rc.curMessageStreamID,
 			Body:            c1.Body,
@@ -107,8 +111,10 @@ func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 			return nil, err
 		}
 
-		v3 := *rc.curTimestamp + c2.TimestampDelta
-		rc.curTimestamp = &v3
+		v1 := *rc.curTimestamp + c2.TimestampDelta
+		rc.curTimestamp = &v1
+		v2 := c2.TimestampDelta
+		rc.curTimestampDelta = &v2
 
 		if chunkBodyLen != len(c2.Body) {
 			rc.curBody = &c2.Body
@@ -116,19 +122,44 @@ func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 		}
 
 		return &Message{
-			Timestamp:       *rc.curTimestamp + c2.TimestampDelta,
+			Timestamp:       *rc.curTimestamp,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
 			Body:            c2.Body,
 		}, nil
 
 	default: // 3
-		if rc.curTimestamp == nil {
+		if rc.curBody == nil && rc.curTimestampDelta == nil {
 			return nil, fmt.Errorf("received type 3 chunk without previous chunk")
 		}
 
-		if rc.curBody == nil {
-			return nil, fmt.Errorf("unsupported")
+		if rc.curBody != nil {
+			chunkBodyLen := int(*rc.curBodyLen) - len(*rc.curBody)
+			if chunkBodyLen > rc.mr.chunkSize {
+				chunkBodyLen = rc.mr.chunkSize
+			}
+
+			var c3 chunk.Chunk3
+			err := c3.Read(rc.mr.r, chunkBodyLen)
+			if err != nil {
+				return nil, err
+			}
+
+			*rc.curBody = append(*rc.curBody, c3.Body...)
+
+			if *rc.curBodyLen != uint32(len(*rc.curBody)) {
+				return nil, errMoreChunksNeeded
+			}
+
+			body := *rc.curBody
+			rc.curBody = nil
+
+			return &Message{
+				Timestamp:       *rc.curTimestamp,
+				Type:            *rc.curType,
+				MessageStreamID: *rc.curMessageStreamID,
+				Body:            body,
+			}, nil
 		}
 
 		chunkBodyLen := int(*rc.curBodyLen)
@@ -142,20 +173,14 @@ func (rc *readerChunkStream) read(typ byte) (*Message, error) {
 			return nil, err
 		}
 
-		*rc.curBody = append(*rc.curBody, c3.Body...)
-
-		if *rc.curBodyLen != uint32(len(*rc.curBody)) {
-			return nil, errMoreChunksNeeded
-		}
-
-		body := *rc.curBody
-		rc.curBody = nil
+		v1 := *rc.curTimestamp + *rc.curTimestampDelta
+		rc.curTimestamp = &v1
 
 		return &Message{
 			Timestamp:       *rc.curTimestamp,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
-			Body:            body,
+			Body:            c3.Body,
 		}, nil
 	}
 }
