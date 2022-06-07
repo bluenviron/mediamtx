@@ -130,10 +130,10 @@ type hlsMuxer struct {
 	ringBuffer      *ringbuffer.RingBuffer
 	lastRequestTime *int64
 	muxer           *hls.Muxer
-	requests        []hlsMuxerRequest
+	requests        []*hlsMuxerRequest
 
 	// in
-	request                chan hlsMuxerRequest
+	request                chan *hlsMuxerRequest
 	hlsServerAPIMuxersList chan hlsServerAPIMuxersListSubReq
 }
 
@@ -149,6 +149,7 @@ func newHLSMuxer(
 	hlsPartDuration conf.StringDuration,
 	hlsSegmentMaxSize conf.StringSize,
 	readBufferCount int,
+	req *hlsMuxerRequest,
 	wg *sync.WaitGroup,
 	pathName string,
 	pathManager hlsMuxerPathManager,
@@ -176,8 +177,12 @@ func newHLSMuxer(
 			v := time.Now().Unix()
 			return &v
 		}(),
-		request:                make(chan hlsMuxerRequest),
+		request:                make(chan *hlsMuxerRequest),
 		hlsServerAPIMuxersList: make(chan hlsServerAPIMuxersListSubReq),
+	}
+
+	if req != nil {
+		m.requests = append(m.requests, req)
 	}
 
 	m.log(logger.Info, "created %s", func() string {
@@ -409,7 +414,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 }
 
-func (m *hlsMuxer) handleRequest(req hlsMuxerRequest) func() *hls.MuxerFileResponse {
+func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
 	err := m.authenticate(req.ctx.Request)
@@ -508,7 +513,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 }
 
 // onRequest is called by hlsserver.Server (forwarded from ServeHTTP).
-func (m *hlsMuxer) onRequest(req hlsMuxerRequest) {
+func (m *hlsMuxer) onRequest(req *hlsMuxerRequest) {
 	select {
 	case m.request <- req:
 	case <-m.ctx.Done():

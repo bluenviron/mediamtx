@@ -76,7 +76,7 @@ type hlsServer struct {
 
 	// in
 	pathSourceReady chan *path
-	request         chan hlsMuxerRequest
+	request         chan *hlsMuxerRequest
 	muxerClose      chan *hlsMuxer
 	apiMuxersList   chan hlsServerAPIMuxersListReq
 }
@@ -139,7 +139,7 @@ func newHLSServer(
 		tlsConfig:                 tlsConfig,
 		muxers:                    make(map[string]*hlsMuxer),
 		pathSourceReady:           make(chan *path),
-		request:                   make(chan hlsMuxerRequest),
+		request:                   make(chan *hlsMuxerRequest),
 		muxerClose:                make(chan *hlsMuxer),
 		apiMuxersList:             make(chan hlsServerAPIMuxersListReq),
 	}
@@ -192,12 +192,11 @@ outer:
 		select {
 		case pa := <-s.pathSourceReady:
 			if s.hlsAlwaysRemux {
-				s.findOrCreateMuxer(pa.Name(), "")
+				s.findOrCreateMuxer(pa.Name(), "", nil)
 			}
 
 		case req := <-s.request:
-			r := s.findOrCreateMuxer(req.dir, req.ctx.Request.RemoteAddr)
-			r.onRequest(req)
+			s.findOrCreateMuxer(req.dir, req.ctx.Request.RemoteAddr, req)
 
 		case c := <-s.muxerClose:
 			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
@@ -286,7 +285,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	dir = strings.TrimSuffix(dir, "/")
 
 	cres := make(chan func() *hls.MuxerFileResponse)
-	hreq := hlsMuxerRequest{
+	hreq := &hlsMuxerRequest{
 		dir:  dir,
 		file: fname,
 		ctx:  ctx,
@@ -315,7 +314,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
-func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string) *hlsMuxer {
+func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *hlsMuxerRequest) *hlsMuxer {
 	r, ok := s.muxers[pathName]
 	if !ok {
 		r = newHLSMuxer(
@@ -330,11 +329,14 @@ func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string) *hlsMu
 			s.hlsPartDuration,
 			s.hlsSegmentMaxSize,
 			s.readBufferCount,
+			req,
 			&s.wg,
 			pathName,
 			s.pathManager,
 			s)
 		s.muxers[pathName] = r
+	} else if req != nil {
+		r.onRequest(req)
 	}
 	return r
 }
