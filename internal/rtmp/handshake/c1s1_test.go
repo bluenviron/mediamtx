@@ -1,6 +1,7 @@
 package handshake
 
 import (
+	"bufio"
 	"bytes"
 	"testing"
 
@@ -43,7 +44,7 @@ func TestC1S1Read(t *testing.T) {
 	)
 
 	var c1s1 C1S1
-	err := c1s1.Read(bytes.NewReader(c1s1enc), true)
+	err := c1s1.Read(bufio.NewReader(bytes.NewReader(c1s1enc)), true)
 	require.NoError(t, err)
 	require.Equal(t, c1s1dec, c1s1)
 }

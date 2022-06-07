@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"bufio"
 	"net"
 	"net/url"
 	"strings"
@@ -113,6 +114,7 @@ func TestReadTracks(t *testing.T) {
 			conn, err := net.Dial("tcp", "127.0.0.1:9121")
 			require.NoError(t, err)
 			defer conn.Close()
+			br := bufio.NewReader(conn)
 
 			// C->S handshake C0
 			err = handshake.C0S0{}.Write(conn)
@@ -124,16 +126,16 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 
 			// S->C handshake S0
-			err = handshake.C0S0{}.Read(conn)
+			err = handshake.C0S0{}.Read(br)
 			require.NoError(t, err)
 
 			// S->C handshake S1
 			s1 := handshake.C1S1{}
-			err = s1.Read(conn, false)
+			err = s1.Read(br, false)
 			require.NoError(t, err)
 
 			// S->C handshake S2
-			err = (&handshake.C2S2{Digest: c1.Digest}).Read(conn)
+			err = (&handshake.C2S2{Digest: c1.Digest}).Read(br)
 			require.NoError(t, err)
 
 			// C->S handshake C2
@@ -141,7 +143,7 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 
 			mw := message.NewWriter(conn)
-			mr := message.NewReader(conn)
+			mr := message.NewReader(br)
 
 			// C->S connect
 			err = mw.Write(&message.MsgCommandAMF0{
@@ -473,6 +475,7 @@ func TestWriteTracks(t *testing.T) {
 	conn, err := net.Dial("tcp", "127.0.0.1:9121")
 	require.NoError(t, err)
 	defer conn.Close()
+	br := bufio.NewReader(conn)
 
 	// C->S handshake C0
 	err = handshake.C0S0{}.Write(conn)
@@ -484,16 +487,16 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 
 	// S->C handshake S0
-	err = handshake.C0S0{}.Read(conn)
+	err = handshake.C0S0{}.Read(br)
 	require.NoError(t, err)
 
 	// S->C handshake S1
 	s1 := handshake.C1S1{}
-	err = s1.Read(conn, false)
+	err = s1.Read(br, false)
 	require.NoError(t, err)
 
 	// S->C handshake S2
-	err = (&handshake.C2S2{Digest: c1.Digest}).Read(conn)
+	err = (&handshake.C2S2{Digest: c1.Digest}).Read(br)
 	require.NoError(t, err)
 
 	// C->S handshake C2
@@ -501,7 +504,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 
 	mw := message.NewWriter(conn)
-	mr := message.NewReader(conn)
+	mr := message.NewReader(br)
 
 	// C->S connect
 	err = mw.Write(&message.MsgCommandAMF0{

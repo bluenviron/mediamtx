@@ -1,6 +1,7 @@
 package handshake
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/rand"
 	"encoding/binary"
@@ -17,7 +18,7 @@ type C2S2 struct {
 }
 
 // Read reads a C2S2.
-func (c *C2S2) Read(r io.Reader) error {
+func (c *C2S2) Read(r *bufio.Reader) error {
 	buf := make([]byte, 1536)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {

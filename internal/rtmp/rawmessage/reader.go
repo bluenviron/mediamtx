@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 )
@@ -169,9 +168,9 @@ type Reader struct {
 }
 
 // NewReader allocates a Reader.
-func NewReader(r io.Reader) *Reader {
+func NewReader(r *bufio.Reader) *Reader {
 	return &Reader{
-		r:            bufio.NewReader(r),
+		r:            r,
 		chunkSize:    128,
 		chunkStreams: make(map[byte]*readerChunkStream),
 	}

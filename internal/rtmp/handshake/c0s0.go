@@ -1,6 +1,7 @@
 package handshake
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 )
@@ -13,7 +14,7 @@ const (
 type C0S0 struct{}
 
 // Read reads a C0S0.
-func (C0S0) Read(r io.Reader) error {
+func (C0S0) Read(r *bufio.Reader) error {
 	buf := make([]byte, 1)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {

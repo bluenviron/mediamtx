@@ -1,9 +1,9 @@
 package message
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
-	"io"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
@@ -75,7 +75,7 @@ type Reader struct {
 }
 
 // NewReader allocates a Reader.
-func NewReader(r io.Reader) *Reader {
+func NewReader(r *bufio.Reader) *Reader {
 	return &Reader{
 		r: rawmessage.NewReader(r),
 	}
