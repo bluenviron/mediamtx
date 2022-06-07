@@ -62,7 +62,7 @@ func TestReadTracks(t *testing.T) {
 	for _, ca := range []string{
 		"standard",
 		"metadata without codec id",
-		"no metadata, video + audio",
+		"missing metadata",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -98,14 +98,18 @@ func TestReadTracks(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
 
-					require.Equal(t, (*gortsplib.TrackAAC)(nil), audioTrack)
+					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
+					require.NoError(t, err)
+					require.Equal(t, audioTrack2, audioTrack)
 
-				case "no metadata, video + audio":
+				case "missing metadata":
 					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
 					require.NoError(t, err)
 					require.Equal(t, videoTrack2, videoTrack)
 
-					require.Equal(t, (*gortsplib.TrackAAC)(nil), audioTrack)
+					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
+					require.NoError(t, err)
+					require.Equal(t, audioTrack2, audioTrack)
 				}
 
 				close(done)
@@ -410,7 +414,25 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-			case "no metadata, video + audio":
+				// C->S AAC decoder config
+				enc, err := aac.MPEG4AudioConfig{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				}.Encode()
+				require.NoError(t, err)
+				err = mrw.Write(&message.MsgAudio{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         flvio.AAC_SEQHDR,
+					Payload:         enc,
+				})
+				require.NoError(t, err)
+
+			case "missing metadata":
 				// C->S H264 decoder config
 				codec := nh264.Codec{
 					SPS: map[int][]byte{
@@ -429,6 +451,24 @@ func TestReadTracks(t *testing.T) {
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
 					Payload:         b[:n],
+				})
+				require.NoError(t, err)
+
+				// C->S AAC decoder config
+				enc, err := aac.MPEG4AudioConfig{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				}.Encode()
+				require.NoError(t, err)
+				err = mrw.Write(&message.MsgAudio{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         flvio.AAC_SEQHDR,
+					Payload:         enc,
 				})
 				require.NoError(t, err)
 			}

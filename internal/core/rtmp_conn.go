@@ -591,9 +591,29 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 				return err
 			}
 
+			// skip invalid NALUs sent by DJI
+			n := 0
+			for _, nalu := range nalus {
+				if len(nalu) != 0 {
+					n++
+				}
+			}
+			if n == 0 {
+				continue
+			}
+
+			validNALUs := make([][]byte, n)
+			pos := 0
+			for _, nalu := range nalus {
+				if len(nalu) != 0 {
+					validNALUs[pos] = nalu
+					pos++
+				}
+			}
+
 			pts := pkt.Time + pkt.CTime
 
-			pkts, err := h264Encoder.Encode(nalus, pts)
+			pkts, err := h264Encoder.Encode(validNALUs, pts)
 			if err != nil {
 				return fmt.Errorf("error while encoding H264: %v", err)
 			}
@@ -610,8 +630,8 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 					rres.stream.writeData(&data{
 						trackID:      videoTrackID,
 						rtp:          pkt,
-						ptsEqualsDTS: h264.IDRPresent(nalus),
-						h264NALUs:    nalus,
+						ptsEqualsDTS: h264.IDRPresent(validNALUs),
+						h264NALUs:    validNALUs,
 						h264PTS:      pts,
 					})
 				}

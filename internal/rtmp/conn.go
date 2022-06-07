@@ -92,6 +92,17 @@ func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
 	return gortsplib.NewTrackH264(96, codec.SPS[0], codec.PPS[0], nil)
 }
 
+func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
+	var mpegConf aac.MPEG4AudioConfig
+	err := mpegConf.Decode(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return gortsplib.NewTrackAAC(96, int(mpegConf.Type), mpegConf.SampleRate,
+		mpegConf.ChannelCount, mpegConf.AOTSpecificConfig, 13, 3, 3)
+}
+
 var errEmptyMetadata = errors.New("metadata is empty")
 
 func (c *Conn) readTracksFromMetadata(pkt av.Packet) (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
@@ -203,14 +214,7 @@ func (c *Conn) readTracksFromMetadata(pkt av.Packet) (*gortsplib.TrackH264, *gor
 				return nil, nil, fmt.Errorf("audio track setupped twice")
 			}
 
-			var mpegConf aac.MPEG4AudioConfig
-			err := mpegConf.Decode(pkt.Data)
-			if err != nil {
-				return nil, nil, err
-			}
-
-			audioTrack, err = gortsplib.NewTrackAAC(96, int(mpegConf.Type), mpegConf.SampleRate,
-				mpegConf.ChannelCount, mpegConf.AOTSpecificConfig, 13, 3, 3)
+			audioTrack, err = trackFromAACDecoderConfig(pkt.Data)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -223,6 +227,61 @@ func (c *Conn) readTracksFromMetadata(pkt av.Packet) (*gortsplib.TrackH264, *gor
 	}
 }
 
+func (c *Conn) readTracksFromPackets(pkt av.Packet) (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+	startTime := pkt.Time
+	var videoTrack *gortsplib.TrackH264
+	var audioTrack *gortsplib.TrackAAC
+
+	// analyze 1 second of packets
+	for {
+		switch pkt.Type {
+		case av.H264DecoderConfig:
+			if videoTrack == nil {
+				var err error
+				videoTrack, err = trackFromH264DecoderConfig(pkt.Data)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				// stop the analysis if both tracks are found
+				if videoTrack != nil && audioTrack != nil {
+					return videoTrack, audioTrack, nil
+				}
+			}
+
+		case av.AACDecoderConfig:
+			if audioTrack == nil {
+				var err error
+				audioTrack, err = trackFromAACDecoderConfig(pkt.Data)
+				if err != nil {
+					return nil, nil, err
+				}
+
+				// stop the analysis if both tracks are found
+				if videoTrack != nil && audioTrack != nil {
+					return videoTrack, audioTrack, nil
+				}
+			}
+		}
+
+		if (pkt.Time - startTime) >= 1*time.Second {
+			break
+		}
+
+		var err error
+		pkt, err = c.ReadPacket()
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	if videoTrack == nil && audioTrack == nil {
+		return nil, nil, fmt.Errorf("no tracks found")
+	}
+
+	return videoTrack, audioTrack, nil
+}
+
 // ReadTracks reads track informations.
 func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
 	pkt, err := c.ReadPacket()
@@ -230,8 +289,7 @@ func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
 		return nil, nil, err
 	}
 
-	switch pkt.Type {
-	case av.Metadata:
+	if pkt.Type == av.Metadata {
 		videoTrack, audioTrack, err := c.readTracksFromMetadata(pkt)
 		if err != nil {
 			if err == errEmptyMetadata {
@@ -240,34 +298,26 @@ func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
 					return nil, nil, err
 				}
 
-				if pkt.Type != av.H264DecoderConfig {
-					return nil, nil, fmt.Errorf("unexpected packet (%v)", pkt.Type)
-				}
-
-				videoTrack, err := trackFromH264DecoderConfig(pkt.Data)
+				videoTrack, audioTrack, err := c.readTracksFromPackets(pkt)
 				if err != nil {
 					return nil, nil, err
 				}
 
-				return videoTrack, nil, nil
+				return videoTrack, audioTrack, nil
 			}
 
 			return nil, nil, err
 		}
 
 		return videoTrack, audioTrack, nil
-
-	case av.H264DecoderConfig:
-		videoTrack, err := trackFromH264DecoderConfig(pkt.Data)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		return videoTrack, nil, nil
-
-	default:
-		return nil, nil, fmt.Errorf("unexpected packet (%v)", pkt.Type)
 	}
+
+	videoTrack, audioTrack, err := c.readTracksFromPackets(pkt)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return videoTrack, audioTrack, nil
 }
 
 // WriteTracks writes track informations.
