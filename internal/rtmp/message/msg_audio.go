@@ -12,6 +12,7 @@ import (
 // MsgAudio is an audio message.
 type MsgAudio struct {
 	ChunkStreamID   byte
+	DTS             uint32
 	MessageStreamID uint32
 	Rate            uint8
 	Depth           uint8
@@ -23,6 +24,7 @@ type MsgAudio struct {
 // Unmarshal implements Message.
 func (m *MsgAudio) Unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
+	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
 
 	if len(raw.Body) < 2 {
@@ -54,6 +56,7 @@ func (m MsgAudio) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,
+		Timestamp:       m.DTS,
 		Type:            chunk.MessageTypeAudio,
 		MessageStreamID: m.MessageStreamID,
 		Body:            body,

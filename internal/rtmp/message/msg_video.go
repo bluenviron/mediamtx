@@ -12,6 +12,7 @@ import (
 // MsgVideo is a video message.
 type MsgVideo struct {
 	ChunkStreamID   byte
+	DTS             uint32
 	MessageStreamID uint32
 	IsKeyFrame      bool
 	H264Type        uint8
@@ -22,6 +23,7 @@ type MsgVideo struct {
 // Unmarshal implements Message.
 func (m *MsgVideo) Unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
+	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
 
 	if len(raw.Body) < 5 {
@@ -60,6 +62,7 @@ func (m MsgVideo) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,
+		Timestamp:       m.DTS,
 		Type:            chunk.MessageTypeVideo,
 		MessageStreamID: m.MessageStreamID,
 		Body:            body,
