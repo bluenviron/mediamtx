@@ -1,12 +1,13 @@
 package rawmessage
 
 import (
-	"bufio"
 	"bytes"
 	"testing"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 )
 
 type writableChunk interface {
@@ -21,7 +22,10 @@ type sequenceEntry struct {
 func TestReader(t *testing.T) {
 	testSequence := func(t *testing.T, seq []sequenceEntry) {
 		var buf bytes.Buffer
-		r := NewReader(bufio.NewReader(&buf))
+		bcr := bytecounter.NewReader(&buf)
+		r := NewReader(bcr, func(count uint32) error {
+			return nil
+		})
 
 		for _, entry := range seq {
 			buf2, err := entry.chunk.Write()
@@ -122,7 +126,10 @@ func TestReader(t *testing.T) {
 
 	t.Run("chunk0 + chunk3", func(t *testing.T) {
 		var buf bytes.Buffer
-		r := NewReader(bufio.NewReader(&buf))
+		bcr := bytecounter.NewReader(&buf)
+		r := NewReader(bcr, func(count uint32) error {
+			return nil
+		})
 
 		buf2, err := chunk.Chunk0{
 			ChunkStreamID:   27,
@@ -152,4 +159,37 @@ func TestReader(t *testing.T) {
 			Body:            bytes.Repeat([]byte{0x03}, 192),
 		}, msg)
 	})
+}
+
+func TestReaderAcknowledge(t *testing.T) {
+	onAckCalled := make(chan struct{})
+
+	var buf bytes.Buffer
+	bcr := bytecounter.NewReader(&buf)
+	r := NewReader(bcr, func(count uint32) error {
+		close(onAckCalled)
+		return nil
+	})
+
+	r.SetWindowAckSize(100)
+
+	for i := 0; i < 2; i++ {
+		buf2, err := chunk.Chunk0{
+			ChunkStreamID:   27,
+			Timestamp:       18576,
+			Type:            chunk.MessageTypeSetPeerBandwidth,
+			MessageStreamID: 3123,
+			BodyLen:         64,
+			Body:            bytes.Repeat([]byte{0x03}, 64),
+		}.Write()
+		require.NoError(t, err)
+		buf.Write(buf2)
+	}
+
+	for i := 0; i < 2; i++ {
+		_, err := r.Read()
+		require.NoError(t, err)
+	}
+
+	<-onAckCalled
 }

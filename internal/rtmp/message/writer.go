@@ -1,8 +1,7 @@
 package message
 
 import (
-	"io"
-
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
 )
 
@@ -12,23 +11,36 @@ type Writer struct {
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(w io.Writer) *Writer {
+func NewWriter(w *bytecounter.Writer) *Writer {
 	return &Writer{
 		w: rawmessage.NewWriter(w),
 	}
 }
 
-// SetChunkSize sets the maximum chunk size.
-func (mw *Writer) SetChunkSize(v int) {
-	mw.w.SetChunkSize(v)
+// SetAcknowledgeValue sets the value of the last received acknowledge.
+func (w *Writer) SetAcknowledgeValue(v uint32) {
+	w.w.SetAcknowledgeValue(v)
 }
 
 // Write writes a message.
-func (mw *Writer) Write(msg Message) error {
+func (w *Writer) Write(msg Message) error {
 	raw, err := msg.Marshal()
 	if err != nil {
 		return err
 	}
 
-	return mw.w.Write(raw)
+	err = w.w.Write(raw)
+	if err != nil {
+		return err
+	}
+
+	switch tmsg := msg.(type) {
+	case *MsgSetChunkSize:
+		w.w.SetChunkSize(tmsg.Value)
+
+	case *MsgSetWindowAckSize:
+		w.w.SetWindowAckSize(tmsg.Value)
+	}
+
+	return nil
 }

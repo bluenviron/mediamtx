@@ -1,7 +1,6 @@
 package handshake
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/hmac"
 	"crypto/rand"
@@ -79,7 +78,7 @@ type C1S1 struct {
 }
 
 // Read reads a C1S1.
-func (c *C1S1) Read(r *bufio.Reader, isC1 bool) error {
+func (c *C1S1) Read(r io.Reader, isC1 bool) error {
 	buf := make([]byte, 1536)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {

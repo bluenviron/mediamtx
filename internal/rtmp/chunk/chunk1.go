@@ -19,7 +19,7 @@ type Chunk1 struct {
 }
 
 // Read reads the chunk.
-func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen int) error {
+func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	header := make([]byte, 8)
 	_, err := r.Read(header)
 	if err != nil {
@@ -31,7 +31,7 @@ func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen int) error {
 	c.BodyLen = uint32(header[4])<<16 | uint32(header[5])<<8 | uint32(header[6])
 	c.Type = MessageType(header[7])
 
-	chunkBodyLen := int(c.BodyLen)
+	chunkBodyLen := (c.BodyLen)
 	if chunkBodyLen > chunkMaxBodyLen {
 		chunkBodyLen = chunkMaxBodyLen
 	}

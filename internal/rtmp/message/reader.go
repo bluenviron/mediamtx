@@ -1,10 +1,10 @@
 package message
 
 import (
-	"bufio"
 	"encoding/binary"
 	"fmt"
 
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
 )
@@ -13,6 +13,9 @@ func allocateMessage(raw *rawmessage.Message) (Message, error) {
 	switch raw.Type {
 	case chunk.MessageTypeSetChunkSize:
 		return &MsgSetChunkSize{}, nil
+
+	case chunk.MessageTypeAcknowledge:
+		return &MsgAcknowledge{}, nil
 
 	case chunk.MessageTypeSetWindowAckSize:
 		return &MsgSetWindowAckSize{}, nil
@@ -75,18 +78,13 @@ type Reader struct {
 }
 
 // NewReader allocates a Reader.
-func NewReader(r *bufio.Reader) *Reader {
+func NewReader(r *bytecounter.Reader, onAckNeeded func(uint32) error) *Reader {
 	return &Reader{
-		r: rawmessage.NewReader(r),
+		r: rawmessage.NewReader(r, onAckNeeded),
 	}
 }
 
-// SetChunkSize sets the maximum chunk size.
-func (r *Reader) SetChunkSize(v int) {
-	r.r.SetChunkSize(v)
-}
-
-// Read reads a essage.
+// Read reads a Message.
 func (r *Reader) Read() (Message, error) {
 	raw, err := r.r.Read()
 	if err != nil {
@@ -101,6 +99,14 @@ func (r *Reader) Read() (Message, error) {
 	err = msg.Unmarshal(raw)
 	if err != nil {
 		return nil, err
+	}
+
+	switch tmsg := msg.(type) {
+	case *MsgSetChunkSize:
+		r.r.SetChunkSize(tmsg.Value)
+
+	case *MsgSetWindowAckSize:
+		r.r.SetWindowAckSize(tmsg.Value)
 	}
 
 	return msg, nil

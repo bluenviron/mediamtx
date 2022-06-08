@@ -16,7 +16,7 @@ type Chunk3 struct {
 }
 
 // Read reads the chunk.
-func (c *Chunk3) Read(r io.Reader, chunkBodyLen int) error {
+func (c *Chunk3) Read(r io.Reader, chunkBodyLen uint32) error {
 	header := make([]byte, 1)
 	_, err := r.Read(header)
 	if err != nil {

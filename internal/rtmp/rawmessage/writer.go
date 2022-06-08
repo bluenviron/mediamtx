@@ -1,8 +1,9 @@
 package rawmessage
 
 import (
-	"io"
+	"fmt"
 
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 )
 
@@ -10,14 +11,38 @@ type writerChunkStream struct {
 	mw                  *Writer
 	lastMessageStreamID *uint32
 	lastType            *chunk.MessageType
-	lastBodyLen         *int
+	lastBodyLen         *uint32
 	lastTimestamp       *uint32
 	lastTimestampDelta  *uint32
 }
 
-func (wc *writerChunkStream) write(msg *Message) error {
-	bodyLen := len(msg.Body)
-	pos := 0
+func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
+	buf, err := c.Write()
+	if err != nil {
+		return err
+	}
+
+	_, err = wc.mw.w.Write(buf)
+	if err != nil {
+		return err
+	}
+
+	// check if we received an acknowledge
+	if wc.mw.ackWindowSize != 0 {
+		diff := wc.mw.w.Count() - (wc.mw.ackValue)
+		// TODO: handle overflow
+
+		if diff > (wc.mw.ackWindowSize * 3 / 2) {
+			return fmt.Errorf("no acknowledge received within window")
+		}
+	}
+
+	return nil
+}
+
+func (wc *writerChunkStream) writeMessage(msg *Message) error {
+	bodyLen := uint32(len(msg.Body))
+	pos := uint32(0)
 	firstChunk := true
 
 	var timestampDelta *uint32
@@ -42,65 +67,45 @@ func (wc *writerChunkStream) write(msg *Message) error {
 
 			switch {
 			case wc.lastMessageStreamID == nil || timestampDelta == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
-				buf, err := chunk.Chunk0{
+				err := wc.writeChunk(&chunk.Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
 					Timestamp:       msg.Timestamp,
 					Type:            msg.Type,
 					MessageStreamID: msg.MessageStreamID,
-					BodyLen:         uint32(bodyLen),
+					BodyLen:         (bodyLen),
 					Body:            msg.Body[pos : pos+chunkBodyLen],
-				}.Write()
-				if err != nil {
-					return err
-				}
-
-				_, err = wc.mw.w.Write(buf)
+				})
 				if err != nil {
 					return err
 				}
 
 			case *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
-				buf, err := chunk.Chunk1{
+				err := wc.writeChunk(&chunk.Chunk1{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
 					Type:           msg.Type,
-					BodyLen:        uint32(bodyLen),
+					BodyLen:        (bodyLen),
 					Body:           msg.Body[pos : pos+chunkBodyLen],
-				}.Write()
-				if err != nil {
-					return err
-				}
-
-				_, err = wc.mw.w.Write(buf)
+				})
 				if err != nil {
 					return err
 				}
 
 			case wc.lastTimestampDelta == nil || *wc.lastTimestampDelta != *timestampDelta:
-				buf, err := chunk.Chunk2{
+				err := wc.writeChunk(&chunk.Chunk2{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
 					Body:           msg.Body[pos : pos+chunkBodyLen],
-				}.Write()
-				if err != nil {
-					return err
-				}
-
-				_, err = wc.mw.w.Write(buf)
+				})
 				if err != nil {
 					return err
 				}
 
 			default:
-				buf, err := chunk.Chunk3{
+				err := wc.writeChunk(&chunk.Chunk3{
 					ChunkStreamID: msg.ChunkStreamID,
 					Body:          msg.Body[pos : pos+chunkBodyLen],
-				}.Write()
-				if err != nil {
-					return err
-				}
-
-				_, err = wc.mw.w.Write(buf)
+				})
 				if err != nil {
 					return err
 				}
@@ -120,15 +125,10 @@ func (wc *writerChunkStream) write(msg *Message) error {
 				wc.lastTimestampDelta = &v5
 			}
 		} else {
-			buf, err := chunk.Chunk3{
+			err := wc.writeChunk(&chunk.Chunk3{
 				ChunkStreamID: msg.ChunkStreamID,
 				Body:          msg.Body[pos : pos+chunkBodyLen],
-			}.Write()
-			if err != nil {
-				return err
-			}
-
-			_, err = wc.mw.w.Write(buf)
+			})
 			if err != nil {
 				return err
 			}
@@ -144,13 +144,15 @@ func (wc *writerChunkStream) write(msg *Message) error {
 
 // Writer is a raw message writer.
 type Writer struct {
-	w            io.Writer
-	chunkSize    int
-	chunkStreams map[byte]*writerChunkStream
+	w             *bytecounter.Writer
+	chunkSize     uint32
+	ackWindowSize uint32
+	ackValue      uint32
+	chunkStreams  map[byte]*writerChunkStream
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(w io.Writer) *Writer {
+func NewWriter(w *bytecounter.Writer) *Writer {
 	return &Writer{
 		w:            w,
 		chunkSize:    128,
@@ -159,8 +161,18 @@ func NewWriter(w io.Writer) *Writer {
 }
 
 // SetChunkSize sets the maximum chunk size.
-func (w *Writer) SetChunkSize(v int) {
+func (w *Writer) SetChunkSize(v uint32) {
 	w.chunkSize = v
+}
+
+// SetWindowAckSize sets the window acknowledgement size.
+func (w *Writer) SetWindowAckSize(v uint32) {
+	w.ackWindowSize = v
+}
+
+// SetAcknowledgeValue sets the acknowledge sequence number.
+func (w *Writer) SetAcknowledgeValue(v uint32) {
+	w.ackValue = v
 }
 
 // Write writes a Message.
@@ -171,5 +183,5 @@ func (w *Writer) Write(msg *Message) error {
 		w.chunkStreams[msg.ChunkStreamID] = wc
 	}
 
-	return wc.write(msg)
+	return wc.writeMessage(msg)
 }
