@@ -31,17 +31,12 @@ func (c *Chunk2) Read(r io.Reader, chunkBodyLen int) error {
 }
 
 // Write writes the chunk.
-func (c Chunk2) Write(w io.Writer) error {
-	header := make([]byte, 4)
-	header[0] = 2<<6 | c.ChunkStreamID
-	header[1] = byte(c.TimestampDelta >> 16)
-	header[2] = byte(c.TimestampDelta >> 8)
-	header[3] = byte(c.TimestampDelta)
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(c.Body)
-	return err
+func (c Chunk2) Write() ([]byte, error) {
+	buf := make([]byte, 4+len(c.Body))
+	buf[0] = 2<<6 | c.ChunkStreamID
+	buf[1] = byte(c.TimestampDelta >> 16)
+	buf[2] = byte(c.TimestampDelta >> 8)
+	buf[3] = byte(c.TimestampDelta)
+	copy(buf[4:], c.Body)
+	return buf, nil
 }

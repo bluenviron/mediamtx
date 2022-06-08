@@ -3,7 +3,6 @@ package rawmessage
 import (
 	"bufio"
 	"bytes"
-	"io"
 	"testing"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -11,7 +10,7 @@ import (
 )
 
 type writableChunk interface {
-	Write(w io.Writer) error
+	Write() ([]byte, error)
 }
 
 type sequenceEntry struct {
@@ -25,8 +24,9 @@ func TestReader(t *testing.T) {
 		r := NewReader(bufio.NewReader(&buf))
 
 		for _, entry := range seq {
-			err := entry.chunk.Write(&buf)
+			buf2, err := entry.chunk.Write()
 			require.NoError(t, err)
+			buf.Write(buf2)
 			msg, err := r.Read()
 			require.NoError(t, err)
 			require.Equal(t, entry.msg, msg)
@@ -124,21 +124,23 @@ func TestReader(t *testing.T) {
 		var buf bytes.Buffer
 		r := NewReader(bufio.NewReader(&buf))
 
-		err := chunk.Chunk0{
+		buf2, err := chunk.Chunk0{
 			ChunkStreamID:   27,
 			Timestamp:       18576,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			BodyLen:         192,
 			Body:            bytes.Repeat([]byte{0x03}, 128),
-		}.Write(&buf)
+		}.Write()
 		require.NoError(t, err)
+		buf.Write(buf2)
 
-		err = chunk.Chunk3{
+		buf2, err = chunk.Chunk3{
 			ChunkStreamID: 27,
 			Body:          bytes.Repeat([]byte{0x03}, 64),
-		}.Write(&buf)
+		}.Write()
 		require.NoError(t, err)
+		buf.Write(buf2)
 
 		msg, err := r.Read()
 		require.NoError(t, err)

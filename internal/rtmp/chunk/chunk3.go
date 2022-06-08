@@ -31,14 +31,9 @@ func (c *Chunk3) Read(r io.Reader, chunkBodyLen int) error {
 }
 
 // Write writes the chunk.
-func (c Chunk3) Write(w io.Writer) error {
-	header := make([]byte, 1)
-	header[0] = 3<<6 | c.ChunkStreamID
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(c.Body)
-	return err
+func (c Chunk3) Write() ([]byte, error) {
+	buf := make([]byte, 1+len(c.Body))
+	buf[0] = 3<<6 | c.ChunkStreamID
+	copy(buf[1:], c.Body)
+	return buf, nil
 }

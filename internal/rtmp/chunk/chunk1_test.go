@@ -28,8 +28,7 @@ func TestChunk1Read(t *testing.T) {
 }
 
 func TestChunk1Write(t *testing.T) {
-	var buf bytes.Buffer
-	err := chunk1dec.Write(&buf)
+	buf, err := chunk1dec.Write()
 	require.NoError(t, err)
-	require.Equal(t, chunk1enc, buf.Bytes())
+	require.Equal(t, chunk1enc, buf)
 }

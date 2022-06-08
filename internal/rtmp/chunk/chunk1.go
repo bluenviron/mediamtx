@@ -42,21 +42,16 @@ func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen int) error {
 }
 
 // Write writes the chunk.
-func (c Chunk1) Write(w io.Writer) error {
-	header := make([]byte, 8)
-	header[0] = 1<<6 | c.ChunkStreamID
-	header[1] = byte(c.TimestampDelta >> 16)
-	header[2] = byte(c.TimestampDelta >> 8)
-	header[3] = byte(c.TimestampDelta)
-	header[4] = byte(c.BodyLen >> 16)
-	header[5] = byte(c.BodyLen >> 8)
-	header[6] = byte(c.BodyLen)
-	header[7] = byte(c.Type)
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(c.Body)
-	return err
+func (c Chunk1) Write() ([]byte, error) {
+	buf := make([]byte, 8+len(c.Body))
+	buf[0] = 1<<6 | c.ChunkStreamID
+	buf[1] = byte(c.TimestampDelta >> 16)
+	buf[2] = byte(c.TimestampDelta >> 8)
+	buf[3] = byte(c.TimestampDelta)
+	buf[4] = byte(c.BodyLen >> 16)
+	buf[5] = byte(c.BodyLen >> 8)
+	buf[6] = byte(c.BodyLen)
+	buf[7] = byte(c.Type)
+	copy(buf[8:], c.Body)
+	return buf, nil
 }

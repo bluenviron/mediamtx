@@ -42,45 +42,65 @@ func (wc *writerChunkStream) write(msg *Message) error {
 
 			switch {
 			case wc.lastMessageStreamID == nil || timestampDelta == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
-				err := chunk.Chunk0{
+				buf, err := chunk.Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
 					Timestamp:       msg.Timestamp,
 					Type:            msg.Type,
 					MessageStreamID: msg.MessageStreamID,
 					BodyLen:         uint32(bodyLen),
 					Body:            msg.Body[pos : pos+chunkBodyLen],
-				}.Write(wc.mw.w)
+				}.Write()
+				if err != nil {
+					return err
+				}
+
+				_, err = wc.mw.w.Write(buf)
 				if err != nil {
 					return err
 				}
 
 			case *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
-				err := chunk.Chunk1{
+				buf, err := chunk.Chunk1{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
 					Type:           msg.Type,
 					BodyLen:        uint32(bodyLen),
 					Body:           msg.Body[pos : pos+chunkBodyLen],
-				}.Write(wc.mw.w)
+				}.Write()
+				if err != nil {
+					return err
+				}
+
+				_, err = wc.mw.w.Write(buf)
 				if err != nil {
 					return err
 				}
 
 			case wc.lastTimestampDelta == nil || *wc.lastTimestampDelta != *timestampDelta:
-				err := chunk.Chunk2{
+				buf, err := chunk.Chunk2{
 					ChunkStreamID:  msg.ChunkStreamID,
 					TimestampDelta: *timestampDelta,
 					Body:           msg.Body[pos : pos+chunkBodyLen],
-				}.Write(wc.mw.w)
+				}.Write()
+				if err != nil {
+					return err
+				}
+
+				_, err = wc.mw.w.Write(buf)
 				if err != nil {
 					return err
 				}
 
 			default:
-				err := chunk.Chunk3{
+				buf, err := chunk.Chunk3{
 					ChunkStreamID: msg.ChunkStreamID,
 					Body:          msg.Body[pos : pos+chunkBodyLen],
-				}.Write(wc.mw.w)
+				}.Write()
+				if err != nil {
+					return err
+				}
+
+				_, err = wc.mw.w.Write(buf)
 				if err != nil {
 					return err
 				}
@@ -100,10 +120,15 @@ func (wc *writerChunkStream) write(msg *Message) error {
 				wc.lastTimestampDelta = &v5
 			}
 		} else {
-			err := chunk.Chunk3{
+			buf, err := chunk.Chunk3{
 				ChunkStreamID: msg.ChunkStreamID,
 				Body:          msg.Body[pos : pos+chunkBodyLen],
-			}.Write(wc.mw.w)
+			}.Write()
+			if err != nil {
+				return err
+			}
+
+			_, err = wc.mw.w.Write(buf)
 			if err != nil {
 				return err
 			}

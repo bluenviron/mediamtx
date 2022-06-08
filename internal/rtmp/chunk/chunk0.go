@@ -42,25 +42,20 @@ func (c *Chunk0) Read(r io.Reader, chunkMaxBodyLen int) error {
 }
 
 // Write writes the chunk.
-func (c Chunk0) Write(w io.Writer) error {
-	header := make([]byte, 12)
-	header[0] = c.ChunkStreamID
-	header[1] = byte(c.Timestamp >> 16)
-	header[2] = byte(c.Timestamp >> 8)
-	header[3] = byte(c.Timestamp)
-	header[4] = byte(c.BodyLen >> 16)
-	header[5] = byte(c.BodyLen >> 8)
-	header[6] = byte(c.BodyLen)
-	header[7] = byte(c.Type)
-	header[8] = byte(c.MessageStreamID >> 24)
-	header[9] = byte(c.MessageStreamID >> 16)
-	header[10] = byte(c.MessageStreamID >> 8)
-	header[11] = byte(c.MessageStreamID)
-	_, err := w.Write(header)
-	if err != nil {
-		return err
-	}
-
-	_, err = w.Write(c.Body)
-	return err
+func (c Chunk0) Write() ([]byte, error) {
+	buf := make([]byte, 12+len(c.Body))
+	buf[0] = c.ChunkStreamID
+	buf[1] = byte(c.Timestamp >> 16)
+	buf[2] = byte(c.Timestamp >> 8)
+	buf[3] = byte(c.Timestamp)
+	buf[4] = byte(c.BodyLen >> 16)
+	buf[5] = byte(c.BodyLen >> 8)
+	buf[6] = byte(c.BodyLen)
+	buf[7] = byte(c.Type)
+	buf[8] = byte(c.MessageStreamID >> 24)
+	buf[9] = byte(c.MessageStreamID >> 16)
+	buf[10] = byte(c.MessageStreamID >> 8)
+	buf[11] = byte(c.MessageStreamID)
+	copy(buf[12:], c.Body)
+	return buf, nil
 }
