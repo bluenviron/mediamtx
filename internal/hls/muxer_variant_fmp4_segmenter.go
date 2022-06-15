@@ -122,12 +122,28 @@ func (m *muxerVariantFMP4Segmenter) adjustPartDuration(du time.Duration) {
 }
 
 func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte) error {
+	idrPresent := false
+	nonIDRPresent := false
+
+	for _, nalu := range nalus {
+		typ := h264.NALUType(nalu[0] & 0x1F)
+		switch typ {
+		case h264.NALUTypeIDR:
+			idrPresent = true
+
+		case h264.NALUTypeNonIDR:
+			nonIDRPresent = true
+		}
+	}
+
+	if !idrPresent && !nonIDRPresent {
+		return nil
+	}
+
 	avcc, err := h264.AVCCEncode(nalus)
 	if err != nil {
 		return err
 	}
-
-	idrPresent := h264.IDRPresent(nalus)
 
 	return m.writeH264Entry(&fmp4VideoSample{
 		pts:        pts,

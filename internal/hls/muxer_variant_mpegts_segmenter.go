@@ -79,7 +79,21 @@ func newMuxerVariantMPEGTSSegmenter(
 
 func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byte) error {
 	now := time.Now()
-	idrPresent := h264.IDRPresent(nalus)
+
+	idrPresent := false
+	nonIDRPresent := false
+
+	for _, nalu := range nalus {
+		typ := h264.NALUType(nalu[0] & 0x1F)
+		switch typ {
+		case h264.NALUTypeIDR:
+			idrPresent = true
+
+		case h264.NALUTypeNonIDR:
+			nonIDRPresent = true
+		}
+	}
+
 	var dts time.Duration
 
 	if m.currentSegment == nil {
@@ -105,6 +119,10 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 		m.currentSegment = newMuxerVariantMPEGTSSegment(now, m.segmentMaxSize,
 			m.videoTrack, m.audioTrack, m.writer.WriteData)
 	} else {
+		if !idrPresent && !nonIDRPresent {
+			return nil
+		}
+
 		var err error
 		dts, err = m.videoDTSExtractor.Extract(nalus, pts)
 		if err != nil {

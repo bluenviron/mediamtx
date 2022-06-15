@@ -353,7 +353,21 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			pts := data.h264PTS - *videoInitialPTS
-			idrPresent := h264.IDRPresent(data.h264NALUs)
+
+			idrPresent := false
+			nonIDRPresent := false
+
+			for _, nalu := range data.h264NALUs {
+				typ := h264.NALUType(nalu[0] & 0x1F)
+				switch typ {
+				case h264.NALUTypeIDR:
+					idrPresent = true
+
+				case h264.NALUTypeNonIDR:
+					nonIDRPresent = true
+				}
+			}
+
 			var dts time.Duration
 
 			// wait until we receive an IDR
@@ -375,6 +389,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				dts = 0
 				pts -= videoStartDTS
 			} else {
+				if !idrPresent && !nonIDRPresent {
+					continue
+				}
+
 				var err error
 				dts, err = videoDTSExtractor.Extract(data.h264NALUs, pts)
 				if err != nil {
