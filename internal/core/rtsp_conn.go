@@ -104,7 +104,7 @@ func (c *rtspConn) ip() net.IP {
 
 func (c *rtspConn) authenticate(
 	pathName string,
-	pathIPs []interface{},
+	pathIPs []fmt.Stringer,
 	pathUser conf.Credential,
 	pathPass conf.Credential,
 	action string,
@@ -247,7 +247,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		pathName: ctx.Path,
 		url:      ctx.Request.URL,
 		authenticate: func(
-			pathIPs []interface{},
+			pathIPs []fmt.Stringer,
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {

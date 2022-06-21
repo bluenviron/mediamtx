@@ -62,6 +62,7 @@ type hlsServer struct {
 	hlsPartDuration           conf.StringDuration
 	hlsSegmentMaxSize         conf.StringSize
 	hlsAllowOrigin            string
+	hlsTrustedProxies         conf.IPsOrCIDRs
 	readBufferCount           int
 	pathManager               *pathManager
 	metrics                   *metrics
@@ -95,6 +96,7 @@ func newHLSServer(
 	hlsEncryption bool,
 	hlsServerKey string,
 	hlsServerCert string,
+	hlsTrustedProxies conf.IPsOrCIDRs,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -129,6 +131,7 @@ func newHLSServer(
 		hlsPartDuration:           hlsPartDuration,
 		hlsSegmentMaxSize:         hlsSegmentMaxSize,
 		hlsAllowOrigin:            hlsAllowOrigin,
+		hlsTrustedProxies:         hlsTrustedProxies,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
 		parent:                    parent,
@@ -175,6 +178,12 @@ func (s *hlsServer) run() {
 	router := gin.New()
 	router.NoRoute(s.onRequest)
 
+	tmp := make([]string, len(s.hlsTrustedProxies))
+	for i, entry := range s.hlsTrustedProxies {
+		tmp[i] = entry.String()
+	}
+	router.SetTrustedProxies(tmp)
+
 	hs := &http.Server{
 		Handler:   router,
 		TLSConfig: s.tlsConfig,
@@ -196,7 +205,7 @@ outer:
 			}
 
 		case req := <-s.request:
-			s.findOrCreateMuxer(req.dir, req.ctx.Request.RemoteAddr, req)
+			s.findOrCreateMuxer(req.dir, req.ctx.ClientIP(), req)
 
 		case c := <-s.muxerClose:
 			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
@@ -232,10 +241,10 @@ outer:
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {
-	s.log(logger.Debug, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
+	s.log(logger.Debug, "[conn %v] %s %s", ctx.ClientIP(), ctx.Request.Method, ctx.Request.URL.Path)
 
 	byts, _ := httputil.DumpRequest(ctx.Request, true)
-	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
+	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.ClientIP(), string(byts))
 
 	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
 	ctx.Writer = logw
@@ -311,7 +320,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	case <-s.ctx.Done():
 	}
 
-	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
+	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.ClientIP(), logw.dump())
 }
 
 func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *hlsMuxerRequest) *hlsMuxer {

@@ -12,7 +12,7 @@ import (
 // AuthMethods is the authMethods parameter.
 type AuthMethods []headers.AuthMethod
 
-// MarshalJSON marshals a AuthMethods into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d AuthMethods) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 
@@ -31,7 +31,7 @@ func (d AuthMethods) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a AuthMethods from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {

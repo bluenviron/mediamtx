@@ -65,6 +65,7 @@ func newMetrics(
 	}
 
 	router := gin.New()
+	router.SetTrustedProxies(nil)
 	router.GET("/metrics", m.onMetrics)
 
 	m.server = &http.Server{Handler: router}

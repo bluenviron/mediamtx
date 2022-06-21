@@ -15,7 +15,7 @@ const (
 	EncryptionStrict
 )
 
-// MarshalJSON marshals a Encryption into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d Encryption) MarshalJSON() ([]byte, error) {
 	var out string
 
@@ -33,7 +33,7 @@ func (d Encryption) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a Encryption from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *Encryption) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {

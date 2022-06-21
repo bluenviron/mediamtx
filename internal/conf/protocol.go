@@ -15,7 +15,7 @@ type Protocol gortsplib.Transport
 // Protocols is the protocols parameter.
 type Protocols map[Protocol]struct{}
 
-// MarshalJSON marshals a Protocols into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d Protocols) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 	i := 0
@@ -43,7 +43,7 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a Protocols from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *Protocols) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {

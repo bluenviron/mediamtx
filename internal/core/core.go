@@ -342,6 +342,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSEncryption,
 				p.conf.HLSServerKey,
 				p.conf.HLSServerCert,
+				p.conf.HLSTrustedProxies,
 				p.conf.ReadBufferCount,
 				p.pathManager,
 				p.metrics,
@@ -490,6 +491,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
 		newConf.HLSServerCert != p.conf.HLSServerCert ||
+		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closePathManager ||
 		closeMetrics {

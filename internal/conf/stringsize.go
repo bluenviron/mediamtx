@@ -9,12 +9,12 @@ import (
 // StringSize is a size that is unmarshaled from a string.
 type StringSize uint64
 
-// MarshalJSON marshals a StringSize into JSON.
+// MarshalJSON implements json.Marshaler.
 func (s StringSize) MarshalJSON() ([]byte, error) {
 	return []byte(`"` + bytefmt.ByteSize(uint64(s)) + `"`), nil
 }
 
-// UnmarshalJSON unmarshals a StringSize from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (s *StringSize) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {

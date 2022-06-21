@@ -17,7 +17,7 @@ const (
 	HLSVariantLowLatency HLSVariant = HLSVariant(hls.MuxerVariantLowLatency)
 )
 
-// MarshalJSON marshals a HLSVariant into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d HLSVariant) MarshalJSON() ([]byte, error) {
 	var out string
 
@@ -35,7 +35,7 @@ func (d HLSVariant) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a HLSVariant from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *HLSVariant) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {

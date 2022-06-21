@@ -12,7 +12,7 @@ import (
 // LogDestinations is the logDestionations parameter.
 type LogDestinations map[logger.Destination]struct{}
 
-// MarshalJSON marshals a LogDestinations into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d LogDestinations) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 	i := 0
@@ -40,7 +40,7 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a LogDestinations from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {

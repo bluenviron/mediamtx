@@ -8,15 +8,15 @@ import (
 	"strings"
 )
 
-// IPsOrNets is a parameter that acceps IPs or subnets.
-type IPsOrNets []interface{}
+// IPsOrCIDRs is a parameter that contains a list of IPs or CIDRs.
+type IPsOrCIDRs []fmt.Stringer
 
-// MarshalJSON marshals a IPsOrNets into JSON.
-func (d IPsOrNets) MarshalJSON() ([]byte, error) {
+// MarshalJSON implements json.Marshaler.
+func (d IPsOrCIDRs) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 
 	for i, v := range d {
-		out[i] = v.(fmt.Stringer).String()
+		out[i] = v.String()
 	}
 
 	sort.Strings(out)
@@ -24,8 +24,8 @@ func (d IPsOrNets) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a IPsOrNets from JSON.
-func (d *IPsOrNets) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON implements json.Unmarshaler.
+func (d *IPsOrCIDRs) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {
 		return err
@@ -41,14 +41,14 @@ func (d *IPsOrNets) UnmarshalJSON(b []byte) error {
 		} else if ip := net.ParseIP(t); ip != nil {
 			*d = append(*d, ip)
 		} else {
-			return fmt.Errorf("unable to parse ip/network '%s'", t)
+			return fmt.Errorf("unable to parse IP/CIDR '%s'", t)
 		}
 	}
 
 	return nil
 }
 
-func (d *IPsOrNets) unmarshalEnv(s string) error {
+func (d *IPsOrCIDRs) unmarshalEnv(s string) error {
 	byts, _ := json.Marshal(strings.Split(s, ","))
 	return d.UnmarshalJSON(byts)
 }

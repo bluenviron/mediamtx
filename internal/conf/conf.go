@@ -216,6 +216,7 @@ type Conf struct {
 	HLSEncryption      bool           `json:"hlsEncryption"`
 	HLSServerKey       string         `json:"hlsServerKey"`
 	HLSServerCert      string         `json:"hlsServerCert"`
+	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`

@@ -25,7 +25,7 @@ func newEmptyTimer() *time.Timer {
 }
 
 type authenticateFunc func(
-	pathIPs []interface{},
+	pathIPs []fmt.Stringer,
 	pathUser conf.Credential,
 	pathPass conf.Credential,
 ) error

@@ -9,12 +9,12 @@ import (
 // Durations are normally unmarshaled from numbers.
 type StringDuration time.Duration
 
-// MarshalJSON marshals a StringDuration into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d StringDuration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(time.Duration(d).String())
 }
 
-// UnmarshalJSON unmarshals a StringDuration from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *StringDuration) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {

@@ -10,7 +10,7 @@ import (
 // LogLevel is the logLevel parameter.
 type LogLevel logger.Level
 
-// MarshalJSON marshals a LogLevel into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d LogLevel) MarshalJSON() ([]byte, error) {
 	var out string
 
@@ -31,7 +31,7 @@ func (d LogLevel) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a LogLevel from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *LogLevel) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {

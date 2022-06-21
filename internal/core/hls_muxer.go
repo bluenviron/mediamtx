@@ -417,7 +417,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
 
-	err := m.authenticate(req.ctx.Request)
+	err := m.authenticate(req.ctx)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			m.log(logger.Info, "authentication error: %s", terr.message)
@@ -459,16 +459,15 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 	}
 }
 
-func (m *hlsMuxer) authenticate(req *http.Request) error {
+func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 	pathConf := m.path.Conf()
 	pathIPs := pathConf.ReadIPs
 	pathUser := pathConf.ReadUser
 	pathPass := pathConf.ReadPass
 
 	if m.externalAuthenticationURL != "" {
-		tmp, _, _ := net.SplitHostPort(req.RemoteAddr)
-		ip := net.ParseIP(tmp)
-		user, pass, _ := req.BasicAuth()
+		ip := net.ParseIP(ctx.ClientIP())
+		user, pass, _ := ctx.Request.BasicAuth()
 
 		err := externalAuth(
 			m.externalAuthenticationURL,
@@ -477,7 +476,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 			pass,
 			m.pathName,
 			"read",
-			req.URL.RawQuery)
+			ctx.Request.URL.RawQuery)
 		if err != nil {
 			return pathErrAuthCritical{
 				message: fmt.Sprintf("external authentication failed: %s", err),
@@ -486,8 +485,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 	}
 
 	if pathIPs != nil {
-		tmp, _, _ := net.SplitHostPort(req.RemoteAddr)
-		ip := net.ParseIP(tmp)
+		ip := net.ParseIP(ctx.ClientIP())
 
 		if !ipEqualOrInRange(ip, pathIPs) {
 			return pathErrAuthCritical{
@@ -497,7 +495,7 @@ func (m *hlsMuxer) authenticate(req *http.Request) error {
 	}
 
 	if pathUser != "" {
-		user, pass, ok := req.BasicAuth()
+		user, pass, ok := ctx.Request.BasicAuth()
 		if !ok {
 			return pathErrAuthNotCritical{}
 		}

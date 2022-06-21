@@ -129,7 +129,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 		author:   s,
 		pathName: ctx.Path,
 		authenticate: func(
-			pathIPs []interface{},
+			pathIPs []fmt.Stringer,
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {
@@ -189,7 +189,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			author:   s,
 			pathName: ctx.Path,
 			authenticate: func(
-				pathIPs []interface{},
+				pathIPs []fmt.Stringer,
 				pathUser conf.Credential,
 				pathPass conf.Credential,
 			) error {

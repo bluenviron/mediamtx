@@ -12,7 +12,7 @@ type SourceProtocol struct {
 	*gortsplib.Transport
 }
 
-// MarshalJSON marshals a SourceProtocol into JSON.
+// MarshalJSON implements json.Marshaler.
 func (d SourceProtocol) MarshalJSON() ([]byte, error) {
 	var out string
 
@@ -34,7 +34,7 @@ func (d SourceProtocol) MarshalJSON() ([]byte, error) {
 	return json.Marshal(out)
 }
 
-// UnmarshalJSON unmarshals a SourceProtocol from JSON.
+// UnmarshalJSON implements json.Unmarshaler.
 func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {

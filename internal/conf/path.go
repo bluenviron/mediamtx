@@ -53,10 +53,10 @@ type PathConf struct {
 	// authentication
 	PublishUser Credential `json:"publishUser"`
 	PublishPass Credential `json:"publishPass"`
-	PublishIPs  IPsOrNets  `json:"publishIPs"`
+	PublishIPs  IPsOrCIDRs `json:"publishIPs"`
 	ReadUser    Credential `json:"readUser"`
 	ReadPass    Credential `json:"readPass"`
-	ReadIPs     IPsOrNets  `json:"readIPs"`
+	ReadIPs     IPsOrCIDRs `json:"readIPs"`
 
 	// external commands
 	RunOnInit               string         `json:"runOnInit"`

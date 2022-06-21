@@ -227,7 +227,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		author:   c,
 		pathName: pathName,
 		authenticate: func(
-			pathIPs []interface{},
+			pathIPs []fmt.Stringer,
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {
@@ -517,7 +517,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 		author:   c,
 		pathName: pathName,
 		authenticate: func(
-			pathIPs []interface{},
+			pathIPs []fmt.Stringer,
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {
@@ -678,7 +678,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 
 func (c *rtmpConn) authenticate(
 	pathName string,
-	pathIPs []interface{},
+	pathIPs []fmt.Stringer,
 	pathUser conf.Credential,
 	pathPass conf.Credential,
 	action string,
