@@ -246,6 +246,17 @@ Each time a user needs to be authenticated, the specified URL will be requested 
 
 If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails.
 
+Please be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
+
+```json
+{
+  "user": "",
+  "password": "",
+}
+```
+
+This happens because a RTSP client doesn't provide credentials until it is asked to. In order to receive the credentials, the authentication server must reply with status code `401` - the client will then send credentials.
+
 ### Encrypt the configuration
 
 The configuration file can be entirely encrypted for security purposes.
