@@ -51,8 +51,8 @@ func mp4InitGenerateVideoTrack(w *mp4.Writer, trackID int, videoTrack *gortsplib
 		return err
 	}
 
-	sps := videoTrack.SPS()
-	pps := videoTrack.PPS()
+	sps := videoTrack.SafeSPS()
+	pps := videoTrack.SafePPS()
 
 	var spsp h264.SPS
 	err = spsp.Unmarshal(sps)
@@ -389,7 +389,7 @@ func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib
 			},
 			DataReferenceIndex: 1,
 		},
-		ChannelCount: uint16(audioTrack.ChannelCount()),
+		ChannelCount: uint16(audioTrack.ChannelCount),
 		SampleSize:   16,
 		SampleRate:   uint32(audioTrack.ClockRate() * 65536),
 	})
@@ -398,10 +398,10 @@ func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib
 	}
 
 	c := aac.MPEG4AudioConfig{
-		Type:              aac.MPEG4AudioType(audioTrack.Type()),
-		SampleRate:        audioTrack.ClockRate(),
-		ChannelCount:      audioTrack.ChannelCount(),
-		AOTSpecificConfig: audioTrack.AOTSpecificConfig(),
+		Type:              aac.MPEG4AudioType(audioTrack.Type),
+		SampleRate:        audioTrack.SampleRate,
+		ChannelCount:      audioTrack.ChannelCount,
+		AOTSpecificConfig: audioTrack.AOTSpecificConfig,
 	}
 	conf, _ := c.Encode()
 

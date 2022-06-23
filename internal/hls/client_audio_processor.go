@@ -78,9 +78,14 @@ func (p *clientAudioProcessor) doProcess(
 		if !p.trackInitialized {
 			p.trackInitialized = true
 
-			track, err := gortsplib.NewTrackAAC(96, pkt.Type, pkt.SampleRate, pkt.ChannelCount, nil, 13, 3, 3)
-			if err != nil {
-				return err
+			track := &gortsplib.TrackAAC{
+				PayloadType:      96,
+				Type:             pkt.Type,
+				SampleRate:       pkt.SampleRate,
+				ChannelCount:     pkt.ChannelCount,
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
 			}
 
 			err = p.onTrack(track)

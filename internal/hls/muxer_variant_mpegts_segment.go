@@ -151,9 +151,9 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 
 	for i, au := range aus {
 		pkts[i] = &aac.ADTSPacket{
-			Type:         t.audioTrack.Type(),
-			SampleRate:   t.audioTrack.ClockRate(),
-			ChannelCount: t.audioTrack.ChannelCount(),
+			Type:         t.audioTrack.Type,
+			SampleRate:   t.audioTrack.SampleRate,
+			ChannelCount: t.audioTrack.ChannelCount,
 			AU:           au,
 		}
 	}

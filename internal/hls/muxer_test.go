@@ -22,11 +22,21 @@ var testSPS = []byte{
 }
 
 func TestMuxerVideoAudio(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96, testSPS, []byte{0x08}, nil)
-	require.NoError(t, err)
+	videoTrack := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         testSPS,
+		PPS:         []byte{0x08},
+	}
 
-	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
-	require.NoError(t, err)
+	audioTrack := &gortsplib.TrackAAC{
+		PayloadType:      97,
+		Type:             2,
+		SampleRate:       44100,
+		ChannelCount:     2,
+		SizeLength:       13,
+		IndexLength:      3,
+		IndexDeltaLength: 3,
+	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, audioTrack)
 	require.NoError(t, err)
@@ -183,8 +193,11 @@ func TestMuxerVideoAudio(t *testing.T) {
 }
 
 func TestMuxerVideoOnly(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96, testSPS, []byte{0x08}, nil)
-	require.NoError(t, err)
+	videoTrack := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         testSPS,
+		PPS:         []byte{0x08},
+	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
@@ -266,8 +279,15 @@ func TestMuxerVideoOnly(t *testing.T) {
 }
 
 func TestMuxerAudioOnly(t *testing.T) {
-	audioTrack, err := gortsplib.NewTrackAAC(97, 2, 44100, 2, nil, 13, 3, 3)
-	require.NoError(t, err)
+	audioTrack := &gortsplib.TrackAAC{
+		PayloadType:      97,
+		Type:             2,
+		SampleRate:       44100,
+		ChannelCount:     2,
+		SizeLength:       13,
+		IndexLength:      3,
+		IndexDeltaLength: 3,
+	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, nil, audioTrack)
 	require.NoError(t, err)
@@ -354,8 +374,11 @@ func TestMuxerAudioOnly(t *testing.T) {
 }
 
 func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96, testSPS, []byte{0x08}, nil)
-	require.NoError(t, err)
+	videoTrack := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         testSPS,
+		PPS:         []byte{0x08},
+	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)
@@ -375,8 +398,11 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 }
 
 func TestMuxerMaxSegmentSize(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96, testSPS, []byte{0x08}, nil)
-	require.NoError(t, err)
+	videoTrack := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         testSPS,
+		PPS:         []byte{0x08},
+	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 0, videoTrack, nil)
 	require.NoError(t, err)
@@ -390,8 +416,11 @@ func TestMuxerMaxSegmentSize(t *testing.T) {
 }
 
 func TestMuxerDoubleRead(t *testing.T) {
-	videoTrack, err := gortsplib.NewTrackH264(96, testSPS, []byte{0x08}, nil)
-	require.NoError(t, err)
+	videoTrack := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         testSPS,
+		PPS:         []byte{0x08},
+	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
 	require.NoError(t, err)

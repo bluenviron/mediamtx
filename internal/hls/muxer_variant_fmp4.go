@@ -104,8 +104,8 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 		var sps []byte
 		var pps []byte
 		if v.videoTrack != nil {
-			sps = v.videoTrack.SPS()
-			pps = v.videoTrack.PPS()
+			sps = v.videoTrack.SafeSPS()
+			pps = v.videoTrack.SafePPS()
 		}
 
 		if v.initContent == nil ||

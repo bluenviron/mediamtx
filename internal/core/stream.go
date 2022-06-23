@@ -86,13 +86,13 @@ func (s *stream) updateH264TrackParameters(h264track *gortsplib.TrackH264, nalus
 
 		switch typ {
 		case h264.NALUTypeSPS:
-			if !bytes.Equal(nalu, h264track.SPS()) {
-				h264track.SetSPS(append([]byte(nil), nalu...))
+			if !bytes.Equal(nalu, h264track.SafeSPS()) {
+				h264track.SafeSetSPS(append([]byte(nil), nalu...))
 			}
 
 		case h264.NALUTypePPS:
-			if !bytes.Equal(nalu, h264track.PPS()) {
-				h264track.SetPPS(append([]byte(nil), nalu...))
+			if !bytes.Equal(nalu, h264track.SafePPS()) {
+				h264track.SafeSetPPS(append([]byte(nil), nalu...))
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (s *stream) remuxH264NALUs(h264track *gortsplib.TrackH264, data *data) {
 
 		case h264.NALUTypeIDR:
 			// add SPS and PPS before every IDR
-			filteredNALUs = append(filteredNALUs, h264track.SPS(), h264track.PPS())
+			filteredNALUs = append(filteredNALUs, h264track.SafeSPS(), h264track.SafePPS())
 		}
 
 		filteredNALUs = append(filteredNALUs, nalu)

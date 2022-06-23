@@ -247,15 +247,15 @@ func main() {
 		panic("environment not set")
 	}
 
-	track, err := gortsplib.NewTrackH264(96,
-		[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-	if err != nil {
-		panic(err)
+	track := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS: []byte{0x01, 0x02, 0x03, 0x04},
+		PPS: []byte{0x01, 0x02, 0x03, 0x04},
 	}
 
 	source := gortsplib.Client{}
 
-	err = source.StartPublishing(
+	err := source.StartPublishing(
 		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("RTSP_PATH"),
 		gortsplib.Tracks{track})
 	if err != nil {
@@ -376,13 +376,16 @@ func TestCorePathRunOnReady(t *testing.T) {
 		doneFile))
 	require.Equal(t, true, ok)
 	defer p.close()
-	track, err := gortsplib.NewTrackH264(96,
-		[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-	require.NoError(t, err)
+
+	track := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+	}
 
 	c := gortsplib.Client{}
 
-	err = c.StartPublishing(
+	err := c.StartPublishing(
 		"rtsp://localhost:8554/test",
 		gortsplib.Tracks{track})
 	require.NoError(t, err)
@@ -410,9 +413,11 @@ func TestCoreHotReloading(t *testing.T) {
 	defer p.close()
 
 	func() {
-		track, err := gortsplib.NewTrackH264(96,
-			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-		require.NoError(t, err)
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}
 
 		c := gortsplib.Client{}
 
@@ -430,9 +435,11 @@ func TestCoreHotReloading(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	func() {
-		track, err := gortsplib.NewTrackH264(96,
-			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-		require.NoError(t, err)
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}
 
 		conn := gortsplib.Client{}
 

@@ -6,8 +6,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafo
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d h1:UQZhZ2O0vMHr2cI+DC1Mbh0TJxzA3RcLoMsFw+aXw7E=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
-github.com/aler9/gortsplib v0.0.0-20220622212730-fa36721df4d9 h1:hBVZrBdtxyn1dJTpvLpIvTkKjD8NfoGncBnfIaJqsOc=
-github.com/aler9/gortsplib v0.0.0-20220622212730-fa36721df4d9/go.mod h1:i1e4CEs42IrbidMUNTSNOKmeGPCOHVX9P3BvPxzyMtI=
+github.com/aler9/gortsplib v0.0.0-20220623113557-d80977dbaea3 h1:4kPboldLlj92Qr+LOoj3F+syP5k/dgW4EZhC1NfGeLc=
+github.com/aler9/gortsplib v0.0.0-20220623113557-d80977dbaea3/go.mod h1:i1e4CEs42IrbidMUNTSNOKmeGPCOHVX9P3BvPxzyMtI=
 github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927 h1:95mXJ5fUCYpBRdSOnLAQAdJHHKxxxJrVCiaqDi965YQ=
 github.com/aler9/rtmp v0.0.0-20210403095203-3be4a5535927/go.mod h1:vzuE21rowz+lT1NGsWbreIvYulgBpCGnQyeTyFblUHc=
 github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82 h1:9WgSzBLo3a9ToSVV7sRTBYZ1GGOZUpq4+5H3SN0UZq4=

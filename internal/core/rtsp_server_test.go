@@ -230,13 +230,15 @@ func TestRTSPServerAuth(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			track, err := gortsplib.NewTrackH264(96,
-				[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-			require.NoError(t, err)
+			track := &gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			}
 
 			source := gortsplib.Client{}
 
-			err = source.StartPublishing(
+			err := source.StartPublishing(
 				"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream?param=value",
 				gortsplib.Tracks{track})
 			require.NoError(t, err)
@@ -268,13 +270,15 @@ func TestRTSPServerAuth(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track, err := gortsplib.NewTrackH264(96,
-			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-		require.NoError(t, err)
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}
 
 		source := gortsplib.Client{}
 
-		err = source.StartPublishing(
+		err := source.StartPublishing(
 			"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
@@ -314,13 +318,15 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(96,
-				[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-			require.NoError(t, err)
+			track := &gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			}
 
 			c := gortsplib.Client{}
 
-			err = c.StartPublishing(
+			err := c.StartPublishing(
 				"rtsp://"+ca.user+":"+ca.pass+"@localhost:8554/test/stream",
 				gortsplib.Tracks{track},
 			)
@@ -377,13 +383,15 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track, err := gortsplib.NewTrackH264(96,
-			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-		require.NoError(t, err)
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}
 
 		c := gortsplib.Client{}
 
-		err = c.StartPublishing(
+		err := c.StartPublishing(
 			"rtsp://localhost:8554/test/stream",
 			gortsplib.Tracks{track},
 		)
@@ -401,9 +409,11 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		require.NoError(t, err)
 		defer a.close()
 
-		track, err := gortsplib.NewTrackH264(96,
-			[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-		require.NoError(t, err)
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}
 
 		c := gortsplib.Client{}
 
@@ -434,13 +444,15 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.close()
 
-			track, err := gortsplib.NewTrackH264(96,
-				[]byte{0x01, 0x02, 0x03, 0x04}, []byte{0x01, 0x02, 0x03, 0x04}, nil)
-			require.NoError(t, err)
+			track := &gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			}
 
 			s1 := gortsplib.Client{}
 
-			err = s1.StartPublishing("rtsp://localhost:8554/teststream",
+			err := s1.StartPublishing("rtsp://localhost:8554/teststream",
 				gortsplib.Tracks{track})
 			require.NoError(t, err)
 			defer s1.Close()

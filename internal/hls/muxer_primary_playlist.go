@@ -39,7 +39,7 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 			var codecs []string
 
 			if p.videoTrack != nil {
-				sps := p.videoTrack.SPS()
+				sps := p.videoTrack.SafeSPS()
 				if len(sps) >= 4 {
 					codecs = append(codecs, "avc1."+hex.EncodeToString(sps[1:4]))
 				}
@@ -47,7 +47,7 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 
 			// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
 			if p.audioTrack != nil {
-				codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(p.audioTrack.Type()), 10))
+				codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(p.audioTrack.Type), 10))
 			}
 
 			switch {

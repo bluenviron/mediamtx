@@ -89,7 +89,11 @@ func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
 		return nil, err
 	}
 
-	return gortsplib.NewTrackH264(96, codec.SPS[0], codec.PPS[0], nil)
+	return &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS:         codec.SPS[0],
+		PPS:         codec.PPS[0],
+	}, nil
 }
 
 func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
@@ -99,8 +103,16 @@ func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
 		return nil, err
 	}
 
-	return gortsplib.NewTrackAAC(96, int(mpegConf.Type), mpegConf.SampleRate,
-		mpegConf.ChannelCount, mpegConf.AOTSpecificConfig, 13, 3, 3)
+	return &gortsplib.TrackAAC{
+		PayloadType:       97,
+		Type:              int(mpegConf.Type),
+		SampleRate:        mpegConf.SampleRate,
+		ChannelCount:      mpegConf.ChannelCount,
+		AOTSpecificConfig: mpegConf.AOTSpecificConfig,
+		SizeLength:        13,
+		IndexLength:       3,
+		IndexDeltaLength:  3,
+	}, nil
 }
 
 var errEmptyMetadata = errors.New("metadata is empty")
@@ -359,13 +371,13 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 
 	// write decoder config only if SPS and PPS are available.
 	// if they're not available yet, they're sent later as H264 NALUs.
-	if videoTrack != nil && videoTrack.SPS() != nil && videoTrack.PPS() != nil {
+	if videoTrack != nil && videoTrack.SafeSPS() != nil && videoTrack.SafePPS() != nil {
 		codec := nh264.Codec{
 			SPS: map[int][]byte{
-				0: videoTrack.SPS(),
+				0: videoTrack.SafeSPS(),
 			},
 			PPS: map[int][]byte{
-				0: videoTrack.PPS(),
+				0: videoTrack.SafePPS(),
 			},
 		}
 		b := make([]byte, 128)
@@ -384,10 +396,10 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 
 	if audioTrack != nil {
 		enc, err := aac.MPEG4AudioConfig{
-			Type:              aac.MPEG4AudioType(audioTrack.Type()),
-			SampleRate:        audioTrack.ClockRate(),
-			ChannelCount:      audioTrack.ChannelCount(),
-			AOTSpecificConfig: audioTrack.AOTSpecificConfig(),
+			Type:              aac.MPEG4AudioType(audioTrack.Type),
+			SampleRate:        audioTrack.SampleRate,
+			ChannelCount:      audioTrack.ChannelCount,
+			AOTSpecificConfig: audioTrack.AOTSpecificConfig,
 		}.Encode()
 		if err != nil {
 			return err

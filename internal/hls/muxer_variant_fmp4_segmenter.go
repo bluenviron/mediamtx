@@ -162,7 +162,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 
 		m.videoFirstIDRReceived = true
 		m.videoDTSExtractor = h264.NewDTSExtractor()
-		m.videoSPS = append([]byte(nil), m.videoTrack.SPS()...)
+		m.videoSPS = append([]byte(nil), m.videoTrack.SafeSPS()...)
 
 		var err error
 		sample.dts, err = m.videoDTSExtractor.Extract(sample.nalus, sample.pts)
@@ -221,7 +221,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 
 	// switch segment
 	if sample.next.idrPresent {
-		sps := m.videoTrack.SPS()
+		sps := m.videoTrack.SafeSPS()
 		spsChanged := !bytes.Equal(m.videoSPS, sps)
 
 		if (sample.next.dts-m.currentSegment.startDTS) >= m.segmentDuration ||

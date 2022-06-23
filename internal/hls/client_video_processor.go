@@ -45,12 +45,11 @@ func newClientVideoProcessor(
 }
 
 func (p *clientVideoProcessor) run() error {
-	track, err := gortsplib.NewTrackH264(96, nil, nil, nil)
-	if err != nil {
-		return err
+	track := &gortsplib.TrackH264{
+		PayloadType: 96,
 	}
 
-	err = p.onTrack(track)
+	err := p.onTrack(track)
 	if err != nil {
 		return err
 	}

@@ -278,10 +278,10 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			audioTrack = tt
 			audioTrackID = i
 			aacDecoder = &rtpaac.Decoder{
-				SampleRate:       tt.ClockRate(),
-				SizeLength:       tt.SizeLength(),
-				IndexLength:      tt.IndexLength(),
-				IndexDeltaLength: tt.IndexDeltaLength(),
+				SampleRate:       tt.SampleRate,
+				SizeLength:       tt.SizeLength,
+				IndexLength:      tt.IndexLength,
+				IndexDeltaLength: tt.IndexDeltaLength,
 			}
 			aacDecoder.Init()
 		}
@@ -405,8 +405,8 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 
 			// insert a H264DecoderConfig before every IDR
 			if idrPresent {
-				sps := videoTrack.SPS()
-				pps := videoTrack.PPS()
+				sps := videoTrack.SafeSPS()
+				pps := videoTrack.SafePPS()
 
 				codec := nh264.Codec{
 					SPS: map[int][]byte{

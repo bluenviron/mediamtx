@@ -85,31 +85,55 @@ func TestReadTracks(t *testing.T) {
 
 				switch ca {
 				case "standard":
-					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
-					require.NoError(t, err)
-					require.Equal(t, videoTrack2, videoTrack)
+					require.Equal(t, &gortsplib.TrackH264{
+						PayloadType: 96,
+						SPS:         sps,
+						PPS:         pps,
+					}, videoTrack)
 
-					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
-					require.NoError(t, err)
-					require.Equal(t, audioTrack2, audioTrack)
+					require.Equal(t, &gortsplib.TrackAAC{
+						PayloadType:      97,
+						Type:             2,
+						SampleRate:       44100,
+						ChannelCount:     2,
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+					}, audioTrack)
 
 				case "metadata without codec id":
-					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
-					require.NoError(t, err)
-					require.Equal(t, videoTrack2, videoTrack)
+					require.Equal(t, &gortsplib.TrackH264{
+						PayloadType: 96,
+						SPS:         sps,
+						PPS:         pps,
+					}, videoTrack)
 
-					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
-					require.NoError(t, err)
-					require.Equal(t, audioTrack2, audioTrack)
+					require.Equal(t, &gortsplib.TrackAAC{
+						PayloadType:      97,
+						Type:             2,
+						SampleRate:       44100,
+						ChannelCount:     2,
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+					}, audioTrack)
 
 				case "missing metadata":
-					videoTrack2, err := gortsplib.NewTrackH264(96, sps, pps, nil)
-					require.NoError(t, err)
-					require.Equal(t, videoTrack2, videoTrack)
+					require.Equal(t, &gortsplib.TrackH264{
+						PayloadType: 96,
+						SPS:         sps,
+						PPS:         pps,
+					}, videoTrack)
 
-					audioTrack2, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
-					require.NoError(t, err)
-					require.Equal(t, audioTrack2, audioTrack)
+					require.Equal(t, &gortsplib.TrackAAC{
+						PayloadType:      97,
+						Type:             2,
+						SampleRate:       44100,
+						ChannelCount:     2,
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+					}, audioTrack)
 				}
 
 				close(done)
@@ -492,20 +516,27 @@ func TestWriteTracks(t *testing.T) {
 		err = rconn.ServerHandshake()
 		require.NoError(t, err)
 
-		videoTrack, err := gortsplib.NewTrackH264(96,
-			[]byte{
+		videoTrack := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
 				0x00, 0x03, 0x00, 0x3d, 0x08,
 			},
-			[]byte{
+			PPS: []byte{
 				0x68, 0xee, 0x3c, 0x80,
 			},
-			nil)
-		require.NoError(t, err)
+		}
 
-		audioTrack, err := gortsplib.NewTrackAAC(96, 2, 44100, 2, nil, 13, 3, 3)
-		require.NoError(t, err)
+		audioTrack := &gortsplib.TrackAAC{
+			PayloadType:      97,
+			Type:             2,
+			SampleRate:       44100,
+			ChannelCount:     2,
+			SizeLength:       13,
+			IndexLength:      3,
+			IndexDeltaLength: 3,
+		}
 
 		err = rconn.WriteTracks(videoTrack, audioTrack)
 		require.NoError(t, err)
