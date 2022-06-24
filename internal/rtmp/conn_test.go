@@ -92,10 +92,12 @@ func TestReadTracks(t *testing.T) {
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackAAC{
-						PayloadType:      97,
-						Type:             2,
-						SampleRate:       44100,
-						ChannelCount:     2,
+						PayloadType: 97,
+						Config: &aac.MPEG4AudioConfig{
+							Type:         2,
+							SampleRate:   44100,
+							ChannelCount: 2,
+						},
 						SizeLength:       13,
 						IndexLength:      3,
 						IndexDeltaLength: 3,
@@ -109,10 +111,12 @@ func TestReadTracks(t *testing.T) {
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackAAC{
-						PayloadType:      97,
-						Type:             2,
-						SampleRate:       44100,
-						ChannelCount:     2,
+						PayloadType: 97,
+						Config: &aac.MPEG4AudioConfig{
+							Type:         2,
+							SampleRate:   44100,
+							ChannelCount: 2,
+						},
 						SizeLength:       13,
 						IndexLength:      3,
 						IndexDeltaLength: 3,
@@ -126,10 +130,12 @@ func TestReadTracks(t *testing.T) {
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackAAC{
-						PayloadType:      97,
-						Type:             2,
-						SampleRate:       44100,
-						ChannelCount:     2,
+						PayloadType: 97,
+						Config: &aac.MPEG4AudioConfig{
+							Type:         2,
+							SampleRate:   44100,
+							ChannelCount: 2,
+						},
 						SizeLength:       13,
 						IndexLength:      3,
 						IndexDeltaLength: 3,
@@ -378,7 +384,7 @@ func TestReadTracks(t *testing.T) {
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
-				}.Encode()
+				}.Marshal()
 				require.NoError(t, err)
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   4,
@@ -443,7 +449,7 @@ func TestReadTracks(t *testing.T) {
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
-				}.Encode()
+				}.Marshal()
 				require.NoError(t, err)
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   4,
@@ -483,7 +489,7 @@ func TestReadTracks(t *testing.T) {
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
-				}.Encode()
+				}.Marshal()
 				require.NoError(t, err)
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   4,
@@ -529,10 +535,12 @@ func TestWriteTracks(t *testing.T) {
 		}
 
 		audioTrack := &gortsplib.TrackAAC{
-			PayloadType:      97,
-			Type:             2,
-			SampleRate:       44100,
-			ChannelCount:     2,
+			PayloadType: 97,
+			Config: &aac.MPEG4AudioConfig{
+				Type:         2,
+				SampleRate:   44100,
+				ChannelCount: 2,
+			},
 			SizeLength:       13,
 			IndexLength:      3,
 			IndexDeltaLength: 3,

@@ -311,7 +311,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			audioTrack = tt
 			audioTrackID = i
 			aacDecoder = &rtpaac.Decoder{
-				SampleRate:       tt.SampleRate,
+				SampleRate:       tt.Config.SampleRate,
 				SizeLength:       tt.SizeLength,
 				IndexLength:      tt.IndexLength,
 				IndexDeltaLength: tt.IndexDeltaLength,

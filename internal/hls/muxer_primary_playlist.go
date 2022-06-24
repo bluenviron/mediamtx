@@ -47,7 +47,7 @@ func (p *muxerPrimaryPlaylist) file() *MuxerFileResponse {
 
 			// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
 			if p.audioTrack != nil {
-				codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(p.audioTrack.Type), 10))
+				codecs = append(codecs, "mp4a.40."+strconv.FormatInt(int64(p.audioTrack.Config.Type), 10))
 			}
 
 			switch {

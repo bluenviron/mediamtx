@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/asticode/go-astits"
 	"github.com/stretchr/testify/require"
 )
@@ -29,10 +30,12 @@ func TestMuxerVideoAudio(t *testing.T) {
 	}
 
 	audioTrack := &gortsplib.TrackAAC{
-		PayloadType:      97,
-		Type:             2,
-		SampleRate:       44100,
-		ChannelCount:     2,
+		PayloadType: 97,
+		Config: &aac.MPEG4AudioConfig{
+			Type:         2,
+			SampleRate:   44100,
+			ChannelCount: 2,
+		},
 		SizeLength:       13,
 		IndexLength:      3,
 		IndexDeltaLength: 3,
@@ -280,10 +283,12 @@ func TestMuxerVideoOnly(t *testing.T) {
 
 func TestMuxerAudioOnly(t *testing.T) {
 	audioTrack := &gortsplib.TrackAAC{
-		PayloadType:      97,
-		Type:             2,
-		SampleRate:       44100,
-		ChannelCount:     2,
+		PayloadType: 97,
+		Config: &aac.MPEG4AudioConfig{
+			Type:         2,
+			SampleRate:   44100,
+			ChannelCount: 2,
+		},
 		SizeLength:       13,
 		IndexLength:      3,
 		IndexDeltaLength: 3,

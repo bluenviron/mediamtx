@@ -98,20 +98,17 @@ func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
 
 func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
 	var mpegConf aac.MPEG4AudioConfig
-	err := mpegConf.Decode(data)
+	err := mpegConf.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	return &gortsplib.TrackAAC{
-		PayloadType:       97,
-		Type:              int(mpegConf.Type),
-		SampleRate:        mpegConf.SampleRate,
-		ChannelCount:      mpegConf.ChannelCount,
-		AOTSpecificConfig: mpegConf.AOTSpecificConfig,
-		SizeLength:        13,
-		IndexLength:       3,
-		IndexDeltaLength:  3,
+		PayloadType:      97,
+		Config:           &mpegConf,
+		SizeLength:       13,
+		IndexLength:      3,
+		IndexDeltaLength: 3,
 	}, nil
 }
 
@@ -395,12 +392,7 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 	}
 
 	if audioTrack != nil {
-		enc, err := aac.MPEG4AudioConfig{
-			Type:              aac.MPEG4AudioType(audioTrack.Type),
-			SampleRate:        audioTrack.SampleRate,
-			ChannelCount:      audioTrack.ChannelCount,
-			AOTSpecificConfig: audioTrack.AOTSpecificConfig,
-		}.Encode()
+		enc, err := audioTrack.Config.Marshal()
 		if err != nil {
 			return err
 		}

@@ -79,10 +79,12 @@ func (p *clientAudioProcessor) doProcess(
 			p.trackInitialized = true
 
 			track := &gortsplib.TrackAAC{
-				PayloadType:      96,
-				Type:             pkt.Type,
-				SampleRate:       pkt.SampleRate,
-				ChannelCount:     pkt.ChannelCount,
+				PayloadType: 96,
+				Config: &aac.MPEG4AudioConfig{
+					Type:         pkt.Type,
+					SampleRate:   pkt.SampleRate,
+					ChannelCount: pkt.ChannelCount,
+				},
 				SizeLength:       13,
 				IndexLength:      3,
 				IndexDeltaLength: 3,

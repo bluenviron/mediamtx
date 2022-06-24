@@ -3,7 +3,6 @@ package hls
 import (
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/mp4"
@@ -389,7 +388,7 @@ func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib
 			},
 			DataReferenceIndex: 1,
 		},
-		ChannelCount: uint16(audioTrack.ChannelCount),
+		ChannelCount: uint16(audioTrack.Config.ChannelCount),
 		SampleSize:   16,
 		SampleRate:   uint32(audioTrack.ClockRate() * 65536),
 	})
@@ -397,21 +396,15 @@ func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib
 		return err
 	}
 
-	c := aac.MPEG4AudioConfig{
-		Type:              aac.MPEG4AudioType(audioTrack.Type),
-		SampleRate:        audioTrack.SampleRate,
-		ChannelCount:      audioTrack.ChannelCount,
-		AOTSpecificConfig: audioTrack.AOTSpecificConfig,
-	}
-	conf, _ := c.Encode()
+	enc, _ := audioTrack.Config.Marshal()
 
-	decSpecificInfoTagSize := uint8(len(conf))
+	decSpecificInfoTagSize := uint8(len(enc))
 	decSpecificInfoTag := append(
 		[]byte{
 			gomp4.DecSpecificInfoTag,
 			0x80, 0x80, 0x80, decSpecificInfoTagSize, // size
 		},
-		conf...,
+		enc...,
 	)
 
 	esDescrTag := []byte{
