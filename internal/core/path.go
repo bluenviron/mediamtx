@@ -844,6 +844,8 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 		pa.onDemandPublisherReadyTimer.Stop()
 		pa.onDemandPublisherReadyTimer = newEmptyTimer()
 
+		pa.onDemandPublisherScheduleClose()
+
 		for _, req := range pa.describeRequestsOnHold {
 			req.res <- pathDescribeRes{
 				stream: pa.stream,
@@ -855,8 +857,6 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 			pa.handleReaderSetupPlayPost(req)
 		}
 		pa.setupPlayRequestsOnHold = nil
-
-		pa.onDemandPublisherScheduleClose()
 	}
 
 	req.res <- pathPublisherRecordRes{stream: pa.stream}
