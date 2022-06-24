@@ -59,6 +59,7 @@ const create = () => {
 	// but doesn't support fMP4s.
 	if (Hls.isSupported()) {
 		const hls = new Hls({
+			maxLiveSyncPlaybackRate: 1.5,
 		});
 
 		hls.on(Hls.Events.ERROR, (evt, data) => {
