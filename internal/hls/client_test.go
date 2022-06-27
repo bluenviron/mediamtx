@@ -142,7 +142,7 @@ func newTestHLSServer(ca string) (*testHLSServer, error) {
 		mux.SetPCRPID(256)
 		mux.WriteTables()
 
-		enc, _ := h264.AnnexBEncode([][]byte{
+		enc, _ := h264.AnnexBMarshal([][]byte{
 			{7, 1, 2, 3}, // SPS
 			{8},          // PPS
 			{5},          // IDR

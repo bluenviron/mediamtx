@@ -178,7 +178,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 						Header: base.Header{
 							"CSeq": base.HeaderValue{"1"},
 						},
-					}.Write()
+					}.Marshal()
 					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
@@ -206,9 +206,9 @@ func TestCorePathAutoDeletion(t *testing.T) {
 								}(),
 								Protocol:    headers.TransportProtocolUDP,
 								ClientPorts: &[2]int{35466, 35467},
-							}.Write(),
+							}.Marshal(),
 						},
-					}.Write()
+					}.Marshal()
 					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
@@ -314,7 +314,7 @@ func main() {
 						Header: base.Header{
 							"CSeq": base.HeaderValue{"1"},
 						},
-					}.Write()
+					}.Marshal()
 					_, err = conn.Write(byts)
 					require.NoError(t, err)
 
@@ -340,9 +340,9 @@ func main() {
 								}(),
 								Protocol:       headers.TransportProtocolTCP,
 								InterleavedIDs: &[2]int{0, 1},
-							}.Write(),
+							}.Marshal(),
 						},
-					}.Write()
+					}.Marshal()
 					_, err = conn.Write(byts)
 					require.NoError(t, err)
 

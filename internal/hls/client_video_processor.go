@@ -82,9 +82,9 @@ func (p *clientVideoProcessor) doProcess(
 		}
 	}
 
-	nalus, err := h264.AnnexBDecode(data)
+	nalus, err := h264.AnnexBUnmarshal(data)
 	if err != nil {
-		p.logger.Log(logger.Warn, "unable to decode Annex-B: %s", err)
+		p.logger.Log(logger.Warn, "unable to unmarshal Annex-B: %s", err)
 		return nil
 	}
 

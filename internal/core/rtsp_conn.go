@@ -116,7 +116,7 @@ func (c *rtspConn) authenticate(
 		password := ""
 
 		var auth headers.Authorization
-		err := auth.Read(req.Header["Authorization"])
+		err := auth.Unmarshal(req.Header["Authorization"])
 		if err == nil && auth.Method == headers.AuthBasic {
 			username = auth.BasicUser
 			password = auth.BasicPass
@@ -157,7 +157,7 @@ func (c *rtspConn) authenticate(
 						"WWW-Authenticate": headers.Authenticate{
 							Method: headers.AuthBasic,
 							Realm:  &v,
-						}.Write(),
+						}.Marshal(),
 					},
 				},
 			}

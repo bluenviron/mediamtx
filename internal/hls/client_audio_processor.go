@@ -58,7 +58,8 @@ func (p *clientAudioProcessor) doProcess(
 	data []byte,
 	pts time.Duration,
 ) error {
-	adtsPkts, err := aac.DecodeADTS(data)
+	var adtsPkts aac.ADTSPackets
+	err := adtsPkts.Unmarshal(data)
 	if err != nil {
 		return err
 	}

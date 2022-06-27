@@ -430,7 +430,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				}
 			}
 
-			avcc, err := h264.AVCCEncode(data.h264NALUs)
+			avcc, err := h264.AVCCMarshal(data.h264NALUs)
 			if err != nil {
 				return err
 			}
@@ -604,7 +604,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 				return fmt.Errorf("received an H264 packet, but track is not set up")
 			}
 
-			nalus, err := h264.AVCCDecode(pkt.Data)
+			nalus, err := h264.AVCCUnmarshal(pkt.Data)
 			if err != nil {
 				return err
 			}

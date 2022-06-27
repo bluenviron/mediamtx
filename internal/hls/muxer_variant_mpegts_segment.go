@@ -82,7 +82,7 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 	// prepend an AUD. This is required by video.js and iOS
 	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
 
-	enc, err := h264.AnnexBEncode(nalus)
+	enc, err := h264.AnnexBMarshal(nalus)
 	if err != nil {
 		return err
 	}
@@ -147,7 +147,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pts time.Duration,
 	aus [][]byte,
 ) error {
-	pkts := make([]*aac.ADTSPacket, len(aus))
+	pkts := make(aac.ADTSPackets, len(aus))
 
 	for i, au := range aus {
 		pkts[i] = &aac.ADTSPacket{
@@ -158,7 +158,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 		}
 	}
 
-	enc, err := aac.EncodeADTS(pkts)
+	enc, err := pkts.Marshal()
 	if err != nil {
 		return err
 	}
