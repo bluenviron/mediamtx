@@ -41,8 +41,8 @@ func (c *Chunk0) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	return err
 }
 
-// Write writes the chunk.
-func (c Chunk0) Write() ([]byte, error) {
+// Marshal writes the chunk.
+func (c Chunk0) Marshal() ([]byte, error) {
 	buf := make([]byte, 12+len(c.Body))
 	buf[0] = c.ChunkStreamID
 	buf[1] = byte(c.Timestamp >> 16)

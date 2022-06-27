@@ -10,12 +10,8 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
 )
 
-type writableChunk interface {
-	Write() ([]byte, error)
-}
-
 type sequenceEntry struct {
-	chunk writableChunk
+	chunk chunk.Chunk
 	msg   *Message
 }
 
@@ -28,7 +24,7 @@ func TestReader(t *testing.T) {
 		})
 
 		for _, entry := range seq {
-			buf2, err := entry.chunk.Write()
+			buf2, err := entry.chunk.Marshal()
 			require.NoError(t, err)
 			buf.Write(buf2)
 			msg, err := r.Read()
@@ -138,14 +134,14 @@ func TestReader(t *testing.T) {
 			MessageStreamID: 3123,
 			BodyLen:         192,
 			Body:            bytes.Repeat([]byte{0x03}, 128),
-		}.Write()
+		}.Marshal()
 		require.NoError(t, err)
 		buf.Write(buf2)
 
 		buf2, err = chunk.Chunk3{
 			ChunkStreamID: 27,
 			Body:          bytes.Repeat([]byte{0x03}, 64),
-		}.Write()
+		}.Marshal()
 		require.NoError(t, err)
 		buf.Write(buf2)
 
@@ -181,7 +177,7 @@ func TestReaderAcknowledge(t *testing.T) {
 			MessageStreamID: 3123,
 			BodyLen:         64,
 			Body:            bytes.Repeat([]byte{0x03}, 64),
-		}.Write()
+		}.Marshal()
 		require.NoError(t, err)
 		buf.Write(buf2)
 	}

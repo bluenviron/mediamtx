@@ -28,8 +28,8 @@ func TestChunk0Read(t *testing.T) {
 	require.Equal(t, chunk0dec, chunk0)
 }
 
-func TestChunk0Write(t *testing.T) {
-	buf, err := chunk0dec.Write()
+func TestChunk0Marshal(t *testing.T) {
+	buf, err := chunk0dec.Marshal()
 	require.NoError(t, err)
 	require.Equal(t, chunk0enc, buf)
 }

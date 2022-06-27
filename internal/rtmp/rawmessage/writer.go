@@ -17,7 +17,7 @@ type writerChunkStream struct {
 }
 
 func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
-	buf, err := c.Write()
+	buf, err := c.Marshal()
 	if err != nil {
 		return err
 	}
