@@ -440,9 +440,9 @@ func (p *muxerVariantFMP4Playlist) onSegmentFinalized(segment *muxerVariantFMP4S
 		p.mutex.Lock()
 		defer p.mutex.Unlock()
 
-		// create initial gap
+		// add initial gaps, required by iOS LL-HLS
 		if p.lowLatency && len(p.segments) == 0 {
-			for i := 0; i < p.segmentCount; i++ {
+			for i := 0; i < 7; i++ {
 				p.segments = append(p.segments, &muxerVariantFMP4Gap{
 					renderedDuration: segment.renderedDuration,
 				})
