@@ -342,7 +342,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	innerReady <- struct{}{}
 
-	m.ringBuffer = ringbuffer.New(uint64(m.readBufferCount))
+	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
 	m.path.onReaderPlay(pathReaderPlayReq{author: m})
 

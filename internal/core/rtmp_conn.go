@@ -297,7 +297,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		return err
 	}
 
-	c.ringBuffer = ringbuffer.New(uint64(c.readBufferCount))
+	c.ringBuffer, _ = ringbuffer.New(uint64(c.readBufferCount))
 
 	go func() {
 		<-ctx.Done()

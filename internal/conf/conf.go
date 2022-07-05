@@ -269,6 +269,9 @@ func (conf *Conf) CheckAndFillMissing() error {
 	if conf.ReadBufferCount == 0 {
 		conf.ReadBufferCount = 512
 	}
+	if (conf.ReadBufferCount & (conf.ReadBufferCount - 1)) != 0 {
+		return fmt.Errorf("'ReadBufferCount' must be a power of two")
+	}
 
 	if conf.ExternalAuthenticationURL != "" {
 		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&
