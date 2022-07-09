@@ -35,8 +35,14 @@ func (c *Conn) Close() error {
 }
 
 // ClientHandshake performs the handshake of a client-side connection.
-func (c *Conn) ClientHandshake() error {
-	return c.rconn.Prepare(rtmp.StageGotPublishOrPlayCommand, rtmp.PrepareReading)
+func (c *Conn) ClientHandshake(isPlaying bool) error {
+	var flag int
+	if isPlaying {
+		flag = rtmp.PrepareReading
+	} else {
+		flag = rtmp.PrepareWriting
+	}
+	return c.rconn.Prepare(rtmp.StageGotPublishOrPlayCommand, flag)
 }
 
 // ServerHandshake performs the handshake of a server-side connection.

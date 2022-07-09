@@ -139,7 +139,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			require.NoError(t, err)
 			defer conn.Close()
 
-			err = conn.ClientHandshake()
+			err = conn.ClientHandshake(true)
 			require.NoError(t, err)
 
 			_, _, err = conn.ReadTracks()
@@ -223,7 +223,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		err = conn.ClientHandshake()
+		err = conn.ClientHandshake(true)
 		require.Equal(t, err, io.EOF)
 	})
 }
