@@ -151,12 +151,12 @@ func TestReadTracks(t *testing.T) {
 			bc := bytecounter.NewReadWriter(conn)
 
 			// C->S handshake C0
-			err = handshake.C0S0{}.Write(conn)
+			err = handshake.C0S0{}.Write(bc)
 			require.NoError(t, err)
 
 			// C->S handshake C1
 			c1 := handshake.C1S1{}
-			err = c1.Write(conn, true)
+			err = c1.Write(bc, true)
 			require.NoError(t, err)
 
 			// S->C handshake S0
@@ -173,7 +173,7 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 
 			// C->S handshake C2
-			err = handshake.C2S2{Digest: s1.Digest}.Write(conn)
+			err = handshake.C2S2{Digest: s1.Digest}.Write(bc)
 			require.NoError(t, err)
 
 			mrw := message.NewReadWriter(bc)
@@ -556,12 +556,12 @@ func TestWriteTracks(t *testing.T) {
 	bc := bytecounter.NewReadWriter(conn)
 
 	// C->S handshake C0
-	err = handshake.C0S0{}.Write(conn)
+	err = handshake.C0S0{}.Write(bc)
 	require.NoError(t, err)
 
 	// C-> handshake C1
 	c1 := handshake.C1S1{}
-	err = c1.Write(conn, true)
+	err = c1.Write(bc, true)
 	require.NoError(t, err)
 
 	// S->C handshake S0
@@ -578,7 +578,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 
 	// C->S handshake C2
-	err = handshake.C2S2{Digest: s1.Digest}.Write(conn)
+	err = handshake.C2S2{Digest: s1.Digest}.Write(bc)
 	require.NoError(t, err)
 
 	mrw := message.NewReadWriter(bc)
