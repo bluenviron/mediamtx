@@ -122,16 +122,19 @@ func (c *C1S1) Write(w io.Writer, isC1 bool) error {
 
 	// signature
 	gap := hsCalcDigestPos(buf, 8)
+	var peerKey []byte
 	var key []byte
 	if isC1 {
+		peerKey = hsServerFullKey
 		key = hsClientPartialKey
 	} else {
+		peerKey = hsClientFullKey
 		key = hsServerPartialKey
 	}
 	digest := hsMakeDigest(key, buf, gap)
 	copy(buf[gap:], digest)
-	pos := hsFindDigest(buf, hsClientPartialKey, 8)
-	c.Digest = hsMakeDigest(hsServerFullKey, buf[pos:pos+32], -1)
+	pos := hsFindDigest(buf, key, 8)
+	c.Digest = hsMakeDigest(peerKey, buf[pos:pos+32], -1)
 
 	_, err := w.Write(buf)
 	return err
