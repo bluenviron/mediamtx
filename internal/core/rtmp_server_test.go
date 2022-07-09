@@ -1,8 +1,9 @@
 package core
 
 import (
-	"context"
 	"io"
+	"net"
+	"net/url"
 	"testing"
 	"time"
 
@@ -134,10 +135,13 @@ func TestRTMPServerAuth(t *testing.T) {
 				defer a.close()
 			}
 
-			conn, err := rtmp.DialContext(context.Background(),
-				"rtmp://127.0.0.1/teststream?user=testreader&pass=testpass&param=value")
+			u, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testreader&pass=testpass&param=value")
 			require.NoError(t, err)
-			defer conn.Close()
+
+			nconn, err := net.Dial("tcp", u.Host)
+			require.NoError(t, err)
+			defer nconn.Close()
+			conn := rtmp.NewClientConn(nconn, u)
 
 			err = conn.ClientHandshake(true)
 			require.NoError(t, err)
@@ -219,9 +223,13 @@ func TestRTMPServerAuthFail(t *testing.T) {
 
 		time.Sleep(1 * time.Second)
 
-		conn, err := rtmp.DialContext(context.Background(), "rtmp://127.0.0.1/teststream?user=testuser&pass=testpass")
+		u, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser&pass=testpass")
 		require.NoError(t, err)
-		defer conn.Close()
+
+		nconn, err := net.Dial("tcp", u.Host)
+		require.NoError(t, err)
+		defer nconn.Close()
+		conn := rtmp.NewClientConn(nconn, u)
 
 		err = conn.ClientHandshake(true)
 		require.Equal(t, err, io.EOF)

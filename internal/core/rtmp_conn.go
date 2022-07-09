@@ -66,6 +66,7 @@ type rtmpConn struct {
 	runOnConnectRestart       bool
 	wg                        *sync.WaitGroup
 	conn                      *rtmp.Conn
+	nconn                     net.Conn
 	externalCmdPool           *externalcmd.Pool
 	pathManager               rtmpConnPathManager
 	parent                    rtmpConnParent
@@ -107,6 +108,7 @@ func newRTMPConn(
 		runOnConnectRestart:       runOnConnectRestart,
 		wg:                        wg,
 		conn:                      rtmp.NewServerConn(nconn),
+		nconn:                     nconn,
 		externalCmdPool:           externalCmdPool,
 		pathManager:               pathManager,
 		parent:                    parent,
@@ -134,15 +136,15 @@ func (c *rtmpConn) ID() string {
 
 // RemoteAddr returns the remote address of the Conn.
 func (c *rtmpConn) RemoteAddr() net.Addr {
-	return c.conn.RemoteAddr()
+	return c.nconn.RemoteAddr()
 }
 
 func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.conn.RemoteAddr()}, args...)...)
+	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.nconn.RemoteAddr()}, args...)...)
 }
 
 func (c *rtmpConn) ip() net.IP {
-	return c.conn.RemoteAddr().(*net.TCPAddr).IP
+	return c.nconn.RemoteAddr().(*net.TCPAddr).IP
 }
 
 func (c *rtmpConn) safeState() rtmpConnState {
@@ -204,11 +206,11 @@ func (c *rtmpConn) run() {
 func (c *rtmpConn) runInner(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
-		c.conn.Close()
+		c.nconn.Close()
 	}()
 
-	c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 	err := c.conn.ServerHandshake()
 	if err != nil {
 		return err
@@ -291,7 +293,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
-	c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 	err := c.conn.WriteTracks(videoTrack, audioTrack)
 	if err != nil {
 		return err
@@ -325,7 +327,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 	}
 
 	// disable read deadline
-	c.conn.SetReadDeadline(time.Time{})
+	c.nconn.SetReadDeadline(time.Time{})
 
 	var videoInitialPTS *time.Duration
 	videoFirstIDRFound := false
@@ -435,7 +437,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 				return err
 			}
 
-			c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+			c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 			err = c.conn.WritePacket(av.Packet{
 				Type:  av.H264,
 				Data:  avcc,
@@ -464,7 +466,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 			}
 
 			for i, au := range aus {
-				c.conn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := c.conn.WritePacket(av.Packet{
 					Type: av.AAC,
 					Data: au,
@@ -479,7 +481,7 @@ func (c *rtmpConn) runRead(ctx context.Context) error {
 }
 
 func (c *rtmpConn) runPublish(ctx context.Context) error {
-	c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	videoTrack, audioTrack, err := c.conn.ReadTracks()
 	if err != nil {
 		return err
@@ -545,7 +547,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	c.stateMutex.Unlock()
 
 	// disable write deadline
-	c.conn.SetWriteDeadline(time.Time{})
+	c.nconn.SetWriteDeadline(time.Time{})
 
 	rres := c.path.onPublisherRecord(pathPublisherRecordReq{
 		author: c,
@@ -556,7 +558,7 @@ func (c *rtmpConn) runPublish(ctx context.Context) error {
 	}
 
 	for {
-		c.conn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
+		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 		pkt, err := c.conn.ReadPacket()
 		if err != nil {
 			return err

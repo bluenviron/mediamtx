@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"net"
@@ -26,12 +27,33 @@ const (
 // Conn is a RTMP connection.
 type Conn struct {
 	rconn *rtmp.Conn
-	nconn net.Conn
 }
 
-// Close closes the connection.
-func (c *Conn) Close() error {
-	return c.nconn.Close()
+// NewClientConn initializes a client-side connection.
+func NewClientConn(nconn net.Conn, u *url.URL) *Conn {
+	c := rtmp.NewConn(&bufio.ReadWriter{
+		Reader: bufio.NewReaderSize(nconn, readBufferSize),
+		Writer: bufio.NewWriterSize(nconn, writeBufferSize),
+	})
+	c.URL = u
+
+	return &Conn{
+		rconn: c,
+	}
+}
+
+// NewServerConn initializes a server-side connection.
+func NewServerConn(nconn net.Conn) *Conn {
+	// https://github.com/aler9/rtmp/blob/master/format/rtmp/server.go#L46
+	c := rtmp.NewConn(&bufio.ReadWriter{
+		Reader: bufio.NewReaderSize(nconn, readBufferSize),
+		Writer: bufio.NewWriterSize(nconn, writeBufferSize),
+	})
+	c.IsServer = true
+
+	return &Conn{
+		rconn: c,
+	}
 }
 
 // ClientHandshake performs the handshake of a client-side connection.
@@ -48,21 +70,6 @@ func (c *Conn) ClientHandshake(isPlaying bool) error {
 // ServerHandshake performs the handshake of a server-side connection.
 func (c *Conn) ServerHandshake() error {
 	return c.rconn.Prepare(rtmp.StageGotPublishOrPlayCommand, 0)
-}
-
-// SetReadDeadline sets the read deadline.
-func (c *Conn) SetReadDeadline(t time.Time) error {
-	return c.nconn.SetReadDeadline(t)
-}
-
-// SetWriteDeadline sets the write deadline.
-func (c *Conn) SetWriteDeadline(t time.Time) error {
-	return c.nconn.SetWriteDeadline(t)
-}
-
-// RemoteAddr returns the remote network address.
-func (c *Conn) RemoteAddr() net.Addr {
-	return c.nconn.RemoteAddr()
 }
 
 // IsPublishing returns whether the connection is publishing.

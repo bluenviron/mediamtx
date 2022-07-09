@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -254,9 +255,18 @@ func TestRTSPServerAuth(t *testing.T) {
 
 			reader := gortsplib.Client{}
 
-			err = reader.StartReading("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
+			u, err := url.Parse("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
+			require.NoError(t, err)
+
+			err = reader.Start(u.Scheme, u.Host)
 			require.NoError(t, err)
 			defer reader.Close()
+
+			tracks, baseURL, _, err := reader.Describe(u)
+			require.NoError(t, err)
+
+			err = reader.SetupAndPlay(tracks, baseURL)
+			require.NoError(t, err)
 		})
 	}
 
@@ -367,9 +377,14 @@ func TestRTSPServerAuthFail(t *testing.T) {
 
 			c := gortsplib.Client{}
 
-			err := c.StartReading(
-				"rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream",
-			)
+			u, err := url.Parse("rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream")
+			require.NoError(t, err)
+
+			err = c.Start(u.Scheme, u.Host)
+			require.NoError(t, err)
+			defer c.Close()
+
+			_, _, _, err = c.Describe(u)
 			require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 		})
 	}
@@ -481,9 +496,18 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 				},
 			}
 
-			err = c.StartReading("rtsp://localhost:8554/teststream")
+			u, err := url.Parse("rtsp://localhost:8554/teststream")
+			require.NoError(t, err)
+
+			err = c.Start(u.Scheme, u.Host)
 			require.NoError(t, err)
 			defer c.Close()
+
+			tracks, baseURL, _, err := c.Describe(u)
+			require.NoError(t, err)
+
+			err = c.SetupAndPlay(tracks, baseURL)
+			require.NoError(t, err)
 
 			err = s1.WritePacketRTP(0, &rtp.Packet{
 				Header: rtp.Header{

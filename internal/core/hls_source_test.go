@@ -11,6 +11,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -139,9 +140,18 @@ func TestHLSSource(t *testing.T) {
 		},
 	}
 
-	err = c.StartReading("rtsp://localhost:8554/proxied")
+	u, err := url.Parse("rtsp://localhost:8554/proxied")
+	require.NoError(t, err)
+
+	err = c.Start(u.Scheme, u.Host)
 	require.NoError(t, err)
 	defer c.Close()
+
+	tracks, baseURL, _, err := c.Describe(u)
+	require.NoError(t, err)
+
+	err = c.SetupAndPlay(tracks, baseURL)
+	require.NoError(t, err)
 
 	<-frameRecv
 }

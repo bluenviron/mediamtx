@@ -156,9 +156,18 @@ func TestRTSPSource(t *testing.T) {
 				},
 			}
 
-			err = c.StartReading("rtsp://127.0.0.1:8554/proxied")
+			u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
+			require.NoError(t, err)
+
+			err = c.Start(u.Scheme, u.Host)
 			require.NoError(t, err)
 			defer c.Close()
+
+			tracks, baseURL, _, err := c.Describe(u)
+			require.NoError(t, err)
+
+			err = c.SetupAndPlay(tracks, baseURL)
+			require.NoError(t, err)
 
 			<-received
 		})

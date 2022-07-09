@@ -1,7 +1,6 @@
 package rtmp
 
 import (
-	"context"
 	"net"
 	"net/url"
 	"strings"
@@ -218,9 +217,13 @@ func TestClientHandshake(t *testing.T) {
 		close(done)
 	}()
 
-	conn, err := DialContext(context.Background(), "rtmp://127.0.0.1:9121/stream")
+	u, err := url.Parse("rtmp://127.0.0.1:9121/stream")
 	require.NoError(t, err)
-	defer conn.Close()
+
+	nconn, err := net.Dial("tcp", u.Host)
+	require.NoError(t, err)
+	defer nconn.Close()
+	conn := NewClientConn(nconn, u)
 
 	err = conn.ClientHandshake(true)
 	require.NoError(t, err)

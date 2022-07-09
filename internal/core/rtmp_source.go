@@ -3,6 +3,8 @@ package core
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/url"
 	"sync"
 	"time"
 
@@ -104,26 +106,40 @@ func (s *rtmpSource) runInner() bool {
 		runErr <- func() error {
 			s.log(logger.Debug, "connecting")
 
-			ctx2, cancel2 := context.WithTimeout(innerCtx, time.Duration(s.readTimeout))
-			defer cancel2()
-
-			conn, err := rtmp.DialContext(ctx2, s.ur)
+			u, err := url.Parse(s.ur)
 			if err != nil {
 				return err
 			}
 
+			// add default port
+			_, _, err = net.SplitHostPort(u.Host)
+			if err != nil {
+				u.Host = net.JoinHostPort(u.Host, "1935")
+			}
+
+			ctx2, cancel2 := context.WithTimeout(innerCtx, time.Duration(s.readTimeout))
+			defer cancel2()
+
+			var d net.Dialer
+			nconn, err := d.DialContext(ctx2, "tcp", u.Host)
+			if err != nil {
+				return err
+			}
+
+			conn := rtmp.NewClientConn(nconn, u)
+
 			readDone := make(chan error)
 			go func() {
 				readDone <- func() error {
-					conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-					conn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
+					nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+					nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
 					err = conn.ClientHandshake(true)
 					if err != nil {
 						return err
 					}
 
-					conn.SetWriteDeadline(time.Time{})
-					conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+					nconn.SetWriteDeadline(time.Time{})
+					nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 					videoTrack, audioTrack, err := conn.ReadTracks()
 					if err != nil {
 						return err
@@ -170,7 +186,7 @@ func (s *rtmpSource) runInner() bool {
 					}()
 
 					for {
-						conn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+						nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 						pkt, err := conn.ReadPacket()
 						if err != nil {
 							return err
@@ -237,11 +253,11 @@ func (s *rtmpSource) runInner() bool {
 
 			select {
 			case err := <-readDone:
-				conn.Close()
+				nconn.Close()
 				return err
 
 			case <-innerCtx.Done():
-				conn.Close()
+				nconn.Close()
 				<-readDone
 				return nil
 			}
