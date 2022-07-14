@@ -165,6 +165,11 @@ There are 3 ways to change the configuration:
    ```
    RTSP_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
    ```
+   
+   Parameters that have array as value can be overriden by setting a comma-separated list. For example:
+   ```
+   RTSP_PROTOCOLS="tcp,udp"
+   ```
 
    Parameters in maps can be overridden by using underscores, in the following way:
 
