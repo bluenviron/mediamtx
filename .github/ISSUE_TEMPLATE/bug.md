@@ -9,6 +9,8 @@ assignees: ''
 
 <!--
 To increase the chance of your issue getting fixed, open an issue FOR EACH problem. Please do not report multiple problems in a single issue, otherwise they'll probably never get ALL fixed.
+
+Please include all sections of this template into your issue, or it will be automatically closed.
 -->
 
 ## Which version are you using?
