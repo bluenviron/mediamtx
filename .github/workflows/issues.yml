@@ -39,7 +39,8 @@ jobs:
             owner: context.issue.owner,
             repo: context.issue.repo,
             issue_number: context.issue.number,
-            body: 'This issue is being automatically closed because it does not follow the issue template.',
+            body: 'This issue is being automatically closed because it does not follow the issue template.\n'
+              + 'Please reopen the issue and make sure to include all sections of the template.',
           });
 
           await github.rest.issues.update({
