@@ -26,7 +26,7 @@ func (c *Chunk3) Read(r io.Reader, chunkBodyLen uint32) error {
 	c.ChunkStreamID = header[0] & 0x3F
 
 	c.Body = make([]byte, chunkBodyLen)
-	_, err = r.Read(c.Body)
+	_, err = io.ReadFull(r, c.Body)
 	return err
 }
 

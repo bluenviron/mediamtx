@@ -37,7 +37,7 @@ func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	}
 
 	c.Body = make([]byte, chunkBodyLen)
-	_, err = r.Read(c.Body)
+	_, err = io.ReadFull(r, c.Body)
 	return err
 }
 
