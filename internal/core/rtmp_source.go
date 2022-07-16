@@ -133,7 +133,7 @@ func (s *rtmpSource) runInner() bool {
 				readDone <- func() error {
 					nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 					nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
-					err = conn.ClientHandshake(true)
+					err = conn.HandshakeClient(true)
 					if err != nil {
 						return err
 					}

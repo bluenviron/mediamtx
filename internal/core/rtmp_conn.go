@@ -211,7 +211,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 
 	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	err := c.conn.ServerHandshake()
+	err := c.conn.HandshakeServer()
 	if err != nil {
 		return err
 	}

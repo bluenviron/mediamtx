@@ -130,8 +130,8 @@ func (c *Conn) readCommandResult(commandName string, isValid func(*message.MsgCo
 	}
 }
 
-// ClientHandshake performs the handshake of a client-side connection.
-func (c *Conn) ClientHandshake(url *url.URL, isPlaying bool) error {
+// HandshakeClient performs the handshake of a client-side connection.
+func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 	err := handshake.DoClient(c.bc)
 	if err != nil {
 		return err
@@ -297,8 +297,8 @@ func (c *Conn) ClientHandshake(url *url.URL, isPlaying bool) error {
 	return nil
 }
 
-// ServerHandshake performs the handshake of a server-side connection.
-func (c *Conn) ServerHandshake() (*url.URL, bool, error) {
+// HandshakeServer performs the handshake of a server-side connection.
+func (c *Conn) HandshakeServer() (*url.URL, bool, error) {
 	err := handshake.DoServer(c.bc)
 	if err != nil {
 		return nil, false, err
