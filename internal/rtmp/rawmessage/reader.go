@@ -3,6 +3,7 @@ package rawmessage
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -73,7 +74,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		}
 
 		return &Message{
-			Timestamp:       c0.Timestamp,
+			Timestamp:       time.Duration(c0.Timestamp) * time.Millisecond,
 			Type:            c0.Type,
 			MessageStreamID: c0.MessageStreamID,
 			Body:            c0.Body,
@@ -109,7 +110,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		}
 
 		return &Message{
-			Timestamp:       *rc.curTimestamp,
+			Timestamp:       time.Duration(*rc.curTimestamp) * time.Millisecond,
 			Type:            c1.Type,
 			MessageStreamID: *rc.curMessageStreamID,
 			Body:            c1.Body,
@@ -146,7 +147,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		}
 
 		return &Message{
-			Timestamp:       *rc.curTimestamp,
+			Timestamp:       time.Duration(*rc.curTimestamp) * time.Millisecond,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
 			Body:            c2.Body,
@@ -179,7 +180,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			rc.curBody = nil
 
 			return &Message{
-				Timestamp:       *rc.curTimestamp,
+				Timestamp:       time.Duration(*rc.curTimestamp) * time.Millisecond,
 				Type:            *rc.curType,
 				MessageStreamID: *rc.curMessageStreamID,
 				Body:            body,
@@ -201,7 +202,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		rc.curTimestamp = &v1
 
 		return &Message{
-			Timestamp:       *rc.curTimestamp,
+			Timestamp:       time.Duration(*rc.curTimestamp) * time.Millisecond,
 			Type:            *rc.curType,
 			MessageStreamID: *rc.curMessageStreamID,
 			Body:            c3.Body,

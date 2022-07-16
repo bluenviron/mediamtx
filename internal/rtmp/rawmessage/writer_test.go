@@ -3,6 +3,7 @@ package rawmessage
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -16,7 +17,7 @@ func TestWriter(t *testing.T) {
 
 		err := w.Write(&Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576,
+			Timestamp:       18576 * time.Millisecond,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x03}, 64),
@@ -37,7 +38,7 @@ func TestWriter(t *testing.T) {
 
 		err = w.Write(&Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576 + 15,
+			Timestamp:       (18576 + 15) * time.Millisecond,
 			Type:            chunk.MessageTypeSetWindowAckSize,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x04}, 64),
@@ -62,7 +63,7 @@ func TestWriter(t *testing.T) {
 
 		err := w.Write(&Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576,
+			Timestamp:       18576 * time.Millisecond,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x03}, 64),
@@ -83,7 +84,7 @@ func TestWriter(t *testing.T) {
 
 		err = w.Write(&Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576 + 15,
+			Timestamp:       (18576 + 15) * time.Millisecond,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x04}, 64),
@@ -101,7 +102,7 @@ func TestWriter(t *testing.T) {
 
 		err = w.Write(&Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576 + 15 + 15,
+			Timestamp:       (18576 + 15 + 15) * time.Millisecond,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x05}, 64),
@@ -123,7 +124,7 @@ func TestWriter(t *testing.T) {
 
 		err := w.Write(&Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576,
+			Timestamp:       18576 * time.Millisecond,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x03}, 192),
@@ -169,7 +170,7 @@ func TestWriterAcknowledge(t *testing.T) {
 
 			err := w.Write(&Message{
 				ChunkStreamID:   27,
-				Timestamp:       18576,
+				Timestamp:       18576 * time.Millisecond,
 				Type:            chunk.MessageTypeSetPeerBandwidth,
 				MessageStreamID: 3123,
 				Body:            bytes.Repeat([]byte{0x03}, 200),
@@ -178,7 +179,7 @@ func TestWriterAcknowledge(t *testing.T) {
 
 			err = w.Write(&Message{
 				ChunkStreamID:   27,
-				Timestamp:       18576,
+				Timestamp:       18576 * time.Millisecond,
 				Type:            chunk.MessageTypeSetPeerBandwidth,
 				MessageStreamID: 3123,
 				Body:            bytes.Repeat([]byte{0x03}, 200),

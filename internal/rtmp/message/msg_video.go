@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -12,7 +13,7 @@ import (
 // MsgVideo is a video message.
 type MsgVideo struct {
 	ChunkStreamID   byte
-	DTS             uint32
+	DTS             time.Duration
 	MessageStreamID uint32
 	IsKeyFrame      bool
 	H264Type        uint8

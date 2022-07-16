@@ -2,6 +2,7 @@ package rawmessage
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -12,8 +13,8 @@ type writerChunkStream struct {
 	lastMessageStreamID *uint32
 	lastType            *chunk.MessageType
 	lastBodyLen         *uint32
-	lastTimestamp       *uint32
-	lastTimestampDelta  *uint32
+	lastTimestamp       *time.Duration
+	lastTimestampDelta  *time.Duration
 }
 
 func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
@@ -44,14 +45,13 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 	pos := uint32(0)
 	firstChunk := true
 
-	var timestampDelta *uint32
+	var timestampDelta *time.Duration
 	if wc.lastTimestamp != nil {
-		diff := int64(msg.Timestamp) - int64(*wc.lastTimestamp)
+		diff := msg.Timestamp - *wc.lastTimestamp
 
 		// use delta only if it is positive
 		if diff >= 0 {
-			v := uint32(diff)
-			timestampDelta = &v
+			timestampDelta = &diff
 		}
 	}
 
@@ -68,7 +68,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 			case wc.lastMessageStreamID == nil || timestampDelta == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
 				err := wc.writeChunk(&chunk.Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
-					Timestamp:       msg.Timestamp,
+					Timestamp:       uint32(msg.Timestamp / time.Millisecond),
 					Type:            msg.Type,
 					MessageStreamID: msg.MessageStreamID,
 					BodyLen:         (bodyLen),
@@ -81,7 +81,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 			case *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
 				err := wc.writeChunk(&chunk.Chunk1{
 					ChunkStreamID:  msg.ChunkStreamID,
-					TimestampDelta: *timestampDelta,
+					TimestampDelta: uint32(*timestampDelta / time.Millisecond),
 					Type:           msg.Type,
 					BodyLen:        (bodyLen),
 					Body:           msg.Body[pos : pos+chunkBodyLen],
@@ -93,7 +93,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 			case wc.lastTimestampDelta == nil || *wc.lastTimestampDelta != *timestampDelta:
 				err := wc.writeChunk(&chunk.Chunk2{
 					ChunkStreamID:  msg.ChunkStreamID,
-					TimestampDelta: *timestampDelta,
+					TimestampDelta: uint32(*timestampDelta / time.Millisecond),
 					Body:           msg.Body[pos : pos+chunkBodyLen],
 				})
 				if err != nil {

@@ -3,7 +3,6 @@ package rtmp
 import (
 	"net"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/aler9/gortsplib"
@@ -16,37 +15,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/handshake"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
-
-func splitPath(u *url.URL) (app, stream string) {
-	nu := *u
-	nu.ForceQuery = false
-
-	pathsegs := strings.Split(nu.RequestURI(), "/")
-	if len(pathsegs) == 2 {
-		app = pathsegs[1]
-	}
-	if len(pathsegs) == 3 {
-		app = pathsegs[1]
-		stream = pathsegs[2]
-	}
-	if len(pathsegs) > 3 {
-		app = strings.Join(pathsegs[1:3], "/")
-		stream = strings.Join(pathsegs[3:], "/")
-	}
-	return
-}
-
-func getTcURL(u string) string {
-	ur, err := url.Parse(u)
-	if err != nil {
-		panic(err)
-	}
-	app, _ := splitPath(ur)
-	nu := *ur
-	nu.RawQuery = ""
-	nu.Path = "/"
-	return nu.String() + app
-}
 
 func TestClientHandshake(t *testing.T) {
 	for _, ca := range []string{"read", "publish"} {
@@ -79,7 +47,7 @@ func TestClientHandshake(t *testing.T) {
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgSetPeerBandwidth{
-					Value: 0x2625a0,
+					Value: 2500000,
 					Type:  2,
 				}, msg)
 
@@ -286,9 +254,9 @@ func TestClientHandshake(t *testing.T) {
 			nconn, err := net.Dial("tcp", u.Host)
 			require.NoError(t, err)
 			defer nconn.Close()
-			conn := NewClientConn(nconn, u)
+			conn := NewConn(nconn)
 
-			err = conn.ClientHandshake(ca == "read")
+			err = conn.ClientHandshake(u, ca == "read")
 			require.NoError(t, err)
 
 			<-done
@@ -310,9 +278,11 @@ func TestServerHandshake(t *testing.T) {
 				require.NoError(t, err)
 				defer nconn.Close()
 
-				conn := NewServerConn(nconn)
-				err = conn.ServerHandshake()
+				conn := NewConn(nconn)
+				u, isReading, err := conn.ServerHandshake()
 				require.NoError(t, err)
+				require.Equal(t, (*url.URL)(nil), u)
+				require.Equal(t, ca == "read", isReading)
 
 				close(done)
 			}()
@@ -536,8 +506,8 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 				defer conn.Close()
 
-				rconn := NewServerConn(conn)
-				err = rconn.ServerHandshake()
+				rconn := NewConn(conn)
+				_, _, err = rconn.ServerHandshake()
 				require.NoError(t, err)
 
 				videoTrack, audioTrack, err := rconn.ReadTracks()
@@ -955,8 +925,8 @@ func TestWriteTracks(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		rconn := NewServerConn(conn)
-		err = rconn.ServerHandshake()
+		rconn := NewConn(conn)
+		_, _, err = rconn.ServerHandshake()
 		require.NoError(t, err)
 
 		videoTrack := &gortsplib.TrackH264{
@@ -1215,6 +1185,7 @@ func TestWriteTracks(t *testing.T) {
 		ChunkStreamID:   4,
 		MessageStreamID: 16777216,
 		Payload: []interface{}{
+			"@setDataFrame",
 			"onMetaData",
 			flvio.AMFMap{
 				{K: "videodatarate", V: float64(0)},

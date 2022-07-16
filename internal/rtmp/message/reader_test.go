@@ -3,6 +3,7 @@ package message
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,7 @@ var readWriterCases = []struct {
 		"audio",
 		&MsgAudio{
 			ChunkStreamID:   7,
-			DTS:             6013806,
+			DTS:             6013806 * time.Millisecond,
 			MessageStreamID: 4534543,
 			Rate:            3,
 			Depth:           flvio.SOUND_16BIT,
@@ -139,6 +140,18 @@ var readWriterCases = []struct {
 			StreamID: 35534,
 		},
 		[]byte{0x2, 0x0, 0x0, 0x0, 0x0, 0x0, 0x6, 0x4, 0x0, 0x0, 0x0, 0x0, 0x0, 0x4, 0x0, 0x0, 0x8a, 0xce},
+	},
+	{
+		"video",
+		&MsgVideo{
+			ChunkStreamID:   6,
+			DTS:             2543534 * time.Millisecond,
+			MessageStreamID: 16777216,
+			IsKeyFrame:      true,
+			H264Type:        flvio.AVC_SEQHDR,
+			Payload:         []byte{0x01, 0x02, 0x03},
+		},
+		[]byte{0x6, 0x26, 0xcf, 0xae, 0x0, 0x0, 0x8, 0x9, 0x1, 0x0, 0x0, 0x0, 0x17, 0x0, 0x0, 0x0, 0x0, 0x1, 0x2, 0x3},
 	},
 }
 

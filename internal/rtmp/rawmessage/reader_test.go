@@ -3,6 +3,7 @@ package rawmessage
 import (
 	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -46,7 +47,7 @@ func TestReader(t *testing.T) {
 				},
 				&Message{
 					ChunkStreamID:   27,
-					Timestamp:       18576,
+					Timestamp:       18576 * time.Millisecond,
 					Type:            chunk.MessageTypeSetPeerBandwidth,
 					MessageStreamID: 3123,
 					Body:            bytes.Repeat([]byte{0x02}, 64),
@@ -62,7 +63,7 @@ func TestReader(t *testing.T) {
 				},
 				&Message{
 					ChunkStreamID:   27,
-					Timestamp:       18576 + 15,
+					Timestamp:       (18576 + 15) * time.Millisecond,
 					Type:            chunk.MessageTypeSetPeerBandwidth,
 					MessageStreamID: 3123,
 					Body:            bytes.Repeat([]byte{0x03}, 64),
@@ -84,7 +85,7 @@ func TestReader(t *testing.T) {
 				},
 				&Message{
 					ChunkStreamID:   27,
-					Timestamp:       18576,
+					Timestamp:       18576 * time.Millisecond,
 					Type:            chunk.MessageTypeSetPeerBandwidth,
 					MessageStreamID: 3123,
 					Body:            bytes.Repeat([]byte{0x02}, 64),
@@ -98,7 +99,7 @@ func TestReader(t *testing.T) {
 				},
 				&Message{
 					ChunkStreamID:   27,
-					Timestamp:       18576 + 15,
+					Timestamp:       (18576 + 15) * time.Millisecond,
 					Type:            chunk.MessageTypeSetPeerBandwidth,
 					MessageStreamID: 3123,
 					Body:            bytes.Repeat([]byte{0x03}, 64),
@@ -111,7 +112,7 @@ func TestReader(t *testing.T) {
 				},
 				&Message{
 					ChunkStreamID:   27,
-					Timestamp:       18576 + 15 + 15,
+					Timestamp:       (18576 + 15 + 15) * time.Millisecond,
 					Type:            chunk.MessageTypeSetPeerBandwidth,
 					MessageStreamID: 3123,
 					Body:            bytes.Repeat([]byte{0x04}, 64),
@@ -149,7 +150,7 @@ func TestReader(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, &Message{
 			ChunkStreamID:   27,
-			Timestamp:       18576,
+			Timestamp:       18576 * time.Millisecond,
 			Type:            chunk.MessageTypeSetPeerBandwidth,
 			MessageStreamID: 3123,
 			Body:            bytes.Repeat([]byte{0x03}, 192),
