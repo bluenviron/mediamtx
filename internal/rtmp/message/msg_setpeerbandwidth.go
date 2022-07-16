@@ -37,7 +37,7 @@ func (m *MsgSetPeerBandwidth) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeSetChunkSize,
+		Type:          chunk.MessageTypeSetPeerBandwidth,
 		Body:          body,
 	}, nil
 }
