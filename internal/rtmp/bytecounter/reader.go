@@ -35,3 +35,8 @@ func NewReader(r io.Reader) *Reader {
 func (r Reader) Count() uint32 {
 	return r.ri.count
 }
+
+// SetCount sets read bytes.
+func (r *Reader) SetCount(v uint32) {
+	r.ri.count = v
+}

@@ -30,7 +30,6 @@ func (rc *readerChunkStream) readChunk(c chunk.Chunk, chunkBodySize uint32) erro
 	if rc.mr.ackWindowSize != 0 {
 		count := rc.mr.r.Count()
 		diff := count - rc.mr.lastAckCount
-		// TODO: handle overflow
 
 		if diff > (rc.mr.ackWindowSize) {
 			err := rc.mr.onAckNeeded(count)

@@ -17,6 +17,15 @@ type writerChunkStream struct {
 }
 
 func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
+	// check if we received an acknowledge
+	if wc.mw.ackWindowSize != 0 {
+		diff := wc.mw.w.Count() - (wc.mw.ackValue)
+
+		if diff > (wc.mw.ackWindowSize * 3 / 2) {
+			return fmt.Errorf("no acknowledge received within window")
+		}
+	}
+
 	buf, err := c.Marshal()
 	if err != nil {
 		return err
@@ -25,16 +34,6 @@ func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
 	_, err = wc.mw.w.Write(buf)
 	if err != nil {
 		return err
-	}
-
-	// check if we received an acknowledge
-	if wc.mw.ackWindowSize != 0 {
-		diff := wc.mw.w.Count() - (wc.mw.ackValue)
-		// TODO: handle overflow
-
-		if diff > (wc.mw.ackWindowSize * 3 / 2) {
-			return fmt.Errorf("no acknowledge received within window")
-		}
 	}
 
 	return nil

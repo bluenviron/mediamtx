@@ -158,34 +158,40 @@ func TestReader(t *testing.T) {
 }
 
 func TestReaderAcknowledge(t *testing.T) {
-	onAckCalled := make(chan struct{})
+	for _, ca := range []string{"standard", "overflow"} {
+		t.Run(ca, func(t *testing.T) {
+			onAckCalled := make(chan struct{})
 
-	var buf bytes.Buffer
-	bcr := bytecounter.NewReader(&buf)
-	r := NewReader(bcr, func(count uint32) error {
-		close(onAckCalled)
-		return nil
-	})
+			var buf bytes.Buffer
+			bcr := bytecounter.NewReader(&buf)
+			r := NewReader(bcr, func(count uint32) error {
+				close(onAckCalled)
+				return nil
+			})
 
-	r.SetWindowAckSize(100)
+			if ca == "overflow" {
+				bcr.SetCount(4294967096)
+				r.lastAckCount = 4294967096
+			}
 
-	for i := 0; i < 2; i++ {
-		buf2, err := chunk.Chunk0{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			BodyLen:         64,
-			Body:            bytes.Repeat([]byte{0x03}, 64),
-		}.Marshal()
-		require.NoError(t, err)
-		buf.Write(buf2)
+			r.SetChunkSize(65536)
+			r.SetWindowAckSize(100)
+
+			buf2, err := chunk.Chunk0{
+				ChunkStreamID:   27,
+				Timestamp:       18576,
+				Type:            chunk.MessageTypeSetPeerBandwidth,
+				MessageStreamID: 3123,
+				BodyLen:         200,
+				Body:            bytes.Repeat([]byte{0x03}, 200),
+			}.Marshal()
+			require.NoError(t, err)
+			buf.Write(buf2)
+
+			_, err = r.Read()
+			require.NoError(t, err)
+
+			<-onAckCalled
+		})
 	}
-
-	for i := 0; i < 2; i++ {
-		_, err := r.Read()
-		require.NoError(t, err)
-	}
-
-	<-onAckCalled
 }

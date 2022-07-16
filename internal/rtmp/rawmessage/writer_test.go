@@ -153,28 +153,37 @@ func TestWriter(t *testing.T) {
 }
 
 func TestWriterAcknowledge(t *testing.T) {
-	var buf bytes.Buffer
-	w := NewWriter(bytecounter.NewWriter(&buf))
+	for _, ca := range []string{"standard", "overflow"} {
+		t.Run(ca, func(t *testing.T) {
+			var buf bytes.Buffer
+			bcw := bytecounter.NewWriter(&buf)
+			w := NewWriter(bcw)
 
-	w.SetWindowAckSize(100)
+			if ca == "overflow" {
+				bcw.SetCount(4294967096)
+				w.ackValue = 4294967096
+			}
 
-	for i := 0; i < 2; i++ {
-		err := w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x03}, 64),
+			w.SetChunkSize(65536)
+			w.SetWindowAckSize(100)
+
+			err := w.Write(&Message{
+				ChunkStreamID:   27,
+				Timestamp:       18576,
+				Type:            chunk.MessageTypeSetPeerBandwidth,
+				MessageStreamID: 3123,
+				Body:            bytes.Repeat([]byte{0x03}, 200),
+			})
+			require.NoError(t, err)
+
+			err = w.Write(&Message{
+				ChunkStreamID:   27,
+				Timestamp:       18576,
+				Type:            chunk.MessageTypeSetPeerBandwidth,
+				MessageStreamID: 3123,
+				Body:            bytes.Repeat([]byte{0x03}, 200),
+			})
+			require.EqualError(t, err, "no acknowledge received within window")
 		})
-		require.NoError(t, err)
 	}
-
-	err := w.Write(&Message{
-		ChunkStreamID:   27,
-		Timestamp:       18576,
-		Type:            chunk.MessageTypeSetPeerBandwidth,
-		MessageStreamID: 3123,
-		Body:            bytes.Repeat([]byte{0x03}, 64),
-	})
-	require.EqualError(t, err, "no acknowledge received within window")
 }

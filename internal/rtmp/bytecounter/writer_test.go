@@ -9,7 +9,10 @@ import (
 
 func TestWriter(t *testing.T) {
 	var buf bytes.Buffer
+
 	w := NewWriter(&buf)
+	w.SetCount(100)
+
 	w.Write(bytes.Repeat([]byte{0x01}, 64))
-	require.Equal(t, uint32(64), w.Count())
+	require.Equal(t, uint32(100+64), w.Count())
 }

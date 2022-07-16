@@ -28,3 +28,8 @@ func (w *Writer) Write(p []byte) (int, error) {
 func (w Writer) Count() uint32 {
 	return w.count
 }
+
+// SetCount sets written bytes.
+func (w *Writer) SetCount(v uint32) {
+	w.count = v
+}
