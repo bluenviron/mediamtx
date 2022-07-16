@@ -69,7 +69,7 @@ func TestHandshakeClient(t *testing.T) {
 						flvio.AMFMap{
 							{K: "app", V: "stream"},
 							{K: "flashVer", V: "LNX 9,0,124,2"},
-							{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+							{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 							{K: "fpad", V: false},
 							{K: "capabilities", V: float64(15)},
 							{K: "audioCodecs", V: float64(4071)},
@@ -306,7 +306,7 @@ func TestHandshakeServer(t *testing.T) {
 					flvio.AMFMap{
 						{K: "app", V: "/stream"},
 						{K: "flashVer", V: "LNX 9,0,124,2"},
-						{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+						{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 						{K: "fpad", V: false},
 						{K: "capabilities", V: 15},
 						{K: "audioCodecs", V: 4071},
@@ -594,7 +594,7 @@ func TestReadTracks(t *testing.T) {
 					flvio.AMFMap{
 						{K: "app", V: "/stream"},
 						{K: "flashVer", V: "LNX 9,0,124,2"},
-						{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+						{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 						{K: "fpad", V: false},
 						{K: "capabilities", V: 15},
 						{K: "audioCodecs", V: 4071},
@@ -976,7 +976,7 @@ func TestWriteTracks(t *testing.T) {
 			flvio.AMFMap{
 				{K: "app", V: "/stream"},
 				{K: "flashVer", V: "LNX 9,0,124,2"},
-				{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+				{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 				{K: "fpad", V: false},
 				{K: "capabilities", V: 15},
 				{K: "audioCodecs", V: 4071},
