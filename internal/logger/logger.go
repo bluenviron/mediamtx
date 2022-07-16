@@ -186,7 +186,7 @@ func (lh *Logger) Log(level Level, format string, args ...interface{}) {
 		writeTime(&lh.stdoutBuffer, true)
 		writeLevel(&lh.stdoutBuffer, level, true)
 		writeContent(&lh.stdoutBuffer, format, args)
-		print(lh.stdoutBuffer.String())
+		os.Stdout.Write(lh.stdoutBuffer.Bytes())
 	}
 
 	if _, ok := lh.destinations[DestinationFile]; ok {
