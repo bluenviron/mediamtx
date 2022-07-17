@@ -10,10 +10,10 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
-	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/h264conf"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/handshake"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
@@ -575,15 +575,16 @@ func (c *Conn) WriteMessage(msg message.Message) error {
 }
 
 func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
-	codec, err := nh264.FromDecoderConfig(data)
+	var conf h264conf.Conf
+	err := conf.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
 	return &gortsplib.TrackH264{
 		PayloadType: 96,
-		SPS:         codec.SPS[0],
-		PPS:         codec.PPS[0],
+		SPS:         conf.SPS,
+		PPS:         conf.PPS,
 	}, nil
 }
 
@@ -887,24 +888,17 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 	// write decoder config only if SPS and PPS are available.
 	// if they're not available yet, they're sent later.
 	if videoTrack != nil && videoTrack.SafeSPS() != nil && videoTrack.SafePPS() != nil {
-		codec := nh264.Codec{
-			SPS: map[int][]byte{
-				0: videoTrack.SafeSPS(),
-			},
-			PPS: map[int][]byte{
-				0: videoTrack.SafePPS(),
-			},
-		}
-		b := make([]byte, 128)
-		var n int
-		codec.ToConfig(b, &n)
+		buf, _ := h264conf.Conf{
+			SPS: videoTrack.SafeSPS(),
+			PPS: videoTrack.SafePPS(),
+		}.Marshal()
 
 		err = c.WriteMessage(&message.MsgVideo{
 			ChunkStreamID:   6,
 			MessageStreamID: 0x1000000,
 			IsKeyFrame:      true,
 			H264Type:        flvio.AVC_SEQHDR,
-			Payload:         b[:n],
+			Payload:         buf,
 		})
 		if err != nil {
 			return err

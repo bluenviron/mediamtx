@@ -7,11 +7,11 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
-	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/h264conf"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/handshake"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
@@ -770,23 +770,16 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b[:n],
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 
@@ -835,23 +828,16 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b[:n],
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 
@@ -875,23 +861,16 @@ func TestReadTracks(t *testing.T) {
 
 			case "missing metadata":
 				// C->S H264 decoder config
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b[:n],
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 

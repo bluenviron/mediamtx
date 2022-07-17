@@ -16,13 +16,13 @@ import (
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
-	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/h264conf"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
@@ -411,25 +411,17 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				sps := videoTrack.SafeSPS()
 				pps := videoTrack.SafePPS()
 
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
-				b = b[:n]
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 
 				err = c.conn.WriteMessage(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b,
+					Payload:         buf,
 				})
 				if err != nil {
 					return err
@@ -579,15 +571,16 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		switch tmsg := msg.(type) {
 		case *message.MsgVideo:
 			if tmsg.H264Type == flvio.AVC_SEQHDR {
-				codec, err := nh264.FromDecoderConfig(tmsg.Payload)
+				var conf h264conf.Conf
+				err = conf.Unmarshal(tmsg.Payload)
 				if err != nil {
-					return err
+					return fmt.Errorf("unable to parse H264 config: %v", err)
 				}
 
 				pts := tmsg.DTS + tmsg.PTSDelta
 				nalus := [][]byte{
-					codec.SPS[0],
-					codec.PPS[0],
+					conf.SPS,
+					conf.PPS,
 				}
 
 				pkts, err := h264Encoder.Encode(nalus, pts)
