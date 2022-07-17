@@ -578,7 +578,7 @@ func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
 	var conf h264conf.Conf
 	err := conf.Unmarshal(data)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to parse H264 config: %v", err)
 	}
 
 	return &gortsplib.TrackH264{

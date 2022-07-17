@@ -125,7 +125,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, fmt.Errorf("received type 2 chunk but expected type 3 chunk")
 		}
 
-		chunkBodyLen := (*rc.curBodyLen)
+		chunkBodyLen := *rc.curBodyLen
 		if chunkBodyLen > rc.mr.chunkSize {
 			chunkBodyLen = rc.mr.chunkSize
 		}
@@ -141,7 +141,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		v2 := c2.TimestampDelta
 		rc.curTimestampDelta = &v2
 
-		if chunkBodyLen != uint32(len(c2.Body)) {
+		if *rc.curBodyLen != uint32(len(c2.Body)) {
 			rc.curBody = &c2.Body
 			return nil, errMoreChunksNeeded
 		}
