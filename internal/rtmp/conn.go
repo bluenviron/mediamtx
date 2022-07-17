@@ -809,6 +809,11 @@ func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
 	if data, ok := msg.(*message.MsgDataAMF0); ok && len(data.Payload) >= 1 {
 		payload := data.Payload
 
+		// skip packet
+		if s, ok := payload[0].(string); ok && s == "|RtmpSampleAccess" {
+			return c.ReadTracks()
+		}
+
 		if s, ok := payload[0].(string); ok && s == "@setDataFrame" {
 			payload = payload[1:]
 		}

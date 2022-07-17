@@ -232,6 +232,14 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		conn := rtmp.NewConn(nconn)
 
 		err = conn.InitializeClient(u, true)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			_, err := conn.ReadMessage()
+			require.NoError(t, err)
+		}
+
+		_, err = conn.ReadMessage()
 		require.Equal(t, err, io.EOF)
 	})
 }
