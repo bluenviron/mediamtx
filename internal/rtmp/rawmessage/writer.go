@@ -19,8 +19,8 @@ type writerChunkStream struct {
 
 func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
 	// check if we received an acknowledge
-	if wc.mw.ackWindowSize != 0 {
-		diff := wc.mw.w.Count() - (wc.mw.ackValue)
+	if wc.mw.checkAcknowledge && wc.mw.ackWindowSize != 0 {
+		diff := wc.mw.w.Count() - wc.mw.ackValue
 
 		if diff > (wc.mw.ackWindowSize * 3 / 2) {
 			return fmt.Errorf("no acknowledge received within window")
@@ -143,19 +143,21 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 
 // Writer is a raw message writer.
 type Writer struct {
-	w             *bytecounter.Writer
-	chunkSize     uint32
-	ackWindowSize uint32
-	ackValue      uint32
-	chunkStreams  map[byte]*writerChunkStream
+	w                *bytecounter.Writer
+	checkAcknowledge bool
+	chunkSize        uint32
+	ackWindowSize    uint32
+	ackValue         uint32
+	chunkStreams     map[byte]*writerChunkStream
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(w *bytecounter.Writer) *Writer {
+func NewWriter(w *bytecounter.Writer, checkAcknowledge bool) *Writer {
 	return &Writer{
-		w:            w,
-		chunkSize:    128,
-		chunkStreams: make(map[byte]*writerChunkStream),
+		w:                w,
+		checkAcknowledge: checkAcknowledge,
+		chunkSize:        128,
+		chunkStreams:     make(map[byte]*writerChunkStream),
 	}
 }
 

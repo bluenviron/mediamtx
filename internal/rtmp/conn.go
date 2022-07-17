@@ -115,7 +115,7 @@ type Conn struct {
 func NewConn(nconn net.Conn) *Conn {
 	c := &Conn{}
 	c.bc = bytecounter.NewReadWriter(nconn)
-	c.mrw = message.NewReadWriter(c.bc)
+	c.mrw = message.NewReadWriter(c.bc, false)
 	return c
 }
 

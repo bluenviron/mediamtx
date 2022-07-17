@@ -11,8 +11,8 @@ type ReadWriter struct {
 }
 
 // NewReadWriter allocates a ReadWriter.
-func NewReadWriter(bc *bytecounter.ReadWriter) *ReadWriter {
-	w := NewWriter(bc.Writer)
+func NewReadWriter(bc *bytecounter.ReadWriter, checkAcknowledge bool) *ReadWriter {
+	w := NewWriter(bc.Writer, checkAcknowledge)
 
 	r := NewReader(bc.Reader, func(count uint32) error {
 		return w.Write(&MsgAcknowledge{

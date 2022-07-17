@@ -34,7 +34,7 @@ func TestInitializeClient(t *testing.T) {
 				err = handshake.DoServer(bc, true)
 				require.NoError(t, err)
 
-				mrw := message.NewReadWriter(bc)
+				mrw := message.NewReadWriter(bc, true)
 
 				// C->S set window ack size
 				msg, err := mrw.Read()
@@ -299,7 +299,7 @@ func TestInitializeServer(t *testing.T) {
 			err = handshake.DoClient(bc, true)
 			require.NoError(t, err)
 
-			mrw := message.NewReadWriter(bc)
+			mrw := message.NewReadWriter(bc, true)
 
 			// C->S connect
 			err = mrw.Write(&message.MsgCommandAMF0{
@@ -587,7 +587,7 @@ func TestReadTracks(t *testing.T) {
 			err = handshake.DoClient(bc, true)
 			require.NoError(t, err)
 
-			mrw := message.NewReadWriter(bc)
+			mrw := message.NewReadWriter(bc, true)
 
 			// C->S connect
 			err = mrw.Write(&message.MsgCommandAMF0{
@@ -948,7 +948,7 @@ func TestWriteTracks(t *testing.T) {
 	err = handshake.DoClient(bc, true)
 	require.NoError(t, err)
 
-	mrw := message.NewReadWriter(bc)
+	mrw := message.NewReadWriter(bc, true)
 
 	// C->S connect
 	err = mrw.Write(&message.MsgCommandAMF0{

@@ -11,9 +11,9 @@ type Writer struct {
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(w *bytecounter.Writer) *Writer {
+func NewWriter(w *bytecounter.Writer, checkAcknowledge bool) *Writer {
 	return &Writer{
-		w: rawmessage.NewWriter(w),
+		w: rawmessage.NewWriter(w, checkAcknowledge),
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 func TestWriter(t *testing.T) {
 	t.Run("chunk0 + chunk1", func(t *testing.T) {
 		var buf bytes.Buffer
-		w := NewWriter(bytecounter.NewWriter(&buf))
+		w := NewWriter(bytecounter.NewWriter(&buf), true)
 
 		err := w.Write(&Message{
 			ChunkStreamID:   27,
@@ -59,7 +59,7 @@ func TestWriter(t *testing.T) {
 
 	t.Run("chunk0 + chunk2 + chunk3", func(t *testing.T) {
 		var buf bytes.Buffer
-		w := NewWriter(bytecounter.NewWriter(&buf))
+		w := NewWriter(bytecounter.NewWriter(&buf), true)
 
 		err := w.Write(&Message{
 			ChunkStreamID:   27,
@@ -120,7 +120,7 @@ func TestWriter(t *testing.T) {
 
 	t.Run("chunk0 + chunk3", func(t *testing.T) {
 		var buf bytes.Buffer
-		w := NewWriter(bytecounter.NewWriter(&buf))
+		w := NewWriter(bytecounter.NewWriter(&buf), true)
 
 		err := w.Write(&Message{
 			ChunkStreamID:   27,
@@ -158,7 +158,7 @@ func TestWriterAcknowledge(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			var buf bytes.Buffer
 			bcw := bytecounter.NewWriter(&buf)
-			w := NewWriter(bcw)
+			w := NewWriter(bcw, true)
 
 			if ca == "overflow" {
 				bcw.SetCount(4294967096)
