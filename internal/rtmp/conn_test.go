@@ -3,52 +3,20 @@ package rtmp
 import (
 	"net"
 	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/aac"
-	nh264 "github.com/notedit/rtmp/codec/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/h264conf"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/handshake"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
-func splitPath(u *url.URL) (app, stream string) {
-	nu := *u
-	nu.ForceQuery = false
-
-	pathsegs := strings.Split(nu.RequestURI(), "/")
-	if len(pathsegs) == 2 {
-		app = pathsegs[1]
-	}
-	if len(pathsegs) == 3 {
-		app = pathsegs[1]
-		stream = pathsegs[2]
-	}
-	if len(pathsegs) > 3 {
-		app = strings.Join(pathsegs[1:3], "/")
-		stream = strings.Join(pathsegs[3:], "/")
-	}
-	return
-}
-
-func getTcURL(u string) string {
-	ur, err := url.Parse(u)
-	if err != nil {
-		panic(err)
-	}
-	app, _ := splitPath(ur)
-	nu := *ur
-	nu.RawQuery = ""
-	nu.Path = "/"
-	return nu.String() + app
-}
-
-func TestClientHandshake(t *testing.T) {
+func TestInitializeClient(t *testing.T) {
 	for _, ca := range []string{"read", "publish"} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -63,10 +31,10 @@ func TestClientHandshake(t *testing.T) {
 				defer conn.Close()
 				bc := bytecounter.NewReadWriter(conn)
 
-				err = handshake.DoServer(bc)
+				err = handshake.DoServer(bc, true)
 				require.NoError(t, err)
 
-				mrw := message.NewReadWriter(bc)
+				mrw := message.NewReadWriter(bc, true)
 
 				// C->S set window ack size
 				msg, err := mrw.Read()
@@ -79,7 +47,7 @@ func TestClientHandshake(t *testing.T) {
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgSetPeerBandwidth{
-					Value: 0x2625a0,
+					Value: 2500000,
 					Type:  2,
 				}, msg)
 
@@ -95,13 +63,13 @@ func TestClientHandshake(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"connect",
-						float64(1),
+					Name:          "connect",
+					CommandID:     1,
+					Arguments: []interface{}{
 						flvio.AMFMap{
 							{K: "app", V: "stream"},
 							{K: "flashVer", V: "LNX 9,0,124,2"},
-							{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+							{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 							{K: "fpad", V: false},
 							{K: "capabilities", V: float64(15)},
 							{K: "audioCodecs", V: float64(4071)},
@@ -114,9 +82,9 @@ func TestClientHandshake(t *testing.T) {
 				// S->C result
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"_result",
-						float64(1),
+					Name:          "_result",
+					CommandID:     1,
+					Arguments: []interface{}{
 						flvio.AMFMap{
 							{K: "fmsVer", V: "LNX 9,0,124,2"},
 							{K: "capabilities", V: float64(31)},
@@ -137,9 +105,9 @@ func TestClientHandshake(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID: 3,
-						Payload: []interface{}{
-							"createStream",
-							float64(2),
+						Name:          "createStream",
+						CommandID:     2,
+						Arguments: []interface{}{
 							nil,
 						},
 					}, msg)
@@ -147,9 +115,9 @@ func TestClientHandshake(t *testing.T) {
 					// S->C result
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID: 3,
-						Payload: []interface{}{
-							"_result",
-							float64(2),
+						Name:          "_result",
+						CommandID:     2,
+						Arguments: []interface{}{
 							nil,
 							float64(1),
 						},
@@ -168,10 +136,10 @@ func TestClientHandshake(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID:   4,
-						MessageStreamID: 16777216,
-						Payload: []interface{}{
-							"play",
-							float64(0),
+						MessageStreamID: 0x1000000,
+						Name:            "play",
+						CommandID:       0,
+						Arguments: []interface{}{
 							nil,
 							"",
 						},
@@ -180,10 +148,10 @@ func TestClientHandshake(t *testing.T) {
 					// S->C onStatus
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID:   5,
-						MessageStreamID: 16777216,
-						Payload: []interface{}{
-							"onStatus",
-							float64(4),
+						MessageStreamID: 0x1000000,
+						Name:            "onStatus",
+						CommandID:       4,
+						Arguments: []interface{}{
 							nil,
 							flvio.AMFMap{
 								{K: "level", V: "status"},
@@ -199,9 +167,9 @@ func TestClientHandshake(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID: 3,
-						Payload: []interface{}{
-							"releaseStream",
-							float64(2),
+						Name:          "releaseStream",
+						CommandID:     2,
+						Arguments: []interface{}{
 							nil,
 							"",
 						},
@@ -212,9 +180,9 @@ func TestClientHandshake(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID: 3,
-						Payload: []interface{}{
-							"FCPublish",
-							float64(3),
+						Name:          "FCPublish",
+						CommandID:     3,
+						Arguments: []interface{}{
 							nil,
 							"",
 						},
@@ -225,9 +193,9 @@ func TestClientHandshake(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID: 3,
-						Payload: []interface{}{
-							"createStream",
-							float64(4),
+						Name:          "createStream",
+						CommandID:     4,
+						Arguments: []interface{}{
 							nil,
 						},
 					}, msg)
@@ -235,9 +203,9 @@ func TestClientHandshake(t *testing.T) {
 					// S->C result
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID: 3,
-						Payload: []interface{}{
-							"_result",
-							float64(4),
+						Name:          "_result",
+						CommandID:     4,
+						Arguments: []interface{}{
 							nil,
 							float64(1),
 						},
@@ -249,10 +217,10 @@ func TestClientHandshake(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID:   4,
-						MessageStreamID: 16777216,
-						Payload: []interface{}{
-							"publish",
-							float64(5),
+						MessageStreamID: 0x1000000,
+						Name:            "publish",
+						CommandID:       5,
+						Arguments: []interface{}{
 							nil,
 							"",
 							"stream",
@@ -262,10 +230,10 @@ func TestClientHandshake(t *testing.T) {
 					// S->C onStatus
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID:   5,
-						MessageStreamID: 16777216,
-						Payload: []interface{}{
-							"onStatus",
-							float64(5),
+						MessageStreamID: 0x1000000,
+						Name:            "onStatus",
+						CommandID:       5,
+						Arguments: []interface{}{
 							nil,
 							flvio.AMFMap{
 								{K: "level", V: "status"},
@@ -286,9 +254,9 @@ func TestClientHandshake(t *testing.T) {
 			nconn, err := net.Dial("tcp", u.Host)
 			require.NoError(t, err)
 			defer nconn.Close()
-			conn := NewClientConn(nconn, u)
+			conn := NewConn(nconn)
 
-			err = conn.ClientHandshake(ca == "read")
+			err = conn.InitializeClient(u, ca == "read")
 			require.NoError(t, err)
 
 			<-done
@@ -296,7 +264,7 @@ func TestClientHandshake(t *testing.T) {
 	}
 }
 
-func TestServerHandshake(t *testing.T) {
+func TestInitializeServer(t *testing.T) {
 	for _, ca := range []string{"read", "publish"} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -310,9 +278,15 @@ func TestServerHandshake(t *testing.T) {
 				require.NoError(t, err)
 				defer nconn.Close()
 
-				conn := NewServerConn(nconn)
-				err = conn.ServerHandshake()
+				conn := NewConn(nconn)
+				u, isReading, err := conn.InitializeServer()
 				require.NoError(t, err)
+				require.Equal(t, &url.URL{
+					Scheme: "rtmp",
+					Host:   "127.0.0.1:9121",
+					Path:   "//stream/",
+				}, u)
+				require.Equal(t, ca == "read", isReading)
 
 				close(done)
 			}()
@@ -322,21 +296,21 @@ func TestServerHandshake(t *testing.T) {
 			defer conn.Close()
 			bc := bytecounter.NewReadWriter(conn)
 
-			err = handshake.DoClient(bc)
+			err = handshake.DoClient(bc, true)
 			require.NoError(t, err)
 
-			mrw := message.NewReadWriter(bc)
+			mrw := message.NewReadWriter(bc, true)
 
 			// C->S connect
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"connect",
-					1,
+				Name:          "connect",
+				CommandID:     1,
+				Arguments: []interface{}{
 					flvio.AMFMap{
 						{K: "app", V: "/stream"},
 						{K: "flashVer", V: "LNX 9,0,124,2"},
-						{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+						{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 						{K: "fpad", V: false},
 						{K: "capabilities", V: 15},
 						{K: "audioCodecs", V: 4071},
@@ -374,9 +348,9 @@ func TestServerHandshake(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"_result",
-					float64(1),
+				Name:          "_result",
+				CommandID:     1,
+				Arguments: []interface{}{
 					flvio.AMFMap{
 						{K: "fmsVer", V: "LNX 9,0,124,2"},
 						{K: "capabilities", V: float64(31)},
@@ -400,9 +374,9 @@ func TestServerHandshake(t *testing.T) {
 				// C->S createStream
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"createStream",
-						float64(2),
+					Name:          "createStream",
+					CommandID:     2,
+					Arguments: []interface{}{
 						nil,
 					},
 				})
@@ -413,9 +387,9 @@ func TestServerHandshake(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"_result",
-						float64(2),
+					Name:          "_result",
+					CommandID:     2,
+					Arguments: []interface{}{
 						nil,
 						float64(1),
 					},
@@ -430,10 +404,10 @@ func TestServerHandshake(t *testing.T) {
 				// C->S play
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID:   4,
-					MessageStreamID: 16777216,
-					Payload: []interface{}{
-						"play",
-						float64(0),
+					MessageStreamID: 0x1000000,
+					Name:            "play",
+					CommandID:       0,
+					Arguments: []interface{}{
 						nil,
 						"",
 					},
@@ -443,9 +417,9 @@ func TestServerHandshake(t *testing.T) {
 				// C->S releaseStream
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"releaseStream",
-						float64(2),
+					Name:          "releaseStream",
+					CommandID:     2,
+					Arguments: []interface{}{
 						nil,
 						"",
 					},
@@ -455,9 +429,9 @@ func TestServerHandshake(t *testing.T) {
 				// C->S FCPublish
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"FCPublish",
-						float64(3),
+					Name:          "FCPublish",
+					CommandID:     3,
+					Arguments: []interface{}{
 						nil,
 						"",
 					},
@@ -467,9 +441,9 @@ func TestServerHandshake(t *testing.T) {
 				// C->S createStream
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"createStream",
-						float64(4),
+					Name:          "createStream",
+					CommandID:     4,
+					Arguments: []interface{}{
 						nil,
 					},
 				})
@@ -480,9 +454,9 @@ func TestServerHandshake(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgCommandAMF0{
 					ChunkStreamID: 3,
-					Payload: []interface{}{
-						"_result",
-						float64(4),
+					Name:          "_result",
+					CommandID:     4,
+					Arguments: []interface{}{
 						nil,
 						float64(1),
 					},
@@ -491,10 +465,10 @@ func TestServerHandshake(t *testing.T) {
 				// C->S publish
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID:   4,
-					MessageStreamID: 16777216,
-					Payload: []interface{}{
-						"publish",
-						float64(5),
+					MessageStreamID: 0x1000000,
+					Name:            "publish",
+					CommandID:       5,
+					Arguments: []interface{}{
 						nil,
 						"",
 						"stream",
@@ -536,8 +510,8 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 				defer conn.Close()
 
-				rconn := NewServerConn(conn)
-				err = rconn.ServerHandshake()
+				rconn := NewConn(conn)
+				_, _, err = rconn.InitializeServer()
 				require.NoError(t, err)
 
 				videoTrack, audioTrack, err := rconn.ReadTracks()
@@ -610,21 +584,21 @@ func TestReadTracks(t *testing.T) {
 			defer conn.Close()
 			bc := bytecounter.NewReadWriter(conn)
 
-			err = handshake.DoClient(bc)
+			err = handshake.DoClient(bc, true)
 			require.NoError(t, err)
 
-			mrw := message.NewReadWriter(bc)
+			mrw := message.NewReadWriter(bc, true)
 
 			// C->S connect
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"connect",
-					1,
+				Name:          "connect",
+				CommandID:     1,
+				Arguments: []interface{}{
 					flvio.AMFMap{
 						{K: "app", V: "/stream"},
 						{K: "flashVer", V: "LNX 9,0,124,2"},
-						{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+						{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 						{K: "fpad", V: false},
 						{K: "capabilities", V: 15},
 						{K: "audioCodecs", V: 4071},
@@ -662,9 +636,9 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"_result",
-					float64(1),
+				Name:          "_result",
+				CommandID:     1,
+				Arguments: []interface{}{
 					flvio.AMFMap{
 						{K: "fmsVer", V: "LNX 9,0,124,2"},
 						{K: "capabilities", V: float64(31)},
@@ -687,9 +661,9 @@ func TestReadTracks(t *testing.T) {
 			// C->S releaseStream
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"releaseStream",
-					float64(2),
+				Name:          "releaseStream",
+				CommandID:     2,
+				Arguments: []interface{}{
 					nil,
 					"",
 				},
@@ -699,9 +673,9 @@ func TestReadTracks(t *testing.T) {
 			// C->S FCPublish
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"FCPublish",
-					float64(3),
+				Name:          "FCPublish",
+				CommandID:     3,
+				Arguments: []interface{}{
 					nil,
 					"",
 				},
@@ -711,9 +685,9 @@ func TestReadTracks(t *testing.T) {
 			// C->S createStream
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"createStream",
-					float64(4),
+				Name:          "createStream",
+				CommandID:     4,
+				Arguments: []interface{}{
 					nil,
 				},
 			})
@@ -724,9 +698,9 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
 				ChunkStreamID: 3,
-				Payload: []interface{}{
-					"_result",
-					float64(4),
+				Name:          "_result",
+				CommandID:     4,
+				Arguments: []interface{}{
 					nil,
 					float64(1),
 				},
@@ -736,9 +710,9 @@ func TestReadTracks(t *testing.T) {
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   8,
 				MessageStreamID: 1,
-				Payload: []interface{}{
-					"publish",
-					float64(5),
+				Name:            "publish",
+				CommandID:       5,
+				Arguments: []interface{}{
 					nil,
 					"",
 					"live",
@@ -751,10 +725,10 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
 				ChunkStreamID:   5,
-				MessageStreamID: 16777216,
-				Payload: []interface{}{
-					"onStatus",
-					float64(5),
+				MessageStreamID: 0x1000000,
+				Name:            "onStatus",
+				CommandID:       5,
+				Arguments: []interface{}{
 					nil,
 					flvio.AMFMap{
 						{K: "level", V: "status"},
@@ -796,23 +770,16 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b[:n],
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 
@@ -861,23 +828,16 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S H264 decoder config
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b[:n],
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 
@@ -901,23 +861,16 @@ func TestReadTracks(t *testing.T) {
 
 			case "missing metadata":
 				// C->S H264 decoder config
-				codec := nh264.Codec{
-					SPS: map[int][]byte{
-						0: sps,
-					},
-					PPS: map[int][]byte{
-						0: pps,
-					},
-				}
-				b := make([]byte, 128)
-				var n int
-				codec.ToConfig(b, &n)
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   6,
 					MessageStreamID: 1,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         b[:n],
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 
@@ -955,8 +908,8 @@ func TestWriteTracks(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		rconn := NewServerConn(conn)
-		err = rconn.ServerHandshake()
+		rconn := NewConn(conn)
+		_, _, err = rconn.InitializeServer()
 		require.NoError(t, err)
 
 		videoTrack := &gortsplib.TrackH264{
@@ -992,21 +945,21 @@ func TestWriteTracks(t *testing.T) {
 	defer conn.Close()
 	bc := bytecounter.NewReadWriter(conn)
 
-	err = handshake.DoClient(bc)
+	err = handshake.DoClient(bc, true)
 	require.NoError(t, err)
 
-	mrw := message.NewReadWriter(bc)
+	mrw := message.NewReadWriter(bc, true)
 
 	// C->S connect
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID: 3,
-		Payload: []interface{}{
-			"connect",
-			1,
+		Name:          "connect",
+		CommandID:     1,
+		Arguments: []interface{}{
 			flvio.AMFMap{
 				{K: "app", V: "/stream"},
 				{K: "flashVer", V: "LNX 9,0,124,2"},
-				{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+				{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
 				{K: "fpad", V: false},
 				{K: "capabilities", V: 15},
 				{K: "audioCodecs", V: 4071},
@@ -1044,9 +997,9 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID: 3,
-		Payload: []interface{}{
-			"_result",
-			float64(1),
+		Name:          "_result",
+		CommandID:     1,
+		Arguments: []interface{}{
 			flvio.AMFMap{
 				{K: "fmsVer", V: "LNX 9,0,124,2"},
 				{K: "capabilities", V: float64(31)},
@@ -1075,9 +1028,9 @@ func TestWriteTracks(t *testing.T) {
 	// C->S createStream
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID: 3,
-		Payload: []interface{}{
-			"createStream",
-			float64(2),
+		Name:          "createStream",
+		CommandID:     2,
+		Arguments: []interface{}{
 			nil,
 		},
 	})
@@ -1088,9 +1041,9 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID: 3,
-		Payload: []interface{}{
-			"_result",
-			float64(2),
+		Name:          "_result",
+		CommandID:     2,
+		Arguments: []interface{}{
 			nil,
 			float64(1),
 		},
@@ -1099,9 +1052,9 @@ func TestWriteTracks(t *testing.T) {
 	// C->S getStreamLength
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID: 8,
-		Payload: []interface{}{
-			"getStreamLength",
-			float64(3),
+		Name:          "getStreamLength",
+		CommandID:     3,
+		Arguments: []interface{}{
 			nil,
 			"",
 		},
@@ -1111,10 +1064,10 @@ func TestWriteTracks(t *testing.T) {
 	// C->S play
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID:   8,
-		MessageStreamID: 16777216,
-		Payload: []interface{}{
-			"play",
-			float64(4),
+		MessageStreamID: 0x1000000,
+		Name:            "play",
+		CommandID:       4,
+		Arguments: []interface{}{
 			nil,
 			"",
 			float64(-2000),
@@ -1141,10 +1094,10 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
-		Payload: []interface{}{
-			"onStatus",
-			float64(4),
+		MessageStreamID: 0x1000000,
+		Name:            "onStatus",
+		CommandID:       4,
+		Arguments: []interface{}{
 			nil,
 			flvio.AMFMap{
 				{K: "level", V: "status"},
@@ -1159,10 +1112,10 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
-		Payload: []interface{}{
-			"onStatus",
-			float64(4),
+		MessageStreamID: 0x1000000,
+		Name:            "onStatus",
+		CommandID:       4,
+		Arguments: []interface{}{
 			nil,
 			flvio.AMFMap{
 				{K: "level", V: "status"},
@@ -1177,10 +1130,10 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
-		Payload: []interface{}{
-			"onStatus",
-			float64(4),
+		MessageStreamID: 0x1000000,
+		Name:            "onStatus",
+		CommandID:       4,
+		Arguments: []interface{}{
 			nil,
 			flvio.AMFMap{
 				{K: "level", V: "status"},
@@ -1195,10 +1148,10 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
-		Payload: []interface{}{
-			"onStatus",
-			float64(4),
+		MessageStreamID: 0x1000000,
+		Name:            "onStatus",
+		CommandID:       4,
+		Arguments: []interface{}{
 			nil,
 			flvio.AMFMap{
 				{K: "level", V: "status"},
@@ -1213,8 +1166,9 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgDataAMF0{
 		ChunkStreamID:   4,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Payload: []interface{}{
+			"@setDataFrame",
 			"onMetaData",
 			flvio.AMFMap{
 				{K: "videodatarate", V: float64(0)},
@@ -1230,7 +1184,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgVideo{
 		ChunkStreamID:   6,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		IsKeyFrame:      true,
 		H264Type:        flvio.AVC_SEQHDR,
 		Payload: []byte{
@@ -1248,7 +1202,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgAudio{
 		ChunkStreamID:   4,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Rate:            flvio.SOUND_44Khz,
 		Depth:           flvio.SOUND_16BIT,
 		Channels:        flvio.SOUND_STEREO,

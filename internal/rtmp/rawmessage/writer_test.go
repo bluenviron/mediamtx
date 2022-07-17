@@ -2,7 +2,9 @@ package rawmessage
 
 import (
 	"bytes"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -10,146 +12,168 @@ import (
 )
 
 func TestWriter(t *testing.T) {
-	t.Run("chunk0 + chunk1", func(t *testing.T) {
-		var buf bytes.Buffer
-		w := NewWriter(bytecounter.NewWriter(&buf))
+	for _, ca := range []struct {
+		name       string
+		messages   []*Message
+		chunks     []chunk.Chunk
+		chunkSizes []uint32
+	}{
+		{
+			"chunk0 + chunk1",
+			[]*Message{
+				{
+					ChunkStreamID:   27,
+					Timestamp:       18576 * time.Millisecond,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x03}, 64),
+				},
+				{
+					ChunkStreamID:   27,
+					Timestamp:       (18576 + 15) * time.Millisecond,
+					Type:            chunk.MessageTypeSetWindowAckSize,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x04}, 64),
+				},
+			},
+			[]chunk.Chunk{
+				&chunk.Chunk0{
+					ChunkStreamID:   27,
+					Timestamp:       18576,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					BodyLen:         64,
+					Body:            bytes.Repeat([]byte{0x03}, 64),
+				},
+				&chunk.Chunk1{
+					ChunkStreamID:  27,
+					TimestampDelta: 15,
+					Type:           chunk.MessageTypeSetWindowAckSize,
+					BodyLen:        64,
+					Body:           bytes.Repeat([]byte{0x04}, 64),
+				},
+			},
+			[]uint32{
+				128,
+				128,
+			},
+		},
+		{
+			"chunk0 + chunk2 + chunk3",
+			[]*Message{
+				{
+					ChunkStreamID:   27,
+					Timestamp:       18576 * time.Millisecond,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x03}, 64),
+				},
+				{
+					ChunkStreamID:   27,
+					Timestamp:       (18576 + 15) * time.Millisecond,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x04}, 64),
+				},
+				{
+					ChunkStreamID:   27,
+					Timestamp:       (18576 + 15 + 15) * time.Millisecond,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x05}, 64),
+				},
+			},
+			[]chunk.Chunk{
+				&chunk.Chunk0{
+					ChunkStreamID:   27,
+					Timestamp:       18576,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					BodyLen:         64,
+					Body:            bytes.Repeat([]byte{0x03}, 64),
+				},
+				&chunk.Chunk2{
+					ChunkStreamID:  27,
+					TimestampDelta: 15,
+					Body:           bytes.Repeat([]byte{0x04}, 64),
+				},
+				&chunk.Chunk3{
+					ChunkStreamID: 27,
+					Body:          bytes.Repeat([]byte{0x05}, 64),
+				},
+			},
+			[]uint32{
+				128,
+				64,
+				64,
+			},
+		},
+		{
+			"chunk0 + chunk3 + chunk2 + chunk3",
+			[]*Message{
+				{
+					ChunkStreamID:   27,
+					Timestamp:       18576 * time.Millisecond,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x03}, 192),
+				},
+				{
+					ChunkStreamID:   27,
+					Timestamp:       18591 * time.Millisecond,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					Body:            bytes.Repeat([]byte{0x04}, 192),
+				},
+			},
+			[]chunk.Chunk{
+				&chunk.Chunk0{
+					ChunkStreamID:   27,
+					Timestamp:       18576,
+					Type:            chunk.MessageTypeSetPeerBandwidth,
+					MessageStreamID: 3123,
+					BodyLen:         192,
+					Body:            bytes.Repeat([]byte{0x03}, 128),
+				},
+				&chunk.Chunk3{
+					ChunkStreamID: 27,
+					Body:          bytes.Repeat([]byte{0x03}, 64),
+				},
+				&chunk.Chunk2{
+					ChunkStreamID:  27,
+					TimestampDelta: 15,
+					Body:           bytes.Repeat([]byte{0x04}, 128),
+				},
+				&chunk.Chunk3{
+					ChunkStreamID: 27,
+					Body:          bytes.Repeat([]byte{0x04}, 64),
+				},
+			},
+			[]uint32{
+				128,
+				64,
+				128,
+				64,
+			},
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			w := NewWriter(bytecounter.NewWriter(&buf), true)
 
-		err := w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x03}, 64),
+			for _, msg := range ca.messages {
+				err := w.Write(msg)
+				require.NoError(t, err)
+			}
+
+			for i, cach := range ca.chunks {
+				ch := reflect.New(reflect.TypeOf(cach).Elem()).Interface().(chunk.Chunk)
+				err := ch.Read(&buf, ca.chunkSizes[i])
+				require.NoError(t, err)
+				require.Equal(t, cach, ch)
+			}
 		})
-		require.NoError(t, err)
-
-		var c0 chunk.Chunk0
-		err = c0.Read(&buf, 128)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk0{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			BodyLen:         64,
-			Body:            bytes.Repeat([]byte{0x03}, 64),
-		}, c0)
-
-		err = w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576 + 15,
-			Type:            chunk.MessageTypeSetWindowAckSize,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x04}, 64),
-		})
-		require.NoError(t, err)
-
-		var c1 chunk.Chunk1
-		err = c1.Read(&buf, 128)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk1{
-			ChunkStreamID:  27,
-			TimestampDelta: 15,
-			Type:           chunk.MessageTypeSetWindowAckSize,
-			BodyLen:        64,
-			Body:           bytes.Repeat([]byte{0x04}, 64),
-		}, c1)
-	})
-
-	t.Run("chunk0 + chunk2 + chunk3", func(t *testing.T) {
-		var buf bytes.Buffer
-		w := NewWriter(bytecounter.NewWriter(&buf))
-
-		err := w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x03}, 64),
-		})
-		require.NoError(t, err)
-
-		var c0 chunk.Chunk0
-		err = c0.Read(&buf, 128)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk0{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			BodyLen:         64,
-			Body:            bytes.Repeat([]byte{0x03}, 64),
-		}, c0)
-
-		err = w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576 + 15,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x04}, 64),
-		})
-		require.NoError(t, err)
-
-		var c2 chunk.Chunk2
-		err = c2.Read(&buf, 64)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk2{
-			ChunkStreamID:  27,
-			TimestampDelta: 15,
-			Body:           bytes.Repeat([]byte{0x04}, 64),
-		}, c2)
-
-		err = w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576 + 15 + 15,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x05}, 64),
-		})
-		require.NoError(t, err)
-
-		var c3 chunk.Chunk3
-		err = c3.Read(&buf, 64)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk3{
-			ChunkStreamID: 27,
-			Body:          bytes.Repeat([]byte{0x05}, 64),
-		}, c3)
-	})
-
-	t.Run("chunk0 + chunk3", func(t *testing.T) {
-		var buf bytes.Buffer
-		w := NewWriter(bytecounter.NewWriter(&buf))
-
-		err := w.Write(&Message{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			Body:            bytes.Repeat([]byte{0x03}, 192),
-		})
-		require.NoError(t, err)
-
-		var c0 chunk.Chunk0
-		err = c0.Read(&buf, 128)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk0{
-			ChunkStreamID:   27,
-			Timestamp:       18576,
-			Type:            chunk.MessageTypeSetPeerBandwidth,
-			MessageStreamID: 3123,
-			BodyLen:         192,
-			Body:            bytes.Repeat([]byte{0x03}, 128),
-		}, c0)
-
-		var c3 chunk.Chunk3
-		err = c3.Read(&buf, 64)
-		require.NoError(t, err)
-		require.Equal(t, chunk.Chunk3{
-			ChunkStreamID: 27,
-			Body:          bytes.Repeat([]byte{0x03}, 64),
-		}, c3)
-	})
+	}
 }
 
 func TestWriterAcknowledge(t *testing.T) {
@@ -157,7 +181,7 @@ func TestWriterAcknowledge(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			var buf bytes.Buffer
 			bcw := bytecounter.NewWriter(&buf)
-			w := NewWriter(bcw)
+			w := NewWriter(bcw, true)
 
 			if ca == "overflow" {
 				bcw.SetCount(4294967096)
@@ -169,7 +193,7 @@ func TestWriterAcknowledge(t *testing.T) {
 
 			err := w.Write(&Message{
 				ChunkStreamID:   27,
-				Timestamp:       18576,
+				Timestamp:       18576 * time.Millisecond,
 				Type:            chunk.MessageTypeSetPeerBandwidth,
 				MessageStreamID: 3123,
 				Body:            bytes.Repeat([]byte{0x03}, 200),
@@ -178,7 +202,7 @@ func TestWriterAcknowledge(t *testing.T) {
 
 			err = w.Write(&Message{
 				ChunkStreamID:   27,
-				Timestamp:       18576,
+				Timestamp:       18576 * time.Millisecond,
 				Type:            chunk.MessageTypeSetPeerBandwidth,
 				MessageStreamID: 3123,
 				Body:            bytes.Repeat([]byte{0x03}, 200),

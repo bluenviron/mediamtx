@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"io"
 )
@@ -78,14 +77,13 @@ type C1S1 struct {
 }
 
 // Read reads a C1S1.
-func (c *C1S1) Read(r io.Reader, isC1 bool) error {
+func (c *C1S1) Read(r io.Reader, isC1 bool, validateSignature bool) error {
 	buf := make([]byte, 1536)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return err
 	}
 
-	// validate signature
 	var peerKey []byte
 	var key []byte
 	if isC1 {
@@ -97,12 +95,15 @@ func (c *C1S1) Read(r io.Reader, isC1 bool) error {
 	}
 	ok, digest := hsParse1(buf, peerKey, key)
 	if !ok {
-		return fmt.Errorf("unable to validate C1/S1 signature")
+		if validateSignature {
+			return fmt.Errorf("unable to validate C1/S1 signature")
+		}
+	} else {
+		c.Digest = digest
 	}
 
-	c.Time = binary.BigEndian.Uint32(buf)
+	c.Time = uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
 	c.Random = buf[8:]
-	c.Digest = digest
 
 	return nil
 }
@@ -111,7 +112,10 @@ func (c *C1S1) Read(r io.Reader, isC1 bool) error {
 func (c *C1S1) Write(w io.Writer, isC1 bool) error {
 	buf := make([]byte, 1536)
 
-	binary.BigEndian.PutUint32(buf, c.Time)
+	buf[0] = byte(c.Time >> 24)
+	buf[1] = byte(c.Time >> 16)
+	buf[2] = byte(c.Time >> 8)
+	buf[3] = byte(c.Time)
 	copy(buf[4:], []byte{0, 0, 0, 0})
 
 	if c.Random == nil {

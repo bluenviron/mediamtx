@@ -19,7 +19,7 @@ func TestHandshake(t *testing.T) {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		err = DoServer(conn)
+		err = DoServer(conn, true)
 		require.NoError(t, err)
 
 		close(done)
@@ -29,7 +29,7 @@ func TestHandshake(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	err = DoClient(conn)
+	err = DoClient(conn, true)
 	require.NoError(t, err)
 
 	<-done

@@ -5,7 +5,7 @@ import (
 )
 
 // DoClient performs a client-side handshake.
-func DoClient(rw io.ReadWriter) error {
+func DoClient(rw io.ReadWriter, validateSignature bool) error {
 	err := C0S0{}.Write(rw)
 	if err != nil {
 		return err
@@ -23,12 +23,12 @@ func DoClient(rw io.ReadWriter) error {
 	}
 
 	s1 := C1S1{}
-	err = s1.Read(rw, false)
+	err = s1.Read(rw, false, validateSignature)
 	if err != nil {
 		return err
 	}
 
-	err = (&C2S2{Digest: c1.Digest}).Read(rw)
+	err = (&C2S2{Digest: c1.Digest}).Read(rw, validateSignature)
 	if err != nil {
 		return err
 	}
@@ -42,14 +42,14 @@ func DoClient(rw io.ReadWriter) error {
 }
 
 // DoServer performs a server-side handshake.
-func DoServer(rw io.ReadWriter) error {
+func DoServer(rw io.ReadWriter, validateSignature bool) error {
 	err := C0S0{}.Read(rw)
 	if err != nil {
 		return err
 	}
 
 	c1 := C1S1{}
-	err = c1.Read(rw, true)
+	err = c1.Read(rw, true, validateSignature)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func DoServer(rw io.ReadWriter) error {
 		return err
 	}
 
-	err = (&C2S2{Digest: s1.Digest}).Read(rw)
+	err = (&C2S2{Digest: s1.Digest}).Read(rw, validateSignature)
 	if err != nil {
 		return err
 	}

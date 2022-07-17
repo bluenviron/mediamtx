@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -12,7 +13,7 @@ import (
 // MsgAudio is an audio message.
 type MsgAudio struct {
 	ChunkStreamID   byte
-	DTS             uint32
+	DTS             time.Duration
 	MessageStreamID uint32
 	Rate            uint8
 	Depth           uint8

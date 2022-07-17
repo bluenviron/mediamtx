@@ -21,7 +21,7 @@ type Chunk1 struct {
 // Read reads the chunk.
 func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	header := make([]byte, 8)
-	_, err := r.Read(header)
+	_, err := io.ReadFull(r, header)
 	if err != nil {
 		return err
 	}
@@ -37,7 +37,7 @@ func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	}
 
 	c.Body = make([]byte, chunkBodyLen)
-	_, err = r.Read(c.Body)
+	_, err = io.ReadFull(r, c.Body)
 	return err
 }
 

@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -12,11 +13,11 @@ import (
 // MsgVideo is a video message.
 type MsgVideo struct {
 	ChunkStreamID   byte
-	DTS             uint32
+	DTS             time.Duration
 	MessageStreamID uint32
 	IsKeyFrame      bool
 	H264Type        uint8
-	PTSDelta        uint32
+	PTSDelta        time.Duration
 	Payload         []byte
 }
 
@@ -38,7 +39,10 @@ func (m *MsgVideo) Unmarshal(raw *rawmessage.Message) error {
 	}
 
 	m.H264Type = raw.Body[1]
-	m.PTSDelta = uint32(raw.Body[2])<<16 | uint32(raw.Body[3])<<8 | uint32(raw.Body[4])
+
+	tmp := uint32(raw.Body[2])<<16 | uint32(raw.Body[3])<<8 | uint32(raw.Body[4])
+	m.PTSDelta = time.Duration(tmp) * time.Millisecond
+
 	m.Payload = raw.Body[5:]
 
 	return nil
@@ -55,9 +59,12 @@ func (m MsgVideo) Marshal() (*rawmessage.Message, error) {
 	}
 	body[0] |= flvio.VIDEO_H264
 	body[1] = m.H264Type
-	body[2] = uint8(m.PTSDelta >> 16)
-	body[3] = uint8(m.PTSDelta >> 8)
-	body[4] = uint8(m.PTSDelta)
+
+	tmp := uint32(m.PTSDelta / time.Millisecond)
+	body[2] = uint8(tmp >> 16)
+	body[3] = uint8(tmp >> 8)
+	body[4] = uint8(tmp)
+
 	copy(body[5:], m.Payload)
 
 	return &rawmessage.Message{

@@ -1,7 +1,6 @@
-package message
+package message //nolint:dupl
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -23,18 +22,23 @@ func (m *MsgSetChunkSize) Unmarshal(raw *rawmessage.Message) error {
 		return fmt.Errorf("unexpected body size")
 	}
 
-	m.Value = binary.BigEndian.Uint32(raw.Body)
+	m.Value = uint32(raw.Body[0])<<24 | uint32(raw.Body[1])<<16 | uint32(raw.Body[2])<<8 | uint32(raw.Body[3])
+
 	return nil
 }
 
 // Marshal implements Message.
 func (m *MsgSetChunkSize) Marshal() (*rawmessage.Message, error) {
-	body := make([]byte, 4)
-	binary.BigEndian.PutUint32(body, m.Value)
+	buf := make([]byte, 4)
+
+	buf[0] = byte(m.Value >> 24)
+	buf[1] = byte(m.Value >> 16)
+	buf[2] = byte(m.Value >> 8)
+	buf[3] = byte(m.Value)
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
 		Type:          chunk.MessageTypeSetChunkSize,
-		Body:          body,
+		Body:          buf,
 	}, nil
 }

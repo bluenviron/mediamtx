@@ -141,9 +141,9 @@ func TestRTMPServerAuth(t *testing.T) {
 			nconn, err := net.Dial("tcp", u.Host)
 			require.NoError(t, err)
 			defer nconn.Close()
-			conn := rtmp.NewClientConn(nconn, u)
+			conn := rtmp.NewConn(nconn)
 
-			err = conn.ClientHandshake(true)
+			err = conn.InitializeClient(u, true)
 			require.NoError(t, err)
 
 			_, _, err = conn.ReadTracks()
@@ -229,9 +229,17 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn, err := net.Dial("tcp", u.Host)
 		require.NoError(t, err)
 		defer nconn.Close()
-		conn := rtmp.NewClientConn(nconn, u)
+		conn := rtmp.NewConn(nconn)
 
-		err = conn.ClientHandshake(true)
+		err = conn.InitializeClient(u, true)
+		require.NoError(t, err)
+
+		for i := 0; i < 3; i++ {
+			_, err := conn.ReadMessage()
+			require.NoError(t, err)
+		}
+
+		_, err = conn.ReadMessage()
 		require.Equal(t, err, io.EOF)
 	})
 }

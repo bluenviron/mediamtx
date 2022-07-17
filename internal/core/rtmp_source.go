@@ -12,11 +12,12 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
-	"github.com/notedit/rtmp/av"
+	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
 const (
@@ -126,14 +127,14 @@ func (s *rtmpSource) runInner() bool {
 				return err
 			}
 
-			conn := rtmp.NewClientConn(nconn, u)
+			conn := rtmp.NewConn(nconn)
 
 			readDone := make(chan error)
 			go func() {
 				readDone <- func() error {
 					nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 					nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
-					err = conn.ClientHandshake(true)
+					err = conn.InitializeClient(u, true)
 					if err != nil {
 						return err
 					}
@@ -187,64 +188,68 @@ func (s *rtmpSource) runInner() bool {
 
 					for {
 						nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-						pkt, err := conn.ReadPacket()
+						msg, err := conn.ReadMessage()
 						if err != nil {
 							return err
 						}
 
-						switch pkt.Type {
-						case av.H264:
-							if videoTrack == nil {
-								return fmt.Errorf("received an H264 packet, but track is not set up")
-							}
+						switch tmsg := msg.(type) {
+						case *message.MsgVideo:
+							if tmsg.H264Type == flvio.AVC_NALU {
+								if videoTrack == nil {
+									return fmt.Errorf("received an H264 packet, but track is not set up")
+								}
 
-							nalus, err := h264.AVCCUnmarshal(pkt.Data)
-							if err != nil {
-								return err
-							}
+								nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
+								if err != nil {
+									return fmt.Errorf("unable to decode AVCC: %v", err)
+								}
 
-							pts := pkt.Time + pkt.CTime
+								pts := tmsg.DTS + tmsg.PTSDelta
 
-							pkts, err := h264Encoder.Encode(nalus, pts)
-							if err != nil {
-								return fmt.Errorf("error while encoding H264: %v", err)
-							}
+								pkts, err := h264Encoder.Encode(nalus, pts)
+								if err != nil {
+									return fmt.Errorf("error while encoding H264: %v", err)
+								}
 
-							lastPkt := len(pkts) - 1
-							for i, pkt := range pkts {
-								if i != lastPkt {
-									res.stream.writeData(&data{
-										trackID:      videoTrackID,
-										rtp:          pkt,
-										ptsEqualsDTS: false,
-									})
-								} else {
-									res.stream.writeData(&data{
-										trackID:      videoTrackID,
-										rtp:          pkt,
-										ptsEqualsDTS: h264.IDRPresent(nalus),
-										h264NALUs:    nalus,
-										h264PTS:      pts,
-									})
+								lastPkt := len(pkts) - 1
+								for i, pkt := range pkts {
+									if i != lastPkt {
+										res.stream.writeData(&data{
+											trackID:      videoTrackID,
+											rtp:          pkt,
+											ptsEqualsDTS: false,
+										})
+									} else {
+										res.stream.writeData(&data{
+											trackID:      videoTrackID,
+											rtp:          pkt,
+											ptsEqualsDTS: h264.IDRPresent(nalus),
+											h264NALUs:    nalus,
+											h264PTS:      pts,
+										})
+									}
 								}
 							}
 
-						case av.AAC:
-							if audioTrack == nil {
-								return fmt.Errorf("received an AAC packet, but track is not set up")
-							}
+						case *message.MsgAudio:
+							if tmsg.AACType == flvio.AAC_RAW {
+								if audioTrack == nil {
+									return fmt.Errorf("received an AAC packet, but track is not set up")
+								}
 
-							pkts, err := aacEncoder.Encode([][]byte{pkt.Data}, pkt.Time+pkt.CTime)
-							if err != nil {
-								return fmt.Errorf("error while encoding AAC: %v", err)
-							}
+								pkts, err := aacEncoder.Encode([][]byte{tmsg.Payload}, tmsg.DTS)
+								if err != nil {
+									return fmt.Errorf("error while encoding AAC: %v", err)
+								}
 
-							for _, pkt := range pkts {
-								res.stream.writeData(&data{
-									trackID:      audioTrackID,
-									rtp:          pkt,
-									ptsEqualsDTS: true,
-								})
+								for _, pkt := range pkts {
+									res.stream.writeData(&data{
+										trackID:      audioTrackID,
+										rtp:          pkt,
+										ptsEqualsDTS: true,
+									})
+								}
 							}
 						}
 					}
