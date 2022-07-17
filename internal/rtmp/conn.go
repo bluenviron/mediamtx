@@ -117,7 +117,7 @@ func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
 	}
 
 	return &gortsplib.TrackAAC{
-		PayloadType:      97,
+		PayloadType:      96,
 		Config:           &mpegConf,
 		SizeLength:       13,
 		IndexLength:      3,
