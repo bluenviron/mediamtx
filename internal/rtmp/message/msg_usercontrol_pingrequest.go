@@ -1,7 +1,6 @@
-package message
+package message //nolint:dupl
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
@@ -23,20 +22,25 @@ func (m *MsgUserControlPingRequest) Unmarshal(raw *rawmessage.Message) error {
 		return fmt.Errorf("invalid body size")
 	}
 
-	m.ServerTime = binary.BigEndian.Uint32(raw.Body[2:])
+	m.ServerTime = uint32(raw.Body[2])<<24 | uint32(raw.Body[3])<<16 | uint32(raw.Body[4])<<8 | uint32(raw.Body[5])
 
 	return nil
 }
 
 // Marshal implements Message.
 func (m MsgUserControlPingRequest) Marshal() (*rawmessage.Message, error) {
-	body := make([]byte, 6)
-	binary.BigEndian.PutUint16(body, UserControlTypePingRequest)
-	binary.BigEndian.PutUint32(body[2:], m.ServerTime)
+	buf := make([]byte, 6)
+
+	buf[0] = byte(UserControlTypePingRequest >> 8)
+	buf[1] = byte(UserControlTypePingRequest)
+	buf[2] = byte(m.ServerTime >> 24)
+	buf[3] = byte(m.ServerTime >> 16)
+	buf[4] = byte(m.ServerTime >> 8)
+	buf[5] = byte(m.ServerTime)
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
 		Type:          chunk.MessageTypeUserControl,
-		Body:          body,
+		Body:          buf,
 	}, nil
 }

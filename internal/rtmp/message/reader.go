@@ -1,7 +1,6 @@
 package message
 
 import (
-	"encoding/binary"
 	"fmt"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
@@ -28,7 +27,7 @@ func allocateMessage(raw *rawmessage.Message) (Message, error) {
 			return nil, fmt.Errorf("invalid body size")
 		}
 
-		subType := binary.BigEndian.Uint16(raw.Body)
+		subType := uint16(raw.Body[0])<<8 | uint16(raw.Body[1])
 		switch subType {
 		case UserControlTypeStreamBegin:
 			return &MsgUserControlStreamBegin{}, nil

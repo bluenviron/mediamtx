@@ -3,7 +3,6 @@ package handshake
 import (
 	"bytes"
 	"crypto/rand"
-	"encoding/binary"
 	"fmt"
 	"io"
 )
@@ -32,8 +31,8 @@ func (c *C2S2) Read(r io.Reader, validateSignature bool) error {
 		}
 	}
 
-	c.Time = binary.BigEndian.Uint32(buf)
-	c.Time2 = binary.BigEndian.Uint32(buf[4:])
+	c.Time = uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+	c.Time2 = uint32(buf[4])<<24 | uint32(buf[5])<<16 | uint32(buf[6])<<8 | uint32(buf[7])
 	c.Random = buf[8:]
 
 	return nil
@@ -42,8 +41,15 @@ func (c *C2S2) Read(r io.Reader, validateSignature bool) error {
 // Write writes a C2S2.
 func (c C2S2) Write(w io.Writer) error {
 	buf := make([]byte, 1536)
-	binary.BigEndian.PutUint32(buf, c.Time)
-	binary.BigEndian.PutUint32(buf[4:], c.Time2)
+
+	buf[0] = byte(c.Time >> 24)
+	buf[1] = byte(c.Time >> 16)
+	buf[2] = byte(c.Time >> 8)
+	buf[3] = byte(c.Time)
+	buf[4] = byte(c.Time2 >> 24)
+	buf[5] = byte(c.Time2 >> 16)
+	buf[6] = byte(c.Time2 >> 8)
+	buf[7] = byte(c.Time2)
 
 	if c.Random == nil {
 		rand.Read(buf[8:])
