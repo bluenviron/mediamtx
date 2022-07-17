@@ -32,7 +32,7 @@ var readWriterCases = []struct {
 			ChunkStreamID:   7,
 			DTS:             6013806 * time.Millisecond,
 			MessageStreamID: 4534543,
-			Rate:            3,
+			Rate:            flvio.SOUND_44Khz,
 			Depth:           flvio.SOUND_16BIT,
 			Channels:        flvio.SOUND_STEREO,
 			AACType:         flvio.AAC_RAW,

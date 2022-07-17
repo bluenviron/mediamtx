@@ -73,18 +73,39 @@ func splitPath(u *url.URL) (app, stream string) {
 	return
 }
 
-func getTcURL(u string) string {
-	ur, err := url.Parse(u)
-	if err != nil {
-		panic(err)
-	}
-	app, _ := splitPath(ur)
-	nu := *ur
+func getTcURL(u *url.URL) string {
+	app, _ := splitPath(u)
+	nu, _ := url.Parse(u.String()) // perform a deep copy
 	nu.RawQuery = ""
 	nu.Path = "/"
 	return nu.String() + app
 }
 
+func createURL(tcurl, app, play string) (*url.URL, error) {
+	u, err := url.ParseRequestURI("/" + app + "/" + play)
+	if err != nil {
+		return nil, err
+	}
+
+	tu, err := url.Parse(tcurl)
+	if err != nil {
+		return nil, err
+	}
+
+	if tu.Host == "" {
+		return nil, fmt.Errorf("invalid host")
+	}
+	u.Host = tu.Host
+
+	if tu.Scheme == "" {
+		return nil, fmt.Errorf("invalid scheme")
+	}
+	u.Scheme = tu.Scheme
+
+	return u, nil
+}
+
+// Conn is a RTMP connection.
 type Conn struct {
 	bc  *bytecounter.ReadWriter
 	mrw *message.ReadWriter
@@ -130,9 +151,11 @@ func (c *Conn) readCommandResult(commandName string, isValid func(*message.MsgCo
 	}
 }
 
-// HandshakeClient performs the handshake of a client-side connection.
-func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
-	err := handshake.DoClient(c.bc)
+// InitializeClient performs the initialization of a client-side connection.
+func (c *Conn) InitializeClient(u *url.URL, isPlaying bool) error {
+	connectpath, actionpath := splitPath(u)
+
+	err := handshake.DoClient(c.bc, false)
 	if err != nil {
 		return err
 	}
@@ -165,9 +188,9 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 		CommandID:     1,
 		Arguments: []interface{}{
 			flvio.AMFMap{
-				{K: "app", V: "stream"},
+				{K: "app", V: connectpath},
 				{K: "flashVer", V: "LNX 9,0,124,2"},
-				{K: "tcUrl", V: getTcURL("rtmp://127.0.0.1:9121/stream")},
+				{K: "tcUrl", V: getTcURL(u)},
 				{K: "fpad", V: false},
 				{K: "capabilities", V: 15},
 				{K: "audioCodecs", V: 4071},
@@ -217,7 +240,7 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 			CommandID:       0,
 			Arguments: []interface{}{
 				nil,
-				"",
+				actionpath,
 			},
 		})
 		if err != nil {
@@ -228,7 +251,6 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 		if err != nil {
 			return err
 		}
-
 	} else {
 		err = c.mrw.Write(&message.MsgCommandAMF0{
 			ChunkStreamID: 3,
@@ -236,7 +258,7 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 			CommandID:     2,
 			Arguments: []interface{}{
 				nil,
-				"",
+				actionpath,
 			},
 		})
 		if err != nil {
@@ -249,7 +271,7 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 			CommandID:     3,
 			Arguments: []interface{}{
 				nil,
-				"",
+				actionpath,
 			},
 		})
 		if err != nil {
@@ -280,8 +302,8 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 			CommandID:       5,
 			Arguments: []interface{}{
 				nil,
-				"",
-				"stream",
+				actionpath,
+				connectpath,
 			},
 		})
 		if err != nil {
@@ -297,9 +319,9 @@ func (c *Conn) HandshakeClient(url *url.URL, isPlaying bool) error {
 	return nil
 }
 
-// HandshakeServer performs the handshake of a server-side connection.
-func (c *Conn) HandshakeServer() (*url.URL, bool, error) {
-	err := handshake.DoServer(c.bc)
+// InitializeServer performs the initialization of a server-side connection.
+func (c *Conn) InitializeServer() (*url.URL, bool, error) {
+	err := handshake.DoServer(c.bc, false)
 	if err != nil {
 		return nil, false, err
 	}
@@ -310,16 +332,29 @@ func (c *Conn) HandshakeServer() (*url.URL, bool, error) {
 	}
 
 	if cmd.Name != "connect" {
-		return nil, false, fmt.Errorf("unexpected command: %v", cmd)
+		return nil, false, fmt.Errorf("unexpected command: %+v", cmd)
 	}
 
 	if len(cmd.Arguments) < 1 {
-		return nil, false, fmt.Errorf("invalid command: %v", cmd)
+		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
 	}
 
 	ma, ok := cmd.Arguments[0].(flvio.AMFMap)
 	if !ok {
-		return nil, false, fmt.Errorf("invalid command: %v", cmd)
+		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
+	}
+
+	connectpath, ok := ma.GetString("app")
+	if !ok {
+		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
+	}
+
+	tcURL, ok := ma.GetString("tcUrl")
+	if !ok {
+		tcURL, ok = ma.GetString("tcurl")
+		if !ok {
+			return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
+		}
 	}
 
 	err = c.mrw.Write(&message.MsgSetWindowAckSize{
@@ -389,6 +424,20 @@ func (c *Conn) HandshakeServer() (*url.URL, bool, error) {
 			}
 
 		case "play":
+			if len(cmd.Arguments) < 2 {
+				return nil, false, fmt.Errorf("invalid play command arguments")
+			}
+
+			actionpath, ok := cmd.Arguments[1].(string)
+			if !ok {
+				return nil, false, fmt.Errorf("invalid play command arguments")
+			}
+
+			u, err := createURL(tcURL, connectpath, actionpath)
+			if err != nil {
+				return nil, false, err
+			}
+
 			err = c.mrw.Write(&message.MsgUserControlStreamIsRecorded{
 				StreamID: 1,
 			})
@@ -475,9 +524,23 @@ func (c *Conn) HandshakeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			return nil, true, nil
+			return u, true, nil
 
 		case "publish":
+			if len(cmd.Arguments) < 2 {
+				return nil, false, fmt.Errorf("invalid publish command arguments")
+			}
+
+			actionpath, ok := cmd.Arguments[1].(string)
+			if !ok {
+				return nil, false, fmt.Errorf("invalid publish command arguments")
+			}
+
+			u, err := createURL(tcURL, connectpath, actionpath)
+			if err != nil {
+				return nil, false, err
+			}
+
 			err = c.mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   5,
 				Name:            "onStatus",
@@ -496,7 +559,7 @@ func (c *Conn) HandshakeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			return nil, false, nil
+			return u, false, nil
 		}
 	}
 }
@@ -668,6 +731,7 @@ func (c *Conn) readTracksFromMessages(msg message.Message) (*gortsplib.TrackH264
 	var audioTrack *gortsplib.TrackAAC
 
 	// analyze 1 second of packets
+outer:
 	for {
 		switch tmsg := msg.(type) {
 		case *message.MsgVideo:
@@ -692,7 +756,7 @@ func (c *Conn) readTracksFromMessages(msg message.Message) (*gortsplib.TrackH264
 			}
 
 			if (tmsg.DTS - *startTime) >= 1*time.Second {
-				break
+				break outer
 			}
 
 		case *message.MsgAudio:
@@ -717,7 +781,7 @@ func (c *Conn) readTracksFromMessages(msg message.Message) (*gortsplib.TrackH264
 			}
 
 			if (tmsg.DTS - *startTime) >= 1*time.Second {
-				break
+				break outer
 			}
 		}
 

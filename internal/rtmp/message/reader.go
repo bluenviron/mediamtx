@@ -68,7 +68,7 @@ func allocateMessage(raw *rawmessage.Message) (Message, error) {
 		return &MsgVideo{}, nil
 
 	default:
-		return nil, fmt.Errorf("unhandled message")
+		return nil, fmt.Errorf("unhandled message type (%v)", raw.Type)
 	}
 }
 

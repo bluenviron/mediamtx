@@ -42,7 +42,7 @@ func TestC2S2Read(t *testing.T) {
 
 	var c2s2 C2S2
 	c2s2.Digest = c2s2dec.Digest
-	err := c2s2.Read((bytes.NewReader(c2s2enc)))
+	err := c2s2.Read((bytes.NewReader(c2s2enc)), true)
 	require.NoError(t, err)
 	require.Equal(t, c2s2dec, c2s2)
 }

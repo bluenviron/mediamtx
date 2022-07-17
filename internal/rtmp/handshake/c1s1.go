@@ -78,14 +78,13 @@ type C1S1 struct {
 }
 
 // Read reads a C1S1.
-func (c *C1S1) Read(r io.Reader, isC1 bool) error {
+func (c *C1S1) Read(r io.Reader, isC1 bool, validateSignature bool) error {
 	buf := make([]byte, 1536)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return err
 	}
 
-	// validate signature
 	var peerKey []byte
 	var key []byte
 	if isC1 {
@@ -97,12 +96,15 @@ func (c *C1S1) Read(r io.Reader, isC1 bool) error {
 	}
 	ok, digest := hsParse1(buf, peerKey, key)
 	if !ok {
-		return fmt.Errorf("unable to validate C1/S1 signature")
+		if validateSignature {
+			return fmt.Errorf("unable to validate C1/S1 signature")
+		}
+	} else {
+		c.Digest = digest
 	}
 
 	c.Time = binary.BigEndian.Uint32(buf)
 	c.Random = buf[8:]
-	c.Digest = digest
 
 	return nil
 }

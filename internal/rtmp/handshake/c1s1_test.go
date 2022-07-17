@@ -89,7 +89,7 @@ func TestC1S1Read(t *testing.T) {
 		},
 	} {
 		var c1s1 C1S1
-		err := c1s1.Read((bytes.NewReader(ca.enc)), ca.isC1)
+		err := c1s1.Read((bytes.NewReader(ca.enc)), ca.isC1, true)
 		require.NoError(t, err)
 		require.Equal(t, ca.dec, c1s1)
 	}

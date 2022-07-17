@@ -16,7 +16,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
-func TestHandshakeClient(t *testing.T) {
+func TestInitializeClient(t *testing.T) {
 	for _, ca := range []string{"read", "publish"} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -31,7 +31,7 @@ func TestHandshakeClient(t *testing.T) {
 				defer conn.Close()
 				bc := bytecounter.NewReadWriter(conn)
 
-				err = handshake.DoServer(bc)
+				err = handshake.DoServer(bc, true)
 				require.NoError(t, err)
 
 				mrw := message.NewReadWriter(bc)
@@ -256,7 +256,7 @@ func TestHandshakeClient(t *testing.T) {
 			defer nconn.Close()
 			conn := NewConn(nconn)
 
-			err = conn.HandshakeClient(u, ca == "read")
+			err = conn.InitializeClient(u, ca == "read")
 			require.NoError(t, err)
 
 			<-done
@@ -264,7 +264,7 @@ func TestHandshakeClient(t *testing.T) {
 	}
 }
 
-func TestHandshakeServer(t *testing.T) {
+func TestInitializeServer(t *testing.T) {
 	for _, ca := range []string{"read", "publish"} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -279,9 +279,13 @@ func TestHandshakeServer(t *testing.T) {
 				defer nconn.Close()
 
 				conn := NewConn(nconn)
-				u, isReading, err := conn.HandshakeServer()
+				u, isReading, err := conn.InitializeServer()
 				require.NoError(t, err)
-				require.Equal(t, (*url.URL)(nil), u)
+				require.Equal(t, &url.URL{
+					Scheme: "rtmp",
+					Host:   "127.0.0.1:9121",
+					Path:   "//stream/",
+				}, u)
 				require.Equal(t, ca == "read", isReading)
 
 				close(done)
@@ -292,7 +296,7 @@ func TestHandshakeServer(t *testing.T) {
 			defer conn.Close()
 			bc := bytecounter.NewReadWriter(conn)
 
-			err = handshake.DoClient(bc)
+			err = handshake.DoClient(bc, true)
 			require.NoError(t, err)
 
 			mrw := message.NewReadWriter(bc)
@@ -507,7 +511,7 @@ func TestReadTracks(t *testing.T) {
 				defer conn.Close()
 
 				rconn := NewConn(conn)
-				_, _, err = rconn.HandshakeServer()
+				_, _, err = rconn.InitializeServer()
 				require.NoError(t, err)
 
 				videoTrack, audioTrack, err := rconn.ReadTracks()
@@ -580,7 +584,7 @@ func TestReadTracks(t *testing.T) {
 			defer conn.Close()
 			bc := bytecounter.NewReadWriter(conn)
 
-			err = handshake.DoClient(bc)
+			err = handshake.DoClient(bc, true)
 			require.NoError(t, err)
 
 			mrw := message.NewReadWriter(bc)
@@ -926,7 +930,7 @@ func TestWriteTracks(t *testing.T) {
 		defer conn.Close()
 
 		rconn := NewConn(conn)
-		_, _, err = rconn.HandshakeServer()
+		_, _, err = rconn.InitializeServer()
 		require.NoError(t, err)
 
 		videoTrack := &gortsplib.TrackH264{
@@ -962,7 +966,7 @@ func TestWriteTracks(t *testing.T) {
 	defer conn.Close()
 	bc := bytecounter.NewReadWriter(conn)
 
-	err = handshake.DoClient(bc)
+	err = handshake.DoClient(bc, true)
 	require.NoError(t, err)
 
 	mrw := message.NewReadWriter(bc)

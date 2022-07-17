@@ -17,18 +17,19 @@ type C2S2 struct {
 }
 
 // Read reads a C2S2.
-func (c *C2S2) Read(r io.Reader) error {
+func (c *C2S2) Read(r io.Reader, validateSignature bool) error {
 	buf := make([]byte, 1536)
 	_, err := io.ReadFull(r, buf)
 	if err != nil {
 		return err
 	}
 
-	// validate signature
-	gap := len(buf) - 32
-	digest := hsMakeDigest(c.Digest, buf, gap)
-	if !bytes.Equal(buf[gap:gap+32], digest) {
-		return fmt.Errorf("unable to validate C2/S2 signature")
+	if validateSignature {
+		gap := len(buf) - 32
+		digest := hsMakeDigest(c.Digest, buf, gap)
+		if !bytes.Equal(buf[gap:gap+32], digest) {
+			return fmt.Errorf("unable to validate C2/S2 signature")
+		}
 	}
 
 	c.Time = binary.BigEndian.Uint32(buf)
