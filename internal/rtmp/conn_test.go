@@ -552,7 +552,7 @@ func TestReadTracks(t *testing.T) {
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackAAC{
-						PayloadType: 97,
+						PayloadType: 96,
 						Config: &aac.MPEG4AudioConfig{
 							Type:         2,
 							SampleRate:   44100,
@@ -571,7 +571,7 @@ func TestReadTracks(t *testing.T) {
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackAAC{
-						PayloadType: 97,
+						PayloadType: 96,
 						Config: &aac.MPEG4AudioConfig{
 							Type:         2,
 							SampleRate:   44100,
@@ -590,7 +590,7 @@ func TestReadTracks(t *testing.T) {
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackAAC{
-						PayloadType: 97,
+						PayloadType: 96,
 						Config: &aac.MPEG4AudioConfig{
 							Type:         2,
 							SampleRate:   44100,
@@ -972,7 +972,7 @@ func TestWriteTracks(t *testing.T) {
 		}
 
 		audioTrack := &gortsplib.TrackAAC{
-			PayloadType: 97,
+			PayloadType: 96,
 			Config: &aac.MPEG4AudioConfig{
 				Type:         2,
 				SampleRate:   44100,
