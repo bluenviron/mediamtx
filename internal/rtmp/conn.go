@@ -235,7 +235,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPlaying bool) error {
 
 		err = c.mrw.Write(&message.MsgCommandAMF0{
 			ChunkStreamID:   4,
-			MessageStreamID: 16777216,
+			MessageStreamID: 0x1000000,
 			Name:            "play",
 			CommandID:       0,
 			Arguments: []interface{}{
@@ -297,7 +297,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPlaying bool) error {
 
 		err = c.mrw.Write(&message.MsgCommandAMF0{
 			ChunkStreamID:   4,
-			MessageStreamID: 16777216,
+			MessageStreamID: 0x1000000,
 			Name:            "publish",
 			CommandID:       5,
 			Arguments: []interface{}{
@@ -454,7 +454,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 			err = c.mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   5,
-				MessageStreamID: 16777216,
+				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
@@ -472,7 +472,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 			err = c.mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   5,
-				MessageStreamID: 16777216,
+				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
@@ -490,7 +490,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 			err = c.mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   5,
-				MessageStreamID: 16777216,
+				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
@@ -508,7 +508,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 			err = c.mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   5,
-				MessageStreamID: 16777216,
+				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
 				CommandID:       4,
 				Arguments: []interface{}{
@@ -545,7 +545,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				ChunkStreamID:   5,
 				Name:            "onStatus",
 				CommandID:       cmd.CommandID,
-				MessageStreamID: 16777216,
+				MessageStreamID: 0x1000000,
 				Arguments: []interface{}{
 					nil,
 					flvio.AMFMap{

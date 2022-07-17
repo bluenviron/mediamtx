@@ -201,7 +201,7 @@ var readWriterCases = []struct {
 		&MsgVideo{
 			ChunkStreamID:   6,
 			DTS:             2543534 * time.Millisecond,
-			MessageStreamID: 16777216,
+			MessageStreamID: 0x1000000,
 			IsKeyFrame:      true,
 			H264Type:        flvio.AVC_SEQHDR,
 			PTSDelta:        10 * time.Millisecond,

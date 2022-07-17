@@ -136,7 +136,7 @@ func TestInitializeClient(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID:   4,
-						MessageStreamID: 16777216,
+						MessageStreamID: 0x1000000,
 						Name:            "play",
 						CommandID:       0,
 						Arguments: []interface{}{
@@ -148,7 +148,7 @@ func TestInitializeClient(t *testing.T) {
 					// S->C onStatus
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID:   5,
-						MessageStreamID: 16777216,
+						MessageStreamID: 0x1000000,
 						Name:            "onStatus",
 						CommandID:       4,
 						Arguments: []interface{}{
@@ -217,7 +217,7 @@ func TestInitializeClient(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
 						ChunkStreamID:   4,
-						MessageStreamID: 16777216,
+						MessageStreamID: 0x1000000,
 						Name:            "publish",
 						CommandID:       5,
 						Arguments: []interface{}{
@@ -230,7 +230,7 @@ func TestInitializeClient(t *testing.T) {
 					// S->C onStatus
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID:   5,
-						MessageStreamID: 16777216,
+						MessageStreamID: 0x1000000,
 						Name:            "onStatus",
 						CommandID:       5,
 						Arguments: []interface{}{
@@ -404,7 +404,7 @@ func TestInitializeServer(t *testing.T) {
 				// C->S play
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID:   4,
-					MessageStreamID: 16777216,
+					MessageStreamID: 0x1000000,
 					Name:            "play",
 					CommandID:       0,
 					Arguments: []interface{}{
@@ -465,7 +465,7 @@ func TestInitializeServer(t *testing.T) {
 				// C->S publish
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID:   4,
-					MessageStreamID: 16777216,
+					MessageStreamID: 0x1000000,
 					Name:            "publish",
 					CommandID:       5,
 					Arguments: []interface{}{
@@ -725,7 +725,7 @@ func TestReadTracks(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
 				ChunkStreamID:   5,
-				MessageStreamID: 16777216,
+				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
 				CommandID:       5,
 				Arguments: []interface{}{
@@ -1064,7 +1064,7 @@ func TestWriteTracks(t *testing.T) {
 	// C->S play
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID:   8,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Name:            "play",
 		CommandID:       4,
 		Arguments: []interface{}{
@@ -1094,7 +1094,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Name:            "onStatus",
 		CommandID:       4,
 		Arguments: []interface{}{
@@ -1112,7 +1112,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Name:            "onStatus",
 		CommandID:       4,
 		Arguments: []interface{}{
@@ -1130,7 +1130,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Name:            "onStatus",
 		CommandID:       4,
 		Arguments: []interface{}{
@@ -1148,7 +1148,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
 		ChunkStreamID:   5,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Name:            "onStatus",
 		CommandID:       4,
 		Arguments: []interface{}{
@@ -1166,7 +1166,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgDataAMF0{
 		ChunkStreamID:   4,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Payload: []interface{}{
 			"@setDataFrame",
 			"onMetaData",
@@ -1184,7 +1184,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgVideo{
 		ChunkStreamID:   6,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		IsKeyFrame:      true,
 		H264Type:        flvio.AVC_SEQHDR,
 		Payload: []byte{
@@ -1202,7 +1202,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgAudio{
 		ChunkStreamID:   4,
-		MessageStreamID: 16777216,
+		MessageStreamID: 0x1000000,
 		Rate:            flvio.SOUND_44Khz,
 		Depth:           flvio.SOUND_16BIT,
 		Channels:        flvio.SOUND_STEREO,
