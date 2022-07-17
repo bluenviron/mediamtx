@@ -620,7 +620,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 				nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
 				if err != nil {
-					return err
+					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
 				// skip invalid NALUs sent by DJI

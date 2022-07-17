@@ -202,7 +202,7 @@ func (s *rtmpSource) runInner() bool {
 
 								nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
 								if err != nil {
-									return err
+									return fmt.Errorf("unable to decode AVCC: %v", err)
 								}
 
 								pts := tmsg.DTS + tmsg.PTSDelta
