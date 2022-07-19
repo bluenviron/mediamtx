@@ -201,6 +201,11 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		v1 := *rc.curTimestamp + *rc.curTimestampDelta
 		rc.curTimestamp = &v1
 
+		if *rc.curBodyLen != uint32(len(c3.Body)) {
+			rc.curBody = &c3.Body
+			return nil, errMoreChunksNeeded
+		}
+
 		return &Message{
 			Timestamp:       time.Duration(*rc.curTimestamp) * time.Millisecond,
 			Type:            *rc.curType,
