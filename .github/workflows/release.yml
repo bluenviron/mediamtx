@@ -14,30 +14,48 @@ jobs:
 
     - run: make release
 
-    - uses: actions/create-release@v1
-      id: create_release
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: ${{ github.ref }}
-
-    - uses: actions/github-script@v2
-      env:
-        RELEASE_ID: ${{ steps.create_release.outputs.id }}
+    - uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs').promises;
           const { repo: { owner, repo } } = context;
 
-          for (let file of await fs.readdir('./release/')) {
-            await github.repos.uploadReleaseAsset({
+          const currentRelease = context.ref.split('/')[2];
+
+          let res = await github.rest.repos.getLatestRelease({
+            owner,
+            repo,
+          });
+          const previousRelease = res.data['tag_name'];
+
+          res = await github.rest.repos.compareCommitsWithBasehead({
+            owner,
+            repo,
+            basehead: `${previousRelease}...${currentRelease}`,
+          });
+
+          const messages = [];
+          for (const commit of res.data.commits) {
+             messages.push(`* ${commit.commit.message} ${commit.html_url}`);
+          }
+
+          res = await github.rest.repos.createRelease({
+            owner,
+            repo,
+            tag_name: currentRelease,
+            name: currentRelease,
+            body: `Commits:\n${messages.join('\n')}\n`,
+          });
+          const release_id = res.data.id;
+
+          for (const name of await fs.readdir('./release/')) {
+            await github.rest.repos.uploadReleaseAsset({
               owner,
               repo,
-              release_id: process.env.RELEASE_ID,
-              name: file,
-              data: await fs.readFile(`./release/${file}`)
+              release_id,
+              name,
+              data: await fs.readFile(`./release/${name}`),
             });
           }
 
