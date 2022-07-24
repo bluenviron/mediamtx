@@ -199,6 +199,7 @@ components:
           - $ref: '#/components/schemas/PathSourceRTSPSource'
           - $ref: '#/components/schemas/PathSourceRTMPSource'
           - $ref: '#/components/schemas/PathSourceHLSSource'
+          - $ref: '#/components/schemas/PathSourceRPICameraSource'
         sourceReady:
           type: boolean
         readers:
@@ -257,6 +258,13 @@ components:
         type:
           type: string
           enum: [hlsSource]
+
+    PathSourceRPICameraSource:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rpiCameraSource]
 
     PathReaderRTSPSession:
       type: object

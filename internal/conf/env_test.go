@@ -8,8 +8,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type subStruct struct {
+	// int
+	MyParam int
+}
+
 type mapEntry struct {
+	// string
 	MyValue string
+
+	// struct
+	MyStruct subStruct
 }
 
 type testStruct struct {
@@ -48,6 +57,9 @@ func TestEnvironment(t *testing.T) {
 	os.Setenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE", "asd")
 	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE")
 
+	os.Setenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM", "456")
+	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM")
+
 	var s testStruct
 	err := loadFromEnvironment("MYPREFIX", &s)
 	require.NoError(t, err)
@@ -63,4 +75,5 @@ func TestEnvironment(t *testing.T) {
 	v, ok := s.MyMap["mykey2"]
 	require.Equal(t, true, ok)
 	require.Equal(t, "asd", v.MyValue)
+	require.Equal(t, 456, v.MyStruct.MyParam)
 }

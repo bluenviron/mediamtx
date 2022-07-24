@@ -49,6 +49,14 @@ type PathConf struct {
 	SourceRedirect             string         `json:"sourceRedirect"`
 	DisablePublisherOverride   bool           `json:"disablePublisherOverride"`
 	Fallback                   string         `json:"fallback"`
+	RPICameraCamID             int            `json:"rpiCameraCamID"`
+	RPICameraWidth             int            `json:"rpiCameraWidth"`
+	RPICameraHeight            int            `json:"rpiCameraHeight"`
+	RPICameraFPS               int            `json:"rpiCameraFPS"`
+	RPICameraIDRPeriod         int            `json:"rpiCameraIDRPeriod"`
+	RPICameraBitrate           int            `json:"rpiCameraBitrate"`
+	RPICameraProfile           string         `json:"rpiCameraProfile"`
+	RPICameraLevel             string         `json:"rpiCameraLevel"`
 
 	// authentication
 	PublishUser Credential `json:"publishUser"`
@@ -163,6 +171,29 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		_, err := url.Parse(pconf.SourceRedirect)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
+		}
+
+	case pconf.Source == "rpiCamera":
+		if pconf.RPICameraWidth == 0 {
+			pconf.RPICameraWidth = 1280
+		}
+		if pconf.RPICameraHeight == 0 {
+			pconf.RPICameraHeight = 720
+		}
+		if pconf.RPICameraFPS == 0 {
+			pconf.RPICameraFPS = 30
+		}
+		if pconf.RPICameraIDRPeriod == 0 {
+			pconf.RPICameraIDRPeriod = 60
+		}
+		if pconf.RPICameraBitrate == 0 {
+			pconf.RPICameraBitrate = 1000000
+		}
+		if pconf.RPICameraProfile == "" {
+			pconf.RPICameraProfile = "main"
+		}
+		if pconf.RPICameraLevel == "" {
+			pconf.RPICameraLevel = "4.1"
 		}
 
 	default:

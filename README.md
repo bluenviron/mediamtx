@@ -15,16 +15,17 @@ Features:
 
 * Publish live streams to the server
 * Read live streams from the server
-* Act as a proxy and serve streams from other servers or cameras, always or on-demand
-* Each stream can have multiple video and audio tracks, encoded with any codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
+* Proxy streams from other servers or cameras, always or on-demand
+* Each stream can have multiple video and audio tracks, encoded with any RTP-compatible codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
 * Serve multiple streams at once in separate paths
 * Authenticate users; use internal or external authentication
-* Query and control the server through an HTTP API
-* Read Prometheus-compatible metrics
 * Redirect readers to other RTSP servers (load balancing)
-* Run external commands when clients connect, disconnect, read or publish streams
+* Query and control the server through an HTTP API
 * Reload the configuration without disconnecting existing clients (hot reloading)
+* Read Prometheus-compatible metrics
+* Run external commands when clients connect, disconnect, read or publish streams
+* Natively compatible with the Raspberry Pi Camera
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 [![Test](https://github.com/aler9/rtsp-simple-server/workflows/test/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:test)
@@ -361,7 +362,7 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 #### Linux
 
-Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch rtsp-simple-server on boot.
+Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _rtsp-simple-server_ on boot.
 
 Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), unzip it, and move the executable and configuration in the system:
 
@@ -523,26 +524,27 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 ### From a Raspberry Pi Camera
 
-To publish the video stream of a Raspberry Pi Camera to the server, install a couple of dependencies:
+_rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. To make the video stream of a Raspberry Pi Camera available on the server:
 
-1. _GStreamer_ and _h264parse_:
+1. The server must be installed on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system, and must be installed by using the standard method (Docker is not actually supported). If you're using the 64-bit version of the operative system, you need to pick the `arm64` variant of the server.
+
+2. Make sure that the legacy camera stack is disabled. Type:
 
    ```
-   sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-plugins-bad
+   sudo raspi-config
    ```
 
-2. _gst-rpicamsrc_, by following [instruction here](https://github.com/thaytan/gst-rpicamsrc)
+   Then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
-Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+3. edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
-```yml
-paths:
-  cam:
-    runOnInit: gst-launch-1.0 rpicamsrc preview=false bitrate=2000000 keyframe-interval=50 ! video/x-h264,width=1920,height=1080,framerate=25/1 ! h264parse ! rtspclientsink location=rtsp://localhost:$RTSP_PORT/$RTSP_PATH
-    runOnInitRestart: yes
-```
+   ```yml
+   paths:
+     cam:
+       source: rpiCamera
+   ```
 
-After starting the server, the camera is available on `rtsp://localhost:8554/cam`.
+After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.
 
 ### From OBS Studio
 
