@@ -74,9 +74,20 @@ func (s *hlsSource) run() {
 
 outer:
 	for {
-		ok := s.runInner()
-		if !ok {
-			break outer
+		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
+		innerErr := make(chan error)
+		go func() {
+			innerErr <- s.runInner(innerCtx)
+		}()
+
+		select {
+		case err := <-innerErr:
+			innerCtxCancel()
+			s.Log(logger.Info, "ERR: %v", err)
+
+		case <-s.ctx.Done():
+			innerCtxCancel()
+			<-innerErr
 		}
 
 		select {
@@ -89,7 +100,7 @@ outer:
 	s.ctxCancel()
 }
 
-func (s *hlsSource) runInner() bool {
+func (s *hlsSource) runInner(innerCtx context.Context) error {
 	var stream *stream
 	var videoTrackID int
 	var audioTrackID int
@@ -198,19 +209,17 @@ func (s *hlsSource) runInner() bool {
 		s,
 	)
 	if err != nil {
-		s.Log(logger.Info, "ERR: %v", err)
-		return true
+		return err
 	}
 
 	select {
 	case err := <-c.Wait():
-		s.Log(logger.Info, "ERR: %v", err)
-		return true
+		return err
 
-	case <-s.ctx.Done():
+	case <-innerCtx.Done():
 		c.Close()
 		<-c.Wait()
-		return false
+		return nil
 	}
 }
 

@@ -71,7 +71,7 @@ func newRTSPSource(
 		ctxCancel:       ctxCancel,
 	}
 
-	s.log(logger.Info, "started")
+	s.Log(logger.Info, "started")
 
 	s.wg.Add(1)
 	go s.run()
@@ -80,44 +80,49 @@ func newRTSPSource(
 }
 
 func (s *rtspSource) close() {
-	s.log(logger.Info, "stopped")
+	s.Log(logger.Info, "stopped")
 	s.ctxCancel()
 }
 
-func (s *rtspSource) log(level logger.Level, format string, args ...interface{}) {
+func (s *rtspSource) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.log(level, "[rtsp source] "+format, args...)
 }
 
 func (s *rtspSource) run() {
 	defer s.wg.Done()
 
+outer:
 	for {
-		ok := func() bool {
-			ok := s.runInner()
-			if !ok {
-				return false
-			}
-
-			select {
-			case <-time.After(rtspSourceRetryPause):
-				return true
-			case <-s.ctx.Done():
-				return false
-			}
+		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
+		innerErr := make(chan error)
+		go func() {
+			innerErr <- s.runInner(innerCtx)
 		}()
-		if !ok {
-			break
+
+		select {
+		case err := <-innerErr:
+			innerCtxCancel()
+			s.Log(logger.Info, "ERR: %v", err)
+
+		case <-s.ctx.Done():
+			innerCtxCancel()
+			<-innerErr
+		}
+
+		select {
+		case <-time.After(rtspSourceRetryPause):
+		case <-s.ctx.Done():
+			break outer
 		}
 	}
 
 	s.ctxCancel()
 }
 
-func (s *rtspSource) runInner() bool {
-	s.log(logger.Debug, "connecting")
+func (s *rtspSource) runInner(innerCtx context.Context) error {
+	s.Log(logger.Debug, "connecting")
 
 	var tlsConfig *tls.Config
-
 	if s.fingerprint != "" {
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: true,
@@ -145,23 +150,21 @@ func (s *rtspSource) runInner() bool {
 		ReadBufferCount: s.readBufferCount,
 		AnyPortEnable:   s.anyPortEnable,
 		OnRequest: func(req *base.Request) {
-			s.log(logger.Debug, "c->s %v", req)
+			s.Log(logger.Debug, "c->s %v", req)
 		},
 		OnResponse: func(res *base.Response) {
-			s.log(logger.Debug, "s->c %v", res)
+			s.Log(logger.Debug, "s->c %v", res)
 		},
 	}
 
 	u, err := url.Parse(s.ur)
 	if err != nil {
-		s.log(logger.Info, "ERR: %s", err)
-		return true
+		return err
 	}
 
 	err = c.Start(u.Scheme, u.Host)
 	if err != nil {
-		s.log(logger.Info, "ERR: %s", err)
-		return true
+		return err
 	}
 	defer c.Close()
 
@@ -188,7 +191,7 @@ func (s *rtspSource) runInner() bool {
 				return res.err
 			}
 
-			s.log(logger.Info, "ready")
+			s.Log(logger.Info, "ready")
 
 			defer func() {
 				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
@@ -223,13 +226,12 @@ func (s *rtspSource) runInner() bool {
 
 	select {
 	case err := <-readErr:
-		s.log(logger.Info, "ERR: %s", err)
-		return true
+		return err
 
-	case <-s.ctx.Done():
+	case <-innerCtx.Done():
 		c.Close()
 		<-readErr
-		return false
+		return nil
 	}
 }
 

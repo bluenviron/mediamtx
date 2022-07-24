@@ -61,7 +61,7 @@ func newRTMPSource(
 		ctxCancel:    ctxCancel,
 	}
 
-	s.log(logger.Info, "started")
+	s.Log(logger.Info, "started")
 
 	s.wg.Add(1)
 	go s.run()
@@ -71,11 +71,11 @@ func newRTMPSource(
 
 // Close closes a Source.
 func (s *rtmpSource) close() {
-	s.log(logger.Info, "stopped")
+	s.Log(logger.Info, "stopped")
 	s.ctxCancel()
 }
 
-func (s *rtmpSource) log(level logger.Level, format string, args ...interface{}) {
+func (s *rtmpSource) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.log(level, "[rtmp source] "+format, args...)
 }
 
@@ -84,9 +84,20 @@ func (s *rtmpSource) run() {
 
 outer:
 	for {
-		ok := s.runInner()
-		if !ok {
-			break outer
+		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
+		innerErr := make(chan error)
+		go func() {
+			innerErr <- s.runInner(innerCtx)
+		}()
+
+		select {
+		case err := <-innerErr:
+			innerCtxCancel()
+			s.Log(logger.Info, "ERR: %v", err)
+
+		case <-s.ctx.Done():
+			innerCtxCancel()
+			<-innerErr
 		}
 
 		select {
@@ -99,186 +110,167 @@ outer:
 	s.ctxCancel()
 }
 
-func (s *rtmpSource) runInner() bool {
-	innerCtx, innerCtxCancel := context.WithCancel(s.ctx)
+func (s *rtmpSource) runInner(innerCtx context.Context) error {
+	s.Log(logger.Debug, "connecting")
 
-	runErr := make(chan error)
+	u, err := url.Parse(s.ur)
+	if err != nil {
+		return err
+	}
+
+	// add default port
+	_, _, err = net.SplitHostPort(u.Host)
+	if err != nil {
+		u.Host = net.JoinHostPort(u.Host, "1935")
+	}
+
+	ctx2, cancel2 := context.WithTimeout(innerCtx, time.Duration(s.readTimeout))
+	defer cancel2()
+
+	var d net.Dialer
+	nconn, err := d.DialContext(ctx2, "tcp", u.Host)
+	if err != nil {
+		return err
+	}
+
+	conn := rtmp.NewConn(nconn)
+
+	readDone := make(chan error)
 	go func() {
-		runErr <- func() error {
-			s.log(logger.Debug, "connecting")
-
-			u, err := url.Parse(s.ur)
+		readDone <- func() error {
+			nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+			nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
+			err = conn.InitializeClient(u, true)
 			if err != nil {
 				return err
 			}
 
-			// add default port
-			_, _, err = net.SplitHostPort(u.Host)
-			if err != nil {
-				u.Host = net.JoinHostPort(u.Host, "1935")
-			}
-
-			ctx2, cancel2 := context.WithTimeout(innerCtx, time.Duration(s.readTimeout))
-			defer cancel2()
-
-			var d net.Dialer
-			nconn, err := d.DialContext(ctx2, "tcp", u.Host)
+			nconn.SetWriteDeadline(time.Time{})
+			nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+			videoTrack, audioTrack, err := conn.ReadTracks()
 			if err != nil {
 				return err
 			}
 
-			conn := rtmp.NewConn(nconn)
+			var tracks gortsplib.Tracks
+			videoTrackID := -1
+			audioTrackID := -1
 
-			readDone := make(chan error)
-			go func() {
-				readDone <- func() error {
-					nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-					nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
-					err = conn.InitializeClient(u, true)
-					if err != nil {
-						return err
-					}
+			var h264Encoder *rtph264.Encoder
+			if videoTrack != nil {
+				h264Encoder = &rtph264.Encoder{PayloadType: 96}
+				h264Encoder.Init()
+				videoTrackID = len(tracks)
+				tracks = append(tracks, videoTrack)
+			}
 
-					nconn.SetWriteDeadline(time.Time{})
-					nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-					videoTrack, audioTrack, err := conn.ReadTracks()
-					if err != nil {
-						return err
-					}
+			var aacEncoder *rtpaac.Encoder
+			if audioTrack != nil {
+				aacEncoder = &rtpaac.Encoder{
+					PayloadType:      96,
+					SampleRate:       audioTrack.ClockRate(),
+					SizeLength:       13,
+					IndexLength:      3,
+					IndexDeltaLength: 3,
+				}
+				aacEncoder.Init()
+				audioTrackID = len(tracks)
+				tracks = append(tracks, audioTrack)
+			}
 
-					var tracks gortsplib.Tracks
-					videoTrackID := -1
-					audioTrackID := -1
+			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
+				source: s,
+				tracks: tracks,
+			})
+			if res.err != nil {
+				return res.err
+			}
 
-					var h264Encoder *rtph264.Encoder
-					if videoTrack != nil {
-						h264Encoder = &rtph264.Encoder{PayloadType: 96}
-						h264Encoder.Init()
-						videoTrackID = len(tracks)
-						tracks = append(tracks, videoTrack)
-					}
+			s.Log(logger.Info, "ready")
 
-					var aacEncoder *rtpaac.Encoder
-					if audioTrack != nil {
-						aacEncoder = &rtpaac.Encoder{
-							PayloadType:      96,
-							SampleRate:       audioTrack.ClockRate(),
-							SizeLength:       13,
-							IndexLength:      3,
-							IndexDeltaLength: 3,
-						}
-						aacEncoder.Init()
-						audioTrackID = len(tracks)
-						tracks = append(tracks, audioTrack)
-					}
-
-					res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-						source: s,
-						tracks: tracks,
-					})
-					if res.err != nil {
-						return res.err
-					}
-
-					s.log(logger.Info, "ready")
-
-					defer func() {
-						s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
-					}()
-
-					for {
-						nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-						msg, err := conn.ReadMessage()
-						if err != nil {
-							return err
-						}
-
-						switch tmsg := msg.(type) {
-						case *message.MsgVideo:
-							if tmsg.H264Type == flvio.AVC_NALU {
-								if videoTrack == nil {
-									return fmt.Errorf("received an H264 packet, but track is not set up")
-								}
-
-								nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
-								if err != nil {
-									return fmt.Errorf("unable to decode AVCC: %v", err)
-								}
-
-								pts := tmsg.DTS + tmsg.PTSDelta
-
-								pkts, err := h264Encoder.Encode(nalus, pts)
-								if err != nil {
-									return fmt.Errorf("error while encoding H264: %v", err)
-								}
-
-								lastPkt := len(pkts) - 1
-								for i, pkt := range pkts {
-									if i != lastPkt {
-										res.stream.writeData(&data{
-											trackID:      videoTrackID,
-											rtp:          pkt,
-											ptsEqualsDTS: false,
-										})
-									} else {
-										res.stream.writeData(&data{
-											trackID:      videoTrackID,
-											rtp:          pkt,
-											ptsEqualsDTS: h264.IDRPresent(nalus),
-											h264NALUs:    nalus,
-											h264PTS:      pts,
-										})
-									}
-								}
-							}
-
-						case *message.MsgAudio:
-							if tmsg.AACType == flvio.AAC_RAW {
-								if audioTrack == nil {
-									return fmt.Errorf("received an AAC packet, but track is not set up")
-								}
-
-								pkts, err := aacEncoder.Encode([][]byte{tmsg.Payload}, tmsg.DTS)
-								if err != nil {
-									return fmt.Errorf("error while encoding AAC: %v", err)
-								}
-
-								for _, pkt := range pkts {
-									res.stream.writeData(&data{
-										trackID:      audioTrackID,
-										rtp:          pkt,
-										ptsEqualsDTS: true,
-									})
-								}
-							}
-						}
-					}
-				}()
+			defer func() {
+				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
 			}()
 
-			select {
-			case err := <-readDone:
-				nconn.Close()
-				return err
+			for {
+				nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+				msg, err := conn.ReadMessage()
+				if err != nil {
+					return err
+				}
 
-			case <-innerCtx.Done():
-				nconn.Close()
-				<-readDone
-				return nil
+				switch tmsg := msg.(type) {
+				case *message.MsgVideo:
+					if tmsg.H264Type == flvio.AVC_NALU {
+						if videoTrack == nil {
+							return fmt.Errorf("received an H264 packet, but track is not set up")
+						}
+
+						nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
+						if err != nil {
+							return fmt.Errorf("unable to decode AVCC: %v", err)
+						}
+
+						pts := tmsg.DTS + tmsg.PTSDelta
+
+						pkts, err := h264Encoder.Encode(nalus, pts)
+						if err != nil {
+							return fmt.Errorf("error while encoding H264: %v", err)
+						}
+
+						lastPkt := len(pkts) - 1
+						for i, pkt := range pkts {
+							if i != lastPkt {
+								res.stream.writeData(&data{
+									trackID:      videoTrackID,
+									rtp:          pkt,
+									ptsEqualsDTS: false,
+								})
+							} else {
+								res.stream.writeData(&data{
+									trackID:      videoTrackID,
+									rtp:          pkt,
+									ptsEqualsDTS: h264.IDRPresent(nalus),
+									h264NALUs:    nalus,
+									h264PTS:      pts,
+								})
+							}
+						}
+					}
+
+				case *message.MsgAudio:
+					if tmsg.AACType == flvio.AAC_RAW {
+						if audioTrack == nil {
+							return fmt.Errorf("received an AAC packet, but track is not set up")
+						}
+
+						pkts, err := aacEncoder.Encode([][]byte{tmsg.Payload}, tmsg.DTS)
+						if err != nil {
+							return fmt.Errorf("error while encoding AAC: %v", err)
+						}
+
+						for _, pkt := range pkts {
+							res.stream.writeData(&data{
+								trackID:      audioTrackID,
+								rtp:          pkt,
+								ptsEqualsDTS: true,
+							})
+						}
+					}
+				}
 			}
 		}()
 	}()
 
 	select {
-	case err := <-runErr:
-		innerCtxCancel()
-		s.log(logger.Info, "ERR: %s", err)
-		return true
+	case err := <-readDone:
+		nconn.Close()
+		return err
 
-	case <-s.ctx.Done():
-		innerCtxCancel()
-		<-runErr
-		return false
+	case <-innerCtx.Done():
+		nconn.Close()
+		<-readDone
+		return nil
 	}
 }
 
