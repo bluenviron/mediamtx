@@ -62,6 +62,7 @@ func (pathErrAuthCritical) Error() string {
 type pathParent interface {
 	log(logger.Level, string, ...interface{})
 	onPathSourceReady(*path)
+	onPathSourceNotReady(*path)
 	onPathClose(*path)
 }
 
@@ -533,7 +534,9 @@ func (pa *path) run() {
 		req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("terminated")}
 	}
 
-	pa.sourceSetNotReady()
+	if pa.sourceReady {
+		pa.sourceSetNotReady()
+	}
 
 	if pa.source != nil {
 		if source, ok := pa.source.(sourceStatic); ok {
@@ -655,8 +658,6 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 	pa.sourceReady = true
 	pa.stream = newStream(tracks)
 
-	pa.parent.onPathSourceReady(pa)
-
 	if pa.conf.RunOnReady != "" {
 		pa.log(logger.Info, "runOnReady command started")
 		pa.onReadyCmd = externalcmd.NewCmd(
@@ -668,9 +669,13 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 				pa.log(logger.Info, "runOnReady command exited with code %d", co)
 			})
 	}
+
+	pa.parent.onPathSourceReady(pa)
 }
 
 func (pa *path) sourceSetNotReady() {
+	pa.parent.onPathSourceNotReady(pa)
+
 	for r := range pa.readers {
 		pa.doReaderRemove(r)
 		r.close()

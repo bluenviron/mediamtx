@@ -11,7 +11,8 @@ import (
 )
 
 type pathManagerHLSServer interface {
-	onPathSourceReady(pa *path)
+	onPathSourceReady(*path)
+	onPathSourceNotReady(*path)
 }
 
 type pathManagerParent interface {
@@ -35,14 +36,15 @@ type pathManager struct {
 	paths     map[string]*path
 
 	// in
-	confReload        chan map[string]*conf.PathConf
-	pathClose         chan *path
-	pathSourceReady   chan *path
-	describe          chan pathDescribeReq
-	readerSetupPlay   chan pathReaderSetupPlayReq
-	publisherAnnounce chan pathPublisherAnnounceReq
-	hlsServerSet      chan pathManagerHLSServer
-	apiPathsList      chan pathAPIPathsListReq
+	confReload         chan map[string]*conf.PathConf
+	pathClose          chan *path
+	pathSourceReady    chan *path
+	pathSourceNotReady chan *path
+	describe           chan pathDescribeReq
+	readerSetupPlay    chan pathReaderSetupPlayReq
+	publisherAnnounce  chan pathPublisherAnnounceReq
+	hlsServerSet       chan pathManagerHLSServer
+	apiPathsList       chan pathAPIPathsListReq
 }
 
 func newPathManager(
@@ -59,25 +61,26 @@ func newPathManager(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pm := &pathManager{
-		rtspAddress:       rtspAddress,
-		readTimeout:       readTimeout,
-		writeTimeout:      writeTimeout,
-		readBufferCount:   readBufferCount,
-		pathConfs:         pathConfs,
-		externalCmdPool:   externalCmdPool,
-		metrics:           metrics,
-		parent:            parent,
-		ctx:               ctx,
-		ctxCancel:         ctxCancel,
-		paths:             make(map[string]*path),
-		confReload:        make(chan map[string]*conf.PathConf),
-		pathClose:         make(chan *path),
-		pathSourceReady:   make(chan *path),
-		describe:          make(chan pathDescribeReq),
-		readerSetupPlay:   make(chan pathReaderSetupPlayReq),
-		publisherAnnounce: make(chan pathPublisherAnnounceReq),
-		hlsServerSet:      make(chan pathManagerHLSServer),
-		apiPathsList:      make(chan pathAPIPathsListReq),
+		rtspAddress:        rtspAddress,
+		readTimeout:        readTimeout,
+		writeTimeout:       writeTimeout,
+		readBufferCount:    readBufferCount,
+		pathConfs:          pathConfs,
+		externalCmdPool:    externalCmdPool,
+		metrics:            metrics,
+		parent:             parent,
+		ctx:                ctx,
+		ctxCancel:          ctxCancel,
+		paths:              make(map[string]*path),
+		confReload:         make(chan map[string]*conf.PathConf),
+		pathClose:          make(chan *path),
+		pathSourceReady:    make(chan *path),
+		pathSourceNotReady: make(chan *path),
+		describe:           make(chan pathDescribeReq),
+		readerSetupPlay:    make(chan pathReaderSetupPlayReq),
+		publisherAnnounce:  make(chan pathPublisherAnnounceReq),
+		hlsServerSet:       make(chan pathManagerHLSServer),
+		apiPathsList:       make(chan pathAPIPathsListReq),
 	}
 
 	for pathConfName, pathConf := range pm.pathConfs {
@@ -163,6 +166,11 @@ outer:
 		case pa := <-pm.pathSourceReady:
 			if pm.hlsServer != nil {
 				pm.hlsServer.onPathSourceReady(pa)
+			}
+
+		case pa := <-pm.pathSourceNotReady:
+			if pm.hlsServer != nil {
+				pm.hlsServer.onPathSourceNotReady(pa)
 			}
 
 		case req := <-pm.describe:
@@ -319,6 +327,14 @@ func (pm *pathManager) onConfReload(pathConfs map[string]*conf.PathConf) {
 func (pm *pathManager) onPathSourceReady(pa *path) {
 	select {
 	case pm.pathSourceReady <- pa:
+	case <-pm.ctx.Done():
+	}
+}
+
+// onPathSourceNotReady is called by path.
+func (pm *pathManager) onPathSourceNotReady(pa *path) {
+	select {
+	case pm.pathSourceNotReady <- pa:
 	case <-pm.ctx.Done():
 	}
 }

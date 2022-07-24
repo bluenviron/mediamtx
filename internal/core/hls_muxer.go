@@ -112,8 +112,8 @@ type hlsMuxerParent interface {
 
 type hlsMuxer struct {
 	name                      string
+	remoteAddr                string
 	externalAuthenticationURL string
-	hlsAlwaysRemux            bool
 	hlsVariant                conf.HLSVariant
 	hlsSegmentCount           int
 	hlsSegmentDuration        conf.StringDuration
@@ -143,7 +143,6 @@ func newHLSMuxer(
 	name string,
 	remoteAddr string,
 	externalAuthenticationURL string,
-	hlsAlwaysRemux bool,
 	hlsVariant conf.HLSVariant,
 	hlsSegmentCount int,
 	hlsSegmentDuration conf.StringDuration,
@@ -160,8 +159,8 @@ func newHLSMuxer(
 
 	m := &hlsMuxer{
 		name:                      name,
+		remoteAddr:                remoteAddr,
 		externalAuthenticationURL: externalAuthenticationURL,
-		hlsAlwaysRemux:            hlsAlwaysRemux,
 		hlsVariant:                hlsVariant,
 		hlsSegmentCount:           hlsSegmentCount,
 		hlsSegmentDuration:        hlsSegmentDuration,
@@ -398,7 +397,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		select {
 		case <-closeCheckTicker.C:
 			t := time.Unix(atomic.LoadInt64(m.lastRequestTime), 0)
-			if !m.hlsAlwaysRemux && time.Since(t) >= closeAfterInactivity {
+			if m.remoteAddr != "" && time.Since(t) >= closeAfterInactivity {
 				m.ringBuffer.Close()
 				<-writerDone
 				return fmt.Errorf("not used anymore")

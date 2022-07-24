@@ -76,10 +76,11 @@ type hlsServer struct {
 	muxers    map[string]*hlsMuxer
 
 	// in
-	pathSourceReady chan *path
-	request         chan *hlsMuxerRequest
-	muxerClose      chan *hlsMuxer
-	apiMuxersList   chan hlsServerAPIMuxersListReq
+	pathSourceReady    chan *path
+	pathSourceNotReady chan *path
+	request            chan *hlsMuxerRequest
+	muxerClose         chan *hlsMuxer
+	apiMuxersList      chan hlsServerAPIMuxersListReq
 }
 
 func newHLSServer(
@@ -142,6 +143,7 @@ func newHLSServer(
 		tlsConfig:                 tlsConfig,
 		muxers:                    make(map[string]*hlsMuxer),
 		pathSourceReady:           make(chan *path),
+		pathSourceNotReady:        make(chan *path),
 		request:                   make(chan *hlsMuxerRequest),
 		muxerClose:                make(chan *hlsMuxer),
 		apiMuxersList:             make(chan hlsServerAPIMuxersListReq),
@@ -204,6 +206,15 @@ outer:
 				s.findOrCreateMuxer(pa.Name(), "", nil)
 			}
 
+		case pa := <-s.pathSourceNotReady:
+			if s.hlsAlwaysRemux {
+				c, ok := s.muxers[pa.Name()]
+				if ok {
+					c.close()
+					delete(s.muxers, pa.Name())
+				}
+			}
+
 		case req := <-s.request:
 			s.findOrCreateMuxer(req.dir, req.ctx.ClientIP(), req)
 
@@ -212,6 +223,10 @@ outer:
 				continue
 			}
 			delete(s.muxers, c.PathName())
+
+			if s.hlsAlwaysRemux && c.remoteAddr == "" {
+				s.findOrCreateMuxer(c.PathName(), "", nil)
+			}
 
 		case req := <-s.apiMuxersList:
 			muxers := make(map[string]*hlsMuxer)
@@ -331,7 +346,6 @@ func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *h
 			pathName,
 			remoteAddr,
 			s.externalAuthenticationURL,
-			s.hlsAlwaysRemux,
 			s.hlsVariant,
 			s.hlsSegmentCount,
 			s.hlsSegmentDuration,
@@ -358,10 +372,18 @@ func (s *hlsServer) onMuxerClose(c *hlsMuxer) {
 	}
 }
 
-// onPathSourceReady is called by core.
+// onPathSourceReady is called by pathManager.
 func (s *hlsServer) onPathSourceReady(pa *path) {
 	select {
 	case s.pathSourceReady <- pa:
+	case <-s.ctx.Done():
+	}
+}
+
+// onPathSourceNotReady is called by pathManager.
+func (s *hlsServer) onPathSourceNotReady(pa *path) {
+	select {
+	case s.pathSourceNotReady <- pa:
 	case <-s.ctx.Done():
 	}
 }
