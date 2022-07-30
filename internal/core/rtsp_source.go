@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -16,10 +15,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-)
-
-const (
-	rtspSourceRetryPause = 5 * time.Second
 )
 
 type rtspSourceParent interface {
@@ -36,15 +31,10 @@ type rtspSource struct {
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
-	wg              *sync.WaitGroup
 	parent          rtspSourceParent
-
-	ctx       context.Context
-	ctxCancel func()
 }
 
 func newRTSPSource(
-	parentCtx context.Context,
 	ur string,
 	proto conf.SourceProtocol,
 	anyPortEnable bool,
@@ -52,12 +42,9 @@ func newRTSPSource(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
-	wg *sync.WaitGroup,
 	parent rtspSourceParent,
 ) *rtspSource {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
-
-	s := &rtspSource{
+	return &rtspSource{
 		ur:              ur,
 		proto:           proto,
 		anyPortEnable:   anyPortEnable,
@@ -65,61 +52,16 @@ func newRTSPSource(
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
-		wg:              wg,
 		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
 	}
-
-	s.Log(logger.Info, "started")
-
-	s.wg.Add(1)
-	go s.run()
-
-	return s
-}
-
-func (s *rtspSource) close() {
-	s.Log(logger.Info, "stopped")
-	s.ctxCancel()
 }
 
 func (s *rtspSource) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.log(level, "[rtsp source] "+format, args...)
 }
 
-func (s *rtspSource) run() {
-	defer s.wg.Done()
-
-outer:
-	for {
-		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
-		innerErr := make(chan error)
-		go func() {
-			innerErr <- s.runInner(innerCtx)
-		}()
-
-		select {
-		case err := <-innerErr:
-			innerCtxCancel()
-			s.Log(logger.Info, "ERR: %v", err)
-
-		case <-s.ctx.Done():
-			innerCtxCancel()
-			<-innerErr
-		}
-
-		select {
-		case <-time.After(rtspSourceRetryPause):
-		case <-s.ctx.Done():
-			break outer
-		}
-	}
-
-	s.ctxCancel()
-}
-
-func (s *rtspSource) runInner(innerCtx context.Context) error {
+// run implements sourceStaticImpl.
+func (s *rtspSource) run(ctx context.Context) error {
 	s.Log(logger.Debug, "connecting")
 
 	var tlsConfig *tls.Config
@@ -184,7 +126,6 @@ func (s *rtspSource) runInner(innerCtx context.Context) error {
 			}
 
 			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-				source: s,
 				tracks: c.Tracks(),
 			})
 			if res.err != nil {
@@ -194,7 +135,7 @@ func (s *rtspSource) runInner(innerCtx context.Context) error {
 			s.Log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
+				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
 			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
@@ -228,14 +169,14 @@ func (s *rtspSource) runInner(innerCtx context.Context) error {
 	case err := <-readErr:
 		return err
 
-	case <-innerCtx.Done():
+	case <-ctx.Done():
 		c.Close()
 		<-readErr
 		return nil
 	}
 }
 
-// onSourceAPIDescribe implements source.
+// onSourceAPIDescribe implements sourceStaticImpl.
 func (*rtspSource) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`

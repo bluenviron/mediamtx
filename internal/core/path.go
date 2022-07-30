@@ -92,13 +92,13 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
-	source sourceStatic
+	source source
 	tracks gortsplib.Tracks
 	res    chan pathSourceStaticSetReadyRes
 }
 
 type pathSourceStaticSetNotReadyReq struct {
-	source sourceStatic
+	source source
 	res    chan struct{}
 }
 
@@ -539,7 +539,7 @@ func (pa *path) run() {
 	}
 
 	if pa.source != nil {
-		if source, ok := pa.source.(sourceStatic); ok {
+		if source, ok := pa.source.(*sourceStatic); ok {
 			source.close()
 			pa.sourceStaticWg.Wait()
 		} else if source, ok := pa.source.(publisher); ok {
@@ -605,7 +605,7 @@ func (pa *path) onDemandStaticSourceStop() {
 
 	pa.onDemandStaticSourceState = pathOnDemandStateInitial
 
-	pa.source.(sourceStatic).close()
+	pa.source.(*sourceStatic).close()
 	pa.source = nil
 }
 
@@ -696,39 +696,17 @@ func (pa *path) sourceSetNotReady() {
 }
 
 func (pa *path) staticSourceCreate() {
-	switch {
-	case strings.HasPrefix(pa.conf.Source, "rtsp://") ||
-		strings.HasPrefix(pa.conf.Source, "rtsps://"):
-		pa.source = newRTSPSource(
-			pa.ctx,
-			pa.conf.Source,
-			pa.conf.SourceProtocol,
-			pa.conf.SourceAnyPortEnable,
-			pa.conf.SourceFingerprint,
-			pa.readTimeout,
-			pa.writeTimeout,
-			pa.readBufferCount,
-			&pa.sourceStaticWg,
-			pa)
-
-	case strings.HasPrefix(pa.conf.Source, "rtmp://"):
-		pa.source = newRTMPSource(
-			pa.ctx,
-			pa.conf.Source,
-			pa.readTimeout,
-			pa.writeTimeout,
-			&pa.sourceStaticWg,
-			pa)
-
-	case strings.HasPrefix(pa.conf.Source, "http://") ||
-		strings.HasPrefix(pa.conf.Source, "https://"):
-		pa.source = newHLSSource(
-			pa.ctx,
-			pa.conf.Source,
-			pa.conf.SourceFingerprint,
-			&pa.sourceStaticWg,
-			pa)
-	}
+	pa.source = newSourceStatic(
+		pa.ctx,
+		pa.conf.Source,
+		pa.conf.SourceProtocol,
+		pa.conf.SourceAnyPortEnable,
+		pa.conf.SourceFingerprint,
+		pa.readTimeout,
+		pa.writeTimeout,
+		pa.readBufferCount,
+		&pa.sourceStaticWg,
+		pa)
 }
 
 func (pa *path) doReaderRemove(r reader) {

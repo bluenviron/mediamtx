@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -20,10 +19,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
-const (
-	rtmpSourceRetryPause = 5 * time.Second
-)
-
 type rtmpSourceParent interface {
 	log(logger.Level, string, ...interface{})
 	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
@@ -34,83 +29,29 @@ type rtmpSource struct {
 	ur           string
 	readTimeout  conf.StringDuration
 	writeTimeout conf.StringDuration
-	wg           *sync.WaitGroup
 	parent       rtmpSourceParent
-
-	ctx       context.Context
-	ctxCancel func()
 }
 
 func newRTMPSource(
-	parentCtx context.Context,
 	ur string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	wg *sync.WaitGroup,
 	parent rtmpSourceParent,
 ) *rtmpSource {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
-
-	s := &rtmpSource{
+	return &rtmpSource{
 		ur:           ur,
 		readTimeout:  readTimeout,
 		writeTimeout: writeTimeout,
-		wg:           wg,
 		parent:       parent,
-		ctx:          ctx,
-		ctxCancel:    ctxCancel,
 	}
-
-	s.Log(logger.Info, "started")
-
-	s.wg.Add(1)
-	go s.run()
-
-	return s
-}
-
-// Close closes a Source.
-func (s *rtmpSource) close() {
-	s.Log(logger.Info, "stopped")
-	s.ctxCancel()
 }
 
 func (s *rtmpSource) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.log(level, "[rtmp source] "+format, args...)
 }
 
-func (s *rtmpSource) run() {
-	defer s.wg.Done()
-
-outer:
-	for {
-		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
-		innerErr := make(chan error)
-		go func() {
-			innerErr <- s.runInner(innerCtx)
-		}()
-
-		select {
-		case err := <-innerErr:
-			innerCtxCancel()
-			s.Log(logger.Info, "ERR: %v", err)
-
-		case <-s.ctx.Done():
-			innerCtxCancel()
-			<-innerErr
-		}
-
-		select {
-		case <-time.After(rtmpSourceRetryPause):
-		case <-s.ctx.Done():
-			break outer
-		}
-	}
-
-	s.ctxCancel()
-}
-
-func (s *rtmpSource) runInner(innerCtx context.Context) error {
+// run implements sourceStaticImpl.
+func (s *rtmpSource) run(ctx context.Context) error {
 	s.Log(logger.Debug, "connecting")
 
 	u, err := url.Parse(s.ur)
@@ -124,7 +65,7 @@ func (s *rtmpSource) runInner(innerCtx context.Context) error {
 		u.Host = net.JoinHostPort(u.Host, "1935")
 	}
 
-	ctx2, cancel2 := context.WithTimeout(innerCtx, time.Duration(s.readTimeout))
+	ctx2, cancel2 := context.WithTimeout(ctx, time.Duration(s.readTimeout))
 	defer cancel2()
 
 	var d net.Dialer
@@ -179,7 +120,6 @@ func (s *rtmpSource) runInner(innerCtx context.Context) error {
 			}
 
 			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-				source: s,
 				tracks: tracks,
 			})
 			if res.err != nil {
@@ -189,7 +129,7 @@ func (s *rtmpSource) runInner(innerCtx context.Context) error {
 			s.Log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
+				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
 			for {
@@ -267,14 +207,14 @@ func (s *rtmpSource) runInner(innerCtx context.Context) error {
 		nconn.Close()
 		return err
 
-	case <-innerCtx.Done():
+	case <-ctx.Done():
 		nconn.Close()
 		<-readDone
 		return nil
 	}
 }
 
-// onSourceAPIDescribe implements source.
+// onSourceAPIDescribe implements sourceStaticImpl.
 func (*rtmpSource) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`

@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -14,10 +13,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-const (
-	hlsSourceRetryPause = 5 * time.Second
-)
-
 type hlsSourceParent interface {
 	log(logger.Level, string, ...interface{})
 	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
@@ -27,80 +22,27 @@ type hlsSourceParent interface {
 type hlsSource struct {
 	ur          string
 	fingerprint string
-	wg          *sync.WaitGroup
 	parent      hlsSourceParent
-
-	ctx       context.Context
-	ctxCancel func()
 }
 
 func newHLSSource(
-	parentCtx context.Context,
 	ur string,
 	fingerprint string,
-	wg *sync.WaitGroup,
 	parent hlsSourceParent,
 ) *hlsSource {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
-
-	s := &hlsSource{
+	return &hlsSource{
 		ur:          ur,
 		fingerprint: fingerprint,
-		wg:          wg,
 		parent:      parent,
-		ctx:         ctx,
-		ctxCancel:   ctxCancel,
 	}
-
-	s.Log(logger.Info, "started")
-
-	s.wg.Add(1)
-	go s.run()
-
-	return s
-}
-
-func (s *hlsSource) close() {
-	s.Log(logger.Info, "stopped")
-	s.ctxCancel()
 }
 
 func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.log(level, "[hls source] "+format, args...)
 }
 
-func (s *hlsSource) run() {
-	defer s.wg.Done()
-
-outer:
-	for {
-		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
-		innerErr := make(chan error)
-		go func() {
-			innerErr <- s.runInner(innerCtx)
-		}()
-
-		select {
-		case err := <-innerErr:
-			innerCtxCancel()
-			s.Log(logger.Info, "ERR: %v", err)
-
-		case <-s.ctx.Done():
-			innerCtxCancel()
-			<-innerErr
-		}
-
-		select {
-		case <-time.After(hlsSourceRetryPause):
-		case <-s.ctx.Done():
-			break outer
-		}
-	}
-
-	s.ctxCancel()
-}
-
-func (s *hlsSource) runInner(innerCtx context.Context) error {
+// run implements sourceStaticImpl.
+func (s *hlsSource) run(ctx context.Context) error {
 	var stream *stream
 	var videoTrackID int
 	var audioTrackID int
@@ -109,7 +51,7 @@ func (s *hlsSource) runInner(innerCtx context.Context) error {
 
 	defer func() {
 		if stream != nil {
-			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{source: s})
+			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
@@ -137,7 +79,6 @@ func (s *hlsSource) runInner(innerCtx context.Context) error {
 		}
 
 		res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-			source: s,
 			tracks: tracks,
 		})
 		if res.err != nil {
@@ -145,7 +86,6 @@ func (s *hlsSource) runInner(innerCtx context.Context) error {
 		}
 
 		s.Log(logger.Info, "ready")
-
 		stream = res.stream
 
 		return nil
@@ -216,14 +156,14 @@ func (s *hlsSource) runInner(innerCtx context.Context) error {
 	case err := <-c.Wait():
 		return err
 
-	case <-innerCtx.Done():
+	case <-ctx.Done():
 		c.Close()
 		<-c.Wait()
 		return nil
 	}
 }
 
-// onSourceAPIDescribe implements source.
+// onSourceAPIDescribe implements sourceStaticImpl.
 func (*hlsSource) onSourceAPIDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
