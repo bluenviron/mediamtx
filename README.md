@@ -165,7 +165,7 @@ There are 3 ways to change the configuration:
    ```
    RTSP_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
    ```
-   
+
    Parameters that have array as value can be overriden by setting a comma-separated list. For example:
    ```
    RTSP_PROTOCOLS="tcp,udp"
@@ -879,13 +879,13 @@ To decrease the latency, you can:
 
 Related projects
 
-* https://github.com/aler9/gortsplib (RTSP library used internally)
-* https://github.com/pion/sdp (SDP library used internally)
-* https://github.com/pion/rtcp (RTCP library used internally)
-* https://github.com/pion/rtp (RTP library used internally)
-* https://github.com/notedit/rtmp (RTMP library used internally)
-* https://github.com/asticode/go-astits (MPEG-TS library used internally)
-* https://github.com/abema/go-mp4 (MP4 library used internally)
+* gortsplib (RTSP library used internally) https://github.com/aler9/gortsplib
+* pion/sdp (SDP library used internally) https://github.com/pion/sdp
+* pion/rtp (RTP library used internally) https://github.com/pion/rtp
+* pion/rtcp (RTCP library used internally) https://github.com/pion/rtcp
+* notedit/rtmp (RTMP library used internally) https://github.com/notedit/rtmp
+* go-astits (MPEG-TS library used internally) https://github.com/asticode/go-astits
+* go-mp4 (MP4 library used internally) https://github.com/abema/go-mp4
 * https://github.com/flaviostutz/rtsp-relay
 
 Standards
