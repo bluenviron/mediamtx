@@ -605,30 +605,27 @@ func TestRTSPServerFallback(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p1.close()
 
-			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-re",
-				"-stream_loop", "-1",
-				"-i", "emptyvideo.mkv",
-				"-c", "copy",
-				"-f", "rtsp",
-				"-rtsp_transport", "udp",
-				"rtsp://localhost:8554/path2",
-			})
+			source := gortsplib.Client{}
+			err := source.StartPublishing("rtsp://localhost:8554/path2",
+				gortsplib.Tracks{&gortsplib.TrackH264{
+					PayloadType: 96,
+					SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+					PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				}})
 			require.NoError(t, err)
-			defer cnt1.close()
+			defer source.Close()
 
-			time.Sleep(1 * time.Second)
-
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-rtsp_transport", "udp",
-				"-i", "rtsp://localhost:8554/path1",
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
+			u, err := url.Parse("rtsp://localhost:8554/path1")
 			require.NoError(t, err)
-			defer cnt2.close()
-			require.Equal(t, 0, cnt2.wait())
+
+			dest := gortsplib.Client{}
+			err = dest.Start(u.Scheme, u.Host)
+			require.NoError(t, err)
+			defer dest.Close()
+
+			tracks, _, _, err := dest.Describe(u)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(tracks))
 		})
 	}
 }
