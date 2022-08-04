@@ -20,8 +20,8 @@ const (
 )
 
 type rtspSessionPathManager interface {
-	onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
-	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	publisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
+	readerSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
 }
 
 type rtspSessionParent interface {
@@ -112,11 +112,11 @@ func (s *rtspSession) onClose(err error) {
 
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
-		s.path.onReaderRemove(pathReaderRemoveReq{author: s})
+		s.path.readerRemove(pathReaderRemoveReq{author: s})
 		s.path = nil
 
 	case gortsplib.ServerSessionStatePreRecord, gortsplib.ServerSessionStateRecord:
-		s.path.onPublisherRemove(pathPublisherRemoveReq{author: s})
+		s.path.publisherRemove(pathPublisherRemoveReq{author: s})
 		s.path = nil
 	}
 
@@ -125,7 +125,7 @@ func (s *rtspSession) onClose(err error) {
 
 // onAnnounce is called by rtspServer.
 func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	res := s.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
+	res := s.pathManager.publisherAnnounce(pathPublisherAnnounceReq{
 		author:   s,
 		pathName: ctx.Path,
 		authenticate: func(
@@ -185,7 +185,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
-		res := s.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
+		res := s.pathManager.readerSetupPlay(pathReaderSetupPlayReq{
 			author:   s,
 			pathName: ctx.Path,
 			authenticate: func(
@@ -249,7 +249,7 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 	h := make(base.Header)
 
 	if s.ss.State() == gortsplib.ServerSessionStatePrePlay {
-		s.path.onReaderPlay(pathReaderPlayReq{author: s})
+		s.path.readerPlay(pathReaderPlayReq{author: s})
 
 		if s.path.Conf().RunOnRead != "" {
 			s.log(logger.Info, "runOnRead command started")
@@ -276,7 +276,7 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 // onRecord is called by rtspServer.
 func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	res := s.path.onPublisherRecord(pathPublisherRecordReq{
+	res := s.path.publisherRecord(pathPublisherRecordReq{
 		author: s,
 		tracks: s.announcedTracks,
 	})
@@ -306,14 +306,14 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 			s.onReadCmd.Close()
 		}
 
-		s.path.onReaderPause(pathReaderPauseReq{author: s})
+		s.path.readerPause(pathReaderPauseReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay
 		s.stateMutex.Unlock()
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.onPublisherPause(pathPublisherPauseReq{author: s})
+		s.path.publisherPause(pathPublisherPauseReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePreRecord
@@ -346,8 +346,8 @@ func (s *rtspSession) onReaderData(data *data) {
 	// packets are routed to the session by gortsplib.ServerStream.
 }
 
-// onReaderAPIDescribe implements reader.
-func (s *rtspSession) onReaderAPIDescribe() interface{} {
+// apiReaderDescribe implements reader.
+func (s *rtspSession) apiReaderDescribe() interface{} {
 	var typ string
 	if s.isTLS {
 		typ = "rtspsSession"
@@ -361,8 +361,8 @@ func (s *rtspSession) onReaderAPIDescribe() interface{} {
 	}{typ, s.id}
 }
 
-// onSourceAPIDescribe implements source.
-func (s *rtspSession) onSourceAPIDescribe() interface{} {
+// apiSourceDescribe implements source.
+func (s *rtspSession) apiSourceDescribe() interface{} {
 	var typ string
 	if s.isTLS {
 		typ = "rtspsSession"

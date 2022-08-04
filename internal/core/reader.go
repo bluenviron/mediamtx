@@ -5,5 +5,5 @@ type reader interface {
 	close()
 	onReaderAccepted()
 	onReaderData(*data)
-	onReaderAPIDescribe() interface{}
+	apiReaderDescribe() interface{}
 }

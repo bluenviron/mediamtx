@@ -17,13 +17,13 @@ const (
 type sourceStaticImpl interface {
 	Log(logger.Level, string, ...interface{})
 	run(context.Context) error
-	onSourceAPIDescribe() interface{}
+	apiSourceDescribe() interface{}
 }
 
 type sourceStaticParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticSetReady(context.Context, pathSourceStaticSetReadyReq)
-	onSourceStaticSetNotReady(context.Context, pathSourceStaticSetNotReadyReq)
+	sourceStaticSetReady(context.Context, pathSourceStaticSetReadyReq)
+	sourceStaticSetNotReady(context.Context, pathSourceStaticSetNotReadyReq)
 }
 
 // sourceStatic is a static source.
@@ -42,9 +42,9 @@ type sourceStatic struct {
 	impl      sourceStaticImpl
 	running   bool
 
-	done                        chan struct{}
-	sourceStaticImplSetReady    chan pathSourceStaticSetReadyReq
-	sourceStaticImplSetNotReady chan pathSourceStaticSetNotReadyReq
+	done                          chan struct{}
+	chSourceStaticImplSetReady    chan pathSourceStaticSetReadyReq
+	chSourceStaticImplSetNotReady chan pathSourceStaticSetNotReadyReq
 }
 
 func newSourceStatic(
@@ -58,16 +58,16 @@ func newSourceStatic(
 	parent sourceStaticParent,
 ) *sourceStatic {
 	s := &sourceStatic{
-		ur:                          ur,
-		protocol:                    protocol,
-		anyPortEnable:               anyPortEnable,
-		fingerprint:                 fingerprint,
-		readTimeout:                 readTimeout,
-		writeTimeout:                writeTimeout,
-		readBufferCount:             readBufferCount,
-		parent:                      parent,
-		sourceStaticImplSetReady:    make(chan pathSourceStaticSetReadyReq),
-		sourceStaticImplSetNotReady: make(chan pathSourceStaticSetNotReadyReq),
+		ur:                            ur,
+		protocol:                      protocol,
+		anyPortEnable:                 anyPortEnable,
+		fingerprint:                   fingerprint,
+		readTimeout:                   readTimeout,
+		writeTimeout:                  writeTimeout,
+		readBufferCount:               readBufferCount,
+		parent:                        parent,
+		chSourceStaticImplSetReady:    make(chan pathSourceStaticSetReadyReq),
+		chSourceStaticImplSetNotReady: make(chan pathSourceStaticSetNotReadyReq),
 	}
 
 	switch {
@@ -170,11 +170,11 @@ func (s *sourceStatic) runInner() {
 			s.impl.Log(logger.Info, "ERR: %v", err)
 			return
 
-		case req := <-s.sourceStaticImplSetReady:
-			s.parent.onSourceStaticSetReady(s.ctx, req)
+		case req := <-s.chSourceStaticImplSetReady:
+			s.parent.sourceStaticSetReady(s.ctx, req)
 
-		case req := <-s.sourceStaticImplSetNotReady:
-			s.parent.onSourceStaticSetNotReady(s.ctx, req)
+		case req := <-s.chSourceStaticImplSetNotReady:
+			s.parent.sourceStaticSetNotReady(s.ctx, req)
 
 		case <-s.ctx.Done():
 			innerCtxCancel()
@@ -184,27 +184,27 @@ func (s *sourceStatic) runInner() {
 	}
 }
 
-// onSourceAPIDescribe implements source.
-func (s *sourceStatic) onSourceAPIDescribe() interface{} {
-	return s.impl.onSourceAPIDescribe()
+// apiSourceDescribe implements source.
+func (s *sourceStatic) apiSourceDescribe() interface{} {
+	return s.impl.apiSourceDescribe()
 }
 
-// onSourceStaticImplSetReady is called by a sourceStaticImpl.
-func (s *sourceStatic) onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
+// sourceStaticImplSetReady is called by a sourceStaticImpl.
+func (s *sourceStatic) sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
 	req.res = make(chan pathSourceStaticSetReadyRes)
 	select {
-	case s.sourceStaticImplSetReady <- req:
+	case s.chSourceStaticImplSetReady <- req:
 		return <-req.res
 	case <-s.ctx.Done():
 		return pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
 	}
 }
 
-// onSourceStaticImplSetNotReady is called by a sourceStaticImpl.
-func (s *sourceStatic) onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq) {
+// sourceStaticImplSetNotReady is called by a sourceStaticImpl.
+func (s *sourceStatic) sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq) {
 	req.res = make(chan struct{})
 	select {
-	case s.sourceStaticImplSetNotReady <- req:
+	case s.chSourceStaticImplSetNotReady <- req:
 		<-req.res
 	case <-s.ctx.Done():
 	}

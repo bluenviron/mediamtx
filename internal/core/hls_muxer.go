@@ -102,12 +102,12 @@ type hlsMuxerRequest struct {
 }
 
 type hlsMuxerPathManager interface {
-	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	readerSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
 }
 
 type hlsMuxerParent interface {
 	log(logger.Level, string, ...interface{})
-	onMuxerClose(*hlsMuxer)
+	muxerClose(*hlsMuxer)
 }
 
 type hlsMuxer struct {
@@ -134,8 +134,8 @@ type hlsMuxer struct {
 	requests        []*hlsMuxerRequest
 
 	// in
-	request                chan *hlsMuxerRequest
-	hlsServerAPIMuxersList chan hlsServerAPIMuxersListSubReq
+	chRequest          chan *hlsMuxerRequest
+	chAPIHLSMuxersList chan hlsServerAPIMuxersListSubReq
 }
 
 func newHLSMuxer(
@@ -177,8 +177,8 @@ func newHLSMuxer(
 			v := time.Now().Unix()
 			return &v
 		}(),
-		request:                make(chan *hlsMuxerRequest),
-		hlsServerAPIMuxersList: make(chan hlsServerAPIMuxersListSubReq),
+		chRequest:          make(chan *hlsMuxerRequest),
+		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
 
 	if req != nil {
@@ -231,14 +231,14 @@ func (m *hlsMuxer) run() {
 				<-innerErr
 				return errors.New("terminated")
 
-			case req := <-m.request:
+			case req := <-m.chRequest:
 				if isReady {
 					req.res <- m.handleRequest(req)
 				} else {
 					m.requests = append(m.requests, req)
 				}
 
-			case req := <-m.hlsServerAPIMuxersList:
+			case req := <-m.chAPIHLSMuxersList:
 				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
 					LastRequest: time.Unix(atomic.LoadInt64(m.lastRequestTime), 0).String(),
 				}
@@ -266,13 +266,13 @@ func (m *hlsMuxer) run() {
 		}
 	}
 
-	m.parent.onMuxerClose(m)
+	m.parent.muxerClose(m)
 
 	m.log(logger.Info, "destroyed (%v)", err)
 }
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
-	res := m.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
+	res := m.pathManager.readerSetupPlay(pathReaderSetupPlayReq{
 		author:       m,
 		pathName:     m.pathName,
 		authenticate: nil,
@@ -284,7 +284,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	m.path = res.path
 
 	defer func() {
-		m.path.onReaderRemove(pathReaderRemoveReq{author: m})
+		m.path.readerRemove(pathReaderRemoveReq{author: m})
 	}()
 
 	var videoTrack *gortsplib.TrackH264
@@ -343,7 +343,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
-	m.path.onReaderPlay(pathReaderPlayReq{author: m})
+	m.path.readerPlay(pathReaderPlayReq{author: m})
 
 	writerDone := make(chan error)
 	go func() {
@@ -510,14 +510,25 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 	return nil
 }
 
-// onRequest is called by hlsserver.Server (forwarded from ServeHTTP).
-func (m *hlsMuxer) onRequest(req *hlsMuxerRequest) {
+// request is called by hlsserver.Server (forwarded from ServeHTTP).
+func (m *hlsMuxer) request(req *hlsMuxerRequest) {
 	select {
-	case m.request <- req:
+	case m.chRequest <- req:
 	case <-m.ctx.Done():
 		req.res <- func() *hls.MuxerFileResponse {
 			return &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
 		}
+	}
+}
+
+// apiHLSMuxersList is called by api.
+func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
+	req.res = make(chan struct{})
+	select {
+	case m.chAPIHLSMuxersList <- req:
+		<-req.res
+
+	case <-m.ctx.Done():
 	}
 }
 
@@ -531,20 +542,9 @@ func (m *hlsMuxer) onReaderData(data *data) {
 	m.ringBuffer.Push(data)
 }
 
-// onReaderAPIDescribe implements reader.
-func (m *hlsMuxer) onReaderAPIDescribe() interface{} {
+// apiReaderDescribe implements reader.
+func (m *hlsMuxer) apiReaderDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"hlsMuxer"}
-}
-
-// onAPIHLSMuxersList is called by api.
-func (m *hlsMuxer) onAPIHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
-	req.res = make(chan struct{})
-	select {
-	case m.hlsServerAPIMuxersList <- req:
-		<-req.res
-
-	case <-m.ctx.Done():
-	}
 }

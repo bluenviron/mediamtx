@@ -64,9 +64,9 @@ type rtmpServer struct {
 	conns     map[*rtmpConn]struct{}
 
 	// in
-	connClose    chan *rtmpConn
-	apiConnsList chan rtmpServerAPIConnsListReq
-	apiConnsKick chan rtmpServerAPIConnsKickReq
+	chConnClose    chan *rtmpConn
+	chAPIConnsList chan rtmpServerAPIConnsListReq
+	chAPIConnsKick chan rtmpServerAPIConnsKickReq
 }
 
 func newRTMPServer(
@@ -107,15 +107,15 @@ func newRTMPServer(
 		ctxCancel:                 ctxCancel,
 		l:                         l,
 		conns:                     make(map[*rtmpConn]struct{}),
-		connClose:                 make(chan *rtmpConn),
-		apiConnsList:              make(chan rtmpServerAPIConnsListReq),
-		apiConnsKick:              make(chan rtmpServerAPIConnsKickReq),
+		chConnClose:               make(chan *rtmpConn),
+		chAPIConnsList:            make(chan rtmpServerAPIConnsListReq),
+		chAPIConnsKick:            make(chan rtmpServerAPIConnsKickReq),
 	}
 
 	s.log(logger.Info, "listener opened on %s", address)
 
 	if s.metrics != nil {
-		s.metrics.onRTMPServerSet(s)
+		s.metrics.rtmpServerSet(s)
 	}
 
 	s.wg.Add(1)
@@ -190,13 +190,13 @@ outer:
 				s)
 			s.conns[c] = struct{}{}
 
-		case c := <-s.connClose:
+		case c := <-s.chConnClose:
 			if _, ok := s.conns[c]; !ok {
 				continue
 			}
 			delete(s.conns, c)
 
-		case req := <-s.apiConnsList:
+		case req := <-s.chAPIConnsList:
 			data := &rtmpServerAPIConnsListData{
 				Items: make(map[string]rtmpServerAPIConnsListItem),
 			}
@@ -219,7 +219,7 @@ outer:
 
 			req.res <- rtmpServerAPIConnsListRes{data: data}
 
-		case req := <-s.apiConnsKick:
+		case req := <-s.chAPIConnsKick:
 			res := func() bool {
 				for c := range s.conns {
 					if c.ID() == req.id {
@@ -246,7 +246,7 @@ outer:
 	s.l.Close()
 
 	if s.metrics != nil {
-		s.metrics.onRTMPServerSet(s)
+		s.metrics.rtmpServerSet(s)
 	}
 }
 
@@ -278,19 +278,19 @@ func (s *rtmpServer) newConnID() (string, error) {
 	}
 }
 
-// onConnClose is called by rtmpConn.
-func (s *rtmpServer) onConnClose(c *rtmpConn) {
+// connClose is called by rtmpConn.
+func (s *rtmpServer) connClose(c *rtmpConn) {
 	select {
-	case s.connClose <- c:
+	case s.chConnClose <- c:
 	case <-s.ctx.Done():
 	}
 }
 
-// onAPIConnsList is called by api.
-func (s *rtmpServer) onAPIConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes {
+// apiConnsList is called by api.
+func (s *rtmpServer) apiConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes {
 	req.res = make(chan rtmpServerAPIConnsListRes)
 	select {
-	case s.apiConnsList <- req:
+	case s.chAPIConnsList <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():
@@ -298,11 +298,11 @@ func (s *rtmpServer) onAPIConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPI
 	}
 }
 
-// onAPIConnsKick is called by api.
-func (s *rtmpServer) onAPIConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes {
+// apiConnsKick is called by api.
+func (s *rtmpServer) apiConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes {
 	req.res = make(chan rtmpServerAPIConnsKickRes)
 	select {
-	case s.apiConnsKick <- req:
+	case s.chAPIConnsKick <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():

@@ -18,19 +18,19 @@ func metric(key string, value int64) string {
 }
 
 type metricsPathManager interface {
-	onAPIPathsList(req pathAPIPathsListReq) pathAPIPathsListRes
+	apiPathsList(req pathAPIPathsListReq) pathAPIPathsListRes
 }
 
 type metricsRTSPServer interface {
-	onAPISessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes
+	apiSessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes
 }
 
 type metricsRTMPServer interface {
-	onAPIConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes
+	apiConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes
 }
 
 type metricsHLSServer interface {
-	onAPIHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes
+	apiHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes
 }
 
 type metricsParent interface {
@@ -96,7 +96,7 @@ func (m *metrics) run() {
 func (m *metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
-	res := m.pathManager.onAPIPathsList(pathAPIPathsListReq{})
+	res := m.pathManager.apiPathsList(pathAPIPathsListReq{})
 	if res.err == nil {
 		for name, p := range res.data.Items {
 			if p.SourceReady {
@@ -108,7 +108,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
-		res := m.rtspServer.onAPISessionsList(rtspServerAPISessionsListReq{})
+		res := m.rtspServer.apiSessionsList(rtspServerAPISessionsListReq{})
 		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -135,7 +135,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspsServer) {
-		res := m.rtspsServer.onAPISessionsList(rtspServerAPISessionsListReq{})
+		res := m.rtspsServer.apiSessionsList(rtspServerAPISessionsListReq{})
 		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -162,7 +162,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
-		res := m.rtmpServer.onAPIConnsList(rtmpServerAPIConnsListReq{})
+		res := m.rtmpServer.apiConnsList(rtmpServerAPIConnsListReq{})
 		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -189,7 +189,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsServer) {
-		res := m.hlsServer.onAPIHLSMuxersList(hlsServerAPIMuxersListReq{})
+		res := m.hlsServer.apiHLSMuxersList(hlsServerAPIMuxersListReq{})
 		if res.err == nil {
 			for name := range res.data.Items {
 				out += metric("hls_muxers{name=\""+name+"\"}", 1)
@@ -201,36 +201,36 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	io.WriteString(ctx.Writer, out)
 }
 
-// onPathManagerSet is called by pathManager.
-func (m *metrics) onPathManagerSet(s metricsPathManager) {
+// pathManagerSet is called by pathManager.
+func (m *metrics) pathManagerSet(s metricsPathManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.pathManager = s
 }
 
-// onRTSPServer is called by rtspServer (plain).
-func (m *metrics) onRTSPServerSet(s metricsRTSPServer) {
+// rtspServerSet is called by rtspServer (plain).
+func (m *metrics) rtspServerSet(s metricsRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspServer = s
 }
 
-// onRTSPServer is called by rtspServer (plain).
-func (m *metrics) onRTSPSServerSet(s metricsRTSPServer) {
+// rtspsServerSet is called by rtspServer (tls).
+func (m *metrics) rtspsServerSet(s metricsRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspsServer = s
 }
 
-// onRTMPServerSet is called by rtmpServer.
-func (m *metrics) onRTMPServerSet(s metricsRTMPServer) {
+// rtmpServerSet is called by rtmpServer.
+func (m *metrics) rtmpServerSet(s metricsRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s
 }
 
-// onHLSServerSet is called by hlsServer.
-func (m *metrics) onHLSServerSet(s metricsHLSServer) {
+// hlsServerSet is called by hlsServer.
+func (m *metrics) hlsServerSet(s metricsHLSServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.hlsServer = s

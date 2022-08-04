@@ -21,8 +21,8 @@ import (
 
 type rtmpSourceParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtmpSource struct {
@@ -119,7 +119,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 				tracks = append(tracks, audioTrack)
 			}
 
-			res := s.parent.onSourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
+			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
 			if res.err != nil {
 				return res.err
 			}
@@ -127,7 +127,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 			s.Log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.onSourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
+				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
 			for {
@@ -212,8 +212,8 @@ func (s *rtmpSource) run(ctx context.Context) error {
 	}
 }
 
-// onSourceAPIDescribe implements sourceStaticImpl.
-func (*rtmpSource) onSourceAPIDescribe() interface{} {
+// apiSourceDescribe implements sourceStaticImpl.
+func (*rtmpSource) apiSourceDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"rtmpSource"}

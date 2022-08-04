@@ -15,8 +15,8 @@ import (
 
 type hlsSourceParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type hlsSource struct {
@@ -51,7 +51,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 
 	defer func() {
 		if stream != nil {
-			s.parent.onSourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
+			s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
@@ -78,7 +78,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 			tracks = append(tracks, audioTrack)
 		}
 
-		res := s.parent.onSourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
+		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
 		if res.err != nil {
 			return res.err
 		}
@@ -161,8 +161,8 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 }
 
-// onSourceAPIDescribe implements sourceStaticImpl.
-func (*hlsSource) onSourceAPIDescribe() interface{} {
+// apiSourceDescribe implements sourceStaticImpl.
+func (*hlsSource) apiSourceDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"hlsSource"}

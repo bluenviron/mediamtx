@@ -167,9 +167,9 @@ func newRTSPServer(
 
 	if s.metrics != nil {
 		if !isTLS {
-			s.metrics.onRTSPServerSet(s)
+			s.metrics.rtspServerSet(s)
 		} else {
-			s.metrics.onRTSPSServerSet(s)
+			s.metrics.rtspsServerSet(s)
 		}
 	}
 
@@ -219,9 +219,9 @@ outer:
 
 	if s.metrics != nil {
 		if !s.isTLS {
-			s.metrics.onRTSPServerSet(nil)
+			s.metrics.rtspServerSet(nil)
 		} else {
-			s.metrics.onRTSPSServerSet(nil)
+			s.metrics.rtspsServerSet(nil)
 		}
 	}
 }
@@ -392,8 +392,8 @@ func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	se.onPacketRTP(ctx)
 }
 
-// onAPISessionsList is called by api and metrics.
-func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes {
+// apiSessionsList is called by api and metrics.
+func (s *rtspServer) apiSessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes {
 	select {
 	case <-s.ctx.Done():
 		return rtspServerAPISessionsListRes{err: fmt.Errorf("terminated")}
@@ -428,8 +428,8 @@ func (s *rtspServer) onAPISessionsList(req rtspServerAPISessionsListReq) rtspSer
 	return rtspServerAPISessionsListRes{data: data}
 }
 
-// onAPISessionsKick is called by api.
-func (s *rtspServer) onAPISessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes {
+// apiSessionsKick is called by api.
+func (s *rtspServer) apiSessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes {
 	select {
 	case <-s.ctx.Done():
 		return rtspServerAPISessionsKickRes{err: fmt.Errorf("terminated")}

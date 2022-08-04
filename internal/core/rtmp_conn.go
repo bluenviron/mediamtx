@@ -47,13 +47,13 @@ const (
 )
 
 type rtmpConnPathManager interface {
-	onReaderSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
-	onPublisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
+	readerSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	publisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
 }
 
 type rtmpConnParent interface {
 	log(logger.Level, string, ...interface{})
-	onConnClose(*rtmpConn)
+	connClose(*rtmpConn)
 }
 
 type rtmpConn struct {
@@ -199,7 +199,7 @@ func (c *rtmpConn) run() {
 
 	c.ctxCancel()
 
-	c.parent.onConnClose(c)
+	c.parent.connClose(c)
 
 	c.log(logger.Info, "closed (%v)", err)
 }
@@ -226,7 +226,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
-	res := c.pathManager.onReaderSetupPlay(pathReaderSetupPlayReq{
+	res := c.pathManager.readerSetupPlay(pathReaderSetupPlayReq{
 		author:   c,
 		pathName: pathName,
 		authenticate: func(
@@ -250,7 +250,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	c.path = res.path
 
 	defer func() {
-		c.path.onReaderRemove(pathReaderRemoveReq{author: c})
+		c.path.readerRemove(pathReaderRemoveReq{author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -307,7 +307,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		c.ringBuffer.Close()
 	}()
 
-	c.path.onReaderPlay(pathReaderPlayReq{
+	c.path.readerPlay(pathReaderPlayReq{
 		author: c,
 	})
 
@@ -519,7 +519,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
-	res := c.pathManager.onPublisherAnnounce(pathPublisherAnnounceReq{
+	res := c.pathManager.publisherAnnounce(pathPublisherAnnounceReq{
 		author:   c,
 		pathName: pathName,
 		authenticate: func(
@@ -543,7 +543,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	c.path = res.path
 
 	defer func() {
-		c.path.onPublisherRemove(pathPublisherRemoveReq{author: c})
+		c.path.publisherRemove(pathPublisherRemoveReq{author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -553,7 +553,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	// disable write deadline
 	c.nconn.SetWriteDeadline(time.Time{})
 
-	rres := c.path.onPublisherRecord(pathPublisherRecordReq{
+	rres := c.path.publisherRecord(pathPublisherRecordReq{
 		author: c,
 		tracks: tracks,
 	})
@@ -742,16 +742,16 @@ func (c *rtmpConn) onReaderData(data *data) {
 	c.ringBuffer.Push(data)
 }
 
-// onReaderAPIDescribe implements reader.
-func (c *rtmpConn) onReaderAPIDescribe() interface{} {
+// apiReaderDescribe implements reader.
+func (c *rtmpConn) apiReaderDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
 	}{"rtmpConn", c.id}
 }
 
-// onSourceAPIDescribe implements source.
-func (c *rtmpConn) onSourceAPIDescribe() interface{} {
+// apiSourceDescribe implements source.
+func (c *rtmpConn) apiSourceDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`

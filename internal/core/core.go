@@ -40,7 +40,7 @@ type Core struct {
 	confWatcher     *confwatcher.ConfWatcher
 
 	// in
-	apiConfigSet chan *conf.Conf
+	chAPIConfigSet chan *conf.Conf
 
 	// out
 	done chan struct{}
@@ -72,11 +72,11 @@ func New(args []string) (*Core, bool) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	p := &Core{
-		ctx:          ctx,
-		ctxCancel:    ctxCancel,
-		confPath:     *argConfPath,
-		apiConfigSet: make(chan *conf.Conf),
-		done:         make(chan struct{}),
+		ctx:            ctx,
+		ctxCancel:      ctxCancel,
+		confPath:       *argConfPath,
+		chAPIConfigSet: make(chan *conf.Conf),
+		done:           make(chan struct{}),
 	}
 
 	var err error
@@ -148,7 +148,7 @@ outer:
 				break outer
 			}
 
-		case newConf := <-p.apiConfigSet:
+		case newConf := <-p.chAPIConfigSet:
 			p.Log(logger.Info, "reloading configuration (API request)")
 
 			err := p.reloadConf(newConf, true)
@@ -411,7 +411,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics {
 		closePathManager = true
 	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.pathManager.onConfReload(newConf.Paths)
+		p.pathManager.confReload(newConf.Paths)
 	}
 
 	closeRTSPServer := false
@@ -520,7 +520,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.api.close()
 			p.api = nil
 		} else if !calledByAPI { // avoid a loop
-			p.api.onConfReload(newConf)
+			p.api.confReload(newConf)
 		}
 	}
 
@@ -577,10 +577,10 @@ func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
 	return p.createResources(false)
 }
 
-// onAPIConfigSet is called by api.
-func (p *Core) onAPIConfigSet(conf *conf.Conf) {
+// apiConfigSet is called by api.
+func (p *Core) apiConfigSet(conf *conf.Conf) {
 	select {
-	case p.apiConfigSet <- conf:
+	case p.chAPIConfigSet <- conf:
 	case <-p.ctx.Done():
 	}
 }

@@ -6,5 +6,5 @@ package core
 // - sourceStatic
 // - sourceRedirect
 type source interface {
-	onSourceAPIDescribe() interface{}
+	apiSourceDescribe() interface{}
 }

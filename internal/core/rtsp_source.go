@@ -19,8 +19,8 @@ import (
 
 type rtspSourceParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtspSource struct {
@@ -125,7 +125,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 				}
 			}
 
-			res := s.parent.onSourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
+			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
 			if res.err != nil {
 				return res.err
 			}
@@ -133,7 +133,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 			s.Log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.onSourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
+				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
 			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
@@ -174,8 +174,8 @@ func (s *rtspSource) run(ctx context.Context) error {
 	}
 }
 
-// onSourceAPIDescribe implements sourceStaticImpl.
-func (*rtspSource) onSourceAPIDescribe() interface{} {
+// apiSourceDescribe implements sourceStaticImpl.
+func (*rtspSource) apiSourceDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 	}{"rtspSource"}
