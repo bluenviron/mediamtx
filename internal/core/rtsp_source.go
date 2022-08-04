@@ -19,8 +19,8 @@ import (
 
 type rtspSourceParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtspSource struct {
@@ -125,9 +125,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 				}
 			}
 
-			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-				tracks: c.Tracks(),
-			})
+			res := s.parent.onSourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
 			if res.err != nil {
 				return res.err
 			}
@@ -135,7 +133,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 			s.Log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
+				s.parent.onSourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
 			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {

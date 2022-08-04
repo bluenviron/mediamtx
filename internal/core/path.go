@@ -92,14 +92,12 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
-	source source
 	tracks gortsplib.Tracks
 	res    chan pathSourceStaticSetReadyRes
 }
 
 type pathSourceStaticSetNotReadyReq struct {
-	source source
-	res    chan struct{}
+	res chan struct{}
 }
 
 type pathReaderRemoveReq struct {
@@ -221,7 +219,6 @@ type path struct {
 	ctxCancel                      func()
 	source                         source
 	sourceReady                    bool
-	sourceStaticWg                 sync.WaitGroup
 	stream                         *stream
 	readers                        map[reader]pathReaderState
 	describeRequestsOnHold         []pathDescribeReq
@@ -352,8 +349,20 @@ func (pa *path) run() {
 
 	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
-	} else if !pa.conf.SourceOnDemand && pa.hasStaticSource() {
-		pa.staticSourceCreate()
+	} else if pa.hasStaticSource() {
+		pa.source = newSourceStatic(
+			pa.conf.Source,
+			pa.conf.SourceProtocol,
+			pa.conf.SourceAnyPortEnable,
+			pa.conf.SourceFingerprint,
+			pa.readTimeout,
+			pa.writeTimeout,
+			pa.readBufferCount,
+			pa)
+
+		if !pa.conf.SourceOnDemand {
+			pa.source.(*sourceStatic).start()
+		}
 	}
 
 	var onInitCmd *externalcmd.Cmd
@@ -422,40 +431,36 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.sourceStaticSetReady:
-				if req.source == pa.source {
-					pa.sourceSetReady(req.tracks)
+				pa.sourceSetReady(req.tracks)
 
-					if pa.hasOnDemandStaticSource() {
-						pa.onDemandStaticSourceReadyTimer.Stop()
-						pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
+				if pa.hasOnDemandStaticSource() {
+					pa.onDemandStaticSourceReadyTimer.Stop()
+					pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
 
-						pa.onDemandStaticSourceScheduleClose()
+					pa.onDemandStaticSourceScheduleClose()
 
-						for _, req := range pa.describeRequestsOnHold {
-							req.res <- pathDescribeRes{
-								stream: pa.stream,
-							}
+					for _, req := range pa.describeRequestsOnHold {
+						req.res <- pathDescribeRes{
+							stream: pa.stream,
 						}
-						pa.describeRequestsOnHold = nil
-
-						for _, req := range pa.setupPlayRequestsOnHold {
-							pa.handleReaderSetupPlayPost(req)
-						}
-						pa.setupPlayRequestsOnHold = nil
 					}
+					pa.describeRequestsOnHold = nil
 
-					req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
-				} else {
-					req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
+					for _, req := range pa.setupPlayRequestsOnHold {
+						pa.handleReaderSetupPlayPost(req)
+					}
+					pa.setupPlayRequestsOnHold = nil
 				}
+
+				req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
 
 			case req := <-pa.sourceStaticSetNotReady:
-				if req.source == pa.source {
-					pa.sourceSetNotReady()
-					if pa.hasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
-						pa.onDemandStaticSourceStop()
-					}
+				pa.sourceSetNotReady()
+
+				if pa.hasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
+					pa.onDemandStaticSourceStop()
 				}
+
 				close(req.res)
 
 				if pa.shouldClose() {
@@ -541,7 +546,6 @@ func (pa *path) run() {
 	if pa.source != nil {
 		if source, ok := pa.source.(*sourceStatic); ok {
 			source.close()
-			pa.sourceStaticWg.Wait()
 		} else if source, ok := pa.source.(publisher); ok {
 			source.close()
 		}
@@ -582,7 +586,7 @@ func (pa *path) externalCmdEnv() externalcmd.Environment {
 }
 
 func (pa *path) onDemandStaticSourceStart() {
-	pa.staticSourceCreate()
+	pa.source.(*sourceStatic).start()
 
 	pa.onDemandStaticSourceReadyTimer.Stop()
 	pa.onDemandStaticSourceReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
@@ -605,8 +609,7 @@ func (pa *path) onDemandStaticSourceStop() {
 
 	pa.onDemandStaticSourceState = pathOnDemandStateInitial
 
-	pa.source.(*sourceStatic).close()
-	pa.source = nil
+	pa.source.(*sourceStatic).stop()
 }
 
 func (pa *path) onDemandPublisherStart() {
@@ -693,20 +696,6 @@ func (pa *path) sourceSetNotReady() {
 		pa.stream.close()
 		pa.stream = nil
 	}
-}
-
-func (pa *path) staticSourceCreate() {
-	pa.source = newSourceStatic(
-		pa.ctx,
-		pa.conf.Source,
-		pa.conf.SourceProtocol,
-		pa.conf.SourceAnyPortEnable,
-		pa.conf.SourceFingerprint,
-		pa.readTimeout,
-		pa.writeTimeout,
-		pa.readBufferCount,
-		&pa.sourceStaticWg,
-		pa)
 }
 
 func (pa *path) doReaderRemove(r reader) {
@@ -963,24 +952,35 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 	close(req.res)
 }
 
-// onSourceStaticSetReady is called by a sourceStatic.
-func (pa *path) onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
-	req.res = make(chan pathSourceStaticSetReadyRes)
+// onSourceStaticSetReady is called by sourceStatic.
+func (pa *path) onSourceStaticSetReady(sourceStaticCtx context.Context, req pathSourceStaticSetReadyReq) {
 	select {
 	case pa.sourceStaticSetReady <- req:
-		return <-req.res
+
 	case <-pa.ctx.Done():
-		return pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
+		req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
+
+	// this avoids:
+	// - invalid requests sent after the source has been terminated
+	// - freezes caused by <-done inside stop()
+	case <-sourceStaticCtx.Done():
+		req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
 	}
 }
 
-// onSourceStaticSetNotReady is called by a sourceStatic.
-func (pa *path) onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
-	req.res = make(chan struct{})
+// onSourceStaticSetNotReady is called by sourceStatic.
+func (pa *path) onSourceStaticSetNotReady(sourceStaticCtx context.Context, req pathSourceStaticSetNotReadyReq) {
 	select {
 	case pa.sourceStaticSetNotReady <- req:
-		<-req.res
+
 	case <-pa.ctx.Done():
+		close(req.res)
+
+	// this avoids:
+	// - invalid requests sent after the source has been terminated
+	// - freezes caused by <-done inside stop()
+	case <-sourceStaticCtx.Done():
+		close(req.res)
 	}
 }
 

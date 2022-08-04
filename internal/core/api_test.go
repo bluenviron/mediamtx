@@ -156,71 +156,172 @@ func TestAPIConfigPathsRemove(t *testing.T) {
 }
 
 func TestAPIPathsList(t *testing.T) {
-	serverCertFpath, err := writeTempFile(serverCert)
-	require.NoError(t, err)
-	defer os.Remove(serverCertFpath)
-
-	serverKeyFpath, err := writeTempFile(serverKey)
-	require.NoError(t, err)
-	defer os.Remove(serverKeyFpath)
-
-	p, ok := newInstance("api: yes\n" +
-		"encryption: optional\n" +
-		"serverCert: " + serverCertFpath + "\n" +
-		"serverKey: " + serverKeyFpath + "\n" +
-		"paths:\n" +
-		"  mypath:\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	var out struct {
-		Items map[string]struct {
-			Source struct {
-				Type string `json:"type"`
-			} `json:"source"`
-		} `json:"items"`
-	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
-	require.NoError(t, err)
-	_, ok = out.Items["mypath"]
-	require.Equal(t, true, ok)
-
-	track := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-		PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+	type pathSource struct {
+		Type string `json:"type"`
 	}
 
-	func() {
-		source := gortsplib.Client{}
+	type path struct {
+		SourceReady bool
+		Source      pathSource `json:"source"`
+	}
 
-		err = source.StartPublishing("rtsp://localhost:8554/mypath",
-			gortsplib.Tracks{track})
-		require.NoError(t, err)
-		defer source.Close()
+	type pathList struct {
+		Items map[string]path `json:"items"`
+	}
 
-		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
-		require.NoError(t, err)
-		require.Equal(t, "rtspSession", out.Items["mypath"].Source.Type)
-	}()
+	t.Run("rtsp session", func(t *testing.T) {
+		p, ok := newInstance("api: yes\n" +
+			"paths:\n" +
+			"  mypath:\n")
+		require.Equal(t, true, ok)
+		defer p.close()
 
-	func() {
-		source := gortsplib.Client{
-			TLSConfig: &tls.Config{InsecureSkipVerify: true},
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
 		}
 
-		err := source.StartPublishing("rtsps://localhost:8322/mypath",
+		source := gortsplib.Client{}
+		err := source.StartPublishing("rtsp://localhost:8554/mypath",
 			gortsplib.Tracks{track})
 		require.NoError(t, err)
 		defer source.Close()
 
+		var out pathList
 		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 		require.NoError(t, err)
-		require.Equal(t, "rtspsSession", out.Items["mypath"].Source.Type)
-	}()
+		require.Equal(t, pathList{
+			Items: map[string]path{
+				"mypath": {
+					SourceReady: true,
+					Source: pathSource{
+						Type: "rtspSession",
+					},
+				},
+			},
+		}, out)
+	})
+
+	t.Run("rtsps session", func(t *testing.T) {
+		serverCertFpath, err := writeTempFile(serverCert)
+		require.NoError(t, err)
+		defer os.Remove(serverCertFpath)
+
+		serverKeyFpath, err := writeTempFile(serverKey)
+		require.NoError(t, err)
+		defer os.Remove(serverKeyFpath)
+
+		p, ok := newInstance("api: yes\n" +
+			"encryption: optional\n" +
+			"serverCert: " + serverCertFpath + "\n" +
+			"serverKey: " + serverKeyFpath + "\n" +
+			"paths:\n" +
+			"  mypath:\n")
+		require.Equal(t, true, ok)
+		defer p.close()
+
+		track := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}
+
+		source := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
+		err = source.StartPublishing("rtsps://localhost:8322/mypath",
+			gortsplib.Tracks{track})
+		require.NoError(t, err)
+		defer source.Close()
+
+		var out pathList
+		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		require.NoError(t, err)
+		require.Equal(t, pathList{
+			Items: map[string]path{
+				"mypath": {
+					SourceReady: true,
+					Source: pathSource{
+						Type: "rtspsSession",
+					},
+				},
+			},
+		}, out)
+	})
+
+	t.Run("rtsp source", func(t *testing.T) {
+		p, ok := newInstance("api: yes\n" +
+			"paths:\n" +
+			"  mypath:\n" +
+			"    source: rtsp://127.0.0.1:1234/mypath\n" +
+			"    sourceOnDemand: yes\n")
+		require.Equal(t, true, ok)
+		defer p.close()
+
+		var out pathList
+		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		require.NoError(t, err)
+		require.Equal(t, pathList{
+			Items: map[string]path{
+				"mypath": {
+					SourceReady: false,
+					Source: pathSource{
+						Type: "rtspSource",
+					},
+				},
+			},
+		}, out)
+	})
+
+	t.Run("rtmp source", func(t *testing.T) {
+		p, ok := newInstance("api: yes\n" +
+			"paths:\n" +
+			"  mypath:\n" +
+			"    source: rtmp://127.0.0.1:1234/mypath\n" +
+			"    sourceOnDemand: yes\n")
+		require.Equal(t, true, ok)
+		defer p.close()
+
+		var out pathList
+		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		require.NoError(t, err)
+		require.Equal(t, pathList{
+			Items: map[string]path{
+				"mypath": {
+					SourceReady: false,
+					Source: pathSource{
+						Type: "rtmpSource",
+					},
+				},
+			},
+		}, out)
+	})
+
+	t.Run("hls source", func(t *testing.T) {
+		p, ok := newInstance("api: yes\n" +
+			"paths:\n" +
+			"  mypath:\n" +
+			"    source: http://127.0.0.1:1234/mypath\n" +
+			"    sourceOnDemand: yes\n")
+		require.Equal(t, true, ok)
+		defer p.close()
+
+		var out pathList
+		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		require.NoError(t, err)
+		require.Equal(t, pathList{
+			Items: map[string]path{
+				"mypath": {
+					SourceReady: false,
+					Source: pathSource{
+						Type: "hlsSource",
+					},
+				},
+			},
+		}, out)
+	})
 }
 
-func TestAPIList(t *testing.T) {
+func TestAPIProtocolSpecificList(t *testing.T) {
 	serverCertFpath, err := writeTempFile(serverCert)
 	require.NoError(t, err)
 	defer os.Remove(serverCertFpath)

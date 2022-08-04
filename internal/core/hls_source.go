@@ -15,8 +15,8 @@ import (
 
 type hlsSourceParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type hlsSource struct {
@@ -51,7 +51,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 
 	defer func() {
 		if stream != nil {
-			s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
+			s.parent.onSourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
@@ -78,9 +78,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 			tracks = append(tracks, audioTrack)
 		}
 
-		res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-			tracks: tracks,
-		})
+		res := s.parent.onSourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
 		if res.err != nil {
 			return res.err
 		}

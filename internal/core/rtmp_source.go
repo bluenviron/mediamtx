@@ -21,8 +21,8 @@ import (
 
 type rtmpSourceParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtmpSource struct {
@@ -119,9 +119,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 				tracks = append(tracks, audioTrack)
 			}
 
-			res := s.parent.onSourceStaticSetReady(pathSourceStaticSetReadyReq{
-				tracks: tracks,
-			})
+			res := s.parent.onSourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
 			if res.err != nil {
 				return res.err
 			}
@@ -129,7 +127,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 			s.Log(logger.Info, "ready")
 
 			defer func() {
-				s.parent.onSourceStaticSetNotReady(pathSourceStaticSetNotReadyReq{})
+				s.parent.onSourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
 			for {

@@ -2,8 +2,8 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -22,8 +22,8 @@ type sourceStaticImpl interface {
 
 type sourceStaticParent interface {
 	log(logger.Level, string, ...interface{})
-	onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq)
+	onSourceStaticSetReady(context.Context, pathSourceStaticSetReadyReq)
+	onSourceStaticSetNotReady(context.Context, pathSourceStaticSetNotReadyReq)
 }
 
 // sourceStatic is a static source.
@@ -35,16 +35,19 @@ type sourceStatic struct {
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
-	wg              *sync.WaitGroup
 	parent          sourceStaticParent
 
-	impl      sourceStaticImpl
 	ctx       context.Context
 	ctxCancel func()
+	impl      sourceStaticImpl
+	running   bool
+
+	done                        chan struct{}
+	sourceStaticImplSetReady    chan pathSourceStaticSetReadyReq
+	sourceStaticImplSetNotReady chan pathSourceStaticSetNotReadyReq
 }
 
 func newSourceStatic(
-	parentCtx context.Context,
 	ur string,
 	protocol conf.SourceProtocol,
 	anyPortEnable bool,
@@ -52,23 +55,19 @@ func newSourceStatic(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
-	wg *sync.WaitGroup,
 	parent sourceStaticParent,
 ) *sourceStatic {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
-
 	s := &sourceStatic{
-		ur:              ur,
-		protocol:        protocol,
-		anyPortEnable:   anyPortEnable,
-		fingerprint:     fingerprint,
-		readTimeout:     readTimeout,
-		writeTimeout:    writeTimeout,
-		readBufferCount: readBufferCount,
-		wg:              wg,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
+		ur:                          ur,
+		protocol:                    protocol,
+		anyPortEnable:               anyPortEnable,
+		fingerprint:                 fingerprint,
+		readTimeout:                 readTimeout,
+		writeTimeout:                writeTimeout,
+		readBufferCount:             readBufferCount,
+		parent:                      parent,
+		sourceStaticImplSetReady:    make(chan pathSourceStaticSetReadyReq),
+		sourceStaticImplSetNotReady: make(chan pathSourceStaticSetNotReadyReq),
 	}
 
 	switch {
@@ -99,17 +98,41 @@ func newSourceStatic(
 			s)
 	}
 
-	s.impl.Log(logger.Info, "started")
-
-	s.wg.Add(1)
-	go s.run()
-
 	return s
 }
 
 func (s *sourceStatic) close() {
+	if s.running {
+		s.stop()
+	}
+}
+
+func (s *sourceStatic) start() {
+	if s.running {
+		panic("should not happen")
+	}
+
+	s.running = true
+	s.impl.Log(logger.Info, "started")
+
+	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
+	s.done = make(chan struct{})
+
+	go s.run()
+}
+
+func (s *sourceStatic) stop() {
+	if !s.running {
+		panic("should not happen")
+	}
+
+	s.running = false
 	s.impl.Log(logger.Info, "stopped")
+
 	s.ctxCancel()
+
+	// we must wait since s.ctx is not thread safe
+	<-s.done
 }
 
 func (s *sourceStatic) log(level logger.Level, format string, args ...interface{}) {
@@ -117,25 +140,11 @@ func (s *sourceStatic) log(level logger.Level, format string, args ...interface{
 }
 
 func (s *sourceStatic) run() {
-	defer s.wg.Done()
+	defer close(s.done)
 
 outer:
 	for {
-		innerCtx, innerCtxCancel := context.WithCancel(context.Background())
-		innerErr := make(chan error)
-		go func() {
-			innerErr <- s.impl.run(innerCtx)
-		}()
-
-		select {
-		case err := <-innerErr:
-			innerCtxCancel()
-			s.impl.Log(logger.Info, "ERR: %v", err)
-
-		case <-s.ctx.Done():
-			innerCtxCancel()
-			<-innerErr
-		}
+		s.runInner()
 
 		select {
 		case <-time.After(sourceStaticRetryPause):
@@ -147,19 +156,56 @@ outer:
 	s.ctxCancel()
 }
 
+func (s *sourceStatic) runInner() {
+	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
+	implErr := make(chan error)
+	go func() {
+		implErr <- s.impl.run(innerCtx)
+	}()
+
+	for {
+		select {
+		case err := <-implErr:
+			innerCtxCancel()
+			s.impl.Log(logger.Info, "ERR: %v", err)
+			return
+
+		case req := <-s.sourceStaticImplSetReady:
+			s.parent.onSourceStaticSetReady(s.ctx, req)
+
+		case req := <-s.sourceStaticImplSetNotReady:
+			s.parent.onSourceStaticSetNotReady(s.ctx, req)
+
+		case <-s.ctx.Done():
+			innerCtxCancel()
+			<-implErr
+			return
+		}
+	}
+}
+
 // onSourceAPIDescribe implements source.
 func (s *sourceStatic) onSourceAPIDescribe() interface{} {
 	return s.impl.onSourceAPIDescribe()
 }
 
-// onSourceStaticSetReady is called by a sourceStaticImpl.
-func (s *sourceStatic) onSourceStaticSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
-	req.source = s
-	return s.parent.onSourceStaticSetReady(req)
+// onSourceStaticImplSetReady is called by a sourceStaticImpl.
+func (s *sourceStatic) onSourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
+	req.res = make(chan pathSourceStaticSetReadyRes)
+	select {
+	case s.sourceStaticImplSetReady <- req:
+		return <-req.res
+	case <-s.ctx.Done():
+		return pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
+	}
 }
 
-// onSourceStaticSetNotReady is called by a sourceStaticImpl.
-func (s *sourceStatic) onSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
-	req.source = s
-	s.parent.onSourceStaticSetNotReady(req)
+// onSourceStaticImplSetNotReady is called by a sourceStaticImpl.
+func (s *sourceStatic) onSourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq) {
+	req.res = make(chan struct{})
+	select {
+	case s.sourceStaticImplSetNotReady <- req:
+		<-req.res
+	case <-s.ctx.Done():
+	}
 }
