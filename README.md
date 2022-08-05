@@ -805,7 +805,7 @@ http://localhost:8888/mystream
 
 where `mystream` is the name of a stream that is being published.
 
-Please be aware that HLS only supports a single H264 video track and a single AAC audio track due to limitations of most browsers. If you want to use HLS with tracks that uses other codecs, you have to re-encode them, for instance by using _FFmpeg_:
+Please be aware that HLS only supports a single H264 video track and a single AAC audio track due to limitations of most browsers. If you want to use HLS with streams that use other codecs, you have to re-encode them, for instance by using _FFmpeg_:
 
 ```
 ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -c:a aac -b:a 160k -f rtsp rtsp://localhost:8554/mystream
