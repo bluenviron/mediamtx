@@ -127,6 +127,7 @@ type hlsMuxer struct {
 
 	ctx             context.Context
 	ctxCancel       func()
+	created         time.Time
 	path            *path
 	ringBuffer      *ringbuffer.RingBuffer
 	lastRequestTime *int64
@@ -173,6 +174,7 @@ func newHLSMuxer(
 		parent:                    parent,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
+		created:                   time.Now(),
 		lastRequestTime: func() *int64 {
 			v := time.Now().Unix()
 			return &v
@@ -240,6 +242,7 @@ func (m *hlsMuxer) run() {
 
 			case req := <-m.chAPIHLSMuxersList:
 				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
+					Created:     m.created,
 					LastRequest: time.Unix(atomic.LoadInt64(m.lastRequestTime), 0).String(),
 				}
 				close(req.res)

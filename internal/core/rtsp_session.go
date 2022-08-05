@@ -38,6 +38,7 @@ type rtspSession struct {
 	pathManager     rtspSessionPathManager
 	parent          rtspSessionParent
 
+	created         time.Time
 	path            *path
 	state           gortsplib.ServerSessionState
 	stateMutex      sync.Mutex
@@ -65,6 +66,7 @@ func newRTSPSession(
 		externalCmdPool: externalCmdPool,
 		pathManager:     pathManager,
 		parent:          parent,
+		created:         time.Now(),
 	}
 
 	s.log(logger.Info, "created by %v", s.author.NetConn().RemoteAddr())
@@ -77,13 +79,8 @@ func (s *rtspSession) close() {
 	s.ss.Close()
 }
 
-// IsRTSPSession implements pathRTSPSession.
-func (s *rtspSession) IsRTSPSession() {}
-
-// ID returns the public ID of the session.
-func (s *rtspSession) ID() string {
-	return s.id
-}
+// isRTSPSession implements pathRTSPSession.
+func (s *rtspSession) isRTSPSession() {}
 
 func (s *rtspSession) safeState() gortsplib.ServerSessionState {
 	s.stateMutex.Lock()
@@ -91,8 +88,7 @@ func (s *rtspSession) safeState() gortsplib.ServerSessionState {
 	return s.state
 }
 
-// RemoteAddr returns the remote address of the author of the session.
-func (s *rtspSession) RemoteAddr() net.Addr {
+func (s *rtspSession) remoteAddr() net.Addr {
 	return s.author.NetConn().RemoteAddr()
 }
 

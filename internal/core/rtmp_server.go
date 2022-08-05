@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -14,8 +15,9 @@ import (
 )
 
 type rtmpServerAPIConnsListItem struct {
-	RemoteAddr string `json:"remoteAddr"`
-	State      string `json:"state"`
+	Created    time.Time `json:"created"`
+	RemoteAddr string    `json:"remoteAddr"`
+	State      string    `json:"state"`
 }
 
 type rtmpServerAPIConnsListData struct {
@@ -202,8 +204,9 @@ outer:
 			}
 
 			for c := range s.conns {
-				data.Items[c.ID()] = rtmpServerAPIConnsListItem{
-					RemoteAddr: c.RemoteAddr().String(),
+				data.Items[c.id] = rtmpServerAPIConnsListItem{
+					Created:    c.created,
+					RemoteAddr: c.remoteAddr().String(),
 					State: func() string {
 						switch c.safeState() {
 						case rtmpConnStateRead:
@@ -222,7 +225,7 @@ outer:
 		case req := <-s.chAPIConnsKick:
 			res := func() bool {
 				for c := range s.conns {
-					if c.ID() == req.id {
+					if c.id == req.id {
 						delete(s.conns, c)
 						c.close()
 						return true
@@ -266,7 +269,7 @@ func (s *rtmpServer) newConnID() (string, error) {
 
 		alreadyPresent := func() bool {
 			for c := range s.conns {
-				if c.ID() == id {
+				if c.id == id {
 					return true
 				}
 			}

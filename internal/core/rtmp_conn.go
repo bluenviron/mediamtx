@@ -74,6 +74,7 @@ type rtmpConn struct {
 
 	ctx        context.Context
 	ctxCancel  func()
+	created    time.Time
 	path       *path
 	ringBuffer *ringbuffer.RingBuffer // read
 	state      rtmpConnState
@@ -115,6 +116,7 @@ func newRTMPConn(
 		parent:                    parent,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
+		created:                   time.Now(),
 	}
 
 	c.log(logger.Info, "opened")
@@ -125,18 +127,11 @@ func newRTMPConn(
 	return c
 }
 
-// Close closes a Conn.
 func (c *rtmpConn) close() {
 	c.ctxCancel()
 }
 
-// ID returns the ID of the Conn.
-func (c *rtmpConn) ID() string {
-	return c.id
-}
-
-// RemoteAddr returns the remote address of the Conn.
-func (c *rtmpConn) RemoteAddr() net.Addr {
+func (c *rtmpConn) remoteAddr() net.Addr {
 	return c.nconn.RemoteAddr()
 }
 

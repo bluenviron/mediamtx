@@ -21,8 +21,9 @@ import (
 )
 
 type rtspServerAPISessionsListItem struct {
-	RemoteAddr string `json:"remoteAddr"`
-	State      string `json:"state"`
+	Created    time.Time `json:"created"`
+	RemoteAddr string    `json:"remoteAddr"`
+	State      string    `json:"state"`
 }
 
 type rtspServerAPISessionsListData struct {
@@ -242,7 +243,7 @@ func (s *rtspServer) newSessionID() (string, error) {
 
 		alreadyPresent := func() bool {
 			for _, s := range s.sessions {
-				if s.ID() == id {
+				if s.id == id {
 					return true
 				}
 			}
@@ -408,8 +409,9 @@ func (s *rtspServer) apiSessionsList(req rtspServerAPISessionsListReq) rtspServe
 	}
 
 	for _, s := range s.sessions {
-		data.Items[s.ID()] = rtspServerAPISessionsListItem{
-			RemoteAddr: s.RemoteAddr().String(),
+		data.Items[s.id] = rtspServerAPISessionsListItem{
+			Created:    s.created,
+			RemoteAddr: s.remoteAddr().String(),
 			State: func() string {
 				switch s.safeState() {
 				case gortsplib.ServerSessionStatePrePlay,
@@ -440,7 +442,7 @@ func (s *rtspServer) apiSessionsKick(req rtspServerAPISessionsKickReq) rtspServe
 	defer s.mutex.RUnlock()
 
 	for key, se := range s.sessions {
-		if se.ID() == req.id {
+		if se.id == req.id {
 			se.close()
 			delete(s.sessions, key)
 			se.onClose(liberrors.ErrServerTerminated{})

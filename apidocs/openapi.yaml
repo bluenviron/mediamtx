@@ -295,6 +295,8 @@ components:
     RTSPSession:
       type: object
       properties:
+        created:
+          type: string
         remoteAddr:
           type: string
         state:
@@ -313,6 +315,8 @@ components:
     RTMPConn:
       type: object
       properties:
+        created:
+          type: string
         remoteAddr:
           type: string
         state:
@@ -322,6 +326,8 @@ components:
     HLSMuxer:
       type: object
       properties:
+        created:
+          type: string
         lastRequest:
           type: string
 

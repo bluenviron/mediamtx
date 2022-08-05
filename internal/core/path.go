@@ -67,7 +67,7 @@ type pathParent interface {
 }
 
 type pathRTSPSession interface {
-	IsRTSPSession()
+	isRTSPSession()
 }
 
 type pathReaderState int

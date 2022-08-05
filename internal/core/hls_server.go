@@ -12,6 +12,7 @@ import (
 	gopath "path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,7 +28,8 @@ func (nilWriter) Write(p []byte) (int, error) {
 }
 
 type hlsServerAPIMuxersListItem struct {
-	LastRequest string `json:"lastRequest"`
+	Created     time.Time `json:"created"`
+	LastRequest string    `json:"lastRequest"`
 }
 
 type hlsServerAPIMuxersListData struct {
