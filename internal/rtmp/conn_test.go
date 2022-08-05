@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
@@ -525,9 +525,9 @@ func TestReadTracks(t *testing.T) {
 						PPS:         pps,
 					}, videoTrack)
 
-					require.Equal(t, &gortsplib.TrackAAC{
+					require.Equal(t, &gortsplib.TrackMPEG4Audio{
 						PayloadType: 96,
-						Config: &aac.MPEG4AudioConfig{
+						Config: &mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -544,9 +544,9 @@ func TestReadTracks(t *testing.T) {
 						PPS:         pps,
 					}, videoTrack)
 
-					require.Equal(t, &gortsplib.TrackAAC{
+					require.Equal(t, &gortsplib.TrackMPEG4Audio{
 						PayloadType: 96,
-						Config: &aac.MPEG4AudioConfig{
+						Config: &mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -563,9 +563,9 @@ func TestReadTracks(t *testing.T) {
 						PPS:         pps,
 					}, videoTrack)
 
-					require.Equal(t, &gortsplib.TrackAAC{
+					require.Equal(t, &gortsplib.TrackMPEG4Audio{
 						PayloadType: 96,
-						Config: &aac.MPEG4AudioConfig{
+						Config: &mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
 							ChannelCount: 2,
@@ -784,7 +784,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S AAC decoder config
-				enc, err := aac.MPEG4AudioConfig{
+				enc, err := mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
@@ -842,7 +842,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S AAC decoder config
-				enc, err := aac.MPEG4AudioConfig{
+				enc, err := mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
@@ -875,7 +875,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				// C->S AAC decoder config
-				enc, err := aac.MPEG4AudioConfig{
+				enc, err := mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
 					ChannelCount: 2,
@@ -924,9 +924,9 @@ func TestWriteTracks(t *testing.T) {
 			},
 		}
 
-		audioTrack := &gortsplib.TrackAAC{
+		audioTrack := &gortsplib.TrackMPEG4Audio{
 			PayloadType: 96,
-			Config: &aac.MPEG4AudioConfig{
+			Config: &mpeg4audio.Config{
 				Type:         2,
 				SampleRate:   44100,
 				ChannelCount: 2,

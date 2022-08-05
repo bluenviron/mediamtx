@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 )
 
 func partDurationIsCompatible(partDuration time.Duration, sampleDuration time.Duration) bool {
@@ -50,7 +50,7 @@ type muxerVariantFMP4Segmenter struct {
 	partDuration       time.Duration
 	segmentMaxSize     uint64
 	videoTrack         *gortsplib.TrackH264
-	audioTrack         *gortsplib.TrackAAC
+	audioTrack         *gortsplib.TrackMPEG4Audio
 	onSegmentFinalized func(*muxerVariantFMP4Segment)
 	onPartFinalized    func(*muxerVariantFMP4Part)
 
@@ -75,7 +75,7 @@ func newMuxerVariantFMP4Segmenter(
 	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	onSegmentFinalized func(*muxerVariantFMP4Segment),
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segmenter {
@@ -261,7 +261,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4VideoSample) erro
 func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, aus [][]byte) error {
 	for i, au := range aus {
 		err := m.writeAACEntry(&fmp4AudioSample{
-			pts: pts + time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(m.audioTrack.ClockRate()),
+			pts: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*time.Second/time.Duration(m.audioTrack.ClockRate()),
 			au:  au,
 		})
 		if err != nil {

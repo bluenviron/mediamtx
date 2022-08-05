@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
@@ -254,7 +254,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 	var videoTrack *gortsplib.TrackH264
 	videoTrackID := -1
-	var audioTrack *gortsplib.TrackAAC
+	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
 	var aacDecoder *rtpaac.Decoder
 
@@ -268,7 +268,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			videoTrack = tt
 			videoTrackID = i
 
-		case *gortsplib.TrackAAC:
+		case *gortsplib.TrackMPEG4Audio:
 			if audioTrack != nil {
 				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
 			}
@@ -469,7 +469,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 					Channels:        flvio.SOUND_STEREO,
 					AACType:         flvio.AAC_RAW,
 					Payload:         au,
-					DTS:             pts + time.Duration(i)*aac.SamplesPerAccessUnit*time.Second/time.Duration(audioTrack.ClockRate()),
+					DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+						time.Second/time.Duration(audioTrack.ClockRate()),
 				})
 				if err != nil {
 					return err

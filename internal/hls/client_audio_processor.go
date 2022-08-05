@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 )
 
 type clientAudioProcessorData struct {
@@ -16,7 +16,7 @@ type clientAudioProcessorData struct {
 
 type clientAudioProcessor struct {
 	ctx     context.Context
-	onTrack func(*gortsplib.TrackAAC) error
+	onTrack func(*gortsplib.TrackMPEG4Audio) error
 	onData  func(time.Duration, [][]byte)
 
 	trackInitialized bool
@@ -26,7 +26,7 @@ type clientAudioProcessor struct {
 
 func newClientAudioProcessor(
 	ctx context.Context,
-	onTrack func(*gortsplib.TrackAAC) error,
+	onTrack func(*gortsplib.TrackMPEG4Audio) error,
 	onData func(time.Duration, [][]byte),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{
@@ -58,7 +58,7 @@ func (p *clientAudioProcessor) doProcess(
 	data []byte,
 	pts time.Duration,
 ) error {
-	var adtsPkts aac.ADTSPackets
+	var adtsPkts mpeg4audio.ADTSPackets
 	err := adtsPkts.Unmarshal(data)
 	if err != nil {
 		return err
@@ -79,9 +79,9 @@ func (p *clientAudioProcessor) doProcess(
 		if !p.trackInitialized {
 			p.trackInitialized = true
 
-			track := &gortsplib.TrackAAC{
+			track := &gortsplib.TrackMPEG4Audio{
 				PayloadType: 96,
-				Config: &aac.MPEG4AudioConfig{
+				Config: &mpeg4audio.Config{
 					Type:         pkt.Type,
 					SampleRate:   pkt.SampleRate,
 					ChannelCount: pkt.ChannelCount,

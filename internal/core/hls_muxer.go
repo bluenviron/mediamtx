@@ -292,7 +292,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	var videoTrack *gortsplib.TrackH264
 	videoTrackID := -1
-	var audioTrack *gortsplib.TrackAAC
+	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
 	var aacDecoder *rtpaac.Decoder
 
@@ -306,7 +306,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			videoTrack = tt
 			videoTrackID = i
 
-		case *gortsplib.TrackAAC:
+		case *gortsplib.TrackMPEG4Audio:
 			if audioTrack != nil {
 				return fmt.Errorf("can't encode track %d with HLS: too many tracks", i+1)
 			}

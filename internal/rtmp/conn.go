@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
@@ -588,14 +588,14 @@ func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
 	}, nil
 }
 
-func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
-	var mpegConf aac.MPEG4AudioConfig
+func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackMPEG4Audio, error) {
+	var mpegConf mpeg4audio.Config
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return &gortsplib.TrackAAC{
+	return &gortsplib.TrackMPEG4Audio{
 		PayloadType:      96,
 		Config:           &mpegConf,
 		SizeLength:       13,
@@ -606,7 +606,7 @@ func trackFromAACDecoderConfig(data []byte) (*gortsplib.TrackAAC, error) {
 
 var errEmptyMetadata = errors.New("metadata is empty")
 
-func (c *Conn) readTracksFromMetadata(payload []interface{}) (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+func (c *Conn) readTracksFromMetadata(payload []interface{}) (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, error) {
 	if len(payload) != 1 {
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
@@ -677,7 +677,7 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (*gortsplib.TrackH2
 	}
 
 	var videoTrack *gortsplib.TrackH264
-	var audioTrack *gortsplib.TrackAAC
+	var audioTrack *gortsplib.TrackMPEG4Audio
 
 	for {
 		msg, err := c.ReadMessage()
@@ -726,10 +726,10 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (*gortsplib.TrackH2
 	}
 }
 
-func (c *Conn) readTracksFromMessages(msg message.Message) (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+func (c *Conn) readTracksFromMessages(msg message.Message) (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, error) {
 	var startTime *time.Duration
 	var videoTrack *gortsplib.TrackH264
-	var audioTrack *gortsplib.TrackAAC
+	var audioTrack *gortsplib.TrackMPEG4Audio
 
 	// analyze 1 second of packets
 outer:
@@ -801,7 +801,7 @@ outer:
 }
 
 // ReadTracks reads track informations.
-func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
+func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, error) {
 	msg, err := c.ReadMessage()
 	if err != nil {
 		return nil, nil, err
@@ -844,7 +844,7 @@ func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackAAC, error) {
 }
 
 // WriteTracks writes track informations.
-func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) error {
+func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) error {
 	err := c.WriteMessage(&message.MsgDataAMF0{
 		ChunkStreamID:   4,
 		MessageStreamID: 0x1000000,

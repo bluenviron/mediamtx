@@ -16,7 +16,7 @@ func newMuxerVariantMPEGTS(
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 ) *muxerVariantMPEGTS {
 	v := &muxerVariantMPEGTS{}
 

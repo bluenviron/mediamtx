@@ -14,13 +14,13 @@ import (
 type muxerPrimaryPlaylist struct {
 	fmp4       bool
 	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackAAC
+	audioTrack *gortsplib.TrackMPEG4Audio
 }
 
 func newMuxerPrimaryPlaylist(
 	fmp4 bool,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 ) *muxerPrimaryPlaylist {
 	return &muxerPrimaryPlaylist{
 		fmp4:       fmp4,

@@ -23,7 +23,7 @@ type muxerVariantMPEGTSSegmenter struct {
 	segmentDuration time.Duration
 	segmentMaxSize  uint64
 	videoTrack      *gortsplib.TrackH264
-	audioTrack      *gortsplib.TrackAAC
+	audioTrack      *gortsplib.TrackMPEG4Audio
 	onSegmentReady  func(*muxerVariantMPEGTSSegment)
 
 	writer            *astits.Muxer
@@ -37,7 +37,7 @@ func newMuxerVariantMPEGTSSegmenter(
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	onSegmentReady func(*muxerVariantMPEGTSSegment),
 ) *muxerVariantMPEGTSSegmenter {
 	m := &muxerVariantMPEGTSSegmenter{

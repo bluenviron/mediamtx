@@ -9,7 +9,7 @@ import (
 
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 
 	"github.com/aler9/rtsp-simple-server/internal/mp4"
 )
@@ -105,7 +105,7 @@ func mp4PartGenerateVideoTraf(
 func mp4PartGenerateAudioTraf(
 	w *mp4.Writer,
 	trackID int,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	audioSamples []*fmp4AudioSample,
 ) (*gomp4.Trun, int, error) {
 	/*
@@ -182,7 +182,7 @@ func mp4PartGenerateAudioTraf(
 
 func mp4PartGenerate(
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	videoSamples []*fmp4VideoSample,
 	audioSamples []*fmp4AudioSample,
 ) ([]byte, error) {
@@ -301,7 +301,7 @@ func fmp4PartName(id uint64) string {
 
 type muxerVariantFMP4Part struct {
 	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackAAC
+	audioTrack *gortsplib.TrackMPEG4Audio
 	id         uint64
 
 	isIndependent    bool
@@ -313,7 +313,7 @@ type muxerVariantFMP4Part struct {
 
 func newMuxerVariantFMP4Part(
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	id uint64,
 ) *muxerVariantFMP4Part {
 	p := &muxerVariantFMP4Part{
@@ -350,7 +350,7 @@ func (p *muxerVariantFMP4Part) duration() time.Duration {
 	// not the real duration,
 	// otherwise on iPhone iOS the stream freezes.
 	return time.Duration(len(p.audioSamples)) * time.Second *
-		time.Duration(aac.SamplesPerAccessUnit) / time.Duration(p.audioTrack.ClockRate())
+		time.Duration(mpeg4audio.SamplesPerAccessUnit) / time.Duration(p.audioTrack.ClockRate())
 }
 
 func (p *muxerVariantFMP4Part) finalize() error {

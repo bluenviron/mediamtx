@@ -71,7 +71,7 @@ type muxerVariantFMP4Playlist struct {
 	lowLatency   bool
 	segmentCount int
 	videoTrack   *gortsplib.TrackH264
-	audioTrack   *gortsplib.TrackAAC
+	audioTrack   *gortsplib.TrackMPEG4Audio
 
 	mutex              sync.Mutex
 	cond               *sync.Cond
@@ -90,7 +90,7 @@ func newMuxerVariantFMP4Playlist(
 	lowLatency bool,
 	segmentCount int,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 ) *muxerVariantFMP4Playlist {
 	p := &muxerVariantFMP4Playlist{
 		lowLatency:     lowLatency,

@@ -46,7 +46,7 @@ type muxerVariantFMP4Segment struct {
 	startDTS        time.Duration
 	segmentMaxSize  uint64
 	videoTrack      *gortsplib.TrackH264
-	audioTrack      *gortsplib.TrackAAC
+	audioTrack      *gortsplib.TrackMPEG4Audio
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
@@ -63,7 +63,7 @@ func newMuxerVariantFMP4Segment(
 	startDTS time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	genPartID func() uint64,
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segment {

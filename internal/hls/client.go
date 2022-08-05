@@ -46,7 +46,7 @@ type ClientLogger interface {
 
 // Client is a HLS client.
 type Client struct {
-	onTracks    func(*gortsplib.TrackH264, *gortsplib.TrackAAC) error
+	onTracks    func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error
 	onVideoData func(time.Duration, [][]byte)
 	onAudioData func(time.Duration, [][]byte)
 	logger      ClientLogger
@@ -70,7 +70,7 @@ type Client struct {
 
 	tracksMutex sync.RWMutex
 	videoTrack  *gortsplib.TrackH264
-	audioTrack  *gortsplib.TrackAAC
+	audioTrack  *gortsplib.TrackMPEG4Audio
 
 	// in
 	allocateProcs chan clientAllocateProcsReq
@@ -83,7 +83,7 @@ type Client struct {
 func NewClient(
 	primaryPlaylistURLStr string,
 	fingerprint string,
-	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackAAC) error,
+	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, [][]byte),
 	logger ClientLogger,
@@ -536,7 +536,7 @@ func (c *Client) onVideoProcessorData(pts time.Duration, nalus [][]byte) {
 	c.onVideoData(pts, nalus)
 }
 
-func (c *Client) onAudioProcessorTrack(track *gortsplib.TrackAAC) error {
+func (c *Client) onAudioProcessorTrack(track *gortsplib.TrackMPEG4Audio) error {
 	c.tracksMutex.Lock()
 	defer c.tracksMutex.Unlock()
 

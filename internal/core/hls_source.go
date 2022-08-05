@@ -55,7 +55,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 		}
 	}()
 
-	onTracks := func(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) error {
+	onTracks := func(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) error {
 		var tracks gortsplib.Tracks
 
 		if videoTrack != nil {

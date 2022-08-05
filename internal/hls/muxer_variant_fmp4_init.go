@@ -265,7 +265,7 @@ func mp4InitGenerateVideoTrack(w *mp4.Writer, trackID int, videoTrack *gortsplib
 	return nil
 }
 
-func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib.TrackAAC) error {
+func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib.TrackMPEG4Audio) error {
 	/*
 		trak
 		- tkhd
@@ -511,7 +511,7 @@ func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib
 	return nil
 }
 
-func mp4InitGenerate(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackAAC) ([]byte, error) {
+func mp4InitGenerate(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) ([]byte, error) {
 	/*
 		- ftyp
 		- moov

@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/aac"
 	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/asticode/go-astits"
 )
 
@@ -20,7 +20,7 @@ const (
 type muxerVariantMPEGTSSegment struct {
 	segmentMaxSize uint64
 	videoTrack     *gortsplib.TrackH264
-	audioTrack     *gortsplib.TrackAAC
+	audioTrack     *gortsplib.TrackMPEG4Audio
 	writeData      func(*astits.MuxerData) (int, error)
 
 	startTime      time.Time
@@ -36,7 +36,7 @@ func newMuxerVariantMPEGTSSegment(
 	startTime time.Time,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 	writeData func(*astits.MuxerData) (int, error),
 ) *muxerVariantMPEGTSSegment {
 	t := &muxerVariantMPEGTSSegment{
@@ -147,10 +147,10 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pts time.Duration,
 	aus [][]byte,
 ) error {
-	pkts := make(aac.ADTSPackets, len(aus))
+	pkts := make(mpeg4audio.ADTSPackets, len(aus))
 
 	for i, au := range aus {
-		pkts[i] = &aac.ADTSPacket{
+		pkts[i] = &mpeg4audio.ADTSPacket{
 			Type:         t.audioTrack.Config.Type,
 			SampleRate:   t.audioTrack.Config.SampleRate,
 			ChannelCount: t.audioTrack.Config.ChannelCount,

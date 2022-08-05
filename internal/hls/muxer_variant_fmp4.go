@@ -40,7 +40,7 @@ type muxerVariantFMP4 struct {
 	playlist   *muxerVariantFMP4Playlist
 	segmenter  *muxerVariantFMP4Segmenter
 	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackAAC
+	audioTrack *gortsplib.TrackMPEG4Audio
 
 	mutex        sync.Mutex
 	videoLastSPS []byte
@@ -55,7 +55,7 @@ func newMuxerVariantFMP4(
 	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackAAC,
+	audioTrack *gortsplib.TrackMPEG4Audio,
 ) *muxerVariantFMP4 {
 	v := &muxerVariantFMP4{
 		videoTrack: videoTrack,
