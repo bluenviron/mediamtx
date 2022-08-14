@@ -125,7 +125,10 @@ func (s *rtspSource) run(ctx context.Context) error {
 				}
 			}
 
-			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
+			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+				tracks:             tracks,
+				generateRTPPackets: false,
+			})
 			if res.err != nil {
 				return res.err
 			}
@@ -140,15 +143,15 @@ func (s *rtspSource) run(ctx context.Context) error {
 				if ctx.H264NALUs != nil {
 					res.stream.writeData(&data{
 						trackID:      ctx.TrackID,
-						rtp:          ctx.Packet,
+						rtpPacket:    ctx.Packet,
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
+						pts:          ctx.H264PTS,
 						h264NALUs:    append([][]byte(nil), ctx.H264NALUs...),
-						h264PTS:      ctx.H264PTS,
 					})
 				} else {
 					res.stream.writeData(&data{
 						trackID:      ctx.TrackID,
-						rtp:          ctx.Packet,
+						rtpPacket:    ctx.Packet,
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
 					})
 				}

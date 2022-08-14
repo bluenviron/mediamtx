@@ -366,17 +366,17 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 					}
 
 					if videoInitialPTS == nil {
-						v := data.h264PTS
+						v := data.pts
 						videoInitialPTS = &v
 					}
-					pts := data.h264PTS - *videoInitialPTS
+					pts := data.pts - *videoInitialPTS
 
 					err = m.muxer.WriteH264(pts, data.h264NALUs)
 					if err != nil {
 						return fmt.Errorf("muxer error: %v", err)
 					}
 				} else if audioTrack != nil && data.trackID == audioTrackID {
-					aus, pts, err := aacDecoder.Decode(data.rtp)
+					aus, pts, err := aacDecoder.Decode(data.rtpPacket)
 					if err != nil {
 						if err != rtpmpeg4audio.ErrMorePacketsNeeded {
 							m.log(logger.Warn, "unable to decode audio track: %v", err)

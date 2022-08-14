@@ -9,8 +9,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtph264"
-	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -97,29 +95,20 @@ func (s *rtmpSource) run(ctx context.Context) error {
 			videoTrackID := -1
 			audioTrackID := -1
 
-			var h264Encoder *rtph264.Encoder
 			if videoTrack != nil {
-				h264Encoder = &rtph264.Encoder{PayloadType: 96}
-				h264Encoder.Init()
 				videoTrackID = len(tracks)
 				tracks = append(tracks, videoTrack)
 			}
 
-			var aacEncoder *rtpmpeg4audio.Encoder
 			if audioTrack != nil {
-				aacEncoder = &rtpmpeg4audio.Encoder{
-					PayloadType:      96,
-					SampleRate:       audioTrack.ClockRate(),
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
-				}
-				aacEncoder.Init()
 				audioTrackID = len(tracks)
 				tracks = append(tracks, audioTrack)
 			}
 
-			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
+			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+				tracks:             tracks,
+				generateRTPPackets: true,
+			})
 			if res.err != nil {
 				return res.err
 			}
@@ -149,31 +138,12 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("unable to decode AVCC: %v", err)
 						}
 
-						pts := tmsg.DTS + tmsg.PTSDelta
-
-						pkts, err := h264Encoder.Encode(nalus, pts)
-						if err != nil {
-							return fmt.Errorf("error while encoding H264: %v", err)
-						}
-
-						lastPkt := len(pkts) - 1
-						for i, pkt := range pkts {
-							if i != lastPkt {
-								res.stream.writeData(&data{
-									trackID:      videoTrackID,
-									rtp:          pkt,
-									ptsEqualsDTS: false,
-								})
-							} else {
-								res.stream.writeData(&data{
-									trackID:      videoTrackID,
-									rtp:          pkt,
-									ptsEqualsDTS: h264.IDRPresent(nalus),
-									h264NALUs:    nalus,
-									h264PTS:      pts,
-								})
-							}
-						}
+						res.stream.writeData(&data{
+							trackID:      videoTrackID,
+							ptsEqualsDTS: h264.IDRPresent(nalus),
+							pts:          tmsg.DTS + tmsg.PTSDelta,
+							h264NALUs:    nalus,
+						})
 					}
 
 				case *message.MsgAudio:
@@ -182,18 +152,12 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("received an AAC packet, but track is not set up")
 						}
 
-						pkts, err := aacEncoder.Encode([][]byte{tmsg.Payload}, tmsg.DTS)
-						if err != nil {
-							return fmt.Errorf("error while encoding AAC: %v", err)
-						}
-
-						for _, pkt := range pkts {
-							res.stream.writeData(&data{
-								trackID:      audioTrackID,
-								rtp:          pkt,
-								ptsEqualsDTS: true,
-							})
-						}
+						res.stream.writeData(&data{
+							trackID:      audioTrackID,
+							ptsEqualsDTS: true,
+							pts:          tmsg.DTS,
+							mpeg4AudioAU: tmsg.Payload,
+						})
 					}
 				}
 			}

@@ -273,8 +273,9 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 // onRecord is called by rtspServer.
 func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	res := s.path.publisherRecord(pathPublisherRecordReq{
-		author: s,
-		tracks: s.announcedTracks,
+		author:             s,
+		tracks:             s.announcedTracks,
+		generateRTPPackets: false,
 	})
 	if res.err != nil {
 		return &base.Response{
@@ -391,15 +392,15 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	if ctx.H264NALUs != nil {
 		s.stream.writeData(&data{
 			trackID:      ctx.TrackID,
-			rtp:          ctx.Packet,
+			rtpPacket:    ctx.Packet,
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
+			pts:          ctx.H264PTS,
 			h264NALUs:    append([][]byte(nil), ctx.H264NALUs...),
-			h264PTS:      ctx.H264PTS,
 		})
 	} else {
 		s.stream.writeData(&data{
 			trackID:      ctx.TrackID,
-			rtp:          ctx.Packet,
+			rtpPacket:    ctx.Packet,
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 		})
 	}

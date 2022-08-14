@@ -135,7 +135,11 @@ func TestHLSSource(t *testing.T) {
 
 	c := gortsplib.Client{
 		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-			require.Equal(t, []byte{0x05}, ctx.Packet.Payload)
+			require.Equal(t, [][]byte{
+				{0x07, 0x01, 0x02, 0x03},
+				{0x08},
+				{0x05},
+			}, ctx.H264NALUs)
 			close(frameRecv)
 		},
 	}

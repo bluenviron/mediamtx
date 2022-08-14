@@ -6,8 +6,6 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtph264"
-	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -46,8 +44,6 @@ func (s *hlsSource) run(ctx context.Context) error {
 	var stream *stream
 	var videoTrackID int
 	var audioTrackID int
-	var videoEnc *rtph264.Encoder
-	var audioEnc *rtpmpeg4audio.Encoder
 
 	defer func() {
 		if stream != nil {
@@ -60,25 +56,18 @@ func (s *hlsSource) run(ctx context.Context) error {
 
 		if videoTrack != nil {
 			videoTrackID = len(tracks)
-			videoEnc = &rtph264.Encoder{PayloadType: 96}
-			videoEnc.Init()
 			tracks = append(tracks, videoTrack)
 		}
 
 		if audioTrack != nil {
 			audioTrackID = len(tracks)
-			audioEnc = &rtpmpeg4audio.Encoder{
-				PayloadType:      96,
-				SampleRate:       audioTrack.ClockRate(),
-				SizeLength:       13,
-				IndexLength:      3,
-				IndexDeltaLength: 3,
-			}
-			audioEnc.Init()
 			tracks = append(tracks, audioTrack)
 		}
 
-		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{tracks: tracks})
+		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+			tracks:             tracks,
+			generateRTPPackets: true,
+		})
 		if res.err != nil {
 			return res.err
 		}
@@ -94,29 +83,12 @@ func (s *hlsSource) run(ctx context.Context) error {
 			return
 		}
 
-		pkts, err := videoEnc.Encode(nalus, pts)
-		if err != nil {
-			return
-		}
-
-		lastPkt := len(pkts) - 1
-		for i, pkt := range pkts {
-			if i != lastPkt {
-				stream.writeData(&data{
-					trackID:      videoTrackID,
-					rtp:          pkt,
-					ptsEqualsDTS: false,
-				})
-			} else {
-				stream.writeData(&data{
-					trackID:      videoTrackID,
-					rtp:          pkt,
-					ptsEqualsDTS: h264.IDRPresent(nalus),
-					h264NALUs:    nalus,
-					h264PTS:      pts,
-				})
-			}
-		}
+		stream.writeData(&data{
+			trackID:      videoTrackID,
+			ptsEqualsDTS: h264.IDRPresent(nalus),
+			pts:          pts,
+			h264NALUs:    nalus,
+		})
 	}
 
 	onAudioData := func(pts time.Duration, au []byte) {
@@ -124,18 +96,12 @@ func (s *hlsSource) run(ctx context.Context) error {
 			return
 		}
 
-		pkts, err := audioEnc.Encode([][]byte{au}, pts)
-		if err != nil {
-			return
-		}
-
-		for _, pkt := range pkts {
-			stream.writeData(&data{
-				trackID:      audioTrackID,
-				rtp:          pkt,
-				ptsEqualsDTS: true,
-			})
-		}
+		stream.writeData(&data{
+			trackID:      audioTrackID,
+			ptsEqualsDTS: true,
+			pts:          pts,
+			mpeg4AudioAU: au,
+		})
 	}
 
 	c, err := hls.NewClient(

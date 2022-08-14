@@ -92,8 +92,9 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
-	tracks gortsplib.Tracks
-	res    chan pathSourceStaticSetReadyRes
+	tracks             gortsplib.Tracks
+	generateRTPPackets bool
+	res                chan pathSourceStaticSetReadyRes
 }
 
 type pathSourceStaticSetNotReadyReq struct {
@@ -160,9 +161,10 @@ type pathPublisherRecordRes struct {
 }
 
 type pathPublisherRecordReq struct {
-	author publisher
-	tracks gortsplib.Tracks
-	res    chan pathPublisherRecordRes
+	author             publisher
+	tracks             gortsplib.Tracks
+	generateRTPPackets bool
+	res                chan pathPublisherRecordRes
 }
 
 type pathReaderPauseReq struct {
@@ -431,28 +433,31 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.chSourceStaticSetReady:
-				pa.sourceSetReady(req.tracks)
+				err := pa.sourceSetReady(req.tracks, req.generateRTPPackets)
+				if err != nil {
+					req.res <- pathSourceStaticSetReadyRes{err: err}
+				} else {
+					if pa.hasOnDemandStaticSource() {
+						pa.onDemandStaticSourceReadyTimer.Stop()
+						pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
 
-				if pa.hasOnDemandStaticSource() {
-					pa.onDemandStaticSourceReadyTimer.Stop()
-					pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
+						pa.onDemandStaticSourceScheduleClose()
 
-					pa.onDemandStaticSourceScheduleClose()
-
-					for _, req := range pa.describeRequestsOnHold {
-						req.res <- pathDescribeRes{
-							stream: pa.stream,
+						for _, req := range pa.describeRequestsOnHold {
+							req.res <- pathDescribeRes{
+								stream: pa.stream,
+							}
 						}
-					}
-					pa.describeRequestsOnHold = nil
+						pa.describeRequestsOnHold = nil
 
-					for _, req := range pa.setupPlayRequestsOnHold {
-						pa.handleReaderSetupPlayPost(req)
+						for _, req := range pa.setupPlayRequestsOnHold {
+							pa.handleReaderSetupPlayPost(req)
+						}
+						pa.setupPlayRequestsOnHold = nil
 					}
-					pa.setupPlayRequestsOnHold = nil
+
+					req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
 				}
-
-				req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
 
 			case req := <-pa.chSourceStaticSetNotReady:
 				pa.sourceSetNotReady()
@@ -657,9 +662,14 @@ func (pa *path) onDemandPublisherStop() {
 	}
 }
 
-func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
+func (pa *path) sourceSetReady(tracks gortsplib.Tracks, generateRTPPackets bool) error {
+	stream, err := newStream(tracks, generateRTPPackets)
+	if err != nil {
+		return err
+	}
+
+	pa.stream = stream
 	pa.sourceReady = true
-	pa.stream = newStream(tracks)
 
 	if pa.conf.RunOnReady != "" {
 		pa.log(logger.Info, "runOnReady command started")
@@ -674,6 +684,8 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks) {
 	}
 
 	pa.parent.pathSourceReady(pa)
+
+	return nil
 }
 
 func (pa *path) sourceSetNotReady() {
@@ -808,9 +820,13 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 		return
 	}
 
-	req.author.onPublisherAccepted(len(req.tracks))
+	err := pa.sourceSetReady(req.tracks, req.generateRTPPackets)
+	if err != nil {
+		req.res <- pathPublisherRecordRes{err: err}
+		return
+	}
 
-	pa.sourceSetReady(req.tracks)
+	req.author.onPublisherAccepted(len(req.tracks))
 
 	if pa.hasOnDemandPublisher() {
 		pa.onDemandPublisherReadyTimer.Stop()
