@@ -60,9 +60,8 @@ func TestMuxerVideoAudio(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = m.WriteAAC(3*time.Second, [][]byte{
-		{0x01, 0x02, 0x03, 0x04},
-		{0x05, 0x06, 0x07, 0x08},
+	err = m.WriteAAC(3*time.Second, []byte{
+		0x01, 0x02, 0x03, 0x04,
 	})
 	require.NoError(t, err)
 
@@ -175,8 +174,8 @@ func TestMuxerVideoAudio(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, &astits.Packet{
 		AdaptationField: &astits.PacketAdaptationField{
-			Length:                147,
-			StuffingLength:        146,
+			Length:                158,
+			StuffingLength:        157,
 			RandomAccessIndicator: true,
 		},
 		Header: &astits.PacketHeader{
@@ -186,11 +185,10 @@ func TestMuxerVideoAudio(t *testing.T) {
 			PID:                       257,
 		},
 		Payload: []byte{
-			0x00, 0x00, 0x01, 0xc0, 0x00, 0x1e, 0x80, 0x80,
+			0x00, 0x00, 0x01, 0xc0, 0x00, 0x13, 0x80, 0x80,
 			0x05, 0x21, 0x00, 0x07, 0xd8, 0x5f, 0xff, 0xf1,
 			0x50, 0x80, 0x01, 0x7f, 0xfc, 0x01, 0x02, 0x03,
-			0x04, 0xff, 0xf1, 0x50, 0x80, 0x01, 0x7f, 0xfc,
-			0x05, 0x06, 0x07, 0x08,
+			0x04,
 		},
 	}, pkt)
 }
@@ -299,21 +297,19 @@ func TestMuxerAudioOnly(t *testing.T) {
 	defer m.Close()
 
 	for i := 0; i < 100; i++ {
-		err = m.WriteAAC(1*time.Second, [][]byte{
-			{0x01, 0x02, 0x03, 0x04},
+		err = m.WriteAAC(1*time.Second, []byte{
+			0x01, 0x02, 0x03, 0x04,
 		})
 		require.NoError(t, err)
 	}
 
-	err = m.WriteAAC(2*time.Second, [][]byte{
-		{0x01, 0x02, 0x03, 0x04},
-		{0x05, 0x06, 0x07, 0x08},
+	err = m.WriteAAC(2*time.Second, []byte{
+		0x01, 0x02, 0x03, 0x04,
 	})
 	require.NoError(t, err)
 
-	err = m.WriteAAC(3*time.Second, [][]byte{
-		{0x01, 0x02, 0x03, 0x04},
-		{0x05, 0x06, 0x07, 0x08},
+	err = m.WriteAAC(3*time.Second, []byte{
+		0x01, 0x02, 0x03, 0x04,
 	})
 	require.NoError(t, err)
 

@@ -155,7 +155,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(pts time.Duration, nalus [][]byt
 	return nil
 }
 
-func (m *muxerVariantMPEGTSSegmenter) writeAAC(pts time.Duration, aus [][]byte) error {
+func (m *muxerVariantMPEGTSSegmenter) writeAAC(pts time.Duration, au []byte) error {
 	now := time.Now()
 
 	if m.videoTrack == nil {
@@ -188,7 +188,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeAAC(pts time.Duration, aus [][]byte) 
 		pts -= m.startDTS
 	}
 
-	err := m.currentSegment.writeAAC(now.Sub(m.startPCR), pts, aus)
+	err := m.currentSegment.writeAAC(now.Sub(m.startPCR), pts, au)
 	if err != nil {
 		return err
 	}

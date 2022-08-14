@@ -119,12 +119,12 @@ func (s *hlsSource) run(ctx context.Context) error {
 		}
 	}
 
-	onAudioData := func(pts time.Duration, aus [][]byte) {
+	onAudioData := func(pts time.Duration, au []byte) {
 		if stream == nil {
 			return
 		}
 
-		pkts, err := audioEnc.Encode(aus, pts)
+		pkts, err := audioEnc.Encode([][]byte{au}, pts)
 		if err != nil {
 			return
 		}

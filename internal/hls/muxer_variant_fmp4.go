@@ -92,8 +92,8 @@ func (v *muxerVariantFMP4) writeH264(pts time.Duration, nalus [][]byte) error {
 	return v.segmenter.writeH264(pts, nalus)
 }
 
-func (v *muxerVariantFMP4) writeAAC(pts time.Duration, aus [][]byte) error {
-	return v.segmenter.writeAAC(pts, aus)
+func (v *muxerVariantFMP4) writeAAC(pts time.Duration, au []byte) error {
+	return v.segmenter.writeAAC(pts, au)
 }
 
 func (v *muxerVariantFMP4) file(name string, msn string, part string, skip string) *MuxerFileResponse {

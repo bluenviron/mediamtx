@@ -145,17 +145,15 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pcr time.Duration,
 	pts time.Duration,
-	aus [][]byte,
+	au []byte,
 ) error {
-	pkts := make(mpeg4audio.ADTSPackets, len(aus))
-
-	for i, au := range aus {
-		pkts[i] = &mpeg4audio.ADTSPacket{
+	pkts := mpeg4audio.ADTSPackets{
+		{
 			Type:         t.audioTrack.Config.Type,
 			SampleRate:   t.audioTrack.Config.SampleRate,
 			ChannelCount: t.audioTrack.Config.ChannelCount,
 			AU:           au,
-		}
+		},
 	}
 
 	enc, err := pkts.Marshal()
@@ -198,7 +196,7 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 	}
 
 	if t.videoTrack == nil {
-		t.audioAUCount += len(aus)
+		t.audioAUCount++
 
 		if t.startDTS == nil {
 			t.startDTS = &pts

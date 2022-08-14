@@ -81,8 +81,8 @@ func (m *Muxer) WriteH264(pts time.Duration, nalus [][]byte) error {
 }
 
 // WriteAAC writes AAC AUs, grouped by timestamp.
-func (m *Muxer) WriteAAC(pts time.Duration, aus [][]byte) error {
-	return m.variant.writeAAC(pts, aus)
+func (m *Muxer) WriteAAC(pts time.Duration, au []byte) error {
+	return m.variant.writeAAC(pts, au)
 }
 
 // File returns a file reader.

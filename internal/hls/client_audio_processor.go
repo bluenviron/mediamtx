@@ -17,7 +17,7 @@ type clientAudioProcessorData struct {
 type clientAudioProcessor struct {
 	ctx     context.Context
 	onTrack func(*gortsplib.TrackMPEG4Audio) error
-	onData  func(time.Duration, [][]byte)
+	onData  func(time.Duration, []byte)
 
 	trackInitialized bool
 	queue            chan clientAudioProcessorData
@@ -27,7 +27,7 @@ type clientAudioProcessor struct {
 func newClientAudioProcessor(
 	ctx context.Context,
 	onTrack func(*gortsplib.TrackMPEG4Audio) error,
-	onData func(time.Duration, [][]byte),
+	onData func(time.Duration, []byte),
 ) *clientAudioProcessor {
 	p := &clientAudioProcessor{
 		ctx:     ctx,
@@ -58,14 +58,6 @@ func (p *clientAudioProcessor) doProcess(
 	data []byte,
 	pts time.Duration,
 ) error {
-	var adtsPkts mpeg4audio.ADTSPackets
-	err := adtsPkts.Unmarshal(data)
-	if err != nil {
-		return err
-	}
-
-	aus := make([][]byte, 0, len(adtsPkts))
-
 	elapsed := time.Since(p.clockStartRTC)
 	if pts > elapsed {
 		select {
@@ -75,7 +67,13 @@ func (p *clientAudioProcessor) doProcess(
 		}
 	}
 
-	for _, pkt := range adtsPkts {
+	var adtsPkts mpeg4audio.ADTSPackets
+	err := adtsPkts.Unmarshal(data)
+	if err != nil {
+		return err
+	}
+
+	for i, pkt := range adtsPkts {
 		if !p.trackInitialized {
 			p.trackInitialized = true
 
@@ -97,10 +95,11 @@ func (p *clientAudioProcessor) doProcess(
 			}
 		}
 
-		aus = append(aus, pkt.AU)
+		p.onData(
+			pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*time.Second/time.Duration(pkt.SampleRate),
+			pkt.AU)
 	}
 
-	p.onData(pts, aus)
 	return nil
 }
 

@@ -384,9 +384,11 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 
-					err = m.muxer.WriteAAC(pts, aus)
-					if err != nil {
-						return fmt.Errorf("muxer error: %v", err)
+					for _, au := range aus {
+						err = m.muxer.WriteAAC(pts, au)
+						if err != nil {
+							return fmt.Errorf("muxer error: %v", err)
+						}
 					}
 				}
 			}

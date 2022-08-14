@@ -48,7 +48,7 @@ type ClientLogger interface {
 type Client struct {
 	onTracks    func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error
 	onVideoData func(time.Duration, [][]byte)
-	onAudioData func(time.Duration, [][]byte)
+	onAudioData func(time.Duration, []byte)
 	logger      ClientLogger
 
 	ctx                   context.Context
@@ -85,7 +85,7 @@ func NewClient(
 	fingerprint string,
 	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
 	onVideoData func(time.Duration, [][]byte),
-	onAudioData func(time.Duration, [][]byte),
+	onAudioData func(time.Duration, []byte),
 	logger ClientLogger,
 ) (*Client, error) {
 	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
@@ -549,8 +549,8 @@ func (c *Client) onAudioProcessorTrack(track *gortsplib.TrackMPEG4Audio) error {
 	return nil
 }
 
-func (c *Client) onAudioProcessorData(pts time.Duration, aus [][]byte) {
+func (c *Client) onAudioProcessorData(pts time.Duration, au []byte) {
 	c.tracksMutex.RLock()
 	defer c.tracksMutex.RUnlock()
-	c.onAudioData(pts, aus)
+	c.onAudioData(pts, au)
 }

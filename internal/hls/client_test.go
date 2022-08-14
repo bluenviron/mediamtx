@@ -225,7 +225,7 @@ func TestClient(t *testing.T) {
 					}, nalus)
 					close(packetRecv)
 				},
-				func(pts time.Duration, aus [][]byte) {
+				func(pts time.Duration, au []byte) {
 				},
 				testLogger{},
 			)
