@@ -221,7 +221,7 @@ type path struct {
 	sourceReady                    bool
 	stream                         *stream
 	readers                        map[reader]pathReaderState
-	chDescribeRequestsOnHold       []pathDescribeReq
+	describeRequestsOnHold         []pathDescribeReq
 	setupPlayRequestsOnHold        []pathReaderSetupPlayReq
 	onDemandCmd                    *externalcmd.Cmd
 	onReadyCmd                     *externalcmd.Cmd
@@ -382,10 +382,10 @@ func (pa *path) run() {
 		for {
 			select {
 			case <-pa.onDemandStaticSourceReadyTimer.C:
-				for _, req := range pa.chDescribeRequestsOnHold {
+				for _, req := range pa.describeRequestsOnHold {
 					req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
 				}
-				pa.chDescribeRequestsOnHold = nil
+				pa.describeRequestsOnHold = nil
 
 				for _, req := range pa.setupPlayRequestsOnHold {
 					req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
@@ -407,10 +407,10 @@ func (pa *path) run() {
 				}
 
 			case <-pa.onDemandPublisherReadyTimer.C:
-				for _, req := range pa.chDescribeRequestsOnHold {
+				for _, req := range pa.describeRequestsOnHold {
 					req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
 				}
-				pa.chDescribeRequestsOnHold = nil
+				pa.describeRequestsOnHold = nil
 
 				for _, req := range pa.setupPlayRequestsOnHold {
 					req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
@@ -439,12 +439,12 @@ func (pa *path) run() {
 
 					pa.onDemandStaticSourceScheduleClose()
 
-					for _, req := range pa.chDescribeRequestsOnHold {
+					for _, req := range pa.describeRequestsOnHold {
 						req.res <- pathDescribeRes{
 							stream: pa.stream,
 						}
 					}
-					pa.chDescribeRequestsOnHold = nil
+					pa.describeRequestsOnHold = nil
 
 					for _, req := range pa.setupPlayRequestsOnHold {
 						pa.handleReaderSetupPlayPost(req)
@@ -531,7 +531,7 @@ func (pa *path) run() {
 		pa.log(logger.Info, "runOnInit command stopped")
 	}
 
-	for _, req := range pa.chDescribeRequestsOnHold {
+	for _, req := range pa.describeRequestsOnHold {
 		req.res <- pathDescribeRes{err: fmt.Errorf("terminated")}
 	}
 
@@ -565,7 +565,7 @@ func (pa *path) shouldClose() bool {
 	return pa.conf.Regexp != nil &&
 		pa.source == nil &&
 		len(pa.readers) == 0 &&
-		len(pa.chDescribeRequestsOnHold) == 0 &&
+		len(pa.describeRequestsOnHold) == 0 &&
 		len(pa.setupPlayRequestsOnHold) == 0
 }
 
@@ -739,7 +739,7 @@ func (pa *path) handleDescribe(req pathDescribeReq) {
 		if pa.onDemandStaticSourceState == pathOnDemandStateInitial {
 			pa.onDemandStaticSourceStart()
 		}
-		pa.chDescribeRequestsOnHold = append(pa.chDescribeRequestsOnHold, req)
+		pa.describeRequestsOnHold = append(pa.describeRequestsOnHold, req)
 		return
 	}
 
@@ -747,7 +747,7 @@ func (pa *path) handleDescribe(req pathDescribeReq) {
 		if pa.onDemandPublisherState == pathOnDemandStateInitial {
 			pa.onDemandPublisherStart()
 		}
-		pa.chDescribeRequestsOnHold = append(pa.chDescribeRequestsOnHold, req)
+		pa.describeRequestsOnHold = append(pa.describeRequestsOnHold, req)
 		return
 	}
 
@@ -818,12 +818,12 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 
 		pa.onDemandPublisherScheduleClose()
 
-		for _, req := range pa.chDescribeRequestsOnHold {
+		for _, req := range pa.describeRequestsOnHold {
 			req.res <- pathDescribeRes{
 				stream: pa.stream,
 			}
 		}
-		pa.chDescribeRequestsOnHold = nil
+		pa.describeRequestsOnHold = nil
 
 		for _, req := range pa.setupPlayRequestsOnHold {
 			pa.handleReaderSetupPlayPost(req)
