@@ -9,8 +9,8 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -105,9 +105,9 @@ func (s *rtmpSource) run(ctx context.Context) error {
 				tracks = append(tracks, videoTrack)
 			}
 
-			var aacEncoder *rtpaac.Encoder
+			var aacEncoder *rtpmpeg4audio.Encoder
 			if audioTrack != nil {
-				aacEncoder = &rtpaac.Encoder{
+				aacEncoder = &rtpmpeg4audio.Encoder{
 					PayloadType:      96,
 					SampleRate:       audioTrack.ClockRate(),
 					SizeLength:       13,

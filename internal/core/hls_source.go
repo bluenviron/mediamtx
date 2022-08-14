@@ -6,8 +6,8 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -47,7 +47,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 	var videoTrackID int
 	var audioTrackID int
 	var videoEnc *rtph264.Encoder
-	var audioEnc *rtpaac.Encoder
+	var audioEnc *rtpmpeg4audio.Encoder
 
 	defer func() {
 		if stream != nil {
@@ -67,7 +67,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 
 		if audioTrack != nil {
 			audioTrackID = len(tracks)
-			audioEnc = &rtpaac.Encoder{
+			audioEnc = &rtpmpeg4audio.Encoder{
 				PayloadType:      96,
 				SampleRate:       audioTrack.ClockRate(),
 				SizeLength:       13,

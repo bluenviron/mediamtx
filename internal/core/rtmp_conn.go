@@ -14,8 +14,8 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
 	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -256,7 +256,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	videoTrackID := -1
 	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
-	var aacDecoder *rtpaac.Decoder
+	var aacDecoder *rtpmpeg4audio.Decoder
 
 	for i, track := range res.stream.tracks() {
 		switch tt := track.(type) {
@@ -275,7 +275,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = &rtpaac.Decoder{
+			aacDecoder = &rtpmpeg4audio.Decoder{
 				SampleRate:       tt.Config.SampleRate,
 				SizeLength:       tt.SizeLength,
 				IndexLength:      tt.IndexLength,
@@ -444,7 +444,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		} else if audioTrack != nil && data.trackID == audioTrackID {
 			aus, pts, err := aacDecoder.Decode(data.rtp)
 			if err != nil {
-				if err != rtpaac.ErrMorePacketsNeeded {
+				if err != rtpmpeg4audio.ErrMorePacketsNeeded {
 					c.log(logger.Warn, "unable to decode audio track: %v", err)
 				}
 				continue
@@ -499,9 +499,9 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		tracks = append(tracks, videoTrack)
 	}
 
-	var aacEncoder *rtpaac.Encoder
+	var aacEncoder *rtpmpeg4audio.Encoder
 	if audioTrack != nil {
-		aacEncoder = &rtpaac.Encoder{
+		aacEncoder = &rtpmpeg4audio.Encoder{
 			PayloadType:      96,
 			SampleRate:       audioTrack.ClockRate(),
 			SizeLength:       13,

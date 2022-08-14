@@ -13,7 +13,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
-	"github.com/aler9/gortsplib/pkg/rtpaac"
+	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -294,7 +294,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	videoTrackID := -1
 	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
-	var aacDecoder *rtpaac.Decoder
+	var aacDecoder *rtpmpeg4audio.Decoder
 
 	for i, track := range res.stream.tracks() {
 		switch tt := track.(type) {
@@ -313,7 +313,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = &rtpaac.Decoder{
+			aacDecoder = &rtpmpeg4audio.Decoder{
 				SampleRate:       tt.Config.SampleRate,
 				SizeLength:       tt.SizeLength,
 				IndexLength:      tt.IndexLength,
@@ -378,7 +378,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 				} else if audioTrack != nil && data.trackID == audioTrackID {
 					aus, pts, err := aacDecoder.Decode(data.rtp)
 					if err != nil {
-						if err != rtpaac.ErrMorePacketsNeeded {
+						if err != rtpmpeg4audio.ErrMorePacketsNeeded {
 							m.log(logger.Warn, "unable to decode audio track: %v", err)
 						}
 						continue
