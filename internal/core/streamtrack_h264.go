@@ -54,9 +54,9 @@ func (t *streamTrackH264) updateTrackParameters(nalus [][]byte) {
 // remux is needed to
 // - fix corrupted streams
 // - make streams compatible with all protocols
-func (t *streamTrackH264) remuxNALUs(dat *data) {
+func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 	n := 0
-	for _, nalu := range dat.h264NALUs {
+	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 		switch typ {
 		case h264.NALUTypeSPS, h264.NALUTypePPS:
@@ -69,10 +69,14 @@ func (t *streamTrackH264) remuxNALUs(dat *data) {
 		n++
 	}
 
+	if n == 0 {
+		return nil
+	}
+
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	for _, nalu := range dat.h264NALUs {
+	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 		switch typ {
 		case h264.NALUTypeSPS, h264.NALUTypePPS:
@@ -95,15 +99,10 @@ func (t *streamTrackH264) remuxNALUs(dat *data) {
 		i++
 	}
 
-	dat.h264NALUs = filteredNALUs
+	return filteredNALUs
 }
 
 func (t *streamTrackH264) generateRTPPackets(dat *data) {
-	// if remuxNALUs() returned nil, do not write any data
-	if dat.h264NALUs == nil {
-		return
-	}
-
 	pkts, err := t.rtpEncoder.Encode(dat.h264NALUs, dat.pts)
 	if err != nil {
 		return
@@ -129,12 +128,14 @@ func (t *streamTrackH264) generateRTPPackets(dat *data) {
 }
 
 func (t *streamTrackH264) writeData(dat *data) {
-	t.updateTrackParameters(dat.h264NALUs)
-	t.remuxNALUs(dat)
+	if dat.h264NALUs != nil {
+		t.updateTrackParameters(dat.h264NALUs)
+		dat.h264NALUs = t.remuxNALUs(dat.h264NALUs)
+	}
 
 	if dat.rtpPacket != nil {
 		t.writeDataInner(dat)
-	} else {
+	} else if dat.h264NALUs != nil {
 		t.generateRTPPackets(dat)
 	}
 }

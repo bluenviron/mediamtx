@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
 	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/gin-gonic/gin"
@@ -384,8 +385,11 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						continue
 					}
 
-					for _, au := range aus {
-						err = m.muxer.WriteAAC(pts, au)
+					for i, au := range aus {
+						err = m.muxer.WriteAAC(
+							pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+								time.Second/time.Duration(audioTrack.ClockRate()),
+							au)
 						if err != nil {
 							return fmt.Errorf("muxer error: %v", err)
 						}
