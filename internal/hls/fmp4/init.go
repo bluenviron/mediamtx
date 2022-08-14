@@ -1,11 +1,9 @@
-package hls
+package fmp4
 
 import (
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-
-	"github.com/aler9/rtsp-simple-server/internal/mp4"
 )
 
 type myEsds struct {
@@ -21,7 +19,7 @@ func init() { //nolint:gochecknoinits
 	gomp4.AddBoxDef(&myEsds{}, 0)
 }
 
-func mp4InitGenerateVideoTrack(w *mp4.Writer, trackID int, videoTrack *gortsplib.TrackH264) error {
+func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.TrackH264) error {
 	/*
 		trak
 		- tkhd
@@ -81,7 +79,7 @@ func mp4InitGenerateVideoTrack(w *mp4.Writer, trackID int, videoTrack *gortsplib
 	}
 
 	_, err = w.WriteBox(&gomp4.Mdhd{ // <mdhd/>
-		Timescale: fmp4VideoTimescale, // the number of time units that pass per second
+		Timescale: videoTimescale, // the number of time units that pass per second
 		Language:  [3]byte{'u', 'n', 'd'},
 	})
 	if err != nil {
@@ -265,7 +263,7 @@ func mp4InitGenerateVideoTrack(w *mp4.Writer, trackID int, videoTrack *gortsplib
 	return nil
 }
 
-func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib.TrackMPEG4Audio) error {
+func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.TrackMPEG4Audio) error {
 	/*
 		trak
 		- tkhd
@@ -511,7 +509,8 @@ func mp4InitGenerateAudioTrack(w *mp4.Writer, trackID int, audioTrack *gortsplib
 	return nil
 }
 
-func mp4InitGenerate(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) ([]byte, error) {
+// GenerateInit generates a FMP4 initialization file.
+func GenerateInit(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) ([]byte, error) {
 	/*
 		- ftyp
 		- moov
@@ -523,7 +522,7 @@ func mp4InitGenerate(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.Trac
 		  - trex (audio)
 	*/
 
-	w := mp4.NewWriter()
+	w := newMP4Writer()
 
 	_, err := w.WriteBox(&gomp4.Ftyp{ // <ftyp/>
 		MajorBrand:   [4]byte{'m', 'p', '4', '2'},
@@ -558,7 +557,7 @@ func mp4InitGenerate(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.Trac
 	trackID := 1
 
 	if videoTrack != nil {
-		err := mp4InitGenerateVideoTrack(w, trackID, videoTrack)
+		err := generateInitVideoTrack(w, trackID, videoTrack)
 		if err != nil {
 			return nil, err
 		}
@@ -567,7 +566,7 @@ func mp4InitGenerate(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.Trac
 	}
 
 	if audioTrack != nil {
-		err := mp4InitGenerateAudioTrack(w, trackID, audioTrack)
+		err := generateInitAudioTrack(w, trackID, audioTrack)
 		if err != nil {
 			return nil, err
 		}

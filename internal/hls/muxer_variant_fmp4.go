@@ -7,34 +7,9 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+
+	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
-
-const (
-	fmp4VideoTimescale = 90000
-)
-
-type fmp4VideoSample struct {
-	nalus      [][]byte
-	pts        time.Duration
-	dts        time.Duration
-	avcc       []byte
-	idrPresent bool
-	next       *fmp4VideoSample
-}
-
-func (s fmp4VideoSample) duration() time.Duration {
-	return s.next.dts - s.dts
-}
-
-type fmp4AudioSample struct {
-	au   []byte
-	pts  time.Duration
-	next *fmp4AudioSample
-}
-
-func (s fmp4AudioSample) duration() time.Duration {
-	return s.next.pts - s.pts
-}
 
 type muxerVariantFMP4 struct {
 	playlist   *muxerVariantFMP4Playlist
@@ -110,7 +85,7 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 
 		if v.initContent == nil ||
 			(v.videoTrack != nil && (!bytes.Equal(v.videoLastSPS, sps) || !bytes.Equal(v.videoLastPPS, pps))) {
-			initContent, err := mp4InitGenerate(v.videoTrack, v.audioTrack)
+			initContent, err := fmp4.GenerateInit(v.videoTrack, v.audioTrack)
 			if err != nil {
 				return &MuxerFileResponse{Status: http.StatusInternalServerError}
 			}
