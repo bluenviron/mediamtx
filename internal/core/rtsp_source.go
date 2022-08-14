@@ -146,7 +146,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 						rtpPacket:    ctx.Packet,
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
 						pts:          ctx.H264PTS,
-						h264NALUs:    append([][]byte(nil), ctx.H264NALUs...),
+						h264NALUs:    ctx.H264NALUs,
 					})
 				} else {
 					res.stream.writeData(&data{

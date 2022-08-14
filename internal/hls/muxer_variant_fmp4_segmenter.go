@@ -163,7 +163,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4.VideoSample) err
 
 		m.videoFirstIDRReceived = true
 		m.videoDTSExtractor = h264.NewDTSExtractor()
-		m.videoSPS = append([]byte(nil), m.videoTrack.SafeSPS()...)
+		m.videoSPS = m.videoTrack.SafeSPS()
 
 		var err error
 		sample.DTS, err = m.videoDTSExtractor.Extract(sample.NALUs, sample.PTS)
@@ -249,7 +249,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4.VideoSample) err
 
 			// if SPS changed, reset adjusted part duration
 			if spsChanged {
-				m.videoSPS = append([]byte(nil), sps...)
+				m.videoSPS = sps
 				m.firstSegmentFinalized = false
 				m.sampleDurations = make(map[time.Duration]struct{})
 			}

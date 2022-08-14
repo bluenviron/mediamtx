@@ -395,7 +395,7 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 			rtpPacket:    ctx.Packet,
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 			pts:          ctx.H264PTS,
-			h264NALUs:    append([][]byte(nil), ctx.H264NALUs...),
+			h264NALUs:    ctx.H264NALUs,
 		})
 	} else {
 		s.stream.writeData(&data{

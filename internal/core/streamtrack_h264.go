@@ -40,12 +40,12 @@ func (t *streamTrackH264) updateTrackParameters(nalus [][]byte) {
 		switch typ {
 		case h264.NALUTypeSPS:
 			if !bytes.Equal(nalu, t.track.SafeSPS()) {
-				t.track.SafeSetSPS(append([]byte(nil), nalu...))
+				t.track.SafeSetSPS(nalu)
 			}
 
 		case h264.NALUTypePPS:
 			if !bytes.Equal(nalu, t.track.SafePPS()) {
-				t.track.SafeSetPPS(append([]byte(nil), nalu...))
+				t.track.SafeSetPPS(nalu)
 			}
 		}
 	}
