@@ -182,6 +182,7 @@ type pathAPIPathsListItem struct {
 	Conf        *conf.PathConf `json:"conf"`
 	Source      interface{}    `json:"source"`
 	SourceReady bool           `json:"sourceReady"`
+	Tracks      []string       `json:"tracks"`
 	Readers     []interface{}  `json:"readers"`
 }
 
@@ -220,7 +221,6 @@ type path struct {
 	ctx                            context.Context
 	ctxCancel                      func()
 	source                         source
-	sourceReady                    bool
 	stream                         *stream
 	readers                        map[reader]pathReaderState
 	describeRequestsOnHold         []pathDescribeReq
@@ -544,7 +544,7 @@ func (pa *path) run() {
 		req.res <- pathReaderSetupPlayRes{err: fmt.Errorf("terminated")}
 	}
 
-	if pa.sourceReady {
+	if pa.stream != nil {
 		pa.sourceSetNotReady()
 	}
 
@@ -669,7 +669,6 @@ func (pa *path) sourceSetReady(tracks gortsplib.Tracks, generateRTPPackets bool)
 	}
 
 	pa.stream = stream
-	pa.sourceReady = true
 
 	if pa.conf.RunOnReady != "" {
 		pa.log(logger.Info, "runOnReady command started")
@@ -702,8 +701,6 @@ func (pa *path) sourceSetNotReady() {
 		pa.log(logger.Info, "runOnReady command stopped")
 	}
 
-	pa.sourceReady = false
-
 	if pa.stream != nil {
 		pa.stream.close()
 		pa.stream = nil
@@ -721,7 +718,7 @@ func (pa *path) doReaderRemove(r reader) {
 }
 
 func (pa *path) doPublisherRemove() {
-	if pa.sourceReady {
+	if pa.stream != nil {
 		if pa.hasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
 			pa.onDemandPublisherStop()
 		} else {
@@ -740,7 +737,7 @@ func (pa *path) handleDescribe(req pathDescribeReq) {
 		return
 	}
 
-	if pa.sourceReady {
+	if pa.stream != nil {
 		req.res <- pathDescribeRes{
 			stream: pa.stream,
 		}
@@ -849,7 +846,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 }
 
 func (pa *path) handlePublisherPause(req pathPublisherPauseReq) {
-	if req.author == pa.source && pa.sourceReady {
+	if req.author == pa.source && pa.stream != nil {
 		if pa.hasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
 			pa.onDemandPublisherStop()
 		} else {
@@ -879,7 +876,7 @@ func (pa *path) handleReaderRemove(req pathReaderRemoveReq) {
 }
 
 func (pa *path) handleReaderSetupPlay(req pathReaderSetupPlayReq) {
-	if pa.sourceReady {
+	if pa.stream != nil {
 		pa.handleReaderSetupPlayPost(req)
 		return
 	}
@@ -952,7 +949,13 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 			}
 			return pa.source.apiSourceDescribe()
 		}(),
-		SourceReady: pa.sourceReady,
+		SourceReady: pa.stream != nil,
+		Tracks: func() []string {
+			if pa.stream == nil {
+				return []string{}
+			}
+			return sourceTrackNames(pa.stream.tracks())
+		}(),
 		Readers: func() []interface{} {
 			ret := []interface{}{}
 			for r := range pa.readers {

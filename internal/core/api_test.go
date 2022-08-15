@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/stretchr/testify/require"
 )
 
@@ -161,8 +162,9 @@ func TestAPIPathsList(t *testing.T) {
 	}
 
 	type path struct {
-		SourceReady bool
 		Source      pathSource `json:"source"`
+		SourceReady bool       `json:"sourceReady"`
+		Tracks      []string   `json:"tracks"`
 	}
 
 	type pathList struct {
@@ -176,15 +178,27 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		tracks := gortsplib.Tracks{
+			&gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			},
+			&gortsplib.TrackMPEG4Audio{
+				PayloadType: 97,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
 		}
 
 		source := gortsplib.Client{}
-		err := source.StartPublishing("rtsp://localhost:8554/mypath",
-			gortsplib.Tracks{track})
+		err := source.StartPublishing("rtsp://localhost:8554/mypath", tracks)
 		require.NoError(t, err)
 		defer source.Close()
 
@@ -194,10 +208,11 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, pathList{
 			Items: map[string]path{
 				"mypath": {
-					SourceReady: true,
 					Source: pathSource{
 						Type: "rtspSession",
 					},
+					SourceReady: true,
+					Tracks:      []string{"H264", "MPEG4Audio"},
 				},
 			},
 		}, out)
@@ -221,15 +236,27 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		tracks := gortsplib.Tracks{
+			&gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			},
+			&gortsplib.TrackMPEG4Audio{
+				PayloadType: 97,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
 		}
 
 		source := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
-		err = source.StartPublishing("rtsps://localhost:8322/mypath",
-			gortsplib.Tracks{track})
+		err = source.StartPublishing("rtsps://localhost:8322/mypath", tracks)
 		require.NoError(t, err)
 		defer source.Close()
 
@@ -239,10 +266,11 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, pathList{
 			Items: map[string]path{
 				"mypath": {
-					SourceReady: true,
 					Source: pathSource{
 						Type: "rtspsSession",
 					},
+					SourceReady: true,
+					Tracks:      []string{"H264", "MPEG4Audio"},
 				},
 			},
 		}, out)
@@ -263,10 +291,11 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, pathList{
 			Items: map[string]path{
 				"mypath": {
-					SourceReady: false,
 					Source: pathSource{
 						Type: "rtspSource",
 					},
+					SourceReady: false,
+					Tracks:      []string{},
 				},
 			},
 		}, out)
@@ -287,10 +316,11 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, pathList{
 			Items: map[string]path{
 				"mypath": {
-					SourceReady: false,
 					Source: pathSource{
 						Type: "rtmpSource",
 					},
+					SourceReady: false,
+					Tracks:      []string{},
 				},
 			},
 		}, out)
@@ -311,10 +341,11 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, pathList{
 			Items: map[string]path{
 				"mypath": {
-					SourceReady: false,
 					Source: pathSource{
 						Type: "hlsSource",
 					},
+					SourceReady: false,
+					Tracks:      []string{},
 				},
 			},
 		}, out)

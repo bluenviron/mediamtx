@@ -201,6 +201,23 @@ components:
           - $ref: '#/components/schemas/PathSourceHLSSource'
         sourceReady:
           type: boolean
+        tracks:
+          type: array
+          items:
+            type: string
+            enum:
+            - Generic
+            - H264
+            - H265
+            - JPEG
+            - MPEG2Audio
+            - MPEG2Video
+            - MPEG4Audio
+            - Opus
+            - PCMA
+            - PCMU
+            - VP8
+            - VP9
         readers:
           type: array
           items:

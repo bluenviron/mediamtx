@@ -17,14 +17,17 @@ type source interface {
 	apiSourceDescribe() interface{}
 }
 
-func sourceTrackInfo(tracks gortsplib.Tracks) string {
-	trackCodecs := make([]string, len(tracks))
+func sourceTrackNames(tracks gortsplib.Tracks) []string {
+	ret := make([]string, len(tracks))
 	for i, t := range tracks {
 		n := reflect.TypeOf(t).Elem().Name()
 		n = n[len("Track"):]
-		trackCodecs[i] = n
+		ret[i] = n
 	}
+	return ret
+}
 
+func sourceTrackInfo(tracks gortsplib.Tracks) string {
 	return fmt.Sprintf("%d %s (%s)",
 		len(tracks),
 		func() string {
@@ -33,5 +36,5 @@ func sourceTrackInfo(tracks gortsplib.Tracks) string {
 			}
 			return "tracks"
 		}(),
-		strings.Join(trackCodecs, ", "))
+		strings.Join(sourceTrackNames(tracks), ", "))
 }
