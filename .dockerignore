@@ -1,3 +1,6 @@
 # do not add .git, since it is needed to extract the tag
 
+/tmp
 /release
+/coverage*.txt
+/apidocs/*.html

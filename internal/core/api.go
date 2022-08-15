@@ -115,6 +115,14 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 		SourceRedirect             *string              `json:"sourceRedirect"`
 		DisablePublisherOverride   *bool                `json:"disablePublisherOverride"`
 		Fallback                   *string              `json:"fallback"`
+		RPICameraCamID             *int                 `json:"rpiCameraCamID"`
+		RPICameraWidth             *int                 `json:"rpiCameraWidth"`
+		RPICameraHeight            *int                 `json:"rpiCameraHeight"`
+		RPICameraFPS               *int                 `json:"rpiCameraFPS"`
+		RPICameraIDRPeriod         *int                 `json:"rpiCameraIDRPeriod"`
+		RPICameraBitrate           *int                 `json:"rpiCameraBitrate"`
+		RPICameraProfile           *string              `json:"rpiCameraProfile"`
+		RPICameraLevel             *string              `json:"rpiCameraLevel"`
 
 		// authentication
 		PublishUser *conf.Credential `json:"publishUser"`

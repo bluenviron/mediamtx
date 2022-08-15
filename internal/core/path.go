@@ -335,7 +335,8 @@ func (pa *path) hasStaticSource() bool {
 		strings.HasPrefix(pa.conf.Source, "rtsps://") ||
 		strings.HasPrefix(pa.conf.Source, "rtmp://") ||
 		strings.HasPrefix(pa.conf.Source, "http://") ||
-		strings.HasPrefix(pa.conf.Source, "https://")
+		strings.HasPrefix(pa.conf.Source, "https://") ||
+		pa.conf.Source == "rpiCamera"
 }
 
 func (pa *path) hasOnDemandStaticSource() bool {
@@ -353,10 +354,7 @@ func (pa *path) run() {
 		pa.source = &sourceRedirect{}
 	} else if pa.hasStaticSource() {
 		pa.source = newSourceStatic(
-			pa.conf.Source,
-			pa.conf.SourceProtocol,
-			pa.conf.SourceAnyPortEnable,
-			pa.conf.SourceFingerprint,
+			pa.conf,
 			pa.readTimeout,
 			pa.writeTimeout,
 			pa.readBufferCount,
