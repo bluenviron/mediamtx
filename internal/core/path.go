@@ -826,8 +826,6 @@ func (pa *path) handlePublisherRecord(req pathPublisherRecordReq) {
 		return
 	}
 
-	req.author.onPublisherAccepted(len(req.tracks))
-
 	if pa.hasOnDemandPublisher() {
 		pa.onDemandPublisherReadyTimer.Stop()
 		pa.onDemandPublisherReadyTimer = newEmptyTimer()
@@ -932,8 +930,6 @@ func (pa *path) handleReaderPlay(req pathReaderPlayReq) {
 	pa.readers[req.author] = pathReaderStatePlay
 
 	pa.stream.readerAdd(req.author)
-
-	req.author.onReaderAccepted()
 
 	close(req.res)
 }

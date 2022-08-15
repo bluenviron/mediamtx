@@ -40,11 +40,11 @@ type rtspSession struct {
 
 	created         time.Time
 	path            *path
+	stream          *stream
 	state           gortsplib.ServerSessionState
 	stateMutex      sync.Mutex
 	onReadCmd       *externalcmd.Cmd // read
 	announcedTracks gortsplib.Tracks // publish
-	stream          *stream          // publish
 }
 
 func newRTSPSession(
@@ -109,12 +109,13 @@ func (s *rtspSession) onClose(err error) {
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
 		s.path.readerRemove(pathReaderRemoveReq{author: s})
-		s.path = nil
 
 	case gortsplib.ServerSessionStatePreRecord, gortsplib.ServerSessionStateRecord:
 		s.path.publisherRemove(pathPublisherRemoveReq{author: s})
-		s.path = nil
 	}
+
+	s.path = nil
+	s.stream = nil
 
 	s.log(logger.Info, "destroyed (%v)", err)
 }
@@ -218,6 +219,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		}
 
 		s.path = res.path
+		s.stream = res.stream
 
 		if ctx.TrackID >= len(res.stream.tracks()) {
 			return &base.Response{
@@ -246,6 +248,18 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 	if s.ss.State() == gortsplib.ServerSessionStatePrePlay {
 		s.path.readerPlay(pathReaderPlayReq{author: s})
+
+		tracks := make(gortsplib.Tracks, len(s.ss.SetuppedTracks()))
+		n := 0
+		for id := range s.ss.SetuppedTracks() {
+			tracks[n] = s.stream.tracks()[id]
+			n++
+		}
+
+		s.log(logger.Info, "is reading from path '%s', with %s, %s",
+			s.path.Name(),
+			s.ss.SetuppedTransport(),
+			sourceTrackInfo(tracks))
 
 		if s.path.Conf().RunOnRead != "" {
 			s.log(logger.Info, "runOnRead command started")
@@ -282,6 +296,11 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 			StatusCode: base.StatusBadRequest,
 		}, res.err
 	}
+
+	s.log(logger.Info, "is publishing to path '%s', with %s, %s",
+		s.path.Name(),
+		s.ss.SetuppedTransport(),
+		sourceTrackInfo(s.announcedTracks))
 
 	s.stream = res.stream
 
@@ -322,22 +341,6 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 	}, nil
 }
 
-// onReaderAccepted implements reader.
-func (s *rtspSession) onReaderAccepted() {
-	tracksLen := len(s.ss.SetuppedTracks())
-
-	s.log(logger.Info, "is reading from path '%s', %d %s with %s",
-		s.path.Name(),
-		tracksLen,
-		func() string {
-			if tracksLen == 1 {
-				return "track"
-			}
-			return "tracks"
-		}(),
-		s.ss.SetuppedTransport())
-}
-
 // onReaderData implements reader.
 func (s *rtspSession) onReaderData(data *data) {
 	// packets are routed to the session by gortsplib.ServerStream.
@@ -371,20 +374,6 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 		Type string `json:"type"`
 		ID   string `json:"id"`
 	}{typ, s.id}
-}
-
-// onPublisherAccepted implements publisher.
-func (s *rtspSession) onPublisherAccepted(tracksLen int) {
-	s.log(logger.Info, "is publishing to path '%s', %d %s with %s",
-		s.path.Name(),
-		tracksLen,
-		func() string {
-			if tracksLen == 1 {
-				return "track"
-			}
-			return "tracks"
-		}(),
-		s.ss.SetuppedTransport())
 }
 
 // onPacketRTP is called by rtspServer.

@@ -349,6 +349,9 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.path.readerPlay(pathReaderPlayReq{author: m})
 
+	m.log(logger.Info, "is converting into HLS, %s",
+		sourceTrackInfo(res.stream.tracks()))
+
 	writerDone := make(chan error)
 	go func() {
 		writerDone <- func() error {
@@ -539,11 +542,6 @@ func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
 
 	case <-m.ctx.Done():
 	}
-}
-
-// onReaderAccepted implements reader.
-func (m *hlsMuxer) onReaderAccepted() {
-	m.log(logger.Info, "is converting into HLS")
 }
 
 // onReaderData implements reader.

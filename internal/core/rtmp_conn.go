@@ -305,6 +305,10 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		author: c,
 	})
 
+	c.log(logger.Info, "is reading from path '%s', %s",
+		c.path.Name(),
+		sourceTrackInfo(res.stream.tracks()))
+
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
@@ -545,6 +549,10 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		return rres.err
 	}
 
+	c.log(logger.Info, "is publishing to path '%s', %s",
+		c.path.Name(),
+		sourceTrackInfo(tracks))
+
 	for {
 		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 		msg, err := c.conn.ReadMessage()
@@ -673,11 +681,6 @@ func (c *rtmpConn) authenticate(
 	return nil
 }
 
-// onReaderAccepted implements reader.
-func (c *rtmpConn) onReaderAccepted() {
-	c.log(logger.Info, "is reading from path '%s'", c.path.Name())
-}
-
 // onReaderData implements reader.
 func (c *rtmpConn) onReaderData(data *data) {
 	c.ringBuffer.Push(data)
@@ -697,17 +700,4 @@ func (c *rtmpConn) apiSourceDescribe() interface{} {
 		Type string `json:"type"`
 		ID   string `json:"id"`
 	}{"rtmpConn", c.id}
-}
-
-// onPublisherAccepted implements publisher.
-func (c *rtmpConn) onPublisherAccepted(tracksLen int) {
-	c.log(logger.Info, "is publishing to path '%s', %d %s",
-		c.path.Name(),
-		tracksLen,
-		func() string {
-			if tracksLen == 1 {
-				return "track"
-			}
-			return "tracks"
-		}())
 }

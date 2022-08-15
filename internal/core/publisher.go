@@ -4,5 +4,4 @@ package core
 type publisher interface {
 	source
 	close()
-	onPublisherAccepted(tracksLen int)
 }
