@@ -1,6 +1,7 @@
 package rtmp
 
 import (
+	"bytes"
 	"net"
 	"net/url"
 	"testing"
@@ -1209,4 +1210,33 @@ func TestWriteTracks(t *testing.T) {
 		AACType:         flvio.AAC_SEQHDR,
 		Payload:         []byte{0x12, 0x10},
 	}, msg)
+}
+
+func BenchmarkRead(b *testing.B) {
+	var buf bytes.Buffer
+
+	for n := 0; n < b.N; n++ {
+		buf.Write([]byte{
+			7, 0, 0, 23, 0, 0, 98, 8,
+			0, 0, 0, 64, 175, 1, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4, 1, 2,
+			3, 4, 1, 2, 3, 4,
+		})
+	}
+
+	conn := NewConn(&buf)
+
+	for n := 0; n < b.N; n++ {
+		conn.ReadMessage()
+	}
 }

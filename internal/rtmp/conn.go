@@ -3,7 +3,7 @@ package rtmp
 import (
 	"errors"
 	"fmt"
-	"net"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -112,9 +112,9 @@ type Conn struct {
 }
 
 // NewConn initializes a connection.
-func NewConn(nconn net.Conn) *Conn {
+func NewConn(rw io.ReadWriter) *Conn {
 	c := &Conn{}
-	c.bc = bytecounter.NewReadWriter(nconn)
+	c.bc = bytecounter.NewReadWriter(rw)
 	c.mrw = message.NewReadWriter(c.bc, false)
 	return c
 }
