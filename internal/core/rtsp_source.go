@@ -133,7 +133,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 				return res.err
 			}
 
-			s.Log(logger.Info, "proxying %s", sourceTrackInfo(tracks))
+			s.Log(logger.Info, "ready: %s", sourceTrackInfo(tracks))
 
 			defer func() {
 				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})

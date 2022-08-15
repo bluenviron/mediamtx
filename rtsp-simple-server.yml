@@ -173,6 +173,7 @@ paths:
     # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
     # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
     # * redirect -> the stream is provided by another path or server
+    # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
     source: publisher
 
     # If the source is an RTSP or RTSPS URL, this is the protocol that will be used to
@@ -212,6 +213,16 @@ paths:
     # If the source is "publisher" and no one is publishing, redirect readers to this
     # path. It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
+
+    # If the source is "rpiCamera", these are the Raspberry Pi Camera parameters
+    rpiCameraCamID: 0
+    rpiCameraWidth: 1280
+    rpiCameraHeight: 720
+    rpiCameraFPS: 30
+    rpiCameraIDRPeriod: 60
+    rpiCameraBitrate: 1000000
+    rpiCameraProfile: main
+    rpiCameraLevel: '4.1'
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.
