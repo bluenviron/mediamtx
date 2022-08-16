@@ -49,7 +49,8 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 	onData := func(nalus [][]byte) {
 		if stream == nil {
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
-				tracks: tracks,
+				tracks:             tracks,
+				generateRTPPackets: true,
 			})
 			if res.err != nil {
 				return
