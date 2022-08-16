@@ -152,7 +152,7 @@ func (c *Conn) readCommandResult(commandName string, isValid func(*message.MsgCo
 }
 
 // InitializeClient performs the initialization of a client-side connection.
-func (c *Conn) InitializeClient(u *url.URL, isPlaying bool) error {
+func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 	connectpath, actionpath := splitPath(u)
 
 	err := handshake.DoClient(c.bc, false)
@@ -208,7 +208,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPlaying bool) error {
 		return err
 	}
 
-	if isPlaying {
+	if !isPublishing {
 		err = c.mrw.Write(&message.MsgCommandAMF0{
 			ChunkStreamID: 3,
 			Name:          "createStream",
@@ -524,7 +524,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			return u, true, nil
+			return u, false, nil
 
 		case "publish":
 			if len(cmd.Arguments) < 2 {
@@ -559,7 +559,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			return u, false, nil
+			return u, true, nil
 		}
 	}
 }
