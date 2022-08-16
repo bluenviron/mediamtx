@@ -510,7 +510,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				ChunkStreamID:   5,
 				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
-				CommandID:       4,
+				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
 					nil,
 					flvio.AMFMap{
