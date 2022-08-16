@@ -495,7 +495,8 @@ func TestReadTracks(t *testing.T) {
 	}
 
 	for _, ca := range []string{
-		"standard",
+		"video+audio",
+		"video",
 		"metadata without codec id",
 		"missing metadata",
 	} {
@@ -519,7 +520,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 				switch ca {
-				case "standard":
+				case "video+audio":
 					require.Equal(t, &gortsplib.TrackH264{
 						PayloadType: 96,
 						SPS:         sps,
@@ -537,6 +538,15 @@ func TestReadTracks(t *testing.T) {
 						IndexLength:      3,
 						IndexDeltaLength: 3,
 					}, audioTrack)
+
+				case "video":
+					require.Equal(t, &gortsplib.TrackH264{
+						PayloadType: 96,
+						SPS:         sps,
+						PPS:         pps,
+					}, videoTrack)
+
+					require.Nil(t, audioTrack)
 
 				case "metadata without codec id":
 					require.Equal(t, &gortsplib.TrackH264{
@@ -740,7 +750,7 @@ func TestReadTracks(t *testing.T) {
 			}, msg)
 
 			switch ca {
-			case "standard":
+			case "video+audio":
 				// C->S metadata
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
@@ -799,6 +809,50 @@ func TestReadTracks(t *testing.T) {
 					Channels:        flvio.SOUND_STEREO,
 					AACType:         flvio.AAC_SEQHDR,
 					Payload:         enc,
+				})
+				require.NoError(t, err)
+
+			case "video":
+				// C->S metadata
+				err = mrw.Write(&message.MsgDataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{
+								K: "videodatarate",
+								V: float64(0),
+							},
+							{
+								K: "videocodecid",
+								V: float64(codecH264),
+							},
+							{
+								K: "audiodatarate",
+								V: float64(0),
+							},
+							{
+								K: "audiocodecid",
+								V: float64(0),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				// C->S H264 decoder config
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
+				err = mrw.Write(&message.MsgVideo{
+					ChunkStreamID:   6,
+					MessageStreamID: 1,
+					IsKeyFrame:      true,
+					H264Type:        flvio.AVC_SEQHDR,
+					Payload:         buf,
 				})
 				require.NoError(t, err)
 
