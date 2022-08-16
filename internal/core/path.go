@@ -460,11 +460,13 @@ func (pa *path) run() {
 			case req := <-pa.chSourceStaticSetNotReady:
 				pa.sourceSetNotReady()
 
+				// send response before calling onDemandStaticSourceStop()
+				// in order to avoid a deadlock due to sourceStatic.stop()
+				close(req.res)
+
 				if pa.hasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
 					pa.onDemandStaticSourceStop()
 				}
-
-				close(req.res)
 
 				if pa.shouldClose() {
 					return fmt.Errorf("not in use")
@@ -975,7 +977,7 @@ func (pa *path) sourceStaticSetReady(sourceStaticCtx context.Context, req pathSo
 
 	// this avoids:
 	// - invalid requests sent after the source has been terminated
-	// - freezes caused by <-done inside stop()
+	// - deadlocks caused by <-done inside stop()
 	case <-sourceStaticCtx.Done():
 		req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
 	}
@@ -991,7 +993,7 @@ func (pa *path) sourceStaticSetNotReady(sourceStaticCtx context.Context, req pat
 
 	// this avoids:
 	// - invalid requests sent after the source has been terminated
-	// - freezes caused by <-done inside stop()
+	// - deadlocks caused by <-done inside stop()
 	case <-sourceStaticCtx.Done():
 		close(req.res)
 	}
