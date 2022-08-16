@@ -404,28 +404,6 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				pts -= videoStartDTS
 			}
 
-			// insert a H264DecoderConfig before every IDR
-			if idrPresent {
-				sps := videoTrack.SafeSPS()
-				pps := videoTrack.SafePPS()
-
-				buf, _ := h264conf.Conf{
-					SPS: sps,
-					PPS: pps,
-				}.Marshal()
-
-				err = c.conn.WriteMessage(&message.MsgVideo{
-					ChunkStreamID:   6,
-					MessageStreamID: 1,
-					IsKeyFrame:      true,
-					H264Type:        flvio.AVC_SEQHDR,
-					Payload:         buf,
-				})
-				if err != nil {
-					return err
-				}
-			}
-
 			avcc, err := h264.AVCCMarshal(data.h264NALUs)
 			if err != nil {
 				return err
