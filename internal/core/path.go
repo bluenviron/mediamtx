@@ -334,6 +334,7 @@ func (pa *path) hasStaticSource() bool {
 	return strings.HasPrefix(pa.conf.Source, "rtsp://") ||
 		strings.HasPrefix(pa.conf.Source, "rtsps://") ||
 		strings.HasPrefix(pa.conf.Source, "rtmp://") ||
+		strings.HasPrefix(pa.conf.Source, "rtmps://") ||
 		strings.HasPrefix(pa.conf.Source, "http://") ||
 		strings.HasPrefix(pa.conf.Source, "https://") ||
 		pa.conf.Source == "rpiCamera"

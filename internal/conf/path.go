@@ -118,16 +118,14 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
 		}
 
-	case strings.HasPrefix(pconf.Source, "rtmp://"):
+	case strings.HasPrefix(pconf.Source, "rtmp://") ||
+		strings.HasPrefix(pconf.Source, "rtmps://"):
 		if pconf.Regexp != nil {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
 		}
 
 		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
-		}
-		if u.Scheme != "rtmp" {
 			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
 		}
 

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"strconv"
@@ -51,6 +52,7 @@ type rtmpServer struct {
 	readTimeout               conf.StringDuration
 	writeTimeout              conf.StringDuration
 	readBufferCount           int
+	isTLS                     bool
 	rtspAddress               string
 	runOnConnect              string
 	runOnConnectRestart       bool
@@ -62,7 +64,7 @@ type rtmpServer struct {
 	ctx       context.Context
 	ctxCancel func()
 	wg        sync.WaitGroup
-	l         net.Listener
+	ln        net.Listener
 	conns     map[*rtmpConn]struct{}
 
 	// in
@@ -78,6 +80,9 @@ func newRTMPServer(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
+	isTLS bool,
+	serverCert string,
+	serverKey string,
 	rtspAddress string,
 	runOnConnect string,
 	runOnConnectRestart bool,
@@ -86,7 +91,18 @@ func newRTMPServer(
 	pathManager *pathManager,
 	parent rtmpServerParent,
 ) (*rtmpServer, error) {
-	l, err := net.Listen("tcp", address)
+	ln, err := func() (net.Listener, error) {
+		if !isTLS {
+			return net.Listen("tcp", address)
+		}
+
+		cert, err := tls.LoadX509KeyPair(serverCert, serverKey)
+		if err != nil {
+			return nil, err
+		}
+
+		return tls.Listen("tcp", address, &tls.Config{Certificates: []tls.Certificate{cert}})
+	}()
 	if err != nil {
 		return nil, err
 	}
@@ -101,13 +117,14 @@ func newRTMPServer(
 		rtspAddress:               rtspAddress,
 		runOnConnect:              runOnConnect,
 		runOnConnectRestart:       runOnConnectRestart,
+		isTLS:                     isTLS,
 		externalCmdPool:           externalCmdPool,
 		metrics:                   metrics,
 		pathManager:               pathManager,
 		parent:                    parent,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
-		l:                         l,
+		ln:                        ln,
 		conns:                     make(map[*rtmpConn]struct{}),
 		chConnClose:               make(chan *rtmpConn),
 		chAPIConnsList:            make(chan rtmpServerAPIConnsListReq),
@@ -127,7 +144,13 @@ func newRTMPServer(
 }
 
 func (s *rtmpServer) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[RTMP] "+format, append([]interface{}{}, args...)...)
+	label := func() string {
+		if s.isTLS {
+			return "RTMPS"
+		}
+		return "RTMP"
+	}()
+	s.parent.Log(level, "[%s] "+format, append([]interface{}{label}, args...)...)
 }
 
 func (s *rtmpServer) close() {
@@ -146,7 +169,7 @@ func (s *rtmpServer) run() {
 		defer s.wg.Done()
 		err := func() error {
 			for {
-				conn, err := s.l.Accept()
+				conn, err := s.ln.Accept()
 				if err != nil {
 					return err
 				}
@@ -246,7 +269,7 @@ outer:
 
 	s.ctxCancel()
 
-	s.l.Close()
+	s.ln.Close()
 
 	if s.metrics != nil {
 		s.metrics.rtmpServerSet(s)

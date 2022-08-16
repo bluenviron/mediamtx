@@ -49,6 +49,22 @@ type rtspServerParent interface {
 	Log(logger.Level, string, ...interface{})
 }
 
+func printAddresses(srv *gortsplib.Server) string {
+	var ret []string
+
+	ret = append(ret, fmt.Sprintf("%s (TCP)", srv.RTSPAddress))
+
+	if srv.UDPRTPAddress != "" {
+		ret = append(ret, fmt.Sprintf("%s (UDP/RTP)", srv.UDPRTPAddress))
+	}
+
+	if srv.UDPRTCPAddress != "" {
+		ret = append(ret, fmt.Sprintf("%s (UDP/RTCP)", srv.UDPRTCPAddress))
+	}
+
+	return strings.Join(ret, ", ")
+}
+
 type rtspServer struct {
 	externalAuthenticationURL string
 	authMethods               []headers.AuthMethod
@@ -152,19 +168,7 @@ func newRTSPServer(
 		return nil, err
 	}
 
-	var temp []string
-
-	temp = append(temp, fmt.Sprintf("%s (TCP)", address))
-
-	if s.srv.UDPRTPAddress != "" {
-		temp = append(temp, fmt.Sprintf("%s (UDP/RTP)", s.srv.UDPRTPAddress))
-	}
-
-	if s.srv.UDPRTCPAddress != "" {
-		temp = append(temp, fmt.Sprintf("%s (UDP/RTCP)", s.srv.UDPRTCPAddress))
-	}
-
-	s.log(logger.Info, "listener opened on "+strings.Join(temp, ", "))
+	s.log(logger.Info, "listener opened on %s", printAddresses(s.srv))
 
 	if s.metrics != nil {
 		if !isTLS {

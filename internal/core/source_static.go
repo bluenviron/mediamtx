@@ -67,9 +67,11 @@ func newSourceStatic(
 			readBufferCount,
 			s)
 
-	case strings.HasPrefix(conf.Source, "rtmp://"):
+	case strings.HasPrefix(conf.Source, "rtmp://") ||
+		strings.HasPrefix(conf.Source, "rtmps://"):
 		s.impl = newRTMPSource(
 			conf.Source,
+			conf.SourceFingerprint,
 			readTimeout,
 			writeTimeout,
 			s)

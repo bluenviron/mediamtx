@@ -1,85 +1,143 @@
-package core
+package core //nolint:dupl
 
 import (
-	"io"
+	"crypto/tls"
 	"net"
 	"net/url"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
+	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
-func TestRTMPServerPublish(t *testing.T) {
-	for _, source := range []string{
-		"videoaudio",
-		"video",
-	} {
-		t.Run(source, func(t *testing.T) {
-			p, ok := newInstance("hlsDisable: yes\n" +
-				"paths:\n" +
-				"  all:\n")
-			require.Equal(t, true, ok)
-			defer p.close()
+func TestRTMPServerPublishRead(t *testing.T) {
+	for _, ca := range []string{"plain", "tls"} {
+		t.Run(ca, func(t *testing.T) {
+			var port string
+			if ca == "plain" {
+				port = "1935"
 
-			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-re",
-				"-stream_loop", "-1",
-				"-i", "empty" + source + ".mkv",
-				"-c", "copy",
-				"-f", "flv",
-				"rtmp://localhost:1935/test1/test2",
+				p, ok := newInstance("rtspDisable: yes\n" +
+					"hlsDisable: yes\n" +
+					"paths:\n" +
+					"  all:\n")
+				require.Equal(t, true, ok)
+				defer p.close()
+			} else {
+				port = "1936"
+
+				serverCertFpath, err := writeTempFile(serverCert)
+				require.NoError(t, err)
+				defer os.Remove(serverCertFpath)
+
+				serverKeyFpath, err := writeTempFile(serverKey)
+				require.NoError(t, err)
+				defer os.Remove(serverKeyFpath)
+
+				p, ok := newInstance("rtspDisable: yes\n" +
+					"hlsDisable: yes\n" +
+					"rtmpEncryption: \"yes\"\n" +
+					"rtmpServerCert: " + serverCertFpath + "\n" +
+					"rtmpServerKey: " + serverKeyFpath + "\n" +
+					"paths:\n" +
+					"  all:\n")
+				require.Equal(t, true, ok)
+				defer p.close()
+			}
+
+			u, err := url.Parse("rtmp://127.0.0.1:" + port + "/mystream")
+			require.NoError(t, err)
+
+			nconn1, err := func() (net.Conn, error) {
+				if ca == "plain" {
+					return net.Dial("tcp", u.Host)
+				}
+				return tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
+			}()
+			require.NoError(t, err)
+			defer nconn1.Close()
+			conn1 := rtmp.NewConn(nconn1)
+
+			err = conn1.InitializeClient(u, true)
+			require.NoError(t, err)
+
+			videoTrack := &gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS: []byte{ // 1920x1080 baseline
+					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+					0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+				},
+				PPS: []byte{0x08, 0x06, 0x07, 0x08},
+			}
+
+			audioTrack := &gortsplib.TrackMPEG4Audio{
+				PayloadType: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			}
+
+			err = conn1.WriteTracks(videoTrack, audioTrack)
+			require.NoError(t, err)
+
+			nconn2, err := func() (net.Conn, error) {
+				if ca == "plain" {
+					return net.Dial("tcp", u.Host)
+				}
+				return tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
+			}()
+			require.NoError(t, err)
+			defer nconn2.Close()
+			conn2 := rtmp.NewConn(nconn2)
+
+			err = conn2.InitializeClient(u, false)
+			require.NoError(t, err)
+
+			videoTrack1, audioTrack2, err := conn2.ReadTracks()
+			require.NoError(t, err)
+			require.Equal(t, videoTrack, videoTrack1)
+			require.Equal(t, audioTrack, audioTrack2)
+
+			err = conn1.WriteMessage(&message.MsgVideo{
+				ChunkStreamID:   6,
+				MessageStreamID: 0x1000000,
+				IsKeyFrame:      true,
+				H264Type:        flvio.AVC_NALU,
+				Payload:         []byte{0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04},
 			})
 			require.NoError(t, err)
-			defer cnt1.close()
 
-			time.Sleep(1 * time.Second)
-
-			cnt2, err := newContainer("ffmpeg", "dest", []string{
-				"-rtsp_transport", "udp",
-				"-i", "rtsp://localhost:8554/test1/test2",
-				"-vframes", "1",
-				"-f", "image2",
-				"-y", "/dev/null",
-			})
+			msg1, err := conn2.ReadMessage()
 			require.NoError(t, err)
-			defer cnt2.close()
-			require.Equal(t, 0, cnt2.wait())
+			require.Equal(t, &message.MsgVideo{
+				ChunkStreamID:   6,
+				MessageStreamID: 1,
+				IsKeyFrame:      true,
+				H264Type:        flvio.AVC_NALU,
+				Payload: []byte{
+					0x00, 0x00, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28,
+					0xd9, 0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00,
+					0x00, 0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00,
+					0xf0, 0x3c, 0x60, 0xc9, 0x20, 0x00, 0x00, 0x00,
+					0x04, 0x08, 0x06, 0x07, 0x08, 0x00, 0x00, 0x00,
+					0x04, 0x05, 0x02, 0x03, 0x04,
+				},
+			}, msg1)
 		})
 	}
-}
-
-func TestRTMPServerRead(t *testing.T) {
-	p, ok := newInstance("hlsDisable: yes\n" +
-		"paths:\n" +
-		"  all:\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "rtsp",
-		"rtsp://localhost:8554/teststream",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
-
-	time.Sleep(1 * time.Second)
-
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "rtmp://localhost:1935/teststream",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
-	require.Equal(t, 0, cnt2.wait())
 }
 
 func TestRTMPServerAuth(t *testing.T) {
@@ -115,18 +173,33 @@ func TestRTMPServerAuth(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			cnt1, err := newContainer("ffmpeg", "source", []string{
-				"-re",
-				"-stream_loop", "-1",
-				"-i", "emptyvideo.mkv",
-				"-c", "copy",
-				"-f", "flv",
-				"rtmp://127.0.0.1/teststream?user=testpublisher&pass=testpass&param=value",
-			})
+			u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testpublisher&pass=testpass&param=value")
 			require.NoError(t, err)
-			defer cnt1.close()
 
-			time.Sleep(1 * time.Second)
+			nconn1, err := net.Dial("tcp", u1.Host)
+			require.NoError(t, err)
+			defer nconn1.Close()
+			conn1 := rtmp.NewConn(nconn1)
+
+			err = conn1.InitializeClient(u1, true)
+			require.NoError(t, err)
+
+			videoTrack := &gortsplib.TrackH264{
+				PayloadType: 96,
+				SPS: []byte{
+					0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
+					0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+					0x00, 0x03, 0x00, 0x3d, 0x08,
+				},
+				PPS: []byte{
+					0x68, 0xee, 0x3c, 0x80,
+				},
+			}
+
+			err = conn1.WriteTracks(videoTrack, nil)
+			require.NoError(t, err)
+
+			time.Sleep(500 * time.Millisecond)
 
 			if ca == "external" {
 				a.close()
@@ -135,25 +208,25 @@ func TestRTMPServerAuth(t *testing.T) {
 				defer a.close()
 			}
 
-			u, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testreader&pass=testpass&param=value")
+			u2, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testreader&pass=testpass&param=value")
 			require.NoError(t, err)
 
-			nconn, err := net.Dial("tcp", u.Host)
+			nconn2, err := net.Dial("tcp", u2.Host)
 			require.NoError(t, err)
-			defer nconn.Close()
-			conn := rtmp.NewConn(nconn)
+			defer nconn2.Close()
+			conn2 := rtmp.NewConn(nconn2)
 
-			err = conn.InitializeClient(u, false)
+			err = conn2.InitializeClient(u2, false)
 			require.NoError(t, err)
 
-			_, _, err = conn.ReadTracks()
+			_, _, err = conn2.ReadTracks()
 			require.NoError(t, err)
 		})
 	}
 }
 
 func TestRTMPServerAuthFail(t *testing.T) {
-	t.Run("publish", func(t *testing.T) {
+	t.Run("publish", func(t *testing.T) { //nolint:dupl
 		p, ok := newInstance("rtspDisable: yes\n" +
 			"hlsDisable: yes\n" +
 			"paths:\n" +
@@ -163,17 +236,47 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		cnt1, err := newContainer("ffmpeg", "source", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "flv",
-			"rtmp://localhost/teststream?user=testuser&pass=testpass",
-		})
+		u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser&pass=testpass")
 		require.NoError(t, err)
-		defer cnt1.close()
-		require.NotEqual(t, 0, cnt1.wait())
+
+		nconn1, err := net.Dial("tcp", u1.Host)
+		require.NoError(t, err)
+		defer nconn1.Close()
+		conn1 := rtmp.NewConn(nconn1)
+
+		err = conn1.InitializeClient(u1, true)
+		require.NoError(t, err)
+
+		videoTrack := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS: []byte{
+				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
+				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+				0x00, 0x03, 0x00, 0x3d, 0x08,
+			},
+			PPS: []byte{
+				0x68, 0xee, 0x3c, 0x80,
+			},
+		}
+
+		err = conn1.WriteTracks(videoTrack, nil)
+		require.NoError(t, err)
+
+		time.Sleep(500 * time.Millisecond)
+
+		u2, err := url.Parse("rtmp://127.0.0.1:1935/teststream")
+		require.NoError(t, err)
+
+		nconn2, err := net.Dial("tcp", u2.Host)
+		require.NoError(t, err)
+		defer nconn2.Close()
+		conn2 := rtmp.NewConn(nconn2)
+
+		err = conn2.InitializeClient(u2, false)
+		require.NoError(t, err)
+
+		_, _, err = conn2.ReadTracks()
+		require.EqualError(t, err, "EOF")
 	})
 
 	t.Run("publish_external", func(t *testing.T) {
@@ -187,20 +290,50 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		require.NoError(t, err)
 		defer a.close()
 
-		cnt1, err := newContainer("ffmpeg", "source", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "flv",
-			"rtmp://localhost/teststream?user=testuser2&pass=testpass&param=value",
-		})
+		u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser1&pass=testpass")
 		require.NoError(t, err)
-		defer cnt1.close()
-		require.NotEqual(t, 0, cnt1.wait())
+
+		nconn1, err := net.Dial("tcp", u1.Host)
+		require.NoError(t, err)
+		defer nconn1.Close()
+		conn1 := rtmp.NewConn(nconn1)
+
+		err = conn1.InitializeClient(u1, true)
+		require.NoError(t, err)
+
+		videoTrack := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS: []byte{
+				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
+				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+				0x00, 0x03, 0x00, 0x3d, 0x08,
+			},
+			PPS: []byte{
+				0x68, 0xee, 0x3c, 0x80,
+			},
+		}
+
+		err = conn1.WriteTracks(videoTrack, nil)
+		require.NoError(t, err)
+
+		time.Sleep(500 * time.Millisecond)
+
+		u2, err := url.Parse("rtmp://127.0.0.1:1935/teststream")
+		require.NoError(t, err)
+
+		nconn2, err := net.Dial("tcp", u2.Host)
+		require.NoError(t, err)
+		defer nconn2.Close()
+		conn2 := rtmp.NewConn(nconn2)
+
+		err = conn2.InitializeClient(u2, false)
+		require.NoError(t, err)
+
+		_, _, err = conn2.ReadTracks()
+		require.EqualError(t, err, "EOF")
 	})
 
-	t.Run("read", func(t *testing.T) {
+	t.Run("read", func(t *testing.T) { //nolint:dupl
 		p, ok := newInstance("rtspDisable: yes\n" +
 			"hlsDisable: yes\n" +
 			"paths:\n" +
@@ -210,36 +343,46 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.close()
 
-		cnt1, err := newContainer("ffmpeg", "source", []string{
-			"-re",
-			"-stream_loop", "-1",
-			"-i", "emptyvideo.mkv",
-			"-c", "copy",
-			"-f", "flv",
-			"rtmp://localhost/teststream",
-		})
-		require.NoError(t, err)
-		defer cnt1.close()
-
-		time.Sleep(1 * time.Second)
-
-		u, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser&pass=testpass")
+		u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream")
 		require.NoError(t, err)
 
-		nconn, err := net.Dial("tcp", u.Host)
+		nconn1, err := net.Dial("tcp", u1.Host)
 		require.NoError(t, err)
-		defer nconn.Close()
-		conn := rtmp.NewConn(nconn)
+		defer nconn1.Close()
+		conn1 := rtmp.NewConn(nconn1)
 
-		err = conn.InitializeClient(u, false)
+		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		for i := 0; i < 3; i++ {
-			_, err := conn.ReadMessage()
-			require.NoError(t, err)
+		videoTrack := &gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS: []byte{
+				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
+				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+				0x00, 0x03, 0x00, 0x3d, 0x08,
+			},
+			PPS: []byte{
+				0x68, 0xee, 0x3c, 0x80,
+			},
 		}
 
-		_, err = conn.ReadMessage()
-		require.Equal(t, err, io.EOF)
+		err = conn1.WriteTracks(videoTrack, nil)
+		require.NoError(t, err)
+
+		time.Sleep(500 * time.Millisecond)
+
+		u2, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser1&pass=testpass")
+		require.NoError(t, err)
+
+		nconn2, err := net.Dial("tcp", u2.Host)
+		require.NoError(t, err)
+		defer nconn2.Close()
+		conn2 := rtmp.NewConn(nconn2)
+
+		err = conn2.InitializeClient(u2, false)
+		require.NoError(t, err)
+
+		_, _, err = conn2.ReadTracks()
+		require.EqualError(t, err, "EOF")
 	})
 }

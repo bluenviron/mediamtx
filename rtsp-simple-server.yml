@@ -67,7 +67,7 @@ rtspDisable: no
 # TCP is the most versatile, and does support encryption.
 # The handshake is always performed with TCP.
 protocols: [udp, multicast, tcp]
-# Encrypt handshake and TCP streams with TLS (RTSPS).
+# Encrypt handshakes and TCP streams with TLS (RTSPS).
 # Available values are "no", "strict", "optional".
 encryption: "no"
 # Address of the TCP/RTSP listener. This is needed only when encryption is "no" or "optional".
@@ -99,8 +99,20 @@ authMethods: [basic, digest]
 
 # Disable support for the RTMP protocol.
 rtmpDisable: no
-# Address of the RTMP listener.
+# Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
 rtmpAddress: :1935
+# Encrypt connections with TLS (RTMPS).
+# Available values are "no", "strict", "optional".
+rtmpEncryption: "no"
+# Address of the RTMPS listener. This is needed only when encryption is "strict" or "optional".
+rtmpsAddress: :1936
+# Path to the server key. This is needed only when encryption is "strict" or "optional".
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+rtmpServerKey: server.key
+# Path to the server certificate. This is needed only when encryption is "strict" or "optional".
+rtmpServerCert: server.crt
 
 ###############################################
 # HLS parameters
@@ -169,7 +181,8 @@ paths:
     # * publisher -> the stream is published by a RTSP or RTMP client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
     # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
-    # * rtmp://existing-url -> the stream is pulled from another RTMP server
+    # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
+    # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
     # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
     # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
     # * redirect -> the stream is provided by another path or server
@@ -185,7 +198,7 @@ paths:
     # and must be used only when interacting with sources that require it.
     sourceAnyPortEnable: no
 
-    # If the source is a RTSPS or HTTPS URL, and the source certificate is self-signed
+    # If the source is a RTSPS, RTMPS or HTTPS URL, and the source certificate is self-signed
     # or invalid, you can provide the fingerprint of the certificate in order to
     # validate it anyway. It can be obtained by running:
     # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt

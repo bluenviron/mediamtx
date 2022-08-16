@@ -145,8 +145,6 @@ func TestRTSPSource(t *testing.T) {
 				defer p.close()
 			}
 
-			time.Sleep(1 * time.Second)
-
 			received := make(chan struct{})
 
 			c := gortsplib.Client{

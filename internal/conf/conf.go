@@ -200,8 +200,12 @@ type Conf struct {
 	AuthMethods       AuthMethods `json:"authMethods"`
 
 	// RTMP
-	RTMPDisable bool   `json:"rtmpDisable"`
-	RTMPAddress string `json:"rtmpAddress"`
+	RTMPDisable    bool       `json:"rtmpDisable"`
+	RTMPAddress    string     `json:"rtmpAddress"`
+	RTMPEncryption Encryption `json:"rtmpEncryption"`
+	RTMPSAddress   string     `json:"rtmpsAddress"`
+	RTMPServerKey  string     `json:"rtmpServerKey"`
+	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS
 	HLSDisable         bool           `json:"hlsDisable"`
@@ -352,6 +356,10 @@ func (conf *Conf) CheckAndFillMissing() error {
 
 	if conf.RTMPAddress == "" {
 		conf.RTMPAddress = ":1935"
+	}
+
+	if conf.RTMPSAddress == "" {
+		conf.RTMPSAddress = ":1936"
 	}
 
 	if conf.HLSAddress == "" {
