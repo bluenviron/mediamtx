@@ -76,8 +76,12 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 		AuthMethods       *conf.AuthMethods `json:"authMethods"`
 
 		// RTMP
-		RTMPDisable *bool   `json:"rtmpDisable"`
-		RTMPAddress *string `json:"rtmpAddress"`
+		RTMPDisable    *bool            `json:"rtmpDisable"`
+		RTMPAddress    *string          `json:"rtmpAddress"`
+		RTMPEncryption *conf.Encryption `json:"rtmpEncryption"`
+		RTMPSAddress   *string          `json:"rtmpsAddress"`
+		RTMPServerKey  *string          `json:"rtmpServerKey"`
+		RTMPServerCert *string          `json:"rtmpServerCert"`
 
 		// HLS
 		HLSDisable         *bool                `json:"hlsDisable"`
@@ -181,6 +185,7 @@ type api struct {
 	rtspServer  apiRTSPServer
 	rtspsServer apiRTSPServer
 	rtmpServer  apiRTMPServer
+	rtmpsServer apiRTMPServer
 	hlsServer   apiHLSServer
 	parent      apiParent
 
@@ -195,6 +200,7 @@ func newAPI(
 	rtspServer apiRTSPServer,
 	rtspsServer apiRTSPServer,
 	rtmpServer apiRTMPServer,
+	rtmpsServer apiRTMPServer,
 	hlsServer apiHLSServer,
 	parent apiParent,
 ) (*api, error) {
@@ -209,6 +215,7 @@ func newAPI(
 		rtspServer:  rtspServer,
 		rtspsServer: rtspsServer,
 		rtmpServer:  rtmpServer,
+		rtmpsServer: rtmpsServer,
 		hlsServer:   hlsServer,
 		parent:      parent,
 	}
@@ -239,6 +246,11 @@ func newAPI(
 	if !interfaceIsEmpty(a.rtmpServer) {
 		group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
 		group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
+	}
+
+	if !interfaceIsEmpty(a.rtmpsServer) {
+		group.GET("/v1/rtmpsconns/list", a.onRTMPSConnsList)
+		group.POST("/v1/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.hlsServer) {
@@ -508,6 +520,28 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
 	res := a.rtmpServer.apiConnsKick(rtmpServerAPIConnsKickReq{id: id})
+	if res.err != nil {
+		ctx.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onRTMPSConnsList(ctx *gin.Context) {
+	res := a.rtmpsServer.apiConnsList(rtmpServerAPIConnsListReq{})
+	if res.err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res.data)
+}
+
+func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	res := a.rtmpsServer.apiConnsKick(rtmpServerAPIConnsKickReq{id: id})
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return

@@ -288,14 +288,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
-	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	err := c.conn.WriteTracks(videoTrack, audioTrack)
-	if err != nil {
-		return err
-	}
-
 	c.ringBuffer, _ = ringbuffer.New(uint64(c.readBufferCount))
-
 	go func() {
 		<-ctx.Done()
 		c.ringBuffer.Close()
@@ -308,6 +301,12 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	c.log(logger.Info, "is reading from path '%s', %s",
 		c.path.Name(),
 		sourceTrackInfo(res.stream.tracks()))
+
+	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+	err := c.conn.WriteTracks(videoTrack, audioTrack)
+	if err != nil {
+		return err
+	}
 
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
@@ -515,9 +514,6 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	c.state = rtmpConnStatePublish
 	c.stateMutex.Unlock()
 
-	// disable write deadline
-	c.nconn.SetWriteDeadline(time.Time{})
-
 	rres := c.path.publisherRecord(pathPublisherRecordReq{
 		author:             c,
 		tracks:             tracks,
@@ -530,6 +526,9 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	c.log(logger.Info, "is publishing to path '%s', %s",
 		c.path.Name(),
 		sourceTrackInfo(tracks))
+
+	// disable write deadline
+	c.nconn.SetWriteDeadline(time.Time{})
 
 	for {
 		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))

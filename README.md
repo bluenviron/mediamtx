@@ -5,11 +5,11 @@
 
 _rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams through various protocols:
 
-|protocol|description|publish|read|proxy|
-|--------|-----------|-------|----|-----|
-|RTSP|fastest way to publish and read streams|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|RTMP|allows to interact with legacy software|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|Low-Latency HLS|allows to embed streams into a web page|:x:|:heavy_check_mark:|:heavy_check_mark:|
+|protocol|description|variants|publish|read|proxy|
+|--------|-----------|--------|-------|----|-----|
+|RTSP|fastest way to publish and read streams|RTSP, RTSPS|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
+|RTMP|allows to interact with legacy software|RTMP, RTMPS|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
+|HLS|allows to embed streams into a web page|Low-Latency HLS, standard HLS|:x:|:heavy_check_mark:|:heavy_check_mark:|
 
 Features:
 
@@ -64,7 +64,7 @@ Features:
 * [Read from the server](#read-from-the-server)
   * [From VLC and Ubuntu](#from-vlc-and-ubuntu)
 * [RTSP protocol](#rtsp-protocol)
-  * [RTSP general usage](#rtsp-general-usage)
+  * [General usage](#general-usage)
   * [TCP transport](#tcp-transport)
   * [UDP-multicast transport](#udp-multicast-transport)
   * [Encryption](#encryption)
@@ -72,9 +72,10 @@ Features:
   * [Fallback stream](#fallback-stream)
   * [Corrupted frames](#corrupted-frames)
 * [RTMP protocol](#rtmp-protocol)
-  * [RTMP general usage](#rtmp-general-usage)
+  * [General usage](#general-usage-1)
+  * [Encryption](#encryption-1)
 * [HLS protocol](#hls-protocol)
-  * [HLS general usage](#hls-general-usage)
+  * [General usage](#general-usage-2)
   * [Embedding](#embedding)
   * [Low-Latency variant](#low-latency-variant)
   * [Decreasing latency](#decreasing-latency)
@@ -574,7 +575,7 @@ make -j$(nproc)
 sudo make install
 ```
 
-Videos can then be published with `VideoWriter`:
+Videos can be published with `VideoWriter`:
 
 ```python
 import cv2
@@ -627,7 +628,7 @@ vlc rtsp://localhost:8554/mystream
 
 ## RTSP protocol
 
-### RTSP general usage
+### General usage
 
 RTSP is a standardized protocol that allows to publish and read streams; in particular, it supports different underlying transport protocols, that are chosen by clients during the handshake with the server:
 
@@ -709,7 +710,7 @@ serverKey: server.key
 serverCert: server.crt
 ```
 
-Streams can then be published and read with the `rtsps` scheme and the `8322` port:
+Streams can be published and read with the `rtsps` scheme and the `8322` port:
 
 ```
 ffmpeg -i rtsps://ip:8322/...
@@ -771,7 +772,7 @@ In some scenarios, when reading RTSP from the server, decoded frames can be corr
 
 ## RTMP protocol
 
-### RTMP general usage
+### General usage
 
 RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
 
@@ -795,9 +796,34 @@ Credentials can be provided by appending to the URL the `user` and `pass` parame
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystream?user=myuser&pass=mypass
 ```
 
+### Encryption
+
+RTMP connections can be encrypted with TLS, obtaining the RTMPS protocol. A TLS certificate is needed and can be generated with OpenSSL:
+
+```
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+```
+
+Edit `rtsp-simple-server.yml`, and set the `rtmpEncryption`, `rtmpServerKey` and `rtmpServerCert` parameters:
+
+```yml
+rtmpEncryption: optional
+rtmpServerKey: server.key
+rtmpServerCert: server.crt
+```
+
+Streams can be published and read with the `rtmps` scheme and the `1937` port:
+
+```
+rtmps://localhost:1937/...
+```
+
+Please be aware that RTMPS is currently unsupported by _VLC_, _FFmpeg_ and _GStreamer_. However, you can use a proxy like [stunnel](https://www.stunnel.org/) or [nginx](https://nginx.org/) to allow RTMP clients to access RTMPS resources.
+
 ## HLS protocol
 
-### HLS general usage
+### General usage
 
 HLS is a protocol that allows to embed live streams into web pages. It works by splitting streams into segments, and by serving these segments with the HTTP protocol. Every stream published to the server can be accessed by visiting:
 
@@ -849,7 +875,7 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 ```
 
-Every stream published to the server can then be read with LL-HLS by visiting:
+Every stream published to the server can be read with LL-HLS by visiting:
 
 ```
 https://localhost:8888/mystream

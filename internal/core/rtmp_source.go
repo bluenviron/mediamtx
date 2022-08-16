@@ -2,9 +2,13 @@ package core
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -25,6 +29,7 @@ type rtmpSourceParent interface {
 
 type rtmpSource struct {
 	ur           string
+	fingerprint  string
 	readTimeout  conf.StringDuration
 	writeTimeout conf.StringDuration
 	parent       rtmpSourceParent
@@ -32,12 +37,14 @@ type rtmpSource struct {
 
 func newRTMPSource(
 	ur string,
+	fingerprint string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	parent rtmpSourceParent,
 ) *rtmpSource {
 	return &rtmpSource{
 		ur:           ur,
+		fingerprint:  fingerprint,
 		readTimeout:  readTimeout,
 		writeTimeout: writeTimeout,
 		parent:       parent,
@@ -66,8 +73,30 @@ func (s *rtmpSource) run(ctx context.Context) error {
 	ctx2, cancel2 := context.WithTimeout(ctx, time.Duration(s.readTimeout))
 	defer cancel2()
 
-	var d net.Dialer
-	nconn, err := d.DialContext(ctx2, "tcp", u.Host)
+	nconn, err := func() (net.Conn, error) {
+		if u.Scheme == "rtmp" {
+			return (&net.Dialer{}).DialContext(ctx2, "tcp", u.Host)
+		}
+
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: true,
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				h := sha256.New()
+				h.Write(cs.PeerCertificates[0].Raw)
+				hstr := hex.EncodeToString(h.Sum(nil))
+				fingerprintLower := strings.ToLower(s.fingerprint)
+
+				if hstr != fingerprintLower {
+					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
+						fingerprintLower, hstr)
+				}
+
+				return nil
+			},
+		}
+
+		return (&tls.Dialer{Config: tlsConfig}).DialContext(ctx2, "tcp", u.Host)
+	}()
 	if err != nil {
 		return err
 	}

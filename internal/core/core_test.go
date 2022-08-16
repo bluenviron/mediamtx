@@ -119,12 +119,6 @@ func (c *container) wait() int {
 	return int(code)
 }
 
-func (c *container) ip() string {
-	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
-		"-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}").Output()
-	return string(out[:len(out)-1])
-}
-
 func writeTempFile(byts []byte) (string, error) {
 	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
 	if err != nil {
