@@ -57,7 +57,7 @@ const create = () => {
 
 	// always prefer hls.js over native HLS.
 	// this is because some Android versions support native HLS
-	// but doesn't support fMP4s.
+	// but don't support fMP4s.
 	if (Hls.isSupported()) {
 		const hls = new Hls({
 			maxLiveSyncPlaybackRate: 1.5,
