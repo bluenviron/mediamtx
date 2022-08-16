@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	// this is the chunk stream ID that is usually used to send MsgAudio{}
+	// MsgAudioChunkStreamID is the chunk stream ID that is usually used to send MsgAudio{}
 	MsgAudioChunkStreamID = 6
 )
 
