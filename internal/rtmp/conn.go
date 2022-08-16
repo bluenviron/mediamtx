@@ -802,18 +802,34 @@ outer:
 
 // ReadTracks reads track informations.
 func (c *Conn) ReadTracks() (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, error) {
-	msg, err := c.ReadMessage()
+	msg, err := func() (message.Message, error) {
+		for {
+			msg, err := c.ReadMessage()
+			if err != nil {
+				return nil, err
+			}
+
+			// skip play start and data start
+			if cmd, ok := msg.(*message.MsgCommandAMF0); ok && cmd.Name == "onStatus" {
+				continue
+			}
+
+			// skip RtmpSampleAccess
+			if data, ok := msg.(*message.MsgDataAMF0); ok && len(data.Payload) >= 1 {
+				if s, ok := data.Payload[0].(string); ok && s == "|RtmpSampleAccess" {
+					continue
+				}
+			}
+
+			return msg, nil
+		}
+	}()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if data, ok := msg.(*message.MsgDataAMF0); ok && len(data.Payload) >= 1 {
 		payload := data.Payload
-
-		// skip packet
-		if s, ok := payload[0].(string); ok && s == "|RtmpSampleAccess" {
-			return c.ReadTracks()
-		}
 
 		if s, ok := payload[0].(string); ok && s == "@setDataFrame" {
 			payload = payload[1:]
