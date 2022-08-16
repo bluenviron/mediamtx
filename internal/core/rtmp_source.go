@@ -148,6 +148,9 @@ func (s *rtmpSource) run(ctx context.Context) error {
 				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
+			// disable write deadline to allow outgoing acknowledges
+			nconn.SetWriteDeadline(time.Time{})
+
 			for {
 				nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 				msg, err := conn.ReadMessage()

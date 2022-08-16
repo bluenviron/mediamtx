@@ -527,7 +527,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		c.path.Name(),
 		sourceTrackInfo(tracks))
 
-	// disable write deadline
+	// disable write deadline to allow outgoing acknowledges
 	c.nconn.SetWriteDeadline(time.Time{})
 
 	for {
