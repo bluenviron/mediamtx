@@ -410,8 +410,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 			c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 			err = c.conn.WriteMessage(&message.MsgVideo{
-				ChunkStreamID:   6,
-				MessageStreamID: 1,
+				ChunkStreamID:   message.MsgVideoChunkStreamID,
+				MessageStreamID: 0x1000000,
 				IsKeyFrame:      idrPresent,
 				H264Type:        flvio.AVC_NALU,
 				Payload:         avcc,
@@ -442,8 +442,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			for i, au := range aus {
 				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := c.conn.WriteMessage(&message.MsgAudio{
-					ChunkStreamID:   4,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,

@@ -786,8 +786,8 @@ func TestReadTracks(t *testing.T) {
 					PPS: pps,
 				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
-					ChunkStreamID:   6,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
 					Payload:         buf,
@@ -802,8 +802,8 @@ func TestReadTracks(t *testing.T) {
 				}.Marshal()
 				require.NoError(t, err)
 				err = mrw.Write(&message.MsgAudio{
-					ChunkStreamID:   4,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -848,8 +848,8 @@ func TestReadTracks(t *testing.T) {
 					PPS: pps,
 				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
-					ChunkStreamID:   6,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
 					Payload:         buf,
@@ -888,8 +888,8 @@ func TestReadTracks(t *testing.T) {
 					PPS: pps,
 				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
-					ChunkStreamID:   6,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
 					Payload:         buf,
@@ -904,8 +904,8 @@ func TestReadTracks(t *testing.T) {
 				}.Marshal()
 				require.NoError(t, err)
 				err = mrw.Write(&message.MsgAudio{
-					ChunkStreamID:   4,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -921,8 +921,8 @@ func TestReadTracks(t *testing.T) {
 					PPS: pps,
 				}.Marshal()
 				err = mrw.Write(&message.MsgVideo{
-					ChunkStreamID:   6,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
 					Payload:         buf,
@@ -937,8 +937,8 @@ func TestReadTracks(t *testing.T) {
 				}.Marshal()
 				require.NoError(t, err)
 				err = mrw.Write(&message.MsgAudio{
-					ChunkStreamID:   4,
-					MessageStreamID: 1,
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -1238,7 +1238,7 @@ func TestWriteTracks(t *testing.T) {
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgVideo{
-		ChunkStreamID:   6,
+		ChunkStreamID:   message.MsgVideoChunkStreamID,
 		MessageStreamID: 0x1000000,
 		IsKeyFrame:      true,
 		H264Type:        flvio.AVC_SEQHDR,
@@ -1256,7 +1256,7 @@ func TestWriteTracks(t *testing.T) {
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgAudio{
-		ChunkStreamID:   4,
+		ChunkStreamID:   message.MsgAudioChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Rate:            flvio.SOUND_44Khz,
 		Depth:           flvio.SOUND_16BIT,

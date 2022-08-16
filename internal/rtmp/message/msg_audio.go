@@ -10,6 +10,11 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
 )
 
+const (
+	// this is the chunk stream ID that is usually used to send MsgAudio{}
+	MsgAudioChunkStreamID = 6
+)
+
 // MsgAudio is an audio message.
 type MsgAudio struct {
 	ChunkStreamID   byte

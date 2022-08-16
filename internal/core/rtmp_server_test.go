@@ -112,7 +112,7 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			require.Equal(t, audioTrack, audioTrack2)
 
 			err = conn1.WriteMessage(&message.MsgVideo{
-				ChunkStreamID:   6,
+				ChunkStreamID:   message.MsgVideoChunkStreamID,
 				MessageStreamID: 0x1000000,
 				IsKeyFrame:      true,
 				H264Type:        flvio.AVC_NALU,
@@ -123,8 +123,8 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			msg1, err := conn2.ReadMessage()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgVideo{
-				ChunkStreamID:   6,
-				MessageStreamID: 1,
+				ChunkStreamID:   message.MsgVideoChunkStreamID,
+				MessageStreamID: 0x1000000,
 				IsKeyFrame:      true,
 				H264Type:        flvio.AVC_NALU,
 				Payload: []byte{

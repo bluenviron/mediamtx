@@ -85,7 +85,7 @@ func TestRTMPSource(t *testing.T) {
 				<-connected
 
 				err = conn.WriteMessage(&message.MsgVideo{
-					ChunkStreamID:   6,
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_NALU,

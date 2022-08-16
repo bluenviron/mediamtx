@@ -910,7 +910,7 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 		}.Marshal()
 
 		err = c.WriteMessage(&message.MsgVideo{
-			ChunkStreamID:   6,
+			ChunkStreamID:   message.MsgVideoChunkStreamID,
 			MessageStreamID: 0x1000000,
 			IsKeyFrame:      true,
 			H264Type:        flvio.AVC_SEQHDR,
@@ -928,7 +928,7 @@ func (c *Conn) WriteTracks(videoTrack *gortsplib.TrackH264, audioTrack *gortspli
 		}
 
 		err = c.WriteMessage(&message.MsgAudio{
-			ChunkStreamID:   4,
+			ChunkStreamID:   message.MsgAudioChunkStreamID,
 			MessageStreamID: 0x1000000,
 			Rate:            flvio.SOUND_44Khz,
 			Depth:           flvio.SOUND_16BIT,
