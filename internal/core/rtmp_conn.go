@@ -206,12 +206,12 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 
 	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	u, isReading, err := c.conn.InitializeServer()
+	u, isPublishing, err := c.conn.InitializeServer()
 	if err != nil {
 		return err
 	}
 
-	if isReading {
+	if !isPublishing {
 		return c.runRead(ctx, u)
 	}
 	return c.runPublish(ctx, u)

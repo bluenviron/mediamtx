@@ -257,7 +257,7 @@ func TestInitializeClient(t *testing.T) {
 			defer nconn.Close()
 			conn := NewConn(nconn)
 
-			err = conn.InitializeClient(u, ca == "read")
+			err = conn.InitializeClient(u, ca == "publish")
 			require.NoError(t, err)
 
 			<-done
@@ -280,14 +280,14 @@ func TestInitializeServer(t *testing.T) {
 				defer nconn.Close()
 
 				conn := NewConn(nconn)
-				u, isReading, err := conn.InitializeServer()
+				u, isPublishing, err := conn.InitializeServer()
 				require.NoError(t, err)
 				require.Equal(t, &url.URL{
 					Scheme: "rtmp",
 					Host:   "127.0.0.1:9121",
 					Path:   "//stream/",
 				}, u)
-				require.Equal(t, ca == "read", isReading)
+				require.Equal(t, ca == "publish", isPublishing)
 
 				close(done)
 			}()

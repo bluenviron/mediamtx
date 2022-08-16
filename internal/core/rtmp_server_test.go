@@ -143,7 +143,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			defer nconn.Close()
 			conn := rtmp.NewConn(nconn)
 
-			err = conn.InitializeClient(u, true)
+			err = conn.InitializeClient(u, false)
 			require.NoError(t, err)
 
 			_, _, err = conn.ReadTracks()
@@ -231,7 +231,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		defer nconn.Close()
 		conn := rtmp.NewConn(nconn)
 
-		err = conn.InitializeClient(u, true)
+		err = conn.InitializeClient(u, false)
 		require.NoError(t, err)
 
 		for i := 0; i < 3; i++ {
