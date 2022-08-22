@@ -103,7 +103,7 @@ type hlsMuxerRequest struct {
 }
 
 type hlsMuxerPathManager interface {
-	readerSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
 }
 
 type hlsMuxerParent interface {
@@ -276,7 +276,7 @@ func (m *hlsMuxer) run() {
 }
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
-	res := m.pathManager.readerSetupPlay(pathReaderSetupPlayReq{
+	res := m.pathManager.readerAdd(pathReaderAddReq{
 		author:       m,
 		pathName:     m.pathName,
 		authenticate: nil,
@@ -347,7 +347,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
-	m.path.readerPlay(pathReaderPlayReq{author: m})
+	m.path.readerStart(pathReaderStartReq{author: m})
 
 	m.log(logger.Info, "is converting into HLS, %s",
 		sourceTrackInfo(res.stream.tracks()))

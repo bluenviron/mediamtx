@@ -20,8 +20,8 @@ const (
 )
 
 type rtspSessionPathManager interface {
-	publisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
-	readerSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
+	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
+	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
 }
 
 type rtspSessionParent interface {
@@ -122,7 +122,7 @@ func (s *rtspSession) onClose(err error) {
 
 // onAnnounce is called by rtspServer.
 func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	res := s.pathManager.publisherAnnounce(pathPublisherAnnounceReq{
+	res := s.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   s,
 		pathName: ctx.Path,
 		authenticate: func(
@@ -182,7 +182,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 	switch s.ss.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
-		res := s.pathManager.readerSetupPlay(pathReaderSetupPlayReq{
+		res := s.pathManager.readerAdd(pathReaderAddReq{
 			author:   s,
 			pathName: ctx.Path,
 			authenticate: func(
@@ -247,7 +247,7 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 	h := make(base.Header)
 
 	if s.ss.State() == gortsplib.ServerSessionStatePrePlay {
-		s.path.readerPlay(pathReaderPlayReq{author: s})
+		s.path.readerStart(pathReaderStartReq{author: s})
 
 		tracks := make(gortsplib.Tracks, len(s.ss.SetuppedTracks()))
 		n := 0
@@ -286,7 +286,7 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 // onRecord is called by rtspServer.
 func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	res := s.path.publisherRecord(pathPublisherRecordReq{
+	res := s.path.publisherStart(pathPublisherStartReq{
 		author:             s,
 		tracks:             s.announcedTracks,
 		generateRTPPackets: false,
@@ -322,14 +322,14 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 			s.onReadCmd.Close()
 		}
 
-		s.path.readerPause(pathReaderPauseReq{author: s})
+		s.path.readerStop(pathReaderStopReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay
 		s.stateMutex.Unlock()
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.publisherPause(pathPublisherPauseReq{author: s})
+		s.path.publisherStop(pathPublisherStopReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePreRecord

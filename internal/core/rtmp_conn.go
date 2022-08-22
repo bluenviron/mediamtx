@@ -46,8 +46,8 @@ const (
 )
 
 type rtmpConnPathManager interface {
-	readerSetupPlay(req pathReaderSetupPlayReq) pathReaderSetupPlayRes
-	publisherAnnounce(req pathPublisherAnnounceReq) pathPublisherAnnounceRes
+	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
+	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
 }
 
 type rtmpConnParent interface {
@@ -220,7 +220,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
-	res := c.pathManager.readerSetupPlay(pathReaderSetupPlayReq{
+	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: pathName,
 		authenticate: func(
@@ -294,7 +294,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		c.ringBuffer.Close()
 	}()
 
-	c.path.readerPlay(pathReaderPlayReq{
+	c.path.readerStart(pathReaderStartReq{
 		author: c,
 	})
 
@@ -483,7 +483,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
-	res := c.pathManager.publisherAnnounce(pathPublisherAnnounceReq{
+	res := c.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   c,
 		pathName: pathName,
 		authenticate: func(
@@ -514,7 +514,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	c.state = rtmpConnStatePublish
 	c.stateMutex.Unlock()
 
-	rres := c.path.publisherRecord(pathPublisherRecordReq{
+	rres := c.path.publisherStart(pathPublisherStartReq{
 		author:             c,
 		tracks:             tracks,
 		generateRTPPackets: true,
