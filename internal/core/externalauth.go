@@ -13,7 +13,7 @@ func externalAuth(
 	user string,
 	password string,
 	path string,
-	action string,
+	isPublishing bool,
 	query string,
 ) error {
 	enc, _ := json.Marshal(struct {
@@ -28,8 +28,13 @@ func externalAuth(
 		User:     user,
 		Password: password,
 		Path:     path,
-		Action:   action,
-		Query:    query,
+		Action: func() string {
+			if isPublishing {
+				return "publish"
+			}
+			return "read"
+		}(),
+		Query: query,
 	})
 	res, err := http.Post(ur, "application/json", bytes.NewReader(enc))
 	if err != nil {

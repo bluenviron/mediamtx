@@ -228,7 +228,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {
-			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "read", query, rawQuery)
+			return c.authenticate(pathName, pathIPs, pathUser, pathPass, false, query, rawQuery)
 		},
 	})
 
@@ -491,7 +491,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {
-			return c.authenticate(pathName, pathIPs, pathUser, pathPass, "publish", query, rawQuery)
+			return c.authenticate(pathName, pathIPs, pathUser, pathPass, true, query, rawQuery)
 		},
 	})
 
@@ -617,7 +617,7 @@ func (c *rtmpConn) authenticate(
 	pathIPs []fmt.Stringer,
 	pathUser conf.Credential,
 	pathPass conf.Credential,
-	action string,
+	isPublishing bool,
 	query url.Values,
 	rawQuery string,
 ) error {
@@ -628,7 +628,7 @@ func (c *rtmpConn) authenticate(
 			query.Get("user"),
 			query.Get("pass"),
 			pathName,
-			action,
+			isPublishing,
 			rawQuery)
 		if err != nil {
 			return pathErrAuthCritical{
