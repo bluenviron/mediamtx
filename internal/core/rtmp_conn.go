@@ -302,12 +302,6 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		c.path.Name(),
 		sourceTrackInfo(res.stream.tracks()))
 
-	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	err := c.conn.WriteTracks(videoTrack, audioTrack)
-	if err != nil {
-		return err
-	}
-
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
@@ -322,6 +316,11 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			onReadCmd.Close()
 			c.log(logger.Info, "runOnRead command stopped")
 		}()
+	}
+
+	err := c.conn.WriteTracks(videoTrack, audioTrack)
+	if err != nil {
+		return err
 	}
 
 	// disable read deadline
@@ -461,26 +460,6 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 }
 
 func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
-	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	videoTrack, audioTrack, err := c.conn.ReadTracks()
-	if err != nil {
-		return err
-	}
-
-	var tracks gortsplib.Tracks
-	videoTrackID := -1
-	audioTrackID := -1
-
-	if videoTrack != nil {
-		videoTrackID = len(tracks)
-		tracks = append(tracks, videoTrack)
-	}
-
-	if audioTrack != nil {
-		audioTrackID = len(tracks)
-		tracks = append(tracks, audioTrack)
-	}
-
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
 	res := c.pathManager.publisherAdd(pathPublisherAddReq{
@@ -513,6 +492,25 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	c.stateMutex.Lock()
 	c.state = rtmpConnStatePublish
 	c.stateMutex.Unlock()
+
+	videoTrack, audioTrack, err := c.conn.ReadTracks()
+	if err != nil {
+		return err
+	}
+
+	var tracks gortsplib.Tracks
+	videoTrackID := -1
+	audioTrackID := -1
+
+	if videoTrack != nil {
+		videoTrackID = len(tracks)
+		tracks = append(tracks, videoTrack)
+	}
+
+	if audioTrack != nil {
+		audioTrackID = len(tracks)
+		tracks = append(tracks, audioTrack)
+	}
 
 	rres := c.path.publisherStart(pathPublisherStartReq{
 		author:             c,
