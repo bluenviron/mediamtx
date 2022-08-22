@@ -132,7 +132,7 @@ func (c *Conn) readCommand() (*message.MsgCommandAMF0, error) {
 	}
 }
 
-func (c *Conn) readCommandResult(commandName string, isValid func(*message.MsgCommandAMF0) bool) error {
+func (c *Conn) readCommandResult(commandID int, commandName string, isValid func(*message.MsgCommandAMF0) bool) error {
 	for {
 		msg, err := c.mrw.Read()
 		if err != nil {
@@ -140,7 +140,7 @@ func (c *Conn) readCommandResult(commandName string, isValid func(*message.MsgCo
 		}
 
 		if cmd, ok := msg.(*message.MsgCommandAMF0); ok {
-			if cmd.Name == commandName {
+			if cmd.CommandID == commandID && cmd.Name == commandName {
 				if !isValid(cmd) {
 					return fmt.Errorf("server refused connect request")
 				}
@@ -203,7 +203,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	err = c.readCommandResult("_result", resultIsOK1)
+	err = c.readCommandResult(1, "_result", resultIsOK1)
 	if err != nil {
 		return err
 	}
@@ -221,7 +221,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 			return err
 		}
 
-		err = c.readCommandResult("_result", resultIsOK2)
+		err = c.readCommandResult(2, "_result", resultIsOK2)
 		if err != nil {
 			return err
 		}
@@ -247,7 +247,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 			return err
 		}
 
-		return c.readCommandResult("onStatus", resultIsOK1)
+		return c.readCommandResult(3, "onStatus", resultIsOK1)
 	}
 
 	err = c.mrw.Write(&message.MsgCommandAMF0{
@@ -288,7 +288,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	err = c.readCommandResult("_result", resultIsOK2)
+	err = c.readCommandResult(4, "_result", resultIsOK2)
 	if err != nil {
 		return err
 	}
@@ -308,7 +308,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	return c.readCommandResult("onStatus", resultIsOK1)
+	return c.readCommandResult(5, "onStatus", resultIsOK1)
 }
 
 // InitializeServer performs the initialization of a server-side connection.

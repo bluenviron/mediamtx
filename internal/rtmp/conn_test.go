@@ -141,7 +141,7 @@ func TestInitializeClient(t *testing.T) {
 						ChunkStreamID:   5,
 						MessageStreamID: 0x1000000,
 						Name:            "onStatus",
-						CommandID:       4,
+						CommandID:       3,
 						Arguments: []interface{}{
 							nil,
 							flvio.AMFMap{
