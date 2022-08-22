@@ -37,14 +37,12 @@ func TestInitializeClient(t *testing.T) {
 
 				mrw := message.NewReadWriter(bc, true)
 
-				// C->S set window ack size
 				msg, err := mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgSetWindowAckSize{
 					Value: 2500000,
 				}, msg)
 
-				// C->S set peer bandwidth
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgSetPeerBandwidth{
@@ -52,14 +50,12 @@ func TestInitializeClient(t *testing.T) {
 					Type:  2,
 				}, msg)
 
-				// C->S set chunk size
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgSetChunkSize{
 					Value: 65536,
 				}, msg)
 
-				// C->S connect
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgCommandAMF0{
@@ -80,7 +76,6 @@ func TestInitializeClient(t *testing.T) {
 					},
 				}, msg)
 
-				// S->C result
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "_result",
@@ -101,7 +96,6 @@ func TestInitializeClient(t *testing.T) {
 				require.NoError(t, err)
 
 				if ca == "read" {
-					// C->S create stream
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
@@ -113,7 +107,6 @@ func TestInitializeClient(t *testing.T) {
 						},
 					}, msg)
 
-					// S->C result
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "_result",
@@ -125,14 +118,12 @@ func TestInitializeClient(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					// C->S user control set buffer length
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgUserControlSetBufferLength{
 						BufferLength: 0x64,
 					}, msg)
 
-					// C->S play
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
@@ -146,7 +137,6 @@ func TestInitializeClient(t *testing.T) {
 						},
 					}, msg)
 
-					// S->C onStatus
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID:   5,
 						MessageStreamID: 0x1000000,
@@ -163,7 +153,6 @@ func TestInitializeClient(t *testing.T) {
 					})
 					require.NoError(t, err)
 				} else {
-					// C->S releaseStream
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
@@ -176,7 +165,6 @@ func TestInitializeClient(t *testing.T) {
 						},
 					}, msg)
 
-					// C->S FCPublish
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
@@ -189,7 +177,6 @@ func TestInitializeClient(t *testing.T) {
 						},
 					}, msg)
 
-					// C->S createStream
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
@@ -201,7 +188,6 @@ func TestInitializeClient(t *testing.T) {
 						},
 					}, msg)
 
-					// S->C result
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID: 3,
 						Name:          "_result",
@@ -213,7 +199,6 @@ func TestInitializeClient(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					// C->S publish
 					msg, err = mrw.Read()
 					require.NoError(t, err)
 					require.Equal(t, &message.MsgCommandAMF0{
@@ -228,7 +213,6 @@ func TestInitializeClient(t *testing.T) {
 						},
 					}, msg)
 
-					// S->C onStatus
 					err = mrw.Write(&message.MsgCommandAMF0{
 						ChunkStreamID:   5,
 						MessageStreamID: 0x1000000,
@@ -302,7 +286,6 @@ func TestInitializeServer(t *testing.T) {
 
 			mrw := message.NewReadWriter(bc, true)
 
-			// C->S connect
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Name:          "connect",
@@ -322,14 +305,12 @@ func TestInitializeServer(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// S->C window acknowledgement size
 			msg, err := mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgSetWindowAckSize{
 				Value: 2500000,
 			}, msg)
 
-			// S->C set peer bandwidth
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgSetPeerBandwidth{
@@ -337,14 +318,12 @@ func TestInitializeServer(t *testing.T) {
 				Type:  2,
 			}, msg)
 
-			// S->C set chunk size
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgSetChunkSize{
 				Value: 65536,
 			}, msg)
 
-			// S->C result
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
@@ -365,14 +344,12 @@ func TestInitializeServer(t *testing.T) {
 				},
 			}, msg)
 
-			// C->S set chunk size
 			err = mrw.Write(&message.MsgSetChunkSize{
 				Value: 65536,
 			})
 			require.NoError(t, err)
 
 			if ca == "read" {
-				// C->S createStream
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "createStream",
@@ -383,7 +360,6 @@ func TestInitializeServer(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// S->C result
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgCommandAMF0{
@@ -396,13 +372,11 @@ func TestInitializeServer(t *testing.T) {
 					},
 				}, msg)
 
-				// C->S user control set buffer length
 				err = mrw.Write(&message.MsgUserControlSetBufferLength{
 					BufferLength: 0x64,
 				})
 				require.NoError(t, err)
 
-				// C->S play
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 0x1000000,
@@ -415,7 +389,6 @@ func TestInitializeServer(t *testing.T) {
 				})
 				require.NoError(t, err)
 			} else {
-				// C->S releaseStream
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "releaseStream",
@@ -427,7 +400,6 @@ func TestInitializeServer(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S FCPublish
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "FCPublish",
@@ -439,7 +411,6 @@ func TestInitializeServer(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S createStream
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID: 3,
 					Name:          "createStream",
@@ -450,7 +421,6 @@ func TestInitializeServer(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// S->C result
 				msg, err = mrw.Read()
 				require.NoError(t, err)
 				require.Equal(t, &message.MsgCommandAMF0{
@@ -463,7 +433,6 @@ func TestInitializeServer(t *testing.T) {
 					},
 				}, msg)
 
-				// C->S publish
 				err = mrw.Write(&message.MsgCommandAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 0x1000000,
@@ -600,7 +569,6 @@ func TestReadTracks(t *testing.T) {
 
 			mrw := message.NewReadWriter(bc, true)
 
-			// C->S connect
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Name:          "connect",
@@ -620,14 +588,12 @@ func TestReadTracks(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// S->C window acknowledgement size
 			msg, err := mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgSetWindowAckSize{
 				Value: 2500000,
 			}, msg)
 
-			// S->C set peer bandwidth
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgSetPeerBandwidth{
@@ -635,14 +601,12 @@ func TestReadTracks(t *testing.T) {
 				Type:  2,
 			}, msg)
 
-			// S->C set chunk size
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgSetChunkSize{
 				Value: 65536,
 			}, msg)
 
-			// S->C result
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
@@ -663,13 +627,11 @@ func TestReadTracks(t *testing.T) {
 				},
 			}, msg)
 
-			// C->S set chunk size
 			err = mrw.Write(&message.MsgSetChunkSize{
 				Value: 65536,
 			})
 			require.NoError(t, err)
 
-			// C->S releaseStream
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Name:          "releaseStream",
@@ -681,7 +643,6 @@ func TestReadTracks(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// C->S FCPublish
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Name:          "FCPublish",
@@ -693,7 +654,6 @@ func TestReadTracks(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// C->S createStream
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Name:          "createStream",
@@ -704,7 +664,6 @@ func TestReadTracks(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// S->C result
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
@@ -717,7 +676,6 @@ func TestReadTracks(t *testing.T) {
 				},
 			}, msg)
 
-			// C->S publish
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID:   8,
 				MessageStreamID: 1,
@@ -731,7 +689,6 @@ func TestReadTracks(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			// S->C onStatus
 			msg, err = mrw.Read()
 			require.NoError(t, err)
 			require.Equal(t, &message.MsgCommandAMF0{
@@ -751,7 +708,7 @@ func TestReadTracks(t *testing.T) {
 
 			switch ca {
 			case "video+audio":
-				// C->S metadata
+
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -780,7 +737,6 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S H264 decoder config
 				buf, _ := h264conf.Conf{
 					SPS: sps,
 					PPS: pps,
@@ -794,7 +750,6 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S AAC decoder config
 				enc, err := mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
@@ -813,7 +768,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 			case "video":
-				// C->S metadata
+
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -842,7 +797,6 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S H264 decoder config
 				buf, _ := h264conf.Conf{
 					SPS: sps,
 					PPS: pps,
@@ -857,7 +811,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 			case "metadata without codec id":
-				// C->S metadata
+
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -882,7 +836,6 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S H264 decoder config
 				buf, _ := h264conf.Conf{
 					SPS: sps,
 					PPS: pps,
@@ -896,7 +849,6 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S AAC decoder config
 				enc, err := mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
@@ -915,7 +867,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 			case "missing metadata":
-				// C->S H264 decoder config
+
 				buf, _ := h264conf.Conf{
 					SPS: sps,
 					PPS: pps,
@@ -929,7 +881,6 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				// C->S AAC decoder config
 				enc, err := mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
@@ -1005,7 +956,6 @@ func TestWriteTracks(t *testing.T) {
 
 	mrw := message.NewReadWriter(bc, true)
 
-	// C->S connect
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "connect",
@@ -1025,14 +975,12 @@ func TestWriteTracks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// S->C window acknowledgement size
 	msg, err := mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgSetWindowAckSize{
 		Value: 2500000,
 	}, msg)
 
-	// S->C set peer bandwidth
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgSetPeerBandwidth{
@@ -1040,14 +988,12 @@ func TestWriteTracks(t *testing.T) {
 		Type:  2,
 	}, msg)
 
-	// S->C set chunk size
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgSetChunkSize{
 		Value: 65536,
 	}, msg)
 
-	// S->C result
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
@@ -1068,19 +1014,16 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// C->S window acknowledgement size
 	err = mrw.Write(&message.MsgSetWindowAckSize{
 		Value: 2500000,
 	})
 	require.NoError(t, err)
 
-	// C->S set chunk size
 	err = mrw.Write(&message.MsgSetChunkSize{
 		Value: 65536,
 	})
 	require.NoError(t, err)
 
-	// C->S createStream
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "createStream",
@@ -1091,7 +1034,6 @@ func TestWriteTracks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// S->C result
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
@@ -1104,7 +1046,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// C->S getStreamLength
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID: 8,
 		Name:          "getStreamLength",
@@ -1116,7 +1057,6 @@ func TestWriteTracks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// C->S play
 	err = mrw.Write(&message.MsgCommandAMF0{
 		ChunkStreamID:   8,
 		MessageStreamID: 0x1000000,
@@ -1130,21 +1070,18 @@ func TestWriteTracks(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// S->C event "stream is recorded"
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgUserControlStreamIsRecorded{
 		StreamID: 1,
 	}, msg)
 
-	// S->C event "stream begin 1"
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgUserControlStreamBegin{
 		StreamID: 1,
 	}, msg)
 
-	// S->C onStatus
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
@@ -1162,7 +1099,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// S->C onStatus
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
@@ -1180,7 +1116,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// S->C onStatus
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
@@ -1198,7 +1133,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// S->C onStatus
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgCommandAMF0{
@@ -1216,7 +1150,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// S->C onMetadata
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgDataAMF0{
@@ -1234,7 +1167,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// S->C H264 decoder config
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgVideo{
@@ -1252,7 +1184,6 @@ func TestWriteTracks(t *testing.T) {
 		},
 	}, msg)
 
-	// S->C AAC decoder config
 	msg, err = mrw.Read()
 	require.NoError(t, err)
 	require.Equal(t, &message.MsgAudio{
