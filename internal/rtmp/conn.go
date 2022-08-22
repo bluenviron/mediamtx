@@ -247,76 +247,68 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 			return err
 		}
 
-		err = c.readCommandResult("onStatus", resultIsOK1)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = c.mrw.Write(&message.MsgCommandAMF0{
-			ChunkStreamID: 3,
-			Name:          "releaseStream",
-			CommandID:     2,
-			Arguments: []interface{}{
-				nil,
-				actionpath,
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		err = c.mrw.Write(&message.MsgCommandAMF0{
-			ChunkStreamID: 3,
-			Name:          "FCPublish",
-			CommandID:     3,
-			Arguments: []interface{}{
-				nil,
-				actionpath,
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		err = c.mrw.Write(&message.MsgCommandAMF0{
-			ChunkStreamID: 3,
-			Name:          "createStream",
-			CommandID:     4,
-			Arguments: []interface{}{
-				nil,
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		err = c.readCommandResult("_result", resultIsOK2)
-		if err != nil {
-			return err
-		}
-
-		err = c.mrw.Write(&message.MsgCommandAMF0{
-			ChunkStreamID:   4,
-			MessageStreamID: 0x1000000,
-			Name:            "publish",
-			CommandID:       5,
-			Arguments: []interface{}{
-				nil,
-				actionpath,
-				connectpath,
-			},
-		})
-		if err != nil {
-			return err
-		}
-
-		err = c.readCommandResult("onStatus", resultIsOK1)
-		if err != nil {
-			return err
-		}
+		return c.readCommandResult("onStatus", resultIsOK1)
 	}
 
-	return nil
+	err = c.mrw.Write(&message.MsgCommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "releaseStream",
+		CommandID:     2,
+		Arguments: []interface{}{
+			nil,
+			actionpath,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.mrw.Write(&message.MsgCommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "FCPublish",
+		CommandID:     3,
+		Arguments: []interface{}{
+			nil,
+			actionpath,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.mrw.Write(&message.MsgCommandAMF0{
+		ChunkStreamID: 3,
+		Name:          "createStream",
+		CommandID:     4,
+		Arguments: []interface{}{
+			nil,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.readCommandResult("_result", resultIsOK2)
+	if err != nil {
+		return err
+	}
+
+	err = c.mrw.Write(&message.MsgCommandAMF0{
+		ChunkStreamID:   4,
+		MessageStreamID: 0x1000000,
+		Name:            "publish",
+		CommandID:       5,
+		Arguments: []interface{}{
+			nil,
+			actionpath,
+			connectpath,
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	return c.readCommandResult("onStatus", resultIsOK1)
 }
 
 // InitializeServer performs the initialization of a server-side connection.
