@@ -130,7 +130,7 @@ func TestInitializeClient(t *testing.T) {
 						ChunkStreamID:   4,
 						MessageStreamID: 0x1000000,
 						Name:            "play",
-						CommandID:       0,
+						CommandID:       3,
 						Arguments: []interface{}{
 							nil,
 							"",

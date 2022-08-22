@@ -237,7 +237,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 			ChunkStreamID:   4,
 			MessageStreamID: 0x1000000,
 			Name:            "play",
-			CommandID:       0,
+			CommandID:       3,
 			Arguments: []interface{}{
 				nil,
 				actionpath,
