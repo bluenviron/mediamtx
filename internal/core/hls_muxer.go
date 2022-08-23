@@ -177,7 +177,7 @@ func newHLSMuxer(
 		ctxCancel:                 ctxCancel,
 		created:                   time.Now(),
 		lastRequestTime: func() *int64 {
-			v := time.Now().Unix()
+			v := time.Now().UnixNano()
 			return &v
 		}(),
 		chRequest:          make(chan *hlsMuxerRequest),
@@ -244,7 +244,7 @@ func (m *hlsMuxer) run() {
 			case req := <-m.chAPIHLSMuxersList:
 				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
 					Created:     m.created,
-					LastRequest: time.Unix(atomic.LoadInt64(m.lastRequestTime), 0).String(),
+					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
 				}
 				close(req.res)
 
@@ -408,7 +408,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	for {
 		select {
 		case <-closeCheckTicker.C:
-			t := time.Unix(atomic.LoadInt64(m.lastRequestTime), 0)
+			t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
 			if m.remoteAddr != "" && time.Since(t) >= closeAfterInactivity {
 				m.ringBuffer.Close()
 				<-writerDone
@@ -427,7 +427,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 }
 
 func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResponse {
-	atomic.StoreInt64(m.lastRequestTime, time.Now().Unix())
+	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
 
 	err := m.authenticate(req.ctx)
 	if err != nil {

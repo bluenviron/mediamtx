@@ -469,6 +469,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			case "hls":
 				var out struct {
 					Items map[string]struct {
+						Created     string `json:"created"`
 						LastRequest string `json:"lastRequest"`
 					} `json:"items"`
 				}
@@ -480,7 +481,9 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					firstID = k
 				}
 
-				require.NotEqual(t, "", out.Items[firstID].LastRequest)
+				s := fmt.Sprintf("^%d-", time.Now().Year())
+				require.Regexp(t, s, out.Items[firstID].Created)
+				require.Regexp(t, s, out.Items[firstID].LastRequest)
 			}
 		})
 	}

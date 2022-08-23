@@ -29,7 +29,7 @@ func (nilWriter) Write(p []byte) (int, error) {
 
 type hlsServerAPIMuxersListItem struct {
 	Created     time.Time `json:"created"`
-	LastRequest string    `json:"lastRequest"`
+	LastRequest time.Time `json:"lastRequest"`
 }
 
 type hlsServerAPIMuxersListData struct {
