@@ -143,6 +143,22 @@ components:
           type: boolean
         fallback:
           type: string
+        rpiCameraCamID:
+          type: number
+        rpiCameraWidth:
+          type: number
+        rpiCameraHeight:
+          type: number
+        rpiCameraFPS:
+          type: number
+        rpiCameraIDRPeriod:
+          type: number
+        rpiCameraBitrate:
+          type: number
+        rpiCameraProfile:
+          type: string
+        rpiCameraLevel:
+          type: string
 
         # authentication
         publishUser:
