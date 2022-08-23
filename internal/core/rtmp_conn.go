@@ -56,6 +56,7 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
+	isTLS                     bool
 	id                        string
 	externalAuthenticationURL string
 	rtspAddress               string
@@ -82,6 +83,7 @@ type rtmpConn struct {
 
 func newRTMPConn(
 	parentCtx context.Context,
+	isTLS bool,
 	id string,
 	externalAuthenticationURL string,
 	rtspAddress string,
@@ -99,6 +101,7 @@ func newRTMPConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
+		isTLS:                     isTLS,
 		id:                        id,
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
@@ -672,7 +675,7 @@ func (c *rtmpConn) apiReaderDescribe() interface{} {
 // apiSourceDescribe implements source.
 func (c *rtmpConn) apiSourceDescribe() interface{} {
 	var typ string
-	if s.isTLS {
+	if c.isTLS {
 		typ = "rtmpsConn"
 	} else {
 		typ = "rtmpConn"

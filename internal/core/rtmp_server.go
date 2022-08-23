@@ -200,6 +200,7 @@ outer:
 
 			c := newRTMPConn(
 				s.ctx,
+				s.isTLS,
 				id,
 				s.externalAuthenticationURL,
 				s.rtspAddress,

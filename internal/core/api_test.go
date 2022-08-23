@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -14,6 +16,8 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
 func httpRequest(method string, ur string, in interface{}, out interface{}) error {
@@ -365,16 +369,23 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 		"rtsp",
 		"rtsps",
 		"rtmp",
+		"rtmps",
 		"hls",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
 
-			if ca == "rtsps" {
+			switch ca {
+			case "rtsps":
 				conf += "protocols: [tcp]\n" +
 					"encryption: strict\n" +
 					"serverCert: " + serverCertFpath + "\n" +
 					"serverKey: " + serverKeyFpath + "\n"
+
+			case "rtmps":
+				conf += "rtmpEncryption: strict\n" +
+					"rtmpServerCert: " + serverCertFpath + "\n" +
+					"rtmpServerKey: " + serverKeyFpath + "\n"
 			}
 
 			conf += "paths:\n" +
@@ -409,17 +420,42 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
-			case "rtmp":
-				cnt1, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", "emptyvideo.mkv",
-					"-c", "copy",
-					"-f", "flv",
-					"rtmp://localhost:1935/test1/test2",
-				})
+			case "rtmp", "rtmps":
+				var port string
+				if ca == "rtmp" {
+					port = "1935"
+				} else {
+					port = "1936"
+				}
+
+				u, err := url.Parse("rtmp://127.0.0.1:" + port + "/mypath")
 				require.NoError(t, err)
-				defer cnt1.close()
+
+				nconn, err := func() (net.Conn, error) {
+					if ca == "rtmp" {
+						return net.Dial("tcp", u.Host)
+					}
+					return tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
+				}()
+				require.NoError(t, err)
+				defer nconn.Close()
+				conn := rtmp.NewConn(nconn)
+
+				err = conn.InitializeClient(u, true)
+				require.NoError(t, err)
+
+				videoTrack := &gortsplib.TrackH264{
+					PayloadType: 96,
+					SPS: []byte{ // 1920x1080 baseline
+						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+					},
+					PPS: []byte{0x08, 0x06, 0x07, 0x08},
+				}
+
+				err = conn.WriteTracks(videoTrack, nil)
+				require.NoError(t, err)
 
 			case "hls":
 				source := gortsplib.Client{}
@@ -438,7 +474,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			}
 
 			switch ca {
-			case "rtsp", "rtsps", "rtmp":
+			case "rtsp", "rtsps", "rtmp", "rtmps":
 				var pa string
 				switch ca {
 				case "rtsp":
@@ -449,6 +485,9 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 
 				case "rtmp":
 					pa = "rtmpconns"
+
+				case "rtmps":
+					pa = "rtmpsconns"
 				}
 
 				var out struct {
