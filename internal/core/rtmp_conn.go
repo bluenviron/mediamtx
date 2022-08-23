@@ -671,8 +671,15 @@ func (c *rtmpConn) apiReaderDescribe() interface{} {
 
 // apiSourceDescribe implements source.
 func (c *rtmpConn) apiSourceDescribe() interface{} {
+	var typ string
+	if s.isTLS {
+		typ = "rtmpsConn"
+	} else {
+		typ = "rtmpConn"
+	}
+
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtmpConn", c.id}
+	}{typ, c.id}
 }

@@ -196,6 +196,7 @@ components:
           - $ref: '#/components/schemas/PathSourceRTSPSession'
           - $ref: '#/components/schemas/PathSourceRTSPSSession'
           - $ref: '#/components/schemas/PathSourceRTMPConn'
+          - $ref: '#/components/schemas/PathSourceRTMPSConn'
           - $ref: '#/components/schemas/PathSourceRTSPSource'
           - $ref: '#/components/schemas/PathSourceRTMPSource'
           - $ref: '#/components/schemas/PathSourceHLSSource'
@@ -252,6 +253,15 @@ components:
         type:
           type: string
           enum: [rtmpConn]
+        id:
+          type: string
+
+    PathSourceRTMPSConn:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [rtmpsConn]
         id:
           type: string
 
