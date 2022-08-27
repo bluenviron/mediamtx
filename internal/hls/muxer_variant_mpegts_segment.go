@@ -28,6 +28,7 @@ type muxerVariantMPEGTSSegment struct {
 }
 
 func newMuxerVariantMPEGTSSegment(
+	id uint64,
 	startTime time.Time,
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
@@ -40,7 +41,7 @@ func newMuxerVariantMPEGTSSegment(
 		audioTrack:     audioTrack,
 		writer:         writer,
 		startTime:      startTime,
-		name:           strconv.FormatInt(startTime.Unix(), 10),
+		name:           "seg" + strconv.FormatUint(id, 10),
 	}
 
 	return t
