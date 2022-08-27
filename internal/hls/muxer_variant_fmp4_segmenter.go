@@ -141,15 +141,9 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 		return nil
 	}
 
-	avcc, err := h264.AVCCMarshal(nalus)
-	if err != nil {
-		return err
-	}
-
 	return m.writeH264Entry(&fmp4.VideoSample{
 		PTS:        pts,
 		NALUs:      nalus,
-		AVCC:       avcc,
 		IDRPresent: idrPresent,
 	})
 }

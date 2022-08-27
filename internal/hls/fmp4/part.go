@@ -6,6 +6,7 @@ import (
 
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/h264"
 )
 
 func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
@@ -77,7 +78,7 @@ func generatePartVideoTraf(
 
 		trun.Entries = append(trun.Entries, gomp4.TrunEntry{
 			SampleDuration:                uint32(durationGoToMp4(e.Duration(), videoTimescale)),
-			SampleSize:                    uint32(len(e.AVCC)),
+			SampleSize:                    uint32(len(e.avcc)),
 			SampleFlags:                   flags,
 			SampleCompositionTimeOffsetV1: int32(durationGoToMp4(off, videoTimescale)),
 		})
@@ -208,6 +209,14 @@ func GeneratePart(
 	var videoTrun *gomp4.Trun
 	var videoTrunOffset int
 	if videoTrack != nil {
+		for _, e := range videoSamples {
+			var err error
+			e.avcc, err = h264.AVCCMarshal(e.NALUs)
+			if err != nil {
+				return nil, err
+			}
+		}
+
 		var err error
 		videoTrun, videoTrunOffset, err = generatePartVideoTraf(
 			w, trackID, videoSamples)
@@ -240,7 +249,7 @@ func GeneratePart(
 
 	if videoTrack != nil {
 		for _, e := range videoSamples {
-			dataSize += len(e.AVCC)
+			dataSize += len(e.avcc)
 		}
 		videoDataSize = dataSize
 	}
@@ -256,7 +265,7 @@ func GeneratePart(
 
 	if videoTrack != nil {
 		for _, e := range videoSamples {
-			pos += copy(mdat.Data[pos:], e.AVCC)
+			pos += copy(mdat.Data[pos:], e.avcc)
 		}
 	}
 

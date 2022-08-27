@@ -13,9 +13,10 @@ type VideoSample struct {
 	NALUs      [][]byte
 	PTS        time.Duration
 	DTS        time.Duration
-	AVCC       []byte
 	IDRPresent bool
 	Next       *VideoSample
+
+	avcc []byte
 }
 
 // Duration returns the sample duration.

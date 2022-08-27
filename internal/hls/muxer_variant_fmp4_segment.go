@@ -131,15 +131,16 @@ func (s *muxerVariantFMP4Segment) finalize(
 }
 
 func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4.VideoSample, adjustedPartDuration time.Duration) error {
-	size := uint64(len(sample.AVCC))
-
+	size := uint64(0)
+	for _, nalu := range sample.NALUs {
+		size += uint64(len(nalu))
+	}
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
+	s.size += size
 
 	s.currentPart.writeH264(sample)
-
-	s.size += size
 
 	// switch part
 	if s.lowLatency &&
@@ -164,14 +165,12 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4.VideoSample, adjustedPa
 
 func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4.AudioSample, adjustedPartDuration time.Duration) error {
 	size := uint64(len(sample.AU))
-
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
+	s.size += size
 
 	s.currentPart.writeAAC(sample)
-
-	s.size += size
 
 	// switch part
 	if s.lowLatency && s.videoTrack == nil &&
