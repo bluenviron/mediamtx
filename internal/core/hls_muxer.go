@@ -480,7 +480,7 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 
 	if m.externalAuthenticationURL != "" {
 		ip := net.ParseIP(ctx.ClientIP())
-		user, pass, _ := ctx.Request.BasicAuth()
+		user, pass, ok := ctx.Request.BasicAuth()
 
 		err := externalAuth(
 			m.externalAuthenticationURL,
@@ -491,6 +491,10 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 			false,
 			ctx.Request.URL.RawQuery)
 		if err != nil {
+			if !ok {
+				return pathErrAuthNotCritical{}
+			}
+
 			return pathErrAuthCritical{
 				message: fmt.Sprintf("external authentication failed: %s", err),
 			}
