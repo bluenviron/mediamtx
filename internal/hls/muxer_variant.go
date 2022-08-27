@@ -16,7 +16,7 @@ const (
 
 type muxerVariant interface {
 	close()
-	writeH264(pts time.Duration, nalus [][]byte) error
-	writeAAC(pts time.Duration, au []byte) error
+	writeH264(now time.Time, pts time.Duration, nalus [][]byte) error
+	writeAAC(now time.Time, pts time.Duration, au []byte) error
 	file(name string, msn string, part string, skip string) *MuxerFileResponse
 }

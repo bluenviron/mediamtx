@@ -122,7 +122,7 @@ func (m *muxerVariantFMP4Segmenter) adjustPartDuration(du time.Duration) {
 	}
 }
 
-func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte) error {
+func (m *muxerVariantFMP4Segmenter) writeH264(now time.Time, pts time.Duration, nalus [][]byte) error {
 	idrPresent := false
 	nonIDRPresent := false
 
@@ -141,14 +141,14 @@ func (m *muxerVariantFMP4Segmenter) writeH264(pts time.Duration, nalus [][]byte)
 		return nil
 	}
 
-	return m.writeH264Entry(&fmp4.VideoSample{
+	return m.writeH264Entry(now, &fmp4.VideoSample{
 		PTS:        pts,
 		NALUs:      nalus,
 		IDRPresent: idrPresent,
 	})
 }
 
-func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4.VideoSample) error {
+func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.VideoSample) error {
 	if !m.videoFirstIDRReceived {
 		// skip sample silently until we find one with an IDR
 		if !sample.IDRPresent {
@@ -189,8 +189,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4.VideoSample) err
 		return nil
 	}
 	sample.Next = m.nextVideoSample
-
-	now := time.Now()
 
 	if m.currentSegment == nil {
 		// create first segment
@@ -253,14 +251,14 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(sample *fmp4.VideoSample) err
 	return nil
 }
 
-func (m *muxerVariantFMP4Segmenter) writeAAC(pts time.Duration, au []byte) error {
-	return m.writeAACEntry(&fmp4.AudioSample{
+func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, pts time.Duration, au []byte) error {
+	return m.writeAACEntry(now, &fmp4.AudioSample{
 		PTS: pts,
 		AU:  au,
 	})
 }
 
-func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4.AudioSample) error {
+func (m *muxerVariantFMP4Segmenter) writeAACEntry(now time.Time, sample *fmp4.AudioSample) error {
 	if m.videoTrack != nil {
 		// wait for the video track
 		if !m.videoFirstIDRReceived {
@@ -277,8 +275,6 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(sample *fmp4.AudioSample) erro
 		return nil
 	}
 	sample.Next = m.nextAudioSample
-
-	now := time.Now()
 
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {

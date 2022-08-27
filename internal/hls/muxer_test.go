@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var testTime = time.Date(2010, 0o1, 0o1, 0o1, 0o1, 0o1, 0, time.UTC)
+
 // baseline profile without POC
 var testSPS = []byte{
 	0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
@@ -46,27 +48,27 @@ func TestMuxerVideoAudio(t *testing.T) {
 	defer m.Close()
 
 	// group without IDR
-	err = m.WriteH264(1*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 1*time.Second, [][]byte{
 		{0x06},
 		{0x07},
 	})
 	require.NoError(t, err)
 
 	// group with IDR
-	err = m.WriteH264(2*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 2*time.Second, [][]byte{
 		testSPS, // SPS
 		{8},     // PPS
 		{5},     // IDR
 	})
 	require.NoError(t, err)
 
-	err = m.WriteAAC(3*time.Second, []byte{
+	err = m.WriteAAC(testTime, 3*time.Second, []byte{
 		0x01, 0x02, 0x03, 0x04,
 	})
 	require.NoError(t, err)
 
 	// group without IDR
-	err = m.WriteH264(4*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 4*time.Second, [][]byte{
 		{1}, // non-IDR
 	})
 	require.NoError(t, err)
@@ -74,7 +76,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// group with IDR
-	err = m.WriteH264(6*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 6*time.Second, [][]byte{
 		{5}, // IDR
 	})
 	require.NoError(t, err)
@@ -205,7 +207,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	defer m.Close()
 
 	// group with IDR
-	err = m.WriteH264(2*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 2*time.Second, [][]byte{
 		testSPS, // SPS
 		{8},     // PPS
 		{5},     // IDR
@@ -213,7 +215,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	// group with IDR
-	err = m.WriteH264(6*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 6*time.Second, [][]byte{
 		{5}, // IDR
 	})
 	require.NoError(t, err)
@@ -297,18 +299,18 @@ func TestMuxerAudioOnly(t *testing.T) {
 	defer m.Close()
 
 	for i := 0; i < 100; i++ {
-		err = m.WriteAAC(1*time.Second, []byte{
+		err = m.WriteAAC(testTime, 1*time.Second, []byte{
 			0x01, 0x02, 0x03, 0x04,
 		})
 		require.NoError(t, err)
 	}
 
-	err = m.WriteAAC(2*time.Second, []byte{
+	err = m.WriteAAC(testTime, 2*time.Second, []byte{
 		0x01, 0x02, 0x03, 0x04,
 	})
 	require.NoError(t, err)
 
-	err = m.WriteAAC(3*time.Second, []byte{
+	err = m.WriteAAC(testTime, 3*time.Second, []byte{
 		0x01, 0x02, 0x03, 0x04,
 	})
 	require.NoError(t, err)
@@ -385,7 +387,7 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 	require.NoError(t, err)
 
 	// group with IDR
-	err = m.WriteH264(2*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 2*time.Second, [][]byte{
 		testSPS, // SPS
 		{8},     // PPS
 		{5},     // IDR
@@ -409,7 +411,7 @@ func TestMuxerMaxSegmentSize(t *testing.T) {
 	require.NoError(t, err)
 	defer m.Close()
 
-	err = m.WriteH264(2*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 2*time.Second, [][]byte{
 		testSPS,
 		{5}, // IDR
 	})
@@ -427,14 +429,14 @@ func TestMuxerDoubleRead(t *testing.T) {
 	require.NoError(t, err)
 	defer m.Close()
 
-	err = m.WriteH264(0, [][]byte{
+	err = m.WriteH264(testTime, 0, [][]byte{
 		testSPS,
 		{5}, // IDR
 		{1},
 	})
 	require.NoError(t, err)
 
-	err = m.WriteH264(2*time.Second, [][]byte{
+	err = m.WriteH264(testTime, 2*time.Second, [][]byte{
 		{5}, // IDR
 		{2},
 	})

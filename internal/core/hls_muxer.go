@@ -375,7 +375,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 					}
 					pts := data.pts - *videoInitialPTS
 
-					err = m.muxer.WriteH264(pts, data.h264NALUs)
+					err = m.muxer.WriteH264(time.Now(), pts, data.h264NALUs)
 					if err != nil {
 						return fmt.Errorf("muxer error: %v", err)
 					}
@@ -390,6 +390,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 					for i, au := range aus {
 						err = m.muxer.WriteAAC(
+							time.Now(),
 							pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
 								time.Second/time.Duration(audioTrack.ClockRate()),
 							au)

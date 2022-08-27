@@ -39,12 +39,12 @@ func (v *muxerVariantMPEGTS) close() {
 	v.playlist.close()
 }
 
-func (v *muxerVariantMPEGTS) writeH264(pts time.Duration, nalus [][]byte) error {
-	return v.segmenter.writeH264(pts, nalus)
+func (v *muxerVariantMPEGTS) writeH264(now time.Time, pts time.Duration, nalus [][]byte) error {
+	return v.segmenter.writeH264(now, pts, nalus)
 }
 
-func (v *muxerVariantMPEGTS) writeAAC(pts time.Duration, au []byte) error {
-	return v.segmenter.writeAAC(pts, au)
+func (v *muxerVariantMPEGTS) writeAAC(now time.Time, pts time.Duration, au []byte) error {
+	return v.segmenter.writeAAC(now, pts, au)
 }
 
 func (v *muxerVariantMPEGTS) file(name string, msn string, part string, skip string) *MuxerFileResponse {
