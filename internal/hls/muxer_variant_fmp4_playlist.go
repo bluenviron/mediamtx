@@ -333,7 +333,7 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 			}
 
 			cnt += "#EXTINF:" + strconv.FormatFloat(seg.renderedDuration.Seconds(), 'f', 5, 64) + ",\n" +
-				seg.name() + ".mp4\n"
+				seg.name + ".mp4\n"
 
 		case *muxerVariantFMP4Gap:
 			cnt += "#EXT-X-GAP\n" +
@@ -449,7 +449,7 @@ func (p *muxerVariantFMP4Playlist) onSegmentFinalized(segment *muxerVariantFMP4S
 			}
 		}
 
-		p.segmentsByName[segment.name()] = segment
+		p.segmentsByName[segment.name] = segment
 		p.segments = append(p.segments, segment)
 		p.nextSegmentID = segment.id + 1
 		p.nextSegmentParts = p.nextSegmentParts[:0]
@@ -463,7 +463,7 @@ func (p *muxerVariantFMP4Playlist) onSegmentFinalized(segment *muxerVariantFMP4S
 				}
 				p.parts = p.parts[len(toDeleteSeg.parts):]
 
-				delete(p.segmentsByName, toDeleteSeg.name())
+				delete(p.segmentsByName, toDeleteSeg.name)
 			}
 
 			p.segments = p.segments[1:]

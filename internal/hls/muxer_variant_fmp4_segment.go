@@ -52,6 +52,7 @@ type muxerVariantFMP4Segment struct {
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
+	name             string
 	size             uint64
 	parts            []*muxerVariantFMP4Part
 	currentPart      *muxerVariantFMP4Part
@@ -79,6 +80,7 @@ func newMuxerVariantFMP4Segment(
 		audioTrack:      audioTrack,
 		genPartID:       genPartID,
 		onPartFinalized: onPartFinalized,
+		name:            "seg" + strconv.FormatUint(id, 10),
 	}
 
 	s.currentPart = newMuxerVariantFMP4Part(
@@ -88,10 +90,6 @@ func newMuxerVariantFMP4Segment(
 	)
 
 	return s
-}
-
-func (s *muxerVariantFMP4Segment) name() string {
-	return "seg" + strconv.FormatUint(s.id, 10)
 }
 
 func (s *muxerVariantFMP4Segment) reader() io.Reader {

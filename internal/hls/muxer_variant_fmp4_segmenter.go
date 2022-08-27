@@ -80,7 +80,7 @@ func newMuxerVariantFMP4Segmenter(
 	onSegmentFinalized func(*muxerVariantFMP4Segment),
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segmenter {
-	return &muxerVariantFMP4Segmenter{
+	m := &muxerVariantFMP4Segmenter{
 		lowLatency:         lowLatency,
 		segmentDuration:    segmentDuration,
 		partDuration:       partDuration,
@@ -89,9 +89,15 @@ func newMuxerVariantFMP4Segmenter(
 		audioTrack:         audioTrack,
 		onSegmentFinalized: onSegmentFinalized,
 		onPartFinalized:    onPartFinalized,
-		nextSegmentID:      uint64(segmentCount),
 		sampleDurations:    make(map[time.Duration]struct{}),
 	}
+
+	// add initial gaps, required by iOS LL-HLS
+	if m.lowLatency {
+		m.nextSegmentID = 7
+	}
+
+	return m
 }
 
 func (m *muxerVariantFMP4Segmenter) genSegmentID() uint64 {
