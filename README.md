@@ -547,6 +547,18 @@ _rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-qua
 
 After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.
 
+Camera settings can be changed by using the `rpiCamera*` parameters:
+
+```yml
+paths:
+  cam:
+    source: rpiCamera
+    rpiCameraWidth: 1920
+    rpiCameraHeight: 1080
+```
+
+All available parameters are listed in the [sample configuration file](https://github.com/aler9/rtsp-simple-server/blob/1e788f81fd46c7e8f5314bd4ae04989debfff52c/rtsp-simple-server.yml#L230).
+
 ### From OBS Studio
 
 OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
