@@ -8,28 +8,23 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
-	"github.com/asticode/go-astits"
-)
 
-const (
-	mpegtsPCROffset = 400 * time.Millisecond // 2 samples @ 5fps
+	"github.com/aler9/rtsp-simple-server/internal/hls/mpegts"
 )
 
 type muxerVariantMPEGTSSegment struct {
 	segmentMaxSize uint64
 	videoTrack     *gortsplib.TrackH264
 	audioTrack     *gortsplib.TrackMPEG4Audio
-	writeData      func(*astits.MuxerData) (int, error)
+	writer         *mpegts.Writer
 
-	startTime      time.Time
-	name           string
-	buf            bytes.Buffer
-	startDTS       *time.Duration
-	endDTS         time.Duration
-	pcrSendCounter int
-	audioAUCount   int
+	size         uint64
+	startTime    time.Time
+	name         string
+	startDTS     *time.Duration
+	endDTS       time.Duration
+	audioAUCount int
+	content      []byte
 }
 
 func newMuxerVariantMPEGTSSegment(
@@ -37,21 +32,16 @@ func newMuxerVariantMPEGTSSegment(
 	segmentMaxSize uint64,
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackMPEG4Audio,
-	writeData func(*astits.MuxerData) (int, error),
+	writer *mpegts.Writer,
 ) *muxerVariantMPEGTSSegment {
 	t := &muxerVariantMPEGTSSegment{
 		segmentMaxSize: segmentMaxSize,
 		videoTrack:     videoTrack,
 		audioTrack:     audioTrack,
-		writeData:      writeData,
+		writer:         writer,
 		startTime:      startTime,
 		name:           strconv.FormatInt(startTime.Unix(), 10),
 	}
-
-	// WriteTable() is called automatically when WriteData() is called with
-	// - PID == PCRPID
-	// - AdaptationField != nil
-	// - RandomAccessIndicator = true
 
 	return t
 }
@@ -60,16 +50,13 @@ func (t *muxerVariantMPEGTSSegment) duration() time.Duration {
 	return t.endDTS - *t.startDTS
 }
 
-func (t *muxerVariantMPEGTSSegment) write(p []byte) (int, error) {
-	if uint64(len(p)+t.buf.Len()) > t.segmentMaxSize {
-		return 0, fmt.Errorf("reached maximum segment size")
-	}
-
-	return t.buf.Write(p)
+func (t *muxerVariantMPEGTSSegment) reader() io.Reader {
+	return bytes.NewReader(t.content)
 }
 
-func (t *muxerVariantMPEGTSSegment) reader() io.Reader {
-	return bytes.NewReader(t.buf.Bytes())
+func (t *muxerVariantMPEGTSSegment) finalize(endDTS time.Duration) {
+	t.endDTS = endDTS
+	t.content = t.writer.GenerateSegment()
 }
 
 func (t *muxerVariantMPEGTSSegment) writeH264(
@@ -79,56 +66,16 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 	idrPresent bool,
 	nalus [][]byte,
 ) error {
-	// prepend an AUD. This is required by video.js and iOS
-	nalus = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, nalus...)
-
-	enc, err := h264.AnnexBMarshal(nalus)
-	if err != nil {
-		return err
+	size := uint64(0)
+	for _, nalu := range nalus {
+		size += uint64(len(nalu))
 	}
-
-	var af *astits.PacketAdaptationField
-
-	if idrPresent {
-		af = &astits.PacketAdaptationField{}
-		af.RandomAccessIndicator = true
+	if (t.size + size) > t.segmentMaxSize {
+		return fmt.Errorf("reached maximum segment size")
 	}
+	t.size += size
 
-	// send PCR once in a while
-	if t.pcrSendCounter == 0 {
-		if af == nil {
-			af = &astits.PacketAdaptationField{}
-		}
-		af.HasPCR = true
-		af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
-		t.pcrSendCounter = 3
-	}
-	t.pcrSendCounter--
-
-	oh := &astits.PESOptionalHeader{
-		MarkerBits: 2,
-	}
-
-	if dts == pts {
-		oh.PTSDTSIndicator = astits.PTSDTSIndicatorOnlyPTS
-		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
-	} else {
-		oh.PTSDTSIndicator = astits.PTSDTSIndicatorBothPresent
-		oh.DTS = &astits.ClockReference{Base: int64((dts + mpegtsPCROffset).Seconds() * 90000)}
-		oh.PTS = &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)}
-	}
-
-	_, err = t.writeData(&astits.MuxerData{
-		PID:             256,
-		AdaptationField: af,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: oh,
-				StreamID:       224, // video
-			},
-			Data: enc,
-		},
-	})
+	err := t.writer.WriteH264(pcr, dts, pts, idrPresent, nalus)
 	if err != nil {
 		return err
 	}
@@ -136,7 +83,6 @@ func (t *muxerVariantMPEGTSSegment) writeH264(
 	if t.startDTS == nil {
 		t.startDTS = &dts
 	}
-
 	t.endDTS = dts
 
 	return nil
@@ -147,50 +93,13 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 	pts time.Duration,
 	au []byte,
 ) error {
-	pkts := mpeg4audio.ADTSPackets{
-		{
-			Type:         t.audioTrack.Config.Type,
-			SampleRate:   t.audioTrack.Config.SampleRate,
-			ChannelCount: t.audioTrack.Config.ChannelCount,
-			AU:           au,
-		},
+	size := uint64(len(au))
+	if (t.size + size) > t.segmentMaxSize {
+		return fmt.Errorf("reached maximum segment size")
 	}
+	t.size += size
 
-	enc, err := pkts.Marshal()
-	if err != nil {
-		return err
-	}
-
-	af := &astits.PacketAdaptationField{
-		RandomAccessIndicator: true,
-	}
-
-	if t.videoTrack == nil {
-		// send PCR once in a while
-		if t.pcrSendCounter == 0 {
-			af.HasPCR = true
-			af.PCR = &astits.ClockReference{Base: int64(pcr.Seconds() * 90000)}
-			t.pcrSendCounter = 3
-		}
-		t.pcrSendCounter--
-	}
-
-	_, err = t.writeData(&astits.MuxerData{
-		PID:             257,
-		AdaptationField: af,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64((pts + mpegtsPCROffset).Seconds() * 90000)},
-				},
-				PacketLength: uint16(len(enc) + 8),
-				StreamID:     192, // audio
-			},
-			Data: enc,
-		},
-	})
+	err := t.writer.WriteAAC(pcr, pts, au)
 	if err != nil {
 		return err
 	}
@@ -201,7 +110,6 @@ func (t *muxerVariantMPEGTSSegment) writeAAC(
 		if t.startDTS == nil {
 			t.startDTS = &pts
 		}
-
 		t.endDTS = pts
 	}
 

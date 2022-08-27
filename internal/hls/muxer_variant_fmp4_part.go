@@ -24,7 +24,7 @@ type muxerVariantFMP4Part struct {
 	isIndependent    bool
 	videoSamples     []*fmp4.VideoSample
 	audioSamples     []*fmp4.AudioSample
-	renderedContent  []byte
+	content          []byte
 	renderedDuration time.Duration
 }
 
@@ -51,7 +51,7 @@ func (p *muxerVariantFMP4Part) name() string {
 }
 
 func (p *muxerVariantFMP4Part) reader() io.Reader {
-	return bytes.NewReader(p.renderedContent)
+	return bytes.NewReader(p.content)
 }
 
 func (p *muxerVariantFMP4Part) duration() time.Duration {
@@ -73,7 +73,7 @@ func (p *muxerVariantFMP4Part) duration() time.Duration {
 func (p *muxerVariantFMP4Part) finalize() error {
 	if len(p.videoSamples) > 0 || len(p.audioSamples) > 0 {
 		var err error
-		p.renderedContent, err = fmp4.GeneratePart(
+		p.content, err = fmp4.GeneratePart(
 			p.videoTrack,
 			p.audioTrack,
 			p.videoSamples,

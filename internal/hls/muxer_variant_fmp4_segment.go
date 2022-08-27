@@ -26,11 +26,11 @@ func (mbr *partsReader) Read(p []byte) (int, error) {
 			return n, io.EOF
 		}
 
-		copied := copy(p[n:], mbr.parts[mbr.curPart].renderedContent[mbr.curPos:])
+		copied := copy(p[n:], mbr.parts[mbr.curPart].content[mbr.curPos:])
 		mbr.curPos += copied
 		n += copied
 
-		if mbr.curPos == len(mbr.parts[mbr.curPart].renderedContent) {
+		if mbr.curPos == len(mbr.parts[mbr.curPart].content) {
 			mbr.curPart++
 			mbr.curPos = 0
 		}
@@ -111,7 +111,7 @@ func (s *muxerVariantFMP4Segment) finalize(
 		return err
 	}
 
-	if s.currentPart.renderedContent != nil {
+	if s.currentPart.content != nil {
 		s.onPartFinalized(s.currentPart)
 		s.parts = append(s.parts, s.currentPart)
 	}
