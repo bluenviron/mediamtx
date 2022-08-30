@@ -1,6 +1,6 @@
-BASE_IMAGE = golang:1.18-alpine3.15
+BASE_IMAGE = golang:1.19-alpine3.16
 LINT_IMAGE = golangci/golangci-lint:v1.45.2
-NODE_IMAGE = node:16-alpine3.15
+NODE_IMAGE = node:16-alpine3.16
 RPI32_IMAGE = balenalib/raspberrypi3:buster-run
 RPI64_IMAGE = balenalib/raspberrypi3-64:buster-run
 
