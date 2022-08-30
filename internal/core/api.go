@@ -189,6 +189,7 @@ type api struct {
 	hlsServer   apiHLSServer
 	parent      apiParent
 
+	ln    net.Listener
 	mutex sync.Mutex
 	s     *http.Server
 }
@@ -218,6 +219,7 @@ func newAPI(
 		rtmpsServer: rtmpsServer,
 		hlsServer:   hlsServer,
 		parent:      parent,
+		ln:          ln,
 	}
 
 	router := gin.New()
@@ -268,6 +270,7 @@ func newAPI(
 
 func (a *api) close() {
 	a.log(logger.Info, "listener is closing")
+	a.ln.Close() // in case Shutdown() is called before Serve()
 	a.s.Shutdown(context.Background())
 }
 

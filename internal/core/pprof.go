@@ -49,6 +49,7 @@ func newPPROF(
 
 func (pp *pprof) close() {
 	pp.log(logger.Info, "listener is closing")
+	pp.ln.Close() // in case Shutdown() is called before Serve()
 	pp.server.Shutdown(context.Background())
 }
 
@@ -57,8 +58,5 @@ func (pp *pprof) log(level logger.Level, format string, args ...interface{}) {
 }
 
 func (pp *pprof) run() {
-	err := pp.server.Serve(pp.ln)
-	if err != http.ErrServerClosed {
-		panic(err)
-	}
+	pp.server.Serve(pp.ln)
 }

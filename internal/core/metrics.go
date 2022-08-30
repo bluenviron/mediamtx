@@ -79,6 +79,7 @@ func newMetrics(
 
 func (m *metrics) close() {
 	m.log(logger.Info, "listener is closing")
+	m.ln.Close() // in case Shutdown() is called before Serve()
 	m.server.Shutdown(context.Background())
 }
 
@@ -87,10 +88,7 @@ func (m *metrics) log(level logger.Level, format string, args ...interface{}) {
 }
 
 func (m *metrics) run() {
-	err := m.server.Serve(m.ln)
-	if err != http.ErrServerClosed {
-		panic(err)
-	}
+	m.server.Serve(m.ln)
 }
 
 func (m *metrics) onMetrics(ctx *gin.Context) {
