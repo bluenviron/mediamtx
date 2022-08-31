@@ -270,8 +270,8 @@ func newAPI(
 
 func (a *api) close() {
 	a.log(logger.Info, "listener is closing")
-	a.ln.Close() // in case Shutdown() is called before Serve()
 	a.s.Shutdown(context.Background())
+	a.ln.Close() // in case Shutdown() is called before Serve()
 }
 
 func (a *api) log(level logger.Level, format string, args ...interface{}) {

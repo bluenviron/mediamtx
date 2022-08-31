@@ -60,6 +60,10 @@ func httpRequest(method string, ur string, in interface{}, out interface{}) erro
 }
 
 func TestAPIConfigGet(t *testing.T) {
+	// since the HTTP server is created and deleted multiple times,
+	// we can't reuse TCP connections.
+	http.DefaultTransport.(*http.Transport).DisableKeepAlives = true
+
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.close()

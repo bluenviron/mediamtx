@@ -72,23 +72,19 @@ func newMetrics(
 
 	m.log(logger.Info, "listener opened on "+address)
 
-	go m.run()
+	go m.server.Serve(m.ln)
 
 	return m, nil
 }
 
 func (m *metrics) close() {
 	m.log(logger.Info, "listener is closing")
-	m.ln.Close() // in case Shutdown() is called before Serve()
 	m.server.Shutdown(context.Background())
+	m.ln.Close() // in case Shutdown() is called before Serve()
 }
 
 func (m *metrics) log(level logger.Level, format string, args ...interface{}) {
 	m.parent.Log(level, "[metrics] "+format, args...)
-}
-
-func (m *metrics) run() {
-	m.server.Serve(m.ln)
 }
 
 func (m *metrics) onMetrics(ctx *gin.Context) {

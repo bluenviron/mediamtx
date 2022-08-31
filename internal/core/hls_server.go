@@ -248,8 +248,8 @@ outer:
 
 	s.ctxCancel()
 
-	s.ln.Close() // in case Shutdown() is called before Serve()
 	hs.Shutdown(context.Background())
+	s.ln.Close() // in case Shutdown() is called before Serve()
 
 	s.pathManager.hlsServerSet(nil)
 
