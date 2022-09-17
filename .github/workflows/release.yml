@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - run: make release
+    - run: make binaries
 
     - uses: actions/github-script@v6
       with:
@@ -31,13 +31,13 @@ jobs:
           });
           const release_id = res.data.id;
 
-          for (const name of await fs.readdir('./release/')) {
+          for (const name of await fs.readdir('./binaries/')) {
             await github.rest.repos.uploadReleaseAsset({
               owner,
               repo,
               release_id,
               name,
-              data: await fs.readFile(`./release/${name}`),
+              data: await fs.readFile(`./binaries/${name}`),
             });
           }
 

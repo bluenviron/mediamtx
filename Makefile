@@ -20,7 +20,7 @@ help:
 	@echo "  run            run app"
 	@echo "  apidocs-lint   run api docs linters"
 	@echo "  apidocs-gen    generate api docs HTML"
-	@echo "  release        build release assets"
+	@echo "  binaries       build binaries for all platforms"
 	@echo "  dockerhub      build and push images to Docker Hub"
 	@echo ""
 
