@@ -1,3 +1,4 @@
+// Package rawmessage contains a RTMP raw message reader/writer.
 package rawmessage
 
 import (

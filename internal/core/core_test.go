@@ -3,7 +3,6 @@ package core
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -120,7 +119,7 @@ func (c *container) wait() int {
 }
 
 func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
+	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
 	if err != nil {
 		return "", err
 	}
@@ -225,15 +224,14 @@ func TestCorePathRunOnDemand(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "ondemand_done")
 
 	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
-	err := ioutil.WriteFile(srcFile, []byte(`
+	err := os.WriteFile(srcFile, []byte(`
 package main
 
 import (
 	"os"
 	"os/signal"
 	"syscall"
-	"io/ioutil"
-	"github.com/aler9/gortsplib"
+		"github.com/aler9/gortsplib"
 )
 
 func main() {
@@ -261,7 +259,7 @@ func main() {
 	signal.Notify(c, syscall.SIGINT)
 	<-c
 
-	err = ioutil.WriteFile("`+doneFile+`", []byte(""), 0644)
+	err = os.WriteFile("`+doneFile+`", []byte(""), 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -394,7 +392,7 @@ func TestCorePathRunOnReady(t *testing.T) {
 func TestCoreHotReloading(t *testing.T) {
 	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
 
-	err := ioutil.WriteFile(confPath, []byte("paths:\n"+
+	err := os.WriteFile(confPath, []byte("paths:\n"+
 		"  test1:\n"+
 		"    publishUser: myuser\n"+
 		"    publishPass: mypass\n"),
@@ -421,7 +419,7 @@ func TestCoreHotReloading(t *testing.T) {
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	}()
 
-	err = ioutil.WriteFile(confPath, []byte("paths:\n"+
+	err = os.WriteFile(confPath, []byte("paths:\n"+
 		"  test1:\n"),
 		0o644)
 	require.NoError(t, err)

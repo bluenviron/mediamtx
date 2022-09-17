@@ -1,3 +1,4 @@
+// Package rtmp implements a RTMP connection.
 package rtmp
 
 import (

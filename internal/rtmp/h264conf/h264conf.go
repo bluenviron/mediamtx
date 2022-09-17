@@ -1,3 +1,4 @@
+// Package h264conf contains a H264 configuration parser.
 package h264conf
 
 import (

@@ -1,3 +1,4 @@
+// Package logger contains a logger implementation.
 package logger
 
 import (

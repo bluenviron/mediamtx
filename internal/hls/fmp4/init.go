@@ -1,3 +1,4 @@
+// Package fmp4 contains a fMP4 writer.
 package fmp4
 
 import (

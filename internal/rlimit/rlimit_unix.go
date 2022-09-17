@@ -1,6 +1,7 @@
 //go:build !windows
 // +build !windows
 
+// Package rlimit contains a function to raise rlimit.
 package rlimit
 
 import (

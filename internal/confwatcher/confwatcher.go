@@ -1,3 +1,4 @@
+// Package confwatcher contains a configuration watcher.
 package confwatcher
 
 import (

@@ -1,7 +1,6 @@
 package confwatcher
 
 import (
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -10,7 +9,7 @@ import (
 )
 
 func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := ioutil.TempFile(os.TempDir(), "confwatcher-")
+	tmpf, err := os.CreateTemp(os.TempDir(), "confwatcher-")
 	if err != nil {
 		return "", err
 	}

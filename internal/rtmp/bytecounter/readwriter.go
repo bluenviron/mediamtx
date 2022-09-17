@@ -1,3 +1,4 @@
+// Package bytecounter contains a reader/writer that allows to count bytes.
 package bytecounter
 
 import (

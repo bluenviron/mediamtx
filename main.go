@@ -1,3 +1,4 @@
+// main executable.
 package main
 
 import (

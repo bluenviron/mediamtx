@@ -1,3 +1,4 @@
+// Package externalcmd allows to launch external commands.
 package externalcmd
 
 import (

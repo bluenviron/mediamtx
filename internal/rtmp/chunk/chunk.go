@@ -1,3 +1,4 @@
+// Package chunk implements RTMP chunks.
 package chunk
 
 import (

@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"io"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -17,7 +16,7 @@ import (
 )
 
 func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
+	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
 	if err != nil {
 		return "", err
 	}

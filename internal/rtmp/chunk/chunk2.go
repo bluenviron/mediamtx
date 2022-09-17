@@ -5,7 +5,7 @@ import (
 )
 
 // Chunk2 is a type 2 chunk.
-//  Neither the stream ID nor the
+// Neither the stream ID nor the
 // message length is included; this chunk has the same stream ID and
 // message length as the preceding chunk.
 type Chunk2 struct {

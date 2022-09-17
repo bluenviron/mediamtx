@@ -1,3 +1,4 @@
+// Package hls contains a HLS muxer and client implementation.
 package hls
 
 import (

@@ -7,7 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -383,7 +383,7 @@ func (c *Client) downloadSegment(innerCtx context.Context, segmentURI string) ([
 		return nil, fmt.Errorf("bad status code: %d", res.StatusCode)
 	}
 
-	byts, err := ioutil.ReadAll(res.Body)
+	byts, err := io.ReadAll(res.Body)
 	if err != nil {
 		return nil, err
 	}

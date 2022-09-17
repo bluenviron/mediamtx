@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"regexp"
 	"testing"
 	"time"
@@ -127,7 +126,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
+			byts, err := io.ReadAll(m.File("index.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
 			if ca == "mpegts" {
@@ -146,7 +145,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 					"stream.m3u8\n", string(byts))
 			}
 
-			byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
+			byts, err = io.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
 			var ma []string
@@ -461,7 +460,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
+			byts, err := io.ReadAll(m.File("index.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
 			if ca == "mpegts" {
@@ -480,7 +479,7 @@ func TestMuxerVideoOnly(t *testing.T) {
 					"stream.m3u8\n", string(byts))
 			}
 
-			byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
+			byts, err = io.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
 			var ma []string
@@ -688,7 +687,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			byts, err := ioutil.ReadAll(m.File("index.m3u8", "", "", "").Body)
+			byts, err := io.ReadAll(m.File("index.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
 			if ca == "mpegts" {
@@ -707,7 +706,7 @@ func TestMuxerAudioOnly(t *testing.T) {
 					"stream.m3u8\n", string(byts))
 			}
 
-			byts, err = ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
+			byts, err = io.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
 			var ma []string
@@ -929,7 +928,7 @@ func TestMuxerDoubleRead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	byts, err := ioutil.ReadAll(m.File("stream.m3u8", "", "", "").Body)
+	byts, err := io.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 	require.NoError(t, err)
 
 	re := regexp.MustCompile(`^#EXTM3U\n` +
@@ -944,10 +943,10 @@ func TestMuxerDoubleRead(t *testing.T) {
 	ma := re.FindStringSubmatch(string(byts))
 	require.NotEqual(t, 0, len(ma))
 
-	byts1, err := ioutil.ReadAll(m.File(ma[2], "", "", "").Body)
+	byts1, err := io.ReadAll(m.File(ma[2], "", "", "").Body)
 	require.NoError(t, err)
 
-	byts2, err := ioutil.ReadAll(m.File(ma[2], "", "", "").Body)
+	byts2, err := io.ReadAll(m.File(ma[2], "", "", "").Body)
 	require.NoError(t, err)
 	require.Equal(t, byts1, byts2)
 }

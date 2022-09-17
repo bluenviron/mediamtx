@@ -1,3 +1,4 @@
+// Package core contains the main struct of the software.
 package core
 
 import (

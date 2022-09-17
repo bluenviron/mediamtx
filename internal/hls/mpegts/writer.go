@@ -1,3 +1,4 @@
+// Package mpegts contains a MPEG-TS writer.
 package mpegts
 
 import (

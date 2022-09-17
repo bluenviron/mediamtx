@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -80,7 +79,7 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 `)
 
 func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := ioutil.TempFile(os.TempDir(), "rtsp-")
+	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
 	if err != nil {
 		return "", err
 	}

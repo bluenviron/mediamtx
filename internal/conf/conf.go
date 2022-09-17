@@ -1,10 +1,10 @@
+// Package conf contains the struct that holds the configuration of the software.
 package conf
 
 import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -46,7 +46,7 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 		}
 	}
 
-	byts, err := ioutil.ReadFile(fpath)
+	byts, err := os.ReadFile(fpath)
 	if err != nil {
 		return true, err
 	}

@@ -1,3 +1,4 @@
+// Package message contains a RTMP message reader/writer.
 package message
 
 import (

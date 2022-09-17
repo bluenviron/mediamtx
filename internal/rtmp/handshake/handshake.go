@@ -1,3 +1,4 @@
+// Package handshake contains the RTMP handshake mechanism.
 package handshake
 
 import (

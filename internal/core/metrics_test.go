@@ -1,7 +1,7 @@
 package core
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -68,7 +68,7 @@ func TestMetrics(t *testing.T) {
 	defer res.Body.Close()
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
-	bo, err := ioutil.ReadAll(res.Body)
+	bo, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
 	vals := make(map[string]string)

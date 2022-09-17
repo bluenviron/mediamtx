@@ -1,6 +1,7 @@
 //go:build !rpicamera
 // +build !rpicamera
 
+// Package rpicamera allows to interact with a Raspberry Pi Camera.
 package rpicamera
 
 import (
