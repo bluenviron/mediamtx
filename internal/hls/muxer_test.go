@@ -1,17 +1,13 @@
 package hls
 
 import (
-	"bytes"
-	"context"
 	"io"
 	"regexp"
 	"testing"
 	"time"
 
-	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
-	"github.com/asticode/go-astits"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,16 +19,6 @@ var testSPS = []byte{
 	0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
 	0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
 	0x20,
-}
-
-func testMP4(t *testing.T, byts []byte, boxes []gomp4.BoxPath) {
-	i := 0
-	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
-		require.Equal(t, boxes[i], h.Path)
-		i++
-		return h.Expand()
-	})
-	require.NoError(t, err)
 }
 
 func TestMuxerVideoAudio(t *testing.T) {
@@ -181,234 +167,14 @@ func TestMuxerVideoAudio(t *testing.T) {
 			require.NotEqual(t, 0, len(ma))
 
 			if ca == "mpegts" {
-				dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
-					astits.DemuxerOptPacketSize(188))
-
-				// PMT
-				pkt, err := dem.NextPacket()
+				_, err := io.ReadAll(m.File(ma[2], "", "", "").Body)
 				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					Header: &astits.PacketHeader{
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       0,
-					},
-					Payload: append([]byte{
-						0x00, 0x00, 0xb0, 0x0d, 0x00, 0x00, 0xc1, 0x00,
-						0x00, 0x00, 0x01, 0xf0, 0x00, 0x71, 0x10, 0xd8,
-						0x78,
-					}, bytes.Repeat([]byte{0xff}, 167)...),
-				}, pkt)
-
-				// PAT
-				pkt, err = dem.NextPacket()
-				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					Header: &astits.PacketHeader{
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       4096,
-					},
-					Payload: append([]byte{
-						0x00, 0x02, 0xb0, 0x17, 0x00, 0x01, 0xc1, 0x00,
-						0x00, 0xe1, 0x00, 0xf0, 0x00, 0x1b, 0xe1, 0x00,
-						0xf0, 0x00, 0x0f, 0xe1, 0x01, 0xf0, 0x00, 0x2f,
-						0x44, 0xb9, 0x9b,
-					}, bytes.Repeat([]byte{0xff}, 157)...),
-				}, pkt)
-
-				// PES (H264)
-				pkt, err = dem.NextPacket()
-				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					AdaptationField: &astits.PacketAdaptationField{
-						Length:                124,
-						StuffingLength:        117,
-						HasPCR:                true,
-						PCR:                   &astits.ClockReference{},
-						RandomAccessIndicator: true,
-					},
-					Header: &astits.PacketHeader{
-						HasAdaptationField:        true,
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       256,
-					},
-					Payload: []byte{
-						0x00, 0x00, 0x01, 0xe0, 0x00, 0x00, 0x80, 0x80,
-						0x05, 0x21, 0x00, 0x03, 0x19, 0x41, 0x00, 0x00,
-						0x00, 0x01, 0x09, 0xf0, 0x00, 0x00, 0x00, 0x01,
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-						0x20, 0x00, 0x00, 0x00, 0x01, 0x08, 0x00, 0x00,
-						0x00, 0x01, 0x05,
-					},
-				}, pkt)
-
-				// PES (AAC)
-				pkt, err = dem.NextPacket()
-				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					AdaptationField: &astits.PacketAdaptationField{
-						Length:                158,
-						StuffingLength:        157,
-						RandomAccessIndicator: true,
-					},
-					Header: &astits.PacketHeader{
-						HasAdaptationField:        true,
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       257,
-					},
-					Payload: []byte{
-						0x00, 0x00, 0x01, 0xc0, 0x00, 0x13, 0x80, 0x80,
-						0x05, 0x21, 0x00, 0x07, 0xd8, 0x5f, 0xff, 0xf1,
-						0x50, 0x80, 0x01, 0x7f, 0xfc, 0x01, 0x02, 0x03,
-						0x04,
-					},
-				}, pkt)
 			} else {
-				byts, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
+				_, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
 				require.NoError(t, err)
 
-				boxes := []gomp4.BoxPath{
-					{gomp4.BoxTypeFtyp()},
-					{gomp4.BoxTypeMoov()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeTkhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMdhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeHdlr()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(), gomp4.BoxTypeVmhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(), gomp4.BoxTypeDinf()},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(), gomp4.BoxTypeUrl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeAvc1(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeAvc1(), gomp4.BoxTypeAvcC(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeAvc1(), gomp4.BoxTypeBtrt(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStts(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsc(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsz(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStco(),
-					},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeTkhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMdhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeHdlr()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf()},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeSmhd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(), gomp4.BoxTypeUrl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeMp4a(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeMp4a(), gomp4.BoxTypeEsds(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeMp4a(), gomp4.BoxTypeBtrt(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStts(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsc(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsz(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStco(),
-					},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex(), gomp4.BoxTypeTrex()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex(), gomp4.BoxTypeTrex()},
-				}
-				testMP4(t, byts, boxes)
-
-				byts, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
+				_, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
 				require.NoError(t, err)
-
-				boxes = []gomp4.BoxPath{
-					{gomp4.BoxTypeMoof()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeMfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfdt()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTrun()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfdt()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTrun()},
-					{gomp4.BoxTypeMdat()},
-				}
-				testMP4(t, byts, boxes)
 			}
 		})
 	}
@@ -514,125 +280,15 @@ func TestMuxerVideoOnly(t *testing.T) {
 			}
 			require.NotEqual(t, 0, len(ma))
 
-			if ca == "mpegts" { //nolint:dupl
-				dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
-					astits.DemuxerOptPacketSize(188))
-
-				// PMT
-				pkt, err := dem.NextPacket()
+			if ca == "mpegts" {
+				_, err := io.ReadAll(m.File(ma[2], "", "", "").Body)
 				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					Header: &astits.PacketHeader{
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       0,
-					},
-					Payload: append([]byte{
-						0x00, 0x00, 0xb0, 0x0d, 0x00, 0x00, 0xc1, 0x00,
-						0x00, 0x00, 0x01, 0xf0, 0x00, 0x71, 0x10, 0xd8,
-						0x78,
-					}, bytes.Repeat([]byte{0xff}, 167)...),
-				}, pkt)
-
-				// PAT
-				pkt, err = dem.NextPacket()
-				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					Header: &astits.PacketHeader{
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       4096,
-					},
-					Payload: append([]byte{
-						0x00, 0x02, 0xb0, 0x12, 0x00, 0x01, 0xc1, 0x00,
-						0x00, 0xe1, 0x00, 0xf0, 0x00, 0x1b, 0xe1, 0x00,
-						0xf0, 0x00, 0x15, 0xbd, 0x4d, 0x56,
-					}, bytes.Repeat([]byte{0xff}, 162)...),
-				}, pkt)
-			} else { //nolint:dupl
-				byts, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
+			} else {
+				_, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
 				require.NoError(t, err)
 
-				boxes := []gomp4.BoxPath{
-					{gomp4.BoxTypeFtyp()},
-					{gomp4.BoxTypeMoov()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeTkhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMdhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeHdlr()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf()},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeVmhd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(), gomp4.BoxTypeUrl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeAvc1(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeAvc1(), gomp4.BoxTypeAvcC(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeAvc1(), gomp4.BoxTypeBtrt(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStts(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsc(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsz(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStco(),
-					},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex(), gomp4.BoxTypeTrex()},
-				}
-				testMP4(t, byts, boxes)
-
-				byts, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
+				_, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
 				require.NoError(t, err)
-
-				boxes = []gomp4.BoxPath{
-					{gomp4.BoxTypeMoof()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeMfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfdt()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTrun()},
-					{gomp4.BoxTypeMdat()},
-				}
-				testMP4(t, byts, boxes)
 			}
 		})
 	}
@@ -738,125 +394,15 @@ func TestMuxerAudioOnly(t *testing.T) {
 			}
 			require.NotEqual(t, 0, len(ma))
 
-			if ca == "mpegts" { //nolint:dupl
-				dem := astits.NewDemuxer(context.Background(), m.File(ma[2], "", "", "").Body,
-					astits.DemuxerOptPacketSize(188))
-
-				// PMT
-				pkt, err := dem.NextPacket()
+			if ca == "mpegts" {
+				_, err := io.ReadAll(m.File(ma[2], "", "", "").Body)
 				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					Header: &astits.PacketHeader{
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       0,
-					},
-					Payload: append([]byte{
-						0x00, 0x00, 0xb0, 0x0d, 0x00, 0x00, 0xc1, 0x00,
-						0x00, 0x00, 0x01, 0xf0, 0x00, 0x71, 0x10, 0xd8,
-						0x78,
-					}, bytes.Repeat([]byte{0xff}, 167)...),
-				}, pkt)
-
-				// PAT
-				pkt, err = dem.NextPacket()
-				require.NoError(t, err)
-				require.Equal(t, &astits.Packet{
-					Header: &astits.PacketHeader{
-						HasPayload:                true,
-						PayloadUnitStartIndicator: true,
-						PID:                       4096,
-					},
-					Payload: append([]byte{
-						0x00, 0x02, 0xb0, 0x12, 0x00, 0x01, 0xc1, 0x00,
-						0x00, 0xe1, 0x01, 0xf0, 0x00, 0x0f, 0xe1, 0x01,
-						0xf0, 0x00, 0xec, 0xe2, 0xb0, 0x94,
-					}, bytes.Repeat([]byte{0xff}, 162)...),
-				}, pkt)
-			} else { //nolint:dupl
-				byts, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
+			} else {
+				_, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
 				require.NoError(t, err)
 
-				boxes := []gomp4.BoxPath{
-					{gomp4.BoxTypeFtyp()},
-					{gomp4.BoxTypeMoov()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeTkhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMdhd()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeHdlr()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf()},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeSmhd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeDinf(), gomp4.BoxTypeDref(), gomp4.BoxTypeUrl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeMp4a(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeMp4a(), gomp4.BoxTypeEsds(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsd(), gomp4.BoxTypeMp4a(), gomp4.BoxTypeBtrt(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStts(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsc(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStsz(),
-					},
-					{
-						gomp4.BoxTypeMoov(), gomp4.BoxTypeTrak(), gomp4.BoxTypeMdia(), gomp4.BoxTypeMinf(),
-						gomp4.BoxTypeStbl(), gomp4.BoxTypeStco(),
-					},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex()},
-					{gomp4.BoxTypeMoov(), gomp4.BoxTypeMvex(), gomp4.BoxTypeTrex()},
-				}
-				testMP4(t, byts, boxes)
-
-				byts, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
+				_, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
 				require.NoError(t, err)
-
-				boxes = []gomp4.BoxPath{
-					{gomp4.BoxTypeMoof()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeMfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfhd()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTfdt()},
-					{gomp4.BoxTypeMoof(), gomp4.BoxTypeTraf(), gomp4.BoxTypeTrun()},
-					{gomp4.BoxTypeMdat()},
-				}
-				testMP4(t, byts, boxes)
 			}
 		})
 	}

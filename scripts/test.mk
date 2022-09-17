@@ -33,13 +33,7 @@ endif
 
 test-internal:
 	go test -v $(TEST_INTERNAL_OPTS) \
-	./internal/conf \
-	./internal/confwatcher \
-	./internal/externalcmd \
-	./internal/hls \
-	./internal/logger \
-	./internal/rlimit \
-	./internal/rtmp/...
+	$$(go list ./internal/... | grep -v /core)
 
 test-core:
 	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
