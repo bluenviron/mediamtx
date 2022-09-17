@@ -23,29 +23,11 @@ jobs:
 
           const currentRelease = context.ref.split('/')[2];
 
-          let res = await github.rest.repos.getLatestRelease({
-            owner,
-            repo,
-          });
-          const previousRelease = res.data['tag_name'];
-
-          res = await github.rest.repos.compareCommitsWithBasehead({
-            owner,
-            repo,
-            basehead: `${previousRelease}...${currentRelease}`,
-          });
-
-          const messages = [];
-          for (const commit of res.data.commits) {
-             messages.push(`* ${commit.commit.message} ${commit.html_url}`);
-          }
-
-          res = await github.rest.repos.createRelease({
+          const res = await github.rest.repos.createRelease({
             owner,
             repo,
             tag_name: currentRelease,
             name: currentRelease,
-            body: `Commits:\n${messages.join('\n')}\n`,
           });
           const release_id = res.data.id;
 
