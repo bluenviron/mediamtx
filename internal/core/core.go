@@ -50,8 +50,7 @@ type Core struct {
 
 // New allocates a core.
 func New(args []string) (*Core, bool) {
-	k := kingpin.New("rtsp-simple-server",
-		"rtsp-simple-server "+version+"\n\nRTSP server.")
+	k := kingpin.New("rtsp-simple-server", "rtsp-simple-server "+version)
 
 	argVersion := k.Flag("version", "print version").Bool()
 	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml.").
