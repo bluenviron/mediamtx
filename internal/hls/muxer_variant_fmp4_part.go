@@ -73,7 +73,7 @@ func (p *muxerVariantFMP4Part) duration() time.Duration {
 func (p *muxerVariantFMP4Part) finalize() error {
 	if len(p.videoSamples) > 0 || len(p.audioSamples) > 0 {
 		var err error
-		p.content, err = fmp4.GeneratePart(
+		p.content, err = fmp4.PartWrite(
 			p.videoTrack,
 			p.audioTrack,
 			p.videoSamples,

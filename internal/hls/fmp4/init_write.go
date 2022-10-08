@@ -1,4 +1,3 @@
-// Package fmp4 contains a fMP4 writer.
 package fmp4
 
 import (
@@ -20,7 +19,7 @@ func init() { //nolint:gochecknoinits
 	gomp4.AddBoxDef(&myEsds{}, 0)
 }
 
-func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.TrackH264) error {
+func initWriteVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.TrackH264) error {
 	/*
 		trak
 		- tkhd
@@ -44,7 +43,7 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 			  - stco
 	*/
 
-	_, err := w.WriteBoxStart(&gomp4.Trak{}) // <trak>
+	_, err := w.writeBoxStart(&gomp4.Trak{}) // <trak>
 	if err != nil {
 		return err
 	}
@@ -74,7 +73,7 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Mdia{}) // <mdia>
+	_, err = w.writeBoxStart(&gomp4.Mdia{}) // <mdia>
 	if err != nil {
 		return err
 	}
@@ -95,7 +94,7 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Minf{}) // <minf>
+	_, err = w.writeBoxStart(&gomp4.Minf{}) // <minf>
 	if err != nil {
 		return err
 	}
@@ -109,12 +108,12 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Dinf{}) // <dinf>
+	_, err = w.writeBoxStart(&gomp4.Dinf{}) // <dinf>
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Dref{ // <dref>
+	_, err = w.writeBoxStart(&gomp4.Dref{ // <dref>
 		EntryCount: 1,
 	})
 	if err != nil {
@@ -130,29 +129,29 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </dref>
+	err = w.writeBoxEnd() // </dref>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </dinf>
+	err = w.writeBoxEnd() // </dinf>
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Stbl{}) // <stbl>
+	_, err = w.writeBoxStart(&gomp4.Stbl{}) // <stbl>
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Stsd{ // <stsd>
+	_, err = w.writeBoxStart(&gomp4.Stsd{ // <stsd>
 		EntryCount: 1,
 	})
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.VisualSampleEntry{ // <avc1>
+	_, err = w.writeBoxStart(&gomp4.VisualSampleEntry{ // <avc1>
 		SampleEntry: gomp4.SampleEntry{
 			AnyTypeBox: gomp4.AnyTypeBox{
 				Type: gomp4.BoxTypeAvc1(),
@@ -207,12 +206,12 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </avc1>
+	err = w.writeBoxEnd() // </avc1>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </stsd>
+	err = w.writeBoxEnd() // </stsd>
 	if err != nil {
 		return err
 	}
@@ -241,22 +240,22 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </stbl>
+	err = w.writeBoxEnd() // </stbl>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </minf>
+	err = w.writeBoxEnd() // </minf>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </mdia>
+	err = w.writeBoxEnd() // </mdia>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </trak>
+	err = w.writeBoxEnd() // </trak>
 	if err != nil {
 		return err
 	}
@@ -264,7 +263,7 @@ func generateInitVideoTrack(w *mp4Writer, trackID int, videoTrack *gortsplib.Tra
 	return nil
 }
 
-func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.TrackMPEG4Audio) error {
+func initWriteAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.TrackMPEG4Audio) error {
 	/*
 		trak
 		- tkhd
@@ -287,7 +286,7 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 			  - stco
 	*/
 
-	_, err := w.WriteBoxStart(&gomp4.Trak{}) // <trak>
+	_, err := w.writeBoxStart(&gomp4.Trak{}) // <trak>
 	if err != nil {
 		return err
 	}
@@ -305,7 +304,7 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Mdia{}) // <mdia>
+	_, err = w.writeBoxStart(&gomp4.Mdia{}) // <mdia>
 	if err != nil {
 		return err
 	}
@@ -326,7 +325,7 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Minf{}) // <minf>
+	_, err = w.writeBoxStart(&gomp4.Minf{}) // <minf>
 	if err != nil {
 		return err
 	}
@@ -337,12 +336,12 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Dinf{}) // <dinf>
+	_, err = w.writeBoxStart(&gomp4.Dinf{}) // <dinf>
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Dref{ // <dref>
+	_, err = w.writeBoxStart(&gomp4.Dref{ // <dref>
 		EntryCount: 1,
 	})
 	if err != nil {
@@ -358,29 +357,29 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </dref>
+	err = w.writeBoxEnd() // </dref>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </dinf>
+	err = w.writeBoxEnd() // </dinf>
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Stbl{}) // <stbl>
+	_, err = w.writeBoxStart(&gomp4.Stbl{}) // <stbl>
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Stsd{ // <stsd>
+	_, err = w.writeBoxStart(&gomp4.Stsd{ // <stsd>
 		EntryCount: 1,
 	})
 	if err != nil {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.AudioSampleEntry{ // <mp4a>
+	_, err = w.writeBoxStart(&gomp4.AudioSampleEntry{ // <mp4a>
 		SampleEntry: gomp4.SampleEntry{
 			AnyTypeBox: gomp4.AnyTypeBox{
 				Type: gomp4.BoxTypeMp4a(),
@@ -453,12 +452,12 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </mp4a>
+	err = w.writeBoxEnd() // </mp4a>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </stsd>
+	err = w.writeBoxEnd() // </stsd>
 	if err != nil {
 		return err
 	}
@@ -487,22 +486,22 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </stbl>
+	err = w.writeBoxEnd() // </stbl>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </minf>
+	err = w.writeBoxEnd() // </minf>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </mdia>
+	err = w.writeBoxEnd() // </mdia>
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd() // </trak>
+	err = w.writeBoxEnd() // </trak>
 	if err != nil {
 		return err
 	}
@@ -510,8 +509,11 @@ func generateInitAudioTrack(w *mp4Writer, trackID int, audioTrack *gortsplib.Tra
 	return nil
 }
 
-// GenerateInit generates a FMP4 initialization file.
-func GenerateInit(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) ([]byte, error) {
+// InitWrite generates a FMP4 initialization file.
+func InitWrite(
+	videoTrack *gortsplib.TrackH264,
+	audioTrack *gortsplib.TrackMPEG4Audio,
+) ([]byte, error) {
 	/*
 		- ftyp
 		- moov
@@ -539,7 +541,7 @@ func GenerateInit(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMP
 		return nil, err
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Moov{}) // <moov>
+	_, err = w.writeBoxStart(&gomp4.Moov{}) // <moov>
 	if err != nil {
 		return nil, err
 	}
@@ -558,7 +560,7 @@ func GenerateInit(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMP
 	trackID := 1
 
 	if videoTrack != nil {
-		err := generateInitVideoTrack(w, trackID, videoTrack)
+		err := initWriteVideoTrack(w, trackID, videoTrack)
 		if err != nil {
 			return nil, err
 		}
@@ -567,13 +569,13 @@ func GenerateInit(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMP
 	}
 
 	if audioTrack != nil {
-		err := generateInitAudioTrack(w, trackID, audioTrack)
+		err := initWriteAudioTrack(w, trackID, audioTrack)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	_, err = w.WriteBoxStart(&gomp4.Mvex{}) // <mvex>
+	_, err = w.writeBoxStart(&gomp4.Mvex{}) // <mvex>
 	if err != nil {
 		return nil, err
 	}
@@ -602,15 +604,15 @@ func GenerateInit(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMP
 		}
 	}
 
-	err = w.WriteBoxEnd() // </mvex>
+	err = w.writeBoxEnd() // </mvex>
 	if err != nil {
 		return nil, err
 	}
 
-	err = w.WriteBoxEnd() // </moov>
+	err = w.writeBoxEnd() // </moov>
 	if err != nil {
 		return nil, err
 	}
 
-	return w.Bytes(), nil
+	return w.bytes(), nil
 }

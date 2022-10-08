@@ -13,7 +13,7 @@ func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
 	return int64(math.Round(float64(v*timescale) / float64(time.Second)))
 }
 
-func generatePartVideoTraf(
+func partWriteVideoInfo(
 	w *mp4Writer,
 	trackID int,
 	videoSamples []*VideoSample,
@@ -25,7 +25,7 @@ func generatePartVideoTraf(
 		- trun
 	*/
 
-	_, err := w.WriteBoxStart(&gomp4.Traf{}) // <traf>
+	_, err := w.writeBoxStart(&gomp4.Traf{}) // <traf>
 	if err != nil {
 		return nil, 0, err
 	}
@@ -89,7 +89,7 @@ func generatePartVideoTraf(
 		return nil, 0, err
 	}
 
-	err = w.WriteBoxEnd() // </traf>
+	err = w.writeBoxEnd() // </traf>
 	if err != nil {
 		return nil, 0, err
 	}
@@ -97,7 +97,7 @@ func generatePartVideoTraf(
 	return trun, trunOffset, nil
 }
 
-func generatePartAudioTraf(
+func partWriteAudioInfo(
 	w *mp4Writer,
 	trackID int,
 	audioTrack *gortsplib.TrackMPEG4Audio,
@@ -114,7 +114,7 @@ func generatePartAudioTraf(
 		return nil, 0, nil
 	}
 
-	_, err := w.WriteBoxStart(&gomp4.Traf{}) // <traf>
+	_, err := w.writeBoxStart(&gomp4.Traf{}) // <traf>
 	if err != nil {
 		return nil, 0, err
 	}
@@ -167,7 +167,7 @@ func generatePartAudioTraf(
 		return nil, 0, err
 	}
 
-	err = w.WriteBoxEnd() // </traf>
+	err = w.writeBoxEnd() // </traf>
 	if err != nil {
 		return nil, 0, err
 	}
@@ -175,8 +175,8 @@ func generatePartAudioTraf(
 	return trun, trunOffset, nil
 }
 
-// GeneratePart generates a FMP4 part file.
-func GeneratePart(
+// PartWrite generates a FMP4 part file.
+func PartWrite(
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackMPEG4Audio,
 	videoSamples []*VideoSample,
@@ -192,7 +192,7 @@ func GeneratePart(
 
 	w := newMP4Writer()
 
-	moofOffset, err := w.WriteBoxStart(&gomp4.Moof{}) // <moof>
+	moofOffset, err := w.writeBoxStart(&gomp4.Moof{}) // <moof>
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func GeneratePart(
 		}
 
 		var err error
-		videoTrun, videoTrunOffset, err = generatePartVideoTraf(
+		videoTrun, videoTrunOffset, err = partWriteVideoInfo(
 			w, trackID, videoSamples)
 		if err != nil {
 			return nil, err
@@ -231,13 +231,13 @@ func GeneratePart(
 	var audioTrunOffset int
 	if audioTrack != nil {
 		var err error
-		audioTrun, audioTrunOffset, err = generatePartAudioTraf(w, trackID, audioTrack, audioSamples)
+		audioTrun, audioTrunOffset, err = partWriteAudioInfo(w, trackID, audioTrack, audioSamples)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	err = w.WriteBoxEnd() // </moof>
+	err = w.writeBoxEnd() // </moof>
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func GeneratePart(
 
 	if videoTrack != nil {
 		videoTrun.DataOffset = int32(mdatOffset - moofOffset + 8)
-		err = w.RewriteBox(videoTrunOffset, videoTrun)
+		err = w.rewriteBox(videoTrunOffset, videoTrun)
 		if err != nil {
 			return nil, err
 		}
@@ -290,11 +290,11 @@ func GeneratePart(
 
 	if audioTrack != nil && audioTrun != nil {
 		audioTrun.DataOffset = int32(videoDataSize + mdatOffset - moofOffset + 8)
-		err = w.RewriteBox(audioTrunOffset, audioTrun)
+		err = w.rewriteBox(audioTrunOffset, audioTrun)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return w.Bytes(), nil
+	return w.bytes(), nil
 }

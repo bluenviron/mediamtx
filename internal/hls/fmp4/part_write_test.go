@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGeneratePart(t *testing.T) {
+func TestPartWrite(t *testing.T) {
 	testVideoSamples := []*VideoSample{
 		{
 			NALUs: [][]byte{
@@ -90,7 +90,7 @@ func TestGeneratePart(t *testing.T) {
 	testAudioSamples = testAudioSamples[:len(testAudioSamples)-1]
 
 	t.Run("video + audio", func(t *testing.T) {
-		byts, err := GeneratePart(testVideoTrack, testAudioTrack, testVideoSamples, testAudioSamples)
+		byts, err := PartWrite(testVideoTrack, testAudioTrack, testVideoSamples, testAudioSamples)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
@@ -110,7 +110,7 @@ func TestGeneratePart(t *testing.T) {
 	})
 
 	t.Run("video only", func(t *testing.T) {
-		byts, err := GeneratePart(testVideoTrack, nil, testVideoSamples, nil)
+		byts, err := PartWrite(testVideoTrack, nil, testVideoSamples, nil)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
@@ -126,7 +126,7 @@ func TestGeneratePart(t *testing.T) {
 	})
 
 	t.Run("audio only", func(t *testing.T) {
-		byts, err := GeneratePart(nil, testAudioTrack, nil, testAudioSamples)
+		byts, err := PartWrite(nil, testAudioTrack, nil, testAudioSamples)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{

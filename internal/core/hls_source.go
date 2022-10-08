@@ -79,10 +79,6 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 
 	onVideoData := func(pts time.Duration, nalus [][]byte) {
-		if stream == nil {
-			return
-		}
-
 		stream.writeData(&data{
 			trackID:      videoTrackID,
 			ptsEqualsDTS: h264.IDRPresent(nalus),
@@ -92,10 +88,6 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 
 	onAudioData := func(pts time.Duration, au []byte) {
-		if stream == nil {
-			return
-		}
-
 		stream.writeData(&data{
 			trackID:      audioTrackID,
 			ptsEqualsDTS: true,

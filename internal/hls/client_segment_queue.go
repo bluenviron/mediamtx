@@ -2,7 +2,6 @@ package hls
 
 import (
 	"context"
-	"fmt"
 	"sync"
 )
 
@@ -34,7 +33,7 @@ func (q *clientSegmentQueue) push(seg []byte) {
 	q.mutex.Unlock()
 }
 
-func (q *clientSegmentQueue) waitUntilSizeIsBelow(ctx context.Context, n int) {
+func (q *clientSegmentQueue) waitUntilSizeIsBelow(ctx context.Context, n int) bool {
 	q.mutex.Lock()
 
 	for len(q.queue) > n {
@@ -43,16 +42,17 @@ func (q *clientSegmentQueue) waitUntilSizeIsBelow(ctx context.Context, n int) {
 		select {
 		case <-q.didPull:
 		case <-ctx.Done():
-			return
+			return false
 		}
 
 		q.mutex.Lock()
 	}
 
 	q.mutex.Unlock()
+	return true
 }
 
-func (q *clientSegmentQueue) waitAndPull(ctx context.Context) ([]byte, error) {
+func (q *clientSegmentQueue) pull(ctx context.Context) ([]byte, bool) {
 	q.mutex.Lock()
 
 	for len(q.queue) == 0 {
@@ -62,7 +62,7 @@ func (q *clientSegmentQueue) waitAndPull(ctx context.Context) ([]byte, error) {
 		select {
 		case <-didPush:
 		case <-ctx.Done():
-			return nil, fmt.Errorf("terminated")
+			return nil, false
 		}
 
 		q.mutex.Lock()
@@ -75,5 +75,5 @@ func (q *clientSegmentQueue) waitAndPull(ctx context.Context) ([]byte, error) {
 	q.didPull = make(chan struct{})
 
 	q.mutex.Unlock()
-	return seg, nil
+	return seg, true
 }

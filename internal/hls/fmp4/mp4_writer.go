@@ -7,13 +7,11 @@ import (
 	"github.com/orcaman/writerseeker"
 )
 
-// mp4Writer is a MP4 writer.
 type mp4Writer struct {
 	buf *writerseeker.WriterSeeker
 	w   *gomp4.Writer
 }
 
-// newMP4Writer allocates a mp4Writer.
 func newMP4Writer() *mp4Writer {
 	w := &mp4Writer{
 		buf: &writerseeker.WriterSeeker{},
@@ -24,8 +22,7 @@ func newMP4Writer() *mp4Writer {
 	return w
 }
 
-// WriteBoxStart writes a box start.
-func (w *mp4Writer) WriteBoxStart(box gomp4.IImmutableBox) (int, error) {
+func (w *mp4Writer) writeBoxStart(box gomp4.IImmutableBox) (int, error) {
 	bi := &gomp4.BoxInfo{
 		Type: box.GetType(),
 	}
@@ -43,20 +40,18 @@ func (w *mp4Writer) WriteBoxStart(box gomp4.IImmutableBox) (int, error) {
 	return int(bi.Offset), nil
 }
 
-// WriteBoxEnd writes a box end.
-func (w *mp4Writer) WriteBoxEnd() error {
+func (w *mp4Writer) writeBoxEnd() error {
 	_, err := w.w.EndBox()
 	return err
 }
 
-// WriteBox writes a self-closing box.
 func (w *mp4Writer) WriteBox(box gomp4.IImmutableBox) (int, error) {
-	off, err := w.WriteBoxStart(box)
+	off, err := w.writeBoxStart(box)
 	if err != nil {
 		return 0, err
 	}
 
-	err = w.WriteBoxEnd()
+	err = w.writeBoxEnd()
 	if err != nil {
 		return 0, err
 	}
@@ -64,8 +59,7 @@ func (w *mp4Writer) WriteBox(box gomp4.IImmutableBox) (int, error) {
 	return off, nil
 }
 
-// RewriteBox rewrites a box.
-func (w *mp4Writer) RewriteBox(off int, box gomp4.IImmutableBox) error {
+func (w *mp4Writer) rewriteBox(off int, box gomp4.IImmutableBox) error {
 	prevOff, err := w.w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -76,12 +70,12 @@ func (w *mp4Writer) RewriteBox(off int, box gomp4.IImmutableBox) error {
 		return err
 	}
 
-	_, err = w.WriteBoxStart(box)
+	_, err = w.writeBoxStart(box)
 	if err != nil {
 		return err
 	}
 
-	err = w.WriteBoxEnd()
+	err = w.writeBoxEnd()
 	if err != nil {
 		return err
 	}
@@ -94,7 +88,6 @@ func (w *mp4Writer) RewriteBox(off int, box gomp4.IImmutableBox) error {
 	return nil
 }
 
-// Bytes returns the MP4 content.
-func (w *mp4Writer) Bytes() []byte {
+func (w *mp4Writer) bytes() []byte {
 	return w.buf.Bytes()
 }

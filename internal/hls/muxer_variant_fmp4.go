@@ -85,7 +85,7 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 
 		if v.initContent == nil ||
 			(v.videoTrack != nil && (!bytes.Equal(v.videoLastSPS, sps) || !bytes.Equal(v.videoLastPPS, pps))) {
-			initContent, err := fmp4.GenerateInit(v.videoTrack, v.audioTrack)
+			initContent, err := fmp4.InitWrite(v.videoTrack, v.audioTrack)
 			if err != nil {
 				return &MuxerFileResponse{Status: http.StatusInternalServerError}
 			}

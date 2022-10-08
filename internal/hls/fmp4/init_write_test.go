@@ -46,9 +46,9 @@ var testAudioTrack = &gortsplib.TrackMPEG4Audio{
 	IndexDeltaLength: 3,
 }
 
-func TestGenerateInit(t *testing.T) {
+func TestInitWrite(t *testing.T) {
 	t.Run("video + audio", func(t *testing.T) {
-		byts, err := GenerateInit(testVideoTrack, testAudioTrack)
+		byts, err := InitWrite(testVideoTrack, testAudioTrack)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
@@ -173,7 +173,7 @@ func TestGenerateInit(t *testing.T) {
 	})
 
 	t.Run("video only", func(t *testing.T) {
-		byts, err := GenerateInit(testVideoTrack, nil)
+		byts, err := InitWrite(testVideoTrack, nil)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
@@ -245,7 +245,7 @@ func TestGenerateInit(t *testing.T) {
 	})
 
 	t.Run("audio only", func(t *testing.T) {
-		byts, err := GenerateInit(nil, testAudioTrack)
+		byts, err := InitWrite(nil, testAudioTrack)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
