@@ -30,20 +30,20 @@ func (e clientProcessorMPEGTSTrackEntryAudio) DTS() time.Duration {
 }
 
 type clientProcessorMPEGTSTrack struct {
-	clockStartRTC time.Time
-	onEntry       func(e clientProcessorMPEGTSTrackEntry) error
+	startRTC time.Time
+	onEntry  func(e clientProcessorMPEGTSTrackEntry) error
 
 	queue chan clientProcessorMPEGTSTrackEntry
 }
 
 func newClientProcessorMPEGTSTrack(
-	clockStartRTC time.Time,
+	startRTC time.Time,
 	onEntry func(e clientProcessorMPEGTSTrackEntry) error,
 ) *clientProcessorMPEGTSTrack {
 	return &clientProcessorMPEGTSTrack{
-		clockStartRTC: clockStartRTC,
-		onEntry:       onEntry,
-		queue:         make(chan clientProcessorMPEGTSTrackEntry, clientQueueSize),
+		startRTC: startRTC,
+		onEntry:  onEntry,
+		queue:    make(chan clientProcessorMPEGTSTrackEntry, clientQueueSize),
 	}
 }
 
@@ -63,7 +63,7 @@ func (t *clientProcessorMPEGTSTrack) run(ctx context.Context) error {
 }
 
 func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, entry clientProcessorMPEGTSTrackEntry) error {
-	elapsed := time.Since(t.clockStartRTC)
+	elapsed := time.Since(t.startRTC)
 	if entry.DTS() > elapsed {
 		select {
 		case <-ctx.Done():

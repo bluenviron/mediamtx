@@ -248,10 +248,10 @@ func (p *clientProcessorMPEGTS) parseTracks(dem *astits.Demuxer) error {
 	return nil
 }
 
-func (p *clientProcessorMPEGTS) initializeTrackProcs(clockStartRTC time.Time) {
+func (p *clientProcessorMPEGTS) initializeTrackProcs(startRTC time.Time) {
 	if p.videoTrack != nil {
 		p.videoProc = newClientProcessorMPEGTSTrack(
-			clockStartRTC,
+			startRTC,
 			func(e clientProcessorMPEGTSTrackEntry) error {
 				vd := e.(*clientProcessorMPEGTSTrackEntryVideo)
 
@@ -265,12 +265,12 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(clockStartRTC time.Time) {
 				return nil
 			},
 		)
-		p.rp.add(p.videoProc.run)
+		p.rp.add(p.videoProc)
 	}
 
 	if p.audioTrack != nil {
 		p.audioProc = newClientProcessorMPEGTSTrack(
-			clockStartRTC,
+			startRTC,
 			func(e clientProcessorMPEGTSTrackEntry) error {
 				ad := e.(*clientProcessorMPEGTSTrackEntryAudio)
 
@@ -289,6 +289,6 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(clockStartRTC time.Time) {
 				return nil
 			},
 		)
-		p.rp.add(p.audioProc.run)
+		p.rp.add(p.audioProc)
 	}
 }

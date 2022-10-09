@@ -10,28 +10,46 @@ import (
 type partReadState int
 
 const (
-	waitingTraf partReadState = iota
+	waitingMoof partReadState = iota
+	waitingTraf
 	waitingTfhd
 	waitingTfdt
 	waitingTrun
 )
 
+// PartTrack is a track of a part file.
+type PartTrack struct {
+	ID       uint32
+	BaseTime uint64
+	Entries  []gomp4.TrunEntry
+	Data     []byte
+}
+
 // PartRead reads a FMP4 part file.
 func PartRead(
 	byts []byte,
-	cb func(),
-) error {
-	state := waitingTraf
-	var trackID uint32
-	var baseTime uint64
-	var entries []gomp4.TrunEntry
+) ([]*PartTrack, error) {
+	state := waitingMoof
+	var moofOffset uint64
+	var curTrack *PartTrack
+	var tracks []*PartTrack
 
 	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
+		case "moof":
+			if state != waitingMoof {
+				return nil, fmt.Errorf("decode error")
+			}
+
+			moofOffset = h.BoxInfo.Offset
+			state = waitingTraf
+
 		case "traf":
 			if state != waitingTraf {
 				return nil, fmt.Errorf("decode error")
 			}
+
+			curTrack = &PartTrack{}
 			state = waitingTfhd
 
 		case "tfhd":
@@ -43,8 +61,9 @@ func PartRead(
 			if err != nil {
 				return nil, err
 			}
-			trackID = box.(*gomp4.Tfhd).TrackID
+			tfhd := box.(*gomp4.Tfhd)
 
+			curTrack.ID = tfhd.TrackID
 			state = waitingTfdt
 
 		case "tfdt":
@@ -56,13 +75,13 @@ func PartRead(
 			if err != nil {
 				return nil, err
 			}
-			t := box.(*gomp4.Tfdt)
+			tfdt := box.(*gomp4.Tfdt)
 
-			if t.FullBox.Version != 1 {
+			if tfdt.FullBox.Version != 1 {
 				return nil, fmt.Errorf("unsupported tfdt version")
 			}
 
-			baseTime = t.BaseMediaDecodeTimeV1
+			curTrack.BaseTime = tfdt.BaseMediaDecodeTimeV1
 			state = waitingTrun
 
 		case "trun":
@@ -74,23 +93,35 @@ func PartRead(
 			if err != nil {
 				return nil, err
 			}
-			t := box.(*gomp4.Trun)
+			trun := box.(*gomp4.Trun)
 
-			entries = t.Entries
+			flags := uint16(trun.Flags[1])<<8 | uint16(trun.Flags[2])
+			if (flags & 0x100) == 0 { // sample duration present
+				return nil, fmt.Errorf("unsupported flags")
+			}
+			if (flags & 0x200) == 0 { // sample size present
+				return nil, fmt.Errorf("unsupported flags")
+			}
+
+			curTrack.Entries = trun.Entries
+			o := uint64(trun.DataOffset) + moofOffset
+			curTrack.Data = byts[o:]
+			tracks = append(tracks, curTrack)
 			state = waitingTraf
+
+		case "mdat":
+			if state != waitingTraf {
+				return nil, fmt.Errorf("decode error")
+			}
+			state = waitingMoof
+			return nil, nil
 		}
 
 		return h.Expand()
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if state != waitingTraf {
-		return fmt.Errorf("parse error")
-	}
-
-	fmt.Println("TODO", trackID, baseTime, entries)
-
-	return nil
+	return tracks, nil
 }

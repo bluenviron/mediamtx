@@ -107,7 +107,7 @@ func (c *Client) runInner() error {
 		c.onAudioData,
 		rp,
 	)
-	rp.add(dl.run)
+	rp.add(dl)
 
 	select {
 	case err := <-rp.errorChan():

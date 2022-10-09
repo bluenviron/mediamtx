@@ -121,18 +121,36 @@ func (d *clientDownloader) fillSegmentQueue(ctx context.Context) (bool, error) {
 		d.firstPlaylistReceived = true
 
 		if pl.Map != nil && pl.Map.URI != "" {
-			return false, fmt.Errorf("fMP4 streams are not supported yet")
-		}
+			byts, err := d.downloadSegment(ctx, pl.Map.URI)
+			if err != nil {
+				return false, err
+			}
 
-		proc := newClientProcessorMPEGTS(
-			d.segmentQueue,
-			d.logger,
-			d.rp,
-			d.onTracks,
-			d.onVideoData,
-			d.onAudioData,
-		)
-		d.rp.add(proc.run)
+			proc, err := newClientProcessorFMP4(
+				byts,
+				d.segmentQueue,
+				d.logger,
+				d.rp,
+				d.onTracks,
+				d.onVideoData,
+				d.onAudioData,
+			)
+			if err != nil {
+				return false, err
+			}
+
+			d.rp.add(proc)
+		} else {
+			proc := newClientProcessorMPEGTS(
+				d.segmentQueue,
+				d.logger,
+				d.rp,
+				d.onTracks,
+				d.onVideoData,
+				d.onAudioData,
+			)
+			d.rp.add(proc)
+		}
 	}
 
 	added := false

@@ -12,15 +12,25 @@ type initReadState int
 
 const (
 	waitingTrak initReadState = iota
+	waitingTkhd
+	waitingMdhd
 	waitingCodec
 	waitingAVCC
 )
 
+// InitTrack is a track of a initialization file.
+type InitTrack struct {
+	ID        uint32
+	TimeScale uint32
+	Track     gortsplib.Track
+}
+
 // InitRead reads a FMP4 initialization file.
-func InitRead(byts []byte) (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, error) {
+func InitRead(byts []byte) (*InitTrack, *InitTrack, error) {
 	state := waitingTrak
-	var videoTrack *gortsplib.TrackH264
-	var audioTrack *gortsplib.TrackMPEG4Audio
+	var curTrack *InitTrack
+	var videoTrack *InitTrack
+	var audioTrack *InitTrack
 
 	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -28,6 +38,36 @@ func InitRead(byts []byte) (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, er
 			if state != waitingTrak {
 				return nil, fmt.Errorf("parse error")
 			}
+
+			curTrack = &InitTrack{}
+			state = waitingTkhd
+
+		case "tkhd":
+			if state != waitingTkhd {
+				return nil, fmt.Errorf("parse error")
+			}
+
+			box, _, err := h.ReadPayload()
+			if err != nil {
+				return nil, err
+			}
+			tkhd := box.(*gomp4.Tkhd)
+
+			curTrack.ID = tkhd.TrackID
+			state = waitingMdhd
+
+		case "mdhd":
+			if state != waitingMdhd {
+				return nil, fmt.Errorf("parse error")
+			}
+
+			box, _, err := h.ReadPayload()
+			if err != nil {
+				return nil, err
+			}
+			mdhd := box.(*gomp4.Mdhd)
+
+			curTrack.TimeScale = mdhd.Timescale
 			state = waitingCodec
 
 		case "avc1":
@@ -70,12 +110,12 @@ func InitRead(byts []byte) (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, er
 				pps = conf.PictureParameterSets[0].NALUnit
 			}
 
-			videoTrack = &gortsplib.TrackH264{
+			curTrack.Track = &gortsplib.TrackH264{
 				PayloadType: 96,
 				SPS:         sps,
 				PPS:         pps,
 			}
-
+			videoTrack = curTrack
 			state = waitingTrak
 
 		case "mp4a":
@@ -98,6 +138,10 @@ func InitRead(byts []byte) (*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio, er
 
 	if state != waitingTrak {
 		return nil, nil, fmt.Errorf("parse error")
+	}
+
+	if videoTrack == nil && audioTrack == nil {
+		return nil, nil, fmt.Errorf("no tracks found")
 	}
 
 	return videoTrack, audioTrack, nil

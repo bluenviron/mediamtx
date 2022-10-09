@@ -5,6 +5,10 @@ import (
 	"sync"
 )
 
+type clientRoutinePoolRunnable interface {
+	run(context.Context) error
+}
+
 type clientRoutinePool struct {
 	ctx       context.Context
 	ctxCancel func()
@@ -32,12 +36,12 @@ func (rp *clientRoutinePool) errorChan() chan error {
 	return rp.err
 }
 
-func (rp *clientRoutinePool) add(cb func(context.Context) error) {
+func (rp *clientRoutinePool) add(r clientRoutinePoolRunnable) {
 	rp.wg.Add(1)
 	go func() {
 		defer rp.wg.Done()
 		select {
-		case rp.err <- cb(rp.ctx):
+		case rp.err <- r.run(rp.ctx):
 		case <-rp.ctx.Done():
 		}
 	}()
