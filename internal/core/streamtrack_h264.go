@@ -51,10 +51,10 @@ func (t *streamTrackH264) updateTrackParameters(nalus [][]byte) {
 	}
 }
 
-// remux is needed to
-// - fix corrupted streams
-// - make streams compatible with all protocols
+// remux is needed to fix corrupted streams and make streams
+// compatible with all protocols.
 func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
+	addSPSPPS := false
 	n := 0
 	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
@@ -64,7 +64,11 @@ func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 		case h264.NALUTypeAccessUnitDelimiter:
 			continue
 		case h264.NALUTypeIDR:
-			n += 2
+			// prepend SPS and PPS to the group if there's at least an IDR
+			if !addSPSPPS {
+				addSPSPPS = true
+				n += 2
+			}
 		}
 		n++
 	}
@@ -76,23 +80,22 @@ func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
+	if addSPSPPS {
+		filteredNALUs[0] = t.track.SafeSPS()
+		filteredNALUs[1] = t.track.SafePPS()
+		i = 2
+	}
+
 	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 		switch typ {
 		case h264.NALUTypeSPS, h264.NALUTypePPS:
-			// remove since they're automatically added before every IDR
+			// remove since they're automatically added
 			continue
 
 		case h264.NALUTypeAccessUnitDelimiter:
 			// remove since it is not needed
 			continue
-
-		case h264.NALUTypeIDR:
-			// add SPS and PPS before every IDR
-			filteredNALUs[i] = t.track.SafeSPS()
-			i++
-			filteredNALUs[i] = t.track.SafePPS()
-			i++
 		}
 
 		filteredNALUs[i] = nalu
