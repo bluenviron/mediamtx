@@ -18,6 +18,7 @@ import (
 	"github.com/asticode/go-astits"
 	"github.com/grafov/m3u8"
 
+	"github.com/aler9/rtsp-simple-server/internal/hls/mpegtstimedec"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -61,7 +62,8 @@ type Client struct {
 	segmentQueue          *clientSegmentQueue
 	pmtDownloaded         bool
 	clockInitialized      bool
-	clockStartPTS         time.Duration
+	timeDec               *mpegtstimedec.Decoder
+	startDTS              time.Duration
 
 	videoPID  *uint16
 	audioPID  *uint16
@@ -130,6 +132,7 @@ func NewClient(
 			},
 		},
 		segmentQueue:  newClientSegmentQueue(),
+		timeDec:       mpegtstimedec.New(),
 		allocateProcs: make(chan clientAllocateProcsReq),
 		outErr:        make(chan error, 1),
 	}
@@ -481,36 +484,49 @@ func (c *Client) processSegment(innerCtx context.Context, byts []byte) error {
 			return fmt.Errorf("PTS is missing")
 		}
 
-		pts := time.Duration(float64(data.PES.Header.OptionalHeader.PTS.Base) * float64(time.Second) / 90000)
-
-		if !c.clockInitialized {
-			c.clockInitialized = true
-			c.clockStartPTS = pts
-			now := time.Now()
-
-			if c.videoPID != nil {
-				c.videoProc.clockStartRTC = now
-			}
-
-			if c.audioPID != nil {
-				c.audioProc.clockStartRTC = now
-			}
-		}
+		pts := c.timeDec.Decode(data.PES.Header.OptionalHeader.PTS.Base)
 
 		if c.videoPID != nil && data.PID == *c.videoPID {
 			var dts time.Duration
 			if data.PES.Header.OptionalHeader.PTSDTSIndicator == astits.PTSDTSIndicatorBothPresent {
-				dts = time.Duration(float64(data.PES.Header.OptionalHeader.DTS.Base) * float64(time.Second) / 90000)
+				diff := time.Duration((data.PES.Header.OptionalHeader.PTS.Base-
+					data.PES.Header.OptionalHeader.DTS.Base)&0x1FFFFFFFF) *
+					time.Second / 90000
+				dts = pts - diff
 			} else {
 				dts = pts
 			}
 
-			pts -= c.clockStartPTS
-			dts -= c.clockStartPTS
+			if !c.clockInitialized {
+				c.clockInitialized = true
+				now := time.Now()
+				if c.videoPID != nil {
+					c.videoProc.clockStartRTC = now
+				}
+				if c.audioPID != nil {
+					c.audioProc.clockStartRTC = now
+				}
+				c.startDTS = dts
+			}
+
+			pts -= c.startDTS
+			dts -= c.startDTS
 
 			c.videoProc.process(data.PES.Data, pts, dts)
 		} else if c.audioPID != nil && data.PID == *c.audioPID {
-			pts -= c.clockStartPTS
+			if !c.clockInitialized {
+				c.clockInitialized = true
+				now := time.Now()
+				if c.videoPID != nil {
+					c.videoProc.clockStartRTC = now
+				}
+				if c.audioPID != nil {
+					c.audioProc.clockStartRTC = now
+				}
+				c.startDTS = pts
+			}
+
+			pts -= c.startDTS
 
 			c.audioProc.process(data.PES.Data, pts)
 		}

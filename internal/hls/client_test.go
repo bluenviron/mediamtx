@@ -153,8 +153,9 @@ func newTestHLSServer(ca string) (*testHLSServer, error) {
 				Header: &astits.PESHeader{
 					OptionalHeader: &astits.PESOptionalHeader{
 						MarkerBits:      2,
-						PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-						PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
+						PTSDTSIndicator: astits.PTSDTSIndicatorBothPresent,
+						PTS:             &astits.ClockReference{Base: 90000},                   // +1 sec
+						DTS:             &astits.ClockReference{Base: 0x1FFFFFFFF - 90000 + 1}, // -1 sec
 					},
 					StreamID: 224, // = video
 				},
@@ -217,10 +218,11 @@ func TestClient(t *testing.T) {
 					return nil
 				},
 				func(pts time.Duration, nalus [][]byte) {
+					require.Equal(t, 2*time.Second, pts)
 					require.Equal(t, [][]byte{
 						{7, 1, 2, 3},
 						{8},
-						{0x05},
+						{5},
 					}, nalus)
 					close(packetRecv)
 				},
