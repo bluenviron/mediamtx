@@ -101,7 +101,7 @@ func (p *muxerVariantMPEGTSPlaylist) playlistReader() *MuxerFileResponse {
 	return &MuxerFileResponse{
 		Status: http.StatusOK,
 		Header: map[string]string{
-			"Content-Type": `audio/mpegURL`,
+			"Content-Type": `application/x-mpegURL`,
 		},
 		Body: p.playlist(),
 	}

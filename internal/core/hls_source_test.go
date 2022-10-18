@@ -54,7 +54,7 @@ func (ts *testHLSServer) onPlaylist(ctx *gin.Context) {
 segment.ts
 `
 
-	ctx.Writer.Header().Set("Content-Type", `audio/mpegURL`)
+	ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
 	io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 }
 

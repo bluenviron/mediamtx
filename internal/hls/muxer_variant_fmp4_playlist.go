@@ -221,7 +221,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 			return &MuxerFileResponse{
 				Status: http.StatusOK,
 				Header: map[string]string{
-					"Content-Type": `audio/mpegURL`,
+					"Content-Type": `application/x-mpegURL`,
 				},
 				Body: p.fullPlaylist(isDeltaUpdate),
 			}
@@ -247,7 +247,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 	return &MuxerFileResponse{
 		Status: http.StatusOK,
 		Header: map[string]string{
-			"Content-Type": `audio/mpegURL`,
+			"Content-Type": `application/x-mpegURL`,
 		},
 		Body: p.fullPlaylist(isDeltaUpdate),
 	}
