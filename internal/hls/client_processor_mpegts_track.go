@@ -43,7 +43,7 @@ func newClientProcessorMPEGTSTrack(
 	return &clientProcessorMPEGTSTrack{
 		startRTC: startRTC,
 		onEntry:  onEntry,
-		queue:    make(chan clientProcessorMPEGTSTrackEntry, clientQueueSize),
+		queue:    make(chan clientProcessorMPEGTSTrackEntry, clientEntryQueueSize),
 	}
 }
 

@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	clientMinDownloadPause             = 5 * time.Second
-	clientQueueSize                    = 100
-	clientMinSegmentsBeforeDownloading = 2
+	clientMinDownloadPause  = 5 * time.Second
+	clientEntryQueueSize    = 100
+	clientLiveStartingPoint = 3
 )
 
 func clientURLAbsolute(base *url.URL, relative string) (*url.URL, error) {

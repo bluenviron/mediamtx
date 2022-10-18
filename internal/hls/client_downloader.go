@@ -18,6 +18,33 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+func segmentsLen(segments []*m3u8.MediaSegment) int {
+	for i, seg := range segments {
+		if seg == nil {
+			return i
+		}
+	}
+	return 0
+}
+
+func findStartingSegment(segments []*m3u8.MediaSegment) *m3u8.MediaSegment {
+	pos := len(segments) - clientLiveStartingPoint
+	if pos < 0 {
+		return nil
+	}
+
+	return segments[pos]
+}
+
+func findSegmentWithID(seqNo uint64, segments []*m3u8.MediaSegment, id uint64) *m3u8.MediaSegment {
+	pos := int(int64(id) - int64(seqNo))
+	if (pos) >= len(segments) {
+		return nil
+	}
+
+	return segments[pos]
+}
+
 type clientDownloader struct {
 	primaryPlaylistURL *url.URL
 	segmentQueue       *clientSegmentQueue
@@ -27,11 +54,9 @@ type clientDownloader struct {
 	onAudioData        func(time.Duration, []byte)
 	rp                 *clientRoutinePool
 
-	streamPlaylistURL     *url.URL
-	downloadedSegmentURIs []string
-	httpClient            *http.Client
-	lastDownloadTime      time.Time
-	firstPlaylistReceived bool
+	streamPlaylistURL *url.URL
+	httpClient        *http.Client
+	curSegmentID      *uint64
 }
 
 func newClientDownloader(
@@ -82,48 +107,32 @@ func newClientDownloader(
 
 func (d *clientDownloader) run(ctx context.Context) error {
 	for {
-		ok := d.segmentQueue.waitUntilSizeIsBelow(ctx, clientMinSegmentsBeforeDownloading)
+		ok := d.segmentQueue.waitUntilSizeIsBelow(ctx, 1)
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
 
-		_, err := d.fillSegmentQueue(ctx)
+		err := d.fillSegmentQueue(ctx)
 		if err != nil {
 			return err
 		}
 	}
 }
 
-func (d *clientDownloader) fillSegmentQueue(ctx context.Context) (bool, error) {
-	minTime := d.lastDownloadTime.Add(clientMinDownloadPause)
-	now := time.Now()
-	if now.Before(minTime) {
-		select {
-		case <-time.After(minTime.Sub(now)):
-		case <-ctx.Done():
-			return false, fmt.Errorf("terminated")
+func (d *clientDownloader) fillSegmentQueue(ctx context.Context) error {
+	var pl *m3u8.MediaPlaylist
+
+	if d.streamPlaylistURL == nil {
+		var err error
+		pl, err = d.downloadPrimaryPlaylist(ctx)
+		if err != nil {
+			return err
 		}
-	}
-
-	d.lastDownloadTime = now
-
-	pl, err := func() (*m3u8.MediaPlaylist, error) {
-		if d.streamPlaylistURL == nil {
-			return d.downloadPrimaryPlaylist(ctx)
-		}
-		return d.downloadStreamPlaylist(ctx)
-	}()
-	if err != nil {
-		return false, err
-	}
-
-	if !d.firstPlaylistReceived {
-		d.firstPlaylistReceived = true
 
 		if pl.Map != nil && pl.Map.URI != "" {
 			byts, err := d.downloadSegment(ctx, pl.Map.URI)
 			if err != nil {
-				return false, err
+				return err
 			}
 
 			proc, err := newClientProcessorFMP4(
@@ -136,7 +145,7 @@ func (d *clientDownloader) fillSegmentQueue(ctx context.Context) (bool, error) {
 				d.onAudioData,
 			)
 			if err != nil {
-				return false, err
+				return err
 			}
 
 			d.rp.add(proc)
@@ -151,37 +160,60 @@ func (d *clientDownloader) fillSegmentQueue(ctx context.Context) (bool, error) {
 			)
 			d.rp.add(proc)
 		}
+	} else {
+		var err error
+		pl, err = d.downloadStreamPlaylist(ctx)
+		if err != nil {
+			return err
+		}
 	}
 
-	added := false
+	pl.Segments = pl.Segments[:segmentsLen(pl.Segments)]
+	var seg *m3u8.MediaSegment
 
-	for _, seg := range pl.Segments {
-		if seg == nil {
-			break
-		}
-
-		if !d.segmentWasDownloaded(seg.URI) {
-			d.downloadedSegmentURIs = append(d.downloadedSegmentURIs, seg.URI)
-			byts, err := d.downloadSegment(ctx, seg.URI)
-			if err != nil {
-				return false, err
+	if d.curSegmentID == nil {
+		if !pl.Closed { // live stream: start from clientLiveStartingPoint
+			seg = findStartingSegment(pl.Segments)
+			if seg == nil {
+				return fmt.Errorf("there aren't enough segments to fill the buffer")
 			}
-
-			d.segmentQueue.push(byts)
-			added = true
+		} else { // VOD stream: start from beginning
+			if len(pl.Segments) == 0 {
+				return fmt.Errorf("no segments found")
+			}
+			seg = pl.Segments[0]
+		}
+	} else {
+		seg = findSegmentWithID(pl.SeqNo, pl.Segments, *d.curSegmentID+1)
+		if seg == nil {
+			if !pl.Closed { // live stream
+				d.logger.Log(logger.Warn, "resetting segment ID")
+				seg = findStartingSegment(pl.Segments)
+				if seg == nil {
+					return fmt.Errorf("there aren't enough segments to fill the buffer")
+				}
+			} else { // VOD stream
+				return fmt.Errorf("following segment not found")
+			}
 		}
 	}
 
-	return added, nil
-}
+	v := seg.SeqId
+	d.curSegmentID = &v
 
-func (d *clientDownloader) segmentWasDownloaded(ur string) bool {
-	for _, q := range d.downloadedSegmentURIs {
-		if q == ur {
-			return true
-		}
+	byts, err := d.downloadSegment(ctx, seg.URI)
+	if err != nil {
+		return err
 	}
-	return false
+
+	d.segmentQueue.push(byts)
+
+	if pl.Closed && pl.Segments[len(pl.Segments)-1] == seg {
+		<-ctx.Done()
+		return fmt.Errorf("stream has ended")
+	}
+
+	return nil
 }
 
 func (d *clientDownloader) downloadPrimaryPlaylist(ctx context.Context) (*m3u8.MediaPlaylist, error) {
@@ -194,6 +226,7 @@ func (d *clientDownloader) downloadPrimaryPlaylist(ctx context.Context) (*m3u8.M
 
 	switch plt := pl.(type) {
 	case *m3u8.MediaPlaylist:
+		d.logger.Log(logger.Debug, "primary playlist is a stream playlist")
 		d.streamPlaylistURL = d.primaryPlaylistURL
 		return plt, nil
 
