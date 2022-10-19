@@ -301,9 +301,16 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		author: c,
 	})
 
+	var tracks []gortsplib.Track
+	if videoTrack != nil {
+		tracks = append(tracks, videoTrack)
+	}
+	if audioTrack != nil {
+		tracks = append(tracks, audioTrack)
+	}
+
 	c.log(logger.Info, "is reading from path '%s', %s",
-		c.path.Name(),
-		sourceTrackInfo(res.stream.tracks()))
+		c.path.Name(), sourceTrackInfo(tracks))
 
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
