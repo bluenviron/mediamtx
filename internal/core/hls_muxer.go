@@ -349,8 +349,16 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.path.readerStart(pathReaderStartReq{author: m})
 
+	var tracks []gortsplib.Track
+	if videoTrack != nil {
+		tracks = append(tracks, videoTrack)
+	}
+	if audioTrack != nil {
+		tracks = append(tracks, audioTrack)
+	}
+
 	m.log(logger.Info, "is converting into HLS, %s",
-		sourceTrackInfo(res.stream.tracks()))
+		sourceTrackInfo(tracks))
 
 	writerDone := make(chan error)
 	go func() {
