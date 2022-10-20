@@ -22,6 +22,9 @@ type clientProcessorFMP4 struct {
 	audioProc        *clientProcessorFMP4Track
 	clockInitialized bool
 	startBaseTime    uint64
+
+	// in
+	subpartProcessed chan struct{}
 }
 
 func newClientProcessorFMP4(
@@ -53,10 +56,18 @@ func newClientProcessorFMP4(
 		return nil, err
 	}
 
-	var videoProc *clientProcessorFMP4Track
+	p := &clientProcessorFMP4{
+		segmentQueue:     segmentQueue,
+		logger:           logger,
+		initVideoTrack:   initVideoTrack,
+		initAudioTrack:   initAudioTrack,
+		subpartProcessed: make(chan struct{}),
+	}
+
 	if videoTrack != nil {
-		videoProc = newClientProcessorFMP4Track(
+		p.videoProc = newClientProcessorFMP4Track(
 			initVideoTrack.TimeScale,
+			p.onSubpartProcessed,
 			func(pts time.Duration, payload []byte) error {
 				nalus, err := h264.AVCCUnmarshal(payload)
 				if err != nil {
@@ -67,28 +78,21 @@ func newClientProcessorFMP4(
 				return nil
 			},
 		)
-		rp.add(videoProc)
+		rp.add(p.videoProc)
 	}
 
-	var audioProc *clientProcessorFMP4Track
 	if audioTrack != nil {
-		audioProc = newClientProcessorFMP4Track(
+		p.audioProc = newClientProcessorFMP4Track(
 			initAudioTrack.TimeScale,
+			p.onSubpartProcessed,
 			func(pts time.Duration, payload []byte) error {
 				return nil
 			},
 		)
-		rp.add(audioProc)
+		rp.add(p.audioProc)
 	}
 
-	return &clientProcessorFMP4{
-		segmentQueue:   segmentQueue,
-		logger:         logger,
-		initVideoTrack: initVideoTrack,
-		initAudioTrack: initAudioTrack,
-		videoProc:      videoProc,
-		audioProc:      audioProc,
-	}, nil
+	return p, nil
 }
 
 func (p *clientProcessorFMP4) run(ctx context.Context) error {
@@ -108,12 +112,14 @@ func (p *clientProcessorFMP4) run(ctx context.Context) error {
 func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) error {
 	p.logger.Log(logger.Debug, "processing segment")
 
-	partTracks, err := fmp4.PartRead(byts)
+	subparts, err := fmp4.PartRead(byts)
 	if err != nil {
 		return err
 	}
 
-	for _, track := range partTracks {
+	processingCount := 0
+
+	for _, track := range subparts {
 		if !p.clockInitialized {
 			p.clockInitialized = true
 			p.startBaseTime = track.BaseTime
@@ -135,8 +141,25 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 			case <-ctx.Done():
 				return fmt.Errorf("terminated")
 			}
+
+			processingCount++
+		}
+	}
+
+	for i := 0; i < processingCount; i++ {
+		select {
+		case <-p.subpartProcessed:
+		case <-ctx.Done():
+			return fmt.Errorf("terminated")
 		}
 	}
 
 	return nil
+}
+
+func (p *clientProcessorFMP4) onSubpartProcessed(ctx context.Context) {
+	select {
+	case p.subpartProcessed <- struct{}{}:
+	case <-ctx.Done():
+	}
 }

@@ -9,21 +9,24 @@ import (
 )
 
 type clientProcessorFMP4Track struct {
-	timeScale uint32
-	onEntry   func(time.Duration, []byte) error
+	timeScale          uint32
+	onSubpartProcessed func(context.Context)
+	onEntry            func(time.Duration, []byte) error
 
-	queue    chan *fmp4.PartTrack
+	queue    chan *fmp4.Subpart
 	startRTC time.Time
 }
 
 func newClientProcessorFMP4Track(
 	timeScale uint32,
+	onSubpartProcessed func(context.Context),
 	onEntry func(time.Duration, []byte) error,
 ) *clientProcessorFMP4Track {
 	return &clientProcessorFMP4Track{
-		timeScale: timeScale,
-		onEntry:   onEntry,
-		queue:     make(chan *fmp4.PartTrack),
+		timeScale:          timeScale,
+		onSubpartProcessed: onSubpartProcessed,
+		onEntry:            onEntry,
+		queue:              make(chan *fmp4.Subpart, clientSubpartQueueSize),
 	}
 }
 
@@ -31,10 +34,12 @@ func (t *clientProcessorFMP4Track) run(ctx context.Context) error {
 	for {
 		select {
 		case entry := <-t.queue:
-			err := t.processPartTrack(ctx, entry)
+			err := t.processSubpart(ctx, entry)
 			if err != nil {
 				return err
 			}
+
+			t.onSubpartProcessed(ctx)
 
 		case <-ctx.Done():
 			return nil
@@ -42,7 +47,7 @@ func (t *clientProcessorFMP4Track) run(ctx context.Context) error {
 	}
 }
 
-func (t *clientProcessorFMP4Track) processPartTrack(ctx context.Context, pt *fmp4.PartTrack) error {
+func (t *clientProcessorFMP4Track) processSubpart(ctx context.Context, pt *fmp4.Subpart) error {
 	rawDTS := pt.BaseTime
 	offset := uint64(0)
 

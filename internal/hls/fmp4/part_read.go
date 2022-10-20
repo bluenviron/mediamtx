@@ -17,8 +17,9 @@ const (
 	waitingTrun
 )
 
-// PartTrack is a track of a part file.
-type PartTrack struct {
+// Subpart is a sub-part of a FMP4 part.
+// It contains a single track and a series of entries.
+type Subpart struct {
 	ID       uint32
 	BaseTime uint64
 	Entries  []gomp4.TrunEntry
@@ -28,11 +29,11 @@ type PartTrack struct {
 // PartRead reads a FMP4 part file.
 func PartRead(
 	byts []byte,
-) ([]*PartTrack, error) {
+) ([]*Subpart, error) {
 	state := waitingMoof
 	var moofOffset uint64
-	var curTrack *PartTrack
-	var tracks []*PartTrack
+	var curTrack *Subpart
+	var tracks []*Subpart
 
 	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -49,7 +50,7 @@ func PartRead(
 				return nil, fmt.Errorf("decode error")
 			}
 
-			curTrack = &PartTrack{}
+			curTrack = &Subpart{}
 			state = waitingTfhd
 
 		case "tfhd":
