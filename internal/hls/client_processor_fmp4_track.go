@@ -9,24 +9,27 @@ import (
 )
 
 type clientProcessorFMP4Track struct {
-	timeScale          uint32
-	onSubpartProcessed func(context.Context)
-	onEntry            func(time.Duration, []byte) error
+	timeScale            uint32
+	startRTC             time.Time
+	onPartTrackProcessed func(context.Context)
+	onEntry              func(time.Duration, []byte) error
 
-	queue    chan *fmp4.Subpart
-	startRTC time.Time
+	// in
+	queue chan *fmp4.PartTrack
 }
 
 func newClientProcessorFMP4Track(
 	timeScale uint32,
-	onSubpartProcessed func(context.Context),
+	startRTC time.Time,
+	onPartTrackProcessed func(context.Context),
 	onEntry func(time.Duration, []byte) error,
 ) *clientProcessorFMP4Track {
 	return &clientProcessorFMP4Track{
-		timeScale:          timeScale,
-		onSubpartProcessed: onSubpartProcessed,
-		onEntry:            onEntry,
-		queue:              make(chan *fmp4.Subpart, clientSubpartQueueSize),
+		timeScale:            timeScale,
+		startRTC:             startRTC,
+		onPartTrackProcessed: onPartTrackProcessed,
+		onEntry:              onEntry,
+		queue:                make(chan *fmp4.PartTrack, clientSubpartQueueSize),
 	}
 }
 
@@ -34,12 +37,12 @@ func (t *clientProcessorFMP4Track) run(ctx context.Context) error {
 	for {
 		select {
 		case entry := <-t.queue:
-			err := t.processSubpart(ctx, entry)
+			err := t.processPartTrack(ctx, entry)
 			if err != nil {
 				return err
 			}
 
-			t.onSubpartProcessed(ctx)
+			t.onPartTrackProcessed(ctx)
 
 		case <-ctx.Done():
 			return nil
@@ -47,12 +50,11 @@ func (t *clientProcessorFMP4Track) run(ctx context.Context) error {
 	}
 }
 
-func (t *clientProcessorFMP4Track) processSubpart(ctx context.Context, pt *fmp4.Subpart) error {
+func (t *clientProcessorFMP4Track) processPartTrack(ctx context.Context, pt *fmp4.PartTrack) error {
 	rawDTS := pt.BaseTime
-	offset := uint64(0)
 
-	for _, entry := range pt.Entries {
-		pts := (time.Duration(entry.SampleCompositionTimeOffsetV1) +
+	for _, sample := range pt.Samples {
+		pts := (time.Duration(sample.PTSOffset) +
 			time.Duration(rawDTS)) * time.Second / time.Duration(t.timeScale)
 		dts := time.Duration(rawDTS) * time.Second / time.Duration(t.timeScale)
 
@@ -65,13 +67,12 @@ func (t *clientProcessorFMP4Track) processSubpart(ctx context.Context, pt *fmp4.
 			}
 		}
 
-		err := t.onEntry(pts, pt.Data[offset:offset+uint64(entry.SampleSize)])
+		err := t.onEntry(pts, sample.Payload)
 		if err != nil {
 			return err
 		}
 
-		rawDTS += uint64(entry.SampleDuration)
-		offset += uint64(entry.SampleSize)
+		rawDTS += uint64(sample.Duration)
 	}
 
 	return nil

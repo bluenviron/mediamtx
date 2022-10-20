@@ -15,12 +15,15 @@ import (
 type clientProcessorFMP4 struct {
 	segmentQueue *clientSegmentQueue
 	logger       ClientLogger
+	rp           *clientRoutinePool
+	onVideoData  func(time.Duration, [][]byte)
+	onAudioData  func(time.Duration, []byte)
 
-	init             *fmp4.Init
-	videoProc        *clientProcessorFMP4Track
-	audioProc        *clientProcessorFMP4Track
-	clockInitialized bool
-	startBaseTime    uint64
+	init              *fmp4.Init
+	videoProc         *clientProcessorFMP4Track
+	audioProc         *clientProcessorFMP4Track
+	tracksInitialized bool
+	startBaseTime     uint64
 
 	// in
 	subpartProcessed chan struct{}
@@ -44,6 +47,9 @@ func newClientProcessorFMP4(
 	p := &clientProcessorFMP4{
 		segmentQueue:     segmentQueue,
 		logger:           logger,
+		rp:               rp,
+		onVideoData:      onVideoData,
+		onAudioData:      onAudioData,
 		init:             &init,
 		subpartProcessed: make(chan struct{}),
 	}
@@ -61,34 +67,6 @@ func newClientProcessorFMP4(
 	err = onTracks(videoTrack, audioTrack)
 	if err != nil {
 		return nil, err
-	}
-
-	if videoTrack != nil {
-		p.videoProc = newClientProcessorFMP4Track(
-			init.VideoTrack.TimeScale,
-			p.onSubpartProcessed,
-			func(pts time.Duration, payload []byte) error {
-				nalus, err := h264.AVCCUnmarshal(payload)
-				if err != nil {
-					return err
-				}
-
-				onVideoData(pts, nalus)
-				return nil
-			},
-		)
-		rp.add(p.videoProc)
-	}
-
-	if audioTrack != nil {
-		p.audioProc = newClientProcessorFMP4Track(
-			init.AudioTrack.TimeScale,
-			p.onSubpartProcessed,
-			func(pts time.Duration, payload []byte) error {
-				return nil
-			},
-		)
-		rp.add(p.audioProc)
 	}
 
 	return p, nil
@@ -111,37 +89,63 @@ func (p *clientProcessorFMP4) run(ctx context.Context) error {
 func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) error {
 	p.logger.Log(logger.Debug, "processing segment")
 
-	subparts, err := fmp4.PartRead(byts)
+	var parts fmp4.Parts
+	err := parts.Unmarshal(byts)
 	if err != nil {
 		return err
 	}
 
 	processingCount := 0
 
-	for _, track := range subparts {
-		if !p.clockInitialized {
-			p.clockInitialized = true
-			p.startBaseTime = track.BaseTime
+	for _, part := range parts {
+		for _, track := range part.Tracks {
+			if !p.tracksInitialized {
+				p.tracksInitialized = true
+				p.startBaseTime = track.BaseTime
+				startRTC := time.Now()
 
-			now := time.Now()
-			if p.videoProc != nil {
-				p.videoProc.startRTC = now
+				if p.init.VideoTrack != nil {
+					p.videoProc = newClientProcessorFMP4Track(
+						p.init.VideoTrack.TimeScale,
+						startRTC,
+						p.onPartTrackProcessed,
+						func(pts time.Duration, payload []byte) error {
+							nalus, err := h264.AVCCUnmarshal(payload)
+							if err != nil {
+								return err
+							}
+
+							p.onVideoData(pts, nalus)
+							return nil
+						},
+					)
+					p.rp.add(p.videoProc)
+				}
+
+				if p.init.AudioTrack != nil {
+					p.audioProc = newClientProcessorFMP4Track(
+						p.init.AudioTrack.TimeScale,
+						startRTC,
+						p.onPartTrackProcessed,
+						func(pts time.Duration, payload []byte) error {
+							return nil
+						},
+					)
+					p.rp.add(p.audioProc)
+				}
 			}
-			if p.audioProc != nil {
-				p.audioProc.startRTC = now
+
+			track.BaseTime -= p.startBaseTime
+
+			if p.init.VideoTrack != nil && track.ID == p.init.VideoTrack.ID {
+				select {
+				case p.videoProc.queue <- track:
+				case <-ctx.Done():
+					return fmt.Errorf("terminated")
+				}
+
+				processingCount++
 			}
-		}
-
-		track.BaseTime -= p.startBaseTime
-
-		if p.init.VideoTrack != nil && track.ID == p.init.VideoTrack.ID {
-			select {
-			case p.videoProc.queue <- track:
-			case <-ctx.Done():
-				return fmt.Errorf("terminated")
-			}
-
-			processingCount++
 		}
 	}
 
@@ -156,7 +160,7 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 	return nil
 }
 
-func (p *clientProcessorFMP4) onSubpartProcessed(ctx context.Context) {
+func (p *clientProcessorFMP4) onPartTrackProcessed(ctx context.Context) {
 	select {
 	case p.subpartProcessed <- struct{}{}:
 	case <-ctx.Done():

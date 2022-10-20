@@ -7,7 +7,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 )
 
-// InitTrack is a track of a FMP4 initialization file.
+// InitTrack is a track of Init.
 type InitTrack struct {
 	ID        int
 	TimeScale uint32
