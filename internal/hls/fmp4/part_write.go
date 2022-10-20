@@ -9,6 +9,44 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 )
 
+const (
+	trunFlagDataOffsetPreset                       = 0x01
+	trunFlagSampleDurationPresent                  = 0x100
+	trunFlagSampleSizePresent                      = 0x200
+	trunFlagSampleFlagsPresent                     = 0x400
+	trunFlagSampleCompositionTimeOffsetPresentOrV1 = 0x800
+
+	videoTimescale = 90000
+)
+
+// PartVideoSample is a video sample.
+type PartVideoSample struct {
+	NALUs      [][]byte
+	PTS        time.Duration
+	DTS        time.Duration
+	IDRPresent bool
+	Next       *PartVideoSample
+
+	avcc []byte
+}
+
+// Duration returns the sample duration.
+func (s PartVideoSample) Duration() time.Duration {
+	return s.Next.DTS - s.DTS
+}
+
+// PartAudioSample is an audio sample.
+type PartAudioSample struct {
+	AU   []byte
+	PTS  time.Duration
+	Next *PartAudioSample
+}
+
+// Duration returns the sample duration.
+func (s PartAudioSample) Duration() time.Duration {
+	return s.Next.PTS - s.PTS
+}
+
 func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
 	return int64(math.Round(float64(v*timescale) / float64(time.Second)))
 }
@@ -16,7 +54,7 @@ func durationGoToMp4(v time.Duration, timescale time.Duration) int64 {
 func partWriteVideoInfo(
 	w *mp4Writer,
 	trackID int,
-	videoSamples []*VideoSample,
+	videoSamples []*PartVideoSample,
 ) (*gomp4.Trun, int, error) {
 	/*
 		traf
@@ -53,12 +91,11 @@ func partWriteVideoInfo(
 		return nil, 0, err
 	}
 
-	flags = 0
-	flags |= 0x01  // data offset present
-	flags |= 0x100 // sample duration present
-	flags |= 0x200 // sample size present
-	flags |= 0x400 // sample flags present
-	flags |= 0x800 // sample composition time offset present or v1
+	flags = trunFlagDataOffsetPreset |
+		trunFlagSampleDurationPresent |
+		trunFlagSampleSizePresent |
+		trunFlagSampleFlagsPresent |
+		trunFlagSampleCompositionTimeOffsetPresentOrV1
 
 	trun := &gomp4.Trun{ // <trun/>
 		FullBox: gomp4.FullBox{
@@ -101,7 +138,7 @@ func partWriteAudioInfo(
 	w *mp4Writer,
 	trackID int,
 	audioTrack *gortsplib.TrackMPEG4Audio,
-	audioSamples []*AudioSample,
+	audioSamples []*PartAudioSample,
 ) (*gomp4.Trun, int, error) {
 	/*
 		traf
@@ -142,10 +179,9 @@ func partWriteAudioInfo(
 		return nil, 0, err
 	}
 
-	flags = 0
-	flags |= 0x01  // data offset present
-	flags |= 0x100 // sample duration present
-	flags |= 0x200 // sample size present
+	flags = trunFlagDataOffsetPreset |
+		trunFlagSampleDurationPresent |
+		trunFlagSampleSizePresent
 
 	trun := &gomp4.Trun{ // <trun/>
 		FullBox: gomp4.FullBox{
@@ -179,8 +215,8 @@ func partWriteAudioInfo(
 func PartWrite(
 	videoTrack *gortsplib.TrackH264,
 	audioTrack *gortsplib.TrackMPEG4Audio,
-	videoSamples []*VideoSample,
-	audioSamples []*AudioSample,
+	videoSamples []*PartVideoSample,
+	audioSamples []*PartAudioSample,
 ) ([]byte, error) {
 	/*
 		moof

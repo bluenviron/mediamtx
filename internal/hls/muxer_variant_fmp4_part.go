@@ -22,8 +22,8 @@ type muxerVariantFMP4Part struct {
 	id         uint64
 
 	isIndependent    bool
-	videoSamples     []*fmp4.VideoSample
-	audioSamples     []*fmp4.AudioSample
+	videoSamples     []*fmp4.PartVideoSample
+	audioSamples     []*fmp4.PartAudioSample
 	content          []byte
 	renderedDuration time.Duration
 }
@@ -91,13 +91,13 @@ func (p *muxerVariantFMP4Part) finalize() error {
 	return nil
 }
 
-func (p *muxerVariantFMP4Part) writeH264(sample *fmp4.VideoSample) {
+func (p *muxerVariantFMP4Part) writeH264(sample *fmp4.PartVideoSample) {
 	if sample.IDRPresent {
 		p.isIndependent = true
 	}
 	p.videoSamples = append(p.videoSamples, sample)
 }
 
-func (p *muxerVariantFMP4Part) writeAAC(sample *fmp4.AudioSample) {
+func (p *muxerVariantFMP4Part) writeAAC(sample *fmp4.PartAudioSample) {
 	p.audioSamples = append(p.audioSamples, sample)
 }

@@ -10,7 +10,7 @@ import (
 )
 
 func TestPartWrite(t *testing.T) {
-	testVideoSamples := []*VideoSample{
+	testPartVideoSamples := []*PartVideoSample{
 		{
 			NALUs: [][]byte{
 				{0x06},
@@ -53,7 +53,7 @@ func TestPartWrite(t *testing.T) {
 		},
 	}
 
-	testAudioSamples := []*AudioSample{
+	testPartAudioSamples := []*PartAudioSample{
 		{
 			AU: []byte{
 				0x01, 0x02, 0x03, 0x04,
@@ -74,23 +74,23 @@ func TestPartWrite(t *testing.T) {
 		},
 	}
 
-	for i, sample := range testVideoSamples {
+	for i, sample := range testPartVideoSamples {
 		sample.IDRPresent = h264.IDRPresent(sample.NALUs)
-		if i != len(testVideoSamples)-1 {
-			sample.Next = testVideoSamples[i+1]
+		if i != len(testPartVideoSamples)-1 {
+			sample.Next = testPartVideoSamples[i+1]
 		}
 	}
-	testVideoSamples = testVideoSamples[:len(testVideoSamples)-1]
+	testPartVideoSamples = testPartVideoSamples[:len(testPartVideoSamples)-1]
 
-	for i, sample := range testAudioSamples {
-		if i != len(testAudioSamples)-1 {
-			sample.Next = testAudioSamples[i+1]
+	for i, sample := range testPartAudioSamples {
+		if i != len(testPartAudioSamples)-1 {
+			sample.Next = testPartAudioSamples[i+1]
 		}
 	}
-	testAudioSamples = testAudioSamples[:len(testAudioSamples)-1]
+	testPartAudioSamples = testPartAudioSamples[:len(testPartAudioSamples)-1]
 
 	t.Run("video + audio", func(t *testing.T) {
-		byts, err := PartWrite(testVideoTrack, testAudioTrack, testVideoSamples, testAudioSamples)
+		byts, err := PartWrite(testVideoTrack, testAudioTrack, testPartVideoSamples, testPartAudioSamples)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
@@ -110,7 +110,7 @@ func TestPartWrite(t *testing.T) {
 	})
 
 	t.Run("video only", func(t *testing.T) {
-		byts, err := PartWrite(testVideoTrack, nil, testVideoSamples, nil)
+		byts, err := PartWrite(testVideoTrack, nil, testPartVideoSamples, nil)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{
@@ -126,7 +126,7 @@ func TestPartWrite(t *testing.T) {
 	})
 
 	t.Run("audio only", func(t *testing.T) {
-		byts, err := PartWrite(nil, testAudioTrack, nil, testAudioSamples)
+		byts, err := PartWrite(nil, testAudioTrack, nil, testPartAudioSamples)
 		require.NoError(t, err)
 
 		boxes := []gomp4.BoxPath{

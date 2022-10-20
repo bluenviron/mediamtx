@@ -62,8 +62,8 @@ type muxerVariantFMP4Segmenter struct {
 	currentSegment        *muxerVariantFMP4Segment
 	nextSegmentID         uint64
 	nextPartID            uint64
-	nextVideoSample       *fmp4.VideoSample
-	nextAudioSample       *fmp4.AudioSample
+	nextPartVideoSample   *fmp4.PartVideoSample
+	nextPartAudioSample   *fmp4.PartAudioSample
 	firstSegmentFinalized bool
 	sampleDurations       map[time.Duration]struct{}
 	adjustedPartDuration  time.Duration
@@ -147,14 +147,14 @@ func (m *muxerVariantFMP4Segmenter) writeH264(now time.Time, pts time.Duration, 
 		return nil
 	}
 
-	return m.writeH264Entry(now, &fmp4.VideoSample{
+	return m.writeH264Entry(now, &fmp4.PartVideoSample{
 		PTS:        pts,
 		NALUs:      nalus,
 		IDRPresent: idrPresent,
 	})
 }
 
-func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.VideoSample) error {
+func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.PartVideoSample) error {
 	if !m.videoFirstIDRReceived {
 		// skip sample silently until we find one with an IDR
 		if !sample.IDRPresent {
@@ -188,11 +188,11 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.V
 	// put samples into a queue in order to
 	// - allow to compute sample duration
 	// - check if next sample is IDR
-	sample, m.nextVideoSample = m.nextVideoSample, sample
+	sample, m.nextPartVideoSample = m.nextPartVideoSample, sample
 	if sample == nil {
 		return nil
 	}
-	sample.Next = m.nextVideoSample
+	sample.Next = m.nextPartVideoSample
 
 	if m.currentSegment == nil {
 		// create first segment
@@ -256,13 +256,13 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.V
 }
 
 func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, pts time.Duration, au []byte) error {
-	return m.writeAACEntry(now, &fmp4.AudioSample{
+	return m.writeAACEntry(now, &fmp4.PartAudioSample{
 		PTS: pts,
 		AU:  au,
 	})
 }
 
-func (m *muxerVariantFMP4Segmenter) writeAACEntry(now time.Time, sample *fmp4.AudioSample) error {
+func (m *muxerVariantFMP4Segmenter) writeAACEntry(now time.Time, sample *fmp4.PartAudioSample) error {
 	if m.videoTrack != nil {
 		// wait for the video track
 		if !m.videoFirstIDRReceived {
@@ -274,11 +274,11 @@ func (m *muxerVariantFMP4Segmenter) writeAACEntry(now time.Time, sample *fmp4.Au
 
 	// put samples into a queue in order to
 	// allow to compute the sample duration
-	sample, m.nextAudioSample = m.nextAudioSample, sample
+	sample, m.nextPartAudioSample = m.nextPartAudioSample, sample
 	if sample == nil {
 		return nil
 	}
-	sample.Next = m.nextAudioSample
+	sample.Next = m.nextPartAudioSample
 
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {

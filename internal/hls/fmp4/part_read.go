@@ -22,7 +22,7 @@ const (
 type Subpart struct {
 	ID       uint32
 	BaseTime uint64
-	Entries  []gomp4.TrunEntry
+	Entries  []*gomp4.TrunEntry
 	Data     []byte
 }
 
@@ -34,6 +34,9 @@ func PartRead(
 	var moofOffset uint64
 	var curTrack *Subpart
 	var tracks []*Subpart
+	var defaultSampleDuration uint32
+	var defaultSampleFlags uint32
+	var defaultSampleSize uint32
 
 	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
@@ -65,6 +68,9 @@ func PartRead(
 			tfhd := box.(*gomp4.Tfhd)
 
 			curTrack.ID = tfhd.TrackID
+			defaultSampleDuration = tfhd.DefaultSampleDuration
+			defaultSampleFlags = tfhd.DefaultSampleFlags
+			defaultSampleSize = tfhd.DefaultSampleSize
 			state = waitingTfdt
 
 		case "tfdt":
@@ -97,16 +103,29 @@ func PartRead(
 			trun := box.(*gomp4.Trun)
 
 			flags := uint16(trun.Flags[1])<<8 | uint16(trun.Flags[2])
-			if (flags & 0x100) == 0 { // sample duration present
-				return nil, fmt.Errorf("unsupported flags")
-			}
-			if (flags & 0x200) == 0 { // sample size present
+			if (flags & trunFlagDataOffsetPreset) == 0 {
 				return nil, fmt.Errorf("unsupported flags")
 			}
 
-			curTrack.Entries = trun.Entries
-			o := uint64(trun.DataOffset) + moofOffset
-			curTrack.Data = byts[o:]
+			curTrack.Entries = make([]*gomp4.TrunEntry, len(trun.Entries))
+
+			for i := range trun.Entries {
+				e := &trun.Entries[i]
+
+				if (flags & trunFlagSampleDurationPresent) == 0 {
+					e.SampleDuration = defaultSampleDuration
+				}
+				if (flags & trunFlagSampleFlagsPresent) == 0 {
+					e.SampleFlags = defaultSampleFlags
+				}
+				if (flags & trunFlagSampleSizePresent) == 0 {
+					e.SampleSize = defaultSampleSize
+				}
+
+				curTrack.Entries[i] = e
+			}
+
+			curTrack.Data = byts[uint64(trun.DataOffset)+moofOffset:]
 			tracks = append(tracks, curTrack)
 			state = waitingTraf
 
