@@ -170,7 +170,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.V
 		if err != nil {
 			return err
 		}
-		sample.NALUs = nil
 
 		m.startDTS = sample.DTS
 		sample.DTS = 0
@@ -181,7 +180,6 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(now time.Time, sample *fmp4.V
 		if err != nil {
 			return err
 		}
-		sample.NALUs = nil
 
 		sample.DTS -= m.startDTS
 		sample.PTS -= m.startDTS
