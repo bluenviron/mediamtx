@@ -9,7 +9,7 @@ import (
 )
 
 type clientProcessorFMP4Track struct {
-	timeScale            uint32
+	timeScale            uint64
 	startRTC             time.Time
 	onPartTrackProcessed func(context.Context)
 	onEntry              func(time.Duration, []byte) error
@@ -25,7 +25,7 @@ func newClientProcessorFMP4Track(
 	onEntry func(time.Duration, []byte) error,
 ) *clientProcessorFMP4Track {
 	return &clientProcessorFMP4Track{
-		timeScale:            timeScale,
+		timeScale:            uint64(timeScale),
 		startRTC:             startRTC,
 		onPartTrackProcessed: onPartTrackProcessed,
 		onEntry:              onEntry,
@@ -54,9 +54,8 @@ func (t *clientProcessorFMP4Track) processPartTrack(ctx context.Context, pt *fmp
 	rawDTS := pt.BaseTime
 
 	for _, sample := range pt.Samples {
-		pts := (time.Duration(sample.PTSOffset) +
-			time.Duration(rawDTS)) * time.Second / time.Duration(t.timeScale)
-		dts := time.Duration(rawDTS) * time.Second / time.Duration(t.timeScale)
+		pts := durationMp4ToGo(rawDTS+uint64(sample.PTSOffset), t.timeScale)
+		dts := durationMp4ToGo(rawDTS, t.timeScale)
 
 		elapsed := time.Since(t.startRTC)
 		if dts > elapsed {

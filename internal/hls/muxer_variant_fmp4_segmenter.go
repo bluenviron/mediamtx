@@ -2,7 +2,6 @@ package hls
 
 import (
 	"bytes"
-	"math"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -11,8 +10,10 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
 
-func durationGoToMp4(v time.Duration, timeScale uint64) int64 {
-	return int64(math.Round(float64(v*time.Duration(timeScale)) / float64(time.Second)))
+func durationGoToMp4(v time.Duration, timeScale uint64) uint64 {
+	secs := v / time.Second
+	dec := v % time.Second
+	return uint64(secs)*timeScale + uint64(dec)*timeScale/uint64(time.Second)
 }
 
 func durationMp4ToGo(v uint64, timeScale uint64) time.Duration {
