@@ -15,8 +15,6 @@ const (
 	trunFlagSampleSizePresent                      = 0x200
 	trunFlagSampleFlagsPresent                     = 0x400
 	trunFlagSampleCompositionTimeOffsetPresentOrV1 = 0x800
-
-	videoTimescale = 90000
 )
 
 // PartVideoSample is a video sample.
@@ -85,7 +83,7 @@ func partWriteVideoInfo(
 			Version: 1,
 		},
 		// sum of decode durations of all earlier samples
-		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(videoSamples[0].DTS, videoTimescale)),
+		BaseMediaDecodeTimeV1: uint64(durationGoToMp4(videoSamples[0].DTS, 90000)),
 	})
 	if err != nil {
 		return nil, 0, err
@@ -114,10 +112,10 @@ func partWriteVideoInfo(
 		}
 
 		trun.Entries = append(trun.Entries, gomp4.TrunEntry{
-			SampleDuration:                uint32(durationGoToMp4(e.Duration(), videoTimescale)),
+			SampleDuration:                uint32(durationGoToMp4(e.Duration(), 90000)),
 			SampleSize:                    uint32(len(e.avcc)),
 			SampleFlags:                   flags,
-			SampleCompositionTimeOffsetV1: int32(durationGoToMp4(off, videoTimescale)),
+			SampleCompositionTimeOffsetV1: int32(durationGoToMp4(off, 90000)),
 		})
 	}
 

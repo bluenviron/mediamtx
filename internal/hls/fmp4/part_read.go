@@ -7,20 +7,10 @@ import (
 	gomp4 "github.com/abema/go-mp4"
 )
 
-type partReadState int
-
-const (
-	waitingMoof partReadState = iota
-	waitingTraf
-	waitingTfhd
-	waitingTfdt
-	waitingTrun
-)
-
 // Subpart is a sub-part of a FMP4 part.
 // It contains a single track and a series of entries.
 type Subpart struct {
-	ID       uint32
+	ID       int
 	BaseTime uint64
 	Entries  []*gomp4.TrunEntry
 	Data     []byte
@@ -30,6 +20,16 @@ type Subpart struct {
 func PartRead(
 	byts []byte,
 ) ([]*Subpart, error) {
+	type readState int
+
+	const (
+		waitingMoof readState = iota
+		waitingTraf
+		waitingTfhd
+		waitingTfdt
+		waitingTrun
+	)
+
 	state := waitingMoof
 	var moofOffset uint64
 	var curTrack *Subpart
@@ -67,7 +67,7 @@ func PartRead(
 			}
 			tfhd := box.(*gomp4.Tfhd)
 
-			curTrack.ID = tfhd.TrackID
+			curTrack.ID = int(tfhd.TrackID)
 			defaultSampleDuration = tfhd.DefaultSampleDuration
 			defaultSampleFlags = tfhd.DefaultSampleFlags
 			defaultSampleSize = tfhd.DefaultSampleSize

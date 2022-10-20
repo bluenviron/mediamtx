@@ -16,8 +16,7 @@ type clientProcessorFMP4 struct {
 	segmentQueue *clientSegmentQueue
 	logger       ClientLogger
 
-	initVideoTrack   *fmp4.InitTrack
-	initAudioTrack   *fmp4.InitTrack
+	init             *fmp4.Init
 	videoProc        *clientProcessorFMP4Track
 	audioProc        *clientProcessorFMP4Track
 	clockInitialized bool
@@ -36,22 +35,8 @@ func newClientProcessorFMP4(
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) (*clientProcessorFMP4, error) {
-	initVideoTrack, initAudioTrack, err := fmp4.InitRead(initFile)
-	if err != nil {
-		return nil, err
-	}
-
-	var videoTrack *gortsplib.TrackH264
-	if initVideoTrack != nil {
-		videoTrack = initVideoTrack.Track.(*gortsplib.TrackH264)
-	}
-
-	var audioTrack *gortsplib.TrackMPEG4Audio
-	if initAudioTrack != nil {
-		audioTrack = initAudioTrack.Track.(*gortsplib.TrackMPEG4Audio)
-	}
-
-	err = onTracks(videoTrack, audioTrack)
+	var init fmp4.Init
+	err := init.Unmarshal(initFile)
 	if err != nil {
 		return nil, err
 	}
@@ -59,14 +44,28 @@ func newClientProcessorFMP4(
 	p := &clientProcessorFMP4{
 		segmentQueue:     segmentQueue,
 		logger:           logger,
-		initVideoTrack:   initVideoTrack,
-		initAudioTrack:   initAudioTrack,
+		init:             &init,
 		subpartProcessed: make(chan struct{}),
+	}
+
+	var videoTrack *gortsplib.TrackH264
+	if init.VideoTrack != nil {
+		videoTrack = init.VideoTrack.Track.(*gortsplib.TrackH264)
+	}
+
+	var audioTrack *gortsplib.TrackMPEG4Audio
+	if init.AudioTrack != nil {
+		audioTrack = init.AudioTrack.Track.(*gortsplib.TrackMPEG4Audio)
+	}
+
+	err = onTracks(videoTrack, audioTrack)
+	if err != nil {
+		return nil, err
 	}
 
 	if videoTrack != nil {
 		p.videoProc = newClientProcessorFMP4Track(
-			initVideoTrack.TimeScale,
+			init.VideoTrack.TimeScale,
 			p.onSubpartProcessed,
 			func(pts time.Duration, payload []byte) error {
 				nalus, err := h264.AVCCUnmarshal(payload)
@@ -83,7 +82,7 @@ func newClientProcessorFMP4(
 
 	if audioTrack != nil {
 		p.audioProc = newClientProcessorFMP4Track(
-			initAudioTrack.TimeScale,
+			init.AudioTrack.TimeScale,
 			p.onSubpartProcessed,
 			func(pts time.Duration, payload []byte) error {
 				return nil
@@ -135,7 +134,7 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 
 		track.BaseTime -= p.startBaseTime
 
-		if p.initVideoTrack != nil && track.ID == p.initVideoTrack.ID {
+		if p.init.VideoTrack != nil && track.ID == p.init.VideoTrack.ID {
 			select {
 			case p.videoProc.queue <- track:
 			case <-ctx.Done():
