@@ -52,7 +52,7 @@ func newClientProcessorFMP4(
 		onAudioData:      onAudioData,
 		init:             &init,
 		trackProcs:       make(map[int]*clientProcessorFMP4Track),
-		subpartProcessed: make(chan struct{}),
+		subpartProcessed: make(chan struct{}, clientMaxPartTracksPerSegment),
 	}
 
 	tracks := make([]gortsplib.Track, len(init.Tracks))
@@ -139,6 +139,10 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 			proc, ok := p.trackProcs[track.ID]
 			if !ok {
 				return fmt.Errorf("track ID %d not present in init file", track.ID)
+			}
+
+			if processingCount >= (clientMaxPartTracksPerSegment - 1) {
+				return fmt.Errorf("too many part tracks at once")
 			}
 
 			select {
