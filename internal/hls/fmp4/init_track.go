@@ -274,49 +274,42 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 
 		enc, _ := ttrack.Config.Marshal()
 
-		decSpecificInfoTagSize := uint8(len(enc))
-		decSpecificInfoTag := append(
-			[]byte{
-				gomp4.DecSpecificInfoTag,
-				0x80, 0x80, 0x80, decSpecificInfoTagSize, // size
+		_, err = w.WriteBox(&gomp4.Esds{ // <esds/>
+			FullBox: gomp4.FullBox{
+				Version: 0,
+				Flags:   [3]byte{0x00, 0x00, 0x00},
 			},
-			enc...,
-		)
-
-		esDescrTag := []byte{
-			gomp4.ESDescrTag,
-			0x80, 0x80, 0x80, 32 + decSpecificInfoTagSize, // size
-			0x00,
-			byte(track.ID), // ES_ID
-			0x00,
-		}
-
-		decoderConfigDescrTag := []byte{
-			gomp4.DecoderConfigDescrTag,
-			0x80, 0x80, 0x80, 18 + decSpecificInfoTagSize, // size
-			0x40, // object type indicator (MPEG-4 Audio)
-			0x15, 0x00,
-			0x00, 0x00, 0x00, 0x01,
-			0xf7, 0x39, 0x00, 0x01,
-			0xf7, 0x39,
-		}
-
-		slConfigDescrTag := []byte{
-			gomp4.SLConfigDescrTag,
-			0x80, 0x80, 0x80, 0x01, // size (1)
-			0x02,
-		}
-
-		data := make([]byte, len(esDescrTag)+len(decoderConfigDescrTag)+len(decSpecificInfoTag)+len(slConfigDescrTag))
-		pos := 0
-
-		pos += copy(data[pos:], esDescrTag)
-		pos += copy(data[pos:], decoderConfigDescrTag)
-		pos += copy(data[pos:], decSpecificInfoTag)
-		copy(data[pos:], slConfigDescrTag)
-
-		_, err = w.WriteBox(&myEsds{ // <esds/>
-			Data: data,
+			Descriptors: []gomp4.Descriptor{
+				{
+					Tag:  gomp4.ESDescrTag,
+					Size: 32 + uint32(len(enc)),
+					ESDescriptor: &gomp4.ESDescriptor{
+						ESID: uint16(track.ID),
+					},
+				},
+				{
+					Tag:  gomp4.DecoderConfigDescrTag,
+					Size: 18 + uint32(len(enc)),
+					DecoderConfigDescriptor: &gomp4.DecoderConfigDescriptor{
+						ObjectTypeIndication: 0x40,
+						StreamType:           0x05,
+						UpStream:             false,
+						Reserved:             true,
+						MaxBitrate:           0x0001f739,
+						AvgBitrate:           0x0001f739,
+					},
+				},
+				{
+					Tag:  gomp4.DecSpecificInfoTag,
+					Size: uint32(len(enc)),
+					Data: enc,
+				},
+				{
+					Tag:  gomp4.SLConfigDescrTag,
+					Size: 1,
+					Data: []byte{0x02},
+				},
+			},
 		})
 		if err != nil {
 			return err

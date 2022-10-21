@@ -1,11 +1,22 @@
 package fmp4
 
 import (
+	"bytes"
 	"testing"
 
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/stretchr/testify/require"
 )
+
+func testMP4(t *testing.T, byts []byte, boxes []gomp4.BoxPath) {
+	i := 0
+	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
+		require.Equal(t, boxes[i], h.Path)
+		i++
+		return h.Expand()
+	})
+	require.NoError(t, err)
+}
 
 func TestPartMarshal(t *testing.T) {
 	testVideoSamples := []*PartSample{
