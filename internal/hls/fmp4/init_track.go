@@ -295,8 +295,8 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 						StreamType:           0x05,
 						UpStream:             false,
 						Reserved:             true,
-						MaxBitrate:           0x0001f739,
-						AvgBitrate:           0x0001f739,
+						MaxBitrate:           128825,
+						AvgBitrate:           128825,
 					},
 				},
 				{

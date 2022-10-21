@@ -18,7 +18,7 @@ const (
 	clientLiveStartingPoint = 3
 )
 
-func clientURLAbsolute(base *url.URL, relative string) (*url.URL, error) {
+func clientAbsoluteURL(base *url.URL, relative string) (*url.URL, error) {
 	u, err := url.Parse(relative)
 	if err != nil {
 		return nil, err
@@ -39,9 +39,9 @@ type Client struct {
 	onAudioData func(time.Duration, []byte)
 	logger      ClientLogger
 
-	ctx                context.Context
-	ctxCancel          func()
-	primaryPlaylistURL *url.URL
+	ctx         context.Context
+	ctxCancel   func()
+	playlistURL *url.URL
 
 	// out
 	outErr chan error
@@ -49,14 +49,14 @@ type Client struct {
 
 // NewClient allocates a Client.
 func NewClient(
-	primaryPlaylistURLStr string,
+	playlistURLStr string,
 	fingerprint string,
 	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 	logger ClientLogger,
 ) (*Client, error) {
-	primaryPlaylistURL, err := url.Parse(primaryPlaylistURLStr)
+	playlistURL, err := url.Parse(playlistURLStr)
 	if err != nil {
 		return nil, err
 	}
@@ -64,15 +64,15 @@ func NewClient(
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	c := &Client{
-		fingerprint:        fingerprint,
-		onTracks:           onTracks,
-		onVideoData:        onVideoData,
-		onAudioData:        onAudioData,
-		logger:             logger,
-		ctx:                ctx,
-		ctxCancel:          ctxCancel,
-		primaryPlaylistURL: primaryPlaylistURL,
-		outErr:             make(chan error, 1),
+		fingerprint: fingerprint,
+		onTracks:    onTracks,
+		onVideoData: onVideoData,
+		onAudioData: onAudioData,
+		logger:      logger,
+		ctx:         ctx,
+		ctxCancel:   ctxCancel,
+		playlistURL: playlistURL,
+		outErr:      make(chan error, 1),
 	}
 
 	go c.run()
@@ -96,17 +96,15 @@ func (c *Client) run() {
 
 func (c *Client) runInner() error {
 	rp := newClientRoutinePool()
-	segmentQueue := newClientSegmentQueue()
 
-	dl := newClientDownloader(
-		c.primaryPlaylistURL,
+	dl := newClientDownloaderPrimary(
+		c.playlistURL,
 		c.fingerprint,
-		segmentQueue,
 		c.logger,
+		rp,
 		c.onTracks,
 		c.onVideoData,
 		c.onAudioData,
-		rp,
 	)
 	rp.add(dl)
 

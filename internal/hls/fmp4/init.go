@@ -6,6 +6,7 @@ import (
 
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 )
 
 // Init is a FMP4 initialization file.
@@ -23,7 +24,8 @@ func (i *Init) Unmarshal(byts []byte) error {
 		waitingTkhd
 		waitingMdhd
 		waitingCodec
-		waitingAVCC
+		waitingAvcc
+		waitingEsds
 	)
 
 	state := waitingTrak
@@ -76,10 +78,10 @@ func (i *Init) Unmarshal(byts []byte) error {
 				return nil, fmt.Errorf("multiple video tracks are not supported")
 			}
 
-			state = waitingAVCC
+			state = waitingAvcc
 
 		case "avcC":
-			if state != waitingAVCC {
+			if state != waitingAvcc {
 				return nil, fmt.Errorf("parse error")
 			}
 
@@ -124,7 +126,46 @@ func (i *Init) Unmarshal(byts []byte) error {
 				return nil, fmt.Errorf("multiple audio tracks are not supported")
 			}
 
-			return nil, fmt.Errorf("TODO: MP4a")
+			state = waitingEsds
+
+		case "esds":
+			if state != waitingEsds {
+				return nil, fmt.Errorf("parse error")
+			}
+
+			box, _, err := h.ReadPayload()
+			if err != nil {
+				return nil, err
+			}
+			esds := box.(*gomp4.Esds)
+
+			encodedConf := func() []byte {
+				for _, desc := range esds.Descriptors {
+					if desc.Tag == gomp4.DecSpecificInfoTag {
+						return desc.Data
+					}
+				}
+				return nil
+			}()
+			if encodedConf == nil {
+				return nil, fmt.Errorf("unable to find MPEG4-audio configuration")
+			}
+
+			var c mpeg4audio.Config
+			err = c.Unmarshal(encodedConf)
+			if err != nil {
+				return nil, fmt.Errorf("invalid MPEG4-audio configuration: %s", err)
+			}
+
+			curTrack.Track = &gortsplib.TrackMPEG4Audio{
+				PayloadType:      96,
+				Config:           &c,
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			}
+			i.AudioTrack = curTrack
+			state = waitingTrak
 		}
 
 		return h.Expand()

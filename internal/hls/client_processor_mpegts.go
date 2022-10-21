@@ -17,12 +17,12 @@ import (
 )
 
 type clientProcessorMPEGTS struct {
-	segmentQueue *clientSegmentQueue
-	logger       ClientLogger
-	rp           *clientRoutinePool
-	onTracks     func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error
-	onVideoData  func(time.Duration, [][]byte)
-	onAudioData  func(time.Duration, []byte)
+	segmentQueue   *clientSegmentQueue
+	logger         ClientLogger
+	rp             *clientRoutinePool
+	onStreamTracks func(context.Context, []gortsplib.Track)
+	onVideoData    func(time.Duration, [][]byte)
+	onAudioData    func(time.Duration, []byte)
 
 	tracksParsed     bool
 	clockInitialized bool
@@ -40,18 +40,18 @@ func newClientProcessorMPEGTS(
 	segmentQueue *clientSegmentQueue,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
+	onStreamTracks func(context.Context, []gortsplib.Track),
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) *clientProcessorMPEGTS {
 	return &clientProcessorMPEGTS{
-		segmentQueue: segmentQueue,
-		logger:       logger,
-		rp:           rp,
-		timeDec:      mpegtstimedec.New(),
-		onTracks:     onTracks,
-		onVideoData:  onVideoData,
-		onAudioData:  onAudioData,
+		segmentQueue:   segmentQueue,
+		logger:         logger,
+		rp:             rp,
+		timeDec:        mpegtstimedec.New(),
+		onStreamTracks: onStreamTracks,
+		onVideoData:    onVideoData,
+		onAudioData:    onAudioData,
 	}
 }
 
@@ -77,7 +77,7 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 	if !p.tracksParsed {
 		p.tracksParsed = true
 
-		err := p.parseTracks(dem)
+		err := p.parseTracks(ctx, dem)
 		if err != nil {
 			return err
 		}
@@ -156,7 +156,7 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 	}
 }
 
-func (p *clientProcessorMPEGTS) parseTracks(dem *astits.Demuxer) error {
+func (p *clientProcessorMPEGTS) parseTracks(ctx context.Context, dem *astits.Demuxer) error {
 	// find and parse PMT
 	for {
 		data, err := dem.NextData()
@@ -198,10 +198,7 @@ func (p *clientProcessorMPEGTS) parseTracks(dem *astits.Demuxer) error {
 		}
 
 		if p.audioPID == nil {
-			err := p.onTracks(p.videoTrack, nil)
-			if err != nil {
-				return err
-			}
+			p.onStreamTracks(ctx, []gortsplib.Track{p.videoTrack})
 		}
 	}
 
@@ -236,11 +233,15 @@ func (p *clientProcessorMPEGTS) parseTracks(dem *astits.Demuxer) error {
 				IndexDeltaLength: 3,
 			}
 
-			err = p.onTracks(p.videoTrack, p.audioTrack)
-			if err != nil {
-				return err
+			var tracks []gortsplib.Track
+			if p.videoTrack != nil {
+				tracks = append(tracks, p.videoTrack)
+			}
+			if p.audioTrack != nil {
+				tracks = append(tracks, p.audioTrack)
 			}
 
+			p.onStreamTracks(ctx, tracks)
 			break
 		}
 	}

@@ -30,11 +30,12 @@ type clientProcessorFMP4 struct {
 }
 
 func newClientProcessorFMP4(
+	ctx context.Context,
 	initFile []byte,
 	segmentQueue *clientSegmentQueue,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
+	onStreamTracks func(context.Context, []gortsplib.Track),
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) (*clientProcessorFMP4, error) {
@@ -54,20 +55,16 @@ func newClientProcessorFMP4(
 		subpartProcessed: make(chan struct{}),
 	}
 
-	var videoTrack *gortsplib.TrackH264
+	var tracks []gortsplib.Track
+
 	if init.VideoTrack != nil {
-		videoTrack = init.VideoTrack.Track.(*gortsplib.TrackH264)
+		tracks = append(tracks, init.VideoTrack.Track)
 	}
-
-	var audioTrack *gortsplib.TrackMPEG4Audio
 	if init.AudioTrack != nil {
-		audioTrack = init.AudioTrack.Track.(*gortsplib.TrackMPEG4Audio)
+		tracks = append(tracks, init.AudioTrack.Track)
 	}
 
-	err = onTracks(videoTrack, audioTrack)
-	if err != nil {
-		return nil, err
-	}
+	onStreamTracks(ctx, tracks)
 
 	return p, nil
 }
@@ -128,6 +125,7 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 						startRTC,
 						p.onPartTrackProcessed,
 						func(pts time.Duration, payload []byte) error {
+							p.onAudioData(pts, payload)
 							return nil
 						},
 					)
@@ -137,15 +135,25 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 
 			track.BaseTime -= p.startBaseTime
 
-			if p.init.VideoTrack != nil && track.ID == p.init.VideoTrack.ID {
-				select {
-				case p.videoProc.queue <- track:
-				case <-ctx.Done():
-					return fmt.Errorf("terminated")
+			proc := func() *clientProcessorFMP4Track {
+				if p.init.VideoTrack != nil && track.ID == p.init.VideoTrack.ID {
+					return p.videoProc
 				}
-
-				processingCount++
+				if p.init.AudioTrack != nil && track.ID == p.init.AudioTrack.ID {
+					return p.audioProc
+				}
+				return nil
+			}()
+			if proc == nil {
+				return fmt.Errorf("track ID %d not present in init file", track.ID)
 			}
+
+			select {
+			case proc.queue <- track:
+			case <-ctx.Done():
+				return fmt.Errorf("terminated")
+			}
+			processingCount++
 		}
 	}
 
