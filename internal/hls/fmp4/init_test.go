@@ -37,15 +37,17 @@ var testAudioTrack = &gortsplib.TrackMPEG4Audio{
 func TestInitMarshal(t *testing.T) {
 	t.Run("video + audio", func(t *testing.T) {
 		init := Init{
-			VideoTrack: &InitTrack{
-				ID:        1,
-				TimeScale: 90000,
-				Track:     testVideoTrack,
-			},
-			AudioTrack: &InitTrack{
-				ID:        2,
-				TimeScale: uint32(testAudioTrack.ClockRate()),
-				Track:     testAudioTrack,
+			Tracks: []*InitTrack{
+				{
+					ID:        1,
+					TimeScale: 90000,
+					Track:     testVideoTrack,
+				},
+				{
+					ID:        2,
+					TimeScale: uint32(testAudioTrack.ClockRate()),
+					Track:     testAudioTrack,
+				},
 			},
 		}
 
@@ -203,10 +205,12 @@ func TestInitMarshal(t *testing.T) {
 
 	t.Run("video only", func(t *testing.T) {
 		init := Init{
-			VideoTrack: &InitTrack{
-				ID:        1,
-				TimeScale: 90000,
-				Track:     testVideoTrack,
+			Tracks: []*InitTrack{
+				{
+					ID:        1,
+					TimeScale: 90000,
+					Track:     testVideoTrack,
+				},
 			},
 		}
 
@@ -304,10 +308,12 @@ func TestInitMarshal(t *testing.T) {
 
 	t.Run("audio only", func(t *testing.T) {
 		init := &Init{
-			AudioTrack: &InitTrack{
-				ID:        1,
-				TimeScale: uint32(testAudioTrack.ClockRate()),
-				Track:     testAudioTrack,
+			Tracks: []*InitTrack{
+				{
+					ID:        1,
+					TimeScale: uint32(testAudioTrack.ClockRate()),
+					Track:     testAudioTrack,
+				},
 			},
 		}
 
@@ -510,19 +516,21 @@ func TestInitUnmarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, Init{
-			VideoTrack: &InitTrack{
-				ID:        256,
-				TimeScale: 10000000,
-				Track: &gortsplib.TrackH264{
-					PayloadType: 96,
-					SPS: []byte{
-						0x67, 0x42, 0xc0, 0x1f, 0xd9, 0x00, 0xf0, 0x11,
-						0x7e, 0xf0, 0x11, 0x00, 0x00, 0x03, 0x00, 0x01,
-						0x00, 0x00, 0x03, 0x00, 0x30, 0x8f, 0x18, 0x32,
-						0x48,
-					},
-					PPS: []byte{
-						0x68, 0xcb, 0x8c, 0xb2,
+			Tracks: []*InitTrack{
+				{
+					ID:        256,
+					TimeScale: 10000000,
+					Track: &gortsplib.TrackH264{
+						PayloadType: 96,
+						SPS: []byte{
+							0x67, 0x42, 0xc0, 0x1f, 0xd9, 0x00, 0xf0, 0x11,
+							0x7e, 0xf0, 0x11, 0x00, 0x00, 0x03, 0x00, 0x01,
+							0x00, 0x00, 0x03, 0x00, 0x30, 0x8f, 0x18, 0x32,
+							0x48,
+						},
+						PPS: []byte{
+							0x68, 0xcb, 0x8c, 0xb2,
+						},
 					},
 				},
 			},
@@ -614,19 +622,21 @@ func TestInitUnmarshal(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, Init{
-			AudioTrack: &InitTrack{
-				ID:        257,
-				TimeScale: 10000000,
-				Track: &gortsplib.TrackMPEG4Audio{
-					PayloadType: 96,
-					Config: &mpeg4audio.Config{
-						Type:         mpeg4audio.ObjectTypeAACLC,
-						SampleRate:   48000,
-						ChannelCount: 2,
+			Tracks: []*InitTrack{
+				{
+					ID:        257,
+					TimeScale: 10000000,
+					Track: &gortsplib.TrackMPEG4Audio{
+						PayloadType: 96,
+						Config: &mpeg4audio.Config{
+							Type:         mpeg4audio.ObjectTypeAACLC,
+							SampleRate:   48000,
+							ChannelCount: 2,
+						},
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
 					},
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
 				},
 			},
 		}, init)

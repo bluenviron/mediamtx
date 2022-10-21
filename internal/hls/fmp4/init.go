@@ -11,8 +11,7 @@ import (
 
 // Init is a FMP4 initialization file.
 type Init struct {
-	VideoTrack *InitTrack
-	AudioTrack *InitTrack
+	Tracks []*InitTrack
 }
 
 // Unmarshal decodes a FMP4 initialization file.
@@ -39,6 +38,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 			}
 
 			curTrack = &InitTrack{}
+			i.Tracks = append(i.Tracks, curTrack)
 			state = waitingTkhd
 
 		case "tkhd":
@@ -72,10 +72,6 @@ func (i *Init) Unmarshal(byts []byte) error {
 		case "avc1":
 			if state != waitingCodec {
 				return nil, fmt.Errorf("parse error")
-			}
-
-			if i.VideoTrack != nil {
-				return nil, fmt.Errorf("multiple video tracks are not supported")
 			}
 
 			state = waitingAvcc
@@ -114,16 +110,11 @@ func (i *Init) Unmarshal(byts []byte) error {
 				SPS:         sps,
 				PPS:         pps,
 			}
-			i.VideoTrack = curTrack
 			state = waitingTrak
 
 		case "mp4a":
 			if state != waitingCodec {
 				return nil, fmt.Errorf("parse error")
-			}
-
-			if i.AudioTrack != nil {
-				return nil, fmt.Errorf("multiple audio tracks are not supported")
 			}
 
 			state = waitingEsds
@@ -164,7 +155,6 @@ func (i *Init) Unmarshal(byts []byte) error {
 				IndexLength:      3,
 				IndexDeltaLength: 3,
 			}
-			i.AudioTrack = curTrack
 			state = waitingTrak
 		}
 
@@ -178,7 +168,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 		return fmt.Errorf("parse error")
 	}
 
-	if i.VideoTrack == nil && i.AudioTrack == nil {
+	if i.Tracks == nil {
 		return fmt.Errorf("no tracks found")
 	}
 
@@ -232,15 +222,8 @@ func (i *Init) Marshal() ([]byte, error) {
 		return nil, err
 	}
 
-	if i.VideoTrack != nil {
-		err := i.VideoTrack.marshal(w)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if i.AudioTrack != nil {
-		err := i.AudioTrack.marshal(w)
+	for _, track := range i.Tracks {
+		err := track.marshal(w)
 		if err != nil {
 			return nil, err
 		}
@@ -251,19 +234,9 @@ func (i *Init) Marshal() ([]byte, error) {
 		return nil, err
 	}
 
-	if i.VideoTrack != nil {
+	for _, track := range i.Tracks {
 		_, err = w.WriteBox(&gomp4.Trex{ // <trex/>
-			TrackID:                       uint32(i.VideoTrack.ID),
-			DefaultSampleDescriptionIndex: 1,
-		})
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if i.AudioTrack != nil {
-		_, err = w.WriteBox(&gomp4.Trex{ // <trex/>
-			TrackID:                       uint32(i.AudioTrack.ID),
+			TrackID:                       uint32(track.ID),
 			DefaultSampleDescriptionIndex: 1,
 		})
 		if err != nil {

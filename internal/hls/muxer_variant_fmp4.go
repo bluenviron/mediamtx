@@ -89,20 +89,20 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 			trackID := 1
 
 			if v.videoTrack != nil {
-				init.VideoTrack = &fmp4.InitTrack{
+				init.Tracks = append(init.Tracks, &fmp4.InitTrack{
 					ID:        trackID,
 					TimeScale: 90000,
 					Track:     v.videoTrack,
-				}
+				})
 				trackID++
 			}
 
 			if v.audioTrack != nil {
-				init.AudioTrack = &fmp4.InitTrack{
+				init.Tracks = append(init.Tracks, &fmp4.InitTrack{
 					ID:        trackID,
 					TimeScale: uint32(v.audioTrack.ClockRate()),
 					Track:     v.audioTrack,
-				}
+				})
 			}
 
 			initContent, err := init.Marshal()

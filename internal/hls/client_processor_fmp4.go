@@ -20,8 +20,7 @@ type clientProcessorFMP4 struct {
 	onAudioData  func(time.Duration, []byte)
 
 	init              *fmp4.Init
-	videoProc         *clientProcessorFMP4Track
-	audioProc         *clientProcessorFMP4Track
+	trackProcs        map[int]*clientProcessorFMP4Track
 	tracksInitialized bool
 	startBaseTime     uint64
 
@@ -52,16 +51,13 @@ func newClientProcessorFMP4(
 		onVideoData:      onVideoData,
 		onAudioData:      onAudioData,
 		init:             &init,
+		trackProcs:       make(map[int]*clientProcessorFMP4Track),
 		subpartProcessed: make(chan struct{}),
 	}
 
-	var tracks []gortsplib.Track
-
-	if init.VideoTrack != nil {
-		tracks = append(tracks, init.VideoTrack.Track)
-	}
-	if init.AudioTrack != nil {
-		tracks = append(tracks, init.AudioTrack.Track)
+	tracks := make([]gortsplib.Track, len(init.Tracks))
+	for i, track := range init.Tracks {
+		tracks[i] = track.Track
 	}
 
 	onStreamTracks(ctx, tracks)
@@ -101,50 +97,47 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 				p.startBaseTime = track.BaseTime
 				startRTC := time.Now()
 
-				if p.init.VideoTrack != nil {
-					p.videoProc = newClientProcessorFMP4Track(
-						p.init.VideoTrack.TimeScale,
-						startRTC,
-						p.onPartTrackProcessed,
-						func(pts time.Duration, payload []byte) error {
-							nalus, err := h264.AVCCUnmarshal(payload)
-							if err != nil {
-								return err
-							}
+				for _, track := range p.init.Tracks {
+					var proc *clientProcessorFMP4Track
 
-							p.onVideoData(pts, nalus)
-							return nil
-						},
-					)
-					p.rp.add(p.videoProc)
-				}
+					switch track.Track.(type) {
+					case *gortsplib.TrackH264:
+						proc = newClientProcessorFMP4Track(
+							track.TimeScale,
+							startRTC,
+							p.onPartTrackProcessed,
+							func(pts time.Duration, payload []byte) error {
+								nalus, err := h264.AVCCUnmarshal(payload)
+								if err != nil {
+									return err
+								}
 
-				if p.init.AudioTrack != nil {
-					p.audioProc = newClientProcessorFMP4Track(
-						p.init.AudioTrack.TimeScale,
-						startRTC,
-						p.onPartTrackProcessed,
-						func(pts time.Duration, payload []byte) error {
-							p.onAudioData(pts, payload)
-							return nil
-						},
-					)
-					p.rp.add(p.audioProc)
+								p.onVideoData(pts, nalus)
+								return nil
+							},
+						)
+
+					case *gortsplib.TrackMPEG4Audio:
+						proc = newClientProcessorFMP4Track(
+							track.TimeScale,
+							startRTC,
+							p.onPartTrackProcessed,
+							func(pts time.Duration, payload []byte) error {
+								p.onAudioData(pts, payload)
+								return nil
+							},
+						)
+					}
+
+					p.rp.add(proc)
+					p.trackProcs[track.ID] = proc
 				}
 			}
 
 			track.BaseTime -= p.startBaseTime
 
-			proc := func() *clientProcessorFMP4Track {
-				if p.init.VideoTrack != nil && track.ID == p.init.VideoTrack.ID {
-					return p.videoProc
-				}
-				if p.init.AudioTrack != nil && track.ID == p.init.AudioTrack.ID {
-					return p.audioProc
-				}
-				return nil
-			}()
-			if proc == nil {
+			proc, ok := p.trackProcs[track.ID]
+			if !ok {
 				return fmt.Errorf("track ID %d not present in init file", track.ID)
 			}
 
