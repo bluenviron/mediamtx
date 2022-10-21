@@ -16,30 +16,30 @@ type InitTrack struct {
 
 func (track *InitTrack) marshal(w *mp4Writer) error {
 	/*
-		trak
-		- tkhd
-		- mdia
-		  - mdhd
-		  - hdlr
-		  - minf
-		    - vmhd (video only)
-			- smhd (audio only)
-			- dinf
-			  - dref
-			    - url
-			- stbl
-			  - stsd
-			    - avc1 (h264 only)
-				  - avcC
-				  - pasp
-				  - btrt
-				- mp4a (mpeg4audio only)
-				  - esds
-				  - btrt
-			  - stts
-			  - stsc
-			  - stsz
-			  - stco
+	   trak
+	   - tkhd
+	   - mdia
+	     - mdhd
+	     - hdlr
+	     - minf
+	       - vmhd (video only)
+	       - smhd (audio only)
+	       - dinf
+	         - dref
+	           - url
+	       - stbl
+	         - stsd
+	           - avc1 (h264 only)
+	             - avcC
+	             - pasp
+	             - btrt
+	           - mp4a (mpeg4audio only)
+	             - esds
+	             - btrt
+	         - stts
+	         - stsc
+	         - stsz
+	         - stco
 	*/
 
 	_, err := w.writeBoxStart(&gomp4.Trak{}) // <trak>

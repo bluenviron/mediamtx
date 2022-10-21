@@ -30,24 +30,21 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 	const (
 		waitingMoof readState = iota
 		waitingTraf
-		waitingTfhd
-		waitingTfdt
-		waitingTrun
+		waitingTfdtTfhdTrun
 	)
 
 	state := waitingMoof
 	var curPart *Part
 	var moofOffset uint64
 	var curTrack *PartTrack
-	var defaultSampleDuration uint32
-	var defaultSampleFlags uint32
-	var defaultSampleSize uint32
+	var tfdt *gomp4.Tfdt
+	var tfhd *gomp4.Tfhd
 
 	_, err := gomp4.ReadBoxStructure(bytes.NewReader(byts), func(h *gomp4.ReadHandle) (interface{}, error) {
 		switch h.BoxInfo.Type.String() {
 		case "moof":
 			if state != waitingMoof {
-				return nil, fmt.Errorf("decode error")
+				return nil, fmt.Errorf("unexpected moof")
 			}
 
 			curPart = &Part{}
@@ -56,53 +53,56 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 			state = waitingTraf
 
 		case "traf":
-			if state != waitingTraf {
-				return nil, fmt.Errorf("decode error")
+			if state != waitingTraf && state != waitingTfdtTfhdTrun {
+				return nil, fmt.Errorf("unexpected traf")
+			}
+
+			if curTrack != nil {
+				if tfdt == nil || tfhd == nil || curTrack.Samples == nil {
+					return nil, fmt.Errorf("parse error")
+				}
 			}
 
 			curTrack = &PartTrack{}
 			curPart.Tracks = append(curPart.Tracks, curTrack)
-			state = waitingTfhd
+			tfdt = nil
+			tfhd = nil
+			state = waitingTfdtTfhdTrun
 
 		case "tfhd":
-			if state != waitingTfhd {
-				return nil, fmt.Errorf("decode error")
+			if state != waitingTfdtTfhdTrun || tfhd != nil {
+				return nil, fmt.Errorf("unexpected tfhd")
 			}
 
 			box, _, err := h.ReadPayload()
 			if err != nil {
 				return nil, err
 			}
-			tfhd := box.(*gomp4.Tfhd)
 
+			tfhd = box.(*gomp4.Tfhd)
 			curTrack.ID = int(tfhd.TrackID)
 
-			defaultSampleDuration = tfhd.DefaultSampleDuration
-			defaultSampleFlags = tfhd.DefaultSampleFlags
-			defaultSampleSize = tfhd.DefaultSampleSize
-			state = waitingTfdt
-
 		case "tfdt":
-			if state != waitingTfdt {
-				return nil, fmt.Errorf("decode error")
+			if state != waitingTfdtTfhdTrun || tfdt != nil {
+				return nil, fmt.Errorf("unexpected tfdt")
 			}
 
 			box, _, err := h.ReadPayload()
 			if err != nil {
 				return nil, err
 			}
-			tfdt := box.(*gomp4.Tfdt)
+
+			tfdt = box.(*gomp4.Tfdt)
 
 			if tfdt.FullBox.Version != 1 {
 				return nil, fmt.Errorf("unsupported tfdt version")
 			}
 
 			curTrack.BaseTime = tfdt.BaseMediaDecodeTimeV1
-			state = waitingTrun
 
 		case "trun":
-			if state != waitingTrun {
-				return nil, fmt.Errorf("decode error")
+			if state != waitingTfdtTfhdTrun || tfhd == nil {
+				return nil, fmt.Errorf("unexpected trun")
 			}
 
 			box, _, err := h.ReadPayload()
@@ -116,7 +116,11 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 				return nil, fmt.Errorf("unsupported flags")
 			}
 
-			curTrack.Samples = make([]*PartSample, len(trun.Entries))
+			existing := len(curTrack.Samples)
+			tmp := make([]*PartSample, existing+len(trun.Entries))
+			copy(tmp, curTrack.Samples)
+			curTrack.Samples = tmp
+
 			ptr := byts[uint64(trun.DataOffset)+moofOffset:]
 
 			for i, e := range trun.Entries {
@@ -125,7 +129,7 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 				if (flags & trunFlagSampleDurationPresent) != 0 {
 					s.Duration = e.SampleDuration
 				} else {
-					s.Duration = defaultSampleDuration
+					s.Duration = tfhd.DefaultSampleDuration
 				}
 
 				s.PTSOffset = e.SampleCompositionTimeOffsetV1
@@ -133,28 +137,33 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 				if (flags & trunFlagSampleFlagsPresent) != 0 {
 					s.Flags = e.SampleFlags
 				} else {
-					s.Flags = defaultSampleFlags
+					s.Flags = tfhd.DefaultSampleFlags
 				}
 
 				var size uint32
 				if (flags & trunFlagSampleSizePresent) != 0 {
 					size = e.SampleSize
 				} else {
-					size = defaultSampleSize
+					size = tfhd.DefaultSampleSize
 				}
 
 				s.Payload = ptr[:size]
 				ptr = ptr[size:]
 
-				curTrack.Samples[i] = s
+				curTrack.Samples[existing+i] = s
 			}
-
-			state = waitingTraf
 
 		case "mdat":
-			if state != waitingTraf {
-				return nil, fmt.Errorf("decode error")
+			if state != waitingTraf && state != waitingTfdtTfhdTrun {
+				return nil, fmt.Errorf("unexpected mdat")
 			}
+
+			if curTrack != nil {
+				if tfdt == nil || tfhd == nil || curTrack.Samples == nil {
+					return nil, fmt.Errorf("parse error")
+				}
+			}
+
 			state = waitingMoof
 			return nil, nil
 		}

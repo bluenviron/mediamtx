@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -64,7 +65,7 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 	}
 
 	if initialPlaylist.Map != nil && initialPlaylist.Map.URI != "" {
-		byts, err := d.downloadSegment(ctx, initialPlaylist.Map.URI)
+		byts, err := d.downloadSegment(ctx, initialPlaylist.Map.URI, initialPlaylist.Map.Offset, initialPlaylist.Map.Limit)
 		if err != nil {
 			return err
 		}
@@ -125,8 +126,10 @@ func (d *clientDownloaderStream) downloadPlaylist(ctx context.Context) (*m3u8.Me
 	return plt, nil
 }
 
-func (d *clientDownloaderStream) downloadSegment(ctx context.Context, segmentURI string) ([]byte, error) {
-	u, err := clientAbsoluteURL(d.playlistURL, segmentURI)
+func (d *clientDownloaderStream) downloadSegment(ctx context.Context,
+	uri string, offset int64, limit int64,
+) ([]byte, error) {
+	u, err := clientAbsoluteURL(d.playlistURL, uri)
 	if err != nil {
 		return nil, err
 	}
@@ -137,13 +140,17 @@ func (d *clientDownloaderStream) downloadSegment(ctx context.Context, segmentURI
 		return nil, err
 	}
 
+	if limit != 0 {
+		req.Header.Add("Range", "bytes="+strconv.FormatInt(offset, 10)+"-"+strconv.FormatInt(offset+limit-1, 10))
+	}
+
 	res, err := d.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusPartialContent {
 		return nil, fmt.Errorf("bad status code: %d", res.StatusCode)
 	}
 
@@ -194,7 +201,7 @@ func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context) error {
 	v := seg.SeqId
 	d.curSegmentID = &v
 
-	byts, err := d.downloadSegment(ctx, seg.URI)
+	byts, err := d.downloadSegment(ctx, seg.URI, seg.Offset, seg.Limit)
 	if err != nil {
 		return err
 	}

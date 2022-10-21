@@ -70,6 +70,16 @@ func clientDownloadPlaylist(ctx context.Context, httpClient *http.Client, ur *ur
 	return m3u8.Unmarshal(byts)
 }
 
+func allCodecsAreSupported(codecs string) bool {
+	for _, codec := range strings.Split(codecs, ",") {
+		if !strings.HasPrefix(codec, "avc1") &&
+			!strings.HasPrefix(codec, "mp4a") {
+			return false
+		}
+	}
+	return true
+}
+
 type clientDownloaderPrimary struct {
 	primaryPlaylistURL *url.URL
 	logger             ClientLogger
@@ -159,9 +169,21 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 		streamCount++
 
 	case *m3u8.MasterPlaylist:
+		// gather variants with supported codecs
+		var supportedVariants []*gm3u8.Variant
+		for _, v := range plt.Variants {
+			if !allCodecsAreSupported(v.Codecs) {
+				continue
+			}
+			supportedVariants = append(supportedVariants, v)
+		}
+		if supportedVariants == nil {
+			return fmt.Errorf("no variants with supported codecs found")
+		}
+
 		// choose the variant with the greatest bandwidth
 		var chosenVariant *gm3u8.Variant
-		for _, v := range plt.Variants {
+		for _, v := range supportedVariants {
 			if chosenVariant == nil ||
 				v.VariantParams.Bandwidth > chosenVariant.VariantParams.Bandwidth {
 				chosenVariant = v

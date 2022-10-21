@@ -156,6 +156,9 @@ func (i *Init) Unmarshal(byts []byte) error {
 				IndexDeltaLength: 3,
 			}
 			state = waitingTrak
+
+		case "ac-3":
+			return nil, fmt.Errorf("AC-3 codec is not supported (yet)")
 		}
 
 		return h.Expand()
