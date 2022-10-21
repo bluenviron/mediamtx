@@ -295,8 +295,6 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	}
 
 	close(d.startStreaming)
-
-	<-ctx.Done()
 	return nil
 }
 

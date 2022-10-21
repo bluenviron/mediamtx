@@ -6,44 +6,27 @@ import (
 	"time"
 )
 
-type clientProcessorMPEGTSTrackEntry interface {
-	DTS() time.Duration
-}
-
-type clientProcessorMPEGTSTrackEntryVideo struct {
+type clientProcessorMPEGTSTrackEntry struct {
 	data []byte
-	pts  time.Duration
 	dts  time.Duration
-}
-
-func (e clientProcessorMPEGTSTrackEntryVideo) DTS() time.Duration {
-	return e.dts
-}
-
-type clientProcessorMPEGTSTrackEntryAudio struct {
-	data []byte
 	pts  time.Duration
-}
-
-func (e clientProcessorMPEGTSTrackEntryAudio) DTS() time.Duration {
-	return e.pts
 }
 
 type clientProcessorMPEGTSTrack struct {
 	startRTC time.Time
-	onEntry  func(e clientProcessorMPEGTSTrackEntry) error
+	onEntry  func(e *clientProcessorMPEGTSTrackEntry) error
 
-	queue chan clientProcessorMPEGTSTrackEntry
+	queue chan *clientProcessorMPEGTSTrackEntry
 }
 
 func newClientProcessorMPEGTSTrack(
 	startRTC time.Time,
-	onEntry func(e clientProcessorMPEGTSTrackEntry) error,
+	onEntry func(e *clientProcessorMPEGTSTrackEntry) error,
 ) *clientProcessorMPEGTSTrack {
 	return &clientProcessorMPEGTSTrack{
 		startRTC: startRTC,
 		onEntry:  onEntry,
-		queue:    make(chan clientProcessorMPEGTSTrackEntry, clientEntryQueueSize),
+		queue:    make(chan *clientProcessorMPEGTSTrackEntry, clientEntryQueueSize),
 	}
 }
 
@@ -62,20 +45,20 @@ func (t *clientProcessorMPEGTSTrack) run(ctx context.Context) error {
 	}
 }
 
-func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, entry clientProcessorMPEGTSTrackEntry) error {
+func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, entry *clientProcessorMPEGTSTrackEntry) error {
 	elapsed := time.Since(t.startRTC)
-	if entry.DTS() > elapsed {
+	if entry.dts > elapsed {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("terminated")
-		case <-time.After(entry.DTS() - elapsed):
+		case <-time.After(entry.dts - elapsed):
 		}
 	}
 
 	return t.onEntry(entry)
 }
 
-func (t *clientProcessorMPEGTSTrack) push(ctx context.Context, entry clientProcessorMPEGTSTrackEntry) {
+func (t *clientProcessorMPEGTSTrack) push(ctx context.Context, entry *clientProcessorMPEGTSTrackEntry) {
 	select {
 	case t.queue <- entry:
 	case <-ctx.Done():

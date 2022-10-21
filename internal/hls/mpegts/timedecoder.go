@@ -1,5 +1,4 @@
-// Package mpegtstimedec contains a MPEG-TS timestamp decoder.
-package mpegtstimedec
+package mpegts
 
 import (
 	"time"
@@ -11,20 +10,20 @@ const (
 	clockRate         = 90000
 )
 
-// Decoder is a MPEG-TS timestamp decoder.
-type Decoder struct {
+// TimeDecoder is a MPEG-TS timestamp decoder.
+type TimeDecoder struct {
 	initialized bool
 	tsOverall   time.Duration
 	tsPrev      int64
 }
 
-// New allocates a Decoder.
-func New() *Decoder {
-	return &Decoder{}
+// NewTimeDecoder allocates a TimeDecoder.
+func NewTimeDecoder() *TimeDecoder {
+	return &TimeDecoder{}
 }
 
 // Decode decodes a MPEG-TS timestamp.
-func (d *Decoder) Decode(ts int64) time.Duration {
+func (d *TimeDecoder) Decode(ts int64) time.Duration {
 	if !d.initialized {
 		d.initialized = true
 		d.tsPrev = ts

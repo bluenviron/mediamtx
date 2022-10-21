@@ -40,9 +40,13 @@ func (rp *clientRoutinePool) add(r clientRoutinePoolRunnable) {
 	rp.wg.Add(1)
 	go func() {
 		defer rp.wg.Done()
-		select {
-		case rp.err <- r.run(rp.ctx):
-		case <-rp.ctx.Done():
+
+		err := r.run(rp.ctx)
+		if err != nil {
+			select {
+			case rp.err <- err:
+			case <-rp.ctx.Done():
+			}
 		}
 	}()
 }
