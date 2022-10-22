@@ -1,6 +1,8 @@
 package mpegts
 
 import (
+	"bytes"
+	"context"
 	"fmt"
 
 	"github.com/aler9/gortsplib"
@@ -41,8 +43,9 @@ type Track struct {
 }
 
 // FindTracks finds the tracks in a MPEG-TS stream.
-func FindTracks(dem *astits.Demuxer) ([]*Track, error) {
+func FindTracks(byts []byte) ([]*Track, error) {
 	var tracks []*Track
+	dem := astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
 
 	for {
 		data, err := dem.NextData()

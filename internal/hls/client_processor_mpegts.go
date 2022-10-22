@@ -16,25 +16,38 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+func mpegtsPickPrimaryTrack(mpegtsTracks []*mpegts.Track) uint16 {
+	// pick first video track
+	for _, mt := range mpegtsTracks {
+		if _, ok := mt.Track.(*gortsplib.TrackH264); ok {
+			return mt.ES.ElementaryPID
+		}
+	}
+
+	// otherwise, pick first track
+	return mpegtsTracks[0].ES.ElementaryPID
+}
+
 type clientProcessorMPEGTS struct {
 	segmentQueue   *clientSegmentQueue
 	logger         ClientLogger
 	rp             *clientRoutinePool
-	onStreamTracks func(context.Context, []gortsplib.Track)
+	onStreamTracks func(context.Context, []gortsplib.Track) bool
 	onVideoData    func(time.Duration, [][]byte)
 	onAudioData    func(time.Duration, []byte)
 
-	mpegtsTracks []*mpegts.Track
-	timeDec      *mpegts.TimeDecoder
-	startDTS     time.Duration
-	trackProcs   map[uint16]*clientProcessorMPEGTSTrack
+	mpegtsTracks    []*mpegts.Track
+	primaryTrackPID uint16
+	timeDec         *mpegts.TimeDecoder
+	startDTS        time.Duration
+	trackProcs      map[uint16]*clientProcessorMPEGTSTrack
 }
 
 func newClientProcessorMPEGTS(
 	segmentQueue *clientSegmentQueue,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onStreamTracks func(context.Context, []gortsplib.Track),
+	onStreamTracks func(context.Context, []gortsplib.Track) bool,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) *clientProcessorMPEGTS {
@@ -66,25 +79,27 @@ func (p *clientProcessorMPEGTS) run(ctx context.Context) error {
 func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte) error {
 	p.logger.Log(logger.Debug, "processing segment")
 
-	dem := astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
-
 	if p.mpegtsTracks == nil {
 		var err error
-		p.mpegtsTracks, err = mpegts.FindTracks(dem)
+		p.mpegtsTracks, err = mpegts.FindTracks(byts)
 		if err != nil {
 			return err
 		}
 
-		// rewind demuxer in order to read again the audio packet that was used to create the track
-		dem = astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
+		p.primaryTrackPID = mpegtsPickPrimaryTrack(p.mpegtsTracks)
 
 		tracks := make([]gortsplib.Track, len(p.mpegtsTracks))
 		for i, mt := range p.mpegtsTracks {
 			tracks[i] = mt.Track
 		}
 
-		p.onStreamTracks(ctx, tracks)
+		ok := p.onStreamTracks(ctx, tracks)
+		if !ok {
+			return fmt.Errorf("terminated")
+		}
 	}
+
+	dem := astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
 
 	for {
 		data, err := dem.NextData()
@@ -121,6 +136,9 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 		}
 
 		if p.trackProcs == nil {
+			if data.PID != p.primaryTrackPID {
+				continue
+			}
 			p.initializeTrackProcs(dts)
 		}
 
@@ -132,11 +150,16 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 			return fmt.Errorf("received data from track not present into PMT (%d)", data.PID)
 		}
 
-		proc.push(ctx, &clientProcessorMPEGTSTrackEntry{
+		entry := &clientProcessorMPEGTSTrackEntry{
 			data: data.PES.Data,
 			pts:  pts,
 			dts:  dts,
-		})
+		}
+
+		select {
+		case proc.queue <- entry:
+		case <-ctx.Done():
+		}
 	}
 }
 

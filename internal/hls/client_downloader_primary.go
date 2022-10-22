@@ -19,33 +19,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-func segmentsLen(segments []*gm3u8.MediaSegment) int {
-	for i, seg := range segments {
-		if seg == nil {
-			return i
-		}
-	}
-	return 0
-}
-
-func findStartingSegment(segments []*gm3u8.MediaSegment) *gm3u8.MediaSegment {
-	pos := len(segments) - clientLiveStartingPoint
-	if pos < 0 {
-		return nil
-	}
-
-	return segments[pos]
-}
-
-func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) *gm3u8.MediaSegment {
-	pos := int(int64(id) - int64(seqNo))
-	if (pos) >= len(segments) {
-		return nil
-	}
-
-	return segments[pos]
-}
-
 func clientDownloadPlaylist(ctx context.Context, httpClient *http.Client, ur *url.URL) (m3u8.Playlist, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ur.String(), nil)
 	if err != nil {
@@ -78,6 +51,31 @@ func allCodecsAreSupported(codecs string) bool {
 		}
 	}
 	return true
+}
+
+func pickAudioPlaylist(alternatives []*gm3u8.Alternative, groupID string) *gm3u8.Alternative {
+	candidates := func() []*gm3u8.Alternative {
+		var ret []*gm3u8.Alternative
+		for _, alt := range alternatives {
+			if alt.GroupId == groupID {
+				ret = append(ret, alt)
+			}
+		}
+		return ret
+	}()
+	if candidates == nil {
+		return nil
+	}
+
+	// pick the default audio playlist
+	for _, alt := range candidates {
+		if alt.Default {
+			return alt
+		}
+	}
+
+	// alternatively, pick the first one
+	return candidates[0]
 }
 
 type clientDownloaderPrimary struct {
@@ -211,31 +209,10 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 		streamCount++
 
 		if chosenVariant.Audio != "" {
-			// gather all audio playlists together
-			audioPlaylists := func() []*gm3u8.Alternative {
-				var ret []*gm3u8.Alternative
-				for _, alt := range plt.Alternatives {
-					if alt.GroupId == chosenVariant.Audio {
-						ret = append(ret, alt)
-					}
-				}
-				return ret
-			}()
-			if audioPlaylists == nil {
+			audioPlaylist := pickAudioPlaylist(plt.Alternatives, chosenVariant.Audio)
+			if audioPlaylist == nil {
 				return fmt.Errorf("audio playlist with id \"%s\" not found", chosenVariant.Audio)
 			}
-
-			audioPlaylist := func() *gm3u8.Alternative {
-				// pick the default audio playlist
-				for _, alt := range audioPlaylists {
-					if alt.Default {
-						return alt
-					}
-				}
-
-				// alternatively, pick the first one
-				return audioPlaylists[0]
-			}()
 
 			u, err := clientAbsoluteURL(d.primaryPlaylistURL, audioPlaylist.URI)
 			if err != nil {
@@ -298,16 +275,18 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	return nil
 }
 
-func (d *clientDownloaderPrimary) onStreamTracks(ctx context.Context, tracks []gortsplib.Track) {
+func (d *clientDownloaderPrimary) onStreamTracks(ctx context.Context, tracks []gortsplib.Track) bool {
 	select {
 	case d.streamTracks <- tracks:
 	case <-ctx.Done():
-		return
+		return false
 	}
 
 	select {
 	case <-d.startStreaming:
 	case <-ctx.Done():
-		return
+		return false
 	}
+
+	return true
 }

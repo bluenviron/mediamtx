@@ -12,11 +12,9 @@ import (
 )
 
 const (
-	clientMinDownloadPause        = 5 * time.Second
-	clientEntryQueueSize          = 100
-	clientSubpartQueueSize        = 10
-	clientLiveStartingPoint       = 3
-	clientMaxPartTracksPerSegment = 100
+	clientMPEGTSEntryQueueSize        = 100
+	clientFMP4MaxPartTracksPerSegment = 50
+	clientLiveStartingPoint           = 3
 )
 
 func clientAbsoluteURL(base *url.URL, relative string) (*url.URL, error) {

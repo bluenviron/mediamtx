@@ -29,7 +29,7 @@ func newClientProcessorFMP4Track(
 		startRTC:             startRTC,
 		onPartTrackProcessed: onPartTrackProcessed,
 		onEntry:              onEntry,
-		queue:                make(chan *fmp4.PartTrack, clientSubpartQueueSize),
+		queue:                make(chan *fmp4.PartTrack, clientFMP4MaxPartTracksPerSegment),
 	}
 }
 

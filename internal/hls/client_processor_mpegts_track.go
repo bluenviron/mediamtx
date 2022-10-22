@@ -26,7 +26,7 @@ func newClientProcessorMPEGTSTrack(
 	return &clientProcessorMPEGTSTrack{
 		startRTC: startRTC,
 		onEntry:  onEntry,
-		queue:    make(chan *clientProcessorMPEGTSTrackEntry, clientEntryQueueSize),
+		queue:    make(chan *clientProcessorMPEGTSTrackEntry, clientMPEGTSEntryQueueSize),
 	}
 }
 
@@ -56,11 +56,4 @@ func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, entry *cl
 	}
 
 	return t.onEntry(entry)
-}
-
-func (t *clientProcessorMPEGTSTrack) push(ctx context.Context, entry *clientProcessorMPEGTSTrackEntry) {
-	select {
-	case t.queue <- entry:
-	case <-ctx.Done():
-	}
 }

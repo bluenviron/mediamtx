@@ -16,13 +16,40 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+func segmentsLen(segments []*gm3u8.MediaSegment) int {
+	for i, seg := range segments {
+		if seg == nil {
+			return i
+		}
+	}
+	return 0
+}
+
+func findStartingSegment(segments []*gm3u8.MediaSegment) *gm3u8.MediaSegment {
+	pos := len(segments) - clientLiveStartingPoint
+	if pos < 0 {
+		return nil
+	}
+
+	return segments[pos]
+}
+
+func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) *gm3u8.MediaSegment {
+	pos := int(int64(id) - int64(seqNo))
+	if (pos) >= len(segments) {
+		return nil
+	}
+
+	return segments[pos]
+}
+
 type clientDownloaderStream struct {
 	httpClient      *http.Client
 	playlistURL     *url.URL
 	initialPlaylist *m3u8.MediaPlaylist
 	logger          ClientLogger
 	rp              *clientRoutinePool
-	onStreamTracks  func(context.Context, []gortsplib.Track)
+	onStreamTracks  func(context.Context, []gortsplib.Track) bool
 	onVideoData     func(time.Duration, [][]byte)
 	onAudioData     func(time.Duration, []byte)
 
@@ -36,7 +63,7 @@ func newClientDownloaderStream(
 	initialPlaylist *m3u8.MediaPlaylist,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onStreamTracks func(context.Context, []gortsplib.Track),
+	onStreamTracks func(context.Context, []gortsplib.Track) bool,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) *clientDownloaderStream {
