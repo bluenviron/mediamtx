@@ -83,8 +83,6 @@ func (p *clientProcessorMPEGTS) run(ctx context.Context) error {
 }
 
 func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte) error {
-	p.logger.Log(logger.Debug, "processing segment")
-
 	if p.mpegtsTracks == nil {
 		var err error
 		p.mpegtsTracks, err = mpegts.FindTracks(byts)

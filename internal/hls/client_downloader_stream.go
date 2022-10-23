@@ -25,22 +25,22 @@ func segmentsLen(segments []*gm3u8.MediaSegment) int {
 	return 0
 }
 
-func findStartingSegment(segments []*gm3u8.MediaSegment) *gm3u8.MediaSegment {
-	pos := len(segments) - clientLiveStartingPoint
-	if pos < 0 {
+func findSegmentWithInvPosition(segments []*gm3u8.MediaSegment, pos int) *gm3u8.MediaSegment {
+	index := len(segments) - pos
+	if index < 0 {
 		return nil
 	}
 
-	return segments[pos]
+	return segments[index]
 }
 
-func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) *gm3u8.MediaSegment {
-	pos := int(int64(id) - int64(seqNo))
-	if (pos) >= len(segments) {
-		return nil
+func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) (*gm3u8.MediaSegment, int) {
+	index := int(int64(id) - int64(seqNo))
+	if (index) >= len(segments) {
+		return nil, 0
 	}
 
-	return segments[pos]
+	return segments[index], len(segments) - index
 }
 
 type clientDownloaderStream struct {
@@ -214,8 +214,8 @@ func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context, segmentQu
 	var seg *gm3u8.MediaSegment
 
 	if d.curSegmentID == nil {
-		if !pl.Closed { // live stream: start from clientLiveStartingPoint
-			seg = findStartingSegment(pl.Segments)
+		if !pl.Closed { // live stream: start from clientLiveStartingInvPosition
+			seg = findSegmentWithInvPosition(pl.Segments, clientLiveStartingInvPosition)
 			if seg == nil {
 				return fmt.Errorf("there aren't enough segments to fill the buffer")
 			}
@@ -226,17 +226,16 @@ func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context, segmentQu
 			seg = pl.Segments[0]
 		}
 	} else {
-		seg = findSegmentWithID(pl.SeqNo, pl.Segments, *d.curSegmentID+1)
+		var invPos int
+		seg, invPos = findSegmentWithID(pl.SeqNo, pl.Segments, *d.curSegmentID+1)
 		if seg == nil {
-			if !pl.Closed { // live stream
-				d.logger.Log(logger.Warn, "resetting segment ID")
-				seg = findStartingSegment(pl.Segments)
-				if seg == nil {
-					return fmt.Errorf("there aren't enough segments to fill the buffer")
-				}
-			} else { // VOD stream
-				return fmt.Errorf("following segment not found")
-			}
+			return fmt.Errorf("following segment not found or not ready yet")
+		}
+
+		d.logger.Log(logger.Debug, "segment inverse position: %d", invPos)
+
+		if !pl.Closed && invPos > clientLiveMaxInvPosition {
+			return fmt.Errorf("playback is too late")
 		}
 	}
 

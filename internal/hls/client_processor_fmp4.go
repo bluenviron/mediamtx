@@ -9,7 +9,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
 func fmp4PickLeadingTrack(init *fmp4.Init) int {
@@ -102,8 +101,6 @@ func (p *clientProcessorFMP4) run(ctx context.Context) error {
 }
 
 func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) error {
-	p.logger.Log(logger.Debug, "processing segment")
-
 	var parts fmp4.Parts
 	err := parts.Unmarshal(byts)
 	if err != nil {

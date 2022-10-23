@@ -14,7 +14,8 @@ import (
 const (
 	clientMPEGTSEntryQueueSize        = 100
 	clientFMP4MaxPartTracksPerSegment = 50
-	clientLiveStartingPoint           = 3
+	clientLiveStartingInvPosition     = 3
+	clientLiveMaxInvPosition          = 5
 )
 
 func clientAbsoluteURL(base *url.URL, relative string) (*url.URL, error) {
