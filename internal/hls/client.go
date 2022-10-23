@@ -16,6 +16,7 @@ const (
 	clientFMP4MaxPartTracksPerSegment = 50
 	clientLiveStartingInvPosition     = 3
 	clientLiveMaxInvPosition          = 5
+	clientMaxDTSRTCDiff               = 10 * time.Second
 )
 
 func clientAbsoluteURL(base *url.URL, relative string) (*url.URL, error) {

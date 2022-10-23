@@ -2,7 +2,6 @@ package hls
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/asticode/go-astits"
@@ -50,9 +49,9 @@ func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, pes *asti
 		rawDTS = rawPTS
 	}
 
-	pts, ok := t.ts.convertAndSync(ctx, rawDTS, rawPTS)
-	if !ok {
-		return fmt.Errorf("terminated")
+	pts, err := t.ts.convertAndSync(ctx, rawDTS, rawPTS)
+	if err != nil {
+		return err
 	}
 
 	return t.onEntry(pts, pes.Data)

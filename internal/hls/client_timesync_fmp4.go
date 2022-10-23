@@ -2,6 +2,7 @@ package hls
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -33,7 +34,7 @@ func newClientTimeSyncFMP4(timeScale uint32, baseTime uint64) *clientTimeSyncFMP
 
 func (ts *clientTimeSyncFMP4) convertAndSync(ctx context.Context, timeScale uint32,
 	rawDTS uint64, ptsOffset int32,
-) (time.Duration, bool) {
+) (time.Duration, error) {
 	pts := durationMp4ToGo(rawDTS+uint64(ptsOffset), timeScale)
 	dts := durationMp4ToGo(rawDTS, timeScale)
 
@@ -42,12 +43,17 @@ func (ts *clientTimeSyncFMP4) convertAndSync(ctx context.Context, timeScale uint
 
 	elapsed := time.Since(ts.startRTC)
 	if dts > elapsed {
+		diff := dts - elapsed
+		if diff > clientMaxDTSRTCDiff {
+			return 0, fmt.Errorf("difference between DTS and RTC is too big")
+		}
+
 		select {
+		case <-time.After(diff):
 		case <-ctx.Done():
-			return 0, false
-		case <-time.After(dts - elapsed):
+			return 0, fmt.Errorf("terminated")
 		}
 	}
 
-	return pts, true
+	return pts, nil
 }

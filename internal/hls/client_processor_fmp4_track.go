@@ -2,7 +2,6 @@ package hls
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
@@ -54,12 +53,12 @@ func (t *clientProcessorFMP4Track) processPartTrack(ctx context.Context, pt *fmp
 	rawDTS := pt.BaseTime
 
 	for _, sample := range pt.Samples {
-		pts, ok := t.ts.convertAndSync(ctx, t.timeScale, rawDTS, sample.PTSOffset)
-		if !ok {
-			return fmt.Errorf("terminated")
+		pts, err := t.ts.convertAndSync(ctx, t.timeScale, rawDTS, sample.PTSOffset)
+		if err != nil {
+			return err
 		}
 
-		err := t.onEntry(pts, sample.Payload)
+		err = t.onEntry(pts, sample.Payload)
 		if err != nil {
 			return err
 		}
