@@ -10,18 +10,6 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
 
-func durationGoToMp4(v time.Duration, timeScale uint64) uint64 {
-	secs := v / time.Second
-	dec := v % time.Second
-	return uint64(secs)*timeScale + uint64(dec)*timeScale/uint64(time.Second)
-}
-
-func durationMp4ToGo(v uint64, timeScale uint64) time.Duration {
-	secs := v / timeScale
-	dec := v % timeScale
-	return time.Duration(secs)*time.Second + time.Duration(dec)*time.Second/time.Duration(timeScale)
-}
-
 func partDurationIsCompatible(partDuration time.Duration, sampleDuration time.Duration) bool {
 	if sampleDuration > partDuration {
 		return false
@@ -322,7 +310,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, a
 	if sample == nil {
 		return nil
 	}
-	sample.Duration = uint32(durationGoToMp4(m.nextAudioSample.dts-sample.dts, uint64(m.audioTrack.ClockRate())))
+	sample.Duration = uint32(durationGoToMp4(m.nextAudioSample.dts-sample.dts, uint32(m.audioTrack.ClockRate())))
 
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {

@@ -53,6 +53,29 @@ func allCodecsAreSupported(codecs string) bool {
 	return true
 }
 
+func pickLeadingPlaylist(variants []*gm3u8.Variant) *gm3u8.Variant {
+	var candidates []*gm3u8.Variant //nolint:prealloc
+	for _, v := range variants {
+		if !allCodecsAreSupported(v.Codecs) {
+			continue
+		}
+		candidates = append(candidates, v)
+	}
+	if candidates == nil {
+		return nil
+	}
+
+	// pick the variant with the greatest bandwidth
+	var leadingPlaylist *gm3u8.Variant
+	for _, v := range candidates {
+		if leadingPlaylist == nil ||
+			v.VariantParams.Bandwidth > leadingPlaylist.VariantParams.Bandwidth {
+			leadingPlaylist = v
+		}
+	}
+	return leadingPlaylist
+}
+
 func pickAudioPlaylist(alternatives []*gm3u8.Alternative, groupID string) *gm3u8.Alternative {
 	candidates := func() []*gm3u8.Alternative {
 		var ret []*gm3u8.Alternative
@@ -78,6 +101,8 @@ func pickAudioPlaylist(alternatives []*gm3u8.Alternative, groupID string) *gm3u8
 	return candidates[0]
 }
 
+type clientTimeSync interface{}
+
 type clientDownloaderPrimary struct {
 	primaryPlaylistURL *url.URL
 	logger             ClientLogger
@@ -86,13 +111,15 @@ type clientDownloaderPrimary struct {
 	onAudioData        func(time.Duration, []byte)
 	rp                 *clientRoutinePool
 
-	httpClient *http.Client
+	httpClient      *http.Client
+	leadingTimeSync clientTimeSync
 
 	// in
 	streamTracks chan []gortsplib.Track
 
 	// out
-	startStreaming chan struct{}
+	startStreaming       chan struct{}
+	leadingTimeSyncReady chan struct{}
 }
 
 func newClientDownloaderPrimary(
@@ -136,8 +163,9 @@ func newClientDownloaderPrimary(
 				TLSClientConfig: tlsConfig,
 			},
 		},
-		streamTracks:   make(chan []gortsplib.Track),
-		startStreaming: make(chan struct{}),
+		streamTracks:         make(chan []gortsplib.Track),
+		startStreaming:       make(chan struct{}),
+		leadingTimeSyncReady: make(chan struct{}),
 	}
 }
 
@@ -155,63 +183,50 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	case *m3u8.MediaPlaylist:
 		d.logger.Log(logger.Debug, "primary playlist is a stream playlist")
 		ds := newClientDownloaderStream(
+			true,
 			d.httpClient,
 			d.primaryPlaylistURL,
 			plt,
 			d.logger,
 			d.rp,
 			d.onStreamTracks,
+			d.onSetLeadingTimeSync,
+			d.onGetLeadingTimeSync,
 			d.onVideoData,
 			d.onAudioData)
 		d.rp.add(ds)
 		streamCount++
 
 	case *m3u8.MasterPlaylist:
-		// gather variants with supported codecs
-		var supportedVariants []*gm3u8.Variant
-		for _, v := range plt.Variants {
-			if !allCodecsAreSupported(v.Codecs) {
-				continue
-			}
-			supportedVariants = append(supportedVariants, v)
-		}
-		if supportedVariants == nil {
+		leadingPlaylist := pickLeadingPlaylist(plt.Variants)
+		if leadingPlaylist == nil {
 			return fmt.Errorf("no variants with supported codecs found")
 		}
 
-		// choose the variant with the greatest bandwidth
-		var chosenVariant *gm3u8.Variant
-		for _, v := range supportedVariants {
-			if chosenVariant == nil ||
-				v.VariantParams.Bandwidth > chosenVariant.VariantParams.Bandwidth {
-				chosenVariant = v
-			}
-		}
-		if chosenVariant == nil {
-			return fmt.Errorf("no variants found")
-		}
-
-		u, err := clientAbsoluteURL(d.primaryPlaylistURL, chosenVariant.URI)
+		u, err := clientAbsoluteURL(d.primaryPlaylistURL, leadingPlaylist.URI)
 		if err != nil {
 			return err
 		}
 
 		ds := newClientDownloaderStream(
+			true,
 			d.httpClient,
 			u,
 			nil,
 			d.logger,
 			d.rp,
 			d.onStreamTracks,
+			d.onSetLeadingTimeSync,
+			d.onGetLeadingTimeSync,
 			d.onVideoData,
 			d.onAudioData)
 		d.rp.add(ds)
 		streamCount++
 
-		if chosenVariant.Audio != "" {
-			audioPlaylist := pickAudioPlaylist(plt.Alternatives, chosenVariant.Audio)
+		if leadingPlaylist.Audio != "" {
+			audioPlaylist := pickAudioPlaylist(plt.Alternatives, leadingPlaylist.Audio)
 			if audioPlaylist == nil {
-				return fmt.Errorf("audio playlist with id \"%s\" not found", chosenVariant.Audio)
+				return fmt.Errorf("audio playlist with id \"%s\" not found", leadingPlaylist.Audio)
 			}
 
 			u, err := clientAbsoluteURL(d.primaryPlaylistURL, audioPlaylist.URI)
@@ -220,12 +235,15 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 			}
 
 			ds := newClientDownloaderStream(
+				false,
 				d.httpClient,
 				u,
 				nil,
 				d.logger,
 				d.rp,
 				d.onStreamTracks,
+				d.onSetLeadingTimeSync,
+				d.onGetLeadingTimeSync,
 				d.onVideoData,
 				d.onAudioData)
 			d.rp.add(ds)
@@ -272,6 +290,7 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	}
 
 	close(d.startStreaming)
+
 	return nil
 }
 
@@ -289,4 +308,18 @@ func (d *clientDownloaderPrimary) onStreamTracks(ctx context.Context, tracks []g
 	}
 
 	return true
+}
+
+func (d *clientDownloaderPrimary) onSetLeadingTimeSync(ts clientTimeSync) {
+	d.leadingTimeSync = ts
+	close(d.leadingTimeSyncReady)
+}
+
+func (d *clientDownloaderPrimary) onGetLeadingTimeSync(ctx context.Context) (clientTimeSync, bool) {
+	select {
+	case <-d.leadingTimeSyncReady:
+	case <-ctx.Done():
+		return nil, false
+	}
+	return d.leadingTimeSync, true
 }

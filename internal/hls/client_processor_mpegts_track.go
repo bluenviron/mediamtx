@@ -4,37 +4,33 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/asticode/go-astits"
 )
 
-type clientProcessorMPEGTSTrackEntry struct {
-	data []byte
-	dts  time.Duration
-	pts  time.Duration
-}
-
 type clientProcessorMPEGTSTrack struct {
-	startRTC time.Time
-	onEntry  func(e *clientProcessorMPEGTSTrackEntry) error
+	ts      *clientTimeSyncMPEGTS
+	onEntry func(time.Duration, []byte) error
 
-	queue chan *clientProcessorMPEGTSTrackEntry
+	queue chan *astits.PESData
 }
 
 func newClientProcessorMPEGTSTrack(
-	startRTC time.Time,
-	onEntry func(e *clientProcessorMPEGTSTrackEntry) error,
+	ts *clientTimeSyncMPEGTS,
+	onEntry func(time.Duration, []byte) error,
 ) *clientProcessorMPEGTSTrack {
 	return &clientProcessorMPEGTSTrack{
-		startRTC: startRTC,
-		onEntry:  onEntry,
-		queue:    make(chan *clientProcessorMPEGTSTrackEntry, clientMPEGTSEntryQueueSize),
+		ts:      ts,
+		onEntry: onEntry,
+		queue:   make(chan *astits.PESData, clientMPEGTSEntryQueueSize),
 	}
 }
 
 func (t *clientProcessorMPEGTSTrack) run(ctx context.Context) error {
 	for {
 		select {
-		case entry := <-t.queue:
-			err := t.processEntry(ctx, entry)
+		case pes := <-t.queue:
+			err := t.processEntry(ctx, pes)
 			if err != nil {
 				return err
 			}
@@ -45,15 +41,19 @@ func (t *clientProcessorMPEGTSTrack) run(ctx context.Context) error {
 	}
 }
 
-func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, entry *clientProcessorMPEGTSTrackEntry) error {
-	elapsed := time.Since(t.startRTC)
-	if entry.dts > elapsed {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("terminated")
-		case <-time.After(entry.dts - elapsed):
-		}
+func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, pes *astits.PESData) error {
+	rawPTS := pes.Header.OptionalHeader.PTS.Base
+	var rawDTS int64
+	if pes.Header.OptionalHeader.PTSDTSIndicator == astits.PTSDTSIndicatorBothPresent {
+		rawDTS = pes.Header.OptionalHeader.DTS.Base
+	} else {
+		rawDTS = rawPTS
 	}
 
-	return t.onEntry(entry)
+	pts, ok := t.ts.convertAndSync(ctx, rawDTS, rawPTS)
+	if !ok {
+		return fmt.Errorf("terminated")
+	}
+
+	return t.onEntry(pts, pes.Data)
 }

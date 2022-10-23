@@ -9,8 +9,8 @@ import (
 )
 
 type clientProcessorFMP4Track struct {
-	timeScale            uint64
-	startRTC             time.Time
+	timeScale            uint32
+	ts                   *clientTimeSyncFMP4
 	onPartTrackProcessed func(context.Context)
 	onEntry              func(time.Duration, []byte) error
 
@@ -20,13 +20,13 @@ type clientProcessorFMP4Track struct {
 
 func newClientProcessorFMP4Track(
 	timeScale uint32,
-	startRTC time.Time,
+	ts *clientTimeSyncFMP4,
 	onPartTrackProcessed func(context.Context),
 	onEntry func(time.Duration, []byte) error,
 ) *clientProcessorFMP4Track {
 	return &clientProcessorFMP4Track{
-		timeScale:            uint64(timeScale),
-		startRTC:             startRTC,
+		timeScale:            timeScale,
+		ts:                   ts,
 		onPartTrackProcessed: onPartTrackProcessed,
 		onEntry:              onEntry,
 		queue:                make(chan *fmp4.PartTrack, clientFMP4MaxPartTracksPerSegment),
@@ -54,16 +54,9 @@ func (t *clientProcessorFMP4Track) processPartTrack(ctx context.Context, pt *fmp
 	rawDTS := pt.BaseTime
 
 	for _, sample := range pt.Samples {
-		pts := durationMp4ToGo(rawDTS+uint64(sample.PTSOffset), t.timeScale)
-		dts := durationMp4ToGo(rawDTS, t.timeScale)
-
-		elapsed := time.Since(t.startRTC)
-		if dts > elapsed {
-			select {
-			case <-ctx.Done():
-				return fmt.Errorf("terminated")
-			case <-time.After(dts - elapsed):
-			}
+		pts, ok := t.ts.convertAndSync(ctx, t.timeScale, rawDTS, sample.PTSOffset)
+		if !ok {
+			return fmt.Errorf("terminated")
 		}
 
 		err := t.onEntry(pts, sample.Payload)

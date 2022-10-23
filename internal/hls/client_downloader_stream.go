@@ -44,39 +44,46 @@ func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) 
 }
 
 type clientDownloaderStream struct {
-	httpClient      *http.Client
-	playlistURL     *url.URL
-	initialPlaylist *m3u8.MediaPlaylist
-	logger          ClientLogger
-	rp              *clientRoutinePool
-	onStreamTracks  func(context.Context, []gortsplib.Track) bool
-	onVideoData     func(time.Duration, [][]byte)
-	onAudioData     func(time.Duration, []byte)
+	isLeading            bool
+	httpClient           *http.Client
+	playlistURL          *url.URL
+	initialPlaylist      *m3u8.MediaPlaylist
+	logger               ClientLogger
+	rp                   *clientRoutinePool
+	onStreamTracks       func(context.Context, []gortsplib.Track) bool
+	onSetLeadingTimeSync func(clientTimeSync)
+	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
+	onVideoData          func(time.Duration, [][]byte)
+	onAudioData          func(time.Duration, []byte)
 
-	segmentQueue *clientSegmentQueue
 	curSegmentID *uint64
 }
 
 func newClientDownloaderStream(
+	isLeading bool,
 	httpClient *http.Client,
 	playlistURL *url.URL,
 	initialPlaylist *m3u8.MediaPlaylist,
 	logger ClientLogger,
 	rp *clientRoutinePool,
 	onStreamTracks func(context.Context, []gortsplib.Track) bool,
+	onSetLeadingTimeSync func(clientTimeSync),
+	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) *clientDownloaderStream {
 	return &clientDownloaderStream{
-		httpClient:      httpClient,
-		playlistURL:     playlistURL,
-		initialPlaylist: initialPlaylist,
-		logger:          logger,
-		rp:              rp,
-		segmentQueue:    newClientSegmentQueue(),
-		onStreamTracks:  onStreamTracks,
-		onVideoData:     onVideoData,
-		onAudioData:     onAudioData,
+		isLeading:            isLeading,
+		httpClient:           httpClient,
+		playlistURL:          playlistURL,
+		initialPlaylist:      initialPlaylist,
+		logger:               logger,
+		rp:                   rp,
+		onStreamTracks:       onStreamTracks,
+		onSetLeadingTimeSync: onSetLeadingTimeSync,
+		onGetLeadingTimeSync: onGetLeadingTimeSync,
+		onVideoData:          onVideoData,
+		onAudioData:          onAudioData,
 	}
 }
 
@@ -91,6 +98,8 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 		}
 	}
 
+	segmentQueue := newClientSegmentQueue()
+
 	if initialPlaylist.Map != nil && initialPlaylist.Map.URI != "" {
 		byts, err := d.downloadSegment(ctx, initialPlaylist.Map.URI, initialPlaylist.Map.Offset, initialPlaylist.Map.Limit)
 		if err != nil {
@@ -99,11 +108,14 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 
 		proc, err := newClientProcessorFMP4(
 			ctx,
+			d.isLeading,
 			byts,
-			d.segmentQueue,
+			segmentQueue,
 			d.logger,
 			d.rp,
 			d.onStreamTracks,
+			d.onSetLeadingTimeSync,
+			d.onGetLeadingTimeSync,
 			d.onVideoData,
 			d.onAudioData,
 		)
@@ -114,10 +126,13 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 		d.rp.add(proc)
 	} else {
 		proc := newClientProcessorMPEGTS(
-			d.segmentQueue,
+			d.isLeading,
+			segmentQueue,
 			d.logger,
 			d.rp,
 			d.onStreamTracks,
+			d.onSetLeadingTimeSync,
+			d.onGetLeadingTimeSync,
 			d.onVideoData,
 			d.onAudioData,
 		)
@@ -125,12 +140,12 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 	}
 
 	for {
-		ok := d.segmentQueue.waitUntilSizeIsBelow(ctx, 1)
+		ok := segmentQueue.waitUntilSizeIsBelow(ctx, 1)
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
 
-		err := d.fillSegmentQueue(ctx)
+		err := d.fillSegmentQueue(ctx, segmentQueue)
 		if err != nil {
 			return err
 		}
@@ -189,7 +204,7 @@ func (d *clientDownloaderStream) downloadSegment(ctx context.Context,
 	return byts, nil
 }
 
-func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context) error {
+func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context, segmentQueue *clientSegmentQueue) error {
 	pl, err := d.downloadPlaylist(ctx)
 	if err != nil {
 		return err
@@ -233,7 +248,7 @@ func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context) error {
 		return err
 	}
 
-	d.segmentQueue.push(byts)
+	segmentQueue.push(byts)
 
 	if pl.Closed && pl.Segments[len(pl.Segments)-1] == seg {
 		<-ctx.Done()

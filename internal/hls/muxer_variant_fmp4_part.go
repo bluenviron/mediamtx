@@ -97,7 +97,7 @@ func (p *muxerVariantFMP4Part) finalize() error {
 
 			part.Tracks = append(part.Tracks, &fmp4.PartTrack{
 				ID:       id,
-				BaseTime: durationGoToMp4(p.audioStartDTS, uint64(p.audioTrack.ClockRate())),
+				BaseTime: durationGoToMp4(p.audioStartDTS, uint32(p.audioTrack.ClockRate())),
 				Samples:  p.audioSamples,
 			})
 		}

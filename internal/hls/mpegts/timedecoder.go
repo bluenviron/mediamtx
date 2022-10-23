@@ -1,12 +1,13 @@
 package mpegts
 
 import (
+	"sync"
 	"time"
 )
 
 const (
 	maximum           = 0x1FFFFFFFF // 33 bits
-	negativeThreshold = 0xFFFFFFF
+	negativeThreshold = 0x1FFFFFFFF / 2
 	clockRate         = 90000
 )
 
@@ -15,6 +16,7 @@ type TimeDecoder struct {
 	initialized bool
 	tsOverall   time.Duration
 	tsPrev      int64
+	mutex       sync.Mutex
 }
 
 // NewTimeDecoder allocates a TimeDecoder.
@@ -24,6 +26,9 @@ func NewTimeDecoder() *TimeDecoder {
 
 // Decode decodes a MPEG-TS timestamp.
 func (d *TimeDecoder) Decode(ts int64) time.Duration {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+
 	if !d.initialized {
 		d.initialized = true
 		d.tsPrev = ts
