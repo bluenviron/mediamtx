@@ -56,7 +56,7 @@ func allCodecsAreSupported(codecs string) bool {
 func pickLeadingPlaylist(variants []*gm3u8.Variant) *gm3u8.Variant {
 	var candidates []*gm3u8.Variant //nolint:prealloc
 	for _, v := range variants {
-		if !allCodecsAreSupported(v.Codecs) {
+		if v.Codecs != "" && !allCodecsAreSupported(v.Codecs) {
 			continue
 		}
 		candidates = append(candidates, v)
