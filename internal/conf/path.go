@@ -110,7 +110,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 	case strings.HasPrefix(pconf.Source, "rtsp://") ||
 		strings.HasPrefix(pconf.Source, "rtsps://"):
 		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source; use another path")
+			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source. use another path")
 		}
 
 		_, err := url.Parse(pconf.Source)
@@ -121,7 +121,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
 		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source; use another path")
+			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source. use another path")
 		}
 
 		u, err := gourl.Parse(pconf.Source)
@@ -141,7 +141,7 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
 		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source; use another path")
+			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source. use another path")
 		}
 
 		u, err := gourl.Parse(pconf.Source)
@@ -172,6 +172,11 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		}
 
 	case pconf.Source == "rpiCamera":
+		if pconf.Regexp != nil {
+			return fmt.Errorf(
+				"a path with a regular expression (or path 'all') cannot have 'rpiCamera' as source. use another path")
+		}
+
 		if pconf.RPICameraWidth == 0 {
 			pconf.RPICameraWidth = 1280
 		}

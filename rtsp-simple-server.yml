@@ -14,7 +14,7 @@ readTimeout: 10s
 # Timeout of write operations.
 writeTimeout: 10s
 # Number of read buffers.
-# A higher number allows a wider throughput, a lower number allows to save RAM.
+# A higher value allows a wider throughput, a lower value allows to save RAM.
 readBufferCount: 512
 
 # HTTP URL to perform external authentication.
