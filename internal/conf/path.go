@@ -52,6 +52,8 @@ type PathConf struct {
 	RPICameraCamID             int            `json:"rpiCameraCamID"`
 	RPICameraWidth             int            `json:"rpiCameraWidth"`
 	RPICameraHeight            int            `json:"rpiCameraHeight"`
+	RPICameraHFlip             bool           `json:"rpiCameraHFlip"`
+	RPICameraVFlip             bool           `json:"rpiCameraVFlip"`
 	RPICameraFPS               int            `json:"rpiCameraFPS"`
 	RPICameraIDRPeriod         int            `json:"rpiCameraIDRPeriod"`
 	RPICameraBitrate           int            `json:"rpiCameraBitrate"`

@@ -557,7 +557,7 @@ paths:
     rpiCameraHeight: 1080
 ```
 
-All available parameters are listed in the [sample configuration file](https://github.com/aler9/rtsp-simple-server/blob/1e788f81fd46c7e8f5314bd4ae04989debfff52c/rtsp-simple-server.yml#L230).
+All available parameters are listed in the [sample configuration file](https://github.com/aler9/rtsp-simple-server/blob/master/rtsp-simple-server.yml#L230).
 
 ### From OBS Studio
 

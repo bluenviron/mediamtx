@@ -89,6 +89,8 @@ func newSourceStatic(
 				CameraID:  conf.RPICameraCamID,
 				Width:     conf.RPICameraWidth,
 				Height:    conf.RPICameraHeight,
+				HFlip:     conf.RPICameraHFlip,
+				VFlip:     conf.RPICameraVFlip,
 				FPS:       conf.RPICameraFPS,
 				IDRPeriod: conf.RPICameraIDRPeriod,
 				Bitrate:   conf.RPICameraBitrate,

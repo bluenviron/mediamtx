@@ -102,15 +102,15 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     *enc = malloc(sizeof(encoder_priv_t));
     encoder_priv_t *encp = (encoder_priv_t *)(*enc);
 
-	encp->fd = open("/dev/video11", O_RDWR, 0);
-	if (encp->fd < 0) {
+    encp->fd = open("/dev/video11", O_RDWR, 0);
+    if (encp->fd < 0) {
         set_error("unable to open device");
         return false;
     }
 
     struct v4l2_control ctrl = {0};
     ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-	ctrl.value = params->bitrate;
+    ctrl.value = params->bitrate;
     int res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set bitrate");
@@ -119,7 +119,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
-	ctrl.value = params->profile;
+    ctrl.value = params->profile;
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set profile");
@@ -128,7 +128,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
-	ctrl.value = params->level;
+    ctrl.value = params->level;
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set level");
@@ -137,7 +137,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-	ctrl.value = params->idr_period;
+    ctrl.value = params->idr_period;
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set IDR period");
@@ -146,7 +146,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
-	ctrl.value = 0;
+    ctrl.value = 0;
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set REPEAT_SEQ_HEADER");
@@ -154,15 +154,15 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
         return false;
     }
 
-	struct v4l2_format fmt = {0};
-	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	fmt.fmt.pix_mp.width = params->width;
-	fmt.fmt.pix_mp.height = params->height;
-	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
-	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = stride;
-	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-	fmt.fmt.pix_mp.colorspace = colorspace;
-	fmt.fmt.pix_mp.num_planes = 1;
+    struct v4l2_format fmt = {0};
+    fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    fmt.fmt.pix_mp.width = params->width;
+    fmt.fmt.pix_mp.height = params->height;
+    fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_YUV420;
+    fmt.fmt.pix_mp.plane_fmt[0].bytesperline = stride;
+    fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
+    fmt.fmt.pix_mp.colorspace = colorspace;
+    fmt.fmt.pix_mp.num_planes = 1;
     res = ioctl(encp->fd, VIDIOC_S_FMT, &fmt);
     if (res != 0) {
         set_error("unable to set output format");
@@ -170,16 +170,16 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
         return false;
     }
 
-	memset(&fmt, 0, sizeof(fmt));
-	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	fmt.fmt.pix_mp.width = params->width;
-	fmt.fmt.pix_mp.height = params->height;
-	fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
-	fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
-	fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
-	fmt.fmt.pix_mp.num_planes = 1;
-	fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
-	fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
+    memset(&fmt, 0, sizeof(fmt));
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    fmt.fmt.pix_mp.width = params->width;
+    fmt.fmt.pix_mp.height = params->height;
+    fmt.fmt.pix_mp.pixelformat = V4L2_PIX_FMT_H264;
+    fmt.fmt.pix_mp.field = V4L2_FIELD_ANY;
+    fmt.fmt.pix_mp.colorspace = V4L2_COLORSPACE_DEFAULT;
+    fmt.fmt.pix_mp.num_planes = 1;
+    fmt.fmt.pix_mp.plane_fmt[0].bytesperline = 0;
+    fmt.fmt.pix_mp.plane_fmt[0].sizeimage = 512 << 10;
     res = ioctl(encp->fd, VIDIOC_S_FMT, &fmt);
     if (res != 0) {
         set_error("unable to set capture format");
@@ -187,10 +187,10 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
         return false;
     }
 
-	struct v4l2_streamparm parm = {0};
-	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	parm.parm.output.timeperframe.numerator = 1;
-	parm.parm.output.timeperframe.denominator = params->fps;
+    struct v4l2_streamparm parm = {0};
+    parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    parm.parm.output.timeperframe.numerator = 1;
+    parm.parm.output.timeperframe.denominator = params->fps;
     res = ioctl(encp->fd, VIDIOC_S_PARM, &parm);
     if (res != 0) {
         set_error("unable to set fps");
@@ -198,10 +198,10 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
         return false;
     }
 
-	struct v4l2_requestbuffers reqbufs = {0};
-	reqbufs.count = params->buffer_count;
-	reqbufs.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	reqbufs.memory = V4L2_MEMORY_DMABUF;
+    struct v4l2_requestbuffers reqbufs = {0};
+    reqbufs.count = params->buffer_count;
+    reqbufs.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    reqbufs.memory = V4L2_MEMORY_DMABUF;
     res = ioctl(encp->fd, VIDIOC_REQBUFS, &reqbufs);
     if (res != 0) {
         set_error("unable to set output buffers");
@@ -209,10 +209,10 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
         return false;
     }
 
-	memset(&reqbufs, 0, sizeof(reqbufs));
-	reqbufs.count = params->capture_buffer_count;
-	reqbufs.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-	reqbufs.memory = V4L2_MEMORY_MMAP;
+    memset(&reqbufs, 0, sizeof(reqbufs));
+    reqbufs.count = params->capture_buffer_count;
+    reqbufs.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+    reqbufs.memory = V4L2_MEMORY_MMAP;
     res = ioctl(encp->fd, VIDIOC_REQBUFS, &reqbufs);
     if (res != 0) {
         set_error("unable to set capture buffers");
@@ -222,30 +222,30 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
 
     encp->capture_buffers = malloc(sizeof(void *) * reqbufs.count);
 
-	for (unsigned int i = 0; i < reqbufs.count; i++) {
-		struct v4l2_plane planes[VIDEO_MAX_PLANES];
+    for (unsigned int i = 0; i < reqbufs.count; i++) {
+        struct v4l2_plane planes[VIDEO_MAX_PLANES];
 
-		struct v4l2_buffer buffer = {0};
-		buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-		buffer.memory = V4L2_MEMORY_MMAP;
-		buffer.index = i;
-		buffer.length = 1;
-		buffer.m.planes = planes;
+        struct v4l2_buffer buffer = {0};
+        buffer.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+        buffer.memory = V4L2_MEMORY_MMAP;
+        buffer.index = i;
+        buffer.length = 1;
+        buffer.m.planes = planes;
         int res = ioctl(encp->fd, VIDIOC_QUERYBUF, &buffer);
-		if (res != 0) {
+        if (res != 0) {
             set_error("unable to query buffer");
             free(encp->capture_buffers);
             close(encp->fd);
             return false;
         }
 
-		encp->capture_buffers[i] = mmap(
+        encp->capture_buffers[i] = mmap(
             0,
             buffer.m.planes[0].length,
             PROT_READ | PROT_WRITE, MAP_SHARED,
             encp->fd,
             buffer.m.planes[0].m.mem_offset);
-		if (encp->capture_buffers[i] == MAP_FAILED) {
+        if (encp->capture_buffers[i] == MAP_FAILED) {
             set_error("mmap() failed");
             free(encp->capture_buffers);
             close(encp->fd);
@@ -253,15 +253,15 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
         }
 
         res = ioctl(encp->fd, VIDIOC_QBUF, &buffer);
-		if (res != 0) {
+        if (res != 0) {
             set_error("ioctl() failed");
             free(encp->capture_buffers);
             close(encp->fd);
             return false;
         }
-	}
+    }
 
-	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
     res = ioctl(encp->fd, VIDIOC_STREAMON, &type);
     if (res != 0) {
         set_error("unable to activate output stream");
@@ -294,20 +294,20 @@ void encoder_encode(encoder_t *enc, int buffer_fd, size_t size, int64_t timestam
     int index = encp->cur_buffer++;
     encp->cur_buffer %= encp->params->buffer_count;
 
-	struct v4l2_buffer buf = {0};
-	struct v4l2_plane planes[VIDEO_MAX_PLANES] = {0};
-	buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
-	buf.index = index;
-	buf.field = V4L2_FIELD_NONE;
-	buf.memory = V4L2_MEMORY_DMABUF;
-	buf.length = 1;
-	buf.timestamp.tv_sec = timestamp_us / 1000000;
-	buf.timestamp.tv_usec = timestamp_us % 1000000;
-	buf.m.planes = planes;
-	buf.m.planes[0].m.fd = buffer_fd;
-	buf.m.planes[0].bytesused = size;
-	buf.m.planes[0].length = size;
-	int res = ioctl(encp->fd, VIDIOC_QBUF, &buf);
+    struct v4l2_buffer buf = {0};
+    struct v4l2_plane planes[VIDEO_MAX_PLANES] = {0};
+    buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+    buf.index = index;
+    buf.field = V4L2_FIELD_NONE;
+    buf.memory = V4L2_MEMORY_DMABUF;
+    buf.length = 1;
+    buf.timestamp.tv_sec = timestamp_us / 1000000;
+    buf.timestamp.tv_usec = timestamp_us % 1000000;
+    buf.m.planes = planes;
+    buf.m.planes[0].m.fd = buffer_fd;
+    buf.m.planes[0].bytesused = size;
+    buf.m.planes[0].length = size;
+    int res = ioctl(encp->fd, VIDIOC_QBUF, &buf);
     if (res != 0) {
         fprintf(stderr, "encoder_encode(): ioctl() failed\n");
         exit(1);

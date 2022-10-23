@@ -14,6 +14,13 @@ import (
 //go:embed exe/exe
 var exeContent []byte
 
+func bool2env(v bool) string {
+	if v {
+		return "1"
+	}
+	return "0"
+}
+
 type RPICamera struct {
 	onData func([][]byte)
 
@@ -38,6 +45,8 @@ func New(
 		"CAMERA_ID=" + strconv.FormatInt(int64(params.CameraID), 10),
 		"WIDTH=" + strconv.FormatInt(int64(params.Width), 10),
 		"HEIGHT=" + strconv.FormatInt(int64(params.Height), 10),
+		"H_FLIP=" + bool2env(params.HFlip),
+		"V_FLIP=" + bool2env(params.VFlip),
 		"FPS=" + strconv.FormatInt(int64(params.FPS), 10),
 		"IDR_PERIOD=" + strconv.FormatInt(int64(params.IDRPeriod), 10),
 		"BITRATE=" + strconv.FormatInt(int64(params.Bitrate), 10),

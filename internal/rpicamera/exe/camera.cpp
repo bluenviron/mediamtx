@@ -18,15 +18,16 @@
 using libcamera::CameraManager;
 using libcamera::CameraConfiguration;
 using libcamera::Camera;
-using libcamera::StreamRoles;
-using libcamera::StreamRole;
-using libcamera::StreamConfiguration;
-using libcamera::Stream;
 using libcamera::ControlList;
 using libcamera::FrameBufferAllocator;
 using libcamera::FrameBuffer;
 using libcamera::Request;
 using libcamera::Span;
+using libcamera::Stream;
+using libcamera::StreamRoles;
+using libcamera::StreamRole;
+using libcamera::StreamConfiguration;
+using libcamera::Transform;
 
 namespace controls = libcamera::controls;
 namespace formats = libcamera::formats;
@@ -53,10 +54,10 @@ struct CameraPriv {
 };
 
 static int get_v4l2_colorspace(std::optional<libcamera::ColorSpace> const &cs) {
-	if (cs == libcamera::ColorSpace::Rec709) {
-		return V4L2_COLORSPACE_REC709;
+    if (cs == libcamera::ColorSpace::Rec709) {
+        return V4L2_COLORSPACE_REC709;
     }
-	return V4L2_COLORSPACE_SMPTE170M;
+    return V4L2_COLORSPACE_SMPTE170M;
 }
 
 bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **cam) {
@@ -70,9 +71,9 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
     }
 
     std::vector<std::shared_ptr<libcamera::Camera>> cameras = camp->camera_manager->cameras();
-	auto rem = std::remove_if(cameras.begin(), cameras.end(),
+    auto rem = std::remove_if(cameras.begin(), cameras.end(),
         [](auto &cam) { return cam->id().find("/usb") != std::string::npos; });
-	cameras.erase(rem, cameras.end());
+    cameras.erase(rem, cameras.end());
     if (params->camera_id >= cameras.size()){
         set_error("selected camera is not available");
         return false;
@@ -98,18 +99,26 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
     }
 
     StreamConfiguration &stream_conf = conf->at(0);
-	stream_conf.pixelFormat = formats::YUV420;
-	stream_conf.bufferCount = params->buffer_count;
+    stream_conf.pixelFormat = formats::YUV420;
+    stream_conf.bufferCount = params->buffer_count;
     stream_conf.size.width = params->width;
     stream_conf.size.height = params->height;
     if (params->width >= 1280 || params->height >= 720) {
-		stream_conf.colorSpace = libcamera::ColorSpace::Rec709;
+        stream_conf.colorSpace = libcamera::ColorSpace::Rec709;
     } else {
-		stream_conf.colorSpace = libcamera::ColorSpace::Smpte170m;
+        stream_conf.colorSpace = libcamera::ColorSpace::Smpte170m;
     }
 
-	CameraConfiguration::Status vstatus = conf->validate();
-	if (vstatus == CameraConfiguration::Invalid) {
+    conf->transform = Transform::Identity;
+    if (params->h_flip) {
+        conf->transform = Transform::HFlip * conf->transform;
+    }
+    if (params->v_flip) {
+        conf->transform = Transform::VFlip * conf->transform;
+    }
+
+    CameraConfiguration::Status vstatus = conf->validate();
+    if (vstatus == CameraConfiguration::Invalid) {
         set_error("StreamConfiguration.validate() failed");
         return false;
     }
@@ -122,7 +131,7 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
 
     Stream *stream = stream_conf.stream();
 
-	camp->allocator = std::make_unique<FrameBufferAllocator>(camp->camera);
+    camp->allocator = std::make_unique<FrameBufferAllocator>(camp->camera);
     res = camp->allocator->allocate(stream);
     if (res < 0) {
         set_error("allocate() failed");
@@ -137,7 +146,7 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
         }
 
         int res = request->addBuffer(stream, buffer.get());
-		if (res != 0) {
+        if (res != 0) {
             set_error("addBuffer() failed");
             return false;
         }
@@ -154,7 +163,7 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
 
 static void on_request_complete(Request *request) {
     if (request->status() == Request::RequestCancelled) {
-		return;
+        return;
     }
 
     CameraPriv *camp = (CameraPriv *)request->cookie();
@@ -197,13 +206,13 @@ bool camera_start(camera_t *cam) {
 
     camp->camera->requestCompleted.connect(on_request_complete);
 
-	for (std::unique_ptr<Request> &request : camp->requests) {
+    for (std::unique_ptr<Request> &request : camp->requests) {
         int res = camp->camera->queueRequest(request.get());
-		if (res != 0) {
-			set_error("Camera.queueRequest() failed");
+        if (res != 0) {
+            set_error("Camera.queueRequest() failed");
             return false;
         }
-	}
+    }
 
     return true;
 }

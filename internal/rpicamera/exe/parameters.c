@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include <linux/videodev2.h>
 
@@ -9,6 +10,8 @@ void parameters_load(parameters_t *params) {
     params->camera_id = atoi(getenv("CAMERA_ID"));
     params->width = atoi(getenv("WIDTH"));
     params->height = atoi(getenv("HEIGHT"));
+    params->h_flip =  (strcmp(getenv("H_FLIP"), "1") == 0);
+    params->v_flip =  (strcmp(getenv("V_FLIP"), "1") == 0);
     params->fps = atoi(getenv("FPS"));
     params->idr_period = atoi(getenv("IDR_PERIOD"));
     params->bitrate = atoi(getenv("BITRATE"));

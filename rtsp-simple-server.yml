@@ -228,14 +228,16 @@ paths:
     fallback:
 
     # If the source is "rpiCamera", these are the Raspberry Pi Camera parameters
-    rpiCameraCamID: 0
-    rpiCameraWidth: 1280
-    rpiCameraHeight: 720
-    rpiCameraFPS: 30
-    rpiCameraIDRPeriod: 60
-    rpiCameraBitrate: 1000000
-    rpiCameraProfile: main
-    rpiCameraLevel: '4.1'
+    rpiCameraCamID: 0             # ID of the camera
+    rpiCameraWidth: 1280          # width of frames
+    rpiCameraHeight: 720          # height of frames
+    rpiCameraHFlip: false         # flip horizontally
+    rpiCameraVFlip: false         # flip vertically
+    rpiCameraFPS: 30              # frames per second
+    rpiCameraIDRPeriod: 60        # period between IDR frames
+    rpiCameraBitrate: 1000000     # bitrate
+    rpiCameraProfile: main        # H264 profile
+    rpiCameraLevel: '4.1'         # H264 level
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.
