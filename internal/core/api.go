@@ -20,7 +20,7 @@ func interfaceIsEmpty(i interface{}) bool {
 }
 
 func fillStruct(dest interface{}, source interface{}) {
-	rvsource := reflect.ValueOf(source)
+	rvsource := reflect.ValueOf(source).Elem()
 	rvdest := reflect.ValueOf(dest)
 	nf := rvsource.NumField()
 	for i := 0; i < nf; i++ {
@@ -41,64 +41,30 @@ func cloneStruct(dest interface{}, source interface{}) {
 	_ = json.Unmarshal(enc, dest)
 }
 
-func loadConfData(ctx *gin.Context) (interface{}, error) {
-	var in struct {
-		// general
-		LogLevel                  *conf.LogLevel        `json:"logLevel"`
-		LogDestinations           *conf.LogDestinations `json:"logDestinations"`
-		LogFile                   *string               `json:"logFile"`
-		ReadTimeout               *conf.StringDuration  `json:"readTimeout"`
-		WriteTimeout              *conf.StringDuration  `json:"writeTimeout"`
-		ReadBufferCount           *int                  `json:"readBufferCount"`
-		ExternalAuthenticationURL *string               `json:"externalAuthenticationURL"`
-		API                       *bool                 `json:"api"`
-		APIAddress                *string               `json:"apiAddress"`
-		Metrics                   *bool                 `json:"metrics"`
-		MetricsAddress            *string               `json:"metricsAddress"`
-		PPROF                     *bool                 `json:"pprof"`
-		PPROFAddress              *string               `json:"pprofAddress"`
-		RunOnConnect              *string               `json:"runOnConnect"`
-		RunOnConnectRestart       *bool                 `json:"runOnConnectRestart"`
+func generateStructWithOptionalFields(model interface{}) interface{} {
+	var fields []reflect.StructField
 
-		// RTSP
-		RTSPDisable       *bool             `json:"rtspDisable"`
-		Protocols         *conf.Protocols   `json:"protocols"`
-		Encryption        *conf.Encryption  `json:"encryption"`
-		RTSPAddress       *string           `json:"rtspAddress"`
-		RTSPSAddress      *string           `json:"rtspsAddress"`
-		RTPAddress        *string           `json:"rtpAddress"`
-		RTCPAddress       *string           `json:"rtcpAddress"`
-		MulticastIPRange  *string           `json:"multicastIPRange"`
-		MulticastRTPPort  *int              `json:"multicastRTPPort"`
-		MulticastRTCPPort *int              `json:"multicastRTCPPort"`
-		ServerKey         *string           `json:"serverKey"`
-		ServerCert        *string           `json:"serverCert"`
-		AuthMethods       *conf.AuthMethods `json:"authMethods"`
+	rt := reflect.TypeOf(model)
+	nf := rt.NumField()
+	for i := 0; i < nf; i++ {
+		f := rt.Field(i)
+		j := f.Tag.Get("json")
 
-		// RTMP
-		RTMPDisable    *bool            `json:"rtmpDisable"`
-		RTMPAddress    *string          `json:"rtmpAddress"`
-		RTMPEncryption *conf.Encryption `json:"rtmpEncryption"`
-		RTMPSAddress   *string          `json:"rtmpsAddress"`
-		RTMPServerKey  *string          `json:"rtmpServerKey"`
-		RTMPServerCert *string          `json:"rtmpServerCert"`
-
-		// HLS
-		HLSDisable         *bool                `json:"hlsDisable"`
-		HLSAddress         *string              `json:"hlsAddress"`
-		HLSAlwaysRemux     *bool                `json:"hlsAlwaysRemux"`
-		HLSVariant         *conf.HLSVariant     `json:"hlsVariant"`
-		HLSSegmentCount    *int                 `json:"hlsSegmentCount"`
-		HLSSegmentDuration *conf.StringDuration `json:"hlsSegmentDuration"`
-		HLSPartDuration    *conf.StringDuration `json:"hlsPartDuration"`
-		HLSSegmentMaxSize  *conf.StringSize     `json:"hlsSegmentMaxSize"`
-		HLSAllowOrigin     *string              `json:"hlsAllowOrigin"`
-		HLSEncryption      *bool                `json:"hlsEncryption"`
-		HLSServerKey       *string              `json:"hlsServerKey"`
-		HLSServerCert      *string              `json:"hlsServerCert"`
-		HLSTrustedProxies  *conf.IPsOrCIDRs     `json:"hlsTrustedProxies"`
+		if j != "-" && j != "paths" {
+			fields = append(fields, reflect.StructField{
+				Name: f.Name,
+				Type: reflect.PtrTo(f.Type),
+				Tag:  f.Tag,
+			})
+		}
 	}
-	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
+
+	return reflect.New(reflect.StructOf(fields)).Interface()
+}
+
+func loadConfData(ctx *gin.Context) (interface{}, error) {
+	in := generateStructWithOptionalFields(conf.Conf{})
+	err := json.NewDecoder(ctx.Request.Body).Decode(in)
 	if err != nil {
 		return nil, err
 	}
@@ -107,48 +73,8 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 }
 
 func loadConfPathData(ctx *gin.Context) (interface{}, error) {
-	var in struct {
-		// source
-		Source                     *string              `json:"source"`
-		SourceProtocol             *conf.SourceProtocol `json:"sourceProtocol"`
-		SourceAnyPortEnable        *bool                `json:"sourceAnyPortEnable"`
-		SourceFingerprint          *string              `json:"sourceFingerprint"`
-		SourceOnDemand             *bool                `json:"sourceOnDemand"`
-		SourceOnDemandStartTimeout *conf.StringDuration `json:"sourceOnDemandStartTimeout"`
-		SourceOnDemandCloseAfter   *conf.StringDuration `json:"sourceOnDemandCloseAfter"`
-		SourceRedirect             *string              `json:"sourceRedirect"`
-		DisablePublisherOverride   *bool                `json:"disablePublisherOverride"`
-		Fallback                   *string              `json:"fallback"`
-		RPICameraCamID             *int                 `json:"rpiCameraCamID"`
-		RPICameraWidth             *int                 `json:"rpiCameraWidth"`
-		RPICameraHeight            *int                 `json:"rpiCameraHeight"`
-		RPICameraFPS               *int                 `json:"rpiCameraFPS"`
-		RPICameraIDRPeriod         *int                 `json:"rpiCameraIDRPeriod"`
-		RPICameraBitrate           *int                 `json:"rpiCameraBitrate"`
-		RPICameraProfile           *string              `json:"rpiCameraProfile"`
-		RPICameraLevel             *string              `json:"rpiCameraLevel"`
-
-		// authentication
-		PublishUser *conf.Credential `json:"publishUser"`
-		PublishPass *conf.Credential `json:"publishPass"`
-		PublishIPs  *conf.IPsOrCIDRs `json:"publishIPs"`
-		ReadUser    *conf.Credential `json:"readUser"`
-		ReadPass    *conf.Credential `json:"readPass"`
-		ReadIPs     *conf.IPsOrCIDRs `json:"readIPs"`
-
-		// external commands
-		RunOnInit               *string              `json:"runOnInit"`
-		RunOnInitRestart        *bool                `json:"runOnInitRestart"`
-		RunOnDemand             *string              `json:"runOnDemand"`
-		RunOnDemandRestart      *bool                `json:"runOnDemandRestart"`
-		RunOnDemandStartTimeout *conf.StringDuration `json:"runOnDemandStartTimeout"`
-		RunOnDemandCloseAfter   *conf.StringDuration `json:"runOnDemandCloseAfter"`
-		RunOnReady              *string              `json:"runOnReady"`
-		RunOnReadyRestart       *bool                `json:"runOnReadyRestart"`
-		RunOnRead               *string              `json:"runOnRead"`
-		RunOnReadRestart        *bool                `json:"runOnReadRestart"`
-	}
-	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
+	in := generateStructWithOptionalFields(conf.PathConf{})
+	err := json.NewDecoder(ctx.Request.Body).Decode(in)
 	if err != nil {
 		return nil, err
 	}
