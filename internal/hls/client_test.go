@@ -120,7 +120,9 @@ func newTestHLSServer(ca string) (*testHLSServer, error) {
 #EXT-X-TARGETDURATION:2
 #EXT-X-MEDIA-SEQUENCE:0
 #EXTINF:2,
-` + segment + "\n"
+` + segment + `
+#EXT-X-ENDLIST
+`
 
 		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
 		io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))

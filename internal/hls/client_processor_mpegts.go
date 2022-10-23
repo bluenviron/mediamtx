@@ -12,46 +12,59 @@ import (
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/asticode/go-astits"
 
-	"github.com/aler9/rtsp-simple-server/internal/hls/mpegtstimedec"
+	"github.com/aler9/rtsp-simple-server/internal/hls/mpegts"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
-type clientProcessorMPEGTS struct {
-	segmentQueue *clientSegmentQueue
-	logger       ClientLogger
-	rp           *clientRoutinePool
-	onTracks     func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error
-	onVideoData  func(time.Duration, [][]byte)
-	onAudioData  func(time.Duration, []byte)
+func mpegtsPickLeadingTrack(mpegtsTracks []*mpegts.Track) uint16 {
+	// pick first video track
+	for _, mt := range mpegtsTracks {
+		if _, ok := mt.Track.(*gortsplib.TrackH264); ok {
+			return mt.ES.ElementaryPID
+		}
+	}
 
-	tracksParsed     bool
-	clockInitialized bool
-	timeDec          *mpegtstimedec.Decoder
-	startDTS         time.Duration
-	videoPID         *uint16
-	audioPID         *uint16
-	videoTrack       *gortsplib.TrackH264
-	audioTrack       *gortsplib.TrackMPEG4Audio
-	videoProc        *clientProcessorMPEGTSTrack
-	audioProc        *clientProcessorMPEGTSTrack
+	// otherwise, pick first track
+	return mpegtsTracks[0].ES.ElementaryPID
+}
+
+type clientProcessorMPEGTS struct {
+	isLeading            bool
+	segmentQueue         *clientSegmentQueue
+	logger               ClientLogger
+	rp                   *clientRoutinePool
+	onStreamTracks       func(context.Context, []gortsplib.Track) bool
+	onSetLeadingTimeSync func(clientTimeSync)
+	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
+	onVideoData          func(time.Duration, [][]byte)
+	onAudioData          func(time.Duration, []byte)
+
+	mpegtsTracks    []*mpegts.Track
+	leadingTrackPID uint16
+	trackProcs      map[uint16]*clientProcessorMPEGTSTrack
 }
 
 func newClientProcessorMPEGTS(
+	isLeading bool,
 	segmentQueue *clientSegmentQueue,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
+	onStreamTracks func(context.Context, []gortsplib.Track) bool,
+	onSetLeadingTimeSync func(clientTimeSync),
+	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) *clientProcessorMPEGTS {
 	return &clientProcessorMPEGTS{
-		segmentQueue: segmentQueue,
-		logger:       logger,
-		rp:           rp,
-		timeDec:      mpegtstimedec.New(),
-		onTracks:     onTracks,
-		onVideoData:  onVideoData,
-		onAudioData:  onAudioData,
+		isLeading:            isLeading,
+		segmentQueue:         segmentQueue,
+		logger:               logger,
+		rp:                   rp,
+		onStreamTracks:       onStreamTracks,
+		onSetLeadingTimeSync: onSetLeadingTimeSync,
+		onGetLeadingTimeSync: onGetLeadingTimeSync,
+		onVideoData:          onVideoData,
+		onAudioData:          onAudioData,
 	}
 }
 
@@ -70,23 +83,27 @@ func (p *clientProcessorMPEGTS) run(ctx context.Context) error {
 }
 
 func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte) error {
-	p.logger.Log(logger.Debug, "processing segment")
-
-	dem := astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
-
-	if !p.tracksParsed {
-		p.tracksParsed = true
-
-		err := p.parseTracks(dem)
+	if p.mpegtsTracks == nil {
+		var err error
+		p.mpegtsTracks, err = mpegts.FindTracks(byts)
 		if err != nil {
 			return err
 		}
 
-		// rewind demuxer in order to read again the audio packet that was used to create the track
-		if p.audioTrack != nil {
-			dem = astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
+		p.leadingTrackPID = mpegtsPickLeadingTrack(p.mpegtsTracks)
+
+		tracks := make([]gortsplib.Track, len(p.mpegtsTracks))
+		for i, mt := range p.mpegtsTracks {
+			tracks[i] = mt.Track
+		}
+
+		ok := p.onStreamTracks(ctx, tracks)
+		if !ok {
+			return fmt.Errorf("terminated")
 		}
 	}
+
+	dem := astits.NewDemuxer(context.Background(), bytes.NewReader(byts))
 
 	for {
 		data, err := dem.NextData()
@@ -110,185 +127,92 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 			return fmt.Errorf("PTS is missing")
 		}
 
-		pts := p.timeDec.Decode(data.PES.Header.OptionalHeader.PTS.Base)
+		if p.trackProcs == nil {
+			var ts *clientTimeSyncMPEGTS
 
-		if p.videoPID != nil && data.PID == *p.videoPID {
-			var dts time.Duration
-			if data.PES.Header.OptionalHeader.PTSDTSIndicator == astits.PTSDTSIndicatorBothPresent {
-				diff := time.Duration((data.PES.Header.OptionalHeader.PTS.Base-
-					data.PES.Header.OptionalHeader.DTS.Base)&0x1FFFFFFFF) *
-					time.Second / 90000
-				dts = pts - diff
+			if p.isLeading {
+				if data.PID != p.leadingTrackPID {
+					continue
+				}
+
+				var dts int64
+				if data.PES.Header.OptionalHeader.PTSDTSIndicator == astits.PTSDTSIndicatorBothPresent {
+					dts = data.PES.Header.OptionalHeader.DTS.Base
+				} else {
+					dts = data.PES.Header.OptionalHeader.PTS.Base
+				}
+
+				ts = newClientTimeSyncMPEGTS(dts)
+				p.onSetLeadingTimeSync(ts)
 			} else {
-				dts = pts
-			}
+				rawTS, ok := p.onGetLeadingTimeSync(ctx)
+				if !ok {
+					return fmt.Errorf("terminated")
+				}
 
-			if !p.clockInitialized {
-				p.clockInitialized = true
-				p.startDTS = dts
-				now := time.Now()
-				p.initializeTrackProcs(now)
-			}
-
-			pts -= p.startDTS
-			dts -= p.startDTS
-
-			p.videoProc.push(ctx, &clientProcessorMPEGTSTrackEntryVideo{
-				data: data.PES.Data,
-				pts:  pts,
-				dts:  dts,
-			})
-		} else if p.audioPID != nil && data.PID == *p.audioPID {
-			if !p.clockInitialized {
-				p.clockInitialized = true
-				p.startDTS = pts
-				now := time.Now()
-				p.initializeTrackProcs(now)
-			}
-
-			pts -= p.startDTS
-
-			p.audioProc.push(ctx, &clientProcessorMPEGTSTrackEntryAudio{
-				data: data.PES.Data,
-				pts:  pts,
-			})
-		}
-	}
-}
-
-func (p *clientProcessorMPEGTS) parseTracks(dem *astits.Demuxer) error {
-	// find and parse PMT
-	for {
-		data, err := dem.NextData()
-		if err != nil {
-			return err
-		}
-
-		if data.PMT != nil {
-			for _, e := range data.PMT.ElementaryStreams {
-				switch e.StreamType {
-				case astits.StreamTypeH264Video:
-					if p.videoPID != nil {
-						return fmt.Errorf("multiple video/audio tracks are not supported")
-					}
-
-					v := e.ElementaryPID
-					p.videoPID = &v
-
-				case astits.StreamTypeAACAudio:
-					if p.audioPID != nil {
-						return fmt.Errorf("multiple video/audio tracks are not supported")
-					}
-
-					v := e.ElementaryPID
-					p.audioPID = &v
+				ts, ok = rawTS.(*clientTimeSyncMPEGTS)
+				if !ok {
+					return fmt.Errorf("stream playlists are mixed MPEGTS/FMP4")
 				}
 			}
-			break
-		}
-	}
 
-	if p.videoPID == nil && p.audioPID == nil {
-		return fmt.Errorf("stream doesn't contain tracks with supported codecs (H264 or AAC)")
-	}
-
-	if p.videoPID != nil {
-		p.videoTrack = &gortsplib.TrackH264{
-			PayloadType: 96,
+			p.initializeTrackProcs(ts)
 		}
 
-		if p.audioPID == nil {
-			err := p.onTracks(p.videoTrack, nil)
-			if err != nil {
-				return err
-			}
+		proc, ok := p.trackProcs[data.PID]
+		if !ok {
+			return fmt.Errorf("received data from track not present into PMT (%d)", data.PID)
+		}
+
+		select {
+		case proc.queue <- data.PES:
+		case <-ctx.Done():
 		}
 	}
-
-	// find and parse first audio packet
-	if p.audioPID != nil {
-		for {
-			data, err := dem.NextData()
-			if err != nil {
-				return err
-			}
-
-			if data.PES == nil || data.PID != *p.audioPID {
-				continue
-			}
-
-			var adtsPkts mpeg4audio.ADTSPackets
-			err = adtsPkts.Unmarshal(data.PES.Data)
-			if err != nil {
-				return fmt.Errorf("unable to decode ADTS: %s", err)
-			}
-
-			pkt := adtsPkts[0]
-			p.audioTrack = &gortsplib.TrackMPEG4Audio{
-				PayloadType: 96,
-				Config: &mpeg4audio.Config{
-					Type:         pkt.Type,
-					SampleRate:   pkt.SampleRate,
-					ChannelCount: pkt.ChannelCount,
-				},
-				SizeLength:       13,
-				IndexLength:      3,
-				IndexDeltaLength: 3,
-			}
-
-			err = p.onTracks(p.videoTrack, p.audioTrack)
-			if err != nil {
-				return err
-			}
-
-			break
-		}
-	}
-
-	return nil
 }
 
-func (p *clientProcessorMPEGTS) initializeTrackProcs(clockStartRTC time.Time) {
-	if p.videoTrack != nil {
-		p.videoProc = newClientProcessorMPEGTSTrack(
-			clockStartRTC,
-			func(e clientProcessorMPEGTSTrackEntry) error {
-				vd := e.(*clientProcessorMPEGTSTrackEntryVideo)
+func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
+	p.trackProcs = make(map[uint16]*clientProcessorMPEGTSTrack)
 
-				nalus, err := h264.AnnexBUnmarshal(vd.data)
+	for _, mt := range p.mpegtsTracks {
+		var cb func(time.Duration, []byte) error
+
+		switch mt.Track.(type) {
+		case *gortsplib.TrackH264:
+			cb = func(pts time.Duration, payload []byte) error {
+				nalus, err := h264.AnnexBUnmarshal(payload)
 				if err != nil {
 					p.logger.Log(logger.Warn, "unable to decode Annex-B: %s", err)
 					return nil
 				}
 
-				p.onVideoData(vd.pts, nalus)
+				p.onVideoData(pts, nalus)
 				return nil
-			},
-		)
-		p.rp.add(p.videoProc.run)
-	}
+			}
 
-	if p.audioTrack != nil {
-		p.audioProc = newClientProcessorMPEGTSTrack(
-			clockStartRTC,
-			func(e clientProcessorMPEGTSTrackEntry) error {
-				ad := e.(*clientProcessorMPEGTSTrackEntryAudio)
-
+		case *gortsplib.TrackMPEG4Audio:
+			cb = func(pts time.Duration, payload []byte) error {
 				var adtsPkts mpeg4audio.ADTSPackets
-				err := adtsPkts.Unmarshal(ad.data)
+				err := adtsPkts.Unmarshal(payload)
 				if err != nil {
 					return fmt.Errorf("unable to decode ADTS: %s", err)
 				}
 
 				for i, pkt := range adtsPkts {
 					p.onAudioData(
-						ad.pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*time.Second/time.Duration(pkt.SampleRate),
+						pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*time.Second/time.Duration(pkt.SampleRate),
 						pkt.AU)
 				}
 
 				return nil
-			},
+			}
+		}
+
+		proc := newClientProcessorMPEGTSTrack(
+			ts,
+			cb,
 		)
-		p.rp.add(p.audioProc.run)
+		p.rp.add(proc)
+		p.trackProcs[mt.ES.ElementaryPID] = proc
 	}
 }

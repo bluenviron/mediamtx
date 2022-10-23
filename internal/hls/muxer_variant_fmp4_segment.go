@@ -7,8 +7,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-
-	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
 
 type partsReader struct {
@@ -101,8 +99,7 @@ func (s *muxerVariantFMP4Segment) getRenderedDuration() time.Duration {
 }
 
 func (s *muxerVariantFMP4Segment) finalize(
-	nextVideoSample *fmp4.VideoSample,
-	nextAudioSample *fmp4.AudioSample,
+	nextVideoSampleDTS time.Duration,
 ) error {
 	err := s.currentPart.finalize()
 	if err != nil {
@@ -117,7 +114,7 @@ func (s *muxerVariantFMP4Segment) finalize(
 	s.currentPart = nil
 
 	if s.videoTrack != nil {
-		s.renderedDuration = nextVideoSample.DTS - s.startDTS
+		s.renderedDuration = nextVideoSampleDTS - s.startDTS
 	} else {
 		s.renderedDuration = 0
 		for _, pa := range s.parts {
@@ -128,11 +125,8 @@ func (s *muxerVariantFMP4Segment) finalize(
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4.VideoSample, adjustedPartDuration time.Duration) error {
-	size := uint64(0)
-	for _, nalu := range sample.NALUs {
-		size += uint64(len(nalu))
-	}
+func (s *muxerVariantFMP4Segment) writeH264(sample *augmentedVideoSample, adjustedPartDuration time.Duration) error {
+	size := uint64(len(sample.Payload))
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
@@ -161,8 +155,8 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *fmp4.VideoSample, adjustedPa
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeAAC(sample *fmp4.AudioSample, adjustedPartDuration time.Duration) error {
-	size := uint64(len(sample.AU))
+func (s *muxerVariantFMP4Segment) writeAAC(sample *augmentedAudioSample, adjustedPartDuration time.Duration) error {
+	size := uint64(len(sample.Payload))
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}

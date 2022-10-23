@@ -2,56 +2,34 @@ package hls
 
 import (
 	"context"
-	"fmt"
 	"time"
+
+	"github.com/asticode/go-astits"
 )
 
-type clientProcessorMPEGTSTrackEntry interface {
-	DTS() time.Duration
-}
-
-type clientProcessorMPEGTSTrackEntryVideo struct {
-	data []byte
-	pts  time.Duration
-	dts  time.Duration
-}
-
-func (e clientProcessorMPEGTSTrackEntryVideo) DTS() time.Duration {
-	return e.dts
-}
-
-type clientProcessorMPEGTSTrackEntryAudio struct {
-	data []byte
-	pts  time.Duration
-}
-
-func (e clientProcessorMPEGTSTrackEntryAudio) DTS() time.Duration {
-	return e.pts
-}
-
 type clientProcessorMPEGTSTrack struct {
-	clockStartRTC time.Time
-	onEntry       func(e clientProcessorMPEGTSTrackEntry) error
+	ts      *clientTimeSyncMPEGTS
+	onEntry func(time.Duration, []byte) error
 
-	queue chan clientProcessorMPEGTSTrackEntry
+	queue chan *astits.PESData
 }
 
 func newClientProcessorMPEGTSTrack(
-	clockStartRTC time.Time,
-	onEntry func(e clientProcessorMPEGTSTrackEntry) error,
+	ts *clientTimeSyncMPEGTS,
+	onEntry func(time.Duration, []byte) error,
 ) *clientProcessorMPEGTSTrack {
 	return &clientProcessorMPEGTSTrack{
-		clockStartRTC: clockStartRTC,
-		onEntry:       onEntry,
-		queue:         make(chan clientProcessorMPEGTSTrackEntry, clientQueueSize),
+		ts:      ts,
+		onEntry: onEntry,
+		queue:   make(chan *astits.PESData, clientMPEGTSEntryQueueSize),
 	}
 }
 
 func (t *clientProcessorMPEGTSTrack) run(ctx context.Context) error {
 	for {
 		select {
-		case entry := <-t.queue:
-			err := t.processEntry(ctx, entry)
+		case pes := <-t.queue:
+			err := t.processEntry(ctx, pes)
 			if err != nil {
 				return err
 			}
@@ -62,22 +40,19 @@ func (t *clientProcessorMPEGTSTrack) run(ctx context.Context) error {
 	}
 }
 
-func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, entry clientProcessorMPEGTSTrackEntry) error {
-	elapsed := time.Since(t.clockStartRTC)
-	if entry.DTS() > elapsed {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("terminated")
-		case <-time.After(entry.DTS() - elapsed):
-		}
+func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, pes *astits.PESData) error {
+	rawPTS := pes.Header.OptionalHeader.PTS.Base
+	var rawDTS int64
+	if pes.Header.OptionalHeader.PTSDTSIndicator == astits.PTSDTSIndicatorBothPresent {
+		rawDTS = pes.Header.OptionalHeader.DTS.Base
+	} else {
+		rawDTS = rawPTS
 	}
 
-	return t.onEntry(entry)
-}
-
-func (t *clientProcessorMPEGTSTrack) push(ctx context.Context, entry clientProcessorMPEGTSTrackEntry) {
-	select {
-	case t.queue <- entry:
-	case <-ctx.Done():
+	pts, err := t.ts.convertAndSync(ctx, rawDTS, rawPTS)
+	if err != nil {
+		return err
 	}
+
+	return t.onEntry(pts, pes.Data)
 }

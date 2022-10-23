@@ -52,6 +52,7 @@ func (ts *testHLSServer) onPlaylist(ctx *gin.Context) {
 #EXT-X-MEDIA-SEQUENCE:0
 #EXTINF:2,
 segment.ts
+#EXT-X-ENDLIST
 `
 
 	ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
