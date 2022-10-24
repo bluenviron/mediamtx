@@ -9,33 +9,21 @@ import (
 )
 
 type subStruct struct {
-	// int
 	MyParam int
 }
 
 type mapEntry struct {
-	// string
-	MyValue string
-
-	// struct
+	MyValue  string
 	MyStruct subStruct
 }
 
 type testStruct struct {
-	// string
-	MyString string
-
-	// int
-	MyInt int
-
-	// bool
-	MyBool bool
-
-	// duration
+	MyString   string
+	MyInt      int
+	MyFloat    float64
+	MyBool     bool
 	MyDuration StringDuration
-
-	// map
-	MyMap map[string]*mapEntry
+	MyMap      map[string]*mapEntry
 }
 
 func TestEnvironment(t *testing.T) {
@@ -44,6 +32,9 @@ func TestEnvironment(t *testing.T) {
 
 	os.Setenv("MYPREFIX_MYINT", "123")
 	defer os.Unsetenv("MYPREFIX_MYINT")
+
+	os.Setenv("MYPREFIX_MYFLOAT", "15.2")
+	defer os.Unsetenv("MYPREFIX_MYFLOAT")
 
 	os.Setenv("MYPREFIX_MYBOOL", "yes")
 	defer os.Unsetenv("MYPREFIX_MYBOOL")
@@ -66,6 +57,7 @@ func TestEnvironment(t *testing.T) {
 
 	require.Equal(t, "testcontent", s.MyString)
 	require.Equal(t, 123, s.MyInt)
+	require.Equal(t, 15.2, s.MyFloat)
 	require.Equal(t, true, s.MyBool)
 	require.Equal(t, 22*StringDuration(time.Second), s.MyDuration)
 
