@@ -13,7 +13,7 @@ import (
 
 const (
 	clientMPEGTSEntryQueueSize        = 100
-	clientFMP4MaxPartTracksPerSegment = 50
+	clientFMP4MaxPartTracksPerSegment = 200
 	clientLiveStartingInvPosition     = 3
 	clientLiveMaxInvPosition          = 5
 	clientMaxDTSRTCDiff               = 10 * time.Second
