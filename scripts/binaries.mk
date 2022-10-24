@@ -4,14 +4,14 @@ RUN ["cross-build-start"]
 RUN apt update && apt install -y g++ pkg-config make libcamera-dev
 WORKDIR /s/internal/rpicamera
 COPY internal/rpicamera .
-RUN cd exe && make
+RUN cd exe && make -j$$(nproc)
 
 FROM $(RPI64_IMAGE) AS rpicamera64
 RUN ["cross-build-start"]
 RUN apt update && apt install -y g++ pkg-config make libcamera-dev
 WORKDIR /s/internal/rpicamera
 COPY internal/rpicamera .
-RUN cd exe && make
+RUN cd exe && make -j$$(nproc)
 
 FROM $(BASE_IMAGE)
 RUN apk add --no-cache zip make git tar

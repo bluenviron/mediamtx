@@ -52,6 +52,21 @@ type PathConf struct {
 	RPICameraCamID             int            `json:"rpiCameraCamID"`
 	RPICameraWidth             int            `json:"rpiCameraWidth"`
 	RPICameraHeight            int            `json:"rpiCameraHeight"`
+	RPICameraHFlip             bool           `json:"rpiCameraHFlip"`
+	RPICameraVFlip             bool           `json:"rpiCameraVFlip"`
+	RPICameraBrightness        float64        `json:"rpiCameraBrightness"`
+	RPICameraContrast          float64        `json:"rpiCameraContrast"`
+	RPICameraSaturation        float64        `json:"rpiCameraSaturation"`
+	RPICameraSharpness         float64        `json:"rpiCameraSharpness"`
+	RPICameraExposure          string         `json:"rpiCameraExposure"`
+	RPICameraAWB               string         `json:"rpiCameraAWB"`
+	RPICameraDenoise           string         `json:"rpiCameraDenoise"`
+	RPICameraShutter           int            `json:"rpiCameraShutter"`
+	RPICameraMetering          string         `json:"rpiCameraMetering"`
+	RPICameraGain              float64        `json:"rpiCameraGain"`
+	RPICameraEV                float64        `json:"rpiCameraEV"`
+	RPICameraROI               string         `json:"rpiCameraROI"`
+	RPICameraTuningFile        string         `json:"rpiCameraTuningFile"`
 	RPICameraFPS               int            `json:"rpiCameraFPS"`
 	RPICameraIDRPeriod         int            `json:"rpiCameraIDRPeriod"`
 	RPICameraBitrate           int            `json:"rpiCameraBitrate"`
@@ -182,6 +197,15 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		}
 		if pconf.RPICameraHeight == 0 {
 			pconf.RPICameraHeight = 720
+		}
+		if pconf.RPICameraContrast == 0 {
+			pconf.RPICameraContrast = 1
+		}
+		if pconf.RPICameraSaturation == 0 {
+			pconf.RPICameraSaturation = 1
+		}
+		if pconf.RPICameraSharpness == 0 {
+			pconf.RPICameraSharpness = 1
 		}
 		if pconf.RPICameraFPS == 0 {
 			pconf.RPICameraFPS = 30
