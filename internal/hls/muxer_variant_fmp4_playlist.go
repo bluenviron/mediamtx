@@ -308,8 +308,6 @@ func (p *muxerVariantFMP4Playlist) fullPlaylist(isDeltaUpdate bool) io.Reader {
 		cnt += "#EXT-X-SKIP:SKIPPED-SEGMENTS=" + strconv.FormatInt(int64(skipped), 10) + "\n"
 	}
 
-	cnt += "\n"
-
 	for i, sog := range p.segments {
 		if i < skipped {
 			continue
