@@ -17,7 +17,8 @@
 #include "parameters.h"
 #include "encoder.h"
 
-#define DEVICE "/dev/video11"
+#define DEVICE              "/dev/video11"
+#define POLL_TIMEOUT_MS     200
 
 char errbuf[256];
 
@@ -38,6 +39,8 @@ typedef struct {
     int cur_buffer;
     encoder_output_cb output_cb;
     pthread_t output_thread;
+    bool ts_initialized;
+    uint64_t start_ts;
 } encoder_priv_t;
 
 static void *output_thread(void *userdata) {
@@ -45,7 +48,7 @@ static void *output_thread(void *userdata) {
 
     while (true) {
         struct pollfd p = { encp->fd, POLLIN, 0 };
-        int res = poll(&p, 1, 200);
+        int res = poll(&p, 1, POLL_TIMEOUT_MS);
         if (res == -1) {
             fprintf(stderr, "output_thread(): poll() failed\n");
             exit(1);
@@ -72,9 +75,18 @@ static void *output_thread(void *userdata) {
             buf.m.planes = planes;
             res = ioctl(encp->fd, VIDIOC_DQBUF, &buf);
             if (res == 0) {
+                uint64_t ts = ((uint64_t)buf.timestamp.tv_sec * (uint64_t)1000000) + (uint64_t)buf.timestamp.tv_usec;
+
+                if (!encp->ts_initialized) {
+                    encp->ts_initialized = true;
+                    encp->start_ts = ts;
+                }
+
+                ts -= encp->start_ts;
+
                 const uint8_t *bufmem = (const uint8_t *)encp->capture_buffers[buf.index];
                 int bufsize = buf.m.planes[0].bytesused;
-                encp->output_cb(bufmem, bufsize);
+                encp->output_cb(ts, bufmem, bufsize);
 
                 int index = buf.index;
                 int length = buf.m.planes[0].length;
@@ -284,6 +296,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     encp->params = params;
     encp->cur_buffer = 0;
     encp->output_cb = output_cb;
+    encp->ts_initialized = false;
 
     pthread_create(&encp->output_thread, NULL, output_thread, encp);
 

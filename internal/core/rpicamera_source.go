@@ -44,9 +44,8 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 	enc := &rtph264.Encoder{PayloadType: 96}
 	enc.Init()
 	var stream *stream
-	var start time.Time
 
-	onData := func(nalus [][]byte) {
+	onData := func(dts time.Duration, nalus [][]byte) {
 		if stream == nil {
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
 				tracks:             tracks,
@@ -58,15 +57,12 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 
 			s.Log(logger.Info, "ready: %s", sourceTrackInfo(tracks))
 			stream = res.stream
-			start = time.Now()
 		}
-
-		pts := time.Since(start)
 
 		stream.writeData(&data{
 			trackID:      0,
 			ptsEqualsDTS: h264.IDRPresent(nalus),
-			pts:          pts,
+			pts:          dts,
 			h264NALUs:    nalus,
 		})
 	}

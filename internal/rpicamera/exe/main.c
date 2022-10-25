@@ -37,21 +37,22 @@ static void pipe_write_ready(int fd) {
     write(fd, buf, n);
 }
 
-static void pipe_write_buf(int fd, const uint8_t *buf, int n) {
+static void pipe_write_buf(int fd, uint64_t ts, const uint8_t *buf, int n) {
     char head[] = {'b'};
-    n++;
+    n += 1 + sizeof(uint64_t);
     write(fd, &n, 4);
     write(fd, head, 1);
-    write(fd, buf, n-1);
+    write(fd, &ts, sizeof(uint64_t));
+    write(fd, buf, n - 1 - sizeof(uint64_t));
 }
 
 static void on_frame(int buffer_fd, uint64_t size, uint64_t timestamp) {
     encoder_encode(enc, buffer_fd, size, timestamp);
 }
 
-static void on_encoder_output(const uint8_t *buf, uint64_t size) {
+static void on_encoder_output(uint64_t ts, const uint8_t *buf, uint64_t size) {
     pthread_mutex_lock(&pipe_mutex);
-    pipe_write_buf(pipe_fd, buf, size);
+    pipe_write_buf(pipe_fd, ts, buf, size);
     pthread_mutex_unlock(&pipe_mutex);
 }
 

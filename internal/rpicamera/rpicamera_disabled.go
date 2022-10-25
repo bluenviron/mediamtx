@@ -6,6 +6,7 @@ package rpicamera
 
 import (
 	"fmt"
+	"time"
 )
 
 // RPICamera is a RPI Camera reader.
@@ -14,7 +15,7 @@ type RPICamera struct{}
 // New allocates a RPICamera.
 func New(
 	params Params,
-	onData func([][]byte),
+	onData func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
 	return nil, fmt.Errorf("server was compiled without support for the Raspberry Pi Camera")
 }

@@ -7,6 +7,7 @@ import (
 	_ "embed"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/aler9/gortsplib/pkg/h264"
 )
@@ -22,7 +23,7 @@ func bool2env(v bool) string {
 }
 
 type RPICamera struct {
-	onData func([][]byte)
+	onData func(time.Duration, [][]byte)
 
 	exe  *embeddedExe
 	pipe *pipe
@@ -33,7 +34,7 @@ type RPICamera struct {
 
 func New(
 	params Params,
-	onData func([][]byte),
+	onData func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
 	pipe, err := newPipe()
 	if err != nil {
@@ -128,14 +129,17 @@ func New(
 				if buf[0] != 'b' {
 					return fmt.Errorf("unexpected output from pipe (%c)", buf[0])
 				}
-				buf = buf[1:]
 
-				nalus, err := h264.AnnexBUnmarshal(buf)
+				tmp := uint64(buf[8])<<56 | uint64(buf[7])<<48 | uint64(buf[6])<<40 | uint64(buf[5])<<32 |
+					uint64(buf[4])<<24 | uint64(buf[3])<<16 | uint64(buf[2])<<8 | uint64(buf[1])
+				dts := time.Duration(tmp) * time.Microsecond
+
+				nalus, err := h264.AnnexBUnmarshal(buf[9:])
 				if err != nil {
 					return err
 				}
 
-				onData(nalus)
+				onData(dts, nalus)
 			}
 		}()
 	}()
