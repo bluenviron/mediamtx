@@ -149,6 +149,38 @@ components:
           type: number
         rpiCameraHeight:
           type: number
+        rpiCameraHFlip:
+          type: boolean
+        rpiCameraVFlip:
+          type: boolean
+        rpiCameraBrightness:
+          type: number
+        rpiCameraContrast:
+          type: number
+        rpiCameraSaturation:
+          type: number
+        rpiCameraSharpness:
+          type: number
+        rpiCameraExposure:
+          type: string
+        rpiCameraAWB:
+          type: string
+        rpiCameraDenoise:
+          type: string
+        rpiCameraShutter:
+          type: number
+        rpiCameraMetering:
+          type: string
+        rpiCameraGain:
+          type: number
+        rpiCameraEV:
+          type: number
+        rpiCameraROI:
+          type: string
+        rpiCameraTuningFile:
+          type: string
+        rpiCameraMode:
+          type: string
         rpiCameraFPS:
           type: number
         rpiCameraIDRPeriod:
