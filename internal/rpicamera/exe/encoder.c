@@ -17,6 +17,8 @@
 #include "parameters.h"
 #include "encoder.h"
 
+#define DEVICE "/dev/video11"
+
 char errbuf[256];
 
 static void set_error(const char *format, ...) {
@@ -58,7 +60,7 @@ static void *output_thread(void *userdata) {
             buf.m.planes = planes;
             int res = ioctl(encp->fd, VIDIOC_DQBUF, &buf);
             if (res != 0) {
-                fprintf(stderr, "output_thread(): ioctl() failed\n");
+                fprintf(stderr, "output_thread(): ioctl(VIDIOC_DQBUF) failed\n");
                 exit(1);
             }
 
@@ -88,7 +90,7 @@ static void *output_thread(void *userdata) {
                 buf.m.planes[0].length = length;
                 int res = ioctl(encp->fd, VIDIOC_QBUF, &buf);
                 if (res < 0) {
-                    fprintf(stderr, "output_thread(): ioctl() failed\n");
+                    fprintf(stderr, "output_thread(): ioctl(VIDIOC_QBUF) failed\n");
                     exit(1);
                 }
             }
@@ -102,7 +104,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
     *enc = malloc(sizeof(encoder_priv_t));
     encoder_priv_t *encp = (encoder_priv_t *)(*enc);
 
-    encp->fd = open("/dev/video11", O_RDWR, 0);
+    encp->fd = open(DEVICE, O_RDWR, 0);
     if (encp->fd < 0) {
         set_error("unable to open device");
         return false;
@@ -254,7 +256,7 @@ bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_ou
 
         res = ioctl(encp->fd, VIDIOC_QBUF, &buffer);
         if (res != 0) {
-            set_error("ioctl() failed");
+            set_error("ioctl(VIDIOC_QBUF) failed");
             free(encp->capture_buffers);
             close(encp->fd);
             return false;
@@ -309,7 +311,7 @@ void encoder_encode(encoder_t *enc, int buffer_fd, size_t size, int64_t timestam
     buf.m.planes[0].length = size;
     int res = ioctl(encp->fd, VIDIOC_QBUF, &buf);
     if (res != 0) {
-        fprintf(stderr, "encoder_encode(): ioctl() failed\n");
+        fprintf(stderr, "encoder_encode(): ioctl(VIDIOC_QBUF) failed\n");
         exit(1);
     }
 }

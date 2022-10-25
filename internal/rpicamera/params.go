@@ -20,6 +20,7 @@ type Params struct {
 	EV         float64
 	ROI        string
 	TuningFile string
+	Mode       string
 	FPS        int
 	IDRPeriod  int
 	Bitrate    int

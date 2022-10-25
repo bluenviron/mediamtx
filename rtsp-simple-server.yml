@@ -264,10 +264,13 @@ paths:
     rpiCameraGain: 0
     # EV compensation of the image [-10, 10]
     rpiCameraEV: 0
-    # Region of interst in format x,y,width,height
+    # Region of interest, in format x,y,width,height
     rpiCameraROI:
     # tuning file
     rpiCameraTuningFile:
+    # sensor mode, in format [width]:[height]:[bit-depth]:[packing]
+    # bit-depth and packing are optional.
+    rpiCameraMode:
     # frames per second
     rpiCameraFPS: 30
     # period between IDR frames

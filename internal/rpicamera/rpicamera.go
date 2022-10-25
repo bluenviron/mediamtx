@@ -60,6 +60,7 @@ func New(
 		"EV=" + strconv.FormatFloat(params.EV, 'f', -1, 64),
 		"ROI=" + params.ROI,
 		"TUNING_FILE=" + params.TuningFile,
+		"MODE=" + params.Mode,
 		"FPS=" + strconv.FormatInt(int64(params.FPS), 10),
 		"IDR_PERIOD=" + strconv.FormatInt(int64(params.IDRPeriod), 10),
 		"BITRATE=" + strconv.FormatInt(int64(params.Bitrate), 10),

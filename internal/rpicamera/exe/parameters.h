@@ -1,3 +1,11 @@
+#ifndef __PARAMETERS_H__
+#define __PARAMETERS_H__
+
+#include <stdbool.h>
+
+#include "roi.h"
+#include "sensor_mode.h"
+
 typedef struct {
     unsigned int camera_id;
     unsigned int width;
@@ -15,8 +23,9 @@ typedef struct {
     const char *metering;
     float gain;
     float ev;
-    const char *roi;
+    roi_t *roi;
     const char *tuning_file;
+    sensor_mode_t *mode;
     unsigned int fps;
     unsigned int idr_period;
     unsigned int bitrate;
@@ -32,8 +41,11 @@ typedef struct {
 extern "C" {
 #endif
 
-void parameters_load(parameters_t *params);
+const char *parameters_get_error();
+bool parameters_load(parameters_t *params);
 
 #ifdef __cplusplus
 }
+#endif
+
 #endif

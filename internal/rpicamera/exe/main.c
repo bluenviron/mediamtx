@@ -72,9 +72,13 @@ int main() {
     pthread_mutex_init(&pipe_mutex, NULL);
     pthread_mutex_lock(&pipe_mutex);
 
-    parameters_load(&params);
+    bool ok = parameters_load(&params);
+    if (!ok) {
+        pipe_write_error(pipe_fd, "parameters_load(): %s", parameters_get_error());
+        return 5;
+    }
 
-    bool ok = camera_create(
+    ok = camera_create(
         &params,
         on_frame,
         &cam);
@@ -85,8 +89,8 @@ int main() {
 
     ok = encoder_create(
         &params,
-        camera_get_stride(cam),
-        camera_get_colorspace(cam),
+        camera_get_mode_stride(cam),
+        camera_get_mode_colorspace(cam),
         on_encoder_output,
         &enc);
     if (!ok) {

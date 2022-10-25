@@ -104,6 +104,7 @@ func newSourceStatic(
 				EV:         conf.RPICameraEV,
 				ROI:        conf.RPICameraROI,
 				TuningFile: conf.RPICameraTuningFile,
+				Mode:       conf.RPICameraMode,
 				FPS:        conf.RPICameraFPS,
 				IDRPeriod:  conf.RPICameraIDRPeriod,
 				Bitrate:    conf.RPICameraBitrate,

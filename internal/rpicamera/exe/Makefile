@@ -26,7 +26,9 @@ OBJS = \
 	camera.o \
 	encoder.o \
 	main.o \
-	parameters.o
+	parameters.o \
+	roi.o \
+	sensor_mode.o
 
 all: exe
 
