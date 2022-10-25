@@ -231,9 +231,9 @@ paths:
     # ID of the camera
     rpiCameraCamID: 0
     # width of frames
-    rpiCameraWidth: 1280
+    rpiCameraWidth: 1920
     # height of frames
-    rpiCameraHeight: 720
+    rpiCameraHeight: 1080
     # flip horizontally
     rpiCameraHFlip: false
     # flip vertically

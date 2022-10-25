@@ -194,10 +194,10 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		}
 
 		if pconf.RPICameraWidth == 0 {
-			pconf.RPICameraWidth = 1280
+			pconf.RPICameraWidth = 1920
 		}
 		if pconf.RPICameraHeight == 0 {
-			pconf.RPICameraHeight = 720
+			pconf.RPICameraHeight = 1080
 		}
 		if pconf.RPICameraContrast == 0 {
 			pconf.RPICameraContrast = 1
