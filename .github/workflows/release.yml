@@ -6,7 +6,25 @@ on:
     - 'v*'
 
 jobs:
+  # make sure that gortsplib is updated
+  check_gortsplib:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: "1.18"
+
+    - run: |
+        sed -i '/gortsplib/d' go.mod
+        go mod download
+        go mod tidy
+        git diff --exit-code
+
   github:
+    needs: check_gortsplib
     runs-on: ubuntu-20.04
 
     steps:
@@ -42,6 +60,7 @@ jobs:
           }
 
   dockerhub:
+    needs: check_gortsplib
     runs-on: ubuntu-20.04
 
     steps:
@@ -53,6 +72,7 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   apidocs:
+    needs: check_gortsplib
     runs-on: ubuntu-20.04
 
     steps:
