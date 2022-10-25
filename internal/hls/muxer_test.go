@@ -141,7 +141,6 @@ func TestMuxerVideoAudio(t *testing.T) {
 					`#EXT-X-ALLOW-CACHE:NO\n` +
 					`#EXT-X-TARGETDURATION:4\n` +
 					`#EXT-X-MEDIA-SEQUENCE:0\n` +
-					`\n` +
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:4,\n` +
 					`(seg0\.ts)\n` +
@@ -155,7 +154,6 @@ func TestMuxerVideoAudio(t *testing.T) {
 					`#EXT-X-TARGETDURATION:4\n` +
 					`#EXT-X-MEDIA-SEQUENCE:0\n` +
 					`#EXT-X-MAP:URI="init.mp4"\n` +
-					`\n` +
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:4.00000,\n` +
 					`(seg0\.mp4)\n` +
@@ -255,7 +253,6 @@ func TestMuxerVideoOnly(t *testing.T) {
 					`#EXT-X-ALLOW-CACHE:NO\n` +
 					`#EXT-X-TARGETDURATION:4\n` +
 					`#EXT-X-MEDIA-SEQUENCE:0\n` +
-					`\n` +
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:4,\n` +
 					`(seg0\.ts)\n` +
@@ -269,7 +266,6 @@ func TestMuxerVideoOnly(t *testing.T) {
 					`#EXT-X-TARGETDURATION:4\n` +
 					`#EXT-X-MEDIA-SEQUENCE:0\n` +
 					`#EXT-X-MAP:URI="init.mp4"\n` +
-					`\n` +
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:4.00000,\n` +
 					`(seg0\.mp4)\n` +
@@ -372,7 +368,6 @@ func TestMuxerAudioOnly(t *testing.T) {
 					`#EXT-X-ALLOW-CACHE:NO\n` +
 					`#EXT-X-TARGETDURATION:1\n` +
 					`#EXT-X-MEDIA-SEQUENCE:0\n` +
-					`\n` +
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:1,\n` +
 					`(seg0\.ts)\n$`)
@@ -383,7 +378,6 @@ func TestMuxerAudioOnly(t *testing.T) {
 					`#EXT-X-TARGETDURATION:2\n` +
 					`#EXT-X-MEDIA-SEQUENCE:0\n` +
 					`#EXT-X-MAP:URI="init.mp4"\n` +
-					`\n` +
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:2.32200,\n` +
 					`(seg0\.mp4)\n` +
@@ -482,7 +476,6 @@ func TestMuxerDoubleRead(t *testing.T) {
 		`#EXT-X-ALLOW-CACHE:NO\n` +
 		`#EXT-X-TARGETDURATION:2\n` +
 		`#EXT-X-MEDIA-SEQUENCE:0\n` +
-		`\n` +
 		`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 		`#EXTINF:2,\n` +
 		`(seg0\.ts)\n$`)

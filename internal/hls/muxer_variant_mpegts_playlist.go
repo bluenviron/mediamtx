@@ -75,7 +75,6 @@ func (p *muxerVariantMPEGTSPlaylist) playlist() io.Reader {
 	cnt += "#EXT-X-TARGETDURATION:" + strconv.FormatUint(uint64(targetDuration), 10) + "\n"
 
 	cnt += "#EXT-X-MEDIA-SEQUENCE:" + strconv.FormatInt(int64(p.segmentDeleteCount), 10) + "\n"
-	cnt += "\n"
 
 	for _, s := range p.segments {
 		cnt += "#EXT-X-PROGRAM-DATE-TIME:" + s.startTime.Format("2006-01-02T15:04:05.999Z07:00") + "\n" +
