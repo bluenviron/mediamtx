@@ -54,5 +54,10 @@ func (t *clientProcessorMPEGTSTrack) processEntry(ctx context.Context, pes *asti
 		return err
 	}
 
+	// silently discard packets prior to the first packet of the leading track
+	if pts < 0 {
+		return nil
+	}
+
 	return t.onEntry(pts, pes.Data)
 }

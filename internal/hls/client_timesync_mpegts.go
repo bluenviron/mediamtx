@@ -3,31 +3,30 @@ package hls
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/hls/mpegts"
+	"github.com/aler9/rtsp-simple-server/internal/hls/mpegtstimedec"
 )
 
 type clientTimeSyncMPEGTS struct {
 	startRTC time.Time
-	startDTS int64
-	td       *mpegts.TimeDecoder
+	td       *mpegtstimedec.Decoder
+	mutex    sync.Mutex
 }
 
 func newClientTimeSyncMPEGTS(startDTS int64) *clientTimeSyncMPEGTS {
 	return &clientTimeSyncMPEGTS{
 		startRTC: time.Now(),
-		startDTS: startDTS,
-		td:       mpegts.NewTimeDecoder(),
+		td:       mpegtstimedec.New(startDTS),
 	}
 }
 
 func (ts *clientTimeSyncMPEGTS) convertAndSync(ctx context.Context, rawDTS int64, rawPTS int64) (time.Duration, error) {
-	rawDTS = (rawDTS - ts.startDTS) & 0x1FFFFFFFF
-	rawPTS = (rawPTS - ts.startDTS) & 0x1FFFFFFFF
-
+	ts.mutex.Lock()
 	dts := ts.td.Decode(rawDTS)
 	pts := ts.td.Decode(rawPTS)
+	ts.mutex.Unlock()
 
 	elapsed := time.Since(ts.startRTC)
 	if dts > elapsed {
