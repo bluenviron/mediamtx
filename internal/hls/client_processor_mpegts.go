@@ -161,7 +161,7 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 
 		proc, ok := p.trackProcs[data.PID]
 		if !ok {
-			return fmt.Errorf("received data from track not present into PMT (%d)", data.PID)
+			continue
 		}
 
 		select {
