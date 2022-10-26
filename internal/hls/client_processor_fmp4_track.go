@@ -58,9 +58,11 @@ func (t *clientProcessorFMP4Track) processPartTrack(ctx context.Context, pt *fmp
 			return err
 		}
 
-		err = t.onEntry(pts, sample.Payload)
-		if err != nil {
-			return err
+		if pts >= 0 { // silently discard packets prior to the first packet of the leading track
+			err = t.onEntry(pts, sample.Payload)
+			if err != nil {
+				return err
+			}
 		}
 
 		rawDTS += uint64(sample.Duration)
