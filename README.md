@@ -490,7 +490,7 @@ go run .
 You can perform the entire operation inside Docker:
 
 ```
-make run
+make binaries
 ```
 
 ## Publish to the server
