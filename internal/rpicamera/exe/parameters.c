@@ -8,7 +8,7 @@
 
 #include "parameters.h"
 
-char errbuf[256];
+static char errbuf[256];
 
 static void set_error(const char *format, ...) {
     va_list args;

@@ -1,6 +1,3 @@
-CC = gcc
-CXX = g++
-
 CFLAGS = \
 	-Ofast \
 	-Werror \
@@ -39,4 +36,4 @@ all: exe
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 exe: $(OBJS)
-	$(CXX) $(LDFLAGS) -o $@ $^
+	$(CXX) -o $@ $^ $(LDFLAGS)

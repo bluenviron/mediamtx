@@ -20,7 +20,7 @@
 #define DEVICE              "/dev/video11"
 #define POLL_TIMEOUT_MS     200
 
-char errbuf[256];
+static char errbuf[256];
 
 static void set_error(const char *format, ...) {
     va_list args;

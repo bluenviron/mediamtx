@@ -33,8 +33,9 @@ using libcamera::Transform;
 
 namespace controls = libcamera::controls;
 namespace formats = libcamera::formats;
+namespace properties = libcamera::properties;
 
-char errbuf[256];
+static char errbuf[256];
 
 static void set_error(const char *format, ...) {
     va_list args;
@@ -49,12 +50,12 @@ const char *camera_get_error() {
 // https://github.com/raspberrypi/libcamera-apps/blob/dd97618a25523c2c4aa58f87af5f23e49aa6069c/core/libcamera_app.cpp#L42
 static libcamera::PixelFormat mode_to_pixel_format(sensor_mode_t *mode) {
     static std::vector<std::pair<std::pair<int, bool>, libcamera::PixelFormat>> table = {
-        { {8, false}, libcamera::formats::SBGGR8 },
-        { {8, true}, libcamera::formats::SBGGR8 },
-        { {10, false}, libcamera::formats::SBGGR10 },
-        { {10, true}, libcamera::formats::SBGGR10_CSI2P },
-        { {12, false}, libcamera::formats::SBGGR12 },
-        { {12, true}, libcamera::formats::SBGGR12_CSI2P },
+        { {8, false}, formats::SBGGR8 },
+        { {8, true}, formats::SBGGR8 },
+        { {10, false}, formats::SBGGR10 },
+        { {10, true}, formats::SBGGR10_CSI2P },
+        { {12, false}, formats::SBGGR12 },
+        { {12, true}, formats::SBGGR12_CSI2P },
     };
 
     auto it = std::find_if(table.begin(), table.end(), [&mode] (auto &m) {
@@ -63,7 +64,7 @@ static libcamera::PixelFormat mode_to_pixel_format(sensor_mode_t *mode) {
         return it->second;
     }
 
-    return libcamera::formats::SBGGR12_CSI2P;
+    return formats::SBGGR12_CSI2P;
 }
 
 struct CameraPriv {
@@ -304,7 +305,15 @@ bool camera_start(camera_t *cam) {
     ctrls.set(controls::ExposureValue, camp->params->ev);
 
     if (camp->params->roi != NULL) {
-        Rectangle sensor_area = camp->camera->properties().get(libcamera::properties::ScalerCropMaximum);
+        std::optional<Rectangle> opt = camp->camera->properties().get(properties::ScalerCropMaximum);
+        Rectangle sensor_area;
+        try {
+            sensor_area = opt.value();
+        } catch(const std::bad_optional_access& exc) {
+            set_error("get(ScalerCropMaximum) failed");
+            return false;
+        }
+
         Rectangle crop(
             camp->params->roi->x * sensor_area.width,
             camp->params->roi->y * sensor_area.height,
