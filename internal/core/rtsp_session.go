@@ -394,3 +394,8 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 		})
 	}
 }
+
+// onDecodeError is called by rtspServer.
+func (s *rtspSession) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+	s.log(logger.Warn, "%v", ctx.Error)
+}

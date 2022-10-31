@@ -389,12 +389,20 @@ func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Resp
 	return se.onPause(ctx)
 }
 
-// OnPacketRTP implements gortsplib.ServerHandlerOnPacket.
+// OnPacketRTP implements gortsplib.ServerHandlerOnPacketRTP.
 func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	s.mutex.RLock()
 	se := s.sessions[ctx.Session]
 	s.mutex.RUnlock()
 	se.onPacketRTP(ctx)
+}
+
+// OnDecodeError implements gortsplib.ServerHandlerOnOnDecodeError.
+func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+	s.mutex.RLock()
+	se := s.sessions[ctx.Session]
+	s.mutex.RUnlock()
+	se.onDecodeError(ctx)
 }
 
 // apiSessionsList is called by api and metrics.
