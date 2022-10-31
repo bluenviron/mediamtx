@@ -79,20 +79,19 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 
 	onVideoData := func(pts time.Duration, nalus [][]byte) {
-		stream.writeData(&data{
+		stream.writeData(&dataH264{
 			trackID:      videoTrackID,
 			ptsEqualsDTS: h264.IDRPresent(nalus),
 			pts:          pts,
-			h264NALUs:    nalus,
+			nalus:        nalus,
 		})
 	}
 
 	onAudioData := func(pts time.Duration, au []byte) {
-		stream.writeData(&data{
-			trackID:      audioTrackID,
-			ptsEqualsDTS: true,
-			pts:          pts,
-			mpeg4AudioAU: au,
+		stream.writeData(&dataMPEG4Audio{
+			trackID: audioTrackID,
+			pts:     pts,
+			au:      au,
 		})
 	}
 

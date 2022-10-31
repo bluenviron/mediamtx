@@ -59,11 +59,11 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 			stream = res.stream
 		}
 
-		stream.writeData(&data{
+		stream.writeData(&dataH264{
 			trackID:      0,
 			ptsEqualsDTS: h264.IDRPresent(nalus),
 			pts:          dts,
-			h264NALUs:    nalus,
+			nalus:        nalus,
 		})
 	}
 

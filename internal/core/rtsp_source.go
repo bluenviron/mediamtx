@@ -144,15 +144,15 @@ func (s *rtspSource) run(ctx context.Context) error {
 
 			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
 				if ctx.H264NALUs != nil {
-					res.stream.writeData(&data{
+					res.stream.writeData(&dataH264{
 						trackID:      ctx.TrackID,
 						rtpPacket:    ctx.Packet,
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
 						pts:          ctx.H264PTS,
-						h264NALUs:    ctx.H264NALUs,
+						nalus:        ctx.H264NALUs,
 					})
 				} else {
-					res.stream.writeData(&data{
+					res.stream.writeData(&dataGeneric{
 						trackID:      ctx.TrackID,
 						rtpPacket:    ctx.Packet,
 						ptsEqualsDTS: ctx.PTSEqualsDTS,

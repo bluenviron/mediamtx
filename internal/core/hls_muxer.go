@@ -370,25 +370,27 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 				if !ok {
 					return fmt.Errorf("terminated")
 				}
-				data := item.(*data)
+				data := item.(data)
 
-				if videoTrack != nil && data.trackID == videoTrackID {
-					if data.h264NALUs == nil {
+				if videoTrack != nil && data.getTrackID() == videoTrackID {
+					tdata := data.(*dataH264)
+
+					if tdata.nalus == nil {
 						continue
 					}
 
 					if videoInitialPTS == nil {
-						v := data.pts
+						v := tdata.pts
 						videoInitialPTS = &v
 					}
-					pts := data.pts - *videoInitialPTS
+					pts := tdata.pts - *videoInitialPTS
 
-					err = m.muxer.WriteH264(time.Now(), pts, data.h264NALUs)
+					err = m.muxer.WriteH264(time.Now(), pts, tdata.nalus)
 					if err != nil {
 						return fmt.Errorf("muxer error: %v", err)
 					}
-				} else if audioTrack != nil && data.trackID == audioTrackID {
-					aus, pts, err := aacDecoder.Decode(data.rtpPacket)
+				} else if audioTrack != nil && data.getTrackID() == audioTrackID {
+					aus, pts, err := aacDecoder.Decode(data.getRTPPacket())
 					if err != nil {
 						if err != rtpmpeg4audio.ErrMorePacketsNeeded {
 							m.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -558,7 +560,7 @@ func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
 }
 
 // onReaderData implements reader.
-func (m *hlsMuxer) onReaderData(data *data) {
+func (m *hlsMuxer) onReaderData(data data) {
 	m.ringBuffer.Push(data)
 }
 

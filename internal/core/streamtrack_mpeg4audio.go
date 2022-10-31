@@ -6,19 +6,14 @@ import (
 )
 
 type streamTrackMPEG4Audio struct {
-	writeDataInner func(*data)
-
 	rtpEncoder *rtpmpeg4audio.Encoder
 }
 
 func newStreamTrackMPEG4Audio(
 	track *gortsplib.TrackMPEG4Audio,
 	generateRTPPackets bool,
-	writeDataInner func(*data),
 ) *streamTrackMPEG4Audio {
-	t := &streamTrackMPEG4Audio{
-		writeDataInner: writeDataInner,
-	}
+	t := &streamTrackMPEG4Audio{}
 
 	if generateRTPPackets {
 		t.rtpEncoder = &rtpmpeg4audio.Encoder{
@@ -34,25 +29,30 @@ func newStreamTrackMPEG4Audio(
 	return t
 }
 
-func (t *streamTrackMPEG4Audio) generateRTPPackets(dat *data) {
-	pkts, err := t.rtpEncoder.Encode([][]byte{dat.mpeg4AudioAU}, dat.pts)
+func (t *streamTrackMPEG4Audio) generateRTPPackets(dat data) []data {
+	tdata := dat.(*dataMPEG4Audio)
+
+	pkts, err := t.rtpEncoder.Encode([][]byte{tdata.au}, tdata.pts)
 	if err != nil {
-		return
+		return nil
 	}
 
-	for _, pkt := range pkts {
-		t.writeDataInner(&data{
-			trackID:      dat.trackID,
-			rtpPacket:    pkt,
-			ptsEqualsDTS: true,
-		})
+	ret := make([]data, len(pkts))
+
+	for i, pkt := range pkts {
+		ret[i] = &dataMPEG4Audio{
+			trackID:   tdata.getTrackID(),
+			rtpPacket: pkt,
+		}
 	}
+
+	return ret
 }
 
-func (t *streamTrackMPEG4Audio) writeData(dat *data) {
-	if dat.rtpPacket != nil {
-		t.writeDataInner(dat)
-	} else {
-		t.generateRTPPackets(dat)
+func (t *streamTrackMPEG4Audio) process(dat data) []data {
+	if dat.getRTPPacket() != nil {
+		return []data{dat}
 	}
+
+	return t.generateRTPPackets(dat)
 }

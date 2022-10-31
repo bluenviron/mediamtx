@@ -35,7 +35,7 @@ func (m *streamNonRTSPReadersMap) remove(r reader) {
 	delete(m.ma, r)
 }
 
-func (m *streamNonRTSPReadersMap) writeData(data *data) {
+func (m *streamNonRTSPReadersMap) writeData(data data) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
@@ -60,7 +60,7 @@ func newStream(tracks gortsplib.Tracks, generateRTPPackets bool) (*stream, error
 
 	for i, track := range s.rtspStream.Tracks() {
 		var err error
-		s.streamTracks[i], err = newStreamTrack(track, generateRTPPackets, s.writeDataInner)
+		s.streamTracks[i], err = newStreamTrack(track, generateRTPPackets)
 		if err != nil {
 			return nil, err
 		}
@@ -90,14 +90,14 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) writeData(data *data) {
-	s.streamTracks[data.trackID].writeData(data)
-}
+func (s *stream) writeData(data data) {
+	datas := s.streamTracks[data.getTrackID()].process(data)
 
-func (s *stream) writeDataInner(data *data) {
-	// forward to RTSP readers
-	s.rtspStream.WritePacketRTP(data.trackID, data.rtpPacket, data.ptsEqualsDTS)
+	for _, data := range datas {
+		// forward to RTSP readers
+		s.rtspStream.WritePacketRTP(data.getTrackID(), data.getRTPPacket(), data.getPTSEqualsDTS())
 
-	// forward to non-RTSP readers
-	s.nonRTSPReaders.writeData(data)
+		// forward to non-RTSP readers
+		s.nonRTSPReaders.writeData(data)
+	}
 }

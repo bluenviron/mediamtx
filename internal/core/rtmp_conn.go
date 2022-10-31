@@ -346,10 +346,12 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
-		data := item.(*data)
+		data := item.(data)
 
-		if videoTrack != nil && data.trackID == videoTrackID {
-			if data.h264NALUs == nil {
+		if videoTrack != nil && data.getTrackID() == videoTrackID {
+			tdata := data.(*dataH264)
+
+			if tdata.nalus == nil {
 				continue
 			}
 
@@ -357,16 +359,16 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			// while audio is decoded in this routine:
 			// we have to sync their PTS.
 			if videoInitialPTS == nil {
-				v := data.pts
+				v := tdata.pts
 				videoInitialPTS = &v
 			}
 
-			pts := data.pts - *videoInitialPTS
+			pts := tdata.pts - *videoInitialPTS
 
 			idrPresent := false
 			nonIDRPresent := false
 
-			for _, nalu := range data.h264NALUs {
+			for _, nalu := range tdata.nalus {
 				typ := h264.NALUType(nalu[0] & 0x1F)
 				switch typ {
 				case h264.NALUTypeIDR:
@@ -389,7 +391,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				videoDTSExtractor = h264.NewDTSExtractor()
 
 				var err error
-				dts, err = videoDTSExtractor.Extract(data.h264NALUs, pts)
+				dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
 				if err != nil {
 					return err
 				}
@@ -403,7 +405,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				}
 
 				var err error
-				dts, err = videoDTSExtractor.Extract(data.h264NALUs, pts)
+				dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
 				if err != nil {
 					return err
 				}
@@ -412,7 +414,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				pts -= videoStartDTS
 			}
 
-			avcc, err := h264.AVCCMarshal(data.h264NALUs)
+			avcc, err := h264.AVCCMarshal(tdata.nalus)
 			if err != nil {
 				return err
 			}
@@ -430,8 +432,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			if err != nil {
 				return err
 			}
-		} else if audioTrack != nil && data.trackID == audioTrackID {
-			aus, pts, err := aacDecoder.Decode(data.rtpPacket)
+		} else if audioTrack != nil && data.getTrackID() == audioTrackID {
+			aus, pts, err := aacDecoder.Decode(data.getRTPPacket())
 			if err != nil {
 				if err != rtpmpeg4audio.ErrMorePacketsNeeded {
 					c.log(logger.Warn, "unable to decode audio track: %v", err)
@@ -559,11 +561,11 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					conf.PPS,
 				}
 
-				rres.stream.writeData(&data{
+				rres.stream.writeData(&dataH264{
 					trackID:      videoTrackID,
 					ptsEqualsDTS: false,
 					pts:          tmsg.DTS + tmsg.PTSDelta,
-					h264NALUs:    nalus,
+					nalus:        nalus,
 				})
 			} else if tmsg.H264Type == flvio.AVC_NALU {
 				if videoTrack == nil {
@@ -595,11 +597,11 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					}
 				}
 
-				rres.stream.writeData(&data{
+				rres.stream.writeData(&dataH264{
 					trackID:      videoTrackID,
 					ptsEqualsDTS: h264.IDRPresent(validNALUs),
 					pts:          tmsg.DTS + tmsg.PTSDelta,
-					h264NALUs:    validNALUs,
+					nalus:        validNALUs,
 				})
 			}
 
@@ -609,11 +611,10 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					return fmt.Errorf("received an AAC packet, but track is not set up")
 				}
 
-				rres.stream.writeData(&data{
-					trackID:      audioTrackID,
-					ptsEqualsDTS: true,
-					pts:          tmsg.DTS,
-					mpeg4AudioAU: tmsg.Payload,
+				rres.stream.writeData(&dataMPEG4Audio{
+					trackID: audioTrackID,
+					pts:     tmsg.DTS,
+					au:      tmsg.Payload,
 				})
 			}
 		}
@@ -667,7 +668,7 @@ func (c *rtmpConn) authenticate(
 }
 
 // onReaderData implements reader.
-func (c *rtmpConn) onReaderData(data *data) {
+func (c *rtmpConn) onReaderData(data data) {
 	c.ringBuffer.Push(data)
 }
 

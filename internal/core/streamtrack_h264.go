@@ -9,8 +9,7 @@ import (
 )
 
 type streamTrackH264 struct {
-	track          *gortsplib.TrackH264
-	writeDataInner func(*data)
+	track *gortsplib.TrackH264
 
 	rtpEncoder *rtph264.Encoder
 }
@@ -18,11 +17,9 @@ type streamTrackH264 struct {
 func newStreamTrackH264(
 	track *gortsplib.TrackH264,
 	generateRTPPackets bool,
-	writeDataInner func(*data),
 ) *streamTrackH264 {
 	t := &streamTrackH264{
-		track:          track,
-		writeDataInner: writeDataInner,
+		track: track,
 	}
 
 	if generateRTPPackets {
@@ -105,40 +102,52 @@ func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *streamTrackH264) generateRTPPackets(dat *data) {
-	pkts, err := t.rtpEncoder.Encode(dat.h264NALUs, dat.pts)
+func (t *streamTrackH264) generateRTPPackets(tdata *dataH264) []data {
+	pkts, err := t.rtpEncoder.Encode(tdata.nalus, tdata.pts)
 	if err != nil {
-		return
+		return nil
 	}
 
+	ret := make([]data, len(pkts))
 	lastPkt := len(pkts) - 1
+
 	for i, pkt := range pkts {
 		if i != lastPkt {
-			t.writeDataInner(&data{
-				trackID:   dat.trackID,
+			ret[i] = &dataH264{
+				trackID:   tdata.getTrackID(),
 				rtpPacket: pkt,
-			})
+			}
 		} else {
-			t.writeDataInner(&data{
-				trackID:      dat.trackID,
+			ret[i] = &dataH264{
+				trackID:      tdata.getTrackID(),
 				rtpPacket:    pkt,
-				ptsEqualsDTS: dat.ptsEqualsDTS,
-				pts:          dat.pts,
-				h264NALUs:    dat.h264NALUs,
-			})
+				ptsEqualsDTS: tdata.ptsEqualsDTS,
+				pts:          tdata.pts,
+				nalus:        tdata.nalus,
+			}
 		}
 	}
+
+	return ret
 }
 
-func (t *streamTrackH264) writeData(dat *data) {
-	if dat.h264NALUs != nil {
-		t.updateTrackParameters(dat.h264NALUs)
-		dat.h264NALUs = t.remuxNALUs(dat.h264NALUs)
+func (t *streamTrackH264) process(dat data) []data {
+	if tdata, ok := dat.(*dataH264); ok {
+		if tdata.nalus != nil {
+			t.updateTrackParameters(tdata.nalus)
+			tdata.nalus = t.remuxNALUs(tdata.nalus)
+		}
 	}
 
-	if dat.rtpPacket != nil {
-		t.writeDataInner(dat)
-	} else if dat.h264NALUs != nil {
-		t.generateRTPPackets(dat)
+	if dat.getRTPPacket() != nil {
+		return []data{dat}
 	}
+
+	if tdata, ok := dat.(*dataH264); ok {
+		if tdata.nalus != nil {
+			return t.generateRTPPackets(tdata)
+		}
+	}
+
+	return nil
 }
