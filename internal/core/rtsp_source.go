@@ -97,6 +97,9 @@ func (s *rtspSource) run(ctx context.Context) error {
 		OnResponse: func(res *base.Response) {
 			s.Log(logger.Debug, "s->c %v", res)
 		},
+		OnDecodeError: func(err error) {
+			s.Log(logger.Warn, "%v", err)
+		},
 	}
 
 	u, err := url.Parse(s.ur)
