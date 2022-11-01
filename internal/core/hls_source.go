@@ -91,7 +91,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 		stream.writeData(&dataMPEG4Audio{
 			trackID: audioTrackID,
 			pts:     pts,
-			au:      au,
+			aus:     [][]byte{au},
 		})
 	}
 

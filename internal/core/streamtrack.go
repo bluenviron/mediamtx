@@ -7,7 +7,7 @@ import (
 )
 
 type streamTrack interface {
-	process(data) []data
+	onData(data, bool)
 }
 
 func newStreamTrack(track gortsplib.Track, generateRTPPackets bool) (streamTrack, error) {

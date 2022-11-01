@@ -6,6 +6,5 @@ func newStreamTrackGeneric() *streamTrackGeneric {
 	return &streamTrackGeneric{}
 }
 
-func (t *streamTrackGeneric) process(dat data) []data {
-	return []data{dat}
+func (t *streamTrackGeneric) onData(dat data, hasNonRTSPReaders bool) {
 }

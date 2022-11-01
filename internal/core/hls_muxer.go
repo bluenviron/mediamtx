@@ -14,7 +14,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
-	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -295,7 +294,6 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	videoTrackID := -1
 	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
-	var aacDecoder *rtpmpeg4audio.Decoder
 
 	for i, track := range res.stream.tracks() {
 		switch tt := track.(type) {
@@ -314,13 +312,6 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = &rtpmpeg4audio.Decoder{
-				SampleRate:       tt.Config.SampleRate,
-				SizeLength:       tt.SizeLength,
-				IndexLength:      tt.IndexLength,
-				IndexDeltaLength: tt.IndexDeltaLength,
-			}
-			aacDecoder.Init()
 		}
 	}
 
@@ -390,18 +381,16 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 						return fmt.Errorf("muxer error: %v", err)
 					}
 				} else if audioTrack != nil && data.getTrackID() == audioTrackID {
-					aus, pts, err := aacDecoder.Decode(data.getRTPPacket())
-					if err != nil {
-						if err != rtpmpeg4audio.ErrMorePacketsNeeded {
-							m.log(logger.Warn, "unable to decode audio track: %v", err)
-						}
+					tdata := data.(*dataMPEG4Audio)
+
+					if tdata.aus == nil {
 						continue
 					}
 
-					for i, au := range aus {
+					for i, au := range tdata.aus {
 						err = m.muxer.WriteAAC(
 							time.Now(),
-							pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+							tdata.pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
 								time.Second/time.Duration(audioTrack.ClockRate()),
 							au)
 						if err != nil {

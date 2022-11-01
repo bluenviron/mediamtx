@@ -9,6 +9,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -378,18 +379,26 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 
 // onPacketRTP is called by rtspServer.
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
-	if ctx.H264NALUs != nil {
+	switch s.announcedTracks[ctx.TrackID].(type) {
+	case *gortsplib.TrackH264:
 		s.stream.writeData(&dataH264{
 			trackID:      ctx.TrackID,
-			rtpPacket:    ctx.Packet,
+			rtpPackets:   []*rtp.Packet{ctx.Packet},
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 			pts:          ctx.H264PTS,
 			nalus:        ctx.H264NALUs,
 		})
-	} else {
+
+	case *gortsplib.TrackMPEG4Audio:
+		s.stream.writeData(&dataMPEG4Audio{
+			trackID:    ctx.TrackID,
+			rtpPackets: []*rtp.Packet{ctx.Packet},
+		})
+
+	default:
 		s.stream.writeData(&dataGeneric{
 			trackID:      ctx.TrackID,
-			rtpPacket:    ctx.Packet,
+			rtpPackets:   []*rtp.Packet{ctx.Packet},
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 		})
 	}

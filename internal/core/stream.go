@@ -44,6 +44,12 @@ func (m *streamNonRTSPReadersMap) writeData(data data) {
 	}
 }
 
+func (m *streamNonRTSPReadersMap) hasReaders() bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return len(m.ma) > 0
+}
+
 type stream struct {
 	nonRTSPReaders *streamNonRTSPReadersMap
 	rtspStream     *gortsplib.ServerStream
@@ -91,13 +97,13 @@ func (s *stream) readerRemove(r reader) {
 }
 
 func (s *stream) writeData(data data) {
-	datas := s.streamTracks[data.getTrackID()].process(data)
+	s.streamTracks[data.getTrackID()].onData(data, s.nonRTSPReaders.hasReaders())
 
-	for _, data := range datas {
-		// forward to RTSP readers
-		s.rtspStream.WritePacketRTP(data.getTrackID(), data.getRTPPacket(), data.getPTSEqualsDTS())
-
-		// forward to non-RTSP readers
-		s.nonRTSPReaders.writeData(data)
+	// forward RTP packets to RTSP readers
+	for _, pkt := range data.getRTPPackets() {
+		s.rtspStream.WritePacketRTP(data.getTrackID(), pkt, data.getPTSEqualsDTS())
 	}
+
+	// forward data to non-RTSP readers
+	s.nonRTSPReaders.writeData(data)
 }

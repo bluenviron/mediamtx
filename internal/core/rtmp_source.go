@@ -187,7 +187,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 						res.stream.writeData(&dataMPEG4Audio{
 							trackID: audioTrackID,
 							pts:     tmsg.DTS,
-							au:      tmsg.Payload,
+							aus:     [][]byte{tmsg.Payload},
 						})
 					}
 				}

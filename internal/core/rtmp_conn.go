@@ -14,7 +14,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
-	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -258,7 +257,6 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	videoTrackID := -1
 	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
-	var aacDecoder *rtpmpeg4audio.Decoder
 
 	for i, track := range res.stream.tracks() {
 		switch tt := track.(type) {
@@ -277,13 +275,6 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = &rtpmpeg4audio.Decoder{
-				SampleRate:       tt.Config.SampleRate,
-				SizeLength:       tt.SizeLength,
-				IndexLength:      tt.IndexLength,
-				IndexDeltaLength: tt.IndexDeltaLength,
-			}
-			aacDecoder.Init()
 		}
 	}
 
@@ -433,11 +424,9 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				return err
 			}
 		} else if audioTrack != nil && data.getTrackID() == audioTrackID {
-			aus, pts, err := aacDecoder.Decode(data.getRTPPacket())
-			if err != nil {
-				if err != rtpmpeg4audio.ErrMorePacketsNeeded {
-					c.log(logger.Warn, "unable to decode audio track: %v", err)
-				}
+			tdata := data.(*dataMPEG4Audio)
+
+			if tdata.aus == nil {
 				continue
 			}
 
@@ -445,12 +434,13 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				continue
 			}
 
+			pts := tdata.pts
 			pts -= videoStartDTS
 			if pts < 0 {
 				continue
 			}
 
-			for i, au := range aus {
+			for i, au := range tdata.aus {
 				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := c.conn.WriteMessage(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
@@ -614,7 +604,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 				rres.stream.writeData(&dataMPEG4Audio{
 					trackID: audioTrackID,
 					pts:     tmsg.DTS,
-					au:      tmsg.Payload,
+					aus:     [][]byte{tmsg.Payload},
 				})
 			}
 		}

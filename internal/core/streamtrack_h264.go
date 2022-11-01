@@ -102,52 +102,26 @@ func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *streamTrackH264) generateRTPPackets(tdata *dataH264) []data {
+func (t *streamTrackH264) generateRTPPackets(tdata *dataH264) {
 	pkts, err := t.rtpEncoder.Encode(tdata.nalus, tdata.pts)
 	if err != nil {
-		return nil
+		return
 	}
 
-	ret := make([]data, len(pkts))
-	lastPkt := len(pkts) - 1
-
-	for i, pkt := range pkts {
-		if i != lastPkt {
-			ret[i] = &dataH264{
-				trackID:   tdata.getTrackID(),
-				rtpPacket: pkt,
-			}
-		} else {
-			ret[i] = &dataH264{
-				trackID:      tdata.getTrackID(),
-				rtpPacket:    pkt,
-				ptsEqualsDTS: tdata.ptsEqualsDTS,
-				pts:          tdata.pts,
-				nalus:        tdata.nalus,
-			}
-		}
-	}
-
-	return ret
+	tdata.rtpPackets = pkts
 }
 
-func (t *streamTrackH264) process(dat data) []data {
-	if tdata, ok := dat.(*dataH264); ok {
-		if tdata.nalus != nil {
-			t.updateTrackParameters(tdata.nalus)
-			tdata.nalus = t.remuxNALUs(tdata.nalus)
-		}
+func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) {
+	tdata := dat.(*dataH264)
+
+	if tdata.nalus != nil {
+		t.updateTrackParameters(tdata.nalus)
+		tdata.nalus = t.remuxNALUs(tdata.nalus)
 	}
 
-	if dat.getRTPPacket() != nil {
-		return []data{dat}
+	// NALUS -> RTP
+	if t.rtpEncoder != nil {
+		t.generateRTPPackets(tdata)
+		return
 	}
-
-	if tdata, ok := dat.(*dataH264); ok {
-		if tdata.nalus != nil {
-			return t.generateRTPPackets(tdata)
-		}
-	}
-
-	return nil
 }

@@ -7,19 +7,15 @@ import (
 )
 
 // data is the data unit routed across the server.
-// it must contain one or more of the following:
-// - a single RTP packet
-// - a group of H264 NALUs (grouped by timestamp)
-// - a single AAC AU
 type data interface {
 	getTrackID() int
-	getRTPPacket() *rtp.Packet
+	getRTPPackets() []*rtp.Packet
 	getPTSEqualsDTS() bool
 }
 
 type dataGeneric struct {
 	trackID      int
-	rtpPacket    *rtp.Packet
+	rtpPackets   []*rtp.Packet
 	ptsEqualsDTS bool
 }
 
@@ -27,8 +23,8 @@ func (d *dataGeneric) getTrackID() int {
 	return d.trackID
 }
 
-func (d *dataGeneric) getRTPPacket() *rtp.Packet {
-	return d.rtpPacket
+func (d *dataGeneric) getRTPPackets() []*rtp.Packet {
+	return d.rtpPackets
 }
 
 func (d *dataGeneric) getPTSEqualsDTS() bool {
@@ -37,7 +33,7 @@ func (d *dataGeneric) getPTSEqualsDTS() bool {
 
 type dataH264 struct {
 	trackID      int
-	rtpPacket    *rtp.Packet
+	rtpPackets   []*rtp.Packet
 	ptsEqualsDTS bool
 	pts          time.Duration
 	nalus        [][]byte
@@ -47,8 +43,8 @@ func (d *dataH264) getTrackID() int {
 	return d.trackID
 }
 
-func (d *dataH264) getRTPPacket() *rtp.Packet {
-	return d.rtpPacket
+func (d *dataH264) getRTPPackets() []*rtp.Packet {
+	return d.rtpPackets
 }
 
 func (d *dataH264) getPTSEqualsDTS() bool {
@@ -56,18 +52,18 @@ func (d *dataH264) getPTSEqualsDTS() bool {
 }
 
 type dataMPEG4Audio struct {
-	trackID   int
-	rtpPacket *rtp.Packet
-	pts       time.Duration
-	au        []byte
+	trackID    int
+	rtpPackets []*rtp.Packet
+	pts        time.Duration
+	aus        [][]byte
 }
 
 func (d *dataMPEG4Audio) getTrackID() int {
 	return d.trackID
 }
 
-func (d *dataMPEG4Audio) getRTPPacket() *rtp.Packet {
-	return d.rtpPacket
+func (d *dataMPEG4Audio) getRTPPackets() []*rtp.Packet {
+	return d.rtpPackets
 }
 
 func (d *dataMPEG4Audio) getPTSEqualsDTS() bool {
