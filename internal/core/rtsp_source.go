@@ -122,7 +122,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 			}
 
 			for _, t := range tracks {
-				_, err := c.Setup(true, t, baseURL, 0, 0)
+				_, err := c.Setup(t, baseURL, 0, 0)
 				if err != nil {
 					return err
 				}
