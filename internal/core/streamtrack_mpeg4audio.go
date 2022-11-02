@@ -42,13 +42,13 @@ func (t *streamTrackMPEG4Audio) generateRTPPackets(tdata *dataMPEG4Audio) {
 	tdata.rtpPackets = pkts
 }
 
-func (t *streamTrackMPEG4Audio) onData(dat data, hasNonRTSPReaders bool) {
+func (t *streamTrackMPEG4Audio) onData(dat data, hasNonRTSPReaders bool) error {
 	tdata := dat.(*dataMPEG4Audio)
 
 	// AU -> RTP
 	if t.rtpEncoder != nil {
 		t.generateRTPPackets(tdata)
-		return
+		return nil
 	}
 
 	// RTP -> AU
@@ -65,10 +65,12 @@ func (t *streamTrackMPEG4Audio) onData(dat data, hasNonRTSPReaders bool) {
 
 		aus, pts, err := t.decoder.Decode(tdata.rtpPackets[0])
 		if err != nil {
-			// TODO: log errors
-		} else {
-			tdata.aus = aus
-			tdata.pts = pts
+			return err
 		}
+
+		tdata.aus = aus
+		tdata.pts = pts
 	}
+
+	return nil
 }

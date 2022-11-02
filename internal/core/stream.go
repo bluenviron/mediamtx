@@ -96,8 +96,11 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) writeData(data data) {
-	s.streamTracks[data.getTrackID()].onData(data, s.nonRTSPReaders.hasReaders())
+func (s *stream) writeData(data data) error {
+	err := s.streamTracks[data.getTrackID()].onData(data, s.nonRTSPReaders.hasReaders())
+	if err != nil {
+		return err
+	}
 
 	// forward RTP packets to RTSP readers
 	for _, pkt := range data.getRTPPackets() {
@@ -106,4 +109,6 @@ func (s *stream) writeData(data data) {
 
 	// forward data to non-RTSP readers
 	s.nonRTSPReaders.writeData(data)
+
+	return nil
 }

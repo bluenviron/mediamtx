@@ -144,9 +144,11 @@ func (s *rtspSource) run(ctx context.Context) error {
 			}()
 
 			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+				var err error
+
 				switch tracks[ctx.TrackID].(type) {
 				case *gortsplib.TrackH264:
-					res.stream.writeData(&dataH264{
+					err = res.stream.writeData(&dataH264{
 						trackID:      ctx.TrackID,
 						rtpPackets:   []*rtp.Packet{ctx.Packet},
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
@@ -155,17 +157,21 @@ func (s *rtspSource) run(ctx context.Context) error {
 					})
 
 				case *gortsplib.TrackMPEG4Audio:
-					res.stream.writeData(&dataMPEG4Audio{
+					err = res.stream.writeData(&dataMPEG4Audio{
 						trackID:    ctx.TrackID,
 						rtpPackets: []*rtp.Packet{ctx.Packet},
 					})
 
 				default:
-					res.stream.writeData(&dataGeneric{
+					err = res.stream.writeData(&dataGeneric{
 						trackID:      ctx.TrackID,
 						rtpPackets:   []*rtp.Packet{ctx.Packet},
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
 					})
+				}
+
+				if err != nil {
+					s.Log(logger.Warn, "%v", err)
 				}
 			}
 

@@ -558,12 +558,15 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					conf.PPS,
 				}
 
-				rres.stream.writeData(&dataH264{
+				err := rres.stream.writeData(&dataH264{
 					trackID:      videoTrackID,
 					ptsEqualsDTS: false,
 					pts:          tmsg.DTS + tmsg.PTSDelta,
 					nalus:        nalus,
 				})
+				if err != nil {
+					c.log(logger.Warn, "%v", err)
+				}
 			} else if tmsg.H264Type == flvio.AVC_NALU {
 				if videoTrack == nil {
 					return fmt.Errorf("received an H264 packet, but track is not set up")
@@ -594,12 +597,15 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					}
 				}
 
-				rres.stream.writeData(&dataH264{
+				err = rres.stream.writeData(&dataH264{
 					trackID:      videoTrackID,
 					ptsEqualsDTS: h264.IDRPresent(validNALUs),
 					pts:          tmsg.DTS + tmsg.PTSDelta,
 					nalus:        validNALUs,
 				})
+				if err != nil {
+					c.log(logger.Warn, "%v", err)
+				}
 			}
 
 		case *message.MsgAudio:
@@ -608,11 +614,14 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					return fmt.Errorf("received an AAC packet, but track is not set up")
 				}
 
-				rres.stream.writeData(&dataMPEG4Audio{
+				err := rres.stream.writeData(&dataMPEG4Audio{
 					trackID: audioTrackID,
 					pts:     tmsg.DTS,
 					aus:     [][]byte{tmsg.Payload},
 				})
+				if err != nil {
+					c.log(logger.Warn, "%v", err)
+				}
 			}
 		}
 	}

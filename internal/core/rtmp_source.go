@@ -170,12 +170,15 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("unable to decode AVCC: %v", err)
 						}
 
-						res.stream.writeData(&dataH264{
+						err = res.stream.writeData(&dataH264{
 							trackID:      videoTrackID,
 							ptsEqualsDTS: h264.IDRPresent(nalus),
 							pts:          tmsg.DTS + tmsg.PTSDelta,
 							nalus:        nalus,
 						})
+						if err != nil {
+							s.Log(logger.Warn, "%v", err)
+						}
 					}
 
 				case *message.MsgAudio:
@@ -184,11 +187,14 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("received an AAC packet, but track is not set up")
 						}
 
-						res.stream.writeData(&dataMPEG4Audio{
+						err := res.stream.writeData(&dataMPEG4Audio{
 							trackID: audioTrackID,
 							pts:     tmsg.DTS,
 							aus:     [][]byte{tmsg.Payload},
 						})
+						if err != nil {
+							s.Log(logger.Warn, "%v", err)
+						}
 					}
 				}
 			}

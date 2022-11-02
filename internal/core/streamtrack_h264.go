@@ -111,7 +111,7 @@ func (t *streamTrackH264) generateRTPPackets(tdata *dataH264) {
 	tdata.rtpPackets = pkts
 }
 
-func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) {
+func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
 	tdata := dat.(*dataH264)
 
 	if tdata.nalus != nil {
@@ -122,6 +122,8 @@ func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) {
 	// NALUS -> RTP
 	if t.rtpEncoder != nil {
 		t.generateRTPPackets(tdata)
-		return
+		return nil
 	}
+
+	return nil
 }

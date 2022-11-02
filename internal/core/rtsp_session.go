@@ -379,9 +379,11 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 
 // onPacketRTP is called by rtspServer.
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
+	var err error
+
 	switch s.announcedTracks[ctx.TrackID].(type) {
 	case *gortsplib.TrackH264:
-		s.stream.writeData(&dataH264{
+		err = s.stream.writeData(&dataH264{
 			trackID:      ctx.TrackID,
 			rtpPackets:   []*rtp.Packet{ctx.Packet},
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
@@ -390,17 +392,21 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 		})
 
 	case *gortsplib.TrackMPEG4Audio:
-		s.stream.writeData(&dataMPEG4Audio{
+		err = s.stream.writeData(&dataMPEG4Audio{
 			trackID:    ctx.TrackID,
 			rtpPackets: []*rtp.Packet{ctx.Packet},
 		})
 
 	default:
-		s.stream.writeData(&dataGeneric{
+		err = s.stream.writeData(&dataGeneric{
 			trackID:      ctx.TrackID,
 			rtpPackets:   []*rtp.Packet{ctx.Packet},
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 		})
+	}
+
+	if err != nil {
+		s.log(logger.Warn, "%v", err)
 	}
 }
 
