@@ -134,7 +134,7 @@ func TestRTSPSource(t *testing.T) {
 					"    sourceProtocol: " + source + "\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
-				defer p.close()
+				defer p.Close()
 			} else {
 				p, ok := newInstance("paths:\n" +
 					"  proxied:\n" +
@@ -142,7 +142,7 @@ func TestRTSPSource(t *testing.T) {
 					"    sourceFingerprint: 33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
-				defer p.close()
+				defer p.Close()
 			}
 
 			received := make(chan struct{})
@@ -231,7 +231,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 		"    source: rtsp://testuser:@127.0.0.1:8555/teststream\n" +
 		"    sourceProtocol: tcp\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	<-done
 }
@@ -275,7 +275,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 		"  proxied:\n" +
 		"    source: rtsp://127.0.0.1:8555/teststream\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	time.Sleep(1 * time.Second)
 

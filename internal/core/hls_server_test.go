@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -79,7 +78,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 func TestHLSServerNotFound(t *testing.T) {
 	p, ok := newInstance("")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/stream/", nil)
 	require.NoError(t, err)
@@ -88,110 +87,4 @@ func TestHLSServerNotFound(t *testing.T) {
 	require.NoError(t, err)
 	defer res.Body.Close()
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
-}
-
-func TestHLSServerRead(t *testing.T) {
-	p, ok := newInstance("paths:\n" +
-		"  all:\n")
-	require.Equal(t, true, ok)
-	defer p.close()
-
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "rtsp",
-		"rtsp://127.0.0.1:8554/test/stream",
-	})
-	require.NoError(t, err)
-	defer cnt1.close()
-
-	time.Sleep(1 * time.Second)
-
-	cnt2, err := newContainer("ffmpeg", "dest", []string{
-		"-i", "http://127.0.0.1:8888/test/stream/index.m3u8",
-		"-vframes", "1",
-		"-f", "image2",
-		"-y", "/dev/null",
-	})
-	require.NoError(t, err)
-	defer cnt2.close()
-	require.Equal(t, 0, cnt2.wait())
-}
-
-func TestHLSServerAuth(t *testing.T) {
-	for _, mode := range []string{
-		"internal",
-		"external",
-	} {
-		for _, result := range []string{
-			"success",
-			"fail",
-		} {
-			t.Run(mode+"_"+result, func(t *testing.T) {
-				var conf string
-				if mode == "internal" {
-					conf = "paths:\n" +
-						"  all:\n" +
-						"    readUser: testreader\n" +
-						"    readPass: testpass\n" +
-						"    readIPs: [127.0.0.0/16]\n"
-				} else {
-					conf = "externalAuthenticationURL: http://127.0.0.1:9120/auth\n" +
-						"paths:\n" +
-						"  all:\n"
-				}
-
-				p, ok := newInstance(conf)
-				require.Equal(t, true, ok)
-				defer p.close()
-
-				var a *testHTTPAuthenticator
-				if mode == "external" {
-					var err error
-					a, err = newTestHTTPAuthenticator("publish")
-					require.NoError(t, err)
-				}
-
-				cnt1, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", "emptyvideo.mkv",
-					"-c", "copy",
-					"-f", "rtsp",
-					"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream?param=value",
-				})
-				require.NoError(t, err)
-				defer cnt1.close()
-
-				time.Sleep(1 * time.Second)
-
-				if mode == "external" {
-					a.close()
-					var err error
-					a, err = newTestHTTPAuthenticator("read")
-					require.NoError(t, err)
-					defer a.close()
-				}
-
-				var usr string
-				if result == "success" {
-					usr = "testreader"
-				} else {
-					usr = "testreader2"
-				}
-
-				res, err := http.Get("http://" + usr + ":testpass@127.0.0.1:8888/teststream/index.m3u8?param=value")
-				require.NoError(t, err)
-				defer res.Body.Close()
-
-				if result == "success" {
-					require.Equal(t, http.StatusOK, res.StatusCode)
-				} else {
-					require.Equal(t, http.StatusUnauthorized, res.StatusCode)
-				}
-			})
-		}
-	}
 }

@@ -128,7 +128,7 @@ func TestHLSSource(t *testing.T) {
 		"    source: http://localhost:5780/stream.m3u8\n" +
 		"    sourceOnDemand: yes\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	time.Sleep(1 * time.Second)
 
