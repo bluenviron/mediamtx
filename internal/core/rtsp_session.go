@@ -9,6 +9,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -342,7 +343,7 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 }
 
 // onReaderData implements reader.
-func (s *rtspSession) onReaderData(data *data) {
+func (s *rtspSession) onReaderData(data data) {
 	// packets are routed to the session by gortsplib.ServerStream.
 }
 
@@ -378,20 +379,32 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 
 // onPacketRTP is called by rtspServer.
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
-	if ctx.H264NALUs != nil {
-		s.stream.writeData(&data{
+	var err error
+
+	switch s.announcedTracks[ctx.TrackID].(type) {
+	case *gortsplib.TrackH264:
+		err = s.stream.writeData(&dataH264{
 			trackID:      ctx.TrackID,
-			rtpPacket:    ctx.Packet,
-			ptsEqualsDTS: ctx.PTSEqualsDTS,
-			pts:          ctx.H264PTS,
-			h264NALUs:    ctx.H264NALUs,
-		})
-	} else {
-		s.stream.writeData(&data{
-			trackID:      ctx.TrackID,
-			rtpPacket:    ctx.Packet,
+			rtpPackets:   []*rtp.Packet{ctx.Packet},
 			ptsEqualsDTS: ctx.PTSEqualsDTS,
 		})
+
+	case *gortsplib.TrackMPEG4Audio:
+		err = s.stream.writeData(&dataMPEG4Audio{
+			trackID:    ctx.TrackID,
+			rtpPackets: []*rtp.Packet{ctx.Packet},
+		})
+
+	default:
+		err = s.stream.writeData(&dataGeneric{
+			trackID:      ctx.TrackID,
+			rtpPackets:   []*rtp.Packet{ctx.Packet},
+			ptsEqualsDTS: ctx.PTSEqualsDTS,
+		})
+	}
+
+	if err != nil {
+		s.log(logger.Warn, "%v", err)
 	}
 }
 

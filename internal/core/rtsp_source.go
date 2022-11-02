@@ -11,6 +11,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -143,20 +144,32 @@ func (s *rtspSource) run(ctx context.Context) error {
 			}()
 
 			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-				if ctx.H264NALUs != nil {
-					res.stream.writeData(&data{
+				var err error
+
+				switch tracks[ctx.TrackID].(type) {
+				case *gortsplib.TrackH264:
+					err = res.stream.writeData(&dataH264{
 						trackID:      ctx.TrackID,
-						rtpPacket:    ctx.Packet,
-						ptsEqualsDTS: ctx.PTSEqualsDTS,
-						pts:          ctx.H264PTS,
-						h264NALUs:    ctx.H264NALUs,
-					})
-				} else {
-					res.stream.writeData(&data{
-						trackID:      ctx.TrackID,
-						rtpPacket:    ctx.Packet,
+						rtpPackets:   []*rtp.Packet{ctx.Packet},
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
 					})
+
+				case *gortsplib.TrackMPEG4Audio:
+					err = res.stream.writeData(&dataMPEG4Audio{
+						trackID:    ctx.TrackID,
+						rtpPackets: []*rtp.Packet{ctx.Packet},
+					})
+
+				default:
+					err = res.stream.writeData(&dataGeneric{
+						trackID:      ctx.TrackID,
+						rtpPackets:   []*rtp.Packet{ctx.Packet},
+						ptsEqualsDTS: ctx.PTSEqualsDTS,
+					})
+				}
+
+				if err != nil {
+					s.Log(logger.Warn, "%v", err)
 				}
 			}
 

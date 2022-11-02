@@ -1,19 +1,33 @@
 package core
 
 import (
-	"github.com/aler9/gortsplib"
+	"fmt"
 )
 
-type streamTrackGeneric struct {
-	writeDataInner func(*data)
+const (
+	// 1500 (UDP MTU) - 20 (IP header) - 8 (UDP header)
+	maxPacketSize = 1472
+)
+
+type streamTrackGeneric struct{}
+
+func newStreamTrackGeneric() *streamTrackGeneric {
+	return &streamTrackGeneric{}
 }
 
-func newStreamTrackGeneric(track gortsplib.Track, writeDataInner func(*data)) *streamTrackGeneric {
-	return &streamTrackGeneric{
-		writeDataInner: writeDataInner,
+func (t *streamTrackGeneric) onData(dat data, hasNonRTSPReaders bool) error {
+	tdata := dat.(*dataGeneric)
+
+	pkt := tdata.rtpPackets[0]
+
+	// remove padding
+	pkt.Header.Padding = false
+	pkt.PaddingSize = 0
+
+	if pkt.MarshalSize() > maxPacketSize {
+		return fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
+			pkt.MarshalSize(), maxPacketSize)
 	}
-}
 
-func (t *streamTrackGeneric) writeData(data *data) {
-	t.writeDataInner(data)
+	return nil
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
-	"github.com/aler9/gortsplib/pkg/rtpmpeg4audio"
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -295,7 +294,6 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	videoTrackID := -1
 	var audioTrack *gortsplib.TrackMPEG4Audio
 	audioTrackID := -1
-	var aacDecoder *rtpmpeg4audio.Decoder
 
 	for i, track := range res.stream.tracks() {
 		switch tt := track.(type) {
@@ -314,13 +312,6 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 			audioTrack = tt
 			audioTrackID = i
-			aacDecoder = &rtpmpeg4audio.Decoder{
-				SampleRate:       tt.Config.SampleRate,
-				SizeLength:       tt.SizeLength,
-				IndexLength:      tt.IndexLength,
-				IndexDeltaLength: tt.IndexDeltaLength,
-			}
-			aacDecoder.Init()
 		}
 	}
 
@@ -362,53 +353,12 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	writerDone := make(chan error)
 	go func() {
-		writerDone <- func() error {
-			var videoInitialPTS *time.Duration
-
-			for {
-				item, ok := m.ringBuffer.Pull()
-				if !ok {
-					return fmt.Errorf("terminated")
-				}
-				data := item.(*data)
-
-				if videoTrack != nil && data.trackID == videoTrackID {
-					if data.h264NALUs == nil {
-						continue
-					}
-
-					if videoInitialPTS == nil {
-						v := data.pts
-						videoInitialPTS = &v
-					}
-					pts := data.pts - *videoInitialPTS
-
-					err = m.muxer.WriteH264(time.Now(), pts, data.h264NALUs)
-					if err != nil {
-						return fmt.Errorf("muxer error: %v", err)
-					}
-				} else if audioTrack != nil && data.trackID == audioTrackID {
-					aus, pts, err := aacDecoder.Decode(data.rtpPacket)
-					if err != nil {
-						if err != rtpmpeg4audio.ErrMorePacketsNeeded {
-							m.log(logger.Warn, "unable to decode audio track: %v", err)
-						}
-						continue
-					}
-
-					for i, au := range aus {
-						err = m.muxer.WriteAAC(
-							time.Now(),
-							pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-								time.Second/time.Duration(audioTrack.ClockRate()),
-							au)
-						if err != nil {
-							return fmt.Errorf("muxer error: %v", err)
-						}
-					}
-				}
-			}
-		}()
+		writerDone <- m.runWriter(
+			videoTrack,
+			videoTrackID,
+			audioTrack,
+			audioTrackID,
+		)
 	}()
 
 	closeCheckTicker := time.NewTicker(closeCheckPeriod)
@@ -431,6 +381,68 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			m.ringBuffer.Close()
 			<-writerDone
 			return fmt.Errorf("terminated")
+		}
+	}
+}
+
+func (m *hlsMuxer) runWriter(
+	videoTrack *gortsplib.TrackH264,
+	videoTrackID int,
+	audioTrack *gortsplib.TrackMPEG4Audio,
+	audioTrackID int,
+) error {
+	videoStartPTSFilled := false
+	var videoStartPTS time.Duration
+	audioStartPTSFilled := false
+	var audioStartPTS time.Duration
+
+	for {
+		item, ok := m.ringBuffer.Pull()
+		if !ok {
+			return fmt.Errorf("terminated")
+		}
+		data := item.(data)
+
+		if videoTrack != nil && data.getTrackID() == videoTrackID {
+			tdata := data.(*dataH264)
+
+			if tdata.nalus == nil {
+				continue
+			}
+
+			if !videoStartPTSFilled {
+				videoStartPTSFilled = true
+				videoStartPTS = tdata.pts
+			}
+			pts := tdata.pts - videoStartPTS
+
+			err := m.muxer.WriteH264(time.Now(), pts, tdata.nalus)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+		} else if audioTrack != nil && data.getTrackID() == audioTrackID {
+			tdata := data.(*dataMPEG4Audio)
+
+			if tdata.aus == nil {
+				continue
+			}
+
+			if !audioStartPTSFilled {
+				audioStartPTSFilled = true
+				audioStartPTS = tdata.pts
+			}
+			pts := tdata.pts - audioStartPTS
+
+			for i, au := range tdata.aus {
+				err := m.muxer.WriteAAC(
+					time.Now(),
+					pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+						time.Second/time.Duration(audioTrack.ClockRate()),
+					au)
+				if err != nil {
+					return fmt.Errorf("muxer error: %v", err)
+				}
+			}
 		}
 	}
 }
@@ -558,7 +570,7 @@ func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
 }
 
 // onReaderData implements reader.
-func (m *hlsMuxer) onReaderData(data *data) {
+func (m *hlsMuxer) onReaderData(data data) {
 	m.ringBuffer.Push(data)
 }
 
