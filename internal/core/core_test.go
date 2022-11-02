@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -70,54 +69,6 @@ y++U32uuSFiXDcSLarfIsE992MEJLSAynbF1Rsgsr3gXbGiuToJRyxbIeVy7gwzD
 -----END RSA PRIVATE KEY-----
 `)
 
-type container struct {
-	name string
-}
-
-func newContainer(image string, name string, args []string) (*container, error) {
-	c := &container{
-		name: name,
-	}
-
-	exec.Command("docker", "kill", "rtsp-simple-server-test-"+name).Run()
-	exec.Command("docker", "wait", "rtsp-simple-server-test-"+name).Run()
-
-	// --network=host is needed to test multicast
-	cmd := []string{
-		"docker", "run",
-		"--network=host",
-		"--name=rtsp-simple-server-test-" + name,
-		"rtsp-simple-server-test-" + image,
-	}
-	cmd = append(cmd, args...)
-	ecmd := exec.Command(cmd[0], cmd[1:]...)
-	ecmd.Stdout = nil
-	ecmd.Stderr = os.Stderr
-
-	err := ecmd.Start()
-	if err != nil {
-		return nil, err
-	}
-
-	time.Sleep(1 * time.Second)
-
-	return c, nil
-}
-
-func (c *container) close() {
-	exec.Command("docker", "kill", "rtsp-simple-server-test-"+c.name).Run()
-	exec.Command("docker", "wait", "rtsp-simple-server-test-"+c.name).Run()
-	exec.Command("docker", "rm", "rtsp-simple-server-test-"+c.name).Run()
-}
-
-func (c *container) wait() int {
-	exec.Command("docker", "wait", "rtsp-simple-server-test-"+c.name).Run()
-	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
-		"-f", "{{.State.ExitCode}}").Output()
-	code, _ := strconv.ParseInt(string(out[:len(out)-1]), 10, 64)
-	return int(code)
-}
-
 func writeTempFile(byts []byte) (string, error) {
 	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
 	if err != nil {
@@ -153,7 +104,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 			p, ok := newInstance("paths:\n" +
 				"  all:\n")
 			require.Equal(t, true, ok)
-			defer p.close()
+			defer p.Close()
 
 			func() {
 				conn, err := net.Dial("tcp", "localhost:8554")
@@ -288,7 +239,7 @@ func main() {
 				"    runOnDemand: %s\n"+
 				"    runOnDemandCloseAfter: 1s\n", execFile))
 			require.Equal(t, true, ok)
-			defer p1.close()
+			defer p1.Close()
 
 			func() {
 				conn, err := net.Dial("tcp", "localhost:8554")
@@ -367,7 +318,7 @@ func TestCorePathRunOnReady(t *testing.T) {
 		"    runOnReady: touch %s\n",
 		doneFile))
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	track := &gortsplib.TrackH264{
 		PayloadType: 96,
@@ -402,7 +353,7 @@ func TestCoreHotReloading(t *testing.T) {
 
 	p, ok := New([]string{confPath})
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	func() {
 		track := &gortsplib.TrackH264{

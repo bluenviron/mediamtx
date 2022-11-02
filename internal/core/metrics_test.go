@@ -2,13 +2,17 @@ package core
 
 import (
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/aler9/gortsplib"
 	"github.com/stretchr/testify/require"
+
+	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
 func TestMetrics(t *testing.T) {
@@ -27,7 +31,7 @@ func TestMetrics(t *testing.T) {
 		"paths:\n" +
 		"  all:\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	track := &gortsplib.TrackH264{
 		PayloadType: 96,
@@ -42,16 +46,29 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	cnt1, err := newContainer("ffmpeg", "source", []string{
-		"-re",
-		"-stream_loop", "-1",
-		"-i", "emptyvideo.mkv",
-		"-c", "copy",
-		"-f", "flv",
-		"rtmp://localhost:1935/rtmp_path",
-	})
+	u, err := url.Parse("rtmp://localhost:1935/rtmp_path")
 	require.NoError(t, err)
-	defer cnt1.close()
+
+	nconn, err := net.Dial("tcp", u.Host)
+	require.NoError(t, err)
+	defer nconn.Close()
+	conn := rtmp.NewConn(nconn)
+
+	err = conn.InitializeClient(u, true)
+	require.NoError(t, err)
+
+	videoTrack := &gortsplib.TrackH264{
+		PayloadType: 96,
+		SPS: []byte{ // 1920x1080 baseline
+			0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+			0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+			0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+		},
+		PPS: []byte{0x08, 0x06, 0x07, 0x08},
+	}
+
+	err = conn.WriteTracks(videoTrack, nil)
+	require.NoError(t, err)
 
 	func() {
 		res, err := http.Get("http://localhost:8888/rtsp_path/index.m3u8")

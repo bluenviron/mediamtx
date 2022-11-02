@@ -1,7 +1,7 @@
 define DOCKERFILE_TEST
 ARG ARCH
 FROM $$ARCH/$(BASE_IMAGE)
-RUN apk add --no-cache make docker-cli gcc musl-dev
+RUN apk add --no-cache make gcc musl-dev
 WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
@@ -11,8 +11,6 @@ export DOCKERFILE_TEST
 test:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=amd64
 	docker run --rm \
-	--network=host \
-	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	-v $(PWD):/s \
 	temp \
 	make test-nodocker COVERAGE=1
@@ -20,8 +18,6 @@ test:
 test32:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=i386
 	docker run --rm \
-	--network=host \
-	-v /var/run/docker.sock:/var/run/docker.sock:ro \
 	-v $(PWD):/s \
 	temp \
 	make test-nodocker COVERAGE=0
@@ -36,8 +32,6 @@ test-internal:
 	$$(go list ./internal/... | grep -v /core)
 
 test-core:
-	$(foreach IMG,$(shell echo testimages/*/ | xargs -n1 basename), \
-	docker build -q testimages/$(IMG) -t rtsp-simple-server-test-$(IMG)$(NL))
 	go test -v $(TEST_CORE_OPTS) ./internal/core
 
 test-nodocker: test-internal test-core

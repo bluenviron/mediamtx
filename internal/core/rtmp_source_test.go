@@ -102,7 +102,7 @@ func TestRTMPSource(t *testing.T) {
 					"    source: rtmp://localhost:1937/teststream\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
-				defer p.close()
+				defer p.Close()
 			} else {
 				p, ok := newInstance("paths:\n" +
 					"  proxied:\n" +
@@ -110,7 +110,7 @@ func TestRTMPSource(t *testing.T) {
 					"    sourceFingerprint: 33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739\n" +
 					"    sourceOnDemand: yes\n")
 				require.Equal(t, true, ok)
-				defer p.close()
+				defer p.Close()
 			}
 
 			c := gortsplib.Client{

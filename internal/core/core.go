@@ -103,7 +103,8 @@ func New(args []string) (*Core, bool) {
 	return p, true
 }
 
-func (p *Core) close() {
+// Close closes Core and waits for all goroutines to return.
+func (p *Core) Close() {
 	p.ctxCancel()
 	<-p.done
 }

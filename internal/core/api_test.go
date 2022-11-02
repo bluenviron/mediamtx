@@ -66,7 +66,7 @@ func TestAPIConfigGet(t *testing.T) {
 
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	var out map[string]interface{}
 	err := httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
@@ -77,7 +77,7 @@ func TestAPIConfigGet(t *testing.T) {
 func TestAPIConfigSet(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/set", map[string]interface{}{
 		"rtmpDisable": true,
@@ -99,7 +99,7 @@ func TestAPIConfigSet(t *testing.T) {
 func TestAPIConfigPathsAdd(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
@@ -117,7 +117,7 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 func TestAPIConfigPathsEdit(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
@@ -144,7 +144,7 @@ func TestAPIConfigPathsEdit(t *testing.T) {
 func TestAPIConfigPathsRemove(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
-	defer p.close()
+	defer p.Close()
 
 	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
@@ -184,7 +184,7 @@ func TestAPIPathsList(t *testing.T) {
 			"paths:\n" +
 			"  mypath:\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		tracks := gortsplib.Tracks{
 			&gortsplib.TrackH264{
@@ -242,7 +242,7 @@ func TestAPIPathsList(t *testing.T) {
 			"paths:\n" +
 			"  mypath:\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		tracks := gortsplib.Tracks{
 			&gortsplib.TrackH264{
@@ -291,7 +291,7 @@ func TestAPIPathsList(t *testing.T) {
 			"    source: rtsp://127.0.0.1:1234/mypath\n" +
 			"    sourceOnDemand: yes\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		var out pathList
 		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
@@ -316,7 +316,7 @@ func TestAPIPathsList(t *testing.T) {
 			"    source: rtmp://127.0.0.1:1234/mypath\n" +
 			"    sourceOnDemand: yes\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		var out pathList
 		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
@@ -341,7 +341,7 @@ func TestAPIPathsList(t *testing.T) {
 			"    source: http://127.0.0.1:1234/mypath\n" +
 			"    sourceOnDemand: yes\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		var out pathList
 		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
@@ -397,7 +397,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
-			defer p.close()
+			defer p.Close()
 
 			track := &gortsplib.TrackH264{
 				PayloadType: 96,
@@ -561,7 +561,7 @@ func TestAPIKick(t *testing.T) {
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
-			defer p.close()
+			defer p.Close()
 
 			track := &gortsplib.TrackH264{
 				PayloadType: 96,
@@ -589,16 +589,29 @@ func TestAPIKick(t *testing.T) {
 				defer source.Close()
 
 			case "rtmp":
-				cnt1, err := newContainer("ffmpeg", "source", []string{
-					"-re",
-					"-stream_loop", "-1",
-					"-i", "emptyvideo.mkv",
-					"-c", "copy",
-					"-f", "flv",
-					"rtmp://localhost:1935/test1/test2",
-				})
+				u, err := url.Parse("rtmp://localhost:1935/mypath")
 				require.NoError(t, err)
-				defer cnt1.close()
+
+				nconn, err := net.Dial("tcp", u.Host)
+				require.NoError(t, err)
+				defer nconn.Close()
+				conn := rtmp.NewConn(nconn)
+
+				err = conn.InitializeClient(u, true)
+				require.NoError(t, err)
+
+				videoTrack := &gortsplib.TrackH264{
+					PayloadType: 96,
+					SPS: []byte{ // 1920x1080 baseline
+						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+					},
+					PPS: []byte{0x08, 0x06, 0x07, 0x08},
+				}
+
+				err = conn.WriteTracks(videoTrack, nil)
+				require.NoError(t, err)
 			}
 
 			var pa string

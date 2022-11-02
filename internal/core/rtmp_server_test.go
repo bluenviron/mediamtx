@@ -29,7 +29,7 @@ func TestRTMPServerPublishRead(t *testing.T) {
 					"paths:\n" +
 					"  all:\n")
 				require.Equal(t, true, ok)
-				defer p.close()
+				defer p.Close()
 			} else {
 				port = "1936"
 
@@ -49,7 +49,7 @@ func TestRTMPServerPublishRead(t *testing.T) {
 					"paths:\n" +
 					"  all:\n")
 				require.Equal(t, true, ok)
-				defer p.close()
+				defer p.Close()
 			}
 
 			u, err := url.Parse("rtmp://127.0.0.1:" + port + "/mystream")
@@ -169,7 +169,7 @@ func TestRTMPServerAuth(t *testing.T) {
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
-			defer p.close()
+			defer p.Close()
 
 			var a *testHTTPAuthenticator
 			if ca == "external" {
@@ -239,7 +239,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			"    publishUser: testuser2\n" +
 			"    publishPass: testpass\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser&pass=testpass")
 		require.NoError(t, err)
@@ -289,7 +289,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			"paths:\n" +
 			"  all:\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		a, err := newTestHTTPAuthenticator("publish")
 		require.NoError(t, err)
@@ -346,7 +346,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			"    readUser: testuser2\n" +
 			"    readPass: testpass\n")
 		require.Equal(t, true, ok)
-		defer p.close()
+		defer p.Close()
 
 		u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream")
 		require.NoError(t, err)
