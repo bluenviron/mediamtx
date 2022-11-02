@@ -1,14 +1,19 @@
 package core
 
 import (
+	"bytes"
 	"crypto/tls"
+	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/pkg/conn"
+	"github.com/aler9/gortsplib/pkg/headers"
 	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/pion/rtp"
@@ -237,11 +242,9 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 }
 
 func TestRTSPSourceDynamicH264Params(t *testing.T) {
-	track := &gortsplib.TrackH264{
+	stream := gortsplib.NewServerStream(gortsplib.Tracks{&gortsplib.TrackH264{
 		PayloadType: 96,
-	}
-
-	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+	}})
 	defer stream.Close()
 
 	s := gortsplib.Server{
@@ -339,4 +342,346 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 		require.Equal(t, []byte{7, 4, 5, 6}, h264Track.SafeSPS())
 		require.Equal(t, []byte{8, 1}, h264Track.SafePPS())
 	}()
+}
+
+func TestRTSPSourceRemovePadding(t *testing.T) {
+	stream := gortsplib.NewServerStream(gortsplib.Tracks{&gortsplib.TrackH264{
+		PayloadType: 96,
+	}})
+	defer stream.Close()
+
+	s := gortsplib.Server{
+		Handler: &testServer{
+			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, nil
+			},
+		},
+		RTSPAddress: "127.0.0.1:8555",
+	}
+	err := s.Start()
+	require.NoError(t, err)
+	defer s.Wait()
+	defer s.Close()
+
+	p, ok := newInstance("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
+		"paths:\n" +
+		"  proxied:\n" +
+		"    source: rtsp://127.0.0.1:8555/teststream\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	time.Sleep(1 * time.Second)
+
+	packetRecv := make(chan struct{})
+
+	c := gortsplib.Client{
+		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+			require.Equal(t, &rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+					CSRC:           []uint32{},
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			}, ctx.Packet)
+			close(packetRecv)
+		},
+	}
+
+	u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
+	require.NoError(t, err)
+
+	err = c.Start(u.Scheme, u.Host)
+	require.NoError(t, err)
+	defer c.Close()
+
+	tracks, baseURL, _, err := c.Describe(u)
+	require.NoError(t, err)
+
+	err = c.SetupAndPlay(tracks, baseURL)
+	require.NoError(t, err)
+
+	stream.WritePacketRTP(0, &rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 123,
+			Timestamp:      45343,
+			SSRC:           563423,
+			Padding:        true,
+		},
+		Payload:     []byte{0x01, 0x02, 0x03, 0x04},
+		PaddingSize: 20,
+	}, true)
+
+	<-packetRecv
+}
+
+func TestRTSPSourceOversizedPackets(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:8555")
+	require.NoError(t, err)
+	defer l.Close()
+
+	connected := make(chan struct{})
+
+	serverDone := make(chan struct{})
+	defer func() { <-serverDone }()
+	go func() {
+		defer close(serverDone)
+
+		nconn, err := l.Accept()
+		require.NoError(t, err)
+		defer nconn.Close()
+		conn := conn.NewConn(nconn)
+
+		req, err := conn.ReadRequest()
+		require.NoError(t, err)
+		require.Equal(t, base.Options, req.Method)
+
+		err = conn.WriteResponse(&base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Public": base.HeaderValue{strings.Join([]string{
+					string(base.Describe),
+					string(base.Setup),
+					string(base.Play),
+				}, ", ")},
+			},
+		})
+		require.NoError(t, err)
+
+		req, err = conn.ReadRequest()
+		require.NoError(t, err)
+		require.Equal(t, base.Describe, req.Method)
+
+		tracks := gortsplib.Tracks{&gortsplib.TrackH264{
+			PayloadType: 96,
+			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		}}
+
+		err = conn.WriteResponse(&base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Content-Type": base.HeaderValue{"application/sdp"},
+			},
+			Body: tracks.Marshal(false),
+		})
+		require.NoError(t, err)
+
+		req, err = conn.ReadRequest()
+		require.NoError(t, err)
+		require.Equal(t, base.Setup, req.Method)
+
+		var inTH headers.Transport
+		err = inTH.Unmarshal(req.Header["Transport"])
+		require.NoError(t, err)
+
+		err = conn.WriteResponse(&base.Response{
+			StatusCode: base.StatusOK,
+			Header: base.Header{
+				"Transport": headers.Transport{
+					Delivery: func() *headers.TransportDelivery {
+						v := headers.TransportDeliveryUnicast
+						return &v
+					}(),
+					Protocol:       headers.TransportProtocolTCP,
+					InterleavedIDs: inTH.InterleavedIDs,
+				}.Marshal(),
+			},
+		})
+		require.NoError(t, err)
+
+		req, err = conn.ReadRequest()
+		require.NoError(t, err)
+		require.Equal(t, base.Play, req.Method)
+
+		err = conn.WriteResponse(&base.Response{
+			StatusCode: base.StatusOK,
+		})
+		require.NoError(t, err)
+
+		<-connected
+
+		byts, _ := rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Padding:        true,
+			},
+			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		}.Marshal()
+		err = conn.WriteInterleavedFrame(&base.InterleavedFrame{
+			Channel: 0,
+			Payload: byts,
+		}, make([]byte, 1024))
+		require.NoError(t, err)
+
+		byts, _ = rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 124,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Padding:        true,
+			},
+			Payload: bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 2000/4),
+		}.Marshal()
+		err = conn.WriteInterleavedFrame(&base.InterleavedFrame{
+			Channel: 0,
+			Payload: byts,
+		}, make([]byte, 2048))
+		require.NoError(t, err)
+
+		byts, _ = rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 125,
+				Timestamp:      45343,
+				SSRC:           563423,
+				Padding:        true,
+			},
+			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		}.Marshal()
+		err = conn.WriteInterleavedFrame(&base.InterleavedFrame{
+			Channel: 0,
+			Payload: byts,
+		}, make([]byte, 1024))
+		require.NoError(t, err)
+
+		req, err = conn.ReadRequest()
+		require.NoError(t, err)
+		require.Equal(t, base.Teardown, req.Method)
+
+		err = conn.WriteResponse(&base.Response{
+			StatusCode: base.StatusOK,
+		})
+		require.NoError(t, err)
+	}()
+
+	p, ok := newInstance("rtmpDisable: yes\n" +
+		"hlsDisable: yes\n" +
+		"paths:\n" +
+		"  proxied:\n" +
+		"    source: rtsp://127.0.0.1:8555/teststream\n" +
+		"    sourceProtocol: tcp\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	time.Sleep(1 * time.Second)
+
+	packetRecv := make(chan struct{})
+	i := 0
+
+	c := gortsplib.Client{
+		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
+			switch i {
+			case 0:
+				require.Equal(t, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 123,
+						Timestamp:      45343,
+						SSRC:           563423,
+						CSRC:           []uint32{},
+					},
+					Payload: []byte{0x01, 0x02, 0x03, 0x04},
+				}, ctx.Packet)
+
+			case 1:
+				require.Equal(t, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         false,
+						PayloadType:    96,
+						SequenceNumber: 124,
+						Timestamp:      45343,
+						SSRC:           563423,
+						CSRC:           []uint32{},
+					},
+					Payload: append(
+						append([]byte{0x1c, 0x81, 0x02, 0x03, 0x04}, bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 363)...),
+						[]byte{0x01, 0x02, 0x03}...,
+					),
+				}, ctx.Packet)
+
+			case 2:
+				require.Equal(t, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 125,
+						Timestamp:      45343,
+						SSRC:           563423,
+						CSRC:           []uint32{},
+					},
+					Payload: append(
+						[]byte{0x1c, 0x41, 0x04},
+						bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 135)...,
+					),
+				}, ctx.Packet)
+
+			case 3:
+				require.Equal(t, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 126,
+						Timestamp:      45343,
+						SSRC:           563423,
+						CSRC:           []uint32{},
+					},
+					Payload: []byte{0x01, 0x02, 0x03, 0x04},
+				}, ctx.Packet)
+				close(packetRecv)
+			}
+			i++
+		},
+	}
+
+	u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
+	require.NoError(t, err)
+
+	err = c.Start(u.Scheme, u.Host)
+	require.NoError(t, err)
+	defer c.Close()
+
+	tracks, baseURL, _, err := c.Describe(u)
+	require.NoError(t, err)
+
+	err = c.SetupAndPlay(tracks, baseURL)
+	require.NoError(t, err)
+
+	close(connected)
+	<-packetRecv
 }
