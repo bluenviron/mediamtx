@@ -327,7 +327,11 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
-	var videoInitialPTS *time.Duration
+	videoStartPTSFilled := false
+	var videoStartPTS time.Duration
+	audioStartPTSFilled := false
+	var audioStartPTS time.Duration
+
 	videoFirstIDRFound := false
 	var videoStartDTS time.Duration
 	var videoDTSExtractor *h264.DTSExtractor
@@ -346,15 +350,11 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				continue
 			}
 
-			// video is decoded in another routine,
-			// while audio is decoded in this routine:
-			// we have to sync their PTS.
-			if videoInitialPTS == nil {
-				v := tdata.pts
-				videoInitialPTS = &v
+			if !videoStartPTSFilled {
+				videoStartPTSFilled = true
+				videoStartPTS = tdata.pts
 			}
-
-			pts := tdata.pts - *videoInitialPTS
+			pts := tdata.pts - videoStartPTS
 
 			idrPresent := false
 			nonIDRPresent := false
@@ -430,14 +430,21 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				continue
 			}
 
-			if videoTrack != nil && !videoFirstIDRFound {
-				continue
+			if !audioStartPTSFilled {
+				audioStartPTSFilled = true
+				audioStartPTS = tdata.pts
 			}
+			pts := tdata.pts - audioStartPTS
 
-			pts := tdata.pts
-			pts -= videoStartDTS
-			if pts < 0 {
-				continue
+			if videoTrack != nil {
+				if !videoFirstIDRFound {
+					continue
+				}
+
+				pts -= videoStartDTS
+				if pts < 0 {
+					continue
+				}
 			}
 
 			for i, au := range tdata.aus {

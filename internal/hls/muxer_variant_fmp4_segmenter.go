@@ -213,7 +213,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(
 	}
 
 	// put samples into a queue in order to
-	// - allow to compute sample duration
+	// - compute sample duration
 	// - check if next sample is IDR
 	sample, m.nextVideoSample = m.nextVideoSample, sample
 	if sample == nil {
@@ -290,6 +290,9 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, a
 		}
 
 		dts -= m.startDTS
+		if dts < 0 {
+			return nil
+		}
 	}
 
 	sample := &augmentedAudioSample{
@@ -299,8 +302,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, a
 		dts: dts,
 	}
 
-	// put samples into a queue in order to
-	// allow to compute the sample duration
+	// put samples into a queue in order to compute the sample duration
 	sample, m.nextAudioSample = m.nextAudioSample, sample
 	if sample == nil {
 		return nil
