@@ -152,8 +152,6 @@ func (s *rtspSource) run(ctx context.Context) error {
 						trackID:      ctx.TrackID,
 						rtpPackets:   []*rtp.Packet{ctx.Packet},
 						ptsEqualsDTS: ctx.PTSEqualsDTS,
-						pts:          ctx.H264PTS,
-						nalus:        ctx.H264NALUs,
 					})
 
 				case *gortsplib.TrackMPEG4Audio:
