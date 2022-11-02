@@ -37,7 +37,7 @@ func TestPartMarshal(t *testing.T) {
 				0x00, 0x00, 0x00, 0x01,
 				0x01, // non-IDR
 			},
-			Flags: 1 << 16,
+			IsNonSyncSample: true,
 		},
 		{
 			Duration: 1 * 90000,
@@ -45,7 +45,7 @@ func TestPartMarshal(t *testing.T) {
 				0x00, 0x00, 0x00, 0x01,
 				0x01, // non-IDR
 			},
-			Flags: 1 << 16,
+			IsNonSyncSample: true,
 		},
 	}
 
@@ -214,7 +214,7 @@ func TestPartUnmarshal(t *testing.T) {
 							0x00, 0x00, 0x00, 0x01,
 							0x01, // non-IDR
 						},
-						Flags: 1 << 16,
+						IsNonSyncSample: true,
 					},
 					{
 						Duration: 1 * 90000,
@@ -222,7 +222,7 @@ func TestPartUnmarshal(t *testing.T) {
 							0x00, 0x00, 0x00, 0x01,
 							0x01, // non-IDR
 						},
-						Flags: 1 << 16,
+						IsNonSyncSample: true,
 					},
 				},
 			},

@@ -6,10 +6,10 @@ import (
 
 // PartSample is a sample of a PartTrack.
 type PartSample struct {
-	Duration  uint32
-	PTSOffset int32
-	Flags     uint32
-	Payload   []byte
+	Duration        uint32
+	PTSOffset       int32
+	IsNonSyncSample bool
+	Payload         []byte
 }
 
 // PartTrack is a track of Part.
@@ -78,10 +78,15 @@ func (pt *PartTrack) marshal(w *mp4Writer) (*gomp4.Trun, int, error) {
 
 	for _, sample := range pt.Samples {
 		if pt.IsVideo {
+			var flags uint32
+			if sample.IsNonSyncSample {
+				flags |= sampleFlagIsNonSyncSample
+			}
+
 			trun.Entries = append(trun.Entries, gomp4.TrunEntry{
 				SampleDuration:                sample.Duration,
 				SampleSize:                    uint32(len(sample.Payload)),
-				SampleFlags:                   sample.Flags,
+				SampleFlags:                   flags,
 				SampleCompositionTimeOffsetV1: sample.PTSOffset,
 			})
 		} else {

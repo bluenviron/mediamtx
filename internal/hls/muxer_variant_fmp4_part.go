@@ -123,7 +123,7 @@ func (p *muxerVariantFMP4Part) writeH264(sample *augmentedVideoSample) {
 		p.videoStartDTS = sample.dts
 	}
 
-	if (sample.Flags & (1 << 16)) == 0 {
+	if !sample.IsNonSyncSample {
 		p.isIndependent = true
 	}
 

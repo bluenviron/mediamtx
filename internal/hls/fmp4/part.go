@@ -13,6 +13,8 @@ const (
 	trunFlagSampleSizePresent                      = 0x200
 	trunFlagSampleFlagsPresent                     = 0x400
 	trunFlagSampleCompositionTimeOffsetPresentOrV1 = 0x800
+
+	sampleFlagIsNonSyncSample = 1 << 16
 )
 
 // Part is a FMP4 part file.
@@ -111,8 +113,8 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 			}
 			trun := box.(*gomp4.Trun)
 
-			flags := uint16(trun.Flags[1])<<8 | uint16(trun.Flags[2])
-			if (flags & trunFlagDataOffsetPreset) == 0 {
+			trunFlags := uint16(trun.Flags[1])<<8 | uint16(trun.Flags[2])
+			if (trunFlags & trunFlagDataOffsetPreset) == 0 {
 				return nil, fmt.Errorf("unsupported flags")
 			}
 
@@ -126,7 +128,7 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 			for i, e := range trun.Entries {
 				s := &PartSample{}
 
-				if (flags & trunFlagSampleDurationPresent) != 0 {
+				if (trunFlags & trunFlagSampleDurationPresent) != 0 {
 					s.Duration = e.SampleDuration
 				} else {
 					s.Duration = tfhd.DefaultSampleDuration
@@ -134,14 +136,16 @@ func (ps *Parts) Unmarshal(byts []byte) error {
 
 				s.PTSOffset = e.SampleCompositionTimeOffsetV1
 
-				if (flags & trunFlagSampleFlagsPresent) != 0 {
-					s.Flags = e.SampleFlags
+				var sampleFlags uint32
+				if (trunFlags & trunFlagSampleFlagsPresent) != 0 {
+					sampleFlags = e.SampleFlags
 				} else {
-					s.Flags = tfhd.DefaultSampleFlags
+					sampleFlags = tfhd.DefaultSampleFlags
 				}
+				s.IsNonSyncSample = ((sampleFlags & sampleFlagIsNonSyncSample) != 0)
 
 				var size uint32
-				if (flags & trunFlagSampleSizePresent) != 0 {
+				if (trunFlags & trunFlagSampleSizePresent) != 0 {
 					size = e.SampleSize
 				} else {
 					size = tfhd.DefaultSampleSize

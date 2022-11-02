@@ -203,16 +203,11 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(
 		return err
 	}
 
-	var flags uint32
-	if !idrPresent {
-		flags |= 1 << 16
-	}
-
 	sample := &augmentedVideoSample{
 		PartSample: fmp4.PartSample{
-			PTSOffset: int32(durationGoToMp4(pts-dts, 90000)),
-			Flags:     flags,
-			Payload:   avcc,
+			PTSOffset:       int32(durationGoToMp4(pts-dts, 90000)),
+			IsNonSyncSample: !idrPresent,
+			Payload:         avcc,
 		},
 		dts: dts,
 	}
