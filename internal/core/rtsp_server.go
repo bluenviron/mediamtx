@@ -272,10 +272,10 @@ func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 		s.pathManager,
 		ctx.Conn,
 		s)
-
 	s.mutex.Lock()
 	s.conns[ctx.Conn] = c
 	s.mutex.Unlock()
+	ctx.Conn.SetUserData(c)
 }
 
 // OnConnClose implements gortsplib.ServerHandlerOnConnClose.
@@ -284,34 +284,25 @@ func (s *rtspServer) OnConnClose(ctx *gortsplib.ServerHandlerOnConnCloseCtx) {
 	c := s.conns[ctx.Conn]
 	delete(s.conns, ctx.Conn)
 	s.mutex.Unlock()
-
 	c.onClose(ctx.Error)
 }
 
 // OnRequest implements gortsplib.ServerHandlerOnRequest.
 func (s *rtspServer) OnRequest(sc *gortsplib.ServerConn, req *base.Request) {
-	s.mutex.Lock()
-	c := s.conns[sc]
-	s.mutex.Unlock()
-
+	c := sc.UserData().(*rtspConn)
 	c.onRequest(req)
 }
 
 // OnResponse implements gortsplib.ServerHandlerOnResponse.
 func (s *rtspServer) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
-	s.mutex.Lock()
-	c := s.conns[sc]
-	s.mutex.Unlock()
-
+	c := sc.UserData().(*rtspConn)
 	c.OnResponse(res)
 }
 
 // OnSessionOpen implements gortsplib.ServerHandlerOnSessionOpen.
 func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
 	s.mutex.Lock()
-
 	id, _ := s.newSessionID()
-
 	se := newRTSPSession(
 		s.isTLS,
 		s.protocols,
@@ -321,9 +312,9 @@ func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx)
 		s.externalCmdPool,
 		s.pathManager,
 		s)
-
 	s.sessions[ctx.Session] = se
 	s.mutex.Unlock()
+	ctx.Session.SetUserData(se)
 }
 
 // OnSessionClose implements gortsplib.ServerHandlerOnSessionClose.
@@ -341,67 +332,51 @@ func (s *rtspServer) OnSessionClose(ctx *gortsplib.ServerHandlerOnSessionCloseCt
 // OnDescribe implements gortsplib.ServerHandlerOnDescribe.
 func (s *rtspServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
-	s.mutex.RLock()
-	c := s.conns[ctx.Conn]
-	s.mutex.RUnlock()
+	c := ctx.Conn.UserData().(*rtspConn)
 	return c.onDescribe(ctx)
 }
 
 // OnAnnounce implements gortsplib.ServerHandlerOnAnnounce.
 func (s *rtspServer) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
-	s.mutex.RLock()
-	c := s.conns[ctx.Conn]
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	c := ctx.Conn.UserData().(*rtspConn)
+	se := ctx.Session.UserData().(*rtspSession)
 	return se.onAnnounce(c, ctx)
 }
 
 // OnSetup implements gortsplib.ServerHandlerOnSetup.
 func (s *rtspServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-	s.mutex.RLock()
-	c := s.conns[ctx.Conn]
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	c := ctx.Conn.UserData().(*rtspConn)
+	se := ctx.Session.UserData().(*rtspSession)
 	return se.onSetup(c, ctx)
 }
 
 // OnPlay implements gortsplib.ServerHandlerOnPlay.
 func (s *rtspServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-	s.mutex.RLock()
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	se := ctx.Session.UserData().(*rtspSession)
 	return se.onPlay(ctx)
 }
 
 // OnRecord implements gortsplib.ServerHandlerOnRecord.
 func (s *rtspServer) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	s.mutex.RLock()
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	se := ctx.Session.UserData().(*rtspSession)
 	return se.onRecord(ctx)
 }
 
 // OnPause implements gortsplib.ServerHandlerOnPause.
 func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
-	s.mutex.RLock()
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	se := ctx.Session.UserData().(*rtspSession)
 	return se.onPause(ctx)
 }
 
 // OnPacketRTP implements gortsplib.ServerHandlerOnPacketRTP.
 func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
-	s.mutex.RLock()
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	se := ctx.Session.UserData().(*rtspSession)
 	se.onPacketRTP(ctx)
 }
 
 // OnDecodeError implements gortsplib.ServerHandlerOnOnDecodeError.
 func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
-	s.mutex.RLock()
-	se := s.sessions[ctx.Session]
-	s.mutex.RUnlock()
+	se := ctx.Session.UserData().(*rtspSession)
 	se.onDecodeError(ctx)
 }
 
