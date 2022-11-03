@@ -325,6 +325,6 @@ void encoder_encode(encoder_t *enc, int buffer_fd, size_t size, int64_t timestam
     int res = ioctl(encp->fd, VIDIOC_QBUF, &buf);
     if (res != 0) {
         fprintf(stderr, "encoder_encode(): ioctl(VIDIOC_QBUF) failed\n");
-        exit(1);
+        // it happens when the raspberry is under pressure. do not exit.
     }
 }
