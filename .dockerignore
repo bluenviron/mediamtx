@@ -1,6 +1,5 @@
 # do not add .git, since it is needed to extract the tag
 
 /tmp
-/binaries
 /coverage*.txt
 /apidocs/*.html

@@ -525,25 +525,35 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 ### From a Raspberry Pi Camera
 
-_rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. To make the video stream of a Raspberry Pi Camera available on the server:
+_rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requisites:
 
-1. The server must be installed on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system, and must be installed by using the standard method (Docker is not actually supported). If you're using the 64-bit version of the operative system, you need to pick the `arm64` variant of the server.
+1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system.
 
-2. Make sure that the legacy camera stack is disabled. Type:
+2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
-   ```
-   sudo raspi-config
-   ```
+3. Make sure that the `libcamera` version is at least `0.0.1`, otherwise upgrade it with `sudo apt upgrade`.
 
-   Then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
-
-3. edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+If you want to run the standard (non-dockerized) version of the server, just download the server executable and make sure to pick the `arm64` variant if you're using the 64-bit version of the operative system. Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
    ```yml
    paths:
      cam:
        source: rpiCamera
    ```
+
+If you want to run the server with Docker, you need to use the `--privileged` flag and expose some folders:
+
+```
+docker run --rm -it \
+--network=host \
+--privileged \
+--tmpfs /dev/shm:exec \
+-v /usr:/usr:ro \
+-v /lib:/lib:ro \
+-v /run/udev:/run/udev:ro \
+-e RTSP_PATHS_CAM_SOURCE=rpiCamera \
+aler9/rtsp-simple-server
+```
 
 After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.
 

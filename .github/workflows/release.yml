@@ -66,6 +66,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - run: make binaries
+
     - run: make dockerhub
       env:
         DOCKER_USER: ${{ secrets.DOCKER_USER }}
