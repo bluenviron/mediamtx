@@ -39,13 +39,12 @@ type rtspSession struct {
 	pathManager     rtspSessionPathManager
 	parent          rtspSessionParent
 
-	created         time.Time
-	path            *path
-	stream          *stream
-	state           gortsplib.ServerSessionState
-	stateMutex      sync.Mutex
-	onReadCmd       *externalcmd.Cmd // read
-	announcedTracks gortsplib.Tracks // publish
+	created    time.Time
+	path       *path
+	stream     *stream
+	state      gortsplib.ServerSessionState
+	stateMutex sync.Mutex
+	onReadCmd  *externalcmd.Cmd // read
 }
 
 func newRTSPSession(
@@ -155,7 +154,6 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	}
 
 	s.path = res.path
-	s.announcedTracks = ctx.Tracks
 
 	s.stateMutex.Lock()
 	s.state = gortsplib.ServerSessionStatePreRecord
@@ -289,7 +287,7 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	res := s.path.publisherStart(pathPublisherStartReq{
 		author:             s,
-		tracks:             s.announcedTracks,
+		tracks:             s.ss.AnnouncedTracks(),
 		generateRTPPackets: false,
 	})
 	if res.err != nil {
@@ -301,7 +299,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 	s.log(logger.Info, "is publishing to path '%s', with %s, %s",
 		s.path.Name(),
 		s.ss.SetuppedTransport(),
-		sourceTrackInfo(s.announcedTracks))
+		sourceTrackInfo(s.ss.AnnouncedTracks()))
 
 	s.stream = res.stream
 
@@ -381,7 +379,7 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	var err error
 
-	switch s.announcedTracks[ctx.TrackID].(type) {
+	switch s.ss.AnnouncedTracks()[ctx.TrackID].(type) {
 	case *gortsplib.TrackH264:
 		err = s.stream.writeData(&dataH264{
 			trackID:      ctx.TrackID,
