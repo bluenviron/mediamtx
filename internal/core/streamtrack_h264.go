@@ -214,6 +214,9 @@ func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
 
 			nalus, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
+				if err == rtph264.ErrNonStartingPacketAndNoPrevious || err == rtph264.ErrMorePacketsNeeded {
+					return nil
+				}
 				return err
 			}
 

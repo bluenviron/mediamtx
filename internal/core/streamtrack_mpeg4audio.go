@@ -74,6 +74,9 @@ func (t *streamTrackMPEG4Audio) onData(dat data, hasNonRTSPReaders bool) error {
 
 			aus, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
+				if err == rtpmpeg4audio.ErrMorePacketsNeeded {
+					return nil
+				}
 				return err
 			}
 
