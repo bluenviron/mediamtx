@@ -562,6 +562,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					trackID: videoTrackID,
 					pts:     tmsg.DTS + tmsg.PTSDelta,
 					nalus:   nalus,
+					ntp:     time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)
@@ -600,6 +601,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					trackID: videoTrackID,
 					pts:     tmsg.DTS + tmsg.PTSDelta,
 					nalus:   validNALUs,
+					ntp:     time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)
@@ -616,6 +618,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					trackID: audioTrackID,
 					pts:     tmsg.DTS,
 					aus:     [][]byte{tmsg.Payload},
+					ntp:     time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)

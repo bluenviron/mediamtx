@@ -56,7 +56,7 @@ func (m *muxerVariantMPEGTSSegmenter) genSegmentID() uint64 {
 	return id
 }
 
-func (m *muxerVariantMPEGTSSegmenter) writeH264(now time.Time, pts time.Duration, nalus [][]byte) error {
+func (m *muxerVariantMPEGTSSegmenter) writeH264(ntp time.Time, pts time.Duration, nalus [][]byte) error {
 	idrPresent := false
 	nonIDRPresent := false
 
@@ -87,7 +87,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(now time.Time, pts time.Duration
 			return err
 		}
 
-		m.startPCR = now
+		m.startPCR = ntp
 		m.startDTS = dts
 		dts = 0
 		pts -= m.startDTS
@@ -95,7 +95,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(now time.Time, pts time.Duration
 		// create first segment
 		m.currentSegment = newMuxerVariantMPEGTSSegment(
 			m.genSegmentID(),
-			now,
+			ntp,
 			m.segmentMaxSize,
 			m.videoTrack,
 			m.audioTrack,
@@ -121,7 +121,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(now time.Time, pts time.Duration
 			m.onSegmentReady(m.currentSegment)
 			m.currentSegment = newMuxerVariantMPEGTSSegment(
 				m.genSegmentID(),
-				now,
+				ntp,
 				m.segmentMaxSize,
 				m.videoTrack,
 				m.audioTrack,
@@ -130,7 +130,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(now time.Time, pts time.Duration
 	}
 
 	err := m.currentSegment.writeH264(
-		now.Sub(m.startPCR),
+		ntp.Sub(m.startPCR),
 		dts,
 		pts,
 		idrPresent,
@@ -142,17 +142,17 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(now time.Time, pts time.Duration
 	return nil
 }
 
-func (m *muxerVariantMPEGTSSegmenter) writeAAC(now time.Time, pts time.Duration, au []byte) error {
+func (m *muxerVariantMPEGTSSegmenter) writeAAC(ntp time.Time, pts time.Duration, au []byte) error {
 	if m.videoTrack == nil {
 		if m.currentSegment == nil {
-			m.startPCR = now
+			m.startPCR = ntp
 			m.startDTS = pts
 			pts = 0
 
 			// create first segment
 			m.currentSegment = newMuxerVariantMPEGTSSegment(
 				m.genSegmentID(),
-				now,
+				ntp,
 				m.segmentMaxSize,
 				m.videoTrack,
 				m.audioTrack,
@@ -167,7 +167,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeAAC(now time.Time, pts time.Duration,
 				m.onSegmentReady(m.currentSegment)
 				m.currentSegment = newMuxerVariantMPEGTSSegment(
 					m.genSegmentID(),
-					now,
+					ntp,
 					m.segmentMaxSize,
 					m.videoTrack,
 					m.audioTrack,
@@ -183,7 +183,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeAAC(now time.Time, pts time.Duration,
 		pts -= m.startDTS
 	}
 
-	err := m.currentSegment.writeAAC(now.Sub(m.startPCR), pts, au)
+	err := m.currentSegment.writeAAC(ntp.Sub(m.startPCR), pts, au)
 	if err != nil {
 		return err
 	}

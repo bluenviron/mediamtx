@@ -48,11 +48,13 @@ func findCompatiblePartDuration(
 type augmentedVideoSample struct {
 	fmp4.PartSample
 	dts time.Duration
+	ntp time.Time
 }
 
 type augmentedAudioSample struct {
 	fmp4.PartSample
 	dts time.Duration
+	ntp time.Time
 }
 
 type muxerVariantFMP4Segmenter struct {
@@ -138,7 +140,7 @@ func (m *muxerVariantFMP4Segmenter) adjustPartDuration(du time.Duration) {
 	}
 }
 
-func (m *muxerVariantFMP4Segmenter) writeH264(now time.Time, pts time.Duration, nalus [][]byte) error {
+func (m *muxerVariantFMP4Segmenter) writeH264(ntp time.Time, pts time.Duration, nalus [][]byte) error {
 	idrPresent := false
 	nonIDRPresent := false
 
@@ -157,11 +159,11 @@ func (m *muxerVariantFMP4Segmenter) writeH264(now time.Time, pts time.Duration, 
 		return nil
 	}
 
-	return m.writeH264Entry(now, pts, nalus, idrPresent)
+	return m.writeH264Entry(ntp, pts, nalus, idrPresent)
 }
 
 func (m *muxerVariantFMP4Segmenter) writeH264Entry(
-	now time.Time,
+	ntp time.Time,
 	pts time.Duration,
 	nalus [][]byte,
 	idrPresent bool,
@@ -210,6 +212,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(
 			Payload:         avcc,
 		},
 		dts: dts,
+		ntp: ntp,
 	}
 
 	// put samples into a queue in order to
@@ -226,7 +229,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(
 		m.currentSegment = newMuxerVariantFMP4Segment(
 			m.lowLatency,
 			m.genSegmentID(),
-			now,
+			sample.ntp,
 			sample.dts,
 			m.segmentMaxSize,
 			m.videoTrack,
@@ -261,7 +264,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(
 			m.currentSegment = newMuxerVariantFMP4Segment(
 				m.lowLatency,
 				m.genSegmentID(),
-				now,
+				m.nextVideoSample.ntp,
 				m.nextVideoSample.dts,
 				m.segmentMaxSize,
 				m.videoTrack,
@@ -282,7 +285,7 @@ func (m *muxerVariantFMP4Segmenter) writeH264Entry(
 	return nil
 }
 
-func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, au []byte) error {
+func (m *muxerVariantFMP4Segmenter) writeAAC(ntp time.Time, dts time.Duration, au []byte) error {
 	if m.videoTrack != nil {
 		// wait for the video track
 		if !m.videoFirstIDRReceived {
@@ -300,6 +303,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, a
 			Payload: au,
 		},
 		dts: dts,
+		ntp: ntp,
 	}
 
 	// put samples into a queue in order to compute the sample duration
@@ -315,7 +319,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, a
 			m.currentSegment = newMuxerVariantFMP4Segment(
 				m.lowLatency,
 				m.genSegmentID(),
-				now,
+				sample.ntp,
 				sample.dts,
 				m.segmentMaxSize,
 				m.videoTrack,
@@ -350,7 +354,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(now time.Time, dts time.Duration, a
 		m.currentSegment = newMuxerVariantFMP4Segment(
 			m.lowLatency,
 			m.genSegmentID(),
-			now,
+			m.nextAudioSample.ntp,
 			m.nextAudioSample.dts,
 			m.segmentMaxSize,
 			m.videoTrack,
