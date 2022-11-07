@@ -23,7 +23,7 @@ jobs:
         go mod tidy
         git diff --exit-code
 
-  github:
+  make_binaries:
     needs: check_gortsplib
     runs-on: ubuntu-20.04
 
@@ -31,6 +31,23 @@ jobs:
     - uses: actions/checkout@v2
 
     - run: make binaries
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: binaries
+
+  github:
+    needs: make_binaries
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/download-artifact@v3
+      with:
+        name: binaries
+        path: binaries
 
     - uses: actions/github-script@v6
       with:
@@ -60,13 +77,16 @@ jobs:
           }
 
   dockerhub:
-    needs: check_gortsplib
+    needs: make_binaries
     runs-on: ubuntu-20.04
 
     steps:
     - uses: actions/checkout@v2
 
-    - run: make binaries
+    - uses: actions/download-artifact@v3
+      with:
+        name: binaries
+        path: binaries
 
     - run: make dockerhub
       env:
@@ -74,7 +94,7 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   apidocs:
-    needs: check_gortsplib
+    needs: make_binaries
     runs-on: ubuntu-20.04
 
     steps:
