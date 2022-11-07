@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test64:
     runs-on: ubuntu-20.04
 
     steps:
@@ -24,3 +24,15 @@ jobs:
     - uses: actions/checkout@v2
 
     - run: make test32
+
+  test_highlevel:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - uses: actions/setup-go@v2
+      with:
+        go-version: "1.19"
+
+    - run: make test-highlevel-nodocker
