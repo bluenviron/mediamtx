@@ -87,6 +87,7 @@ type apiPathManager interface {
 }
 
 type apiRTSPServer interface {
+	apiConnsList() rtspServerAPIConnsListRes
 	apiSessionsList() rtspServerAPISessionsListRes
 	apiSessionsKick(string) rtspServerAPISessionsKickRes
 }
@@ -162,11 +163,13 @@ func newAPI(
 	group.GET("/v1/paths/list", a.onPathsList)
 
 	if !interfaceIsEmpty(a.rtspServer) {
+		group.GET("/v1/rtspconns/list", a.onRTSPConnsList)
 		group.GET("/v1/rtspsessions/list", a.onRTSPSessionsList)
 		group.POST("/v1/rtspsessions/kick/:id", a.onRTSPSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtspsServer) {
+		group.GET("/v1/rtspsconns/list", a.onRTSPSConnsList)
 		group.GET("/v1/rtspssessions/list", a.onRTSPSSessionsList)
 		group.POST("/v1/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	}
@@ -391,6 +394,16 @@ func (a *api) onPathsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res.data)
 }
 
+func (a *api) onRTSPConnsList(ctx *gin.Context) {
+	res := a.rtspServer.apiConnsList()
+	if res.err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res.data)
+}
+
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 	res := a.rtspServer.apiSessionsList()
 	if res.err != nil {
@@ -411,6 +424,16 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onRTSPSConnsList(ctx *gin.Context) {
+	res := a.rtspsServer.apiConnsList()
+	if res.err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res.data)
 }
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {

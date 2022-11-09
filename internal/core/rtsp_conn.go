@@ -25,6 +25,7 @@ type rtspConnParent interface {
 }
 
 type rtspConn struct {
+	id                        string
 	externalAuthenticationURL string
 	rtspAddress               string
 	authMethods               []headers.AuthMethod
@@ -36,6 +37,7 @@ type rtspConn struct {
 	conn                      *gortsplib.ServerConn
 	parent                    rtspConnParent
 
+	created       time.Time
 	onConnectCmd  *externalcmd.Cmd
 	authUser      string
 	authPass      string
@@ -44,6 +46,7 @@ type rtspConn struct {
 }
 
 func newRTSPConn(
+	id string,
 	externalAuthenticationURL string,
 	rtspAddress string,
 	authMethods []headers.AuthMethod,
@@ -56,6 +59,7 @@ func newRTSPConn(
 	parent rtspConnParent,
 ) *rtspConn {
 	c := &rtspConn{
+		id:                        id,
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
 		authMethods:               authMethods,
@@ -66,6 +70,7 @@ func newRTSPConn(
 		pathManager:               pathManager,
 		conn:                      conn,
 		parent:                    parent,
+		created:                   time.Now(),
 	}
 
 	c.log(logger.Info, "opened")
@@ -96,6 +101,10 @@ func (c *rtspConn) log(level logger.Level, format string, args ...interface{}) {
 // Conn returns the RTSP connection.
 func (c *rtspConn) Conn() *gortsplib.ServerConn {
 	return c.conn
+}
+
+func (c *rtspConn) remoteAddr() net.Addr {
+	return c.conn.NetConn().RemoteAddr()
 }
 
 func (c *rtspConn) ip() net.IP {

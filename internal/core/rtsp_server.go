@@ -20,6 +20,20 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+type rtspServerAPIConnsListItem struct {
+	Created    time.Time `json:"created"`
+	RemoteAddr string    `json:"remoteAddr"`
+}
+
+type rtspServerAPIConnsListData struct {
+	Items map[string]rtspServerAPIConnsListItem `json:"items"`
+}
+
+type rtspServerAPIConnsListRes struct {
+	data *rtspServerAPIConnsListData
+	err  error
+}
+
 type rtspServerAPISessionsListItem struct {
 	Created    time.Time `json:"created"`
 	RemoteAddr string    `json:"remoteAddr"`
@@ -253,9 +267,40 @@ func (s *rtspServer) newSessionID() (string, error) {
 	}
 }
 
+func (s *rtspServer) newConnID() (string, error) {
+	for {
+		b := make([]byte, 4)
+		_, err := rand.Read(b)
+		if err != nil {
+			return "", err
+		}
+
+		u := uint32(b[3])<<24 | uint32(b[2])<<16 | uint32(b[1])<<8 | uint32(b[0])
+		u %= 899999999
+		u += 100000000
+
+		id := strconv.FormatUint(uint64(u), 10)
+
+		alreadyPresent := func() bool {
+			for _, c := range s.conns {
+				if c.id == id {
+					return true
+				}
+			}
+			return false
+		}()
+		if !alreadyPresent {
+			return id, nil
+		}
+	}
+}
+
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
+	s.mutex.Lock()
+	id, _ := s.newConnID()
 	c := newRTSPConn(
+		id,
 		s.externalAuthenticationURL,
 		s.rtspAddress,
 		s.authMethods,
@@ -266,9 +311,9 @@ func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 		s.pathManager,
 		ctx.Conn,
 		s)
-	s.mutex.Lock()
 	s.conns[ctx.Conn] = c
 	s.mutex.Unlock()
+
 	ctx.Conn.SetUserData(c)
 }
 
@@ -372,6 +417,31 @@ func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
 	se := ctx.Session.UserData().(*rtspSession)
 	se.onDecodeError(ctx)
+}
+
+// apiConnsList is called by api and metrics.
+func (s *rtspServer) apiConnsList() rtspServerAPIConnsListRes {
+	select {
+	case <-s.ctx.Done():
+		return rtspServerAPIConnsListRes{err: fmt.Errorf("terminated")}
+	default:
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	data := &rtspServerAPIConnsListData{
+		Items: make(map[string]rtspServerAPIConnsListItem),
+	}
+
+	for _, c := range s.conns {
+		data.Items[c.id] = rtspServerAPIConnsListItem{
+			Created:    c.created,
+			RemoteAddr: c.remoteAddr().String(),
+		}
+	}
+
+	return rtspServerAPIConnsListRes{data: data}
 }
 
 // apiSessionsList is called by api and metrics.

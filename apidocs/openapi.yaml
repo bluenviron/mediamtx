@@ -375,20 +375,19 @@ components:
           type: string
           enum: [hlsMuxer]
 
-    RTSPSession:
+    RTSPConn:
       type: object
       properties:
         created:
           type: string
         remoteAddr:
           type: string
-        state:
-          type: string
-          enum: [idle, read, publish]
 
-    RTSPSSession:
+    RTSPSession:
       type: object
       properties:
+        created:
+          type: string
         remoteAddr:
           type: string
         state:
@@ -433,6 +432,22 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/Path'
 
+    RTSPConnsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RTSPConn'
+
+    RTSPSConnsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RTSPConn'
+
     RTSPSessionsList:
       type: object
       properties:
@@ -440,14 +455,6 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/RTSPSession'
-
-    RTSPSSessionsList:
-      type: object
-      properties:
-        items:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/RTSPSSession'
 
     RTMPConnsList:
       type: object
@@ -599,6 +606,23 @@ paths:
         '500':
           description: internal server error.
 
+  /v1/rtspconns/list:
+    get:
+      operationId: rtspConnsList
+      summary: returns all active RTSP connections.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RTSPConnsList'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
   /v1/rtspsessions/list:
     get:
       operationId: rtspSessionsList
@@ -611,6 +635,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RTSPSessionsList'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v1/rtspsconns/list:
+    get:
+      operationId: rtspsConnsList
+      summary: returns all active RTSPS connections.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RTSPConnsList'
         '400':
           description: invalid request.
         '500':
@@ -647,7 +688,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSSessionsList'
+                $ref: '#/components/schemas/RTSPSessionsList'
         '400':
           description: invalid request.
         '500':

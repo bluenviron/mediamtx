@@ -370,8 +370,10 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 	defer os.Remove(serverKeyFpath)
 
 	for _, ca := range []string{
-		"rtsp",
-		"rtsps",
+		"rtsp conns",
+		"rtsp sessions",
+		"rtsps conns",
+		"rtsps sessions",
 		"rtmp",
 		"rtmps",
 		"hls",
@@ -380,7 +382,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			conf := "api: yes\n"
 
 			switch ca {
-			case "rtsps":
+			case "rtsps conns", "rtsps sessions":
 				conf += "protocols: [tcp]\n" +
 					"encryption: strict\n" +
 					"serverCert: " + serverCertFpath + "\n" +
@@ -406,7 +408,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			}
 
 			switch ca {
-			case "rtsp":
+			case "rtsp conns", "rtsp sessions":
 				source := gortsplib.Client{}
 
 				err := source.StartPublishing("rtsp://localhost:8554/mypath",
@@ -414,7 +416,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
-			case "rtsps":
+			case "rtsps conns", "rtsps sessions":
 				source := gortsplib.Client{
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
@@ -478,13 +480,19 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			}
 
 			switch ca {
-			case "rtsp", "rtsps", "rtmp", "rtmps":
+			case "rtsp conns", "rtsp sessions", "rtsps conns", "rtsps sessions", "rtmp", "rtmps":
 				var pa string
 				switch ca {
-				case "rtsp":
+				case "rtsp conns":
+					pa = "rtspconns"
+
+				case "rtsp sessions":
 					pa = "rtspsessions"
 
-				case "rtsps":
+				case "rtsps conns":
+					pa = "rtspsconns"
+
+				case "rtsps sessions":
 					pa = "rtspssessions"
 
 				case "rtmp":
@@ -507,7 +515,9 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					firstID = k
 				}
 
-				require.Equal(t, "publish", out.Items[firstID].State)
+				if ca != "rtsp conns" && ca != "rtsps conns" {
+					require.Equal(t, "publish", out.Items[firstID].State)
+				}
 
 			case "hls":
 				var out struct {

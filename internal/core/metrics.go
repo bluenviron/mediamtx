@@ -22,6 +22,7 @@ type metricsPathManager interface {
 }
 
 type metricsRTSPServer interface {
+	apiConnsList() rtspServerAPIConnsListRes
 	apiSessionsList() rtspServerAPISessionsListRes
 }
 
@@ -102,57 +103,75 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
-		res := m.rtspServer.apiSessionsList()
-		if res.err == nil {
-			idleCount := int64(0)
-			readCount := int64(0)
-			publishCount := int64(0)
-
-			for _, i := range res.data.Items {
-				switch i.State {
-				case "idle":
-					idleCount++
-				case "read":
-					readCount++
-				case "publish":
-					publishCount++
-				}
+		func() {
+			res := m.rtspServer.apiConnsList()
+			if res.err == nil {
+				out += metric("rtsp_conns", int64(len(res.data.Items)))
 			}
+		}()
 
-			out += metric("rtsp_sessions{state=\"idle\"}",
-				idleCount)
-			out += metric("rtsp_sessions{state=\"read\"}",
-				readCount)
-			out += metric("rtsp_sessions{state=\"publish\"}",
-				publishCount)
-		}
+		func() {
+			res := m.rtspServer.apiSessionsList()
+			if res.err == nil {
+				idleCount := int64(0)
+				readCount := int64(0)
+				publishCount := int64(0)
+
+				for _, i := range res.data.Items {
+					switch i.State {
+					case "idle":
+						idleCount++
+					case "read":
+						readCount++
+					case "publish":
+						publishCount++
+					}
+				}
+
+				out += metric("rtsp_sessions{state=\"idle\"}",
+					idleCount)
+				out += metric("rtsp_sessions{state=\"read\"}",
+					readCount)
+				out += metric("rtsp_sessions{state=\"publish\"}",
+					publishCount)
+			}
+		}()
 	}
 
 	if !interfaceIsEmpty(m.rtspsServer) {
-		res := m.rtspsServer.apiSessionsList()
-		if res.err == nil {
-			idleCount := int64(0)
-			readCount := int64(0)
-			publishCount := int64(0)
-
-			for _, i := range res.data.Items {
-				switch i.State {
-				case "idle":
-					idleCount++
-				case "read":
-					readCount++
-				case "publish":
-					publishCount++
-				}
+		func() {
+			res := m.rtspsServer.apiConnsList()
+			if res.err == nil {
+				out += metric("rtsps_conns", int64(len(res.data.Items)))
 			}
+		}()
 
-			out += metric("rtsps_sessions{state=\"idle\"}",
-				idleCount)
-			out += metric("rtsps_sessions{state=\"read\"}",
-				readCount)
-			out += metric("rtsps_sessions{state=\"publish\"}",
-				publishCount)
-		}
+		func() {
+			res := m.rtspsServer.apiSessionsList()
+			if res.err == nil {
+				idleCount := int64(0)
+				readCount := int64(0)
+				publishCount := int64(0)
+
+				for _, i := range res.data.Items {
+					switch i.State {
+					case "idle":
+						idleCount++
+					case "read":
+						readCount++
+					case "publish":
+						publishCount++
+					}
+				}
+
+				out += metric("rtsps_sessions{state=\"idle\"}",
+					idleCount)
+				out += metric("rtsps_sessions{state=\"read\"}",
+					readCount)
+				out += metric("rtsps_sessions{state=\"publish\"}",
+					publishCount)
+			}
+		}()
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
