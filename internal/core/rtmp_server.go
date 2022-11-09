@@ -2,11 +2,9 @@ package core
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"fmt"
 	"net"
-	"strconv"
 	"sync"
 	"time"
 
@@ -196,12 +194,9 @@ outer:
 			break outer
 
 		case nconn := <-connNew:
-			id, _ := s.newConnID()
-
 			c := newRTMPConn(
 				s.ctx,
 				s.isTLS,
-				id,
 				s.externalAuthenticationURL,
 				s.rtspAddress,
 				s.readTimeout,
@@ -228,7 +223,7 @@ outer:
 			}
 
 			for c := range s.conns {
-				data.Items[c.id] = rtmpServerAPIConnsListItem{
+				data.Items[c.uuid.String()] = rtmpServerAPIConnsListItem{
 					Created:    c.created,
 					RemoteAddr: c.remoteAddr().String(),
 					State: func() string {
@@ -249,7 +244,7 @@ outer:
 		case req := <-s.chAPIConnsKick:
 			res := func() bool {
 				for c := range s.conns {
-					if c.id == req.id {
+					if c.uuid.String() == req.id {
 						delete(s.conns, c)
 						c.close()
 						return true
@@ -274,34 +269,6 @@ outer:
 
 	if s.metrics != nil {
 		s.metrics.rtmpServerSet(s)
-	}
-}
-
-func (s *rtmpServer) newConnID() (string, error) {
-	for {
-		b := make([]byte, 4)
-		_, err := rand.Read(b)
-		if err != nil {
-			return "", err
-		}
-
-		u := uint32(b[3])<<24 | uint32(b[2])<<16 | uint32(b[1])<<8 | uint32(b[0])
-		u %= 899999999
-		u += 100000000
-
-		id := strconv.FormatUint(uint64(u), 10)
-
-		alreadyPresent := func() bool {
-			for c := range s.conns {
-				if c.id == id {
-					return true
-				}
-			}
-			return false
-		}()
-		if !alreadyPresent {
-			return id, nil
-		}
 	}
 }
 

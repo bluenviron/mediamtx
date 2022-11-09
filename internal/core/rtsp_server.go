@@ -2,10 +2,8 @@ package core
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/tls"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -239,68 +237,9 @@ outer:
 	}
 }
 
-func (s *rtspServer) newSessionID() (string, error) {
-	for {
-		b := make([]byte, 4)
-		_, err := rand.Read(b)
-		if err != nil {
-			return "", err
-		}
-
-		u := uint32(b[3])<<24 | uint32(b[2])<<16 | uint32(b[1])<<8 | uint32(b[0])
-		u %= 899999999
-		u += 100000000
-
-		id := strconv.FormatUint(uint64(u), 10)
-
-		alreadyPresent := func() bool {
-			for _, s := range s.sessions {
-				if s.id == id {
-					return true
-				}
-			}
-			return false
-		}()
-		if !alreadyPresent {
-			return id, nil
-		}
-	}
-}
-
-func (s *rtspServer) newConnID() (string, error) {
-	for {
-		b := make([]byte, 4)
-		_, err := rand.Read(b)
-		if err != nil {
-			return "", err
-		}
-
-		u := uint32(b[3])<<24 | uint32(b[2])<<16 | uint32(b[1])<<8 | uint32(b[0])
-		u %= 899999999
-		u += 100000000
-
-		id := strconv.FormatUint(uint64(u), 10)
-
-		alreadyPresent := func() bool {
-			for _, c := range s.conns {
-				if c.id == id {
-					return true
-				}
-			}
-			return false
-		}()
-		if !alreadyPresent {
-			return id, nil
-		}
-	}
-}
-
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
-	s.mutex.Lock()
-	id, _ := s.newConnID()
 	c := newRTSPConn(
-		id,
 		s.externalAuthenticationURL,
 		s.rtspAddress,
 		s.authMethods,
@@ -311,6 +250,7 @@ func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 		s.pathManager,
 		ctx.Conn,
 		s)
+	s.mutex.Lock()
 	s.conns[ctx.Conn] = c
 	s.mutex.Unlock()
 
@@ -340,17 +280,15 @@ func (s *rtspServer) OnResponse(sc *gortsplib.ServerConn, res *base.Response) {
 
 // OnSessionOpen implements gortsplib.ServerHandlerOnSessionOpen.
 func (s *rtspServer) OnSessionOpen(ctx *gortsplib.ServerHandlerOnSessionOpenCtx) {
-	s.mutex.Lock()
-	id, _ := s.newSessionID()
 	se := newRTSPSession(
 		s.isTLS,
 		s.protocols,
-		id,
 		ctx.Session,
 		ctx.Conn,
 		s.externalCmdPool,
 		s.pathManager,
 		s)
+	s.mutex.Lock()
 	s.sessions[ctx.Session] = se
 	s.mutex.Unlock()
 	ctx.Session.SetUserData(se)
@@ -435,7 +373,7 @@ func (s *rtspServer) apiConnsList() rtspServerAPIConnsListRes {
 	}
 
 	for _, c := range s.conns {
-		data.Items[c.id] = rtspServerAPIConnsListItem{
+		data.Items[c.uuid.String()] = rtspServerAPIConnsListItem{
 			Created:    c.created,
 			RemoteAddr: c.remoteAddr().String(),
 		}
@@ -460,7 +398,7 @@ func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
 	}
 
 	for _, s := range s.sessions {
-		data.Items[s.id] = rtspServerAPISessionsListItem{
+		data.Items[s.uuid.String()] = rtspServerAPISessionsListItem{
 			Created:    s.created,
 			RemoteAddr: s.remoteAddr().String(),
 			State: func() string {
@@ -493,7 +431,7 @@ func (s *rtspServer) apiSessionsKick(id string) rtspServerAPISessionsKickRes {
 	defer s.mutex.RUnlock()
 
 	for key, se := range s.sessions {
-		if se.id == id {
+		if se.uuid.String() == id {
 			se.close()
 			delete(s.sessions, key)
 			se.onClose(liberrors.ErrServerTerminated{})

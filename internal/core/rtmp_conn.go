@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/h264"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
 	"github.com/aler9/gortsplib/pkg/ringbuffer"
+	"github.com/google/uuid"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -56,7 +57,6 @@ type rtmpConnParent interface {
 
 type rtmpConn struct {
 	isTLS                     bool
-	id                        string
 	externalAuthenticationURL string
 	rtspAddress               string
 	readTimeout               conf.StringDuration
@@ -73,6 +73,7 @@ type rtmpConn struct {
 
 	ctx        context.Context
 	ctxCancel  func()
+	uuid       uuid.UUID
 	created    time.Time
 	path       *path
 	ringBuffer *ringbuffer.RingBuffer // read
@@ -83,7 +84,6 @@ type rtmpConn struct {
 func newRTMPConn(
 	parentCtx context.Context,
 	isTLS bool,
-	id string,
 	externalAuthenticationURL string,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
@@ -101,7 +101,6 @@ func newRTMPConn(
 
 	c := &rtmpConn{
 		isTLS:                     isTLS,
-		id:                        id,
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
 		readTimeout:               readTimeout,
@@ -117,6 +116,7 @@ func newRTMPConn(
 		parent:                    parent,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
+		uuid:                      uuid.New(),
 		created:                   time.Now(),
 	}
 
@@ -683,7 +683,7 @@ func (c *rtmpConn) apiReaderDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{"rtmpConn", c.id}
+	}{"rtmpConn", c.uuid.String()}
 }
 
 // apiSourceDescribe implements source.
@@ -698,5 +698,5 @@ func (c *rtmpConn) apiSourceDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{typ, c.id}
+	}{typ, c.uuid.String()}
 }
