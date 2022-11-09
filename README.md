@@ -447,6 +447,7 @@ rtsp_conns 1
 rtsp_sessions{state="idle"} 0
 rtsp_sessions{state="read"} 0
 rtsp_sessions{state="publish"} 1
+rtsps_conns 1
 rtsps_sessions{state="idle"} 0
 rtsps_sessions{state="read"} 0
 rtsps_sessions{state="publish"} 0
@@ -459,9 +460,11 @@ hls_muxers{name="<name>"} 1
 where:
 
 * `paths{name="<path_name>",state="ready"} 1` is replicated for every path and shows the name and state of every path
+* `rtsp_conns` is the count of RTSP connections
 * `rtsp_sessions{state="idle"}` is the count of RTSP sessions that are idle
 * `rtsp_sessions{state="read"}` is the count of RTSP sessions that are reading
 * `rtsp_sessions{state="publish"}` is the counf ot RTSP sessions that are publishing
+* `rtsps_conns` is the count of RTSPS connections
 * `rtsps_sessions{state="idle"}` is the count of RTSPS sessions that are idle
 * `rtsps_sessions{state="read"}` is the count of RTSPS sessions that are reading
 * `rtsps_sessions{state="publish"}` is the counf ot RTSPS sessions that are publishing
