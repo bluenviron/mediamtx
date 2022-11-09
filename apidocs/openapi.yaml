@@ -382,11 +382,9 @@ components:
           type: string
         remoteAddr:
           type: string
-        received:
-          description: number of bytes received.
+        bytesReceived:
           type: number
-        sent:
-          description: number of bytes sent.
+        bytesSent:
           type: number
 
     RTSPSession:
@@ -399,11 +397,9 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
-        received:
-          description: number of bytes received.
+        bytesReceived:
           type: number
-        sent:
-          description: number of bytes sent.
+        bytesSent:
           type: number
 
     RTMPConn:
@@ -416,11 +412,9 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
-        received:
-          description: number of bytes received.
+        bytesReceived:
           type: number
-        sent:
-          description: number of bytes sent.
+        bytesSent:
           type: number
 
     HLSMuxer:
@@ -430,6 +424,8 @@ components:
           type: string
         lastRequest:
           type: string
+        bytesSent:
+          type: number
 
     PathsList:
       type: object

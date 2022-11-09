@@ -19,10 +19,10 @@ import (
 )
 
 type rtspServerAPIConnsListItem struct {
-	Created    time.Time `json:"created"`
-	RemoteAddr string    `json:"remoteAddr"`
-	Received   uint64    `json:"received"`
-	Sent       uint64    `json:"sent"`
+	Created       time.Time `json:"created"`
+	RemoteAddr    string    `json:"remoteAddr"`
+	BytesReceived uint64    `json:"bytesReceived"`
+	BytesSent     uint64    `json:"bytesSent"`
 }
 
 type rtspServerAPIConnsListData struct {
@@ -35,11 +35,11 @@ type rtspServerAPIConnsListRes struct {
 }
 
 type rtspServerAPISessionsListItem struct {
-	Created    time.Time `json:"created"`
-	RemoteAddr string    `json:"remoteAddr"`
-	State      string    `json:"state"`
-	Received   uint64    `json:"received"`
-	Sent       uint64    `json:"sent"`
+	Created       time.Time `json:"created"`
+	RemoteAddr    string    `json:"remoteAddr"`
+	State         string    `json:"state"`
+	BytesReceived uint64    `json:"bytesReceived"`
+	BytesSent     uint64    `json:"bytesSent"`
 }
 
 type rtspServerAPISessionsListData struct {
@@ -378,10 +378,10 @@ func (s *rtspServer) apiConnsList() rtspServerAPIConnsListRes {
 
 	for _, c := range s.conns {
 		data.Items[c.uuid.String()] = rtspServerAPIConnsListItem{
-			Created:    c.created,
-			RemoteAddr: c.remoteAddr().String(),
-			Received:   c.conn.BytesReceived(),
-			Sent:       c.conn.BytesSent(),
+			Created:       c.created,
+			RemoteAddr:    c.remoteAddr().String(),
+			BytesReceived: c.conn.BytesReceived(),
+			BytesSent:     c.conn.BytesSent(),
 		}
 	}
 
@@ -419,8 +419,8 @@ func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
 				}
 				return "idle"
 			}(),
-			Received: s.session.BytesReceived(),
-			Sent:     s.session.BytesSent(),
+			BytesReceived: s.session.BytesReceived(),
+			BytesSent:     s.session.BytesSent(),
 		}
 	}
 
