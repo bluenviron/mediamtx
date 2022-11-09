@@ -407,8 +407,11 @@ func (pm *pathManager) hlsServerSet(s pathManagerHLSServer) {
 }
 
 // apiPathsList is called by api.
-func (pm *pathManager) apiPathsList(req pathAPIPathsListReq) pathAPIPathsListRes {
-	req.res = make(chan pathAPIPathsListRes)
+func (pm *pathManager) apiPathsList() pathAPIPathsListRes {
+	req := pathAPIPathsListReq{
+		res: make(chan pathAPIPathsListRes),
+	}
+
 	select {
 	case pm.chAPIPathsList <- req:
 		res := <-req.res

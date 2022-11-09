@@ -314,8 +314,11 @@ func (s *rtmpServer) connClose(c *rtmpConn) {
 }
 
 // apiConnsList is called by api.
-func (s *rtmpServer) apiConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes {
-	req.res = make(chan rtmpServerAPIConnsListRes)
+func (s *rtmpServer) apiConnsList() rtmpServerAPIConnsListRes {
+	req := rtmpServerAPIConnsListReq{
+		res: make(chan rtmpServerAPIConnsListRes),
+	}
+
 	select {
 	case s.chAPIConnsList <- req:
 		return <-req.res
@@ -326,8 +329,12 @@ func (s *rtmpServer) apiConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPICo
 }
 
 // apiConnsKick is called by api.
-func (s *rtmpServer) apiConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes {
-	req.res = make(chan rtmpServerAPIConnsKickRes)
+func (s *rtmpServer) apiConnsKick(id string) rtmpServerAPIConnsKickRes {
+	req := rtmpServerAPIConnsKickReq{
+		id:  id,
+		res: make(chan rtmpServerAPIConnsKickRes),
+	}
+
 	select {
 	case s.chAPIConnsKick <- req:
 		return <-req.res

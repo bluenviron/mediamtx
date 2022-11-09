@@ -443,6 +443,7 @@ Obtaining:
 
 ```
 paths{name="<path_name>",state="ready"} 1
+rtsp_conns 1
 rtsp_sessions{state="idle"} 0
 rtsp_sessions{state="read"} 0
 rtsp_sessions{state="publish"} 1

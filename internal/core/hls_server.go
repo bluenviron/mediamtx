@@ -392,8 +392,11 @@ func (s *hlsServer) pathSourceNotReady(pa *path) {
 }
 
 // apiHLSMuxersList is called by api.
-func (s *hlsServer) apiHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes {
-	req.res = make(chan hlsServerAPIMuxersListRes)
+func (s *hlsServer) apiHLSMuxersList() hlsServerAPIMuxersListRes {
+	req := hlsServerAPIMuxersListReq{
+		res: make(chan hlsServerAPIMuxersListRes),
+	}
+
 	select {
 	case s.chAPIMuxerList <- req:
 		res := <-req.res
