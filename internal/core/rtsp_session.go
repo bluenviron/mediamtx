@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/google/uuid"
 	"github.com/pion/rtp"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -32,13 +34,13 @@ type rtspSessionParent interface {
 type rtspSession struct {
 	isTLS           bool
 	protocols       map[conf.Protocol]struct{}
-	id              string
 	ss              *gortsplib.ServerSession
 	author          *gortsplib.ServerConn
 	externalCmdPool *externalcmd.Pool
 	pathManager     rtspSessionPathManager
 	parent          rtspSessionParent
 
+	uuid       uuid.UUID
 	created    time.Time
 	path       *path
 	stream     *stream
@@ -50,7 +52,6 @@ type rtspSession struct {
 func newRTSPSession(
 	isTLS bool,
 	protocols map[conf.Protocol]struct{},
-	id string,
 	ss *gortsplib.ServerSession,
 	sc *gortsplib.ServerConn,
 	externalCmdPool *externalcmd.Pool,
@@ -60,12 +61,12 @@ func newRTSPSession(
 	s := &rtspSession{
 		isTLS:           isTLS,
 		protocols:       protocols,
-		id:              id,
 		ss:              ss,
 		author:          sc,
 		externalCmdPool: externalCmdPool,
 		pathManager:     pathManager,
 		parent:          parent,
+		uuid:            uuid.New(),
 		created:         time.Now(),
 	}
 
@@ -93,7 +94,8 @@ func (s *rtspSession) remoteAddr() net.Addr {
 }
 
 func (s *rtspSession) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, "[session %s] "+format, append([]interface{}{s.id}, args...)...)
+	id := hex.EncodeToString(s.uuid[:4])
+	s.parent.log(level, "[session %s] "+format, append([]interface{}{id}, args...)...)
 }
 
 // onClose is called by rtspServer.
@@ -357,7 +359,7 @@ func (s *rtspSession) apiReaderDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{typ, s.id}
+	}{typ, s.uuid.String()}
 }
 
 // apiSourceDescribe implements source.
@@ -372,7 +374,7 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
 		ID   string `json:"id"`
-	}{typ, s.id}
+	}{typ, s.uuid.String()}
 }
 
 // onPacketRTP is called by rtspServer.

@@ -10,6 +10,7 @@ import (
 	"github.com/aler9/gortsplib/pkg/auth"
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/google/uuid"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -25,7 +26,6 @@ type rtspConnParent interface {
 }
 
 type rtspConn struct {
-	id                        string
 	externalAuthenticationURL string
 	rtspAddress               string
 	authMethods               []headers.AuthMethod
@@ -37,6 +37,7 @@ type rtspConn struct {
 	conn                      *gortsplib.ServerConn
 	parent                    rtspConnParent
 
+	uuid          uuid.UUID
 	created       time.Time
 	onConnectCmd  *externalcmd.Cmd
 	authUser      string
@@ -46,7 +47,6 @@ type rtspConn struct {
 }
 
 func newRTSPConn(
-	id string,
 	externalAuthenticationURL string,
 	rtspAddress string,
 	authMethods []headers.AuthMethod,
@@ -59,7 +59,6 @@ func newRTSPConn(
 	parent rtspConnParent,
 ) *rtspConn {
 	c := &rtspConn{
-		id:                        id,
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
 		authMethods:               authMethods,
@@ -70,6 +69,7 @@ func newRTSPConn(
 		pathManager:               pathManager,
 		conn:                      conn,
 		parent:                    parent,
+		uuid:                      uuid.New(),
 		created:                   time.Now(),
 	}
 
