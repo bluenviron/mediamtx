@@ -119,6 +119,16 @@ func NewConn(rw io.ReadWriter) *Conn {
 	}
 }
 
+// BytesReceived returns the number of bytes received.
+func (c *Conn) BytesReceived() uint64 {
+	return c.bc.Reader.Count()
+}
+
+// BytesSent returns the number of bytes sent.
+func (c *Conn) BytesSent() uint64 {
+	return c.bc.Writer.Count()
+}
+
 func (c *Conn) readCommand() (*message.MsgCommandAMF0, error) {
 	for {
 		msg, err := c.mrw.Read()

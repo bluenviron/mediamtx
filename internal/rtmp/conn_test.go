@@ -244,6 +244,14 @@ func TestInitializeClient(t *testing.T) {
 			err = conn.InitializeClient(u, ca == "publish")
 			require.NoError(t, err)
 
+			if ca == "read" {
+				require.Equal(t, uint64(3421), conn.BytesReceived())
+				require.Equal(t, uint64(3409), conn.BytesSent())
+			} else {
+				require.Equal(t, uint64(3427), conn.BytesReceived())
+				require.Equal(t, uint64(3466), conn.BytesSent())
+			}
+
 			<-done
 		})
 	}

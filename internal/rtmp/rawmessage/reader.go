@@ -30,7 +30,7 @@ func (rc *readerChunkStream) readChunk(c chunk.Chunk, chunkBodySize uint32) erro
 
 	// check if an ack is needed
 	if rc.mr.ackWindowSize != 0 {
-		count := rc.mr.r.Count()
+		count := uint32(rc.mr.r.Count())
 		diff := count - rc.mr.lastAckCount
 
 		if diff > (rc.mr.ackWindowSize) {

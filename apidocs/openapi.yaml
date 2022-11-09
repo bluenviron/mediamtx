@@ -416,6 +416,12 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
+        received:
+          description: number of bytes received.
+          type: number
+        sent:
+          description: number of bytes sent.
+          type: number
 
     HLSMuxer:
       type: object
