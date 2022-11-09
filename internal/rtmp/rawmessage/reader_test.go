@@ -198,8 +198,7 @@ func TestReader(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			bcr := bytecounter.NewReader(&buf)
-			r := NewReader(bcr, func(count uint32) error {
+			r := NewReader(bytecounter.NewReader(&buf), func(count uint32) error {
 				return nil
 			})
 
@@ -224,14 +223,14 @@ func TestReaderAcknowledge(t *testing.T) {
 			onAckCalled := make(chan struct{})
 
 			var buf bytes.Buffer
-			bcr := bytecounter.NewReader(&buf)
-			r := NewReader(bcr, func(count uint32) error {
+			bc := bytecounter.NewReader(&buf)
+			r := NewReader(bc, func(count uint32) error {
 				close(onAckCalled)
 				return nil
 			})
 
 			if ca == "overflow" {
-				bcr.SetCount(4294967096)
+				bc.SetCount(4294967096)
 				r.lastAckCount = 4294967096
 			}
 

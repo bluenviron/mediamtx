@@ -114,10 +114,9 @@ type Conn struct {
 
 // NewConn initializes a connection.
 func NewConn(rw io.ReadWriter) *Conn {
-	c := &Conn{}
-	c.bc = bytecounter.NewReadWriter(rw)
-	c.mrw = message.NewReadWriter(c.bc, false)
-	return c
+	return &Conn{
+		bc: bytecounter.NewReadWriter(rw),
+	}
 }
 
 func (c *Conn) readCommand() (*message.MsgCommandAMF0, error) {
@@ -160,6 +159,8 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 	if err != nil {
 		return err
 	}
+
+	c.mrw = message.NewReadWriter(c.bc, false)
 
 	err = c.mrw.Write(&message.MsgSetWindowAckSize{
 		Value: 2500000,
@@ -318,6 +319,8 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
+
+	c.mrw = message.NewReadWriter(c.bc, false)
 
 	cmd, err := c.readCommand()
 	if err != nil {
