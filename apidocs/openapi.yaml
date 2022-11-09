@@ -382,6 +382,12 @@ components:
           type: string
         remoteAddr:
           type: string
+        received:
+          description: number of bytes received.
+          type: number
+        sent:
+          description: number of bytes sent.
+          type: number
 
     RTSPSession:
       type: object
@@ -393,19 +399,14 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
+        received:
+          description: number of bytes received.
+          type: number
+        sent:
+          description: number of bytes sent.
+          type: number
 
     RTMPConn:
-      type: object
-      properties:
-        created:
-          type: string
-        remoteAddr:
-          type: string
-        state:
-          type: string
-          enum: [idle, read, publish]
-
-    RTMPSConn:
       type: object
       properties:
         created:
@@ -463,14 +464,6 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/RTMPConn'
-
-    RTMPSConnsList:
-      type: object
-      properties:
-        items:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/RTMPSConn'
 
     HLSMuxersList:
       type: object
@@ -762,7 +755,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPSConnsList'
+                $ref: '#/components/schemas/RTMPConnsList'
         '400':
           description: invalid request.
         '500':
