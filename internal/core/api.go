@@ -83,21 +83,21 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 }
 
 type apiPathManager interface {
-	apiPathsList(req pathAPIPathsListReq) pathAPIPathsListRes
+	apiPathsList() pathAPIPathsListRes
 }
 
 type apiRTSPServer interface {
-	apiSessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes
-	apiSessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes
+	apiSessionsList() rtspServerAPISessionsListRes
+	apiSessionsKick(string) rtspServerAPISessionsKickRes
 }
 
 type apiRTMPServer interface {
-	apiConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes
-	apiConnsKick(req rtmpServerAPIConnsKickReq) rtmpServerAPIConnsKickRes
+	apiConnsList() rtmpServerAPIConnsListRes
+	apiConnsKick(id string) rtmpServerAPIConnsKickRes
 }
 
 type apiHLSServer interface {
-	apiHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes
+	apiHLSMuxersList() hlsServerAPIMuxersListRes
 }
 
 type apiParent interface {
@@ -382,7 +382,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 }
 
 func (a *api) onPathsList(ctx *gin.Context) {
-	res := a.pathManager.apiPathsList(pathAPIPathsListReq{})
+	res := a.pathManager.apiPathsList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -392,7 +392,7 @@ func (a *api) onPathsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	res := a.rtspServer.apiSessionsList(rtspServerAPISessionsListReq{})
+	res := a.rtspServer.apiSessionsList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -404,7 +404,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtspServer.apiSessionsKick(rtspServerAPISessionsKickReq{id: id})
+	res := a.rtspServer.apiSessionsKick(id)
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -414,7 +414,7 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
-	res := a.rtspsServer.apiSessionsList(rtspServerAPISessionsListReq{})
+	res := a.rtspsServer.apiSessionsList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -426,7 +426,7 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtspsServer.apiSessionsKick(rtspServerAPISessionsKickReq{id: id})
+	res := a.rtspsServer.apiSessionsKick(id)
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -436,7 +436,7 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	res := a.rtmpServer.apiConnsList(rtmpServerAPIConnsListReq{})
+	res := a.rtmpServer.apiConnsList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -448,7 +448,7 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtmpServer.apiConnsKick(rtmpServerAPIConnsKickReq{id: id})
+	res := a.rtmpServer.apiConnsKick(id)
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -458,7 +458,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPSConnsList(ctx *gin.Context) {
-	res := a.rtmpsServer.apiConnsList(rtmpServerAPIConnsListReq{})
+	res := a.rtmpsServer.apiConnsList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -470,7 +470,7 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 	id := ctx.Param("id")
 
-	res := a.rtmpsServer.apiConnsKick(rtmpServerAPIConnsKickReq{id: id})
+	res := a.rtmpsServer.apiConnsKick(id)
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusNotFound)
 		return
@@ -480,7 +480,7 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	res := a.hlsServer.apiHLSMuxersList(hlsServerAPIMuxersListReq{})
+	res := a.hlsServer.apiHLSMuxersList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return

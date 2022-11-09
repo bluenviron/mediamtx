@@ -18,19 +18,19 @@ func metric(key string, value int64) string {
 }
 
 type metricsPathManager interface {
-	apiPathsList(req pathAPIPathsListReq) pathAPIPathsListRes
+	apiPathsList() pathAPIPathsListRes
 }
 
 type metricsRTSPServer interface {
-	apiSessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes
+	apiSessionsList() rtspServerAPISessionsListRes
 }
 
 type metricsRTMPServer interface {
-	apiConnsList(req rtmpServerAPIConnsListReq) rtmpServerAPIConnsListRes
+	apiConnsList() rtmpServerAPIConnsListRes
 }
 
 type metricsHLSServer interface {
-	apiHLSMuxersList(req hlsServerAPIMuxersListReq) hlsServerAPIMuxersListRes
+	apiHLSMuxersList() hlsServerAPIMuxersListRes
 }
 
 type metricsParent interface {
@@ -90,7 +90,7 @@ func (m *metrics) log(level logger.Level, format string, args ...interface{}) {
 func (m *metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
-	res := m.pathManager.apiPathsList(pathAPIPathsListReq{})
+	res := m.pathManager.apiPathsList()
 	if res.err == nil {
 		for name, p := range res.data.Items {
 			if p.SourceReady {
@@ -102,7 +102,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) {
-		res := m.rtspServer.apiSessionsList(rtspServerAPISessionsListReq{})
+		res := m.rtspServer.apiSessionsList()
 		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -129,7 +129,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtspsServer) {
-		res := m.rtspsServer.apiSessionsList(rtspServerAPISessionsListReq{})
+		res := m.rtspsServer.apiSessionsList()
 		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -156,7 +156,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
-		res := m.rtmpServer.apiConnsList(rtmpServerAPIConnsListReq{})
+		res := m.rtmpServer.apiConnsList()
 		if res.err == nil {
 			idleCount := int64(0)
 			readCount := int64(0)
@@ -183,7 +183,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsServer) {
-		res := m.hlsServer.apiHLSMuxersList(hlsServerAPIMuxersListReq{})
+		res := m.hlsServer.apiHLSMuxersList()
 		if res.err == nil {
 			for name := range res.data.Items {
 				out += metric("hls_muxers{name=\""+name+"\"}", 1)

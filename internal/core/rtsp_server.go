@@ -35,14 +35,8 @@ type rtspServerAPISessionsListRes struct {
 	err  error
 }
 
-type rtspServerAPISessionsListReq struct{}
-
 type rtspServerAPISessionsKickRes struct {
 	err error
-}
-
-type rtspServerAPISessionsKickReq struct {
-	id string
 }
 
 type rtspServerParent interface {
@@ -381,7 +375,7 @@ func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx)
 }
 
 // apiSessionsList is called by api and metrics.
-func (s *rtspServer) apiSessionsList(req rtspServerAPISessionsListReq) rtspServerAPISessionsListRes {
+func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
 	select {
 	case <-s.ctx.Done():
 		return rtspServerAPISessionsListRes{err: fmt.Errorf("terminated")}
@@ -418,7 +412,7 @@ func (s *rtspServer) apiSessionsList(req rtspServerAPISessionsListReq) rtspServe
 }
 
 // apiSessionsKick is called by api.
-func (s *rtspServer) apiSessionsKick(req rtspServerAPISessionsKickReq) rtspServerAPISessionsKickRes {
+func (s *rtspServer) apiSessionsKick(id string) rtspServerAPISessionsKickRes {
 	select {
 	case <-s.ctx.Done():
 		return rtspServerAPISessionsKickRes{err: fmt.Errorf("terminated")}
@@ -429,7 +423,7 @@ func (s *rtspServer) apiSessionsKick(req rtspServerAPISessionsKickReq) rtspServe
 	defer s.mutex.RUnlock()
 
 	for key, se := range s.sessions {
-		if se.id == req.id {
+		if se.id == id {
 			se.close()
 			delete(s.sessions, key)
 			se.onClose(liberrors.ErrServerTerminated{})
