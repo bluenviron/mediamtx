@@ -138,7 +138,7 @@ type hlsMuxer struct {
 	lastRequestTime *int64
 	muxer           *hls.Muxer
 	requests        []*hlsMuxerRequest
-	bytesSent       uint64
+	bytesSent       *uint64
 
 	// in
 	chRequest          chan *hlsMuxerRequest
@@ -185,6 +185,7 @@ func newHLSMuxer(
 			v := time.Now().UnixNano()
 			return &v
 		}(),
+		bytesSent:          new(uint64),
 		chRequest:          make(chan *hlsMuxerRequest),
 		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
@@ -253,7 +254,7 @@ func (m *hlsMuxer) run() {
 				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
 					Created:     m.created,
 					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
-					BytesSent:   atomic.LoadUint64(&m.bytesSent),
+					BytesSent:   atomic.LoadUint64(m.bytesSent),
 				}
 				close(req.res)
 
@@ -564,7 +565,7 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 }
 
 func (m *hlsMuxer) addSentBytes(n uint64) {
-	atomic.AddUint64(&m.bytesSent, n)
+	atomic.AddUint64(m.bytesSent, n)
 }
 
 // request is called by hlsserver.Server (forwarded from ServeHTTP).

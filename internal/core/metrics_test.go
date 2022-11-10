@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/aler9/gortsplib"
@@ -88,27 +87,21 @@ func TestMetrics(t *testing.T) {
 	bo, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
-	vals := make(map[string]string)
-	lines := strings.Split(string(bo), "\n")
-	for _, l := range lines[:len(lines)-1] {
-		fields := strings.Split(l, " ")
-		vals[fields[0]] = fields[1]
-	}
-
-	require.Equal(t, map[string]string{
-		"hls_muxers{name=\"rtsp_path\"}":            "1",
-		"paths{name=\"rtsp_path\",state=\"ready\"}": "1",
-		"paths{name=\"rtmp_path\",state=\"ready\"}": "1",
-		"rtmp_conns{state=\"idle\"}":                "0",
-		"rtmp_conns{state=\"publish\"}":             "1",
-		"rtmp_conns{state=\"read\"}":                "0",
-		"rtsp_conns":                                "1",
-		"rtsp_sessions{state=\"idle\"}":             "0",
-		"rtsp_sessions{state=\"publish\"}":          "1",
-		"rtsp_sessions{state=\"read\"}":             "0",
-		"rtsps_conns":                               "0",
-		"rtsps_sessions{state=\"idle\"}":            "0",
-		"rtsps_sessions{state=\"publish\"}":         "0",
-		"rtsps_sessions{state=\"read\"}":            "0",
-	}, vals)
+	require.Regexp(t,
+		`^paths\{name=".*?",state="ready"\} 1`+"\n"+
+			`paths_bytes_received\{name=".*?"\} 0`+"\n"+
+			`paths\{name=".*?",state="ready"\} 1`+"\n"+
+			`paths_bytes_received\{name=".*?"\} 0`+"\n"+
+			`rtsp_conns\{id=".*?"\} 1`+"\n"+
+			`rtsp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
+			`rtsp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`rtsp_sessions\{id=".*?",state="publish"\} 1`+"\n"+
+			`rtsp_sessions_bytes_received\{id=".*?"\} 0`+"\n"+
+			`rtsp_sessions_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
+			`rtmp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
+			`rtmp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`hls_muxers\{name="rtsp_path"\} 1`+"\n"+
+			`hls_muxers_bytes_sent\{name="rtsp_path"\} [0-9]+`+"\n"+"$",
+		string(bo))
 }
