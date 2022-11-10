@@ -8,7 +8,7 @@ on:
 jobs:
   # make sure that gortsplib is updated
   check_gortsplib:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -25,7 +25,7 @@ jobs:
 
   make_binaries:
     needs: check_gortsplib
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -39,7 +39,7 @@ jobs:
 
   github:
     needs: make_binaries
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -78,7 +78,7 @@ jobs:
 
   dockerhub:
     needs: make_binaries
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -95,7 +95,7 @@ jobs:
 
   apidocs:
     needs: make_binaries
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2

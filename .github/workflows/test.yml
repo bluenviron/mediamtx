@@ -8,7 +8,7 @@ on:
 
 jobs:
   test64:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -18,7 +18,7 @@ jobs:
     - run: bash <(curl -s https://codecov.io/bash)
 
   test32:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -26,7 +26,7 @@ jobs:
     - run: make test32
 
   test_highlevel:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2

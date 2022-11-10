@@ -8,7 +8,7 @@ on:
 
 jobs:
   code:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -18,7 +18,7 @@ jobs:
         version: v1.49.0
 
   mod-tidy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
@@ -33,7 +33,7 @@ jobs:
         git diff --exit-code
 
   apidocs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v2
