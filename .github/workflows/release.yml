@@ -8,10 +8,10 @@ on:
 jobs:
   # make sure that gortsplib is updated
   check_gortsplib:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - uses: actions/setup-go@v2
       with:
@@ -25,10 +25,10 @@ jobs:
 
   make_binaries:
     needs: check_gortsplib
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - run: make binaries
 
@@ -39,10 +39,10 @@ jobs:
 
   github:
     needs: make_binaries
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - uses: actions/download-artifact@v3
       with:
@@ -78,10 +78,10 @@ jobs:
 
   dockerhub:
     needs: make_binaries
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - uses: actions/download-artifact@v3
       with:
@@ -95,10 +95,10 @@ jobs:
 
   apidocs:
     needs: make_binaries
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - run: make apidocs-gen
 

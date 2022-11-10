@@ -8,20 +8,20 @@ on:
 
 jobs:
   code:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - uses: golangci/golangci-lint-action@v3
       with:
         version: v1.49.0
 
   mod-tidy:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - uses: actions/setup-go@v2
       with:
@@ -33,9 +33,9 @@ jobs:
         git diff --exit-code
 
   apidocs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - run: make apidocs-lint
