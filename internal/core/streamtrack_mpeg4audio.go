@@ -15,13 +15,13 @@ type streamTrackMPEG4Audio struct {
 
 func newStreamTrackMPEG4Audio(
 	track *gortsplib.TrackMPEG4Audio,
-	generateRTPPackets bool,
+	allocateEncoder bool,
 ) *streamTrackMPEG4Audio {
 	t := &streamTrackMPEG4Audio{
 		track: track,
 	}
 
-	if generateRTPPackets {
+	if allocateEncoder {
 		t.encoder = &rtpmpeg4audio.Encoder{
 			PayloadType:      96,
 			SampleRate:       track.ClockRate(),

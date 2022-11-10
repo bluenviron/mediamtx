@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/aler9/gortsplib"
@@ -178,12 +179,13 @@ type pathPublisherStopReq struct {
 }
 
 type pathAPIPathsListItem struct {
-	ConfName    string         `json:"confName"`
-	Conf        *conf.PathConf `json:"conf"`
-	Source      interface{}    `json:"source"`
-	SourceReady bool           `json:"sourceReady"`
-	Tracks      []string       `json:"tracks"`
-	Readers     []interface{}  `json:"readers"`
+	ConfName      string         `json:"confName"`
+	Conf          *conf.PathConf `json:"conf"`
+	Source        interface{}    `json:"source"`
+	SourceReady   bool           `json:"sourceReady"`
+	Tracks        []string       `json:"tracks"`
+	BytesReceived uint64         `json:"bytesReceived"`
+	Readers       []interface{}  `json:"readers"`
 }
 
 type pathAPIPathsListData struct {
@@ -221,6 +223,7 @@ type path struct {
 	ctx                            context.Context
 	ctxCancel                      func()
 	source                         source
+	bytesReceived                  *uint64
 	stream                         *stream
 	readers                        map[reader]pathReaderState
 	describeRequestsOnHold         []pathDescribeReq
@@ -279,6 +282,7 @@ func newPath(
 		parent:                         parent,
 		ctx:                            ctx,
 		ctxCancel:                      ctxCancel,
+		bytesReceived:                  new(uint64),
 		readers:                        make(map[reader]pathReaderState),
 		onDemandStaticSourceReadyTimer: newEmptyTimer(),
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
@@ -663,8 +667,8 @@ func (pa *path) onDemandPublisherStop() {
 	}
 }
 
-func (pa *path) sourceSetReady(tracks gortsplib.Tracks, generateRTPPackets bool) error {
-	stream, err := newStream(tracks, generateRTPPackets)
+func (pa *path) sourceSetReady(tracks gortsplib.Tracks, allocateEncoder bool) error {
+	stream, err := newStream(tracks, allocateEncoder, pa.bytesReceived)
 	if err != nil {
 		return err
 	}
@@ -957,6 +961,7 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 			}
 			return sourceTrackNames(pa.stream.tracks())
 		}(),
+		BytesReceived: atomic.LoadUint64(pa.bytesReceived),
 		Readers: func() []interface{} {
 			ret := []interface{}{}
 			for r := range pa.readers {
