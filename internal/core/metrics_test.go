@@ -89,18 +89,18 @@ func TestMetrics(t *testing.T) {
 
 	require.Regexp(t,
 		`^paths\{name=".*?",state="ready"\} 1`+"\n"+
-			`paths_bytes_received\{name=".*?"\} 0`+"\n"+
+			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
 			`paths\{name=".*?",state="ready"\} 1`+"\n"+
-			`paths_bytes_received\{name=".*?"\} 0`+"\n"+
+			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
 			`rtsp_conns\{id=".*?"\} 1`+"\n"+
 			`rtsp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
 			`rtsp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
 			`rtsp_sessions\{id=".*?",state="publish"\} 1`+"\n"+
-			`rtsp_sessions_bytes_received\{id=".*?"\} 0`+"\n"+
-			`rtsp_sessions_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`rtsp_sessions_bytes_received\{id=".*?",state="publish"\} 0`+"\n"+
+			`rtsp_sessions_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
-			`rtmp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
-			`rtmp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`rtmp_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+			`rtmp_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`hls_muxers\{name="rtsp_path"\} 1`+"\n"+
 			`hls_muxers_bytes_sent\{name="rtsp_path"\} [0-9]+`+"\n"+"$",
 		string(bo))

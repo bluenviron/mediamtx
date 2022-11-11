@@ -101,8 +101,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 				state = "notReady"
 			}
 
-			out += metric("paths{name=\""+name+"\",state=\""+state+"\"}", 1)
-			out += metric("paths_bytes_received{name=\""+name+"\"}", int64(i.BytesReceived))
+			tags := "{name=\"" + name + "\",state=\"" + state + "\"}"
+			out += metric("paths"+tags, 1)
+			out += metric("paths_bytes_received"+tags, int64(i.BytesReceived))
 		}
 	}
 
@@ -111,9 +112,10 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			res := m.rtspServer.apiConnsList()
 			if res.err == nil {
 				for id, i := range res.data.Items {
-					out += metric("rtsp_conns{id=\""+id+"\"}", 1)
-					out += metric("rtsp_conns_bytes_received{id=\""+id+"\"}", int64(i.BytesReceived))
-					out += metric("rtsp_conns_bytes_sent{id=\""+id+"\"}", int64(i.BytesSent))
+					tags := "{id=\"" + id + "\"}"
+					out += metric("rtsp_conns"+tags, 1)
+					out += metric("rtsp_conns_bytes_received"+tags, int64(i.BytesReceived))
+					out += metric("rtsp_conns_bytes_sent"+tags, int64(i.BytesSent))
 				}
 			}
 		}()
@@ -122,9 +124,10 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			res := m.rtspServer.apiSessionsList()
 			if res.err == nil {
 				for id, i := range res.data.Items {
-					out += metric("rtsp_sessions{id=\""+id+"\",state=\""+i.State+"\"}", 1)
-					out += metric("rtsp_sessions_bytes_received{id=\""+id+"\"}", int64(i.BytesReceived))
-					out += metric("rtsp_sessions_bytes_sent{id=\""+id+"\"}", int64(i.BytesSent))
+					tags := "{id=\"" + id + "\",state=\"" + i.State + "\"}"
+					out += metric("rtsp_sessions"+tags, 1)
+					out += metric("rtsp_sessions_bytes_received"+tags, int64(i.BytesReceived))
+					out += metric("rtsp_sessions_bytes_sent"+tags, int64(i.BytesSent))
 				}
 			}
 		}()
@@ -135,9 +138,10 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			res := m.rtspsServer.apiConnsList()
 			if res.err == nil {
 				for id, i := range res.data.Items {
-					out += metric("rtsps_conns{id=\""+id+"\"}", 1)
-					out += metric("rtsps_conns_bytes_received{id=\""+id+"\"}", int64(i.BytesReceived))
-					out += metric("rtsps_conns_bytes_sent{id=\""+id+"\"}", int64(i.BytesSent))
+					tags := "{id=\"" + id + "\"}"
+					out += metric("rtsps_conns"+tags, 1)
+					out += metric("rtsps_conns_bytes_received"+tags, int64(i.BytesReceived))
+					out += metric("rtsps_conns_bytes_sent"+tags, int64(i.BytesSent))
 				}
 			}
 		}()
@@ -146,9 +150,10 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			res := m.rtspsServer.apiSessionsList()
 			if res.err == nil {
 				for id, i := range res.data.Items {
-					out += metric("rtsps_sessions{id=\""+id+"\",state=\""+i.State+"\"}", 1)
-					out += metric("rtsps_sessions_bytes_received{id=\""+id+"\"}", int64(i.BytesReceived))
-					out += metric("rtsps_sessions_bytes_sent{id=\""+id+"\"}", int64(i.BytesSent))
+					tags := "{id=\"" + id + "\",state=\"" + i.State + "\"}"
+					out += metric("rtsps_sessions"+tags, 1)
+					out += metric("rtsps_sessions_bytes_received"+tags, int64(i.BytesReceived))
+					out += metric("rtsps_sessions_bytes_sent"+tags, int64(i.BytesSent))
 				}
 			}
 		}()
@@ -158,9 +163,10 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		res := m.rtmpServer.apiConnsList()
 		if res.err == nil {
 			for id, i := range res.data.Items {
-				out += metric("rtmp_conns{id=\""+id+"\",state=\""+i.State+"\"}", 1)
-				out += metric("rtmp_conns_bytes_received{id=\""+id+"\"}", int64(i.BytesReceived))
-				out += metric("rtmp_conns_bytes_sent{id=\""+id+"\"}", int64(i.BytesSent))
+				tags := "{id=\"" + id + "\",state=\"" + i.State + "\"}"
+				out += metric("rtmp_conns"+tags, 1)
+				out += metric("rtmp_conns_bytes_received"+tags, int64(i.BytesReceived))
+				out += metric("rtmp_conns_bytes_sent"+tags, int64(i.BytesSent))
 			}
 		}
 	}
@@ -169,8 +175,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		res := m.hlsServer.apiHLSMuxersList()
 		if res.err == nil {
 			for name, i := range res.data.Items {
-				out += metric("hls_muxers{name=\""+name+"\"}", 1)
-				out += metric("hls_muxers_bytes_sent{name=\""+name+"\"}", int64(i.BytesSent))
+				tags := "{name=\"" + name + "\"}"
+				out += metric("hls_muxers"+tags, 1)
+				out += metric("hls_muxers_bytes_sent"+tags, int64(i.BytesSent))
 			}
 		}
 	}
