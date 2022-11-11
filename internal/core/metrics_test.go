@@ -1,6 +1,7 @@
 package core
 
 import (
+	"crypto/tls"
 	"io"
 	"net"
 	"net/http"
@@ -39,11 +40,16 @@ func TestMetrics(t *testing.T) {
 	}
 
 	source := gortsplib.Client{}
-
 	err = source.StartPublishing("rtsp://localhost:8554/rtsp_path",
 		gortsplib.Tracks{track})
 	require.NoError(t, err)
 	defer source.Close()
+
+	source2 := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
+	err = source2.StartPublishing("rtsps://localhost:8322/rtsps_path",
+		gortsplib.Tracks{track})
+	require.NoError(t, err)
+	defer source2.Close()
 
 	u, err := url.Parse("rtmp://localhost:1935/rtmp_path")
 	require.NoError(t, err)
@@ -92,12 +98,20 @@ func TestMetrics(t *testing.T) {
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
 			`paths\{name=".*?",state="ready"\} 1`+"\n"+
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
+			`paths\{name=".*?",state="ready"\} 1`+"\n"+
+			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
 			`rtsp_conns\{id=".*?"\} 1`+"\n"+
 			`rtsp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
 			`rtsp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
 			`rtsp_sessions\{id=".*?",state="publish"\} 1`+"\n"+
 			`rtsp_sessions_bytes_received\{id=".*?",state="publish"\} 0`+"\n"+
 			`rtsp_sessions_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+			`rtsps_conns\{id=".*?"\} 1`+"\n"+
+			`rtsps_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
+			`rtsps_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`rtsps_sessions\{id=".*?",state="publish"\} 1`+"\n"+
+			`rtsps_sessions_bytes_received\{id=".*?",state="publish"\} 0`+"\n"+
+			`rtsps_sessions_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
 			`rtmp_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`rtmp_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
