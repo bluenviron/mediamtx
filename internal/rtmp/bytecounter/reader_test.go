@@ -19,5 +19,5 @@ func TestReader(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 64, n)
 
-	require.Equal(t, uint32(100+1024), r.Count())
+	require.Equal(t, uint64(100+64), r.Count())
 }

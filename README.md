@@ -433,7 +433,7 @@ Full documentation of the API is available on the [dedicated site](https://aler9
 
 ### Metrics
 
-A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
 
 ```
 wget -qO- localhost:9998/metrics
@@ -441,34 +441,40 @@ wget -qO- localhost:9998/metrics
 
 Obtaining:
 
-```
-paths{name="<path_name>",state="ready"} 1
-rtsp_conns 1
-rtsp_sessions{state="idle"} 0
-rtsp_sessions{state="read"} 0
-rtsp_sessions{state="publish"} 1
-rtsps_sessions{state="idle"} 0
-rtsps_sessions{state="read"} 0
-rtsps_sessions{state="publish"} 0
-rtmp_conns{state="idle"} 0
-rtmp_conns{state="read"} 0
-rtmp_conns{state="publish"} 1
-hls_muxers{name="<name>"} 1
-```
+```ini
+# metrics of every path
+paths{name="[path_name]",state="[state]"} 1
+paths_bytes_received{name="[path_name]",state="[state]"} 1234
 
-where:
+# metrics of every RTSP connection
+rtsp_conns{id="[id]"} 1
+rtsp_conns_bytes_received{id="[id]"} 1234
+rtsp_conns_bytes_sent{id="[id]"} 187
 
-* `paths{name="<path_name>",state="ready"} 1` is replicated for every path and shows the name and state of every path
-* `rtsp_sessions{state="idle"}` is the count of RTSP sessions that are idle
-* `rtsp_sessions{state="read"}` is the count of RTSP sessions that are reading
-* `rtsp_sessions{state="publish"}` is the counf ot RTSP sessions that are publishing
-* `rtsps_sessions{state="idle"}` is the count of RTSPS sessions that are idle
-* `rtsps_sessions{state="read"}` is the count of RTSPS sessions that are reading
-* `rtsps_sessions{state="publish"}` is the counf ot RTSPS sessions that are publishing
-* `rtmp_conns{state="idle"}` is the count of RTMP connections that are idle
-* `rtmp_conns{state="read"}` is the count of RTMP connections that are reading
-* `rtmp_conns{state="publish"}` is the count of RTMP connections that are publishing
-* `hls_muxers{name="<name>"}` is replicated for every HLS muxer and shows the name and state of every HLS muxer
+# metrics of every RTSP session
+rtsp_sessions{id="[id]",state="idle"} 1
+rtsp_sessions_bytes_received{id="[id]",state="[state]"} 1234
+rtsp_sessions_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every RTSPS connection
+rtsps_conns{id="[id]"} 1
+rtsps_conns_bytes_received{id="[id]"} 1234
+rtsps_conns_bytes_sent{id="[id]"} 187
+
+# metrics of every RTSPS session
+rtsps_sessions{id="[id]",state="[state]"} 1
+rtsps_sessions_bytes_received{id="[id]",state="[state]"} 1234
+rtsps_sessions_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every RTMP connection
+rtmp_conns{id="[id]",state="[state]"} 1
+rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
+rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every HLS muxer
+hls_muxers{name="[name]"} 1
+hls_muxers_bytes_sent{name="[name]"} 187
+```
 
 ### pprof
 

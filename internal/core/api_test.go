@@ -15,6 +15,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
@@ -170,9 +171,10 @@ func TestAPIPathsList(t *testing.T) {
 	}
 
 	type path struct {
-		Source      pathSource `json:"source"`
-		SourceReady bool       `json:"sourceReady"`
-		Tracks      []string   `json:"tracks"`
+		Source        pathSource `json:"source"`
+		SourceReady   bool       `json:"sourceReady"`
+		Tracks        []string   `json:"tracks"`
+		BytesReceived uint64     `json:"bytesReceived"`
 	}
 
 	type pathList struct {
@@ -186,29 +188,37 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		tracks := gortsplib.Tracks{
-			&gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			},
-			&gortsplib.TrackMPEG4Audio{
-				PayloadType: 97,
-				Config: &mpeg4audio.Config{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
-				},
-				SizeLength:       13,
-				IndexLength:      3,
-				IndexDeltaLength: 3,
-			},
-		}
-
 		source := gortsplib.Client{}
-		err := source.StartPublishing("rtsp://localhost:8554/mypath", tracks)
+		err := source.StartPublishing(
+			"rtsp://localhost:8554/mypath",
+			gortsplib.Tracks{
+				&gortsplib.TrackH264{
+					PayloadType: 96,
+					SPS:         []byte{0x01, 0x02, 0x03, 0x04},
+					PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				},
+				&gortsplib.TrackMPEG4Audio{
+					PayloadType: 96,
+					Config: &mpeg4audio.Config{
+						Type:         2,
+						SampleRate:   44100,
+						ChannelCount: 2,
+					},
+					SizeLength:       13,
+					IndexLength:      3,
+					IndexDeltaLength: 3,
+				},
+			})
 		require.NoError(t, err)
 		defer source.Close()
+
+		source.WritePacketRTP(0, &rtp.Packet{
+			Header: rtp.Header{
+				Version:     2,
+				PayloadType: 96,
+			},
+			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		}, true)
 
 		var out pathList
 		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
@@ -219,8 +229,9 @@ func TestAPIPathsList(t *testing.T) {
 					Source: pathSource{
 						Type: "rtspSession",
 					},
-					SourceReady: true,
-					Tracks:      []string{"H264", "MPEG4Audio"},
+					SourceReady:   true,
+					Tracks:        []string{"H264", "MPEG4Audio"},
+					BytesReceived: 16,
 				},
 			},
 		}, out)

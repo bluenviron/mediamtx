@@ -268,6 +268,8 @@ components:
             - PCMU
             - VP8
             - VP9
+        bytesReceived:
+          type: number
         readers:
           type: array
           items:
@@ -382,6 +384,10 @@ components:
           type: string
         remoteAddr:
           type: string
+        bytesReceived:
+          type: number
+        bytesSent:
+          type: number
 
     RTSPSession:
       type: object
@@ -393,6 +399,10 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
+        bytesReceived:
+          type: number
+        bytesSent:
+          type: number
 
     RTMPConn:
       type: object
@@ -404,17 +414,10 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
-
-    RTMPSConn:
-      type: object
-      properties:
-        created:
-          type: string
-        remoteAddr:
-          type: string
-        state:
-          type: string
-          enum: [idle, read, publish]
+        bytesReceived:
+          type: number
+        bytesSent:
+          type: number
 
     HLSMuxer:
       type: object
@@ -423,6 +426,8 @@ components:
           type: string
         lastRequest:
           type: string
+        bytesSent:
+          type: number
 
     PathsList:
       type: object
@@ -463,14 +468,6 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/RTMPConn'
-
-    RTMPSConnsList:
-      type: object
-      properties:
-        items:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/RTMPSConn'
 
     HLSMuxersList:
       type: object
@@ -592,7 +589,7 @@ paths:
   /v1/paths/list:
     get:
       operationId: pathsList
-      summary: returns all active paths.
+      summary: returns all paths.
       description: ''
       responses:
         '200':
@@ -609,7 +606,7 @@ paths:
   /v1/rtspconns/list:
     get:
       operationId: rtspConnsList
-      summary: returns all active RTSP connections.
+      summary: returns all RTSP connections.
       description: ''
       responses:
         '200':
@@ -626,7 +623,7 @@ paths:
   /v1/rtspsessions/list:
     get:
       operationId: rtspSessionsList
-      summary: returns all active RTSP sessions.
+      summary: returns all RTSP sessions.
       description: ''
       responses:
         '200':
@@ -643,7 +640,7 @@ paths:
   /v1/rtspsconns/list:
     get:
       operationId: rtspsConnsList
-      summary: returns all active RTSPS connections.
+      summary: returns all RTSPS connections.
       description: ''
       responses:
         '200':
@@ -680,7 +677,7 @@ paths:
   /v1/rtspssessions/list:
     get:
       operationId: rtspsSessionsList
-      summary: returns all active RTSPS sessions.
+      summary: returns all RTSPS sessions.
       description: ''
       responses:
         '200':
@@ -717,7 +714,7 @@ paths:
   /v1/rtmpconns/list:
     get:
       operationId: rtmpConnsList
-      summary: returns all active RTMP connections.
+      summary: returns all RTMP connections.
       description: ''
       responses:
         '200':
@@ -754,7 +751,7 @@ paths:
   /v1/rtmpsconns/list:
     get:
       operationId: rtmpsConnsList
-      summary: returns all active RTMPS connections.
+      summary: returns all RTMPS connections.
       description: ''
       responses:
         '200':
@@ -762,7 +759,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPSConnsList'
+                $ref: '#/components/schemas/RTMPConnsList'
         '400':
           description: invalid request.
         '500':
@@ -791,7 +788,7 @@ paths:
   /v1/hlsmuxers/list:
     get:
       operationId: hlsMuxersList
-      summary: returns all active HLS muxers.
+      summary: returns all HLS muxers.
       description: ''
       responses:
         '200':

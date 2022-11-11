@@ -70,13 +70,13 @@ type streamTrackH264 struct {
 
 func newStreamTrackH264(
 	track *gortsplib.TrackH264,
-	generateRTPPackets bool,
+	allocateEncoder bool,
 ) *streamTrackH264 {
 	t := &streamTrackH264{
 		track: track,
 	}
 
-	if generateRTPPackets {
+	if allocateEncoder {
 		t.encoder = &rtph264.Encoder{PayloadType: 96}
 		t.encoder.Init()
 	}

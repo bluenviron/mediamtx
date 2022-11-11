@@ -2,6 +2,7 @@ package core
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/aler9/gortsplib"
 )
@@ -51,13 +52,19 @@ func (m *streamNonRTSPReadersMap) hasReaders() bool {
 }
 
 type stream struct {
+	bytesReceived  *uint64
 	nonRTSPReaders *streamNonRTSPReadersMap
 	rtspStream     *gortsplib.ServerStream
 	streamTracks   []streamTrack
 }
 
-func newStream(tracks gortsplib.Tracks, generateRTPPackets bool) (*stream, error) {
+func newStream(
+	tracks gortsplib.Tracks,
+	generateRTPPackets bool,
+	bytesReceived *uint64,
+) (*stream, error) {
 	s := &stream{
+		bytesReceived:  bytesReceived,
 		nonRTSPReaders: newStreamNonRTSPReadersMap(),
 		rtspStream:     gortsplib.NewServerStream(tracks),
 	}
@@ -104,6 +111,7 @@ func (s *stream) writeData(data data) error {
 
 	// forward RTP packets to RTSP readers
 	for _, pkt := range data.getRTPPackets() {
+		atomic.AddUint64(s.bytesReceived, uint64(pkt.MarshalSize()))
 		s.rtspStream.WritePacketRTP(data.getTrackID(), pkt, data.getPTSEqualsDTS())
 	}
 

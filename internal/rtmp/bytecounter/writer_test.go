@@ -14,5 +14,5 @@ func TestWriter(t *testing.T) {
 	w.SetCount(100)
 
 	w.Write(bytes.Repeat([]byte{0x01}, 64))
-	require.Equal(t, uint32(100+64), w.Count())
+	require.Equal(t, uint64(100+64), w.Count())
 }

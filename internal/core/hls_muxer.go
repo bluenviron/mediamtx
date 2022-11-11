@@ -94,11 +94,16 @@ window.addEventListener('DOMContentLoaded', create);
 </html>
 `
 
+type hlsMuxerResponse struct {
+	muxer *hlsMuxer
+	cb    func() *hls.MuxerFileResponse
+}
+
 type hlsMuxerRequest struct {
 	dir  string
 	file string
 	ctx  *gin.Context
-	res  chan func() *hls.MuxerFileResponse
+	res  chan hlsMuxerResponse
 }
 
 type hlsMuxerPathManager interface {
@@ -133,6 +138,7 @@ type hlsMuxer struct {
 	lastRequestTime *int64
 	muxer           *hls.Muxer
 	requests        []*hlsMuxerRequest
+	bytesSent       *uint64
 
 	// in
 	chRequest          chan *hlsMuxerRequest
@@ -179,6 +185,7 @@ func newHLSMuxer(
 			v := time.Now().UnixNano()
 			return &v
 		}(),
+		bytesSent:          new(uint64),
 		chRequest:          make(chan *hlsMuxerRequest),
 		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
@@ -235,7 +242,10 @@ func (m *hlsMuxer) run() {
 
 			case req := <-m.chRequest:
 				if isReady {
-					req.res <- m.handleRequest(req)
+					req.res <- hlsMuxerResponse{
+						muxer: m,
+						cb:    m.handleRequest(req),
+					}
 				} else {
 					m.requests = append(m.requests, req)
 				}
@@ -244,13 +254,17 @@ func (m *hlsMuxer) run() {
 				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
 					Created:     m.created,
 					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
+					BytesSent:   atomic.LoadUint64(m.bytesSent),
 				}
 				close(req.res)
 
 			case <-innerReady:
 				isReady = true
 				for _, req := range m.requests {
-					req.res <- m.handleRequest(req)
+					req.res <- hlsMuxerResponse{
+						muxer: m,
+						cb:    m.handleRequest(req),
+					}
 				}
 				m.requests = nil
 
@@ -264,8 +278,11 @@ func (m *hlsMuxer) run() {
 	m.ctxCancel()
 
 	for _, req := range m.requests {
-		req.res <- func() *hls.MuxerFileResponse {
-			return &hls.MuxerFileResponse{Status: http.StatusNotFound}
+		req.res <- hlsMuxerResponse{
+			muxer: m,
+			cb: func() *hls.MuxerFileResponse {
+				return &hls.MuxerFileResponse{Status: http.StatusNotFound}
+			},
 		}
 	}
 
@@ -547,13 +564,20 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 	return nil
 }
 
+func (m *hlsMuxer) addSentBytes(n uint64) {
+	atomic.AddUint64(m.bytesSent, n)
+}
+
 // request is called by hlsserver.Server (forwarded from ServeHTTP).
 func (m *hlsMuxer) request(req *hlsMuxerRequest) {
 	select {
 	case m.chRequest <- req:
 	case <-m.ctx.Done():
-		req.res <- func() *hls.MuxerFileResponse {
-			return &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
+		req.res <- hlsMuxerResponse{
+			muxer: m,
+			cb: func() *hls.MuxerFileResponse {
+				return &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
+			},
 		}
 	}
 }

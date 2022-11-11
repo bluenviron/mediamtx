@@ -14,9 +14,11 @@ import (
 )
 
 type rtmpServerAPIConnsListItem struct {
-	Created    time.Time `json:"created"`
-	RemoteAddr string    `json:"remoteAddr"`
-	State      string    `json:"state"`
+	Created       time.Time `json:"created"`
+	RemoteAddr    string    `json:"remoteAddr"`
+	State         string    `json:"state"`
+	BytesReceived uint64    `json:"bytesReceived"`
+	BytesSent     uint64    `json:"bytesSent"`
 }
 
 type rtmpServerAPIConnsListData struct {
@@ -236,6 +238,8 @@ outer:
 						}
 						return "idle"
 					}(),
+					BytesReceived: c.conn.BytesReceived(),
+					BytesSent:     c.conn.BytesSent(),
 				}
 			}
 

@@ -1,6 +1,7 @@
 package rawmessage
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"time"
@@ -22,14 +23,14 @@ type readerChunkStream struct {
 }
 
 func (rc *readerChunkStream) readChunk(c chunk.Chunk, chunkBodySize uint32) error {
-	err := c.Read(rc.mr.r, chunkBodySize)
+	err := c.Read(rc.mr.br, chunkBodySize)
 	if err != nil {
 		return err
 	}
 
 	// check if an ack is needed
 	if rc.mr.ackWindowSize != 0 {
-		count := rc.mr.r.Count()
+		count := uint32(rc.mr.r.Count())
 		diff := count - rc.mr.lastAckCount
 
 		if diff > (rc.mr.ackWindowSize) {
@@ -210,6 +211,7 @@ type Reader struct {
 	r           *bytecounter.Reader
 	onAckNeeded func(uint32) error
 
+	br            *bufio.Reader
 	chunkSize     uint32
 	ackWindowSize uint32
 	lastAckCount  uint32
@@ -223,8 +225,11 @@ type Reader struct {
 
 // NewReader allocates a Reader.
 func NewReader(r *bytecounter.Reader, onAckNeeded func(uint32) error) *Reader {
+	br := bufio.NewReader(r)
+
 	return &Reader{
 		r:            r,
+		br:           br,
 		onAckNeeded:  onAckNeeded,
 		chunkSize:    128,
 		chunkStreams: make(map[byte]*readerChunkStream),
@@ -244,7 +249,7 @@ func (r *Reader) SetWindowAckSize(v uint32) {
 // Read reads a Message.
 func (r *Reader) Read() (*Message, error) {
 	for {
-		byt, err := r.r.ReadByte()
+		byt, err := r.br.ReadByte()
 		if err != nil {
 			return nil, err
 		}
@@ -258,7 +263,7 @@ func (r *Reader) Read() (*Message, error) {
 			r.chunkStreams[chunkStreamID] = rc
 		}
 
-		r.r.UnreadByte()
+		r.br.UnreadByte()
 
 		msg, err := rc.readMessage(typ)
 		if err != nil {
