@@ -433,7 +433,7 @@ Full documentation of the API is available on the [dedicated site](https://aler9
 
 ### Metrics
 
-A metrics exporter, compatible with Prometheus, can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
 
 ```
 wget -qO- localhost:9998/metrics
@@ -441,49 +441,40 @@ wget -qO- localhost:9998/metrics
 
 Obtaining:
 
-```
+```ini
+# metrics of every path
 paths{name="[path_name]",state="[state]"} 1
-paths_bytes_received{name="[path_name]"} 1234
+paths_bytes_received{name="[path_name]",state="[state]"} 1234
+
+# metrics of every RTSP connection
 rtsp_conns{id="[id]"} 1
 rtsp_conns_bytes_received{id="[id]"} 1234
 rtsp_conns_bytes_sent{id="[id]"} 187
+
+# metrics of every RTSP session
 rtsp_sessions{id="[id]",state="idle"} 1
-rtsp_sessions_bytes_received{id="[id]"} 1234
-rtsp_sessions_bytes_sent{id="[id]"} 187
+rtsp_sessions_bytes_received{id="[id]",state="[state]"} 1234
+rtsp_sessions_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every RTSPS connection
 rtsps_conns{id="[id]"} 1
 rtsps_conns_bytes_received{id="[id]"} 1234
 rtsps_conns_bytes_sent{id="[id]"} 187
+
+# metrics of every RTSPS session
 rtsps_sessions{id="[id]",state="[state]"} 1
-rtsps_sessions_bytes_received{id="[id]"} 1234
-rtsps_sessions_bytes_sent{id="[id]"} 187
+rtsps_sessions_bytes_received{id="[id]",state="[state]"} 1234
+rtsps_sessions_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every RTMP connection
 rtmp_conns{id="[id]",state="[state]"} 1
-rtmp_conns_bytes_received{id="[id]"} 1234
-rtmp_conns_bytes_sent{id="[id]"} 187
+rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
+rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every HLS muxer
 hls_muxers{name="[name]"} 1
 hls_muxers_bytes_sent{name="[name]"} 187
 ```
-
-where:
-
-* `paths{name="[path_name]",state="[state]"} 1` is replicated for each path and provides the name and state of the path
-* `paths_bytes_received{name="[path_name]"} 1234` is replicated for each path and provides the number of bytes received by the path from its source
-* `rtsp_conns{id="[id]"}` is replicated for each RTSP connection and provides the ID of the connection
-* `rtsp_conns_bytes_received{id="[id]"}` is replicated for each RTSP connection and provides the number of bytes received from the connection
-* `rtsp_conns_bytes_sent{id="[id]"}` is replicated for each RTSP connection and provides the number of bytes sent to the connection
-* `rtsp_sessions{id="[id]",state="[state]"} 1` is replicated for each RTSP session and provides the ID and state of the session
-* `rtsp_sessions_bytes_received{id="[id]"} 1234` is replicated for each RTSP session and provides the number of bytes received from the session
-* `rtsp_sessions_bytes_sent{id="[id]"} 187` is replicated for each RTSP session and provides the number of bytes sent from the session
-* `rtsp_conns{id="[id]"}` is replicated for each RTSPS connection and provides the ID of the connection
-* `rtsp_conns_bytes_received{id="[id]"}` is replicated for each RTSPS connection and provides the number of bytes received from the connection
-* `rtsp_conns_bytes_sent{id="[id]"}` is replicated for each RTSPS connection and provides the number of bytes sent to the connection
-* `rtsps_sessions{id="[id]",state="[state]"} 1` is replicated for each RTSPS session and provides the ID and state of the session
-* `rtsps_sessions_bytes_received{id="[id]"} 1234` is replicated for each RTSPS session and provides the number of bytes received from the session
-* `rtsps_sessions_bytes_sent{id="[id]"} 187` is replicated for each RTSPS session and provides the number of bytes sent from the session
-* `rtmp_conns{id="[id]",state="[state]"} 1}` is replicated for each RTMP connection and provides the ID and state of the connection
-* `rtmp_conns_bytes_received{id="[id]"} 1234` is replicated for each RTMP connection and provides the number of bytes received from the connection
-* `rtmp_conns_bytes_sent{id="[id]"} 187` is replicated for each RTMP connection and provides the number of bytes sent to the session
-* `hls_muxers{name="[name]"}` is replicated for each HLS muxer and provides the name and state of every HLS muxer
-* `hls_muxers_bytes_sent{name="[name]"} 187` is replicated for each HLS muxer and provides the number of bytes sent by the muxer through HTTP
 
 ### pprof
 
