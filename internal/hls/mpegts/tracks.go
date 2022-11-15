@@ -78,7 +78,8 @@ func FindTracks(byts []byte) ([]*Track, error) {
 		switch t.ES.StreamType {
 		case astits.StreamTypeH264Video:
 			t.Track = &gortsplib.TrackH264{
-				PayloadType: 96,
+				PayloadType:       96,
+				PacketizationMode: 1,
 			}
 
 		case astits.StreamTypeAACAudio:

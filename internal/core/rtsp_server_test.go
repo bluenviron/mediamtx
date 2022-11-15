@@ -45,9 +45,10 @@ func TestRTSPServerAuth(t *testing.T) {
 			}
 
 			track := &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			}
 
 			source := gortsplib.Client{}
@@ -94,9 +95,10 @@ func TestRTSPServerAuth(t *testing.T) {
 		defer p.Close()
 
 		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PayloadType:       96,
+			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
 		}
 
 		source := gortsplib.Client{}
@@ -142,9 +144,10 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			defer p.Close()
 
 			track := &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			}
 
 			c := gortsplib.Client{}
@@ -212,9 +215,10 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		defer p.Close()
 
 		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PayloadType:       96,
+			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
 		}
 
 		c := gortsplib.Client{}
@@ -238,9 +242,10 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		defer a.close()
 
 		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PayloadType:       96,
+			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
 		}
 
 		c := gortsplib.Client{}
@@ -273,9 +278,10 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			defer p.Close()
 
 			track := &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			}
 
 			s1 := gortsplib.Client{}
@@ -332,7 +338,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 					Marker:         true,
 				},
 				Payload: []byte{0x01, 0x02, 0x03, 0x04},
-			}, true)
+			})
 			if ca == "enabled" {
 				require.Error(t, err)
 			} else {
@@ -350,7 +356,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 						Marker:         true,
 					},
 					Payload: []byte{0x05, 0x06, 0x07, 0x08},
-				}, true)
+				})
 				require.NoError(t, err)
 			}
 
@@ -384,9 +390,10 @@ func TestRTSPServerFallback(t *testing.T) {
 			source := gortsplib.Client{}
 			err := source.StartPublishing("rtsp://localhost:8554/path2",
 				gortsplib.Tracks{&gortsplib.TrackH264{
-					PayloadType: 96,
-					SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-					PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+					PayloadType:       96,
+					SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+					PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+					PacketizationMode: 1,
 				}})
 			require.NoError(t, err)
 			defer source.Close()

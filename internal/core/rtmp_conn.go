@@ -559,10 +559,9 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 				}
 
 				err := rres.stream.writeData(&dataH264{
-					trackID:      videoTrackID,
-					ptsEqualsDTS: false,
-					pts:          tmsg.DTS + tmsg.PTSDelta,
-					nalus:        nalus,
+					trackID: videoTrackID,
+					pts:     tmsg.DTS + tmsg.PTSDelta,
+					nalus:   nalus,
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)
@@ -598,10 +597,9 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 				}
 
 				err = rres.stream.writeData(&dataH264{
-					trackID:      videoTrackID,
-					ptsEqualsDTS: h264.IDRPresent(validNALUs),
-					pts:          tmsg.DTS + tmsg.PTSDelta,
-					nalus:        validNALUs,
+					trackID: videoTrackID,
+					pts:     tmsg.DTS + tmsg.PTSDelta,
+					nalus:   validNALUs,
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)

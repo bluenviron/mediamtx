@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -80,10 +79,9 @@ func (s *hlsSource) run(ctx context.Context) error {
 
 	onVideoData := func(pts time.Duration, nalus [][]byte) {
 		err := stream.writeData(&dataH264{
-			trackID:      videoTrackID,
-			ptsEqualsDTS: h264.IDRPresent(nalus),
-			pts:          pts,
-			nalus:        nalus,
+			trackID: videoTrackID,
+			pts:     pts,
+			nalus:   nalus,
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

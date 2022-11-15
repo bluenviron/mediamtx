@@ -14,7 +14,6 @@ import (
 	"github.com/aler9/gortsplib/pkg/base"
 	"github.com/aler9/gortsplib/pkg/conn"
 	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/aler9/gortsplib/pkg/rtph264"
 	"github.com/aler9/gortsplib/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -47,9 +46,10 @@ func TestRTSPSource(t *testing.T) {
 	} {
 		t.Run(source, func(t *testing.T) {
 			track := &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			}
 
 			stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
@@ -96,7 +96,7 @@ func TestRTSPSource(t *testing.T) {
 									Marker:         true,
 								},
 								Payload: []byte{0x01, 0x02, 0x03, 0x04},
-							}, true)
+							})
 						}()
 
 						return &base.Response{
@@ -179,9 +179,10 @@ func TestRTSPSource(t *testing.T) {
 
 func TestRTSPSourceNoPassword(t *testing.T) {
 	track := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-		PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		PayloadType:       96,
+		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+		PacketizationMode: 1,
 	}
 
 	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
@@ -242,9 +243,11 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 }
 
 func TestRTSPSourceDynamicH264Params(t *testing.T) {
-	stream := gortsplib.NewServerStream(gortsplib.Tracks{&gortsplib.TrackH264{
-		PayloadType: 96,
-	}})
+	track := &gortsplib.TrackH264{
+		PayloadType:       96,
+		PacketizationMode: 1,
+	}
+	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
 	defer stream.Close()
 
 	s := gortsplib.Server{
@@ -282,16 +285,15 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	enc := &rtph264.Encoder{PayloadType: 96}
-	enc.Init()
+	enc := track.CreateEncoder()
 
 	pkts, err := enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0], true)
+	stream.WritePacketRTP(0, pkts[0])
 
 	pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0], true)
+	stream.WritePacketRTP(0, pkts[0])
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -316,11 +318,11 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0], true)
+	stream.WritePacketRTP(0, pkts[0])
 
 	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0], true)
+	stream.WritePacketRTP(0, pkts[0])
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -346,7 +348,8 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 func TestRTSPSourceRemovePadding(t *testing.T) {
 	stream := gortsplib.NewServerStream(gortsplib.Tracks{&gortsplib.TrackH264{
-		PayloadType: 96,
+		PayloadType:       96,
+		PacketizationMode: 1,
 	}})
 	defer stream.Close()
 
@@ -430,7 +433,7 @@ func TestRTSPSourceRemovePadding(t *testing.T) {
 		},
 		Payload:     []byte{0x01, 0x02, 0x03, 0x04},
 		PaddingSize: 20,
-	}, true)
+	})
 
 	<-packetRecv
 }
@@ -473,9 +476,10 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 		require.Equal(t, base.Describe, req.Method)
 
 		tracks := gortsplib.Tracks{&gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PayloadType:       96,
+			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
 		}}
 
 		err = conn.WriteResponse(&base.Response{

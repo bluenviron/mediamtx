@@ -588,9 +588,10 @@ func trackFromH264DecoderConfig(data []byte) (*gortsplib.TrackH264, error) {
 	}
 
 	return &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         conf.SPS,
-		PPS:         conf.PPS,
+		PayloadType:       96,
+		SPS:               conf.SPS,
+		PPS:               conf.PPS,
+		PacketizationMode: 1,
 	}, nil
 }
 

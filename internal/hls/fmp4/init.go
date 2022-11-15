@@ -106,9 +106,10 @@ func (i *Init) Unmarshal(byts []byte) error {
 			}
 
 			curTrack.Track = &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         sps,
-				PPS:         pps,
+				PayloadType:       96,
+				SPS:               sps,
+				PPS:               pps,
+				PacketizationMode: 1,
 			}
 			state = waitingTrak
 

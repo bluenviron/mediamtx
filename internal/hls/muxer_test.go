@@ -23,9 +23,10 @@ var testSPS = []byte{
 
 func TestMuxerVideoAudio(t *testing.T) {
 	videoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         testSPS,
-		PPS:         []byte{0x08},
+		PayloadType:       96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
 	}
 
 	audioTrack := &gortsplib.TrackMPEG4Audio{
@@ -180,9 +181,10 @@ func TestMuxerVideoAudio(t *testing.T) {
 
 func TestMuxerVideoOnly(t *testing.T) {
 	videoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         testSPS,
-		PPS:         []byte{0x08},
+		PayloadType:       96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
 	}
 
 	for _, ca := range []string{
@@ -404,9 +406,10 @@ func TestMuxerAudioOnly(t *testing.T) {
 
 func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 	videoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         testSPS,
-		PPS:         []byte{0x08},
+		PayloadType:       96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
 	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
@@ -428,9 +431,10 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 
 func TestMuxerMaxSegmentSize(t *testing.T) {
 	videoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         testSPS,
-		PPS:         []byte{0x08},
+		PayloadType:       96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
 	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 0, videoTrack, nil)
@@ -446,9 +450,10 @@ func TestMuxerMaxSegmentSize(t *testing.T) {
 
 func TestMuxerDoubleRead(t *testing.T) {
 	videoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         testSPS,
-		PPS:         []byte{0x08},
+		PayloadType:       96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
 	}
 
 	m, err := NewMuxer(MuxerVariantMPEGTS, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)

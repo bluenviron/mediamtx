@@ -22,9 +22,10 @@ func TestWriter(t *testing.T) {
 	}
 
 	testVideoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         testSPS,
-		PPS:         []byte{0x08},
+		PayloadType:       96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
 	}
 
 	testAudioTrack := &gortsplib.TrackMPEG4Audio{

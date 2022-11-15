@@ -171,10 +171,9 @@ func (s *rtmpSource) run(ctx context.Context) error {
 						}
 
 						err = res.stream.writeData(&dataH264{
-							trackID:      videoTrackID,
-							ptsEqualsDTS: h264.IDRPresent(nalus),
-							pts:          tmsg.DTS + tmsg.PTSDelta,
-							nalus:        nalus,
+							trackID: videoTrackID,
+							pts:     tmsg.DTS + tmsg.PTSDelta,
+							nalus:   nalus,
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)

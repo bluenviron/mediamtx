@@ -112,7 +112,7 @@ func (s *stream) writeData(data data) error {
 	// forward RTP packets to RTSP readers
 	for _, pkt := range data.getRTPPackets() {
 		atomic.AddUint64(s.bytesReceived, uint64(pkt.MarshalSize()))
-		s.rtspStream.WritePacketRTP(data.getTrackID(), pkt, data.getPTSEqualsDTS())
+		s.rtspStream.WritePacketRTP(data.getTrackID(), pkt)
 	}
 
 	// forward data to non-RTSP readers

@@ -17,9 +17,10 @@ var testSPS = []byte{
 }
 
 var testVideoTrack = &gortsplib.TrackH264{
-	PayloadType: 96,
-	SPS:         testSPS,
-	PPS:         []byte{0x08},
+	PayloadType:       96,
+	SPS:               testSPS,
+	PPS:               []byte{0x08},
+	PacketizationMode: 1,
 }
 
 var testAudioTrack = &gortsplib.TrackMPEG4Audio{
@@ -567,6 +568,7 @@ func TestInitUnmarshal(t *testing.T) {
 						PPS: []byte{
 							0x68, 0xcb, 0x8c, 0xb2,
 						},
+						PacketizationMode: 1,
 					},
 				},
 			},

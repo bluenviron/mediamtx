@@ -193,9 +193,10 @@ func TestAPIPathsList(t *testing.T) {
 			"rtsp://localhost:8554/mypath",
 			gortsplib.Tracks{
 				&gortsplib.TrackH264{
-					PayloadType: 96,
-					SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-					PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+					PayloadType:       96,
+					SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+					PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+					PacketizationMode: 1,
 				},
 				&gortsplib.TrackMPEG4Audio{
 					PayloadType: 96,
@@ -218,7 +219,7 @@ func TestAPIPathsList(t *testing.T) {
 				PayloadType: 96,
 			},
 			Payload: []byte{0x01, 0x02, 0x03, 0x04},
-		}, true)
+		})
 
 		var out pathList
 		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
@@ -257,9 +258,10 @@ func TestAPIPathsList(t *testing.T) {
 
 		tracks := gortsplib.Tracks{
 			&gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			},
 			&gortsplib.TrackMPEG4Audio{
 				PayloadType: 97,
@@ -413,9 +415,10 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			defer p.Close()
 
 			track := &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			}
 
 			switch ca {
@@ -468,7 +471,8 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
 						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
 					},
-					PPS: []byte{0x08, 0x06, 0x07, 0x08},
+					PPS:               []byte{0x08, 0x06, 0x07, 0x08},
+					PacketizationMode: 1,
 				}
 
 				err = conn.WriteTracks(videoTrack, nil)
@@ -585,9 +589,10 @@ func TestAPIKick(t *testing.T) {
 			defer p.Close()
 
 			track := &gortsplib.TrackH264{
-				PayloadType: 96,
-				SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+				PayloadType:       96,
+				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+				PacketizationMode: 1,
 			}
 
 			switch ca {
@@ -628,7 +633,8 @@ func TestAPIKick(t *testing.T) {
 						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
 						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
 					},
-					PPS: []byte{0x08, 0x06, 0x07, 0x08},
+					PPS:               []byte{0x08, 0x06, 0x07, 0x08},
+					PacketizationMode: 1,
 				}
 
 				err = conn.WriteTracks(videoTrack, nil)

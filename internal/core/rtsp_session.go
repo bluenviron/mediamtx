@@ -384,9 +384,8 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 	switch s.session.AnnouncedTracks()[ctx.TrackID].(type) {
 	case *gortsplib.TrackH264:
 		err = s.stream.writeData(&dataH264{
-			trackID:      ctx.TrackID,
-			rtpPackets:   []*rtp.Packet{ctx.Packet},
-			ptsEqualsDTS: ctx.PTSEqualsDTS,
+			trackID:    ctx.TrackID,
+			rtpPackets: []*rtp.Packet{ctx.Packet},
 		})
 
 	case *gortsplib.TrackMPEG4Audio:
@@ -397,9 +396,8 @@ func (s *rtspSession) onPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
 
 	default:
 		err = s.stream.writeData(&dataGeneric{
-			trackID:      ctx.TrackID,
-			rtpPackets:   []*rtp.Packet{ctx.Packet},
-			ptsEqualsDTS: ctx.PTSEqualsDTS,
+			trackID:    ctx.TrackID,
+			rtpPackets: []*rtp.Packet{ctx.Packet},
 		})
 	}
 

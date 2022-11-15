@@ -75,7 +75,8 @@ func TestRTMPServerPublishRead(t *testing.T) {
 					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
 					0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
 				},
-				PPS: []byte{0x08, 0x06, 0x07, 0x08},
+				PPS:               []byte{0x08, 0x06, 0x07, 0x08},
+				PacketizationMode: 1,
 			}
 
 			audioTrack := &gortsplib.TrackMPEG4Audio{
@@ -199,6 +200,7 @@ func TestRTMPServerAuth(t *testing.T) {
 				PPS: []byte{
 					0x68, 0xee, 0x3c, 0x80,
 				},
+				PacketizationMode: 1,
 			}
 
 			err = conn1.WriteTracks(videoTrack, nil)
@@ -262,6 +264,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			PPS: []byte{
 				0x68, 0xee, 0x3c, 0x80,
 			},
+			PacketizationMode: 1,
 		}
 
 		err = conn1.WriteTracks(videoTrack, nil)
@@ -316,6 +319,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			PPS: []byte{
 				0x68, 0xee, 0x3c, 0x80,
 			},
+			PacketizationMode: 1,
 		}
 
 		err = conn1.WriteTracks(videoTrack, nil)
@@ -369,6 +373,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			PPS: []byte{
 				0x68, 0xee, 0x3c, 0x80,
 			},
+			PacketizationMode: 1,
 		}
 
 		err = conn1.WriteTracks(videoTrack, nil)

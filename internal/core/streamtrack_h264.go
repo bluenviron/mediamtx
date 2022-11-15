@@ -5,7 +5,7 @@ import (
 
 	"github.com/aler9/gortsplib"
 	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtph264"
+	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
 	"github.com/pion/rtp"
 )
 
@@ -77,8 +77,7 @@ func newStreamTrackH264(
 	}
 
 	if allocateEncoder {
-		t.encoder = &rtph264.Encoder{PayloadType: 96}
-		t.encoder.Init()
+		t.encoder = track.CreateEncoder()
 	}
 
 	return t
@@ -200,6 +199,7 @@ func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
 					SSRC:                  &v1,
 					InitialSequenceNumber: &v2,
 					InitialTimestamp:      &v3,
+					PacketizationMode:     t.track.PacketizationMode,
 				}
 				t.encoder.Init()
 			}
@@ -208,8 +208,7 @@ func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
 		// decode from RTP
 		if hasNonRTSPReaders || t.encoder != nil {
 			if t.decoder == nil {
-				t.decoder = &rtph264.Decoder{}
-				t.decoder.Init()
+				t.decoder = t.track.CreateDecoder()
 			}
 
 			nalus, pts, err := t.decoder.Decode(pkt)

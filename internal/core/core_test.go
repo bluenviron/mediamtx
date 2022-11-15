@@ -194,6 +194,7 @@ func main() {
 		PayloadType: 96,
 		SPS: []byte{0x01, 0x02, 0x03, 0x04},
 		PPS: []byte{0x01, 0x02, 0x03, 0x04},
+		PacketizationMode: 1,
 	}
 
 	source := gortsplib.Client{}
@@ -321,9 +322,10 @@ func TestCorePathRunOnReady(t *testing.T) {
 	defer p.Close()
 
 	track := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-		PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+		PayloadType:       96,
+		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+		PacketizationMode: 1,
 	}
 
 	c := gortsplib.Client{}
@@ -357,9 +359,10 @@ func TestCoreHotReloading(t *testing.T) {
 
 	func() {
 		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PayloadType:       96,
+			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
 		}
 
 		c := gortsplib.Client{}
@@ -379,9 +382,10 @@ func TestCoreHotReloading(t *testing.T) {
 
 	func() {
 		track := &gortsplib.TrackH264{
-			PayloadType: 96,
-			SPS:         []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:         []byte{0x01, 0x02, 0x03, 0x04},
+			PayloadType:       96,
+			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
 		}
 
 		conn := gortsplib.Client{}

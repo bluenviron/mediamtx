@@ -499,9 +499,10 @@ func TestReadTracks(t *testing.T) {
 				switch ca {
 				case "video+audio":
 					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType: 96,
-						SPS:         sps,
-						PPS:         pps,
+						PayloadType:       96,
+						SPS:               sps,
+						PPS:               pps,
+						PacketizationMode: 1,
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackMPEG4Audio{
@@ -518,18 +519,20 @@ func TestReadTracks(t *testing.T) {
 
 				case "video":
 					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType: 96,
-						SPS:         sps,
-						PPS:         pps,
+						PayloadType:       96,
+						SPS:               sps,
+						PPS:               pps,
+						PacketizationMode: 1,
 					}, videoTrack)
 
 					require.Nil(t, audioTrack)
 
 				case "metadata without codec id":
 					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType: 96,
-						SPS:         sps,
-						PPS:         pps,
+						PayloadType:       96,
+						SPS:               sps,
+						PPS:               pps,
+						PacketizationMode: 1,
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackMPEG4Audio{
@@ -546,9 +549,10 @@ func TestReadTracks(t *testing.T) {
 
 				case "missing metadata":
 					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType: 96,
-						SPS:         sps,
-						PPS:         pps,
+						PayloadType:       96,
+						SPS:               sps,
+						PPS:               pps,
+						PacketizationMode: 1,
 					}, videoTrack)
 
 					require.Equal(t, &gortsplib.TrackMPEG4Audio{
@@ -936,6 +940,7 @@ func TestWriteTracks(t *testing.T) {
 			PPS: []byte{
 				0x68, 0xee, 0x3c, 0x80,
 			},
+			PacketizationMode: 1,
 		}
 
 		audioTrack := &gortsplib.TrackMPEG4Audio{
