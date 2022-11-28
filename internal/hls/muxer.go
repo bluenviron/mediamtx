@@ -77,13 +77,13 @@ func (m *Muxer) Close() {
 }
 
 // WriteH264 writes H264 NALUs, grouped by timestamp.
-func (m *Muxer) WriteH264(now time.Time, pts time.Duration, nalus [][]byte) error {
-	return m.variant.writeH264(now, pts, nalus)
+func (m *Muxer) WriteH264(ntp time.Time, pts time.Duration, nalus [][]byte) error {
+	return m.variant.writeH264(ntp, pts, nalus)
 }
 
 // WriteAAC writes AAC AUs, grouped by timestamp.
-func (m *Muxer) WriteAAC(now time.Time, pts time.Duration, au []byte) error {
-	return m.variant.writeAAC(now, pts, au)
+func (m *Muxer) WriteAAC(ntp time.Time, pts time.Duration, au []byte) error {
+	return m.variant.writeAAC(ntp, pts, au)
 }
 
 // File returns a file reader.

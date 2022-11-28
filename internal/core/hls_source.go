@@ -82,6 +82,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 			trackID: videoTrackID,
 			pts:     pts,
 			nalus:   nalus,
+			ntp:     time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)
@@ -93,6 +94,7 @@ func (s *hlsSource) run(ctx context.Context) error {
 			trackID: audioTrackID,
 			pts:     pts,
 			aus:     [][]byte{au},
+			ntp:     time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

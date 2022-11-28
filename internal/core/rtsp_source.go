@@ -151,18 +151,21 @@ func (s *rtspSource) run(ctx context.Context) error {
 					err = res.stream.writeData(&dataH264{
 						trackID:    ctx.TrackID,
 						rtpPackets: []*rtp.Packet{ctx.Packet},
+						ntp:        time.Now(),
 					})
 
 				case *gortsplib.TrackMPEG4Audio:
 					err = res.stream.writeData(&dataMPEG4Audio{
 						trackID:    ctx.TrackID,
 						rtpPackets: []*rtp.Packet{ctx.Packet},
+						ntp:        time.Now(),
 					})
 
 				default:
 					err = res.stream.writeData(&dataGeneric{
 						trackID:    ctx.TrackID,
 						rtpPackets: []*rtp.Packet{ctx.Packet},
+						ntp:        time.Now(),
 					})
 				}
 

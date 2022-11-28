@@ -62,6 +62,7 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 			trackID: 0,
 			pts:     dts,
 			nalus:   nalus,
+			ntp:     time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

@@ -174,6 +174,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							trackID: videoTrackID,
 							pts:     tmsg.DTS + tmsg.PTSDelta,
 							nalus:   nalus,
+							ntp:     time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)
@@ -190,6 +191,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							trackID: audioTrackID,
 							pts:     tmsg.DTS,
 							aus:     [][]byte{tmsg.Payload},
+							ntp:     time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)

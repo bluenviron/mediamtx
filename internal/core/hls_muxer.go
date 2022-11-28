@@ -433,7 +433,7 @@ func (m *hlsMuxer) runWriter(
 			}
 			pts := tdata.pts - videoStartPTS
 
-			err := m.muxer.WriteH264(time.Now(), pts, tdata.nalus)
+			err := m.muxer.WriteH264(tdata.ntp, pts, tdata.nalus)
 			if err != nil {
 				return fmt.Errorf("muxer error: %v", err)
 			}
@@ -452,7 +452,7 @@ func (m *hlsMuxer) runWriter(
 
 			for i, au := range tdata.aus {
 				err := m.muxer.WriteAAC(
-					time.Now(),
+					tdata.ntp,
 					pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
 						time.Second/time.Duration(audioTrack.ClockRate()),
 					au)
