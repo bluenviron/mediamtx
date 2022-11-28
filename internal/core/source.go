@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/aler9/gortsplib"
@@ -20,9 +19,7 @@ type source interface {
 func sourceTrackNames(tracks gortsplib.Tracks) []string {
 	ret := make([]string, len(tracks))
 	for i, t := range tracks {
-		n := reflect.TypeOf(t).Elem().Name()
-		n = n[len("Track"):]
-		ret[i] = n
+		ret[i] = t.String()
 	}
 	return ret
 }
