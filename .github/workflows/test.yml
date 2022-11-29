@@ -15,7 +15,9 @@ jobs:
 
     - run: make test
 
-    - run: bash <(curl -s https://codecov.io/bash)
+    - uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
 
   test32:
     runs-on: ubuntu-22.04
