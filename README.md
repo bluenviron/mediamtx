@@ -490,14 +490,24 @@ go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 
 Install Go 1.18, download the repository, open a terminal in it and run:
 
-```
+```sh
 go run .
 ```
 
-You can perform the entire operation inside Docker:
+Compilation for all supported platform can be launched by using:
 
-```
+```sh
 make binaries
+```
+
+In order to compile and run with support for the Raspberry Pi Camera:
+
+```sh
+cd internal/rpicamera/exe
+make
+cd ../../../
+go build -tags rpicamera
+./rtsp-simple-server
 ```
 
 ## Publish to the server
