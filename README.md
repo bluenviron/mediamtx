@@ -534,11 +534,11 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 _rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requisites:
 
-1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system.
+1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system. Both 32 bit and 64 bit operative systems are supported.
 
 2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
-3. Make sure that the `libcamera` version is at least `0.0.1`, otherwise upgrade it with `sudo apt upgrade`.
+3. Make sure that the `libcamera0` package version is at least `0.0.2`, otherwise upgrade it with `sudo apt update && sudo apt upgrade`.
 
 If you want to run the standard (non-dockerized) version of the server, just download the server executable and make sure to pick the `arm64` variant if you're using the 64-bit version of the operative system. Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 

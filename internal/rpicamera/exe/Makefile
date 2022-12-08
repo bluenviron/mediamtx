@@ -36,4 +36,6 @@ all: exe
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 exe: $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS)
+	$(CXX) $^ $(LDFLAGS) -o $@
+	patchelf --replace-needed libcamera.so.0.0.2 libcamera.so.x.x.x $@
+	patchelf --replace-needed libcamera-base.so.0.0.2 libcamera-base.so.x.x.x $@

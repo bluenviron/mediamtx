@@ -6,7 +6,11 @@ package rpicamera
 import (
 	_ "embed"
 	"fmt"
+	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aler9/gortsplib/pkg/h264"
@@ -20,6 +24,61 @@ func bool2env(v bool) string {
 		return "1"
 	}
 	return "0"
+}
+
+func getKernelArch() (string, error) {
+	cmd := exec.Command("uname", "-m")
+
+	byts, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(byts[:len(byts)-1]), nil
+}
+
+// 32-bit embedded executables can't run on 64-bit.
+func checkArch() error {
+	if runtime.GOARCH != "arm" {
+		return nil
+	}
+
+	arch, err := getKernelArch()
+	if err != nil {
+		return err
+	}
+
+	if arch == "aarch64" {
+		return fmt.Errorf("OS is 64-bit, you need the arm64 server version")
+	}
+
+	return nil
+}
+
+func setupSymlink(name string) error {
+	cmd := exec.Command("sh", "-c", "ldconfig -p | grep "+name+".so | awk '{ print $4 }'")
+	byts, err := cmd.Output()
+	if err != nil {
+		return err
+	}
+
+	lib := strings.TrimSpace(string(byts))
+	if lib == "" {
+		return fmt.Errorf(name + " not found")
+	}
+
+	os.Remove("/dev/shm/" + name + ".so.x.x.x")
+	return os.Symlink(lib, "/dev/shm/"+name+".so.x.x.x")
+}
+
+// create libcamera simlinks that are version agnostic.
+func setupSymlinks() error {
+	err := setupSymlink("libcamera")
+	if err != nil {
+		return err
+	}
+
+	return setupSymlink("libcamera-base")
 }
 
 type RPICamera struct {
@@ -36,12 +95,23 @@ func New(
 	params Params,
 	onData func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
+	err := checkArch()
+	if err != nil {
+		return nil, err
+	}
+
+	err = setupSymlinks()
+	if err != nil {
+		return nil, err
+	}
+
 	pipe, err := newPipe()
 	if err != nil {
 		return nil, err
 	}
 
 	env := []string{
+		"LD_LIBRARY_PATH=/dev/shm",
 		"PIPE_FD=" + strconv.FormatInt(int64(pipe.writeFD), 10),
 		"CAMERA_ID=" + strconv.FormatInt(int64(params.CameraID), 10),
 		"WIDTH=" + strconv.FormatInt(int64(params.Width), 10),
