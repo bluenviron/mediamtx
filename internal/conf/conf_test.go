@@ -170,24 +170,48 @@ func TestConfEncryption(t *testing.T) {
 	require.Equal(t, true, ok)
 }
 
-func TestConfErrorNonExistentParameter(t *testing.T) {
-	func() {
-		tmpf, err := writeTempFile([]byte(`invalid: param`))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
+func TestConfErrors(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		conf string
+		err  string
+	}{
+		{
+			"non existent parameter 1",
+			`invalid: param`,
+			"non-existent parameter: 'invalid'",
+		},
+		{
+			"non existent parameter 2",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    invalid: parameter\n",
+			"parameter paths, key mypath: non-existent parameter: 'invalid'",
+		},
+		{
+			"invalid path name",
+			"paths:\n" +
+				"  '':\n" +
+				"    source: publisher\n",
+			"invalid path name '': cannot be empty",
+		},
+		{
+			"double raspberry pi camera",
+			"paths:\n" +
+				"  cam1:\n" +
+				"    source: rpiCamera\n" +
+				"  cam2:\n" +
+				"    source: rpiCamera\n",
+			"'rpiCamera' is used as source in two paths ('cam1' and 'cam2')",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			tmpf, err := writeTempFile([]byte(ca.conf))
+			require.NoError(t, err)
+			defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf)
-		require.EqualError(t, err, "non-existent parameter: 'invalid'")
-	}()
-
-	func() {
-		tmpf, err := writeTempFile([]byte("paths:\n" +
-			"  mypath:\n" +
-			"    invalid: parameter\n"))
-		require.NoError(t, err)
-		defer os.Remove(tmpf)
-
-		_, _, err = Load(tmpf)
-		require.EqualError(t, err, "parameter paths, key mypath: non-existent parameter: 'invalid'")
-	}()
+			_, _, err = Load(tmpf)
+			require.EqualError(t, err, ca.err)
+		})
+	}
 }

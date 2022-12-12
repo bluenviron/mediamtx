@@ -96,15 +96,11 @@ type PathConf struct {
 }
 
 func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
-	if name == "" {
-		return fmt.Errorf("path name can not be empty")
-	}
-
 	// normal path
-	if name[0] != '~' {
+	if name == "" || name[0] != '~' {
 		err := IsValidPathName(name)
 		if err != nil {
-			return fmt.Errorf("invalid path name: %s (%s)", err, name)
+			return fmt.Errorf("invalid path name '%s': %s", name, err)
 		}
 
 		// regular expression path
@@ -191,6 +187,12 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		if pconf.Regexp != nil {
 			return fmt.Errorf(
 				"a path with a regular expression (or path 'all') cannot have 'rpiCamera' as source. use another path")
+		}
+
+		for otherName, otherPath := range conf.Paths {
+			if otherPath != pconf && otherPath != nil && otherPath.Source == "rpiCamera" {
+				return fmt.Errorf("'rpiCamera' is used as source in two paths ('%s' and '%s')", name, otherName)
+			}
 		}
 
 		if pconf.RPICameraWidth == 0 {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -422,10 +423,19 @@ func (conf *Conf) CheckAndFillMissing() error {
 		delete(conf.Paths, "all")
 	}
 
-	for name, pconf := range conf.Paths {
+	sortedNames := make([]string, len(conf.Paths))
+	i := 0
+	for name := range conf.Paths {
+		sortedNames[i] = name
+		i++
+	}
+	sort.Strings(sortedNames)
+
+	for _, name := range sortedNames {
+		pconf := conf.Paths[name]
 		if pconf == nil {
-			conf.Paths[name] = &PathConf{}
-			pconf = conf.Paths[name]
+			pconf = &PathConf{}
+			conf.Paths[name] = pconf
 		}
 
 		err := pconf.checkAndFillMissing(conf, name)
