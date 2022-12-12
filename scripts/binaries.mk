@@ -22,6 +22,7 @@ COPY . ./
 
 ENV VERSION $(shell git describe --tags)
 ENV CGO_ENABLED 0
+RUN rm -rf binaries
 RUN mkdir tmp binaries
 RUN cp rtsp-simple-server.yml LICENSE tmp/
 
