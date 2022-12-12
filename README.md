@@ -562,7 +562,7 @@ If you want to run the standard (non-containerized) version of the server:
        source: rpiCamera
    ```
 
-If you want to run the server with Docker, you need to use the `latest-arm64-rpi` or `latest-armv7-rpi` or `latest-armv6-rpi` image (that already contains libcamera) and set some additional flags:
+If you want to run the server with Docker, you need to use the `latest-rpi` image (that already contains libcamera) and set some additional flags:
 
 ```
 docker run --rm -it \
@@ -571,7 +571,7 @@ docker run --rm -it \
 --tmpfs /dev/shm:exec \
 -v /run/udev:/run/udev:ro \
 -e RTSP_PATHS_CAM_SOURCE=rpiCamera \
-aler9/rtsp-simple-server:latest-arm64-rpi
+aler9/rtsp-simple-server:latest-rpi
 ```
 
 After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.

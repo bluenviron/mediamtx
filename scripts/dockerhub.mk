@@ -7,7 +7,7 @@ endef
 export DOCKERFILE_DOCKERHUB
 
 define DOCKERFILE_DOCKERHUB_RPI_32
-FROM $(RPI32_IMAGE)
+FROM --platform=linux/amd64 $(RPI32_IMAGE)
 RUN ["cross-build-start"]
 RUN apt update && apt install -y --no-install-recommends libcamera0
 RUN ["cross-build-end"]
@@ -18,7 +18,7 @@ endef
 export DOCKERFILE_DOCKERHUB_RPI_32
 
 define DOCKERFILE_DOCKERHUB_RPI_64
-FROM $(RPI64_IMAGE)
+FROM --platform=linux/amd64 $(RPI64_IMAGE)
 RUN ["cross-build-start"]
 RUN apt update && apt install -y --no-install-recommends libcamera0
 RUN ["cross-build-end"]
@@ -87,9 +87,17 @@ dockerhub:
 	-t aler9/rtsp-simple-server:latest-arm64v8-rpi \
 	--push
 
+	docker manifest create aler9/rtsp-simple-server:$(VERSION)-rpi \
+	$(foreach ARCH,armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH)-rpi)
+	docker manifest push aler9/rtsp-simple-server:$(VERSION)-rpi
+
 	docker manifest create aler9/rtsp-simple-server:$(VERSION) \
 	$(foreach ARCH,amd64 armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH))
 	docker manifest push aler9/rtsp-simple-server:$(VERSION)
+
+	docker manifest create aler9/rtsp-simple-server:latest-rpi \
+	$(foreach ARCH,armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH)-rpi)
+	docker manifest push aler9/rtsp-simple-server:latest-rpi
 
 	docker manifest create aler9/rtsp-simple-server:latest \
 	$(foreach ARCH,amd64 armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH))
