@@ -548,9 +548,13 @@ _rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-qua
 
 2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
-3. Make sure that the `libcamera0` package version is at least `0.0.2`, otherwise upgrade it with `sudo apt update && sudo apt install libcamera0`.
+If you want to run the standard (non-containerized) version of the server:
 
-If you want to run the standard (non-dockerized) version of the server, just download the server executable and make sure to pick the `arm64` variant if you're using the 64-bit version of the operative system. Then edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+1. Make sure that the `libcamera0` package version is at least `0.0.2`, otherwise upgrade it with `sudo apt update && sudo apt install libcamera0`.
+
+2. download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
+
+3. edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
    ```yml
    paths:
@@ -558,18 +562,16 @@ If you want to run the standard (non-dockerized) version of the server, just dow
        source: rpiCamera
    ```
 
-If you want to run the server with Docker, you need to use the `--privileged` flag and expose some folders:
+If you want to run the server with Docker, you need to use the `latest-arm64-rpi` or `latest-armv7-rpi` or `latest-armv6-rpi` image (that already contains libcamera) and set some additional flags:
 
 ```
 docker run --rm -it \
 --network=host \
 --privileged \
 --tmpfs /dev/shm:exec \
--v /usr:/usr:ro \
--v /lib:/lib:ro \
 -v /run/udev:/run/udev:ro \
 -e RTSP_PATHS_CAM_SOURCE=rpiCamera \
-aler9/rtsp-simple-server
+aler9/rtsp-simple-server:latest-arm64-rpi
 ```
 
 After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.

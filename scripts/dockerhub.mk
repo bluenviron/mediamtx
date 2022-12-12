@@ -6,6 +6,28 @@ ENTRYPOINT [ "/rtsp-simple-server" ]
 endef
 export DOCKERFILE_DOCKERHUB
 
+define DOCKERFILE_DOCKERHUB_RPI_32
+FROM $(RPI32_IMAGE)
+RUN ["cross-build-start"]
+RUN apt update && apt install -y --no-install-recommends libcamera0
+RUN ["cross-build-end"]
+ARG BINARY
+ADD $$BINARY /
+ENTRYPOINT [ "/rtsp-simple-server" ]
+endef
+export DOCKERFILE_DOCKERHUB_RPI_32
+
+define DOCKERFILE_DOCKERHUB_RPI_64
+FROM $(RPI64_IMAGE)
+RUN ["cross-build-start"]
+RUN apt update && apt install -y --no-install-recommends libcamera0
+RUN ["cross-build-end"]
+ARG BINARY
+ADD $$BINARY /
+ENTRYPOINT [ "/rtsp-simple-server" ]
+endef
+export DOCKERFILE_DOCKERHUB_RPI_64
+
 dockerhub:
 	$(eval export DOCKER_CLI_EXPERIMENTAL=enabled)
 	$(eval VERSION := $(shell git describe --tags))
@@ -30,6 +52,13 @@ dockerhub:
 	-t aler9/rtsp-simple-server:latest-armv6 \
 	--push
 
+	echo "$$DOCKERFILE_DOCKERHUB_RPI_32" | docker buildx build . -f - \
+	--platform=linux/arm/v6 \
+	--build-arg BINARY="$$(echo binaries/*linux_armv6.tar.gz)" \
+	-t aler9/rtsp-simple-server:$(VERSION)-armv6-rpi \
+	-t aler9/rtsp-simple-server:latest-armv6-rpi \
+	--push
+
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--platform=linux/arm/v7 \
 	--build-arg BINARY="$$(echo binaries/*linux_armv7.tar.gz)" \
@@ -37,11 +66,25 @@ dockerhub:
 	-t aler9/rtsp-simple-server:latest-armv7 \
 	--push
 
+	echo "$$DOCKERFILE_DOCKERHUB_RPI_32" | docker buildx build . -f - \
+	--platform=linux/arm/v7 \
+	--build-arg BINARY="$$(echo binaries/*linux_armv7.tar.gz)" \
+	-t aler9/rtsp-simple-server:$(VERSION)-armv7-rpi \
+	-t aler9/rtsp-simple-server:latest-armv7-rpi \
+	--push
+
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--platform=linux/arm64/v8 \
 	--build-arg BINARY="$$(echo binaries/*linux_arm64v8.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-arm64v8 \
 	-t aler9/rtsp-simple-server:latest-arm64v8 \
+	--push
+
+	echo "$$DOCKERFILE_DOCKERHUB_RPI_64" | docker buildx build . -f - \
+	--platform=linux/arm64/v8 \
+	--build-arg BINARY="$$(echo binaries/*linux_arm64v8.tar.gz)" \
+	-t aler9/rtsp-simple-server:$(VERSION)-arm64v8-rpi \
+	-t aler9/rtsp-simple-server:latest-arm64v8-rpi \
 	--push
 
 	docker manifest create aler9/rtsp-simple-server:$(VERSION) \
