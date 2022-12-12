@@ -55,16 +55,26 @@ func checkArch() error {
 	return nil
 }
 
-func setupSymlink(name string) error {
-	cmd := exec.Command("sh", "-c", "ldconfig -p | grep "+name+".so | awk '{ print $4 }'")
-	byts, err := cmd.Output()
+func findLibrary(name string) (string, error) {
+	byts, err := exec.Command("ldconfig", "-p").Output()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	lib := strings.TrimSpace(string(byts))
-	if lib == "" {
-		return fmt.Errorf(name + " not found")
+	for _, line := range strings.Split(string(byts), "\n") {
+		f := strings.Split(line, " => ")
+		if len(f) == 2 && strings.Contains(f[1], name+".so") {
+			return f[1], nil
+		}
+	}
+
+	return "", fmt.Errorf("library '%s' not found", name)
+}
+
+func setupSymlink(name string) error {
+	lib, err := findLibrary(name)
+	if err != nil {
+		return err
 	}
 
 	os.Remove("/dev/shm/" + name + ".so.x.x.x")
