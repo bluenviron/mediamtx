@@ -454,7 +454,7 @@ func (pa *path) run() {
 						pa.describeRequestsOnHold = nil
 
 						for _, req := range pa.readerAddRequestsOnHold {
-							pa.handleReaderSetupPlayPost(req)
+							pa.handleReaderAddPost(req)
 						}
 						pa.readerAddRequestsOnHold = nil
 					}
@@ -492,13 +492,13 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.chPublisherAdd:
-				pa.handlePublisherAnnounce(req)
+				pa.handlePublisherAdd(req)
 
 			case req := <-pa.chPublisherStart:
-				pa.handlePublisherRecord(req)
+				pa.handlePublisherStart(req)
 
 			case req := <-pa.chPublisherStop:
-				pa.handlePublisherPause(req)
+				pa.handlePublisherStop(req)
 
 				if pa.shouldClose() {
 					return fmt.Errorf("not in use")
@@ -508,17 +508,17 @@ func (pa *path) run() {
 				pa.handleReaderRemove(req)
 
 			case req := <-pa.chReaderAdd:
-				pa.handleReaderSetupPlay(req)
+				pa.handleReaderAdd(req)
 
 				if pa.shouldClose() {
 					return fmt.Errorf("not in use")
 				}
 
 			case req := <-pa.chReaderStart:
-				pa.handleReaderPlay(req)
+				pa.handleReaderStart(req)
 
 			case req := <-pa.chReaderStop:
-				pa.handleReaderPause(req)
+				pa.handleReaderStop(req)
 
 			case req := <-pa.chAPIPathsList:
 				pa.handleAPIPathsList(req)
@@ -792,7 +792,7 @@ func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
 	close(req.res)
 }
 
-func (pa *path) handlePublisherAnnounce(req pathPublisherAddReq) {
+func (pa *path) handlePublisherAdd(req pathPublisherAddReq) {
 	if pa.conf.Source != "publisher" {
 		req.res <- pathPublisherAnnounceRes{
 			err: fmt.Errorf("can't publish to path '%s' since 'source' is not 'publisher'", pa.name),
@@ -816,7 +816,7 @@ func (pa *path) handlePublisherAnnounce(req pathPublisherAddReq) {
 	req.res <- pathPublisherAnnounceRes{path: pa}
 }
 
-func (pa *path) handlePublisherRecord(req pathPublisherStartReq) {
+func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
 	if pa.source != req.author {
 		req.res <- pathPublisherRecordRes{err: fmt.Errorf("publisher is not assigned to this path anymore")}
 		return
@@ -842,7 +842,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherStartReq) {
 		pa.describeRequestsOnHold = nil
 
 		for _, req := range pa.readerAddRequestsOnHold {
-			pa.handleReaderSetupPlayPost(req)
+			pa.handleReaderAddPost(req)
 		}
 		pa.readerAddRequestsOnHold = nil
 	}
@@ -850,7 +850,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherStartReq) {
 	req.res <- pathPublisherRecordRes{stream: pa.stream}
 }
 
-func (pa *path) handlePublisherPause(req pathPublisherStopReq) {
+func (pa *path) handlePublisherStop(req pathPublisherStopReq) {
 	if req.author == pa.source && pa.stream != nil {
 		if pa.hasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
 			pa.onDemandPublisherStop()
@@ -880,9 +880,9 @@ func (pa *path) handleReaderRemove(req pathReaderRemoveReq) {
 	}
 }
 
-func (pa *path) handleReaderSetupPlay(req pathReaderAddReq) {
+func (pa *path) handleReaderAdd(req pathReaderAddReq) {
 	if pa.stream != nil {
-		pa.handleReaderSetupPlayPost(req)
+		pa.handleReaderAddPost(req)
 		return
 	}
 
@@ -905,7 +905,7 @@ func (pa *path) handleReaderSetupPlay(req pathReaderAddReq) {
 	req.res <- pathReaderSetupPlayRes{err: pathErrNoOnePublishing{pathName: pa.name}}
 }
 
-func (pa *path) handleReaderSetupPlayPost(req pathReaderAddReq) {
+func (pa *path) handleReaderAddPost(req pathReaderAddReq) {
 	pa.readers[req.author] = pathReaderStatePrePlay
 
 	if pa.hasOnDemandStaticSource() {
@@ -928,7 +928,7 @@ func (pa *path) handleReaderSetupPlayPost(req pathReaderAddReq) {
 	}
 }
 
-func (pa *path) handleReaderPlay(req pathReaderStartReq) {
+func (pa *path) handleReaderStart(req pathReaderStartReq) {
 	pa.readers[req.author] = pathReaderStatePlay
 
 	pa.stream.readerAdd(req.author)
@@ -936,7 +936,7 @@ func (pa *path) handleReaderPlay(req pathReaderStartReq) {
 	close(req.res)
 }
 
-func (pa *path) handleReaderPause(req pathReaderStopReq) {
+func (pa *path) handleReaderStop(req pathReaderStopReq) {
 	if state, ok := pa.readers[req.author]; ok && state == pathReaderStatePlay {
 		pa.readers[req.author] = pathReaderStatePrePlay
 		pa.stream.readerRemove(req.author)
