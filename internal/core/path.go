@@ -71,13 +71,6 @@ type pathRTSPSession interface {
 	isRTSPSession()
 }
 
-type pathReaderState int
-
-const (
-	pathReaderStatePrePlay pathReaderState = iota
-	pathReaderStatePlay
-)
-
 type pathOnDemandState int
 
 const (
@@ -151,11 +144,6 @@ type pathPublisherAddReq struct {
 	res          chan pathPublisherAnnounceRes
 }
 
-type pathReaderStartReq struct {
-	author reader
-	res    chan struct{}
-}
-
 type pathPublisherRecordRes struct {
 	stream *stream
 	err    error
@@ -166,11 +154,6 @@ type pathPublisherStartReq struct {
 	tracks             gortsplib.Tracks
 	generateRTPPackets bool
 	res                chan pathPublisherRecordRes
-}
-
-type pathReaderStopReq struct {
-	author reader
-	res    chan struct{}
 }
 
 type pathPublisherStopReq struct {
@@ -225,7 +208,7 @@ type path struct {
 	source                         source
 	bytesReceived                  *uint64
 	stream                         *stream
-	readers                        map[reader]pathReaderState
+	readers                        map[reader]struct{}
 	describeRequestsOnHold         []pathDescribeReq
 	readerAddRequestsOnHold        []pathReaderAddReq
 	onDemandCmd                    *externalcmd.Cmd
@@ -245,10 +228,8 @@ type path struct {
 	chPublisherAdd            chan pathPublisherAddReq
 	chPublisherStart          chan pathPublisherStartReq
 	chPublisherStop           chan pathPublisherStopReq
-	chReaderRemove            chan pathReaderRemoveReq
 	chReaderAdd               chan pathReaderAddReq
-	chReaderStart             chan pathReaderStartReq
-	chReaderStop              chan pathReaderStopReq
+	chReaderRemove            chan pathReaderRemoveReq
 	chAPIPathsList            chan pathAPIPathsListSubReq
 }
 
@@ -283,7 +264,7 @@ func newPath(
 		ctx:                            ctx,
 		ctxCancel:                      ctxCancel,
 		bytesReceived:                  new(uint64),
-		readers:                        make(map[reader]pathReaderState),
+		readers:                        make(map[reader]struct{}),
 		onDemandStaticSourceReadyTimer: newEmptyTimer(),
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
 		onDemandPublisherReadyTimer:    newEmptyTimer(),
@@ -295,10 +276,8 @@ func newPath(
 		chPublisherAdd:                 make(chan pathPublisherAddReq),
 		chPublisherStart:               make(chan pathPublisherStartReq),
 		chPublisherStop:                make(chan pathPublisherStopReq),
-		chReaderRemove:                 make(chan pathReaderRemoveReq),
 		chReaderAdd:                    make(chan pathReaderAddReq),
-		chReaderStart:                  make(chan pathReaderStartReq),
-		chReaderStop:                   make(chan pathReaderStopReq),
+		chReaderRemove:                 make(chan pathReaderRemoveReq),
 		chAPIPathsList:                 make(chan pathAPIPathsListSubReq),
 	}
 
@@ -504,9 +483,6 @@ func (pa *path) run() {
 					return fmt.Errorf("not in use")
 				}
 
-			case req := <-pa.chReaderRemove:
-				pa.handleReaderRemove(req)
-
 			case req := <-pa.chReaderAdd:
 				pa.handleReaderAdd(req)
 
@@ -514,11 +490,8 @@ func (pa *path) run() {
 					return fmt.Errorf("not in use")
 				}
 
-			case req := <-pa.chReaderStart:
-				pa.handleReaderStart(req)
-
-			case req := <-pa.chReaderStop:
-				pa.handleReaderStop(req)
+			case req := <-pa.chReaderRemove:
+				pa.handleReaderRemove(req)
 
 			case req := <-pa.chAPIPathsList:
 				pa.handleAPIPathsList(req)
@@ -713,12 +686,6 @@ func (pa *path) sourceSetNotReady() {
 }
 
 func (pa *path) doReaderRemove(r reader) {
-	state := pa.readers[r]
-
-	if state == pathReaderStatePlay {
-		pa.stream.readerRemove(r)
-	}
-
 	delete(pa.readers, r)
 }
 
@@ -906,7 +873,7 @@ func (pa *path) handleReaderAdd(req pathReaderAddReq) {
 }
 
 func (pa *path) handleReaderAddPost(req pathReaderAddReq) {
-	pa.readers[req.author] = pathReaderStatePrePlay
+	pa.readers[req.author] = struct{}{}
 
 	if pa.hasOnDemandStaticSource() {
 		if pa.onDemandStaticSourceState == pathOnDemandStateClosing {
@@ -926,22 +893,6 @@ func (pa *path) handleReaderAddPost(req pathReaderAddReq) {
 		path:   pa,
 		stream: pa.stream,
 	}
-}
-
-func (pa *path) handleReaderStart(req pathReaderStartReq) {
-	pa.readers[req.author] = pathReaderStatePlay
-
-	pa.stream.readerAdd(req.author)
-
-	close(req.res)
-}
-
-func (pa *path) handleReaderStop(req pathReaderStopReq) {
-	if state, ok := pa.readers[req.author]; ok && state == pathReaderStatePlay {
-		pa.readers[req.author] = pathReaderStatePrePlay
-		pa.stream.readerRemove(req.author)
-	}
-	close(req.res)
 }
 
 func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
@@ -1025,7 +976,7 @@ func (pa *path) publisherRemove(req pathPublisherRemoveReq) {
 	}
 }
 
-// publisherAnnounce is called by a publisher through pathManager.
+// publisherAdd is called by a publisher through pathManager.
 func (pa *path) publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes {
 	select {
 	case pa.chPublisherAdd <- req:
@@ -1035,7 +986,7 @@ func (pa *path) publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes {
 	}
 }
 
-// publisherRecord is called by a publisher.
+// publisherStart is called by a publisher.
 func (pa *path) publisherStart(req pathPublisherStartReq) pathPublisherRecordRes {
 	req.res = make(chan pathPublisherRecordRes)
 	select {
@@ -1046,7 +997,7 @@ func (pa *path) publisherStart(req pathPublisherStartReq) pathPublisherRecordRes
 	}
 }
 
-// publisherPause is called by a publisher.
+// publisherStop is called by a publisher.
 func (pa *path) publisherStop(req pathPublisherStopReq) {
 	req.res = make(chan struct{})
 	select {
@@ -1056,17 +1007,7 @@ func (pa *path) publisherStop(req pathPublisherStopReq) {
 	}
 }
 
-// readerRemove is called by a reader.
-func (pa *path) readerRemove(req pathReaderRemoveReq) {
-	req.res = make(chan struct{})
-	select {
-	case pa.chReaderRemove <- req:
-		<-req.res
-	case <-pa.ctx.Done():
-	}
-}
-
-// readerSetupPlay is called by a reader through pathManager.
+// readerAdd is called by a reader through pathManager.
 func (pa *path) readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes {
 	select {
 	case pa.chReaderAdd <- req:
@@ -1076,21 +1017,11 @@ func (pa *path) readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes {
 	}
 }
 
-// readerPlay is called by a reader.
-func (pa *path) readerStart(req pathReaderStartReq) {
+// readerRemove is called by a reader.
+func (pa *path) readerRemove(req pathReaderRemoveReq) {
 	req.res = make(chan struct{})
 	select {
-	case pa.chReaderStart <- req:
-		<-req.res
-	case <-pa.ctx.Done():
-	}
-}
-
-// readerPause is called by a reader.
-func (pa *path) readerStop(req pathReaderStopReq) {
-	req.res = make(chan struct{})
-	select {
-	case pa.chReaderStop <- req:
+	case pa.chReaderRemove <- req:
 		<-req.res
 	case <-pa.ctx.Done():
 	}

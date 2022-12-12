@@ -288,9 +288,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		c.ringBuffer.Close()
 	}()
 
-	c.path.readerStart(pathReaderStartReq{
-		author: c,
-	})
+	res.stream.readerAdd(c)
+	defer res.stream.readerRemove(c)
 
 	var tracks []gortsplib.Track
 	if videoTrack != nil {

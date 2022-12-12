@@ -248,8 +248,6 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 	h := make(base.Header)
 
 	if s.session.State() == gortsplib.ServerSessionStatePrePlay {
-		s.path.readerStart(pathReaderStartReq{author: s})
-
 		tracks := make(gortsplib.Tracks, len(s.session.SetuppedTracks()))
 		n := 0
 		for id := range s.session.SetuppedTracks() {
@@ -322,8 +320,6 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 			s.log(logger.Info, "runOnRead command stopped")
 			s.onReadCmd.Close()
 		}
-
-		s.path.readerStop(pathReaderStopReq{author: s})
 
 		s.stateMutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay

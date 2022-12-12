@@ -355,7 +355,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
-	m.path.readerStart(pathReaderStartReq{author: m})
+	res.stream.readerAdd(m)
+	defer res.stream.readerRemove(m)
 
 	var tracks []gortsplib.Track
 	if videoTrack != nil {
