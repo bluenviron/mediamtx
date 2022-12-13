@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/asticode/go-astits"
 )
 
@@ -38,8 +38,8 @@ func findMPEG4AudioConfig(dem *astits.Demuxer, pid uint16) (*mpeg4audio.Config, 
 
 // Track is a MPEG-TS track.
 type Track struct {
-	ES    *astits.PMTElementaryStream
-	Track gortsplib.Track
+	ES     *astits.PMTElementaryStream
+	Format format.Format
 }
 
 // FindTracks finds the tracks in a MPEG-TS stream.
@@ -77,8 +77,8 @@ func FindTracks(byts []byte) ([]*Track, error) {
 	for _, t := range tracks {
 		switch t.ES.StreamType {
 		case astits.StreamTypeH264Video:
-			t.Track = &gortsplib.TrackH264{
-				PayloadType:       96,
+			t.Format = &format.H264{
+				PayloadTyp:        96,
 				PacketizationMode: 1,
 			}
 
@@ -88,8 +88,8 @@ func FindTracks(byts []byte) ([]*Track, error) {
 				return nil, err
 			}
 
-			t.Track = &gortsplib.TrackMPEG4Audio{
-				PayloadType:      96,
+			t.Format = &format.MPEG4Audio{
+				PayloadTyp:       96,
 				Config:           conf,
 				SizeLength:       13,
 				IndexLength:      3,

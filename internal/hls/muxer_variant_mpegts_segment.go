@@ -7,15 +7,15 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/mpegts"
 )
 
 type muxerVariantMPEGTSSegment struct {
 	segmentMaxSize uint64
-	videoTrack     *gortsplib.TrackH264
-	audioTrack     *gortsplib.TrackMPEG4Audio
+	videoTrack     *format.H264
+	audioTrack     *format.MPEG4Audio
 	writer         *mpegts.Writer
 
 	size         uint64
@@ -31,8 +31,8 @@ func newMuxerVariantMPEGTSSegment(
 	id uint64,
 	startTime time.Time,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 	writer *mpegts.Writer,
 ) *muxerVariantMPEGTSSegment {
 	t := &muxerVariantMPEGTSSegment{

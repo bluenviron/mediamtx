@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/asticode/go-astits"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/mpegts"
@@ -19,7 +19,7 @@ import (
 func mpegtsPickLeadingTrack(mpegtsTracks []*mpegts.Track) uint16 {
 	// pick first video track
 	for _, mt := range mpegtsTracks {
-		if _, ok := mt.Track.(*gortsplib.TrackH264); ok {
+		if _, ok := mt.Format.(*format.H264); ok {
 			return mt.ES.ElementaryPID
 		}
 	}
@@ -33,7 +33,7 @@ type clientProcessorMPEGTS struct {
 	segmentQueue         *clientSegmentQueue
 	logger               ClientLogger
 	rp                   *clientRoutinePool
-	onStreamTracks       func(context.Context, []gortsplib.Track) bool
+	onStreamFormats      func(context.Context, []format.Format) bool
 	onSetLeadingTimeSync func(clientTimeSync)
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
 	onVideoData          func(time.Duration, [][]byte)
@@ -49,7 +49,7 @@ func newClientProcessorMPEGTS(
 	segmentQueue *clientSegmentQueue,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onStreamTracks func(context.Context, []gortsplib.Track) bool,
+	onStreamFormats func(context.Context, []format.Format) bool,
 	onSetLeadingTimeSync func(clientTimeSync),
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
 	onVideoData func(time.Duration, [][]byte),
@@ -60,7 +60,7 @@ func newClientProcessorMPEGTS(
 		segmentQueue:         segmentQueue,
 		logger:               logger,
 		rp:                   rp,
-		onStreamTracks:       onStreamTracks,
+		onStreamFormats:      onStreamFormats,
 		onSetLeadingTimeSync: onSetLeadingTimeSync,
 		onGetLeadingTimeSync: onGetLeadingTimeSync,
 		onVideoData:          onVideoData,
@@ -92,12 +92,12 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 
 		p.leadingTrackPID = mpegtsPickLeadingTrack(p.mpegtsTracks)
 
-		tracks := make([]gortsplib.Track, len(p.mpegtsTracks))
+		tracks := make([]format.Format, len(p.mpegtsTracks))
 		for i, mt := range p.mpegtsTracks {
-			tracks[i] = mt.Track
+			tracks[i] = mt.Format
 		}
 
-		ok := p.onStreamTracks(ctx, tracks)
+		ok := p.onStreamFormats(ctx, tracks)
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
@@ -177,8 +177,8 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
 	for _, mt := range p.mpegtsTracks {
 		var cb func(time.Duration, []byte) error
 
-		switch mt.Track.(type) {
-		case *gortsplib.TrackH264:
+		switch mt.Format.(type) {
+		case *format.H264:
 			cb = func(pts time.Duration, payload []byte) error {
 				nalus, err := h264.AnnexBUnmarshal(payload)
 				if err != nil {
@@ -190,7 +190,7 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
 				return nil
 			}
 
-		case *gortsplib.TrackMPEG4Audio:
+		case *format.MPEG4Audio:
 			cb = func(pts time.Duration, payload []byte) error {
 				var adtsPkts mpeg4audio.ADTSPackets
 				err := adtsPkts.Unmarshal(payload)

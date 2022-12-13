@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	gomp4 "github.com/abema/go-mp4"
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 )
 
 // Init is a FMP4 initialization file.
@@ -105,8 +105,8 @@ func (i *Init) Unmarshal(byts []byte) error {
 				pps = conf.PictureParameterSets[0].NALUnit
 			}
 
-			curTrack.Track = &gortsplib.TrackH264{
-				PayloadType:       96,
+			curTrack.Format = &format.H264{
+				PayloadTyp:        96,
 				SPS:               sps,
 				PPS:               pps,
 				PacketizationMode: 1,
@@ -149,8 +149,8 @@ func (i *Init) Unmarshal(byts []byte) error {
 				return nil, fmt.Errorf("invalid MPEG4-audio configuration: %s", err)
 			}
 
-			curTrack.Track = &gortsplib.TrackMPEG4Audio{
-				PayloadType:      96,
+			curTrack.Format = &format.MPEG4Audio{
+				PayloadTyp:       96,
 				Config:           &c,
 				SizeLength:       13,
 				IndexLength:      3,

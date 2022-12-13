@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 )
 
 // source is an entity that can provide a stream.
@@ -16,22 +16,30 @@ type source interface {
 	apiSourceDescribe() interface{}
 }
 
-func sourceTrackNames(tracks gortsplib.Tracks) []string {
-	ret := make([]string, len(tracks))
-	for i, t := range tracks {
-		ret[i] = t.String()
+func mediaDescription(media *media.Media) string {
+	ret := make([]string, len(media.Formats))
+	for i, forma := range media.Formats {
+		ret[i] = forma.String()
+	}
+	return strings.Join(ret, "/")
+}
+
+func mediasDescription(medias media.Medias) []string {
+	ret := make([]string, len(medias))
+	for i, media := range medias {
+		ret[i] = mediaDescription(media)
 	}
 	return ret
 }
 
-func sourceTrackInfo(tracks gortsplib.Tracks) string {
+func sourceMediaInfo(medias media.Medias) string {
 	return fmt.Sprintf("%d %s (%s)",
-		len(tracks),
+		len(medias),
 		func() string {
-			if len(tracks) == 1 {
+			if len(medias) == 1 {
 				return "track"
 			}
 			return "tracks"
 		}(),
-		strings.Join(sourceTrackNames(tracks), ", "))
+		strings.Join(mediasDescription(medias), ", "))
 }

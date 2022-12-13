@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -216,7 +216,7 @@ func TestClient(t *testing.T) {
 			c, err := NewClient(
 				prefix+"://localhost:5780/stream.m3u8",
 				"33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
-				func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error {
+				func(*format.H264, *format.MPEG4Audio) error {
 					return nil
 				},
 				func(pts time.Duration, nalus [][]byte) {

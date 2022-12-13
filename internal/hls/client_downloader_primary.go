@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 	gm3u8 "github.com/grafov/m3u8"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/m3u8"
@@ -106,7 +106,7 @@ type clientTimeSync interface{}
 type clientDownloaderPrimary struct {
 	primaryPlaylistURL *url.URL
 	logger             ClientLogger
-	onTracks           func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error
+	onTracks           func(*format.H264, *format.MPEG4Audio) error
 	onVideoData        func(time.Duration, [][]byte)
 	onAudioData        func(time.Duration, []byte)
 	rp                 *clientRoutinePool
@@ -115,7 +115,7 @@ type clientDownloaderPrimary struct {
 	leadingTimeSync clientTimeSync
 
 	// in
-	streamTracks chan []gortsplib.Track
+	streamFormats chan []format.Format
 
 	// out
 	startStreaming       chan struct{}
@@ -127,7 +127,7 @@ func newClientDownloaderPrimary(
 	fingerprint string,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
+	onTracks func(*format.H264, *format.MPEG4Audio) error,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 ) *clientDownloaderPrimary {
@@ -163,7 +163,7 @@ func newClientDownloaderPrimary(
 				TLSClientConfig: tlsConfig,
 			},
 		},
-		streamTracks:         make(chan []gortsplib.Track),
+		streamFormats:        make(chan []format.Format),
 		startStreaming:       make(chan struct{}),
 		leadingTimeSyncReady: make(chan struct{}),
 	}
@@ -189,7 +189,7 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 			plt,
 			d.logger,
 			d.rp,
-			d.onStreamTracks,
+			d.onStreamFormats,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
 			d.onVideoData,
@@ -215,7 +215,7 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 			nil,
 			d.logger,
 			d.rp,
-			d.onStreamTracks,
+			d.onStreamFormats,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
 			d.onVideoData,
@@ -241,7 +241,7 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 				nil,
 				d.logger,
 				d.rp,
-				d.onStreamTracks,
+				d.onStreamFormats,
 				d.onSetLeadingTimeSync,
 				d.onGetLeadingTimeSync,
 				d.onVideoData,
@@ -254,29 +254,29 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 		return fmt.Errorf("invalid playlist")
 	}
 
-	var tracks []gortsplib.Track
+	var tracks []format.Format
 
 	for i := 0; i < streamCount; i++ {
 		select {
-		case streamTracks := <-d.streamTracks:
-			tracks = append(tracks, streamTracks...)
+		case streamFormats := <-d.streamFormats:
+			tracks = append(tracks, streamFormats...)
 		case <-ctx.Done():
 			return fmt.Errorf("terminated")
 		}
 	}
 
-	var videoTrack *gortsplib.TrackH264
-	var audioTrack *gortsplib.TrackMPEG4Audio
+	var videoTrack *format.H264
+	var audioTrack *format.MPEG4Audio
 
 	for _, track := range tracks {
 		switch ttrack := track.(type) {
-		case *gortsplib.TrackH264:
+		case *format.H264:
 			if videoTrack != nil {
 				return fmt.Errorf("multiple video tracks are not supported")
 			}
 			videoTrack = ttrack
 
-		case *gortsplib.TrackMPEG4Audio:
+		case *format.MPEG4Audio:
 			if audioTrack != nil {
 				return fmt.Errorf("multiple audio tracks are not supported")
 			}
@@ -294,9 +294,9 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	return nil
 }
 
-func (d *clientDownloaderPrimary) onStreamTracks(ctx context.Context, tracks []gortsplib.Track) bool {
+func (d *clientDownloaderPrimary) onStreamFormats(ctx context.Context, tracks []format.Format) bool {
 	select {
-	case d.streamTracks <- tracks:
+	case d.streamFormats <- tracks:
 	case <-ctx.Done():
 		return false
 	}

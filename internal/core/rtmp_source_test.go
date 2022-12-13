@@ -6,10 +6,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/notedit/rtmp/format/flv/flvio"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
@@ -57,8 +59,8 @@ func TestRTMPSource(t *testing.T) {
 				_, _, err = conn.InitializeServer()
 				require.NoError(t, err)
 
-				videoTrack := &gortsplib.TrackH264{
-					PayloadType: 96,
+				videoTrack := &format.H264{
+					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
@@ -68,8 +70,8 @@ func TestRTMPSource(t *testing.T) {
 					PacketizationMode: 1,
 				}
 
-				audioTrack := &gortsplib.TrackMPEG4Audio{
-					PayloadType: 96,
+				audioTrack := &format.MPEG4Audio{
+					PayloadTyp: 96,
 					Config: &mpeg4audio.Config{
 						Type:         2,
 						SampleRate:   44100,
@@ -114,18 +116,7 @@ func TestRTMPSource(t *testing.T) {
 				defer p.Close()
 			}
 
-			c := gortsplib.Client{
-				OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-					require.Equal(t, []byte{
-						0x18, 0x0, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
-						0x0, 0x78, 0x2, 0x27, 0xe5, 0x84, 0x0, 0x0,
-						0x3, 0x0, 0x4, 0x0, 0x0, 0x3, 0x0, 0xf0,
-						0x3c, 0x60, 0xc9, 0x20, 0x0, 0x4, 0x8, 0x6,
-						0x7, 0x8, 0x0, 0x4, 0x5, 0x2, 0x3, 0x4,
-					}, ctx.Packet.Payload)
-					close(received)
-				},
-			}
+			c := gortsplib.Client{}
 
 			u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
 			require.NoError(t, err)
@@ -134,10 +125,24 @@ func TestRTMPSource(t *testing.T) {
 			require.NoError(t, err)
 			defer c.Close()
 
-			tracks, baseURL, _, err := c.Describe(u)
+			medias, baseURL, _, err := c.Describe(u)
 			require.NoError(t, err)
 
-			err = c.SetupAndPlay(tracks, baseURL)
+			err = c.SetupAll(medias, baseURL)
+			require.NoError(t, err)
+
+			c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+				require.Equal(t, []byte{
+					0x18, 0x0, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
+					0x0, 0x78, 0x2, 0x27, 0xe5, 0x84, 0x0, 0x0,
+					0x3, 0x0, 0x4, 0x0, 0x0, 0x3, 0x0, 0xf0,
+					0x3c, 0x60, 0xc9, 0x20, 0x0, 0x4, 0x8, 0x6,
+					0x7, 0x8, 0x0, 0x4, 0x5, 0x2, 0x3, 0x4,
+				}, pkt.Payload)
+				close(received)
+			})
+
+			_, err = c.Play(nil)
 			require.NoError(t, err)
 
 			close(connected)

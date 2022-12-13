@@ -3,32 +3,32 @@ package core
 import (
 	"fmt"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtpmpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpmpeg4audio"
 )
 
-type streamTrackMPEG4Audio struct {
-	track   *gortsplib.TrackMPEG4Audio
+type formatProcessorMPEG4Audio struct {
+	format  *format.MPEG4Audio
 	encoder *rtpmpeg4audio.Encoder
 	decoder *rtpmpeg4audio.Decoder
 }
 
-func newStreamTrackMPEG4Audio(
-	track *gortsplib.TrackMPEG4Audio,
+func newFormatProcessorMPEG4Audio(
+	forma *format.MPEG4Audio,
 	allocateEncoder bool,
-) *streamTrackMPEG4Audio {
-	t := &streamTrackMPEG4Audio{
-		track: track,
+) (*formatProcessorMPEG4Audio, error) {
+	t := &formatProcessorMPEG4Audio{
+		format: forma,
 	}
 
 	if allocateEncoder {
-		t.encoder = track.CreateEncoder()
+		t.encoder = forma.CreateEncoder()
 	}
 
-	return t
+	return t, nil
 }
 
-func (t *streamTrackMPEG4Audio) generateRTPPackets(tdata *dataMPEG4Audio) error {
+func (t *formatProcessorMPEG4Audio) generateRTPPackets(tdata *dataMPEG4Audio) error {
 	pkts, err := t.encoder.Encode(tdata.aus, tdata.pts)
 	if err != nil {
 		return err
@@ -38,7 +38,7 @@ func (t *streamTrackMPEG4Audio) generateRTPPackets(tdata *dataMPEG4Audio) error 
 	return nil
 }
 
-func (t *streamTrackMPEG4Audio) onData(dat data, hasNonRTSPReaders bool) error {
+func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) error {
 	tdata := dat.(*dataMPEG4Audio)
 
 	if tdata.rtpPackets != nil {
@@ -56,7 +56,7 @@ func (t *streamTrackMPEG4Audio) onData(dat data, hasNonRTSPReaders bool) error {
 		// decode from RTP
 		if hasNonRTSPReaders {
 			if t.decoder == nil {
-				t.decoder = t.track.CreateDecoder()
+				t.decoder = t.format.CreateDecoder()
 			}
 
 			aus, pts, err := t.decoder.Decode(pkt)

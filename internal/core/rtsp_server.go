@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/aler9/gortsplib/pkg/liberrors"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/headers"
+	"github.com/aler9/gortsplib/v2/pkg/liberrors"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -347,12 +347,6 @@ func (s *rtspServer) OnRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Re
 func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
 	se := ctx.Session.UserData().(*rtspSession)
 	return se.onPause(ctx)
-}
-
-// OnPacketRTP implements gortsplib.ServerHandlerOnPacketRTP.
-func (s *rtspServer) OnPacketRTP(ctx *gortsplib.ServerHandlerOnPacketRTPCtx) {
-	se := ctx.Session.UserData().(*rtspSession)
-	se.onPacketRTP(ctx)
 }
 
 // OnDecodeError implements gortsplib.ServerHandlerOnOnDecodeError.

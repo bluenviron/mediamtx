@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -41,8 +42,8 @@ func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) 
 // run implements sourceStaticImpl.
 func (s *hlsSource) run(ctx context.Context) error {
 	var stream *stream
-	var videoTrackID int
-	var audioTrackID int
+	var videoMedia *media.Media
+	var audioMedia *media.Media
 
 	defer func() {
 		if stream != nil {
@@ -50,39 +51,44 @@ func (s *hlsSource) run(ctx context.Context) error {
 		}
 	}()
 
-	onTracks := func(videoTrack *gortsplib.TrackH264, audioTrack *gortsplib.TrackMPEG4Audio) error {
-		var tracks gortsplib.Tracks
+	onTracks := func(videoFormat *format.H264, audioFormat *format.MPEG4Audio) error {
+		var medias media.Medias
 
-		if videoTrack != nil {
-			videoTrackID = len(tracks)
-			tracks = append(tracks, videoTrack)
+		if videoFormat != nil {
+			videoMedia = &media.Media{
+				Type:    media.TypeVideo,
+				Formats: []format.Format{videoFormat},
+			}
+			medias = append(medias, videoMedia)
 		}
 
-		if audioTrack != nil {
-			audioTrackID = len(tracks)
-			tracks = append(tracks, audioTrack)
+		if audioFormat != nil {
+			audioMedia = &media.Media{
+				Type:    media.TypeAudio,
+				Formats: []format.Format{audioFormat},
+			}
+			medias = append(medias, audioMedia)
 		}
 
 		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
-			tracks:             tracks,
+			medias:             medias,
 			generateRTPPackets: true,
 		})
 		if res.err != nil {
 			return res.err
 		}
 
-		s.Log(logger.Info, "ready: %s", sourceTrackInfo(tracks))
+		s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 		stream = res.stream
 
 		return nil
 	}
 
 	onVideoData := func(pts time.Duration, nalus [][]byte) {
-		err := stream.writeData(&dataH264{
-			trackID: videoTrackID,
-			pts:     pts,
-			nalus:   nalus,
-			ntp:     time.Now(),
+		err := stream.writeData(videoMedia, videoMedia.Formats[0], &dataH264{
+			pts:   pts,
+			nalus: nalus,
+			ntp:   time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)
@@ -90,11 +96,10 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 
 	onAudioData := func(pts time.Duration, au []byte) {
-		err := stream.writeData(&dataMPEG4Audio{
-			trackID: audioTrackID,
-			pts:     pts,
-			aus:     [][]byte{au},
-			ntp:     time.Now(),
+		err := stream.writeData(audioMedia, audioMedia.Formats[0], &dataMPEG4Audio{
+			pts: pts,
+			aus: [][]byte{au},
+			ntp: time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -67,10 +67,6 @@ type pathParent interface {
 	onPathClose(*path)
 }
 
-type pathRTSPSession interface {
-	isRTSPSession()
-}
-
 type pathOnDemandState int
 
 const (
@@ -86,7 +82,7 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
-	tracks             gortsplib.Tracks
+	medias             media.Medias
 	generateRTPPackets bool
 	res                chan pathSourceStaticSetReadyRes
 }
@@ -151,7 +147,7 @@ type pathPublisherRecordRes struct {
 
 type pathPublisherStartReq struct {
 	author             publisher
-	tracks             gortsplib.Tracks
+	medias             media.Medias
 	generateRTPPackets bool
 	res                chan pathPublisherRecordRes
 }
@@ -415,7 +411,7 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.chSourceStaticSetReady:
-				err := pa.sourceSetReady(req.tracks, req.generateRTPPackets)
+				err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
 				if err != nil {
 					req.res <- pathSourceStaticSetReadyRes{err: err}
 				} else {
@@ -640,8 +636,8 @@ func (pa *path) onDemandPublisherStop() {
 	}
 }
 
-func (pa *path) sourceSetReady(tracks gortsplib.Tracks, allocateEncoder bool) error {
-	stream, err := newStream(tracks, allocateEncoder, pa.bytesReceived)
+func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error {
+	stream, err := newStream(medias, allocateEncoder, pa.bytesReceived)
 	if err != nil {
 		return err
 	}
@@ -789,7 +785,7 @@ func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
 		return
 	}
 
-	err := pa.sourceSetReady(req.tracks, req.generateRTPPackets)
+	err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
 	if err != nil {
 		req.res <- pathPublisherRecordRes{err: err}
 		return
@@ -910,7 +906,7 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 			if pa.stream == nil {
 				return []string{}
 			}
-			return sourceTrackNames(pa.stream.tracks())
+			return mediasDescription(pa.stream.medias())
 		}(),
 		BytesReceived: atomic.LoadUint64(pa.bytesReceived),
 		Readers: func() []interface{} {

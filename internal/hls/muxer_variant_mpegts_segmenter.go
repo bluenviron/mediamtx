@@ -3,8 +3,8 @@ package hls
 import (
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/mpegts"
 )
@@ -16,8 +16,8 @@ const (
 type muxerVariantMPEGTSSegmenter struct {
 	segmentDuration time.Duration
 	segmentMaxSize  uint64
-	videoTrack      *gortsplib.TrackH264
-	audioTrack      *gortsplib.TrackMPEG4Audio
+	videoTrack      *format.H264
+	audioTrack      *format.MPEG4Audio
 	onSegmentReady  func(*muxerVariantMPEGTSSegment)
 
 	writer            *mpegts.Writer
@@ -31,8 +31,8 @@ type muxerVariantMPEGTSSegmenter struct {
 func newMuxerVariantMPEGTSSegmenter(
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 	onSegmentReady func(*muxerVariantMPEGTSSegment),
 ) *muxerVariantMPEGTSSegmenter {
 	m := &muxerVariantMPEGTSSegmenter{

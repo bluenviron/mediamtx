@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 )
 
 type partsReader struct {
@@ -45,8 +45,8 @@ type muxerVariantFMP4Segment struct {
 	startTime       time.Time
 	startDTS        time.Duration
 	segmentMaxSize  uint64
-	videoTrack      *gortsplib.TrackH264
-	audioTrack      *gortsplib.TrackMPEG4Audio
+	videoTrack      *format.H264
+	audioTrack      *format.MPEG4Audio
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
@@ -63,8 +63,8 @@ func newMuxerVariantFMP4Segment(
 	startTime time.Time,
 	startDTS time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 	genPartID func() uint64,
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segment {

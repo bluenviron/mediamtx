@@ -9,12 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/auth"
-	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/conn"
-	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/auth"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/conn"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/headers"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -45,14 +47,8 @@ func TestRTSPSource(t *testing.T) {
 		"tls",
 	} {
 		t.Run(source, func(t *testing.T) {
-			track := &gortsplib.TrackH264{
-				PayloadType:       96,
-				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PacketizationMode: 1,
-			}
-
-			stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+			medi := testMediaH264
+			stream := gortsplib.NewServerStream(media.Medias{medi})
 
 			var authValidator *auth.Validator
 
@@ -64,7 +60,7 @@ func TestRTSPSource(t *testing.T) {
 							authValidator = auth.NewValidator("testuser", "testpass", nil)
 						}
 
-						err := authValidator.ValidateRequest(ctx.Request)
+						err := authValidator.ValidateRequest(ctx.Request, nil)
 						if err != nil {
 							return &base.Response{
 								StatusCode: base.StatusUnauthorized,
@@ -86,10 +82,10 @@ func TestRTSPSource(t *testing.T) {
 					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 						go func() {
 							time.Sleep(1 * time.Second)
-							stream.WritePacketRTP(0, &rtp.Packet{
+							stream.WritePacketRTP(medi, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        0x02,
-									PayloadType:    97,
+									PayloadType:    96,
 									SequenceNumber: 57899,
 									Timestamp:      345234345,
 									SSRC:           978651231,
@@ -152,12 +148,7 @@ func TestRTSPSource(t *testing.T) {
 
 			received := make(chan struct{})
 
-			c := gortsplib.Client{
-				OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, ctx.Packet.Payload)
-					close(received)
-				},
-			}
+			c := gortsplib.Client{}
 
 			u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
 			require.NoError(t, err)
@@ -166,10 +157,18 @@ func TestRTSPSource(t *testing.T) {
 			require.NoError(t, err)
 			defer c.Close()
 
-			tracks, baseURL, _, err := c.Describe(u)
+			medias, baseURL, _, err := c.Describe(u)
 			require.NoError(t, err)
 
-			err = c.SetupAndPlay(tracks, baseURL)
+			err = c.SetupAll(medias, baseURL)
+			require.NoError(t, err)
+
+			c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+				require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
+				close(received)
+			})
+
+			_, err = c.Play(nil)
 			require.NoError(t, err)
 
 			<-received
@@ -178,14 +177,8 @@ func TestRTSPSource(t *testing.T) {
 }
 
 func TestRTSPSourceNoPassword(t *testing.T) {
-	track := &gortsplib.TrackH264{
-		PayloadType:       96,
-		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-		PacketizationMode: 1,
-	}
-
-	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+	medi := testMediaH264
+	stream := gortsplib.NewServerStream(media.Medias{medi})
 
 	var authValidator *auth.Validator
 	done := make(chan struct{})
@@ -197,7 +190,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 					authValidator = auth.NewValidator("testuser", "", nil)
 				}
 
-				err := authValidator.ValidateRequest(ctx.Request)
+				err := authValidator.ValidateRequest(ctx.Request, nil)
 				if err != nil {
 					return &base.Response{
 						StatusCode: base.StatusUnauthorized,
@@ -243,11 +236,15 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 }
 
 func TestRTSPSourceDynamicH264Params(t *testing.T) {
-	track := &gortsplib.TrackH264{
-		PayloadType:       96,
+	forma := &format.H264{
+		PayloadTyp:        96,
 		PacketizationMode: 1,
 	}
-	stream := gortsplib.NewServerStream(gortsplib.Tracks{track})
+	medi := &media.Media{
+		Type:    media.TypeVideo,
+		Formats: []format.Format{forma},
+	}
+	stream := gortsplib.NewServerStream(media.Medias{medi})
 	defer stream.Close()
 
 	s := gortsplib.Server{
@@ -285,15 +282,15 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	enc := track.CreateEncoder()
+	enc := forma.CreateEncoder()
 
 	pkts, err := enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0])
+	stream.WritePacketRTP(medi, pkts[0])
 
 	pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0])
+	stream.WritePacketRTP(medi, pkts[0])
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -307,22 +304,21 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 		require.NoError(t, err)
 		defer c.Close()
 
-		tracks, _, _, err := c.Describe(u)
+		medias, _, _, err := c.Describe(u)
 		require.NoError(t, err)
 
-		h264Track, ok := tracks[0].(*gortsplib.TrackH264)
-		require.Equal(t, true, ok)
+		h264Track := medias[0].Formats[0].(*format.H264)
 		require.Equal(t, []byte{7, 1, 2, 3}, h264Track.SafeSPS())
 		require.Equal(t, []byte{8}, h264Track.SafePPS())
 	}()
 
 	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0])
+	stream.WritePacketRTP(medi, pkts[0])
 
 	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
 	require.NoError(t, err)
-	stream.WritePacketRTP(0, pkts[0])
+	stream.WritePacketRTP(medi, pkts[0])
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -336,21 +332,24 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 		require.NoError(t, err)
 		defer c.Close()
 
-		tracks, _, _, err := c.Describe(u)
+		medias, _, _, err := c.Describe(u)
 		require.NoError(t, err)
 
-		h264Track, ok := tracks[0].(*gortsplib.TrackH264)
-		require.Equal(t, true, ok)
+		h264Track := medias[0].Formats[0].(*format.H264)
 		require.Equal(t, []byte{7, 4, 5, 6}, h264Track.SafeSPS())
 		require.Equal(t, []byte{8, 1}, h264Track.SafePPS())
 	}()
 }
 
 func TestRTSPSourceRemovePadding(t *testing.T) {
-	stream := gortsplib.NewServerStream(gortsplib.Tracks{&gortsplib.TrackH264{
-		PayloadType:       96,
-		PacketizationMode: 1,
-	}})
+	medi := &media.Media{
+		Type: media.TypeVideo,
+		Formats: []format.Format{&format.H264{
+			PayloadTyp:        96,
+			PacketizationMode: 1,
+		}},
+	}
+	stream := gortsplib.NewServerStream(media.Medias{medi})
 	defer stream.Close()
 
 	s := gortsplib.Server{
@@ -390,23 +389,7 @@ func TestRTSPSourceRemovePadding(t *testing.T) {
 
 	packetRecv := make(chan struct{})
 
-	c := gortsplib.Client{
-		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-			require.Equal(t, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-					CSRC:           []uint32{},
-				},
-				Payload: []byte{0x01, 0x02, 0x03, 0x04},
-			}, ctx.Packet)
-			close(packetRecv)
-		},
-	}
+	c := gortsplib.Client{}
 
 	u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
 	require.NoError(t, err)
@@ -415,13 +398,32 @@ func TestRTSPSourceRemovePadding(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	tracks, baseURL, _, err := c.Describe(u)
+	medias, baseURL, _, err := c.Describe(u)
 	require.NoError(t, err)
 
-	err = c.SetupAndPlay(tracks, baseURL)
+	err = c.SetupAll(medias, baseURL)
 	require.NoError(t, err)
 
-	stream.WritePacketRTP(0, &rtp.Packet{
+	c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+		require.Equal(t, &rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 123,
+				Timestamp:      45343,
+				SSRC:           563423,
+				CSRC:           []uint32{},
+			},
+			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		}, pkt)
+		close(packetRecv)
+	})
+
+	_, err = c.Play(nil)
+	require.NoError(t, err)
+
+	stream.WritePacketRTP(medi, &rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
 			Marker:         true,
@@ -475,19 +477,15 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, base.Describe, req.Method)
 
-		tracks := gortsplib.Tracks{&gortsplib.TrackH264{
-			PayloadType:       96,
-			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-			PacketizationMode: 1,
-		}}
+		medias := media.Medias{testMediaH264}
+		byts, _ := medias.Marshal(false).Marshal()
 
 		err = conn.WriteResponse(&base.Response{
 			StatusCode: base.StatusOK,
 			Header: base.Header{
 				"Content-Type": base.HeaderValue{"application/sdp"},
 			},
-			Body: tracks.Marshal(false),
+			Body: byts,
 		})
 		require.NoError(t, err)
 
@@ -525,7 +523,7 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 
 		<-connected
 
-		byts, _ := rtp.Packet{
+		byts, _ = rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
 				Marker:         true,
@@ -603,75 +601,7 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 	packetRecv := make(chan struct{})
 	i := 0
 
-	c := gortsplib.Client{
-		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-			switch i {
-			case 0:
-				require.Equal(t, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-						CSRC:           []uint32{},
-					},
-					Payload: []byte{0x01, 0x02, 0x03, 0x04},
-				}, ctx.Packet)
-
-			case 1:
-				require.Equal(t, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         false,
-						PayloadType:    96,
-						SequenceNumber: 124,
-						Timestamp:      45343,
-						SSRC:           563423,
-						CSRC:           []uint32{},
-					},
-					Payload: append(
-						append([]byte{0x1c, 0x81, 0x02, 0x03, 0x04}, bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 363)...),
-						[]byte{0x01, 0x02, 0x03}...,
-					),
-				}, ctx.Packet)
-
-			case 2:
-				require.Equal(t, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 125,
-						Timestamp:      45343,
-						SSRC:           563423,
-						CSRC:           []uint32{},
-					},
-					Payload: append(
-						[]byte{0x1c, 0x41, 0x04},
-						bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 135)...,
-					),
-				}, ctx.Packet)
-
-			case 3:
-				require.Equal(t, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 126,
-						Timestamp:      45343,
-						SSRC:           563423,
-						CSRC:           []uint32{},
-					},
-					Payload: []byte{0x01, 0x02, 0x03, 0x04},
-				}, ctx.Packet)
-				close(packetRecv)
-			}
-			i++
-		},
-	}
+	c := gortsplib.Client{}
 
 	u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
 	require.NoError(t, err)
@@ -680,10 +610,81 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	tracks, baseURL, _, err := c.Describe(u)
+	medias, baseURL, _, err := c.Describe(u)
 	require.NoError(t, err)
 
-	err = c.SetupAndPlay(tracks, baseURL)
+	err = c.SetupAll(medias, baseURL)
+	require.NoError(t, err)
+
+	c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+		switch i {
+		case 0:
+			require.Equal(t, &rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+					CSRC:           []uint32{},
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			}, pkt)
+
+		case 1:
+			require.Equal(t, &rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         false,
+					PayloadType:    96,
+					SequenceNumber: 124,
+					Timestamp:      45343,
+					SSRC:           563423,
+					CSRC:           []uint32{},
+				},
+				Payload: append(
+					append([]byte{0x1c, 0x81, 0x02, 0x03, 0x04}, bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 363)...),
+					[]byte{0x01, 0x02, 0x03}...,
+				),
+			}, pkt)
+
+		case 2:
+			require.Equal(t, &rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 125,
+					Timestamp:      45343,
+					SSRC:           563423,
+					CSRC:           []uint32{},
+				},
+				Payload: append(
+					[]byte{0x1c, 0x41, 0x04},
+					bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 135)...,
+				),
+			}, pkt)
+
+		case 3:
+			require.Equal(t, &rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 126,
+					Timestamp:      45343,
+					SSRC:           563423,
+					CSRC:           []uint32{},
+				},
+				Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			}, pkt)
+			close(packetRecv)
+		}
+		i++
+	})
+
+	_, err = c.Play(nil)
 	require.NoError(t, err)
 
 	close(connected)

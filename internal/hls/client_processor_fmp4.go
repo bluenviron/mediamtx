@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
@@ -14,7 +14,7 @@ import (
 func fmp4PickLeadingTrack(init *fmp4.Init) int {
 	// pick first video track
 	for _, track := range init.Tracks {
-		if _, ok := track.Track.(*gortsplib.TrackH264); ok {
+		if _, ok := track.Format.(*format.H264); ok {
 			return track.ID
 		}
 	}
@@ -48,7 +48,7 @@ func newClientProcessorFMP4(
 	segmentQueue *clientSegmentQueue,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onStreamTracks func(context.Context, []gortsplib.Track) bool,
+	onStreamFormats func(context.Context, []format.Format) bool,
 	onSetLeadingTimeSync func(clientTimeSync),
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
 	onVideoData func(time.Duration, [][]byte),
@@ -73,12 +73,12 @@ func newClientProcessorFMP4(
 
 	p.leadingTrackID = fmp4PickLeadingTrack(&p.init)
 
-	tracks := make([]gortsplib.Track, len(p.init.Tracks))
+	tracks := make([]format.Format, len(p.init.Tracks))
 	for i, track := range p.init.Tracks {
-		tracks[i] = track.Track
+		tracks[i] = track.Format
 	}
 
-	ok := onStreamTracks(ctx, tracks)
+	ok := onStreamFormats(ctx, tracks)
 	if !ok {
 		return nil, fmt.Errorf("terminated")
 	}
@@ -186,8 +186,8 @@ func (p *clientProcessorFMP4) initializeTrackProcs(ts *clientTimeSyncFMP4) {
 	for _, track := range p.init.Tracks {
 		var cb func(time.Duration, []byte) error
 
-		switch track.Track.(type) {
-		case *gortsplib.TrackH264:
+		switch track.Format.(type) {
+		case *format.H264:
 			cb = func(pts time.Duration, payload []byte) error {
 				nalus, err := h264.AVCCUnmarshal(payload)
 				if err != nil {
@@ -198,7 +198,7 @@ func (p *clientProcessorFMP4) initializeTrackProcs(ts *clientTimeSyncFMP4) {
 				return nil
 			}
 
-		case *gortsplib.TrackMPEG4Audio:
+		case *format.MPEG4Audio:
 			cb = func(pts time.Duration, payload []byte) error {
 				p.onAudioData(pts, payload)
 				return nil

@@ -6,9 +6,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/asticode/go-astits"
 )
 
@@ -24,8 +24,8 @@ func (f writerFunc) Write(p []byte) (int, error) {
 
 // Writer is a MPEG-TS writer.
 type Writer struct {
-	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackMPEG4Audio
+	videoFormat *format.H264
+	audioFormat *format.MPEG4Audio
 
 	buf        *bytes.Buffer
 	inner      *astits.Muxer
@@ -34,13 +34,13 @@ type Writer struct {
 
 // NewWriter allocates a Writer.
 func NewWriter(
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoFormat *format.H264,
+	audioFormat *format.MPEG4Audio,
 ) *Writer {
 	w := &Writer{
-		videoTrack: videoTrack,
-		audioTrack: audioTrack,
-		buf:        bytes.NewBuffer(nil),
+		videoFormat: videoFormat,
+		audioFormat: audioFormat,
+		buf:         bytes.NewBuffer(nil),
 	}
 
 	w.inner = astits.NewMuxer(
@@ -49,21 +49,21 @@ func NewWriter(
 			return w.buf.Write(p)
 		}))
 
-	if videoTrack != nil {
+	if videoFormat != nil {
 		w.inner.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 256,
 			StreamType:    astits.StreamTypeH264Video,
 		})
 	}
 
-	if audioTrack != nil {
+	if audioFormat != nil {
 		w.inner.AddElementaryStream(astits.PMTElementaryStream{
 			ElementaryPID: 257,
 			StreamType:    astits.StreamTypeAACAudio,
 		})
 	}
 
-	if videoTrack != nil {
+	if videoFormat != nil {
 		w.inner.SetPCRPID(256)
 	} else {
 		w.inner.SetPCRPID(257)
@@ -155,9 +155,9 @@ func (w *Writer) WriteAAC(
 ) error {
 	pkts := mpeg4audio.ADTSPackets{
 		{
-			Type:         w.audioTrack.Config.Type,
-			SampleRate:   w.audioTrack.Config.SampleRate,
-			ChannelCount: w.audioTrack.Config.ChannelCount,
+			Type:         w.audioFormat.Config.Type,
+			SampleRate:   w.audioFormat.Config.SampleRate,
+			ChannelCount: w.audioFormat.Config.ChannelCount,
 			AU:           au,
 		},
 	}
@@ -171,7 +171,7 @@ func (w *Writer) WriteAAC(
 		RandomAccessIndicator: true,
 	}
 
-	if w.videoTrack == nil {
+	if w.videoFormat == nil {
 		// send PCR once in a while
 		if w.pcrCounter == 0 {
 			af.HasPCR = true

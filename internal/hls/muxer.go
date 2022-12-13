@@ -5,7 +5,7 @@ import (
 	"io"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 )
 
 // MuxerFileResponse is a response of the Muxer's File() func.
@@ -28,8 +28,8 @@ func NewMuxer(
 	segmentDuration time.Duration,
 	partDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 ) (*Muxer, error) {
 	m := &Muxer{}
 

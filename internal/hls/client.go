@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -35,7 +35,7 @@ type ClientLogger interface {
 // Client is a HLS client.
 type Client struct {
 	fingerprint string
-	onTracks    func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error
+	onTracks    func(*format.H264, *format.MPEG4Audio) error
 	onVideoData func(time.Duration, [][]byte)
 	onAudioData func(time.Duration, []byte)
 	logger      ClientLogger
@@ -52,7 +52,7 @@ type Client struct {
 func NewClient(
 	playlistURLStr string,
 	fingerprint string,
-	onTracks func(*gortsplib.TrackH264, *gortsplib.TrackMPEG4Audio) error,
+	onTracks func(*format.H264, *format.MPEG4Audio) error,
 	onVideoData func(time.Duration, [][]byte),
 	onAudioData func(time.Duration, []byte),
 	logger ClientLogger,
