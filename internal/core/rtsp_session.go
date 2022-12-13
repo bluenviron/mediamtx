@@ -318,9 +318,31 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 					}
 				})
 
+			case *format.H265:
+				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+					err := s.stream.writeData(cmedia, cformat, &dataH265{
+						rtpPackets: []*rtp.Packet{pkt},
+						ntp:        time.Now(),
+					})
+					if err != nil {
+						s.log(logger.Warn, "%v", err)
+					}
+				})
+
 			case *format.MPEG4Audio:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 					err := s.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
+						rtpPackets: []*rtp.Packet{pkt},
+						ntp:        time.Now(),
+					})
+					if err != nil {
+						s.log(logger.Warn, "%v", err)
+					}
+				})
+
+			case *format.Opus:
+				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+					err := s.stream.writeData(cmedia, cformat, &dataOpus{
 						rtpPackets: []*rtp.Packet{pkt},
 						ntp:        time.Now(),
 					})

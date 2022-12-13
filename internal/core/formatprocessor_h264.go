@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph264"
@@ -9,6 +10,22 @@ import (
 	"github.com/pion/rtp"
 )
 
+type dataH264 struct {
+	rtpPackets []*rtp.Packet
+	ntp        time.Time
+	pts        time.Duration
+	nalus      [][]byte
+}
+
+func (d *dataH264) getRTPPackets() []*rtp.Packet {
+	return d.rtpPackets
+}
+
+func (d *dataH264) getNTP() time.Time {
+	return d.ntp
+}
+
+// extract SPS and PPS without decoding RTP packets
 func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 	if len(pkt.Payload) == 0 {
 		return nil, nil

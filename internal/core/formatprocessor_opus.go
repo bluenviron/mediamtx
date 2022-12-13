@@ -5,36 +5,36 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpmpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpsimpleaudio"
 	"github.com/pion/rtp"
 )
 
-type dataMPEG4Audio struct {
+type dataOpus struct {
 	rtpPackets []*rtp.Packet
 	ntp        time.Time
 	pts        time.Duration
-	aus        [][]byte
+	au         []byte
 }
 
-func (d *dataMPEG4Audio) getRTPPackets() []*rtp.Packet {
+func (d *dataOpus) getRTPPackets() []*rtp.Packet {
 	return d.rtpPackets
 }
 
-func (d *dataMPEG4Audio) getNTP() time.Time {
+func (d *dataOpus) getNTP() time.Time {
 	return d.ntp
 }
 
-type formatProcessorMPEG4Audio struct {
-	format  *format.MPEG4Audio
-	encoder *rtpmpeg4audio.Encoder
-	decoder *rtpmpeg4audio.Decoder
+type formatProcessorOpus struct {
+	format  *format.Opus
+	encoder *rtpsimpleaudio.Encoder
+	decoder *rtpsimpleaudio.Decoder
 }
 
-func newFormatProcessorMPEG4Audio(
-	forma *format.MPEG4Audio,
+func newFormatProcessorOpus(
+	forma *format.Opus,
 	allocateEncoder bool,
-) (*formatProcessorMPEG4Audio, error) {
-	t := &formatProcessorMPEG4Audio{
+) (*formatProcessorOpus, error) {
+	t := &formatProcessorOpus{
 		format: forma,
 	}
 
@@ -45,18 +45,18 @@ func newFormatProcessorMPEG4Audio(
 	return t, nil
 }
 
-func (t *formatProcessorMPEG4Audio) generateRTPPackets(tdata *dataMPEG4Audio) error {
-	pkts, err := t.encoder.Encode(tdata.aus, tdata.pts)
+func (t *formatProcessorOpus) generateRTPPackets(tdata *dataOpus) error {
+	pkt, err := t.encoder.Encode(tdata.au, tdata.pts)
 	if err != nil {
 		return err
 	}
 
-	tdata.rtpPackets = pkts
+	tdata.rtpPackets = []*rtp.Packet{pkt}
 	return nil
 }
 
-func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) error {
-	tdata := dat.(*dataMPEG4Audio)
+func (t *formatProcessorOpus) process(dat data, hasNonRTSPReaders bool) error {
+	tdata := dat.(*dataOpus)
 
 	if tdata.rtpPackets != nil {
 		pkt := tdata.rtpPackets[0]
@@ -76,15 +76,12 @@ func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) er
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			aus, pts, err := t.decoder.Decode(pkt)
+			au, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
-				if err == rtpmpeg4audio.ErrMorePacketsNeeded {
-					return nil
-				}
 				return err
 			}
 
-			tdata.aus = aus
+			tdata.au = au
 			tdata.pts = pts
 		}
 

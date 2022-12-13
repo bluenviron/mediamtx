@@ -159,9 +159,31 @@ func (s *rtspSource) run(ctx context.Context) error {
 							}
 						})
 
+					case *format.H265:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataH265{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
+
 					case *format.MPEG4Audio:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
+
+					case *format.Opus:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataOpus{
 								rtpPackets: []*rtp.Packet{pkt},
 								ntp:        time.Now(),
 							})

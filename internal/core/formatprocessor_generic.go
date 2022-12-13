@@ -2,14 +2,29 @@ package core
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/pion/rtp"
 )
 
 const (
 	// 1500 (UDP MTU) - 20 (IP header) - 8 (UDP header)
 	maxPacketSize = 1472
 )
+
+type dataGeneric struct {
+	rtpPackets []*rtp.Packet
+	ntp        time.Time
+}
+
+func (d *dataGeneric) getRTPPackets() []*rtp.Packet {
+	return d.rtpPackets
+}
+
+func (d *dataGeneric) getNTP() time.Time {
+	return d.ntp
+}
 
 type formatProcessorGeneric struct{}
 
