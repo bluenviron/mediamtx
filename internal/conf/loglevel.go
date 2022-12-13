@@ -58,6 +58,7 @@ func (d *LogLevel) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// unmarshalEnv implements envUnmarshaler.
 func (d *LogLevel) unmarshalEnv(s string) error {
 	return d.UnmarshalJSON([]byte(`"` + s + `"`))
 }

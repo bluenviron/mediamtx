@@ -131,6 +131,14 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 			}
 		}
 		return nil
+
+	case reflect.Slice:
+		if rt.Elem() == reflect.TypeOf("") {
+			if ev, ok := env[prefix]; ok {
+				rv.Set(reflect.ValueOf(strings.Split(ev, ",")))
+			}
+			return nil
+		}
 	}
 
 	return fmt.Errorf("unsupported type: %v", rt)

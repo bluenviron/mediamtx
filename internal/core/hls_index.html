@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+}
+#video {
+	width: 100%;
+	height: 100%;
+	background: black;
+}
+</style>
+</head>
+<body>
+
+<video id="video" muted controls autoplay playsinline></video>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.1.5"></script>
+
+<script>
+
+const create = () => {
+	const video = document.getElementById('video');
+
+	// always prefer hls.js over native HLS.
+	// this is because some Android versions support native HLS
+	// but don't support fMP4s.
+	if (Hls.isSupported()) {
+		const hls = new Hls({
+			maxLiveSyncPlaybackRate: 1.5,
+		});
+
+		hls.on(Hls.Events.ERROR, (evt, data) => {
+			if (data.fatal) {
+				hls.destroy();
+
+				setTimeout(create, 2000);
+			}
+		});
+
+		hls.loadSource('index.m3u8');
+		hls.attachMedia(video);
+
+		video.play();
+
+	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+		// since it's not possible to detect timeout errors in iOS,
+		// wait for the playlist to be available before starting the stream
+		fetch('stream.m3u8')
+			.then(() => {
+				video.src = 'index.m3u8';
+				video.play();
+			});
+	}
+};
+
+window.addEventListener('DOMContentLoaded', create);
+
+</script>
+
+</body>
+</html>

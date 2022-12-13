@@ -3,20 +3,33 @@
     <img src="logo.png" alt="rtsp-simple-server">
 </p>
 
-_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams through various protocols:
+_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
 
-|protocol|description|variants|publish|read|proxy|
-|--------|-----------|--------|-------|----|-----|
-|RTSP|fastest way to publish and read streams|RTSP, RTSPS|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|RTMP|allows to interact with legacy software|RTMP, RTMPS|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|HLS|allows to embed streams into a web page|Low-Latency HLS, standard HLS|:x:|:heavy_check_mark:|:heavy_check_mark:|
+Live streams can be published to the server with:
+
+|name|variants|codecs|
+|----|--------|------|
+|RTSP clients (FFmpeg, GStreamer, etc)|RTSP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|RTSP servers and cameras||H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|RTMP clients|RTMP, RTMPS|H264, AAC|
+|RTMP servers and cameras||H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|HLS servers and cameras|Low-Latency HLS, legacy HLS|H264, AAC|
+|Raspberry Pi Cameras||H264|
+
+And can be read from the server with a protocol of choice:
+
+|name|variants|codecs|
+|----|--------|------|
+|RTSP|RTSP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|RTMP|RTMP, RTMPS|H264, AAC|
+|HLS|Low-Latency HLS, legacy HLS|H264, AAC|
+|WebRTC||H264|
 
 Features:
 
 * Publish live streams to the server
 * Read live streams from the server
 * Proxy streams from other servers or cameras, always or on-demand
-* Each stream can have multiple video and audio tracks, encoded with any RTP-compatible codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
 * Serve multiple streams at once in separate paths
 * Authenticate users; use internal or external authentication

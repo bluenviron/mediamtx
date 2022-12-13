@@ -121,6 +121,16 @@ rtmpServerCert: server.crt
 hlsDisable: no
 # Address of the HLS listener.
 hlsAddress: :8888
+# Enable TLS/HTTPS on the HLS server.
+# This is required for Low-Latency HLS.
+hlsEncryption: no
+# Path to the server key. This is needed only when encryption is yes.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+hlsServerKey: server.key
+# Path to the server certificate.
+hlsServerCert: server.crt
 # By default, HLS is generated only when requested by a user.
 # This option allows to generate it always, avoiding the delay between request and generation.
 hlsAlwaysRemux: no
@@ -151,20 +161,34 @@ hlsSegmentMaxSize: 50M
 # Value of the Access-Control-Allow-Origin header provided in every HTTP response.
 # This allows to play the HLS stream from an external website.
 hlsAllowOrigin: '*'
-# Enable TLS/HTTPS on the HLS server.
-# This is required for Low-Latency HLS.
-hlsEncryption: no
-# Path to the server key. This is needed only when encryption is yes.
-# This can be generated with:
-# openssl genrsa -out server.key 2048
-# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-hlsServerKey: server.key
-# Path to the server certificate.
-hlsServerCert: server.crt
-# List of IPs or CIDRs of proxies behind the HLS server.
+# List of IPs or CIDRs of proxies placed before the HLS server.
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 hlsTrustedProxies: []
+
+###############################################
+# WebRTC parameters
+
+# Disable support for the WebRTC protocol.
+webrtcDisable: no
+# Address of the WebRTC listener.
+webrtcAddress: :8889
+# Path to the server key. This is mandatory since HTTPS is mandatory in order to use WebRTC.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+webrtcServerKey: server.key
+# Path to the server certificate.
+webrtcServerCert: server.crt
+# Value of the Access-Control-Allow-Origin header provided in every HTTP response.
+# This allows to play the WebRTC stream from an external website.
+webrtcAllowOrigin: '*'
+# List of IPs or CIDRs of proxies placed before the WebRTC server.
+# If the server receives a request from one of these entries, IP in logs
+# will be taken from the X-Forwarded-For header.
+webrtcTrustedProxies: []
+# List of STUN servers. These are used in WebRTC to get the public IP of both server and clients.
+webrtcStunServers: [stun.l.google.com:19302]
 
 ###############################################
 # Path parameters

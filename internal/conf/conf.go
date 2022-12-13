@@ -211,6 +211,9 @@ type Conf struct {
 	// HLS
 	HLSDisable         bool           `json:"hlsDisable"`
 	HLSAddress         string         `json:"hlsAddress"`
+	HLSEncryption      bool           `json:"hlsEncryption"`
+	HLSServerKey       string         `json:"hlsServerKey"`
+	HLSServerCert      string         `json:"hlsServerCert"`
 	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
 	HLSVariant         HLSVariant     `json:"hlsVariant"`
 	HLSSegmentCount    int            `json:"hlsSegmentCount"`
@@ -218,10 +221,16 @@ type Conf struct {
 	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
 	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
 	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
-	HLSEncryption      bool           `json:"hlsEncryption"`
-	HLSServerKey       string         `json:"hlsServerKey"`
-	HLSServerCert      string         `json:"hlsServerCert"`
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
+
+	// WebRTC
+	WebRTCDisable        bool       `json:"webrtcDisable"`
+	WebRTCAddress        string     `json:"webrtcAddress"`
+	WebRTCServerKey      string     `json:"webrtcServerKey"`
+	WebRTCServerCert     string     `json:"webrtcServerCert"`
+	WebRTCAllowOrigin    string     `json:"webrtcAllowOrigin"`
+	WebRTCTrustedProxies IPsOrCIDRs `json:"webrtcTrustedProxies"`
+	WebRTCStunServers    []string   `json:"webrtcStunServers"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
@@ -251,52 +260,45 @@ func Load(fpath string) (*Conf, bool, error) {
 
 // CheckAndFillMissing checks the configuration for errors and fills missing parameters.
 func (conf *Conf) CheckAndFillMissing() error {
+	// general
 	if conf.LogLevel == 0 {
 		conf.LogLevel = LogLevel(logger.Info)
 	}
-
 	if len(conf.LogDestinations) == 0 {
 		conf.LogDestinations = LogDestinations{logger.DestinationStdout: {}}
 	}
-
 	if conf.LogFile == "" {
 		conf.LogFile = "rtsp-simple-server.log"
 	}
-
 	if conf.ReadTimeout == 0 {
 		conf.ReadTimeout = 10 * StringDuration(time.Second)
 	}
-
 	if conf.WriteTimeout == 0 {
 		conf.WriteTimeout = 10 * StringDuration(time.Second)
 	}
-
 	if conf.ReadBufferCount == 0 {
 		conf.ReadBufferCount = 512
 	}
 	if (conf.ReadBufferCount & (conf.ReadBufferCount - 1)) != 0 {
 		return fmt.Errorf("'ReadBufferCount' must be a power of two")
 	}
-
 	if conf.ExternalAuthenticationURL != "" {
 		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&
 			!strings.HasPrefix(conf.ExternalAuthenticationURL, "https://") {
 			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
 		}
 	}
-
 	if conf.APIAddress == "" {
 		conf.APIAddress = "127.0.0.1:9997"
 	}
-
 	if conf.MetricsAddress == "" {
 		conf.MetricsAddress = "127.0.0.1:9998"
 	}
-
 	if conf.PPROFAddress == "" {
 		conf.PPROFAddress = "127.0.0.1:9999"
 	}
 
+	// RTSP
 	if len(conf.Protocols) == 0 {
 		conf.Protocols = Protocols{
 			Protocol(gortsplib.TransportUDP):          {},
@@ -304,7 +306,6 @@ func (conf *Conf) CheckAndFillMissing() error {
 			Protocol(gortsplib.TransportTCP):          {},
 		}
 	}
-
 	if conf.Encryption == EncryptionStrict {
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDP)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP transport protocol")
@@ -314,87 +315,70 @@ func (conf *Conf) CheckAndFillMissing() error {
 			return fmt.Errorf("strict encryption can't be used with the UDP-multicast transport protocol")
 		}
 	}
-
 	if conf.RTSPAddress == "" {
 		conf.RTSPAddress = ":8554"
 	}
-
 	if conf.RTSPSAddress == "" {
 		conf.RTSPSAddress = ":8322"
 	}
-
 	if conf.RTPAddress == "" {
 		conf.RTPAddress = ":8000"
 	}
-
 	if conf.RTCPAddress == "" {
 		conf.RTCPAddress = ":8001"
 	}
-
 	if conf.MulticastIPRange == "" {
 		conf.MulticastIPRange = "224.1.0.0/16"
 	}
-
 	if conf.MulticastRTPPort == 0 {
 		conf.MulticastRTPPort = 8002
 	}
-
 	if conf.MulticastRTCPPort == 0 {
 		conf.MulticastRTCPPort = 8003
 	}
-
 	if conf.ServerKey == "" {
 		conf.ServerKey = "server.key"
 	}
-
 	if conf.ServerCert == "" {
 		conf.ServerCert = "server.crt"
 	}
-
 	if len(conf.AuthMethods) == 0 {
 		conf.AuthMethods = AuthMethods{headers.AuthBasic, headers.AuthDigest}
 	}
 
+	// RTMP
 	if conf.RTMPAddress == "" {
 		conf.RTMPAddress = ":1935"
 	}
-
 	if conf.RTMPSAddress == "" {
 		conf.RTMPSAddress = ":1936"
 	}
 
+	// HLS
 	if conf.HLSAddress == "" {
 		conf.HLSAddress = ":8888"
 	}
-
-	if conf.HLSSegmentCount == 0 {
-		conf.HLSSegmentCount = 7
-	}
-
-	if conf.HLSSegmentDuration == 0 {
-		conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
-	}
-
-	if conf.HLSPartDuration == 0 {
-		conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
-	}
-
-	if conf.HLSSegmentMaxSize == 0 {
-		conf.HLSSegmentMaxSize = 50 * 1024 * 1024
-	}
-
-	if conf.HLSAllowOrigin == "" {
-		conf.HLSAllowOrigin = "*"
-	}
-
 	if conf.HLSServerKey == "" {
 		conf.HLSServerKey = "server.key"
 	}
-
 	if conf.HLSServerCert == "" {
 		conf.HLSServerCert = "server.crt"
 	}
-
+	if conf.HLSSegmentCount == 0 {
+		conf.HLSSegmentCount = 7
+	}
+	if conf.HLSSegmentDuration == 0 {
+		conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
+	}
+	if conf.HLSPartDuration == 0 {
+		conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
+	}
+	if conf.HLSSegmentMaxSize == 0 {
+		conf.HLSSegmentMaxSize = 50 * 1024 * 1024
+	}
+	if conf.HLSAllowOrigin == "" {
+		conf.HLSAllowOrigin = "*"
+	}
 	switch conf.HLSVariant {
 	case HLSVariantLowLatency:
 		if conf.HLSSegmentCount < 7 {
@@ -409,6 +393,23 @@ func (conf *Conf) CheckAndFillMissing() error {
 		if conf.HLSSegmentCount < 3 {
 			return fmt.Errorf("The minimum number of HLS segments is 3")
 		}
+	}
+
+	// WebRTC
+	if conf.WebRTCAddress == "" {
+		conf.WebRTCAddress = ":8889"
+	}
+	if conf.WebRTCServerKey == "" {
+		conf.WebRTCServerKey = "server.key"
+	}
+	if conf.WebRTCServerCert == "" {
+		conf.WebRTCServerCert = "server.crt"
+	}
+	if conf.WebRTCAllowOrigin == "" {
+		conf.WebRTCAllowOrigin = "*"
+	}
+	if conf.WebRTCStunServers == nil {
+		conf.WebRTCStunServers = []string{"stun.l.google.com:19302"}
 	}
 
 	// do not add automatically "all", since user may want to

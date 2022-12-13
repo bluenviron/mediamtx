@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"reflect"
 	"sync"
 
@@ -151,8 +150,9 @@ func newAPI(
 
 	router := gin.New()
 	router.SetTrustedProxies(nil)
-	router.NoRoute(a.mwLog)
-	group := router.Group("/", a.mwLog)
+	mwLog := httpLoggerMiddleware(a)
+	router.NoRoute(mwLog)
+	group := router.Group("/", mwLog)
 
 	group.GET("/v1/config/get", a.onConfigGet)
 	group.POST("/v1/config/set", a.onConfigSet)
@@ -205,22 +205,6 @@ func (a *api) close() {
 
 func (a *api) log(level logger.Level, format string, args ...interface{}) {
 	a.parent.Log(level, "[API] "+format, args...)
-}
-
-func (a *api) mwLog(ctx *gin.Context) {
-	a.log(logger.Info, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
-
-	byts, _ := httputil.DumpRequest(ctx.Request, true)
-	a.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
-
-	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
-	ctx.Writer = logw
-
-	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
-
-	ctx.Next()
-
-	a.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 }
 
 func (a *api) onConfigGet(ctx *gin.Context) {
@@ -419,7 +403,6 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 
 	res := a.rtspServer.apiSessionsKick(id)
 	if res.err != nil {
-		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
@@ -451,7 +434,6 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 
 	res := a.rtspsServer.apiSessionsKick(id)
 	if res.err != nil {
-		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
@@ -473,7 +455,6 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 
 	res := a.rtmpServer.apiConnsKick(id)
 	if res.err != nil {
-		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 
@@ -495,7 +476,6 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 
 	res := a.rtmpsServer.apiConnsKick(id)
 	if res.err != nil {
-		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 

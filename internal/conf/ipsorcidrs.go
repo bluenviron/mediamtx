@@ -48,6 +48,7 @@ func (d *IPsOrCIDRs) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// unmarshalEnv implements envUnmarshaler.
 func (d *IPsOrCIDRs) unmarshalEnv(s string) error {
 	byts, _ := json.Marshal(strings.Split(s, ","))
 	return d.UnmarshalJSON(byts)

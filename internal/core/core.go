@@ -38,6 +38,7 @@ type Core struct {
 	rtmpServer      *rtmpServer
 	rtmpsServer     *rtmpServer
 	hlsServer       *hlsServer
+	webRTCServer    *webRTCServer
 	api             *api
 	confWatcher     *confwatcher.ConfWatcher
 
@@ -180,7 +181,8 @@ func (p *Core) createResources(initial bool) error {
 		p.logger, err = logger.New(
 			logger.Level(p.conf.LogLevel),
 			p.conf.LogDestinations,
-			p.conf.LogFile)
+			p.conf.LogFile,
+		)
 		if err != nil {
 			return err
 		}
@@ -201,7 +203,8 @@ func (p *Core) createResources(initial bool) error {
 		if p.metrics == nil {
 			p.metrics, err = newMetrics(
 				p.conf.MetricsAddress,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -212,7 +215,8 @@ func (p *Core) createResources(initial bool) error {
 		if p.pprof == nil {
 			p.pprof, err = newPPROF(
 				p.conf.PPROFAddress,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -229,7 +233,8 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.Paths,
 			p.externalCmdPool,
 			p.metrics,
-			p)
+			p,
+		)
 	}
 
 	if !p.conf.RTSPDisable &&
@@ -263,7 +268,8 @@ func (p *Core) createResources(initial bool) error {
 				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -299,7 +305,8 @@ func (p *Core) createResources(initial bool) error {
 				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -326,7 +333,8 @@ func (p *Core) createResources(initial bool) error {
 				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -353,7 +361,8 @@ func (p *Core) createResources(initial bool) error {
 				p.externalCmdPool,
 				p.metrics,
 				p.pathManager,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -365,6 +374,9 @@ func (p *Core) createResources(initial bool) error {
 			p.hlsServer, err = newHLSServer(
 				p.ctx,
 				p.conf.HLSAddress,
+				p.conf.HLSEncryption,
+				p.conf.HLSServerKey,
+				p.conf.HLSServerCert,
 				p.conf.ExternalAuthenticationURL,
 				p.conf.HLSAlwaysRemux,
 				p.conf.HLSVariant,
@@ -373,14 +385,32 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSPartDuration,
 				p.conf.HLSSegmentMaxSize,
 				p.conf.HLSAllowOrigin,
-				p.conf.HLSEncryption,
-				p.conf.HLSServerKey,
-				p.conf.HLSServerCert,
 				p.conf.HLSTrustedProxies,
 				p.conf.ReadBufferCount,
 				p.pathManager,
 				p.metrics,
-				p)
+				p,
+			)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if !p.conf.WebRTCDisable {
+		if p.webRTCServer == nil {
+			p.webRTCServer, err = newWebRTCServer(
+				p.ctx,
+				p.conf.WebRTCAddress,
+				p.conf.WebRTCServerKey,
+				p.conf.WebRTCServerCert,
+				p.conf.WebRTCAllowOrigin,
+				p.conf.WebRTCTrustedProxies,
+				p.conf.WebRTCStunServers,
+				p.conf.ReadBufferCount,
+				p.pathManager,
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -398,7 +428,8 @@ func (p *Core) createResources(initial bool) error {
 				p.rtmpServer,
 				p.rtmpsServer,
 				p.hlsServer,
-				p)
+				p,
+			)
 			if err != nil {
 				return err
 			}
@@ -416,41 +447,29 @@ func (p *Core) createResources(initial bool) error {
 }
 
 func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
-	closeLogger := false
-	if newConf == nil ||
+	closeLogger := newConf == nil ||
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
-		newConf.LogFile != p.conf.LogFile {
-		closeLogger = true
-	}
+		newConf.LogFile != p.conf.LogFile
 
-	closeMetrics := false
-	if newConf == nil ||
+	closeMetrics := newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
-		newConf.MetricsAddress != p.conf.MetricsAddress {
-		closeMetrics = true
-	}
+		newConf.MetricsAddress != p.conf.MetricsAddress
 
-	closePPROF := false
-	if newConf == nil ||
+	closePPROF := newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
-		newConf.PPROFAddress != p.conf.PPROFAddress {
-		closePPROF = true
-	}
+		newConf.PPROFAddress != p.conf.PPROFAddress
 
-	closePathManager := false
-	if newConf == nil ||
+	closePathManager := newConf == nil ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		closeMetrics {
-		closePathManager = true
-	} else if !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		closeMetrics
+	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.confReload(newConf.Paths)
 	}
 
-	closeRTSPServer := false
-	if newConf == nil ||
+	closeRTSPServer := newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
@@ -470,12 +489,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager {
-		closeRTSPServer = true
-	}
+		closePathManager
 
-	closeRTSPSServer := false
-	if newConf == nil ||
+	closeRTSPSServer := newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
@@ -491,12 +507,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager {
-		closeRTSPSServer = true
-	}
+		closePathManager
 
-	closeRTMPServer := false
-	if newConf == nil ||
+	closeRTMPServer := newConf == nil ||
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
@@ -508,12 +521,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager {
-		closeRTMPServer = true
-	}
+		closePathManager
 
-	closeRTMPSServer := false
-	if newConf == nil ||
+	closeRTMPSServer := newConf == nil ||
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPSAddress != p.conf.RTMPSAddress ||
@@ -527,14 +537,14 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager {
-		closeRTMPSServer = true
-	}
+		closePathManager
 
-	closeHLSServer := false
-	if newConf == nil ||
+	closeHLSServer := newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
+		newConf.HLSEncryption != p.conf.HLSEncryption ||
+		newConf.HLSServerKey != p.conf.HLSServerKey ||
+		newConf.HLSServerCert != p.conf.HLSServerCert ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSVariant != p.conf.HLSVariant ||
@@ -543,27 +553,30 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSPartDuration != p.conf.HLSPartDuration ||
 		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
-		newConf.HLSEncryption != p.conf.HLSEncryption ||
-		newConf.HLSServerKey != p.conf.HLSServerKey ||
-		newConf.HLSServerCert != p.conf.HLSServerCert ||
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closePathManager ||
-		closeMetrics {
-		closeHLSServer = true
-	}
+		closeMetrics
 
-	closeAPI := false
-	if newConf == nil ||
+	closeWebrtcServer := newConf == nil ||
+		newConf.WebRTCDisable != p.conf.WebRTCDisable ||
+		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
+		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||
+		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
+		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
+		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
+		!reflect.DeepEqual(newConf.WebRTCStunServers, p.conf.WebRTCStunServers) ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		closePathManager
+
+	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
 		newConf.APIAddress != p.conf.APIAddress ||
 		closePathManager ||
 		closeRTSPServer ||
 		closeRTSPSServer ||
 		closeRTMPServer ||
-		closeHLSServer {
-		closeAPI = true
-	}
+		closeHLSServer
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
@@ -592,6 +605,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closePathManager && p.pathManager != nil {
 		p.pathManager.close()
 		p.pathManager = nil
+	}
+
+	if closeWebrtcServer && p.webRTCServer != nil {
+		p.webRTCServer.close()
+		p.webRTCServer = nil
 	}
 
 	if closeHLSServer && p.hlsServer != nil {
@@ -632,7 +650,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
 	p.closeResources(newConf, calledByAPI)
-
 	p.conf = newConf
 	return p.createResources(false)
 }

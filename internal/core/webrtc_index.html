@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+}
+#video {
+	width: 100%;
+	height: 100%;
+	background: black;
+}
+</style>
+</head>
+<body>
+
+<video id="video" muted controls autoplay playsinline></video>
+
+<script>
+
+const restartPause = 2000;
+
+class Receiver {
+	constructor() {
+		this.terminated = false;
+		this.ws = null;
+		this.pc = null;
+		this.restartTimeout = null;
+		this.start();
+	}
+
+	start() {
+		console.log("[receiver] ws connecting");
+
+        this.ws = new WebSocket(window.location.href.replace(/^http/, "ws") + 'ws');
+
+        this.ws.onerror = () => {
+            console.log("[receiver] ws error");
+            if (this.ws === null) {
+                return;
+            }
+            this.ws.close();
+            this.ws = null;
+        };
+
+        this.ws.onclose = () => {
+            console.log("[receiver] ws closed");
+            this.ws = null;
+            this.scheduleRestart();
+        };
+
+        this.ws.onmessage = (msg) => this.onIceServers(msg);
+	}
+
+    onIceServers(msg) {
+        if (this.ws === null) {
+            return;
+        }
+
+        const iceServers = JSON.parse(msg.data);
+
+        this.pc = new RTCPeerConnection({
+            iceServers,
+        });
+
+        this.ws.onmessage = (msg) => this.onRemoteDescription(msg);
+
+        this.pc.onicecandidate = (evt) => {
+            if (this.ws === null) {
+                return;
+            }
+
+            if (evt.candidate !== null) {
+                if (evt.candidate.candidate !== "") {
+                    this.ws.send(JSON.stringify(evt.candidate));
+                }
+            }
+        };
+
+        this.pc.oniceconnectionstatechange = () => {
+            if (this.pc === null) {
+                return;
+            }
+
+            console.log("[receiver] state:", this.pc.iceConnectionState);
+
+            switch (this.pc.iceConnectionState) {
+            case "failed":
+            case "disconnected":
+                this.scheduleRestart();
+            }
+        };
+
+        this.pc.ontrack = (evt) => {
+            console.log("[receiver] new track " + evt.track.kind);
+            document.getElementById("video").srcObject = new MediaStream([evt.track]);
+        };
+
+        // utilizza sendrecv per firefox
+        // https://github.com/pion/webrtc/issues/717#issuecomment-507990273
+        // https://github.com/pion/example-webrtc-applications/commit/c641b530a001eb057d8b481185c50bf67d1931b4
+        const direction = "sendrecv"; // (isFirefox) ? "sendrecv" : "recvonly";
+        this.pc.addTransceiver("video", { direction });
+        this.pc.addTransceiver("audio", { direction });
+
+        this.pc.createOffer()
+            .then((desc) => {
+                if (this.pc === null || this.ws === null) {
+                    return;
+                }
+
+                this.pc.setLocalDescription(desc);
+
+                console.log("[receiver] sending offer");
+                this.ws.send(JSON.stringify(desc));
+            });
+    }
+
+	onRemoteDescription(msg) {
+		if (this.pc === null || this.ws === null) {
+			return;
+		}
+
+		this.pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.data)));
+
+		this.ws.onmessage = (msg) => this.onRemoteCandidate(msg);
+	}
+
+	onRemoteCandidate(msg) {
+		if (this.pc === null) {
+			return;
+		}
+
+		this.pc.addIceCandidate(JSON.parse(msg.data));
+	}
+
+    scheduleRestart() {
+        if (this.terminated) {
+            return;
+        }
+
+        if (this.ws !== null) {
+            this.ws.close();
+            this.ws = null;
+        }
+
+        if (this.pc !== null) {
+            this.pc.close();
+            this.pc = null;
+        }
+
+        this.restartTimeout = window.setTimeout(() => {
+            this.restartTimeout = null;
+            this.start();
+        }, restartPause);
+    }
+}
+
+window.addEventListener('DOMContentLoaded', () => new Receiver());
+
+</script>
+
+</body>
+</html>

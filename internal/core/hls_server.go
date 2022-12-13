@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	gopath "path"
 	"strings"
 	"sync"
@@ -57,14 +56,14 @@ type hlsServerParent interface {
 
 type hlsServer struct {
 	externalAuthenticationURL string
-	hlsAlwaysRemux            bool
-	hlsVariant                conf.HLSVariant
-	hlsSegmentCount           int
-	hlsSegmentDuration        conf.StringDuration
-	hlsPartDuration           conf.StringDuration
-	hlsSegmentMaxSize         conf.StringSize
-	hlsAllowOrigin            string
-	hlsTrustedProxies         conf.IPsOrCIDRs
+	alwaysRemux               bool
+	variant                   conf.HLSVariant
+	segmentCount              int
+	segmentDuration           conf.StringDuration
+	partDuration              conf.StringDuration
+	segmentMaxSize            conf.StringSize
+	allowOrigin               string
+	trustedProxies            conf.IPsOrCIDRs
 	readBufferCount           int
 	pathManager               *pathManager
 	metrics                   *metrics
@@ -88,18 +87,18 @@ type hlsServer struct {
 func newHLSServer(
 	parentCtx context.Context,
 	address string,
+	encryption bool,
+	serverKey string,
+	serverCert string,
 	externalAuthenticationURL string,
-	hlsAlwaysRemux bool,
-	hlsVariant conf.HLSVariant,
-	hlsSegmentCount int,
-	hlsSegmentDuration conf.StringDuration,
-	hlsPartDuration conf.StringDuration,
-	hlsSegmentMaxSize conf.StringSize,
-	hlsAllowOrigin string,
-	hlsEncryption bool,
-	hlsServerKey string,
-	hlsServerCert string,
-	hlsTrustedProxies conf.IPsOrCIDRs,
+	alwaysRemux bool,
+	variant conf.HLSVariant,
+	segmentCount int,
+	segmentDuration conf.StringDuration,
+	partDuration conf.StringDuration,
+	segmentMaxSize conf.StringSize,
+	allowOrigin string,
+	trustedProxies conf.IPsOrCIDRs,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -111,8 +110,8 @@ func newHLSServer(
 	}
 
 	var tlsConfig *tls.Config
-	if hlsEncryption {
-		crt, err := tls.LoadX509KeyPair(hlsServerCert, hlsServerKey)
+	if encryption {
+		crt, err := tls.LoadX509KeyPair(serverCert, serverKey)
 		if err != nil {
 			ln.Close()
 			return nil, err
@@ -127,14 +126,14 @@ func newHLSServer(
 
 	s := &hlsServer{
 		externalAuthenticationURL: externalAuthenticationURL,
-		hlsAlwaysRemux:            hlsAlwaysRemux,
-		hlsVariant:                hlsVariant,
-		hlsSegmentCount:           hlsSegmentCount,
-		hlsSegmentDuration:        hlsSegmentDuration,
-		hlsPartDuration:           hlsPartDuration,
-		hlsSegmentMaxSize:         hlsSegmentMaxSize,
-		hlsAllowOrigin:            hlsAllowOrigin,
-		hlsTrustedProxies:         hlsTrustedProxies,
+		alwaysRemux:               alwaysRemux,
+		variant:                   variant,
+		segmentCount:              segmentCount,
+		segmentDuration:           segmentDuration,
+		partDuration:              partDuration,
+		segmentMaxSize:            segmentMaxSize,
+		allowOrigin:               allowOrigin,
+		trustedProxies:            trustedProxies,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
 		parent:                    parent,
@@ -180,10 +179,10 @@ func (s *hlsServer) run() {
 	defer s.wg.Done()
 
 	router := gin.New()
-	router.NoRoute(s.onRequest)
+	router.NoRoute(httpLoggerMiddleware(s), s.onRequest)
 
-	tmp := make([]string, len(s.hlsTrustedProxies))
-	for i, entry := range s.hlsTrustedProxies {
+	tmp := make([]string, len(s.trustedProxies))
+	for i, entry := range s.trustedProxies {
 		tmp[i] = entry.String()
 	}
 	router.SetTrustedProxies(tmp)
@@ -204,12 +203,12 @@ outer:
 	for {
 		select {
 		case pa := <-s.chPathSourceReady:
-			if s.hlsAlwaysRemux {
+			if s.alwaysRemux {
 				s.findOrCreateMuxer(pa.Name(), "", nil)
 			}
 
 		case pa := <-s.chPathSourceNotReady:
-			if s.hlsAlwaysRemux {
+			if s.alwaysRemux {
 				c, ok := s.muxers[pa.Name()]
 				if ok {
 					c.close()
@@ -226,7 +225,7 @@ outer:
 			}
 			delete(s.muxers, c.PathName())
 
-			if s.hlsAlwaysRemux && c.remoteAddr == "" {
+			if s.alwaysRemux && c.remoteAddr == "" {
 				s.findOrCreateMuxer(c.PathName(), "", nil)
 			}
 
@@ -259,16 +258,7 @@ outer:
 }
 
 func (s *hlsServer) onRequest(ctx *gin.Context) {
-	s.log(logger.Debug, "[conn %v] %s %s", ctx.ClientIP(), ctx.Request.Method, ctx.Request.URL.Path)
-
-	byts, _ := httputil.DumpRequest(ctx.Request, true)
-	s.log(logger.Debug, "[conn %v] [c->s] %s", ctx.ClientIP(), string(byts))
-
-	logw := &httpLogWriter{ResponseWriter: ctx.Writer}
-	ctx.Writer = logw
-
-	ctx.Writer.Header().Set("Server", "rtsp-simple-server")
-	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.hlsAllowOrigin)
+	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.allowOrigin)
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
 	switch ctx.Request.Method {
@@ -281,7 +271,6 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 		return
 
 	default:
-		ctx.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -290,7 +279,6 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	switch pa {
 	case "", "favicon.ico":
-		ctx.Writer.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -336,8 +324,6 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 
 	case <-s.ctx.Done():
 	}
-
-	s.log(logger.Debug, "[conn %v] [s->c] %s", ctx.ClientIP(), logw.dump())
 }
 
 func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *hlsMuxerRequest) *hlsMuxer {
@@ -348,11 +334,11 @@ func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *h
 			pathName,
 			remoteAddr,
 			s.externalAuthenticationURL,
-			s.hlsVariant,
-			s.hlsSegmentCount,
-			s.hlsSegmentDuration,
-			s.hlsPartDuration,
-			s.hlsSegmentMaxSize,
+			s.variant,
+			s.segmentCount,
+			s.segmentDuration,
+			s.partDuration,
+			s.segmentMaxSize,
 			s.readBufferCount,
 			req,
 			&s.wg,
