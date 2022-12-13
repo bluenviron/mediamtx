@@ -8,19 +8,19 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 )
 
 type muxerPrimaryPlaylist struct {
 	fmp4       bool
-	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackMPEG4Audio
+	videoTrack *format.H264
+	audioTrack *format.MPEG4Audio
 }
 
 func newMuxerPrimaryPlaylist(
 	fmp4 bool,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 ) *muxerPrimaryPlaylist {
 	return &muxerPrimaryPlaylist{
 		fmp4:       fmp4,

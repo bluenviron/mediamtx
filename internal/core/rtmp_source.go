@@ -11,8 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -115,34 +116,40 @@ func (s *rtmpSource) run(ctx context.Context) error {
 
 			nconn.SetWriteDeadline(time.Time{})
 			nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-			videoTrack, audioTrack, err := conn.ReadTracks()
+			videoFormat, audioFormat, err := conn.ReadTracks()
 			if err != nil {
 				return err
 			}
 
-			var tracks gortsplib.Tracks
-			videoTrackID := -1
-			audioTrackID := -1
+			var medias media.Medias
+			var videoMedia *media.Media
+			var audioMedia *media.Media
 
-			if videoTrack != nil {
-				videoTrackID = len(tracks)
-				tracks = append(tracks, videoTrack)
+			if videoFormat != nil {
+				videoMedia = &media.Media{
+					Type:    media.TypeVideo,
+					Formats: []format.Format{videoFormat},
+				}
+				medias = append(medias, videoMedia)
 			}
 
-			if audioTrack != nil {
-				audioTrackID = len(tracks)
-				tracks = append(tracks, audioTrack)
+			if audioFormat != nil {
+				audioMedia = &media.Media{
+					Type:    media.TypeAudio,
+					Formats: []format.Format{audioFormat},
+				}
+				medias = append(medias, audioMedia)
 			}
 
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
-				tracks:             tracks,
+				medias:             medias,
 				generateRTPPackets: true,
 			})
 			if res.err != nil {
 				return res.err
 			}
 
-			s.Log(logger.Info, "ready: %s", sourceTrackInfo(tracks))
+			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
 			defer func() {
 				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
@@ -161,7 +168,7 @@ func (s *rtmpSource) run(ctx context.Context) error {
 				switch tmsg := msg.(type) {
 				case *message.MsgVideo:
 					if tmsg.H264Type == flvio.AVC_NALU {
-						if videoTrack == nil {
+						if videoFormat == nil {
 							return fmt.Errorf("received an H264 packet, but track is not set up")
 						}
 
@@ -170,11 +177,10 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("unable to decode AVCC: %v", err)
 						}
 
-						err = res.stream.writeData(&dataH264{
-							trackID: videoTrackID,
-							pts:     tmsg.DTS + tmsg.PTSDelta,
-							nalus:   nalus,
-							ntp:     time.Now(),
+						err = res.stream.writeData(videoMedia, videoFormat, &dataH264{
+							pts:   tmsg.DTS + tmsg.PTSDelta,
+							nalus: nalus,
+							ntp:   time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)
@@ -183,15 +189,14 @@ func (s *rtmpSource) run(ctx context.Context) error {
 
 				case *message.MsgAudio:
 					if tmsg.AACType == flvio.AAC_RAW {
-						if audioTrack == nil {
+						if audioFormat == nil {
 							return fmt.Errorf("received an AAC packet, but track is not set up")
 						}
 
-						err := res.stream.writeData(&dataMPEG4Audio{
-							trackID: audioTrackID,
-							pts:     tmsg.DTS,
-							aus:     [][]byte{tmsg.Payload},
-							ntp:     time.Now(),
+						err := res.stream.writeData(audioMedia, audioFormat, &dataMPEG4Audio{
+							pts: tmsg.DTS,
+							aus: [][]byte{tmsg.Payload},
+							ntp: time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)

@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"reflect"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2"
 	"github.com/gin-gonic/gin"
 	"gopkg.in/alecthomas/kingpin.v2"
 

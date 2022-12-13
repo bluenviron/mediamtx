@@ -3,7 +3,7 @@ package hls
 import (
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 )
 
 type muxerVariantMPEGTS struct {
@@ -15,8 +15,8 @@ func newMuxerVariantMPEGTS(
 	segmentCount int,
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 ) *muxerVariantMPEGTS {
 	v := &muxerVariantMPEGTS{}
 

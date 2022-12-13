@@ -6,8 +6,8 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
@@ -498,15 +498,15 @@ func TestReadTracks(t *testing.T) {
 
 				switch ca {
 				case "video+audio":
-					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType:       96,
+					require.Equal(t, &format.H264{
+						PayloadTyp:        96,
 						SPS:               sps,
 						PPS:               pps,
 						PacketizationMode: 1,
 					}, videoTrack)
 
-					require.Equal(t, &gortsplib.TrackMPEG4Audio{
-						PayloadType: 96,
+					require.Equal(t, &format.MPEG4Audio{
+						PayloadTyp: 96,
 						Config: &mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
@@ -518,8 +518,8 @@ func TestReadTracks(t *testing.T) {
 					}, audioTrack)
 
 				case "video":
-					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType:       96,
+					require.Equal(t, &format.H264{
+						PayloadTyp:        96,
 						SPS:               sps,
 						PPS:               pps,
 						PacketizationMode: 1,
@@ -528,15 +528,15 @@ func TestReadTracks(t *testing.T) {
 					require.Nil(t, audioTrack)
 
 				case "metadata without codec id":
-					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType:       96,
+					require.Equal(t, &format.H264{
+						PayloadTyp:        96,
 						SPS:               sps,
 						PPS:               pps,
 						PacketizationMode: 1,
 					}, videoTrack)
 
-					require.Equal(t, &gortsplib.TrackMPEG4Audio{
-						PayloadType: 96,
+					require.Equal(t, &format.MPEG4Audio{
+						PayloadTyp: 96,
 						Config: &mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
@@ -548,15 +548,15 @@ func TestReadTracks(t *testing.T) {
 					}, audioTrack)
 
 				case "missing metadata":
-					require.Equal(t, &gortsplib.TrackH264{
-						PayloadType:       96,
+					require.Equal(t, &format.H264{
+						PayloadTyp:        96,
 						SPS:               sps,
 						PPS:               pps,
 						PacketizationMode: 1,
 					}, videoTrack)
 
-					require.Equal(t, &gortsplib.TrackMPEG4Audio{
-						PayloadType: 96,
+					require.Equal(t, &format.MPEG4Audio{
+						PayloadTyp: 96,
 						Config: &mpeg4audio.Config{
 							Type:         2,
 							SampleRate:   44100,
@@ -930,8 +930,8 @@ func TestWriteTracks(t *testing.T) {
 		_, _, err = rconn.InitializeServer()
 		require.NoError(t, err)
 
-		videoTrack := &gortsplib.TrackH264{
-			PayloadType: 96,
+		videoTrack := &format.H264{
+			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
@@ -943,8 +943,8 @@ func TestWriteTracks(t *testing.T) {
 			PacketizationMode: 1,
 		}
 
-		audioTrack := &gortsplib.TrackMPEG4Audio{
-			PayloadType: 96,
+		audioTrack := &format.MPEG4Audio{
+			PayloadTyp: 96,
 			Config: &mpeg4audio.Config{
 				Type:         2,
 				SampleRate:   44100,

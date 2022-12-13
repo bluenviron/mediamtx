@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
@@ -68,8 +68,8 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			err = conn1.InitializeClient(u, true)
 			require.NoError(t, err)
 
-			videoTrack := &gortsplib.TrackH264{
-				PayloadType: 96,
+			videoTrack := &format.H264{
+				PayloadTyp: 96,
 				SPS: []byte{ // 1920x1080 baseline
 					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
@@ -79,8 +79,8 @@ func TestRTMPServerPublishRead(t *testing.T) {
 				PacketizationMode: 1,
 			}
 
-			audioTrack := &gortsplib.TrackMPEG4Audio{
-				PayloadType: 96,
+			audioTrack := &format.MPEG4Audio{
+				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
 					SampleRate:   44100,
@@ -190,8 +190,8 @@ func TestRTMPServerAuth(t *testing.T) {
 			err = conn1.InitializeClient(u1, true)
 			require.NoError(t, err)
 
-			videoTrack := &gortsplib.TrackH264{
-				PayloadType: 96,
+			videoTrack := &format.H264{
+				PayloadTyp: 96,
 				SPS: []byte{
 					0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 					0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
@@ -254,8 +254,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &gortsplib.TrackH264{
-			PayloadType: 96,
+		videoTrack := &format.H264{
+			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
@@ -309,8 +309,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &gortsplib.TrackH264{
-			PayloadType: 96,
+		videoTrack := &format.H264{
+			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
@@ -363,8 +363,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &gortsplib.TrackH264{
-			PayloadType: 96,
+		videoTrack := &format.H264{
+			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 				0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,

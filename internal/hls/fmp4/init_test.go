@@ -4,8 +4,8 @@ package fmp4
 import (
 	"testing"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/stretchr/testify/require"
 )
 
@@ -16,15 +16,15 @@ var testSPS = []byte{
 	0x20,
 }
 
-var testVideoTrack = &gortsplib.TrackH264{
-	PayloadType:       96,
+var testVideoTrack = &format.H264{
+	PayloadTyp:        96,
 	SPS:               testSPS,
 	PPS:               []byte{0x08},
 	PacketizationMode: 1,
 }
 
-var testAudioTrack = &gortsplib.TrackMPEG4Audio{
-	PayloadType: 97,
+var testAudioTrack = &format.MPEG4Audio{
+	PayloadTyp: 97,
 	Config: &mpeg4audio.Config{
 		Type:         2,
 		SampleRate:   44100,
@@ -42,12 +42,12 @@ func TestInitMarshal(t *testing.T) {
 				{
 					ID:        1,
 					TimeScale: 90000,
-					Track:     testVideoTrack,
+					Format:    testVideoTrack,
 				},
 				{
 					ID:        2,
 					TimeScale: uint32(testAudioTrack.ClockRate()),
-					Track:     testAudioTrack,
+					Format:    testAudioTrack,
 				},
 			},
 		}
@@ -223,7 +223,7 @@ func TestInitMarshal(t *testing.T) {
 				{
 					ID:        1,
 					TimeScale: 90000,
-					Track:     testVideoTrack,
+					Format:    testVideoTrack,
 				},
 			},
 		}
@@ -337,7 +337,7 @@ func TestInitMarshal(t *testing.T) {
 				{
 					ID:        1,
 					TimeScale: uint32(testAudioTrack.ClockRate()),
-					Track:     testAudioTrack,
+					Format:    testAudioTrack,
 				},
 			},
 		}
@@ -557,8 +557,8 @@ func TestInitUnmarshal(t *testing.T) {
 				{
 					ID:        256,
 					TimeScale: 10000000,
-					Track: &gortsplib.TrackH264{
-						PayloadType: 96,
+					Format: &format.H264{
+						PayloadTyp: 96,
 						SPS: []byte{
 							0x67, 0x42, 0xc0, 0x1f, 0xd9, 0x00, 0xf0, 0x11,
 							0x7e, 0xf0, 0x11, 0x00, 0x00, 0x03, 0x00, 0x01,
@@ -673,8 +673,8 @@ func TestInitUnmarshal(t *testing.T) {
 				{
 					ID:        257,
 					TimeScale: 10000000,
-					Track: &gortsplib.TrackMPEG4Audio{
-						PayloadType: 96,
+					Format: &format.MPEG4Audio{
+						PayloadTyp: 96,
 						Config: &mpeg4audio.Config{
 							Type:         mpeg4audio.ObjectTypeAACLC,
 							SampleRate:   48000,

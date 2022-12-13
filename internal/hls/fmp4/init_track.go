@@ -2,16 +2,15 @@ package fmp4
 
 import (
 	gomp4 "github.com/abema/go-mp4"
-	"github.com/aler9/gortsplib"
-
-	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 )
 
 // InitTrack is a track of Init.
 type InitTrack struct {
 	ID        int
 	TimeScale uint32
-	Track     gortsplib.Track
+	Format    format.Format
 }
 
 func (track *InitTrack) marshal(w *mp4Writer) error {
@@ -53,8 +52,8 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 	var width int
 	var height int
 
-	switch ttrack := track.Track.(type) {
-	case *gortsplib.TrackH264:
+	switch ttrack := track.Format.(type) {
+	case *format.H264:
 		sps = ttrack.SafeSPS()
 		pps = ttrack.SafePPS()
 
@@ -79,7 +78,7 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 			return err
 		}
 
-	case *gortsplib.TrackMPEG4Audio:
+	case *format.MPEG4Audio:
 		_, err = w.WriteBox(&gomp4.Tkhd{ // <tkhd/>
 			FullBox: gomp4.FullBox{
 				Flags: [3]byte{0, 0, 3},
@@ -107,8 +106,8 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 		return err
 	}
 
-	switch track.Track.(type) {
-	case *gortsplib.TrackH264:
+	switch track.Format.(type) {
+	case *format.H264:
 		_, err = w.WriteBox(&gomp4.Hdlr{ // <hdlr/>
 			HandlerType: [4]byte{'v', 'i', 'd', 'e'},
 			Name:        "VideoHandler",
@@ -117,7 +116,7 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 			return err
 		}
 
-	case *gortsplib.TrackMPEG4Audio:
+	case *format.MPEG4Audio:
 		_, err = w.WriteBox(&gomp4.Hdlr{ // <hdlr/>
 			HandlerType: [4]byte{'s', 'o', 'u', 'n'},
 			Name:        "SoundHandler",
@@ -132,8 +131,8 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 		return err
 	}
 
-	switch track.Track.(type) {
-	case *gortsplib.TrackH264:
+	switch track.Format.(type) {
+	case *format.H264:
 		_, err = w.WriteBox(&gomp4.Vmhd{ // <vmhd/>
 			FullBox: gomp4.FullBox{
 				Flags: [3]byte{0, 0, 1},
@@ -143,7 +142,7 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 			return err
 		}
 
-	case *gortsplib.TrackMPEG4Audio:
+	case *format.MPEG4Audio:
 		_, err = w.WriteBox(&gomp4.Smhd{ // <smhd/>
 		})
 		if err != nil {
@@ -194,8 +193,8 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 		return err
 	}
 
-	switch ttrack := track.Track.(type) {
-	case *gortsplib.TrackH264:
+	switch ttrack := track.Format.(type) {
+	case *format.H264:
 		_, err = w.writeBoxStart(&gomp4.VisualSampleEntry{ // <avc1>
 			SampleEntry: gomp4.SampleEntry{
 				AnyTypeBox: gomp4.AnyTypeBox{
@@ -256,7 +255,7 @@ func (track *InitTrack) marshal(w *mp4Writer) error {
 			return err
 		}
 
-	case *gortsplib.TrackMPEG4Audio:
+	case *format.MPEG4Audio:
 		_, err = w.writeBoxStart(&gomp4.AudioSampleEntry{ // <mp4a>
 			SampleEntry: gomp4.SampleEntry{
 				AnyTypeBox: gomp4.AnyTypeBox{

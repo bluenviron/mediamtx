@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/stretchr/testify/require"
 )
 
@@ -22,15 +22,15 @@ var testSPS = []byte{
 }
 
 func TestMuxerVideoAudio(t *testing.T) {
-	videoTrack := &gortsplib.TrackH264{
-		PayloadType:       96,
+	videoTrack := &format.H264{
+		PayloadTyp:        96,
 		SPS:               testSPS,
 		PPS:               []byte{0x08},
 		PacketizationMode: 1,
 	}
 
-	audioTrack := &gortsplib.TrackMPEG4Audio{
-		PayloadType: 97,
+	audioTrack := &format.MPEG4Audio{
+		PayloadTyp: 97,
 		Config: &mpeg4audio.Config{
 			Type:         2,
 			SampleRate:   44100,
@@ -180,8 +180,8 @@ func TestMuxerVideoAudio(t *testing.T) {
 }
 
 func TestMuxerVideoOnly(t *testing.T) {
-	videoTrack := &gortsplib.TrackH264{
-		PayloadType:       96,
+	videoTrack := &format.H264{
+		PayloadTyp:        96,
 		SPS:               testSPS,
 		PPS:               []byte{0x08},
 		PacketizationMode: 1,
@@ -293,8 +293,8 @@ func TestMuxerVideoOnly(t *testing.T) {
 }
 
 func TestMuxerAudioOnly(t *testing.T) {
-	audioTrack := &gortsplib.TrackMPEG4Audio{
-		PayloadType: 97,
+	audioTrack := &format.MPEG4Audio{
+		PayloadTyp: 97,
 		Config: &mpeg4audio.Config{
 			Type:         2,
 			SampleRate:   44100,
@@ -405,8 +405,8 @@ func TestMuxerAudioOnly(t *testing.T) {
 }
 
 func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
-	videoTrack := &gortsplib.TrackH264{
-		PayloadType:       96,
+	videoTrack := &format.H264{
+		PayloadTyp:        96,
 		SPS:               testSPS,
 		PPS:               []byte{0x08},
 		PacketizationMode: 1,
@@ -430,8 +430,8 @@ func TestMuxerCloseBeforeFirstSegmentReader(t *testing.T) {
 }
 
 func TestMuxerMaxSegmentSize(t *testing.T) {
-	videoTrack := &gortsplib.TrackH264{
-		PayloadType:       96,
+	videoTrack := &format.H264{
+		PayloadTyp:        96,
 		SPS:               testSPS,
 		PPS:               []byte{0x08},
 		PacketizationMode: 1,
@@ -449,8 +449,8 @@ func TestMuxerMaxSegmentSize(t *testing.T) {
 }
 
 func TestMuxerDoubleRead(t *testing.T) {
-	videoTrack := &gortsplib.TrackH264{
-		PayloadType:       96,
+	videoTrack := &format.H264{
+		PayloadTyp:        96,
 		SPS:               testSPS,
 		PPS:               []byte{0x08},
 		PacketizationMode: 1,

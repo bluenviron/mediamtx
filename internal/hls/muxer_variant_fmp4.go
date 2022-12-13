@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
@@ -14,8 +14,8 @@ import (
 type muxerVariantFMP4 struct {
 	playlist   *muxerVariantFMP4Playlist
 	segmenter  *muxerVariantFMP4Segmenter
-	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackMPEG4Audio
+	videoTrack *format.H264
+	audioTrack *format.MPEG4Audio
 
 	mutex        sync.Mutex
 	videoLastSPS []byte
@@ -29,8 +29,8 @@ func newMuxerVariantFMP4(
 	segmentDuration time.Duration,
 	partDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 ) *muxerVariantFMP4 {
 	v := &muxerVariantFMP4{
 		videoTrack: videoTrack,
@@ -92,7 +92,7 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 				init.Tracks = append(init.Tracks, &fmp4.InitTrack{
 					ID:        trackID,
 					TimeScale: 90000,
-					Track:     v.videoTrack,
+					Format:    v.videoTrack,
 				})
 				trackID++
 			}
@@ -101,7 +101,7 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 				init.Tracks = append(init.Tracks, &fmp4.InitTrack{
 					ID:        trackID,
 					TimeScale: uint32(v.audioTrack.ClockRate()),
-					Track:     v.audioTrack,
+					Format:    v.audioTrack,
 				})
 			}
 

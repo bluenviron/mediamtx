@@ -10,10 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
-	"github.com/aler9/gortsplib/pkg/ringbuffer"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
 	"github.com/google/uuid"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -76,7 +77,6 @@ type rtmpConn struct {
 	uuid       uuid.UUID
 	created    time.Time
 	path       *path
-	ringBuffer *ringbuffer.RingBuffer // read
 	state      rtmpConnState
 	stateMutex sync.Mutex
 }
@@ -253,55 +253,42 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	c.state = rtmpConnStateRead
 	c.stateMutex.Unlock()
 
-	var videoTrack *gortsplib.TrackH264
-	videoTrackID := -1
-	var audioTrack *gortsplib.TrackMPEG4Audio
-	audioTrackID := -1
+	var videoFormat *format.H264
+	videoMedia := res.stream.medias().FindFormat(&videoFormat)
 
-	for i, track := range res.stream.tracks() {
-		switch tt := track.(type) {
-		case *gortsplib.TrackH264:
-			if videoTrack != nil {
-				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
-			}
+	var audioFormat *format.MPEG4Audio
+	audioMedia := res.stream.medias().FindFormat(&audioFormat)
 
-			videoTrack = tt
-			videoTrackID = i
-
-		case *gortsplib.TrackMPEG4Audio:
-			if audioTrack != nil {
-				return fmt.Errorf("can't read track %d with RTMP: too many tracks", i+1)
-			}
-
-			audioTrack = tt
-			audioTrackID = i
-		}
-	}
-
-	if videoTrack == nil && audioTrack == nil {
+	if videoFormat == nil && audioFormat == nil {
 		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
-	c.ringBuffer, _ = ringbuffer.New(uint64(c.readBufferCount))
+	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	go func() {
 		<-ctx.Done()
-		c.ringBuffer.Close()
+		ringBuffer.Close()
 	}()
 
-	c.path.readerStart(pathReaderStartReq{
-		author: c,
-	})
+	var medias media.Medias
+	if videoMedia != nil {
+		medias = append(medias, videoMedia)
 
-	var tracks []gortsplib.Track
-	if videoTrack != nil {
-		tracks = append(tracks, videoTrack)
+		res.stream.readerAdd(c, videoMedia, videoFormat, func(dat data) {
+			ringBuffer.Push(dat)
+		})
 	}
-	if audioTrack != nil {
-		tracks = append(tracks, audioTrack)
+	if audioMedia != nil {
+		medias = append(medias, audioMedia)
+
+		res.stream.readerAdd(c, audioMedia, audioFormat, func(dat data) {
+			ringBuffer.Push(dat)
+		})
 	}
+
+	defer res.stream.readerRemove(c)
 
 	c.log(logger.Info, "is reading from path '%s', %s",
-		c.path.Name(), sourceTrackInfo(tracks))
+		c.path.Name(), sourceMediaInfo(medias))
 
 	if c.path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
@@ -319,7 +306,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		}()
 	}
 
-	err := c.conn.WriteTracks(videoTrack, audioTrack)
+	err := c.conn.WriteTracks(videoFormat, audioFormat)
 	if err != nil {
 		return err
 	}
@@ -337,15 +324,14 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	var videoDTSExtractor *h264.DTSExtractor
 
 	for {
-		item, ok := c.ringBuffer.Pull()
+		item, ok := ringBuffer.Pull()
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
 		data := item.(data)
 
-		if videoTrack != nil && data.getTrackID() == videoTrackID {
-			tdata := data.(*dataH264)
-
+		switch tdata := data.(type) {
+		case *dataH264:
 			if tdata.nalus == nil {
 				continue
 			}
@@ -423,9 +409,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			if err != nil {
 				return err
 			}
-		} else if audioTrack != nil && data.getTrackID() == audioTrackID {
-			tdata := data.(*dataMPEG4Audio)
 
+		case *dataMPEG4Audio:
 			if tdata.aus == nil {
 				continue
 			}
@@ -436,7 +421,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			}
 			pts := tdata.pts - audioStartPTS
 
-			if videoTrack != nil {
+			if videoFormat != nil {
 				if !videoFirstIDRFound {
 					continue
 				}
@@ -458,7 +443,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 					AACType:         flvio.AAC_RAW,
 					Payload:         au,
 					DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-						time.Second/time.Duration(audioTrack.ClockRate()),
+						time.Second/time.Duration(audioFormat.ClockRate()),
 				})
 				if err != nil {
 					return err
@@ -502,28 +487,34 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	c.state = rtmpConnStatePublish
 	c.stateMutex.Unlock()
 
-	videoTrack, audioTrack, err := c.conn.ReadTracks()
+	videoFormat, audioFormat, err := c.conn.ReadTracks()
 	if err != nil {
 		return err
 	}
 
-	var tracks gortsplib.Tracks
-	videoTrackID := -1
-	audioTrackID := -1
+	var medias media.Medias
+	var videoMedia *media.Media
+	var audioMedia *media.Media
 
-	if videoTrack != nil {
-		videoTrackID = len(tracks)
-		tracks = append(tracks, videoTrack)
+	if videoFormat != nil {
+		videoMedia = &media.Media{
+			Type:    media.TypeVideo,
+			Formats: []format.Format{videoFormat},
+		}
+		medias = append(medias, videoMedia)
 	}
 
-	if audioTrack != nil {
-		audioTrackID = len(tracks)
-		tracks = append(tracks, audioTrack)
+	if audioFormat != nil {
+		audioMedia = &media.Media{
+			Type:    media.TypeAudio,
+			Formats: []format.Format{audioFormat},
+		}
+		medias = append(medias, audioMedia)
 	}
 
 	rres := c.path.publisherStart(pathPublisherStartReq{
 		author:             c,
-		tracks:             tracks,
+		medias:             medias,
 		generateRTPPackets: true,
 	})
 	if rres.err != nil {
@@ -532,7 +523,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 	c.log(logger.Info, "is publishing to path '%s', %s",
 		c.path.Name(),
-		sourceTrackInfo(tracks))
+		sourceMediaInfo(medias))
 
 	// disable write deadline to allow outgoing acknowledges
 	c.nconn.SetWriteDeadline(time.Time{})
@@ -558,17 +549,16 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					conf.PPS,
 				}
 
-				err := rres.stream.writeData(&dataH264{
-					trackID: videoTrackID,
-					pts:     tmsg.DTS + tmsg.PTSDelta,
-					nalus:   nalus,
-					ntp:     time.Now(),
+				err := rres.stream.writeData(videoMedia, videoFormat, &dataH264{
+					pts:   tmsg.DTS + tmsg.PTSDelta,
+					nalus: nalus,
+					ntp:   time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)
 				}
 			} else if tmsg.H264Type == flvio.AVC_NALU {
-				if videoTrack == nil {
+				if videoFormat == nil {
 					return fmt.Errorf("received an H264 packet, but track is not set up")
 				}
 
@@ -597,11 +587,10 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					}
 				}
 
-				err = rres.stream.writeData(&dataH264{
-					trackID: videoTrackID,
-					pts:     tmsg.DTS + tmsg.PTSDelta,
-					nalus:   validNALUs,
-					ntp:     time.Now(),
+				err = rres.stream.writeData(videoMedia, videoFormat, &dataH264{
+					pts:   tmsg.DTS + tmsg.PTSDelta,
+					nalus: validNALUs,
+					ntp:   time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)
@@ -610,15 +599,14 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 		case *message.MsgAudio:
 			if tmsg.AACType == flvio.AAC_RAW {
-				if audioTrack == nil {
+				if audioFormat == nil {
 					return fmt.Errorf("received an AAC packet, but track is not set up")
 				}
 
-				err := rres.stream.writeData(&dataMPEG4Audio{
-					trackID: audioTrackID,
-					pts:     tmsg.DTS,
-					aus:     [][]byte{tmsg.Payload},
-					ntp:     time.Now(),
+				err := rres.stream.writeData(audioMedia, audioFormat, &dataMPEG4Audio{
+					pts: tmsg.DTS,
+					aus: [][]byte{tmsg.Payload},
+					ntp: time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)
@@ -672,11 +660,6 @@ func (c *rtmpConn) authenticate(
 	}
 
 	return nil
-}
-
-// onReaderData implements reader.
-func (c *rtmpConn) onReaderData(data data) {
-	c.ringBuffer.Push(data)
 }
 
 // apiReaderDescribe implements reader.

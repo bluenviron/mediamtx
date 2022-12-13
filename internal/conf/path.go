@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)

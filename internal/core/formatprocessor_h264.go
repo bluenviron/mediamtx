@@ -3,9 +3,9 @@ package core
 import (
 	"bytes"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/rtpcodecs/rtph264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph264"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/pion/rtp"
 )
 
@@ -61,53 +61,53 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 	}
 }
 
-type streamTrackH264 struct {
-	track *gortsplib.TrackH264
+type formatProcessorH264 struct {
+	format *format.H264
 
 	encoder *rtph264.Encoder
 	decoder *rtph264.Decoder
 }
 
-func newStreamTrackH264(
-	track *gortsplib.TrackH264,
+func newFormatProcessorH264(
+	forma *format.H264,
 	allocateEncoder bool,
-) *streamTrackH264 {
-	t := &streamTrackH264{
-		track: track,
+) (*formatProcessorH264, error) {
+	t := &formatProcessorH264{
+		format: forma,
 	}
 
 	if allocateEncoder {
-		t.encoder = track.CreateEncoder()
+		t.encoder = forma.CreateEncoder()
 	}
 
-	return t
+	return t, nil
 }
 
-func (t *streamTrackH264) updateTrackParametersFromRTPPacket(pkt *rtp.Packet) {
+func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(pkt *rtp.Packet) {
 	sps, pps := rtpH264ExtractSPSPPS(pkt)
 
-	if sps != nil && !bytes.Equal(sps, t.track.SafeSPS()) {
-		t.track.SafeSetSPS(sps)
+	if sps != nil && !bytes.Equal(sps, t.format.SafeSPS()) {
+		t.format.SafeSetSPS(sps)
 	}
 
-	if pps != nil && !bytes.Equal(pps, t.track.SafePPS()) {
-		t.track.SafeSetPPS(pps)
+	if pps != nil && !bytes.Equal(pps, t.format.SafePPS()) {
+		t.format.SafeSetPPS(pps)
 	}
 }
 
-func (t *streamTrackH264) updateTrackParametersFromNALUs(nalus [][]byte) {
+func (t *formatProcessorH264) updateTrackParametersFromNALUs(nalus [][]byte) {
 	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
 		case h264.NALUTypeSPS:
-			if !bytes.Equal(nalu, t.track.SafeSPS()) {
-				t.track.SafeSetSPS(nalu)
+			if !bytes.Equal(nalu, t.format.SafeSPS()) {
+				t.format.SafeSetSPS(nalu)
 			}
 
 		case h264.NALUTypePPS:
-			if !bytes.Equal(nalu, t.track.SafePPS()) {
-				t.track.SafeSetPPS(nalu)
+			if !bytes.Equal(nalu, t.format.SafePPS()) {
+				t.format.SafeSetPPS(nalu)
 			}
 		}
 	}
@@ -115,7 +115,7 @@ func (t *streamTrackH264) updateTrackParametersFromNALUs(nalus [][]byte) {
 
 // remux is needed to fix corrupted streams and make streams
 // compatible with all protocols.
-func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
+func (t *formatProcessorH264) remuxNALUs(nalus [][]byte) [][]byte {
 	addSPSPPS := false
 	n := 0
 	for _, nalu := range nalus {
@@ -143,8 +143,8 @@ func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 	i := 0
 
 	if addSPSPPS {
-		filteredNALUs[0] = t.track.SafeSPS()
-		filteredNALUs[1] = t.track.SafePPS()
+		filteredNALUs[0] = t.format.SafeSPS()
+		filteredNALUs[1] = t.format.SafePPS()
 		i = 2
 	}
 
@@ -167,7 +167,7 @@ func (t *streamTrackH264) remuxNALUs(nalus [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *streamTrackH264) generateRTPPackets(tdata *dataH264) error {
+func (t *formatProcessorH264) generateRTPPackets(tdata *dataH264) error {
 	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
 	if err != nil {
 		return err
@@ -177,7 +177,7 @@ func (t *streamTrackH264) generateRTPPackets(tdata *dataH264) error {
 	return nil
 }
 
-func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
+func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error {
 	tdata := dat.(*dataH264)
 
 	if tdata.rtpPackets != nil {
@@ -199,7 +199,7 @@ func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
 					SSRC:                  &v1,
 					InitialSequenceNumber: &v2,
 					InitialTimestamp:      &v3,
-					PacketizationMode:     t.track.PacketizationMode,
+					PacketizationMode:     t.format.PacketizationMode,
 				}
 				t.encoder.Init()
 			}
@@ -208,7 +208,7 @@ func (t *streamTrackH264) onData(dat data, hasNonRTSPReaders bool) error {
 		// decode from RTP
 		if hasNonRTSPReaders || t.encoder != nil {
 			if t.decoder == nil {
-				t.decoder = t.track.CreateDecoder()
+				t.decoder = t.format.CreateDecoder()
 			}
 
 			nalus, pts, err := t.decoder.Decode(pkt)

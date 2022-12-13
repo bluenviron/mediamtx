@@ -9,11 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/pion/rtp"
 
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -117,60 +118,69 @@ func (s *rtspSource) run(ctx context.Context) error {
 	readErr := make(chan error)
 	go func() {
 		readErr <- func() error {
-			tracks, baseURL, _, err := c.Describe(u)
+			medias, baseURL, _, err := c.Describe(u)
 			if err != nil {
 				return err
 			}
 
-			for _, t := range tracks {
-				_, err := c.Setup(t, baseURL, 0, 0)
-				if err != nil {
-					return err
-				}
+			err = c.SetupAll(medias, baseURL)
+			if err != nil {
+				return err
 			}
 
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
-				tracks:             tracks,
+				medias:             medias,
 				generateRTPPackets: false,
 			})
 			if res.err != nil {
 				return res.err
 			}
 
-			s.Log(logger.Info, "ready: %s", sourceTrackInfo(tracks))
+			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
 			defer func() {
 				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
-			c.OnPacketRTP = func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-				var err error
+			for _, medi := range medias {
+				for _, forma := range medi.Formats {
+					cmedia := medi
+					cformat := forma
 
-				switch tracks[ctx.TrackID].(type) {
-				case *gortsplib.TrackH264:
-					err = res.stream.writeData(&dataH264{
-						trackID:    ctx.TrackID,
-						rtpPackets: []*rtp.Packet{ctx.Packet},
-						ntp:        time.Now(),
-					})
+					switch forma.(type) {
+					case *format.H264:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataH264{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
 
-				case *gortsplib.TrackMPEG4Audio:
-					err = res.stream.writeData(&dataMPEG4Audio{
-						trackID:    ctx.TrackID,
-						rtpPackets: []*rtp.Packet{ctx.Packet},
-						ntp:        time.Now(),
-					})
+					case *format.MPEG4Audio:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
 
-				default:
-					err = res.stream.writeData(&dataGeneric{
-						trackID:    ctx.TrackID,
-						rtpPackets: []*rtp.Packet{ctx.Packet},
-						ntp:        time.Now(),
-					})
-				}
-
-				if err != nil {
-					s.Log(logger.Warn, "%v", err)
+					default:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataGeneric{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
+					}
 				}
 			}
 

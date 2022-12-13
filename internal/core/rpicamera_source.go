@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rpicamera"
@@ -37,32 +38,34 @@ func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interfa
 
 // run implements sourceStaticImpl.
 func (s *rpiCameraSource) run(ctx context.Context) error {
-	track := &gortsplib.TrackH264{
-		PayloadType:       96,
-		PacketizationMode: 1,
+	medi := &media.Media{
+		Type: media.TypeVideo,
+		Formats: []format.Format{&format.H264{
+			PayloadTyp:        96,
+			PacketizationMode: 1,
+		}},
 	}
-	tracks := gortsplib.Tracks{track}
+	medias := media.Medias{medi}
 	var stream *stream
 
 	onData := func(dts time.Duration, nalus [][]byte) {
 		if stream == nil {
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
-				tracks:             tracks,
+				medias:             medias,
 				generateRTPPackets: true,
 			})
 			if res.err != nil {
 				return
 			}
 
-			s.Log(logger.Info, "ready: %s", sourceTrackInfo(tracks))
+			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 			stream = res.stream
 		}
 
-		err := stream.writeData(&dataH264{
-			trackID: 0,
-			pts:     dts,
-			nalus:   nalus,
-			ntp:     time.Now(),
+		err := stream.writeData(medi, medi.Formats[0], &dataH264{
+			pts:   dts,
+			nalus: nalus,
+			ntp:   time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

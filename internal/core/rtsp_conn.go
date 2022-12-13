@@ -6,10 +6,11 @@ import (
 	"net"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/auth"
-	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/headers"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/auth"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/headers"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/google/uuid"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -112,13 +113,14 @@ func (c *rtspConn) ip() net.IP {
 }
 
 func (c *rtspConn) authenticate(
-	pathName string,
+	path string,
+	query string,
 	pathIPs []fmt.Stringer,
 	pathUser conf.Credential,
 	pathPass conf.Credential,
 	isPublishing bool,
 	req *base.Request,
-	query string,
+	baseURL *url.URL,
 ) error {
 	if c.externalAuthenticationURL != "" {
 		username := ""
@@ -136,7 +138,7 @@ func (c *rtspConn) authenticate(
 			c.ip().String(),
 			username,
 			password,
-			pathName,
+			path,
 			isPublishing,
 			query)
 		if err != nil {
@@ -193,7 +195,7 @@ func (c *rtspConn) authenticate(
 			c.authValidator = auth.NewValidator(string(pathUser), string(pathPass), c.authMethods)
 		}
 
-		err := c.authValidator.ValidateRequest(req)
+		err := c.authValidator.ValidateRequest(req, baseURL)
 		if err != nil {
 			c.authFailures++
 
@@ -260,7 +262,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 			pathUser conf.Credential,
 			pathPass conf.Credential,
 		) error {
-			return c.authenticate(ctx.Path, pathIPs, pathUser, pathPass, false, ctx.Request, ctx.Query)
+			return c.authenticate(ctx.Path, ctx.Query, pathIPs, pathUser, pathPass, false, ctx.Request, nil)
 		},
 	})
 

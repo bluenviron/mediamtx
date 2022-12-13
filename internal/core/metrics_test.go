@@ -9,7 +9,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
@@ -33,22 +35,17 @@ func TestMetrics(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	track := &gortsplib.TrackH264{
-		PayloadType:       96,
-		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-		PacketizationMode: 1,
-	}
+	medi := testMediaH264
 
 	source := gortsplib.Client{}
-	err = source.StartPublishing("rtsp://localhost:8554/rtsp_path",
-		gortsplib.Tracks{track})
+	err = source.StartRecording("rtsp://localhost:8554/rtsp_path",
+		media.Medias{medi})
 	require.NoError(t, err)
 	defer source.Close()
 
 	source2 := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
-	err = source2.StartPublishing("rtsps://localhost:8322/rtsps_path",
-		gortsplib.Tracks{track})
+	err = source2.StartRecording("rtsps://localhost:8322/rtsps_path",
+		media.Medias{medi})
 	require.NoError(t, err)
 	defer source2.Close()
 
@@ -63,8 +60,8 @@ func TestMetrics(t *testing.T) {
 	err = conn.InitializeClient(u, true)
 	require.NoError(t, err)
 
-	videoTrack := &gortsplib.TrackH264{
-		PayloadType: 96,
+	videoTrack := &format.H264{
+		PayloadTyp: 96,
 		SPS: []byte{ // 1920x1080 baseline
 			0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 			0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,

@@ -10,9 +10,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -67,17 +67,6 @@ type pathParent interface {
 	onPathClose(*path)
 }
 
-type pathRTSPSession interface {
-	isRTSPSession()
-}
-
-type pathReaderState int
-
-const (
-	pathReaderStatePrePlay pathReaderState = iota
-	pathReaderStatePlay
-)
-
 type pathOnDemandState int
 
 const (
@@ -93,7 +82,7 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
-	tracks             gortsplib.Tracks
+	medias             media.Medias
 	generateRTPPackets bool
 	res                chan pathSourceStaticSetReadyRes
 }
@@ -151,11 +140,6 @@ type pathPublisherAddReq struct {
 	res          chan pathPublisherAnnounceRes
 }
 
-type pathReaderStartReq struct {
-	author reader
-	res    chan struct{}
-}
-
 type pathPublisherRecordRes struct {
 	stream *stream
 	err    error
@@ -163,14 +147,9 @@ type pathPublisherRecordRes struct {
 
 type pathPublisherStartReq struct {
 	author             publisher
-	tracks             gortsplib.Tracks
+	medias             media.Medias
 	generateRTPPackets bool
 	res                chan pathPublisherRecordRes
-}
-
-type pathReaderStopReq struct {
-	author reader
-	res    chan struct{}
 }
 
 type pathPublisherStopReq struct {
@@ -225,7 +204,7 @@ type path struct {
 	source                         source
 	bytesReceived                  *uint64
 	stream                         *stream
-	readers                        map[reader]pathReaderState
+	readers                        map[reader]struct{}
 	describeRequestsOnHold         []pathDescribeReq
 	readerAddRequestsOnHold        []pathReaderAddReq
 	onDemandCmd                    *externalcmd.Cmd
@@ -245,10 +224,8 @@ type path struct {
 	chPublisherAdd            chan pathPublisherAddReq
 	chPublisherStart          chan pathPublisherStartReq
 	chPublisherStop           chan pathPublisherStopReq
-	chReaderRemove            chan pathReaderRemoveReq
 	chReaderAdd               chan pathReaderAddReq
-	chReaderStart             chan pathReaderStartReq
-	chReaderStop              chan pathReaderStopReq
+	chReaderRemove            chan pathReaderRemoveReq
 	chAPIPathsList            chan pathAPIPathsListSubReq
 }
 
@@ -283,7 +260,7 @@ func newPath(
 		ctx:                            ctx,
 		ctxCancel:                      ctxCancel,
 		bytesReceived:                  new(uint64),
-		readers:                        make(map[reader]pathReaderState),
+		readers:                        make(map[reader]struct{}),
 		onDemandStaticSourceReadyTimer: newEmptyTimer(),
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
 		onDemandPublisherReadyTimer:    newEmptyTimer(),
@@ -295,10 +272,8 @@ func newPath(
 		chPublisherAdd:                 make(chan pathPublisherAddReq),
 		chPublisherStart:               make(chan pathPublisherStartReq),
 		chPublisherStop:                make(chan pathPublisherStopReq),
-		chReaderRemove:                 make(chan pathReaderRemoveReq),
 		chReaderAdd:                    make(chan pathReaderAddReq),
-		chReaderStart:                  make(chan pathReaderStartReq),
-		chReaderStop:                   make(chan pathReaderStopReq),
+		chReaderRemove:                 make(chan pathReaderRemoveReq),
 		chAPIPathsList:                 make(chan pathAPIPathsListSubReq),
 	}
 
@@ -436,7 +411,7 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.chSourceStaticSetReady:
-				err := pa.sourceSetReady(req.tracks, req.generateRTPPackets)
+				err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
 				if err != nil {
 					req.res <- pathSourceStaticSetReadyRes{err: err}
 				} else {
@@ -454,7 +429,7 @@ func (pa *path) run() {
 						pa.describeRequestsOnHold = nil
 
 						for _, req := range pa.readerAddRequestsOnHold {
-							pa.handleReaderSetupPlayPost(req)
+							pa.handleReaderAddPost(req)
 						}
 						pa.readerAddRequestsOnHold = nil
 					}
@@ -492,13 +467,20 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.chPublisherAdd:
-				pa.handlePublisherAnnounce(req)
+				pa.handlePublisherAdd(req)
 
 			case req := <-pa.chPublisherStart:
-				pa.handlePublisherRecord(req)
+				pa.handlePublisherStart(req)
 
 			case req := <-pa.chPublisherStop:
-				pa.handlePublisherPause(req)
+				pa.handlePublisherStop(req)
+
+				if pa.shouldClose() {
+					return fmt.Errorf("not in use")
+				}
+
+			case req := <-pa.chReaderAdd:
+				pa.handleReaderAdd(req)
 
 				if pa.shouldClose() {
 					return fmt.Errorf("not in use")
@@ -506,19 +488,6 @@ func (pa *path) run() {
 
 			case req := <-pa.chReaderRemove:
 				pa.handleReaderRemove(req)
-
-			case req := <-pa.chReaderAdd:
-				pa.handleReaderSetupPlay(req)
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case req := <-pa.chReaderStart:
-				pa.handleReaderPlay(req)
-
-			case req := <-pa.chReaderStop:
-				pa.handleReaderPause(req)
 
 			case req := <-pa.chAPIPathsList:
 				pa.handleAPIPathsList(req)
@@ -667,8 +636,8 @@ func (pa *path) onDemandPublisherStop() {
 	}
 }
 
-func (pa *path) sourceSetReady(tracks gortsplib.Tracks, allocateEncoder bool) error {
-	stream, err := newStream(tracks, allocateEncoder, pa.bytesReceived)
+func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error {
+	stream, err := newStream(medias, allocateEncoder, pa.bytesReceived)
 	if err != nil {
 		return err
 	}
@@ -713,12 +682,6 @@ func (pa *path) sourceSetNotReady() {
 }
 
 func (pa *path) doReaderRemove(r reader) {
-	state := pa.readers[r]
-
-	if state == pathReaderStatePlay {
-		pa.stream.readerRemove(r)
-	}
-
 	delete(pa.readers, r)
 }
 
@@ -792,7 +755,7 @@ func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
 	close(req.res)
 }
 
-func (pa *path) handlePublisherAnnounce(req pathPublisherAddReq) {
+func (pa *path) handlePublisherAdd(req pathPublisherAddReq) {
 	if pa.conf.Source != "publisher" {
 		req.res <- pathPublisherAnnounceRes{
 			err: fmt.Errorf("can't publish to path '%s' since 'source' is not 'publisher'", pa.name),
@@ -816,13 +779,13 @@ func (pa *path) handlePublisherAnnounce(req pathPublisherAddReq) {
 	req.res <- pathPublisherAnnounceRes{path: pa}
 }
 
-func (pa *path) handlePublisherRecord(req pathPublisherStartReq) {
+func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
 	if pa.source != req.author {
 		req.res <- pathPublisherRecordRes{err: fmt.Errorf("publisher is not assigned to this path anymore")}
 		return
 	}
 
-	err := pa.sourceSetReady(req.tracks, req.generateRTPPackets)
+	err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
 	if err != nil {
 		req.res <- pathPublisherRecordRes{err: err}
 		return
@@ -842,7 +805,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherStartReq) {
 		pa.describeRequestsOnHold = nil
 
 		for _, req := range pa.readerAddRequestsOnHold {
-			pa.handleReaderSetupPlayPost(req)
+			pa.handleReaderAddPost(req)
 		}
 		pa.readerAddRequestsOnHold = nil
 	}
@@ -850,7 +813,7 @@ func (pa *path) handlePublisherRecord(req pathPublisherStartReq) {
 	req.res <- pathPublisherRecordRes{stream: pa.stream}
 }
 
-func (pa *path) handlePublisherPause(req pathPublisherStopReq) {
+func (pa *path) handlePublisherStop(req pathPublisherStopReq) {
 	if req.author == pa.source && pa.stream != nil {
 		if pa.hasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
 			pa.onDemandPublisherStop()
@@ -880,9 +843,9 @@ func (pa *path) handleReaderRemove(req pathReaderRemoveReq) {
 	}
 }
 
-func (pa *path) handleReaderSetupPlay(req pathReaderAddReq) {
+func (pa *path) handleReaderAdd(req pathReaderAddReq) {
 	if pa.stream != nil {
-		pa.handleReaderSetupPlayPost(req)
+		pa.handleReaderAddPost(req)
 		return
 	}
 
@@ -905,8 +868,8 @@ func (pa *path) handleReaderSetupPlay(req pathReaderAddReq) {
 	req.res <- pathReaderSetupPlayRes{err: pathErrNoOnePublishing{pathName: pa.name}}
 }
 
-func (pa *path) handleReaderSetupPlayPost(req pathReaderAddReq) {
-	pa.readers[req.author] = pathReaderStatePrePlay
+func (pa *path) handleReaderAddPost(req pathReaderAddReq) {
+	pa.readers[req.author] = struct{}{}
 
 	if pa.hasOnDemandStaticSource() {
 		if pa.onDemandStaticSourceState == pathOnDemandStateClosing {
@@ -928,22 +891,6 @@ func (pa *path) handleReaderSetupPlayPost(req pathReaderAddReq) {
 	}
 }
 
-func (pa *path) handleReaderPlay(req pathReaderStartReq) {
-	pa.readers[req.author] = pathReaderStatePlay
-
-	pa.stream.readerAdd(req.author)
-
-	close(req.res)
-}
-
-func (pa *path) handleReaderPause(req pathReaderStopReq) {
-	if state, ok := pa.readers[req.author]; ok && state == pathReaderStatePlay {
-		pa.readers[req.author] = pathReaderStatePrePlay
-		pa.stream.readerRemove(req.author)
-	}
-	close(req.res)
-}
-
 func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 	req.data.Items[pa.name] = pathAPIPathsListItem{
 		ConfName: pa.confName,
@@ -959,7 +906,7 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 			if pa.stream == nil {
 				return []string{}
 			}
-			return sourceTrackNames(pa.stream.tracks())
+			return mediasDescription(pa.stream.medias())
 		}(),
 		BytesReceived: atomic.LoadUint64(pa.bytesReceived),
 		Readers: func() []interface{} {
@@ -1025,7 +972,7 @@ func (pa *path) publisherRemove(req pathPublisherRemoveReq) {
 	}
 }
 
-// publisherAnnounce is called by a publisher through pathManager.
+// publisherAdd is called by a publisher through pathManager.
 func (pa *path) publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes {
 	select {
 	case pa.chPublisherAdd <- req:
@@ -1035,7 +982,7 @@ func (pa *path) publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes {
 	}
 }
 
-// publisherRecord is called by a publisher.
+// publisherStart is called by a publisher.
 func (pa *path) publisherStart(req pathPublisherStartReq) pathPublisherRecordRes {
 	req.res = make(chan pathPublisherRecordRes)
 	select {
@@ -1046,7 +993,7 @@ func (pa *path) publisherStart(req pathPublisherStartReq) pathPublisherRecordRes
 	}
 }
 
-// publisherPause is called by a publisher.
+// publisherStop is called by a publisher.
 func (pa *path) publisherStop(req pathPublisherStopReq) {
 	req.res = make(chan struct{})
 	select {
@@ -1056,17 +1003,7 @@ func (pa *path) publisherStop(req pathPublisherStopReq) {
 	}
 }
 
-// readerRemove is called by a reader.
-func (pa *path) readerRemove(req pathReaderRemoveReq) {
-	req.res = make(chan struct{})
-	select {
-	case pa.chReaderRemove <- req:
-		<-req.res
-	case <-pa.ctx.Done():
-	}
-}
-
-// readerSetupPlay is called by a reader through pathManager.
+// readerAdd is called by a reader through pathManager.
 func (pa *path) readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes {
 	select {
 	case pa.chReaderAdd <- req:
@@ -1076,21 +1013,11 @@ func (pa *path) readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes {
 	}
 }
 
-// readerPlay is called by a reader.
-func (pa *path) readerStart(req pathReaderStartReq) {
+// readerRemove is called by a reader.
+func (pa *path) readerRemove(req pathReaderRemoveReq) {
 	req.res = make(chan struct{})
 	select {
-	case pa.chReaderStart <- req:
-		<-req.res
-	case <-pa.ctx.Done():
-	}
-}
-
-// readerPause is called by a reader.
-func (pa *path) readerStop(req pathReaderStopReq) {
-	req.res = make(chan struct{})
-	select {
-	case pa.chReaderStop <- req:
+	case pa.chReaderRemove <- req:
 		<-req.res
 	case <-pa.ctx.Done():
 	}

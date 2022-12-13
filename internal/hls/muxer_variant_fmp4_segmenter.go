@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
@@ -62,8 +62,8 @@ type muxerVariantFMP4Segmenter struct {
 	segmentDuration    time.Duration
 	partDuration       time.Duration
 	segmentMaxSize     uint64
-	videoTrack         *gortsplib.TrackH264
-	audioTrack         *gortsplib.TrackMPEG4Audio
+	videoTrack         *format.H264
+	audioTrack         *format.MPEG4Audio
 	onSegmentFinalized func(*muxerVariantFMP4Segment)
 	onPartFinalized    func(*muxerVariantFMP4Part)
 
@@ -87,8 +87,8 @@ func newMuxerVariantFMP4Segmenter(
 	segmentDuration time.Duration,
 	partDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 	onSegmentFinalized func(*muxerVariantFMP4Segment),
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segmenter {

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
 	"github.com/pion/rtp"
@@ -135,31 +135,7 @@ func TestHLSSource(t *testing.T) {
 
 	frameRecv := make(chan struct{})
 
-	c := gortsplib.Client{
-		OnPacketRTP: func(ctx *gortsplib.ClientOnPacketRTPCtx) {
-			require.Equal(t, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: ctx.Packet.SequenceNumber,
-					Timestamp:      ctx.Packet.Timestamp,
-					SSRC:           ctx.Packet.SSRC,
-					CSRC:           []uint32{},
-				},
-				Payload: []byte{
-					0x18,
-					0x00, 0x04,
-					0x07, 0x01, 0x02, 0x03, // SPS
-					0x00, 0x01,
-					0x08, // PPS
-					0x00, 0x01,
-					0x05, // ODR
-				},
-			}, ctx.Packet)
-			close(frameRecv)
-		},
-	}
+	c := gortsplib.Client{}
 
 	u, err := url.Parse("rtsp://localhost:8554/proxied")
 	require.NoError(t, err)
@@ -168,10 +144,37 @@ func TestHLSSource(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	tracks, baseURL, _, err := c.Describe(u)
+	medias, baseURL, _, err := c.Describe(u)
 	require.NoError(t, err)
 
-	err = c.SetupAndPlay(tracks, baseURL)
+	err = c.SetupAll(medias, baseURL)
+	require.NoError(t, err)
+
+	c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+		require.Equal(t, &rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: pkt.SequenceNumber,
+				Timestamp:      pkt.Timestamp,
+				SSRC:           pkt.SSRC,
+				CSRC:           []uint32{},
+			},
+			Payload: []byte{
+				0x18,
+				0x00, 0x04,
+				0x07, 0x01, 0x02, 0x03, // SPS
+				0x00, 0x01,
+				0x08, // PPS
+				0x00, 0x01,
+				0x05, // ODR
+			},
+		}, pkt)
+		close(frameRecv)
+	})
+
+	_, err = c.Play(nil)
 	require.NoError(t, err)
 
 	<-frameRecv

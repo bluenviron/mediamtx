@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 )
 
 type muxerVariantFMP4SegmentOrGap interface {
@@ -70,8 +70,8 @@ func partTargetDuration(
 type muxerVariantFMP4Playlist struct {
 	lowLatency   bool
 	segmentCount int
-	videoTrack   *gortsplib.TrackH264
-	audioTrack   *gortsplib.TrackMPEG4Audio
+	videoTrack   *format.H264
+	audioTrack   *format.MPEG4Audio
 
 	mutex              sync.Mutex
 	cond               *sync.Cond
@@ -89,8 +89,8 @@ type muxerVariantFMP4Playlist struct {
 func newMuxerVariantFMP4Playlist(
 	lowLatency bool,
 	segmentCount int,
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 ) *muxerVariantFMP4Playlist {
 	p := &muxerVariantFMP4Playlist{
 		lowLatency:     lowLatency,

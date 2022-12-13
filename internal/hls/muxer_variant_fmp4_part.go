@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
@@ -17,8 +17,8 @@ func fmp4PartName(id uint64) string {
 }
 
 type muxerVariantFMP4Part struct {
-	videoTrack *gortsplib.TrackH264
-	audioTrack *gortsplib.TrackMPEG4Audio
+	videoTrack *format.H264
+	audioTrack *format.MPEG4Audio
 	id         uint64
 
 	isIndependent       bool
@@ -33,8 +33,8 @@ type muxerVariantFMP4Part struct {
 }
 
 func newMuxerVariantFMP4Part(
-	videoTrack *gortsplib.TrackH264,
-	audioTrack *gortsplib.TrackMPEG4Audio,
+	videoTrack *format.H264,
+	audioTrack *format.MPEG4Audio,
 	id uint64,
 ) *muxerVariantFMP4Part {
 	p := &muxerVariantFMP4Part{

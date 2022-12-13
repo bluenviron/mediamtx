@@ -11,9 +11,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
-	"github.com/aler9/gortsplib/pkg/ringbuffer"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -307,32 +308,13 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		m.path.readerRemove(pathReaderRemoveReq{author: m})
 	}()
 
-	var videoTrack *gortsplib.TrackH264
-	videoTrackID := -1
-	var audioTrack *gortsplib.TrackMPEG4Audio
-	audioTrackID := -1
+	var videoFormat *format.H264
+	videoMedia := res.stream.medias().FindFormat(&videoFormat)
 
-	for i, track := range res.stream.tracks() {
-		switch tt := track.(type) {
-		case *gortsplib.TrackH264:
-			if videoTrack != nil {
-				return fmt.Errorf("can't encode track %d with HLS: too many tracks", i+1)
-			}
+	var audioFormat *format.MPEG4Audio
+	audioMedia := res.stream.medias().FindFormat(&audioFormat)
 
-			videoTrack = tt
-			videoTrackID = i
-
-		case *gortsplib.TrackMPEG4Audio:
-			if audioTrack != nil {
-				return fmt.Errorf("can't encode track %d with HLS: too many tracks", i+1)
-			}
-
-			audioTrack = tt
-			audioTrackID = i
-		}
-	}
-
-	if videoTrack == nil && audioTrack == nil {
+	if videoFormat == nil && audioFormat == nil {
 		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
 	}
 
@@ -343,8 +325,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		time.Duration(m.hlsSegmentDuration),
 		time.Duration(m.hlsPartDuration),
 		uint64(m.hlsSegmentMaxSize),
-		videoTrack,
-		audioTrack,
+		videoFormat,
+		audioFormat,
 	)
 	if err != nil {
 		return fmt.Errorf("muxer error: %v", err)
@@ -355,26 +337,35 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
-	m.path.readerStart(pathReaderStartReq{author: m})
+	var medias media.Medias
 
-	var tracks []gortsplib.Track
-	if videoTrack != nil {
-		tracks = append(tracks, videoTrack)
+	if videoMedia != nil {
+		medias = append(medias, videoMedia)
+
+		res.stream.readerAdd(m, videoMedia, videoFormat, func(dat data) {
+			m.ringBuffer.Push(dat)
+		})
 	}
-	if audioTrack != nil {
-		tracks = append(tracks, audioTrack)
+	if audioMedia != nil {
+		medias = append(medias, audioMedia)
+
+		res.stream.readerAdd(m, audioMedia, audioFormat, func(dat data) {
+			m.ringBuffer.Push(dat)
+		})
 	}
+
+	defer res.stream.readerRemove(m)
 
 	m.log(logger.Info, "is converting into HLS, %s",
-		sourceTrackInfo(tracks))
+		sourceMediaInfo(medias))
 
 	writerDone := make(chan error)
 	go func() {
 		writerDone <- m.runWriter(
-			videoTrack,
-			videoTrackID,
-			audioTrack,
-			audioTrackID,
+			videoMedia,
+			videoFormat,
+			audioMedia,
+			audioFormat,
 		)
 	}()
 
@@ -403,10 +394,10 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 }
 
 func (m *hlsMuxer) runWriter(
-	videoTrack *gortsplib.TrackH264,
-	videoTrackID int,
-	audioTrack *gortsplib.TrackMPEG4Audio,
-	audioTrackID int,
+	videoMedia *media.Media,
+	videoFormat *format.H264,
+	audioMedia *media.Media,
+	audioFormat *format.MPEG4Audio,
 ) error {
 	videoStartPTSFilled := false
 	var videoStartPTS time.Duration
@@ -420,9 +411,8 @@ func (m *hlsMuxer) runWriter(
 		}
 		data := item.(data)
 
-		if videoTrack != nil && data.getTrackID() == videoTrackID {
-			tdata := data.(*dataH264)
-
+		switch tdata := data.(type) {
+		case *dataH264:
 			if tdata.nalus == nil {
 				continue
 			}
@@ -437,9 +427,8 @@ func (m *hlsMuxer) runWriter(
 			if err != nil {
 				return fmt.Errorf("muxer error: %v", err)
 			}
-		} else if audioTrack != nil && data.getTrackID() == audioTrackID {
-			tdata := data.(*dataMPEG4Audio)
 
+		case *dataMPEG4Audio:
 			if tdata.aus == nil {
 				continue
 			}
@@ -454,7 +443,7 @@ func (m *hlsMuxer) runWriter(
 				err := m.muxer.WriteAAC(
 					tdata.ntp,
 					pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-						time.Second/time.Duration(audioTrack.ClockRate()),
+						time.Second/time.Duration(audioFormat.ClockRate()),
 					au)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
@@ -591,11 +580,6 @@ func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
 
 	case <-m.ctx.Done():
 	}
-}
-
-// onReaderData implements reader.
-func (m *hlsMuxer) onReaderData(data data) {
-	m.ringBuffer.Push(data)
 }
 
 // apiReaderDescribe implements reader.

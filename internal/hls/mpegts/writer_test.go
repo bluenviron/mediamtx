@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/h264"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/asticode/go-astits"
 	"github.com/stretchr/testify/require"
 )
@@ -21,15 +21,15 @@ func TestWriter(t *testing.T) {
 		0x20,
 	}
 
-	testVideoTrack := &gortsplib.TrackH264{
-		PayloadType:       96,
+	testVideoTrack := &format.H264{
+		PayloadTyp:        96,
 		SPS:               testSPS,
 		PPS:               []byte{0x08},
 		PacketizationMode: 1,
 	}
 
-	testAudioTrack := &gortsplib.TrackMPEG4Audio{
-		PayloadType: 97,
+	testAudioTrack := &format.MPEG4Audio{
+		PayloadTyp: 97,
 		Config: &mpeg4audio.Config{
 			Type:         2,
 			SampleRate:   44100,

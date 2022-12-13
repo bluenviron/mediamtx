@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 	gm3u8 "github.com/grafov/m3u8"
 
 	"github.com/aler9/rtsp-simple-server/internal/hls/m3u8"
@@ -50,7 +50,7 @@ type clientDownloaderStream struct {
 	initialPlaylist      *m3u8.MediaPlaylist
 	logger               ClientLogger
 	rp                   *clientRoutinePool
-	onStreamTracks       func(context.Context, []gortsplib.Track) bool
+	onStreamFormats      func(context.Context, []format.Format) bool
 	onSetLeadingTimeSync func(clientTimeSync)
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
 	onVideoData          func(time.Duration, [][]byte)
@@ -66,7 +66,7 @@ func newClientDownloaderStream(
 	initialPlaylist *m3u8.MediaPlaylist,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onStreamTracks func(context.Context, []gortsplib.Track) bool,
+	onStreamFormats func(context.Context, []format.Format) bool,
 	onSetLeadingTimeSync func(clientTimeSync),
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
 	onVideoData func(time.Duration, [][]byte),
@@ -79,7 +79,7 @@ func newClientDownloaderStream(
 		initialPlaylist:      initialPlaylist,
 		logger:               logger,
 		rp:                   rp,
-		onStreamTracks:       onStreamTracks,
+		onStreamFormats:      onStreamFormats,
 		onSetLeadingTimeSync: onSetLeadingTimeSync,
 		onGetLeadingTimeSync: onGetLeadingTimeSync,
 		onVideoData:          onVideoData,
@@ -113,7 +113,7 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 			segmentQueue,
 			d.logger,
 			d.rp,
-			d.onStreamTracks,
+			d.onStreamFormats,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
 			d.onVideoData,
@@ -130,7 +130,7 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 			segmentQueue,
 			d.logger,
 			d.rp,
-			d.onStreamTracks,
+			d.onStreamFormats,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
 			d.onVideoData,

@@ -13,13 +13,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/mpeg4audio"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
+
+var testFormatH264 = &format.H264{
+	PayloadTyp:        96,
+	SPS:               []byte{0x01, 0x02, 0x03, 0x04},
+	PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+	PacketizationMode: 1,
+}
+
+var testMediaH264 = &media.Media{
+	Type:    media.TypeVideo,
+	Formats: []format.Format{testFormatH264},
+}
 
 func httpRequest(method string, ur string, in interface{}, out interface{}) error {
 	buf, err := func() (io.Reader, error) {
@@ -188,32 +202,32 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
+		media0 := testMediaH264
+
 		source := gortsplib.Client{}
-		err := source.StartPublishing(
+		err := source.StartRecording(
 			"rtsp://localhost:8554/mypath",
-			gortsplib.Tracks{
-				&gortsplib.TrackH264{
-					PayloadType:       96,
-					SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-					PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-					PacketizationMode: 1,
-				},
-				&gortsplib.TrackMPEG4Audio{
-					PayloadType: 96,
-					Config: &mpeg4audio.Config{
-						Type:         2,
-						SampleRate:   44100,
-						ChannelCount: 2,
-					},
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
+			media.Medias{
+				media0,
+				{
+					Type: media.TypeAudio,
+					Formats: []format.Format{&format.MPEG4Audio{
+						PayloadTyp: 96,
+						Config: &mpeg4audio.Config{
+							Type:         2,
+							SampleRate:   44100,
+							ChannelCount: 2,
+						},
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+					}},
 				},
 			})
 		require.NoError(t, err)
 		defer source.Close()
 
-		source.WritePacketRTP(0, &rtp.Packet{
+		source.WritePacketRTP(media0, &rtp.Packet{
 			Header: rtp.Header{
 				Version:     2,
 				PayloadType: 96,
@@ -256,28 +270,29 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		tracks := gortsplib.Tracks{
-			&gortsplib.TrackH264{
-				PayloadType:       96,
-				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PacketizationMode: 1,
+		medias := media.Medias{
+			{
+				Type:    media.TypeVideo,
+				Formats: []format.Format{testFormatH264},
 			},
-			&gortsplib.TrackMPEG4Audio{
-				PayloadType: 97,
-				Config: &mpeg4audio.Config{
-					Type:         2,
-					SampleRate:   44100,
-					ChannelCount: 2,
-				},
-				SizeLength:       13,
-				IndexLength:      3,
-				IndexDeltaLength: 3,
+			{
+				Type: media.TypeAudio,
+				Formats: []format.Format{&format.MPEG4Audio{
+					PayloadTyp: 97,
+					Config: &mpeg4audio.Config{
+						Type:         2,
+						SampleRate:   44100,
+						ChannelCount: 2,
+					},
+					SizeLength:       13,
+					IndexLength:      3,
+					IndexDeltaLength: 3,
+				}},
 			},
 		}
 
 		source := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
-		err = source.StartPublishing("rtsps://localhost:8322/mypath", tracks)
+		err = source.StartRecording("rtsps://localhost:8322/mypath", medias)
 		require.NoError(t, err)
 		defer source.Close()
 
@@ -414,19 +429,13 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			track := &gortsplib.TrackH264{
-				PayloadType:       96,
-				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PacketizationMode: 1,
-			}
+			medi := testMediaH264
 
 			switch ca {
 			case "rtsp conns", "rtsp sessions":
 				source := gortsplib.Client{}
 
-				err := source.StartPublishing("rtsp://localhost:8554/mypath",
-					gortsplib.Tracks{track})
+				err := source.StartRecording("rtsp://localhost:8554/mypath", media.Medias{medi})
 				require.NoError(t, err)
 				defer source.Close()
 
@@ -435,8 +444,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
 
-				err := source.StartPublishing("rtsps://localhost:8322/mypath",
-					gortsplib.Tracks{track})
+				err := source.StartRecording("rtsps://localhost:8322/mypath", media.Medias{medi})
 				require.NoError(t, err)
 				defer source.Close()
 
@@ -464,8 +472,8 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				err = conn.InitializeClient(u, true)
 				require.NoError(t, err)
 
-				videoTrack := &gortsplib.TrackH264{
-					PayloadType: 96,
+				videoTrack := &format.H264{
+					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
@@ -481,8 +489,8 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 			case "hls":
 				source := gortsplib.Client{}
 
-				err := source.StartPublishing("rtsp://localhost:8554/mypath",
-					gortsplib.Tracks{track})
+				err := source.StartRecording("rtsp://localhost:8554/mypath",
+					media.Medias{medi})
 				require.NoError(t, err)
 				defer source.Close()
 
@@ -588,19 +596,14 @@ func TestAPIKick(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			track := &gortsplib.TrackH264{
-				PayloadType:       96,
-				SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-				PacketizationMode: 1,
-			}
+			medi := testMediaH264
 
 			switch ca {
 			case "rtsp":
 				source := gortsplib.Client{}
 
-				err := source.StartPublishing("rtsp://localhost:8554/mypath",
-					gortsplib.Tracks{track})
+				err := source.StartRecording("rtsp://localhost:8554/mypath",
+					media.Medias{medi})
 				require.NoError(t, err)
 				defer source.Close()
 
@@ -609,8 +612,8 @@ func TestAPIKick(t *testing.T) {
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
 
-				err := source.StartPublishing("rtsps://localhost:8322/mypath",
-					gortsplib.Tracks{track})
+				err := source.StartRecording("rtsps://localhost:8322/mypath",
+					media.Medias{medi})
 				require.NoError(t, err)
 				defer source.Close()
 
@@ -626,8 +629,8 @@ func TestAPIKick(t *testing.T) {
 				err = conn.InitializeClient(u, true)
 				require.NoError(t, err)
 
-				videoTrack := &gortsplib.TrackH264{
-					PayloadType: 96,
+				videoTrack := &format.H264{
+					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
 						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,

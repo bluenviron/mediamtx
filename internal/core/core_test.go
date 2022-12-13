@@ -10,10 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib"
-	"github.com/aler9/gortsplib/pkg/base"
-	"github.com/aler9/gortsplib/pkg/headers"
-	"github.com/aler9/gortsplib/pkg/url"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/headers"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -131,7 +132,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
-					u, err := url.Parse("rtsp://localhost:8554/mypath/trackID=0")
+					u, err := url.Parse("rtsp://localhost:8554/mypath/mediaID=0")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -182,7 +183,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-		"github.com/aler9/gortsplib"
+	"github.com/aler9/gortsplib/v2"
+	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/format"
 )
 
 func main() {
@@ -190,18 +193,21 @@ func main() {
 		panic("environment not set")
 	}
 
-	track := &gortsplib.TrackH264{
-		PayloadType: 96,
-		SPS: []byte{0x01, 0x02, 0x03, 0x04},
-		PPS: []byte{0x01, 0x02, 0x03, 0x04},
-		PacketizationMode: 1,
+	medi := &media.Media{
+		Type: media.TypeVideo,
+		Formats: []format.Format{&format.H264{
+			PayloadTyp: 96,
+			SPS: []byte{0x01, 0x02, 0x03, 0x04},
+			PPS: []byte{0x01, 0x02, 0x03, 0x04},
+			PacketizationMode: 1,
+		}},
 	}
 
 	source := gortsplib.Client{}
 
-	err := source.StartPublishing(
+	err := source.StartRecording(
 		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("RTSP_PATH"),
-		gortsplib.Tracks{track})
+		media.Medias{medi})
 	if err != nil {
 		panic(err)
 	}
@@ -269,7 +275,7 @@ func main() {
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					u, err := url.Parse("rtsp://localhost:8554/ondemand/trackID=0")
+					u, err := url.Parse("rtsp://localhost:8554/ondemand/mediaID=0")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -321,18 +327,13 @@ func TestCorePathRunOnReady(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	track := &gortsplib.TrackH264{
-		PayloadType:       96,
-		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-		PacketizationMode: 1,
-	}
+	medi := testMediaH264
 
 	c := gortsplib.Client{}
 
-	err := c.StartPublishing(
+	err := c.StartRecording(
 		"rtsp://localhost:8554/test",
-		gortsplib.Tracks{track})
+		media.Medias{medi})
 	require.NoError(t, err)
 	defer c.Close()
 
@@ -358,18 +359,10 @@ func TestCoreHotReloading(t *testing.T) {
 	defer p.Close()
 
 	func() {
-		track := &gortsplib.TrackH264{
-			PayloadType:       96,
-			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-			PacketizationMode: 1,
-		}
+		medi := testMediaH264
 
 		c := gortsplib.Client{}
-
-		err = c.StartPublishing(
-			"rtsp://localhost:8554/test1",
-			gortsplib.Tracks{track})
+		err = c.StartRecording("rtsp://localhost:8554/test1", media.Medias{medi})
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	}()
 
@@ -381,18 +374,10 @@ func TestCoreHotReloading(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	func() {
-		track := &gortsplib.TrackH264{
-			PayloadType:       96,
-			SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-			PPS:               []byte{0x01, 0x02, 0x03, 0x04},
-			PacketizationMode: 1,
-		}
+		medi := testMediaH264
 
 		conn := gortsplib.Client{}
-
-		err = conn.StartPublishing(
-			"rtsp://localhost:8554/test1",
-			gortsplib.Tracks{track})
+		err = conn.StartRecording("rtsp://localhost:8554/test1", media.Medias{medi})
 		require.NoError(t, err)
 		defer conn.Close()
 	}()
