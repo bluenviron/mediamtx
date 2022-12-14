@@ -10,6 +10,8 @@ import (
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph264"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpvp8"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpvp9"
 	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
@@ -325,61 +327,40 @@ outer:
 func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error) {
 	var ret []*webRTCTrack
 
-	var h264Format *format.H264
-	h264Media := medias.FindFormat(&h264Format)
+	var vp9Format *format.VP9
+	vp9Media := medias.FindFormat(&vp9Format)
 
-	if h264Format != nil {
+	if vp9Format != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeH264,
-				ClockRate: uint32(h264Format.ClockRate()),
+				MimeType:  webrtc.MimeTypeVP9,
+				ClockRate: uint32(vp9Format.ClockRate()),
 			},
-			"h264",
+			"vp9",
 			"rtspss",
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		encoder := &rtph264.Encoder{
+		encoder := &rtpvp9.Encoder{
 			PayloadType:    96,
 			PayloadMaxSize: 1200,
 		}
 		encoder.Init()
 
-		var lastPTS time.Duration
-		firstNALUReceived := false
-
 		ret = append(ret, &webRTCTrack{
-			media:       h264Media,
-			format:      h264Format,
+			media:       vp9Media,
+			format:      vp9Format,
 			webRTCTrack: webRTCTrak,
 			cb: func(dat data, ctx context.Context, writeError chan error) {
-				tdata := dat.(*dataH264)
+				tdata := dat.(*dataVP9)
 
-				if tdata.nalus == nil {
+				if tdata.frame == nil {
 					return
 				}
 
-				if !firstNALUReceived {
-					if !h264.IDRPresent(tdata.nalus) {
-						return
-					}
-
-					firstNALUReceived = true
-					lastPTS = tdata.pts
-				} else {
-					if tdata.pts < lastPTS {
-						select {
-						case writeError <- fmt.Errorf("WebRTC doesn't support H264 streams with B-frames"):
-						case <-ctx.Done():
-						}
-						return
-					}
-					lastPTS = tdata.pts
-				}
-
-				packets, err := encoder.Encode(tdata.nalus, tdata.pts)
+				packets, err := encoder.Encode(tdata.frame, tdata.pts)
 				if err != nil {
 					return
 				}
@@ -389,6 +370,122 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 				}
 			},
 		})
+	}
+
+	var vp8Format *format.VP8
+
+	if vp9Format == nil {
+		vp8Media := medias.FindFormat(&vp8Format)
+
+		if vp8Format != nil {
+			webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+				webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeVP8,
+					ClockRate: uint32(vp8Format.ClockRate()),
+				},
+				"vp8",
+				"rtspss",
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			encoder := &rtpvp8.Encoder{
+				PayloadType:    96,
+				PayloadMaxSize: 1200,
+			}
+			encoder.Init()
+
+			ret = append(ret, &webRTCTrack{
+				media:       vp8Media,
+				format:      vp8Format,
+				webRTCTrack: webRTCTrak,
+				cb: func(dat data, ctx context.Context, writeError chan error) {
+					tdata := dat.(*dataVP8)
+
+					if tdata.frame == nil {
+						return
+					}
+
+					packets, err := encoder.Encode(tdata.frame, tdata.pts)
+					if err != nil {
+						return
+					}
+
+					for _, pkt := range packets {
+						webRTCTrak.WriteRTP(pkt)
+					}
+				},
+			})
+		}
+	}
+
+	if vp9Format == nil && vp8Format == nil {
+		var h264Format *format.H264
+		h264Media := medias.FindFormat(&h264Format)
+
+		if h264Format != nil {
+			webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+				webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeH264,
+					ClockRate: uint32(h264Format.ClockRate()),
+				},
+				"h264",
+				"rtspss",
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			encoder := &rtph264.Encoder{
+				PayloadType:    96,
+				PayloadMaxSize: 1200,
+			}
+			encoder.Init()
+
+			var lastPTS time.Duration
+			firstNALUReceived := false
+
+			ret = append(ret, &webRTCTrack{
+				media:       h264Media,
+				format:      h264Format,
+				webRTCTrack: webRTCTrak,
+				cb: func(dat data, ctx context.Context, writeError chan error) {
+					tdata := dat.(*dataH264)
+
+					if tdata.nalus == nil {
+						return
+					}
+
+					if !firstNALUReceived {
+						if !h264.IDRPresent(tdata.nalus) {
+							return
+						}
+
+						firstNALUReceived = true
+						lastPTS = tdata.pts
+					} else {
+						if tdata.pts < lastPTS {
+							select {
+							case writeError <- fmt.Errorf("WebRTC doesn't support H264 streams with B-frames"):
+							case <-ctx.Done():
+							}
+							return
+						}
+						lastPTS = tdata.pts
+					}
+
+					packets, err := encoder.Encode(tdata.nalus, tdata.pts)
+					if err != nil {
+						return
+					}
+
+					for _, pkt := range packets {
+						webRTCTrak.WriteRTP(pkt)
+					}
+				},
+			})
+		}
 	}
 
 	var opusFormat *format.Opus
@@ -489,7 +586,8 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 	}
 
 	if ret == nil {
-		return nil, fmt.Errorf("the stream doesn't contain any supported codec (which currently are H264, Opus, G711, G722)")
+		return nil, fmt.Errorf(
+			"the stream doesn't contain any supported codec (which are currently VP9, VP8, H264, Opus, G722, G711)")
 	}
 
 	return ret, nil

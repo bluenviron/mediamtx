@@ -16,6 +16,12 @@ func newFormatProcessor(forma format.Format, generateRTPPackets bool) (formatPro
 	case *format.H265:
 		return newFormatProcessorH265(forma, generateRTPPackets)
 
+	case *format.VP8:
+		return newFormatProcessorVP8(forma, generateRTPPackets)
+
+	case *format.VP9:
+		return newFormatProcessorVP9(forma, generateRTPPackets)
+
 	case *format.MPEG4Audio:
 		return newFormatProcessorMPEG4Audio(forma, generateRTPPackets)
 

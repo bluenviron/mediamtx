@@ -330,6 +330,28 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 					}
 				})
 
+			case *format.VP8:
+				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+					err := s.stream.writeData(cmedia, cformat, &dataVP8{
+						rtpPackets: []*rtp.Packet{pkt},
+						ntp:        time.Now(),
+					})
+					if err != nil {
+						s.log(logger.Warn, "%v", err)
+					}
+				})
+
+			case *format.VP9:
+				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+					err := s.stream.writeData(cmedia, cformat, &dataVP9{
+						rtpPackets: []*rtp.Packet{pkt},
+						ntp:        time.Now(),
+					})
+					if err != nil {
+						s.log(logger.Warn, "%v", err)
+					}
+				})
+
 			case *format.MPEG4Audio:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 					err := s.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
