@@ -45,16 +45,6 @@ func newFormatProcessorMPEG4Audio(
 	return t, nil
 }
 
-func (t *formatProcessorMPEG4Audio) generateRTPPackets(tdata *dataMPEG4Audio) error {
-	pkts, err := t.encoder.Encode(tdata.aus, tdata.pts)
-	if err != nil {
-		return err
-	}
-
-	tdata.rtpPackets = pkts
-	return nil
-}
-
 func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) error {
 	tdata := dat.(*dataMPEG4Audio)
 
@@ -92,5 +82,11 @@ func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) er
 		return nil
 	}
 
-	return t.generateRTPPackets(tdata)
+	pkts, err := t.encoder.Encode(tdata.aus, tdata.pts)
+	if err != nil {
+		return err
+	}
+
+	tdata.rtpPackets = pkts
+	return nil
 }

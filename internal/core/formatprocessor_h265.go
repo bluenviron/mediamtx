@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	"fmt"
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
@@ -137,17 +136,7 @@ func (t *formatProcessorH265) remuxNALUs(nalus [][]byte) [][]byte {
 	return nalus
 }
 
-func (t *formatProcessorH265) generateRTPPackets(tdata *dataH265) error {
-	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
-	if err != nil {
-		return err
-	}
-
-	tdata.rtpPackets = pkts
-	return nil
-}
-
-func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error {
+func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
 	tdata := dat.(*dataH265)
 
 	if tdata.rtpPackets != nil {
@@ -159,10 +148,19 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error {
 			pkt.Header.Padding = false
 			pkt.PaddingSize = 0
 
-			// TODO: re-encode if oversized instead of printing errors
+			// RTP packets exceed maximum size: start re-encoding them
 			if pkt.MarshalSize() > maxPacketSize {
-				return fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-					pkt.MarshalSize(), maxPacketSize)
+				v1 := pkt.SSRC
+				v2 := pkt.SequenceNumber
+				v3 := pkt.Timestamp
+				t.encoder = &rtph265.Encoder{
+					PayloadType:           pkt.PayloadType,
+					SSRC:                  &v1,
+					InitialSequenceNumber: &v2,
+					InitialTimestamp:      &v3,
+					MaxDONDiff:            t.format.MaxDONDiff,
+				}
+				t.encoder.Init()
 			}
 		}
 
@@ -172,7 +170,10 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error {
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			nalus, pts, err := t.decoder.Decode(pkt)
+			tdata.rtpPackets = nil
+
+			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
+			nalus, pts, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtph265.ErrNonStartingPacketAndNoPrevious || err == rtph265.ErrMorePacketsNeeded {
 					return nil
@@ -195,5 +196,11 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error {
 		tdata.nalus = t.remuxNALUs(tdata.nalus)
 	}
 
-	return t.generateRTPPackets(tdata)
+	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
+	if err != nil {
+		return err
+	}
+
+	tdata.rtpPackets = pkts
+	return nil
 }

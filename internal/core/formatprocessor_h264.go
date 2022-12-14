@@ -188,17 +188,7 @@ func (t *formatProcessorH264) remuxNALUs(nalus [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *formatProcessorH264) generateRTPPackets(tdata *dataH264) error {
-	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
-	if err != nil {
-		return err
-	}
-
-	tdata.rtpPackets = pkts
-	return nil
-}
-
-func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error {
+func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
 	tdata := dat.(*dataH264)
 
 	if tdata.rtpPackets != nil {
@@ -210,7 +200,7 @@ func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error {
 			pkt.Header.Padding = false
 			pkt.PaddingSize = 0
 
-			// we need to re-encode since RTP packets exceed maximum size
+			// RTP packets exceed maximum size: start re-encoding them
 			if pkt.MarshalSize() > maxPacketSize {
 				v1 := pkt.SSRC
 				v2 := pkt.SequenceNumber
@@ -258,5 +248,11 @@ func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error {
 		tdata.nalus = t.remuxNALUs(tdata.nalus)
 	}
 
-	return t.generateRTPPackets(tdata)
+	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
+	if err != nil {
+		return err
+	}
+
+	tdata.rtpPackets = pkts
+	return nil
 }
