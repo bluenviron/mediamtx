@@ -463,6 +463,9 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 			return func() *hls.MuxerFileResponse {
 				return &hls.MuxerFileResponse{
 					Status: http.StatusUnauthorized,
+					Header: map[string]string{
+						"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
+					},
 				}
 			}
 		}
