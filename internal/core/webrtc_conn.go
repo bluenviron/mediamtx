@@ -412,9 +412,7 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 			format:      audioFormat,
 			webRTCTrack: webRTCTrak,
 			cb: func(dat data, ctx context.Context, writeError chan error) {
-				tdata := dat.(*dataOpus)
-
-				for _, pkt := range tdata.rtpPackets {
+				for _, pkt := range dat.getRTPPackets() {
 					webRTCTrak.WriteRTP(pkt)
 				}
 			},
