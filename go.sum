@@ -6,8 +6,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafo
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d h1:UQZhZ2O0vMHr2cI+DC1Mbh0TJxzA3RcLoMsFw+aXw7E=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
-github.com/aler9/gortsplib/v2 v2.0.0-20221213201904-04d1de717768 h1:Q7Qm3HjO8bYo0P2dPmKXYbfvpqhA9ZJuJ+TqN6UcdqI=
-github.com/aler9/gortsplib/v2 v2.0.0-20221213201904-04d1de717768/go.mod h1:zJ+fWtakOMN6cKV169EMNVBLPTITArrJKu/fyM+dov8=
+github.com/aler9/gortsplib/v2 v2.0.0-20221214135702-6141afcfc4c5 h1:QHF5GXc8Q23sCYYAfD24mwOJt1CX9by3KY5gYolYEaw=
+github.com/aler9/gortsplib/v2 v2.0.0-20221214135702-6141afcfc4c5/go.mod h1:zJ+fWtakOMN6cKV169EMNVBLPTITArrJKu/fyM+dov8=
 github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82 h1:9WgSzBLo3a9ToSVV7sRTBYZ1GGOZUpq4+5H3SN0UZq4=
 github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82/go.mod h1:qsMrZCbeBf/mCLOeF16KDkPu4gktn/pOWyaq1aYQE7U=
 github.com/asticode/go-astikit v0.20.0 h1:+7N+J4E4lWx2QOkRdOf6DafWJMv6O4RRfgClwQokrH8=

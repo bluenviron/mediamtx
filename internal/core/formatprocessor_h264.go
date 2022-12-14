@@ -10,24 +10,9 @@ import (
 	"github.com/pion/rtp"
 )
 
-type dataH264 struct {
-	rtpPackets []*rtp.Packet
-	ntp        time.Time
-	pts        time.Duration
-	nalus      [][]byte
-}
-
-func (d *dataH264) getRTPPackets() []*rtp.Packet {
-	return d.rtpPackets
-}
-
-func (d *dataH264) getNTP() time.Time {
-	return d.ntp
-}
-
 // extract SPS and PPS without decoding RTP packets
 func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
-	if len(pkt.Payload) == 0 {
+	if len(pkt.Payload) < 1 {
 		return nil, nil
 	}
 
@@ -40,7 +25,7 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 	case h264.NALUTypePPS:
 		return nil, pkt.Payload
 
-	case 24: // STAP-A
+	case h264.NALUTypeSTAPA:
 		payload := pkt.Payload[1:]
 		var sps []byte
 		var pps []byte
@@ -53,8 +38,12 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 			size := uint16(payload[0])<<8 | uint16(payload[1])
 			payload = payload[2:]
 
-			if size == 0 || int(size) > len(payload) {
+			if size == 0 {
 				break
+			}
+
+			if int(size) > len(payload) {
+				return nil, nil
 			}
 
 			nalu := payload[:size]
@@ -76,6 +65,21 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 	default:
 		return nil, nil
 	}
+}
+
+type dataH264 struct {
+	rtpPackets []*rtp.Packet
+	ntp        time.Time
+	pts        time.Duration
+	nalus      [][]byte
+}
+
+func (d *dataH264) getRTPPackets() []*rtp.Packet {
+	return d.rtpPackets
+}
+
+func (d *dataH264) getNTP() time.Time {
+	return d.ntp
 }
 
 type formatProcessorH264 struct {

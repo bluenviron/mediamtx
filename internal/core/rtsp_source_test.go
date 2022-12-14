@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/base"
 	"github.com/aler9/gortsplib/v2/pkg/conn"
 	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h265"
 	"github.com/aler9/gortsplib/v2/pkg/headers"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/url"
@@ -236,65 +237,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 }
 
 func TestRTSPSourceDynamicH264Params(t *testing.T) {
-	forma := &format.H264{
-		PayloadTyp:        96,
-		PacketizationMode: 1,
-	}
-	medi := &media.Media{
-		Type:    media.TypeVideo,
-		Formats: []format.Format{forma},
-	}
-	stream := gortsplib.NewServerStream(media.Medias{medi})
-	defer stream.Close()
-
-	s := gortsplib.Server{
-		Handler: &testServer{
-			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-				return &base.Response{
-					StatusCode: base.StatusOK,
-				}, stream, nil
-			},
-			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
-				return &base.Response{
-					StatusCode: base.StatusOK,
-				}, stream, nil
-			},
-			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
-				return &base.Response{
-					StatusCode: base.StatusOK,
-				}, nil
-			},
-		},
-		RTSPAddress: "127.0.0.1:8555",
-	}
-	err := s.Start()
-	require.NoError(t, err)
-	defer s.Wait()
-	defer s.Close()
-
-	p, ok := newInstance("rtmpDisable: yes\n" +
-		"hlsDisable: yes\n" +
-		"paths:\n" +
-		"  proxied:\n" +
-		"    source: rtsp://127.0.0.1:8555/teststream\n")
-	require.Equal(t, true, ok)
-	defer p.Close()
-
-	time.Sleep(1 * time.Second)
-
-	enc := forma.CreateEncoder()
-
-	pkts, err := enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
-	require.NoError(t, err)
-	stream.WritePacketRTP(medi, pkts[0])
-
-	pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
-	require.NoError(t, err)
-	stream.WritePacketRTP(medi, pkts[0])
-
-	time.Sleep(500 * time.Millisecond)
-
-	func() {
+	checkTrack := func(t *testing.T, forma format.Format) {
 		c := gortsplib.Client{}
 
 		u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
@@ -307,48 +250,180 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 		medias, _, _, err := c.Describe(u)
 		require.NoError(t, err)
 
-		h264Track := medias[0].Formats[0].(*format.H264)
-		require.Equal(t, []byte{7, 1, 2, 3}, h264Track.SafeSPS())
-		require.Equal(t, []byte{8}, h264Track.SafePPS())
-	}()
+		forma1 := medias[0].Formats[0]
+		require.Equal(t, forma, forma1)
+	}
 
-	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
-	require.NoError(t, err)
-	stream.WritePacketRTP(medi, pkts[0])
+	t.Run("h264", func(t *testing.T) {
+		forma := &format.H264{
+			PayloadTyp:        96,
+			PacketizationMode: 1,
+		}
+		medi := &media.Media{
+			Type:    media.TypeVideo,
+			Formats: []format.Format{forma},
+		}
+		stream := gortsplib.NewServerStream(media.Medias{medi})
+		defer stream.Close()
 
-	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
-	require.NoError(t, err)
-	stream.WritePacketRTP(medi, pkts[0])
-
-	time.Sleep(500 * time.Millisecond)
-
-	func() {
-		c := gortsplib.Client{}
-
-		u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
+		s := gortsplib.Server{
+			Handler: &testServer{
+				onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, stream, nil
+				},
+				onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, stream, nil
+				},
+				onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, nil
+				},
+			},
+			RTSPAddress: "127.0.0.1:8555",
+		}
+		err := s.Start()
 		require.NoError(t, err)
+		defer s.Wait()
+		defer s.Close()
 
-		err = c.Start(u.Scheme, u.Host)
+		p, ok := newInstance("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
+			"paths:\n" +
+			"  proxied:\n" +
+			"    source: rtsp://127.0.0.1:8555/teststream\n")
+		require.Equal(t, true, ok)
+		defer p.Close()
+
+		time.Sleep(1 * time.Second)
+
+		enc := forma.CreateEncoder()
+
+		pkts, err := enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
 		require.NoError(t, err)
-		defer c.Close()
+		stream.WritePacketRTP(medi, pkts[0])
 
-		medias, _, _, err := c.Describe(u)
+		pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
 		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
 
-		h264Track := medias[0].Formats[0].(*format.H264)
-		require.Equal(t, []byte{7, 4, 5, 6}, h264Track.SafeSPS())
-		require.Equal(t, []byte{8, 1}, h264Track.SafePPS())
-	}()
+		checkTrack(t, &format.H264{
+			PayloadTyp:        96,
+			PacketizationMode: 1,
+			SPS:               []byte{7, 1, 2, 3},
+			PPS:               []byte{8},
+		})
+
+		pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		checkTrack(t, &format.H264{
+			PayloadTyp:        96,
+			PacketizationMode: 1,
+			SPS:               []byte{7, 4, 5, 6},
+			PPS:               []byte{8, 1},
+		})
+	})
+
+	t.Run("h265", func(t *testing.T) {
+		forma := &format.H265{
+			PayloadTyp: 96,
+		}
+		medi := &media.Media{
+			Type:    media.TypeVideo,
+			Formats: []format.Format{forma},
+		}
+		stream := gortsplib.NewServerStream(media.Medias{medi})
+		defer stream.Close()
+
+		s := gortsplib.Server{
+			Handler: &testServer{
+				onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, stream, nil
+				},
+				onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, stream, nil
+				},
+				onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+					return &base.Response{
+						StatusCode: base.StatusOK,
+					}, nil
+				},
+			},
+			RTSPAddress: "127.0.0.1:8555",
+		}
+		err := s.Start()
+		require.NoError(t, err)
+		defer s.Wait()
+		defer s.Close()
+
+		p, ok := newInstance("rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
+			"paths:\n" +
+			"  proxied:\n" +
+			"    source: rtsp://127.0.0.1:8555/teststream\n")
+		require.Equal(t, true, ok)
+		defer p.Close()
+
+		time.Sleep(1 * time.Second)
+
+		enc := forma.CreateEncoder()
+
+		pkts, err := enc.Encode([][]byte{{byte(h265.NALUTypeVPS) << 1, 1, 2, 3}}, 0)
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypeSPS) << 1, 4, 5, 6}}, 0)
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypePPS) << 1, 7, 8, 9}}, 0)
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		checkTrack(t, &format.H265{
+			PayloadTyp: 96,
+			VPS:        []byte{byte(h265.NALUTypeVPS) << 1, 1, 2, 3},
+			SPS:        []byte{byte(h265.NALUTypeSPS) << 1, 4, 5, 6},
+			PPS:        []byte{byte(h265.NALUTypePPS) << 1, 7, 8, 9},
+		})
+
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypeVPS) << 1, 10, 11, 12}}, 0)
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypeSPS) << 1, 13, 14, 15}}, 0)
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypePPS) << 1, 16, 17, 18}}, 0)
+		require.NoError(t, err)
+		stream.WritePacketRTP(medi, pkts[0])
+
+		checkTrack(t, &format.H265{
+			PayloadTyp: 96,
+			VPS:        []byte{byte(h265.NALUTypeVPS) << 1, 10, 11, 12},
+			SPS:        []byte{byte(h265.NALUTypeSPS) << 1, 13, 14, 15},
+			PPS:        []byte{byte(h265.NALUTypePPS) << 1, 16, 17, 18},
+		})
+	})
 }
 
 func TestRTSPSourceRemovePadding(t *testing.T) {
-	medi := &media.Media{
-		Type: media.TypeVideo,
-		Formats: []format.Format{&format.H264{
-			PayloadTyp:        96,
-			PacketizationMode: 1,
-		}},
-	}
+	medi := testMediaH264
 	stream := gortsplib.NewServerStream(media.Medias{medi})
 	defer stream.Close()
 
