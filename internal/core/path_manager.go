@@ -180,13 +180,15 @@ outer:
 				continue
 			}
 
-			err = req.authenticate(
-				pathConf.ReadIPs,
-				pathConf.ReadUser,
-				pathConf.ReadPass)
-			if err != nil {
-				req.res <- pathDescribeRes{err: err}
-				continue
+			if req.authenticate != nil {
+				err = req.authenticate(
+					pathConf.ReadIPs,
+					pathConf.ReadUser,
+					pathConf.ReadPass)
+				if err != nil {
+					req.res <- pathDescribeRes{err: err}
+					continue
+				}
 			}
 
 			// create path if it doesn't exist
@@ -352,12 +354,18 @@ func (pm *pathManager) describe(req pathDescribeReq) pathDescribeRes {
 	req.res = make(chan pathDescribeRes)
 	select {
 	case pm.chDescribe <- req:
-		res := <-req.res
-		if res.err != nil {
-			return res
+		res1 := <-req.res
+		if res1.err != nil {
+			return res1
 		}
 
-		return res.path.describe(req)
+		res2 := res1.path.describe(req)
+		if res2.err != nil {
+			return res2
+		}
+
+		res2.path = res1.path
+		return res2
 
 	case <-pm.ctx.Done():
 		return pathDescribeRes{err: fmt.Errorf("terminated")}

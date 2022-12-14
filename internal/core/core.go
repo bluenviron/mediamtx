@@ -401,6 +401,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.webRTCServer == nil {
 			p.webRTCServer, err = newWebRTCServer(
 				p.ctx,
+				p.conf.ExternalAuthenticationURL,
 				p.conf.WebRTCAddress,
 				p.conf.WebRTCServerKey,
 				p.conf.WebRTCServerCert,
@@ -560,6 +561,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closeWebrtcServer := newConf == nil ||
 		newConf.WebRTCDisable != p.conf.WebRTCDisable ||
+		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
 		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||
 		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||

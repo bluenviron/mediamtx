@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	_ "embed"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -37,12 +38,13 @@ type webRTCServerParent interface {
 }
 
 type webRTCServer struct {
-	allowOrigin     string
-	trustedProxies  conf.IPsOrCIDRs
-	stunServers     []string
-	readBufferCount int
-	pathManager     *pathManager
-	parent          webRTCServerParent
+	externalAuthenticationURL string
+	allowOrigin               string
+	trustedProxies            conf.IPsOrCIDRs
+	stunServers               []string
+	readBufferCount           int
+	pathManager               *pathManager
+	parent                    webRTCServerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -58,6 +60,7 @@ type webRTCServer struct {
 
 func newWebRTCServer(
 	parentCtx context.Context,
+	externalAuthenticationURL string,
 	address string,
 	serverKey string,
 	serverCert string,
@@ -86,19 +89,20 @@ func newWebRTCServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &webRTCServer{
-		allowOrigin:     allowOrigin,
-		trustedProxies:  trustedProxies,
-		stunServers:     stunServers,
-		readBufferCount: readBufferCount,
-		pathManager:     pathManager,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		ln:              ln,
-		tlsConfig:       tlsConfig,
-		conns:           make(map[*webRTCConn]struct{}),
-		connNew:         make(chan webRTCConnNewReq),
-		chConnClose:     make(chan *webRTCConn),
+		externalAuthenticationURL: externalAuthenticationURL,
+		allowOrigin:               allowOrigin,
+		trustedProxies:            trustedProxies,
+		stunServers:               stunServers,
+		readBufferCount:           readBufferCount,
+		pathManager:               pathManager,
+		parent:                    parent,
+		ctx:                       ctx,
+		ctxCancel:                 ctxCancel,
+		ln:                        ln,
+		tlsConfig:                 tlsConfig,
+		conns:                     make(map[*webRTCConn]struct{}),
+		connNew:                   make(chan webRTCConnNewReq),
+		chConnClose:               make(chan *webRTCConn),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
@@ -214,6 +218,28 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 
 	dir = strings.TrimSuffix(dir, "/")
 
+	res := s.pathManager.describe(pathDescribeReq{
+		pathName: dir,
+	})
+	if res.err != nil {
+		ctx.Writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	err := s.authenticate(res.path, ctx)
+	if err != nil {
+		if terr, ok := err.(pathErrAuthCritical); ok {
+			s.log(logger.Info, "authentication error: %s", terr.message)
+			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="rtsp-simple-server"`)
+			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="rtsp-simple-server"`)
+		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	switch fname {
 	case "":
 		ctx.Writer.Header().Set("Content-Type", "text/html")
@@ -234,6 +260,61 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 		case <-s.ctx.Done():
 		}
 	}
+}
+
+func (s *webRTCServer) authenticate(pa *path, ctx *gin.Context) error {
+	pathConf := pa.Conf()
+	pathIPs := pathConf.ReadIPs
+	pathUser := pathConf.ReadUser
+	pathPass := pathConf.ReadPass
+
+	if s.externalAuthenticationURL != "" {
+		ip := net.ParseIP(ctx.ClientIP())
+		user, pass, ok := ctx.Request.BasicAuth()
+
+		err := externalAuth(
+			s.externalAuthenticationURL,
+			ip.String(),
+			user,
+			pass,
+			pa.name,
+			false,
+			ctx.Request.URL.RawQuery)
+		if err != nil {
+			if !ok {
+				return pathErrAuthNotCritical{}
+			}
+
+			return pathErrAuthCritical{
+				message: fmt.Sprintf("external authentication failed: %s", err),
+			}
+		}
+	}
+
+	if pathIPs != nil {
+		ip := net.ParseIP(ctx.ClientIP())
+
+		if !ipEqualOrInRange(ip, pathIPs) {
+			return pathErrAuthCritical{
+				message: fmt.Sprintf("IP '%s' not allowed", ip),
+			}
+		}
+	}
+
+	if pathUser != "" {
+		user, pass, ok := ctx.Request.BasicAuth()
+		if !ok {
+			return pathErrAuthNotCritical{}
+		}
+
+		if user != string(pathUser) || pass != string(pathPass) {
+			return pathErrAuthCritical{
+				message: "invalid credentials",
+			}
+		}
+	}
+
+	return nil
 }
 
 // connClose is called by webRTCConn.

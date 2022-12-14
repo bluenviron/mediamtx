@@ -230,9 +230,8 @@ func (m *hlsMuxer) run() {
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
 	res := m.pathManager.readerAdd(pathReaderAddReq{
-		author:       m,
-		pathName:     m.pathName,
-		authenticate: nil,
+		author:   m,
+		pathName: m.pathName,
 	})
 	if res.err != nil {
 		return res.err
