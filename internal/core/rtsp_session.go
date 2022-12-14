@@ -191,17 +191,18 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 				pathPass conf.Credential,
 			) error {
 				baseURL := &url.URL{
-					Scheme: ctx.Request.URL.Scheme,
-					Host:   ctx.Request.URL.Host,
-					Path: func() string {
-						pa := ctx.Path
-						if ctx.Query != "" {
-							pa += "?" + ctx.Query
-						}
-						pa += "/"
-						return pa
-					}(),
+					Scheme:   ctx.Request.URL.Scheme,
+					Host:     ctx.Request.URL.Host,
+					Path:     ctx.Path,
+					RawQuery: ctx.Query,
 				}
+
+				if ctx.Query != "" {
+					baseURL.RawQuery += "/"
+				} else {
+					baseURL.Path += "/"
+				}
+
 				return c.authenticate(ctx.Path, ctx.Query, pathIPs, pathUser, pathPass, false, ctx.Request, baseURL)
 			},
 		})
