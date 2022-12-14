@@ -626,7 +626,7 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 				SSRC:           563423,
 				Padding:        true,
 			},
-			Payload: bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 2000/4),
+			Payload: append([]byte{0x1c, 0b10000000}, bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 2000/4)...),
 		}.Marshal()
 		err = conn.WriteInterleavedFrame(&base.InterleavedFrame{
 			Channel: 0,
@@ -644,7 +644,7 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 				SSRC:           563423,
 				Padding:        true,
 			},
-			Payload: []byte{0x01, 0x02, 0x03, 0x04},
+			Payload: []byte{0x1c, 0b01000000, 0x01, 0x02, 0x03, 0x04},
 		}.Marshal()
 		err = conn.WriteInterleavedFrame(&base.InterleavedFrame{
 			Channel: 0,
@@ -719,8 +719,8 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 					CSRC:           []uint32{},
 				},
 				Payload: append(
-					append([]byte{0x1c, 0x81, 0x02, 0x03, 0x04}, bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 363)...),
-					[]byte{0x01, 0x02, 0x03}...,
+					append([]byte{0x1c, 0x80}, bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 364)...),
+					[]byte{0x01, 0x02}...,
 				),
 			}, pkt)
 
@@ -736,23 +736,9 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 					CSRC:           []uint32{},
 				},
 				Payload: append(
-					[]byte{0x1c, 0x41, 0x04},
-					bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 135)...,
+					[]byte{0x1c, 0x40, 0x03, 0x04},
+					bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 136)...,
 				),
-			}, pkt)
-
-		case 3:
-			require.Equal(t, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 126,
-					Timestamp:      45343,
-					SSRC:           563423,
-					CSRC:           []uint32{},
-				},
-				Payload: []byte{0x01, 0x02, 0x03, 0x04},
 			}, pkt)
 			close(packetRecv)
 		}
