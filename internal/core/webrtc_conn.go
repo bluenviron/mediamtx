@@ -325,14 +325,14 @@ outer:
 func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error) {
 	var ret []*webRTCTrack
 
-	var videoFormat *format.H264
-	videoMedia := medias.FindFormat(&videoFormat)
+	var h264Format *format.H264
+	h264Media := medias.FindFormat(&h264Format)
 
-	if videoFormat != nil {
+	if h264Format != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeH264,
-				ClockRate: 90000,
+				ClockRate: uint32(h264Format.ClockRate()),
 			},
 			"h264",
 			"rtspss",
@@ -351,8 +351,8 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 		firstNALUReceived := false
 
 		ret = append(ret, &webRTCTrack{
-			media:       videoMedia,
-			format:      videoFormat,
+			media:       h264Media,
+			format:      h264Format,
 			webRTCTrack: webRTCTrak,
 			cb: func(dat data, ctx context.Context, writeError chan error) {
 				tdata := dat.(*dataH264)
@@ -391,14 +391,14 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 		})
 	}
 
-	var audioFormat *format.Opus
-	audioMedia := medias.FindFormat(&audioFormat)
+	var opusFormat *format.Opus
+	opusMedia := medias.FindFormat(&opusFormat)
 
-	if audioFormat != nil {
+	if opusFormat != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeOpus,
-				ClockRate: uint32(audioFormat.ClockRate()),
+				ClockRate: uint32(opusFormat.ClockRate()),
 			},
 			"opus",
 			"rtspss",
@@ -408,8 +408,8 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 		}
 
 		ret = append(ret, &webRTCTrack{
-			media:       audioMedia,
-			format:      audioFormat,
+			media:       opusMedia,
+			format:      opusFormat,
 			webRTCTrack: webRTCTrak,
 			cb: func(dat data, ctx context.Context, writeError chan error) {
 				for _, pkt := range dat.getRTPPackets() {
@@ -419,8 +419,77 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 		})
 	}
 
+	var g722Format *format.G722
+
+	if opusFormat == nil {
+		g722Media := medias.FindFormat(&g722Format)
+
+		if g722Format != nil {
+			webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+				webrtc.RTPCodecCapability{
+					MimeType:  webrtc.MimeTypeG722,
+					ClockRate: uint32(g722Format.ClockRate()),
+				},
+				"g722",
+				"rtspss",
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			ret = append(ret, &webRTCTrack{
+				media:       g722Media,
+				format:      g722Format,
+				webRTCTrack: webRTCTrak,
+				cb: func(dat data, ctx context.Context, writeError chan error) {
+					for _, pkt := range dat.getRTPPackets() {
+						webRTCTrak.WriteRTP(pkt)
+					}
+				},
+			})
+		}
+	}
+
+	var g711Format *format.G711
+
+	if opusFormat == nil && g722Format == nil {
+		g711Media := medias.FindFormat(&g711Format)
+
+		if g711Format != nil {
+			var mtyp string
+			if g711Format.MULaw {
+				mtyp = webrtc.MimeTypePCMU
+			} else {
+				mtyp = webrtc.MimeTypePCMA
+			}
+
+			webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+				webrtc.RTPCodecCapability{
+					MimeType:  mtyp,
+					ClockRate: uint32(g711Format.ClockRate()),
+				},
+				"g711",
+				"rtspss",
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			ret = append(ret, &webRTCTrack{
+				media:       g711Media,
+				format:      g711Format,
+				webRTCTrack: webRTCTrak,
+				cb: func(dat data, ctx context.Context, writeError chan error) {
+					for _, pkt := range dat.getRTPPackets() {
+						webRTCTrak.WriteRTP(pkt)
+					}
+				},
+			})
+		}
+	}
+
 	if ret == nil {
-		return nil, fmt.Errorf("the stream doesn't contain any supported codec (which currently are H264 and Opus)")
+		return nil, fmt.Errorf("the stream doesn't contain any supported codec (which currently are H264, Opus, G711, G722)")
 	}
 
 	return ret, nil
