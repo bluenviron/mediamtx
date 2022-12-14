@@ -34,12 +34,12 @@ class Receiver {
 	}
 
 	start() {
-		console.log("[receiver] ws connecting");
+		console.log("connecting");
 
         this.ws = new WebSocket(window.location.href.replace(/^http/, "ws") + 'ws');
 
         this.ws.onerror = () => {
-            console.log("[receiver] ws error");
+            console.log("ws error");
             if (this.ws === null) {
                 return;
             }
@@ -48,7 +48,7 @@ class Receiver {
         };
 
         this.ws.onclose = () => {
-            console.log("[receiver] ws closed");
+            console.log("ws closed");
             this.ws = null;
             this.scheduleRestart();
         };
@@ -68,39 +68,35 @@ class Receiver {
         });
 
         this.ws.onmessage = (msg) => this.onRemoteDescription(msg);
-
-        this.pc.onicecandidate = (evt) => {
-            if (this.ws === null) {
-                return;
-            }
-
-            if (evt.candidate !== null) {
-                if (evt.candidate.candidate !== "") {
-                    this.ws.send(JSON.stringify(evt.candidate));
-                }
-            }
-        };
+        this.pc.onicecandidate = (evt) => this.onIceCandidate(evt);
 
         this.pc.oniceconnectionstatechange = () => {
             if (this.pc === null) {
                 return;
             }
 
-            console.log("[receiver] state:", this.pc.iceConnectionState);
+            console.log("peer connection state:", this.pc.iceConnectionState);
 
             switch (this.pc.iceConnectionState) {
-            case "failed":
+            case "connected":
+                this.pc.onicecandidate = undefined;
+                this.ws.onmessage = undefined;
+                this.ws.onclose = undefined;
+                this.ws.close();
+                this.ws = null;
+                break;
+
             case "disconnected":
                 this.scheduleRestart();
             }
         };
 
         this.pc.ontrack = (evt) => {
-            console.log("[receiver] new track " + evt.track.kind);
+            console.log("new track " + evt.track.kind);
             document.getElementById("video").srcObject = new MediaStream([evt.track]);
         };
 
-        // utilizza sendrecv per firefox
+        // use sendrecv for firefox
         // https://github.com/pion/webrtc/issues/717#issuecomment-507990273
         // https://github.com/pion/example-webrtc-applications/commit/c641b530a001eb057d8b481185c50bf67d1931b4
         const direction = "sendrecv"; // (isFirefox) ? "sendrecv" : "recvonly";
@@ -115,7 +111,7 @@ class Receiver {
 
                 this.pc.setLocalDescription(desc);
 
-                console.log("[receiver] sending offer");
+                console.log("sending offer");
                 this.ws.send(JSON.stringify(desc));
             });
     }
@@ -126,9 +122,20 @@ class Receiver {
 		}
 
 		this.pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.data)));
-
 		this.ws.onmessage = (msg) => this.onRemoteCandidate(msg);
 	}
+
+    onIceCandidate(evt) {
+        if (this.ws === null) {
+            return;
+        }
+
+        if (evt.candidate !== null) {
+            if (evt.candidate.candidate !== "") {
+                this.ws.send(JSON.stringify(evt.candidate));
+            }
+        }
+    }
 
 	onRemoteCandidate(msg) {
 		if (this.pc === null) {

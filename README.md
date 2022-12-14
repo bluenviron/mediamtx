@@ -7,23 +7,23 @@ _rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that
 
 Live streams can be published to the server with:
 
-|name|variants|codecs|
-|----|--------|------|
-|RTSP clients (FFmpeg, GStreamer, etc)|RTSP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
-|RTSP servers and cameras||H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
-|RTMP clients|RTMP, RTMPS|H264, AAC|
-|RTMP servers and cameras||H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
-|HLS servers and cameras|Low-Latency HLS, legacy HLS|H264, AAC|
+|protocol|variants|codecs|
+|--------|--------|------|
+|RTSP clients (FFmpeg, GStreamer, etc)|RTSP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, MP3, MPEG4-Audio (AAC), Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|RTSP servers and cameras||H264, H265, VP8, VP9, AV1, MPEG2, MP3, MPEG4-Audio (AAC), Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|RTMP clients|RTMP, RTMPS|H264, MPEG4-Audio (AAC)|
+|RTMP servers and cameras||H264, H265, VP8, VP9, AV1, MPEG2, MP3, MPEG4-Audio (AAC), Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|HLS servers and cameras|Low-Latency HLS, legacy HLS|H264, MPEG4-Audio (AAC)|
 |Raspberry Pi Cameras||H264|
 
-And can be read from the server with a protocol of choice:
+And can be read from the server with:
 
-|name|variants|codecs|
-|----|--------|------|
-|RTSP|RTSP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, MP3, AAC, Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
-|RTMP|RTMP, RTMPS|H264, AAC|
-|HLS|Low-Latency HLS, legacy HLS|H264, AAC|
-|WebRTC||H264|
+|protocol|variants|codecs|
+|--------|--------|------|
+|RTSP|RTSP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, MP3, MPEG4-Audio (AAC), Opus, PCMA, PCMU, JPEG and any RTP-compatible codec|
+|RTMP|RTMP, RTMPS|H264, MPEG4-Audio (AAC)|
+|HLS|Low-Latency HLS, legacy HLS|H264, MPEG4-Audio (AAC)|
+|WebRTC||H264, Opus|
 
 Features:
 

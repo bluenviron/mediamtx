@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph264"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
 	"github.com/gorilla/websocket"
@@ -17,6 +19,23 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
+
+type webRTCTrack struct {
+	media       *media.Media
+	format      format.Format
+	webRTCTrack *webrtc.TrackLocalStaticRTP
+	cb          func(data, context.Context, chan error)
+}
+
+func gatherMedias(tracks []*webRTCTrack) media.Medias {
+	var ret media.Medias
+
+	for _, track := range tracks {
+		ret = append(ret, track.media)
+	}
+
+	return ret
+}
 
 type webRTCConnPathManager interface {
 	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
@@ -83,19 +102,19 @@ func (c *webRTCConn) log(level logger.Level, format string, args ...interface{})
 func (c *webRTCConn) run() {
 	defer c.wg.Done()
 
-	ctx, cancel := context.WithCancel(c.ctx)
+	innerCtx, innerCtxCancel := context.WithCancel(c.ctx)
 	runErr := make(chan error)
 	go func() {
-		runErr <- c.runInner(ctx)
+		runErr <- c.runInner(innerCtx)
 	}()
 
 	var err error
 	select {
 	case err = <-runErr:
-		cancel()
+		innerCtxCancel()
 
 	case <-c.ctx.Done():
-		cancel()
+		innerCtxCancel()
 		<-runErr
 		err = errors.New("terminated")
 	}
@@ -134,16 +153,17 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		path.readerRemove(pathReaderRemoveReq{author: c})
 	}()
 
-	var videoFormat *format.H264
-	videoMedia := res.stream.medias().FindFormat(&videoFormat)
-
-	if videoMedia == nil {
-		return fmt.Errorf("the stream doesn't contain a supported track")
+	tracks, err := c.allocateTracks(res.stream.medias())
+	if err != nil {
+		return err
 	}
 
-	iceServers := c.iceServers()
+	// maximum deadline to complete the handshake
+	c.wsconn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	c.wsconn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 
-	err := c.writeICEServers(iceServers)
+	iceServers := c.iceServers()
+	err = c.writeICEServers(iceServers)
 	if err != nil {
 		return err
 	}
@@ -161,56 +181,38 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	}
 	defer pc.Close()
 
-	answerWritten := make(chan struct{})
+	for _, track := range tracks {
+		_, err = pc.AddTrack(track.webRTCTrack)
+		if err != nil {
+			return err
+		}
+	}
+
+	outgoingCandidate := make(chan *webrtc.ICECandidate)
 	pcConnected := make(chan struct{})
-	pcTerminated := make(chan struct{})
-	defer close(pcTerminated)
+	pcDisconnected := make(chan struct{})
 
 	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
 		if i != nil {
 			select {
-			case <-answerWritten:
-			case <-pcTerminated:
-				return
-			}
-
-			select {
+			case outgoingCandidate <- i:
 			case <-pcConnected:
-				return
-			case <-pcTerminated:
-				return
-			default:
+			case <-ctx.Done():
 			}
-
-			c.writeCandidate(i)
 		}
 	})
 
-	track, err := webrtc.NewTrackLocalStaticRTP(
-		webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeH264,
-			ClockRate: 90000,
-		},
-		"video",
-		"rtspss",
-	)
-	if err != nil {
-		return err
-	}
+	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		c.log(logger.Debug, "peer connection state: "+state.String())
 
-	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-		c.log(logger.Info, "WebRTC state: "+s.String())
-
-		if s == webrtc.PeerConnectionStateConnected {
+		switch state {
+		case webrtc.PeerConnectionStateConnected:
 			close(pcConnected)
-			go c.runWriter(path, res.stream, videoMedia, videoFormat, track, pc)
+
+		case webrtc.PeerConnectionStateDisconnected:
+			close(pcDisconnected)
 		}
 	})
-
-	_, err = pc.AddTrack(track)
-	if err != nil {
-		return err
-	}
 
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
@@ -231,76 +233,199 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	close(answerWritten)
 
+	readError := make(chan error)
+	incomingCandidate := make(chan *webrtc.ICECandidateInit)
+
+	go func() {
+		for {
+			candidate, err := c.readCandidate()
+			if err != nil {
+				select {
+				case readError <- err:
+				case <-pcConnected:
+				case <-ctx.Done():
+				}
+				return
+			}
+
+			select {
+			case incomingCandidate <- candidate:
+			case <-pcConnected:
+			case <-ctx.Done():
+			}
+		}
+	}()
+
+outer:
 	for {
-		candidate, err := c.readCandidate()
-		if err != nil {
-			return err
-		}
-
 		select {
-		case <-pcConnected:
-			continue
-		default:
-		}
+		case candidate := <-outgoingCandidate:
+			c.writeCandidate(candidate)
 
-		err = pc.AddICECandidate(*candidate)
-		if err != nil {
+		case candidate := <-incomingCandidate:
+			err = pc.AddICECandidate(*candidate)
+			if err != nil {
+				return err
+			}
+
+		case err := <-readError:
 			return err
+
+		case <-pcConnected:
+			break outer
+
+		case <-ctx.Done():
+			return fmt.Errorf("terminated")
 		}
+	}
+
+	c.log(logger.Info, "peer connection established")
+	c.wsconn.Close()
+
+	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
+	defer ringBuffer.Close()
+
+	writeError := make(chan error)
+
+	for _, track := range tracks {
+		res.stream.readerAdd(c, track.media, track.format, func(dat data) {
+			ringBuffer.Push(func() {
+				track.cb(dat, ctx, writeError)
+			})
+		})
+	}
+	defer res.stream.readerRemove(c)
+
+	c.log(logger.Info, "is reading from path '%s', %s",
+		path.Name(), sourceMediaInfo(gatherMedias(tracks)))
+
+	go func() {
+		for {
+			item, ok := ringBuffer.Pull()
+			if !ok {
+				return
+			}
+			item.(func())()
+		}
+	}()
+
+	select {
+	case <-pcDisconnected:
+		return fmt.Errorf("peer connection closed")
+
+	case err := <-writeError:
+		return err
+
+	case <-ctx.Done():
+		return fmt.Errorf("terminated")
 	}
 }
 
-func (c *webRTCConn) runWriter(
-	path *path,
-	stream *stream,
-	videoMedia *media.Media,
-	videoFormat *format.H264,
-	webrtcVideoTrack *webrtc.TrackLocalStaticRTP,
-	pc *webrtc.PeerConnection,
-) {
-	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
-	go func() {
-		<-c.ctx.Done()
-		ringBuffer.Close()
-	}()
+func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error) {
+	var ret []*webRTCTrack
 
-	stream.readerAdd(c, videoMedia, videoFormat, func(dat data) {
-		ringBuffer.Push(dat)
-	})
+	var videoFormat *format.H264
+	videoMedia := medias.FindFormat(&videoFormat)
 
-	defer stream.readerRemove(c)
-
-	c.log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), sourceMediaInfo(media.Medias{videoMedia}))
-
-	encoder := &rtph264.Encoder{
-		PayloadType:    96,
-		PayloadMaxSize: 1200,
-	}
-	encoder.Init()
-
-	for {
-		item, ok := ringBuffer.Pull()
-		if !ok {
-			return
-		}
-		data := item.(*dataH264)
-
-		if data.nalus == nil {
-			continue
-		}
-
-		packets, err := encoder.Encode(data.nalus, data.pts)
+	if videoFormat != nil {
+		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+			webrtc.RTPCodecCapability{
+				MimeType:  webrtc.MimeTypeH264,
+				ClockRate: 90000,
+			},
+			"h264",
+			"rtspss",
+		)
 		if err != nil {
-			continue
+			return nil, err
 		}
 
-		for _, pkt := range packets {
-			webrtcVideoTrack.WriteRTP(pkt)
+		encoder := &rtph264.Encoder{
+			PayloadType:    96,
+			PayloadMaxSize: 1200,
 		}
+		encoder.Init()
+
+		var lastPTS time.Duration
+		firstNALUReceived := false
+
+		ret = append(ret, &webRTCTrack{
+			media:       videoMedia,
+			format:      videoFormat,
+			webRTCTrack: webRTCTrak,
+			cb: func(dat data, ctx context.Context, writeError chan error) {
+				tdata := dat.(*dataH264)
+
+				if tdata.nalus == nil {
+					return
+				}
+
+				if !firstNALUReceived {
+					if !h264.IDRPresent(tdata.nalus) {
+						return
+					}
+
+					firstNALUReceived = true
+					lastPTS = tdata.pts
+				} else {
+					if tdata.pts < lastPTS {
+						select {
+						case writeError <- fmt.Errorf("WebRTC doesn't support H264 streams with B-frames"):
+						case <-ctx.Done():
+						}
+						return
+					}
+					lastPTS = tdata.pts
+				}
+
+				packets, err := encoder.Encode(tdata.nalus, tdata.pts)
+				if err != nil {
+					return
+				}
+
+				for _, pkt := range packets {
+					webRTCTrak.WriteRTP(pkt)
+				}
+			},
+		})
 	}
+
+	var audioFormat *format.Opus
+	audioMedia := medias.FindFormat(&audioFormat)
+
+	if audioFormat != nil {
+		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+			webrtc.RTPCodecCapability{
+				MimeType:  webrtc.MimeTypeOpus,
+				ClockRate: uint32(audioFormat.ClockRate()),
+			},
+			"opus",
+			"rtspss",
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		ret = append(ret, &webRTCTrack{
+			media:       audioMedia,
+			format:      audioFormat,
+			webRTCTrack: webRTCTrak,
+			cb: func(dat data, ctx context.Context, writeError chan error) {
+				tdata := dat.(*dataOpus)
+
+				for _, pkt := range tdata.rtpPackets {
+					webRTCTrak.WriteRTP(pkt)
+				}
+			},
+		})
+	}
+
+	if ret == nil {
+		return nil, fmt.Errorf("the stream doesn't contain any supported codec (which currently are H264 and Opus)")
+	}
+
+	return ret, nil
 }
 
 func (c *webRTCConn) iceServers() []webrtc.ICEServer {
