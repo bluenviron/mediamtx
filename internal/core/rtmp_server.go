@@ -214,9 +214,6 @@ outer:
 			s.conns[c] = struct{}{}
 
 		case c := <-s.chConnClose:
-			if _, ok := s.conns[c]; !ok {
-				continue
-			}
 			delete(s.conns, c)
 
 		case req := <-s.chAPIConnsList:

@@ -59,6 +59,7 @@ func (d *HLSVariant) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// unmarshalEnv implements envUnmarshaler.
 func (d *HLSVariant) unmarshalEnv(s string) error {
 	return d.UnmarshalJSON([]byte(`"` + s + `"`))
 }

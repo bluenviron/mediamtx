@@ -180,11 +180,11 @@ func newRTSPServer(
 
 	s.log(logger.Info, "listener opened on %s", printAddresses(s.srv))
 
-	if s.metrics != nil {
+	if metrics != nil {
 		if !isTLS {
-			s.metrics.rtspServerSet(s)
+			metrics.rtspServerSet(s)
 		} else {
-			s.metrics.rtspsServerSet(s)
+			metrics.rtspsServerSet(s)
 		}
 	}
 

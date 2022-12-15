@@ -17,23 +17,6 @@ func metric(key string, value int64) string {
 	return key + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
-type metricsPathManager interface {
-	apiPathsList() pathAPIPathsListRes
-}
-
-type metricsRTSPServer interface {
-	apiConnsList() rtspServerAPIConnsListRes
-	apiSessionsList() rtspServerAPISessionsListRes
-}
-
-type metricsRTMPServer interface {
-	apiConnsList() rtmpServerAPIConnsListRes
-}
-
-type metricsHLSServer interface {
-	apiHLSMuxersList() hlsServerAPIMuxersListRes
-}
-
 type metricsParent interface {
 	Log(logger.Level, string, ...interface{})
 }
@@ -41,14 +24,15 @@ type metricsParent interface {
 type metrics struct {
 	parent metricsParent
 
-	ln          net.Listener
-	server      *http.Server
-	mutex       sync.Mutex
-	pathManager metricsPathManager
-	rtspServer  metricsRTSPServer
-	rtspsServer metricsRTSPServer
-	rtmpServer  metricsRTMPServer
-	hlsServer   metricsHLSServer
+	ln           net.Listener
+	server       *http.Server
+	mutex        sync.Mutex
+	pathManager  apiPathManager
+	rtspServer   apiRTSPServer
+	rtspsServer  apiRTSPServer
+	rtmpServer   apiRTMPServer
+	hlsServer    apiHLSServer
+	webRTCServer apiWebRTCServer
 }
 
 func newMetrics(
@@ -104,6 +88,17 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			tags := "{name=\"" + name + "\",state=\"" + state + "\"}"
 			out += metric("paths"+tags, 1)
 			out += metric("paths_bytes_received"+tags, int64(i.BytesReceived))
+		}
+	}
+
+	if !interfaceIsEmpty(m.hlsServer) {
+		res := m.hlsServer.apiMuxersList()
+		if res.err == nil {
+			for name, i := range res.data.Items {
+				tags := "{name=\"" + name + "\"}"
+				out += metric("hls_muxers"+tags, 1)
+				out += metric("hls_muxers_bytes_sent"+tags, int64(i.BytesSent))
+			}
 		}
 	}
 
@@ -171,13 +166,14 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.hlsServer) {
-		res := m.hlsServer.apiHLSMuxersList()
+	if !interfaceIsEmpty(m.webRTCServer) {
+		res := m.webRTCServer.apiConnsList()
 		if res.err == nil {
-			for name, i := range res.data.Items {
-				tags := "{name=\"" + name + "\"}"
-				out += metric("hls_muxers"+tags, 1)
-				out += metric("hls_muxers_bytes_sent"+tags, int64(i.BytesSent))
+			for id, i := range res.data.Items {
+				tags := "{id=\"" + id + "\"}"
+				out += metric("webrtc_conns"+tags, 1)
+				out += metric("webrtc_conns_bytes_received"+tags, int64(i.BytesReceived))
+				out += metric("webrtc_conns_bytes_sent"+tags, int64(i.BytesSent))
 			}
 		}
 	}
@@ -187,36 +183,43 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 }
 
 // pathManagerSet is called by pathManager.
-func (m *metrics) pathManagerSet(s metricsPathManager) {
+func (m *metrics) pathManagerSet(s apiPathManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.pathManager = s
 }
 
+// hlsServerSet is called by hlsServer.
+func (m *metrics) hlsServerSet(s apiHLSServer) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.hlsServer = s
+}
+
 // rtspServerSet is called by rtspServer (plain).
-func (m *metrics) rtspServerSet(s metricsRTSPServer) {
+func (m *metrics) rtspServerSet(s apiRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspServer = s
 }
 
 // rtspsServerSet is called by rtspServer (tls).
-func (m *metrics) rtspsServerSet(s metricsRTSPServer) {
+func (m *metrics) rtspsServerSet(s apiRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspsServer = s
 }
 
 // rtmpServerSet is called by rtmpServer.
-func (m *metrics) rtmpServerSet(s metricsRTMPServer) {
+func (m *metrics) rtmpServerSet(s apiRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s
 }
 
-// hlsServerSet is called by hlsServer.
-func (m *metrics) hlsServerSet(s metricsHLSServer) {
+// webRTCServerSet is called by webRTCServer.
+func (m *metrics) webRTCServerSet(s apiWebRTCServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.hlsServer = s
+	m.webRTCServer = s
 }

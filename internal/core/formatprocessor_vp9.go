@@ -5,36 +5,36 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpsimpleaudio"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpvp9"
 	"github.com/pion/rtp"
 )
 
-type dataOpus struct {
+type dataVP9 struct {
 	rtpPackets []*rtp.Packet
 	ntp        time.Time
 	pts        time.Duration
-	au         []byte
+	frame      []byte
 }
 
-func (d *dataOpus) getRTPPackets() []*rtp.Packet {
+func (d *dataVP9) getRTPPackets() []*rtp.Packet {
 	return d.rtpPackets
 }
 
-func (d *dataOpus) getNTP() time.Time {
+func (d *dataVP9) getNTP() time.Time {
 	return d.ntp
 }
 
-type formatProcessorOpus struct {
-	format  *format.Opus
-	encoder *rtpsimpleaudio.Encoder
-	decoder *rtpsimpleaudio.Decoder
+type formatProcessorVP9 struct {
+	format  *format.VP9
+	encoder *rtpvp9.Encoder
+	decoder *rtpvp9.Decoder
 }
 
-func newFormatProcessorOpus(
-	forma *format.Opus,
+func newFormatProcessorVP9(
+	forma *format.VP9,
 	allocateEncoder bool,
-) (*formatProcessorOpus, error) {
-	t := &formatProcessorOpus{
+) (*formatProcessorVP9, error) {
+	t := &formatProcessorVP9{
 		format: forma,
 	}
 
@@ -45,18 +45,8 @@ func newFormatProcessorOpus(
 	return t, nil
 }
 
-func (t *formatProcessorOpus) generateRTPPackets(tdata *dataOpus) error {
-	pkt, err := t.encoder.Encode(tdata.au, tdata.pts)
-	if err != nil {
-		return err
-	}
-
-	tdata.rtpPackets = []*rtp.Packet{pkt}
-	return nil
-}
-
-func (t *formatProcessorOpus) process(dat data, hasNonRTSPReaders bool) error {
-	tdata := dat.(*dataOpus)
+func (t *formatProcessorVP9) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
+	tdata := dat.(*dataVP9)
 
 	if tdata.rtpPackets != nil {
 		pkt := tdata.rtpPackets[0]
@@ -76,12 +66,15 @@ func (t *formatProcessorOpus) process(dat data, hasNonRTSPReaders bool) error {
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			au, pts, err := t.decoder.Decode(pkt)
+			frame, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
+				if err == rtpvp9.ErrMorePacketsNeeded {
+					return nil
+				}
 				return err
 			}
 
-			tdata.au = au
+			tdata.frame = frame
 			tdata.pts = pts
 		}
 
@@ -89,5 +82,11 @@ func (t *formatProcessorOpus) process(dat data, hasNonRTSPReaders bool) error {
 		return nil
 	}
 
-	return t.generateRTPPackets(tdata)
+	pkts, err := t.encoder.Encode(tdata.frame, tdata.pts)
+	if err != nil {
+		return err
+	}
+
+	tdata.rtpPackets = pkts
+	return nil
 }

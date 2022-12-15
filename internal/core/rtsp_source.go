@@ -170,9 +170,9 @@ func (s *rtspSource) run(ctx context.Context) error {
 							}
 						})
 
-					case *format.MPEG4Audio:
+					case *format.VP8:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-							err := res.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
+							err := res.stream.writeData(cmedia, cformat, &dataVP8{
 								rtpPackets: []*rtp.Packet{pkt},
 								ntp:        time.Now(),
 							})
@@ -181,9 +181,20 @@ func (s *rtspSource) run(ctx context.Context) error {
 							}
 						})
 
-					case *format.Opus:
+					case *format.VP9:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-							err := res.stream.writeData(cmedia, cformat, &dataOpus{
+							err := res.stream.writeData(cmedia, cformat, &dataVP9{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
+
+					case *format.MPEG4Audio:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
 								rtpPackets: []*rtp.Packet{pkt},
 								ntp:        time.Now(),
 							})

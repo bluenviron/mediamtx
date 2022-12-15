@@ -72,11 +72,11 @@ type rtmpConn struct {
 	pathManager               rtmpConnPathManager
 	parent                    rtmpConnParent
 
-	ctx        context.Context
-	ctxCancel  func()
-	uuid       uuid.UUID
-	created    time.Time
-	path       *path
+	ctx       context.Context
+	ctxCancel func()
+	uuid      uuid.UUID
+	created   time.Time
+	// path       *path
 	state      rtmpConnState
 	stateMutex sync.Mutex
 }
@@ -153,45 +153,43 @@ func (c *rtmpConn) safeState() rtmpConnState {
 func (c *rtmpConn) run() {
 	defer c.wg.Done()
 
-	err := func() error {
-		if c.runOnConnect != "" {
-			c.log(logger.Info, "runOnConnect command started")
-			_, port, _ := net.SplitHostPort(c.rtspAddress)
-			onConnectCmd := externalcmd.NewCmd(
-				c.externalCmdPool,
-				c.runOnConnect,
-				c.runOnConnectRestart,
-				externalcmd.Environment{
-					"RTSP_PATH": "",
-					"RTSP_PORT": port,
-				},
-				func(co int) {
-					c.log(logger.Info, "runOnConnect command exited with code %d", co)
-				})
+	if c.runOnConnect != "" {
+		c.log(logger.Info, "runOnConnect command started")
+		_, port, _ := net.SplitHostPort(c.rtspAddress)
+		onConnectCmd := externalcmd.NewCmd(
+			c.externalCmdPool,
+			c.runOnConnect,
+			c.runOnConnectRestart,
+			externalcmd.Environment{
+				"RTSP_PATH": "",
+				"RTSP_PORT": port,
+			},
+			func(co int) {
+				c.log(logger.Info, "runOnConnect command exited with code %d", co)
+			})
 
-			defer func() {
-				onConnectCmd.Close()
-				c.log(logger.Info, "runOnConnect command stopped")
-			}()
-		}
-
-		ctx, cancel := context.WithCancel(c.ctx)
-		runErr := make(chan error)
-		go func() {
-			runErr <- c.runInner(ctx)
+		defer func() {
+			onConnectCmd.Close()
+			c.log(logger.Info, "runOnConnect command stopped")
 		}()
+	}
 
-		select {
-		case err := <-runErr:
-			cancel()
-			return err
-
-		case <-c.ctx.Done():
-			cancel()
-			<-runErr
-			return errors.New("terminated")
-		}
+	ctx, cancel := context.WithCancel(c.ctx)
+	runErr := make(chan error)
+	go func() {
+		runErr <- c.runInner(ctx)
 	}()
+
+	var err error
+	select {
+	case err = <-runErr:
+		cancel()
+
+	case <-c.ctx.Done():
+		cancel()
+		<-runErr
+		err = errors.New("terminated")
+	}
 
 	c.ctxCancel()
 
@@ -243,10 +241,10 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		return res.err
 	}
 
-	c.path = res.path
+	path := res.path
 
 	defer func() {
-		c.path.readerRemove(pathReaderRemoveReq{author: c})
+		path.readerRemove(pathReaderRemoveReq{author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -288,15 +286,15 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	defer res.stream.readerRemove(c)
 
 	c.log(logger.Info, "is reading from path '%s', %s",
-		c.path.Name(), sourceMediaInfo(medias))
+		path.Name(), sourceMediaInfo(medias))
 
-	if c.path.Conf().RunOnRead != "" {
+	if path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
 			c.externalCmdPool,
-			c.path.Conf().RunOnRead,
-			c.path.Conf().RunOnReadRestart,
-			c.path.externalCmdEnv(),
+			path.Conf().RunOnRead,
+			path.Conf().RunOnReadRestart,
+			path.externalCmdEnv(),
 			func(co int) {
 				c.log(logger.Info, "runOnRead command exited with code %d", co)
 			})
@@ -477,10 +475,10 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		return res.err
 	}
 
-	c.path = res.path
+	path := res.path
 
 	defer func() {
-		c.path.publisherRemove(pathPublisherRemoveReq{author: c})
+		path.publisherRemove(pathPublisherRemoveReq{author: c})
 	}()
 
 	c.stateMutex.Lock()
@@ -512,7 +510,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		medias = append(medias, audioMedia)
 	}
 
-	rres := c.path.publisherStart(pathPublisherStartReq{
+	rres := path.publisherStart(pathPublisherStartReq{
 		author:             c,
 		medias:             medias,
 		generateRTPPackets: true,
@@ -522,7 +520,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	}
 
 	c.log(logger.Info, "is publishing to path '%s', %s",
-		c.path.Name(),
+		path.Name(),
 		sourceMediaInfo(medias))
 
 	// disable write deadline to allow outgoing acknowledges

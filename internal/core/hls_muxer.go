@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"errors"
 	"fmt"
 	"net"
@@ -27,73 +28,8 @@ const (
 	closeAfterInactivity = 60 * time.Second
 )
 
-const index = `<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<style>
-html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
-}
-#video {
-	width: 100%;
-	height: 100%;
-	background: black;
-}
-</style>
-</head>
-<body>
-
-<video id="video" muted controls autoplay playsinline></video>
-
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.1.5"></script>
-
-<script>
-
-const create = () => {
-	const video = document.getElementById('video');
-
-	// always prefer hls.js over native HLS.
-	// this is because some Android versions support native HLS
-	// but don't support fMP4s.
-	if (Hls.isSupported()) {
-		const hls = new Hls({
-			maxLiveSyncPlaybackRate: 1.5,
-		});
-
-		hls.on(Hls.Events.ERROR, (evt, data) => {
-			if (data.fatal) {
-				hls.destroy();
-
-				setTimeout(create, 2000);
-			}
-		});
-
-		hls.loadSource('index.m3u8');
-		hls.attachMedia(video);
-
-		video.play();
-
-	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-		// since it's not possible to detect timeout errors in iOS,
-		// wait for the playlist to be available before starting the stream
-		fetch('stream.m3u8')
-			.then(() => {
-				video.src = 'index.m3u8';
-				video.play();
-			});
-	}
-};
-
-window.addEventListener('DOMContentLoaded', create);
-
-</script>
-
-</body>
-</html>
-`
+//go:embed hls_index.html
+var hlsIndex []byte
 
 type hlsMuxerResponse struct {
 	muxer *hlsMuxer
@@ -294,9 +230,8 @@ func (m *hlsMuxer) run() {
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
 	res := m.pathManager.readerAdd(pathReaderAddReq{
-		author:       m,
-		pathName:     m.pathName,
-		authenticate: nil,
+		author:   m,
+		pathName: m.pathName,
 	})
 	if res.err != nil {
 		return res.err
@@ -487,7 +422,7 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 				Header: map[string]string{
 					"Content-Type": `text/html`,
 				},
-				Body: bytes.NewReader([]byte(index)),
+				Body: bytes.NewReader(hlsIndex),
 			}
 		}
 	}
@@ -574,8 +509,8 @@ func (m *hlsMuxer) request(req *hlsMuxerRequest) {
 	}
 }
 
-// apiHLSMuxersList is called by api.
-func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
+// apiMuxersList is called by api.
+func (m *hlsMuxer) apiMuxersList(req hlsServerAPIMuxersListSubReq) {
 	req.res = make(chan struct{})
 	select {
 	case m.chAPIHLSMuxersList <- req:

@@ -3,20 +3,33 @@
     <img src="logo.png" alt="rtsp-simple-server">
 </p>
 
-_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams through various protocols:
+_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
 
-|protocol|description|variants|publish|read|proxy|
-|--------|-----------|--------|-------|----|-----|
-|RTSP|fastest way to publish and read streams|RTSP, RTSPS|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|RTMP|allows to interact with legacy software|RTMP, RTMPS|:heavy_check_mark:|:heavy_check_mark:|:heavy_check_mark:|
-|HLS|allows to embed streams into a web page|Low-Latency HLS, standard HLS|:x:|:heavy_check_mark:|:heavy_check_mark:|
+Live streams can be published to the server with:
+
+|protocol|variants|codecs|
+|--------|--------|------|
+|RTSP clients (FFmpeg, GStreamer, etc)|UDP, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
+|RTSP servers and cameras|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
+|RTMP clients (OBS Studio)|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
+|RTMP servers and cameras|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
+|HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, MPEG4 Audio (AAC)|
+|Raspberry Pi Cameras||H264|
+
+And can be read from the server with:
+
+|protocol|variants|codecs|
+|--------|--------|------|
+|RTSP|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
+|RTMP|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
+|HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, MPEG4 Audio (AAC)|
+|WebRTC||H264, VP8, VP9, Opus, G711, G722|
 
 Features:
 
 * Publish live streams to the server
 * Read live streams from the server
 * Proxy streams from other servers or cameras, always or on-demand
-* Each stream can have multiple video and audio tracks, encoded with any RTP-compatible codec, including H264, H265, VP8, VP9, MPEG2, MP3, AAC, Opus, PCM, JPEG
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
 * Serve multiple streams at once in separate paths
 * Authenticate users; use internal or external authentication
@@ -446,6 +459,10 @@ Obtaining:
 paths{name="[path_name]",state="[state]"} 1
 paths_bytes_received{name="[path_name]",state="[state]"} 1234
 
+# metrics of every HLS muxer
+hls_muxers{name="[name]"} 1
+hls_muxers_bytes_sent{name="[name]"} 187
+
 # metrics of every RTSP connection
 rtsp_conns{id="[id]"} 1
 rtsp_conns_bytes_received{id="[id]"} 1234
@@ -471,9 +488,10 @@ rtmp_conns{id="[id]",state="[state]"} 1
 rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
 
-# metrics of every HLS muxer
-hls_muxers{name="[name]"} 1
-hls_muxers_bytes_sent{name="[name]"} 187
+# metrics of every WebRTC connection
+webrtc_conns{id="[id]"} 1
+webrtc_conns_bytes_received{id="[id]",state="[state]"} 1234
+webrtc_conns_bytes_sent{id="[id]",state="[state]"} 187
 ```
 
 ### pprof
