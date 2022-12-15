@@ -17,10 +17,6 @@ func metric(key string, value int64) string {
 	return key + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
-type metricsPathManager interface {
-	apiPathsList() pathAPIPathsListRes
-}
-
 type metricsParent interface {
 	Log(logger.Level, string, ...interface{})
 }

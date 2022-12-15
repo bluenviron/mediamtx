@@ -660,7 +660,7 @@ func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
 				}()
 
 				expireDate := time.Now().Add(24 * 3600 * time.Second).Unix()
-				s.Username = strconv.FormatInt(int64(expireDate), 10) + ":" + randomUser
+				s.Username = strconv.FormatInt(expireDate, 10) + ":" + randomUser
 
 				h := hmac.New(sha1.New, []byte(parts[2]))
 				h.Write([]byte(s.Username))
