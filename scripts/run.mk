@@ -9,7 +9,6 @@ RUN go build -o /out .
 WORKDIR /
 ARG CONFIG_RUN
 RUN echo "$$CONFIG_RUN" > rtsp-simple-server.yml
-COPY server.crt server.key /
 endef
 export DOCKERFILE_RUN
 
