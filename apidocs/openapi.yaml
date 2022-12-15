@@ -429,6 +429,14 @@ components:
         bytesSent:
           type: number
 
+    HLSMuxersList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/HLSMuxer'
+
     PathsList:
       type: object
       properties:
@@ -436,6 +444,14 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/Path'
+
+    RTMPConnsList:
+      type: object
+      properties:
+        items:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/RTMPConn'
 
     RTSPConnsList:
       type: object
@@ -461,21 +477,25 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/RTSPSession'
 
-    RTMPConnsList:
+    WebRTCConn:
       type: object
       properties:
-        items:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/RTMPConn'
+        created:
+          type: string
+        remoteAddr:
+          type: string
+        bytesReceived:
+          type: number
+        bytesSent:
+          type: number
 
-    HLSMuxersList:
+    WebRTCConnsList:
       type: object
       properties:
         items:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/HLSMuxer'
+            $ref: '#/components/schemas/WebRTCConn'
 
 paths:
   /v1/config/get:
@@ -586,6 +606,23 @@ paths:
         '500':
           description: internal server error.
 
+  /v1/hlsmuxers/list:
+    get:
+      operationId: hlsMuxersList
+      summary: returns all HLS muxers.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HLSMuxersList'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
   /v1/paths/list:
     get:
       operationId: pathsList
@@ -637,23 +674,6 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspsconns/list:
-    get:
-      operationId: rtspsConnsList
-      summary: returns all RTSPS connections.
-      description: ''
-      responses:
-        '200':
-          description: the request was successful.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/RTSPConnsList'
-        '400':
-          description: invalid request.
-        '500':
-          description: internal server error.
-
   /v1/rtspsessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
@@ -669,6 +689,23 @@ paths:
       responses:
         '200':
           description: the request was successful.
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v1/rtspsconns/list:
+    get:
+      operationId: rtspsConnsList
+      summary: returns all RTSPS connections.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RTSPConnsList'
         '400':
           description: invalid request.
         '500':
@@ -785,10 +822,10 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/hlsmuxers/list:
+  /v1/webrtcconns/list:
     get:
-      operationId: hlsMuxersList
-      summary: returns all HLS muxers.
+      operationId: webrtcConnsList
+      summary: returns all WebRTC connections.
       description: ''
       responses:
         '200':
@@ -796,7 +833,27 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HLSMuxersList'
+                $ref: '#/components/schemas/WebRTCConnsList'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v1/webrtcconns/kick/{id}:
+    post:
+      operationId: webrtcConnsKick
+      summary: kicks out a WebRTC connection from the server.
+      description: ''
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: the ID of the session.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
         '400':
           description: invalid request.
         '500':

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 
@@ -59,6 +61,10 @@ type webRTCConn struct {
 
 	ctx       context.Context
 	ctxCancel func()
+	uuid      uuid.UUID
+	created   time.Time
+	curPC     *webrtc.PeerConnection
+	mutex     sync.RWMutex
 }
 
 func newWebRTCConn(
@@ -83,6 +89,8 @@ func newWebRTCConn(
 		parent:          parent,
 		ctx:             ctx,
 		ctxCancel:       ctxCancel,
+		uuid:            uuid.New(),
+		created:         time.Now(),
 	}
 
 	c.log(logger.Info, "opened")
@@ -95,6 +103,36 @@ func newWebRTCConn(
 
 func (c *webRTCConn) close() {
 	c.ctxCancel()
+}
+
+func (c *webRTCConn) remoteAddr() net.Addr {
+	return c.wsconn.RemoteAddr()
+}
+
+func (c *webRTCConn) bytesReceived() uint64 {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	for _, stats := range c.curPC.GetStats() {
+		if tstats, ok := stats.(webrtc.TransportStats); ok {
+			if tstats.ID == "iceTransport" {
+				return tstats.BytesReceived
+			}
+		}
+	}
+	return 0
+}
+
+func (c *webRTCConn) bytesSent() uint64 {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	for _, stats := range c.curPC.GetStats() {
+		if tstats, ok := stats.(webrtc.TransportStats); ok {
+			if tstats.ID == "iceTransport" {
+				return tstats.BytesSent
+			}
+		}
+	}
+	return 0
 }
 
 func (c *webRTCConn) log(level logger.Level, format string, args ...interface{}) {
@@ -182,6 +220,10 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 	defer pc.Close()
+
+	c.mutex.Lock()
+	c.curPC = pc
+	c.mutex.Unlock()
 
 	for _, track := range tracks {
 		_, err = pc.AddTrack(track.webRTCTrack)

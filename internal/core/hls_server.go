@@ -376,8 +376,8 @@ func (s *hlsServer) pathSourceNotReady(pa *path) {
 	}
 }
 
-// apiHLSMuxersList is called by api.
-func (s *hlsServer) apiHLSMuxersList() hlsServerAPIMuxersListRes {
+// apiMuxersList is called by api.
+func (s *hlsServer) apiMuxersList() hlsServerAPIMuxersListRes {
 	req := hlsServerAPIMuxersListReq{
 		res: make(chan hlsServerAPIMuxersListRes),
 	}
@@ -391,7 +391,7 @@ func (s *hlsServer) apiHLSMuxersList() hlsServerAPIMuxersListRes {
 		}
 
 		for _, pa := range res.muxers {
-			pa.apiHLSMuxersList(hlsServerAPIMuxersListSubReq{data: res.data})
+			pa.apiMuxersList(hlsServerAPIMuxersListSubReq{data: res.data})
 		}
 
 		return res

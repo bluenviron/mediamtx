@@ -11,6 +11,7 @@ import (
 	gopath "path"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -26,6 +27,35 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
+}
+
+type webRTCServerAPIConnsListItem struct {
+	Created       time.Time `json:"created"`
+	RemoteAddr    string    `json:"remoteAddr"`
+	BytesReceived uint64    `json:"bytesReceived"`
+	BytesSent     uint64    `json:"bytesSent"`
+}
+
+type webRTCServerAPIConnsListData struct {
+	Items map[string]webRTCServerAPIConnsListItem `json:"items"`
+}
+
+type webRTCServerAPIConnsListRes struct {
+	data *webRTCServerAPIConnsListData
+	err  error
+}
+
+type webRTCServerAPIConnsListReq struct {
+	res chan webRTCServerAPIConnsListRes
+}
+
+type webRTCServerAPIConnsKickRes struct {
+	err error
+}
+
+type webRTCServerAPIConnsKickReq struct {
+	id  string
+	res chan webRTCServerAPIConnsKickRes
 }
 
 type webRTCConnNewReq struct {
@@ -44,6 +74,7 @@ type webRTCServer struct {
 	stunServers               []string
 	readBufferCount           int
 	pathManager               *pathManager
+	metrics                   *metrics
 	parent                    webRTCServerParent
 
 	ctx       context.Context
@@ -54,8 +85,10 @@ type webRTCServer struct {
 	conns     map[*webRTCConn]struct{}
 
 	// in
-	connNew     chan webRTCConnNewReq
-	chConnClose chan *webRTCConn
+	connNew        chan webRTCConnNewReq
+	chConnClose    chan *webRTCConn
+	chAPIConnsList chan webRTCServerAPIConnsListReq
+	chAPIConnsKick chan webRTCServerAPIConnsKickReq
 }
 
 func newWebRTCServer(
@@ -69,6 +102,7 @@ func newWebRTCServer(
 	stunServers []string,
 	readBufferCount int,
 	pathManager *pathManager,
+	metrics *metrics,
 	parent webRTCServerParent,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen("tcp", address)
@@ -95,6 +129,7 @@ func newWebRTCServer(
 		stunServers:               stunServers,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
+		metrics:                   metrics,
 		parent:                    parent,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
@@ -103,9 +138,15 @@ func newWebRTCServer(
 		conns:                     make(map[*webRTCConn]struct{}),
 		connNew:                   make(chan webRTCConnNewReq),
 		chConnClose:               make(chan *webRTCConn),
+		chAPIConnsList:            make(chan webRTCServerAPIConnsListReq),
+		chAPIConnsKick:            make(chan webRTCServerAPIConnsKickReq),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
+
+	if s.metrics != nil {
+		s.metrics.webRTCServerSet(s)
+	}
 
 	s.wg.Add(1)
 	go s.run()
@@ -166,6 +207,39 @@ outer:
 
 		case conn := <-s.chConnClose:
 			delete(s.conns, conn)
+
+		case req := <-s.chAPIConnsList:
+			data := &webRTCServerAPIConnsListData{
+				Items: make(map[string]webRTCServerAPIConnsListItem),
+			}
+
+			for c := range s.conns {
+				data.Items[c.uuid.String()] = webRTCServerAPIConnsListItem{
+					Created:       c.created,
+					RemoteAddr:    c.remoteAddr().String(),
+					BytesReceived: c.bytesReceived(),
+					BytesSent:     c.bytesSent(),
+				}
+			}
+
+			req.res <- webRTCServerAPIConnsListRes{data: data}
+
+		case req := <-s.chAPIConnsKick:
+			res := func() bool {
+				for c := range s.conns {
+					if c.uuid.String() == req.id {
+						delete(s.conns, c)
+						c.close()
+						return true
+					}
+				}
+				return false
+			}()
+			if res {
+				req.res <- webRTCServerAPIConnsKickRes{}
+			} else {
+				req.res <- webRTCServerAPIConnsKickRes{fmt.Errorf("not found")}
+			}
 
 		case <-s.ctx.Done():
 			break outer
@@ -322,5 +396,36 @@ func (s *webRTCServer) connClose(c *webRTCConn) {
 	select {
 	case s.chConnClose <- c:
 	case <-s.ctx.Done():
+	}
+}
+
+// apiConnsList is called by api.
+func (s *webRTCServer) apiConnsList() webRTCServerAPIConnsListRes {
+	req := webRTCServerAPIConnsListReq{
+		res: make(chan webRTCServerAPIConnsListRes),
+	}
+
+	select {
+	case s.chAPIConnsList <- req:
+		return <-req.res
+
+	case <-s.ctx.Done():
+		return webRTCServerAPIConnsListRes{err: fmt.Errorf("terminated")}
+	}
+}
+
+// apiConnsKick is called by api.
+func (s *webRTCServer) apiConnsKick(id string) webRTCServerAPIConnsKickRes {
+	req := webRTCServerAPIConnsKickReq{
+		id:  id,
+		res: make(chan webRTCServerAPIConnsKickRes),
+	}
+
+	select {
+	case s.chAPIConnsKick <- req:
+		return <-req.res
+
+	case <-s.ctx.Done():
+		return webRTCServerAPIConnsKickRes{err: fmt.Errorf("terminated")}
 	}
 }

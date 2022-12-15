@@ -459,6 +459,10 @@ Obtaining:
 paths{name="[path_name]",state="[state]"} 1
 paths_bytes_received{name="[path_name]",state="[state]"} 1234
 
+# metrics of every HLS muxer
+hls_muxers{name="[name]"} 1
+hls_muxers_bytes_sent{name="[name]"} 187
+
 # metrics of every RTSP connection
 rtsp_conns{id="[id]"} 1
 rtsp_conns_bytes_received{id="[id]"} 1234
@@ -484,9 +488,10 @@ rtmp_conns{id="[id]",state="[state]"} 1
 rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
 
-# metrics of every HLS muxer
-hls_muxers{name="[name]"} 1
-hls_muxers_bytes_sent{name="[name]"} 187
+# metrics of every WebRTC connection
+webrtc_conns{id="[id]"} 1
+webrtc_conns_bytes_received{id="[id]",state="[state]"} 1234
+webrtc_conns_bytes_sent{id="[id]",state="[state]"} 187
 ```
 
 ### pprof

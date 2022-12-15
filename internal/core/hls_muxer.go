@@ -509,8 +509,8 @@ func (m *hlsMuxer) request(req *hlsMuxerRequest) {
 	}
 }
 
-// apiHLSMuxersList is called by api.
-func (m *hlsMuxer) apiHLSMuxersList(req hlsServerAPIMuxersListSubReq) {
+// apiMuxersList is called by api.
+func (m *hlsMuxer) apiMuxersList(req hlsServerAPIMuxersListSubReq) {
 	req.res = make(chan struct{})
 	select {
 	case m.chAPIHLSMuxersList <- req:

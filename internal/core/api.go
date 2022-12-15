@@ -85,6 +85,10 @@ type apiPathManager interface {
 	apiPathsList() pathAPIPathsListRes
 }
 
+type apiHLSServer interface {
+	apiMuxersList() hlsServerAPIMuxersListRes
+}
+
 type apiRTSPServer interface {
 	apiConnsList() rtspServerAPIConnsListRes
 	apiSessionsList() rtspServerAPISessionsListRes
@@ -96,24 +100,26 @@ type apiRTMPServer interface {
 	apiConnsKick(id string) rtmpServerAPIConnsKickRes
 }
 
-type apiHLSServer interface {
-	apiHLSMuxersList() hlsServerAPIMuxersListRes
-}
-
 type apiParent interface {
 	Log(logger.Level, string, ...interface{})
 	apiConfigSet(conf *conf.Conf)
 }
 
+type apiWebRTCServer interface {
+	apiConnsList() webRTCServerAPIConnsListRes
+	apiConnsKick(id string) webRTCServerAPIConnsKickRes
+}
+
 type api struct {
-	conf        *conf.Conf
-	pathManager apiPathManager
-	rtspServer  apiRTSPServer
-	rtspsServer apiRTSPServer
-	rtmpServer  apiRTMPServer
-	rtmpsServer apiRTMPServer
-	hlsServer   apiHLSServer
-	parent      apiParent
+	conf         *conf.Conf
+	pathManager  apiPathManager
+	rtspServer   apiRTSPServer
+	rtspsServer  apiRTSPServer
+	rtmpServer   apiRTMPServer
+	rtmpsServer  apiRTMPServer
+	hlsServer    apiHLSServer
+	webRTCServer apiWebRTCServer
+	parent       apiParent
 
 	ln    net.Listener
 	mutex sync.Mutex
@@ -129,6 +135,7 @@ func newAPI(
 	rtmpServer apiRTMPServer,
 	rtmpsServer apiRTMPServer,
 	hlsServer apiHLSServer,
+	webRTCServer apiWebRTCServer,
 	parent apiParent,
 ) (*api, error) {
 	ln, err := net.Listen("tcp", address)
@@ -137,15 +144,16 @@ func newAPI(
 	}
 
 	a := &api{
-		conf:        conf,
-		pathManager: pathManager,
-		rtspServer:  rtspServer,
-		rtspsServer: rtspsServer,
-		rtmpServer:  rtmpServer,
-		rtmpsServer: rtmpsServer,
-		hlsServer:   hlsServer,
-		parent:      parent,
-		ln:          ln,
+		conf:         conf,
+		pathManager:  pathManager,
+		rtspServer:   rtspServer,
+		rtspsServer:  rtspsServer,
+		rtmpServer:   rtmpServer,
+		rtmpsServer:  rtmpsServer,
+		hlsServer:    hlsServer,
+		webRTCServer: webRTCServer,
+		parent:       parent,
+		ln:           ln,
 	}
 
 	router := gin.New()
@@ -159,6 +167,10 @@ func newAPI(
 	group.POST("/v1/config/paths/add/*name", a.onConfigPathsAdd)
 	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
 	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
+
+	if !interfaceIsEmpty(a.hlsServer) {
+		group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
+	}
 
 	group.GET("/v1/paths/list", a.onPathsList)
 
@@ -184,8 +196,9 @@ func newAPI(
 		group.POST("/v1/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
-	if !interfaceIsEmpty(a.hlsServer) {
-		group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
+	if !interfaceIsEmpty(a.webRTCServer) {
+		group.GET("/v1/webrtcconns/list", a.onWebRTCConnsList)
+		group.POST("/v1/webrtcconns/kick/:id", a.onWebRTCConnsKick)
 	}
 
 	a.s = &http.Server{Handler: router}
@@ -483,13 +496,34 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	res := a.hlsServer.apiHLSMuxersList()
+	res := a.hlsServer.apiMuxersList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
 	ctx.JSON(http.StatusOK, res.data)
+}
+
+func (a *api) onWebRTCConnsList(ctx *gin.Context) {
+	res := a.webRTCServer.apiConnsList()
+	if res.err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, res.data)
+}
+
+func (a *api) onWebRTCConnsKick(ctx *gin.Context) {
+	id := ctx.Param("id")
+
+	res := a.webRTCServer.apiConnsKick(id)
+	if res.err != nil {
+		return
+	}
+
+	ctx.Status(http.StatusOK)
 }
 
 // confReload is called by core.

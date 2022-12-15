@@ -410,6 +410,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WebRTCStunServers,
 				p.conf.ReadBufferCount,
 				p.pathManager,
+				p.metrics,
 				p,
 			)
 			if err != nil {
@@ -429,6 +430,7 @@ func (p *Core) createResources(initial bool) error {
 				p.rtmpServer,
 				p.rtmpsServer,
 				p.hlsServer,
+				p.webRTCServer,
 				p,
 			)
 			if err != nil {
@@ -569,6 +571,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		!reflect.DeepEqual(newConf.WebRTCStunServers, p.conf.WebRTCStunServers) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		closeMetrics ||
 		closePathManager
 
 	closeAPI := newConf == nil ||
@@ -578,7 +581,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPServer ||
 		closeRTSPSServer ||
 		closeRTMPServer ||
-		closeHLSServer
+		closeHLSServer ||
+		closeWebrtcServer
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
