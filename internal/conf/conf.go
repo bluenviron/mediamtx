@@ -230,7 +230,7 @@ type Conf struct {
 	WebRTCServerCert     string     `json:"webrtcServerCert"`
 	WebRTCAllowOrigin    string     `json:"webrtcAllowOrigin"`
 	WebRTCTrustedProxies IPsOrCIDRs `json:"webrtcTrustedProxies"`
-	WebRTCStunServers    []string   `json:"webrtcStunServers"`
+	WebRTCICEServers     []string   `json:"webrtcICEServers"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
@@ -408,8 +408,8 @@ func (conf *Conf) CheckAndFillMissing() error {
 	if conf.WebRTCAllowOrigin == "" {
 		conf.WebRTCAllowOrigin = "*"
 	}
-	if conf.WebRTCStunServers == nil {
-		conf.WebRTCStunServers = []string{"stun.l.google.com:19302"}
+	if conf.WebRTCICEServers == nil {
+		conf.WebRTCICEServers = []string{"stun:stun.l.google.com:19302"}
 	}
 
 	// do not add automatically "all", since user may want to

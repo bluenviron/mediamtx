@@ -2,10 +2,16 @@ package core
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha1"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -54,7 +60,7 @@ type webRTCConn struct {
 	readBufferCount int
 	pathName        string
 	wsconn          *websocket.Conn
-	stunServers     []string
+	iceServers      []string
 	wg              *sync.WaitGroup
 	pathManager     webRTCConnPathManager
 	parent          webRTCConnParent
@@ -72,7 +78,7 @@ func newWebRTCConn(
 	readBufferCount int,
 	pathName string,
 	wsconn *websocket.Conn,
-	stunServers []string,
+	iceServers []string,
 	wg *sync.WaitGroup,
 	pathManager webRTCConnPathManager,
 	parent webRTCConnParent,
@@ -83,7 +89,7 @@ func newWebRTCConn(
 		readBufferCount: readBufferCount,
 		pathName:        pathName,
 		wsconn:          wsconn,
-		stunServers:     stunServers,
+		iceServers:      iceServers,
 		wg:              wg,
 		pathManager:     pathManager,
 		parent:          parent,
@@ -202,8 +208,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	c.wsconn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	c.wsconn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 
-	iceServers := c.iceServers()
-	err = c.writeICEServers(iceServers)
+	err = c.writeICEServers(c.genICEServers())
 	if err != nil {
 		return err
 	}
@@ -214,7 +219,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	}
 
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
-		ICEServers: iceServers,
+		ICEServers: c.genICEServers(),
 	})
 	if err != nil {
 		return err
@@ -635,11 +640,44 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 	return ret, nil
 }
 
-func (c *webRTCConn) iceServers() []webrtc.ICEServer {
-	ret := make([]webrtc.ICEServer, len(c.stunServers))
-	for i, s := range c.stunServers {
-		ret[i] = webrtc.ICEServer{
-			URLs: []string{"stun:" + s},
+func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
+	ret := make([]webrtc.ICEServer, len(c.iceServers))
+	for i, s := range c.iceServers {
+		parts := strings.Split(s, ":")
+		if len(parts) == 5 {
+			if parts[1] == "AUTH_SECRET" {
+				s := webrtc.ICEServer{
+					URLs: []string{parts[0] + ":" + parts[3] + ":" + parts[4]},
+				}
+
+				randomUser := func() string {
+					const charset = "abcdefghijklmnopqrstuvwxyz1234567890"
+					b := make([]byte, 20)
+					for i := range b {
+						b[i] = charset[rand.Intn(len(charset))]
+					}
+					return string(b)
+				}()
+
+				expireDate := time.Now().Add(24 * 3600 * time.Second).Unix()
+				s.Username = strconv.FormatInt(int64(expireDate), 10) + ":" + randomUser
+
+				h := hmac.New(sha1.New, []byte(parts[2]))
+				h.Write([]byte(s.Username))
+				s.Credential = base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+				ret[i] = s
+			} else {
+				ret[i] = webrtc.ICEServer{
+					URLs:       []string{parts[0] + ":" + parts[3] + ":" + parts[4]},
+					Username:   parts[1],
+					Credential: parts[2],
+				}
+			}
+		} else {
+			ret[i] = webrtc.ICEServer{
+				URLs: []string{s},
+			}
 		}
 	}
 	return ret

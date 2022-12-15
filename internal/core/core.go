@@ -407,7 +407,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WebRTCServerCert,
 				p.conf.WebRTCAllowOrigin,
 				p.conf.WebRTCTrustedProxies,
-				p.conf.WebRTCStunServers,
+				p.conf.WebRTCICEServers,
 				p.conf.ReadBufferCount,
 				p.pathManager,
 				p.metrics,
@@ -569,7 +569,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
 		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
-		!reflect.DeepEqual(newConf.WebRTCStunServers, p.conf.WebRTCStunServers) ||
+		!reflect.DeepEqual(newConf.WebRTCICEServers, p.conf.WebRTCICEServers) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeMetrics ||
 		closePathManager
