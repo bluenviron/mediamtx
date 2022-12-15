@@ -72,11 +72,11 @@ type rtmpConn struct {
 	pathManager               rtmpConnPathManager
 	parent                    rtmpConnParent
 
-	ctx        context.Context
-	ctxCancel  func()
-	uuid       uuid.UUID
-	created    time.Time
-	path       *path
+	ctx       context.Context
+	ctxCancel func()
+	uuid      uuid.UUID
+	created   time.Time
+	// path       *path
 	state      rtmpConnState
 	stateMutex sync.Mutex
 }
@@ -286,7 +286,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	defer res.stream.readerRemove(c)
 
 	c.log(logger.Info, "is reading from path '%s', %s",
-		c.path.Name(), sourceMediaInfo(medias))
+		path.Name(), sourceMediaInfo(medias))
 
 	if path.Conf().RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
@@ -520,7 +520,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	}
 
 	c.log(logger.Info, "is publishing to path '%s', %s",
-		c.path.Name(),
+		path.Name(),
 		sourceMediaInfo(medias))
 
 	// disable write deadline to allow outgoing acknowledges

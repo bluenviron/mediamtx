@@ -224,7 +224,7 @@ type Conf struct {
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
 
 	// WebRTC
-	WebRTCDisable        bool       `json:"webrtcDisable"`
+	WebRTCEnable         bool       `json:"webrtcEnable"`
 	WebRTCAddress        string     `json:"webrtcAddress"`
 	WebRTCServerKey      string     `json:"webrtcServerKey"`
 	WebRTCServerCert     string     `json:"webrtcServerCert"`
