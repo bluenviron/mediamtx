@@ -92,6 +92,8 @@ Features:
   * [Embedding](#embedding)
   * [Low-Latency variant](#low-latency-variant)
   * [Decreasing latency](#decreasing-latency)
+* [WebRTC protocol](#webrtc-protocol)
+  * [General usage](#general-usage-3)
 * [Links](#links)
 
 ## Installation
@@ -967,6 +969,31 @@ To decrease the latency, you can:
     ```
     ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
     ```
+
+## WebRTC protocol
+
+### General usage
+
+a TLS certificate is needed and can be generated with OpenSSL:
+
+```
+openssl genrsa -out server.key 2048
+openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+```
+
+Set the `webrtc`, `webrtcServerKey` and `webrtcServerCert` parameters in the configuration file:
+
+```yml
+webrtc: yes
+webrtcServerKey: server.key
+webrtcServerCert: server.crt
+```
+
+Every stream published to the server can be read with WebRTC by visiting:
+
+```
+https://localhost:8889/mystream
+```
 
 ## Links
 
