@@ -94,6 +94,7 @@ Features:
   * [Decreasing latency](#decreasing-latency)
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
+  * [TURN servers](#turn-servers)
 * [Links](#links)
 
 ## Installation
@@ -994,6 +995,24 @@ Every stream published to the server can be read with WebRTC by visiting:
 ```
 https://localhost:8889/mystream
 ```
+
+### TURN servers
+
+The server can be configured in order to communicate to clients through a TURN server. The server must be set in the configuration file:
+
+```yml
+webrtcICEServers: [turn:user:pass:host:ip]
+```
+
+Where `user` and `pass` are the username and password of the server.
+
+If the server uses a secret-based authentication (for instance, coturn with the `use-auth-secret` option), it must be configured in this way:
+
+```yml
+webrtcICEServers: [turn:AUTH_SECRET:secret:host:ip]
+```
+
+where `secret` is the secret of the TURN server. rtsp_simple_server will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC connection begins.
 
 ## Links
 
