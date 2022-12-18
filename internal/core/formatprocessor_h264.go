@@ -222,7 +222,9 @@ func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error { 
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			tdata.rtpPackets = nil
+			if t.encoder != nil {
+				tdata.rtpPackets = nil
+			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
 			nalus, pts, err := t.decoder.DecodeUntilMarker(pkt)
