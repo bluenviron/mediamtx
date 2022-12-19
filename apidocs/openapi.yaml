@@ -87,11 +87,25 @@ components:
           type: boolean
         rtmpAddress:
           type: string
+        rtmpEncryption:
+          type: string
+        rtmpsAddress:
+          type: string
+        rtmpServerKey:
+          type: string
+        rtmpServerCert:
+          type: string
 
         # HLS
         hlsDisable:
           type: boolean
         hlsAddress:
+          type: string
+        hlsEncryption:
+          type: boolean
+        hlsServerKey:
+          type: string
+        hlsServerCert:
           type: string
         hlsAlwaysRemux:
           type: boolean
@@ -107,13 +121,34 @@ components:
           type: string
         hlsAllowOrigin:
           type: string
-        hlsEncryption:
-          type: boolean
-        hlsServerKey:
-          type: string
-        hlsServerCert:
-          type: string
+        hlsTrustedProxies:
+          type: array
+          items:
+            type: string
 
+        # WebRTC
+        webrtcDisable:
+          type: boolean
+        webrtcAddress:
+          type: string
+        webrtcEncryption:
+          type: boolean
+        webrtcServerKey:
+          type: string
+        webrtcServerCert:
+          type: string
+        webrtcAllowOrigin:
+          type: string
+        webrtcTrustedProxies:
+          type: array
+          items:
+            type: string
+        webrtcICEServers:
+          type: array
+          items:
+            type: string
+
+        # paths
         paths:
           type: object
           additionalProperties:
