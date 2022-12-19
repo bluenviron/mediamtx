@@ -349,9 +349,10 @@ outer:
 	writeError := make(chan error)
 
 	for _, track := range tracks {
+		ctrack := track
 		res.stream.readerAdd(c, track.media, track.format, func(dat data) {
 			ringBuffer.Push(func() {
-				track.cb(dat, ctx, writeError)
+				ctrack.cb(dat, ctx, writeError)
 			})
 		})
 	}

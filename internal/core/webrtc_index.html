@@ -93,7 +93,7 @@ class Receiver {
 
         this.pc.ontrack = (evt) => {
             console.log("new track " + evt.track.kind);
-            document.getElementById("video").srcObject = new MediaStream([evt.track]);
+            document.getElementById("video").srcObject = evt.streams[0];
         };
 
         const direction = "sendrecv";
