@@ -95,6 +95,7 @@ func newWebRTCServer(
 	parentCtx context.Context,
 	externalAuthenticationURL string,
 	address string,
+	encryption bool,
 	serverKey string,
 	serverCert string,
 	allowOrigin string,
@@ -110,14 +111,17 @@ func newWebRTCServer(
 		return nil, err
 	}
 
-	crt, err := tls.LoadX509KeyPair(serverCert, serverKey)
-	if err != nil {
-		ln.Close()
-		return nil, err
-	}
+	var tlsConfig *tls.Config
+	if encryption {
+		crt, err := tls.LoadX509KeyPair(serverCert, serverKey)
+		if err != nil {
+			ln.Close()
+			return nil, err
+		}
 
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{crt},
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{crt},
+		}
 	}
 
 	ctx, ctxCancel := context.WithCancel(parentCtx)

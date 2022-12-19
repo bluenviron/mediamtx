@@ -975,25 +975,10 @@ To decrease the latency, you can:
 
 ### General usage
 
-a TLS certificate is needed and can be generated with OpenSSL:
-
-```
-openssl genrsa -out server.key 2048
-openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-```
-
-Set the `webrtc`, `webrtcServerKey` and `webrtcServerCert` parameters in the configuration file:
-
-```yml
-webrtc: yes
-webrtcServerKey: server.key
-webrtcServerCert: server.crt
-```
-
 Every stream published to the server can be read with WebRTC by visiting:
 
 ```
-https://localhost:8889/mystream
+http://localhost:8889/mystream
 ```
 
 ### TURN servers

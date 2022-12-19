@@ -241,6 +241,7 @@ func main() {
 
 			p1, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
 				"hlsDisable: yes\n"+
+				"webrtcDisable: yes\n"+
 				"paths:\n"+
 				"  '~^(on)demand$':\n"+
 				"    runOnDemand: %s\n"+
@@ -320,6 +321,7 @@ func TestCorePathRunOnReady(t *testing.T) {
 
 	p, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
 		"hlsDisable: yes\n"+
+		"webrtcDisable: yes\n"+
 		"paths:\n"+
 		"  test:\n"+
 		"    runOnReady: touch %s\n",

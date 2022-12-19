@@ -226,6 +226,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 
 	p, ok := newInstance("rtmpDisable: yes\n" +
 		"hlsDisable: yes\n" +
+		"webrtcDisable: yes\n" +
 		"paths:\n" +
 		"  proxied:\n" +
 		"    source: rtsp://testuser:@127.0.0.1:8555/teststream\n" +
@@ -293,6 +294,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 		p, ok := newInstance("rtmpDisable: yes\n" +
 			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
 			"paths:\n" +
 			"  proxied:\n" +
 			"    source: rtsp://127.0.0.1:8555/teststream\n")
@@ -372,6 +374,7 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 		p, ok := newInstance("rtmpDisable: yes\n" +
 			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
 			"paths:\n" +
 			"  proxied:\n" +
 			"    source: rtsp://127.0.0.1:8555/teststream\n")
@@ -454,6 +457,7 @@ func TestRTSPSourceRemovePadding(t *testing.T) {
 
 	p, ok := newInstance("rtmpDisable: yes\n" +
 		"hlsDisable: yes\n" +
+		"webrtcDisable: yes\n" +
 		"paths:\n" +
 		"  proxied:\n" +
 		"    source: rtsp://127.0.0.1:8555/teststream\n")
@@ -690,6 +694,7 @@ func TestRTSPSourceOversizedPackets(t *testing.T) {
 
 			p, ok := newInstance("rtmpDisable: yes\n" +
 				"hlsDisable: yes\n" +
+				"webrtcDisable: yes\n" +
 				"paths:\n" +
 				"  proxied:\n" +
 				"    source: rtsp://127.0.0.1:8555/teststream\n" +

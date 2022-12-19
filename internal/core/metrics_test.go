@@ -27,7 +27,6 @@ func TestMetrics(t *testing.T) {
 	defer os.Remove(serverKeyFpath)
 
 	p, ok := newInstance("metrics: yes\n" +
-		"webrtc: yes\n" +
 		"webrtcServerCert: " + serverCertFpath + "\n" +
 		"webrtcServerKey: " + serverKeyFpath + "\n" +
 		"encryption: optional\n" +

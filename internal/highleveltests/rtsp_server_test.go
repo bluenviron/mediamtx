@@ -44,6 +44,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 
 				p, ok := newInstance("rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
+					"webrtcDisable: yes\n" +
 					"readTimeout: 20s\n" +
 					"paths:\n" +
 					"  all:\n")
@@ -63,6 +64,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 
 				p, ok := newInstance("rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
+					"webrtcDisable: yes\n" +
 					"readTimeout: 20s\n" +
 					"protocols: [tcp]\n" +
 					"encryption: \"yes\"\n" +
@@ -199,6 +201,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 func TestRTSPServerRedirect(t *testing.T) {
 	p1, ok := newInstance("rtmpDisable: yes\n" +
 		"hlsDisable: yes\n" +
+		"webrtcDisable: yes\n" +
 		"paths:\n" +
 		"  path1:\n" +
 		"    source: redirect\n" +

@@ -169,11 +169,13 @@ hlsTrustedProxies: []
 ###############################################
 # WebRTC parameters
 
-# Enable support for the WebRTC protocol.
-webrtc: no
+# Disable support for the WebRTC protocol.
+webrtcDisable: no
 # Address of the WebRTC listener.
 webrtcAddress: :8889
-# Path to the server key. This is mandatory since HTTPS is mandatory in order to use WebRTC.
+# Enable TLS/HTTPS on the WebRTC server.
+webrtcEncryption: no
+# Path to the server key.
 # This can be generated with:
 # openssl genrsa -out server.key 2048
 # openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650

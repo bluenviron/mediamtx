@@ -43,6 +43,7 @@ func TestRTMPServerPublishRead(t *testing.T) {
 
 				p, ok := newInstance("rtspDisable: yes\n" +
 					"hlsDisable: yes\n" +
+					"webrtcDisable: yes\n" +
 					"rtmpEncryption: \"yes\"\n" +
 					"rtmpServerCert: " + serverCertFpath + "\n" +
 					"rtmpServerKey: " + serverKeyFpath + "\n" +
@@ -236,6 +237,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 	t.Run("publish", func(t *testing.T) { //nolint:dupl
 		p, ok := newInstance("rtspDisable: yes\n" +
 			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishUser: testuser2\n" +
@@ -345,6 +347,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 	t.Run("read", func(t *testing.T) { //nolint:dupl
 		p, ok := newInstance("rtspDisable: yes\n" +
 			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    readUser: testuser2\n" +

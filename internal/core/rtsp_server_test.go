@@ -20,6 +20,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			if ca == "internal" {
 				conf = "rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
+					"webrtcDisable: yes\n" +
 					"paths:\n" +
 					"  all:\n" +
 					"    publishUser: testpublisher\n" +
@@ -86,6 +87,7 @@ func TestRTSPServerAuth(t *testing.T) {
 	t.Run("hashed", func(t *testing.T) {
 		p, ok := newInstance("rtmpDisable: yes\n" +
 			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
@@ -130,6 +132,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		t.Run("publish_"+ca.name, func(t *testing.T) {
 			p, ok := newInstance("rtmpDisable: yes\n" +
 				"hlsDisable: yes\n" +
+				"webrtcDisable: yes\n" +
 				"paths:\n" +
 				"  all:\n" +
 				"    publishUser: testuser\n" +
@@ -173,6 +176,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		t.Run("read_"+ca.name, func(t *testing.T) {
 			p, ok := newInstance("rtmpDisable: yes\n" +
 				"hlsDisable: yes\n" +
+				"webrtcDisable: yes\n" +
 				"paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
@@ -197,6 +201,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 	t.Run("ip", func(t *testing.T) {
 		p, ok := newInstance("rtmpDisable: yes\n" +
 			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishIPs: [128.0.0.1/32]\n")
@@ -355,6 +360,7 @@ func TestRTSPServerFallback(t *testing.T) {
 
 			p1, ok := newInstance("rtmpDisable: yes\n" +
 				"hlsDisable: yes\n" +
+				"webrtcDisable: yes\n" +
 				"paths:\n" +
 				"  path1:\n" +
 				"    fallback: " + val + "\n" +
