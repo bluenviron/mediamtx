@@ -96,10 +96,7 @@ class Receiver {
             document.getElementById("video").srcObject = new MediaStream([evt.track]);
         };
 
-        // use sendrecv for firefox
-        // https://github.com/pion/webrtc/issues/717#issuecomment-507990273
-        // https://github.com/pion/example-webrtc-applications/commit/c641b530a001eb057d8b481185c50bf67d1931b4
-        const direction = "sendrecv"; // (isFirefox) ? "sendrecv" : "recvonly";
+        const direction = "sendrecv";
         this.pc.addTransceiver("video", { direction });
         this.pc.addTransceiver("audio", { direction });
 
