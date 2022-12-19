@@ -231,10 +231,21 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	c.mutex.Unlock()
 
 	for _, track := range tracks {
-		_, err = pc.AddTrack(track.webRTCTrack)
+		rtpSender, err := pc.AddTrack(track.webRTCTrack)
 		if err != nil {
 			return err
 		}
+
+		// read incoming RTCP packets in order to make interceptors work
+		go func() {
+			buf := make([]byte, 1500)
+			for {
+				_, _, err := rtpSender.Read(buf)
+				if err != nil {
+					return
+				}
+			}
+		}()
 	}
 
 	outgoingCandidate := make(chan *webrtc.ICECandidate)
