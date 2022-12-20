@@ -30,6 +30,10 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+const (
+	handshakeDeadline = 10 * time.Second
+)
+
 type webRTCTrack struct {
 	media       *media.Media
 	format      format.Format
@@ -205,8 +209,8 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	}
 
 	// maximum deadline to complete the handshake
-	c.wsconn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	c.wsconn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	c.wsconn.SetReadDeadline(time.Now().Add(handshakeDeadline))
+	c.wsconn.SetWriteDeadline(time.Now().Add(handshakeDeadline))
 
 	err = c.writeICEServers(c.genICEServers())
 	if err != nil {
@@ -340,8 +344,11 @@ outer:
 		}
 	}
 
+	// do NOT close the WebSocket connection
+	// in order to allow the other side of the connection
+	// o switch to the "connected" state before WebSocket is closed.
+
 	c.log(logger.Info, "peer connection established")
-	c.wsconn.Close()
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	defer ringBuffer.Close()

@@ -81,9 +81,11 @@ class Receiver {
             case "connected":
                 this.pc.onicecandidate = undefined;
                 this.ws.onmessage = undefined;
+                this.ws.onerror = undefined
                 this.ws.onclose = undefined;
-                this.ws.close();
-                this.ws = null;
+                // do not close the WebSocket connection
+                // in order to allow the other side of the connection
+                // to switch to the "connected" state before WebSocket is closed.
                 break;
 
             case "disconnected":
