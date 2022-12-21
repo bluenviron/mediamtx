@@ -290,19 +290,6 @@ components:
           type: array
           items:
             type: string
-            enum:
-            - Generic
-            - H264
-            - H265
-            - JPEG
-            - MPEG2Audio
-            - MPEG2Video
-            - MPEG4Audio
-            - Opus
-            - PCMA
-            - PCMU
-            - VP8
-            - VP9
         bytesReceived:
           type: number
         readers:
@@ -313,6 +300,7 @@ components:
             - $ref: '#/components/schemas/PathReaderRTSPSSession'
             - $ref: '#/components/schemas/PathReaderRTMPConn'
             - $ref: '#/components/schemas/PathReaderHLSMuxer'
+            - $ref: '#/components/schemas/PathReaderWebRTCConn'
 
     PathSourceRTSPSession:
       type: object
@@ -411,6 +399,13 @@ components:
         type:
           type: string
           enum: [hlsMuxer]
+
+    PathReaderWebRTCConn:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [webRTConn]
 
     RTSPConn:
       type: object
