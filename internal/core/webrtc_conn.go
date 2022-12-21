@@ -755,5 +755,6 @@ func (c *webRTCConn) readCandidate() (*webrtc.ICECandidateInit, error) {
 func (c *webRTCConn) apiReaderDescribe() interface{} {
 	return struct {
 		Type string `json:"type"`
-	}{"webRTCConn"}
+		ID   string `json:"id"`
+	}{"webRTCConn", c.uuid.String()}
 }

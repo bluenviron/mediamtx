@@ -415,7 +415,9 @@ components:
       properties:
         type:
           type: string
-          enum: [webRTConn]
+          enum: [webRTCConn]
+        id:
+          type: string
 
     RTSPConn:
       type: object
