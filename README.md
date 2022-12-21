@@ -637,6 +637,14 @@ make -j$(nproc)
 sudo make install
 ```
 
+You can check that OpenCV has been installed correctly by running:
+
+```
+python3 -c 'import cv2; print(cv2.getBuildInformation())'
+```
+
+And verifying that the output contains `GStreamer: YES`.
+
 Videos can be published with `VideoWriter`:
 
 ```python
