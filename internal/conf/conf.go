@@ -232,9 +232,9 @@ type Conf struct {
 	WebRTCAllowOrigin       string     `json:"webrtcAllowOrigin"`
 	WebRTCTrustedProxies    IPsOrCIDRs `json:"webrtcTrustedProxies"`
 	WebRTCICEServers        []string   `json:"webrtcICEServers"`
-	WebRTCICETCPMuxEnable   bool       `json:"webRTCICETCPMuxEnable"`
-	WebRTCICETCPMuxAddress  string     `json:"webRTCICETCPMuxAddress"`
-	WebRTCICEHostNAT1To1IPs []string   `json:"webRTCICEHostNAT1To1IPs"`
+	WebRTCICETCPMuxEnable   bool       `json:"webrtcICETCPMuxEnable"`
+	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
+	WebRTCICEHostNAT1To1IPs []string   `json:"webrtcICEHostNAT1To1IPs"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
