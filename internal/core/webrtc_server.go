@@ -15,6 +15,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/pion/ice/v2"
+	"github.com/pion/webrtc/v3"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -84,6 +86,8 @@ type webRTCServer struct {
 	tlsConfig *tls.Config
 	conns     map[*webRTCConn]struct{}
 
+	webrtcTCPMux ice.TCPMux
+
 	// in
 	connNew        chan webRTCConnNewReq
 	chConnClose    chan *webRTCConn
@@ -105,6 +109,8 @@ func newWebRTCServer(
 	pathManager *pathManager,
 	metrics *metrics,
 	parent webRTCServerParent,
+	iceTcpMuxEnable bool,
+	iceTcpMuxAddress string,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
@@ -124,6 +130,17 @@ func newWebRTCServer(
 		}
 	}
 
+	var iceTcpMux ice.TCPMux
+	if iceTcpMuxEnable {
+		tcpMuxLn, err := net.Listen("tcp", iceTcpMuxAddress)
+		if err != nil {
+			tcpMuxLn.Close()
+			return nil, err
+		}
+
+		iceTcpMux = webrtc.NewICETCPMux(nil, tcpMuxLn, 8)
+	}
+
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &webRTCServer{
@@ -139,6 +156,7 @@ func newWebRTCServer(
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
 		tlsConfig:                 tlsConfig,
+		webrtcTCPMux:              iceTcpMux,
 		conns:                     make(map[*webRTCConn]struct{}),
 		connNew:                   make(chan webRTCConnNewReq),
 		chConnClose:               make(chan *webRTCConn),
@@ -206,6 +224,7 @@ outer:
 				&s.wg,
 				s.pathManager,
 				s,
+				s.webrtcTCPMux,
 			)
 			s.conns[c] = struct{}{}
 

@@ -24,6 +24,8 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/pion/ice/v2"
+	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -75,6 +77,8 @@ type webRTCConn struct {
 	created   time.Time
 	curPC     *webrtc.PeerConnection
 	mutex     sync.RWMutex
+
+	iceTcpMux ice.TCPMux
 }
 
 func newWebRTCConn(
@@ -86,6 +90,7 @@ func newWebRTCConn(
 	wg *sync.WaitGroup,
 	pathManager webRTCConnPathManager,
 	parent webRTCConnParent,
+	iceTcpMux ice.TCPMux,
 ) *webRTCConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -101,6 +106,7 @@ func newWebRTCConn(
 		ctxCancel:       ctxCancel,
 		uuid:            uuid.New(),
 		created:         time.Now(),
+		iceTcpMux:       iceTcpMux,
 	}
 
 	c.log(logger.Info, "opened")
@@ -176,6 +182,29 @@ func (c *webRTCConn) run() {
 	c.log(logger.Info, "closed (%v)", err)
 }
 
+// NewPeerConnection creates a PeerConnection with the default codecs and
+// interceptors.  See RegisterDefaultCodecs and RegisterDefaultInterceptors.
+//
+// This function is a copy of webrtc/peerconnection.go
+// unlike the original one, allows you to add additional custom options
+func NewPeerConnection(configuration webrtc.Configuration, options ...func(*webrtc.API)) (*webrtc.PeerConnection, error) {
+	m := &webrtc.MediaEngine{}
+	if err := m.RegisterDefaultCodecs(); err != nil {
+		return nil, err
+	}
+
+	i := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(m, i); err != nil {
+		return nil, err
+	}
+
+	options = append(options, webrtc.WithMediaEngine(m))
+	options = append(options, webrtc.WithInterceptorRegistry(i))
+
+	api := webrtc.NewAPI(options...)
+	return api.NewPeerConnection(configuration)
+}
+
 func (c *webRTCConn) runInner(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
@@ -222,9 +251,18 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
-		ICEServers: c.genICEServers(),
-	})
+	var configuration = webrtc.Configuration{ICEServers: c.genICEServers()}
+	var pc *webrtc.PeerConnection
+
+	if c.iceTcpMux == nil {
+		pc, err = webrtc.NewPeerConnection(configuration)
+	} else {
+		settingsEngine := webrtc.SettingEngine{}
+		settingsEngine.SetICETCPMux(c.iceTcpMux)
+		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
+		pc, err = NewPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
+	}
+
 	if err != nil {
 		return err
 	}

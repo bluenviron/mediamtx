@@ -413,6 +413,8 @@ func (p *Core) createResources(initial bool) error {
 				p.pathManager,
 				p.metrics,
 				p,
+				p.conf.WebRTCICETCPMuxEnable,
+				p.conf.WebRTCICETCPMuxAddress,
 			)
 			if err != nil {
 				return err

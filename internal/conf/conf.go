@@ -224,14 +224,16 @@ type Conf struct {
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
 
 	// WebRTC
-	WebRTCDisable        bool       `json:"webrtcDisable"`
-	WebRTCAddress        string     `json:"webrtcAddress"`
-	WebRTCEncryption     bool       `json:"webrtcEncryption"`
-	WebRTCServerKey      string     `json:"webrtcServerKey"`
-	WebRTCServerCert     string     `json:"webrtcServerCert"`
-	WebRTCAllowOrigin    string     `json:"webrtcAllowOrigin"`
-	WebRTCTrustedProxies IPsOrCIDRs `json:"webrtcTrustedProxies"`
-	WebRTCICEServers     []string   `json:"webrtcICEServers"`
+	WebRTCDisable          bool       `json:"webrtcDisable"`
+	WebRTCAddress          string     `json:"webrtcAddress"`
+	WebRTCEncryption       bool       `json:"webrtcEncryption"`
+	WebRTCServerKey        string     `json:"webrtcServerKey"`
+	WebRTCServerCert       string     `json:"webrtcServerCert"`
+	WebRTCAllowOrigin      string     `json:"webrtcAllowOrigin"`
+	WebRTCTrustedProxies   IPsOrCIDRs `json:"webrtcTrustedProxies"`
+	WebRTCICEServers       []string   `json:"webrtcICEServers"`
+	WebRTCICETCPMuxEnable  bool       `json:"webRTCICETCPMuxEnable"`
+	WebRTCICETCPMuxAddress string     `json:"webRTCICETCPMuxAddress"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
@@ -411,6 +413,9 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 	if conf.WebRTCICEServers == nil {
 		conf.WebRTCICEServers = []string{"stun:stun.l.google.com:19302"}
+	}
+	if conf.WebRTCICETCPMuxAddress == "" {
+		conf.WebRTCICETCPMuxAddress = "127.0.0.1:9996"
 	}
 
 	// do not add automatically "all", since user may want to
