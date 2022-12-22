@@ -415,6 +415,7 @@ func (p *Core) createResources(initial bool) error {
 				p,
 				p.conf.WebRTCICETCPMuxEnable,
 				p.conf.WebRTCICETCPMuxAddress,
+				p.conf.WebRTCICEHostNAT1To1IPs,
 			)
 			if err != nil {
 				return err

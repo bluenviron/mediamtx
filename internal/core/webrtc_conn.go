@@ -63,13 +63,15 @@ type webRTCConnParent interface {
 }
 
 type webRTCConn struct {
-	readBufferCount int
-	pathName        string
-	wsconn          *websocket.Conn
-	iceServers      []string
-	wg              *sync.WaitGroup
-	pathManager     webRTCConnPathManager
-	parent          webRTCConnParent
+	readBufferCount   int
+	pathName          string
+	wsconn            *websocket.Conn
+	iceServers        []string
+	wg                *sync.WaitGroup
+	pathManager       webRTCConnPathManager
+	parent            webRTCConnParent
+	iceTcpMux         ice.TCPMux
+	iceHostNAT1To1IPs []string
 
 	ctx       context.Context
 	ctxCancel func()
@@ -77,8 +79,6 @@ type webRTCConn struct {
 	created   time.Time
 	curPC     *webrtc.PeerConnection
 	mutex     sync.RWMutex
-
-	iceTcpMux ice.TCPMux
 }
 
 func newWebRTCConn(
@@ -91,22 +91,24 @@ func newWebRTCConn(
 	pathManager webRTCConnPathManager,
 	parent webRTCConnParent,
 	iceTcpMux ice.TCPMux,
+	iceHostNAT1To1IPs []string,
 ) *webRTCConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &webRTCConn{
-		readBufferCount: readBufferCount,
-		pathName:        pathName,
-		wsconn:          wsconn,
-		iceServers:      iceServers,
-		wg:              wg,
-		pathManager:     pathManager,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		uuid:            uuid.New(),
-		created:         time.Now(),
-		iceTcpMux:       iceTcpMux,
+		readBufferCount:   readBufferCount,
+		pathName:          pathName,
+		wsconn:            wsconn,
+		iceServers:        iceServers,
+		wg:                wg,
+		pathManager:       pathManager,
+		parent:            parent,
+		ctx:               ctx,
+		ctxCancel:         ctxCancel,
+		uuid:              uuid.New(),
+		created:           time.Now(),
+		iceTcpMux:         iceTcpMux,
+		iceHostNAT1To1IPs: iceHostNAT1To1IPs,
 	}
 
 	c.log(logger.Info, "opened")
@@ -251,17 +253,19 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
+	var settingsEngine = webrtc.SettingEngine{}
 	var configuration = webrtc.Configuration{ICEServers: c.genICEServers()}
-	var pc *webrtc.PeerConnection
 
-	if c.iceTcpMux == nil {
-		pc, err = webrtc.NewPeerConnection(configuration)
-	} else {
-		settingsEngine := webrtc.SettingEngine{}
+	if c.iceTcpMux != nil {
 		settingsEngine.SetICETCPMux(c.iceTcpMux)
 		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
-		pc, err = NewPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
 	}
+
+	if c.iceHostNAT1To1IPs != nil {
+		settingsEngine.SetNAT1To1IPs(c.iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
+	}
+
+	pc, err := NewPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
 
 	if err != nil {
 		return err
