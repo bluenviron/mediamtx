@@ -86,7 +86,7 @@ type webRTCServer struct {
 	tlsConfig *tls.Config
 	conns     map[*webRTCConn]struct{}
 
-	tcpMux            ice.TCPMux
+	iceTcpMux         ice.TCPMux
 	iceHostNAT1To1IPs []string
 
 	// in
@@ -158,7 +158,7 @@ func newWebRTCServer(
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
 		tlsConfig:                 tlsConfig,
-		tcpMux:                    iceTcpMux,
+		iceTcpMux:                 iceTcpMux,
 		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
 		conns:                     make(map[*webRTCConn]struct{}),
 		connNew:                   make(chan webRTCConnNewReq),
@@ -227,7 +227,7 @@ outer:
 				&s.wg,
 				s.pathManager,
 				s,
-				s.tcpMux,
+				s.iceTcpMux,
 				s.iceHostNAT1To1IPs,
 			)
 			s.conns[c] = struct{}{}
