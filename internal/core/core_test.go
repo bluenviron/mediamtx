@@ -14,6 +14,7 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/base"
 	"github.com/aler9/gortsplib/v2/pkg/headers"
 	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/aler9/gortsplib/v2/pkg/sdp"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/stretchr/testify/require"
 )
@@ -132,7 +133,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
-					u, err := url.Parse("rtsp://localhost:8554/mypath/mediaID=0")
+					u, err := url.Parse("rtsp://localhost:8554/mypath/mediaUUID=xxx")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -249,6 +250,8 @@ func main() {
 			require.Equal(t, true, ok)
 			defer p1.Close()
 
+			var control string
+
 			func() {
 				conn, err := net.Dial("tcp", "localhost:8554")
 				require.NoError(t, err)
@@ -273,10 +276,15 @@ func main() {
 					err = res.Read(br)
 					require.NoError(t, err)
 					require.Equal(t, base.StatusOK, res.StatusCode)
+
+					var desc sdp.SessionDescription
+					err = desc.Unmarshal(res.Body)
+					require.NoError(t, err)
+					control, _ = desc.MediaDescriptions[0].Attribute("control")
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					u, err := url.Parse("rtsp://localhost:8554/ondemand/mediaID=0")
+					u, err := url.Parse("rtsp://localhost:8554/ondemand/" + control)
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
