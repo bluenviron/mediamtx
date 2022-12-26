@@ -86,7 +86,7 @@ type webRTCServer struct {
 	tlsConfig *tls.Config
 	conns     map[*webRTCConn]struct{}
 
-	iceTcpMux         ice.TCPMux
+	iceTCPMux         ice.TCPMux
 	iceHostNAT1To1IPs []string
 
 	// in
@@ -110,8 +110,8 @@ func newWebRTCServer(
 	pathManager *pathManager,
 	metrics *metrics,
 	parent webRTCServerParent,
-	iceTcpMuxEnable bool,
-	iceTcpMuxAddress string,
+	iceTCPMuxEnable bool,
+	iceTCPMuxAddress string,
 	iceHostNAT1To1IPs []string,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen("tcp", address)
@@ -132,15 +132,15 @@ func newWebRTCServer(
 		}
 	}
 
-	var iceTcpMux ice.TCPMux
-	if iceTcpMuxEnable {
-		tcpMuxLn, err := net.Listen("tcp", iceTcpMuxAddress)
+	var iceTCPMux ice.TCPMux
+	if iceTCPMuxEnable {
+		tcpMuxLn, err := net.Listen("tcp", iceTCPMuxAddress)
 		if err != nil {
 			tcpMuxLn.Close()
 			return nil, err
 		}
 
-		iceTcpMux = webrtc.NewICETCPMux(nil, tcpMuxLn, 8)
+		iceTCPMux = webrtc.NewICETCPMux(nil, tcpMuxLn, 8)
 	}
 
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -158,7 +158,7 @@ func newWebRTCServer(
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
 		tlsConfig:                 tlsConfig,
-		iceTcpMux:                 iceTcpMux,
+		iceTCPMux:                 iceTCPMux,
 		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
 		conns:                     make(map[*webRTCConn]struct{}),
 		connNew:                   make(chan webRTCConnNewReq),
@@ -227,7 +227,7 @@ outer:
 				&s.wg,
 				s.pathManager,
 				s,
-				s.iceTcpMux,
+				s.iceTCPMux,
 				s.iceHostNAT1To1IPs,
 			)
 			s.conns[c] = struct{}{}
