@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -125,6 +126,60 @@ func mpegtsSegment(w io.Writer) {
 	})
 }
 
+func mp4Init(t *testing.T, w io.Writer) {
+	i := &fmp4.Init{
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Format: &format.H264{
+					SPS: []byte{
+						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
+						0x20,
+					},
+					PPS: []byte{0x01, 0x02, 0x03, 0x04},
+				},
+			},
+		},
+	}
+
+	byts, err := i.Marshal()
+	require.NoError(t, err)
+
+	_, err = w.Write(byts)
+	require.NoError(t, err)
+}
+
+func mp4Segment(t *testing.T, w io.Writer) {
+	payload, _ := h264.AVCCMarshal([][]byte{
+		{7, 1, 2, 3}, // SPS
+		{8},          // PPS
+		{5},          // IDR
+	})
+
+	p := &fmp4.Part{
+		Tracks: []*fmp4.PartTrack{
+			{
+				ID:      1,
+				IsVideo: true,
+				Samples: []*fmp4.PartSample{{
+					Duration:  90000 / 30,
+					PTSOffset: 90000 * 2,
+					Payload:   payload,
+				}},
+			},
+		},
+	}
+
+	byts, err := p.Marshal()
+	require.NoError(t, err)
+
+	_, err = w.Write(byts)
+	require.NoError(t, err)
+}
+
 type testHLSServer struct {
 	s *http.Server
 }
@@ -166,7 +221,7 @@ func (s *testHLSServer) close() {
 	s.s.Shutdown(context.Background())
 }
 
-func TestClient(t *testing.T) {
+func TestClientMPEGTS(t *testing.T) {
 	for _, ca := range []string{
 		"plain",
 		"tls",
@@ -251,6 +306,73 @@ func TestClient(t *testing.T) {
 			<-c.Wait()
 		})
 	}
+}
+
+func TestClientFMP4(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+
+	router.GET("/stream.m3u8", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+		io.Copy(ctx.Writer, bytes.NewReader([]byte(`#EXTM3U
+		#EXT-X-VERSION:7
+		#EXT-X-MEDIA-SEQUENCE:20
+		#EXT-X-INDEPENDENT-SEGMENTS
+		#EXT-X-MAP:URI="init.mp4"
+		#EXTINF:2,
+		segment.mp4
+		#EXT-X-ENDLIST
+		`)))
+	})
+
+	router.GET("/init.mp4", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/mp4`)
+		mp4Init(t, ctx.Writer)
+	})
+
+	router.GET("/segment.mp4", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/mp4`)
+		mp4Segment(t, ctx.Writer)
+	})
+
+	s, err := newTestHLSServer(router, false)
+	require.NoError(t, err)
+	defer s.close()
+
+	packetRecv := make(chan struct{})
+
+	c, err := NewClient(
+		"http://localhost:5780/stream.m3u8",
+		"",
+		func(videoTrack *format.H264, audioTrack *format.MPEG4Audio) error {
+			require.Equal(t, &format.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+				SPS:               videoTrack.SPS,
+				PPS:               videoTrack.PPS,
+			}, videoTrack)
+			require.Equal(t, (*format.MPEG4Audio)(nil), audioTrack)
+			return nil
+		},
+		func(pts time.Duration, nalus [][]byte) {
+			require.Equal(t, 2*time.Second, pts)
+			require.Equal(t, [][]byte{
+				{7, 1, 2, 3},
+				{8},
+				{5},
+			}, nalus)
+			close(packetRecv)
+		},
+		func(pts time.Duration, au []byte) {
+		},
+		testLogger{},
+	)
+	require.NoError(t, err)
+
+	<-packetRecv
+
+	c.Close()
+	<-c.Wait()
 }
 
 func TestClientInvalidSequenceID(t *testing.T) {
