@@ -36,7 +36,7 @@ func findSegmentWithInvPosition(segments []*gm3u8.MediaSegment, pos int) *gm3u8.
 
 func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) (*gm3u8.MediaSegment, int) {
 	index := int(int64(id) - int64(seqNo))
-	if index >= len(segments) {
+	if index < 0 || index >= len(segments) {
 		return nil, 0
 	}
 

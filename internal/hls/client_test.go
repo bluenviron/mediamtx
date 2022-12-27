@@ -252,3 +252,76 @@ func TestClient(t *testing.T) {
 		})
 	}
 }
+
+func TestClientInvalidSequenceID(t *testing.T) {
+	router := gin.New()
+	firstPlaylist := true
+
+	router.GET("/stream.m3u8", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+
+		if firstPlaylist {
+			firstPlaylist = false
+			io.Copy(ctx.Writer, bytes.NewReader([]byte(
+				`#EXTM3U
+			#EXT-X-VERSION:3
+			#EXT-X-ALLOW-CACHE:NO
+			#EXT-X-TARGETDURATION:2
+			#EXT-X-MEDIA-SEQUENCE:2
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			`)))
+		} else {
+			io.Copy(ctx.Writer, bytes.NewReader([]byte(
+				`#EXTM3U
+			#EXT-X-VERSION:3
+			#EXT-X-ALLOW-CACHE:NO
+			#EXT-X-TARGETDURATION:2
+			#EXT-X-MEDIA-SEQUENCE:4
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			`)))
+		}
+	})
+
+	router.GET("/segment1.ts", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+		mpegtsSegment(ctx.Writer)
+	})
+
+	s, err := newTestHLSServer(router, false)
+	require.NoError(t, err)
+	defer s.close()
+
+	packetRecv := make(chan struct{})
+
+	c, err := NewClient(
+		"http://localhost:5780/stream.m3u8",
+		"",
+		func(*format.H264, *format.MPEG4Audio) error {
+			return nil
+		},
+		func(pts time.Duration, nalus [][]byte) {
+			close(packetRecv)
+		},
+		nil,
+		testLogger{},
+	)
+	require.NoError(t, err)
+
+	<-packetRecv
+
+	// c.Close()
+	err = <-c.Wait()
+	require.EqualError(t, err, "following segment not found or not ready yet")
+
+	c.Close()
+}
