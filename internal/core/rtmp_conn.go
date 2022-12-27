@@ -253,6 +253,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 	var videoFormat *format.H264
 	videoMedia := res.stream.medias().FindFormat(&videoFormat)
+	videoFirstIDRFound := false
+	var videoStartDTS time.Duration
 
 	var audioFormat *format.MPEG4Audio
 	audioMedia := res.stream.medias().FindFormat(&audioFormat)
@@ -271,15 +273,148 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	if videoMedia != nil {
 		medias = append(medias, videoMedia)
 
+		videoStartPTSFilled := false
+		var videoStartPTS time.Duration
+		var videoDTSExtractor *h264.DTSExtractor
+
 		res.stream.readerAdd(c, videoMedia, videoFormat, func(dat data) {
-			ringBuffer.Push(dat)
+			ringBuffer.Push(func() error {
+				tdata := dat.(*dataH264)
+
+				if tdata.nalus == nil {
+					return nil
+				}
+
+				if !videoStartPTSFilled {
+					videoStartPTSFilled = true
+					videoStartPTS = tdata.pts
+				}
+				pts := tdata.pts - videoStartPTS
+
+				idrPresent := false
+				nonIDRPresent := false
+
+				for _, nalu := range tdata.nalus {
+					typ := h264.NALUType(nalu[0] & 0x1F)
+					switch typ {
+					case h264.NALUTypeIDR:
+						idrPresent = true
+
+					case h264.NALUTypeNonIDR:
+						nonIDRPresent = true
+					}
+				}
+
+				var dts time.Duration
+
+				// wait until we receive an IDR
+				if !videoFirstIDRFound {
+					if !idrPresent {
+						return nil
+					}
+
+					videoFirstIDRFound = true
+					videoDTSExtractor = h264.NewDTSExtractor()
+
+					var err error
+					dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
+					if err != nil {
+						return err
+					}
+
+					videoStartDTS = dts
+					dts = 0
+					pts -= videoStartDTS
+				} else {
+					if !idrPresent && !nonIDRPresent {
+						return nil
+					}
+
+					var err error
+					dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
+					if err != nil {
+						return err
+					}
+
+					dts -= videoStartDTS
+					pts -= videoStartDTS
+				}
+
+				avcc, err := h264.AVCCMarshal(tdata.nalus)
+				if err != nil {
+					return err
+				}
+
+				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+				err = c.conn.WriteMessage(&message.MsgVideo{
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					IsKeyFrame:      idrPresent,
+					H264Type:        flvio.AVC_NALU,
+					Payload:         avcc,
+					DTS:             dts,
+					PTSDelta:        pts - dts,
+				})
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
 		})
 	}
+
 	if audioMedia != nil {
 		medias = append(medias, audioMedia)
 
+		audioStartPTSFilled := false
+		var audioStartPTS time.Duration
+
 		res.stream.readerAdd(c, audioMedia, audioFormat, func(dat data) {
-			ringBuffer.Push(dat)
+			ringBuffer.Push(func() error {
+				tdata := dat.(*dataMPEG4Audio)
+
+				if tdata.aus == nil {
+					return nil
+				}
+
+				if !audioStartPTSFilled {
+					audioStartPTSFilled = true
+					audioStartPTS = tdata.pts
+				}
+				pts := tdata.pts - audioStartPTS
+
+				if videoFormat != nil {
+					if !videoFirstIDRFound {
+						return nil
+					}
+
+					pts -= videoStartDTS
+					if pts < 0 {
+						return nil
+					}
+				}
+
+				for i, au := range tdata.aus {
+					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err := c.conn.WriteMessage(&message.MsgAudio{
+						ChunkStreamID:   message.MsgAudioChunkStreamID,
+						MessageStreamID: 0x1000000,
+						Rate:            flvio.SOUND_44Khz,
+						Depth:           flvio.SOUND_16BIT,
+						Channels:        flvio.SOUND_STEREO,
+						AACType:         flvio.AAC_RAW,
+						Payload:         au,
+						DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+							time.Second/time.Duration(audioFormat.ClockRate()),
+					})
+					if err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
 		})
 	}
 
@@ -312,141 +447,15 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
-	videoStartPTSFilled := false
-	var videoStartPTS time.Duration
-	audioStartPTSFilled := false
-	var audioStartPTS time.Duration
-
-	videoFirstIDRFound := false
-	var videoStartDTS time.Duration
-	var videoDTSExtractor *h264.DTSExtractor
-
 	for {
 		item, ok := ringBuffer.Pull()
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
-		data := item.(data)
 
-		switch tdata := data.(type) {
-		case *dataH264:
-			if tdata.nalus == nil {
-				continue
-			}
-
-			if !videoStartPTSFilled {
-				videoStartPTSFilled = true
-				videoStartPTS = tdata.pts
-			}
-			pts := tdata.pts - videoStartPTS
-
-			idrPresent := false
-			nonIDRPresent := false
-
-			for _, nalu := range tdata.nalus {
-				typ := h264.NALUType(nalu[0] & 0x1F)
-				switch typ {
-				case h264.NALUTypeIDR:
-					idrPresent = true
-
-				case h264.NALUTypeNonIDR:
-					nonIDRPresent = true
-				}
-			}
-
-			var dts time.Duration
-
-			// wait until we receive an IDR
-			if !videoFirstIDRFound {
-				if !idrPresent {
-					continue
-				}
-
-				videoFirstIDRFound = true
-				videoDTSExtractor = h264.NewDTSExtractor()
-
-				var err error
-				dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
-				if err != nil {
-					return err
-				}
-
-				videoStartDTS = dts
-				dts = 0
-				pts -= videoStartDTS
-			} else {
-				if !idrPresent && !nonIDRPresent {
-					continue
-				}
-
-				var err error
-				dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
-				if err != nil {
-					return err
-				}
-
-				dts -= videoStartDTS
-				pts -= videoStartDTS
-			}
-
-			avcc, err := h264.AVCCMarshal(tdata.nalus)
-			if err != nil {
-				return err
-			}
-
-			c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-			err = c.conn.WriteMessage(&message.MsgVideo{
-				ChunkStreamID:   message.MsgVideoChunkStreamID,
-				MessageStreamID: 0x1000000,
-				IsKeyFrame:      idrPresent,
-				H264Type:        flvio.AVC_NALU,
-				Payload:         avcc,
-				DTS:             dts,
-				PTSDelta:        pts - dts,
-			})
-			if err != nil {
-				return err
-			}
-
-		case *dataMPEG4Audio:
-			if tdata.aus == nil {
-				continue
-			}
-
-			if !audioStartPTSFilled {
-				audioStartPTSFilled = true
-				audioStartPTS = tdata.pts
-			}
-			pts := tdata.pts - audioStartPTS
-
-			if videoFormat != nil {
-				if !videoFirstIDRFound {
-					continue
-				}
-
-				pts -= videoStartDTS
-				if pts < 0 {
-					continue
-				}
-			}
-
-			for i, au := range tdata.aus {
-				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-				err := c.conn.WriteMessage(&message.MsgAudio{
-					ChunkStreamID:   message.MsgAudioChunkStreamID,
-					MessageStreamID: 0x1000000,
-					Rate:            flvio.SOUND_44Khz,
-					Depth:           flvio.SOUND_16BIT,
-					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_RAW,
-					Payload:         au,
-					DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-						time.Second/time.Duration(audioFormat.ClockRate()),
-				})
-				if err != nil {
-					return err
-				}
-			}
+		err := item.(func() error)()
+		if err != nil {
+			return err
 		}
 	}
 }
