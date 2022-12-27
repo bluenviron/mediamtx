@@ -36,7 +36,7 @@ func findSegmentWithInvPosition(segments []*gm3u8.MediaSegment, pos int) *gm3u8.
 
 func findSegmentWithID(seqNo uint64, segments []*gm3u8.MediaSegment, id uint64) (*gm3u8.MediaSegment, int) {
 	index := int(int64(id) - int64(seqNo))
-	if (index) >= len(segments) {
+	if index >= len(segments) {
 		return nil, 0
 	}
 
@@ -139,13 +139,23 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 		d.rp.add(proc)
 	}
 
+	err := d.fillSegmentQueue(ctx, initialPlaylist, segmentQueue)
+	if err != nil {
+		return err
+	}
+
 	for {
 		ok := segmentQueue.waitUntilSizeIsBelow(ctx, 1)
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
 
-		err := d.fillSegmentQueue(ctx, segmentQueue)
+		pl, err := d.downloadPlaylist(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = d.fillSegmentQueue(ctx, pl, segmentQueue)
 		if err != nil {
 			return err
 		}
@@ -204,12 +214,9 @@ func (d *clientDownloaderStream) downloadSegment(ctx context.Context,
 	return byts, nil
 }
 
-func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context, segmentQueue *clientSegmentQueue) error {
-	pl, err := d.downloadPlaylist(ctx)
-	if err != nil {
-		return err
-	}
-
+func (d *clientDownloaderStream) fillSegmentQueue(ctx context.Context,
+	pl *m3u8.MediaPlaylist, segmentQueue *clientSegmentQueue,
+) error {
 	pl.Segments = pl.Segments[:segmentsLen(pl.Segments)]
 	var seg *gm3u8.MediaSegment
 
