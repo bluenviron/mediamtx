@@ -526,6 +526,32 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	// disable write deadline to allow outgoing acknowledges
 	c.nconn.SetWriteDeadline(time.Time{})
 
+	var onVideoData func(time.Duration, [][]byte)
+
+	if _, ok := videoFormat.(*format.H264); ok {
+		onVideoData = func(pts time.Duration, nalus [][]byte) {
+			err = rres.stream.writeData(videoMedia, videoFormat, &dataH264{
+				pts:   pts,
+				nalus: nalus,
+				ntp:   time.Now(),
+			})
+			if err != nil {
+				c.log(logger.Warn, "%v", err)
+			}
+		}
+	} else {
+		onVideoData = func(pts time.Duration, nalus [][]byte) {
+			err = rres.stream.writeData(videoMedia, videoFormat, &dataH265{
+				pts:   pts,
+				nalus: nalus,
+				ntp:   time.Now(),
+			})
+			if err != nil {
+				c.log(logger.Warn, "%v", err)
+			}
+		}
+	}
+
 	for {
 		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 		msg, err := c.conn.ReadMessage()
@@ -557,7 +583,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 				}
 			} else if tmsg.H264Type == flvio.AVC_NALU {
 				if videoFormat == nil {
-					return fmt.Errorf("received an H264 packet, but track is not set up")
+					return fmt.Errorf("received a video packet, but track is not set up")
 				}
 
 				nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
@@ -585,20 +611,13 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					}
 				}
 
-				err = rres.stream.writeData(videoMedia, videoFormat, &dataH264{
-					pts:   tmsg.DTS + tmsg.PTSDelta,
-					nalus: validNALUs,
-					ntp:   time.Now(),
-				})
-				if err != nil {
-					c.log(logger.Warn, "%v", err)
-				}
+				onVideoData(tmsg.DTS+tmsg.PTSDelta, validNALUs)
 			}
 
 		case *message.MsgAudio:
 			if tmsg.AACType == flvio.AAC_RAW {
 				if audioFormat == nil {
-					return fmt.Errorf("received an AAC packet, but track is not set up")
+					return fmt.Errorf("received an audio packet, but track is not set up")
 				}
 
 				err := rres.stream.writeData(audioMedia, audioFormat, &dataMPEG4Audio{

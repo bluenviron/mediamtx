@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
@@ -471,13 +472,118 @@ func TestReadTracks(t *testing.T) {
 		0x68, 0xee, 0x3c, 0x80,
 	}
 
-	for _, ca := range []string{
-		"video+audio",
-		"video",
-		"metadata without codec id",
-		"missing metadata",
+	for _, ca := range []struct {
+		name       string
+		videoTrack format.Format
+		audioTrack format.Format
+	}{
+		{
+			"video+audio",
+			&format.H264{
+				PayloadTyp:        96,
+				SPS:               sps,
+				PPS:               pps,
+				PacketizationMode: 1,
+			},
+			&format.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
+		},
+		{
+			"video",
+			&format.H264{
+				PayloadTyp:        96,
+				SPS:               sps,
+				PPS:               pps,
+				PacketizationMode: 1,
+			},
+			(*format.MPEG4Audio)(nil),
+		},
+		{
+			"metadata without codec id",
+			&format.H264{
+				PayloadTyp:        96,
+				SPS:               sps,
+				PPS:               pps,
+				PacketizationMode: 1,
+			},
+			&format.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
+		},
+		{
+			"missing metadata",
+			&format.H264{
+				PayloadTyp:        96,
+				SPS:               sps,
+				PPS:               pps,
+				PacketizationMode: 1,
+			},
+			&format.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
+		},
+		{
+			"obs studio h265",
+			&format.H265{
+				PayloadTyp: 96,
+				VPS: []byte{
+					0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x01, 0x40,
+					0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00,
+					0x03, 0x00, 0x00, 0x03, 0x00, 0x7b, 0xac, 0x09,
+				},
+				SPS: []byte{
+					0x42, 0x01, 0x01, 0x01, 0x40, 0x00, 0x00, 0x03,
+					0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00,
+					0x03, 0x00, 0x7b, 0xa0, 0x03, 0xc0, 0x80, 0x11,
+					0x07, 0xcb, 0x96, 0xb4, 0xa4, 0x25, 0x92, 0xe3,
+					0x01, 0x6a, 0x02, 0x02, 0x02, 0x08, 0x00, 0x00,
+					0x03, 0x00, 0x08, 0x00, 0x00, 0x03, 0x01, 0xe3,
+					0x00, 0x2e, 0xf2, 0x88, 0x00, 0x09, 0x89, 0x60,
+					0x00, 0x04, 0xc4, 0xb4, 0x20,
+				},
+				PPS: []byte{
+					0x44, 0x01, 0xc0, 0xf7, 0xc0, 0xcc, 0x90,
+				},
+			},
+			&format.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
+		},
 	} {
-		t.Run(ca, func(t *testing.T) {
+		t.Run(ca.name, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
 			require.NoError(t, err)
 			defer ln.Close()
@@ -495,79 +601,8 @@ func TestReadTracks(t *testing.T) {
 
 				videoTrack, audioTrack, err := rconn.ReadTracks()
 				require.NoError(t, err)
-
-				switch ca {
-				case "video+audio":
-					require.Equal(t, &format.H264{
-						PayloadTyp:        96,
-						SPS:               sps,
-						PPS:               pps,
-						PacketizationMode: 1,
-					}, videoTrack)
-
-					require.Equal(t, &format.MPEG4Audio{
-						PayloadTyp: 96,
-						Config: &mpeg4audio.Config{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
-						},
-						SizeLength:       13,
-						IndexLength:      3,
-						IndexDeltaLength: 3,
-					}, audioTrack)
-
-				case "video":
-					require.Equal(t, &format.H264{
-						PayloadTyp:        96,
-						SPS:               sps,
-						PPS:               pps,
-						PacketizationMode: 1,
-					}, videoTrack)
-
-					require.Nil(t, audioTrack)
-
-				case "metadata without codec id":
-					require.Equal(t, &format.H264{
-						PayloadTyp:        96,
-						SPS:               sps,
-						PPS:               pps,
-						PacketizationMode: 1,
-					}, videoTrack)
-
-					require.Equal(t, &format.MPEG4Audio{
-						PayloadTyp: 96,
-						Config: &mpeg4audio.Config{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
-						},
-						SizeLength:       13,
-						IndexLength:      3,
-						IndexDeltaLength: 3,
-					}, audioTrack)
-
-				case "missing metadata":
-					require.Equal(t, &format.H264{
-						PayloadTyp:        96,
-						SPS:               sps,
-						PPS:               pps,
-						PacketizationMode: 1,
-					}, videoTrack)
-
-					require.Equal(t, &format.MPEG4Audio{
-						PayloadTyp: 96,
-						Config: &mpeg4audio.Config{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
-						},
-						SizeLength:       13,
-						IndexLength:      3,
-						IndexDeltaLength: 3,
-					}, audioTrack)
-				}
-
+				require.Equal(t, ca.videoTrack, videoTrack)
+				require.Equal(t, ca.audioTrack, audioTrack)
 				close(done)
 			}()
 
@@ -718,9 +753,8 @@ func TestReadTracks(t *testing.T) {
 				},
 			}, msg)
 
-			switch ca {
+			switch ca.name {
 			case "video+audio":
-
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -780,7 +814,6 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 			case "video":
-
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -823,7 +856,6 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 			case "metadata without codec id":
-
 				err = mrw.Write(&message.MsgDataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -879,7 +911,6 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 
 			case "missing metadata":
-
 				buf, _ := h264conf.Conf{
 					SPS: sps,
 					PPS: pps,
@@ -890,6 +921,84 @@ func TestReadTracks(t *testing.T) {
 					IsKeyFrame:      true,
 					H264Type:        flvio.AVC_SEQHDR,
 					Payload:         buf,
+				})
+				require.NoError(t, err)
+
+				enc, err := mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				}.Marshal()
+				require.NoError(t, err)
+				err = mrw.Write(&message.MsgAudio{
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         flvio.AAC_SEQHDR,
+					Payload:         enc,
+				})
+				require.NoError(t, err)
+
+			case "obs studio h265":
+				err = mrw.Write(&message.MsgDataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{
+								K: "videodatarate",
+								V: float64(0),
+							},
+							{
+								K: "videocodecid",
+								V: float64(codecH264),
+							},
+							{
+								K: "audiodatarate",
+								V: float64(0),
+							},
+							{
+								K: "audiocodecid",
+								V: float64(codecAAC),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				avcc, err := h264.AVCCMarshal([][]byte{
+					{ // VPS
+						0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x01, 0x40,
+						0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00,
+						0x03, 0x00, 0x00, 0x03, 0x00, 0x7b, 0xac, 0x09,
+					},
+					{ // SPS
+						0x42, 0x01, 0x01, 0x01, 0x40, 0x00, 0x00, 0x03,
+						0x00, 0x00, 0x03, 0x00, 0x00, 0x03, 0x00, 0x00,
+						0x03, 0x00, 0x7b, 0xa0, 0x03, 0xc0, 0x80, 0x11,
+						0x07, 0xcb, 0x96, 0xb4, 0xa4, 0x25, 0x92, 0xe3,
+						0x01, 0x6a, 0x02, 0x02, 0x02, 0x08, 0x00, 0x00,
+						0x03, 0x00, 0x08, 0x00, 0x00, 0x03, 0x01, 0xe3,
+						0x00, 0x2e, 0xf2, 0x88, 0x00, 0x09, 0x89, 0x60,
+						0x00, 0x04, 0xc4, 0xb4, 0x20,
+					},
+					{
+						// PPS
+						0x44, 0x01, 0xc0, 0xf7, 0xc0, 0xcc, 0x90,
+					},
+				})
+				require.NoError(t, err)
+
+				err = mrw.Write(&message.MsgVideo{
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					IsKeyFrame:      true,
+					H264Type:        1,
+					Payload:         avcc,
 				})
 				require.NoError(t, err)
 
