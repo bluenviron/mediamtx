@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/h265"
 	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -613,7 +615,7 @@ func trackFromAACDecoderConfig(data []byte) (*format.MPEG4Audio, error) {
 
 var errEmptyMetadata = errors.New("metadata is empty")
 
-func (c *Conn) readTracksFromMetadata(payload []interface{}) (*format.H264, *format.MPEG4Audio, error) {
+func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *format.MPEG4Audio, error) {
 	if len(payload) != 1 {
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
@@ -683,7 +685,7 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (*format.H264, *for
 		return nil, nil, errEmptyMetadata
 	}
 
-	var videoTrack *format.H264
+	var videoTrack format.Format
 	var audioTrack *format.MPEG4Audio
 
 	for {
@@ -694,34 +696,63 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (*format.H264, *for
 
 		switch tmsg := msg.(type) {
 		case *message.MsgVideo:
-			if tmsg.H264Type == flvio.AVC_SEQHDR {
-				if !hasVideo {
-					return nil, nil, fmt.Errorf("unexpected video packet")
-				}
+			if !hasVideo {
+				return nil, nil, fmt.Errorf("unexpected video packet")
+			}
 
-				if videoTrack != nil {
-					return nil, nil, fmt.Errorf("video track setupped twice")
-				}
+			if videoTrack == nil {
+				if tmsg.H264Type == flvio.AVC_SEQHDR {
+					videoTrack, err = trackFromH264DecoderConfig(tmsg.Payload)
+					if err != nil {
+						return nil, nil, err
+					}
+				} else if tmsg.H264Type == 1 && tmsg.IsKeyFrame {
+					nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
+					if err != nil {
+						return nil, nil, err
+					}
 
-				videoTrack, err = trackFromH264DecoderConfig(tmsg.Payload)
-				if err != nil {
-					return nil, nil, err
+					var h265VPS []byte
+					var h265SPS []byte
+					var h265PPS []byte
+
+					for _, nalu := range nalus {
+						typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
+
+						switch typ {
+						case h265.NALUTypeVPS:
+							h265VPS = append([]byte(nil), nalu...)
+
+						case h265.NALUTypeSPS:
+							h265SPS = append([]byte(nil), nalu...)
+
+						case h265.NALUTypePPS:
+							h265PPS = append([]byte(nil), nalu...)
+						}
+					}
+
+					if h265VPS != nil && h265SPS != nil && h265PPS != nil {
+						videoTrack = &format.H265{
+							PayloadTyp: 96,
+							VPS:        h265VPS,
+							SPS:        h265SPS,
+							PPS:        h265PPS,
+						}
+					}
 				}
 			}
 
 		case *message.MsgAudio:
-			if tmsg.AACType == flvio.AVC_SEQHDR {
-				if !hasAudio {
-					return nil, nil, fmt.Errorf("unexpected audio packet")
-				}
+			if !hasAudio {
+				return nil, nil, fmt.Errorf("unexpected audio packet")
+			}
 
-				if audioTrack != nil {
-					return nil, nil, fmt.Errorf("audio track setupped twice")
-				}
-
-				audioTrack, err = trackFromAACDecoderConfig(tmsg.Payload)
-				if err != nil {
-					return nil, nil, err
+			if audioTrack == nil {
+				if tmsg.AACType == flvio.AVC_SEQHDR {
+					audioTrack, err = trackFromAACDecoderConfig(tmsg.Payload)
+					if err != nil {
+						return nil, nil, err
+					}
 				}
 			}
 		}
@@ -808,7 +839,8 @@ outer:
 }
 
 // ReadTracks reads track informations.
-func (c *Conn) ReadTracks() (*format.H264, *format.MPEG4Audio, error) {
+// It returns the video track and the audio track.
+func (c *Conn) ReadTracks() (format.Format, *format.MPEG4Audio, error) {
 	msg, err := func() (message.Message, error) {
 		for {
 			msg, err := c.ReadMessage()

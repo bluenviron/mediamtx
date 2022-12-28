@@ -58,6 +58,10 @@ func FindTracks(byts []byte) ([]*Track, error) {
 				switch es.StreamType {
 				case astits.StreamTypeH264Video,
 					astits.StreamTypeAACAudio:
+
+				case astits.StreamTypeMetadata:
+					continue
+
 				default:
 					return nil, fmt.Errorf("track type %d not supported (yet)", es.StreamType)
 				}

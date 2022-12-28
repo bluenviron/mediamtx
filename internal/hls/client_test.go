@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
+	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -93,82 +94,107 @@ func writeTempFile(byts []byte) (string, error) {
 	return tmpf.Name(), nil
 }
 
+func mpegtsSegment(w io.Writer) {
+	mux := astits.NewMuxer(context.Background(), w)
+	mux.AddElementaryStream(astits.PMTElementaryStream{
+		ElementaryPID: 256,
+		StreamType:    astits.StreamTypeH264Video,
+	})
+	mux.SetPCRPID(256)
+	mux.WriteTables()
+
+	enc, _ := h264.AnnexBMarshal([][]byte{
+		{7, 1, 2, 3}, // SPS
+		{8},          // PPS
+		{5},          // IDR
+	})
+
+	mux.WriteData(&astits.MuxerData{
+		PID: 256,
+		PES: &astits.PESData{
+			Header: &astits.PESHeader{
+				OptionalHeader: &astits.PESOptionalHeader{
+					MarkerBits:      2,
+					PTSDTSIndicator: astits.PTSDTSIndicatorBothPresent,
+					PTS:             &astits.ClockReference{Base: 90000},                   // +1 sec
+					DTS:             &astits.ClockReference{Base: 0x1FFFFFFFF - 90000 + 1}, // -1 sec
+				},
+				StreamID: 224, // = video
+			},
+			Data: enc,
+		},
+	})
+}
+
+func mp4Init(t *testing.T, w io.Writer) {
+	i := &fmp4.Init{
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Format: &format.H264{
+					SPS: []byte{
+						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
+						0x20,
+					},
+					PPS: []byte{0x01, 0x02, 0x03, 0x04},
+				},
+			},
+		},
+	}
+
+	byts, err := i.Marshal()
+	require.NoError(t, err)
+
+	_, err = w.Write(byts)
+	require.NoError(t, err)
+}
+
+func mp4Segment(t *testing.T, w io.Writer) {
+	payload, _ := h264.AVCCMarshal([][]byte{
+		{7, 1, 2, 3}, // SPS
+		{8},          // PPS
+		{5},          // IDR
+	})
+
+	p := &fmp4.Part{
+		Tracks: []*fmp4.PartTrack{
+			{
+				ID:      1,
+				IsVideo: true,
+				Samples: []*fmp4.PartSample{{
+					Duration:  90000 / 30,
+					PTSOffset: 90000 * 2,
+					Payload:   payload,
+				}},
+			},
+		},
+	}
+
+	byts, err := p.Marshal()
+	require.NoError(t, err)
+
+	_, err = w.Write(byts)
+	require.NoError(t, err)
+}
+
 type testHLSServer struct {
 	s *http.Server
 }
 
-func newTestHLSServer(ca string) (*testHLSServer, error) {
+func newTestHLSServer(router http.Handler, isTLS bool) (*testHLSServer, error) {
 	ln, err := net.Listen("tcp", "localhost:5780")
 	if err != nil {
 		return nil, err
 	}
 
-	ts := &testHLSServer{}
-
-	gin.SetMode(gin.ReleaseMode)
-	router := gin.New()
-
-	segment := "segment.ts"
-	if ca == "segment with query" {
-		segment = "segment.ts?key=val"
+	s := &testHLSServer{
+		s: &http.Server{Handler: router},
 	}
 
-	router.GET("/stream.m3u8", func(ctx *gin.Context) {
-		cnt := `#EXTM3U
-#EXT-X-VERSION:3
-#EXT-X-ALLOW-CACHE:NO
-#EXT-X-TARGETDURATION:2
-#EXT-X-MEDIA-SEQUENCE:0
-#EXTINF:2,
-` + segment + `
-#EXT-X-ENDLIST
-`
-
-		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
-		io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
-	})
-
-	router.GET("/segment.ts", func(ctx *gin.Context) {
-		if ca == "segment with query" && ctx.Query("key") != "val" {
-			return
-		}
-
-		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
-
-		mux := astits.NewMuxer(context.Background(), ctx.Writer)
-		mux.AddElementaryStream(astits.PMTElementaryStream{
-			ElementaryPID: 256,
-			StreamType:    astits.StreamTypeH264Video,
-		})
-		mux.SetPCRPID(256)
-		mux.WriteTables()
-
-		enc, _ := h264.AnnexBMarshal([][]byte{
-			{7, 1, 2, 3}, // SPS
-			{8},          // PPS
-			{5},          // IDR
-		})
-
-		mux.WriteData(&astits.MuxerData{
-			PID: 256,
-			PES: &astits.PESData{
-				Header: &astits.PESHeader{
-					OptionalHeader: &astits.PESOptionalHeader{
-						MarkerBits:      2,
-						PTSDTSIndicator: astits.PTSDTSIndicatorBothPresent,
-						PTS:             &astits.ClockReference{Base: 90000},                   // +1 sec
-						DTS:             &astits.ClockReference{Base: 0x1FFFFFFFF - 90000 + 1}, // -1 sec
-					},
-					StreamID: 224, // = video
-				},
-				Data: enc,
-			},
-		})
-	})
-
-	ts.s = &http.Server{Handler: router}
-
-	if ca == "tls" {
+	if isTLS {
 		go func() {
 			serverCertFpath, err := writeTempFile(serverCert)
 			if err != nil {
@@ -182,29 +208,64 @@ func newTestHLSServer(ca string) (*testHLSServer, error) {
 			}
 			defer os.Remove(serverKeyFpath)
 
-			ts.s.ServeTLS(ln, serverCertFpath, serverKeyFpath)
+			s.s.ServeTLS(ln, serverCertFpath, serverKeyFpath)
 		}()
 	} else {
-		go ts.s.Serve(ln)
+		go s.s.Serve(ln)
 	}
 
-	return ts, nil
+	return s, nil
 }
 
-func (ts *testHLSServer) close() {
-	ts.s.Shutdown(context.Background())
+func (s *testHLSServer) close() {
+	s.s.Shutdown(context.Background())
 }
 
-func TestClient(t *testing.T) {
+func TestClientMPEGTS(t *testing.T) {
 	for _, ca := range []string{
 		"plain",
 		"tls",
 		"segment with query",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			ts, err := newTestHLSServer(ca)
+			gin.SetMode(gin.ReleaseMode)
+			router := gin.New()
+
+			segment := "segment.ts"
+			if ca == "segment with query" {
+				segment = "segment.ts?key=val"
+			}
+			sent := false
+
+			router.GET("/stream.m3u8", func(ctx *gin.Context) {
+				if sent {
+					return
+				}
+				sent = true
+
+				ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+				io.Copy(ctx.Writer, bytes.NewReader([]byte(`#EXTM3U
+				#EXT-X-VERSION:3
+				#EXT-X-ALLOW-CACHE:NO
+				#EXT-X-TARGETDURATION:2
+				#EXT-X-MEDIA-SEQUENCE:0
+				#EXTINF:2,
+				`+segment+`
+				#EXT-X-ENDLIST
+				`)))
+			})
+
+			router.GET("/segment.ts", func(ctx *gin.Context) {
+				if ca == "segment with query" {
+					require.Equal(t, "val", ctx.Query("key"))
+				}
+				ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+				mpegtsSegment(ctx.Writer)
+			})
+
+			s, err := newTestHLSServer(router, ca == "tls")
 			require.NoError(t, err)
-			defer ts.close()
+			defer s.close()
 
 			packetRecv := make(chan struct{})
 
@@ -216,7 +277,12 @@ func TestClient(t *testing.T) {
 			c, err := NewClient(
 				prefix+"://localhost:5780/stream.m3u8",
 				"33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
-				func(*format.H264, *format.MPEG4Audio) error {
+				func(videoTrack *format.H264, audioTrack *format.MPEG4Audio) error {
+					require.Equal(t, &format.H264{
+						PayloadTyp:        96,
+						PacketizationMode: 1,
+					}, videoTrack)
+					require.Equal(t, (*format.MPEG4Audio)(nil), audioTrack)
 					return nil
 				},
 				func(pts time.Duration, nalus [][]byte) {
@@ -237,7 +303,147 @@ func TestClient(t *testing.T) {
 			<-packetRecv
 
 			c.Close()
-			c.Wait()
+			<-c.Wait()
 		})
 	}
+}
+
+func TestClientFMP4(t *testing.T) {
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
+
+	router.GET("/stream.m3u8", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+		io.Copy(ctx.Writer, bytes.NewReader([]byte(`#EXTM3U
+		#EXT-X-VERSION:7
+		#EXT-X-MEDIA-SEQUENCE:20
+		#EXT-X-INDEPENDENT-SEGMENTS
+		#EXT-X-MAP:URI="init.mp4"
+		#EXTINF:2,
+		segment.mp4
+		#EXT-X-ENDLIST
+		`)))
+	})
+
+	router.GET("/init.mp4", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/mp4`)
+		mp4Init(t, ctx.Writer)
+	})
+
+	router.GET("/segment.mp4", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/mp4`)
+		mp4Segment(t, ctx.Writer)
+	})
+
+	s, err := newTestHLSServer(router, false)
+	require.NoError(t, err)
+	defer s.close()
+
+	packetRecv := make(chan struct{})
+
+	c, err := NewClient(
+		"http://localhost:5780/stream.m3u8",
+		"",
+		func(videoTrack *format.H264, audioTrack *format.MPEG4Audio) error {
+			require.Equal(t, &format.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+				SPS:               videoTrack.SPS,
+				PPS:               videoTrack.PPS,
+			}, videoTrack)
+			require.Equal(t, (*format.MPEG4Audio)(nil), audioTrack)
+			return nil
+		},
+		func(pts time.Duration, nalus [][]byte) {
+			require.Equal(t, 2*time.Second, pts)
+			require.Equal(t, [][]byte{
+				{7, 1, 2, 3},
+				{8},
+				{5},
+			}, nalus)
+			close(packetRecv)
+		},
+		func(pts time.Duration, au []byte) {
+		},
+		testLogger{},
+	)
+	require.NoError(t, err)
+
+	<-packetRecv
+
+	c.Close()
+	<-c.Wait()
+}
+
+func TestClientInvalidSequenceID(t *testing.T) {
+	router := gin.New()
+	firstPlaylist := true
+
+	router.GET("/stream.m3u8", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+
+		if firstPlaylist {
+			firstPlaylist = false
+			io.Copy(ctx.Writer, bytes.NewReader([]byte(
+				`#EXTM3U
+			#EXT-X-VERSION:3
+			#EXT-X-ALLOW-CACHE:NO
+			#EXT-X-TARGETDURATION:2
+			#EXT-X-MEDIA-SEQUENCE:2
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			`)))
+		} else {
+			io.Copy(ctx.Writer, bytes.NewReader([]byte(
+				`#EXTM3U
+			#EXT-X-VERSION:3
+			#EXT-X-ALLOW-CACHE:NO
+			#EXT-X-TARGETDURATION:2
+			#EXT-X-MEDIA-SEQUENCE:4
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			#EXTINF:2,
+			segment1.ts
+			`)))
+		}
+	})
+
+	router.GET("/segment1.ts", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+		mpegtsSegment(ctx.Writer)
+	})
+
+	s, err := newTestHLSServer(router, false)
+	require.NoError(t, err)
+	defer s.close()
+
+	packetRecv := make(chan struct{})
+
+	c, err := NewClient(
+		"http://localhost:5780/stream.m3u8",
+		"",
+		func(*format.H264, *format.MPEG4Audio) error {
+			return nil
+		},
+		func(pts time.Duration, nalus [][]byte) {
+			close(packetRecv)
+		},
+		nil,
+		testLogger{},
+	)
+	require.NoError(t, err)
+
+	<-packetRecv
+
+	// c.Close()
+	err = <-c.Wait()
+	require.EqualError(t, err, "following segment not found or not ready yet")
+
+	c.Close()
 }

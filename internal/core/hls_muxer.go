@@ -277,15 +277,66 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	if videoMedia != nil {
 		medias = append(medias, videoMedia)
 
+		videoStartPTSFilled := false
+		var videoStartPTS time.Duration
+
 		res.stream.readerAdd(m, videoMedia, videoFormat, func(dat data) {
-			m.ringBuffer.Push(dat)
+			m.ringBuffer.Push(func() error {
+				tdata := dat.(*dataH264)
+
+				if tdata.nalus == nil {
+					return nil
+				}
+
+				if !videoStartPTSFilled {
+					videoStartPTSFilled = true
+					videoStartPTS = tdata.pts
+				}
+				pts := tdata.pts - videoStartPTS
+
+				err := m.muxer.WriteH264(tdata.ntp, pts, tdata.nalus)
+				if err != nil {
+					return fmt.Errorf("muxer error: %v", err)
+				}
+
+				return nil
+			})
 		})
 	}
+
 	if audioMedia != nil {
 		medias = append(medias, audioMedia)
 
+		audioStartPTSFilled := false
+		var audioStartPTS time.Duration
+
 		res.stream.readerAdd(m, audioMedia, audioFormat, func(dat data) {
-			m.ringBuffer.Push(dat)
+			m.ringBuffer.Push(func() error {
+				tdata := dat.(*dataMPEG4Audio)
+
+				if tdata.aus == nil {
+					return nil
+				}
+
+				if !audioStartPTSFilled {
+					audioStartPTSFilled = true
+					audioStartPTS = tdata.pts
+				}
+				pts := tdata.pts - audioStartPTS
+
+				for i, au := range tdata.aus {
+					err := m.muxer.WriteAAC(
+						tdata.ntp,
+						pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+							time.Second/time.Duration(audioFormat.ClockRate()),
+						au)
+					if err != nil {
+						return fmt.Errorf("muxer error: %v", err)
+					}
+				}
+
+				return nil
+			})
 		})
 	}
 
@@ -296,12 +347,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	writerDone := make(chan error)
 	go func() {
-		writerDone <- m.runWriter(
-			videoMedia,
-			videoFormat,
-			audioMedia,
-			audioFormat,
-		)
+		writerDone <- m.runWriter()
 	}()
 
 	closeCheckTicker := time.NewTicker(closeCheckPeriod)
@@ -328,62 +374,16 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 }
 
-func (m *hlsMuxer) runWriter(
-	videoMedia *media.Media,
-	videoFormat *format.H264,
-	audioMedia *media.Media,
-	audioFormat *format.MPEG4Audio,
-) error {
-	videoStartPTSFilled := false
-	var videoStartPTS time.Duration
-	audioStartPTSFilled := false
-	var audioStartPTS time.Duration
-
+func (m *hlsMuxer) runWriter() error {
 	for {
 		item, ok := m.ringBuffer.Pull()
 		if !ok {
 			return fmt.Errorf("terminated")
 		}
-		data := item.(data)
 
-		switch tdata := data.(type) {
-		case *dataH264:
-			if tdata.nalus == nil {
-				continue
-			}
-
-			if !videoStartPTSFilled {
-				videoStartPTSFilled = true
-				videoStartPTS = tdata.pts
-			}
-			pts := tdata.pts - videoStartPTS
-
-			err := m.muxer.WriteH264(tdata.ntp, pts, tdata.nalus)
-			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
-			}
-
-		case *dataMPEG4Audio:
-			if tdata.aus == nil {
-				continue
-			}
-
-			if !audioStartPTSFilled {
-				audioStartPTSFilled = true
-				audioStartPTS = tdata.pts
-			}
-			pts := tdata.pts - audioStartPTS
-
-			for i, au := range tdata.aus {
-				err := m.muxer.WriteAAC(
-					tdata.ntp,
-					pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-						time.Second/time.Duration(audioFormat.ClockRate()),
-					au)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-			}
+		err := item.(func() error)()
+		if err != nil {
+			return err
 		}
 	}
 }
