@@ -12,9 +12,9 @@ import (
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/auth"
 	"github.com/aler9/gortsplib/v2/pkg/base"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h265"
 	"github.com/aler9/gortsplib/v2/pkg/conn"
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/h265"
 	"github.com/aler9/gortsplib/v2/pkg/headers"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/url"
@@ -385,42 +385,42 @@ func TestRTSPSourceDynamicH264Params(t *testing.T) {
 
 		enc := forma.CreateEncoder()
 
-		pkts, err := enc.Encode([][]byte{{byte(h265.NALUTypeVPS) << 1, 1, 2, 3}}, 0)
+		pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
 		require.NoError(t, err)
 		stream.WritePacketRTP(medi, pkts[0])
 
-		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypeSPS) << 1, 4, 5, 6}}, 0)
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}}, 0)
 		require.NoError(t, err)
 		stream.WritePacketRTP(medi, pkts[0])
 
-		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypePPS) << 1, 7, 8, 9}}, 0)
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}}, 0)
 		require.NoError(t, err)
 		stream.WritePacketRTP(medi, pkts[0])
 
 		checkTrack(t, &format.H265{
 			PayloadTyp: 96,
-			VPS:        []byte{byte(h265.NALUTypeVPS) << 1, 1, 2, 3},
-			SPS:        []byte{byte(h265.NALUTypeSPS) << 1, 4, 5, 6},
-			PPS:        []byte{byte(h265.NALUTypePPS) << 1, 7, 8, 9},
+			VPS:        []byte{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3},
+			SPS:        []byte{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6},
+			PPS:        []byte{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9},
 		})
 
-		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypeVPS) << 1, 10, 11, 12}}, 0)
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 10, 11, 12}}, 0)
 		require.NoError(t, err)
 		stream.WritePacketRTP(medi, pkts[0])
 
-		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypeSPS) << 1, 13, 14, 15}}, 0)
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 13, 14, 15}}, 0)
 		require.NoError(t, err)
 		stream.WritePacketRTP(medi, pkts[0])
 
-		pkts, err = enc.Encode([][]byte{{byte(h265.NALUTypePPS) << 1, 16, 17, 18}}, 0)
+		pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 16, 17, 18}}, 0)
 		require.NoError(t, err)
 		stream.WritePacketRTP(medi, pkts[0])
 
 		checkTrack(t, &format.H265{
 			PayloadTyp: 96,
-			VPS:        []byte{byte(h265.NALUTypeVPS) << 1, 10, 11, 12},
-			SPS:        []byte{byte(h265.NALUTypeSPS) << 1, 13, 14, 15},
-			PPS:        []byte{byte(h265.NALUTypePPS) << 1, 16, 17, 18},
+			VPS:        []byte{byte(h265.NALUType_VPS_NUT) << 1, 10, 11, 12},
+			SPS:        []byte{byte(h265.NALUType_SPS_NUT) << 1, 13, 14, 15},
+			PPS:        []byte{byte(h265.NALUType_PPS_NUT) << 1, 16, 17, 18},
 		})
 	})
 }

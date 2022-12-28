@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	gomp4 "github.com/abema/go-mp4"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 )
 
 // Init is a FMP4 initialization file.

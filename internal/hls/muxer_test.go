@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/stretchr/testify/require"
 )
 

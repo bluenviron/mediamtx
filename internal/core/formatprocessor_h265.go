@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"time"
 
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h265"
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph265"
-	"github.com/aler9/gortsplib/v2/pkg/h265"
 	"github.com/pion/rtp"
 )
 
@@ -19,16 +19,16 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 	typ := h265.NALUType((pkt.Payload[0] >> 1) & 0b111111)
 
 	switch typ {
-	case h265.NALUTypeVPS:
+	case h265.NALUType_VPS_NUT:
 		return pkt.Payload, nil, nil
 
-	case h265.NALUTypeSPS:
+	case h265.NALUType_SPS_NUT:
 		return nil, pkt.Payload, nil
 
-	case h265.NALUTypePPS:
+	case h265.NALUType_PPS_NUT:
 		return nil, nil, pkt.Payload
 
-	case h265.NALUTypeAggregationUnit:
+	case h265.NALUType_AggregationUnit:
 		payload := pkt.Payload[2:]
 		var vps []byte
 		var sps []byte
@@ -56,13 +56,13 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 			typ = h265.NALUType((pkt.Payload[0] >> 1) & 0b111111)
 
 			switch typ {
-			case h265.NALUTypeVPS:
+			case h265.NALUType_VPS_NUT:
 				vps = nalu
 
-			case h265.NALUTypeSPS:
+			case h265.NALUType_SPS_NUT:
 				sps = nalu
 
-			case h265.NALUTypePPS:
+			case h265.NALUType_PPS_NUT:
 				pps = nalu
 			}
 		}
