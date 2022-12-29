@@ -243,38 +243,18 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		m.path.readerRemove(pathReaderRemoveReq{author: m})
 	}()
 
-	var videoFormat *format.H264
-	videoMedia := res.stream.medias().FindFormat(&videoFormat)
-
-	var audioFormat *format.MPEG4Audio
-	audioMedia := res.stream.medias().FindFormat(&audioFormat)
-
-	if videoFormat == nil && audioFormat == nil {
-		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
-	}
-
-	var err error
-	m.muxer, err = hls.NewMuxer(
-		hls.MuxerVariant(m.hlsVariant),
-		m.hlsSegmentCount,
-		time.Duration(m.hlsSegmentDuration),
-		time.Duration(m.hlsPartDuration),
-		uint64(m.hlsSegmentMaxSize),
-		videoFormat,
-		audioFormat,
-	)
-	if err != nil {
-		return fmt.Errorf("muxer error: %v", err)
-	}
-	defer m.muxer.Close()
-
-	innerReady <- struct{}{}
-
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
 	var medias media.Medias
 
-	if videoMedia != nil {
+	var videoFormat format.Format
+	var videoMedia *media.Media
+
+	var videoFormatH265 *format.H265
+	videoMedia = res.stream.medias().FindFormat(&videoFormatH265)
+
+	if videoFormatH265 != nil {
+		videoFormat = videoFormatH265
 		medias = append(medias, videoMedia)
 
 		videoStartPTSFilled := false
@@ -282,9 +262,9 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 		res.stream.readerAdd(m, videoMedia, videoFormat, func(dat data) {
 			m.ringBuffer.Push(func() error {
-				tdata := dat.(*dataH264)
+				tdata := dat.(*dataH265)
 
-				if tdata.nalus == nil {
+				if tdata.au == nil {
 					return nil
 				}
 
@@ -294,7 +274,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 				}
 				pts := tdata.pts - videoStartPTS
 
-				err := m.muxer.WriteH264(tdata.ntp, pts, tdata.nalus)
+				err := m.muxer.WriteH26x(tdata.ntp, pts, tdata.au)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}
@@ -302,9 +282,46 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 				return nil
 			})
 		})
+	} else {
+		var videoFormatH264 *format.H264
+		videoMedia = res.stream.medias().FindFormat(&videoFormatH264)
+
+		if videoFormatH264 != nil {
+			videoFormat = videoFormatH264
+			medias = append(medias, videoMedia)
+
+			videoStartPTSFilled := false
+			var videoStartPTS time.Duration
+
+			res.stream.readerAdd(m, videoMedia, videoFormat, func(dat data) {
+				m.ringBuffer.Push(func() error {
+					tdata := dat.(*dataH264)
+
+					if tdata.au == nil {
+						return nil
+					}
+
+					if !videoStartPTSFilled {
+						videoStartPTSFilled = true
+						videoStartPTS = tdata.pts
+					}
+					pts := tdata.pts - videoStartPTS
+
+					err := m.muxer.WriteH26x(tdata.ntp, pts, tdata.au)
+					if err != nil {
+						return fmt.Errorf("muxer error: %v", err)
+					}
+
+					return nil
+				})
+			})
+		}
 	}
 
-	if audioMedia != nil {
+	var audioFormat *format.MPEG4Audio
+	audioMedia := res.stream.medias().FindFormat(&audioFormat)
+
+	if audioFormat != nil {
 		medias = append(medias, audioMedia)
 
 		audioStartPTSFilled := false
@@ -341,6 +358,27 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 
 	defer res.stream.readerRemove(m)
+
+	if medias == nil {
+		return fmt.Errorf("the stream doesn't contain a supported video or audio track")
+	}
+
+	var err error
+	m.muxer, err = hls.NewMuxer(
+		hls.MuxerVariant(m.hlsVariant),
+		m.hlsSegmentCount,
+		time.Duration(m.hlsSegmentDuration),
+		time.Duration(m.hlsPartDuration),
+		uint64(m.hlsSegmentMaxSize),
+		videoFormat,
+		audioFormat,
+	)
+	if err != nil {
+		return fmt.Errorf("muxer error: %v", err)
+	}
+	defer m.muxer.Close()
+
+	innerReady <- struct{}{}
 
 	m.log(logger.Info, "is converting into HLS, %s",
 		sourceMediaInfo(medias))

@@ -71,7 +71,7 @@ type dataH264 struct {
 	rtpPackets []*rtp.Packet
 	ntp        time.Time
 	pts        time.Duration
-	nalus      [][]byte
+	au         [][]byte
 }
 
 func (d *dataH264) getRTPPackets() []*rtp.Packet {
@@ -134,22 +134,23 @@ func (t *formatProcessorH264) updateTrackParametersFromNALUs(nalus [][]byte) {
 	}
 }
 
-// remux is needed to fix corrupted streams and make streams
-// compatible with all protocols.
-func (t *formatProcessorH264) remuxNALUs(nalus [][]byte) [][]byte {
-	addSPSPPS := false
+func (t *formatProcessorH264) remuxAccessUnit(nalus [][]byte) [][]byte {
+	addParameters := false
 	n := 0
+
 	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
+
 		switch typ {
-		case h264.NALUTypeSPS, h264.NALUTypePPS:
+		case h264.NALUTypeSPS, h264.NALUTypePPS: // remove parameters
 			continue
-		case h264.NALUTypeAccessUnitDelimiter:
+
+		case h264.NALUTypeAccessUnitDelimiter: // remove AUDs
 			continue
-		case h264.NALUTypeIDR:
-			// prepend SPS and PPS to the group if there's at least an IDR
-			if !addSPSPPS {
-				addSPSPPS = true
+
+		case h264.NALUTypeIDR: // prepend parameters if there's at least an IDR
+			if !addParameters {
+				addParameters = true
 				n += 2
 			}
 		}
@@ -163,7 +164,7 @@ func (t *formatProcessorH264) remuxNALUs(nalus [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	if addSPSPPS {
+	if addParameters {
 		filteredNALUs[0] = t.format.SafeSPS()
 		filteredNALUs[1] = t.format.SafePPS()
 		i = 2
@@ -171,13 +172,12 @@ func (t *formatProcessorH264) remuxNALUs(nalus [][]byte) [][]byte {
 
 	for _, nalu := range nalus {
 		typ := h264.NALUType(nalu[0] & 0x1F)
+
 		switch typ {
 		case h264.NALUTypeSPS, h264.NALUTypePPS:
-			// remove since they're automatically added
 			continue
 
 		case h264.NALUTypeAccessUnitDelimiter:
-			// remove since it is not needed
 			continue
 		}
 
@@ -227,7 +227,7 @@ func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error { 
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			nalus, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			au, pts, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtph264.ErrNonStartingPacketAndNoPrevious || err == rtph264.ErrMorePacketsNeeded {
 					return nil
@@ -235,10 +235,9 @@ func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error { 
 				return err
 			}
 
-			tdata.nalus = nalus
+			tdata.au = au
 			tdata.pts = pts
-
-			tdata.nalus = t.remuxNALUs(tdata.nalus)
+			tdata.au = t.remuxAccessUnit(tdata.au)
 		}
 
 		// route packet as is
@@ -246,11 +245,11 @@ func (t *formatProcessorH264) process(dat data, hasNonRTSPReaders bool) error { 
 			return nil
 		}
 	} else {
-		t.updateTrackParametersFromNALUs(tdata.nalus)
-		tdata.nalus = t.remuxNALUs(tdata.nalus)
+		t.updateTrackParametersFromNALUs(tdata.au)
+		tdata.au = t.remuxAccessUnit(tdata.au)
 	}
 
-	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
+	pkts, err := t.encoder.Encode(tdata.au, tdata.pts)
 	if err != nil {
 		return err
 	}

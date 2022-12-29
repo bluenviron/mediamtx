@@ -78,7 +78,7 @@ type dataH265 struct {
 	rtpPackets []*rtp.Packet
 	ntp        time.Time
 	pts        time.Duration
-	nalus      [][]byte
+	au         [][]byte
 }
 
 func (d *dataH265) getRTPPackets() []*rtp.Packet {
@@ -128,12 +128,82 @@ func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(pkt *rtp.Packet
 }
 
 func (t *formatProcessorH265) updateTrackParametersFromNALUs(nalus [][]byte) {
-	// TODO: extract VPS, SPS, PPS and set them into the track
+	for _, nalu := range nalus {
+		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
+
+		switch typ {
+		case h265.NALUType_VPS_NUT:
+			if !bytes.Equal(nalu, t.format.SafeVPS()) {
+				t.format.SafeSetVPS(nalu)
+			}
+
+		case h265.NALUType_SPS_NUT:
+			if !bytes.Equal(nalu, t.format.SafePPS()) {
+				t.format.SafeSetSPS(nalu)
+			}
+
+		case h265.NALUType_PPS_NUT:
+			if !bytes.Equal(nalu, t.format.SafePPS()) {
+				t.format.SafeSetPPS(nalu)
+			}
+		}
+	}
 }
 
-func (t *formatProcessorH265) remuxNALUs(nalus [][]byte) [][]byte {
-	// TODO: add VPS, SPS, PPS before IDRs
-	return nalus
+func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
+	addParameters := false
+	n := 0
+
+	for _, nalu := range nalus {
+		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
+
+		switch typ {
+		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT: // remove parameters
+			continue
+
+		case h265.NALUType_AUD_NUT: // remove AUDs
+			continue
+
+		// prepend parameters if there's at least a random access unit
+		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
+			if !addParameters {
+				addParameters = true
+				n += 3
+			}
+		}
+		n++
+	}
+
+	if n == 0 {
+		return nil
+	}
+
+	filteredNALUs := make([][]byte, n)
+	i := 0
+
+	if addParameters {
+		filteredNALUs[0] = t.format.SafeVPS()
+		filteredNALUs[1] = t.format.SafeSPS()
+		filteredNALUs[2] = t.format.SafePPS()
+		i = 3
+	}
+
+	for _, nalu := range nalus {
+		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
+
+		switch typ {
+		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT:
+			continue
+
+		case h265.NALUType_AUD_NUT:
+			continue
+		}
+
+		filteredNALUs[i] = nalu
+		i++
+	}
+
+	return filteredNALUs
 }
 
 func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
@@ -175,7 +245,7 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { 
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			nalus, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			au, pts, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtph265.ErrNonStartingPacketAndNoPrevious || err == rtph265.ErrMorePacketsNeeded {
 					return nil
@@ -183,10 +253,9 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { 
 				return err
 			}
 
-			tdata.nalus = nalus
+			tdata.au = au
 			tdata.pts = pts
-
-			tdata.nalus = t.remuxNALUs(tdata.nalus)
+			tdata.au = t.remuxAccessUnit(tdata.au)
 		}
 
 		// route packet as is
@@ -194,11 +263,11 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { 
 			return nil
 		}
 	} else {
-		t.updateTrackParametersFromNALUs(tdata.nalus)
-		tdata.nalus = t.remuxNALUs(tdata.nalus)
+		t.updateTrackParametersFromNALUs(tdata.au)
+		tdata.au = t.remuxAccessUnit(tdata.au)
 	}
 
-	pkts, err := t.encoder.Encode(tdata.nalus, tdata.pts)
+	pkts, err := t.encoder.Encode(tdata.au, tdata.pts)
 	if err != nil {
 		return err
 	}

@@ -86,7 +86,7 @@ func (w *Writer) GenerateSegment() []byte {
 	return ret
 }
 
-// WriteH264 writes a group of H264 NALUs.
+// WriteH264 writes a H264 access unit.
 func (w *Writer) WriteH264(
 	pcr time.Duration,
 	dts time.Duration,

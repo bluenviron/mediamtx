@@ -70,7 +70,7 @@ func partTargetDuration(
 type muxerVariantFMP4Playlist struct {
 	lowLatency   bool
 	segmentCount int
-	videoTrack   *format.H264
+	videoTrack   format.Format
 	audioTrack   *format.MPEG4Audio
 
 	mutex              sync.Mutex
@@ -89,7 +89,7 @@ type muxerVariantFMP4Playlist struct {
 func newMuxerVariantFMP4Playlist(
 	lowLatency bool,
 	segmentCount int,
-	videoTrack *format.H264,
+	videoTrack format.Format,
 	audioTrack *format.MPEG4Audio,
 ) *muxerVariantFMP4Playlist {
 	p := &muxerVariantFMP4Playlist{

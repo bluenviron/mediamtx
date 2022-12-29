@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
@@ -15,9 +16,19 @@ func newMuxerVariantMPEGTS(
 	segmentCount int,
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *format.H264,
+	videoTrack format.Format,
 	audioTrack *format.MPEG4Audio,
-) *muxerVariantMPEGTS {
+) (*muxerVariantMPEGTS, error) {
+	var videoTrackH264 *format.H264
+	if videoTrack != nil {
+		var ok bool
+		videoTrackH264, ok = videoTrack.(*format.H264)
+		if !ok {
+			return nil, fmt.Errorf(
+				"the MPEG-TS variant of HLS doesn't support H265. Use the fMP4 or Low-Latency variants instead")
+		}
+	}
+
 	v := &muxerVariantMPEGTS{}
 
 	v.playlist = newMuxerVariantMPEGTSPlaylist(segmentCount)
@@ -25,21 +36,21 @@ func newMuxerVariantMPEGTS(
 	v.segmenter = newMuxerVariantMPEGTSSegmenter(
 		segmentDuration,
 		segmentMaxSize,
-		videoTrack,
+		videoTrackH264,
 		audioTrack,
 		func(seg *muxerVariantMPEGTSSegment) {
 			v.playlist.pushSegment(seg)
 		},
 	)
 
-	return v
+	return v, nil
 }
 
 func (v *muxerVariantMPEGTS) close() {
 	v.playlist.close()
 }
 
-func (v *muxerVariantMPEGTS) writeH264(ntp time.Time, pts time.Duration, nalus [][]byte) error {
+func (v *muxerVariantMPEGTS) writeH26x(ntp time.Time, pts time.Duration, nalus [][]byte) error {
 	return v.segmenter.writeH264(ntp, pts, nalus)
 }
 

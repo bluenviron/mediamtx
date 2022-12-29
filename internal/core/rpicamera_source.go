@@ -48,7 +48,7 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 	medias := media.Medias{medi}
 	var stream *stream
 
-	onData := func(dts time.Duration, nalus [][]byte) {
+	onData := func(dts time.Duration, au [][]byte) {
 		if stream == nil {
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
 				medias:             medias,
@@ -63,9 +63,9 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 		}
 
 		err := stream.writeData(medi, medi.Formats[0], &dataH264{
-			pts:   dts,
-			nalus: nalus,
-			ntp:   time.Now(),
+			pts: dts,
+			au:  au,
+			ntp: time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

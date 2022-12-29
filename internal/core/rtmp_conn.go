@@ -281,7 +281,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			ringBuffer.Push(func() error {
 				tdata := dat.(*dataH264)
 
-				if tdata.nalus == nil {
+				if tdata.au == nil {
 					return nil
 				}
 
@@ -294,7 +294,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 				idrPresent := false
 				nonIDRPresent := false
 
-				for _, nalu := range tdata.nalus {
+				for _, nalu := range tdata.au {
 					typ := h264.NALUType(nalu[0] & 0x1F)
 					switch typ {
 					case h264.NALUTypeIDR:
@@ -317,7 +317,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 					videoDTSExtractor = h264.NewDTSExtractor()
 
 					var err error
-					dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
+					dts, err = videoDTSExtractor.Extract(tdata.au, pts)
 					if err != nil {
 						return err
 					}
@@ -331,7 +331,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 					}
 
 					var err error
-					dts, err = videoDTSExtractor.Extract(tdata.nalus, pts)
+					dts, err = videoDTSExtractor.Extract(tdata.au, pts)
 					if err != nil {
 						return err
 					}
@@ -340,7 +340,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 					pts -= videoStartDTS
 				}
 
-				avcc, err := h264.AVCCMarshal(tdata.nalus)
+				avcc, err := h264.AVCCMarshal(tdata.au)
 				if err != nil {
 					return err
 				}
@@ -538,22 +538,22 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	var onVideoData func(time.Duration, [][]byte)
 
 	if _, ok := videoFormat.(*format.H264); ok {
-		onVideoData = func(pts time.Duration, nalus [][]byte) {
+		onVideoData = func(pts time.Duration, au [][]byte) {
 			err = rres.stream.writeData(videoMedia, videoFormat, &dataH264{
-				pts:   pts,
-				nalus: nalus,
-				ntp:   time.Now(),
+				pts: pts,
+				au:  au,
+				ntp: time.Now(),
 			})
 			if err != nil {
 				c.log(logger.Warn, "%v", err)
 			}
 		}
 	} else {
-		onVideoData = func(pts time.Duration, nalus [][]byte) {
+		onVideoData = func(pts time.Duration, au [][]byte) {
 			err = rres.stream.writeData(videoMedia, videoFormat, &dataH265{
-				pts:   pts,
-				nalus: nalus,
-				ntp:   time.Now(),
+				pts: pts,
+				au:  au,
+				ntp: time.Now(),
 			})
 			if err != nil {
 				c.log(logger.Warn, "%v", err)
@@ -577,15 +577,15 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					return fmt.Errorf("unable to parse H264 config: %v", err)
 				}
 
-				nalus := [][]byte{
+				au := [][]byte{
 					conf.SPS,
 					conf.PPS,
 				}
 
 				err := rres.stream.writeData(videoMedia, videoFormat, &dataH264{
-					pts:   tmsg.DTS + tmsg.PTSDelta,
-					nalus: nalus,
-					ntp:   time.Now(),
+					pts: tmsg.DTS + tmsg.PTSDelta,
+					au:  au,
+					ntp: time.Now(),
 				})
 				if err != nil {
 					c.log(logger.Warn, "%v", err)

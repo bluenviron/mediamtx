@@ -176,15 +176,15 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("received an H264 packet, but track is not set up")
 						}
 
-						nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
+						au, err := h264.AVCCUnmarshal(tmsg.Payload)
 						if err != nil {
 							return fmt.Errorf("unable to decode AVCC: %v", err)
 						}
 
 						err = res.stream.writeData(videoMedia, videoFormat, &dataH264{
-							pts:   tmsg.DTS + tmsg.PTSDelta,
-							nalus: nalus,
-							ntp:   time.Now(),
+							pts: tmsg.DTS + tmsg.PTSDelta,
+							au:  au,
+							ntp: time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)
