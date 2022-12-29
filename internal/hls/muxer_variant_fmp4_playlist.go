@@ -397,7 +397,9 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 			}
 		}
 
-		if fname == fmp4PartName(p.nextPartID) {
+		// EXT-X-PRELOAD-HINT support
+		nextPartName := fmp4PartName(p.nextPartID)
+		if base == nextPartName {
 			p.mutex.Lock()
 			defer p.mutex.Unlock()
 
@@ -422,7 +424,7 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 				Header: map[string]string{
 					"Content-Type": "video/mp4",
 				},
-				Body: p.partsByName[fmp4PartName(nextPartID)].reader(),
+				Body: p.partsByName[nextPartName].reader(),
 			}
 		}
 
