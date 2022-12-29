@@ -175,7 +175,7 @@ webrtcDisable: no
 webrtcAddress: :8889
 # Enable support for the WebRTC ICE TCP protocol.
 webrtcICETCPMuxEnable: no
-# Address of the WebRTC ICE TCP address.
+# Address of the WebRTC ICE TCP listener.
 webrtcICETCPMuxAddress: :8886
 # contains a list of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT
