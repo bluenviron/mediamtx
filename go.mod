@@ -69,4 +69,4 @@ replace github.com/orcaman/writerseeker => github.com/aler9/writerseeker v0.0.0-
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 
-replace github.com/abema/go-mp4 => github.com/aler9/go-mp4 v0.0.0-20221229152535-34c82c552218
+replace github.com/abema/go-mp4 => github.com/aler9/go-mp4 v0.0.0-20221229200349-f3d01e787968

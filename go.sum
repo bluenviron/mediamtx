@@ -2,8 +2,8 @@ github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 h1:JYp7IbQjafo
 github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d h1:UQZhZ2O0vMHr2cI+DC1Mbh0TJxzA3RcLoMsFw+aXw7E=
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
-github.com/aler9/go-mp4 v0.0.0-20221229152535-34c82c552218 h1:Zak89uY+y0q/gL7jaKbl2XeyMOLT/5qVuW6TIJphEJY=
-github.com/aler9/go-mp4 v0.0.0-20221229152535-34c82c552218/go.mod h1:vPl9t5ZK7K0x68jh12/+ECWBCXoWuIDtNgPtU2f04ws=
+github.com/aler9/go-mp4 v0.0.0-20221229200349-f3d01e787968 h1:wU8pLx4dc8bLB+JuVPWuGp+BoMkOabj98a0RmO3gqvw=
+github.com/aler9/go-mp4 v0.0.0-20221229200349-f3d01e787968/go.mod h1:vPl9t5ZK7K0x68jh12/+ECWBCXoWuIDtNgPtU2f04ws=
 github.com/aler9/gortsplib/v2 v2.0.0-20221229123705-ce25207cb823 h1:EFq9LqgA15drNgXj3hNlmAouxjMYb9jyyBq6hmjDO8U=
 github.com/aler9/gortsplib/v2 v2.0.0-20221229123705-ce25207cb823/go.mod h1:lMdAxc6daduSzVwh75yQkvH9UHCYHpng/vJ8uXKFzdA=
 github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82 h1:9WgSzBLo3a9ToSVV7sRTBYZ1GGOZUpq4+5H3SN0UZq4=
