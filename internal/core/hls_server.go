@@ -285,7 +285,8 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	dir, fname := func() (string, string) {
 		if strings.HasSuffix(pa, ".m3u8") ||
 			strings.HasSuffix(pa, ".ts") ||
-			strings.HasSuffix(pa, ".mp4") {
+			strings.HasSuffix(pa, ".mp4") ||
+			strings.HasSuffix(pa, ".mp") {
 			return gopath.Dir(pa), gopath.Base(pa)
 		}
 		return pa, ""
@@ -295,6 +296,10 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 		ctx.Writer.Header().Set("Location", "/"+dir+"/")
 		ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 		return
+	}
+
+	if strings.HasSuffix(fname, ".mp") {
+		fname += "4"
 	}
 
 	dir = strings.TrimSuffix(dir, "/")
