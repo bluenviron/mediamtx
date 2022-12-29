@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h265"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/h264"
-	"github.com/aler9/gortsplib/v2/pkg/h265"
-	"github.com/aler9/gortsplib/v2/pkg/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
@@ -720,13 +720,13 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *fo
 						typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 						switch typ {
-						case h265.NALUTypeVPS:
+						case h265.NALUType_VPS_NUT:
 							h265VPS = append([]byte(nil), nalu...)
 
-						case h265.NALUTypeSPS:
+						case h265.NALUType_SPS_NUT:
 							h265SPS = append([]byte(nil), nalu...)
 
-						case h265.NALUTypePPS:
+						case h265.NALUType_PPS_NUT:
 							h265PPS = append([]byte(nil), nalu...)
 						}
 					}

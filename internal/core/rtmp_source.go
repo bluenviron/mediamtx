@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/h264"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/notedit/rtmp/format/flv/flvio"
 

@@ -2,8 +2,8 @@ package fmp4
 
 import (
 	gomp4 "github.com/abema/go-mp4"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/h264"
 )
 
 // InitTrack is a track of Init.

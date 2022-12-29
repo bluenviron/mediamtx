@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/h264"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
