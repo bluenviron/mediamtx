@@ -906,7 +906,7 @@ where `mystream` is the name of a stream that is being published.
 
 ### Browser support
 
-Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginningo of the README), not all browsers can read all codecs. You can check what codecs your browser can read by visiting this page:
+Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginning of the README), not all browsers can read all codecs. You can check what codecs your browser can read by visiting this page:
 
 https://jsfiddle.net/7nwxmLto
 
