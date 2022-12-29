@@ -136,6 +136,7 @@ func newAPI(
 	rtmpsServer apiRTMPServer,
 	hlsServer apiHLSServer,
 	webRTCServer apiWebRTCServer,
+	apiBasicAuthCredentials map[string]string,
 	parent apiParent,
 ) (*api, error) {
 	ln, err := net.Listen("tcp", address)
@@ -160,7 +161,13 @@ func newAPI(
 	router.SetTrustedProxies(nil)
 	mwLog := httpLoggerMiddleware(a)
 	router.NoRoute(mwLog)
-	group := router.Group("/", mwLog)
+
+	var group *gin.RouterGroup
+	if apiBasicAuthCredentials != nil {
+		group = router.Group("/", mwLog, gin.BasicAuth(apiBasicAuthCredentials))
+	} else {
+		group = router.Group("/", mwLog)
+	}
 
 	group.GET("/v1/config/get", a.onConfigGet)
 	group.POST("/v1/config/set", a.onConfigSet)

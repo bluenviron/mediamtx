@@ -432,6 +432,7 @@ func (p *Core) createResources(initial bool) error {
 				p.rtmpsServer,
 				p.hlsServer,
 				p.webRTCServer,
+				p.conf.APIBasicAuthCredentials,
 				p,
 			)
 			if err != nil {
@@ -584,7 +585,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPSServer ||
 		closeRTMPServer ||
 		closeHLSServer ||
-		closeWebrtcServer
+		closeWebrtcServer ||
+		!reflect.DeepEqual(newConf.APIBasicAuthCredentials, p.conf.APIBasicAuthCredentials)
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()

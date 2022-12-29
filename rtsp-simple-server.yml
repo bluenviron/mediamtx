@@ -36,6 +36,8 @@ externalAuthenticationURL:
 api: no
 # Address of the API listener.
 apiAddress: 127.0.0.1:9997
+# API basic auth login credentials
+apiBasicAuthCredentials: null
 
 # Enable Prometheus-compatible metrics.
 metrics: no

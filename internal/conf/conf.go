@@ -169,21 +169,22 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 // Conf is a configuration.
 type Conf struct {
 	// general
-	LogLevel                  LogLevel        `json:"logLevel"`
-	LogDestinations           LogDestinations `json:"logDestinations"`
-	LogFile                   string          `json:"logFile"`
-	ReadTimeout               StringDuration  `json:"readTimeout"`
-	WriteTimeout              StringDuration  `json:"writeTimeout"`
-	ReadBufferCount           int             `json:"readBufferCount"`
-	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
-	API                       bool            `json:"api"`
-	APIAddress                string          `json:"apiAddress"`
-	Metrics                   bool            `json:"metrics"`
-	MetricsAddress            string          `json:"metricsAddress"`
-	PPROF                     bool            `json:"pprof"`
-	PPROFAddress              string          `json:"pprofAddress"`
-	RunOnConnect              string          `json:"runOnConnect"`
-	RunOnConnectRestart       bool            `json:"runOnConnectRestart"`
+	LogLevel                  LogLevel          `json:"logLevel"`
+	LogDestinations           LogDestinations   `json:"logDestinations"`
+	LogFile                   string            `json:"logFile"`
+	ReadTimeout               StringDuration    `json:"readTimeout"`
+	WriteTimeout              StringDuration    `json:"writeTimeout"`
+	ReadBufferCount           int               `json:"readBufferCount"`
+	ExternalAuthenticationURL string            `json:"externalAuthenticationURL"`
+	API                       bool              `json:"api"`
+	APIAddress                string            `json:"apiAddress"`
+	APIBasicAuthCredentials   map[string]string `json:"apiBasicAuthCredentials"`
+	Metrics                   bool              `json:"metrics"`
+	MetricsAddress            string            `json:"metricsAddress"`
+	PPROF                     bool              `json:"pprof"`
+	PPROFAddress              string            `json:"pprofAddress"`
+	RunOnConnect              string            `json:"runOnConnect"`
+	RunOnConnectRestart       bool              `json:"runOnConnectRestart"`
 
 	// RTSP
 	RTSPDisable       bool        `json:"rtspDisable"`
