@@ -84,11 +84,11 @@ func (s *hlsSource) run(ctx context.Context) error {
 		return nil
 	}
 
-	onVideoData := func(pts time.Duration, nalus [][]byte) {
+	onVideoData := func(pts time.Duration, au [][]byte) {
 		err := stream.writeData(videoMedia, videoMedia.Formats[0], &dataH264{
-			pts:   pts,
-			nalus: nalus,
-			ntp:   time.Now(),
+			pts: pts,
+			au:  au,
+			ntp: time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

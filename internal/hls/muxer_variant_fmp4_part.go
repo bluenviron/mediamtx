@@ -17,7 +17,7 @@ func fmp4PartName(id uint64) string {
 }
 
 type muxerVariantFMP4Part struct {
-	videoTrack *format.H264
+	videoTrack format.Format
 	audioTrack *format.MPEG4Audio
 	id         uint64
 
@@ -33,7 +33,7 @@ type muxerVariantFMP4Part struct {
 }
 
 func newMuxerVariantFMP4Part(
-	videoTrack *format.H264,
+	videoTrack format.Format,
 	audioTrack *format.MPEG4Audio,
 	id uint64,
 ) *muxerVariantFMP4Part {

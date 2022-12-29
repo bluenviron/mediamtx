@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
@@ -84,7 +85,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(ntp time.Time, pts time.Duration
 		var err error
 		dts, err = m.videoDTSExtractor.Extract(nalus, pts)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to extract DTS: %v", err)
 		}
 
 		m.startPCR = ntp
@@ -108,7 +109,7 @@ func (m *muxerVariantMPEGTSSegmenter) writeH264(ntp time.Time, pts time.Duration
 		var err error
 		dts, err = m.videoDTSExtractor.Extract(nalus, pts)
 		if err != nil {
-			return err
+			return fmt.Errorf("unable to extract DTS: %v", err)
 		}
 
 		dts -= m.startDTS

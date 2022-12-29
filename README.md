@@ -22,7 +22,7 @@ And can be read from the server with:
 |--------|--------|------|
 |RTSP|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
 |RTMP|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
-|HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, MPEG4 Audio (AAC)|
+|HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, H265, MPEG4 Audio (AAC)|
 |WebRTC||H264, VP8, VP9, Opus, G711, G722|
 
 Features:
@@ -89,6 +89,7 @@ Features:
   * [Encryption](#encryption-1)
 * [HLS protocol](#hls-protocol)
   * [General usage](#general-usage-2)
+  * [Browser support](#browser-support)
   * [Embedding](#embedding)
   * [Low-Latency variant](#low-latency-variant)
   * [Decreasing latency](#decreasing-latency)
@@ -903,7 +904,13 @@ http://localhost:8888/mystream
 
 where `mystream` is the name of a stream that is being published.
 
-Please be aware that HLS only supports a single H264 video track and a single AAC audio track due to limitations of most browsers. If you want to use HLS with streams that use other codecs, you have to re-encode them, for instance by using _FFmpeg_:
+### Browser support
+
+Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginningo of the README), not all browsers can read all codecs. You can check what codecs your browser can read by visiting this page:
+
+https://jsfiddle.net/7nwxmLto
+
+If you want to increase the compatibility of the stream in order to support most browsers, you have to re-encode it by using the H264 and AAC codecs, for instance by using _FFmpeg_:
 
 ```
 ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -c:a aac -b:a 160k -f rtsp rtsp://localhost:8554/mystream

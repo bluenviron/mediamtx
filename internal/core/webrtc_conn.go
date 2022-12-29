@@ -519,12 +519,12 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 				cb: func(dat data, ctx context.Context, writeError chan error) {
 					tdata := dat.(*dataH264)
 
-					if tdata.nalus == nil {
+					if tdata.au == nil {
 						return
 					}
 
 					if !firstNALUReceived {
-						if !h264.IDRPresent(tdata.nalus) {
+						if !h264.IDRPresent(tdata.au) {
 							return
 						}
 
@@ -541,7 +541,7 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 						lastPTS = tdata.pts
 					}
 
-					packets, err := encoder.Encode(tdata.nalus, tdata.pts)
+					packets, err := encoder.Encode(tdata.au, tdata.pts)
 					if err != nil {
 						return
 					}

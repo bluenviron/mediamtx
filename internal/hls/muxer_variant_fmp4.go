@@ -11,16 +11,48 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/hls/fmp4"
 )
 
+func extractVideoParams(track format.Format) [][]byte {
+	switch ttrack := track.(type) {
+	case *format.H264:
+		params := make([][]byte, 2)
+		params[0] = ttrack.SafeSPS()
+		params[1] = ttrack.SafePPS()
+		return params
+
+	case *format.H265:
+		params := make([][]byte, 3)
+		params[0] = ttrack.SafeVPS()
+		params[1] = ttrack.SafeSPS()
+		params[2] = ttrack.SafePPS()
+		return params
+
+	default:
+		return nil
+	}
+}
+
+func videoParamsEqual(p1 [][]byte, p2 [][]byte) bool {
+	if len(p1) != len(p2) {
+		return true
+	}
+
+	for i, p := range p1 {
+		if !bytes.Equal(p2[i], p) {
+			return false
+		}
+	}
+	return true
+}
+
 type muxerVariantFMP4 struct {
 	playlist   *muxerVariantFMP4Playlist
 	segmenter  *muxerVariantFMP4Segmenter
-	videoTrack *format.H264
+	videoTrack format.Format
 	audioTrack *format.MPEG4Audio
 
-	mutex        sync.Mutex
-	videoLastSPS []byte
-	videoLastPPS []byte
-	initContent  []byte
+	mutex           sync.Mutex
+	lastVideoParams [][]byte
+	initContent     []byte
 }
 
 func newMuxerVariantFMP4(
@@ -29,7 +61,7 @@ func newMuxerVariantFMP4(
 	segmentDuration time.Duration,
 	partDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *format.H264,
+	videoTrack format.Format,
 	audioTrack *format.MPEG4Audio,
 ) *muxerVariantFMP4 {
 	v := &muxerVariantFMP4{
@@ -63,12 +95,26 @@ func (v *muxerVariantFMP4) close() {
 	v.playlist.close()
 }
 
-func (v *muxerVariantFMP4) writeH264(ntp time.Time, pts time.Duration, nalus [][]byte) error {
-	return v.segmenter.writeH264(ntp, pts, nalus)
+func (v *muxerVariantFMP4) writeH26x(ntp time.Time, pts time.Duration, au [][]byte) error {
+	return v.segmenter.writeH26x(ntp, pts, au)
 }
 
 func (v *muxerVariantFMP4) writeAAC(ntp time.Time, pts time.Duration, au []byte) error {
 	return v.segmenter.writeAAC(ntp, pts, au)
+}
+
+func (v *muxerVariantFMP4) mustRegenerateInit() bool {
+	if v.videoTrack == nil {
+		return false
+	}
+
+	videoParams := extractVideoParams(v.videoTrack)
+	if !videoParamsEqual(videoParams, v.lastVideoParams) {
+		v.lastVideoParams = videoParams
+		return true
+	}
+
+	return false
 }
 
 func (v *muxerVariantFMP4) file(name string, msn string, part string, skip string) *MuxerFileResponse {
@@ -76,15 +122,7 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 		v.mutex.Lock()
 		defer v.mutex.Unlock()
 
-		var sps []byte
-		var pps []byte
-		if v.videoTrack != nil {
-			sps = v.videoTrack.SafeSPS()
-			pps = v.videoTrack.SafePPS()
-		}
-
-		if v.initContent == nil ||
-			(v.videoTrack != nil && (!bytes.Equal(v.videoLastSPS, sps) || !bytes.Equal(v.videoLastPPS, pps))) {
+		if v.initContent == nil || v.mustRegenerateInit() {
 			init := fmp4.Init{}
 			trackID := 1
 
@@ -105,14 +143,11 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 				})
 			}
 
-			initContent, err := init.Marshal()
+			var err error
+			v.initContent, err = init.Marshal()
 			if err != nil {
 				return &MuxerFileResponse{Status: http.StatusInternalServerError}
 			}
-
-			v.videoLastSPS = sps
-			v.videoLastPPS = pps
-			v.initContent = initContent
 		}
 
 		return &MuxerFileResponse{

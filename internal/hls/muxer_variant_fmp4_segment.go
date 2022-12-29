@@ -45,7 +45,7 @@ type muxerVariantFMP4Segment struct {
 	startTime       time.Time
 	startDTS        time.Duration
 	segmentMaxSize  uint64
-	videoTrack      *format.H264
+	videoTrack      format.Format
 	audioTrack      *format.MPEG4Audio
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
@@ -63,7 +63,7 @@ func newMuxerVariantFMP4Segment(
 	startTime time.Time,
 	startDTS time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *format.H264,
+	videoTrack format.Format,
 	audioTrack *format.MPEG4Audio,
 	genPartID func() uint64,
 	onPartFinalized func(*muxerVariantFMP4Part),

@@ -28,20 +28,24 @@ func NewMuxer(
 	segmentDuration time.Duration,
 	partDuration time.Duration,
 	segmentMaxSize uint64,
-	videoTrack *format.H264,
+	videoTrack format.Format,
 	audioTrack *format.MPEG4Audio,
 ) (*Muxer, error) {
 	m := &Muxer{}
 
 	switch variant {
 	case MuxerVariantMPEGTS:
-		m.variant = newMuxerVariantMPEGTS(
+		var err error
+		m.variant, err = newMuxerVariantMPEGTS(
 			segmentCount,
 			segmentDuration,
 			segmentMaxSize,
 			videoTrack,
 			audioTrack,
 		)
+		if err != nil {
+			return nil, err
+		}
 
 	case MuxerVariantFMP4:
 		m.variant = newMuxerVariantFMP4(
@@ -76,12 +80,12 @@ func (m *Muxer) Close() {
 	m.variant.close()
 }
 
-// WriteH264 writes H264 NALUs, grouped by timestamp.
-func (m *Muxer) WriteH264(ntp time.Time, pts time.Duration, nalus [][]byte) error {
-	return m.variant.writeH264(ntp, pts, nalus)
+// WriteH26x writes an H264 or an H265 access unit.
+func (m *Muxer) WriteH26x(ntp time.Time, pts time.Duration, au [][]byte) error {
+	return m.variant.writeH26x(ntp, pts, au)
 }
 
-// WriteAAC writes AAC AUs, grouped by timestamp.
+// WriteAAC writes an AAC access unit.
 func (m *Muxer) WriteAAC(ntp time.Time, pts time.Duration, au []byte) error {
 	return m.variant.writeAAC(ntp, pts, au)
 }
