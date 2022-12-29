@@ -486,6 +486,8 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				err = conn.WriteTracks(videoTrack, nil)
 				require.NoError(t, err)
 
+				time.Sleep(500 * time.Millisecond)
+
 			case "hls":
 				source := gortsplib.Client{}
 
