@@ -577,7 +577,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCICEServers, p.conf.WebRTCICEServers) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		newConf.WebRTCICETCPMuxEnable != p.conf.WebRTCICETCPMuxEnable ||
+		!reflect.DeepEqual(newConf.WebRTCICETCPMuxAddress, p.conf.WebRTCICETCPMuxAddress) ||
+		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs)
 
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||

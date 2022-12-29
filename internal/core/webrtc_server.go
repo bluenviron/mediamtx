@@ -83,6 +83,7 @@ type webRTCServer struct {
 	ctxCancel func()
 	wg        sync.WaitGroup
 	ln        net.Listener
+	tcpMuxLn  net.Listener
 	tlsConfig *tls.Config
 	conns     map[*webRTCConn]struct{}
 
@@ -133,8 +134,9 @@ func newWebRTCServer(
 	}
 
 	var iceTCPMux ice.TCPMux
+	var tcpMuxLn net.Listener
 	if iceTCPMuxEnable {
-		tcpMuxLn, err := net.Listen("tcp", iceTCPMuxAddress)
+		tcpMuxLn, err = net.Listen("tcp", iceTCPMuxAddress)
 		if err != nil {
 			tcpMuxLn.Close()
 			return nil, err
@@ -157,6 +159,7 @@ func newWebRTCServer(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
+		tcpMuxLn:                  tcpMuxLn,
 		tlsConfig:                 tlsConfig,
 		iceTCPMux:                 iceTCPMux,
 		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
@@ -168,6 +171,10 @@ func newWebRTCServer(
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
+
+	if tcpMuxLn != nil {
+		s.log(logger.Info, "ice mux tcp listener opened on "+iceTCPMuxAddress)
+	}
 
 	if s.metrics != nil {
 		s.metrics.webRTCServerSet(s)
@@ -276,6 +283,11 @@ outer:
 	s.ctxCancel()
 
 	hs.Shutdown(context.Background())
+
+	if s.tcpMuxLn != nil {
+		s.tcpMuxLn.Close()
+	}
+
 	s.ln.Close() // in case Shutdown() is called before Serve()
 }
 
