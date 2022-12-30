@@ -263,7 +263,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
 	}
 
-	if c.iceHostNAT1To1IPs != nil {
+	if len(c.iceHostNAT1To1IPs) != 0 {
 		settingsEngine.SetNAT1To1IPs(c.iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
 	}
 

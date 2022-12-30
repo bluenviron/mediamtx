@@ -177,9 +177,9 @@ webrtcAddress: :8889
 webrtcICETCPMuxEnable: no
 # Address of the WebRTC ICE TCP listener.
 webrtcICETCPMuxAddress: :8886
-# contains a list of public IP addresses that are to be used as a host.
+# List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT
-webrtcICEHostNAT1To1IPs: null
+webrtcICEHostNAT1To1IPs: []
 # Enable TLS/HTTPS on the WebRTC server.
 webrtcEncryption: no
 # Path to the server key.
