@@ -579,7 +579,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics ||
 		closePathManager ||
 		newConf.WebRTCICETCPMuxEnable != p.conf.WebRTCICETCPMuxEnable ||
-		!reflect.DeepEqual(newConf.WebRTCICETCPMuxAddress, p.conf.WebRTCICETCPMuxAddress) ||
+		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
 		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs)
 
 	closeAPI := newConf == nil ||
