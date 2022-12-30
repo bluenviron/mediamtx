@@ -18,13 +18,14 @@ type mapEntry struct {
 }
 
 type testStruct struct {
-	MyString   string
-	MyInt      int
-	MyFloat    float64
-	MyBool     bool
-	MyDuration StringDuration
-	MyMap      map[string]*mapEntry
-	MySlice    []string
+	MyString     string
+	MyInt        int
+	MyFloat      float64
+	MyBool       bool
+	MyDuration   StringDuration
+	MyMap        map[string]*mapEntry
+	MySlice      []string
+	MySliceEmpty []string
 }
 
 func TestEnvironment(t *testing.T) {
@@ -55,6 +56,9 @@ func TestEnvironment(t *testing.T) {
 	os.Setenv("MYPREFIX_MYSLICE", "val1,val2")
 	defer os.Unsetenv("MYPREFIX_MYSLICE")
 
+	os.Setenv("MYPREFIX_MYSLICEEMPTY", "")
+	defer os.Unsetenv("MYPREFIX_MYSLICEEMPTY")
+
 	var s testStruct
 	err := loadFromEnvironment("MYPREFIX", &s)
 	require.NoError(t, err)
@@ -74,4 +78,5 @@ func TestEnvironment(t *testing.T) {
 	require.Equal(t, 456, v.MyStruct.MyParam)
 
 	require.Equal(t, []string{"val1", "val2"}, s.MySlice)
+	require.Equal(t, []string{}, s.MySliceEmpty)
 }

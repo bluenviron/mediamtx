@@ -135,7 +135,11 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 	case reflect.Slice:
 		if rt.Elem() == reflect.TypeOf("") {
 			if ev, ok := env[prefix]; ok {
-				rv.Set(reflect.ValueOf(strings.Split(ev, ",")))
+				if ev == "" {
+					rv.Set(reflect.ValueOf([]string{}))
+				} else {
+					rv.Set(reflect.ValueOf(strings.Split(ev, ",")))
+				}
 			}
 			return nil
 		}
