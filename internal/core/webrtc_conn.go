@@ -36,6 +36,31 @@ const (
 	handshakeDeadline = 10 * time.Second
 )
 
+// newPeerConnection creates a PeerConnection with the default codecs and
+// interceptors.  See RegisterDefaultCodecs and RegisterDefaultInterceptors.
+//
+// This function is a copy of webrtc/peerconnection.go
+// unlike the original one, allows you to add additional custom options
+func newPeerConnection(configuration webrtc.Configuration,
+	options ...func(*webrtc.API),
+) (*webrtc.PeerConnection, error) {
+	m := &webrtc.MediaEngine{}
+	if err := m.RegisterDefaultCodecs(); err != nil {
+		return nil, err
+	}
+
+	i := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(m, i); err != nil {
+		return nil, err
+	}
+
+	options = append(options, webrtc.WithMediaEngine(m))
+	options = append(options, webrtc.WithInterceptorRegistry(i))
+
+	api := webrtc.NewAPI(options...)
+	return api.NewPeerConnection(configuration)
+}
+
 type webRTCTrack struct {
 	media       *media.Media
 	format      format.Format
@@ -184,29 +209,6 @@ func (c *webRTCConn) run() {
 	c.log(logger.Info, "closed (%v)", err)
 }
 
-// NewPeerConnection creates a PeerConnection with the default codecs and
-// interceptors.  See RegisterDefaultCodecs and RegisterDefaultInterceptors.
-//
-// This function is a copy of webrtc/peerconnection.go
-// unlike the original one, allows you to add additional custom options
-func NewPeerConnection(configuration webrtc.Configuration, options ...func(*webrtc.API)) (*webrtc.PeerConnection, error) {
-	m := &webrtc.MediaEngine{}
-	if err := m.RegisterDefaultCodecs(); err != nil {
-		return nil, err
-	}
-
-	i := &interceptor.Registry{}
-	if err := webrtc.RegisterDefaultInterceptors(m, i); err != nil {
-		return nil, err
-	}
-
-	options = append(options, webrtc.WithMediaEngine(m))
-	options = append(options, webrtc.WithInterceptorRegistry(i))
-
-	api := webrtc.NewAPI(options...)
-	return api.NewPeerConnection(configuration)
-}
-
 func (c *webRTCConn) runInner(ctx context.Context) error {
 	go func() {
 		<-ctx.Done()
@@ -253,8 +255,8 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	settingsEngine := webrtc.SettingEngine{}
 	configuration := webrtc.Configuration{ICEServers: c.genICEServers()}
+	settingsEngine := webrtc.SettingEngine{}
 
 	if c.iceTCPMux != nil {
 		settingsEngine.SetICETCPMux(c.iceTCPMux)
@@ -265,7 +267,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		settingsEngine.SetNAT1To1IPs(c.iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
 	}
 
-	pc, err := NewPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
+	pc, err := newPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
 	if err != nil {
 		return err
 	}
