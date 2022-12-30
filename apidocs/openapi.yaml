@@ -147,6 +147,12 @@ components:
           type: array
           items:
             type: string
+        webrtcICEHostNAT1To1IPs:
+          type: array
+          items:
+            type: string
+        webrtcICETCPMuxAddress:
+          type: string
 
         # paths
         paths:

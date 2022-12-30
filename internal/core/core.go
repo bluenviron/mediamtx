@@ -413,6 +413,8 @@ func (p *Core) createResources(initial bool) error {
 				p.pathManager,
 				p.metrics,
 				p,
+				p.conf.WebRTCICEHostNAT1To1IPs,
+				p.conf.WebRTCICETCPMuxAddress,
 			)
 			if err != nil {
 				return err
@@ -574,7 +576,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCICEServers, p.conf.WebRTCICEServers) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs) ||
+		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress
 
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||

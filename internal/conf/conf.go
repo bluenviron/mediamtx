@@ -224,14 +224,16 @@ type Conf struct {
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
 
 	// WebRTC
-	WebRTCDisable        bool       `json:"webrtcDisable"`
-	WebRTCAddress        string     `json:"webrtcAddress"`
-	WebRTCEncryption     bool       `json:"webrtcEncryption"`
-	WebRTCServerKey      string     `json:"webrtcServerKey"`
-	WebRTCServerCert     string     `json:"webrtcServerCert"`
-	WebRTCAllowOrigin    string     `json:"webrtcAllowOrigin"`
-	WebRTCTrustedProxies IPsOrCIDRs `json:"webrtcTrustedProxies"`
-	WebRTCICEServers     []string   `json:"webrtcICEServers"`
+	WebRTCDisable           bool       `json:"webrtcDisable"`
+	WebRTCAddress           string     `json:"webrtcAddress"`
+	WebRTCEncryption        bool       `json:"webrtcEncryption"`
+	WebRTCServerKey         string     `json:"webrtcServerKey"`
+	WebRTCServerCert        string     `json:"webrtcServerCert"`
+	WebRTCAllowOrigin       string     `json:"webrtcAllowOrigin"`
+	WebRTCTrustedProxies    IPsOrCIDRs `json:"webrtcTrustedProxies"`
+	WebRTCICEServers        []string   `json:"webrtcICEServers"`
+	WebRTCICEHostNAT1To1IPs []string   `json:"webrtcICEHostNAT1To1IPs"`
+	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`

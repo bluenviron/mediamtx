@@ -24,6 +24,8 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/pion/ice/v2"
+	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -33,6 +35,31 @@ import (
 const (
 	handshakeDeadline = 10 * time.Second
 )
+
+// newPeerConnection creates a PeerConnection with the default codecs and
+// interceptors.  See RegisterDefaultCodecs and RegisterDefaultInterceptors.
+//
+// This function is a copy of webrtc/peerconnection.go
+// unlike the original one, allows you to add additional custom options
+func newPeerConnection(configuration webrtc.Configuration,
+	options ...func(*webrtc.API),
+) (*webrtc.PeerConnection, error) {
+	m := &webrtc.MediaEngine{}
+	if err := m.RegisterDefaultCodecs(); err != nil {
+		return nil, err
+	}
+
+	i := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(m, i); err != nil {
+		return nil, err
+	}
+
+	options = append(options, webrtc.WithMediaEngine(m))
+	options = append(options, webrtc.WithInterceptorRegistry(i))
+
+	api := webrtc.NewAPI(options...)
+	return api.NewPeerConnection(configuration)
+}
 
 type webRTCTrack struct {
 	media       *media.Media
@@ -61,13 +88,15 @@ type webRTCConnParent interface {
 }
 
 type webRTCConn struct {
-	readBufferCount int
-	pathName        string
-	wsconn          *websocket.Conn
-	iceServers      []string
-	wg              *sync.WaitGroup
-	pathManager     webRTCConnPathManager
-	parent          webRTCConnParent
+	readBufferCount   int
+	pathName          string
+	wsconn            *websocket.Conn
+	iceServers        []string
+	wg                *sync.WaitGroup
+	pathManager       webRTCConnPathManager
+	parent            webRTCConnParent
+	iceTCPMux         ice.TCPMux
+	iceHostNAT1To1IPs []string
 
 	ctx       context.Context
 	ctxCancel func()
@@ -86,21 +115,25 @@ func newWebRTCConn(
 	wg *sync.WaitGroup,
 	pathManager webRTCConnPathManager,
 	parent webRTCConnParent,
+	iceTCPMux ice.TCPMux,
+	iceHostNAT1To1IPs []string,
 ) *webRTCConn {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &webRTCConn{
-		readBufferCount: readBufferCount,
-		pathName:        pathName,
-		wsconn:          wsconn,
-		iceServers:      iceServers,
-		wg:              wg,
-		pathManager:     pathManager,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		uuid:            uuid.New(),
-		created:         time.Now(),
+		readBufferCount:   readBufferCount,
+		pathName:          pathName,
+		wsconn:            wsconn,
+		iceServers:        iceServers,
+		wg:                wg,
+		pathManager:       pathManager,
+		parent:            parent,
+		ctx:               ctx,
+		ctxCancel:         ctxCancel,
+		uuid:              uuid.New(),
+		created:           time.Now(),
+		iceTCPMux:         iceTCPMux,
+		iceHostNAT1To1IPs: iceHostNAT1To1IPs,
 	}
 
 	c.log(logger.Info, "opened")
@@ -222,9 +255,19 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
-		ICEServers: c.genICEServers(),
-	})
+	configuration := webrtc.Configuration{ICEServers: c.genICEServers()}
+	settingsEngine := webrtc.SettingEngine{}
+
+	if c.iceTCPMux != nil {
+		settingsEngine.SetICETCPMux(c.iceTCPMux)
+		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
+	}
+
+	if len(c.iceHostNAT1To1IPs) != 0 {
+		settingsEngine.SetNAT1To1IPs(c.iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
+	}
+
+	pc, err := newPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
 	if err != nil {
 		return err
 	}

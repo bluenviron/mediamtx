@@ -15,6 +15,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/pion/ice/v2"
+	"github.com/pion/webrtc/v3"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -81,8 +83,12 @@ type webRTCServer struct {
 	ctxCancel func()
 	wg        sync.WaitGroup
 	ln        net.Listener
+	tcpMuxLn  net.Listener
 	tlsConfig *tls.Config
 	conns     map[*webRTCConn]struct{}
+
+	iceTCPMux         ice.TCPMux
+	iceHostNAT1To1IPs []string
 
 	// in
 	connNew        chan webRTCConnNewReq
@@ -105,6 +111,8 @@ func newWebRTCServer(
 	pathManager *pathManager,
 	metrics *metrics,
 	parent webRTCServerParent,
+	iceHostNAT1To1IPs []string,
+	iceTCPMuxAddress string,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
@@ -124,6 +132,18 @@ func newWebRTCServer(
 		}
 	}
 
+	var iceTCPMux ice.TCPMux
+	var tcpMuxLn net.Listener
+	if iceTCPMuxAddress != "" {
+		tcpMuxLn, err = net.Listen("tcp", iceTCPMuxAddress)
+		if err != nil {
+			tcpMuxLn.Close()
+			return nil, err
+		}
+
+		iceTCPMux = webrtc.NewICETCPMux(nil, tcpMuxLn, 8)
+	}
+
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &webRTCServer{
@@ -138,7 +158,10 @@ func newWebRTCServer(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
+		tcpMuxLn:                  tcpMuxLn,
 		tlsConfig:                 tlsConfig,
+		iceTCPMux:                 iceTCPMux,
+		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
 		conns:                     make(map[*webRTCConn]struct{}),
 		connNew:                   make(chan webRTCConnNewReq),
 		chConnClose:               make(chan *webRTCConn),
@@ -147,6 +170,10 @@ func newWebRTCServer(
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
+
+	if tcpMuxLn != nil {
+		s.log(logger.Info, "ice mux tcp listener opened on "+iceTCPMuxAddress)
+	}
 
 	if s.metrics != nil {
 		s.metrics.webRTCServerSet(s)
@@ -206,6 +233,8 @@ outer:
 				&s.wg,
 				s.pathManager,
 				s,
+				s.iceTCPMux,
+				s.iceHostNAT1To1IPs,
 			)
 			s.conns[c] = struct{}{}
 
@@ -253,6 +282,11 @@ outer:
 	s.ctxCancel()
 
 	hs.Shutdown(context.Background())
+
+	if s.tcpMuxLn != nil {
+		s.tcpMuxLn.Close()
+	}
+
 	s.ln.Close() // in case Shutdown() is called before Serve()
 }
 
