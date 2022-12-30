@@ -95,7 +95,7 @@ Features:
   * [Decreasing latency](#decreasing-latency)
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
-  * [TURN servers](#turn-servers)
+  * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
 * [Links](#links)
 
 ## Installation
@@ -121,7 +121,7 @@ docker run --rm -it --network=host aler9/rtsp-simple-server
 The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to find out the author of the packets. This issue can be avoided by disabling the UDP transport protocol:
 
 ```
-docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 aler9/rtsp-simple-server
+docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
 ```
 
 Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
@@ -996,9 +996,47 @@ Every stream published to the server can be read with WebRTC by visiting:
 http://localhost:8889/mystream
 ```
 
-### TURN servers
+### Usage inside a container or behind a NAT
 
-The server can be configured in order to communicate to clients through a TURN server. The server must be set in the configuration file:
+If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (the browser and the server) to establish a connection (WebRTC/ICE connection).
+
+A first method consists into forcing all WebRTC/ICE connections to pass through a single UDP server port, by using the parameters:
+
+```yml
+# public IP of the server
+webrtcICEHostNAT1To1IPs: [192.168.x.x]
+# any port of choice
+webrtcICEUDPMuxAddress: :8189
+```
+
+The NAT / container must then be configured in order to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+
+```
+docker run --rm -it \
+-p 8189:8189/udp
+....
+rtsp-simple-server
+```
+
+If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be forced to pass through a single TCP server port:
+
+```yml
+# public IP of the server
+webrtcICEHostNAT1To1IPs: [192.168.x.x]
+# any port of choice
+webrtcICETCPPMuxAddress: :8189
+```
+
+The  NAT / container must then be configured in order to redirect all incoming TCP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+
+```
+docker run --rm -it \
+-p 8189:8189
+....
+rtsp-simple-server
+```
+
+Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, that must be configured externally. The server address and credentials must be set in the configuration file:
 
 ```yml
 webrtcICEServers: [turn:user:pass:host:ip]
