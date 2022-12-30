@@ -1050,7 +1050,7 @@ If the server uses a secret-based authentication (for instance, coturn with the 
 webrtcICEServers: [turn:AUTH_SECRET:secret:host:ip]
 ```
 
-where `secret` is the secret of the TURN server. rtsp_simple_server will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC connection begins.
+where `secret` is the secret of the TURN server. _rtsp-simple-server_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
 ## Links
 
