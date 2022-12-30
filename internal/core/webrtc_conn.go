@@ -61,6 +61,37 @@ func newPeerConnection(configuration webrtc.Configuration,
 	return api.NewPeerConnection(configuration)
 }
 
+func describeActiveCandidates(pc *webrtc.PeerConnection) (string, string) {
+	var lcid string
+	var rcid string
+
+	for _, stats := range pc.GetStats() {
+		if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
+			lcid = tstats.LocalCandidateID
+			rcid = tstats.RemoteCandidateID
+			break
+		}
+	}
+
+	var ldesc string
+	var rdesc string
+
+	for _, stats := range pc.GetStats() {
+		if tstats, ok := stats.(webrtc.ICECandidateStats); ok {
+			str := tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
+				tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
+
+			if tstats.ID == lcid {
+				ldesc = str
+			} else if tstats.ID == rcid {
+				rdesc = str
+			}
+		}
+	}
+
+	return ldesc, rdesc
+}
+
 type webRTCTrack struct {
 	media       *media.Media
 	format      format.Format
@@ -295,14 +326,14 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		}()
 	}
 
-	outgoingCandidate := make(chan *webrtc.ICECandidate)
+	localCandidate := make(chan *webrtc.ICECandidate)
 	pcConnected := make(chan struct{})
 	pcDisconnected := make(chan struct{})
 
 	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
 		if i != nil {
 			select {
-			case outgoingCandidate <- i:
+			case localCandidate <- i:
 			case <-pcConnected:
 			case <-ctx.Done():
 			}
@@ -342,7 +373,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	}
 
 	readError := make(chan error)
-	incomingCandidate := make(chan *webrtc.ICECandidateInit)
+	remoteCandidate := make(chan *webrtc.ICECandidateInit)
 
 	go func() {
 		for {
@@ -357,7 +388,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 			}
 
 			select {
-			case incomingCandidate <- candidate:
+			case remoteCandidate <- candidate:
 			case <-pcConnected:
 			case <-ctx.Done():
 			}
@@ -367,10 +398,12 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 outer:
 	for {
 		select {
-		case candidate := <-outgoingCandidate:
+		case candidate := <-localCandidate:
+			c.log(logger.Debug, "local candidate: %+v", candidate)
 			c.writeCandidate(candidate)
 
-		case candidate := <-incomingCandidate:
+		case candidate := <-remoteCandidate:
+			c.log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
 			err = pc.AddICECandidate(*candidate)
 			if err != nil {
 				return err
@@ -391,7 +424,8 @@ outer:
 	// in order to allow the other side of the connection
 	// o switch to the "connected" state before WebSocket is closed.
 
-	c.log(logger.Info, "peer connection established")
+	ldesc, rdesc := describeActiveCandidates(pc)
+	c.log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v", ldesc, rdesc)
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	defer ringBuffer.Close()
