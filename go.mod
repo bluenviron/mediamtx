@@ -16,6 +16,8 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2
 	github.com/orcaman/writerseeker v0.0.0
+	github.com/pion/ice/v2 v2.2.11
+	github.com/pion/interceptor v0.1.11
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.47
 	github.com/stretchr/testify v1.7.1
@@ -42,8 +44,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.1 // indirect
 	github.com/pion/datachannel v1.5.2 // indirect
 	github.com/pion/dtls/v2 v2.1.5 // indirect
-	github.com/pion/ice/v2 v2.2.11 // indirect
-	github.com/pion/interceptor v0.1.11 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.5 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
