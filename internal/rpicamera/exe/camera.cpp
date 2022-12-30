@@ -85,6 +85,9 @@ static int get_v4l2_colorspace(std::optional<libcamera::ColorSpace> const &cs) {
 }
 
 bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **cam) {
+    // We make sure to set the environment variable before libcamera init
+    setenv("LIBCAMERA_RPI_TUNING_FILE", params->tuning_file, 1);
+
     std::unique_ptr<CameraPriv> camp = std::make_unique<CameraPriv>();
 
     camp->camera_manager = std::make_unique<CameraManager>();
@@ -108,8 +111,6 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
         set_error("CameraManager.get() failed");
         return false;
     }
-
-    setenv("LIBCAMERA_RPI_TUNING_FILE", params->tuning_file, 1);
 
     ret = camp->camera->acquire();
     if (ret != 0) {
