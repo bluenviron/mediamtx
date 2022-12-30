@@ -147,14 +147,12 @@ components:
           type: array
           items:
             type: string
-        webrtcICETCPMuxEnable:
-          type: boolean
-        webrtcICETCPMuxAddress:
-          type: string
         webrtcICEHostNAT1To1IPs:
           type: array
           items:
             type: string
+        webrtcICETCPMuxAddress:
+          type: string
 
         # paths
         paths:

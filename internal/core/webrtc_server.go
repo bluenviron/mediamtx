@@ -111,9 +111,8 @@ func newWebRTCServer(
 	pathManager *pathManager,
 	metrics *metrics,
 	parent webRTCServerParent,
-	iceTCPMuxEnable bool,
-	iceTCPMuxAddress string,
 	iceHostNAT1To1IPs []string,
+	iceTCPMuxAddress string,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
@@ -135,7 +134,7 @@ func newWebRTCServer(
 
 	var iceTCPMux ice.TCPMux
 	var tcpMuxLn net.Listener
-	if iceTCPMuxEnable {
+	if iceTCPMuxAddress != "" {
 		tcpMuxLn, err = net.Listen("tcp", iceTCPMuxAddress)
 		if err != nil {
 			tcpMuxLn.Close()

@@ -232,9 +232,8 @@ type Conf struct {
 	WebRTCAllowOrigin       string     `json:"webrtcAllowOrigin"`
 	WebRTCTrustedProxies    IPsOrCIDRs `json:"webrtcTrustedProxies"`
 	WebRTCICEServers        []string   `json:"webrtcICEServers"`
-	WebRTCICETCPMuxEnable   bool       `json:"webrtcICETCPMuxEnable"`
-	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
 	WebRTCICEHostNAT1To1IPs []string   `json:"webrtcICEHostNAT1To1IPs"`
+	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
@@ -414,9 +413,6 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 	if conf.WebRTCICEServers == nil {
 		conf.WebRTCICEServers = []string{"stun:stun.l.google.com:19302"}
-	}
-	if conf.WebRTCICETCPMuxAddress == "" {
-		conf.WebRTCICETCPMuxAddress = "127.0.0.1:9996"
 	}
 
 	// do not add automatically "all", since user may want to
