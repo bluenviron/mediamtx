@@ -137,7 +137,6 @@ func newWebRTCServer(
 	if iceTCPMuxAddress != "" {
 		tcpMuxLn, err = net.Listen("tcp", iceTCPMuxAddress)
 		if err != nil {
-			tcpMuxLn.Close()
 			return nil, err
 		}
 
