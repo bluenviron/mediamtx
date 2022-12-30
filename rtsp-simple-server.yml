@@ -199,9 +199,15 @@ webrtcICEServers: [stun:stun.l.google.com:19302]
 # List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT.
 webrtcICEHostNAT1To1IPs: []
+# Address of a ICE UDP listener in format host:port.
+# If filled, ICE traffic will come through a single UDP port,
+# allowing the deployment of the server inside a container or behind a NAT.
+webrtcICEUDPMuxAddress:
 # Address of a ICE TCP listener in format host:port.
 # If filled, ICE traffic will come through a single TCP port,
 # allowing the deployment of the server inside a container or behind a NAT.
+# At the moment, setting this parameter forces usage of the TCP protocol,
+# which is not optimal for WebRTC.
 webrtcICETCPMuxAddress:
 
 ###############################################

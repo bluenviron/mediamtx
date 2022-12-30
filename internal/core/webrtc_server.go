@@ -79,16 +79,17 @@ type webRTCServer struct {
 	metrics                   *metrics
 	parent                    webRTCServerParent
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	ln        net.Listener
-	tcpMuxLn  net.Listener
-	tlsConfig *tls.Config
-	conns     map[*webRTCConn]struct{}
-
-	iceTCPMux         ice.TCPMux
+	ctx               context.Context
+	ctxCancel         func()
+	wg                sync.WaitGroup
+	ln                net.Listener
+	udpMuxLn          net.PacketConn
+	tcpMuxLn          net.Listener
+	tlsConfig         *tls.Config
+	conns             map[*webRTCConn]struct{}
 	iceHostNAT1To1IPs []string
+	iceUDPMux         ice.UDPMux
+	iceTCPMux         ice.TCPMux
 
 	// in
 	connNew        chan webRTCConnNewReq
@@ -112,6 +113,7 @@ func newWebRTCServer(
 	metrics *metrics,
 	parent webRTCServerParent,
 	iceHostNAT1To1IPs []string,
+	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen("tcp", address)
@@ -132,6 +134,16 @@ func newWebRTCServer(
 		}
 	}
 
+	var iceUDPMux ice.UDPMux
+	var udpMuxLn net.PacketConn
+	if iceUDPMuxAddress != "" {
+		udpMuxLn, err = net.ListenPacket("udp", iceUDPMuxAddress)
+		if err != nil {
+			return nil, err
+		}
+		iceUDPMux = webrtc.NewICEUDPMux(nil, udpMuxLn)
+	}
+
 	var iceTCPMux ice.TCPMux
 	var tcpMuxLn net.Listener
 	if iceTCPMuxAddress != "" {
@@ -139,7 +151,6 @@ func newWebRTCServer(
 		if err != nil {
 			return nil, err
 		}
-
 		iceTCPMux = webrtc.NewICETCPMux(nil, tcpMuxLn, 8)
 	}
 
@@ -157,8 +168,10 @@ func newWebRTCServer(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
+		udpMuxLn:                  udpMuxLn,
 		tcpMuxLn:                  tcpMuxLn,
 		tlsConfig:                 tlsConfig,
+		iceUDPMux:                 iceUDPMux,
 		iceTCPMux:                 iceTCPMux,
 		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
 		conns:                     make(map[*webRTCConn]struct{}),
@@ -168,11 +181,14 @@ func newWebRTCServer(
 		chAPIConnsKick:            make(chan webRTCServerAPIConnsKickReq),
 	}
 
-	s.log(logger.Info, "listener opened on "+address)
-
-	if tcpMuxLn != nil {
-		s.log(logger.Info, "ice mux tcp listener opened on "+iceTCPMuxAddress)
+	str := "listener opened on " + address + " (HTTP)"
+	if udpMuxLn != nil {
+		str += ", " + iceUDPMuxAddress + " (ICE/UDP)"
 	}
+	if tcpMuxLn != nil {
+		str += ", " + iceTCPMuxAddress + " (ICE/TCP)"
+	}
+	s.log(logger.Info, str)
 
 	if s.metrics != nil {
 		s.metrics.webRTCServerSet(s)
@@ -232,8 +248,9 @@ outer:
 				&s.wg,
 				s.pathManager,
 				s,
-				s.iceTCPMux,
 				s.iceHostNAT1To1IPs,
+				s.iceUDPMux,
+				s.iceTCPMux,
 			)
 			s.conns[c] = struct{}{}
 
@@ -281,12 +298,15 @@ outer:
 	s.ctxCancel()
 
 	hs.Shutdown(context.Background())
+	s.ln.Close() // in case Shutdown() is called before Serve()
+
+	if s.udpMuxLn != nil {
+		s.udpMuxLn.Close()
+	}
 
 	if s.tcpMuxLn != nil {
 		s.tcpMuxLn.Close()
 	}
-
-	s.ln.Close() // in case Shutdown() is called before Serve()
 }
 
 func (s *webRTCServer) onRequest(ctx *gin.Context) {

@@ -233,6 +233,7 @@ type Conf struct {
 	WebRTCTrustedProxies    IPsOrCIDRs `json:"webrtcTrustedProxies"`
 	WebRTCICEServers        []string   `json:"webrtcICEServers"`
 	WebRTCICEHostNAT1To1IPs []string   `json:"webrtcICEHostNAT1To1IPs"`
+	WebRTCICEUDPMuxAddress  string     `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
 
 	// paths

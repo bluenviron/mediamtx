@@ -151,6 +151,8 @@ components:
           type: array
           items:
             type: string
+        webrtcICEUDPMuxAddress:
+          type: string
         webrtcICETCPMuxAddress:
           type: string
 
