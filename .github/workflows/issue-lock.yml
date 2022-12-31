@@ -1,0 +1,50 @@
+name: issue-lock
+
+on:
+  schedule:
+  - cron: '40 15 * * *'
+  workflow_dispatch:
+
+jobs:
+  issue-lock:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { repo: { owner, repo } } = context;
+
+          const now = new Date();
+
+          for await (const res of github.paginate.iterator(
+              github.rest.issues.listForRepo, {
+                owner,
+                repo,
+                state: 'closed',
+          })) {
+            for (const issue of res.data) {
+              if (issue.locked) {
+                continue;
+              }
+
+              if ((now - new Date(issue.updated_at)) < 1000*60*60*24*31*6) {
+                continue;
+              }
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: issue.number,
+                body: 'This issue is being locked automatically because it has been closed for more than 6 months.\n'
+                  + 'Please open a new issue in case you encounter a similar problem.',
+              });
+
+              github.rest.issues.lock({
+                owner,
+                repo,
+                issue_number: issue.number,
+              });
+            }
+          }
