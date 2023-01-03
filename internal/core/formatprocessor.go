@@ -25,6 +25,9 @@ func newFormatProcessor(forma format.Format, generateRTPPackets bool) (formatPro
 	case *format.MPEG4Audio:
 		return newFormatProcessorMPEG4Audio(forma, generateRTPPackets)
 
+	case *format.Opus:
+		return newFormatProcessorOpus(forma, generateRTPPackets)
+
 	default:
 		return newFormatProcessorGeneric(forma, generateRTPPackets)
 	}

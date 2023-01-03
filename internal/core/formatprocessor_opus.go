@@ -1,40 +1,40 @@
-package core //nolint:dupl
+package core
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpvp9"
+	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpsimpleaudio"
 	"github.com/pion/rtp"
 )
 
-type dataVP9 struct {
+type dataOpus struct {
 	rtpPackets []*rtp.Packet
 	ntp        time.Time
 	pts        time.Duration
 	frame      []byte
 }
 
-func (d *dataVP9) getRTPPackets() []*rtp.Packet {
+func (d *dataOpus) getRTPPackets() []*rtp.Packet {
 	return d.rtpPackets
 }
 
-func (d *dataVP9) getNTP() time.Time {
+func (d *dataOpus) getNTP() time.Time {
 	return d.ntp
 }
 
-type formatProcessorVP9 struct {
-	format  *format.VP9
-	encoder *rtpvp9.Encoder
-	decoder *rtpvp9.Decoder
+type formatProcessorOpus struct {
+	format  *format.Opus
+	encoder *rtpsimpleaudio.Encoder
+	decoder *rtpsimpleaudio.Decoder
 }
 
-func newFormatProcessorVP9(
-	forma *format.VP9,
+func newFormatProcessorOpus(
+	forma *format.Opus,
 	allocateEncoder bool,
-) (*formatProcessorVP9, error) {
-	t := &formatProcessorVP9{
+) (*formatProcessorOpus, error) {
+	t := &formatProcessorOpus{
 		format: forma,
 	}
 
@@ -45,8 +45,8 @@ func newFormatProcessorVP9(
 	return t, nil
 }
 
-func (t *formatProcessorVP9) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
-	tdata := dat.(*dataVP9)
+func (t *formatProcessorOpus) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
+	tdata := dat.(*dataOpus)
 
 	if tdata.rtpPackets != nil {
 		pkt := tdata.rtpPackets[0]
@@ -68,9 +68,6 @@ func (t *formatProcessorVP9) process(dat data, hasNonRTSPReaders bool) error { /
 
 			frame, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
-				if err == rtpvp9.ErrMorePacketsNeeded {
-					return nil
-				}
 				return err
 			}
 
@@ -82,11 +79,11 @@ func (t *formatProcessorVP9) process(dat data, hasNonRTSPReaders bool) error { /
 		return nil
 	}
 
-	pkts, err := t.encoder.Encode(tdata.frame, tdata.pts)
+	pkt, err := t.encoder.Encode(tdata.frame, tdata.pts)
 	if err != nil {
 		return err
 	}
 
-	tdata.rtpPackets = pkts
+	tdata.rtpPackets = []*rtp.Packet{pkt}
 	return nil
 }

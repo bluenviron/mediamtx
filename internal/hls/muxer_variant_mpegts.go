@@ -17,7 +17,7 @@ func newMuxerVariantMPEGTS(
 	segmentDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 ) (*muxerVariantMPEGTS, error) {
 	var videoTrackH264 *format.H264
 	if videoTrack != nil {
@@ -25,7 +25,17 @@ func newMuxerVariantMPEGTS(
 		videoTrackH264, ok = videoTrack.(*format.H264)
 		if !ok {
 			return nil, fmt.Errorf(
-				"the MPEG-TS variant of HLS doesn't support H265. Use the fMP4 or Low-Latency variants instead")
+				"the MPEG-TS variant of HLS only supports H264 video. Use the fMP4 or Low-Latency variants instead")
+		}
+	}
+
+	var audioTrackMPEG4Audio *format.MPEG4Audio
+	if audioTrack != nil {
+		var ok bool
+		audioTrackMPEG4Audio, ok = audioTrack.(*format.MPEG4Audio)
+		if !ok {
+			return nil, fmt.Errorf(
+				"the MPEG-TS variant of HLS only supports MPEG4-audio. Use the fMP4 or Low-Latency variants instead")
 		}
 	}
 
@@ -37,7 +47,7 @@ func newMuxerVariantMPEGTS(
 		segmentDuration,
 		segmentMaxSize,
 		videoTrackH264,
-		audioTrack,
+		audioTrackMPEG4Audio,
 		func(seg *muxerVariantMPEGTSSegment) {
 			v.playlist.pushSegment(seg)
 		},
@@ -54,7 +64,7 @@ func (v *muxerVariantMPEGTS) writeH26x(ntp time.Time, pts time.Duration, nalus [
 	return v.segmenter.writeH264(ntp, pts, nalus)
 }
 
-func (v *muxerVariantMPEGTS) writeAAC(ntp time.Time, pts time.Duration, au []byte) error {
+func (v *muxerVariantMPEGTS) writeAudio(ntp time.Time, pts time.Duration, au []byte) error {
 	return v.segmenter.writeAAC(ntp, pts, au)
 }
 

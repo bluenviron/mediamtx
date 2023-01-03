@@ -31,6 +31,9 @@ func codecParameters(track format.Format) string {
 	case *format.MPEG4Audio:
 		// https://developer.mozilla.org/en-US/docs/Web/Media/Formats/codecs_parameter
 		return "mp4a.40." + strconv.FormatInt(int64(ttrack.Config.Type), 10)
+
+	case *format.Opus:
+		return "opus"
 	}
 
 	return ""
@@ -39,13 +42,13 @@ func codecParameters(track format.Format) string {
 type muxerPrimaryPlaylist struct {
 	fmp4       bool
 	videoTrack format.Format
-	audioTrack *format.MPEG4Audio
+	audioTrack format.Format
 }
 
 func newMuxerPrimaryPlaylist(
 	fmp4 bool,
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 ) *muxerPrimaryPlaylist {
 	return &muxerPrimaryPlaylist{
 		fmp4:       fmp4,

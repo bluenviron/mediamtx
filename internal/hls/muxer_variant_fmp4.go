@@ -48,7 +48,7 @@ type muxerVariantFMP4 struct {
 	playlist   *muxerVariantFMP4Playlist
 	segmenter  *muxerVariantFMP4Segmenter
 	videoTrack format.Format
-	audioTrack *format.MPEG4Audio
+	audioTrack format.Format
 
 	mutex           sync.Mutex
 	lastVideoParams [][]byte
@@ -62,7 +62,7 @@ func newMuxerVariantFMP4(
 	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 ) *muxerVariantFMP4 {
 	v := &muxerVariantFMP4{
 		videoTrack: videoTrack,
@@ -99,8 +99,8 @@ func (v *muxerVariantFMP4) writeH26x(ntp time.Time, pts time.Duration, au [][]by
 	return v.segmenter.writeH26x(ntp, pts, au)
 }
 
-func (v *muxerVariantFMP4) writeAAC(ntp time.Time, pts time.Duration, au []byte) error {
-	return v.segmenter.writeAAC(ntp, pts, au)
+func (v *muxerVariantFMP4) writeAudio(ntp time.Time, pts time.Duration, au []byte) error {
+	return v.segmenter.writeAudio(ntp, pts, au)
 }
 
 func (v *muxerVariantFMP4) mustRegenerateInit() bool {

@@ -18,7 +18,7 @@ func fmp4PartName(id uint64) string {
 
 type muxerVariantFMP4Part struct {
 	videoTrack format.Format
-	audioTrack *format.MPEG4Audio
+	audioTrack format.Format
 	id         uint64
 
 	isIndependent       bool
@@ -34,7 +34,7 @@ type muxerVariantFMP4Part struct {
 
 func newMuxerVariantFMP4Part(
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 	id uint64,
 ) *muxerVariantFMP4Part {
 	p := &muxerVariantFMP4Part{
@@ -130,7 +130,7 @@ func (p *muxerVariantFMP4Part) writeH264(sample *augmentedVideoSample) {
 	p.videoSamples = append(p.videoSamples, &sample.PartSample)
 }
 
-func (p *muxerVariantFMP4Part) writeAAC(sample *augmentedAudioSample) {
+func (p *muxerVariantFMP4Part) writeAudio(sample *augmentedAudioSample) {
 	if !p.audioStartDTSFilled {
 		p.audioStartDTSFilled = true
 		p.audioStartDTS = sample.dts

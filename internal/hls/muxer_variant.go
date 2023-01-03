@@ -17,6 +17,6 @@ const (
 type muxerVariant interface {
 	close()
 	writeH26x(time.Time, time.Duration, [][]byte) error
-	writeAAC(time.Time, time.Duration, []byte) error
+	writeAudio(time.Time, time.Duration, []byte) error
 	file(name string, msn string, part string, skip string) *MuxerFileResponse
 }

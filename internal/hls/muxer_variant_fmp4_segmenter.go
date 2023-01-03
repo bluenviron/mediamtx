@@ -79,7 +79,7 @@ type muxerVariantFMP4Segmenter struct {
 	partDuration       time.Duration
 	segmentMaxSize     uint64
 	videoTrack         format.Format
-	audioTrack         *format.MPEG4Audio
+	audioTrack         format.Format
 	onSegmentFinalized func(*muxerVariantFMP4Segment)
 	onPartFinalized    func(*muxerVariantFMP4Part)
 
@@ -104,7 +104,7 @@ func newMuxerVariantFMP4Segmenter(
 	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 	onSegmentFinalized func(*muxerVariantFMP4Segment),
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segmenter {
@@ -317,7 +317,7 @@ func (m *muxerVariantFMP4Segmenter) writeH26xEntry(
 	return nil
 }
 
-func (m *muxerVariantFMP4Segmenter) writeAAC(ntp time.Time, dts time.Duration, au []byte) error {
+func (m *muxerVariantFMP4Segmenter) writeAudio(ntp time.Time, dts time.Duration, au []byte) error {
 	if m.videoTrack != nil {
 		// wait for the video track
 		if !m.videoFirstRandomAccessReceived {
@@ -367,7 +367,7 @@ func (m *muxerVariantFMP4Segmenter) writeAAC(ntp time.Time, dts time.Duration, a
 		}
 	}
 
-	err := m.currentSegment.writeAAC(sample, m.partDuration)
+	err := m.currentSegment.writeAudio(sample, m.partDuration)
 	if err != nil {
 		return err
 	}

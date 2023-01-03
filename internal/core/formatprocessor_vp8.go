@@ -1,4 +1,4 @@
-package core
+package core //nolint:dupl
 
 import (
 	"fmt"

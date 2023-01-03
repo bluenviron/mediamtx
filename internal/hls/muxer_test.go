@@ -75,13 +75,13 @@ func TestMuxerVideoAudio(t *testing.T) {
 			require.NoError(t, err)
 
 			d = 3 * time.Second
-			err = m.WriteAAC(testTime.Add(d-1*time.Second), d, []byte{
+			err = m.WriteAudio(testTime.Add(d-1*time.Second), d, []byte{
 				0x01, 0x02, 0x03, 0x04,
 			})
 			require.NoError(t, err)
 
 			d = 3500 * time.Millisecond
-			err = m.WriteAAC(testTime.Add(d-1*time.Second), d, []byte{
+			err = m.WriteAudio(testTime.Add(d-1*time.Second), d, []byte{
 				0x01, 0x02, 0x03, 0x04,
 			})
 			require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestMuxerVideoAudio(t *testing.T) {
 			require.NoError(t, err)
 
 			d = 4500 * time.Millisecond
-			err = m.WriteAAC(testTime.Add(d-1*time.Second), d, []byte{
+			err = m.WriteAudio(testTime.Add(d-1*time.Second), d, []byte{
 				0x01, 0x02, 0x03, 0x04,
 			})
 			require.NoError(t, err)
@@ -323,20 +323,20 @@ func TestMuxerAudioOnly(t *testing.T) {
 
 			for i := 0; i < 100; i++ {
 				d := 1 * time.Second
-				err = m.WriteAAC(testTime.Add(d-1*time.Second), d, []byte{
+				err = m.WriteAudio(testTime.Add(d-1*time.Second), d, []byte{
 					0x01, 0x02, 0x03, 0x04,
 				})
 				require.NoError(t, err)
 			}
 
 			d := 2 * time.Second
-			err = m.WriteAAC(testTime.Add(d-1*time.Second), d, []byte{
+			err = m.WriteAudio(testTime.Add(d-1*time.Second), d, []byte{
 				0x01, 0x02, 0x03, 0x04,
 			})
 			require.NoError(t, err)
 
 			d = 3 * time.Second
-			err = m.WriteAAC(testTime.Add(d-1*time.Second), d, []byte{
+			err = m.WriteAudio(testTime.Add(d-1*time.Second), d, []byte{
 				0x01, 0x02, 0x03, 0x04,
 			})
 			require.NoError(t, err)

@@ -363,6 +363,17 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 					}
 				})
 
+			case *format.Opus:
+				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+					err := s.stream.writeData(cmedia, cformat, &dataOpus{
+						rtpPackets: []*rtp.Packet{pkt},
+						ntp:        time.Now(),
+					})
+					if err != nil {
+						s.log(logger.Warn, "%v", err)
+					}
+				})
+
 			default:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 					err := s.stream.writeData(cmedia, cformat, &dataGeneric{

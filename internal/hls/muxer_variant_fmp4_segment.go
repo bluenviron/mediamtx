@@ -46,7 +46,7 @@ type muxerVariantFMP4Segment struct {
 	startDTS        time.Duration
 	segmentMaxSize  uint64
 	videoTrack      format.Format
-	audioTrack      *format.MPEG4Audio
+	audioTrack      format.Format
 	genPartID       func() uint64
 	onPartFinalized func(*muxerVariantFMP4Part)
 
@@ -64,7 +64,7 @@ func newMuxerVariantFMP4Segment(
 	startDTS time.Duration,
 	segmentMaxSize uint64,
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 	genPartID func() uint64,
 	onPartFinalized func(*muxerVariantFMP4Part),
 ) *muxerVariantFMP4Segment {
@@ -155,14 +155,14 @@ func (s *muxerVariantFMP4Segment) writeH264(sample *augmentedVideoSample, adjust
 	return nil
 }
 
-func (s *muxerVariantFMP4Segment) writeAAC(sample *augmentedAudioSample, adjustedPartDuration time.Duration) error {
+func (s *muxerVariantFMP4Segment) writeAudio(sample *augmentedAudioSample, adjustedPartDuration time.Duration) error {
 	size := uint64(len(sample.Payload))
 	if (s.size + size) > s.segmentMaxSize {
 		return fmt.Errorf("reached maximum segment size")
 	}
 	s.size += size
 
-	s.currentPart.writeAAC(sample)
+	s.currentPart.writeAudio(sample)
 
 	// switch part
 	if s.lowLatency && s.videoTrack == nil &&

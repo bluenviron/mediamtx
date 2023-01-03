@@ -29,7 +29,7 @@ func NewMuxer(
 	partDuration time.Duration,
 	segmentMaxSize uint64,
 	videoTrack format.Format,
-	audioTrack *format.MPEG4Audio,
+	audioTrack format.Format,
 ) (*Muxer, error) {
 	m := &Muxer{}
 
@@ -85,9 +85,9 @@ func (m *Muxer) WriteH26x(ntp time.Time, pts time.Duration, au [][]byte) error {
 	return m.variant.writeH26x(ntp, pts, au)
 }
 
-// WriteAAC writes an AAC access unit.
-func (m *Muxer) WriteAAC(ntp time.Time, pts time.Duration, au []byte) error {
-	return m.variant.writeAAC(ntp, pts, au)
+// WriteAudio writes an audio access unit.
+func (m *Muxer) WriteAudio(ntp time.Time, pts time.Duration, au []byte) error {
+	return m.variant.writeAudio(ntp, pts, au)
 }
 
 // File returns a file reader.

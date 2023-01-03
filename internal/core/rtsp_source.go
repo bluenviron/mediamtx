@@ -203,6 +203,17 @@ func (s *rtspSource) run(ctx context.Context) error {
 							}
 						})
 
+					case *format.Opus:
+						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+							err := res.stream.writeData(cmedia, cformat, &dataOpus{
+								rtpPackets: []*rtp.Packet{pkt},
+								ntp:        time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+						})
+
 					default:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &dataGeneric{
