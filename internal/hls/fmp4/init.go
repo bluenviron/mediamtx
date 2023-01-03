@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	gomp4 "github.com/abema/go-mp4"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h265"
 	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
 	"github.com/aler9/gortsplib/v2/pkg/format"
 )
@@ -23,8 +24,10 @@ func (i *Init) Unmarshal(byts []byte) error {
 		waitingTkhd
 		waitingMdhd
 		waitingCodec
-		waitingAvcc
+		waitingAvcC
+		waitingHvcC
 		waitingEsds
+		waitingDOps
 	)
 
 	state := waitingTrak
@@ -34,7 +37,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 		switch h.BoxInfo.Type.String() {
 		case "trak":
 			if state != waitingTrak {
-				return nil, fmt.Errorf("parse error")
+				return nil, fmt.Errorf("unexpected box 'trak'")
 			}
 
 			curTrack = &InitTrack{}
@@ -43,7 +46,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 
 		case "tkhd":
 			if state != waitingTkhd {
-				return nil, fmt.Errorf("parse error")
+				return nil, fmt.Errorf("unexpected box 'tkhd'")
 			}
 
 			box, _, err := h.ReadPayload()
@@ -57,7 +60,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 
 		case "mdhd":
 			if state != waitingMdhd {
-				return nil, fmt.Errorf("parse error")
+				return nil, fmt.Errorf("unexpected box 'mdhd'")
 			}
 
 			box, _, err := h.ReadPayload()
@@ -71,38 +74,38 @@ func (i *Init) Unmarshal(byts []byte) error {
 
 		case "avc1":
 			if state != waitingCodec {
-				return nil, fmt.Errorf("parse error")
+				return nil, fmt.Errorf("unexpected box 'avc1'")
 			}
 
-			state = waitingAvcc
+			state = waitingAvcC
 
 		case "avcC":
-			if state != waitingAvcc {
-				return nil, fmt.Errorf("parse error")
+			if state != waitingAvcC {
+				return nil, fmt.Errorf("unexpected box 'avcC'")
 			}
 
 			box, _, err := h.ReadPayload()
 			if err != nil {
 				return nil, err
 			}
-			conf := box.(*gomp4.AVCDecoderConfiguration)
+			avcc := box.(*gomp4.AVCDecoderConfiguration)
 
-			if len(conf.SequenceParameterSets) > 1 {
+			if len(avcc.SequenceParameterSets) > 1 {
 				return nil, fmt.Errorf("multiple SPS are not supported")
 			}
 
 			var sps []byte
-			if len(conf.SequenceParameterSets) == 1 {
-				sps = conf.SequenceParameterSets[0].NALUnit
+			if len(avcc.SequenceParameterSets) == 1 {
+				sps = avcc.SequenceParameterSets[0].NALUnit
 			}
 
-			if len(conf.PictureParameterSets) > 1 {
+			if len(avcc.PictureParameterSets) > 1 {
 				return nil, fmt.Errorf("multiple PPS are not supported")
 			}
 
 			var pps []byte
-			if len(conf.PictureParameterSets) == 1 {
-				pps = conf.PictureParameterSets[0].NALUnit
+			if len(avcc.PictureParameterSets) == 1 {
+				pps = avcc.PictureParameterSets[0].NALUnit
 			}
 
 			curTrack.Format = &format.H264{
@@ -113,16 +116,76 @@ func (i *Init) Unmarshal(byts []byte) error {
 			}
 			state = waitingTrak
 
-		case "mp4a":
+		case "hev1":
 			if state != waitingCodec {
-				return nil, fmt.Errorf("parse error")
+				return nil, fmt.Errorf("unexpected box 'hev1'")
+			}
+			state = waitingHvcC
+
+		case "hvcC":
+			if state != waitingHvcC {
+				return nil, fmt.Errorf("unexpected box 'hvcC'")
 			}
 
+			box, _, err := h.ReadPayload()
+			if err != nil {
+				return nil, err
+			}
+			hvcc := box.(*gomp4.HvcC)
+
+			var vps []byte
+			var sps []byte
+			var pps []byte
+
+			for _, arr := range hvcc.NaluArrays {
+				switch h265.NALUType(arr.NaluType) {
+				case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT:
+					if arr.NumNalus != 1 {
+						return nil, fmt.Errorf("multiple VPS/SPS/PPS are not supported")
+					}
+				}
+
+				switch h265.NALUType(arr.NaluType) {
+				case h265.NALUType_VPS_NUT:
+					vps = arr.Nalus[0].NALUnit
+
+				case h265.NALUType_SPS_NUT:
+					sps = arr.Nalus[0].NALUnit
+
+				case h265.NALUType_PPS_NUT:
+					pps = arr.Nalus[0].NALUnit
+				}
+			}
+
+			if vps == nil {
+				return nil, fmt.Errorf("VPS not provided")
+			}
+
+			if sps == nil {
+				return nil, fmt.Errorf("SPS not provided")
+			}
+
+			if pps == nil {
+				return nil, fmt.Errorf("PPS not provided")
+			}
+
+			curTrack.Format = &format.H265{
+				PayloadTyp: 96,
+				VPS:        vps,
+				SPS:        sps,
+				PPS:        pps,
+			}
+			state = waitingTrak
+
+		case "mp4a":
+			if state != waitingCodec {
+				return nil, fmt.Errorf("unexpected box 'mp4a'")
+			}
 			state = waitingEsds
 
 		case "esds":
 			if state != waitingEsds {
-				return nil, fmt.Errorf("parse error")
+				return nil, fmt.Errorf("unexpected box 'esds'")
 			}
 
 			box, _, err := h.ReadPayload()
@@ -160,6 +223,30 @@ func (i *Init) Unmarshal(byts []byte) error {
 
 		case "ac-3":
 			return nil, fmt.Errorf("AC-3 codec is not supported (yet)")
+
+		case "Opus":
+			if state != waitingCodec {
+				return nil, fmt.Errorf("unexpected box 'Opus'")
+			}
+			state = waitingDOps
+
+		case "dOps":
+			if state != waitingDOps {
+				return nil, fmt.Errorf("unexpected box 'dOps'")
+			}
+
+			box, _, err := h.ReadPayload()
+			if err != nil {
+				return nil, err
+			}
+			dops := box.(*DOps)
+
+			curTrack.Format = &format.Opus{
+				PayloadTyp:   96,
+				SampleRate:   int(dops.InputSampleRate),
+				ChannelCount: int(dops.OutputChannelCount),
+			}
+			state = waitingTrak
 		}
 
 		return h.Expand()

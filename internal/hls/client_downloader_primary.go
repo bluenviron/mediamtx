@@ -271,17 +271,15 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	for _, track := range tracks {
 		switch ttrack := track.(type) {
 		case *format.H264:
-			if videoTrack != nil {
-				return fmt.Errorf("multiple video tracks are not supported")
-			}
 			videoTrack = ttrack
 
 		case *format.MPEG4Audio:
-			if audioTrack != nil {
-				return fmt.Errorf("multiple audio tracks are not supported")
-			}
 			audioTrack = ttrack
 		}
+	}
+
+	if videoTrack == nil && audioTrack == nil {
+		return fmt.Errorf("no supported tracks found")
 	}
 
 	err = d.onTracks(videoTrack, audioTrack)
