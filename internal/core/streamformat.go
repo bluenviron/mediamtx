@@ -57,7 +57,7 @@ func (sf *streamFormat) writeData(s *stream, medi *media.Media, data data) error
 		s.rtspStream.WritePacketRTPWithNTP(medi, pkt, data.getNTP())
 	}
 
-	// forward data to non-RTSP readers
+	// forward decoded frames to non-RTSP readers
 	for _, cb := range sf.nonRTSPReaders {
 		cb(data)
 	}
