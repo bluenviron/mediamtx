@@ -20,7 +20,16 @@ func TestH265DynamicParams(t *testing.T) {
 
 	enc := forma.CreateEncoder()
 
-	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
+	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
+	require.NoError(t, err)
+	data := &DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}
+	p.Process(data, true)
+
+	require.Equal(t, [][]byte{
+		{byte(h265.NALUType_CRA_NUT) << 1, 0},
+	}, data.AU)
+
+	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
 	require.NoError(t, err)
 	p.Process(&DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
 
@@ -35,6 +44,18 @@ func TestH265DynamicParams(t *testing.T) {
 	require.Equal(t, []byte{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}, forma.VPS)
 	require.Equal(t, []byte{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}, forma.SPS)
 	require.Equal(t, []byte{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}, forma.PPS)
+
+	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
+	require.NoError(t, err)
+	data = &DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}
+	p.Process(data, true)
+
+	require.Equal(t, [][]byte{
+		{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3},
+		{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6},
+		{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9},
+		{byte(h265.NALUType_CRA_NUT) << 1, 0},
+	}, data.AU)
 }
 
 func TestH265OversizedPackets(t *testing.T) {

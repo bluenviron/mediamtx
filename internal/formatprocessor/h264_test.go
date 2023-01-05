@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -20,13 +21,14 @@ func TestH264DynamicParams(t *testing.T) {
 
 	enc := forma.CreateEncoder()
 
-	pkts, err := enc.Encode([][]byte{{7, 1, 2, 3}}, 0) // SPS
+	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
-	p.Process(&DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	data := &DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}
+	p.Process(data, true)
 
-	pkts, err = enc.Encode([][]byte{{8}}, 0) // PPS
-	require.NoError(t, err)
-	p.Process(&DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	require.Equal(t, [][]byte{
+		{byte(h264.NALUTypeIDR)},
+	}, data.AU)
 
 	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
 	require.NoError(t, err)
@@ -38,6 +40,17 @@ func TestH264DynamicParams(t *testing.T) {
 
 	require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
 	require.Equal(t, []byte{8, 1}, forma.PPS)
+
+	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
+	require.NoError(t, err)
+	data = &DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}
+	p.Process(data, true)
+
+	require.Equal(t, [][]byte{
+		{0x07, 4, 5, 6},
+		{0x08, 1},
+		{byte(h264.NALUTypeIDR)},
+	}, data.AU)
 }
 
 func TestH264OversizedPackets(t *testing.T) {

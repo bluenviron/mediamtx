@@ -154,6 +154,9 @@ func (t *formatProcessorH265) updateTrackParametersFromNALUs(nalus [][]byte) {
 }
 
 func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
+	var vps []byte
+	var sps []byte
+	var pps []byte
 	addParameters := false
 	n := 0
 
@@ -171,7 +174,14 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
 			if !addParameters {
 				addParameters = true
-				n += 3
+
+				vps = t.format.SafeVPS()
+				sps = t.format.SafeSPS()
+				pps = t.format.SafePPS()
+
+				if vps != nil && sps != nil && pps != nil {
+					n += 3
+				}
 			}
 		}
 		n++
@@ -184,10 +194,10 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	if addParameters {
-		filteredNALUs[0] = t.format.SafeVPS()
-		filteredNALUs[1] = t.format.SafeSPS()
-		filteredNALUs[2] = t.format.SafePPS()
+	if addParameters && vps != nil && sps != nil && pps != nil {
+		filteredNALUs[0] = vps
+		filteredNALUs[1] = sps
+		filteredNALUs[2] = pps
 		i = 3
 	}
 
