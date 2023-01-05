@@ -1,4 +1,4 @@
-package core
+package formatprocessor
 
 import (
 	"fmt"
@@ -9,19 +9,22 @@ import (
 	"github.com/pion/rtp"
 )
 
-type dataMPEG4Audio struct {
-	rtpPackets []*rtp.Packet
-	ntp        time.Time
-	pts        time.Duration
-	aus        [][]byte
+// DataMPEG4Audio is a MPEG4-audio data unit.
+type DataMPEG4Audio struct {
+	RTPPackets []*rtp.Packet
+	NTP        time.Time
+	PTS        time.Duration
+	AUs        [][]byte
 }
 
-func (d *dataMPEG4Audio) getRTPPackets() []*rtp.Packet {
-	return d.rtpPackets
+// GetRTPPackets implements Data.
+func (d *DataMPEG4Audio) GetRTPPackets() []*rtp.Packet {
+	return d.RTPPackets
 }
 
-func (d *dataMPEG4Audio) getNTP() time.Time {
-	return d.ntp
+// GetNTP implements Data.
+func (d *DataMPEG4Audio) GetNTP() time.Time {
+	return d.NTP
 }
 
 type formatProcessorMPEG4Audio struct {
@@ -30,7 +33,7 @@ type formatProcessorMPEG4Audio struct {
 	decoder *rtpmpeg4audio.Decoder
 }
 
-func newFormatProcessorMPEG4Audio(
+func newMPEG4Audio(
 	forma *format.MPEG4Audio,
 	allocateEncoder bool,
 ) (*formatProcessorMPEG4Audio, error) {
@@ -45,11 +48,11 @@ func newFormatProcessorMPEG4Audio(
 	return t, nil
 }
 
-func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
-	tdata := dat.(*dataMPEG4Audio)
+func (t *formatProcessorMPEG4Audio) Process(dat Data, hasNonRTSPReaders bool) error { //nolint:dupl
+	tdata := dat.(*DataMPEG4Audio)
 
-	if tdata.rtpPackets != nil {
-		pkt := tdata.rtpPackets[0]
+	if tdata.RTPPackets != nil {
+		pkt := tdata.RTPPackets[0]
 
 		// remove padding
 		pkt.Header.Padding = false
@@ -66,7 +69,7 @@ func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) er
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			aus, pts, err := t.decoder.Decode(pkt)
+			aus, PTS, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpmpeg4audio.ErrMorePacketsNeeded {
 					return nil
@@ -74,19 +77,19 @@ func (t *formatProcessorMPEG4Audio) process(dat data, hasNonRTSPReaders bool) er
 				return err
 			}
 
-			tdata.aus = aus
-			tdata.pts = pts
+			tdata.AUs = aus
+			tdata.PTS = PTS
 		}
 
 		// route packet as is
 		return nil
 	}
 
-	pkts, err := t.encoder.Encode(tdata.aus, tdata.pts)
+	pkts, err := t.encoder.Encode(tdata.AUs, tdata.PTS)
 	if err != nil {
 		return err
 	}
 
-	tdata.rtpPackets = pkts
+	tdata.RTPPackets = pkts
 	return nil
 }

@@ -4,42 +4,11 @@ import (
 	"testing"
 
 	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/base"
-	"github.com/aler9/gortsplib/v2/pkg/conn"
 	"github.com/aler9/gortsplib/v2/pkg/media"
-	"github.com/aler9/gortsplib/v2/pkg/sdp"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
-
-func mustParseURL(s string) *url.URL {
-	u, err := url.Parse(s)
-	if err != nil {
-		panic(err)
-	}
-	return u
-}
-
-func mustMarshalSDP(sdp *sdp.SessionDescription) []byte {
-	byts, err := sdp.Marshal()
-	if err != nil {
-		panic(err)
-	}
-	return byts
-}
-
-func writeReqReadRes(
-	conn *conn.Conn,
-	req base.Request,
-) (*base.Response, error) {
-	err := conn.WriteRequest(&req)
-	if err != nil {
-		return nil, err
-	}
-
-	return conn.ReadResponse()
-}
 
 func TestRTSPServerAuth(t *testing.T) {
 	for _, ca := range []string{

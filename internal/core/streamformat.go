@@ -6,29 +6,31 @@ import (
 
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
+
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 )
 
 type streamFormat struct {
-	proc           formatProcessor
+	proc           formatprocessor.Processor
 	mutex          sync.RWMutex
-	nonRTSPReaders map[reader]func(data)
+	nonRTSPReaders map[reader]func(formatprocessor.Data)
 }
 
 func newStreamFormat(forma format.Format, generateRTPPackets bool) (*streamFormat, error) {
-	proc, err := newFormatProcessor(forma, generateRTPPackets)
+	proc, err := formatprocessor.New(forma, generateRTPPackets)
 	if err != nil {
 		return nil, err
 	}
 
 	sf := &streamFormat{
 		proc:           proc,
-		nonRTSPReaders: make(map[reader]func(data)),
+		nonRTSPReaders: make(map[reader]func(formatprocessor.Data)),
 	}
 
 	return sf, nil
 }
 
-func (sf *streamFormat) readerAdd(r reader, cb func(data)) {
+func (sf *streamFormat) readerAdd(r reader, cb func(formatprocessor.Data)) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.nonRTSPReaders[r] = cb
@@ -40,21 +42,21 @@ func (sf *streamFormat) readerRemove(r reader) {
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeData(s *stream, medi *media.Media, data data) error {
+func (sf *streamFormat) writeData(s *stream, medi *media.Media, data formatprocessor.Data) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
 	hasNonRTSPReaders := len(sf.nonRTSPReaders) > 0
 
-	err := sf.proc.process(data, hasNonRTSPReaders)
+	err := sf.proc.Process(data, hasNonRTSPReaders)
 	if err != nil {
 		return err
 	}
 
 	// forward RTP packets to RTSP readers
-	for _, pkt := range data.getRTPPackets() {
+	for _, pkt := range data.GetRTPPackets() {
 		atomic.AddUint64(s.bytesReceived, uint64(pkt.MarshalSize()))
-		s.rtspStream.WritePacketRTPWithNTP(medi, pkt, data.getNTP())
+		s.rtspStream.WritePacketRTPWithNTP(medi, pkt, data.GetNTP())
 	}
 
 	// forward decoded frames to non-RTSP readers

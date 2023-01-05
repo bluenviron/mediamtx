@@ -7,6 +7,7 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rpicamera"
 )
@@ -62,10 +63,10 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 			stream = res.stream
 		}
 
-		err := stream.writeData(medi, medi.Formats[0], &dataH264{
-			pts: dts,
-			au:  au,
-			ntp: time.Now(),
+		err := stream.writeData(medi, medi.Formats[0], &formatprocessor.DataH264{
+			PTS: dts,
+			AU:  au,
+			NTP: time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

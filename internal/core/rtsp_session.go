@@ -17,6 +17,7 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
@@ -310,9 +311,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 			switch forma.(type) {
 			case *format.H264:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataH264{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataH264{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)
@@ -321,9 +322,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.H265:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataH265{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataH265{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)
@@ -332,9 +333,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.VP8:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataVP8{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataVP8{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)
@@ -343,9 +344,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.VP9:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataVP9{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataVP9{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)
@@ -354,9 +355,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.MPEG4Audio:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataMPEG4Audio{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataMPEG4Audio{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)
@@ -365,9 +366,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.Opus:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataOpus{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataOpus{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)
@@ -376,9 +377,9 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			default:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &dataGeneric{
-						rtpPackets: []*rtp.Packet{pkt},
-						ntp:        time.Now(),
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataGeneric{
+						RTPPackets: []*rtp.Packet{pkt},
+						NTP:        time.Now(),
 					})
 					if err != nil {
 						s.log(logger.Warn, "%v", err)

@@ -4,6 +4,8 @@ import (
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
+
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 )
 
 type stream struct {
@@ -43,7 +45,7 @@ func (s *stream) medias() media.Medias {
 	return s.rtspStream.Medias()
 }
 
-func (s *stream) readerAdd(r reader, medi *media.Media, forma format.Format, cb func(data)) {
+func (s *stream) readerAdd(r reader, medi *media.Media, forma format.Format, cb func(formatprocessor.Data)) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.readerAdd(r, cb)
@@ -57,7 +59,7 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) writeData(medi *media.Media, forma format.Format, data data) error {
+func (s *stream) writeData(medi *media.Media, forma format.Format, data formatprocessor.Data) error {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	return sf.writeData(s, medi, data)

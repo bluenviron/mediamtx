@@ -19,6 +19,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -321,21 +322,21 @@ func (m *hlsMuxer) setupVideoMedia(stream *stream) (*media.Media, format.Format)
 		videoStartPTSFilled := false
 		var videoStartPTS time.Duration
 
-		stream.readerAdd(m, videoMedia, videoFormatH265, func(dat data) {
+		stream.readerAdd(m, videoMedia, videoFormatH265, func(dat formatprocessor.Data) {
 			m.ringBuffer.Push(func() error {
-				tdata := dat.(*dataH265)
+				tdata := dat.(*formatprocessor.DataH265)
 
-				if tdata.au == nil {
+				if tdata.AU == nil {
 					return nil
 				}
 
 				if !videoStartPTSFilled {
 					videoStartPTSFilled = true
-					videoStartPTS = tdata.pts
+					videoStartPTS = tdata.PTS
 				}
-				pts := tdata.pts - videoStartPTS
+				pts := tdata.PTS - videoStartPTS
 
-				err := m.muxer.WriteH26x(tdata.ntp, pts, tdata.au)
+				err := m.muxer.WriteH26x(tdata.NTP, pts, tdata.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}
@@ -354,21 +355,21 @@ func (m *hlsMuxer) setupVideoMedia(stream *stream) (*media.Media, format.Format)
 		videoStartPTSFilled := false
 		var videoStartPTS time.Duration
 
-		stream.readerAdd(m, videoMedia, videoFormatH264, func(dat data) {
+		stream.readerAdd(m, videoMedia, videoFormatH264, func(dat formatprocessor.Data) {
 			m.ringBuffer.Push(func() error {
-				tdata := dat.(*dataH264)
+				tdata := dat.(*formatprocessor.DataH264)
 
-				if tdata.au == nil {
+				if tdata.AU == nil {
 					return nil
 				}
 
 				if !videoStartPTSFilled {
 					videoStartPTSFilled = true
-					videoStartPTS = tdata.pts
+					videoStartPTS = tdata.PTS
 				}
-				pts := tdata.pts - videoStartPTS
+				pts := tdata.PTS - videoStartPTS
 
-				err := m.muxer.WriteH26x(tdata.ntp, pts, tdata.au)
+				err := m.muxer.WriteH26x(tdata.NTP, pts, tdata.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}
@@ -391,23 +392,23 @@ func (m *hlsMuxer) setupAudioMedia(stream *stream) (*media.Media, format.Format)
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.readerAdd(m, audioMedia, audioFormatMPEG4Audio, func(dat data) {
+		stream.readerAdd(m, audioMedia, audioFormatMPEG4Audio, func(dat formatprocessor.Data) {
 			m.ringBuffer.Push(func() error {
-				tdata := dat.(*dataMPEG4Audio)
+				tdata := dat.(*formatprocessor.DataMPEG4Audio)
 
-				if tdata.aus == nil {
+				if tdata.AUs == nil {
 					return nil
 				}
 
 				if !audioStartPTSFilled {
 					audioStartPTSFilled = true
-					audioStartPTS = tdata.pts
+					audioStartPTS = tdata.PTS
 				}
-				pts := tdata.pts - audioStartPTS
+				pts := tdata.PTS - audioStartPTS
 
-				for i, au := range tdata.aus {
+				for i, au := range tdata.AUs {
 					err := m.muxer.WriteAudio(
-						tdata.ntp,
+						tdata.NTP,
 						pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
 							time.Second/time.Duration(audioFormatMPEG4Audio.ClockRate()),
 						au)
@@ -430,20 +431,20 @@ func (m *hlsMuxer) setupAudioMedia(stream *stream) (*media.Media, format.Format)
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.readerAdd(m, audioMedia, audioFormatOpus, func(dat data) {
+		stream.readerAdd(m, audioMedia, audioFormatOpus, func(dat formatprocessor.Data) {
 			m.ringBuffer.Push(func() error {
-				tdata := dat.(*dataOpus)
+				tdata := dat.(*formatprocessor.DataOpus)
 
 				if !audioStartPTSFilled {
 					audioStartPTSFilled = true
-					audioStartPTS = tdata.pts
+					audioStartPTS = tdata.PTS
 				}
-				pts := tdata.pts - audioStartPTS
+				pts := tdata.PTS - audioStartPTS
 
 				err := m.muxer.WriteAudio(
-					tdata.ntp,
+					tdata.NTP,
 					pts,
-					tdata.frame)
+					tdata.Frame)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}

@@ -1,4 +1,4 @@
-package core
+package formatprocessor
 
 import (
 	"bytes"
@@ -74,19 +74,22 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 	}
 }
 
-type dataH265 struct {
-	rtpPackets []*rtp.Packet
-	ntp        time.Time
-	pts        time.Duration
-	au         [][]byte
+// DataH265 is a H265 data unit.
+type DataH265 struct {
+	RTPPackets []*rtp.Packet
+	NTP        time.Time
+	PTS        time.Duration
+	AU         [][]byte
 }
 
-func (d *dataH265) getRTPPackets() []*rtp.Packet {
-	return d.rtpPackets
+// GetRTPPackets implements Data.
+func (d *DataH265) GetRTPPackets() []*rtp.Packet {
+	return d.RTPPackets
 }
 
-func (d *dataH265) getNTP() time.Time {
-	return d.ntp
+// GetNTP implements Data.
+func (d *DataH265) GetNTP() time.Time {
+	return d.NTP
 }
 
 type formatProcessorH265 struct {
@@ -96,7 +99,7 @@ type formatProcessorH265 struct {
 	decoder *rtph265.Decoder
 }
 
-func newFormatProcessorH265(
+func newH265(
 	forma *format.H265,
 	allocateEncoder bool,
 ) (*formatProcessorH265, error) {
@@ -206,11 +209,11 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
-	tdata := dat.(*dataH265)
+func (t *formatProcessorH265) Process(dat Data, hasNonRTSPReaders bool) error { //nolint:dupl
+	tdata := dat.(*DataH265)
 
-	if tdata.rtpPackets != nil {
-		pkt := tdata.rtpPackets[0]
+	if tdata.RTPPackets != nil {
+		pkt := tdata.RTPPackets[0]
 		t.updateTrackParametersFromRTPPacket(pkt)
 
 		if t.encoder == nil {
@@ -241,11 +244,11 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { 
 			}
 
 			if t.encoder != nil {
-				tdata.rtpPackets = nil
+				tdata.RTPPackets = nil
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			au, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			au, PTS, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtph265.ErrNonStartingPacketAndNoPrevious || err == rtph265.ErrMorePacketsNeeded {
 					return nil
@@ -253,9 +256,9 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { 
 				return err
 			}
 
-			tdata.au = au
-			tdata.pts = pts
-			tdata.au = t.remuxAccessUnit(tdata.au)
+			tdata.AU = au
+			tdata.PTS = PTS
+			tdata.AU = t.remuxAccessUnit(tdata.AU)
 		}
 
 		// route packet as is
@@ -263,15 +266,15 @@ func (t *formatProcessorH265) process(dat data, hasNonRTSPReaders bool) error { 
 			return nil
 		}
 	} else {
-		t.updateTrackParametersFromNALUs(tdata.au)
-		tdata.au = t.remuxAccessUnit(tdata.au)
+		t.updateTrackParametersFromNALUs(tdata.AU)
+		tdata.AU = t.remuxAccessUnit(tdata.AU)
 	}
 
-	pkts, err := t.encoder.Encode(tdata.au, tdata.pts)
+	pkts, err := t.encoder.Encode(tdata.AU, tdata.PTS)
 	if err != nil {
 		return err
 	}
 
-	tdata.rtpPackets = pkts
+	tdata.RTPPackets = pkts
 	return nil
 }

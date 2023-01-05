@@ -7,6 +7,7 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
@@ -85,10 +86,10 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 
 	onVideoData := func(pts time.Duration, au [][]byte) {
-		err := stream.writeData(videoMedia, videoMedia.Formats[0], &dataH264{
-			pts: pts,
-			au:  au,
-			ntp: time.Now(),
+		err := stream.writeData(videoMedia, videoMedia.Formats[0], &formatprocessor.DataH264{
+			PTS: pts,
+			AU:  au,
+			NTP: time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)
@@ -96,10 +97,10 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}
 
 	onAudioData := func(pts time.Duration, au []byte) {
-		err := stream.writeData(audioMedia, audioMedia.Formats[0], &dataMPEG4Audio{
-			pts: pts,
-			aus: [][]byte{au},
-			ntp: time.Now(),
+		err := stream.writeData(audioMedia, audioMedia.Formats[0], &formatprocessor.DataMPEG4Audio{
+			PTS: pts,
+			AUs: [][]byte{au},
+			NTP: time.Now(),
 		})
 		if err != nil {
 			s.Log(logger.Warn, "%v", err)

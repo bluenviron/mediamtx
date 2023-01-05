@@ -1,4 +1,4 @@
-package core
+package formatprocessor
 
 import (
 	"fmt"
@@ -13,22 +13,25 @@ const (
 	maxPacketSize = 1472
 )
 
-type dataGeneric struct {
-	rtpPackets []*rtp.Packet
-	ntp        time.Time
+// DataGeneric is a generic data unit.
+type DataGeneric struct {
+	RTPPackets []*rtp.Packet
+	NTP        time.Time
 }
 
-func (d *dataGeneric) getRTPPackets() []*rtp.Packet {
-	return d.rtpPackets
+// GetRTPPackets implements Data.
+func (d *DataGeneric) GetRTPPackets() []*rtp.Packet {
+	return d.RTPPackets
 }
 
-func (d *dataGeneric) getNTP() time.Time {
-	return d.ntp
+// GetNTP implements Data.
+func (d *DataGeneric) GetNTP() time.Time {
+	return d.NTP
 }
 
 type formatProcessorGeneric struct{}
 
-func newFormatProcessorGeneric(forma format.Format, generateRTPPackets bool) (*formatProcessorGeneric, error) {
+func newGeneric(forma format.Format, generateRTPPackets bool) (*formatProcessorGeneric, error) {
 	if generateRTPPackets {
 		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %+v", forma)
 	}
@@ -36,10 +39,10 @@ func newFormatProcessorGeneric(forma format.Format, generateRTPPackets bool) (*f
 	return &formatProcessorGeneric{}, nil
 }
 
-func (t *formatProcessorGeneric) process(dat data, hasNonRTSPReaders bool) error {
-	tdata := dat.(*dataGeneric)
+func (t *formatProcessorGeneric) Process(dat Data, hasNonRTSPReaders bool) error {
+	tdata := dat.(*DataGeneric)
 
-	pkt := tdata.rtpPackets[0]
+	pkt := tdata.RTPPackets[0]
 
 	// remove padding
 	pkt.Header.Padding = false

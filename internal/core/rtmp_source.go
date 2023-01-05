@@ -17,6 +17,7 @@ import (
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
+	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
@@ -181,10 +182,10 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("unable to decode AVCC: %v", err)
 						}
 
-						err = res.stream.writeData(videoMedia, videoFormat, &dataH264{
-							pts: tmsg.DTS + tmsg.PTSDelta,
-							au:  au,
-							ntp: time.Now(),
+						err = res.stream.writeData(videoMedia, videoFormat, &formatprocessor.DataH264{
+							PTS: tmsg.DTS + tmsg.PTSDelta,
+							AU:  au,
+							NTP: time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)
@@ -197,10 +198,10 @@ func (s *rtmpSource) run(ctx context.Context) error {
 							return fmt.Errorf("received an AAC packet, but track is not set up")
 						}
 
-						err := res.stream.writeData(audioMedia, audioFormat, &dataMPEG4Audio{
-							pts: tmsg.DTS,
-							aus: [][]byte{tmsg.Payload},
-							ntp: time.Now(),
+						err := res.stream.writeData(audioMedia, audioFormat, &formatprocessor.DataMPEG4Audio{
+							PTS: tmsg.DTS,
+							AUs: [][]byte{tmsg.Payload},
+							NTP: time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)

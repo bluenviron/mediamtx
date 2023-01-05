@@ -1,4 +1,4 @@
-package core //nolint:dupl
+package formatprocessor //nolint:dupl
 
 import (
 	"fmt"
@@ -9,19 +9,22 @@ import (
 	"github.com/pion/rtp"
 )
 
-type dataVP8 struct {
-	rtpPackets []*rtp.Packet
-	ntp        time.Time
-	pts        time.Duration
-	frame      []byte
+// DataVP8 is a VP8 data unit.
+type DataVP8 struct {
+	RTPPackets []*rtp.Packet
+	NTP        time.Time
+	PTS        time.Duration
+	Frame      []byte
 }
 
-func (d *dataVP8) getRTPPackets() []*rtp.Packet {
-	return d.rtpPackets
+// GetRTPPackets implements Data.
+func (d *DataVP8) GetRTPPackets() []*rtp.Packet {
+	return d.RTPPackets
 }
 
-func (d *dataVP8) getNTP() time.Time {
-	return d.ntp
+// GetNTP implements Data.
+func (d *DataVP8) GetNTP() time.Time {
+	return d.NTP
 }
 
 type formatProcessorVP8 struct {
@@ -30,7 +33,7 @@ type formatProcessorVP8 struct {
 	decoder *rtpvp8.Decoder
 }
 
-func newFormatProcessorVP8(
+func newVP8(
 	forma *format.VP8,
 	allocateEncoder bool,
 ) (*formatProcessorVP8, error) {
@@ -45,11 +48,11 @@ func newFormatProcessorVP8(
 	return t, nil
 }
 
-func (t *formatProcessorVP8) process(dat data, hasNonRTSPReaders bool) error { //nolint:dupl
-	tdata := dat.(*dataVP8)
+func (t *formatProcessorVP8) Process(dat Data, hasNonRTSPReaders bool) error { //nolint:dupl
+	tdata := dat.(*DataVP8)
 
-	if tdata.rtpPackets != nil {
-		pkt := tdata.rtpPackets[0]
+	if tdata.RTPPackets != nil {
+		pkt := tdata.RTPPackets[0]
 
 		// remove padding
 		pkt.Header.Padding = false
@@ -66,7 +69,7 @@ func (t *formatProcessorVP8) process(dat data, hasNonRTSPReaders bool) error { /
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			frame, pts, err := t.decoder.Decode(pkt)
+			frame, PTS, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpvp8.ErrMorePacketsNeeded {
 					return nil
@@ -74,19 +77,19 @@ func (t *formatProcessorVP8) process(dat data, hasNonRTSPReaders bool) error { /
 				return err
 			}
 
-			tdata.frame = frame
-			tdata.pts = pts
+			tdata.Frame = frame
+			tdata.PTS = PTS
 		}
 
 		// route packet as is
 		return nil
 	}
 
-	pkts, err := t.encoder.Encode(tdata.frame, tdata.pts)
+	pkts, err := t.encoder.Encode(tdata.Frame, tdata.PTS)
 	if err != nil {
 		return err
 	}
 
-	tdata.rtpPackets = pkts
+	tdata.RTPPackets = pkts
 	return nil
 }
