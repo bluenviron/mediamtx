@@ -221,9 +221,6 @@ func (i *Init) Unmarshal(byts []byte) error {
 			}
 			state = waitingTrak
 
-		case "ac-3":
-			return nil, fmt.Errorf("AC-3 codec is not supported (yet)")
-
 		case "Opus":
 			if state != waitingCodec {
 				return nil, fmt.Errorf("unexpected box 'Opus'")
@@ -247,6 +244,24 @@ func (i *Init) Unmarshal(byts []byte) error {
 				ChannelCount: int(dops.OutputChannelCount),
 			}
 			state = waitingTrak
+
+		case "ac-3": // ac-3, not supported yet
+			i.Tracks = i.Tracks[:len(i.Tracks)-1]
+			state = waitingTrak
+			return nil, nil
+
+		case "ec-3": // ec-3, not supported yet
+			i.Tracks = i.Tracks[:len(i.Tracks)-1]
+			state = waitingTrak
+			return nil, nil
+
+		case "c608", "c708": // closed captions, not supported yet
+			i.Tracks = i.Tracks[:len(i.Tracks)-1]
+			state = waitingTrak
+			return nil, nil
+
+		case "chrm", "nmhd":
+			return nil, nil
 		}
 
 		return h.Expand()
@@ -259,7 +274,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 		return fmt.Errorf("parse error")
 	}
 
-	if i.Tracks == nil {
+	if len(i.Tracks) == 0 {
 		return fmt.Errorf("no tracks found")
 	}
 

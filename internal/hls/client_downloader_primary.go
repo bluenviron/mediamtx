@@ -43,20 +43,10 @@ func clientDownloadPlaylist(ctx context.Context, httpClient *http.Client, ur *ur
 	return m3u8.Unmarshal(byts)
 }
 
-func allCodecsAreSupported(codecs string) bool {
-	for _, codec := range strings.Split(codecs, ",") {
-		if !strings.HasPrefix(codec, "avc1") &&
-			!strings.HasPrefix(codec, "mp4a") {
-			return false
-		}
-	}
-	return true
-}
-
 func pickLeadingPlaylist(variants []*gm3u8.Variant) *gm3u8.Variant {
 	var candidates []*gm3u8.Variant //nolint:prealloc
 	for _, v := range variants {
-		if v.Codecs != "" && !allCodecsAreSupported(v.Codecs) {
+		if v.Codecs != "" && !codecParametersAreSupported(v.Codecs) {
 			continue
 		}
 		candidates = append(candidates, v)

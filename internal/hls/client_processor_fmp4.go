@@ -146,7 +146,7 @@ func (p *clientProcessorFMP4) processSegment(ctx context.Context, byts []byte) e
 
 			proc, ok := p.trackProcs[track.ID]
 			if !ok {
-				return fmt.Errorf("track ID %d not present in init file", track.ID)
+				continue
 			}
 
 			if processingCount >= (clientFMP4MaxPartTracksPerSegment - 1) {
