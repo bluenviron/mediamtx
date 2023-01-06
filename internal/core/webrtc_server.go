@@ -374,6 +374,7 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	switch fname {
 	case "":
 		ctx.Writer.Header().Set("Content-Type", "text/html")
+		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(webrtcIndex)
 		return
 
