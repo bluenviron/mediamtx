@@ -76,7 +76,6 @@ func (i *Init) Unmarshal(byts []byte) error {
 			if state != waitingCodec {
 				return nil, fmt.Errorf("unexpected box 'avc1'")
 			}
-
 			state = waitingAvcC
 
 		case "avcC":
@@ -116,7 +115,7 @@ func (i *Init) Unmarshal(byts []byte) error {
 			}
 			state = waitingTrak
 
-		case "hev1":
+		case "hev1", "hvc1":
 			if state != waitingCodec {
 				return nil, fmt.Errorf("unexpected box 'hev1'")
 			}

@@ -39,7 +39,9 @@ func codecParametersGenerate(track format.Format) string {
 func codecParametersAreSupported(codecs string) bool {
 	for _, codec := range strings.Split(codecs, ",") {
 		if !strings.HasPrefix(codec, "avc1.") &&
-			!strings.HasPrefix(codec, "mp4a.") {
+			!strings.HasPrefix(codec, "hvc1.") &&
+			!strings.HasPrefix(codec, "mp4a.") &&
+			codec != "opus" {
 			return false
 		}
 	}

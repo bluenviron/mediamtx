@@ -83,12 +83,36 @@ func (s *hlsSource) run(ctx context.Context) error {
 					}
 				})
 
+			case *format.H265:
+				c.OnData(track, func(pts time.Duration, dat interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.DataH265{
+						PTS: pts,
+						AU:  dat.([][]byte),
+						NTP: time.Now(),
+					})
+					if err != nil {
+						s.Log(logger.Warn, "%v", err)
+					}
+				})
+
 			case *format.MPEG4Audio:
 				c.OnData(track, func(pts time.Duration, dat interface{}) {
 					err := stream.writeData(medi, ctrack, &formatprocessor.DataMPEG4Audio{
 						PTS: pts,
 						AUs: [][]byte{dat.([]byte)},
 						NTP: time.Now(),
+					})
+					if err != nil {
+						s.Log(logger.Warn, "%v", err)
+					}
+				})
+
+			case *format.Opus:
+				c.OnData(track, func(pts time.Duration, dat interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.DataOpus{
+						PTS:   pts,
+						Frame: dat.([]byte),
+						NTP:   time.Now(),
 					})
 					if err != nil {
 						s.Log(logger.Warn, "%v", err)
