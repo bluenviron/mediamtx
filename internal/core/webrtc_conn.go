@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph264"
 	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpvp8"
@@ -430,7 +429,7 @@ outer:
 
 	// do NOT close the WebSocket connection
 	// in order to allow the other side of the connection
-	// o switch to the "connected" state before WebSocket is closed.
+	// to switch to the "connected" state before WebSocket is closed.
 
 	ldesc, rdesc := describeActiveCandidates(pc)
 	c.log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v", ldesc, rdesc)
@@ -609,10 +608,6 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 					}
 
 					if !firstNALUReceived {
-						if !h264.IDRPresent(tdata.AU) {
-							return
-						}
-
 						firstNALUReceived = true
 						lastPTS = tdata.PTS
 					} else {
