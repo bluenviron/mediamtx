@@ -14,7 +14,8 @@ import (
 func fmp4PickLeadingTrack(init *fmp4.Init) int {
 	// pick first video track
 	for _, track := range init.Tracks {
-		if _, ok := track.Format.(*format.H264); ok {
+		switch track.Format.(type) {
+		case *format.H264, *format.H265:
 			return track.ID
 		}
 	}
@@ -30,8 +31,7 @@ type clientProcessorFMP4 struct {
 	rp                   *clientRoutinePool
 	onSetLeadingTimeSync func(clientTimeSync)
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
-	onVideoData          func(time.Duration, [][]byte)
-	onAudioData          func(time.Duration, []byte)
+	onData               map[format.Format]func(time.Duration, interface{})
 
 	init           fmp4.Init
 	leadingTrackID int
@@ -51,8 +51,7 @@ func newClientProcessorFMP4(
 	onStreamFormats func(context.Context, []format.Format) bool,
 	onSetLeadingTimeSync func(clientTimeSync),
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
-	onVideoData func(time.Duration, [][]byte),
-	onAudioData func(time.Duration, []byte),
+	onData map[format.Format]func(time.Duration, interface{}),
 ) (*clientProcessorFMP4, error) {
 	p := &clientProcessorFMP4{
 		isLeading:            isLeading,
@@ -61,8 +60,7 @@ func newClientProcessorFMP4(
 		rp:                   rp,
 		onSetLeadingTimeSync: onSetLeadingTimeSync,
 		onGetLeadingTimeSync: onGetLeadingTimeSync,
-		onVideoData:          onVideoData,
-		onAudioData:          onAudioData,
+		onData:               onData,
 		subpartProcessed:     make(chan struct{}, clientFMP4MaxPartTracksPerSegment),
 	}
 
@@ -186,21 +184,27 @@ func (p *clientProcessorFMP4) initializeTrackProcs(ts *clientTimeSyncFMP4) {
 	for _, track := range p.init.Tracks {
 		var cb func(time.Duration, []byte) error
 
+		cb2, ok := p.onData[track.Format]
+		if !ok {
+			cb2 = func(time.Duration, interface{}) {
+			}
+		}
+
 		switch track.Format.(type) {
-		case *format.H264:
+		case *format.H264, *format.H265:
 			cb = func(pts time.Duration, payload []byte) error {
 				nalus, err := h264.AVCCUnmarshal(payload)
 				if err != nil {
 					return err
 				}
 
-				p.onVideoData(pts, nalus)
+				cb2(pts, nalus)
 				return nil
 			}
 
-		case *format.MPEG4Audio:
+		case *format.MPEG4Audio, *format.Opus:
 			cb = func(pts time.Duration, payload []byte) error {
-				p.onAudioData(pts, payload)
+				cb2(pts, payload)
 				return nil
 			}
 		}

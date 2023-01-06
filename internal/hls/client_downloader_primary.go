@@ -96,16 +96,15 @@ type clientTimeSync interface{}
 type clientDownloaderPrimary struct {
 	primaryPlaylistURL *url.URL
 	logger             ClientLogger
-	onTracks           func(*format.H264, *format.MPEG4Audio) error
-	onVideoData        func(time.Duration, [][]byte)
-	onAudioData        func(time.Duration, []byte)
+	onTracks           func([]format.Format) error
+	onData             map[format.Format]func(time.Duration, interface{})
 	rp                 *clientRoutinePool
 
 	httpClient      *http.Client
 	leadingTimeSync clientTimeSync
 
 	// in
-	streamFormats chan []format.Format
+	streamTracks chan []format.Format
 
 	// out
 	startStreaming       chan struct{}
@@ -117,9 +116,8 @@ func newClientDownloaderPrimary(
 	fingerprint string,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onTracks func(*format.H264, *format.MPEG4Audio) error,
-	onVideoData func(time.Duration, [][]byte),
-	onAudioData func(time.Duration, []byte),
+	onTracks func([]format.Format) error,
+	onData map[format.Format]func(time.Duration, interface{}),
 ) *clientDownloaderPrimary {
 	var tlsConfig *tls.Config
 	if fingerprint != "" {
@@ -145,15 +143,14 @@ func newClientDownloaderPrimary(
 		primaryPlaylistURL: primaryPlaylistURL,
 		logger:             logger,
 		onTracks:           onTracks,
-		onVideoData:        onVideoData,
-		onAudioData:        onAudioData,
+		onData:             onData,
 		rp:                 rp,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: tlsConfig,
 			},
 		},
-		streamFormats:        make(chan []format.Format),
+		streamTracks:         make(chan []format.Format),
 		startStreaming:       make(chan struct{}),
 		leadingTimeSyncReady: make(chan struct{}),
 	}
@@ -179,11 +176,11 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 			plt,
 			d.logger,
 			d.rp,
-			d.onStreamFormats,
+			d.onStreamTracks,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
-			d.onVideoData,
-			d.onAudioData)
+			d.onData,
+		)
 		d.rp.add(ds)
 		streamCount++
 
@@ -205,11 +202,11 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 			nil,
 			d.logger,
 			d.rp,
-			d.onStreamFormats,
+			d.onStreamTracks,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
-			d.onVideoData,
-			d.onAudioData)
+			d.onData,
+		)
 		d.rp.add(ds)
 		streamCount++
 
@@ -231,11 +228,11 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 				nil,
 				d.logger,
 				d.rp,
-				d.onStreamFormats,
+				d.onStreamTracks,
 				d.onSetLeadingTimeSync,
 				d.onGetLeadingTimeSync,
-				d.onVideoData,
-				d.onAudioData)
+				d.onData,
+			)
 			d.rp.add(ds)
 			streamCount++
 		}
@@ -248,31 +245,18 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 
 	for i := 0; i < streamCount; i++ {
 		select {
-		case streamFormats := <-d.streamFormats:
-			tracks = append(tracks, streamFormats...)
+		case streamTracks := <-d.streamTracks:
+			tracks = append(tracks, streamTracks...)
 		case <-ctx.Done():
 			return fmt.Errorf("terminated")
 		}
 	}
 
-	var videoTrack *format.H264
-	var audioTrack *format.MPEG4Audio
-
-	for _, track := range tracks {
-		switch ttrack := track.(type) {
-		case *format.H264:
-			videoTrack = ttrack
-
-		case *format.MPEG4Audio:
-			audioTrack = ttrack
-		}
-	}
-
-	if videoTrack == nil && audioTrack == nil {
+	if len(tracks) == 0 {
 		return fmt.Errorf("no supported tracks found")
 	}
 
-	err = d.onTracks(videoTrack, audioTrack)
+	err = d.onTracks(tracks)
 	if err != nil {
 		return err
 	}
@@ -282,9 +266,9 @@ func (d *clientDownloaderPrimary) run(ctx context.Context) error {
 	return nil
 }
 
-func (d *clientDownloaderPrimary) onStreamFormats(ctx context.Context, tracks []format.Format) bool {
+func (d *clientDownloaderPrimary) onStreamTracks(ctx context.Context, tracks []format.Format) bool {
 	select {
-	case d.streamFormats <- tracks:
+	case d.streamTracks <- tracks:
 	case <-ctx.Done():
 		return false
 	}

@@ -36,8 +36,7 @@ type clientProcessorMPEGTS struct {
 	onStreamFormats      func(context.Context, []format.Format) bool
 	onSetLeadingTimeSync func(clientTimeSync)
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
-	onVideoData          func(time.Duration, [][]byte)
-	onAudioData          func(time.Duration, []byte)
+	onData               map[format.Format]func(time.Duration, interface{})
 
 	mpegtsTracks    []*mpegts.Track
 	leadingTrackPID uint16
@@ -52,8 +51,7 @@ func newClientProcessorMPEGTS(
 	onStreamFormats func(context.Context, []format.Format) bool,
 	onSetLeadingTimeSync func(clientTimeSync),
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
-	onVideoData func(time.Duration, [][]byte),
-	onAudioData func(time.Duration, []byte),
+	onData map[format.Format]func(time.Duration, interface{}),
 ) *clientProcessorMPEGTS {
 	return &clientProcessorMPEGTS{
 		isLeading:            isLeading,
@@ -63,8 +61,7 @@ func newClientProcessorMPEGTS(
 		onStreamFormats:      onStreamFormats,
 		onSetLeadingTimeSync: onSetLeadingTimeSync,
 		onGetLeadingTimeSync: onGetLeadingTimeSync,
-		onVideoData:          onVideoData,
-		onAudioData:          onAudioData,
+		onData:               onData,
 	}
 }
 
@@ -174,10 +171,16 @@ func (p *clientProcessorMPEGTS) processSegment(ctx context.Context, byts []byte)
 func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
 	p.trackProcs = make(map[uint16]*clientProcessorMPEGTSTrack)
 
-	for _, mt := range p.mpegtsTracks {
+	for _, track := range p.mpegtsTracks {
 		var cb func(time.Duration, []byte) error
 
-		switch mt.Format.(type) {
+		cb2, ok := p.onData[track.Format]
+		if !ok {
+			cb2 = func(time.Duration, interface{}) {
+			}
+		}
+
+		switch track.Format.(type) {
 		case *format.H264:
 			cb = func(pts time.Duration, payload []byte) error {
 				nalus, err := h264.AnnexBUnmarshal(payload)
@@ -186,7 +189,7 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
 					return nil
 				}
 
-				p.onVideoData(pts, nalus)
+				cb2(pts, nalus)
 				return nil
 			}
 
@@ -199,7 +202,7 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
 				}
 
 				for i, pkt := range adtsPkts {
-					p.onAudioData(
+					cb2(
 						pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*time.Second/time.Duration(pkt.SampleRate),
 						pkt.AU)
 				}
@@ -213,6 +216,6 @@ func (p *clientProcessorMPEGTS) initializeTrackProcs(ts *clientTimeSyncMPEGTS) {
 			cb,
 		)
 		p.rp.add(proc)
-		p.trackProcs[mt.ES.ElementaryPID] = proc
+		p.trackProcs[track.ES.ElementaryPID] = proc
 	}
 }

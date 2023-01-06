@@ -277,28 +277,31 @@ func TestClientMPEGTS(t *testing.T) {
 			c, err := NewClient(
 				prefix+"://localhost:5780/stream.m3u8",
 				"33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
-				func(videoTrack *format.H264, audioTrack *format.MPEG4Audio) error {
-					require.Equal(t, &format.H264{
-						PayloadTyp:        96,
-						PacketizationMode: 1,
-					}, videoTrack)
-					require.Equal(t, (*format.MPEG4Audio)(nil), audioTrack)
-					return nil
-				},
-				func(pts time.Duration, nalus [][]byte) {
-					require.Equal(t, 2*time.Second, pts)
-					require.Equal(t, [][]byte{
-						{7, 1, 2, 3},
-						{8},
-						{5},
-					}, nalus)
-					close(packetRecv)
-				},
-				func(pts time.Duration, au []byte) {
-				},
 				testLogger{},
 			)
 			require.NoError(t, err)
+
+			onH264 := func(pts time.Duration, dat interface{}) {
+				require.Equal(t, 2*time.Second, pts)
+				require.Equal(t, [][]byte{
+					{7, 1, 2, 3},
+					{8},
+					{5},
+				}, dat)
+				close(packetRecv)
+			}
+
+			c.OnTracks(func(tracks []format.Format) error {
+				require.Equal(t, 1, len(tracks))
+				require.Equal(t, &format.H264{
+					PayloadTyp:        96,
+					PacketizationMode: 1,
+				}, tracks[0])
+				c.OnData(tracks[0], onH264)
+				return nil
+			})
+
+			c.Start()
 
 			<-packetRecv
 
@@ -341,33 +344,32 @@ func TestClientFMP4(t *testing.T) {
 
 	packetRecv := make(chan struct{})
 
+	onH264 := func(pts time.Duration, dat interface{}) {
+		require.Equal(t, 2*time.Second, pts)
+		require.Equal(t, [][]byte{
+			{7, 1, 2, 3},
+			{8},
+			{5},
+		}, dat)
+		close(packetRecv)
+	}
+
 	c, err := NewClient(
 		"http://localhost:5780/stream.m3u8",
 		"",
-		func(videoTrack *format.H264, audioTrack *format.MPEG4Audio) error {
-			require.Equal(t, &format.H264{
-				PayloadTyp:        96,
-				PacketizationMode: 1,
-				SPS:               videoTrack.SPS,
-				PPS:               videoTrack.PPS,
-			}, videoTrack)
-			require.Equal(t, (*format.MPEG4Audio)(nil), audioTrack)
-			return nil
-		},
-		func(pts time.Duration, nalus [][]byte) {
-			require.Equal(t, 2*time.Second, pts)
-			require.Equal(t, [][]byte{
-				{7, 1, 2, 3},
-				{8},
-				{5},
-			}, nalus)
-			close(packetRecv)
-		},
-		func(pts time.Duration, au []byte) {
-		},
 		testLogger{},
 	)
 	require.NoError(t, err)
+
+	c.OnTracks(func(tracks []format.Format) error {
+		require.Equal(t, 1, len(tracks))
+		_, ok := tracks[0].(*format.H264)
+		require.Equal(t, true, ok)
+		c.OnData(tracks[0], onH264)
+		return nil
+	})
+
+	c.Start()
 
 	<-packetRecv
 
@@ -425,23 +427,26 @@ func TestClientInvalidSequenceID(t *testing.T) {
 
 	packetRecv := make(chan struct{})
 
+	onH264 := func(pts time.Duration, dat interface{}) {
+		close(packetRecv)
+	}
+
 	c, err := NewClient(
 		"http://localhost:5780/stream.m3u8",
 		"",
-		func(*format.H264, *format.MPEG4Audio) error {
-			return nil
-		},
-		func(pts time.Duration, nalus [][]byte) {
-			close(packetRecv)
-		},
-		nil,
 		testLogger{},
 	)
 	require.NoError(t, err)
 
+	c.OnTracks(func(tracks []format.Format) error {
+		c.OnData(tracks[0], onH264)
+		return nil
+	})
+
+	c.Start()
+
 	<-packetRecv
 
-	// c.Close()
 	err = <-c.Wait()
 	require.EqualError(t, err, "following segment not found or not ready yet")
 

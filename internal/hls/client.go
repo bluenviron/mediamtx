@@ -35,13 +35,12 @@ type ClientLogger interface {
 // Client is a HLS client.
 type Client struct {
 	fingerprint string
-	onTracks    func(*format.H264, *format.MPEG4Audio) error
-	onVideoData func(time.Duration, [][]byte)
-	onAudioData func(time.Duration, []byte)
 	logger      ClientLogger
 
 	ctx         context.Context
 	ctxCancel   func()
+	onTracks    func([]format.Format) error
+	onData      map[format.Format]func(time.Duration, interface{})
 	playlistURL *url.URL
 
 	// out
@@ -52,9 +51,6 @@ type Client struct {
 func NewClient(
 	playlistURLStr string,
 	fingerprint string,
-	onTracks func(*format.H264, *format.MPEG4Audio) error,
-	onVideoData func(time.Duration, [][]byte),
-	onAudioData func(time.Duration, []byte),
 	logger ClientLogger,
 ) (*Client, error) {
 	playlistURL, err := url.Parse(playlistURLStr)
@@ -66,19 +62,20 @@ func NewClient(
 
 	c := &Client{
 		fingerprint: fingerprint,
-		onTracks:    onTracks,
-		onVideoData: onVideoData,
-		onAudioData: onAudioData,
 		logger:      logger,
 		ctx:         ctx,
 		ctxCancel:   ctxCancel,
 		playlistURL: playlistURL,
+		onData:      make(map[format.Format]func(time.Duration, interface{})),
 		outErr:      make(chan error, 1),
 	}
 
-	go c.run()
-
 	return c, nil
+}
+
+// Start starts the client.
+func (c *Client) Start() {
+	go c.run()
 }
 
 // Close closes all the Client resources.
@@ -89,6 +86,16 @@ func (c *Client) Close() {
 // Wait waits for any error of the Client.
 func (c *Client) Wait() chan error {
 	return c.outErr
+}
+
+// OnTracks sets a callback that is called when tracks are read.
+func (c *Client) OnTracks(cb func([]format.Format) error) {
+	c.onTracks = cb
+}
+
+// OnData sets a callback that is called when data arrives.
+func (c *Client) OnData(forma format.Format, cb func(time.Duration, interface{})) {
+	c.onData[forma] = cb
 }
 
 func (c *Client) run() {
@@ -104,8 +111,7 @@ func (c *Client) runInner() error {
 		c.logger,
 		rp,
 		c.onTracks,
-		c.onVideoData,
-		c.onAudioData,
+		c.onData,
 	)
 	rp.add(dl)
 

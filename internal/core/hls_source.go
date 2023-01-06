@@ -43,8 +43,6 @@ func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) 
 // run implements sourceStaticImpl.
 func (s *hlsSource) run(ctx context.Context) error {
 	var stream *stream
-	var videoMedia *media.Media
-	var audioMedia *media.Media
 
 	defer func() {
 		if stream != nil {
@@ -52,23 +50,51 @@ func (s *hlsSource) run(ctx context.Context) error {
 		}
 	}()
 
-	onTracks := func(videoFormat *format.H264, audioFormat *format.MPEG4Audio) error {
+	c, err := hls.NewClient(
+		s.ur,
+		s.fingerprint,
+		s,
+	)
+	if err != nil {
+		return err
+	}
+
+	c.OnTracks(func(tracks []format.Format) error {
 		var medias media.Medias
 
-		if videoFormat != nil {
-			videoMedia = &media.Media{
+		for _, track := range tracks {
+			medi := &media.Media{
 				Type:    media.TypeVideo,
-				Formats: []format.Format{videoFormat},
+				Formats: []format.Format{track},
 			}
-			medias = append(medias, videoMedia)
-		}
+			medias = append(medias, medi)
+			ctrack := track
 
-		if audioFormat != nil {
-			audioMedia = &media.Media{
-				Type:    media.TypeAudio,
-				Formats: []format.Format{audioFormat},
+			switch track.(type) {
+			case *format.H264:
+				c.OnData(track, func(pts time.Duration, dat interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.DataH264{
+						PTS: pts,
+						AU:  dat.([][]byte),
+						NTP: time.Now(),
+					})
+					if err != nil {
+						s.Log(logger.Warn, "%v", err)
+					}
+				})
+
+			case *format.MPEG4Audio:
+				c.OnData(track, func(pts time.Duration, dat interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.DataMPEG4Audio{
+						PTS: pts,
+						AUs: [][]byte{dat.([]byte)},
+						NTP: time.Now(),
+					})
+					if err != nil {
+						s.Log(logger.Warn, "%v", err)
+					}
+				})
 			}
-			medias = append(medias, audioMedia)
 		}
 
 		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
@@ -83,41 +109,9 @@ func (s *hlsSource) run(ctx context.Context) error {
 		stream = res.stream
 
 		return nil
-	}
+	})
 
-	onVideoData := func(pts time.Duration, au [][]byte) {
-		err := stream.writeData(videoMedia, videoMedia.Formats[0], &formatprocessor.DataH264{
-			PTS: pts,
-			AU:  au,
-			NTP: time.Now(),
-		})
-		if err != nil {
-			s.Log(logger.Warn, "%v", err)
-		}
-	}
-
-	onAudioData := func(pts time.Duration, au []byte) {
-		err := stream.writeData(audioMedia, audioMedia.Formats[0], &formatprocessor.DataMPEG4Audio{
-			PTS: pts,
-			AUs: [][]byte{au},
-			NTP: time.Now(),
-		})
-		if err != nil {
-			s.Log(logger.Warn, "%v", err)
-		}
-	}
-
-	c, err := hls.NewClient(
-		s.ur,
-		s.fingerprint,
-		onTracks,
-		onVideoData,
-		onAudioData,
-		s,
-	)
-	if err != nil {
-		return err
-	}
+	c.Start()
 
 	select {
 	case err := <-c.Wait():

@@ -50,11 +50,10 @@ type clientDownloaderStream struct {
 	initialPlaylist      *m3u8.MediaPlaylist
 	logger               ClientLogger
 	rp                   *clientRoutinePool
-	onStreamFormats      func(context.Context, []format.Format) bool
+	onStreamTracks       func(context.Context, []format.Format) bool
 	onSetLeadingTimeSync func(clientTimeSync)
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool)
-	onVideoData          func(time.Duration, [][]byte)
-	onAudioData          func(time.Duration, []byte)
+	onData               map[format.Format]func(time.Duration, interface{})
 
 	curSegmentID *uint64
 }
@@ -66,11 +65,10 @@ func newClientDownloaderStream(
 	initialPlaylist *m3u8.MediaPlaylist,
 	logger ClientLogger,
 	rp *clientRoutinePool,
-	onStreamFormats func(context.Context, []format.Format) bool,
+	onStreamTracks func(context.Context, []format.Format) bool,
 	onSetLeadingTimeSync func(clientTimeSync),
 	onGetLeadingTimeSync func(context.Context) (clientTimeSync, bool),
-	onVideoData func(time.Duration, [][]byte),
-	onAudioData func(time.Duration, []byte),
+	onData map[format.Format]func(time.Duration, interface{}),
 ) *clientDownloaderStream {
 	return &clientDownloaderStream{
 		isLeading:            isLeading,
@@ -79,11 +77,10 @@ func newClientDownloaderStream(
 		initialPlaylist:      initialPlaylist,
 		logger:               logger,
 		rp:                   rp,
-		onStreamFormats:      onStreamFormats,
+		onStreamTracks:       onStreamTracks,
 		onSetLeadingTimeSync: onSetLeadingTimeSync,
 		onGetLeadingTimeSync: onGetLeadingTimeSync,
-		onVideoData:          onVideoData,
-		onAudioData:          onAudioData,
+		onData:               onData,
 	}
 }
 
@@ -113,11 +110,10 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 			segmentQueue,
 			d.logger,
 			d.rp,
-			d.onStreamFormats,
+			d.onStreamTracks,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
-			d.onVideoData,
-			d.onAudioData,
+			d.onData,
 		)
 		if err != nil {
 			return err
@@ -130,11 +126,10 @@ func (d *clientDownloaderStream) run(ctx context.Context) error {
 			segmentQueue,
 			d.logger,
 			d.rp,
-			d.onStreamFormats,
+			d.onStreamTracks,
 			d.onSetLeadingTimeSync,
 			d.onGetLeadingTimeSync,
-			d.onVideoData,
-			d.onAudioData,
+			d.onData,
 		)
 		d.rp.add(proc)
 	}
