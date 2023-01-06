@@ -80,7 +80,8 @@ class Receiver {
             switch (this.pc.iceConnectionState) {
             case "connected":
                 this.pc.onicecandidate = undefined;
-                this.ws.onmessage = undefined;
+                // do not unbind ws.onmessage due to a strange Firefox bug
+                // if all callbacks are removed from WS, video freezes after some seconds.
                 this.ws.onerror = undefined
                 this.ws.onclose = undefined;
                 // do not close the WebSocket connection
