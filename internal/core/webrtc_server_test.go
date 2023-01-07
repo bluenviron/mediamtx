@@ -14,6 +14,146 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type webRTCTestClient struct {
+	wc    *websocket.Conn
+	pc    *webrtc.PeerConnection
+	track chan *webrtc.TrackRemote
+}
+
+func newWebRTCTestClient(addr string) (*webRTCTestClient, error) {
+	wc, _, err := websocket.DefaultDialer.Dial(addr, nil) //nolint:bodyclose
+	if err != nil {
+		return nil, err
+	}
+
+	_, msg, err := wc.ReadMessage()
+	if err != nil {
+		wc.Close()
+		return nil, err
+	}
+
+	var iceServers []webrtc.ICEServer
+	err = json.Unmarshal(msg, &iceServers)
+	if err != nil {
+		wc.Close()
+		return nil, err
+	}
+
+	pc, err := newPeerConnection(webrtc.Configuration{
+		ICEServers: iceServers,
+	})
+	if err != nil {
+		wc.Close()
+		return nil, err
+	}
+
+	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
+		if i != nil {
+			enc, _ := json.Marshal(i.ToJSON())
+			wc.WriteMessage(websocket.TextMessage, enc)
+		}
+	})
+
+	connected := make(chan struct{})
+	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		if state == webrtc.PeerConnectionStateConnected {
+			close(connected)
+		}
+	})
+
+	track := make(chan *webrtc.TrackRemote, 1)
+	pc.OnTrack(func(trak *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
+		track <- trak
+	})
+
+	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	localOffer, err := pc.CreateOffer(nil)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	enc, err := json.Marshal(localOffer)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	err = wc.WriteMessage(websocket.TextMessage, enc)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	err = pc.SetLocalDescription(localOffer)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	_, msg, err = wc.ReadMessage()
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	var remoteOffer webrtc.SessionDescription
+	err = json.Unmarshal(msg, &remoteOffer)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	err = pc.SetRemoteDescription(remoteOffer)
+	if err != nil {
+		wc.Close()
+		pc.Close()
+		return nil, err
+	}
+
+	go func() {
+		for {
+			_, msg, err := wc.ReadMessage()
+			if err != nil {
+				return
+			}
+
+			var candidate webrtc.ICECandidateInit
+			err = json.Unmarshal(msg, &candidate)
+			if err != nil {
+				return
+			}
+
+			pc.AddICECandidate(candidate)
+		}
+	}()
+
+	<-connected
+
+	return &webRTCTestClient{
+		wc:    wc,
+		pc:    pc,
+		track: track,
+	}, nil
+}
+
+func (c *webRTCTestClient) close() {
+	c.pc.Close()
+	c.wc.Close()
+}
+
 func TestWebRTCServer(t *testing.T) {
 	p, ok := newInstance("paths:\n" +
 		"  all:\n")
@@ -36,85 +176,9 @@ func TestWebRTCServer(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	c, _, err := websocket.DefaultDialer.Dial("ws://localhost:8889/stream/ws", nil) //nolint:bodyclose
+	c, err := newWebRTCTestClient("ws://localhost:8889/stream/ws")
 	require.NoError(t, err)
-	defer c.Close()
-
-	_, msg, err := c.ReadMessage()
-	require.NoError(t, err)
-
-	var iceServers []webrtc.ICEServer
-	err = json.Unmarshal(msg, &iceServers)
-	require.NoError(t, err)
-
-	pc, err := newPeerConnection(webrtc.Configuration{
-		ICEServers: iceServers,
-	})
-	require.NoError(t, err)
-	defer pc.Close()
-
-	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
-		if i != nil {
-			enc, _ := json.Marshal(i.ToJSON())
-			c.WriteMessage(websocket.TextMessage, enc)
-		}
-	})
-
-	connected := make(chan struct{})
-	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		if state == webrtc.PeerConnectionStateConnected {
-			close(connected)
-		}
-	})
-
-	track := make(chan *webrtc.TrackRemote)
-	pc.OnTrack(func(trak *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
-		track <- trak
-	})
-
-	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
-	require.NoError(t, err)
-
-	localOffer, err := pc.CreateOffer(nil)
-	require.NoError(t, err)
-
-	enc, err := json.Marshal(localOffer)
-	require.NoError(t, err)
-
-	err = c.WriteMessage(websocket.TextMessage, enc)
-	require.NoError(t, err)
-
-	err = pc.SetLocalDescription(localOffer)
-	require.NoError(t, err)
-
-	_, msg, err = c.ReadMessage()
-	require.NoError(t, err)
-
-	var remoteOffer webrtc.SessionDescription
-	err = json.Unmarshal(msg, &remoteOffer)
-	require.NoError(t, err)
-
-	err = pc.SetRemoteDescription(remoteOffer)
-	require.NoError(t, err)
-
-	go func() {
-		for {
-			_, msg, err := c.ReadMessage()
-			if err != nil {
-				return
-			}
-
-			var candidate webrtc.ICECandidateInit
-			err = json.Unmarshal(msg, &candidate)
-			if err != nil {
-				return
-			}
-
-			pc.AddICECandidate(candidate)
-		}
-	}()
-
-	<-connected
+	defer c.close()
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -130,7 +194,7 @@ func TestWebRTCServer(t *testing.T) {
 		Payload: []byte{0x01, 0x02, 0x03, 0x04},
 	})
 
-	trak := <-track
+	trak := <-c.track
 
 	pkt, _, err := trak.ReadRTP()
 	require.NoError(t, err)

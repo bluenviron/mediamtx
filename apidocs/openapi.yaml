@@ -534,6 +534,12 @@ components:
           type: string
         remoteAddr:
           type: string
+        peerConnectionEstablished:
+          type: bool
+        localCandidate:
+          type: string
+        remoteCandidate:
+          type: string
         bytesReceived:
           type: number
         bytesSent:

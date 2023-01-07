@@ -32,10 +32,13 @@ var upgrader = websocket.Upgrader{
 }
 
 type webRTCServerAPIConnsListItem struct {
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	Created                   time.Time `json:"created"`
+	RemoteAddr                string    `json:"remoteAddr"`
+	PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
+	LocalCandidate            string    `json:"localCandidate"`
+	RemoteCandidate           string    `json:"remoteCandidate"`
+	BytesReceived             uint64    `json:"bytesReceived"`
+	BytesSent                 uint64    `json:"bytesSent"`
 }
 
 type webRTCServerAPIConnsListData struct {
@@ -264,10 +267,13 @@ outer:
 
 			for c := range s.conns {
 				data.Items[c.uuid.String()] = webRTCServerAPIConnsListItem{
-					Created:       c.created,
-					RemoteAddr:    c.remoteAddr().String(),
-					BytesReceived: c.bytesReceived(),
-					BytesSent:     c.bytesSent(),
+					Created:                   c.created,
+					RemoteAddr:                c.remoteAddr().String(),
+					PeerConnectionEstablished: c.peerConnectionEstablished(),
+					LocalCandidate:            c.localCandidate(),
+					RemoteCandidate:           c.remoteCandidate(),
+					BytesReceived:             c.bytesReceived(),
+					BytesSent:                 c.bytesSent(),
 				}
 			}
 

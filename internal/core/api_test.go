@@ -405,6 +405,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 		"rtmp",
 		"rtmps",
 		"hls",
+		"webrtc",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -490,7 +491,6 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 
 			case "hls":
 				source := gortsplib.Client{}
-
 				err := source.StartRecording("rtsp://localhost:8554/mypath",
 					media.Medias{medi})
 				require.NoError(t, err)
@@ -502,6 +502,17 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					defer res.Body.Close()
 					require.Equal(t, 200, res.StatusCode)
 				}()
+
+			case "webrtc":
+				source := gortsplib.Client{}
+				err := source.StartRecording("rtsp://localhost:8554/mypath",
+					media.Medias{medi})
+				require.NoError(t, err)
+				defer source.Close()
+
+				c, err := newWebRTCTestClient("ws://localhost:8889/mypath/ws")
+				require.NoError(t, err)
+				defer c.close()
 			}
 
 			switch ca {
@@ -562,6 +573,31 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				s := fmt.Sprintf("^%d-", time.Now().Year())
 				require.Regexp(t, s, out.Items[firstID].Created)
 				require.Regexp(t, s, out.Items[firstID].LastRequest)
+
+			case "webrtc":
+				type item struct {
+					Created                   time.Time `json:"created"`
+					RemoteAddr                string    `json:"remoteAddr"`
+					PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
+					LocalCandidate            string    `json:"localCandidate"`
+					RemoteCandidate           string    `json:"remoteCandidate"`
+					BytesReceived             uint64    `json:"bytesReceived"`
+					BytesSent                 uint64    `json:"bytesSent"`
+				}
+
+				var out struct {
+					Items map[string]item `json:"items"`
+				}
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/webrtcconns/list", nil, &out)
+				require.NoError(t, err)
+
+				var firstID string
+				for k := range out.Items {
+					firstID = k
+				}
+
+				itm := out.Items[firstID]
+				require.Equal(t, true, itm.PeerConnectionEstablished)
 			}
 		})
 	}

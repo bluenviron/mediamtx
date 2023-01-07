@@ -62,37 +62,6 @@ func newPeerConnection(configuration webrtc.Configuration,
 	return api.NewPeerConnection(configuration)
 }
 
-func describeActiveCandidates(pc *webrtc.PeerConnection) (string, string) {
-	var lcid string
-	var rcid string
-
-	for _, stats := range pc.GetStats() {
-		if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
-			lcid = tstats.LocalCandidateID
-			rcid = tstats.RemoteCandidateID
-			break
-		}
-	}
-
-	var ldesc string
-	var rdesc string
-
-	for _, stats := range pc.GetStats() {
-		if tstats, ok := stats.(webrtc.ICECandidateStats); ok {
-			str := tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
-				tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
-
-			if tstats.ID == lcid {
-				ldesc = str
-			} else if tstats.ID == rcid {
-				rdesc = str
-			}
-		}
-	}
-
-	return ldesc, rdesc
-}
-
 type webRTCTrack struct {
 	media       *media.Media
 	format      format.Format
@@ -187,13 +156,73 @@ func (c *webRTCConn) remoteAddr() net.Addr {
 	return c.wsconn.RemoteAddr()
 }
 
+func (c *webRTCConn) peerConnectionEstablished() bool {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	return c.curPC != nil
+}
+
+func (c *webRTCConn) localCandidate() string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.curPC != nil {
+		var cid string
+		for _, stats := range c.curPC.GetStats() {
+			if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
+				cid = tstats.LocalCandidateID
+				break
+			}
+		}
+
+		if cid != "" {
+			for _, stats := range c.curPC.GetStats() {
+				if tstats, ok := stats.(webrtc.ICECandidateStats); ok && tstats.ID == cid {
+					return tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
+						tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func (c *webRTCConn) remoteCandidate() string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	if c.curPC != nil {
+		var cid string
+		for _, stats := range c.curPC.GetStats() {
+			if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
+				cid = tstats.RemoteCandidateID
+				break
+			}
+		}
+
+		if cid != "" {
+			for _, stats := range c.curPC.GetStats() {
+				if tstats, ok := stats.(webrtc.ICECandidateStats); ok && tstats.ID == cid {
+					return tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
+						tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
+				}
+			}
+		}
+	}
+	return ""
+}
+
 func (c *webRTCConn) bytesReceived() uint64 {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	for _, stats := range c.curPC.GetStats() {
-		if tstats, ok := stats.(webrtc.TransportStats); ok {
-			if tstats.ID == "iceTransport" {
-				return tstats.BytesReceived
+
+	if c.curPC != nil {
+		for _, stats := range c.curPC.GetStats() {
+			if tstats, ok := stats.(webrtc.TransportStats); ok {
+				if tstats.ID == "iceTransport" {
+					return tstats.BytesReceived
+				}
 			}
 		}
 	}
@@ -203,10 +232,13 @@ func (c *webRTCConn) bytesReceived() uint64 {
 func (c *webRTCConn) bytesSent() uint64 {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	for _, stats := range c.curPC.GetStats() {
-		if tstats, ok := stats.(webrtc.TransportStats); ok {
-			if tstats.ID == "iceTransport" {
-				return tstats.BytesSent
+
+	if c.curPC != nil {
+		for _, stats := range c.curPC.GetStats() {
+			if tstats, ok := stats.(webrtc.TransportStats); ok {
+				if tstats.ID == "iceTransport" {
+					return tstats.BytesSent
+				}
 			}
 		}
 	}
@@ -335,10 +367,6 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		<-pcClosed
 	}()
 
-	c.mutex.Lock()
-	c.curPC = pc
-	c.mutex.Unlock()
-
 	for _, track := range tracks {
 		rtpSender, err := pc.AddTrack(track.webRTCTrack)
 		if err != nil {
@@ -440,8 +468,12 @@ outer:
 	// in order to allow the other side of the connection
 	// to switch to the "connected" state before WebSocket is closed.
 
-	ldesc, rdesc := describeActiveCandidates(pc)
-	c.log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v", ldesc, rdesc)
+	c.mutex.Lock()
+	c.curPC = pc
+	c.mutex.Unlock()
+
+	c.log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
+		c.localCandidate(), c.remoteCandidate())
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	defer ringBuffer.Close()

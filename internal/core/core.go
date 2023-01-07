@@ -565,7 +565,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager ||
 		closeMetrics
 
-	closeWebrtcServer := newConf == nil ||
+	closeWebRTCServer := newConf == nil ||
 		newConf.WebRTCDisable != p.conf.WebRTCDisable ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
@@ -590,7 +590,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPSServer ||
 		closeRTMPServer ||
 		closeHLSServer ||
-		closeWebrtcServer
+		closeWebRTCServer
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
@@ -621,7 +621,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		p.pathManager = nil
 	}
 
-	if closeWebrtcServer && p.webRTCServer != nil {
+	if closeWebRTCServer && p.webRTCServer != nil {
 		p.webRTCServer.close()
 		p.webRTCServer = nil
 	}
