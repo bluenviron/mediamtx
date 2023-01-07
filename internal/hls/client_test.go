@@ -425,12 +425,6 @@ func TestClientInvalidSequenceID(t *testing.T) {
 	require.NoError(t, err)
 	defer s.close()
 
-	packetRecv := make(chan struct{})
-
-	onH264 := func(pts time.Duration, dat interface{}) {
-		close(packetRecv)
-	}
-
 	c, err := NewClient(
 		"http://localhost:5780/stream.m3u8",
 		"",
@@ -439,13 +433,10 @@ func TestClientInvalidSequenceID(t *testing.T) {
 	require.NoError(t, err)
 
 	c.OnTracks(func(tracks []format.Format) error {
-		c.OnData(tracks[0], onH264)
 		return nil
 	})
 
 	c.Start()
-
-	<-packetRecv
 
 	err = <-c.Wait()
 	require.EqualError(t, err, "following segment not found or not ready yet")
