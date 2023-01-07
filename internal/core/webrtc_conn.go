@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	handshakeDeadline = 10 * time.Second
+	webrtcHandshakeDeadline = 10 * time.Second
+	webrtcPayloadMaxSize    = 1200
 )
 
 // newPeerConnection creates a PeerConnection with the default codecs and
@@ -276,8 +277,8 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	}
 
 	// maximum deadline to complete the handshake
-	c.wsconn.SetReadDeadline(time.Now().Add(handshakeDeadline))
-	c.wsconn.SetWriteDeadline(time.Now().Add(handshakeDeadline))
+	c.wsconn.SetReadDeadline(time.Now().Add(webrtcHandshakeDeadline))
+	c.wsconn.SetWriteDeadline(time.Now().Add(webrtcHandshakeDeadline))
 
 	err = c.writeICEServers(c.genICEServers())
 	if err != nil {
@@ -495,7 +496,7 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 
 		encoder := &rtpvp9.Encoder{
 			PayloadType:    96,
-			PayloadMaxSize: 1200,
+			PayloadMaxSize: webrtcPayloadMaxSize,
 		}
 		encoder.Init()
 
@@ -542,7 +543,7 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 
 			encoder := &rtpvp8.Encoder{
 				PayloadType:    96,
-				PayloadMaxSize: 1200,
+				PayloadMaxSize: webrtcPayloadMaxSize,
 			}
 			encoder.Init()
 
@@ -589,7 +590,7 @@ func (c *webRTCConn) allocateTracks(medias media.Medias) ([]*webRTCTrack, error)
 
 			encoder := &rtph264.Encoder{
 				PayloadType:    96,
-				PayloadMaxSize: 1200,
+				PayloadMaxSize: webrtcPayloadMaxSize,
 			}
 			encoder.Init()
 

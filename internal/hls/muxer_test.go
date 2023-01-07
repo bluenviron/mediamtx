@@ -2,6 +2,7 @@ package hls
 
 import (
 	"io"
+	"net/http"
 	"regexp"
 	"testing"
 	"time"
@@ -44,13 +45,19 @@ func TestMuxerVideoAudio(t *testing.T) {
 	for _, ca := range []string{
 		"mpegts",
 		"fmp4",
+		"lowLatency",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			var v MuxerVariant
-			if ca == "mpegts" {
+			switch ca {
+			case "mpegts":
 				v = MuxerVariantMPEGTS
-			} else {
+
+			case "fmp4":
 				v = MuxerVariantFMP4
+
+			case "lowLatency":
+				v = MuxerVariantLowLatency
 			}
 
 			m, err := NewMuxer(v, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, audioTrack)
@@ -116,14 +123,16 @@ func TestMuxerVideoAudio(t *testing.T) {
 			byts, err := io.ReadAll(m.File("index.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
-			if ca == "mpegts" {
+			switch ca {
+			case "mpegts":
 				require.Equal(t, "#EXTM3U\n"+
 					"#EXT-X-VERSION:3\n"+
 					"#EXT-X-INDEPENDENT-SEGMENTS\n"+
 					"\n"+
 					"#EXT-X-STREAM-INF:BANDWIDTH=200000,CODECS=\"avc1.42c028,mp4a.40.2\"\n"+
 					"stream.m3u8\n", string(byts))
-			} else {
+
+			case "fmp4", "lowLatency":
 				require.Equal(t, "#EXTM3U\n"+
 					"#EXT-X-VERSION:9\n"+
 					"#EXT-X-INDEPENDENT-SEGMENTS\n"+
@@ -135,8 +144,8 @@ func TestMuxerVideoAudio(t *testing.T) {
 			byts, err = io.ReadAll(m.File("stream.m3u8", "", "", "").Body)
 			require.NoError(t, err)
 
-			var ma []string
-			if ca == "mpegts" {
+			switch ca {
+			case "mpegts":
 				re := regexp.MustCompile(`^#EXTM3U\n` +
 					`#EXT-X-VERSION:3\n` +
 					`#EXT-X-ALLOW-CACHE:NO\n` +
@@ -148,8 +157,15 @@ func TestMuxerVideoAudio(t *testing.T) {
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:1,\n` +
 					`(seg1\.ts)\n$`)
-				ma = re.FindStringSubmatch(string(byts))
-			} else {
+				ma := re.FindStringSubmatch(string(byts))
+				require.NotEqual(t, 0, len(ma))
+
+				seg := m.File(ma[2], "", "", "")
+				require.Equal(t, http.StatusOK, seg.Status)
+				_, err := io.ReadAll(seg.Body)
+				require.NoError(t, err)
+
+			case "fmp4":
 				re := regexp.MustCompile(`^#EXTM3U\n` +
 					`#EXT-X-VERSION:9\n` +
 					`#EXT-X-TARGETDURATION:4\n` +
@@ -161,19 +177,75 @@ func TestMuxerVideoAudio(t *testing.T) {
 					`#EXT-X-PROGRAM-DATE-TIME:(.*?)\n` +
 					`#EXTINF:1.00000,\n` +
 					`(seg1\.mp4)\n$`)
-				ma = re.FindStringSubmatch(string(byts))
-			}
-			require.NotEqual(t, 0, len(ma))
+				ma := re.FindStringSubmatch(string(byts))
+				require.NotEqual(t, 0, len(ma))
 
-			if ca == "mpegts" {
-				_, err := io.ReadAll(m.File(ma[2], "", "", "").Body)
-				require.NoError(t, err)
-			} else {
-				_, err := io.ReadAll(m.File("init.mp4", "", "", "").Body)
+				init := m.File("init.mp4", "", "", "")
+				require.Equal(t, http.StatusOK, init.Status)
+				_, err := io.ReadAll(init.Body)
 				require.NoError(t, err)
 
-				_, err = io.ReadAll(m.File(ma[2], "", "", "").Body)
+				seg := m.File(ma[2], "", "", "")
+				require.Equal(t, http.StatusOK, seg.Status)
+				_, err = io.ReadAll(seg.Body)
 				require.NoError(t, err)
+
+			case "lowLatency":
+				require.Equal(t,
+					"#EXTM3U\n"+
+						"#EXT-X-VERSION:9\n"+
+						"#EXT-X-TARGETDURATION:4\n"+
+						"#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=5.00000,CAN-SKIP-UNTIL=24\n"+
+						"#EXT-X-PART-INF:PART-TARGET=2\n"+
+						"#EXT-X-MEDIA-SEQUENCE:2\n"+
+						"#EXT-X-MAP:URI=\"init.mp4\"\n"+
+						"#EXT-X-GAP\n"+
+						"#EXTINF:4.00000,\n"+
+						"gap.mp4\n"+
+						"#EXT-X-GAP\n"+
+						"#EXTINF:4.00000,\n"+
+						"gap.mp4\n"+
+						"#EXT-X-GAP\n"+
+						"#EXTINF:4.00000,\n"+
+						"gap.mp4\n"+
+						"#EXT-X-GAP\n"+
+						"#EXTINF:4.00000,\n"+
+						"gap.mp4\n"+
+						"#EXT-X-GAP\n"+
+						"#EXTINF:4.00000,\n"+
+						"gap.mp4\n"+
+						"#EXT-X-PROGRAM-DATE-TIME:2010-01-01T01:01:02Z\n"+
+						"#EXT-X-PART:DURATION=2.00000,URI=\"part0.mp4\",INDEPENDENT=YES\n"+
+						"#EXT-X-PART:DURATION=2.00000,URI=\"part1.mp4\"\n"+
+						"#EXTINF:4.00000,\n"+
+						"seg7.mp4\n"+
+						"#EXT-X-PROGRAM-DATE-TIME:2010-01-01T01:01:06Z\n"+
+						"#EXT-X-PART:DURATION=1.00000,URI=\"part3.mp4\",INDEPENDENT=YES\n"+
+						"#EXTINF:1.00000,\n"+
+						"seg8.mp4\n"+
+						"#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"part4.mp4\"\n", string(byts))
+
+				part := m.File("part3.mp4", "", "", "")
+				require.Equal(t, http.StatusOK, part.Status)
+				_, err = io.ReadAll(part.Body)
+				require.NoError(t, err)
+
+				recv := make(chan struct{})
+
+				go func() {
+					part = m.File("part4.mp4", "", "", "")
+					_, err := io.ReadAll(part.Body)
+					require.NoError(t, err)
+					close(recv)
+				}()
+
+				d = 9 * time.Second
+				err = m.WriteH26x(testTime.Add(d-1*time.Second), d, [][]byte{
+					{1}, // non-IDR
+				})
+				require.NoError(t, err)
+
+				<-recv
 			}
 		})
 	}
