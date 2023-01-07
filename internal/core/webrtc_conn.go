@@ -310,7 +310,30 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer pc.Close()
+
+	pcConnected := make(chan struct{})
+	pcDisconnected := make(chan struct{})
+	pcClosed := make(chan struct{})
+
+	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		c.log(logger.Debug, "peer connection state: "+state.String())
+
+		switch state {
+		case webrtc.PeerConnectionStateConnected:
+			close(pcConnected)
+
+		case webrtc.PeerConnectionStateDisconnected:
+			close(pcDisconnected)
+
+		case webrtc.PeerConnectionStateClosed:
+			close(pcClosed)
+		}
+	})
+
+	defer func() {
+		pc.Close()
+		<-pcClosed
+	}()
 
 	c.mutex.Lock()
 	c.curPC = pc
@@ -335,8 +358,6 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	}
 
 	localCandidate := make(chan *webrtc.ICECandidate)
-	pcConnected := make(chan struct{})
-	pcDisconnected := make(chan struct{})
 
 	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
 		if i != nil {
@@ -347,19 +368,6 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 			}
 		}
 	})
-
-	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		c.log(logger.Debug, "peer connection state: "+state.String())
-
-		switch state {
-		case webrtc.PeerConnectionStateConnected:
-			close(pcConnected)
-
-		case webrtc.PeerConnectionStateDisconnected:
-			close(pcDisconnected)
-		}
-	})
-
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
 		return err
