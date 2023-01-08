@@ -4,8 +4,8 @@ go 1.18
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
-	github.com/abema/go-mp4 v0.0.0
-	github.com/aler9/gortsplib/v2 v2.0.3
+	github.com/abema/go-mp4 v0.9.0
+	github.com/aler9/gortsplib/v2 v2.0.0-20230108171338-5a1fdd13a94f
 	github.com/asticode/go-astits v1.10.1-0.20220319093903-4abe66a9b757
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.8.1
@@ -68,5 +68,3 @@ require (
 replace github.com/orcaman/writerseeker => github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
-
-replace github.com/abema/go-mp4 => github.com/aler9/go-mp4 v0.0.0-20221229200349-f3d01e787968
