@@ -225,10 +225,6 @@ outer:
 			}
 			delete(s.muxers, c.PathName())
 
-			if s.alwaysRemux && c.remoteAddr == "" {
-				s.findOrCreateMuxer(c.PathName(), "", nil)
-			}
-
 		case req := <-s.chAPIMuxerList:
 			muxers := make(map[string]*hlsMuxer)
 
@@ -339,6 +335,7 @@ func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *h
 			pathName,
 			remoteAddr,
 			s.externalAuthenticationURL,
+			s.alwaysRemux,
 			s.variant,
 			s.segmentCount,
 			s.segmentDuration,
