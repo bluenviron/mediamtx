@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"log"
 	"net"
 	"net/http"
 
@@ -37,7 +38,8 @@ func newPPROF(
 	}
 
 	pp.server = &http.Server{
-		Handler: http.DefaultServeMux,
+		Handler:  http.DefaultServeMux,
+		ErrorLog: log.New(&nilWriter{}, "", 0),
 	}
 
 	pp.log(logger.Info, "listener opened on "+address)

@@ -15,16 +15,18 @@ import (
 )
 
 type webRTCTestClient struct {
-	wc    *websocket.Conn
-	pc    *webrtc.PeerConnection
-	track chan *webrtc.TrackRemote
+	wc     *websocket.Conn
+	pc     *webrtc.PeerConnection
+	track  chan *webrtc.TrackRemote
+	closed chan struct{}
 }
 
 func newWebRTCTestClient(addr string) (*webRTCTestClient, error) {
-	wc, _, err := websocket.DefaultDialer.Dial(addr, nil) //nolint:bodyclose
+	wc, res, err := websocket.DefaultDialer.Dial(addr, nil)
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 
 	_, msg, err := wc.ReadMessage()
 	if err != nil {
@@ -55,13 +57,25 @@ func newWebRTCTestClient(addr string) (*webRTCTestClient, error) {
 	})
 
 	connected := make(chan struct{})
+	closed := make(chan struct{})
+
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		if state == webrtc.PeerConnectionStateConnected {
+		switch state {
+		case webrtc.PeerConnectionStateConnected:
 			close(connected)
+
+		case webrtc.PeerConnectionStateClosed:
+			select {
+			case <-closed:
+				return
+			default:
+			}
+			close(closed)
 		}
 	})
 
 	track := make(chan *webrtc.TrackRemote, 1)
+
 	pc.OnTrack(func(trak *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
 		track <- trak
 	})
@@ -143,15 +157,17 @@ func newWebRTCTestClient(addr string) (*webRTCTestClient, error) {
 	<-connected
 
 	return &webRTCTestClient{
-		wc:    wc,
-		pc:    pc,
-		track: track,
+		wc:     wc,
+		pc:     pc,
+		track:  track,
+		closed: closed,
 	}, nil
 }
 
 func (c *webRTCTestClient) close() {
 	c.pc.Close()
 	c.wc.Close()
+	<-c.closed
 }
 
 func TestWebRTCServer(t *testing.T) {

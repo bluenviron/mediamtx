@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net"
 	"net/http"
 	"reflect"
@@ -201,7 +202,10 @@ func newAPI(
 		group.POST("/v1/webrtcconns/kick/:id", a.onWebRTCConnsKick)
 	}
 
-	a.s = &http.Server{Handler: router}
+	a.s = &http.Server{
+		Handler:  router,
+		ErrorLog: log.New(&nilWriter{}, "", 0),
+	}
 
 	go a.s.Serve(ln)
 

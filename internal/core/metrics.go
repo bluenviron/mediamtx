@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"strconv"
@@ -53,7 +54,10 @@ func newMetrics(
 	router.SetTrustedProxies(nil)
 	router.GET("/metrics", m.onMetrics)
 
-	m.server = &http.Server{Handler: router}
+	m.server = &http.Server{
+		Handler:  router,
+		ErrorLog: log.New(&nilWriter{}, "", 0),
+	}
 
 	m.log(logger.Info, "listener opened on "+address)
 

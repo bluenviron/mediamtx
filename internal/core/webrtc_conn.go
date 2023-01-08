@@ -106,6 +106,8 @@ type webRTCConn struct {
 	created   time.Time
 	curPC     *webrtc.PeerConnection
 	mutex     sync.RWMutex
+
+	closed chan struct{}
 }
 
 func newWebRTCConn(
@@ -138,6 +140,7 @@ func newWebRTCConn(
 		iceUDPMux:         iceUDPMux,
 		iceTCPMux:         iceTCPMux,
 		iceHostNAT1To1IPs: iceHostNAT1To1IPs,
+		closed:            make(chan struct{}),
 	}
 
 	c.log(logger.Info, "opened")
@@ -150,6 +153,10 @@ func newWebRTCConn(
 
 func (c *webRTCConn) close() {
 	c.ctxCancel()
+}
+
+func (c *webRTCConn) wait() {
+	<-c.closed
 }
 
 func (c *webRTCConn) remoteAddr() net.Addr {
@@ -250,6 +257,7 @@ func (c *webRTCConn) log(level logger.Level, format string, args ...interface{})
 }
 
 func (c *webRTCConn) run() {
+	defer close(c.closed)
 	defer c.wg.Done()
 
 	innerCtx, innerCtxCancel := context.WithCancel(c.ctx)
@@ -277,11 +285,6 @@ func (c *webRTCConn) run() {
 }
 
 func (c *webRTCConn) runInner(ctx context.Context) error {
-	go func() {
-		<-ctx.Done()
-		c.wsconn.Close()
-	}()
-
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: c.pathName,
@@ -348,6 +351,12 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	pcClosed := make(chan struct{})
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		select {
+		case <-pcClosed:
+			return
+		default:
+		}
+
 		c.log(logger.Debug, "peer connection state: "+state.String())
 
 		switch state {
