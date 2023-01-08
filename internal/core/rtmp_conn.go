@@ -596,32 +596,13 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 					return fmt.Errorf("received a video packet, but track is not set up")
 				}
 
-				nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
+				au, err := h264.AVCCUnmarshal(tmsg.Payload)
 				if err != nil {
-					return fmt.Errorf("unable to decode AVCC: %v", err)
-				}
-
-				// skip invalid NALUs sent by DJI
-				n := 0
-				for _, nalu := range nalus {
-					if len(nalu) != 0 {
-						n++
-					}
-				}
-				if n == 0 {
+					c.log(logger.Warn, "unable to decode AVCC: %v", err)
 					continue
 				}
 
-				validNALUs := make([][]byte, n)
-				pos := 0
-				for _, nalu := range nalus {
-					if len(nalu) != 0 {
-						validNALUs[pos] = nalu
-						pos++
-					}
-				}
-
-				onVideoData(tmsg.DTS+tmsg.PTSDelta, validNALUs)
+				onVideoData(tmsg.DTS+tmsg.PTSDelta, au)
 			}
 
 		case *message.MsgAudio:

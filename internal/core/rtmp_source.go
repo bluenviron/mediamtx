@@ -179,7 +179,8 @@ func (s *rtmpSource) run(ctx context.Context) error {
 
 						au, err := h264.AVCCUnmarshal(tmsg.Payload)
 						if err != nil {
-							return fmt.Errorf("unable to decode AVCC: %v", err)
+							s.Log(logger.Warn, "unable to decode AVCC: %v", err)
+							continue
 						}
 
 						err = res.stream.writeData(videoMedia, videoFormat, &formatprocessor.DataH264{
