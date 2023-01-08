@@ -128,7 +128,7 @@ func newHLSMuxer(
 			return &v
 		}(),
 		bytesSent:          new(uint64),
-		chRequest:          make(chan *hlsMuxerRequest, 1),
+		chRequest:          make(chan *hlsMuxerRequest),
 		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
 
