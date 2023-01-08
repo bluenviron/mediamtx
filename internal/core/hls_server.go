@@ -204,7 +204,7 @@ outer:
 		select {
 		case pa := <-s.chPathSourceReady:
 			if s.alwaysRemux {
-				s.findOrCreateMuxer(pa.Name(), "", nil)
+				s.createMuxer(pa.Name(), "", nil)
 			}
 
 		case pa := <-s.chPathSourceNotReady:
@@ -217,7 +217,18 @@ outer:
 			}
 
 		case req := <-s.request:
-			s.findOrCreateMuxer(req.dir, req.ctx.ClientIP(), req)
+			r, ok := s.muxers[req.path]
+			switch {
+			case ok:
+				r.processRequest(req)
+
+			case s.alwaysRemux:
+				req.res <- nil
+
+			default:
+				r := s.createMuxer(req.path, req.ctx.ClientIP(), req)
+				r.processRequest(req)
+			}
 
 		case c := <-s.chMuxerClose:
 			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
@@ -301,56 +312,53 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	dir = strings.TrimSuffix(dir, "/")
 
 	hreq := &hlsMuxerRequest{
-		dir:  dir,
+		path: dir,
 		file: fname,
 		ctx:  ctx,
-		res:  make(chan hlsMuxerResponse),
+		res:  make(chan *hlsMuxerResponse),
 	}
 
 	select {
 	case s.request <- hreq:
 		res1 := <-hreq.res
-		res := res1.cb()
+		if res1 != nil {
+			res := res1.cb()
 
-		for k, v := range res.Header {
-			ctx.Writer.Header().Set(k, v)
-		}
+			for k, v := range res.Header {
+				ctx.Writer.Header().Set(k, v)
+			}
 
-		ctx.Writer.WriteHeader(res.Status)
+			ctx.Writer.WriteHeader(res.Status)
 
-		if res.Body != nil {
-			n, _ := io.Copy(ctx.Writer, res.Body)
-			res1.muxer.addSentBytes(uint64(n))
+			if res.Body != nil {
+				n, _ := io.Copy(ctx.Writer, res.Body)
+				res1.muxer.addSentBytes(uint64(n))
+			}
 		}
 
 	case <-s.ctx.Done():
 	}
 }
 
-func (s *hlsServer) findOrCreateMuxer(pathName string, remoteAddr string, req *hlsMuxerRequest) *hlsMuxer {
-	r, ok := s.muxers[pathName]
-	if !ok {
-		r = newHLSMuxer(
-			s.ctx,
-			pathName,
-			remoteAddr,
-			s.externalAuthenticationURL,
-			s.alwaysRemux,
-			s.variant,
-			s.segmentCount,
-			s.segmentDuration,
-			s.partDuration,
-			s.segmentMaxSize,
-			s.readBufferCount,
-			req,
-			&s.wg,
-			pathName,
-			s.pathManager,
-			s)
-		s.muxers[pathName] = r
-	} else if req != nil {
-		r.request(req)
-	}
+func (s *hlsServer) createMuxer(pathName string, remoteAddr string, req *hlsMuxerRequest) *hlsMuxer {
+	r := newHLSMuxer(
+		s.ctx,
+		pathName,
+		remoteAddr,
+		s.externalAuthenticationURL,
+		s.alwaysRemux,
+		s.variant,
+		s.segmentCount,
+		s.segmentDuration,
+		s.partDuration,
+		s.segmentMaxSize,
+		s.readBufferCount,
+		req,
+		&s.wg,
+		pathName,
+		s.pathManager,
+		s)
+	s.muxers[pathName] = r
 	return r
 }
 

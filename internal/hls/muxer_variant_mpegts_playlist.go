@@ -94,7 +94,7 @@ func (p *muxerVariantMPEGTSPlaylist) playlistReader() *MuxerFileResponse {
 	}
 
 	if p.closed {
-		return &MuxerFileResponse{Status: http.StatusInternalServerError}
+		return &MuxerFileResponse{Status: http.StatusNotFound}
 	}
 
 	return &MuxerFileResponse{

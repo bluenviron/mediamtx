@@ -39,10 +39,10 @@ type hlsMuxerResponse struct {
 }
 
 type hlsMuxerRequest struct {
-	dir  string
+	path string
 	file string
 	ctx  *gin.Context
-	res  chan hlsMuxerResponse
+	res  chan *hlsMuxerResponse
 }
 
 type hlsMuxerPathManager interface {
@@ -128,12 +128,8 @@ func newHLSMuxer(
 			return &v
 		}(),
 		bytesSent:          new(uint64),
-		chRequest:          make(chan *hlsMuxerRequest),
+		chRequest:          make(chan *hlsMuxerRequest, 1),
 		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
-	}
-
-	if req != nil {
-		m.requests = append(m.requests, req)
 	}
 
 	m.log(logger.Info, "created %s", func() string {
@@ -196,12 +192,17 @@ func (m *hlsMuxer) run() {
 				return errors.New("terminated")
 
 			case req := <-m.chRequest:
-				if isReady {
-					req.res <- hlsMuxerResponse{
+				switch {
+				case isRecreating:
+					req.res <- nil
+
+				case isReady:
+					req.res <- &hlsMuxerResponse{
 						muxer: m,
 						cb:    m.handleRequest(req),
 					}
-				} else {
+
+				default:
 					m.requests = append(m.requests, req)
 				}
 
@@ -216,7 +217,7 @@ func (m *hlsMuxer) run() {
 			case <-innerReady:
 				isReady = true
 				for _, req := range m.requests {
-					req.res <- hlsMuxerResponse{
+					req.res <- &hlsMuxerResponse{
 						muxer: m,
 						cb:    m.handleRequest(req),
 					}
@@ -254,13 +255,9 @@ func (m *hlsMuxer) run() {
 
 func (m *hlsMuxer) clearQueuedRequests() {
 	for _, req := range m.requests {
-		req.res <- hlsMuxerResponse{
-			muxer: m,
-			cb: func() *hls.MuxerFileResponse {
-				return &hls.MuxerFileResponse{Status: http.StatusNotFound}
-			},
-		}
+		req.res <- nil
 	}
+	m.requests = nil
 }
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
@@ -616,17 +613,12 @@ func (m *hlsMuxer) addSentBytes(n uint64) {
 	atomic.AddUint64(m.bytesSent, n)
 }
 
-// request is called by hlsserver.Server (forwarded from ServeHTTP).
-func (m *hlsMuxer) request(req *hlsMuxerRequest) {
+// processRequest is called by hlsserver.Server (forwarded from ServeHTTP).
+func (m *hlsMuxer) processRequest(req *hlsMuxerRequest) {
 	select {
 	case m.chRequest <- req:
 	case <-m.ctx.Done():
-		req.res <- hlsMuxerResponse{
-			muxer: m,
-			cb: func() *hls.MuxerFileResponse {
-				return &hls.MuxerFileResponse{Status: http.StatusInternalServerError}
-			},
-		}
+		req.res <- nil
 	}
 }
 

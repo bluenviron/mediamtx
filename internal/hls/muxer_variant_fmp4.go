@@ -146,7 +146,7 @@ func (v *muxerVariantFMP4) file(name string, msn string, part string, skip strin
 			var err error
 			v.initContent, err = init.Marshal()
 			if err != nil {
-				return &MuxerFileResponse{Status: http.StatusInternalServerError}
+				return &MuxerFileResponse{Status: http.StatusNotFound}
 			}
 		}
 

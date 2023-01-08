@@ -215,7 +215,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 			}
 
 			if p.closed {
-				return &MuxerFileResponse{Status: http.StatusInternalServerError}
+				return &MuxerFileResponse{Status: http.StatusNotFound}
 			}
 
 			return &MuxerFileResponse{
@@ -241,7 +241,7 @@ func (p *muxerVariantFMP4Playlist) playlistReader(msn string, part string, skip 
 	}
 
 	if p.closed {
-		return &MuxerFileResponse{Status: http.StatusInternalServerError}
+		return &MuxerFileResponse{Status: http.StatusNotFound}
 	}
 
 	return &MuxerFileResponse{
@@ -416,7 +416,7 @@ func (p *muxerVariantFMP4Playlist) segmentReader(fname string) *MuxerFileRespons
 			}
 
 			if p.closed {
-				return &MuxerFileResponse{Status: http.StatusInternalServerError}
+				return &MuxerFileResponse{Status: http.StatusNotFound}
 			}
 
 			return &MuxerFileResponse{
