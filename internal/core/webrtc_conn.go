@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -22,7 +21,6 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/pion/ice/v2"
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
@@ -30,11 +28,13 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/websocket"
 )
 
 const (
 	webrtcHandshakeDeadline = 10 * time.Second
-	webrtcPayloadMaxSize    = 1200
+	webrtcWsWriteDeadline   = 2 * time.Second
+	webrtcPayloadMaxSize    = 1188 // 1200 - 12 (RTP header)
 )
 
 // newPeerConnection creates a PeerConnection with the default codecs and
@@ -91,7 +91,7 @@ type webRTCConnParent interface {
 type webRTCConn struct {
 	readBufferCount   int
 	pathName          string
-	wsconn            *websocket.Conn
+	wsconn            *websocket.ServerConn
 	iceServers        []string
 	wg                *sync.WaitGroup
 	pathManager       webRTCConnPathManager
@@ -114,7 +114,7 @@ func newWebRTCConn(
 	parentCtx context.Context,
 	readBufferCount int,
 	pathName string,
-	wsconn *websocket.Conn,
+	wsconn *websocket.ServerConn,
 	iceServers []string,
 	wg *sync.WaitGroup,
 	pathManager webRTCConnPathManager,
@@ -311,10 +311,6 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	// maximum deadline to complete the handshake
-	c.wsconn.SetReadDeadline(time.Now().Add(webrtcHandshakeDeadline))
-	c.wsconn.SetWriteDeadline(time.Now().Add(webrtcHandshakeDeadline))
-
 	err = c.writeICEServers(c.genICEServers())
 	if err != nil {
 		return err
@@ -425,7 +421,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	readError := make(chan error)
+	wsReadError := make(chan error)
 	remoteCandidate := make(chan *webrtc.ICECandidateInit)
 
 	go func() {
@@ -433,8 +429,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 			candidate, err := c.readCandidate()
 			if err != nil {
 				select {
-				case readError <- err:
-				case <-pcConnected:
+				case wsReadError <- err:
 				case <-ctx.Done():
 				}
 				return
@@ -447,6 +442,9 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 			}
 		}
 	}()
+
+	t := time.NewTimer(webrtcHandshakeDeadline)
+	defer t.Stop()
 
 outer:
 	for {
@@ -462,8 +460,11 @@ outer:
 				return err
 			}
 
-		case err := <-readError:
+		case err := <-wsReadError:
 			return err
+
+		case <-t.C:
+			return fmt.Errorf("deadline exceeded")
 
 		case <-pcConnected:
 			break outer
@@ -473,9 +474,11 @@ outer:
 		}
 	}
 
-	// do NOT close the WebSocket connection
-	// in order to allow the other side of the connection
-	// to switch to the "connected" state before WebSocket is closed.
+	// Keep WebSocket connection open and use it to notify shutdowns.
+	// This is because pion/webrtc doesn't write yet a WebRTC shutdown
+	// message to clients (like a DTLS close alert or a RTCP BYE),
+	// therefore browsers do not properly detect shutdowns and do not
+	// attempt to restart the connection immediately.
 
 	c.mutex.Lock()
 	c.curPC = pc
@@ -515,6 +518,9 @@ outer:
 	select {
 	case <-pcDisconnected:
 		return fmt.Errorf("peer connection closed")
+
+	case err := <-wsReadError:
+		return fmt.Errorf("websocket error: %v", err)
 
 	case err := <-writeError:
 		return err
@@ -833,18 +839,12 @@ func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
 }
 
 func (c *webRTCConn) writeICEServers(iceServers []webrtc.ICEServer) error {
-	enc, _ := json.Marshal(iceServers)
-	return c.wsconn.WriteMessage(websocket.TextMessage, enc)
+	return c.wsconn.WriteJSON(iceServers)
 }
 
 func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
-	_, enc, err := c.wsconn.ReadMessage()
-	if err != nil {
-		return nil, err
-	}
-
 	var offer webrtc.SessionDescription
-	err = json.Unmarshal(enc, &offer)
+	err := c.wsconn.ReadJSON(&offer)
 	if err != nil {
 		return nil, err
 	}
@@ -857,23 +857,16 @@ func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
 }
 
 func (c *webRTCConn) writeAnswer(answer *webrtc.SessionDescription) error {
-	enc, _ := json.Marshal(answer)
-	return c.wsconn.WriteMessage(websocket.TextMessage, enc)
+	return c.wsconn.WriteJSON(answer)
 }
 
 func (c *webRTCConn) writeCandidate(candidate *webrtc.ICECandidate) error {
-	enc, _ := json.Marshal(candidate.ToJSON())
-	return c.wsconn.WriteMessage(websocket.TextMessage, enc)
+	return c.wsconn.WriteJSON(candidate)
 }
 
 func (c *webRTCConn) readCandidate() (*webrtc.ICECandidateInit, error) {
-	_, enc, err := c.wsconn.ReadMessage()
-	if err != nil {
-		return nil, err
-	}
-
 	var candidate webrtc.ICECandidateInit
-	err = json.Unmarshal(enc, &candidate)
+	err := c.wsconn.ReadJSON(&candidate)
 	if err != nil {
 		return nil, err
 	}

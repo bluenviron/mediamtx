@@ -14,22 +14,16 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/pion/ice/v2"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/rtsp-simple-server/internal/websocket"
 )
 
 //go:embed webrtc_index.html
 var webrtcIndex []byte
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-}
 
 type webRTCServerAPIConnsListItem struct {
 	Created                   time.Time `json:"created"`
@@ -65,7 +59,7 @@ type webRTCServerAPIConnsKickReq struct {
 
 type webRTCConnNewReq struct {
 	pathName string
-	wsconn   *websocket.Conn
+	wsconn   *websocket.ServerConn
 	res      chan *webRTCConn
 }
 
@@ -396,7 +390,7 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 		return
 
 	case "ws":
-		wsconn, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+		wsconn, err := websocket.NewServerConn(ctx.Writer, ctx.Request)
 		if err != nil {
 			return
 		}
@@ -411,7 +405,7 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	}
 }
 
-func (s *webRTCServer) newConn(dir string, wsconn *websocket.Conn) *webRTCConn {
+func (s *webRTCServer) newConn(dir string, wsconn *websocket.ServerConn) *webRTCConn {
 	req := webRTCConnNewReq{
 		pathName: dir,
 		wsconn:   wsconn,
