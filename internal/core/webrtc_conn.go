@@ -311,7 +311,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	err = c.writeICEServers(c.genICEServers())
+	err = c.wsconn.WriteJSON(c.genICEServers())
 	if err != nil {
 		return err
 	}
@@ -390,12 +390,13 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		}()
 	}
 
-	localCandidate := make(chan *webrtc.ICECandidate)
+	localCandidate := make(chan *webrtc.ICECandidateInit)
 
 	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
 		if i != nil {
+			v := i.ToJSON()
 			select {
-			case localCandidate <- i:
+			case localCandidate <- &v:
 			case <-pcConnected:
 			case <-ctx.Done():
 			}
@@ -416,7 +417,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	err = c.writeAnswer(&answer)
+	err = c.wsconn.WriteJSON(&answer)
 	if err != nil {
 		return err
 	}
@@ -450,12 +451,15 @@ outer:
 	for {
 		select {
 		case candidate := <-localCandidate:
-			c.log(logger.Debug, "local candidate: %+v", candidate)
-			c.writeCandidate(candidate)
+			c.log(logger.Debug, "local candidate: %+v", candidate.Candidate)
+			err := c.wsconn.WriteJSON(candidate)
+			if err != nil {
+				return err
+			}
 
 		case candidate := <-remoteCandidate:
 			c.log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
-			err = pc.AddICECandidate(*candidate)
+			err := pc.AddICECandidate(*candidate)
 			if err != nil {
 				return err
 			}
@@ -838,10 +842,6 @@ func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
 	return ret
 }
 
-func (c *webRTCConn) writeICEServers(iceServers []webrtc.ICEServer) error {
-	return c.wsconn.WriteJSON(iceServers)
-}
-
 func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
 	var offer webrtc.SessionDescription
 	err := c.wsconn.ReadJSON(&offer)
@@ -854,14 +854,6 @@ func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
 	}
 
 	return &offer, nil
-}
-
-func (c *webRTCConn) writeAnswer(answer *webrtc.SessionDescription) error {
-	return c.wsconn.WriteJSON(answer)
-}
-
-func (c *webRTCConn) writeCandidate(candidate *webrtc.ICECandidate) error {
-	return c.wsconn.WriteJSON(candidate)
 }
 
 func (c *webRTCConn) readCandidate() (*webrtc.ICECandidateInit, error) {
