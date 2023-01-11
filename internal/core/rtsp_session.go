@@ -124,6 +124,13 @@ func (s *rtspSession) onClose(err error) {
 
 // onAnnounce is called by rtspServer.
 func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*base.Response, error) {
+	if len(ctx.Path) == 0 || ctx.Path[0] != '/' {
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, fmt.Errorf("invalid path")
+	}
+	ctx.Path = ctx.Path[1:]
+
 	res := s.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   s,
 		pathName: ctx.Path,
@@ -169,8 +176,15 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 // onSetup is called by rtspServer.
 func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
+	if len(ctx.Path) == 0 || ctx.Path[0] != '/' {
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, nil, fmt.Errorf("invalid path")
+	}
+	ctx.Path = ctx.Path[1:]
+
 	// in case the client is setupping a stream with UDP or UDP-multicast, and these
-	// transport protocols are disabled, gortsplib/v2 already blocks the request.
+	// transport protocols are disabled, gortsplib already blocks the request.
 	// we have only to handle the case in which the transport protocol is TCP
 	// and it is disabled.
 	if ctx.Transport == gortsplib.TransportTCP {

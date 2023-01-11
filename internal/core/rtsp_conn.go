@@ -254,6 +254,13 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 // onDescribe is called by rtspServer.
 func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
+	if len(ctx.Path) == 0 || ctx.Path[0] != '/' {
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, nil, fmt.Errorf("invalid path")
+	}
+	ctx.Path = ctx.Path[1:]
+
 	res := c.pathManager.describe(pathDescribeReq{
 		pathName: ctx.Path,
 		url:      ctx.Request.URL,
