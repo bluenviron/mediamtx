@@ -405,6 +405,7 @@ EOF
 Enable and start the service:
 
 ```
+sudo systemctl daemon-reload
 sudo systemctl enable rtsp-simple-server
 sudo systemctl start rtsp-simple-server
 ```
