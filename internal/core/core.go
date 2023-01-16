@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"reflect"
 
+	"github.com/alecthomas/kong"
 	"github.com/aler9/gortsplib/v2"
 	"github.com/gin-gonic/gin"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/confwatcher"
@@ -49,17 +49,32 @@ type Core struct {
 	done chan struct{}
 }
 
+var cli struct {
+	Version  bool   `help:"print version"`
+	Confpath string `arg:"" default:"rtsp-simple-server.yml"`
+}
+
 // New allocates a core.
 func New(args []string) (*Core, bool) {
-	k := kingpin.New("rtsp-simple-server", "rtsp-simple-server "+version)
+	parser, err := kong.New(&cli,
+		kong.Description("rtsp-simple-server "+version),
+		kong.UsageOnError(),
+		kong.ValueFormatter(func(value *kong.Value) string {
+			switch value.Name {
+			case "confpath":
+				return "path to a config file. The default is rtsp-simple-server.yml."
 
-	argVersion := k.Flag("version", "print version").Bool()
-	argConfPath := k.Arg("confpath", "path to a config file. The default is rtsp-simple-server.yml.").
-		Default("rtsp-simple-server.yml").String()
+			default:
+				return kong.DefaultHelpValueFormatter(value)
+			}
+		}))
+	if err != nil {
+		panic(err)
+	}
+	_, err = parser.Parse(args)
+	parser.FatalIfErrorf(err)
 
-	kingpin.MustParse(k.Parse(args))
-
-	if *argVersion {
+	if cli.Version {
 		fmt.Println(version)
 		os.Exit(0)
 	}
@@ -76,12 +91,11 @@ func New(args []string) (*Core, bool) {
 	p := &Core{
 		ctx:            ctx,
 		ctxCancel:      ctxCancel,
-		confPath:       *argConfPath,
+		confPath:       cli.Confpath,
 		chAPIConfigSet: make(chan *conf.Conf),
 		done:           make(chan struct{}),
 	}
 
-	var err error
 	p.conf, p.confFound, err = conf.Load(p.confPath)
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
