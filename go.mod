@@ -5,6 +5,7 @@ go 1.18
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.9.0
+	github.com/alecthomas/kong v0.7.1
 	github.com/aler9/gortsplib/v2 v2.0.5
 	github.com/asticode/go-astits v1.10.1-0.20220319093903-4abe66a9b757
 	github.com/fsnotify/fsnotify v1.4.9
@@ -22,13 +23,10 @@ require (
 	github.com/pion/webrtc/v3 v3.1.47
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/crypto v0.0.0-20221010152910-d6f0a8c073c2
-	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/yaml.v2 v2.4.0
 )
 
 require (
-	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
-	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
 	github.com/asticode/go-astikit v0.20.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
