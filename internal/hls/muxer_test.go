@@ -566,3 +566,30 @@ func TestMuxerDoubleRead(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, byts1, byts2)
 }
+
+func TestMuxerFMP4ZeroDuration(t *testing.T) {
+	videoTrack := &format.H264{
+		PayloadTyp:        96,
+		SPS:               testSPS,
+		PPS:               []byte{0x08},
+		PacketizationMode: 1,
+	}
+
+	m, err := NewMuxer(MuxerVariantLowLatency, 3, 1*time.Second, 0, 50*1024*1024, videoTrack, nil)
+	require.NoError(t, err)
+	defer m.Close()
+
+	err = m.WriteH26x(time.Now(), 0, [][]byte{
+		testSPS, // SPS
+		{8},     // PPS
+		{5},     // IDR
+	})
+	require.NoError(t, err)
+
+	err = m.WriteH26x(time.Now(), 1*time.Nanosecond, [][]byte{
+		testSPS, // SPS
+		{8},     // PPS
+		{5},     // IDR
+	})
+	require.NoError(t, err)
+}
