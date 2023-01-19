@@ -225,11 +225,9 @@ type Reader struct {
 
 // NewReader allocates a Reader.
 func NewReader(r *bytecounter.Reader, onAckNeeded func(uint32) error) *Reader {
-	br := bufio.NewReader(r)
-
 	return &Reader{
 		r:            r,
-		br:           br,
+		br:           bufio.NewReader(r),
 		onAckNeeded:  onAckNeeded,
 		chunkSize:    128,
 		chunkStreams: make(map[byte]*readerChunkStream),

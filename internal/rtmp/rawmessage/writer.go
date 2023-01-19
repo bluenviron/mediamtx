@@ -1,6 +1,7 @@
 package rawmessage
 
 import (
+	"bufio"
 	"fmt"
 	"time"
 
@@ -32,7 +33,7 @@ func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
 		return err
 	}
 
-	_, err = wc.mw.w.Write(buf)
+	_, err = wc.mw.bw.Write(buf)
 	if err != nil {
 		return err
 	}
@@ -136,7 +137,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 		pos += chunkBodyLen
 
 		if (bodyLen - pos) == 0 {
-			return nil
+			return wc.mw.bw.Flush()
 		}
 	}
 }
@@ -144,6 +145,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 // Writer is a raw message writer.
 type Writer struct {
 	w                *bytecounter.Writer
+	bw               *bufio.Writer
 	checkAcknowledge bool
 	chunkSize        uint32
 	ackWindowSize    uint32
@@ -155,6 +157,7 @@ type Writer struct {
 func NewWriter(w *bytecounter.Writer, checkAcknowledge bool) *Writer {
 	return &Writer{
 		w:                w,
+		bw:               bufio.NewWriter(w),
 		checkAcknowledge: checkAcknowledge,
 		chunkSize:        128,
 		chunkStreams:     make(map[byte]*writerChunkStream),
