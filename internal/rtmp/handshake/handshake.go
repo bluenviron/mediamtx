@@ -7,7 +7,8 @@ import (
 
 // DoClient performs a client-side handshake.
 func DoClient(rw io.ReadWriter, validateSignature bool) error {
-	err := C0S0{}.Write(rw)
+	c0 := C0S0{}
+	err := c0.Write(rw)
 	if err != nil {
 		return err
 	}
@@ -18,7 +19,8 @@ func DoClient(rw io.ReadWriter, validateSignature bool) error {
 		return err
 	}
 
-	err = C0S0{}.Read(rw)
+	s0 := C0S0{}
+	err = s0.Read(rw)
 	if err != nil {
 		return err
 	}
@@ -29,18 +31,20 @@ func DoClient(rw io.ReadWriter, validateSignature bool) error {
 		return err
 	}
 
-	err = (&C2S2{
+	s2 := C2S2{
 		Digest: c1.Digest,
-	}).Read(rw, validateSignature)
+	}
+	err = s2.Read(rw, validateSignature)
 	if err != nil {
 		return err
 	}
 
-	err = C2S2{
+	c2 := C2S2{
 		Time:   s1.Time,
 		Random: s1.Random,
 		Digest: s1.Digest,
-	}.Write(rw)
+	}
+	err = c2.Write(rw)
 	if err != nil {
 		return err
 	}
@@ -61,7 +65,8 @@ func DoServer(rw io.ReadWriter, validateSignature bool) error {
 		return err
 	}
 
-	err = C0S0{}.Write(rw)
+	s0 := C0S0{}
+	err = s0.Write(rw)
 	if err != nil {
 		return err
 	}
@@ -72,16 +77,18 @@ func DoServer(rw io.ReadWriter, validateSignature bool) error {
 		return err
 	}
 
-	err = C2S2{
+	s2 := C2S2{
 		Time:   c1.Time,
 		Random: c1.Random,
 		Digest: c1.Digest,
-	}.Write(rw)
+	}
+	err = s2.Write(rw)
 	if err != nil {
 		return err
 	}
 
-	err = (&C2S2{Digest: s1.Digest}).Read(rw, validateSignature)
+	c2 := C2S2{Digest: s1.Digest}
+	err = c2.Read(rw, validateSignature)
 	if err != nil {
 		return err
 	}
