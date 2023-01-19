@@ -29,12 +29,18 @@ func DoClient(rw io.ReadWriter, validateSignature bool) error {
 		return err
 	}
 
-	err = (&C2S2{Digest: c1.Digest}).Read(rw, validateSignature)
+	err = (&C2S2{
+		Digest: c1.Digest,
+	}).Read(rw, validateSignature)
 	if err != nil {
 		return err
 	}
 
-	err = C2S2{Digest: s1.Digest}.Write(rw)
+	err = C2S2{
+		Time:   s1.Time,
+		Random: s1.Random,
+		Digest: s1.Digest,
+	}.Write(rw)
 	if err != nil {
 		return err
 	}
@@ -66,7 +72,11 @@ func DoServer(rw io.ReadWriter, validateSignature bool) error {
 		return err
 	}
 
-	err = C2S2{Digest: c1.Digest}.Write(rw)
+	err = C2S2{
+		Time:   c1.Time,
+		Random: c1.Random,
+		Digest: c1.Digest,
+	}.Write(rw)
 	if err != nil {
 		return err
 	}

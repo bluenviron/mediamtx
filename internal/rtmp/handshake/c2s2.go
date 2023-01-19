@@ -2,7 +2,6 @@ package handshake
 
 import (
 	"bytes"
-	"crypto/rand"
 	"fmt"
 	"io"
 )
@@ -51,11 +50,7 @@ func (c C2S2) Write(w io.Writer) error {
 	buf[6] = byte(c.Time2 >> 8)
 	buf[7] = byte(c.Time2)
 
-	if c.Random == nil {
-		rand.Read(buf[8:])
-	} else {
-		copy(buf[8:], c.Random)
-	}
+	copy(buf[8:], c.Random)
 
 	// signature
 	if c.Digest != nil {
