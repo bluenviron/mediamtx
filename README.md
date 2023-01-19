@@ -355,13 +355,12 @@ To save available streams to disk, you can use the `runOnReady` parameter and _F
 
 ```yml
 paths:
-  all:
-  original:
+  mypath:
     runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$RTSP_PATH -c copy -f segment -strftime 1 -segment_time 60 -segment_format mpegts saved_%Y-%m-%d_%H-%M-%S.ts
     runOnReadyRestart: yes
 ```
 
-In the example configuration, streams are saved into TS files, that can be read even if the system crashes, while MP4 files can't.
+In the configuratio above, streams are saved into TS files, that can be read even if the system crashes, while MP4 files can't.
 
 ### On-demand publishing
 
