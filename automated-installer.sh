@@ -36,14 +36,19 @@ function installing-system-requirements() {
         apt-get install coreutils ffmpeg curl -y
       elif { [ "${CURRENT_DISTRO}" == "fedora" ] || [ "${CURRENT_DISTRO}" == "centos" ] || [ "${CURRENT_DISTRO}" == "rhel" ] || [ "${CURRENT_DISTRO}" == "almalinux" ] || [ "${CURRENT_DISTRO}" == "rocky" ]; }; then
         yum check-update
+        yum install coreutils ffmpeg curl -y
       elif { [ "${CURRENT_DISTRO}" == "arch" ] || [ "${CURRENT_DISTRO}" == "archarm" ] || [ "${CURRENT_DISTRO}" == "manjaro" ]; }; then
         pacman -Sy --noconfirm archlinux-keyring
+        pacman -Su --noconfirm --needed coreutils ffmpeg curl
       elif [ "${CURRENT_DISTRO}" == "alpine" ]; then
         apk update
+        apk add coreutils ffmpeg curl
       elif [ "${CURRENT_DISTRO}" == "freebsd" ]; then
         pkg update
+        pkg install coreutils ffmpeg curl
       elif [ "${CURRENT_DISTRO}" == "ol" ]; then
         yum check-update
+        yum install coreutils ffmpeg curl -y
       fi
     fi
   else
