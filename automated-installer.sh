@@ -81,6 +81,7 @@ check-disk-space
 
 # Global variables
 RTSP_SIMPLE_SERVER_PATH="/etc/rtsp-simple-server"
+RTSP_SIMPLE_SERVICE_APPLICATION="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server"
 RTSP_SIMPLE_SERVER_SERVICE="/etc/systemd/system/rtsp-simple-server.service"
 LATEST_RELEASE=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases/latest | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux)
 LASTEST_FILE_NAME=$(echo "${LATEST_RELEASE}" | cut --delimiter="/" --fields=9)
@@ -109,7 +110,7 @@ if [ ! -d "${RTSP_SIMPLE_SERVER_PATH}" ]; then
     echo "[Unit]
 Wants=network.target
 [Service]
-ExecStart=/etc/${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server
+ExecStart=${RTSP_SIMPLE_SERVICE_APPLICATION}
 [Install]
 WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
     sudo systemctl daemon-reload
