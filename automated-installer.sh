@@ -79,45 +79,73 @@ function check-disk-space() {
 # Check if there is enough disk space
 check-disk-space
 
-# Get the latest release using the GitHub API
-function get-latest-release() {
-  # This code gets the latest release from the GitHub API
-  # The latest release is stored in the variable LATEST_RELEASE
-  LATEST_RELEASE=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases/latest | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux)
-  LASTEST_FILE_NAME=$(echo "${LATEST_RELEASE}" | cut --delimiter="/" --fields=9)
-}
+# Global variables
+RTSP_SIMPLE_SERVER_PATH="/etc/rtsp-simple-server"
+RTSP_SIMPLE_SERVER_SERVICE="/etc/systemd/system/rtsp-simple-server.service"
+LATEST_RELEASE=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases/latest | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux)
+LASTEST_FILE_NAME=$(echo "${LATEST_RELEASE}" | cut --delimiter="/" --fields=9)
 
-# Get the latest release
-get-latest-release
+# Check if the rtsp-simple-server directory dosent exists
+if [ ! -d "${RTSP_SIMPLE_SERVER_PATH}" ]; then
 
-# Download the latest release
-function download-latest-release() {
-  # This code downloads the latest release
-  # The latest release is stored in the variable LATEST_RELEASE
-  # The latest release is downloaded to /tmp/
-  rm -rf /tmp/*
-  curl -L "${LATEST_RELEASE}" -o /tmp/${LASTEST_FILE_NAME}
-  mkdir /etc/rtsp-simple-server/
-  tar -xvf /tmp/${LASTEST_FILE_NAME} -C /etc/rtsp-simple-server/
-}
+  # Download the latest release
+  function download-latest-release() {
+    # This code downloads the latest release
+    # The latest release is stored in the variable LATEST_RELEASE
+    # The latest release is downloaded to /tmp/
+    rm -rf /tmp/*
+    curl -L "${LATEST_RELEASE}" -o /tmp/${LASTEST_FILE_NAME}
+    mkdir -p ${RTSP_SIMPLE_SERVER_PATH}
+    tar -xvf /tmp/${LASTEST_FILE_NAME} -C ${RTSP_SIMPLE_SERVER_PATH}
+  }
 
-# Download the latest release
-download-latest-release
+  # Download the latest release
+  download-latest-release
 
-# Create the service file
-function create-service-file() {
-  # This code creates the service file
-  # The service file is stored in /etc/systemd/system/rtsp-simple-server.service
-  echo "[Unit]
+  # Create the service file
+  function create-service-file() {
+    # This code creates the service file
+    # The service file is stored in /etc/systemd/system/rtsp-simple-server.service
+    echo "[Unit]
 Wants=network.target
 [Service]
-ExecStart=/etc/rtsp-simple-server/rtsp-simple-server
+ExecStart=/etc/${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server
 [Install]
-WantedBy=multi-user.target" >/etc/systemd/system/rtsp-simple-server.service
-  sudo systemctl daemon-reload
-  sudo systemctl enable rtsp-simple-server
-  sudo systemctl start rtsp-simple-server
-}
+WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
+    sudo systemctl daemon-reload
+    sudo systemctl enable rtsp-simple-server
+    sudo systemctl start rtsp-simple-server
+  }
 
-# Create the service file
-create-service-file
+  # Create the service file
+  create-service-file
+
+else
+
+  # Ask the user if they want to uninstall the rtsp-simple-server
+  function uninstall-rtsp-simple-server() {
+    # This code asks the user if they want to uninstall the rtsp-simple-server
+    # If the user answers yes, the rtsp-simple-server is uninstalled
+    # If the user answers no, the script exits
+    read -r -p "Do you want to uninstall the rtsp-simple-server? [y/N] " response
+    case "${response}" in
+    [yY][eE][sS] | [yY])
+      echo "Uninstalling the rtsp-simple-server..."
+      sudo systemctl stop rtsp-simple-server
+      sudo systemctl disable rtsp-simple-server
+      rm -rf ${RTSP_SIMPLE_SERVER_PATH}
+      rm -rf ${RTSP_SIMPLE_SERVER_SERVICE}
+      sudo systemctl daemon-reload
+      echo "Uninstalled the rtsp-simple-server."
+      exit
+      ;;
+    *)
+      echo "Exiting..."
+      exit
+      ;;
+    esac
+  }
+
+  # Uninstall the rtsp-simple-server
+  uninstall-rtsp-simple-server
+fi
