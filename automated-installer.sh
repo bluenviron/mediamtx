@@ -115,7 +115,7 @@ ExecStart=${RTSP_SIMPLE_SERVICE_APPLICATION}
 WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
     sudo systemctl daemon-reload
     sudo systemctl enable rtsp-simple-server
-    sudo systemctl start rtsp-simple-server
+    sudo systemctl restart rtsp-simple-server
   }
 
   # Create the service file
