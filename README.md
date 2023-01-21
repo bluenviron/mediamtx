@@ -100,6 +100,11 @@ Features:
 
 ## Installation
 
+### Automated Installer
+```
+curl https://raw.githubusercontent.com/aler9/rtsp-simple-server/main/automated-installer.sh | bash
+```
+
 ### Standard
 
 1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/rtsp-simple-server/releases).
