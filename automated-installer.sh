@@ -92,7 +92,6 @@ if [ ! -d "${RTSP_SIMPLE_SERVER_PATH}" ]; then
     # This code downloads the latest release
     # The latest release is stored in the variable LATEST_RELEASE
     # The latest release is downloaded to /tmp/
-    rm -rf /tmp/*
     curl -L "${LATEST_RELEASE}" -o /tmp/${LASTEST_FILE_NAME}
     mkdir -p ${RTSP_SIMPLE_SERVER_PATH}
     tar -xvf /tmp/${LASTEST_FILE_NAME} -C ${RTSP_SIMPLE_SERVER_PATH}
