@@ -112,9 +112,13 @@ Wants=network.target
 ExecStart=${RTSP_SIMPLE_SERVICE_APPLICATION}
 [Install]
 WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
-    sudo systemctl daemon-reload
-    sudo systemctl enable rtsp-simple-server
-    sudo systemctl restart rtsp-simple-server
+    if [[ "${CURRENT_INIT_SYSTEM}" == *"systemd"* ]]; then
+      systemctl daemon-reload
+      systemctl enable rtsp-simple-server
+      systemctl restart rtsp-simple-server
+    elif [[ "${CURRENT_INIT_SYSTEM}" == *"init"* ]]; then
+      service rtsp-simple-server restart
+    fi
   }
 
   # Create the service file
