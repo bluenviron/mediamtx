@@ -135,11 +135,15 @@ else
     case "${response}" in
     [yY][eE][sS] | [yY])
       echo "Uninstalling the rtsp-simple-server..."
-      sudo systemctl stop rtsp-simple-server
-      sudo systemctl disable rtsp-simple-server
+      if [[ "${CURRENT_INIT_SYSTEM}" == *"systemd"* ]]; then
+        systemctl stop rtsp-simple-server
+        systemctl disable rtsp-simple-server
+      elif [[ "${CURRENT_INIT_SYSTEM}" == *"init"* ]]; then
+        service rtsp-simple-server stop
+      fi
       rm -rf ${RTSP_SIMPLE_SERVER_PATH}
       rm -rf ${RTSP_SIMPLE_SERVER_SERVICE}
-      sudo systemctl daemon-reload
+      systemctl daemon-reload
       echo "Uninstalled the rtsp-simple-server."
       exit
       ;;
