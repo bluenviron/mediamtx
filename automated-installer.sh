@@ -155,4 +155,5 @@ else
 
   # Uninstall the rtsp-simple-server
   uninstall-rtsp-simple-server
+
 fi
