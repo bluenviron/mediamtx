@@ -17,7 +17,6 @@ super-user-check
 function system-information() {
   # CURRENT_DISTRO is the ID of the current system
   # CURRENT_DISTRO_VERSION is the VERSION_ID of the current system
-  # CURRENT_DISTRO_MAJOR_VERSION is the major version of the current system (e.g. "16" for Ubuntu 16.04)
   if [ -f /etc/os-release ]; then
     # shellcheck source=/dev/null
     source /etc/os-release
