@@ -84,13 +84,13 @@ func getTcURL(u *url.URL) string {
 	return nu.String() + app
 }
 
-func createURL(tcurl, app, play string) (*url.URL, error) {
+func createURL(tcURL string, app string, play string) (*url.URL, error) {
 	u, err := url.ParseRequestURI("/" + app + "/" + play)
 	if err != nil {
 		return nil, err
 	}
 
-	tu, err := url.Parse(tcurl)
+	tu, err := url.Parse(tcURL)
 	if err != nil {
 		return nil, err
 	}
@@ -364,6 +364,8 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 			return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
 		}
 	}
+
+	tcURL = strings.Trim(tcURL, "'")
 
 	err = c.mrw.Write(&message.MsgSetWindowAckSize{
 		Value: 2500000,
