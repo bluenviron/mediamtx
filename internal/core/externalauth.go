@@ -7,13 +7,23 @@ import (
 	"net/http"
 )
 
+type externalAuthProto string
+
+const (
+	externalAuthProtoRTSP   externalAuthProto = "rtsp"
+	externalAuthProtoRTMP   externalAuthProto = "rtmp"
+	externalAuthProtoHLS    externalAuthProto = "hls"
+	externalAuthProtoWebRTC externalAuthProto = "webrtc"
+)
+
 func externalAuth(
 	ur string,
 	ip string,
 	user string,
 	password string,
 	path string,
-	isPublishing bool,
+	protocol externalAuthProto,
+	publish bool,
 	query string,
 ) error {
 	enc, _ := json.Marshal(struct {
@@ -21,6 +31,7 @@ func externalAuth(
 		User     string `json:"user"`
 		Password string `json:"password"`
 		Path     string `json:"path"`
+		Protocol string `json:"protocol"`
 		Action   string `json:"action"`
 		Query    string `json:"query"`
 	}{
@@ -28,8 +39,9 @@ func externalAuth(
 		User:     user,
 		Password: password,
 		Path:     path,
+		Protocol: string(protocol),
 		Action: func() string {
-			if isPublishing {
+			if publish {
 				return "publish"
 			}
 			return "read"

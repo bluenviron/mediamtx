@@ -42,7 +42,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			var a *testHTTPAuthenticator
 			if ca == "external" {
 				var err error
-				a, err = newTestHTTPAuthenticator("publish")
+				a, err = newTestHTTPAuthenticator("rtsp", "publish")
 				require.NoError(t, err)
 			}
 
@@ -59,7 +59,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			if ca == "external" {
 				a.close()
 				var err error
-				a, err = newTestHTTPAuthenticator("read")
+				a, err = newTestHTTPAuthenticator("rtsp", "read")
 				require.NoError(t, err)
 				defer a.close()
 			}
@@ -226,7 +226,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		a, err := newTestHTTPAuthenticator("publish")
+		a, err := newTestHTTPAuthenticator("rtsp", "publish")
 		require.NoError(t, err)
 		defer a.close()
 

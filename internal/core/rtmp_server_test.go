@@ -176,7 +176,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			var a *testHTTPAuthenticator
 			if ca == "external" {
 				var err error
-				a, err = newTestHTTPAuthenticator("publish")
+				a, err = newTestHTTPAuthenticator("rtmp", "publish")
 				require.NoError(t, err)
 			}
 
@@ -211,7 +211,7 @@ func TestRTMPServerAuth(t *testing.T) {
 
 			if ca == "external" {
 				a.close()
-				a, err = newTestHTTPAuthenticator("read")
+				a, err = newTestHTTPAuthenticator("rtmp", "read")
 				require.NoError(t, err)
 				defer a.close()
 			}
@@ -296,7 +296,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		a, err := newTestHTTPAuthenticator("publish")
+		a, err := newTestHTTPAuthenticator("rtmp", "publish")
 		require.NoError(t, err)
 		defer a.close()
 

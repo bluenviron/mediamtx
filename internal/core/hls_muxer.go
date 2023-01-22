@@ -570,6 +570,7 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 			user,
 			pass,
 			m.pathName,
+			externalAuthProtoHLS,
 			false,
 			ctx.Request.URL.RawQuery)
 		if err != nil {
