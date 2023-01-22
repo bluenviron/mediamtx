@@ -265,6 +265,7 @@ Each time a user needs to be authenticated, the specified URL will be requested 
   "password": "password",
   "path": "path",
   "protocol": "rtsp|rtmp|hls|webrtc",
+  "id": "id",
   "action": "read|publish",
   "query": "query"
 }

@@ -140,6 +140,7 @@ func (c *rtspConn) authenticate(
 			password,
 			path,
 			externalAuthProtoRTSP,
+			&c.uuid,
 			isPublishing,
 			query)
 		if err != nil {

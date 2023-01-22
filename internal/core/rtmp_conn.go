@@ -641,6 +641,7 @@ func (c *rtmpConn) authenticate(
 			query.Get("pass"),
 			pathName,
 			externalAuthProtoRTMP,
+			&c.uuid,
 			isPublishing,
 			rawQuery)
 		if err != nil {

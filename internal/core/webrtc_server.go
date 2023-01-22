@@ -437,6 +437,7 @@ func (s *webRTCServer) authenticate(pa *path, ctx *gin.Context) error {
 			pass,
 			pa.name,
 			externalAuthProtoWebRTC,
+			nil,
 			false,
 			ctx.Request.URL.RawQuery)
 		if err != nil {

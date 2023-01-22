@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 type externalAuthProto string
@@ -23,17 +25,19 @@ func externalAuth(
 	password string,
 	path string,
 	protocol externalAuthProto,
+	id *uuid.UUID,
 	publish bool,
 	query string,
 ) error {
 	enc, _ := json.Marshal(struct {
-		IP       string `json:"ip"`
-		User     string `json:"user"`
-		Password string `json:"password"`
-		Path     string `json:"path"`
-		Protocol string `json:"protocol"`
-		Action   string `json:"action"`
-		Query    string `json:"query"`
+		IP       string     `json:"ip"`
+		User     string     `json:"user"`
+		Password string     `json:"password"`
+		Path     string     `json:"path"`
+		Protocol string     `json:"protocol"`
+		ID       *uuid.UUID `json:"id"`
+		Action   string     `json:"action"`
+		Query    string     `json:"query"`
 	}{
 		IP:       ip,
 		User:     user,
