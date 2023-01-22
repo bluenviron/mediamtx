@@ -139,7 +139,7 @@ func TestHLSServerAuth(t *testing.T) {
 				var a *testHTTPAuthenticator
 				if mode == "external" {
 					var err error
-					a, err = newTestHTTPAuthenticator("hls", "publish")
+					a, err = newTestHTTPAuthenticator("publish")
 					require.NoError(t, err)
 				}
 
@@ -159,7 +159,7 @@ func TestHLSServerAuth(t *testing.T) {
 				if mode == "external" {
 					a.close()
 					var err error
-					a, err = newTestHTTPAuthenticator("hls", "read")
+					a, err = newTestHTTPAuthenticator("read")
 					require.NoError(t, err)
 					defer a.close()
 				}
