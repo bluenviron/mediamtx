@@ -134,6 +134,8 @@ func newRTSPServer(
 		isTLS:                     isTLS,
 		rtspAddress:               rtspAddress,
 		protocols:                 protocols,
+		runOnConnect:              runOnConnect,
+		runOnConnectRestart:       runOnConnectRestart,
 		externalCmdPool:           externalCmdPool,
 		metrics:                   metrics,
 		pathManager:               pathManager,

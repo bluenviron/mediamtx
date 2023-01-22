@@ -17,6 +17,37 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
 )
 
+func TestRTMPServerRunOnConnect(t *testing.T) {
+	f, err := os.CreateTemp(os.TempDir(), "rtspss-runonconnect-")
+	require.NoError(t, err)
+	f.Close()
+	defer os.Remove(f.Name())
+
+	p, ok := newInstance(
+		"runOnConnect: sh -c 'echo aa > " + f.Name() + "'\n" +
+			"paths:\n" +
+			"  all:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	u, err := url.Parse("rtmp://127.0.0.1:1935/mystream")
+	require.NoError(t, err)
+
+	nconn, err := net.Dial("tcp", u.Host)
+	require.NoError(t, err)
+	defer nconn.Close()
+	conn := rtmp.NewConn(nconn)
+
+	err = conn.InitializeClient(u, true)
+	require.NoError(t, err)
+
+	time.Sleep(500 * time.Millisecond)
+
+	byts, err := os.ReadFile(f.Name())
+	require.NoError(t, err)
+	require.Equal(t, "aa\n", string(byts))
+}
+
 func TestRTMPServerPublishRead(t *testing.T) {
 	for _, ca := range []string{"plain", "tls"} {
 		t.Run(ca, func(t *testing.T) {
