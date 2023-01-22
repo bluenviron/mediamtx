@@ -1,7 +1,9 @@
 package core
 
 import (
+	"os"
 	"testing"
+	"time"
 
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/media"
@@ -9,6 +11,34 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
+
+func TestRTSPServerRunOnConnect(t *testing.T) {
+	f, err := os.CreateTemp(os.TempDir(), "rtspss-runonconnect-")
+	require.NoError(t, err)
+	f.Close()
+	defer os.Remove(f.Name())
+
+	p, ok := newInstance(
+		"runOnConnect: sh -c 'echo aa > " + f.Name() + "'\n" +
+			"paths:\n" +
+			"  all:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	source := gortsplib.Client{}
+
+	err = source.StartRecording(
+		"rtsp://127.0.0.1:8554/mypath",
+		media.Medias{testMediaH264})
+	require.NoError(t, err)
+	defer source.Close()
+
+	time.Sleep(500 * time.Millisecond)
+
+	byts, err := os.ReadFile(f.Name())
+	require.NoError(t, err)
+	require.Equal(t, "aa\n", string(byts))
+}
 
 func TestRTSPServerAuth(t *testing.T) {
 	for _, ca := range []string{
