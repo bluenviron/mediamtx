@@ -25,8 +25,10 @@ readBufferCount: 512
 #   "user": "user",
 #   "password": "password",
 #   "path": "path",
-#   "action": "read|publish"
-#   "query": "url's raw query"
+#   "protocol": "rtsp|rtmp|hls|webrtc",
+#   "id": "id",
+#   "action": "read|publish",
+#   "query": "query"
 # }
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.

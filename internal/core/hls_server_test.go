@@ -12,19 +12,21 @@ import (
 )
 
 type testHTTPAuthenticator struct {
-	action string
+	protocol string
+	action   string
 
 	s *http.Server
 }
 
-func newTestHTTPAuthenticator(action string) (*testHTTPAuthenticator, error) {
+func newTestHTTPAuthenticator(protocol string, action string) (*testHTTPAuthenticator, error) {
 	ln, err := net.Listen("tcp", "127.0.0.1:9120")
 	if err != nil {
 		return nil, err
 	}
 
 	ts := &testHTTPAuthenticator{
-		action: action,
+		protocol: protocol,
+		action:   action,
 	}
 
 	router := gin.New()
@@ -46,6 +48,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		User     string `json:"user"`
 		Password string `json:"password"`
 		Path     string `json:"path"`
+		Protocol string `json:"protocol"`
 		Action   string `json:"action"`
 		Query    string `json:"query"`
 	}
@@ -66,6 +69,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		in.User != user ||
 		in.Password != "testpass" ||
 		in.Path != "teststream" ||
+		in.Protocol != ts.protocol ||
 		in.Action != ts.action ||
 		(in.Query != "user=testreader&pass=testpass&param=value" &&
 			in.Query != "user=testpublisher&pass=testpass&param=value" &&

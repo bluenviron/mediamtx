@@ -5,6 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/google/uuid"
+)
+
+type externalAuthProto string
+
+const (
+	externalAuthProtoRTSP   externalAuthProto = "rtsp"
+	externalAuthProtoRTMP   externalAuthProto = "rtmp"
+	externalAuthProtoHLS    externalAuthProto = "hls"
+	externalAuthProtoWebRTC externalAuthProto = "webrtc"
 )
 
 func externalAuth(
@@ -13,23 +24,28 @@ func externalAuth(
 	user string,
 	password string,
 	path string,
-	isPublishing bool,
+	protocol externalAuthProto,
+	id *uuid.UUID,
+	publish bool,
 	query string,
 ) error {
 	enc, _ := json.Marshal(struct {
-		IP       string `json:"ip"`
-		User     string `json:"user"`
-		Password string `json:"password"`
-		Path     string `json:"path"`
-		Action   string `json:"action"`
-		Query    string `json:"query"`
+		IP       string     `json:"ip"`
+		User     string     `json:"user"`
+		Password string     `json:"password"`
+		Path     string     `json:"path"`
+		Protocol string     `json:"protocol"`
+		ID       *uuid.UUID `json:"id"`
+		Action   string     `json:"action"`
+		Query    string     `json:"query"`
 	}{
 		IP:       ip,
 		User:     user,
 		Password: password,
 		Path:     path,
+		Protocol: string(protocol),
 		Action: func() string {
-			if isPublishing {
+			if publish {
 				return "publish"
 			}
 			return "read"
