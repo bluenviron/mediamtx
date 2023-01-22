@@ -259,7 +259,11 @@ func TestInitializeClient(t *testing.T) {
 }
 
 func TestInitializeServer(t *testing.T) {
-	for _, ca := range []string{"read", "publish"} {
+	for _, ca := range []string{
+		"read",
+		"publish",
+		"publish neko",
+	} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
 			require.NoError(t, err)
@@ -280,7 +284,7 @@ func TestInitializeServer(t *testing.T) {
 					Host:   "127.0.0.1:9121",
 					Path:   "//stream/",
 				}, u)
-				require.Equal(t, ca == "publish", isPublishing)
+				require.Equal(t, ca == "publish" || ca == "publish neko", isPublishing)
 
 				close(done)
 			}()
@@ -295,6 +299,11 @@ func TestInitializeServer(t *testing.T) {
 
 			mrw := message.NewReadWriter(bc, true)
 
+			tcURL := "rtmp://127.0.0.1:9121/stream"
+			if ca == "publish neko" {
+				tcURL = "'rtmp://127.0.0.1:9121/stream"
+			}
+
 			err = mrw.Write(&message.MsgCommandAMF0{
 				ChunkStreamID: 3,
 				Name:          "connect",
@@ -303,7 +312,7 @@ func TestInitializeServer(t *testing.T) {
 					flvio.AMFMap{
 						{K: "app", V: "/stream"},
 						{K: "flashVer", V: "LNX 9,0,124,2"},
-						{K: "tcUrl", V: "rtmp://127.0.0.1:9121/stream"},
+						{K: "tcUrl", V: tcURL},
 						{K: "fpad", V: false},
 						{K: "capabilities", V: 15},
 						{K: "audioCodecs", V: 4071},
