@@ -94,6 +94,7 @@ check-disk-space
 
 # Global variables
 RTSP_SIMPLE_SERVER_PATH="/etc/rtsp-simple-server"
+RTSP_SIMPLE_SERVER_CONFIG="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server.yml"
 RTSP_SIMPLE_SERVICE_APPLICATION="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server"
 RTSP_SIMPLE_SERVER_SERVICE="/etc/systemd/system/rtsp-simple-server.service"
 LATEST_RELEASE=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases/latest | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux)
@@ -122,7 +123,7 @@ if [ ! -d "${RTSP_SIMPLE_SERVER_PATH}" ]; then
     echo "[Unit]
 Wants=network.target
 [Service]
-ExecStart=${RTSP_SIMPLE_SERVICE_APPLICATION}
+ExecStart=${RTSP_SIMPLE_SERVICE_APPLICATION} ${RTSP_SIMPLE_SERVER_CONFIG}
 [Install]
 WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
     if [[ "${CURRENT_INIT_SYSTEM}" == *"systemd"* ]]; then
