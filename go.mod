@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
-	github.com/abema/go-mp4 v0.9.0
+	github.com/abema/go-mp4 v0.10.0
 	github.com/alecthomas/kong v0.7.1
 	github.com/aler9/gortsplib/v2 v2.0.5
 	github.com/asticode/go-astits v1.10.1-0.20220319093903-4abe66a9b757
