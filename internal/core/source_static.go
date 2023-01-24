@@ -110,6 +110,10 @@ func newSourceStatic(
 				Bitrate:    conf.RPICameraBitrate,
 				Profile:    conf.RPICameraProfile,
 				Level:      conf.RPICameraLevel,
+				AfMode:     conf.RPICameraAfMode,
+				AfRange:    conf.RPICameraAfRange,
+				AfSpeed:    conf.RPICameraAfSpeed,
+				LensPosition: conf.RPICameraLensPosition,
 			},
 			s)
 	}

@@ -327,6 +327,44 @@ bool camera_start(camera_t *cam) {
     int64_t frame_time = 1000000 / camp->params->fps;
     ctrls.set(controls::FrameDurationLimits, Span<const int64_t, 2>({ frame_time, frame_time }));
 
+    int af_mode;
+    if (strcmp(camp->params->af_mode, "manual") == 0) {
+        af_mode = controls::AfModeManual;
+    } else if (strcmp(camp->params->af_mode, "auto") == 0) {
+        af_mode = controls::AfModeAuto;
+    } else if (strcmp(camp->params->af_mode, "continuous") == 0) {
+        af_mode = controls::AfModeContinuous;
+    } else {
+        af_mode = controls::AfModeManual;
+    }
+    ctrls.set(controls::AfMode, af_mode);
+
+    int af_range;
+    if (strcmp(camp->params->af_range, "normal") == 0) {
+        af_range = controls::AfRangeNormal;
+    } else if (strcmp(camp->params->af_range, "macro") == 0) {
+        af_range = controls::AfRangeMacro;
+    } else if (strcmp(camp->params->af_range, "full") == 0) {
+        af_range = controls::AfRangeFull;
+    } else {
+        af_range = controls::AfRangeNormal;
+    }
+    ctrls.set(controls::AfRange, af_range);
+
+    int af_speed;
+    if (strcmp(camp->params->af_range, "normal") == 0) {
+        af_speed = controls::AfSpeedNormal;
+    } else if (strcmp(camp->params->af_range, "fast") == 0) {
+        af_speed = controls::AfSpeedFast;
+    } else {
+        af_speed = controls::AfSpeedNormal;
+    }
+    ctrls.set(controls::AfSpeed, af_speed);
+
+
+    // Lens Position
+    ctrls.set(controls::LensPosition, camp->params->lens_position);
+
     int res = camp->camera->start(&ctrls);
     if (res != 0) {
         set_error("Camera.start() failed");

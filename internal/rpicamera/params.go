@@ -26,4 +26,8 @@ type Params struct {
 	Bitrate    int
 	Profile    string
 	Level      string
+	AfMode     string
+	AfRange    string
+	AfSpeed    string
+	LensPosition float64
 }

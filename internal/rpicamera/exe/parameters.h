@@ -31,6 +31,10 @@ typedef struct {
     unsigned int bitrate;
     unsigned int profile;
     unsigned int level;
+    const char *af_mode;
+    const char *af_range;
+    const char *af_speed;
+    float lens_position;
 
     // private
     unsigned int buffer_count;

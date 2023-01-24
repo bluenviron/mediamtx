@@ -85,5 +85,10 @@ bool parameters_load(parameters_t *params) {
     params->buffer_count = 3;
     params->capture_buffer_count = params->buffer_count * 2;
 
+    params->af_mode = getenv("AF_MODE");
+    params->af_range = getenv("AF_RANGE");
+    params->af_speed = getenv("AF_SPEED");
+    params->lens_position = atof(getenv("LENS_POSITION"));
+
     return true;
 }
