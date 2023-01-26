@@ -30,25 +30,25 @@ system-information
 
 function installing-system-requirements() {
   if { [ "${CURRENT_DISTRO}" == "ubuntu" ] || [ "${CURRENT_DISTRO}" == "debian" ] || [ "${CURRENT_DISTRO}" == "raspbian" ] || [ "${CURRENT_DISTRO}" == "pop" ] || [ "${CURRENT_DISTRO}" == "kali" ] || [ "${CURRENT_DISTRO}" == "linuxmint" ] || [ "${CURRENT_DISTRO}" == "neon" ] || [ "${CURRENT_DISTRO}" == "fedora" ] || [ "${CURRENT_DISTRO}" == "centos" ] || [ "${CURRENT_DISTRO}" == "rhel" ] || [ "${CURRENT_DISTRO}" == "almalinux" ] || [ "${CURRENT_DISTRO}" == "rocky" ] || [ "${CURRENT_DISTRO}" == "arch" ] || [ "${CURRENT_DISTRO}" == "archarm" ] || [ "${CURRENT_DISTRO}" == "manjaro" ] || [ "${CURRENT_DISTRO}" == "alpine" ] || [ "${CURRENT_DISTRO}" == "freebsd" ] || [ "${CURRENT_DISTRO}" == "ol" ]; }; then
-    if { [ ! -x "$(command -v cut)" ] || [ ! -x "$(command -v ffmpeg)" ] || [ ! -x "$(command -v curl)" ] || [ ! -x "$(command -v vlc)" ]; }; then
+    if { [ ! -x "$(command -v cut)" ] || [ ! -x "$(command -v ffmpeg)" ] || [ ! -x "$(command -v curl)" ] || [ ! -x "$(command -v vlc)" ] || [ ! -x "$(command -v openssl)" ]; }; then
       if { [ "${CURRENT_DISTRO}" == "ubuntu" ] || [ "${CURRENT_DISTRO}" == "debian" ] || [ "${CURRENT_DISTRO}" == "raspbian" ] || [ "${CURRENT_DISTRO}" == "pop" ] || [ "${CURRENT_DISTRO}" == "kali" ] || [ "${CURRENT_DISTRO}" == "linuxmint" ] || [ "${CURRENT_DISTRO}" == "neon" ]; }; then
         apt-get update
-        apt-get install coreutils ffmpeg curl vlc -y
+        apt-get install coreutils ffmpeg curl vlc openssl -y
       elif { [ "${CURRENT_DISTRO}" == "fedora" ] || [ "${CURRENT_DISTRO}" == "centos" ] || [ "${CURRENT_DISTRO}" == "rhel" ] || [ "${CURRENT_DISTRO}" == "almalinux" ] || [ "${CURRENT_DISTRO}" == "rocky" ]; }; then
         yum check-update
-        yum install coreutils ffmpeg curl vlc -y
+        yum install coreutils ffmpeg curl vlc openssl -y
       elif { [ "${CURRENT_DISTRO}" == "arch" ] || [ "${CURRENT_DISTRO}" == "archarm" ] || [ "${CURRENT_DISTRO}" == "manjaro" ]; }; then
         pacman -Sy --noconfirm archlinux-keyring
-        pacman -Su --noconfirm --needed coreutils ffmpeg curl vlc
+        pacman -Su --noconfirm --needed coreutils ffmpeg curl vlc openssl
       elif [ "${CURRENT_DISTRO}" == "alpine" ]; then
         apk update
-        apk add coreutils ffmpeg curl vlc
+        apk add coreutils ffmpeg curl vlc openssl
       elif [ "${CURRENT_DISTRO}" == "freebsd" ]; then
         pkg update
-        pkg install coreutils ffmpeg curl vlc
+        pkg install coreutils ffmpeg curl vlc openssl
       elif [ "${CURRENT_DISTRO}" == "ol" ]; then
         yum check-update
-        yum install coreutils ffmpeg curl vlc -y
+        yum install coreutils ffmpeg curl vlc openssl -y
       fi
     fi
   else
@@ -96,6 +96,8 @@ check-disk-space
 RTSP_SIMPLE_SERVER_PATH="/etc/rtsp-simple-server"
 RTSP_SIMPLE_SERVER_CONFIG="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server.yml"
 RTSP_SIMPLE_SERVICE_APPLICATION="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server"
+RTSP_SIMPLE_SERVICE_PRIVATE_KEY="${RTSP_SIMPLE_SERVER_PATH}/server.key"
+RTSP_SIMPLE_SERVICE_PRIVATE_CERT="${RTSP_SIMPLE_SERVER_PATH}/server.crt"
 RTSP_SIMPLE_SERVER_SERVICE="/etc/systemd/system/rtsp-simple-server.service"
 LATEST_RELEASE=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases/latest | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux)
 LASTEST_FILE_NAME=$(echo "${LATEST_RELEASE}" | cut --delimiter="/" --fields=9)
@@ -137,6 +139,38 @@ WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
 
   # Create the service file
   create-service-file
+  
+  # Configure the best settings for rtsp server.
+  function best-rtsp-settings() {
+    # Generate the keys for RTSP server.
+    openssl genrsa -out ${RTSP_SIMPLE_SERVICE_PRIVATE_KEY} 2048
+    openssl req -new -x509 -sha256 -key ${RTSP_SIMPLE_SERVICE_PRIVATE_KEY} -out ${RTSP_SIMPLE_SERVICE_PRIVATE_CERT} -days 3650 -subj "/C=US/ST=NewYork/L=NewYorkCity/CN=github.com"
+    # Enable encryption for RTSP server.
+    sed 's|encryption: "no"|encryption: "optional"|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    sed 's|rtmpEncryption: "no"|rtmpEncryption: "optional"|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    sed 's|hlsEncryption: no|hlsEncryption: yes|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    sed 's|webrtcEncryption: no|webrtcEncryption: yes|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    # Generate a user for reading the data.
+    RANDOM_USERNAME_READER=$(openssl rand -base64 12)
+    RANDOM_PASSWORD_READER=$(openssl rand -base64 12)
+    RANDOM_USERNAME_READER_SHA256=$(echo -n "${RANDOM_USERNAME_READER}" | openssl dgst -binary -sha256 | openssl base64)
+    RANDOM_PASSWORD_READER_SHA256=$(echo -n "${RANDOM_PASSWORD_READER}" | openssl dgst -binary -sha256 | openssl base64)
+    # Write the data to the config file.
+    sed 's|readUser:|readUser: sha256:${RANDOM_USERNAME_READER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    sed 's|readPass:|readPass: sha256:${RANDOM_PASSWORD_READER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    # Generate a user for writing the data.
+    RANDOM_USERNAME_WRITER=$(openssl rand -base64 12)
+    RANDOM_PASSWORD_WRITER=$(openssl rand -base64 12)
+    RANDOM_USERNAME_WRITER_SHA256=$(echo -n "${RANDOM_USERNAME_WRITER}" | openssl dgst -binary -sha256 | openssl base64)
+    RANDOM_PASSWORD_WRITER_SHA256=$(echo -n "${RANDOM_PASSWORD_WRITER}" | openssl dgst -binary -sha256 | openssl base64)
+    # write the data to the config.
+    sed 's|publishUser:|publishUser: sha256:${RANDOM_USERNAME_WRITER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    sed 's|publishPass:|publishPass: sha256:${RANDOM_PASSWORD_WRITER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+  }
+  
+  # Configure the best settings for rtsp server.
+  best-rtsp-settings
+
 
 else
 
