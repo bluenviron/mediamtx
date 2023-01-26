@@ -6,7 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.10.0
 	github.com/alecthomas/kong v0.7.1
-	github.com/aler9/gortsplib/v2 v2.0.5
+	github.com/aler9/gortsplib/v2 v2.1.0
 	github.com/asticode/go-astits v1.10.1-0.20220319093903-4abe66a9b757
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.8.1
