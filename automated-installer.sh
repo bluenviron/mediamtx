@@ -145,9 +145,8 @@ else
     # This code asks the user if they want to uninstall the rtsp-simple-server
     # If the user answers yes, the rtsp-simple-server is uninstalled
     # If the user answers no, the script exits
-    read -r -p "Do you want to uninstall the rtsp-simple-server? [y/N] " response
-    case "${response}" in
-    [yY][eE][sS] | [yY])
+    read -rp "Do you want to uninstall the rtsp-simple-server? [y/n] ?" UNINSTALL_RTSP_SERVER
+    if [[ "${UNINSTALL_RTSP_SERVER}" == "y" ]]; then
       echo "Uninstalling the rtsp-simple-server..."
       if [[ "${CURRENT_INIT_SYSTEM}" == *"systemd"* ]]; then
         systemctl stop rtsp-simple-server
@@ -160,6 +159,7 @@ else
       systemctl daemon-reload
       echo "Uninstalled the rtsp-simple-server."
       exit
+    fi
       ;;
     *)
       echo "Exiting..."
