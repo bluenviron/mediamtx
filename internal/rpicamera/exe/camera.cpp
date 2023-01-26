@@ -133,10 +133,9 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
     }
 
     StreamConfiguration &video_stream_conf = conf->at(0);
+    video_stream_conf.size = libcamera::Size(params->width, params->height);
     video_stream_conf.pixelFormat = formats::YUV420;
     video_stream_conf.bufferCount = params->buffer_count;
-    video_stream_conf.size.width = params->width;
-    video_stream_conf.size.height = params->height;
     if (params->width >= 1280 || params->height >= 720) {
         video_stream_conf.colorSpace = ColorSpace::Rec709;
     } else {
@@ -172,27 +171,33 @@ bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **ca
 
     camp->video_stream = video_stream_conf.stream();
 
-    camp->allocator = std::make_unique<FrameBufferAllocator>(camp->camera);
-    res = camp->allocator->allocate(camp->video_stream);
-    if (res < 0) {
-        set_error("allocate() failed");
-        return false;
-    }
-
-    for (const std::unique_ptr<FrameBuffer> &buffer : camp->allocator->buffers(camp->video_stream)) {
+    for (unsigned int i = 0; i < params->buffer_count; i++) {
         std::unique_ptr<Request> request = camp->camera->createRequest((uint64_t)camp.get());
         if (request == NULL) {
             set_error("createRequest() failed");
             return false;
         }
+        camp->requests.push_back(std::move(request));
+    }
 
-        int res = request->addBuffer(camp->video_stream, buffer.get());
-        if (res != 0) {
-            set_error("addBuffer() failed");
+    camp->allocator = std::make_unique<FrameBufferAllocator>(camp->camera);
+    for (StreamConfiguration &stream_conf : *conf) {
+        Stream *stream = stream_conf.stream();
+
+        res = camp->allocator->allocate(stream);
+        if (res < 0) {
+            set_error("allocate() failed");
             return false;
         }
 
-        camp->requests.push_back(std::move(request));
+        int i = 0;
+        for (const std::unique_ptr<FrameBuffer> &buffer : camp->allocator->buffers(stream)) {
+            res = camp->requests.at(i++)->addBuffer(stream, buffer.get());
+            if (res != 0) {
+                set_error("addBuffer() failed");
+                return false;
+            }
+        }
     }
 
     camp->params = params;
@@ -209,14 +214,13 @@ static void on_request_complete(Request *request) {
 
     CameraPriv *camp = (CameraPriv *)request->cookie();
 
-    FrameBuffer *buffer = request->buffers().begin()->second;
-
+    FrameBuffer *buffer = request->buffers().at(camp->video_stream);
     int size = 0;
     for (const FrameBuffer::Plane &plane : buffer->planes()) {
         size += plane.length;
     }
-
-    camp->frame_cb(buffer->planes()[0].fd.get(), size, buffer->metadata().timestamp / 1000);
+    uint64_t ts = buffer->metadata().timestamp / 1000;
+    camp->frame_cb(buffer->planes()[0].fd.get(), size, ts);
 
     request->reuse(Request::ReuseFlag::ReuseBuffers);
     camp->camera->queueRequest(request);

@@ -82,7 +82,7 @@ bool parameters_load(parameters_t *params) {
         params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
     }
 
-    params->buffer_count = 3;
+    params->buffer_count = 6;
     params->capture_buffer_count = params->buffer_count * 2;
 
     return true;
