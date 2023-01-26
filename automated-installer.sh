@@ -139,45 +139,6 @@ WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
 
   # Create the service file
   create-service-file
-  
-  # Configure the best settings for rtsp server.
-  function best-rtsp-settings() {
-    # Generate the keys for RTSP server.
-    openssl genrsa -out ${RTSP_SIMPLE_SERVICE_PRIVATE_KEY} 2048
-    openssl req -new -x509 -sha256 -key ${RTSP_SIMPLE_SERVICE_PRIVATE_KEY} -out ${RTSP_SIMPLE_SERVICE_PRIVATE_CERT} -days 3650 -subj "/C=US/ST=NewYork/L=NewYorkCity/CN=github.com"
-    # Enable encryption for RTSP server.
-    sed 's|encryption: "no"|encryption: "optional"|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    sed 's|rtmpEncryption: "no"|rtmpEncryption: "optional"|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    sed 's|hlsEncryption: no|hlsEncryption: yes|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    sed 's|webrtcEncryption: no|webrtcEncryption: yes|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    # Generate a user for reading the data.
-    RANDOM_USERNAME_READER=$(openssl rand -base64 12)
-    RANDOM_PASSWORD_READER=$(openssl rand -base64 12)
-    RANDOM_USERNAME_READER_SHA256=$(echo -n "${RANDOM_USERNAME_READER}" | openssl dgst -binary -sha256 | openssl base64)
-    RANDOM_PASSWORD_READER_SHA256=$(echo -n "${RANDOM_PASSWORD_READER}" | openssl dgst -binary -sha256 | openssl base64)
-    # Write the data to the config file.
-    sed 's|readUser:|readUser: sha256:${RANDOM_USERNAME_READER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    sed 's|readPass:|readPass: sha256:${RANDOM_PASSWORD_READER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    # Generate a user for writing the data.
-    RANDOM_USERNAME_WRITER=$(openssl rand -base64 12)
-    RANDOM_PASSWORD_WRITER=$(openssl rand -base64 12)
-    RANDOM_USERNAME_WRITER_SHA256=$(echo -n "${RANDOM_USERNAME_WRITER}" | openssl dgst -binary -sha256 | openssl base64)
-    RANDOM_PASSWORD_WRITER_SHA256=$(echo -n "${RANDOM_PASSWORD_WRITER}" | openssl dgst -binary -sha256 | openssl base64)
-    # write the data to the config.
-    sed 's|publishUser:|publishUser: sha256:${RANDOM_USERNAME_WRITER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    sed 's|publishPass:|publishPass: sha256:${RANDOM_PASSWORD_WRITER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
-    # Show the users their username and password.
-    echo "Reader User Info"
-    echo "Username: ${RANDOM_USERNAME_READER}"
-    echo "Password: ${RANDOM_PASSWORD_READER}"
-    echo "Writer User Info"
-    echo "Username: ${RANDOM_USERNAME_WRITER}"
-    echo "Password: ${RANDOM_PASSWORD_WRITER}"
-  }
-  
-  # Configure the best settings for rtsp server.
-  best-rtsp-settings
-
 
 else
 
