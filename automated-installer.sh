@@ -166,6 +166,13 @@ WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
     # write the data to the config.
     sed 's|publishUser:|publishUser: sha256:${RANDOM_USERNAME_WRITER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
     sed 's|publishPass:|publishPass: sha256:${RANDOM_PASSWORD_WRITER_SHA256}|g' ${RTSP_SIMPLE_SERVER_CONFIG}
+    # Show the users their username and password.
+    echo "Reader User Info"
+    echo "Username: ${RANDOM_USERNAME_READER}"
+    echo "Password: ${RANDOM_PASSWORD_READER}"
+    echo "Writer User Info"
+    echo "Username: ${RANDOM_USERNAME_WRITER}"
+    echo "Password: ${RANDOM_PASSWORD_WRITER}"
   }
   
   # Configure the best settings for rtsp server.
