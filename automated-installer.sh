@@ -159,13 +159,10 @@ else
       systemctl daemon-reload
       echo "Uninstalled the rtsp-simple-server."
       exit
-    fi
-      ;;
-    *)
+    else
       echo "Exiting..."
       exit
-      ;;
-    esac
+    fi
   }
 
   # Uninstall the rtsp-simple-server
