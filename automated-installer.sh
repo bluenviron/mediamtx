@@ -118,6 +118,8 @@ if [ ! -d "${RTSP_SIMPLE_SERVER_PATH}" ]; then
 
   # Create the service file
   function create-service-file() {
+    read -rp "Do you want to install the rtsp-simple-server as a service [y/n]" INSTALL_RTSP_SERVICE
+    if [[ "${INSTALL_RTSP_SERVICE}" == "y" ]]; then
     # This code creates the service file
     # The service file is stored in /etc/systemd/system/rtsp-simple-server.service
     echo "[Unit]
@@ -132,6 +134,7 @@ WantedBy=multi-user.target" >${RTSP_SIMPLE_SERVER_SERVICE}
       systemctl restart rtsp-simple-server
     elif [[ "${CURRENT_INIT_SYSTEM}" == *"init"* ]]; then
       service rtsp-simple-server restart
+    fi
     fi
   }
 
