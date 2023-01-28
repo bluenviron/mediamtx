@@ -279,7 +279,7 @@ bool camera_start(camera_t *cam) {
         denoise_mode = controls::draft::NoiseReductionModeOff;
     } else if (strcmp(camp->params->denoise, "cdn_off") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeMinimal;
-    } if (strcmp(camp->params->denoise, "cdn_hq") == 0) {
+    } else if (strcmp(camp->params->denoise, "cdn_hq") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeHighQuality;
     } else {
         denoise_mode = controls::draft::NoiseReductionModeFast;
