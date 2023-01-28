@@ -299,8 +299,8 @@ paths:
     # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom
     rpiCameraAWB: auto
     # denoise operating mode.
-    # values: auto, off, cdn_off, cdn_fast, cdn_hq
-    rpiCameraDenoise: auto
+    # values: off, cdn_off, cdn_fast, cdn_hq
+    rpiCameraDenoise: "off"
     # fixed shutter speed, in microseconds.
     rpiCameraShutter: 0
     # metering mode of the AEC/AGC algorithm.

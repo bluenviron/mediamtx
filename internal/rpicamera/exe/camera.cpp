@@ -275,14 +275,14 @@ bool camera_start(camera_t *cam) {
     ctrls.set(controls::AwbMode, awb_mode);
 
     int denoise_mode;
-    if (strcmp(camp->params->denoise, "off") == 0) {
-        denoise_mode = controls::draft::NoiseReductionModeOff;
-    } else if (strcmp(camp->params->denoise, "cdn_off") == 0) {
+    if (strcmp(camp->params->denoise, "cdn_off") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeMinimal;
     } else if (strcmp(camp->params->denoise, "cdn_hq") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeHighQuality;
-    } else {
+    } else if (strcmp(camp->params->denoise, "cdn_fast") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeFast;
+    } else {
+        denoise_mode = controls::draft::NoiseReductionModeOff;
     }
     ctrls.set(controls::draft::NoiseReductionMode, denoise_mode);
 
