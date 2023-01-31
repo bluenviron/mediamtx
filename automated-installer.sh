@@ -97,20 +97,45 @@ RTSP_SIMPLE_SERVER_PATH="/etc/rtsp-simple-server"
 RTSP_SIMPLE_SERVER_CONFIG="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server.yml"
 RTSP_SIMPLE_SERVICE_APPLICATION="${RTSP_SIMPLE_SERVER_PATH}/rtsp-simple-server"
 RTSP_SIMPLE_SERVER_SERVICE="/etc/systemd/system/rtsp-simple-server.service"
-LATEST_RELEASE=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases/latest | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux)
-LASTEST_FILE_NAME=$(echo "${LATEST_RELEASE}" | cut --delimiter="/" --fields=9)
+LATEST_RELEASES=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux | head -n3 | cut --delimiter="/" --fields=9 | cut --delimiter="_" --fields=2)
 
 # Check if the rtsp-simple-server directory dosent exists
 if [ ! -d "${RTSP_SIMPLE_SERVER_PATH}" ]; then
 
+  # Get the latest 3 releases
+  function get-latest-3-releases() {
+    # This code gets the latest 3 releases
+    # The latest 3 releases are stored in the variable LATEST_RELEASES
+    echo "The latest 3 releases are:"
+    echo "  1) $(echo ${LATEST_RELEASES} | cut --delimiter=" " --fields=1) (Recommended)"
+    echo "  2) $(echo ${LATEST_RELEASES} | cut --delimiter=" " --fields=2)"
+    echo "  3) $(echo ${LATEST_RELEASES} | cut --delimiter=" " --fields=3)"
+    until [[ "${CHOOSEN_RELEASES}" =~ ^[1-3]$ ]]; do
+      read -rp "Choose a release [1-3]:" -e -i 1 CHOOSEN_RELEASES
+    done
+    case ${CHOOSEN_RELEASES} in
+    1)
+      DOWNLOAD_URL=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux | head -n1)
+      FILE_NAME=$(echo "${DOWNLOAD_URL}" | cut --delimiter="/" --fields=9)
+      ;;
+    2)
+      DOWNLOAD_URL=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux | head -n2 | tail -n1)
+      FILE_NAME=$(echo "${DOWNLOAD_URL}" | cut --delimiter="/" --fields=9)
+      ;;
+    3)
+      DOWNLOAD_URL=$(curl -s https://api.github.com/repos/aler9/rtsp-simple-server/releases | grep browser_download_url | cut -d'"' -f4 | grep $(dpkg --print-architecture) | grep linux | head -n3 | tail -n1)
+      FILE_NAME=$(echo "${DOWNLOAD_URL}" | cut --delimiter="/" --fields=9)
+      ;;
+    esac
+  }
+
   # Download the latest release
   function download-latest-release() {
     # This code downloads the latest release
-    # The latest release is stored in the variable LATEST_RELEASE
     # The latest release is downloaded to /tmp/
-    curl -L "${LATEST_RELEASE}" -o /tmp/${LASTEST_FILE_NAME}
+    curl -L "${DOWNLOAD_URL}" -o /tmp/${FILE_NAME}
     mkdir -p ${RTSP_SIMPLE_SERVER_PATH}
-    tar -xvf /tmp/${LASTEST_FILE_NAME} -C ${RTSP_SIMPLE_SERVER_PATH}
+    tar -xvf /tmp/${FILE_NAME} -C ${RTSP_SIMPLE_SERVER_PATH}
   }
 
   # Download the latest release
