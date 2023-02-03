@@ -933,7 +933,7 @@ Alternatively you can create a video tag that points directly to the stream play
 <video src="http://localhost:8888/mystream/index.m3u8"></video>
 ```
 
-Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream. You can find a working example by looking at the [source code of the HLS muxer](internal/core/hls_muxer.go).
+Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream. You can find a working example by looking at the [source code of the HLS muxer](internal/core/hls_index.html).
 
 ### Low-Latency variant
 
