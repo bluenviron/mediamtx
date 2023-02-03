@@ -627,6 +627,19 @@ If credentials are in use, use the following parameters:
 * Server: `rtmp://localhost`
 * Stream key: `mystream?user=myuser&pass=mypass`
 
+If you want to generate a stream that can be read with WebRTC, open `Settings -> Output -> Recording` and use the following parameters:
+
+* FFmpeg output type: `Output to URL`
+* File path or URL: `rtsp://localhost:8554/mystream`
+* Container format: `rtsp`
+* Check `show all codecs (even if potentically incompatible`
+* Video encoder: `h264_nvenc (libx264)`
+* Video encoder settings (if any): `bf=0`
+* Audio track: `1`
+* Audio encoder: `libopus`
+
+The use the button `Start Recording` (instead of `Start Streaming`) to start streaming.
+
 ### From OpenCV
 
 To publish a video stream from OpenCV to the server, OpenCV must be compiled with GStreamer support, by following this procedure:
