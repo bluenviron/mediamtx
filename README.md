@@ -1047,7 +1047,7 @@ docker run --rm -it \
 rtsp-simple-server
 ```
 
-Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, that must be configured externally. The server address and credentials must be set in the configuration file:
+Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
 
 ```yml
 webrtcICEServers: [turn:user:pass:host:ip]
