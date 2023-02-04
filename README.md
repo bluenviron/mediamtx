@@ -937,7 +937,7 @@ ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast
 
 The simples way to embed a HLS stream into a web page consists in using an iframe tag:
 
-```
+```html
 <iframe src="http://rtsp-simple-server-ip:8888/mystream" scrolling="no"></iframe>
 ```
 
@@ -1067,7 +1067,9 @@ where `secret` is the secret of the TURN server. _rtsp-simple-server_ will gener
 
 The simples way to embed a WebRTC stream into a web page consists in using an iframe tag:
 
+```html
 <iframe src="http://rtsp-simple-server-ip:8889/mystream" scrolling="no"></iframe>
+```
 
 For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/webrtc_index.html).
 
