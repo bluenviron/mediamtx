@@ -858,6 +858,8 @@ In some scenarios, when reading RTSP from the server, decoded frames can be corr
       sourceProtocol: tcp
   ```
 
+* The stream throughput is too big to be handled by the network between server and readers. Decrease the stream bitrate by re-encoding it.
+
 ## RTMP protocol
 
 ### General usage
