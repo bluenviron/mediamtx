@@ -96,6 +96,7 @@ Features:
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
   * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
+  * [Embedding](#embedding-2)
 * [Links](#links)
 
 ## Installation
@@ -934,19 +935,13 @@ ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast
 
 ### Embedding
 
-The simples way to embed a live stream into a web page consists in using an iframe tag:
+The simples way to embed a HLS stream into a web page consists in using an iframe tag:
 
 ```
 <iframe src="http://rtsp-simple-server-ip:8888/mystream" scrolling="no"></iframe>
 ```
 
-Alternatively you can create a video tag that points directly to the stream playlist:
-
-```
-<video src="http://localhost:8888/mystream/index.m3u8"></video>
-```
-
-Please note that most browsers don't support HLS directly (except Safari); a Javascript library, like [hls.js](https://github.com/video-dev/hls.js), must be used to load the stream. You can find a working example by looking at the [source code of the HLS muxer](internal/core/hls_index.html).
+For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/hls_index.html).
 
 ### Low-Latency variant
 
@@ -1067,6 +1062,14 @@ webrtcICEServers: [turn:AUTH_SECRET:secret:host:ip]
 ```
 
 where `secret` is the secret of the TURN server. _rtsp-simple-server_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
+
+### Embedding
+
+The simples way to embed a WebRTC stream into a web page consists in using an iframe tag:
+
+<iframe src="http://rtsp-simple-server-ip:8889/mystream" scrolling="no"></iframe>
+
+For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/webrtc_index.html).
 
 ## Links
 
