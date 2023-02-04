@@ -96,7 +96,7 @@ Features:
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
   * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
-  * [Embedding](#embedding-2)
+  * [Embedding](#embedding-1)
 * [Links](#links)
 
 ## Installation
