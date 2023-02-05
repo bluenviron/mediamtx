@@ -514,16 +514,10 @@ go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 
 ### Compile and run from source
 
-Install Go 1.18, download the repository, open a terminal in it and run:
+Install Go &ge; 1.18, download the repository, open a terminal in it and run:
 
 ```sh
 go run .
-```
-
-Compilation for all supported platform can be launched by using:
-
-```sh
-make binaries
 ```
 
 In order to compile and run with support for the Raspberry Pi Camera:
@@ -532,8 +526,13 @@ In order to compile and run with support for the Raspberry Pi Camera:
 cd internal/rpicamera/exe
 make
 cd ../../../
-go build -tags rpicamera
-./rtsp-simple-server
+go run -tags rpicamera .
+```
+
+Compilation for all supported platform can be launched by using:
+
+```sh
+make binaries
 ```
 
 ## Publish to the server
