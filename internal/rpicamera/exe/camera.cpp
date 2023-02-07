@@ -365,6 +365,33 @@ bool camera_start(camera_t *cam) {
     // Lens Position
     ctrls.set(controls::LensPosition, camp->params->lens_position);
 
+    // Af Window
+    if (camp->params->af_window != NULL) {
+        std::optional<Rectangle> opt = camp->camera->properties().get(properties::ScalerCropMaximum);
+        Rectangle sensor_area;
+        try {
+            sensor_area = opt.value();
+        } catch(const std::bad_optional_access& exc) {
+            set_error("get(ScalerCropMaximum) failed");
+            return false;
+        }
+
+        Rectangle afwindows_rectangle[1];
+
+        afwindows_rectangle[0] = Rectangle (
+                camp->params->af_window->x * sensor_area.width,
+                camp->params->af_window->y * sensor_area.height,
+                camp->params->af_window->width * sensor_area.width,
+                camp->params->af_window->height * sensor_area.height);
+
+         afwindows_rectangle[0].translateBy(sensor_area.topLeft());
+        //activate the AfMeteringWindows
+        ctrls.set(controls::AfMetering, controls::AfMeteringWindows);
+        //set window
+        ctrls.set(controls::AfWindows, afwindows_rectangle);
+    }
+
+
     int res = camp->camera->start(&ctrls);
     if (res != 0) {
         set_error("Camera.start() failed");

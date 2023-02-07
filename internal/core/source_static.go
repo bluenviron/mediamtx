@@ -114,6 +114,7 @@ func newSourceStatic(
 				AfRange:      conf.RPICameraAfRange,
 				AfSpeed:      conf.RPICameraAfSpeed,
 				LensPosition: conf.RPICameraLensPosition,
+				AfWindow:     conf.RPICameraAfWindow,
 			},
 			s)
 	}

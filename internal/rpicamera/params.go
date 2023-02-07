@@ -30,4 +30,5 @@ type Params struct {
 	AfRange      string
 	AfSpeed      string
 	LensPosition float64
+	AfWindow     string
 }

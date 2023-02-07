@@ -149,6 +149,7 @@ func New(
 		"AF_RANGE=" + params.AfRange,
 		"AF_SPEED=" + params.AfSpeed,
 		"LENS_POSITION=" + strconv.FormatFloat(params.LensPosition, 'f', -1, 64),
+		"AF_WINDOW=" + params.AfWindow,
 	}
 
 	exe, err := newEmbeddedExe(exeContent, env)

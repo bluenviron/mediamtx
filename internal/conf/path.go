@@ -77,6 +77,7 @@ type PathConf struct {
 	RPICameraAfRange           string         `json:"rpiCameraAfRange"`
 	RPICameraAfSpeed           string         `json:"rpiCameraAfSpeed"`
 	RPICameraLensPosition      float64        `json:"rpiCameraLensPosition"`
+	RPICameraAfWindow          string         `json:"rpiCameraAfWindow"`
 
 	// authentication
 	PublishUser Credential `json:"publishUser"`
