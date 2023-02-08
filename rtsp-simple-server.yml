@@ -342,6 +342,9 @@ paths:
     #           0.5 moves the lens to focus on objects 2m away.
     #           2 moves the lens to focus on objects 50cm away.
     rpiCameraLensPosition: 0.0
+    # Specifies the autofocus window, in the form x,y,width,height where the coordinates
+    # are given as a proportion of the entire image.
+    rpiCameraAfWindow:
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.
