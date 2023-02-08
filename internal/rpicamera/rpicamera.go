@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,15 +17,12 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 )
 
+const (
+	tempPathPrefix = "/dev/shm/rtspss-embeddedexe-"
+)
+
 //go:embed exe/exe
 var exeContent []byte
-
-func bool2env(v bool) string {
-	if v {
-		return "1"
-	}
-	return "0"
-}
 
 func getKernelArch() (string, error) {
 	cmd := exec.Command("uname", "-m")
@@ -89,11 +87,77 @@ func setupSymlinks() error {
 	return setupSymlink("libcamera-base")
 }
 
+func removeSymlinks() {
+	os.Remove("/dev/shm/libcamera-base.so.x.x.x")
+	os.Remove("/dev/shm/libcamera.so.x.x.x")
+}
+
+func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
+	tempPath := tempPathPrefix + strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	err := os.WriteFile(tempPath, content, 0o755)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := exec.Command(tempPath)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = env
+
+	err = cmd.Start()
+	os.Remove(tempPath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return cmd, nil
+}
+
+func serializeParams(p Params) []byte {
+	rv := reflect.ValueOf(p)
+	rt := rv.Type()
+	nf := rv.NumField()
+	ret := make([]string, nf)
+
+	for i := 0; i < nf; i++ {
+		entry := rt.Field(i).Name + "="
+		f := rv.Field(i)
+
+		switch f.Kind() {
+		case reflect.Int:
+			entry += strconv.FormatInt(f.Int(), 10)
+
+		case reflect.Float64:
+			entry += strconv.FormatFloat(f.Float(), 'f', -1, 64)
+
+		case reflect.String:
+			entry += f.String()
+
+		case reflect.Bool:
+			if f.Bool() {
+				entry += "1"
+			} else {
+				entry += "0"
+			}
+
+		default:
+			panic("unhandled type")
+		}
+
+		ret[i] = entry
+	}
+
+	return []byte(strings.Join(ret, " "))
+}
+
 type RPICamera struct {
 	onData func(time.Duration, [][]byte)
 
-	exe  *embeddedExe
-	pipe *pipe
+	cmd       *exec.Cmd
+	pipeConf  *pipe
+	pipeVideo *pipe
 
 	waitDone   chan error
 	readerDone chan error
@@ -113,132 +177,124 @@ func New(
 		return nil, err
 	}
 
-	pipe, err := newPipe()
+	c := &RPICamera{
+		onData: onData,
+	}
+
+	c.pipeConf, err = newPipe()
 	if err != nil {
+		return nil, err
+	}
+
+	c.pipeVideo, err = newPipe()
+	if err != nil {
+		c.pipeConf.close()
 		return nil, err
 	}
 
 	env := []string{
 		"LD_LIBRARY_PATH=/dev/shm",
-		"PIPE_FD=" + strconv.FormatInt(int64(pipe.writeFD), 10),
-		"CAMERA_ID=" + strconv.FormatInt(int64(params.CameraID), 10),
-		"WIDTH=" + strconv.FormatInt(int64(params.Width), 10),
-		"HEIGHT=" + strconv.FormatInt(int64(params.Height), 10),
-		"H_FLIP=" + bool2env(params.HFlip),
-		"V_FLIP=" + bool2env(params.VFlip),
-		"BRIGHTNESS=" + strconv.FormatFloat(params.Brightness, 'f', -1, 64),
-		"CONTRAST=" + strconv.FormatFloat(params.Contrast, 'f', -1, 64),
-		"SATURATION=" + strconv.FormatFloat(params.Saturation, 'f', -1, 64),
-		"SHARPNESS=" + strconv.FormatFloat(params.Sharpness, 'f', -1, 64),
-		"EXPOSURE=" + params.Exposure,
-		"AWB=" + params.AWB,
-		"DENOISE=" + params.Denoise,
-		"SHUTTER=" + strconv.FormatInt(int64(params.Shutter), 10),
-		"METERING=" + params.Metering,
-		"GAIN=" + strconv.FormatFloat(params.Gain, 'f', -1, 64),
-		"EV=" + strconv.FormatFloat(params.EV, 'f', -1, 64),
-		"ROI=" + params.ROI,
-		"TUNING_FILE=" + params.TuningFile,
-		"MODE=" + params.Mode,
-		"FPS=" + strconv.FormatInt(int64(params.FPS), 10),
-		"IDR_PERIOD=" + strconv.FormatInt(int64(params.IDRPeriod), 10),
-		"BITRATE=" + strconv.FormatInt(int64(params.Bitrate), 10),
-		"PROFILE=" + params.Profile,
-		"LEVEL=" + params.Level,
-		"AF_MODE=" + params.AfMode,
-		"AF_RANGE=" + params.AfRange,
-		"AF_SPEED=" + params.AfSpeed,
-		"LENS_POSITION=" + strconv.FormatFloat(params.LensPosition, 'f', -1, 64),
-		"AF_WINDOW=" + params.AfWindow,
+		"PIPE_CONF_FD=" + strconv.FormatInt(int64(c.pipeConf.readFD), 10),
+		"PIPE_VIDEO_FD=" + strconv.FormatInt(int64(c.pipeVideo.writeFD), 10),
 	}
 
-	exe, err := newEmbeddedExe(exeContent, env)
+	c.cmd, err = startEmbeddedExe(exeContent, env)
 	if err != nil {
-		pipe.close()
+		removeSymlinks()
+		c.pipeConf.close()
+		c.pipeVideo.close()
 		return nil, err
 	}
 
-	waitDone := make(chan error)
+	removeSymlinks()
+
+	c.pipeConf.write(append([]byte{'c'}, serializeParams(params)...))
+
+	c.waitDone = make(chan error)
 	go func() {
-		waitDone <- exe.cmd.Wait()
+		c.waitDone <- c.cmd.Wait()
 	}()
 
-	readerDone := make(chan error)
+	c.readerDone = make(chan error)
 	go func() {
-		readerDone <- func() error {
-			buf, err := pipe.read()
-			if err != nil {
-				return err
-			}
-
-			switch buf[0] {
-			case 'e':
-				return fmt.Errorf(string(buf[1:]))
-
-			case 'r':
-				return nil
-
-			default:
-				return fmt.Errorf("unexpected output from pipe (%c)", buf[0])
-			}
-		}()
+		c.readerDone <- c.readReady()
 	}()
 
 	select {
-	case <-waitDone:
-		exe.close()
-		pipe.close()
-		<-readerDone
+	case <-c.waitDone:
+		c.pipeConf.close()
+		c.pipeVideo.close()
+		<-c.readerDone
 		return nil, fmt.Errorf("process exited unexpectedly")
 
-	case err := <-readerDone:
+	case err := <-c.readerDone:
 		if err != nil {
-			exe.close()
-			<-waitDone
-			pipe.close()
+			c.pipeConf.write([]byte{'e'})
+			<-c.waitDone
+			c.pipeConf.close()
+			c.pipeVideo.close()
 			return nil, err
 		}
 	}
 
-	readerDone = make(chan error)
+	c.readerDone = make(chan error)
 	go func() {
-		readerDone <- func() error {
-			for {
-				buf, err := pipe.read()
-				if err != nil {
-					return err
-				}
-
-				if buf[0] != 'b' {
-					return fmt.Errorf("unexpected output from pipe (%c)", buf[0])
-				}
-
-				tmp := uint64(buf[8])<<56 | uint64(buf[7])<<48 | uint64(buf[6])<<40 | uint64(buf[5])<<32 |
-					uint64(buf[4])<<24 | uint64(buf[3])<<16 | uint64(buf[2])<<8 | uint64(buf[1])
-				dts := time.Duration(tmp) * time.Microsecond
-
-				nalus, err := h264.AnnexBUnmarshal(buf[9:])
-				if err != nil {
-					return err
-				}
-
-				onData(dts, nalus)
-			}
-		}()
+		c.readerDone <- c.readData()
 	}()
 
-	return &RPICamera{
-		onData:     onData,
-		exe:        exe,
-		pipe:       pipe,
-		waitDone:   waitDone,
-		readerDone: readerDone,
-	}, nil
+	return c, nil
 }
 
 func (c *RPICamera) Close() {
-	c.exe.close()
+	c.pipeConf.write([]byte{'e'})
 	<-c.waitDone
-	c.pipe.close()
+	c.pipeConf.close()
+	c.pipeVideo.close()
 	<-c.readerDone
+}
+
+func (c *RPICamera) ReloadParams(params Params) {
+	c.pipeConf.write(append([]byte{'c'}, serializeParams(params)...))
+}
+
+func (c *RPICamera) readReady() error {
+	buf, err := c.pipeVideo.read()
+	if err != nil {
+		return err
+	}
+
+	switch buf[0] {
+	case 'e':
+		return fmt.Errorf(string(buf[1:]))
+
+	case 'r':
+		return nil
+
+	default:
+		return fmt.Errorf("unexpected output from video pipe: '0x%.2x'", buf[0])
+	}
+}
+
+func (c *RPICamera) readData() error {
+	for {
+		buf, err := c.pipeVideo.read()
+		if err != nil {
+			return err
+		}
+
+		if buf[0] != 'b' {
+			return fmt.Errorf("unexpected output from pipe (%c)", buf[0])
+		}
+
+		tmp := uint64(buf[8])<<56 | uint64(buf[7])<<48 | uint64(buf[6])<<40 | uint64(buf[5])<<32 |
+			uint64(buf[4])<<24 | uint64(buf[3])<<16 | uint64(buf[2])<<8 | uint64(buf[1])
+		dts := time.Duration(tmp) * time.Microsecond
+
+		nalus, err := h264.AnnexBUnmarshal(buf[9:])
+		if err != nil {
+			return err
+		}
+
+		c.onData(dts, nalus)
+	}
 }

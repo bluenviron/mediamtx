@@ -204,15 +204,15 @@ outer:
 		select {
 		case pa := <-s.chPathSourceReady:
 			if s.alwaysRemux {
-				s.createMuxer(pa.Name(), "", nil)
+				s.createMuxer(pa.name, "", nil)
 			}
 
 		case pa := <-s.chPathSourceNotReady:
 			if s.alwaysRemux {
-				c, ok := s.muxers[pa.Name()]
+				c, ok := s.muxers[pa.name]
 				if ok {
 					c.close()
-					delete(s.muxers, pa.Name())
+					delete(s.muxers, pa.name)
 				}
 			}
 

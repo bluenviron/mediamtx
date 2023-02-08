@@ -270,16 +270,18 @@ func (s *rtspSession) onPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 
 	if s.session.State() == gortsplib.ServerSessionStatePrePlay {
 		s.log(logger.Info, "is reading from path '%s', with %s, %s",
-			s.path.Name(),
+			s.path.name,
 			s.session.SetuppedTransport(),
 			sourceMediaInfo(s.session.SetuppedMedias()))
 
-		if s.path.Conf().RunOnRead != "" {
+		pathConf := s.path.safeConf()
+
+		if pathConf.RunOnRead != "" {
 			s.log(logger.Info, "runOnRead command started")
 			s.onReadCmd = externalcmd.NewCmd(
 				s.externalCmdPool,
-				s.path.Conf().RunOnRead,
-				s.path.Conf().RunOnReadRestart,
+				pathConf.RunOnRead,
+				pathConf.RunOnReadRestart,
 				s.path.externalCmdEnv(),
 				func(co int) {
 					s.log(logger.Info, "runOnRead command exited with code %d", co)
@@ -311,7 +313,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 	}
 
 	s.log(logger.Info, "is publishing to path '%s', with %s, %s",
-		s.path.Name(),
+		s.path.name,
 		s.session.SetuppedTransport(),
 		sourceMediaInfo(s.session.AnnouncedMedias()))
 

@@ -555,7 +555,7 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 }
 
 func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
-	pathConf := m.path.Conf()
+	pathConf := m.path.safeConf()
 	pathIPs := pathConf.ReadIPs
 	pathUser := pathConf.ReadUser
 	pathPass := pathConf.ReadPass

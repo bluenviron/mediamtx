@@ -1,9 +1,9 @@
 package conf
 
 import (
-	"encoding/json"
 	"fmt"
 	gourl "net/url"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -320,7 +320,5 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 
 // Equal checks whether two PathConfs are equal.
 func (pconf *PathConf) Equal(other *PathConf) bool {
-	a, _ := json.Marshal(pconf)
-	b, _ := json.Marshal(other)
-	return string(a) == string(b)
+	return reflect.DeepEqual(pconf, other)
 }

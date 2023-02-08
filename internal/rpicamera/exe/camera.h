@@ -10,10 +10,11 @@ extern "C" {
 #endif
 
 const char *camera_get_error();
-bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **cam);
+bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_t **cam);
 int camera_get_mode_stride(camera_t *cam);
 int camera_get_mode_colorspace(camera_t *cam);
 bool camera_start(camera_t *cam);
+void camera_reload_params(camera_t *cam, const parameters_t *params);
 
 #ifdef __cplusplus
 }

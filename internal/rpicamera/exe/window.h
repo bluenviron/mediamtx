@@ -10,6 +10,6 @@ typedef struct {
     float height;
 } window_t;
 
-bool window_load(const char *encoded, window_t **mode);
+bool window_load(const char *encoded, window_t *window);
 
 #endif

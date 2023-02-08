@@ -10,6 +10,24 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 )
 
+func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf) bool {
+	var copy conf.PathConf
+	cloneStruct(&copy, oldPathConf)
+
+	copy.RPICameraBrightness = newPathConf.RPICameraBrightness
+	copy.RPICameraContrast = newPathConf.RPICameraContrast
+	copy.RPICameraSaturation = newPathConf.RPICameraSaturation
+	copy.RPICameraSharpness = newPathConf.RPICameraSharpness
+	copy.RPICameraExposure = newPathConf.RPICameraExposure
+	copy.RPICameraAWB = newPathConf.RPICameraAWB
+	copy.RPICameraDenoise = newPathConf.RPICameraDenoise
+	copy.RPICameraMetering = newPathConf.RPICameraMetering
+	copy.RPICameraEV = newPathConf.RPICameraEV
+	copy.RPICameraFPS = newPathConf.RPICameraFPS
+
+	return newPathConf.Equal(&copy)
+}
+
 type pathManagerHLSServer interface {
 	pathSourceReady(*path)
 	pathSourceNotReady(*path)
@@ -29,11 +47,12 @@ type pathManager struct {
 	metrics         *metrics
 	parent          pathManagerParent
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	hlsServer pathManagerHLSServer
-	paths     map[string]*path
+	ctx         context.Context
+	ctxCancel   func()
+	wg          sync.WaitGroup
+	hlsServer   pathManagerHLSServer
+	paths       map[string]*path
+	pathsByConf map[string]map[*path]struct{}
 
 	// in
 	chConfReload         chan map[string]*conf.PathConf
@@ -72,6 +91,7 @@ func newPathManager(
 		ctx:                  ctx,
 		ctxCancel:            ctxCancel,
 		paths:                make(map[string]*path),
+		pathsByConf:          make(map[string]map[*path]struct{}),
 		chConfReload:         make(chan map[string]*conf.PathConf),
 		chPathClose:          make(chan *path),
 		chPathSourceReady:    make(chan *path),
@@ -118,36 +138,34 @@ func (pm *pathManager) run() {
 outer:
 	for {
 		select {
-		case pathConfs := <-pm.chConfReload:
-			// remove confs
-			for pathConfName := range pm.pathConfs {
-				if _, ok := pathConfs[pathConfName]; !ok {
-					delete(pm.pathConfs, pathConfName)
+		case newPathConfs := <-pm.chConfReload:
+			for confName, pathConf := range pm.pathConfs {
+				if newPathConf, ok := newPathConfs[confName]; ok {
+					// configuration has changed
+					if !newPathConf.Equal(pathConf) {
+						if pathConfCanBeUpdated(pathConf, newPathConf) { // paths associated with the configuration can be updated
+							for pa := range pm.pathsByConf[confName] {
+								go pa.reloadConf(newPathConf)
+							}
+						} else { // paths associated with the configuration must be recreated
+							for pa := range pm.pathsByConf[confName] {
+								pm.removePath(pa)
+								pa.close()
+								pa.wait() // avoid conflicts between sources
+							}
+						}
+					}
+				} else {
+					// configuration has been deleted, remove associated paths
+					for pa := range pm.pathsByConf[confName] {
+						pm.removePath(pa)
+						pa.close()
+						pa.wait() // avoid conflicts between sources
+					}
 				}
 			}
 
-			// update confs
-			for pathConfName, oldConf := range pm.pathConfs {
-				if !oldConf.Equal(pathConfs[pathConfName]) {
-					pm.pathConfs[pathConfName] = pathConfs[pathConfName]
-				}
-			}
-
-			// add confs
-			for pathConfName, pathConf := range pathConfs {
-				if _, ok := pm.pathConfs[pathConfName]; !ok {
-					pm.pathConfs[pathConfName] = pathConf
-				}
-			}
-
-			// remove paths associated with a conf which doesn't exist anymore
-			// or has changed
-			for _, pa := range pm.paths {
-				if pathConf, ok := pm.pathConfs[pa.ConfName()]; !ok || pathConf != pa.Conf() {
-					delete(pm.paths, pa.Name())
-					pa.close()
-				}
-			}
+			pm.pathConfs = newPathConfs
 
 			// add new paths
 			for pathConfName, pathConf := range pm.pathConfs {
@@ -157,11 +175,10 @@ outer:
 			}
 
 		case pa := <-pm.chPathClose:
-			if pmpa, ok := pm.paths[pa.Name()]; !ok || pmpa != pa {
+			if pmpa, ok := pm.paths[pa.name]; !ok || pmpa != pa {
 				continue
 			}
-			delete(pm.paths, pa.Name())
-			pa.close()
+			pm.removePath(pa)
 
 		case pa := <-pm.chPathSourceReady:
 			if pm.hlsServer != nil {
@@ -278,7 +295,7 @@ func (pm *pathManager) createPath(
 	name string,
 	matches []string,
 ) {
-	pm.paths[name] = newPath(
+	pa := newPath(
 		pm.ctx,
 		pm.rtspAddress,
 		pm.readTimeout,
@@ -291,6 +308,21 @@ func (pm *pathManager) createPath(
 		&pm.wg,
 		pm.externalCmdPool,
 		pm)
+
+	pm.paths[name] = pa
+
+	if _, ok := pm.pathsByConf[pathConfName]; !ok {
+		pm.pathsByConf[pathConfName] = make(map[*path]struct{})
+	}
+	pm.pathsByConf[pathConfName][pa] = struct{}{}
+}
+
+func (pm *pathManager) removePath(pa *path) {
+	delete(pm.pathsByConf[pa.confName], pa)
+	if len(pm.pathsByConf[pa.confName]) == 0 {
+		delete(pm.pathsByConf, pa.confName)
+	}
+	delete(pm.paths, pa.name)
 }
 
 func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, []string, error) {
@@ -330,6 +362,7 @@ func (pm *pathManager) pathSourceReady(pa *path) {
 	select {
 	case pm.chPathSourceReady <- pa:
 	case <-pm.ctx.Done():
+	case <-pa.ctx.Done(): // in case pathManager is closing the path
 	}
 }
 
@@ -338,6 +371,7 @@ func (pm *pathManager) pathSourceNotReady(pa *path) {
 	select {
 	case pm.chPathSourceNotReady <- pa:
 	case <-pm.ctx.Done():
+	case <-pa.ctx.Done(): // in case pathManager is closing the path
 	}
 }
 
@@ -346,6 +380,7 @@ func (pm *pathManager) onPathClose(pa *path) {
 	select {
 	case pm.chPathClose <- pa:
 	case <-pm.ctx.Done():
+	case <-pa.ctx.Done(): // in case pathManager is closing the path
 	}
 }
 

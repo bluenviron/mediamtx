@@ -421,7 +421,7 @@ func (s *webRTCServer) newConn(dir string, wsconn *websocket.ServerConn) *webRTC
 }
 
 func (s *webRTCServer) authenticate(pa *path, ctx *gin.Context) error {
-	pathConf := pa.Conf()
+	pathConf := pa.safeConf()
 	pathIPs := pathConf.ReadIPs
 	pathUser := pathConf.ReadUser
 	pathPass := pathConf.ReadPass

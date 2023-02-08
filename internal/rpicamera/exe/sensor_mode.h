@@ -10,6 +10,6 @@ typedef struct {
     bool packed;
 } sensor_mode_t;
 
-bool sensor_mode_load(const char *encoded, sensor_mode_t **mode);
+bool sensor_mode_load(const char *encoded, sensor_mode_t *mode);
 
 #endif

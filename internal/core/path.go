@@ -201,6 +201,7 @@ type path struct {
 
 	ctx                            context.Context
 	ctxCancel                      func()
+	confMutex                      sync.RWMutex
 	source                         source
 	bytesReceived                  *uint64
 	stream                         *stream
@@ -217,6 +218,7 @@ type path struct {
 	onDemandPublisherCloseTimer    *time.Timer
 
 	// in
+	chReloadConf              chan *conf.PathConf
 	chSourceStaticSetReady    chan pathSourceStaticSetReadyReq
 	chSourceStaticSetNotReady chan pathSourceStaticSetNotReadyReq
 	chDescribe                chan pathDescribeReq
@@ -227,6 +229,9 @@ type path struct {
 	chReaderAdd               chan pathReaderAddReq
 	chReaderRemove            chan pathReaderRemoveReq
 	chAPIPathsList            chan pathAPIPathsListSubReq
+
+	// out
+	done chan struct{}
 }
 
 func newPath(
@@ -236,7 +241,7 @@ func newPath(
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	confName string,
-	conf *conf.PathConf,
+	cnf *conf.PathConf,
 	name string,
 	matches []string,
 	wg *sync.WaitGroup,
@@ -251,7 +256,7 @@ func newPath(
 		writeTimeout:                   writeTimeout,
 		readBufferCount:                readBufferCount,
 		confName:                       confName,
-		conf:                           conf,
+		conf:                           cnf,
 		name:                           name,
 		matches:                        matches,
 		wg:                             wg,
@@ -265,6 +270,7 @@ func newPath(
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
 		onDemandPublisherReadyTimer:    newEmptyTimer(),
 		onDemandPublisherCloseTimer:    newEmptyTimer(),
+		chReloadConf:                   make(chan *conf.PathConf),
 		chSourceStaticSetReady:         make(chan pathSourceStaticSetReadyReq),
 		chSourceStaticSetNotReady:      make(chan pathSourceStaticSetNotReadyReq),
 		chDescribe:                     make(chan pathDescribeReq),
@@ -275,6 +281,7 @@ func newPath(
 		chReaderAdd:                    make(chan pathReaderAddReq),
 		chReaderRemove:                 make(chan pathReaderRemoveReq),
 		chAPIPathsList:                 make(chan pathAPIPathsListSubReq),
+		done:                           make(chan struct{}),
 	}
 
 	pa.log(logger.Debug, "created")
@@ -289,24 +296,13 @@ func (pa *path) close() {
 	pa.ctxCancel()
 }
 
+func (pa *path) wait() {
+	<-pa.done
+}
+
 // Log is the main logging function.
 func (pa *path) log(level logger.Level, format string, args ...interface{}) {
 	pa.parent.log(level, "[path "+pa.name+"] "+format, args...)
-}
-
-// ConfName returns the configuration name of this path.
-func (pa *path) ConfName() string {
-	return pa.confName
-}
-
-// Conf returns the configuration of this path.
-func (pa *path) Conf() *conf.PathConf {
-	return pa.conf
-}
-
-// Name returns the name of this path.
-func (pa *path) Name() string {
-	return pa.name
 }
 
 func (pa *path) hasStaticSource() bool {
@@ -327,7 +323,14 @@ func (pa *path) hasOnDemandPublisher() bool {
 	return pa.conf.RunOnDemand != ""
 }
 
+func (pa *path) safeConf() *conf.PathConf {
+	pa.confMutex.RLock()
+	defer pa.confMutex.RUnlock()
+	return pa.conf
+}
+
 func (pa *path) run() {
+	defer close(pa.done)
 	defer pa.wg.Done()
 
 	if pa.conf.Source == "redirect" {
@@ -409,6 +412,15 @@ func (pa *path) run() {
 				if pa.shouldClose() {
 					return fmt.Errorf("not in use")
 				}
+
+			case newConf := <-pa.chReloadConf:
+				if pa.hasStaticSource() {
+					go pa.source.(*sourceStatic).reloadConf(newConf)
+				}
+
+				pa.confMutex.Lock()
+				pa.conf = newConf
+				pa.confMutex.Unlock()
 
 			case req := <-pa.chSourceStaticSetReady:
 				err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
@@ -918,6 +930,14 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 		}(),
 	}
 	close(req.res)
+}
+
+// reloadConf is called by pathManager.
+func (pa *path) reloadConf(newConf *conf.PathConf) {
+	select {
+	case pa.chReloadConf <- newConf:
+	case <-pa.ctx.Done():
+	}
 }
 
 // sourceStaticSetReady is called by sourceStatic.
