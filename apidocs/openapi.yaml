@@ -234,6 +234,16 @@ components:
           type: string
         rpiCameraLevel:
           type: string
+        rpiCameraAfMode:
+          type: string
+        rpiCameraAfRange:
+          type: string
+        rpiCameraAfSpeed:
+          type: string
+        rpiCameraLensPosition:
+          type: number
+        rpiCameraAfWindow:
+          type: string
 
         # authentication
         publishUser:
