@@ -1,5 +1,5 @@
-#ifndef __ROI_H__
-#define __ROI_H__
+#ifndef __WINDOW_H__
+#define __WINDOW_H__
 
 #include <stdbool.h>
 
@@ -8,8 +8,8 @@ typedef struct {
     float y;
     float width;
     float height;
-} roi_t;
+} window_t;
 
-bool roi_load(const char *encoded, roi_t **mode);
+bool window_load(const char *encoded, window_t **mode);
 
 #endif

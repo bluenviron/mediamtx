@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "roi.h"
+#include "window.h"
 #include "sensor_mode.h"
 
 typedef struct {
@@ -23,7 +23,7 @@ typedef struct {
     const char *metering;
     float gain;
     float ev;
-    roi_t *roi;
+    window_t *roi;
     const char *tuning_file;
     sensor_mode_t *mode;
     unsigned int fps;
@@ -31,6 +31,11 @@ typedef struct {
     unsigned int bitrate;
     unsigned int profile;
     unsigned int level;
+    const char *af_mode;
+    const char *af_range;
+    const char *af_speed;
+    float lens_position;
+    window_t *af_window;
 
     // private
     unsigned int buffer_count;

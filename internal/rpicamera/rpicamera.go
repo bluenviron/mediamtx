@@ -145,6 +145,11 @@ func New(
 		"BITRATE=" + strconv.FormatInt(int64(params.Bitrate), 10),
 		"PROFILE=" + params.Profile,
 		"LEVEL=" + params.Level,
+		"AF_MODE=" + params.AfMode,
+		"AF_RANGE=" + params.AfRange,
+		"AF_SPEED=" + params.AfSpeed,
+		"LENS_POSITION=" + strconv.FormatFloat(params.LensPosition, 'f', -1, 64),
+		"AF_WINDOW=" + params.AfWindow,
 	}
 
 	exe, err := newEmbeddedExe(exeContent, env)

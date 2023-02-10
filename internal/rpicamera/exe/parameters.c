@@ -39,7 +39,7 @@ bool parameters_load(parameters_t *params) {
     params->ev = atof(getenv("EV"));
 
     if (strlen(getenv("ROI")) != 0) {
-        bool ok = roi_load(getenv("ROI"), &params->roi);
+        bool ok = window_load(getenv("ROI"), &params->roi);
         if (!ok) {
             set_error("invalid ROI");
             return false;
@@ -84,6 +84,21 @@ bool parameters_load(parameters_t *params) {
 
     params->buffer_count = 6;
     params->capture_buffer_count = params->buffer_count * 2;
+
+    params->af_mode = getenv("AF_MODE");
+    params->af_range = getenv("AF_RANGE");
+    params->af_speed = getenv("AF_SPEED");
+    params->lens_position = atof(getenv("LENS_POSITION"));
+
+    if (strlen(getenv("AF_WINDOW")) != 0) {
+        bool ok = window_load(getenv("AF_WINDOW"), &params->af_window);
+        if (!ok) {
+            set_error("invalid AF_WINDOW");
+            return false;
+        }
+    } else {
+        params->af_window = NULL;
+    }
 
     return true;
 }

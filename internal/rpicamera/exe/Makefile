@@ -3,7 +3,8 @@ CFLAGS = \
 	-Werror \
 	-Wall \
 	-Wextra \
-	-Wno-unused-parameter
+	-Wno-unused-parameter \
+	-Wno-unused-result
 
 CXXFLAGS = \
 	-Ofast \
@@ -11,6 +12,7 @@ CXXFLAGS = \
 	-Wall \
 	-Wextra \
 	-Wno-unused-parameter \
+	-Wno-unused-result \
 	-std=c++17 \
 	$$(pkg-config --cflags libcamera)
 
@@ -24,7 +26,7 @@ OBJS = \
 	encoder.o \
 	main.o \
 	parameters.o \
-	roi.o \
+	window.o \
 	sensor_mode.o
 
 all: exe

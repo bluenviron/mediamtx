@@ -327,6 +327,24 @@ paths:
     rpiCameraProfile: main
     # H264 level
     rpiCameraLevel: '4.1'
+    # Autofocus mode
+    # values: manual, auto, continuous
+    rpiCameraAfMode: continuous
+    # Autofocus range
+    # values: normal, macro, full
+    rpiCameraAfRange: normal
+    # Autofocus speed
+    # values: normal, fast
+    rpiCameraAfSpeed: normal
+    # Lens position (for manual autofocus only), will be set to focus to a specific distance
+    # calculated by the following formula: d = 1 / value
+    # Examples: 0 moves the lens to infinity.
+    #           0.5 moves the lens to focus on objects 2m away.
+    #           2 moves the lens to focus on objects 50cm away.
+    rpiCameraLensPosition: 0.0
+    # Specifies the autofocus window, in the form x,y,width,height where the coordinates
+    # are given as a proportion of the entire image.
+    rpiCameraAfWindow:
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.
