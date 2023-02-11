@@ -18,6 +18,8 @@ GO_PKG_LDFLAGS_X:=github.com/aler9/rtsp-simple-server/internal/core.version=$(PK
 include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/packages/lang/golang/golang-package.mk
 
+GO_MOD_ARGS:=-buildvcs=false
+
 define Package/rtsp-simple-server
   SECTION:=net
   CATEGORY:=Network
