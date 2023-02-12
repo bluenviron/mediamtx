@@ -98,6 +98,7 @@ Features:
   * [General usage](#general-usage-3)
   * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
   * [Embedding](#embedding-1)
+* [Standards](#standards)
 * [Links](#links)
 
 ## Installation
@@ -1119,6 +1120,15 @@ The simples way to embed a WebRTC stream into a web page consists in using an if
 
 For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/webrtc_index.html).
 
+## Standards
+
+* RTSP/RTP/RTCP standards https://github.com/aler9/gortsplib#standards
+* HTTP 1.1 https://datatracker.ietf.org/doc/html/rfc2616
+* HLS https://datatracker.ietf.org/doc/html/rfc8216
+* HLS v2 https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis
+* Opus in MP4/ISOBMFF https://opus-codec.org/docs/opus_in_isobmff.html
+* Golang project layout https://github.com/golang-standards/project-layout
+
 ## Links
 
 Related projects
@@ -1131,12 +1141,3 @@ Related projects
 * go-astits (MPEG-TS library used internally) https://github.com/asticode/go-astits
 * go-mp4 (MP4 library used internally) https://github.com/abema/go-mp4
 * https://github.com/flaviostutz/rtsp-relay
-
-Standards
-
-* RTSP/RTP standards https://github.com/aler9/gortsplib#links
-* HTTP 1.1 https://datatracker.ietf.org/doc/html/rfc2616
-* HLS https://datatracker.ietf.org/doc/html/rfc8216
-* HLS v2 https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis
-* Opus in MP4/ISOBMFF https://opus-codec.org/docs/opus_in_isobmff.html
-* Golang project layout https://github.com/golang-standards/project-layout
