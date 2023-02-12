@@ -53,6 +53,7 @@ Features:
 * [Installation](#installation)
   * [Standard](#standard)
   * [Docker](#docker)
+  * [OpenWRT](#openwrt)
 * [Basic usage](#basic-usage)
 * [General](#general)
   * [Configuration](#configuration)
@@ -68,7 +69,7 @@ Features:
   * [HTTP API](#http-api)
   * [Metrics](#metrics)
   * [pprof](#pprof)
-  * [Compile and run from source](#compile-and-run-from-source)
+  * [Compile from source](#compile-from-source)
 * [Publish to the server](#publish-to-the-server)
   * [From a webcam](#from-a-webcam)
   * [From a Raspberry Pi Camera](#from-a-raspberry-pi-camera)
@@ -126,6 +127,38 @@ docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888
 ```
 
 Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
+
+### OpenWRT
+
+1. In a x86 Linux system, download the OpenWRT SDK corresponding to the wanted OpenWRT version and target from the [OpenWRT website](https://downloads.openwrt.org/releases/) and extract it.
+
+2. Open a terminal in the SDK folder and setup the SDK:
+
+   ```
+   ./scripts/feeds update -a
+   ./scripts/feeds install -a
+   make defconfig
+   ```
+
+3. Download the server Makefile and set the server version inside the file:
+
+   ```
+   mkdir package/rtsp-simple-server
+   wget -O package/rtsp-simple-server/Makefile https://raw.githubusercontent.com/aler9/rtsp-simple-server/main/openwrt.mk
+   sed -i "s/v0.0.0/$(git ls-remote --tags --sort=v:refname https://github.com/aler9/rtsp-simple-server | tail -n1 | sed 's/.*\///; s/\^{}//')/" package/rtsp-simple-server/Makefile
+   ```
+
+4. Compile the server:
+
+   ```
+   make package/rtsp-simple-server/compile -j$(nproc)
+   ```
+
+5. Transfer the .ipk file from `bin/packages/*/base` to the OpenWRT system and install it with:
+
+   ```
+   opkg install [ipkg-file-name].ipk
+   ```
 
 ## Basic usage
 
@@ -512,28 +545,40 @@ go tool pprof -text http://localhost:9999/debug/pprof/heap
 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 ```
 
-### Compile and run from source
+### Compile from source
+
+#### Standard
 
 Install Go &ge; 1.18, download the repository, open a terminal in it and run:
 
 ```sh
-go run .
+go build .
 ```
 
-In order to compile and run with support for the Raspberry Pi Camera:
+The command will produce the `rtsp-simple-server` binary.
+
+#### Raspberry Pi
+
+In case of a Raspberry Pi, the server can be compiled with native support for the Raspberry Pi Camera. Install Go &ge; 1.18, download the repository, open a terminal in it and run:
 
 ```sh
 cd internal/rpicamera/exe
 make
 cd ../../../
-go run -tags rpicamera .
+go build -tags rpicamera .
 ```
+
+The command will produce the `rtsp-simple-server` binary.
+
+#### Compile for all supported platforms
 
 Compilation for all supported platform can be launched by using:
 
 ```sh
 make binaries
 ```
+
+The command will produce tarballs in folder `binaries/`.
 
 ## Publish to the server
 
