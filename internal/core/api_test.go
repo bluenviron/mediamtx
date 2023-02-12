@@ -513,6 +513,22 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				c, err := newWebRTCTestClient("ws://localhost:8889/mypath/ws")
 				require.NoError(t, err)
 				defer c.close()
+
+				time.Sleep(500 * time.Millisecond)
+
+				source.WritePacketRTP(medi, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 123,
+						Timestamp:      45343,
+						SSRC:           563423,
+					},
+					Payload: []byte{0x01, 0x02, 0x03, 0x04},
+				})
+
+				<-c.track
 			}
 
 			switch ca {
