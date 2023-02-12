@@ -157,7 +157,7 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
 5. Transfer the .ipk file from `bin/packages/*/base` to the OpenWRT system and install it with:
 
    ```
-   opkg install [ipkg-file-name].ipk
+   opkg install [ipk-file-name].ipk
    ```
 
 ## Basic usage

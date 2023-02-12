@@ -29,7 +29,7 @@ define Package/rtsp-simple-server
 endef
 
 define Package/rtsp-simple-server/description
-  ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams through various protocols
+  ready-to-use server and proxy that allows users to publish, read and proxy live video and audio streams through various protocols
 endef
 
 $(eval $(call GoBinPackage,rtsp-simple-server))
