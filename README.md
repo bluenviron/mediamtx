@@ -85,6 +85,7 @@ Features:
   * [Redirect to another server](#redirect-to-another-server)
   * [Fallback stream](#fallback-stream)
   * [Corrupted frames](#corrupted-frames)
+  * [Decrease latency](#decrease-latency)
 * [RTMP protocol](#rtmp-protocol)
   * [General usage](#general-usage-1)
   * [Encryption](#encryption-1)
@@ -93,7 +94,7 @@ Features:
   * [Browser support](#browser-support)
   * [Embedding](#embedding)
   * [Low-Latency variant](#low-latency-variant)
-  * [Decreasing latency](#decreasing-latency)
+  * [Decrease latency](#decrease-latency-1)
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
   * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
@@ -180,7 +181,7 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
 2. Open the stream. For instance, you can open the stream with _VLC_:
 
    ```
-   vlc rtsp://localhost:8554/mystream
+   vlc --network-caching=50 rtsp://localhost:8554/mystream
    ```
 
    or _GStreamer_:
@@ -905,6 +906,14 @@ In some scenarios, when reading RTSP from the server, decoded frames can be corr
 
 * The stream throughput is too big to be handled by the network between server and readers. Upgrade the network or decrease the stream bitrate by re-encoding it.
 
+### Decrease latency
+
+The RTSP protocol doesn't introduce any latency by itself. Latency is usually introduced by clients, that put frames in a buffer to compensate network fluctuations. In order to decrease latency, the best way consists in tuning the client. For instance, latency can be decreased with VLC by decreasing the `Network caching` parameter, that is available in the `Open network stream` dialog or alternatively ca be set with the command line:
+
+```
+vlc --network-caching=50 rtsp://...
+```
+
 ## RTMP protocol
 
 ### General usage
@@ -1022,7 +1031,7 @@ If the stream is not shown correctly, try tuning the `hlsPartDuration` parameter
 hlsPartDuration: 500ms
 ```
 
-### Decreasing latency
+### Decrease latency
 
 in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This latency amounts to 1-15secs depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is enabled.
 
