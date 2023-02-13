@@ -7,10 +7,8 @@ endef
 export DOCKERFILE_DOCKERHUB
 
 define DOCKERFILE_DOCKERHUB_RPI_32
-FROM --platform=linux/amd64 $(RPI32_IMAGE)
-RUN ["cross-build-start"]
+FROM $(RPI32_IMAGE) AS base
 RUN apt update && apt install -y --no-install-recommends libcamera0
-RUN ["cross-build-end"]
 ARG BINARY
 ADD $$BINARY /
 ENTRYPOINT [ "/rtsp-simple-server" ]
@@ -18,10 +16,8 @@ endef
 export DOCKERFILE_DOCKERHUB_RPI_32
 
 define DOCKERFILE_DOCKERHUB_RPI_64
-FROM --platform=linux/amd64 $(RPI64_IMAGE)
-RUN ["cross-build-start"]
+FROM $(RPI64_IMAGE)
 RUN apt update && apt install -y --no-install-recommends libcamera0
-RUN ["cross-build-end"]
 ARG BINARY
 ADD $$BINARY /
 ENTRYPOINT [ "/rtsp-simple-server" ]
@@ -39,6 +35,7 @@ dockerhub:
 	docker buildx create --name=builder --use
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/amd64 \
 	--build-arg BINARY="$$(echo binaries/*linux_amd64.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-amd64 \
@@ -46,6 +43,7 @@ dockerhub:
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/arm/v6 \
 	--build-arg BINARY="$$(echo binaries/*linux_armv6.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-armv6 \
@@ -53,6 +51,7 @@ dockerhub:
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_32" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/arm/v6 \
 	--build-arg BINARY="$$(echo binaries/*linux_armv6.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-armv6-rpi \
@@ -60,6 +59,7 @@ dockerhub:
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/arm/v7 \
 	--build-arg BINARY="$$(echo binaries/*linux_armv7.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-armv7 \
@@ -67,6 +67,7 @@ dockerhub:
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_32" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/arm/v7 \
 	--build-arg BINARY="$$(echo binaries/*linux_armv7.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-armv7-rpi \
@@ -74,6 +75,7 @@ dockerhub:
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/arm64/v8 \
 	--build-arg BINARY="$$(echo binaries/*linux_arm64v8.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-arm64v8 \
@@ -81,6 +83,7 @@ dockerhub:
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_64" | docker buildx build . -f - \
+	--provenance=false \
 	--platform=linux/arm64/v8 \
 	--build-arg BINARY="$$(echo binaries/*linux_arm64v8.tar.gz)" \
 	-t aler9/rtsp-simple-server:$(VERSION)-arm64v8-rpi \
