@@ -507,7 +507,7 @@ outer:
 	defer res.stream.readerRemove(c)
 
 	c.log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), sourceMediaInfo(gatherMedias(tracks)))
+		path.name, sourceMediaInfo(gatherMedias(tracks)))
 
 	go func() {
 		for {

@@ -4,7 +4,6 @@
 package rpicamera
 
 import (
-	"encoding/binary"
 	"syscall"
 )
 
@@ -51,14 +50,14 @@ func (p *pipe) close() {
 }
 
 func (p *pipe) read() ([]byte, error) {
-	sizebuf := make([]byte, 4)
-	err := syscallReadAll(p.readFD, sizebuf)
+	buf := make([]byte, 4)
+	err := syscallReadAll(p.readFD, buf)
 	if err != nil {
 		return nil, err
 	}
 
-	size := int(binary.LittleEndian.Uint32(sizebuf))
-	buf := make([]byte, size)
+	le := int(buf[3])<<24 | int(buf[2])<<16 | int(buf[1])<<8 | int(buf[0])
+	buf = make([]byte, le)
 
 	err = syscallReadAll(p.readFD, buf)
 	if err != nil {
@@ -66,4 +65,15 @@ func (p *pipe) read() ([]byte, error) {
 	}
 
 	return buf, nil
+}
+
+func (p *pipe) write(byts []byte) error {
+	le := len(byts)
+	_, err := syscall.Write(p.writeFD, []byte{byte(le), byte(le >> 8), byte(le >> 16), byte(le >> 24)})
+	if err != nil {
+		return err
+	}
+
+	_, err = syscall.Write(p.writeFD, byts)
+	return err
 }

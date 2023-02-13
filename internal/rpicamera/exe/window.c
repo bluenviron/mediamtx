@@ -3,7 +3,7 @@
 
 #include "window.h"
 
-bool window_load(const char *encoded, window_t **mode) {
+bool window_load(const char *encoded, window_t *window) {
     float vals[4];
     int i = 0;
     char *token = strtok((char *)encoded, ",");
@@ -21,10 +21,10 @@ bool window_load(const char *encoded, window_t **mode) {
         return false;
     }
 
-    *mode = malloc(sizeof(window_t));
-    (*mode)->x = vals[0];
-    (*mode)->y = vals[1];
-    (*mode)->width = vals[2];
-    (*mode)->height = vals[3];
+    window->x = vals[0];
+    window->y = vals[1];
+    window->width = vals[2];
+    window->height = vals[3];
+
     return true;
 }

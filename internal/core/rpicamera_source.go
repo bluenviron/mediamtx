@@ -7,10 +7,45 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rpicamera"
 )
+
+func paramsFromConf(cnf *conf.PathConf) rpicamera.Params {
+	return rpicamera.Params{
+		CameraID:     cnf.RPICameraCamID,
+		Width:        cnf.RPICameraWidth,
+		Height:       cnf.RPICameraHeight,
+		HFlip:        cnf.RPICameraHFlip,
+		VFlip:        cnf.RPICameraVFlip,
+		Brightness:   cnf.RPICameraBrightness,
+		Contrast:     cnf.RPICameraContrast,
+		Saturation:   cnf.RPICameraSaturation,
+		Sharpness:    cnf.RPICameraSharpness,
+		Exposure:     cnf.RPICameraExposure,
+		AWB:          cnf.RPICameraAWB,
+		Denoise:      cnf.RPICameraDenoise,
+		Shutter:      cnf.RPICameraShutter,
+		Metering:     cnf.RPICameraMetering,
+		Gain:         cnf.RPICameraGain,
+		EV:           cnf.RPICameraEV,
+		ROI:          cnf.RPICameraROI,
+		TuningFile:   cnf.RPICameraTuningFile,
+		Mode:         cnf.RPICameraMode,
+		FPS:          cnf.RPICameraFPS,
+		IDRPeriod:    cnf.RPICameraIDRPeriod,
+		Bitrate:      cnf.RPICameraBitrate,
+		Profile:      cnf.RPICameraProfile,
+		Level:        cnf.RPICameraLevel,
+		AfMode:       cnf.RPICameraAfMode,
+		AfRange:      cnf.RPICameraAfRange,
+		AfSpeed:      cnf.RPICameraAfSpeed,
+		LensPosition: cnf.RPICameraLensPosition,
+		AfWindow:     cnf.RPICameraAfWindow,
+	}
+}
 
 type rpiCameraSourceParent interface {
 	log(logger.Level, string, ...interface{})
@@ -19,16 +54,13 @@ type rpiCameraSourceParent interface {
 }
 
 type rpiCameraSource struct {
-	params rpicamera.Params
 	parent rpiCameraSourceParent
 }
 
 func newRPICameraSource(
-	params rpicamera.Params,
 	parent rpiCameraSourceParent,
 ) *rpiCameraSource {
 	return &rpiCameraSource{
-		params: params,
 		parent: parent,
 	}
 }
@@ -38,7 +70,7 @@ func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interfa
 }
 
 // run implements sourceStaticImpl.
-func (s *rpiCameraSource) run(ctx context.Context) error {
+func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
 	medi := &media.Media{
 		Type: media.TypeVideo,
 		Formats: []format.Format{&format.H264{
@@ -73,7 +105,7 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 		}
 	}
 
-	cam, err := rpicamera.New(s.params, onData)
+	cam, err := rpicamera.New(paramsFromConf(cnf), onData)
 	if err != nil {
 		return err
 	}
@@ -85,8 +117,15 @@ func (s *rpiCameraSource) run(ctx context.Context) error {
 		}
 	}()
 
-	<-ctx.Done()
-	return nil
+	for {
+		select {
+		case cnf := <-reloadConf:
+			cam.ReloadParams(paramsFromConf(cnf))
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
 }
 
 // apiSourceDescribe implements sourceStaticImpl.

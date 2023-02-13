@@ -7,6 +7,7 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 
+	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
@@ -19,20 +20,14 @@ type hlsSourceParent interface {
 }
 
 type hlsSource struct {
-	ur          string
-	fingerprint string
-	parent      hlsSourceParent
+	parent hlsSourceParent
 }
 
 func newHLSSource(
-	ur string,
-	fingerprint string,
 	parent hlsSourceParent,
 ) *hlsSource {
 	return &hlsSource{
-		ur:          ur,
-		fingerprint: fingerprint,
-		parent:      parent,
+		parent: parent,
 	}
 }
 
@@ -41,7 +36,7 @@ func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) 
 }
 
 // run implements sourceStaticImpl.
-func (s *hlsSource) run(ctx context.Context) error {
+func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
 	var stream *stream
 
 	defer func() {
@@ -51,8 +46,8 @@ func (s *hlsSource) run(ctx context.Context) error {
 	}()
 
 	c, err := hls.NewClient(
-		s.ur,
-		s.fingerprint,
+		cnf.Source,
+		cnf.SourceFingerprint,
 		s,
 	)
 	if err != nil {
@@ -137,14 +132,18 @@ func (s *hlsSource) run(ctx context.Context) error {
 
 	c.Start()
 
-	select {
-	case err := <-c.Wait():
-		return err
+	for {
+		select {
+		case err := <-c.Wait():
+			return err
 
-	case <-ctx.Done():
-		c.Close()
-		<-c.Wait()
-		return nil
+		case <-reloadConf:
+
+		case <-ctx.Done():
+			c.Close()
+			<-c.Wait()
+			return nil
+		}
 	}
 }
 

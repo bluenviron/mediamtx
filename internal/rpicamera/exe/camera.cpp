@@ -3,6 +3,7 @@
 #include <cstring>
 #include <sys/mman.h>
 #include <iostream>
+#include <mutex>
 
 #include <libcamera/camera_manager.h>
 #include <libcamera/camera.h>
@@ -71,13 +72,15 @@ static PixelFormat mode_to_pixel_format(sensor_mode_t *mode) {
 }
 
 struct CameraPriv {
-    parameters_t *params;
+    const parameters_t *params;
     camera_frame_cb frame_cb;
     std::unique_ptr<CameraManager> camera_manager;
     std::shared_ptr<Camera> camera;
     Stream *video_stream;
     std::unique_ptr<FrameBufferAllocator> allocator;
     std::vector<std::unique_ptr<Request>> requests;
+    std::mutex ctrls_mutex;
+    std::unique_ptr<ControlList> ctrls;
 };
 
 static int get_v4l2_colorspace(std::optional<ColorSpace> const &cs) {
@@ -87,7 +90,7 @@ static int get_v4l2_colorspace(std::optional<ColorSpace> const &cs) {
     return V4L2_COLORSPACE_SMPTE170M;
 }
 
-bool camera_create(parameters_t *params, camera_frame_cb frame_cb, camera_t **cam) {
+bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_t **cam) {
     // We make sure to set the environment variable before libcamera init
     setenv("LIBCAMERA_RPI_TUNING_FILE", params->tuning_file, 1);
 
@@ -223,6 +226,13 @@ static void on_request_complete(Request *request) {
     camp->frame_cb(buffer->planes()[0].fd.get(), size, ts);
 
     request->reuse(Request::ReuseFlag::ReuseBuffers);
+
+    {
+        std::lock_guard<std::mutex> lock(camp->ctrls_mutex);
+        request->controls() = *camp->ctrls;
+        camp->ctrls->clear();
+    }
+
     camp->camera->queueRequest(request);
 }
 
@@ -236,81 +246,126 @@ int camera_get_mode_colorspace(camera_t *cam) {
     return get_v4l2_colorspace(camp->video_stream->configuration().colorSpace);
 }
 
-bool camera_start(camera_t *cam) {
-    CameraPriv *camp = (CameraPriv *)cam;
-
-    ControlList ctrls = ControlList(controls::controls);
-
-    ctrls.set(controls::Brightness, camp->params->brightness);
-    ctrls.set(controls::Contrast, camp->params->contrast);
-    ctrls.set(controls::Saturation, camp->params->saturation);
-    ctrls.set(controls::Sharpness, camp->params->sharpness);
+static void fill_dynamic_controls(ControlList *ctrls, const parameters_t *params) {
+    ctrls->set(controls::Brightness, params->brightness);
+    ctrls->set(controls::Contrast, params->contrast);
+    ctrls->set(controls::Saturation, params->saturation);
+    ctrls->set(controls::Sharpness, params->sharpness);
 
     int exposure_mode;
-    if (strcmp(camp->params->exposure, "short") == 0) {
+    if (strcmp(params->exposure, "short") == 0) {
         exposure_mode = controls::ExposureShort;
-    } else if (strcmp(camp->params->exposure, "long") == 0) {
+    } else if (strcmp(params->exposure, "long") == 0) {
         exposure_mode = controls::ExposureLong;
-    } else if (strcmp(camp->params->exposure, "custom") == 0) {
+    } else if (strcmp(params->exposure, "custom") == 0) {
         exposure_mode = controls::ExposureCustom;
     } else {
         exposure_mode = controls::ExposureNormal;
     }
-    ctrls.set(controls::AeExposureMode, exposure_mode);
+    ctrls->set(controls::AeExposureMode, exposure_mode);
 
     int awb_mode;
-    if (strcmp(camp->params->awb, "incandescent") == 0) {
+    if (strcmp(params->awb, "incandescent") == 0) {
         awb_mode = controls::AwbIncandescent;
-    } else if (strcmp(camp->params->awb, "tungsten") == 0) {
+    } else if (strcmp(params->awb, "tungsten") == 0) {
         awb_mode = controls::AwbTungsten;
-    } else if (strcmp(camp->params->awb, "fluorescent") == 0) {
+    } else if (strcmp(params->awb, "fluorescent") == 0) {
         awb_mode = controls::AwbFluorescent;
-    } else if (strcmp(camp->params->awb, "indoor") == 0) {
+    } else if (strcmp(params->awb, "indoor") == 0) {
         awb_mode = controls::AwbIndoor;
-    } else if (strcmp(camp->params->awb, "daylight") == 0) {
+    } else if (strcmp(params->awb, "daylight") == 0) {
         awb_mode = controls::AwbDaylight;
-    } else if (strcmp(camp->params->awb, "cloudy") == 0) {
+    } else if (strcmp(params->awb, "cloudy") == 0) {
         awb_mode = controls::AwbCloudy;
-    } else if (strcmp(camp->params->awb, "custom") == 0) {
+    } else if (strcmp(params->awb, "custom") == 0) {
         awb_mode = controls::AwbCustom;
     } else {
         awb_mode = controls::AwbAuto;
     }
-    ctrls.set(controls::AwbMode, awb_mode);
+    ctrls->set(controls::AwbMode, awb_mode);
 
     int denoise_mode;
-    if (strcmp(camp->params->denoise, "cdn_off") == 0) {
+    if (strcmp(params->denoise, "cdn_off") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeMinimal;
-    } else if (strcmp(camp->params->denoise, "cdn_hq") == 0) {
+    } else if (strcmp(params->denoise, "cdn_hq") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeHighQuality;
-    } else if (strcmp(camp->params->denoise, "cdn_fast") == 0) {
+    } else if (strcmp(params->denoise, "cdn_fast") == 0) {
         denoise_mode = controls::draft::NoiseReductionModeFast;
     } else {
         denoise_mode = controls::draft::NoiseReductionModeOff;
     }
-    ctrls.set(controls::draft::NoiseReductionMode, denoise_mode);
-
-    if (camp->params->shutter != 0) {
-        ctrls.set(controls::ExposureTime, camp->params->shutter);
-    }
+    ctrls->set(controls::draft::NoiseReductionMode, denoise_mode);
 
     int metering_mode;
-    if (strcmp(camp->params->metering, "spot") == 0) {
+    if (strcmp(params->metering, "spot") == 0) {
         metering_mode = controls::MeteringSpot;
-    } else if (strcmp(camp->params->metering, "matrix") == 0) {
+    } else if (strcmp(params->metering, "matrix") == 0) {
         metering_mode = controls::MeteringMatrix;
-    } else if (strcmp(camp->params->metering, "custom") == 0) {
+    } else if (strcmp(params->metering, "custom") == 0) {
         metering_mode = controls::MeteringCustom;
     } else {
         metering_mode = controls::MeteringCentreWeighted;
     }
-    ctrls.set(controls::AeMeteringMode, metering_mode);
+    ctrls->set(controls::AeMeteringMode, metering_mode);
 
-    if (camp->params->gain > 0) {
-        ctrls.set(controls::AnalogueGain, camp->params->gain);
+    ctrls->set(controls::ExposureValue, params->ev);
+
+    int64_t frame_time = 1000000 / params->fps;
+    ctrls->set(controls::FrameDurationLimits, Span<const int64_t, 2>({ frame_time, frame_time }));
+}
+
+bool camera_start(camera_t *cam) {
+    CameraPriv *camp = (CameraPriv *)cam;
+
+    camp->ctrls = std::make_unique<ControlList>(controls::controls);
+
+    fill_dynamic_controls(camp->ctrls.get(), camp->params);
+
+    if (camp->params->shutter != 0) {
+        camp->ctrls->set(controls::ExposureTime, camp->params->shutter);
     }
 
-    ctrls.set(controls::ExposureValue, camp->params->ev);
+    if (camp->params->gain > 0) {
+        camp->ctrls->set(controls::AnalogueGain, camp->params->gain);
+    }
+
+    if (camp->camera->controls().count(&controls::AfMode) > 0) {
+        int af_mode;
+        if (strcmp(camp->params->af_mode, "manual") == 0) {
+            af_mode = controls::AfModeManual;
+        } else if (strcmp(camp->params->af_mode, "continuous") == 0) {
+            af_mode = controls::AfModeContinuous;
+        } else {
+            af_mode = controls::AfModeAuto;
+        }
+        camp->ctrls->set(controls::AfMode, af_mode);
+
+        if (af_mode == controls::AfModeManual) {
+            camp->ctrls->set(controls::LensPosition, camp->params->lens_position);
+        }
+    }
+
+    if (camp->camera->controls().count(&controls::AfRange) > 0) {
+        int af_range;
+        if (strcmp(camp->params->af_range, "macro") == 0) {
+            af_range = controls::AfRangeMacro;
+        } else if (strcmp(camp->params->af_range, "full") == 0) {
+            af_range = controls::AfRangeFull;
+        } else {
+            af_range = controls::AfRangeNormal;
+        }
+        camp->ctrls->set(controls::AfRange, af_range);
+    }
+
+    if (camp->camera->controls().count(&controls::AfSpeed) > 0) {
+        int af_speed;
+        if (strcmp(camp->params->af_range, "fast") == 0) {
+            af_speed = controls::AfSpeedFast;
+        } else {
+            af_speed = controls::AfSpeedNormal;
+        }
+        camp->ctrls->set(controls::AfSpeed, af_speed);
+    }
 
     if (camp->params->roi != NULL) {
         std::optional<Rectangle> opt = camp->camera->properties().get(properties::ScalerCropMaximum);
@@ -328,51 +383,9 @@ bool camera_start(camera_t *cam) {
             camp->params->roi->width * sensor_area.width,
             camp->params->roi->height * sensor_area.height);
         crop.translateBy(sensor_area.topLeft());
-        ctrls.set(controls::ScalerCrop, crop);
+        camp->ctrls->set(controls::ScalerCrop, crop);
     }
 
-    int64_t frame_time = 1000000 / camp->params->fps;
-    ctrls.set(controls::FrameDurationLimits, Span<const int64_t, 2>({ frame_time, frame_time }));
-
-    int af_mode;
-    if (strcmp(camp->params->af_mode, "manual") == 0) {
-        af_mode = controls::AfModeManual;
-    } else if (strcmp(camp->params->af_mode, "auto") == 0) {
-        af_mode = controls::AfModeAuto;
-    } else if (strcmp(camp->params->af_mode, "continuous") == 0) {
-        af_mode = controls::AfModeContinuous;
-    } else {
-        af_mode = controls::AfModeManual;
-    }
-    ctrls.set(controls::AfMode, af_mode);
-
-    int af_range;
-    if (strcmp(camp->params->af_range, "normal") == 0) {
-        af_range = controls::AfRangeNormal;
-    } else if (strcmp(camp->params->af_range, "macro") == 0) {
-        af_range = controls::AfRangeMacro;
-    } else if (strcmp(camp->params->af_range, "full") == 0) {
-        af_range = controls::AfRangeFull;
-    } else {
-        af_range = controls::AfRangeNormal;
-    }
-    ctrls.set(controls::AfRange, af_range);
-
-    int af_speed;
-    if (strcmp(camp->params->af_range, "normal") == 0) {
-        af_speed = controls::AfSpeedNormal;
-    } else if (strcmp(camp->params->af_range, "fast") == 0) {
-        af_speed = controls::AfSpeedFast;
-    } else {
-        af_speed = controls::AfSpeedNormal;
-    }
-    ctrls.set(controls::AfSpeed, af_speed);
-
-
-    // Lens Position
-    ctrls.set(controls::LensPosition, camp->params->lens_position);
-
-    // Af Window
     if (camp->params->af_window != NULL) {
         std::optional<Rectangle> opt = camp->camera->properties().get(properties::ScalerCropMaximum);
         Rectangle sensor_area;
@@ -385,25 +398,24 @@ bool camera_start(camera_t *cam) {
 
         Rectangle afwindows_rectangle[1];
 
-        afwindows_rectangle[0] = Rectangle (
-                camp->params->af_window->x * sensor_area.width,
-                camp->params->af_window->y * sensor_area.height,
-                camp->params->af_window->width * sensor_area.width,
-                camp->params->af_window->height * sensor_area.height);
+        afwindows_rectangle[0] = Rectangle(
+            camp->params->af_window->x * sensor_area.width,
+            camp->params->af_window->y * sensor_area.height,
+            camp->params->af_window->width * sensor_area.width,
+            camp->params->af_window->height * sensor_area.height);
 
-         afwindows_rectangle[0].translateBy(sensor_area.topLeft());
-        //activate the AfMeteringWindows
-        ctrls.set(controls::AfMetering, controls::AfMeteringWindows);
-        //set window
-        ctrls.set(controls::AfWindows, afwindows_rectangle);
+        afwindows_rectangle[0].translateBy(sensor_area.topLeft());
+        camp->ctrls->set(controls::AfMetering, controls::AfMeteringWindows);
+        camp->ctrls->set(controls::AfWindows, afwindows_rectangle);
     }
 
-
-    int res = camp->camera->start(&ctrls);
+    int res = camp->camera->start(camp->ctrls.get());
     if (res != 0) {
         set_error("Camera.start() failed");
         return false;
     }
+
+    camp->ctrls->clear();
 
     camp->camera->requestCompleted.connect(on_request_complete);
 
@@ -416,4 +428,11 @@ bool camera_start(camera_t *cam) {
     }
 
     return true;
+}
+
+void camera_reload_params(camera_t *cam, const parameters_t *params) {
+    CameraPriv *camp = (CameraPriv *)cam;
+
+    std::lock_guard<std::mutex> lock(camp->ctrls_mutex);
+    fill_dynamic_controls(camp->ctrls.get(), params);
 }

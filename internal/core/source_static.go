@@ -8,7 +8,6 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rpicamera"
 )
 
 const (
@@ -17,7 +16,7 @@ const (
 
 type sourceStaticImpl interface {
 	Log(logger.Level, string, ...interface{})
-	run(context.Context) error
+	run(context.Context, *conf.PathConf, chan *conf.PathConf) error
 	apiSourceDescribe() interface{}
 }
 
@@ -29,6 +28,7 @@ type sourceStaticParent interface {
 
 // sourceStatic is a static source.
 type sourceStatic struct {
+	conf   *conf.PathConf
 	parent sourceStaticParent
 
 	ctx       context.Context
@@ -36,86 +36,53 @@ type sourceStatic struct {
 	impl      sourceStaticImpl
 	running   bool
 
-	done                          chan struct{}
+	// in
+	chReloadConf                  chan *conf.PathConf
 	chSourceStaticImplSetReady    chan pathSourceStaticSetReadyReq
 	chSourceStaticImplSetNotReady chan pathSourceStaticSetNotReadyReq
+
+	// out
+	done chan struct{}
 }
 
 func newSourceStatic(
-	conf *conf.PathConf,
+	cnf *conf.PathConf,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	parent sourceStaticParent,
 ) *sourceStatic {
 	s := &sourceStatic{
+		conf:                          cnf,
 		parent:                        parent,
+		chReloadConf:                  make(chan *conf.PathConf),
 		chSourceStaticImplSetReady:    make(chan pathSourceStaticSetReadyReq),
 		chSourceStaticImplSetNotReady: make(chan pathSourceStaticSetNotReadyReq),
 	}
 
 	switch {
-	case strings.HasPrefix(conf.Source, "rtsp://") ||
-		strings.HasPrefix(conf.Source, "rtsps://"):
+	case strings.HasPrefix(cnf.Source, "rtsp://") ||
+		strings.HasPrefix(cnf.Source, "rtsps://"):
 		s.impl = newRTSPSource(
-			conf.Source,
-			conf.SourceProtocol,
-			conf.SourceAnyPortEnable,
-			conf.SourceFingerprint,
 			readTimeout,
 			writeTimeout,
 			readBufferCount,
 			s)
 
-	case strings.HasPrefix(conf.Source, "rtmp://") ||
-		strings.HasPrefix(conf.Source, "rtmps://"):
+	case strings.HasPrefix(cnf.Source, "rtmp://") ||
+		strings.HasPrefix(cnf.Source, "rtmps://"):
 		s.impl = newRTMPSource(
-			conf.Source,
-			conf.SourceFingerprint,
 			readTimeout,
 			writeTimeout,
 			s)
 
-	case strings.HasPrefix(conf.Source, "http://") ||
-		strings.HasPrefix(conf.Source, "https://"):
+	case strings.HasPrefix(cnf.Source, "http://") ||
+		strings.HasPrefix(cnf.Source, "https://"):
 		s.impl = newHLSSource(
-			conf.Source,
-			conf.SourceFingerprint,
 			s)
 
-	case conf.Source == "rpiCamera":
+	case cnf.Source == "rpiCamera":
 		s.impl = newRPICameraSource(
-			rpicamera.Params{
-				CameraID:     conf.RPICameraCamID,
-				Width:        conf.RPICameraWidth,
-				Height:       conf.RPICameraHeight,
-				HFlip:        conf.RPICameraHFlip,
-				VFlip:        conf.RPICameraVFlip,
-				Brightness:   conf.RPICameraBrightness,
-				Contrast:     conf.RPICameraContrast,
-				Saturation:   conf.RPICameraSaturation,
-				Sharpness:    conf.RPICameraSharpness,
-				Exposure:     conf.RPICameraExposure,
-				AWB:          conf.RPICameraAWB,
-				Denoise:      conf.RPICameraDenoise,
-				Shutter:      conf.RPICameraShutter,
-				Metering:     conf.RPICameraMetering,
-				Gain:         conf.RPICameraGain,
-				EV:           conf.RPICameraEV,
-				ROI:          conf.RPICameraROI,
-				TuningFile:   conf.RPICameraTuningFile,
-				Mode:         conf.RPICameraMode,
-				FPS:          conf.RPICameraFPS,
-				IDRPeriod:    conf.RPICameraIDRPeriod,
-				Bitrate:      conf.RPICameraBitrate,
-				Profile:      conf.RPICameraProfile,
-				Level:        conf.RPICameraLevel,
-				AfMode:       conf.RPICameraAfMode,
-				AfRange:      conf.RPICameraAfRange,
-				AfSpeed:      conf.RPICameraAfSpeed,
-				LensPosition: conf.RPICameraLensPosition,
-				AfWindow:     conf.RPICameraAfWindow,
-			},
 			s)
 	}
 
@@ -163,33 +130,43 @@ func (s *sourceStatic) log(level logger.Level, format string, args ...interface{
 func (s *sourceStatic) run() {
 	defer close(s.done)
 
-outer:
-	for {
-		s.runInner()
+	var innerCtx context.Context
+	var innerCtxCancel func()
+	implErr := make(chan error)
+	innerReloadConf := make(chan *conf.PathConf)
 
-		select {
-		case <-time.After(sourceStaticRetryPause):
-		case <-s.ctx.Done():
-			break outer
-		}
+	recreate := func() {
+		innerCtx, innerCtxCancel = context.WithCancel(context.Background())
+		go func() {
+			implErr <- s.impl.run(innerCtx, s.conf, innerReloadConf)
+		}()
 	}
 
-	s.ctxCancel()
-}
+	recreate()
 
-func (s *sourceStatic) runInner() {
-	innerCtx, innerCtxCancel := context.WithCancel(context.Background())
-	implErr := make(chan error)
-	go func() {
-		implErr <- s.impl.run(innerCtx)
-	}()
+	recreating := false
+	recreateTimer := newEmptyTimer()
 
 	for {
 		select {
 		case err := <-implErr:
 			innerCtxCancel()
 			s.impl.Log(logger.Info, "ERR: %v", err)
-			return
+			recreating = true
+			recreateTimer = time.NewTimer(sourceStaticRetryPause)
+
+		case newConf := <-s.chReloadConf:
+			s.conf = newConf
+			if !recreating {
+				cReloadConf := innerReloadConf
+				cInnerCtx := innerCtx
+				go func() {
+					select {
+					case cReloadConf <- newConf:
+					case <-cInnerCtx.Done():
+					}
+				}()
+			}
 
 		case req := <-s.chSourceStaticImplSetReady:
 			s.parent.sourceStaticSetReady(s.ctx, req)
@@ -197,11 +174,24 @@ func (s *sourceStatic) runInner() {
 		case req := <-s.chSourceStaticImplSetNotReady:
 			s.parent.sourceStaticSetNotReady(s.ctx, req)
 
+		case <-recreateTimer.C:
+			recreate()
+			recreating = false
+
 		case <-s.ctx.Done():
-			innerCtxCancel()
-			<-implErr
+			if !recreating {
+				innerCtxCancel()
+				<-implErr
+			}
 			return
 		}
+	}
+}
+
+func (s *sourceStatic) reloadConf(newConf *conf.PathConf) {
+	select {
+	case s.chReloadConf <- newConf:
+	case <-s.ctx.Done():
 	}
 }
 

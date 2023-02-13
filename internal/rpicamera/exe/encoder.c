@@ -33,7 +33,7 @@ const char *encoder_get_error() {
 }
 
 typedef struct {
-    parameters_t *params;
+    const parameters_t *params;
     int fd;
     void **capture_buffers;
     int cur_buffer;
@@ -112,7 +112,7 @@ static void *output_thread(void *userdata) {
     return NULL;
 }
 
-bool encoder_create(parameters_t *params, int stride, int colorspace, encoder_output_cb output_cb, encoder_t **enc) {
+bool encoder_create(const parameters_t *params, int stride, int colorspace, encoder_output_cb output_cb, encoder_t **enc) {
     *enc = malloc(sizeof(encoder_priv_t));
     encoder_priv_t *encp = (encoder_priv_t *)(*enc);
 

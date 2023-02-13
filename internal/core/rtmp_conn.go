@@ -422,14 +422,16 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	defer res.stream.readerRemove(c)
 
 	c.log(logger.Info, "is reading from path '%s', %s",
-		path.Name(), sourceMediaInfo(medias))
+		path.name, sourceMediaInfo(medias))
 
-	if path.Conf().RunOnRead != "" {
+	pathConf := path.safeConf()
+
+	if pathConf.RunOnRead != "" {
 		c.log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
 			c.externalCmdPool,
-			path.Conf().RunOnRead,
-			path.Conf().RunOnReadRestart,
+			pathConf.RunOnRead,
+			pathConf.RunOnReadRestart,
 			path.externalCmdEnv(),
 			func(co int) {
 				c.log(logger.Info, "runOnRead command exited with code %d", co)
@@ -530,7 +532,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	}
 
 	c.log(logger.Info, "is publishing to path '%s', %s",
-		path.Name(),
+		path.name,
 		sourceMediaInfo(medias))
 
 	// disable write deadline to allow outgoing acknowledges

@@ -23,3 +23,7 @@ func New(
 // Close closes a RPICamera.
 func (c *RPICamera) Close() {
 }
+
+// ReloadParams reloads the camera parameters.
+func (c *RPICamera) ReloadParams(params Params) {
+}

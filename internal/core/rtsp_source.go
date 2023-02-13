@@ -27,10 +27,6 @@ type rtspSourceParent interface {
 }
 
 type rtspSource struct {
-	ur              string
-	proto           conf.SourceProtocol
-	anyPortEnable   bool
-	fingerprint     string
 	readTimeout     conf.StringDuration
 	writeTimeout    conf.StringDuration
 	readBufferCount int
@@ -38,20 +34,12 @@ type rtspSource struct {
 }
 
 func newRTSPSource(
-	ur string,
-	proto conf.SourceProtocol,
-	anyPortEnable bool,
-	fingerprint string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	parent rtspSourceParent,
 ) *rtspSource {
 	return &rtspSource{
-		ur:              ur,
-		proto:           proto,
-		anyPortEnable:   anyPortEnable,
-		fingerprint:     fingerprint,
 		readTimeout:     readTimeout,
 		writeTimeout:    writeTimeout,
 		readBufferCount: readBufferCount,
@@ -64,18 +52,18 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 }
 
 // run implements sourceStaticImpl.
-func (s *rtspSource) run(ctx context.Context) error {
+func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
 	s.Log(logger.Debug, "connecting")
 
 	var tlsConfig *tls.Config
-	if s.fingerprint != "" {
+	if cnf.SourceFingerprint != "" {
 		tlsConfig = &tls.Config{
 			InsecureSkipVerify: true,
 			VerifyConnection: func(cs tls.ConnectionState) error {
 				h := sha256.New()
 				h.Write(cs.PeerCertificates[0].Raw)
 				hstr := hex.EncodeToString(h.Sum(nil))
-				fingerprintLower := strings.ToLower(s.fingerprint)
+				fingerprintLower := strings.ToLower(cnf.SourceFingerprint)
 
 				if hstr != fingerprintLower {
 					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
@@ -88,12 +76,12 @@ func (s *rtspSource) run(ctx context.Context) error {
 	}
 
 	c := &gortsplib.Client{
-		Transport:       s.proto.Transport,
+		Transport:       cnf.SourceProtocol.Transport,
 		TLSConfig:       tlsConfig,
 		ReadTimeout:     time.Duration(s.readTimeout),
 		WriteTimeout:    time.Duration(s.writeTimeout),
 		ReadBufferCount: s.readBufferCount,
-		AnyPortEnable:   s.anyPortEnable,
+		AnyPortEnable:   cnf.SourceAnyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "c->s %v", req)
 		},
@@ -105,7 +93,7 @@ func (s *rtspSource) run(ctx context.Context) error {
 		},
 	}
 
-	u, err := url.Parse(s.ur)
+	u, err := url.Parse(cnf.Source)
 	if err != nil {
 		return err
 	}
@@ -238,14 +226,18 @@ func (s *rtspSource) run(ctx context.Context) error {
 		}()
 	}()
 
-	select {
-	case err := <-readErr:
-		return err
+	for {
+		select {
+		case err := <-readErr:
+			return err
 
-	case <-ctx.Done():
-		c.Close()
-		<-readErr
-		return nil
+		case <-reloadConf:
+
+		case <-ctx.Done():
+			c.Close()
+			<-readErr
+			return nil
+		}
 	}
 }
 

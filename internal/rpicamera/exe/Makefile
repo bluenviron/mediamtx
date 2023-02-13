@@ -26,6 +26,7 @@ OBJS = \
 	encoder.o \
 	main.o \
 	parameters.o \
+	pipe.o \
 	window.o \
 	sensor_mode.o
 
