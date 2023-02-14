@@ -379,6 +379,7 @@ func (pm *pathManager) pathSourceNotReady(pa *path) {
 
 // onPathClose is called by path.
 func (pm *pathManager) onPathClose(pa *path) {
+	delete(pm.paths, pa.name)
 	select {
 	case pm.chPathClose <- pa:
 	case <-pm.ctx.Done():
