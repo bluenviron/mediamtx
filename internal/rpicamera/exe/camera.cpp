@@ -308,6 +308,8 @@ static void fill_dynamic_controls(ControlList *ctrls, const parameters_t *params
     }
     ctrls->set(controls::AeMeteringMode, metering_mode);
 
+    ctrls->set(controls::ExposureTime, params->shutter);
+
     ctrls->set(controls::ExposureValue, params->ev);
 
     int64_t frame_time = 1000000 / params->fps;
@@ -320,10 +322,6 @@ bool camera_start(camera_t *cam) {
     camp->ctrls = std::make_unique<ControlList>(controls::controls);
 
     fill_dynamic_controls(camp->ctrls.get(), camp->params);
-
-    if (camp->params->shutter != 0) {
-        camp->ctrls->set(controls::ExposureTime, camp->params->shutter);
-    }
 
     if (camp->params->gain > 0) {
         camp->ctrls->set(controls::AnalogueGain, camp->params->gain);
