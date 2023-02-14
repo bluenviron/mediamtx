@@ -510,6 +510,9 @@ func (pa *path) run() {
 		}
 	}()
 
+	// call before destroying context
+	pa.parent.onPathClose(pa)
+
 	pa.ctxCancel()
 
 	pa.onDemandStaticSourceReadyTimer.Stop()
@@ -548,8 +551,6 @@ func (pa *path) run() {
 	}
 
 	pa.log(logger.Debug, "destroyed (%v)", err)
-
-	pa.parent.onPathClose(pa)
 }
 
 func (pa *path) shouldClose() bool {

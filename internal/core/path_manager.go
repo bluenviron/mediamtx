@@ -364,7 +364,7 @@ func (pm *pathManager) pathSourceReady(pa *path) {
 	select {
 	case pm.chPathSourceReady <- pa:
 	case <-pm.ctx.Done():
-	case <-pa.ctx.Done(): // in case pathManager is closing the path
+	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}
 }
 
@@ -373,7 +373,7 @@ func (pm *pathManager) pathSourceNotReady(pa *path) {
 	select {
 	case pm.chPathSourceNotReady <- pa:
 	case <-pm.ctx.Done():
-	case <-pa.ctx.Done(): // in case pathManager is closing the path
+	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}
 }
 
@@ -382,7 +382,7 @@ func (pm *pathManager) onPathClose(pa *path) {
 	select {
 	case pm.chPathClose <- pa:
 	case <-pm.ctx.Done():
-	case <-pa.ctx.Done(): // in case pathManager is closing the path
+	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}
 }
 
