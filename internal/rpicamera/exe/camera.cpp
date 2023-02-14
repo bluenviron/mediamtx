@@ -296,6 +296,8 @@ static void fill_dynamic_controls(ControlList *ctrls, const parameters_t *params
     }
     ctrls->set(controls::draft::NoiseReductionMode, denoise_mode);
 
+    ctrls->set(controls::ExposureTime, params->shutter);
+
     int metering_mode;
     if (strcmp(params->metering, "spot") == 0) {
         metering_mode = controls::MeteringSpot;
@@ -308,7 +310,7 @@ static void fill_dynamic_controls(ControlList *ctrls, const parameters_t *params
     }
     ctrls->set(controls::AeMeteringMode, metering_mode);
 
-    ctrls->set(controls::ExposureTime, params->shutter);
+    ctrls->set(controls::AnalogueGain, params->gain);
 
     ctrls->set(controls::ExposureValue, params->ev);
 
@@ -322,10 +324,6 @@ bool camera_start(camera_t *cam) {
     camp->ctrls = std::make_unique<ControlList>(controls::controls);
 
     fill_dynamic_controls(camp->ctrls.get(), camp->params);
-
-    if (camp->params->gain > 0) {
-        camp->ctrls->set(controls::AnalogueGain, camp->params->gain);
-    }
 
     if (camp->camera->controls().count(&controls::AfMode) > 0) {
         int af_mode;

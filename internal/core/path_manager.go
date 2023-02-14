@@ -21,8 +21,9 @@ func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf
 	copy.RPICameraExposure = newPathConf.RPICameraExposure
 	copy.RPICameraAWB = newPathConf.RPICameraAWB
 	copy.RPICameraDenoise = newPathConf.RPICameraDenoise
-	copy.RPICameraMetering = newPathConf.RPICameraMetering
 	copy.RPICameraShutter = newPathConf.RPICameraShutter
+	copy.RPICameraMetering = newPathConf.RPICameraMetering
+	copy.RPICameraGain = newPathConf.RPICameraGain
 	copy.RPICameraEV = newPathConf.RPICameraEV
 	copy.RPICameraFPS = newPathConf.RPICameraFPS
 
