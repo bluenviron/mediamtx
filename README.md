@@ -1,36 +1,37 @@
-
 <p align="center">
     <img src="logo.png" alt="rtsp-simple-server">
 </p>
 
-_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
+_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy
+live video and audio streams.
 
 Live streams can be published to the server with:
 
-|protocol|variants|codecs|
-|--------|--------|------|
-|RTSP clients (FFmpeg, GStreamer, etc)|UDP, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
-|RTSP servers and cameras|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
-|RTMP clients (OBS Studio)|RTMP, RTMPS|H264, H265, MPEG4 Audio (AAC)|
-|RTMP servers and cameras|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
-|HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, H265, MPEG4 Audio (AAC), Opus|
-|Raspberry Pi Cameras||H264|
+| protocol                              | variants                                   | codecs                                                                                                                |
+|---------------------------------------|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| RTSP clients (FFmpeg, GStreamer, etc) | UDP, TCP, RTSPS                            | H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec |
+| RTSP servers and cameras              | UDP, UDP-Multicast, TCP, RTSPS             | H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec |
+| RTMP clients (OBS Studio)             | RTMP, RTMPS                                | H264, H265, MPEG4 Audio (AAC)                                                                                         |
+| RTMP servers and cameras              | RTMP, RTMPS                                | H264, MPEG4 Audio (AAC)                                                                                               |
+| HLS servers and cameras               | Low-Latency HLS, MP4-based HLS, legacy HLS | H264, H265, MPEG4 Audio (AAC), Opus                                                                                   |
+| Raspberry Pi Cameras                  || H264                                       |
 
 And can be read from the server with:
 
-|protocol|variants|codecs|
-|--------|--------|------|
-|RTSP|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
-|RTMP|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
-|HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, H265, MPEG4 Audio (AAC), Opus|
-|WebRTC||H264, VP8, VP9, Opus, G711, G722|
+| protocol | variants                                   | codecs                                                                                                                |
+|----------|--------------------------------------------|-----------------------------------------------------------------------------------------------------------------------|
+| RTSP     | UDP, UDP-Multicast, TCP, RTSPS             | H264, H265, VP8, VP9, AV1, MPEG2, M-JPEG, MP3, MPEG4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec |
+| RTMP     | RTMP, RTMPS                                | H264, MPEG4 Audio (AAC)                                                                                               |
+| HLS      | Low-Latency HLS, MP4-based HLS, legacy HLS | H264, H265, MPEG4 Audio (AAC), Opus                                                                                   |
+| WebRTC   || H264, VP8, VP9, Opus, G711, G722           |
 
 Features:
 
 * Publish live streams to the server
 * Read live streams from the server
 * Proxy streams from other servers or cameras, always or on-demand
-* Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
+* Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with
+  RTSP and read it with HLS
 * Serve multiple streams at once in separate paths
 * Authenticate users; use internal or external authentication
 * Redirect readers to other RTSP servers (load balancing)
@@ -51,54 +52,56 @@ Features:
 ## Table of contents
 
 * [Installation](#installation)
-  * [Standard](#standard)
-  * [Docker](#docker)
-  * [OpenWRT](#openwrt)
+    * [Standard](#standard)
+    * [Docker](#docker)
+    * [OpenWRT](#openwrt)
 * [Basic usage](#basic-usage)
 * [General](#general)
-  * [Configuration](#configuration)
-  * [Authentication](#authentication)
-  * [Encrypt the configuration](#encrypt-the-configuration)
-  * [Proxy mode](#proxy-mode)
-  * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
-  * [Save streams to disk](#save-streams-to-disk)
-  * [On-demand publishing](#on-demand-publishing)
-  * [Start on boot](#start-on-boot)
-    * [Linux](#linux)
-    * [Windows](#windows)
-  * [HTTP API](#http-api)
-  * [Metrics](#metrics)
-  * [pprof](#pprof)
-  * [Compile from source](#compile-from-source)
+    * [Configuration](#configuration)
+    * [Authentication](#authentication)
+    * [Encrypt the configuration](#encrypt-the-configuration)
+    * [Proxy mode](#proxy-mode)
+    * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
+    * [Save streams to disk](#save-streams-to-disk)
+    * [On-demand publishing](#on-demand-publishing)
+    * [Start on boot](#start-on-boot)
+        * [Linux](#linux)
+        * [Windows](#windows)
+    * [HTTP API](#http-api)
+    * [Metrics](#metrics)
+    * [pprof](#pprof)
+    * [Compile from source](#compile-from-source)
 * [Publish to the server](#publish-to-the-server)
-  * [From a webcam](#from-a-webcam)
-  * [From a Raspberry Pi Camera](#from-a-raspberry-pi-camera)
-  * [From OBS Studio](#from-obs-studio)
-  * [From OpenCV](#from-opencv)
+    * [From a webcam](#from-a-webcam)
+    * [From a Raspberry Pi Camera](#from-a-raspberry-pi-camera)
+    * [From OBS Studio](#from-obs-studio)
+    * [From OpenCV](#from-opencv)
 * [Read from the server](#read-from-the-server)
-  * [From VLC and Ubuntu](#from-vlc-and-ubuntu)
+    * [From VLC and Ubuntu](#from-vlc-and-ubuntu)
 * [RTSP protocol](#rtsp-protocol)
-  * [General usage](#general-usage)
-  * [TCP transport](#tcp-transport)
-  * [UDP-multicast transport](#udp-multicast-transport)
-  * [Encryption](#encryption)
-  * [Redirect to another server](#redirect-to-another-server)
-  * [Fallback stream](#fallback-stream)
-  * [Corrupted frames](#corrupted-frames)
-  * [Decrease latency](#decrease-latency)
+    * [General usage](#general-usage)
+    * [TCP transport](#tcp-transport)
+    * [UDP-multicast transport](#udp-multicast-transport)
+    * [Encryption](#encryption)
+    * [Redirect to another server](#redirect-to-another-server)
+    * [Fallback stream](#fallback-stream)
+    * [Corrupted frames](#corrupted-frames)
+    * [Decrease latency](#decrease-latency)
 * [RTMP protocol](#rtmp-protocol)
-  * [General usage](#general-usage-1)
-  * [Encryption](#encryption-1)
+    * [General usage](#general-usage-1)
+    * [Encryption](#encryption-1)
 * [HLS protocol](#hls-protocol)
-  * [General usage](#general-usage-2)
-  * [Browser support](#browser-support)
-  * [Embedding](#embedding)
-  * [Low-Latency variant](#low-latency-variant)
-  * [Decrease latency](#decrease-latency-1)
+    * [General usage](#general-usage-2)
+    * [Browser support](#browser-support)
+    * [Embedding](#embedding)
+    * [Low-Latency variant](#low-latency-variant)
+    * [Decrease latency](#decrease-latency-1)
 * [WebRTC protocol](#webrtc-protocol)
-  * [General usage](#general-usage-3)
-  * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
-  * [Embedding](#embedding-1)
+    * [General usage](#general-usage-3)
+    * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
+    * [Embedding](#embedding-1)
+* [WebHook](#webhook)
+* [Redis Publish](#redis-publish)
 * [Standards](#standards)
 * [Links](#links)
 
@@ -106,7 +109,8 @@ Features:
 
 ### Standard
 
-1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/rtsp-simple-server/releases).
+1. Download and extract a precompiled binary from
+   the [release page](https://github.com/aler9/rtsp-simple-server/releases).
 
 2. Start the server:
 
@@ -122,17 +126,22 @@ Download and launch the image:
 docker run --rm -it --network=host aler9/rtsp-simple-server
 ```
 
-The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to find out the author of the packets. This issue can be avoided by disabling the UDP transport protocol:
+The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and
+this doesn't allow the server to find out the author of the packets. This issue can be avoided by disabling the UDP
+transport protocol:
 
 ```
 docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
 ```
 
-Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
+Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command
+or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following
+instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
 
 ### OpenWRT
 
-1. In a x86 Linux system, download the OpenWRT SDK corresponding to the wanted OpenWRT version and target from the [OpenWRT website](https://downloads.openwrt.org/releases/) and extract it.
+1. In a x86 Linux system, download the OpenWRT SDK corresponding to the wanted OpenWRT version and target from
+   the [OpenWRT website](https://downloads.openwrt.org/releases/) and extract it.
 
 2. Open a terminal in the SDK folder and setup the SDK:
 
@@ -176,7 +185,7 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
    gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
 
-   To publish from other hardware / software, take a look at the [Publish to the server](#publish-to-the-server) section.
+   To publish from other hardware / software, take a look at the [Publish to the server](#publish-to-the-server)section.
 
 2. Open the stream. For instance, you can open the stream with _VLC_:
 
@@ -206,16 +215,19 @@ There are 3 ways to change the configuration:
 
 1. By editing the `rtsp-simple-server.yml` file, that is
 
-   * included into the release bundle
-   * available in the root folder of the Docker image (`/rtsp-simple-server.yml`); it can be overridden in this way:
+    * included into the release bundle
+    * available in the root folder of the Docker image (`/rtsp-simple-server.yml`); it can be overridden in this way:
 
-     ```
-     docker run --rm -it --network=host -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml aler9/rtsp-simple-server
-     ```
+      ```
+      docker run --rm -it --network=host -v $PWD/rtsp-simple-server.yml:/rtsp-simple-server.yml aler9/rtsp-simple-server
+      ```
 
-   The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
+   The configuration can be changed dynamically when the server is running (hot reloading) by writing to the
+   configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
 
-2. By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
+2. By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME`
+   is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following
+   way:
 
    ```
    RTSP_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
@@ -232,7 +244,8 @@ There are 3 ways to change the configuration:
    RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
    ```
 
-   This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
+   This method is particularly useful when using Docker; any configuration parameter can be changed by passing
+   environment variables with the `-e` flag:
 
    ```
    docker run --rm -it --network=host -e RTSP_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server
@@ -269,7 +282,8 @@ paths:
     readPass: userpass
 ```
 
-If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed strings; a string must be hashed with sha256 and encoded with base64:
+If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as
+sha256-hashed strings; a string must be hashed with sha256 and encoded with base64:
 
 ```
 echo -n "userpass" | openssl dgst -binary -sha256 | openssl base64
@@ -309,16 +323,18 @@ Each time a user needs to be authenticated, the specified URL will be requested 
 
 If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails.
 
-Please be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
+Please be aware that it's perfectly normal for the authentication server to receive requests with empty users and
+passwords, i.e.:
 
 ```json
 {
   "user": "",
-  "password": "",
+  "password": ""
 }
 ```
 
-This happens because a RTSP client doesn't provide credentials until it is asked to. In order to receive the credentials, the authentication server must reply with status code `401` - the client will then send credentials.
+This happens because a RTSP client doesn't provide credentials until it is asked to. In order to receive the
+credentials, the authentication server must reply with status code `401` - the client will then send credentials.
 
 ### Encrypt the configuration
 
@@ -328,13 +344,17 @@ An online encryption tool is [available here](https://play.golang.org/p/rX29jwOb
 
 The encryption procedure is the following:
 
-1. NaCL's `crypto_secretbox` function is applied to the content of the configuration. NaCL is a cryptographic library available for [C/C++](https://nacl.cr.yp.to/secretbox.html), [Go](https://pkg.go.dev/golang.org/x/crypto/nacl/secretbox), [C#](https://github.com/somdoron/NaCl.net) and many other languages;
+1. NaCL's `crypto_secretbox` function is applied to the content of the configuration. NaCL is a cryptographic library
+   available
+   for [C/C++](https://nacl.cr.yp.to/secretbox.html), [Go](https://pkg.go.dev/golang.org/x/crypto/nacl/secretbox), [C#](https://github.com/somdoron/NaCl.net)
+   and many other languages;
 
 2. The string is prefixed with the nonce;
 
 3. The string is encoded with base64.
 
-After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `RTSP_CONFKEY` variable:
+After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with
+the `RTSP_CONFKEY` variable:
 
 ```
 RTSP_CONFKEY=mykey ./rtsp-simple-server
@@ -344,8 +364,10 @@ RTSP_CONFKEY=mykey ./rtsp-simple-server
 
 _rtsp-simple-server_ is also a proxy, that is usually deployed in one of these scenarios:
 
-* when there are multiple users that are reading a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
-* when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
+* when there are multiple users that are reading a stream and the bandwidth is limited; the proxy is used to receive the
+  stream once. Users can then connect to the proxy instead of the original source.
+* when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream
+  available to the outside world.
 
 Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
@@ -356,7 +378,8 @@ paths:
     source: rtsp://original-url
 ```
 
-After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section:
+After starting the server, users can connect to `rtsp://localhost:8554/proxied`, instead of connecting to the original
+url. The server supports any number of source streams, it's enough to add additional entries to the `paths` section:
 
 ```yml
 paths:
@@ -367,7 +390,8 @@ paths:
     source: rtsp://url1
 ```
 
-It's possible to save bandwidth by enabling the on-demand mode: the stream will be pulled only when at least a client is connected:
+It's possible to save bandwidth by enabling the on-demand mode: the stream will be pulled only when at least a client is
+connected:
 
 ```yml
 paths:
@@ -378,7 +402,10 @@ paths:
 
 ### Remuxing, re-encoding, compression
 
-To change the format, codec or compression of a stream, use _FFmpeg_ or _GStreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+To change the format, codec or compression of a stream, use _FFmpeg_ or _GStreamer_ together with _rtsp-simple-server_.
+For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting
+stream in the `/compressed` path, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the
+following content:
 
 ```yml
 paths:
@@ -399,7 +426,8 @@ paths:
     runOnReadyRestart: yes
 ```
 
-In the configuratio above, streams are saved into TS files, that can be read even if the system crashes, while MP4 files can't.
+In the configuratio above, streams are saved into TS files, that can be read even if the system crashes, while MP4 files
+can't.
 
 ### On-demand publishing
 
@@ -412,15 +440,18 @@ paths:
     runOnDemandRestart: yes
 ```
 
-The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file will start streaming only when requested.
+The command inserted into `runOnDemand` will start only when a client requests the path `ondemand`, therefore the file
+will start streaming only when requested.
 
 ### Start on boot
 
 #### Linux
 
-Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _rtsp-simple-server_ on boot.
+Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch
+_rtsp-simple-server_ on boot.
 
-Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), unzip it, and move the executable and configuration in the system:
+Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), unzip it, and
+move the executable and configuration in the system:
 
 ```
 sudo mv rtsp-simple-server /usr/local/bin/
@@ -450,16 +481,18 @@ sudo systemctl start rtsp-simple-server
 
 #### Windows
 
-Download the [WinSW v2 executable](https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe) and place it into the same folder of `rtsp-simple-server.exe`.
+Download the [WinSW v2 executable](https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe) and place it
+into the same folder of `rtsp-simple-server.exe`.
 
 In the same folder, create a file named `WinSW-x64.xml` with this content:
 
 ```xml
+
 <service>
-  <id>rtsp-simple-server</id>
-  <name>rtsp-simple-server</name>
-  <description></description>
-  <executable>%BASE%/rtsp-simple-server.exe</executable>
+    <id>rtsp-simple-server</id>
+    <name>rtsp-simple-server</name>
+    <description></description>
+    <executable>%BASE%/rtsp-simple-server.exe</executable>
 </service>
 ```
 
@@ -473,13 +506,15 @@ The server is now installed as a system service and will start at boot time.
 
 ### HTTP API
 
-The server can be queried and controlled with an HTTP API, that must be enabled by setting the `api` parameter in the configuration:
+The server can be queried and controlled with an HTTP API, that must be enabled by setting the `api` parameter in the
+configuration:
 
 ```yml
 api: yes
 ```
 
-The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instance, to obtain a list of active paths, run:
+The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instance, to obtain a list of active paths,
+run:
 
 ```
 curl http://127.0.0.1:9997/v1/paths/list
@@ -489,7 +524,8 @@ Full documentation of the API is available on the [dedicated site](https://aler9
 
 ### Metrics
 
-A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the
+parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
 
 ```
 wget -qO- localhost:9998/metrics
@@ -539,7 +575,8 @@ webrtc_conns_bytes_sent{id="[id]",state="[state]"} 187
 
 ### pprof
 
-A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
+A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be
+queried for metrics with pprof-compatible tools, like:
 
 ```
 go tool pprof -text http://localhost:9999/debug/pprof/goroutine
@@ -561,7 +598,8 @@ The command will produce the `rtsp-simple-server` binary.
 
 #### Raspberry Pi
 
-In case of a Raspberry Pi, the server can be compiled with native support for the Raspberry Pi Camera. Install Go &ge; 1.18, download the repository, open a terminal in it and run:
+In case of a Raspberry Pi, the server can be compiled with native support for the Raspberry Pi Camera. Install Go &ge;
+1.18, download the repository, open a terminal in it and run:
 
 ```sh
 cd internal/rpicamera/exe
@@ -586,7 +624,8 @@ The command will produce tarballs in folder `binaries/`.
 
 ### From a webcam
 
-To publish the video stream of a generic webcam to the server, edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
+To publish the video stream of a generic webcam to the server, edit `rtsp-simple-server.yml` and replace everything
+inside section `paths` with the following content:
 
 ```yml
 paths:
@@ -614,17 +653,22 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 ### From a Raspberry Pi Camera
 
-_rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requisites:
+_rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming
+from the camera to any user. There are a couple of requisites:
 
-1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system. Both 32 bit and 64 bit operative systems are supported.
+1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system. Both 32 bit and 64
+   bit operative systems are supported.
 
-2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
+2. Make sure that the legacy camera stack is disabled. Type `sudo raspi-config`, then go
+   to `Interfacing options`, `enable/disable legacy camera support`, choose `no`. Reboot the system.
 
 If you want to run the standard (non-containerized) version of the server:
 
-1. Make sure that the `libcamera0` package version is at least `0.0.2`, otherwise upgrade it with `sudo apt update && sudo apt install libcamera0`.
+1. Make sure that the `libcamera0` package version is at least `0.0.2`, otherwise upgrade it
+   with `sudo apt update && sudo apt install libcamera0`.
 
-2. download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
+2. download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64`
+   variant.
 
 3. edit `rtsp-simple-server.yml` and replace everything inside section `paths` with the following content:
 
@@ -634,7 +678,8 @@ If you want to run the standard (non-containerized) version of the server:
        source: rpiCamera
    ```
 
-If you want to run the server with Docker, you need to use the `latest-rpi` image (that already contains libcamera) and set some additional flags:
+If you want to run the server with Docker, you need to use the `latest-rpi` image (that already contains libcamera) and
+set some additional flags:
 
 ```
 docker run --rm -it \
@@ -646,7 +691,7 @@ docker run --rm -it \
 aler9/rtsp-simple-server:latest-rpi
 ```
 
-After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.
+After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam`or `http://raspberry-pi:8888/cam`.
 
 Camera settings can be changed by using the `rpiCamera*` parameters:
 
@@ -658,11 +703,13 @@ paths:
     rpiCameraHeight: 1080
 ```
 
-All available parameters are listed in the [sample configuration file](https://github.com/aler9/rtsp-simple-server/blob/master/rtsp-simple-server.yml#L230).
+All available parameters are listed in
+the [sample configuration file](https://github.com/aler9/rtsp-simple-server/blob/master/rtsp-simple-server.yml#L230).
 
 ### From OBS Studio
 
-OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
+OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration
+Wizard), use the following parameters:
 
 * Service: `Custom...`
 * Server: `rtmp://localhost`
@@ -674,7 +721,8 @@ If credentials are in use, use the following parameters:
 * Server: `rtmp://localhost`
 * Stream key: `mystream?user=myuser&pass=mypass`
 
-If you want to generate a stream that can be read with WebRTC, open `Settings -> Output -> Recording` and use the following parameters:
+If you want to generate a stream that can be read with WebRTC, open `Settings -> Output -> Recording` and use the
+following parameters:
 
 * FFmpeg output type: `Output to URL`
 * File path or URL: `rtsp://localhost:8554/mystream`
@@ -689,7 +737,8 @@ The use the button `Start Recording` (instead of `Start Streaming`) to start str
 
 ### From OpenCV
 
-To publish a video stream from OpenCV to the server, OpenCV must be compiled with GStreamer support, by following this procedure:
+To publish a video stream from OpenCV to the server, OpenCV must be compiled with GStreamer support, by following this
+procedure:
 
 ```
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy
@@ -745,7 +794,9 @@ while True:
 
 ### From VLC and Ubuntu
 
-The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a license issue (see [here](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=982299) and [here](https://stackoverflow.com/questions/69766748/cvlc-cannot-play-rtsp-omxplayer-instead-can)).
+The VLC shipped with Ubuntu 21.10 doesn't support playing RTSP due to a license issue (
+see [here](https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=982299)
+and [here](https://stackoverflow.com/questions/69766748/cvlc-cannot-play-rtsp-omxplayer-instead-can)).
 
 To overcome the issue, remove the default VLC instance and install the snap version:
 
@@ -764,17 +815,22 @@ vlc rtsp://localhost:8554/mystream
 
 ### General usage
 
-RTSP is a standardized protocol that allows to publish and read streams; in particular, it supports different underlying transport protocols, that are chosen by clients during the handshake with the server:
+RTSP is a standardized protocol that allows to publish and read streams; in particular, it supports different underlying
+transport protocols, that are chosen by clients during the handshake with the server:
 
-* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients. It doesn't support encryption.
-* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed multicast IP. It doesn't support encryption.
+* UDP: the most performant, but doesn't work when there's a NAT/firewall between server and clients. It doesn't support
+  encryption.
+* UDP-multicast: allows to save bandwidth when clients are all in the same LAN, by sending packets once to a fixed
+  multicast IP. It doesn't support encryption.
 * TCP: the most versatile, does support encryption.
 
-The default transport protocol is UDP. To change the transport protocol, you have to tune the configuration of your client of choice.
+The default transport protocol is UDP. To change the transport protocol, you have to tune the configuration of your
+client of choice.
 
 ### TCP transport
 
-The RTSP protocol supports the TCP transport protocol, that allows to receive packets even when there's a NAT/firewall between server and clients, and supports encryption (see [Encryption](#encryption)).
+The RTSP protocol supports the TCP transport protocol, that allows to receive packets even when there's a NAT/firewall
+between server and clients, and supports encryption (see [Encryption](#encryption)).
 
 You can use _FFmpeg_ to publish a stream with the TCP transport protocol:
 
@@ -802,11 +858,17 @@ vlc --rtsp-tcp rtsp://localhost:8554/mystream
 
 ### UDP-multicast transport
 
-The RTSP protocol supports the UDP-multicast transport protocol, that allows a server to send packets once, regardless of the number of connected readers, saving bandwidth.
+The RTSP protocol supports the UDP-multicast transport protocol, that allows a server to send packets once, regardless
+of the number of connected readers, saving bandwidth.
 
-This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the server will start sending multicast packets. Other readers will be instructed to read existing multicast packets. When all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
+This mode must be requested by readers when handshaking with the server; once a reader has completed a handshake, the
+server will start sending multicast packets. Other readers will be instructed to read existing multicast packets. When
+all multicast readers have disconnected from the server, the latter will stop sending multicast packets.
 
-If you want to use the UDP-multicast protocol in a Wireless LAN, please be aware that the maximum bitrate supported by multicast is the one that corresponds to the lowest enabled WiFi data rate. For instance, if the 1 Mbps data rate is enabled on your router (and it is on most routers), the maximum bitrate will be 1 Mbps. To increase the maximum bitrate, use a cabled LAN or change your router settings.
+If you want to use the UDP-multicast protocol in a Wireless LAN, please be aware that the maximum bitrate supported by
+multicast is the one that corresponds to the lowest enabled WiFi data rate. For instance, if the 1 Mbps data rate is
+enabled on your router (and it is on most routers), the maximum bitrate will be 1 Mbps. To increase the maximum bitrate,
+use a cabled LAN or change your router settings.
 
 To request and read a stream with UDP-multicast, you can use _FFmpeg_:
 
@@ -828,7 +890,8 @@ vlc rtsp://localhost:8554/mystream?vlcmulticast
 
 ### Encryption
 
-Incoming and outgoing RTSP streams can be encrypted with TLS (obtaining the RTSPS protocol). A TLS certificate is needed and can be generated with OpenSSL:
+Incoming and outgoing RTSP streams can be encrypted with TLS (obtaining the RTSPS protocol). A TLS certificate is needed
+and can be generated with OpenSSL:
 
 ```
 openssl genrsa -out server.key 2048
@@ -838,7 +901,7 @@ openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 Edit `rtsp-simple-server.yml`, and set the `protocols`, `encryption`, `serverKey` and `serverCert` parameters:
 
 ```yml
-protocols: [tcp]
+protocols: [ tcp ]
 encryption: optional
 serverKey: server.key
 serverCert: server.crt
@@ -856,7 +919,9 @@ If the client is _GStreamer_, disable the certificate validation:
 gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8322/...
 ```
 
-At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the encrypted stream with the proxy mode, and reading the proxied stream with _VLC_.
+At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of
+_rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the encrypted stream with the
+proxy mode, and reading the proxied stream with _VLC_.
 
 ### Redirect to another server
 
@@ -871,7 +936,8 @@ paths:
 
 ### Fallback stream
 
-If no one is publishing to the server, readers can be redirected to a fallback path or URL that is serving a fallback stream:
+If no one is publishing to the server, readers can be redirected to a fallback path or URL that is serving a fallback
+stream:
 
 ```yml
 paths:
@@ -881,15 +947,19 @@ paths:
 
 ### Corrupted frames
 
-In some scenarios, when reading RTSP from the server, decoded frames can be corrupted or incomplete. This can be caused by multiple reasons:
+In some scenarios, when reading RTSP from the server, decoded frames can be corrupted or incomplete. This can be caused
+by multiple reasons:
 
-* the packet buffer of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
+* the packet buffer of the server is too small and can't keep up with the stream throughput. A solution consists in
+  increasing its size:
 
   ```yml
   readBufferCount: 1024
   ```
 
-* The stream throughput is too big and the stream can't be sent correctly with the UDP transport. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
+* The stream throughput is too big and the stream can't be sent correctly with the UDP transport. UDP is more
+  performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of
+  streams that need a large bandwidth. A solution consists in switching to TCP:
 
   ```yml
   protocols: [tcp]
@@ -904,11 +974,15 @@ In some scenarios, when reading RTSP from the server, decoded frames can be corr
       sourceProtocol: tcp
   ```
 
-* The stream throughput is too big to be handled by the network between server and readers. Upgrade the network or decrease the stream bitrate by re-encoding it.
+* The stream throughput is too big to be handled by the network between server and readers. Upgrade the network or
+  decrease the stream bitrate by re-encoding it.
 
 ### Decrease latency
 
-The RTSP protocol doesn't introduce any latency by itself. Latency is usually introduced by clients, that put frames in a buffer to compensate network fluctuations. In order to decrease latency, the best way consists in tuning the client. For instance, latency can be decreased with VLC by decreasing the `Network caching` parameter, that is available in the `Open network stream` dialog or alternatively ca be set with the command line:
+The RTSP protocol doesn't introduce any latency by itself. Latency is usually introduced by clients, that put frames in
+a buffer to compensate network fluctuations. In order to decrease latency, the best way consists in tuning the client.
+For instance, latency can be decreased with VLC by decreasing the `Network caching` parameter, that is available in
+the `Open network stream` dialog or alternatively ca be set with the command line:
 
 ```
 vlc --network-caching=50 rtsp://...
@@ -918,7 +992,9 @@ vlc --network-caching=50 rtsp://...
 
 ### General usage
 
-RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
+RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP (doesn't
+support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's
+need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
 
 At the moment, only the H264 and AAC codecs can be used with the RTMP protocol.
 
@@ -942,7 +1018,8 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f flv rtmp://localhost:8554/mystr
 
 ### Encryption
 
-RTMP connections can be encrypted with TLS, obtaining the RTMPS protocol. A TLS certificate is needed and can be generated with OpenSSL:
+RTMP connections can be encrypted with TLS, obtaining the RTMPS protocol. A TLS certificate is needed and can be
+generated with OpenSSL:
 
 ```
 openssl genrsa -out server.key 2048
@@ -963,13 +1040,15 @@ Streams can be published and read with the `rtmps` scheme and the `1937` port:
 rtmps://localhost:1937/...
 ```
 
-Please be aware that RTMPS is currently unsupported by _VLC_, _FFmpeg_ and _GStreamer_. However, you can use a proxy like [stunnel](https://www.stunnel.org/) or [nginx](https://nginx.org/) to allow RTMP clients to access RTMPS resources.
+Please be aware that RTMPS is currently unsupported by _VLC_, _FFmpeg_ and _GStreamer_. However, you can use a proxy
+like [stunnel](https://www.stunnel.org/) or [nginx](https://nginx.org/) to allow RTMP clients to access RTMPS resources.
 
 ## HLS protocol
 
 ### General usage
 
-HLS is a protocol that allows to embed live streams into web pages. It works by splitting streams into segments, and by serving these segments with the HTTP protocol. Every stream published to the server can be accessed by visiting:
+HLS is a protocol that allows to embed live streams into web pages. It works by splitting streams into segments, and by
+serving these segments with the HTTP protocol. Every stream published to the server can be accessed by visiting:
 
 ```
 http://localhost:8888/mystream
@@ -979,11 +1058,13 @@ where `mystream` is the name of a stream that is being published.
 
 ### Browser support
 
-Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginning of the README), not all browsers can read all codecs. You can check what codecs your browser can read by visiting this page:
+Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginning of the
+README), not all browsers can read all codecs. You can check what codecs your browser can read by visiting this page:
 
 https://jsfiddle.net/4msrhudv
 
-If you want to increase the compatibility of the stream in order to support most browsers, you have to re-encode it by using the H264 and AAC codecs, for instance by using _FFmpeg_:
+If you want to increase the compatibility of the stream in order to support most browsers, you have to re-encode it by
+using the H264 and AAC codecs, for instance by using _FFmpeg_:
 
 ```
 ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -c:a aac -b:a 160k -f rtsp rtsp://localhost:8554/mystream
@@ -994,14 +1075,18 @@ ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast
 The simples way to embed a HLS stream into a web page consists in using an iframe tag:
 
 ```html
+
 <iframe src="http://rtsp-simple-server-ip:8888/mystream" scrolling="no"></iframe>
 ```
 
-For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/hls_index.html).
+For more advanced options, you can create and serve a custom web page by starting from
+the [source code of the default page](internal/core/hls_index.html).
 
 ### Low-Latency variant
 
-Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis) variant of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are served before the segment is complete.
+Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis) variant
+of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are
+served before the segment is complete.
 
 LL-HLS is disabled by default. To enable it, a TLS certificate is needed and can be generated with OpenSSL:
 
@@ -1033,7 +1118,9 @@ hlsPartDuration: 500ms
 
 ### Decrease latency
 
-in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This latency amounts to 1-15secs depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is enabled.
+in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This
+latency amounts to 1-15secs depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is
+enabled.
 
 To decrease the latency, you can:
 
@@ -1043,15 +1130,20 @@ To decrease the latency, you can:
 
 * try decreasing the `hlsSegmentDuration` parameter;
 
-* The segment duration is influenced by the interval between the IDR frames of the video track. An IDR frame is a frame that can be decoded independently from the others. The server changes the segment duration in order to include at least one IDR frame into each segment. Therefore, you need to decrease the interval between the IDR frames. This can be done in two ways:
+* The segment duration is influenced by the interval between the IDR frames of the video track. An IDR frame is a frame
+  that can be decoded independently from the others. The server changes the segment duration in order to include at
+  least one IDR frame into each segment. Therefore, you need to decrease the interval between the IDR frames. This can
+  be done in two ways:
 
-  * if the stream is being hardware-generated (i.e. by a camera), there's usually a setting called _Key-Frame Interval_ in the camera configuration page
+    * if the stream is being hardware-generated (i.e. by a camera), there's usually a setting called _Key-Frame
+      Interval_ in the camera configuration page
 
-  * otherwise, the stream must be re-encoded. It's possible to tune the IDR frame interval by using ffmpeg's `-g` option:
+    * otherwise, the stream must be re-encoded. It's possible to tune the IDR frame interval by using ffmpeg's `-g`
+      option:
 
-    ```
-    ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
-    ```
+      ```
+      ffmpeg -i rtsp://original-stream -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -g 30 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+      ```
 
 ## WebRTC protocol
 
@@ -1065,18 +1157,21 @@ http://localhost:8889/mystream
 
 ### Usage inside a container or behind a NAT
 
-If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (the browser and the server) to establish a connection (WebRTC/ICE connection).
+If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow
+the two WebRTC parts (the browser and the server) to establish a connection (WebRTC/ICE connection).
 
-A first method consists into forcing all WebRTC/ICE connections to pass through a single UDP server port, by using the parameters:
+A first method consists into forcing all WebRTC/ICE connections to pass through a single UDP server port, by using the
+parameters:
 
 ```yml
 # public IP of the server
-webrtcICEHostNAT1To1IPs: [192.168.x.x]
+webrtcICEHostNAT1To1IPs: [ 192.168.x.x ]
 # any port of choice
 webrtcICEUDPMuxAddress: :8189
 ```
 
-The NAT / container must then be configured in order to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+The NAT / container must then be configured in order to route all incoming UDP packets on port 8189 to the server. If
+you're using Docker, this can be achieved with the flag:
 
 ```
 docker run --rm -it \
@@ -1085,16 +1180,18 @@ docker run --rm -it \
 rtsp-simple-server
 ```
 
-If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be forced to pass through a single TCP server port:
+If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be forced to pass through a single TCP
+server port:
 
 ```yml
 # public IP of the server
-webrtcICEHostNAT1To1IPs: [192.168.x.x]
+webrtcICEHostNAT1To1IPs: [ 192.168.x.x ]
 # any port of choice
 webrtcICETCPPMuxAddress: :8189
 ```
 
-The  NAT / container must then be configured in order to redirect all incoming TCP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+The NAT / container must then be configured in order to redirect all incoming TCP packets on port 8189 to the server. If
+you're using Docker, this can be achieved with the flag:
 
 ```
 docker run --rm -it \
@@ -1103,31 +1200,79 @@ docker run --rm -it \
 rtsp-simple-server
 ```
 
-Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
+Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server,
+like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials
+must be set in the configuration file:
 
 ```yml
-webrtcICEServers: [turn:user:pass:host:ip]
+webrtcICEServers: [ turn:user:pass:host:ip ]
 ```
 
 Where `user` and `pass` are the username and password of the server.
 
-If the server uses a secret-based authentication (for instance, coturn with the `use-auth-secret` option), it must be configured in this way:
+If the server uses a secret-based authentication (for instance, coturn with the `use-auth-secret` option), it must be
+configured in this way:
 
 ```yml
-webrtcICEServers: [turn:AUTH_SECRET:secret:host:ip]
+webrtcICEServers: [ turn:AUTH_SECRET:secret:host:ip ]
 ```
 
-where `secret` is the secret of the TURN server. _rtsp-simple-server_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
+where `secret` is the secret of the TURN server. _rtsp-simple-server_ will generate a set of credentials by using the
+secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
 ### Embedding
 
 The simples way to embed a WebRTC stream into a web page consists in using an iframe tag:
 
 ```html
+
 <iframe src="http://rtsp-simple-server-ip:8889/mystream" scrolling="no"></iframe>
 ```
 
-For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/webrtc_index.html).
+For more advanced options, you can create and serve a custom web page by starting from
+the [source code of the default page](internal/core/webrtc_index.html).
+
+## Webhook
+
+```yml
+# Disable support for the WebHook Event Publishing.
+webhookDisable: yes
+
+# Webhook URL where you want to publish event on stream status update
+webhookUrl: "http://127.0.0.1:4002/webhook"
+```
+
+## Redis Publish
+
+```yml
+# Disable support for the Redis Event Publishing.
+redisDisable: no
+# Redis event name where you want to publish event on stream status update
+redisEventName: "rtsp-simple-server"
+# redis server ip address or hostname
+redisAddress: "127.0.0.1"
+# redis server port
+redisPort: "6379"
+# redis server username
+redisUsername: ""
+# redis server password
+redisPassword: ""
+# redis server database which you want to use
+redisDatabase: 0
+```
+
+### Stream Status Event
+
+```json
+ {
+  "path": "fallback",
+  "ready": false,
+  "tracks": [
+    "H264",
+    "MPEG4-audio"
+  ]
+}
+```
 
 ## Standards
 

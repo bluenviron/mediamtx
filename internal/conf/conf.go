@@ -236,6 +236,19 @@ type Conf struct {
 	WebRTCICEUDPMuxAddress  string     `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
 
+	// Webhook
+	WebhookDisable bool   `json:"webhookDisable"`
+	WebhookUrl     string `json:"webhookUrl"`
+
+	//Redis
+	RedisDisable   bool   `json:"redisDisable"`
+	RedisEventName string `json:"redisEventName"`
+	RedisAddress   string `json:"redisAddress"`
+	RedisPort      string `json:"redisPort"`
+	RedisUsername  string `json:"redisUsername"`
+	RedisPassword  string `json:"redisPassword"`
+	RedisDatabase  int    `json:"redisDatabase"`
+
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
 }
@@ -414,6 +427,21 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 	if conf.WebRTCICEServers == nil {
 		conf.WebRTCICEServers = []string{"stun:stun.l.google.com:19302"}
+	}
+
+	if !conf.RedisDisable {
+		if conf.RedisAddress == "" {
+			conf.RedisAddress = "127.0.0.1"
+		}
+
+		if conf.RedisPort == "" {
+			conf.RedisPort = "6379"
+		}
+
+		if conf.RedisEventName == "" {
+			conf.RedisEventName = "rtsp-simple-server"
+		}
+
 	}
 
 	// do not add automatically "all", since user may want to

@@ -2,3 +2,6 @@
 /binaries
 /coverage*.txt
 /apidocs/*.html
+.idea
+.github
+/build

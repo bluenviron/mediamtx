@@ -213,6 +213,47 @@ webrtcICEUDPMuxAddress:
 webrtcICETCPMuxAddress:
 
 ###############################################
+# WebHook parameters
+
+# Message Containing with Post Method
+# {
+#   path: 'path',
+#   ready: true|false,
+#   tracks: [ 'H264', 'MPEG4-audio' ]
+# }
+
+# Disable support for the WebHook Event Publishing.
+webhookDisable: yes
+
+# Webhook URL where you want to publish event on stream status update
+webhookUrl: "http://127.0.0.1:4002/webhook"
+
+
+###############################################
+# Redis Event Publish parameters
+# Message Containing
+# {
+#   path: 'path',
+#   ready: true|false,
+#   tracks: [ 'H264', 'MPEG4-audio' ]
+# }
+
+# Disable support for the Redis Event Publishing.
+redisDisable: yes
+# Redis event name where you want to publish event on stream status update
+redisEventName: "rtsp-simple-server"
+# redis server ip address or hostname
+redisAddress: "127.0.0.1"
+# redis server port
+redisPort: "6379"
+# redis server username
+redisUsername: ""
+# redis server password
+redisPassword: ""
+# redis server database which you want to use
+redisDatabase: 0
+
+###############################################
 # Path parameters
 
 # These settings are path-dependent, and the map key is the name of the path.
