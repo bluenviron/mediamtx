@@ -199,6 +199,7 @@ type Conf struct {
 	ServerKey         string      `json:"serverKey"`
 	ServerCert        string      `json:"serverCert"`
 	AuthMethods       AuthMethods `json:"authMethods"`
+	EmptyPathReplace  string      `json:"emptyPathReplace"`
 
 	// RTMP
 	RTMPDisable    bool       `json:"rtmpDisable"`

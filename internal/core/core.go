@@ -244,6 +244,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
+			p.conf.EmptyPathReplace,
 			p.conf.Paths,
 			p.externalCmdPool,
 			p.metrics,

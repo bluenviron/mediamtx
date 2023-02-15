@@ -40,14 +40,15 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	rtspAddress     string
-	readTimeout     conf.StringDuration
-	writeTimeout    conf.StringDuration
-	readBufferCount int
-	pathConfs       map[string]*conf.PathConf
-	externalCmdPool *externalcmd.Pool
-	metrics         *metrics
-	parent          pathManagerParent
+	rtspAddress      string
+	readTimeout      conf.StringDuration
+	writeTimeout     conf.StringDuration
+	readBufferCount  int
+	emptyPathReplace string
+	pathConfs        map[string]*conf.PathConf
+	externalCmdPool  *externalcmd.Pool
+	metrics          *metrics
+	parent           pathManagerParent
 
 	ctx         context.Context
 	ctxCancel   func()
@@ -74,6 +75,7 @@ func newPathManager(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
+	emptyPathReplace string,
 	pathConfs map[string]*conf.PathConf,
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
@@ -86,6 +88,7 @@ func newPathManager(
 		readTimeout:          readTimeout,
 		writeTimeout:         writeTimeout,
 		readBufferCount:      readBufferCount,
+		emptyPathReplace:     emptyPathReplace,
 		pathConfs:            pathConfs,
 		externalCmdPool:      externalCmdPool,
 		metrics:              metrics,
@@ -388,6 +391,9 @@ func (pm *pathManager) onPathClose(pa *path) {
 
 // describe is called by a reader or publisher.
 func (pm *pathManager) describe(req pathDescribeReq) pathDescribeRes {
+	if req.pathName == "" && pm.emptyPathReplace != "" {
+		req.pathName = pm.emptyPathReplace
+	}
 	req.res = make(chan pathDescribeRes)
 	select {
 	case pm.chDescribe <- req:
@@ -428,6 +434,9 @@ func (pm *pathManager) publisherAdd(req pathPublisherAddReq) pathPublisherAnnoun
 
 // readerSetupPlay is called by a reader.
 func (pm *pathManager) readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes {
+	if req.pathName == "" && pm.emptyPathReplace != "" {
+		req.pathName = pm.emptyPathReplace
+	}
 	req.res = make(chan pathReaderSetupPlayRes)
 	select {
 	case pm.chReaderAdd <- req:

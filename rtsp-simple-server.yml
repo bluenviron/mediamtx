@@ -95,6 +95,8 @@ serverKey: server.key
 serverCert: server.crt
 # Authentication methods.
 authMethods: [basic, digest]
+# If a client requests the empty path, replace with this path name
+emptyPathReplace:
 
 ###############################################
 # RTMP parameters
