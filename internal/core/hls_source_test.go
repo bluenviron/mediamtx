@@ -11,6 +11,9 @@ import (
 
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
+	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
+	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/asticode/go-astits"
 	"github.com/gin-gonic/gin"
@@ -69,6 +72,11 @@ func (ts *testHLSServer) onSegment(ctx *gin.Context) {
 		StreamType:    astits.StreamTypeH264Video,
 	})
 
+	mux.AddElementaryStream(astits.PMTElementaryStream{
+		ElementaryPID: 257,
+		StreamType:    astits.StreamTypeAACAudio,
+	})
+
 	mux.SetPCRPID(256)
 
 	mux.WriteTables()
@@ -87,7 +95,33 @@ func (ts *testHLSServer) onSegment(ctx *gin.Context) {
 					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
 					PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
 				},
-				StreamID: 224, // = video
+				StreamID: 224,
+			},
+			Data: enc,
+		},
+	})
+
+	pkts := mpeg4audio.ADTSPackets{
+		{
+			Type:         2,
+			SampleRate:   44100,
+			ChannelCount: 2,
+			AU:           []byte{0x01, 0x02, 0x03, 0x04},
+		},
+	}
+
+	enc, _ = pkts.Marshal()
+
+	mux.WriteData(&astits.MuxerData{
+		PID: 257,
+		PES: &astits.PESData{
+			Header: &astits.PESHeader{
+				OptionalHeader: &astits.PESOptionalHeader{
+					MarkerBits:      2,
+					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
+					PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
+				},
+				StreamID: 192,
 			},
 			Data: enc,
 		},
@@ -147,6 +181,36 @@ func TestHLSSource(t *testing.T) {
 
 	medias, baseURL, _, err := c.Describe(u)
 	require.NoError(t, err)
+
+	require.Equal(t, media.Medias{
+		{
+			Type:    media.TypeVideo,
+			Control: medias[0].Control,
+			Formats: []format.Format{
+				&format.H264{
+					PayloadTyp:        96,
+					PacketizationMode: 1,
+				},
+			},
+		},
+		{
+			Type:    media.TypeAudio,
+			Control: medias[1].Control,
+			Formats: []format.Format{
+				&format.MPEG4Audio{
+					PayloadTyp: 96,
+					Config: &mpeg4audio.Config{
+						Type:         2,
+						SampleRate:   44100,
+						ChannelCount: 2,
+					},
+					SizeLength:       13,
+					IndexLength:      3,
+					IndexDeltaLength: 3,
+				},
+			},
+		},
+	}, medias)
 
 	err = c.SetupAll(medias, baseURL)
 	require.NoError(t, err)
