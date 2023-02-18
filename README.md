@@ -15,6 +15,7 @@ Live streams can be published to the server with:
 |RTMP clients (OBS Studio)|RTMP, RTMPS|H264, H265, MPEG4 Audio (AAC)|
 |RTMP servers and cameras|RTMP, RTMPS|H264, MPEG4 Audio (AAC)|
 |HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, H265, MPEG4 Audio (AAC), Opus|
+|UDP/MPEG-TS streams|Unicast, multicast|H264, MPEG4 Audio (AAC)|
 |Raspberry Pi Cameras||H264|
 
 And can be read from the server with:

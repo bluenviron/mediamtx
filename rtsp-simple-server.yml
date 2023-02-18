@@ -235,6 +235,7 @@ paths:
     # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
     # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
     # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
+    # * udp://ip:port -> the stream is pulled from UDP, by listening on the specified IP and port
     # * redirect -> the stream is provided by another path or server
     # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
     source: publisher

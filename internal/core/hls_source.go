@@ -61,14 +61,14 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				Formats: []format.Format{track},
 			}
 			medias = append(medias, medi)
-			ctrack := track
+			cformat := track
 
 			switch track.(type) {
 			case *format.H264:
 				medi.Type = media.TypeVideo
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.UnitH264{
+					err := stream.writeData(medi, cformat, &formatprocessor.UnitH264{
 						PTS: pts,
 						AU:  unit.([][]byte),
 						NTP: time.Now(),
@@ -82,7 +82,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				medi.Type = media.TypeVideo
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.UnitH265{
+					err := stream.writeData(medi, cformat, &formatprocessor.UnitH265{
 						PTS: pts,
 						AU:  unit.([][]byte),
 						NTP: time.Now(),
@@ -96,7 +96,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				medi.Type = media.TypeAudio
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.UnitMPEG4Audio{
+					err := stream.writeData(medi, cformat, &formatprocessor.UnitMPEG4Audio{
 						PTS: pts,
 						AUs: [][]byte{unit.([]byte)},
 						NTP: time.Now(),
@@ -110,7 +110,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				medi.Type = media.TypeAudio
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.UnitOpus{
+					err := stream.writeData(medi, cformat, &formatprocessor.UnitOpus{
 						PTS:   pts,
 						Frame: unit.([]byte),
 						NTP:   time.Now(),
