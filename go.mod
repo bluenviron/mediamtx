@@ -6,8 +6,8 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.10.0
 	github.com/alecthomas/kong v0.7.1
-	github.com/aler9/gortsplib/v2 v2.1.2
-	github.com/asticode/go-astits v1.10.1-0.20220319093903-4abe66a9b757
+	github.com/aler9/gortsplib/v2 v2.1.3
+	github.com/asticode/go-astits v1.11.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.8.1
 	github.com/google/uuid v1.3.0
@@ -27,7 +27,7 @@ require (
 )
 
 require (
-	github.com/asticode/go-astikit v0.20.0 // indirect
+	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/go-playground/locales v0.14.0 // indirect
