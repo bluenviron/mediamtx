@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
 	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
@@ -537,13 +538,28 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"missing metadata",
+			"missing metadata, video+audio",
 			&format.H264{
 				PayloadTyp:        96,
 				SPS:               sps,
 				PPS:               pps,
 				PacketizationMode: 1,
 			},
+			&format.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			},
+		},
+		{
+			"missing metadata, audio",
+			nil,
 			&format.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
@@ -796,6 +812,7 @@ func TestReadTracks(t *testing.T) {
 					SPS: sps,
 					PPS: pps,
 				}.Marshal()
+
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -811,6 +828,7 @@ func TestReadTracks(t *testing.T) {
 					ChannelCount: 2,
 				}.Marshal()
 				require.NoError(t, err)
+
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -855,6 +873,7 @@ func TestReadTracks(t *testing.T) {
 					SPS: sps,
 					PPS: pps,
 				}.Marshal()
+
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -893,6 +912,7 @@ func TestReadTracks(t *testing.T) {
 					SPS: sps,
 					PPS: pps,
 				}.Marshal()
+
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -908,6 +928,7 @@ func TestReadTracks(t *testing.T) {
 					ChannelCount: 2,
 				}.Marshal()
 				require.NoError(t, err)
+
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -919,11 +940,12 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-			case "missing metadata":
+			case "missing metadata, video+audio":
 				buf, _ := h264conf.Conf{
 					SPS: sps,
 					PPS: pps,
 				}.Marshal()
+
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -939,6 +961,7 @@ func TestReadTracks(t *testing.T) {
 					ChannelCount: 2,
 				}.Marshal()
 				require.NoError(t, err)
+
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
@@ -947,6 +970,37 @@ func TestReadTracks(t *testing.T) {
 					Channels:        flvio.SOUND_STEREO,
 					AACType:         flvio.AAC_SEQHDR,
 					Payload:         enc,
+				})
+				require.NoError(t, err)
+
+			case "missing metadata, audio":
+				enc, err := mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				}.Marshal()
+				require.NoError(t, err)
+
+				err = mrw.Write(&message.MsgAudio{
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         flvio.AAC_SEQHDR,
+					Payload:         enc,
+				})
+				require.NoError(t, err)
+
+				err = mrw.Write(&message.MsgAudio{
+					ChunkStreamID:   message.MsgAudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         flvio.AAC_SEQHDR,
+					Payload:         enc,
+					DTS:             1 * time.Second,
 				})
 				require.NoError(t, err)
 
@@ -1017,6 +1071,7 @@ func TestReadTracks(t *testing.T) {
 					ChannelCount: 2,
 				}.Marshal()
 				require.NoError(t, err)
+
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
