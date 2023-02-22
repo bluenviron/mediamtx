@@ -7,7 +7,6 @@ import (
 	"net"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
@@ -23,6 +22,8 @@ import (
 
 type testHLSServer struct {
 	s *http.Server
+
+	clientConnected chan struct{}
 }
 
 func newTestHLSServer() (*testHLSServer, error) {
@@ -31,12 +32,15 @@ func newTestHLSServer() (*testHLSServer, error) {
 		return nil, err
 	}
 
-	ts := &testHLSServer{}
+	ts := &testHLSServer{
+		clientConnected: make(chan struct{}),
+	}
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.GET("/stream.m3u8", ts.onPlaylist)
-	router.GET("/segment.ts", ts.onSegment)
+	router.GET("/segment1.ts", ts.onSegment1)
+	router.GET("/segment2.ts", ts.onSegment2)
 
 	ts.s = &http.Server{Handler: router}
 	go ts.s.Serve(ln)
@@ -55,7 +59,9 @@ func (ts *testHLSServer) onPlaylist(ctx *gin.Context) {
 #EXT-X-TARGETDURATION:2
 #EXT-X-MEDIA-SEQUENCE:0
 #EXTINF:2,
-segment.ts
+segment1.ts
+#EXTINF:2,
+segment2.ts
 #EXT-X-ENDLIST
 `
 
@@ -63,7 +69,7 @@ segment.ts
 	io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 }
 
-func (ts *testHLSServer) onSegment(ctx *gin.Context) {
+func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
 	mux := astits.NewMuxer(context.Background(), ctx.Writer)
 
@@ -109,7 +115,6 @@ func (ts *testHLSServer) onSegment(ctx *gin.Context) {
 			AU:           []byte{0x01, 0x02, 0x03, 0x04},
 		},
 	}
-
 	enc, _ = pkts.Marshal()
 
 	mux.WriteData(&astits.MuxerData{
@@ -126,10 +131,52 @@ func (ts *testHLSServer) onSegment(ctx *gin.Context) {
 			Data: enc,
 		},
 	})
+}
 
-	ctx.Writer.(http.Flusher).Flush()
+func (ts *testHLSServer) onSegment2(ctx *gin.Context) {
+	<-ts.clientConnected
 
-	time.Sleep(1 * time.Second)
+	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+	mux := astits.NewMuxer(context.Background(), ctx.Writer)
+
+	mux.AddElementaryStream(astits.PMTElementaryStream{
+		ElementaryPID: 256,
+		StreamType:    astits.StreamTypeH264Video,
+	})
+
+	mux.AddElementaryStream(astits.PMTElementaryStream{
+		ElementaryPID: 257,
+		StreamType:    astits.StreamTypeAACAudio,
+	})
+
+	mux.SetPCRPID(256)
+
+	mux.WriteTables()
+
+	pkts := mpeg4audio.ADTSPackets{
+		{
+			Type:         2,
+			SampleRate:   44100,
+			ChannelCount: 2,
+			AU:           []byte{0x01, 0x02, 0x03, 0x04},
+		},
+	}
+	enc, _ := pkts.Marshal()
+
+	mux.WriteData(&astits.MuxerData{
+		PID: 257,
+		PES: &astits.PESData{
+			Header: &astits.PESHeader{
+				OptionalHeader: &astits.PESOptionalHeader{
+					MarkerBits:      2,
+					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
+					PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
+				},
+				StreamID: 192,
+			},
+			Data: enc,
+		},
+	})
 
 	enc, _ = h264.AnnexBMarshal([][]byte{
 		{5}, // IDR
@@ -165,8 +212,6 @@ func TestHLSSource(t *testing.T) {
 		"    sourceOnDemand: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
-
-	time.Sleep(1 * time.Second)
 
 	frameRecv := make(chan struct{})
 
@@ -233,7 +278,7 @@ func TestHLSSource(t *testing.T) {
 				0x00, 0x01,
 				0x08, // PPS
 				0x00, 0x01,
-				0x05, // ODR
+				0x05, // IDR
 			},
 		}, pkt)
 		close(frameRecv)
@@ -241,6 +286,8 @@ func TestHLSSource(t *testing.T) {
 
 	_, err = c.Play(nil)
 	require.NoError(t, err)
+
+	close(ts.clientConnected)
 
 	<-frameRecv
 }
