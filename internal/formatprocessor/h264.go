@@ -259,11 +259,15 @@ func (t *formatProcessorH264) Process(dat Data, hasNonRTSPReaders bool) error { 
 		tdata.AU = t.remuxAccessUnit(tdata.AU)
 	}
 
-	pkts, err := t.encoder.Encode(tdata.AU, tdata.PTS)
-	if err != nil {
-		return err
+	if len(tdata.AU) != 0 {
+		pkts, err := t.encoder.Encode(tdata.AU, tdata.PTS)
+		if err != nil {
+			return err
+		}
+		tdata.RTPPackets = pkts
+	} else {
+		tdata.RTPPackets = nil
 	}
 
-	tdata.RTPPackets = pkts
 	return nil
 }

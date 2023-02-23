@@ -17,7 +17,7 @@ type Data interface {
 
 // Processor allows to cleanup and normalize streams.
 type Processor interface {
-	// cleanups and normalizes a data unit.
+	// clears and normalizes a data unit.
 	Process(Data, bool) error
 }
 
