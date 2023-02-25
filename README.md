@@ -1,9 +1,11 @@
 
-<p align="center">
-    <img src="logo.png" alt="rtsp-simple-server">
-</p>
+<h1 align="center">
+    <img src="logo.png" alt="rtsp-simple-server / MediaMTX">
+</h1>
 
-_rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
+<br>
+
+_rtsp-simple-server_ / [_MediaMTX_](#important-announcement) is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
 
 Live streams can be published to the server with:
 
@@ -47,6 +49,14 @@ Features:
 [![Release](https://img.shields.io/github/v/release/aler9/rtsp-simple-server)](https://github.com/aler9/rtsp-simple-server/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 [![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://aler9.github.io/rtsp-simple-server)
+
+## Important announcement
+
+_rtsp-simple-server_ is being rebranded as _MediaMTX_. The reason is pretty obvious: this project started as a RTSP server but has evolved into a much more versatile media server (i like to call it a "media broker", a message broker for media streams), that is not tied to the RTSP protocol anymore. Nothing will change regarding license, features and backward compatibility.
+
+Furthermore, my main open source projects are being transferred to the [bluenviron organization](https://github.com/bluenviron), in order to allow the community to maintain and evolve the code regardless of my personal availability.
+
+In the next months, the repository name and the docker image name will be changed accordingly.
 
 ## Table of contents
 
