@@ -11,12 +11,12 @@ import (
 	"github.com/aler9/gortsplib/v2/pkg/format"
 	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/asticode/go-astits"
+	"github.com/bluenviron/gohlslib/pkg/mpegts"
 	"golang.org/x/net/ipv4"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/mpegts"
 )
 
 const (
@@ -152,7 +152,27 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeData(medi, cformat, &formatprocessor.DataH264{
+						err = stream.writeData(medi, cformat, &formatprocessor.UnitH264{
+							PTS: pts,
+							AU:  au,
+							NTP: time.Now(),
+						})
+						if err != nil {
+							s.Log(logger.Warn, "%v", err)
+						}
+					}
+
+				case *format.H265:
+					medi.Type = media.TypeVideo
+
+					mediaCallbacks[track.ES.ElementaryPID] = func(pts time.Duration, data []byte) {
+						au, err := h264.AnnexBUnmarshal(data)
+						if err != nil {
+							s.Log(logger.Warn, "%v", err)
+							return
+						}
+
+						err = stream.writeData(medi, cformat, &formatprocessor.UnitH265{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
@@ -178,13 +198,43 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							aus[i] = pkt.AU
 						}
 
-						err = stream.writeData(medi, cformat, &formatprocessor.DataMPEG4Audio{
+						err = stream.writeData(medi, cformat, &formatprocessor.UnitMPEG4Audio{
 							PTS: pts,
 							AUs: aus,
 							NTP: time.Now(),
 						})
 						if err != nil {
 							s.Log(logger.Warn, "%v", err)
+						}
+					}
+
+				case *format.Opus:
+					medi.Type = media.TypeAudio
+
+					mediaCallbacks[track.ES.ElementaryPID] = func(pts time.Duration, data []byte) {
+						pos := 0
+
+						for {
+							var au mpegts.OpusAccessUnit
+							n, err := au.Unmarshal(data[pos:])
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+								return
+							}
+							pos += n
+
+							err = stream.writeData(medi, cformat, &formatprocessor.UnitOpus{
+								PTS:   pts,
+								Frame: au.Frame,
+								NTP:   time.Now(),
+							})
+							if err != nil {
+								s.Log(logger.Warn, "%v", err)
+							}
+
+							if len(data[pos:]) == 0 {
+								break
+							}
 						}
 					}
 				}
