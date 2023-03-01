@@ -151,3 +151,25 @@ func TestH264OversizedPackets(t *testing.T) {
 		},
 	}, out)
 }
+
+func TestH264EmptyPacket(t *testing.T) {
+	forma := &format.H264{
+		PayloadTyp:        96,
+		PacketizationMode: 1,
+	}
+
+	p, err := New(forma, true)
+	require.NoError(t, err)
+
+	unit := &DataH264{
+		AU: [][]byte{
+			{0x07, 0x01, 0x02, 0x03}, // SPS
+			{0x08, 0x01, 0x02},       // PPS
+		},
+	}
+
+	p.Process(unit, false)
+
+	// if all NALUs have been removed, no RTP packets must be generated.
+	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
+}

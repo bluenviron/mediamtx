@@ -584,7 +584,7 @@ func (c *Conn) WriteMessage(msg message.Message) error {
 	return c.mrw.Write(msg)
 }
 
-func trackFromH264DecoderConfig(data []byte) (*format.H264, error) {
+func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
 	var conf h264conf.Conf
 	err := conf.Unmarshal(data)
 	if err != nil {
@@ -766,9 +766,9 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *fo
 	}
 }
 
-func (c *Conn) readTracksFromMessages(msg message.Message) (*format.H264, *format.MPEG4Audio, error) {
+func (c *Conn) readTracksFromMessages(msg message.Message) (format.Format, *format.MPEG4Audio, error) {
 	var startTime *time.Duration
-	var videoTrack *format.H264
+	var videoTrack format.Format
 	var audioTrack *format.MPEG4Audio
 
 	// analyze 1 second of packets

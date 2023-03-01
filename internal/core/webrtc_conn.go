@@ -345,8 +345,12 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	pcConnected := make(chan struct{})
 	pcDisconnected := make(chan struct{})
 	pcClosed := make(chan struct{})
+	var stateChangeMutex sync.Mutex
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		stateChangeMutex.Lock()
+		defer stateChangeMutex.Unlock()
+
 		select {
 		case <-pcClosed:
 			return
