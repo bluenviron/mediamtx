@@ -1116,15 +1116,15 @@ rtsp-simple-server
 Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
 
 ```yml
-webrtcICEServers: [turn:user:pass:host:ip]
+webrtcICEServers: [turn:user:pass:host:port]
 ```
 
-Where `user` and `pass` are the username and password of the server.
+Where `user` and `pass` are the username and password of the server.  Note that `port` is not optional.
 
 If the server uses a secret-based authentication (for instance, coturn with the `use-auth-secret` option), it must be configured in this way:
 
 ```yml
-webrtcICEServers: [turn:AUTH_SECRET:secret:host:ip]
+webrtcICEServers: [turn:AUTH_SECRET:secret:host:port]
 ```
 
 where `secret` is the secret of the TURN server. _rtsp-simple-server_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
