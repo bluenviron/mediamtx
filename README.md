@@ -104,6 +104,7 @@ In the next months, the repository name and the docker image name will be change
   * [Browser support](#browser-support)
   * [Embedding](#embedding)
   * [Low-Latency variant](#low-latency-variant)
+  * [Low-Latency variant on Apple devices](#low-latency-variant-on-apple-devices)
   * [Decrease latency](#decrease-latency-1)
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
@@ -1013,7 +1014,27 @@ For more advanced options, you can create and serve a custom web page by startin
 
 Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis) variant of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are served before the segment is complete.
 
-LL-HLS is disabled by default. To enable it, a TLS certificate is needed and can be generated with OpenSSL:
+LL-HLS is disabled by default. To enable it, set the `hlsVariant` parameter in the configuration file:
+
+```yml
+hlsVariant: lowLatency
+```
+
+Every stream published to the server can be read with LL-HLS by visiting:
+
+```
+https://localhost:8888/mystream
+```
+
+If the stream is not shown correctly, try tuning the `hlsPartDuration` parameter, for instance:
+
+```yml
+hlsPartDuration: 500ms
+```
+
+### Low-Latency variant and Apple devices
+
+In order to correctly display Low-Latency HLS streams in Safari running on Apple devices (iOS or macOS), a TLS certificate is needed and can be generated with OpenSSL:
 
 ```
 openssl genrsa -out server.key 2048
@@ -1027,18 +1048,6 @@ hlsVariant: lowLatency
 hlsEncryption: yes
 hlsServerKey: server.key
 hlsServerCert: server.crt
-```
-
-Every stream published to the server can be read with LL-HLS by visiting:
-
-```
-https://localhost:8888/mystream
-```
-
-If the stream is not shown correctly, try tuning the `hlsPartDuration` parameter, for instance:
-
-```yml
-hlsPartDuration: 500ms
 ```
 
 ### Decrease latency

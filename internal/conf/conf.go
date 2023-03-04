@@ -389,10 +389,6 @@ func (conf *Conf) CheckAndFillMissing() error {
 			return fmt.Errorf("Low-Latency HLS requires at least 7 segments")
 		}
 
-		if !conf.HLSEncryption {
-			return fmt.Errorf("Low-Latency HLS requires encryption")
-		}
-
 	default:
 		if conf.HLSSegmentCount < 3 {
 			return fmt.Errorf("The minimum number of HLS segments is 3")
