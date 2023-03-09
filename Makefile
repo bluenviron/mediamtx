@@ -1,7 +1,7 @@
 BASE_IMAGE = golang:1.18-alpine3.15
 LINT_IMAGE = golangci/golangci-lint:v1.50.1
 NODE_IMAGE = node:16-alpine3.15
-RPI32_IMAGE = balenalib/raspberrypi3:bullseye-run
+RPI32_IMAGE = balenalib/raspberry-pi:bullseye-run
 RPI64_IMAGE = balenalib/raspberrypi3-64:bullseye-run
 
 .PHONY: $(shell ls)
