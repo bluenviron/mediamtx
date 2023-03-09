@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -59,7 +60,13 @@ func externalAuth(
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return fmt.Errorf("bad status code: %d", res.StatusCode)
+		res_body, err := io.ReadAll(res.Body)
+
+		if err != nil {
+			return err
+		}
+
+		return fmt.Errorf("bad status code: %d, body: %s", res.StatusCode, res_body)
 	}
 
 	return nil
