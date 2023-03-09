@@ -60,13 +60,12 @@ func externalAuth(
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode > 299 {
-		res_body, err := io.ReadAll(res.Body)
-
+		resBody, err := io.ReadAll(res.Body)
 		if err != nil {
 			return err
 		}
 
-		return fmt.Errorf("bad status code: %d, body: %s", res.StatusCode, res_body)
+		return fmt.Errorf("bad status code: %d, body: %s", res.StatusCode, resBody)
 	}
 
 	return nil
