@@ -1032,7 +1032,7 @@ If the stream is not shown correctly, try tuning the `hlsPartDuration` parameter
 hlsPartDuration: 500ms
 ```
 
-### Low-Latency variant and Apple devices
+### Low-Latency variant on Apple devices
 
 In order to correctly display Low-Latency HLS streams in Safari running on Apple devices (iOS or macOS), a TLS certificate is needed and can be generated with OpenSSL:
 
