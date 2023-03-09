@@ -176,6 +176,7 @@ func New(
 	if err != nil {
 		return nil, err
 	}
+	defer removeSymlinks()
 
 	c := &RPICamera{
 		onData: onData,
@@ -200,13 +201,10 @@ func New(
 
 	c.cmd, err = startEmbeddedExe(exeContent, env)
 	if err != nil {
-		removeSymlinks()
 		c.pipeConf.close()
 		c.pipeVideo.close()
 		return nil, err
 	}
-
-	removeSymlinks()
 
 	c.pipeConf.write(append([]byte{'c'}, serializeParams(params)...))
 

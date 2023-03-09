@@ -40,5 +40,5 @@ all: exe
 
 exe: $(OBJS)
 	$(CXX) $^ $(LDFLAGS) -o $@
-	patchelf --replace-needed libcamera.so.0.0.2 libcamera.so.x.x.x $@
-	patchelf --replace-needed libcamera-base.so.0.0.2 libcamera-base.so.x.x.x $@
+	patchelf --replace-needed $$(basename /usr/lib/*-linux-*/libcamera.so.0*) libcamera.so.x.x.x $@
+	patchelf --replace-needed $$(basename /usr/lib/*-linux-*/libcamera-base.so.0*) libcamera-base.so.x.x.x $@
