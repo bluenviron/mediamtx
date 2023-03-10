@@ -400,6 +400,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSSegmentMaxSize,
 				p.conf.HLSAllowOrigin,
 				p.conf.HLSTrustedProxies,
+				p.conf.HLSIgnoreMuxerErrors,
 				p.conf.ReadBufferCount,
 				p.pathManager,
 				p.metrics,
@@ -574,6 +575,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSPartDuration != p.conf.HLSPartDuration ||
 		newConf.HLSSegmentMaxSize != p.conf.HLSSegmentMaxSize ||
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
+		newConf.HLSIgnoreMuxerErrors != p.conf.HLSIgnoreMuxerErrors ||
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closePathManager ||

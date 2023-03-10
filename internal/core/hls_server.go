@@ -64,6 +64,7 @@ type hlsServer struct {
 	segmentMaxSize            conf.StringSize
 	allowOrigin               string
 	trustedProxies            conf.IPsOrCIDRs
+	ignoreMuxerErrors         bool
 	readBufferCount           int
 	pathManager               *pathManager
 	metrics                   *metrics
@@ -99,6 +100,7 @@ func newHLSServer(
 	segmentMaxSize conf.StringSize,
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
+	ignoreMuxerErrors bool,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -134,6 +136,7 @@ func newHLSServer(
 		segmentMaxSize:            segmentMaxSize,
 		allowOrigin:               allowOrigin,
 		trustedProxies:            trustedProxies,
+		ignoreMuxerErrors:         ignoreMuxerErrors,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
 		parent:                    parent,
@@ -352,6 +355,7 @@ func (s *hlsServer) createMuxer(pathName string, remoteAddr string, req *hlsMuxe
 		s.segmentDuration,
 		s.partDuration,
 		s.segmentMaxSize,
+		s.ignoreMuxerErrors,
 		s.readBufferCount,
 		req,
 		&s.wg,

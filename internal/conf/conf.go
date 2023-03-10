@@ -209,19 +209,20 @@ type Conf struct {
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS
-	HLSDisable         bool           `json:"hlsDisable"`
-	HLSAddress         string         `json:"hlsAddress"`
-	HLSEncryption      bool           `json:"hlsEncryption"`
-	HLSServerKey       string         `json:"hlsServerKey"`
-	HLSServerCert      string         `json:"hlsServerCert"`
-	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant     `json:"hlsVariant"`
-	HLSSegmentCount    int            `json:"hlsSegmentCount"`
-	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
-	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
-	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
-	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
+	HLSDisable           bool           `json:"hlsDisable"`
+	HLSAddress           string         `json:"hlsAddress"`
+	HLSEncryption        bool           `json:"hlsEncryption"`
+	HLSServerKey         string         `json:"hlsServerKey"`
+	HLSServerCert        string         `json:"hlsServerCert"`
+	HLSAlwaysRemux       bool           `json:"hlsAlwaysRemux"`
+	HLSVariant           HLSVariant     `json:"hlsVariant"`
+	HLSSegmentCount      int            `json:"hlsSegmentCount"`
+	HLSSegmentDuration   StringDuration `json:"hlsSegmentDuration"`
+	HLSPartDuration      StringDuration `json:"hlsPartDuration"`
+	HLSSegmentMaxSize    StringSize     `json:"hlsSegmentMaxSize"`
+	HLSAllowOrigin       string         `json:"hlsAllowOrigin"`
+	HLSTrustedProxies    IPsOrCIDRs     `json:"hlsTrustedProxies"`
+	HLSIgnoreMuxerErrors bool           `json:"hlsIgnoreMuxerErrors"`
 
 	// WebRTC
 	WebRTCDisable           bool       `json:"webrtcDisable"`

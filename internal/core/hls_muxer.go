@@ -64,6 +64,7 @@ type hlsMuxer struct {
 	segmentDuration           conf.StringDuration
 	partDuration              conf.StringDuration
 	segmentMaxSize            conf.StringSize
+	ignoreMuxerErrors         bool
 	readBufferCount           int
 	wg                        *sync.WaitGroup
 	pathName                  string
@@ -96,6 +97,7 @@ func newHLSMuxer(
 	segmentDuration conf.StringDuration,
 	partDuration conf.StringDuration,
 	segmentMaxSize conf.StringSize,
+	ignoreMuxerErrors bool,
 	readBufferCount int,
 	req *hlsMuxerRequest,
 	wg *sync.WaitGroup,
@@ -115,6 +117,7 @@ func newHLSMuxer(
 		segmentDuration:           segmentDuration,
 		partDuration:              partDuration,
 		segmentMaxSize:            segmentMaxSize,
+		ignoreMuxerErrors:         ignoreMuxerErrors,
 		readBufferCount:           readBufferCount,
 		wg:                        wg,
 		pathName:                  pathName,
@@ -371,7 +374,11 @@ func (m *hlsMuxer) setupVideoMedia(stream *stream) (*media.Media, format.Format)
 
 				err := m.muxer.WriteH26x(tdata.NTP, pts, tdata.AU)
 				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
+					if m.ignoreMuxerErrors {
+						m.log(logger.Error, "write h26x muxer error: %s", err)
+					} else {
+						return fmt.Errorf("muxer error: %v", err)
+					}
 				}
 
 				return nil
@@ -404,7 +411,11 @@ func (m *hlsMuxer) setupVideoMedia(stream *stream) (*media.Media, format.Format)
 
 				err := m.muxer.WriteH26x(tdata.NTP, pts, tdata.AU)
 				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
+					if m.ignoreMuxerErrors {
+						m.log(logger.Error, "write h26x muxer error: %s", err)
+					} else {
+						return fmt.Errorf("muxer error: %v", err)
+					}
 				}
 
 				return nil
@@ -446,7 +457,12 @@ func (m *hlsMuxer) setupAudioMedia(stream *stream) (*media.Media, format.Format)
 							time.Second/time.Duration(audioFormatMPEG4Audio.ClockRate()),
 						au)
 					if err != nil {
-						return fmt.Errorf("muxer error: %v", err)
+						if m.ignoreMuxerErrors {
+							m.log(logger.Error, "write audio muxer error: %s", err)
+							break
+						} else {
+							return fmt.Errorf("muxer error: %v", err)
+						}
 					}
 				}
 
@@ -479,7 +495,11 @@ func (m *hlsMuxer) setupAudioMedia(stream *stream) (*media.Media, format.Format)
 					pts,
 					tdata.Frame)
 				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
+					if m.ignoreMuxerErrors {
+						m.log(logger.Error, "muxer write audio error: %s", err)
+					} else {
+						return fmt.Errorf("muxer error: %v", err)
+					}
 				}
 
 				return nil

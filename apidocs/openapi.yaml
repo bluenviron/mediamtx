@@ -125,6 +125,8 @@ components:
           type: array
           items:
             type: string
+        hlsIgnoreMuxerErrors:
+          type: boolean
 
         # WebRTC
         webrtcDisable:
