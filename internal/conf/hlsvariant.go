@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/aler9/rtsp-simple-server/internal/hls"
+	"github.com/bluenviron/gohlslib"
 )
 
 // HLSVariant is the hlsVariant parameter.
