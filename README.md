@@ -1162,6 +1162,7 @@ For more advanced options, you can create and serve a custom web page by startin
 Related projects
 
 * gortsplib (RTSP library used internally) https://github.com/aler9/gortsplib
+* gohlslib (HLS library used internally) https://github.com/bluenviron/gohlslib
 * pion/sdp (SDP library used internally) https://github.com/pion/sdp
 * pion/rtp (RTP library used internally) https://github.com/pion/rtp
 * pion/rtcp (RTCP library used internally) https://github.com/pion/rtcp

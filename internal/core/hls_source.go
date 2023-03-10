@@ -9,8 +9,9 @@ import (
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
-	"github.com/aler9/rtsp-simple-server/internal/hls"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/bluenviron/gohlslib"
+	hlslogger "github.com/bluenviron/gohlslib/pkg/logger"
 )
 
 type hlsSourceParent interface {
@@ -21,6 +22,12 @@ type hlsSourceParent interface {
 
 type hlsSource struct {
 	parent hlsSourceParent
+}
+
+type hlsLoggerWrapper func(level logger.Level, format string, args ...interface{})
+
+func (w hlsLoggerWrapper) Log(level hlslogger.Level, format string, args ...interface{}) {
+	w(logger.Level(level), format, args)
 }
 
 func newHLSSource(
@@ -48,7 +55,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 	c, err := hls.NewClient(
 		cnf.Source,
 		cnf.SourceFingerprint,
-		s,
+		hlsLoggerWrapper(s.Log),
 	)
 	if err != nil {
 		return err
