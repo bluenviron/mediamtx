@@ -13,7 +13,7 @@ import (
 type streamFormat struct {
 	proc           formatprocessor.Processor
 	mutex          sync.RWMutex
-	nonRTSPReaders map[reader]func(formatprocessor.Data)
+	nonRTSPReaders map[reader]func(formatprocessor.Unit)
 }
 
 func newStreamFormat(forma format.Format, generateRTPPackets bool) (*streamFormat, error) {
@@ -24,13 +24,13 @@ func newStreamFormat(forma format.Format, generateRTPPackets bool) (*streamForma
 
 	sf := &streamFormat{
 		proc:           proc,
-		nonRTSPReaders: make(map[reader]func(formatprocessor.Data)),
+		nonRTSPReaders: make(map[reader]func(formatprocessor.Unit)),
 	}
 
 	return sf, nil
 }
 
-func (sf *streamFormat) readerAdd(r reader, cb func(formatprocessor.Data)) {
+func (sf *streamFormat) readerAdd(r reader, cb func(formatprocessor.Unit)) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.nonRTSPReaders[r] = cb
@@ -42,7 +42,7 @@ func (sf *streamFormat) readerRemove(r reader) {
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeData(s *stream, medi *media.Media, data formatprocessor.Data) error {
+func (sf *streamFormat) writeData(s *stream, medi *media.Media, data formatprocessor.Unit) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 

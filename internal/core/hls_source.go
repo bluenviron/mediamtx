@@ -68,10 +68,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			case *format.H264:
 				medi.Type = media.TypeVideo
 
-				c.OnData(track, func(pts time.Duration, dat interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.DataH264{
+				c.OnData(track, func(pts time.Duration, unit interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.UnitH264{
 						PTS: pts,
-						AU:  dat.([][]byte),
+						AU:  unit.([][]byte),
 						NTP: time.Now(),
 					})
 					if err != nil {
@@ -82,10 +82,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			case *format.H265:
 				medi.Type = media.TypeVideo
 
-				c.OnData(track, func(pts time.Duration, dat interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.DataH265{
+				c.OnData(track, func(pts time.Duration, unit interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.UnitH265{
 						PTS: pts,
-						AU:  dat.([][]byte),
+						AU:  unit.([][]byte),
 						NTP: time.Now(),
 					})
 					if err != nil {
@@ -96,10 +96,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			case *format.MPEG4Audio:
 				medi.Type = media.TypeAudio
 
-				c.OnData(track, func(pts time.Duration, dat interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.DataMPEG4Audio{
+				c.OnData(track, func(pts time.Duration, unit interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.UnitMPEG4Audio{
 						PTS: pts,
-						AUs: [][]byte{dat.([]byte)},
+						AUs: [][]byte{unit.([]byte)},
 						NTP: time.Now(),
 					})
 					if err != nil {
@@ -110,10 +110,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			case *format.Opus:
 				medi.Type = media.TypeAudio
 
-				c.OnData(track, func(pts time.Duration, dat interface{}) {
-					err := stream.writeData(medi, ctrack, &formatprocessor.DataOpus{
+				c.OnData(track, func(pts time.Duration, unit interface{}) {
+					err := stream.writeData(medi, ctrack, &formatprocessor.UnitOpus{
 						PTS:   pts,
-						Frame: dat.([]byte),
+						Frame: unit.([]byte),
 						NTP:   time.Now(),
 					})
 					if err != nil {

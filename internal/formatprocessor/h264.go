@@ -67,21 +67,21 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 	}
 }
 
-// DataH264 is a H264 data unit.
-type DataH264 struct {
+// UnitH264 is a H264 data unit.
+type UnitH264 struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
 	PTS        time.Duration
 	AU         [][]byte
 }
 
-// GetRTPPackets implements Data.
-func (d *DataH264) GetRTPPackets() []*rtp.Packet {
+// GetRTPPackets implements Unit.
+func (d *UnitH264) GetRTPPackets() []*rtp.Packet {
 	return d.RTPPackets
 }
 
-// GetNTP implements Data.
-func (d *DataH264) GetNTP() time.Time {
+// GetNTP implements Unit.
+func (d *UnitH264) GetNTP() time.Time {
 	return d.NTP
 }
 
@@ -198,11 +198,11 @@ func (t *formatProcessorH264) remuxAccessUnit(nalus [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *formatProcessorH264) Process(dat Data, hasNonRTSPReaders bool) error { //nolint:dupl
-	tdata := dat.(*DataH264)
+func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := unit.(*UnitH264)
 
-	if tdata.RTPPackets != nil {
-		pkt := tdata.RTPPackets[0]
+	if tunit.RTPPackets != nil {
+		pkt := tunit.RTPPackets[0]
 		t.updateTrackParametersFromRTPPacket(pkt)
 
 		if t.encoder == nil {
@@ -233,7 +233,7 @@ func (t *formatProcessorH264) Process(dat Data, hasNonRTSPReaders bool) error { 
 			}
 
 			if t.encoder != nil {
-				tdata.RTPPackets = nil
+				tunit.RTPPackets = nil
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
@@ -245,9 +245,9 @@ func (t *formatProcessorH264) Process(dat Data, hasNonRTSPReaders bool) error { 
 				return err
 			}
 
-			tdata.AU = au
-			tdata.PTS = PTS
-			tdata.AU = t.remuxAccessUnit(tdata.AU)
+			tunit.AU = au
+			tunit.PTS = PTS
+			tunit.AU = t.remuxAccessUnit(tunit.AU)
 		}
 
 		// route packet as is
@@ -255,18 +255,18 @@ func (t *formatProcessorH264) Process(dat Data, hasNonRTSPReaders bool) error { 
 			return nil
 		}
 	} else {
-		t.updateTrackParametersFromNALUs(tdata.AU)
-		tdata.AU = t.remuxAccessUnit(tdata.AU)
+		t.updateTrackParametersFromNALUs(tunit.AU)
+		tunit.AU = t.remuxAccessUnit(tunit.AU)
 	}
 
-	if len(tdata.AU) != 0 {
-		pkts, err := t.encoder.Encode(tdata.AU, tdata.PTS)
+	if len(tunit.AU) != 0 {
+		pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
 		if err != nil {
 			return err
 		}
-		tdata.RTPPackets = pkts
+		tunit.RTPPackets = pkts
 	} else {
-		tdata.RTPPackets = nil
+		tunit.RTPPackets = nil
 	}
 
 	return nil

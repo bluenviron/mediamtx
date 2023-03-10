@@ -95,7 +95,7 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 			stream = res.stream
 		}
 
-		err := stream.writeData(medi, medi.Formats[0], &formatprocessor.DataH264{
+		err := stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH264{
 			PTS: dts,
 			AU:  au,
 			NTP: time.Now(),

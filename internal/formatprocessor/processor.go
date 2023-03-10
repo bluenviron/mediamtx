@@ -2,23 +2,13 @@
 package formatprocessor
 
 import (
-	"time"
-
-	"github.com/pion/rtp"
-
 	"github.com/aler9/gortsplib/v2/pkg/format"
 )
-
-// Data is the elementary data unit routed across the server.
-type Data interface {
-	GetRTPPackets() []*rtp.Packet
-	GetNTP() time.Time
-}
 
 // Processor allows to cleanup and normalize streams.
 type Processor interface {
 	// clears and normalizes a data unit.
-	Process(Data, bool) error
+	Process(Unit, bool) error
 }
 
 // New allocates a Processor.

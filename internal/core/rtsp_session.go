@@ -327,7 +327,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 			switch forma.(type) {
 			case *format.H264:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataH264{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitH264{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})
@@ -338,7 +338,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.H265:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataH265{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitH265{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})
@@ -349,7 +349,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.VP8:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataVP8{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitVP8{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})
@@ -360,7 +360,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.VP9:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataVP9{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitVP9{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})
@@ -371,7 +371,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.MPEG4Audio:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataMPEG4Audio{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitMPEG4Audio{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})
@@ -382,7 +382,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			case *format.Opus:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataOpus{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitOpus{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})
@@ -393,7 +393,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 			default:
 				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.DataGeneric{
+					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitGeneric{
 						RTPPackets: []*rtp.Packet{pkt},
 						NTP:        time.Now(),
 					})

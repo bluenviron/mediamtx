@@ -22,7 +22,7 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
-	data := &DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data := &UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -31,15 +31,15 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
 	require.NoError(t, err)
-	p.Process(&DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}}, 0)
 	require.NoError(t, err)
-	p.Process(&DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}}, 0)
 	require.NoError(t, err)
-	p.Process(&DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
 
 	require.Equal(t, []byte{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}, forma.VPS)
 	require.Equal(t, []byte{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}, forma.SPS)
@@ -47,7 +47,7 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
-	data = &DataH265{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data = &UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -97,7 +97,7 @@ func TestH265OversizedPackets(t *testing.T) {
 			Payload: bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 2000/4),
 		},
 	} {
-		data := &DataH265{RTPPackets: []*rtp.Packet{pkt}}
+		data := &UnitH265{RTPPackets: []*rtp.Packet{pkt}}
 		p.Process(data, false)
 		out = append(out, data.RTPPackets...)
 	}
@@ -153,7 +153,7 @@ func TestH265EmptyPacket(t *testing.T) {
 	p, err := New(forma, true)
 	require.NoError(t, err)
 
-	unit := &DataH265{
+	unit := &UnitH265{
 		AU: [][]byte{
 			{byte(h265.NALUType_VPS_NUT) << 1, 10, 11, 12}, // VPS
 			{byte(h265.NALUType_SPS_NUT) << 1, 13, 14, 15}, // SPS

@@ -23,7 +23,7 @@ func TestH264DynamicParams(t *testing.T) {
 
 	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
-	data := &DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data := &UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -32,18 +32,18 @@ func TestH264DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
 	require.NoError(t, err)
-	p.Process(&DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
 
 	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
 	require.NoError(t, err)
-	p.Process(&DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
 
 	require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
 	require.Equal(t, []byte{8, 1}, forma.PPS)
 
 	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
-	data = &DataH264{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data = &UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -104,7 +104,7 @@ func TestH264OversizedPackets(t *testing.T) {
 			Payload: []byte{0x1c, 0b01000000, 0x01, 0x02, 0x03, 0x04},
 		},
 	} {
-		data := &DataH264{RTPPackets: []*rtp.Packet{pkt}}
+		data := &UnitH264{RTPPackets: []*rtp.Packet{pkt}}
 		p.Process(data, false)
 		out = append(out, data.RTPPackets...)
 	}
@@ -161,7 +161,7 @@ func TestH264EmptyPacket(t *testing.T) {
 	p, err := New(forma, true)
 	require.NoError(t, err)
 
-	unit := &DataH264{
+	unit := &UnitH264{
 		AU: [][]byte{
 			{0x07, 0x01, 0x02, 0x03}, // SPS
 			{0x08, 0x01, 0x02},       // PPS
