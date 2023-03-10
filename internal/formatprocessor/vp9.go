@@ -9,21 +9,21 @@ import (
 	"github.com/pion/rtp"
 )
 
-// DataVP9 is a VP9 data unit.
-type DataVP9 struct {
+// UnitVP9 is a VP9 data unit.
+type UnitVP9 struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
 	PTS        time.Duration
 	Frame      []byte
 }
 
-// GetRTPPackets implements Data.
-func (d *DataVP9) GetRTPPackets() []*rtp.Packet {
+// GetRTPPackets implements Unit.
+func (d *UnitVP9) GetRTPPackets() []*rtp.Packet {
 	return d.RTPPackets
 }
 
-// GetNTP implements Data.
-func (d *DataVP9) GetNTP() time.Time {
+// GetNTP implements Unit.
+func (d *UnitVP9) GetNTP() time.Time {
 	return d.NTP
 }
 
@@ -48,11 +48,11 @@ func newVP9(
 	return t, nil
 }
 
-func (t *formatProcessorVP9) Process(dat Data, hasNonRTSPReaders bool) error { //nolint:dupl
-	tdata := dat.(*DataVP9)
+func (t *formatProcessorVP9) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := unit.(*UnitVP9)
 
-	if tdata.RTPPackets != nil {
-		pkt := tdata.RTPPackets[0]
+	if tunit.RTPPackets != nil {
+		pkt := tunit.RTPPackets[0]
 
 		// remove padding
 		pkt.Header.Padding = false
@@ -77,19 +77,19 @@ func (t *formatProcessorVP9) Process(dat Data, hasNonRTSPReaders bool) error { /
 				return err
 			}
 
-			tdata.Frame = frame
-			tdata.PTS = PTS
+			tunit.Frame = frame
+			tunit.PTS = PTS
 		}
 
 		// route packet as is
 		return nil
 	}
 
-	pkts, err := t.encoder.Encode(tdata.Frame, tdata.PTS)
+	pkts, err := t.encoder.Encode(tunit.Frame, tunit.PTS)
 	if err != nil {
 		return err
 	}
 
-	tdata.RTPPackets = pkts
+	tunit.RTPPackets = pkts
 	return nil
 }

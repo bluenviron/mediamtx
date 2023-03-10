@@ -45,7 +45,7 @@ func (s *stream) medias() media.Medias {
 	return s.rtspStream.Medias()
 }
 
-func (s *stream) readerAdd(r reader, medi *media.Media, forma format.Format, cb func(formatprocessor.Data)) {
+func (s *stream) readerAdd(r reader, medi *media.Media, forma format.Format, cb func(formatprocessor.Unit)) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.readerAdd(r, cb)
@@ -59,7 +59,7 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) writeData(medi *media.Media, forma format.Format, data formatprocessor.Data) error {
+func (s *stream) writeData(medi *media.Media, forma format.Format, data formatprocessor.Unit) error {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	return sf.writeData(s, medi, data)

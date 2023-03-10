@@ -177,7 +177,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							continue
 						}
 
-						err = res.stream.writeData(videoMedia, videoFormat, &formatprocessor.DataH264{
+						err = res.stream.writeData(videoMedia, videoFormat, &formatprocessor.UnitH264{
 							PTS: tmsg.DTS + tmsg.PTSDelta,
 							AU:  au,
 							NTP: time.Now(),
@@ -193,7 +193,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							return fmt.Errorf("received an AAC packet, but track is not set up")
 						}
 
-						err := res.stream.writeData(audioMedia, audioFormat, &formatprocessor.DataMPEG4Audio{
+						err := res.stream.writeData(audioMedia, audioFormat, &formatprocessor.UnitMPEG4Audio{
 							PTS: tmsg.DTS,
 							AUs: [][]byte{tmsg.Payload},
 							NTP: time.Now(),

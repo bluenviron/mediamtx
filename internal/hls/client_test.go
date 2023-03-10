@@ -281,13 +281,13 @@ func TestClientMPEGTS(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			onH264 := func(pts time.Duration, dat interface{}) {
+			onH264 := func(pts time.Duration, unit interface{}) {
 				require.Equal(t, 2*time.Second, pts)
 				require.Equal(t, [][]byte{
 					{7, 1, 2, 3},
 					{8},
 					{5},
-				}, dat)
+				}, unit)
 				close(packetRecv)
 			}
 
@@ -344,13 +344,13 @@ func TestClientFMP4(t *testing.T) {
 
 	packetRecv := make(chan struct{})
 
-	onH264 := func(pts time.Duration, dat interface{}) {
+	onH264 := func(pts time.Duration, unit interface{}) {
 		require.Equal(t, 2*time.Second, pts)
 		require.Equal(t, [][]byte{
 			{7, 1, 2, 3},
 			{8},
 			{5},
-		}, dat)
+		}, unit)
 		close(packetRecv)
 	}
 
