@@ -167,7 +167,7 @@ hlsAllowOrigin: '*'
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 hlsTrustedProxies: []
-# instead of resetting the stream hls ignores packets where the muxer fails
+# instead of resetting the hls stream ignores packets where the muxer fails
 hlsIgnoreMuxerErrors: no
 
 ###############################################
