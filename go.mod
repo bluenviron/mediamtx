@@ -5,7 +5,7 @@ go 1.18
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/alecthomas/kong v0.7.1
-	github.com/aler9/gortsplib/v2 v2.1.3
+	github.com/aler9/gortsplib/v2 v2.1.4
 	github.com/asticode/go-astits v1.11.0
 	github.com/bluenviron/gohlslib v0.0.0-20230310115623-ec8d496cca25
 	github.com/fsnotify/fsnotify v1.4.9
