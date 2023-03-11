@@ -1151,10 +1151,7 @@ For more advanced options, you can create and serve a custom web page by startin
 ## Standards
 
 * RTSP/RTP/RTCP standards https://github.com/aler9/gortsplib#standards
-* HTTP 1.1 https://datatracker.ietf.org/doc/html/rfc2616
-* HLS https://datatracker.ietf.org/doc/html/rfc8216
-* HLS v2 https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis
-* Opus in MP4/ISOBMFF https://opus-codec.org/docs/opus_in_isobmff.html
+* HLS standards https://github.com/bluenviron/gohlslib#standards
 * Golang project layout https://github.com/golang-standards/project-layout
 
 ## Links
