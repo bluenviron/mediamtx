@@ -1,11 +1,11 @@
 
 <h1 align="center">
-    <img src="logo.png" alt="rtsp-simple-server / MediaMTX">
+    <img src="logo.png" alt="MediaMTX / rtsp-simple-server">
 </h1>
 
 <br>
 
-_rtsp-simple-server_ / [_MediaMTX_](#important-announcement) is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
+[_MediaMTX_](#important-announcement) / _rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
 
 Live streams can be published to the server with:
 
