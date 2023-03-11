@@ -19,8 +19,7 @@ jobs:
 
     - run: |
         sed -i '/gortsplib/d' go.mod
-        go mod download
-        go mod tidy
+        GOPROXY=off go mod tidy
         git diff --exit-code
 
   make_binaries:
