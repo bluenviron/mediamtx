@@ -19,7 +19,6 @@ jobs:
 
     - run: |
         sed -i '/gortsplib/d' go.mod
-        go mod download
         go mod tidy
         git diff --exit-code
 
