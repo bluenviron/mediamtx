@@ -562,7 +562,7 @@ go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 
 #### Standard
 
-Install Go &ge; 1.18, download the repository, open a terminal in it and run:
+Install Go &ge; 1.19, download the repository, open a terminal in it and run:
 
 ```sh
 go build .
@@ -572,7 +572,7 @@ The command will produce the `rtsp-simple-server` binary.
 
 #### Raspberry Pi
 
-In case of a Raspberry Pi, the server can be compiled with native support for the Raspberry Pi Camera. Install Go &ge; 1.18, download the repository, open a terminal in it and run:
+In case of a Raspberry Pi, the server can be compiled with native support for the Raspberry Pi Camera. Install Go &ge; 1.19, download the repository, open a terminal in it and run:
 
 ```sh
 cd internal/rpicamera/exe
