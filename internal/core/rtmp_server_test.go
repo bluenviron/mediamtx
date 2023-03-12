@@ -126,6 +126,8 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			err = conn1.WriteTracks(videoTrack, audioTrack)
 			require.NoError(t, err)
 
+			time.Sleep(500 * time.Millisecond)
+
 			nconn2, err := func() (net.Conn, error) {
 				if ca == "plain" {
 					return net.Dial("tcp", u.Host)

@@ -1,6 +1,6 @@
 module github.com/aler9/rtsp-simple-server
 
-go 1.18
+go 1.19
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
