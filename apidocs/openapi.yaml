@@ -11,6 +11,8 @@ info:
 servers:
   - url: http://localhost:9997
 
+security: []
+
 components:
   schemas:
     Conf:
@@ -522,14 +524,6 @@ components:
             $ref: '#/components/schemas/RTMPConn'
 
     RTSPConnsList:
-      type: object
-      properties:
-        items:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/RTSPConn'
-
-    RTSPSConnsList:
       type: object
       properties:
         items:

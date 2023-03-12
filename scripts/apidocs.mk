@@ -1,6 +1,6 @@
 define DOCKERFILE_APIDOCS_LINT
 FROM $(NODE_IMAGE)
-RUN yarn global add @redocly/openapi-cli@1.0.0-beta.82
+RUN yarn global add @redocly/cli@1.0.0-beta.123
 endef
 export DOCKERFILE_APIDOCS_LINT
 
