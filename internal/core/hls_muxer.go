@@ -36,7 +36,7 @@ var hlsIndex []byte
 
 type hlsMuxerResponse struct {
 	muxer *hlsMuxer
-	cb    func() *hls.MuxerFileResponse
+	cb    func() *gohlslib.MuxerFileResponse
 }
 
 type hlsMuxerRequest struct {
@@ -77,7 +77,7 @@ type hlsMuxer struct {
 	path            *path
 	ringBuffer      *ringbuffer.RingBuffer
 	lastRequestTime *int64
-	muxer           *hls.Muxer
+	muxer           *gohlslib.Muxer
 	requests        []*hlsMuxerRequest
 	bytesSent       *uint64
 
@@ -296,17 +296,17 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			"the stream doesn't contain any supported codec (which are currently H264, H265, MPEG4-Audio, Opus)")
 	}
 
-	var err error
-	m.muxer, err = hls.NewMuxer(
-		hls.MuxerVariant(m.variant),
-		m.segmentCount,
-		time.Duration(m.segmentDuration),
-		time.Duration(m.partDuration),
-		uint64(m.segmentMaxSize),
-		videoFormat,
-		audioFormat,
-		"",
-	)
+	m.muxer = &gohlslib.Muxer{
+		Variant:         gohlslib.MuxerVariant(m.variant),
+		SegmentCount:    m.segmentCount,
+		SegmentDuration: time.Duration(m.segmentDuration),
+		PartDuration:    time.Duration(m.partDuration),
+		SegmentMaxSize:  uint64(m.segmentMaxSize),
+		VideoTrack:      videoFormat,
+		AudioTrack:      audioFormat,
+	}
+
+	err := m.muxer.Start()
 	if err != nil {
 		return fmt.Errorf("muxer error: %v", err)
 	}
@@ -507,15 +507,15 @@ func (m *hlsMuxer) runWriter() error {
 	}
 }
 
-func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResponse {
+func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *gohlslib.MuxerFileResponse {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
 
 	err := m.authenticate(req.ctx)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			m.log(logger.Info, "authentication error: %s", terr.message)
-			return func() *hls.MuxerFileResponse {
-				return &hls.MuxerFileResponse{
+			return func() *gohlslib.MuxerFileResponse {
+				return &gohlslib.MuxerFileResponse{
 					Status: http.StatusUnauthorized,
 					Header: map[string]string{
 						"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
@@ -524,8 +524,8 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 			}
 		}
 
-		return func() *hls.MuxerFileResponse {
-			return &hls.MuxerFileResponse{
+		return func() *gohlslib.MuxerFileResponse {
+			return &gohlslib.MuxerFileResponse{
 				Status: http.StatusUnauthorized,
 				Header: map[string]string{
 					"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
@@ -535,8 +535,8 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 	}
 
 	if req.file == "" {
-		return func() *hls.MuxerFileResponse {
-			return &hls.MuxerFileResponse{
+		return func() *gohlslib.MuxerFileResponse {
+			return &gohlslib.MuxerFileResponse{
 				Status: http.StatusOK,
 				Header: map[string]string{
 					"Content-Type": `text/html`,
@@ -546,7 +546,7 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 		}
 	}
 
-	return func() *hls.MuxerFileResponse {
+	return func() *gohlslib.MuxerFileResponse {
 		return m.muxer.File(
 			req.file,
 			req.ctx.Query("_HLS_msn"),

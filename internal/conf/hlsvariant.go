@@ -8,13 +8,13 @@ import (
 )
 
 // HLSVariant is the hlsVariant parameter.
-type HLSVariant hls.MuxerVariant
+type HLSVariant gohlslib.MuxerVariant
 
 // supported HLS variants.
 const (
-	HLSVariantMPEGTS     HLSVariant = HLSVariant(hls.MuxerVariantMPEGTS)
-	HLSVariantFMP4       HLSVariant = HLSVariant(hls.MuxerVariantFMP4)
-	HLSVariantLowLatency HLSVariant = HLSVariant(hls.MuxerVariantLowLatency)
+	HLSVariantMPEGTS     HLSVariant = HLSVariant(gohlslib.MuxerVariantMPEGTS)
+	HLSVariantFMP4       HLSVariant = HLSVariant(gohlslib.MuxerVariantFMP4)
+	HLSVariantLowLatency HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
 )
 
 // MarshalJSON implements json.Marshaler.

@@ -1162,6 +1162,7 @@ Related projects
 * pion/sdp (SDP library used internally) https://github.com/pion/sdp
 * pion/rtp (RTP library used internally) https://github.com/pion/rtp
 * pion/rtcp (RTCP library used internally) https://github.com/pion/rtcp
+* pion/webrtc (WebRTC library used internally) https://github.com/pion/webrtc
 * notedit/rtmp (RTMP library used internally) https://github.com/notedit/rtmp
 * go-astits (MPEG-TS library used internally) https://github.com/asticode/go-astits
 * go-mp4 (MP4 library used internally) https://github.com/abema/go-mp4
