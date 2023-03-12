@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 
@@ -58,18 +59,23 @@ func newWebRTCTestClient(addr string) (*webRTCTestClient, error) {
 
 	connected := make(chan struct{})
 	closed := make(chan struct{})
+	var stateChangeMutex sync.Mutex
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
+		stateChangeMutex.Lock()
+		defer stateChangeMutex.Unlock()
+
+		select {
+		case <-closed:
+			return
+		default:
+		}
+
 		switch state {
 		case webrtc.PeerConnectionStateConnected:
 			close(connected)
 
 		case webrtc.PeerConnectionStateClosed:
-			select {
-			case <-closed:
-				return
-			default:
-			}
 			close(closed)
 		}
 	})

@@ -52,13 +52,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		}
 	}()
 
-	c, err := hls.NewClient(
-		cnf.Source,
-		cnf.SourceFingerprint,
-		hlsLoggerWrapper(s.Log),
-	)
-	if err != nil {
-		return err
+	c := &gohlslib.Client{
+		URI:         cnf.Source,
+		Fingerprint: cnf.SourceFingerprint,
+		Logger:      hlsLoggerWrapper(s.Log),
 	}
 
 	c.OnTracks(func(tracks []format.Format) error {
@@ -144,11 +141,15 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		return nil
 	})
 
-	c.Start()
+	err := c.Start()
+	if err != nil {
+		return err
+	}
 
 	for {
 		select {
 		case err := <-c.Wait():
+			c.Close()
 			return err
 
 		case <-reloadConf:

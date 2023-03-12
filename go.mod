@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kong v0.7.1
 	github.com/aler9/gortsplib/v2 v2.1.4
 	github.com/asticode/go-astits v1.11.0
-	github.com/bluenviron/gohlslib v0.0.0-20230312114838-5feec7e35841
+	github.com/bluenviron/gohlslib v0.0.0-20230312151707-933e641d84aa
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
