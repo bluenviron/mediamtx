@@ -204,7 +204,7 @@ outer:
 		select {
 		case pa := <-s.chPathSourceReady:
 			if s.alwaysRemux {
-				s.createMuxer(pa.name, "", nil)
+				s.createMuxer(pa.name, "")
 			}
 
 		case pa := <-s.chPathSourceNotReady:
@@ -226,7 +226,7 @@ outer:
 				req.res <- nil
 
 			default:
-				r := s.createMuxer(req.path, req.ctx.ClientIP(), req)
+				r := s.createMuxer(req.path, req.ctx.ClientIP())
 				r.processRequest(req)
 			}
 
@@ -331,6 +331,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.WriteHeader(res.Status)
 
 			if res.Body != nil {
+				defer res.Body.Close()
 				n, _ := io.Copy(ctx.Writer, res.Body)
 				res1.muxer.addSentBytes(uint64(n))
 			}
@@ -340,7 +341,7 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	}
 }
 
-func (s *hlsServer) createMuxer(pathName string, remoteAddr string, req *hlsMuxerRequest) *hlsMuxer {
+func (s *hlsServer) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 	r := newHLSMuxer(
 		s.ctx,
 		pathName,
@@ -353,7 +354,6 @@ func (s *hlsServer) createMuxer(pathName string, remoteAddr string, req *hlsMuxe
 		s.partDuration,
 		s.segmentMaxSize,
 		s.readBufferCount,
-		req,
 		&s.wg,
 		pathName,
 		s.pathManager,

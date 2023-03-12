@@ -12,8 +12,8 @@ github.com/asticode/go-astikit v0.30.0 h1:DkBkRQRIxYcknlaU7W7ksNfn4gMFsB0tqMJflx
 github.com/asticode/go-astikit v0.30.0/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
 github.com/asticode/go-astits v1.11.0 h1:GTHUXht0ZXAJXsVbsLIcyfHr1Bchi4QQwMARw2ZWAng=
 github.com/asticode/go-astits v1.11.0/go.mod h1:QSHmknZ51pf6KJdHKZHJTLlMegIrhega3LPWz3ND/iI=
-github.com/bluenviron/gohlslib v0.0.0-20230310115623-ec8d496cca25 h1:F5rtyEy7a8yILctfOrWjuCAFQhL9MG3E+rWrG8gKZV8=
-github.com/bluenviron/gohlslib v0.0.0-20230310115623-ec8d496cca25/go.mod h1:lIJHdX5oH3VLUfH3cjA+w3HGIswtgiriB9koNv6ZKCc=
+github.com/bluenviron/gohlslib v0.0.0-20230312114838-5feec7e35841 h1:J5AIpE6ue/l/IgIlLCi/QQJL2MNBTFQrAkDScGbUaDs=
+github.com/bluenviron/gohlslib v0.0.0-20230312114838-5feec7e35841/go.mod h1:SYixOK6Kux6cA9AGR1sg1GJdU2TmYiccVpPmS/Rxdt0=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.8.0 h1:ea0Xadu+sHlu7x5O3gKhRpQ1IKiMrSiHttPF0ybECuA=
 github.com/bytedance/sonic v1.8.0/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=

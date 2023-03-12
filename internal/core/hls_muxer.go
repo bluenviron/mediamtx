@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"sync"
@@ -97,7 +98,6 @@ func newHLSMuxer(
 	partDuration conf.StringDuration,
 	segmentMaxSize conf.StringSize,
 	readBufferCount int,
-	req *hlsMuxerRequest,
 	wg *sync.WaitGroup,
 	pathName string,
 	pathManager hlsMuxerPathManager,
@@ -305,6 +305,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		uint64(m.segmentMaxSize),
 		videoFormat,
 		audioFormat,
+		"",
 	)
 	if err != nil {
 		return fmt.Errorf("muxer error: %v", err)
@@ -540,7 +541,7 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *hls.MuxerFileResp
 				Header: map[string]string{
 					"Content-Type": `text/html`,
 				},
-				Body: bytes.NewReader(hlsIndex),
+				Body: io.NopCloser(bytes.NewReader(hlsIndex)),
 			}
 		}
 	}

@@ -32,7 +32,6 @@ jobs:
         go-version: "1.19"
 
     - run: |
-        go mod download
         go mod tidy
         git diff --exit-code
 
