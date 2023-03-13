@@ -768,7 +768,7 @@ Edit `rtsp-simple-server.yml` and replace everything inside section `paths` with
 ```yml
 paths:
   udp:
-    source: udp://ip-of-stream:port-of-stream
+    source: udp://238.0.0.1:1234
 ```
 
 After starting the server, the stream can be reached on `rtsp://localhost:8554/udp`.

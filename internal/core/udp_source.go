@@ -23,6 +23,43 @@ const (
 	multicastTTL = 16
 )
 
+var opusDurations = [32]int{
+	480, 960, 1920, 2880, /* Silk NB */
+	480, 960, 1920, 2880, /* Silk MB */
+	480, 960, 1920, 2880, /* Silk WB */
+	480, 960, /* Hybrid SWB */
+	480, 960, /* Hybrid FB */
+	120, 240, 480, 960, /* CELT NB */
+	120, 240, 480, 960, /* CELT NB */
+	120, 240, 480, 960, /* CELT NB */
+	120, 240, 480, 960, /* CELT NB */
+}
+
+func opusGetPacketDuration(pkt []byte) time.Duration {
+	if len(pkt) == 0 {
+		return 0
+	}
+
+	frameDuration := opusDurations[pkt[0]>>3]
+
+	frameCount := 0
+	switch pkt[0] & 3 {
+	case 0:
+		frameCount = 1
+	case 1:
+		frameCount = 2
+	case 2:
+		frameCount = 2
+	case 3:
+		if len(pkt) < 2 {
+			return 0
+		}
+		frameCount = int(pkt[1] & 63)
+	}
+
+	return (time.Duration(frameDuration) * time.Duration(frameCount) * time.Millisecond) / 48
+}
+
 type readerFunc func([]byte) (int, error)
 
 func (rf readerFunc) Read(p []byte) (int, error) {
@@ -235,6 +272,8 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							if len(data[pos:]) == 0 {
 								break
 							}
+
+							pts += opusGetPacketDuration(au.Frame)
 						}
 					}
 				}
@@ -275,7 +314,6 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				var pts time.Duration
-
 				if timedec == nil {
 					timedec = mpegts.NewTimeDecoder(data.PES.Header.OptionalHeader.PTS.Base)
 					pts = 0
