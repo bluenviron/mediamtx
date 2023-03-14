@@ -210,6 +210,8 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
 
 ### Configuration
 
+AMAZING
+
 All the configuration parameters are listed and commented in the [configuration file](rtsp-simple-server.yml).
 
 There are 3 ways to change the configuration:
