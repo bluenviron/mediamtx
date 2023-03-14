@@ -69,7 +69,7 @@ func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			aus, PTS, err := t.decoder.Decode(pkt)
+			aus, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpmpeg4audio.ErrMorePacketsNeeded {
 					return nil
@@ -78,7 +78,7 @@ func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 			}
 
 			tunit.AUs = aus
-			tunit.PTS = PTS
+			tunit.PTS = pts
 		}
 
 		// route packet as is
