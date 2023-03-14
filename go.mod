@@ -5,9 +5,9 @@ go 1.19
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/alecthomas/kong v0.7.1
-	github.com/aler9/gortsplib/v2 v2.1.4
+	github.com/aler9/gortsplib/v2 v2.1.7
 	github.com/asticode/go-astits v1.11.0
-	github.com/bluenviron/gohlslib v0.0.0-20230312151707-933e641d84aa
+	github.com/bluenviron/gohlslib v0.0.0-20230314171751-fbd8c7f7e4c8
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0

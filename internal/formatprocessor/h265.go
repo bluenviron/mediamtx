@@ -258,7 +258,7 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			au, PTS, err := t.decoder.DecodeUntilMarker(pkt)
+			au, pts, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtph265.ErrNonStartingPacketAndNoPrevious || err == rtph265.ErrMorePacketsNeeded {
 					return nil
@@ -267,7 +267,7 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 			}
 
 			tunit.AU = au
-			tunit.PTS = PTS
+			tunit.PTS = pts
 			tunit.AU = t.remuxAccessUnit(tunit.AU)
 		}
 

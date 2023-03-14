@@ -69,13 +69,13 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			frame, PTS, err := t.decoder.Decode(pkt)
+			frame, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
 				return err
 			}
 
 			tunit.Frame = frame
-			tunit.PTS = PTS
+			tunit.PTS = pts
 		}
 
 		// route packet as is
