@@ -195,8 +195,10 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		}
 
 		for otherName, otherPath := range conf.Paths {
-			if otherPath != pconf && otherPath != nil && otherPath.Source == "rpiCamera" {
-				return fmt.Errorf("'rpiCamera' is used as source in two paths ('%s' and '%s')", name, otherName)
+			if otherPath != pconf && otherPath != nil &&
+				otherPath.Source == "rpiCamera" && otherPath.RPICameraCamID == pconf.RPICameraCamID {
+				return fmt.Errorf("'rpiCamera' with same camera ID %d is used as source in two paths, '%s' and '%s'",
+					pconf.RPICameraCamID, name, otherName)
 			}
 		}
 
