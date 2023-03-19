@@ -88,8 +88,8 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 		OnResponse: func(res *base.Response) {
 			s.Log(logger.Debug, "s->c %v", res)
 		},
-		OnDecodeError: func(err error) {
-			s.Log(logger.Warn, "%v", err)
+		Log: func(level gortsplib.LogLevel, format string, args ...interface{}) {
+			s.Log(logger.Warn, format, args...)
 		},
 	}
 
