@@ -222,6 +222,7 @@ type Conf struct {
 	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
 	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
+	HLSDirectory       string         `json:"hlsDirectory"`
 
 	// WebRTC
 	WebRTCDisable           bool       `json:"webrtcDisable"`

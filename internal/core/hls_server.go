@@ -64,6 +64,7 @@ type hlsServer struct {
 	segmentMaxSize            conf.StringSize
 	allowOrigin               string
 	trustedProxies            conf.IPsOrCIDRs
+	directory                 string
 	readBufferCount           int
 	pathManager               *pathManager
 	metrics                   *metrics
@@ -99,6 +100,7 @@ func newHLSServer(
 	segmentMaxSize conf.StringSize,
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
+	directory string,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -134,6 +136,7 @@ func newHLSServer(
 		segmentMaxSize:            segmentMaxSize,
 		allowOrigin:               allowOrigin,
 		trustedProxies:            trustedProxies,
+		directory:                 directory,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
 		parent:                    parent,
@@ -344,7 +347,6 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 func (s *hlsServer) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 	r := newHLSMuxer(
 		s.ctx,
-		pathName,
 		remoteAddr,
 		s.externalAuthenticationURL,
 		s.alwaysRemux,
@@ -353,6 +355,7 @@ func (s *hlsServer) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 		s.segmentDuration,
 		s.partDuration,
 		s.segmentMaxSize,
+		s.directory,
 		s.readBufferCount,
 		&s.wg,
 		pathName,

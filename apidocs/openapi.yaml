@@ -127,6 +127,8 @@ components:
           type: array
           items:
             type: string
+        hlsDirectory:
+          type: string
 
         # WebRTC
         webrtcDisable:

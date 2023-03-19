@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -56,7 +58,6 @@ type hlsMuxerParent interface {
 }
 
 type hlsMuxer struct {
-	name                      string
 	remoteAddr                string
 	externalAuthenticationURL string
 	alwaysRemux               bool
@@ -65,6 +66,7 @@ type hlsMuxer struct {
 	segmentDuration           conf.StringDuration
 	partDuration              conf.StringDuration
 	segmentMaxSize            conf.StringSize
+	directory                 string
 	readBufferCount           int
 	wg                        *sync.WaitGroup
 	pathName                  string
@@ -88,7 +90,6 @@ type hlsMuxer struct {
 
 func newHLSMuxer(
 	parentCtx context.Context,
-	name string,
 	remoteAddr string,
 	externalAuthenticationURL string,
 	alwaysRemux bool,
@@ -97,6 +98,7 @@ func newHLSMuxer(
 	segmentDuration conf.StringDuration,
 	partDuration conf.StringDuration,
 	segmentMaxSize conf.StringSize,
+	directory string,
 	readBufferCount int,
 	wg *sync.WaitGroup,
 	pathName string,
@@ -106,7 +108,6 @@ func newHLSMuxer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	m := &hlsMuxer{
-		name:                      name,
 		remoteAddr:                remoteAddr,
 		externalAuthenticationURL: externalAuthenticationURL,
 		alwaysRemux:               alwaysRemux,
@@ -115,6 +116,7 @@ func newHLSMuxer(
 		segmentDuration:           segmentDuration,
 		partDuration:              partDuration,
 		segmentMaxSize:            segmentMaxSize,
+		directory:                 directory,
 		readBufferCount:           readBufferCount,
 		wg:                        wg,
 		pathName:                  pathName,
@@ -207,7 +209,7 @@ func (m *hlsMuxer) run() {
 				}
 
 			case req := <-m.chAPIHLSMuxersList:
-				req.data.Items[m.name] = hlsServerAPIMuxersListItem{
+				req.data.Items[m.pathName] = hlsServerAPIMuxersListItem{
 					Created:     m.created,
 					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
 					BytesSent:   atomic.LoadUint64(m.bytesSent),
@@ -296,6 +298,13 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			"the stream doesn't contain any supported codec (which are currently H264, H265, MPEG4-Audio, Opus)")
 	}
 
+	var muxerDirectory string
+	if m.directory != "" {
+		muxerDirectory = filepath.Join(m.directory, m.pathName)
+		os.MkdirAll(muxerDirectory, 0o755)
+		defer os.Remove(muxerDirectory)
+	}
+
 	m.muxer = &gohlslib.Muxer{
 		Variant:         gohlslib.MuxerVariant(m.variant),
 		SegmentCount:    m.segmentCount,
@@ -304,6 +313,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		SegmentMaxSize:  uint64(m.segmentMaxSize),
 		VideoTrack:      videoFormat,
 		AudioTrack:      audioFormat,
+		Directory:       muxerDirectory,
 	}
 
 	err := m.muxer.Start()
