@@ -17,6 +17,7 @@ import (
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
 	"github.com/aler9/rtsp-simple-server/internal/rlimit"
+	"github.com/aler9/rtsp-simple-server/internal/rpicamera"
 )
 
 var version = "v0.0.0"
@@ -83,6 +84,8 @@ func New(args []string) (*Core, bool) {
 	// to allow the maximum possible number of clients
 	// do not check for errors
 	rlimit.Raise()
+
+	rpicamera.LibcameraSetup()
 
 	gin.SetMode(gin.ReleaseMode)
 
@@ -186,6 +189,8 @@ outer:
 	p.ctxCancel()
 
 	p.closeResources(nil, false)
+
+	rpicamera.LibcameraCleanup()
 }
 
 func (p *Core) createResources(initial bool) error {

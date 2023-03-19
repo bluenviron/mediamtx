@@ -53,45 +53,6 @@ func checkArch() error {
 	return nil
 }
 
-func findLibrary(name string) (string, error) {
-	byts, err := exec.Command("ldconfig", "-p").Output()
-	if err == nil {
-		for _, line := range strings.Split(string(byts), "\n") {
-			f := strings.Split(line, " => ")
-			if len(f) == 2 && strings.Contains(f[1], name+".so") {
-				return f[1], nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("library '%s' not found", name)
-}
-
-func setupSymlink(name string) error {
-	lib, err := findLibrary(name)
-	if err != nil {
-		return err
-	}
-
-	os.Remove("/dev/shm/" + name + ".so.x.x.x")
-	return os.Symlink(lib, "/dev/shm/"+name+".so.x.x.x")
-}
-
-// create libcamera simlinks that are version agnostic.
-func setupSymlinks() error {
-	err := setupSymlink("libcamera")
-	if err != nil {
-		return err
-	}
-
-	return setupSymlink("libcamera-base")
-}
-
-func removeSymlinks() {
-	os.Remove("/dev/shm/libcamera-base.so.x.x.x")
-	os.Remove("/dev/shm/libcamera.so.x.x.x")
-}
-
 func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
 	tempPath := tempPathPrefix + strconv.FormatInt(time.Now().UnixNano(), 10)
 
@@ -171,12 +132,6 @@ func New(
 	if err != nil {
 		return nil, err
 	}
-
-	err = setupSymlinks()
-	if err != nil {
-		return nil, err
-	}
-	defer removeSymlinks()
 
 	c := &RPICamera{
 		onData: onData,
