@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 )
 
@@ -34,9 +35,32 @@ func setupSymlink(name string) error {
 	return os.Symlink(lib, "/dev/shm/"+name+".so.x.x.x")
 }
 
+// 32-bit embedded executables can't run on 64-bit.
+func checkArch() error {
+	if runtime.GOARCH != "arm" {
+		return nil
+	}
+
+	arch, err := getKernelArch()
+	if err != nil {
+		return err
+	}
+
+	if arch == "aarch64" {
+		return fmt.Errorf("OS is 64-bit, you need the arm64 server version")
+	}
+
+	return nil
+}
+
 // LibcameraSetup creates libcamera simlinks that are version agnostic.
 func LibcameraSetup() error {
-	err := setupSymlink("libcamera")
+	err := checkArch()
+	if err != nil {
+		return err
+	}
+
+	err = setupSymlink("libcamera")
 	if err != nil {
 		return err
 	}

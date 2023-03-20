@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"reflect"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -33,24 +32,6 @@ func getKernelArch() (string, error) {
 	}
 
 	return string(byts[:len(byts)-1]), nil
-}
-
-// 32-bit embedded executables can't run on 64-bit.
-func checkArch() error {
-	if runtime.GOARCH != "arm" {
-		return nil
-	}
-
-	arch, err := getKernelArch()
-	if err != nil {
-		return err
-	}
-
-	if arch == "aarch64" {
-		return fmt.Errorf("OS is 64-bit, you need the arm64 server version")
-	}
-
-	return nil
 }
 
 func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
@@ -128,15 +109,11 @@ func New(
 	params Params,
 	onData func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
-	err := checkArch()
-	if err != nil {
-		return nil, err
-	}
-
 	c := &RPICamera{
 		onData: onData,
 	}
 
+	var err error
 	c.pipeConf, err = newPipe()
 	if err != nil {
 		return nil, err
