@@ -35,9 +35,13 @@ func setupSymlink(name string) error {
 }
 
 // LibcameraSetup creates libcamera simlinks that are version agnostic.
-func LibcameraSetup() {
-	setupSymlink("libcamera")
-	setupSymlink("libcamera-base")
+func LibcameraSetup() error {
+	err := setupSymlink("libcamera")
+	if err != nil {
+		return err
+	}
+
+	return setupSymlink("libcamera-base")
 }
 
 // LibcameraCleanup removes files created by LibcameraSetup.

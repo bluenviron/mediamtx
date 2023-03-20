@@ -72,6 +72,7 @@ func New(args []string) (*Core, bool) {
 	if err != nil {
 		panic(err)
 	}
+
 	_, err = parser.Parse(args)
 	parser.FatalIfErrorf(err)
 
@@ -79,15 +80,6 @@ func New(args []string) (*Core, bool) {
 		fmt.Println(version)
 		os.Exit(0)
 	}
-
-	// on Linux, try to raise the number of file descriptors that can be opened
-	// to allow the maximum possible number of clients
-	// do not check for errors
-	rlimit.Raise()
-
-	rpicamera.LibcameraSetup()
-
-	gin.SetMode(gin.ReleaseMode)
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
@@ -212,9 +204,19 @@ func (p *Core) createResources(initial bool) error {
 		if !p.confFound {
 			p.Log(logger.Warn, "configuration file not found, using an empty configuration")
 		}
-	}
 
-	if initial {
+		// on Linux, try to raise the number of file descriptors that can be opened
+		// to allow the maximum possible number of clients
+		// do not check for errors
+		rlimit.Raise()
+
+		err := rpicamera.LibcameraSetup()
+		if err != nil {
+			return err
+		}
+
+		gin.SetMode(gin.ReleaseMode)
+
 		p.externalCmdPool = externalcmd.NewPool()
 	}
 
@@ -672,7 +674,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		p.metrics = nil
 	}
 
-	if newConf == nil {
+	if newConf == nil && p.externalCmdPool != nil {
 		p.Log(logger.Info, "waiting for external commands")
 		p.externalCmdPool.Close()
 	}
