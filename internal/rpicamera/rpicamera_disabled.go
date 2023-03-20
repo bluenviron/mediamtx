@@ -9,6 +9,10 @@ import (
 	"time"
 )
 
+// Cleanup cleanups files created by the camera implementation.
+func Cleanup() {
+}
+
 // RPICamera is a RPI Camera reader.
 type RPICamera struct{}
 

@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
@@ -33,24 +34,6 @@ func getKernelArch() (string, error) {
 	}
 
 	return string(byts[:len(byts)-1]), nil
-}
-
-// 32-bit embedded executables can't run on 64-bit.
-func checkArch() error {
-	if runtime.GOARCH != "arm" {
-		return nil
-	}
-
-	arch, err := getKernelArch()
-	if err != nil {
-		return err
-	}
-
-	if arch == "aarch64" {
-		return fmt.Errorf("OS is 64-bit, you need the arm64 server version")
-	}
-
-	return nil
 }
 
 func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
@@ -113,6 +96,87 @@ func serializeParams(p Params) []byte {
 	return []byte(strings.Join(ret, " "))
 }
 
+func findLibrary(name string) (string, error) {
+	byts, err := exec.Command("ldconfig", "-p").Output()
+	if err == nil {
+		for _, line := range strings.Split(string(byts), "\n") {
+			f := strings.Split(line, " => ")
+			if len(f) == 2 && strings.Contains(f[1], name+".so") {
+				return f[1], nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("library '%s' not found", name)
+}
+
+func setupSymlink(name string) error {
+	lib, err := findLibrary(name)
+	if err != nil {
+		return err
+	}
+
+	os.Remove("/dev/shm/" + name + ".so.x.x.x")
+	return os.Symlink(lib, "/dev/shm/"+name+".so.x.x.x")
+}
+
+// 32-bit embedded executables can't run on 64-bit.
+func checkArch() error {
+	if runtime.GOARCH != "arm" {
+		return nil
+	}
+
+	arch, err := getKernelArch()
+	if err != nil {
+		return err
+	}
+
+	if arch == "aarch64" {
+		return fmt.Errorf("OS is 64-bit, you need the arm64 server version")
+	}
+
+	return nil
+}
+
+var (
+	mutex    sync.Mutex
+	setupped bool
+)
+
+func setupLibcameraOnce() error {
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if !setupped {
+		err := checkArch()
+		if err != nil {
+			return err
+		}
+
+		err = setupSymlink("libcamera")
+		if err != nil {
+			return err
+		}
+
+		err = setupSymlink("libcamera-base")
+		if err != nil {
+			return err
+		}
+
+		setupped = true
+	}
+
+	return nil
+}
+
+// Cleanup cleanups files created by the camera implementation.
+func Cleanup() {
+	if setupped {
+		os.Remove("/dev/shm/libcamera-base.so.x.x.x")
+		os.Remove("/dev/shm/libcamera.so.x.x.x")
+	}
+}
+
 type RPICamera struct {
 	onData func(time.Duration, [][]byte)
 
@@ -128,7 +192,7 @@ func New(
 	params Params,
 	onData func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
-	err := checkArch()
+	err := setupLibcameraOnce()
 	if err != nil {
 		return nil, err
 	}
