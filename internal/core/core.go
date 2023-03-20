@@ -181,8 +181,6 @@ outer:
 	p.ctxCancel()
 
 	p.closeResources(nil, false)
-
-	rpicamera.LibcameraCleanup()
 }
 
 func (p *Core) createResources(initial bool) error {
@@ -209,11 +207,6 @@ func (p *Core) createResources(initial bool) error {
 		// to allow the maximum possible number of clients
 		// do not check for errors
 		rlimit.Raise()
-
-		err := rpicamera.LibcameraSetup()
-		if err != nil {
-			return err
-		}
 
 		gin.SetMode(gin.ReleaseMode)
 
@@ -677,6 +670,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if newConf == nil && p.externalCmdPool != nil {
 		p.Log(logger.Info, "waiting for external commands")
 		p.externalCmdPool.Close()
+	}
+
+	if newConf == nil {
+		rpicamera.Cleanup()
 	}
 
 	if closeLogger {
