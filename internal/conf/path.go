@@ -2,6 +2,7 @@ package conf
 
 import (
 	"fmt"
+	"net"
 	gourl "net/url"
 	"reflect"
 	"regexp"
@@ -178,6 +179,21 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			}
 		}
 
+	case strings.HasPrefix(pconf.Source, "udp://"):
+		if pconf.Regexp != nil {
+			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source. use another path")
+		}
+
+		host, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid UDP URL", pconf.Source)
+		}
+
+		ip := net.ParseIP(host)
+		if ip == nil {
+			return fmt.Errorf("'%s' is not a valid IP", host)
+		}
+
 	case pconf.Source == "redirect":
 		if pconf.SourceRedirect == "" {
 			return fmt.Errorf("source redirect must be filled")
@@ -323,4 +339,26 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 // Equal checks whether two PathConfs are equal.
 func (pconf *PathConf) Equal(other *PathConf) bool {
 	return reflect.DeepEqual(pconf, other)
+}
+
+// HasStaticSource checks whether the path has a static source.
+func (pconf PathConf) HasStaticSource() bool {
+	return strings.HasPrefix(pconf.Source, "rtsp://") ||
+		strings.HasPrefix(pconf.Source, "rtsps://") ||
+		strings.HasPrefix(pconf.Source, "rtmp://") ||
+		strings.HasPrefix(pconf.Source, "rtmps://") ||
+		strings.HasPrefix(pconf.Source, "http://") ||
+		strings.HasPrefix(pconf.Source, "https://") ||
+		strings.HasPrefix(pconf.Source, "udp://") ||
+		pconf.Source == "rpiCamera"
+}
+
+// HasOnDemandStaticSource checks whether the path has a on demand static source.
+func (pconf PathConf) HasOnDemandStaticSource() bool {
+	return pconf.HasStaticSource() && pconf.SourceOnDemand
+}
+
+// HasOnDemandPublisher checks whether the path has a on-demand publisher.
+func (pconf PathConf) HasOnDemandPublisher() bool {
+	return pconf.RunOnDemand != ""
 }

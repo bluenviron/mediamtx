@@ -81,6 +81,11 @@ func newSourceStatic(
 		s.impl = newHLSSource(
 			s)
 
+	case strings.HasPrefix(cnf.Source, "udp://"):
+		s.impl = newUDPSource(
+			readTimeout,
+			s)
+
 	case cnf.Source == "rpiCamera":
 		s.impl = newRPICameraSource(
 			s)
