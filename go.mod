@@ -8,7 +8,7 @@ require (
 	github.com/aler9/gortsplib/v2 v2.2.0
 	github.com/asticode/go-astits v1.11.0
 	github.com/bluenviron/gohlslib v0.0.0-20230319232056-d55d76265613
-	github.com/fsnotify/fsnotify v1.4.9
+	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.4.2
