@@ -281,10 +281,12 @@ func main() {
 					err = desc.Unmarshal(res.Body)
 					require.NoError(t, err)
 					control, _ = desc.MediaDescriptions[0].Attribute("control")
+				} else {
+					control = "rtsp://localhost:8554/ondemand/"
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					u, err := url.Parse("rtsp://localhost:8554/ondemand/" + control)
+					u, err := url.Parse(control)
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
