@@ -16,8 +16,12 @@ type streamFormat struct {
 	nonRTSPReaders map[reader]func(formatprocessor.Unit)
 }
 
-func newStreamFormat(forma format.Format, generateRTPPackets bool) (*streamFormat, error) {
-	proc, err := formatprocessor.New(forma, generateRTPPackets)
+func newStreamFormat(
+	udpMaxPayloadSize int,
+	forma format.Format,
+	generateRTPPackets bool,
+) (*streamFormat, error) {
+	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets)
 	if err != nil {
 		return nil, err
 	}

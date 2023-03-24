@@ -8,11 +8,6 @@ import (
 	"github.com/pion/rtp"
 )
 
-const (
-	// 1500 (UDP MTU) - 20 (IP header) - 8 (UDP header)
-	maxPacketSize = 1472
-)
-
 // UnitGeneric is a generic data unit.
 type UnitGeneric struct {
 	RTPPackets []*rtp.Packet
@@ -29,14 +24,22 @@ func (d *UnitGeneric) GetNTP() time.Time {
 	return d.NTP
 }
 
-type formatProcessorGeneric struct{}
+type formatProcessorGeneric struct {
+	udpMaxPayloadSize int
+}
 
-func newGeneric(forma format.Format, generateRTPPackets bool) (*formatProcessorGeneric, error) {
+func newGeneric(
+	udpMaxPayloadSize int,
+	forma format.Format,
+	generateRTPPackets bool,
+) (*formatProcessorGeneric, error) {
 	if generateRTPPackets {
 		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %+v", forma)
 	}
 
-	return &formatProcessorGeneric{}, nil
+	return &formatProcessorGeneric{
+		udpMaxPayloadSize: udpMaxPayloadSize,
+	}, nil
 }
 
 func (t *formatProcessorGeneric) Process(unit Unit, hasNonRTSPReaders bool) error {
@@ -48,9 +51,9 @@ func (t *formatProcessorGeneric) Process(unit Unit, hasNonRTSPReaders bool) erro
 	pkt.Header.Padding = false
 	pkt.PaddingSize = 0
 
-	if pkt.MarshalSize() > maxPacketSize {
+	if pkt.MarshalSize() > t.udpMaxPayloadSize {
 		return fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-			pkt.MarshalSize(), maxPacketSize)
+			pkt.MarshalSize(), t.udpMaxPayloadSize)
 	}
 
 	return nil

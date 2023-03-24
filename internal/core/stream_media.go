@@ -9,14 +9,17 @@ type streamMedia struct {
 	formats map[format.Format]*streamFormat
 }
 
-func newStreamMedia(medi *media.Media, generateRTPPackets bool) (*streamMedia, error) {
+func newStreamMedia(udpMaxPayloadSize int,
+	medi *media.Media,
+	generateRTPPackets bool,
+) (*streamMedia, error) {
 	sm := &streamMedia{
 		formats: make(map[format.Format]*streamFormat),
 	}
 
 	for _, forma := range medi.Formats {
 		var err error
-		sm.formats[forma], err = newStreamFormat(forma, generateRTPPackets)
+		sm.formats[forma], err = newStreamFormat(udpMaxPayloadSize, forma, generateRTPPackets)
 		if err != nil {
 			return nil, err
 		}

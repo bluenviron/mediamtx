@@ -28,17 +28,20 @@ func (d *UnitVP9) GetNTP() time.Time {
 }
 
 type formatProcessorVP9 struct {
-	format  *format.VP9
-	encoder *rtpvp9.Encoder
-	decoder *rtpvp9.Decoder
+	udpMaxPayloadSize int
+	format            *format.VP9
+	encoder           *rtpvp9.Encoder
+	decoder           *rtpvp9.Decoder
 }
 
 func newVP9(
+	udpMaxPayloadSize int,
 	forma *format.VP9,
 	allocateEncoder bool,
 ) (*formatProcessorVP9, error) {
 	t := &formatProcessorVP9{
-		format: forma,
+		udpMaxPayloadSize: udpMaxPayloadSize,
+		format:            forma,
 	}
 
 	if allocateEncoder {
@@ -58,9 +61,9 @@ func (t *formatProcessorVP9) Process(unit Unit, hasNonRTSPReaders bool) error { 
 		pkt.Header.Padding = false
 		pkt.PaddingSize = 0
 
-		if pkt.MarshalSize() > maxPacketSize {
+		if pkt.MarshalSize() > t.udpMaxPayloadSize {
 			return fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-				pkt.MarshalSize(), maxPacketSize)
+				pkt.MarshalSize(), t.udpMaxPayloadSize)
 		}
 
 		// decode from RTP

@@ -21,6 +21,7 @@ import (
 
 const (
 	multicastTTL = 16
+	udpMTU       = 1472
 )
 
 var opusDurations = [32]int{
@@ -127,7 +128,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		}
 	}
 
-	midbuffer := make([]byte, 0, 1472) // UDP MTU
+	midbuffer := make([]byte, 0, udpMTU)
 	midbufferPos := 0
 
 	readPacket := func(buf []byte) (int, error) {

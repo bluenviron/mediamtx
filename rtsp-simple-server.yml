@@ -16,6 +16,9 @@ writeTimeout: 10s
 # Number of read buffers.
 # A higher value allows a wider throughput, a lower value allows to save RAM.
 readBufferCount: 512
+# Maximum size of payload of outgoing UDP packets.
+# This can be decreased to avoid fragmentation on networks with a low UDP MTU.
+udpMaxPayloadSize: 1472
 
 # HTTP URL to perform external authentication.
 # Every time a user wants to authenticate, the server calls this URL

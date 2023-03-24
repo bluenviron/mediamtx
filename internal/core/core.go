@@ -244,6 +244,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
+			p.conf.UDPMaxPayloadSize,
 			p.conf.Paths,
 			p.externalCmdPool,
 			p.metrics,
@@ -486,6 +487,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		closeMetrics
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.confReload(newConf.Paths)

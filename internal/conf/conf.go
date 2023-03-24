@@ -175,6 +175,7 @@ type Conf struct {
 	ReadTimeout               StringDuration  `json:"readTimeout"`
 	WriteTimeout              StringDuration  `json:"writeTimeout"`
 	ReadBufferCount           int             `json:"readBufferCount"`
+	UDPMaxPayloadSize         int             `json:"udpMaxPayloadSize"`
 	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
 	API                       bool            `json:"api"`
 	APIAddress                string          `json:"apiAddress"`
@@ -285,7 +286,13 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.ReadBufferCount = 512
 	}
 	if (conf.ReadBufferCount & (conf.ReadBufferCount - 1)) != 0 {
-		return fmt.Errorf("'ReadBufferCount' must be a power of two")
+		return fmt.Errorf("'readBufferCount' must be a power of two")
+	}
+	if conf.UDPMaxPayloadSize == 0 {
+		conf.UDPMaxPayloadSize = 1500
+	}
+	if conf.UDPMaxPayloadSize > 1500 {
+		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1500")
 	}
 	if conf.ExternalAuthenticationURL != "" {
 		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&

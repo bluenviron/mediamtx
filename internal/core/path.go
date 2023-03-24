@@ -187,17 +187,18 @@ type pathAPIPathsListSubReq struct {
 }
 
 type path struct {
-	rtspAddress     string
-	readTimeout     conf.StringDuration
-	writeTimeout    conf.StringDuration
-	readBufferCount int
-	confName        string
-	conf            *conf.PathConf
-	name            string
-	matches         []string
-	wg              *sync.WaitGroup
-	externalCmdPool *externalcmd.Pool
-	parent          pathParent
+	rtspAddress       string
+	readTimeout       conf.StringDuration
+	writeTimeout      conf.StringDuration
+	readBufferCount   int
+	udpMaxPayloadSize int
+	confName          string
+	conf              *conf.PathConf
+	name              string
+	matches           []string
+	wg                *sync.WaitGroup
+	externalCmdPool   *externalcmd.Pool
+	parent            pathParent
 
 	ctx                            context.Context
 	ctxCancel                      func()
@@ -240,6 +241,7 @@ func newPath(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
+	udpMaxPayloadSize int,
 	confName string,
 	cnf *conf.PathConf,
 	name string,
@@ -255,6 +257,7 @@ func newPath(
 		readTimeout:                    readTimeout,
 		writeTimeout:                   writeTimeout,
 		readBufferCount:                readBufferCount,
+		udpMaxPayloadSize:              udpMaxPayloadSize,
 		confName:                       confName,
 		conf:                           cnf,
 		name:                           name,
@@ -632,7 +635,12 @@ func (pa *path) onDemandPublisherStop() {
 }
 
 func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error {
-	stream, err := newStream(medias, allocateEncoder, pa.bytesReceived)
+	stream, err := newStream(
+		pa.udpMaxPayloadSize,
+		medias,
+		allocateEncoder,
+		pa.bytesReceived,
+	)
 	if err != nil {
 		return err
 	}

@@ -33,6 +33,8 @@ components:
           type: string
         readBufferCount:
           type: integer
+        udpMaxPayloadSize:
+          type: integer
         externalAuthenticationURL:
           type: string
         api:
