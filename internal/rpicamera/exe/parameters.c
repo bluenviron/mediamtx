@@ -70,25 +70,31 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
         } else if (strcmp(key, "EV") == 0) {
             params->ev = atof(val);
         } else if (strcmp(key, "ROI") == 0) {
-            if (strlen(val) != 0) {
+            char *decoded_val = base64_decode(val);
+            if (strlen(decoded_val) != 0) {
                 params->roi = malloc(sizeof(window_t));
-                bool ok = window_load(val, params->roi);
+                bool ok = window_load(decoded_val, params->roi);
                 if (!ok) {
                     set_error("invalid ROI");
+                    free(decoded_val);
                     goto failed;
                 }
             }
+            free(decoded_val);
         } else if (strcmp(key, "TuningFile") == 0) {
             params->tuning_file = base64_decode(val);
         } else if (strcmp(key, "Mode") == 0) {
-            if (strlen(val) != 0) {
+            char *decoded_val = base64_decode(val);
+            if (strlen(decoded_val) != 0) {
                 params->mode = malloc(sizeof(sensor_mode_t));
-                bool ok = sensor_mode_load(val, params->mode);
+                bool ok = sensor_mode_load(decoded_val, params->mode);
                 if (!ok) {
                     set_error("invalid sensor mode");
+                    free(decoded_val);
                     goto failed;
                 }
             }
+            free(decoded_val);
         } else if (strcmp(key, "FPS") == 0) {
             params->fps = atoi(val);
         } else if (strcmp(key, "IDRPeriod") == 0) {
@@ -96,21 +102,25 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
         } else if (strcmp(key, "Bitrate") == 0) {
             params->bitrate = atoi(val);
         } else if (strcmp(key, "Profile") == 0) {
-            if (strcmp(val, "baseline") == 0) {
+            char *decoded_val = base64_decode(val);
+            if (strcmp(decoded_val, "baseline") == 0) {
                 params->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-            } else if (strcmp(val, "main") == 0) {
+            } else if (strcmp(decoded_val, "main") == 0) {
                 params->profile = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
             } else {
                 params->profile = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
             }
+            free(decoded_val);
         } else if (strcmp(key, "Level") == 0) {
-            if (strcmp(val, "4.0") == 0) {
+            char *decoded_val = base64_decode(val);
+            if (strcmp(decoded_val, "4.0") == 0) {
                 params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
-            } else if (strcmp(val, "4.1") == 0) {
+            } else if (strcmp(decoded_val, "4.1") == 0) {
                 params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
             } else {
                 params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
             }
+            free(decoded_val);
         } else if (strcmp(key, "AfMode") == 0) {
             params->af_mode = base64_decode(val);
         } else if (strcmp(key, "AfRange") == 0) {
@@ -120,14 +130,17 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
         } else if (strcmp(key, "LensPosition") == 0) {
             params->lens_position = atof(val);
         } else if (strcmp(key, "AfWindow") == 0) {
-            if (strlen(val) != 0) {
+            char *decoded_val = base64_decode(val);
+            if (strlen(decoded_val) != 0) {
                 params->af_window = malloc(sizeof(window_t));
-                bool ok = window_load(val, params->af_window);
+                bool ok = window_load(decoded_val, params->af_window);
                 if (!ok) {
                     set_error("invalid AfWindow");
+                    free(decoded_val);
                     goto failed;
                 }
             }
+            free(decoded_val);
         } else if (strcmp(key, "TextOverlayDisable") == 0) {
             params->text_overlay_disable = (strcmp(val, "1") == 0);
         } else if (strcmp(key, "TextOverlay") == 0) {
