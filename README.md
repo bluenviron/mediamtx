@@ -573,7 +573,14 @@ The command will produce the `rtsp-simple-server` binary.
 
 #### Raspberry Pi
 
-In case of a Raspberry Pi, the server can be compiled with native support for the Raspberry Pi Camera. Install Go &ge; 1.20, download the repository, open a terminal in it and run:
+The server can be compiled with native support for the Raspberry Pi Camera. Compilation must happen on a Raspberry Pi Device, with the following dependencies:
+
+* Go &ge; 1.20
+* `libcamera-dev`
+* `libfreetype-dev`
+* `patchelf`
+
+Download the repository, open a terminal in it and run:
 
 ```sh
 cd internal/rpicamera/exe
@@ -634,7 +641,10 @@ _rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-qua
 
 If you want to run the standard (non-containerized) version of the server:
 
-1. Make sure that the `libcamera0` package version is at least `0.0.2`, otherwise upgrade it with `sudo apt update && sudo apt install libcamera0`.
+1. Make sure that the following packages are installed:
+
+   * `libcamera0` (at least version 0.0.2)
+   * `libfreetype6`
 
 2. download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
 

@@ -1,6 +1,8 @@
 #ifndef __ENCODER_H__
 #define __ENCODER_H__
 
+#include "parameters.h"
+
 typedef void encoder_t;
 
 typedef void (*encoder_output_cb)(uint64_t ts, const uint8_t *buf, uint64_t size);

@@ -5,6 +5,7 @@ package rpicamera
 
 import (
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
@@ -66,7 +67,7 @@ func serializeParams(p Params) []byte {
 	ret := make([]string, nf)
 
 	for i := 0; i < nf; i++ {
-		entry := rt.Field(i).Name + "="
+		entry := rt.Field(i).Name + ":"
 		f := rv.Field(i)
 
 		switch f.Kind() {
@@ -77,7 +78,7 @@ func serializeParams(p Params) []byte {
 			entry += strconv.FormatFloat(f.Float(), 'f', -1, 64)
 
 		case reflect.String:
-			entry += f.String()
+			entry += base64.StdEncoding.EncodeToString([]byte(f.String()))
 
 		case reflect.Bool:
 			if f.Bool() {

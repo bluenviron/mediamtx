@@ -14,7 +14,6 @@
 #include <libcamera/property_ids.h>
 #include <linux/videodev2.h>
 
-#include "parameters.h"
 #include "camera.h"
 
 using libcamera::CameraManager;
@@ -81,6 +80,7 @@ struct CameraPriv {
     std::vector<std::unique_ptr<Request>> requests;
     std::mutex ctrls_mutex;
     std::unique_ptr<ControlList> ctrls;
+    std::map<FrameBuffer *, uint8_t *> mapped_buffers;
 };
 
 static int get_v4l2_colorspace(std::optional<ColorSpace> const &cs) {
@@ -88,6 +88,22 @@ static int get_v4l2_colorspace(std::optional<ColorSpace> const &cs) {
         return V4L2_COLORSPACE_REC709;
     }
     return V4L2_COLORSPACE_SMPTE170M;
+}
+
+// https://github.com/raspberrypi/libcamera-apps/blob/a5b5506a132056ac48ba22bc581cc394456da339/core/libcamera_app.cpp#L824
+static uint8_t *map_buffer(FrameBuffer *buffer) {
+    size_t buffer_size = 0;
+
+    for (unsigned i = 0; i < buffer->planes().size(); i++) {
+        const FrameBuffer::Plane &plane = buffer->planes()[i];
+        buffer_size += plane.length;
+
+        if (i == buffer->planes().size() - 1 || plane.fd.get() != buffer->planes()[i + 1].fd.get()) {
+            return (uint8_t *)mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, plane.fd.get(), 0);
+        }
+    }
+
+    return NULL;
 }
 
 bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_t **cam) {
@@ -195,6 +211,11 @@ bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_
 
         int i = 0;
         for (const std::unique_ptr<FrameBuffer> &buffer : camp->allocator->buffers(stream)) {
+            // map buffer of the video stream only
+            if (stream == video_stream_conf.stream()) {
+                camp->mapped_buffers[buffer.get()] = map_buffer(buffer.get());
+            }
+
             res = camp->requests.at(i++)->addBuffer(stream, buffer.get());
             if (res != 0) {
                 set_error("addBuffer() failed");
@@ -210,6 +231,14 @@ bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_
     return true;
 }
 
+static int buffer_size(const std::vector<FrameBuffer::Plane> &planes) {
+    int size = 0;
+    for (const FrameBuffer::Plane &plane : planes) {
+        size += plane.length;
+    }
+    return size;
+}
+
 static void on_request_complete(Request *request) {
     if (request->status() == Request::RequestCancelled) {
         return;
@@ -218,12 +247,14 @@ static void on_request_complete(Request *request) {
     CameraPriv *camp = (CameraPriv *)request->cookie();
 
     FrameBuffer *buffer = request->buffers().at(camp->video_stream);
-    int size = 0;
-    for (const FrameBuffer::Plane &plane : buffer->planes()) {
-        size += plane.length;
-    }
-    uint64_t ts = buffer->metadata().timestamp / 1000;
-    camp->frame_cb(buffer->planes()[0].fd.get(), size, ts);
+
+    camp->frame_cb(
+        camp->mapped_buffers.at(buffer),
+        camp->video_stream->configuration().stride,
+        camp->video_stream->configuration().size.height,
+        buffer->planes()[0].fd.get(),
+        buffer_size(buffer->planes()),
+        buffer->metadata().timestamp / 1000);
 
     request->reuse(Request::ReuseFlag::ReuseBuffers);
 

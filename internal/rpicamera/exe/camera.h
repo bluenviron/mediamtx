@@ -1,9 +1,17 @@
 #ifndef __CAMERA_H__
 #define __CAMERA_H__
 
+#include "parameters.h"
+
 typedef void camera_t;
 
-typedef void (*camera_frame_cb)(int buffer_fd, uint64_t size, uint64_t timestamp);
+typedef void (*camera_frame_cb)(
+    uint8_t *mapped_buffer,
+    int stride,
+    int height,
+    int buffer_fd,
+    uint64_t size,
+    uint64_t timestamp);
 
 #ifdef __cplusplus
 extern "C" {

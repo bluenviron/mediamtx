@@ -9,13 +9,22 @@
 #include "parameters.h"
 #include "pipe.h"
 #include "camera.h"
+#include "text.h"
 #include "encoder.h"
 
-int pipe_video_fd;
-pthread_mutex_t pipe_video_mutex;
-encoder_t *enc;
+static int pipe_video_fd;
+static pthread_mutex_t pipe_video_mutex;
+static text_t *text;
+static encoder_t *enc;
 
-static void on_frame(int buffer_fd, uint64_t size, uint64_t timestamp) {
+static void on_frame(
+    uint8_t *mapped_buffer,
+    int stride,
+    int height,
+    int buffer_fd,
+    uint64_t size,
+    uint64_t timestamp) {
+    text_draw(text, mapped_buffer, stride, height);
     encoder_encode(enc, buffer_fd, size, timestamp);
 }
 
@@ -50,6 +59,12 @@ int main() {
         &cam);
     if (!ok) {
         pipe_write_error(pipe_video_fd, "camera_create(): %s", camera_get_error());
+        return 5;
+    }
+
+    ok = text_create(&params, &text);
+    if (!ok) {
+        pipe_write_error(pipe_video_fd, "text_create(): %s", text_get_error());
         return 5;
     }
 
