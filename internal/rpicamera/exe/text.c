@@ -69,10 +69,31 @@ failed:
     return false;
 }
 
+static void draw_rect(uint8_t *buf, int stride, int height, int x, int y, unsigned int rect_width, unsigned int rect_height) {
+    uint8_t *Y = buf;
+    uint8_t *U = Y + stride * height;
+    uint8_t *V = U + (stride / 2) * (height / 2);
+    const uint8_t color[3] = {0, 128, 128};
+    uint32_t opacity = 45;
+
+    for (unsigned int src_y = 0; src_y < rect_height; src_y++) {
+        for (unsigned int src_x = 0; src_x < rect_width; src_x++) {
+            unsigned int dest_x = x + src_x;
+            unsigned int dest_y = y + src_y;
+            int i1 = dest_y*stride + dest_x;
+            int i2 = dest_y/2*stride/2 + dest_x/2;
+
+            Y[i1] = ((color[0] * opacity) + (uint32_t)Y[i1] * (255 - opacity)) / 255;
+            U[i2] = ((color[1] * opacity) + (uint32_t)U[i2] * (255 - opacity)) / 255;
+            V[i2] = ((color[2] * opacity) + (uint32_t)V[i2] * (255 - opacity)) / 255;
+        }
+    }
+}
+
 static void draw_bitmap(uint8_t *buf, int stride, int height, const FT_Bitmap *bitmap, int x, int y) {
     uint8_t *Y = buf;
-    // uint8_t *U = Y + stride * height;
-    // uint8_t *V = U + (stride / 2) * (height / 2);
+    uint8_t *U = Y + stride * height;
+    uint8_t *V = U + (stride / 2) * (height / 2);
 
     for (unsigned int src_y = 0; src_y < bitmap->rows; src_y++) {
         for (unsigned int src_x = 0; src_x < bitmap->width; src_x++) {
@@ -81,7 +102,13 @@ static void draw_bitmap(uint8_t *buf, int stride, int height, const FT_Bitmap *b
             if (v != 0) {
                 unsigned int dest_x = x + src_x;
                 unsigned int dest_y = y + src_y;
-                Y[dest_y*stride + dest_x] = v;
+                int i1 = dest_y*stride + dest_x;
+                int i2 = dest_y/2*stride/2 + dest_x/2;
+                uint32_t opacity = (uint32_t)v;
+
+                Y[i1] = (uint8_t)(((uint32_t)v * opacity + (uint32_t)Y[i1] * (255 - opacity)) / 255);
+                U[i2] = (uint8_t)((128 * opacity + (uint32_t)U[i2] * (255 - opacity)) / 255);
+                V[i2] = (uint8_t)((128 * opacity + (uint32_t)V[i2] * (255 - opacity)) / 255);
             }
         }
     }
@@ -100,8 +127,28 @@ void text_draw(text_t *text, uint8_t *buf, int stride, int height) {
     memset(buffer, 0, sizeof(buffer));
     strftime(buffer, 255, textp->text_overlay, tm_info);
 
-    int x = 10;
-    int y = 35;
+    int rect_width = 0;
+
+    for (const char *ptr = buffer; *ptr != 0x00; ptr++) {
+        int error = FT_Load_Char(textp->face, *ptr, FT_LOAD_RENDER);
+        if (error) {
+            continue;
+        }
+
+        rect_width += textp->face->glyph->advance.x >> 6;
+    }
+
+    draw_rect(
+        buf,
+        stride,
+        height,
+        7,
+        7,
+        rect_width + 10,
+        34);
+
+    int x = 12;
+    int y = 33;
 
     for (const char *ptr = buffer; *ptr != 0x00; ptr++) {
         int error = FT_Load_Char(textp->face, *ptr, FT_LOAD_RENDER);
