@@ -114,6 +114,21 @@ static void draw_bitmap(uint8_t *buf, int stride, int height, const FT_Bitmap *b
     }
 }
 
+static int get_text_width(FT_Face face, const char *text) {
+    int ret = 0;
+
+    for (const char *ptr = text; *ptr != 0x00; ptr++) {
+        int error = FT_Load_Char(face, *ptr, FT_LOAD_RENDER);
+        if (error) {
+            continue;
+        }
+
+        ret += face->glyph->advance.x >> 6;
+    }
+
+    return ret;
+}
+
 void text_draw(text_t *text, uint8_t *buf, int stride, int height) {
     text_priv_t *textp = (text_priv_t *)text;
 
@@ -127,24 +142,13 @@ void text_draw(text_t *text, uint8_t *buf, int stride, int height) {
     memset(buffer, 0, sizeof(buffer));
     strftime(buffer, 255, textp->text_overlay, tm_info);
 
-    int rect_width = 0;
-
-    for (const char *ptr = buffer; *ptr != 0x00; ptr++) {
-        int error = FT_Load_Char(textp->face, *ptr, FT_LOAD_RENDER);
-        if (error) {
-            continue;
-        }
-
-        rect_width += textp->face->glyph->advance.x >> 6;
-    }
-
     draw_rect(
         buf,
         stride,
         height,
         7,
         7,
-        rect_width + 10,
+        get_text_width(textp->face, buffer) + 10,
         34);
 
     int x = 12;
