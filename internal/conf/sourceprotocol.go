@@ -26,8 +26,11 @@ func (d SourceProtocol) MarshalJSON() ([]byte, error) {
 		case gortsplib.TransportUDPMulticast:
 			out = "multicast"
 
-		default:
+		case gortsplib.TransportTCP:
 			out = "tcp"
+
+		default:
+			return nil, fmt.Errorf("invalid protocol: %v", d.Transport)
 		}
 	}
 
@@ -55,6 +58,7 @@ func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 		d.Transport = &v
 
 	case "automatic":
+		d.Transport = nil
 
 	default:
 		return fmt.Errorf("invalid protocol '%s'", in)

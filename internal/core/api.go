@@ -36,11 +36,6 @@ func fillStruct(dest interface{}, source interface{}) {
 	}
 }
 
-func cloneStruct(dest interface{}, source interface{}) {
-	enc, _ := json.Marshal(source)
-	_ = json.Unmarshal(enc, dest)
-}
-
 func generateStructWithOptionalFields(model interface{}) interface{} {
 	var fields []reflect.StructField
 
@@ -242,9 +237,9 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	var newConf conf.Conf
-	cloneStruct(&newConf, a.conf)
-	fillStruct(&newConf, in)
+	newConf := a.conf.Clone()
+
+	fillStruct(newConf, in)
 
 	err = newConf.CheckAndFillMissing()
 	if err != nil {
@@ -252,11 +247,11 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = &newConf
+	a.conf = newConf
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.apiConfigSet(&newConf)
+	go a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -278,8 +273,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	var newConf conf.Conf
-	cloneStruct(&newConf, a.conf)
+	newConf := a.conf.Clone()
 
 	if _, ok := newConf.Paths[name]; ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -297,11 +291,11 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = &newConf
+	a.conf = newConf
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.apiConfigSet(&newConf)
+	go a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -323,8 +317,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	var newConf conf.Conf
-	cloneStruct(&newConf, a.conf)
+	newConf := a.conf.Clone()
 
 	newConfPath, ok := newConf.Paths[name]
 	if !ok {
@@ -340,11 +333,11 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = &newConf
+	a.conf = newConf
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.apiConfigSet(&newConf)
+	go a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -360,8 +353,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	var newConf conf.Conf
-	cloneStruct(&newConf, a.conf)
+	newConf := a.conf.Clone()
 
 	if _, ok := newConf.Paths[name]; !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -376,11 +368,11 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = &newConf
+	a.conf = newConf
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.apiConfigSet(&newConf)
+	go a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
