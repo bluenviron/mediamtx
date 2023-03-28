@@ -393,6 +393,9 @@ func (conf *Conf) CheckAndFillMissing() error {
 	if conf.HLSServerCert == "" {
 		conf.HLSServerCert = "server.crt"
 	}
+	if conf.HLSVariant == 0 {
+		conf.HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
+	}
 	if conf.HLSSegmentCount == 0 {
 		conf.HLSSegmentCount = 7
 	}
@@ -407,17 +410,6 @@ func (conf *Conf) CheckAndFillMissing() error {
 	}
 	if conf.HLSAllowOrigin == "" {
 		conf.HLSAllowOrigin = "*"
-	}
-	switch conf.HLSVariant {
-	case HLSVariant(gohlslib.MuxerVariantLowLatency):
-		if conf.HLSSegmentCount < 7 {
-			return fmt.Errorf("Low-Latency HLS requires at least 7 segments")
-		}
-
-	default:
-		if conf.HLSSegmentCount < 3 {
-			return fmt.Errorf("The minimum number of HLS segments is 3")
-		}
 	}
 
 	// WebRTC
