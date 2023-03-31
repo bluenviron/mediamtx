@@ -93,18 +93,21 @@ func (d *UnitH265) GetNTP() time.Time {
 }
 
 type formatProcessorH265 struct {
-	format *format.H265
+	udpMaxPayloadSize int
+	format            *format.H265
 
 	encoder *rtph265.Encoder
 	decoder *rtph265.Decoder
 }
 
 func newH265(
+	udpMaxPayloadSize int,
 	forma *format.H265,
 	allocateEncoder bool,
 ) (*formatProcessorH265, error) {
 	t := &formatProcessorH265{
-		format: forma,
+		udpMaxPayloadSize: udpMaxPayloadSize,
+		format:            forma,
 	}
 
 	if allocateEncoder {
@@ -232,11 +235,12 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 			pkt.PaddingSize = 0
 
 			// RTP packets exceed maximum size: start re-encoding them
-			if pkt.MarshalSize() > maxPacketSize {
+			if pkt.MarshalSize() > t.udpMaxPayloadSize {
 				v1 := pkt.SSRC
 				v2 := pkt.SequenceNumber
 				v3 := pkt.Timestamp
 				t.encoder = &rtph265.Encoder{
+					PayloadMaxSize:        t.udpMaxPayloadSize - 12,
 					PayloadType:           pkt.PayloadType,
 					SSRC:                  &v1,
 					InitialSequenceNumber: &v2,

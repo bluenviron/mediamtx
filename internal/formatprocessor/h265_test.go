@@ -15,7 +15,7 @@ func TestH265DynamicParams(t *testing.T) {
 		PayloadTyp: 96,
 	}
 
-	p, err := New(forma, false)
+	p, err := New(1472, forma, false)
 	require.NoError(t, err)
 
 	enc := forma.CreateEncoder()
@@ -66,7 +66,7 @@ func TestH265OversizedPackets(t *testing.T) {
 		PPS:        []byte{byte(h265.NALUType_PPS_NUT) << 1, 16, 17, 18},
 	}
 
-	p, err := New(forma, false)
+	p, err := New(1472, forma, false)
 	require.NoError(t, err)
 
 	var out []*rtp.Packet
@@ -150,7 +150,7 @@ func TestH265EmptyPacket(t *testing.T) {
 		PayloadTyp: 96,
 	}
 
-	p, err := New(forma, true)
+	p, err := New(1472, forma, true)
 	require.NoError(t, err)
 
 	unit := &UnitH265{

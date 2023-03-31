@@ -40,14 +40,15 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	rtspAddress     string
-	readTimeout     conf.StringDuration
-	writeTimeout    conf.StringDuration
-	readBufferCount int
-	pathConfs       map[string]*conf.PathConf
-	externalCmdPool *externalcmd.Pool
-	metrics         *metrics
-	parent          pathManagerParent
+	rtspAddress       string
+	readTimeout       conf.StringDuration
+	writeTimeout      conf.StringDuration
+	readBufferCount   int
+	udpMaxPayloadSize int
+	pathConfs         map[string]*conf.PathConf
+	externalCmdPool   *externalcmd.Pool
+	metrics           *metrics
+	parent            pathManagerParent
 
 	ctx         context.Context
 	ctxCancel   func()
@@ -74,6 +75,7 @@ func newPathManager(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
+	udpMaxPayloadSize int,
 	pathConfs map[string]*conf.PathConf,
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
@@ -86,6 +88,7 @@ func newPathManager(
 		readTimeout:          readTimeout,
 		writeTimeout:         writeTimeout,
 		readBufferCount:      readBufferCount,
+		udpMaxPayloadSize:    udpMaxPayloadSize,
 		pathConfs:            pathConfs,
 		externalCmdPool:      externalCmdPool,
 		metrics:              metrics,
@@ -303,6 +306,7 @@ func (pm *pathManager) createPath(
 		pm.readTimeout,
 		pm.writeTimeout,
 		pm.readBufferCount,
+		pm.udpMaxPayloadSize,
 		pathConfName,
 		pathConf,
 		name,

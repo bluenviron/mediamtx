@@ -28,17 +28,20 @@ func (d *UnitOpus) GetNTP() time.Time {
 }
 
 type formatProcessorOpus struct {
-	format  *format.Opus
-	encoder *rtpsimpleaudio.Encoder
-	decoder *rtpsimpleaudio.Decoder
+	udpMaxPayloadSize int
+	format            *format.Opus
+	encoder           *rtpsimpleaudio.Encoder
+	decoder           *rtpsimpleaudio.Decoder
 }
 
 func newOpus(
+	udpMaxPayloadSize int,
 	forma *format.Opus,
 	allocateEncoder bool,
 ) (*formatProcessorOpus, error) {
 	t := &formatProcessorOpus{
-		format: forma,
+		udpMaxPayloadSize: udpMaxPayloadSize,
+		format:            forma,
 	}
 
 	if allocateEncoder {
@@ -58,9 +61,9 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 		pkt.Header.Padding = false
 		pkt.PaddingSize = 0
 
-		if pkt.MarshalSize() > maxPacketSize {
+		if pkt.MarshalSize() > t.udpMaxPayloadSize {
 			return fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-				pkt.MarshalSize(), maxPacketSize)
+				pkt.MarshalSize(), t.udpMaxPayloadSize)
 		}
 
 		// decode from RTP

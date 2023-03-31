@@ -28,17 +28,20 @@ func (d *UnitMPEG4Audio) GetNTP() time.Time {
 }
 
 type formatProcessorMPEG4Audio struct {
-	format  *format.MPEG4Audio
-	encoder *rtpmpeg4audio.Encoder
-	decoder *rtpmpeg4audio.Decoder
+	udpMaxPayloadSize int
+	format            *format.MPEG4Audio
+	encoder           *rtpmpeg4audio.Encoder
+	decoder           *rtpmpeg4audio.Decoder
 }
 
 func newMPEG4Audio(
+	udpMaxPayloadSize int,
 	forma *format.MPEG4Audio,
 	allocateEncoder bool,
 ) (*formatProcessorMPEG4Audio, error) {
 	t := &formatProcessorMPEG4Audio{
-		format: forma,
+		udpMaxPayloadSize: udpMaxPayloadSize,
+		format:            forma,
 	}
 
 	if allocateEncoder {
@@ -58,9 +61,9 @@ func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 		pkt.Header.Padding = false
 		pkt.PaddingSize = 0
 
-		if pkt.MarshalSize() > maxPacketSize {
+		if pkt.MarshalSize() > t.udpMaxPayloadSize {
 			return fmt.Errorf("payload size (%d) is greater than maximum allowed (%d)",
-				pkt.MarshalSize(), maxPacketSize)
+				pkt.MarshalSize(), t.udpMaxPayloadSize)
 		}
 
 		// decode from RTP

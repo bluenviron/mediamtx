@@ -12,27 +12,31 @@ type Processor interface {
 }
 
 // New allocates a Processor.
-func New(forma format.Format, generateRTPPackets bool) (Processor, error) {
+func New(
+	udpMaxPayloadSize int,
+	forma format.Format,
+	generateRTPPackets bool,
+) (Processor, error) {
 	switch forma := forma.(type) {
 	case *format.H264:
-		return newH264(forma, generateRTPPackets)
+		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.H265:
-		return newH265(forma, generateRTPPackets)
+		return newH265(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.VP8:
-		return newVP8(forma, generateRTPPackets)
+		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.VP9:
-		return newVP9(forma, generateRTPPackets)
+		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.MPEG4Audio:
-		return newMPEG4Audio(forma, generateRTPPackets)
+		return newMPEG4Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.Opus:
-		return newOpus(forma, generateRTPPackets)
+		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	default:
-		return newGeneric(forma, generateRTPPackets)
+		return newGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
 	}
 }

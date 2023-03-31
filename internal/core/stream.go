@@ -15,6 +15,7 @@ type stream struct {
 }
 
 func newStream(
+	udpMaxPayloadSize int,
 	medias media.Medias,
 	generateRTPPackets bool,
 	bytesReceived *uint64,
@@ -28,7 +29,7 @@ func newStream(
 
 	for _, media := range s.rtspStream.Medias() {
 		var err error
-		s.smedias[media], err = newStreamMedia(media, generateRTPPackets)
+		s.smedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets)
 		if err != nil {
 			return nil, err
 		}
