@@ -19,7 +19,7 @@ const char *text_get_error() {
 }
 
 typedef struct {
-    bool disabled;
+    bool enabled;
     char *text_overlay;
     FT_Library library;
     FT_Face face;
@@ -30,10 +30,10 @@ bool text_create(const parameters_t *params, text_t **text) {
     text_priv_t *textp = (text_priv_t *)(*text);
     memset(textp, 0, sizeof(text_priv_t));
 
-    textp->disabled = params->text_overlay_disable;
+    textp->enabled = params->text_overlay_enable;
     textp->text_overlay = strdup(params->text_overlay);
 
-    if (!textp->disabled) {
+    if (textp->enabled) {
         int error = FT_Init_FreeType(&textp->library);
         if (error) {
             set_error("FT_Init_FreeType() failed");
@@ -132,42 +132,40 @@ static int get_text_width(FT_Face face, const char *text) {
 void text_draw(text_t *text, uint8_t *buf, int stride, int height) {
     text_priv_t *textp = (text_priv_t *)text;
 
-    if (textp->disabled) {
-        return;
-    }
+    if (textp->enabled) {
+        time_t timer = time(NULL);
+        struct tm *tm_info = localtime(&timer);
+        char buffer[255];
+        memset(buffer, 0, sizeof(buffer));
+        strftime(buffer, 255, textp->text_overlay, tm_info);
 
-    time_t timer = time(NULL);
-    struct tm *tm_info = localtime(&timer);
-    char buffer[255];
-    memset(buffer, 0, sizeof(buffer));
-    strftime(buffer, 255, textp->text_overlay, tm_info);
-
-    draw_rect(
-        buf,
-        stride,
-        height,
-        7,
-        7,
-        get_text_width(textp->face, buffer) + 10,
-        34);
-
-    int x = 12;
-    int y = 33;
-
-    for (const char *ptr = buffer; *ptr != 0x00; ptr++) {
-        int error = FT_Load_Char(textp->face, *ptr, FT_LOAD_RENDER);
-        if (error) {
-            continue;
-        }
-
-        draw_bitmap(
+        draw_rect(
             buf,
             stride,
             height,
-            &textp->face->glyph->bitmap,
-            x + textp->face->glyph->bitmap_left,
-            y - textp->face->glyph->bitmap_top);
+            7,
+            7,
+            get_text_width(textp->face, buffer) + 10,
+            34);
 
-        x += textp->face->glyph->advance.x >> 6;
+        int x = 12;
+        int y = 33;
+
+        for (const char *ptr = buffer; *ptr != 0x00; ptr++) {
+            int error = FT_Load_Char(textp->face, *ptr, FT_LOAD_RENDER);
+            if (error) {
+                continue;
+            }
+
+            draw_bitmap(
+                buf,
+                stride,
+                height,
+                &textp->face->glyph->bitmap,
+                x + textp->face->glyph->bitmap_left,
+                y - textp->face->glyph->bitmap_top);
+
+            x += textp->face->glyph->advance.x >> 6;
+        }
     }
 }

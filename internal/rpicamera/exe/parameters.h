@@ -37,7 +37,7 @@ typedef struct {
     char *af_speed;
     float lens_position;
     window_t *af_window;
-    bool text_overlay_disable;
+    bool text_overlay_enable;
     char *text_overlay;
 
     // private

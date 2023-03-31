@@ -250,7 +250,7 @@ components:
           type: number
         rpiCameraAfWindow:
           type: string
-        rpiCameraTextOverlayDisable:
+        rpiCameraTextOverlayEnable:
           type: boolean
         rpiCameraTextOverlay:
           type: string

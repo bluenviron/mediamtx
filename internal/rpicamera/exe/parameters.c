@@ -141,8 +141,8 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
                 }
             }
             free(decoded_val);
-        } else if (strcmp(key, "TextOverlayDisable") == 0) {
-            params->text_overlay_disable = (strcmp(val, "1") == 0);
+        } else if (strcmp(key, "TextOverlayEnable") == 0) {
+            params->text_overlay_enable = (strcmp(val, "1") == 0);
         } else if (strcmp(key, "TextOverlay") == 0) {
             params->text_overlay = base64_decode(val);
         }

@@ -353,8 +353,8 @@ paths:
     # Specifies the autofocus window, in the form x,y,width,height where the coordinates
     # are given as a proportion of the entire image.
     rpiCameraAfWindow:
-    # disables printing text on each frame.
-    rpiCameraTextOverlayDisable: false
+    # enables printing text on each frame.
+    rpiCameraTextOverlayEnable: false
     # text that is printed on each frame.
     # format is the one of the strftime() function.
     rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
