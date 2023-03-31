@@ -13,6 +13,7 @@ import (
 
 	"github.com/aler9/gortsplib/v2"
 	"github.com/aler9/gortsplib/v2/pkg/headers"
+	"github.com/bluenviron/gohlslib"
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/yaml.v2"
 
@@ -264,6 +265,22 @@ func Load(fpath string) (*Conf, bool, error) {
 	return conf, found, nil
 }
 
+// Clone clones the configuration.
+func (conf Conf) Clone() *Conf {
+	enc, err := json.Marshal(conf)
+	if err != nil {
+		panic(err)
+	}
+
+	var dest Conf
+	err = json.Unmarshal(enc, &dest)
+	if err != nil {
+		panic(err)
+	}
+
+	return &dest
+}
+
 // CheckAndFillMissing checks the configuration for errors and fills missing parameters.
 func (conf *Conf) CheckAndFillMissing() error {
 	// general
@@ -392,7 +409,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.HLSAllowOrigin = "*"
 	}
 	switch conf.HLSVariant {
-	case HLSVariantLowLatency:
+	case HLSVariant(gohlslib.MuxerVariantLowLatency):
 		if conf.HLSSegmentCount < 7 {
 			return fmt.Errorf("Low-Latency HLS requires at least 7 segments")
 		}

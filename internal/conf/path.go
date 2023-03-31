@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	gourl "net/url"
@@ -339,6 +340,22 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 // Equal checks whether two PathConfs are equal.
 func (pconf *PathConf) Equal(other *PathConf) bool {
 	return reflect.DeepEqual(pconf, other)
+}
+
+// Clone clones the configuration.
+func (pconf PathConf) Clone() *PathConf {
+	enc, err := json.Marshal(pconf)
+	if err != nil {
+		panic(err)
+	}
+
+	var dest PathConf
+	err = json.Unmarshal(enc, &dest)
+	if err != nil {
+		panic(err)
+	}
+
+	return &dest
 }
 
 // HasStaticSource checks whether the path has a static source.

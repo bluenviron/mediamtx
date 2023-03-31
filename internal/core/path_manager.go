@@ -11,8 +11,7 @@ import (
 )
 
 func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf) bool {
-	var copy conf.PathConf
-	cloneStruct(&copy, oldPathConf)
+	copy := oldPathConf.Clone()
 
 	copy.RPICameraBrightness = newPathConf.RPICameraBrightness
 	copy.RPICameraContrast = newPathConf.RPICameraContrast
@@ -27,7 +26,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf
 	copy.RPICameraEV = newPathConf.RPICameraEV
 	copy.RPICameraFPS = newPathConf.RPICameraFPS
 
-	return newPathConf.Equal(&copy)
+	return newPathConf.Equal(copy)
 }
 
 type pathManagerHLSServer interface {

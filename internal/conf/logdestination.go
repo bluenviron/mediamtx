@@ -27,8 +27,11 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 		case logger.DestinationFile:
 			v = "file"
 
-		default:
+		case logger.DestinationSyslog:
 			v = "syslog"
+
+		default:
+			return nil, fmt.Errorf("invalid log destination: %v", p)
 		}
 
 		out[i] = v
