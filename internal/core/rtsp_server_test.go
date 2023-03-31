@@ -279,7 +279,6 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "rtmpDisable: yes\n" +
-				"protocols: [tcp]\n" +
 				"paths:\n" +
 				"  all:\n"
 
@@ -338,24 +337,10 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			_, err = c.Play(nil)
 			require.NoError(t, err)
 
-			err = s1.WritePacketRTP(medi, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        0x02,
-					PayloadType:    96,
-					SequenceNumber: 57899,
-					Timestamp:      345234345,
-					SSRC:           978651231,
-					Marker:         true,
-				},
-				Payload: []byte{0x01, 0x02, 0x03, 0x04},
-			})
 			if ca == "enabled" {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+				err := s1.Wait()
+				require.EqualError(t, err, "EOF")
 
-			if ca == "enabled" {
 				err = s2.WritePacketRTP(medi, &rtp.Packet{
 					Header: rtp.Header{
 						Version:        0x02,
@@ -366,6 +351,19 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 						Marker:         true,
 					},
 					Payload: []byte{0x05, 0x06, 0x07, 0x08},
+				})
+				require.NoError(t, err)
+			} else {
+				err = s1.WritePacketRTP(medi, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        0x02,
+						PayloadType:    96,
+						SequenceNumber: 57899,
+						Timestamp:      345234345,
+						SSRC:           978651231,
+						Marker:         true,
+					},
+					Payload: []byte{0x01, 0x02, 0x03, 0x04},
 				})
 				require.NoError(t, err)
 			}
