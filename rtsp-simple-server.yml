@@ -353,6 +353,11 @@ paths:
     # Specifies the autofocus window, in the form x,y,width,height where the coordinates
     # are given as a proportion of the entire image.
     rpiCameraAfWindow:
+    # enables printing text on each frame.
+    rpiCameraTextOverlayEnable: false
+    # text that is printed on each frame.
+    # format is the one of the strftime() function.
+    rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.

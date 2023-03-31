@@ -6,6 +6,7 @@
 
 #include <linux/videodev2.h>
 
+#include "base64.h"
 #include "parameters.h"
 
 static char errbuf[256];
@@ -21,15 +22,20 @@ const char *parameters_get_error() {
 }
 
 bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf_size) {
+    memset(params, 0, sizeof(parameters_t));
+
     char *tmp = malloc(buf_size + 1);
     memcpy(tmp, buf, buf_size);
     tmp[buf_size] = 0x00;
 
-    char *entry;
+    while (true)  {
+        char *entry = strsep(&tmp, " ");
+        if (entry == NULL) {
+            break;
+        }
 
-    while ((entry = strsep(&tmp, " ")) != NULL)  {
-        char *key = strsep(&entry, "=");
-        char *val = strsep(&entry, "=");
+        char *key = strsep(&entry, ":");
+        char *val = strsep(&entry, ":");
 
         if (strcmp(key, "CameraID") == 0) {
             params->camera_id = atoi(val);
@@ -50,43 +56,45 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
         } else if (strcmp(key, "Sharpness") == 0) {
             params->sharpness = atof(val);
         } else if (strcmp(key, "Exposure") == 0) {
-            params->exposure = strdup(val);
+            params->exposure = base64_decode(val);
         } else if (strcmp(key, "AWB") == 0) {
-            params->awb = strdup(val);
+            params->awb = base64_decode(val);
         } else if (strcmp(key, "Denoise") == 0) {
-            params->denoise = strdup(val);
+            params->denoise = base64_decode(val);
         } else if (strcmp(key, "Shutter") == 0) {
             params->shutter = atoi(val);
         } else if (strcmp(key, "Metering") == 0) {
-            params->metering = strdup(val);
+            params->metering = base64_decode(val);
         } else if (strcmp(key, "Gain") == 0) {
             params->gain = atof(val);
         } else if (strcmp(key, "EV") == 0) {
             params->ev = atof(val);
         } else if (strcmp(key, "ROI") == 0) {
-            if (strlen(val) != 0) {
+            char *decoded_val = base64_decode(val);
+            if (strlen(decoded_val) != 0) {
                 params->roi = malloc(sizeof(window_t));
-                bool ok = window_load(val, params->roi);
+                bool ok = window_load(decoded_val, params->roi);
                 if (!ok) {
                     set_error("invalid ROI");
-                    return false;
+                    free(decoded_val);
+                    goto failed;
                 }
-            } else {
-                params->roi = NULL;
             }
+            free(decoded_val);
         } else if (strcmp(key, "TuningFile") == 0) {
-            params->tuning_file = strdup(val);
+            params->tuning_file = base64_decode(val);
         } else if (strcmp(key, "Mode") == 0) {
-            if (strlen(val) != 0) {
+            char *decoded_val = base64_decode(val);
+            if (strlen(decoded_val) != 0) {
                 params->mode = malloc(sizeof(sensor_mode_t));
-                bool ok = sensor_mode_load(val, params->mode);
+                bool ok = sensor_mode_load(decoded_val, params->mode);
                 if (!ok) {
                     set_error("invalid sensor mode");
-                    return false;
+                    free(decoded_val);
+                    goto failed;
                 }
-            } else {
-                params->mode = NULL;
             }
+            free(decoded_val);
         } else if (strcmp(key, "FPS") == 0) {
             params->fps = atoi(val);
         } else if (strcmp(key, "IDRPeriod") == 0) {
@@ -94,40 +102,49 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
         } else if (strcmp(key, "Bitrate") == 0) {
             params->bitrate = atoi(val);
         } else if (strcmp(key, "Profile") == 0) {
-            if (strcmp(val, "baseline") == 0) {
+            char *decoded_val = base64_decode(val);
+            if (strcmp(decoded_val, "baseline") == 0) {
                 params->profile = V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-            } else if (strcmp(val, "main") == 0) {
+            } else if (strcmp(decoded_val, "main") == 0) {
                 params->profile = V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
             } else {
                 params->profile = V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
             }
+            free(decoded_val);
         } else if (strcmp(key, "Level") == 0) {
-            if (strcmp(val, "4.0") == 0) {
+            char *decoded_val = base64_decode(val);
+            if (strcmp(decoded_val, "4.0") == 0) {
                 params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
-            } else if (strcmp(val, "4.1") == 0) {
+            } else if (strcmp(decoded_val, "4.1") == 0) {
                 params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
             } else {
                 params->level = V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
             }
+            free(decoded_val);
         } else if (strcmp(key, "AfMode") == 0) {
-            params->af_mode = strdup(val);
+            params->af_mode = base64_decode(val);
         } else if (strcmp(key, "AfRange") == 0) {
-            params->af_range = strdup(val);
+            params->af_range = base64_decode(val);
         } else if (strcmp(key, "AfSpeed") == 0) {
-            params->af_speed = strdup(val);
+            params->af_speed = base64_decode(val);
         } else if (strcmp(key, "LensPosition") == 0) {
             params->lens_position = atof(val);
         } else if (strcmp(key, "AfWindow") == 0) {
-            if (strlen(val) != 0) {
+            char *decoded_val = base64_decode(val);
+            if (strlen(decoded_val) != 0) {
                 params->af_window = malloc(sizeof(window_t));
-                bool ok = window_load(val, params->af_window);
+                bool ok = window_load(decoded_val, params->af_window);
                 if (!ok) {
                     set_error("invalid AfWindow");
-                    return false;
+                    free(decoded_val);
+                    goto failed;
                 }
-            } else {
-                params->af_window = NULL;
             }
+            free(decoded_val);
+        } else if (strcmp(key, "TextOverlayEnable") == 0) {
+            params->text_overlay_enable = (strcmp(val, "1") == 0);
+        } else if (strcmp(key, "TextOverlay") == 0) {
+            params->text_overlay = base64_decode(val);
         }
     }
 
@@ -137,25 +154,49 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
     params->capture_buffer_count = params->buffer_count * 2;
 
     return true;
+
+failed:
+    free(tmp);
+    parameters_destroy(params);
+
+    return false;
 }
 
 void parameters_destroy(parameters_t *params) {
-    free(params->exposure);
-    free(params->awb);
-    free(params->denoise);
-    free(params->metering);
-    free(params->tuning_file);
-    free(params->af_mode);
-    free(params->af_range);
-    free(params->af_speed);
-
+    if (params->exposure != NULL) {
+        free(params->exposure);
+    }
+    if (params->awb != NULL) {
+        free(params->awb);
+    }
+    if (params->denoise != NULL) {
+        free(params->denoise);
+    }
+    if (params->metering != NULL) {
+        free(params->metering);
+    }
     if (params->roi != NULL) {
         free(params->roi);
+    }
+    if (params->tuning_file != NULL) {
+        free(params->tuning_file);
     }
     if (params->mode != NULL) {
         free(params->mode);
     }
+    if (params->af_mode != NULL) {
+        free(params->af_mode);
+    }
+    if (params->af_range != NULL) {
+        free(params->af_range);
+    }
+    if (params->af_speed != NULL) {
+        free(params->af_speed);
+    }
     if (params->af_window != NULL) {
         free(params->af_window);
+    }
+    if (params->text_overlay != NULL) {
+        free(params->text_overlay);
     }
 }

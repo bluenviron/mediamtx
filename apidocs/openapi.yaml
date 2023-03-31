@@ -250,6 +250,10 @@ components:
           type: number
         rpiCameraAfWindow:
           type: string
+        rpiCameraTextOverlayEnable:
+          type: boolean
+        rpiCameraTextOverlay:
+          type: string
 
         # authentication
         publishUser:

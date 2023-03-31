@@ -14,7 +14,6 @@
 
 #include <linux/videodev2.h>
 
-#include "parameters.h"
 #include "encoder.h"
 
 #define DEVICE              "/dev/video11"
@@ -115,11 +114,12 @@ static void *output_thread(void *userdata) {
 bool encoder_create(const parameters_t *params, int stride, int colorspace, encoder_output_cb output_cb, encoder_t **enc) {
     *enc = malloc(sizeof(encoder_priv_t));
     encoder_priv_t *encp = (encoder_priv_t *)(*enc);
+    memset(encp, 0, sizeof(encoder_priv_t));
 
     encp->fd = open(DEVICE, O_RDWR, 0);
     if (encp->fd < 0) {
         set_error("unable to open device");
-        return false;
+        goto failed;
     }
 
     struct v4l2_control ctrl = {0};
@@ -128,8 +128,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     int res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set bitrate");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
@@ -137,8 +136,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set profile");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL;
@@ -146,8 +144,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set level");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
@@ -155,8 +152,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set IDR period");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     ctrl.id = V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER;
@@ -164,8 +160,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set REPEAT_SEQ_HEADER");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     struct v4l2_format fmt = {0};
@@ -180,8 +175,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_FMT, &fmt);
     if (res != 0) {
         set_error("unable to set output format");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     memset(&fmt, 0, sizeof(fmt));
@@ -197,8 +191,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_FMT, &fmt);
     if (res != 0) {
         set_error("unable to set capture format");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     struct v4l2_streamparm parm = {0};
@@ -208,8 +201,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_PARM, &parm);
     if (res != 0) {
         set_error("unable to set fps");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     struct v4l2_requestbuffers reqbufs = {0};
@@ -219,8 +211,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_REQBUFS, &reqbufs);
     if (res != 0) {
         set_error("unable to set output buffers");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     memset(&reqbufs, 0, sizeof(reqbufs));
@@ -230,8 +221,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_REQBUFS, &reqbufs);
     if (res != 0) {
         set_error("unable to set capture buffers");
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     encp->capture_buffers = malloc(sizeof(void *) * reqbufs.count);
@@ -248,9 +238,7 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
         int res = ioctl(encp->fd, VIDIOC_QUERYBUF, &buffer);
         if (res != 0) {
             set_error("unable to query buffer");
-            free(encp->capture_buffers);
-            close(encp->fd);
-            return false;
+            goto failed;
         }
 
         encp->capture_buffers[i] = mmap(
@@ -261,17 +249,13 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
             buffer.m.planes[0].m.mem_offset);
         if (encp->capture_buffers[i] == MAP_FAILED) {
             set_error("mmap() failed");
-            free(encp->capture_buffers);
-            close(encp->fd);
-            return false;
+            goto failed;
         }
 
         res = ioctl(encp->fd, VIDIOC_QBUF, &buffer);
         if (res != 0) {
             set_error("ioctl(VIDIOC_QBUF) failed");
-            free(encp->capture_buffers);
-            close(encp->fd);
-            return false;
+            goto failed;
         }
     }
 
@@ -279,18 +263,13 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_STREAMON, &type);
     if (res != 0) {
         set_error("unable to activate output stream");
-        free(encp->capture_buffers);
-        close(encp->fd);
-        return false;
+        goto failed;
     }
 
     type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     res = ioctl(encp->fd, VIDIOC_STREAMON, &type);
     if (res != 0) {
         set_error("unable to activate capture stream");
-        free(encp->capture_buffers);
-        close(encp->fd);
-        return false;
     }
 
     encp->params = params;
@@ -301,6 +280,18 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     pthread_create(&encp->output_thread, NULL, output_thread, encp);
 
     return true;
+
+failed:
+    if (encp->capture_buffers != NULL) {
+        free(encp->capture_buffers);
+    }
+    if (encp->fd >= 0) {
+        close(encp->fd);
+    }
+
+    free(encp);
+
+    return false;
 }
 
 void encoder_encode(encoder_t *enc, int buffer_fd, size_t size, int64_t timestamp_us) {
