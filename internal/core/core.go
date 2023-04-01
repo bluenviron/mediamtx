@@ -52,7 +52,7 @@ type Core struct {
 
 var cli struct {
 	Version  bool   `help:"print version"`
-	Confpath string `arg:"" default:"rtsp-simple-server.yml"`
+	Confpath string `arg:"" default:"mediamtx.yml"`
 }
 
 // New allocates a core.
@@ -63,7 +63,7 @@ func New(args []string) (*Core, bool) {
 		kong.ValueFormatter(func(value *kong.Value) string {
 			switch value.Name {
 			case "confpath":
-				return "path to a config file. The default is rtsp-simple-server.yml."
+				return "path to a config file. The default is mediamtx.yml."
 
 			default:
 				return kong.DefaultHelpValueFormatter(value)

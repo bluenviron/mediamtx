@@ -40,9 +40,17 @@ func decrypt(key string, byts []byte) ([]byte, error) {
 }
 
 func loadFromFile(fpath string, conf *Conf) (bool, error) {
-	// rtsp-simple-server.yml is optional
+	if fpath == "mediamtx.yml" {
+		// give priority to the legacy configuration file, in order not to break
+		// existing setups
+		if _, err := os.Stat("rtsp-simple-server.yml"); err == nil {
+			fpath = "rtsp-simple-server.yml"
+		}
+	}
+
+	// mediamtx.yml is optional
 	// other configuration files are not
-	if fpath == "rtsp-simple-server.yml" {
+	if fpath == "mediamtx.yml" || fpath == "rtsp-simple-server.yml" {
 		if _, err := os.Stat(fpath); err != nil {
 			return false, nil
 		}
@@ -53,7 +61,14 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 		return true, err
 	}
 
-	if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok {
+	if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok { // legacy format
+		byts, err = decrypt(key, byts)
+		if err != nil {
+			return true, err
+		}
+	}
+
+	if key, ok := os.LookupEnv("MTX_CONFKEY"); ok {
 		byts, err = decrypt(key, byts)
 		if err != nil {
 			return true, err
