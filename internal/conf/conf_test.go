@@ -118,7 +118,7 @@ func TestConfFromEnvOnly(t *testing.T) {
 	os.Setenv("RTSP_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("RTSP_PATHS_CAM1_SOURCE")
 
-	conf, hasFile, err := Load("rtsp-simple-server.yml")
+	conf, hasFile, err := Load("mediamtx.yml")
 	require.NoError(t, err)
 	require.Equal(t, false, hasFile)
 

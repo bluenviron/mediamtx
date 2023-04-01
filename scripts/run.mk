@@ -8,7 +8,7 @@ COPY . ./
 RUN go build -o /out .
 WORKDIR /
 ARG CONFIG_RUN
-RUN echo "$$CONFIG_RUN" > rtsp-simple-server.yml
+RUN echo "$$CONFIG_RUN" > mediamtx.yml
 endef
 export DOCKERFILE_RUN
 
