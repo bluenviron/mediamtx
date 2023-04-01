@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
-	"github.com/aler9/gortsplib/v2/pkg/ringbuffer"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/google/uuid"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -252,12 +252,12 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	c.state = rtmpConnStateRead
 	c.stateMutex.Unlock()
 
-	var videoFormat *format.H264
+	var videoFormat *formats.H264
 	videoMedia := res.stream.medias().FindFormat(&videoFormat)
 	videoFirstIDRFound := false
 	var videoStartDTS time.Duration
 
-	var audioFormat *format.MPEG4Audio
+	var audioFormat *formats.MPEG4Audio
 	audioMedia := res.stream.medias().FindFormat(&audioFormat)
 
 	if videoFormat == nil && audioFormat == nil {
@@ -509,7 +509,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	if videoFormat != nil {
 		videoMedia = &media.Media{
 			Type:    media.TypeVideo,
-			Formats: []format.Format{videoFormat},
+			Formats: []formats.Format{videoFormat},
 		}
 		medias = append(medias, videoMedia)
 	}
@@ -517,7 +517,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	if audioFormat != nil {
 		audioMedia = &media.Media{
 			Type:    media.TypeAudio,
-			Formats: []format.Format{audioFormat},
+			Formats: []formats.Format{audioFormat},
 		}
 		medias = append(medias, audioMedia)
 	}
@@ -540,7 +540,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 	var onVideoData func(time.Duration, [][]byte)
 
-	if _, ok := videoFormat.(*format.H264); ok {
+	if _, ok := videoFormat.(*formats.H264); ok {
 		onVideoData = func(pts time.Duration, au [][]byte) {
 			err = rres.stream.writeData(videoMedia, videoFormat, &formatprocessor.UnitH264{
 				PTS: pts,

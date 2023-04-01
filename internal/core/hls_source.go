@@ -4,13 +4,14 @@ import (
 	"context"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/bluenviron/gohlslib"
+	"github.com/bluenviron/gohlslib/pkg/codecs"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/bluenviron/gohlslib"
 )
 
 type hlsSourceParent interface {
@@ -53,22 +54,26 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		},
 	}
 
-	c.OnTracks(func(tracks []format.Format) error {
+	c.OnTracks(func(tracks []*gohlslib.Track) error {
 		var medias media.Medias
 
 		for _, track := range tracks {
-			medi := &media.Media{
-				Formats: []format.Format{track},
-			}
-			medias = append(medias, medi)
-			cformat := track
+			var medi *media.Media
 
-			switch track.(type) {
-			case *format.H264:
-				medi.Type = media.TypeVideo
+			switch tcodec := track.Codec.(type) {
+			case *codecs.H264:
+				medi = &media.Media{
+					Type: media.TypeVideo,
+					Formats: []formats.Format{&formats.H264{
+						PayloadTyp:        96,
+						PacketizationMode: 1,
+						SPS:               tcodec.SPS,
+						PPS:               tcodec.PPS,
+					}},
+				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, cformat, &formatprocessor.UnitH264{
+					err := stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH264{
 						PTS: pts,
 						AU:  unit.([][]byte),
 						NTP: time.Now(),
@@ -78,11 +83,19 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 				})
 
-			case *format.H265:
-				medi.Type = media.TypeVideo
+			case *codecs.H265:
+				medi = &media.Media{
+					Type: media.TypeVideo,
+					Formats: []formats.Format{&formats.H265{
+						PayloadTyp: 96,
+						VPS:        tcodec.VPS,
+						SPS:        tcodec.SPS,
+						PPS:        tcodec.PPS,
+					}},
+				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, cformat, &formatprocessor.UnitH265{
+					err := stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH265{
 						PTS: pts,
 						AU:  unit.([][]byte),
 						NTP: time.Now(),
@@ -92,11 +105,20 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 				})
 
-			case *format.MPEG4Audio:
-				medi.Type = media.TypeAudio
+			case *codecs.MPEG4Audio:
+				medi = &media.Media{
+					Type: media.TypeAudio,
+					Formats: []formats.Format{&formats.MPEG4Audio{
+						PayloadTyp:       96,
+						SizeLength:       13,
+						IndexLength:      3,
+						IndexDeltaLength: 3,
+						Config:           &tcodec.Config,
+					}},
+				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, cformat, &formatprocessor.UnitMPEG4Audio{
+					err := stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
 						PTS: pts,
 						AUs: [][]byte{unit.([]byte)},
 						NTP: time.Now(),
@@ -106,11 +128,17 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 				})
 
-			case *format.Opus:
-				medi.Type = media.TypeAudio
+			case *codecs.Opus:
+				medi = &media.Media{
+					Type: media.TypeAudio,
+					Formats: []formats.Format{&formats.Opus{
+						PayloadTyp: 96,
+						IsStereo:   (tcodec.Channels == 2),
+					}},
+				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeData(medi, cformat, &formatprocessor.UnitOpus{
+					err := stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 						PTS:   pts,
 						Frame: unit.([]byte),
 						NTP:   time.Now(),
@@ -120,6 +148,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 				})
 			}
+
+			medias = append(medias, medi)
 		}
 
 		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{

@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
@@ -75,7 +75,7 @@ func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interfa
 func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
 	medi := &media.Media{
 		Type: media.TypeVideo,
-		Formats: []format.Format{&format.H264{
+		Formats: []formats.Format{&formats.H264{
 			PayloadTyp:        96,
 			PacketizationMode: 1,
 		}},

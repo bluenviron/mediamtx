@@ -4,8 +4,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 )
@@ -18,7 +18,7 @@ type streamFormat struct {
 
 func newStreamFormat(
 	udpMaxPayloadSize int,
-	forma format.Format,
+	forma formats.Format,
 	generateRTPPackets bool,
 ) (*streamFormat, error) {
 	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets)

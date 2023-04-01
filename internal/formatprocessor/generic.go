@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/pion/rtp"
 )
 
@@ -30,7 +30,7 @@ type formatProcessorGeneric struct {
 
 func newGeneric(
 	udpMaxPayloadSize int,
-	forma format.Format,
+	forma formats.Format,
 	generateRTPPackets bool,
 ) (*formatProcessorGeneric, error) {
 	if generateRTPPackets {

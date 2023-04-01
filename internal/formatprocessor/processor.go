@@ -2,7 +2,7 @@
 package formatprocessor
 
 import (
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 )
 
 // Processor allows to cleanup and normalize streams.
@@ -14,26 +14,26 @@ type Processor interface {
 // New allocates a Processor.
 func New(
 	udpMaxPayloadSize int,
-	forma format.Format,
+	forma formats.Format,
 	generateRTPPackets bool,
 ) (Processor, error) {
 	switch forma := forma.(type) {
-	case *format.H264:
+	case *formats.H264:
 		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.H265:
+	case *formats.H265:
 		return newH265(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.VP8:
+	case *formats.VP8:
 		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.VP9:
+	case *formats.VP9:
 		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.MPEG4Audio:
+	case *formats.MPEG4Audio:
 		return newMPEG4Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.Opus:
+	case *formats.Opus:
 		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	default:

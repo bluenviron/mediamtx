@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/base"
-	"github.com/aler9/gortsplib/v2/pkg/headers"
-	"github.com/aler9/gortsplib/v2/pkg/liberrors"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/base"
+	"github.com/bluenviron/gortsplib/v3/pkg/headers"
+	"github.com/bluenviron/gortsplib/v3/pkg/liberrors"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
@@ -351,10 +351,10 @@ func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Resp
 	return se.onPause(ctx)
 }
 
-// OnDecodeError implements gortsplib.ServerHandlerOnOnDecodeError.
-func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+// OnDecodeError implements gortsplib.ServerHandlerOnWarning.
+func (s *rtspServer) OnWarning(ctx *gortsplib.ServerHandlerOnWarningCtx) {
 	se := ctx.Session.UserData().(*rtspSession)
-	se.onDecodeError(ctx)
+	se.onWarning(ctx)
 }
 
 // apiConnsList is called by api and metrics.

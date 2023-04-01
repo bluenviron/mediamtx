@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/base"
-	"github.com/aler9/gortsplib/v2/pkg/headers"
-	"github.com/aler9/gortsplib/v2/pkg/media"
-	"github.com/aler9/gortsplib/v2/pkg/sdp"
-	"github.com/aler9/gortsplib/v2/pkg/url"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/base"
+	"github.com/bluenviron/gortsplib/v3/pkg/headers"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/sdp"
+	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -129,7 +129,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 
 					var res base.Response
-					err = res.Read(br)
+					err = res.Unmarshal(br)
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
@@ -159,7 +159,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 
 					var res base.Response
-					err = res.Read(br)
+					err = res.Unmarshal(br)
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				}
@@ -184,9 +184,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/media"
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 )
 
 func main() {
@@ -196,7 +196,7 @@ func main() {
 
 	medi := &media.Media{
 		Type: media.TypeVideo,
-		Formats: []format.Format{&format.H264{
+		Formats: []formats.Format{&formats.H264{
 			PayloadTyp: 96,
 			SPS: []byte{0x01, 0x02, 0x03, 0x04},
 			PPS: []byte{0x01, 0x02, 0x03, 0x04},
@@ -273,7 +273,7 @@ func main() {
 					require.NoError(t, err)
 
 					var res base.Response
-					err = res.Read(br)
+					err = res.Unmarshal(br)
 					require.NoError(t, err)
 					require.Equal(t, base.StatusOK, res.StatusCode)
 
@@ -308,7 +308,7 @@ func main() {
 					require.NoError(t, err)
 
 					var res base.Response
-					err = res.Read(br)
+					err = res.Unmarshal(br)
 					require.NoError(t, err)
 					require.Equal(t, base.StatusOK, res.StatusCode)
 				}

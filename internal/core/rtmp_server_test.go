@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
@@ -100,7 +100,7 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			err = conn1.InitializeClient(u, true)
 			require.NoError(t, err)
 
-			videoTrack := &format.H264{
+			videoTrack := &formats.H264{
 				PayloadTyp: 96,
 				SPS: []byte{ // 1920x1080 baseline
 					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
@@ -111,7 +111,7 @@ func TestRTMPServerPublishRead(t *testing.T) {
 				PacketizationMode: 1,
 			}
 
-			audioTrack := &format.MPEG4Audio{
+			audioTrack := &formats.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -224,7 +224,7 @@ func TestRTMPServerAuth(t *testing.T) {
 			err = conn1.InitializeClient(u1, true)
 			require.NoError(t, err)
 
-			videoTrack := &format.H264{
+			videoTrack := &formats.H264{
 				PayloadTyp: 96,
 				SPS: []byte{
 					0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -289,7 +289,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &format.H264{
+		videoTrack := &formats.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -344,7 +344,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &format.H264{
+		videoTrack := &formats.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -399,7 +399,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn1.InitializeClient(u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &format.H264{
+		videoTrack := &formats.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpsimpleaudio"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpsimpleaudio"
 	"github.com/pion/rtp"
 )
 
@@ -29,14 +29,14 @@ func (d *UnitOpus) GetNTP() time.Time {
 
 type formatProcessorOpus struct {
 	udpMaxPayloadSize int
-	format            *format.Opus
+	format            *formats.Opus
 	encoder           *rtpsimpleaudio.Encoder
 	decoder           *rtpsimpleaudio.Decoder
 }
 
 func newOpus(
 	udpMaxPayloadSize int,
-	forma *format.Opus,
+	forma *formats.Opus,
 	allocateEncoder bool,
 ) (*formatProcessorOpus, error) {
 	t := &formatProcessorOpus{

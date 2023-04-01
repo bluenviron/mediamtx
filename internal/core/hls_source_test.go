@@ -8,13 +8,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
-	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/asticode/go-astits"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/gin-gonic/gin"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -250,8 +250,8 @@ func TestHLSSource(t *testing.T) {
 		{
 			Type:    media.TypeVideo,
 			Control: medias[0].Control,
-			Formats: []format.Format{
-				&format.H264{
+			Formats: []formats.Format{
+				&formats.H264{
 					PayloadTyp:        96,
 					PacketizationMode: 1,
 				},
@@ -260,8 +260,8 @@ func TestHLSSource(t *testing.T) {
 		{
 			Type:    media.TypeAudio,
 			Control: medias[1].Control,
-			Formats: []format.Format{
-				&format.MPEG4Audio{
+			Formats: []formats.Format{
+				&formats.MPEG4Audio{
 					PayloadTyp: 96,
 					Config: &mpeg4audio.Config{
 						Type:         2,

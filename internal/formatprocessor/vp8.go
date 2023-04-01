@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpvp8"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
 	"github.com/pion/rtp"
 )
 
@@ -29,14 +29,14 @@ func (d *UnitVP8) GetNTP() time.Time {
 
 type formatProcessorVP8 struct {
 	udpMaxPayloadSize int
-	format            *format.VP8
+	format            *formats.VP8
 	encoder           *rtpvp8.Encoder
 	decoder           *rtpvp8.Decoder
 }
 
 func newVP8(
 	udpMaxPayloadSize int,
-	forma *format.VP8,
+	forma *formats.VP8,
 	allocateEncoder bool,
 ) (*formatProcessorVP8, error) {
 	t := &formatProcessorVP8{

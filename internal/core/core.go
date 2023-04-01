@@ -9,7 +9,7 @@ import (
 	"reflect"
 
 	"github.com/alecthomas/kong"
-	"github.com/aler9/gortsplib/v2"
+	"github.com/bluenviron/gortsplib/v3"
 	"github.com/gin-gonic/gin"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"

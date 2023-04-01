@@ -9,15 +9,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/base"
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/base"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/pion/rtp"
 
-	"github.com/aler9/gortsplib/v2/pkg/url"
 	"github.com/aler9/rtsp-simple-server/internal/conf"
 	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
 	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/bluenviron/gortsplib/v3/pkg/url"
 )
 
 type rtspSourceParent interface {
@@ -137,7 +137,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 					cformat := forma
 
 					switch forma.(type) {
-					case *format.H264:
+					case *formats.H264:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &formatprocessor.UnitH264{
 								RTPPackets: []*rtp.Packet{pkt},
@@ -148,7 +148,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							}
 						})
 
-					case *format.H265:
+					case *formats.H265:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &formatprocessor.UnitH265{
 								RTPPackets: []*rtp.Packet{pkt},
@@ -159,7 +159,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							}
 						})
 
-					case *format.VP8:
+					case *formats.VP8:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &formatprocessor.UnitVP8{
 								RTPPackets: []*rtp.Packet{pkt},
@@ -170,7 +170,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							}
 						})
 
-					case *format.VP9:
+					case *formats.VP9:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &formatprocessor.UnitVP9{
 								RTPPackets: []*rtp.Packet{pkt},
@@ -181,7 +181,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							}
 						})
 
-					case *format.MPEG4Audio:
+					case *formats.MPEG4Audio:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &formatprocessor.UnitMPEG4Audio{
 								RTPPackets: []*rtp.Packet{pkt},
@@ -192,7 +192,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 							}
 						})
 
-					case *format.Opus:
+					case *formats.Opus:
 						c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 							err := res.stream.writeData(cmedia, cformat, &formatprocessor.UnitOpus{
 								RTPPackets: []*rtp.Packet{pkt},
