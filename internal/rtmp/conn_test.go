@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
@@ -484,18 +484,18 @@ func TestReadTracks(t *testing.T) {
 
 	for _, ca := range []struct {
 		name       string
-		videoTrack format.Format
-		audioTrack format.Format
+		videoTrack formats.Format
+		audioTrack formats.Format
 	}{
 		{
 			"video+audio",
-			&format.H264{
+			&formats.H264{
 				PayloadTyp:        96,
 				SPS:               sps,
 				PPS:               pps,
 				PacketizationMode: 1,
 			},
-			&format.MPEG4Audio{
+			&formats.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -509,23 +509,23 @@ func TestReadTracks(t *testing.T) {
 		},
 		{
 			"video",
-			&format.H264{
+			&formats.H264{
 				PayloadTyp:        96,
 				SPS:               sps,
 				PPS:               pps,
 				PacketizationMode: 1,
 			},
-			(*format.MPEG4Audio)(nil),
+			(*formats.MPEG4Audio)(nil),
 		},
 		{
 			"metadata without codec id",
-			&format.H264{
+			&formats.H264{
 				PayloadTyp:        96,
 				SPS:               sps,
 				PPS:               pps,
 				PacketizationMode: 1,
 			},
-			&format.MPEG4Audio{
+			&formats.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -539,13 +539,13 @@ func TestReadTracks(t *testing.T) {
 		},
 		{
 			"missing metadata, video+audio",
-			&format.H264{
+			&formats.H264{
 				PayloadTyp:        96,
 				SPS:               sps,
 				PPS:               pps,
 				PacketizationMode: 1,
 			},
-			&format.MPEG4Audio{
+			&formats.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -560,7 +560,7 @@ func TestReadTracks(t *testing.T) {
 		{
 			"missing metadata, audio",
 			nil,
-			&format.MPEG4Audio{
+			&formats.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -574,7 +574,7 @@ func TestReadTracks(t *testing.T) {
 		},
 		{
 			"obs studio h265",
-			&format.H265{
+			&formats.H265{
 				PayloadTyp: 96,
 				VPS: []byte{
 					0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x01, 0x40,
@@ -595,7 +595,7 @@ func TestReadTracks(t *testing.T) {
 					0x44, 0x01, 0xc0, 0xf7, 0xc0, 0xcc, 0x90,
 				},
 			},
-			&format.MPEG4Audio{
+			&formats.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -1103,7 +1103,7 @@ func TestWriteTracks(t *testing.T) {
 		_, _, err = rconn.InitializeServer()
 		require.NoError(t, err)
 
-		videoTrack := &format.H264{
+		videoTrack := &formats.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -1116,7 +1116,7 @@ func TestWriteTracks(t *testing.T) {
 			PacketizationMode: 1,
 		}
 
-		audioTrack := &format.MPEG4Audio{
+		audioTrack := &formats.MPEG4Audio{
 			PayloadTyp: 96,
 			Config: &mpeg4audio.Config{
 				Type:         2,

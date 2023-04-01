@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h265"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtph265"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph265"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
 )
 
@@ -94,7 +94,7 @@ func (d *UnitH265) GetNTP() time.Time {
 
 type formatProcessorH265 struct {
 	udpMaxPayloadSize int
-	format            *format.H265
+	format            *formats.H265
 
 	encoder *rtph265.Encoder
 	decoder *rtph265.Decoder
@@ -102,7 +102,7 @@ type formatProcessorH265 struct {
 
 func newH265(
 	udpMaxPayloadSize int,
-	forma *format.H265,
+	forma *formats.H265,
 	allocateEncoder bool,
 ) (*formatProcessorH265, error) {
 	t := &formatProcessorH265{
@@ -119,47 +119,70 @@ func newH265(
 
 func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(pkt *rtp.Packet) {
 	vps, sps, pps := rtpH265ExtractVPSSPSPPS(pkt)
+	update := false
 
-	if vps != nil && !bytes.Equal(vps, t.format.SafeVPS()) {
-		t.format.SafeSetVPS(vps)
+	if vps != nil && !bytes.Equal(vps, t.format.VPS) {
+		update = true
 	}
 
-	if sps != nil && !bytes.Equal(sps, t.format.SafeSPS()) {
-		t.format.SafeSetSPS(sps)
+	if sps != nil && !bytes.Equal(sps, t.format.SPS) {
+		update = true
 	}
 
-	if pps != nil && !bytes.Equal(pps, t.format.SafePPS()) {
-		t.format.SafeSetPPS(pps)
+	if pps != nil && !bytes.Equal(pps, t.format.PPS) {
+		update = true
+	}
+
+	if update {
+		if vps == nil {
+			vps = t.format.VPS
+		}
+		if sps == nil {
+			sps = t.format.SPS
+		}
+		if pps == nil {
+			pps = t.format.PPS
+		}
+		t.format.SafeSetParams(vps, sps, pps)
 	}
 }
 
 func (t *formatProcessorH265) updateTrackParametersFromNALUs(nalus [][]byte) {
+	vps := t.format.VPS
+	sps := t.format.SPS
+	pps := t.format.PPS
+	update := false
+
 	for _, nalu := range nalus {
 		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
 		case h265.NALUType_VPS_NUT:
-			if !bytes.Equal(nalu, t.format.SafeVPS()) {
-				t.format.SafeSetVPS(nalu)
+			if !bytes.Equal(nalu, t.format.VPS) {
+				vps = nalu
+				update = true
 			}
 
 		case h265.NALUType_SPS_NUT:
-			if !bytes.Equal(nalu, t.format.SafePPS()) {
-				t.format.SafeSetSPS(nalu)
+			if !bytes.Equal(nalu, t.format.SPS) {
+				sps = nalu
+				update = true
 			}
 
 		case h265.NALUType_PPS_NUT:
-			if !bytes.Equal(nalu, t.format.SafePPS()) {
-				t.format.SafeSetPPS(nalu)
+			if !bytes.Equal(nalu, t.format.PPS) {
+				pps = nalu
+				update = true
 			}
 		}
+	}
+
+	if update {
+		t.format.SafeSetParams(vps, sps, pps)
 	}
 }
 
 func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
-	var vps []byte
-	var sps []byte
-	var pps []byte
 	addParameters := false
 	n := 0
 
@@ -178,11 +201,7 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 			if !addParameters {
 				addParameters = true
 
-				vps = t.format.SafeVPS()
-				sps = t.format.SafeSPS()
-				pps = t.format.SafePPS()
-
-				if vps != nil && sps != nil && pps != nil {
+				if t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
 					n += 3
 				}
 			}
@@ -197,10 +216,10 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	if addParameters && vps != nil && sps != nil && pps != nil {
-		filteredNALUs[0] = vps
-		filteredNALUs[1] = sps
-		filteredNALUs[2] = pps
+	if addParameters && t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
+		filteredNALUs[0] = t.format.VPS
+		filteredNALUs[1] = t.format.SPS
+		filteredNALUs[2] = t.format.PPS
 		i = 3
 	}
 

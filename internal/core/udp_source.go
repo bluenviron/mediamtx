@@ -6,12 +6,12 @@ import (
 	"net"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
 	"github.com/asticode/go-astits"
-	"github.com/bluenviron/gohlslib/pkg/mpegts"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	"golang.org/x/net/ipv4"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -173,15 +173,17 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			var stream *stream
 
 			for _, track := range tracks {
-				medi := &media.Media{
-					Formats: []format.Format{track.Format},
-				}
-				medias = append(medias, medi)
-				cformat := track.Format
+				var medi *media.Media
 
-				switch track.Format.(type) {
-				case *format.H264:
-					medi.Type = media.TypeVideo
+				switch tcodec := track.Codec.(type) {
+				case *mpegts.CodecH264:
+					medi = &media.Media{
+						Type: media.TypeVideo,
+						Formats: []formats.Format{&formats.H264{
+							PayloadTyp:        96,
+							PacketizationMode: 1,
+						}},
+					}
 
 					mediaCallbacks[track.ES.ElementaryPID] = func(pts time.Duration, data []byte) {
 						au, err := h264.AnnexBUnmarshal(data)
@@ -190,7 +192,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeData(medi, cformat, &formatprocessor.UnitH264{
+						err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH264{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
@@ -200,8 +202,13 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						}
 					}
 
-				case *format.H265:
-					medi.Type = media.TypeVideo
+				case *mpegts.CodecH265:
+					medi = &media.Media{
+						Type: media.TypeVideo,
+						Formats: []formats.Format{&formats.H265{
+							PayloadTyp: 96,
+						}},
+					}
 
 					mediaCallbacks[track.ES.ElementaryPID] = func(pts time.Duration, data []byte) {
 						au, err := h264.AnnexBUnmarshal(data)
@@ -210,7 +217,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeData(medi, cformat, &formatprocessor.UnitH265{
+						err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH265{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
@@ -220,8 +227,17 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						}
 					}
 
-				case *format.MPEG4Audio:
-					medi.Type = media.TypeAudio
+				case *mpegts.CodecMPEG4Audio:
+					medi = &media.Media{
+						Type: media.TypeAudio,
+						Formats: []formats.Format{&formats.MPEG4Audio{
+							PayloadTyp:       96,
+							SizeLength:       13,
+							IndexLength:      3,
+							IndexDeltaLength: 3,
+							Config:           &tcodec.Config,
+						}},
+					}
 
 					mediaCallbacks[track.ES.ElementaryPID] = func(pts time.Duration, data []byte) {
 						var pkts mpeg4audio.ADTSPackets
@@ -236,7 +252,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							aus[i] = pkt.AU
 						}
 
-						err = stream.writeData(medi, cformat, &formatprocessor.UnitMPEG4Audio{
+						err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
 							PTS: pts,
 							AUs: aus,
 							NTP: time.Now(),
@@ -246,8 +262,14 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						}
 					}
 
-				case *format.Opus:
-					medi.Type = media.TypeAudio
+				case *mpegts.CodecOpus:
+					medi = &media.Media{
+						Type: media.TypeAudio,
+						Formats: []formats.Format{&formats.Opus{
+							PayloadTyp: 96,
+							IsStereo:   (tcodec.Channels == 2),
+						}},
+					}
 
 					mediaCallbacks[track.ES.ElementaryPID] = func(pts time.Duration, data []byte) {
 						pos := 0
@@ -261,7 +283,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							}
 							pos += n
 
-							err = stream.writeData(medi, cformat, &formatprocessor.UnitOpus{
+							err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 								PTS:   pts,
 								Frame: au.Frame,
 								NTP:   time.Now(),
@@ -278,6 +300,8 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						}
 					}
 				}
+
+				medias = append(medias, medi)
 			}
 
 			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{

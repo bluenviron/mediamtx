@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h265"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
@@ -584,14 +584,14 @@ func (c *Conn) WriteMessage(msg message.Message) error {
 	return c.mrw.Write(msg)
 }
 
-func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
+func trackFromH264DecoderConfig(data []byte) (formats.Format, error) {
 	var conf h264conf.Conf
 	err := conf.Unmarshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse H264 config: %v", err)
 	}
 
-	return &format.H264{
+	return &formats.H264{
 		PayloadTyp:        96,
 		SPS:               conf.SPS,
 		PPS:               conf.PPS,
@@ -599,14 +599,14 @@ func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
 	}, nil
 }
 
-func trackFromAACDecoderConfig(data []byte) (*format.MPEG4Audio, error) {
+func trackFromAACDecoderConfig(data []byte) (*formats.MPEG4Audio, error) {
 	var mpegConf mpeg4audio.Config
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return &format.MPEG4Audio{
+	return &formats.MPEG4Audio{
 		PayloadTyp:       96,
 		Config:           &mpegConf,
 		SizeLength:       13,
@@ -617,7 +617,7 @@ func trackFromAACDecoderConfig(data []byte) (*format.MPEG4Audio, error) {
 
 var errEmptyMetadata = errors.New("metadata is empty")
 
-func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *format.MPEG4Audio, error) {
+func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, *formats.MPEG4Audio, error) {
 	if len(payload) != 1 {
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
@@ -687,8 +687,8 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *fo
 		return nil, nil, errEmptyMetadata
 	}
 
-	var videoTrack format.Format
-	var audioTrack *format.MPEG4Audio
+	var videoTrack formats.Format
+	var audioTrack *formats.MPEG4Audio
 
 	for {
 		msg, err := c.ReadMessage()
@@ -734,7 +734,7 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *fo
 					}
 
 					if h265VPS != nil && h265SPS != nil && h265PPS != nil {
-						videoTrack = &format.H265{
+						videoTrack = &formats.H265{
 							PayloadTyp: 96,
 							VPS:        h265VPS,
 							SPS:        h265SPS,
@@ -766,10 +766,10 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (format.Format, *fo
 	}
 }
 
-func (c *Conn) readTracksFromMessages(msg message.Message) (format.Format, *format.MPEG4Audio, error) {
+func (c *Conn) readTracksFromMessages(msg message.Message) (formats.Format, *formats.MPEG4Audio, error) {
 	var startTime *time.Duration
-	var videoTrack format.Format
-	var audioTrack *format.MPEG4Audio
+	var videoTrack formats.Format
+	var audioTrack *formats.MPEG4Audio
 
 	// analyze 1 second of packets
 outer:
@@ -842,7 +842,7 @@ outer:
 
 // ReadTracks reads track informations.
 // It returns the video track and the audio track.
-func (c *Conn) ReadTracks() (format.Format, *format.MPEG4Audio, error) {
+func (c *Conn) ReadTracks() (formats.Format, *formats.MPEG4Audio, error) {
 	msg, err := func() (message.Message, error) {
 		for {
 			msg, err := c.ReadMessage()
@@ -901,7 +901,7 @@ func (c *Conn) ReadTracks() (format.Format, *format.MPEG4Audio, error) {
 }
 
 // WriteTracks writes track informations.
-func (c *Conn) WriteTracks(videoTrack *format.H264, audioTrack *format.MPEG4Audio) error {
+func (c *Conn) WriteTracks(videoTrack *formats.H264, audioTrack *formats.MPEG4Audio) error {
 	err := c.WriteMessage(&message.MsgDataAMF0{
 		ChunkStreamID:   4,
 		MessageStreamID: 0x1000000,
@@ -944,21 +944,24 @@ func (c *Conn) WriteTracks(videoTrack *format.H264, audioTrack *format.MPEG4Audi
 
 	// write decoder config only if SPS and PPS are available.
 	// if they're not available yet, they're sent later.
-	if videoTrack != nil && videoTrack.SafeSPS() != nil && videoTrack.SafePPS() != nil {
-		buf, _ := h264conf.Conf{
-			SPS: videoTrack.SafeSPS(),
-			PPS: videoTrack.SafePPS(),
-		}.Marshal()
+	if videoTrack != nil {
+		sps, pps := videoTrack.SafeParams()
+		if sps != nil && pps != nil {
+			buf, _ := h264conf.Conf{
+				SPS: sps,
+				PPS: pps,
+			}.Marshal()
 
-		err = c.WriteMessage(&message.MsgVideo{
-			ChunkStreamID:   message.MsgVideoChunkStreamID,
-			MessageStreamID: 0x1000000,
-			IsKeyFrame:      true,
-			H264Type:        flvio.AVC_SEQHDR,
-			Payload:         buf,
-		})
-		if err != nil {
-			return err
+			err = c.WriteMessage(&message.MsgVideo{
+				ChunkStreamID:   message.MsgVideoChunkStreamID,
+				MessageStreamID: 0x1000000,
+				IsKeyFrame:      true,
+				H264Type:        flvio.AVC_SEQHDR,
+				Payload:         buf,
+			})
+			if err != nil {
+				return err
+			}
 		}
 	}
 

@@ -9,9 +9,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
@@ -62,7 +62,7 @@ func TestMetrics(t *testing.T) {
 	err = conn.InitializeClient(u, true)
 	require.NoError(t, err)
 
-	videoTrack := &format.H264{
+	videoTrack := &formats.H264{
 		PayloadTyp: 96,
 		SPS: []byte{ // 1920x1080 baseline
 			0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,

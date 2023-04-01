@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 )
 
 const (

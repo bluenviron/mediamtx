@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/format"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
 func TestH264DynamicParams(t *testing.T) {
-	forma := &format.H264{
+	forma := &formats.H264{
 		PayloadTyp:        96,
 		PacketizationMode: 1,
 	}
@@ -54,7 +54,7 @@ func TestH264DynamicParams(t *testing.T) {
 }
 
 func TestH264OversizedPackets(t *testing.T) {
-	forma := &format.H264{
+	forma := &formats.H264{
 		PayloadTyp:        96,
 		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
 		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
@@ -153,7 +153,7 @@ func TestH264OversizedPackets(t *testing.T) {
 }
 
 func TestH264EmptyPacket(t *testing.T) {
-	forma := &format.H264{
+	forma := &formats.H264{
 		PayloadTyp:        96,
 		PacketizationMode: 1,
 	}

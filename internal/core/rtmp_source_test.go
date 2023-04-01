@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/url"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -59,7 +59,7 @@ func TestRTMPSource(t *testing.T) {
 				_, _, err = conn.InitializeServer()
 				require.NoError(t, err)
 
-				videoTrack := &format.H264{
+				videoTrack := &formats.H264{
 					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
@@ -70,7 +70,7 @@ func TestRTMPSource(t *testing.T) {
 					PacketizationMode: 1,
 				}
 
-				audioTrack := &format.MPEG4Audio{
+				audioTrack := &formats.MPEG4Audio{
 					PayloadTyp: 96,
 					Config: &mpeg4audio.Config{
 						Type:         2,

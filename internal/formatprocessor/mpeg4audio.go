@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/formatdecenc/rtpmpeg4audio"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg4audio"
 	"github.com/pion/rtp"
 )
 
@@ -29,14 +29,14 @@ func (d *UnitMPEG4Audio) GetNTP() time.Time {
 
 type formatProcessorMPEG4Audio struct {
 	udpMaxPayloadSize int
-	format            *format.MPEG4Audio
+	format            *formats.MPEG4Audio
 	encoder           *rtpmpeg4audio.Encoder
 	decoder           *rtpmpeg4audio.Decoder
 }
 
 func newMPEG4Audio(
 	udpMaxPayloadSize int,
-	forma *format.MPEG4Audio,
+	forma *formats.MPEG4Audio,
 	allocateEncoder bool,
 ) (*formatProcessorMPEG4Audio, error) {
 	t := &formatProcessorMPEG4Audio{

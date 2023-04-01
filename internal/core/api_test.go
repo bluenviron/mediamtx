@@ -13,17 +13,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aler9/gortsplib/v2"
-	"github.com/aler9/gortsplib/v2/pkg/codecs/mpeg4audio"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/rtsp-simple-server/internal/rtmp"
 )
 
-var testFormatH264 = &format.H264{
+var testFormatH264 = &formats.H264{
 	PayloadTyp:        96,
 	SPS:               []byte{0x01, 0x02, 0x03, 0x04},
 	PPS:               []byte{0x01, 0x02, 0x03, 0x04},
@@ -32,7 +32,7 @@ var testFormatH264 = &format.H264{
 
 var testMediaH264 = &media.Media{
 	Type:    media.TypeVideo,
-	Formats: []format.Format{testFormatH264},
+	Formats: []formats.Format{testFormatH264},
 }
 
 func httpRequest(method string, ur string, in interface{}, out interface{}) error {
@@ -211,7 +211,7 @@ func TestAPIPathsList(t *testing.T) {
 				media0,
 				{
 					Type: media.TypeAudio,
-					Formats: []format.Format{&format.MPEG4Audio{
+					Formats: []formats.Format{&formats.MPEG4Audio{
 						PayloadTyp: 96,
 						Config: &mpeg4audio.Config{
 							Type:         2,
@@ -273,11 +273,11 @@ func TestAPIPathsList(t *testing.T) {
 		medias := media.Medias{
 			{
 				Type:    media.TypeVideo,
-				Formats: []format.Format{testFormatH264},
+				Formats: []formats.Format{testFormatH264},
 			},
 			{
 				Type: media.TypeAudio,
-				Formats: []format.Format{&format.MPEG4Audio{
+				Formats: []formats.Format{&formats.MPEG4Audio{
 					PayloadTyp: 97,
 					Config: &mpeg4audio.Config{
 						Type:         2,
@@ -473,7 +473,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				err = conn.InitializeClient(u, true)
 				require.NoError(t, err)
 
-				videoTrack := &format.H264{
+				videoTrack := &formats.H264{
 					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
@@ -683,7 +683,7 @@ func TestAPIKick(t *testing.T) {
 				err = conn.InitializeClient(u, true)
 				require.NoError(t, err)
 
-				videoTrack := &format.H264{
+				videoTrack := &formats.H264{
 					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,

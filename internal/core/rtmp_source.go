@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/gortsplib/v2/pkg/codecs/h264"
-	"github.com/aler9/gortsplib/v2/pkg/format"
-	"github.com/aler9/gortsplib/v2/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/rtsp-simple-server/internal/conf"
@@ -116,7 +116,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				return err
 			}
 
-			if _, ok := videoFormat.(*format.H265); ok {
+			if _, ok := videoFormat.(*formats.H265); ok {
 				return fmt.Errorf("proxying H265 streams with RTMP is not supported")
 			}
 
@@ -127,7 +127,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 			if videoFormat != nil {
 				videoMedia = &media.Media{
 					Type:    media.TypeVideo,
-					Formats: []format.Format{videoFormat},
+					Formats: []formats.Format{videoFormat},
 				}
 				medias = append(medias, videoMedia)
 			}
@@ -135,7 +135,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 			if audioFormat != nil {
 				audioMedia = &media.Media{
 					Type:    media.TypeAudio,
-					Formats: []format.Format{audioFormat},
+					Formats: []formats.Format{audioFormat},
 				}
 				medias = append(medias, audioMedia)
 			}
