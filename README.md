@@ -137,7 +137,7 @@ docker run --rm -it --network=host aler9/rtsp-simple-server
 The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to find out the author of the packets. This issue can be avoided by disabling the UDP transport protocol:
 
 ```
-docker run --rm -it -e RTSP_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
+docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
 ```
 
 Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
@@ -227,27 +227,27 @@ There are 3 ways to change the configuration:
 
    The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
 
-2. By overriding configuration parameters with environment variables, in the format `RTSP_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
+2. By overriding configuration parameters with environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
    ```
-   RTSP_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
+   MTX_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
    ```
 
    Parameters that have array as value can be overriden by setting a comma-separated list. For example:
    ```
-   RTSP_PROTOCOLS="tcp,udp"
+   MTX_PROTOCOLS="tcp,udp"
    ```
 
    Parameters in maps can be overridden by using underscores, in the following way:
 
    ```
-   RTSP_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
+   MTX_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
    ```
 
    This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
 
    ```
-   docker run --rm -it --network=host -e RTSP_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server
+   docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server
    ```
 
 3. By using the [HTTP API](#http-api).
@@ -346,10 +346,10 @@ The encryption procedure is the following:
 
 3. The string is encoded with base64.
 
-After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `RTSP_CONFKEY` variable:
+After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `MTX_CONFKEY` variable:
 
 ```
-RTSP_CONFKEY=mykey ./rtsp-simple-server
+MTX_CONFKEY=mykey ./rtsp-simple-server
 ```
 
 ### Proxy mode
@@ -665,7 +665,7 @@ docker run --rm -it \
 --privileged \
 --tmpfs /dev/shm:exec \
 -v /run/udev:/run/udev:ro \
--e RTSP_PATHS_CAM_SOURCE=rpiCamera \
+-e MTX_PATHS_CAM_SOURCE=rpiCamera \
 aler9/rtsp-simple-server:latest-rpi
 ```
 
