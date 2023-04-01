@@ -36,7 +36,10 @@ OBJS = \
 
 all: exe
 
-%.o: %.c
+text_font.h: text_font.ttf
+	xxd --include $< > text_font.h
+
+%.o: %.c text_font.h
 	$(CC) $(CFLAGS) -c $< -o $@
 
 %.o: %.cpp

@@ -42,8 +42,8 @@ bool text_create(const parameters_t *params, text_t **text) {
 
         error = FT_New_Memory_Face(
             textp->library,
-            IBMPlexMono_Medium,
-            sizeof(IBMPlexMono_Medium),
+            text_font_ttf,
+            sizeof(text_font_ttf),
             0,
             &textp->face);
         if (error) {

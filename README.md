@@ -578,6 +578,7 @@ The server can be compiled with native support for the Raspberry Pi Camera. Comp
 * Go &ge; 1.20
 * `libcamera-dev`
 * `libfreetype-dev`
+* `xxd`
 * `patchelf`
 
 Download the repository, open a terminal in it and run:
