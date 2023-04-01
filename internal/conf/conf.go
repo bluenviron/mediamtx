@@ -252,7 +252,12 @@ func Load(fpath string) (*Conf, bool, error) {
 		return nil, false, err
 	}
 
-	err = loadFromEnvironment("RTSP", conf)
+	err = loadFromEnvironment("RTSP", conf) // legacy prefix
+	if err != nil {
+		return nil, false, err
+	}
+
+	err = loadFromEnvironment("MTX", conf)
 	if err != nil {
 		return nil, false, err
 	}
