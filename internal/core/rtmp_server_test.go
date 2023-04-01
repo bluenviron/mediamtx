@@ -13,8 +13,8 @@ import (
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
+	"github.com/aler9/mediamtx/internal/rtmp"
+	"github.com/aler9/mediamtx/internal/rtmp/message"
 )
 
 func TestRTMPServerRunOnConnect(t *testing.T) {

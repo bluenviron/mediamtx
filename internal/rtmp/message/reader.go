@@ -3,9 +3,9 @@ package message
 import (
 	"fmt"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
+	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
+	"github.com/aler9/mediamtx/internal/rtmp/chunk"
+	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 func allocateMessage(raw *rawmessage.Message) (Message, error) {

@@ -11,7 +11,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . ./
-RUN go build -o /rtsp-simple-server .
+RUN go build -o /mediamtx .
 
 COPY bench/proxy/start.sh /
 RUN chmod +x /start.sh

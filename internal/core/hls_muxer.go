@@ -22,9 +22,9 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/gin-gonic/gin"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/formatprocessor"
+	"github.com/aler9/mediamtx/internal/logger"
 	"github.com/bluenviron/gohlslib"
 )
 
@@ -557,7 +557,7 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *gohlslib.MuxerFil
 				return &gohlslib.MuxerFileResponse{
 					Status: http.StatusUnauthorized,
 					Header: map[string]string{
-						"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
+						"WWW-Authenticate": `Basic realm="mediamtx"`,
 					},
 				}
 			}
@@ -567,7 +567,7 @@ func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *gohlslib.MuxerFil
 			return &gohlslib.MuxerFileResponse{
 				Status: http.StatusUnauthorized,
 				Header: map[string]string{
-					"WWW-Authenticate": `Basic realm="rtsp-simple-server"`,
+					"WWW-Authenticate": `Basic realm="mediamtx"`,
 				},
 			}
 		}

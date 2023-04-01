@@ -43,12 +43,12 @@ Features:
 * Natively compatible with the Raspberry Pi Camera
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
-[![Test](https://github.com/aler9/rtsp-simple-server/workflows/test/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:test)
-[![Lint](https://github.com/aler9/rtsp-simple-server/workflows/lint/badge.svg)](https://github.com/aler9/rtsp-simple-server/actions?query=workflow:lint)
-[![CodeCov](https://codecov.io/gh/aler9/rtsp-simple-server/branch/main/graph/badge.svg)](https://app.codecov.io/gh/aler9/rtsp-simple-server/branch/main)
-[![Release](https://img.shields.io/github/v/release/aler9/rtsp-simple-server)](https://github.com/aler9/rtsp-simple-server/releases)
+[![Test](https://github.com/aler9/mediamtx/workflows/test/badge.svg)](https://github.com/aler9/mediamtx/actions?query=workflow:test)
+[![Lint](https://github.com/aler9/mediamtx/workflows/lint/badge.svg)](https://github.com/aler9/mediamtx/actions?query=workflow:lint)
+[![CodeCov](https://codecov.io/gh/aler9/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/aler9/mediamtx/branch/main)
+[![Release](https://img.shields.io/github/v/release/aler9/mediamtx)](https://github.com/aler9/mediamtx/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
-[![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://aler9.github.io/rtsp-simple-server)
+[![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://aler9.github.io/mediamtx)
 
 ## Important announcement
 
@@ -56,7 +56,7 @@ _rtsp-simple-server_ is being rebranded as _MediaMTX_. The reason is pretty obvi
 
 Furthermore, my main open source projects are being transferred to the [bluenviron organization](https://github.com/bluenviron), in order to allow the community to maintain and evolve the code regardless of my personal availability.
 
-In the next months, the repository name and the docker image name will be changed accordingly.
+In the next months, the repository name and the Docker image name will be changed accordingly.
 
 ## Table of contents
 
@@ -118,12 +118,12 @@ In the next months, the repository name and the docker image name will be change
 
 ### Standard
 
-1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/rtsp-simple-server/releases).
+1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/mediamtx/releases).
 
 2. Start the server:
 
    ```
-   ./rtsp-simple-server
+   ./mediamtx
    ```
 
 ### Docker
@@ -140,7 +140,7 @@ The `--network=host` flag is mandatory since Docker can change the source port o
 docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
 ```
 
-Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/rtsp-simple-server/discussions/278#discussioncomment-549104).
+Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/mediamtx/discussions/278#discussioncomment-549104).
 
 ### OpenWRT
 
@@ -157,15 +157,15 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
 3. Download the server Makefile and set the server version inside the file:
 
    ```
-   mkdir package/rtsp-simple-server
-   wget -O package/rtsp-simple-server/Makefile https://raw.githubusercontent.com/aler9/rtsp-simple-server/main/openwrt.mk
-   sed -i "s/v0.0.0/$(git ls-remote --tags --sort=v:refname https://github.com/aler9/rtsp-simple-server | tail -n1 | sed 's/.*\///; s/\^{}//')/" package/rtsp-simple-server/Makefile
+   mkdir package/mediamtx
+   wget -O package/mediamtx/Makefile https://raw.githubusercontent.com/aler9/mediamtx/main/openwrt.mk
+   sed -i "s/v0.0.0/$(git ls-remote --tags --sort=v:refname https://github.com/aler9/mediamtx | tail -n1 | sed 's/.*\///; s/\^{}//')/" package/mediamtx/Makefile
    ```
 
 4. Compile the server:
 
    ```
-   make package/rtsp-simple-server/compile -j$(nproc)
+   make package/mediamtx/compile -j$(nproc)
    ```
 
 5. Transfer the .ipk file from `bin/packages/*/base` to the OpenWRT system and install it with:
@@ -230,7 +230,7 @@ There are 3 ways to change the configuration:
 2. By overriding configuration parameters with environment variables, in the format `MTX_PARAMNAME`, where `PARAMNAME` is the uppercase name of a parameter. For instance, the `rtspAddress` parameter can be overridden in the following way:
 
    ```
-   MTX_RTSPADDRESS="127.0.0.1:8554" ./rtsp-simple-server
+   MTX_RTSPADDRESS="127.0.0.1:8554" ./mediamtx
    ```
 
    Parameters that have array as value can be overriden by setting a comma-separated list. For example:
@@ -241,7 +241,7 @@ There are 3 ways to change the configuration:
    Parameters in maps can be overridden by using underscores, in the following way:
 
    ```
-   MTX_PATHS_TEST_SOURCE=rtsp://myurl ./rtsp-simple-server
+   MTX_PATHS_TEST_SOURCE=rtsp://myurl ./mediamtx
    ```
 
    This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
@@ -349,12 +349,12 @@ The encryption procedure is the following:
 After performing the encryption, put the base64-encoded result into the configuration file, and launch the server with the `MTX_CONFKEY` variable:
 
 ```
-MTX_CONFKEY=mykey ./rtsp-simple-server
+MTX_CONFKEY=mykey ./mediamtx
 ```
 
 ### Proxy mode
 
-_rtsp-simple-server_ is also a proxy, that is usually deployed in one of these scenarios:
+_MediaMTX_ is also a proxy, that is usually deployed in one of these scenarios:
 
 * when there are multiple users that are reading a stream and the bandwidth is limited; the proxy is used to receive the stream once. Users can then connect to the proxy instead of the original source.
 * when there's a NAT / firewall between a stream and the users; the proxy is installed on the NAT and makes the stream available to the outside world.
@@ -390,7 +390,7 @@ paths:
 
 ### Remuxing, re-encoding, compression
 
-To change the format, codec or compression of a stream, use _FFmpeg_ or _GStreamer_ together with _rtsp-simple-server_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+To change the format, codec or compression of a stream, use _FFmpeg_ or _GStreamer_ together with _MediaMTX_. For instance, to re-encode an existing stream, that is available in the `/original` path, and publish the resulting stream in the `/compressed` path, edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:
@@ -430,23 +430,23 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 #### Linux
 
-Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _rtsp-simple-server_ on boot.
+Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _MediaMTX_ on boot.
 
-Download a release bundle from the [release page](https://github.com/aler9/rtsp-simple-server/releases), unzip it, and move the executable and configuration in the system:
+Download a release bundle from the [release page](https://github.com/aler9/mediamtx/releases), unzip it, and move the executable and configuration in the system:
 
 ```
-sudo mv rtsp-simple-server /usr/local/bin/
+sudo mv mediamtx /usr/local/bin/
 sudo mv mediamtx.yml /usr/local/etc/
 ```
 
 Create the service:
 
 ```
-sudo tee /etc/systemd/system/rtsp-simple-server.service >/dev/null << EOF
+sudo tee /etc/systemd/system/mediamtx.service >/dev/null << EOF
 [Unit]
 Wants=network.target
 [Service]
-ExecStart=/usr/local/bin/rtsp-simple-server /usr/local/etc/mediamtx.yml
+ExecStart=/usr/local/bin/mediamtx /usr/local/etc/mediamtx.yml
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -456,22 +456,22 @@ Enable and start the service:
 
 ```
 sudo systemctl daemon-reload
-sudo systemctl enable rtsp-simple-server
-sudo systemctl start rtsp-simple-server
+sudo systemctl enable mediamtx
+sudo systemctl start mediamtx
 ```
 
 #### Windows
 
-Download the [WinSW v2 executable](https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe) and place it into the same folder of `rtsp-simple-server.exe`.
+Download the [WinSW v2 executable](https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe) and place it into the same folder of `mediamtx.exe`.
 
 In the same folder, create a file named `WinSW-x64.xml` with this content:
 
 ```xml
 <service>
-  <id>rtsp-simple-server</id>
-  <name>rtsp-simple-server</name>
+  <id>mediamtx</id>
+  <name>mediamtx</name>
   <description></description>
-  <executable>%BASE%/rtsp-simple-server.exe</executable>
+  <executable>%BASE%/mediamtx.exe</executable>
 </service>
 ```
 
@@ -497,7 +497,7 @@ The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instan
 curl http://127.0.0.1:9997/v1/paths/list
 ```
 
-Full documentation of the API is available on the [dedicated site](https://aler9.github.io/rtsp-simple-server/).
+Full documentation of the API is available on the [dedicated site](https://aler9.github.io/mediamtx/).
 
 ### Metrics
 
@@ -569,7 +569,7 @@ Install Go &ge; 1.20, download the repository, open a terminal in it and run:
 go build .
 ```
 
-The command will produce the `rtsp-simple-server` binary.
+The command will produce the `mediamtx` binary.
 
 #### Raspberry Pi
 
@@ -590,7 +590,7 @@ cd ../../../
 go build -tags rpicamera .
 ```
 
-The command will produce the `rtsp-simple-server` binary.
+The command will produce the `mediamtx` binary.
 
 #### Compile for all supported platforms
 
@@ -634,7 +634,7 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 ### From a Raspberry Pi Camera
 
-_rtsp-simple-server_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requisites:
+_MediaMTX_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requisites:
 
 1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system. Both 32 bit and 64 bit operative systems are supported.
 
@@ -681,7 +681,7 @@ paths:
     rpiCameraHeight: 1080
 ```
 
-All available parameters are listed in the [sample configuration file](https://github.com/aler9/rtsp-simple-server/blob/master/mediamtx.yml#L230).
+All available parameters are listed in the [sample configuration file](/mediamtx.yml).
 
 ### From OBS Studio
 
@@ -899,7 +899,7 @@ If the client is _GStreamer_, disable the certificate validation:
 gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8322/...
 ```
 
-At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _rtsp-simple-server_ on the same machine in which _VLC_ is running, using it for reading the encrypted stream with the proxy mode, and reading the proxied stream with _VLC_.
+At the moment _VLC_ doesn't support reading encrypted RTSP streams. A workaround consists in launching an instance of _MediaMTX_ on the same machine in which _VLC_ is running, using it for reading the encrypted stream with the proxy mode, and reading the proxied stream with _VLC_.
 
 ### Redirect to another server
 
@@ -1037,7 +1037,7 @@ ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast
 The simples way to embed a HLS stream into a web page consists in using an iframe tag:
 
 ```html
-<iframe src="http://rtsp-simple-server-ip:8888/mystream" scrolling="no"></iframe>
+<iframe src="http://mediamtx-ip:8888/mystream" scrolling="no"></iframe>
 ```
 
 For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/hls_index.html).
@@ -1046,13 +1046,7 @@ For more advanced options, you can create and serve a custom web page by startin
 
 Low-Latency HLS is a [recently standardized](https://datatracker.ietf.org/doc/html/draft-pantos-hls-rfc8216bis) variant of the protocol that allows to greatly reduce playback latency. It works by splitting segments into parts, that are served before the segment is complete.
 
-LL-HLS is disabled by default. To enable it, set the `hlsVariant` parameter in the configuration file:
-
-```yml
-hlsVariant: lowLatency
-```
-
-Every stream published to the server can be read with LL-HLS by visiting:
+LL-HLS is enabled by default. Every stream published to the server can be read with LL-HLS by visiting:
 
 ```
 https://localhost:8888/mystream
@@ -1088,9 +1082,7 @@ in HLS, latency is introduced since a client must wait for the server to generat
 
 To decrease the latency, you can:
 
-* enable the Low-Latency variant of the HLS protocol, as explained in the previous section;
-
-* if Low-latency is enabled, try decreasing the `hlsPartDuration` parameter;
+* try decreasing the `hlsPartDuration` parameter;
 
 * try decreasing the `hlsSegmentDuration` parameter;
 
@@ -1133,7 +1125,7 @@ The NAT / container must then be configured in order to route all incoming UDP p
 docker run --rm -it \
 -p 8189:8189/udp
 ....
-rtsp-simple-server
+aler9/rtsp-simple-server
 ```
 
 If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be forced to pass through a single TCP server port:
@@ -1151,7 +1143,7 @@ The  NAT / container must then be configured in order to redirect all incoming T
 docker run --rm -it \
 -p 8189:8189
 ....
-rtsp-simple-server
+aler9/rtsp-simple-server
 ```
 
 Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
@@ -1168,14 +1160,14 @@ If the server uses a secret-based authentication (for instance, coturn with the 
 webrtcICEServers: [turn:AUTH_SECRET:secret:host:port]
 ```
 
-where `secret` is the secret of the TURN server. _rtsp-simple-server_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
+where `secret` is the secret of the TURN server. _MediaMTX_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
 ### Embedding
 
 The simples way to embed a WebRTC stream into a web page consists in using an iframe tag:
 
 ```html
-<iframe src="http://rtsp-simple-server-ip:8889/mystream" scrolling="no"></iframe>
+<iframe src="http://mediamtx-ip:8889/mystream" scrolling="no"></iframe>
 ```
 
 For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/webrtc_index.html).

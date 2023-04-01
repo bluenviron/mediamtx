@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/core"
+	"github.com/aler9/mediamtx/internal/core"
 )
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----
@@ -102,15 +102,15 @@ func newContainer(image string, name string, args []string) (*container, error) 
 		name: name,
 	}
 
-	exec.Command("docker", "kill", "rtsp-simple-server-test-"+name).Run()
-	exec.Command("docker", "wait", "rtsp-simple-server-test-"+name).Run()
+	exec.Command("docker", "kill", "mediamtx-test-"+name).Run()
+	exec.Command("docker", "wait", "mediamtx-test-"+name).Run()
 
 	// --network=host is needed to test multicast
 	cmd := []string{
 		"docker", "run",
 		"--network=host",
-		"--name=rtsp-simple-server-test-" + name,
-		"rtsp-simple-server-test-" + image,
+		"--name=mediamtx-test-" + name,
+		"mediamtx-test-" + image,
 	}
 	cmd = append(cmd, args...)
 	ecmd := exec.Command(cmd[0], cmd[1:]...)
@@ -128,14 +128,14 @@ func newContainer(image string, name string, args []string) (*container, error) 
 }
 
 func (c *container) close() {
-	exec.Command("docker", "kill", "rtsp-simple-server-test-"+c.name).Run()
-	exec.Command("docker", "wait", "rtsp-simple-server-test-"+c.name).Run()
-	exec.Command("docker", "rm", "rtsp-simple-server-test-"+c.name).Run()
+	exec.Command("docker", "kill", "mediamtx-test-"+c.name).Run()
+	exec.Command("docker", "wait", "mediamtx-test-"+c.name).Run()
+	exec.Command("docker", "rm", "mediamtx-test-"+c.name).Run()
 }
 
 func (c *container) wait() int {
-	exec.Command("docker", "wait", "rtsp-simple-server-test-"+c.name).Run()
-	out, _ := exec.Command("docker", "inspect", "rtsp-simple-server-test-"+c.name,
+	exec.Command("docker", "wait", "mediamtx-test-"+c.name).Run()
+	out, _ := exec.Command("docker", "inspect", "mediamtx-test-"+c.name,
 		"-f", "{{.State.ExitCode}}").Output()
 	code, _ := strconv.ParseInt(string(out[:len(out)-1]), 10, 64)
 	return int(code)

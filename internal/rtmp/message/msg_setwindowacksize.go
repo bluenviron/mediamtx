@@ -3,8 +3,8 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
+	"github.com/aler9/mediamtx/internal/rtmp/chunk"
+	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 // MsgSetWindowAckSize is a set window acknowledgement message.

@@ -12,17 +12,17 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/gin-gonic/gin"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/confwatcher"
-	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rlimit"
-	"github.com/aler9/rtsp-simple-server/internal/rpicamera"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/confwatcher"
+	"github.com/aler9/mediamtx/internal/externalcmd"
+	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/aler9/mediamtx/internal/rlimit"
+	"github.com/aler9/mediamtx/internal/rpicamera"
 )
 
 var version = "v0.0.0"
 
-// Core is an instance of rtsp-simple-server.
+// Core is an instance of mediamtx.
 type Core struct {
 	ctx             context.Context
 	ctxCancel       func()

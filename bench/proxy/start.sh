@@ -15,7 +15,7 @@ CONF="${CONF}paths:\n"
 CONF="${CONF}  all:\n"
 echo -e "$CONF" > /source.conf
 
-RTSP_RTMPDISABLE=yes /rtsp-simple-server /source.conf &
+RTSP_RTMPDISABLE=yes /mediamtx /source.conf &
 
 sleep 1
 
@@ -38,7 +38,7 @@ for i in $(seq 1 $PROXY_COUNT); do
 done
 echo -e "$CONF" > /proxy.conf
 
-RTSP_RTMPDISABLE=yes /rtsp-simple-server /proxy.conf &
+RTSP_RTMPDISABLE=yes /mediamtx /proxy.conf &
 
 sleep 5
 

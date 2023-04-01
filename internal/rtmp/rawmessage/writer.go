@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
+	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
+	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 )
 
 type writerChunkStream struct {

@@ -15,10 +15,10 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/h264conf"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/handshake"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
+	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
+	"github.com/aler9/mediamtx/internal/rtmp/h264conf"
+	"github.com/aler9/mediamtx/internal/rtmp/handshake"
+	"github.com/aler9/mediamtx/internal/rtmp/message"
 )
 
 const (

@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/aler9/rtsp-simple-server/internal/core"
+	"github.com/aler9/mediamtx/internal/core"
 )
 
 func main() {

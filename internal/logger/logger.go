@@ -68,7 +68,7 @@ func New(level Level, destinations map[Destination]struct{}, filePath string) (*
 
 	if _, ok := destinations[DestinationSyslog]; ok {
 		var err error
-		lh.syslog, err = newSyslog("rtsp-simple-server")
+		lh.syslog, err = newSyslog("mediamtx")
 		if err != nil {
 			lh.Close()
 			return nil, err
