@@ -12,7 +12,7 @@ CONF="${CONF}paths:\n"
 CONF="${CONF}  all:\n"
 echo -e "$CONF" > /source.conf
 
-/rtsp-simple-server /source.conf &
+/mediamtx /source.conf &
 
 sleep 1
 

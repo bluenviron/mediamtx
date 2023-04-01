@@ -1,8 +1,8 @@
 package message
 
 import (
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/bytecounter"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
+	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
+	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 // Writer is a message writer.

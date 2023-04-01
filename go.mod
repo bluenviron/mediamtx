@@ -1,4 +1,4 @@
-module github.com/aler9/rtsp-simple-server
+module github.com/aler9/mediamtx
 
 go 1.20
 

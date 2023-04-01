@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/externalcmd"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf) bool {

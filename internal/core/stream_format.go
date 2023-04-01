@@ -7,7 +7,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
-	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
+	"github.com/aler9/mediamtx/internal/formatprocessor"
 )
 
 type streamFormat struct {

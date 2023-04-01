@@ -1,14 +1,14 @@
 define DOCKERFILE_BINARIES
 FROM $(RPI32_IMAGE) AS rpicamera32
 RUN ["cross-build-start"]
-RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev patchelf
+RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev xxd patchelf
 WORKDIR /s/internal/rpicamera
 COPY internal/rpicamera .
 RUN cd exe && make -j$$(nproc)
 
 FROM $(RPI64_IMAGE) AS rpicamera64
 RUN ["cross-build-start"]
-RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev patchelf
+RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev xxd patchelf
 WORKDIR /s/internal/rpicamera
 COPY internal/rpicamera .
 RUN cd exe && make -j$$(nproc)
@@ -26,28 +26,28 @@ RUN rm -rf binaries
 RUN mkdir tmp binaries
 RUN cp mediamtx.yml LICENSE tmp/
 
-RUN GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/aler9/rtsp-simple-server/internal/core.version=$$VERSION" -o tmp/rtsp-simple-server.exe
-RUN cd tmp && zip -q ../binaries/rtsp-simple-server_$${VERSION}_windows_amd64.zip rtsp-simple-server.exe mediamtx.yml LICENSE
+RUN GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx.exe
+RUN cd tmp && zip -q ../binaries/mediamtx_$${VERSION}_windows_amd64.zip mediamtx.exe mediamtx.yml LICENSE
 
-RUN GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/aler9/rtsp-simple-server/internal/core.version=$$VERSION" -o tmp/rtsp-simple-server
-RUN tar -C tmp -czf binaries/rtsp-simple-server_$${VERSION}_linux_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server mediamtx.yml LICENSE
+RUN GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
+RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_amd64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 
-RUN GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/aler9/rtsp-simple-server/internal/core.version=$$VERSION" -o tmp/rtsp-simple-server
-RUN tar -C tmp -czf binaries/rtsp-simple-server_$${VERSION}_darwin_amd64.tar.gz --owner=0 --group=0 rtsp-simple-server mediamtx.yml LICENSE
+RUN GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
+RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_darwin_amd64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 
 COPY --from=rpicamera32 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
-RUN GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-X github.com/aler9/rtsp-simple-server/internal/core.version=$$VERSION" -o tmp/rtsp-simple-server -tags rpicamera
-RUN tar -C tmp -czf binaries/rtsp-simple-server_$${VERSION}_linux_armv6.tar.gz --owner=0 --group=0 rtsp-simple-server mediamtx.yml LICENSE
+RUN GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
+RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_armv6.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 RUN rm internal/rpicamera/exe/exe
 
 COPY --from=rpicamera32 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
-RUN GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "-X github.com/aler9/rtsp-simple-server/internal/core.version=$$VERSION" -o tmp/rtsp-simple-server -tags rpicamera
-RUN tar -C tmp -czf binaries/rtsp-simple-server_$${VERSION}_linux_armv7.tar.gz --owner=0 --group=0 rtsp-simple-server mediamtx.yml LICENSE
+RUN GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
+RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_armv7.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 RUN rm internal/rpicamera/exe/exe
 
 COPY --from=rpicamera64 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
-RUN GOOS=linux GOARCH=arm64 go build -ldflags "-X github.com/aler9/rtsp-simple-server/internal/core.version=$$VERSION" -o tmp/rtsp-simple-server -tags rpicamera
-RUN tar -C tmp -czf binaries/rtsp-simple-server_$${VERSION}_linux_arm64v8.tar.gz --owner=0 --group=0 rtsp-simple-server mediamtx.yml LICENSE
+RUN GOOS=linux GOARCH=arm64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
+RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_arm64v8.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 RUN rm internal/rpicamera/exe/exe
 endef
 export DOCKERFILE_BINARIES

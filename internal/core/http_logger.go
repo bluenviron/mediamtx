@@ -8,7 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 type httpLoggerWriter struct {
@@ -51,7 +51,7 @@ func httpLoggerMiddleware(p httpLoggerParent) func(*gin.Context) {
 		logw := &httpLoggerWriter{ResponseWriter: ctx.Writer}
 		ctx.Writer = logw
 
-		ctx.Writer.Header().Set("Server", "rtsp-simple-server")
+		ctx.Writer.Header().Set("Server", "mediamtx")
 
 		ctx.Next()
 

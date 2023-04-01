@@ -16,11 +16,11 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/formatprocessor"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/formatprocessor"
+	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/aler9/mediamtx/internal/rtmp"
+	"github.com/aler9/mediamtx/internal/rtmp/message"
 )
 
 type rtmpSourceParent interface {

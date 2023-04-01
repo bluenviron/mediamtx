@@ -17,7 +17,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/yaml.v2"
 
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 func decrypt(key string, byts []byte) ([]byte, error) {
@@ -311,7 +311,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.LogDestinations = LogDestinations{logger.DestinationStdout: {}}
 	}
 	if conf.LogFile == "" {
-		conf.LogFile = "rtsp-simple-server.log"
+		conf.LogFile = "mediamtx.log"
 	}
 	if conf.ReadTimeout == 0 {
 		conf.ReadTimeout = 10 * StringDuration(time.Second)

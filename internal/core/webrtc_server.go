@@ -17,9 +17,9 @@ import (
 	"github.com/pion/ice/v2"
 	"github.com/pion/webrtc/v3"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
-	"github.com/aler9/rtsp-simple-server/internal/websocket"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/aler9/mediamtx/internal/websocket"
 )
 
 //go:embed webrtc_index.html
@@ -372,12 +372,12 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			s.log(logger.Info, "authentication error: %s", terr.message)
-			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="rtsp-simple-server"`)
+			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="rtsp-simple-server"`)
+		ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
 		ctx.Writer.WriteHeader(http.StatusUnauthorized)
 		return
 	}

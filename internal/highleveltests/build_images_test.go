@@ -14,7 +14,7 @@ import (
 
 func buildImage(image string) error {
 	ecmd := exec.Command("docker", "build", filepath.Join("images", image),
-		"-t", "rtsp-simple-server-test-"+image)
+		"-t", "mediamtx-test-"+image)
 	ecmd.Stdout = nil
 	ecmd.Stderr = os.Stderr
 	return ecmd.Run()

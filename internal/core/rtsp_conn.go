@@ -13,9 +13,9 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/google/uuid"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/externalcmd"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/externalcmd"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 const (

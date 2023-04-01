@@ -14,8 +14,8 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/message"
+	"github.com/aler9/mediamtx/internal/rtmp"
+	"github.com/aler9/mediamtx/internal/rtmp/message"
 )
 
 func TestRTMPSource(t *testing.T) {

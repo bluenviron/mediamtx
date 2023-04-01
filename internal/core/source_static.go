@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aler9/rtsp-simple-server/internal/conf"
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 const (

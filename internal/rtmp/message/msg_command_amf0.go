@@ -5,8 +5,8 @@ import (
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/chunk"
-	"github.com/aler9/rtsp-simple-server/internal/rtmp/rawmessage"
+	"github.com/aler9/mediamtx/internal/rtmp/chunk"
+	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 // MsgCommandAMF0 is a AMF0 command message.

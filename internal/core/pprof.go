@@ -9,7 +9,7 @@ import (
 	// start pprof
 	_ "net/http/pprof"
 
-	"github.com/aler9/rtsp-simple-server/internal/logger"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 type pprofParent interface {
