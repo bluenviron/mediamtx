@@ -182,13 +182,14 @@ func (s *hlsServer) run() {
 	defer s.wg.Done()
 
 	router := gin.New()
-	router.NoRoute(httpLoggerMiddleware(s), s.onRequest)
 
 	tmp := make([]string, len(s.trustedProxies))
 	for i, entry := range s.trustedProxies {
 		tmp[i] = entry.String()
 	}
 	router.SetTrustedProxies(tmp)
+
+	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
 	hs := &http.Server{
 		Handler:   router,

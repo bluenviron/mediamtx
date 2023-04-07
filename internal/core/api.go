@@ -153,10 +153,12 @@ func newAPI(
 	}
 
 	router := gin.New()
+
 	router.SetTrustedProxies(nil)
+
 	mwLog := httpLoggerMiddleware(a)
-	router.NoRoute(mwLog)
-	group := router.Group("/", mwLog)
+	router.NoRoute(mwLog, httpServerHeaderMiddleware)
+	group := router.Group("/", mwLog, httpServerHeaderMiddleware)
 
 	group.GET("/v1/config/get", a.onConfigGet)
 	group.POST("/v1/config/set", a.onConfigSet)
