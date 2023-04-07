@@ -105,7 +105,7 @@ In the next months, the repository name and the Docker image name will be change
   * [Browser support](#browser-support)
   * [Embedding](#embedding)
   * [Low-Latency variant](#low-latency-variant)
-  * [Low-Latency variant on Apple devices](#low-latency-variant-on-apple-devices)
+  * [HLS on Apple devices](#hls-on-apple-devices)
   * [Decrease latency](#decrease-latency-1)
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
@@ -1058,7 +1058,7 @@ If the stream is not shown correctly, try tuning the `hlsPartDuration` parameter
 hlsPartDuration: 500ms
 ```
 
-### Low-Latency variant on Apple devices
+### HLS on Apple devices
 
 In order to correctly display Low-Latency HLS streams in Safari running on Apple devices (iOS or macOS), a TLS certificate is needed and can be generated with OpenSSL:
 
@@ -1067,18 +1067,27 @@ openssl genrsa -out server.key 2048
 openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
 ```
 
-Set the `hlsVariant`, `hlsEncryption`, `hlsServerKey` and `hlsServerCert` parameters in the configuration file:
+Set the `hlsEncryption`, `hlsServerKey` and `hlsServerCert` parameters in the configuration file:
 
 ```yml
-hlsVariant: lowLatency
 hlsEncryption: yes
 hlsServerKey: server.key
 hlsServerCert: server.crt
 ```
 
+Keep also in mind that not all H264 video streams can be played on Apple Devices due to some intrinsic properties (distance between I-Frames, profile). If the video can't be played correctly, you can either:
+
+* re-encode it by following the [guide](#remuxing-re-encoding-compression)
+
+* disable the Low-latency variant of HLS and go back to the legacy variant:
+
+  ```yml
+  hlsVariant: mpegts
+  ```
+
 ### Decrease latency
 
-in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This latency amounts to 1-15secs depending on the duration of each segment, and to 500ms-3s if the Low-Latency variant is enabled.
+in HLS, latency is introduced since a client must wait for the server to generate segments before downloading them. This latency amounts to 500ms-3s when the low-latency HLS variant is enabled (and it is by default), otherwise amounts to 1-15secs.
 
 To decrease the latency, you can:
 
