@@ -133,7 +133,7 @@ func TestCorePathAutoDeletion(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, base.StatusNotFound, res.StatusCode)
 				} else {
-					u, err := url.Parse("rtsp://localhost:8554/mypath/mediaUUID=xxx")
+					u, err := url.Parse("rtsp://localhost:8554/mypath/trackID=0")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{

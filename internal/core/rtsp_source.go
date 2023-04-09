@@ -88,8 +88,14 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 		OnResponse: func(res *base.Response) {
 			s.Log(logger.Debug, "s->c %v", res)
 		},
-		Log: func(level gortsplib.LogLevel, format string, args ...interface{}) {
-			s.Log(logger.Warn, format, args...)
+		OnTransportSwitch: func(err error) {
+			s.Log(logger.Warn, err.Error())
+		},
+		OnPacketLost: func(err error) {
+			s.Log(logger.Warn, err.Error())
+		},
+		OnDecodeError: func(err error) {
+			s.Log(logger.Warn, err.Error())
 		},
 	}
 

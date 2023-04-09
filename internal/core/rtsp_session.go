@@ -470,7 +470,12 @@ func (s *rtspSession) apiSourceDescribe() interface{} {
 	}{typ, s.uuid.String()}
 }
 
-// onWarning is called by rtspServer.
-func (s *rtspSession) onWarning(ctx *gortsplib.ServerHandlerOnWarningCtx) {
-	s.log(logger.Warn, "%v", ctx.Error)
+// onPacketLost is called by rtspServer.
+func (s *rtspSession) onPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) {
+	s.log(logger.Warn, ctx.Error.Error())
+}
+
+// onDecodeError is called by rtspServer.
+func (s *rtspSession) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+	s.log(logger.Warn, ctx.Error.Error())
 }

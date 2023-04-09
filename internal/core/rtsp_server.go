@@ -351,10 +351,16 @@ func (s *rtspServer) OnPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Resp
 	return se.onPause(ctx)
 }
 
-// OnDecodeError implements gortsplib.ServerHandlerOnWarning.
-func (s *rtspServer) OnWarning(ctx *gortsplib.ServerHandlerOnWarningCtx) {
+// OnPacketLost implements gortsplib.ServerHandlerOnDecodeError.
+func (s *rtspServer) OnPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) {
 	se := ctx.Session.UserData().(*rtspSession)
-	se.onWarning(ctx)
+	se.onPacketLost(ctx)
+}
+
+// OnDecodeError implements gortsplib.ServerHandlerOnDecodeError.
+func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
+	se := ctx.Session.UserData().(*rtspSession)
+	se.onDecodeError(ctx)
 }
 
 // apiConnsList is called by api and metrics.
