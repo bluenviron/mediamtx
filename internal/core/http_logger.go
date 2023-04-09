@@ -43,18 +43,16 @@ type httpLoggerParent interface {
 
 func httpLoggerMiddleware(p httpLoggerParent) func(*gin.Context) {
 	return func(ctx *gin.Context) {
-		p.log(logger.Debug, "[conn %v] %s %s", ctx.ClientIP(), ctx.Request.Method, ctx.Request.URL.Path)
+		p.log(logger.Debug, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
 
 		byts, _ := httputil.DumpRequest(ctx.Request, true)
-		p.log(logger.Debug, "[conn %v] [c->s] %s", ctx.ClientIP(), string(byts))
+		p.log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
 
 		logw := &httpLoggerWriter{ResponseWriter: ctx.Writer}
 		ctx.Writer = logw
 
-		ctx.Writer.Header().Set("Server", "mediamtx")
-
 		ctx.Next()
 
-		p.log(logger.Debug, "[conn %v] [s->c] %s", ctx.ClientIP(), logw.dump())
+		p.log(logger.Debug, "[conn %v] [s->c] %s", ctx.Request.RemoteAddr, logw.dump())
 	}
 }

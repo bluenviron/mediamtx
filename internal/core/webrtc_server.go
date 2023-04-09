@@ -218,13 +218,14 @@ func (s *webRTCServer) run() {
 	defer rp.close()
 
 	router := gin.New()
-	router.NoRoute(rp.mw, httpLoggerMiddleware(s), s.onRequest)
 
 	tmp := make([]string, len(s.trustedProxies))
 	for i, entry := range s.trustedProxies {
 		tmp[i] = entry.String()
 	}
 	router.SetTrustedProxies(tmp)
+
+	router.NoRoute(rp.mw, httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
 	hs := &http.Server{
 		Handler:   router,
