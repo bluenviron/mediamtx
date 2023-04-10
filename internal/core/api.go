@@ -134,7 +134,7 @@ func newAPI(
 	webRTCServer apiWebRTCServer,
 	parent apiParent,
 ) (*api, error) {
-	ln, err := net.Listen("tcp", address)
+	ln, err := net.Listen(restrictNetwork("tcp", address))
 	if err != nil {
 		return nil, err
 	}

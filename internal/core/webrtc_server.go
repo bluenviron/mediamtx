@@ -116,7 +116,7 @@ func newWebRTCServer(
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
 ) (*webRTCServer, error) {
-	ln, err := net.Listen("tcp", address)
+	ln, err := net.Listen(restrictNetwork("tcp", address))
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +137,7 @@ func newWebRTCServer(
 	var iceUDPMux ice.UDPMux
 	var udpMuxLn net.PacketConn
 	if iceUDPMuxAddress != "" {
-		udpMuxLn, err = net.ListenPacket("udp", iceUDPMuxAddress)
+		udpMuxLn, err = net.ListenPacket(restrictNetwork("udp", iceUDPMuxAddress))
 		if err != nil {
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func newWebRTCServer(
 	var iceTCPMux ice.TCPMux
 	var tcpMuxLn net.Listener
 	if iceTCPMuxAddress != "" {
-		tcpMuxLn, err = net.Listen("tcp", iceTCPMuxAddress)
+		tcpMuxLn, err = net.Listen(restrictNetwork("tcp", iceTCPMuxAddress))
 		if err != nil {
 			return nil, err
 		}

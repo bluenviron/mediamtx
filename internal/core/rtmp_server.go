@@ -93,7 +93,7 @@ func newRTMPServer(
 ) (*rtmpServer, error) {
 	ln, err := func() (net.Listener, error) {
 		if !isTLS {
-			return net.Listen("tcp", address)
+			return net.Listen(restrictNetwork("tcp", address))
 		}
 
 		cert, err := tls.LoadX509KeyPair(serverCert, serverKey)
@@ -101,7 +101,8 @@ func newRTMPServer(
 			return nil, err
 		}
 
-		return tls.Listen("tcp", address, &tls.Config{Certificates: []tls.Certificate{cert}})
+		network, address := restrictNetwork("tcp", address)
+		return tls.Listen(network, address, &tls.Config{Certificates: []tls.Certificate{cert}})
 	}()
 	if err != nil {
 		return nil, err

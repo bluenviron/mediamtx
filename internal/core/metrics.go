@@ -40,7 +40,7 @@ func newMetrics(
 	address string,
 	parent metricsParent,
 ) (*metrics, error) {
-	ln, err := net.Listen("tcp", address)
+	ln, err := net.Listen(restrictNetwork(restrictNetwork("tcp", address)))
 	if err != nil {
 		return nil, err
 	}
