@@ -98,7 +98,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 	hostPort := cnf.Source[len("udp://"):]
 
-	pc, err := net.ListenPacket("udp", hostPort)
+	pc, err := net.ListenPacket(restrictNetwork("udp", hostPort))
 	if err != nil {
 		return err
 	}
