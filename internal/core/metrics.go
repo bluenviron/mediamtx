@@ -26,7 +26,7 @@ type metrics struct {
 	parent metricsParent
 
 	ln           net.Listener
-	server       *http.Server
+	httpServer   *http.Server
 	mutex        sync.Mutex
 	pathManager  apiPathManager
 	rtspServer   apiRTSPServer
@@ -54,21 +54,21 @@ func newMetrics(
 	router.SetTrustedProxies(nil)
 	router.GET("/metrics", m.onMetrics)
 
-	m.server = &http.Server{
+	m.httpServer = &http.Server{
 		Handler:  router,
 		ErrorLog: log.New(&nilWriter{}, "", 0),
 	}
 
 	m.log(logger.Info, "listener opened on "+address)
 
-	go m.server.Serve(m.ln)
+	go m.httpServer.Serve(m.ln)
 
 	return m, nil
 }
 
 func (m *metrics) close() {
 	m.log(logger.Info, "listener is closing")
-	m.server.Shutdown(context.Background())
+	m.httpServer.Shutdown(context.Background())
 	m.ln.Close() // in case Shutdown() is called before Serve()
 }
 
