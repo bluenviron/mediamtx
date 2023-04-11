@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -224,7 +223,7 @@ outer:
 				req.res <- nil
 
 			default:
-				r := s.createMuxer(req.path, req.ctx.ClientIP())
+				r := s.createMuxer(req.path, req.clientIP)
 				r.processRequest(req)
 			}
 
@@ -310,29 +309,18 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	dir = strings.TrimSuffix(dir, "/")
 
 	hreq := &hlsMuxerRequest{
-		path: dir,
-		file: fname,
-		ctx:  ctx,
-		res:  make(chan *hlsMuxerResponse),
+		path:     dir,
+		file:     fname,
+		clientIP: ctx.ClientIP(),
+		res:      make(chan *hlsMuxer),
 	}
 
 	select {
 	case s.request <- hreq:
-		res1 := <-hreq.res
-		if res1 != nil {
-			res := res1.cb()
-
-			for k, v := range res.Header {
-				ctx.Writer.Header().Set(k, v)
-			}
-
-			ctx.Writer.WriteHeader(res.Status)
-
-			if res.Body != nil {
-				defer res.Body.Close()
-				n, _ := io.Copy(ctx.Writer, res.Body)
-				res1.muxer.addSentBytes(uint64(n))
-			}
+		muxer := <-hreq.res
+		if muxer != nil {
+			ctx.Request.URL.Path = fname
+			muxer.handleRequest(ctx)
 		}
 
 	case <-s.ctx.Done():

@@ -2,8 +2,6 @@ package core
 
 import (
 	"crypto/tls"
-	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -17,25 +15,6 @@ import (
 
 	"github.com/aler9/mediamtx/internal/rtmp"
 )
-
-func pullMetrics() ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, "http://localhost:9998/metrics", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
-	}
-
-	return io.ReadAll(res.Body)
-}
 
 func TestMetrics(t *testing.T) {
 	serverCertFpath, err := writeTempFile(serverCert)
@@ -57,7 +36,7 @@ func TestMetrics(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	bo, err := pullMetrics()
+	bo, err := httpPullFile("http://localhost:9998/metrics")
 	require.NoError(t, err)
 
 	require.Equal(t, `paths 0
@@ -129,7 +108,7 @@ webrtc_conns_bytes_sent 0
 		require.Equal(t, 200, res.StatusCode)
 	}()
 
-	bo, err = pullMetrics()
+	bo, err = httpPullFile("http://localhost:9998/metrics")
 	require.NoError(t, err)
 
 	require.Regexp(t,
