@@ -186,6 +186,7 @@ func newWebRTCServer(
 
 	router := gin.New()
 	httpSetTrustedProxies(router, trustedProxies)
+
 	router.NoRoute(s.requestPool.mw, httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
 	s.httpServer = &http.Server{

@@ -52,7 +52,10 @@ func newMetrics(
 
 	router := gin.New()
 	router.SetTrustedProxies(nil)
-	router.GET("/metrics", m.onMetrics)
+
+	mwLog := httpLoggerMiddleware(m)
+	router.NoRoute(mwLog)
+	router.GET("/metrics", mwLog, m.onMetrics)
 
 	m.httpServer = &http.Server{
 		Handler:  router,

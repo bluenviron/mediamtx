@@ -152,6 +152,7 @@ func newHLSServer(
 
 	router := gin.New()
 	httpSetTrustedProxies(router, trustedProxies)
+
 	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
 	s.httpServer = &http.Server{
