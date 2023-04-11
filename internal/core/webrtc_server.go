@@ -109,6 +109,7 @@ func newWebRTCServer(
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
 	iceServers []string,
+	readTimeout conf.StringDuration,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -190,9 +191,10 @@ func newWebRTCServer(
 	router.NoRoute(s.requestPool.mw, httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
 	s.httpServer = &http.Server{
-		Handler:   router,
-		TLSConfig: tlsConfig,
-		ErrorLog:  log.New(&nilWriter{}, "", 0),
+		Handler:           router,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: time.Duration(readTimeout),
+		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
 	str := "listener opened on " + address + " (HTTP)"

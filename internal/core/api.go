@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -124,6 +125,7 @@ type api struct {
 
 func newAPI(
 	address string,
+	readTimeout conf.StringDuration,
 	conf *conf.Conf,
 	pathManager apiPathManager,
 	rtspServer apiRTSPServer,
@@ -199,8 +201,9 @@ func newAPI(
 	}
 
 	a.httpServer = &http.Server{
-		Handler:  router,
-		ErrorLog: log.New(&nilWriter{}, "", 0),
+		Handler:           router,
+		ReadHeaderTimeout: time.Duration(readTimeout),
+		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
 	go a.httpServer.Serve(ln)

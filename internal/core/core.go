@@ -217,6 +217,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.metrics == nil {
 			p.metrics, err = newMetrics(
 				p.conf.MetricsAddress,
+				p.conf.ReadTimeout,
 				p,
 			)
 			if err != nil {
@@ -229,6 +230,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.pprof == nil {
 			p.pprof, err = newPPROF(
 				p.conf.PPROFAddress,
+				p.conf.ReadTimeout,
 				p,
 			)
 			if err != nil {
@@ -402,6 +404,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSAllowOrigin,
 				p.conf.HLSTrustedProxies,
 				p.conf.HLSDirectory,
+				p.conf.ReadTimeout,
 				p.conf.ReadBufferCount,
 				p.pathManager,
 				p.metrics,
@@ -425,6 +428,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WebRTCAllowOrigin,
 				p.conf.WebRTCTrustedProxies,
 				p.conf.WebRTCICEServers,
+				p.conf.ReadTimeout,
 				p.conf.ReadBufferCount,
 				p.pathManager,
 				p.metrics,
@@ -443,6 +447,7 @@ func (p *Core) createResources(initial bool) error {
 		if p.api == nil {
 			p.api, err = newAPI(
 				p.conf.APIAddress,
+				p.conf.ReadTimeout,
 				p.conf,
 				p.pathManager,
 				p.rtspServer,
@@ -476,11 +481,13 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closeMetrics := newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
-		newConf.MetricsAddress != p.conf.MetricsAddress
+		newConf.MetricsAddress != p.conf.MetricsAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout
 
 	closePPROF := newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
-		newConf.PPROFAddress != p.conf.PPROFAddress
+		newConf.PPROFAddress != p.conf.PPROFAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout
 
 	closePathManager := newConf == nil ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
@@ -579,6 +586,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closePathManager ||
 		closeMetrics
@@ -593,6 +601,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers, p.conf.WebRTCICEServers) ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closeMetrics ||
 		closePathManager ||
@@ -603,6 +612,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
 		newConf.APIAddress != p.conf.APIAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		closePathManager ||
 		closeRTSPServer ||
 		closeRTSPSServer ||

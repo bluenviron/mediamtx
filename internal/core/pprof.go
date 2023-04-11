@@ -5,10 +5,12 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"time"
 
 	// start pprof
 	_ "net/http/pprof"
 
+	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/logger"
 )
 
@@ -25,6 +27,7 @@ type pprof struct {
 
 func newPPROF(
 	address string,
+	readTimeout conf.StringDuration,
 	parent pprofParent,
 ) (*pprof, error) {
 	ln, err := net.Listen(restrictNetwork("tcp", address))
@@ -38,8 +41,9 @@ func newPPROF(
 	}
 
 	pp.httpServer = &http.Server{
-		Handler:  http.DefaultServeMux,
-		ErrorLog: log.New(&nilWriter{}, "", 0),
+		Handler:           http.DefaultServeMux,
+		ReadHeaderTimeout: time.Duration(readTimeout),
+		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
 	pp.log(logger.Info, "listener opened on "+address)

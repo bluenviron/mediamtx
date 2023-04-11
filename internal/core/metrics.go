@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/logger"
 )
 
@@ -38,6 +40,7 @@ type metrics struct {
 
 func newMetrics(
 	address string,
+	readTimeout conf.StringDuration,
 	parent metricsParent,
 ) (*metrics, error) {
 	ln, err := net.Listen(restrictNetwork(restrictNetwork("tcp", address)))
@@ -58,8 +61,9 @@ func newMetrics(
 	router.GET("/metrics", mwLog, m.onMetrics)
 
 	m.httpServer = &http.Server{
-		Handler:  router,
-		ErrorLog: log.New(&nilWriter{}, "", 0),
+		Handler:           router,
+		ReadHeaderTimeout: time.Duration(readTimeout),
+		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
 	m.log(logger.Info, "listener opened on "+address)

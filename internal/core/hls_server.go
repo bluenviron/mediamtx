@@ -100,6 +100,7 @@ func newHLSServer(
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
 	directory string,
+	readTimeout conf.StringDuration,
 	readBufferCount int,
 	pathManager *pathManager,
 	metrics *metrics,
@@ -156,9 +157,10 @@ func newHLSServer(
 	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
 	s.httpServer = &http.Server{
-		Handler:   router,
-		TLSConfig: tlsConfig,
-		ErrorLog:  log.New(&nilWriter{}, "", 0),
+		Handler:           router,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: time.Duration(readTimeout),
+		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
