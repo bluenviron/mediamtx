@@ -3,7 +3,6 @@ package core
 import (
 	"crypto/tls"
 	"net"
-	"net/http"
 	"net/url"
 	"os"
 	"testing"
@@ -25,7 +24,8 @@ func TestMetrics(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(serverKeyFpath)
 
-	p, ok := newInstance("metrics: yes\n" +
+	p, ok := newInstance("hlsAlwaysRemux: yes\n" +
+		"metrics: yes\n" +
 		"webrtcServerCert: " + serverCertFpath + "\n" +
 		"webrtcServerKey: " + serverKeyFpath + "\n" +
 		"encryption: optional\n" +
@@ -101,13 +101,6 @@ webrtc_conns_bytes_sent 0
 	err = conn.WriteTracks(videoTrack, nil)
 	require.NoError(t, err)
 
-	func() {
-		res, err := http.Get("http://localhost:8888/rtsp_path/index.m3u8")
-		require.NoError(t, err)
-		defer res.Body.Close()
-		require.Equal(t, 200, res.StatusCode)
-	}()
-
 	bo, err = httpPullFile("http://localhost:9998/metrics")
 	require.NoError(t, err)
 
@@ -118,8 +111,12 @@ webrtc_conns_bytes_sent 0
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
 			`paths\{name=".*?",state="ready"\} 1`+"\n"+
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
-			`hls_muxers\{name="rtsp_path"\} 1`+"\n"+
-			`hls_muxers_bytes_sent\{name="rtsp_path"\} [0-9]+`+"\n"+
+			`hls_muxers\{name=".*?"\} 1`+"\n"+
+			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+			`hls_muxers\{name=".*?"\} 1`+"\n"+
+			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+			`hls_muxers\{name=".*?"\} 1`+"\n"+
+			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
 			`rtsp_conns\{id=".*?"\} 1`+"\n"+
 			`rtsp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
 			`rtsp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
