@@ -2,6 +2,7 @@ package core
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -16,6 +17,25 @@ import (
 
 	"github.com/aler9/mediamtx/internal/rtmp"
 )
+
+func pullMetrics() ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, "http://localhost:9998/metrics", nil)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status code: %v", res.StatusCode)
+	}
+
+	return io.ReadAll(res.Body)
+}
 
 func TestMetrics(t *testing.T) {
 	serverCertFpath, err := writeTempFile(serverCert)
@@ -36,6 +56,32 @@ func TestMetrics(t *testing.T) {
 		"  all:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
+
+	bo, err := pullMetrics()
+	require.NoError(t, err)
+
+	require.Equal(t, `paths 0
+hls_muxers 0
+hls_muxers_bytes_sent 0
+rtsp_conns 0
+rtsp_conns_bytes_received 0
+rtsp_conns_bytes_sent 0
+rtsp_sessions 0
+rtsp_sessions_bytes_received 0
+rtsp_sessions_bytes_sent 0
+rtsps_conns 0
+rtsps_conns_bytes_received 0
+rtsps_conns_bytes_sent 0
+rtsps_sessions 0
+rtsps_sessions_bytes_received 0
+rtsps_sessions_bytes_sent 0
+rtmp_conns 0
+rtmp_conns_bytes_received 0
+rtmp_conns_bytes_sent 0
+webrtc_conns 0
+webrtc_conns_bytes_received 0
+webrtc_conns_bytes_sent 0
+`, string(bo))
 
 	medi := testMediaH264
 
@@ -83,15 +129,7 @@ func TestMetrics(t *testing.T) {
 		require.Equal(t, 200, res.StatusCode)
 	}()
 
-	req, err := http.NewRequest(http.MethodGet, "http://localhost:9998/metrics", nil)
-	require.NoError(t, err)
-
-	res, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-	require.Equal(t, http.StatusOK, res.StatusCode)
-
-	bo, err := io.ReadAll(res.Body)
+	bo, err = pullMetrics()
 	require.NoError(t, err)
 
 	require.Regexp(t,
@@ -118,6 +156,9 @@ func TestMetrics(t *testing.T) {
 			`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
 			`rtmp_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`rtmp_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+			`webrtc_conns 0`+"\n"+
+			`webrtc_conns_bytes_received 0`+"\n"+
+			`webrtc_conns_bytes_sent 0`+"\n"+
 			"$",
 		string(bo))
 }
