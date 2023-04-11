@@ -16,8 +16,8 @@ import (
 	"github.com/aler9/mediamtx/internal/logger"
 )
 
-func metric(key string, value int64) string {
-	return key + " " + strconv.FormatInt(value, 10) + "\n"
+func metric(key string, tags string, value int64) string {
+	return key + tags + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
 type metricsParent interface {
@@ -87,7 +87,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
 	res := m.pathManager.apiPathsList()
-	if res.err == nil {
+	if res.err == nil && len(res.data.Items) != 0 {
 		for name, i := range res.data.Items {
 			var state string
 			if i.SourceReady {
@@ -97,44 +97,57 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			}
 
 			tags := "{name=\"" + name + "\",state=\"" + state + "\"}"
-			out += metric("paths"+tags, 1)
-			out += metric("paths_bytes_received"+tags, int64(i.BytesReceived))
+			out += metric("paths", tags, 1)
+			out += metric("paths_bytes_received", tags, int64(i.BytesReceived))
 		}
+	} else {
+		out += metric("paths", "", 0)
 	}
 
 	if !interfaceIsEmpty(m.hlsServer) {
 		res := m.hlsServer.apiMuxersList()
-		if res.err == nil {
+		if res.err == nil && len(res.data.Items) != 0 {
 			for name, i := range res.data.Items {
 				tags := "{name=\"" + name + "\"}"
-				out += metric("hls_muxers"+tags, 1)
-				out += metric("hls_muxers_bytes_sent"+tags, int64(i.BytesSent))
+				out += metric("hls_muxers", tags, 1)
+				out += metric("hls_muxers_bytes_sent", tags, int64(i.BytesSent))
 			}
+		} else {
+			out += metric("hls_muxers", "", 0)
+			out += metric("hls_muxers_bytes_sent", "", 0)
 		}
 	}
 
 	if !interfaceIsEmpty(m.rtspServer) { //nolint:dupl
 		func() {
 			res := m.rtspServer.apiConnsList()
-			if res.err == nil {
+			if res.err == nil && len(res.data.Items) != 0 {
 				for id, i := range res.data.Items {
 					tags := "{id=\"" + id + "\"}"
-					out += metric("rtsp_conns"+tags, 1)
-					out += metric("rtsp_conns_bytes_received"+tags, int64(i.BytesReceived))
-					out += metric("rtsp_conns_bytes_sent"+tags, int64(i.BytesSent))
+					out += metric("rtsp_conns", tags, 1)
+					out += metric("rtsp_conns_bytes_received", tags, int64(i.BytesReceived))
+					out += metric("rtsp_conns_bytes_sent", tags, int64(i.BytesSent))
 				}
+			} else {
+				out += metric("rtsp_conns", "", 0)
+				out += metric("rtsp_conns_bytes_received", "", 0)
+				out += metric("rtsp_conns_bytes_sent", "", 0)
 			}
 		}()
 
 		func() {
 			res := m.rtspServer.apiSessionsList()
-			if res.err == nil {
+			if res.err == nil && len(res.data.Items) != 0 {
 				for id, i := range res.data.Items {
 					tags := "{id=\"" + id + "\",state=\"" + i.State + "\"}"
-					out += metric("rtsp_sessions"+tags, 1)
-					out += metric("rtsp_sessions_bytes_received"+tags, int64(i.BytesReceived))
-					out += metric("rtsp_sessions_bytes_sent"+tags, int64(i.BytesSent))
+					out += metric("rtsp_sessions", tags, 1)
+					out += metric("rtsp_sessions_bytes_received", tags, int64(i.BytesReceived))
+					out += metric("rtsp_sessions_bytes_sent", tags, int64(i.BytesSent))
 				}
+			} else {
+				out += metric("rtsp_sessions", "", 0)
+				out += metric("rtsp_sessions_bytes_received", "", 0)
+				out += metric("rtsp_sessions_bytes_sent", "", 0)
 			}
 		}()
 	}
@@ -142,50 +155,66 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	if !interfaceIsEmpty(m.rtspsServer) { //nolint:dupl
 		func() {
 			res := m.rtspsServer.apiConnsList()
-			if res.err == nil {
+			if res.err == nil && len(res.data.Items) != 0 {
 				for id, i := range res.data.Items {
 					tags := "{id=\"" + id + "\"}"
-					out += metric("rtsps_conns"+tags, 1)
-					out += metric("rtsps_conns_bytes_received"+tags, int64(i.BytesReceived))
-					out += metric("rtsps_conns_bytes_sent"+tags, int64(i.BytesSent))
+					out += metric("rtsps_conns", tags, 1)
+					out += metric("rtsps_conns_bytes_received", tags, int64(i.BytesReceived))
+					out += metric("rtsps_conns_bytes_sent", tags, int64(i.BytesSent))
 				}
+			} else {
+				out += metric("rtsps_conns", "", 0)
+				out += metric("rtsps_conns_bytes_received", "", 0)
+				out += metric("rtsps_conns_bytes_sent", "", 0)
 			}
 		}()
 
 		func() {
 			res := m.rtspsServer.apiSessionsList()
-			if res.err == nil {
+			if res.err == nil && len(res.data.Items) != 0 {
 				for id, i := range res.data.Items {
 					tags := "{id=\"" + id + "\",state=\"" + i.State + "\"}"
-					out += metric("rtsps_sessions"+tags, 1)
-					out += metric("rtsps_sessions_bytes_received"+tags, int64(i.BytesReceived))
-					out += metric("rtsps_sessions_bytes_sent"+tags, int64(i.BytesSent))
+					out += metric("rtsps_sessions", tags, 1)
+					out += metric("rtsps_sessions_bytes_received", tags, int64(i.BytesReceived))
+					out += metric("rtsps_sessions_bytes_sent", tags, int64(i.BytesSent))
 				}
+			} else {
+				out += metric("rtsps_sessions", "", 0)
+				out += metric("rtsps_sessions_bytes_received", "", 0)
+				out += metric("rtsps_sessions_bytes_sent", "", 0)
 			}
 		}()
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
 		res := m.rtmpServer.apiConnsList()
-		if res.err == nil {
+		if res.err == nil && len(res.data.Items) != 0 {
 			for id, i := range res.data.Items {
 				tags := "{id=\"" + id + "\",state=\"" + i.State + "\"}"
-				out += metric("rtmp_conns"+tags, 1)
-				out += metric("rtmp_conns_bytes_received"+tags, int64(i.BytesReceived))
-				out += metric("rtmp_conns_bytes_sent"+tags, int64(i.BytesSent))
+				out += metric("rtmp_conns", tags, 1)
+				out += metric("rtmp_conns_bytes_received", tags, int64(i.BytesReceived))
+				out += metric("rtmp_conns_bytes_sent", tags, int64(i.BytesSent))
 			}
+		} else {
+			out += metric("rtmp_conns", "", 0)
+			out += metric("rtmp_conns_bytes_received", "", 0)
+			out += metric("rtmp_conns_bytes_sent", "", 0)
 		}
 	}
 
 	if !interfaceIsEmpty(m.webRTCServer) {
 		res := m.webRTCServer.apiConnsList()
-		if res.err == nil {
+		if res.err == nil && len(res.data.Items) != 0 {
 			for id, i := range res.data.Items {
 				tags := "{id=\"" + id + "\"}"
-				out += metric("webrtc_conns"+tags, 1)
-				out += metric("webrtc_conns_bytes_received"+tags, int64(i.BytesReceived))
-				out += metric("webrtc_conns_bytes_sent"+tags, int64(i.BytesSent))
+				out += metric("webrtc_conns", tags, 1)
+				out += metric("webrtc_conns_bytes_received", tags, int64(i.BytesReceived))
+				out += metric("webrtc_conns_bytes_sent", tags, int64(i.BytesSent))
 			}
+		} else {
+			out += metric("webrtc_conns", "", 0)
+			out += metric("webrtc_conns_bytes_received", "", 0)
+			out += metric("webrtc_conns_bytes_sent", "", 0)
 		}
 	}
 
