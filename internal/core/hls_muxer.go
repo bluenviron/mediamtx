@@ -37,16 +37,22 @@ const (
 //go:embed hls_index.html
 var hlsIndex []byte
 
-type hlsMuxerResponse struct {
-	muxer *hlsMuxer
-	cb    func() *gohlslib.MuxerFileResponse
+type responseWriterWithCounter struct {
+	http.ResponseWriter
+	bytesSent *uint64
+}
+
+func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
+	n, err := w.ResponseWriter.Write(p)
+	atomic.AddUint64(w.bytesSent, uint64(n))
+	return n, err
 }
 
 type hlsMuxerRequest struct {
-	path string
-	file string
-	ctx  *gin.Context
-	res  chan *hlsMuxerResponse
+	path     string
+	file     string
+	clientIP string
+	res      chan *hlsMuxer
 }
 
 type hlsMuxerPathManager interface {
@@ -200,10 +206,7 @@ func (m *hlsMuxer) run() {
 					req.res <- nil
 
 				case isReady:
-					req.res <- &hlsMuxerResponse{
-						muxer: m,
-						cb:    m.handleRequest(req),
-					}
+					req.res <- m
 
 				default:
 					m.requests = append(m.requests, req)
@@ -220,10 +223,7 @@ func (m *hlsMuxer) run() {
 			case <-innerReady:
 				isReady = true
 				for _, req := range m.requests {
-					req.res <- &hlsMuxerResponse{
-						muxer: m,
-						cb:    m.handleRequest(req),
-					}
+					req.res <- m
 				}
 				m.requests = nil
 
@@ -546,52 +546,33 @@ func (m *hlsMuxer) runWriter() error {
 	}
 }
 
-func (m *hlsMuxer) handleRequest(req *hlsMuxerRequest) func() *gohlslib.MuxerFileResponse {
+func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
 
-	err := m.authenticate(req.ctx)
+	w := &responseWriterWithCounter{
+		ResponseWriter: ctx.Writer,
+		bytesSent:      m.bytesSent,
+	}
+
+	err := m.authenticate(ctx)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
 			m.log(logger.Info, "authentication error: %s", terr.message)
-			return func() *gohlslib.MuxerFileResponse {
-				return &gohlslib.MuxerFileResponse{
-					Status: http.StatusUnauthorized,
-					Header: map[string]string{
-						"WWW-Authenticate": `Basic realm="mediamtx"`,
-					},
-				}
-			}
 		}
 
-		return func() *gohlslib.MuxerFileResponse {
-			return &gohlslib.MuxerFileResponse{
-				Status: http.StatusUnauthorized,
-				Header: map[string]string{
-					"WWW-Authenticate": `Basic realm="mediamtx"`,
-				},
-			}
-		}
+		ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
 	}
 
-	if req.file == "" {
-		return func() *gohlslib.MuxerFileResponse {
-			return &gohlslib.MuxerFileResponse{
-				Status: http.StatusOK,
-				Header: map[string]string{
-					"Content-Type": `text/html`,
-				},
-				Body: io.NopCloser(bytes.NewReader(hlsIndex)),
-			}
-		}
+	if ctx.Request.URL.Path == "" {
+		ctx.Header("Content-Type", `text/html`)
+		w.WriteHeader(http.StatusOK)
+		io.Copy(w, bytes.NewReader(hlsIndex))
+		return
 	}
 
-	return func() *gohlslib.MuxerFileResponse {
-		return m.muxer.File(
-			req.file,
-			req.ctx.Query("_HLS_msn"),
-			req.ctx.Query("_HLS_part"),
-			req.ctx.Query("_HLS_skip"))
-	}
+	m.muxer.Handle(w, ctx.Request)
 }
 
 func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
@@ -649,10 +630,6 @@ func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
 	}
 
 	return nil
-}
-
-func (m *hlsMuxer) addSentBytes(n uint64) {
-	atomic.AddUint64(m.bytesSent, n)
 }
 
 // processRequest is called by hlsserver.Server (forwarded from ServeHTTP).
