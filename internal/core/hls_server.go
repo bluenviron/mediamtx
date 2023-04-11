@@ -63,19 +63,18 @@ type hlsServer struct {
 	partDuration              conf.StringDuration
 	segmentMaxSize            conf.StringSize
 	allowOrigin               string
-	trustedProxies            conf.IPsOrCIDRs
 	directory                 string
 	readBufferCount           int
 	pathManager               *pathManager
 	metrics                   *metrics
 	parent                    hlsServerParent
 
-	ctx       context.Context
-	ctxCancel func()
-	wg        sync.WaitGroup
-	ln        net.Listener
-	tlsConfig *tls.Config
-	muxers    map[string]*hlsMuxer
+	ctx        context.Context
+	ctxCancel  func()
+	wg         sync.WaitGroup
+	ln         net.Listener
+	httpServer *http.Server
+	muxers     map[string]*hlsMuxer
 
 	// in
 	chPathSourceReady    chan *path
@@ -135,7 +134,6 @@ func newHLSServer(
 		partDuration:              partDuration,
 		segmentMaxSize:            segmentMaxSize,
 		allowOrigin:               allowOrigin,
-		trustedProxies:            trustedProxies,
 		directory:                 directory,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
@@ -144,13 +142,23 @@ func newHLSServer(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		ln:                        ln,
-		tlsConfig:                 tlsConfig,
 		muxers:                    make(map[string]*hlsMuxer),
 		chPathSourceReady:         make(chan *path),
 		chPathSourceNotReady:      make(chan *path),
 		request:                   make(chan *hlsMuxerRequest),
 		chMuxerClose:              make(chan *hlsMuxer),
 		chAPIMuxerList:            make(chan hlsServerAPIMuxersListReq),
+	}
+
+	router := gin.New()
+	httpSetTrustedProxies(router, trustedProxies)
+
+	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
+
+	s.httpServer = &http.Server{
+		Handler:   router,
+		TLSConfig: tlsConfig,
+		ErrorLog:  log.New(&nilWriter{}, "", 0),
 	}
 
 	s.log(logger.Info, "listener opened on "+address)
@@ -181,26 +189,10 @@ func (s *hlsServer) close() {
 func (s *hlsServer) run() {
 	defer s.wg.Done()
 
-	router := gin.New()
-
-	tmp := make([]string, len(s.trustedProxies))
-	for i, entry := range s.trustedProxies {
-		tmp[i] = entry.String()
-	}
-	router.SetTrustedProxies(tmp)
-
-	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
-
-	hs := &http.Server{
-		Handler:   router,
-		TLSConfig: s.tlsConfig,
-		ErrorLog:  log.New(&nilWriter{}, "", 0),
-	}
-
-	if s.tlsConfig != nil {
-		go hs.ServeTLS(s.ln, "", "")
+	if s.httpServer.TLSConfig != nil {
+		go s.httpServer.ServeTLS(s.ln, "", "")
 	} else {
-		go hs.Serve(s.ln)
+		go s.httpServer.Serve(s.ln)
 	}
 
 outer:
@@ -258,7 +250,7 @@ outer:
 
 	s.ctxCancel()
 
-	hs.Shutdown(context.Background())
+	s.httpServer.Shutdown(context.Background())
 	s.ln.Close() // in case Shutdown() is called before Serve()
 
 	s.pathManager.hlsServerSet(nil)

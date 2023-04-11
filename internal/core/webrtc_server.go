@@ -80,9 +80,10 @@ type webRTCServer struct {
 	ctx               context.Context
 	ctxCancel         func()
 	ln                net.Listener
+	requestPool       *httpRequestPool
+	httpServer        *http.Server
 	udpMuxLn          net.PacketConn
 	tcpMuxLn          net.Listener
-	tlsConfig         *tls.Config
 	conns             map[*webRTCConn]struct{}
 	iceHostNAT1To1IPs []string
 	iceUDPMux         ice.UDPMux
@@ -170,7 +171,6 @@ func newWebRTCServer(
 		ln:                        ln,
 		udpMuxLn:                  udpMuxLn,
 		tcpMuxLn:                  tcpMuxLn,
-		tlsConfig:                 tlsConfig,
 		iceUDPMux:                 iceUDPMux,
 		iceTCPMux:                 iceTCPMux,
 		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
@@ -180,6 +180,19 @@ func newWebRTCServer(
 		chAPIConnsList:            make(chan webRTCServerAPIConnsListReq),
 		chAPIConnsKick:            make(chan webRTCServerAPIConnsKickReq),
 		done:                      make(chan struct{}),
+	}
+
+	s.requestPool = newHTTPRequestPool()
+
+	router := gin.New()
+	httpSetTrustedProxies(router, trustedProxies)
+
+	router.NoRoute(s.requestPool.mw, httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
+
+	s.httpServer = &http.Server{
+		Handler:   router,
+		TLSConfig: tlsConfig,
+		ErrorLog:  log.New(&nilWriter{}, "", 0),
 	}
 
 	str := "listener opened on " + address + " (HTTP)"
@@ -214,29 +227,10 @@ func (s *webRTCServer) close() {
 func (s *webRTCServer) run() {
 	defer close(s.done)
 
-	rp := newHTTPRequestPool()
-	defer rp.close()
-
-	router := gin.New()
-
-	tmp := make([]string, len(s.trustedProxies))
-	for i, entry := range s.trustedProxies {
-		tmp[i] = entry.String()
-	}
-	router.SetTrustedProxies(tmp)
-
-	router.NoRoute(rp.mw, httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
-
-	hs := &http.Server{
-		Handler:   router,
-		TLSConfig: s.tlsConfig,
-		ErrorLog:  log.New(&nilWriter{}, "", 0),
-	}
-
-	if s.tlsConfig != nil {
-		go hs.ServeTLS(s.ln, "", "")
+	if s.httpServer.TLSConfig != nil {
+		go s.httpServer.ServeTLS(s.ln, "", "")
 	} else {
-		go hs.Serve(s.ln)
+		go s.httpServer.Serve(s.ln)
 	}
 
 	var wg sync.WaitGroup
@@ -307,8 +301,9 @@ outer:
 
 	s.ctxCancel()
 
-	hs.Shutdown(context.Background())
+	s.httpServer.Shutdown(context.Background())
 	s.ln.Close() // in case Shutdown() is called before Serve()
+	s.requestPool.close()
 
 	wg.Wait()
 
