@@ -24,9 +24,13 @@ import (
 )
 
 var testFormatH264 = &formats.H264{
-	PayloadTyp:        96,
-	SPS:               []byte{0x01, 0x02, 0x03, 0x04},
-	PPS:               []byte{0x01, 0x02, 0x03, 0x04},
+	PayloadTyp: 96,
+	SPS: []byte{ // 1920x1080 baseline
+		0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+		0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+		0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+	},
+	PPS:               []byte{0x08, 0x06, 0x07, 0x08},
 	PacketizationMode: 1,
 }
 
@@ -473,18 +477,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				err = conn.InitializeClient(u, true)
 				require.NoError(t, err)
 
-				videoTrack := &formats.H264{
-					PayloadTyp: 96,
-					SPS: []byte{ // 1920x1080 baseline
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-					},
-					PPS:               []byte{0x08, 0x06, 0x07, 0x08},
-					PacketizationMode: 1,
-				}
-
-				err = conn.WriteTracks(videoTrack, nil)
+				err = conn.WriteTracks(testFormatH264, nil)
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -495,6 +488,48 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					media.Medias{medi})
 				require.NoError(t, err)
 				defer source.Close()
+
+				go func() {
+					time.Sleep(500 * time.Millisecond)
+
+					for i := 0; i < 3; i++ {
+						/*source.WritePacketRTP(medi, &rtp.Packet{
+							Header: rtp.Header{
+								Version:        2,
+								Marker:         true,
+								PayloadType:    96,
+								SequenceNumber: 123 + uint16(i),
+								Timestamp:      45343 + uint32(i)*90000,
+								SSRC:           563423,
+							},
+							Payload: []byte{
+								testSPS,
+								0x05,
+							},
+						})
+
+						[]byte{ // 1920x1080 baseline
+							0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+							0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+							0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+						},*/
+
+						source.WritePacketRTP(medi, &rtp.Packet{
+							Header: rtp.Header{
+								Version:        2,
+								Marker:         true,
+								PayloadType:    96,
+								SequenceNumber: 123 + uint16(i),
+								Timestamp:      45343 + uint32(i)*90000,
+								SSRC:           563423,
+							},
+							Payload: []byte{
+								// testSPS,
+								0x05,
+							},
+						})
+					}
+				}()
 
 				func() {
 					res, err := http.Get("http://localhost:8888/mypath/index.m3u8")
@@ -683,18 +718,7 @@ func TestAPIKick(t *testing.T) {
 				err = conn.InitializeClient(u, true)
 				require.NoError(t, err)
 
-				videoTrack := &formats.H264{
-					PayloadTyp: 96,
-					SPS: []byte{ // 1920x1080 baseline
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-					},
-					PPS:               []byte{0x08, 0x06, 0x07, 0x08},
-					PacketizationMode: 1,
-				}
-
-				err = conn.WriteTracks(videoTrack, nil)
+				err = conn.WriteTracks(testFormatH264, nil)
 				require.NoError(t, err)
 			}
 

@@ -65,7 +65,7 @@ segment2.ts
 #EXT-X-ENDLIST
 `
 
-	ctx.Writer.Header().Set("Content-Type", `application/x-mpegURL`)
+	ctx.Writer.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
 	io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 }
 

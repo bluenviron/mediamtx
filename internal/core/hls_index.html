@@ -52,7 +52,7 @@ const create = () => {
 	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
 		// since it's not possible to detect timeout errors in iOS,
 		// wait for the playlist to be available before starting the stream
-		fetch('stream.m3u8')
+		fetch('index.m3u8')
 			.then(() => {
 				video.src = 'index.m3u8';
 				video.play();
