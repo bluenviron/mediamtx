@@ -1199,21 +1199,21 @@ For more advanced options, you can create and serve a custom web page by startin
 
 ## Standards
 
-* RTSP/RTP/RTCP standards https://github.com/bluenviron/gortsplib#standards
-* HLS standards https://github.com/bluenviron/gohlslib#standards
-* Golang project layout https://github.com/golang-standards/project-layout
+* [RTSP/RTP/RTCP standards](https://github.com/bluenviron/gortsplib#standards)
+* [HLS standards](https://github.com/bluenviron/gohlslib#standards)
+* [RTMP specification](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
+* [Golang project layout](https://github.com/golang-standards/project-layout)
 
 ## Links
 
 Related projects
 
-* gortsplib (RTSP library used internally) https://github.com/bluenviron/gortsplib
-* gohlslib (HLS library used internally) https://github.com/bluenviron/gohlslib
-* pion/sdp (SDP library used internally) https://github.com/pion/sdp
-* pion/rtp (RTP library used internally) https://github.com/pion/rtp
-* pion/rtcp (RTCP library used internally) https://github.com/pion/rtcp
-* pion/webrtc (WebRTC library used internally) https://github.com/pion/webrtc
-* notedit/rtmp (RTMP library used internally) https://github.com/notedit/rtmp
-* go-astits (MPEG-TS library used internally) https://github.com/asticode/go-astits
-* go-mp4 (MP4 library used internally) https://github.com/abema/go-mp4
-* https://github.com/flaviostutz/rtsp-relay
+* [gortsplib (RTSP library used internally)](https://github.com/bluenviron/gortsplib)
+* [gohlslib (HLS library used internally)](https://github.com/bluenviron/gohlslib)
+* [pion/sdp (SDP library used internally)](https://github.com/pion/sdp)
+* [pion/rtp (RTP library used internally)](https://github.com/pion/rtp)
+* [pion/rtcp (RTCP library used internally)](https://github.com/pion/rtcp)
+* [pion/webrtc (WebRTC library used internally)](https://github.com/pion/webrtc)
+* [notedit/rtmp (RTMP library used internally)](https://github.com/notedit/rtmp)
+* [go-astits (MPEG-TS library used internally)](https://github.com/asticode/go-astits)
+* [go-mp4 (MP4 library used internally)](https://github.com/abema/go-mp4)
