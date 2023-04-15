@@ -326,10 +326,10 @@ func (conf *Conf) CheckAndFillMissing() error {
 		return fmt.Errorf("'readBufferCount' must be a power of two")
 	}
 	if conf.UDPMaxPayloadSize == 0 {
-		conf.UDPMaxPayloadSize = 1500
+		conf.UDPMaxPayloadSize = 1472
 	}
-	if conf.UDPMaxPayloadSize > 1500 {
-		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1500")
+	if conf.UDPMaxPayloadSize > 1472 {
+		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
 	}
 	if conf.ExternalAuthenticationURL != "" {
 		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&
