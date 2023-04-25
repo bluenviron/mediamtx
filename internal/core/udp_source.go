@@ -196,7 +196,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH264{
+						err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
@@ -221,7 +221,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitH265{
+						err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
@@ -256,7 +256,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							aus[i] = pkt.AU
 						}
 
-						err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
+						err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
 							PTS: pts,
 							AUs: aus,
 							NTP: time.Now(),
@@ -287,7 +287,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							}
 							pos += n
 
-							err = stream.writeData(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+							err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 								PTS:   pts,
 								Frame: au.Frame,
 								NTP:   time.Now(),

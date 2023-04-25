@@ -45,7 +45,12 @@ func newOpus(
 	}
 
 	if allocateEncoder {
-		t.encoder = forma.CreateEncoder()
+		t.encoder = &rtpsimpleaudio.Encoder{
+			PayloadMaxSize: t.udpMaxPayloadSize - 12,
+			PayloadType:    forma.PayloadTyp,
+			SampleRate:     48000,
+		}
+		t.encoder.Init()
 	}
 
 	return t, nil
@@ -85,11 +90,12 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 		return nil
 	}
 
+	// encode into RTP
 	pkt, err := t.encoder.Encode(tunit.Frame, tunit.PTS)
 	if err != nil {
 		return err
 	}
-
 	tunit.RTPPackets = []*rtp.Packet{pkt}
+
 	return nil
 }

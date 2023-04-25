@@ -30,6 +30,9 @@ func New(
 	case *formats.VP9:
 		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets)
 
+	case *formats.MPEG2Audio:
+		return newMPEG2Audio(udpMaxPayloadSize, forma, generateRTPPackets)
+
 	case *formats.MPEG4Audio:
 		return newMPEG4Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 

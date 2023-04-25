@@ -515,7 +515,7 @@ func TestReadTracks(t *testing.T) {
 				PPS:               pps,
 				PacketizationMode: 1,
 			},
-			(*formats.MPEG4Audio)(nil),
+			nil,
 		},
 		{
 			"metadata without codec id",
@@ -801,7 +801,7 @@ func TestReadTracks(t *testing.T) {
 							},
 							{
 								K: "audiocodecid",
-								V: float64(codecAAC),
+								V: float64(message.CodecMPEG4Audio),
 							},
 						},
 					},
@@ -832,6 +832,7 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -932,6 +933,7 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -965,6 +967,7 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -984,6 +987,7 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -995,6 +999,7 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -1026,7 +1031,7 @@ func TestReadTracks(t *testing.T) {
 							},
 							{
 								K: "audiocodecid",
-								V: float64(codecAAC),
+								V: float64(message.CodecMPEG4Audio),
 							},
 						},
 					},
@@ -1075,6 +1080,7 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgAudio{
 					ChunkStreamID:   message.MsgAudioChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
@@ -1375,6 +1381,7 @@ func TestWriteTracks(t *testing.T) {
 	require.Equal(t, &message.MsgAudio{
 		ChunkStreamID:   message.MsgAudioChunkStreamID,
 		MessageStreamID: 0x1000000,
+		Codec:           message.CodecMPEG4Audio,
 		Rate:            flvio.SOUND_44Khz,
 		Depth:           flvio.SOUND_16BIT,
 		Channels:        flvio.SOUND_STEREO,

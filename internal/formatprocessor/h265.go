@@ -111,7 +111,11 @@ func newH265(
 	}
 
 	if allocateEncoder {
-		t.encoder = forma.CreateEncoder()
+		t.encoder = &rtph265.Encoder{
+			PayloadMaxSize: t.udpMaxPayloadSize - 12,
+			PayloadType:    forma.PayloadTyp,
+		}
+		t.encoder.Init()
 	}
 
 	return t, nil
@@ -303,6 +307,7 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 		tunit.AU = t.remuxAccessUnit(tunit.AU)
 	}
 
+	// encode into RTP
 	if len(tunit.AU) != 0 {
 		pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
 		if err != nil {

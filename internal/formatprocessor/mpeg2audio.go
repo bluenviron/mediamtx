@@ -1,53 +1,52 @@
-package formatprocessor //nolint:dupl
+package formatprocessor
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg2audio"
 	"github.com/pion/rtp"
 )
 
-// UnitVP8 is a VP8 data unit.
-type UnitVP8 struct {
+// UnitMPEG2Audio is a MPEG2-audio data unit.
+type UnitMPEG2Audio struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
 	PTS        time.Duration
-	Frame      []byte
+	Frames     [][]byte
 }
 
 // GetRTPPackets implements Unit.
-func (d *UnitVP8) GetRTPPackets() []*rtp.Packet {
+func (d *UnitMPEG2Audio) GetRTPPackets() []*rtp.Packet {
 	return d.RTPPackets
 }
 
 // GetNTP implements Unit.
-func (d *UnitVP8) GetNTP() time.Time {
+func (d *UnitMPEG2Audio) GetNTP() time.Time {
 	return d.NTP
 }
 
-type formatProcessorVP8 struct {
+type formatProcessorMPEG2Audio struct {
 	udpMaxPayloadSize int
-	format            *formats.VP8
-	encoder           *rtpvp8.Encoder
-	decoder           *rtpvp8.Decoder
+	format            *formats.MPEG2Audio
+	encoder           *rtpmpeg2audio.Encoder
+	decoder           *rtpmpeg2audio.Decoder
 }
 
-func newVP8(
+func newMPEG2Audio(
 	udpMaxPayloadSize int,
-	forma *formats.VP8,
+	forma *formats.MPEG2Audio,
 	allocateEncoder bool,
-) (*formatProcessorVP8, error) {
-	t := &formatProcessorVP8{
+) (*formatProcessorMPEG2Audio, error) {
+	t := &formatProcessorMPEG2Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
 
 	if allocateEncoder {
-		t.encoder = &rtpvp8.Encoder{
+		t.encoder = &rtpmpeg2audio.Encoder{
 			PayloadMaxSize: t.udpMaxPayloadSize - 12,
-			PayloadType:    forma.PayloadTyp,
 		}
 		t.encoder.Init()
 	}
@@ -55,8 +54,8 @@ func newVP8(
 	return t, nil
 }
 
-func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitVP8)
+func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := unit.(*UnitMPEG2Audio)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -76,15 +75,12 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 				t.decoder = t.format.CreateDecoder()
 			}
 
-			frame, pts, err := t.decoder.Decode(pkt)
+			frames, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
-				if err == rtpvp8.ErrMorePacketsNeeded {
-					return nil
-				}
 				return err
 			}
 
-			tunit.Frame = frame
+			tunit.Frames = frames
 			tunit.PTS = pts
 		}
 
@@ -93,7 +89,7 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.Frame, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.Frames, tunit.PTS)
 	if err != nil {
 		return err
 	}
