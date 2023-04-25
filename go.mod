@@ -19,7 +19,7 @@ require (
 	github.com/pion/ice/v2 v2.3.2
 	github.com/pion/interceptor v0.1.13
 	github.com/pion/rtp v1.7.13
-	github.com/pion/webrtc/v3 v3.1.61
+	github.com/pion/webrtc/v3 v3.1.62
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.8.0
 	golang.org/x/net v0.9.0
