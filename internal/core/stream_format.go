@@ -46,7 +46,7 @@ func (sf *streamFormat) readerRemove(r reader) {
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeData(s *stream, medi *media.Media, data formatprocessor.Unit) error {
+func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatprocessor.Unit) error {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 

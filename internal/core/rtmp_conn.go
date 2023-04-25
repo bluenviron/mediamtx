@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg2audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/google/uuid"
 	"github.com/notedit/rtmp/format/flv/flvio"
@@ -37,6 +38,96 @@ func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 	ur, _ := url.Parse(tmp)
 	pathName := strings.TrimLeft(ur.Path, "/")
 	return pathName, ur.Query(), ur.RawQuery
+}
+
+type rtmpWriteFunc func(msg interface{}) error
+
+func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) rtmpWriteFunc {
+	switch format.(type) {
+	case *formats.H264:
+		return func(msg interface{}) error {
+			tmsg := msg.(*message.MsgVideo)
+
+			if tmsg.H264Type == flvio.AVC_SEQHDR {
+				var conf h264conf.Conf
+				err := conf.Unmarshal(tmsg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to parse H264 config: %v", err)
+				}
+
+				au := [][]byte{
+					conf.SPS,
+					conf.PPS,
+				}
+
+				return stream.writeUnit(medi, format, &formatprocessor.UnitH264{
+					PTS: tmsg.DTS + tmsg.PTSDelta,
+					AU:  au,
+					NTP: time.Now(),
+				})
+			}
+
+			if tmsg.H264Type == flvio.AVC_NALU {
+				au, err := h264.AVCCUnmarshal(tmsg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to decode AVCC: %v", err)
+				}
+
+				return stream.writeUnit(medi, format, &formatprocessor.UnitH264{
+					PTS: tmsg.DTS + tmsg.PTSDelta,
+					AU:  au,
+					NTP: time.Now(),
+				})
+			}
+
+			return nil
+		}
+
+	case *formats.H265:
+		return func(msg interface{}) error {
+			tmsg := msg.(*message.MsgVideo)
+
+			au, err := h264.AVCCUnmarshal(tmsg.Payload)
+			if err != nil {
+				return fmt.Errorf("unable to decode AVCC: %v", err)
+			}
+
+			return stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+				PTS: tmsg.DTS + tmsg.PTSDelta,
+				AU:  au,
+				NTP: time.Now(),
+			})
+		}
+
+	case *formats.MPEG2Audio:
+		return func(msg interface{}) error {
+			tmsg := msg.(*message.MsgAudio)
+
+			return stream.writeUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
+				PTS:    tmsg.DTS,
+				Frames: [][]byte{tmsg.Payload},
+				NTP:    time.Now(),
+			})
+		}
+
+	case *formats.MPEG4Audio:
+		return func(msg interface{}) error {
+			tmsg := msg.(*message.MsgAudio)
+
+			if tmsg.AACType != flvio.AAC_RAW {
+				return nil
+			}
+
+			return stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
+				PTS: tmsg.DTS,
+				AUs: [][]byte{tmsg.Payload},
+				NTP: time.Now(),
+			})
+		}
+
+	default:
+		return nil
+	}
 }
 
 type rtmpConnState int
@@ -73,11 +164,10 @@ type rtmpConn struct {
 	pathManager               rtmpConnPathManager
 	parent                    rtmpConnParent
 
-	ctx       context.Context
-	ctxCancel func()
-	uuid      uuid.UUID
-	created   time.Time
-	// path       *path
+	ctx        context.Context
+	ctxCancel  func()
+	uuid       uuid.UUID
+	created    time.Time
 	state      rtmpConnState
 	stateMutex sync.Mutex
 }
@@ -252,18 +342,6 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	c.state = rtmpConnStateRead
 	c.stateMutex.Unlock()
 
-	var videoFormat *formats.H264
-	videoMedia := res.stream.medias().FindFormat(&videoFormat)
-	videoFirstIDRFound := false
-	var videoStartDTS time.Duration
-
-	var audioFormat *formats.MPEG4Audio
-	audioMedia := res.stream.medias().FindFormat(&audioFormat)
-
-	if videoFormat == nil && audioFormat == nil {
-		return fmt.Errorf("the stream doesn't contain an H264 track or an AAC track")
-	}
-
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	go func() {
 		<-ctx.Done()
@@ -271,152 +349,24 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	}()
 
 	var medias media.Medias
+	videoFirstIDRFound := false
+	var videoStartDTS time.Duration
+
+	videoMedia, videoFormat := c.findVideoFormat(res.stream, ringBuffer,
+		&videoFirstIDRFound, &videoStartDTS)
 	if videoMedia != nil {
 		medias = append(medias, videoMedia)
-
-		videoStartPTSFilled := false
-		var videoStartPTS time.Duration
-		var videoDTSExtractor *h264.DTSExtractor
-
-		res.stream.readerAdd(c, videoMedia, videoFormat, func(unit formatprocessor.Unit) {
-			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitH264)
-
-				if tunit.AU == nil {
-					return nil
-				}
-
-				if !videoStartPTSFilled {
-					videoStartPTSFilled = true
-					videoStartPTS = tunit.PTS
-				}
-				pts := tunit.PTS - videoStartPTS
-
-				idrPresent := false
-				nonIDRPresent := false
-
-				for _, nalu := range tunit.AU {
-					typ := h264.NALUType(nalu[0] & 0x1F)
-					switch typ {
-					case h264.NALUTypeIDR:
-						idrPresent = true
-
-					case h264.NALUTypeNonIDR:
-						nonIDRPresent = true
-					}
-				}
-
-				var dts time.Duration
-
-				// wait until we receive an IDR
-				if !videoFirstIDRFound {
-					if !idrPresent {
-						return nil
-					}
-
-					videoFirstIDRFound = true
-					videoDTSExtractor = h264.NewDTSExtractor()
-
-					var err error
-					dts, err = videoDTSExtractor.Extract(tunit.AU, pts)
-					if err != nil {
-						return err
-					}
-
-					videoStartDTS = dts
-					dts = 0
-					pts -= videoStartDTS
-				} else {
-					if !idrPresent && !nonIDRPresent {
-						return nil
-					}
-
-					var err error
-					dts, err = videoDTSExtractor.Extract(tunit.AU, pts)
-					if err != nil {
-						return err
-					}
-
-					dts -= videoStartDTS
-					pts -= videoStartDTS
-				}
-
-				avcc, err := h264.AVCCMarshal(tunit.AU)
-				if err != nil {
-					return err
-				}
-
-				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-				err = c.conn.WriteMessage(&message.MsgVideo{
-					ChunkStreamID:   message.MsgVideoChunkStreamID,
-					MessageStreamID: 0x1000000,
-					IsKeyFrame:      idrPresent,
-					H264Type:        flvio.AVC_NALU,
-					Payload:         avcc,
-					DTS:             dts,
-					PTSDelta:        pts - dts,
-				})
-				if err != nil {
-					return err
-				}
-
-				return nil
-			})
-		})
 	}
 
-	if audioMedia != nil {
+	audioMedia, audioFormat := c.findAudioFormat(res.stream, ringBuffer,
+		videoFormat, &videoFirstIDRFound, &videoStartDTS)
+	if audioFormat != nil {
 		medias = append(medias, audioMedia)
+	}
 
-		audioStartPTSFilled := false
-		var audioStartPTS time.Duration
-
-		res.stream.readerAdd(c, audioMedia, audioFormat, func(unit formatprocessor.Unit) {
-			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG4Audio)
-
-				if tunit.AUs == nil {
-					return nil
-				}
-
-				if !audioStartPTSFilled {
-					audioStartPTSFilled = true
-					audioStartPTS = tunit.PTS
-				}
-				pts := tunit.PTS - audioStartPTS
-
-				if videoFormat != nil {
-					if !videoFirstIDRFound {
-						return nil
-					}
-
-					pts -= videoStartDTS
-					if pts < 0 {
-						return nil
-					}
-				}
-
-				for i, au := range tunit.AUs {
-					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-					err := c.conn.WriteMessage(&message.MsgAudio{
-						ChunkStreamID:   message.MsgAudioChunkStreamID,
-						MessageStreamID: 0x1000000,
-						Rate:            flvio.SOUND_44Khz,
-						Depth:           flvio.SOUND_16BIT,
-						Channels:        flvio.SOUND_STEREO,
-						AACType:         flvio.AAC_RAW,
-						Payload:         au,
-						DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-							time.Second/time.Duration(audioFormat.ClockRate()),
-					})
-					if err != nil {
-						return err
-					}
-				}
-
-				return nil
-			})
-		})
+	if videoFormat == nil && audioFormat == nil {
+		return fmt.Errorf(
+			"the stream doesn't contain any supported codec, which are currently H264, MPEG2-Audio, MPEG4-Audio")
 	}
 
 	defer res.stream.readerRemove(c)
@@ -461,6 +411,245 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			return err
 		}
 	}
+}
+
+func (c *rtmpConn) findVideoFormat(stream *stream, ringBuffer *ringbuffer.RingBuffer,
+	videoFirstIDRFound *bool, videoStartDTS *time.Duration,
+) (*media.Media, formats.Format) {
+	var videoFormatH264 *formats.H264
+	videoMedia := stream.medias().FindFormat(&videoFormatH264)
+
+	if videoFormatH264 != nil {
+		videoStartPTSFilled := false
+		var videoStartPTS time.Duration
+		var videoDTSExtractor *h264.DTSExtractor
+
+		stream.readerAdd(c, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
+			ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitH264)
+
+				if tunit.AU == nil {
+					return nil
+				}
+
+				if !videoStartPTSFilled {
+					videoStartPTSFilled = true
+					videoStartPTS = tunit.PTS
+				}
+				pts := tunit.PTS - videoStartPTS
+
+				idrPresent := false
+				nonIDRPresent := false
+
+				for _, nalu := range tunit.AU {
+					typ := h264.NALUType(nalu[0] & 0x1F)
+					switch typ {
+					case h264.NALUTypeIDR:
+						idrPresent = true
+
+					case h264.NALUTypeNonIDR:
+						nonIDRPresent = true
+					}
+				}
+
+				var dts time.Duration
+
+				// wait until we receive an IDR
+				if !*videoFirstIDRFound {
+					if !idrPresent {
+						return nil
+					}
+
+					*videoFirstIDRFound = true
+					videoDTSExtractor = h264.NewDTSExtractor()
+
+					var err error
+					dts, err = videoDTSExtractor.Extract(tunit.AU, pts)
+					if err != nil {
+						return err
+					}
+
+					*videoStartDTS = dts
+					dts = 0
+					pts -= *videoStartDTS
+				} else {
+					if !idrPresent && !nonIDRPresent {
+						return nil
+					}
+
+					var err error
+					dts, err = videoDTSExtractor.Extract(tunit.AU, pts)
+					if err != nil {
+						return err
+					}
+
+					dts -= *videoStartDTS
+					pts -= *videoStartDTS
+				}
+
+				avcc, err := h264.AVCCMarshal(tunit.AU)
+				if err != nil {
+					return err
+				}
+
+				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+				err = c.conn.WriteMessage(&message.MsgVideo{
+					ChunkStreamID:   message.MsgVideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					IsKeyFrame:      idrPresent,
+					H264Type:        flvio.AVC_NALU,
+					Payload:         avcc,
+					DTS:             dts,
+					PTSDelta:        pts - dts,
+				})
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+		})
+
+		return videoMedia, videoFormatH264
+	}
+
+	return nil, nil
+}
+
+func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBuffer,
+	videoFormat formats.Format, videoFirstIDRFound *bool, videoStartDTS *time.Duration,
+) (*media.Media, formats.Format) {
+	var audioFormatMPEG4 *formats.MPEG4Audio
+	audioMedia := stream.medias().FindFormat(&audioFormatMPEG4)
+
+	if audioMedia != nil {
+		audioStartPTSFilled := false
+		var audioStartPTS time.Duration
+
+		stream.readerAdd(c, audioMedia, audioFormatMPEG4, func(unit formatprocessor.Unit) {
+			ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitMPEG4Audio)
+
+				if tunit.AUs == nil {
+					return nil
+				}
+
+				if !audioStartPTSFilled {
+					audioStartPTSFilled = true
+					audioStartPTS = tunit.PTS
+				}
+				pts := tunit.PTS - audioStartPTS
+
+				if videoFormat != nil {
+					if !*videoFirstIDRFound {
+						return nil
+					}
+
+					pts -= *videoStartDTS
+					if pts < 0 {
+						return nil
+					}
+				}
+
+				for i, au := range tunit.AUs {
+					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err := c.conn.WriteMessage(&message.MsgAudio{
+						ChunkStreamID:   message.MsgAudioChunkStreamID,
+						MessageStreamID: 0x1000000,
+						Codec:           message.CodecMPEG4Audio,
+						Rate:            flvio.SOUND_44Khz,
+						Depth:           flvio.SOUND_16BIT,
+						Channels:        flvio.SOUND_STEREO,
+						AACType:         flvio.AAC_RAW,
+						Payload:         au,
+						DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
+							time.Second/time.Duration(audioFormatMPEG4.ClockRate()),
+					})
+					if err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
+		})
+
+		return audioMedia, audioFormatMPEG4
+	}
+
+	var audioFormatMPEG2 *formats.MPEG2Audio
+	audioMedia = stream.medias().FindFormat(&audioFormatMPEG2)
+
+	if audioMedia != nil {
+		audioStartPTSFilled := false
+		var audioStartPTS time.Duration
+
+		stream.readerAdd(c, audioMedia, audioFormatMPEG2, func(unit formatprocessor.Unit) {
+			ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitMPEG2Audio)
+
+				if !audioStartPTSFilled {
+					audioStartPTSFilled = true
+					audioStartPTS = tunit.PTS
+				}
+				pts := tunit.PTS - audioStartPTS
+
+				if videoFormat != nil {
+					if !*videoFirstIDRFound {
+						return nil
+					}
+
+					pts -= *videoStartDTS
+					if pts < 0 {
+						return nil
+					}
+				}
+
+				for _, frame := range tunit.Frames {
+					var h mpeg2audio.FrameHeader
+					err := h.Unmarshal(frame)
+					if err != nil {
+						return err
+					}
+
+					if !(!h.MPEG2 && h.Layer == 3) {
+						return fmt.Errorf("RTMP only supports MPEG-1 audio layer 3")
+					}
+
+					channels := uint8(flvio.SOUND_STEREO)
+					if h.ChannelMode == mpeg2audio.ChannelModeMono {
+						channels = flvio.SOUND_MONO
+					}
+
+					msg := &message.MsgAudio{
+						ChunkStreamID:   message.MsgAudioChunkStreamID,
+						MessageStreamID: 0x1000000,
+						Codec:           message.CodecMPEG2Audio,
+						Rate:            flvio.SOUND_44Khz,
+						Depth:           flvio.SOUND_16BIT,
+						Channels:        channels,
+						Payload:         frame,
+						DTS:             pts,
+					}
+
+					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = c.conn.WriteMessage(msg)
+					if err != nil {
+						return err
+					}
+
+					pts += time.Duration(h.SampleCount()) *
+						time.Second / time.Duration(h.SampleRate)
+				}
+
+				return nil
+			})
+		})
+
+		return audioMedia, audioFormatMPEG2
+	}
+
+	return nil, nil
 }
 
 func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
@@ -538,31 +727,8 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	// disable write deadline to allow outgoing acknowledges
 	c.nconn.SetWriteDeadline(time.Time{})
 
-	var onVideoData func(time.Duration, [][]byte)
-
-	if _, ok := videoFormat.(*formats.H264); ok {
-		onVideoData = func(pts time.Duration, au [][]byte) {
-			err = rres.stream.writeData(videoMedia, videoFormat, &formatprocessor.UnitH264{
-				PTS: pts,
-				AU:  au,
-				NTP: time.Now(),
-			})
-			if err != nil {
-				c.log(logger.Warn, "%v", err)
-			}
-		}
-	} else {
-		onVideoData = func(pts time.Duration, au [][]byte) {
-			err = rres.stream.writeData(videoMedia, videoFormat, &formatprocessor.UnitH265{
-				PTS: pts,
-				AU:  au,
-				NTP: time.Now(),
-			})
-			if err != nil {
-				c.log(logger.Warn, "%v", err)
-			}
-		}
-	}
+	videoWriteFunc := getRTMPWriteFunc(videoMedia, videoFormat, rres.stream)
+	audioWriteFunc := getRTMPWriteFunc(audioMedia, audioFormat, rres.stream)
 
 	for {
 		c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
@@ -577,34 +743,9 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 				return fmt.Errorf("received a video packet, but track is not set up")
 			}
 
-			if tmsg.H264Type == flvio.AVC_SEQHDR {
-				var conf h264conf.Conf
-				err = conf.Unmarshal(tmsg.Payload)
-				if err != nil {
-					return fmt.Errorf("unable to parse H264 config: %v", err)
-				}
-
-				au := [][]byte{
-					conf.SPS,
-					conf.PPS,
-				}
-
-				err := rres.stream.writeData(videoMedia, videoFormat, &formatprocessor.UnitH264{
-					PTS: tmsg.DTS + tmsg.PTSDelta,
-					AU:  au,
-					NTP: time.Now(),
-				})
-				if err != nil {
-					c.log(logger.Warn, "%v", err)
-				}
-			} else if tmsg.H264Type == flvio.AVC_NALU {
-				au, err := h264.AVCCUnmarshal(tmsg.Payload)
-				if err != nil {
-					c.log(logger.Warn, "unable to decode AVCC: %v", err)
-					continue
-				}
-
-				onVideoData(tmsg.DTS+tmsg.PTSDelta, au)
+			err := videoWriteFunc(tmsg)
+			if err != nil {
+				c.log(logger.Warn, "%v", err)
 			}
 
 		case *message.MsgAudio:
@@ -612,15 +753,9 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 				return fmt.Errorf("received an audio packet, but track is not set up")
 			}
 
-			if tmsg.AACType == flvio.AAC_RAW {
-				err := rres.stream.writeData(audioMedia, audioFormat, &formatprocessor.UnitMPEG4Audio{
-					PTS: tmsg.DTS,
-					AUs: [][]byte{tmsg.Payload},
-					NTP: time.Now(),
-				})
-				if err != nil {
-					c.log(logger.Warn, "%v", err)
-				}
+			err := audioWriteFunc(tmsg)
+			if err != nil {
+				c.log(logger.Warn, "%v", err)
 			}
 		}
 	}

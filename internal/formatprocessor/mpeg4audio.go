@@ -45,7 +45,15 @@ func newMPEG4Audio(
 	}
 
 	if allocateEncoder {
-		t.encoder = forma.CreateEncoder()
+		t.encoder = &rtpmpeg4audio.Encoder{
+			PayloadMaxSize:   t.udpMaxPayloadSize - 12,
+			PayloadType:      forma.PayloadTyp,
+			SampleRate:       forma.Config.SampleRate,
+			SizeLength:       forma.SizeLength,
+			IndexLength:      forma.IndexLength,
+			IndexDeltaLength: forma.IndexDeltaLength,
+		}
+		t.encoder.Init()
 	}
 
 	return t, nil
@@ -88,11 +96,12 @@ func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 		return nil
 	}
 
+	// encode into RTP
 	pkts, err := t.encoder.Encode(tunit.AUs, tunit.PTS)
 	if err != nil {
 		return err
 	}
-
 	tunit.RTPPackets = pkts
+
 	return nil
 }

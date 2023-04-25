@@ -262,7 +262,8 @@ func TestHLSSource(t *testing.T) {
 			Control: medias[1].Control,
 			Formats: []formats.Format{
 				&formats.MPEG4Audio{
-					PayloadTyp: 96,
+					PayloadTyp:     96,
+					ProfileLevelID: 1,
 					Config: &mpeg4audio.Config{
 						Type:         2,
 						SampleRate:   44100,

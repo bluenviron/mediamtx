@@ -4,15 +4,19 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/notedit/rtmp/format/flv/flvio"
-
 	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 const (
 	// MsgAudioChunkStreamID is the chunk stream ID that is usually used to send MsgAudio{}
-	MsgAudioChunkStreamID = 6
+	MsgAudioChunkStreamID = 4
+)
+
+// supported audio codecs
+const (
+	CodecMPEG2Audio = 2
+	CodecMPEG4Audio = 10
 )
 
 // MsgAudio is an audio message.
@@ -20,10 +24,11 @@ type MsgAudio struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
+	Codec           uint8
 	Rate            uint8
 	Depth           uint8
 	Channels        uint8
-	AACType         uint8
+	AACType         uint8 // only for CodecMPEG4Audio
 	Payload         []byte
 }
 
@@ -37,28 +42,45 @@ func (m *MsgAudio) Unmarshal(raw *rawmessage.Message) error {
 		return fmt.Errorf("invalid body size")
 	}
 
-	codec := raw.Body[0] >> 4
-	if codec != flvio.SOUND_AAC {
-		return fmt.Errorf("unsupported audio codec: %d", codec)
+	m.Codec = raw.Body[0] >> 4
+	switch m.Codec {
+	case CodecMPEG2Audio, CodecMPEG4Audio:
+	default:
+		return fmt.Errorf("unsupported audio codec: %d", m.Codec)
 	}
 
 	m.Rate = (raw.Body[0] >> 2) & 0x03
 	m.Depth = (raw.Body[0] >> 1) & 0x01
 	m.Channels = raw.Body[0] & 0x01
-	m.AACType = raw.Body[1]
-	m.Payload = raw.Body[2:]
+
+	if m.Codec == CodecMPEG2Audio {
+		m.Payload = raw.Body[1:]
+	} else {
+		m.AACType = raw.Body[1]
+		m.Payload = raw.Body[2:]
+	}
 
 	return nil
 }
 
 // Marshal implements Message.
 func (m MsgAudio) Marshal() (*rawmessage.Message, error) {
-	body := make([]byte, 2+len(m.Payload))
+	var l int
+	if m.Codec == CodecMPEG2Audio {
+		l = 1 + len(m.Payload)
+	} else {
+		l = 2 + len(m.Payload)
+	}
+	body := make([]byte, l)
 
-	body[0] = flvio.SOUND_AAC<<4 | m.Rate<<2 | m.Depth<<1 | m.Channels
-	body[1] = m.AACType
+	body[0] = m.Codec<<4 | m.Rate<<2 | m.Depth<<1 | m.Channels
 
-	copy(body[2:], m.Payload)
+	if m.Codec == CodecMPEG2Audio {
+		copy(body[1:], m.Payload)
+	} else {
+		body[1] = m.AACType
+		copy(body[2:], m.Payload)
+	}
 
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,

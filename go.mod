@@ -7,8 +7,8 @@ require (
 	github.com/alecthomas/kong v0.7.1
 	github.com/asticode/go-astits v1.11.0
 	github.com/bluenviron/gohlslib v0.2.1
-	github.com/bluenviron/gortsplib/v3 v3.2.1
-	github.com/bluenviron/mediacommon v0.3.1
+	github.com/bluenviron/gortsplib/v3 v3.3.0
+	github.com/bluenviron/mediacommon v0.4.1
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0

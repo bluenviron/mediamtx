@@ -60,8 +60,8 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) writeData(medi *media.Media, forma formats.Format, data formatprocessor.Unit) error {
+func (s *stream) writeUnit(medi *media.Media, forma formats.Format, data formatprocessor.Unit) error {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
-	return sf.writeData(s, medi, data)
+	return sf.writeUnit(s, medi, data)
 }

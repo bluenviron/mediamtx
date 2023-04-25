@@ -27,11 +27,29 @@ var readWriterCases = []struct {
 		},
 	},
 	{
-		"audio",
+		"audio mpeg2",
 		&MsgAudio{
 			ChunkStreamID:   7,
 			DTS:             6013806 * time.Millisecond,
 			MessageStreamID: 4534543,
+			Codec:           CodecMPEG2Audio,
+			Rate:            flvio.SOUND_44Khz,
+			Depth:           flvio.SOUND_16BIT,
+			Channels:        flvio.SOUND_STEREO,
+			Payload:         []byte{0x01, 0x02, 0x03, 0x04},
+		},
+		[]byte{
+			0x7, 0x5b, 0xc3, 0x6e, 0x0, 0x0, 0x5, 0x8, 0x0, 0x45, 0x31, 0xf, 0x2f,
+			0x01, 0x02, 0x03, 0x04,
+		},
+	},
+	{
+		"audio mpeg4",
+		&MsgAudio{
+			ChunkStreamID:   7,
+			DTS:             6013806 * time.Millisecond,
+			MessageStreamID: 4534543,
+			Codec:           CodecMPEG4Audio,
 			Rate:            flvio.SOUND_44Khz,
 			Depth:           flvio.SOUND_16BIT,
 			Channels:        flvio.SOUND_STEREO,

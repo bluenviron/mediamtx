@@ -13,11 +13,8 @@ import (
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/mediamtx/internal/conf"
-	"github.com/aler9/mediamtx/internal/formatprocessor"
 	"github.com/aler9/mediamtx/internal/logger"
 	"github.com/aler9/mediamtx/internal/rtmp"
 	"github.com/aler9/mediamtx/internal/rtmp/message"
@@ -154,6 +151,9 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 			}()
 
+			videoWriteFunc := getRTMPWriteFunc(videoMedia, videoFormat, res.stream)
+			audioWriteFunc := getRTMPWriteFunc(audioMedia, audioFormat, res.stream)
+
 			// disable write deadline to allow outgoing acknowledges
 			nconn.SetWriteDeadline(time.Time{})
 
@@ -166,41 +166,23 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 				switch tmsg := msg.(type) {
 				case *message.MsgVideo:
-					if tmsg.H264Type == flvio.AVC_NALU {
-						if videoFormat == nil {
-							return fmt.Errorf("received an H264 packet, but track is not set up")
-						}
+					if videoFormat == nil {
+						return fmt.Errorf("received an H264 packet, but track is not set up")
+					}
 
-						au, err := h264.AVCCUnmarshal(tmsg.Payload)
-						if err != nil {
-							s.Log(logger.Warn, "unable to decode AVCC: %v", err)
-							continue
-						}
-
-						err = res.stream.writeData(videoMedia, videoFormat, &formatprocessor.UnitH264{
-							PTS: tmsg.DTS + tmsg.PTSDelta,
-							AU:  au,
-							NTP: time.Now(),
-						})
-						if err != nil {
-							s.Log(logger.Warn, "%v", err)
-						}
+					err := videoWriteFunc(tmsg)
+					if err != nil {
+						s.Log(logger.Warn, "%v", err)
 					}
 
 				case *message.MsgAudio:
-					if tmsg.AACType == flvio.AAC_RAW {
-						if audioFormat == nil {
-							return fmt.Errorf("received an AAC packet, but track is not set up")
-						}
+					if audioFormat == nil {
+						return fmt.Errorf("received an AAC packet, but track is not set up")
+					}
 
-						err := res.stream.writeData(audioMedia, audioFormat, &formatprocessor.UnitMPEG4Audio{
-							PTS: tmsg.DTS,
-							AUs: [][]byte{tmsg.Payload},
-							NTP: time.Now(),
-						})
-						if err != nil {
-							s.Log(logger.Warn, "%v", err)
-						}
+					err := audioWriteFunc(tmsg)
+					if err != nil {
+						s.Log(logger.Warn, "%v", err)
 					}
 				}
 			}

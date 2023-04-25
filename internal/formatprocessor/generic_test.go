@@ -11,7 +11,7 @@ import (
 func TestGenericRemovePadding(t *testing.T) {
 	forma := &formats.Generic{
 		PayloadTyp: 96,
-		RTPMap:     "private/90000",
+		RTPMa:      "private/90000",
 	}
 	forma.Init()
 

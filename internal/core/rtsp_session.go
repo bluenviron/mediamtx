@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/base"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
@@ -24,6 +25,76 @@ import (
 const (
 	pauseAfterAuthError = 2 * time.Second
 )
+
+type rtspWriteFunc func(*rtp.Packet) error
+
+func getRTSPWriteFunc(medi *media.Media, forma formats.Format, stream *stream) rtspWriteFunc {
+	switch forma.(type) {
+	case *formats.H264:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitH264{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	case *formats.H265:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitH265{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	case *formats.VP8:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitVP8{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	case *formats.VP9:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitVP9{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	case *formats.MPEG2Audio:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitMPEG2Audio{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	case *formats.MPEG4Audio:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitMPEG4Audio{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	case *formats.Opus:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitOpus{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
+	default:
+		return func(pkt *rtp.Packet) error {
+			return stream.writeUnit(medi, forma, &formatprocessor.UnitGeneric{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+	}
+}
 
 type rtspSessionPathManager interface {
 	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
@@ -321,87 +392,14 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 	for _, medi := range s.session.AnnouncedMedias() {
 		for _, forma := range medi.Formats {
-			cmedia := medi
-			cformat := forma
+			writeFunc := getRTSPWriteFunc(medi, forma, s.stream)
 
-			switch forma.(type) {
-			case *formats.H264:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitH264{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-
-			case *formats.H265:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitH265{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-
-			case *formats.VP8:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitVP8{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-
-			case *formats.VP9:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitVP9{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-
-			case *formats.MPEG4Audio:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitMPEG4Audio{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-
-			case *formats.Opus:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitOpus{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-
-			default:
-				ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-					err := s.stream.writeData(cmedia, cformat, &formatprocessor.UnitGeneric{
-						RTPPackets: []*rtp.Packet{pkt},
-						NTP:        time.Now(),
-					})
-					if err != nil {
-						s.log(logger.Warn, "%v", err)
-					}
-				})
-			}
+			ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
+				err := writeFunc(pkt)
+				if err != nil {
+					s.log(logger.Warn, "%v", err)
+				}
+			})
 		}
 	}
 
