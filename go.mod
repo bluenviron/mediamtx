@@ -6,9 +6,9 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/alecthomas/kong v0.7.1
 	github.com/asticode/go-astits v1.11.0
-	github.com/bluenviron/gohlslib v0.2.1
-	github.com/bluenviron/gortsplib/v3 v3.3.0
-	github.com/bluenviron/mediacommon v0.4.1
+	github.com/bluenviron/gohlslib v0.2.3
+	github.com/bluenviron/gortsplib/v3 v3.3.1
+	github.com/bluenviron/mediacommon v0.4.2
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.0
 	github.com/google/uuid v1.3.0
@@ -28,6 +28,7 @@ require (
 
 require (
 	github.com/abema/go-mp4 v0.10.1 // indirect
+	github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82 // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/bytedance/sonic v1.8.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -43,7 +44,6 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/orcaman/writerseeker v0.0.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.2.6 // indirect
@@ -68,8 +68,6 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/orcaman/writerseeker => github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 

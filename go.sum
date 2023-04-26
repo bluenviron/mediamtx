@@ -12,12 +12,12 @@ github.com/asticode/go-astikit v0.30.0 h1:DkBkRQRIxYcknlaU7W7ksNfn4gMFsB0tqMJflx
 github.com/asticode/go-astikit v0.30.0/go.mod h1:h4ly7idim1tNhaVkdVBeXQZEE3L0xblP7fCWbgwipF0=
 github.com/asticode/go-astits v1.11.0 h1:GTHUXht0ZXAJXsVbsLIcyfHr1Bchi4QQwMARw2ZWAng=
 github.com/asticode/go-astits v1.11.0/go.mod h1:QSHmknZ51pf6KJdHKZHJTLlMegIrhega3LPWz3ND/iI=
-github.com/bluenviron/gohlslib v0.2.1 h1:ZDbC87oaSv6B85o5lYC+gcOISJsg1z9IX4xTbxMqJh4=
-github.com/bluenviron/gohlslib v0.2.1/go.mod h1:fxwqh+twBM2Mi3AZ05nuQ7qvp8un833dFqcyykzv8bc=
-github.com/bluenviron/gortsplib/v3 v3.3.0 h1:g7hXsLSXk8Z/qiJ70zLdiWb/HTn5L59ngIAsdFREBLk=
-github.com/bluenviron/gortsplib/v3 v3.3.0/go.mod h1:7p+nkw/4yyNrKxHaLwskMhDlXXHKJXqO85kpVOi+eXc=
-github.com/bluenviron/mediacommon v0.4.1 h1:oiqvqwnZ0NbB+mCZjuyBtgY7cF88rZdhb/PTSNG9M+Q=
-github.com/bluenviron/mediacommon v0.4.1/go.mod h1:t0dqPsWUTchyvib0MhixIwXEgvDX4V9G+I0GzWLQRb8=
+github.com/bluenviron/gohlslib v0.2.3 h1:vZmpjh2qWHaCvwwha04tgu8Kz9p4CuSBRLayD2yf89A=
+github.com/bluenviron/gohlslib v0.2.3/go.mod h1:loD97sTtBh/nBcw8yZJgXc71A6XQb0FsDWXFRkl7Yj4=
+github.com/bluenviron/gortsplib/v3 v3.3.1 h1:C8qEimmVVwyG3v3eL9tHRT9UaBlBn+/32G2m7NbBRuw=
+github.com/bluenviron/gortsplib/v3 v3.3.1/go.mod h1:7p+nkw/4yyNrKxHaLwskMhDlXXHKJXqO85kpVOi+eXc=
+github.com/bluenviron/mediacommon v0.4.2 h1:rdghY3g70+fdviapO2hL6CHpOGeTd7KbH1aEZnMwh88=
+github.com/bluenviron/mediacommon v0.4.2/go.mod h1:t0dqPsWUTchyvib0MhixIwXEgvDX4V9G+I0GzWLQRb8=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.8.0 h1:ea0Xadu+sHlu7x5O3gKhRpQ1IKiMrSiHttPF0ybECuA=
 github.com/bytedance/sonic v1.8.0/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
@@ -107,6 +107,8 @@ github.com/onsi/gomega v1.10.1/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1y
 github.com/onsi/gomega v1.16.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAlGdZY=
 github.com/onsi/gomega v1.17.0 h1:9Luw4uT5HTjHTN8+aNcSThgH1vdXnmdJ8xIfZ4wyTRE=
 github.com/onsi/gomega v1.17.0/go.mod h1:HnhC7FXeEQY45zxNK3PPoIUhzk/80Xly9PcubAlGdZY=
+github.com/orcaman/writerseeker v0.0.0-20200621085525-1d3f536ff85e h1:s2RNOM/IGdY0Y6qfTeUKhDawdHDpK9RGBdx80qN4Ttw=
+github.com/orcaman/writerseeker v0.0.0-20200621085525-1d3f536ff85e/go.mod h1:nBdnFKj15wFbf94Rwfq4m30eAcyY9V/IyKAGQFtqkW0=
 github.com/pelletier/go-toml/v2 v2.0.6 h1:nrzqCb7j9cDFj2coyLNLaZuJTLjWjlaz6nvTvIwycIU=
 github.com/pelletier/go-toml/v2 v2.0.6/go.mod h1:eumQOmlWiOPt5WriQQqoM5y18pDHwha2N+QD+EUNTek=
 github.com/pion/datachannel v1.5.5 h1:10ef4kwdjije+M9d7Xm9im2Y3O6A6ccQb0zcqZcJew8=

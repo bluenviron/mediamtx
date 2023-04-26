@@ -77,6 +77,9 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 
 			frames, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
+				if err == rtpmpeg2audio.ErrNonStartingPacketAndNoPrevious || err == rtpmpeg2audio.ErrMorePacketsNeeded {
+					return nil
+				}
 				return err
 			}
 
