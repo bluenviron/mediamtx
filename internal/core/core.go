@@ -279,6 +279,7 @@ func (p *Core) createResources(initial bool) error {
 				"",
 				"",
 				p.conf.RTSPAddress,
+				p.conf.RTSPDefaultPath,
 				p.conf.Protocols,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
@@ -316,6 +317,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.ServerCert,
 				p.conf.ServerKey,
 				p.conf.RTSPAddress,
+				p.conf.RTSPDefaultPath,
 				p.conf.Protocols,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
@@ -345,6 +347,7 @@ func (p *Core) createResources(initial bool) error {
 				"",
 				"",
 				p.conf.RTSPAddress,
+				p.conf.RTMPDefaultPath,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.externalCmdPool,
@@ -373,6 +376,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RTMPServerCert,
 				p.conf.RTMPServerKey,
 				p.conf.RTSPAddress,
+				p.conf.RTMPDefaultPath,
 				p.conf.RunOnConnect,
 				p.conf.RunOnConnectRestart,
 				p.externalCmdPool,
@@ -404,6 +408,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSAllowOrigin,
 				p.conf.HLSTrustedProxies,
 				p.conf.HLSDirectory,
+				p.conf.HLSDefaultPath,
 				p.conf.ReadTimeout,
 				p.conf.ReadBufferCount,
 				p.pathManager,
@@ -436,6 +441,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WebRTCICEHostNAT1To1IPs,
 				p.conf.WebRTCICEUDPMuxAddress,
 				p.conf.WebRTCICETCPMuxAddress,
+				p.conf.WebRTCDefaultPath,
 			)
 			if err != nil {
 				return err
@@ -505,6 +511,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RTSPDefaultPath != p.conf.RTSPDefaultPath ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -527,6 +534,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
+		newConf.RTSPDefaultPath != p.conf.RTSPDefaultPath ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -544,6 +552,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
+		newConf.RTMPDefaultPath != p.conf.RTMPDefaultPath ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
@@ -565,6 +574,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPServerCert != p.conf.RTMPServerCert ||
 		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		newConf.RTMPDefaultPath != p.conf.RTMPDefaultPath ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
@@ -586,6 +596,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSAllowOrigin != p.conf.HLSAllowOrigin ||
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
+		newConf.HLSDefaultPath != p.conf.HLSDefaultPath ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
 		closePathManager ||
@@ -607,7 +618,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager ||
 		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs) ||
 		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
-		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress
+		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
+		newConf.WebRTCDefaultPath != p.conf.WebRTCDefaultPath
 
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||

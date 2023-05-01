@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"time"
+	"strings"
 
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/auth"
@@ -29,6 +30,7 @@ type rtspConnParent interface {
 type rtspConn struct {
 	externalAuthenticationURL string
 	rtspAddress               string
+	defaultPath               string
 	authMethods               []headers.AuthMethod
 	readTimeout               conf.StringDuration
 	runOnConnect              string
@@ -50,6 +52,7 @@ type rtspConn struct {
 func newRTSPConn(
 	externalAuthenticationURL string,
 	rtspAddress string,
+	defaultPath string,
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
 	runOnConnect string,
@@ -62,6 +65,7 @@ func newRTSPConn(
 	c := &rtspConn{
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
+		defaultPath:               defaultPath,
 		authMethods:               authMethods,
 		readTimeout:               readTimeout,
 		runOnConnect:              runOnConnect,
@@ -256,6 +260,14 @@ func (c *rtspConn) OnResponse(res *base.Response) {
 // onDescribe is called by rtspServer.
 func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
+	if ctx.Path == "/" {
+		defaultPath := strings.TrimSuffix(c.defaultPath, "/")
+		if url, err := url.Parse(ctx.Request.URL.String() + defaultPath); err == nil {
+			ctx.Path += defaultPath
+			ctx.Request.URL = url
+		}
+	}
+
 	if len(ctx.Path) == 0 || ctx.Path[0] != '/' {
 		return &base.Response{
 			StatusCode: base.StatusBadRequest,

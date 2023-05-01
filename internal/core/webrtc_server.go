@@ -88,6 +88,7 @@ type webRTCServer struct {
 	iceHostNAT1To1IPs []string
 	iceUDPMux         ice.UDPMux
 	iceTCPMux         ice.TCPMux
+	defaultPath       string
 
 	// in
 	connNew        chan webRTCConnNewReq
@@ -117,6 +118,7 @@ func newWebRTCServer(
 	iceHostNAT1To1IPs []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
+	defaultPath string,
 ) (*webRTCServer, error) {
 	ln, err := net.Listen(restrictNetwork("tcp", address))
 	if err != nil {
@@ -175,6 +177,7 @@ func newWebRTCServer(
 		iceUDPMux:                 iceUDPMux,
 		iceTCPMux:                 iceTCPMux,
 		iceHostNAT1To1IPs:         iceHostNAT1To1IPs,
+		defaultPath:               defaultPath,
 		conns:                     make(map[*webRTCConn]struct{}),
 		connNew:                   make(chan webRTCConnNewReq),
 		chConnClose:               make(chan *webRTCConn),
@@ -338,8 +341,12 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	// remove leading prefix
 	pa := ctx.Request.URL.Path[1:]
 
+	defaultPath := strings.TrimSuffix(s.defaultPath, "/")
+
 	switch pa {
-	case "", "favicon.ico":
+	case "":
+		pa = defaultPath + "/"
+	case "favicon.ico":
 		return
 	}
 
@@ -357,6 +364,10 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	}
 
 	dir = strings.TrimSuffix(dir, "/")
+
+	if dir == "" || dir == "." {
+		dir = defaultPath
+	}
 
 	res := s.pathManager.describe(pathDescribeReq{
 		pathName: dir,

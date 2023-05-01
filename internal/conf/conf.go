@@ -216,14 +216,16 @@ type Conf struct {
 	ServerKey         string      `json:"serverKey"`
 	ServerCert        string      `json:"serverCert"`
 	AuthMethods       AuthMethods `json:"authMethods"`
+	RTSPDefaultPath   string      `json:"rtspDefaultPath"`
 
 	// RTMP
-	RTMPDisable    bool       `json:"rtmpDisable"`
-	RTMPAddress    string     `json:"rtmpAddress"`
-	RTMPEncryption Encryption `json:"rtmpEncryption"`
-	RTMPSAddress   string     `json:"rtmpsAddress"`
-	RTMPServerKey  string     `json:"rtmpServerKey"`
-	RTMPServerCert string     `json:"rtmpServerCert"`
+	RTMPDisable     bool       `json:"rtmpDisable"`
+	RTMPAddress     string     `json:"rtmpAddress"`
+	RTMPEncryption  Encryption `json:"rtmpEncryption"`
+	RTMPSAddress    string     `json:"rtmpsAddress"`
+	RTMPServerKey   string     `json:"rtmpServerKey"`
+	RTMPServerCert  string     `json:"rtmpServerCert"`
+	RTMPDefaultPath string     `json:"rtmpDefaultPath"`
 
 	// HLS
 	HLSDisable         bool           `json:"hlsDisable"`
@@ -240,6 +242,7 @@ type Conf struct {
 	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
 	HLSDirectory       string         `json:"hlsDirectory"`
+	HLSDefaultPath     string         `json:"hlsDefaultPath"`
 
 	// WebRTC
 	WebRTCDisable           bool       `json:"webrtcDisable"`
@@ -253,6 +256,7 @@ type Conf struct {
 	WebRTCICEHostNAT1To1IPs []string   `json:"webrtcICEHostNAT1To1IPs"`
 	WebRTCICEUDPMuxAddress  string     `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string     `json:"webrtcICETCPMuxAddress"`
+	WebRTCDefaultPath       string     `json:"webrtcDefaultPath"`
 
 	// paths
 	Paths map[string]*PathConf `json:"paths"`

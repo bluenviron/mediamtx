@@ -152,6 +152,7 @@ type rtmpConn struct {
 	isTLS                     bool
 	externalAuthenticationURL string
 	rtspAddress               string
+	defaultPath               string
 	readTimeout               conf.StringDuration
 	writeTimeout              conf.StringDuration
 	readBufferCount           int
@@ -177,6 +178,7 @@ func newRTMPConn(
 	isTLS bool,
 	externalAuthenticationURL string,
 	rtspAddress string,
+	defaultPath string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
@@ -194,6 +196,7 @@ func newRTMPConn(
 		isTLS:                     isTLS,
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
+		defaultPath:               defaultPath,
 		readTimeout:               readTimeout,
 		writeTimeout:              writeTimeout,
 		readBufferCount:           readBufferCount,
@@ -310,6 +313,10 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 
 func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
+
+	if pathName == "" {
+		pathName = strings.TrimSuffix(c.defaultPath, "/")
+	}
 
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,

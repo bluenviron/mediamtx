@@ -63,6 +63,7 @@ type hlsServer struct {
 	segmentMaxSize            conf.StringSize
 	allowOrigin               string
 	directory                 string
+	defaultPath               string
 	readBufferCount           int
 	pathManager               *pathManager
 	metrics                   *metrics
@@ -99,6 +100,7 @@ func newHLSServer(
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
 	directory string,
+	defaultPath string,
 	readTimeout conf.StringDuration,
 	readBufferCount int,
 	pathManager *pathManager,
@@ -135,6 +137,7 @@ func newHLSServer(
 		segmentMaxSize:            segmentMaxSize,
 		allowOrigin:               allowOrigin,
 		directory:                 directory,
+		defaultPath:               defaultPath,
 		readBufferCount:           readBufferCount,
 		pathManager:               pathManager,
 		parent:                    parent,
@@ -281,8 +284,12 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	// remove leading prefix
 	pa := ctx.Request.URL.Path[1:]
 
+	defaultPath := strings.TrimSuffix(s.defaultPath, "/")
+
 	switch pa {
-	case "", "favicon.ico":
+	case "":
+		pa = defaultPath + "/"
+	case "favicon.ico":
 		return
 	}
 
@@ -307,6 +314,10 @@ func (s *hlsServer) onRequest(ctx *gin.Context) {
 	}
 
 	dir = strings.TrimSuffix(dir, "/")
+
+	if dir == "" || dir == "." {
+		dir = defaultPath
+	}
 
 	hreq := &hlsMuxerRequest{
 		path:     dir,

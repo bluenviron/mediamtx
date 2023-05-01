@@ -81,6 +81,7 @@ type rtspServer struct {
 	readTimeout               conf.StringDuration
 	isTLS                     bool
 	rtspAddress               string
+	defaultPath               string
 	protocols                 map[conf.Protocol]struct{}
 	runOnConnect              string
 	runOnConnectRestart       bool
@@ -117,6 +118,7 @@ func newRTSPServer(
 	serverCert string,
 	serverKey string,
 	rtspAddress string,
+	defaultPath string,
 	protocols map[conf.Protocol]struct{},
 	runOnConnect string,
 	runOnConnectRestart bool,
@@ -133,6 +135,7 @@ func newRTSPServer(
 		readTimeout:               readTimeout,
 		isTLS:                     isTLS,
 		rtspAddress:               rtspAddress,
+		defaultPath:               defaultPath,
 		protocols:                 protocols,
 		runOnConnect:              runOnConnect,
 		runOnConnectRestart:       runOnConnectRestart,
@@ -248,6 +251,7 @@ func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	c := newRTSPConn(
 		s.externalAuthenticationURL,
 		s.rtspAddress,
+		s.defaultPath,
 		s.authMethods,
 		s.readTimeout,
 		s.runOnConnect,

@@ -54,6 +54,7 @@ type rtmpServer struct {
 	readBufferCount           int
 	isTLS                     bool
 	rtspAddress               string
+	defaultPath               string
 	runOnConnect              string
 	runOnConnectRestart       bool
 	externalCmdPool           *externalcmd.Pool
@@ -84,6 +85,7 @@ func newRTMPServer(
 	serverCert string,
 	serverKey string,
 	rtspAddress string,
+	defaultPath string,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	externalCmdPool *externalcmd.Pool,
@@ -116,6 +118,7 @@ func newRTMPServer(
 		writeTimeout:              writeTimeout,
 		readBufferCount:           readBufferCount,
 		rtspAddress:               rtspAddress,
+		defaultPath:               defaultPath,
 		runOnConnect:              runOnConnect,
 		runOnConnectRestart:       runOnConnectRestart,
 		isTLS:                     isTLS,
@@ -202,6 +205,7 @@ outer:
 				s.isTLS,
 				s.externalAuthenticationURL,
 				s.rtspAddress,
+				s.defaultPath,
 				s.readTimeout,
 				s.writeTimeout,
 				s.readBufferCount,

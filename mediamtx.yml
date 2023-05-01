@@ -98,6 +98,8 @@ serverKey: server.key
 serverCert: server.crt
 # Authentication methods.
 authMethods: [basic, digest]
+# If no stream path is given by a client, then use this default path.
+rtspDefaultPath:
 
 ###############################################
 # RTMP parameters
@@ -118,6 +120,8 @@ rtmpsAddress: :1936
 rtmpServerKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 rtmpServerCert: server.crt
+# If no stream path is given by a client, then use this default path.
+rtmpDefaultPath:
 
 ###############################################
 # HLS parameters
@@ -174,6 +178,8 @@ hlsTrustedProxies: []
 # This decreases performance, since reading from disk is less performant than
 # reading from RAM, but allows to save RAM.
 hlsDirectory: ''
+# If no stream path is given by a client, then use this default path.
+hlsDefaultPath:
 
 ###############################################
 # WebRTC parameters
@@ -218,6 +224,8 @@ webrtcICEUDPMuxAddress:
 # At the moment, setting this parameter forces usage of the TCP protocol,
 # which is not optimal for WebRTC.
 webrtcICETCPMuxAddress:
+# If no stream path is given by a client, then use this default path.
+webrtcDefaultPath:
 
 ###############################################
 # Path parameters
