@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpav1"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph264"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp9"
@@ -48,6 +49,18 @@ func newPeerConnection(configuration webrtc.Configuration,
 	m := &webrtc.MediaEngine{}
 
 	if err := m.RegisterDefaultCodecs(); err != nil {
+		return nil, err
+	}
+
+	err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeAV1,
+			ClockRate: 90000,
+		},
+		PayloadType: 96,
+	},
+		webrtc.RTPCodecTypeVideo)
+	if err != nil {
 		return nil, err
 	}
 
@@ -560,6 +573,51 @@ outer:
 }
 
 func (c *webRTCConn) createVideoTrack(medias media.Medias) (*webRTCTrack, error) {
+	var av1Format *formats.AV1
+	av1Media := medias.FindFormat(&av1Format)
+
+	if av1Format != nil {
+		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
+			webrtc.RTPCodecCapability{
+				MimeType:  webrtc.MimeTypeAV1,
+				ClockRate: 90000,
+			},
+			"av1",
+			"rtspss",
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		encoder := &rtpav1.Encoder{
+			PayloadType:    96,
+			PayloadMaxSize: webrtcPayloadMaxSize,
+		}
+		encoder.Init()
+
+		return &webRTCTrack{
+			media:       av1Media,
+			format:      av1Format,
+			webRTCTrack: webRTCTrak,
+			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+				tunit := unit.(*formatprocessor.UnitAV1)
+
+				if tunit.OBUs == nil {
+					return
+				}
+
+				packets, err := encoder.Encode(tunit.OBUs, tunit.PTS)
+				if err != nil {
+					panic(err)
+				}
+
+				for _, pkt := range packets {
+					webRTCTrak.WriteRTP(pkt)
+				}
+			},
+		}, nil
+	}
+
 	var vp9Format *formats.VP9
 	vp9Media := medias.FindFormat(&vp9Format)
 

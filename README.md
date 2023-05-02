@@ -25,7 +25,7 @@ And can be read from the server with:
 |RTSP|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus,  MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
 |RTMP|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
 |HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
-|WebRTC||VP9, VP8, H264|Opus, G722, G711|
+|WebRTC||AV1, VP9, VP8, H264|Opus, G722, G711|
 
 Features:
 
