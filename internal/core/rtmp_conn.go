@@ -48,7 +48,8 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 		return func(msg interface{}) error {
 			tmsg := msg.(*message.MsgVideo)
 
-			if tmsg.H264Type == flvio.AVC_SEQHDR {
+			switch tmsg.Type {
+			case message.MsgVideoTypeConfig:
 				var conf h264conf.Conf
 				err := conf.Unmarshal(tmsg.Payload)
 				if err != nil {
@@ -65,9 +66,8 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					AU:  au,
 					NTP: time.Now(),
 				})
-			}
 
-			if tmsg.H264Type == flvio.AVC_NALU {
+			case message.MsgVideoTypeAU:
 				au, err := h264.AVCCUnmarshal(tmsg.Payload)
 				if err != nil {
 					return fmt.Errorf("unable to decode AVCC: %v", err)
@@ -114,15 +114,15 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 		return func(msg interface{}) error {
 			tmsg := msg.(*message.MsgAudio)
 
-			if tmsg.AACType != flvio.AAC_RAW {
-				return nil
+			if tmsg.AACType == message.MsgAudioAACTypeAU {
+				return stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
+					PTS: tmsg.DTS,
+					AUs: [][]byte{tmsg.Payload},
+					NTP: time.Now(),
+				})
 			}
 
-			return stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
-				PTS: tmsg.DTS,
-				AUs: [][]byte{tmsg.Payload},
-				NTP: time.Now(),
-			})
+			return nil
 		}
 
 	default:
@@ -366,7 +366,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 	if videoFormat == nil && audioFormat == nil {
 		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, MPEG2-Audio, MPEG4-Audio")
+			"the stream doesn't contain any supported codec, which are currently H264, MPEG-2 Audio, MPEG-4 Audio")
 	}
 
 	defer res.stream.readerRemove(c)
@@ -496,8 +496,9 @@ func (c *rtmpConn) findVideoFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 				err = c.conn.WriteMessage(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
 					IsKeyFrame:      idrPresent,
-					H264Type:        flvio.AVC_NALU,
+					Type:            message.MsgVideoTypeAU,
 					Payload:         avcc,
 					DTS:             dts,
 					PTSDelta:        pts - dts,
@@ -560,7 +561,7 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 						Rate:            flvio.SOUND_44Khz,
 						Depth:           flvio.SOUND_16BIT,
 						Channels:        flvio.SOUND_STEREO,
-						AACType:         flvio.AAC_RAW,
+						AACType:         message.MsgAudioAACTypeAU,
 						Payload:         au,
 						DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
 							time.Second/time.Duration(audioFormatMPEG4.ClockRate()),
@@ -621,11 +622,21 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 						channels = flvio.SOUND_MONO
 					}
 
+					rate := uint8(flvio.SOUND_44Khz)
+					switch h.SampleRate {
+					case 5500:
+						rate = flvio.SOUND_5_5Khz
+					case 11025:
+						rate = flvio.SOUND_11Khz
+					case 22050:
+						rate = flvio.SOUND_22Khz
+					}
+
 					msg := &message.MsgAudio{
 						ChunkStreamID:   message.MsgAudioChunkStreamID,
 						MessageStreamID: 0x1000000,
 						Codec:           message.CodecMPEG2Audio,
-						Rate:            flvio.SOUND_44Khz,
+						Rate:            rate,
 						Depth:           flvio.SOUND_16BIT,
 						Channels:        channels,
 						Payload:         frame,

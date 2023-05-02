@@ -9,7 +9,7 @@ import (
 	"github.com/pion/rtp"
 )
 
-// UnitMPEG4Audio is a MPEG4-audio data unit.
+// UnitMPEG4Audio is a MPEG-4 Audio data unit.
 type UnitMPEG4Audio struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
