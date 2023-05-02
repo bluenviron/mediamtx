@@ -2,26 +2,21 @@
 package rtmp
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
-	"github.com/aler9/mediamtx/internal/rtmp/h264conf"
 	"github.com/aler9/mediamtx/internal/rtmp/handshake"
 	"github.com/aler9/mediamtx/internal/rtmp/message"
+	"github.com/aler9/mediamtx/internal/rtmp/tracks"
 )
 
-func resultIsOK1(res *message.MsgCommandAMF0) bool {
+func resultIsOK1(res *message.CommandAMF0) bool {
 	if len(res.Arguments) < 2 {
 		return false
 	}
@@ -39,7 +34,7 @@ func resultIsOK1(res *message.MsgCommandAMF0) bool {
 	return v == "status"
 }
 
-func resultIsOK2(res *message.MsgCommandAMF0) bool {
+func resultIsOK2(res *message.CommandAMF0) bool {
 	if len(res.Arguments) < 2 {
 		return false
 	}
@@ -126,27 +121,27 @@ func (c *Conn) BytesSent() uint64 {
 	return c.bc.Writer.Count()
 }
 
-func (c *Conn) readCommand() (*message.MsgCommandAMF0, error) {
+func (c *Conn) readCommand() (*message.CommandAMF0, error) {
 	for {
 		msg, err := c.mrw.Read()
 		if err != nil {
 			return nil, err
 		}
 
-		if cmd, ok := msg.(*message.MsgCommandAMF0); ok {
+		if cmd, ok := msg.(*message.CommandAMF0); ok {
 			return cmd, nil
 		}
 	}
 }
 
-func (c *Conn) readCommandResult(commandID int, commandName string, isValid func(*message.MsgCommandAMF0) bool) error {
+func (c *Conn) readCommandResult(commandID int, commandName string, isValid func(*message.CommandAMF0) bool) error {
 	for {
 		msg, err := c.mrw.Read()
 		if err != nil {
 			return err
 		}
 
-		if cmd, ok := msg.(*message.MsgCommandAMF0); ok {
+		if cmd, ok := msg.(*message.CommandAMF0); ok {
 			if cmd.CommandID == commandID && cmd.Name == commandName {
 				if !isValid(cmd) {
 					return fmt.Errorf("server refused connect request")
@@ -169,14 +164,14 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 
 	c.mrw = message.NewReadWriter(c.bc, false)
 
-	err = c.mrw.Write(&message.MsgSetWindowAckSize{
+	err = c.mrw.Write(&message.SetWindowAckSize{
 		Value: 2500000,
 	})
 	if err != nil {
 		return err
 	}
 
-	err = c.mrw.Write(&message.MsgSetPeerBandwidth{
+	err = c.mrw.Write(&message.SetPeerBandwidth{
 		Value: 2500000,
 		Type:  2,
 	})
@@ -184,14 +179,14 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	err = c.mrw.Write(&message.MsgSetChunkSize{
+	err = c.mrw.Write(&message.SetChunkSize{
 		Value: 65536,
 	})
 	if err != nil {
 		return err
 	}
 
-	err = c.mrw.Write(&message.MsgCommandAMF0{
+	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "connect",
 		CommandID:     1,
@@ -218,7 +213,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 	}
 
 	if !isPublishing {
-		err = c.mrw.Write(&message.MsgCommandAMF0{
+		err = c.mrw.Write(&message.CommandAMF0{
 			ChunkStreamID: 3,
 			Name:          "createStream",
 			CommandID:     2,
@@ -235,14 +230,14 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 			return err
 		}
 
-		err = c.mrw.Write(&message.MsgUserControlSetBufferLength{
+		err = c.mrw.Write(&message.UserControlSetBufferLength{
 			BufferLength: 0x64,
 		})
 		if err != nil {
 			return err
 		}
 
-		err = c.mrw.Write(&message.MsgCommandAMF0{
+		err = c.mrw.Write(&message.CommandAMF0{
 			ChunkStreamID:   4,
 			MessageStreamID: 0x1000000,
 			Name:            "play",
@@ -259,7 +254,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return c.readCommandResult(3, "onStatus", resultIsOK1)
 	}
 
-	err = c.mrw.Write(&message.MsgCommandAMF0{
+	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "releaseStream",
 		CommandID:     2,
@@ -272,7 +267,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	err = c.mrw.Write(&message.MsgCommandAMF0{
+	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "FCPublish",
 		CommandID:     3,
@@ -285,7 +280,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	err = c.mrw.Write(&message.MsgCommandAMF0{
+	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: 3,
 		Name:          "createStream",
 		CommandID:     4,
@@ -302,7 +297,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	err = c.mrw.Write(&message.MsgCommandAMF0{
+	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID:   4,
 		MessageStreamID: 0x1000000,
 		Name:            "publish",
@@ -362,14 +357,14 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 	tcURL = strings.Trim(tcURL, "'")
 
-	err = c.mrw.Write(&message.MsgSetWindowAckSize{
+	err = c.mrw.Write(&message.SetWindowAckSize{
 		Value: 2500000,
 	})
 	if err != nil {
 		return nil, false, err
 	}
 
-	err = c.mrw.Write(&message.MsgSetPeerBandwidth{
+	err = c.mrw.Write(&message.SetPeerBandwidth{
 		Value: 2500000,
 		Type:  2,
 	})
@@ -377,7 +372,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 		return nil, false, err
 	}
 
-	err = c.mrw.Write(&message.MsgSetChunkSize{
+	err = c.mrw.Write(&message.SetChunkSize{
 		Value: 65536,
 	})
 	if err != nil {
@@ -386,7 +381,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 	oe, _ := ma.GetFloat64("objectEncoding")
 
-	err = c.mrw.Write(&message.MsgCommandAMF0{
+	err = c.mrw.Write(&message.CommandAMF0{
 		ChunkStreamID: cmd.ChunkStreamID,
 		Name:          "_result",
 		CommandID:     cmd.CommandID,
@@ -415,7 +410,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 
 		switch cmd.Name {
 		case "createStream":
-			err = c.mrw.Write(&message.MsgCommandAMF0{
+			err = c.mrw.Write(&message.CommandAMF0{
 				ChunkStreamID: cmd.ChunkStreamID,
 				Name:          "_result",
 				CommandID:     cmd.CommandID,
@@ -443,21 +438,21 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgUserControlStreamIsRecorded{
+			err = c.mrw.Write(&message.UserControlStreamIsRecorded{
 				StreamID: 1,
 			})
 			if err != nil {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgUserControlStreamBegin{
+			err = c.mrw.Write(&message.UserControlStreamBegin{
 				StreamID: 1,
 			})
 			if err != nil {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgCommandAMF0{
+			err = c.mrw.Write(&message.CommandAMF0{
 				ChunkStreamID:   5,
 				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
@@ -475,7 +470,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgCommandAMF0{
+			err = c.mrw.Write(&message.CommandAMF0{
 				ChunkStreamID:   5,
 				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
@@ -493,7 +488,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgCommandAMF0{
+			err = c.mrw.Write(&message.CommandAMF0{
 				ChunkStreamID:   5,
 				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
@@ -511,7 +506,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgCommandAMF0{
+			err = c.mrw.Write(&message.CommandAMF0{
 				ChunkStreamID:   5,
 				MessageStreamID: 0x1000000,
 				Name:            "onStatus",
@@ -546,7 +541,7 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 				return nil, false, err
 			}
 
-			err = c.mrw.Write(&message.MsgCommandAMF0{
+			err = c.mrw.Write(&message.CommandAMF0{
 				ChunkStreamID:   5,
 				Name:            "onStatus",
 				CommandID:       cmd.CommandID,
@@ -579,420 +574,13 @@ func (c *Conn) WriteMessage(msg message.Message) error {
 	return c.mrw.Write(msg)
 }
 
-func trackFromH264DecoderConfig(data []byte) (formats.Format, error) {
-	var conf h264conf.Conf
-	err := conf.Unmarshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse H264 config: %v", err)
-	}
-
-	return &formats.H264{
-		PayloadTyp:        96,
-		SPS:               conf.SPS,
-		PPS:               conf.PPS,
-		PacketizationMode: 1,
-	}, nil
-}
-
-func trackFromAACDecoderConfig(data []byte) (*formats.MPEG4Audio, error) {
-	var mpegConf mpeg4audio.Config
-	err := mpegConf.Unmarshal(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return &formats.MPEG4Audio{
-		PayloadTyp:       96,
-		Config:           &mpegConf,
-		SizeLength:       13,
-		IndexLength:      3,
-		IndexDeltaLength: 3,
-	}, nil
-}
-
-var errEmptyMetadata = errors.New("metadata is empty")
-
-func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, formats.Format, error) {
-	if len(payload) != 1 {
-		return nil, nil, fmt.Errorf("invalid metadata")
-	}
-
-	md, ok := payload[0].(flvio.AMFMap)
-	if !ok {
-		return nil, nil, fmt.Errorf("invalid metadata")
-	}
-
-	var videoTrack formats.Format
-	var audioTrack formats.Format
-
-	hasVideo, err := func() (bool, error) {
-		v, ok := md.GetV("videocodecid")
-		if !ok {
-			return false, nil
-		}
-
-		switch vt := v.(type) {
-		case float64:
-			switch vt {
-			case 0:
-				return false, nil
-
-			case message.CodecH264:
-				return true, nil
-			}
-
-		case string:
-			if vt == "avc1" {
-				return true, nil
-			}
-		}
-
-		return false, fmt.Errorf("unsupported video codec: %v", v)
-	}()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	hasAudio, err := func() (bool, error) {
-		v, ok := md.GetV("audiocodecid")
-		if !ok {
-			return false, nil
-		}
-
-		switch vt := v.(type) {
-		case float64:
-			switch vt {
-			case 0:
-				return false, nil
-
-			case message.CodecMPEG2Audio:
-				audioTrack = &formats.MPEG2Audio{}
-				return true, nil
-
-			case message.CodecMPEG4Audio:
-				return true, nil
-			}
-
-		case string:
-			if vt == "mp4a" {
-				return true, nil
-			}
-		}
-
-		return false, fmt.Errorf("unsupported audio codec %v", v)
-	}()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if !hasVideo && !hasAudio {
-		return nil, nil, errEmptyMetadata
-	}
-
-	for {
-		if (!hasVideo || videoTrack != nil) &&
-			(!hasAudio || audioTrack != nil) {
-			return videoTrack, audioTrack, nil
-		}
-
-		msg, err := c.ReadMessage()
-		if err != nil {
-			return nil, nil, err
-		}
-
-		switch tmsg := msg.(type) {
-		case *message.MsgVideo:
-			if !hasVideo {
-				return nil, nil, fmt.Errorf("unexpected video packet")
-			}
-
-			if videoTrack == nil {
-				if tmsg.Type == message.MsgVideoTypeConfig {
-					videoTrack, err = trackFromH264DecoderConfig(tmsg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-				} else if tmsg.Type == message.MsgVideoTypeAU && tmsg.IsKeyFrame {
-					nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					var h265VPS []byte
-					var h265SPS []byte
-					var h265PPS []byte
-
-					for _, nalu := range nalus {
-						typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-
-						switch typ {
-						case h265.NALUType_VPS_NUT:
-							h265VPS = append([]byte(nil), nalu...)
-
-						case h265.NALUType_SPS_NUT:
-							h265SPS = append([]byte(nil), nalu...)
-
-						case h265.NALUType_PPS_NUT:
-							h265PPS = append([]byte(nil), nalu...)
-						}
-					}
-
-					if h265VPS != nil && h265SPS != nil && h265PPS != nil {
-						videoTrack = &formats.H265{
-							PayloadTyp: 96,
-							VPS:        h265VPS,
-							SPS:        h265SPS,
-							PPS:        h265PPS,
-						}
-					}
-				}
-			}
-
-		case *message.MsgAudio:
-			if !hasAudio {
-				return nil, nil, fmt.Errorf("unexpected audio packet")
-			}
-
-			if audioTrack == nil {
-				if tmsg.Codec == message.CodecMPEG4Audio && tmsg.AACType == message.MsgAudioAACTypeConfig {
-					audioTrack, err = trackFromAACDecoderConfig(tmsg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-				}
-			}
-		}
-	}
-}
-
-func (c *Conn) readTracksFromMessages(msg message.Message) (formats.Format, *formats.MPEG4Audio, error) {
-	var startTime *time.Duration
-	var videoTrack formats.Format
-	var audioTrack *formats.MPEG4Audio
-
-	// analyze 1 second of packets
-outer:
-	for {
-		switch tmsg := msg.(type) {
-		case *message.MsgVideo:
-			if startTime == nil {
-				v := tmsg.DTS
-				startTime = &v
-			}
-
-			if tmsg.Type == message.MsgVideoTypeConfig {
-				if videoTrack == nil {
-					var err error
-					videoTrack, err = trackFromH264DecoderConfig(tmsg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					// stop the analysis if both tracks are found
-					if videoTrack != nil && audioTrack != nil {
-						return videoTrack, audioTrack, nil
-					}
-				}
-			}
-
-			if (tmsg.DTS - *startTime) >= 1*time.Second {
-				break outer
-			}
-
-		case *message.MsgAudio:
-			if startTime == nil {
-				v := tmsg.DTS
-				startTime = &v
-			}
-
-			if tmsg.AACType == message.MsgAudioAACTypeConfig {
-				if audioTrack == nil {
-					var err error
-					audioTrack, err = trackFromAACDecoderConfig(tmsg.Payload)
-					if err != nil {
-						return nil, nil, err
-					}
-
-					// stop the analysis if both tracks are found
-					if videoTrack != nil && audioTrack != nil {
-						return videoTrack, audioTrack, nil
-					}
-				}
-			}
-
-			if (tmsg.DTS - *startTime) >= 1*time.Second {
-				break outer
-			}
-		}
-
-		var err error
-		msg, err = c.ReadMessage()
-		if err != nil {
-			return nil, nil, err
-		}
-	}
-
-	if videoTrack == nil && audioTrack == nil {
-		return nil, nil, fmt.Errorf("no tracks found")
-	}
-
-	return videoTrack, audioTrack, nil
-}
-
 // ReadTracks reads track informations.
 // It returns the video track and the audio track.
 func (c *Conn) ReadTracks() (formats.Format, formats.Format, error) {
-	msg, err := func() (message.Message, error) {
-		for {
-			msg, err := c.ReadMessage()
-			if err != nil {
-				return nil, err
-			}
-
-			// skip play start and data start
-			if cmd, ok := msg.(*message.MsgCommandAMF0); ok && cmd.Name == "onStatus" {
-				continue
-			}
-
-			// skip RtmpSampleAccess
-			if data, ok := msg.(*message.MsgDataAMF0); ok && len(data.Payload) >= 1 {
-				if s, ok := data.Payload[0].(string); ok && s == "|RtmpSampleAccess" {
-					continue
-				}
-			}
-
-			return msg, nil
-		}
-	}()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if data, ok := msg.(*message.MsgDataAMF0); ok && len(data.Payload) >= 1 {
-		payload := data.Payload
-
-		if s, ok := payload[0].(string); ok && s == "@setDataFrame" {
-			payload = payload[1:]
-		}
-
-		if len(payload) >= 1 {
-			if s, ok := payload[0].(string); ok && s == "onMetaData" {
-				videoTrack, audioTrack, err := c.readTracksFromMetadata(payload[1:])
-				if err != nil {
-					if err == errEmptyMetadata {
-						msg, err := c.ReadMessage()
-						if err != nil {
-							return nil, nil, err
-						}
-
-						return c.readTracksFromMessages(msg)
-					}
-
-					return nil, nil, err
-				}
-
-				return videoTrack, audioTrack, nil
-			}
-		}
-	}
-
-	return c.readTracksFromMessages(msg)
+	return tracks.Read(c.mrw)
 }
 
 // WriteTracks writes track informations.
 func (c *Conn) WriteTracks(videoTrack formats.Format, audioTrack formats.Format) error {
-	err := c.WriteMessage(&message.MsgDataAMF0{
-		ChunkStreamID:   4,
-		MessageStreamID: 0x1000000,
-		Payload: []interface{}{
-			"@setDataFrame",
-			"onMetaData",
-			flvio.AMFMap{
-				{
-					K: "videodatarate",
-					V: float64(0),
-				},
-				{
-					K: "videocodecid",
-					V: func() float64 {
-						switch videoTrack.(type) {
-						case *formats.H264:
-							return message.CodecH264
-
-						default:
-							return 0
-						}
-					}(),
-				},
-				{
-					K: "audiodatarate",
-					V: float64(0),
-				},
-				{
-					K: "audiocodecid",
-					V: func() float64 {
-						switch audioTrack.(type) {
-						case *formats.MPEG2Audio:
-							return message.CodecMPEG2Audio
-
-						case *formats.MPEG4Audio:
-							return message.CodecMPEG4Audio
-
-						default:
-							return 0
-						}
-					}(),
-				},
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	if videoTrack, ok := videoTrack.(*formats.H264); ok {
-		// write decoder config only if SPS and PPS are available.
-		// if they're not available yet, they're sent later.
-		if sps, pps := videoTrack.SafeParams(); sps != nil && pps != nil {
-			buf, _ := h264conf.Conf{
-				SPS: sps,
-				PPS: pps,
-			}.Marshal()
-
-			err = c.WriteMessage(&message.MsgVideo{
-				ChunkStreamID:   message.MsgVideoChunkStreamID,
-				MessageStreamID: 0x1000000,
-				Codec:           message.CodecH264,
-				IsKeyFrame:      true,
-				Type:            message.MsgVideoTypeConfig,
-				Payload:         buf,
-			})
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if mpeg4audioTrack, ok := audioTrack.(*formats.MPEG4Audio); ok {
-		enc, err := mpeg4audioTrack.Config.Marshal()
-		if err != nil {
-			return err
-		}
-
-		err = c.WriteMessage(&message.MsgAudio{
-			ChunkStreamID:   message.MsgAudioChunkStreamID,
-			MessageStreamID: 0x1000000,
-			Codec:           message.CodecMPEG4Audio,
-			Rate:            flvio.SOUND_44Khz,
-			Depth:           flvio.SOUND_16BIT,
-			Channels:        flvio.SOUND_STEREO,
-			AACType:         message.MsgAudioAACTypeConfig,
-			Payload:         enc,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return tracks.Write(c.mrw, videoTrack, audioTrack)
 }

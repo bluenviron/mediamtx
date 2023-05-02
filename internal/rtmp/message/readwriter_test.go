@@ -31,7 +31,7 @@ func TestReadWriterAcknowledge(t *testing.T) {
 		Reader: &buf2,
 		Writer: &buf1,
 	}), true)
-	err := rw1.Write(&MsgAcknowledge{
+	err := rw1.Write(&Acknowledge{
 		Value: 7863534,
 	})
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func TestReadWriterPing(t *testing.T) {
 		Reader: &buf2,
 		Writer: &buf1,
 	}), true)
-	err := rw1.Write(&MsgUserControlPingRequest{
+	err := rw1.Write(&UserControlPingRequest{
 		ServerTime: 143424312,
 	})
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestReadWriterPing(t *testing.T) {
 
 	msg, err := rw1.Read()
 	require.NoError(t, err)
-	require.Equal(t, &MsgUserControlPingResponse{
+	require.Equal(t, &UserControlPingResponse{
 		ServerTime: 143424312,
 	}, msg)
 }

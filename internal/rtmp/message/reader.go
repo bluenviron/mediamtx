@@ -4,70 +4,109 @@ import (
 	"fmt"
 
 	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 func allocateMessage(raw *rawmessage.Message) (Message, error) {
-	switch raw.Type {
-	case chunk.MessageTypeSetChunkSize:
-		return &MsgSetChunkSize{}, nil
+	switch Type(raw.Type) {
+	case TypeSetChunkSize:
+		return &SetChunkSize{}, nil
 
-	case chunk.MessageTypeAcknowledge:
-		return &MsgAcknowledge{}, nil
+	case TypeAcknowledge:
+		return &Acknowledge{}, nil
 
-	case chunk.MessageTypeSetWindowAckSize:
-		return &MsgSetWindowAckSize{}, nil
+	case TypeSetWindowAckSize:
+		return &SetWindowAckSize{}, nil
 
-	case chunk.MessageTypeSetPeerBandwidth:
-		return &MsgSetPeerBandwidth{}, nil
+	case TypeSetPeerBandwidth:
+		return &SetPeerBandwidth{}, nil
 
-	case chunk.MessageTypeUserControl:
+	case TypeUserControl:
 		if len(raw.Body) < 2 {
-			return nil, fmt.Errorf("invalid body size")
+			return nil, fmt.Errorf("not enough bytes")
 		}
 
-		subType := uint16(raw.Body[0])<<8 | uint16(raw.Body[1])
-		switch subType {
+		userControlType := UserControlType(uint16(raw.Body[0])<<8 | uint16(raw.Body[1]))
+
+		switch userControlType {
 		case UserControlTypeStreamBegin:
-			return &MsgUserControlStreamBegin{}, nil
+			return &UserControlStreamBegin{}, nil
 
 		case UserControlTypeStreamEOF:
-			return &MsgUserControlStreamEOF{}, nil
+			return &UserControlStreamEOF{}, nil
 
 		case UserControlTypeStreamDry:
-			return &MsgUserControlStreamDry{}, nil
+			return &UserControlStreamDry{}, nil
 
 		case UserControlTypeSetBufferLength:
-			return &MsgUserControlSetBufferLength{}, nil
+			return &UserControlSetBufferLength{}, nil
 
 		case UserControlTypeStreamIsRecorded:
-			return &MsgUserControlStreamIsRecorded{}, nil
+			return &UserControlStreamIsRecorded{}, nil
 
 		case UserControlTypePingRequest:
-			return &MsgUserControlPingRequest{}, nil
+			return &UserControlPingRequest{}, nil
 
 		case UserControlTypePingResponse:
-			return &MsgUserControlPingResponse{}, nil
+			return &UserControlPingResponse{}, nil
 
 		default:
-			return nil, fmt.Errorf("invalid user control type")
+			return nil, fmt.Errorf("invalid user control type: %v", userControlType)
 		}
 
-	case chunk.MessageTypeCommandAMF0:
-		return &MsgCommandAMF0{}, nil
+	case TypeCommandAMF0:
+		return &CommandAMF0{}, nil
 
-	case chunk.MessageTypeDataAMF0:
-		return &MsgDataAMF0{}, nil
+	case TypeDataAMF0:
+		return &DataAMF0{}, nil
 
-	case chunk.MessageTypeAudio:
-		return &MsgAudio{}, nil
+	case TypeAudio:
+		return &Audio{}, nil
 
-	case chunk.MessageTypeVideo:
-		return &MsgVideo{}, nil
+	case TypeVideo:
+		if len(raw.Body) < 5 {
+			return nil, fmt.Errorf("not enough bytes")
+		}
+
+		if (raw.Body[0] & 0b10000000) != 0 {
+			var fourCC [4]byte
+			copy(fourCC[:], raw.Body[1:5])
+
+			switch fourCC {
+			case FourCCAV1, FourCCVP9, FourCCHEVC:
+			default:
+				return nil, fmt.Errorf("invalid fourCC: %v", fourCC)
+			}
+
+			extendedType := ExtendedType(raw.Body[0] & 0x0F)
+
+			switch extendedType {
+			case ExtendedTypeSequenceStart:
+				return &ExtendedSequenceStart{}, nil
+
+			case ExtendedTypeCodedFrames:
+				return &ExtendedCodedFrames{}, nil
+
+			case ExtendedTypeSequenceEnd:
+				return &ExtendedSequenceEnd{}, nil
+
+			case ExtendedTypeFramesX:
+				return &ExtendedFramesX{}, nil
+
+			case ExtendedTypeMetadata:
+				return &ExtendedMetadata{}, nil
+
+			case ExtendedTypeMPEG2TSSequenceStart:
+				return &ExtendedMPEG2TSSequenceStart{}, nil
+
+			default:
+				return nil, fmt.Errorf("invalid extended type: %v", extendedType)
+			}
+		}
+		return &Video{}, nil
 
 	default:
-		return nil, fmt.Errorf("unhandled message type (%v)", raw.Type)
+		return nil, fmt.Errorf("invalid message type: %v", raw.Type)
 	}
 }
 
@@ -101,10 +140,10 @@ func (r *Reader) Read() (Message, error) {
 	}
 
 	switch tmsg := msg.(type) {
-	case *MsgSetChunkSize:
+	case *SetChunkSize:
 		r.r.SetChunkSize(tmsg.Value)
 
-	case *MsgSetWindowAckSize:
+	case *SetWindowAckSize:
 		r.r.SetWindowAckSize(tmsg.Value)
 	}
 

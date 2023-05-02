@@ -35,10 +35,10 @@ func (w *Writer) Write(msg Message) error {
 	}
 
 	switch tmsg := msg.(type) {
-	case *MsgSetChunkSize:
+	case *SetChunkSize:
 		w.w.SetChunkSize(tmsg.Value)
 
-	case *MsgSetWindowAckSize:
+	case *SetWindowAckSize:
 		w.w.SetWindowAckSize(tmsg.Value)
 	}
 

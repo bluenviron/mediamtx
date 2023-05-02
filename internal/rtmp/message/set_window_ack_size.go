@@ -3,23 +3,22 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgSetWindowAckSize is a set window acknowledgement message.
-type MsgSetWindowAckSize struct {
+// SetWindowAckSize is a set window acknowledgement message.
+type SetWindowAckSize struct {
 	Value uint32
 }
 
 // Unmarshal implements Message.
-func (m *MsgSetWindowAckSize) Unmarshal(raw *rawmessage.Message) error {
+func (m *SetWindowAckSize) Unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
 
 	if len(raw.Body) != 4 {
-		return fmt.Errorf("unexpected body size")
+		return fmt.Errorf("invalid body size")
 	}
 
 	m.Value = uint32(raw.Body[0])<<24 | uint32(raw.Body[1])<<16 | uint32(raw.Body[2])<<8 | uint32(raw.Body[3])
@@ -28,7 +27,7 @@ func (m *MsgSetWindowAckSize) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m *MsgSetWindowAckSize) Marshal() (*rawmessage.Message, error) {
+func (m *SetWindowAckSize) Marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 4)
 
 	buf[0] = byte(m.Value >> 24)
@@ -38,7 +37,7 @@ func (m *MsgSetWindowAckSize) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeSetWindowAckSize,
+		Type:          uint8(TypeSetWindowAckSize),
 		Body:          buf,
 	}, nil
 }

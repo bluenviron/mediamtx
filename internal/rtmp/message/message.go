@@ -10,6 +10,66 @@ const (
 	ControlChunkStreamID = 2
 )
 
+// Type is a message type.
+type Type byte
+
+// message types.
+const (
+	TypeSetChunkSize     Type = 1
+	TypeAbortMessage     Type = 2
+	TypeAcknowledge      Type = 3
+	TypeSetWindowAckSize Type = 5
+	TypeSetPeerBandwidth Type = 6
+
+	TypeUserControl Type = 4
+
+	TypeCommandAMF3 Type = 17
+	TypeCommandAMF0 Type = 20
+
+	TypeDataAMF3 Type = 15
+	TypeDataAMF0 Type = 18
+
+	TypeAudio Type = 8
+	TypeVideo Type = 9
+)
+
+// UserControlType is a user control type.
+type UserControlType uint16
+
+// user control types.
+const (
+	UserControlTypeStreamBegin      UserControlType = 0
+	UserControlTypeStreamEOF        UserControlType = 1
+	UserControlTypeStreamDry        UserControlType = 2
+	UserControlTypeSetBufferLength  UserControlType = 3
+	UserControlTypeStreamIsRecorded UserControlType = 4
+	UserControlTypePingRequest      UserControlType = 6
+	UserControlTypePingResponse     UserControlType = 7
+)
+
+// ExtendedType is a message extended type.
+type ExtendedType uint8
+
+// message extended types.
+const (
+	ExtendedTypeSequenceStart        ExtendedType = 0
+	ExtendedTypeCodedFrames          ExtendedType = 1
+	ExtendedTypeSequenceEnd          ExtendedType = 2
+	ExtendedTypeFramesX              ExtendedType = 3
+	ExtendedTypeMetadata             ExtendedType = 4
+	ExtendedTypeMPEG2TSSequenceStart ExtendedType = 5
+)
+
+// FourCC is an identifier of a video codec.
+type FourCC [4]byte
+
+// video codec identifiers.
+var (
+	FourCCAV1  FourCC = [4]byte{'a', 'v', '0', '1'}
+	FourCCVP9  FourCC = [4]byte{'v', 'p', '0', '9'}
+	FourCCHEVC FourCC = [4]byte{'h', 'v', 'c', '1'}
+)
+
 // Message is a message.
 type Message interface {
 	Unmarshal(*rawmessage.Message) error

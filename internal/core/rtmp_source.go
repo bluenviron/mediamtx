@@ -165,7 +165,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				}
 
 				switch tmsg := msg.(type) {
-				case *message.MsgVideo:
+				case *message.Video:
 					if videoFormat == nil {
 						return fmt.Errorf("received an H264 packet, but track is not set up")
 					}
@@ -175,7 +175,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 						s.Log(logger.Warn, "%v", err)
 					}
 
-				case *message.MsgAudio:
+				case *message.Audio:
 					if audioFormat == nil {
 						return fmt.Errorf("received an AAC packet, but track is not set up")
 					}

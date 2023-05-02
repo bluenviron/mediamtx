@@ -15,7 +15,7 @@ func NewReadWriter(bc *bytecounter.ReadWriter, checkAcknowledge bool) *ReadWrite
 	w := NewWriter(bc.Writer, checkAcknowledge)
 
 	r := NewReader(bc.Reader, func(count uint32) error {
-		return w.Write(&MsgAcknowledge{
+		return w.Write(&Acknowledge{
 			Value: count,
 		})
 	})
@@ -34,11 +34,11 @@ func (rw *ReadWriter) Read() (Message, error) {
 	}
 
 	switch tmsg := msg.(type) {
-	case *MsgAcknowledge:
+	case *Acknowledge:
 		rw.w.SetAcknowledgeValue(tmsg.Value)
 
-	case *MsgUserControlPingRequest:
-		rw.w.Write(&MsgUserControlPingResponse{
+	case *UserControlPingRequest:
+		rw.w.Write(&UserControlPingResponse{
 			ServerTime: tmsg.ServerTime,
 		})
 	}

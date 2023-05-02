@@ -12,7 +12,7 @@ import (
 type writerChunkStream struct {
 	mw                  *Writer
 	lastMessageStreamID *uint32
-	lastType            *chunk.MessageType
+	lastType            *uint8
 	lastBodyLen         *uint32
 	lastTimestamp       *time.Duration
 	lastTimestampDelta  *time.Duration

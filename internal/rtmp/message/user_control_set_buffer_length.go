@@ -3,18 +3,17 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgUserControlSetBufferLength is a user control message.
-type MsgUserControlSetBufferLength struct {
+// UserControlSetBufferLength is a user control message.
+type UserControlSetBufferLength struct {
 	StreamID     uint32
 	BufferLength uint32
 }
 
 // Unmarshal implements Message.
-func (m *MsgUserControlSetBufferLength) Unmarshal(raw *rawmessage.Message) error {
+func (m *UserControlSetBufferLength) Unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -30,7 +29,7 @@ func (m *MsgUserControlSetBufferLength) Unmarshal(raw *rawmessage.Message) error
 }
 
 // Marshal implements Message.
-func (m MsgUserControlSetBufferLength) Marshal() (*rawmessage.Message, error) {
+func (m UserControlSetBufferLength) Marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 10)
 
 	buf[0] = byte(UserControlTypeSetBufferLength >> 8)
@@ -46,7 +45,7 @@ func (m MsgUserControlSetBufferLength) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeUserControl,
+		Type:          uint8(TypeUserControl),
 		Body:          buf,
 	}, nil
 }

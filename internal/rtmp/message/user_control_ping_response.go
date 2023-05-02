@@ -3,17 +3,16 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgUserControlPingResponse is a user control message.
-type MsgUserControlPingResponse struct {
+// UserControlPingResponse is a user control message.
+type UserControlPingResponse struct {
 	ServerTime uint32
 }
 
 // Unmarshal implements Message.
-func (m *MsgUserControlPingResponse) Unmarshal(raw *rawmessage.Message) error {
+func (m *UserControlPingResponse) Unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -28,7 +27,7 @@ func (m *MsgUserControlPingResponse) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m MsgUserControlPingResponse) Marshal() (*rawmessage.Message, error) {
+func (m UserControlPingResponse) Marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 6)
 
 	buf[0] = byte(UserControlTypePingResponse >> 8)
@@ -40,7 +39,7 @@ func (m MsgUserControlPingResponse) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeUserControl,
+		Type:          uint8(TypeUserControl),
 		Body:          buf,
 	}, nil
 }

@@ -50,7 +50,7 @@ func TestWriterAcknowledge(t *testing.T) {
 			err := w.Write(&Message{
 				ChunkStreamID:   27,
 				Timestamp:       18576 * time.Millisecond,
-				Type:            chunk.MessageTypeSetPeerBandwidth,
+				Type:            6,
 				MessageStreamID: 3123,
 				Body:            bytes.Repeat([]byte{0x03}, 200),
 			})
@@ -59,7 +59,7 @@ func TestWriterAcknowledge(t *testing.T) {
 			err = w.Write(&Message{
 				ChunkStreamID:   27,
 				Timestamp:       18576 * time.Millisecond,
-				Type:            chunk.MessageTypeSetPeerBandwidth,
+				Type:            6,
 				MessageStreamID: 3123,
 				Body:            bytes.Repeat([]byte{0x03}, 200),
 			})

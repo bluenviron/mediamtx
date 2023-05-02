@@ -3,24 +3,23 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgSetPeerBandwidth is a set peer bandwidth message.
-type MsgSetPeerBandwidth struct {
+// SetPeerBandwidth is a set peer bandwidth message.
+type SetPeerBandwidth struct {
 	Value uint32
 	Type  byte
 }
 
 // Unmarshal implements Message.
-func (m *MsgSetPeerBandwidth) Unmarshal(raw *rawmessage.Message) error {
+func (m *SetPeerBandwidth) Unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
 
 	if len(raw.Body) != 5 {
-		return fmt.Errorf("unexpected body size")
+		return fmt.Errorf("invalid body size")
 	}
 
 	m.Value = uint32(raw.Body[0])<<24 | uint32(raw.Body[1])<<16 | uint32(raw.Body[2])<<8 | uint32(raw.Body[3])
@@ -30,7 +29,7 @@ func (m *MsgSetPeerBandwidth) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m *MsgSetPeerBandwidth) Marshal() (*rawmessage.Message, error) {
+func (m *SetPeerBandwidth) Marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 5)
 
 	buf[0] = byte(m.Value >> 24)
@@ -41,7 +40,7 @@ func (m *MsgSetPeerBandwidth) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeSetPeerBandwidth,
+		Type:          uint8(TypeSetPeerBandwidth),
 		Body:          buf,
 	}, nil
 }

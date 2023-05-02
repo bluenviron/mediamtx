@@ -18,7 +18,7 @@ var readWriterCases = []struct {
 }{
 	{
 		"acknowledge",
-		&MsgAcknowledge{
+		&Acknowledge{
 			Value: 45953968,
 		},
 		[]byte{
@@ -28,7 +28,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"audio mpeg2",
-		&MsgAudio{
+		&Audio{
 			ChunkStreamID:   7,
 			DTS:             6013806 * time.Millisecond,
 			MessageStreamID: 4534543,
@@ -45,7 +45,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"audio mpeg4",
-		&MsgAudio{
+		&Audio{
 			ChunkStreamID:   7,
 			DTS:             6013806 * time.Millisecond,
 			MessageStreamID: 4534543,
@@ -53,7 +53,7 @@ var readWriterCases = []struct {
 			Rate:            flvio.SOUND_44Khz,
 			Depth:           flvio.SOUND_16BIT,
 			Channels:        flvio.SOUND_STEREO,
-			AACType:         MsgAudioAACTypeAU,
+			AACType:         AudioAACTypeAU,
 			Payload:         []byte{0x5A, 0xC0, 0x77, 0x40},
 		},
 		[]byte{
@@ -64,7 +64,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"command amf0",
-		&MsgCommandAMF0{
+		&CommandAMF0{
 			ChunkStreamID:   3,
 			MessageStreamID: 345243,
 			Name:            "i8yythrergre",
@@ -90,7 +90,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"data amf0",
-		&MsgDataAMF0{
+		&DataAMF0{
 			ChunkStreamID:   3,
 			MessageStreamID: 345243,
 			Payload: []interface{}{
@@ -108,7 +108,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"set chunk size",
-		&MsgSetChunkSize{
+		&SetChunkSize{
 			Value: 10000,
 		},
 		[]byte{
@@ -118,7 +118,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"set peer bandwidth",
-		&MsgSetChunkSize{
+		&SetChunkSize{
 			Value: 10000,
 		},
 		[]byte{
@@ -128,7 +128,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"set window ack size",
-		&MsgSetChunkSize{
+		&SetChunkSize{
 			Value: 10000,
 		},
 		[]byte{
@@ -138,7 +138,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control ping request",
-		&MsgUserControlPingRequest{
+		&UserControlPingRequest{
 			ServerTime: 569834435,
 		},
 		[]byte{
@@ -149,7 +149,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control ping response",
-		&MsgUserControlPingResponse{
+		&UserControlPingResponse{
 			ServerTime: 569834435,
 		},
 		[]byte{
@@ -160,7 +160,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control set buffer length",
-		&MsgUserControlSetBufferLength{
+		&UserControlSetBufferLength{
 			StreamID:     35534,
 			BufferLength: 235345,
 		},
@@ -172,7 +172,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control stream begin",
-		&MsgUserControlStreamBegin{
+		&UserControlStreamBegin{
 			StreamID: 35534,
 		},
 		[]byte{
@@ -183,7 +183,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control stream dry",
-		&MsgUserControlStreamDry{
+		&UserControlStreamDry{
 			StreamID: 35534,
 		},
 		[]byte{
@@ -194,7 +194,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control stream eof",
-		&MsgUserControlStreamEOF{
+		&UserControlStreamEOF{
 			StreamID: 35534,
 		},
 		[]byte{
@@ -205,7 +205,7 @@ var readWriterCases = []struct {
 	},
 	{
 		"user control stream is recorded",
-		&MsgUserControlStreamIsRecorded{
+		&UserControlStreamIsRecorded{
 			StreamID: 35534,
 		},
 		[]byte{
@@ -216,20 +216,51 @@ var readWriterCases = []struct {
 	},
 	{
 		"video",
-		&MsgVideo{
+		&Video{
 			ChunkStreamID:   6,
 			DTS:             2543534 * time.Millisecond,
 			MessageStreamID: 0x1000000,
 			Codec:           CodecH264,
 			IsKeyFrame:      true,
-			Type:            MsgVideoTypeConfig,
+			Type:            VideoTypeConfig,
 			PTSDelta:        10 * time.Millisecond,
 			Payload:         []byte{0x01, 0x02, 0x03},
 		},
 		[]byte{
-			0x6, 0x26, 0xcf, 0xae, 0x0, 0x0, 0x8, 0x9,
-			0x1, 0x0, 0x0, 0x0, 0x17, 0x0, 0x0, 0x0,
-			0xa, 0x1, 0x2, 0x3,
+			0x06, 0x26, 0xcf, 0xae, 0x00, 0x00, 0x08, 0x09,
+			0x01, 0x00, 0x00, 0x00, 0x17, 0x00, 0x00, 0x00,
+			0x0a, 0x01, 0x02, 0x03,
+		},
+	},
+	{
+		"extended coded frames",
+		&ExtendedCodedFrames{
+			ChunkStreamID:   4,
+			DTS:             15100 * time.Millisecond,
+			MessageStreamID: 0x1000000,
+			FourCC:          FourCCHEVC,
+			PTSDelta:        30 * time.Millisecond,
+			Payload:         []byte{0x01, 0x02, 0x03},
+		},
+		[]byte{
+			0x04, 0x00, 0x3a, 0xfc, 0x00, 0x00, 0x0b, 0x09,
+			0x01, 0x00, 0x00, 0x00, 0x81, 0x68, 0x76, 0x63,
+			0x31, 0x00, 0x00, 0x1e, 0x01, 0x02, 0x03,
+		},
+	},
+	{
+		"extended frames x",
+		&ExtendedFramesX{
+			ChunkStreamID:   4,
+			DTS:             15100 * time.Millisecond,
+			MessageStreamID: 0x1000000,
+			FourCC:          FourCCHEVC,
+			Payload:         []byte{0x01, 0x02, 0x03},
+		},
+		[]byte{
+			0x04, 0x00, 0x3a, 0xfc, 0x00, 0x00, 0x08, 0x09,
+			0x01, 0x00, 0x00, 0x00, 0x83, 0x68, 0x76, 0x63,
+			0x31, 0x01, 0x02, 0x03,
 		},
 	},
 }

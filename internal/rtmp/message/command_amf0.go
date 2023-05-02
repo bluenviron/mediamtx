@@ -5,12 +5,11 @@ import (
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgCommandAMF0 is a AMF0 command message.
-type MsgCommandAMF0 struct {
+// CommandAMF0 is a AMF0 command message.
+type CommandAMF0 struct {
 	ChunkStreamID   byte
 	MessageStreamID uint32
 	Name            string
@@ -19,7 +18,7 @@ type MsgCommandAMF0 struct {
 }
 
 // Unmarshal implements Message.
-func (m *MsgCommandAMF0) Unmarshal(raw *rawmessage.Message) error {
+func (m *CommandAMF0) Unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.MessageStreamID = raw.MessageStreamID
 
@@ -50,10 +49,10 @@ func (m *MsgCommandAMF0) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m MsgCommandAMF0) Marshal() (*rawmessage.Message, error) {
+func (m CommandAMF0) Marshal() (*rawmessage.Message, error) {
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,
-		Type:            chunk.MessageTypeCommandAMF0,
+		Type:            uint8(TypeCommandAMF0),
 		MessageStreamID: m.MessageStreamID,
 		Body: flvio.FillAMF0ValsMalloc(append([]interface{}{
 			m.Name,

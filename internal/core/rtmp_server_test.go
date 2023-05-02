@@ -145,12 +145,12 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			require.Equal(t, videoTrack, videoTrack1)
 			require.Equal(t, audioTrack, audioTrack2)
 
-			err = conn1.WriteMessage(&message.MsgVideo{
-				ChunkStreamID:   message.MsgVideoChunkStreamID,
+			err = conn1.WriteMessage(&message.Video{
+				ChunkStreamID:   message.VideoChunkStreamID,
 				MessageStreamID: 0x1000000,
 				Codec:           message.CodecH264,
 				IsKeyFrame:      true,
-				Type:            message.MsgVideoTypeAU,
+				Type:            message.VideoTypeAU,
 				Payload: []byte{
 					0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 1
 					0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 2
@@ -160,12 +160,12 @@ func TestRTMPServerPublishRead(t *testing.T) {
 
 			msg1, err := conn2.ReadMessage()
 			require.NoError(t, err)
-			require.Equal(t, &message.MsgVideo{
-				ChunkStreamID:   message.MsgVideoChunkStreamID,
+			require.Equal(t, &message.Video{
+				ChunkStreamID:   message.VideoChunkStreamID,
 				MessageStreamID: 0x1000000,
 				Codec:           message.CodecH264,
 				IsKeyFrame:      true,
-				Type:            message.MsgVideoTypeAU,
+				Type:            message.VideoTypeAU,
 				Payload: []byte{
 					0x00, 0x00, 0x00, 0x19, // SPS
 					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
