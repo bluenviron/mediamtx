@@ -10,7 +10,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
-	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
 	"github.com/aler9/mediamtx/internal/rtmp"
@@ -149,8 +148,9 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			err = conn1.WriteMessage(&message.MsgVideo{
 				ChunkStreamID:   message.MsgVideoChunkStreamID,
 				MessageStreamID: 0x1000000,
+				Codec:           message.CodecH264,
 				IsKeyFrame:      true,
-				H264Type:        flvio.AVC_NALU,
+				Type:            message.MsgVideoTypeAU,
 				Payload: []byte{
 					0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 1
 					0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 2
@@ -163,8 +163,9 @@ func TestRTMPServerPublishRead(t *testing.T) {
 			require.Equal(t, &message.MsgVideo{
 				ChunkStreamID:   message.MsgVideoChunkStreamID,
 				MessageStreamID: 0x1000000,
+				Codec:           message.CodecH264,
 				IsKeyFrame:      true,
-				H264Type:        flvio.AVC_NALU,
+				Type:            message.MsgVideoTypeAU,
 				Payload: []byte{
 					0x00, 0x00, 0x00, 0x19, // SPS
 					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,

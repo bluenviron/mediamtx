@@ -15,13 +15,29 @@ const (
 	MsgVideoChunkStreamID = 6
 )
 
+// supported video codecs
+const (
+	CodecH264 = 7
+)
+
+// MsgVideoType is the type of a video message.
+type MsgVideoType uint8
+
+// MsgVideoType values.
+const (
+	MsgVideoTypeConfig MsgVideoType = 0
+	MsgVideoTypeAU     MsgVideoType = 1
+	MsgVideoTypeEOS    MsgVideoType = 2
+)
+
 // MsgVideo is a video message.
 type MsgVideo struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
+	Codec           uint8
 	IsKeyFrame      bool
-	H264Type        uint8
+	Type            MsgVideoType
 	PTSDelta        time.Duration
 	Payload         []byte
 }
@@ -38,12 +54,19 @@ func (m *MsgVideo) Unmarshal(raw *rawmessage.Message) error {
 
 	m.IsKeyFrame = (raw.Body[0] >> 4) == flvio.FRAME_KEY
 
-	codec := raw.Body[0] & 0x0F
-	if codec != flvio.VIDEO_H264 {
-		return fmt.Errorf("unsupported video codec: %d", codec)
+	m.Codec = raw.Body[0] & 0x0F
+	switch m.Codec {
+	case CodecH264:
+	default:
+		return fmt.Errorf("unsupported video codec: %d", m.Codec)
 	}
 
-	m.H264Type = raw.Body[1]
+	m.Type = MsgVideoType(raw.Body[1])
+	switch m.Type {
+	case MsgVideoTypeConfig, MsgVideoTypeAU, MsgVideoTypeEOS:
+	default:
+		return fmt.Errorf("unsupported video message type: %d", m.Type)
+	}
 
 	tmp := uint32(raw.Body[2])<<16 | uint32(raw.Body[3])<<8 | uint32(raw.Body[4])
 	m.PTSDelta = time.Duration(tmp) * time.Millisecond
@@ -62,8 +85,8 @@ func (m MsgVideo) Marshal() (*rawmessage.Message, error) {
 	} else {
 		body[0] = flvio.FRAME_INTER << 4
 	}
-	body[0] |= flvio.VIDEO_H264
-	body[1] = m.H264Type
+	body[0] |= m.Codec
+	body[1] = uint8(m.Type)
 
 	tmp := uint32(m.PTSDelta / time.Millisecond)
 	body[2] = uint8(tmp >> 16)

@@ -793,7 +793,7 @@ func TestReadTracks(t *testing.T) {
 							},
 							{
 								K: "videocodecid",
-								V: float64(codecH264),
+								V: float64(message.CodecH264),
 							},
 							{
 								K: "audiodatarate",
@@ -816,8 +816,9 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
 					IsKeyFrame:      true,
-					H264Type:        flvio.AVC_SEQHDR,
+					Type:            message.MsgVideoTypeConfig,
 					Payload:         buf,
 				})
 				require.NoError(t, err)
@@ -836,7 +837,7 @@ func TestReadTracks(t *testing.T) {
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_SEQHDR,
+					AACType:         message.MsgAudioAACTypeConfig,
 					Payload:         enc,
 				})
 				require.NoError(t, err)
@@ -855,7 +856,7 @@ func TestReadTracks(t *testing.T) {
 							},
 							{
 								K: "videocodecid",
-								V: float64(codecH264),
+								V: float64(message.CodecH264),
 							},
 							{
 								K: "audiodatarate",
@@ -878,8 +879,9 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
 					IsKeyFrame:      true,
-					H264Type:        flvio.AVC_SEQHDR,
+					Type:            message.MsgVideoTypeConfig,
 					Payload:         buf,
 				})
 				require.NoError(t, err)
@@ -917,8 +919,9 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
 					IsKeyFrame:      true,
-					H264Type:        flvio.AVC_SEQHDR,
+					Type:            message.MsgVideoTypeConfig,
 					Payload:         buf,
 				})
 				require.NoError(t, err)
@@ -937,7 +940,7 @@ func TestReadTracks(t *testing.T) {
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_SEQHDR,
+					AACType:         message.MsgAudioAACTypeConfig,
 					Payload:         enc,
 				})
 				require.NoError(t, err)
@@ -951,8 +954,9 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
 					IsKeyFrame:      true,
-					H264Type:        flvio.AVC_SEQHDR,
+					Type:            message.MsgVideoTypeConfig,
 					Payload:         buf,
 				})
 				require.NoError(t, err)
@@ -971,7 +975,7 @@ func TestReadTracks(t *testing.T) {
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_SEQHDR,
+					AACType:         message.MsgAudioAACTypeConfig,
 					Payload:         enc,
 				})
 				require.NoError(t, err)
@@ -991,7 +995,7 @@ func TestReadTracks(t *testing.T) {
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_SEQHDR,
+					AACType:         message.MsgAudioAACTypeConfig,
 					Payload:         enc,
 				})
 				require.NoError(t, err)
@@ -1003,7 +1007,7 @@ func TestReadTracks(t *testing.T) {
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_SEQHDR,
+					AACType:         message.MsgAudioAACTypeConfig,
 					Payload:         enc,
 					DTS:             1 * time.Second,
 				})
@@ -1023,7 +1027,7 @@ func TestReadTracks(t *testing.T) {
 							},
 							{
 								K: "videocodecid",
-								V: float64(codecH264),
+								V: float64(message.CodecH264),
 							},
 							{
 								K: "audiodatarate",
@@ -1064,8 +1068,9 @@ func TestReadTracks(t *testing.T) {
 				err = mrw.Write(&message.MsgVideo{
 					ChunkStreamID:   message.MsgVideoChunkStreamID,
 					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
 					IsKeyFrame:      true,
-					H264Type:        1,
+					Type:            message.MsgVideoTypeAU,
 					Payload:         avcc,
 				})
 				require.NoError(t, err)
@@ -1084,7 +1089,7 @@ func TestReadTracks(t *testing.T) {
 					Rate:            flvio.SOUND_44Khz,
 					Depth:           flvio.SOUND_16BIT,
 					Channels:        flvio.SOUND_STEREO,
-					AACType:         flvio.AAC_SEQHDR,
+					AACType:         message.MsgAudioAACTypeConfig,
 					Payload:         enc,
 				})
 				require.NoError(t, err)
@@ -1364,8 +1369,9 @@ func TestWriteTracks(t *testing.T) {
 	require.Equal(t, &message.MsgVideo{
 		ChunkStreamID:   message.MsgVideoChunkStreamID,
 		MessageStreamID: 0x1000000,
+		Codec:           message.CodecH264,
 		IsKeyFrame:      true,
-		H264Type:        flvio.AVC_SEQHDR,
+		Type:            message.MsgVideoTypeConfig,
 		Payload: []byte{
 			0x1, 0x64, 0x0,
 			0xc, 0xff, 0xe1, 0x0, 0x15, 0x67, 0x64, 0x0,
@@ -1385,7 +1391,7 @@ func TestWriteTracks(t *testing.T) {
 		Rate:            flvio.SOUND_44Khz,
 		Depth:           flvio.SOUND_16BIT,
 		Channels:        flvio.SOUND_STEREO,
-		AACType:         flvio.AAC_SEQHDR,
+		AACType:         message.MsgAudioAACTypeConfig,
 		Payload:         []byte{0x12, 0x10},
 	}, msg)
 }

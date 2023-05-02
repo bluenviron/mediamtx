@@ -19,6 +19,15 @@ const (
 	CodecMPEG4Audio = 10
 )
 
+// MsgAudioAACType is the AAC type of a MsgAudio.
+type MsgAudioAACType uint8
+
+// MsgAudioAACType values.
+const (
+	MsgAudioAACTypeConfig MsgAudioAACType = 0
+	MsgAudioAACTypeAU     MsgAudioAACType = 1
+)
+
 // MsgAudio is an audio message.
 type MsgAudio struct {
 	ChunkStreamID   byte
@@ -28,7 +37,7 @@ type MsgAudio struct {
 	Rate            uint8
 	Depth           uint8
 	Channels        uint8
-	AACType         uint8 // only for CodecMPEG4Audio
+	AACType         MsgAudioAACType // only for CodecMPEG4Audio
 	Payload         []byte
 }
 
@@ -56,7 +65,13 @@ func (m *MsgAudio) Unmarshal(raw *rawmessage.Message) error {
 	if m.Codec == CodecMPEG2Audio {
 		m.Payload = raw.Body[1:]
 	} else {
-		m.AACType = raw.Body[1]
+		m.AACType = MsgAudioAACType(raw.Body[1])
+		switch m.AACType {
+		case MsgAudioAACTypeConfig, MsgAudioAACTypeAU:
+		default:
+			return fmt.Errorf("unsupported audio message type: %d", m.AACType)
+		}
+
 		m.Payload = raw.Body[2:]
 	}
 
@@ -78,7 +93,7 @@ func (m MsgAudio) Marshal() (*rawmessage.Message, error) {
 	if m.Codec == CodecMPEG2Audio {
 		copy(body[1:], m.Payload)
 	} else {
-		body[1] = m.AACType
+		body[1] = uint8(m.AACType)
 		copy(body[2:], m.Payload)
 	}
 

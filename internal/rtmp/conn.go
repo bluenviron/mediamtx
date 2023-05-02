@@ -21,10 +21,6 @@ import (
 	"github.com/aler9/mediamtx/internal/rtmp/message"
 )
 
-const (
-	codecH264 = 7
-)
-
 func resultIsOK1(res *message.MsgCommandAMF0) bool {
 	if len(res.Arguments) < 2 {
 		return false
@@ -641,7 +637,7 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, fo
 			case 0:
 				return false, nil
 
-			case codecH264:
+			case message.CodecH264:
 				return true, nil
 			}
 
@@ -651,7 +647,7 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, fo
 			}
 		}
 
-		return false, fmt.Errorf("unsupported video codec %v", v)
+		return false, fmt.Errorf("unsupported video codec: %v", v)
 	}()
 	if err != nil {
 		return nil, nil, err
@@ -694,6 +690,11 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, fo
 	}
 
 	for {
+		if (!hasVideo || videoTrack != nil) &&
+			(!hasAudio || audioTrack != nil) {
+			return videoTrack, audioTrack, nil
+		}
+
 		msg, err := c.ReadMessage()
 		if err != nil {
 			return nil, nil, err
@@ -706,12 +707,12 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, fo
 			}
 
 			if videoTrack == nil {
-				if tmsg.H264Type == flvio.AVC_SEQHDR {
+				if tmsg.Type == message.MsgVideoTypeConfig {
 					videoTrack, err = trackFromH264DecoderConfig(tmsg.Payload)
 					if err != nil {
 						return nil, nil, err
 					}
-				} else if tmsg.H264Type == 1 && tmsg.IsKeyFrame {
+				} else if tmsg.Type == message.MsgVideoTypeAU && tmsg.IsKeyFrame {
 					nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
 					if err != nil {
 						return nil, nil, err
@@ -753,18 +754,13 @@ func (c *Conn) readTracksFromMetadata(payload []interface{}) (formats.Format, fo
 			}
 
 			if audioTrack == nil {
-				if tmsg.Codec == message.CodecMPEG4Audio && tmsg.AACType == flvio.AVC_SEQHDR {
+				if tmsg.Codec == message.CodecMPEG4Audio && tmsg.AACType == message.MsgAudioAACTypeConfig {
 					audioTrack, err = trackFromAACDecoderConfig(tmsg.Payload)
 					if err != nil {
 						return nil, nil, err
 					}
 				}
 			}
-		}
-
-		if (!hasVideo || videoTrack != nil) &&
-			(!hasAudio || audioTrack != nil) {
-			return videoTrack, audioTrack, nil
 		}
 	}
 }
@@ -784,7 +780,7 @@ outer:
 				startTime = &v
 			}
 
-			if tmsg.H264Type == flvio.AVC_SEQHDR {
+			if tmsg.Type == message.MsgVideoTypeConfig {
 				if videoTrack == nil {
 					var err error
 					videoTrack, err = trackFromH264DecoderConfig(tmsg.Payload)
@@ -809,7 +805,7 @@ outer:
 				startTime = &v
 			}
 
-			if tmsg.AACType == flvio.AVC_SEQHDR {
+			if tmsg.AACType == message.MsgAudioAACTypeConfig {
 				if audioTrack == nil {
 					var err error
 					audioTrack, err = trackFromAACDecoderConfig(tmsg.Payload)
@@ -921,7 +917,7 @@ func (c *Conn) WriteTracks(videoTrack formats.Format, audioTrack formats.Format)
 					V: func() float64 {
 						switch videoTrack.(type) {
 						case *formats.H264:
-							return codecH264
+							return message.CodecH264
 
 						default:
 							return 0
@@ -954,12 +950,10 @@ func (c *Conn) WriteTracks(videoTrack formats.Format, audioTrack formats.Format)
 		return err
 	}
 
-	if h264Track, ok := videoTrack.(*formats.H264); ok {
-		sps, pps := h264Track.SafeParams()
-
+	if videoTrack, ok := videoTrack.(*formats.H264); ok {
 		// write decoder config only if SPS and PPS are available.
 		// if they're not available yet, they're sent later.
-		if sps != nil && pps != nil {
+		if sps, pps := videoTrack.SafeParams(); sps != nil && pps != nil {
 			buf, _ := h264conf.Conf{
 				SPS: sps,
 				PPS: pps,
@@ -968,8 +962,9 @@ func (c *Conn) WriteTracks(videoTrack formats.Format, audioTrack formats.Format)
 			err = c.WriteMessage(&message.MsgVideo{
 				ChunkStreamID:   message.MsgVideoChunkStreamID,
 				MessageStreamID: 0x1000000,
+				Codec:           message.CodecH264,
 				IsKeyFrame:      true,
-				H264Type:        flvio.AVC_SEQHDR,
+				Type:            message.MsgVideoTypeConfig,
 				Payload:         buf,
 			})
 			if err != nil {
@@ -991,7 +986,7 @@ func (c *Conn) WriteTracks(videoTrack formats.Format, audioTrack formats.Format)
 			Rate:            flvio.SOUND_44Khz,
 			Depth:           flvio.SOUND_16BIT,
 			Channels:        flvio.SOUND_STEREO,
-			AACType:         flvio.AAC_SEQHDR,
+			AACType:         message.MsgAudioAACTypeConfig,
 			Payload:         enc,
 		})
 		if err != nil {
