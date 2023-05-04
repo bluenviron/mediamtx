@@ -180,7 +180,7 @@ func (t *formatProcessorH264) checkKeyFrameInterval(isKeyFrame bool) {
 		now := time.Now()
 		if now.Sub(t.lastKeyFrameReceived) >= maxKeyFrameInterval {
 			t.lastKeyFrameReceived = now
-			t.log.Log(logger.Warn, "no key frames received in %v, stream can't be decoded")
+			t.log.Log(logger.Warn, "no H264 key frames received in %v, stream can't be decoded")
 		}
 	}
 }

@@ -9,6 +9,7 @@ import (
 
 	gomp4 "github.com/abema/go-mp4"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
@@ -203,7 +204,6 @@ func readTracksFromMetadata(r *message.ReadWriter, payload []interface{}) (forma
 			if videoTrack == nil {
 				switch tmsg.FourCC {
 				case message.FourCCHEVC:
-					// HvcC is formally equal to HEVCDecoderConfigurationRecord
 					var hvcc gomp4.HvcC
 					_, err := gomp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &hvcc, gomp4.Context{})
 					if err != nil {
@@ -225,7 +225,19 @@ func readTracksFromMetadata(r *message.ReadWriter, payload []interface{}) (forma
 					}
 
 				case message.FourCCAV1:
-					return nil, nil, fmt.Errorf("AV1 is not supported yet")
+					var av1c Av1C
+					_, err := gomp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &av1c, gomp4.Context{})
+					if err != nil {
+						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
+					}
+
+					// parse sequence header and metadata contained in ConfigOBUs, but do not use them
+					_, err = av1.BitstreamUnmarshal(av1c.ConfigOBUs, false)
+					if err != nil {
+						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
+					}
+
+					videoTrack = &formats.AV1{}
 
 				default: // VP9
 					return nil, nil, fmt.Errorf("VP9 is not supported yet")

@@ -113,8 +113,9 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				return err
 			}
 
-			if _, ok := videoFormat.(*formats.H265); ok {
-				return fmt.Errorf("proxying H265 streams with RTMP is not supported")
+			switch videoFormat.(type) {
+			case *formats.H265, *formats.AV1:
+				return fmt.Errorf("proxying H265 or AV1 tracks with RTMP is not supported")
 			}
 
 			var medias media.Medias

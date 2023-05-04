@@ -118,7 +118,7 @@ func TestRead(t *testing.T) {
 			},
 		},
 		{
-			"obs studio h265",
+			"obs studio pre 29.1 h265",
 			&formats.H265{
 				PayloadTyp: 96,
 				VPS: []byte{
@@ -393,7 +393,7 @@ func TestRead(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-			case "obs studio h265":
+			case "obs studio pre 29.1 h265":
 				err := mrw.Write(&message.DataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,

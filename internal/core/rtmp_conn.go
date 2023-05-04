@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
+	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg2audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
@@ -120,6 +121,24 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
+				})
+			}
+
+			return nil
+		}
+
+	case *formats.AV1:
+		return func(msg interface{}) error {
+			if tmsg, ok := msg.(*message.ExtendedCodedFrames); ok {
+				obus, err := av1.BitstreamUnmarshal(tmsg.Payload, true)
+				if err != nil {
+					return fmt.Errorf("unable to decode bitstream: %v", err)
+				}
+
+				stream.writeUnit(medi, format, &formatprocessor.UnitAV1{
+					PTS:  tmsg.DTS,
+					OBUs: obus,
+					NTP:  time.Now(),
 				})
 			}
 
