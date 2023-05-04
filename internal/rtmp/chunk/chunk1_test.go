@@ -15,7 +15,7 @@ var chunk1enc = []byte{
 var chunk1dec = Chunk1{
 	ChunkStreamID:  25,
 	TimestampDelta: 11641233,
-	Type:           MessageTypeCommandAMF0,
+	Type:           20,
 	BodyLen:        20,
 	Body:           []byte{0x01, 0x02, 0x03, 0x04},
 }

@@ -46,6 +46,7 @@ func newPeerConnection(configuration webrtc.Configuration,
 	options ...func(*webrtc.API),
 ) (*webrtc.PeerConnection, error) {
 	m := &webrtc.MediaEngine{}
+
 	if err := m.RegisterDefaultCodecs(); err != nil {
 		return nil, err
 	}
@@ -328,7 +329,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 
 	if tracks == nil {
 		return fmt.Errorf(
-			"the stream doesn't contain any supported codec (which are currently VP9, VP8, H264, Opus, G722, G711)")
+			"the stream doesn't contain any supported codec, which are currently H264, VP8, VP9, G711, G722, Opus")
 	}
 
 	err = c.wsconn.WriteJSON(c.genICEServers())

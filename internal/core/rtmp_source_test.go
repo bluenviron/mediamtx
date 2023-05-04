@@ -86,12 +86,12 @@ func TestRTMPSource(t *testing.T) {
 
 				<-connected
 
-				err = conn.WriteMessage(&message.MsgVideo{
-					ChunkStreamID:   message.MsgVideoChunkStreamID,
+				err = conn.WriteMessage(&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecH264,
 					IsKeyFrame:      true,
-					Type:            message.MsgVideoTypeAU,
+					Type:            message.VideoTypeAU,
 					Payload:         []byte{0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04},
 				})
 				require.NoError(t, err)

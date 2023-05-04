@@ -15,7 +15,7 @@ var errMoreChunksNeeded = errors.New("more chunks are needed")
 type readerChunkStream struct {
 	mr                 *Reader
 	curTimestamp       *uint32
-	curType            *chunk.MessageType
+	curType            *uint8
 	curMessageStreamID *uint32
 	curBodyLen         *uint32
 	curBody            []byte

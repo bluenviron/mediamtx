@@ -3,17 +3,16 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgUserControlStreamIsRecorded is a user control message.
-type MsgUserControlStreamIsRecorded struct {
+// UserControlStreamDry is a user control message.
+type UserControlStreamDry struct {
 	StreamID uint32
 }
 
 // Unmarshal implements Message.
-func (m *MsgUserControlStreamIsRecorded) Unmarshal(raw *rawmessage.Message) error {
+func (m *UserControlStreamDry) Unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -28,11 +27,11 @@ func (m *MsgUserControlStreamIsRecorded) Unmarshal(raw *rawmessage.Message) erro
 }
 
 // Marshal implements Message.
-func (m MsgUserControlStreamIsRecorded) Marshal() (*rawmessage.Message, error) {
+func (m UserControlStreamDry) Marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 6)
 
-	buf[0] = byte(UserControlTypeStreamIsRecorded >> 8)
-	buf[1] = byte(UserControlTypeStreamIsRecorded)
+	buf[0] = byte(UserControlTypeStreamDry >> 8)
+	buf[1] = byte(UserControlTypeStreamDry)
 	buf[2] = byte(m.StreamID >> 24)
 	buf[3] = byte(m.StreamID >> 16)
 	buf[4] = byte(m.StreamID >> 8)
@@ -40,7 +39,7 @@ func (m MsgUserControlStreamIsRecorded) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeUserControl,
+		Type:          uint8(TypeUserControl),
 		Body:          buf,
 	}, nil
 }

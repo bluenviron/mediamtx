@@ -13,7 +13,7 @@ import (
 type Chunk1 struct {
 	ChunkStreamID  byte
 	TimestampDelta uint32
-	Type           MessageType
+	Type           uint8
 	BodyLen        uint32
 	Body           []byte
 }
@@ -29,7 +29,7 @@ func (c *Chunk1) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	c.ChunkStreamID = header[0] & 0x3F
 	c.TimestampDelta = uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3])
 	c.BodyLen = uint32(header[4])<<16 | uint32(header[5])<<8 | uint32(header[6])
-	c.Type = MessageType(header[7])
+	c.Type = header[7]
 
 	chunkBodyLen := (c.BodyLen)
 	if chunkBodyLen > chunkMaxBodyLen {
@@ -51,7 +51,7 @@ func (c Chunk1) Marshal() ([]byte, error) {
 	buf[4] = byte(c.BodyLen >> 16)
 	buf[5] = byte(c.BodyLen >> 8)
 	buf[6] = byte(c.BodyLen)
-	buf[7] = byte(c.Type)
+	buf[7] = c.Type
 	copy(buf[8:], c.Body)
 	return buf, nil
 }

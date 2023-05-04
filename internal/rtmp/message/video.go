@@ -6,13 +6,12 @@ import (
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 const (
-	// MsgVideoChunkStreamID is the chunk stream ID that is usually used to send MsgVideo{}
-	MsgVideoChunkStreamID = 6
+	// VideoChunkStreamID is the chunk stream ID that is usually used to send Video{}
+	VideoChunkStreamID = 6
 )
 
 // supported video codecs
@@ -20,30 +19,30 @@ const (
 	CodecH264 = 7
 )
 
-// MsgVideoType is the type of a video message.
-type MsgVideoType uint8
+// VideoType is the type of a video message.
+type VideoType uint8
 
-// MsgVideoType values.
+// VideoType values.
 const (
-	MsgVideoTypeConfig MsgVideoType = 0
-	MsgVideoTypeAU     MsgVideoType = 1
-	MsgVideoTypeEOS    MsgVideoType = 2
+	VideoTypeConfig VideoType = 0
+	VideoTypeAU     VideoType = 1
+	VideoTypeEOS    VideoType = 2
 )
 
-// MsgVideo is a video message.
-type MsgVideo struct {
+// Video is a video message.
+type Video struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
 	Codec           uint8
 	IsKeyFrame      bool
-	Type            MsgVideoType
+	Type            VideoType
 	PTSDelta        time.Duration
 	Payload         []byte
 }
 
 // Unmarshal implements Message.
-func (m *MsgVideo) Unmarshal(raw *rawmessage.Message) error {
+func (m *Video) Unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
@@ -61,15 +60,14 @@ func (m *MsgVideo) Unmarshal(raw *rawmessage.Message) error {
 		return fmt.Errorf("unsupported video codec: %d", m.Codec)
 	}
 
-	m.Type = MsgVideoType(raw.Body[1])
+	m.Type = VideoType(raw.Body[1])
 	switch m.Type {
-	case MsgVideoTypeConfig, MsgVideoTypeAU, MsgVideoTypeEOS:
+	case VideoTypeConfig, VideoTypeAU, VideoTypeEOS:
 	default:
 		return fmt.Errorf("unsupported video message type: %d", m.Type)
 	}
 
-	tmp := uint32(raw.Body[2])<<16 | uint32(raw.Body[3])<<8 | uint32(raw.Body[4])
-	m.PTSDelta = time.Duration(tmp) * time.Millisecond
+	m.PTSDelta = time.Duration(uint32(raw.Body[2])<<16|uint32(raw.Body[3])<<8|uint32(raw.Body[4])) * time.Millisecond
 
 	m.Payload = raw.Body[5:]
 
@@ -77,7 +75,7 @@ func (m *MsgVideo) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m MsgVideo) Marshal() (*rawmessage.Message, error) {
+func (m Video) Marshal() (*rawmessage.Message, error) {
 	body := make([]byte, 5+len(m.Payload))
 
 	if m.IsKeyFrame {
@@ -98,7 +96,7 @@ func (m MsgVideo) Marshal() (*rawmessage.Message, error) {
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,
 		Timestamp:       m.DTS,
-		Type:            chunk.MessageTypeVideo,
+		Type:            uint8(TypeVideo),
 		MessageStreamID: m.MessageStreamID,
 		Body:            body,
 	}, nil

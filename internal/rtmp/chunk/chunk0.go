@@ -11,7 +11,7 @@ import (
 type Chunk0 struct {
 	ChunkStreamID   byte
 	Timestamp       uint32
-	Type            MessageType
+	Type            uint8
 	MessageStreamID uint32
 	BodyLen         uint32
 	Body            []byte
@@ -28,7 +28,7 @@ func (c *Chunk0) Read(r io.Reader, chunkMaxBodyLen uint32) error {
 	c.ChunkStreamID = header[0] & 0x3F
 	c.Timestamp = uint32(header[1])<<16 | uint32(header[2])<<8 | uint32(header[3])
 	c.BodyLen = uint32(header[4])<<16 | uint32(header[5])<<8 | uint32(header[6])
-	c.Type = MessageType(header[7])
+	c.Type = header[7]
 	c.MessageStreamID = uint32(header[8])<<24 | uint32(header[9])<<16 | uint32(header[10])<<8 | uint32(header[11])
 
 	chunkBodyLen := c.BodyLen
@@ -51,7 +51,7 @@ func (c Chunk0) Marshal() ([]byte, error) {
 	buf[4] = byte(c.BodyLen >> 16)
 	buf[5] = byte(c.BodyLen >> 8)
 	buf[6] = byte(c.BodyLen)
-	buf[7] = byte(c.Type)
+	buf[7] = c.Type
 	buf[8] = byte(c.MessageStreamID >> 24)
 	buf[9] = byte(c.MessageStreamID >> 16)
 	buf[10] = byte(c.MessageStreamID >> 8)

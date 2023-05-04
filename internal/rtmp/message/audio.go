@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
 const (
-	// MsgAudioChunkStreamID is the chunk stream ID that is usually used to send MsgAudio{}
-	MsgAudioChunkStreamID = 4
+	// AudioChunkStreamID is the chunk stream ID that is usually used to send Audio{}
+	AudioChunkStreamID = 4
 )
 
 // supported audio codecs
@@ -19,17 +18,17 @@ const (
 	CodecMPEG4Audio = 10
 )
 
-// MsgAudioAACType is the AAC type of a MsgAudio.
-type MsgAudioAACType uint8
+// AudioAACType is the AAC type of a Audio.
+type AudioAACType uint8
 
-// MsgAudioAACType values.
+// AudioAACType values.
 const (
-	MsgAudioAACTypeConfig MsgAudioAACType = 0
-	MsgAudioAACTypeAU     MsgAudioAACType = 1
+	AudioAACTypeConfig AudioAACType = 0
+	AudioAACTypeAU     AudioAACType = 1
 )
 
-// MsgAudio is an audio message.
-type MsgAudio struct {
+// Audio is an audio message.
+type Audio struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
@@ -37,12 +36,12 @@ type MsgAudio struct {
 	Rate            uint8
 	Depth           uint8
 	Channels        uint8
-	AACType         MsgAudioAACType // only for CodecMPEG4Audio
+	AACType         AudioAACType // only for CodecMPEG4Audio
 	Payload         []byte
 }
 
 // Unmarshal implements Message.
-func (m *MsgAudio) Unmarshal(raw *rawmessage.Message) error {
+func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
@@ -65,9 +64,9 @@ func (m *MsgAudio) Unmarshal(raw *rawmessage.Message) error {
 	if m.Codec == CodecMPEG2Audio {
 		m.Payload = raw.Body[1:]
 	} else {
-		m.AACType = MsgAudioAACType(raw.Body[1])
+		m.AACType = AudioAACType(raw.Body[1])
 		switch m.AACType {
-		case MsgAudioAACTypeConfig, MsgAudioAACTypeAU:
+		case AudioAACTypeConfig, AudioAACTypeAU:
 		default:
 			return fmt.Errorf("unsupported audio message type: %d", m.AACType)
 		}
@@ -79,7 +78,7 @@ func (m *MsgAudio) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m MsgAudio) Marshal() (*rawmessage.Message, error) {
+func (m Audio) Marshal() (*rawmessage.Message, error) {
 	var l int
 	if m.Codec == CodecMPEG2Audio {
 		l = 1 + len(m.Payload)
@@ -100,7 +99,7 @@ func (m MsgAudio) Marshal() (*rawmessage.Message, error) {
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,
 		Timestamp:       m.DTS,
-		Type:            chunk.MessageTypeAudio,
+		Type:            uint8(TypeAudio),
 		MessageStreamID: m.MessageStreamID,
 		Body:            body,
 	}, nil

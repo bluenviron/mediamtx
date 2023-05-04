@@ -8,24 +8,24 @@
 
 Live streams can be published to the server with:
 
-|protocol|variants|codecs|
-|--------|--------|------|
-|RTSP clients (FFmpeg, GStreamer, etc)|UDP, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG-2 Video, M-JPEG, MPEG-4 Video (H263, Xvid), MPEG-2 Audio (MP3), MPEG-4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
-|RTSP servers and cameras|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG-2 Video, M-JPEG, MPEG-4 Video (H263, Xvid), MPEG-2 Audio (MP3), MPEG-4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
-|RTMP clients (OBS Studio)|RTMP, RTMPS|H264, H265, MPEG-2 Audio (MP3), MPEG-4 Audio (AAC)|
-|RTMP servers and cameras|RTMP, RTMPS|H264, MPEG-2 Audio (MP3), MPEG-4 Audio (AAC)|
-|HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, H265, MPEG-4 Audio (AAC), Opus|
-|UDP/MPEG-TS streams|Unicast, broadcast, multicast|H264, H265, MPEG-4 Audio (AAC), Opus|
-|Raspberry Pi Cameras||H264|
+|protocol|variants|video codecs|audio codecs|
+|--------|--------|------------|------------|
+|RTSP clients (FFmpeg, GStreamer)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus,  MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
+|RTSP servers and cameras|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus,  MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
+|RTMP clients (OBS Studio)|RTMP, RTMPS, Enhanced RTMP|AV1, H265, H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
+|RTMP servers and cameras|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
+|HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
+|UDP/MPEG-TS streams|Unicast, broadcast, multicast|H265, H264|Opus, MPEG-4 Audio (AAC)|
+|Raspberry Pi Cameras||H264||
 
 And can be read from the server with:
 
-|protocol|variants|codecs|
-|--------|--------|------|
-|RTSP|UDP, UDP-Multicast, TCP, RTSPS|H264, H265, VP8, VP9, AV1, MPEG-2 Video, M-JPEG, MPEG-4 Video (H263, Xvid), MPEG-2 Audio (MP3), MPEG-4 Audio (AAC), Opus, G711, G722, LPCM and any RTP-compatible codec|
-|RTMP|RTMP, RTMPS|H264, MPEG-2 Audio (MP3), MPEG-4 Audio (AAC)|
-|HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H264, H265, MPEG-4 Audio (AAC), Opus|
-|WebRTC||H264, VP8, VP9, Opus, G711, G722|
+|protocol|variants|video codecs|audio codecs|
+|--------|--------|------------|------------|
+|RTSP|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus,  MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
+|RTMP|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
+|HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
+|WebRTC||VP9, VP8, H264|Opus, G722, G711|
 
 Features:
 
@@ -1201,7 +1201,9 @@ For more advanced options, you can create and serve a custom web page by startin
 
 * [RTSP/RTP/RTCP standards](https://github.com/bluenviron/gortsplib#standards)
 * [HLS standards](https://github.com/bluenviron/gohlslib#standards)
+* [Codec standards](https://github.com/bluenviron/mediacommon#standards)
 * [RTMP specification](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
+* [Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)
 * [Golang project layout](https://github.com/golang-standards/project-layout)
 
 ## Links

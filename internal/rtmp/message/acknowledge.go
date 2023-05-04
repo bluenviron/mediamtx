@@ -3,17 +3,16 @@ package message //nolint:dupl
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/chunk"
 	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
 )
 
-// MsgSetChunkSize is a set chunk size message.
-type MsgSetChunkSize struct {
+// Acknowledge is an acknowledgement message.
+type Acknowledge struct {
 	Value uint32
 }
 
 // Unmarshal implements Message.
-func (m *MsgSetChunkSize) Unmarshal(raw *rawmessage.Message) error {
+func (m *Acknowledge) Unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -28,7 +27,7 @@ func (m *MsgSetChunkSize) Unmarshal(raw *rawmessage.Message) error {
 }
 
 // Marshal implements Message.
-func (m *MsgSetChunkSize) Marshal() (*rawmessage.Message, error) {
+func (m *Acknowledge) Marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 4)
 
 	buf[0] = byte(m.Value >> 24)
@@ -38,7 +37,7 @@ func (m *MsgSetChunkSize) Marshal() (*rawmessage.Message, error) {
 
 	return &rawmessage.Message{
 		ChunkStreamID: ControlChunkStreamID,
-		Type:          chunk.MessageTypeSetChunkSize,
+		Type:          uint8(TypeAcknowledge),
 		Body:          buf,
 	}, nil
 }

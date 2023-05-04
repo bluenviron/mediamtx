@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
+	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg2audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
@@ -46,10 +47,10 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 	switch format.(type) {
 	case *formats.H264:
 		return func(msg interface{}) error {
-			tmsg := msg.(*message.MsgVideo)
+			tmsg := msg.(*message.Video)
 
 			switch tmsg.Type {
-			case message.MsgVideoTypeConfig:
+			case message.VideoTypeConfig:
 				var conf h264conf.Conf
 				err := conf.Unmarshal(tmsg.Payload)
 				if err != nil {
@@ -67,7 +68,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					NTP: time.Now(),
 				})
 
-			case message.MsgVideoTypeAU:
+			case message.VideoTypeAU:
 				au, err := h264.AVCCUnmarshal(tmsg.Payload)
 				if err != nil {
 					return fmt.Errorf("unable to decode AVCC: %v", err)
@@ -85,25 +86,68 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 
 	case *formats.H265:
 		return func(msg interface{}) error {
-			tmsg := msg.(*message.MsgVideo)
+			switch tmsg := msg.(type) {
+			case *message.Video:
+				au, err := h264.AVCCUnmarshal(tmsg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to decode AVCC: %v", err)
+				}
 
-			au, err := h264.AVCCUnmarshal(tmsg.Payload)
-			if err != nil {
-				return fmt.Errorf("unable to decode AVCC: %v", err)
+				stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+					PTS: tmsg.DTS + tmsg.PTSDelta,
+					AU:  au,
+					NTP: time.Now(),
+				})
+
+			case *message.ExtendedFramesX:
+				au, err := h264.AVCCUnmarshal(tmsg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to decode AVCC: %v", err)
+				}
+
+				stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+					PTS: tmsg.DTS,
+					AU:  au,
+					NTP: time.Now(),
+				})
+
+			case *message.ExtendedCodedFrames:
+				au, err := h264.AVCCUnmarshal(tmsg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to decode AVCC: %v", err)
+				}
+
+				stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+					PTS: tmsg.DTS + tmsg.PTSDelta,
+					AU:  au,
+					NTP: time.Now(),
+				})
 			}
 
-			stream.writeUnit(medi, format, &formatprocessor.UnitH265{
-				PTS: tmsg.DTS + tmsg.PTSDelta,
-				AU:  au,
-				NTP: time.Now(),
-			})
+			return nil
+		}
+
+	case *formats.AV1:
+		return func(msg interface{}) error {
+			if tmsg, ok := msg.(*message.ExtendedCodedFrames); ok {
+				obus, err := av1.BitstreamUnmarshal(tmsg.Payload, true)
+				if err != nil {
+					return fmt.Errorf("unable to decode bitstream: %v", err)
+				}
+
+				stream.writeUnit(medi, format, &formatprocessor.UnitAV1{
+					PTS:  tmsg.DTS,
+					OBUs: obus,
+					NTP:  time.Now(),
+				})
+			}
 
 			return nil
 		}
 
 	case *formats.MPEG2Audio:
 		return func(msg interface{}) error {
-			tmsg := msg.(*message.MsgAudio)
+			tmsg := msg.(*message.Audio)
 
 			stream.writeUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
 				PTS:    tmsg.DTS,
@@ -116,9 +160,9 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 
 	case *formats.MPEG4Audio:
 		return func(msg interface{}) error {
-			tmsg := msg.(*message.MsgAudio)
+			tmsg := msg.(*message.Audio)
 
-			if tmsg.AACType == message.MsgAudioAACTypeAU {
+			if tmsg.AACType == message.AudioAACTypeAU {
 				stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
 					PTS: tmsg.DTS,
 					AUs: [][]byte{tmsg.Payload},
@@ -496,12 +540,12 @@ func (c *rtmpConn) findVideoFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 				}
 
 				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-				err = c.conn.WriteMessage(&message.MsgVideo{
-					ChunkStreamID:   message.MsgVideoChunkStreamID,
+				err = c.conn.WriteMessage(&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecH264,
 					IsKeyFrame:      idrPresent,
-					Type:            message.MsgVideoTypeAU,
+					Type:            message.VideoTypeAU,
 					Payload:         avcc,
 					DTS:             dts,
 					PTSDelta:        pts - dts,
@@ -557,14 +601,14 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 
 				for i, au := range tunit.AUs {
 					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-					err := c.conn.WriteMessage(&message.MsgAudio{
-						ChunkStreamID:   message.MsgAudioChunkStreamID,
+					err := c.conn.WriteMessage(&message.Audio{
+						ChunkStreamID:   message.AudioChunkStreamID,
 						MessageStreamID: 0x1000000,
 						Codec:           message.CodecMPEG4Audio,
 						Rate:            flvio.SOUND_44Khz,
 						Depth:           flvio.SOUND_16BIT,
 						Channels:        flvio.SOUND_STEREO,
-						AACType:         message.MsgAudioAACTypeAU,
+						AACType:         message.AudioAACTypeAU,
 						Payload:         au,
 						DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
 							time.Second/time.Duration(audioFormatMPEG4.ClockRate()),
@@ -635,8 +679,8 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 						rate = flvio.SOUND_22Khz
 					}
 
-					msg := &message.MsgAudio{
-						ChunkStreamID:   message.MsgAudioChunkStreamID,
+					msg := &message.Audio{
+						ChunkStreamID:   message.AudioChunkStreamID,
 						MessageStreamID: 0x1000000,
 						Codec:           message.CodecMPEG2Audio,
 						Rate:            rate,
@@ -751,23 +795,23 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 			return err
 		}
 
-		switch tmsg := msg.(type) {
-		case *message.MsgVideo:
+		switch msg.(type) {
+		case *message.Video, *message.ExtendedFramesX, *message.ExtendedCodedFrames:
 			if videoFormat == nil {
 				return fmt.Errorf("received a video packet, but track is not set up")
 			}
 
-			err := videoWriteFunc(tmsg)
+			err := videoWriteFunc(msg)
 			if err != nil {
 				c.Log(logger.Warn, "%v", err)
 			}
 
-		case *message.MsgAudio:
+		case *message.Audio:
 			if audioFormat == nil {
 				return fmt.Errorf("received an audio packet, but track is not set up")
 			}
 
-			err := audioWriteFunc(tmsg)
+			err := audioWriteFunc(msg)
 			if err != nil {
 				c.Log(logger.Warn, "%v", err)
 			}
