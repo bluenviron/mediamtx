@@ -8,6 +8,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
+
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 // extract VPS, SPS and PPS without decoding RTP packets
@@ -95,27 +97,32 @@ func (d *UnitH265) GetNTP() time.Time {
 type formatProcessorH265 struct {
 	udpMaxPayloadSize int
 	format            *formats.H265
+	log               logger.Writer
 
-	encoder *rtph265.Encoder
-	decoder *rtph265.Decoder
+	encoder              *rtph265.Encoder
+	decoder              *rtph265.Decoder
+	lastKeyFrameReceived time.Time
 }
 
 func newH265(
 	udpMaxPayloadSize int,
 	forma *formats.H265,
-	allocateEncoder bool,
+	generateRTPPackets bool,
+	log logger.Writer,
 ) (*formatProcessorH265, error) {
 	t := &formatProcessorH265{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
+		log:               log,
 	}
 
-	if allocateEncoder {
+	if generateRTPPackets {
 		t.encoder = &rtph265.Encoder{
 			PayloadMaxSize: t.udpMaxPayloadSize - 12,
 			PayloadType:    forma.PayloadTyp,
 		}
 		t.encoder.Init()
+		t.lastKeyFrameReceived = time.Now()
 	}
 
 	return t, nil
@@ -186,25 +193,37 @@ func (t *formatProcessorH265) updateTrackParametersFromNALUs(nalus [][]byte) {
 	}
 }
 
+func (t *formatProcessorH265) checkKeyFrameInterval(isKeyFrame bool) {
+	if isKeyFrame {
+		t.lastKeyFrameReceived = time.Now()
+	} else {
+		now := time.Now()
+		if now.Sub(t.lastKeyFrameReceived) >= maxKeyFrameInterval {
+			t.lastKeyFrameReceived = now
+			t.log.Log(logger.Warn, "no key frames received in %v, stream can't be decoded")
+		}
+	}
+}
+
 func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
-	addParameters := false
+	isKeyFrame := false
 	n := 0
 
 	for _, nalu := range nalus {
 		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
-		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT: // remove parameters
+		case h265.NALUType_VPS_NUT, h265.NALUType_SPS_NUT, h265.NALUType_PPS_NUT: // parameters: remove
 			continue
 
-		case h265.NALUType_AUD_NUT: // remove AUDs
+		case h265.NALUType_AUD_NUT: // AUD: remove
 			continue
 
-		// prepend parameters if there's at least a random access unit
-		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
-			if !addParameters {
-				addParameters = true
+		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT: // key frame
+			if !isKeyFrame {
+				isKeyFrame = true
 
+				// prepend parameters
 				if t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
 					n += 3
 				}
@@ -213,6 +232,8 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 		n++
 	}
 
+	t.checkKeyFrameInterval(isKeyFrame)
+
 	if n == 0 {
 		return nil
 	}
@@ -220,7 +241,7 @@ func (t *formatProcessorH265) remuxAccessUnit(nalus [][]byte) [][]byte {
 	filteredNALUs := make([][]byte, n)
 	i := 0
 
-	if addParameters && t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
+	if isKeyFrame && t.format.VPS != nil && t.format.SPS != nil && t.format.PPS != nil {
 		filteredNALUs[0] = t.format.VPS
 		filteredNALUs[1] = t.format.SPS
 		filteredNALUs[2] = t.format.PPS
@@ -278,6 +299,7 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 		if hasNonRTSPReaders || t.encoder != nil {
 			if t.decoder == nil {
 				t.decoder = t.format.CreateDecoder()
+				t.lastKeyFrameReceived = time.Now()
 			}
 
 			if t.encoder != nil {
@@ -293,9 +315,8 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 				return err
 			}
 
-			tunit.AU = au
+			tunit.AU = t.remuxAccessUnit(au)
 			tunit.PTS = pts
-			tunit.AU = t.remuxAccessUnit(tunit.AU)
 		}
 
 		// route packet as is

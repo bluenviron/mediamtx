@@ -8,9 +8,11 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/aler9/mediamtx/internal/formatprocessor"
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 type streamFormat struct {
+	source         source
 	proc           formatprocessor.Processor
 	mutex          sync.RWMutex
 	nonRTSPReaders map[reader]func(formatprocessor.Unit)
@@ -20,13 +22,15 @@ func newStreamFormat(
 	udpMaxPayloadSize int,
 	forma formats.Format,
 	generateRTPPackets bool,
+	source source,
 ) (*streamFormat, error) {
-	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets)
+	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets, source)
 	if err != nil {
 		return nil, err
 	}
 
 	sf := &streamFormat{
+		source:         source,
 		proc:           proc,
 		nonRTSPReaders: make(map[reader]func(formatprocessor.Unit)),
 	}
@@ -46,7 +50,7 @@ func (sf *streamFormat) readerRemove(r reader) {
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatprocessor.Unit) error {
+func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatprocessor.Unit) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -54,7 +58,8 @@ func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatproce
 
 	err := sf.proc.Process(data, hasNonRTSPReaders)
 	if err != nil {
-		return err
+		sf.source.Log(logger.Warn, err.Error())
+		return
 	}
 
 	// forward RTP packets to RTSP readers
@@ -67,6 +72,4 @@ func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatproce
 	for _, cb := range sf.nonRTSPReaders {
 		cb(data)
 	}
-
-	return nil
 }

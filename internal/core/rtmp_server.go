@@ -44,7 +44,7 @@ type rtmpServerAPIConnsKickReq struct {
 }
 
 type rtmpServerParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type rtmpServer struct {
@@ -132,7 +132,7 @@ func newRTMPServer(
 		chAPIConnsKick:            make(chan rtmpServerAPIConnsKickReq),
 	}
 
-	s.log(logger.Info, "listener opened on %s", address)
+	s.Log(logger.Info, "listener opened on %s", address)
 
 	if s.metrics != nil {
 		s.metrics.rtmpServerSet(s)
@@ -144,7 +144,7 @@ func newRTMPServer(
 	return s, nil
 }
 
-func (s *rtmpServer) log(level logger.Level, format string, args ...interface{}) {
+func (s *rtmpServer) Log(level logger.Level, format string, args ...interface{}) {
 	label := func() string {
 		if s.isTLS {
 			return "RTMPS"
@@ -155,7 +155,7 @@ func (s *rtmpServer) log(level logger.Level, format string, args ...interface{})
 }
 
 func (s *rtmpServer) close() {
-	s.log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	s.wg.Wait()
 }
@@ -193,7 +193,7 @@ outer:
 	for {
 		select {
 		case err := <-acceptErr:
-			s.log(logger.Error, "%s", err)
+			s.Log(logger.Error, "%s", err)
 			break outer
 
 		case nconn := <-connNew:

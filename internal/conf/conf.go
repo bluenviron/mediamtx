@@ -308,7 +308,7 @@ func (conf *Conf) CheckAndFillMissing() error {
 		conf.LogLevel = LogLevel(logger.Info)
 	}
 	if len(conf.LogDestinations) == 0 {
-		conf.LogDestinations = LogDestinations{logger.DestinationStdout: {}}
+		conf.LogDestinations = LogDestinations{logger.DestinationStdout}
 	}
 	if conf.LogFile == "" {
 		conf.LogFile = "mediamtx.log"

@@ -84,7 +84,7 @@ type webRTCConnPathManager interface {
 }
 
 type webRTCConnParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	connClose(*webRTCConn)
 }
 
@@ -143,7 +143,7 @@ func newWebRTCConn(
 		closed:            make(chan struct{}),
 	}
 
-	c.log(logger.Info, "opened")
+	c.Log(logger.Info, "opened")
 
 	wg.Add(1)
 	go c.run()
@@ -252,8 +252,8 @@ func (c *webRTCConn) bytesSent() uint64 {
 	return 0
 }
 
-func (c *webRTCConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.wsconn.RemoteAddr()}, args...)...)
+func (c *webRTCConn) Log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.wsconn.RemoteAddr()}, args...)...)
 }
 
 func (c *webRTCConn) run() {
@@ -281,7 +281,7 @@ func (c *webRTCConn) run() {
 
 	c.parent.connClose(c)
 
-	c.log(logger.Info, "closed (%v)", err)
+	c.Log(logger.Info, "closed (%v)", err)
 }
 
 func (c *webRTCConn) runInner(ctx context.Context) error {
@@ -377,7 +377,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		default:
 		}
 
-		c.log(logger.Debug, "peer connection state: "+state.String())
+		c.Log(logger.Debug, "peer connection state: "+state.String())
 
 		switch state {
 		case webrtc.PeerConnectionStateConnected:
@@ -475,14 +475,14 @@ outer:
 	for {
 		select {
 		case candidate := <-localCandidate:
-			c.log(logger.Debug, "local candidate: %+v", candidate.Candidate)
+			c.Log(logger.Debug, "local candidate: %+v", candidate.Candidate)
 			err := c.wsconn.WriteJSON(candidate)
 			if err != nil {
 				return err
 			}
 
 		case candidate := <-remoteCandidate:
-			c.log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
+			c.Log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
 			err := pc.AddICECandidate(*candidate)
 			if err != nil {
 				return err
@@ -512,7 +512,7 @@ outer:
 	c.curPC = pc
 	c.mutex.Unlock()
 
-	c.log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
+	c.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
 		c.localCandidate(), c.remoteCandidate())
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
@@ -530,7 +530,7 @@ outer:
 	}
 	defer res.stream.readerRemove(c)
 
-	c.log(logger.Info, "is reading from path '%s', %s",
+	c.Log(logger.Info, "is reading from path '%s', %s",
 		path.name, sourceMediaInfo(gatherMedias(tracks)))
 
 	go func() {

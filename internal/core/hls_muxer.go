@@ -60,7 +60,7 @@ type hlsMuxerPathManager interface {
 }
 
 type hlsMuxerParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	muxerClose(*hlsMuxer)
 }
 
@@ -141,7 +141,7 @@ func newHLSMuxer(
 		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
 	}
 
-	m.log(logger.Info, "created %s", func() string {
+	m.Log(logger.Info, "created %s", func() string {
 		if remoteAddr == "" {
 			return "automatically"
 		}
@@ -158,8 +158,8 @@ func (m *hlsMuxer) close() {
 	m.ctxCancel()
 }
 
-func (m *hlsMuxer) log(level logger.Level, format string, args ...interface{}) {
-	m.parent.log(level, "[muxer %s] "+format, append([]interface{}{m.pathName}, args...)...)
+func (m *hlsMuxer) Log(level logger.Level, format string, args ...interface{}) {
+	m.parent.Log(level, "[muxer %s] "+format, append([]interface{}{m.pathName}, args...)...)
 }
 
 // PathName returns the path name.
@@ -231,7 +231,7 @@ func (m *hlsMuxer) run() {
 				innerCtxCancel()
 
 				if m.alwaysRemux {
-					m.log(logger.Info, "ERR: %v", err)
+					m.Log(logger.Info, "ERR: %v", err)
 					m.clearQueuedRequests()
 					isReady = false
 					isRecreating = true
@@ -253,7 +253,7 @@ func (m *hlsMuxer) run() {
 
 	m.parent.muxerClose(m)
 
-	m.log(logger.Info, "destroyed (%v)", err)
+	m.Log(logger.Info, "destroyed (%v)", err)
 }
 
 func (m *hlsMuxer) clearQueuedRequests() {
@@ -325,7 +325,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	innerReady <- struct{}{}
 
-	m.log(logger.Info, "is converting into HLS, %s",
+	m.Log(logger.Info, "is converting into HLS, %s",
 		sourceMediaInfo(medias))
 
 	writerDone := make(chan error)
@@ -557,7 +557,7 @@ func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 	err := m.authenticate(ctx)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
-			m.log(logger.Info, "authentication error: %s", terr.message)
+			m.Log(logger.Info, "authentication error: %s", terr.message)
 		}
 
 		ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)

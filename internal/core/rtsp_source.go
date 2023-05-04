@@ -19,7 +19,7 @@ import (
 )
 
 type rtspSourceParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
@@ -46,7 +46,7 @@ func newRTSPSource(
 }
 
 func (s *rtspSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, "[rtsp source] "+format, args...)
+	s.parent.Log(level, "[rtsp source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -140,10 +140,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 					writeFunc := getRTSPWriteFunc(medi, forma, res.stream)
 
 					c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-						err := writeFunc(pkt)
-						if err != nil {
-							s.Log(logger.Warn, "%v", err)
-						}
+						writeFunc(pkt)
 					})
 				}
 			}

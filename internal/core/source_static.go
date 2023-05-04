@@ -15,13 +15,13 @@ const (
 )
 
 type sourceStaticImpl interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 	run(context.Context, *conf.PathConf, chan *conf.PathConf) error
 	apiSourceDescribe() interface{}
 }
 
 type sourceStaticParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	sourceStaticSetReady(context.Context, pathSourceStaticSetReadyReq)
 	sourceStaticSetNotReady(context.Context, pathSourceStaticSetNotReadyReq)
 }
@@ -128,8 +128,8 @@ func (s *sourceStatic) stop() {
 	<-s.done
 }
 
-func (s *sourceStatic) log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, format, args...)
+func (s *sourceStatic) Log(level logger.Level, format string, args ...interface{}) {
+	s.parent.Log(level, format, args...)
 }
 
 func (s *sourceStatic) run() {

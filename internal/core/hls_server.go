@@ -50,7 +50,7 @@ type hlsServerAPIMuxersListSubReq struct {
 }
 
 type hlsServerParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type hlsServer struct {
@@ -162,7 +162,7 @@ func newHLSServer(
 		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
-	s.log(logger.Info, "listener opened on "+address)
+	s.Log(logger.Info, "listener opened on "+address)
 
 	s.pathManager.hlsServerSet(s)
 
@@ -177,12 +177,12 @@ func newHLSServer(
 }
 
 // Log is the main logging function.
-func (s *hlsServer) log(level logger.Level, format string, args ...interface{}) {
+func (s *hlsServer) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[HLS] "+format, append([]interface{}{}, args...)...)
 }
 
 func (s *hlsServer) close() {
-	s.log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	s.wg.Wait()
 }

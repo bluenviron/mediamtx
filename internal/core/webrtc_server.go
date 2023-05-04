@@ -64,7 +64,7 @@ type webRTCConnNewReq struct {
 }
 
 type webRTCServerParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type webRTCServer struct {
@@ -204,7 +204,7 @@ func newWebRTCServer(
 	if tcpMuxLn != nil {
 		str += ", " + iceTCPMuxAddress + " (ICE/TCP)"
 	}
-	s.log(logger.Info, str)
+	s.Log(logger.Info, str)
 
 	if s.metrics != nil {
 		s.metrics.webRTCServerSet(s)
@@ -216,12 +216,12 @@ func newWebRTCServer(
 }
 
 // Log is the main logging function.
-func (s *webRTCServer) log(level logger.Level, format string, args ...interface{}) {
+func (s *webRTCServer) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[WebRTC] "+format, append([]interface{}{}, args...)...)
 }
 
 func (s *webRTCServer) close() {
-	s.log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	<-s.done
 }
@@ -369,7 +369,7 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	err := s.authenticate(res.path, ctx)
 	if err != nil {
 		if terr, ok := err.(pathErrAuthCritical); ok {
-			s.log(logger.Info, "authentication error: %s", terr.message)
+			s.Log(logger.Info, "authentication error: %s", terr.message)
 			ctx.Writer.Header().Set("WWW-Authenticate", `Basic realm="mediamtx"`)
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return

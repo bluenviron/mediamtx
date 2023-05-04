@@ -4,74 +4,46 @@ package logger
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/gookit/color"
 )
 
-// Level is a log level.
-type Level int
-
-// Log levels.
-const (
-	Debug Level = iota + 1
-	Info
-	Warn
-	Error
-)
-
-// Destination is a log destination.
-type Destination int
-
-const (
-	// DestinationStdout writes logs to the standard output.
-	DestinationStdout Destination = iota
-
-	// DestinationFile writes logs to a file.
-	DestinationFile
-
-	// DestinationSyslog writes logs to the system logger.
-	DestinationSyslog
-)
-
 // Logger is a log handler.
 type Logger struct {
-	level        Level
-	destinations map[Destination]struct{}
+	level Level
 
+	destinations []destination
 	mutex        sync.Mutex
-	file         *os.File
-	syslog       io.WriteCloser
-	stdoutBuffer bytes.Buffer
-	fileBuffer   bytes.Buffer
-	syslogBuffer bytes.Buffer
 }
 
 // New allocates a log handler.
-func New(level Level, destinations map[Destination]struct{}, filePath string) (*Logger, error) {
+func New(level Level, destinations []Destination, filePath string) (*Logger, error) {
 	lh := &Logger{
-		level:        level,
-		destinations: destinations,
+		level: level,
 	}
 
-	if _, ok := destinations[DestinationFile]; ok {
-		var err error
-		lh.file, err = os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-		if err != nil {
-			lh.Close()
-			return nil, err
-		}
-	}
+	for _, destType := range destinations {
+		switch destType {
+		case DestinationStdout:
+			lh.destinations = append(lh.destinations, newDestionationStdout())
 
-	if _, ok := destinations[DestinationSyslog]; ok {
-		var err error
-		lh.syslog, err = newSyslog("mediamtx")
-		if err != nil {
-			lh.Close()
-			return nil, err
+		case DestinationFile:
+			dest, err := newDestinationFile(filePath)
+			if err != nil {
+				lh.Close()
+				return nil, err
+			}
+			lh.destinations = append(lh.destinations, dest)
+
+		case DestinationSyslog:
+			dest, err := newDestinationSyslog()
+			if err != nil {
+				lh.Close()
+				return nil, err
+			}
+			lh.destinations = append(lh.destinations, dest)
 		}
 	}
 
@@ -80,12 +52,8 @@ func New(level Level, destinations map[Destination]struct{}, filePath string) (*
 
 // Close closes a log handler.
 func (lh *Logger) Close() {
-	if lh.file != nil {
-		lh.file.Close()
-	}
-
-	if lh.syslog != nil {
-		lh.syslog.Close()
+	for _, dest := range lh.destinations {
+		dest.close()
 	}
 }
 
@@ -182,27 +150,7 @@ func (lh *Logger) Log(level Level, format string, args ...interface{}) {
 	lh.mutex.Lock()
 	defer lh.mutex.Unlock()
 
-	if _, ok := lh.destinations[DestinationStdout]; ok {
-		lh.stdoutBuffer.Reset()
-		writeTime(&lh.stdoutBuffer, true)
-		writeLevel(&lh.stdoutBuffer, level, true)
-		writeContent(&lh.stdoutBuffer, format, args)
-		os.Stdout.Write(lh.stdoutBuffer.Bytes())
-	}
-
-	if _, ok := lh.destinations[DestinationFile]; ok {
-		lh.fileBuffer.Reset()
-		writeTime(&lh.fileBuffer, false)
-		writeLevel(&lh.fileBuffer, level, false)
-		writeContent(&lh.fileBuffer, format, args)
-		lh.file.Write(lh.fileBuffer.Bytes())
-	}
-
-	if _, ok := lh.destinations[DestinationSyslog]; ok {
-		lh.syslogBuffer.Reset()
-		writeTime(&lh.syslogBuffer, false)
-		writeLevel(&lh.syslogBuffer, level, false)
-		writeContent(&lh.syslogBuffer, format, args)
-		lh.syslog.Write(lh.syslogBuffer.Bytes())
+	for _, dest := range lh.destinations {
+		dest.log(level, format, args...)
 	}
 }

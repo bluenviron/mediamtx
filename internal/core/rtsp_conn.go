@@ -23,7 +23,7 @@ const (
 )
 
 type rtspConnParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type rtspConn struct {
@@ -74,10 +74,10 @@ func newRTSPConn(
 		created:                   time.Now(),
 	}
 
-	c.log(logger.Info, "opened")
+	c.Log(logger.Info, "opened")
 
 	if c.runOnConnect != "" {
-		c.log(logger.Info, "runOnConnect command started")
+		c.Log(logger.Info, "runOnConnect command started")
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		c.onConnectCmd = externalcmd.NewCmd(
 			c.externalCmdPool,
@@ -88,15 +88,15 @@ func newRTSPConn(
 				"RTSP_PORT": port,
 			},
 			func(co int) {
-				c.log(logger.Info, "runOnInit command exited with code %d", co)
+				c.Log(logger.Info, "runOnInit command exited with code %d", co)
 			})
 	}
 
 	return c
 }
 
-func (c *rtspConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
+func (c *rtspConn) Log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.conn.NetConn().RemoteAddr()}, args...)...)
 }
 
 // Conn returns the RTSP connection.
@@ -235,22 +235,22 @@ func (c *rtspConn) authenticate(
 
 // onClose is called by rtspServer.
 func (c *rtspConn) onClose(err error) {
-	c.log(logger.Info, "closed (%v)", err)
+	c.Log(logger.Info, "closed (%v)", err)
 
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()
-		c.log(logger.Info, "runOnConnect command stopped")
+		c.Log(logger.Info, "runOnConnect command stopped")
 	}
 }
 
 // onRequest is called by rtspServer.
 func (c *rtspConn) onRequest(req *base.Request) {
-	c.log(logger.Debug, "[c->s] %v", req)
+	c.Log(logger.Debug, "[c->s] %v", req)
 }
 
 // OnResponse is called by rtspServer.
 func (c *rtspConn) OnResponse(res *base.Response) {
-	c.log(logger.Debug, "[s->c] %v", res)
+	c.Log(logger.Debug, "[s->c] %v", res)
 }
 
 // onDescribe is called by rtspServer.
@@ -278,7 +278,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	if res.err != nil {
 		switch terr := res.err.(type) {
 		case pathErrAuthNotCritical:
-			c.log(logger.Debug, "non-critical authentication error: %s", terr.message)
+			c.Log(logger.Debug, "non-critical authentication error: %s", terr.message)
 			return terr.response, nil, nil
 
 		case pathErrAuthCritical:

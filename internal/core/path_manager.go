@@ -35,7 +35,7 @@ type pathManagerHLSServer interface {
 }
 
 type pathManagerParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type pathManager struct {
@@ -117,7 +117,7 @@ func newPathManager(
 		pm.metrics.pathManagerSet(pm)
 	}
 
-	pm.log(logger.Debug, "path manager created")
+	pm.Log(logger.Debug, "path manager created")
 
 	pm.wg.Add(1)
 	go pm.run()
@@ -126,13 +126,13 @@ func newPathManager(
 }
 
 func (pm *pathManager) close() {
-	pm.log(logger.Debug, "path manager is shutting down")
+	pm.Log(logger.Debug, "path manager is shutting down")
 	pm.ctxCancel()
 	pm.wg.Wait()
 }
 
 // Log is the main logging function.
-func (pm *pathManager) log(level logger.Level, format string, args ...interface{}) {
+func (pm *pathManager) Log(level logger.Level, format string, args ...interface{}) {
 	pm.parent.Log(level, format, args...)
 }
 

@@ -7,6 +7,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg2audio"
 	"github.com/pion/rtp"
+
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 // UnitMPEG2Audio is a MPEG-2 Audio data unit.
@@ -37,14 +39,15 @@ type formatProcessorMPEG2Audio struct {
 func newMPEG2Audio(
 	udpMaxPayloadSize int,
 	forma *formats.MPEG2Audio,
-	allocateEncoder bool,
+	generateRTPPackets bool,
+	log logger.Writer,
 ) (*formatProcessorMPEG2Audio, error) {
 	t := &formatProcessorMPEG2Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
 
-	if allocateEncoder {
+	if generateRTPPackets {
 		t.encoder = &rtpmpeg2audio.Encoder{
 			PayloadMaxSize: t.udpMaxPayloadSize - 12,
 		}
