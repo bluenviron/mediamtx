@@ -7,6 +7,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg4audio"
 	"github.com/pion/rtp"
+
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 // UnitMPEG4Audio is a MPEG-4 Audio data unit.
@@ -37,14 +39,15 @@ type formatProcessorMPEG4Audio struct {
 func newMPEG4Audio(
 	udpMaxPayloadSize int,
 	forma *formats.MPEG4Audio,
-	allocateEncoder bool,
+	generateRTPPackets bool,
+	log logger.Writer,
 ) (*formatProcessorMPEG4Audio, error) {
 	t := &formatProcessorMPEG4Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
 
-	if allocateEncoder {
+	if generateRTPPackets {
 		t.encoder = &rtpmpeg4audio.Encoder{
 			PayloadMaxSize:   t.udpMaxPayloadSize - 12,
 			PayloadType:      forma.PayloadTyp,

@@ -16,7 +16,7 @@ func TestH264DynamicParams(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	p, err := New(1472, forma, false)
+	p, err := New(1472, forma, false, nil)
 	require.NoError(t, err)
 
 	enc := forma.CreateEncoder()
@@ -61,7 +61,7 @@ func TestH264OversizedPackets(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	p, err := New(1472, forma, false)
+	p, err := New(1472, forma, false, nil)
 	require.NoError(t, err)
 
 	var out []*rtp.Packet
@@ -158,7 +158,7 @@ func TestH264EmptyPacket(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	p, err := New(1472, forma, true)
+	p, err := New(1472, forma, true, nil)
 	require.NoError(t, err)
 
 	unit := &UnitH264{

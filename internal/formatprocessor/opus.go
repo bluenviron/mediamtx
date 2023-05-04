@@ -7,6 +7,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpsimpleaudio"
 	"github.com/pion/rtp"
+
+	"github.com/aler9/mediamtx/internal/logger"
 )
 
 // UnitOpus is a Opus data unit.
@@ -37,14 +39,15 @@ type formatProcessorOpus struct {
 func newOpus(
 	udpMaxPayloadSize int,
 	forma *formats.Opus,
-	allocateEncoder bool,
+	generateRTPPackets bool,
+	log logger.Writer,
 ) (*formatProcessorOpus, error) {
 	t := &formatProcessorOpus{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
 
-	if allocateEncoder {
+	if generateRTPPackets {
 		t.encoder = &rtpsimpleaudio.Encoder{
 			PayloadMaxSize: t.udpMaxPayloadSize - 12,
 			PayloadType:    forma.PayloadTyp,

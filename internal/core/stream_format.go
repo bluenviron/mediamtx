@@ -24,7 +24,7 @@ func newStreamFormat(
 	generateRTPPackets bool,
 	source source,
 ) (*streamFormat, error) {
-	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets)
+	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets, source)
 	if err != nil {
 		return nil, err
 	}
