@@ -15,7 +15,7 @@ import (
 )
 
 type pprofParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type pprof struct {
@@ -46,7 +46,7 @@ func newPPROF(
 		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
-	pp.log(logger.Info, "listener opened on "+address)
+	pp.Log(logger.Info, "listener opened on "+address)
 
 	go pp.httpServer.Serve(pp.ln)
 
@@ -54,11 +54,11 @@ func newPPROF(
 }
 
 func (pp *pprof) close() {
-	pp.log(logger.Info, "listener is closing")
+	pp.Log(logger.Info, "listener is closing")
 	pp.httpServer.Shutdown(context.Background())
 	pp.ln.Close() // in case Shutdown() is called before Serve()
 }
 
-func (pp *pprof) log(level logger.Level, format string, args ...interface{}) {
+func (pp *pprof) Log(level logger.Level, format string, args ...interface{}) {
 	pp.parent.Log(level, "[pprof] "+format, args...)
 }

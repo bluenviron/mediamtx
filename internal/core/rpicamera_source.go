@@ -50,7 +50,7 @@ func paramsFromConf(cnf *conf.PathConf) rpicamera.Params {
 }
 
 type rpiCameraSourceParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
@@ -68,7 +68,7 @@ func newRPICameraSource(
 }
 
 func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, "[rpicamera source] "+format, args...)
+	s.parent.Log(level, "[rpicamera source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -97,14 +97,11 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 			stream = res.stream
 		}
 
-		err := stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+		stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 			PTS: dts,
 			AU:  au,
 			NTP: time.Now(),
 		})
-		if err != nil {
-			s.Log(logger.Warn, "%v", err)
-		}
 	}
 
 	cam, err := rpicamera.New(paramsFromConf(cnf), onData)

@@ -21,7 +21,7 @@ func metric(key string, tags string, value int64) string {
 }
 
 type metricsParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 type metrics struct {
@@ -66,7 +66,7 @@ func newMetrics(
 		ErrorLog:          log.New(&nilWriter{}, "", 0),
 	}
 
-	m.log(logger.Info, "listener opened on "+address)
+	m.Log(logger.Info, "listener opened on "+address)
 
 	go m.httpServer.Serve(m.ln)
 
@@ -74,12 +74,12 @@ func newMetrics(
 }
 
 func (m *metrics) close() {
-	m.log(logger.Info, "listener is closing")
+	m.Log(logger.Info, "listener is closing")
 	m.httpServer.Shutdown(context.Background())
 	m.ln.Close() // in case Shutdown() is called before Serve()
 }
 
-func (m *metrics) log(level logger.Level, format string, args ...interface{}) {
+func (m *metrics) Log(level logger.Level, format string, args ...interface{}) {
 	m.parent.Log(level, "[metrics] "+format, args...)
 }
 

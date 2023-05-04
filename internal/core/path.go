@@ -61,7 +61,7 @@ func (pathErrAuthCritical) Error() string {
 }
 
 type pathParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	pathSourceReady(*path)
 	pathSourceNotReady(*path)
 	onPathClose(*path)
@@ -287,7 +287,7 @@ func newPath(
 		done:                           make(chan struct{}),
 	}
 
-	pa.log(logger.Debug, "created")
+	pa.Log(logger.Debug, "created")
 
 	pa.wg.Add(1)
 	go pa.run()
@@ -304,8 +304,8 @@ func (pa *path) wait() {
 }
 
 // Log is the main logging function.
-func (pa *path) log(level logger.Level, format string, args ...interface{}) {
-	pa.parent.log(level, "[path "+pa.name+"] "+format, args...)
+func (pa *path) Log(level logger.Level, format string, args ...interface{}) {
+	pa.parent.Log(level, "[path "+pa.name+"] "+format, args...)
 }
 
 func (pa *path) safeConf() *conf.PathConf {
@@ -335,14 +335,14 @@ func (pa *path) run() {
 
 	var onInitCmd *externalcmd.Cmd
 	if pa.conf.RunOnInit != "" {
-		pa.log(logger.Info, "runOnInit command started")
+		pa.Log(logger.Info, "runOnInit command started")
 		onInitCmd = externalcmd.NewCmd(
 			pa.externalCmdPool,
 			pa.conf.RunOnInit,
 			pa.conf.RunOnInitRestart,
 			pa.externalCmdEnv(),
 			func(co int) {
-				pa.log(logger.Info, "runOnInit command exited with code %d", co)
+				pa.Log(logger.Info, "runOnInit command exited with code %d", co)
 			})
 	}
 
@@ -507,7 +507,7 @@ func (pa *path) run() {
 
 	if onInitCmd != nil {
 		onInitCmd.Close()
-		pa.log(logger.Info, "runOnInit command stopped")
+		pa.Log(logger.Info, "runOnInit command stopped")
 	}
 
 	for _, req := range pa.describeRequestsOnHold {
@@ -532,10 +532,10 @@ func (pa *path) run() {
 
 	if pa.onDemandCmd != nil {
 		pa.onDemandCmd.Close()
-		pa.log(logger.Info, "runOnDemand command stopped")
+		pa.Log(logger.Info, "runOnDemand command stopped")
 	}
 
-	pa.log(logger.Debug, "destroyed (%v)", err)
+	pa.Log(logger.Debug, "destroyed (%v)", err)
 }
 
 func (pa *path) shouldClose() bool {
@@ -590,14 +590,14 @@ func (pa *path) onDemandStaticSourceStop() {
 }
 
 func (pa *path) onDemandPublisherStart() {
-	pa.log(logger.Info, "runOnDemand command started")
+	pa.Log(logger.Info, "runOnDemand command started")
 	pa.onDemandCmd = externalcmd.NewCmd(
 		pa.externalCmdPool,
 		pa.conf.RunOnDemand,
 		pa.conf.RunOnDemandRestart,
 		pa.externalCmdEnv(),
 		func(co int) {
-			pa.log(logger.Info, "runOnDemand command exited with code %d", co)
+			pa.Log(logger.Info, "runOnDemand command exited with code %d", co)
 		})
 
 	pa.onDemandPublisherReadyTimer.Stop()
@@ -630,7 +630,7 @@ func (pa *path) onDemandPublisherStop() {
 	if pa.onDemandCmd != nil {
 		pa.onDemandCmd.Close()
 		pa.onDemandCmd = nil
-		pa.log(logger.Info, "runOnDemand command stopped")
+		pa.Log(logger.Info, "runOnDemand command stopped")
 	}
 }
 
@@ -640,6 +640,7 @@ func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error 
 		medias,
 		allocateEncoder,
 		pa.bytesReceived,
+		pa.source,
 	)
 	if err != nil {
 		return err
@@ -648,14 +649,14 @@ func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error 
 	pa.stream = stream
 
 	if pa.conf.RunOnReady != "" {
-		pa.log(logger.Info, "runOnReady command started")
+		pa.Log(logger.Info, "runOnReady command started")
 		pa.onReadyCmd = externalcmd.NewCmd(
 			pa.externalCmdPool,
 			pa.conf.RunOnReady,
 			pa.conf.RunOnReadyRestart,
 			pa.externalCmdEnv(),
 			func(co int) {
-				pa.log(logger.Info, "runOnReady command exited with code %d", co)
+				pa.Log(logger.Info, "runOnReady command exited with code %d", co)
 			})
 	}
 
@@ -675,7 +676,7 @@ func (pa *path) sourceSetNotReady() {
 	if pa.onReadyCmd != nil {
 		pa.onReadyCmd.Close()
 		pa.onReadyCmd = nil
-		pa.log(logger.Info, "runOnReady command stopped")
+		pa.Log(logger.Info, "runOnReady command stopped")
 	}
 
 	if pa.stream != nil {
@@ -772,7 +773,7 @@ func (pa *path) handlePublisherAdd(req pathPublisherAddReq) {
 			return
 		}
 
-		pa.log(logger.Info, "closing existing publisher")
+		pa.Log(logger.Info, "closing existing publisher")
 		pa.source.(publisher).close()
 		pa.doPublisherRemove()
 	}

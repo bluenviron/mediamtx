@@ -61,7 +61,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					conf.PPS,
 				}
 
-				return stream.writeUnit(medi, format, &formatprocessor.UnitH264{
+				stream.writeUnit(medi, format, &formatprocessor.UnitH264{
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
@@ -73,7 +73,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
-				return stream.writeUnit(medi, format, &formatprocessor.UnitH264{
+				stream.writeUnit(medi, format, &formatprocessor.UnitH264{
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
@@ -92,22 +92,26 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 				return fmt.Errorf("unable to decode AVCC: %v", err)
 			}
 
-			return stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+			stream.writeUnit(medi, format, &formatprocessor.UnitH265{
 				PTS: tmsg.DTS + tmsg.PTSDelta,
 				AU:  au,
 				NTP: time.Now(),
 			})
+
+			return nil
 		}
 
 	case *formats.MPEG2Audio:
 		return func(msg interface{}) error {
 			tmsg := msg.(*message.MsgAudio)
 
-			return stream.writeUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
+			stream.writeUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
 				PTS:    tmsg.DTS,
 				Frames: [][]byte{tmsg.Payload},
 				NTP:    time.Now(),
 			})
+
+			return nil
 		}
 
 	case *formats.MPEG4Audio:
@@ -115,7 +119,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 			tmsg := msg.(*message.MsgAudio)
 
 			if tmsg.AACType == message.MsgAudioAACTypeAU {
-				return stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
+				stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
 					PTS: tmsg.DTS,
 					AUs: [][]byte{tmsg.Payload},
 					NTP: time.Now(),
@@ -124,10 +128,9 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 
 			return nil
 		}
-
-	default:
-		return nil
 	}
+
+	return nil
 }
 
 type rtmpConnState int
@@ -144,7 +147,7 @@ type rtmpConnPathManager interface {
 }
 
 type rtmpConnParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	connClose(*rtmpConn)
 }
 
@@ -211,7 +214,7 @@ func newRTMPConn(
 		created:                   time.Now(),
 	}
 
-	c.log(logger.Info, "opened")
+	c.Log(logger.Info, "opened")
 
 	c.wg.Add(1)
 	go c.run()
@@ -227,8 +230,8 @@ func (c *rtmpConn) remoteAddr() net.Addr {
 	return c.nconn.RemoteAddr()
 }
 
-func (c *rtmpConn) log(level logger.Level, format string, args ...interface{}) {
-	c.parent.log(level, "[conn %v] "+format, append([]interface{}{c.nconn.RemoteAddr()}, args...)...)
+func (c *rtmpConn) Log(level logger.Level, format string, args ...interface{}) {
+	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.nconn.RemoteAddr()}, args...)...)
 }
 
 func (c *rtmpConn) ip() net.IP {
@@ -245,7 +248,7 @@ func (c *rtmpConn) run() {
 	defer c.wg.Done()
 
 	if c.runOnConnect != "" {
-		c.log(logger.Info, "runOnConnect command started")
+		c.Log(logger.Info, "runOnConnect command started")
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
 		onConnectCmd := externalcmd.NewCmd(
 			c.externalCmdPool,
@@ -256,12 +259,12 @@ func (c *rtmpConn) run() {
 				"RTSP_PORT": port,
 			},
 			func(co int) {
-				c.log(logger.Info, "runOnConnect command exited with code %d", co)
+				c.Log(logger.Info, "runOnConnect command exited with code %d", co)
 			})
 
 		defer func() {
 			onConnectCmd.Close()
-			c.log(logger.Info, "runOnConnect command stopped")
+			c.Log(logger.Info, "runOnConnect command stopped")
 		}()
 	}
 
@@ -286,7 +289,7 @@ func (c *rtmpConn) run() {
 
 	c.parent.connClose(c)
 
-	c.log(logger.Info, "closed (%v)", err)
+	c.Log(logger.Info, "closed (%v)", err)
 }
 
 func (c *rtmpConn) runInner(ctx context.Context) error {
@@ -371,24 +374,24 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 	defer res.stream.readerRemove(c)
 
-	c.log(logger.Info, "is reading from path '%s', %s",
+	c.Log(logger.Info, "is reading from path '%s', %s",
 		path.name, sourceMediaInfo(medias))
 
 	pathConf := path.safeConf()
 
 	if pathConf.RunOnRead != "" {
-		c.log(logger.Info, "runOnRead command started")
+		c.Log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
 			c.externalCmdPool,
 			pathConf.RunOnRead,
 			pathConf.RunOnReadRestart,
 			path.externalCmdEnv(),
 			func(co int) {
-				c.log(logger.Info, "runOnRead command exited with code %d", co)
+				c.Log(logger.Info, "runOnRead command exited with code %d", co)
 			})
 		defer func() {
 			onReadCmd.Close()
-			c.log(logger.Info, "runOnRead command stopped")
+			c.Log(logger.Info, "runOnRead command stopped")
 		}()
 	}
 
@@ -731,7 +734,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		return rres.err
 	}
 
-	c.log(logger.Info, "is publishing to path '%s', %s",
+	c.Log(logger.Info, "is publishing to path '%s', %s",
 		path.name,
 		sourceMediaInfo(medias))
 
@@ -756,7 +759,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 			err := videoWriteFunc(tmsg)
 			if err != nil {
-				c.log(logger.Warn, "%v", err)
+				c.Log(logger.Warn, "%v", err)
 			}
 
 		case *message.MsgAudio:
@@ -766,7 +769,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 			err := audioWriteFunc(tmsg)
 			if err != nil {
-				c.log(logger.Warn, "%v", err)
+				c.Log(logger.Warn, "%v", err)
 			}
 		}
 	}

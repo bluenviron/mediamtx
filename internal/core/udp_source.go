@@ -97,7 +97,7 @@ func (r *packetConnReader) Read(p []byte) (int, error) {
 }
 
 type udpSourceParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
@@ -118,7 +118,7 @@ func newUDPSource(
 }
 
 func (s *udpSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, "[udp source] "+format, args...)
+	s.parent.Log(level, "[udp source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -196,14 +196,11 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+						stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
 						})
-						if err != nil {
-							s.Log(logger.Warn, "%v", err)
-						}
 					}
 
 				case *mpegts.CodecH265:
@@ -221,14 +218,11 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							return
 						}
 
-						err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
+						stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 							PTS: pts,
 							AU:  au,
 							NTP: time.Now(),
 						})
-						if err != nil {
-							s.Log(logger.Warn, "%v", err)
-						}
 					}
 
 				case *mpegts.CodecMPEG4Audio:
@@ -256,14 +250,11 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							aus[i] = pkt.AU
 						}
 
-						err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
+						stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
 							PTS: pts,
 							AUs: aus,
 							NTP: time.Now(),
 						})
-						if err != nil {
-							s.Log(logger.Warn, "%v", err)
-						}
 					}
 
 				case *mpegts.CodecOpus:
@@ -287,14 +278,11 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 							}
 							pos += n
 
-							err = stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+							stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 								PTS:   pts,
 								Frame: au.Frame,
 								NTP:   time.Now(),
 							})
-							if err != nil {
-								s.Log(logger.Warn, "%v", err)
-							}
 
 							if len(data[pos:]) == 0 {
 								break

@@ -10,8 +10,9 @@ import (
 
 type stream struct {
 	bytesReceived *uint64
-	rtspStream    *gortsplib.ServerStream
-	smedias       map[*media.Media]*streamMedia
+
+	rtspStream *gortsplib.ServerStream
+	smedias    map[*media.Media]*streamMedia
 }
 
 func newStream(
@@ -19,6 +20,7 @@ func newStream(
 	medias media.Medias,
 	generateRTPPackets bool,
 	bytesReceived *uint64,
+	source source,
 ) (*stream, error) {
 	s := &stream{
 		bytesReceived: bytesReceived,
@@ -29,7 +31,7 @@ func newStream(
 
 	for _, media := range s.rtspStream.Medias() {
 		var err error
-		s.smedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets)
+		s.smedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, source)
 		if err != nil {
 			return nil, err
 		}
@@ -60,8 +62,8 @@ func (s *stream) readerRemove(r reader) {
 	}
 }
 
-func (s *stream) writeUnit(medi *media.Media, forma formats.Format, data formatprocessor.Unit) error {
+func (s *stream) writeUnit(medi *media.Media, forma formats.Format, data formatprocessor.Unit) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
-	return sf.writeUnit(s, medi, data)
+	sf.writeUnit(s, medi, data)
 }

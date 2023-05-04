@@ -56,7 +56,7 @@ type rtspServerAPISessionsKickRes struct {
 }
 
 type rtspServerParent interface {
-	Log(logger.Level, string, ...interface{})
+	logger.Writer
 }
 
 func printAddresses(srv *gortsplib.Server) string {
@@ -180,7 +180,7 @@ func newRTSPServer(
 		return nil, err
 	}
 
-	s.log(logger.Info, "listener opened on %s", printAddresses(s.srv))
+	s.Log(logger.Info, "listener opened on %s", printAddresses(s.srv))
 
 	if metrics != nil {
 		if !isTLS {
@@ -196,7 +196,7 @@ func newRTSPServer(
 	return s, nil
 }
 
-func (s *rtspServer) log(level logger.Level, format string, args ...interface{}) {
+func (s *rtspServer) Log(level logger.Level, format string, args ...interface{}) {
 	label := func() string {
 		if s.isTLS {
 			return "RTSPS"
@@ -207,7 +207,7 @@ func (s *rtspServer) log(level logger.Level, format string, args ...interface{})
 }
 
 func (s *rtspServer) close() {
-	s.log(logger.Info, "listener is closing")
+	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	s.wg.Wait()
 }
@@ -223,7 +223,7 @@ func (s *rtspServer) run() {
 outer:
 	select {
 	case err := <-serverErr:
-		s.log(logger.Error, "%s", err)
+		s.Log(logger.Error, "%s", err)
 		break outer
 
 	case <-s.ctx.Done():

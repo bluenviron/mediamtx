@@ -21,7 +21,7 @@ import (
 )
 
 type rtmpSourceParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
@@ -45,7 +45,7 @@ func newRTMPSource(
 }
 
 func (s *rtmpSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, "[rtmp source] "+format, args...)
+	s.parent.Log(level, "[rtmp source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.

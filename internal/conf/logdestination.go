@@ -3,21 +3,20 @@ package conf
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/aler9/mediamtx/internal/logger"
 )
 
 // LogDestinations is the logDestionations parameter.
-type LogDestinations map[logger.Destination]struct{}
+type LogDestinations []logger.Destination
 
 // MarshalJSON implements json.Marshaler.
 func (d LogDestinations) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 	i := 0
 
-	for p := range d {
+	for _, p := range d {
 		var v string
 
 		switch p {
@@ -38,9 +37,16 @@ func (d LogDestinations) MarshalJSON() ([]byte, error) {
 		i++
 	}
 
-	sort.Strings(out)
-
 	return json.Marshal(out)
+}
+
+func (d *LogDestinations) contains(v logger.Destination) bool {
+	for _, item := range *d {
+		if item == v {
+			return true
+		}
+	}
+	return false
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
@@ -50,22 +56,27 @@ func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	*d = make(LogDestinations)
-
-	for _, proto := range in {
-		switch proto {
+	for _, dest := range in {
+		var v logger.Destination
+		switch dest {
 		case "stdout":
-			(*d)[logger.DestinationStdout] = struct{}{}
+			v = logger.DestinationStdout
 
 		case "file":
-			(*d)[logger.DestinationFile] = struct{}{}
+			v = logger.DestinationFile
 
 		case "syslog":
-			(*d)[logger.DestinationSyslog] = struct{}{}
+			v = logger.DestinationSyslog
 
 		default:
-			return fmt.Errorf("invalid log destination: %s", proto)
+			return fmt.Errorf("invalid log destination: %s", dest)
 		}
+
+		if d.contains(v) {
+			return fmt.Errorf("log destination set twice")
+		}
+
+		*d = append(*d, v)
 	}
 
 	return nil

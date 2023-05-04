@@ -21,7 +21,7 @@ import (
 )
 
 type hlsSourceParent interface {
-	log(logger.Level, string, ...interface{})
+	logger.Writer
 	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
 	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
 }
@@ -39,7 +39,7 @@ func newHLSSource(
 }
 
 func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.log(level, "[hls source] "+format, args...)
+	s.parent.Log(level, "[hls source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -103,14 +103,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 						PTS: pts,
 						AU:  unit.([][]byte),
 						NTP: time.Now(),
 					})
-					if err != nil {
-						s.Log(logger.Warn, "%v", err)
-					}
 				})
 
 			case *codecs.H265:
@@ -125,14 +122,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
+					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 						PTS: pts,
 						AU:  unit.([][]byte),
 						NTP: time.Now(),
 					})
-					if err != nil {
-						s.Log(logger.Warn, "%v", err)
-					}
 				})
 
 			case *codecs.MPEG4Audio:
@@ -148,14 +142,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
+					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
 						PTS: pts,
 						AUs: [][]byte{unit.([]byte)},
 						NTP: time.Now(),
 					})
-					if err != nil {
-						s.Log(logger.Warn, "%v", err)
-					}
 				})
 
 			case *codecs.Opus:
@@ -168,14 +159,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					err := stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 						PTS:   pts,
 						Frame: unit.([]byte),
 						NTP:   time.Now(),
 					})
-					if err != nil {
-						s.Log(logger.Warn, "%v", err)
-					}
 				})
 			}
 
