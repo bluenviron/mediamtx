@@ -1202,7 +1202,7 @@ For more advanced options, you can create and serve a custom web page by startin
 * [RTSP/RTP/RTCP standards](https://github.com/bluenviron/gortsplib#standards)
 * [HLS standards](https://github.com/bluenviron/gohlslib#standards)
 * [Codec standards](https://github.com/bluenviron/mediacommon#standards)
-* [RTMP specification](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
+* [RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
 * [Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)
 * [Golang project layout](https://github.com/golang-standards/project-layout)
 

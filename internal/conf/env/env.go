@@ -1,6 +1,8 @@
-package conf
+// Package env contains a function to load configuration from environment.
+package env
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -9,7 +11,7 @@ import (
 )
 
 type envUnmarshaler interface {
-	unmarshalEnv(string) error
+	UnmarshalEnv(string) error
 }
 
 func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) error {
@@ -17,7 +19,7 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 
 	if i, ok := rv.Addr().Interface().(envUnmarshaler); ok {
 		if ev, ok := env[prefix]; ok {
-			err := i.unmarshalEnv(ev)
+			err := i.UnmarshalEnv(ev)
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
 			}
@@ -105,6 +107,9 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 			zero := reflect.Value{}
 			if nv == zero {
 				nv = reflect.New(rt.Elem().Elem())
+				if unm, ok := nv.Interface().(json.Unmarshaler); ok {
+					unm.UnmarshalJSON(nil) // load defaults
+				}
 				rv.SetMapIndex(reflect.ValueOf(mapKeyLower), nv)
 			}
 
@@ -148,7 +153,8 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 	return fmt.Errorf("unsupported type: %v", rt)
 }
 
-func loadFromEnvironment(prefix string, v interface{}) error {
+// Load loads the configuration from the environment.
+func Load(prefix string, v interface{}) error {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {
 		tmp := strings.SplitN(kv, "=", 2)

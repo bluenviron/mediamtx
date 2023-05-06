@@ -36,7 +36,7 @@ func (d *Credential) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// unmarshalEnv implements envUnmarshaler.
-func (d *Credential) unmarshalEnv(s string) error {
+// UnmarshalEnv implements envUnmarshaler.
+func (d *Credential) UnmarshalEnv(s string) error {
 	return d.UnmarshalJSON([]byte(`"` + s + `"`))
 }

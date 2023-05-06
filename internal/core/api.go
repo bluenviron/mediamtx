@@ -245,7 +245,7 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 
 	fillStruct(newConf, in)
 
-	err = newConf.CheckAndFillMissing()
+	err = newConf.Check()
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -289,7 +289,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 
 	newConf.Paths[name] = newConfPath
 
-	err = newConf.CheckAndFillMissing()
+	err = newConf.Check()
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -331,7 +331,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 
 	fillStruct(newConfPath, in)
 
-	err = newConf.CheckAndFillMissing()
+	err = newConf.Check()
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
@@ -366,7 +366,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 
 	delete(newConf.Paths, name)
 
-	err := newConf.CheckAndFillMissing()
+	err := newConf.Check()
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return

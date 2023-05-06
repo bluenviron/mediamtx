@@ -67,7 +67,7 @@ func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// unmarshalEnv implements envUnmarshaler.
-func (d *SourceProtocol) unmarshalEnv(s string) error {
+// UnmarshalEnv implements envUnmarshaler.
+func (d *SourceProtocol) UnmarshalEnv(s string) error {
 	return d.UnmarshalJSON([]byte(`"` + s + `"`))
 }

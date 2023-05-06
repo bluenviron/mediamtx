@@ -56,6 +56,8 @@ func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	*d = nil
+
 	for _, dest := range in {
 		var v logger.Destination
 		switch dest {
@@ -82,8 +84,8 @@ func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// unmarshalEnv implements envUnmarshaler.
-func (d *LogDestinations) unmarshalEnv(s string) error {
+// UnmarshalEnv implements envUnmarshaler.
+func (d *LogDestinations) UnmarshalEnv(s string) error {
 	byts, _ := json.Marshal(strings.Split(s, ","))
 	return d.UnmarshalJSON(byts)
 }

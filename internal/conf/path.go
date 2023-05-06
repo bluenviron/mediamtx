@@ -1,6 +1,7 @@
 package conf
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -104,7 +105,7 @@ type PathConf struct {
 	RunOnReadRestart        bool           `json:"runOnReadRestart"`
 }
 
-func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
+func (pconf *PathConf) check(conf *Conf, name string) error {
 	// normal path
 	if name == "" || name[0] != '~' {
 		err := IsValidPathName(name)
@@ -119,10 +120,6 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			return fmt.Errorf("invalid regular expression: %s", name[1:])
 		}
 		pconf.Regexp = pathRegexp
-	}
-
-	if pconf.Source == "" {
-		pconf.Source = "publisher"
 	}
 
 	switch {
@@ -221,40 +218,6 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 			}
 		}
 
-		if pconf.RPICameraWidth == 0 {
-			pconf.RPICameraWidth = 1920
-		}
-		if pconf.RPICameraHeight == 0 {
-			pconf.RPICameraHeight = 1080
-		}
-		if pconf.RPICameraContrast == 0 {
-			pconf.RPICameraContrast = 1
-		}
-		if pconf.RPICameraSaturation == 0 {
-			pconf.RPICameraSaturation = 1
-		}
-		if pconf.RPICameraSharpness == 0 {
-			pconf.RPICameraSharpness = 1
-		}
-		if pconf.RPICameraFPS == 0 {
-			pconf.RPICameraFPS = 30
-		}
-		if pconf.RPICameraIDRPeriod == 0 {
-			pconf.RPICameraIDRPeriod = 60
-		}
-		if pconf.RPICameraBitrate == 0 {
-			pconf.RPICameraBitrate = 1000000
-		}
-		if pconf.RPICameraProfile == "" {
-			pconf.RPICameraProfile = "main"
-		}
-		if pconf.RPICameraLevel == "" {
-			pconf.RPICameraLevel = "4.1"
-		}
-		if pconf.RPICameraTextOverlay == "" {
-			pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
-		}
-
 	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
 	}
@@ -263,14 +226,6 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		if pconf.Source == "publisher" {
 			return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
 		}
-	}
-
-	if pconf.SourceOnDemandStartTimeout == 0 {
-		pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	}
-
-	if pconf.SourceOnDemandCloseAfter == 0 {
-		pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
 	}
 
 	if pconf.Fallback != "" {
@@ -331,14 +286,6 @@ func (pconf *PathConf) checkAndFillMissing(conf *Conf, name string) error {
 		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
 	}
 
-	if pconf.RunOnDemandStartTimeout == 0 {
-		pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	}
-
-	if pconf.RunOnDemandCloseAfter == 0 {
-		pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
-	}
-
 	return nil
 }
 
@@ -383,4 +330,32 @@ func (pconf PathConf) HasOnDemandStaticSource() bool {
 // HasOnDemandPublisher checks whether the path has a on-demand publisher.
 func (pconf PathConf) HasOnDemandPublisher() bool {
 	return pconf.RunOnDemand != ""
+}
+
+// UnmarshalJSON implements json.Unmarshaler. It is used to set default values.
+func (pconf *PathConf) UnmarshalJSON(b []byte) error {
+	// source
+	pconf.Source = "publisher"
+	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
+	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.RPICameraWidth = 1920
+	pconf.RPICameraHeight = 1080
+	pconf.RPICameraContrast = 1
+	pconf.RPICameraSaturation = 1
+	pconf.RPICameraSharpness = 1
+	pconf.RPICameraFPS = 30
+	pconf.RPICameraIDRPeriod = 60
+	pconf.RPICameraBitrate = 1000000
+	pconf.RPICameraProfile = "main"
+	pconf.RPICameraLevel = "4.1"
+	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
+
+	// external commands
+	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
+	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
+
+	type alias PathConf
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	return d.Decode((*alias)(pconf))
 }
