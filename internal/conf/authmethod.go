@@ -41,6 +41,8 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	*d = nil
+
 	for _, v := range in {
 		switch v {
 		case "basic":
@@ -57,8 +59,8 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// unmarshalEnv implements envUnmarshaler.
-func (d *AuthMethods) unmarshalEnv(s string) error {
+// UnmarshalEnv implements envUnmarshaler.
+func (d *AuthMethods) UnmarshalEnv(s string) error {
 	byts, _ := json.Marshal(strings.Split(s, ","))
 	return d.UnmarshalJSON(byts)
 }

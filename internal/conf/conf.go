@@ -2,11 +2,10 @@
 package conf
 
 import (
-	"encoding/base64"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
-	"reflect"
 	"sort"
 	"strings"
 	"time"
@@ -14,29 +13,22 @@ import (
 	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/headers"
-	"golang.org/x/crypto/nacl/secretbox"
-	"gopkg.in/yaml.v2"
 
+	"github.com/aler9/mediamtx/internal/conf/decrypt"
+	"github.com/aler9/mediamtx/internal/conf/env"
+	"github.com/aler9/mediamtx/internal/conf/yaml"
 	"github.com/aler9/mediamtx/internal/logger"
 )
 
-func decrypt(key string, byts []byte) ([]byte, error) {
-	enc, err := base64.StdEncoding.DecodeString(string(byts))
-	if err != nil {
-		return nil, err
+func getSortedKeys(paths map[string]*PathConf) []string {
+	ret := make([]string, len(paths))
+	i := 0
+	for name := range paths {
+		ret[i] = name
+		i++
 	}
-
-	var secretKey [32]byte
-	copy(secretKey[:], key)
-
-	var decryptNonce [24]byte
-	copy(decryptNonce[:], enc[:24])
-	decrypted, ok := secretbox.Open(nil, enc[24:], &decryptNonce, &secretKey)
-	if !ok {
-		return nil, fmt.Errorf("decryption error")
-	}
-
-	return decrypted, nil
+	sort.Strings(ret)
+	return ret
 }
 
 func loadFromFile(fpath string, conf *Conf) (bool, error) {
@@ -52,6 +44,7 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 	// other configuration files are not
 	if fpath == "mediamtx.yml" || fpath == "rtsp-simple-server.yml" {
 		if _, err := os.Stat(fpath); err != nil {
+			conf.UnmarshalJSON(nil) // load defaults
 			return false, nil
 		}
 	}
@@ -62,119 +55,20 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 	}
 
 	if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok { // legacy format
-		byts, err = decrypt(key, byts)
+		byts, err = decrypt.Decrypt(key, byts)
 		if err != nil {
 			return true, err
 		}
 	}
 
 	if key, ok := os.LookupEnv("MTX_CONFKEY"); ok {
-		byts, err = decrypt(key, byts)
+		byts, err = decrypt.Decrypt(key, byts)
 		if err != nil {
 			return true, err
 		}
 	}
 
-	// load YAML config into a generic map
-	var temp interface{}
-	err = yaml.Unmarshal(byts, &temp)
-	if err != nil {
-		return true, err
-	}
-
-	// convert interface{} keys into string keys to avoid JSON errors
-	var convert func(i interface{}) (interface{}, error)
-	convert = func(i interface{}) (interface{}, error) {
-		switch x := i.(type) {
-		case map[interface{}]interface{}:
-			m2 := map[string]interface{}{}
-			for k, v := range x {
-				ks, ok := k.(string)
-				if !ok {
-					return nil, fmt.Errorf("integer keys are not supported (%v)", k)
-				}
-
-				m2[ks], err = convert(v)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return m2, nil
-
-		case []interface{}:
-			a2 := make([]interface{}, len(x))
-			for i, v := range x {
-				a2[i], err = convert(v)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return a2, nil
-		}
-
-		return i, nil
-	}
-	temp, err = convert(temp)
-	if err != nil {
-		return false, err
-	}
-
-	// check for non-existent parameters
-	var checkNonExistentFields func(what interface{}, ref interface{}) error
-	checkNonExistentFields = func(what interface{}, ref interface{}) error {
-		if what == nil {
-			return nil
-		}
-
-		ma, ok := what.(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("not a map")
-		}
-
-		for k, v := range ma {
-			fi := func() reflect.Type {
-				rr := reflect.TypeOf(ref)
-				for i := 0; i < rr.NumField(); i++ {
-					f := rr.Field(i)
-					if f.Tag.Get("json") == k {
-						return f.Type
-					}
-				}
-				return nil
-			}()
-			if fi == nil {
-				return fmt.Errorf("non-existent parameter: '%s'", k)
-			}
-
-			if fi == reflect.TypeOf(map[string]*PathConf{}) && v != nil {
-				ma2, ok := v.(map[string]interface{})
-				if !ok {
-					return fmt.Errorf("parameter %s is not a map", k)
-				}
-
-				for k2, v2 := range ma2 {
-					err := checkNonExistentFields(v2, reflect.Zero(fi.Elem().Elem()).Interface())
-					if err != nil {
-						return fmt.Errorf("parameter %s, key %s: %s", k, k2, err)
-					}
-				}
-			}
-		}
-		return nil
-	}
-	err = checkNonExistentFields(temp, Conf{})
-	if err != nil {
-		return true, err
-	}
-
-	// convert the generic map into JSON
-	byts, err = json.Marshal(temp)
-	if err != nil {
-		return true, err
-	}
-
-	// load the configuration from JSON
-	err = json.Unmarshal(byts, conf)
+	err = yaml.Load(byts, conf)
 	if err != nil {
 		return true, err
 	}
@@ -267,17 +161,17 @@ func Load(fpath string) (*Conf, bool, error) {
 		return nil, false, err
 	}
 
-	err = loadFromEnvironment("RTSP", conf) // legacy prefix
+	err = env.Load("RTSP", conf) // legacy prefix
 	if err != nil {
 		return nil, false, err
 	}
 
-	err = loadFromEnvironment("MTX", conf)
+	err = env.Load("MTX", conf)
 	if err != nil {
 		return nil, false, err
 	}
 
-	err = conf.CheckAndFillMissing()
+	err = conf.Check()
 	if err != nil {
 		return nil, false, err
 	}
@@ -301,32 +195,11 @@ func (conf Conf) Clone() *Conf {
 	return &dest
 }
 
-// CheckAndFillMissing checks the configuration for errors and fills missing parameters.
-func (conf *Conf) CheckAndFillMissing() error {
+// Check checks the configuration for errors.
+func (conf *Conf) Check() error {
 	// general
-	if conf.LogLevel == 0 {
-		conf.LogLevel = LogLevel(logger.Info)
-	}
-	if len(conf.LogDestinations) == 0 {
-		conf.LogDestinations = LogDestinations{logger.DestinationStdout}
-	}
-	if conf.LogFile == "" {
-		conf.LogFile = "mediamtx.log"
-	}
-	if conf.ReadTimeout == 0 {
-		conf.ReadTimeout = 10 * StringDuration(time.Second)
-	}
-	if conf.WriteTimeout == 0 {
-		conf.WriteTimeout = 10 * StringDuration(time.Second)
-	}
-	if conf.ReadBufferCount == 0 {
-		conf.ReadBufferCount = 512
-	}
 	if (conf.ReadBufferCount & (conf.ReadBufferCount - 1)) != 0 {
 		return fmt.Errorf("'readBufferCount' must be a power of two")
-	}
-	if conf.UDPMaxPayloadSize == 0 {
-		conf.UDPMaxPayloadSize = 1472
 	}
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
@@ -337,24 +210,8 @@ func (conf *Conf) CheckAndFillMissing() error {
 			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
 		}
 	}
-	if conf.APIAddress == "" {
-		conf.APIAddress = "127.0.0.1:9997"
-	}
-	if conf.MetricsAddress == "" {
-		conf.MetricsAddress = "127.0.0.1:9998"
-	}
-	if conf.PPROFAddress == "" {
-		conf.PPROFAddress = "127.0.0.1:9999"
-	}
 
 	// RTSP
-	if len(conf.Protocols) == 0 {
-		conf.Protocols = Protocols{
-			Protocol(gortsplib.TransportUDP):          {},
-			Protocol(gortsplib.TransportUDPMulticast): {},
-			Protocol(gortsplib.TransportTCP):          {},
-		}
-	}
 	if conf.Encryption == EncryptionStrict {
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDP)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP transport protocol")
@@ -363,90 +220,6 @@ func (conf *Conf) CheckAndFillMissing() error {
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDPMulticast)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP-multicast transport protocol")
 		}
-	}
-	if conf.RTSPAddress == "" {
-		conf.RTSPAddress = ":8554"
-	}
-	if conf.RTSPSAddress == "" {
-		conf.RTSPSAddress = ":8322"
-	}
-	if conf.RTPAddress == "" {
-		conf.RTPAddress = ":8000"
-	}
-	if conf.RTCPAddress == "" {
-		conf.RTCPAddress = ":8001"
-	}
-	if conf.MulticastIPRange == "" {
-		conf.MulticastIPRange = "224.1.0.0/16"
-	}
-	if conf.MulticastRTPPort == 0 {
-		conf.MulticastRTPPort = 8002
-	}
-	if conf.MulticastRTCPPort == 0 {
-		conf.MulticastRTCPPort = 8003
-	}
-	if conf.ServerKey == "" {
-		conf.ServerKey = "server.key"
-	}
-	if conf.ServerCert == "" {
-		conf.ServerCert = "server.crt"
-	}
-	if len(conf.AuthMethods) == 0 {
-		conf.AuthMethods = AuthMethods{headers.AuthBasic, headers.AuthDigest}
-	}
-
-	// RTMP
-	if conf.RTMPAddress == "" {
-		conf.RTMPAddress = ":1935"
-	}
-	if conf.RTMPSAddress == "" {
-		conf.RTMPSAddress = ":1936"
-	}
-
-	// HLS
-	if conf.HLSAddress == "" {
-		conf.HLSAddress = ":8888"
-	}
-	if conf.HLSServerKey == "" {
-		conf.HLSServerKey = "server.key"
-	}
-	if conf.HLSServerCert == "" {
-		conf.HLSServerCert = "server.crt"
-	}
-	if conf.HLSVariant == 0 {
-		conf.HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
-	}
-	if conf.HLSSegmentCount == 0 {
-		conf.HLSSegmentCount = 7
-	}
-	if conf.HLSSegmentDuration == 0 {
-		conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
-	}
-	if conf.HLSPartDuration == 0 {
-		conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
-	}
-	if conf.HLSSegmentMaxSize == 0 {
-		conf.HLSSegmentMaxSize = 50 * 1024 * 1024
-	}
-	if conf.HLSAllowOrigin == "" {
-		conf.HLSAllowOrigin = "*"
-	}
-
-	// WebRTC
-	if conf.WebRTCAddress == "" {
-		conf.WebRTCAddress = ":8889"
-	}
-	if conf.WebRTCServerKey == "" {
-		conf.WebRTCServerKey = "server.key"
-	}
-	if conf.WebRTCServerCert == "" {
-		conf.WebRTCServerCert = "server.crt"
-	}
-	if conf.WebRTCAllowOrigin == "" {
-		conf.WebRTCAllowOrigin = "*"
-	}
-	if conf.WebRTCICEServers == nil {
-		conf.WebRTCICEServers = []string{"stun:stun.l.google.com:19302"}
 	}
 
 	// do not add automatically "all", since user may want to
@@ -461,26 +234,78 @@ func (conf *Conf) CheckAndFillMissing() error {
 		delete(conf.Paths, "all")
 	}
 
-	sortedNames := make([]string, len(conf.Paths))
-	i := 0
-	for name := range conf.Paths {
-		sortedNames[i] = name
-		i++
-	}
-	sort.Strings(sortedNames)
-
-	for _, name := range sortedNames {
+	for _, name := range getSortedKeys(conf.Paths) {
 		pconf := conf.Paths[name]
 		if pconf == nil {
 			pconf = &PathConf{}
+			pconf.UnmarshalJSON(nil) // fill defaults
 			conf.Paths[name] = pconf
 		}
 
-		err := pconf.checkAndFillMissing(conf, name)
+		err := pconf.check(conf, name)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+// UnmarshalJSON implements json.Unmarshaler. It is used to set default values.
+func (conf *Conf) UnmarshalJSON(b []byte) error {
+	// general
+	conf.LogLevel = LogLevel(logger.Info)
+	conf.LogDestinations = LogDestinations{logger.DestinationStdout}
+	conf.LogFile = "mediamtx.log"
+	conf.ReadTimeout = 10 * StringDuration(time.Second)
+	conf.WriteTimeout = 10 * StringDuration(time.Second)
+	conf.ReadBufferCount = 512
+	conf.UDPMaxPayloadSize = 1472
+	conf.APIAddress = "127.0.0.1:9997"
+	conf.MetricsAddress = "127.0.0.1:9998"
+	conf.PPROFAddress = "127.0.0.1:9999"
+
+	// RTSP
+	conf.Protocols = Protocols{
+		Protocol(gortsplib.TransportUDP):          {},
+		Protocol(gortsplib.TransportUDPMulticast): {},
+		Protocol(gortsplib.TransportTCP):          {},
+	}
+	conf.RTSPAddress = ":8554"
+	conf.RTSPSAddress = ":8322"
+	conf.RTPAddress = ":8000"
+	conf.RTCPAddress = ":8001"
+	conf.MulticastIPRange = "224.1.0.0/16"
+	conf.MulticastRTPPort = 8002
+	conf.MulticastRTCPPort = 8003
+	conf.ServerKey = "server.key"
+	conf.ServerCert = "server.crt"
+	conf.AuthMethods = AuthMethods{headers.AuthBasic, headers.AuthDigest}
+
+	// RTMP
+	conf.RTMPAddress = ":1935"
+	conf.RTMPSAddress = ":1936"
+
+	// HLS
+	conf.HLSAddress = ":8888"
+	conf.HLSServerKey = "server.key"
+	conf.HLSServerCert = "server.crt"
+	conf.HLSVariant = HLSVariant(gohlslib.MuxerVariantLowLatency)
+	conf.HLSSegmentCount = 7
+	conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
+	conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
+	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
+	conf.HLSAllowOrigin = "*"
+
+	// WebRTC
+	conf.WebRTCAddress = ":8889"
+	conf.WebRTCServerKey = "server.key"
+	conf.WebRTCServerCert = "server.crt"
+	conf.WebRTCAllowOrigin = "*"
+	conf.WebRTCICEServers = []string{"stun:stun.l.google.com:19302"}
+
+	type alias Conf
+	d := json.NewDecoder(bytes.NewReader(b))
+	d.DisallowUnknownFields()
+	return d.Decode((*alias)(conf))
 }

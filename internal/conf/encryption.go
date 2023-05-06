@@ -60,7 +60,7 @@ func (d *Encryption) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// unmarshalEnv implements envUnmarshaler.
-func (d *Encryption) unmarshalEnv(s string) error {
+// UnmarshalEnv implements envUnmarshaler.
+func (d *Encryption) UnmarshalEnv(s string) error {
 	return d.UnmarshalJSON([]byte(`"` + s + `"`))
 }
