@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/base"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 
@@ -25,11 +24,14 @@ func newEmptyTimer() *time.Timer {
 	return t
 }
 
-type authenticateFunc func(
-	pathIPs []fmt.Stringer,
-	pathUser conf.Credential,
-	pathPass conf.Credential,
-) error
+type pathErrAuth struct {
+	wrapped error
+}
+
+// Error implements the error interface.
+func (e pathErrAuth) Error() string {
+	return "authentication error"
+}
 
 type pathErrNoOnePublishing struct {
 	pathName string
@@ -38,26 +40,6 @@ type pathErrNoOnePublishing struct {
 // Error implements the error interface.
 func (e pathErrNoOnePublishing) Error() string {
 	return fmt.Sprintf("no one is publishing to path '%s'", e.pathName)
-}
-
-type pathErrAuthNotCritical struct {
-	message  string
-	response *base.Response
-}
-
-// Error implements the error interface.
-func (pathErrAuthNotCritical) Error() string {
-	return "non-critical authentication error"
-}
-
-type pathErrAuthCritical struct {
-	message  string
-	response *base.Response
-}
-
-// Error implements the error interface.
-func (pathErrAuthCritical) Error() string {
-	return "critical authentication error"
 }
 
 type pathParent interface {
@@ -101,6 +83,17 @@ type pathPublisherRemoveReq struct {
 	res    chan struct{}
 }
 
+type pathGetPathConfRes struct {
+	conf *conf.PathConf
+	err  error
+}
+
+type pathGetPathConfReq struct {
+	name        string
+	credentials authCredentials
+	res         chan pathGetPathConfRes
+}
+
 type pathDescribeRes struct {
 	path     *path
 	stream   *stream
@@ -109,10 +102,10 @@ type pathDescribeRes struct {
 }
 
 type pathDescribeReq struct {
-	pathName     string
-	url          *url.URL
-	authenticate authenticateFunc
-	res          chan pathDescribeRes
+	pathName    string
+	url         *url.URL
+	credentials authCredentials
+	res         chan pathDescribeRes
 }
 
 type pathReaderSetupPlayRes struct {
@@ -122,10 +115,11 @@ type pathReaderSetupPlayRes struct {
 }
 
 type pathReaderAddReq struct {
-	author       reader
-	pathName     string
-	authenticate authenticateFunc
-	res          chan pathReaderSetupPlayRes
+	author      reader
+	pathName    string
+	skipAuth    bool
+	credentials authCredentials
+	res         chan pathReaderSetupPlayRes
 }
 
 type pathPublisherAnnounceRes struct {
@@ -134,10 +128,10 @@ type pathPublisherAnnounceRes struct {
 }
 
 type pathPublisherAddReq struct {
-	author       publisher
-	pathName     string
-	authenticate authenticateFunc
-	res          chan pathPublisherAnnounceRes
+	author      publisher
+	pathName    string
+	credentials authCredentials
+	res         chan pathPublisherAnnounceRes
 }
 
 type pathPublisherRecordRes struct {

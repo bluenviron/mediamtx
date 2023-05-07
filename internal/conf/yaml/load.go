@@ -2,7 +2,6 @@
 package yaml
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -64,7 +63,5 @@ func Load(buf []byte, dest interface{}) error {
 	}
 
 	// load JSON into destination
-	d := json.NewDecoder(bytes.NewReader(buf))
-	d.DisallowUnknownFields()
-	return d.Decode(dest)
+	return json.Unmarshal(buf, dest)
 }

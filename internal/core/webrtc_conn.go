@@ -26,7 +26,6 @@ import (
 	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 
-	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/formatprocessor"
 	"github.com/aler9/mediamtx/internal/logger"
 	"github.com/aler9/mediamtx/internal/websocket"
@@ -302,13 +301,7 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: c.pathName,
-		authenticate: func(
-			pathIPs []fmt.Stringer,
-			pathUser conf.Credential,
-			pathPass conf.Credential,
-		) error {
-			return nil
-		},
+		skipAuth: true,
 	})
 	if res.err != nil {
 		return res.err

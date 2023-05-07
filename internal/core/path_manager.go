@@ -39,15 +39,17 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	rtspAddress       string
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
-	readBufferCount   int
-	udpMaxPayloadSize int
-	pathConfs         map[string]*conf.PathConf
-	externalCmdPool   *externalcmd.Pool
-	metrics           *metrics
-	parent            pathManagerParent
+	externalAuthenticationURL string
+	rtspAddress               string
+	authMethods               conf.AuthMethods
+	readTimeout               conf.StringDuration
+	writeTimeout              conf.StringDuration
+	readBufferCount           int
+	udpMaxPayloadSize         int
+	pathConfs                 map[string]*conf.PathConf
+	externalCmdPool           *externalcmd.Pool
+	metrics                   *metrics
+	parent                    pathManagerParent
 
 	ctx         context.Context
 	ctxCancel   func()
@@ -61,6 +63,7 @@ type pathManager struct {
 	chPathClose          chan *path
 	chPathSourceReady    chan *path
 	chPathSourceNotReady chan *path
+	chPathGetPathConf    chan pathGetPathConfReq
 	chDescribe           chan pathDescribeReq
 	chReaderAdd          chan pathReaderAddReq
 	chPublisherAdd       chan pathPublisherAddReq
@@ -70,7 +73,9 @@ type pathManager struct {
 
 func newPathManager(
 	parentCtx context.Context,
+	externalAuthenticationURL string,
 	rtspAddress string,
+	authMethods conf.AuthMethods,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
@@ -83,28 +88,31 @@ func newPathManager(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	pm := &pathManager{
-		rtspAddress:          rtspAddress,
-		readTimeout:          readTimeout,
-		writeTimeout:         writeTimeout,
-		readBufferCount:      readBufferCount,
-		udpMaxPayloadSize:    udpMaxPayloadSize,
-		pathConfs:            pathConfs,
-		externalCmdPool:      externalCmdPool,
-		metrics:              metrics,
-		parent:               parent,
-		ctx:                  ctx,
-		ctxCancel:            ctxCancel,
-		paths:                make(map[string]*path),
-		pathsByConf:          make(map[string]map[*path]struct{}),
-		chConfReload:         make(chan map[string]*conf.PathConf),
-		chPathClose:          make(chan *path),
-		chPathSourceReady:    make(chan *path),
-		chPathSourceNotReady: make(chan *path),
-		chDescribe:           make(chan pathDescribeReq),
-		chReaderAdd:          make(chan pathReaderAddReq),
-		chPublisherAdd:       make(chan pathPublisherAddReq),
-		chHLSServerSet:       make(chan pathManagerHLSServer),
-		chAPIPathsList:       make(chan pathAPIPathsListReq),
+		externalAuthenticationURL: externalAuthenticationURL,
+		rtspAddress:               rtspAddress,
+		authMethods:               authMethods,
+		readTimeout:               readTimeout,
+		writeTimeout:              writeTimeout,
+		readBufferCount:           readBufferCount,
+		udpMaxPayloadSize:         udpMaxPayloadSize,
+		pathConfs:                 pathConfs,
+		externalCmdPool:           externalCmdPool,
+		metrics:                   metrics,
+		parent:                    parent,
+		ctx:                       ctx,
+		ctxCancel:                 ctxCancel,
+		paths:                     make(map[string]*path),
+		pathsByConf:               make(map[string]map[*path]struct{}),
+		chConfReload:              make(chan map[string]*conf.PathConf),
+		chPathClose:               make(chan *path),
+		chPathSourceReady:         make(chan *path),
+		chPathSourceNotReady:      make(chan *path),
+		chPathGetPathConf:         make(chan pathGetPathConfReq),
+		chDescribe:                make(chan pathDescribeReq),
+		chReaderAdd:               make(chan pathReaderAddReq),
+		chPublisherAdd:            make(chan pathPublisherAddReq),
+		chHLSServerSet:            make(chan pathManagerHLSServer),
+		chAPIPathsList:            make(chan pathAPIPathsListReq),
 	}
 
 	for pathConfName, pathConf := range pm.pathConfs {
@@ -194,22 +202,32 @@ outer:
 				pm.hlsServer.pathSourceNotReady(pa)
 			}
 
+		case req := <-pm.chPathGetPathConf:
+			_, pathConf, _, err := pm.getPathConfInternal(req.name)
+			if err != nil {
+				req.res <- pathGetPathConfRes{err: err}
+				continue
+			}
+
+			err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.name, pathConf, false, req.credentials)
+			if err != nil {
+				req.res <- pathGetPathConfRes{err: pathErrAuth{wrapped: err}}
+				continue
+			}
+
+			req.res <- pathGetPathConfRes{conf: pathConf}
+
 		case req := <-pm.chDescribe:
-			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.pathName)
+			pathConfName, pathConf, pathMatches, err := pm.getPathConfInternal(req.pathName)
 			if err != nil {
 				req.res <- pathDescribeRes{err: err}
 				continue
 			}
 
-			if req.authenticate != nil {
-				err = req.authenticate(
-					pathConf.ReadIPs,
-					pathConf.ReadUser,
-					pathConf.ReadPass)
-				if err != nil {
-					req.res <- pathDescribeRes{err: err}
-					continue
-				}
+			err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+			if err != nil {
+				req.res <- pathDescribeRes{err: pathErrAuth{wrapped: err}}
+				continue
 			}
 
 			// create path if it doesn't exist
@@ -220,19 +238,16 @@ outer:
 			req.res <- pathDescribeRes{path: pm.paths[req.pathName]}
 
 		case req := <-pm.chReaderAdd:
-			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.pathName)
+			pathConfName, pathConf, pathMatches, err := pm.getPathConfInternal(req.pathName)
 			if err != nil {
 				req.res <- pathReaderSetupPlayRes{err: err}
 				continue
 			}
 
-			if req.authenticate != nil {
-				err = req.authenticate(
-					pathConf.ReadIPs,
-					pathConf.ReadUser,
-					pathConf.ReadPass)
+			if !req.skipAuth {
+				err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
 				if err != nil {
-					req.res <- pathReaderSetupPlayRes{err: err}
+					req.res <- pathReaderSetupPlayRes{err: pathErrAuth{wrapped: err}}
 					continue
 				}
 			}
@@ -245,18 +260,15 @@ outer:
 			req.res <- pathReaderSetupPlayRes{path: pm.paths[req.pathName]}
 
 		case req := <-pm.chPublisherAdd:
-			pathConfName, pathConf, pathMatches, err := pm.findPathConf(req.pathName)
+			pathConfName, pathConf, pathMatches, err := pm.getPathConfInternal(req.pathName)
 			if err != nil {
 				req.res <- pathPublisherAnnounceRes{err: err}
 				continue
 			}
 
-			err = req.authenticate(
-				pathConf.PublishIPs,
-				pathConf.PublishUser,
-				pathConf.PublishPass)
+			err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
 			if err != nil {
-				req.res <- pathPublisherAnnounceRes{err: err}
+				req.res <- pathPublisherAnnounceRes{err: pathErrAuth{wrapped: err}}
 				continue
 			}
 
@@ -330,7 +342,7 @@ func (pm *pathManager) removePath(pa *path) {
 	delete(pm.paths, pa.name)
 }
 
-func (pm *pathManager) findPathConf(name string) (string, *conf.PathConf, []string, error) {
+func (pm *pathManager) getPathConfInternal(name string) (string, *conf.PathConf, []string, error) {
 	err := conf.IsValidPathName(name)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
@@ -386,6 +398,18 @@ func (pm *pathManager) onPathClose(pa *path) {
 	case pm.chPathClose <- pa:
 	case <-pm.ctx.Done():
 	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
+	}
+}
+
+// getPathConf is called by a reader or publisher.
+func (pm *pathManager) getPathConf(req pathGetPathConfReq) pathGetPathConfRes {
+	req.res = make(chan pathGetPathConfRes)
+	select {
+	case pm.chPathGetPathConf <- req:
+		return <-req.res
+
+	case <-pm.ctx.Done():
+		return pathGetPathConfRes{err: fmt.Errorf("terminated")}
 	}
 }
 

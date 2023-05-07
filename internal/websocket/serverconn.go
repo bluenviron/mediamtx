@@ -23,7 +23,8 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// ServerConn is a server-side WebSocket connection with automatic, periodic ping / pong.
+// ServerConn is a server-side WebSocket connection with
+// automatic, periodic ping-pong
 type ServerConn struct {
 	wc *websocket.Conn
 

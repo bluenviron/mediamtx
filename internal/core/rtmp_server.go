@@ -48,18 +48,17 @@ type rtmpServerParent interface {
 }
 
 type rtmpServer struct {
-	externalAuthenticationURL string
-	readTimeout               conf.StringDuration
-	writeTimeout              conf.StringDuration
-	readBufferCount           int
-	isTLS                     bool
-	rtspAddress               string
-	runOnConnect              string
-	runOnConnectRestart       bool
-	externalCmdPool           *externalcmd.Pool
-	metrics                   *metrics
-	pathManager               *pathManager
-	parent                    rtmpServerParent
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
+	readBufferCount     int
+	isTLS               bool
+	rtspAddress         string
+	runOnConnect        string
+	runOnConnectRestart bool
+	externalCmdPool     *externalcmd.Pool
+	metrics             *metrics
+	pathManager         *pathManager
+	parent              rtmpServerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -75,7 +74,6 @@ type rtmpServer struct {
 
 func newRTMPServer(
 	parentCtx context.Context,
-	externalAuthenticationURL string,
 	address string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -111,25 +109,24 @@ func newRTMPServer(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &rtmpServer{
-		externalAuthenticationURL: externalAuthenticationURL,
-		readTimeout:               readTimeout,
-		writeTimeout:              writeTimeout,
-		readBufferCount:           readBufferCount,
-		rtspAddress:               rtspAddress,
-		runOnConnect:              runOnConnect,
-		runOnConnectRestart:       runOnConnectRestart,
-		isTLS:                     isTLS,
-		externalCmdPool:           externalCmdPool,
-		metrics:                   metrics,
-		pathManager:               pathManager,
-		parent:                    parent,
-		ctx:                       ctx,
-		ctxCancel:                 ctxCancel,
-		ln:                        ln,
-		conns:                     make(map[*rtmpConn]struct{}),
-		chConnClose:               make(chan *rtmpConn),
-		chAPIConnsList:            make(chan rtmpServerAPIConnsListReq),
-		chAPIConnsKick:            make(chan rtmpServerAPIConnsKickReq),
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		readBufferCount:     readBufferCount,
+		rtspAddress:         rtspAddress,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		isTLS:               isTLS,
+		externalCmdPool:     externalCmdPool,
+		metrics:             metrics,
+		pathManager:         pathManager,
+		parent:              parent,
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
+		ln:                  ln,
+		conns:               make(map[*rtmpConn]struct{}),
+		chConnClose:         make(chan *rtmpConn),
+		chAPIConnsList:      make(chan rtmpServerAPIConnsListReq),
+		chAPIConnsKick:      make(chan rtmpServerAPIConnsKickReq),
 	}
 
 	s.Log(logger.Info, "listener opened on %s", address)
@@ -200,7 +197,6 @@ outer:
 			c := newRTMPConn(
 				s.ctx,
 				s.isTLS,
-				s.externalAuthenticationURL,
 				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,

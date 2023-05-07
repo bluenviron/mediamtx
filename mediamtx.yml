@@ -96,8 +96,9 @@ multicastRTCPPort: 8003
 serverKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 serverCert: server.crt
-# Authentication methods.
-authMethods: [basic, digest]
+# Authentication methods. Available are "basic" and "digest".
+# "digest" doesn't provide any additional security and is available for compatibility reasons only.
+authMethods: [basic]
 
 ###############################################
 # RTMP parameters

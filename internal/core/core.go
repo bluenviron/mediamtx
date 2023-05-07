@@ -242,7 +242,9 @@ func (p *Core) createResources(initial bool) error {
 	if p.pathManager == nil {
 		p.pathManager = newPathManager(
 			p.ctx,
+			p.conf.ExternalAuthenticationURL,
 			p.conf.RTSPAddress,
+			p.conf.AuthMethods,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.ReadBufferCount,
@@ -262,7 +264,6 @@ func (p *Core) createResources(initial bool) error {
 			_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 			p.rtspServer, err = newRTSPServer(
 				p.ctx,
-				p.conf.ExternalAuthenticationURL,
 				p.conf.RTSPAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -299,7 +300,6 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtspsServer == nil {
 			p.rtspsServer, err = newRTSPServer(
 				p.ctx,
-				p.conf.ExternalAuthenticationURL,
 				p.conf.RTSPSAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -336,7 +336,6 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtmpServer == nil {
 			p.rtmpServer, err = newRTMPServer(
 				p.ctx,
-				p.conf.ExternalAuthenticationURL,
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -364,7 +363,6 @@ func (p *Core) createResources(initial bool) error {
 		if p.rtmpsServer == nil {
 			p.rtmpsServer, err = newRTMPServer(
 				p.ctx,
-				p.conf.ExternalAuthenticationURL,
 				p.conf.RTMPSAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -420,7 +418,6 @@ func (p *Core) createResources(initial bool) error {
 		if p.webRTCServer == nil {
 			p.webRTCServer, err = newWebRTCServer(
 				p.ctx,
-				p.conf.ExternalAuthenticationURL,
 				p.conf.WebRTCAddress,
 				p.conf.WebRTCEncryption,
 				p.conf.WebRTCServerKey,
@@ -490,7 +487,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout
 
 	closePathManager := newConf == nil ||
+		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
+		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -503,7 +502,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeRTSPServer := newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.Encryption != p.conf.Encryption ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -525,7 +523,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeRTSPSServer := newConf == nil ||
 		newConf.RTSPDisable != p.conf.RTSPDisable ||
 		newConf.Encryption != p.conf.Encryption ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -544,7 +541,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -558,7 +554,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPDisable != p.conf.RTMPDisable ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPSAddress != p.conf.RTMPSAddress ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
@@ -593,7 +588,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closeWebRTCServer := newConf == nil ||
 		newConf.WebRTCDisable != p.conf.WebRTCDisable ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
 		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
 		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||

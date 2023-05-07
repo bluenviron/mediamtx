@@ -2,13 +2,13 @@ package core
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/auth"
 	"github.com/bluenviron/gortsplib/v3/pkg/base"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
@@ -20,10 +20,6 @@ import (
 	"github.com/aler9/mediamtx/internal/externalcmd"
 	"github.com/aler9/mediamtx/internal/formatprocessor"
 	"github.com/aler9/mediamtx/internal/logger"
-)
-
-const (
-	pauseAfterAuthError = 2 * time.Second
 )
 
 type rtspWriteFunc func(*rtp.Packet)
@@ -202,29 +198,28 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	}
 	ctx.Path = ctx.Path[1:]
 
+	if c.authNonce == "" {
+		c.authNonce = auth.GenerateNonce()
+	}
+
 	res := s.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   s,
 		pathName: ctx.Path,
-		authenticate: func(
-			pathIPs []fmt.Stringer,
-			pathUser conf.Credential,
-			pathPass conf.Credential,
-		) error {
-			return c.authenticate(ctx.Path, ctx.Query, pathIPs, pathUser, pathPass, true, ctx.Request, nil)
+		credentials: authCredentials{
+			query:       ctx.Query,
+			ip:          c.ip(),
+			proto:       authProtocolRTSP,
+			id:          &c.uuid,
+			rtspRequest: ctx.Request,
+			rtspBaseURL: nil,
+			rtspNonce:   c.authNonce,
 		},
 	})
 
 	if res.err != nil {
 		switch terr := res.err.(type) {
-		case pathErrAuthNotCritical:
-			s.Log(logger.Debug, "non-critical authentication error: %s", terr.message)
-			return terr.response, nil
-
-		case pathErrAuthCritical:
-			// wait some seconds to stop brute force attacks
-			<-time.After(pauseAfterAuthError)
-
-			return terr.response, errors.New(terr.message)
+		case pathErrAuth:
+			return c.handleAuthError(terr.wrapped)
 
 		default:
 			return &base.Response{
@@ -268,42 +263,42 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 	switch s.session.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
+		baseURL := &url.URL{
+			Scheme:   ctx.Request.URL.Scheme,
+			Host:     ctx.Request.URL.Host,
+			Path:     ctx.Path,
+			RawQuery: ctx.Query,
+		}
+
+		if ctx.Query != "" {
+			baseURL.RawQuery += "/"
+		} else {
+			baseURL.Path += "/"
+		}
+
+		if c.authNonce == "" {
+			c.authNonce = auth.GenerateNonce()
+		}
+
 		res := s.pathManager.readerAdd(pathReaderAddReq{
 			author:   s,
 			pathName: ctx.Path,
-			authenticate: func(
-				pathIPs []fmt.Stringer,
-				pathUser conf.Credential,
-				pathPass conf.Credential,
-			) error {
-				baseURL := &url.URL{
-					Scheme:   ctx.Request.URL.Scheme,
-					Host:     ctx.Request.URL.Host,
-					Path:     ctx.Path,
-					RawQuery: ctx.Query,
-				}
-
-				if ctx.Query != "" {
-					baseURL.RawQuery += "/"
-				} else {
-					baseURL.Path += "/"
-				}
-
-				return c.authenticate(ctx.Path, ctx.Query, pathIPs, pathUser, pathPass, false, ctx.Request, baseURL)
+			credentials: authCredentials{
+				query:       ctx.Query,
+				ip:          c.ip(),
+				proto:       authProtocolRTSP,
+				id:          &c.uuid,
+				rtspRequest: ctx.Request,
+				rtspBaseURL: baseURL,
+				rtspNonce:   c.authNonce,
 			},
 		})
 
 		if res.err != nil {
 			switch terr := res.err.(type) {
-			case pathErrAuthNotCritical:
-				s.Log(logger.Debug, "non-critical authentication error: %s", terr.message)
-				return terr.response, nil, nil
-
-			case pathErrAuthCritical:
-				// wait some seconds to stop brute force attacks
-				<-time.After(pauseAfterAuthError)
-
-				return terr.response, nil, errors.New(terr.message)
+			case pathErrAuth:
+				res, err := c.handleAuthError(terr.wrapped)
+				return res, nil, err
 
 			case pathErrNoOnePublishing:
 				return &base.Response{

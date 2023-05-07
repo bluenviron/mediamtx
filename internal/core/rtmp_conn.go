@@ -196,20 +196,19 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
-	isTLS                     bool
-	externalAuthenticationURL string
-	rtspAddress               string
-	readTimeout               conf.StringDuration
-	writeTimeout              conf.StringDuration
-	readBufferCount           int
-	runOnConnect              string
-	runOnConnectRestart       bool
-	wg                        *sync.WaitGroup
-	conn                      *rtmp.Conn
-	nconn                     net.Conn
-	externalCmdPool           *externalcmd.Pool
-	pathManager               rtmpConnPathManager
-	parent                    rtmpConnParent
+	isTLS               bool
+	rtspAddress         string
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
+	readBufferCount     int
+	runOnConnect        string
+	runOnConnectRestart bool
+	wg                  *sync.WaitGroup
+	conn                *rtmp.Conn
+	nconn               net.Conn
+	externalCmdPool     *externalcmd.Pool
+	pathManager         rtmpConnPathManager
+	parent              rtmpConnParent
 
 	ctx        context.Context
 	ctxCancel  func()
@@ -222,7 +221,6 @@ type rtmpConn struct {
 func newRTMPConn(
 	parentCtx context.Context,
 	isTLS bool,
-	externalAuthenticationURL string,
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -238,24 +236,23 @@ func newRTMPConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
-		isTLS:                     isTLS,
-		externalAuthenticationURL: externalAuthenticationURL,
-		rtspAddress:               rtspAddress,
-		readTimeout:               readTimeout,
-		writeTimeout:              writeTimeout,
-		readBufferCount:           readBufferCount,
-		runOnConnect:              runOnConnect,
-		runOnConnectRestart:       runOnConnectRestart,
-		wg:                        wg,
-		conn:                      rtmp.NewConn(nconn),
-		nconn:                     nconn,
-		externalCmdPool:           externalCmdPool,
-		pathManager:               pathManager,
-		parent:                    parent,
-		ctx:                       ctx,
-		ctxCancel:                 ctxCancel,
-		uuid:                      uuid.New(),
-		created:                   time.Now(),
+		isTLS:               isTLS,
+		rtspAddress:         rtspAddress,
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		readBufferCount:     readBufferCount,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		wg:                  wg,
+		conn:                rtmp.NewConn(nconn),
+		nconn:               nconn,
+		externalCmdPool:     externalCmdPool,
+		pathManager:         pathManager,
+		parent:              parent,
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
+		uuid:                uuid.New(),
+		created:             time.Now(),
 	}
 
 	c.Log(logger.Info, "opened")
@@ -344,12 +341,12 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 
 	c.nconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
 	c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-	u, isPublishing, err := c.conn.InitializeServer()
+	u, publish, err := c.conn.InitializeServer()
 	if err != nil {
 		return err
 	}
 
-	if !isPublishing {
+	if !publish {
 		return c.runRead(ctx, u)
 	}
 	return c.runPublish(ctx, u)
@@ -361,20 +358,21 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: pathName,
-		authenticate: func(
-			pathIPs []fmt.Stringer,
-			pathUser conf.Credential,
-			pathPass conf.Credential,
-		) error {
-			return c.authenticate(pathName, pathIPs, pathUser, pathPass, false, query, rawQuery)
+		credentials: authCredentials{
+			query: rawQuery,
+			ip:    c.ip(),
+			user:  query.Get("user"),
+			pass:  query.Get("pass"),
+			proto: authProtocolRTMP,
+			id:    &c.uuid,
 		},
 	})
 
 	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuthCritical); ok {
+		if terr, ok := res.err.(pathErrAuth); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
-			return errors.New(terr.message)
+			return terr.wrapped
 		}
 		return res.err
 	}
@@ -716,20 +714,21 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	res := c.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   c,
 		pathName: pathName,
-		authenticate: func(
-			pathIPs []fmt.Stringer,
-			pathUser conf.Credential,
-			pathPass conf.Credential,
-		) error {
-			return c.authenticate(pathName, pathIPs, pathUser, pathPass, true, query, rawQuery)
+		credentials: authCredentials{
+			query: rawQuery,
+			ip:    c.ip(),
+			user:  query.Get("user"),
+			pass:  query.Get("pass"),
+			proto: authProtocolRTMP,
+			id:    &c.uuid,
 		},
 	})
 
 	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuthCritical); ok {
+		if terr, ok := res.err.(pathErrAuth); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
-			return errors.New(terr.message)
+			return terr.wrapped
 		}
 		return res.err
 	}
@@ -817,54 +816,6 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 			}
 		}
 	}
-}
-
-func (c *rtmpConn) authenticate(
-	pathName string,
-	pathIPs []fmt.Stringer,
-	pathUser conf.Credential,
-	pathPass conf.Credential,
-	isPublishing bool,
-	query url.Values,
-	rawQuery string,
-) error {
-	if c.externalAuthenticationURL != "" {
-		err := externalAuth(
-			c.externalAuthenticationURL,
-			c.ip().String(),
-			query.Get("user"),
-			query.Get("pass"),
-			pathName,
-			externalAuthProtoRTMP,
-			&c.uuid,
-			isPublishing,
-			rawQuery)
-		if err != nil {
-			return pathErrAuthCritical{
-				message: fmt.Sprintf("external authentication failed: %s", err),
-			}
-		}
-	}
-
-	if pathIPs != nil {
-		ip := c.ip()
-		if !ipEqualOrInRange(ip, pathIPs) {
-			return pathErrAuthCritical{
-				message: fmt.Sprintf("IP '%s' not allowed", ip),
-			}
-		}
-	}
-
-	if pathUser != "" {
-		if query.Get("user") != string(pathUser) ||
-			query.Get("pass") != string(pathPass) {
-			return pathErrAuthCritical{
-				message: "invalid credentials",
-			}
-		}
-	}
-
-	return nil
 }
 
 // apiReaderDescribe implements reader.
