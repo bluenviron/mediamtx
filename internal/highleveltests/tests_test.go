@@ -137,6 +137,6 @@ func (c *container) wait() int {
 	exec.Command("docker", "wait", "mediamtx-test-"+c.name).Run()
 	out, _ := exec.Command("docker", "inspect", "mediamtx-test-"+c.name,
 		"-f", "{{.State.ExitCode}}").Output()
-	code, _ := strconv.ParseInt(string(out[:len(out)-1]), 10, 64)
+	code, _ := strconv.ParseInt(string(out[:len(out)-1]), 10, 32)
 	return int(code)
 }
