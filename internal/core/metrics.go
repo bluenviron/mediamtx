@@ -43,7 +43,7 @@ func newMetrics(
 	readTimeout conf.StringDuration,
 	parent metricsParent,
 ) (*metrics, error) {
-	ln, err := net.Listen(restrictNetwork(restrictNetwork("tcp", address)))
+	ln, err := net.Listen(restrictNetwork("tcp", address))
 	if err != nil {
 		return nil, err
 	}
