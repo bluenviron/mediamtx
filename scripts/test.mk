@@ -1,3 +1,17 @@
+LBITS := $(shell getconf LONG_BIT)
+ifeq ($(LBITS),64)
+RACE=-race
+endif
+
+test-internal:
+	go test -v $(RACE) -coverprofile=coverage-internal.txt \
+	$$(go list ./internal/... | grep -v /core)
+
+test-core:
+	go test -v $(RACE) -coverprofile=coverage-core.txt ./internal/core
+
+test-nodocker: test-internal test-core
+
 define DOCKERFILE_TEST
 ARG ARCH
 FROM $$ARCH/$(BASE_IMAGE)
@@ -13,25 +27,11 @@ test:
 	docker run --rm \
 	-v $(PWD):/s \
 	temp \
-	make test-nodocker COVERAGE=1
+	make test-nodocker
 
 test32:
 	echo "$$DOCKERFILE_TEST" | docker build -q . -f - -t temp --build-arg ARCH=i386
 	docker run --rm \
 	-v $(PWD):/s \
 	temp \
-	make test-nodocker COVERAGE=0
-
-ifeq ($(COVERAGE),1)
-TEST_INTERNAL_OPTS=-race -coverprofile=coverage-internal.txt
-TEST_CORE_OPTS=-race -coverprofile=coverage-core.txt
-endif
-
-test-internal:
-	go test -v $(TEST_INTERNAL_OPTS) \
-	$$(go list ./internal/... | grep -v /core)
-
-test-core:
-	go test -v $(TEST_CORE_OPTS) ./internal/core
-
-test-nodocker: test-internal test-core
+	make test-nodocker

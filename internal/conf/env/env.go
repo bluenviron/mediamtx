@@ -36,7 +36,7 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 
 	case reflect.TypeOf(int(0)):
 		if ev, ok := env[prefix]; ok {
-			iv, err := strconv.ParseInt(ev, 10, 64)
+			iv, err := strconv.ParseInt(ev, 10, 32)
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
 			}
@@ -46,7 +46,7 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 
 	case reflect.TypeOf(uint64(0)):
 		if ev, ok := env[prefix]; ok {
-			iv, err := strconv.ParseUint(ev, 10, 64)
+			iv, err := strconv.ParseUint(ev, 10, 32)
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
 			}
