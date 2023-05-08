@@ -330,7 +330,7 @@ Please be aware that it's perfectly normal for the authentication server to rece
 }
 ```
 
-This happens because a RTSP client doesn't provide credentials until it is asked to. In order to receive the credentials, the authentication server must reply with status code `401` - the client will then send credentials.
+This happens because a RTSP client doesn't provide credentials until it is asked to. In order to receive the credentials, the authentication server must reply with status code `401`, then the client will send credentials.
 
 ### Encrypt the configuration
 
