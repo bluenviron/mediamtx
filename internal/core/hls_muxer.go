@@ -267,6 +267,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	res := m.pathManager.readerAdd(pathReaderAddReq{
 		author:   m,
 		pathName: m.pathName,
+		skipAuth: true,
 	})
 	if res.err != nil {
 		return res.err
@@ -554,13 +555,30 @@ func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 		bytesSent:      m.bytesSent,
 	}
 
-	err := m.authenticate(ctx)
+	user, pass, hasCredentials := ctx.Request.BasicAuth()
+
+	err := authenticate(
+		m.externalAuthenticationURL,
+		nil,
+		m.pathName,
+		m.path.safeConf(),
+		false,
+		authCredentials{
+			query: ctx.Request.URL.RawQuery,
+			ip:    net.ParseIP(ctx.ClientIP()),
+			user:  user,
+			pass:  pass,
+			proto: authProtocolHLS,
+		},
+	)
 	if err != nil {
-		if terr, ok := err.(pathErrAuthCritical); ok {
-			m.Log(logger.Info, "authentication error: %s", terr.message)
+		if !hasCredentials {
+			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
 
-		ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+		m.Log(logger.Info, "authentication error: %s", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -573,63 +591,6 @@ func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 	}
 
 	m.muxer.Handle(w, ctx.Request)
-}
-
-func (m *hlsMuxer) authenticate(ctx *gin.Context) error {
-	pathConf := m.path.safeConf()
-	pathIPs := pathConf.ReadIPs
-	pathUser := pathConf.ReadUser
-	pathPass := pathConf.ReadPass
-
-	if m.externalAuthenticationURL != "" {
-		ip := net.ParseIP(ctx.ClientIP())
-		user, pass, ok := ctx.Request.BasicAuth()
-
-		err := externalAuth(
-			m.externalAuthenticationURL,
-			ip.String(),
-			user,
-			pass,
-			m.pathName,
-			externalAuthProtoHLS,
-			nil,
-			false,
-			ctx.Request.URL.RawQuery)
-		if err != nil {
-			if !ok {
-				return pathErrAuthNotCritical{}
-			}
-
-			return pathErrAuthCritical{
-				message: fmt.Sprintf("external authentication failed: %s", err),
-			}
-		}
-	}
-
-	if pathIPs != nil {
-		ip := net.ParseIP(ctx.ClientIP())
-
-		if !ipEqualOrInRange(ip, pathIPs) {
-			return pathErrAuthCritical{
-				message: fmt.Sprintf("IP '%s' not allowed", ip),
-			}
-		}
-	}
-
-	if pathUser != "" {
-		user, pass, ok := ctx.Request.BasicAuth()
-		if !ok {
-			return pathErrAuthNotCritical{}
-		}
-
-		if user != string(pathUser) || pass != string(pathPass) {
-			return pathErrAuthCritical{
-				message: "invalid credentials",
-			}
-		}
-	}
-
-	return nil
 }
 
 // processRequest is called by hlsserver.Server (forwarded from ServeHTTP).

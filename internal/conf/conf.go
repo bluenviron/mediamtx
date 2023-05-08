@@ -195,6 +195,15 @@ func (conf Conf) Clone() *Conf {
 	return &dest
 }
 
+func contains(list []headers.AuthMethod, item headers.AuthMethod) bool {
+	for _, i := range list {
+		if i == item {
+			return true
+		}
+	}
+	return false
+}
+
 // Check checks the configuration for errors.
 func (conf *Conf) Check() error {
 	// general
@@ -208,6 +217,10 @@ func (conf *Conf) Check() error {
 		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&
 			!strings.HasPrefix(conf.ExternalAuthenticationURL, "https://") {
 			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
+		}
+
+		if contains(conf.AuthMethods, headers.AuthDigest) {
+			return fmt.Errorf("'externalAuthenticationURL' can't be used when 'digest' is in authMethods")
 		}
 	}
 
@@ -280,7 +293,7 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.MulticastRTCPPort = 8003
 	conf.ServerKey = "server.key"
 	conf.ServerCert = "server.crt"
-	conf.AuthMethods = AuthMethods{headers.AuthBasic, headers.AuthDigest}
+	conf.AuthMethods = AuthMethods{headers.AuthBasic}
 
 	// RTMP
 	conf.RTMPAddress = ":1935"

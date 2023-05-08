@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v3/pkg/headers"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 )
 
@@ -252,17 +253,9 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
 
-	if pconf.PublishUser != "" && conf.ExternalAuthenticationURL != "" {
-		return fmt.Errorf("'publishUser' can't be used with 'externalAuthenticationURL'")
-	}
-
 	if len(pconf.PublishIPs) > 0 && pconf.Source != "publisher" {
 		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
-	}
-
-	if len(pconf.PublishIPs) > 0 && conf.ExternalAuthenticationURL != "" {
-		return fmt.Errorf("'publishIPs' can't be used with 'externalAuthenticationURL'")
 	}
 
 	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
@@ -270,12 +263,22 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 
-	if pconf.ReadUser != "" && conf.ExternalAuthenticationURL != "" {
-		return fmt.Errorf("'readUser' can't be used with 'externalAuthenticationURL'")
+	if contains(conf.AuthMethods, headers.AuthDigest) {
+		if strings.HasPrefix(string(pconf.PublishUser), "sha256:") ||
+			strings.HasPrefix(string(pconf.PublishPass), "sha256:") ||
+			strings.HasPrefix(string(pconf.ReadUser), "sha256:") ||
+			strings.HasPrefix(string(pconf.ReadPass), "sha256:") {
+			return fmt.Errorf("hashed credentials can't be used when the digest auth method is available")
+		}
 	}
 
-	if len(pconf.ReadIPs) > 0 && conf.ExternalAuthenticationURL != "" {
-		return fmt.Errorf("'readIPs' can't be used with 'externalAuthenticationURL'")
+	if conf.ExternalAuthenticationURL != "" {
+		if pconf.PublishUser != "" ||
+			len(pconf.PublishIPs) > 0 ||
+			pconf.ReadUser != "" ||
+			len(pconf.ReadIPs) > 0 {
+			return fmt.Errorf("credentials or IPs can't be used together with 'externalAuthenticationURL'")
+		}
 	}
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
