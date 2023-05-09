@@ -87,25 +87,6 @@ func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
 
 	mux.WriteTables()
 
-	enc, _ := h264.AnnexBMarshal([][]byte{
-		{1}, // non-IDR
-	})
-
-	mux.WriteData(&astits.MuxerData{
-		PID: 256,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
-				},
-				StreamID: 224,
-			},
-			Data: enc,
-		},
-	})
-
 	pkts := mpeg4audio.ADTSPackets{
 		{
 			Type:         2,
@@ -114,7 +95,7 @@ func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
 			AU:           []byte{0x01, 0x02, 0x03, 0x04},
 		},
 	}
-	enc, _ = pkts.Marshal()
+	enc, _ := pkts.Marshal()
 
 	mux.WriteData(&astits.MuxerData{
 		PID: 257,
