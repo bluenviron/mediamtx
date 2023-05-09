@@ -820,10 +820,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 
 // apiReaderDescribe implements reader.
 func (c *rtmpConn) apiReaderDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{"rtmpConn", c.uuid.String()}
+	return c.apiSourceDescribe()
 }
 
 // apiSourceDescribe implements source.
