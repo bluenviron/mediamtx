@@ -84,6 +84,8 @@ type PathConf struct {
 	RPICameraAfWindow          string         `json:"rpiCameraAfWindow"`
 	RPICameraTextOverlayEnable bool           `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string         `json:"rpiCameraTextOverlay"`
+	RtspRangeType              string         `json:"rtspRangeType"`
+	RtspRangeStart             string         `json:"rtspRangeStart"`
 
 	// authentication
 	PublishUser Credential `json:"publishUser"`
