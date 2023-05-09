@@ -430,3 +430,15 @@ paths:
     runOnRead:
     # Restart the command if it exits suddenly.
     runOnReadRestart: no
+
+    # If the source is an RTSP or RTSPS URL, a range header can be set to start streaming from the specified offset
+    # Type of RTSP range header:
+    # * clock: Absolute time
+    # * npt: Normal Play Time
+    # * smpte: SMPTE (Society of Motion Pictures and Television Engineers) timestamps relative to the start of the recording
+    rtspRangeType:
+    # Range start value format per range type:
+    # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
+    # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+    # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+    rtspRangeStart:

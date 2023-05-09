@@ -51,8 +51,8 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 }
 
 func CreateRangeHeader(cnf *conf.PathConf) *headers.Range {
-	switch strings.ToLower(cnf.RtspRangeType) {
-	case "clock":
+	switch cnf.RtspRangeType {
+	case conf.RtspRangeTypeClock:
 		start, _ := time.Parse("20060102T150405Z", cnf.RtspRangeStart)
 
 		return &headers.Range{
@@ -60,7 +60,8 @@ func CreateRangeHeader(cnf *conf.PathConf) *headers.Range {
 				Start: start,
 			},
 		}
-	case "npt":
+
+	case conf.RtspRangeTypeNPT:
 		start, _ := time.ParseDuration(cnf.RtspRangeStart)
 
 		return &headers.Range{
@@ -68,7 +69,8 @@ func CreateRangeHeader(cnf *conf.PathConf) *headers.Range {
 				Start: start,
 			},
 		}
-	case "smpte":
+
+	case conf.RtspRangeTypeSMPTE:
 		start, _ := time.ParseDuration(cnf.RtspRangeStart)
 
 		return &headers.Range{
@@ -78,6 +80,10 @@ func CreateRangeHeader(cnf *conf.PathConf) *headers.Range {
 				},
 			},
 		}
+
+	case conf.RtspRangeTypeUndefined:
+		fallthrough
+
 	default:
 		return nil
 	}
