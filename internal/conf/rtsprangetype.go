@@ -5,8 +5,10 @@ import (
 	"fmt"
 )
 
+// RtspRangeType is the type used in the Range header.
 type RtspRangeType int
 
+// supported rtsp range types.
 const (
 	RtspRangeTypeUndefined RtspRangeType = iota
 	RtspRangeTypeClock

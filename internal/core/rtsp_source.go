@@ -50,6 +50,7 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 	s.parent.Log(level, "[rtsp source] "+format, args...)
 }
 
+// Create a headers.Range object based on configuration.
 func CreateRangeHeader(cnf *conf.PathConf) *headers.Range {
 	switch cnf.RtspRangeType {
 	case conf.RtspRangeTypeClock:
