@@ -148,9 +148,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
-			defer func() {
-				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
-			}()
+			defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 
 			videoWriteFunc := getRTMPWriteFunc(videoMedia, videoFormat, res.stream)
 			audioWriteFunc := getRTMPWriteFunc(audioMedia, audioFormat, res.stream)

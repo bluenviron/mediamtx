@@ -90,6 +90,7 @@ type pathGetPathConfRes struct {
 
 type pathGetPathConfReq struct {
 	name        string
+	publish     bool
 	credentials authCredentials
 	res         chan pathGetPathConfRes
 }
@@ -130,6 +131,7 @@ type pathPublisherAnnounceRes struct {
 type pathPublisherAddReq struct {
 	author      publisher
 	pathName    string
+	skipAuth    bool
 	credentials authCredentials
 	res         chan pathPublisherAnnounceRes
 }

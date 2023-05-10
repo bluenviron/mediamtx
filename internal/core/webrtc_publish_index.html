@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+}
+body {
+    display: flex;
+    flex-direction: column;
+}
+#video {
+	height: 100%;
+	background: black;
+    flex-grow: 1;
+    min-height: 0;
+}
+#controls {
+    height: 200px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+</style>
+</head>
+<body>
+
+<video id="video" muted controls autoplay playsinline></video>
+<div id="controls">
+    <button id="publish_devices">publish video and audio</button>
+    <button id="publish_screen">publish screen</button>
+</div>
+
+<script>
+
+const restartPause = 2000;
+
+class Transmitter {
+    constructor(stream) {
+        this.stream = stream;
+        this.terminated = false;
+		this.ws = null;
+		this.pc = null;
+		this.restartTimeout = null;
+		this.start();
+    }
+
+    start = () => {
+        console.log("connecting");
+
+        this.ws = new WebSocket(window.location.href.replace(/^http/, "ws") + '/ws');
+
+        this.ws.onerror = () => {
+            console.log("ws error");
+            if (this.ws === null) {
+                return;
+            }
+            this.ws.close();
+            this.ws = null;
+        };
+
+        this.ws.onclose = () => {
+            console.log("ws closed");
+            this.ws = null;
+            this.scheduleRestart();
+        };
+
+        this.ws.onmessage = this.onIceServers;
+    };
+
+    scheduleRestart = () => {
+        if (this.terminated) {
+            return;
+        }
+
+        if (this.ws !== null) {
+            this.ws.close();
+            this.ws = null;
+        }
+
+        if (this.pc !== null) {
+            this.pc.close();
+            this.pc = null;
+        }
+
+        this.restartTimeout = window.setTimeout(() => {
+            this.restartTimeout = null;
+            this.start();
+        }, restartPause);
+    };
+
+    onIceServers = (msg) => {
+        if (this.ws === null) {
+            return;
+        }
+
+        this.pc = new RTCPeerConnection({
+            iceServers: JSON.parse(msg.data),
+        });
+
+        this.ws.onmessage = this.onOffer;
+    };
+
+    onOffer = (msg) => {
+        if (this.ws === null || this.pc === null) {
+            return;
+        }
+
+        this.stream.getTracks().forEach((track) => {
+            this.pc.addTrack(track, this.stream);
+        });
+
+        this.ws.onmessage = (msg) => {
+            if (this.pc === null) {
+                return;
+            }
+            this.pc.addIceCandidate(JSON.parse(msg.data));
+        };
+
+        this.pc.onicecandidate = (evt) => {
+            if (this.ws === null) {
+                return;
+            }
+
+            if (evt.candidate !== null) {
+                if (evt.candidate.candidate !== "") {
+                    this.ws.send(JSON.stringify(evt.candidate));
+                }
+            }
+        };
+
+        this.pc.oniceconnectionstatechange = () => {
+            if (this.pc === null) {
+                return;
+            }
+
+            console.log("peer connection state:", this.pc.iceConnectionState);
+
+            switch (this.pc.iceConnectionState) {
+            case "failed":
+            case "disconnected":
+                this.scheduleRestart();
+            }
+        };
+
+        this.pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.data)));
+
+        this.pc.createAnswer()
+            .then((desc) => {
+                if (this.ws === null || this.pc === null) {
+                    return;
+                }
+
+                this.pc.setLocalDescription(desc);
+                this.ws.send(JSON.stringify(desc));
+            });
+    };
+}
+
+const onStream = (stream) => {
+    document.getElementById('video').srcObject = stream;
+    document.getElementById("publish_devices").remove();
+    document.getElementById("publish_screen").remove();
+    new Transmitter(stream);
+};
+
+const onPublishDevices = () => {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(onStream);
+};
+
+const onPublishScreen = () => {
+    return navigator.mediaDevices.getDisplayMedia({
+        video: {
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            frameRate: { ideal: 30 },
+            cursor: "always",
+        },
+        audio: false,
+    })
+        .then(onStream);
+};
+
+document.getElementById("publish_devices").addEventListener('click', onPublishDevices);
+
+document.getElementById("publish_screen").addEventListener('click', onPublishScreen);
+
+</script>
+
+</body>
+</html>

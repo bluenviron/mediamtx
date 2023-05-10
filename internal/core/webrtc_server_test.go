@@ -42,7 +42,7 @@ func newWebRTCTestClient(addr string) (*webRTCTestClient, error) {
 		return nil, err
 	}
 
-	pc, err := newPeerConnection(webrtc.Configuration{
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: iceServers,
 	})
 	if err != nil {

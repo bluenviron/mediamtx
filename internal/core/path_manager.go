@@ -209,7 +209,8 @@ outer:
 				continue
 			}
 
-			err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.name, pathConf, false, req.credentials)
+			err = authenticate(pm.externalAuthenticationURL, pm.authMethods,
+				req.name, pathConf, req.publish, req.credentials)
 			if err != nil {
 				req.res <- pathGetPathConfRes{err: pathErrAuth{wrapped: err}}
 				continue
@@ -266,10 +267,12 @@ outer:
 				continue
 			}
 
-			err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
-			if err != nil {
-				req.res <- pathPublisherAnnounceRes{err: pathErrAuth{wrapped: err}}
-				continue
+			if !req.skipAuth {
+				err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
+				if err != nil {
+					req.res <- pathPublisherAnnounceRes{err: pathErrAuth{wrapped: err}}
+					continue
+				}
 			}
 
 			// create path if it doesn't exist

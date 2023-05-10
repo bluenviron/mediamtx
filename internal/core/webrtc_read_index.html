@@ -62,10 +62,8 @@ class Receiver {
             return;
         }
 
-        const iceServers = JSON.parse(msg.data);
-
         this.pc = new RTCPeerConnection({
-            iceServers,
+            iceServers: JSON.parse(msg.data),
         });
 
         this.ws.onmessage = (msg) => this.onRemoteDescription(msg);

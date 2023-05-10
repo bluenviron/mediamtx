@@ -131,13 +131,11 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
-			defer func() {
-				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
-			}()
+			defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 
 			for _, medi := range medias {
 				for _, forma := range medi.Formats {
-					writeFunc := getRTSPWriteFunc(medi, forma, res.stream)
+					writeFunc := getRTPWriteFunc(medi, forma, res.stream)
 
 					c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 						writeFunc(pkt)

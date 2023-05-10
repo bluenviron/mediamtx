@@ -24,7 +24,7 @@ import (
 
 type rtspWriteFunc func(*rtp.Packet)
 
-func getRTSPWriteFunc(medi *media.Media, forma formats.Format, stream *stream) rtspWriteFunc {
+func getRTPWriteFunc(medi *media.Media, forma formats.Format, stream *stream) rtspWriteFunc {
 	switch forma.(type) {
 	case *formats.H264:
 		return func(pkt *rtp.Packet) {
@@ -387,7 +387,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 	for _, medi := range s.session.AnnouncedMedias() {
 		for _, forma := range medi.Formats {
-			writeFunc := getRTSPWriteFunc(medi, forma, s.stream)
+			writeFunc := getRTPWriteFunc(medi, forma, s.stream)
 
 			ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 				writeFunc(pkt)
