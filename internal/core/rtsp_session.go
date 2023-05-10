@@ -432,17 +432,7 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 
 // apiReaderDescribe implements reader.
 func (s *rtspSession) apiReaderDescribe() interface{} {
-	var typ string
-	if s.isTLS {
-		typ = "rtspsSession"
-	} else {
-		typ = "rtspSession"
-	}
-
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{typ, s.uuid.String()}
+	return s.apiSourceDescribe()
 }
 
 // apiSourceDescribe implements source.
