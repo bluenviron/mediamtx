@@ -58,6 +58,14 @@ func getRTPWriteFunc(medi *media.Media, forma formats.Format, stream *stream) rt
 			})
 		}
 
+	case *formats.AV1:
+		return func(pkt *rtp.Packet) {
+			stream.writeUnit(medi, forma, &formatprocessor.UnitAV1{
+				RTPPackets: []*rtp.Packet{pkt},
+				NTP:        time.Now(),
+			})
+		}
+
 	case *formats.MPEG2Audio:
 		return func(pkt *rtp.Packet) {
 			stream.writeUnit(medi, forma, &formatprocessor.UnitMPEG2Audio{

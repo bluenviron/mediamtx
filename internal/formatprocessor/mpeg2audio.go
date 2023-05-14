@@ -73,7 +73,7 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 		}
 
 		// decode from RTP
-		if hasNonRTSPReaders {
+		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				t.decoder = t.format.CreateDecoder()
 			}

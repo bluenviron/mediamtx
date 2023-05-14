@@ -92,6 +92,9 @@ type webRTCConn struct {
 	pathName          string
 	publish           bool
 	ws                *websocket.ServerConn
+	videoCodec        string
+	audioCodec        string
+	videoBitrate      string
 	iceServers        []string
 	wg                *sync.WaitGroup
 	pathManager       webRTCConnPathManager
@@ -116,6 +119,9 @@ func newWebRTCConn(
 	pathName string,
 	publish bool,
 	ws *websocket.ServerConn,
+	videoCodec string,
+	audioCodec string,
+	videoBitrate string,
 	iceServers []string,
 	wg *sync.WaitGroup,
 	pathManager webRTCConnPathManager,
@@ -133,6 +139,9 @@ func newWebRTCConn(
 		ws:                ws,
 		iceServers:        iceServers,
 		wg:                wg,
+		videoCodec:        videoCodec,
+		audioCodec:        audioCodec,
+		videoBitrate:      videoBitrate,
 		pathManager:       pathManager,
 		parent:            parent,
 		ctx:               ctx,
@@ -228,6 +237,8 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 	}
 
 	pc, err := newPeerConnection(
+		c.videoCodec,
+		c.audioCodec,
 		c.genICEServers(),
 		c.iceHostNAT1To1IPs,
 		c.iceUDPMux,
@@ -288,14 +299,17 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 		return err
 	}
 
-	wsReadError := make(chan error)
+	cr := newWebRTCCandidateReader(c.ws)
+	defer cr.close()
 
-	err = c.establishConnection(ctx, pc, wsReadError)
+	err = c.establishConnection(ctx, pc, cr)
 	if err != nil {
 		return err
 	}
 
-	tracks, err := c.gatherTracks(ctx, pc, wsReadError, trackRecv)
+	close(cr.stopGathering)
+
+	tracks, err := c.gatherIncomingTracks(ctx, pc, cr, trackRecv)
 	if err != nil {
 		return err
 	}
@@ -322,7 +336,7 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 	case <-pc.disconnected:
 		return fmt.Errorf("peer connection closed")
 
-	case err := <-wsReadError:
+	case err := <-cr.readError:
 		return fmt.Errorf("websocket error: %v", err)
 
 	case <-ctx.Done():
@@ -342,7 +356,7 @@ func (c *webRTCConn) runRead(ctx context.Context) error {
 
 	defer res.path.readerRemove(pathReaderRemoveReq{author: c})
 
-	tracks, err := c.findTracks(res.stream.medias())
+	tracks, err := c.gatherOutgoingTracks(res.stream.medias())
 	if err != nil {
 		return err
 	}
@@ -358,6 +372,8 @@ func (c *webRTCConn) runRead(ctx context.Context) error {
 	}
 
 	pc, err := newPeerConnection(
+		"",
+		"",
 		c.genICEServers(),
 		c.iceHostNAT1To1IPs,
 		c.iceUDPMux,
@@ -396,12 +412,15 @@ func (c *webRTCConn) runRead(ctx context.Context) error {
 		return err
 	}
 
-	wsReadError := make(chan error)
+	cr := newWebRTCCandidateReader(c.ws)
+	defer cr.close()
 
-	err = c.establishConnection(ctx, pc, wsReadError)
+	err = c.establishConnection(ctx, pc, cr)
 	if err != nil {
 		return err
 	}
+
+	close(cr.stopGathering)
 
 	for _, track := range tracks {
 		track.start()
@@ -439,7 +458,7 @@ func (c *webRTCConn) runRead(ctx context.Context) error {
 	case <-pc.disconnected:
 		return fmt.Errorf("peer connection closed")
 
-	case err := <-wsReadError:
+	case err := <-cr.readError:
 		return fmt.Errorf("websocket error: %v", err)
 
 	case err := <-writeError:
@@ -450,7 +469,7 @@ func (c *webRTCConn) runRead(ctx context.Context) error {
 	}
 }
 
-func (c *webRTCConn) findTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
+func (c *webRTCConn) gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
 	var tracks []*webRTCOutgoingTrack
 
 	videoTrack, err := newWebRTCOutgoingTrackVideo(medias)
@@ -479,10 +498,10 @@ func (c *webRTCConn) findTracks(medias media.Medias) ([]*webRTCOutgoingTrack, er
 	return tracks, nil
 }
 
-func (c *webRTCConn) gatherTracks(
+func (c *webRTCConn) gatherIncomingTracks(
 	ctx context.Context,
 	pc *peerConnection,
-	wsReadError chan error,
+	cr *webRTCCandidateReader,
 	trackRecv chan trackRecvPair,
 ) ([]*webRTCIncomingTrack, error) {
 	var tracks []*webRTCIncomingTrack
@@ -509,7 +528,7 @@ func (c *webRTCConn) gatherTracks(
 		case <-pc.disconnected:
 			return nil, fmt.Errorf("peer connection closed")
 
-		case err := <-wsReadError:
+		case err := <-cr.readError:
 			return nil, fmt.Errorf("websocket error: %v", err)
 
 		case <-ctx.Done():
@@ -564,11 +583,8 @@ func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
 func (c *webRTCConn) establishConnection(
 	ctx context.Context,
 	pc *peerConnection,
-	wsReadError chan error,
+	cr *webRTCCandidateReader,
 ) error {
-	remoteCandidate := make(chan *webrtc.ICECandidateInit)
-	go c.readCandidates(ctx, pc.connected, wsReadError, remoteCandidate)
-
 	t := time.NewTimer(webrtcHandshakeTimeout)
 	defer t.Stop()
 
@@ -582,14 +598,14 @@ outer:
 				return err
 			}
 
-		case candidate := <-remoteCandidate:
+		case candidate := <-cr.remoteCandidate:
 			c.Log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
 			err := pc.AddICECandidate(*candidate)
 			if err != nil {
 				return err
 			}
 
-		case err := <-wsReadError:
+		case err := <-cr.readError:
 			return err
 
 		case <-t.C:
@@ -657,40 +673,6 @@ func (c *webRTCConn) readAnswer() (*webrtc.SessionDescription, error) {
 
 func (c *webRTCConn) writeAnswer(answer *webrtc.SessionDescription) error {
 	return c.ws.WriteJSON(answer)
-}
-
-func (c *webRTCConn) readCandidates(
-	ctx context.Context,
-	pcConnected chan struct{},
-	wsReadError chan error,
-	remoteCandidate chan *webrtc.ICECandidateInit,
-) {
-	for {
-		candidate, err := c.readCandidate()
-		if err != nil {
-			select {
-			case wsReadError <- err:
-			case <-ctx.Done():
-			}
-			return
-		}
-
-		select {
-		case remoteCandidate <- candidate:
-		case <-pcConnected:
-		case <-ctx.Done():
-		}
-	}
-}
-
-func (c *webRTCConn) readCandidate() (*webrtc.ICECandidateInit, error) {
-	var candidate webrtc.ICECandidateInit
-	err := c.ws.ReadJSON(&candidate)
-	if err != nil {
-		return nil, err
-	}
-
-	return &candidate, err
 }
 
 // apiSourceDescribe implements sourceStaticImpl.

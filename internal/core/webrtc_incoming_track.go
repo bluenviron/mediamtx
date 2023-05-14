@@ -36,10 +36,29 @@ func newWebRTCIncomingTrack(
 	}
 
 	switch track.Codec().MimeType {
+	case webrtc.MimeTypeAV1:
+		t.mediaType = media.TypeVideo
+		t.format = &formats.AV1{
+			PayloadTyp: uint8(track.PayloadType()),
+		}
+
+	case webrtc.MimeTypeVP9:
+		t.mediaType = media.TypeVideo
+		t.format = &formats.VP9{
+			PayloadTyp: uint8(track.PayloadType()),
+		}
+
 	case webrtc.MimeTypeVP8:
 		t.mediaType = media.TypeVideo
 		t.format = &formats.VP8{
 			PayloadTyp: uint8(track.PayloadType()),
+		}
+
+	case webrtc.MimeTypeH264:
+		t.mediaType = media.TypeVideo
+		t.format = &formats.H264{
+			PayloadTyp:        uint8(track.PayloadType()),
+			PacketizationMode: 1,
 		}
 
 	case webrtc.MimeTypeOpus:
@@ -47,6 +66,18 @@ func newWebRTCIncomingTrack(
 		t.format = &formats.Opus{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
+
+	case webrtc.MimeTypeG722:
+		t.mediaType = media.TypeAudio
+		t.format = &formats.G722{}
+
+	case webrtc.MimeTypePCMU:
+		t.mediaType = media.TypeAudio
+		t.format = &formats.G711{MULaw: true}
+
+	case webrtc.MimeTypePCMA:
+		t.mediaType = media.TypeAudio
+		t.format = &formats.G711{MULaw: false}
 
 	default:
 		return nil, fmt.Errorf("unsupported codec: %v", track.Codec())

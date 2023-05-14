@@ -74,7 +74,7 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 		}
 
 		// decode from RTP
-		if hasNonRTSPReaders {
+		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				t.decoder = t.format.CreateDecoder()
 			}

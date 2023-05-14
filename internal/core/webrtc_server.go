@@ -60,10 +60,13 @@ type webRTCServerAPIConnsKickReq struct {
 }
 
 type webRTCConnNewReq struct {
-	pathName string
-	publish  bool
-	wsconn   *websocket.ServerConn
-	res      chan *webRTCConn
+	pathName     string
+	publish      bool
+	wsconn       *websocket.ServerConn
+	res          chan *webRTCConn
+	videoCodec   string
+	audioCodec   string
+	videoBitrate string
 }
 
 type webRTCServerParent interface {
@@ -223,7 +226,9 @@ func (s *webRTCServer) Log(level logger.Level, format string, args ...interface{
 func (s *webRTCServer) close() {
 	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
+	fmt.Println("CLOSEA")
 	<-s.done
+	fmt.Println("CLOSEB")
 }
 
 func (s *webRTCServer) run() {
@@ -247,6 +252,9 @@ outer:
 				req.pathName,
 				req.publish,
 				req.wsconn,
+				req.videoCodec,
+				req.audioCodec,
+				req.videoBitrate,
 				s.iceServers,
 				&wg,
 				s.pathManager,
@@ -321,8 +329,8 @@ outer:
 
 	s.httpServer.Shutdown(context.Background())
 	s.ln.Close() // in case Shutdown() is called before Serve()
-	s.requestPool.close()
 
+	s.requestPool.close()
 	wg.Wait()
 
 	if s.udpMuxLn != nil {
@@ -443,9 +451,12 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 		defer wsconn.Close()
 
 		c := s.newConn(webRTCConnNewReq{
-			pathName: dir,
-			publish:  (fname == "publish/ws"),
-			wsconn:   wsconn,
+			pathName:     dir,
+			publish:      (fname == "publish/ws"),
+			wsconn:       wsconn,
+			videoCodec:   ctx.Query("video_codec"),
+			audioCodec:   ctx.Query("audio_codec"),
+			videoBitrate: ctx.Query("video_bitrate"),
 		})
 		if c == nil {
 			return
