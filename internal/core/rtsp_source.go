@@ -11,6 +11,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/base"
+	"github.com/bluenviron/gortsplib/v3/pkg/headers"
 	"github.com/pion/rtp"
 
 	"github.com/aler9/mediamtx/internal/conf"
@@ -47,6 +48,51 @@ func newRTSPSource(
 
 func (s *rtspSource) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, "[rtsp source] "+format, args...)
+}
+
+func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
+	switch cnf.RtspRangeType {
+	case conf.RtspRangeTypeClock:
+		start, err := time.Parse("20060102T150405Z", cnf.RtspRangeStart)
+		if err != nil {
+			return nil, err
+		}
+
+		return &headers.Range{
+			Value: &headers.RangeUTC{
+				Start: start,
+			},
+		}, nil
+
+	case conf.RtspRangeTypeNPT:
+		start, err := time.ParseDuration(cnf.RtspRangeStart)
+		if err != nil {
+			return nil, err
+		}
+
+		return &headers.Range{
+			Value: &headers.RangeNPT{
+				Start: start,
+			},
+		}, nil
+
+	case conf.RtspRangeTypeSMPTE:
+		start, err := time.ParseDuration(cnf.RtspRangeStart)
+		if err != nil {
+			return nil, err
+		}
+
+		return &headers.Range{
+			Value: &headers.RangeSMPTE{
+				Start: headers.RangeSMPTETime{
+					Time: start,
+				},
+			},
+		}, nil
+
+	default:
+		return nil, nil
+	}
 }
 
 // run implements sourceStaticImpl.
@@ -144,7 +190,12 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				}
 			}
 
-			_, err = c.Play(nil)
+			rangeHeader, err := createRangeHeader(cnf)
+			if err != nil {
+				return err
+			}
+
+			_, err = c.Play(rangeHeader)
 			if err != nil {
 				return err
 			}

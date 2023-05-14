@@ -244,23 +244,16 @@ paths:
     # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
     source: publisher
 
-    # If the source is an RTSP or RTSPS URL, this is the protocol that will be used to
-    # pull the stream. available values are "automatic", "udp", "multicast", "tcp".
-    sourceProtocol: automatic
+    ###############################################
+    # General path parameters
 
-    # Tf the source is an RTSP or RTSPS URL, this allows to support sources that
-    # don't provide server ports or use random server ports. This is a security issue
-    # and must be used only when interacting with sources that require it.
-    sourceAnyPortEnable: no
-
-    # If the source is a RTSPS, RTMPS or HTTPS URL, and the source certificate is self-signed
+    # If the source is a URL, and the source certificate is self-signed
     # or invalid, you can provide the fingerprint of the certificate in order to
     # validate it anyway. It can be obtained by running:
     # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
     # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
     sourceFingerprint:
-
-    # If the source is an RTSP or RTMP URL, it will be pulled only when at least
+    # If the source is a URL, it will be pulled only when at least
     # one reader is connected, saving bandwidth.
     sourceOnDemand: no
     # If sourceOnDemand is "yes", readers will be put on hold until the source is
@@ -270,19 +263,65 @@ paths:
     # readers connected and this amount of time has passed.
     sourceOnDemandCloseAfter: 10s
 
-    # If the source is "redirect", this is the RTSP URL which clients will be
-    # redirected to.
-    sourceRedirect:
+    ###############################################
+    # Authentication path parameters
 
-    # If the source is "publisher" and a client is publishing, do not allow another
-    # client to disconnect the former and publish in its place.
+    # Username required to publish.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
+    publishUser:
+    # Password required to publish.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
+    publishPass:
+    # IPs or networks (x.x.x.x/24) allowed to publish.
+    publishIPs: []
+
+    # Username required to read.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
+    readUser:
+    # password required to read.
+    # SHA256-hashed values can be inserted with the "sha256:" prefix.
+    readPass:
+    # IPs or networks (x.x.x.x/24) allowed to read.
+    readIPs: []
+
+    ###############################################
+    # Publisher path parameters (when source is "publisher")
+
+    # do not allow another client to disconnect the current publisher and publish in its place.
     disablePublisherOverride: no
-
-    # If the source is "publisher" and no one is publishing, redirect readers to this
-    # path. It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
+    # if no one is publishing, redirect readers to this path.
+    # It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
 
-    # If the source is "rpiCamera", these are the Raspberry Pi Camera parameters.
+    ###############################################
+    # RTSP path parameters (when source is a RTSP or a RTSPS URL)
+
+    # protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
+    sourceProtocol: automatic
+    # support sources that don't provide server ports or use random server ports. This is a security issue
+    # and must be used only when interacting with sources that require it.
+    sourceAnyPortEnable: no
+    # range header to send to the source, in order to start streaming from the specified offset.
+    # available values:
+    # * clock: Absolute time
+    # * npt: Normal Play Time
+    # * smpte: SMPTE timestamps relative to the start of the recording
+    rtspRangeType:
+    # available values:
+    # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
+    # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+    # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+    rtspRangeStart:
+
+    ###############################################
+    # Redirect path parameters (when source is "redirect")
+
+    # RTSP URL which clients will be redirected to.
+    sourceRedirect:
+
+    ###############################################
+    # Raspberry Pi Camera path parameters (when source is "rpiCamera")
+
     # ID of the camera
     rpiCameraCamID: 0
     # width of frames
@@ -360,23 +399,8 @@ paths:
     # format is the one of the strftime() function.
     rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
 
-    # Username required to publish.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    publishUser:
-    # Password required to publish.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    publishPass:
-    # IPs or networks (x.x.x.x/24) allowed to publish.
-    publishIPs: []
-
-    # Username required to read.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    readUser:
-    # password required to read.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    readPass:
-    # IPs or networks (x.x.x.x/24) allowed to read.
-    readIPs: []
+    ###############################################
+    # external commands path parameters
 
     # Command to run when this path is initialized.
     # This can be used to publish a stream and keep it always opened.

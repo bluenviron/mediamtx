@@ -171,13 +171,10 @@ components:
     PathConf:
       type: object
       properties:
-        # source
         source:
           type: string
-        sourceProtocol:
-          type: string
-        sourceAnyPortEnable:
-          type: boolean
+
+        # general
         sourceFingerprint:
           type: string
         sourceOnDemand:
@@ -186,12 +183,46 @@ components:
           type: string
         sourceOnDemandCloseAfter:
           type: string
-        sourceRedirect:
+
+        # authentication
+        publishUser:
           type: string
+        publishPass:
+          type: string
+        publishIPs:
+          type: array
+          items:
+            type: string
+        readUser:
+          type: string
+        readPass:
+          type: string
+        readIPs:
+          type: array
+          items:
+            type: string
+
+        # publisher
         disablePublisherOverride:
           type: boolean
         fallback:
           type: string
+
+        # rtsp
+        sourceProtocol:
+          type: string
+        sourceAnyPortEnable:
+          type: boolean
+        rtspRangeType:
+          type: string
+        rtspRangeStart:
+          type: string
+
+        # redirect
+        sourceRedirect:
+          type: string
+
+        # raspberry pi camera
         rpiCameraCamID:
           type: integer
         rpiCameraWidth:
@@ -254,24 +285,6 @@ components:
           type: boolean
         rpiCameraTextOverlay:
           type: string
-
-        # authentication
-        publishUser:
-          type: string
-        publishPass:
-          type: string
-        publishIPs:
-          type: array
-          items:
-            type: string
-        readUser:
-          type: string
-        readPass:
-          type: string
-        readIPs:
-          type: array
-          items:
-            type: string
 
         # external commands
         runOnInit:
