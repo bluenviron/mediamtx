@@ -35,6 +35,9 @@ RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_amd64.tar.gz --owner=0 -
 RUN GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_darwin_amd64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 
+RUN GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
+RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_darwin_arm64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
+
 COPY --from=rpicamera32 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
 RUN GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_armv6.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
