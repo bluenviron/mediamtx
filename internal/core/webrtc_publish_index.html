@@ -26,7 +26,12 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
+}
+#idle, #device {
+    gap: 20px;
+}
+select {
+    width: 200px;
 }
 </style>
 </head>
@@ -34,11 +39,53 @@ body {
 
 <video id="video" muted controls autoplay playsinline></video>
 <div id="controls">
-    <button id="publish_devices">publish video and audio</button>
-    <button id="publish_screen">publish screen</button>
+    <div id="idle" style="display: flex;">
+        <button id="publish_devices">publish video and audio</button>
+        <button id="publish_screen">publish screen</button>
+    </div>
+    <div id="device" style="display: none;">
+        video device:
+        <select id="video_device">
+            <option value="none">none</option>
+        </select>
+
+        audio device:
+        <select id="audio_device">
+            <option value="none">none</option>
+        </select>
+
+        <button id="publish_confirm">publish</button>
+    </div>
+    <div id="transmitting" style="display: none;">
+        transmitting
+    </div>
 </div>
 
 <script>
+
+const IDLE = 0;
+const DEVICE = 1;
+const TRANSMITTING = 2;
+
+let state = IDLE;
+
+const setState = (newState) => {
+    state = newState;
+
+    switch (state) {
+    case DEVICE:
+        document.getElementById("idle").style.display = 'none';
+        document.getElementById("device").style.display = 'flex';
+        document.getElementById("transmitting").style.display = 'none';
+        break;
+
+    case TRANSMITTING:
+        document.getElementById("idle").style.display = 'none';
+        document.getElementById("device").style.display = 'none';
+        document.getElementById("transmitting").style.display = 'flex';
+        break;
+    }
+};
 
 const restartPause = 2000;
 
@@ -165,15 +212,39 @@ class Transmitter {
 }
 
 const onStream = (stream) => {
+    setState(TRANSMITTING);
     document.getElementById('video').srcObject = stream;
-    document.getElementById("publish_devices").remove();
-    document.getElementById("publish_screen").remove();
     new Transmitter(stream);
 };
 
 const onPublishDevices = () => {
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(onStream);
+        .then(() => navigator.mediaDevices.enumerateDevices())
+        .then((devices) => {
+            for (const device of devices) {
+                switch (device.kind) {
+                case 'videoinput':
+                    {
+                        const opt = document.createElement('option');
+                        opt.value = device.deviceId;
+                        opt.text = device.label;
+                        document.getElementById('video_device').appendChild(opt);
+                    }
+                    break;
+
+                case 'audioinput':
+                    {
+                        const opt = document.createElement('option');
+                        opt.value = device.deviceId;
+                        opt.text = device.label;
+                        document.getElementById('audio_device').appendChild(opt);
+                    }
+                    break;
+                }
+            }
+
+            setState(DEVICE);
+        });
 };
 
 const onPublishScreen = () => {
@@ -189,9 +260,30 @@ const onPublishScreen = () => {
         .then(onStream);
 };
 
-document.getElementById("publish_devices").addEventListener('click', onPublishDevices);
+const onPublishDeviceConfirm = () => {
+    let video = false;
+    const videoId = document.getElementById('video_device').value;
+    if (videoId !== 'none') {
+        video = {
+            deviceId: videoId,
+        };
+    }
 
+    let audio = false;
+    const audioId = document.getElementById('audio_device').value;
+    if (audioId !== 'none') {
+        audio = {
+            deviceId: audioId,
+        };
+    }
+
+    navigator.mediaDevices.getUserMedia({ video, audio })
+        .then(onStream);
+};
+
+document.getElementById("publish_devices").addEventListener('click', onPublishDevices);
 document.getElementById("publish_screen").addEventListener('click', onPublishScreen);
+document.getElementById("publish_confirm").addEventListener('click', onPublishDeviceConfirm);
 
 </script>
 
