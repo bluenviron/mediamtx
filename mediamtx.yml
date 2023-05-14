@@ -245,7 +245,7 @@ paths:
     source: publisher
 
     ###############################################
-    # general path parameters
+    # General path parameters
 
     # If the source is a URL, and the source certificate is self-signed
     # or invalid, you can provide the fingerprint of the certificate in order to
@@ -264,7 +264,7 @@ paths:
     sourceOnDemandCloseAfter: 10s
 
     ###############################################
-    # authentication path parameters
+    # Authentication path parameters
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.
@@ -285,7 +285,7 @@ paths:
     readIPs: []
 
     ###############################################
-    # publisher path parameters (when source is "publisher")
+    # Publisher path parameters (when source is "publisher")
 
     # do not allow another client to disconnect the current publisher and publish in its place.
     disablePublisherOverride: no

@@ -43,23 +43,18 @@ func TestRTSPSource(t *testing.T) {
 		t.Run(source, func(t *testing.T) {
 			medi := testMediaH264
 			stream := gortsplib.NewServerStream(media.Medias{medi})
-
-			var authValidator *auth.Validator
+			nonce := auth.GenerateNonce()
 
 			s := gortsplib.Server{
 				Handler: &testServer{
 					onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 					) (*base.Response, *gortsplib.ServerStream, error) {
-						if authValidator == nil {
-							authValidator = auth.NewValidator("testuser", "testpass", nil)
-						}
-
-						err := authValidator.ValidateRequest(ctx.Request, nil)
+						err := auth.Validate(ctx.Request, "testuser", "testpass", nil, nil, "IPCAM", nonce)
 						if err != nil {
 							return &base.Response{
 								StatusCode: base.StatusUnauthorized,
 								Header: base.Header{
-									"WWW-Authenticate": authValidator.Header(),
+									"WWW-Authenticate": auth.GenerateWWWAuthenticate(nil, "IPCAM", nonce),
 								},
 							}, nil, nil
 						}
@@ -171,25 +166,19 @@ func TestRTSPSource(t *testing.T) {
 }
 
 func TestRTSPSourceNoPassword(t *testing.T) {
-	medi := testMediaH264
-	stream := gortsplib.NewServerStream(media.Medias{medi})
-
-	var authValidator *auth.Validator
+	stream := gortsplib.NewServerStream(media.Medias{testMediaH264})
+	nonce := auth.GenerateNonce()
 	done := make(chan struct{})
 
 	s := gortsplib.Server{
 		Handler: &testServer{
 			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
-				if authValidator == nil {
-					authValidator = auth.NewValidator("testuser", "", nil)
-				}
-
-				err := authValidator.ValidateRequest(ctx.Request, nil)
+				err := auth.Validate(ctx.Request, "testuser", "", nil, nil, "IPCAM", nonce)
 				if err != nil {
 					return &base.Response{
 						StatusCode: base.StatusUnauthorized,
 						Header: base.Header{
-							"WWW-Authenticate": authValidator.Header(),
+							"WWW-Authenticate": auth.GenerateWWWAuthenticate(nil, "IPCAM", nonce),
 						},
 					}, nil, nil
 				}
@@ -228,4 +217,75 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	defer p.Close()
 
 	<-done
+}
+
+func TestRTSPSourceRange(t *testing.T) {
+	for _, ca := range []string{"clock", "npt", "smpte"} {
+		t.Run(ca, func(t *testing.T) {
+			stream := gortsplib.NewServerStream(media.Medias{testMediaH264})
+			done := make(chan struct{})
+
+			s := gortsplib.Server{
+				Handler: &testServer{
+					onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+						return &base.Response{
+							StatusCode: base.StatusOK,
+						}, stream, nil
+					},
+					onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+						return &base.Response{
+							StatusCode: base.StatusOK,
+						}, stream, nil
+					},
+					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+						switch ca {
+						case "clock":
+							require.Equal(t, base.HeaderValue{"clock=20230812T120000Z-"}, ctx.Request.Header["Range"])
+
+						case "npt":
+							require.Equal(t, base.HeaderValue{"npt=0.35-"}, ctx.Request.Header["Range"])
+
+						case "smpte":
+							require.Equal(t, base.HeaderValue{"smpte=0:02:10-"}, ctx.Request.Header["Range"])
+						}
+
+						close(done)
+						return &base.Response{
+							StatusCode: base.StatusOK,
+						}, nil
+					},
+				},
+				RTSPAddress: "127.0.0.1:8555",
+			}
+			err := s.Start()
+			require.NoError(t, err)
+			defer s.Wait()
+			defer s.Close()
+
+			var addConf string
+			switch ca {
+			case "clock":
+				addConf += "    rtspRangeType: clock\n" +
+					"    rtspRangeStart: 20230812T120000Z\n"
+
+			case "npt":
+				addConf += "    rtspRangeType: npt\n" +
+					"    rtspRangeStart: 350ms\n"
+
+			case "smpte":
+				addConf += "    rtspRangeType: smpte\n" +
+					"    rtspRangeStart: 130s\n"
+			}
+			p, ok := newInstance("rtmpDisable: yes\n" +
+				"hlsDisable: yes\n" +
+				"webrtcDisable: yes\n" +
+				"paths:\n" +
+				"  proxied:\n" +
+				"    source: rtsp://testuser:@127.0.0.1:8555/teststream\n" + addConf)
+			require.Equal(t, true, ok)
+			defer p.Close()
+
+			<-done
+		})
+	}
 }
