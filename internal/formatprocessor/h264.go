@@ -320,3 +320,10 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 
 	return nil
 }
+
+func (t *formatProcessorH264) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitH264{
+		RTPPackets: []*rtp.Packet{pkt},
+		NTP:        ntp,
+	}
+}

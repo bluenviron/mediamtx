@@ -135,10 +135,11 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			for _, medi := range medias {
 				for _, forma := range medi.Formats {
-					writeFunc := getRTPWriteFunc(medi, forma, res.stream)
+					cmedi := medi
+					cforma := forma
 
-					c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-						writeFunc(pkt)
+					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
+						res.stream.writeRTPPacket(cmedi, cforma, pkt, time.Now())
 					})
 				}
 			}

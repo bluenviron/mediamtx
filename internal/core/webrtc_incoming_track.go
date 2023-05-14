@@ -92,8 +92,6 @@ func newWebRTCIncomingTrack(
 }
 
 func (t *webRTCIncomingTrack) start(stream *stream) {
-	writeFunc := getRTPWriteFunc(t.media, t.format, stream)
-
 	go func() {
 		for {
 			pkt, _, err := t.track.ReadRTP()
@@ -101,7 +99,7 @@ func (t *webRTCIncomingTrack) start(stream *stream) {
 				return
 			}
 
-			writeFunc(pkt)
+			stream.writeRTPPacket(t.media, t.format, pkt, time.Now())
 		}
 	}()
 

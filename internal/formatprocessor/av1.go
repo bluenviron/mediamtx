@@ -131,3 +131,10 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 
 	return nil
 }
+
+func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitAV1{
+		RTPPackets: []*rtp.Packet{pkt},
+		NTP:        ntp,
+	}
+}

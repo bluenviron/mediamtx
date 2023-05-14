@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/pion/rtp"
 
 	"github.com/aler9/mediamtx/internal/logger"
 )
@@ -17,6 +18,9 @@ const (
 type Processor interface {
 	// cleans and normalizes a data unit.
 	Process(Unit, bool) error
+
+	// returns an unit for the given RTP packet.
+	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit
 }
 
 // New allocates a Processor.

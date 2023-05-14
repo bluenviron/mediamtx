@@ -341,3 +341,10 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 
 	return nil
 }
+
+func (t *formatProcessorH265) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitH265{
+		RTPPackets: []*rtp.Packet{pkt},
+		NTP:        ntp,
+	}
+}
