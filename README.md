@@ -16,6 +16,7 @@ Live streams can be published to the server with:
 |RTMP servers and cameras|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
 |HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
 |UDP/MPEG-TS streams|Unicast, broadcast, multicast|H265, H264|Opus, MPEG-4 Audio (AAC)|
+|WebRTC||AV1, VP9, VP8, H264|Opus, G722, G711|
 |Raspberry Pi Cameras||H264||
 
 And can be read from the server with:
@@ -86,6 +87,7 @@ In the next months, the repository name and the Docker image name will be change
   * [From OBS Studio](#from-obs-studio)
   * [From OpenCV](#from-opencv)
   * [From a UDP stream](#from-a-udp-stream)
+  * [From the browser](#from-the-browser)
 * [Read from the server](#read-from-the-server)
   * [From VLC and Ubuntu](#from-vlc-and-ubuntu)
 * [RTSP protocol](#rtsp-protocol)
@@ -799,6 +801,14 @@ paths:
 ```
 
 After starting the server, the stream can be reached on `rtsp://localhost:8554/udp`.
+
+### From the browser
+
+Open the page into the browser:
+
+```
+http://localhost:8889/mystream/publish
+```
 
 ## Read from the server
 

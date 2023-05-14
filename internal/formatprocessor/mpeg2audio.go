@@ -73,7 +73,7 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 		}
 
 		// decode from RTP
-		if hasNonRTSPReaders {
+		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				t.decoder = t.format.CreateDecoder()
 			}
@@ -102,4 +102,11 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 	tunit.RTPPackets = pkts
 
 	return nil
+}
+
+func (t *formatProcessorMPEG2Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitMPEG2Audio{
+		RTPPackets: []*rtp.Packet{pkt},
+		NTP:        ntp,
+	}
 }

@@ -275,9 +275,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.path = res.path
 
-	defer func() {
-		m.path.readerRemove(pathReaderRemoveReq{author: m})
-	}()
+	defer m.path.readerRemove(pathReaderRemoveReq{author: m})
 
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
@@ -614,8 +612,9 @@ func (m *hlsMuxer) apiMuxersList(req hlsServerAPIMuxersListSubReq) {
 }
 
 // apiReaderDescribe implements reader.
-func (m *hlsMuxer) apiReaderDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"hlsMuxer"}
+func (m *hlsMuxer) apiReaderDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "hlsMuxer",
+		ID:   "",
+	}
 }

@@ -377,11 +377,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 		return res.err
 	}
 
-	path := res.path
-
-	defer func() {
-		path.readerRemove(pathReaderRemoveReq{author: c})
-	}()
+	defer res.path.readerRemove(pathReaderRemoveReq{author: c})
 
 	c.stateMutex.Lock()
 	c.state = rtmpConnStateRead
@@ -417,9 +413,9 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	defer res.stream.readerRemove(c)
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		path.name, sourceMediaInfo(medias))
+		res.path.name, sourceMediaInfo(medias))
 
-	pathConf := path.safeConf()
+	pathConf := res.path.safeConf()
 
 	if pathConf.RunOnRead != "" {
 		c.Log(logger.Info, "runOnRead command started")
@@ -427,7 +423,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			c.externalCmdPool,
 			pathConf.RunOnRead,
 			pathConf.RunOnReadRestart,
-			path.externalCmdEnv(),
+			res.path.externalCmdEnv(),
 			func(co int) {
 				c.Log(logger.Info, "runOnRead command exited with code %d", co)
 			})
@@ -733,11 +729,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		return res.err
 	}
 
-	path := res.path
-
-	defer func() {
-		path.publisherRemove(pathPublisherRemoveReq{author: c})
-	}()
+	defer res.path.publisherRemove(pathPublisherRemoveReq{author: c})
 
 	c.stateMutex.Lock()
 	c.state = rtmpConnStatePublish
@@ -768,7 +760,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 		medias = append(medias, audioMedia)
 	}
 
-	rres := path.publisherStart(pathPublisherStartReq{
+	rres := res.path.publisherStart(pathPublisherStartReq{
 		author:             c,
 		medias:             medias,
 		generateRTPPackets: true,
@@ -778,7 +770,7 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 	}
 
 	c.Log(logger.Info, "is publishing to path '%s', %s",
-		path.name,
+		res.path.name,
 		sourceMediaInfo(medias))
 
 	// disable write deadline to allow outgoing acknowledges
@@ -819,21 +811,19 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 }
 
 // apiReaderDescribe implements reader.
-func (c *rtmpConn) apiReaderDescribe() interface{} {
-	return c.apiSourceDescribe()
+func (c *rtmpConn) apiReaderDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: func() string {
+			if c.isTLS {
+				return "rtmpsConn"
+			}
+			return "rtmpConn"
+		}(),
+		ID: c.uuid.String(),
+	}
 }
 
 // apiSourceDescribe implements source.
-func (c *rtmpConn) apiSourceDescribe() interface{} {
-	var typ string
-	if c.isTLS {
-		typ = "rtmpsConn"
-	} else {
-		typ = "rtmpConn"
-	}
-
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{typ, c.uuid.String()}
+func (c *rtmpConn) apiSourceDescribe() pathAPISourceOrReader {
+	return c.apiReaderDescribe()
 }

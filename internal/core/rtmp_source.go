@@ -148,9 +148,7 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
-			defer func() {
-				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
-			}()
+			defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 
 			videoWriteFunc := getRTMPWriteFunc(videoMedia, videoFormat, res.stream)
 			audioWriteFunc := getRTMPWriteFunc(audioMedia, audioFormat, res.stream)
@@ -207,8 +205,9 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rtmpSource) apiSourceDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"rtmpSource"}
+func (*rtmpSource) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "rtmpSource",
+		ID:   "",
+	}
 }

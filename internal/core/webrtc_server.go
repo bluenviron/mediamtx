@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	gopath "path"
 	"strings"
 	"sync"
 	"time"
@@ -22,8 +21,11 @@ import (
 	"github.com/aler9/mediamtx/internal/websocket"
 )
 
-//go:embed webrtc_index.html
-var webrtcIndex []byte
+//go:embed webrtc_publish_index.html
+var webrtcPublishIndex []byte
+
+//go:embed webrtc_read_index.html
+var webrtcReadIndex []byte
 
 type webRTCServerAPIConnsListItem struct {
 	Created                   time.Time `json:"created"`
@@ -31,6 +33,7 @@ type webRTCServerAPIConnsListItem struct {
 	PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
 	LocalCandidate            string    `json:"localCandidate"`
 	RemoteCandidate           string    `json:"remoteCandidate"`
+	State                     string    `json:"state"`
 	BytesReceived             uint64    `json:"bytesReceived"`
 	BytesSent                 uint64    `json:"bytesSent"`
 }
@@ -58,9 +61,13 @@ type webRTCServerAPIConnsKickReq struct {
 }
 
 type webRTCConnNewReq struct {
-	pathName string
-	wsconn   *websocket.ServerConn
-	res      chan *webRTCConn
+	pathName     string
+	publish      bool
+	wsconn       *websocket.ServerConn
+	res          chan *webRTCConn
+	videoCodec   string
+	audioCodec   string
+	videoBitrate string
 }
 
 type webRTCServerParent interface {
@@ -242,7 +249,11 @@ outer:
 				s.ctx,
 				s.readBufferCount,
 				req.pathName,
+				req.publish,
 				req.wsconn,
+				req.videoCodec,
+				req.audioCodec,
+				req.videoBitrate,
 				s.iceServers,
 				&wg,
 				s.pathManager,
@@ -263,14 +274,35 @@ outer:
 			}
 
 			for c := range s.conns {
+				peerConnectionEstablished := false
+				localCandidate := ""
+				remoteCandidate := ""
+				bytesReceived := uint64(0)
+				bytesSent := uint64(0)
+
+				pc := c.safePC()
+				if pc != nil {
+					peerConnectionEstablished = true
+					localCandidate = pc.localCandidate()
+					remoteCandidate = pc.remoteCandidate()
+					bytesReceived = pc.bytesReceived()
+					bytesSent = pc.bytesSent()
+				}
+
 				data.Items[c.uuid.String()] = webRTCServerAPIConnsListItem{
 					Created:                   c.created,
 					RemoteAddr:                c.remoteAddr().String(),
-					PeerConnectionEstablished: c.peerConnectionEstablished(),
-					LocalCandidate:            c.localCandidate(),
-					RemoteCandidate:           c.remoteCandidate(),
-					BytesReceived:             c.bytesReceived(),
-					BytesSent:                 c.bytesSent(),
+					PeerConnectionEstablished: peerConnectionEstablished,
+					LocalCandidate:            localCandidate,
+					RemoteCandidate:           remoteCandidate,
+					State: func() string {
+						if c.publish {
+							return "publish"
+						}
+						return "read"
+					}(),
+					BytesReceived: bytesReceived,
+					BytesSent:     bytesSent,
 				}
 			}
 
@@ -302,8 +334,8 @@ outer:
 
 	s.httpServer.Shutdown(context.Background())
 	s.ln.Close() // in case Shutdown() is called before Serve()
-	s.requestPool.close()
 
+	s.requestPool.close()
 	wg.Wait()
 
 	if s.udpMuxLn != nil {
@@ -335,29 +367,51 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	// remove leading prefix
 	pa := ctx.Request.URL.Path[1:]
 
-	switch pa {
-	case "", "favicon.ico":
-		return
-	}
+	var dir string
+	var fname string
+	var publish bool
 
-	dir, fname := func() (string, string) {
-		if strings.HasSuffix(pa, "/ws") {
-			return gopath.Dir(pa), gopath.Base(pa)
+	switch {
+	case strings.HasSuffix(pa, "/publish/ws"):
+		dir = pa[:len(pa)-len("/publish/ws")]
+		fname = "publish/ws"
+		publish = true
+
+	case strings.HasSuffix(pa, "/publish"):
+		dir = pa[:len(pa)-len("/publish")]
+		fname = "publish"
+		publish = true
+
+	case strings.HasSuffix(pa, "/ws"):
+		dir = pa[:len(pa)-len("/ws")]
+		fname = "ws"
+		publish = false
+
+	case pa == "favicon.ico":
+		return
+
+	default:
+		dir = pa
+		fname = ""
+		publish = false
+
+		if !strings.HasSuffix(dir, "/") {
+			ctx.Writer.Header().Set("Location", "/"+dir+"/")
+			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
+			return
 		}
-		return pa, ""
-	}()
-
-	if fname == "" && !strings.HasSuffix(dir, "/") {
-		ctx.Writer.Header().Set("Location", "/"+dir+"/")
-		ctx.Writer.WriteHeader(http.StatusMovedPermanently)
-		return
 	}
 
 	dir = strings.TrimSuffix(dir, "/")
+	if dir == "" {
+		return
+	}
+
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	res := s.pathManager.getPathConf(pathGetPathConfReq{
-		name: dir,
+		name:    dir,
+		publish: publish,
 		credentials: authCredentials{
 			query: ctx.Request.URL.RawQuery,
 			ip:    net.ParseIP(ctx.ClientIP()),
@@ -387,10 +441,14 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 	case "":
 		ctx.Writer.Header().Set("Content-Type", "text/html")
 		ctx.Writer.WriteHeader(http.StatusOK)
-		ctx.Writer.Write(webrtcIndex)
-		return
+		ctx.Writer.Write(webrtcReadIndex)
 
-	case "ws":
+	case "publish":
+		ctx.Writer.Header().Set("Content-Type", "text/html")
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(webrtcPublishIndex)
+
+	case "ws", "publish/ws":
 		wsconn, err := websocket.NewServerConn(ctx.Writer, ctx.Request)
 		if err != nil {
 			return
@@ -398,8 +456,12 @@ func (s *webRTCServer) onRequest(ctx *gin.Context) {
 		defer wsconn.Close()
 
 		c := s.newConn(webRTCConnNewReq{
-			pathName: dir,
-			wsconn:   wsconn,
+			pathName:     dir,
+			publish:      (fname == "publish/ws"),
+			wsconn:       wsconn,
+			videoCodec:   ctx.Query("video_codec"),
+			audioCodec:   ctx.Query("audio_codec"),
+			videoBitrate: ctx.Query("video_bitrate"),
 		})
 		if c == nil {
 			return

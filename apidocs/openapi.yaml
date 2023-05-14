@@ -303,15 +303,7 @@ components:
         conf:
           $ref: '#/components/schemas/PathConf'
         source:
-          oneOf:
-          - $ref: '#/components/schemas/PathSourceRTSPSession'
-          - $ref: '#/components/schemas/PathSourceRTSPSSession'
-          - $ref: '#/components/schemas/PathSourceRTMPConn'
-          - $ref: '#/components/schemas/PathSourceRTMPSConn'
-          - $ref: '#/components/schemas/PathSourceRTSPSource'
-          - $ref: '#/components/schemas/PathSourceRTMPSource'
-          - $ref: '#/components/schemas/PathSourceHLSSource'
-          - $ref: '#/components/schemas/PathSourceRPICameraSource'
+          $ref: '#/components/schemas/PathSourceOrReader'
         sourceReady:
           type: boolean
         tracks:
@@ -324,127 +316,26 @@ components:
         readers:
           type: array
           items:
-            oneOf:
-            - $ref: '#/components/schemas/PathReaderHLSMuxer'
-            - $ref: '#/components/schemas/PathReaderRTMPConn'
-            - $ref: '#/components/schemas/PathReaderRTMPSConn'
-            - $ref: '#/components/schemas/PathReaderRTSPSession'
-            - $ref: '#/components/schemas/PathReaderRTSPSSession'
-            - $ref: '#/components/schemas/PathReaderWebRTCConn'
+            $ref: '#/components/schemas/PathSourceOrReader'
 
-    PathSourceRTSPSession:
+    PathSourceOrReader:
       type: object
       properties:
         type:
           type: string
-          enum: [rtspSession]
-        id:
-          type: string
-
-    PathSourceRTSPSSession:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtspsSession]
-        id:
-          type: string
-
-    PathSourceRTMPConn:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtmpConn]
-        id:
-          type: string
-
-    PathSourceRTMPSConn:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtmpsConn]
-        id:
-          type: string
-
-    PathSourceRTSPSource:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtspSource]
-
-    PathSourceRTMPSource:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtmpSource]
-
-    PathSourceHLSSource:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [hlsSource]
-
-    PathSourceRPICameraSource:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rpiCameraSource]
-
-    PathReaderHLSMuxer:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [hlsMuxer]
-
-    PathReaderRTMPConn:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtmpConn]
-        id:
-          type: string
-
-    PathReaderRTMPSConn:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtmpsConn]
-        id:
-          type: string
-
-    PathReaderRTSPSession:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtspSession]
-        id:
-          type: string
-
-    PathReaderRTSPSSession:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [rtspsSession]
-        id:
-          type: string
-
-    PathReaderWebRTCConn:
-      type: object
-      properties:
-        type:
-          type: string
-          enum: [webRTCConn]
+          enum:
+          - hlsMuxer
+          - hlsSource
+          - rpiCameraSource
+          - rtmpSession
+          - rtmpSource
+          - rtmpsSession
+          - rtspSession
+          - rtspSource
+          - rtspsSession
+          - redirect
+          - udpSource
+          - webRTCConn
         id:
           type: string
 
@@ -560,6 +451,9 @@ components:
           type: string
         remoteCandidate:
           type: string
+        state:
+          type: string
+          enum: [read, publish]
         bytesReceived:
           type: integer
           format: int64

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<style>
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	overflow: hidden;
+}
+body {
+    display: flex;
+    flex-direction: column;
+}
+#video {
+	height: 100%;
+	background: black;
+    flex-grow: 1;
+    min-height: 0;
+}
+#controls {
+    height: 200px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+#device {
+    flex-direction: column;
+}
+#device > div {
+    margin: 10px 0;
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+}
+select {
+    width: 200px;
+}
+</style>
+</head>
+<body>
+
+<video id="video" muted controls autoplay playsinline></video>
+<div id="controls">
+    <div id="initializing" style="display: block;">
+        initializing
+    </div>
+    <div id="device" style="display: none;">
+        <div id="device_line">
+            video device:
+            <select id="video_device">
+                <option value="none">none</option>
+            </select>
+
+            audio device:
+            <select id="audio_device">
+                <option value="none">none</option>
+            </select>
+        </div>
+        <div id="codec_line">
+            video codec:
+            <select id="video_codec">
+            </select>
+
+            audio codec:
+            <select id="audio_codec">
+            </select>
+        </div>
+        <div id="bitrate_line">
+            video bitrate (kbps):
+            <input id="video_bitrate" type="text" value="10000" />
+        </div>
+        <div id="submit_line">
+            <button id="publish_confirm">publish</button>
+        </div>
+    </div>
+    <div id="transmitting" style="display: none;">
+        publishing
+    </div>
+</div>
+
+<script>
+
+const INITIALIZING = 0;
+const DEVICE = 1;
+const TRANSMITTING = 2;
+
+let state = INITIALIZING;
+
+const setState = (newState) => {
+    state = newState;
+
+    switch (state) {
+    case DEVICE:
+        document.getElementById("initializing").style.display = 'none';
+        document.getElementById("device").style.display = 'flex';
+        document.getElementById("transmitting").style.display = 'none';
+        break;
+
+    case TRANSMITTING:
+        document.getElementById("initializing").style.display = 'none';
+        document.getElementById("device").style.display = 'none';
+        document.getElementById("transmitting").style.display = 'flex';
+        break;
+    }
+};
+
+const restartPause = 2000;
+
+class Transmitter {
+    constructor(stream) {
+        this.stream = stream;
+        this.terminated = false;
+		this.ws = null;
+		this.pc = null;
+		this.restartTimeout = null;
+		this.start();
+    }
+
+    start = () => {
+        console.log("connecting");
+
+        const videoCodec = document.getElementById('video_codec').value;
+        const audioCodec = document.getElementById('audio_codec').value;
+        const videoBitrate = document.getElementById('video_bitrate').value;
+
+        const u = window.location.href.replace(/^http/, "ws") + '/ws' +
+            '?video_codec=' + videoCodec +
+            '&audio_codec=' + audioCodec +
+            '&video_bitrate=' + videoBitrate;
+
+        this.ws = new WebSocket(u);
+
+        this.ws.onerror = () => {
+            console.log("ws error");
+            if (this.ws === null) {
+                return;
+            }
+            this.ws.close();
+            this.ws = null;
+        };
+
+        this.ws.onclose = () => {
+            console.log("ws closed");
+            this.ws = null;
+            this.scheduleRestart();
+        };
+
+        this.ws.onmessage = this.onIceServers;
+    };
+
+    scheduleRestart = () => {
+        if (this.terminated) {
+            return;
+        }
+
+        if (this.ws !== null) {
+            this.ws.close();
+            this.ws = null;
+        }
+
+        if (this.pc !== null) {
+            this.pc.close();
+            this.pc = null;
+        }
+
+        this.restartTimeout = window.setTimeout(() => {
+            this.restartTimeout = null;
+            this.start();
+        }, restartPause);
+    };
+
+    onIceServers = (msg) => {
+        if (this.ws === null) {
+            return;
+        }
+
+        this.pc = new RTCPeerConnection({
+            iceServers: JSON.parse(msg.data),
+        });
+
+        this.ws.onmessage = this.onOffer;
+    };
+
+    onOffer = (msg) => {
+        if (this.ws === null || this.pc === null) {
+            return;
+        }
+
+        this.stream.getTracks().forEach((track) => {
+            this.pc.addTrack(track, this.stream);
+        });
+
+        this.ws.onmessage = (msg) => {
+            if (this.pc === null) {
+                return;
+            }
+            this.pc.addIceCandidate(JSON.parse(msg.data));
+        };
+
+        this.pc.onicecandidate = (evt) => {
+            if (this.ws === null) {
+                return;
+            }
+
+            if (evt.candidate !== null) {
+                if (evt.candidate.candidate !== "") {
+                    this.ws.send(JSON.stringify(evt.candidate));
+                }
+            }
+        };
+
+        this.pc.oniceconnectionstatechange = () => {
+            if (this.pc === null) {
+                return;
+            }
+
+            console.log("peer connection state:", this.pc.iceConnectionState);
+
+            switch (this.pc.iceConnectionState) {
+            case "failed":
+            case "disconnected":
+                this.scheduleRestart();
+            }
+        };
+
+        this.pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.data)));
+
+        this.pc.createAnswer()
+            .then((desc) => {
+                if (this.ws === null || this.pc === null) {
+                    return;
+                }
+
+                this.pc.setLocalDescription(desc);
+                this.ws.send(JSON.stringify(desc));
+            });
+    };
+}
+
+const onTransmit = (stream) => {
+    setState(TRANSMITTING);
+    document.getElementById('video').srcObject = stream;
+    new Transmitter(stream);
+};
+
+const onPublish = () => {
+    const videoId = document.getElementById('video_device').value;
+    const audioId = document.getElementById('audio_device').value;
+
+    if (videoId !== 'screen') {
+        let video = false;
+        if (videoId !== 'none') {
+            video = {
+                deviceId: videoId,
+            };
+        }
+
+        let audio = false;
+
+        if (audioId !== 'none') {
+            audio = {
+                deviceId: audioId,
+            };
+        }
+
+        navigator.mediaDevices.getUserMedia({ video, audio })
+            .then(onTransmit);
+    } else {
+        navigator.mediaDevices.getDisplayMedia({
+            video: {
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+                frameRate: { ideal: 30 },
+                cursor: "always",
+            },
+            audio: false,
+        })
+            .then(onTransmit);
+    }
+};
+
+const populateDevices = () => {
+    return navigator.mediaDevices.enumerateDevices()
+        .then((devices) => {
+            for (const device of devices) {
+                switch (device.kind) {
+                case 'videoinput':
+                    {
+                        const opt = document.createElement('option');
+                        opt.value = device.deviceId;
+                        opt.text = device.label;
+                        document.getElementById('video_device').appendChild(opt);
+                    }
+                    break;
+
+                case 'audioinput':
+                    {
+                        const opt = document.createElement('option');
+                        opt.value = device.deviceId;
+                        opt.text = device.label;
+                        document.getElementById('audio_device').appendChild(opt);
+                    }
+                    break;
+                }
+            }
+
+            // add screen
+            const opt = document.createElement('option');
+            opt.value = "screen";
+            opt.text = "screen";
+            document.getElementById('video_device').appendChild(opt);
+
+            // set default
+            document.getElementById('video_device').value = document.getElementById('video_device').children[1].value;
+            if (document.getElementById('audio_device').children.length > 1) {
+                document.getElementById('audio_device').value = document.getElementById('audio_device').children[1].value;
+            }
+        });
+};
+
+const populateCodecs = () => {
+    const pc = new RTCPeerConnection({});
+    pc.addTransceiver("video", { direction: 'sendonly' });
+    pc.addTransceiver("audio", { direction: 'sendonly' });
+
+    return pc.createOffer()
+        .then((desc) => {
+            const sdp = desc.sdp.toLowerCase();
+
+            for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000']) {
+                if (sdp.includes(codec)) {
+                    const opt = document.createElement('option');
+                    opt.value = codec.split('/')[0];
+                    opt.text = codec.split('/')[0].toUpperCase();
+                    document.getElementById('video_codec').appendChild(opt);
+                }
+            }
+
+            for (const codec of ['opus/48000', 'g722/8000', 'pcmu/8000', 'pcma/8000']) {
+                if (sdp.includes(codec)) {
+                    const opt = document.createElement('option');
+                    opt.value = codec.split('/')[0];
+                    opt.text = codec.split('/')[0].toUpperCase();
+                    document.getElementById('audio_codec').appendChild(opt);
+                }
+            }
+
+            pc.close();
+        });
+};
+
+const initialize = () => {
+    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(() => Promise.all([
+            populateDevices(),
+            populateCodecs(),
+        ]))
+        .then(() => {
+            setState(DEVICE);
+        });
+};
+
+document.getElementById("publish_confirm").addEventListener('click', onPublish);
+
+initialize();
+
+</script>
+
+</body>
+</html>

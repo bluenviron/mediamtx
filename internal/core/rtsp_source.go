@@ -131,16 +131,15 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
-			defer func() {
-				s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
-			}()
+			defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
 
 			for _, medi := range medias {
 				for _, forma := range medi.Formats {
-					writeFunc := getRTSPWriteFunc(medi, forma, res.stream)
+					cmedi := medi
+					cforma := forma
 
-					c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-						writeFunc(pkt)
+					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
+						res.stream.writeRTPPacket(cmedi, cforma, pkt, time.Now())
 					})
 				}
 			}
@@ -170,8 +169,9 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rtspSource) apiSourceDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"rtspSource"}
+func (*rtspSource) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "rtspSource",
+		ID:   "",
+	}
 }

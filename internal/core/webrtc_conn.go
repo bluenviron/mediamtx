@@ -14,16 +14,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpav1"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph264"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp9"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
-	"github.com/pion/interceptor"
+	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/aler9/mediamtx/internal/formatprocessor"
@@ -32,67 +27,58 @@ import (
 )
 
 const (
-	webrtcHandshakeDeadline = 10 * time.Second
-	webrtcWsWriteDeadline   = 2 * time.Second
-	webrtcPayloadMaxSize    = 1188 // 1200 - 12 (RTP header)
+	webrtcHandshakeTimeout   = 10 * time.Second
+	webrtcTrackGatherTimeout = 2 * time.Second
+	webrtcPayloadMaxSize     = 1188 // 1200 - 12 (RTP header)
 )
 
-// newPeerConnection creates a PeerConnection with the default codecs and
-// interceptors.  See RegisterDefaultCodecs and RegisterDefaultInterceptors.
-//
-// This function is a copy of webrtc/peerconnection.go
-// unlike the original one, allows you to add additional custom options
-func newPeerConnection(configuration webrtc.Configuration,
-	options ...func(*webrtc.API),
-) (*webrtc.PeerConnection, error) {
-	m := &webrtc.MediaEngine{}
-
-	if err := m.RegisterDefaultCodecs(); err != nil {
-		return nil, err
-	}
-
-	err := m.RegisterCodec(webrtc.RTPCodecParameters{
-		RTPCodecCapability: webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeAV1,
-			ClockRate: 90000,
-		},
-		PayloadType: 96,
-	},
-		webrtc.RTPCodecTypeVideo)
-	if err != nil {
-		return nil, err
-	}
-
-	i := &interceptor.Registry{}
-	if err := webrtc.RegisterDefaultInterceptors(m, i); err != nil {
-		return nil, err
-	}
-
-	options = append(options, webrtc.WithMediaEngine(m))
-	options = append(options, webrtc.WithInterceptorRegistry(i))
-
-	api := webrtc.NewAPI(options...)
-	return api.NewPeerConnection(configuration)
+type trackRecvPair struct {
+	track    *webrtc.TrackRemote
+	receiver *webrtc.RTPReceiver
 }
 
-type webRTCTrack struct {
-	media       *media.Media
-	format      formats.Format
-	webRTCTrack *webrtc.TrackLocalStaticRTP
-	cb          func(formatprocessor.Unit, context.Context, chan error)
-}
-
-func gatherMedias(tracks []*webRTCTrack) media.Medias {
-	var ret media.Medias
-
-	for _, track := range tracks {
-		ret = append(ret, track.media)
+func mediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) media.Medias {
+	ret := make(media.Medias, len(tracks))
+	for i, track := range tracks {
+		ret[i] = track.media
 	}
-
 	return ret
 }
 
+func mediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
+	ret := make(media.Medias, len(tracks))
+	for i, track := range tracks {
+		ret[i] = track.media
+	}
+	return ret
+}
+
+func insertTias(offer *webrtc.SessionDescription, value uint64) {
+	var sd sdp.SessionDescription
+	err := sd.Unmarshal([]byte(offer.SDP))
+	if err != nil {
+		return
+	}
+
+	for _, media := range sd.MediaDescriptions {
+		if media.MediaName.Media == "video" {
+			media.Bandwidth = append(media.Bandwidth, sdp.Bandwidth{
+				Type:      "TIAS",
+				Bandwidth: value,
+			})
+		}
+	}
+
+	enc, err := sd.Marshal()
+	if err != nil {
+		return
+	}
+
+	offer.SDP = string(enc)
+}
+
 type webRTCConnPathManager interface {
+	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
 	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
 }
 
@@ -104,7 +90,11 @@ type webRTCConnParent interface {
 type webRTCConn struct {
 	readBufferCount   int
 	pathName          string
-	wsconn            *websocket.ServerConn
+	publish           bool
+	ws                *websocket.ServerConn
+	videoCodec        string
+	audioCodec        string
+	videoBitrate      string
 	iceServers        []string
 	wg                *sync.WaitGroup
 	pathManager       webRTCConnPathManager
@@ -117,7 +107,7 @@ type webRTCConn struct {
 	ctxCancel func()
 	uuid      uuid.UUID
 	created   time.Time
-	curPC     *webrtc.PeerConnection
+	pc        *peerConnection
 	mutex     sync.RWMutex
 
 	closed chan struct{}
@@ -127,7 +117,11 @@ func newWebRTCConn(
 	parentCtx context.Context,
 	readBufferCount int,
 	pathName string,
-	wsconn *websocket.ServerConn,
+	publish bool,
+	ws *websocket.ServerConn,
+	videoCodec string,
+	audioCodec string,
+	videoBitrate string,
 	iceServers []string,
 	wg *sync.WaitGroup,
 	pathManager webRTCConnPathManager,
@@ -141,9 +135,13 @@ func newWebRTCConn(
 	c := &webRTCConn{
 		readBufferCount:   readBufferCount,
 		pathName:          pathName,
-		wsconn:            wsconn,
+		publish:           publish,
+		ws:                ws,
 		iceServers:        iceServers,
 		wg:                wg,
+		videoCodec:        videoCodec,
+		audioCodec:        audioCodec,
+		videoBitrate:      videoBitrate,
 		pathManager:       pathManager,
 		parent:            parent,
 		ctx:               ctx,
@@ -173,100 +171,17 @@ func (c *webRTCConn) wait() {
 }
 
 func (c *webRTCConn) remoteAddr() net.Addr {
-	return c.wsconn.RemoteAddr()
+	return c.ws.RemoteAddr()
 }
 
-func (c *webRTCConn) peerConnectionEstablished() bool {
+func (c *webRTCConn) safePC() *peerConnection {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-
-	return c.curPC != nil
-}
-
-func (c *webRTCConn) localCandidate() string {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if c.curPC != nil {
-		var cid string
-		for _, stats := range c.curPC.GetStats() {
-			if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
-				cid = tstats.LocalCandidateID
-				break
-			}
-		}
-
-		if cid != "" {
-			for _, stats := range c.curPC.GetStats() {
-				if tstats, ok := stats.(webrtc.ICECandidateStats); ok && tstats.ID == cid {
-					return tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
-						tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func (c *webRTCConn) remoteCandidate() string {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if c.curPC != nil {
-		var cid string
-		for _, stats := range c.curPC.GetStats() {
-			if tstats, ok := stats.(webrtc.ICECandidatePairStats); ok && tstats.Nominated {
-				cid = tstats.RemoteCandidateID
-				break
-			}
-		}
-
-		if cid != "" {
-			for _, stats := range c.curPC.GetStats() {
-				if tstats, ok := stats.(webrtc.ICECandidateStats); ok && tstats.ID == cid {
-					return tstats.CandidateType.String() + "/" + tstats.Protocol + "/" +
-						tstats.IP + "/" + strconv.FormatInt(int64(tstats.Port), 10)
-				}
-			}
-		}
-	}
-	return ""
-}
-
-func (c *webRTCConn) bytesReceived() uint64 {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if c.curPC != nil {
-		for _, stats := range c.curPC.GetStats() {
-			if tstats, ok := stats.(webrtc.TransportStats); ok {
-				if tstats.ID == "iceTransport" {
-					return tstats.BytesReceived
-				}
-			}
-		}
-	}
-	return 0
-}
-
-func (c *webRTCConn) bytesSent() uint64 {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if c.curPC != nil {
-		for _, stats := range c.curPC.GetStats() {
-			if tstats, ok := stats.(webrtc.TransportStats); ok {
-				if tstats.ID == "iceTransport" {
-					return tstats.BytesSent
-				}
-			}
-		}
-	}
-	return 0
+	return c.pc
 }
 
 func (c *webRTCConn) Log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.wsconn.RemoteAddr()}, args...)...)
+	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.ws.RemoteAddr()}, args...)...)
 }
 
 func (c *webRTCConn) run() {
@@ -298,6 +213,143 @@ func (c *webRTCConn) run() {
 }
 
 func (c *webRTCConn) runInner(ctx context.Context) error {
+	if c.publish {
+		return c.runPublish(ctx)
+	}
+	return c.runRead(ctx)
+}
+
+func (c *webRTCConn) runPublish(ctx context.Context) error {
+	res := c.pathManager.publisherAdd(pathPublisherAddReq{
+		author:   c,
+		pathName: c.pathName,
+		skipAuth: true,
+	})
+	if res.err != nil {
+		return res.err
+	}
+
+	defer res.path.publisherRemove(pathPublisherRemoveReq{author: c})
+
+	err := c.writeICEServers()
+	if err != nil {
+		return err
+	}
+
+	pc, err := newPeerConnection(
+		c.videoCodec,
+		c.audioCodec,
+		c.genICEServers(),
+		c.iceHostNAT1To1IPs,
+		c.iceUDPMux,
+		c.iceTCPMux,
+		c)
+	if err != nil {
+		return err
+	}
+	defer pc.close()
+
+	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RtpTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionRecvonly,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RtpTransceiverInit{
+		Direction: webrtc.RTPTransceiverDirectionRecvonly,
+	})
+	if err != nil {
+		return err
+	}
+
+	trackRecv := make(chan trackRecvPair)
+
+	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		select {
+		case trackRecv <- trackRecvPair{track, receiver}:
+		case <-pc.closed:
+		}
+	})
+
+	offer, err := pc.CreateOffer(nil)
+	if err != nil {
+		return err
+	}
+
+	err = pc.SetLocalDescription(offer)
+	if err != nil {
+		return err
+	}
+
+	tmp, err := strconv.ParseUint(c.videoBitrate, 10, 31)
+	if err != nil {
+		return err
+	}
+
+	insertTias(&offer, tmp*1024)
+
+	err = c.writeOffer(&offer)
+	if err != nil {
+		return err
+	}
+
+	answer, err := c.readAnswer()
+	if err != nil {
+		return err
+	}
+
+	err = pc.SetRemoteDescription(*answer)
+	if err != nil {
+		return err
+	}
+
+	cr := newWebRTCCandidateReader(c.ws)
+	defer cr.close()
+
+	err = c.establishConnection(ctx, pc, cr)
+	if err != nil {
+		return err
+	}
+
+	close(cr.stopGathering)
+
+	tracks, err := c.gatherIncomingTracks(ctx, pc, cr, trackRecv)
+	if err != nil {
+		return err
+	}
+	medias := mediasOfIncomingTracks(tracks)
+
+	rres := res.path.publisherStart(pathPublisherStartReq{
+		author:             c,
+		medias:             medias,
+		generateRTPPackets: false,
+	})
+	if rres.err != nil {
+		return rres.err
+	}
+
+	c.Log(logger.Info, "is publishing to path '%s', %s",
+		res.path.name,
+		sourceMediaInfo(medias))
+
+	for _, track := range tracks {
+		track.start(rres.stream)
+	}
+
+	select {
+	case <-pc.disconnected:
+		return fmt.Errorf("peer connection closed")
+
+	case err := <-cr.readError:
+		return fmt.Errorf("websocket error: %v", err)
+
+	case <-ctx.Done():
+		return fmt.Errorf("terminated")
+	}
+}
+
+func (c *webRTCConn) runRead(ctx context.Context) error {
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: c.pathName,
@@ -307,38 +359,14 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return res.err
 	}
 
-	path := res.path
+	defer res.path.readerRemove(pathReaderRemoveReq{author: c})
 
-	defer func() {
-		path.readerRemove(pathReaderRemoveReq{author: c})
-	}()
-
-	var tracks []*webRTCTrack
-
-	videoTrack, err := c.createVideoTrack(res.stream.medias())
+	tracks, err := c.gatherOutgoingTracks(res.stream.medias())
 	if err != nil {
 		return err
 	}
 
-	if videoTrack != nil {
-		tracks = append(tracks, videoTrack)
-	}
-
-	audioTrack, err := c.createAudioTrack(res.stream.medias())
-	if err != nil {
-		return err
-	}
-
-	if audioTrack != nil {
-		tracks = append(tracks, audioTrack)
-	}
-
-	if tracks == nil {
-		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, VP8, VP9, G711, G722, Opus")
-	}
-
-	err = c.wsconn.WriteJSON(c.genICEServers())
+	err = c.writeICEServers()
 	if err != nil {
 		return err
 	}
@@ -348,91 +376,27 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	configuration := webrtc.Configuration{ICEServers: c.genICEServers()}
-	settingsEngine := webrtc.SettingEngine{}
-
-	if len(c.iceHostNAT1To1IPs) != 0 {
-		settingsEngine.SetNAT1To1IPs(c.iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
-	}
-
-	if c.iceUDPMux != nil {
-		settingsEngine.SetICEUDPMux(c.iceUDPMux)
-	}
-
-	if c.iceTCPMux != nil {
-		settingsEngine.SetICETCPMux(c.iceTCPMux)
-		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
-	}
-
-	pc, err := newPeerConnection(configuration, webrtc.WithSettingEngine(settingsEngine))
+	pc, err := newPeerConnection(
+		"",
+		"",
+		c.genICEServers(),
+		c.iceHostNAT1To1IPs,
+		c.iceUDPMux,
+		c.iceTCPMux,
+		c)
 	if err != nil {
 		return err
 	}
-
-	pcConnected := make(chan struct{})
-	pcDisconnected := make(chan struct{})
-	pcClosed := make(chan struct{})
-	var stateChangeMutex sync.Mutex
-
-	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
-		stateChangeMutex.Lock()
-		defer stateChangeMutex.Unlock()
-
-		select {
-		case <-pcClosed:
-			return
-		default:
-		}
-
-		c.Log(logger.Debug, "peer connection state: "+state.String())
-
-		switch state {
-		case webrtc.PeerConnectionStateConnected:
-			close(pcConnected)
-
-		case webrtc.PeerConnectionStateDisconnected:
-			close(pcDisconnected)
-
-		case webrtc.PeerConnectionStateClosed:
-			close(pcClosed)
-		}
-	})
-
-	defer func() {
-		pc.Close()
-		<-pcClosed
-	}()
+	defer pc.close()
 
 	for _, track := range tracks {
-		rtpSender, err := pc.AddTrack(track.webRTCTrack)
+		var err error
+		track.sender, err = pc.AddTrack(track.track)
 		if err != nil {
 			return err
 		}
-
-		// read incoming RTCP packets in order to make interceptors work
-		go func() {
-			buf := make([]byte, 1500)
-			for {
-				_, _, err := rtpSender.Read(buf)
-				if err != nil {
-					return
-				}
-			}
-		}()
 	}
 
-	localCandidate := make(chan *webrtc.ICECandidateInit)
-
-	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
-		if i != nil {
-			v := i.ToJSON()
-			select {
-			case localCandidate <- &v:
-			case <-pcConnected:
-			case <-ctx.Done():
-			}
-		}
-	})
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
 		return err
@@ -448,79 +412,24 @@ func (c *webRTCConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	err = c.wsconn.WriteJSON(&answer)
+	err = c.writeAnswer(&answer)
 	if err != nil {
 		return err
 	}
 
-	wsReadError := make(chan error)
-	remoteCandidate := make(chan *webrtc.ICECandidateInit)
+	cr := newWebRTCCandidateReader(c.ws)
+	defer cr.close()
 
-	go func() {
-		for {
-			candidate, err := c.readCandidate()
-			if err != nil {
-				select {
-				case wsReadError <- err:
-				case <-ctx.Done():
-				}
-				return
-			}
-
-			select {
-			case remoteCandidate <- candidate:
-			case <-pcConnected:
-			case <-ctx.Done():
-			}
-		}
-	}()
-
-	t := time.NewTimer(webrtcHandshakeDeadline)
-	defer t.Stop()
-
-outer:
-	for {
-		select {
-		case candidate := <-localCandidate:
-			c.Log(logger.Debug, "local candidate: %+v", candidate.Candidate)
-			err := c.wsconn.WriteJSON(candidate)
-			if err != nil {
-				return err
-			}
-
-		case candidate := <-remoteCandidate:
-			c.Log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
-			err := pc.AddICECandidate(*candidate)
-			if err != nil {
-				return err
-			}
-
-		case err := <-wsReadError:
-			return err
-
-		case <-t.C:
-			return fmt.Errorf("deadline exceeded")
-
-		case <-pcConnected:
-			break outer
-
-		case <-ctx.Done():
-			return fmt.Errorf("terminated")
-		}
+	err = c.establishConnection(ctx, pc, cr)
+	if err != nil {
+		return err
 	}
 
-	// Keep WebSocket connection open and use it to notify shutdowns.
-	// This is because pion/webrtc doesn't write yet a WebRTC shutdown
-	// message to clients (like a DTLS close alert or a RTCP BYE),
-	// therefore browsers do not properly detect shutdowns and do not
-	// attempt to restart the connection immediately.
+	close(cr.stopGathering)
 
-	c.mutex.Lock()
-	c.curPC = pc
-	c.mutex.Unlock()
-
-	c.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
-		c.localCandidate(), c.remoteCandidate())
+	for _, track := range tracks {
+		track.start()
+	}
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	defer ringBuffer.Close()
@@ -538,7 +447,7 @@ outer:
 	defer res.stream.readerRemove(c)
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		path.name, sourceMediaInfo(gatherMedias(tracks)))
+		res.path.name, sourceMediaInfo(mediasOfOutgoingTracks(tracks)))
 
 	go func() {
 		for {
@@ -551,10 +460,10 @@ outer:
 	}()
 
 	select {
-	case <-pcDisconnected:
+	case <-pc.disconnected:
 		return fmt.Errorf("peer connection closed")
 
-	case err := <-wsReadError:
+	case err := <-cr.readError:
 		return fmt.Errorf("websocket error: %v", err)
 
 	case err := <-writeError:
@@ -565,300 +474,72 @@ outer:
 	}
 }
 
-func (c *webRTCConn) createVideoTrack(medias media.Medias) (*webRTCTrack, error) {
-	var av1Format *formats.AV1
-	av1Media := medias.FindFormat(&av1Format)
+func (c *webRTCConn) gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
+	var tracks []*webRTCOutgoingTrack
 
-	if av1Format != nil {
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeAV1,
-				ClockRate: 90000,
-			},
-			"av1",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		encoder := &rtpav1.Encoder{
-			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
-		}
-		encoder.Init()
-
-		return &webRTCTrack{
-			media:       av1Media,
-			format:      av1Format,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				tunit := unit.(*formatprocessor.UnitAV1)
-
-				if tunit.OBUs == nil {
-					return
-				}
-
-				packets, err := encoder.Encode(tunit.OBUs, tunit.PTS)
-				if err != nil {
-					panic(err)
-				}
-
-				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
+	videoTrack, err := newWebRTCOutgoingTrackVideo(medias)
+	if err != nil {
+		return nil, err
 	}
 
-	var vp9Format *formats.VP9
-	vp9Media := medias.FindFormat(&vp9Format)
-
-	if vp9Format != nil {
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeVP9,
-				ClockRate: uint32(vp9Format.ClockRate()),
-			},
-			"vp9",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		encoder := &rtpvp9.Encoder{
-			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
-		}
-		encoder.Init()
-
-		return &webRTCTrack{
-			media:       vp9Media,
-			format:      vp9Format,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				tunit := unit.(*formatprocessor.UnitVP9)
-
-				if tunit.Frame == nil {
-					return
-				}
-
-				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
-				if err != nil {
-					return
-				}
-
-				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
+	if videoTrack != nil {
+		tracks = append(tracks, videoTrack)
 	}
 
-	var vp8Format *formats.VP8
-	vp8Media := medias.FindFormat(&vp8Format)
-
-	if vp8Format != nil {
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeVP8,
-				ClockRate: uint32(vp8Format.ClockRate()),
-			},
-			"vp8",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		encoder := &rtpvp8.Encoder{
-			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
-		}
-		encoder.Init()
-
-		return &webRTCTrack{
-			media:       vp8Media,
-			format:      vp8Format,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				tunit := unit.(*formatprocessor.UnitVP8)
-
-				if tunit.Frame == nil {
-					return
-				}
-
-				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
-				if err != nil {
-					return
-				}
-
-				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
+	audioTrack, err := newWebRTCOutgoingTrackAudio(medias)
+	if err != nil {
+		return nil, err
 	}
 
-	var h264Format *formats.H264
-	h264Media := medias.FindFormat(&h264Format)
-
-	if h264Format != nil {
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeH264,
-				ClockRate: uint32(h264Format.ClockRate()),
-			},
-			"h264",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		encoder := &rtph264.Encoder{
-			PayloadType:    96,
-			PayloadMaxSize: webrtcPayloadMaxSize,
-		}
-		encoder.Init()
-
-		var lastPTS time.Duration
-		firstNALUReceived := false
-
-		return &webRTCTrack{
-			media:       h264Media,
-			format:      h264Format,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				tunit := unit.(*formatprocessor.UnitH264)
-
-				if tunit.AU == nil {
-					return
-				}
-
-				if !firstNALUReceived {
-					firstNALUReceived = true
-					lastPTS = tunit.PTS
-				} else {
-					if tunit.PTS < lastPTS {
-						select {
-						case writeError <- fmt.Errorf("WebRTC doesn't support H264 streams with B-frames"):
-						case <-ctx.Done():
-						}
-						return
-					}
-					lastPTS = tunit.PTS
-				}
-
-				packets, err := encoder.Encode(tunit.AU, tunit.PTS)
-				if err != nil {
-					return
-				}
-
-				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
+	if audioTrack != nil {
+		tracks = append(tracks, audioTrack)
 	}
 
-	return nil, nil
+	if tracks == nil {
+		return nil, fmt.Errorf(
+			"the stream doesn't contain any supported codec, which are currently H264, VP8, VP9, G711, G722, Opus")
+	}
+
+	return tracks, nil
 }
 
-func (c *webRTCConn) createAudioTrack(medias media.Medias) (*webRTCTrack, error) {
-	var opusFormat *formats.Opus
-	opusMedia := medias.FindFormat(&opusFormat)
+func (c *webRTCConn) gatherIncomingTracks(
+	ctx context.Context,
+	pc *peerConnection,
+	cr *webRTCCandidateReader,
+	trackRecv chan trackRecvPair,
+) ([]*webRTCIncomingTrack, error) {
+	var tracks []*webRTCIncomingTrack
 
-	if opusFormat != nil {
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeOpus,
-				ClockRate: uint32(opusFormat.ClockRate()),
-			},
-			"opus",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
+	t := time.NewTimer(webrtcTrackGatherTimeout)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			return tracks, nil
+
+		case pair := <-trackRecv:
+			track, err := newWebRTCIncomingTrack(pair.track, pair.receiver, pc.WriteRTCP)
+			if err != nil {
+				return nil, err
+			}
+			tracks = append(tracks, track)
+
+			if len(tracks) == 2 {
+				return tracks, nil
+			}
+
+		case <-pc.disconnected:
+			return nil, fmt.Errorf("peer connection closed")
+
+		case err := <-cr.readError:
+			return nil, fmt.Errorf("websocket error: %v", err)
+
+		case <-ctx.Done():
+			return nil, fmt.Errorf("terminated")
 		}
-
-		return &webRTCTrack{
-			media:       opusMedia,
-			format:      opusFormat,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
 	}
-
-	var g722Format *formats.G722
-	g722Media := medias.FindFormat(&g722Format)
-
-	if g722Format != nil {
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeG722,
-				ClockRate: uint32(g722Format.ClockRate()),
-			},
-			"g722",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		return &webRTCTrack{
-			media:       g722Media,
-			format:      g722Format,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
-	}
-
-	var g711Format *formats.G711
-	g711Media := medias.FindFormat(&g711Format)
-
-	if g711Format != nil {
-		var mtyp string
-		if g711Format.MULaw {
-			mtyp = webrtc.MimeTypePCMU
-		} else {
-			mtyp = webrtc.MimeTypePCMA
-		}
-
-		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  mtyp,
-				ClockRate: uint32(g711Format.ClockRate()),
-			},
-			"g711",
-			"rtspss",
-		)
-		if err != nil {
-			return nil, err
-		}
-
-		return &webRTCTrack{
-			media:       g711Media,
-			format:      g711Format,
-			webRTCTrack: webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
-				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
-				}
-			},
-		}, nil
-	}
-
-	return nil, nil
 }
 
 func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
@@ -904,9 +585,68 @@ func (c *webRTCConn) genICEServers() []webrtc.ICEServer {
 	return ret
 }
 
+func (c *webRTCConn) establishConnection(
+	ctx context.Context,
+	pc *peerConnection,
+	cr *webRTCCandidateReader,
+) error {
+	t := time.NewTimer(webrtcHandshakeTimeout)
+	defer t.Stop()
+
+outer:
+	for {
+		select {
+		case candidate := <-pc.localCandidateRecv:
+			c.Log(logger.Debug, "local candidate: %+v", candidate.Candidate)
+			err := c.ws.WriteJSON(candidate)
+			if err != nil {
+				return err
+			}
+
+		case candidate := <-cr.remoteCandidate:
+			c.Log(logger.Debug, "remote candidate: %+v", candidate.Candidate)
+			err := pc.AddICECandidate(*candidate)
+			if err != nil {
+				return err
+			}
+
+		case err := <-cr.readError:
+			return err
+
+		case <-t.C:
+			return fmt.Errorf("deadline exceeded")
+
+		case <-pc.connected:
+			break outer
+
+		case <-ctx.Done():
+			return fmt.Errorf("terminated")
+		}
+	}
+
+	// Keep WebSocket connection open and use it to notify shutdowns.
+	// This is because pion/webrtc doesn't write yet a WebRTC shutdown
+	// message to clients (like a DTLS close alert or a RTCP BYE),
+	// therefore browsers do not properly detect shutdowns and do not
+	// attempt to restart the connection immediately.
+
+	c.mutex.Lock()
+	c.pc = pc
+	c.mutex.Unlock()
+
+	c.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
+		pc.localCandidate(), pc.remoteCandidate())
+
+	return nil
+}
+
+func (c *webRTCConn) writeICEServers() error {
+	return c.ws.WriteJSON(c.genICEServers())
+}
+
 func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
 	var offer webrtc.SessionDescription
-	err := c.wsconn.ReadJSON(&offer)
+	err := c.ws.ReadJSON(&offer)
 	if err != nil {
 		return nil, err
 	}
@@ -918,20 +658,37 @@ func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
 	return &offer, nil
 }
 
-func (c *webRTCConn) readCandidate() (*webrtc.ICECandidateInit, error) {
-	var candidate webrtc.ICECandidateInit
-	err := c.wsconn.ReadJSON(&candidate)
+func (c *webRTCConn) writeOffer(offer *webrtc.SessionDescription) error {
+	return c.ws.WriteJSON(offer)
+}
+
+func (c *webRTCConn) readAnswer() (*webrtc.SessionDescription, error) {
+	var answer webrtc.SessionDescription
+	err := c.ws.ReadJSON(&answer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &candidate, err
+	if answer.Type != webrtc.SDPTypeAnswer {
+		return nil, fmt.Errorf("received SDP is not an offer")
+	}
+
+	return &answer, nil
+}
+
+func (c *webRTCConn) writeAnswer(answer *webrtc.SessionDescription) error {
+	return c.ws.WriteJSON(answer)
+}
+
+// apiSourceDescribe implements sourceStaticImpl.
+func (c *webRTCConn) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "webRTCConn",
+		ID:   c.uuid.String(),
+	}
 }
 
 // apiReaderDescribe implements reader.
-func (c *webRTCConn) apiReaderDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{"webRTCConn", c.uuid.String()}
+func (c *webRTCConn) apiReaderDescribe() pathAPISourceOrReader {
+	return c.apiSourceDescribe()
 }

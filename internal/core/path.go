@@ -90,6 +90,7 @@ type pathGetPathConfRes struct {
 
 type pathGetPathConfReq struct {
 	name        string
+	publish     bool
 	credentials authCredentials
 	res         chan pathGetPathConfRes
 }
@@ -130,6 +131,7 @@ type pathPublisherAnnounceRes struct {
 type pathPublisherAddReq struct {
 	author      publisher
 	pathName    string
+	skipAuth    bool
 	credentials authCredentials
 	res         chan pathPublisherAnnounceRes
 }
@@ -149,6 +151,11 @@ type pathPublisherStartReq struct {
 type pathPublisherStopReq struct {
 	author publisher
 	res    chan struct{}
+}
+
+type pathAPISourceOrReader struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
 }
 
 type pathAPIPathsListItem struct {

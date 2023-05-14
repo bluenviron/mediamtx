@@ -275,7 +275,7 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 		}
 
 		// decode from RTP
-		if hasNonRTSPReaders || t.encoder != nil {
+		if hasNonRTSPReaders || t.decoder != nil || t.encoder != nil {
 			if t.decoder == nil {
 				t.decoder = t.format.CreateDecoder()
 				t.lastKeyFrameReceived = time.Now()
@@ -319,4 +319,11 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 	}
 
 	return nil
+}
+
+func (t *formatProcessorH264) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitH264{
+		RTPPackets: []*rtp.Packet{pkt},
+		NTP:        ntp,
+	}
 }

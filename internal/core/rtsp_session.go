@@ -10,87 +10,14 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/auth"
 	"github.com/bluenviron/gortsplib/v3/pkg/base"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
 
 	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/externalcmd"
-	"github.com/aler9/mediamtx/internal/formatprocessor"
 	"github.com/aler9/mediamtx/internal/logger"
 )
-
-type rtspWriteFunc func(*rtp.Packet)
-
-func getRTSPWriteFunc(medi *media.Media, forma formats.Format, stream *stream) rtspWriteFunc {
-	switch forma.(type) {
-	case *formats.H264:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitH264{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	case *formats.H265:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitH265{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	case *formats.VP8:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitVP8{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	case *formats.VP9:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitVP9{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	case *formats.MPEG2Audio:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitMPEG2Audio{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	case *formats.MPEG4Audio:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitMPEG4Audio{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	case *formats.Opus:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitOpus{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-
-	default:
-		return func(pkt *rtp.Packet) {
-			stream.writeUnit(medi, forma, &formatprocessor.UnitGeneric{
-				RTPPackets: []*rtp.Packet{pkt},
-				NTP:        time.Now(),
-			})
-		}
-	}
-}
 
 type rtspSessionPathManager interface {
 	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
@@ -387,10 +314,11 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 	for _, medi := range s.session.AnnouncedMedias() {
 		for _, forma := range medi.Formats {
-			writeFunc := getRTSPWriteFunc(medi, forma, s.stream)
+			cmedi := medi
+			cforma := forma
 
-			ctx.Session.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-				writeFunc(pkt)
+			ctx.Session.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
+				res.stream.writeRTPPacket(cmedi, cforma, pkt, time.Now())
 			})
 		}
 	}
@@ -431,23 +359,21 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 }
 
 // apiReaderDescribe implements reader.
-func (s *rtspSession) apiReaderDescribe() interface{} {
-	return s.apiSourceDescribe()
+func (s *rtspSession) apiReaderDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: func() string {
+			if s.isTLS {
+				return "rtspsSession"
+			}
+			return "rtspSession"
+		}(),
+		ID: s.uuid.String(),
+	}
 }
 
 // apiSourceDescribe implements source.
-func (s *rtspSession) apiSourceDescribe() interface{} {
-	var typ string
-	if s.isTLS {
-		typ = "rtspsSession"
-	} else {
-		typ = "rtspSession"
-	}
-
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{typ, s.uuid.String()}
+func (s *rtspSession) apiSourceDescribe() pathAPISourceOrReader {
+	return s.apiReaderDescribe()
 }
 
 // onPacketLost is called by rtspServer.
