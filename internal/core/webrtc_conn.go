@@ -53,7 +53,7 @@ func mediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
 	return ret
 }
 
-func insertTias(offer *webrtc.SessionDescription) {
+func insertTias(offer *webrtc.SessionDescription, value uint64) {
 	var sd sdp.SessionDescription
 	err := sd.Unmarshal([]byte(offer.SDP))
 	if err != nil {
@@ -64,7 +64,7 @@ func insertTias(offer *webrtc.SessionDescription) {
 		if media.MediaName.Media == "video" {
 			media.Bandwidth = append(media.Bandwidth, sdp.Bandwidth{
 				Type:      "TIAS",
-				Bandwidth: 40000000,
+				Bandwidth: value,
 			})
 		}
 	}
@@ -282,7 +282,12 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 		return err
 	}
 
-	insertTias(&offer)
+	tmp, err := strconv.ParseUint(c.videoBitrate, 10, 31)
+	if err != nil {
+		return err
+	}
+
+	insertTias(&offer, tmp*1024)
 
 	err = c.writeOffer(&offer)
 	if err != nil {

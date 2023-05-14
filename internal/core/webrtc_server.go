@@ -226,9 +226,7 @@ func (s *webRTCServer) Log(level logger.Level, format string, args ...interface{
 func (s *webRTCServer) close() {
 	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
-	fmt.Println("CLOSEA")
 	<-s.done
-	fmt.Println("CLOSEB")
 }
 
 func (s *webRTCServer) run() {
