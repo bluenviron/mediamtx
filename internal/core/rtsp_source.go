@@ -50,29 +50,37 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 	s.parent.Log(level, "[rtsp source] "+format, args...)
 }
 
-// createRangeHeader creates a headers.Range object based on configuration.
-func createRangeHeader(cnf *conf.PathConf) *headers.Range {
+func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
 	switch cnf.RtspRangeType {
 	case conf.RtspRangeTypeClock:
-		start, _ := time.Parse("20060102T150405Z", cnf.RtspRangeStart)
+		start, err := time.Parse("20060102T150405Z", cnf.RtspRangeStart)
+		if err != nil {
+			return nil, err
+		}
 
 		return &headers.Range{
 			Value: &headers.RangeUTC{
 				Start: start,
 			},
-		}
+		}, nil
 
 	case conf.RtspRangeTypeNPT:
-		start, _ := time.ParseDuration(cnf.RtspRangeStart)
+		start, err := time.ParseDuration(cnf.RtspRangeStart)
+		if err != nil {
+			return nil, err
+		}
 
 		return &headers.Range{
 			Value: &headers.RangeNPT{
 				Start: start,
 			},
-		}
+		}, nil
 
 	case conf.RtspRangeTypeSMPTE:
-		start, _ := time.ParseDuration(cnf.RtspRangeStart)
+		start, err := time.ParseDuration(cnf.RtspRangeStart)
+		if err != nil {
+			return nil, err
+		}
 
 		return &headers.Range{
 			Value: &headers.RangeSMPTE{
@@ -80,13 +88,10 @@ func createRangeHeader(cnf *conf.PathConf) *headers.Range {
 					Time: start,
 				},
 			},
-		}
-
-	case conf.RtspRangeTypeUndefined:
-		fallthrough
+		}, nil
 
 	default:
-		return nil
+		return nil, nil
 	}
 }
 
@@ -185,7 +190,10 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				}
 			}
 
-			rangeHeader := createRangeHeader(cnf)
+			rangeHeader, err := createRangeHeader(cnf)
+			if err != nil {
+				return err
+			}
 
 			_, err = c.Play(rangeHeader)
 			if err != nil {
