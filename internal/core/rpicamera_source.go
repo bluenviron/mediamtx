@@ -128,8 +128,9 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rpiCameraSource) apiSourceDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"rpiCameraSource"}
+func (*rpiCameraSource) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "rpiCameraSource",
+		ID:   "",
+	}
 }

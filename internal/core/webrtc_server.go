@@ -33,6 +33,7 @@ type webRTCServerAPIConnsListItem struct {
 	PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
 	LocalCandidate            string    `json:"localCandidate"`
 	RemoteCandidate           string    `json:"remoteCandidate"`
+	State                     string    `json:"state"`
 	BytesReceived             uint64    `json:"bytesReceived"`
 	BytesSent                 uint64    `json:"bytesSent"`
 }
@@ -294,8 +295,14 @@ outer:
 					PeerConnectionEstablished: peerConnectionEstablished,
 					LocalCandidate:            localCandidate,
 					RemoteCandidate:           remoteCandidate,
-					BytesReceived:             bytesReceived,
-					BytesSent:                 bytesSent,
+					State: func() string {
+						if c.publish {
+							return "publish"
+						}
+						return "read"
+					}(),
+					BytesReceived: bytesReceived,
+					BytesSent:     bytesSent,
 				}
 			}
 

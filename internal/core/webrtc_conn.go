@@ -681,14 +681,14 @@ func (c *webRTCConn) writeAnswer(answer *webrtc.SessionDescription) error {
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (c *webRTCConn) apiSourceDescribe() interface{} {
-	return c.apiReaderDescribe()
+func (c *webRTCConn) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "webRTCConn",
+		ID:   c.uuid.String(),
+	}
 }
 
 // apiReaderDescribe implements reader.
-func (c *webRTCConn) apiReaderDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{"webRTCConn", c.uuid.String()}
+func (c *webRTCConn) apiReaderDescribe() pathAPISourceOrReader {
+	return c.apiSourceDescribe()
 }

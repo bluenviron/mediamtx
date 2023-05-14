@@ -811,21 +811,19 @@ func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
 }
 
 // apiReaderDescribe implements reader.
-func (c *rtmpConn) apiReaderDescribe() interface{} {
-	return c.apiSourceDescribe()
+func (c *rtmpConn) apiReaderDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: func() string {
+			if c.isTLS {
+				return "rtmpsConn"
+			}
+			return "rtmpConn"
+		}(),
+		ID: c.uuid.String(),
+	}
 }
 
 // apiSourceDescribe implements source.
-func (c *rtmpConn) apiSourceDescribe() interface{} {
-	var typ string
-	if c.isTLS {
-		typ = "rtmpsConn"
-	} else {
-		typ = "rtmpConn"
-	}
-
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{typ, c.uuid.String()}
+func (c *rtmpConn) apiSourceDescribe() pathAPISourceOrReader {
+	return c.apiReaderDescribe()
 }

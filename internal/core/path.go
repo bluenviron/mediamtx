@@ -153,6 +153,11 @@ type pathPublisherStopReq struct {
 	res    chan struct{}
 }
 
+type pathAPISourceOrReader struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
 type pathAPIPathsListItem struct {
 	ConfName      string         `json:"confName"`
 	Conf          *conf.PathConf `json:"conf"`

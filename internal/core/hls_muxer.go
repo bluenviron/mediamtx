@@ -612,8 +612,9 @@ func (m *hlsMuxer) apiMuxersList(req hlsServerAPIMuxersListSubReq) {
 }
 
 // apiReaderDescribe implements reader.
-func (m *hlsMuxer) apiReaderDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"hlsMuxer"}
+func (m *hlsMuxer) apiReaderDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "hlsMuxer",
+		ID:   "",
+	}
 }

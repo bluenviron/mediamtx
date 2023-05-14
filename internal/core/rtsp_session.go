@@ -439,23 +439,21 @@ func (s *rtspSession) onPause(ctx *gortsplib.ServerHandlerOnPauseCtx) (*base.Res
 }
 
 // apiReaderDescribe implements reader.
-func (s *rtspSession) apiReaderDescribe() interface{} {
-	return s.apiSourceDescribe()
+func (s *rtspSession) apiReaderDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: func() string {
+			if s.isTLS {
+				return "rtspsSession"
+			}
+			return "rtspSession"
+		}(),
+		ID: s.uuid.String(),
+	}
 }
 
 // apiSourceDescribe implements source.
-func (s *rtspSession) apiSourceDescribe() interface{} {
-	var typ string
-	if s.isTLS {
-		typ = "rtspsSession"
-	} else {
-		typ = "rtspSession"
-	}
-
-	return struct {
-		Type string `json:"type"`
-		ID   string `json:"id"`
-	}{typ, s.uuid.String()}
+func (s *rtspSession) apiSourceDescribe() pathAPISourceOrReader {
+	return s.apiReaderDescribe()
 }
 
 // onPacketLost is called by rtspServer.

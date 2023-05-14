@@ -205,8 +205,9 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rtmpSource) apiSourceDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"rtmpSource"}
+func (*rtmpSource) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "rtmpSource",
+		ID:   "",
+	}
 }

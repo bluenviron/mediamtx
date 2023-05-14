@@ -358,8 +358,9 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*udpSource) apiSourceDescribe() interface{} {
-	return struct {
-		Type string `json:"type"`
-	}{"udpSource"}
+func (*udpSource) apiSourceDescribe() pathAPISourceOrReader {
+	return pathAPISourceOrReader{
+		Type: "udpSource",
+		ID:   "",
+	}
 }
