@@ -236,6 +236,11 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 		return err
 	}
 
+	offer, err := c.readOffer()
+	if err != nil {
+		return err
+	}
+
 	pc, err := newPeerConnection(
 		c.videoCodec,
 		c.audioCodec,
@@ -272,12 +277,17 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 		}
 	})
 
-	offer, err := pc.CreateOffer(nil)
+	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
 		return err
 	}
 
-	err = pc.SetLocalDescription(offer)
+	answer, err := pc.CreateAnswer(nil)
+	if err != nil {
+		return err
+	}
+
+	err = pc.SetLocalDescription(answer)
 	if err != nil {
 		return err
 	}
@@ -287,19 +297,9 @@ func (c *webRTCConn) runPublish(ctx context.Context) error {
 		return err
 	}
 
-	insertTias(&offer, tmp*1024)
+	insertTias(&answer, tmp*1024)
 
-	err = c.writeOffer(&offer)
-	if err != nil {
-		return err
-	}
-
-	answer, err := c.readAnswer()
-	if err != nil {
-		return err
-	}
-
-	err = pc.SetRemoteDescription(*answer)
+	err = c.writeAnswer(&answer)
 	if err != nil {
 		return err
 	}
@@ -656,24 +656,6 @@ func (c *webRTCConn) readOffer() (*webrtc.SessionDescription, error) {
 	}
 
 	return &offer, nil
-}
-
-func (c *webRTCConn) writeOffer(offer *webrtc.SessionDescription) error {
-	return c.ws.WriteJSON(offer)
-}
-
-func (c *webRTCConn) readAnswer() (*webrtc.SessionDescription, error) {
-	var answer webrtc.SessionDescription
-	err := c.ws.ReadJSON(&answer)
-	if err != nil {
-		return nil, err
-	}
-
-	if answer.Type != webrtc.SDPTypeAnswer {
-		return nil, fmt.Errorf("received SDP is not an offer")
-	}
-
-	return &answer, nil
 }
 
 func (c *webRTCConn) writeAnswer(answer *webrtc.SessionDescription) error {

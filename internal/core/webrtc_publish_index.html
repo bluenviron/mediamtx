@@ -113,14 +113,13 @@ const restartPause = 2000;
 class Transmitter {
     constructor(stream) {
         this.stream = stream;
-        this.terminated = false;
 		this.ws = null;
 		this.pc = null;
 		this.restartTimeout = null;
 		this.start();
     }
 
-    start = () => {
+    start() {
         console.log("connecting");
 
         const videoCodec = document.getElementById('video_codec').value;
@@ -149,11 +148,84 @@ class Transmitter {
             this.scheduleRestart();
         };
 
-        this.ws.onmessage = this.onIceServers;
-    };
+        this.ws.onmessage = (msg) => this.onIceServers(msg);
+    }
 
-    scheduleRestart = () => {
-        if (this.terminated) {
+    onIceServers(msg) {
+        if (this.ws === null) {
+            return;
+        }
+
+        this.pc = new RTCPeerConnection({
+            iceServers: JSON.parse(msg.data),
+        });
+
+        this.ws.onmessage = (msg) => this.onRemoteDescription(msg);
+        this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
+        this.pc.oniceconnectionstatechange = () => this.onConnectionState();
+
+        this.stream.getTracks().forEach((track) => {
+            this.pc.addTrack(track, this.stream);
+        });
+
+        this.pc.createOffer()
+            .then((desc) => {
+                if (this.restartTimeout !== null) {
+                    return;
+                }
+
+                this.pc.setLocalDescription(desc);
+
+                console.log("sending offer");
+                this.ws.send(JSON.stringify(desc));
+            });
+    }
+
+    onConnectionState() {
+        if (this.restartTimeout !== null) {
+            return;
+        }
+
+        console.log("peer connection state:", this.pc.iceConnectionState);
+
+        switch (this.pc.iceConnectionState) {
+        case "failed":
+        case "disconnected":
+            this.scheduleRestart();
+        }
+    }
+
+    onRemoteDescription(msg) {
+		if (this.restartTimeout !== null) {
+			return;
+		}
+
+		this.pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.data)));
+		this.ws.onmessage = (msg) => this.onRemoteCandidate(msg);
+	}
+
+    onLocalCandidate(evt) {
+        if (this.restartTimeout !== null) {
+            return;
+        }
+
+        if (evt.candidate !== null) {
+            if (evt.candidate.candidate !== "") {
+                this.ws.send(JSON.stringify(evt.candidate));
+            }
+        }
+    }
+
+    onRemoteCandidate(msg) {
+		if (this.restartTimeout !== null) {
+			return;
+		}
+
+		this.pc.addIceCandidate(JSON.parse(msg.data));
+	}
+
+    scheduleRestart() {
+        if (this.restartTimeout !== null) {
             return;
         }
 
@@ -171,74 +243,7 @@ class Transmitter {
             this.restartTimeout = null;
             this.start();
         }, restartPause);
-    };
-
-    onIceServers = (msg) => {
-        if (this.ws === null) {
-            return;
-        }
-
-        this.pc = new RTCPeerConnection({
-            iceServers: JSON.parse(msg.data),
-        });
-
-        this.ws.onmessage = this.onOffer;
-    };
-
-    onOffer = (msg) => {
-        if (this.ws === null || this.pc === null) {
-            return;
-        }
-
-        this.stream.getTracks().forEach((track) => {
-            this.pc.addTrack(track, this.stream);
-        });
-
-        this.ws.onmessage = (msg) => {
-            if (this.pc === null) {
-                return;
-            }
-            this.pc.addIceCandidate(JSON.parse(msg.data));
-        };
-
-        this.pc.onicecandidate = (evt) => {
-            if (this.ws === null) {
-                return;
-            }
-
-            if (evt.candidate !== null) {
-                if (evt.candidate.candidate !== "") {
-                    this.ws.send(JSON.stringify(evt.candidate));
-                }
-            }
-        };
-
-        this.pc.oniceconnectionstatechange = () => {
-            if (this.pc === null) {
-                return;
-            }
-
-            console.log("peer connection state:", this.pc.iceConnectionState);
-
-            switch (this.pc.iceConnectionState) {
-            case "failed":
-            case "disconnected":
-                this.scheduleRestart();
-            }
-        };
-
-        this.pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(msg.data)));
-
-        this.pc.createAnswer()
-            .then((desc) => {
-                if (this.ws === null || this.pc === null) {
-                    return;
-                }
-
-                this.pc.setLocalDescription(desc);
-                this.ws.send(JSON.stringify(desc));
-            });
-    };
+    }
 }
 
 const onTransmit = (stream) => {

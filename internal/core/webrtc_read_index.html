@@ -27,7 +27,6 @@ const restartPause = 2000;
 
 class Receiver {
 	constructor() {
-		this.terminated = false;
 		this.ws = null;
 		this.pc = null;
 		this.restartTimeout = null;
@@ -67,20 +66,8 @@ class Receiver {
         });
 
         this.ws.onmessage = (msg) => this.onRemoteDescription(msg);
-        this.pc.onicecandidate = (evt) => this.onIceCandidate(evt);
-
-        this.pc.oniceconnectionstatechange = () => {
-            if (this.pc === null) {
-                return;
-            }
-
-            console.log("peer connection state:", this.pc.iceConnectionState);
-
-            switch (this.pc.iceConnectionState) {
-            case "disconnected":
-                this.scheduleRestart();
-            }
-        };
+        this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
+        this.pc.oniceconnectionstatechange = () => this.onConnectionState();
 
         this.pc.ontrack = (evt) => {
             console.log("new track " + evt.track.kind);
@@ -93,7 +80,7 @@ class Receiver {
 
         this.pc.createOffer()
             .then((desc) => {
-                if (this.pc === null || this.ws === null) {
+                if (this.restartTimeout !== null) {
                     return;
                 }
 
@@ -104,8 +91,21 @@ class Receiver {
             });
     }
 
+    onConnectionState() {
+        if (this.restartTimeout !== null) {
+            return;
+        }
+
+        console.log("peer connection state:", this.pc.iceConnectionState);
+
+        switch (this.pc.iceConnectionState) {
+        case "disconnected":
+            this.scheduleRestart();
+        }
+    }
+
 	onRemoteDescription(msg) {
-		if (this.pc === null || this.ws === null) {
+		if (this.restartTimeout !== null) {
 			return;
 		}
 
@@ -113,8 +113,8 @@ class Receiver {
 		this.ws.onmessage = (msg) => this.onRemoteCandidate(msg);
 	}
 
-    onIceCandidate(evt) {
-        if (this.ws === null) {
+    onLocalCandidate(evt) {
+        if (this.restartTimeout !== null) {
             return;
         }
 
@@ -126,7 +126,7 @@ class Receiver {
     }
 
 	onRemoteCandidate(msg) {
-		if (this.pc === null) {
+		if (this.restartTimeout !== null) {
 			return;
 		}
 
@@ -134,7 +134,7 @@ class Receiver {
 	}
 
     scheduleRestart() {
-        if (this.terminated) {
+        if (this.restartTimeout !== null) {
             return;
         }
 
