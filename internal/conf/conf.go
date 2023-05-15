@@ -229,9 +229,17 @@ func (conf *Conf) Check() error {
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDP)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP transport protocol")
 		}
-
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDPMulticast)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP-multicast transport protocol")
+		}
+	}
+
+	// WebRTC
+	for _, server := range conf.WebRTCICEServers {
+		if !strings.HasPrefix(server, "stun:") &&
+			!strings.HasPrefix(server, "turn:") &&
+			!strings.HasPrefix(server, "turns:") {
+			return fmt.Errorf("invalid ICE server: '%s'", server)
 		}
 	}
 

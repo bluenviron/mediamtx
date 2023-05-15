@@ -215,6 +215,44 @@ func TestConfErrors(t *testing.T) {
 			"json: unknown field \"invalid\"",
 		},
 		{
+			"invalid readBufferCount",
+			"readBufferCount: 1001\n",
+			"'readBufferCount' must be a power of two",
+		},
+		{
+			"invalid udpMaxPayloadSize",
+			"udpMaxPayloadSize: 5000\n",
+			"'udpMaxPayloadSize' must be less than 1472",
+		},
+		{
+			"invalid externalAuthenticationURL 1",
+			"externalAuthenticationURL: testing\n",
+			"'externalAuthenticationURL' must be a HTTP URL",
+		},
+		{
+			"invalid externalAuthenticationURL 2",
+			"externalAuthenticationURL: http://myurl\n" +
+				"authMethods: [digest]\n",
+			"'externalAuthenticationURL' can't be used when 'digest' is in authMethods",
+		},
+		{
+			"invalid strict encryption 1",
+			"encryption: strict\n" +
+				"protocols: [udp]\n",
+			"strict encryption can't be used with the UDP transport protocol",
+		},
+		{
+			"invalid strict encryption 2",
+			"encryption: strict\n" +
+				"protocols: [multicast]\n",
+			"strict encryption can't be used with the UDP-multicast transport protocol",
+		},
+		{
+			"invalid ICE server",
+			"webrtcICEServers: [testing]\n",
+			"invalid ICE server: 'testing'",
+		},
+		{
 			"non existent parameter 2",
 			"paths:\n" +
 				"  mypath:\n" +
