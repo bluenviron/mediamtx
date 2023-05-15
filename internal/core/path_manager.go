@@ -29,7 +29,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf
 	return newPathConf.Equal(copy)
 }
 
-type pathManagerHLSServer interface {
+type pathManagerHLSManager interface {
 	pathSourceReady(*path)
 	pathSourceNotReady(*path)
 }
@@ -54,7 +54,7 @@ type pathManager struct {
 	ctx         context.Context
 	ctxCancel   func()
 	wg          sync.WaitGroup
-	hlsServer   pathManagerHLSServer
+	hlsManager  pathManagerHLSManager
 	paths       map[string]*path
 	pathsByConf map[string]map[*path]struct{}
 
@@ -67,7 +67,7 @@ type pathManager struct {
 	chDescribe           chan pathDescribeReq
 	chReaderAdd          chan pathReaderAddReq
 	chPublisherAdd       chan pathPublisherAddReq
-	chHLSServerSet       chan pathManagerHLSServer
+	chHLSManagerSet      chan pathManagerHLSManager
 	chAPIPathsList       chan pathAPIPathsListReq
 }
 
@@ -111,7 +111,7 @@ func newPathManager(
 		chDescribe:                make(chan pathDescribeReq),
 		chReaderAdd:               make(chan pathReaderAddReq),
 		chPublisherAdd:            make(chan pathPublisherAddReq),
-		chHLSServerSet:            make(chan pathManagerHLSServer),
+		chHLSManagerSet:           make(chan pathManagerHLSManager),
 		chAPIPathsList:            make(chan pathAPIPathsListReq),
 	}
 
@@ -193,13 +193,13 @@ outer:
 			pm.removePath(pa)
 
 		case pa := <-pm.chPathSourceReady:
-			if pm.hlsServer != nil {
-				pm.hlsServer.pathSourceReady(pa)
+			if pm.hlsManager != nil {
+				pm.hlsManager.pathSourceReady(pa)
 			}
 
 		case pa := <-pm.chPathSourceNotReady:
-			if pm.hlsServer != nil {
-				pm.hlsServer.pathSourceNotReady(pa)
+			if pm.hlsManager != nil {
+				pm.hlsManager.pathSourceNotReady(pa)
 			}
 
 		case req := <-pm.chPathGetPathConf:
@@ -282,8 +282,8 @@ outer:
 
 			req.res <- pathPublisherAnnounceRes{path: pm.paths[req.pathName]}
 
-		case s := <-pm.chHLSServerSet:
-			pm.hlsServer = s
+		case s := <-pm.chHLSManagerSet:
+			pm.hlsManager = s
 
 		case req := <-pm.chAPIPathsList:
 			paths := make(map[string]*path)
@@ -473,10 +473,10 @@ func (pm *pathManager) readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes {
 	}
 }
 
-// hlsServerSet is called by hlsServer.
-func (pm *pathManager) hlsServerSet(s pathManagerHLSServer) {
+// hlsManagerSet is called by hlsManager.
+func (pm *pathManager) hlsManagerSet(s pathManagerHLSManager) {
 	select {
-	case pm.chHLSServerSet <- s:
+	case pm.chHLSManagerSet <- s:
 	case <-pm.ctx.Done():
 	}
 }

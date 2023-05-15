@@ -48,11 +48,11 @@ func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-type hlsMuxerRequest struct {
-	path     string
-	file     string
-	clientIP string
-	res      chan *hlsMuxer
+type hlsMuxerHandleRequestReq struct {
+	path string
+	file string
+	ctx  *gin.Context
+	res  chan *hlsMuxer
 }
 
 type hlsMuxerPathManager interface {
@@ -87,12 +87,12 @@ type hlsMuxer struct {
 	ringBuffer      *ringbuffer.RingBuffer
 	lastRequestTime *int64
 	muxer           *gohlslib.Muxer
-	requests        []*hlsMuxerRequest
+	requests        []*hlsMuxerHandleRequestReq
 	bytesSent       *uint64
 
 	// in
-	chRequest          chan *hlsMuxerRequest
-	chAPIHLSMuxersList chan hlsServerAPIMuxersListSubReq
+	chRequest          chan *hlsMuxerHandleRequestReq
+	chAPIHLSMuxersList chan hlsManagerAPIMuxersListSubReq
 }
 
 func newHLSMuxer(
@@ -137,8 +137,8 @@ func newHLSMuxer(
 			return &v
 		}(),
 		bytesSent:          new(uint64),
-		chRequest:          make(chan *hlsMuxerRequest),
-		chAPIHLSMuxersList: make(chan hlsServerAPIMuxersListSubReq),
+		chRequest:          make(chan *hlsMuxerHandleRequestReq),
+		chAPIHLSMuxersList: make(chan hlsManagerAPIMuxersListSubReq),
 	}
 
 	m.Log(logger.Info, "created %s", func() string {
@@ -213,7 +213,7 @@ func (m *hlsMuxer) run() {
 				}
 
 			case req := <-m.chAPIHLSMuxersList:
-				req.data.Items[m.pathName] = hlsServerAPIMuxersListItem{
+				req.data.Items[m.pathName] = hlsManagerAPIMuxersListItem{
 					Created:     m.created,
 					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
 					BytesSent:   atomic.LoadUint64(m.bytesSent),
@@ -592,7 +592,7 @@ func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 }
 
 // processRequest is called by hlsserver.Server (forwarded from ServeHTTP).
-func (m *hlsMuxer) processRequest(req *hlsMuxerRequest) {
+func (m *hlsMuxer) processRequest(req *hlsMuxerHandleRequestReq) {
 	select {
 	case m.chRequest <- req:
 	case <-m.ctx.Done():
@@ -601,7 +601,7 @@ func (m *hlsMuxer) processRequest(req *hlsMuxerRequest) {
 }
 
 // apiMuxersList is called by api.
-func (m *hlsMuxer) apiMuxersList(req hlsServerAPIMuxersListSubReq) {
+func (m *hlsMuxer) apiMuxersList(req hlsManagerAPIMuxersListSubReq) {
 	req.res = make(chan struct{})
 	select {
 	case m.chAPIHLSMuxersList <- req:

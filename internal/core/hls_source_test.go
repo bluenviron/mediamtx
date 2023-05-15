@@ -20,19 +20,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type testHLSServer struct {
+type testHLSManager struct {
 	s *http.Server
 
 	clientConnected chan struct{}
 }
 
-func newTestHLSServer() (*testHLSServer, error) {
+func newTestHLSManager() (*testHLSManager, error) {
 	ln, err := net.Listen("tcp", "localhost:5780")
 	if err != nil {
 		return nil, err
 	}
 
-	ts := &testHLSServer{
+	ts := &testHLSManager{
 		clientConnected: make(chan struct{}),
 	}
 
@@ -48,11 +48,11 @@ func newTestHLSServer() (*testHLSServer, error) {
 	return ts, nil
 }
 
-func (ts *testHLSServer) close() {
+func (ts *testHLSManager) close() {
 	ts.s.Shutdown(context.Background())
 }
 
-func (ts *testHLSServer) onPlaylist(ctx *gin.Context) {
+func (ts *testHLSManager) onPlaylist(ctx *gin.Context) {
 	cnt := `#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-ALLOW-CACHE:NO
@@ -69,7 +69,7 @@ segment2.ts
 	io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 }
 
-func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
+func (ts *testHLSManager) onSegment1(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
 	mux := astits.NewMuxer(context.Background(), ctx.Writer)
 
@@ -113,7 +113,7 @@ func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
 	})
 }
 
-func (ts *testHLSServer) onSegment2(ctx *gin.Context) {
+func (ts *testHLSManager) onSegment2(ctx *gin.Context) {
 	<-ts.clientConnected
 
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
@@ -199,7 +199,7 @@ func (ts *testHLSServer) onSegment2(ctx *gin.Context) {
 }
 
 func TestHLSSource(t *testing.T) {
-	ts, err := newTestHLSServer()
+	ts, err := newTestHLSManager()
 	require.NoError(t, err)
 	defer ts.close()
 

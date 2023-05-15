@@ -38,7 +38,7 @@ type Core struct {
 	rtspsServer     *rtspServer
 	rtmpServer      *rtmpServer
 	rtmpsServer     *rtmpServer
-	hlsServer       *hlsServer
+	hlsManager      *hlsManager
 	webRTCServer    *webRTCServer
 	api             *api
 	confWatcher     *confwatcher.ConfWatcher
@@ -385,8 +385,8 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if !p.conf.HLSDisable {
-		if p.hlsServer == nil {
-			p.hlsServer, err = newHLSServer(
+		if p.hlsManager == nil {
+			p.hlsManager, err = newHLSManager(
 				p.ctx,
 				p.conf.HLSAddress,
 				p.conf.HLSEncryption,
@@ -451,7 +451,7 @@ func (p *Core) createResources(initial bool) error {
 				p.rtspsServer,
 				p.rtmpServer,
 				p.rtmpsServer,
-				p.hlsServer,
+				p.hlsManager,
 				p.webRTCServer,
 				p,
 			)
@@ -565,7 +565,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics ||
 		closePathManager
 
-	closeHLSServer := newConf == nil ||
+	closeHLSManager := newConf == nil ||
 		newConf.HLSDisable != p.conf.HLSDisable ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
@@ -611,7 +611,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPServer ||
 		closeRTSPSServer ||
 		closeRTMPServer ||
-		closeHLSServer ||
+		closeHLSManager ||
 		closeWebRTCServer
 
 	if newConf == nil && p.confWatcher != nil {
@@ -648,9 +648,9 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		p.webRTCServer = nil
 	}
 
-	if closeHLSServer && p.hlsServer != nil {
-		p.hlsServer.close()
-		p.hlsServer = nil
+	if closeHLSManager && p.hlsManager != nil {
+		p.hlsManager.close()
+		p.hlsManager = nil
 	}
 
 	if closeRTMPSServer && p.rtmpsServer != nil {

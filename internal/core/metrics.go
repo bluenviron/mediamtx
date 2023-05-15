@@ -34,7 +34,7 @@ type metrics struct {
 	rtspServer   apiRTSPServer
 	rtspsServer  apiRTSPServer
 	rtmpServer   apiRTMPServer
-	hlsServer    apiHLSServer
+	hlsManager   apiHLSManager
 	webRTCServer apiWebRTCServer
 }
 
@@ -104,8 +104,8 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		out += metric("paths", "", 0)
 	}
 
-	if !interfaceIsEmpty(m.hlsServer) {
-		res := m.hlsServer.apiMuxersList()
+	if !interfaceIsEmpty(m.hlsManager) {
+		res := m.hlsManager.apiMuxersList()
 		if res.err == nil && len(res.data.Items) != 0 {
 			for name, i := range res.data.Items {
 				tags := "{name=\"" + name + "\"}"
@@ -229,11 +229,11 @@ func (m *metrics) pathManagerSet(s apiPathManager) {
 	m.pathManager = s
 }
 
-// hlsServerSet is called by hlsServer.
-func (m *metrics) hlsServerSet(s apiHLSServer) {
+// hlsManagerSet is called by hlsManager.
+func (m *metrics) hlsManagerSet(s apiHLSManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.hlsServer = s
+	m.hlsManager = s
 }
 
 // rtspServerSet is called by rtspServer (plain).

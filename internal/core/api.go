@@ -82,8 +82,8 @@ type apiPathManager interface {
 	apiPathsList() pathAPIPathsListRes
 }
 
-type apiHLSServer interface {
-	apiMuxersList() hlsServerAPIMuxersListRes
+type apiHLSManager interface {
+	apiMuxersList() hlsManagerAPIMuxersListRes
 }
 
 type apiRTSPServer interface {
@@ -114,7 +114,7 @@ type api struct {
 	rtspsServer  apiRTSPServer
 	rtmpServer   apiRTMPServer
 	rtmpsServer  apiRTMPServer
-	hlsServer    apiHLSServer
+	hlsManager   apiHLSManager
 	webRTCServer apiWebRTCServer
 	parent       apiParent
 
@@ -132,7 +132,7 @@ func newAPI(
 	rtspsServer apiRTSPServer,
 	rtmpServer apiRTMPServer,
 	rtmpsServer apiRTMPServer,
-	hlsServer apiHLSServer,
+	hlsManager apiHLSManager,
 	webRTCServer apiWebRTCServer,
 	parent apiParent,
 ) (*api, error) {
@@ -148,7 +148,7 @@ func newAPI(
 		rtspsServer:  rtspsServer,
 		rtmpServer:   rtmpServer,
 		rtmpsServer:  rtmpsServer,
-		hlsServer:    hlsServer,
+		hlsManager:   hlsManager,
 		webRTCServer: webRTCServer,
 		parent:       parent,
 		ln:           ln,
@@ -167,7 +167,7 @@ func newAPI(
 	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
 	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
 
-	if !interfaceIsEmpty(a.hlsServer) {
+	if !interfaceIsEmpty(a.hlsManager) {
 		group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
 	}
 
@@ -496,7 +496,7 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	res := a.hlsServer.apiMuxersList()
+	res := a.hlsManager.apiMuxersList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
