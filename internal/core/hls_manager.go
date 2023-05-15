@@ -97,7 +97,7 @@ func newHLSManager(
 ) (*hlsManager, error) {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
-	s := &hlsManager{
+	m := &hlsManager{
 		externalAuthenticationURL: externalAuthenticationURL,
 		alwaysRemux:               alwaysRemux,
 		variant:                   variant,
@@ -121,7 +121,7 @@ func newHLSManager(
 	}
 
 	var err error
-	s.httpServer, err = newHLSHTTPServer(
+	m.httpServer, err = newHLSHTTPServer(
 		address,
 		encryption,
 		serverKey,
@@ -129,82 +129,82 @@ func newHLSManager(
 		allowOrigin,
 		trustedProxies,
 		readTimeout,
-		s,
+		m,
 	)
 	if err != nil {
 		ctxCancel()
 		return nil, err
 	}
 
-	s.Log(logger.Info, "listener opened on "+address)
+	m.Log(logger.Info, "listener opened on "+address)
 
-	s.pathManager.hlsManagerSet(s)
+	m.pathManager.hlsManagerSet(m)
 
-	if s.metrics != nil {
-		s.metrics.hlsManagerSet(s)
+	if m.metrics != nil {
+		m.metrics.hlsManagerSet(m)
 	}
 
-	s.wg.Add(1)
-	go s.run()
+	m.wg.Add(1)
+	go m.run()
 
-	return s, nil
+	return m, nil
 }
 
 // Log is the main logging function.
-func (s *hlsManager) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[HLS] "+format, append([]interface{}{}, args...)...)
+func (m *hlsManager) Log(level logger.Level, format string, args ...interface{}) {
+	m.parent.Log(level, "[HLS] "+format, append([]interface{}{}, args...)...)
 }
 
-func (s *hlsManager) close() {
-	s.Log(logger.Info, "listener is closing")
-	s.ctxCancel()
-	s.wg.Wait()
+func (m *hlsManager) close() {
+	m.Log(logger.Info, "listener is closing")
+	m.ctxCancel()
+	m.wg.Wait()
 }
 
-func (s *hlsManager) run() {
-	defer s.wg.Done()
+func (m *hlsManager) run() {
+	defer m.wg.Done()
 
 outer:
 	for {
 		select {
-		case pa := <-s.chPathSourceReady:
-			if s.alwaysRemux {
-				s.createMuxer(pa.name, "")
+		case pa := <-m.chPathSourceReady:
+			if m.alwaysRemux {
+				m.createMuxer(pa.name, "")
 			}
 
-		case pa := <-s.chPathSourceNotReady:
-			if s.alwaysRemux {
-				c, ok := s.muxers[pa.name]
+		case pa := <-m.chPathSourceNotReady:
+			if m.alwaysRemux {
+				c, ok := m.muxers[pa.name]
 				if ok {
 					c.close()
-					delete(s.muxers, pa.name)
+					delete(m.muxers, pa.name)
 				}
 			}
 
-		case req := <-s.chHandleRequest:
-			r, ok := s.muxers[req.path]
+		case req := <-m.chHandleRequest:
+			r, ok := m.muxers[req.path]
 			switch {
 			case ok:
 				r.processRequest(&req)
 
-			case s.alwaysRemux:
+			case m.alwaysRemux:
 				req.res <- nil
 
 			default:
-				r := s.createMuxer(req.path, req.ctx.ClientIP())
+				r := m.createMuxer(req.path, req.ctx.ClientIP())
 				r.processRequest(&req)
 			}
 
-		case c := <-s.chMuxerClose:
-			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
+		case c := <-m.chMuxerClose:
+			if c2, ok := m.muxers[c.PathName()]; !ok || c2 != c {
 				continue
 			}
-			delete(s.muxers, c.PathName())
+			delete(m.muxers, c.PathName())
 
-		case req := <-s.chAPIMuxerList:
+		case req := <-m.chAPIMuxerList:
 			muxers := make(map[string]*hlsMuxer)
 
-			for name, m := range s.muxers {
+			for name, m := range m.muxers {
 				muxers[name] = m
 			}
 
@@ -212,75 +212,75 @@ outer:
 				muxers: muxers,
 			}
 
-		case <-s.ctx.Done():
+		case <-m.ctx.Done():
 			break outer
 		}
 	}
 
-	s.ctxCancel()
+	m.ctxCancel()
 
-	s.httpServer.close()
+	m.httpServer.close()
 
-	s.pathManager.hlsManagerSet(nil)
+	m.pathManager.hlsManagerSet(nil)
 
-	if s.metrics != nil {
-		s.metrics.hlsManagerSet(nil)
+	if m.metrics != nil {
+		m.metrics.hlsManagerSet(nil)
 	}
 }
 
-func (s *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
+func (m *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 	r := newHLSMuxer(
-		s.ctx,
+		m.ctx,
 		remoteAddr,
-		s.externalAuthenticationURL,
-		s.alwaysRemux,
-		s.variant,
-		s.segmentCount,
-		s.segmentDuration,
-		s.partDuration,
-		s.segmentMaxSize,
-		s.directory,
-		s.readBufferCount,
-		&s.wg,
+		m.externalAuthenticationURL,
+		m.alwaysRemux,
+		m.variant,
+		m.segmentCount,
+		m.segmentDuration,
+		m.partDuration,
+		m.segmentMaxSize,
+		m.directory,
+		m.readBufferCount,
+		&m.wg,
 		pathName,
-		s.pathManager,
-		s)
-	s.muxers[pathName] = r
+		m.pathManager,
+		m)
+	m.muxers[pathName] = r
 	return r
 }
 
 // muxerClose is called by hlsMuxer.
-func (s *hlsManager) muxerClose(c *hlsMuxer) {
+func (m *hlsManager) muxerClose(c *hlsMuxer) {
 	select {
-	case s.chMuxerClose <- c:
-	case <-s.ctx.Done():
+	case m.chMuxerClose <- c:
+	case <-m.ctx.Done():
 	}
 }
 
 // pathSourceReady is called by pathManager.
-func (s *hlsManager) pathSourceReady(pa *path) {
+func (m *hlsManager) pathSourceReady(pa *path) {
 	select {
-	case s.chPathSourceReady <- pa:
-	case <-s.ctx.Done():
+	case m.chPathSourceReady <- pa:
+	case <-m.ctx.Done():
 	}
 }
 
 // pathSourceNotReady is called by pathManager.
-func (s *hlsManager) pathSourceNotReady(pa *path) {
+func (m *hlsManager) pathSourceNotReady(pa *path) {
 	select {
-	case s.chPathSourceNotReady <- pa:
-	case <-s.ctx.Done():
+	case m.chPathSourceNotReady <- pa:
+	case <-m.ctx.Done():
 	}
 }
 
 // apiMuxersList is called by api.
-func (s *hlsManager) apiMuxersList() hlsManagerAPIMuxersListRes {
+func (m *hlsManager) apiMuxersList() hlsManagerAPIMuxersListRes {
 	req := hlsManagerAPIMuxersListReq{
 		res: make(chan hlsManagerAPIMuxersListRes),
 	}
 
 	select {
-	case s.chAPIMuxerList <- req:
+	case m.chAPIMuxerList <- req:
 		res := <-req.res
 
 		res.data = &hlsManagerAPIMuxersListData{
@@ -293,22 +293,22 @@ func (s *hlsManager) apiMuxersList() hlsManagerAPIMuxersListRes {
 
 		return res
 
-	case <-s.ctx.Done():
+	case <-m.ctx.Done():
 		return hlsManagerAPIMuxersListRes{err: fmt.Errorf("terminated")}
 	}
 }
 
-func (s *hlsManager) handleRequest(req hlsMuxerHandleRequestReq) {
+func (m *hlsManager) handleRequest(req hlsMuxerHandleRequestReq) {
 	req.res = make(chan *hlsMuxer)
 
 	select {
-	case s.chHandleRequest <- req:
+	case m.chHandleRequest <- req:
 		muxer := <-req.res
 		if muxer != nil {
 			req.ctx.Request.URL.Path = req.file
 			muxer.handleRequest(req.ctx)
 		}
 
-	case <-s.ctx.Done():
+	case <-m.ctx.Done():
 	}
 }

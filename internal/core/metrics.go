@@ -27,15 +27,15 @@ type metricsParent interface {
 type metrics struct {
 	parent metricsParent
 
-	ln           net.Listener
-	httpServer   *http.Server
-	mutex        sync.Mutex
-	pathManager  apiPathManager
-	rtspServer   apiRTSPServer
-	rtspsServer  apiRTSPServer
-	rtmpServer   apiRTMPServer
-	hlsManager   apiHLSManager
-	webRTCServer apiWebRTCServer
+	ln            net.Listener
+	httpServer    *http.Server
+	mutex         sync.Mutex
+	pathManager   apiPathManager
+	rtspServer    apiRTSPServer
+	rtspsServer   apiRTSPServer
+	rtmpServer    apiRTMPServer
+	hlsManager    apiHLSManager
+	webRTCManager apiWebRTCManager
 }
 
 func newMetrics(
@@ -202,19 +202,19 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.webRTCServer) {
-		res := m.webRTCServer.apiConnsList()
+	if !interfaceIsEmpty(m.webRTCManager) {
+		res := m.webRTCManager.apiSessionsList()
 		if res.err == nil && len(res.data.Items) != 0 {
 			for id, i := range res.data.Items {
 				tags := "{id=\"" + id + "\"}"
-				out += metric("webrtc_conns", tags, 1)
-				out += metric("webrtc_conns_bytes_received", tags, int64(i.BytesReceived))
-				out += metric("webrtc_conns_bytes_sent", tags, int64(i.BytesSent))
+				out += metric("webrtc_sessions", tags, 1)
+				out += metric("webrtc_sessions_bytes_received", tags, int64(i.BytesReceived))
+				out += metric("webrtc_sessions_bytes_sent", tags, int64(i.BytesSent))
 			}
 		} else {
-			out += metric("webrtc_conns", "", 0)
-			out += metric("webrtc_conns_bytes_received", "", 0)
-			out += metric("webrtc_conns_bytes_sent", "", 0)
+			out += metric("webrtc_sessions", "", 0)
+			out += metric("webrtc_sessions_bytes_received", "", 0)
+			out += metric("webrtc_sessions_bytes_sent", "", 0)
 		}
 	}
 
@@ -257,9 +257,9 @@ func (m *metrics) rtmpServerSet(s apiRTMPServer) {
 	m.rtmpServer = s
 }
 
-// webRTCServerSet is called by webRTCServer.
-func (m *metrics) webRTCServerSet(s apiWebRTCServer) {
+// webRTCManagerSet is called by webRTCManager.
+func (m *metrics) webRTCManagerSet(s apiWebRTCManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.webRTCServer = s
+	m.webRTCManager = s
 }

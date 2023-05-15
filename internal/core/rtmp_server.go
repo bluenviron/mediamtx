@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/externalcmd"
 	"github.com/aler9/mediamtx/internal/logger"
@@ -39,8 +41,8 @@ type rtmpServerAPIConnsKickRes struct {
 }
 
 type rtmpServerAPIConnsKickReq struct {
-	id  string
-	res chan rtmpServerAPIConnsKickRes
+	uuid uuid.UUID
+	res  chan rtmpServerAPIConnsKickRes
 }
 
 type rtmpServerParent interface {
@@ -67,9 +69,9 @@ type rtmpServer struct {
 	conns     map[*rtmpConn]struct{}
 
 	// in
-	chConnClose    chan *rtmpConn
-	chAPIConnsList chan rtmpServerAPIConnsListReq
-	chAPIConnsKick chan rtmpServerAPIConnsKickReq
+	chConnClose       chan *rtmpConn
+	chAPISessionsList chan rtmpServerAPIConnsListReq
+	chAPIConnsKick    chan rtmpServerAPIConnsKickReq
 }
 
 func newRTMPServer(
@@ -125,7 +127,7 @@ func newRTMPServer(
 		ln:                  ln,
 		conns:               make(map[*rtmpConn]struct{}),
 		chConnClose:         make(chan *rtmpConn),
-		chAPIConnsList:      make(chan rtmpServerAPIConnsListReq),
+		chAPISessionsList:   make(chan rtmpServerAPIConnsListReq),
 		chAPIConnsKick:      make(chan rtmpServerAPIConnsKickReq),
 	}
 
@@ -213,7 +215,7 @@ outer:
 		case c := <-s.chConnClose:
 			delete(s.conns, c)
 
-		case req := <-s.chAPIConnsList:
+		case req := <-s.chAPISessionsList:
 			data := &rtmpServerAPIConnsListData{
 				Items: make(map[string]rtmpServerAPIConnsListItem),
 			}
@@ -240,21 +242,15 @@ outer:
 			req.res <- rtmpServerAPIConnsListRes{data: data}
 
 		case req := <-s.chAPIConnsKick:
-			res := func() bool {
-				for c := range s.conns {
-					if c.uuid.String() == req.id {
-						delete(s.conns, c)
-						c.close()
-						return true
-					}
-				}
-				return false
-			}()
-			if res {
-				req.res <- rtmpServerAPIConnsKickRes{}
-			} else {
+			c := s.findConnByUUID(req.uuid)
+			if c == nil {
 				req.res <- rtmpServerAPIConnsKickRes{fmt.Errorf("not found")}
+				continue
 			}
+
+			delete(s.conns, c)
+			c.close()
+			req.res <- rtmpServerAPIConnsKickRes{}
 
 		case <-s.ctx.Done():
 			break outer
@@ -268,6 +264,15 @@ outer:
 	if s.metrics != nil {
 		s.metrics.rtmpServerSet(s)
 	}
+}
+
+func (s *rtmpServer) findConnByUUID(uuid uuid.UUID) *rtmpConn {
+	for c := range s.conns {
+		if c.uuid == uuid {
+			return c
+		}
+	}
+	return nil
 }
 
 // connClose is called by rtmpConn.
@@ -285,7 +290,7 @@ func (s *rtmpServer) apiConnsList() rtmpServerAPIConnsListRes {
 	}
 
 	select {
-	case s.chAPIConnsList <- req:
+	case s.chAPISessionsList <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():
@@ -294,10 +299,10 @@ func (s *rtmpServer) apiConnsList() rtmpServerAPIConnsListRes {
 }
 
 // apiConnsKick is called by api.
-func (s *rtmpServer) apiConnsKick(id string) rtmpServerAPIConnsKickRes {
+func (s *rtmpServer) apiConnsKick(uuid uuid.UUID) rtmpServerAPIConnsKickRes {
 	req := rtmpServerAPIConnsKickReq{
-		id:  id,
-		res: make(chan rtmpServerAPIConnsKickRes),
+		uuid: uuid,
+		res:  make(chan rtmpServerAPIConnsKickRes),
 	}
 
 	select {

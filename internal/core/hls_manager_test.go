@@ -100,7 +100,7 @@ func httpPullFile(u string) ([]byte, error) {
 	return io.ReadAll(res.Body)
 }
 
-func TestHLSManagerNotFound(t *testing.T) {
+func TestHLSReadNotFound(t *testing.T) {
 	p, ok := newInstance("")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -114,7 +114,7 @@ func TestHLSManagerNotFound(t *testing.T) {
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
 
-func TestHLSManager(t *testing.T) {
+func TestHLSRead(t *testing.T) {
 	p, ok := newInstance("hlsAlwaysRemux: yes\n" +
 		"paths:\n" +
 		"  all:\n")

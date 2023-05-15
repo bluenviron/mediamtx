@@ -117,6 +117,7 @@ func (t *webRTCIncomingTrack) start(stream *stream) {
 	if t.mediaType == media.TypeVideo {
 		go func() {
 			keyframeTicker := time.NewTicker(keyFrameInterval)
+			defer keyframeTicker.Stop()
 
 			for range keyframeTicker.C {
 				err := t.writeRTCP([]rtcp.Packet{

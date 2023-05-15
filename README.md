@@ -16,7 +16,7 @@ Live streams can be published to the server with:
 |RTMP servers and cameras|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
 |HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
 |UDP/MPEG-TS streams|Unicast, broadcast, multicast|H265, H264|Opus, MPEG-4 Audio (AAC)|
-|WebRTC||AV1, VP9, VP8, H264|Opus, G722, G711|
+|WebRTC|WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |Raspberry Pi Cameras||H264||
 
 And can be read from the server with:
@@ -546,9 +546,9 @@ rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
 
 # metrics of every WebRTC connection
-webrtc_conns{id="[id]"} 1
-webrtc_conns_bytes_received{id="[id]",state="[state]"} 1234
-webrtc_conns_bytes_sent{id="[id]",state="[state]"} 187
+webrtc_sessions{id="[id]"} 1
+webrtc_sessions_bytes_received{id="[id]",state="[state]"} 1234
+webrtc_sessions_bytes_sent{id="[id]",state="[state]"} 187
 ```
 
 ### pprof

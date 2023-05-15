@@ -25,9 +25,9 @@ html, body {
 
 const restartPause = 2000;
 
-const linksToIceServers = (links) => (
+const linkToIceServers = (links) => (
     links.split(', ').map((link) => {
-        const m = link.match(/^<(.*?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="(.*?)")?/i);
+        const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.+?)"; credential="(.+?)"; credential-type="password")?/i);
         const ret = {
             urls: [m[1]],
         };
@@ -35,7 +35,7 @@ const linksToIceServers = (links) => (
         if (m[3] !== undefined) {
             ret.username = m[3];
             ret.credential = m[4];
-            ret.credentialType = m[5];
+            ret.credentialType = "password";
         }
 
         return ret;
@@ -116,7 +116,7 @@ class WHEPClient {
 
     onIceServers(res) {
         this.pc = new RTCPeerConnection({
-            iceServers: linksToIceServers(res.headers.get('Link')),
+            iceServers: linkToIceServers(res.headers.get('Link')),
         });
 
         const direction = "sendrecv";

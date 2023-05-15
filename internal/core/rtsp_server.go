@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/base"
 	"github.com/bluenviron/gortsplib/v3/pkg/headers"
 	"github.com/bluenviron/gortsplib/v3/pkg/liberrors"
+	"github.com/google/uuid"
 
 	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/externalcmd"
@@ -359,6 +360,15 @@ func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx)
 	se.onDecodeError(ctx)
 }
 
+func (s *rtspServer) findSessionByUUID(uuid uuid.UUID) (*gortsplib.ServerSession, *rtspSession) {
+	for key, sx := range s.sessions {
+		if sx.uuid == uuid {
+			return key, sx
+		}
+	}
+	return nil, nil
+}
+
 // apiConnsList is called by api and metrics.
 func (s *rtspServer) apiConnsList() rtspServerAPIConnsListRes {
 	select {
@@ -426,7 +436,7 @@ func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
 }
 
 // apiSessionsKick is called by api.
-func (s *rtspServer) apiSessionsKick(id string) rtspServerAPISessionsKickRes {
+func (s *rtspServer) apiSessionsKick(uuid uuid.UUID) rtspServerAPISessionsKickRes {
 	select {
 	case <-s.ctx.Done():
 		return rtspServerAPISessionsKickRes{err: fmt.Errorf("terminated")}
@@ -436,14 +446,13 @@ func (s *rtspServer) apiSessionsKick(id string) rtspServerAPISessionsKickRes {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	for key, se := range s.sessions {
-		if se.uuid.String() == id {
-			se.close()
-			delete(s.sessions, key)
-			se.onClose(liberrors.ErrServerTerminated{})
-			return rtspServerAPISessionsKickRes{}
-		}
+	key, sx := s.findSessionByUUID(uuid)
+	if sx == nil {
+		return rtspServerAPISessionsKickRes{err: fmt.Errorf("not found")}
 	}
 
-	return rtspServerAPISessionsKickRes{err: fmt.Errorf("not found")}
+	sx.close()
+	delete(s.sessions, key)
+	sx.onClose(liberrors.ErrServerTerminated{})
+	return rtspServerAPISessionsKickRes{}
 }

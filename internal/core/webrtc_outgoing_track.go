@@ -35,7 +35,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: 90000,
 			},
 			"av1",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -82,7 +82,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(vp9Format.ClockRate()),
 			},
 			"vp9",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -129,7 +129,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(vp8Format.ClockRate()),
 			},
 			"vp8",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -176,7 +176,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(h264Format.ClockRate()),
 			},
 			"h264",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -238,9 +238,10 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeOpus,
 				ClockRate: uint32(opusFormat.ClockRate()),
+				Channels:  2,
 			},
 			"opus",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -270,7 +271,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(g722Format.ClockRate()),
 			},
 			"g722",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -307,7 +308,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(g711Format.ClockRate()),
 			},
 			"g711",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
