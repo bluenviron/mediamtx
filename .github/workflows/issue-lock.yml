@@ -33,13 +33,15 @@ jobs:
                 continue;
               }
 
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: issue.number,
-                body: 'This issue is being locked automatically because it has been closed for more than 6 months.\n'
-                  + 'Please open a new issue in case you encounter a similar problem.',
-              });
+              if (!issue.pull_request) {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body: 'This issue is being locked automatically because it has been closed for more than 6 months.\n'
+                    + 'Please open a new issue in case you encounter a similar problem.',
+                });
+              }
 
               github.rest.issues.lock({
                 owner,
