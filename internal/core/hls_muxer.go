@@ -1,13 +1,9 @@
 package core
 
 import (
-	"bytes"
 	"context"
-	_ "embed"
 	"errors"
 	"fmt"
-	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,9 +30,6 @@ const (
 	hlsMuxerRecreatePause = 10 * time.Second
 )
 
-//go:embed hls_index.html
-var hlsIndex []byte
-
 type responseWriterWithCounter struct {
 	http.ResponseWriter
 	bytesSent *uint64
@@ -53,10 +46,6 @@ type hlsMuxerHandleRequestReq struct {
 	file string
 	ctx  *gin.Context
 	res  chan *hlsMuxer
-}
-
-type hlsMuxerPathManager interface {
-	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
 }
 
 type hlsMuxerParent interface {
@@ -77,7 +66,7 @@ type hlsMuxer struct {
 	readBufferCount           int
 	wg                        *sync.WaitGroup
 	pathName                  string
-	pathManager               hlsMuxerPathManager
+	pathManager               *pathManager
 	parent                    hlsMuxerParent
 
 	ctx             context.Context
@@ -109,7 +98,7 @@ func newHLSMuxer(
 	readBufferCount int,
 	wg *sync.WaitGroup,
 	pathName string,
-	pathManager hlsMuxerPathManager,
+	pathManager *pathManager,
 	parent hlsMuxerParent,
 ) *hlsMuxer {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
@@ -551,41 +540,6 @@ func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 	w := &responseWriterWithCounter{
 		ResponseWriter: ctx.Writer,
 		bytesSent:      m.bytesSent,
-	}
-
-	user, pass, hasCredentials := ctx.Request.BasicAuth()
-
-	err := authenticate(
-		m.externalAuthenticationURL,
-		nil,
-		m.pathName,
-		m.path.safeConf(),
-		false,
-		authCredentials{
-			query: ctx.Request.URL.RawQuery,
-			ip:    net.ParseIP(ctx.ClientIP()),
-			user:  user,
-			pass:  pass,
-			proto: authProtocolHLS,
-		},
-	)
-	if err != nil {
-		if !hasCredentials {
-			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-
-		m.Log(logger.Info, "authentication error: %s", err)
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
-
-	if ctx.Request.URL.Path == "" {
-		ctx.Header("Content-Type", `text/html`)
-		w.WriteHeader(http.StatusOK)
-		io.Copy(w, bytes.NewReader(hlsIndex))
-		return
 	}
 
 	m.muxer.Handle(w, ctx.Request)

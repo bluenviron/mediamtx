@@ -122,7 +122,7 @@ type webRTCHTTPServer struct {
 	inner *http.Server
 }
 
-func newWebRTCHTTPServer(
+func newWebRTCHTTPServer( //nolint:dupl
 	address string,
 	encryption bool,
 	serverKey string,
@@ -214,7 +214,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 	var publish bool
 
 	switch {
-	case pa == "favicon.ico":
+	case pa == "", pa == "favicon.ico":
 		return
 
 	case strings.HasSuffix(pa, "/publish"):
