@@ -8,7 +8,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg4audio"
 	"github.com/pion/rtp"
 
-	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 // UnitMPEG4Audio is a MPEG-4 Audio data unit.

@@ -4,8 +4,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/rtmp/h264conf"
-	"github.com/aler9/mediamtx/internal/rtmp/message"
+	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
+	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
 // Write writes track informations.

@@ -20,7 +20,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aler9/mediamtx/internal/rtmp"
+	"github.com/bluenviron/mediamtx/internal/rtmp"
 )
 
 var testFormatH264 = &formats.H264{

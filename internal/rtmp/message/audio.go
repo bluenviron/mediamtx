@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
+	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
 )
 
 const (

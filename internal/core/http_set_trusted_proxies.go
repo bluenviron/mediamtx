@@ -3,7 +3,7 @@ package core
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 func httpSetTrustedProxies(router *gin.Engine, trustedProxies conf.IPsOrCIDRs) {

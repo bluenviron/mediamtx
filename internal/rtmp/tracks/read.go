@@ -15,8 +15,8 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/rtmp/h264conf"
-	"github.com/aler9/mediamtx/internal/rtmp/message"
+	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
+	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
 func h265FindNALU(array []gomp4.HEVCNaluArray, typ h265.NALUType) []byte {

@@ -20,13 +20,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/conf"
-	"github.com/aler9/mediamtx/internal/externalcmd"
-	"github.com/aler9/mediamtx/internal/formatprocessor"
-	"github.com/aler9/mediamtx/internal/logger"
-	"github.com/aler9/mediamtx/internal/rtmp"
-	"github.com/aler9/mediamtx/internal/rtmp/h264conf"
-	"github.com/aler9/mediamtx/internal/rtmp/message"
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/rtmp"
+	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
+	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
 const (

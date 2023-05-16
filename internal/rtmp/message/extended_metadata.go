@@ -3,7 +3,7 @@ package message
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
+	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
 )
 
 // ExtendedMetadata is a metadata extended message.

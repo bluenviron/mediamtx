@@ -1,4 +1,4 @@
-module github.com/aler9/mediamtx
+module github.com/bluenviron/mediamtx
 
 go 1.20
 

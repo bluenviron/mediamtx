@@ -4,7 +4,7 @@ package main
 import (
 	"os"
 
-	"github.com/aler9/mediamtx/internal/core"
+	"github.com/bluenviron/mediamtx/internal/core"
 )
 
 func main() {

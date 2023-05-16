@@ -26,36 +26,36 @@ RUN mkdir tmp binaries
 RUN cp mediamtx.yml LICENSE tmp/
 
 FROM build-base AS build-windows-amd64
-RUN GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx.exe
+RUN GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx.exe
 RUN cd tmp && zip -q ../binaries/mediamtx_$${VERSION}_windows_amd64.zip mediamtx.exe mediamtx.yml LICENSE
 
 FROM build-base AS build-linux-amd64
-RUN GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
+RUN GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_amd64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 
 FROM build-base AS build-darwin-amd64
-RUN GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
+RUN GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_darwin_amd64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 
 FROM build-base AS build-darwin-arm64
-RUN GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
+RUN GOOS=darwin GOARCH=arm64 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_darwin_arm64.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 
 FROM build-base AS build-linux-armv6
 COPY --from=rpicamera32 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
-RUN GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
+RUN GOOS=linux GOARCH=arm GOARM=6 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_armv6.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 RUN rm internal/rpicamera/exe/exe
 
 FROM build-base AS build-linux-armv7
 COPY --from=rpicamera32 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
-RUN GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
+RUN GOOS=linux GOARCH=arm GOARM=7 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_armv7.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 RUN rm internal/rpicamera/exe/exe
 
 FROM build-base AS build-linux-arm64
 COPY --from=rpicamera64 /s/internal/rpicamera/exe/exe internal/rpicamera/exe/
-RUN GOOS=linux GOARCH=arm64 go build -ldflags "-X github.com/aler9/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
+RUN GOOS=linux GOARCH=arm64 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/mediamtx -tags rpicamera
 RUN tar -C tmp -czf binaries/mediamtx_$${VERSION}_linux_arm64v8.tar.gz --owner=0 --group=0 mediamtx mediamtx.yml LICENSE
 RUN rm internal/rpicamera/exe/exe
 

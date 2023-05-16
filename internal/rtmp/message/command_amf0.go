@@ -5,7 +5,7 @@ import (
 
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
+	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
 )
 
 // CommandAMF0 is a AMF0 command message.

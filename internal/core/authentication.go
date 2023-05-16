@@ -17,7 +17,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/google/uuid"
 
-	"github.com/aler9/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 func sha256Base64(in string) string {

@@ -10,10 +10,10 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
-	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
-	"github.com/aler9/mediamtx/internal/rtmp/handshake"
-	"github.com/aler9/mediamtx/internal/rtmp/message"
-	"github.com/aler9/mediamtx/internal/rtmp/tracks"
+	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
+	"github.com/bluenviron/mediamtx/internal/rtmp/handshake"
+	"github.com/bluenviron/mediamtx/internal/rtmp/message"
+	"github.com/bluenviron/mediamtx/internal/rtmp/tracks"
 )
 
 func resultIsOK1(res *message.CommandAMF0) bool {

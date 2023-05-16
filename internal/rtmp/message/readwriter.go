@@ -1,7 +1,7 @@
 package message
 
 import (
-	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
+	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
 )
 
 // ReadWriter is a message reader/writer.

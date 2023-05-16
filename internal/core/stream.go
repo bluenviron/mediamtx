@@ -8,7 +8,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/pion/rtp"
 
-	"github.com/aler9/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 )
 
 type stream struct {
