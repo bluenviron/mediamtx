@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"crypto/tls"
+	_ "embed"
 	"log"
 	"net"
 	"net/http"
@@ -16,6 +17,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
+//go:embed hls_index.html
+var hlsIndex []byte
+
 type hlsHTTPServerParent interface {
 	logger.Writer
 	handleRequest(req hlsMuxerHandleRequestReq)
@@ -23,13 +27,14 @@ type hlsHTTPServerParent interface {
 
 type hlsHTTPServer struct {
 	allowOrigin string
+	pathManager *pathManager
 	parent      hlsHTTPServerParent
 
 	ln    net.Listener
 	inner *http.Server
 }
 
-func newHLSHTTPServer(
+func newHLSHTTPServer( //nolint:dupl
 	address string,
 	encryption bool,
 	serverKey string,
@@ -37,6 +42,7 @@ func newHLSHTTPServer(
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
 	readTimeout conf.StringDuration,
+	pathManager *pathManager,
 	parent hlsHTTPServerParent,
 ) (*hlsHTTPServer, error) {
 	ln, err := net.Listen(restrictNetwork("tcp", address))
@@ -59,6 +65,7 @@ func newHLSHTTPServer(
 
 	s := &hlsHTTPServer{
 		allowOrigin: allowOrigin,
+		pathManager: pathManager,
 		parent:      parent,
 		ln:          ln,
 	}
@@ -113,36 +120,79 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 	// remove leading prefix
 	pa := ctx.Request.URL.Path[1:]
 
-	switch pa {
-	case "", "favicon.ico":
-		return
-	}
+	var dir string
+	var fname string
 
-	dir, fname := func() (string, string) {
-		if strings.HasSuffix(pa, ".m3u8") ||
-			strings.HasSuffix(pa, ".ts") ||
-			strings.HasSuffix(pa, ".mp4") ||
-			strings.HasSuffix(pa, ".mp") {
-			return gopath.Dir(pa), gopath.Base(pa)
+	switch {
+	case pa == "", pa == "favicon.ico":
+		return
+
+	case strings.HasSuffix(pa, ".m3u8") ||
+		strings.HasSuffix(pa, ".ts") ||
+		strings.HasSuffix(pa, ".mp4") ||
+		strings.HasSuffix(pa, ".mp"):
+		dir, fname = gopath.Dir(pa), gopath.Base(pa)
+
+		if strings.HasSuffix(fname, ".mp") {
+			fname += "4"
 		}
-		return pa, ""
-	}()
 
-	if fname == "" && !strings.HasSuffix(dir, "/") {
-		ctx.Writer.Header().Set("Location", "/"+dir+"/")
-		ctx.Writer.WriteHeader(http.StatusMovedPermanently)
-		return
-	}
+	default:
+		dir, fname = pa, ""
 
-	if strings.HasSuffix(fname, ".mp") {
-		fname += "4"
+		if !strings.HasSuffix(dir, "/") {
+			ctx.Writer.Header().Set("Location", "/"+dir+"/")
+			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
+			return
+		}
 	}
 
 	dir = strings.TrimSuffix(dir, "/")
+	if dir == "" {
+		return
+	}
 
-	s.parent.handleRequest(hlsMuxerHandleRequestReq{
-		path: dir,
-		file: fname,
-		ctx:  ctx,
+	user, pass, hasCredentials := ctx.Request.BasicAuth()
+
+	res := s.pathManager.getPathConf(pathGetPathConfReq{
+		name:    dir,
+		publish: false,
+		credentials: authCredentials{
+			query: ctx.Request.URL.RawQuery,
+			ip:    net.ParseIP(ctx.ClientIP()),
+			user:  user,
+			pass:  pass,
+			proto: authProtocolWebRTC,
+		},
 	})
+	if res.err != nil {
+		if terr, ok := res.err.(pathErrAuth); ok {
+			if !hasCredentials {
+				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+				ctx.Writer.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+
+			s.Log(logger.Info, "authentication error: %v", terr.wrapped)
+			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		ctx.Writer.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	switch fname {
+	case "":
+		ctx.Writer.Header().Set("Content-Type", "text/html")
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(hlsIndex)
+
+	default:
+		s.parent.handleRequest(hlsMuxerHandleRequestReq{
+			path: dir,
+			file: fname,
+			ctx:  ctx,
+		})
+	}
 }

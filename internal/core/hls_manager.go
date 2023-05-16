@@ -129,6 +129,7 @@ func newHLSManager(
 		allowOrigin,
 		trustedProxies,
 		readTimeout,
+		m.pathManager,
 		m,
 	)
 	if err != nil {
