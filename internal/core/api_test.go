@@ -189,6 +189,7 @@ func TestAPIPathsList(t *testing.T) {
 	}
 
 	type path struct {
+		Name          string     `json:"name"`
 		Source        pathSource `json:"source"`
 		SourceReady   bool       `json:"sourceReady"`
 		Tracks        []string   `json:"tracks"`
@@ -196,7 +197,8 @@ func TestAPIPathsList(t *testing.T) {
 	}
 
 	type pathList struct {
-		Items map[string]path `json:"items"`
+		PageCount int    `json:"pageCount"`
+		Items     []path `json:"items"`
 	}
 
 	t.Run("rtsp session", func(t *testing.T) {
@@ -243,16 +245,16 @@ func TestAPIPathsList(t *testing.T) {
 		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
-			Items: map[string]path{
-				"mypath": {
-					Source: pathSource{
-						Type: "rtspSession",
-					},
-					SourceReady:   true,
-					Tracks:        []string{"H264", "MPEG4-audio-gen"},
-					BytesReceived: 16,
+			PageCount: 1,
+			Items: []path{{
+				Name: "mypath",
+				Source: pathSource{
+					Type: "rtspSession",
 				},
-			},
+				SourceReady:   true,
+				Tracks:        []string{"H264", "MPEG4-audio-gen"},
+				BytesReceived: 16,
+			}},
 		}, out)
 	})
 
@@ -304,15 +306,15 @@ func TestAPIPathsList(t *testing.T) {
 		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
-			Items: map[string]path{
-				"mypath": {
-					Source: pathSource{
-						Type: "rtspsSession",
-					},
-					SourceReady: true,
-					Tracks:      []string{"H264", "MPEG4-audio-gen"},
+			PageCount: 1,
+			Items: []path{{
+				Name: "mypath",
+				Source: pathSource{
+					Type: "rtspsSession",
 				},
-			},
+				SourceReady: true,
+				Tracks:      []string{"H264", "MPEG4-audio-gen"},
+			}},
 		}, out)
 	})
 
@@ -329,15 +331,15 @@ func TestAPIPathsList(t *testing.T) {
 		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
-			Items: map[string]path{
-				"mypath": {
-					Source: pathSource{
-						Type: "rtspSource",
-					},
-					SourceReady: false,
-					Tracks:      []string{},
+			PageCount: 1,
+			Items: []path{{
+				Name: "mypath",
+				Source: pathSource{
+					Type: "rtspSource",
 				},
-			},
+				SourceReady: false,
+				Tracks:      []string{},
+			}},
 		}, out)
 	})
 
@@ -354,15 +356,15 @@ func TestAPIPathsList(t *testing.T) {
 		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
-			Items: map[string]path{
-				"mypath": {
-					Source: pathSource{
-						Type: "rtmpSource",
-					},
-					SourceReady: false,
-					Tracks:      []string{},
+			PageCount: 1,
+			Items: []path{{
+				Name: "mypath",
+				Source: pathSource{
+					Type: "rtmpSource",
 				},
-			},
+				SourceReady: false,
+				Tracks:      []string{},
+			}},
 		}, out)
 	})
 
@@ -379,15 +381,15 @@ func TestAPIPathsList(t *testing.T) {
 		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
-			Items: map[string]path{
-				"mypath": {
-					Source: pathSource{
-						Type: "hlsSource",
-					},
-					SourceReady: false,
-					Tracks:      []string{},
+			PageCount: 1,
+			Items: []path{{
+				Name: "mypath",
+				Source: pathSource{
+					Type: "hlsSource",
 				},
-			},
+				SourceReady: false,
+				Tracks:      []string{},
+			}},
 		}, out)
 	})
 }
@@ -589,25 +591,20 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				}
 
 				var out struct {
-					Items map[string]struct {
+					Items []struct {
 						State string `json:"state"`
 					} `json:"items"`
 				}
 				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out)
 				require.NoError(t, err)
 
-				var firstID string
-				for k := range out.Items {
-					firstID = k
-				}
-
 				if ca != "rtsp conns" && ca != "rtsps conns" {
-					require.Equal(t, "publish", out.Items[firstID].State)
+					require.Equal(t, "publish", out.Items[0].State)
 				}
 
 			case "hls":
 				var out struct {
-					Items map[string]struct {
+					Items []struct {
 						Created     string `json:"created"`
 						LastRequest string `json:"lastRequest"`
 					} `json:"items"`
@@ -615,14 +612,9 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/hlsmuxers/list", nil, &out)
 				require.NoError(t, err)
 
-				var firstID string
-				for k := range out.Items {
-					firstID = k
-				}
-
 				s := fmt.Sprintf("^%d-", time.Now().Year())
-				require.Regexp(t, s, out.Items[firstID].Created)
-				require.Regexp(t, s, out.Items[firstID].LastRequest)
+				require.Regexp(t, s, out.Items[0].Created)
+				require.Regexp(t, s, out.Items[0].LastRequest)
 
 			case "webrtc":
 				type item struct {
@@ -636,18 +628,13 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				}
 
 				var out struct {
-					Items map[string]item `json:"items"`
+					PageCount int    `json:"pageCount"`
+					Items     []item `json:"items"`
 				}
 				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/webrtcsessions/list", nil, &out)
 				require.NoError(t, err)
 
-				var firstID string
-				for k := range out.Items {
-					firstID = k
-				}
-
-				itm := out.Items[firstID]
-				require.Equal(t, true, itm.PeerConnectionEstablished)
+				require.Equal(t, true, out.Items[0].PeerConnectionEstablished)
 			}
 		})
 	}
@@ -742,21 +729,20 @@ func TestAPIKick(t *testing.T) {
 			}
 
 			var out1 struct {
-				Items map[string]struct{} `json:"items"`
+				Items []struct {
+					ID string `json:"id"`
+				} `json:"items"`
 			}
 			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out1)
 			require.NoError(t, err)
 
-			var firstID string
-			for k := range out1.Items {
-				firstID = k
-			}
-
-			err = httpRequest(http.MethodPost, "http://localhost:9997/v1/"+pa+"/kick/"+firstID, nil, nil)
+			err = httpRequest(http.MethodPost, "http://localhost:9997/v1/"+pa+"/kick/"+out1.Items[0].ID, nil, nil)
 			require.NoError(t, err)
 
 			var out2 struct {
-				Items map[string]struct{} `json:"items"`
+				Items []struct {
+					ID string `json:"id"`
+				} `json:"items"`
 			}
 			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out2)
 			require.NoError(t, err)

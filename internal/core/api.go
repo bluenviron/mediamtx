@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -77,6 +78,55 @@ func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 	}
 
 	return in, err
+}
+
+func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
+	ritems := reflect.ValueOf(itemsPtr).Elem()
+
+	itemsLen := ritems.Len()
+	if itemsLen == 0 {
+		return 0
+	}
+
+	pageCount := (itemsLen / itemsPerPage) + 1
+
+	min := page * itemsPerPage
+	if min >= itemsLen {
+		min = itemsLen - 1
+	}
+
+	max := (page + 1) * itemsPerPage
+	if max >= itemsLen {
+		max = itemsLen
+	}
+
+	ritems.Set(ritems.Slice(min, max))
+
+	return pageCount
+}
+
+func paginate(itemsPtr interface{}, itemsPerPageStr string, pageStr string) (int, error) {
+	itemsPerPage := 100
+
+	if itemsPerPageStr != "" {
+		tmp, err := strconv.ParseUint(itemsPerPageStr, 10, 31)
+		if err != nil {
+			return 0, err
+		}
+		itemsPerPage = int(tmp)
+	}
+
+	page := 0
+
+	if pageStr != "" {
+		tmp, err := strconv.ParseUint(pageStr, 10, 31)
+		if err != nil {
+			return 0, err
+		}
+		page = int(tmp)
+	}
+
+	return paginate2(itemsPtr, itemsPerPage, page), nil
 }
 
 type apiPathManager interface {
@@ -389,6 +439,13 @@ func (a *api) onPathsList(ctx *gin.Context) {
 		return
 	}
 
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
+
 	ctx.JSON(http.StatusOK, res.data)
 }
 
@@ -399,6 +456,13 @@ func (a *api) onRTSPConnsList(ctx *gin.Context) {
 		return
 	}
 
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
+
 	ctx.JSON(http.StatusOK, res.data)
 }
 
@@ -408,6 +472,13 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
 
 	ctx.JSON(http.StatusOK, res.data)
 }
@@ -434,6 +505,13 @@ func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 		return
 	}
 
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
+
 	ctx.JSON(http.StatusOK, res.data)
 }
 
@@ -443,6 +521,13 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
 
 	ctx.JSON(http.StatusOK, res.data)
 }
@@ -469,6 +554,13 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 		return
 	}
 
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
+
 	ctx.JSON(http.StatusOK, res.data)
 }
 
@@ -493,6 +585,13 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
 
 	ctx.JSON(http.StatusOK, res.data)
 }
@@ -519,6 +618,13 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 		return
 	}
 
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
+
 	ctx.JSON(http.StatusOK, res.data)
 }
 
@@ -528,6 +634,13 @@ func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+
+	pageCount, err := paginate(&res.data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	res.data.PageCount = pageCount
 
 	ctx.JSON(http.StatusOK, res.data)
 }

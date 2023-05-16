@@ -20,6 +20,7 @@ import (
 )
 
 type rtspServerAPIConnsListItem struct {
+	ID            uuid.UUID `json:"id"`
 	Created       time.Time `json:"created"`
 	RemoteAddr    string    `json:"remoteAddr"`
 	BytesReceived uint64    `json:"bytesReceived"`
@@ -27,7 +28,8 @@ type rtspServerAPIConnsListItem struct {
 }
 
 type rtspServerAPIConnsListData struct {
-	Items map[string]rtspServerAPIConnsListItem `json:"items"`
+	PageCount int                          `json:"pageCount"`
+	Items     []rtspServerAPIConnsListItem `json:"items"`
 }
 
 type rtspServerAPIConnsListRes struct {
@@ -36,6 +38,7 @@ type rtspServerAPIConnsListRes struct {
 }
 
 type rtspServerAPISessionsListItem struct {
+	ID            uuid.UUID `json:"id"`
 	Created       time.Time `json:"created"`
 	RemoteAddr    string    `json:"remoteAddr"`
 	State         string    `json:"state"`
@@ -44,7 +47,8 @@ type rtspServerAPISessionsListItem struct {
 }
 
 type rtspServerAPISessionsListData struct {
-	Items map[string]rtspServerAPISessionsListItem `json:"items"`
+	PageCount int                             `json:"pageCount"`
+	Items     []rtspServerAPISessionsListItem `json:"items"`
 }
 
 type rtspServerAPISessionsListRes struct {
@@ -381,16 +385,17 @@ func (s *rtspServer) apiConnsList() rtspServerAPIConnsListRes {
 	defer s.mutex.RUnlock()
 
 	data := &rtspServerAPIConnsListData{
-		Items: make(map[string]rtspServerAPIConnsListItem),
+		Items: []rtspServerAPIConnsListItem{},
 	}
 
 	for _, c := range s.conns {
-		data.Items[c.uuid.String()] = rtspServerAPIConnsListItem{
+		data.Items = append(data.Items, rtspServerAPIConnsListItem{
+			ID:            c.uuid,
 			Created:       c.created,
 			RemoteAddr:    c.remoteAddr().String(),
 			BytesReceived: c.conn.BytesReceived(),
 			BytesSent:     c.conn.BytesSent(),
-		}
+		})
 	}
 
 	return rtspServerAPIConnsListRes{data: data}
@@ -408,11 +413,12 @@ func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
 	defer s.mutex.RUnlock()
 
 	data := &rtspServerAPISessionsListData{
-		Items: make(map[string]rtspServerAPISessionsListItem),
+		Items: []rtspServerAPISessionsListItem{},
 	}
 
 	for _, s := range s.sessions {
-		data.Items[s.uuid.String()] = rtspServerAPISessionsListItem{
+		data.Items = append(data.Items, rtspServerAPISessionsListItem{
+			ID:         s.uuid,
 			Created:    s.created,
 			RemoteAddr: s.remoteAddr().String(),
 			State: func() string {
@@ -429,7 +435,7 @@ func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
 			}(),
 			BytesReceived: s.session.BytesReceived(),
 			BytesSent:     s.session.BytesSent(),
-		}
+		})
 	}
 
 	return rtspServerAPISessionsListRes{data: data}

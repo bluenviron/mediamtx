@@ -202,11 +202,12 @@ func (m *hlsMuxer) run() {
 				}
 
 			case req := <-m.chAPIHLSMuxersList:
-				req.data.Items[m.pathName] = hlsManagerAPIMuxersListItem{
+				req.data.Items = append(req.data.Items, hlsManagerAPIMuxersListItem{
+					Path:        m.pathName,
 					Created:     m.created,
 					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
 					BytesSent:   atomic.LoadUint64(m.bytesSent),
-				}
+				})
 				close(req.res)
 
 			case <-innerReady:

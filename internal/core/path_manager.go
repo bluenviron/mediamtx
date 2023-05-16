@@ -492,7 +492,7 @@ func (pm *pathManager) apiPathsList() pathAPIPathsListRes {
 		res := <-req.res
 
 		res.data = &pathAPIPathsListData{
-			Items: make(map[string]pathAPIPathsListItem),
+			Items: []pathAPIPathsListItem{},
 		}
 
 		for _, pa := range res.paths {
