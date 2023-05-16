@@ -12,12 +12,12 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/gin-gonic/gin"
 
-	"github.com/aler9/mediamtx/internal/conf"
-	"github.com/aler9/mediamtx/internal/confwatcher"
-	"github.com/aler9/mediamtx/internal/externalcmd"
-	"github.com/aler9/mediamtx/internal/logger"
-	"github.com/aler9/mediamtx/internal/rlimit"
-	"github.com/aler9/mediamtx/internal/rpicamera"
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/confwatcher"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/rlimit"
+	"github.com/bluenviron/mediamtx/internal/rpicamera"
 )
 
 var version = "v0.0.0"

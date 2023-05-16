@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/aler9/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpav1"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph264"
@@ -14,6 +13,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/pion/webrtc/v3"
+
+	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 )
 
 type webRTCOutgoingTrack struct {

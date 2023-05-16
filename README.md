@@ -4,7 +4,7 @@
 
 <br>
 
-[_MediaMTX_](#important-announcement) / _rtsp-simple-server_ is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
+_MediaMTX_/ [_rtsp-simple-server_](#note-about-rtsp-simple-server) is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
 
 Live streams can be published to the server with:
 
@@ -44,20 +44,16 @@ Features:
 * Natively compatible with the Raspberry Pi Camera
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
-[![Test](https://github.com/aler9/mediamtx/workflows/test/badge.svg)](https://github.com/aler9/mediamtx/actions?query=workflow:test)
-[![Lint](https://github.com/aler9/mediamtx/workflows/lint/badge.svg)](https://github.com/aler9/mediamtx/actions?query=workflow:lint)
-[![CodeCov](https://codecov.io/gh/aler9/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/aler9/mediamtx/branch/main)
-[![Release](https://img.shields.io/github/v/release/aler9/mediamtx)](https://github.com/aler9/mediamtx/releases)
+[![Test](https://github.com/bluenviron/mediamtx/workflows/test/badge.svg)](https://github.com/bluenviron/mediamtx/actions?query=workflow:test)
+[![Lint](https://github.com/bluenviron/mediamtx/workflows/lint/badge.svg)](https://github.com/bluenviron/mediamtx/actions?query=workflow:lint)
+[![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/branch/main)
+[![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
 [![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://aler9.github.io/mediamtx)
 
-## Important announcement
+## Note about rtsp-simple-server
 
-_rtsp-simple-server_ is being rebranded as _MediaMTX_. The reason is pretty obvious: this project started as a RTSP server but has evolved into a much more versatile media server (i like to call it a "media broker", a message broker for media streams), that is not tied to the RTSP protocol anymore. Nothing will change regarding license, features and backward compatibility.
-
-Furthermore, my main open source projects are being transferred to the [bluenviron organization](https://github.com/bluenviron), in order to allow the community to maintain and evolve the code regardless of my personal availability.
-
-In the next months, the repository name and the Docker image name will be changed accordingly.
+_rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvious: this project started as a RTSP server but has evolved into a much more versatile media server (i like to call it a "media broker", a message broker for media streams), that is not tied to the RTSP protocol anymore. Nothing will change regarding license, features and backward compatibility.
 
 ## Table of contents
 
@@ -120,7 +116,7 @@ In the next months, the repository name and the Docker image name will be change
 
 ### Standard
 
-1. Download and extract a precompiled binary from the [release page](https://github.com/aler9/mediamtx/releases).
+1. Download and extract a precompiled binary from the [release page](https://github.com/bluenviron/mediamtx/releases).
 
 2. Start the server:
 
@@ -142,7 +138,7 @@ The `--network=host` flag is mandatory since Docker can change the source port o
 docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
 ```
 
-Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/aler9/mediamtx/discussions/278#discussioncomment-549104).
+Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/bluenviron/mediamtx/discussions/278#discussioncomment-549104).
 
 ### OpenWRT
 
@@ -160,8 +156,8 @@ Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need 
 
    ```
    mkdir package/mediamtx
-   wget -O package/mediamtx/Makefile https://raw.githubusercontent.com/aler9/mediamtx/main/openwrt.mk
-   sed -i "s/v0.0.0/$(git ls-remote --tags --sort=v:refname https://github.com/aler9/mediamtx | tail -n1 | sed 's/.*\///; s/\^{}//')/" package/mediamtx/Makefile
+   wget -O package/mediamtx/Makefile https://raw.githubusercontent.com/bluenviron/mediamtx/main/openwrt.mk
+   sed -i "s/v0.0.0/$(git ls-remote --tags --sort=v:refname https://github.com/bluenviron/mediamtx | tail -n1 | sed 's/.*\///; s/\^{}//')/" package/mediamtx/Makefile
    ```
 
 4. Compile the server:
@@ -434,7 +430,7 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _MediaMTX_ on boot.
 
-Download a release bundle from the [release page](https://github.com/aler9/mediamtx/releases), unzip it, and move the executable and configuration in the system:
+Download a release bundle from the [release page](https://github.com/bluenviron/mediamtx/releases), unzip it, and move the executable and configuration in the system:
 
 ```
 sudo mv mediamtx /usr/local/bin/

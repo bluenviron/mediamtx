@@ -14,10 +14,10 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/headers"
 
-	"github.com/aler9/mediamtx/internal/conf/decrypt"
-	"github.com/aler9/mediamtx/internal/conf/env"
-	"github.com/aler9/mediamtx/internal/conf/yaml"
-	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/conf/decrypt"
+	"github.com/bluenviron/mediamtx/internal/conf/env"
+	"github.com/bluenviron/mediamtx/internal/conf/yaml"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 func getSortedKeys(paths map[string]*PathConf) []string {

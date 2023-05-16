@@ -3,7 +3,7 @@ package message
 import (
 	"time"
 
-	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
+	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
 )
 
 // ExtendedFramesX is a FramesX extended message.

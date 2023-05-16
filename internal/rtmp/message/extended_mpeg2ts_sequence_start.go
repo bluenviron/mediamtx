@@ -3,7 +3,7 @@ package message
 import (
 	"fmt"
 
-	"github.com/aler9/mediamtx/internal/rtmp/rawmessage"
+	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
 )
 
 // ExtendedMPEG2TSSequenceStart is a MPEG2-TS sequence start extended message.

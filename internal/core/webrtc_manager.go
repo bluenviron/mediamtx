@@ -18,8 +18,8 @@ import (
 	"github.com/pion/ice/v2"
 	"github.com/pion/webrtc/v3"
 
-	"github.com/aler9/mediamtx/internal/conf"
-	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 func iceServersToLinkHeader(iceServers []webrtc.ICEServer) []string {

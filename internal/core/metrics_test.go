@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aler9/mediamtx/internal/rtmp"
+	"github.com/bluenviron/mediamtx/internal/rtmp"
 )
 
 func TestMetrics(t *testing.T) {

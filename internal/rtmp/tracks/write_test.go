@@ -9,8 +9,8 @@ import (
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
-	"github.com/aler9/mediamtx/internal/rtmp/bytecounter"
-	"github.com/aler9/mediamtx/internal/rtmp/message"
+	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
+	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
 func TestWrite(t *testing.T) {

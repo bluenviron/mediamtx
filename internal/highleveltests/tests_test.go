@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/aler9/mediamtx/internal/core"
+	"github.com/bluenviron/mediamtx/internal/core"
 )
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----

@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/aler9/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 // sourceRedirect is a source that redirects to another one.
