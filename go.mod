@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2
-	github.com/pion/ice/v2 v2.3.2
+	github.com/pion/ice/v2 v2.3.3
 	github.com/pion/interceptor v0.1.16
 	github.com/pion/rtcp v1.2.10
 	github.com/pion/rtp v1.7.13
@@ -54,7 +54,7 @@ require (
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.8.7 // indirect
 	github.com/pion/srtp/v2 v2.0.12 // indirect
-	github.com/pion/stun v0.4.0 // indirect
+	github.com/pion/stun v0.5.2 // indirect
 	github.com/pion/transport/v2 v2.2.0 // indirect
 	github.com/pion/turn/v2 v2.1.0 // indirect
 	github.com/pion/udp/v2 v2.0.1 // indirect
@@ -70,5 +70,3 @@ require (
 )
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
-
-replace github.com/pion/ice/v2 => github.com/aler9/ice/v2 v2.0.0-20230412173239-0af1e3c3035a
