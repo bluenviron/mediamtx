@@ -1,14 +1,10 @@
 package core
 
 import (
-	"context"
 	"io"
-	"log"
-	"net"
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -27,8 +23,7 @@ type metricsParent interface {
 type metrics struct {
 	parent metricsParent
 
-	ln            net.Listener
-	httpServer    *http.Server
+	httpServer    *httpServer
 	mutex         sync.Mutex
 	pathManager   apiPathManager
 	rtspServer    apiRTSPServer
@@ -43,14 +38,8 @@ func newMetrics(
 	readTimeout conf.StringDuration,
 	parent metricsParent,
 ) (*metrics, error) {
-	ln, err := net.Listen(restrictNetwork("tcp", address))
-	if err != nil {
-		return nil, err
-	}
-
 	m := &metrics{
 		parent: parent,
-		ln:     ln,
 	}
 
 	router := gin.New()
@@ -60,23 +49,26 @@ func newMetrics(
 	router.NoRoute(mwLog)
 	router.GET("/metrics", mwLog, m.onMetrics)
 
-	m.httpServer = &http.Server{
-		Handler:           router,
-		ReadHeaderTimeout: time.Duration(readTimeout),
-		ErrorLog:          log.New(&nilWriter{}, "", 0),
+	var err error
+	m.httpServer, err = newHTTPServer(
+		address,
+		readTimeout,
+		"",
+		"",
+		router,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	m.Log(logger.Info, "listener opened on "+address)
-
-	go m.httpServer.Serve(m.ln)
 
 	return m, nil
 }
 
 func (m *metrics) close() {
 	m.Log(logger.Info, "listener is closing")
-	m.httpServer.Shutdown(context.Background())
-	m.ln.Close() // in case Shutdown() is called before Serve()
+	m.httpServer.close()
 }
 
 func (m *metrics) Log(level logger.Level, format string, args ...interface{}) {

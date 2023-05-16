@@ -1,15 +1,12 @@
 package core
 
 import (
-	"context"
-	"crypto/tls"
 	_ "embed"
-	"log"
+	"fmt"
 	"net"
 	"net/http"
 	gopath "path"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,8 +27,7 @@ type hlsHTTPServer struct {
 	pathManager *pathManager
 	parent      hlsHTTPServerParent
 
-	ln    net.Listener
-	inner *http.Server
+	inner *httpServer
 }
 
 func newHLSHTTPServer( //nolint:dupl
@@ -45,29 +41,19 @@ func newHLSHTTPServer( //nolint:dupl
 	pathManager *pathManager,
 	parent hlsHTTPServerParent,
 ) (*hlsHTTPServer, error) {
-	ln, err := net.Listen(restrictNetwork("tcp", address))
-	if err != nil {
-		return nil, err
-	}
-
-	var tlsConfig *tls.Config
 	if encryption {
-		crt, err := tls.LoadX509KeyPair(serverCert, serverKey)
-		if err != nil {
-			ln.Close()
-			return nil, err
+		if serverCert == "" {
+			return nil, fmt.Errorf("server cert is missing")
 		}
-
-		tlsConfig = &tls.Config{
-			Certificates: []tls.Certificate{crt},
-		}
+	} else {
+		serverKey = ""
+		serverCert = ""
 	}
 
 	s := &hlsHTTPServer{
 		allowOrigin: allowOrigin,
 		pathManager: pathManager,
 		parent:      parent,
-		ln:          ln,
 	}
 
 	router := gin.New()
@@ -75,17 +61,16 @@ func newHLSHTTPServer( //nolint:dupl
 
 	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
 
-	s.inner = &http.Server{
-		Handler:           router,
-		TLSConfig:         tlsConfig,
-		ReadHeaderTimeout: time.Duration(readTimeout),
-		ErrorLog:          log.New(&nilWriter{}, "", 0),
-	}
-
-	if tlsConfig != nil {
-		go s.inner.ServeTLS(s.ln, "", "")
-	} else {
-		go s.inner.Serve(s.ln)
+	var err error
+	s.inner, err = newHTTPServer(
+		address,
+		readTimeout,
+		serverCert,
+		serverKey,
+		router,
+	)
+	if err != nil {
+		return nil, err
 	}
 
 	return s, nil
@@ -96,8 +81,7 @@ func (s *hlsHTTPServer) Log(level logger.Level, format string, args ...interface
 }
 
 func (s *hlsHTTPServer) close() {
-	s.inner.Shutdown(context.Background())
-	s.ln.Close() // in case Shutdown() is called before Serve()
+	s.inner.close()
 }
 
 func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
