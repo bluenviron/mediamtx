@@ -1,15 +1,11 @@
 package core
 
 import (
-	"context"
 	"encoding/json"
-	"log"
-	"net"
 	"net/http"
 	"reflect"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -169,8 +165,7 @@ type api struct {
 	webRTCManager apiWebRTCManager
 	parent        apiParent
 
-	ln         net.Listener
-	httpServer *http.Server
+	httpServer *httpServer
 	mutex      sync.Mutex
 }
 
@@ -187,11 +182,6 @@ func newAPI(
 	webRTCManager apiWebRTCManager,
 	parent apiParent,
 ) (*api, error) {
-	ln, err := net.Listen(restrictNetwork("tcp", address))
-	if err != nil {
-		return nil, err
-	}
-
 	a := &api{
 		conf:          conf,
 		pathManager:   pathManager,
@@ -202,7 +192,6 @@ func newAPI(
 		hlsManager:    hlsManager,
 		webRTCManager: webRTCManager,
 		parent:        parent,
-		ln:            ln,
 	}
 
 	router := gin.New()
@@ -251,13 +240,17 @@ func newAPI(
 		group.POST("/v1/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
-	a.httpServer = &http.Server{
-		Handler:           router,
-		ReadHeaderTimeout: time.Duration(readTimeout),
-		ErrorLog:          log.New(&nilWriter{}, "", 0),
+	var err error
+	a.httpServer, err = newHTTPServer(
+		address,
+		readTimeout,
+		"",
+		"",
+		router,
+	)
+	if err != nil {
+		return nil, err
 	}
-
-	go a.httpServer.Serve(ln)
 
 	a.Log(logger.Info, "listener opened on "+address)
 
@@ -266,8 +259,7 @@ func newAPI(
 
 func (a *api) close() {
 	a.Log(logger.Info, "listener is closing")
-	a.httpServer.Shutdown(context.Background())
-	a.ln.Close() // in case Shutdown() is called before Serve()
+	a.httpServer.close()
 }
 
 func (a *api) Log(level logger.Level, format string, args ...interface{}) {

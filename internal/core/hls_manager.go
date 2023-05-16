@@ -10,12 +10,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type nilWriter struct{}
-
-func (nilWriter) Write(p []byte) (int, error) {
-	return len(p), nil
-}
-
 type hlsManagerAPIMuxersListItem struct {
 	Path        string    `json:"path"`
 	Created     time.Time `json:"created"`
