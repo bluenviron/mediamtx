@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/aler9/mediamtx/internal/conf"
 	"github.com/aler9/mediamtx/internal/logger"
@@ -82,19 +83,19 @@ type apiPathManager interface {
 	apiPathsList() pathAPIPathsListRes
 }
 
-type apiHLSServer interface {
-	apiMuxersList() hlsServerAPIMuxersListRes
+type apiHLSManager interface {
+	apiMuxersList() hlsManagerAPIMuxersListRes
 }
 
 type apiRTSPServer interface {
 	apiConnsList() rtspServerAPIConnsListRes
 	apiSessionsList() rtspServerAPISessionsListRes
-	apiSessionsKick(string) rtspServerAPISessionsKickRes
+	apiSessionsKick(uuid.UUID) rtspServerAPISessionsKickRes
 }
 
 type apiRTMPServer interface {
 	apiConnsList() rtmpServerAPIConnsListRes
-	apiConnsKick(id string) rtmpServerAPIConnsKickRes
+	apiConnsKick(uuid.UUID) rtmpServerAPIConnsKickRes
 }
 
 type apiParent interface {
@@ -102,21 +103,21 @@ type apiParent interface {
 	apiConfigSet(conf *conf.Conf)
 }
 
-type apiWebRTCServer interface {
-	apiConnsList() webRTCServerAPIConnsListRes
-	apiConnsKick(id string) webRTCServerAPIConnsKickRes
+type apiWebRTCManager interface {
+	apiSessionsList() webRTCManagerAPISessionsListRes
+	apiSessionsKick(uuid.UUID) webRTCManagerAPISessionsKickRes
 }
 
 type api struct {
-	conf         *conf.Conf
-	pathManager  apiPathManager
-	rtspServer   apiRTSPServer
-	rtspsServer  apiRTSPServer
-	rtmpServer   apiRTMPServer
-	rtmpsServer  apiRTMPServer
-	hlsServer    apiHLSServer
-	webRTCServer apiWebRTCServer
-	parent       apiParent
+	conf          *conf.Conf
+	pathManager   apiPathManager
+	rtspServer    apiRTSPServer
+	rtspsServer   apiRTSPServer
+	rtmpServer    apiRTMPServer
+	rtmpsServer   apiRTMPServer
+	hlsManager    apiHLSManager
+	webRTCManager apiWebRTCManager
+	parent        apiParent
 
 	ln         net.Listener
 	httpServer *http.Server
@@ -132,8 +133,8 @@ func newAPI(
 	rtspsServer apiRTSPServer,
 	rtmpServer apiRTMPServer,
 	rtmpsServer apiRTMPServer,
-	hlsServer apiHLSServer,
-	webRTCServer apiWebRTCServer,
+	hlsManager apiHLSManager,
+	webRTCManager apiWebRTCManager,
 	parent apiParent,
 ) (*api, error) {
 	ln, err := net.Listen(restrictNetwork("tcp", address))
@@ -142,16 +143,16 @@ func newAPI(
 	}
 
 	a := &api{
-		conf:         conf,
-		pathManager:  pathManager,
-		rtspServer:   rtspServer,
-		rtspsServer:  rtspsServer,
-		rtmpServer:   rtmpServer,
-		rtmpsServer:  rtmpsServer,
-		hlsServer:    hlsServer,
-		webRTCServer: webRTCServer,
-		parent:       parent,
-		ln:           ln,
+		conf:          conf,
+		pathManager:   pathManager,
+		rtspServer:    rtspServer,
+		rtspsServer:   rtspsServer,
+		rtmpServer:    rtmpServer,
+		rtmpsServer:   rtmpsServer,
+		hlsManager:    hlsManager,
+		webRTCManager: webRTCManager,
+		parent:        parent,
+		ln:            ln,
 	}
 
 	router := gin.New()
@@ -167,7 +168,7 @@ func newAPI(
 	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
 	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
 
-	if !interfaceIsEmpty(a.hlsServer) {
+	if !interfaceIsEmpty(a.hlsManager) {
 		group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
 	}
 
@@ -195,9 +196,9 @@ func newAPI(
 		group.POST("/v1/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
-	if !interfaceIsEmpty(a.webRTCServer) {
-		group.GET("/v1/webrtcconns/list", a.onWebRTCConnsList)
-		group.POST("/v1/webrtcconns/kick/:id", a.onWebRTCConnsKick)
+	if !interfaceIsEmpty(a.webRTCManager) {
+		group.GET("/v1/webrtcsessions/list", a.onWebRTCSessionsList)
+		group.POST("/v1/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
 	a.httpServer = &http.Server{
@@ -412,9 +413,13 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
-	id := ctx.Param("id")
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 
-	res := a.rtspServer.apiSessionsKick(id)
+	res := a.rtspServer.apiSessionsKick(uuid)
 	if res.err != nil {
 		return
 	}
@@ -443,9 +448,13 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
-	id := ctx.Param("id")
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 
-	res := a.rtspsServer.apiSessionsKick(id)
+	res := a.rtspsServer.apiSessionsKick(uuid)
 	if res.err != nil {
 		return
 	}
@@ -464,9 +473,13 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
-	id := ctx.Param("id")
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 
-	res := a.rtmpServer.apiConnsKick(id)
+	res := a.rtmpServer.apiConnsKick(uuid)
 	if res.err != nil {
 		return
 	}
@@ -485,9 +498,13 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
-	id := ctx.Param("id")
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 
-	res := a.rtmpsServer.apiConnsKick(id)
+	res := a.rtmpsServer.apiConnsKick(uuid)
 	if res.err != nil {
 		return
 	}
@@ -496,7 +513,7 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	res := a.hlsServer.apiMuxersList()
+	res := a.hlsManager.apiMuxersList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -505,8 +522,8 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res.data)
 }
 
-func (a *api) onWebRTCConnsList(ctx *gin.Context) {
-	res := a.webRTCServer.apiConnsList()
+func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
+	res := a.webRTCManager.apiSessionsList()
 	if res.err != nil {
 		ctx.AbortWithStatus(http.StatusInternalServerError)
 		return
@@ -515,10 +532,14 @@ func (a *api) onWebRTCConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, res.data)
 }
 
-func (a *api) onWebRTCConnsKick(ctx *gin.Context) {
-	id := ctx.Param("id")
+func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
 
-	res := a.webRTCServer.apiConnsKick(id)
+	res := a.webRTCManager.apiSessionsKick(uuid)
 	if res.err != nil {
 		return
 	}

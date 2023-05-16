@@ -16,7 +16,7 @@ Live streams can be published to the server with:
 |RTMP servers and cameras|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
 |HLS servers and cameras|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
 |UDP/MPEG-TS streams|Unicast, broadcast, multicast|H265, H264|Opus, MPEG-4 Audio (AAC)|
-|WebRTC||AV1, VP9, VP8, H264|Opus, G722, G711|
+|WebRTC|WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |Raspberry Pi Cameras||H264||
 
 And can be read from the server with:
@@ -26,7 +26,7 @@ And can be read from the server with:
 |RTSP|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus,  MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
 |RTMP|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
 |HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
-|WebRTC||AV1, VP9, VP8, H264|Opus, G722, G711|
+|WebRTC|WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
 
 Features:
 
@@ -546,9 +546,9 @@ rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
 
 # metrics of every WebRTC connection
-webrtc_conns{id="[id]"} 1
-webrtc_conns_bytes_received{id="[id]",state="[state]"} 1234
-webrtc_conns_bytes_sent{id="[id]",state="[state]"} 187
+webrtc_sessions{id="[id]"} 1
+webrtc_sessions_bytes_received{id="[id]",state="[state]"} 1234
+webrtc_sessions_bytes_sent{id="[id]",state="[state]"} 187
 ```
 
 ### pprof
@@ -1209,12 +1209,26 @@ For more advanced options, you can create and serve a custom web page by startin
 
 ## Standards
 
-* [RTSP/RTP/RTCP standards](https://github.com/bluenviron/gortsplib#standards)
-* [HLS standards](https://github.com/bluenviron/gohlslib#standards)
-* [Codec standards](https://github.com/bluenviron/mediacommon#standards)
-* [RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
-* [Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)
-* [Golang project layout](https://github.com/golang-standards/project-layout)
+* RTSP
+  * [RTSP/RTP/RTCP standards](https://github.com/bluenviron/gortsplib#standards)
+
+* HLS
+  * [HLS standards](https://github.com/bluenviron/gohlslib#standards)
+
+* RTMP
+  * [RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
+  * [Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)
+
+* WebRTC
+  * [WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)
+  * [WebRTC Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)
+  * [WebRTC HTTP Egress Protocol (WHEP)](https://datatracker.ietf.org/doc/draft-murillo-whep/)
+
+* Video and audio codecs
+  * [Codec standards](https://github.com/bluenviron/mediacommon#standards)
+
+* Other
+  * [Golang project layout](https://github.com/golang-standards/project-layout)
 
 ## Links
 
@@ -1222,10 +1236,10 @@ Related projects
 
 * [gortsplib (RTSP library used internally)](https://github.com/bluenviron/gortsplib)
 * [gohlslib (HLS library used internally)](https://github.com/bluenviron/gohlslib)
+* [pion/webrtc (WebRTC library used internally)](https://github.com/pion/webrtc)
 * [pion/sdp (SDP library used internally)](https://github.com/pion/sdp)
 * [pion/rtp (RTP library used internally)](https://github.com/pion/rtp)
 * [pion/rtcp (RTCP library used internally)](https://github.com/pion/rtcp)
-* [pion/webrtc (WebRTC library used internally)](https://github.com/pion/webrtc)
 * [notedit/rtmp (RTMP library used internally)](https://github.com/notedit/rtmp)
 * [go-astits (MPEG-TS library used internally)](https://github.com/asticode/go-astits)
 * [go-mp4 (MP4 library used internally)](https://github.com/abema/go-mp4)

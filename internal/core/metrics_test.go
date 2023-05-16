@@ -57,9 +57,9 @@ rtsps_sessions_bytes_sent 0
 rtmp_conns 0
 rtmp_conns_bytes_received 0
 rtmp_conns_bytes_sent 0
-webrtc_conns 0
-webrtc_conns_bytes_received 0
-webrtc_conns_bytes_sent 0
+webrtc_sessions 0
+webrtc_sessions_bytes_received 0
+webrtc_sessions_bytes_sent 0
 `, string(bo))
 
 	medi := testMediaH264
@@ -132,9 +132,9 @@ webrtc_conns_bytes_sent 0
 			`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
 			`rtmp_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`rtmp_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
-			`webrtc_conns 0`+"\n"+
-			`webrtc_conns_bytes_received 0`+"\n"+
-			`webrtc_conns_bytes_sent 0`+"\n"+
+			`webrtc_sessions 0`+"\n"+
+			`webrtc_sessions_bytes_received 0`+"\n"+
+			`webrtc_sessions_bytes_sent 0`+"\n"+
 			"$",
 		string(bo))
 }

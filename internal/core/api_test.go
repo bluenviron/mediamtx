@@ -545,8 +545,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
-				c, err := newWebRTCTestClient("ws://localhost:8889/mypath/ws")
-				require.NoError(t, err)
+				c := newWebRTCTestClient(t, "http://localhost:8889/mypath/whep", false)
 				defer c.close()
 
 				time.Sleep(500 * time.Millisecond)
@@ -563,7 +562,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					Payload: []byte{0x01, 0x02, 0x03, 0x04},
 				})
 
-				<-c.track
+				<-c.incomingTrack
 			}
 
 			switch ca {
@@ -639,7 +638,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 				var out struct {
 					Items map[string]item `json:"items"`
 				}
-				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/webrtcconns/list", nil, &out)
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/webrtcsessions/list", nil, &out)
 				require.NoError(t, err)
 
 				var firstID string
@@ -667,6 +666,7 @@ func TestAPIKick(t *testing.T) {
 		"rtsp",
 		"rtsps",
 		"rtmp",
+		"webrtc",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -720,6 +720,10 @@ func TestAPIKick(t *testing.T) {
 
 				err = conn.WriteTracks(testFormatH264, nil)
 				require.NoError(t, err)
+
+			case "webrtc":
+				c := newWebRTCTestClient(t, "http://localhost:8889/mypath/whip", true)
+				defer c.close()
 			}
 
 			var pa string
@@ -732,6 +736,9 @@ func TestAPIKick(t *testing.T) {
 
 			case "rtmp":
 				pa = "rtmpconns"
+
+			case "webrtc":
+				pa = "webrtcsessions"
 			}
 
 			var out1 struct {

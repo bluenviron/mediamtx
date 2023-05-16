@@ -348,7 +348,7 @@ components:
           - rtspsSession
           - redirect
           - udpSource
-          - webRTCConn
+          - webRTCSession
         id:
           type: string
 
@@ -807,9 +807,9 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/webrtcconns/list:
+  /v1/webrtcsessions/list:
     get:
-      operationId: webrtcConnsList
+      operationId: webrtcSessionsList
       summary: returns all WebRTC connections.
       description: ''
       responses:
@@ -824,9 +824,9 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/webrtcconns/kick/{id}:
+  /v1/webrtcsessions/kick/{id}:
     post:
-      operationId: webrtcConnsKick
+      operationId: webrtcSessionsKick
       summary: kicks out a WebRTC connection from the server.
       description: ''
       parameters:

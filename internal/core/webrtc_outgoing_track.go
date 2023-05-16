@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp9"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -20,7 +21,7 @@ type webRTCOutgoingTrack struct {
 	media  *media.Media
 	format formats.Format
 	track  *webrtc.TrackLocalStaticRTP
-	cb     func(formatprocessor.Unit, context.Context, chan error)
+	cb     func(formatprocessor.Unit) error
 }
 
 func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, error) {
@@ -34,7 +35,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: 90000,
 			},
 			"av1",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -50,21 +51,23 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  av1Media,
 			format: av1Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				tunit := unit.(*formatprocessor.UnitAV1)
 
 				if tunit.OBUs == nil {
-					return
+					return nil
 				}
 
 				packets, err := encoder.Encode(tunit.OBUs, tunit.PTS)
 				if err != nil {
-					return
+					return nil
 				}
 
 				for _, pkt := range packets {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -79,7 +82,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(vp9Format.ClockRate()),
 			},
 			"vp9",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -95,21 +98,23 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  vp9Media,
 			format: vp9Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				tunit := unit.(*formatprocessor.UnitVP9)
 
 				if tunit.Frame == nil {
-					return
+					return nil
 				}
 
 				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
 				if err != nil {
-					return
+					return nil
 				}
 
 				for _, pkt := range packets {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -124,7 +129,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(vp8Format.ClockRate()),
 			},
 			"vp8",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -140,21 +145,23 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  vp8Media,
 			format: vp8Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				tunit := unit.(*formatprocessor.UnitVP8)
 
 				if tunit.Frame == nil {
-					return
+					return nil
 				}
 
 				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
 				if err != nil {
-					return
+					return nil
 				}
 
 				for _, pkt := range packets {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -169,7 +176,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(h264Format.ClockRate()),
 			},
 			"h264",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -188,11 +195,11 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  h264Media,
 			format: h264Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				tunit := unit.(*formatprocessor.UnitH264)
 
 				if tunit.AU == nil {
-					return
+					return nil
 				}
 
 				if !firstNALUReceived {
@@ -200,23 +207,21 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 					lastPTS = tunit.PTS
 				} else {
 					if tunit.PTS < lastPTS {
-						select {
-						case writeError <- fmt.Errorf("WebRTC doesn't support H264 streams with B-frames"):
-						case <-ctx.Done():
-						}
-						return
+						return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
 					}
 					lastPTS = tunit.PTS
 				}
 
 				packets, err := encoder.Encode(tunit.AU, tunit.PTS)
 				if err != nil {
-					return
+					return nil
 				}
 
 				for _, pkt := range packets {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -233,9 +238,10 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeOpus,
 				ClockRate: uint32(opusFormat.ClockRate()),
+				Channels:  2,
 			},
 			"opus",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -245,10 +251,12 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  opusMedia,
 			format: opusFormat,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -263,7 +271,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(g722Format.ClockRate()),
 			},
 			"g722",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -273,10 +281,12 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  g722Media,
 			format: g722Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -298,7 +308,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 				ClockRate: uint32(g711Format.ClockRate()),
 			},
 			"g711",
-			"rtspss",
+			webrtcStreamID,
 		)
 		if err != nil {
 			return nil, err
@@ -308,10 +318,12 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  g711Media,
 			format: g711Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit, ctx context.Context, writeError chan error) {
+			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
 					webRTCTrak.WriteRTP(pkt)
 				}
+
+				return nil
 			},
 		}, nil
 	}
@@ -319,7 +331,13 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 	return nil, nil
 }
 
-func (t *webRTCOutgoingTrack) start() {
+func (t *webRTCOutgoingTrack) start(
+	ctx context.Context,
+	r reader,
+	stream *stream,
+	ringBuffer *ringbuffer.RingBuffer,
+	writeError chan error,
+) {
 	// read incoming RTCP packets to make interceptors work
 	go func() {
 		buf := make([]byte, 1500)
@@ -330,4 +348,16 @@ func (t *webRTCOutgoingTrack) start() {
 			}
 		}
 	}()
+
+	stream.readerAdd(r, t.media, t.format, func(unit formatprocessor.Unit) {
+		ringBuffer.Push(func() {
+			err := t.cb(unit)
+			if err != nil {
+				select {
+				case writeError <- err:
+				case <-ctx.Done():
+				}
+			}
+		})
+	})
 }

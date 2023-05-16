@@ -18,6 +18,7 @@ type peerConnection struct {
 	connected          chan struct{}
 	disconnected       chan struct{}
 	closed             chan struct{}
+	gatheringDone      chan struct{}
 }
 
 func newPeerConnection(
@@ -222,6 +223,7 @@ func newPeerConnection(
 		connected:          make(chan struct{}),
 		disconnected:       make(chan struct{}),
 		closed:             make(chan struct{}),
+		gatheringDone:      make(chan struct{}),
 	}
 
 	pc.OnConnectionStateChange(func(state webrtc.PeerConnectionState) {
@@ -238,6 +240,9 @@ func newPeerConnection(
 
 		switch state {
 		case webrtc.PeerConnectionStateConnected:
+			log.Log(logger.Info, "peer connection established, local candidate: %v, remote candidate: %v",
+				co.localCandidate(), co.remoteCandidate())
+
 			close(co.connected)
 
 		case webrtc.PeerConnectionStateDisconnected:
@@ -256,6 +261,8 @@ func newPeerConnection(
 			case <-co.connected:
 			case <-co.closed:
 			}
+		} else {
+			close(co.gatheringDone)
 		}
 	})
 
