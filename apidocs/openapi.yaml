@@ -2,8 +2,8 @@ openapi: 3.0.0
 
 info:
   version: 1.0.0
-  title: mediamtx API
-  description: API of mediamtx, a server and proxy that supports various protocols.
+  title: MediaMTX API
+  description: API of MediaMTX, a server and proxy that supports various protocols.
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
