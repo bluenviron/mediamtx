@@ -35,7 +35,7 @@ func whipGetICEServers(t *testing.T, ur string) []webrtc.ICEServer {
 	return servers
 }
 
-func whipPostOffer(t *testing.T, ur string, offer *webrtc.SessionDescription) *webrtc.SessionDescription {
+func whipPostOffer(t *testing.T, ur string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, string) {
 	enc, err := json.Marshal(offer)
 	require.NoError(t, err)
 
@@ -56,14 +56,34 @@ func whipPostOffer(t *testing.T, ur string, offer *webrtc.SessionDescription) *w
 	require.NotEqual(t, 0, len(servers))
 
 	require.Equal(t, "application/sdp", res.Header.Get("Content-Type"))
-	require.NotEqual(t, 0, len(res.Header.Get("E-Tag")))
+	etag := res.Header.Get("E-Tag")
+	require.NotEqual(t, 0, len(etag))
 	require.Equal(t, "application/trickle-ice-sdpfrag", res.Header.Get("Accept-Patch"))
 
 	var answer webrtc.SessionDescription
 	err = json.NewDecoder(res.Body).Decode(&answer)
 	require.NoError(t, err)
 
-	return &answer
+	return &answer, etag
+}
+
+func whipPostCandidate(t *testing.T, ur string, offer *webrtc.SessionDescription,
+	etag string, candidate *webrtc.ICECandidateInit,
+) {
+	frag, err := marshalICEFragment(offer, []*webrtc.ICECandidateInit{candidate})
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("PATCH", ur, bytes.NewReader(frag))
+	require.NoError(t, err)
+
+	req.Header.Set("Content-Type", "application/trickle-ice-sdpfrag")
+	req.Header.Set("If-Match", etag)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
 }
 
 type webRTCTestClient struct {
@@ -150,14 +170,26 @@ func newWebRTCTestClient(t *testing.T, ur string, publish bool) *webRTCTestClien
 	offer, err := pc.CreateOffer(nil)
 	require.NoError(t, err)
 
+	answer, etag := whipPostOffer(t, ur, &offer)
+
+	// test adding additional candidates, even if it is not mandatory here
+	gatheringDone := make(chan struct{})
+	pc.OnICECandidate(func(i *webrtc.ICECandidate) {
+		if i != nil {
+			c := i.ToJSON()
+			whipPostCandidate(t, ur, &offer, etag, &c)
+		} else {
+			close(gatheringDone)
+		}
+	})
+
 	err = pc.SetLocalDescription(offer)
 	require.NoError(t, err)
-
-	answer := whipPostOffer(t, ur, &offer)
 
 	err = pc.SetRemoteDescription(*answer)
 	require.NoError(t, err)
 
+	<-gatheringDone
 	<-connected
 
 	if publish {

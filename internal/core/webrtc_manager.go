@@ -37,7 +37,8 @@ func iceServersToLinkHeader(iceServers []webrtc.ICEServer) []string {
 	return ret
 }
 
-var reLink = regexp.MustCompile(`^<(.+?)>; rel="ice-server"(; username="(.+?)"; credential="(.+?)"; credential-type="password")?`)
+var reLink = regexp.MustCompile(`^<(.+?)>; rel="ice-server"(; username="(.+?)"` +
+	`; credential="(.+?)"; credential-type="password")?`)
 
 func linkHeaderToIceServers(link []string) []webrtc.ICEServer {
 	var ret []webrtc.ICEServer
