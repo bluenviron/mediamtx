@@ -99,6 +99,11 @@ func (t *webRTCIncomingTrack) start(stream *stream) {
 				return
 			}
 
+			// sometimes Chrome sends empty RTP packets. ignore them.
+			if len(pkt.Payload) == 0 {
+				continue
+			}
+
 			stream.writeRTPPacket(t.media, t.format, pkt, time.Now())
 		}
 	}()
