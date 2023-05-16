@@ -17,13 +17,15 @@ func (nilWriter) Write(p []byte) (int, error) {
 }
 
 type hlsManagerAPIMuxersListItem struct {
+	Path        string    `json:"path"`
 	Created     time.Time `json:"created"`
 	LastRequest time.Time `json:"lastRequest"`
 	BytesSent   uint64    `json:"bytesSent"`
 }
 
 type hlsManagerAPIMuxersListData struct {
-	Items map[string]hlsManagerAPIMuxersListItem `json:"items"`
+	PageCount int                           `json:"pageCount"`
+	Items     []hlsManagerAPIMuxersListItem `json:"items"`
 }
 
 type hlsManagerAPIMuxersListRes struct {
@@ -285,7 +287,7 @@ func (m *hlsManager) apiMuxersList() hlsManagerAPIMuxersListRes {
 		res := <-req.res
 
 		res.data = &hlsManagerAPIMuxersListData{
-			Items: make(map[string]hlsManagerAPIMuxersListItem),
+			Items: []hlsManagerAPIMuxersListItem{},
 		}
 
 		for _, pa := range res.muxers {

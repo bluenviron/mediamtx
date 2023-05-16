@@ -311,6 +311,8 @@ components:
     Path:
       type: object
       properties:
+        name:
+          type: string
         confName:
           type: string
         conf:
@@ -355,6 +357,8 @@ components:
     RTSPConn:
       type: object
       properties:
+        id:
+          type: string
         created:
           type: string
         remoteAddr:
@@ -369,6 +373,8 @@ components:
     RTSPSession:
       type: object
       properties:
+        id:
+          type: string
         created:
           type: string
         remoteAddr:
@@ -386,6 +392,8 @@ components:
     RTMPConn:
       type: object
       properties:
+        id:
+          type: string
         created:
           type: string
         remoteAddr:
@@ -403,6 +411,8 @@ components:
     HLSMuxer:
       type: object
       properties:
+        path:
+          type: string
         created:
           type: string
         lastRequest:
@@ -414,46 +424,58 @@ components:
     HLSMuxersList:
       type: object
       properties:
+        pageCount:
+          type: integer
         items:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/HLSMuxer'
 
     PathsList:
       type: object
       properties:
+        pageCount:
+          type: integer
         items:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/Path'
 
     RTMPConnsList:
       type: object
       properties:
+        pageCount:
+          type: integer
         items:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/RTMPConn'
 
     RTSPConnsList:
       type: object
       properties:
+        pageCount:
+          type: integer
         items:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/RTSPConn'
 
     RTSPSessionsList:
       type: object
       properties:
+        pageCount:
+          type: integer
         items:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/RTSPSession'
 
     WebRTCConn:
       type: object
       properties:
+        id:
+          type: string
         created:
           type: string
         remoteAddr:
@@ -477,9 +499,11 @@ components:
     WebRTCConnsList:
       type: object
       properties:
+        pageCount:
+          type: integer
         items:
-          type: object
-          additionalProperties:
+          type: array
+          items:
             $ref: '#/components/schemas/WebRTCConn'
 
 paths:
@@ -596,6 +620,19 @@ paths:
       operationId: hlsMuxersList
       summary: returns all HLS muxers.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -613,6 +650,19 @@ paths:
       operationId: pathsList
       summary: returns all paths.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -630,6 +680,19 @@ paths:
       operationId: rtspConnsList
       summary: returns all RTSP connections.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -647,6 +710,19 @@ paths:
       operationId: rtspSessionsList
       summary: returns all RTSP sessions.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -684,6 +760,19 @@ paths:
       operationId: rtspsConnsList
       summary: returns all RTSPS connections.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -701,6 +790,19 @@ paths:
       operationId: rtspsSessionsList
       summary: returns all RTSPS sessions.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -738,6 +840,19 @@ paths:
       operationId: rtmpConnsList
       summary: returns all RTMP connections.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -775,6 +890,19 @@ paths:
       operationId: rtmpsConnsList
       summary: returns all RTMPS connections.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.
@@ -812,6 +940,19 @@ paths:
       operationId: webrtcSessionsList
       summary: returns all WebRTC connections.
       description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: number
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: number
+          default: 100
       responses:
         '200':
           description: the request was successful.

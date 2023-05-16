@@ -65,6 +65,7 @@ func linkHeaderToIceServers(link []string) []webrtc.ICEServer {
 }
 
 type webRTCManagerAPISessionsListItem struct {
+	ID                        uuid.UUID `json:"id"`
 	Created                   time.Time `json:"created"`
 	RemoteAddr                string    `json:"remoteAddr"`
 	PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
@@ -76,7 +77,8 @@ type webRTCManagerAPISessionsListItem struct {
 }
 
 type webRTCManagerAPISessionsListData struct {
-	Items map[string]webRTCManagerAPISessionsListItem `json:"items"`
+	PageCount int                                `json:"pageCount"`
+	Items     []webRTCManagerAPISessionsListItem `json:"items"`
 }
 
 type webRTCManagerAPISessionsListRes struct {
@@ -308,7 +310,7 @@ outer:
 
 		case req := <-m.chAPISessionsList:
 			data := &webRTCManagerAPISessionsListData{
-				Items: make(map[string]webRTCManagerAPISessionsListItem),
+				Items: []webRTCManagerAPISessionsListItem{},
 			}
 
 			for sx := range m.sessions {
@@ -327,7 +329,8 @@ outer:
 					bytesSent = pc.bytesSent()
 				}
 
-				data.Items[sx.uuid.String()] = webRTCManagerAPISessionsListItem{
+				data.Items = append(data.Items, webRTCManagerAPISessionsListItem{
+					ID:                        sx.uuid,
 					Created:                   sx.created,
 					RemoteAddr:                sx.req.remoteAddr,
 					PeerConnectionEstablished: peerConnectionEstablished,
@@ -341,7 +344,7 @@ outer:
 					}(),
 					BytesReceived: bytesReceived,
 					BytesSent:     bytesSent,
-				}
+				})
 			}
 
 			req.res <- webRTCManagerAPISessionsListRes{data: data}

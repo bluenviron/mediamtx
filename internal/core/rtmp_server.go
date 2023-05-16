@@ -16,6 +16,7 @@ import (
 )
 
 type rtmpServerAPIConnsListItem struct {
+	ID            uuid.UUID `json:"id"`
 	Created       time.Time `json:"created"`
 	RemoteAddr    string    `json:"remoteAddr"`
 	State         string    `json:"state"`
@@ -24,7 +25,8 @@ type rtmpServerAPIConnsListItem struct {
 }
 
 type rtmpServerAPIConnsListData struct {
-	Items map[string]rtmpServerAPIConnsListItem `json:"items"`
+	PageCount int                          `json:"pageCount"`
+	Items     []rtmpServerAPIConnsListItem `json:"items"`
 }
 
 type rtmpServerAPIConnsListRes struct {
@@ -217,11 +219,12 @@ outer:
 
 		case req := <-s.chAPISessionsList:
 			data := &rtmpServerAPIConnsListData{
-				Items: make(map[string]rtmpServerAPIConnsListItem),
+				Items: []rtmpServerAPIConnsListItem{},
 			}
 
 			for c := range s.conns {
-				data.Items[c.uuid.String()] = rtmpServerAPIConnsListItem{
+				data.Items = append(data.Items, rtmpServerAPIConnsListItem{
+					ID:         c.uuid,
 					Created:    c.created,
 					RemoteAddr: c.remoteAddr().String(),
 					State: func() string {
@@ -236,7 +239,7 @@ outer:
 					}(),
 					BytesReceived: c.conn.BytesReceived(),
 					BytesSent:     c.conn.BytesSent(),
-				}
+				})
 			}
 
 			req.res <- rtmpServerAPIConnsListRes{data: data}

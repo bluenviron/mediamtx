@@ -159,6 +159,7 @@ type pathAPISourceOrReader struct {
 }
 
 type pathAPIPathsListItem struct {
+	Name          string         `json:"name"`
 	ConfName      string         `json:"confName"`
 	Conf          *conf.PathConf `json:"conf"`
 	Source        interface{}    `json:"source"`
@@ -169,7 +170,8 @@ type pathAPIPathsListItem struct {
 }
 
 type pathAPIPathsListData struct {
-	Items map[string]pathAPIPathsListItem `json:"items"`
+	PageCount int                    `json:"pageCount"`
+	Items     []pathAPIPathsListItem `json:"items"`
 }
 
 type pathAPIPathsListRes struct {
@@ -897,7 +899,8 @@ func (pa *path) handleReaderAddPost(req pathReaderAddReq) {
 }
 
 func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
-	req.data.Items[pa.name] = pathAPIPathsListItem{
+	req.data.Items = append(req.data.Items, pathAPIPathsListItem{
+		Name:     pa.name,
 		ConfName: pa.confName,
 		Conf:     pa.conf,
 		Source: func() interface{} {
@@ -921,7 +924,7 @@ func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
 			}
 			return ret
 		}(),
-	}
+	})
 	close(req.res)
 }
 
