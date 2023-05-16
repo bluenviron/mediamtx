@@ -295,6 +295,41 @@ func TestWebRTCRead(t *testing.T) {
 	}, pkt)
 }
 
+func TestWebRTCReadNotFound(t *testing.T) {
+	p, ok := newInstance("paths:\n" +
+		"  all:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	iceServers := whipGetICEServers(t, "http://localhost:8889/stream/whep")
+
+	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
+		ICEServers: iceServers,
+	})
+	require.NoError(t, err)
+	defer pc.Close()
+
+	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	require.NoError(t, err)
+
+	offer, err := pc.CreateOffer(nil)
+	require.NoError(t, err)
+
+	enc, err := json.Marshal(offer)
+	require.NoError(t, err)
+
+	req, err := http.NewRequest("POST", "http://localhost:8889/stream/whep", bytes.NewReader(enc))
+	require.NoError(t, err)
+
+	req.Header.Set("Content-Type", "application/sdp")
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusNotFound, res.StatusCode)
+}
+
 func TestWebRTCPublish(t *testing.T) {
 	p, ok := newInstance("paths:\n" +
 		"  all:\n")
