@@ -10,7 +10,7 @@ Live streams can be published to the server with:
 
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
-|WebRTC|WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
+|WebRTC|Browser-based, WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |RTSP clients|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
 |RTSP servers and cameras|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
 |RTMP clients (OBS Studio)|RTMP, RTMPS, Enhanced RTMP|AV1, H265, H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
@@ -23,7 +23,7 @@ And can be read from the server with:
 
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
-|WebRTC|WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
+|WebRTC|Browser-based, WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |RTSP|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
 |RTMP|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-2 Audio (MP3)|
 |HLS|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
@@ -49,7 +49,7 @@ Features:
 [![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/branch/main)
 [![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
 [![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
-[![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://aler9.github.io/mediamtx)
+[![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://bluenviron.github.io/mediamtx)
 
 ## Note about rtsp-simple-server
 
@@ -495,7 +495,7 @@ The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instan
 curl http://127.0.0.1:9997/v1/paths/list
 ```
 
-Full documentation of the API is available on the [dedicated site](https://aler9.github.io/mediamtx/).
+Full documentation of the API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
 
 ### Metrics
 
