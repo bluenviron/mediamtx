@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -96,10 +97,11 @@ type webRTCManagerAPISessionsKickReq struct {
 	res  chan webRTCManagerAPISessionsKickRes
 }
 
-type webRTCNewSessionRes struct {
-	sx     *webRTCSession
-	answer []byte
-	err    error
+type webRTCSessionNewRes struct {
+	sx            *webRTCSession
+	answer        []byte
+	err           error
+	errStatusCode int
 }
 
 type webRTCSessionNewReq struct {
@@ -110,7 +112,7 @@ type webRTCSessionNewReq struct {
 	videoCodec   string
 	audioCodec   string
 	videoBitrate string
-	res          chan webRTCNewSessionRes
+	res          chan webRTCSessionNewRes
 }
 
 type webRTCSessionAddCandidatesRes struct {
@@ -289,7 +291,7 @@ outer:
 			)
 			m.sessions[sx] = struct{}{}
 			m.sessionsBySecret[sx.secret] = sx
-			req.res <- webRTCNewSessionRes{sx: sx}
+			req.res <- webRTCSessionNewRes{sx: sx}
 
 		case sx := <-m.chSessionClose:
 			delete(m.sessions, sx)
@@ -429,8 +431,8 @@ func (m *webRTCManager) genICEServers() []webrtc.ICEServer {
 }
 
 // sessionNew is called by webRTCHTTPServer.
-func (m *webRTCManager) sessionNew(req webRTCSessionNewReq) webRTCNewSessionRes {
-	req.res = make(chan webRTCNewSessionRes)
+func (m *webRTCManager) sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes {
+	req.res = make(chan webRTCSessionNewRes)
 
 	select {
 	case m.chSessionNew <- req:
@@ -441,11 +443,11 @@ func (m *webRTCManager) sessionNew(req webRTCSessionNewReq) webRTCNewSessionRes 
 			return res2
 
 		case <-res1.sx.ctx.Done():
-			return webRTCNewSessionRes{err: fmt.Errorf("terminated")}
+			return webRTCSessionNewRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
 		}
 
 	case <-m.ctx.Done():
-		return webRTCNewSessionRes{err: fmt.Errorf("terminated")}
+		return webRTCSessionNewRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
 	}
 }
 

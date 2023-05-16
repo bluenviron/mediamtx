@@ -4,7 +4,7 @@
 
 <br>
 
-_MediaMTX_/ [_rtsp-simple-server_](#note-about-rtsp-simple-server) is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
+_MediaMTX_ / [_rtsp-simple-server_](#note-about-rtsp-simple-server) is a ready-to-use and zero-dependency server and proxy that allows users to publish, read and proxy live video and audio streams.
 
 Live streams can be published to the server with:
 

@@ -109,7 +109,7 @@ func marshalICEFragment(offer *webrtc.SessionDescription, candidates []*webrtc.I
 type webRTCHTTPServerParent interface {
 	logger.Writer
 	genICEServers() []webrtc.ICEServer
-	sessionNew(req webRTCSessionNewReq) webRTCNewSessionRes
+	sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes
 	sessionAddCandidates(req webRTCSessionAddCandidatesReq) webRTCSessionAddCandidatesRes
 }
 
@@ -315,7 +315,9 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				videoBitrate: ctx.Query("video_bitrate"),
 			})
 			if res.err != nil {
-				ctx.Writer.WriteHeader(http.StatusInternalServerError)
+				if res.errStatusCode != 0 {
+					ctx.Writer.WriteHeader(res.errStatusCode)
+				}
 				return
 			}
 

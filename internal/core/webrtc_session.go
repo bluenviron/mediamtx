@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -155,9 +157,9 @@ type webRTCSession struct {
 	created    time.Time
 	uuid       uuid.UUID
 	secret     uuid.UUID
-	answerSent bool
 	pcMutex    sync.RWMutex
 	pc         *peerConnection
+	answerSent bool
 
 	chAddRemoteCandidates chan webRTCSessionAddCandidatesReq
 }
@@ -218,12 +220,13 @@ func (s *webRTCSession) safePC() *peerConnection {
 func (s *webRTCSession) run() {
 	defer s.wg.Done()
 
-	err := s.runInner()
+	errStatusCode, err := s.runInner()
 
 	if !s.answerSent {
 		select {
-		case s.req.res <- webRTCNewSessionRes{
-			err: err,
+		case s.req.res <- webRTCSessionNewRes{
+			err:           err,
+			errStatusCode: errStatusCode,
 		}:
 		case <-s.ctx.Done():
 		}
@@ -234,28 +237,28 @@ func (s *webRTCSession) run() {
 	s.Log(logger.Info, "closed (%v)", err)
 }
 
-func (s *webRTCSession) runInner() error {
+func (s *webRTCSession) runInner() (int, error) {
 	if s.req.publish {
 		return s.runPublish()
 	}
 	return s.runRead()
 }
 
-func (s *webRTCSession) runPublish() error {
+func (s *webRTCSession) runPublish() (int, error) {
 	res := s.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   s,
 		pathName: s.req.pathName,
 		skipAuth: true,
 	})
 	if res.err != nil {
-		return res.err
+		return http.StatusInternalServerError, res.err
 	}
 
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
 
 	offer, err := s.decodeOffer()
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	pc, err := newPeerConnection(
@@ -267,7 +270,7 @@ func (s *webRTCSession) runPublish() error {
 		s.iceTCPMux,
 		s)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 	defer pc.close()
 
@@ -275,14 +278,14 @@ func (s *webRTCSession) runPublish() error {
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
 	})
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio, webrtc.RtpTransceiverInit{
 		Direction: webrtc.RTPTransceiverDirectionRecvonly,
 	})
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	trackRecv := make(chan trackRecvPair)
@@ -296,23 +299,23 @@ func (s *webRTCSession) runPublish() error {
 
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	err = pc.SetLocalDescription(answer)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	if s.req.videoBitrate != "" {
 		tmp, err := strconv.ParseUint(s.req.videoBitrate, 10, 31)
 		if err != nil {
-			return err
+			return http.StatusBadRequest, err
 		}
 
 		insertTias(&answer, tmp*1024)
@@ -320,24 +323,24 @@ func (s *webRTCSession) runPublish() error {
 
 	err = s.waitGatheringDone(pc)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	err = s.writeAnswer(pc.LocalDescription())
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	go s.readRemoteCandidates(pc)
 
 	err = s.waitUntilConnected(pc)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	tracks, err := gatherIncomingTracks(s.ctx, pc, trackRecv)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	medias := mediasOfIncomingTracks(tracks)
 
@@ -347,7 +350,7 @@ func (s *webRTCSession) runPublish() error {
 		generateRTPPackets: false,
 	})
 	if rres.err != nil {
-		return rres.err
+		return 0, rres.err
 	}
 
 	s.Log(logger.Info, "is publishing to path '%s', %s",
@@ -360,33 +363,36 @@ func (s *webRTCSession) runPublish() error {
 
 	select {
 	case <-pc.disconnected:
-		return fmt.Errorf("peer connection closed")
+		return 0, fmt.Errorf("peer connection closed")
 
 	case <-s.ctx.Done():
-		return fmt.Errorf("terminated")
+		return 0, fmt.Errorf("terminated")
 	}
 }
 
-func (s *webRTCSession) runRead() error {
+func (s *webRTCSession) runRead() (int, error) {
 	res := s.pathManager.readerAdd(pathReaderAddReq{
 		author:   s,
 		pathName: s.req.pathName,
 		skipAuth: true,
 	})
 	if res.err != nil {
-		return res.err
+		if strings.HasPrefix(res.err.Error(), "no one is publishing") {
+			return http.StatusNotFound, res.err
+		}
+		return http.StatusInternalServerError, res.err
 	}
 
 	defer res.path.readerRemove(pathReaderRemoveReq{author: s})
 
 	tracks, err := gatherOutgoingTracks(res.stream.medias())
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	offer, err := s.decodeOffer()
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	pc, err := newPeerConnection(
@@ -398,7 +404,7 @@ func (s *webRTCSession) runRead() error {
 		s.iceTCPMux,
 		s)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 	defer pc.close()
 
@@ -406,40 +412,40 @@ func (s *webRTCSession) runRead() error {
 		var err error
 		track.sender, err = pc.AddTrack(track.track)
 		if err != nil {
-			return err
+			return http.StatusBadRequest, err
 		}
 	}
 
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	err = pc.SetLocalDescription(answer)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	err = s.waitGatheringDone(pc)
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	err = s.writeAnswer(pc.LocalDescription())
 	if err != nil {
-		return err
+		return http.StatusBadRequest, err
 	}
 
 	go s.readRemoteCandidates(pc)
 
 	err = s.waitUntilConnected(pc)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	ringBuffer, _ := ringbuffer.New(uint64(s.readBufferCount))
@@ -468,13 +474,13 @@ func (s *webRTCSession) runRead() error {
 
 	select {
 	case <-pc.disconnected:
-		return fmt.Errorf("peer connection closed")
+		return 0, fmt.Errorf("peer connection closed")
 
 	case err := <-writeError:
-		return err
+		return 0, err
 
 	case <-s.ctx.Done():
-		return fmt.Errorf("terminated")
+		return 0, fmt.Errorf("terminated")
 	}
 }
 
@@ -511,7 +517,7 @@ func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) error {
 	}
 
 	select {
-	case s.req.res <- webRTCNewSessionRes{
+	case s.req.res <- webRTCSessionNewRes{
 		sx:     s,
 		answer: enc,
 	}:
