@@ -205,7 +205,7 @@ webrtcTrustedProxies: []
 # TURN/TURNS servers are used as relay when a direct connection between server and clients is not possible.
 # if user is "AUTH_SECRET", then authentication is secret based.
 # the secret must be inserted into the pass field.
-webrtcICEServers: [stun:stun.l.google.com:19302, stun:myuser:mypass:stun4.l.google.com:19302]
+webrtcICEServers: [stun:stun.l.google.com:19302]
 # List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT.
 webrtcICEHostNAT1To1IPs: []
