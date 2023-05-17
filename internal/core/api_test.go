@@ -88,7 +88,7 @@ func TestAPIConfigGet(t *testing.T) {
 	defer p.Close()
 
 	var out map[string]interface{}
-	err := httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
+	err := httpRequest(http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
 	require.NoError(t, err)
 	require.Equal(t, true, out["api"])
 }
@@ -98,7 +98,7 @@ func TestAPIConfigSet(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/set", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v2/config/set", map[string]interface{}{
 		"rtmpDisable": true,
 		"readTimeout": "7s",
 		"protocols":   []string{"tcp"},
@@ -108,7 +108,7 @@ func TestAPIConfigSet(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	var out map[string]interface{}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
+	err = httpRequest(http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
 	require.NoError(t, err)
 	require.Equal(t, true, out["rtmpDisable"])
 	require.Equal(t, "7s", out["readTimeout"])
@@ -120,14 +120,14 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v2/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 	require.NoError(t, err)
 
 	var out map[string]interface{}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
+	err = httpRequest(http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
 	require.NoError(t, err)
 	require.Equal(t, "rtsp://127.0.0.1:9999/mypath",
 		out["paths"].(map[string]interface{})["my/path"].(map[string]interface{})["source"])
@@ -138,13 +138,13 @@ func TestAPIConfigPathsEdit(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v2/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 	require.NoError(t, err)
 
-	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/edit/my/path", map[string]interface{}{
+	err = httpRequest(http.MethodPost, "http://localhost:9997/v2/config/paths/edit/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9998/mypath",
 		"sourceOnDemand": true,
 	}, nil)
@@ -155,7 +155,7 @@ func TestAPIConfigPathsEdit(t *testing.T) {
 			Source string `json:"source"`
 		} `json:"paths"`
 	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
+	err = httpRequest(http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
 	require.NoError(t, err)
 	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out.Paths["my/path"].Source)
 }
@@ -165,19 +165,19 @@ func TestAPIConfigPathsRemove(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	err := httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/add/my/path", map[string]interface{}{
+	err := httpRequest(http.MethodPost, "http://localhost:9997/v2/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 	require.NoError(t, err)
 
-	err = httpRequest(http.MethodPost, "http://localhost:9997/v1/config/paths/remove/my/path", nil, nil)
+	err = httpRequest(http.MethodPost, "http://localhost:9997/v2/config/paths/remove/my/path", nil, nil)
 	require.NoError(t, err)
 
 	var out struct {
 		Paths map[string]interface{} `json:"paths"`
 	}
-	err = httpRequest(http.MethodGet, "http://localhost:9997/v1/config/get", nil, &out)
+	err = httpRequest(http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
 	require.NoError(t, err)
 	_, ok = out.Paths["my/path"]
 	require.Equal(t, false, ok)
@@ -242,7 +242,7 @@ func TestAPIPathsList(t *testing.T) {
 		})
 
 		var out pathList
-		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		err = httpRequest(http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
 			PageCount: 1,
@@ -303,7 +303,7 @@ func TestAPIPathsList(t *testing.T) {
 		defer source.Close()
 
 		var out pathList
-		err = httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		err = httpRequest(http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
 			PageCount: 1,
@@ -328,7 +328,7 @@ func TestAPIPathsList(t *testing.T) {
 		defer p.Close()
 
 		var out pathList
-		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		err := httpRequest(http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
 			PageCount: 1,
@@ -353,7 +353,7 @@ func TestAPIPathsList(t *testing.T) {
 		defer p.Close()
 
 		var out pathList
-		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		err := httpRequest(http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
 			PageCount: 1,
@@ -378,7 +378,7 @@ func TestAPIPathsList(t *testing.T) {
 		defer p.Close()
 
 		var out pathList
-		err := httpRequest(http.MethodGet, "http://localhost:9997/v1/paths/list", nil, &out)
+		err := httpRequest(http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.NoError(t, err)
 		require.Equal(t, pathList{
 			PageCount: 1,
@@ -595,7 +595,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 						State string `json:"state"`
 					} `json:"items"`
 				}
-				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out)
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out)
 				require.NoError(t, err)
 
 				if ca != "rtsp conns" && ca != "rtsps conns" {
@@ -609,7 +609,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 						LastRequest string `json:"lastRequest"`
 					} `json:"items"`
 				}
-				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/hlsmuxers/list", nil, &out)
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v2/hlsmuxers/list", nil, &out)
 				require.NoError(t, err)
 
 				s := fmt.Sprintf("^%d-", time.Now().Year())
@@ -631,7 +631,7 @@ func TestAPIProtocolSpecificList(t *testing.T) {
 					PageCount int    `json:"pageCount"`
 					Items     []item `json:"items"`
 				}
-				err = httpRequest(http.MethodGet, "http://localhost:9997/v1/webrtcsessions/list", nil, &out)
+				err = httpRequest(http.MethodGet, "http://localhost:9997/v2/webrtcsessions/list", nil, &out)
 				require.NoError(t, err)
 
 				require.Equal(t, true, out.Items[0].PeerConnectionEstablished)
@@ -733,10 +733,10 @@ func TestAPIKick(t *testing.T) {
 					ID string `json:"id"`
 				} `json:"items"`
 			}
-			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out1)
+			err = httpRequest(http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out1)
 			require.NoError(t, err)
 
-			err = httpRequest(http.MethodPost, "http://localhost:9997/v1/"+pa+"/kick/"+out1.Items[0].ID, nil, nil)
+			err = httpRequest(http.MethodPost, "http://localhost:9997/v2/"+pa+"/kick/"+out1.Items[0].ID, nil, nil)
 			require.NoError(t, err)
 
 			var out2 struct {
@@ -744,7 +744,7 @@ func TestAPIKick(t *testing.T) {
 					ID string `json:"id"`
 				} `json:"items"`
 			}
-			err = httpRequest(http.MethodGet, "http://localhost:9997/v1/"+pa+"/list", nil, &out2)
+			err = httpRequest(http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out2)
 			require.NoError(t, err)
 			require.Equal(t, 0, len(out2.Items))
 		})
