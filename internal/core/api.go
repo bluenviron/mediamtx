@@ -201,43 +201,43 @@ func newAPI(
 	router.NoRoute(mwLog, httpServerHeaderMiddleware)
 	group := router.Group("/", mwLog, httpServerHeaderMiddleware)
 
-	group.GET("/v1/config/get", a.onConfigGet)
-	group.POST("/v1/config/set", a.onConfigSet)
-	group.POST("/v1/config/paths/add/*name", a.onConfigPathsAdd)
-	group.POST("/v1/config/paths/edit/*name", a.onConfigPathsEdit)
-	group.POST("/v1/config/paths/remove/*name", a.onConfigPathsDelete)
+	group.GET("/v2/config/get", a.onConfigGet)
+	group.POST("/v2/config/set", a.onConfigSet)
+	group.POST("/v2/config/paths/add/*name", a.onConfigPathsAdd)
+	group.POST("/v2/config/paths/edit/*name", a.onConfigPathsEdit)
+	group.POST("/v2/config/paths/remove/*name", a.onConfigPathsDelete)
 
 	if !interfaceIsEmpty(a.hlsManager) {
-		group.GET("/v1/hlsmuxers/list", a.onHLSMuxersList)
+		group.GET("/v2/hlsmuxers/list", a.onHLSMuxersList)
 	}
 
-	group.GET("/v1/paths/list", a.onPathsList)
+	group.GET("/v2/paths/list", a.onPathsList)
 
 	if !interfaceIsEmpty(a.rtspServer) {
-		group.GET("/v1/rtspconns/list", a.onRTSPConnsList)
-		group.GET("/v1/rtspsessions/list", a.onRTSPSessionsList)
-		group.POST("/v1/rtspsessions/kick/:id", a.onRTSPSessionsKick)
+		group.GET("/v2/rtspconns/list", a.onRTSPConnsList)
+		group.GET("/v2/rtspsessions/list", a.onRTSPSessionsList)
+		group.POST("/v2/rtspsessions/kick/:id", a.onRTSPSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtspsServer) {
-		group.GET("/v1/rtspsconns/list", a.onRTSPSConnsList)
-		group.GET("/v1/rtspssessions/list", a.onRTSPSSessionsList)
-		group.POST("/v1/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
+		group.GET("/v2/rtspsconns/list", a.onRTSPSConnsList)
+		group.GET("/v2/rtspssessions/list", a.onRTSPSSessionsList)
+		group.POST("/v2/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtmpServer) {
-		group.GET("/v1/rtmpconns/list", a.onRTMPConnsList)
-		group.POST("/v1/rtmpconns/kick/:id", a.onRTMPConnsKick)
+		group.GET("/v2/rtmpconns/list", a.onRTMPConnsList)
+		group.POST("/v2/rtmpconns/kick/:id", a.onRTMPConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtmpsServer) {
-		group.GET("/v1/rtmpsconns/list", a.onRTMPSConnsList)
-		group.POST("/v1/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
+		group.GET("/v2/rtmpsconns/list", a.onRTMPSConnsList)
+		group.POST("/v2/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.webRTCManager) {
-		group.GET("/v1/webrtcsessions/list", a.onWebRTCSessionsList)
-		group.POST("/v1/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
+		group.GET("/v2/webrtcsessions/list", a.onWebRTCSessionsList)
+		group.POST("/v2/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
 	var err error

@@ -507,7 +507,7 @@ components:
             $ref: '#/components/schemas/WebRTCConn'
 
 paths:
-  /v1/config/get:
+  /v2/config/get:
     get:
       operationId: configGet
       summary: returns the configuration.
@@ -524,11 +524,11 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/config/set:
+  /v2/config/set:
     post:
       operationId: configSet
       summary: changes the configuration.
-      description: all fields are optional. paths can't be edited with this request, use /v1/config/paths/{operation}/{name} to edit them.
+      description: all fields are optional. paths can't be edited with this request, use /v2/config/paths/{operation}/{name} to edit them.
       requestBody:
         required: true
         content:
@@ -543,7 +543,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/config/paths/add/{name}:
+  /v2/config/paths/add/{name}:
     post:
       operationId: configPathsAdd
       summary: adds the configuration of a path.
@@ -569,7 +569,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/config/paths/edit/{name}:
+  /v2/config/paths/edit/{name}:
     post:
       operationId: configPathsEdit
       summary: changes the configuration of a path.
@@ -595,7 +595,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/config/paths/remove/{name}:
+  /v2/config/paths/remove/{name}:
     post:
       operationId: configPathsRemove
       summary: removes the configuration of a path.
@@ -615,7 +615,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/hlsmuxers/list:
+  /v2/hlsmuxers/list:
     get:
       operationId: hlsMuxersList
       summary: returns all HLS muxers.
@@ -645,7 +645,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/paths/list:
+  /v2/paths/list:
     get:
       operationId: pathsList
       summary: returns all paths.
@@ -675,7 +675,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspconns/list:
+  /v2/rtspconns/list:
     get:
       operationId: rtspConnsList
       summary: returns all RTSP connections.
@@ -705,7 +705,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspsessions/list:
+  /v2/rtspsessions/list:
     get:
       operationId: rtspSessionsList
       summary: returns all RTSP sessions.
@@ -735,7 +735,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspsessions/kick/{id}:
+  /v2/rtspsessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
       summary: kicks out a RTSP session from the server.
@@ -755,7 +755,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspsconns/list:
+  /v2/rtspsconns/list:
     get:
       operationId: rtspsConnsList
       summary: returns all RTSPS connections.
@@ -785,7 +785,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspssessions/list:
+  /v2/rtspssessions/list:
     get:
       operationId: rtspsSessionsList
       summary: returns all RTSPS sessions.
@@ -815,7 +815,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtspssessions/kick/{id}:
+  /v2/rtspssessions/kick/{id}:
     post:
       operationId: rtspsSessionsKick
       summary: kicks out a RTSPS session from the server.
@@ -835,7 +835,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtmpconns/list:
+  /v2/rtmpconns/list:
     get:
       operationId: rtmpConnsList
       summary: returns all RTMP connections.
@@ -865,7 +865,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtmpconns/kick/{id}:
+  /v2/rtmpconns/kick/{id}:
     post:
       operationId: rtmpConnsKick
       summary: kicks out a RTMP connection from the server.
@@ -885,7 +885,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtmpsconns/list:
+  /v2/rtmpsconns/list:
     get:
       operationId: rtmpsConnsList
       summary: returns all RTMPS connections.
@@ -915,7 +915,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/rtmpsconns/kick/{id}:
+  /v2/rtmpsconns/kick/{id}:
     post:
       operationId: rtmpsConnsKick
       summary: kicks out a RTMPS connection from the server.
@@ -935,7 +935,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/webrtcsessions/list:
+  /v2/webrtcsessions/list:
     get:
       operationId: webrtcSessionsList
       summary: returns all WebRTC connections.
@@ -965,7 +965,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v1/webrtcsessions/kick/{id}:
+  /v2/webrtcsessions/kick/{id}:
     post:
       operationId: webrtcSessionsKick
       summary: kicks out a WebRTC connection from the server.
