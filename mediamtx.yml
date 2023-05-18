@@ -199,25 +199,27 @@ webrtcAllowOrigin: '*'
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
-# List of ICE servers, in format type:user:pass:host:port or type:host:port.
+# List of ICE servers, in format type:user:password:host:port or type:host:port.
 # type can be "stun", "turn" or "turns".
-# STUN servers are used to get the public IP of both server and clients.
-# TURN/TURNS servers are used as relay when a direct connection between server and clients is not possible.
+# STUN servers are used to obtain the public IP of server and clients. They are
+# needed when server and clients are on different LANs.
+# TURN servers are needed when a direct connection between server and clients
+# is not possible. All traffic is routed through the chosen TURN server.
 # if user is "AUTH_SECRET", then authentication is secret based.
-# the secret must be inserted into the pass field.
+# the secret must be inserted into the password field.
 webrtcICEServers: [stun:stun.l.google.com:19302]
 # List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT.
 webrtcICEHostNAT1To1IPs: []
 # Address of a ICE UDP listener in format host:port.
-# If filled, ICE traffic will come through a single UDP port,
+# If filled, ICE traffic will pass through a single UDP port,
 # allowing the deployment of the server inside a container or behind a NAT.
 webrtcICEUDPMuxAddress:
 # Address of a ICE TCP listener in format host:port.
-# If filled, ICE traffic will come through a single TCP port,
+# If filled, ICE traffic will pass through a single TCP port,
 # allowing the deployment of the server inside a container or behind a NAT.
-# At the moment, setting this parameter forces usage of the TCP protocol,
-# which is not optimal for WebRTC.
+# Setting this parameter forces usage of the TCP protocol, which is not
+# optimal for WebRTC.
 webrtcICETCPMuxAddress:
 
 ###############################################
