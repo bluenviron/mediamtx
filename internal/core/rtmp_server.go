@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"sort"
 	"sync"
 
 	"github.com/google/uuid"
@@ -222,6 +223,10 @@ outer:
 			for c := range s.conns {
 				data.Items = append(data.Items, c.apiItem())
 			}
+
+			sort.Slice(data.Items, func(i, j int) bool {
+				return data.Items[i].Created.Before(data.Items[j].Created)
+			})
 
 			req.res <- rtmpServerAPIConnsListRes{data: data}
 

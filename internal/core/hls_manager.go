@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -199,6 +200,10 @@ outer:
 			for _, muxer := range m.muxers {
 				data.Items = append(data.Items, muxer.apiItem())
 			}
+
+			sort.Slice(data.Items, func(i, j int) bool {
+				return data.Items[i].Created.Before(data.Items[j].Created)
+			})
 
 			req.res <- hlsManagerAPIMuxersListRes{
 				data: data,

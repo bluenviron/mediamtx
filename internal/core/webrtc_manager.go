@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -150,7 +151,7 @@ type webRTCManager struct {
 	chSessionClose         chan *webRTCSession
 	chSessionAddCandidates chan webRTCSessionAddCandidatesReq
 	chAPISessionsList      chan webRTCManagerAPISessionsListReq
-	chAPIConnsGet          chan webRTCManagerAPISessionsGetReq
+	chAPISessionsGet       chan webRTCManagerAPISessionsGetReq
 	chAPIConnsKick         chan webRTCManagerAPISessionsKickReq
 
 	// out
@@ -194,7 +195,7 @@ func newWebRTCManager(
 		chSessionClose:         make(chan *webRTCSession),
 		chSessionAddCandidates: make(chan webRTCSessionAddCandidatesReq),
 		chAPISessionsList:      make(chan webRTCManagerAPISessionsListReq),
-		chAPIConnsGet:          make(chan webRTCManagerAPISessionsGetReq),
+		chAPISessionsGet:       make(chan webRTCManagerAPISessionsGetReq),
 		chAPIConnsKick:         make(chan webRTCManagerAPISessionsKickReq),
 		done:                   make(chan struct{}),
 	}
@@ -312,9 +313,13 @@ outer:
 				data.Items = append(data.Items, sx.apiItem())
 			}
 
+			sort.Slice(data.Items, func(i, j int) bool {
+				return data.Items[i].Created.Before(data.Items[j].Created)
+			})
+
 			req.res <- webRTCManagerAPISessionsListRes{data: data}
 
-		case req := <-m.chAPIConnsGet:
+		case req := <-m.chAPISessionsGet:
 			sx := m.findSessionByUUID(req.uuid)
 			if sx == nil {
 				req.res <- webRTCManagerAPISessionsGetRes{err: fmt.Errorf("not found")}
@@ -479,7 +484,7 @@ func (m *webRTCManager) apiSessionsGet(uuid uuid.UUID) (*apiWebRTCSession, error
 	}
 
 	select {
-	case m.chAPIConnsGet <- req:
+	case m.chAPISessionsGet <- req:
 		res := <-req.res
 		return res.data, res.err
 
