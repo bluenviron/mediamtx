@@ -63,7 +63,7 @@ func TestRead(t *testing.T) {
 			nil,
 		},
 		{
-			"metadata without codec id",
+			"metadata without codec id, video+audio",
 			&formats.H264{
 				PayloadTyp:        96,
 				SPS:               sps,
@@ -81,6 +81,16 @@ func TestRead(t *testing.T) {
 				IndexLength:      3,
 				IndexDeltaLength: 3,
 			},
+		},
+		{
+			"metadata without codec id, video only",
+			&formats.H264{
+				PayloadTyp:        96,
+				SPS:               sps,
+				PPS:               pps,
+				PacketizationMode: 1,
+			},
+			nil,
 		},
 		{
 			"missing metadata, video+audio",
@@ -266,7 +276,7 @@ func TestRead(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-			case "metadata without codec id":
+			case "metadata without codec id, video+audio":
 				err := mrw.Write(&message.DataAMF0{
 					ChunkStreamID:   4,
 					MessageStreamID: 1,
@@ -322,6 +332,57 @@ func TestRead(t *testing.T) {
 					Channels:        flvio.SOUND_STEREO,
 					AACType:         message.AudioAACTypeConfig,
 					Payload:         enc,
+				})
+				require.NoError(t, err)
+
+			case "metadata without codec id, video only":
+				err := mrw.Write(&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{
+								K: "width",
+								V: float64(2688),
+							},
+							{
+								K: "height",
+								V: float64(1520),
+							},
+							{
+								K: "framerate",
+								V: float64(0o25),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				buf, _ := h264conf.Conf{
+					SPS: sps,
+					PPS: pps,
+				}.Marshal()
+
+				err = mrw.Write(&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
+					IsKeyFrame:      true,
+					Type:            message.VideoTypeConfig,
+					Payload:         buf,
+				})
+				require.NoError(t, err)
+
+				err = mrw.Write(&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
+					IsKeyFrame:      true,
+					Type:            message.VideoTypeAU,
+					Payload:         []byte{0x01, 0x02, 0x03, 0x04},
+					DTS:             1 * time.Second,
 				})
 				require.NoError(t, err)
 
