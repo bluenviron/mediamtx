@@ -646,7 +646,7 @@ paths:
           description: internal server error.
 
   /v2/hlsmuxers/get/{name}:
-    post:
+    get:
       operationId: hlsMuxersGet
       summary: returns a HLS muxer.
       description: ''
@@ -700,7 +700,7 @@ paths:
           description: internal server error.
 
   /v2/paths/get/{name}:
-    post:
+    get:
       operationId: pathsGet
       summary: returns a path.
       description: ''
@@ -754,7 +754,7 @@ paths:
           description: internal server error.
 
   /v2/rtspconns/get/{id}:
-    post:
+    get:
       operationId: rtspConnsGet
       summary: returns a RTSP connection.
       description: ''
@@ -808,7 +808,7 @@ paths:
           description: internal server error.
 
   /v2/rtspsessions/get/{id}:
-    post:
+    get:
       operationId: rtspSessionsGet
       summary: returns a RTSP session.
       description: ''
@@ -882,7 +882,7 @@ paths:
           description: internal server error.
 
   /v2/rtspsconns/get/{id}:
-    post:
+    get:
       operationId: rtspsConnsGet
       summary: returns a RTSPS connection.
       description: ''
@@ -936,7 +936,7 @@ paths:
           description: internal server error.
 
   /v2/rtspssessions/get/{id}:
-    post:
+    get:
       operationId: rtspsSessionsGet
       summary: returns a RTSPS session.
       description: ''
@@ -1010,7 +1010,7 @@ paths:
           description: internal server error.
 
   /v2/rtmpconns/get/{id}:
-    post:
+    get:
       operationId: rtmpConnectionsGet
       summary: returns a RTMP connection.
       description: ''
@@ -1084,7 +1084,7 @@ paths:
           description: internal server error.
 
   /v2/rtmpsconns/get/{id}:
-    post:
+    get:
       operationId: rtmpsConnectionsGet
       summary: returns a RTMPS connection.
       description: ''
@@ -1158,7 +1158,7 @@ paths:
           description: internal server error.
 
   /v2/webrtcsessions/get/{id}:
-    post:
+    get:
       operationId: webrtcSessionsGet
       summary: returns a WebRTC session.
       description: ''
