@@ -60,7 +60,6 @@ type hlsMuxerParent interface {
 type hlsMuxer struct {
 	remoteAddr                string
 	externalAuthenticationURL string
-	alwaysRemux               bool
 	variant                   conf.HLSVariant
 	segmentCount              int
 	segmentDuration           conf.StringDuration
@@ -91,7 +90,6 @@ func newHLSMuxer(
 	parentCtx context.Context,
 	remoteAddr string,
 	externalAuthenticationURL string,
-	alwaysRemux bool,
 	variant conf.HLSVariant,
 	segmentCount int,
 	segmentDuration conf.StringDuration,
@@ -109,7 +107,6 @@ func newHLSMuxer(
 	m := &hlsMuxer{
 		remoteAddr:                remoteAddr,
 		externalAuthenticationURL: externalAuthenticationURL,
-		alwaysRemux:               alwaysRemux,
 		variant:                   variant,
 		segmentCount:              segmentCount,
 		segmentDuration:           segmentDuration,
@@ -210,7 +207,7 @@ func (m *hlsMuxer) run() {
 			case err := <-innerErr:
 				innerCtxCancel()
 
-				if m.alwaysRemux {
+				if m.remoteAddr == "" { // created with "always remux"
 					m.Log(logger.Info, "ERR: %v", err)
 					m.clearQueuedRequests()
 					isReady = false
