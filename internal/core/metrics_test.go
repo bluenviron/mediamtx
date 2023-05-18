@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
@@ -102,6 +103,8 @@ webrtc_sessions_bytes_sent 0
 
 	err = conn.WriteTracks(videoTrack, nil)
 	require.NoError(t, err)
+
+	time.Sleep(500 * time.Millisecond)
 
 	bo = httpPullFile(t, hc, "http://localhost:9998/metrics")
 
