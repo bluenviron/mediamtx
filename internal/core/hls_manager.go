@@ -159,17 +159,17 @@ outer:
 	for {
 		select {
 		case pa := <-m.chPathSourceReady:
-			if m.alwaysRemux {
-				m.createMuxer(pa.name, "")
+			if m.alwaysRemux && !pa.conf.SourceOnDemand {
+				if _, ok := m.muxers[pa.name]; !ok {
+					m.createMuxer(pa.name, "")
+				}
 			}
 
 		case pa := <-m.chPathSourceNotReady:
-			if m.alwaysRemux {
-				c, ok := m.muxers[pa.name]
-				if ok {
-					c.close()
-					delete(m.muxers, pa.name)
-				}
+			c, ok := m.muxers[pa.name]
+			if ok && c.remoteAddr == "" { // created with "always remux"
+				c.close()
+				delete(m.muxers, pa.name)
 			}
 
 		case req := <-m.chHandleRequest:
@@ -177,9 +177,6 @@ outer:
 			switch {
 			case ok:
 				r.processRequest(&req)
-
-			case m.alwaysRemux:
-				req.res <- nil
 
 			default:
 				r := m.createMuxer(req.path, req.ctx.ClientIP())
@@ -239,7 +236,6 @@ func (m *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 		m.ctx,
 		remoteAddr,
 		m.externalAuthenticationURL,
-		m.alwaysRemux,
 		m.variant,
 		m.segmentCount,
 		m.segmentDuration,
