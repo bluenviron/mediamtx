@@ -385,3 +385,25 @@ func (s *rtspSession) onPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) 
 func (s *rtspSession) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
 	s.Log(logger.Warn, ctx.Error.Error())
 }
+
+func (s *rtspSession) apiItem() *apiRTSPSession {
+	return &apiRTSPSession{
+		ID:         s.uuid,
+		Created:    s.created,
+		RemoteAddr: s.remoteAddr().String(),
+		State: func() string {
+			switch s.safeState() {
+			case gortsplib.ServerSessionStatePrePlay,
+				gortsplib.ServerSessionStatePlay:
+				return "read"
+
+			case gortsplib.ServerSessionStatePreRecord,
+				gortsplib.ServerSessionStateRecord:
+				return "publish"
+			}
+			return "idle"
+		}(),
+		BytesReceived: s.session.BytesReceived(),
+		BytesSent:     s.session.BytesSent(),
+	}
+}

@@ -165,10 +165,10 @@ func TestCorePathAutoDeletion(t *testing.T) {
 				}
 			}()
 
-			res := p.pathManager.apiPathsList()
-			require.NoError(t, res.err)
+			data, err := p.pathManager.apiPathsList()
+			require.NoError(t, err)
 
-			require.Equal(t, 0, len(res.data.Items))
+			require.Equal(t, 0, len(data.Items))
 		})
 	}
 }

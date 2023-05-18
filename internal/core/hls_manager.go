@@ -4,37 +4,28 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type hlsManagerAPIMuxersListItem struct {
-	Path        string    `json:"path"`
-	Created     time.Time `json:"created"`
-	LastRequest time.Time `json:"lastRequest"`
-	BytesSent   uint64    `json:"bytesSent"`
-}
-
-type hlsManagerAPIMuxersListData struct {
-	PageCount int                           `json:"pageCount"`
-	Items     []hlsManagerAPIMuxersListItem `json:"items"`
-}
-
 type hlsManagerAPIMuxersListRes struct {
-	data   *hlsManagerAPIMuxersListData
-	muxers map[string]*hlsMuxer
-	err    error
+	data *apiHLSMuxersList
+	err  error
 }
 
 type hlsManagerAPIMuxersListReq struct {
 	res chan hlsManagerAPIMuxersListRes
 }
 
-type hlsManagerAPIMuxersListSubReq struct {
-	data *hlsManagerAPIMuxersListData
-	res  chan struct{}
+type hlsManagerAPIMuxersGetRes struct {
+	data *apiHLSMuxer
+	err  error
+}
+
+type hlsManagerAPIMuxersGetReq struct {
+	name string
+	res  chan hlsManagerAPIMuxersGetRes
 }
 
 type hlsManagerParent interface {
@@ -67,6 +58,7 @@ type hlsManager struct {
 	chHandleRequest      chan hlsMuxerHandleRequestReq
 	chMuxerClose         chan *hlsMuxer
 	chAPIMuxerList       chan hlsManagerAPIMuxersListReq
+	chAPIMuxerGet        chan hlsManagerAPIMuxersGetReq
 }
 
 func newHLSManager(
@@ -114,6 +106,7 @@ func newHLSManager(
 		chHandleRequest:           make(chan hlsMuxerHandleRequestReq),
 		chMuxerClose:              make(chan *hlsMuxer),
 		chAPIMuxerList:            make(chan hlsManagerAPIMuxersListReq),
+		chAPIMuxerGet:             make(chan hlsManagerAPIMuxersGetReq),
 	}
 
 	var err error
@@ -199,15 +192,26 @@ outer:
 			delete(m.muxers, c.PathName())
 
 		case req := <-m.chAPIMuxerList:
-			muxers := make(map[string]*hlsMuxer)
+			data := &apiHLSMuxersList{
+				Items: []*apiHLSMuxer{},
+			}
 
-			for name, m := range m.muxers {
-				muxers[name] = m
+			for _, muxer := range m.muxers {
+				data.Items = append(data.Items, muxer.apiItem())
 			}
 
 			req.res <- hlsManagerAPIMuxersListRes{
-				muxers: muxers,
+				data: data,
 			}
+
+		case req := <-m.chAPIMuxerGet:
+			muxer, ok := m.muxers[req.name]
+			if !ok {
+				req.res <- hlsManagerAPIMuxersGetRes{err: fmt.Errorf("not found")}
+				continue
+			}
+
+			req.res <- hlsManagerAPIMuxersGetRes{data: muxer.apiItem()}
 
 		case <-m.ctx.Done():
 			break outer
@@ -271,7 +275,7 @@ func (m *hlsManager) pathSourceNotReady(pa *path) {
 }
 
 // apiMuxersList is called by api.
-func (m *hlsManager) apiMuxersList() hlsManagerAPIMuxersListRes {
+func (m *hlsManager) apiMuxersList() (*apiHLSMuxersList, error) {
 	req := hlsManagerAPIMuxersListReq{
 		res: make(chan hlsManagerAPIMuxersListRes),
 	}
@@ -279,19 +283,27 @@ func (m *hlsManager) apiMuxersList() hlsManagerAPIMuxersListRes {
 	select {
 	case m.chAPIMuxerList <- req:
 		res := <-req.res
-
-		res.data = &hlsManagerAPIMuxersListData{
-			Items: []hlsManagerAPIMuxersListItem{},
-		}
-
-		for _, pa := range res.muxers {
-			pa.apiMuxersList(hlsManagerAPIMuxersListSubReq{data: res.data})
-		}
-
-		return res
+		return res.data, res.err
 
 	case <-m.ctx.Done():
-		return hlsManagerAPIMuxersListRes{err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// apiMuxersGet is called by api.
+func (m *hlsManager) apiMuxersGet(name string) (*apiHLSMuxer, error) {
+	req := hlsManagerAPIMuxersGetReq{
+		name: name,
+		res:  make(chan hlsManagerAPIMuxersGetRes),
+	}
+
+	select {
+	case m.chAPIMuxerGet <- req:
+		res := <-req.res
+		return res.data, res.err
+
+	case <-m.ctx.Done():
+		return nil, fmt.Errorf("terminated")
 	}
 }
 

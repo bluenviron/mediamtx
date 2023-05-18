@@ -64,25 +64,8 @@ func linkHeaderToIceServers(link []string) []webrtc.ICEServer {
 	return ret
 }
 
-type webRTCManagerAPISessionsListItem struct {
-	ID                        uuid.UUID `json:"id"`
-	Created                   time.Time `json:"created"`
-	RemoteAddr                string    `json:"remoteAddr"`
-	PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
-	LocalCandidate            string    `json:"localCandidate"`
-	RemoteCandidate           string    `json:"remoteCandidate"`
-	State                     string    `json:"state"`
-	BytesReceived             uint64    `json:"bytesReceived"`
-	BytesSent                 uint64    `json:"bytesSent"`
-}
-
-type webRTCManagerAPISessionsListData struct {
-	PageCount int                                `json:"pageCount"`
-	Items     []webRTCManagerAPISessionsListItem `json:"items"`
-}
-
 type webRTCManagerAPISessionsListRes struct {
-	data *webRTCManagerAPISessionsListData
+	data *apiWebRTCSessionsList
 	err  error
 }
 
@@ -97,6 +80,16 @@ type webRTCManagerAPISessionsKickRes struct {
 type webRTCManagerAPISessionsKickReq struct {
 	uuid uuid.UUID
 	res  chan webRTCManagerAPISessionsKickRes
+}
+
+type webRTCManagerAPISessionsGetRes struct {
+	data *apiWebRTCSession
+	err  error
+}
+
+type webRTCManagerAPISessionsGetReq struct {
+	uuid uuid.UUID
+	res  chan webRTCManagerAPISessionsGetRes
 }
 
 type webRTCSessionNewRes struct {
@@ -157,6 +150,7 @@ type webRTCManager struct {
 	chSessionClose         chan *webRTCSession
 	chSessionAddCandidates chan webRTCSessionAddCandidatesReq
 	chAPISessionsList      chan webRTCManagerAPISessionsListReq
+	chAPIConnsGet          chan webRTCManagerAPISessionsGetReq
 	chAPIConnsKick         chan webRTCManagerAPISessionsKickReq
 
 	// out
@@ -200,6 +194,7 @@ func newWebRTCManager(
 		chSessionClose:         make(chan *webRTCSession),
 		chSessionAddCandidates: make(chan webRTCSessionAddCandidatesReq),
 		chAPISessionsList:      make(chan webRTCManagerAPISessionsListReq),
+		chAPIConnsGet:          make(chan webRTCManagerAPISessionsGetReq),
 		chAPIConnsKick:         make(chan webRTCManagerAPISessionsKickReq),
 		done:                   make(chan struct{}),
 	}
@@ -309,45 +304,24 @@ outer:
 			req.res <- webRTCSessionAddCandidatesRes{sx: sx}
 
 		case req := <-m.chAPISessionsList:
-			data := &webRTCManagerAPISessionsListData{
-				Items: []webRTCManagerAPISessionsListItem{},
+			data := &apiWebRTCSessionsList{
+				Items: []*apiWebRTCSession{},
 			}
 
 			for sx := range m.sessions {
-				peerConnectionEstablished := false
-				localCandidate := ""
-				remoteCandidate := ""
-				bytesReceived := uint64(0)
-				bytesSent := uint64(0)
-
-				pc := sx.safePC()
-				if pc != nil {
-					peerConnectionEstablished = true
-					localCandidate = pc.localCandidate()
-					remoteCandidate = pc.remoteCandidate()
-					bytesReceived = pc.bytesReceived()
-					bytesSent = pc.bytesSent()
-				}
-
-				data.Items = append(data.Items, webRTCManagerAPISessionsListItem{
-					ID:                        sx.uuid,
-					Created:                   sx.created,
-					RemoteAddr:                sx.req.remoteAddr,
-					PeerConnectionEstablished: peerConnectionEstablished,
-					LocalCandidate:            localCandidate,
-					RemoteCandidate:           remoteCandidate,
-					State: func() string {
-						if sx.req.publish {
-							return "publish"
-						}
-						return "read"
-					}(),
-					BytesReceived: bytesReceived,
-					BytesSent:     bytesSent,
-				})
+				data.Items = append(data.Items, sx.apiItem())
 			}
 
 			req.res <- webRTCManagerAPISessionsListRes{data: data}
+
+		case req := <-m.chAPIConnsGet:
+			sx := m.findSessionByUUID(req.uuid)
+			if sx == nil {
+				req.res <- webRTCManagerAPISessionsGetRes{err: fmt.Errorf("not found")}
+				continue
+			}
+
+			req.res <- webRTCManagerAPISessionsGetRes{data: sx.apiItem()}
 
 		case req := <-m.chAPIConnsKick:
 			sx := m.findSessionByUUID(req.uuid)
@@ -482,22 +456,40 @@ func (m *webRTCManager) sessionAddCandidates(
 }
 
 // apiSessionsList is called by api.
-func (m *webRTCManager) apiSessionsList() webRTCManagerAPISessionsListRes {
+func (m *webRTCManager) apiSessionsList() (*apiWebRTCSessionsList, error) {
 	req := webRTCManagerAPISessionsListReq{
 		res: make(chan webRTCManagerAPISessionsListRes),
 	}
 
 	select {
 	case m.chAPISessionsList <- req:
-		return <-req.res
+		res := <-req.res
+		return res.data, res.err
 
 	case <-m.ctx.Done():
-		return webRTCManagerAPISessionsListRes{err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// apiSessionsGet is called by api.
+func (m *webRTCManager) apiSessionsGet(uuid uuid.UUID) (*apiWebRTCSession, error) {
+	req := webRTCManagerAPISessionsGetReq{
+		uuid: uuid,
+		res:  make(chan webRTCManagerAPISessionsGetRes),
+	}
+
+	select {
+	case m.chAPIConnsGet <- req:
+		res := <-req.res
+		return res.data, res.err
+
+	case <-m.ctx.Done():
+		return nil, fmt.Errorf("terminated")
 	}
 }
 
 // apiSessionsKick is called by api.
-func (m *webRTCManager) apiSessionsKick(uuid uuid.UUID) webRTCManagerAPISessionsKickRes {
+func (m *webRTCManager) apiSessionsKick(uuid uuid.UUID) error {
 	req := webRTCManagerAPISessionsKickReq{
 		uuid: uuid,
 		res:  make(chan webRTCManagerAPISessionsKickRes),
@@ -505,9 +497,10 @@ func (m *webRTCManager) apiSessionsKick(uuid uuid.UUID) webRTCManagerAPISessions
 
 	select {
 	case m.chAPIConnsKick <- req:
-		return <-req.res
+		res := <-req.res
+		return res.err
 
 	case <-m.ctx.Done():
-		return webRTCManagerAPISessionsKickRes{err: fmt.Errorf("terminated")}
+		return fmt.Errorf("terminated")
 	}
 }

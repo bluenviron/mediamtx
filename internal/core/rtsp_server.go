@@ -19,47 +19,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type rtspServerAPIConnsListItem struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
-}
-
-type rtspServerAPIConnsListData struct {
-	PageCount int                          `json:"pageCount"`
-	Items     []rtspServerAPIConnsListItem `json:"items"`
-}
-
-type rtspServerAPIConnsListRes struct {
-	data *rtspServerAPIConnsListData
-	err  error
-}
-
-type rtspServerAPISessionsListItem struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	State         string    `json:"state"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
-}
-
-type rtspServerAPISessionsListData struct {
-	PageCount int                             `json:"pageCount"`
-	Items     []rtspServerAPISessionsListItem `json:"items"`
-}
-
-type rtspServerAPISessionsListRes struct {
-	data *rtspServerAPISessionsListData
-	err  error
-}
-
-type rtspServerAPISessionsKickRes struct {
-	err error
-}
-
 type rtspServerParent interface {
 	logger.Writer
 }
@@ -364,6 +323,15 @@ func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx)
 	se.onDecodeError(ctx)
 }
 
+func (s *rtspServer) findConnByUUID(uuid uuid.UUID) *rtspConn {
+	for _, c := range s.conns {
+		if c.uuid == uuid {
+			return c
+		}
+	}
+	return nil
+}
+
 func (s *rtspServer) findSessionByUUID(uuid uuid.UUID) (*gortsplib.ServerSession, *rtspSession) {
 	for key, sx := range s.sessions {
 		if sx.uuid == uuid {
@@ -374,78 +342,92 @@ func (s *rtspServer) findSessionByUUID(uuid uuid.UUID) (*gortsplib.ServerSession
 }
 
 // apiConnsList is called by api and metrics.
-func (s *rtspServer) apiConnsList() rtspServerAPIConnsListRes {
+func (s *rtspServer) apiConnsList() (*apiRTSPConnsList, error) {
 	select {
 	case <-s.ctx.Done():
-		return rtspServerAPIConnsListRes{err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
 	default:
 	}
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data := &rtspServerAPIConnsListData{
-		Items: []rtspServerAPIConnsListItem{},
+	data := &apiRTSPConnsList{
+		Items: []*apiRTSPConn{},
 	}
 
 	for _, c := range s.conns {
-		data.Items = append(data.Items, rtspServerAPIConnsListItem{
-			ID:            c.uuid,
-			Created:       c.created,
-			RemoteAddr:    c.remoteAddr().String(),
-			BytesReceived: c.conn.BytesReceived(),
-			BytesSent:     c.conn.BytesSent(),
-		})
+		data.Items = append(data.Items, c.apiItem())
 	}
 
-	return rtspServerAPIConnsListRes{data: data}
+	return data, nil
 }
 
-// apiSessionsList is called by api and metrics.
-func (s *rtspServer) apiSessionsList() rtspServerAPISessionsListRes {
+// apiConnsGet is called by api.
+func (s *rtspServer) apiConnsGet(uuid uuid.UUID) (*apiRTSPConn, error) {
 	select {
 	case <-s.ctx.Done():
-		return rtspServerAPISessionsListRes{err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
 	default:
 	}
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data := &rtspServerAPISessionsListData{
-		Items: []rtspServerAPISessionsListItem{},
+	conn := s.findConnByUUID(uuid)
+	if conn == nil {
+		return nil, fmt.Errorf("not found")
+	}
+
+	return conn.apiItem(), nil
+}
+
+// apiSessionsList is called by api and metrics.
+func (s *rtspServer) apiSessionsList() (*apiRTSPSessionsList, error) {
+	select {
+	case <-s.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	default:
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	data := &apiRTSPSessionsList{
+		Items: []*apiRTSPSession{},
 	}
 
 	for _, s := range s.sessions {
-		data.Items = append(data.Items, rtspServerAPISessionsListItem{
-			ID:         s.uuid,
-			Created:    s.created,
-			RemoteAddr: s.remoteAddr().String(),
-			State: func() string {
-				switch s.safeState() {
-				case gortsplib.ServerSessionStatePrePlay,
-					gortsplib.ServerSessionStatePlay:
-					return "read"
-
-				case gortsplib.ServerSessionStatePreRecord,
-					gortsplib.ServerSessionStateRecord:
-					return "publish"
-				}
-				return "idle"
-			}(),
-			BytesReceived: s.session.BytesReceived(),
-			BytesSent:     s.session.BytesSent(),
-		})
+		data.Items = append(data.Items, s.apiItem())
 	}
 
-	return rtspServerAPISessionsListRes{data: data}
+	return data, nil
+}
+
+// apiSessionsGet is called by api.
+func (s *rtspServer) apiSessionsGet(uuid uuid.UUID) (*apiRTSPSession, error) {
+	select {
+	case <-s.ctx.Done():
+		return nil, fmt.Errorf("terminated")
+	default:
+	}
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	_, sx := s.findSessionByUUID(uuid)
+	if sx == nil {
+		return nil, fmt.Errorf("not found")
+	}
+
+	return sx.apiItem(), nil
 }
 
 // apiSessionsKick is called by api.
-func (s *rtspServer) apiSessionsKick(uuid uuid.UUID) rtspServerAPISessionsKickRes {
+func (s *rtspServer) apiSessionsKick(uuid uuid.UUID) error {
 	select {
 	case <-s.ctx.Done():
-		return rtspServerAPISessionsKickRes{err: fmt.Errorf("terminated")}
+		return fmt.Errorf("terminated")
 	default:
 	}
 
@@ -454,11 +436,11 @@ func (s *rtspServer) apiSessionsKick(uuid uuid.UUID) rtspServerAPISessionsKickRe
 
 	key, sx := s.findSessionByUUID(uuid)
 	if sx == nil {
-		return rtspServerAPISessionsKickRes{err: fmt.Errorf("not found")}
+		return fmt.Errorf("not found")
 	}
 
 	sx.close()
 	delete(s.sessions, key)
 	sx.onClose(liberrors.ErrServerTerminated{})
-	return rtspServerAPISessionsKickRes{}
+	return nil
 }

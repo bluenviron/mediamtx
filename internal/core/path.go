@@ -158,35 +158,24 @@ type pathAPISourceOrReader struct {
 	ID   string `json:"id"`
 }
 
-type pathAPIPathsListItem struct {
-	Name          string         `json:"name"`
-	ConfName      string         `json:"confName"`
-	Conf          *conf.PathConf `json:"conf"`
-	Source        interface{}    `json:"source"`
-	SourceReady   bool           `json:"sourceReady"`
-	Tracks        []string       `json:"tracks"`
-	BytesReceived uint64         `json:"bytesReceived"`
-	Readers       []interface{}  `json:"readers"`
-}
-
-type pathAPIPathsListData struct {
-	PageCount int                    `json:"pageCount"`
-	Items     []pathAPIPathsListItem `json:"items"`
-}
-
 type pathAPIPathsListRes struct {
-	data  *pathAPIPathsListData
+	data  *apiPathsList
 	paths map[string]*path
-	err   error
 }
 
 type pathAPIPathsListReq struct {
 	res chan pathAPIPathsListRes
 }
 
-type pathAPIPathsListSubReq struct {
-	data *pathAPIPathsListData
-	res  chan struct{}
+type pathAPIPathsGetRes struct {
+	path *path
+	data *apiPath
+	err  error
+}
+
+type pathAPIPathsGetReq struct {
+	name string
+	res  chan pathAPIPathsGetRes
 }
 
 type path struct {
@@ -232,7 +221,7 @@ type path struct {
 	chPublisherStop           chan pathPublisherStopReq
 	chReaderAdd               chan pathReaderAddReq
 	chReaderRemove            chan pathReaderRemoveReq
-	chAPIPathsList            chan pathAPIPathsListSubReq
+	chAPIPathsGet             chan pathAPIPathsGetReq
 
 	// out
 	done chan struct{}
@@ -286,7 +275,7 @@ func newPath(
 		chPublisherStop:                make(chan pathPublisherStopReq),
 		chReaderAdd:                    make(chan pathReaderAddReq),
 		chReaderRemove:                 make(chan pathReaderRemoveReq),
-		chAPIPathsList:                 make(chan pathAPIPathsListSubReq),
+		chAPIPathsGet:                  make(chan pathAPIPathsGetReq),
 		done:                           make(chan struct{}),
 	}
 
@@ -489,8 +478,8 @@ func (pa *path) run() {
 			case req := <-pa.chReaderRemove:
 				pa.handleReaderRemove(req)
 
-			case req := <-pa.chAPIPathsList:
-				pa.handleAPIPathsList(req)
+			case req := <-pa.chAPIPathsGet:
+				pa.handleAPIPathsGet(req)
 
 			case <-pa.ctx.Done():
 				return fmt.Errorf("terminated")
@@ -898,34 +887,35 @@ func (pa *path) handleReaderAddPost(req pathReaderAddReq) {
 	}
 }
 
-func (pa *path) handleAPIPathsList(req pathAPIPathsListSubReq) {
-	req.data.Items = append(req.data.Items, pathAPIPathsListItem{
-		Name:     pa.name,
-		ConfName: pa.confName,
-		Conf:     pa.conf,
-		Source: func() interface{} {
-			if pa.source == nil {
-				return nil
-			}
-			return pa.source.apiSourceDescribe()
-		}(),
-		SourceReady: pa.stream != nil,
-		Tracks: func() []string {
-			if pa.stream == nil {
-				return []string{}
-			}
-			return mediasDescription(pa.stream.medias())
-		}(),
-		BytesReceived: atomic.LoadUint64(pa.bytesReceived),
-		Readers: func() []interface{} {
-			ret := []interface{}{}
-			for r := range pa.readers {
-				ret = append(ret, r.apiReaderDescribe())
-			}
-			return ret
-		}(),
-	})
-	close(req.res)
+func (pa *path) handleAPIPathsGet(req pathAPIPathsGetReq) {
+	req.res <- pathAPIPathsGetRes{
+		data: &apiPath{
+			Name:     pa.name,
+			ConfName: pa.confName,
+			Conf:     pa.conf,
+			Source: func() interface{} {
+				if pa.source == nil {
+					return nil
+				}
+				return pa.source.apiSourceDescribe()
+			}(),
+			SourceReady: pa.stream != nil,
+			Tracks: func() []string {
+				if pa.stream == nil {
+					return []string{}
+				}
+				return mediasDescription(pa.stream.medias())
+			}(),
+			BytesReceived: atomic.LoadUint64(pa.bytesReceived),
+			Readers: func() []interface{} {
+				ret := []interface{}{}
+				for r := range pa.readers {
+					ret = append(ret, r.apiReaderDescribe())
+				}
+				return ret
+			}(),
+		},
+	}
 }
 
 // reloadConf is called by pathManager.
@@ -1039,13 +1029,15 @@ func (pa *path) readerRemove(req pathReaderRemoveReq) {
 	}
 }
 
-// apiPathsList is called by api.
-func (pa *path) apiPathsList(req pathAPIPathsListSubReq) {
-	req.res = make(chan struct{})
+// apiPathsGet is called by api.
+func (pa *path) apiPathsGet(req pathAPIPathsGetReq) (*apiPath, error) {
+	req.res = make(chan pathAPIPathsGetRes)
 	select {
-	case pa.chAPIPathsList <- req:
-		<-req.res
+	case pa.chAPIPathsGet <- req:
+		res := <-req.res
+		return res.data, res.err
 
 	case <-pa.ctx.Done():
+		return nil, fmt.Errorf("terminated")
 	}
 }

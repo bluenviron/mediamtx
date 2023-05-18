@@ -69,6 +69,7 @@ type pathManager struct {
 	chPublisherAdd       chan pathPublisherAddReq
 	chHLSManagerSet      chan pathManagerHLSManager
 	chAPIPathsList       chan pathAPIPathsListReq
+	chAPIPathsGet        chan pathAPIPathsGetReq
 }
 
 func newPathManager(
@@ -113,6 +114,7 @@ func newPathManager(
 		chPublisherAdd:            make(chan pathPublisherAddReq),
 		chHLSManagerSet:           make(chan pathManagerHLSManager),
 		chAPIPathsList:            make(chan pathAPIPathsListReq),
+		chAPIPathsGet:             make(chan pathAPIPathsGetReq),
 	}
 
 	for pathConfName, pathConf := range pm.pathConfs {
@@ -292,9 +294,16 @@ outer:
 				paths[name] = pa
 			}
 
-			req.res <- pathAPIPathsListRes{
-				paths: paths,
+			req.res <- pathAPIPathsListRes{paths: paths}
+
+		case req := <-pm.chAPIPathsGet:
+			path, ok := pm.paths[req.name]
+			if !ok {
+				req.res <- pathAPIPathsGetRes{err: fmt.Errorf("not found")}
+				continue
 			}
+
+			req.res <- pathAPIPathsGetRes{path: path}
 
 		case <-pm.ctx.Done():
 			break outer
@@ -482,7 +491,7 @@ func (pm *pathManager) hlsManagerSet(s pathManagerHLSManager) {
 }
 
 // apiPathsList is called by api.
-func (pm *pathManager) apiPathsList() pathAPIPathsListRes {
+func (pm *pathManager) apiPathsList() (*apiPathsList, error) {
 	req := pathAPIPathsListReq{
 		res: make(chan pathAPIPathsListRes),
 	}
@@ -491,17 +500,44 @@ func (pm *pathManager) apiPathsList() pathAPIPathsListRes {
 	case pm.chAPIPathsList <- req:
 		res := <-req.res
 
-		res.data = &pathAPIPathsListData{
-			Items: []pathAPIPathsListItem{},
+		res.data = &apiPathsList{
+			Items: []*apiPath{},
 		}
 
 		for _, pa := range res.paths {
-			pa.apiPathsList(pathAPIPathsListSubReq{data: res.data})
+			item, err := pa.apiPathsGet(pathAPIPathsGetReq{})
+			if err != nil {
+				return nil, err
+			}
+
+			res.data.Items = append(res.data.Items, item)
 		}
 
-		return res
+		return res.data, nil
 
 	case <-pm.ctx.Done():
-		return pathAPIPathsListRes{err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
+	}
+}
+
+// apiPathsGet is called by api.
+func (pm *pathManager) apiPathsGet(name string) (*apiPath, error) {
+	req := pathAPIPathsGetReq{
+		name: name,
+		res:  make(chan pathAPIPathsGetRes),
+	}
+
+	select {
+	case pm.chAPIPathsGet <- req:
+		res := <-req.res
+		if res.err != nil {
+			return nil, res.err
+		}
+
+		data, err := res.path.apiPathsGet(req)
+		return data, err
+
+	case <-pm.ctx.Done():
+		return nil, fmt.Errorf("terminated")
 	}
 }
