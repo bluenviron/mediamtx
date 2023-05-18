@@ -17,11 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func whipGetICEServers(t *testing.T, ur string) []webrtc.ICEServer {
+func whipGetICEServers(t *testing.T, hc *http.Client, ur string) []webrtc.ICEServer {
 	req, err := http.NewRequest("OPTIONS", ur, nil)
 	require.NoError(t, err)
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := hc.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
 
@@ -35,7 +35,9 @@ func whipGetICEServers(t *testing.T, ur string) []webrtc.ICEServer {
 	return servers
 }
 
-func whipPostOffer(t *testing.T, ur string, offer *webrtc.SessionDescription) (*webrtc.SessionDescription, string) {
+func whipPostOffer(t *testing.T, hc *http.Client, ur string,
+	offer *webrtc.SessionDescription,
+) (*webrtc.SessionDescription, string) {
 	enc, err := json.Marshal(offer)
 	require.NoError(t, err)
 
@@ -44,7 +46,7 @@ func whipPostOffer(t *testing.T, ur string, offer *webrtc.SessionDescription) (*
 
 	req.Header.Set("Content-Type", "application/sdp")
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := hc.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
 
@@ -79,7 +81,9 @@ func whipPostCandidate(t *testing.T, ur string, offer *webrtc.SessionDescription
 	req.Header.Set("Content-Type", "application/trickle-ice-sdpfrag")
 	req.Header.Set("If-Match", etag)
 
-	res, err := http.DefaultClient.Do(req)
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	res, err := hc.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
 
@@ -94,8 +98,8 @@ type webRTCTestClient struct {
 	closed         chan struct{}
 }
 
-func newWebRTCTestClient(t *testing.T, ur string, publish bool) *webRTCTestClient {
-	iceServers := whipGetICEServers(t, ur)
+func newWebRTCTestClient(t *testing.T, hc *http.Client, ur string, publish bool) *webRTCTestClient {
+	iceServers := whipGetICEServers(t, hc, ur)
 
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: iceServers,
@@ -170,7 +174,7 @@ func newWebRTCTestClient(t *testing.T, ur string, publish bool) *webRTCTestClien
 	offer, err := pc.CreateOffer(nil)
 	require.NoError(t, err)
 
-	answer, etag := whipPostOffer(t, ur, &offer)
+	answer, etag := whipPostOffer(t, hc, ur, &offer)
 
 	// test adding additional candidates, even if it is not mandatory here
 	gatheringDone := make(chan struct{})
@@ -260,7 +264,9 @@ func TestWebRTCRead(t *testing.T) {
 	require.NoError(t, err)
 	defer source.Close()
 
-	c := newWebRTCTestClient(t, "http://localhost:8889/stream/whep", false)
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	c := newWebRTCTestClient(t, hc, "http://localhost:8889/stream/whep", false)
 	defer c.close()
 
 	time.Sleep(500 * time.Millisecond)
@@ -301,7 +307,9 @@ func TestWebRTCReadNotFound(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	iceServers := whipGetICEServers(t, "http://localhost:8889/stream/whep")
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	iceServers := whipGetICEServers(t, hc, "http://localhost:8889/stream/whep")
 
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
 		ICEServers: iceServers,
@@ -323,7 +331,7 @@ func TestWebRTCReadNotFound(t *testing.T) {
 
 	req.Header.Set("Content-Type", "application/sdp")
 
-	res, err := http.DefaultClient.Do(req)
+	res, err := hc.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
 
@@ -336,7 +344,9 @@ func TestWebRTCPublish(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	s := newWebRTCTestClient(t, "http://localhost:8889/stream/whip", true)
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	s := newWebRTCTestClient(t, hc, "http://localhost:8889/stream/whip", true)
 	defer s.close()
 
 	c := gortsplib.Client{

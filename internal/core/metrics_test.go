@@ -3,6 +3,7 @@ package core
 import (
 	"crypto/tls"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"testing"
@@ -36,8 +37,9 @@ func TestMetrics(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	bo, err := httpPullFile("http://localhost:9998/metrics")
-	require.NoError(t, err)
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
 
 	require.Equal(t, `paths 0
 hls_muxers 0
@@ -101,8 +103,7 @@ webrtc_sessions_bytes_sent 0
 	err = conn.WriteTracks(videoTrack, nil)
 	require.NoError(t, err)
 
-	bo, err = httpPullFile("http://localhost:9998/metrics")
-	require.NoError(t, err)
+	bo = httpPullFile(t, hc, "http://localhost:9998/metrics")
 
 	require.Regexp(t,
 		`^paths\{name=".*?",state="ready"\} 1`+"\n"+
