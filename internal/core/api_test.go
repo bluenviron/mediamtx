@@ -216,6 +216,7 @@ func TestAPIPathsList(t *testing.T) {
 	}
 
 	type pathList struct {
+		ItemCount int    `json:"itemCount"`
 		PageCount int    `json:"pageCount"`
 		Items     []path `json:"items"`
 	}
@@ -265,6 +266,7 @@ func TestAPIPathsList(t *testing.T) {
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.Equal(t, pathList{
+			ItemCount: 1,
 			PageCount: 1,
 			Items: []path{{
 				Name: "mypath",
@@ -327,6 +329,7 @@ func TestAPIPathsList(t *testing.T) {
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.Equal(t, pathList{
+			ItemCount: 1,
 			PageCount: 1,
 			Items: []path{{
 				Name: "mypath",
@@ -353,6 +356,7 @@ func TestAPIPathsList(t *testing.T) {
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.Equal(t, pathList{
+			ItemCount: 1,
 			PageCount: 1,
 			Items: []path{{
 				Name: "mypath",
@@ -379,6 +383,7 @@ func TestAPIPathsList(t *testing.T) {
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.Equal(t, pathList{
+			ItemCount: 1,
 			PageCount: 1,
 			Items: []path{{
 				Name: "mypath",
@@ -405,6 +410,7 @@ func TestAPIPathsList(t *testing.T) {
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
 		require.Equal(t, pathList{
+			ItemCount: 1,
 			PageCount: 1,
 			Items: []path{{
 				Name: "mypath",
@@ -673,7 +679,8 @@ func TestAPIProtocolList(t *testing.T) {
 				}
 
 				var out struct {
-					Items []struct {
+					ItemCount int `json:"itemCount"`
+					Items     []struct {
 						State string `json:"state"`
 					} `json:"items"`
 				}
@@ -685,7 +692,8 @@ func TestAPIProtocolList(t *testing.T) {
 
 			case "hls":
 				var out struct {
-					Items []struct {
+					ItemCount int `json:"itemCount"`
+					Items     []struct {
 						Created     string `json:"created"`
 						LastRequest string `json:"lastRequest"`
 					} `json:"items"`
@@ -708,7 +716,7 @@ func TestAPIProtocolList(t *testing.T) {
 				}
 
 				var out struct {
-					PageCount int    `json:"pageCount"`
+					ItemCount int    `json:"itemCount"`
 					Items     []item `json:"items"`
 				}
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/webrtcsessions/list", nil, &out)
