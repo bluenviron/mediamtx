@@ -449,6 +449,7 @@ func (a *api) onPathsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -480,6 +481,7 @@ func (a *api) onRTSPConnsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -512,6 +514,7 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -559,6 +562,7 @@ func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -591,6 +595,7 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -638,6 +643,7 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -685,6 +691,7 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -732,6 +739,7 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)
@@ -759,6 +767,7 @@ func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 		return
 	}
 
+	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
 		ctx.AbortWithStatus(http.StatusBadRequest)

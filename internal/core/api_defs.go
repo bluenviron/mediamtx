@@ -20,6 +20,7 @@ type apiPath struct {
 }
 
 type apiPathsList struct {
+	ItemCount int        `json:"itemCount"`
 	PageCount int        `json:"pageCount"`
 	Items     []*apiPath `json:"items"`
 }
@@ -32,6 +33,7 @@ type apiHLSMuxer struct {
 }
 
 type apiHLSMuxersList struct {
+	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
 	Items     []*apiHLSMuxer `json:"items"`
 }
@@ -45,6 +47,7 @@ type apiRTSPConn struct {
 }
 
 type apiRTSPConnsList struct {
+	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
 	Items     []*apiRTSPConn `json:"items"`
 }
@@ -59,6 +62,7 @@ type apiRTMPConn struct {
 }
 
 type apiRTMPConnsList struct {
+	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
 	Items     []*apiRTMPConn `json:"items"`
 }
@@ -73,6 +77,7 @@ type apiRTSPSession struct {
 }
 
 type apiRTSPSessionsList struct {
+	ItemCount int               `json:"itemCount"`
 	PageCount int               `json:"pageCount"`
 	Items     []*apiRTSPSession `json:"items"`
 }
@@ -90,6 +95,7 @@ type apiWebRTCSession struct {
 }
 
 type apiWebRTCSessionsList struct {
+	ItemCount int                 `json:"itemCount"`
 	PageCount int                 `json:"pageCount"`
 	Items     []*apiWebRTCSession `json:"items"`
 }
