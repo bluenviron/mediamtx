@@ -596,3 +596,37 @@ func (s *webRTCSession) apiSourceDescribe() pathAPISourceOrReader {
 func (s *webRTCSession) apiReaderDescribe() pathAPISourceOrReader {
 	return s.apiSourceDescribe()
 }
+
+func (s *webRTCSession) apiItem() *apiWebRTCSession {
+	peerConnectionEstablished := false
+	localCandidate := ""
+	remoteCandidate := ""
+	bytesReceived := uint64(0)
+	bytesSent := uint64(0)
+
+	pc := s.safePC()
+	if pc != nil {
+		peerConnectionEstablished = true
+		localCandidate = pc.localCandidate()
+		remoteCandidate = pc.remoteCandidate()
+		bytesReceived = pc.bytesReceived()
+		bytesSent = pc.bytesSent()
+	}
+
+	return &apiWebRTCSession{
+		ID:                        s.uuid,
+		Created:                   s.created,
+		RemoteAddr:                s.req.remoteAddr,
+		PeerConnectionEstablished: peerConnectionEstablished,
+		LocalCandidate:            localCandidate,
+		RemoteCandidate:           remoteCandidate,
+		State: func() string {
+			if s.req.publish {
+				return "publish"
+			}
+			return "read"
+		}(),
+		BytesReceived: bytesReceived,
+		BytesSent:     bytesSent,
+	}
+}

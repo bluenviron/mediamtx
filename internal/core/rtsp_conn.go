@@ -209,3 +209,13 @@ func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {
 		StatusCode: base.StatusUnauthorized,
 	}, authErr
 }
+
+func (c *rtspConn) apiItem() *apiRTSPConn {
+	return &apiRTSPConn{
+		ID:            c.uuid,
+		Created:       c.created,
+		RemoteAddr:    c.remoteAddr().String(),
+		BytesReceived: c.conn.BytesReceived(),
+		BytesSent:     c.conn.BytesSent(),
+	}
+}

@@ -78,9 +78,9 @@ func (m *metrics) Log(level logger.Level, format string, args ...interface{}) {
 func (m *metrics) onMetrics(ctx *gin.Context) {
 	out := ""
 
-	res := m.pathManager.apiPathsList()
-	if res.err == nil && len(res.data.Items) != 0 {
-		for _, i := range res.data.Items {
+	data, err := m.pathManager.apiPathsList()
+	if err == nil && len(data.Items) != 0 {
+		for _, i := range data.Items {
 			var state string
 			if i.SourceReady {
 				state = "ready"
@@ -97,9 +97,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsManager) {
-		res := m.hlsManager.apiMuxersList()
-		if res.err == nil && len(res.data.Items) != 0 {
-			for _, i := range res.data.Items {
+		data, err := m.hlsManager.apiMuxersList()
+		if err == nil && len(data.Items) != 0 {
+			for _, i := range data.Items {
 				tags := "{name=\"" + i.Path + "\"}"
 				out += metric("hls_muxers", tags, 1)
 				out += metric("hls_muxers_bytes_sent", tags, int64(i.BytesSent))
@@ -112,9 +112,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspServer) { //nolint:dupl
 		func() {
-			res := m.rtspServer.apiConnsList()
-			if res.err == nil && len(res.data.Items) != 0 {
-				for _, i := range res.data.Items {
+			data, err := m.rtspServer.apiConnsList()
+			if err == nil && len(data.Items) != 0 {
+				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\"}"
 					out += metric("rtsp_conns", tags, 1)
 					out += metric("rtsp_conns_bytes_received", tags, int64(i.BytesReceived))
@@ -128,9 +128,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}()
 
 		func() {
-			res := m.rtspServer.apiSessionsList()
-			if res.err == nil && len(res.data.Items) != 0 {
-				for _, i := range res.data.Items {
+			data, err := m.rtspServer.apiSessionsList()
+			if err == nil && len(data.Items) != 0 {
+				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\",state=\"" + i.State + "\"}"
 					out += metric("rtsp_sessions", tags, 1)
 					out += metric("rtsp_sessions_bytes_received", tags, int64(i.BytesReceived))
@@ -146,9 +146,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspsServer) { //nolint:dupl
 		func() {
-			res := m.rtspsServer.apiConnsList()
-			if res.err == nil && len(res.data.Items) != 0 {
-				for _, i := range res.data.Items {
+			data, err := m.rtspsServer.apiConnsList()
+			if err == nil && len(data.Items) != 0 {
+				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\"}"
 					out += metric("rtsps_conns", tags, 1)
 					out += metric("rtsps_conns_bytes_received", tags, int64(i.BytesReceived))
@@ -162,9 +162,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}()
 
 		func() {
-			res := m.rtspsServer.apiSessionsList()
-			if res.err == nil && len(res.data.Items) != 0 {
-				for _, i := range res.data.Items {
+			data, err := m.rtspsServer.apiSessionsList()
+			if err == nil && len(data.Items) != 0 {
+				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\",state=\"" + i.State + "\"}"
 					out += metric("rtsps_sessions", tags, 1)
 					out += metric("rtsps_sessions_bytes_received", tags, int64(i.BytesReceived))
@@ -179,9 +179,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
-		res := m.rtmpServer.apiConnsList()
-		if res.err == nil && len(res.data.Items) != 0 {
-			for _, i := range res.data.Items {
+		data, err := m.rtmpServer.apiConnsList()
+		if err == nil && len(data.Items) != 0 {
+			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + i.State + "\"}"
 				out += metric("rtmp_conns", tags, 1)
 				out += metric("rtmp_conns_bytes_received", tags, int64(i.BytesReceived))
@@ -195,9 +195,9 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.webRTCManager) {
-		res := m.webRTCManager.apiSessionsList()
-		if res.err == nil && len(res.data.Items) != 0 {
-			for _, i := range res.data.Items {
+		data, err := m.webRTCManager.apiSessionsList()
+		if err == nil && len(data.Items) != 0 {
+			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\"}"
 				out += metric("webrtc_sessions", tags, 1)
 				out += metric("webrtc_sessions_bytes_received", tags, int64(i.BytesReceived))

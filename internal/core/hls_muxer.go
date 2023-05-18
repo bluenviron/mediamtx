@@ -30,6 +30,10 @@ const (
 	hlsMuxerRecreatePause = 10 * time.Second
 )
 
+func int64Ptr(v int64) *int64 {
+	return &v
+}
+
 type responseWriterWithCounter struct {
 	http.ResponseWriter
 	bytesSent *uint64
@@ -80,8 +84,7 @@ type hlsMuxer struct {
 	bytesSent       *uint64
 
 	// in
-	chRequest          chan *hlsMuxerHandleRequestReq
-	chAPIHLSMuxersList chan hlsManagerAPIMuxersListSubReq
+	chRequest chan *hlsMuxerHandleRequestReq
 }
 
 func newHLSMuxer(
@@ -121,13 +124,9 @@ func newHLSMuxer(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		created:                   time.Now(),
-		lastRequestTime: func() *int64 {
-			v := time.Now().UnixNano()
-			return &v
-		}(),
-		bytesSent:          new(uint64),
-		chRequest:          make(chan *hlsMuxerHandleRequestReq),
-		chAPIHLSMuxersList: make(chan hlsManagerAPIMuxersListSubReq),
+		lastRequestTime:           int64Ptr(time.Now().UnixNano()),
+		bytesSent:                 new(uint64),
+		chRequest:                 make(chan *hlsMuxerHandleRequestReq),
 	}
 
 	m.Log(logger.Info, "created %s", func() string {
@@ -200,15 +199,6 @@ func (m *hlsMuxer) run() {
 				default:
 					m.requests = append(m.requests, req)
 				}
-
-			case req := <-m.chAPIHLSMuxersList:
-				req.data.Items = append(req.data.Items, hlsManagerAPIMuxersListItem{
-					Path:        m.pathName,
-					Created:     m.created,
-					LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
-					BytesSent:   atomic.LoadUint64(m.bytesSent),
-				})
-				close(req.res)
 
 			case <-innerReady:
 				isReady = true
@@ -555,21 +545,19 @@ func (m *hlsMuxer) processRequest(req *hlsMuxerHandleRequestReq) {
 	}
 }
 
-// apiMuxersList is called by api.
-func (m *hlsMuxer) apiMuxersList(req hlsManagerAPIMuxersListSubReq) {
-	req.res = make(chan struct{})
-	select {
-	case m.chAPIHLSMuxersList <- req:
-		<-req.res
-
-	case <-m.ctx.Done():
-	}
-}
-
 // apiReaderDescribe implements reader.
 func (m *hlsMuxer) apiReaderDescribe() pathAPISourceOrReader {
 	return pathAPISourceOrReader{
 		Type: "hlsMuxer",
 		ID:   "",
+	}
+}
+
+func (m *hlsMuxer) apiItem() *apiHLSMuxer {
+	return &apiHLSMuxer{
+		Path:        m.pathName,
+		Created:     m.created,
+		LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),
+		BytesSent:   atomic.LoadUint64(m.bytesSent),
 	}
 }

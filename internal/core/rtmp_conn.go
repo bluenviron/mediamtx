@@ -827,3 +827,23 @@ func (c *rtmpConn) apiReaderDescribe() pathAPISourceOrReader {
 func (c *rtmpConn) apiSourceDescribe() pathAPISourceOrReader {
 	return c.apiReaderDescribe()
 }
+
+func (c *rtmpConn) apiItem() *apiRTMPConn {
+	return &apiRTMPConn{
+		ID:         c.uuid,
+		Created:    c.created,
+		RemoteAddr: c.remoteAddr().String(),
+		State: func() string {
+			switch c.safeState() {
+			case rtmpConnStateRead:
+				return "read"
+
+			case rtmpConnStatePublish:
+				return "publish"
+			}
+			return "idle"
+		}(),
+		BytesReceived: c.conn.BytesReceived(),
+		BytesSent:     c.conn.BytesSent(),
+	}
+}
