@@ -84,7 +84,10 @@ func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
 		return 0
 	}
 
-	pageCount := (itemsLen / itemsPerPage) + 1
+	pageCount := (itemsLen / itemsPerPage)
+	if (itemsLen % itemsPerPage) != 0 {
+		pageCount++
+	}
 
 	min := page * itemsPerPage
 	if min >= itemsLen {
