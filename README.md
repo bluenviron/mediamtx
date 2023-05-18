@@ -1217,7 +1217,7 @@ For more advanced options, you can create and serve a custom web page by startin
 
 * WebRTC
   * [WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)
-  * [WebRTC Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)
+  * [WebRTC HTTP Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)
   * [WebRTC HTTP Egress Protocol (WHEP)](https://datatracker.ietf.org/doc/draft-murillo-whep/)
 
 * Video and audio codecs

@@ -44,7 +44,7 @@ func trackFromH264DecoderConfig(data []byte) (formats.Format, error) {
 	}, nil
 }
 
-func trackFromAACDecoderConfig(data []byte) (*formats.MPEG4Audio, error) {
+func trackFromAACDecoderConfig(data []byte) (formats.Format, error) {
 	var mpegConf mpeg4audio.Config
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
@@ -261,10 +261,10 @@ func readTracksFromMetadata(r *message.ReadWriter, payload []interface{}) (forma
 	}
 }
 
-func readTracksFromMessages(r *message.ReadWriter, msg message.Message) (formats.Format, *formats.MPEG4Audio, error) {
+func readTracksFromMessages(r *message.ReadWriter, msg message.Message) (formats.Format, formats.Format, error) {
 	var startTime *time.Duration
 	var videoTrack formats.Format
-	var audioTrack *formats.MPEG4Audio
+	var audioTrack formats.Format
 
 	// analyze 1 second of packets
 outer:
