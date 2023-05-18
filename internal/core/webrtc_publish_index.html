@@ -111,7 +111,7 @@ const setState = (newState) => {
 const restartPause = 2000;
 
 const linkToIceServers = (links) => (
-    links.split(', ').map((link) => {
+    (links !== null) ? links.split(', ').map((link) => {
         const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
         const ret = {
             urls: [m[1]],
@@ -124,7 +124,7 @@ const linkToIceServers = (links) => (
         }
 
         return ret;
-    })
+    }) : []
 );
 
 const parseOffer = (offer) => {
