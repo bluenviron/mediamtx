@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -512,6 +513,10 @@ func (pm *pathManager) apiPathsList() (*apiPathsList, error) {
 
 			res.data.Items = append(res.data.Items, item)
 		}
+
+		sort.Slice(res.data.Items, func(i, j int) bool {
+			return res.data.Items[i].Name < res.data.Items[j].Name
+		})
 
 		return res.data, nil
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -360,6 +361,10 @@ func (s *rtspServer) apiConnsList() (*apiRTSPConnsList, error) {
 		data.Items = append(data.Items, c.apiItem())
 	}
 
+	sort.Slice(data.Items, func(i, j int) bool {
+		return data.Items[i].Created.Before(data.Items[j].Created)
+	})
+
 	return data, nil
 }
 
@@ -400,6 +405,10 @@ func (s *rtspServer) apiSessionsList() (*apiRTSPSessionsList, error) {
 	for _, s := range s.sessions {
 		data.Items = append(data.Items, s.apiItem())
 	}
+
+	sort.Slice(data.Items, func(i, j int) bool {
+		return data.Items[i].Created.Before(data.Items[j].Created)
+	})
 
 	return data, nil
 }
