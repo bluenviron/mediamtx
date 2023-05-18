@@ -35,9 +35,10 @@ type formatProcessorAV1 struct {
 	format            *formats.AV1
 	log               logger.Writer
 
-	encoder              *rtpav1.Encoder
-	decoder              *rtpav1.Decoder
-	lastKeyFrameReceived time.Time
+	encoder                  *rtpav1.Encoder
+	decoder                  *rtpav1.Decoder
+	lastKeyFrameTimeReceived bool
+	lastKeyFrameTime         time.Time
 }
 
 func newAV1(
@@ -57,27 +58,27 @@ func newAV1(
 			PayloadMaxSize: t.udpMaxPayloadSize - 12,
 		}
 		t.encoder.Init()
-		t.lastKeyFrameReceived = time.Now()
 	}
 
 	return t, nil
 }
 
-func (t *formatProcessorAV1) checkKeyFrameInterval(containsKeyFrame bool) {
-	if containsKeyFrame {
-		t.lastKeyFrameReceived = time.Now()
-	} else {
-		now := time.Now()
-		if now.Sub(t.lastKeyFrameReceived) >= maxKeyFrameInterval {
-			t.lastKeyFrameReceived = now
-			t.log.Log(logger.Warn, "no AV1 key frames received in %v, stream can't be decoded", maxKeyFrameInterval)
-		}
+func (t *formatProcessorAV1) checkKeyFrameInterval(ntp time.Time, isKeyFrame bool) {
+	if !t.lastKeyFrameTimeReceived || isKeyFrame {
+		t.lastKeyFrameTimeReceived = true
+		t.lastKeyFrameTime = ntp
+		return
+	}
+
+	if ntp.Sub(t.lastKeyFrameTime) >= maxKeyFrameInterval {
+		t.lastKeyFrameTime = ntp
+		t.log.Log(logger.Warn, "no AV1 key frames received in %v, stream can't be decoded", maxKeyFrameInterval)
 	}
 }
 
-func (t *formatProcessorAV1) checkOBUs(obus [][]byte) {
+func (t *formatProcessorAV1) checkOBUs(ntp time.Time, obus [][]byte) {
 	containsKeyFrame, _ := av1.ContainsKeyFrame(obus)
-	t.checkKeyFrameInterval(containsKeyFrame)
+	t.checkKeyFrameInterval(ntp, containsKeyFrame)
 }
 
 func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
@@ -99,7 +100,6 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				t.decoder = t.format.CreateDecoder()
-				t.lastKeyFrameReceived = time.Now()
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
@@ -112,7 +112,7 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 			}
 
 			tunit.OBUs = obus
-			t.checkOBUs(obus)
+			t.checkOBUs(tunit.NTP, obus)
 			tunit.PTS = pts
 		}
 
@@ -120,7 +120,7 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 		return nil
 	}
 
-	t.checkOBUs(tunit.OBUs)
+	t.checkOBUs(tunit.NTP, tunit.OBUs)
 
 	// encode into RTP
 	pkts, err := t.encoder.Encode(tunit.OBUs, tunit.PTS)
