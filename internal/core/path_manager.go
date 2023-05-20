@@ -507,11 +507,9 @@ func (pm *pathManager) apiPathsList() (*apiPathsList, error) {
 
 		for _, pa := range res.paths {
 			item, err := pa.apiPathsGet(pathAPIPathsGetReq{})
-			if err != nil {
-				return nil, err
+			if err == nil {
+				res.data.Items = append(res.data.Items, item)
 			}
-
-			res.data.Items = append(res.data.Items, item)
 		}
 
 		sort.Slice(res.data.Items, func(i, j int) bool {
