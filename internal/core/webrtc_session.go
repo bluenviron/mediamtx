@@ -3,7 +3,6 @@ package core
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -256,11 +255,6 @@ func (s *webRTCSession) runPublish() (int, error) {
 
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
 
-	offer, err := s.decodeOffer()
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-
 	pc, err := newPeerConnection(
 		s.req.videoCodec,
 		s.req.audioCodec,
@@ -297,6 +291,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 		}
 	})
 
+	offer := s.buildOffer()
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -390,11 +385,6 @@ func (s *webRTCSession) runRead() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	offer, err := s.decodeOffer()
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-
 	pc, err := newPeerConnection(
 		"",
 		"",
@@ -416,6 +406,7 @@ func (s *webRTCSession) runRead() (int, error) {
 		}
 	}
 
+	offer := s.buildOffer()
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
 		return http.StatusBadRequest, err
@@ -484,18 +475,11 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 }
 
-func (s *webRTCSession) decodeOffer() (*webrtc.SessionDescription, error) {
-	var offer webrtc.SessionDescription
-	err := json.Unmarshal(s.req.offer, &offer)
-	if err != nil {
-		return nil, err
+func (s *webRTCSession) buildOffer() *webrtc.SessionDescription {
+	return &webrtc.SessionDescription{
+		Type: webrtc.SDPTypeOffer,
+		SDP:  string(s.req.offer),
 	}
-
-	if offer.Type != webrtc.SDPTypeOffer {
-		return nil, fmt.Errorf("received SDP is not an offer")
-	}
-
-	return &offer, nil
 }
 
 func (s *webRTCSession) waitGatheringDone(pc *peerConnection) error {
@@ -511,15 +495,10 @@ func (s *webRTCSession) waitGatheringDone(pc *peerConnection) error {
 }
 
 func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) error {
-	enc, err := json.Marshal(answer)
-	if err != nil {
-		return err
-	}
-
 	select {
 	case s.req.res <- webRTCSessionNewRes{
 		sx:     s,
-		answer: enc,
+		answer: []byte(answer.SDP),
 	}:
 		s.answerSent = true
 	case <-s.ctx.Done():
