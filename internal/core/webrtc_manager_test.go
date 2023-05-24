@@ -2,7 +2,7 @@ package core
 
 import (
 	"bytes"
-	"encoding/json"
+	"io"
 	"net/http"
 	"sync"
 	"testing"
@@ -38,10 +38,7 @@ func whipGetICEServers(t *testing.T, hc *http.Client, ur string) []webrtc.ICESer
 func whipPostOffer(t *testing.T, hc *http.Client, ur string,
 	offer *webrtc.SessionDescription,
 ) (*webrtc.SessionDescription, string) {
-	enc, err := json.Marshal(offer)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest("POST", ur, bytes.NewReader(enc))
+	req, err := http.NewRequest("POST", ur, bytes.NewReader([]byte(offer.SDP)))
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/sdp")
@@ -51,22 +48,27 @@ func whipPostOffer(t *testing.T, hc *http.Client, ur string,
 	defer res.Body.Close()
 
 	require.Equal(t, http.StatusCreated, res.StatusCode)
+	require.Equal(t, "application/sdp", res.Header.Get("Content-Type"))
+	require.Equal(t, "application/trickle-ice-sdpfrag", res.Header.Get("Accept-Patch"))
+	require.Equal(t, req.URL.Path, res.Header.Get("Location"))
 
 	link, ok := res.Header["Link"]
 	require.Equal(t, true, ok)
 	servers := linkHeaderToIceServers(link)
 	require.NotEqual(t, 0, len(servers))
 
-	require.Equal(t, "application/sdp", res.Header.Get("Content-Type"))
 	etag := res.Header.Get("E-Tag")
 	require.NotEqual(t, 0, len(etag))
-	require.Equal(t, "application/trickle-ice-sdpfrag", res.Header.Get("Accept-Patch"))
 
-	var answer webrtc.SessionDescription
-	err = json.NewDecoder(res.Body).Decode(&answer)
+	sdp, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
-	return &answer, etag
+	answer := &webrtc.SessionDescription{
+		Type: webrtc.SDPTypeAnswer,
+		SDP:  string(sdp),
+	}
+
+	return answer, etag
 }
 
 func whipPostCandidate(t *testing.T, ur string, offer *webrtc.SessionDescription,
@@ -323,10 +325,7 @@ func TestWebRTCReadNotFound(t *testing.T) {
 	offer, err := pc.CreateOffer(nil)
 	require.NoError(t, err)
 
-	enc, err := json.Marshal(offer)
-	require.NoError(t, err)
-
-	req, err := http.NewRequest("POST", "http://localhost:8889/stream/whep", bytes.NewReader(enc))
+	req, err := http.NewRequest("POST", "http://localhost:8889/stream/whep", bytes.NewReader([]byte(offer.SDP)))
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/sdp")

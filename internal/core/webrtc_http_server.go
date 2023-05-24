@@ -309,6 +309,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("E-Tag", res.sx.secret.String())
 			ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
+			ctx.Writer.Header().Set("Location", ctx.Request.URL.String())
 			ctx.Writer.WriteHeader(http.StatusCreated)
 			ctx.Writer.Write(res.answer)
 

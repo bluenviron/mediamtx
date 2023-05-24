@@ -143,16 +143,19 @@ class WHEPClient {
                     headers: {
                         'Content-Type': 'application/sdp',
                     },
-                    body: JSON.stringify(desc),
+                    body: desc.sdp,
                 })
                     .then((res) => {
                         if (res.status !== 201) {
                             throw new Error('bad status code');
                         }
                         this.eTag = res.headers.get('E-Tag');
-                        return res.json();
+                        return res.text();
                     })
-                    .then((answer) => this.onRemoteDescription(answer))
+                    .then((sdp) => this.onRemoteDescription(new RTCSessionDescription({
+                        type: 'answer',
+                        sdp,
+                    })))
                     .catch((err) => {
                         console.log('error: ' + err);
                         this.scheduleRestart();
