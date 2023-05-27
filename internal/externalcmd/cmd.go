@@ -33,6 +33,8 @@ func NewCmd(
 	env Environment,
 	onExit func(int),
 ) *Cmd {
+	// replace variables in both Linux and Windows, in order to allow using the
+	// same commands on both of them.
 	for key, val := range env {
 		cmdstr = strings.ReplaceAll(cmdstr, "$"+key, val)
 	}
@@ -62,28 +64,30 @@ func (e *Cmd) run() {
 	defer e.pool.wg.Done()
 
 	for {
-		ok := func() bool {
-			c, ok := e.runInner()
-			if !ok {
-				return false
-			}
-
-			e.onExit(c)
-
-			if !e.restart {
-				<-e.terminate
-				return false
-			}
-
-			select {
-			case <-time.After(restartPause):
-				return true
-			case <-e.terminate:
-				return false
-			}
-		}()
+		ok := e.runInner()
 		if !ok {
 			break
 		}
+	}
+}
+
+func (e *Cmd) runInner() bool {
+	c, ok := e.runOSSpecific()
+	if !ok {
+		return false
+	}
+
+	e.onExit(c)
+
+	if !e.restart {
+		<-e.terminate
+		return false
+	}
+
+	select {
+	case <-time.After(restartPause):
+		return true
+	case <-e.terminate:
+		return false
 	}
 }

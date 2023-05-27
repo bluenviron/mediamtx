@@ -11,13 +11,13 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-func (e *Cmd) runInner() (int, bool) {
-	cmdparts, err := shellquote.Split(e.cmdstr)
+func (e *Cmd) runOSSpecific() (int, bool) {
+	cmdParts, err := shellquote.Split(e.cmdstr)
 	if err != nil {
 		return 0, true
 	}
 
-	cmd := exec.Command(cmdparts[0], cmdparts[1:]...)
+	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
 
 	cmd.Env = append([]string(nil), os.Environ()...)
 	for key, val := range e.env {

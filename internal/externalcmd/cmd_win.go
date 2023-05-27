@@ -6,17 +6,37 @@ package externalcmd
 import (
 	"os"
 	"os/exec"
+	"strings"
+	"syscall"
 
 	"github.com/kballard/go-shellquote"
 )
 
-func (e *Cmd) runInner() (int, bool) {
-	cmdparts, err := shellquote.Split(e.cmdstr)
-	if err != nil {
-		return 0, true
-	}
+func (e *Cmd) runOSSpecific() (int, bool) {
+	var cmd *exec.Cmd
 
-	cmd := exec.Command(cmdparts[0], cmdparts[1:]...)
+	// from Golang documentation:
+	// On Windows, processes receive the whole command line as a single string and do their own parsing.
+	// Command combines and quotes Args into a command line string with an algorithm compatible with
+	// applications using CommandLineToArgvW (which is the most common way). Notable exceptions are
+	// msiexec.exe and cmd.exe (and thus, all batch files), which have a different unquoting algorithm.
+	// In these or other similar cases, you can do the quoting yourself and provide the full command
+	// line in SysProcAttr.CmdLine, leaving Args empty.
+	if strings.HasPrefix(e.cmdstr, "cmd ") || strings.HasPrefix(e.cmdstr, "cmd.exe ") {
+		args := strings.TrimPrefix(strings.TrimPrefix(e.cmdstr, "cmd "), "cmd.exe ")
+
+		cmd = exec.Command("cmd.exe")
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			CmdLine: args,
+		}
+	} else {
+		cmdParts, err := shellquote.Split(e.cmdstr)
+		if err != nil {
+			return 0, true
+		}
+
+		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
+	}
 
 	cmd.Env = append([]string(nil), os.Environ()...)
 	for key, val := range e.env {
@@ -26,7 +46,7 @@ func (e *Cmd) runInner() (int, bool) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err = cmd.Start()
+	err := cmd.Start()
 	if err != nil {
 		return 0, true
 	}
