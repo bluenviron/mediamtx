@@ -4,6 +4,7 @@
 package externalcmd
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,7 +13,7 @@ import (
 	"github.com/kballard/go-shellquote"
 )
 
-func (e *Cmd) runOSSpecific() (int, bool) {
+func (e *Cmd) runOSSpecific() error {
 	var cmd *exec.Cmd
 
 	// from Golang documentation:
@@ -32,7 +33,7 @@ func (e *Cmd) runOSSpecific() (int, bool) {
 	} else {
 		cmdParts, err := shellquote.Split(e.cmdstr)
 		if err != nil {
-			return 0, true
+			return err
 		}
 
 		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
@@ -48,7 +49,7 @@ func (e *Cmd) runOSSpecific() (int, bool) {
 
 	err := cmd.Start()
 	if err != nil {
-		return 0, true
+		return err
 	}
 
 	cmdDone := make(chan int)
@@ -72,9 +73,9 @@ func (e *Cmd) runOSSpecific() (int, bool) {
 		// Kill() is the only supported way.
 		cmd.Process.Kill()
 		<-cmdDone
-		return 0, false
+		return errTerminated
 
 	case c := <-cmdDone:
-		return c, true
+		return fmt.Errorf("command returned code %d", c)
 	}
 }

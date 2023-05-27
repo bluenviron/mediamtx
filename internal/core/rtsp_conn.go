@@ -80,8 +80,8 @@ func newRTSPConn(
 				"RTSP_PATH": "",
 				"RTSP_PORT": port,
 			},
-			func(co int) {
-				c.Log(logger.Info, "runOnInit command exited with code %d", co)
+			func(err error) {
+				c.Log(logger.Info, "runOnInit command exited: %v", err)
 			})
 	}
 
