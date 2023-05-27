@@ -53,11 +53,12 @@ pprof: no
 pprofAddress: 127.0.0.1:9999
 
 # Command to run when a client connects to the server.
+# Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
 # This is terminated with SIGINT when a client disconnects from the server.
 # The following environment variables are available:
 # * RTSP_PORT: server port
 runOnConnect:
-# Restart the command if it exits suddenly.
+# Restart the command if it exits.
 runOnConnectRestart: no
 
 ###############################################
@@ -406,6 +407,7 @@ paths:
 
     # Command to run when this path is initialized.
     # This can be used to publish a stream and keep it always opened.
+    # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when the program closes.
     # The following environment variables are available:
     # * RTSP_PATH: path name
@@ -413,11 +415,12 @@ paths:
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnInit:
-    # Restart the command if it exits suddenly.
+    # Restart the command if it exits.
     runOnInitRestart: no
 
     # Command to run when this path is requested.
     # This can be used to publish a stream on demand.
+    # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when the path is not requested anymore.
     # The following environment variables are available:
     # * RTSP_PATH: path name
@@ -425,7 +428,7 @@ paths:
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnDemand:
-    # Restart the command if it exits suddenly.
+    # Restart the command if it exits.
     runOnDemandRestart: no
     # Readers will be put on hold until the runOnDemand command starts publishing
     # or until this amount of time has passed.
@@ -436,6 +439,7 @@ paths:
 
     # Command to run when the stream is ready to be read, whether it is
     # published by a client or pulled from a server / camera.
+    # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when the stream is not ready anymore.
     # The following environment variables are available:
     # * RTSP_PATH: path name
@@ -443,10 +447,11 @@ paths:
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnReady:
-    # Restart the command if it exits suddenly.
+    # Restart the command if it exits.
     runOnReadyRestart: no
 
     # Command to run when a clients starts reading.
+    # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when a client stops reading.
     # The following environment variables are available:
     # * RTSP_PATH: path name
@@ -454,5 +459,5 @@ paths:
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnRead:
-    # Restart the command if it exits suddenly.
+    # Restart the command if it exits.
     runOnReadRestart: no
