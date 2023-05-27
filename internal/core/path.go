@@ -333,8 +333,8 @@ func (pa *path) run() {
 			pa.conf.RunOnInit,
 			pa.conf.RunOnInitRestart,
 			pa.externalCmdEnv(),
-			func(co int) {
-				pa.Log(logger.Info, "runOnInit command exited with code %d", co)
+			func(err error) {
+				pa.Log(logger.Info, "runOnInit command exited: %v", err)
 			})
 	}
 
@@ -588,8 +588,8 @@ func (pa *path) onDemandPublisherStart() {
 		pa.conf.RunOnDemand,
 		pa.conf.RunOnDemandRestart,
 		pa.externalCmdEnv(),
-		func(co int) {
-			pa.Log(logger.Info, "runOnDemand command exited with code %d", co)
+		func(err error) {
+			pa.Log(logger.Info, "runOnDemand command exited: %v", err)
 		})
 
 	pa.onDemandPublisherReadyTimer.Stop()
@@ -647,8 +647,8 @@ func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error 
 			pa.conf.RunOnReady,
 			pa.conf.RunOnReadyRestart,
 			pa.externalCmdEnv(),
-			func(co int) {
-				pa.Log(logger.Info, "runOnReady command exited with code %d", co)
+			func(err error) {
+				pa.Log(logger.Info, "runOnReady command exited: %v", err)
 			})
 	}
 

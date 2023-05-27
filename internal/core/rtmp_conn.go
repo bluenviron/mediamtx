@@ -299,8 +299,8 @@ func (c *rtmpConn) run() {
 				"RTSP_PATH": "",
 				"RTSP_PORT": port,
 			},
-			func(co int) {
-				c.Log(logger.Info, "runOnConnect command exited with code %d", co)
+			func(err error) {
+				c.Log(logger.Info, "runOnConnect command exited: %v", err)
 			})
 
 		defer func() {
@@ -424,8 +424,8 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			pathConf.RunOnRead,
 			pathConf.RunOnReadRestart,
 			res.path.externalCmdEnv(),
-			func(co int) {
-				c.Log(logger.Info, "runOnRead command exited with code %d", co)
+			func(err error) {
+				c.Log(logger.Info, "runOnRead command exited: %v", err)
 			})
 		defer func() {
 			onReadCmd.Close()
