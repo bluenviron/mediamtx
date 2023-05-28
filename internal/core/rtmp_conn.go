@@ -349,7 +349,7 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 	if !publish {
 		return c.runRead(ctx, u)
 	}
-	return c.runPublish(ctx, u)
+	return c.runPublish(u)
 }
 
 func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
@@ -704,7 +704,7 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 	return nil, nil
 }
 
-func (c *rtmpConn) runPublish(ctx context.Context, u *url.URL) error {
+func (c *rtmpConn) runPublish(u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
 	res := c.pathManager.publisherAdd(pathPublisherAddReq{
