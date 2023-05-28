@@ -209,9 +209,7 @@ func TestRTMPServerAuth(t *testing.T) {
 
 			var a *testHTTPAuthenticator
 			if ca == "external" {
-				var err error
-				a, err = newTestHTTPAuthenticator("rtmp", "publish")
-				require.NoError(t, err)
+				a = newTestHTTPAuthenticator(t, "rtmp", "publish")
 			}
 
 			u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testpublisher&pass=testpass&param=value")
@@ -245,8 +243,7 @@ func TestRTMPServerAuth(t *testing.T) {
 
 			if ca == "external" {
 				a.close()
-				a, err = newTestHTTPAuthenticator("rtmp", "read")
-				require.NoError(t, err)
+				a = newTestHTTPAuthenticator(t, "rtmp", "read")
 				defer a.close()
 			}
 
@@ -330,8 +327,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		a, err := newTestHTTPAuthenticator("rtmp", "publish")
-		require.NoError(t, err)
+		a := newTestHTTPAuthenticator(t, "rtmp", "publish")
 		defer a.close()
 
 		u1, err := url.Parse("rtmp://127.0.0.1:1935/teststream?user=testuser1&pass=testpass")

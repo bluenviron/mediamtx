@@ -24,11 +24,9 @@ type testHTTPAuthenticator struct {
 	s *http.Server
 }
 
-func newTestHTTPAuthenticator(protocol string, action string) (*testHTTPAuthenticator, error) {
+func newTestHTTPAuthenticator(t *testing.T, protocol string, action string) *testHTTPAuthenticator {
 	ln, err := net.Listen("tcp", "127.0.0.1:9120")
-	if err != nil {
-		return nil, err
-	}
+	require.NoError(t, err)
 
 	ts := &testHTTPAuthenticator{
 		protocol: protocol,
@@ -41,7 +39,7 @@ func newTestHTTPAuthenticator(protocol string, action string) (*testHTTPAuthenti
 	ts.s = &http.Server{Handler: router}
 	go ts.s.Serve(ln)
 
-	return ts, nil
+	return ts
 }
 
 func (ts *testHTTPAuthenticator) close() {
@@ -55,6 +53,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		Password string `json:"password"`
 		Path     string `json:"path"`
 		Protocol string `json:"protocol"`
+		ID       string `json:"id"`
 		Action   string `json:"action"`
 		Query    string `json:"query"`
 	}
@@ -76,6 +75,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		in.Password != "testpass" ||
 		in.Path != "teststream" ||
 		in.Protocol != ts.protocol ||
+		in.ID == "" ||
 		in.Action != ts.action ||
 		(in.Query != "user=testreader&pass=testpass&param=value" &&
 			in.Query != "user=testpublisher&pass=testpass&param=value" &&
