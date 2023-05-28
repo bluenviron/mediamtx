@@ -61,6 +61,30 @@ func opusGetPacketDuration(pkt []byte) time.Duration {
 	return (time.Duration(frameDuration) * time.Duration(frameCount) * time.Millisecond) / 48
 }
 
+func joinMulticastGroupOnAtLeastOneInterface(p *ipv4.PacketConn, listenIP net.IP) error {
+	intfs, err := net.Interfaces()
+	if err != nil {
+		return err
+	}
+
+	success := false
+
+	for _, intf := range intfs {
+		if (intf.Flags & net.FlagMulticast) != 0 {
+			err := p.JoinGroup(&intf, &net.UDPAddr{IP: listenIP})
+			if err == nil {
+				success = true
+			}
+		}
+	}
+
+	if !success {
+		return fmt.Errorf("unable to activate multicast on any network interface")
+	}
+
+	return nil
+}
+
 type packetConnReader struct {
 	pc        net.PacketConn
 	midbuf    []byte
@@ -144,16 +168,9 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 			return err
 		}
 
-		intfs, err := net.Interfaces()
+		err = joinMulticastGroupOnAtLeastOneInterface(p, ip)
 		if err != nil {
 			return err
-		}
-
-		for _, intf := range intfs {
-			err := p.JoinGroup(&intf, &net.UDPAddr{IP: ip})
-			if err != nil {
-				return err
-			}
 		}
 	}
 
