@@ -21,11 +21,9 @@ type testHTTPAuthenticator struct {
 	s *http.Server
 }
 
-func newTestHTTPAuthenticator(action string) (*testHTTPAuthenticator, error) {
+func newTestHTTPAuthenticator(t *testing.T, action string) *testHTTPAuthenticator {
 	ln, err := net.Listen("tcp", "127.0.0.1:9120")
-	if err != nil {
-		return nil, err
-	}
+	require.NoError(t, err)
 
 	ts := &testHTTPAuthenticator{
 		action: action,
@@ -37,7 +35,7 @@ func newTestHTTPAuthenticator(action string) (*testHTTPAuthenticator, error) {
 	ts.s = &http.Server{Handler: router}
 	go ts.s.Serve(ln)
 
-	return ts, nil
+	return ts
 }
 
 func (ts *testHTTPAuthenticator) close() {
@@ -138,9 +136,7 @@ func TestHLSServerAuth(t *testing.T) {
 
 				var a *testHTTPAuthenticator
 				if mode == "external" {
-					var err error
-					a, err = newTestHTTPAuthenticator("publish")
-					require.NoError(t, err)
+					a = newTestHTTPAuthenticator(t, "publish")
 				}
 
 				cnt1, err := newContainer("ffmpeg", "source", []string{
@@ -158,9 +154,7 @@ func TestHLSServerAuth(t *testing.T) {
 
 				if mode == "external" {
 					a.close()
-					var err error
-					a, err = newTestHTTPAuthenticator("read")
-					require.NoError(t, err)
+					a = newTestHTTPAuthenticator(t, "read")
 					defer a.close()
 				}
 

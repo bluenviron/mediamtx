@@ -69,6 +69,7 @@ func externalAuth(
 		Password: password,
 		Path:     path,
 		Protocol: string(protocol),
+		ID:       id,
 		Action: func() string {
 			if publish {
 				return "publish"

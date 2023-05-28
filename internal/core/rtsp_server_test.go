@@ -71,9 +71,7 @@ func TestRTSPServerAuth(t *testing.T) {
 
 			var a *testHTTPAuthenticator
 			if ca == "external" {
-				var err error
-				a, err = newTestHTTPAuthenticator("rtsp", "publish")
-				require.NoError(t, err)
+				a = newTestHTTPAuthenticator(t, "rtsp", "publish")
 			}
 
 			medi := testMediaH264
@@ -88,9 +86,7 @@ func TestRTSPServerAuth(t *testing.T) {
 
 			if ca == "external" {
 				a.close()
-				var err error
-				a, err = newTestHTTPAuthenticator("rtsp", "read")
-				require.NoError(t, err)
+				a = newTestHTTPAuthenticator(t, "rtsp", "read")
 				defer a.close()
 			}
 
@@ -257,15 +253,14 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		a, err := newTestHTTPAuthenticator("rtsp", "publish")
-		require.NoError(t, err)
+		a := newTestHTTPAuthenticator(t, "rtsp", "publish")
 		defer a.close()
 
 		medi := testMediaH264
 
 		c := gortsplib.Client{}
 
-		err = c.StartRecording(
+		err := c.StartRecording(
 			"rtsp://testpublisher2:testpass@localhost:8554/teststream?param=value",
 			media.Medias{medi},
 		)
