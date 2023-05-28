@@ -345,7 +345,7 @@ static void fill_dynamic_controls(ControlList *ctrls, const parameters_t *params
 
     ctrls->set(controls::ExposureValue, params->ev);
 
-    int64_t frame_time = 1000000 / params->fps;
+    int64_t frame_time = (int64_t)(((float)1000000) / params->fps);
     ctrls->set(controls::FrameDurationLimits, Span<const int64_t, 2>({ frame_time, frame_time }));
 }
 

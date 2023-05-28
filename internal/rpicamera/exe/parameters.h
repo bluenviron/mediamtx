@@ -27,7 +27,7 @@ typedef struct {
     window_t *roi;
     char *tuning_file;
     sensor_mode_t *mode;
-    unsigned int fps;
+    float fps;
     unsigned int idr_period;
     unsigned int bitrate;
     unsigned int profile;

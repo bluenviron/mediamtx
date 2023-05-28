@@ -96,7 +96,7 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
             }
             free(decoded_val);
         } else if (strcmp(key, "FPS") == 0) {
-            params->fps = atoi(val);
+            params->fps = atof(val);
         } else if (strcmp(key, "IDRPeriod") == 0) {
             params->idr_period = atoi(val);
         } else if (strcmp(key, "Bitrate") == 0) {

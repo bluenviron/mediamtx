@@ -262,7 +262,7 @@ components:
         rpiCameraMode:
           type: string
         rpiCameraFPS:
-          type: integer
+          type: number
         rpiCameraIDRPeriod:
           type: integer
         rpiCameraBitrate:

@@ -21,7 +21,7 @@ type Params struct {
 	ROI               string
 	TuningFile        string
 	Mode              string
-	FPS               int
+	FPS               float64
 	IDRPeriod         int
 	Bitrate           int
 	Profile           string
