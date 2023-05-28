@@ -1,7 +1,7 @@
 package handshake
 
 import (
-	"math/rand"
+	"crypto/rand"
 	"net"
 	"testing"
 
