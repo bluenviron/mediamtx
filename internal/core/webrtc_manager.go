@@ -3,10 +3,10 @@ package core
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
-	"math/rand"
 	"net"
 	"net/http"
 	"regexp"
@@ -63,6 +63,35 @@ func linkHeaderToIceServers(link []string) []webrtc.ICEServer {
 	}
 
 	return ret
+}
+
+func randInt63() int64 {
+	var b [8]byte
+	rand.Read(b[:])
+	return int64(uint64(b[0]&0b01111111)<<56 | uint64(b[1])<<48 | uint64(b[2])<<40 | uint64(b[3])<<32 |
+		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7]))
+}
+
+// https://cs.opensource.google/go/go/+/refs/tags/go1.20.4:src/math/rand/rand.go;l=119
+func randInt63n(n int64) int64 {
+	if n&(n-1) == 0 { // n is power of two, can mask
+		return randInt63() & (n - 1)
+	}
+	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
+	v := randInt63()
+	for v > max {
+		v = randInt63()
+	}
+	return v % n
+}
+
+func randomTurnUser() string {
+	const charset = "abcdefghijklmnopqrstuvwxyz1234567890"
+	b := make([]byte, 20)
+	for i := range b {
+		b[i] = charset[int(randInt63n(int64(len(charset))))]
+	}
+	return string(b)
 }
 
 type webRTCManagerAPISessionsListRes struct {
@@ -379,17 +408,8 @@ func (m *webRTCManager) genICEServers() []webrtc.ICEServer {
 					URLs: []string{parts[0] + ":" + parts[3] + ":" + parts[4]},
 				}
 
-				randomUser := func() string {
-					const charset = "abcdefghijklmnopqrstuvwxyz1234567890"
-					b := make([]byte, 20)
-					for i := range b {
-						b[i] = charset[rand.Intn(len(charset))]
-					}
-					return string(b)
-				}()
-
 				expireDate := time.Now().Add(24 * 3600 * time.Second).Unix()
-				s.Username = strconv.FormatInt(expireDate, 10) + ":" + randomUser
+				s.Username = strconv.FormatInt(expireDate, 10) + ":" + randomTurnUser()
 
 				h := hmac.New(sha1.New, []byte(parts[2]))
 				h.Write([]byte(s.Username))
