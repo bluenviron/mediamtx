@@ -18,7 +18,7 @@ type testLogWriter struct {
 	recv chan string
 }
 
-func (w *testLogWriter) Log(level logger.Level, format string, args ...interface{}) {
+func (w *testLogWriter) Log(_ logger.Level, format string, args ...interface{}) {
 	w.recv <- fmt.Sprintf(format, args...)
 }
 

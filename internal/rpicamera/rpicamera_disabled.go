@@ -18,8 +18,8 @@ type RPICamera struct{}
 
 // New allocates a RPICamera.
 func New(
-	params Params,
-	onData func(time.Duration, [][]byte),
+	_ Params,
+	_ func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
 	return nil, fmt.Errorf("server was compiled without support for the Raspberry Pi Camera")
 }
@@ -29,5 +29,5 @@ func (c *RPICamera) Close() {
 }
 
 // ReloadParams reloads the camera parameters.
-func (c *RPICamera) ReloadParams(params Params) {
+func (c *RPICamera) ReloadParams(_ Params) {
 }

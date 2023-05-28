@@ -40,7 +40,7 @@ func newOpus(
 	udpMaxPayloadSize int,
 	forma *formats.Opus,
 	generateRTPPackets bool,
-	log logger.Writer,
+	_ logger.Writer,
 ) (*formatProcessorOpus, error) {
 	t := &formatProcessorOpus{
 		udpMaxPayloadSize: udpMaxPayloadSize,

@@ -40,7 +40,7 @@ func newVP9(
 	udpMaxPayloadSize int,
 	forma *formats.VP9,
 	generateRTPPackets bool,
-	log logger.Writer,
+	_ logger.Writer,
 ) (*formatProcessorVP9, error) {
 	t := &formatProcessorVP9{
 		udpMaxPayloadSize: udpMaxPayloadSize,

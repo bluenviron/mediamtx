@@ -34,7 +34,7 @@ func newGeneric(
 	udpMaxPayloadSize int,
 	forma formats.Format,
 	generateRTPPackets bool,
-	log logger.Writer,
+	_ logger.Writer,
 ) (*formatProcessorGeneric, error) {
 	if generateRTPPackets {
 		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %+v", forma)
@@ -45,7 +45,7 @@ func newGeneric(
 	}, nil
 }
 
-func (t *formatProcessorGeneric) Process(unit Unit, hasNonRTSPReaders bool) error {
+func (t *formatProcessorGeneric) Process(unit Unit, _ bool) error {
 	tunit := unit.(*UnitGeneric)
 
 	pkt := tunit.RTPPackets[0]

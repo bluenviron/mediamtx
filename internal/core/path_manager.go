@@ -12,22 +12,22 @@ import (
 )
 
 func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf) bool {
-	copy := oldPathConf.Clone()
+	clone := oldPathConf.Clone()
 
-	copy.RPICameraBrightness = newPathConf.RPICameraBrightness
-	copy.RPICameraContrast = newPathConf.RPICameraContrast
-	copy.RPICameraSaturation = newPathConf.RPICameraSaturation
-	copy.RPICameraSharpness = newPathConf.RPICameraSharpness
-	copy.RPICameraExposure = newPathConf.RPICameraExposure
-	copy.RPICameraAWB = newPathConf.RPICameraAWB
-	copy.RPICameraDenoise = newPathConf.RPICameraDenoise
-	copy.RPICameraShutter = newPathConf.RPICameraShutter
-	copy.RPICameraMetering = newPathConf.RPICameraMetering
-	copy.RPICameraGain = newPathConf.RPICameraGain
-	copy.RPICameraEV = newPathConf.RPICameraEV
-	copy.RPICameraFPS = newPathConf.RPICameraFPS
+	clone.RPICameraBrightness = newPathConf.RPICameraBrightness
+	clone.RPICameraContrast = newPathConf.RPICameraContrast
+	clone.RPICameraSaturation = newPathConf.RPICameraSaturation
+	clone.RPICameraSharpness = newPathConf.RPICameraSharpness
+	clone.RPICameraExposure = newPathConf.RPICameraExposure
+	clone.RPICameraAWB = newPathConf.RPICameraAWB
+	clone.RPICameraDenoise = newPathConf.RPICameraDenoise
+	clone.RPICameraShutter = newPathConf.RPICameraShutter
+	clone.RPICameraMetering = newPathConf.RPICameraMetering
+	clone.RPICameraGain = newPathConf.RPICameraGain
+	clone.RPICameraEV = newPathConf.RPICameraEV
+	clone.RPICameraFPS = newPathConf.RPICameraFPS
 
-	return newPathConf.Equal(copy)
+	return newPathConf.Equal(clone)
 }
 
 type pathManagerHLSManager interface {

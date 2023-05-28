@@ -122,7 +122,7 @@ func (s *udpSource) Log(level logger.Level, format string, args ...interface{}) 
 }
 
 // run implements sourceStaticImpl.
-func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
+func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.PathConf) error {
 	s.Log(logger.Debug, "connecting")
 
 	hostPort := cnf.Source[len("udp://"):]

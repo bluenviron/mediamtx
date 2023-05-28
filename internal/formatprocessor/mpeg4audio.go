@@ -40,7 +40,7 @@ func newMPEG4Audio(
 	udpMaxPayloadSize int,
 	forma *formats.MPEG4Audio,
 	generateRTPPackets bool,
-	log logger.Writer,
+	_ logger.Writer,
 ) (*formatProcessorMPEG4Audio, error) {
 	t := &formatProcessorMPEG4Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,
