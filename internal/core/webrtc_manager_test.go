@@ -58,7 +58,9 @@ func whipPostOffer(t *testing.T, hc *http.Client, ur string,
 	require.NotEqual(t, 0, len(servers))
 
 	etag := res.Header.Get("E-Tag")
-	require.NotEqual(t, 0, len(etag))
+	require.NotEqual(t, "", etag)
+
+	require.NotEqual(t, "", res.Header.Get("ID"))
 
 	sdp, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
