@@ -307,6 +307,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("Content-Type", "application/sdp")
 			ctx.Writer.Header().Set("Access-Control-Expose-Headers", "E-Tag, Accept-Patch, Link")
 			ctx.Writer.Header().Set("E-Tag", res.sx.secret.String())
+			ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 			ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
 			ctx.Writer.Header().Set("Location", ctx.Request.URL.String())
