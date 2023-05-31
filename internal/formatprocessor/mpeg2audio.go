@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// UnitMPEG2Audio is a MPEG-2 Audio data unit.
+// UnitMPEG2Audio is a MPEG-1/2 Audio data unit.
 type UnitMPEG2Audio struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
