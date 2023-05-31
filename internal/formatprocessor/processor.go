@@ -19,7 +19,7 @@ type Processor interface {
 	// cleans and normalizes a data unit.
 	Process(Unit, bool) error
 
-	// returns an unit for the given RTP packet.
+	// wraps a RTP packet into a Unit.
 	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit
 }
 

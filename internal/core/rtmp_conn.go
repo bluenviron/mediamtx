@@ -407,7 +407,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 	if videoFormat == nil && audioFormat == nil {
 		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, MPEG-2 Audio, MPEG-4 Audio")
+			"the stream doesn't contain any supported codec, which are currently H264, MPEG-1/2 Audio, MPEG-4 Audio")
 	}
 
 	defer res.stream.readerRemove(c)
@@ -655,7 +655,7 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 					}
 
 					if !(!h.MPEG2 && h.Layer == 3) {
-						return fmt.Errorf("RTMP only supports MPEG-1 audio layer 3")
+						return fmt.Errorf("RTMP only supports MPEG-1 layer 3 audio")
 					}
 
 					channels := uint8(flvio.SOUND_STEREO)
