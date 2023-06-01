@@ -31,10 +31,12 @@ func TestH264DynamicParams(t *testing.T) {
 	p, err := New(1472, forma, false, nil)
 	require.NoError(t, err)
 
-	enc := forma.CreateEncoder()
+	enc, err := forma.CreateEncoder2()
+	require.NoError(t, err)
 
 	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
+
 	data := &UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}
 	p.Process(data, true)
 

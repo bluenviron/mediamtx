@@ -163,7 +163,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 			tmsg := msg.(*message.Audio)
 
 			if tmsg.AACType == message.AudioAACTypeAU {
-				stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4Audio{
+				stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4AudioGeneric{
 					PTS: tmsg.DTS,
 					AUs: [][]byte{tmsg.Payload},
 					NTP: time.Now(),
@@ -558,19 +558,23 @@ func (c *rtmpConn) findVideoFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 	return nil, nil
 }
 
-func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBuffer,
-	videoFormat formats.Format, videoFirstIDRFound *bool, videoStartDTS *time.Duration,
+func (c *rtmpConn) findAudioFormat(
+	stream *stream,
+	ringBuffer *ringbuffer.RingBuffer,
+	videoFormat formats.Format,
+	videoFirstIDRFound *bool,
+	videoStartDTS *time.Duration,
 ) (*media.Media, formats.Format) {
-	var audioFormatMPEG4 *formats.MPEG4Audio
-	audioMedia := stream.medias().FindFormat(&audioFormatMPEG4)
+	var audioFormatMPEG4Generic *formats.MPEG4AudioGeneric
+	audioMedia := stream.medias().FindFormat(&audioFormatMPEG4Generic)
 
 	if audioMedia != nil {
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.readerAdd(c, audioMedia, audioFormatMPEG4, func(unit formatprocessor.Unit) {
+		stream.readerAdd(c, audioMedia, audioFormatMPEG4Generic, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG4Audio)
+				tunit := unit.(*formatprocessor.UnitMPEG4AudioGeneric)
 
 				if tunit.AUs == nil {
 					return nil
@@ -605,7 +609,7 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 						AACType:         message.AudioAACTypeAU,
 						Payload:         au,
 						DTS: pts + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-							time.Second/time.Duration(audioFormatMPEG4.ClockRate()),
+							time.Second/time.Duration(audioFormatMPEG4Generic.ClockRate()),
 					})
 					if err != nil {
 						return err
@@ -616,7 +620,65 @@ func (c *rtmpConn) findAudioFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 			})
 		})
 
-		return audioMedia, audioFormatMPEG4
+		return audioMedia, audioFormatMPEG4Generic
+	}
+
+	var audioFormatMPEG4AudioLATM *formats.MPEG4AudioLATM
+	audioMedia = stream.medias().FindFormat(&audioFormatMPEG4AudioLATM)
+
+	if audioMedia != nil &&
+		audioFormatMPEG4AudioLATM.Config != nil &&
+		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
+		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
+		audioStartPTSFilled := false
+		var audioStartPTS time.Duration
+
+		stream.readerAdd(c, audioMedia, audioFormatMPEG4AudioLATM, func(unit formatprocessor.Unit) {
+			ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitMPEG4AudioLATM)
+
+				if tunit.AU == nil {
+					return nil
+				}
+
+				if !audioStartPTSFilled {
+					audioStartPTSFilled = true
+					audioStartPTS = tunit.PTS
+				}
+				pts := tunit.PTS - audioStartPTS
+
+				if videoFormat != nil {
+					if !*videoFirstIDRFound {
+						return nil
+					}
+
+					pts -= *videoStartDTS
+					if pts < 0 {
+						return nil
+					}
+				}
+
+				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+				err := c.conn.WriteMessage(&message.Audio{
+					ChunkStreamID:   message.AudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecMPEG4Audio,
+					Rate:            flvio.SOUND_44Khz,
+					Depth:           flvio.SOUND_16BIT,
+					Channels:        flvio.SOUND_STEREO,
+					AACType:         message.AudioAACTypeAU,
+					Payload:         tunit.AU,
+					DTS:             pts,
+				})
+				if err != nil {
+					return err
+				}
+
+				return nil
+			})
+		})
+
+		return audioMedia, audioFormatMPEG4AudioLATM
 	}
 
 	var audioFormatMPEG2 *formats.MPEG2Audio

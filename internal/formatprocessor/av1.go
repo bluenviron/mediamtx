@@ -54,13 +54,20 @@ func newAV1(
 	}
 
 	if generateRTPPackets {
-		t.encoder = &rtpav1.Encoder{
-			PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		err := t.createEncoder()
+		if err != nil {
+			return nil, err
 		}
-		t.encoder.Init()
 	}
 
 	return t, nil
+}
+
+func (t *formatProcessorAV1) createEncoder() error {
+	t.encoder = &rtpav1.Encoder{
+		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+	}
+	return t.encoder.Init()
 }
 
 func (t *formatProcessorAV1) checkKeyFrameInterval(ntp time.Time, isKeyFrame bool) {
@@ -99,7 +106,11 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 		// decode from RTP
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
-				t.decoder = t.format.CreateDecoder()
+				var err error
+				t.decoder, err = t.format.CreateDecoder2()
+				if err != nil {
+					return err
+				}
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups

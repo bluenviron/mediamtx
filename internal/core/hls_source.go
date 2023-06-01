@@ -142,7 +142,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnData(track, func(pts time.Duration, unit interface{}) {
-					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
+					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 						PTS: pts,
 						AUs: [][]byte{unit.([]byte)},
 						NTP: time.Now(),

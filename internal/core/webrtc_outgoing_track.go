@@ -27,9 +27,9 @@ type webRTCOutgoingTrack struct {
 
 func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, error) {
 	var av1Format *formats.AV1
-	av1Media := medias.FindFormat(&av1Format)
+	videoMedia := medias.FindFormat(&av1Format)
 
-	if av1Format != nil {
+	if videoMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeAV1,
@@ -49,7 +49,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		encoder.Init()
 
 		return &webRTCOutgoingTrack{
-			media:  av1Media,
+			media:  videoMedia,
 			format: av1Format,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
@@ -74,9 +74,9 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 	}
 
 	var vp9Format *formats.VP9
-	vp9Media := medias.FindFormat(&vp9Format)
+	videoMedia = medias.FindFormat(&vp9Format)
 
-	if vp9Format != nil {
+	if videoMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeVP9,
@@ -96,7 +96,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		encoder.Init()
 
 		return &webRTCOutgoingTrack{
-			media:  vp9Media,
+			media:  videoMedia,
 			format: vp9Format,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
@@ -121,9 +121,9 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 	}
 
 	var vp8Format *formats.VP8
-	vp8Media := medias.FindFormat(&vp8Format)
+	videoMedia = medias.FindFormat(&vp8Format)
 
-	if vp8Format != nil {
+	if videoMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeVP8,
@@ -143,7 +143,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		encoder.Init()
 
 		return &webRTCOutgoingTrack{
-			media:  vp8Media,
+			media:  videoMedia,
 			format: vp8Format,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
@@ -168,9 +168,9 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 	}
 
 	var h264Format *formats.H264
-	h264Media := medias.FindFormat(&h264Format)
+	videoMedia = medias.FindFormat(&h264Format)
 
-	if h264Format != nil {
+	if videoMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeH264,
@@ -193,7 +193,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		firstNALUReceived := false
 
 		return &webRTCOutgoingTrack{
-			media:  h264Media,
+			media:  videoMedia,
 			format: h264Format,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
@@ -232,9 +232,9 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 
 func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, error) {
 	var opusFormat *formats.Opus
-	opusMedia := medias.FindFormat(&opusFormat)
+	audioMedia := medias.FindFormat(&opusFormat)
 
-	if opusFormat != nil {
+	if audioMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeOpus,
@@ -249,7 +249,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 		}
 
 		return &webRTCOutgoingTrack{
-			media:  opusMedia,
+			media:  audioMedia,
 			format: opusFormat,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
@@ -263,9 +263,9 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 	}
 
 	var g722Format *formats.G722
-	g722Media := medias.FindFormat(&g722Format)
+	audioMedia = medias.FindFormat(&g722Format)
 
-	if g722Format != nil {
+	if audioMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeG722,
@@ -279,7 +279,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 		}
 
 		return &webRTCOutgoingTrack{
-			media:  g722Media,
+			media:  audioMedia,
 			format: g722Format,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
@@ -293,9 +293,9 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 	}
 
 	var g711Format *formats.G711
-	g711Media := medias.FindFormat(&g711Format)
+	audioMedia = medias.FindFormat(&g711Format)
 
-	if g711Format != nil {
+	if audioMedia != nil {
 		var mtyp string
 		if g711Format.MULaw {
 			mtyp = webrtc.MimeTypePCMU
@@ -316,7 +316,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 		}
 
 		return &webRTCOutgoingTrack{
-			media:  g711Media,
+			media:  audioMedia,
 			format: g711Format,
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {

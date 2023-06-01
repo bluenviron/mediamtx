@@ -11,8 +11,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// UnitMPEG4Audio is a MPEG-4 Audio data unit.
-type UnitMPEG4Audio struct {
+// UnitMPEG4AudioGeneric is a MPEG-4 Audio data unit.
+type UnitMPEG4AudioGeneric struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
 	PTS        time.Duration
@@ -20,50 +20,57 @@ type UnitMPEG4Audio struct {
 }
 
 // GetRTPPackets implements Unit.
-func (d *UnitMPEG4Audio) GetRTPPackets() []*rtp.Packet {
+func (d *UnitMPEG4AudioGeneric) GetRTPPackets() []*rtp.Packet {
 	return d.RTPPackets
 }
 
 // GetNTP implements Unit.
-func (d *UnitMPEG4Audio) GetNTP() time.Time {
+func (d *UnitMPEG4AudioGeneric) GetNTP() time.Time {
 	return d.NTP
 }
 
-type formatProcessorMPEG4Audio struct {
+type formatProcessorMPEG4AudioGeneric struct {
 	udpMaxPayloadSize int
 	format            *formats.MPEG4Audio
 	encoder           *rtpmpeg4audio.Encoder
 	decoder           *rtpmpeg4audio.Decoder
 }
 
-func newMPEG4Audio(
+func newMPEG4AudioGeneric(
 	udpMaxPayloadSize int,
 	forma *formats.MPEG4Audio,
 	generateRTPPackets bool,
 	_ logger.Writer,
-) (*formatProcessorMPEG4Audio, error) {
-	t := &formatProcessorMPEG4Audio{
+) (*formatProcessorMPEG4AudioGeneric, error) {
+	t := &formatProcessorMPEG4AudioGeneric{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
 
 	if generateRTPPackets {
-		t.encoder = &rtpmpeg4audio.Encoder{
-			PayloadMaxSize:   t.udpMaxPayloadSize - 12,
-			PayloadType:      forma.PayloadTyp,
-			SampleRate:       forma.Config.SampleRate,
-			SizeLength:       forma.SizeLength,
-			IndexLength:      forma.IndexLength,
-			IndexDeltaLength: forma.IndexDeltaLength,
+		err := t.createEncoder()
+		if err != nil {
+			return nil, err
 		}
-		t.encoder.Init()
 	}
 
 	return t, nil
 }
 
-func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitMPEG4Audio)
+func (t *formatProcessorMPEG4AudioGeneric) createEncoder() error {
+	t.encoder = &rtpmpeg4audio.Encoder{
+		PayloadMaxSize:   t.udpMaxPayloadSize - 12,
+		PayloadType:      t.format.PayloadTyp,
+		SampleRate:       t.format.Config.SampleRate,
+		SizeLength:       t.format.SizeLength,
+		IndexLength:      t.format.IndexLength,
+		IndexDeltaLength: t.format.IndexDeltaLength,
+	}
+	return t.encoder.Init()
+}
+
+func (t *formatProcessorMPEG4AudioGeneric) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := unit.(*UnitMPEG4AudioGeneric)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -78,9 +85,13 @@ func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 		}
 
 		// decode from RTP
-		if hasNonRTSPReaders || t.decoder != nil {
+		if hasNonRTSPReaders || t.decoder != nil || true {
 			if t.decoder == nil {
-				t.decoder = t.format.CreateDecoder()
+				var err error
+				t.decoder, err = t.format.CreateDecoder2()
+				if err != nil {
+					return err
+				}
 			}
 
 			aus, pts, err := t.decoder.Decode(pkt)
@@ -109,8 +120,8 @@ func (t *formatProcessorMPEG4Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 	return nil
 }
 
-func (t *formatProcessorMPEG4Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitMPEG4Audio{
+func (t *formatProcessorMPEG4AudioGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitMPEG4AudioGeneric{
 		RTPPackets: []*rtp.Packet{pkt},
 		NTP:        ntp,
 	}

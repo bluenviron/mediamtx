@@ -48,14 +48,21 @@ func newVP9(
 	}
 
 	if generateRTPPackets {
-		t.encoder = &rtpvp9.Encoder{
-			PayloadMaxSize: t.udpMaxPayloadSize - 12,
-			PayloadType:    forma.PayloadTyp,
+		err := t.createEncoder()
+		if err != nil {
+			return nil, err
 		}
-		t.encoder.Init()
 	}
 
 	return t, nil
+}
+
+func (t *formatProcessorVP9) createEncoder() error {
+	t.encoder = &rtpvp9.Encoder{
+		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadType:    t.format.PayloadTyp,
+	}
+	return t.encoder.Init()
 }
 
 func (t *formatProcessorVP9) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
@@ -76,7 +83,11 @@ func (t *formatProcessorVP9) Process(unit Unit, hasNonRTSPReaders bool) error { 
 		// decode from RTP
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
-				t.decoder = t.format.CreateDecoder()
+				var err error
+				t.decoder, err = t.format.CreateDecoder2()
+				if err != nil {
+					return err
+				}
 			}
 
 			frame, pts, err := t.decoder.Decode(pkt)
