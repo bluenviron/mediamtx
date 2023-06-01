@@ -2,6 +2,7 @@ package tracks
 
 import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
@@ -44,7 +45,7 @@ func Write(w *message.ReadWriter, videoTrack formats.Format, audioTrack formats.
 						case *formats.MPEG2Audio:
 							return message.CodecMPEG2Audio
 
-						case *formats.MPEG4Audio:
+						case *formats.MPEG4AudioGeneric, *formats.MPEG4AudioLATM:
 							return message.CodecMPEG4Audio
 
 						default:
@@ -82,8 +83,18 @@ func Write(w *message.ReadWriter, videoTrack formats.Format, audioTrack formats.
 		}
 	}
 
-	if mpeg4audioTrack, ok := audioTrack.(*formats.MPEG4Audio); ok {
-		enc, err := mpeg4audioTrack.Config.Marshal()
+	var audioConfig *mpeg4audio.AudioSpecificConfig
+
+	switch track := audioTrack.(type) {
+	case *formats.MPEG4Audio:
+		audioConfig = track.Config
+
+	case *formats.MPEG4AudioLATM:
+		audioConfig = track.Config.Programs[0].Layers[0].AudioSpecificConfig
+	}
+
+	if audioConfig != nil {
+		enc, err := audioConfig.Marshal()
 		if err != nil {
 			return err
 		}

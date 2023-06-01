@@ -1,48 +1,48 @@
-package formatprocessor //nolint:dupl
+package formatprocessor
 
 import (
 	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg4audiolatm"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// UnitVP8 is a VP8 data unit.
-type UnitVP8 struct {
+// UnitMPEG4AudioLATM is a MPEG-4 Audio data unit.
+type UnitMPEG4AudioLATM struct {
 	RTPPackets []*rtp.Packet
 	NTP        time.Time
 	PTS        time.Duration
-	Frame      []byte
+	AU         []byte
 }
 
 // GetRTPPackets implements Unit.
-func (d *UnitVP8) GetRTPPackets() []*rtp.Packet {
+func (d *UnitMPEG4AudioLATM) GetRTPPackets() []*rtp.Packet {
 	return d.RTPPackets
 }
 
 // GetNTP implements Unit.
-func (d *UnitVP8) GetNTP() time.Time {
+func (d *UnitMPEG4AudioLATM) GetNTP() time.Time {
 	return d.NTP
 }
 
-type formatProcessorVP8 struct {
+type formatProcessorMPEG4AudioLATM struct {
 	udpMaxPayloadSize int
-	format            *formats.VP8
-	encoder           *rtpvp8.Encoder
-	decoder           *rtpvp8.Decoder
+	format            *formats.MPEG4AudioLATM
+	encoder           *rtpmpeg4audiolatm.Encoder
+	decoder           *rtpmpeg4audiolatm.Decoder
 }
 
-func newVP8(
+func newMPEG4AudioLATM(
 	udpMaxPayloadSize int,
-	forma *formats.VP8,
+	forma *formats.MPEG4AudioLATM,
 	generateRTPPackets bool,
 	_ logger.Writer,
-) (*formatProcessorVP8, error) {
-	t := &formatProcessorVP8{
+) (*formatProcessorMPEG4AudioLATM, error) {
+	t := &formatProcessorMPEG4AudioLATM{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
@@ -57,16 +57,16 @@ func newVP8(
 	return t, nil
 }
 
-func (t *formatProcessorVP8) createEncoder() error {
-	t.encoder = &rtpvp8.Encoder{
-		PayloadMaxSize: t.udpMaxPayloadSize - 12,
-		PayloadType:    t.format.PayloadTyp,
+func (t *formatProcessorMPEG4AudioLATM) createEncoder() error {
+	t.encoder = &rtpmpeg4audiolatm.Encoder{
+		PayloadType: t.format.PayloadTyp,
+		Config:      t.format.Config,
 	}
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitVP8)
+func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := unit.(*UnitMPEG4AudioLATM)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -90,15 +90,15 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 				}
 			}
 
-			frame, pts, err := t.decoder.Decode(pkt)
+			au, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
-				if err == rtpvp8.ErrMorePacketsNeeded {
+				if err == rtpmpeg4audiolatm.ErrMorePacketsNeeded {
 					return nil
 				}
 				return err
 			}
 
-			tunit.Frame = frame
+			tunit.AU = au
 			tunit.PTS = pts
 		}
 
@@ -107,7 +107,7 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.Frame, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
 	if err != nil {
 		return err
 	}
@@ -116,8 +116,8 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	return nil
 }
 
-func (t *formatProcessorVP8) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitVP8{
+func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitMPEG4AudioLATM{
 		RTPPackets: []*rtp.Packet{pkt},
 		NTP:        ntp,
 	}

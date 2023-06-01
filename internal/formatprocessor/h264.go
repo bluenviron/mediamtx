@@ -111,15 +111,27 @@ func newH264(
 	}
 
 	if generateRTPPackets {
-		t.encoder = &rtph264.Encoder{
-			PayloadMaxSize:    udpMaxPayloadSize - 12,
-			PayloadType:       forma.PayloadTyp,
-			PacketizationMode: forma.PacketizationMode,
+		err := t.createEncoder(nil, nil, nil)
+		if err != nil {
+			return nil, err
 		}
-		t.encoder.Init()
 	}
 
 	return t, nil
+}
+
+func (t *formatProcessorH264) createEncoder(
+	ssrc *uint32, initialSequenceNumber *uint16, initialTimestamp *uint32,
+) error {
+	t.encoder = &rtph264.Encoder{
+		PayloadMaxSize:        t.udpMaxPayloadSize - 12,
+		PayloadType:           t.format.PayloadTyp,
+		SSRC:                  ssrc,
+		InitialSequenceNumber: initialSequenceNumber,
+		InitialTimestamp:      initialTimestamp,
+		PacketizationMode:     t.format.PacketizationMode,
+	}
+	return t.encoder.Init()
 }
 
 func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(pkt *rtp.Packet) {
@@ -263,22 +275,21 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 				v1 := pkt.SSRC
 				v2 := pkt.SequenceNumber
 				v3 := pkt.Timestamp
-				t.encoder = &rtph264.Encoder{
-					PayloadMaxSize:        t.udpMaxPayloadSize - 12,
-					PayloadType:           pkt.PayloadType,
-					SSRC:                  &v1,
-					InitialSequenceNumber: &v2,
-					InitialTimestamp:      &v3,
-					PacketizationMode:     t.format.PacketizationMode,
+				err := t.createEncoder(&v1, &v2, &v3)
+				if err != nil {
+					return err
 				}
-				t.encoder.Init()
 			}
 		}
 
 		// decode from RTP
 		if hasNonRTSPReaders || t.decoder != nil || t.encoder != nil {
 			if t.decoder == nil {
-				t.decoder = t.format.CreateDecoder()
+				var err error
+				t.decoder, err = t.format.CreateDecoder2()
+				if err != nil {
+					return err
+				}
 			}
 
 			if t.encoder != nil {

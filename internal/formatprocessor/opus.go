@@ -48,15 +48,22 @@ func newOpus(
 	}
 
 	if generateRTPPackets {
-		t.encoder = &rtpsimpleaudio.Encoder{
-			PayloadMaxSize: t.udpMaxPayloadSize - 12,
-			PayloadType:    forma.PayloadTyp,
-			SampleRate:     48000,
+		err := t.createEncoder()
+		if err != nil {
+			return nil, err
 		}
-		t.encoder.Init()
 	}
 
 	return t, nil
+}
+
+func (t *formatProcessorOpus) createEncoder() error {
+	t.encoder = &rtpsimpleaudio.Encoder{
+		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadType:    t.format.PayloadTyp,
+		SampleRate:     48000,
+	}
+	return t.encoder.Init()
 }
 
 func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
@@ -77,7 +84,11 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 		// decode from RTP
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
-				t.decoder = t.format.CreateDecoder()
+				var err error
+				t.decoder, err = t.format.CreateDecoder2()
+				if err != nil {
+					return err
+				}
 			}
 
 			frame, pts, err := t.decoder.Decode(pkt)

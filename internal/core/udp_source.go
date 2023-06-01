@@ -267,7 +267,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 							aus[i] = pkt.AU
 						}
 
-						stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4Audio{
+						stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 							PTS: pts,
 							AUs: aus,
 							NTP: time.Now(),
