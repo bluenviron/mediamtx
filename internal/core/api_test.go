@@ -148,10 +148,16 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 		"sourceOnDemand": true,
 	}, nil)
 
-	var out map[string]interface{}
+	var out struct {
+		Paths map[string]struct {
+			Source                     string `json:"source"`
+			SourceOnDemandStartTimeout string `json:"sourceOnDemandStartTimeout"`
+		} `json:"paths"`
+	}
+
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
-	require.Equal(t, "rtsp://127.0.0.1:9999/mypath",
-		out["paths"].(map[string]interface{})["my/path"].(map[string]interface{})["source"])
+	require.Equal(t, "rtsp://127.0.0.1:9999/mypath", out.Paths["my/path"].Source)
+	require.Equal(t, "10s", out.Paths["my/path"].SourceOnDemandStartTimeout)
 }
 
 func TestAPIConfigPathsEdit(t *testing.T) {

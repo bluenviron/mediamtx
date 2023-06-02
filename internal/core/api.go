@@ -346,6 +346,10 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	}
 
 	newConfPath := &conf.PathConf{}
+
+	// load default values
+	newConfPath.UnmarshalJSON([]byte("{}"))
+
 	fillStruct(newConfPath, in)
 
 	newConf.Paths[name] = newConfPath
