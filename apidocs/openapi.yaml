@@ -1130,7 +1130,7 @@ paths:
   /v2/webrtcsessions/list:
     get:
       operationId: webrtcSessionsList
-      summary: returns all WebRTC connections.
+      summary: returns all WebRTC sessions.
       description: ''
       parameters:
       - name: page

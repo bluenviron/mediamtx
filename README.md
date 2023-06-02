@@ -541,7 +541,7 @@ rtmp_conns{id="[id]",state="[state]"} 1
 rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
 
-# metrics of every WebRTC connection
+# metrics of every WebRTC session
 webrtc_sessions{id="[id]"} 1
 webrtc_sessions_bytes_received{id="[id]",state="[state]"} 1234
 webrtc_sessions_bytes_sent{id="[id]",state="[state]"} 187
