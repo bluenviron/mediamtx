@@ -1,34 +1,64 @@
+REPOSITORY = aler9/rtsp-simple-server
+
 define DOCKERFILE_DOCKERHUB
 FROM scratch
-ARG BINARY
-ADD $$BINARY /
+ARG TARGETPLATFORM
+ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
 endef
 export DOCKERFILE_DOCKERHUB
 
-define DOCKERFILE_DOCKERHUB_RPI_32
-FROM $(RPI32_IMAGE) AS base
-RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6
-ARG BINARY
-ADD $$BINARY /
+define DOCKERFILE_DOCKERHUB_FFMPEG
+FROM $(ALPINE_IMAGE)
+RUN apk add --no-cache ffmpeg
+ARG TARGETPLATFORM
+ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
 endef
-export DOCKERFILE_DOCKERHUB_RPI_32
+export DOCKERFILE_DOCKERHUB_FFMPEG
 
-define DOCKERFILE_DOCKERHUB_RPI_64
+define DOCKERFILE_DOCKERHUB_RPI_BASE_32
+FROM $(RPI32_IMAGE)
+endef
+export DOCKERFILE_DOCKERHUB_RPI_BASE_32
+
+define DOCKERFILE_DOCKERHUB_RPI_BASE_64
 FROM $(RPI64_IMAGE)
+endef
+export DOCKERFILE_DOCKERHUB_RPI_BASE_64
+
+define DOCKERFILE_DOCKERHUB_RPI
+FROM scratch
+ARG TARGETPLATFORM
+ADD tmp/rpi_base/$$TARGETPLATFORM.tar /
 RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6
-ARG BINARY
-ADD $$BINARY /
+ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
 endef
-export DOCKERFILE_DOCKERHUB_RPI_64
+export DOCKERFILE_DOCKERHUB_RPI
+
+define DOCKERFILE_DOCKERHUB_FFMPEG_RPI
+FROM scratch
+ARG TARGETPLATFORM
+ADD tmp/rpi_base/$$TARGETPLATFORM.tar /
+RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6 ffmpeg
+ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
+ENTRYPOINT [ "/mediamtx" ]
+endef
+export DOCKERFILE_DOCKERHUB_FFMPEG_RPI
 
 dockerhub:
-	$(eval export DOCKER_CLI_EXPERIMENTAL=enabled)
-	$(eval VERSION := $(shell git describe --tags))
+	$(eval VERSION := $(shell git describe --tags | tr -d v))
 
 	docker login -u $(DOCKER_USER) -p $(DOCKER_PASSWORD)
+
+	rm -rf tmp
+	mkdir -p tmp tmp/binaries/linux/arm tmp/rpi_base/linux/arm
+
+	cp binaries/*linux_amd64.tar.gz tmp/binaries/linux/amd64.tar.gz
+	cp binaries/*linux_armv6.tar.gz tmp/binaries/linux/arm/v6.tar.gz
+	cp binaries/*linux_armv7.tar.gz tmp/binaries/linux/arm/v7.tar.gz
+	cp binaries/*linux_arm64v8.tar.gz tmp/binaries/linux/arm64.tar.gz
 
 	docker buildx rm builder 2>/dev/null || true
 	rm -rf $$HOME/.docker/manifests/*
@@ -36,75 +66,46 @@ dockerhub:
 
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--provenance=false \
-	--platform=linux/amd64 \
-	--build-arg BINARY="$$(echo binaries/*linux_amd64.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-amd64 \
-	-t aler9/rtsp-simple-server:latest-amd64  \
+	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(REPOSITORY):$(VERSION) \
+	-t $(REPOSITORY):latest \
 	--push
 
-	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
+	--provenance=false \
+	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(REPOSITORY):$(VERSION)-ffmpeg \
+	-t $(REPOSITORY):latest-ffmpeg \
+	--push
+
+	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_32" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6 \
-	--build-arg BINARY="$$(echo binaries/*linux_armv6.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-armv6 \
-	-t aler9/rtsp-simple-server:latest-armv6 \
-	--push
+	--output type=tar,dest=tmp/rpi_base/linux/arm/v6.tar
 
-	echo "$$DOCKERFILE_DOCKERHUB_RPI_32" | docker buildx build . -f - \
-	--provenance=false \
-	--platform=linux/arm/v6 \
-	--build-arg BINARY="$$(echo binaries/*linux_armv6.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-armv6-rpi \
-	-t aler9/rtsp-simple-server:latest-armv6-rpi \
-	--push
-
-	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_32" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v7 \
-	--build-arg BINARY="$$(echo binaries/*linux_armv7.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-armv7 \
-	-t aler9/rtsp-simple-server:latest-armv7 \
-	--push
+	--output type=tar,dest=tmp/rpi_base/linux/arm/v7.tar
 
-	echo "$$DOCKERFILE_DOCKERHUB_RPI_32" | docker buildx build . -f - \
-	--provenance=false \
-	--platform=linux/arm/v7 \
-	--build-arg BINARY="$$(echo binaries/*linux_armv7.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-armv7-rpi \
-	-t aler9/rtsp-simple-server:latest-armv7-rpi \
-	--push
-
-	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_64" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm64/v8 \
-	--build-arg BINARY="$$(echo binaries/*linux_arm64v8.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-arm64v8 \
-	-t aler9/rtsp-simple-server:latest-arm64v8 \
-	--push
+	--output type=tar,dest=tmp/rpi_base/linux/arm64.tar
 
-	echo "$$DOCKERFILE_DOCKERHUB_RPI_64" | docker buildx build . -f - \
+	echo "$$DOCKERFILE_DOCKERHUB_RPI" | docker buildx build . -f - \
 	--provenance=false \
-	--platform=linux/arm64/v8 \
-	--build-arg BINARY="$$(echo binaries/*linux_arm64v8.tar.gz)" \
-	-t aler9/rtsp-simple-server:$(VERSION)-arm64v8-rpi \
-	-t aler9/rtsp-simple-server:latest-arm64v8-rpi \
+	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(REPOSITORY):$(VERSION)-rpi \
+	-t $(REPOSITORY):latest-rpi \
 	--push
 
-	docker manifest create aler9/rtsp-simple-server:$(VERSION)-rpi \
-	$(foreach ARCH,armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH)-rpi)
-	docker manifest push aler9/rtsp-simple-server:$(VERSION)-rpi
-
-	docker manifest create aler9/rtsp-simple-server:$(VERSION) \
-	$(foreach ARCH,amd64 armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH))
-	docker manifest push aler9/rtsp-simple-server:$(VERSION)
-
-	docker manifest create aler9/rtsp-simple-server:latest-rpi \
-	$(foreach ARCH,armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH)-rpi)
-	docker manifest push aler9/rtsp-simple-server:latest-rpi
-
-	docker manifest create aler9/rtsp-simple-server:latest \
-	$(foreach ARCH,amd64 armv6 armv7 arm64v8,aler9/rtsp-simple-server:$(VERSION)-$(ARCH))
-	docker manifest push aler9/rtsp-simple-server:latest
+	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG_RPI" | docker buildx build . -f - \
+	--provenance=false \
+	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(REPOSITORY):$(VERSION)-ffmpeg-rpi \
+	-t $(REPOSITORY):latest-ffmpeg-rpi \
+	--push
 
 	docker buildx rm builder
 	rm -rf $$HOME/.docker/manifests/*

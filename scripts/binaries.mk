@@ -19,9 +19,9 @@ WORKDIR /s
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-ENV VERSION $(shell git describe --tags)
+ARG VERSION
 ENV CGO_ENABLED 0
-RUN rm -rf binaries
+RUN rm -rf tmp binaries
 RUN mkdir tmp binaries
 RUN cp mediamtx.yml LICENSE tmp/
 
@@ -71,6 +71,8 @@ endef
 export DOCKERFILE_BINARIES
 
 binaries:
-	echo "$$DOCKERFILE_BINARIES" | DOCKER_BUILDKIT=1 docker build . -f - -t temp
+	echo "$$DOCKERFILE_BINARIES" | DOCKER_BUILDKIT=1 docker build . -f - \
+	--build-arg VERSION=$$(git describe --tags) \
+	-t temp
 	docker run --rm -v $(PWD):/out \
 	temp sh -c "rm -rf /out/binaries && cp -r /s/binaries /out/"

@@ -1,5 +1,5 @@
 # do not add .git, since it is needed to extract the tag
-# do not add /binaries, since they're needed by make dockerhub
-/tmp
+# do not add /tmp, since it is needed by make dockerhub
+/binaries
 /coverage*.txt
 /apidocs/*.html
