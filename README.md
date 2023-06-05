@@ -1201,7 +1201,7 @@ The simples way to embed a WebRTC stream into a web page consists in using an if
 <iframe src="http://mediamtx-ip:8889/mystream" scrolling="no"></iframe>
 ```
 
-For more advanced options, you can create and serve a custom web page by starting from the [source code of the default page](internal/core/webrtc_index.html).
+For more advanced options, you can create and serve a custom web page by starting from the [source code of the default read page](internal/core/webrtc_read_index.html) and [source code of the publish page](internal/core/webrtc_publish_index.html).
 
 ## Standards
 
