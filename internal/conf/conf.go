@@ -4,6 +4,7 @@ package conf
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -43,7 +44,7 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 	// mediamtx.yml is optional
 	// other configuration files are not
 	if fpath == "mediamtx.yml" || fpath == "rtsp-simple-server.yml" {
-		if _, err := os.Stat(fpath); err != nil {
+		if _, err := os.Stat(fpath); errors.Is(err, os.ErrNotExist) {
 			conf.UnmarshalJSON(nil) // load defaults
 			return false, nil
 		}
