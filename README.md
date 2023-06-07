@@ -41,7 +41,6 @@ Features:
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Read Prometheus-compatible metrics
 * Run external commands when clients connect, disconnect, read or publish streams
-* Natively compatible with the Raspberry Pi Camera
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 [![Test](https://github.com/bluenviron/mediamtx/workflows/test/badge.svg)](https://github.com/bluenviron/mediamtx/actions?query=workflow:test)
@@ -58,9 +57,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 ## Table of contents
 
 * [Installation](#installation)
-  * [Standard](#standard)
-  * [Docker](#docker)
-  * [OpenWRT](#openwrt)
+  * [Standalone binary](#standalone-binary)
+  * [Docker image](#docker-image)
+  * [OpenWRT package](#openwrt-package)
 * [Basic usage](#basic-usage)
 * [General](#general)
   * [Configuration](#configuration)
@@ -114,7 +113,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 
 ## Installation
 
-### Standard
+There are several installation methods available: standalone binary, Docker image and OpenWRT package.
+
+### Standalone binary
 
 1. Download and extract a precompiled binary from the [release page](https://github.com/bluenviron/mediamtx/releases).
 
@@ -124,23 +125,30 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
    ./mediamtx
    ```
 
-### Docker
+### Docker image
 
 Download and launch the image:
 
 ```
-docker run --rm -it --network=host aler9/rtsp-simple-server
+docker run --rm -it --network=host aler9/rtsp-simple-server:latest
 ```
 
-The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the server to find out the author of the packets. This issue can be avoided by disabling the UDP transport protocol:
+Available images:
+
+|name|FFmpeg included|RPI Camera support|
+|----|---------------|------------------|
+|aler9/rtsp-simple-server:latest|:x:|:x:|
+|aler9/rtsp-simple-server:latest-ffmpeg|:heavy_check_mark:|:x:|
+|aler9/rtsp-simple-server:latest-rpi|:x:|:heavy_check_mark:|
+|aler9/rtsp-simple-server:latest-ffmpeg-rpi|:heavy_check_mark:|:heavy_check_mark:
+
+The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the RTSP server to identify the senders of the packets. This issue can be avoided by disabling the UDP transport protocol:
 
 ```
 docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
 ```
 
-Please keep in mind that the Docker image doesn't include _FFmpeg_. if you need to use _FFmpeg_ for an external command or anything else, you need to build a Docker image that contains both _rtsp-simple-server_ and _FFmpeg_, by following instructions [here](https://github.com/bluenviron/mediamtx/discussions/278#discussioncomment-549104).
-
-### OpenWRT
+### OpenWRT package
 
 1. In a x86 Linux system, download the OpenWRT SDK corresponding to the wanted OpenWRT version and target from the [OpenWRT website](https://downloads.openwrt.org/releases/) and extract it.
 
