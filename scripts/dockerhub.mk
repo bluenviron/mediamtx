@@ -1,4 +1,4 @@
-REPOSITORY = aler9/rtsp-simple-server
+DOCKER_REPOSITORY = bluenviron/mediamtx
 
 define DOCKERFILE_DOCKERHUB
 FROM scratch
@@ -67,15 +67,15 @@ dockerhub:
 	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(REPOSITORY):$(VERSION) \
-	-t $(REPOSITORY):latest \
+	-t $(DOCKER_REPOSITORY):$(VERSION) \
+	-t $(DOCKER_REPOSITORY):latest \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(REPOSITORY):$(VERSION)-ffmpeg \
-	-t $(REPOSITORY):latest-ffmpeg \
+	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg \
+	-t $(DOCKER_REPOSITORY):latest-ffmpeg \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_32" | docker buildx build . -f - \
@@ -96,15 +96,15 @@ dockerhub:
 	echo "$$DOCKERFILE_DOCKERHUB_RPI" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(REPOSITORY):$(VERSION)-rpi \
-	-t $(REPOSITORY):latest-rpi \
+	-t $(DOCKER_REPOSITORY):$(VERSION)-rpi \
+	-t $(DOCKER_REPOSITORY):latest-rpi \
 	--push
 
 	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG_RPI" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(REPOSITORY):$(VERSION)-ffmpeg-rpi \
-	-t $(REPOSITORY):latest-ffmpeg-rpi \
+	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg-rpi \
+	-t $(DOCKER_REPOSITORY):latest-ffmpeg-rpi \
 	--push
 
 	docker buildx rm builder

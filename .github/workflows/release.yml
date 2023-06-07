@@ -6,7 +6,7 @@ on:
     - 'v*'
 
 jobs:
-  make_binaries:
+  binaries:
     runs-on: ubuntu-22.04
 
     steps:
@@ -20,7 +20,7 @@ jobs:
         path: binaries
 
   github:
-    needs: make_binaries
+    needs: binaries
     runs-on: ubuntu-22.04
 
     steps:
@@ -59,7 +59,7 @@ jobs:
           }
 
   dockerhub:
-    needs: make_binaries
+    needs: binaries
     runs-on: ubuntu-22.04
 
     steps:
@@ -75,8 +75,20 @@ jobs:
         DOCKER_USER: ${{ secrets.DOCKER_USER }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
+  dockerhub_legacy:
+    needs: dockerhub
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - run: make dockerhub-legacy
+      env:
+        DOCKER_USER_LEGACY: ${{ secrets.DOCKER_USER_LEGACY }}
+        DOCKER_PASSWORD_LEGACY: ${{ secrets.DOCKER_PASSWORD_LEGACY }}
+
   apidocs:
-    needs: make_binaries
+    needs: binaries
     runs-on: ubuntu-22.04
 
     steps:

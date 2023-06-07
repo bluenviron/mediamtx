@@ -47,7 +47,7 @@ Features:
 [![Lint](https://github.com/bluenviron/mediamtx/workflows/lint/badge.svg)](https://github.com/bluenviron/mediamtx/actions?query=workflow:lint)
 [![CodeCov](https://codecov.io/gh/bluenviron/mediamtx/branch/main/graph/badge.svg)](https://app.codecov.io/gh/bluenviron/mediamtx/branch/main)
 [![Release](https://img.shields.io/github/v/release/bluenviron/mediamtx)](https://github.com/bluenviron/mediamtx/releases)
-[![Docker Hub](https://img.shields.io/badge/docker-aler9/rtsp--simple--server-blue)](https://hub.docker.com/r/aler9/rtsp-simple-server)
+[![Docker Hub](https://img.shields.io/badge/docker-bluenviron/mediamtx-blue)](https://hub.docker.com/r/bluenviron/mediamtx)
 [![API Documentation](https://img.shields.io/badge/api-documentation-blue)](https://bluenviron.github.io/mediamtx)
 
 ## Note about rtsp-simple-server
@@ -130,22 +130,22 @@ There are several installation methods available: standalone binary, Docker imag
 Download and launch the image:
 
 ```
-docker run --rm -it --network=host aler9/rtsp-simple-server:latest
+docker run --rm -it --network=host bluenviron/mediamtx:latest
 ```
 
 Available images:
 
 |name|FFmpeg included|RPI Camera support|
 |----|---------------|------------------|
-|aler9/rtsp-simple-server:latest|:x:|:x:|
-|aler9/rtsp-simple-server:latest-ffmpeg|:heavy_check_mark:|:x:|
-|aler9/rtsp-simple-server:latest-rpi|:x:|:heavy_check_mark:|
-|aler9/rtsp-simple-server:latest-ffmpeg-rpi|:heavy_check_mark:|:heavy_check_mark:
+|bluenviron/mediamtx:latest|:x:|:x:|
+|bluenviron/mediamtx:latest-ffmpeg|:heavy_check_mark:|:x:|
+|bluenviron/mediamtx:latest-rpi|:x:|:heavy_check_mark:|
+|bluenviron/mediamtx:latest-ffmpeg-rpi|:heavy_check_mark:|:heavy_check_mark:
 
 The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the RTSP server to identify the senders of the packets. This issue can be avoided by disabling the UDP transport protocol:
 
 ```
-docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 aler9/rtsp-simple-server
+docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 bluenviron/mediamtx
 ```
 
 ### OpenWRT package
@@ -228,7 +228,7 @@ There are 3 ways to change the configuration:
    * available in the root folder of the Docker image (`/mediamtx.yml`); it can be overridden in this way:
 
      ```
-     docker run --rm -it --network=host -v $PWD/mediamtx.yml:/mediamtx.yml aler9/rtsp-simple-server
+     docker run --rm -it --network=host -v $PWD/mediamtx.yml:/mediamtx.yml bluenviron/mediamtx
      ```
 
    The configuration can be changed dynamically when the server is running (hot reloading) by writing to the configuration file. Changes are detected and applied without disconnecting existing clients, whenever it's possible.
@@ -253,7 +253,7 @@ There are 3 ways to change the configuration:
    This method is particularly useful when using Docker; any configuration parameter can be changed by passing environment variables with the `-e` flag:
 
    ```
-   docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl aler9/rtsp-simple-server
+   docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx
    ```
 
 3. By using the [HTTP API](#http-api).
@@ -672,7 +672,7 @@ docker run --rm -it \
 --tmpfs /dev/shm:exec \
 -v /run/udev:/run/udev:ro \
 -e MTX_PATHS_CAM_SOURCE=rpiCamera \
-aler9/rtsp-simple-server:latest-rpi
+bluenviron/mediamtx:latest-rpi
 ```
 
 After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.
@@ -1164,7 +1164,7 @@ The NAT / container must then be configured in order to route all incoming UDP p
 docker run --rm -it \
 -p 8189:8189/udp
 ....
-aler9/rtsp-simple-server
+bluenviron/mediamtx
 ```
 
 If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be forced to pass through a single TCP server port:
@@ -1182,7 +1182,7 @@ The  NAT / container must then be configured in order to redirect all incoming T
 docker run --rm -it \
 -p 8189:8189
 ....
-aler9/rtsp-simple-server
+bluenviron/mediamtx
 ```
 
 Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
