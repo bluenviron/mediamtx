@@ -64,20 +64,6 @@ dockerhub:
 	rm -rf $$HOME/.docker/manifests/*
 	docker buildx create --name=builder --use
 
-	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
-	--provenance=false \
-	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION) \
-	-t $(DOCKER_REPOSITORY):latest \
-	--push
-
-	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
-	--provenance=false \
-	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg \
-	-t $(DOCKER_REPOSITORY):latest-ffmpeg \
-	--push
-
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_32" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6 \
@@ -93,6 +79,13 @@ dockerhub:
 	--platform=linux/arm64/v8 \
 	--output type=tar,dest=tmp/rpi_base/linux/arm64.tar
 
+	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG_RPI" | docker buildx build . -f - \
+	--provenance=false \
+	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg-rpi \
+	-t $(DOCKER_REPOSITORY):latest-ffmpeg-rpi \
+	--push
+
 	echo "$$DOCKERFILE_DOCKERHUB_RPI" | docker buildx build . -f - \
 	--provenance=false \
 	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
@@ -100,11 +93,18 @@ dockerhub:
 	-t $(DOCKER_REPOSITORY):latest-rpi \
 	--push
 
-	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG_RPI" | docker buildx build . -f - \
+	echo "$$DOCKERFILE_DOCKERHUB_FFMPEG" | docker buildx build . -f - \
 	--provenance=false \
-	--platform=linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
-	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg-rpi \
-	-t $(DOCKER_REPOSITORY):latest-ffmpeg-rpi \
+	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(DOCKER_REPOSITORY):$(VERSION)-ffmpeg \
+	-t $(DOCKER_REPOSITORY):latest-ffmpeg \
+	--push
+
+	echo "$$DOCKERFILE_DOCKERHUB" | docker buildx build . -f - \
+	--provenance=false \
+	--platform=linux/amd64,linux/arm/v6,linux/arm/v7,linux/arm64/v8 \
+	-t $(DOCKER_REPOSITORY):$(VERSION) \
+	-t $(DOCKER_REPOSITORY):latest \
 	--push
 
 	docker buildx rm builder
