@@ -58,7 +58,7 @@ var cli struct {
 // New allocates a core.
 func New(args []string) (*Core, bool) {
 	parser, err := kong.New(&cli,
-		kong.Description("MediaMTX / rtsp-simple-server "+version),
+		kong.Description("MediaMTX "+version),
 		kong.UsageOnError(),
 		kong.ValueFormatter(func(value *kong.Value) string {
 			switch value.Name {
@@ -198,7 +198,7 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if initial {
-		p.Log(logger.Info, "MediaMTX / rtsp-simple-server %s", version)
+		p.Log(logger.Info, "MediaMTX %s", version)
 		if !p.confFound {
 			p.Log(logger.Warn, "configuration file not found, using an empty configuration")
 		}
