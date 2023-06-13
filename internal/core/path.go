@@ -606,18 +606,17 @@ func (pa *path) onDemandPublisherScheduleClose() {
 }
 
 func (pa *path) onDemandPublisherStop() {
+	if pa.source != nil {
+		pa.source.(publisher).close()
+		pa.doPublisherRemove()
+	}
+
 	if pa.onDemandPublisherState == pathOnDemandStateClosing {
 		pa.onDemandPublisherCloseTimer.Stop()
 		pa.onDemandPublisherCloseTimer = newEmptyTimer()
 	}
 
-	// set state before doPublisherRemove()
 	pa.onDemandPublisherState = pathOnDemandStateInitial
-
-	if pa.source != nil {
-		pa.source.(publisher).close()
-		pa.doPublisherRemove()
-	}
 
 	if pa.onDemandCmd != nil {
 		pa.onDemandCmd.Close()
@@ -683,11 +682,7 @@ func (pa *path) doReaderRemove(r reader) {
 
 func (pa *path) doPublisherRemove() {
 	if pa.stream != nil {
-		if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
-			pa.onDemandPublisherStop()
-		} else {
-			pa.sourceSetNotReady()
-		}
+		pa.sourceSetNotReady()
 	}
 
 	pa.source = nil
@@ -811,11 +806,7 @@ func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
 
 func (pa *path) handlePublisherStop(req pathPublisherStopReq) {
 	if req.author == pa.source && pa.stream != nil {
-		if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
-			pa.onDemandPublisherStop()
-		} else {
-			pa.sourceSetNotReady()
-		}
+		pa.sourceSetNotReady()
 	}
 	close(req.res)
 }
