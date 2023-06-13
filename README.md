@@ -117,7 +117,7 @@ There are several installation methods available: standalone binary, Docker imag
 
 ### Standalone binary
 
-1. Download and extract a precompiled binary from the [release page](https://github.com/bluenviron/mediamtx/releases).
+1. Download and extract a standalone binary from the [release page](https://github.com/bluenviron/mediamtx/releases).
 
 2. Start the server:
 
@@ -145,7 +145,13 @@ Available images:
 The `--network=host` flag is mandatory since Docker can change the source port of UDP packets for routing reasons, and this doesn't allow the RTSP server to identify the senders of the packets. This issue can be avoided by disabling the UDP transport protocol:
 
 ```
-docker run --rm -it -e MTX_PROTOCOLS=tcp -p 8554:8554 -p 1935:1935 -p 8888:8888 -p 8889:8889 bluenviron/mediamtx
+docker run --rm -it \
+-e MTX_PROTOCOLS=tcp \
+-p 8554:8554 \
+-p 1935:1935 \
+-p 8888:8888 \
+-p 8889:8889 \
+bluenviron/mediamtx
 ```
 
 ### OpenWRT package
