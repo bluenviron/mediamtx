@@ -453,10 +453,12 @@ func TestWebRTCPublish(t *testing.T) {
 
 			hc := &http.Client{Transport: &http.Transport{}}
 
-			// OPTIONS preflight requests must always work, without authentication
+			// preflight requests must always work, without authentication
 			func() {
 				req, err := http.NewRequest("OPTIONS", "http://localhost:8889/teststream/whip", nil)
 				require.NoError(t, err)
+
+				req.Header.Set("Access-Control-Request-Method", "OPTIONS")
 
 				res, err := hc.Do(req)
 				require.NoError(t, err)
