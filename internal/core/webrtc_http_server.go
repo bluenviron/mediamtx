@@ -181,7 +181,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		switch ctx.Request.Method {
 		case http.MethodOptions:
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
-			ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
+			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, If-Match")
 			ctx.Writer.WriteHeader(http.StatusOK)
 			return
 
@@ -275,7 +275,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		switch ctx.Request.Method {
 		case http.MethodOptions:
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, POST, PATCH")
-			ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
+			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, If-Match")
 			if authRes.err == nil {
 				ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
 			}
