@@ -22,7 +22,7 @@ type source interface {
 func mediaDescription(media *media.Media) string {
 	ret := make([]string, len(media.Formats))
 	for i, forma := range media.Formats {
-		ret[i] = forma.String()
+		ret[i] = forma.Codec()
 	}
 	return strings.Join(ret, "/")
 }
