@@ -160,7 +160,7 @@ bluenviron/mediamtx
 If you are running the Arch Linux distribution, run:
 
 ```
-https://aur.archlinux.org/mediamtx.git
+git clone https://aur.archlinux.org/mediamtx.git
 cd mediamtx
 makepkg -si
 ```
