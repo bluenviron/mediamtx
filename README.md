@@ -59,6 +59,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 * [Installation](#installation)
   * [Standalone binary](#standalone-binary)
   * [Docker image](#docker-image)
+  * [Arch Linux package](#arch-linux-package)
   * [OpenWRT package](#openwrt-package)
 * [Basic usage](#basic-usage)
 * [General](#general)
@@ -113,7 +114,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 
 ## Installation
 
-There are several installation methods available: standalone binary, Docker image and OpenWRT package.
+There are several installation methods available: standalone binary, Docker image, Arch Linux package and OpenWRT package.
 
 ### Standalone binary
 
@@ -154,6 +155,16 @@ docker run --rm -it \
 bluenviron/mediamtx
 ```
 
+### Arch Linux package
+
+If you are running the Arch Linux distribution, run:
+
+```
+git clone https://aur.archlinux.org/mediamtx.git
+cd mediamtx
+makepkg -si
+```
+
 ### OpenWRT package
 
 1. In a x86 Linux system, download the OpenWRT SDK corresponding to the wanted OpenWRT version and target from the [OpenWRT website](https://downloads.openwrt.org/releases/) and extract it.
@@ -180,7 +191,9 @@ bluenviron/mediamtx
    make package/mediamtx/compile -j$(nproc)
    ```
 
-5. Transfer the .ipk file from `bin/packages/*/base` to the OpenWRT system and install it with:
+5. Transfer the .ipk file from `bin/packages/*/base` to the OpenWRT system
+
+6. Install it with:
 
    ```
    opkg install [ipk-file-name].ipk
