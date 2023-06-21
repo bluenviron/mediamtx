@@ -280,7 +280,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspSession",
 				},
 				SourceReady:   true,
-				Tracks:        []string{"H264", "MPEG4-audio-gen"},
+				Tracks:        []string{"H264", "MPEG-4 Audio"},
 				BytesReceived: 16,
 			}},
 		}, out)
@@ -343,7 +343,7 @@ func TestAPIPathsList(t *testing.T) {
 					Type: "rtspsSession",
 				},
 				SourceReady: true,
-				Tracks:      []string{"H264", "MPEG4-audio-gen"},
+				Tracks:      []string{"H264", "MPEG-4 Audio"},
 			}},
 		}, out)
 	})
