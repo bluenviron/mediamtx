@@ -296,7 +296,8 @@ func (c *rtmpConn) run() {
 			c.runOnConnect,
 			c.runOnConnectRestart,
 			externalcmd.Environment{
-				"RTSP_PATH": "",
+				"MTX_PATH":  "",
+				"RTSP_PATH": "", // deprecated
 				"RTSP_PORT": port,
 			},
 			func(err error) {

@@ -541,7 +541,8 @@ func (pa *path) shouldClose() bool {
 func (pa *path) externalCmdEnv() externalcmd.Environment {
 	_, port, _ := net.SplitHostPort(pa.rtspAddress)
 	env := externalcmd.Environment{
-		"RTSP_PATH": pa.name,
+		"MTX_PATH":  pa.name,
+		"RTSP_PATH": pa.name, // deprecated
 		"RTSP_PORT": port,
 	}
 
