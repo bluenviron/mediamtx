@@ -22,6 +22,11 @@ import (
 
 var version = "v0.0.0"
 
+var cli struct {
+	Version  bool   `help:"print version"`
+	Confpath string `arg:"" default:"mediamtx.yml"`
+}
+
 // Core is an instance of mediamtx.
 type Core struct {
 	ctx             context.Context
@@ -48,11 +53,6 @@ type Core struct {
 
 	// out
 	done chan struct{}
-}
-
-var cli struct {
-	Version  bool   `help:"print version"`
-	Confpath string `arg:"" default:"mediamtx.yml"`
 }
 
 // New allocates a core.
