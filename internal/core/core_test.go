@@ -207,7 +207,7 @@ func main() {
 	source := gortsplib.Client{}
 
 	err := source.StartRecording(
-		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("RTSP_PATH"),
+		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("MTX_PATH"),
 		media.Medias{medi})
 	if err != nil {
 		panic(err)

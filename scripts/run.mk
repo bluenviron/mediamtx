@@ -21,10 +21,10 @@ define CONFIG_RUN
 
 paths:
   all:
-#    runOnReady: ffmpeg -i rtsp://localhost:$$RTSP_PORT/$$RTSP_PATH -c copy -f mpegts myfile_$$RTSP_PATH.ts
+#    runOnReady: ffmpeg -i rtsp://localhost:$$RTSP_PORT/$$MTX_PATH -c copy -f mpegts myfile_$$MTX_PATH.ts
 #    readUser: test
 #    readPass: tast
-#    runOnDemand: ffmpeg -re -stream_loop -1 -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/$$RTSP_PATH
+#    runOnDemand: ffmpeg -re -stream_loop -1 -i testimages/ffmpeg/emptyvideo.mkv -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/$$MTX_PATH
 
 #  proxied:
 #    source: rtsp://192.168.2.198:554/stream

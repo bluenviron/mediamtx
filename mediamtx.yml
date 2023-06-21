@@ -56,7 +56,7 @@ pprofAddress: 127.0.0.1:9999
 # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
 # This is terminated with SIGINT when a client disconnects from the server.
 # The following environment variables are available:
-# * RTSP_PORT: server port
+# * RTSP_PORT: RTSP server port
 runOnConnect:
 # Restart the command if it exits.
 runOnConnectRestart: no
@@ -410,8 +410,8 @@ paths:
     # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when the program closes.
     # The following environment variables are available:
-    # * RTSP_PATH: path name
-    # * RTSP_PORT: server port
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnInit:
@@ -423,8 +423,8 @@ paths:
     # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when the path is not requested anymore.
     # The following environment variables are available:
-    # * RTSP_PATH: path name
-    # * RTSP_PORT: server port
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnDemand:
@@ -442,8 +442,8 @@ paths:
     # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when the stream is not ready anymore.
     # The following environment variables are available:
-    # * RTSP_PATH: path name
-    # * RTSP_PORT: server port
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnReady:
@@ -454,8 +454,8 @@ paths:
     # Prepend ./ to run an executable in the current folder (example: "./ffmpeg")
     # This is terminated with SIGINT when a client stops reading.
     # The following environment variables are available:
-    # * RTSP_PATH: path name
-    # * RTSP_PORT: server port
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
     runOnRead:
