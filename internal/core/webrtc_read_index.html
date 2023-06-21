@@ -104,7 +104,7 @@ class WHEPClient {
 	start() {
 		console.log("requesting ICE servers");
 
-        fetch('whep', {
+        fetch(new URL('whep', window.location.href), {
             method: 'OPTIONS',
         })
             .then((res) => this.onIceServers(res))
@@ -138,7 +138,7 @@ class WHEPClient {
 
                 console.log("sending offer");
 
-                fetch('whep', {
+                fetch(new URL('whep', window.location.href), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/sdp',
@@ -204,7 +204,7 @@ class WHEPClient {
     }
 
     sendLocalCandidates(candidates) {
-        fetch('whep', {
+        fetch(new URL('whep', window.location.href), {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/trickle-ice-sdpfrag',
