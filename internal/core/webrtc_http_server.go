@@ -179,13 +179,13 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 	if !strings.HasSuffix(pa, "/whip") && !strings.HasSuffix(pa, "/whep") {
 		switch ctx.Request.Method {
-		case http.MethodGet:
-
 		case http.MethodOptions:
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
 			ctx.Writer.WriteHeader(http.StatusOK)
 			return
+
+		case http.MethodGet:
 
 		default:
 			return
@@ -230,7 +230,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.getPathConf(pathGetPathConfReq{
+	authRes := s.pathManager.getPathConf(pathGetPathConfReq{
 		name:    dir,
 		publish: publish,
 		credentials: authCredentials{
@@ -241,21 +241,23 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			proto: authProtocolWebRTC,
 		},
 	})
-	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuth); ok {
-			if !hasCredentials {
-				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+	if authRes.err != nil {
+		if ctx.Request.Method != http.MethodOptions {
+			if terr, ok := authRes.err.(pathErrAuth); ok {
+				if !hasCredentials {
+					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+					ctx.Writer.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+
+				s.Log(logger.Info, "authentication error: %v", terr.wrapped)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			s.Log(logger.Info, "authentication error: %v", terr.wrapped)
-			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			ctx.Writer.WriteHeader(http.StatusNotFound)
 			return
 		}
-
-		ctx.Writer.WriteHeader(http.StatusNotFound)
-		return
 	}
 
 	switch fname {
@@ -274,7 +276,9 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		case http.MethodOptions:
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
+			if authRes.err == nil {
+				ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
+			}
 			ctx.Writer.WriteHeader(http.StatusOK)
 
 		case http.MethodPost:

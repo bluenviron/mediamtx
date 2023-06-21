@@ -89,13 +89,13 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
 	switch ctx.Request.Method {
-	case http.MethodGet:
-
 	case http.MethodOptions:
 		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
 		ctx.Writer.Header().Set("Access-Control-Allow-Headers", ctx.Request.Header.Get("Access-Control-Request-Headers"))
 		ctx.Writer.WriteHeader(http.StatusOK)
 		return
+
+	case http.MethodGet:
 
 	default:
 		return
