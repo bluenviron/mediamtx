@@ -40,14 +40,21 @@ func TestRTSPServerRunOnConnect(t *testing.T) {
 	require.Equal(t, "aa\n", string(byts))
 }
 
-func TestRTSPServerAuth(t *testing.T) {
-	for _, ca := range []string{
+func TestRTSPServer(t *testing.T) {
+	for _, auth := range []string{
+		"none",
 		"internal",
 		"external",
 	} {
-		t.Run(ca, func(t *testing.T) {
+		t.Run("auth_"+auth, func(t *testing.T) {
 			var conf string
-			if ca == "internal" {
+
+			switch auth {
+			case "none":
+				conf = "paths:\n" +
+					"  all:\n"
+
+			case "internal":
 				conf = "rtmpDisable: yes\n" +
 					"hlsDisable: yes\n" +
 					"webrtcDisable: yes\n" +
@@ -59,7 +66,8 @@ func TestRTSPServerAuth(t *testing.T) {
 					"    readUser: testreader\n" +
 					"    readPass: testpass\n" +
 					"    readIPs: [127.0.0.0/16]\n"
-			} else {
+
+			case "external":
 				conf = "externalAuthenticationURL: http://localhost:9120/auth\n" +
 					"paths:\n" +
 					"  all:\n"
@@ -70,7 +78,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			defer p.Close()
 
 			var a *testHTTPAuthenticator
-			if ca == "external" {
+			if auth == "external" {
 				a = newTestHTTPAuthenticator(t, "rtsp", "publish")
 			}
 
@@ -84,7 +92,7 @@ func TestRTSPServerAuth(t *testing.T) {
 			require.NoError(t, err)
 			defer source.Close()
 
-			if ca == "external" {
+			if auth == "external" {
 				a.close()
 				a = newTestHTTPAuthenticator(t, "rtsp", "read")
 				defer a.close()
@@ -109,29 +117,29 @@ func TestRTSPServerAuth(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
 
-	t.Run("hashed", func(t *testing.T) {
-		p, ok := newInstance(
-			"rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"webrtcDisable: yes\n" +
-				"paths:\n" +
-				"  all:\n" +
-				"    publishUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
-				"    publishPass: sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w=\n")
-		require.Equal(t, true, ok)
-		defer p.Close()
+func TestRTSPServerAuthHashed(t *testing.T) {
+	p, ok := newInstance(
+		"rtmpDisable: yes\n" +
+			"hlsDisable: yes\n" +
+			"webrtcDisable: yes\n" +
+			"paths:\n" +
+			"  all:\n" +
+			"    publishUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
+			"    publishPass: sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w=\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
 
-		medi := testMediaH264
+	medi := testMediaH264
 
-		source := gortsplib.Client{}
+	source := gortsplib.Client{}
 
-		err := source.StartRecording(
-			"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
-			media.Medias{medi})
-		require.NoError(t, err)
-		defer source.Close()
-	})
+	err := source.StartRecording(
+		"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
+		media.Medias{medi})
+	require.NoError(t, err)
+	defer source.Close()
 }
 
 func TestRTSPServerAuthFail(t *testing.T) {
