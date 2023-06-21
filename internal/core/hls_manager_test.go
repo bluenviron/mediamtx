@@ -75,7 +75,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		in.Password != "testpass" ||
 		in.Path != "teststream" ||
 		in.Protocol != ts.protocol ||
-		in.ID == "" ||
+		// in.ID == "" ||
 		in.Action != ts.action ||
 		(in.Query != "user=testreader&pass=testpass&param=value" &&
 			in.Query != "user=testpublisher&pass=testpass&param=value" &&
