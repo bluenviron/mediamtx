@@ -44,7 +44,7 @@ const create = () => {
 			}
 		});
 
-		hls.loadSource('index.m3u8');
+		hls.loadSource('index.m3u8' + window.location.search);
 		hls.attachMedia(video);
 
 		video.play();
