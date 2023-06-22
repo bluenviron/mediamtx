@@ -708,6 +708,46 @@ paths:
 
 All available parameters are listed in the [sample configuration file](/mediamtx.yml).
 
+In order to add audio from a USB microfone, install GStreamer and alsa-utils:
+
+```sh
+sudo apt install -y gstreamer1.0-tools gstreamer1.0-rtsp gstreamer1.0-alsa alsa-utils
+```
+
+list available audio cards with:
+
+```sh
+arecord -L
+```
+
+Sample output:
+
+```
+surround51:CARD=ICH5,DEV=0
+    Intel ICH5, Intel ICH5
+    5.1 Surround output to Front, Center, Rear and Subwoofer speakers
+default:CARD=U0x46d0x809
+    USB Device 0x46d:0x809, USB Audio
+    Default Audio Device
+```
+
+Find the audio card of the microfone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then use GStreamer inside `runOnReady` to read the video stream, add audio and publish the improved stream to another path:
+
+```yml
+paths:
+  cam:
+    source: rpiCamera
+    runOnReady: >
+      gst-launch-1.0
+      rtspclientsink name=s location=rtsp://localhost:$RTSP_PORT/cam_with_audio
+      rtspsrc location=rtsp://127.0.0.1:$RTSP_PORT/$MTX_PATH latency=0 ! rtph264depay ! s.
+      alsasrc device=default:CARD=U0x46d0x809 ! opusenc bitrate=16000 ! s.
+    runOnReadyRestart: yes
+  cam_with_audio:
+```
+
+Stream with video and audio will be available in path `/cam_with_audio`.
+
 ### From OBS Studio
 
 OBS Studio can publish to the server by using the RTMP protocol. In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
