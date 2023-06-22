@@ -177,10 +177,14 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 	// remove leading prefix
 	pa := ctx.Request.URL.Path[1:]
 
-	if !strings.HasSuffix(pa, "/whip") && !strings.HasSuffix(pa, "/whep") {
+	isWHIPorWHEP := strings.HasSuffix(pa, "/whip") || strings.HasSuffix(pa, "/whep")
+	isPreflight := ctx.Request.Method == http.MethodOptions &&
+		ctx.Request.Header.Get("Access-Control-Request-Method") != ""
+
+	if !isWHIPorWHEP || isPreflight {
 		switch ctx.Request.Method {
 		case http.MethodOptions:
-			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
+			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, If-Match")
 			ctx.Writer.WriteHeader(http.StatusOK)
 			return
@@ -230,7 +234,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	authRes := s.pathManager.getPathConf(pathGetPathConfReq{
+	res := s.pathManager.getPathConf(pathGetPathConfReq{
 		name:    dir,
 		publish: publish,
 		credentials: authCredentials{
@@ -241,23 +245,21 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			proto: authProtocolWebRTC,
 		},
 	})
-	if authRes.err != nil {
-		if ctx.Request.Method != http.MethodOptions {
-			if terr, ok := authRes.err.(pathErrAuth); ok {
-				if !hasCredentials {
-					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
-					ctx.Writer.WriteHeader(http.StatusUnauthorized)
-					return
-				}
-
-				s.Log(logger.Info, "authentication error: %v", terr.wrapped)
+	if res.err != nil {
+		if terr, ok := res.err.(pathErrAuth); ok {
+			if !hasCredentials {
+				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			ctx.Writer.WriteHeader(http.StatusNotFound)
+			s.Log(logger.Info, "authentication error: %v", terr.wrapped)
+			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}
+
+		ctx.Writer.WriteHeader(http.StatusNotFound)
+		return
 	}
 
 	switch fname {
@@ -274,11 +276,9 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 	case "whip", "whep":
 		switch ctx.Request.Method {
 		case http.MethodOptions:
-			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, POST, PATCH")
+			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, If-Match")
-			if authRes.err == nil {
-				ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
-			}
+			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
 			ctx.Writer.WriteHeader(http.StatusOK)
 
 		case http.MethodPost:
