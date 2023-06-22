@@ -190,7 +190,7 @@ class Transmitter {
     start() {
         console.log("requesting ICE servers");
 
-        fetch(new URL('whip', window.location.href), {
+        fetch(new URL('whip', window.location.href) + window.location.search, {
             method: 'OPTIONS',
         })
             .then((res) => this.onIceServers(res))
@@ -223,11 +223,12 @@ class Transmitter {
                 const audioCodec = document.getElementById('audio_codec').value;
                 const videoBitrate = document.getElementById('video_bitrate').value;
 
-                let params = '?video_codec=' + videoCodec +
-                    '&audio_codec=' + audioCodec +
-                    '&video_bitrate=' + videoBitrate;
+                const p = new URLSearchParams(window.location.search);
+                p.set('video_codec', videoCodec);
+                p.set('audio_codec', audioCodec);
+                p.set('video_bitrate', videoBitrate);
 
-                fetch(new URL('whip', window.location.href) + params, {
+                fetch(new URL('whip', window.location.href) + '?' + p.toString(), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/sdp',
@@ -293,7 +294,7 @@ class Transmitter {
     }
 
     sendLocalCandidates(candidates) {
-        fetch(new URL('whip', window.location.href), {
+        fetch(new URL('whip', window.location.href) + window.location.search, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/trickle-ice-sdpfrag',

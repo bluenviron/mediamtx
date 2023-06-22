@@ -221,7 +221,11 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		publish = false
 
 		if !strings.HasSuffix(dir, "/") {
-			ctx.Writer.Header().Set("Location", "/"+dir+"/")
+			l := "/" + dir + "/"
+			if ctx.Request.URL.RawQuery != "" {
+				l += "?" + ctx.Request.URL.RawQuery
+			}
+			ctx.Writer.Header().Set("Location", l)
 			ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 			return
 		}
