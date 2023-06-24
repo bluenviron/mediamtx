@@ -72,6 +72,9 @@ select {
         <div id="bitrate_line">
             video bitrate (kbps):
             <input id="video_bitrate" type="text" value="10000" />
+
+            audio bitrate (kbps):
+            <input id="audio_bitrate" type="text" value="32" />
         </div>
         <div id="submit_line">
             <button id="publish_confirm">publish</button>
@@ -222,11 +225,13 @@ class Transmitter {
                 const videoCodec = document.getElementById('video_codec').value;
                 const audioCodec = document.getElementById('audio_codec').value;
                 const videoBitrate = document.getElementById('video_bitrate').value;
+                const audioBitrate = document.getElementById('audio_bitrate').value;
 
                 const p = new URLSearchParams(window.location.search);
                 p.set('video_codec', videoCodec);
                 p.set('audio_codec', audioCodec);
                 p.set('video_bitrate', videoBitrate);
+                p.set('audio_bitrate', audioBitrate);
 
                 fetch(new URL('whip', window.location.href) + '?' + p.toString(), {
                     method: 'POST',

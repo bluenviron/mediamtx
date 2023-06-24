@@ -304,6 +304,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				videoCodec:   ctx.Query("video_codec"),
 				audioCodec:   ctx.Query("audio_codec"),
 				videoBitrate: ctx.Query("video_bitrate"),
+				audioBitrate: ctx.Query("audio_bitrate"),
 			})
 			if res.err != nil {
 				if res.errStatusCode != 0 {
