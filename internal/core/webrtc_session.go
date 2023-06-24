@@ -57,10 +57,10 @@ func insertTias(offer *webrtc.SessionDescription, value uint64) {
 
 	for _, media := range sd.MediaDescriptions {
 		if media.MediaName.Media == "video" {
-			media.Bandwidth = append(media.Bandwidth, sdp.Bandwidth{
+			media.Bandwidth = []sdp.Bandwidth{{
 				Type:      "TIAS",
 				Bandwidth: value,
-			})
+			}}
 		}
 	}
 
@@ -309,6 +309,14 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
+	err = s.waitGatheringDone(pc)
+	if err != nil {
+		return http.StatusBadRequest, err
+	}
+
+	tmp := pc.LocalDescription()
+	answer = *tmp
+
 	if s.req.videoBitrate != "" {
 		tmp, err := strconv.ParseUint(s.req.videoBitrate, 10, 31)
 		if err != nil {
@@ -318,12 +326,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 		insertTias(&answer, tmp*1024)
 	}
 
-	err = s.waitGatheringDone(pc)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
-
-	err = s.writeAnswer(pc.LocalDescription())
+	err = s.writeAnswer(&answer)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -429,7 +432,10 @@ func (s *webRTCSession) runRead() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	err = s.writeAnswer(pc.LocalDescription())
+	tmp := pc.LocalDescription()
+	answer = *tmp
+
+	err = s.writeAnswer(&answer)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
