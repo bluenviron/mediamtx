@@ -659,7 +659,7 @@ After starting the server, the webcam can be reached on `rtsp://localhost:8554/c
 
 ### From a Raspberry Pi Camera
 
-_MediaMTX_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requisites:
+_MediaMTX_ natively support the Raspberry Pi Camera, enabling high-quality and low-latency video streaming from the camera to any user. There are a couple of requirements:
 
 1. The server must run on a Raspberry Pi, with Raspberry Pi OS bullseye or newer as operative system. Both 32 bit and 64 bit operative systems are supported.
 
@@ -694,7 +694,7 @@ docker run --rm -it \
 bluenviron/mediamtx:latest-rpi
 ```
 
-After starting the server, the camera can be reached on `rtsp://raspberry-pi:8554/cam` or `http://raspberry-pi:8888/cam`.
+After starting the server, the camera can be reached on path `/cam` (`http://raspberry-pi:8889/cam`, `http://raspberry-pi:8888/cam`, `rtsp://raspberry-pi:8554/cam` or `rtmp://raspberry-pi:1935/cam`).
 
 Camera settings can be changed by using the `rpiCamera*` parameters:
 
@@ -731,7 +731,7 @@ default:CARD=U0x46d0x809
     Default Audio Device
 ```
 
-Find the audio card of the microfone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then use GStreamer inside `runOnReady` to read the video stream, add audio and publish the improved stream to another path:
+Find the audio card of the microfone and take note of its name, for instance `default:CARD=U0x46d0x809`. Then use GStreamer inside `runOnReady` to read the video stream, add audio and publish the new stream to another path:
 
 ```yml
 paths:
