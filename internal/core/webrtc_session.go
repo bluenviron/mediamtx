@@ -231,6 +231,8 @@ func (s *webRTCSession) run() {
 		}
 	}
 
+	s.ctxCancel()
+
 	s.parent.sessionClose(s)
 
 	s.Log(logger.Info, "closed (%v)", err)
