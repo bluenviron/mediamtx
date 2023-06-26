@@ -132,34 +132,36 @@ class WHEPClient {
         };
 
         this.pc.createOffer()
-            .then((desc) => {
-                this.offerData = parseOffer(desc.sdp);
-                this.pc.setLocalDescription(desc);
+            .then((offer) => this.onLocalOffer(offer));
+    }
 
-                console.log("sending offer");
+    onLocalOffer(offer) {
+        this.offerData = parseOffer(offer.sdp);
+        this.pc.setLocalDescription(offer);
 
-                fetch(new URL('whep', window.location.href) + window.location.search, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/sdp',
-                    },
-                    body: desc.sdp,
-                })
-                    .then((res) => {
-                        if (res.status !== 201) {
-                            throw new Error('bad status code');
-                        }
-                        this.eTag = res.headers.get('E-Tag');
-                        return res.text();
-                    })
-                    .then((sdp) => this.onRemoteDescription(new RTCSessionDescription({
-                        type: 'answer',
-                        sdp,
-                    })))
-                    .catch((err) => {
-                        console.log('error: ' + err);
-                        this.scheduleRestart();
-                    });
+        console.log("sending offer");
+
+        fetch(new URL('whep', window.location.href) + window.location.search, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/sdp',
+            },
+            body: offer.sdp,
+        })
+            .then((res) => {
+                if (res.status !== 201) {
+                    throw new Error('bad status code');
+                }
+                this.eTag = res.headers.get('E-Tag');
+                return res.text();
+            })
+            .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
+                type: 'answer',
+                sdp,
+            })))
+            .catch((err) => {
+                console.log('error: ' + err);
+                this.scheduleRestart();
             });
     }
 
@@ -176,7 +178,7 @@ class WHEPClient {
         }
     }
 
-	onRemoteDescription(answer) {
+	onRemoteAnswer(answer) {
         if (this.restartTimeout !== null) {
             return;
         }

@@ -183,7 +183,100 @@ const generateSdpFragment = (offerData, candidates) => {
     }
 
     return frag;
-}
+};
+
+const setCodec = (section, codec) => {
+    const lines = section.split('\r\n');
+    const lines2 = [];
+    const payloadFormats = [];
+
+    for (const line of lines) {
+        if (!line.startsWith('a=rtpmap:')) {
+            lines2.push(line);
+        } else {
+            if (line.toLowerCase().includes(codec)) {
+                payloadFormats.push(line.slice('a=rtpmap:'.length).split(' ')[0]);
+                lines2.push(line);
+            }
+        }
+    }
+
+    const lines3 = [];
+
+    for (const line of lines2) {
+        if (line.startsWith('a=fmtp:')) {
+            if (payloadFormats.includes(line.slice('a=fmtp:'.length).split(' ')[0])) {
+                lines3.push(line);
+            }
+        } else if (line.startsWith('a=rtcp-fb:')) {
+            if (payloadFormats.includes(line.slice('a=rtcp-fb:'.length).split(' ')[0])) {
+                lines3.push(line);
+            }
+        } else {
+            lines3.push(line);
+        }
+    }
+
+    return lines3.join('\r\n');
+};
+
+const setVideoBitrate = (section, bitrate) => {
+    let lines = section.split('\r\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('c=')) {
+            lines = [...lines.slice(0, i+1), 'b=TIAS:' + (parseInt(bitrate) * 1024).toString(), ...lines.slice(i+1)];
+            break
+        }
+    }
+
+    return lines.join('\r\n');
+};
+
+const setAudioBitrate = (section, bitrate, voice) => {
+    let opusPayloadFormat = '';
+    let lines = section.split('\r\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
+            opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
+            break;
+        }
+    }
+
+    if (opusPayloadFormat === '') {
+        return section;
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+            if (voice) {
+                lines[i] = 'a=fmtp:' + opusPayloadFormat + ' minptime=10;useinbandfec=1;maxaveragebitrate='
+                    + (parseInt(bitrate) * 1024).toString();
+            } else {
+                lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate'
+                    + (parseInt(bitrate) * 1024).toString();
+            }
+        }
+    }
+
+    return lines.join('\r\n');
+};
+
+const editAnswer = (answer, videoCodec, audioCodec, videoBitrate, audioBitrate, audioVoice) => {
+    const sections = answer.split('m=');
+
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        if (section.startsWith('video')) {
+            sections[i] = setVideoBitrate(setCodec(section, videoCodec), videoBitrate);
+        } else if (section.startsWith('audio')) {
+            sections[i] = setAudioBitrate(setCodec(section, audioCodec), audioBitrate, audioVoice);
+        }
+    }
+
+    return sections.join('m=');
+};
 
 class Transmitter {
     constructor(stream) {
@@ -221,47 +314,36 @@ class Transmitter {
         });
 
         this.pc.createOffer()
-            .then((desc) => {
-                this.offerData = parseOffer(desc.sdp);
-                this.pc.setLocalDescription(desc);
+            .then((offer) => this.onLocalOffer(offer));
+    }
 
-                console.log("sending offer");
+    onLocalOffer(offer) {
+        this.offerData = parseOffer(offer.sdp);
+        this.pc.setLocalDescription(offer);
 
-                const videoCodec = document.getElementById('video_codec').value;
-                const audioCodec = document.getElementById('audio_codec').value;
-                const videoBitrate = document.getElementById('video_bitrate').value;
-                const audioBitrate = document.getElementById('audio_bitrate').value;
-                const audioVoice = document.getElementById('audio_voice').checked;
+        console.log("sending offer");
 
-                const p = new URLSearchParams(window.location.search);
-                p.set('video_codec', videoCodec);
-                p.set('audio_codec', audioCodec);
-                p.set('video_bitrate', videoBitrate);
-                p.set('audio_bitrate', audioBitrate);
-                p.set('audio_voice', audioVoice ? 'true' : 'false');
-
-                fetch(new URL('whip', window.location.href) + '?' + p.toString(), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/sdp',
-                    },
-                    body: desc.sdp,
-                })
-                    .then((res) => {
-                        if (res.status !== 201) {
-                            throw new Error('bad status code');
-                        }
-                        this.eTag = res.headers.get('E-Tag');
-                        return res.text();
-                    })
-                    .then((sdp) => this.onRemoteDescription(new RTCSessionDescription({
-                        type: 'answer',
-                        sdp,
-                    })))
-                    .catch((err) => {
-                        console.log('error: ' + err);
-                        this.scheduleRestart();
-                    });
+        fetch(new URL('whip', window.location.href) + window.location.search, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/sdp',
+            },
+            body: offer.sdp,
+        })
+            .then((res) => {
+                if (res.status !== 201) {
+                    throw new Error('bad status code');
+                }
+                this.eTag = res.headers.get('E-Tag');
+                return res.text();
+            })
+            .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
+                type: 'answer',
+                sdp,
+            })))
+            .catch((err) => {
+                console.log('error: ' + err);
+                this.scheduleRestart();
             });
     }
 
@@ -278,10 +360,22 @@ class Transmitter {
         }
     }
 
-    onRemoteDescription(answer) {
+    onRemoteAnswer(answer) {
 		if (this.restartTimeout !== null) {
 			return;
 		}
+
+        answer = new RTCSessionDescription({
+            type: 'answer',
+            sdp: editAnswer(
+                answer.sdp,
+                document.getElementById('video_codec').value,
+                document.getElementById('audio_codec').value,
+                document.getElementById('video_bitrate').value,
+                document.getElementById('audio_bitrate').value,
+                document.getElementById('audio_voice').value,
+            ),
+        });
 
         this.pc.setRemoteDescription(new RTCSessionDescription(answer));
 
@@ -445,7 +539,7 @@ const populateCodecs = () => {
             for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000']) {
                 if (sdp.includes(codec)) {
                     const opt = document.createElement('option');
-                    opt.value = codec.split('/')[0];
+                    opt.value = codec;
                     opt.text = codec.split('/')[0].toUpperCase();
                     document.getElementById('video_codec').appendChild(opt);
                 }
@@ -454,7 +548,7 @@ const populateCodecs = () => {
             for (const codec of ['opus/48000', 'g722/8000', 'pcmu/8000', 'pcma/8000']) {
                 if (sdp.includes(codec)) {
                     const opt = document.createElement('option');
-                    opt.value = codec.split('/')[0];
+                    opt.value = codec;
                     opt.text = codec.split('/')[0].toUpperCase();
                     document.getElementById('audio_codec').appendChild(opt);
                 }

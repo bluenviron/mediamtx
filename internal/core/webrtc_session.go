@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -14,7 +13,6 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
-	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -46,91 +44,6 @@ func mediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
 		ret[i] = track.media
 	}
 	return ret
-}
-
-func findOpusPayloadFormat(attributes []sdp.Attribute) int {
-	for _, attr := range attributes {
-		if attr.Key == "rtpmap" && strings.Contains(attr.Value, "opus/") {
-			parts := strings.SplitN(attr.Value, " ", 2)
-			pl, err := strconv.ParseUint(parts[0], 10, 31)
-			if err == nil {
-				return int(pl)
-			}
-		}
-	}
-	return 0
-}
-
-func editAnswer(
-	offer *webrtc.SessionDescription,
-	videoBitrateStr string,
-	audioBitrateStr string,
-	audioVoice bool,
-) error {
-	var sd sdp.SessionDescription
-	err := sd.Unmarshal([]byte(offer.SDP))
-	if err != nil {
-		return err
-	}
-
-	if videoBitrateStr != "" {
-		videoBitrate, err := strconv.ParseUint(videoBitrateStr, 10, 31)
-		if err != nil {
-			return err
-		}
-
-		for _, media := range sd.MediaDescriptions {
-			if media.MediaName.Media == "video" {
-				media.Bandwidth = []sdp.Bandwidth{{
-					Type:      "TIAS",
-					Bandwidth: videoBitrate * 1024,
-				}}
-				break
-			}
-		}
-	}
-
-	if audioBitrateStr != "" {
-		audioBitrate, err := strconv.ParseUint(audioBitrateStr, 10, 31)
-		if err != nil {
-			return err
-		}
-
-		for _, media := range sd.MediaDescriptions {
-			if media.MediaName.Media == "audio" {
-				pl := findOpusPayloadFormat(media.Attributes)
-				if pl != 0 {
-					for i, attr := range media.Attributes {
-						if attr.Key == "fmtp" && strings.HasPrefix(attr.Value, strconv.FormatInt(int64(pl), 10)+" ") {
-							if audioVoice {
-								media.Attributes[i] = sdp.Attribute{
-									Key: "fmtp",
-									Value: strconv.FormatInt(int64(pl), 10) + " minptime=10;useinbandfec=1;maxaveragebitrate=" +
-										strconv.FormatUint(audioBitrate*1024, 10),
-								}
-							} else {
-								media.Attributes[i] = sdp.Attribute{
-									Key: "fmtp",
-									Value: strconv.FormatInt(int64(pl), 10) + " stereo=1;sprop-stereo=1;maxaveragebitrate=" +
-										strconv.FormatUint(audioBitrate*1024, 10),
-								}
-							}
-						}
-					}
-				}
-
-				break
-			}
-		}
-	}
-
-	enc, err := sd.Marshal()
-	if err != nil {
-		return err
-	}
-
-	offer.SDP = string(enc)
-	return nil
 }
 
 func gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
@@ -322,8 +235,6 @@ func (s *webRTCSession) runPublish() (int, error) {
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
 
 	pc, err := newPeerConnection(
-		s.req.videoCodec,
-		s.req.audioCodec,
 		s.parent.genICEServers(),
 		s.iceHostNAT1To1IPs,
 		s.iceUDPMux,
@@ -380,11 +291,6 @@ func (s *webRTCSession) runPublish() (int, error) {
 
 	tmp := pc.LocalDescription()
 	answer = *tmp
-
-	err = editAnswer(&answer, s.req.videoBitrate, s.req.audioBitrate, s.req.audioVoice)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
 
 	err = s.writeAnswer(&answer)
 	if err != nil {
@@ -451,8 +357,6 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 
 	pc, err := newPeerConnection(
-		"",
-		"",
 		s.parent.genICEServers(),
 		s.iceHostNAT1To1IPs,
 		s.iceUDPMux,
