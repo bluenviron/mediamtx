@@ -75,6 +75,11 @@ select {
 
             audio bitrate (kbps):
             <input id="audio_bitrate" type="text" value="32" />
+
+            <div>
+                <input id="audio_voice" type="checkbox" checked>
+                <label for="audio_voice">optimize for voice</label>
+            </div>
         </div>
         <div id="submit_line">
             <button id="publish_confirm">publish</button>
@@ -226,12 +231,14 @@ class Transmitter {
                 const audioCodec = document.getElementById('audio_codec').value;
                 const videoBitrate = document.getElementById('video_bitrate').value;
                 const audioBitrate = document.getElementById('audio_bitrate').value;
+                const audioVoice = document.getElementById('audio_voice').checked;
 
                 const p = new URLSearchParams(window.location.search);
                 p.set('video_codec', videoCodec);
                 p.set('audio_codec', audioCodec);
                 p.set('video_bitrate', videoBitrate);
                 p.set('audio_bitrate', audioBitrate);
+                p.set('audio_voice', audioVoice ? 'true' : 'false');
 
                 fetch(new URL('whip', window.location.href) + '?' + p.toString(), {
                     method: 'POST',
@@ -362,6 +369,13 @@ const onPublish = () => {
             audio = {
                 deviceId: audioId,
             };
+
+            const voice = document.getElementById('audio_voice').checked;
+            if (!voice) {
+                audio.autoGainControl = false;
+                audio.echoCancellation = false;
+                audio.noiseSuppression = false;
+            }
         }
 
         navigator.mediaDevices.getUserMedia({ video, audio })
