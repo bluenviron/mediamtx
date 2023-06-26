@@ -114,6 +114,9 @@ func gatherIncomingTracks(
 	for {
 		select {
 		case <-t.C:
+			if len(tracks) == 0 {
+				return nil, fmt.Errorf("no tracks found")
+			}
 			return tracks, nil
 
 		case pair := <-trackRecv:
