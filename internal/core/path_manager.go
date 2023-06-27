@@ -300,7 +300,7 @@ outer:
 		case req := <-pm.chAPIPathsGet:
 			path, ok := pm.paths[req.name]
 			if !ok {
-				req.res <- pathAPIPathsGetRes{err: fmt.Errorf("not found")}
+				req.res <- pathAPIPathsGetRes{err: errAPINotFound}
 				continue
 			}
 

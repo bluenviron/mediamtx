@@ -209,7 +209,7 @@ outer:
 		case req := <-m.chAPIMuxerGet:
 			muxer, ok := m.muxers[req.name]
 			if !ok {
-				req.res <- hlsManagerAPIMuxersGetRes{err: fmt.Errorf("not found")}
+				req.res <- hlsManagerAPIMuxersGetRes{err: errAPINotFound}
 				continue
 			}
 
