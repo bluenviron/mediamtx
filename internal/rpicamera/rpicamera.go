@@ -4,6 +4,7 @@
 package rpicamera
 
 import (
+	"debug/elf"
 	_ "embed"
 	"encoding/base64"
 	"fmt"
@@ -92,9 +93,6 @@ func findLibrary(name string) (string, error) {
 		for _, line := range strings.Split(string(byts), "\n") {
 			f := strings.Split(line, " => ")
 			if len(f) == 2 && strings.Contains(f[1], name+".so") {
-				if runtime.GOARCH == "arm" && !strings.Contains(f[1], "arm-linux-gnueabihf") {
-					return "", fmt.Errorf("libcamera is 64-bit, you need the 64-bit server version")
-				}
 				return f[1], nil
 			}
 		}
@@ -103,10 +101,37 @@ func findLibrary(name string) (string, error) {
 	return "", fmt.Errorf("library '%s' not found", name)
 }
 
+func check64bit(fpath string) error {
+	f, err := os.Open(fpath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	ef, err := elf.NewFile(f)
+	if err != nil {
+		return err
+	}
+	defer ef.Close()
+
+	if ef.FileHeader.Class == elf.ELFCLASS64 {
+		return fmt.Errorf("libcamera is 64-bit, you need the 64-bit server version")
+	}
+
+	return nil
+}
+
 func setupSymlink(name string) error {
 	lib, err := findLibrary(name)
 	if err != nil {
 		return err
+	}
+
+	if runtime.GOARCH == "arm" {
+		err := check64bit(lib)
+		if err != nil {
+			return err
+		}
 	}
 
 	os.Remove("/dev/shm/" + name + ".so.x.x.x")
