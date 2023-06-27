@@ -48,28 +48,76 @@ func mediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
 	return ret
 }
 
-func insertTias(offer *webrtc.SessionDescription, value uint64) {
+func findOpusPayloadFormat(attributes []sdp.Attribute) int {
+	for _, attr := range attributes {
+		if attr.Key == "rtpmap" && strings.Contains(attr.Value, "opus/") {
+			parts := strings.SplitN(attr.Value, " ", 2)
+			pl, err := strconv.ParseUint(parts[0], 10, 31)
+			if err == nil {
+				return int(pl)
+			}
+		}
+	}
+	return 0
+}
+
+func editAnswer(offer *webrtc.SessionDescription, videoBitrateStr string, audioBitrateStr string) error {
 	var sd sdp.SessionDescription
 	err := sd.Unmarshal([]byte(offer.SDP))
 	if err != nil {
-		return
+		return err
 	}
 
-	for _, media := range sd.MediaDescriptions {
-		if media.MediaName.Media == "video" {
-			media.Bandwidth = []sdp.Bandwidth{{
-				Type:      "TIAS",
-				Bandwidth: value,
-			}}
+	if videoBitrateStr != "" {
+		videoBitrate, err := strconv.ParseUint(videoBitrateStr, 10, 31)
+		if err != nil {
+			return err
+		}
+
+		for _, media := range sd.MediaDescriptions {
+			if media.MediaName.Media == "video" {
+				media.Bandwidth = []sdp.Bandwidth{{
+					Type:      "TIAS",
+					Bandwidth: videoBitrate * 1024,
+				}}
+				break
+			}
+		}
+	}
+
+	if audioBitrateStr != "" {
+		audioBitrate, err := strconv.ParseUint(audioBitrateStr, 10, 31)
+		if err != nil {
+			return err
+		}
+
+		for _, media := range sd.MediaDescriptions {
+			if media.MediaName.Media == "audio" {
+				pl := findOpusPayloadFormat(media.Attributes)
+				if pl != 0 {
+					for i, attr := range media.Attributes {
+						if attr.Key == "fmtp" && strings.HasPrefix(attr.Value, strconv.FormatInt(int64(pl), 10)+" ") {
+							media.Attributes[i] = sdp.Attribute{
+								Key: "fmtp",
+								Value: strconv.FormatInt(int64(pl), 10) + " stereo=1;sprop-stereo=1;maxaveragebitrate=" +
+									strconv.FormatUint(audioBitrate*1024, 10),
+							}
+						}
+					}
+				}
+
+				break
+			}
 		}
 	}
 
 	enc, err := sd.Marshal()
 	if err != nil {
-		return
+		return err
 	}
 
 	offer.SDP = string(enc)
+	return nil
 }
 
 func gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
@@ -320,13 +368,9 @@ func (s *webRTCSession) runPublish() (int, error) {
 	tmp := pc.LocalDescription()
 	answer = *tmp
 
-	if s.req.videoBitrate != "" {
-		tmp, err := strconv.ParseUint(s.req.videoBitrate, 10, 31)
-		if err != nil {
-			return http.StatusBadRequest, err
-		}
-
-		insertTias(&answer, tmp*1024)
+	err = editAnswer(&answer, s.req.videoBitrate, s.req.audioBitrate)
+	if err != nil {
+		return http.StatusBadRequest, err
 	}
 
 	err = s.writeAnswer(&answer)

@@ -137,6 +137,7 @@ type webRTCSessionNewReq struct {
 	videoCodec   string
 	audioCodec   string
 	videoBitrate string
+	audioBitrate string
 	res          chan webRTCSessionNewRes
 }
 
