@@ -11,51 +11,57 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-var videoCodecs = map[string][]webrtc.RTPCodecParameters{
-	"av1": {{
+var videoCodecs = []webrtc.RTPCodecParameters{
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:  webrtc.MimeTypeAV1,
 			ClockRate: 90000,
 		},
 		PayloadType: 96,
-	}},
-	"vp9": {
-		{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:    webrtc.MimeTypeVP9,
-				ClockRate:   90000,
-				SDPFmtpLine: "profile-id=0",
-			},
-			PayloadType: 96,
-		},
-		{
-			RTPCodecCapability: webrtc.RTPCodecCapability{
-				MimeType:    webrtc.MimeTypeVP9,
-				ClockRate:   90000,
-				SDPFmtpLine: "profile-id=1",
-			},
-			PayloadType: 96,
-		},
 	},
-	"vp8": {{
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=0",
+		},
+		PayloadType: 97,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=1",
+		},
+		PayloadType: 98,
+	},
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:  webrtc.MimeTypeVP8,
 			ClockRate: 90000,
 		},
-		PayloadType: 96,
-	}},
-	"h264": {{
+		PayloadType: 99,
+	},
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeH264,
 			ClockRate:   90000,
 			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
 		},
-		PayloadType: 96,
-	}},
+		PayloadType: 100,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+		PayloadType: 101,
+	},
 }
 
-var audioCodecs = map[string][]webrtc.RTPCodecParameters{
-	"opus": {{
+var audioCodecs = []webrtc.RTPCodecParameters{
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:    webrtc.MimeTypeOpus,
 			ClockRate:   48000,
@@ -63,28 +69,28 @@ var audioCodecs = map[string][]webrtc.RTPCodecParameters{
 			SDPFmtpLine: "minptime=10;useinbandfec=1",
 		},
 		PayloadType: 111,
-	}},
-	"g722": {{
+	},
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:  webrtc.MimeTypeG722,
 			ClockRate: 8000,
 		},
 		PayloadType: 9,
-	}},
-	"pcmu": {{
+	},
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:  webrtc.MimeTypePCMU,
 			ClockRate: 8000,
 		},
 		PayloadType: 0,
-	}},
-	"pcma": {{
+	},
+	{
 		RTPCodecCapability: webrtc.RTPCodecCapability{
 			MimeType:  webrtc.MimeTypePCMA,
 			ClockRate: 8000,
 		},
 		PayloadType: 8,
-	}},
+	},
 }
 
 type peerConnection struct {
@@ -98,8 +104,6 @@ type peerConnection struct {
 }
 
 func newPeerConnection(
-	videoCodec string,
-	audioCodec string,
 	iceServers []webrtc.ICEServer,
 	iceHostNAT1To1IPs []string,
 	iceUDPMux ice.UDPMux,
@@ -124,43 +128,17 @@ func newPeerConnection(
 
 	mediaEngine := &webrtc.MediaEngine{}
 
-	if videoCodec != "" || audioCodec != "" {
-		codec, ok := videoCodecs[videoCodec]
-		if ok {
-			for _, params := range codec {
-				err := mediaEngine.RegisterCodec(params, webrtc.RTPCodecTypeVideo)
-				if err != nil {
-					return nil, err
-				}
-			}
+	for _, codec := range videoCodecs {
+		err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
+		if err != nil {
+			return nil, err
 		}
+	}
 
-		codec, ok = audioCodecs[audioCodec]
-		if ok {
-			for _, params := range codec {
-				err := mediaEngine.RegisterCodec(params, webrtc.RTPCodecTypeAudio)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-	} else { // register all codecs
-		for _, codec := range videoCodecs {
-			for _, params := range codec {
-				err := mediaEngine.RegisterCodec(params, webrtc.RTPCodecTypeVideo)
-				if err != nil {
-					return nil, err
-				}
-			}
-		}
-
-		for _, codec := range audioCodecs {
-			for _, params := range codec {
-				err := mediaEngine.RegisterCodec(params, webrtc.RTPCodecTypeAudio)
-				if err != nil {
-					return nil, err
-				}
-			}
+	for _, codec := range audioCodecs {
+		err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
+		if err != nil {
+			return nil, err
 		}
 	}
 

@@ -130,16 +130,11 @@ type webRTCSessionNewRes struct {
 }
 
 type webRTCSessionNewReq struct {
-	pathName     string
-	remoteAddr   string
-	offer        []byte
-	publish      bool
-	videoCodec   string
-	audioCodec   string
-	videoBitrate string
-	audioBitrate string
-	audioVoice   bool
-	res          chan webRTCSessionNewRes
+	pathName   string
+	remoteAddr string
+	offer      []byte
+	publish    bool
+	res        chan webRTCSessionNewRes
 }
 
 type webRTCSessionAddCandidatesRes struct {
