@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/google/uuid"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -991,6 +992,90 @@ func TestAPIProtocolGet(t *testing.T) {
 	}
 }
 
+func TestAPIProtocolGetNotFound(t *testing.T) {
+	serverCertFpath, err := writeTempFile(serverCert)
+	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
+
+	serverKeyFpath, err := writeTempFile(serverKey)
+	require.NoError(t, err)
+	defer os.Remove(serverKeyFpath)
+
+	for _, ca := range []string{
+		"rtsp conns",
+		"rtsp sessions",
+		"rtsps conns",
+		"rtsps sessions",
+		"rtmp",
+		"rtmps",
+		"hls",
+		"webrtc",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			conf := "api: yes\n"
+
+			switch ca {
+			case "rtsps conns", "rtsps sessions":
+				conf += "protocols: [tcp]\n" +
+					"encryption: strict\n" +
+					"serverCert: " + serverCertFpath + "\n" +
+					"serverKey: " + serverKeyFpath + "\n"
+
+			case "rtmps":
+				conf += "rtmpEncryption: strict\n" +
+					"rtmpServerCert: " + serverCertFpath + "\n" +
+					"rtmpServerKey: " + serverKeyFpath + "\n"
+			}
+
+			conf += "paths:\n" +
+				"  all:\n"
+
+			p, ok := newInstance(conf)
+			require.Equal(t, true, ok)
+			defer p.Close()
+
+			hc := &http.Client{Transport: &http.Transport{}}
+
+			var pa string
+			switch ca {
+			case "rtsp conns":
+				pa = "rtspconns"
+
+			case "rtsp sessions":
+				pa = "rtspsessions"
+
+			case "rtsps conns":
+				pa = "rtspsconns"
+
+			case "rtsps sessions":
+				pa = "rtspssessions"
+
+			case "rtmp":
+				pa = "rtmpconns"
+
+			case "rtmps":
+				pa = "rtmpsconns"
+
+			case "hls":
+				pa = "hlsmuxers"
+
+			case "webrtc":
+				pa = "webrtcsessions"
+			}
+
+			func() {
+				req, err := http.NewRequest("GET", "http://localhost:9997/v2/"+pa+"/get/"+uuid.New().String(), nil)
+				require.NoError(t, err)
+
+				res, err := hc.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+				require.Equal(t, http.StatusNotFound, res.StatusCode)
+			}()
+		})
+	}
+}
+
 func TestAPIProtocolKick(t *testing.T) {
 	serverCertFpath, err := writeTempFile(serverCert)
 	require.NoError(t, err)
@@ -1097,6 +1182,68 @@ func TestAPIProtocolKick(t *testing.T) {
 			}
 			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out2)
 			require.Equal(t, 0, len(out2.Items))
+		})
+	}
+}
+
+func TestAPIProtocolKickNotFound(t *testing.T) {
+	serverCertFpath, err := writeTempFile(serverCert)
+	require.NoError(t, err)
+	defer os.Remove(serverCertFpath)
+
+	serverKeyFpath, err := writeTempFile(serverKey)
+	require.NoError(t, err)
+	defer os.Remove(serverKeyFpath)
+
+	for _, ca := range []string{
+		"rtsp",
+		"rtsps",
+		"rtmp",
+		"webrtc",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			conf := "api: yes\n"
+
+			if ca == "rtsps" {
+				conf += "protocols: [tcp]\n" +
+					"encryption: strict\n" +
+					"serverCert: " + serverCertFpath + "\n" +
+					"serverKey: " + serverKeyFpath + "\n"
+			}
+
+			conf += "paths:\n" +
+				"  all:\n"
+
+			p, ok := newInstance(conf)
+			require.Equal(t, true, ok)
+			defer p.Close()
+
+			hc := &http.Client{Transport: &http.Transport{}}
+
+			var pa string
+			switch ca {
+			case "rtsp":
+				pa = "rtspsessions"
+
+			case "rtsps":
+				pa = "rtspssessions"
+
+			case "rtmp":
+				pa = "rtmpconns"
+
+			case "webrtc":
+				pa = "webrtcsessions"
+			}
+
+			func() {
+				req, err := http.NewRequest("GET", "http://localhost:9997/v2/"+pa+"/kick/"+uuid.New().String(), nil)
+				require.NoError(t, err)
+
+				res, err := hc.Do(req)
+				require.NoError(t, err)
+				defer res.Body.Close()
+				require.Equal(t, http.StatusNotFound, res.StatusCode)
+			}()
 		})
 	}
 }
