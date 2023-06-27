@@ -61,7 +61,12 @@ func findOpusPayloadFormat(attributes []sdp.Attribute) int {
 	return 0
 }
 
-func editAnswer(offer *webrtc.SessionDescription, videoBitrateStr string, audioBitrateStr string) error {
+func editAnswer(
+	offer *webrtc.SessionDescription,
+	videoBitrateStr string,
+	audioBitrateStr string,
+	audioVoice bool,
+) error {
 	var sd sdp.SessionDescription
 	err := sd.Unmarshal([]byte(offer.SDP))
 	if err != nil {
@@ -97,10 +102,18 @@ func editAnswer(offer *webrtc.SessionDescription, videoBitrateStr string, audioB
 				if pl != 0 {
 					for i, attr := range media.Attributes {
 						if attr.Key == "fmtp" && strings.HasPrefix(attr.Value, strconv.FormatInt(int64(pl), 10)+" ") {
-							media.Attributes[i] = sdp.Attribute{
-								Key: "fmtp",
-								Value: strconv.FormatInt(int64(pl), 10) + " stereo=1;sprop-stereo=1;maxaveragebitrate=" +
-									strconv.FormatUint(audioBitrate*1024, 10),
+							if audioVoice {
+								media.Attributes[i] = sdp.Attribute{
+									Key: "fmtp",
+									Value: strconv.FormatInt(int64(pl), 10) + " minptime=10;useinbandfec=1;maxaveragebitrate=" +
+										strconv.FormatUint(audioBitrate*1024, 10),
+								}
+							} else {
+								media.Attributes[i] = sdp.Attribute{
+									Key: "fmtp",
+									Value: strconv.FormatInt(int64(pl), 10) + " stereo=1;sprop-stereo=1;maxaveragebitrate=" +
+										strconv.FormatUint(audioBitrate*1024, 10),
+								}
 							}
 						}
 					}
@@ -368,7 +381,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	tmp := pc.LocalDescription()
 	answer = *tmp
 
-	err = editAnswer(&answer, s.req.videoBitrate, s.req.audioBitrate)
+	err = editAnswer(&answer, s.req.videoBitrate, s.req.audioBitrate, s.req.audioVoice)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
