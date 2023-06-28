@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
@@ -35,49 +36,53 @@ func newWebRTCIncomingTrack(
 		writeRTCP: writeRTCP,
 	}
 
-	switch track.Codec().MimeType {
-	case webrtc.MimeTypeAV1:
+	switch strings.ToLower(track.Codec().MimeType) {
+	case strings.ToLower(webrtc.MimeTypeAV1):
 		t.mediaType = media.TypeVideo
 		t.format = &formats.AV1{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
-	case webrtc.MimeTypeVP9:
+	case strings.ToLower(webrtc.MimeTypeVP9):
 		t.mediaType = media.TypeVideo
 		t.format = &formats.VP9{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
-	case webrtc.MimeTypeVP8:
+	case strings.ToLower(webrtc.MimeTypeVP8):
 		t.mediaType = media.TypeVideo
 		t.format = &formats.VP8{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
-	case webrtc.MimeTypeH264:
+	case strings.ToLower(webrtc.MimeTypeH264):
 		t.mediaType = media.TypeVideo
 		t.format = &formats.H264{
 			PayloadTyp:        uint8(track.PayloadType()),
 			PacketizationMode: 1,
 		}
 
-	case webrtc.MimeTypeOpus:
+	case strings.ToLower(webrtc.MimeTypeOpus):
 		t.mediaType = media.TypeAudio
 		t.format = &formats.Opus{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
-	case webrtc.MimeTypeG722:
+	case strings.ToLower(webrtc.MimeTypeG722):
 		t.mediaType = media.TypeAudio
 		t.format = &formats.G722{}
 
-	case webrtc.MimeTypePCMU:
+	case strings.ToLower(webrtc.MimeTypePCMU):
 		t.mediaType = media.TypeAudio
-		t.format = &formats.G711{MULaw: true}
+		t.format = &formats.G711{
+			MULaw: true,
+		}
 
-	case webrtc.MimeTypePCMA:
+	case strings.ToLower(webrtc.MimeTypePCMA):
 		t.mediaType = media.TypeAudio
-		t.format = &formats.G711{MULaw: false}
+		t.format = &formats.G711{
+			MULaw: false,
+		}
 
 	default:
 		return nil, fmt.Errorf("unsupported codec: %v", track.Codec())

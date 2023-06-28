@@ -107,6 +107,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Decrease latency](#decrease-latency-1)
 * [WebRTC protocol](#webrtc-protocol)
   * [General usage](#general-usage-3)
+  * [WHIP and WHEP](#whip-and-whep)
   * [Usage inside a container or behind a NAT](#usage-inside-a-container-or-behind-a-nat)
   * [Embedding](#embedding-1)
 * [Standards](#standards)
@@ -1198,10 +1199,32 @@ To decrease the latency, you can:
 
 ### General usage
 
-Every stream published to the server can be read with WebRTC by visiting:
+You can publish a stream from the browser to the server with WebRTC by visiting:
+
+```
+http://localhost:8889/mystream/publish
+```
+
+You can read a stream from the browser with WebRTC by visiting:
 
 ```
 http://localhost:8889/mystream
+```
+
+### WHIP and WHEP
+
+WHIP and WHEP are two WebRTC extensions that allows to publish and read streams with WebRTC without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol.
+
+If you are using a software that supports WHIP, you can publish a stream to the server by using this WHIP URL:
+
+```
+http://localhost:8889/mystream/whip
+```
+
+If you are using a software that supports WHEP, you can read a stream from the server by using this WHEP URL:
+
+```
+http://localhost:8889/mystream/whep
 ```
 
 ### Usage inside a container or behind a NAT
