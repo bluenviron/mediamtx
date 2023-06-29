@@ -25,6 +25,10 @@ html, body {
 
 const restartPause = 2000;
 
+const unquoteCredential = (v) => (
+    JSON.parse(`"${v}"`)
+);
+
 const linkToIceServers = (links) => (
     (links !== null) ? links.split(', ').map((link) => {
         const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
@@ -33,8 +37,8 @@ const linkToIceServers = (links) => (
         };
 
         if (m[3] !== undefined) {
-            ret.username = m[3];
-            ret.credential = m[4];
+            ret.username = unquoteCredential(m[3]);
+            ret.credential = unquoteCredential(m[4]);
             ret.credentialType = "password";
         }
 
