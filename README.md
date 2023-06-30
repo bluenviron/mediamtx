@@ -1051,9 +1051,7 @@ vlc --network-caching=50 rtsp://...
 
 ### General usage
 
-RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports only RTMP (for instance, OBS Studio and DJI drones).
-
-At the moment, only the H264 and AAC codecs can be used with the RTMP protocol.
+RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP (doesn't support UDP, encryption, doesn't support most RTSP codecs, doesn't support feedback mechanism). It is used when there's need of publishing or reading streams from a software that supports RTMP only (for instance, OBS Studio and DJI drones).
 
 Streams can be published or read with the RTMP protocol, for instance with _FFmpeg_:
 
@@ -1213,7 +1211,7 @@ http://localhost:8889/mystream
 
 ### WHIP and WHEP
 
-WHIP and WHEP are two WebRTC extensions that allows to publish and read streams with WebRTC without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol.
+WHIP and WHEP are two WebRTC extensions that allow to publish and read streams with WebRTC without passing through a web page. This allows to use WebRTC as a general purpose streaming protocol.
 
 If you are using a software that supports WHIP, you can publish a stream to the server by using this WHIP URL:
 
@@ -1270,15 +1268,21 @@ bluenviron/mediamtx
 Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like [coturn](https://github.com/coturn/coturn), that must be configured externally. The server address and credentials must be set in the configuration file:
 
 ```yml
-webrtcICEServers: [turn:user:pass:host:port]
+webrtcICEServers2:
+- url: turn:host:port
+  username: user
+  password: password
 ```
 
 Where `user` and `pass` are the username and password of the server.  Note that `port` is not optional.
 
-If the server uses a secret-based authentication (for instance, coturn with the `use-auth-secret` option), it must be configured in this way:
+If the server uses a secret-based authentication (for instance, coturn with the `use-auth-secret` option), it must be configured by using `AUTH_SECRET` as username, and the secret as password:
 
 ```yml
-webrtcICEServers: [turn:AUTH_SECRET:secret:host:port]
+webrtcICEServers2:
+- url: turn:host:port
+  username: AUTH_SECRET
+  password: secret
 ```
 
 where `secret` is the secret of the TURN server. _MediaMTX_ will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.

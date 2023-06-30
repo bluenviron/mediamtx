@@ -18,13 +18,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-const (
-	webrtcHandshakeTimeout   = 10 * time.Second
-	webrtcTrackGatherTimeout = 2 * time.Second
-	webrtcPayloadMaxSize     = 1188 // 1200 - 12 (RTP header)
-	webrtcStreamID           = "mediamtx"
-)
-
 type trackRecvPair struct {
 	track    *webrtc.TrackRemote
 	receiver *webrtc.RTPReceiver
@@ -235,7 +228,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
 
 	pc, err := newPeerConnection(
-		s.parent.genICEServers(),
+		s.parent.generateICEServers(),
 		s.iceHostNAT1To1IPs,
 		s.iceUDPMux,
 		s.iceTCPMux,
@@ -357,7 +350,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 
 	pc, err := newPeerConnection(
-		s.parent.genICEServers(),
+		s.parent.generateICEServers(),
 		s.iceHostNAT1To1IPs,
 		s.iceUDPMux,
 		s.iceTCPMux,

@@ -149,10 +149,17 @@ components:
           type: array
           items:
             type: string
-        webrtcICEServers:
+        webrtcICEServers2:
           type: array
           items:
-            type: string
+            type: object
+            properties:
+              url:
+                type: string
+              username:
+                type: string
+              password:
+                type: string
         webrtcICEHostNAT1To1IPs:
           type: array
           items:

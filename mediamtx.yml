@@ -200,15 +200,18 @@ webrtcAllowOrigin: '*'
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
-# List of ICE servers, in format type:user:password:host:port or type:host:port.
-# type can be "stun", "turn" or "turns".
-# STUN servers are used to obtain the public IP of server and clients. They are
-# needed when server and clients are on different LANs.
-# TURN servers are needed when a direct connection between server and clients
-# is not possible. All traffic is routed through the chosen TURN server.
-# if user is "AUTH_SECRET", then authentication is secret based.
-# the secret must be inserted into the password field.
-webrtcICEServers: [stun:stun.l.google.com:19302]
+# List of ICE servers.
+webrtcICEServers2:
+  # URL can point to a STUN, TURN or TURNS server.
+  # STUN servers are used to obtain the public IP of server and clients. They are
+  # needed when server and clients are on different LANs.
+  # TURN/TURNS servers are needed when a direct connection between server and
+  # clients is not possible. All traffic is routed through them.
+- url: stun:stun.l.google.com:19302
+  # if user is "AUTH_SECRET", then authentication is secret based.
+  # the secret must be inserted into the password field.
+  username: ''
+  password: ''
 # List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT.
 webrtcICEHostNAT1To1IPs: []

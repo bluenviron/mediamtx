@@ -2,10 +2,12 @@ package core
 
 import (
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -23,6 +25,59 @@ var webrtcPublishIndex []byte
 
 //go:embed webrtc_read_index.html
 var webrtcReadIndex []byte
+
+func quoteCredential(v string) string {
+	b, _ := json.Marshal(v)
+	s := string(b)
+	return s[1 : len(s)-1]
+}
+
+func unquoteCredential(v string) string {
+	var s string
+	json.Unmarshal([]byte("\""+v+"\""), &s)
+	return s
+}
+
+func iceServersToLinkHeader(iceServers []webrtc.ICEServer) []string {
+	ret := make([]string, len(iceServers))
+
+	for i, server := range iceServers {
+		link := "<" + server.URLs[0] + ">; rel=\"ice-server\""
+		if server.Username != "" {
+			link += "; username=\"" + quoteCredential(server.Username) + "\"" +
+				"; credential=\"" + quoteCredential(server.Credential.(string)) + "\"; credential-type=\"password\""
+		}
+		ret[i] = link
+	}
+
+	return ret
+}
+
+var reLink = regexp.MustCompile(`^<(.+?)>; rel="ice-server"(; username="(.+?)"` +
+	`; credential="(.+?)"; credential-type="password")?`)
+
+func linkHeaderToIceServers(link []string) []webrtc.ICEServer {
+	var ret []webrtc.ICEServer
+
+	for _, li := range link {
+		m := reLink.FindStringSubmatch(li)
+		if m != nil {
+			s := webrtc.ICEServer{
+				URLs: []string{m[1]},
+			}
+
+			if m[3] != "" {
+				s.Username = unquoteCredential(m[3])
+				s.Credential = unquoteCredential(m[4])
+				s.CredentialType = webrtc.ICECredentialTypePassword
+			}
+
+			ret = append(ret, s)
+		}
+	}
+
+	return ret
+}
 
 func unmarshalICEFragment(buf []byte) ([]*webrtc.ICECandidateInit, error) {
 	buf = append([]byte("v=0\r\no=- 0 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n"), buf...)
@@ -104,7 +159,7 @@ func marshalICEFragment(offer *webrtc.SessionDescription, candidates []*webrtc.I
 
 type webRTCHTTPServerParent interface {
 	logger.Writer
-	genICEServers() []webrtc.ICEServer
+	generateICEServers() []webrtc.ICEServer
 	sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes
 	sessionAddCandidates(req webRTCSessionAddCandidatesReq) webRTCSessionAddCandidatesRes
 }
@@ -282,7 +337,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		case http.MethodOptions:
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, If-Match")
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
+			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.generateICEServers())
 			ctx.Writer.WriteHeader(http.StatusOK)
 
 		case http.MethodPost:
@@ -314,7 +369,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("E-Tag", res.sx.secret.String())
 			ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 			ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.genICEServers())
+			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.generateICEServers())
 			ctx.Writer.Header().Set("Location", ctx.Request.URL.String())
 			ctx.Writer.WriteHeader(http.StatusCreated)
 			ctx.Writer.Write(res.answer)

@@ -14,6 +14,15 @@ type envUnmarshaler interface {
 	UnmarshalEnv(string) error
 }
 
+func envHasAtLeastAKeyWithPrefix(env map[string]string, prefix string) bool {
+	for key := range env {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
 func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) error {
 	rt := rv.Type()
 
@@ -145,6 +154,24 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 				} else {
 					rv.Set(reflect.ValueOf(strings.Split(ev, ",")))
 				}
+			}
+			return nil
+		}
+
+		if rt.Elem().Kind() == reflect.Struct {
+			for i := 0; ; i++ {
+				itemPrefix := prefix + "_" + strconv.FormatInt(int64(i), 10)
+				if !envHasAtLeastAKeyWithPrefix(env, itemPrefix) {
+					break
+				}
+
+				elem := reflect.New(rt.Elem())
+				err := loadEnvInternal(env, itemPrefix, elem.Elem())
+				if err != nil {
+					return err
+				}
+
+				rv.Set(reflect.Append(rv, elem.Elem()))
 			}
 			return nil
 		}
