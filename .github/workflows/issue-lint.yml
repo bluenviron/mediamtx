@@ -11,16 +11,17 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - run: npm install mdjson
-
     - uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const fs = require('fs').promises;
-          const mdjson = require('mdjson');
 
-          const titles = Object.keys(mdjson(context.payload.issue.body));
+          const getTitles = (str) => (
+            [...str.matchAll(/^## (.*)/gm)].map((m) => m[0])
+          );
+
+          const titles = getTitles(context.payload.issue.body);
 
           for (let file of await fs.readdir('.github/ISSUE_TEMPLATE')) {
             if (!file.endsWith('.md')) {
@@ -28,7 +29,7 @@ jobs:
             }
 
             const template = await fs.readFile(`.github/ISSUE_TEMPLATE/${file}`, 'utf-8');
-            const templateTitles = Object.keys(mdjson(template));
+            const templateTitles = getTitles(template);
 
             if (templateTitles.every((title) => titles.includes(title))) {
               process.exit(0);
