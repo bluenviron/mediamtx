@@ -103,8 +103,12 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
   * [RTSP-specific features](#rtsp-specific-features)
+    * [Transport protocols](#transport-protocols)
+    * [Encryption](#encryption)
   * [RTMP-specific features](#rtmp-specific-features)
+    * [Encryption](#encryption-1)
   * [WebRTC-specific features](#webrtc-specific-features)
+    * [Connectivity issues](#connectivity-issues)
   * [API](#api)
   * [Metrics](#metrics)
   * [pprof](#pprof)
@@ -705,7 +709,7 @@ snap install vlc
 
 ##### Encrypted streams
 
-At the moment VLC doesn't support reading encrypted RTSP streams. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) to decrypt streams before reading them.
+At the moment VLC doesn't support reading encrypted RTSP streams. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) or a dedicated _MediaMTX_ instance to decrypt streams before reading them.
 
 #### Web browsers
 
@@ -1135,7 +1139,7 @@ The default transport protocol is UDP. To change the transport protocol, you hav
 
 #### Encryption
 
-Incoming and outgoing RTSP streams can be encrypted with TLS (obtaining the RTSPS protocol). A TLS certificate is needed and can be generated with OpenSSL:
+Incoming and outgoing RTSP streams can be encrypted with TLS, obtaining the RTSPS protocol. A TLS certificate is needed and can be generated with OpenSSL:
 
 ```sh
 openssl genrsa -out server.key 2048
@@ -1182,7 +1186,7 @@ Streams can be published and read with the rtmps scheme and the 1937 port:
 rtmps://localhost:1937/...
 ```
 
-Be aware that RTMPS is currently unsupported by all major players. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) to decrypt streams before reading them.
+Be aware that RTMPS is currently unsupported by all major players. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) or a dedicated _MediaMTX_ instance to decrypt streams before reading them.
 
 ### WebRTC-specific features
 
