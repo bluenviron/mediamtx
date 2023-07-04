@@ -462,7 +462,7 @@ If you want to run the standard (non-Docker) version of the server:
 
 The resulting stream will be available in path `/cam`.
 
-If you want to run the server inside Docker, you need to use the `latest-rpi` image (that already contains libcamera) and launch the container with some additional flags:
+If you want to run the server inside Docker, you need to use the `latest-rpi` image (that already contains required libraries) and launch the container with some additional flags:
 
 ```sh
 docker run --rm -it \
