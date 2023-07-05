@@ -349,7 +349,7 @@ components:
           - hlsMuxer
           - hlsSource
           - rpiCameraSource
-          - rtmpSession
+          - rtmpConn
           - rtmpSource
           - rtmpsSession
           - rtspSession
