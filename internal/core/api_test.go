@@ -685,25 +685,33 @@ func TestAPIProtocolList(t *testing.T) {
 					pa = "rtmpsconns"
 				}
 
+				type item struct {
+					State string `json:"state"`
+					Path  string `json:"path"`
+				}
+
 				var out struct {
-					ItemCount int `json:"itemCount"`
-					Items     []struct {
-						State string `json:"state"`
-					} `json:"items"`
+					ItemCount int    `json:"itemCount"`
+					Items     []item `json:"items"`
 				}
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out)
 
 				if ca != "rtsp conns" && ca != "rtsps conns" {
-					require.Equal(t, "publish", out.Items[0].State)
+					require.Equal(t, item{
+						State: "publish",
+						Path:  "mypath",
+					}, out.Items[0])
 				}
 
 			case "hls":
+				type item struct {
+					Created     string `json:"created"`
+					LastRequest string `json:"lastRequest"`
+				}
+
 				var out struct {
-					ItemCount int `json:"itemCount"`
-					Items     []struct {
-						Created     string `json:"created"`
-						LastRequest string `json:"lastRequest"`
-					} `json:"items"`
+					ItemCount int    `json:"itemCount"`
+					Items     []item `json:"items"`
 				}
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/hlsmuxers/list", nil, &out)
 
@@ -713,13 +721,9 @@ func TestAPIProtocolList(t *testing.T) {
 
 			case "webrtc":
 				type item struct {
-					Created                   time.Time `json:"created"`
-					RemoteAddr                string    `json:"remoteAddr"`
-					PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
-					LocalCandidate            string    `json:"localCandidate"`
-					RemoteCandidate           string    `json:"remoteCandidate"`
-					BytesReceived             uint64    `json:"bytesReceived"`
-					BytesSent                 uint64    `json:"bytesSent"`
+					PeerConnectionEstablished bool   `json:"peerConnectionEstablished"`
+					State                     string `json:"state"`
+					Path                      string `json:"path"`
 				}
 
 				var out struct {
@@ -728,7 +732,11 @@ func TestAPIProtocolList(t *testing.T) {
 				}
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/webrtcsessions/list", nil, &out)
 
-				require.Equal(t, true, out.Items[0].PeerConnectionEstablished)
+				require.Equal(t, item{
+					PeerConnectionEstablished: true,
+					State:                     "read",
+					Path:                      "mypath",
+				}, out.Items[0])
 			}
 		})
 	}

@@ -126,9 +126,9 @@ type webRTCSession struct {
 	created    time.Time
 	uuid       uuid.UUID
 	secret     uuid.UUID
-	pcMutex    sync.RWMutex
-	pc         *peerConnection
 	answerSent bool
+	mutex      sync.RWMutex
+	pc         *peerConnection
 
 	chAddRemoteCandidates chan webRTCSessionAddCandidatesReq
 }
@@ -178,12 +178,6 @@ func (s *webRTCSession) Log(level logger.Level, format string, args ...interface
 
 func (s *webRTCSession) close() {
 	s.ctxCancel()
-}
-
-func (s *webRTCSession) safePC() *peerConnection {
-	s.pcMutex.RLock()
-	defer s.pcMutex.RUnlock()
-	return s.pc
 }
 
 func (s *webRTCSession) run() {
@@ -491,9 +485,9 @@ outer:
 		}
 	}
 
-	s.pcMutex.Lock()
+	s.mutex.Lock()
 	s.pc = pc
-	s.pcMutex.Unlock()
+	s.mutex.Unlock()
 
 	return nil
 }
@@ -542,19 +536,21 @@ func (s *webRTCSession) apiReaderDescribe() pathAPISourceOrReader {
 }
 
 func (s *webRTCSession) apiItem() *apiWebRTCSession {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	peerConnectionEstablished := false
 	localCandidate := ""
 	remoteCandidate := ""
 	bytesReceived := uint64(0)
 	bytesSent := uint64(0)
 
-	pc := s.safePC()
-	if pc != nil {
+	if s.pc != nil {
 		peerConnectionEstablished = true
-		localCandidate = pc.localCandidate()
-		remoteCandidate = pc.remoteCandidate()
-		bytesReceived = pc.bytesReceived()
-		bytesSent = pc.bytesSent()
+		localCandidate = s.pc.localCandidate()
+		remoteCandidate = s.pc.remoteCandidate()
+		bytesReceived = s.pc.bytesReceived()
+		bytesSent = s.pc.bytesSent()
 	}
 
 	return &apiWebRTCSession{
@@ -570,6 +566,7 @@ func (s *webRTCSession) apiItem() *apiWebRTCSession {
 			}
 			return "read"
 		}(),
+		Path:          s.req.pathName,
 		BytesReceived: bytesReceived,
 		BytesSent:     bytesSent,
 	}

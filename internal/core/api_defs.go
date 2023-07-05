@@ -57,6 +57,7 @@ type apiRTMPConn struct {
 	Created       time.Time `json:"created"`
 	RemoteAddr    string    `json:"remoteAddr"`
 	State         string    `json:"state"`
+	Path          string    `json:"path"`
 	BytesReceived uint64    `json:"bytesReceived"`
 	BytesSent     uint64    `json:"bytesSent"`
 }
@@ -72,6 +73,7 @@ type apiRTSPSession struct {
 	Created       time.Time `json:"created"`
 	RemoteAddr    string    `json:"remoteAddr"`
 	State         string    `json:"state"`
+	Path          string    `json:"path"`
 	BytesReceived uint64    `json:"bytesReceived"`
 	BytesSent     uint64    `json:"bytesSent"`
 }
@@ -90,6 +92,7 @@ type apiWebRTCSession struct {
 	LocalCandidate            string    `json:"localCandidate"`
 	RemoteCandidate           string    `json:"remoteCandidate"`
 	State                     string    `json:"state"`
+	Path                      string    `json:"path"`
 	BytesReceived             uint64    `json:"bytesReceived"`
 	BytesSent                 uint64    `json:"bytesSent"`
 }

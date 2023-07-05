@@ -389,6 +389,8 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
+        path:
+          type: string
         bytesReceived:
           type: integer
           format: int64
@@ -408,6 +410,8 @@ components:
         state:
           type: string
           enum: [idle, read, publish]
+        path:
+          type: string
         bytesReceived:
           type: integer
           format: int64
@@ -496,6 +500,8 @@ components:
         state:
           type: string
           enum: [read, publish]
+        path:
+          type: string
         bytesReceived:
           type: integer
           format: int64
