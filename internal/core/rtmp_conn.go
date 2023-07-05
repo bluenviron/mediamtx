@@ -210,13 +210,13 @@ type rtmpConn struct {
 	pathManager         rtmpConnPathManager
 	parent              rtmpConnParent
 
-	ctx        context.Context
-	ctxCancel  func()
-	uuid       uuid.UUID
-	created    time.Time
-	state      rtmpConnState
-	stateMutex sync.Mutex
-	path       string
+	ctx       context.Context
+	ctxCancel func()
+	uuid      uuid.UUID
+	created   time.Time
+	mutex     sync.Mutex
+	state     rtmpConnState
+	pathName  string
 }
 
 func newRTMPConn(
@@ -278,12 +278,6 @@ func (c *rtmpConn) Log(level logger.Level, format string, args ...interface{}) {
 
 func (c *rtmpConn) ip() net.IP {
 	return c.nconn.RemoteAddr().(*net.TCPAddr).IP
-}
-
-func (c *rtmpConn) safeState() rtmpConnState {
-	c.stateMutex.Lock()
-	defer c.stateMutex.Unlock()
-	return c.state
 }
 
 func (c *rtmpConn) run() {
@@ -348,16 +342,15 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 		return err
 	}
 
-	pathName, query, rawQuery := pathNameAndQuery(u)
-	c.path = pathName
-
 	if !publish {
-		return c.runRead(ctx, pathName, query, rawQuery)
+		return c.runRead(ctx, u)
 	}
-	return c.runPublish(pathName, query, rawQuery)
+	return c.runPublish(u)
 }
 
-func (c *rtmpConn) runRead(ctx context.Context, pathName string, query url.Values, rawQuery string) error {
+func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
+	pathName, query, rawQuery := pathNameAndQuery(u)
+
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: pathName,
@@ -382,9 +375,10 @@ func (c *rtmpConn) runRead(ctx context.Context, pathName string, query url.Value
 
 	defer res.path.readerRemove(pathReaderRemoveReq{author: c})
 
-	c.stateMutex.Lock()
+	c.mutex.Lock()
 	c.state = rtmpConnStateRead
-	c.stateMutex.Unlock()
+	c.pathName = pathName
+	c.mutex.Unlock()
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	go func() {
@@ -769,7 +763,9 @@ func (c *rtmpConn) findAudioFormat(
 	return nil, nil
 }
 
-func (c *rtmpConn) runPublish(pathName string, query url.Values, rawQuery string) error {
+func (c *rtmpConn) runPublish(u *url.URL) error {
+	pathName, query, rawQuery := pathNameAndQuery(u)
+
 	res := c.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   c,
 		pathName: pathName,
@@ -794,9 +790,10 @@ func (c *rtmpConn) runPublish(pathName string, query url.Values, rawQuery string
 
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: c})
 
-	c.stateMutex.Lock()
+	c.mutex.Lock()
 	c.state = rtmpConnStatePublish
-	c.stateMutex.Unlock()
+	c.pathName = pathName
+	c.mutex.Unlock()
 
 	videoFormat, audioFormat, err := c.conn.ReadTracks()
 	if err != nil {
@@ -892,12 +889,15 @@ func (c *rtmpConn) apiSourceDescribe() pathAPISourceOrReader {
 }
 
 func (c *rtmpConn) apiItem() *apiRTMPConn {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	return &apiRTMPConn{
 		ID:         c.uuid,
 		Created:    c.created,
 		RemoteAddr: c.remoteAddr().String(),
 		State: func() string {
-			switch c.safeState() {
+			switch c.state {
 			case rtmpConnStateRead:
 				return "read"
 
@@ -906,6 +906,7 @@ func (c *rtmpConn) apiItem() *apiRTMPConn {
 			}
 			return "idle"
 		}(),
+		Path:          c.pathName,
 		BytesReceived: c.conn.BytesReceived(),
 		BytesSent:     c.conn.BytesSent(),
 	}

@@ -126,9 +126,9 @@ type webRTCSession struct {
 	created    time.Time
 	uuid       uuid.UUID
 	secret     uuid.UUID
-	pcMutex    sync.RWMutex
-	pc         *peerConnection
 	answerSent bool
+	mutex      sync.RWMutex
+	pc         *peerConnection
 
 	chAddRemoteCandidates chan webRTCSessionAddCandidatesReq
 }
@@ -181,8 +181,8 @@ func (s *webRTCSession) close() {
 }
 
 func (s *webRTCSession) safePC() *peerConnection {
-	s.pcMutex.RLock()
-	defer s.pcMutex.RUnlock()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 	return s.pc
 }
 
@@ -491,9 +491,9 @@ outer:
 		}
 	}
 
-	s.pcMutex.Lock()
+	s.mutex.Lock()
 	s.pc = pc
-	s.pcMutex.Unlock()
+	s.mutex.Unlock()
 
 	return nil
 }
@@ -570,6 +570,7 @@ func (s *webRTCSession) apiItem() *apiWebRTCSession {
 			}
 			return "read"
 		}(),
+		Path:          s.req.pathName,
 		BytesReceived: bytesReceived,
 		BytesSent:     bytesSent,
 	}
