@@ -180,12 +180,6 @@ func (s *webRTCSession) close() {
 	s.ctxCancel()
 }
 
-func (s *webRTCSession) safePC() *peerConnection {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	return s.pc
-}
-
 func (s *webRTCSession) run() {
 	defer s.wg.Done()
 
@@ -542,19 +536,21 @@ func (s *webRTCSession) apiReaderDescribe() pathAPISourceOrReader {
 }
 
 func (s *webRTCSession) apiItem() *apiWebRTCSession {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	peerConnectionEstablished := false
 	localCandidate := ""
 	remoteCandidate := ""
 	bytesReceived := uint64(0)
 	bytesSent := uint64(0)
 
-	pc := s.safePC()
-	if pc != nil {
+	if s.pc != nil {
 		peerConnectionEstablished = true
-		localCandidate = pc.localCandidate()
-		remoteCandidate = pc.remoteCandidate()
-		bytesReceived = pc.bytesReceived()
-		bytesSent = pc.bytesSent()
+		localCandidate = s.pc.localCandidate()
+		remoteCandidate = s.pc.remoteCandidate()
+		bytesReceived = s.pc.bytesReceived()
+		bytesSent = s.pc.bytesSent()
 	}
 
 	return &apiWebRTCSession{
