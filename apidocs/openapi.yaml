@@ -414,6 +414,8 @@ components:
         bytesSent:
           type: integer
           format: int64
+        path:
+          type: string
 
     HLSMuxer:
       type: object

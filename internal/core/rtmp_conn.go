@@ -216,6 +216,7 @@ type rtmpConn struct {
 	created    time.Time
 	state      rtmpConnState
 	stateMutex sync.Mutex
+	path       string
 }
 
 func newRTMPConn(
@@ -347,15 +348,16 @@ func (c *rtmpConn) runInner(ctx context.Context) error {
 		return err
 	}
 
+	pathName, query, rawQuery := pathNameAndQuery(u)
+	c.path = pathName
+
 	if !publish {
-		return c.runRead(ctx, u)
+		return c.runRead(ctx, pathName, query, rawQuery)
 	}
-	return c.runPublish(u)
+	return c.runPublish(pathName, query, rawQuery)
 }
 
-func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
-	pathName, query, rawQuery := pathNameAndQuery(u)
-
+func (c *rtmpConn) runRead(ctx context.Context, pathName string, query url.Values, rawQuery string) error {
 	res := c.pathManager.readerAdd(pathReaderAddReq{
 		author:   c,
 		pathName: pathName,
@@ -767,9 +769,7 @@ func (c *rtmpConn) findAudioFormat(
 	return nil, nil
 }
 
-func (c *rtmpConn) runPublish(u *url.URL) error {
-	pathName, query, rawQuery := pathNameAndQuery(u)
-
+func (c *rtmpConn) runPublish(pathName string, query url.Values, rawQuery string) error {
 	res := c.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   c,
 		pathName: pathName,

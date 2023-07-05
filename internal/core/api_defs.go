@@ -59,6 +59,7 @@ type apiRTMPConn struct {
 	State         string    `json:"state"`
 	BytesReceived uint64    `json:"bytesReceived"`
 	BytesSent     uint64    `json:"bytesSent"`
+	Path          string    `json:"path"`
 }
 
 type apiRTMPConnsList struct {
