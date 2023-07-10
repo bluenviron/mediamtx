@@ -440,12 +440,7 @@ func TestAPIPathsGet(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	source := gortsplib.Client{}
-	err := source.StartRecording("rtsp://localhost:8554/mypath", media.Medias{testMediaH264})
-	require.NoError(t, err)
-	defer source.Close()
-
-	for _, ca := range []string{"ok", "not found"} {
+	for _, ca := range []string{"ok", "ok-nested", "not found"} {
 		t.Run(ca, func(t *testing.T) {
 			type pathSource struct {
 				Type string `json:"type"`
@@ -460,17 +455,26 @@ func TestAPIPathsGet(t *testing.T) {
 			}
 
 			var pathName string
-			if ca == "ok" {
+
+			switch ca {
+			case "ok":
 				pathName = "mypath"
-			} else {
+			case "ok-nested":
+				pathName = "my/nested/path"
+			case "not found":
 				pathName = "nonexisting"
 			}
 
-			if ca == "ok" {
+			if ca == "ok" || ca == "ok-nested" {
+				source := gortsplib.Client{}
+				err := source.StartRecording("rtsp://localhost:8554/"+pathName, media.Medias{testMediaH264})
+				require.NoError(t, err)
+				defer source.Close()
+
 				var out path
 				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/get/"+pathName, nil, &out)
 				require.Equal(t, path{
-					Name: "mypath",
+					Name: pathName,
 					Source: pathSource{
 						Type: "rtspSession",
 					},
