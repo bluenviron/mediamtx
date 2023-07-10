@@ -455,11 +455,13 @@ func TestAPIPathsGet(t *testing.T) {
 			}
 
 			var pathName string
-			if ca == "ok" {
+
+			switch ca {
+			case "ok":
 				pathName = "mypath"
-			} else if ca == "ok-nested" {
+			case "ok-nested":
 				pathName = "my/nested/path"
-			} else {
+			case "not found":
 				pathName = "nonexisting"
 			}
 
