@@ -214,7 +214,8 @@ makepkg -si
    or _GStreamer_:
 
    ```sh
-   gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
+   gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 \
+   ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
    ```
 
 2. Open the stream. For instance, you can open the stream with _VLC_:
@@ -260,19 +261,24 @@ The resulting stream will be available in path `/mystream`.
 GStreamer can publish a stream to the server in multiple ways (RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```sh
-gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! queue ! s.sink_0 d.audio_0 ! queue ! s.sink_1
+gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream \
+filesrc location=file.mp4 ! qtdemux name=d \
+d.video_0 ! queue ! s.sink_0 \
+d.audio_0 ! queue ! s.sink_1
 ```
 
 If the stream is video only:
 
 ```sh
-gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! rtspclientsink name=s location=rtsp://localhost:8554/mystream
+gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
+d.video_0 ! rtspclientsink location=rtsp://localhost:8554/mystream
 ```
 
 The RTSP protocol supports multiple underlying transport protocols, each with its own characteristics (see [RTSP-specific features](#rtsp-specific-features)). You can set the transport protocol by using the `protocols` flag:
 
 ```sh
-gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d d.video_0 ! rtspclientsink protocols=tcp name=s location=rtsp://localhost:8554/mystream
+gst-launch-1.0 filesrc location=file.mp4 ! qtdemux name=d \
+d.video_0 ! rtspclientsink protocols=tcp name=s location=rtsp://localhost:8554/mystream
 ```
 
 The resulting stream will be available in path `/mystream`.
@@ -831,7 +837,10 @@ Although the server can produce HLS with a variety of video and audio codecs (th
 If you want to support most browsers, you can to re-encode the stream by using the H264 and AAC codecs, for instance by using FFmpeg:
 
 ```sh
-ffmpeg -i rtsp://original-source -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -c:a aac -b:a 160k -f rtsp rtsp://localhost:8554/mystream
+ffmpeg -i rtsp://original-source \
+-pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k \
+-c:a aac -b:a 160k \
+-f rtsp rtsp://localhost:8554/mystream
 ```
 
 ##### LL-HLS
@@ -1038,7 +1047,10 @@ To change the format, codec or compression of a stream, use _FFmpeg_ or _GStream
 paths:
   all:
   original:
-    runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
+    runOnReady: >
+      ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
+        -pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k
+        -max_muxing_queue_size 1024 -f rtsp rtsp://localhost:$RTSP_PORT/compressed
     runOnReadyRestart: yes
 ```
 
@@ -1049,7 +1061,10 @@ To save available streams to disk, you can use the `runOnReady` parameter and _F
 ```yml
 paths:
   mypath:
-    runOnReady: ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH -c copy -f segment -strftime 1 -segment_time 60 -segment_format mpegts saved_%Y-%m-%d_%H-%M-%S.ts
+    runOnReady: >
+      ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
+      -c copy
+      -f segment -strftime 1 -segment_time 60 -segment_format mpegts saved_%Y-%m-%d_%H-%M-%S.ts
     runOnReadyRestart: yes
 ```
 

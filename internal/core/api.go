@@ -139,6 +139,16 @@ func abortWithError(ctx *gin.Context, err error) {
 	}
 }
 
+func paramName(ctx *gin.Context) (string, bool) {
+	name := ctx.Param("name")
+
+	if len(name) < 2 || name[0] != '/' {
+		return "", false
+	}
+
+	return name[1:], true
+}
+
 type apiPathManager interface {
 	apiPathsList() (*apiPathsList, error)
 	apiPathsGet(string) (*apiPath, error)
@@ -333,12 +343,11 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 }
 
 func (a *api) onConfigPathsAdd(ctx *gin.Context) {
-	name := ctx.Param("name")
-	if len(name) < 2 || name[0] != '/' {
+	name, ok := paramName(ctx)
+	if !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	name = name[1:]
 
 	in, err := loadConfPathData(ctx)
 	if err != nil {
@@ -381,12 +390,11 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 }
 
 func (a *api) onConfigPathsEdit(ctx *gin.Context) {
-	name := ctx.Param("name")
-	if len(name) < 2 || name[0] != '/' {
+	name, ok := paramName(ctx)
+	if !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	name = name[1:]
 
 	in, err := loadConfPathData(ctx)
 	if err != nil {
@@ -423,12 +431,11 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 }
 
 func (a *api) onConfigPathsDelete(ctx *gin.Context) {
-	name := ctx.Param("name")
-	if len(name) < 2 || name[0] != '/' {
+	name, ok := paramName(ctx)
+	if !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	name = name[1:]
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -475,12 +482,11 @@ func (a *api) onPathsList(ctx *gin.Context) {
 }
 
 func (a *api) onPathsGet(ctx *gin.Context) {
-	name := ctx.Param("name")
-	if len(name) < 2 || name[0] != '/' {
+	name, ok := paramName(ctx)
+	if !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	name = name[1:]
 
 	data, err := a.pathManager.apiPathsGet(name)
 	if err != nil {
@@ -778,12 +784,11 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersGet(ctx *gin.Context) {
-	name := ctx.Param("name")
-	if len(name) < 2 || name[0] != '/' {
+	name, ok := paramName(ctx)
+	if !ok {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
-	name = name[1:]
 
 	data, err := a.hlsManager.apiMuxersGet(name)
 	if err != nil {
