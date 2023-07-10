@@ -229,7 +229,7 @@ func newAPI(
 
 	if !interfaceIsEmpty(a.hlsManager) {
 		group.GET("/v2/hlsmuxers/list", a.onHLSMuxersList)
-		group.GET("/v2/hlsmuxers/get/:name", a.onHLSMuxersGet)
+		group.GET("/v2/hlsmuxers/get/*name", a.onHLSMuxersGet)
 	}
 
 	group.GET("/v2/paths/list", a.onPathsList)
@@ -778,7 +778,14 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersGet(ctx *gin.Context) {
-	data, err := a.hlsManager.apiMuxersGet(ctx.Param("name"))
+	name := ctx.Param("name")
+	if len(name) < 2 || name[0] != '/' {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	name = name[1:]
+
+	data, err := a.hlsManager.apiMuxersGet(name)
 	if err != nil {
 		abortWithError(ctx, err)
 		return
