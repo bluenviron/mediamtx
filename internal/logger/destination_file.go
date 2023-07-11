@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"os"
+	"time"
 )
 
 type destinationFile struct {
@@ -21,9 +22,9 @@ func newDestinationFile(filePath string) (destination, error) {
 	}, nil
 }
 
-func (d *destinationFile) log(level Level, format string, args ...interface{}) {
+func (d *destinationFile) log(t time.Time, level Level, format string, args ...interface{}) {
 	d.buf.Reset()
-	writeTime(&d.buf, false)
+	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)
 	writeContent(&d.buf, format, args)
 	d.file.Write(d.buf.Bytes())
