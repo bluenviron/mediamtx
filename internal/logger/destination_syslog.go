@@ -3,6 +3,7 @@ package logger
 import (
 	"bytes"
 	"io"
+	"time"
 )
 
 type destinationSysLog struct {
@@ -21,9 +22,9 @@ func newDestinationSyslog() (destination, error) {
 	}, nil
 }
 
-func (d *destinationSysLog) log(level Level, format string, args ...interface{}) {
+func (d *destinationSysLog) log(t time.Time, level Level, format string, args ...interface{}) {
 	d.buf.Reset()
-	writeTime(&d.buf, false)
+	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)
 	writeContent(&d.buf, format, args)
 	d.syslog.Write(d.buf.Bytes())
