@@ -596,6 +596,12 @@ rtmp://localhost/mystream
 
 The resulting stream will be available in path `/mystream`.
 
+In case authentication is enabled, credentials can be passed to the server by using the `user` and `pass` query parameters:
+
+```
+rtmp://localhost/mystream?user=myuser&pass=mypass
+```
+
 #### RTMP cameras and servers
 
 You can use _MediaMTX_ to connect to one or multiple existing RTMP servers and read their video streams:
@@ -814,6 +820,12 @@ RTMP is a protocol that allows to read and publish streams, but is less versatil
 
 ```
 rtmp://localhost/mystream
+```
+
+In case authentication is enabled, credentials can be passed to the server by using the `user` and `pass` query parameters:
+
+```
+rtmp://localhost/mystream?user=myuser&pass=mypass
 ```
 
 #### HLS
