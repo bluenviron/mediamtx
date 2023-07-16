@@ -47,15 +47,16 @@ type mySubStruct struct {
 }
 
 type testStruct struct {
-	MyString         string
-	MyInt            int
-	MyFloat          float64
-	MyBool           bool
-	MyDuration       myDuration
-	MyMap            map[string]*mapEntry
-	MySlice          []string
-	MySliceEmpty     []string
-	MySliceSubStruct []mySubStruct
+	MyString              string
+	MyInt                 int
+	MyFloat               float64
+	MyBool                bool
+	MyDuration            myDuration
+	MyMap                 map[string]*mapEntry
+	MySlice               []string
+	MySliceEmpty          []string
+	MySliceSubStruct      []mySubStruct
+	MySliceSubStructEmpty []mySubStruct
 }
 
 func TestLoad(t *testing.T) {
@@ -104,6 +105,9 @@ func TestLoad(t *testing.T) {
 	os.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD", "pass2")
 	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD")
 
+	os.Setenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY", "")
+	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY")
+
 	var s testStruct
 	err := Load("MYPREFIX", &s)
 	require.NoError(t, err)
@@ -136,4 +140,6 @@ func TestLoad(t *testing.T) {
 			Password: "pass2",
 		},
 	}, s.MySliceSubStruct)
+
+	require.Equal(t, []mySubStruct{}, s.MySliceSubStructEmpty)
 }
