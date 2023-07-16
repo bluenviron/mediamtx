@@ -241,7 +241,6 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.pathManager == nil {
 		p.pathManager = newPathManager(
-			p.ctx,
 			p.conf.ExternalAuthenticationURL,
 			p.conf.RTSPAddress,
 			p.conf.AuthMethods,
@@ -263,7 +262,6 @@ func (p *Core) createResources(initial bool) error {
 			_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
 			_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 			p.rtspServer, err = newRTSPServer(
-				p.ctx,
 				p.conf.RTSPAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -299,7 +297,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.Encryption == conf.EncryptionOptional) {
 		if p.rtspsServer == nil {
 			p.rtspsServer, err = newRTSPServer(
-				p.ctx,
 				p.conf.RTSPSAddress,
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
@@ -335,7 +332,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RTMPEncryption == conf.EncryptionOptional) {
 		if p.rtmpServer == nil {
 			p.rtmpServer, err = newRTMPServer(
-				p.ctx,
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -362,7 +358,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RTMPEncryption == conf.EncryptionOptional) {
 		if p.rtmpsServer == nil {
 			p.rtmpsServer, err = newRTMPServer(
-				p.ctx,
 				p.conf.RTMPSAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
@@ -387,7 +382,6 @@ func (p *Core) createResources(initial bool) error {
 	if !p.conf.HLSDisable {
 		if p.hlsManager == nil {
 			p.hlsManager, err = newHLSManager(
-				p.ctx,
 				p.conf.HLSAddress,
 				p.conf.HLSEncryption,
 				p.conf.HLSServerKey,
@@ -417,7 +411,6 @@ func (p *Core) createResources(initial bool) error {
 	if !p.conf.WebRTCDisable {
 		if p.webRTCManager == nil {
 			p.webRTCManager, err = newWebRTCManager(
-				p.ctx,
 				p.conf.WebRTCAddress,
 				p.conf.WebRTCEncryption,
 				p.conf.WebRTCServerKey,
@@ -628,21 +621,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		}
 	}
 
-	if closeRTSPSServer && p.rtspsServer != nil {
-		p.rtspsServer.close()
-		p.rtspsServer = nil
-	}
-
-	if closeRTSPServer && p.rtspServer != nil {
-		p.rtspServer.close()
-		p.rtspServer = nil
-	}
-
-	if closePathManager && p.pathManager != nil {
-		p.pathManager.close()
-		p.pathManager = nil
-	}
-
 	if closeWebRTCManager && p.webRTCManager != nil {
 		p.webRTCManager.close()
 		p.webRTCManager = nil
@@ -661,6 +639,21 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeRTMPServer && p.rtmpServer != nil {
 		p.rtmpServer.close()
 		p.rtmpServer = nil
+	}
+
+	if closeRTSPSServer && p.rtspsServer != nil {
+		p.rtspsServer.close()
+		p.rtspsServer = nil
+	}
+
+	if closeRTSPServer && p.rtspServer != nil {
+		p.rtspServer.close()
+		p.rtspServer = nil
+	}
+
+	if closePathManager && p.pathManager != nil {
+		p.pathManager.close()
+		p.pathManager = nil
 	}
 
 	if closePPROF && p.pprof != nil {

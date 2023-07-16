@@ -63,7 +63,6 @@ type rtspServer struct {
 }
 
 func newRTSPServer(
-	parentCtx context.Context,
 	address string,
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
@@ -88,7 +87,7 @@ func newRTSPServer(
 	pathManager *pathManager,
 	parent rtspServerParent,
 ) (*rtspServer, error) {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	s := &rtspServer{
 		authMethods:         authMethods,

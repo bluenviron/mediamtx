@@ -63,7 +63,6 @@ type hlsManager struct {
 }
 
 func newHLSManager(
-	parentCtx context.Context,
 	address string,
 	encryption bool,
 	serverKey string,
@@ -84,7 +83,7 @@ func newHLSManager(
 	metrics *metrics,
 	parent hlsManagerParent,
 ) (*hlsManager, error) {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	m := &hlsManager{
 		externalAuthenticationURL: externalAuthenticationURL,
