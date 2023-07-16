@@ -150,7 +150,7 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 		if rt.Elem() == reflect.TypeOf("") {
 			if ev, ok := env[prefix]; ok {
 				if ev == "" {
-					rv.Set(reflect.ValueOf([]string{}))
+					rv.Set(reflect.MakeSlice(rv.Type(), 0, 0))
 				} else {
 					rv.Set(reflect.ValueOf(strings.Split(ev, ",")))
 				}
@@ -159,19 +159,23 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 		}
 
 		if rt.Elem().Kind() == reflect.Struct {
-			for i := 0; ; i++ {
-				itemPrefix := prefix + "_" + strconv.FormatInt(int64(i), 10)
-				if !envHasAtLeastAKeyWithPrefix(env, itemPrefix) {
-					break
-				}
+			if ev, ok := env[prefix]; ok && ev == "" { // special case: empty list
+				rv.Set(reflect.MakeSlice(rv.Type(), 0, 0))
+			} else {
+				for i := 0; ; i++ {
+					itemPrefix := prefix + "_" + strconv.FormatInt(int64(i), 10)
+					if !envHasAtLeastAKeyWithPrefix(env, itemPrefix) {
+						break
+					}
 
-				elem := reflect.New(rt.Elem())
-				err := loadEnvInternal(env, itemPrefix, elem.Elem())
-				if err != nil {
-					return err
-				}
+					elem := reflect.New(rt.Elem())
+					err := loadEnvInternal(env, itemPrefix, elem.Elem())
+					if err != nil {
+						return err
+					}
 
-				rv.Set(reflect.Append(rv, elem.Elem()))
+					rv.Set(reflect.Append(rv, elem.Elem()))
+				}
 			}
 			return nil
 		}
