@@ -356,6 +356,7 @@ components:
           enum:
           - hlsMuxer
           - hlsSource
+          - redirect
           - rpiCameraSource
           - rtmpConn
           - rtmpSource
@@ -363,7 +364,7 @@ components:
           - rtspSession
           - rtspSource
           - rtspsSession
-          - redirect
+          - srtSource
           - udpSource
           - webRTCSession
         id:

@@ -227,6 +227,14 @@ webrtcICEUDPMuxAddress:
 webrtcICETCPMuxAddress:
 
 ###############################################
+# SRT parameters
+
+# Enables support for the SRT protocol.
+srt: yes
+# Address of the SRT listener.
+srtAddress: :8890
+
+###############################################
 # Path parameters
 
 # These settings are path-dependent, and the map key is the name of the path.
@@ -238,14 +246,15 @@ webrtcICETCPMuxAddress:
 paths:
   all:
     # Source of the stream. This can be:
-    # * publisher -> the stream is published by a RTSP or RTMP client
+    # * publisher -> the stream is published by a RTSP, RTMP, WebRTC or SRT client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
     # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
     # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
     # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
     # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
     # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
-    # * udp://ip:port -> the stream is pulled from UDP, by listening on the specified IP and port
+    # * udp://ip:port -> the stream is pulled with UDP, by listening on the specified IP and port
+    # * srt://existing-url -> the stream is pulled from another SRT server
     # * redirect -> the stream is provided by another path or server
     # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
     source: publisher

@@ -50,6 +50,7 @@ const (
 	authProtocolRTMP   authProtocol = "rtmp"
 	authProtocolHLS    authProtocol = "hls"
 	authProtocolWebRTC authProtocol = "webrtc"
+	authProtocolSRT    authProtocol = "srt"
 )
 
 type authCredentials struct {

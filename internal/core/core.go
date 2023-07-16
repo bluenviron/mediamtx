@@ -44,6 +44,7 @@ type Core struct {
 	rtmpsServer     *rtmpServer
 	hlsManager      *hlsManager
 	webRTCManager   *webRTCManager
+	srtServer       *srtServer
 	api             *api
 	confWatcher     *confwatcher.ConfWatcher
 
@@ -432,6 +433,21 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
+	if p.conf.SRT {
+		p.srtServer, err = newSRTServer(
+			p.conf.SRTAddress,
+			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.ReadBufferCount,
+			p.conf.UDPMaxPayloadSize,
+			p.pathManager,
+			p,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	if p.conf.API {
 		if p.api == nil {
 			p.api, err = newAPI(
@@ -595,6 +611,14 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
 		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress
 
+	closeSRTServer := newConf == nil ||
+		newConf.SRTAddress != p.conf.SRTAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		newConf.WriteTimeout != p.conf.WriteTimeout ||
+		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		closePathManager
+
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
 		newConf.APIAddress != p.conf.APIAddress ||
@@ -618,6 +642,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		} else if !calledByAPI { // avoid a loop
 			p.api.confReload(newConf)
 		}
+	}
+
+	if closeSRTServer && p.srtServer != nil {
+		p.srtServer.close()
+		p.srtServer = nil
 	}
 
 	if closeWebRTCManager && p.webRTCManager != nil {

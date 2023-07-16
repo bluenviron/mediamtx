@@ -20,9 +20,11 @@ Live streams can be published to the server with:
 
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
-|[WebRTC](#webrtc)|Browser-based, WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
-|[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
-|[RTSP cameras and servers](#rtsp-cameras-and-servers)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
+|[SRT clients](#srt-clients)||H265, H264|Opus, MPEG-4 Audio (AAC)|
+|[SRT servers](#srt-servers)||H265, H264|Opus, MPEG-4 Audio (AAC)|
+|[WebRTC clients](#webrtc-clients)|Browser-based, WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
+|[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G726, G722, G711, LPCM and any RTP-compatible codec|
+|[RTSP cameras and servers](#rtsp-cameras-and-servers)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G726, G722, G711, LPCM and any RTP-compatible codec|
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, H265, H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[RTMP cameras and servers](#rtmp-cameras-and-servers)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[HLS cameras and servers](#hls-cameras-and-servers)|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
@@ -33,8 +35,9 @@ And can be read from the server with:
 
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
-|[WebRTC](#webrtc-1)|Browser-based, WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
-|[RTSP](#rtsp)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G722, G711, LPCM and any RTP-compatible codec|
+|[SRT](#srt)||H265, H264|Opus, MPEG-4 Audio (AAC)|
+|[WebRTC](#webrtc)|Browser-based, WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
+|[RTSP](#rtsp)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G726, G722, G711, LPCM and any RTP-compatible codec|
 |[RTMP](#rtmp)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|H265, H264|Opus, MPEG-4 Audio (AAC)|
 
@@ -76,7 +79,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [Generic webcam](#generic-webcam)
     * [Raspberry Pi Cameras](#raspberry-pi-cameras)
   * [By protocol](#by-protocol)
-    * [WebRTC](#webrtc)
+    * [SRT clients](#srt-clients)
+    * [SRT servers](#srt-servers)
+    * [WebRTC clients](#webrtc-clients)
     * [RTSP clients](#rtsp-clients)
     * [RTSP cameras and servers](#rtsp-cameras-and-servers)
     * [RTMP clients](#rtmp-clients)
@@ -90,7 +95,8 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [VLC](#vlc)
     * [Web browsers](#web-browsers-1)
   * [By protocol](#by-protocol-1)
-    * [WebRTC](#webrtc-1)
+    * [SRT](#srt)
+    * [WebRTC](#webrtc)
     * [RTSP](#rtsp)
     * [RTMP](#rtmp)
     * [HLS](#hls)
@@ -243,7 +249,7 @@ makepkg -si
 
 #### FFmpeg
 
-FFmpeg can publish a stream to the server in multiple ways (RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+FFmpeg can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream
@@ -259,7 +265,7 @@ The resulting stream will be available in path `/mystream`.
 
 #### GStreamer
 
-GStreamer can publish a stream to the server in multiple ways (RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
+GStreamer can publish a stream to the server in multiple ways (SRT client, SRT server, RTSP client, RTMP client, UDP/MPEG-TS, WebRTC with WHIP). The recommended one consists in publishing as a [RTSP client](#rtsp-clients):
 
 ```sh
 gst-launch-1.0 rtspclientsink name=s location=rtsp://localhost:8554/mystream \
@@ -286,7 +292,7 @@ The resulting stream will be available in path `/mystream`.
 
 #### OBS Studio
 
-OBS Studio can publish to the server as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
+OBS Studio can publish to the server in multiple ways (SRT client, RTMP client, WebRTC client). The recommended one consists in publishing as a [RTMP client](#rtmp-clients). In `Settings -> Stream` (or in the Auto-configuration Wizard), use the following parameters:
 
 * Service: `Custom...`
 * Server: `rtmp://localhost`
@@ -535,6 +541,14 @@ The resulting stream will be available in path `/cam_with_audio`.
 
 ### By protocol
 
+#### SRT clients
+
+TODO
+
+#### SRT servers
+
+TODO
+
 #### WebRTC
 
 WebRTC is an API that makes use of a set of protocols and methods to connect two clients together and allow them to exchange real-time media or data streams. You can publish a stream with WebRTC and a web browser by visiting:
@@ -697,7 +711,7 @@ gst-launch-1.0 rtspsrc tls-validation-flags=0 location=rtsps://ip:8322/...
 
 #### VLC
 
-VLC can read a stream from the server in multiple ways (RTSP, RTMP, HLS). The recommended one consists in reading with [RTSP](#rtsp):
+VLC can read a stream from the server in multiple ways (RTSP, RTMP, HLS, SRT). The recommended one consists in reading with [RTSP](#rtsp):
 
 ```sh
 vlc --network-caching=50 rtsp://localhost:8554/mystream
@@ -763,6 +777,10 @@ This web page can be embedded into another web page by using an iframe:
 ```
 
 ### By protocol
+
+#### SRT
+
+TODO
 
 #### WebRTC
 
@@ -1409,24 +1427,30 @@ The command will produce tarballs in folder `binaries/`.
 ## Standards
 
 * RTSP
+
   * [RTSP / RTP / RTCP standards](https://github.com/bluenviron/gortsplib#standards)
 
 * HLS
+
   * [HLS standards](https://github.com/bluenviron/gohlslib#standards)
 
 * RTMP
+
   * [RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
   * [Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)
 
 * WebRTC
+
   * [WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)
   * [WebRTC HTTP Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)
   * [WebRTC HTTP Egress Protocol (WHEP)](https://datatracker.ietf.org/doc/draft-murillo-whep/)
 
 * Video and audio codecs
+
   * [Codec standards](https://github.com/bluenviron/mediacommon#standards)
 
 * Other
+
   * [Golang project layout](https://github.com/golang-standards/project-layout)
 
 ## Related projects
@@ -1434,6 +1458,7 @@ The command will produce tarballs in folder `binaries/`.
 * [gortsplib (RTSP library used internally)](https://github.com/bluenviron/gortsplib)
 * [gohlslib (HLS library used internally)](https://github.com/bluenviron/gohlslib)
 * [mediacommon (codecs and formats library used internally)](https://github.com/bluenviron/mediacommon)
+* [datarhei/gosrt (SRT library used internally)](https://github.com/datarhei/gosrt)
 * [pion/webrtc (WebRTC library used internally)](https://github.com/pion/webrtc)
 * [pion/sdp (SDP library used internally)](https://github.com/pion/sdp)
 * [pion/rtp (RTP library used internally)](https://github.com/pion/rtp)
