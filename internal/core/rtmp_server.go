@@ -74,7 +74,6 @@ type rtmpServer struct {
 }
 
 func newRTMPServer(
-	parentCtx context.Context,
 	address string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
@@ -107,7 +106,7 @@ func newRTMPServer(
 		return nil, err
 	}
 
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	s := &rtmpServer{
 		readTimeout:         readTimeout,

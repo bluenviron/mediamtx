@@ -74,7 +74,6 @@ type pathManager struct {
 }
 
 func newPathManager(
-	parentCtx context.Context,
 	externalAuthenticationURL string,
 	rtspAddress string,
 	authMethods conf.AuthMethods,
@@ -87,7 +86,7 @@ func newPathManager(
 	metrics *metrics,
 	parent pathManagerParent,
 ) *pathManager {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	pm := &pathManager{
 		externalAuthenticationURL: externalAuthenticationURL,

@@ -150,7 +150,6 @@ type webRTCManager struct {
 }
 
 func newWebRTCManager(
-	parentCtx context.Context,
 	address string,
 	encryption bool,
 	serverKey string,
@@ -167,7 +166,7 @@ func newWebRTCManager(
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
 ) (*webRTCManager, error) {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	m := &webRTCManager{
 		allowOrigin:            allowOrigin,
