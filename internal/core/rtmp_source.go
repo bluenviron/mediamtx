@@ -2,13 +2,10 @@ package core
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
@@ -71,24 +68,9 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 			return (&net.Dialer{}).DialContext(ctx2, "tcp", u.Host)
 		}
 
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: true,
-			VerifyConnection: func(cs tls.ConnectionState) error {
-				h := sha256.New()
-				h.Write(cs.PeerCertificates[0].Raw)
-				hstr := hex.EncodeToString(h.Sum(nil))
-				fingerprintLower := strings.ToLower(cnf.SourceFingerprint)
-
-				if hstr != fingerprintLower {
-					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
-						fingerprintLower, hstr)
-				}
-
-				return nil
-			},
-		}
-
-		return (&tls.Dialer{Config: tlsConfig}).DialContext(ctx2, "tcp", u.Host)
+		return (&tls.Dialer{
+			Config: tlsConfigForFingerprint(cnf.SourceFingerprint),
+		}).DialContext(ctx2, "tcp", u.Host)
 	}()
 	if err != nil {
 		return err
