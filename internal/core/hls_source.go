@@ -2,12 +2,7 @@ package core
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/tls"
-	"encoding/hex"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/bluenviron/gohlslib"
@@ -52,31 +47,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		}
 	}()
 
-	var tlsConfig *tls.Config
-	if cnf.SourceFingerprint != "" {
-		tlsConfig = &tls.Config{
-			InsecureSkipVerify: true,
-			VerifyConnection: func(cs tls.ConnectionState) error {
-				h := sha256.New()
-				h.Write(cs.PeerCertificates[0].Raw)
-				hstr := hex.EncodeToString(h.Sum(nil))
-				fingerprintLower := strings.ToLower(cnf.SourceFingerprint)
-
-				if hstr != fingerprintLower {
-					return fmt.Errorf("server fingerprint do not match: expected %s, got %s",
-						fingerprintLower, hstr)
-				}
-
-				return nil
-			},
-		}
-	}
-
 	c := &gohlslib.Client{
 		URI: cnf.Source,
 		HTTPClient: &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: tlsConfig,
+				TLSClientConfig: tlsConfigForFingerprint(cnf.SourceFingerprint),
 			},
 		},
 		Log: func(level gohlslib.LogLevel, format string, args ...interface{}) {
