@@ -269,7 +269,7 @@ outer:
 			sx := newWebRTCSession(
 				m.ctx,
 				m.readBufferCount,
-				req,
+				req.remoteAddr,
 				&wg,
 				m.iceHostNAT1To1IPs,
 				m.iceUDPMux,
@@ -385,15 +385,9 @@ func (m *webRTCManager) sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes 
 
 	select {
 	case m.chSessionNew <- req:
-		res1 := <-req.res
+		res := <-req.res
 
-		select {
-		case res2 := <-req.res:
-			return res2
-
-		case <-res1.sx.ctx.Done():
-			return webRTCSessionNewRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
-		}
+		return res.sx.new(req)
 
 	case <-m.ctx.Done():
 		return webRTCSessionNewRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
@@ -420,7 +414,7 @@ func (m *webRTCManager) sessionAddCandidates(
 			return res1
 		}
 
-		return res1.sx.addRemoteCandidates(req)
+		return res1.sx.addCandidates(req)
 
 	case <-m.ctx.Done():
 		return webRTCSessionAddCandidatesRes{err: fmt.Errorf("terminated")}
