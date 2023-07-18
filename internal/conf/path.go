@@ -119,15 +119,17 @@ type PathConf struct {
 }
 
 func (pconf *PathConf) check(conf *Conf, name string) error {
-	// normal path
-	if name == "" || name[0] != '~' {
+	switch {
+	case name == "all":
+		pconf.Regexp = regexp.MustCompile("^.*$")
+
+	case name == "" || name[0] != '~': // normal path
 		err := IsValidPathName(name)
 		if err != nil {
 			return fmt.Errorf("invalid path name '%s': %s", name, err)
 		}
 
-		// regular expression path
-	} else {
+	default: // regular expression-based path
 		pathRegexp, err := regexp.Compile(name[1:])
 		if err != nil {
 			return fmt.Errorf("invalid regular expression: %s", name[1:])
