@@ -272,7 +272,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	if medias == nil {
 		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, H265, MPEG4-Audio, Opus")
+			"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG4-Audio")
 	}
 
 	var muxerDirectory string
