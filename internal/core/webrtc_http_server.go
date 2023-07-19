@@ -358,9 +358,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				publish:    (fname == "whip"),
 			})
 			if res.err != nil {
-				if res.errStatusCode != 0 {
-					ctx.Writer.WriteHeader(res.errStatusCode)
-				}
+				ctx.Writer.WriteHeader(res.errStatusCode)
 				return
 			}
 

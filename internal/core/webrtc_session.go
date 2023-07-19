@@ -205,12 +205,9 @@ func (s *webRTCSession) runInner() error {
 	errStatusCode, err := s.runInner2()
 
 	if !s.answerSent {
-		select {
-		case s.req.res <- webRTCSessionNewRes{
+		s.req.res <- webRTCSessionNewRes{
 			err:           err,
 			errStatusCode: errStatusCode,
-		}:
-		case <-s.ctx.Done():
 		}
 	}
 
@@ -294,10 +291,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	tmp := pc.LocalDescription()
 	answer = *tmp
 
-	err = s.writeAnswer(&answer)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
+	s.writeAnswer(&answer)
 
 	go s.readRemoteCandidates(pc)
 
@@ -401,10 +395,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	tmp := pc.LocalDescription()
 	answer = *tmp
 
-	err = s.writeAnswer(&answer)
-	if err != nil {
-		return http.StatusBadRequest, err
-	}
+	s.writeAnswer(&answer)
 
 	go s.readRemoteCandidates(pc)
 
@@ -468,18 +459,12 @@ func (s *webRTCSession) waitGatheringDone(pc *peerConnection) error {
 	}
 }
 
-func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) error {
-	select {
-	case s.req.res <- webRTCSessionNewRes{
+func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) {
+	s.req.res <- webRTCSessionNewRes{
 		sx:     s,
 		answer: []byte(answer.SDP),
-	}:
-		s.answerSent = true
-	case <-s.ctx.Done():
-		return fmt.Errorf("terminated")
 	}
-
-	return nil
+	s.answerSent = true
 }
 
 func (s *webRTCSession) waitUntilConnected(pc *peerConnection) error {
