@@ -29,7 +29,6 @@ using libcamera::Request;
 using libcamera::Size;
 using libcamera::Span;
 using libcamera::Stream;
-using libcamera::StreamRoles;
 using libcamera::StreamRole;
 using libcamera::StreamConfiguration;
 using libcamera::Transform;
@@ -140,7 +139,7 @@ bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_
         return false;
     }
 
-    StreamRoles stream_roles = { StreamRole::VideoRecording };
+    std::vector<libcamera::StreamRole> stream_roles = { StreamRole::VideoRecording };
     if (params->mode != NULL) {
         stream_roles.push_back(StreamRole::Raw);
     }
