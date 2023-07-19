@@ -142,7 +142,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.getPathConf(pathGetPathConfReq{
+	res := s.pathManager.getConfForPath(pathGetConfForPathReq{
 		name:    dir,
 		publish: false,
 		credentials: authCredentials{

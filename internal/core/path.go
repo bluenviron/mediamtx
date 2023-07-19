@@ -83,16 +83,16 @@ type pathPublisherRemoveReq struct {
 	res    chan struct{}
 }
 
-type pathGetPathConfRes struct {
+type pathGetConfForPathRes struct {
 	conf *conf.PathConf
 	err  error
 }
 
-type pathGetPathConfReq struct {
+type pathGetConfForPathReq struct {
 	name        string
 	publish     bool
 	credentials authCredentials
-	res         chan pathGetPathConfRes
+	res         chan pathGetConfForPathRes
 }
 
 type pathDescribeRes struct {
