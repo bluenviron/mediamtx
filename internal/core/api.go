@@ -409,7 +409,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 
 	newConfPath, ok := newConf.Paths[name]
 	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		ctx.AbortWithStatus(http.StatusNotFound)
 		return
 	}
 

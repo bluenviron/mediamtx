@@ -605,6 +605,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+        '404':
+          description: configuration not found.
         '500':
           description: internal server error.
 
@@ -625,6 +627,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+        '404':
+          description: configuration not found.
         '500':
           description: internal server error.
 

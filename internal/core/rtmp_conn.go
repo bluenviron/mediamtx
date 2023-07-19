@@ -404,7 +404,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 
 	if videoFormat == nil && audioFormat == nil {
 		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, MPEG-1/2 Audio, MPEG-4 Audio")
+			"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 	}
 
 	defer res.stream.readerRemove(c)

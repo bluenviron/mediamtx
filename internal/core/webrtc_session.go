@@ -62,7 +62,7 @@ func gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
 
 	if tracks == nil {
 		return nil, fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, VP8, VP9, G711, G722, Opus")
+			"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711")
 	}
 
 	return tracks, nil
