@@ -88,6 +88,9 @@ select {
     <div id="transmitting" style="display: none;">
         publishing
     </div>
+    <div id="error" style="display: none;">
+        <span id="error-message"></span>
+    </div>
 </div>
 
 <script>
@@ -95,23 +98,28 @@ select {
 const INITIALIZING = 0;
 const DEVICE = 1;
 const TRANSMITTING = 2;
+const ERROR = 3;
 
 let state = INITIALIZING;
+let errorMessage = '';
 
-const setState = (newState) => {
-    state = newState;
+const render = () => {
+    for (const el of ['initializing', 'device', 'transmitting', 'error']) {
+        document.getElementById(el).style.display = 'none';
+    }
 
     switch (state) {
     case DEVICE:
-        document.getElementById("initializing").style.display = 'none';
-        document.getElementById("device").style.display = 'flex';
-        document.getElementById("transmitting").style.display = 'none';
+        document.getElementById('device').style.display = 'flex';
         break;
 
     case TRANSMITTING:
-        document.getElementById("initializing").style.display = 'none';
-        document.getElementById("device").style.display = 'none';
-        document.getElementById("transmitting").style.display = 'flex';
+        document.getElementById('transmitting').style.display = 'flex';
+        break;
+
+    case ERROR:
+        document.getElementById('error').style.display = 'flex';
+        document.getElementById('error-message').innerHTML = 'error: ' + errorMessage;
         break;
     }
 };
@@ -444,7 +452,8 @@ class Transmitter {
 }
 
 const onTransmit = (stream) => {
-    setState(TRANSMITTING);
+    state = TRANSMITTING;
+    render();
     document.getElementById('video').srcObject = stream;
     new Transmitter(stream);
 };
@@ -563,13 +572,26 @@ const populateCodecs = () => {
 };
 
 const initialize = () => {
+    if (navigator.mediaDevices === undefined) {
+        state = ERROR;
+        errorMessage = 'can\'t access webcams or microphones. Make sure that WebRTC encryption is enabled.';
+        render();
+        return;
+    }
+
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
         .then(() => Promise.all([
             populateDevices(),
             populateCodecs(),
         ]))
         .then(() => {
-            setState(DEVICE);
+            state = DEVICE;
+            render();
+        })
+        .catch((err) => {
+            state = ERROR;
+            errorMessage = err.toString();
+            render();
         });
 };
 
