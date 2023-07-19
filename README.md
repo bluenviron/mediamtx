@@ -99,7 +99,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
-  * [Save streams to disk](#save-streams-to-disk)
+  * [Save streams on disk](#save-streams-on-disk)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
   * [RTSP-specific features](#rtsp-specific-features)
@@ -1066,9 +1066,9 @@ paths:
     runOnReadyRestart: yes
 ```
 
-### Save streams to disk
+### Save streams on disk
 
-To save available streams to disk, you can use the `runOnReady` parameter and _FFmpeg_:
+To save available streams on disk, you can use the `runOnReady` parameter and _FFmpeg_:
 
 ```yml
 paths:
