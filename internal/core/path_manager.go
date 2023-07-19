@@ -55,8 +55,8 @@ func getConfForPath(pathConfs map[string]*conf.PathConf, name string) (string, *
 }
 
 type pathManagerHLSManager interface {
-	pathSourceReady(*path)
-	pathSourceNotReady(*path)
+	pathReady(*path)
+	pathNotReady(*path)
 }
 
 type pathManagerParent interface {
@@ -84,17 +84,17 @@ type pathManager struct {
 	pathsByConf map[string]map[*path]struct{}
 
 	// in
-	chConfReload         chan map[string]*conf.PathConf
-	chPathClose          chan *path
-	chPathSourceReady    chan *path
-	chPathSourceNotReady chan *path
-	chGetConfForPath     chan pathGetConfForPathReq
-	chDescribe           chan pathDescribeReq
-	chReaderAdd          chan pathReaderAddReq
-	chPublisherAdd       chan pathPublisherAddReq
-	chHLSManagerSet      chan pathManagerHLSManager
-	chAPIPathsList       chan pathAPIPathsListReq
-	chAPIPathsGet        chan pathAPIPathsGetReq
+	chConfReload     chan map[string]*conf.PathConf
+	chPathClose      chan *path
+	chPathReady      chan *path
+	chPathNotReady   chan *path
+	chGetConfForPath chan pathGetConfForPathReq
+	chDescribe       chan pathDescribeReq
+	chReaderAdd      chan pathReaderAddReq
+	chPublisherAdd   chan pathPublisherAddReq
+	chHLSManagerSet  chan pathManagerHLSManager
+	chAPIPathsList   chan pathAPIPathsListReq
+	chAPIPathsGet    chan pathAPIPathsGetReq
 }
 
 func newPathManager(
@@ -130,8 +130,8 @@ func newPathManager(
 		pathsByConf:               make(map[string]map[*path]struct{}),
 		chConfReload:              make(chan map[string]*conf.PathConf),
 		chPathClose:               make(chan *path),
-		chPathSourceReady:         make(chan *path),
-		chPathSourceNotReady:      make(chan *path),
+		chPathReady:               make(chan *path),
+		chPathNotReady:            make(chan *path),
 		chGetConfForPath:          make(chan pathGetConfForPathReq),
 		chDescribe:                make(chan pathDescribeReq),
 		chReaderAdd:               make(chan pathReaderAddReq),
@@ -218,14 +218,14 @@ outer:
 			}
 			pm.removePath(pa)
 
-		case pa := <-pm.chPathSourceReady:
+		case pa := <-pm.chPathReady:
 			if pm.hlsManager != nil {
-				pm.hlsManager.pathSourceReady(pa)
+				pm.hlsManager.pathReady(pa)
 			}
 
-		case pa := <-pm.chPathSourceNotReady:
+		case pa := <-pm.chPathNotReady:
 			if pm.hlsManager != nil {
-				pm.hlsManager.pathSourceNotReady(pa)
+				pm.hlsManager.pathNotReady(pa)
 			}
 
 		case req := <-pm.chGetConfForPath:
@@ -386,19 +386,19 @@ func (pm *pathManager) confReload(pathConfs map[string]*conf.PathConf) {
 	}
 }
 
-// pathSourceReady is called by path.
-func (pm *pathManager) pathSourceReady(pa *path) {
+// pathReady is called by path.
+func (pm *pathManager) pathReady(pa *path) {
 	select {
-	case pm.chPathSourceReady <- pa:
+	case pm.chPathReady <- pa:
 	case <-pm.ctx.Done():
 	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}
 }
 
-// pathSourceNotReady is called by path.
-func (pm *pathManager) pathSourceNotReady(pa *path) {
+// pathNotReady is called by path.
+func (pm *pathManager) pathNotReady(pa *path) {
 	select {
-	case pm.chPathSourceNotReady <- pa:
+	case pm.chPathNotReady <- pa:
 	case <-pm.ctx.Done():
 	case <-pa.ctx.Done(): // in case pathManager is blocked by path.wait()
 	}

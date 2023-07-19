@@ -328,6 +328,12 @@ components:
           $ref: '#/components/schemas/PathSourceOrReader'
         sourceReady:
           type: boolean
+          description: deprecated, replaced by 'ready'
+        ready:
+          type: boolean
+        readyTime:
+          type: string
+          nullable: true
         tracks:
           type: array
           items:
