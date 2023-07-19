@@ -32,6 +32,7 @@ func paramsFromConf(cnf *conf.PathConf) rpicamera.Params {
 		Gain:              cnf.RPICameraGain,
 		EV:                cnf.RPICameraEV,
 		ROI:               cnf.RPICameraROI,
+		HDR:               cnf.RPICameraHDR,
 		TuningFile:        cnf.RPICameraTuningFile,
 		Mode:              cnf.RPICameraMode,
 		FPS:               cnf.RPICameraFPS,

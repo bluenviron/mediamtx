@@ -366,6 +366,8 @@ paths:
     rpiCameraEV: 0
     # Region of interest, in format x,y,width,height
     rpiCameraROI:
+    # whether to enable HDR on Raspberry Camera 3.
+    rpiCameraHDR: false
     # tuning file
     rpiCameraTuningFile:
     # sensor mode, in format [width]:[height]:[bit-depth]:[packing]

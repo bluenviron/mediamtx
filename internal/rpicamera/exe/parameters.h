@@ -25,6 +25,7 @@ typedef struct {
     float gain;
     float ev;
     window_t *roi;
+    bool hdr;
     char *tuning_file;
     sensor_mode_t *mode;
     float fps;
