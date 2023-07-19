@@ -105,6 +105,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [RTSP-specific features](#rtsp-specific-features)
     * [Transport protocols](#transport-protocols)
     * [Encryption](#encryption)
+    * [Corrupted frames](#corrupted-frames)
   * [RTMP-specific features](#rtmp-specific-features)
     * [Encryption](#encryption-1)
   * [WebRTC-specific features](#webrtc-specific-features)
@@ -787,33 +788,6 @@ The RTSP protocol doesn't introduce any latency by itself. Latency is usually in
 vlc --network-caching=50 rtsp://...
 ```
 
-##### Corrupted frames
-
-In some scenarios, when reading from the server with RTSP, decoded frames can be corrupted or incomplete. This can be caused by multiple reasons:
-
-* the packet buffer of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
-
-  ```yml
-  readBufferCount: 1024
-  ```
-
-* The stream throughput is too big and the stream can't be sent correctly with the UDP transport. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
-
-  ```yml
-  protocols: [tcp]
-  ```
-
-  In case the source is a camera:
-
-  ```yml
-  paths:
-    test:
-      source: rtsp://..
-      sourceProtocol: tcp
-   ```
-
-* The stream throughput is too big to be handled by the network between server and readers. Upgrade the network or decrease the stream bitrate by re-encoding it.
-
 #### RTMP
 
 RTMP is a protocol that allows to read and publish streams, but is less versatile and less efficient than RTSP and WebRTC ((doesn't support UDP, doesn't support most RTSP codecs, doesn't support feedback mechanism)). Streams can be read from the server by using the URL:
@@ -1187,6 +1161,33 @@ Streams can be published and read with the `rtsps` scheme and the `8322` port:
 ```
 rtsps://localhost:8322/mystream
 ```
+
+#### Corrupted frames
+
+In some scenarios, when publishing or reading from the server with RTSP, frames can get corrupted. This can be caused by multiple reasons:
+
+* the packet buffer of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
+
+  ```yml
+  readBufferCount: 1024
+  ```
+
+* The stream throughput is too big and the stream can't be transmitted correctly with the UDP transport protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:
+
+  ```yml
+  protocols: [tcp]
+  ```
+
+  In case the source is a camera:
+
+  ```yml
+  paths:
+    test:
+      source: rtsp://..
+      sourceProtocol: tcp
+   ```
+
+* The stream throughput is too big to be handled by the network between server and readers. Upgrade the network or decrease the stream bitrate by re-encoding it.
 
 ### RTMP-specific features
 
