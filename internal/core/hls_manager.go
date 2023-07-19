@@ -54,12 +54,12 @@ type hlsManager struct {
 	muxers     map[string]*hlsMuxer
 
 	// in
-	chPathSourceReady    chan *path
-	chPathSourceNotReady chan *path
-	chHandleRequest      chan hlsMuxerHandleRequestReq
-	chMuxerClose         chan *hlsMuxer
-	chAPIMuxerList       chan hlsManagerAPIMuxersListReq
-	chAPIMuxerGet        chan hlsManagerAPIMuxersGetReq
+	chPathReady     chan *path
+	chPathNotReady  chan *path
+	chHandleRequest chan hlsMuxerHandleRequestReq
+	chMuxerClose    chan *hlsMuxer
+	chAPIMuxerList  chan hlsManagerAPIMuxersListReq
+	chAPIMuxerGet   chan hlsManagerAPIMuxersGetReq
 }
 
 func newHLSManager(
@@ -101,8 +101,8 @@ func newHLSManager(
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		muxers:                    make(map[string]*hlsMuxer),
-		chPathSourceReady:         make(chan *path),
-		chPathSourceNotReady:      make(chan *path),
+		chPathReady:               make(chan *path),
+		chPathNotReady:            make(chan *path),
 		chHandleRequest:           make(chan hlsMuxerHandleRequestReq),
 		chMuxerClose:              make(chan *hlsMuxer),
 		chAPIMuxerList:            make(chan hlsManagerAPIMuxersListReq),
@@ -157,14 +157,14 @@ func (m *hlsManager) run() {
 outer:
 	for {
 		select {
-		case pa := <-m.chPathSourceReady:
+		case pa := <-m.chPathReady:
 			if m.alwaysRemux && !pa.conf.SourceOnDemand {
 				if _, ok := m.muxers[pa.name]; !ok {
 					m.createMuxer(pa.name, "")
 				}
 			}
 
-		case pa := <-m.chPathSourceNotReady:
+		case pa := <-m.chPathNotReady:
 			c, ok := m.muxers[pa.name]
 			if ok && c.remoteAddr == "" { // created with "always remux"
 				c.close()
@@ -258,18 +258,18 @@ func (m *hlsManager) muxerClose(c *hlsMuxer) {
 	}
 }
 
-// pathSourceReady is called by pathManager.
-func (m *hlsManager) pathSourceReady(pa *path) {
+// pathReady is called by pathManager.
+func (m *hlsManager) pathReady(pa *path) {
 	select {
-	case m.chPathSourceReady <- pa:
+	case m.chPathReady <- pa:
 	case <-m.ctx.Done():
 	}
 }
 
-// pathSourceNotReady is called by pathManager.
-func (m *hlsManager) pathSourceNotReady(pa *path) {
+// pathNotReady is called by pathManager.
+func (m *hlsManager) pathNotReady(pa *path) {
 	select {
-	case m.chPathSourceNotReady <- pa:
+	case m.chPathNotReady <- pa:
 	case <-m.ctx.Done():
 	}
 }

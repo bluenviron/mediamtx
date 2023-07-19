@@ -217,7 +217,7 @@ func TestAPIPathsList(t *testing.T) {
 	type path struct {
 		Name          string     `json:"name"`
 		Source        pathSource `json:"source"`
-		SourceReady   bool       `json:"sourceReady"`
+		Ready         bool       `json:"ready"`
 		Tracks        []string   `json:"tracks"`
 		BytesReceived uint64     `json:"bytesReceived"`
 	}
@@ -280,7 +280,7 @@ func TestAPIPathsList(t *testing.T) {
 				Source: pathSource{
 					Type: "rtspSession",
 				},
-				SourceReady:   true,
+				Ready:         true,
 				Tracks:        []string{"H264", "MPEG-4 Audio"},
 				BytesReceived: 16,
 			}},
@@ -343,8 +343,8 @@ func TestAPIPathsList(t *testing.T) {
 				Source: pathSource{
 					Type: "rtspsSession",
 				},
-				SourceReady: true,
-				Tracks:      []string{"H264", "MPEG-4 Audio"},
+				Ready:  true,
+				Tracks: []string{"H264", "MPEG-4 Audio"},
 			}},
 		}, out)
 	})
@@ -370,8 +370,8 @@ func TestAPIPathsList(t *testing.T) {
 				Source: pathSource{
 					Type: "rtspSource",
 				},
-				SourceReady: false,
-				Tracks:      []string{},
+				Ready:  false,
+				Tracks: []string{},
 			}},
 		}, out)
 	})
@@ -397,8 +397,8 @@ func TestAPIPathsList(t *testing.T) {
 				Source: pathSource{
 					Type: "rtmpSource",
 				},
-				SourceReady: false,
-				Tracks:      []string{},
+				Ready:  false,
+				Tracks: []string{},
 			}},
 		}, out)
 	})
@@ -424,8 +424,8 @@ func TestAPIPathsList(t *testing.T) {
 				Source: pathSource{
 					Type: "hlsSource",
 				},
-				SourceReady: false,
-				Tracks:      []string{},
+				Ready:  false,
+				Tracks: []string{},
 			}},
 		}, out)
 	})
@@ -449,7 +449,7 @@ func TestAPIPathsGet(t *testing.T) {
 			type path struct {
 				Name          string     `json:"name"`
 				Source        pathSource `json:"source"`
-				SourceReady   bool       `json:"sourceReady"`
+				Ready         bool       `json:"Ready"`
 				Tracks        []string   `json:"tracks"`
 				BytesReceived uint64     `json:"bytesReceived"`
 			}
@@ -478,8 +478,8 @@ func TestAPIPathsGet(t *testing.T) {
 					Source: pathSource{
 						Type: "rtspSession",
 					},
-					SourceReady: true,
-					Tracks:      []string{"H264"},
+					Ready:  true,
+					Tracks: []string{"H264"},
 				}, out)
 			} else {
 				res, err := hc.Get("http://localhost:9997/v2/paths/get/" + pathName)

@@ -13,7 +13,9 @@ type apiPath struct {
 	ConfName      string         `json:"confName"`
 	Conf          *conf.PathConf `json:"conf"`
 	Source        interface{}    `json:"source"`
-	SourceReady   bool           `json:"sourceReady"`
+	SourceReady   bool           `json:"sourceReady"` // Deprecated: renamed to Ready
+	Ready         bool           `json:"ready"`
+	ReadyTime     *time.Time     `json:"readyTime"`
 	Tracks        []string       `json:"tracks"`
 	BytesReceived uint64         `json:"bytesReceived"`
 	Readers       []interface{}  `json:"readers"`

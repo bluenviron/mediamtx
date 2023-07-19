@@ -44,8 +44,8 @@ func (e pathErrNoOnePublishing) Error() string {
 
 type pathParent interface {
 	logger.Writer
-	pathSourceReady(*path)
-	pathSourceNotReady(*path)
+	pathReady(*path)
+	pathNotReady(*path)
 	onPathClose(*path)
 }
 
@@ -196,8 +196,9 @@ type path struct {
 	ctxCancel                      func()
 	confMutex                      sync.RWMutex
 	source                         source
-	bytesReceived                  *uint64
 	stream                         *stream
+	readyTime                      time.Time
+	bytesReceived                  *uint64
 	readers                        map[reader]struct{}
 	describeRequestsOnHold         []pathDescribeReq
 	readerAddRequestsOnHold        []pathReaderAddReq
@@ -359,7 +360,7 @@ func (pa *path) run() {
 				}
 
 			case <-pa.onDemandStaticSourceCloseTimer.C:
-				pa.sourceSetNotReady()
+				pa.setNotReady()
 				pa.onDemandStaticSourceStop()
 
 				if pa.shouldClose() {
@@ -400,7 +401,7 @@ func (pa *path) run() {
 				pa.confMutex.Unlock()
 
 			case req := <-pa.chSourceStaticSetReady:
-				err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
+				err := pa.setReady(req.medias, req.generateRTPPackets)
 				if err != nil {
 					req.res <- pathSourceStaticSetReadyRes{err: err}
 				} else {
@@ -427,7 +428,7 @@ func (pa *path) run() {
 				}
 
 			case req := <-pa.chSourceStaticSetNotReady:
-				pa.sourceSetNotReady()
+				pa.setNotReady()
 
 				// send response before calling onDemandStaticSourceStop()
 				// in order to avoid a deadlock due to sourceStatic.stop()
@@ -511,7 +512,7 @@ func (pa *path) run() {
 	}
 
 	if pa.stream != nil {
-		pa.sourceSetNotReady()
+		pa.setNotReady()
 	}
 
 	if pa.source != nil {
@@ -626,7 +627,7 @@ func (pa *path) onDemandPublisherStop() {
 	}
 }
 
-func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error {
+func (pa *path) setReady(medias media.Medias, allocateEncoder bool) error {
 	stream, err := newStream(
 		pa.udpMaxPayloadSize,
 		medias,
@@ -639,6 +640,7 @@ func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error 
 	}
 
 	pa.stream = stream
+	pa.readyTime = time.Now()
 
 	if pa.conf.RunOnReady != "" {
 		pa.Log(logger.Info, "runOnReady command started")
@@ -652,13 +654,13 @@ func (pa *path) sourceSetReady(medias media.Medias, allocateEncoder bool) error 
 			})
 	}
 
-	pa.parent.pathSourceReady(pa)
+	pa.parent.pathReady(pa)
 
 	return nil
 }
 
-func (pa *path) sourceSetNotReady() {
-	pa.parent.pathSourceNotReady(pa)
+func (pa *path) setNotReady() {
+	pa.parent.pathNotReady(pa)
 
 	for r := range pa.readers {
 		pa.doReaderRemove(r)
@@ -683,7 +685,7 @@ func (pa *path) doReaderRemove(r reader) {
 
 func (pa *path) doPublisherRemove() {
 	if pa.stream != nil {
-		pa.sourceSetNotReady()
+		pa.setNotReady()
 	}
 
 	pa.source = nil
@@ -777,7 +779,7 @@ func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
 		return
 	}
 
-	err := pa.sourceSetReady(req.medias, req.generateRTPPackets)
+	err := pa.setReady(req.medias, req.generateRTPPackets)
 	if err != nil {
 		req.res <- pathPublisherRecordRes{err: err}
 		return
@@ -807,7 +809,7 @@ func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
 
 func (pa *path) handlePublisherStop(req pathPublisherStopReq) {
 	if req.author == pa.source && pa.stream != nil {
-		pa.sourceSetNotReady()
+		pa.setNotReady()
 	}
 	close(req.res)
 }
@@ -892,6 +894,14 @@ func (pa *path) handleAPIPathsGet(req pathAPIPathsGetReq) {
 				return pa.source.apiSourceDescribe()
 			}(),
 			SourceReady: pa.stream != nil,
+			Ready:       pa.stream != nil,
+			ReadyTime: func() *time.Time {
+				if pa.stream == nil {
+					return nil
+				}
+				v := pa.readyTime
+				return &v
+			}(),
 			Tracks: func() []string {
 				if pa.stream == nil {
 					return []string{}
