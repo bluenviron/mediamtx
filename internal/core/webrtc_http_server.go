@@ -293,7 +293,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.getPathConf(pathGetPathConfReq{
+	res := s.pathManager.getConfForPath(pathGetConfForPathReq{
 		name:    dir,
 		publish: publish,
 		credentials: authCredentials{

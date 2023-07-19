@@ -77,6 +77,15 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 	return true, nil
 }
 
+func contains(list []headers.AuthMethod, item headers.AuthMethod) bool {
+	for _, i := range list {
+		if i == item {
+			return true
+		}
+	}
+	return false
+}
+
 // Conf is a configuration.
 type Conf struct {
 	// general
@@ -197,15 +206,6 @@ func (conf Conf) Clone() *Conf {
 	return &dest
 }
 
-func contains(list []headers.AuthMethod, item headers.AuthMethod) bool {
-	for _, i := range list {
-		if i == item {
-			return true
-		}
-	}
-	return false
-}
-
 // Check checks the configuration for errors.
 func (conf *Conf) Check() error {
 	// general
@@ -264,12 +264,6 @@ func (conf *Conf) Check() error {
 	// initialize all paths through API or hot reloading.
 	if conf.Paths == nil {
 		conf.Paths = make(map[string]*PathConf)
-	}
-
-	// "all" is an alias for "~^.*$"
-	if _, ok := conf.Paths["all"]; ok {
-		conf.Paths["~^.*$"] = conf.Paths["all"]
-		delete(conf.Paths, "all")
 	}
 
 	for _, name := range getSortedKeys(conf.Paths) {
