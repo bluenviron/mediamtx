@@ -6,11 +6,9 @@ package rpicamera
 import (
 	"debug/elf"
 	_ "embed"
-	"encoding/base64"
 	"fmt"
 	"os"
 	"os/exec"
-	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
@@ -48,43 +46,6 @@ func startEmbeddedExe(content []byte, env []string) (*exec.Cmd, error) {
 	}
 
 	return cmd, nil
-}
-
-func serializeParams(p Params) []byte {
-	rv := reflect.ValueOf(p)
-	rt := rv.Type()
-	nf := rv.NumField()
-	ret := make([]string, nf)
-
-	for i := 0; i < nf; i++ {
-		entry := rt.Field(i).Name + ":"
-		f := rv.Field(i)
-
-		switch f.Kind() {
-		case reflect.Int:
-			entry += strconv.FormatInt(f.Int(), 10)
-
-		case reflect.Float64:
-			entry += strconv.FormatFloat(f.Float(), 'f', -1, 64)
-
-		case reflect.String:
-			entry += base64.StdEncoding.EncodeToString([]byte(f.String()))
-
-		case reflect.Bool:
-			if f.Bool() {
-				entry += "1"
-			} else {
-				entry += "0"
-			}
-
-		default:
-			panic("unhandled type")
-		}
-
-		ret[i] = entry
-	}
-
-	return []byte(strings.Join(ret, " "))
 }
 
 func findLibrary(name string) (string, error) {
@@ -220,7 +181,7 @@ func New(
 		return nil, err
 	}
 
-	c.pipeConf.write(append([]byte{'c'}, serializeParams(params)...))
+	c.pipeConf.write(append([]byte{'c'}, params.serialize()...))
 
 	c.waitDone = make(chan error)
 	go func() {
@@ -266,7 +227,7 @@ func (c *RPICamera) Close() {
 }
 
 func (c *RPICamera) ReloadParams(params Params) {
-	c.pipeConf.write(append([]byte{'c'}, serializeParams(params)...))
+	c.pipeConf.write(append([]byte{'c'}, params.serialize()...))
 }
 
 func (c *RPICamera) readReady() error {

@@ -264,6 +264,8 @@ components:
           type: number
         rpiCameraROI:
           type: string
+        rpiCameraHDR:
+          type: boolean
         rpiCameraTuningFile:
           type: string
         rpiCameraMode:

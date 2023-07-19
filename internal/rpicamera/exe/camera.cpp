@@ -4,6 +4,9 @@
 #include <sys/mman.h>
 #include <iostream>
 #include <mutex>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <libcamera/camera_manager.h>
 #include <libcamera/camera.h>
@@ -105,7 +108,26 @@ static uint8_t *map_buffer(FrameBuffer *buffer) {
     return NULL;
 }
 
+// https://github.com/raspberrypi/libcamera-apps/blob/a6267d51949d0602eedf60f3ddf8c6685f652812/core/options.cpp#L101
+static void set_hdr(bool hdr) {
+    bool ok = false;
+    for (int i = 0; i < 4 && !ok; i++)
+    {
+        std::string dev("/dev/v4l-subdev");
+        dev += (char)('0' + i);
+        int fd = open(dev.c_str(), O_RDWR, 0);
+        if (fd < 0)
+            continue;
+
+        v4l2_control ctrl { V4L2_CID_WIDE_DYNAMIC_RANGE, hdr };
+        ok = !ioctl(fd, VIDIOC_S_CTRL, &ctrl);
+        close(fd);
+    }
+}
+
 bool camera_create(const parameters_t *params, camera_frame_cb frame_cb, camera_t **cam) {
+    set_hdr(params->hdr);
+
     // We make sure to set the environment variable before libcamera init
     setenv("LIBCAMERA_RPI_TUNING_FILE", params->tuning_file, 1);
 

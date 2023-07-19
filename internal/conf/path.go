@@ -90,6 +90,7 @@ type PathConf struct {
 	RPICameraGain              float64 `json:"rpiCameraGain"`
 	RPICameraEV                float64 `json:"rpiCameraEV"`
 	RPICameraROI               string  `json:"rpiCameraROI"`
+	RPICameraHDR               bool    `json:"rpiCameraHDR"`
 	RPICameraTuningFile        string  `json:"rpiCameraTuningFile"`
 	RPICameraMode              string  `json:"rpiCameraMode"`
 	RPICameraFPS               float64 `json:"rpiCameraFPS"`
