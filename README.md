@@ -454,7 +454,7 @@ If you want to run the standard (non-Docker) version of the server:
 
 1. Make sure that the following packages are installed:
 
-   * `libcamera0` (at least version 0.0.2)
+   * `libcamera0` (&ge; 0.0.5)
    * `libfreetype6`
 
 2. download the server executable. If you're using 64-bit version of the operative system, make sure to pick the `arm64` variant.
@@ -1376,7 +1376,6 @@ The server can be compiled with native support for the Raspberry Pi Camera. Comp
 * `libcamera-dev`
 * `libfreetype-dev`
 * `xxd`
-* `patchelf`
 
 Download the repository, open a terminal in it and run:
 

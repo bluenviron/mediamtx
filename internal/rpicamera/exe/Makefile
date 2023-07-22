@@ -47,5 +47,3 @@ text_font.h: text_font.ttf
 
 exe: $(OBJS)
 	$(CXX) $^ $(LDFLAGS) -o $@
-	patchelf --replace-needed $$(basename /usr/lib/*-linux-*/libcamera.so.0*) libcamera.so.x.x.x $@
-	patchelf --replace-needed $$(basename /usr/lib/*-linux-*/libcamera-base.so.0*) libcamera-base.so.x.x.x $@

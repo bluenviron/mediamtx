@@ -82,55 +82,33 @@ func check64bit(fpath string) error {
 	return nil
 }
 
-func setupSymlink(name string) error {
-	lib, err := findLibrary(name)
-	if err != nil {
-		return err
-	}
-
-	if runtime.GOARCH == "arm" {
-		err := check64bit(lib)
-		if err != nil {
-			return err
-		}
-	}
-
-	os.Remove("/dev/shm/" + name + ".so.x.x.x")
-	return os.Symlink(lib, "/dev/shm/"+name+".so.x.x.x")
-}
-
 var (
-	mutex    sync.Mutex
-	setupped bool
+	mutex   sync.Mutex
+	checked bool
 )
 
-func setupLibcameraOnce() error {
+func checkLibraries64Bit() error {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if !setupped {
-		err := setupSymlink("libcamera")
-		if err != nil {
-			return err
-		}
-
-		err = setupSymlink("libcamera-base")
-		if err != nil {
-			return err
-		}
-
-		setupped = true
+	if checked {
+		return nil
 	}
 
+	for _, name := range []string{"libcamera", "libcamera-base"} {
+		lib, err := findLibrary(name)
+		if err != nil {
+			return err
+		}
+
+		err = check64bit(lib)
+		if err != nil {
+			return err
+		}
+	}
+
+	checked = true
 	return nil
-}
-
-// Cleanup cleanups files created by the camera implementation.
-func Cleanup() {
-	if setupped {
-		os.Remove("/dev/shm/libcamera-base.so.x.x.x")
-		os.Remove("/dev/shm/libcamera.so.x.x.x")
-	}
 }
 
 type RPICamera struct {
@@ -148,15 +126,18 @@ func New(
 	params Params,
 	onData func(time.Duration, [][]byte),
 ) (*RPICamera, error) {
-	err := setupLibcameraOnce()
-	if err != nil {
-		return nil, err
+	if runtime.GOARCH == "arm" {
+		err := checkLibraries64Bit()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c := &RPICamera{
 		onData: onData,
 	}
 
+	var err error
 	c.pipeConf, err = newPipe()
 	if err != nil {
 		return nil, err
@@ -169,7 +150,6 @@ func New(
 	}
 
 	env := []string{
-		"LD_LIBRARY_PATH=/dev/shm",
 		"PIPE_CONF_FD=" + strconv.FormatInt(int64(c.pipeConf.readFD), 10),
 		"PIPE_VIDEO_FD=" + strconv.FormatInt(int64(c.pipeVideo.writeFD), 10),
 	}
