@@ -150,8 +150,8 @@ github.com/pion/transport/v2 v2.2.1 h1:7qYnCBlpgSJNYMbLCKuSY9KbQdBFoETvPNETv0y4N
 github.com/pion/transport/v2 v2.2.1/go.mod h1:cXXWavvCnFF6McHTft3DWS9iic2Mftcz1Aq29pGcU5g=
 github.com/pion/turn/v2 v2.1.2 h1:wj0cAoGKltaZ790XEGW9HwoUewqjliwmhtxCuB2ApyM=
 github.com/pion/turn/v2 v2.1.2/go.mod h1:1kjnPkBcex3dhCU2Am+AAmxDcGhLX3WnMfmkNpvSTQU=
-github.com/pion/webrtc/v3 v3.2.12 h1:pVqz5NdtTqyhKIhMcXR8bPp709kCf9blyAhDjoVRLvA=
-github.com/pion/webrtc/v3 v3.2.12/go.mod h1:/Oz6K95CGWaN+3No+Z0NYvgOPOr3aY8UyTlMm/dec3A=
+github.com/pion/webrtc/v3 v3.2.13 h1://ltbnahZewBWHvQYunlyLVWrHrsoyxYDfi3Ux6V4Gk=
+github.com/pion/webrtc/v3 v3.2.13/go.mod h1:KS57v8u+fNMYAVM6gNsceIHtciyHlnfPNXU/7klJMFU=
 github.com/pkg/profile v1.4.0/go.mod h1:NWz/XGvpEW1FyYQ7fCx4dqYBLlfTcE+A9FLAkNKqjFE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
