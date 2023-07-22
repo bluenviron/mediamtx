@@ -17,7 +17,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
-	"github.com/bluenviron/mediamtx/internal/rpicamera"
 )
 
 var version = "v0.0.0"
@@ -669,10 +668,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if newConf == nil && p.externalCmdPool != nil {
 		p.Log(logger.Info, "waiting for external commands")
 		p.externalCmdPool.Close()
-	}
-
-	if newConf == nil {
-		rpicamera.Cleanup()
 	}
 
 	if closeLogger {

@@ -1,17 +1,17 @@
 define DOCKERFILE_BINARIES
 FROM $(RPI32_IMAGE) AS rpicamera32
 RUN ["cross-build-start"]
-RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev xxd patchelf
-WORKDIR /s/internal/rpicamera
-COPY internal/rpicamera .
-RUN cd exe && make -j$$(nproc)
+RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev xxd
+WORKDIR /s/internal/rpicamera/exe
+COPY internal/rpicamera/exe .
+RUN make -j$$(nproc)
 
 FROM $(RPI64_IMAGE) AS rpicamera64
 RUN ["cross-build-start"]
-RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev xxd patchelf
-WORKDIR /s/internal/rpicamera
-COPY internal/rpicamera .
-RUN cd exe && make -j$$(nproc)
+RUN apt update && apt install -y --no-install-recommends g++ pkg-config make libcamera-dev libfreetype-dev xxd
+WORKDIR /s/internal/rpicamera/exe
+COPY internal/rpicamera/exe .
+RUN make -j$$(nproc)
 
 FROM $(BASE_IMAGE) AS build-base
 RUN apk add --no-cache zip make git tar
