@@ -62,8 +62,8 @@ func TestRTMPServer(t *testing.T) {
 				if encrypt == "plain" {
 					port = "1935"
 
-					conf = "rtspDisable: yes\n" +
-						"hlsDisable: yes\n"
+					conf = "rtsp: no\n" +
+						"hls: no\n"
 				} else {
 					port = "1936"
 
@@ -75,9 +75,9 @@ func TestRTMPServer(t *testing.T) {
 					require.NoError(t, err)
 					defer os.Remove(serverKeyFpath)
 
-					conf = "rtspDisable: yes\n" +
-						"hlsDisable: yes\n" +
-						"webrtcDisable: yes\n" +
+					conf = "rtsp: no\n" +
+						"hls: no\n" +
+						"webrtc: no\n" +
 						"rtmpEncryption: \"yes\"\n" +
 						"rtmpServerCert: " + serverCertFpath + "\n" +
 						"rtmpServerKey: " + serverKeyFpath + "\n"
@@ -218,9 +218,9 @@ func TestRTMPServer(t *testing.T) {
 
 func TestRTMPServerAuthFail(t *testing.T) {
 	t.Run("publish", func(t *testing.T) { //nolint:dupl
-		p, ok := newInstance("rtspDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"webrtcDisable: yes\n" +
+		p, ok := newInstance("rtsp: no\n" +
+			"hls: no\n" +
+			"webrtc: no\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishUser: testuser2\n" +
@@ -323,9 +323,9 @@ func TestRTMPServerAuthFail(t *testing.T) {
 	})
 
 	t.Run("read", func(t *testing.T) { //nolint:dupl
-		p, ok := newInstance("rtspDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"webrtcDisable: yes\n" +
+		p, ok := newInstance("rtsp: no\n" +
+			"hls: no\n" +
+			"webrtc: no\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    readUser: testuser2\n" +

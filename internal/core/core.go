@@ -255,7 +255,7 @@ func (p *Core) createResources(initial bool) error {
 		)
 	}
 
-	if !p.conf.RTSPDisable &&
+	if p.conf.RTSP &&
 		(p.conf.Encryption == conf.EncryptionNo ||
 			p.conf.Encryption == conf.EncryptionOptional) {
 		if p.rtspServer == nil {
@@ -292,7 +292,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.RTSPDisable &&
+	if p.conf.RTSP &&
 		(p.conf.Encryption == conf.EncryptionStrict ||
 			p.conf.Encryption == conf.EncryptionOptional) {
 		if p.rtspsServer == nil {
@@ -327,7 +327,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.RTMPDisable &&
+	if p.conf.RTMP &&
 		(p.conf.RTMPEncryption == conf.EncryptionNo ||
 			p.conf.RTMPEncryption == conf.EncryptionOptional) {
 		if p.rtmpServer == nil {
@@ -353,7 +353,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.RTMPDisable &&
+	if p.conf.RTMP &&
 		(p.conf.RTMPEncryption == conf.EncryptionStrict ||
 			p.conf.RTMPEncryption == conf.EncryptionOptional) {
 		if p.rtmpsServer == nil {
@@ -379,7 +379,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.HLSDisable {
+	if p.conf.HLS {
 		if p.hlsManager == nil {
 			p.hlsManager, err = newHLSManager(
 				p.conf.HLSAddress,
@@ -408,7 +408,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if !p.conf.WebRTCDisable {
+	if p.conf.WebRTC {
 		if p.webRTCManager == nil {
 			p.webRTCManager, err = newWebRTCManager(
 				p.conf.WebRTCAddress,
@@ -512,7 +512,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	closeRTSPServer := newConf == nil ||
-		newConf.RTSPDisable != p.conf.RTSPDisable ||
+		newConf.RTSP != p.conf.RTSP ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
@@ -533,7 +533,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager
 
 	closeRTSPSServer := newConf == nil ||
-		newConf.RTSPDisable != p.conf.RTSPDisable ||
+		newConf.RTSP != p.conf.RTSP ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
@@ -550,7 +550,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager
 
 	closeRTMPServer := newConf == nil ||
-		newConf.RTMPDisable != p.conf.RTMPDisable ||
+		newConf.RTMP != p.conf.RTMP ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -563,7 +563,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager
 
 	closeRTMPSServer := newConf == nil ||
-		newConf.RTMPDisable != p.conf.RTMPDisable ||
+		newConf.RTMP != p.conf.RTMP ||
 		newConf.RTMPEncryption != p.conf.RTMPEncryption ||
 		newConf.RTMPSAddress != p.conf.RTMPSAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
@@ -578,7 +578,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager
 
 	closeHLSManager := newConf == nil ||
-		newConf.HLSDisable != p.conf.HLSDisable ||
+		newConf.HLS != p.conf.HLS ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
@@ -599,7 +599,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics
 
 	closeWebRTCManager := newConf == nil ||
-		newConf.WebRTCDisable != p.conf.WebRTCDisable ||
+		newConf.WebRTC != p.conf.WebRTC ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
 		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
 		newConf.WebRTCServerKey != p.conf.WebRTCServerKey ||

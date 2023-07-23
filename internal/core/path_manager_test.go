@@ -159,9 +159,9 @@ func main() {
 		t.Run(ca, func(t *testing.T) {
 			defer os.Remove(doneFile)
 
-			p1, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
-				"hlsDisable: yes\n"+
-				"webrtcDisable: yes\n"+
+			p1, ok := newInstance(fmt.Sprintf("rtmp: no\n"+
+				"hls: no\n"+
+				"webrtc: no\n"+
 				"paths:\n"+
 				"  '~^(on)demand$':\n"+
 				"    runOnDemand: %s\n"+
@@ -248,9 +248,9 @@ func TestPathRunOnReady(t *testing.T) {
 	doneFile := filepath.Join(os.TempDir(), "onready_done")
 	defer os.Remove(doneFile)
 
-	p, ok := newInstance(fmt.Sprintf("rtmpDisable: yes\n"+
-		"hlsDisable: yes\n"+
-		"webrtcDisable: yes\n"+
+	p, ok := newInstance(fmt.Sprintf("rtmp: no\n"+
+		"hls: no\n"+
+		"webrtc: no\n"+
 		"paths:\n"+
 		"  test:\n"+
 		"    runOnReady: touch %s\n",

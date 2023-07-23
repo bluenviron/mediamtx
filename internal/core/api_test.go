@@ -126,7 +126,7 @@ func TestAPIConfigSet(t *testing.T) {
 	hc := &http.Client{Transport: &http.Transport{}}
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/set", map[string]interface{}{
-		"rtmpDisable": true,
+		"rtmp":        false,
 		"readTimeout": "7s",
 		"protocols":   []string{"tcp"},
 	}, nil)
@@ -135,7 +135,7 @@ func TestAPIConfigSet(t *testing.T) {
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
-	require.Equal(t, true, out["rtmpDisable"])
+	require.Equal(t, false, out["rtmp"])
 	require.Equal(t, "7s", out["readTimeout"])
 	require.Equal(t, []interface{}{"tcp"}, out["protocols"])
 }

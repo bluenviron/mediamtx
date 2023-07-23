@@ -42,9 +42,9 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				proto = "rtsp"
 				port = "8554"
 
-				p, ok := newInstance("rtmpDisable: yes\n" +
-					"hlsDisable: yes\n" +
-					"webrtcDisable: yes\n" +
+				p, ok := newInstance("rtmp: no\n" +
+					"hls: no\n" +
+					"webrtc: no\n" +
 					"readTimeout: 20s\n" +
 					"paths:\n" +
 					"  all:\n")
@@ -62,9 +62,9 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 
-				p, ok := newInstance("rtmpDisable: yes\n" +
-					"hlsDisable: yes\n" +
-					"webrtcDisable: yes\n" +
+				p, ok := newInstance("rtmp: no\n" +
+					"hls: no\n" +
+					"webrtc: no\n" +
 					"readTimeout: 20s\n" +
 					"protocols: [tcp]\n" +
 					"encryption: \"yes\"\n" +
@@ -199,9 +199,9 @@ func TestRTSPServerPublishRead(t *testing.T) {
 }
 
 func TestRTSPServerRedirect(t *testing.T) {
-	p1, ok := newInstance("rtmpDisable: yes\n" +
-		"hlsDisable: yes\n" +
-		"webrtcDisable: yes\n" +
+	p1, ok := newInstance("rtmp: no\n" +
+		"hls: no\n" +
+		"webrtc: no\n" +
 		"paths:\n" +
 		"  path1:\n" +
 		"    source: redirect\n" +

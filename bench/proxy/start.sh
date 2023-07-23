@@ -7,7 +7,7 @@ PROXY_PROTOCOL=tcp
 # source
 
 CONF=""
-CONF="${CONF}hlsDisable: yes\n"
+CONF="${CONF}hls: no\n"
 CONF="${CONF}rtspAddress: :8555\n"
 CONF="${CONF}rtpAddress: :8002\n"
 CONF="${CONF}rtcpAddress: :8003\n"
@@ -15,7 +15,7 @@ CONF="${CONF}paths:\n"
 CONF="${CONF}  all:\n"
 echo -e "$CONF" > /source.conf
 
-RTSP_RTMPDISABLE=yes /mediamtx /source.conf &
+RTSP_RTMP=no /mediamtx /source.conf &
 
 sleep 1
 
@@ -28,7 +28,7 @@ sleep 1
 # proxy
 
 CONF=""
-CONF="${CONF}hlsDisable: yes\n"
+CONF="${CONF}hls: no\n"
 CONF="${CONF}pprof: yes\n"
 CONF="${CONF}paths:\n"
 for i in $(seq 1 $PROXY_COUNT); do
@@ -38,7 +38,7 @@ for i in $(seq 1 $PROXY_COUNT); do
 done
 echo -e "$CONF" > /proxy.conf
 
-RTSP_RTMPDISABLE=yes /mediamtx /proxy.conf &
+RTSP_RTMP=no /mediamtx /proxy.conf &
 
 sleep 5
 

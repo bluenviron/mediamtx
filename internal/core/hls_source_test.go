@@ -114,9 +114,9 @@ func TestHLSSource(t *testing.T) {
 	require.NoError(t, err)
 	defer ts.close()
 
-	p, ok := newInstance("rtmpDisable: yes\n" +
-		"hlsDisable: yes\n" +
-		"webrtcDisable: yes\n" +
+	p, ok := newInstance("rtmp: no\n" +
+		"hls: no\n" +
+		"webrtc: no\n" +
 		"paths:\n" +
 		"  proxied:\n" +
 		"    source: http://localhost:5780/stream.m3u8\n" +
