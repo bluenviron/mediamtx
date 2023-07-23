@@ -161,7 +161,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
-			s.Log(logger.Info, "authentication error: %v", terr.wrapped)
+			s.Log(logger.Info, "authentication failed: %v", terr.wrapped)
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}

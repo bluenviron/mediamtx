@@ -293,35 +293,37 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 	ip := ctx.ClientIP()
 	_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
-
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.getConfForPath(pathGetConfForPathReq{
-		name:    dir,
-		publish: publish,
-		credentials: authCredentials{
-			query: ctx.Request.URL.RawQuery,
-			ip:    net.ParseIP(ip),
-			user:  user,
-			pass:  pass,
-			proto: authProtocolWebRTC,
-		},
-	})
-	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuth); ok {
-			if !hasCredentials {
-				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+	// if request doesn't belong to a session, check authentication here
+	if !isWHIPorWHEP || ctx.Request.Method == http.MethodOptions {
+		res := s.pathManager.getConfForPath(pathGetConfForPathReq{
+			name:    dir,
+			publish: publish,
+			credentials: authCredentials{
+				query: ctx.Request.URL.RawQuery,
+				ip:    net.ParseIP(ip),
+				user:  user,
+				pass:  pass,
+				proto: authProtocolWebRTC,
+			},
+		})
+		if res.err != nil {
+			if terr, ok := res.err.(pathErrAuth); ok {
+				if !hasCredentials {
+					ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+					ctx.Writer.WriteHeader(http.StatusUnauthorized)
+					return
+				}
+
+				s.Log(logger.Info, "authentication failed: %v", terr.wrapped)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			s.Log(logger.Info, "authentication error: %v", terr.wrapped)
-			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			ctx.Writer.WriteHeader(http.StatusNotFound)
 			return
 		}
-
-		ctx.Writer.WriteHeader(http.StatusNotFound)
-		return
 	}
 
 	switch fname {
@@ -357,6 +359,9 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			res := s.parent.sessionNew(webRTCSessionNewReq{
 				pathName:   dir,
 				remoteAddr: net.JoinHostPort(ip, port),
+				query:      ctx.Request.URL.RawQuery,
+				user:       user,
+				pass:       pass,
 				offer:      offer,
 				publish:    (fname == "whip"),
 			})
