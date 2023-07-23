@@ -269,7 +269,7 @@ outer:
 			sx := newWebRTCSession(
 				m.ctx,
 				m.readBufferCount,
-				req.remoteAddr,
+				req,
 				&wg,
 				m.iceHostNAT1To1IPs,
 				m.iceUDPMux,

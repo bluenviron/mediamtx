@@ -113,6 +113,7 @@ type webRTCSessionPathManager interface {
 
 type webRTCSession struct {
 	readBufferCount   int
+	req               webRTCSessionNewReq
 	wg                *sync.WaitGroup
 	iceHostNAT1To1IPs []string
 	iceUDPMux         ice.UDPMux
@@ -125,7 +126,6 @@ type webRTCSession struct {
 	created    time.Time
 	uuid       uuid.UUID
 	secret     uuid.UUID
-	req        webRTCSessionNewReq
 	answerSent bool
 	mutex      sync.RWMutex
 	pc         *peerConnection
@@ -137,7 +137,7 @@ type webRTCSession struct {
 func newWebRTCSession(
 	parentCtx context.Context,
 	readBufferCount int,
-	remoteAddr string,
+	req webRTCSessionNewReq,
 	wg *sync.WaitGroup,
 	iceHostNAT1To1IPs []string,
 	iceUDPMux ice.UDPMux,
@@ -149,6 +149,7 @@ func newWebRTCSession(
 
 	s := &webRTCSession{
 		readBufferCount:   readBufferCount,
+		req:               req,
 		wg:                wg,
 		iceHostNAT1To1IPs: iceHostNAT1To1IPs,
 		iceUDPMux:         iceUDPMux,
@@ -164,7 +165,7 @@ func newWebRTCSession(
 		chAddCandidates:   make(chan webRTCSessionAddCandidatesReq),
 	}
 
-	s.Log(logger.Info, "created by %s", remoteAddr)
+	s.Log(logger.Info, "created by %s", req.remoteAddr)
 
 	wg.Add(1)
 	go s.run()
@@ -195,8 +196,8 @@ func (s *webRTCSession) run() {
 
 func (s *webRTCSession) runInner() error {
 	select {
-	case req := <-s.chNew:
-		s.req = req
+	case <-s.chNew:
+		// do not store the request, we already have it
 
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
