@@ -23,6 +23,7 @@ import (
 )
 
 const (
+	webrtcPauseAfterAuthError  = 2 * time.Second
 	webrtcHandshakeTimeout     = 10 * time.Second
 	webrtcTrackGatherTimeout   = 2 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)

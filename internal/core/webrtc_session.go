@@ -240,8 +240,12 @@ func (s *webRTCSession) runPublish() (int, error) {
 	})
 	if res.err != nil {
 		if _, ok := res.err.(*errAuthentication); ok {
+			// wait some seconds to stop brute force attacks
+			<-time.After(webrtcPauseAfterAuthError)
+
 			return http.StatusUnauthorized, res.err
 		}
+
 		return http.StatusBadRequest, res.err
 	}
 
@@ -363,11 +367,16 @@ func (s *webRTCSession) runRead() (int, error) {
 	})
 	if res.err != nil {
 		if _, ok := res.err.(*errAuthentication); ok {
+			// wait some seconds to stop brute force attacks
+			<-time.After(webrtcPauseAfterAuthError)
+
 			return http.StatusUnauthorized, res.err
 		}
+
 		if strings.HasPrefix(res.err.Error(), "no one is publishing") {
 			return http.StatusNotFound, res.err
 		}
+
 		return http.StatusBadRequest, res.err
 	}
 

@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	rtspConnPauseAfterAuthError = 2 * time.Second
+	rtspPauseAfterAuthError = 2 * time.Second
 )
 
 type rtspConnParent interface {
@@ -204,7 +204,7 @@ func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {
 	}
 
 	// wait some seconds to stop brute force attacks
-	<-time.After(rtspConnPauseAfterAuthError)
+	<-time.After(rtspPauseAfterAuthError)
 
 	return &base.Response{
 		StatusCode: base.StatusUnauthorized,

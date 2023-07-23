@@ -7,11 +7,16 @@ import (
 	"net/http"
 	gopath "path"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+)
+
+const (
+	hlsPauseAfterAuthError = 2 * time.Second
 )
 
 //go:embed hls_index.html
@@ -166,6 +171,10 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 			remoteAddr := net.JoinHostPort(ip, port)
 
 			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.message)
+
+			// wait some seconds to stop brute force attacks
+			<-time.After(hlsPauseAfterAuthError)
+
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}
