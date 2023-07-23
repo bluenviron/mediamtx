@@ -21,7 +21,8 @@ type testHTTPAuthenticator struct {
 	protocol string
 	action   string
 
-	s *http.Server
+	s             *http.Server
+	firstReceived bool
 }
 
 func newTestHTTPAuthenticator(t *testing.T, protocol string, action string) *testHTTPAuthenticator {
@@ -75,7 +76,7 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		in.Password != "testpass" ||
 		in.Path != "teststream" ||
 		in.Protocol != ts.protocol ||
-		// in.ID == "" ||
+		(ts.firstReceived && in.ID == "") ||
 		in.Action != ts.action ||
 		(in.Query != "user=testreader&pass=testpass&param=value" &&
 			in.Query != "user=testpublisher&pass=testpass&param=value" &&
@@ -83,6 +84,8 @@ func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
 		ctx.AbortWithStatus(http.StatusBadRequest)
 		return
 	}
+
+	ts.firstReceived = true
 }
 
 func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {

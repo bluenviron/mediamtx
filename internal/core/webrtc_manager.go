@@ -97,6 +97,9 @@ type webRTCSessionNewRes struct {
 type webRTCSessionNewReq struct {
 	pathName   string
 	remoteAddr string
+	query      string
+	user       string
+	pass       string
 	offer      []byte
 	publish    bool
 	res        chan webRTCSessionNewRes

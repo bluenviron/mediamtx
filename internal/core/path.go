@@ -30,7 +30,7 @@ type pathErrAuth struct {
 
 // Error implements the error interface.
 func (e pathErrAuth) Error() string {
-	return "authentication error"
+	return "authentication failed"
 }
 
 type pathErrNoOnePublishing struct {

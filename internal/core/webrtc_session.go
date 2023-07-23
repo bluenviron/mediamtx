@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -223,13 +224,25 @@ func (s *webRTCSession) runInner2() (int, error) {
 }
 
 func (s *webRTCSession) runPublish() (int, error) {
+	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
+
 	res := s.pathManager.publisherAdd(pathPublisherAddReq{
 		author:   s,
 		pathName: s.req.pathName,
-		skipAuth: true,
+		credentials: authCredentials{
+			query: s.req.query,
+			ip:    net.ParseIP(ip),
+			user:  s.req.user,
+			pass:  s.req.pass,
+			proto: authProtocolWebRTC,
+			id:    &s.uuid,
+		},
 	})
 	if res.err != nil {
-		return http.StatusInternalServerError, res.err
+		if _, ok := res.err.(pathErrAuth); ok {
+			return http.StatusUnauthorized, res.err
+		}
+		return http.StatusBadRequest, res.err
 	}
 
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
@@ -334,16 +347,28 @@ func (s *webRTCSession) runPublish() (int, error) {
 }
 
 func (s *webRTCSession) runRead() (int, error) {
+	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
+
 	res := s.pathManager.readerAdd(pathReaderAddReq{
 		author:   s,
 		pathName: s.req.pathName,
-		skipAuth: true,
+		credentials: authCredentials{
+			query: s.req.query,
+			ip:    net.ParseIP(ip),
+			user:  s.req.user,
+			pass:  s.req.pass,
+			proto: authProtocolWebRTC,
+			id:    &s.uuid,
+		},
 	})
 	if res.err != nil {
+		if _, ok := res.err.(pathErrAuth); ok {
+			return http.StatusUnauthorized, res.err
+		}
 		if strings.HasPrefix(res.err.Error(), "no one is publishing") {
 			return http.StatusNotFound, res.err
 		}
-		return http.StatusInternalServerError, res.err
+		return http.StatusBadRequest, res.err
 	}
 
 	defer res.path.readerRemove(pathReaderRemoveReq{author: s})
