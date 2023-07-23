@@ -140,8 +140,8 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 
 	if res.err != nil {
 		switch terr := res.err.(type) {
-		case pathErrAuth:
-			return c.handleAuthError(terr.wrapped)
+		case *errAuthentication:
+			return c.handleAuthError(terr)
 
 		default:
 			return &base.Response{
@@ -219,11 +219,11 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		if res.err != nil {
 			switch terr := res.err.(type) {
-			case pathErrAuth:
-				res, err := c.handleAuthError(terr.wrapped)
+			case *errAuthentication:
+				res, err := c.handleAuthError(terr)
 				return res, nil, err
 
-			case pathErrNoOnePublishing:
+			case errPathNoOnePublishing:
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
 				}, nil, res.err

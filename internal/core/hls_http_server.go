@@ -154,14 +154,18 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 		},
 	})
 	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuth); ok {
+		if terr, ok := res.err.(*errAuthentication); ok {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return
 			}
 
-			s.Log(logger.Info, "authentication failed: %v", terr.wrapped)
+			ip := ctx.ClientIP()
+			_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
+			remoteAddr := net.JoinHostPort(ip, port)
+
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.message)
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
 		}

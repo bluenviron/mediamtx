@@ -365,10 +365,10 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	})
 
 	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuth); ok {
+		if terr, ok := res.err.(*errAuthentication); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
-			return terr.wrapped
+			return terr
 		}
 		return res.err
 	}
@@ -780,10 +780,10 @@ func (c *rtmpConn) runPublish(u *url.URL) error {
 	})
 
 	if res.err != nil {
-		if terr, ok := res.err.(pathErrAuth); ok {
+		if terr, ok := res.err.(*errAuthentication); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpConnPauseAfterAuthError)
-			return terr.wrapped
+			return terr
 		}
 		return res.err
 	}

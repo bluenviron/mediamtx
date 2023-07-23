@@ -155,11 +155,11 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	if res.err != nil {
 		switch terr := res.err.(type) {
-		case pathErrAuth:
-			res, err := c.handleAuthError(terr.wrapped)
+		case *errAuthentication:
+			res, err := c.handleAuthError(terr)
 			return res, nil, err
 
-		case pathErrNoOnePublishing:
+		case errPathNoOnePublishing:
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
 			}, nil, res.err
