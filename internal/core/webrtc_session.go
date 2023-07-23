@@ -239,7 +239,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 		},
 	})
 	if res.err != nil {
-		if _, ok := res.err.(pathErrAuth); ok {
+		if _, ok := res.err.(*errAuthentication); ok {
 			return http.StatusUnauthorized, res.err
 		}
 		return http.StatusBadRequest, res.err
@@ -362,7 +362,7 @@ func (s *webRTCSession) runRead() (int, error) {
 		},
 	})
 	if res.err != nil {
-		if _, ok := res.err.(pathErrAuth); ok {
+		if _, ok := res.err.(*errAuthentication); ok {
 			return http.StatusUnauthorized, res.err
 		}
 		if strings.HasPrefix(res.err.Error(), "no one is publishing") {

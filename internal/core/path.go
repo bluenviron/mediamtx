@@ -24,21 +24,12 @@ func newEmptyTimer() *time.Timer {
 	return t
 }
 
-type pathErrAuth struct {
-	wrapped error
-}
-
-// Error implements the error interface.
-func (e pathErrAuth) Error() string {
-	return "authentication failed"
-}
-
-type pathErrNoOnePublishing struct {
+type errPathNoOnePublishing struct {
 	pathName string
 }
 
 // Error implements the error interface.
-func (e pathErrNoOnePublishing) Error() string {
+func (e errPathNoOnePublishing) Error() string {
 	return fmt.Sprintf("no one is publishing to path '%s'", e.pathName)
 }
 
@@ -739,7 +730,7 @@ func (pa *path) handleDescribe(req pathDescribeReq) {
 		return
 	}
 
-	req.res <- pathDescribeRes{err: pathErrNoOnePublishing{pathName: pa.name}}
+	req.res <- pathDescribeRes{err: errPathNoOnePublishing{pathName: pa.name}}
 }
 
 func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
@@ -855,7 +846,7 @@ func (pa *path) handleReaderAdd(req pathReaderAddReq) {
 		return
 	}
 
-	req.res <- pathReaderSetupPlayRes{err: pathErrNoOnePublishing{pathName: pa.name}}
+	req.res <- pathReaderSetupPlayRes{err: errPathNoOnePublishing{pathName: pa.name}}
 }
 
 func (pa *path) handleReaderAddPost(req pathReaderAddReq) {

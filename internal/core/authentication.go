@@ -34,6 +34,15 @@ func checkCredential(right string, guess string) bool {
 	return right == guess
 }
 
+type errAuthentication struct {
+	message string
+}
+
+// Error implements the error interface.
+func (e *errAuthentication) Error() string {
+	return "authentication failed: " + e.message
+}
+
 type authProtocol string
 
 const (
@@ -42,58 +51,6 @@ const (
 	authProtocolHLS    authProtocol = "hls"
 	authProtocolWebRTC authProtocol = "webrtc"
 )
-
-func externalAuth(
-	ur string,
-	ip string,
-	user string,
-	password string,
-	path string,
-	protocol authProtocol,
-	id *uuid.UUID,
-	publish bool,
-	query string,
-) error {
-	enc, _ := json.Marshal(struct {
-		IP       string     `json:"ip"`
-		User     string     `json:"user"`
-		Password string     `json:"password"`
-		Path     string     `json:"path"`
-		Protocol string     `json:"protocol"`
-		ID       *uuid.UUID `json:"id"`
-		Action   string     `json:"action"`
-		Query    string     `json:"query"`
-	}{
-		IP:       ip,
-		User:     user,
-		Password: password,
-		Path:     path,
-		Protocol: string(protocol),
-		ID:       id,
-		Action: func() string {
-			if publish {
-				return "publish"
-			}
-			return "read"
-		}(),
-		Query: query,
-	})
-	res, err := http.Post(ur, "application/json", bytes.NewReader(enc))
-	if err != nil {
-		return err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		if resBody, err := io.ReadAll(res.Body); err == nil && len(resBody) != 0 {
-			return fmt.Errorf("external authentication replied with code %d: %s", res.StatusCode, string(resBody))
-		}
-
-		return fmt.Errorf("external authentication replied with code %d", res.StatusCode)
-	}
-
-	return nil
-}
 
 type authCredentials struct {
 	query       string
@@ -107,7 +64,53 @@ type authCredentials struct {
 	rtspNonce   string
 }
 
-func authenticate(
+func doExternalAuthentication(
+	ur string,
+	path string,
+	publish bool,
+	credentials authCredentials,
+) error {
+	enc, _ := json.Marshal(struct {
+		IP       string     `json:"ip"`
+		User     string     `json:"user"`
+		Password string     `json:"password"`
+		Path     string     `json:"path"`
+		Protocol string     `json:"protocol"`
+		ID       *uuid.UUID `json:"id"`
+		Action   string     `json:"action"`
+		Query    string     `json:"query"`
+	}{
+		IP:       credentials.ip.String(),
+		User:     credentials.user,
+		Password: credentials.pass,
+		Path:     path,
+		Protocol: string(credentials.proto),
+		ID:       credentials.id,
+		Action: func() string {
+			if publish {
+				return "publish"
+			}
+			return "read"
+		}(),
+		Query: credentials.query,
+	})
+	res, err := http.Post(ur, "application/json", bytes.NewReader(enc))
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		if resBody, err := io.ReadAll(res.Body); err == nil && len(resBody) != 0 {
+			return fmt.Errorf("server replied with code %d: %s", res.StatusCode, string(resBody))
+		}
+		return fmt.Errorf("server replied with code %d", res.StatusCode)
+	}
+
+	return nil
+}
+
+func doAuthentication(
 	externalAuthenticationURL string,
 	rtspAuthMethods conf.AuthMethods,
 	pathName string,
@@ -125,19 +128,14 @@ func authenticate(
 	}
 
 	if externalAuthenticationURL != "" {
-		err := externalAuth(
+		err := doExternalAuthentication(
 			externalAuthenticationURL,
-			credentials.ip.String(),
-			credentials.user,
-			credentials.pass,
 			pathName,
-			credentials.proto,
-			credentials.id,
 			publish,
-			credentials.query,
+			credentials,
 		)
 		if err != nil {
-			return fmt.Errorf("external authentication failed: %s", err)
+			return &errAuthentication{message: fmt.Sprintf("external authentication failed: %s", err)}
 		}
 	}
 
@@ -157,7 +155,7 @@ func authenticate(
 
 	if pathIPs != nil {
 		if !ipEqualOrInRange(credentials.ip, pathIPs) {
-			return fmt.Errorf("IP '%s' not allowed", credentials.ip)
+			return &errAuthentication{message: fmt.Sprintf("IP %s not allowed", credentials.ip)}
 		}
 	}
 
@@ -172,11 +170,11 @@ func authenticate(
 				"IPCAM",
 				credentials.rtspNonce)
 			if err != nil {
-				return err
+				return &errAuthentication{message: err.Error()}
 			}
 		} else if !checkCredential(pathUser, credentials.user) ||
 			!checkCredential(pathPass, credentials.pass) {
-			return fmt.Errorf("invalid credentials")
+			return &errAuthentication{message: "invalid credentials"}
 		}
 	}
 

@@ -235,10 +235,10 @@ outer:
 				continue
 			}
 
-			err = authenticate(pm.externalAuthenticationURL, pm.authMethods,
+			err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
 				req.name, pathConf, req.publish, req.credentials)
 			if err != nil {
-				req.res <- pathGetConfForPathRes{err: pathErrAuth{wrapped: err}}
+				req.res <- pathGetConfForPathRes{err: err}
 				continue
 			}
 
@@ -251,9 +251,9 @@ outer:
 				continue
 			}
 
-			err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+			err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
 			if err != nil {
-				req.res <- pathDescribeRes{err: pathErrAuth{wrapped: err}}
+				req.res <- pathDescribeRes{err: err}
 				continue
 			}
 
@@ -272,9 +272,9 @@ outer:
 			}
 
 			if !req.skipAuth {
-				err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+				err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
 				if err != nil {
-					req.res <- pathReaderSetupPlayRes{err: pathErrAuth{wrapped: err}}
+					req.res <- pathReaderSetupPlayRes{err: err}
 					continue
 				}
 			}
@@ -294,9 +294,9 @@ outer:
 			}
 
 			if !req.skipAuth {
-				err = authenticate(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
+				err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
 				if err != nil {
-					req.res <- pathPublisherAnnounceRes{err: pathErrAuth{wrapped: err}}
+					req.res <- pathPublisherAnnounceRes{err: err}
 					continue
 				}
 			}
