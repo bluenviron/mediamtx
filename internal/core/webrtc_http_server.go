@@ -291,6 +291,9 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		return
 	}
 
+	ip := ctx.ClientIP()
+	_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
+
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	res := s.pathManager.getConfForPath(pathGetConfForPathReq{
@@ -298,7 +301,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		publish: publish,
 		credentials: authCredentials{
 			query: ctx.Request.URL.RawQuery,
-			ip:    net.ParseIP(ctx.ClientIP()),
+			ip:    net.ParseIP(ip),
 			user:  user,
 			pass:  pass,
 			proto: authProtocolWebRTC,
@@ -353,7 +356,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 			res := s.parent.sessionNew(webRTCSessionNewReq{
 				pathName:   dir,
-				remoteAddr: ctx.ClientIP(),
+				remoteAddr: net.JoinHostPort(ip, port),
 				offer:      offer,
 				publish:    (fname == "whip"),
 			})
