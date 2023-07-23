@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -318,6 +319,10 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				}
 
 				s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.message)
+
+				// wait some seconds to stop brute force attacks
+				<-time.After(webrtcPauseAfterAuthError)
+
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return
 			}

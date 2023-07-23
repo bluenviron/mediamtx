@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	rtmpConnPauseAfterAuthError = 2 * time.Second
+	rtmpPauseAfterAuthError = 2 * time.Second
 )
 
 func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
@@ -367,7 +367,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	if res.err != nil {
 		if terr, ok := res.err.(*errAuthentication); ok {
 			// wait some seconds to stop brute force attacks
-			<-time.After(rtmpConnPauseAfterAuthError)
+			<-time.After(rtmpPauseAfterAuthError)
 			return terr
 		}
 		return res.err
@@ -782,7 +782,7 @@ func (c *rtmpConn) runPublish(u *url.URL) error {
 	if res.err != nil {
 		if terr, ok := res.err.(*errAuthentication); ok {
 			// wait some seconds to stop brute force attacks
-			<-time.After(rtmpConnPauseAfterAuthError)
+			<-time.After(rtmpPauseAfterAuthError)
 			return terr
 		}
 		return res.err
