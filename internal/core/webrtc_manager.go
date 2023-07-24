@@ -25,7 +25,7 @@ import (
 const (
 	webrtcPauseAfterAuthError  = 2 * time.Second
 	webrtcHandshakeTimeout     = 10 * time.Second
-	webrtcTrackGatherTimeout   = 2 * time.Second
+	webrtcTrackGatherTimeout   = 5 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 	webrtcStreamID             = "mediamtx"
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
