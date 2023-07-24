@@ -7,11 +7,13 @@ linters:
   - gocritic
   - gofmt
   - gofumpt
-  - misspell
   - lll
+  - misspell
+  - nilerr
   - prealloc
   - revive
   - unconvert
+  - wastedassign
   - whitespace
   disable:
   - errcheck

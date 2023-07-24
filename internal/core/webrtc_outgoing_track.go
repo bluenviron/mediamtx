@@ -61,7 +61,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 
 				packets, err := encoder.Encode(tunit.OBUs, tunit.PTS)
 				if err != nil {
-					return nil
+					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
@@ -108,7 +108,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 
 				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
 				if err != nil {
-					return nil
+					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
@@ -155,7 +155,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 
 				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
 				if err != nil {
-					return nil
+					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
@@ -215,7 +215,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 
 				packets, err := encoder.Encode(tunit.AU, tunit.PTS)
 				if err != nil {
-					return nil
+					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
