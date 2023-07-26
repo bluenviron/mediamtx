@@ -9,7 +9,7 @@ require (
 	github.com/asticode/go-astits v1.11.0
 	github.com/bluenviron/gohlslib v0.2.7
 	github.com/bluenviron/gortsplib/v3 v3.8.2
-	github.com/bluenviron/mediacommon v0.5.1
+	github.com/bluenviron/mediacommon v0.6.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.0
