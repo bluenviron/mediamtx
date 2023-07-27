@@ -16,7 +16,6 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -442,15 +441,12 @@ func (m *hlsMuxer) createAudioTrack(stream *stream) (*media.Media, *gohlslib.Tra
 				}
 				pts := tunit.PTS - audioStartPTS
 
-				for i, au := range tunit.AUs {
-					err := m.muxer.WriteAudio(
-						tunit.NTP,
-						pts+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-							time.Second/time.Duration(audioFormatMPEG4AudioGeneric.ClockRate()),
-						au)
-					if err != nil {
-						return fmt.Errorf("muxer error: %v", err)
-					}
+				err := m.muxer.WriteMPEG4Audio(
+					tunit.NTP,
+					pts,
+					tunit.AUs)
+				if err != nil {
+					return fmt.Errorf("muxer error: %v", err)
 				}
 
 				return nil
@@ -488,10 +484,10 @@ func (m *hlsMuxer) createAudioTrack(stream *stream) (*media.Media, *gohlslib.Tra
 				}
 				pts := tunit.PTS - audioStartPTS
 
-				err := m.muxer.WriteAudio(
+				err := m.muxer.WriteMPEG4Audio(
 					tunit.NTP,
 					pts,
-					tunit.AU)
+					[][]byte{tunit.AU})
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}
@@ -524,10 +520,10 @@ func (m *hlsMuxer) createAudioTrack(stream *stream) (*media.Media, *gohlslib.Tra
 				}
 				pts := tunit.PTS - audioStartPTS
 
-				err := m.muxer.WriteAudio(
+				err := m.muxer.WriteOpus(
 					tunit.NTP,
 					pts,
-					tunit.Frame)
+					tunit.Packets)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}

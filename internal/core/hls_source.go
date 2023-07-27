@@ -77,10 +77,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}},
 				}
 
-				c.OnData(track, func(pts time.Duration, unit interface{}) {
+				c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
 					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 						PTS: pts,
-						AU:  unit.([][]byte),
+						AU:  au,
 						NTP: time.Now(),
 					})
 				})
@@ -96,10 +96,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}},
 				}
 
-				c.OnData(track, func(pts time.Duration, unit interface{}) {
+				c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
 					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 						PTS: pts,
-						AU:  unit.([][]byte),
+						AU:  au,
 						NTP: time.Now(),
 					})
 				})
@@ -116,10 +116,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}},
 				}
 
-				c.OnData(track, func(pts time.Duration, unit interface{}) {
+				c.OnDataMPEG4Audio(track, func(pts time.Duration, dts time.Duration, aus [][]byte) {
 					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 						PTS: pts,
-						AUs: [][]byte{unit.([]byte)},
+						AUs: aus,
 						NTP: time.Now(),
 					})
 				})
@@ -133,11 +133,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}},
 				}
 
-				c.OnData(track, func(pts time.Duration, unit interface{}) {
+				c.OnDataOpus(track, func(pts time.Duration, dts time.Duration, packets [][]byte) {
 					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
-						PTS:   pts,
-						Frame: unit.([]byte),
-						NTP:   time.Now(),
+						PTS:     pts,
+						Packets: packets,
+						NTP:     time.Now(),
 					})
 				})
 			}

@@ -7,9 +7,9 @@ require (
 	github.com/abema/go-mp4 v0.11.0
 	github.com/alecthomas/kong v0.8.0
 	github.com/asticode/go-astits v1.11.0
-	github.com/bluenviron/gohlslib v0.2.7
-	github.com/bluenviron/gortsplib/v3 v3.8.2
-	github.com/bluenviron/mediacommon v0.6.0
+	github.com/bluenviron/gohlslib v0.3.0
+	github.com/bluenviron/gortsplib/v3 v3.9.0
+	github.com/bluenviron/mediacommon v0.7.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.0
