@@ -639,15 +639,23 @@ videotestsrc ! video/x-raw,width=1280,height=720 ! x264enc speed-preset=ultrafas
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
 
+or FFmpeg:
+
+```
+ffmpeg -re -f lavfi -i testsrc=size=1280x720:rate=30 \
+-pix_fmt yuv420p -c:v libx264 -preset ultrafast -b:v 600k \
+-f mpegts udp://238.0.0.1:1234?pkt_size=1316
+```
+
 Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
 
 ```yml
 paths:
-  udp:
+  mypath:
     source: udp://238.0.0.1:1234
 ```
 
-The resulting stream will be available in path `/udp`.
+The resulting stream will be available in path `/mypath`.
 
 ## Read from the server
 
