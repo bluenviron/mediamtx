@@ -12,10 +12,21 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp9"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 )
+
+// workaround until this gets tagged:
+// https://github.com/pion/rtp/pull/234
+func rtpPacketCopyForMarshal(in *rtp.Packet) *rtp.Packet {
+	return &rtp.Packet{
+		Header:      in.Header,
+		Payload:     in.Payload,
+		PaddingSize: in.PaddingSize,
+	}
+}
 
 type webRTCOutgoingTrack struct {
 	sender *webrtc.RTPSender
@@ -65,7 +76,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
@@ -112,7 +123,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
@@ -159,7 +170,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
@@ -219,7 +230,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
@@ -254,7 +265,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
@@ -284,7 +295,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
@@ -321,7 +332,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(rtpPacketCopyForMarshal(pkt))
 				}
 
 				return nil
