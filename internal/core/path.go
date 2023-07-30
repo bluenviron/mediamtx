@@ -115,7 +115,7 @@ type pathReaderAddReq struct {
 	res         chan pathReaderSetupPlayRes
 }
 
-type pathPublisherAnnounceRes struct {
+type pathPublisherAddRes struct {
 	path *path
 	err  error
 }
@@ -125,7 +125,7 @@ type pathPublisherAddReq struct {
 	pathName    string
 	skipAuth    bool
 	credentials authCredentials
-	res         chan pathPublisherAnnounceRes
+	res         chan pathPublisherAddRes
 }
 
 type pathPublisherRecordRes struct {
@@ -743,7 +743,7 @@ func (pa *path) handlePublisherRemove(req pathPublisherRemoveReq) {
 
 func (pa *path) handlePublisherAdd(req pathPublisherAddReq) {
 	if pa.conf.Source != "publisher" {
-		req.res <- pathPublisherAnnounceRes{
+		req.res <- pathPublisherAddRes{
 			err: fmt.Errorf("can't publish to path '%s' since 'source' is not 'publisher'", pa.name),
 		}
 		return
@@ -751,7 +751,7 @@ func (pa *path) handlePublisherAdd(req pathPublisherAddReq) {
 
 	if pa.source != nil {
 		if pa.conf.DisablePublisherOverride {
-			req.res <- pathPublisherAnnounceRes{err: fmt.Errorf("someone is already publishing to path '%s'", pa.name)}
+			req.res <- pathPublisherAddRes{err: fmt.Errorf("someone is already publishing to path '%s'", pa.name)}
 			return
 		}
 
@@ -762,7 +762,7 @@ func (pa *path) handlePublisherAdd(req pathPublisherAddReq) {
 
 	pa.source = req.author
 
-	req.res <- pathPublisherAnnounceRes{path: pa}
+	req.res <- pathPublisherAddRes{path: pa}
 }
 
 func (pa *path) handlePublisherStart(req pathPublisherStartReq) {
@@ -973,12 +973,12 @@ func (pa *path) publisherRemove(req pathPublisherRemoveReq) {
 }
 
 // publisherAdd is called by a publisher through pathManager.
-func (pa *path) publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes {
+func (pa *path) publisherAdd(req pathPublisherAddReq) pathPublisherAddRes {
 	select {
 	case pa.chPublisherAdd <- req:
 		return <-req.res
 	case <-pa.ctx.Done():
-		return pathPublisherAnnounceRes{err: fmt.Errorf("terminated")}
+		return pathPublisherAddRes{err: fmt.Errorf("terminated")}
 	}
 }
 

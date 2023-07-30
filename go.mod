@@ -8,7 +8,7 @@ require (
 	github.com/alecthomas/kong v0.8.0
 	github.com/asticode/go-astits v1.11.1-0.20230727094110-0df190a2dd87
 	github.com/bluenviron/gohlslib v0.3.1-0.20230730162911-eb9f86511072
-	github.com/bluenviron/gortsplib/v3 v3.9.0
+	github.com/bluenviron/gortsplib/v3 v3.9.1-0.20230730204034-8b8b52e689d9
 	github.com/bluenviron/mediacommon v0.7.1-0.20230730144331-10b74a4f6eda
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
