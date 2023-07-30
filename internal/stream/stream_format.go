@@ -1,4 +1,4 @@
-package core
+package stream
 
 import (
 	"sync"
@@ -14,17 +14,17 @@ import (
 )
 
 type streamFormat struct {
-	source         source
+	source         logger.Writer
 	proc           formatprocessor.Processor
 	mutex          sync.RWMutex
-	nonRTSPReaders map[reader]func(formatprocessor.Unit)
+	nonRTSPReaders map[interface{}]func(formatprocessor.Unit)
 }
 
 func newStreamFormat(
 	udpMaxPayloadSize int,
 	forma formats.Format,
 	generateRTPPackets bool,
-	source source,
+	source logger.Writer,
 ) (*streamFormat, error) {
 	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets, source)
 	if err != nil {
@@ -34,25 +34,25 @@ func newStreamFormat(
 	sf := &streamFormat{
 		source:         source,
 		proc:           proc,
-		nonRTSPReaders: make(map[reader]func(formatprocessor.Unit)),
+		nonRTSPReaders: make(map[interface{}]func(formatprocessor.Unit)),
 	}
 
 	return sf, nil
 }
 
-func (sf *streamFormat) readerAdd(r reader, cb func(formatprocessor.Unit)) {
+func (sf *streamFormat) addReader(r interface{}, cb func(formatprocessor.Unit)) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.nonRTSPReaders[r] = cb
 }
 
-func (sf *streamFormat) readerRemove(r reader) {
+func (sf *streamFormat) removeReader(r interface{}) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatprocessor.Unit) {
+func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data formatprocessor.Unit) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 
@@ -76,6 +76,6 @@ func (sf *streamFormat) writeUnit(s *stream, medi *media.Media, data formatproce
 	}
 }
 
-func (sf *streamFormat) writeRTPPacket(s *stream, medi *media.Media, pkt *rtp.Packet, ntp time.Time) {
+func (sf *streamFormat) writeRTPPacket(s *Stream, medi *media.Media, pkt *rtp.Packet, ntp time.Time) {
 	sf.writeUnit(s, medi, sf.proc.UnitForRTPPacket(pkt, ntp))
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const (
@@ -139,7 +140,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 	}
 
 	var medias media.Medias
-	var stream *stream
+	var stream *stream.Stream
 
 	var td *mpegts.TimeDecoder
 	decodeTime := func(t int64) time.Duration {
@@ -163,7 +164,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 					PTS: decodeTime(pts),
 					AU:  au,
 					NTP: time.Now(),
@@ -180,7 +181,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
+				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 					PTS: decodeTime(pts),
 					AU:  au,
 					NTP: time.Now(),
@@ -201,7 +202,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataMPEG4Audio(track, func(pts int64, _ int64, aus [][]byte) error {
-				stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
+				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 					PTS: decodeTime(pts),
 					AUs: aus,
 					NTP: time.Now(),
@@ -219,7 +220,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataOpus(track, func(pts int64, _ int64, packets [][]byte) error {
-				stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 					PTS:     decodeTime(pts),
 					Packets: packets,
 					NTP:     time.Now(),

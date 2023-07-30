@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 type rtspSessionPathManager interface {
@@ -40,7 +41,7 @@ type rtspSession struct {
 	uuid      uuid.UUID
 	created   time.Time
 	path      *path
-	stream    *stream
+	stream    *stream.Stream
 	onReadCmd *externalcmd.Cmd // read
 	mutex     sync.Mutex
 	state     gortsplib.ServerSessionState
@@ -245,7 +246,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, res.stream.rtspStream, nil
+		}, res.stream.RTSPStream(), nil
 
 	default: // record
 		return &base.Response{
@@ -315,7 +316,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 			cforma := forma
 
 			ctx.Session.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-				res.stream.writeRTPPacket(cmedi, cforma, pkt, time.Now())
+				res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
 			})
 		}
 	}

@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 type hlsSourceParent interface {
@@ -39,7 +40,7 @@ func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) 
 
 // run implements sourceStaticImpl.
 func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
-	var stream *stream
+	var stream *stream.Stream
 
 	defer func() {
 		if stream != nil {
@@ -78,7 +79,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
 						PTS: pts,
 						AU:  au,
 						NTP: time.Now(),
@@ -97,7 +98,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
+					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
 						PTS: pts,
 						AU:  au,
 						NTP: time.Now(),
@@ -117,7 +118,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnDataMPEG4Audio(track, func(pts time.Duration, dts time.Duration, aus [][]byte) {
-					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
+					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 						PTS: pts,
 						AUs: aus,
 						NTP: time.Now(),
@@ -134,7 +135,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				}
 
 				c.OnDataOpus(track, func(pts time.Duration, dts time.Duration, packets [][]byte) {
-					stream.writeUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 						PTS:     pts,
 						Packets: packets,
 						NTP:     time.Now(),
