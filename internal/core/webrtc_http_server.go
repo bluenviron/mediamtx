@@ -160,7 +160,7 @@ func marshalICEFragment(offer *webrtc.SessionDescription, candidates []*webrtc.I
 
 type webRTCHTTPServerParent interface {
 	logger.Writer
-	generateICEServers() []webrtc.ICEServer
+	generateICEServers() ([]webrtc.ICEServer, error)
 	sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes
 	sessionAddCandidates(req webRTCSessionAddCandidatesReq) webRTCSessionAddCandidatesRes
 }
@@ -346,9 +346,15 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 	case "whip", "whep":
 		switch ctx.Request.Method {
 		case http.MethodOptions:
+			servers, err := s.parent.generateICEServers()
+			if err != nil {
+				ctx.Writer.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.generateICEServers())
+			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(servers)
 			ctx.Writer.WriteHeader(http.StatusOK)
 
 		case http.MethodPost:
@@ -376,12 +382,18 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
+			servers, err := s.parent.generateICEServers()
+			if err != nil {
+				ctx.Writer.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
 			ctx.Writer.Header().Set("Content-Type", "application/sdp")
 			ctx.Writer.Header().Set("Access-Control-Expose-Headers", "E-Tag, Accept-Patch, Link")
 			ctx.Writer.Header().Set("E-Tag", res.sx.secret.String())
 			ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 			ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(s.parent.generateICEServers())
+			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(servers)
 			ctx.Writer.Header().Set("Location", ctx.Request.URL.String())
 			ctx.Writer.WriteHeader(http.StatusCreated)
 			ctx.Writer.Write(res.answer)

@@ -177,9 +177,8 @@ func TestConfEncryption(t *testing.T) {
 		copy(secretKey[:], key)
 
 		var nonce [24]byte
-		if _, err := io.ReadFull(rand.Reader, nonce[:]); err != nil {
-			panic(err)
-		}
+		_, err := io.ReadFull(rand.Reader, nonce[:])
+		require.NoError(t, err)
 
 		encrypted := secretbox.Seal(nonce[:], []byte(plaintext), &nonce, &secretKey)
 		return base64.StdEncoding.EncodeToString(encrypted)

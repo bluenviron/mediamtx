@@ -31,33 +31,57 @@ const (
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
 )
 
-func randInt63() int64 {
+func randInt63() (int64, error) {
 	var b [8]byte
-	rand.Read(b[:])
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return 0, err
+	}
+
 	return int64(uint64(b[0]&0b01111111)<<56 | uint64(b[1])<<48 | uint64(b[2])<<40 | uint64(b[3])<<32 |
-		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7]))
+		uint64(b[4])<<24 | uint64(b[5])<<16 | uint64(b[6])<<8 | uint64(b[7])), nil
 }
 
 // https://cs.opensource.google/go/go/+/refs/tags/go1.20.4:src/math/rand/rand.go;l=119
-func randInt63n(n int64) int64 {
+func randInt63n(n int64) (int64, error) {
 	if n&(n-1) == 0 { // n is power of two, can mask
-		return randInt63() & (n - 1)
+		r, err := randInt63()
+		if err != nil {
+			return 0, err
+		}
+		return r & (n - 1), nil
 	}
+
 	max := int64((1 << 63) - 1 - (1<<63)%uint64(n))
-	v := randInt63()
-	for v > max {
-		v = randInt63()
+
+	v, err := randInt63()
+	if err != nil {
+		return 0, err
 	}
-	return v % n
+
+	for v > max {
+		v, err = randInt63()
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return v % n, nil
 }
 
-func randomTurnUser() string {
+func randomTurnUser() (string, error) {
 	const charset = "abcdefghijklmnopqrstuvwxyz1234567890"
 	b := make([]byte, 20)
 	for i := range b {
-		b[i] = charset[int(randInt63n(int64(len(charset))))]
+		j, err := randInt63n(int64(len(charset)))
+		if err != nil {
+			return "", err
+		}
+
+		b[i] = charset[int(j)]
 	}
-	return string(b)
+
+	return string(b), nil
 }
 
 type webRTCManagerAPISessionsListRes struct {
@@ -363,14 +387,23 @@ func (m *webRTCManager) findSessionByUUID(uuid uuid.UUID) *webRTCSession {
 	return nil
 }
 
-func (m *webRTCManager) generateICEServers() []webrtc.ICEServer {
+func (m *webRTCManager) generateICEServers() ([]webrtc.ICEServer, error) {
 	ret := make([]webrtc.ICEServer, len(m.iceServers))
+
 	for i, server := range m.iceServers {
 		if server.Username == "AUTH_SECRET" {
 			expireDate := time.Now().Add(webrtcTurnSecretExpiration).Unix()
-			server.Username = strconv.FormatInt(expireDate, 10) + ":" + randomTurnUser()
+
+			user, err := randomTurnUser()
+			if err != nil {
+				return nil, err
+			}
+
+			server.Username = strconv.FormatInt(expireDate, 10) + ":" + user
+
 			h := hmac.New(sha1.New, []byte(server.Password))
 			h.Write([]byte(server.Username))
+
 			server.Password = base64.StdEncoding.EncodeToString(h.Sum(nil))
 		}
 
@@ -380,7 +413,8 @@ func (m *webRTCManager) generateICEServers() []webrtc.ICEServer {
 			Credential: server.Password,
 		}
 	}
-	return ret
+
+	return ret, nil
 }
 
 // sessionNew is called by webRTCHTTPServer.
