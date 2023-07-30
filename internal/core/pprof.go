@@ -7,6 +7,7 @@ import (
 	_ "net/http/pprof"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -17,7 +18,7 @@ type pprofParent interface {
 type pprof struct {
 	parent pprofParent
 
-	httpServer *httpServer
+	httpServer *httpserv.WrappedServer
 }
 
 func newPPROF(
@@ -29,8 +30,11 @@ func newPPROF(
 		parent: parent,
 	}
 
+	network, address := restrictNetwork("tcp", address)
+
 	var err error
-	pp.httpServer, err = newHTTPServer(
+	pp.httpServer, err = httpserv.NewWrappedServer(
+		network,
 		address,
 		readTimeout,
 		"",
@@ -48,7 +52,7 @@ func newPPROF(
 
 func (pp *pprof) close() {
 	pp.Log(logger.Info, "listener is closing")
-	pp.httpServer.close()
+	pp.httpServer.Close()
 }
 
 func (pp *pprof) Log(level logger.Level, format string, args ...interface{}) {

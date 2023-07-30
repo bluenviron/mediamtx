@@ -131,7 +131,7 @@ func newHLSManager(
 	m.pathManager.hlsManagerSet(m)
 
 	if m.metrics != nil {
-		m.metrics.hlsManagerSet(m)
+		m.metrics.setHLSManager(m)
 	}
 
 	m.wg.Add(1)
@@ -226,7 +226,7 @@ outer:
 	m.pathManager.hlsManagerSet(nil)
 
 	if m.metrics != nil {
-		m.metrics.hlsManagerSet(nil)
+		m.metrics.setHLSManager(nil)
 	}
 }
 

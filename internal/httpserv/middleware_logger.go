@@ -1,4 +1,4 @@
-package core
+package httpserv
 
 import (
 	"bytes"
@@ -11,22 +11,22 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type httpLoggerWriter struct {
+type loggerWriter struct {
 	gin.ResponseWriter
 	buf bytes.Buffer
 }
 
-func (w *httpLoggerWriter) Write(b []byte) (int, error) {
+func (w *loggerWriter) Write(b []byte) (int, error) {
 	w.buf.Write(b)
 	return w.ResponseWriter.Write(b)
 }
 
-func (w *httpLoggerWriter) WriteString(s string) (int, error) {
+func (w *loggerWriter) WriteString(s string) (int, error) {
 	w.buf.WriteString(s)
 	return w.ResponseWriter.WriteString(s)
 }
 
-func (w *httpLoggerWriter) dump() string {
+func (w *loggerWriter) dump() string {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "%s %d %s\n", "HTTP/1.1", w.ResponseWriter.Status(), http.StatusText(w.ResponseWriter.Status()))
 	w.ResponseWriter.Header().Write(&buf)
@@ -37,18 +37,15 @@ func (w *httpLoggerWriter) dump() string {
 	return buf.String()
 }
 
-type httpLoggerParent interface {
-	logger.Writer
-}
-
-func httpLoggerMiddleware(p httpLoggerParent) func(*gin.Context) {
+// MiddlewareLogger is a middleware that logs requests and responses.
+func MiddlewareLogger(p logger.Writer) func(*gin.Context) {
 	return func(ctx *gin.Context) {
 		p.Log(logger.Debug, "[conn %v] %s %s", ctx.Request.RemoteAddr, ctx.Request.Method, ctx.Request.URL.Path)
 
 		byts, _ := httputil.DumpRequest(ctx.Request, true)
 		p.Log(logger.Debug, "[conn %v] [c->s] %s", ctx.Request.RemoteAddr, string(byts))
 
-		logw := &httpLoggerWriter{ResponseWriter: ctx.Writer}
+		logw := &loggerWriter{ResponseWriter: ctx.Writer}
 		ctx.Writer = logw
 
 		ctx.Next()

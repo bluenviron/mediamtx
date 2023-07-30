@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -23,7 +24,7 @@ type metricsParent interface {
 type metrics struct {
 	parent metricsParent
 
-	httpServer    *httpServer
+	httpServer    *httpserv.WrappedServer
 	mutex         sync.Mutex
 	pathManager   apiPathManager
 	rtspServer    apiRTSPServer
@@ -45,12 +46,15 @@ func newMetrics(
 	router := gin.New()
 	router.SetTrustedProxies(nil)
 
-	mwLog := httpLoggerMiddleware(m)
+	mwLog := httpserv.MiddlewareLogger(m)
 	router.NoRoute(mwLog)
 	router.GET("/metrics", mwLog, m.onMetrics)
 
+	network, address := restrictNetwork("tcp", address)
+
 	var err error
-	m.httpServer, err = newHTTPServer(
+	m.httpServer, err = httpserv.NewWrappedServer(
+		network,
 		address,
 		readTimeout,
 		"",
@@ -68,7 +72,7 @@ func newMetrics(
 
 func (m *metrics) close() {
 	m.Log(logger.Info, "listener is closing")
-	m.httpServer.close()
+	m.httpServer.Close()
 }
 
 func (m *metrics) Log(level logger.Level, format string, args ...interface{}) {
@@ -221,8 +225,8 @@ func (m *metrics) pathManagerSet(s apiPathManager) {
 	m.pathManager = s
 }
 
-// hlsManagerSet is called by hlsManager.
-func (m *metrics) hlsManagerSet(s apiHLSManager) {
+// setHLSManager is called by hlsManager.
+func (m *metrics) setHLSManager(s apiHLSManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.hlsManager = s

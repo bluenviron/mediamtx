@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -32,7 +33,7 @@ type hlsHTTPServer struct {
 	pathManager *pathManager
 	parent      hlsHTTPServerParent
 
-	inner *httpServer
+	inner *httpserv.WrappedServer
 }
 
 func newHLSHTTPServer( //nolint:dupl
@@ -62,12 +63,15 @@ func newHLSHTTPServer( //nolint:dupl
 	}
 
 	router := gin.New()
-	httpSetTrustedProxies(router, trustedProxies)
+	router.SetTrustedProxies(trustedProxies.ToTrustedProxies())
 
-	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
+	router.NoRoute(httpserv.MiddlewareLogger(s), httpserv.MiddlewareServerHeader, s.onRequest)
+
+	network, address := restrictNetwork("tcp", address)
 
 	var err error
-	s.inner, err = newHTTPServer(
+	s.inner, err = httpserv.NewWrappedServer(
+		network,
 		address,
 		readTimeout,
 		serverCert,
@@ -86,7 +90,7 @@ func (s *hlsHTTPServer) Log(level logger.Level, format string, args ...interface
 }
 
 func (s *hlsHTTPServer) close() {
-	s.inner.close()
+	s.inner.Close()
 }
 
 func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {

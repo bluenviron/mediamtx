@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -195,7 +196,7 @@ type api struct {
 	webRTCManager apiWebRTCManager
 	parent        apiParent
 
-	httpServer *httpServer
+	httpServer *httpserv.WrappedServer
 	mutex      sync.Mutex
 }
 
@@ -227,9 +228,9 @@ func newAPI(
 	router := gin.New()
 	router.SetTrustedProxies(nil)
 
-	mwLog := httpLoggerMiddleware(a)
-	router.NoRoute(mwLog, httpServerHeaderMiddleware)
-	group := router.Group("/", mwLog, httpServerHeaderMiddleware)
+	mwLog := httpserv.MiddlewareLogger(a)
+	router.NoRoute(mwLog, httpserv.MiddlewareServerHeader)
+	group := router.Group("/", mwLog, httpserv.MiddlewareServerHeader)
 
 	group.GET("/v2/config/get", a.onConfigGet)
 	group.POST("/v2/config/set", a.onConfigSet)
@@ -279,8 +280,11 @@ func newAPI(
 		group.POST("/v2/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
+	network, address := restrictNetwork("tcp", address)
+
 	var err error
-	a.httpServer, err = newHTTPServer(
+	a.httpServer, err = httpserv.NewWrappedServer(
+		network,
 		address,
 		readTimeout,
 		"",
@@ -298,7 +302,7 @@ func newAPI(
 
 func (a *api) close() {
 	a.Log(logger.Info, "listener is closing")
-	a.httpServer.close()
+	a.httpServer.Close()
 }
 
 func (a *api) Log(level logger.Level, format string, args ...interface{}) {

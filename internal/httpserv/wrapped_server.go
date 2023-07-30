@@ -1,4 +1,5 @@
-package core
+// Package httpserv contains HTTP server utilities.
+package httpserv
 
 import (
 	"context"
@@ -20,7 +21,7 @@ func (nilWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// exit when there's a panic inside HTTP handlers.
+// exit when there's a panic inside the HTTP handler.
 // https://github.com/golang/go/issues/16542
 type exitOnPanicHandler struct {
 	http.Handler
@@ -39,19 +40,25 @@ func (h exitOnPanicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.Handler.ServeHTTP(w, r)
 }
 
-type httpServer struct {
+// WrappedServer is a wrapper around http.Server that provides:
+// - net.Listener allocation and closure
+// - TLS allocation
+// - exit on panic
+type WrappedServer struct {
 	ln    net.Listener
 	inner *http.Server
 }
 
-func newHTTPServer(
+// NewWrappedServer allocates a WrappedServer.
+func NewWrappedServer(
+	network string,
 	address string,
 	readTimeout conf.StringDuration,
 	serverCert string,
 	serverKey string,
 	handler http.Handler,
-) (*httpServer, error) {
-	ln, err := net.Listen(restrictNetwork("tcp", address))
+) (*WrappedServer, error) {
+	ln, err := net.Listen(network, address)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +76,7 @@ func newHTTPServer(
 		}
 	}
 
-	s := &httpServer{
+	s := &WrappedServer{
 		ln: ln,
 		inner: &http.Server{
 			Handler:           exitOnPanicHandler{handler},
@@ -88,7 +95,8 @@ func newHTTPServer(
 	return s, nil
 }
 
-func (s *httpServer) close() {
+// Close closes all resources and waits for all routines to return.
+func (s *WrappedServer) Close() {
 	s.inner.Shutdown(context.Background())
 	s.ln.Close() // in case Shutdown() is called before Serve()
 }
