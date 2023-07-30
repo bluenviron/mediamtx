@@ -55,3 +55,12 @@ func (d *IPsOrCIDRs) UnmarshalEnv(s string) error {
 	byts, _ := json.Marshal(strings.Split(s, ","))
 	return d.UnmarshalJSON(byts)
 }
+
+// ToTrustedProxies converts IPsOrCIDRs into a string slice for SetTrustedProxies.
+func (d *IPsOrCIDRs) ToTrustedProxies() []string {
+	ret := make([]string, len(*d))
+	for i, entry := range *d {
+		ret[i] = entry.String()
+	}
+	return ret
+}

@@ -18,6 +18,7 @@ import (
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -170,7 +171,7 @@ type webRTCHTTPServer struct {
 	pathManager *pathManager
 	parent      webRTCHTTPServerParent
 
-	inner *httpServer
+	inner *httpserv.WrappedServer
 }
 
 func newWebRTCHTTPServer( //nolint:dupl
@@ -200,11 +201,14 @@ func newWebRTCHTTPServer( //nolint:dupl
 	}
 
 	router := gin.New()
-	httpSetTrustedProxies(router, trustedProxies)
-	router.NoRoute(httpLoggerMiddleware(s), httpServerHeaderMiddleware, s.onRequest)
+	router.SetTrustedProxies(trustedProxies.ToTrustedProxies())
+	router.NoRoute(httpserv.MiddlewareLogger(s), httpserv.MiddlewareServerHeader, s.onRequest)
+
+	network, address := restrictNetwork("tcp", address)
 
 	var err error
-	s.inner, err = newHTTPServer(
+	s.inner, err = httpserv.NewWrappedServer(
+		network,
 		address,
 		readTimeout,
 		serverCert,
@@ -223,7 +227,7 @@ func (s *webRTCHTTPServer) Log(level logger.Level, format string, args ...interf
 }
 
 func (s *webRTCHTTPServer) close() {
-	s.inner.close()
+	s.inner.Close()
 }
 
 func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
