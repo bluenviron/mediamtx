@@ -40,6 +40,13 @@ func h265RandomAccessPresent(au [][]byte) bool {
 	return false
 }
 
+type srtConnState int
+
+const (
+	srtConnStateRead srtConnState = iota + 1
+	srtConnStatePublish
+)
+
 type srtConnPathManager interface {
 	addReader(req pathAddReaderReq) pathAddReaderRes
 	addPublisher(req pathAddPublisherReq) pathAddPublisherRes
@@ -62,7 +69,12 @@ type srtConn struct {
 
 	ctx       context.Context
 	ctxCancel func()
+	created   time.Time
 	uuid      uuid.UUID
+	mutex     sync.RWMutex
+	state     srtConnState
+	pathName  string
+	conn      srt.Conn
 
 	chNew     chan srtNewConnReq
 	chSetConn chan srt.Conn
@@ -92,6 +104,7 @@ func newSRTConn(
 		parent:            parent,
 		ctx:               ctx,
 		ctxCancel:         ctxCancel,
+		created:           time.Now(),
 		uuid:              uuid.New(),
 		chNew:             make(chan srtNewConnReq),
 		chSetConn:         make(chan srt.Conn),
@@ -198,6 +211,12 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 	if err != nil {
 		return true, err
 	}
+
+	c.mutex.Lock()
+	c.state = srtConnStatePublish
+	c.pathName = pathName
+	c.conn = sconn
+	c.mutex.Unlock()
 
 	readerErr := make(chan error)
 	go func() {
@@ -377,6 +396,12 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 		return true, err
 	}
 	defer sconn.Close()
+
+	c.mutex.Lock()
+	c.state = srtConnStateRead
+	c.pathName = pathName
+	c.conn = sconn
+	c.mutex.Unlock()
 
 	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
 	go func() {
@@ -746,4 +771,40 @@ func (c *srtConn) apiReaderDescribe() pathAPISourceOrReader {
 // apiSourceDescribe implements source.
 func (c *srtConn) apiSourceDescribe() pathAPISourceOrReader {
 	return c.apiReaderDescribe()
+}
+
+func (c *srtConn) apiItem() *apiSRTConn {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	bytesReceived := uint64(0)
+	bytesSent := uint64(0)
+
+	if c.conn != nil {
+		var s srt.Statistics
+		c.conn.Stats(&s)
+		bytesReceived = s.Accumulated.ByteRecv
+		bytesSent = s.Accumulated.ByteSent
+	}
+
+	return &apiSRTConn{
+		ID:         c.uuid,
+		Created:    c.created,
+		RemoteAddr: c.connReq.RemoteAddr().String(),
+		State: func() string {
+			switch c.state {
+			case srtConnStateRead:
+				return "read"
+
+			case srtConnStatePublish:
+				return "publish"
+
+			default:
+				return "idle"
+			}
+		}(),
+		Path:          c.pathName,
+		BytesReceived: bytesReceived,
+		BytesSent:     bytesSent,
+	}
 }

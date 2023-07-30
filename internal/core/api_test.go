@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
@@ -17,6 +18,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	"github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -509,6 +512,7 @@ func TestAPIProtocolList(t *testing.T) {
 		"rtmps",
 		"hls",
 		"webrtc",
+		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -663,10 +667,33 @@ func TestAPIProtocolList(t *testing.T) {
 				})
 
 				<-c.incomingTrack
+
+			case "srt":
+				conf := srt.DefaultConfig()
+				conf.StreamId = "publish:mypath"
+
+				conn, err := srt.Dial("srt", "localhost:8890", conf)
+				require.NoError(t, err)
+				defer conn.Close()
+
+				track := &mpegts.Track{
+					PID:   256,
+					Codec: &mpegts.CodecH264{},
+				}
+
+				bw := bufio.NewWriter(conn)
+				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+				require.NoError(t, err)
+
+				err = w.WriteH26x(track, 0, 0, true, [][]byte{{1}})
+				require.NoError(t, err)
+				bw.Flush()
+
+				time.Sleep(500 * time.Millisecond)
 			}
 
 			switch ca {
-			case "rtsp conns", "rtsp sessions", "rtsps conns", "rtsps sessions", "rtmp", "rtmps":
+			case "rtsp conns", "rtsp sessions", "rtsps conns", "rtsps sessions", "rtmp", "rtmps", "srt":
 				var pa string
 				switch ca {
 				case "rtsp conns":
@@ -686,6 +713,9 @@ func TestAPIProtocolList(t *testing.T) {
 
 				case "rtmps":
 					pa = "rtmpsconns"
+
+				case "srt":
+					pa = "srtconns"
 				}
 
 				type item struct {
@@ -763,6 +793,7 @@ func TestAPIProtocolGet(t *testing.T) {
 		"rtmps",
 		"hls",
 		"webrtc",
+		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -917,10 +948,33 @@ func TestAPIProtocolGet(t *testing.T) {
 				})
 
 				<-c.incomingTrack
+
+			case "srt":
+				conf := srt.DefaultConfig()
+				conf.StreamId = "publish:mypath"
+
+				conn, err := srt.Dial("srt", "localhost:8890", conf)
+				require.NoError(t, err)
+				defer conn.Close()
+
+				track := &mpegts.Track{
+					PID:   256,
+					Codec: &mpegts.CodecH264{},
+				}
+
+				bw := bufio.NewWriter(conn)
+				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+				require.NoError(t, err)
+
+				err = w.WriteH26x(track, 0, 0, true, [][]byte{{1}})
+				require.NoError(t, err)
+				bw.Flush()
+
+				time.Sleep(500 * time.Millisecond)
 			}
 
 			switch ca {
-			case "rtsp conns", "rtsp sessions", "rtsps conns", "rtsps sessions", "rtmp", "rtmps":
+			case "rtsp conns", "rtsp sessions", "rtsps conns", "rtsps sessions", "rtmp", "rtmps", "srt":
 				var pa string
 				switch ca {
 				case "rtsp conns":
@@ -940,6 +994,9 @@ func TestAPIProtocolGet(t *testing.T) {
 
 				case "rtmps":
 					pa = "rtmpsconns"
+
+				case "srt":
+					pa = "srtconns"
 				}
 
 				type item struct {
@@ -1020,6 +1077,7 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 		"rtmps",
 		"hls",
 		"webrtc",
+		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -1071,6 +1129,9 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 
 			case "webrtc":
 				pa = "webrtcsessions"
+
+			case "srt":
+				pa = "srtconns"
 			}
 
 			func() {
@@ -1100,6 +1161,7 @@ func TestAPIProtocolKick(t *testing.T) {
 		"rtsps",
 		"rtmp",
 		"webrtc",
+		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -1158,6 +1220,29 @@ func TestAPIProtocolKick(t *testing.T) {
 			case "webrtc":
 				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whip", true)
 				defer c.close()
+
+			case "srt":
+				conf := srt.DefaultConfig()
+				conf.StreamId = "publish:mypath"
+
+				conn, err := srt.Dial("srt", "localhost:8890", conf)
+				require.NoError(t, err)
+				defer conn.Close()
+
+				track := &mpegts.Track{
+					PID:   256,
+					Codec: &mpegts.CodecH264{},
+				}
+
+				bw := bufio.NewWriter(conn)
+				w := mpegts.NewWriter(bw, []*mpegts.Track{track})
+				require.NoError(t, err)
+
+				err = w.WriteH26x(track, 0, 0, true, [][]byte{{1}})
+				require.NoError(t, err)
+				bw.Flush()
+
+				// time.Sleep(500 * time.Millisecond)
 			}
 
 			var pa string
@@ -1173,6 +1258,9 @@ func TestAPIProtocolKick(t *testing.T) {
 
 			case "webrtc":
 				pa = "webrtcsessions"
+
+			case "srt":
+				pa = "srtconns"
 			}
 
 			var out1 struct {
@@ -1209,6 +1297,7 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 		"rtsps",
 		"rtmp",
 		"webrtc",
+		"srt",
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "api: yes\n"
@@ -1242,6 +1331,9 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 
 			case "webrtc":
 				pa = "webrtcsessions"
+
+			case "srt":
+				pa = "srtconns"
 			}
 
 			func() {

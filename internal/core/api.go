@@ -180,6 +180,12 @@ type apiWebRTCManager interface {
 	apiSessionsKick(uuid.UUID) error
 }
 
+type apiSRTServer interface {
+	apiConnsList() (*apiSRTConnsList, error)
+	apiConnsGet(uuid.UUID) (*apiSRTConn, error)
+	apiConnsKick(uuid.UUID) error
+}
+
 type apiParent interface {
 	logger.Writer
 	apiConfigSet(conf *conf.Conf)
@@ -194,6 +200,7 @@ type api struct {
 	rtmpsServer   apiRTMPServer
 	hlsManager    apiHLSManager
 	webRTCManager apiWebRTCManager
+	srtServer     apiSRTServer
 	parent        apiParent
 
 	httpServer *httpserv.WrappedServer
@@ -211,6 +218,7 @@ func newAPI(
 	rtmpsServer apiRTMPServer,
 	hlsManager apiHLSManager,
 	webRTCManager apiWebRTCManager,
+	srtServer apiSRTServer,
 	parent apiParent,
 ) (*api, error) {
 	a := &api{
@@ -222,6 +230,7 @@ func newAPI(
 		rtmpsServer:   rtmpsServer,
 		hlsManager:    hlsManager,
 		webRTCManager: webRTCManager,
+		srtServer:     srtServer,
 		parent:        parent,
 	}
 
@@ -278,6 +287,12 @@ func newAPI(
 		group.GET("/v2/webrtcsessions/list", a.onWebRTCSessionsList)
 		group.GET("/v2/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
 		group.POST("/v2/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
+	}
+
+	if !interfaceIsEmpty(a.srtServer) {
+		group.GET("/v2/srtconns/list", a.onSRTConnsList)
+		group.GET("/v2/srtconns/get/:id", a.onSRTConnsGet)
+		group.POST("/v2/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
 	network, address := restrictNetwork("tcp", address)
@@ -845,6 +860,56 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 	}
 
 	err = a.webRTCManager.apiSessionsKick(uuid)
+	if err != nil {
+		abortWithError(ctx, err)
+		return
+	}
+
+	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onSRTConnsList(ctx *gin.Context) {
+	data, err := a.srtServer.apiConnsList()
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	data.ItemCount = len(data.Items)
+	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+	data.PageCount = pageCount
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *api) onSRTConnsGet(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	data, err := a.srtServer.apiConnsGet(uuid)
+	if err != nil {
+		abortWithError(ctx, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *api) onSRTConnsKick(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		ctx.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	err = a.srtServer.apiConnsKick(uuid)
 	if err != nil {
 		abortWithError(ctx, err)
 		return

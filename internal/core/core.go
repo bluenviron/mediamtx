@@ -461,6 +461,7 @@ func (p *Core) createResources(initial bool) error {
 				p.rtmpsServer,
 				p.hlsManager,
 				p.webRTCManager,
+				p.srtServer,
 				p,
 			)
 			if err != nil {
@@ -628,7 +629,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPSServer ||
 		closeRTMPServer ||
 		closeHLSManager ||
-		closeWebRTCManager
+		closeWebRTCManager ||
+		closeSRTServer
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()

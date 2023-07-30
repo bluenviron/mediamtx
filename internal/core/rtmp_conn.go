@@ -41,8 +41,7 @@ func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 type rtmpConnState int
 
 const (
-	rtmpConnStateIdle rtmpConnState = iota //nolint:deadcode,varcheck
-	rtmpConnStateRead
+	rtmpConnStateRead rtmpConnState = iota + 1
 	rtmpConnStatePublish
 )
 
@@ -756,8 +755,10 @@ func (c *rtmpConn) apiItem() *apiRTMPConn {
 
 			case rtmpConnStatePublish:
 				return "publish"
+
+			default:
+				return "idle"
 			}
-			return "idle"
 		}(),
 		Path:          c.pathName,
 		BytesReceived: bytesReceived,

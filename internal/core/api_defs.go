@@ -104,3 +104,19 @@ type apiWebRTCSessionsList struct {
 	PageCount int                 `json:"pageCount"`
 	Items     []*apiWebRTCSession `json:"items"`
 }
+
+type apiSRTConn struct {
+	ID            uuid.UUID `json:"id"`
+	Created       time.Time `json:"created"`
+	RemoteAddr    string    `json:"remoteAddr"`
+	State         string    `json:"state"`
+	Path          string    `json:"path"`
+	BytesReceived uint64    `json:"bytesReceived"`
+	BytesSent     uint64    `json:"bytesSent"`
+}
+
+type apiSRTConnsList struct {
+	ItemCount int           `json:"itemCount"`
+	PageCount int           `json:"pageCount"`
+	Items     []*apiSRTConn `json:"items"`
+}
