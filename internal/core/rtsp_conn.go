@@ -182,7 +182,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, res.stream.rtspStream, nil
+	}, res.stream.RTSPStream(), nil
 }
 
 func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {

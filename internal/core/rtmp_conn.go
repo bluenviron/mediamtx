@@ -27,6 +27,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp"
 	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
 	"github.com/bluenviron/mediamtx/internal/rtmp/message"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const (
@@ -43,7 +44,7 @@ func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 
 type rtmpWriteFunc func(msg interface{}) error
 
-func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) rtmpWriteFunc {
+func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.Stream) rtmpWriteFunc {
 	switch format.(type) {
 	case *formats.H264:
 		return func(msg interface{}) error {
@@ -62,7 +63,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					conf.PPS,
 				}
 
-				stream.writeUnit(medi, format, &formatprocessor.UnitH264{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitH264{
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
@@ -74,7 +75,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
-				stream.writeUnit(medi, format, &formatprocessor.UnitH264{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitH264{
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
@@ -93,7 +94,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
-				stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitH265{
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
@@ -105,7 +106,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
-				stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitH265{
 					PTS: tmsg.DTS,
 					AU:  au,
 					NTP: time.Now(),
@@ -117,7 +118,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
-				stream.writeUnit(medi, format, &formatprocessor.UnitH265{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitH265{
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
 					NTP: time.Now(),
@@ -135,7 +136,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 					return fmt.Errorf("unable to decode bitstream: %v", err)
 				}
 
-				stream.writeUnit(medi, format, &formatprocessor.UnitAV1{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitAV1{
 					PTS:  tmsg.DTS,
 					OBUs: obus,
 					NTP:  time.Now(),
@@ -149,7 +150,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 		return func(msg interface{}) error {
 			tmsg := msg.(*message.Audio)
 
-			stream.writeUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
+			stream.WriteUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
 				PTS:    tmsg.DTS,
 				Frames: [][]byte{tmsg.Payload},
 				NTP:    time.Now(),
@@ -163,7 +164,7 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream) 
 			tmsg := msg.(*message.Audio)
 
 			if tmsg.AACType == message.AudioAACTypeAU {
-				stream.writeUnit(medi, format, &formatprocessor.UnitMPEG4AudioGeneric{
+				stream.WriteUnit(medi, format, &formatprocessor.UnitMPEG4AudioGeneric{
 					PTS: tmsg.DTS,
 					AUs: [][]byte{tmsg.Payload},
 					NTP: time.Now(),
@@ -407,7 +408,7 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 			"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 	}
 
-	defer res.stream.readerRemove(c)
+	defer res.stream.RemoveReader(c)
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(medias))
@@ -451,18 +452,18 @@ func (c *rtmpConn) runRead(ctx context.Context, u *url.URL) error {
 	}
 }
 
-func (c *rtmpConn) findVideoFormat(stream *stream, ringBuffer *ringbuffer.RingBuffer,
+func (c *rtmpConn) findVideoFormat(stream *stream.Stream, ringBuffer *ringbuffer.RingBuffer,
 	videoFirstIDRFound *bool, videoStartDTS *time.Duration,
 ) (*media.Media, formats.Format) {
 	var videoFormatH264 *formats.H264
-	videoMedia := stream.medias().FindFormat(&videoFormatH264)
+	videoMedia := stream.Medias().FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
 		videoStartPTSFilled := false
 		var videoStartPTS time.Duration
 		var videoDTSExtractor *h264.DTSExtractor
 
-		stream.readerAdd(c, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitH264)
 
@@ -556,20 +557,20 @@ func (c *rtmpConn) findVideoFormat(stream *stream, ringBuffer *ringbuffer.RingBu
 }
 
 func (c *rtmpConn) findAudioFormat(
-	stream *stream,
+	stream *stream.Stream,
 	ringBuffer *ringbuffer.RingBuffer,
 	videoFormat formats.Format,
 	videoFirstIDRFound *bool,
 	videoStartDTS *time.Duration,
 ) (*media.Media, formats.Format) {
 	var audioFormatMPEG4Generic *formats.MPEG4AudioGeneric
-	audioMedia := stream.medias().FindFormat(&audioFormatMPEG4Generic)
+	audioMedia := stream.Medias().FindFormat(&audioFormatMPEG4Generic)
 
 	if audioMedia != nil {
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.readerAdd(c, audioMedia, audioFormatMPEG4Generic, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG4Generic, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitMPEG4AudioGeneric)
 
@@ -621,7 +622,7 @@ func (c *rtmpConn) findAudioFormat(
 	}
 
 	var audioFormatMPEG4AudioLATM *formats.MPEG4AudioLATM
-	audioMedia = stream.medias().FindFormat(&audioFormatMPEG4AudioLATM)
+	audioMedia = stream.Medias().FindFormat(&audioFormatMPEG4AudioLATM)
 
 	if audioMedia != nil &&
 		audioFormatMPEG4AudioLATM.Config != nil &&
@@ -630,7 +631,7 @@ func (c *rtmpConn) findAudioFormat(
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.readerAdd(c, audioMedia, audioFormatMPEG4AudioLATM, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG4AudioLATM, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitMPEG4AudioLATM)
 
@@ -679,13 +680,13 @@ func (c *rtmpConn) findAudioFormat(
 	}
 
 	var audioFormatMPEG2 *formats.MPEG2Audio
-	audioMedia = stream.medias().FindFormat(&audioFormatMPEG2)
+	audioMedia = stream.Medias().FindFormat(&audioFormatMPEG2)
 
 	if audioMedia != nil {
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.readerAdd(c, audioMedia, audioFormatMPEG2, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG2, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitMPEG2Audio)
 

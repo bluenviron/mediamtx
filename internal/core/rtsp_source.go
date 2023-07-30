@@ -185,7 +185,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 					cforma := forma
 
 					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-						res.stream.writeRTPPacket(cmedi, cforma, pkt, time.Now())
+						res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
 					})
 				}
 			}

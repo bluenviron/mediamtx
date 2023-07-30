@@ -1,4 +1,5 @@
-package core
+// Package stream contains the Stream object.
+package stream
 
 import (
 	"time"
@@ -9,23 +10,27 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type stream struct {
+// Stream is a media stream.
+// It stores tracks, readers and allow to write data to readers.
+type Stream struct {
 	bytesReceived *uint64
 
 	rtspStream *gortsplib.ServerStream
 	smedias    map[*media.Media]*streamMedia
 }
 
-func newStream(
+// New allocates a Stream.
+func New(
 	udpMaxPayloadSize int,
 	medias media.Medias,
 	generateRTPPackets bool,
 	bytesReceived *uint64,
-	source source,
-) (*stream, error) {
-	s := &stream{
+	source logger.Writer,
+) (*Stream, error) {
+	s := &Stream{
 		bytesReceived: bytesReceived,
 		rtspStream:    gortsplib.NewServerStream(medias),
 	}
@@ -43,35 +48,46 @@ func newStream(
 	return s, nil
 }
 
-func (s *stream) close() {
+// Close closes all resources of the stream.
+func (s *Stream) Close() {
 	s.rtspStream.Close()
 }
 
-func (s *stream) medias() media.Medias {
+// Medias returns medias of the stream.
+func (s *Stream) Medias() media.Medias {
 	return s.rtspStream.Medias()
 }
 
-func (s *stream) readerAdd(r reader, medi *media.Media, forma formats.Format, cb func(formatprocessor.Unit)) {
-	sm := s.smedias[medi]
-	sf := sm.formats[forma]
-	sf.readerAdd(r, cb)
+// RTSPStream returns the RTSP stream.
+func (s *Stream) RTSPStream() *gortsplib.ServerStream {
+	return s.rtspStream
 }
 
-func (s *stream) readerRemove(r reader) {
+// AddReader adds a reader.
+func (s *Stream) AddReader(r interface{}, medi *media.Media, forma formats.Format, cb func(formatprocessor.Unit)) {
+	sm := s.smedias[medi]
+	sf := sm.formats[forma]
+	sf.addReader(r, cb)
+}
+
+// RemoveReader removes a reader.
+func (s *Stream) RemoveReader(r interface{}) {
 	for _, sm := range s.smedias {
 		for _, sf := range sm.formats {
-			sf.readerRemove(r)
+			sf.removeReader(r)
 		}
 	}
 }
 
-func (s *stream) writeUnit(medi *media.Media, forma formats.Format, data formatprocessor.Unit) {
+// WriteUnit writes a Unit.
+func (s *Stream) WriteUnit(medi *media.Media, forma formats.Format, data formatprocessor.Unit) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.writeUnit(s, medi, data)
 }
 
-func (s *stream) writeRTPPacket(medi *media.Media, forma formats.Format, pkt *rtp.Packet, ntp time.Time) {
+// WriteRTPPacket writes a RTP packet.
+func (s *Stream) WriteRTPPacket(medi *media.Media, forma formats.Format, pkt *rtp.Packet, ntp time.Time) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.writeRTPPacket(s, medi, pkt, ntp)

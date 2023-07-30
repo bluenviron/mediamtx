@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 func newEmptyTimer() *time.Timer {
@@ -50,7 +51,7 @@ const (
 )
 
 type pathSourceStaticSetReadyRes struct {
-	stream *stream
+	stream *stream.Stream
 	err    error
 }
 
@@ -88,7 +89,7 @@ type pathGetConfForPathReq struct {
 
 type pathDescribeRes struct {
 	path     *path
-	stream   *stream
+	stream   *stream.Stream
 	redirect string
 	err      error
 }
@@ -102,7 +103,7 @@ type pathDescribeReq struct {
 
 type pathReaderSetupPlayRes struct {
 	path   *path
-	stream *stream
+	stream *stream.Stream
 	err    error
 }
 
@@ -128,7 +129,7 @@ type pathPublisherAddReq struct {
 }
 
 type pathPublisherRecordRes struct {
-	stream *stream
+	stream *stream.Stream
 	err    error
 }
 
@@ -187,7 +188,7 @@ type path struct {
 	ctxCancel                      func()
 	confMutex                      sync.RWMutex
 	source                         source
-	stream                         *stream
+	stream                         *stream.Stream
 	readyTime                      time.Time
 	bytesReceived                  *uint64
 	readers                        map[reader]struct{}
@@ -619,7 +620,7 @@ func (pa *path) onDemandPublisherStop() {
 }
 
 func (pa *path) setReady(medias media.Medias, allocateEncoder bool) error {
-	stream, err := newStream(
+	stream, err := stream.New(
 		pa.udpMaxPayloadSize,
 		medias,
 		allocateEncoder,
@@ -665,7 +666,7 @@ func (pa *path) setNotReady() {
 	}
 
 	if pa.stream != nil {
-		pa.stream.close()
+		pa.stream.Close()
 		pa.stream = nil
 	}
 }
@@ -897,7 +898,7 @@ func (pa *path) handleAPIPathsGet(req pathAPIPathsGetReq) {
 				if pa.stream == nil {
 					return []string{}
 				}
-				return mediasDescription(pa.stream.medias())
+				return mediasDescription(pa.stream.Medias())
 			}(),
 			BytesReceived: atomic.LoadUint64(pa.bytesReceived),
 			Readers: func() []interface{} {

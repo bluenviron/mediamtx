@@ -16,6 +16,7 @@ import (
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // workaround until this gets tagged:
@@ -346,7 +347,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 func (t *webRTCOutgoingTrack) start(
 	ctx context.Context,
 	r reader,
-	stream *stream,
+	stream *stream.Stream,
 	ringBuffer *ringbuffer.RingBuffer,
 	writeError chan error,
 ) {
@@ -361,7 +362,7 @@ func (t *webRTCOutgoingTrack) start(
 		}
 	}()
 
-	stream.readerAdd(r, t.media, t.format, func(unit formatprocessor.Unit) {
+	stream.AddReader(r, t.media, t.format, func(unit formatprocessor.Unit) {
 		ringBuffer.Push(func() {
 			err := t.cb(unit)
 			if err != nil {

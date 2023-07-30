@@ -446,7 +446,7 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	defer res.path.readerRemove(pathReaderRemoveReq{author: s})
 
-	tracks, err := gatherOutgoingTracks(res.stream.medias())
+	tracks, err := gatherOutgoingTracks(res.stream.Medias())
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -522,7 +522,7 @@ func (s *webRTCSession) runRead() (int, error) {
 		track.start(s.ctx, s, res.stream, ringBuffer, writeError)
 	}
 
-	defer res.stream.readerRemove(s)
+	defer res.stream.RemoveReader(s)
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(mediasOfOutgoingTracks(tracks)))

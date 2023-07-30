@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 )
@@ -96,7 +97,7 @@ func newWebRTCIncomingTrack(
 	return t, nil
 }
 
-func (t *webRTCIncomingTrack) start(stream *stream) {
+func (t *webRTCIncomingTrack) start(stream *stream.Stream) {
 	go func() {
 		for {
 			pkt, _, err := t.track.ReadRTP()
@@ -109,7 +110,7 @@ func (t *webRTCIncomingTrack) start(stream *stream) {
 				continue
 			}
 
-			stream.writeRTPPacket(t.media, t.format, pkt, time.Now())
+			stream.WriteRTPPacket(t.media, t.format, pkt, time.Now())
 		}
 	}()
 
