@@ -1,4 +1,4 @@
-package tracks
+package rtmp
 
 import (
 	gomp4 "github.com/abema/go-mp4"

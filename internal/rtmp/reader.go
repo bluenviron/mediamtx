@@ -1,5 +1,4 @@
-// Package tracks contains functions to read and write track metadata.
-package tracks
+package rtmp
 
 import (
 	"bytes"
@@ -18,6 +17,18 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
 	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
+
+// OnDataAV1Func is the prototype of the callback passed to OnDataAV1().
+type OnDataAV1Func func(pts time.Duration, obus [][]byte)
+
+// OnDataH26xFunc is the prototype of the callback passed to OnDataH26x().
+type OnDataH26xFunc func(pts time.Duration, au [][]byte)
+
+// OnDataMPEG4AudioFunc is the prototype of the callback passed to OnDataMPEG4Audio().
+type OnDataMPEG4AudioFunc func(pts time.Duration, au []byte)
+
+// OnDataMPEG2AudioFunc is the prototype of the callback passed to OnDataMPEG2Audio().
+type OnDataMPEG2AudioFunc func(pts time.Duration, frame []byte)
 
 func h265FindNALU(array []gomp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	for _, entry := range array {
@@ -62,7 +73,7 @@ func trackFromAACDecoderConfig(data []byte) (formats.Format, error) {
 
 var errEmptyMetadata = errors.New("metadata is empty")
 
-func readTracksFromMetadata(r *message.ReadWriter, payload []interface{}) (formats.Format, formats.Format, error) {
+func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, formats.Format, error) {
 	if len(payload) != 1 {
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
@@ -145,7 +156,7 @@ func readTracksFromMetadata(r *message.ReadWriter, payload []interface{}) (forma
 			return videoTrack, audioTrack, nil
 		}
 
-		msg, err := r.Read()
+		msg, err := conn.Read()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -261,7 +272,7 @@ func readTracksFromMetadata(r *message.ReadWriter, payload []interface{}) (forma
 	}
 }
 
-func readTracksFromMessages(r *message.ReadWriter, msg message.Message) (formats.Format, formats.Format, error) {
+func tracksFromMessages(conn *Conn, msg message.Message) (formats.Format, formats.Format, error) {
 	var startTime *time.Duration
 	var videoTrack formats.Format
 	var audioTrack formats.Format
@@ -322,7 +333,7 @@ outer:
 		}
 
 		var err error
-		msg, err = r.Read()
+		msg, err = conn.Read()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -335,12 +346,34 @@ outer:
 	return videoTrack, audioTrack, nil
 }
 
-// Read reads track informations.
-// It returns the video track and the audio track.
-func Read(r *message.ReadWriter) (formats.Format, formats.Format, error) {
+// Reader is a wrapper around Conn that provides utilities to demux incoming data.
+type Reader struct {
+	conn        *Conn
+	videoTrack  formats.Format
+	audioTrack  formats.Format
+	onDataVideo func(message.Message) error
+	onDataAudio func(*message.Audio) error
+}
+
+// NewReader allocates a Reader.
+func NewReader(conn *Conn) (*Reader, error) {
+	r := &Reader{
+		conn: conn,
+	}
+
+	var err error
+	r.videoTrack, r.audioTrack, err = r.readTracks()
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func (r *Reader) readTracks() (formats.Format, formats.Format, error) {
 	msg, err := func() (message.Message, error) {
 		for {
-			msg, err := r.Read()
+			msg, err := r.conn.Read()
 			if err != nil {
 				return nil, err
 			}
@@ -373,15 +406,15 @@ func Read(r *message.ReadWriter) (formats.Format, formats.Format, error) {
 
 		if len(payload) >= 1 {
 			if s, ok := payload[0].(string); ok && s == "onMetaData" {
-				videoTrack, audioTrack, err := readTracksFromMetadata(r, payload[1:])
+				videoTrack, audioTrack, err := tracksFromMetadata(r.conn, payload[1:])
 				if err != nil {
 					if err == errEmptyMetadata {
-						msg, err := r.Read()
+						msg, err := r.conn.Read()
 						if err != nil {
 							return nil, nil, err
 						}
 
-						return readTracksFromMessages(r, msg)
+						return tracksFromMessages(r.conn, msg)
 					}
 
 					return nil, nil, err
@@ -392,5 +425,135 @@ func Read(r *message.ReadWriter) (formats.Format, formats.Format, error) {
 		}
 	}
 
-	return readTracksFromMessages(r, msg)
+	return tracksFromMessages(r.conn, msg)
+}
+
+// Tracks returns detected tracks
+func (r *Reader) Tracks() (formats.Format, formats.Format) {
+	return r.videoTrack, r.audioTrack
+}
+
+// OnDataAV1 sets a callback that is called when AV1 data is received.
+func (r *Reader) OnDataAV1(cb OnDataAV1Func) {
+	r.onDataVideo = func(msg message.Message) error {
+		if msg, ok := msg.(*message.ExtendedCodedFrames); ok {
+			obus, err := av1.BitstreamUnmarshal(msg.Payload, true)
+			if err != nil {
+				return fmt.Errorf("unable to decode bitstream: %v", err)
+			}
+
+			cb(msg.DTS, obus)
+		}
+		return nil
+	}
+}
+
+// OnDataH265 sets a callback that is called when H265 data is received.
+func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
+	r.onDataVideo = func(msg message.Message) error {
+		switch msg := msg.(type) {
+		case *message.Video:
+			au, err := h264.AVCCUnmarshal(msg.Payload)
+			if err != nil {
+				return fmt.Errorf("unable to decode AVCC: %v", err)
+			}
+
+			cb(msg.DTS+msg.PTSDelta, au)
+
+		case *message.ExtendedFramesX:
+			au, err := h264.AVCCUnmarshal(msg.Payload)
+			if err != nil {
+				return fmt.Errorf("unable to decode AVCC: %v", err)
+			}
+
+			cb(msg.DTS, au)
+
+		case *message.ExtendedCodedFrames:
+			au, err := h264.AVCCUnmarshal(msg.Payload)
+			if err != nil {
+				return fmt.Errorf("unable to decode AVCC: %v", err)
+			}
+
+			cb(msg.DTS+msg.PTSDelta, au)
+		}
+
+		return nil
+	}
+}
+
+// OnDataH264 sets a callback that is called when H264 data is received.
+func (r *Reader) OnDataH264(cb OnDataH26xFunc) {
+	r.onDataVideo = func(msg message.Message) error {
+		if msg, ok := msg.(*message.Video); ok {
+			switch msg.Type {
+			case message.VideoTypeConfig:
+				var conf h264conf.Conf
+				err := conf.Unmarshal(msg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to parse H264 config: %v", err)
+				}
+
+				au := [][]byte{
+					conf.SPS,
+					conf.PPS,
+				}
+
+				cb(msg.DTS+msg.PTSDelta, au)
+
+			case message.VideoTypeAU:
+				au, err := h264.AVCCUnmarshal(msg.Payload)
+				if err != nil {
+					return fmt.Errorf("unable to decode AVCC: %v", err)
+				}
+
+				cb(msg.DTS+msg.PTSDelta, au)
+			}
+		}
+
+		return nil
+	}
+}
+
+// OnDataMPEG4Audio sets a callback that is called when MPEG-4 Audio data is received.
+func (r *Reader) OnDataMPEG4Audio(cb OnDataMPEG4AudioFunc) {
+	r.onDataAudio = func(msg *message.Audio) error {
+		if msg.AACType == message.AudioAACTypeAU {
+			cb(msg.DTS, msg.Payload)
+		}
+		return nil
+	}
+}
+
+// OnDataMPEG2Audio sets a callback that is called when MPEG-2 Audio data is received.
+func (r *Reader) OnDataMPEG2Audio(cb OnDataMPEG2AudioFunc) {
+	r.onDataAudio = func(msg *message.Audio) error {
+		cb(msg.DTS, msg.Payload)
+		return nil
+	}
+}
+
+// Read reads data.
+func (r *Reader) Read() error {
+	msg, err := r.conn.Read()
+	if err != nil {
+		return err
+	}
+
+	switch msg := msg.(type) {
+	case *message.Video, *message.ExtendedFramesX, *message.ExtendedCodedFrames:
+		if r.onDataVideo == nil {
+			return fmt.Errorf("received a video packet, but track is not set up")
+		}
+
+		return r.onDataVideo(msg)
+
+	case *message.Audio:
+		if r.onDataAudio == nil {
+			return fmt.Errorf("received an audio packet, but track is not set up")
+		}
+
+		return r.onDataAudio(msg)
+	}
+
+	return nil
 }
