@@ -48,7 +48,7 @@ const (
 
 type rtmpConnPathManager interface {
 	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
-	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
+	publisherAdd(req pathPublisherAddReq) pathPublisherAddRes
 }
 
 type rtmpConnParent interface {

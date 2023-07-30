@@ -137,7 +137,13 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	ctx.Path = ctx.Path[1:]
 
 	if c.authNonce == "" {
-		c.authNonce = auth.GenerateNonce()
+		var err error
+		c.authNonce, err = auth.GenerateNonce()
+		if err != nil {
+			return &base.Response{
+				StatusCode: base.StatusInternalServerError,
+			}, nil, err
+		}
 	}
 
 	res := c.pathManager.describe(pathDescribeReq{

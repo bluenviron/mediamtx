@@ -21,7 +21,7 @@ import (
 )
 
 type rtspSessionPathManager interface {
-	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
+	publisherAdd(req pathPublisherAddReq) pathPublisherAddRes
 	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
 }
 
@@ -122,7 +122,13 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	ctx.Path = ctx.Path[1:]
 
 	if c.authNonce == "" {
-		c.authNonce = auth.GenerateNonce()
+		var err error
+		c.authNonce, err = auth.GenerateNonce()
+		if err != nil {
+			return &base.Response{
+				StatusCode: base.StatusInternalServerError,
+			}, err
+		}
 	}
 
 	res := s.pathManager.publisherAdd(pathPublisherAddReq{
@@ -201,7 +207,13 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		}
 
 		if c.authNonce == "" {
-			c.authNonce = auth.GenerateNonce()
+			var err error
+			c.authNonce, err = auth.GenerateNonce()
+			if err != nil {
+				return &base.Response{
+					StatusCode: base.StatusInternalServerError,
+				}, nil, err
+			}
 		}
 
 		res := s.pathManager.readerAdd(pathReaderAddReq{

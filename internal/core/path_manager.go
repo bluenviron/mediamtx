@@ -289,14 +289,14 @@ outer:
 		case req := <-pm.chPublisherAdd:
 			pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
 			if err != nil {
-				req.res <- pathPublisherAnnounceRes{err: err}
+				req.res <- pathPublisherAddRes{err: err}
 				continue
 			}
 
 			if !req.skipAuth {
 				err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
 				if err != nil {
-					req.res <- pathPublisherAnnounceRes{err: err}
+					req.res <- pathPublisherAddRes{err: err}
 					continue
 				}
 			}
@@ -306,7 +306,7 @@ outer:
 				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
 			}
 
-			req.res <- pathPublisherAnnounceRes{path: pm.paths[req.pathName]}
+			req.res <- pathPublisherAddRes{path: pm.paths[req.pathName]}
 
 		case s := <-pm.chHLSManagerSet:
 			pm.hlsManager = s
@@ -449,8 +449,8 @@ func (pm *pathManager) describe(req pathDescribeReq) pathDescribeRes {
 }
 
 // publisherAnnounce is called by a publisher.
-func (pm *pathManager) publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes {
-	req.res = make(chan pathPublisherAnnounceRes)
+func (pm *pathManager) publisherAdd(req pathPublisherAddReq) pathPublisherAddRes {
+	req.res = make(chan pathPublisherAddRes)
 	select {
 	case pm.chPublisherAdd <- req:
 		res := <-req.res
@@ -461,7 +461,7 @@ func (pm *pathManager) publisherAdd(req pathPublisherAddReq) pathPublisherAnnoun
 		return res.path.publisherAdd(req)
 
 	case <-pm.ctx.Done():
-		return pathPublisherAnnounceRes{err: fmt.Errorf("terminated")}
+		return pathPublisherAddRes{err: fmt.Errorf("terminated")}
 	}
 }
 

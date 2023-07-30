@@ -131,7 +131,7 @@ func gatherIncomingTracks(
 }
 
 type webRTCSessionPathManager interface {
-	publisherAdd(req pathPublisherAddReq) pathPublisherAnnounceRes
+	publisherAdd(req pathPublisherAddReq) pathPublisherAddRes
 	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
 }
 
