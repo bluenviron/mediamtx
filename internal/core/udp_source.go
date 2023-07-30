@@ -47,17 +47,17 @@ func joinMulticastGroupOnAtLeastOneInterface(p *ipv4.PacketConn, listenIP net.IP
 }
 
 type packetConnReader struct {
-	pc net.PacketConn
+	net.PacketConn
 }
 
 func newPacketConnReader(pc net.PacketConn) *packetConnReader {
 	return &packetConnReader{
-		pc: pc,
+		PacketConn: pc,
 	}
 }
 
 func (r *packetConnReader) Read(p []byte) (int, error) {
-	n, _, err := r.pc.ReadFrom(p)
+	n, _, err := r.PacketConn.ReadFrom(p)
 	return n, err
 }
 
@@ -116,7 +116,6 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 	}
 
 	readerErr := make(chan error)
-
 	go func() {
 		readerErr <- s.runReader(pc)
 	}()
@@ -134,7 +133,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 
 func (s *udpSource) runReader(pc net.PacketConn) error {
 	pc.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-	r, err := mpegts.NewReader(newMPEGTSBufferedReader(newPacketConnReader(pc)))
+	r, err := mpegts.NewReader(mpegts.NewBufferedReader(newPacketConnReader(pc)))
 	if err != nil {
 		return err
 	}
@@ -150,7 +149,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 		return td.Decode(t)
 	}
 
-	for _, track := range r.Tracks() {
+	for _, track := range r.Tracks() { //nolint:dupl
 		var medi *media.Media
 
 		switch tcodec := track.Codec.(type) {

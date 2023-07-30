@@ -6,10 +6,10 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.11.0
 	github.com/alecthomas/kong v0.8.0
-	github.com/asticode/go-astits v1.11.0
-	github.com/bluenviron/gohlslib v0.3.0
+	github.com/asticode/go-astits v1.11.1-0.20230727094110-0df190a2dd87
+	github.com/bluenviron/gohlslib v0.3.1-0.20230730162911-eb9f86511072
 	github.com/bluenviron/gortsplib/v3 v3.9.0
-	github.com/bluenviron/mediacommon v0.7.0
+	github.com/bluenviron/mediacommon v0.7.1-0.20230730144331-10b74a4f6eda
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.0

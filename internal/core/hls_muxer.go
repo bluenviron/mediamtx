@@ -54,7 +54,7 @@ type hlsMuxerHandleRequestReq struct {
 
 type hlsMuxerParent interface {
 	logger.Writer
-	muxerClose(*hlsMuxer)
+	closeMuxer(*hlsMuxer)
 }
 
 type hlsMuxer struct {
@@ -228,7 +228,7 @@ func (m *hlsMuxer) run() {
 
 	m.clearQueuedRequests()
 
-	m.parent.muxerClose(m)
+	m.parent.closeMuxer(m)
 
 	m.Log(logger.Info, "destroyed (%v)", err)
 }
@@ -340,8 +340,8 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 	videoMedia := stream.Medias().FindFormat(&videoFormatH265)
 
 	if videoFormatH265 != nil {
-		videoStartPTSFilled := false
-		var videoStartPTS time.Duration
+		startPTSFilled := false
+		var startPTS time.Duration
 
 		stream.AddReader(m, videoMedia, videoFormatH265, func(unit formatprocessor.Unit) {
 			m.ringBuffer.Push(func() error {
@@ -351,12 +351,12 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 					return nil
 				}
 
-				if !videoStartPTSFilled {
-					videoStartPTSFilled = true
-					videoStartPTS = tunit.PTS
+				if !startPTSFilled {
+					startPTSFilled = true
+					startPTS = tunit.PTS
 				}
-				pts := tunit.PTS - videoStartPTS
 
+				pts := tunit.PTS - startPTS
 				err := m.muxer.WriteH26x(tunit.NTP, pts, tunit.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
@@ -381,8 +381,8 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 	videoMedia = stream.Medias().FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
-		videoStartPTSFilled := false
-		var videoStartPTS time.Duration
+		startPTSFilled := false
+		var startPTS time.Duration
 
 		stream.AddReader(m, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
 			m.ringBuffer.Push(func() error {
@@ -392,12 +392,12 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 					return nil
 				}
 
-				if !videoStartPTSFilled {
-					videoStartPTSFilled = true
-					videoStartPTS = tunit.PTS
+				if !startPTSFilled {
+					startPTSFilled = true
+					startPTS = tunit.PTS
 				}
-				pts := tunit.PTS - videoStartPTS
 
+				pts := tunit.PTS - startPTS
 				err := m.muxer.WriteH26x(tunit.NTP, pts, tunit.AU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
@@ -440,8 +440,8 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 					audioStartPTSFilled = true
 					audioStartPTS = tunit.PTS
 				}
-				pts := tunit.PTS - audioStartPTS
 
+				pts := tunit.PTS - audioStartPTS
 				err := m.muxer.WriteMPEG4Audio(
 					tunit.NTP,
 					pts,
@@ -483,8 +483,8 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 					audioStartPTSFilled = true
 					audioStartPTS = tunit.PTS
 				}
-				pts := tunit.PTS - audioStartPTS
 
+				pts := tunit.PTS - audioStartPTS
 				err := m.muxer.WriteMPEG4Audio(
 					tunit.NTP,
 					pts,
@@ -519,8 +519,8 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 					audioStartPTSFilled = true
 					audioStartPTS = tunit.PTS
 				}
-				pts := tunit.PTS - audioStartPTS
 
+				pts := tunit.PTS - audioStartPTS
 				err := m.muxer.WriteOpus(
 					tunit.NTP,
 					pts,
