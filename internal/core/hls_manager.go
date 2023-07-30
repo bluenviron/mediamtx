@@ -57,7 +57,7 @@ type hlsManager struct {
 	chPathReady     chan *path
 	chPathNotReady  chan *path
 	chHandleRequest chan hlsMuxerHandleRequestReq
-	chMuxerClose    chan *hlsMuxer
+	chCloseMuxer    chan *hlsMuxer
 	chAPIMuxerList  chan hlsManagerAPIMuxersListReq
 	chAPIMuxerGet   chan hlsManagerAPIMuxersGetReq
 }
@@ -104,7 +104,7 @@ func newHLSManager(
 		chPathReady:               make(chan *path),
 		chPathNotReady:            make(chan *path),
 		chHandleRequest:           make(chan hlsMuxerHandleRequestReq),
-		chMuxerClose:              make(chan *hlsMuxer),
+		chCloseMuxer:              make(chan *hlsMuxer),
 		chAPIMuxerList:            make(chan hlsManagerAPIMuxersListReq),
 		chAPIMuxerGet:             make(chan hlsManagerAPIMuxersGetReq),
 	}
@@ -182,7 +182,7 @@ outer:
 				r.processRequest(&req)
 			}
 
-		case c := <-m.chMuxerClose:
+		case c := <-m.chCloseMuxer:
 			if c2, ok := m.muxers[c.PathName()]; !ok || c2 != c {
 				continue
 			}
@@ -250,10 +250,10 @@ func (m *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 	return r
 }
 
-// muxerClose is called by hlsMuxer.
-func (m *hlsManager) muxerClose(c *hlsMuxer) {
+// closeMuxer is called by hlsMuxer.
+func (m *hlsManager) closeMuxer(c *hlsMuxer) {
 	select {
-	case m.chMuxerClose <- c:
+	case m.chCloseMuxer <- c:
 	case <-m.ctx.Done():
 	}
 }

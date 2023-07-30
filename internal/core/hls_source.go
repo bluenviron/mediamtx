@@ -55,8 +55,17 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				TLSClientConfig: tlsConfigForFingerprint(cnf.SourceFingerprint),
 			},
 		},
-		Log: func(level gohlslib.LogLevel, format string, args ...interface{}) {
-			s.Log(logger.Level(level), format, args...)
+		OnDownloadPrimaryPlaylist: func(u string) {
+			s.Log(logger.Debug, "downloading primary playlist %u", u)
+		},
+		OnDownloadStreamPlaylist: func(u string) {
+			s.Log(logger.Debug, "downloading stream playlist %u", u)
+		},
+		OnDownloadSegment: func(u string) {
+			s.Log(logger.Debug, "downloading segment %u", u)
+		},
+		OnDecodeError: func(err error) {
+			s.Log(logger.Warn, err.Error())
 		},
 	}
 
