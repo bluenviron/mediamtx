@@ -33,7 +33,9 @@ func TestGenericRemovePadding(t *testing.T) {
 	}
 
 	err = p.Process(&UnitGeneric{
-		RTPPackets: []*rtp.Packet{pkt},
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+		},
 	}, false)
 	require.NoError(t, err)
 

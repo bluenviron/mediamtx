@@ -14,20 +14,9 @@ import (
 
 // UnitAV1 is an AV1 data unit.
 type UnitAV1 struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	OBUs       [][]byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitAV1) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitAV1) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS  time.Duration
+	OBUs [][]byte
 }
 
 type formatProcessorAV1 struct {
@@ -145,7 +134,9 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 
 func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitAV1{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

@@ -13,20 +13,9 @@ import (
 
 // UnitMPEG2Audio is a MPEG-1/2 Audio data unit.
 type UnitMPEG2Audio struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	Frames     [][]byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitMPEG2Audio) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitMPEG2Audio) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS    time.Duration
+	Frames [][]byte
 }
 
 type formatProcessorMPEG2Audio struct {
@@ -117,7 +106,9 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 
 func (t *formatProcessorMPEG2Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitMPEG2Audio{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

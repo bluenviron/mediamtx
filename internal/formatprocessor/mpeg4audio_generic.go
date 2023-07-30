@@ -13,20 +13,9 @@ import (
 
 // UnitMPEG4AudioGeneric is a MPEG-4 Audio data unit.
 type UnitMPEG4AudioGeneric struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	AUs        [][]byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitMPEG4AudioGeneric) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitMPEG4AudioGeneric) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS time.Duration
+	AUs [][]byte
 }
 
 type formatProcessorMPEG4AudioGeneric struct {
@@ -122,7 +111,9 @@ func (t *formatProcessorMPEG4AudioGeneric) Process(unit Unit, hasNonRTSPReaders 
 
 func (t *formatProcessorMPEG4AudioGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitMPEG4AudioGeneric{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

@@ -14,20 +14,9 @@ import (
 
 // UnitOpus is a Opus data unit.
 type UnitOpus struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	Packets    [][]byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitOpus) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitOpus) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS     time.Duration
+	Packets [][]byte
 }
 
 type formatProcessorOpus struct {
@@ -124,7 +113,9 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 
 func (t *formatProcessorOpus) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitOpus{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

@@ -13,20 +13,9 @@ import (
 
 // UnitVP9 is a VP9 data unit.
 type UnitVP9 struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	Frame      []byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitVP9) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitVP9) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS   time.Duration
+	Frame []byte
 }
 
 type formatProcessorVP9 struct {
@@ -118,7 +107,9 @@ func (t *formatProcessorVP9) Process(unit Unit, hasNonRTSPReaders bool) error { 
 
 func (t *formatProcessorVP9) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitVP9{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

@@ -64,9 +64,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 				}
 
 				stream.WriteUnit(medi, format, &formatprocessor.UnitH264{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
-					NTP: time.Now(),
 				})
 
 			case message.VideoTypeAU:
@@ -76,9 +78,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 				}
 
 				stream.WriteUnit(medi, format, &formatprocessor.UnitH264{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
-					NTP: time.Now(),
 				})
 			}
 
@@ -95,9 +99,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 				}
 
 				stream.WriteUnit(medi, format, &formatprocessor.UnitH265{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
-					NTP: time.Now(),
 				})
 
 			case *message.ExtendedFramesX:
@@ -107,9 +113,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 				}
 
 				stream.WriteUnit(medi, format, &formatprocessor.UnitH265{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: tmsg.DTS,
 					AU:  au,
-					NTP: time.Now(),
 				})
 
 			case *message.ExtendedCodedFrames:
@@ -119,9 +127,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 				}
 
 				stream.WriteUnit(medi, format, &formatprocessor.UnitH265{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: tmsg.DTS + tmsg.PTSDelta,
 					AU:  au,
-					NTP: time.Now(),
 				})
 			}
 
@@ -137,9 +147,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 				}
 
 				stream.WriteUnit(medi, format, &formatprocessor.UnitAV1{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS:  tmsg.DTS,
 					OBUs: obus,
-					NTP:  time.Now(),
 				})
 			}
 
@@ -151,9 +163,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 			tmsg := msg.(*message.Audio)
 
 			stream.WriteUnit(medi, format, &formatprocessor.UnitMPEG2Audio{
+				BaseUnit: formatprocessor.BaseUnit{
+					NTP: time.Now(),
+				},
 				PTS:    tmsg.DTS,
 				Frames: [][]byte{tmsg.Payload},
-				NTP:    time.Now(),
 			})
 
 			return nil
@@ -165,9 +179,11 @@ func getRTMPWriteFunc(medi *media.Media, format formats.Format, stream *stream.S
 
 			if tmsg.AACType == message.AudioAACTypeAU {
 				stream.WriteUnit(medi, format, &formatprocessor.UnitMPEG4AudioGeneric{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: tmsg.DTS,
 					AUs: [][]byte{tmsg.Payload},
-					NTP: time.Now(),
 				})
 			}
 
