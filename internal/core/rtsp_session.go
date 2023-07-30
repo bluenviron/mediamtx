@@ -21,8 +21,8 @@ import (
 )
 
 type rtspSessionPathManager interface {
-	publisherAdd(req pathPublisherAddReq) pathPublisherAddRes
-	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
+	addPublisher(req pathAddPublisherReq) pathAddPublisherRes
+	addReader(req pathAddReaderReq) pathAddReaderRes
 }
 
 type rtspSessionParent interface {
@@ -100,10 +100,10 @@ func (s *rtspSession) onClose(err error) {
 
 	switch s.session.State() {
 	case gortsplib.ServerSessionStatePrePlay, gortsplib.ServerSessionStatePlay:
-		s.path.readerRemove(pathReaderRemoveReq{author: s})
+		s.path.removeReader(pathRemoveReaderReq{author: s})
 
 	case gortsplib.ServerSessionStatePreRecord, gortsplib.ServerSessionStateRecord:
-		s.path.publisherRemove(pathPublisherRemoveReq{author: s})
+		s.path.removePublisher(pathRemovePublisherReq{author: s})
 	}
 
 	s.path = nil
@@ -131,7 +131,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 		}
 	}
 
-	res := s.pathManager.publisherAdd(pathPublisherAddReq{
+	res := s.pathManager.addPublisher(pathAddPublisherReq{
 		author:   s,
 		pathName: ctx.Path,
 		credentials: authCredentials{
@@ -216,7 +216,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 			}
 		}
 
-		res := s.pathManager.readerAdd(pathReaderAddReq{
+		res := s.pathManager.addReader(pathAddReaderReq{
 			author:   s,
 			pathName: ctx.Path,
 			credentials: authCredentials{
@@ -304,7 +304,7 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 
 // onRecord is called by rtspServer.
 func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
-	res := s.path.publisherStart(pathPublisherStartReq{
+	res := s.path.startPublisher(pathStartPublisherReq{
 		author:             s,
 		medias:             s.session.AnnouncedMedias(),
 		generateRTPPackets: false,
@@ -356,7 +356,7 @@ func (s *rtspSession) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Respo
 		s.mutex.Unlock()
 
 	case gortsplib.ServerSessionStateRecord:
-		s.path.publisherStop(pathPublisherStopReq{author: s})
+		s.path.stopPublisher(pathStopPublisherReq{author: s})
 
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePreRecord

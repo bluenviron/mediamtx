@@ -131,13 +131,13 @@ func gatherIncomingTracks(
 }
 
 type webRTCSessionPathManager interface {
-	publisherAdd(req pathPublisherAddReq) pathPublisherAddRes
-	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
+	addPublisher(req pathAddPublisherReq) pathAddPublisherRes
+	addReader(req pathAddReaderReq) pathAddReaderRes
 }
 
 type webRTCSession struct {
 	readBufferCount   int
-	req               webRTCSessionNewReq
+	req               webRTCNewSessionReq
 	wg                *sync.WaitGroup
 	iceHostNAT1To1IPs []string
 	iceUDPMux         ice.UDPMux
@@ -145,23 +145,22 @@ type webRTCSession struct {
 	pathManager       webRTCSessionPathManager
 	parent            *webRTCManager
 
-	ctx        context.Context
-	ctxCancel  func()
-	created    time.Time
-	uuid       uuid.UUID
-	secret     uuid.UUID
-	answerSent bool
-	mutex      sync.RWMutex
-	pc         *peerConnection
+	ctx       context.Context
+	ctxCancel func()
+	created   time.Time
+	uuid      uuid.UUID
+	secret    uuid.UUID
+	mutex     sync.RWMutex
+	pc        *peerConnection
 
-	chNew           chan webRTCSessionNewReq
-	chAddCandidates chan webRTCSessionAddCandidatesReq
+	chNew           chan webRTCNewSessionReq
+	chAddCandidates chan webRTCAddSessionCandidatesReq
 }
 
 func newWebRTCSession(
 	parentCtx context.Context,
 	readBufferCount int,
-	req webRTCSessionNewReq,
+	req webRTCNewSessionReq,
 	wg *sync.WaitGroup,
 	iceHostNAT1To1IPs []string,
 	iceUDPMux ice.UDPMux,
@@ -185,8 +184,8 @@ func newWebRTCSession(
 		created:           time.Now(),
 		uuid:              uuid.New(),
 		secret:            uuid.New(),
-		chNew:             make(chan webRTCSessionNewReq),
-		chAddCandidates:   make(chan webRTCSessionAddCandidatesReq),
+		chNew:             make(chan webRTCNewSessionReq),
+		chAddCandidates:   make(chan webRTCAddSessionCandidatesReq),
 	}
 
 	s.Log(logger.Info, "created by %s", req.remoteAddr)
@@ -213,7 +212,7 @@ func (s *webRTCSession) run() {
 
 	s.ctxCancel()
 
-	s.parent.sessionClose(s)
+	s.parent.closeSession(s)
 
 	s.Log(logger.Info, "closed (%v)", err)
 }
@@ -221,16 +220,14 @@ func (s *webRTCSession) run() {
 func (s *webRTCSession) runInner() error {
 	select {
 	case <-s.chNew:
-		// do not store the request, we already have it
-
 	case <-s.ctx.Done():
 		return fmt.Errorf("terminated")
 	}
 
 	errStatusCode, err := s.runInner2()
 
-	if !s.answerSent {
-		s.req.res <- webRTCSessionNewRes{
+	if errStatusCode != 0 {
+		s.req.res <- webRTCNewSessionRes{
 			err:           err,
 			errStatusCode: errStatusCode,
 		}
@@ -249,7 +246,7 @@ func (s *webRTCSession) runInner2() (int, error) {
 func (s *webRTCSession) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
-	res := s.pathManager.publisherAdd(pathPublisherAddReq{
+	res := s.pathManager.addPublisher(pathAddPublisherReq{
 		author:   s,
 		pathName: s.req.pathName,
 		credentials: authCredentials{
@@ -272,7 +269,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return http.StatusBadRequest, res.err
 	}
 
-	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
+	defer res.path.removePublisher(pathRemovePublisherReq{author: s})
 
 	servers, err := s.parent.generateICEServers()
 	if err != nil {
@@ -388,7 +385,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	}
 	medias := mediasOfIncomingTracks(tracks)
 
-	rres := res.path.publisherStart(pathPublisherStartReq{
+	rres := res.path.startPublisher(pathStartPublisherReq{
 		author:             s,
 		medias:             medias,
 		generateRTPPackets: false,
@@ -417,7 +414,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 func (s *webRTCSession) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
-	res := s.pathManager.readerAdd(pathReaderAddReq{
+	res := s.pathManager.addReader(pathAddReaderReq{
 		author:   s,
 		pathName: s.req.pathName,
 		credentials: authCredentials{
@@ -444,7 +441,7 @@ func (s *webRTCSession) runRead() (int, error) {
 		return http.StatusBadRequest, res.err
 	}
 
-	defer res.path.readerRemove(pathReaderRemoveReq{author: s})
+	defer res.path.removeReader(pathRemoveReaderReq{author: s})
 
 	tracks, err := gatherOutgoingTracks(res.stream.Medias())
 	if err != nil {
@@ -569,11 +566,10 @@ func (s *webRTCSession) waitGatheringDone(pc *peerConnection) error {
 }
 
 func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) {
-	s.req.res <- webRTCSessionNewRes{
+	s.req.res <- webRTCNewSessionRes{
 		sx:     s,
 		answer: []byte(answer.SDP),
 	}
-	s.answerSent = true
 }
 
 func (s *webRTCSession) readRemoteCandidates(pc *peerConnection) {
@@ -583,10 +579,10 @@ func (s *webRTCSession) readRemoteCandidates(pc *peerConnection) {
 			for _, candidate := range req.candidates {
 				err := pc.AddICECandidate(*candidate)
 				if err != nil {
-					req.res <- webRTCSessionAddCandidatesRes{err: err}
+					req.res <- webRTCAddSessionCandidatesRes{err: err}
 				}
 			}
-			req.res <- webRTCSessionAddCandidatesRes{}
+			req.res <- webRTCAddSessionCandidatesRes{}
 
 		case <-s.ctx.Done():
 			return
@@ -595,26 +591,26 @@ func (s *webRTCSession) readRemoteCandidates(pc *peerConnection) {
 }
 
 // new is called by webRTCHTTPServer through webRTCManager.
-func (s *webRTCSession) new(req webRTCSessionNewReq) webRTCSessionNewRes {
+func (s *webRTCSession) new(req webRTCNewSessionReq) webRTCNewSessionRes {
 	select {
 	case s.chNew <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():
-		return webRTCSessionNewRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
+		return webRTCNewSessionRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
 	}
 }
 
 // addCandidates is called by webRTCHTTPServer through webRTCManager.
 func (s *webRTCSession) addCandidates(
-	req webRTCSessionAddCandidatesReq,
-) webRTCSessionAddCandidatesRes {
+	req webRTCAddSessionCandidatesReq,
+) webRTCAddSessionCandidatesRes {
 	select {
 	case s.chAddCandidates <- req:
 		return <-req.res
 
 	case <-s.ctx.Done():
-		return webRTCSessionAddCandidatesRes{err: fmt.Errorf("terminated")}
+		return webRTCAddSessionCandidatesRes{err: fmt.Errorf("terminated")}
 	}
 }
 

@@ -162,8 +162,8 @@ func marshalICEFragment(offer *webrtc.SessionDescription, candidates []*webrtc.I
 type webRTCHTTPServerParent interface {
 	logger.Writer
 	generateICEServers() ([]webrtc.ICEServer, error)
-	sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes
-	sessionAddCandidates(req webRTCSessionAddCandidatesReq) webRTCSessionAddCandidatesRes
+	newSession(req webRTCNewSessionReq) webRTCNewSessionRes
+	addSessionCandidates(req webRTCAddSessionCandidatesReq) webRTCAddSessionCandidatesRes
 }
 
 type webRTCHTTPServer struct {
@@ -372,7 +372,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
-			res := s.parent.sessionNew(webRTCSessionNewReq{
+			res := s.parent.newSession(webRTCNewSessionReq{
 				pathName:   dir,
 				remoteAddr: remoteAddr,
 				query:      ctx.Request.URL.RawQuery,
@@ -425,7 +425,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
-			res := s.parent.sessionAddCandidates(webRTCSessionAddCandidatesReq{
+			res := s.parent.addSessionCandidates(webRTCAddSessionCandidatesReq{
 				secret:     secret,
 				candidates: candidates,
 			})

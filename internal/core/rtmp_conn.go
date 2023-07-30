@@ -47,8 +47,8 @@ const (
 )
 
 type rtmpConnPathManager interface {
-	readerAdd(req pathReaderAddReq) pathReaderSetupPlayRes
-	publisherAdd(req pathPublisherAddReq) pathPublisherAddRes
+	addReader(req pathAddReaderReq) pathAddReaderRes
+	addPublisher(req pathAddPublisherReq) pathAddPublisherRes
 }
 
 type rtmpConnParent interface {
@@ -208,7 +208,7 @@ func (c *rtmpConn) runReader() error {
 func (c *rtmpConn) runRead(u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
-	res := c.pathManager.readerAdd(pathReaderAddReq{
+	res := c.pathManager.addReader(pathAddReaderReq{
 		author:   c,
 		pathName: pathName,
 		credentials: authCredentials{
@@ -230,7 +230,7 @@ func (c *rtmpConn) runRead(u *url.URL) error {
 		return res.err
 	}
 
-	defer res.path.readerRemove(pathReaderRemoveReq{author: c})
+	defer res.path.removeReader(pathRemoveReaderReq{author: c})
 
 	c.mutex.Lock()
 	c.state = rtmpConnStateRead
@@ -572,7 +572,7 @@ func (c *rtmpConn) setupAudio(
 func (c *rtmpConn) runPublish(u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
-	res := c.pathManager.publisherAdd(pathPublisherAddReq{
+	res := c.pathManager.addPublisher(pathAddPublisherReq{
 		author:   c,
 		pathName: pathName,
 		credentials: authCredentials{
@@ -594,7 +594,7 @@ func (c *rtmpConn) runPublish(u *url.URL) error {
 		return res.err
 	}
 
-	defer res.path.publisherRemove(pathPublisherRemoveReq{author: c})
+	defer res.path.removePublisher(pathRemovePublisherReq{author: c})
 
 	c.mutex.Lock()
 	c.state = rtmpConnStatePublish
@@ -685,7 +685,7 @@ func (c *rtmpConn) runPublish(u *url.URL) error {
 		}
 	}
 
-	rres := res.path.publisherStart(pathPublisherStartReq{
+	rres := res.path.startPublisher(pathStartPublisherReq{
 		author:             c,
 		medias:             medias,
 		generateRTPPackets: true,
