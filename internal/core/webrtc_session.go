@@ -274,8 +274,13 @@ func (s *webRTCSession) runPublish() (int, error) {
 
 	defer res.path.publisherRemove(pathPublisherRemoveReq{author: s})
 
+	servers, err := s.parent.generateICEServers()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
 	pc, err := newPeerConnection(
-		s.parent.generateICEServers(),
+		servers,
 		s.iceHostNAT1To1IPs,
 		s.iceUDPMux,
 		s.iceTCPMux,
@@ -446,8 +451,13 @@ func (s *webRTCSession) runRead() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
+	servers, err := s.parent.generateICEServers()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
 	pc, err := newPeerConnection(
-		s.parent.generateICEServers(),
+		servers,
 		s.iceHostNAT1To1IPs,
 		s.iceUDPMux,
 		s.iceTCPMux,

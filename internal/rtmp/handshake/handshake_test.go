@@ -63,7 +63,8 @@ func TestHandshakeFallback(t *testing.T) {
 	require.NoError(t, err)
 
 	c1 := make([]byte, 1536)
-	rand.Read(c1[8:])
+	_, err = rand.Read(c1[8:])
+	require.NoError(t, err)
 	_, err = conn.Write(c1)
 	require.NoError(t, err)
 

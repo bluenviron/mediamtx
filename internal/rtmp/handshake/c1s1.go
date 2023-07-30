@@ -119,7 +119,10 @@ func (c *C1S1) Write(w io.Writer, isC1 bool) error {
 	copy(buf[4:], []byte{0, 0, 0, 0})
 
 	if c.Random == nil {
-		rand.Read(buf[8:])
+		_, err := rand.Read(buf[8:])
+		if err != nil {
+			return err
+		}
 		c.Random = buf[8:]
 	} else {
 		copy(buf[8:], c.Random)
