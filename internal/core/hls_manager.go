@@ -128,7 +128,7 @@ func newHLSManager(
 
 	m.Log(logger.Info, "listener opened on "+address)
 
-	m.pathManager.hlsManagerSet(m)
+	m.pathManager.setHLSManager(m)
 
 	if m.metrics != nil {
 		m.metrics.setHLSManager(m)
@@ -223,7 +223,7 @@ outer:
 
 	m.httpServer.close()
 
-	m.pathManager.hlsManagerSet(nil)
+	m.pathManager.setHLSManager(nil)
 
 	if m.metrics != nil {
 		m.metrics.setHLSManager(nil)

@@ -7,9 +7,10 @@ import (
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
+
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 const (

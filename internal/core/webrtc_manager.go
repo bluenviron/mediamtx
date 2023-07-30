@@ -112,14 +112,14 @@ type webRTCManagerAPISessionsGetReq struct {
 	res  chan webRTCManagerAPISessionsGetRes
 }
 
-type webRTCSessionNewRes struct {
+type webRTCNewSessionRes struct {
 	sx            *webRTCSession
 	answer        []byte
 	err           error
 	errStatusCode int
 }
 
-type webRTCSessionNewReq struct {
+type webRTCNewSessionReq struct {
 	pathName   string
 	remoteAddr string
 	query      string
@@ -127,18 +127,18 @@ type webRTCSessionNewReq struct {
 	pass       string
 	offer      []byte
 	publish    bool
-	res        chan webRTCSessionNewRes
+	res        chan webRTCNewSessionRes
 }
 
-type webRTCSessionAddCandidatesRes struct {
+type webRTCAddSessionCandidatesRes struct {
 	sx  *webRTCSession
 	err error
 }
 
-type webRTCSessionAddCandidatesReq struct {
+type webRTCAddSessionCandidatesReq struct {
 	secret     uuid.UUID
 	candidates []*webrtc.ICECandidateInit
-	res        chan webRTCSessionAddCandidatesRes
+	res        chan webRTCAddSessionCandidatesRes
 }
 
 type webRTCManagerParent interface {
@@ -166,9 +166,9 @@ type webRTCManager struct {
 	iceTCPMux         ice.TCPMux
 
 	// in
-	chSessionNew           chan webRTCSessionNewReq
-	chSessionClose         chan *webRTCSession
-	chSessionAddCandidates chan webRTCSessionAddCandidatesReq
+	chNewSession           chan webRTCNewSessionReq
+	chCloseSession         chan *webRTCSession
+	chAddSessionCandidates chan webRTCAddSessionCandidatesReq
 	chAPISessionsList      chan webRTCManagerAPISessionsListReq
 	chAPISessionsGet       chan webRTCManagerAPISessionsGetReq
 	chAPIConnsKick         chan webRTCManagerAPISessionsKickReq
@@ -209,9 +209,9 @@ func newWebRTCManager(
 		iceHostNAT1To1IPs:      iceHostNAT1To1IPs,
 		sessions:               make(map[*webRTCSession]struct{}),
 		sessionsBySecret:       make(map[uuid.UUID]*webRTCSession),
-		chSessionNew:           make(chan webRTCSessionNewReq),
-		chSessionClose:         make(chan *webRTCSession),
-		chSessionAddCandidates: make(chan webRTCSessionAddCandidatesReq),
+		chNewSession:           make(chan webRTCNewSessionReq),
+		chCloseSession:         make(chan *webRTCSession),
+		chAddSessionCandidates: make(chan webRTCAddSessionCandidatesReq),
 		chAPISessionsList:      make(chan webRTCManagerAPISessionsListReq),
 		chAPISessionsGet:       make(chan webRTCManagerAPISessionsGetReq),
 		chAPIConnsKick:         make(chan webRTCManagerAPISessionsKickReq),
@@ -293,7 +293,7 @@ func (m *webRTCManager) run() {
 outer:
 	for {
 		select {
-		case req := <-m.chSessionNew:
+		case req := <-m.chNewSession:
 			sx := newWebRTCSession(
 				m.ctx,
 				m.readBufferCount,
@@ -307,20 +307,20 @@ outer:
 			)
 			m.sessions[sx] = struct{}{}
 			m.sessionsBySecret[sx.secret] = sx
-			req.res <- webRTCSessionNewRes{sx: sx}
+			req.res <- webRTCNewSessionRes{sx: sx}
 
-		case sx := <-m.chSessionClose:
+		case sx := <-m.chCloseSession:
 			delete(m.sessions, sx)
 			delete(m.sessionsBySecret, sx.secret)
 
-		case req := <-m.chSessionAddCandidates:
+		case req := <-m.chAddSessionCandidates:
 			sx, ok := m.sessionsBySecret[req.secret]
 			if !ok {
-				req.res <- webRTCSessionAddCandidatesRes{err: fmt.Errorf("session not found")}
+				req.res <- webRTCAddSessionCandidatesRes{err: fmt.Errorf("session not found")}
 				continue
 			}
 
-			req.res <- webRTCSessionAddCandidatesRes{sx: sx}
+			req.res <- webRTCAddSessionCandidatesRes{sx: sx}
 
 		case req := <-m.chAPISessionsList:
 			data := &apiWebRTCSessionsList{
@@ -417,36 +417,36 @@ func (m *webRTCManager) generateICEServers() ([]webrtc.ICEServer, error) {
 	return ret, nil
 }
 
-// sessionNew is called by webRTCHTTPServer.
-func (m *webRTCManager) sessionNew(req webRTCSessionNewReq) webRTCSessionNewRes {
-	req.res = make(chan webRTCSessionNewRes)
+// newSession is called by webRTCHTTPServer.
+func (m *webRTCManager) newSession(req webRTCNewSessionReq) webRTCNewSessionRes {
+	req.res = make(chan webRTCNewSessionRes)
 
 	select {
-	case m.chSessionNew <- req:
+	case m.chNewSession <- req:
 		res := <-req.res
 
 		return res.sx.new(req)
 
 	case <-m.ctx.Done():
-		return webRTCSessionNewRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
+		return webRTCNewSessionRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
 	}
 }
 
-// sessionClose is called by webRTCSession.
-func (m *webRTCManager) sessionClose(sx *webRTCSession) {
+// closeSession is called by webRTCSession.
+func (m *webRTCManager) closeSession(sx *webRTCSession) {
 	select {
-	case m.chSessionClose <- sx:
+	case m.chCloseSession <- sx:
 	case <-m.ctx.Done():
 	}
 }
 
-// sessionAddCandidates is called by webRTCHTTPServer.
-func (m *webRTCManager) sessionAddCandidates(
-	req webRTCSessionAddCandidatesReq,
-) webRTCSessionAddCandidatesRes {
-	req.res = make(chan webRTCSessionAddCandidatesRes)
+// addSessionCandidates is called by webRTCHTTPServer.
+func (m *webRTCManager) addSessionCandidates(
+	req webRTCAddSessionCandidatesReq,
+) webRTCAddSessionCandidatesRes {
+	req.res = make(chan webRTCAddSessionCandidatesRes)
 	select {
-	case m.chSessionAddCandidates <- req:
+	case m.chAddSessionCandidates <- req:
 		res1 := <-req.res
 		if res1.err != nil {
 			return res1
@@ -455,7 +455,7 @@ func (m *webRTCManager) sessionAddCandidates(
 		return res1.sx.addCandidates(req)
 
 	case <-m.ctx.Done():
-		return webRTCSessionAddCandidatesRes{err: fmt.Errorf("terminated")}
+		return webRTCAddSessionCandidatesRes{err: fmt.Errorf("terminated")}
 	}
 }
 

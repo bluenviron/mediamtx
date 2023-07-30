@@ -241,7 +241,7 @@ func (m *hlsMuxer) clearQueuedRequests() {
 }
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
-	res := m.pathManager.readerAdd(pathReaderAddReq{
+	res := m.pathManager.addReader(pathAddReaderReq{
 		author:   m,
 		pathName: m.pathName,
 		skipAuth: true,
@@ -252,7 +252,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.path = res.path
 
-	defer m.path.readerRemove(pathReaderRemoveReq{author: m})
+	defer m.path.removeReader(pathRemoveReaderReq{author: m})
 
 	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
 
