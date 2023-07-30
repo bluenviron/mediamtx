@@ -491,6 +491,6 @@ func BenchmarkRead(b *testing.B) {
 	conn := NewConn(&buf)
 
 	for n := 0; n < b.N; n++ {
-		conn.ReadMessage()
+		conn.Read()
 	}
 }

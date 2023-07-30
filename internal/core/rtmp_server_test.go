@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp"
-	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
 func TestRTMPServerRunOnConnect(t *testing.T) {
@@ -154,7 +153,7 @@ func TestRTMPServer(t *testing.T) {
 					IndexDeltaLength: 3,
 				}
 
-				err = conn1.WriteTracks(videoTrack, audioTrack)
+				w, err := rtmp.NewWriter(conn1, videoTrack, audioTrack)
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -181,43 +180,40 @@ func TestRTMPServer(t *testing.T) {
 				err = conn2.InitializeClient(u2, false)
 				require.NoError(t, err)
 
-				videoTrack1, audioTrack2, err := conn2.ReadTracks()
+				r, err := rtmp.NewReader(conn2)
 				require.NoError(t, err)
+				videoTrack1, audioTrack2 := r.Tracks()
 				require.Equal(t, videoTrack, videoTrack1)
 				require.Equal(t, audioTrack, audioTrack2)
 
-				err = conn1.WriteMessage(&message.Video{
-					ChunkStreamID:   message.VideoChunkStreamID,
-					MessageStreamID: 0x1000000,
-					Codec:           message.CodecH264,
-					IsKeyFrame:      true,
-					Type:            message.VideoTypeAU,
-					Payload: []byte{
-						0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 1
-						0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 2
-					},
+				err = w.WriteH264(0, 0, true, [][]byte{
+					{0x05, 0x02, 0x03, 0x04}, // IDR 1
+					{0x05, 0x02, 0x03, 0x04}, // IDR 2
 				})
 				require.NoError(t, err)
 
-				msg1, err := conn2.ReadMessage()
+				r.OnDataH264(func(pts time.Duration, au [][]byte) {
+					require.Equal(t, [][]byte{
+						{ // SPS
+							0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+							0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+							0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
+							0x20,
+						},
+						{ // PPS
+							0x08, 0x06, 0x07, 0x08,
+						},
+						{ // IDR 1
+							0x05, 0x02, 0x03, 0x04,
+						},
+						{ // IDR 2
+							0x05, 0x02, 0x03, 0x04,
+						},
+					}, au)
+				})
+
+				err = r.Read()
 				require.NoError(t, err)
-				require.Equal(t, &message.Video{
-					ChunkStreamID:   message.VideoChunkStreamID,
-					MessageStreamID: 0x1000000,
-					Codec:           message.CodecH264,
-					IsKeyFrame:      true,
-					Type:            message.VideoTypeAU,
-					Payload: []byte{
-						0x00, 0x00, 0x00, 0x19, // SPS
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-						0x20,
-						0x00, 0x00, 0x00, 0x04, 0x08, 0x06, 0x07, 0x08, // PPS
-						0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 1
-						0x00, 0x00, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04, // IDR 2
-					},
-				}, msg1)
 			})
 		}
 	}
@@ -259,7 +255,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			PacketizationMode: 1,
 		}
 
-		err = conn1.WriteTracks(videoTrack, nil)
+		_, err = rtmp.NewWriter(conn1, videoTrack, nil)
 		require.NoError(t, err)
 
 		time.Sleep(500 * time.Millisecond)
@@ -275,7 +271,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn2.InitializeClient(u2, false)
 		require.NoError(t, err)
 
-		_, _, err = conn2.ReadTracks()
+		_, err = rtmp.NewReader(conn2)
 		require.EqualError(t, err, "EOF")
 	})
 
@@ -313,7 +309,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			PacketizationMode: 1,
 		}
 
-		err = conn1.WriteTracks(videoTrack, nil)
+		_, err = rtmp.NewWriter(conn1, videoTrack, nil)
 		require.NoError(t, err)
 
 		time.Sleep(500 * time.Millisecond)
@@ -329,7 +325,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn2.InitializeClient(u2, false)
 		require.NoError(t, err)
 
-		_, _, err = conn2.ReadTracks()
+		_, err = rtmp.NewReader(conn2)
 		require.EqualError(t, err, "EOF")
 	})
 
@@ -368,7 +364,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			PacketizationMode: 1,
 		}
 
-		err = conn1.WriteTracks(videoTrack, nil)
+		_, err = rtmp.NewWriter(conn1, videoTrack, nil)
 		require.NoError(t, err)
 
 		time.Sleep(500 * time.Millisecond)
@@ -384,7 +380,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		err = conn2.InitializeClient(u2, false)
 		require.NoError(t, err)
 
-		_, _, err = conn2.ReadTracks()
+		_, err = rtmp.NewReader(conn2)
 		require.EqualError(t, err, "EOF")
 	})
 }

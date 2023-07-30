@@ -101,7 +101,7 @@ webrtc_sessions_bytes_sent 0
 		PacketizationMode: 1,
 	}
 
-	err = conn.WriteTracks(videoTrack, nil)
+	_, err = rtmp.NewWriter(conn, videoTrack, nil)
 	require.NoError(t, err)
 
 	time.Sleep(500 * time.Millisecond)

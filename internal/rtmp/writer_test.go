@@ -1,4 +1,4 @@
-package tracks
+package rtmp
 
 import (
 	"bytes"
@@ -13,11 +13,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
-func TestWrite(t *testing.T) {
-	var buf bytes.Buffer
-	bc := bytecounter.NewReadWriter(&buf)
-	mrw := message.NewReadWriter(bc, true)
-
+func TestWriteTracks(t *testing.T) {
 	videoTrack := &formats.H264{
 		PayloadTyp: 96,
 		SPS: []byte{
@@ -43,8 +39,15 @@ func TestWrite(t *testing.T) {
 		IndexDeltaLength: 3,
 	}
 
-	err := Write(mrw, videoTrack, audioTrack)
+	var buf bytes.Buffer
+	c := NewConn(&buf)
+	c.skipInitialization()
+
+	_, err := NewWriter(c, videoTrack, audioTrack)
 	require.NoError(t, err)
+
+	bc := bytecounter.NewReadWriter(&buf)
+	mrw := message.NewReadWriter(bc, true)
 
 	msg, err := mrw.Read()
 	require.NoError(t, err)

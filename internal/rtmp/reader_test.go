@@ -1,4 +1,4 @@
-package tracks
+package rtmp
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
-func TestRead(t *testing.T) {
+func TestReadTracks(t *testing.T) {
 	sps := []byte{
 		0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
 		0x4b, 0x42, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
@@ -536,8 +536,12 @@ func TestRead(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			videoTrack, audioTrack, err := Read(mrw)
+			c := NewConn(&buf)
+			c.skipInitialization()
+
+			r, err := NewReader(c)
 			require.NoError(t, err)
+			videoTrack, audioTrack := r.Tracks()
 			require.Equal(t, ca.videoTrack, videoTrack)
 			require.Equal(t, ca.audioTrack, audioTrack)
 		})
