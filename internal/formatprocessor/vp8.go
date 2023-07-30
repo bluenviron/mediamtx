@@ -13,20 +13,9 @@ import (
 
 // UnitVP8 is a VP8 data unit.
 type UnitVP8 struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	Frame      []byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitVP8) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitVP8) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS   time.Duration
+	Frame []byte
 }
 
 type formatProcessorVP8 struct {
@@ -118,7 +107,9 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 
 func (t *formatProcessorVP8) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitVP8{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

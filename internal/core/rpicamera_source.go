@@ -100,9 +100,11 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 		}
 
 		stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+			BaseUnit: formatprocessor.BaseUnit{
+				NTP: time.Now(),
+			},
 			PTS: dts,
 			AU:  au,
-			NTP: time.Now(),
 		})
 	}
 

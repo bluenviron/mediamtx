@@ -165,9 +165,11 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: decodeTime(pts),
 					AU:  au,
-					NTP: time.Now(),
 				})
 				return nil
 			})
@@ -182,9 +184,11 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: decodeTime(pts),
 					AU:  au,
-					NTP: time.Now(),
 				})
 				return nil
 			})
@@ -203,9 +207,11 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 
 			r.OnDataMPEG4Audio(track, func(pts int64, _ int64, aus [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS: decodeTime(pts),
 					AUs: aus,
-					NTP: time.Now(),
 				})
 				return nil
 			})
@@ -221,9 +227,11 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 
 			r.OnDataOpus(track, func(pts int64, _ int64, packets [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
 					PTS:     decodeTime(pts),
 					Packets: packets,
-					NTP:     time.Now(),
 				})
 				return nil
 			})

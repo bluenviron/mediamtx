@@ -25,7 +25,11 @@ func TestH265DynamicParams(t *testing.T) {
 	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
 
-	data := &UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data := &UnitH265{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -34,15 +38,27 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
 	require.NoError(t, err)
-	p.Process(&UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH265{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}, false)
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}}, 0)
 	require.NoError(t, err)
-	p.Process(&UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH265{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}, false)
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}}, 0)
 	require.NoError(t, err)
-	p.Process(&UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH265{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}, false)
 
 	require.Equal(t, []byte{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}, forma.VPS)
 	require.Equal(t, []byte{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}, forma.SPS)
@@ -50,7 +66,11 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
-	data = &UnitH265{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data = &UnitH265{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -100,7 +120,11 @@ func TestH265OversizedPackets(t *testing.T) {
 			Payload: bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 2000/4),
 		},
 	} {
-		data := &UnitH265{RTPPackets: []*rtp.Packet{pkt}}
+		data := &UnitH265{
+			BaseUnit: BaseUnit{
+				RTPPackets: []*rtp.Packet{pkt},
+			},
+		}
 		p.Process(data, false)
 		out = append(out, data.RTPPackets...)
 	}
@@ -170,7 +194,7 @@ func TestH265EmptyPacket(t *testing.T) {
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
 }
 
-func TestH265KeyFrameWarning(t *testing.T) {
+func TestH265KeyFrameWarning(t *testing.T) { //nolint:dupl
 	forma := &formats.H265{
 		PayloadTyp: 96,
 	}
@@ -181,19 +205,23 @@ func TestH265KeyFrameWarning(t *testing.T) {
 
 	ntp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	err = p.Process(&UnitH265{
+		BaseUnit: BaseUnit{
+			NTP: ntp,
+		},
 		AU: [][]byte{
 			{0x01},
 		},
-		NTP: ntp,
 	}, false)
 	require.NoError(t, err)
 
 	ntp = ntp.Add(30 * time.Second)
 	err = p.Process(&UnitH265{
+		BaseUnit: BaseUnit{
+			NTP: ntp,
+		},
 		AU: [][]byte{
 			{0x01},
 		},
-		NTP: ntp,
 	}, false)
 	require.NoError(t, err)
 

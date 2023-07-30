@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAV1KeyFrameWarning(t *testing.T) {
+func TestAV1KeyFrameWarning(t *testing.T) { //nolint:dupl
 	forma := &formats.AV1{
 		PayloadTyp: 96,
 	}
@@ -19,19 +19,23 @@ func TestAV1KeyFrameWarning(t *testing.T) {
 
 	ntp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	err = p.Process(&UnitAV1{
+		BaseUnit: BaseUnit{
+			NTP: ntp,
+		},
 		OBUs: [][]byte{
 			{0x01},
 		},
-		NTP: ntp,
 	}, false)
 	require.NoError(t, err)
 
 	ntp = ntp.Add(30 * time.Second)
 	err = p.Process(&UnitAV1{
+		BaseUnit: BaseUnit{
+			NTP: ntp,
+		},
 		OBUs: [][]byte{
 			{0x01},
 		},
-		NTP: ntp,
 	}, false)
 	require.NoError(t, err)
 

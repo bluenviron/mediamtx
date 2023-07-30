@@ -78,20 +78,9 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 
 // UnitH265 is a H265 data unit.
 type UnitH265 struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	AU         [][]byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitH265) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitH265) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS time.Duration
+	AU  [][]byte
 }
 
 type formatProcessorH265 struct {
@@ -356,7 +345,9 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 
 func (t *formatProcessorH265) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitH265{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }

@@ -80,9 +80,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 				c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
 					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
+						BaseUnit: formatprocessor.BaseUnit{
+							NTP: time.Now(),
+						},
 						PTS: pts,
 						AU:  au,
-						NTP: time.Now(),
 					})
 				})
 
@@ -99,9 +101,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 				c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
 					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
+						BaseUnit: formatprocessor.BaseUnit{
+							NTP: time.Now(),
+						},
 						PTS: pts,
 						AU:  au,
-						NTP: time.Now(),
 					})
 				})
 
@@ -119,9 +123,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 				c.OnDataMPEG4Audio(track, func(pts time.Duration, dts time.Duration, aus [][]byte) {
 					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
+						BaseUnit: formatprocessor.BaseUnit{
+							NTP: time.Now(),
+						},
 						PTS: pts,
 						AUs: aus,
-						NTP: time.Now(),
 					})
 				})
 
@@ -136,9 +142,11 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 				c.OnDataOpus(track, func(pts time.Duration, dts time.Duration, packets [][]byte) {
 					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
+						BaseUnit: formatprocessor.BaseUnit{
+							NTP: time.Now(),
+						},
 						PTS:     pts,
 						Packets: packets,
-						NTP:     time.Now(),
 					})
 				})
 			}

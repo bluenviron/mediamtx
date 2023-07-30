@@ -37,7 +37,11 @@ func TestH264DynamicParams(t *testing.T) {
 	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
 
-	data := &UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data := &UnitH264{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -46,18 +50,30 @@ func TestH264DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
 	require.NoError(t, err)
-	p.Process(&UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH264{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}, false)
 
 	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
 	require.NoError(t, err)
-	p.Process(&UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}, false)
+	p.Process(&UnitH264{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}, false)
 
 	require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
 	require.Equal(t, []byte{8, 1}, forma.PPS)
 
 	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
-	data = &UnitH264{RTPPackets: []*rtp.Packet{pkts[0]}}
+	data = &UnitH264{
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkts[0]},
+		},
+	}
 	p.Process(data, true)
 
 	require.Equal(t, [][]byte{
@@ -118,7 +134,11 @@ func TestH264OversizedPackets(t *testing.T) {
 			Payload: []byte{0x1c, 0b01000000, 0x01, 0x02, 0x03, 0x04},
 		},
 	} {
-		data := &UnitH264{RTPPackets: []*rtp.Packet{pkt}}
+		data := &UnitH264{
+			BaseUnit: BaseUnit{
+				RTPPackets: []*rtp.Packet{pkt},
+			},
+		}
 		p.Process(data, false)
 		out = append(out, data.RTPPackets...)
 	}
@@ -200,19 +220,23 @@ func TestH264KeyFrameWarning(t *testing.T) {
 
 	ntp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
 	err = p.Process(&UnitH264{
+		BaseUnit: BaseUnit{
+			NTP: ntp,
+		},
 		AU: [][]byte{
 			{0x01},
 		},
-		NTP: ntp,
 	}, false)
 	require.NoError(t, err)
 
 	ntp = ntp.Add(30 * time.Second)
 	err = p.Process(&UnitH264{
+		BaseUnit: BaseUnit{
+			NTP: ntp,
+		},
 		AU: [][]byte{
 			{0x01},
 		},
-		NTP: ntp,
 	}, false)
 	require.NoError(t, err)
 

@@ -13,20 +13,9 @@ import (
 
 // UnitMPEG4AudioLATM is a MPEG-4 Audio data unit.
 type UnitMPEG4AudioLATM struct {
-	RTPPackets []*rtp.Packet
-	NTP        time.Time
-	PTS        time.Duration
-	AU         []byte
-}
-
-// GetRTPPackets implements Unit.
-func (d *UnitMPEG4AudioLATM) GetRTPPackets() []*rtp.Packet {
-	return d.RTPPackets
-}
-
-// GetNTP implements Unit.
-func (d *UnitMPEG4AudioLATM) GetNTP() time.Time {
-	return d.NTP
+	BaseUnit
+	PTS time.Duration
+	AU  []byte
 }
 
 type formatProcessorMPEG4AudioLATM struct {
@@ -118,7 +107,9 @@ func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders boo
 
 func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
 	return &UnitMPEG4AudioLATM{
-		RTPPackets: []*rtp.Packet{pkt},
-		NTP:        ntp,
+		BaseUnit: BaseUnit{
+			RTPPackets: []*rtp.Packet{pkt},
+			NTP:        ntp,
+		},
 	}
 }
