@@ -163,6 +163,7 @@ docker run --rm -it \
 -p 1935:1935 \
 -p 8888:8888 \
 -p 8889:8889 \
+-p 8890:8890/udp \
 bluenviron/mediamtx
 ```
 
@@ -330,7 +331,7 @@ The resulting stream will be available in path `/mystream`.
 
 #### OpenCV
 
-OpenCV can publish to the server as a [RTSP client](#rtsp-clients). It must be compiled with GStreamer support, by following this procedure:
+OpenCV can publish to the server through its GStreamer plugin, as a [RTSP client](#rtsp-clients). It must be compiled with GStreamer support, by following this procedure:
 
 ```sh
 sudo apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-ugly gstreamer1.0-rtsp python3-dev python3-numpy
@@ -543,13 +544,36 @@ The resulting stream will be available in path `/cam_with_audio`.
 
 #### SRT clients
 
-TODO
+SRT is a protocol that allows to publish and read live data stream, providing encryption, integrity and a retransmission mechanism. It is usually used to transfer media streams encoded with MPEG-TS. In order to publish a stream to the server with the SRT protocol, use this URL:
+
+```
+srt://localhost:8890?streamid=publish:mystream&pkt_size=1316
+```
+
+Replace `mystream` with any name you want. The resulting stream will be available in path `/mystream`.
+
+If credentials are enabled, append username and password to `streamid`;
+
+```
+srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
+```
+
+If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
+
+Known clients that can publish with SRT are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### SRT servers
 
-TODO
+In order to ingest into the server a SRT stream from an existing server, camera or client in listening mode (i.e. with `mode=listener` appended to the URL), add the corresponding URL into the `source` parameter of a path:
 
-#### WebRTC
+```yml
+paths:
+  proxied:
+    # url of the source stream, in the format srt://host:port?streamid=streamid&other_parameters
+    source: srt://original-url
+```
+
+#### WebRTC clients
 
 WebRTC is an API that makes use of a set of protocols and methods to connect two clients together and allow them to exchange real-time media or data streams. You can publish a stream with WebRTC and a web browser by visiting:
 
@@ -567,15 +591,19 @@ http://localhost:8889/mystream/whip
 
 Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
 
+Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
+
 #### RTSP clients
 
-RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and allows to encrypt streams in transit (see [RTSP-specific features](#rtsp-specific-features)). In order to publish a stream with the RTSP protocol, you can use this URL:
+RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and allows to encrypt streams in transit (see [RTSP-specific features](#rtsp-specific-features)). In order to publish a stream to the server with the RTSP protocol, use this URL:
 
 ```
 rtsp://localhost:8554/mystream
 ```
 
 The resulting stream will be available in path `/mystream`.
+
+Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### RTSP cameras and servers
 
@@ -616,6 +644,8 @@ In case authentication is enabled, credentials can be passed to the server by us
 ```
 rtmp://localhost/mystream?user=myuser&pass=mypass
 ```
+
+Known clients that can publish with RTMP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### RTMP cameras and servers
 
@@ -671,13 +701,15 @@ paths:
 
 The resulting stream will be available in path `/mypath`.
 
+Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg) and [Gstreamer](#gstreamer).
+
 ## Read from the server
 
 ### By software
 
 #### FFmpeg
 
-FFmpeg can read a stream from the server in multiple ways (RTSP, RTMP, HLS, WebRTC with WHEP). The recommended one consists in reading with [RTSP](#rtsp):
+FFmpeg can read a stream from the server in multiple ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
 
 ```sh
 ffmpeg -i rtsp://localhost:8554/mystream -c copy output.mp4
@@ -691,7 +723,7 @@ ffmpeg -rtsp_transport tcp -i rtsp://localhost:8554/mystream -c copy output.mp4
 
 #### GStreamer
 
-GStreamer can read a stream from the server in multiple ways (RTSP, RTMP, HLS, WebRTC with WHEP). The recommended one consists in reading with [RTSP](#rtsp):
+GStreamer can read a stream from the server in multiple ways (RTSP, RTMP, HLS, WebRTC with WHEP, SRT). The recommended one consists in reading with [RTSP](#rtsp):
 
 ```sh
 gst-launch-1.0 rtspsrc location=rtsp://127.0.0.1:8554/mystream latency=0 ! decodebin ! autovideosink
@@ -780,7 +812,21 @@ This web page can be embedded into another web page by using an iframe:
 
 #### SRT
 
-TODO
+SRT is a protocol that allows to publish and read live data stream, providing encryption, integrity and a retransmission mechanism. It is usually used to transfer media streams encoded with MPEG-TS. In order to read a stream from the server with the SRT protocol, use this URL:
+
+```
+srt://localhost:8890?streamid=read:mystream&pkt_size=1316
+```
+
+Replace `mystream` with the path name.
+
+If credentials are enabled, append username and password to `streamid`;
+
+```
+srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
+```
+
+Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
 
 #### WebRTC
 
@@ -798,13 +844,17 @@ http://localhost:8889/mystream/whep
 
 Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
 
+Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [web browsers](#web-browsers-1).
+
 #### RTSP
 
-RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and allows to encrypt streams in transit (see [RTSP-specific features](#rtsp-specific-features)). In order to read a stream with the RTSP protocol, you can use this URL:
+RTSP is a protocol that allows to publish and read streams. It supports different underlying transport protocols and allows to encrypt streams in transit (see [RTSP-specific features](#rtsp-specific-features)). In order to read a stream with the RTSP protocol, use this URL:
 
 ```
 rtsp://localhost:8554/mystream
 ```
+
+Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
 
 ##### Latency
 
@@ -828,6 +878,8 @@ In case authentication is enabled, credentials can be passed to the server by us
 rtmp://localhost/mystream?user=myuser&pass=mypass
 ```
 
+Known clients that can read with RTMP are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
+
 #### HLS
 
 HLS is a protocol that works by splitting streams into segments, and by serving these segments and a playlist with the HTTP protocol. You can use _MediaMTX_ to generate a HLS stream, that is accessible through a web page:
@@ -842,9 +894,9 @@ and can also be accessed without using the browsers, by software that supports t
 http://localhost:8888/mystream/index.m3u8
 ```
 
-Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginning of the README), not all browsers can read all codecs. You can check what codecs your browser can read by visiting this page:
+Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginning of the README), not all browsers can read all codecs.
 
-<https://jsfiddle.net/4msrhudv>
+You can check what codecs your browser can read by [using this tool](https://jsfiddle.net/4msrhudv).
 
 If you want to support most browsers, you can to re-encode the stream by using the H264 and AAC codecs, for instance by using FFmpeg:
 
@@ -854,6 +906,8 @@ ffmpeg -i rtsp://original-source \
 -c:a aac -b:a 160k \
 -f rtsp rtsp://localhost:8554/mystream
 ```
+
+Known clients that can read with HLS are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1), [VLC](#vlc) and [web browsers](#web-browsers-1).
 
 ##### LL-HLS
 
@@ -1068,7 +1122,7 @@ paths:
 
 ### Save streams on disk
 
-To save available streams on disk, you can use the `runOnReady` parameter and _FFmpeg_:
+To save available streams on disk, use the `runOnReady` parameter and _FFmpeg_:
 
 ```yml
 paths:
