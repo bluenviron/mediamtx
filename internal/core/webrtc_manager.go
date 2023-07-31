@@ -93,15 +93,6 @@ type webRTCManagerAPISessionsListReq struct {
 	res chan webRTCManagerAPISessionsListRes
 }
 
-type webRTCManagerAPISessionsKickRes struct {
-	err error
-}
-
-type webRTCManagerAPISessionsKickReq struct {
-	uuid uuid.UUID
-	res  chan webRTCManagerAPISessionsKickRes
-}
-
 type webRTCManagerAPISessionsGetRes struct {
 	data *apiWebRTCSession
 	err  error
@@ -110,6 +101,15 @@ type webRTCManagerAPISessionsGetRes struct {
 type webRTCManagerAPISessionsGetReq struct {
 	uuid uuid.UUID
 	res  chan webRTCManagerAPISessionsGetRes
+}
+
+type webRTCManagerAPISessionsKickRes struct {
+	err error
+}
+
+type webRTCManagerAPISessionsKickReq struct {
+	uuid uuid.UUID
+	res  chan webRTCManagerAPISessionsKickRes
 }
 
 type webRTCNewSessionRes struct {

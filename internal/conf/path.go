@@ -210,6 +210,16 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			return fmt.Errorf("'%s' is not a valid IP", host)
 		}
 
+	case strings.HasPrefix(pconf.Source, "srt://"):
+		if pconf.Regexp != nil {
+			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a SRT source. use another path")
+		}
+
+		_, err := gourl.Parse(pconf.Source)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
+		}
+
 	case pconf.Source == "redirect":
 		if pconf.SourceRedirect == "" {
 			return fmt.Errorf("source redirect must be filled")
@@ -337,6 +347,7 @@ func (pconf PathConf) HasStaticSource() bool {
 		strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://") ||
 		strings.HasPrefix(pconf.Source, "udp://") ||
+		strings.HasPrefix(pconf.Source, "srt://") ||
 		pconf.Source == "rpiCamera"
 }
 

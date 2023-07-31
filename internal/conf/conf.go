@@ -159,6 +159,10 @@ type Conf struct {
 	WebRTCICEUDPMuxAddress  string            `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string            `json:"webrtcICETCPMuxAddress"`
 
+	// SRT
+	SRT        bool   `json:"srt"`
+	SRTAddress string `json:"srtAddress"`
+
 	// paths
 	Paths map[string]*PathConf `json:"paths"`
 }
@@ -335,6 +339,10 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.WebRTCServerCert = "server.crt"
 	conf.WebRTCAllowOrigin = "*"
 	conf.WebRTCICEServers2 = []WebRTCICEServer{{URL: "stun:stun.l.google.com:19302"}}
+
+	// SRT
+	conf.SRT = true
+	conf.SRTAddress = ":8890"
 
 	type alias Conf
 	d := json.NewDecoder(bytes.NewReader(b))

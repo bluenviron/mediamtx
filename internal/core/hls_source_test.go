@@ -8,17 +8,32 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/asticode/go-astits"
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
-	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	"github.com/gin-gonic/gin"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
+
+var track1 = &mpegts.Track{
+	PID:   256,
+	Codec: &mpegts.CodecH264{},
+}
+
+var track2 = &mpegts.Track{
+	PID: 257,
+	Codec: &mpegts.CodecMPEG4Audio{
+		Config: mpeg4audio.Config{
+			Type:         2,
+			SampleRate:   44100,
+			ChannelCount: 2,
+		},
+	},
+}
 
 type testHLSManager struct {
 	s *http.Server
@@ -71,130 +86,28 @@ segment2.ts
 
 func (ts *testHLSManager) onSegment1(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
-	mux := astits.NewMuxer(context.Background(), ctx.Writer)
 
-	mux.AddElementaryStream(astits.PMTElementaryStream{
-		ElementaryPID: 256,
-		StreamType:    astits.StreamTypeH264Video,
-	})
+	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
 
-	mux.AddElementaryStream(astits.PMTElementaryStream{
-		ElementaryPID: 257,
-		StreamType:    astits.StreamTypeAACAudio,
-	})
-
-	mux.SetPCRPID(256)
-
-	mux.WriteTables()
-
-	pkts := mpeg4audio.ADTSPackets{
-		{
-			Type:         2,
-			SampleRate:   44100,
-			ChannelCount: 2,
-			AU:           []byte{0x01, 0x02, 0x03, 0x04},
-		},
-	}
-	enc, _ := pkts.Marshal()
-
-	mux.WriteData(&astits.MuxerData{
-		PID: 257,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
-				},
-				StreamID: 192,
-			},
-			Data: enc,
-		},
-	})
+	w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
 }
 
 func (ts *testHLSManager) onSegment2(ctx *gin.Context) {
 	<-ts.clientConnected
 
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
-	mux := astits.NewMuxer(context.Background(), ctx.Writer)
 
-	mux.AddElementaryStream(astits.PMTElementaryStream{
-		ElementaryPID: 256,
-		StreamType:    astits.StreamTypeH264Video,
-	})
+	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
 
-	mux.AddElementaryStream(astits.PMTElementaryStream{
-		ElementaryPID: 257,
-		StreamType:    astits.StreamTypeAACAudio,
-	})
-
-	mux.SetPCRPID(256)
-
-	mux.WriteTables()
-
-	enc, _ := h264.AnnexBMarshal([][]byte{
+	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
 		{7, 1, 2, 3}, // SPS
 		{8},          // PPS
 	})
 
-	mux.WriteData(&astits.MuxerData{
-		PID: 256,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64(2 * 90000)},
-				},
-				StreamID: 224, // = video
-			},
-			Data: enc,
-		},
-	})
+	w.WriteMPEG4Audio(track2, 2*90000, [][]byte{{1, 2, 3, 4}})
 
-	pkts := mpeg4audio.ADTSPackets{
-		{
-			Type:         2,
-			SampleRate:   44100,
-			ChannelCount: 2,
-			AU:           []byte{0x01, 0x02, 0x03, 0x04},
-		},
-	}
-	enc, _ = pkts.Marshal()
-
-	mux.WriteData(&astits.MuxerData{
-		PID: 257,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64(1 * 90000)},
-				},
-				StreamID: 192,
-			},
-			Data: enc,
-		},
-	})
-
-	enc, _ = h264.AnnexBMarshal([][]byte{
+	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
 		{5}, // IDR
-	})
-
-	mux.WriteData(&astits.MuxerData{
-		PID: 256,
-		PES: &astits.PESData{
-			Header: &astits.PESHeader{
-				OptionalHeader: &astits.PESOptionalHeader{
-					MarkerBits:      2,
-					PTSDTSIndicator: astits.PTSDTSIndicatorOnlyPTS,
-					PTS:             &astits.ClockReference{Base: int64(2 * 90000)},
-				},
-				StreamID: 224, // = video
-			},
-			Data: enc,
-		},
 	})
 }
 

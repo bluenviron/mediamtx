@@ -86,6 +86,11 @@ func newSourceStatic(
 			readTimeout,
 			s)
 
+	case strings.HasPrefix(cnf.Source, "srt://"):
+		s.impl = newSRTSource(
+			readTimeout,
+			s)
+
 	case cnf.Source == "rpiCamera":
 		s.impl = newRPICameraSource(
 			s)
