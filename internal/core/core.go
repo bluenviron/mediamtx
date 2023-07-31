@@ -434,17 +434,19 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.conf.SRT {
-		p.srtServer, err = newSRTServer(
-			p.conf.SRTAddress,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.ReadBufferCount,
-			p.conf.UDPMaxPayloadSize,
-			p.pathManager,
-			p,
-		)
-		if err != nil {
-			return err
+		if p.srtServer == nil {
+			p.srtServer, err = newSRTServer(
+				p.conf.SRTAddress,
+				p.conf.ReadTimeout,
+				p.conf.WriteTimeout,
+				p.conf.ReadBufferCount,
+				p.conf.UDPMaxPayloadSize,
+				p.pathManager,
+				p,
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -613,6 +615,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress
 
 	closeSRTServer := newConf == nil ||
+		newConf.SRT != p.conf.SRT ||
 		newConf.SRTAddress != p.conf.SRTAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||

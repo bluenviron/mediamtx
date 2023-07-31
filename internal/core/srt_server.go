@@ -137,6 +137,7 @@ func (s *srtServer) Log(level logger.Level, format string, args ...interface{}) 
 }
 
 func (s *srtServer) close() {
+	s.Log(logger.Info, "listener is closing")
 	s.ctxCancel()
 	s.wg.Wait()
 }
