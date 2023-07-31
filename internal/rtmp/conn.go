@@ -139,29 +139,21 @@ type Conn struct {
 	mrw *message.ReadWriter
 }
 
-// NewConn initializes a connection.
-func NewConn(rw io.ReadWriter) *Conn {
-	return &Conn{
+// NewClientConn initializes a client-side connection.
+func NewClientConn(rw io.ReadWriter, u *url.URL, publish bool) (*Conn, error) {
+	c := &Conn{
 		bc: bytecounter.NewReadWriter(rw),
 	}
+
+	err := c.initializeClient(u, publish)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
-// BytesReceived returns the number of bytes received.
-func (c *Conn) BytesReceived() uint64 {
-	return c.bc.Reader.Count()
-}
-
-// BytesSent returns the number of bytes sent.
-func (c *Conn) BytesSent() uint64 {
-	return c.bc.Writer.Count()
-}
-
-func (c *Conn) skipInitialization() {
-	c.mrw = message.NewReadWriter(c.bc, false)
-}
-
-// InitializeClient performs the initialization of a client-side connection.
-func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
+func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 	connectpath, actionpath := splitPath(u)
 
 	err := handshake.DoClient(c.bc, false)
@@ -219,7 +211,7 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 		return err
 	}
 
-	if !isPublishing {
+	if !publish {
 		err = c.mrw.Write(&message.CommandAMF0{
 			ChunkStreamID: 3,
 			Name:          "createStream",
@@ -322,8 +314,21 @@ func (c *Conn) InitializeClient(u *url.URL, isPublishing bool) error {
 	return readCommandResult(c.mrw, 5, "onStatus", resultIsOK1)
 }
 
-// InitializeServer performs the initialization of a server-side connection.
-func (c *Conn) InitializeServer() (*url.URL, bool, error) {
+// NewServerConn initializes a server-side connection.
+func NewServerConn(rw io.ReadWriter) (*Conn, *url.URL, bool, error) {
+	c := &Conn{
+		bc: bytecounter.NewReadWriter(rw),
+	}
+
+	u, publish, err := c.initializeServer()
+	if err != nil {
+		return nil, nil, false, err
+	}
+
+	return c, u, publish, nil
+}
+
+func (c *Conn) initializeServer() (*url.URL, bool, error) {
 	err := handshake.DoServer(c.bc, false)
 	if err != nil {
 		return nil, false, err
@@ -569,6 +574,26 @@ func (c *Conn) InitializeServer() (*url.URL, bool, error) {
 			return u, true, nil
 		}
 	}
+}
+
+func newNoHandshakeConn(rw io.ReadWriter) *Conn {
+	c := &Conn{
+		bc: bytecounter.NewReadWriter(rw),
+	}
+
+	c.mrw = message.NewReadWriter(c.bc, false)
+
+	return c
+}
+
+// BytesReceived returns the number of bytes received.
+func (c *Conn) BytesReceived() uint64 {
+	return c.bc.Reader.Count()
+}
+
+// BytesSent returns the number of bytes sent.
+func (c *Conn) BytesSent() uint64 {
+	return c.bc.Writer.Count()
 }
 
 // Read reads a message.

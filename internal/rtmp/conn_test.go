@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
-func TestInitializeClient(t *testing.T) {
+func TestNewClientConn(t *testing.T) {
 	for _, ca := range []string{"read", "publish"} {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := net.Listen("tcp", "127.0.0.1:9121")
@@ -236,9 +236,8 @@ func TestInitializeClient(t *testing.T) {
 			nconn, err := net.Dial("tcp", u.Host)
 			require.NoError(t, err)
 			defer nconn.Close()
-			conn := NewConn(nconn)
 
-			err = conn.InitializeClient(u, ca == "publish")
+			conn, err := NewClientConn(nconn, u, ca == "publish")
 			require.NoError(t, err)
 
 			if ca == "read" {
@@ -254,7 +253,7 @@ func TestInitializeClient(t *testing.T) {
 	}
 }
 
-func TestInitializeServer(t *testing.T) {
+func TestNewServerConn(t *testing.T) {
 	for _, ca := range []string{
 		"read",
 		"publish",
@@ -272,9 +271,9 @@ func TestInitializeServer(t *testing.T) {
 				require.NoError(t, err)
 				defer nconn.Close()
 
-				conn := NewConn(nconn)
-				u, isPublishing, err := conn.InitializeServer()
+				_, u, isPublishing, err := NewServerConn(nconn)
 				require.NoError(t, err)
+
 				require.Equal(t, &url.URL{
 					Scheme: "rtmp",
 					Host:   "127.0.0.1:9121",
@@ -488,7 +487,7 @@ func BenchmarkRead(b *testing.B) {
 		})
 	}
 
-	conn := NewConn(&buf)
+	conn := newNoHandshakeConn(&buf)
 
 	for n := 0; n < b.N; n++ {
 		conn.Read()

@@ -85,9 +85,8 @@ webrtc_sessions_bytes_sent 0
 	nconn, err := net.Dial("tcp", u.Host)
 	require.NoError(t, err)
 	defer nconn.Close()
-	conn := rtmp.NewConn(nconn)
 
-	err = conn.InitializeClient(u, true)
+	conn, err := rtmp.NewClientConn(nconn, u, true)
 	require.NoError(t, err)
 
 	videoTrack := &formats.H264{

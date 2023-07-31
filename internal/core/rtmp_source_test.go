@@ -52,9 +52,8 @@ func TestRTMPSource(t *testing.T) {
 				nconn, err := ln.Accept()
 				require.NoError(t, err)
 				defer nconn.Close()
-				conn := rtmp.NewConn(nconn)
 
-				_, _, err = conn.InitializeServer()
+				conn, _, _, err := rtmp.NewServerConn(nconn)
 				require.NoError(t, err)
 
 				videoTrack := &formats.H264{
