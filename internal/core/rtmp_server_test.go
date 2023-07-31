@@ -34,9 +34,8 @@ func TestRTMPServerRunOnConnect(t *testing.T) {
 	nconn, err := net.Dial("tcp", u.Host)
 	require.NoError(t, err)
 	defer nconn.Close()
-	conn := rtmp.NewConn(nconn)
 
-	err = conn.InitializeClient(u, true)
+	_, err = rtmp.NewClientConn(nconn, u, true)
 	require.NoError(t, err)
 
 	time.Sleep(500 * time.Millisecond)
@@ -125,9 +124,8 @@ func TestRTMPServer(t *testing.T) {
 				}()
 				require.NoError(t, err)
 				defer nconn1.Close()
-				conn1 := rtmp.NewConn(nconn1)
 
-				err = conn1.InitializeClient(u1, true)
+				conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 				require.NoError(t, err)
 
 				videoTrack := &formats.H264{
@@ -175,9 +173,8 @@ func TestRTMPServer(t *testing.T) {
 				}()
 				require.NoError(t, err)
 				defer nconn2.Close()
-				conn2 := rtmp.NewConn(nconn2)
 
-				err = conn2.InitializeClient(u2, false)
+				conn2, err := rtmp.NewClientConn(nconn2, u2, false)
 				require.NoError(t, err)
 
 				r, err := rtmp.NewReader(conn2)
@@ -237,9 +234,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn1, err := net.Dial("tcp", u1.Host)
 		require.NoError(t, err)
 		defer nconn1.Close()
-		conn1 := rtmp.NewConn(nconn1)
 
-		err = conn1.InitializeClient(u1, true)
+		conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 		require.NoError(t, err)
 
 		videoTrack := &formats.H264{
@@ -266,9 +262,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn2, err := net.Dial("tcp", u2.Host)
 		require.NoError(t, err)
 		defer nconn2.Close()
-		conn2 := rtmp.NewConn(nconn2)
 
-		err = conn2.InitializeClient(u2, false)
+		conn2, err := rtmp.NewClientConn(nconn2, u2, false)
 		require.NoError(t, err)
 
 		_, err = rtmp.NewReader(conn2)
@@ -291,9 +286,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn1, err := net.Dial("tcp", u1.Host)
 		require.NoError(t, err)
 		defer nconn1.Close()
-		conn1 := rtmp.NewConn(nconn1)
 
-		err = conn1.InitializeClient(u1, true)
+		conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 		require.NoError(t, err)
 
 		videoTrack := &formats.H264{
@@ -320,9 +314,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn2, err := net.Dial("tcp", u2.Host)
 		require.NoError(t, err)
 		defer nconn2.Close()
-		conn2 := rtmp.NewConn(nconn2)
 
-		err = conn2.InitializeClient(u2, false)
+		conn2, err := rtmp.NewClientConn(nconn2, u2, false)
 		require.NoError(t, err)
 
 		_, err = rtmp.NewReader(conn2)
@@ -346,9 +339,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn1, err := net.Dial("tcp", u1.Host)
 		require.NoError(t, err)
 		defer nconn1.Close()
-		conn1 := rtmp.NewConn(nconn1)
 
-		err = conn1.InitializeClient(u1, true)
+		conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 		require.NoError(t, err)
 
 		videoTrack := &formats.H264{
@@ -375,9 +367,8 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		nconn2, err := net.Dial("tcp", u2.Host)
 		require.NoError(t, err)
 		defer nconn2.Close()
-		conn2 := rtmp.NewConn(nconn2)
 
-		err = conn2.InitializeClient(u2, false)
+		conn2, err := rtmp.NewClientConn(nconn2, u2, false)
 		require.NoError(t, err)
 
 		_, err = rtmp.NewReader(conn2)

@@ -99,11 +99,9 @@ func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 }
 
 func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
-	conn := rtmp.NewConn(nconn)
-
 	nconn.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
 	nconn.SetWriteDeadline(time.Now().Add(time.Duration(s.writeTimeout)))
-	err := conn.InitializeClient(u, false)
+	conn, err := rtmp.NewClientConn(nconn, u, false)
 	if err != nil {
 		return err
 	}

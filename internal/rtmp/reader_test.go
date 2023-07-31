@@ -536,8 +536,7 @@ func TestReadTracks(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			c := NewConn(&buf)
-			c.skipInitialization()
+			c := newNoHandshakeConn(&buf)
 
 			r, err := NewReader(c)
 			require.NoError(t, err)
