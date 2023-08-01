@@ -23,6 +23,7 @@ Live streams can be published to the server with:
 |[SRT clients](#srt-clients)||H265, H264|Opus, MPEG-4 Audio (AAC)|
 |[SRT servers](#srt-servers)||H265, H264|Opus, MPEG-4 Audio (AAC)|
 |[WebRTC clients](#webrtc-clients)|Browser-based, WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
+|[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G726, G722, G711, LPCM and any RTP-compatible codec|
 |[RTSP cameras and servers](#rtsp-cameras-and-servers)|UDP, UDP-Multicast, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G726, G722, G711, LPCM and any RTP-compatible codec|
 |[RTMP clients](#rtmp-clients)|RTMP, RTMPS, Enhanced RTMP|AV1, H265, H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
@@ -82,6 +83,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [SRT clients](#srt-clients)
     * [SRT servers](#srt-servers)
     * [WebRTC clients](#webrtc-clients)
+    * [WebRTC servers](#webrtc-servers)
     * [RTSP clients](#rtsp-clients)
     * [RTSP cameras and servers](#rtsp-cameras-and-servers)
     * [RTMP clients](#rtmp-clients)
@@ -592,6 +594,17 @@ http://localhost:8889/mystream/whip
 Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
 
 Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
+
+#### WebRTC servers
+
+In order to ingest into the server a WebRTC stream from an existing server, add the corresponding WHEP URL into the `source` parameter of a path:
+
+```yml
+paths:
+  proxied:
+    # url of the source stream, in the format whep://host:port/path (HTTP) or wheps:// (HTTPS)
+    source: wheps://host:port/path
+```
 
 #### RTSP clients
 

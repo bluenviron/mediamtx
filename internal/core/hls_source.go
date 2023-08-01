@@ -18,8 +18,8 @@ import (
 
 type hlsSourceParent interface {
 	logger.Writer
-	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	setNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type hlsSource struct {
@@ -35,7 +35,7 @@ func newHLSSource(
 }
 
 func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[hls source] "+format, args...)
+	s.parent.Log(level, "[HLS source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -44,7 +44,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 	defer func() {
 		if stream != nil {
-			s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
+			s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
@@ -163,7 +163,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			medias = append(medias, medi)
 		}
 
-		res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+		res := s.parent.setReady(pathSourceStaticSetReadyReq{
 			medias:             medias,
 			generateRTPPackets: true,
 		})
@@ -171,7 +171,6 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			return res.err
 		}
 
-		s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 		stream = res.stream
 
 		return nil

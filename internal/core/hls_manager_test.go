@@ -12,80 +12,72 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/gin-gonic/gin"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
 type testHTTPAuthenticator struct {
-	protocol string
-	action   string
-
-	s             *http.Server
-	firstReceived bool
+	*http.Server
 }
 
 func newTestHTTPAuthenticator(t *testing.T, protocol string, action string) *testHTTPAuthenticator {
+	firstReceived := false
+
+	ts := &testHTTPAuthenticator{}
+
+	ts.Server = &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, http.MethodPost, r.Method)
+			require.Equal(t, "/auth", r.URL.Path)
+
+			var in struct {
+				IP       string `json:"ip"`
+				User     string `json:"user"`
+				Password string `json:"password"`
+				Path     string `json:"path"`
+				Protocol string `json:"protocol"`
+				ID       string `json:"id"`
+				Action   string `json:"action"`
+				Query    string `json:"query"`
+			}
+			err := json.NewDecoder(r.Body).Decode(&in)
+			require.NoError(t, err)
+
+			var user string
+			if action == "publish" {
+				user = "testpublisher"
+			} else {
+				user = "testreader"
+			}
+
+			if in.IP != "127.0.0.1" ||
+				in.User != user ||
+				in.Password != "testpass" ||
+				in.Path != "teststream" ||
+				in.Protocol != protocol ||
+				(firstReceived && in.ID == "") ||
+				in.Action != action ||
+				(in.Query != "user=testreader&pass=testpass&param=value" &&
+					in.Query != "user=testpublisher&pass=testpass&param=value" &&
+					in.Query != "param=value") {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			firstReceived = true
+		}),
+	}
+
 	ln, err := net.Listen("tcp", "127.0.0.1:9120")
 	require.NoError(t, err)
 
-	ts := &testHTTPAuthenticator{
-		protocol: protocol,
-		action:   action,
-	}
-
-	router := gin.New()
-	router.POST("/auth", ts.onAuth)
-
-	ts.s = &http.Server{Handler: router}
-	go ts.s.Serve(ln)
+	go ts.Server.Serve(ln)
 
 	return ts
 }
 
 func (ts *testHTTPAuthenticator) close() {
-	ts.s.Shutdown(context.Background())
-}
-
-func (ts *testHTTPAuthenticator) onAuth(ctx *gin.Context) {
-	var in struct {
-		IP       string `json:"ip"`
-		User     string `json:"user"`
-		Password string `json:"password"`
-		Path     string `json:"path"`
-		Protocol string `json:"protocol"`
-		ID       string `json:"id"`
-		Action   string `json:"action"`
-		Query    string `json:"query"`
-	}
-	err := json.NewDecoder(ctx.Request.Body).Decode(&in)
-	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	var user string
-	if ts.action == "publish" {
-		user = "testpublisher"
-	} else {
-		user = "testreader"
-	}
-
-	if in.IP != "127.0.0.1" ||
-		in.User != user ||
-		in.Password != "testpass" ||
-		in.Path != "teststream" ||
-		in.Protocol != ts.protocol ||
-		(ts.firstReceived && in.ID == "") ||
-		in.Action != ts.action ||
-		(in.Query != "user=testreader&pass=testpass&param=value" &&
-			in.Query != "user=testpublisher&pass=testpass&param=value" &&
-			in.Query != "param=value") {
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	ts.firstReceived = true
+	ts.Server.Shutdown(context.Background())
 }
 
 func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {

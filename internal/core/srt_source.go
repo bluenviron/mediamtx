@@ -17,8 +17,8 @@ import (
 
 type srtSourceParent interface {
 	logger.Writer
-	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	setNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type srtSource struct {
@@ -39,7 +39,7 @@ func newSRTSource(
 }
 
 func (s *srtSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[srt source] "+format, args...)
+	s.parent.Log(level, "[SRT source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -191,15 +191,13 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 		medias = append(medias, medi)
 	}
 
-	res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+	res := s.parent.setReady(pathSourceStaticSetReadyReq{
 		medias:             medias,
 		generateRTPPackets: true,
 	})
 	if res.err != nil {
 		return res.err
 	}
-
-	s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 
 	stream = res.stream
 

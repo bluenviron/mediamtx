@@ -171,10 +171,13 @@ func TestHLSSource(t *testing.T) {
 		},
 	}, medias)
 
-	err = c.SetupAll(medias, baseURL)
+	var forma *formats.H264
+	medi := medias.FindFormat(&forma)
+
+	_, err = c.Setup(medi, baseURL, 0, 0)
 	require.NoError(t, err)
 
-	c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+	c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 		require.Equal(t, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,

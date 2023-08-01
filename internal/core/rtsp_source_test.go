@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3"
 	"github.com/bluenviron/gortsplib/v3/pkg/auth"
 	"github.com/bluenviron/gortsplib/v3/pkg/base"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/pion/rtp"
@@ -41,8 +42,8 @@ func TestRTSPSource(t *testing.T) {
 		"tls",
 	} {
 		t.Run(source, func(t *testing.T) {
-			medi := testMediaH264
-			stream := gortsplib.NewServerStream(media.Medias{medi})
+			serverMedia := testMediaH264
+			stream := gortsplib.NewServerStream(media.Medias{serverMedia})
 
 			nonce, err := auth.GenerateNonce2()
 			require.NoError(t, err)
@@ -73,7 +74,7 @@ func TestRTSPSource(t *testing.T) {
 					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 						go func() {
 							time.Sleep(1 * time.Second)
-							stream.WritePacketRTP(medi, &rtp.Packet{
+							stream.WritePacketRTP(serverMedia, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        0x02,
 									PayloadType:    96,
@@ -151,10 +152,13 @@ func TestRTSPSource(t *testing.T) {
 			medias, baseURL, _, err := c.Describe(u)
 			require.NoError(t, err)
 
-			err = c.SetupAll(medias, baseURL)
+			var forma *formats.H264
+			medi := medias.FindFormat(&forma)
+
+			_, err = c.Setup(medi, baseURL, 0, 0)
 			require.NoError(t, err)
 
-			c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+			c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 				require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
 				close(received)
 			})

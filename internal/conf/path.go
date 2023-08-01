@@ -149,7 +149,7 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 
 		_, err := url.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
@@ -160,7 +160,7 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 
 		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTMP URL", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -180,10 +180,10 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 
 		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 		if u.Scheme != "http" && u.Scheme != "https" {
-			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 
 		if u.User != nil {
@@ -217,7 +217,19 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 
 		_, err := gourl.Parse(pconf.Source)
 		if err != nil {
-			return fmt.Errorf("'%s' is not a valid HLS URL", pconf.Source)
+			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
+		}
+
+	case strings.HasPrefix(pconf.Source, "whep://") ||
+		strings.HasPrefix(pconf.Source, "wheps://"):
+		if pconf.Regexp != nil {
+			return fmt.Errorf("a path with a regular expression (or path 'all') " +
+				"cannot have a WebRTC/WHEP source. use another path")
+		}
+
+		_, err := gourl.Parse(pconf.Source)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
 
 	case pconf.Source == "redirect":
@@ -348,6 +360,8 @@ func (pconf PathConf) HasStaticSource() bool {
 		strings.HasPrefix(pconf.Source, "https://") ||
 		strings.HasPrefix(pconf.Source, "udp://") ||
 		strings.HasPrefix(pconf.Source, "srt://") ||
+		strings.HasPrefix(pconf.Source, "whep://") ||
+		strings.HasPrefix(pconf.Source, "wheps://") ||
 		pconf.Source == "rpiCamera"
 }
 

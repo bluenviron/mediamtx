@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
+	"github.com/pion/interceptor"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -25,11 +26,93 @@ import (
 const (
 	webrtcPauseAfterAuthError  = 2 * time.Second
 	webrtcHandshakeTimeout     = 10 * time.Second
-	webrtcTrackGatherTimeout   = 5 * time.Second
+	webrtcTrackGatherTimeout   = 3 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 	webrtcStreamID             = "mediamtx"
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
 )
+
+var videoCodecs = []webrtc.RTPCodecParameters{
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeAV1,
+			ClockRate: 90000,
+		},
+		PayloadType: 96,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=0",
+		},
+		PayloadType: 97,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeVP9,
+			ClockRate:   90000,
+			SDPFmtpLine: "profile-id=1",
+		},
+		PayloadType: 98,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeVP8,
+			ClockRate: 90000,
+		},
+		PayloadType: 99,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42001f",
+		},
+		PayloadType: 100,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeH264,
+			ClockRate:   90000,
+			SDPFmtpLine: "level-asymmetry-allowed=1;packetization-mode=1;profile-level-id=42e01f",
+		},
+		PayloadType: 101,
+	},
+}
+
+var audioCodecs = []webrtc.RTPCodecParameters{
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:    webrtc.MimeTypeOpus,
+			ClockRate:   48000,
+			Channels:    2,
+			SDPFmtpLine: "minptime=10;useinbandfec=1",
+		},
+		PayloadType: 111,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypeG722,
+			ClockRate: 8000,
+		},
+		PayloadType: 9,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypePCMU,
+			ClockRate: 8000,
+		},
+		PayloadType: 0,
+	},
+	{
+		RTPCodecCapability: webrtc.RTPCodecCapability{
+			MimeType:  webrtc.MimeTypePCMA,
+			ClockRate: 8000,
+		},
+		PayloadType: 8,
+	},
+}
 
 func randInt63() (int64, error) {
 	var b [8]byte
@@ -82,6 +165,53 @@ func randomTurnUser() (string, error) {
 	}
 
 	return string(b), nil
+}
+
+func webrtcNewAPI(
+	iceHostNAT1To1IPs []string,
+	iceUDPMux ice.UDPMux,
+	iceTCPMux ice.TCPMux,
+) (*webrtc.API, error) {
+	settingsEngine := webrtc.SettingEngine{}
+
+	if len(iceHostNAT1To1IPs) != 0 {
+		settingsEngine.SetNAT1To1IPs(iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
+	}
+
+	if iceUDPMux != nil {
+		settingsEngine.SetICEUDPMux(iceUDPMux)
+	}
+
+	if iceTCPMux != nil {
+		settingsEngine.SetICETCPMux(iceTCPMux)
+		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
+	}
+
+	mediaEngine := &webrtc.MediaEngine{}
+
+	for _, codec := range videoCodecs {
+		err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeVideo)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for _, codec := range audioCodecs {
+		err := mediaEngine.RegisterCodec(codec, webrtc.RTPCodecTypeAudio)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	interceptorRegistry := &interceptor.Registry{}
+	if err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry); err != nil {
+		return nil, err
+	}
+
+	return webrtc.NewAPI(
+		webrtc.WithSettingEngine(settingsEngine),
+		webrtc.WithMediaEngine(mediaEngine),
+		webrtc.WithInterceptorRegistry(interceptorRegistry)), nil
 }
 
 type webRTCManagerAPISessionsListRes struct {
@@ -154,16 +284,14 @@ type webRTCManager struct {
 	metrics         *metrics
 	parent          webRTCManagerParent
 
-	ctx               context.Context
-	ctxCancel         func()
-	httpServer        *webRTCHTTPServer
-	udpMuxLn          net.PacketConn
-	tcpMuxLn          net.Listener
-	sessions          map[*webRTCSession]struct{}
-	sessionsBySecret  map[uuid.UUID]*webRTCSession
-	iceHostNAT1To1IPs []string
-	iceUDPMux         ice.UDPMux
-	iceTCPMux         ice.TCPMux
+	ctx              context.Context
+	ctxCancel        func()
+	httpServer       *webRTCHTTPServer
+	udpMuxLn         net.PacketConn
+	tcpMuxLn         net.Listener
+	api              *webrtc.API
+	sessions         map[*webRTCSession]struct{}
+	sessionsBySecret map[uuid.UUID]*webRTCSession
 
 	// in
 	chNewSession           chan webRTCNewSessionReq
@@ -187,12 +315,12 @@ func newWebRTCManager(
 	iceServers []conf.WebRTCICEServer,
 	readTimeout conf.StringDuration,
 	readBufferCount int,
-	pathManager *pathManager,
-	metrics *metrics,
-	parent webRTCManagerParent,
 	iceHostNAT1To1IPs []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
+	pathManager *pathManager,
+	metrics *metrics,
+	parent webRTCManagerParent,
 ) (*webRTCManager, error) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
@@ -206,7 +334,6 @@ func newWebRTCManager(
 		parent:                 parent,
 		ctx:                    ctx,
 		ctxCancel:              ctxCancel,
-		iceHostNAT1To1IPs:      iceHostNAT1To1IPs,
 		sessions:               make(map[*webRTCSession]struct{}),
 		sessionsBySecret:       make(map[uuid.UUID]*webRTCSession),
 		chNewSession:           make(chan webRTCNewSessionReq),
@@ -235,6 +362,8 @@ func newWebRTCManager(
 		return nil, err
 	}
 
+	var iceUDPMux ice.UDPMux
+
 	if iceUDPMuxAddress != "" {
 		m.udpMuxLn, err = net.ListenPacket(restrictNetwork("udp", iceUDPMuxAddress))
 		if err != nil {
@@ -242,8 +371,10 @@ func newWebRTCManager(
 			ctxCancel()
 			return nil, err
 		}
-		m.iceUDPMux = webrtc.NewICEUDPMux(nil, m.udpMuxLn)
+		iceUDPMux = webrtc.NewICEUDPMux(nil, m.udpMuxLn)
 	}
+
+	var iceTCPMux ice.TCPMux
 
 	if iceTCPMuxAddress != "" {
 		m.tcpMuxLn, err = net.Listen(restrictNetwork("tcp", iceTCPMuxAddress))
@@ -253,7 +384,16 @@ func newWebRTCManager(
 			ctxCancel()
 			return nil, err
 		}
-		m.iceTCPMux = webrtc.NewICETCPMux(nil, m.tcpMuxLn, 8)
+		iceTCPMux = webrtc.NewICETCPMux(nil, m.tcpMuxLn, 8)
+	}
+
+	m.api, err = webrtcNewAPI(iceHostNAT1To1IPs, iceUDPMux, iceTCPMux)
+	if err != nil {
+		m.udpMuxLn.Close()
+		m.tcpMuxLn.Close()
+		m.httpServer.close()
+		ctxCancel()
+		return nil, err
 	}
 
 	str := "listener opened on " + address + " (HTTP)"
@@ -297,11 +437,9 @@ outer:
 			sx := newWebRTCSession(
 				m.ctx,
 				m.readBufferCount,
+				m.api,
 				req,
 				&wg,
-				m.iceHostNAT1To1IPs,
-				m.iceUDPMux,
-				m.iceTCPMux,
 				m.pathManager,
 				m,
 			)

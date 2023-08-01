@@ -420,12 +420,12 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WebRTCICEServers2,
 				p.conf.ReadTimeout,
 				p.conf.ReadBufferCount,
-				p.pathManager,
-				p.metrics,
-				p,
 				p.conf.WebRTCICEHostNAT1To1IPs,
 				p.conf.WebRTCICEUDPMuxAddress,
 				p.conf.WebRTCICETCPMuxAddress,
+				p.pathManager,
+				p.metrics,
+				p,
 			)
 			if err != nil {
 				return err
@@ -608,11 +608,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
-		closeMetrics ||
-		closePathManager ||
 		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs) ||
 		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
-		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress
+		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
+		closeMetrics ||
+		closePathManager
 
 	closeSRTServer := newConf == nil ||
 		newConf.SRT != p.conf.SRT ||

@@ -15,22 +15,22 @@ func TestServerConn(t *testing.T) {
 	pingReceived := make(chan struct{})
 	pingInterval = 100 * time.Millisecond
 
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		c, err := NewServerConn(w, r)
-		require.NoError(t, err)
-		defer c.Close()
+	s := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c, err := NewServerConn(w, r)
+			require.NoError(t, err)
+			defer c.Close()
 
-		err = c.WriteJSON("testing")
-		require.NoError(t, err)
+			err = c.WriteJSON("testing")
+			require.NoError(t, err)
 
-		<-pingReceived
+			<-pingReceived
+		}),
 	}
 
 	ln, err := net.Listen("tcp", "localhost:6344")
 	require.NoError(t, err)
-	defer ln.Close()
 
-	s := &http.Server{Handler: http.HandlerFunc(handler)}
 	go s.Serve(ln)
 	defer s.Shutdown(context.Background())
 
