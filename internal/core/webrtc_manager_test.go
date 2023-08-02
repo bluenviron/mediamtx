@@ -29,7 +29,7 @@ func whipGetICEServers(
 	require.NoError(t, err)
 	defer res.Body.Close()
 
-	require.Equal(t, http.StatusOK, res.StatusCode)
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
 
 	link, ok := res.Header["Link"]
 	require.Equal(t, true, ok)
@@ -464,7 +464,7 @@ func TestWebRTCPublish(t *testing.T) {
 				require.NoError(t, err)
 				defer res.Body.Close()
 
-				require.Equal(t, http.StatusOK, res.StatusCode)
+				require.Equal(t, http.StatusNoContent, res.StatusCode)
 
 				if auth != "none" {
 					_, ok := res.Header["Link"]

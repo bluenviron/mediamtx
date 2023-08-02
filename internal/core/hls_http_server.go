@@ -101,7 +101,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 	case http.MethodOptions:
 		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET")
 		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Range")
-		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.WriteHeader(http.StatusNoContent)
 		return
 
 	case http.MethodGet:

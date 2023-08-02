@@ -246,7 +246,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		case http.MethodOptions:
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
-			ctx.Writer.WriteHeader(http.StatusOK)
+			ctx.Writer.WriteHeader(http.StatusNoContent)
 			return
 
 		case http.MethodGet:
@@ -359,7 +359,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
 			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(servers)
-			ctx.Writer.WriteHeader(http.StatusOK)
+			ctx.Writer.WriteHeader(http.StatusNoContent)
 
 		case http.MethodPost:
 			if ctx.Request.Header.Get("Content-Type") != "application/sdp" {
