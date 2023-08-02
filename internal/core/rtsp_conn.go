@@ -138,7 +138,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	if c.authNonce == "" {
 		var err error
-		c.authNonce, err = auth.GenerateNonce()
+		c.authNonce, err = auth.GenerateNonce2()
 		if err != nil {
 			return &base.Response{
 				StatusCode: base.StatusInternalServerError,

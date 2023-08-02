@@ -44,7 +44,7 @@ func TestRTSPSource(t *testing.T) {
 			medi := testMediaH264
 			stream := gortsplib.NewServerStream(media.Medias{medi})
 
-			nonce, err := auth.GenerateNonce()
+			nonce, err := auth.GenerateNonce2()
 			require.NoError(t, err)
 
 			s := gortsplib.Server{
@@ -170,7 +170,7 @@ func TestRTSPSource(t *testing.T) {
 func TestRTSPSourceNoPassword(t *testing.T) {
 	stream := gortsplib.NewServerStream(media.Medias{testMediaH264})
 
-	nonce, err := auth.GenerateNonce()
+	nonce, err := auth.GenerateNonce2()
 	require.NoError(t, err)
 
 	done := make(chan struct{})
