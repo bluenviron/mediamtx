@@ -123,7 +123,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 
 	if c.authNonce == "" {
 		var err error
-		c.authNonce, err = auth.GenerateNonce()
+		c.authNonce, err = auth.GenerateNonce2()
 		if err != nil {
 			return &base.Response{
 				StatusCode: base.StatusInternalServerError,
@@ -208,7 +208,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		if c.authNonce == "" {
 			var err error
-			c.authNonce, err = auth.GenerateNonce()
+			c.authNonce, err = auth.GenerateNonce2()
 			if err != nil {
 				return &base.Response{
 					StatusCode: base.StatusInternalServerError,
