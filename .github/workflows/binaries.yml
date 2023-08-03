@@ -1,0 +1,18 @@
+name: binaries
+
+on:
+  workflow_dispatch:
+
+jobs:
+  binaries:
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - run: make binaries
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: binaries
+        path: binaries
