@@ -91,6 +91,12 @@ func newSourceStatic(
 			readTimeout,
 			s)
 
+	case strings.HasPrefix(cnf.Source, "whep://") ||
+		strings.HasPrefix(cnf.Source, "wheps://"):
+		s.impl = newWebRTCSource(
+			readTimeout,
+			s)
+
 	case cnf.Source == "rpiCamera":
 		s.impl = newRPICameraSource(
 			s)
@@ -210,19 +216,26 @@ func (s *sourceStatic) apiSourceDescribe() pathAPISourceOrReader {
 	return s.impl.apiSourceDescribe()
 }
 
-// sourceStaticImplSetReady is called by a sourceStaticImpl.
-func (s *sourceStatic) sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
+// setReady is called by a sourceStaticImpl.
+func (s *sourceStatic) setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes {
 	req.res = make(chan pathSourceStaticSetReadyRes)
 	select {
 	case s.chSourceStaticImplSetReady <- req:
-		return <-req.res
+		res := <-req.res
+
+		if res.err == nil {
+			s.impl.Log(logger.Info, "ready: %s", sourceMediaInfo(req.medias))
+		}
+
+		return res
+
 	case <-s.ctx.Done():
 		return pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
 	}
 }
 
-// sourceStaticImplSetNotReady is called by a sourceStaticImpl.
-func (s *sourceStatic) sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq) {
+// setNotReady is called by a sourceStaticImpl.
+func (s *sourceStatic) setNotReady(req pathSourceStaticSetNotReadyReq) {
 	req.res = make(chan struct{})
 	select {
 	case s.chSourceStaticImplSetNotReady <- req:

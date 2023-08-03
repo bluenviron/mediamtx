@@ -63,8 +63,8 @@ func (r *packetConnReader) Read(p []byte) (int, error) {
 
 type udpSourceParent interface {
 	logger.Writer
-	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	setNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type udpSource struct {
@@ -83,7 +83,7 @@ func newUDPSource(
 }
 
 func (s *udpSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[udp source] "+format, args...)
+	s.parent.Log(level, "[UDP source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -239,7 +239,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 		medias = append(medias, medi)
 	}
 
-	res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+	res := s.parent.setReady(pathSourceStaticSetReadyReq{
 		medias:             medias,
 		generateRTPPackets: true,
 	})
@@ -247,9 +247,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 		return res.err
 	}
 
-	defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
-
-	s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
+	defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
 	stream = res.stream
 

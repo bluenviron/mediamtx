@@ -20,8 +20,8 @@ import (
 
 type rtmpSourceParent interface {
 	logger.Writer
-	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	setNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtmpSource struct {
@@ -43,7 +43,7 @@ func newRTMPSource(
 }
 
 func (s *rtmpSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[rtmp source] "+format, args...)
+	s.parent.Log(level, "[RTMP source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -173,7 +173,7 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 		}
 	}
 
-	res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+	res := s.parent.setReady(pathSourceStaticSetReadyReq{
 		medias:             medias,
 		generateRTPPackets: true,
 	})
@@ -181,9 +181,7 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 		return res.err
 	}
 
-	defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
-
-	s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
+	defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
 	stream = res.stream
 

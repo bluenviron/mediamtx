@@ -61,8 +61,8 @@ func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
 
 type rtspSourceParent interface {
 	logger.Writer
-	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	setNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rtspSource struct {
@@ -87,7 +87,7 @@ func newRTSPSource(
 }
 
 func (s *rtspSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[rtsp source] "+format, args...)
+	s.parent.Log(level, "[RTSP source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -142,7 +142,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				return err
 			}
 
-			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+			res := s.parent.setReady(pathSourceStaticSetReadyReq{
 				medias:             medias,
 				generateRTPPackets: false,
 			})
@@ -150,9 +150,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 				return res.err
 			}
 
-			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
-
-			defer s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
+			defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
 			for _, medi := range medias {
 				for _, forma := range medi.Formats {

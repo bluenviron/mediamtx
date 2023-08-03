@@ -13,11 +13,11 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/google/uuid"
-	"github.com/pion/ice/v2"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/webrtcpc"
 )
 
 type trackRecvPair struct {
@@ -25,7 +25,7 @@ type trackRecvPair struct {
 	receiver *webrtc.RTPReceiver
 }
 
-func mediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) media.Medias {
+func webrtcMediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) media.Medias {
 	ret := make(media.Medias, len(tracks))
 	for i, track := range tracks {
 		ret[i] = track.media
@@ -33,7 +33,7 @@ func mediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) media.Medias {
 	return ret
 }
 
-func mediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
+func webrtcMediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
 	ret := make(media.Medias, len(tracks))
 	for i, track := range tracks {
 		ret[i] = track.media
@@ -41,9 +41,16 @@ func mediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
 	return ret
 }
 
-func waitUntilConnected(
+func whipOffer(body []byte) *webrtc.SessionDescription {
+	return &webrtc.SessionDescription{
+		Type: webrtc.SDPTypeOffer,
+		SDP:  string(body),
+	}
+}
+
+func webrtcWaitUntilConnected(
 	ctx context.Context,
-	pc *peerConnection,
+	pc *webrtcpc.PeerConnection,
 ) error {
 	t := time.NewTimer(webrtcHandshakeTimeout)
 	defer t.Stop()
@@ -54,7 +61,7 @@ outer:
 		case <-t.C:
 			return fmt.Errorf("deadline exceeded while waiting connection")
 
-		case <-pc.connected:
+		case <-pc.Connected():
 			break outer
 
 		case <-ctx.Done():
@@ -65,7 +72,7 @@ outer:
 	return nil
 }
 
-func gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
+func webrtcGatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
 	var tracks []*webRTCOutgoingTrack
 
 	videoTrack, err := newWebRTCOutgoingTrackVideo(medias)
@@ -94,9 +101,38 @@ func gatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
 	return tracks, nil
 }
 
-func gatherIncomingTracks(
+func webrtcTrackCount(medias []*sdp.MediaDescription) (int, error) {
+	videoTrack := false
+	audioTrack := false
+	trackCount := 0
+
+	for _, media := range medias {
+		switch media.MediaName.Media {
+		case "video":
+			if videoTrack {
+				return 0, fmt.Errorf("only a single video and a single audio track are supported")
+			}
+			videoTrack = true
+
+		case "audio":
+			if audioTrack {
+				return 0, fmt.Errorf("only a single video and a single audio track are supported")
+			}
+			audioTrack = true
+
+		default:
+			return 0, fmt.Errorf("unsupported media '%s'", media.MediaName.Media)
+		}
+
+		trackCount++
+	}
+
+	return trackCount, nil
+}
+
+func webrtcGatherIncomingTracks(
 	ctx context.Context,
-	pc *peerConnection,
+	pc *webrtcpc.PeerConnection,
 	trackRecv chan trackRecvPair,
 	trackCount int,
 ) ([]*webRTCIncomingTrack, error) {
@@ -108,6 +144,9 @@ func gatherIncomingTracks(
 	for {
 		select {
 		case <-t.C:
+			if trackCount == 0 {
+				return tracks, nil
+			}
 			return nil, fmt.Errorf("deadline exceeded while waiting tracks")
 
 		case pair := <-trackRecv:
@@ -121,7 +160,7 @@ func gatherIncomingTracks(
 				return tracks, nil
 			}
 
-		case <-pc.disconnected:
+		case <-pc.Disconnected():
 			return nil, fmt.Errorf("peer connection closed")
 
 		case <-ctx.Done():
@@ -136,14 +175,12 @@ type webRTCSessionPathManager interface {
 }
 
 type webRTCSession struct {
-	readBufferCount   int
-	req               webRTCNewSessionReq
-	wg                *sync.WaitGroup
-	iceHostNAT1To1IPs []string
-	iceUDPMux         ice.UDPMux
-	iceTCPMux         ice.TCPMux
-	pathManager       webRTCSessionPathManager
-	parent            *webRTCManager
+	readBufferCount int
+	api             *webrtc.API
+	req             webRTCNewSessionReq
+	wg              *sync.WaitGroup
+	pathManager     webRTCSessionPathManager
+	parent          *webRTCManager
 
 	ctx       context.Context
 	ctxCancel func()
@@ -151,7 +188,7 @@ type webRTCSession struct {
 	uuid      uuid.UUID
 	secret    uuid.UUID
 	mutex     sync.RWMutex
-	pc        *peerConnection
+	pc        *webrtcpc.PeerConnection
 
 	chNew           chan webRTCNewSessionReq
 	chAddCandidates chan webRTCAddSessionCandidatesReq
@@ -160,32 +197,28 @@ type webRTCSession struct {
 func newWebRTCSession(
 	parentCtx context.Context,
 	readBufferCount int,
+	api *webrtc.API,
 	req webRTCNewSessionReq,
 	wg *sync.WaitGroup,
-	iceHostNAT1To1IPs []string,
-	iceUDPMux ice.UDPMux,
-	iceTCPMux ice.TCPMux,
 	pathManager webRTCSessionPathManager,
 	parent *webRTCManager,
 ) *webRTCSession {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &webRTCSession{
-		readBufferCount:   readBufferCount,
-		req:               req,
-		wg:                wg,
-		iceHostNAT1To1IPs: iceHostNAT1To1IPs,
-		iceUDPMux:         iceUDPMux,
-		iceTCPMux:         iceTCPMux,
-		parent:            parent,
-		pathManager:       pathManager,
-		ctx:               ctx,
-		ctxCancel:         ctxCancel,
-		created:           time.Now(),
-		uuid:              uuid.New(),
-		secret:            uuid.New(),
-		chNew:             make(chan webRTCNewSessionReq),
-		chAddCandidates:   make(chan webRTCAddSessionCandidatesReq),
+		readBufferCount: readBufferCount,
+		api:             api,
+		req:             req,
+		wg:              wg,
+		parent:          parent,
+		pathManager:     pathManager,
+		ctx:             ctx,
+		ctxCancel:       ctxCancel,
+		created:         time.Now(),
+		uuid:            uuid.New(),
+		secret:          uuid.New(),
+		chNew:           make(chan webRTCNewSessionReq),
+		chAddCandidates: make(chan webRTCAddSessionCandidatesReq),
 	}
 
 	s.Log(logger.Info, "created by %s", req.remoteAddr)
@@ -276,18 +309,16 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	pc, err := newPeerConnection(
+	pc, err := webrtcpc.New(
 		servers,
-		s.iceHostNAT1To1IPs,
-		s.iceUDPMux,
-		s.iceTCPMux,
+		s.api,
 		s)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	defer pc.close()
+	defer pc.Close()
 
-	offer := s.offer()
+	offer := whipOffer(s.req.offer)
 
 	var sdp sdp.SessionDescription
 	err = sdp.Unmarshal([]byte(offer.SDP))
@@ -295,29 +326,9 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	videoTrack := false
-	audioTrack := false
-	trackCount := 0
-
-	for _, media := range sdp.MediaDescriptions {
-		switch media.MediaName.Media {
-		case "video":
-			if videoTrack {
-				return http.StatusBadRequest, fmt.Errorf("only a single video and a single audio track are supported")
-			}
-			videoTrack = true
-
-		case "audio":
-			if audioTrack {
-				return http.StatusBadRequest, fmt.Errorf("only a single video and a single audio track are supported")
-			}
-			audioTrack = true
-
-		default:
-			return http.StatusBadRequest, fmt.Errorf("unsupported media '%s'", media.MediaName.Media)
-		}
-
-		trackCount++
+	trackCount, err := webrtcTrackCount(sdp.MediaDescriptions)
+	if err != nil {
+		return http.StatusBadRequest, err
 	}
 
 	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RtpTransceiverInit{
@@ -339,7 +350,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
 		select {
 		case trackRecv <- trackRecvPair{track, receiver}:
-		case <-pc.closed:
+		case <-s.ctx.Done():
 		}
 	})
 
@@ -358,19 +369,16 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	err = s.waitGatheringDone(pc)
+	err = pc.WaitGatheringDone(s.ctx)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
-	tmp := pc.LocalDescription()
-	answer = *tmp
-
-	s.writeAnswer(&answer)
+	s.writeAnswer(pc.LocalDescription())
 
 	go s.readRemoteCandidates(pc)
 
-	err = waitUntilConnected(s.ctx, pc)
+	err = webrtcWaitUntilConnected(s.ctx, pc)
 	if err != nil {
 		return 0, err
 	}
@@ -379,11 +387,11 @@ func (s *webRTCSession) runPublish() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	tracks, err := gatherIncomingTracks(s.ctx, pc, trackRecv, trackCount)
+	tracks, err := webrtcGatherIncomingTracks(s.ctx, pc, trackRecv, trackCount)
 	if err != nil {
 		return 0, err
 	}
-	medias := mediasOfIncomingTracks(tracks)
+	medias := webrtcMediasOfIncomingTracks(tracks)
 
 	rres := res.path.startPublisher(pathStartPublisherReq{
 		author:             s,
@@ -403,7 +411,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	}
 
 	select {
-	case <-pc.disconnected:
+	case <-pc.Disconnected():
 		return 0, fmt.Errorf("peer connection closed")
 
 	case <-s.ctx.Done():
@@ -443,7 +451,7 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	defer res.path.removeReader(pathRemoveReaderReq{author: s})
 
-	tracks, err := gatherOutgoingTracks(res.stream.Medias())
+	tracks, err := webrtcGatherOutgoingTracks(res.stream.Medias())
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
@@ -453,16 +461,14 @@ func (s *webRTCSession) runRead() (int, error) {
 		return http.StatusInternalServerError, err
 	}
 
-	pc, err := newPeerConnection(
+	pc, err := webrtcpc.New(
 		servers,
-		s.iceHostNAT1To1IPs,
-		s.iceUDPMux,
-		s.iceTCPMux,
+		s.api,
 		s)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
-	defer pc.close()
+	defer pc.Close()
 
 	for _, track := range tracks {
 		var err error
@@ -472,7 +478,7 @@ func (s *webRTCSession) runRead() (int, error) {
 		}
 	}
 
-	offer := s.offer()
+	offer := whipOffer(s.req.offer)
 
 	err = pc.SetRemoteDescription(*offer)
 	if err != nil {
@@ -489,19 +495,16 @@ func (s *webRTCSession) runRead() (int, error) {
 		return http.StatusBadRequest, err
 	}
 
-	err = s.waitGatheringDone(pc)
+	err = pc.WaitGatheringDone(s.ctx)
 	if err != nil {
 		return http.StatusBadRequest, err
 	}
 
-	tmp := pc.LocalDescription()
-	answer = *tmp
-
-	s.writeAnswer(&answer)
+	s.writeAnswer(pc.LocalDescription())
 
 	go s.readRemoteCandidates(pc)
 
-	err = waitUntilConnected(s.ctx, pc)
+	err = webrtcWaitUntilConnected(s.ctx, pc)
 	if err != nil {
 		return 0, err
 	}
@@ -522,7 +525,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	defer res.stream.RemoveReader(s)
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
-		res.path.name, sourceMediaInfo(mediasOfOutgoingTracks(tracks)))
+		res.path.name, sourceMediaInfo(webrtcMediasOfOutgoingTracks(tracks)))
 
 	go func() {
 		for {
@@ -535,7 +538,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	}()
 
 	select {
-	case <-pc.disconnected:
+	case <-pc.Disconnected():
 		return 0, fmt.Errorf("peer connection closed")
 
 	case err := <-writeError:
@@ -546,25 +549,6 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 }
 
-func (s *webRTCSession) offer() *webrtc.SessionDescription {
-	return &webrtc.SessionDescription{
-		Type: webrtc.SDPTypeOffer,
-		SDP:  string(s.req.offer),
-	}
-}
-
-func (s *webRTCSession) waitGatheringDone(pc *peerConnection) error {
-	for {
-		select {
-		case <-pc.localCandidateRecv:
-		case <-pc.gatheringDone:
-			return nil
-		case <-s.ctx.Done():
-			return fmt.Errorf("terminated")
-		}
-	}
-}
-
 func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) {
 	s.req.res <- webRTCNewSessionRes{
 		sx:     s,
@@ -572,7 +556,7 @@ func (s *webRTCSession) writeAnswer(answer *webrtc.SessionDescription) {
 	}
 }
 
-func (s *webRTCSession) readRemoteCandidates(pc *peerConnection) {
+func (s *webRTCSession) readRemoteCandidates(pc *webrtcpc.PeerConnection) {
 	for {
 		select {
 		case req := <-s.chAddCandidates:
@@ -639,10 +623,10 @@ func (s *webRTCSession) apiItem() *apiWebRTCSession {
 
 	if s.pc != nil {
 		peerConnectionEstablished = true
-		localCandidate = s.pc.localCandidate()
-		remoteCandidate = s.pc.remoteCandidate()
-		bytesReceived = s.pc.bytesReceived()
-		bytesSent = s.pc.bytesSent()
+		localCandidate = s.pc.LocalCandidate()
+		remoteCandidate = s.pc.RemoteCandidate()
+		bytesReceived = s.pc.BytesReceived()
+		bytesSent = s.pc.BytesSent()
 	}
 
 	return &apiWebRTCSession{

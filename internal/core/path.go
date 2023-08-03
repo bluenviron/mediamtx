@@ -331,154 +331,7 @@ func (pa *path) run() {
 			})
 	}
 
-	err := func() error {
-		for {
-			select {
-			case <-pa.onDemandStaticSourceReadyTimer.C:
-				for _, req := range pa.describeRequestsOnHold {
-					req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
-				}
-				pa.describeRequestsOnHold = nil
-
-				for _, req := range pa.readerAddRequestsOnHold {
-					req.res <- pathAddReaderRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
-				}
-				pa.readerAddRequestsOnHold = nil
-
-				pa.onDemandStaticSourceStop()
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case <-pa.onDemandStaticSourceCloseTimer.C:
-				pa.setNotReady()
-				pa.onDemandStaticSourceStop()
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case <-pa.onDemandPublisherReadyTimer.C:
-				for _, req := range pa.describeRequestsOnHold {
-					req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
-				}
-				pa.describeRequestsOnHold = nil
-
-				for _, req := range pa.readerAddRequestsOnHold {
-					req.res <- pathAddReaderRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
-				}
-				pa.readerAddRequestsOnHold = nil
-
-				pa.onDemandStopPublisher()
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case <-pa.onDemandPublisherCloseTimer.C:
-				pa.onDemandStopPublisher()
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case newConf := <-pa.chReloadConf:
-				if pa.conf.HasStaticSource() {
-					go pa.source.(*sourceStatic).reloadConf(newConf)
-				}
-
-				pa.confMutex.Lock()
-				pa.conf = newConf
-				pa.confMutex.Unlock()
-
-			case req := <-pa.chSourceStaticSetReady:
-				err := pa.setReady(req.medias, req.generateRTPPackets)
-				if err != nil {
-					req.res <- pathSourceStaticSetReadyRes{err: err}
-				} else {
-					if pa.conf.HasOnDemandStaticSource() {
-						pa.onDemandStaticSourceReadyTimer.Stop()
-						pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
-
-						pa.onDemandStaticSourceScheduleClose()
-
-						for _, req := range pa.describeRequestsOnHold {
-							req.res <- pathDescribeRes{
-								stream: pa.stream,
-							}
-						}
-						pa.describeRequestsOnHold = nil
-
-						for _, req := range pa.readerAddRequestsOnHold {
-							pa.handleAddReaderPost(req)
-						}
-						pa.readerAddRequestsOnHold = nil
-					}
-
-					req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
-				}
-
-			case req := <-pa.chSourceStaticSetNotReady:
-				pa.setNotReady()
-
-				// send response before calling onDemandStaticSourceStop()
-				// in order to avoid a deadlock due to sourceStatic.stop()
-				close(req.res)
-
-				if pa.conf.HasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
-					pa.onDemandStaticSourceStop()
-				}
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case req := <-pa.chDescribe:
-				pa.handleDescribe(req)
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case req := <-pa.chRemovePublisher:
-				pa.handleRemovePublisher(req)
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case req := <-pa.chAddPublisher:
-				pa.handleAddPublisher(req)
-
-			case req := <-pa.chStartPublisher:
-				pa.handleStartPublisher(req)
-
-			case req := <-pa.chStopPublisher:
-				pa.handleStopPublisher(req)
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case req := <-pa.chAddReader:
-				pa.handleAddReader(req)
-
-				if pa.shouldClose() {
-					return fmt.Errorf("not in use")
-				}
-
-			case req := <-pa.chRemoveReader:
-				pa.handleRemoveReader(req)
-
-			case req := <-pa.chAPIPathsGet:
-				pa.handleAPIPathsGet(req)
-
-			case <-pa.ctx.Done():
-				return fmt.Errorf("terminated")
-			}
-		}
-	}()
+	err := pa.runInner()
 
 	// call before destroying context
 	pa.parent.closePath(pa)
@@ -521,6 +374,155 @@ func (pa *path) run() {
 	}
 
 	pa.Log(logger.Debug, "destroyed (%v)", err)
+}
+
+func (pa *path) runInner() error {
+	for {
+		select {
+		case <-pa.onDemandStaticSourceReadyTimer.C:
+			for _, req := range pa.describeRequestsOnHold {
+				req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+			}
+			pa.describeRequestsOnHold = nil
+
+			for _, req := range pa.readerAddRequestsOnHold {
+				req.res <- pathAddReaderRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+			}
+			pa.readerAddRequestsOnHold = nil
+
+			pa.onDemandStaticSourceStop()
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case <-pa.onDemandStaticSourceCloseTimer.C:
+			pa.setNotReady()
+			pa.onDemandStaticSourceStop()
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case <-pa.onDemandPublisherReadyTimer.C:
+			for _, req := range pa.describeRequestsOnHold {
+				req.res <- pathDescribeRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+			}
+			pa.describeRequestsOnHold = nil
+
+			for _, req := range pa.readerAddRequestsOnHold {
+				req.res <- pathAddReaderRes{err: fmt.Errorf("source of path '%s' has timed out", pa.name)}
+			}
+			pa.readerAddRequestsOnHold = nil
+
+			pa.onDemandStopPublisher()
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case <-pa.onDemandPublisherCloseTimer.C:
+			pa.onDemandStopPublisher()
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case newConf := <-pa.chReloadConf:
+			if pa.conf.HasStaticSource() {
+				go pa.source.(*sourceStatic).reloadConf(newConf)
+			}
+
+			pa.confMutex.Lock()
+			pa.conf = newConf
+			pa.confMutex.Unlock()
+
+		case req := <-pa.chSourceStaticSetReady:
+			err := pa.setReady(req.medias, req.generateRTPPackets)
+			if err != nil {
+				req.res <- pathSourceStaticSetReadyRes{err: err}
+			} else {
+				if pa.conf.HasOnDemandStaticSource() {
+					pa.onDemandStaticSourceReadyTimer.Stop()
+					pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
+
+					pa.onDemandStaticSourceScheduleClose()
+
+					for _, req := range pa.describeRequestsOnHold {
+						req.res <- pathDescribeRes{
+							stream: pa.stream,
+						}
+					}
+					pa.describeRequestsOnHold = nil
+
+					for _, req := range pa.readerAddRequestsOnHold {
+						pa.handleAddReaderPost(req)
+					}
+					pa.readerAddRequestsOnHold = nil
+				}
+
+				req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
+			}
+
+		case req := <-pa.chSourceStaticSetNotReady:
+			pa.setNotReady()
+
+			// send response before calling onDemandStaticSourceStop()
+			// in order to avoid a deadlock due to sourceStatic.stop()
+			close(req.res)
+
+			if pa.conf.HasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
+				pa.onDemandStaticSourceStop()
+			}
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case req := <-pa.chDescribe:
+			pa.handleDescribe(req)
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case req := <-pa.chRemovePublisher:
+			pa.handleRemovePublisher(req)
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case req := <-pa.chAddPublisher:
+			pa.handleAddPublisher(req)
+
+		case req := <-pa.chStartPublisher:
+			pa.handleStartPublisher(req)
+
+		case req := <-pa.chStopPublisher:
+			pa.handleStopPublisher(req)
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case req := <-pa.chAddReader:
+			pa.handleAddReader(req)
+
+			if pa.shouldClose() {
+				return fmt.Errorf("not in use")
+			}
+
+		case req := <-pa.chRemoveReader:
+			pa.handleRemoveReader(req)
+
+		case req := <-pa.chAPIPathsGet:
+			pa.handleAPIPathsGet(req)
+
+		case <-pa.ctx.Done():
+			return fmt.Errorf("terminated")
+		}
+	}
 }
 
 func (pa *path) shouldClose() bool {

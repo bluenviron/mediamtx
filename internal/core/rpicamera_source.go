@@ -53,8 +53,8 @@ func paramsFromConf(cnf *conf.PathConf) rpicamera.Params {
 
 type rpiCameraSourceParent interface {
 	logger.Writer
-	sourceStaticImplSetReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	sourceStaticImplSetNotReady(req pathSourceStaticSetNotReadyReq)
+	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
+	setNotReady(req pathSourceStaticSetNotReadyReq)
 }
 
 type rpiCameraSource struct {
@@ -70,7 +70,7 @@ func newRPICameraSource(
 }
 
 func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[rpicamera source] "+format, args...)
+	s.parent.Log(level, "[RPI Camera source] "+format, args...)
 }
 
 // run implements sourceStaticImpl.
@@ -87,7 +87,7 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 
 	onData := func(dts time.Duration, au [][]byte) {
 		if stream == nil {
-			res := s.parent.sourceStaticImplSetReady(pathSourceStaticSetReadyReq{
+			res := s.parent.setReady(pathSourceStaticSetReadyReq{
 				medias:             medias,
 				generateRTPPackets: true,
 			})
@@ -95,7 +95,6 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 				return
 			}
 
-			s.Log(logger.Info, "ready: %s", sourceMediaInfo(medias))
 			stream = res.stream
 		}
 
@@ -116,7 +115,7 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 
 	defer func() {
 		if stream != nil {
-			s.parent.sourceStaticImplSetNotReady(pathSourceStaticSetNotReadyReq{})
+			s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 		}
 	}()
 

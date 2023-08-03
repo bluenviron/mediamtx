@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/gortsplib/v3/pkg/url"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	"github.com/datarhei/gosrt"
@@ -81,10 +82,13 @@ func TestSRTSource(t *testing.T) {
 	medias, baseURL, _, err := c.Describe(u)
 	require.NoError(t, err)
 
-	err = c.SetupAll(medias, baseURL)
+	var forma *formats.H264
+	medi := medias.FindFormat(&forma)
+
+	_, err = c.Setup(medi, baseURL, 0, 0)
 	require.NoError(t, err)
 
-	c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+	c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 		require.Equal(t, []byte{5, 1}, pkt.Payload)
 		close(received)
 	})

@@ -119,10 +119,13 @@ func TestRTMPSource(t *testing.T) {
 			medias, baseURL, _, err := c.Describe(u)
 			require.NoError(t, err)
 
-			err = c.SetupAll(medias, baseURL)
+			var forma *formats.H264
+			medi := medias.FindFormat(&forma)
+
+			_, err = c.Setup(medi, baseURL, 0, 0)
 			require.NoError(t, err)
 
-			c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+			c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
 				require.Equal(t, []byte{
 					0x18, 0x0, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
 					0x0, 0x78, 0x2, 0x27, 0xe5, 0x84, 0x0, 0x0,

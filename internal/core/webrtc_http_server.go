@@ -2,24 +2,21 @@ package core
 
 import (
 	_ "embed"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/whip"
 )
 
 //go:embed webrtc_publish_index.html
@@ -27,137 +24,6 @@ var webrtcPublishIndex []byte
 
 //go:embed webrtc_read_index.html
 var webrtcReadIndex []byte
-
-func quoteCredential(v string) string {
-	b, _ := json.Marshal(v)
-	s := string(b)
-	return s[1 : len(s)-1]
-}
-
-func unquoteCredential(v string) string {
-	var s string
-	json.Unmarshal([]byte("\""+v+"\""), &s)
-	return s
-}
-
-func iceServersToLinkHeader(iceServers []webrtc.ICEServer) []string {
-	ret := make([]string, len(iceServers))
-
-	for i, server := range iceServers {
-		link := "<" + server.URLs[0] + ">; rel=\"ice-server\""
-		if server.Username != "" {
-			link += "; username=\"" + quoteCredential(server.Username) + "\"" +
-				"; credential=\"" + quoteCredential(server.Credential.(string)) + "\"; credential-type=\"password\""
-		}
-		ret[i] = link
-	}
-
-	return ret
-}
-
-var reLink = regexp.MustCompile(`^<(.+?)>; rel="ice-server"(; username="(.+?)"` +
-	`; credential="(.+?)"; credential-type="password")?`)
-
-func linkHeaderToIceServers(link []string) []webrtc.ICEServer {
-	var ret []webrtc.ICEServer
-
-	for _, li := range link {
-		m := reLink.FindStringSubmatch(li)
-		if m != nil {
-			s := webrtc.ICEServer{
-				URLs: []string{m[1]},
-			}
-
-			if m[3] != "" {
-				s.Username = unquoteCredential(m[3])
-				s.Credential = unquoteCredential(m[4])
-				s.CredentialType = webrtc.ICECredentialTypePassword
-			}
-
-			ret = append(ret, s)
-		}
-	}
-
-	return ret
-}
-
-func unmarshalICEFragment(buf []byte) ([]*webrtc.ICECandidateInit, error) {
-	buf = append([]byte("v=0\r\no=- 0 0 IN IP4 0.0.0.0\r\ns=-\r\nt=0 0\r\n"), buf...)
-
-	var sdp sdp.SessionDescription
-	err := sdp.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-
-	usernameFragment, ok := sdp.Attribute("ice-ufrag")
-	if !ok {
-		return nil, fmt.Errorf("ice-ufrag attribute is missing")
-	}
-
-	var ret []*webrtc.ICECandidateInit
-
-	for _, media := range sdp.MediaDescriptions {
-		mid, ok := media.Attribute("mid")
-		if !ok {
-			return nil, fmt.Errorf("mid attribute is missing")
-		}
-
-		tmp, err := strconv.ParseUint(mid, 10, 16)
-		if err != nil {
-			return nil, fmt.Errorf("invalid mid attribute")
-		}
-		midNum := uint16(tmp)
-
-		for _, attr := range media.Attributes {
-			if attr.Key == "candidate" {
-				ret = append(ret, &webrtc.ICECandidateInit{
-					Candidate:        attr.Value,
-					SDPMid:           &mid,
-					SDPMLineIndex:    &midNum,
-					UsernameFragment: &usernameFragment,
-				})
-			}
-		}
-	}
-
-	return ret, nil
-}
-
-func marshalICEFragment(offer *webrtc.SessionDescription, candidates []*webrtc.ICECandidateInit) ([]byte, error) {
-	var sdp sdp.SessionDescription
-	err := sdp.Unmarshal([]byte(offer.SDP))
-	if err != nil || len(sdp.MediaDescriptions) == 0 {
-		return nil, err
-	}
-
-	firstMedia := sdp.MediaDescriptions[0]
-	iceUfrag, _ := firstMedia.Attribute("ice-ufrag")
-	icePwd, _ := firstMedia.Attribute("ice-pwd")
-
-	candidatesByMedia := make(map[uint16][]*webrtc.ICECandidateInit)
-	for _, candidate := range candidates {
-		mid := *candidate.SDPMLineIndex
-		candidatesByMedia[mid] = append(candidatesByMedia[mid], candidate)
-	}
-
-	frag := "a=ice-ufrag:" + iceUfrag + "\r\n" +
-		"a=ice-pwd:" + icePwd + "\r\n"
-
-	for mid, media := range sdp.MediaDescriptions {
-		cbm, ok := candidatesByMedia[uint16(mid)]
-		if ok {
-			frag += "m=" + media.MediaName.String() + "\r\n" +
-				"a=mid:" + strconv.FormatUint(uint64(mid), 10) + "\r\n"
-
-			for _, candidate := range cbm {
-				frag += "a=" + candidate.Candidate + "\r\n"
-			}
-		}
-	}
-
-	return []byte(frag), nil
-}
 
 type webRTCHTTPServerParent interface {
 	logger.Writer
@@ -358,7 +224,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(servers)
+			ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 			ctx.Writer.WriteHeader(http.StatusNoContent)
 
 		case http.MethodPost:
@@ -397,7 +263,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			ctx.Writer.Header().Set("E-Tag", res.sx.secret.String())
 			ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 			ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
-			ctx.Writer.Header()["Link"] = iceServersToLinkHeader(servers)
+			ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 			ctx.Writer.Header().Set("Location", ctx.Request.URL.String())
 			ctx.Writer.WriteHeader(http.StatusCreated)
 			ctx.Writer.Write(res.answer)
@@ -419,7 +285,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
-			candidates, err := unmarshalICEFragment(byts)
+			candidates, err := whip.ICEFragmentUnmarshal(byts)
 			if err != nil {
 				ctx.Writer.WriteHeader(http.StatusBadRequest)
 				return

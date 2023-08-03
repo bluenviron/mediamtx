@@ -384,6 +384,7 @@ components:
           - srtSource
           - udpSource
           - webRTCSession
+          - webRTCSource
         id:
           type: string
 
