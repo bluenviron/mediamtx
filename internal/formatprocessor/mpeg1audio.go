@@ -5,33 +5,33 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg2audio"
+	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg1audio"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// UnitMPEG2Audio is a MPEG-1/2 Audio data unit.
-type UnitMPEG2Audio struct {
+// UnitMPEG1Audio is a MPEG-1/2 Audio data unit.
+type UnitMPEG1Audio struct {
 	BaseUnit
 	PTS    time.Duration
 	Frames [][]byte
 }
 
-type formatProcessorMPEG2Audio struct {
+type formatProcessorMPEG1Audio struct {
 	udpMaxPayloadSize int
-	format            *formats.MPEG2Audio
-	encoder           *rtpmpeg2audio.Encoder
-	decoder           *rtpmpeg2audio.Decoder
+	format            *formats.MPEG1Audio
+	encoder           *rtpmpeg1audio.Encoder
+	decoder           *rtpmpeg1audio.Decoder
 }
 
-func newMPEG2Audio(
+func newMPEG1Audio(
 	udpMaxPayloadSize int,
-	forma *formats.MPEG2Audio,
+	forma *formats.MPEG1Audio,
 	generateRTPPackets bool,
 	_ logger.Writer,
-) (*formatProcessorMPEG2Audio, error) {
-	t := &formatProcessorMPEG2Audio{
+) (*formatProcessorMPEG1Audio, error) {
+	t := &formatProcessorMPEG1Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
@@ -46,15 +46,15 @@ func newMPEG2Audio(
 	return t, nil
 }
 
-func (t *formatProcessorMPEG2Audio) createEncoder() error {
-	t.encoder = &rtpmpeg2audio.Encoder{
+func (t *formatProcessorMPEG1Audio) createEncoder() error {
+	t.encoder = &rtpmpeg1audio.Encoder{
 		PayloadMaxSize: t.udpMaxPayloadSize - 12,
 	}
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitMPEG2Audio)
+func (t *formatProcessorMPEG1Audio) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := unit.(*UnitMPEG1Audio)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -80,7 +80,7 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 
 			frames, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
-				if err == rtpmpeg2audio.ErrNonStartingPacketAndNoPrevious || err == rtpmpeg2audio.ErrMorePacketsNeeded {
+				if err == rtpmpeg1audio.ErrNonStartingPacketAndNoPrevious || err == rtpmpeg1audio.ErrMorePacketsNeeded {
 					return nil
 				}
 				return err
@@ -104,8 +104,8 @@ func (t *formatProcessorMPEG2Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 	return nil
 }
 
-func (t *formatProcessorMPEG2Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitMPEG2Audio{
+func (t *formatProcessorMPEG1Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
+	return &UnitMPEG1Audio{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,

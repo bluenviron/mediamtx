@@ -5,7 +5,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg2audio"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp/message"
 )
 
-func mpeg2AudioRate(sr int) uint8 {
+func mpeg1AudioRate(sr int) uint8 {
 	switch sr {
 	case 5500:
 		return flvio.SOUND_5_5Khz
@@ -26,8 +26,8 @@ func mpeg2AudioRate(sr int) uint8 {
 	}
 }
 
-func mpeg2AudioChannels(m mpeg2audio.ChannelMode) uint8 {
-	if m == mpeg2audio.ChannelModeMono {
+func mpeg1AudioChannels(m mpeg1audio.ChannelMode) uint8 {
+	if m == mpeg1audio.ChannelModeMono {
 		return flvio.SOUND_MONO
 	}
 	return flvio.SOUND_STEREO
@@ -84,8 +84,8 @@ func (w *Writer) writeTracks(videoTrack formats.Format, audioTrack formats.Forma
 					K: "audiocodecid",
 					V: func() float64 {
 						switch audioTrack.(type) {
-						case *formats.MPEG2Audio:
-							return message.CodecMPEG2Audio
+						case *formats.MPEG1Audio:
+							return message.CodecMPEG1Audio
 
 						case *formats.MPEG4AudioGeneric, *formats.MPEG4AudioLATM:
 							return message.CodecMPEG4Audio
@@ -193,15 +193,15 @@ func (w *Writer) WriteMPEG4Audio(pts time.Duration, au []byte) error {
 	})
 }
 
-// WriteMPEG2Audio writes MPEG-2 Audio data.
-func (w *Writer) WriteMPEG2Audio(pts time.Duration, h *mpeg2audio.FrameHeader, frame []byte) error {
+// WriteMPEG1Audio writes MPEG-1 Audio data.
+func (w *Writer) WriteMPEG1Audio(pts time.Duration, h *mpeg1audio.FrameHeader, frame []byte) error {
 	return w.conn.Write(&message.Audio{
 		ChunkStreamID:   message.AudioChunkStreamID,
 		MessageStreamID: 0x1000000,
-		Codec:           message.CodecMPEG2Audio,
-		Rate:            mpeg2AudioRate(h.SampleRate),
+		Codec:           message.CodecMPEG1Audio,
+		Rate:            mpeg1AudioRate(h.SampleRate),
 		Depth:           flvio.SOUND_16BIT,
-		Channels:        mpeg2AudioChannels(h.ChannelMode),
+		Channels:        mpeg1AudioChannels(h.ChannelMode),
 		Payload:         frame,
 		DTS:             pts,
 	})
