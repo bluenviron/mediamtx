@@ -19,8 +19,6 @@ html, body {
 </head>
 <body>
 
-<video id="video" muted controls autoplay playsinline></video>
-
 <script>
 
 const restartPause = 2000;
@@ -97,7 +95,8 @@ const generateSdpFragment = (offerData, candidates) => {
 }
 
 class WHEPClient {
-	constructor() {
+	constructor(video) {
+		this.video = video;
 		this.pc = null;
 		this.restartTimeout = null;
         this.eTag = '';
@@ -132,7 +131,7 @@ class WHEPClient {
 
         this.pc.ontrack = (evt) => {
             console.log("new track:", evt.track.kind);
-            document.getElementById("video").srcObject = evt.streams[0];
+            this.video.srcObject = evt.streams[0];
         };
 
         this.pc.createOffer()
@@ -249,7 +248,99 @@ class WHEPClient {
     }
 }
 
-window.addEventListener('DOMContentLoaded', () => new WHEPClient());
+/**
+ * Parses the query string from a URL into an object representing the query parameters.
+ * If no URL is provided, it uses the query string from the current page's URL.
+ *
+ * @param {string} [url=window.location.search] - The URL to parse the query string from.
+ * @returns {Object} An object representing the query parameters with keys as parameter names and values as parameter values.
+ */
+ function parseQueryString(url) {
+	const queryString = (url || window.location.search).split("?")[1];
+	if (!queryString) return {};
+
+	const paramsArray = queryString.split("&");
+	const result = {};
+
+	for (let i = 0; i < paramsArray.length; i++) {
+		const param = paramsArray[i].split("=");
+		const key = decodeURIComponent(param[0]);
+		const value = decodeURIComponent(param[1] || "");
+
+		if (key) {
+			if (result[key]) {
+				if (Array.isArray(result[key])) {
+					result[key].push(value);
+				} else {
+					result[key] = [result[key], value];
+				}
+			} else {
+				result[key] = value;
+			}
+		}
+	}
+
+	return result;
+}
+
+/**
+ * Parses a string with boolean-like values and returns a boolean.
+ * @param {string} str The string to parse
+ * @param {boolean} defaultVal The default value
+ * @returns {boolean}
+ */
+function parseBoolString(str, defaultVal) {
+	const trueValues = ["1", "yes", "true"];
+	const falseValues = ["0", "no", "false"];
+	str = (str || "").toString();
+
+	if (trueValues.includes(str.toLowerCase())) {
+		return true;
+	} else if (falseValues.includes(str.toLowerCase())) {
+		return false;
+	} else {
+		return defaultVal;
+	}
+}
+
+/**
+ * Sets video attributes based on query string parameters or default values.
+ *
+ * @param {HTMLVideoElement} video - The video element on which to set the attributes.
+ */
+function setVideoAttributes(video) {
+	let qs = parseQueryString();
+
+	video.controls = parseBoolString(qs["controls"], true);
+	video.muted = parseBoolString(qs["muted"], true);
+	video.autoplay = parseBoolString(qs["autoplay"], true);
+	video.playsInline = parseBoolString(qs["playsinline"], true);
+}
+
+/**
+ *
+ * @param {(video: HTMLVideoElement) => void} callback
+ * @param {HTMLElement} container
+ * @returns
+ */
+const initVideoElement = (callback, container) => {
+	return () => {
+		const video = document.createElement("video");
+		video.id = "video";
+
+		setVideoAttributes(video);
+
+		if (container) {
+			container.append(video);
+		}
+
+		if (typeof callback == "function") {
+			callback(video);
+		}
+	};
+};
+
+window.addEventListener('DOMContentLoaded', initVideoElement((video) => new WHEPClient(video), document.body));
 
 </script>
 
