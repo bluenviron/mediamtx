@@ -135,7 +135,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			data, err := m.rtspServer.apiSessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
-					tags := "{id=\"" + i.ID.String() + "\",state=\"" + i.State + "\"}"
+					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
 					out += metric("rtsp_sessions", tags, 1)
 					out += metric("rtsp_sessions_bytes_received", tags, int64(i.BytesReceived))
 					out += metric("rtsp_sessions_bytes_sent", tags, int64(i.BytesSent))
@@ -169,7 +169,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 			data, err := m.rtspsServer.apiSessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
-					tags := "{id=\"" + i.ID.String() + "\",state=\"" + i.State + "\"}"
+					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
 					out += metric("rtsps_sessions", tags, 1)
 					out += metric("rtsps_sessions_bytes_received", tags, int64(i.BytesReceived))
 					out += metric("rtsps_sessions_bytes_sent", tags, int64(i.BytesSent))
@@ -186,7 +186,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		data, err := m.rtmpServer.apiConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
-				tags := "{id=\"" + i.ID.String() + "\",state=\"" + i.State + "\"}"
+				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
 				out += metric("rtmp_conns", tags, 1)
 				out += metric("rtmp_conns_bytes_received", tags, int64(i.BytesReceived))
 				out += metric("rtmp_conns_bytes_sent", tags, int64(i.BytesSent))

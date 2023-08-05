@@ -54,14 +54,22 @@ type apiRTSPConnsList struct {
 	Items     []*apiRTSPConn `json:"items"`
 }
 
+type apiRTMPConnState string
+
+const (
+	apiRTMPConnStateIdle    apiRTMPConnState = "idle"
+	apiRTMPConnStateRead    apiRTMPConnState = "read"
+	apiRTMPConnStatePublish apiRTMPConnState = "publish"
+)
+
 type apiRTMPConn struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	State         string    `json:"state"`
-	Path          string    `json:"path"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	ID            uuid.UUID        `json:"id"`
+	Created       time.Time        `json:"created"`
+	RemoteAddr    string           `json:"remoteAddr"`
+	State         apiRTMPConnState `json:"state"`
+	Path          string           `json:"path"`
+	BytesReceived uint64           `json:"bytesReceived"`
+	BytesSent     uint64           `json:"bytesSent"`
 }
 
 type apiRTMPConnsList struct {
@@ -70,14 +78,23 @@ type apiRTMPConnsList struct {
 	Items     []*apiRTMPConn `json:"items"`
 }
 
+type apiRTSPSessionState string
+
+const (
+	apiRTSPSessionStateIdle    apiRTSPSessionState = "idle"
+	apiRTSPSessionStateRead    apiRTSPSessionState = "read"
+	apiRTSPSessionStatePublish apiRTSPSessionState = "publish"
+)
+
 type apiRTSPSession struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	State         string    `json:"state"`
-	Path          string    `json:"path"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	ID            uuid.UUID           `json:"id"`
+	Created       time.Time           `json:"created"`
+	RemoteAddr    string              `json:"remoteAddr"`
+	State         apiRTSPSessionState `json:"state"`
+	Path          string              `json:"path"`
+	Transport     *string             `json:"transport"`
+	BytesReceived uint64              `json:"bytesReceived"`
+	BytesSent     uint64              `json:"bytesSent"`
 }
 
 type apiRTSPSessionsList struct {
@@ -86,37 +103,52 @@ type apiRTSPSessionsList struct {
 	Items     []*apiRTSPSession `json:"items"`
 }
 
-type apiWebRTCSession struct {
-	ID                        uuid.UUID `json:"id"`
-	Created                   time.Time `json:"created"`
-	RemoteAddr                string    `json:"remoteAddr"`
-	PeerConnectionEstablished bool      `json:"peerConnectionEstablished"`
-	LocalCandidate            string    `json:"localCandidate"`
-	RemoteCandidate           string    `json:"remoteCandidate"`
-	State                     string    `json:"state"`
-	Path                      string    `json:"path"`
-	BytesReceived             uint64    `json:"bytesReceived"`
-	BytesSent                 uint64    `json:"bytesSent"`
-}
+type apiSRTConnState string
 
-type apiWebRTCSessionsList struct {
-	ItemCount int                 `json:"itemCount"`
-	PageCount int                 `json:"pageCount"`
-	Items     []*apiWebRTCSession `json:"items"`
-}
+const (
+	apiSRTConnStateIdle    apiSRTConnState = "idle"
+	apiSRTConnStateRead    apiSRTConnState = "read"
+	apiSRTConnStatePublish apiSRTConnState = "publish"
+)
 
 type apiSRTConn struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	State         string    `json:"state"`
-	Path          string    `json:"path"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
+	ID            uuid.UUID       `json:"id"`
+	Created       time.Time       `json:"created"`
+	RemoteAddr    string          `json:"remoteAddr"`
+	State         apiSRTConnState `json:"state"`
+	Path          string          `json:"path"`
+	BytesReceived uint64          `json:"bytesReceived"`
+	BytesSent     uint64          `json:"bytesSent"`
 }
 
 type apiSRTConnsList struct {
 	ItemCount int           `json:"itemCount"`
 	PageCount int           `json:"pageCount"`
 	Items     []*apiSRTConn `json:"items"`
+}
+
+type apiWebRTCSessionState string
+
+const (
+	apiWebRTCSessionStateRead    apiWebRTCSessionState = "read"
+	apiWebRTCSessionStatePublish apiWebRTCSessionState = "publish"
+)
+
+type apiWebRTCSession struct {
+	ID                        uuid.UUID             `json:"id"`
+	Created                   time.Time             `json:"created"`
+	RemoteAddr                string                `json:"remoteAddr"`
+	PeerConnectionEstablished bool                  `json:"peerConnectionEstablished"`
+	LocalCandidate            string                `json:"localCandidate"`
+	RemoteCandidate           string                `json:"remoteCandidate"`
+	State                     apiWebRTCSessionState `json:"state"`
+	Path                      string                `json:"path"`
+	BytesReceived             uint64                `json:"bytesReceived"`
+	BytesSent                 uint64                `json:"bytesSent"`
+}
+
+type apiWebRTCSessionsList struct {
+	ItemCount int                 `json:"itemCount"`
+	PageCount int                 `json:"pageCount"`
+	Items     []*apiWebRTCSession `json:"items"`
 }

@@ -438,42 +438,10 @@ func (pa *path) runInner() error {
 			pa.confMutex.Unlock()
 
 		case req := <-pa.chSourceStaticSetReady:
-			err := pa.setReady(req.medias, req.generateRTPPackets)
-			if err != nil {
-				req.res <- pathSourceStaticSetReadyRes{err: err}
-			} else {
-				if pa.conf.HasOnDemandStaticSource() {
-					pa.onDemandStaticSourceReadyTimer.Stop()
-					pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
-
-					pa.onDemandStaticSourceScheduleClose()
-
-					for _, req := range pa.describeRequestsOnHold {
-						req.res <- pathDescribeRes{
-							stream: pa.stream,
-						}
-					}
-					pa.describeRequestsOnHold = nil
-
-					for _, req := range pa.readerAddRequestsOnHold {
-						pa.handleAddReaderPost(req)
-					}
-					pa.readerAddRequestsOnHold = nil
-				}
-
-				req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
-			}
+			pa.handleSourceStaticSetReady(req)
 
 		case req := <-pa.chSourceStaticSetNotReady:
-			pa.setNotReady()
-
-			// send response before calling onDemandStaticSourceStop()
-			// in order to avoid a deadlock due to sourceStatic.stop()
-			close(req.res)
-
-			if pa.conf.HasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
-				pa.onDemandStaticSourceStop()
-			}
+			pa.handleSourceStaticSetNotReady(req)
 
 			if pa.shouldClose() {
 				return fmt.Errorf("not in use")
@@ -685,6 +653,47 @@ func (pa *path) doPublisherRemove() {
 	pa.source = nil
 }
 
+func (pa *path) handleSourceStaticSetReady(req pathSourceStaticSetReadyReq) {
+	err := pa.setReady(req.medias, req.generateRTPPackets)
+	if err != nil {
+		req.res <- pathSourceStaticSetReadyRes{err: err}
+		return
+	}
+
+	if pa.conf.HasOnDemandStaticSource() {
+		pa.onDemandStaticSourceReadyTimer.Stop()
+		pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
+
+		pa.onDemandStaticSourceScheduleClose()
+
+		for _, req := range pa.describeRequestsOnHold {
+			req.res <- pathDescribeRes{
+				stream: pa.stream,
+			}
+		}
+		pa.describeRequestsOnHold = nil
+
+		for _, req := range pa.readerAddRequestsOnHold {
+			pa.handleAddReaderPost(req)
+		}
+		pa.readerAddRequestsOnHold = nil
+	}
+
+	req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
+}
+
+func (pa *path) handleSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
+	pa.setNotReady()
+
+	// send response before calling onDemandStaticSourceStop()
+	// in order to avoid a deadlock due to sourceStatic.stop()
+	close(req.res)
+
+	if pa.conf.HasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
+		pa.onDemandStaticSourceStop()
+	}
+}
+
 func (pa *path) handleDescribe(req pathDescribeReq) {
 	if _, ok := pa.source.(*sourceRedirect); ok {
 		req.res <- pathDescribeRes{
@@ -778,6 +787,10 @@ func (pa *path) handleStartPublisher(req pathStartPublisherReq) {
 		req.res <- pathStartPublisherRes{err: err}
 		return
 	}
+
+	req.author.Log(logger.Info, "is publishing to path '%s', %s",
+		pa.name,
+		sourceMediaInfo(req.medias))
 
 	if pa.conf.HasOnDemandPublisher() {
 		pa.onDemandPublisherReadyTimer.Stop()

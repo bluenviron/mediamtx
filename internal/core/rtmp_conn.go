@@ -696,10 +696,6 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 		return rres.err
 	}
 
-	c.Log(logger.Info, "is publishing to path '%s', %s",
-		res.path.name,
-		sourceMediaInfo(medias))
-
 	stream = rres.stream
 
 	// disable write deadline to allow outgoing acknowledges
@@ -748,16 +744,16 @@ func (c *rtmpConn) apiItem() *apiRTMPConn {
 		ID:         c.uuid,
 		Created:    c.created,
 		RemoteAddr: c.remoteAddr().String(),
-		State: func() string {
+		State: func() apiRTMPConnState {
 			switch c.state {
 			case rtmpConnStateRead:
-				return "read"
+				return apiRTMPConnStateRead
 
 			case rtmpConnStatePublish:
-				return "publish"
+				return apiRTMPConnStatePublish
 
 			default:
-				return "idle"
+				return apiRTMPConnStateIdle
 			}
 		}(),
 		Path:          c.pathName,
