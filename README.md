@@ -909,7 +909,7 @@ http://localhost:8888/mystream/index.m3u8
 
 Although the server can produce HLS with a variety of video and audio codecs (that are listed at the beginning of the README), not all browsers can read all codecs.
 
-You can check what codecs your browser can read by [using this tool](https://jsfiddle.net/4msrhudv).
+You can check what codecs your browser can read by [using this tool](https://jsfiddle.net/ufemo2p7).
 
 If you want to support most browsers, you can to re-encode the stream by using the H264 and AAC codecs, for instance by using FFmpeg:
 
