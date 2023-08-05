@@ -27,8 +27,8 @@ type OnDataH26xFunc func(pts time.Duration, au [][]byte)
 // OnDataMPEG4AudioFunc is the prototype of the callback passed to OnDataMPEG4Audio().
 type OnDataMPEG4AudioFunc func(pts time.Duration, au []byte)
 
-// OnDataMPEG2AudioFunc is the prototype of the callback passed to OnDataMPEG2Audio().
-type OnDataMPEG2AudioFunc func(pts time.Duration, frame []byte)
+// OnDataMPEG1AudioFunc is the prototype of the callback passed to OnDataMPEG1Audio().
+type OnDataMPEG1AudioFunc func(pts time.Duration, frame []byte)
 
 func h265FindNALU(array []gomp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	for _, entry := range array {
@@ -126,8 +126,8 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 			case 0:
 				return false, nil
 
-			case message.CodecMPEG2Audio:
-				audioTrack = &formats.MPEG2Audio{}
+			case message.CodecMPEG1Audio:
+				audioTrack = &formats.MPEG1Audio{}
 				return true, nil
 
 			case message.CodecMPEG4Audio:
@@ -340,7 +340,7 @@ outer:
 	}
 
 	if videoTrack == nil && audioTrack == nil {
-		return nil, nil, fmt.Errorf("no tracks found")
+		return nil, nil, fmt.Errorf("no supported tracks found")
 	}
 
 	return videoTrack, audioTrack, nil
@@ -524,8 +524,8 @@ func (r *Reader) OnDataMPEG4Audio(cb OnDataMPEG4AudioFunc) {
 	}
 }
 
-// OnDataMPEG2Audio sets a callback that is called when MPEG-2 Audio data is received.
-func (r *Reader) OnDataMPEG2Audio(cb OnDataMPEG2AudioFunc) {
+// OnDataMPEG1Audio sets a callback that is called when MPEG-1 Audio data is received.
+func (r *Reader) OnDataMPEG1Audio(cb OnDataMPEG1AudioFunc) {
 	r.onDataAudio = func(msg *message.Audio) error {
 		cb(msg.DTS, msg.Payload)
 		return nil

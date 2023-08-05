@@ -20,12 +20,10 @@ import (
 )
 
 var track1 = &mpegts.Track{
-	PID:   256,
 	Codec: &mpegts.CodecH264{},
 }
 
 var track2 = &mpegts.Track{
-	PID: 257,
 	Codec: &mpegts.CodecMPEG4Audio{
 		Config: mpeg4audio.Config{
 			Type:         2,

@@ -130,7 +130,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}},
 				}
 
-				c.OnDataMPEG4Audio(track, func(pts time.Duration, dts time.Duration, aus [][]byte) {
+				c.OnDataMPEG4Audio(track, func(pts time.Duration, aus [][]byte) {
 					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 						BaseUnit: formatprocessor.BaseUnit{
 							NTP: time.Now(),
@@ -149,7 +149,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}},
 				}
 
-				c.OnDataOpus(track, func(pts time.Duration, dts time.Duration, packets [][]byte) {
+				c.OnDataOpus(track, func(pts time.Duration, packets [][]byte) {
 					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 						BaseUnit: formatprocessor.BaseUnit{
 							NTP: time.Now(),

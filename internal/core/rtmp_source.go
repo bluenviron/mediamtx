@@ -160,9 +160,9 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 				})
 			})
 
-		case *formats.MPEG2Audio:
-			mc.OnDataMPEG2Audio(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG2Audio{
+		case *formats.MPEG1Audio:
+			mc.OnDataMPEG1Audio(func(pts time.Duration, frame []byte) {
+				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG1Audio{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
 					},

@@ -38,7 +38,6 @@ func TestSRTSource(t *testing.T) {
 		defer conn.Close()
 
 		track := &mpegts.Track{
-			PID:   256,
 			Codec: &mpegts.CodecH264{},
 		}
 

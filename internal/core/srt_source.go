@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
@@ -156,7 +157,7 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 				}},
 			}
 
-			r.OnDataMPEG4Audio(track, func(pts int64, _ int64, aus [][]byte) error {
+			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
@@ -176,7 +177,7 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 				}},
 			}
 
-			r.OnDataOpus(track, func(pts int64, _ int64, packets [][]byte) error {
+			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
@@ -186,9 +187,33 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 				})
 				return nil
 			})
+
+		case *mpegts.CodecMPEG1Audio:
+			medi = &media.Media{
+				Type:    media.TypeAudio,
+				Formats: []formats.Format{&formats.MPEG1Audio{}},
+			}
+
+			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG1Audio{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
+					PTS:    decodeTime(pts),
+					Frames: frames,
+				})
+				return nil
+			})
+
+		default:
+			continue
 		}
 
 		medias = append(medias, medi)
+	}
+
+	if len(medias) == 0 {
+		return fmt.Errorf("no supported tracks found")
 	}
 
 	res := s.parent.setReady(pathSourceStaticSetReadyReq{

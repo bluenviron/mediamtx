@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg2audio"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/google/uuid"
 
@@ -512,16 +512,16 @@ func (c *rtmpConn) setupAudio(
 		return audioMedia, audioFormatMPEG4AudioLATM
 	}
 
-	var audioFormatMPEG2 *formats.MPEG2Audio
-	audioMedia = stream.Medias().FindFormat(&audioFormatMPEG2)
+	var audioFormatMPEG1 *formats.MPEG1Audio
+	audioMedia = stream.Medias().FindFormat(&audioFormatMPEG1)
 
 	if audioMedia != nil {
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(c, audioMedia, audioFormatMPEG2, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG1, func(unit formatprocessor.Unit) {
 			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG2Audio)
+				tunit := unit.(*formatprocessor.UnitMPEG1Audio)
 
 				if !startPTSFilled {
 					startPTSFilled = true
@@ -541,7 +541,7 @@ func (c *rtmpConn) setupAudio(
 				}
 
 				for _, frame := range tunit.Frames {
-					var h mpeg2audio.FrameHeader
+					var h mpeg1audio.FrameHeader
 					err := h.Unmarshal(frame)
 					if err != nil {
 						return err
@@ -552,7 +552,7 @@ func (c *rtmpConn) setupAudio(
 					}
 
 					c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-					err = (*w).WriteMPEG2Audio(pts, &h, frame)
+					err = (*w).WriteMPEG1Audio(pts, &h, frame)
 					if err != nil {
 						return err
 					}
@@ -565,7 +565,7 @@ func (c *rtmpConn) setupAudio(
 			})
 		})
 
-		return audioMedia, audioFormatMPEG2
+		return audioMedia, audioFormatMPEG1
 	}
 
 	return nil, nil
@@ -674,9 +674,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				})
 			})
 
-		case *formats.MPEG2Audio:
-			r.OnDataMPEG2Audio(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG2Audio{
+		case *formats.MPEG1Audio:
+			r.OnDataMPEG1Audio(func(pts time.Duration, frame []byte) {
+				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG1Audio{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
 					},

@@ -677,7 +677,6 @@ func TestAPIProtocolList(t *testing.T) {
 				defer conn.Close()
 
 				track := &mpegts.Track{
-					PID:   256,
 					Codec: &mpegts.CodecH264{},
 				}
 
@@ -958,7 +957,6 @@ func TestAPIProtocolGet(t *testing.T) {
 				defer conn.Close()
 
 				track := &mpegts.Track{
-					PID:   256,
 					Codec: &mpegts.CodecH264{},
 				}
 
@@ -1230,7 +1228,6 @@ func TestAPIProtocolKick(t *testing.T) {
 				defer conn.Close()
 
 				track := &mpegts.Track{
-					PID:   256,
 					Codec: &mpegts.CodecH264{},
 				}
 

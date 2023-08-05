@@ -28,7 +28,6 @@ func TestSRTServer(t *testing.T) {
 	defer publisher.Close()
 
 	track := &mpegts.Track{
-		PID:   256,
 		Codec: &mpegts.CodecH264{},
 	}
 

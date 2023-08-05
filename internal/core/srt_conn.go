@@ -308,7 +308,7 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 				}},
 			}
 
-			r.OnDataMPEG4Audio(track, func(pts int64, _ int64, aus [][]byte) error {
+			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
@@ -328,7 +328,7 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 				}},
 			}
 
-			r.OnDataOpus(track, func(pts int64, _ int64, packets [][]byte) error {
+			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
@@ -338,9 +338,33 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 				})
 				return nil
 			})
+
+		case *mpegts.CodecMPEG1Audio:
+			medi = &media.Media{
+				Type:    media.TypeAudio,
+				Formats: []formats.Format{&formats.MPEG1Audio{}},
+			}
+
+			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG1Audio{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
+					PTS:    decodeTime(pts),
+					Frames: frames,
+				})
+				return nil
+			})
+
+		default:
+			continue
 		}
 
 		medias = append(medias, medi)
+	}
+
+	if len(medias) == 0 {
+		return fmt.Errorf("no supported tracks found")
 	}
 
 	rres := path.startPublisher(pathStartPublisherReq{
@@ -410,7 +434,6 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	}()
 
 	var w *mpegts.Writer
-	nextPID := uint16(256)
 	var tracks []*mpegts.Track
 	var medias media.Medias
 	bw := bufio.NewWriterSize(sconn, srtMaxPayloadSize(c.udpMaxPayloadSize))
@@ -419,17 +442,20 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	leadingTrackInitialized := false
 	var leadingTrackStartDTS time.Duration
 
+	addTrack := func(medi *media.Media, codec mpegts.Codec) *mpegts.Track {
+		track := &mpegts.Track{
+			Codec: codec,
+		}
+		tracks = append(tracks, track)
+		medias = append(medias, medi)
+		return track
+	}
+
 	for _, medi := range res.stream.Medias() {
 		for _, format := range medi.Formats {
 			switch format := format.(type) {
 			case *formats.H265:
-				track := &mpegts.Track{
-					PID:   nextPID,
-					Codec: &mpegts.CodecH265{},
-				}
-				tracks = append(tracks, track)
-				medias = append(medias, medi)
-				nextPID++
+				track := addTrack(medi, &mpegts.CodecH265{})
 
 				var startPTS time.Duration
 				startPTSFilled := false
@@ -493,13 +519,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				})
 
 			case *formats.H264:
-				track := &mpegts.Track{
-					PID:   nextPID,
-					Codec: &mpegts.CodecH264{},
-				}
-				tracks = append(tracks, track)
-				medias = append(medias, medi)
-				nextPID++
+				track := addTrack(medi, &mpegts.CodecH264{})
 
 				var startPTS time.Duration
 				startPTSFilled := false
@@ -563,15 +583,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				})
 
 			case *formats.MPEG4AudioGeneric:
-				track := &mpegts.Track{
-					PID: nextPID,
-					Codec: &mpegts.CodecMPEG4Audio{
-						Config: *format.Config,
-					},
-				}
-				tracks = append(tracks, track)
-				medias = append(medias, medi)
-				nextPID++
+				track := addTrack(medi, &mpegts.CodecMPEG4Audio{
+					Config: *format.Config,
+				})
 
 				var startPTS time.Duration
 				startPTSFilled := false
@@ -609,15 +623,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				if format.Config != nil &&
 					len(format.Config.Programs) == 1 &&
 					len(format.Config.Programs[0].Layers) == 1 {
-					track := &mpegts.Track{
-						PID: nextPID,
-						Codec: &mpegts.CodecMPEG4Audio{
-							Config: *format.Config.Programs[0].Layers[0].AudioSpecificConfig,
-						},
-					}
-					tracks = append(tracks, track)
-					medias = append(medias, medi)
-					nextPID++
+					track := addTrack(medi, &mpegts.CodecMPEG4Audio{
+						Config: *format.Config.Programs[0].Layers[0].AudioSpecificConfig,
+					})
 
 					var startPTS time.Duration
 					startPTSFilled := false
@@ -653,20 +661,14 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				}
 
 			case *formats.Opus:
-				track := &mpegts.Track{
-					PID: nextPID,
-					Codec: &mpegts.CodecOpus{
-						ChannelCount: func() int {
-							if format.IsStereo {
-								return 2
-							}
-							return 1
-						}(),
-					},
-				}
-				tracks = append(tracks, track)
-				medias = append(medias, medi)
-				nextPID++
+				track := addTrack(medi, &mpegts.CodecOpus{
+					ChannelCount: func() int {
+						if format.IsStereo {
+							return 2
+						}
+						return 1
+					}(),
+				})
 
 				var startPTS time.Duration
 				startPTSFilled := false
@@ -693,6 +695,43 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 						err = w.WriteOpus(track, durationGoToMPEGTS(pts), tunit.Packets)
+						if err != nil {
+							return err
+						}
+						return bw.Flush()
+					})
+				})
+
+			case *formats.MPEG1Audio:
+				// TODO: check whether's a MPEG-1 or MPEG-2 stream by parsing header
+				// of first frame
+				track := addTrack(medi, &mpegts.CodecMPEG1Audio{})
+
+				var startPTS time.Duration
+				startPTSFilled := false
+
+				res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+					ringBuffer.Push(func() error {
+						tunit := unit.(*formatprocessor.UnitMPEG1Audio)
+						if tunit.Frames == nil {
+							return nil
+						}
+
+						if !startPTSFilled {
+							startPTS = tunit.PTS
+							startPTSFilled = true
+						}
+
+						if leadingTrackChosen && !leadingTrackInitialized {
+							return nil
+						}
+
+						pts := tunit.PTS
+						pts -= startPTS
+						pts -= leadingTrackStartDTS
+
+						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+						err = w.WriteMPEG1Audio(track, durationGoToMPEGTS(pts), tunit.Frames)
 						if err != nil {
 							return err
 						}
