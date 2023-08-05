@@ -279,6 +279,8 @@ paths:
     # If sourceOnDemand is "yes", the source will be closed when there are no
     # readers connected and this amount of time has passed.
     sourceOnDemandCloseAfter: 10s
+    # Maximum number of readers. Zero means no limit.
+    maxReaders: 0
 
     ###############################################
     # Authentication path parameters

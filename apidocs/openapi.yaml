@@ -196,6 +196,8 @@ components:
           type: string
         sourceOnDemandCloseAfter:
           type: string
+        maxReaders:
+          type: number
 
         # authentication
         publishUser:

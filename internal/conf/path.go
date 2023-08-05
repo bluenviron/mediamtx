@@ -50,6 +50,7 @@ type PathConf struct {
 	SourceOnDemand             bool           `json:"sourceOnDemand"`
 	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
+	MaxReaders                 int            `json:"maxReaders"`
 
 	// authentication
 	PublishUser Credential `json:"publishUser"`

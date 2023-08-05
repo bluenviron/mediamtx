@@ -866,6 +866,13 @@ func (pa *path) handleAddReader(req pathAddReaderReq) {
 }
 
 func (pa *path) handleAddReaderPost(req pathAddReaderReq) {
+	if pa.conf.MaxReaders != 0 && len(pa.readers) >= pa.conf.MaxReaders {
+		req.res <- pathAddReaderRes{
+			err: fmt.Errorf("maximum reader count reached"),
+		}
+		return
+	}
+
 	pa.readers[req.author] = struct{}{}
 
 	if pa.conf.HasOnDemandStaticSource() {
