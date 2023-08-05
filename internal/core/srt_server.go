@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -60,6 +61,7 @@ type srtServer struct {
 	writeTimeout      conf.StringDuration
 	readBufferCount   int
 	udpMaxPayloadSize int
+	externalCmdPool   *externalcmd.Pool
 	pathManager       *pathManager
 	parent            srtServerParent
 
@@ -84,6 +86,7 @@ func newSRTServer(
 	writeTimeout conf.StringDuration,
 	readBufferCount int,
 	udpMaxPayloadSize int,
+	externalCmdPool *externalcmd.Pool,
 	pathManager *pathManager,
 	parent srtServerParent,
 ) (*srtServer, error) {
@@ -103,6 +106,7 @@ func newSRTServer(
 		writeTimeout:      writeTimeout,
 		readBufferCount:   readBufferCount,
 		udpMaxPayloadSize: udpMaxPayloadSize,
+		externalCmdPool:   externalCmdPool,
 		pathManager:       pathManager,
 		parent:            parent,
 		ctx:               ctx,
@@ -161,6 +165,7 @@ outer:
 				s.udpMaxPayloadSize,
 				req.connReq,
 				&s.wg,
+				s.externalCmdPool,
 				s.pathManager,
 				s)
 			s.conns[c] = struct{}{}
