@@ -482,6 +482,9 @@ components:
           enum: [idle, read, publish]
         path:
           type: string
+        transport:
+          type: string
+          nullable: true
         bytesReceived:
           type: integer
           format: int64

@@ -402,10 +402,6 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return 0, rres.err
 	}
 
-	s.Log(logger.Info, "is publishing to path '%s', %s",
-		res.path.name,
-		sourceMediaInfo(medias))
-
 	for _, track := range tracks {
 		track.start(rres.stream)
 	}
@@ -636,11 +632,11 @@ func (s *webRTCSession) apiItem() *apiWebRTCSession {
 		PeerConnectionEstablished: peerConnectionEstablished,
 		LocalCandidate:            localCandidate,
 		RemoteCandidate:           remoteCandidate,
-		State: func() string {
+		State: func() apiWebRTCSessionState {
 			if s.req.publish {
-				return "publish"
+				return apiWebRTCSessionStatePublish
 			}
-			return "read"
+			return apiWebRTCSessionStateRead
 		}(),
 		Path:          s.req.pathName,
 		BytesReceived: bytesReceived,

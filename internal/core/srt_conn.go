@@ -376,10 +376,6 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 		return rres.err
 	}
 
-	c.Log(logger.Info, "is publishing to path '%s', %s",
-		path.name,
-		sourceMediaInfo(medias))
-
 	stream = rres.stream
 
 	for {
@@ -830,16 +826,16 @@ func (c *srtConn) apiItem() *apiSRTConn {
 		ID:         c.uuid,
 		Created:    c.created,
 		RemoteAddr: c.connReq.RemoteAddr().String(),
-		State: func() string {
+		State: func() apiSRTConnState {
 			switch c.state {
 			case srtConnStateRead:
-				return "read"
+				return apiSRTConnStateRead
 
 			case srtConnStatePublish:
-				return "publish"
+				return apiSRTConnStatePublish
 
 			default:
-				return "idle"
+				return apiSRTConnStateIdle
 			}
 		}(),
 		Path:          c.pathName,

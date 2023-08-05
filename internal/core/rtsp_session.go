@@ -45,6 +45,7 @@ type rtspSession struct {
 	onReadCmd *externalcmd.Cmd // read
 	mutex     sync.Mutex
 	state     gortsplib.ServerSessionState
+	transport *gortsplib.Transport
 	pathName  string
 }
 
@@ -293,6 +294,7 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePlay
+		s.transport = s.session.SetuppedTransport()
 		s.mutex.Unlock()
 	}
 
@@ -303,7 +305,7 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 }
 
 // onRecord is called by rtspServer.
-func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
+func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	res := s.path.startPublisher(pathStartPublisherReq{
 		author:             s,
 		medias:             s.session.AnnouncedMedias(),
@@ -315,11 +317,6 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 		}, res.err
 	}
 
-	s.Log(logger.Info, "is publishing to path '%s', with %s, %s",
-		s.path.name,
-		s.session.SetuppedTransport(),
-		sourceMediaInfo(s.session.AnnouncedMedias()))
-
 	s.stream = res.stream
 
 	for _, medi := range s.session.AnnouncedMedias() {
@@ -327,7 +324,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 			cmedi := medi
 			cforma := forma
 
-			ctx.Session.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
+			s.session.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
 				res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
 			})
 		}
@@ -335,6 +332,7 @@ func (s *rtspSession) onRecord(ctx *gortsplib.ServerHandlerOnRecordCtx) (*base.R
 
 	s.mutex.Lock()
 	s.state = gortsplib.ServerSessionStateRecord
+	s.transport = s.session.SetuppedTransport()
 	s.mutex.Unlock()
 
 	return &base.Response{
@@ -404,19 +402,26 @@ func (s *rtspSession) apiItem() *apiRTSPSession {
 		ID:         s.uuid,
 		Created:    s.created,
 		RemoteAddr: s.remoteAddr().String(),
-		State: func() string {
+		State: func() apiRTSPSessionState {
 			switch s.state {
 			case gortsplib.ServerSessionStatePrePlay,
 				gortsplib.ServerSessionStatePlay:
-				return "read"
+				return apiRTSPSessionStateRead
 
 			case gortsplib.ServerSessionStatePreRecord,
 				gortsplib.ServerSessionStateRecord:
-				return "publish"
+				return apiRTSPSessionStatePublish
 			}
-			return "idle"
+			return apiRTSPSessionStateIdle
 		}(),
-		Path:          s.pathName,
+		Path: s.pathName,
+		Transport: func() *string {
+			if s.transport == nil {
+				return nil
+			}
+			v := s.transport.String()
+			return &v
+		}(),
 		BytesReceived: s.session.BytesReceived(),
 		BytesSent:     s.session.BytesSent(),
 	}
