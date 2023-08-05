@@ -441,6 +441,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WriteTimeout,
 				p.conf.ReadBufferCount,
 				p.conf.UDPMaxPayloadSize,
+				p.externalCmdPool,
 				p.pathManager,
 				p,
 			)

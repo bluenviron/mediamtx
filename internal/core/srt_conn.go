@@ -20,6 +20,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -64,6 +65,7 @@ type srtConn struct {
 	udpMaxPayloadSize int
 	connReq           srt.ConnRequest
 	wg                *sync.WaitGroup
+	externalCmdPool   *externalcmd.Pool
 	pathManager       srtConnPathManager
 	parent            srtConnParent
 
@@ -88,6 +90,7 @@ func newSRTConn(
 	udpMaxPayloadSize int,
 	connReq srt.ConnRequest,
 	wg *sync.WaitGroup,
+	externalCmdPool *externalcmd.Pool,
 	pathManager srtConnPathManager,
 	parent srtConnParent,
 ) *srtConn {
@@ -100,6 +103,7 @@ func newSRTConn(
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		connReq:           connReq,
 		wg:                wg,
+		externalCmdPool:   externalCmdPool,
 		pathManager:       pathManager,
 		parent:            parent,
 		ctx:               ctx,
@@ -745,6 +749,24 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(medias))
+
+	pathConf := res.path.safeConf()
+
+	if pathConf.RunOnRead != "" {
+		c.Log(logger.Info, "runOnRead command started")
+		onReadCmd := externalcmd.NewCmd(
+			c.externalCmdPool,
+			pathConf.RunOnRead,
+			pathConf.RunOnReadRestart,
+			res.path.externalCmdEnv(),
+			func(err error) {
+				c.Log(logger.Info, "runOnRead command exited: %v", err)
+			})
+		defer func() {
+			onReadCmd.Close()
+			c.Log(logger.Info, "runOnRead command stopped")
+		}()
+	}
 
 	w = mpegts.NewWriter(bw, tracks)
 
