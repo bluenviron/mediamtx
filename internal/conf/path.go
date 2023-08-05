@@ -200,14 +200,9 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source. use another path")
 		}
 
-		host, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
+		_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid UDP URL", pconf.Source)
-		}
-
-		ip := net.ParseIP(host)
-		if ip == nil {
-			return fmt.Errorf("'%s' is not a valid IP", host)
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):

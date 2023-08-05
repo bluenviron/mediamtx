@@ -92,16 +92,18 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 
 	hostPort := cnf.Source[len("udp://"):]
 
-	pc, err := net.ListenPacket(restrictNetwork("udp", hostPort))
+	addr, err := net.ResolveUDPAddr("udp", hostPort)
+	if err != nil {
+		return err
+	}
+
+	pc, err := net.ListenPacket(restrictNetwork("udp", addr.String()))
 	if err != nil {
 		return err
 	}
 	defer pc.Close()
 
-	host, _, _ := net.SplitHostPort(hostPort)
-	ip := net.ParseIP(host)
-
-	if ip.IsMulticast() {
+	if addr.IP.IsMulticast() {
 		p := ipv4.NewPacketConn(pc)
 
 		err = p.SetMulticastTTL(multicastTTL)
@@ -109,7 +111,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 			return err
 		}
 
-		err = joinMulticastGroupOnAtLeastOneInterface(p, ip)
+		err = joinMulticastGroupOnAtLeastOneInterface(p, addr.IP)
 		if err != nil {
 			return err
 		}
