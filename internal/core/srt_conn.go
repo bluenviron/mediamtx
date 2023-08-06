@@ -742,7 +742,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 	if len(tracks) == 0 {
 		return true, fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG4-Audio")
+			"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
