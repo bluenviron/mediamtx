@@ -81,10 +81,8 @@ type formatProcessorH264 struct {
 	format            *formats.H264
 	log               logger.Writer
 
-	encoder                  *rtph264.Encoder
-	decoder                  *rtph264.Decoder
-	lastKeyFrameTimeReceived bool
-	lastKeyFrameTime         time.Time
+	encoder *rtph264.Encoder
+	decoder *rtph264.Decoder
 }
 
 func newH264(
@@ -146,12 +144,12 @@ func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(pkt *rtp.Packet
 	}
 }
 
-func (t *formatProcessorH264) updateTrackParametersFromNALUs(nalus [][]byte) {
+func (t *formatProcessorH264) updateTrackParametersFromAU(au [][]byte) {
 	sps := t.format.SPS
 	pps := t.format.PPS
 	update := false
 
-	for _, nalu := range nalus {
+	for _, nalu := range au {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
@@ -174,24 +172,11 @@ func (t *formatProcessorH264) updateTrackParametersFromNALUs(nalus [][]byte) {
 	}
 }
 
-func (t *formatProcessorH264) checkKeyFrameInterval(ntp time.Time, isKeyFrame bool) {
-	if !t.lastKeyFrameTimeReceived || isKeyFrame {
-		t.lastKeyFrameTimeReceived = true
-		t.lastKeyFrameTime = ntp
-		return
-	}
-
-	if ntp.Sub(t.lastKeyFrameTime) >= maxKeyFrameInterval {
-		t.lastKeyFrameTime = ntp
-		t.log.Log(logger.Warn, "no H264 key frames received in %v, stream can't be decoded", maxKeyFrameInterval)
-	}
-}
-
-func (t *formatProcessorH264) remuxAccessUnit(ntp time.Time, nalus [][]byte) [][]byte {
+func (t *formatProcessorH264) remuxAccessUnit(au [][]byte) [][]byte {
 	isKeyFrame := false
 	n := 0
 
-	for _, nalu := range nalus {
+	for _, nalu := range au {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
@@ -214,8 +199,6 @@ func (t *formatProcessorH264) remuxAccessUnit(ntp time.Time, nalus [][]byte) [][
 		n++
 	}
 
-	t.checkKeyFrameInterval(ntp, isKeyFrame)
-
 	if n == 0 {
 		return nil
 	}
@@ -229,7 +212,7 @@ func (t *formatProcessorH264) remuxAccessUnit(ntp time.Time, nalus [][]byte) [][
 		i = 2
 	}
 
-	for _, nalu := range nalus {
+	for _, nalu := range au {
 		typ := h264.NALUType(nalu[0] & 0x1F)
 
 		switch typ {
@@ -294,7 +277,7 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 				return err
 			}
 
-			tunit.AU = t.remuxAccessUnit(tunit.NTP, au)
+			tunit.AU = t.remuxAccessUnit(au)
 			tunit.PTS = pts
 		}
 
@@ -303,8 +286,8 @@ func (t *formatProcessorH264) Process(unit Unit, hasNonRTSPReaders bool) error {
 			return nil
 		}
 	} else {
-		t.updateTrackParametersFromNALUs(tunit.AU)
-		tunit.AU = t.remuxAccessUnit(tunit.NTP, tunit.AU)
+		t.updateTrackParametersFromAU(tunit.AU)
+		tunit.AU = t.remuxAccessUnit(tunit.AU)
 	}
 
 	// encode into RTP

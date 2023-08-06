@@ -2,25 +2,13 @@ package formatprocessor
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
-
-	"github.com/bluenviron/mediamtx/internal/logger"
 )
-
-type testLogWriter struct {
-	recv chan string
-}
-
-func (w *testLogWriter) Log(_ logger.Level, format string, args ...interface{}) {
-	w.recv <- fmt.Sprintf(format, args...)
-}
 
 func TestH264DynamicParams(t *testing.T) {
 	forma := &formats.H264{
@@ -206,40 +194,4 @@ func TestH264EmptyPacket(t *testing.T) {
 
 	// if all NALUs have been removed, no RTP packets must be generated.
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
-}
-
-func TestH264KeyFrameWarning(t *testing.T) {
-	forma := &formats.H264{
-		PayloadTyp:        96,
-		PacketizationMode: 1,
-	}
-
-	w := &testLogWriter{recv: make(chan string, 1)}
-	p, err := New(1472, forma, true, w)
-	require.NoError(t, err)
-
-	ntp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	err = p.Process(&UnitH264{
-		BaseUnit: BaseUnit{
-			NTP: ntp,
-		},
-		AU: [][]byte{
-			{0x01},
-		},
-	}, false)
-	require.NoError(t, err)
-
-	ntp = ntp.Add(30 * time.Second)
-	err = p.Process(&UnitH264{
-		BaseUnit: BaseUnit{
-			NTP: ntp,
-		},
-		AU: [][]byte{
-			{0x01},
-		},
-	}, false)
-	require.NoError(t, err)
-
-	logl := <-w.recv
-	require.Equal(t, "no H264 key frames received in 10s, stream can't be decoded", logl)
 }
