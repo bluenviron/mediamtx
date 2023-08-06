@@ -81,7 +81,7 @@ func (t *formatProcessorVP9) Process(unit Unit, hasNonRTSPReaders bool) error { 
 
 			frame, pts, err := t.decoder.Decode(pkt)
 			if err != nil {
-				if err == rtpvp9.ErrMorePacketsNeeded {
+				if err == rtpvp9.ErrNonStartingPacketAndNoPrevious || err == rtpvp9.ErrMorePacketsNeeded {
 					return nil
 				}
 				return err
