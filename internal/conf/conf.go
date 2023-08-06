@@ -107,7 +107,8 @@ type Conf struct {
 	RunOnConnectRestart       bool            `json:"runOnConnectRestart"`
 
 	// RTSP
-	RTSPDisable       bool        `json:"rtspDisable"`
+	RTSP              bool        `json:"rtsp"`
+	RTSPDisable       bool        `json:"rtspDisable"` // deprecated
 	Protocols         Protocols   `json:"protocols"`
 	Encryption        Encryption  `json:"encryption"`
 	RTSPAddress       string      `json:"rtspAddress"`
@@ -122,7 +123,8 @@ type Conf struct {
 	AuthMethods       AuthMethods `json:"authMethods"`
 
 	// RTMP
-	RTMPDisable    bool       `json:"rtmpDisable"`
+	RTMP           bool       `json:"rtmp"`
+	RTMPDisable    bool       `json:"rtmpDisable"` // deprecated
 	RTMPAddress    string     `json:"rtmpAddress"`
 	RTMPEncryption Encryption `json:"rtmpEncryption"`
 	RTMPSAddress   string     `json:"rtmpsAddress"`
@@ -130,7 +132,8 @@ type Conf struct {
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS
-	HLSDisable         bool           `json:"hlsDisable"`
+	HLS                bool           `json:"hls"`
+	HLSDisable         bool           `json:"hlsDisable"` // depreacted
 	HLSAddress         string         `json:"hlsAddress"`
 	HLSEncryption      bool           `json:"hlsEncryption"`
 	HLSServerKey       string         `json:"hlsServerKey"`
@@ -146,7 +149,8 @@ type Conf struct {
 	HLSDirectory       string         `json:"hlsDirectory"`
 
 	// WebRTC
-	WebRTCDisable           bool              `json:"webrtcDisable"`
+	WebRTC                  bool              `json:"webrtc"`
+	WebRTCDisable           bool              `json:"webrtcDisable"` // deprecated
 	WebRTCAddress           string            `json:"webrtcAddress"`
 	WebRTCEncryption        bool              `json:"webrtcEncryption"`
 	WebRTCServerKey         string            `json:"webrtcServerKey"`
@@ -231,6 +235,9 @@ func (conf *Conf) Check() error {
 	}
 
 	// RTSP
+	if conf.RTSPDisable {
+		conf.RTSP = false
+	}
 	if conf.Encryption == EncryptionStrict {
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDP)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP transport protocol")
@@ -240,7 +247,20 @@ func (conf *Conf) Check() error {
 		}
 	}
 
+	// RTMP
+	if conf.RTMPDisable {
+		conf.RTMP = false
+	}
+
+	// HLS
+	if conf.HLSDisable {
+		conf.HLS = false
+	}
+
 	// WebRTC
+	if conf.WebRTCDisable {
+		conf.WebRTC = false
+	}
 	for _, server := range conf.WebRTCICEServers {
 		parts := strings.Split(server, ":")
 		if len(parts) == 5 {
@@ -302,6 +322,7 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.PPROFAddress = "127.0.0.1:9999"
 
 	// RTSP
+	conf.RTSP = true
 	conf.Protocols = Protocols{
 		Protocol(gortsplib.TransportUDP):          {},
 		Protocol(gortsplib.TransportUDPMulticast): {},
@@ -319,10 +340,12 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.AuthMethods = AuthMethods{headers.AuthBasic}
 
 	// RTMP
+	conf.RTMP = true
 	conf.RTMPAddress = ":1935"
 	conf.RTMPSAddress = ":1936"
 
 	// HLS
+	conf.HLS = true
 	conf.HLSAddress = ":8888"
 	conf.HLSServerKey = "server.key"
 	conf.HLSServerCert = "server.crt"
@@ -334,6 +357,7 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.HLSAllowOrigin = "*"
 
 	// WebRTC
+	conf.WebRTC = true
 	conf.WebRTCAddress = ":8889"
 	conf.WebRTCServerKey = "server.key"
 	conf.WebRTCServerCert = "server.crt"

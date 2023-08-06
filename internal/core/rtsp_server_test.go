@@ -55,9 +55,9 @@ func TestRTSPServer(t *testing.T) {
 					"  all:\n"
 
 			case "internal":
-				conf = "rtmpDisable: yes\n" +
-					"hlsDisable: yes\n" +
-					"webrtcDisable: yes\n" +
+				conf = "rtmp: no\n" +
+					"hls: no\n" +
+					"webrtc: no\n" +
 					"paths:\n" +
 					"  all:\n" +
 					"    publishUser: testpublisher\n" +
@@ -121,9 +121,9 @@ func TestRTSPServer(t *testing.T) {
 
 func TestRTSPServerAuthHashed(t *testing.T) {
 	p, ok := newInstance(
-		"rtmpDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"webrtcDisable: yes\n" +
+		"rtmp: no\n" +
+			"hls: no\n" +
+			"webrtc: no\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
@@ -165,9 +165,9 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		},
 	} {
 		t.Run("publish_"+ca.name, func(t *testing.T) {
-			p, ok := newInstance("rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"webrtcDisable: yes\n" +
+			p, ok := newInstance("rtmp: no\n" +
+				"hls: no\n" +
+				"webrtc: no\n" +
 				"paths:\n" +
 				"  all:\n" +
 				"    publishUser: testuser\n" +
@@ -209,9 +209,9 @@ func TestRTSPServerAuthFail(t *testing.T) {
 		},
 	} {
 		t.Run("read_"+ca.name, func(t *testing.T) {
-			p, ok := newInstance("rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"webrtcDisable: yes\n" +
+			p, ok := newInstance("rtmp: no\n" +
+				"hls: no\n" +
+				"webrtc: no\n" +
 				"paths:\n" +
 				"  all:\n" +
 				"    readUser: testuser\n" +
@@ -234,9 +234,9 @@ func TestRTSPServerAuthFail(t *testing.T) {
 	}
 
 	t.Run("ip", func(t *testing.T) {
-		p, ok := newInstance("rtmpDisable: yes\n" +
-			"hlsDisable: yes\n" +
-			"webrtcDisable: yes\n" +
+		p, ok := newInstance("rtmp: no\n" +
+			"hls: no\n" +
+			"webrtc: no\n" +
 			"paths:\n" +
 			"  all:\n" +
 			"    publishIPs: [128.0.0.1/32]\n")
@@ -282,7 +282,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 		"disabled",
 	} {
 		t.Run(ca, func(t *testing.T) {
-			conf := "rtmpDisable: yes\n" +
+			conf := "rtmp: no\n" +
 				"paths:\n" +
 				"  all:\n"
 
@@ -390,9 +390,9 @@ func TestRTSPServerFallback(t *testing.T) {
 				return "/path2"
 			}()
 
-			p1, ok := newInstance("rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"webrtcDisable: yes\n" +
+			p1, ok := newInstance("rtmp: no\n" +
+				"hls: no\n" +
+				"webrtc: no\n" +
 				"paths:\n" +
 				"  path1:\n" +
 				"    fallback: " + val + "\n" +

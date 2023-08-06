@@ -55,7 +55,7 @@ components:
           type: boolean
 
         # RTSP
-        rtspDisable:
+        rtsp:
           type: boolean
         protocols:
           type: array
@@ -87,7 +87,7 @@ components:
             type: string
 
         # RTMP
-        rtmpDisable:
+        rtmp:
           type: boolean
         rtmpAddress:
           type: string
@@ -101,7 +101,7 @@ components:
           type: string
 
         # HLS
-        hlsDisable:
+        hls:
           type: boolean
         hlsAddress:
           type: string
@@ -133,7 +133,7 @@ components:
           type: string
 
         # WebRTC
-        webrtcDisable:
+        webrtc:
           type: boolean
         webrtcAddress:
           type: string

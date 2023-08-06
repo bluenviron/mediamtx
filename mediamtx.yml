@@ -64,8 +64,8 @@ runOnConnectRestart: no
 ###############################################
 # RTSP parameters
 
-# Disable support for the RTSP protocol.
-rtspDisable: no
+# Enable support for the RTSP protocol.
+rtsp: yes
 # List of enabled RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
 # server and clients, and doesn't support encryption.
@@ -104,8 +104,8 @@ authMethods: [basic]
 ###############################################
 # RTMP parameters
 
-# Disable support for the RTMP protocol.
-rtmpDisable: no
+# Enable support for the RTMP protocol.
+rtmp: yes
 # Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
 rtmpAddress: :1935
 # Encrypt connections with TLS (RTMPS).
@@ -124,8 +124,8 @@ rtmpServerCert: server.crt
 ###############################################
 # HLS parameters
 
-# Disable support for the HLS protocol.
-hlsDisable: no
+# Enable support for the HLS protocol.
+hls: yes
 # Address of the HLS listener.
 hlsAddress: :8888
 # Enable TLS/HTTPS on the HLS server.
@@ -180,8 +180,8 @@ hlsDirectory: ''
 ###############################################
 # WebRTC parameters
 
-# Disable support for the WebRTC protocol.
-webrtcDisable: no
+# Enable support for the WebRTC protocol.
+webrtc: yes
 # Address of the WebRTC listener.
 webrtcAddress: :8889
 # Enable TLS/HTTPS on the WebRTC server.

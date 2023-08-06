@@ -215,9 +215,9 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	defer s.Wait()
 	defer s.Close()
 
-	p, ok := newInstance("rtmpDisable: yes\n" +
-		"hlsDisable: yes\n" +
-		"webrtcDisable: yes\n" +
+	p, ok := newInstance("rtmp: no\n" +
+		"hls: no\n" +
+		"webrtc: no\n" +
 		"paths:\n" +
 		"  proxied:\n" +
 		"    source: rtsp://testuser:@127.0.0.1:8555/teststream\n" +
@@ -285,9 +285,9 @@ func TestRTSPSourceRange(t *testing.T) {
 				addConf += "    rtspRangeType: smpte\n" +
 					"    rtspRangeStart: 130s\n"
 			}
-			p, ok := newInstance("rtmpDisable: yes\n" +
-				"hlsDisable: yes\n" +
-				"webrtcDisable: yes\n" +
+			p, ok := newInstance("rtmp: no\n" +
+				"hls: no\n" +
+				"webrtc: no\n" +
 				"paths:\n" +
 				"  proxied:\n" +
 				"    source: rtsp://testuser:@127.0.0.1:8555/teststream\n" + addConf)
