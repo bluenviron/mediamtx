@@ -456,8 +456,49 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 }
 
 func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohlslib.Track) {
+	var audioFormatOpus *formats.Opus
+	audioMedia := stream.Medias().FindFormat(&audioFormatOpus)
+
+	if audioMedia != nil {
+		audioStartPTSFilled := false
+		var audioStartPTS time.Duration
+
+		stream.AddReader(m, audioMedia, audioFormatOpus, func(unit formatprocessor.Unit) {
+			m.ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitOpus)
+
+				if !audioStartPTSFilled {
+					audioStartPTSFilled = true
+					audioStartPTS = tunit.PTS
+				}
+
+				pts := tunit.PTS - audioStartPTS
+				err := m.muxer.WriteOpus(
+					tunit.NTP,
+					pts,
+					tunit.Packets)
+				if err != nil {
+					return fmt.Errorf("muxer error: %v", err)
+				}
+
+				return nil
+			})
+		})
+
+		return audioMedia, &gohlslib.Track{
+			Codec: &codecs.Opus{
+				ChannelCount: func() int {
+					if audioFormatOpus.IsStereo {
+						return 2
+					}
+					return 1
+				}(),
+			},
+		}
+	}
+
 	var audioFormatMPEG4AudioGeneric *formats.MPEG4AudioGeneric
-	audioMedia := stream.Medias().FindFormat(&audioFormatMPEG4AudioGeneric)
+	audioMedia = stream.Medias().FindFormat(&audioFormatMPEG4AudioGeneric)
 
 	if audioMedia != nil {
 		audioStartPTSFilled := false
@@ -535,47 +576,6 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 		return audioMedia, &gohlslib.Track{
 			Codec: &codecs.MPEG4Audio{
 				Config: *audioFormatMPEG4AudioLATM.Config.Programs[0].Layers[0].AudioSpecificConfig,
-			},
-		}
-	}
-
-	var audioFormatOpus *formats.Opus
-	audioMedia = stream.Medias().FindFormat(&audioFormatOpus)
-
-	if audioMedia != nil {
-		audioStartPTSFilled := false
-		var audioStartPTS time.Duration
-
-		stream.AddReader(m, audioMedia, audioFormatOpus, func(unit formatprocessor.Unit) {
-			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitOpus)
-
-				if !audioStartPTSFilled {
-					audioStartPTSFilled = true
-					audioStartPTS = tunit.PTS
-				}
-
-				pts := tunit.PTS - audioStartPTS
-				err := m.muxer.WriteOpus(
-					tunit.NTP,
-					pts,
-					tunit.Packets)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
-				return nil
-			})
-		})
-
-		return audioMedia, &gohlslib.Track{
-			Codec: &codecs.Opus{
-				ChannelCount: func() int {
-					if audioFormatOpus.IsStereo {
-						return 2
-					}
-					return 1
-				}(),
 			},
 		}
 	}
