@@ -761,7 +761,7 @@ func (pa *path) handleAddPublisher(req pathAddPublisherReq) {
 	}
 
 	if pa.source != nil {
-		if pa.conf.DisablePublisherOverride {
+		if !pa.conf.OverridePublisher {
 			req.res <- pathAddPublisherRes{err: fmt.Errorf("someone is already publishing to path '%s'", pa.name)}
 			return
 		}

@@ -306,8 +306,8 @@ paths:
     ###############################################
     # Publisher path parameters (when source is "publisher")
 
-    # do not allow another client to disconnect the current publisher and publish in its place.
-    disablePublisherOverride: no
+    # allow another client to disconnect the current publisher and publish in its place.
+    overridePublisher: yes
     # if no one is publishing, redirect readers to this path.
     # It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:

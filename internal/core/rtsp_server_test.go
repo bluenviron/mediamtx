@@ -287,7 +287,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 				"  all:\n"
 
 			if ca == "disabled" {
-				conf += "    disablePublisherOverride: yes\n"
+				conf += "    overridePublisher: no\n"
 			}
 
 			p, ok := newInstance(conf)
