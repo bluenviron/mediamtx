@@ -6,9 +6,9 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.11.0
 	github.com/alecthomas/kong v0.8.0
-	github.com/bluenviron/gohlslib v0.3.1-0.20230805121442-9577da1cb068
-	github.com/bluenviron/gortsplib/v3 v3.9.1-0.20230805122812-17acec3f0dea
-	github.com/bluenviron/mediacommon v0.7.1-0.20230805114828-bee33f3b286d
+	github.com/bluenviron/gohlslib v0.3.1-0.20230806000705-4ca609772363
+	github.com/bluenviron/gortsplib/v3 v3.9.1-0.20230806001215-926a452fb745
+	github.com/bluenviron/mediacommon v0.7.1-0.20230805234008-34d20294a26b
 	github.com/datarhei/gosrt v0.5.3
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
@@ -31,7 +31,7 @@ require (
 )
 
 require (
-	github.com/aler9/writerseeker v0.0.0-20220601075008-6f0e685b9c82 // indirect
+	github.com/aler9/writerseeker v1.0.0 // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/asticode/go-astits v1.12.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect
