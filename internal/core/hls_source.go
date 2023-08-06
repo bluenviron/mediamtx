@@ -145,7 +145,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					Type: media.TypeAudio,
 					Formats: []formats.Format{&formats.Opus{
 						PayloadTyp: 96,
-						IsStereo:   (tcodec.Channels == 2),
+						IsStereo:   (tcodec.ChannelCount == 2),
 					}},
 				}
 

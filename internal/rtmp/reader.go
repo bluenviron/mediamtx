@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"time"
 
-	gomp4 "github.com/abema/go-mp4"
+	"github.com/abema/go-mp4"
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
@@ -30,7 +31,7 @@ type OnDataMPEG4AudioFunc func(pts time.Duration, au []byte)
 // OnDataMPEG1AudioFunc is the prototype of the callback passed to OnDataMPEG1Audio().
 type OnDataMPEG1AudioFunc func(pts time.Duration, frame []byte)
 
-func h265FindNALU(array []gomp4.HEVCNaluArray, typ h265.NALUType) []byte {
+func h265FindNALU(array []mp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	for _, entry := range array {
 		if entry.NaluType == byte(typ) && entry.NumNalus == 1 &&
 			h265.NALUType((entry.Nalus[0].NALUnit[0]>>1)&0b111111) == typ {
@@ -215,8 +216,8 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 			if videoTrack == nil {
 				switch tmsg.FourCC {
 				case message.FourCCHEVC:
-					var hvcc gomp4.HvcC
-					_, err := gomp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &hvcc, gomp4.Context{})
+					var hvcc mp4.HvcC
+					_, err := mp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &hvcc, mp4.Context{})
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid H265 configuration: %v", err)
 					}
@@ -236,8 +237,8 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 					}
 
 				case message.FourCCAV1:
-					var av1c Av1C
-					_, err := gomp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &av1c, gomp4.Context{})
+					var av1c fmp4.Av1C
+					_, err := mp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &av1c, mp4.Context{})
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
 					}

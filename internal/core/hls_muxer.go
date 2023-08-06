@@ -336,8 +336,43 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 }
 
 func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohlslib.Track) {
+	var videoFormatAV1 *formats.AV1
+	videoMedia := stream.Medias().FindFormat(&videoFormatAV1)
+
+	if videoFormatAV1 != nil {
+		startPTSFilled := false
+		var startPTS time.Duration
+
+		stream.AddReader(m, videoMedia, videoFormatAV1, func(unit formatprocessor.Unit) {
+			m.ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitAV1)
+
+				if tunit.OBUs == nil {
+					return nil
+				}
+
+				if !startPTSFilled {
+					startPTSFilled = true
+					startPTS = tunit.PTS
+				}
+
+				pts := tunit.PTS - startPTS
+				err := m.muxer.WriteAV1(tunit.NTP, pts, tunit.OBUs)
+				if err != nil {
+					return fmt.Errorf("muxer error: %v", err)
+				}
+
+				return nil
+			})
+		})
+
+		return videoMedia, &gohlslib.Track{
+			Codec: &codecs.AV1{},
+		}
+	}
+
 	var videoFormatH265 *formats.H265
-	videoMedia := stream.Medias().FindFormat(&videoFormatH265)
+	videoMedia = stream.Medias().FindFormat(&videoFormatH265)
 
 	if videoFormatH265 != nil {
 		startPTSFilled := false
@@ -535,7 +570,7 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 
 		return audioMedia, &gohlslib.Track{
 			Codec: &codecs.Opus{
-				Channels: func() int {
+				ChannelCount: func() int {
 					if audioFormatOpus.IsStereo {
 						return 2
 					}
