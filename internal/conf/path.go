@@ -61,7 +61,8 @@ type PathConf struct {
 	ReadIPs     IPsOrCIDRs `json:"readIPs"`
 
 	// publisher
-	DisablePublisherOverride bool   `json:"disablePublisherOverride"`
+	OverridePublisher        bool   `json:"overridePublisher"`
+	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
 	Fallback                 string `json:"fallback"`
 
 	// rtsp
@@ -262,6 +263,10 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
+	if pconf.DisablePublisherOverride {
+		pconf.OverridePublisher = true
+	}
+
 	if pconf.Fallback != "" {
 		if strings.HasPrefix(pconf.Fallback, "/") {
 			err := IsValidPathName(pconf.Fallback[1:])
@@ -379,6 +384,9 @@ func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 	// general
 	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
+
+	// publisher
+	pconf.OverridePublisher = true
 
 	// raspberry pi camera
 	pconf.RPICameraWidth = 1920
