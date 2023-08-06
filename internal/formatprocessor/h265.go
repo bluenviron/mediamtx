@@ -88,10 +88,8 @@ type formatProcessorH265 struct {
 	format            *formats.H265
 	log               logger.Writer
 
-	encoder                  *rtph265.Encoder
-	decoder                  *rtph265.Decoder
-	lastKeyFrameTimeReceived bool
-	lastKeyFrameTime         time.Time
+	encoder *rtph265.Encoder
+	decoder *rtph265.Decoder
 }
 
 func newH265(
@@ -160,13 +158,13 @@ func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(pkt *rtp.Packet
 	}
 }
 
-func (t *formatProcessorH265) updateTrackParametersFromNALUs(nalus [][]byte) {
+func (t *formatProcessorH265) updateTrackParametersFromAU(au [][]byte) {
 	vps := t.format.VPS
 	sps := t.format.SPS
 	pps := t.format.PPS
 	update := false
 
-	for _, nalu := range nalus {
+	for _, nalu := range au {
 		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
@@ -195,24 +193,11 @@ func (t *formatProcessorH265) updateTrackParametersFromNALUs(nalus [][]byte) {
 	}
 }
 
-func (t *formatProcessorH265) checkKeyFrameInterval(ntp time.Time, isKeyFrame bool) {
-	if !t.lastKeyFrameTimeReceived || isKeyFrame {
-		t.lastKeyFrameTimeReceived = true
-		t.lastKeyFrameTime = ntp
-		return
-	}
-
-	if ntp.Sub(t.lastKeyFrameTime) >= maxKeyFrameInterval {
-		t.lastKeyFrameTime = ntp
-		t.log.Log(logger.Warn, "no H265 key frames received in %v, stream can't be decoded", maxKeyFrameInterval)
-	}
-}
-
-func (t *formatProcessorH265) remuxAccessUnit(ntp time.Time, nalus [][]byte) [][]byte {
+func (t *formatProcessorH265) remuxAccessUnit(au [][]byte) [][]byte {
 	isKeyFrame := false
 	n := 0
 
-	for _, nalu := range nalus {
+	for _, nalu := range au {
 		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
@@ -235,8 +220,6 @@ func (t *formatProcessorH265) remuxAccessUnit(ntp time.Time, nalus [][]byte) [][
 		n++
 	}
 
-	t.checkKeyFrameInterval(ntp, isKeyFrame)
-
 	if n == 0 {
 		return nil
 	}
@@ -251,7 +234,7 @@ func (t *formatProcessorH265) remuxAccessUnit(ntp time.Time, nalus [][]byte) [][
 		i = 3
 	}
 
-	for _, nalu := range nalus {
+	for _, nalu := range au {
 		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 		switch typ {
@@ -316,7 +299,7 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 				return err
 			}
 
-			tunit.AU = t.remuxAccessUnit(tunit.NTP, au)
+			tunit.AU = t.remuxAccessUnit(au)
 			tunit.PTS = pts
 		}
 
@@ -325,8 +308,8 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 			return nil
 		}
 	} else {
-		t.updateTrackParametersFromNALUs(tunit.AU)
-		tunit.AU = t.remuxAccessUnit(tunit.NTP, tunit.AU)
+		t.updateTrackParametersFromAU(tunit.AU)
+		tunit.AU = t.remuxAccessUnit(tunit.AU)
 	}
 
 	// encode into RTP

@@ -10,10 +10,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-const (
-	maxKeyFrameInterval = 10 * time.Second
-)
-
 // Processor cleans and normalizes streams.
 type Processor interface {
 	// cleans and normalizes a data unit.

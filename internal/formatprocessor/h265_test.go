@@ -3,7 +3,6 @@ package formatprocessor
 import (
 	"bytes"
 	"testing"
-	"time"
 
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
@@ -192,39 +191,4 @@ func TestH265EmptyPacket(t *testing.T) {
 
 	// if all NALUs have been removed, no RTP packets must be generated.
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
-}
-
-func TestH265KeyFrameWarning(t *testing.T) { //nolint:dupl
-	forma := &formats.H265{
-		PayloadTyp: 96,
-	}
-
-	w := &testLogWriter{recv: make(chan string, 1)}
-	p, err := New(1472, forma, true, w)
-	require.NoError(t, err)
-
-	ntp := time.Date(2009, time.November, 10, 23, 0, 0, 0, time.UTC)
-	err = p.Process(&UnitH265{
-		BaseUnit: BaseUnit{
-			NTP: ntp,
-		},
-		AU: [][]byte{
-			{0x01},
-		},
-	}, false)
-	require.NoError(t, err)
-
-	ntp = ntp.Add(30 * time.Second)
-	err = p.Process(&UnitH265{
-		BaseUnit: BaseUnit{
-			NTP: ntp,
-		},
-		AU: [][]byte{
-			{0x01},
-		},
-	}, false)
-	require.NoError(t, err)
-
-	logl := <-w.recv
-	require.Equal(t, "no H265 key frames received in 10s, stream can't be decoded", logl)
 }
