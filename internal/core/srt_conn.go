@@ -703,8 +703,6 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				})
 
 			case *formats.MPEG1Audio:
-				// TODO: check whether's a MPEG-1 or MPEG-2 stream by parsing header
-				// of first frame
 				track := addTrack(medi, &mpegts.CodecMPEG1Audio{})
 
 				var startPTS time.Duration

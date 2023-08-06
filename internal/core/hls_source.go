@@ -76,6 +76,22 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			var medi *media.Media
 
 			switch tcodec := track.Codec.(type) {
+			case *codecs.AV1:
+				medi = &media.Media{
+					Type:    media.TypeVideo,
+					Formats: []formats.Format{&formats.AV1{}},
+				}
+
+				c.OnDataAV1(track, func(pts time.Duration, obus [][]byte) {
+					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitAV1{
+						BaseUnit: formatprocessor.BaseUnit{
+							NTP: time.Now(),
+						},
+						PTS:  pts,
+						OBUs: obus,
+					})
+				})
+
 			case *codecs.H264:
 				medi = &media.Media{
 					Type: media.TypeVideo,
