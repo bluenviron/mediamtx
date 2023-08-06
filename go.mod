@@ -6,9 +6,9 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.11.0
 	github.com/alecthomas/kong v0.8.0
-	github.com/bluenviron/gohlslib v0.3.1-0.20230806000705-4ca609772363
-	github.com/bluenviron/gortsplib/v3 v3.9.1-0.20230806001215-926a452fb745
-	github.com/bluenviron/mediacommon v0.7.1-0.20230805234008-34d20294a26b
+	github.com/bluenviron/gohlslib v0.3.1-0.20230806182538-54b835e0ef2c
+	github.com/bluenviron/gortsplib/v3 v3.9.1-0.20230806185830-e6e9e8490907
+	github.com/bluenviron/mediacommon v0.7.1-0.20230806185229-f060a1e5295b
 	github.com/datarhei/gosrt v0.5.3
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1

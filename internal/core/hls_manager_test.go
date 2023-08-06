@@ -176,7 +176,7 @@ func TestHLSRead(t *testing.T) {
 		"#EXT-X-SERVER-CONTROL:CAN-BLOCK-RELOAD=YES,PART-HOLD-BACK=2\\.50000,CAN-SKIP-UNTIL=6\\.00000\n"+
 		"#EXT-X-PART-INF:PART-TARGET=1\\.00000\n"+
 		"#EXT-X-MEDIA-SEQUENCE:1\n"+
-		"#EXT-X-MAP:URI=\"init.mp4\"\n"+
+		"#EXT-X-MAP:URI=\".*?_init.mp4\"\n"+
 		"#EXT-X-GAP\n"+
 		"#EXTINF:1\\.00000,\n"+
 		"gap.mp4\n"+
@@ -196,10 +196,10 @@ func TestHLSRead(t *testing.T) {
 		"#EXTINF:1\\.00000,\n"+
 		"gap.mp4\n"+
 		"#EXT-X-PROGRAM-DATE-TIME:.+?Z\n"+
-		"#EXT-X-PART:DURATION=1\\.00000,URI=\"part0.mp4\",INDEPENDENT=YES\n"+
+		"#EXT-X-PART:DURATION=1\\.00000,URI=\".*?_part0.mp4\",INDEPENDENT=YES\n"+
 		"#EXTINF:1\\.00000,\n"+
-		"seg7.mp4\n"+
-		"#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\"part1.mp4\"\n", string(cnt))
+		".*?_seg7.mp4\n"+
+		"#EXT-X-PRELOAD-HINT:TYPE=PART,URI=\".*?_part1.mp4\"\n", string(cnt))
 
 	/*trak := <-c.track
 

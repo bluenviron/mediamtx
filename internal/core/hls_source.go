@@ -92,6 +92,22 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					})
 				})
 
+			case *codecs.VP9:
+				medi = &media.Media{
+					Type:    media.TypeVideo,
+					Formats: []formats.Format{&formats.VP9{}},
+				}
+
+				c.OnDataVP9(track, func(pts time.Duration, frame []byte) {
+					stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitVP9{
+						BaseUnit: formatprocessor.BaseUnit{
+							NTP: time.Now(),
+						},
+						PTS:   pts,
+						Frame: frame,
+					})
+				})
+
 			case *codecs.H264:
 				medi = &media.Media{
 					Type: media.TypeVideo,

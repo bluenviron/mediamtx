@@ -371,6 +371,41 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 		}
 	}
 
+	var videoFormatVP9 *formats.VP9
+	videoMedia = stream.Medias().FindFormat(&videoFormatVP9)
+
+	if videoFormatVP9 != nil {
+		startPTSFilled := false
+		var startPTS time.Duration
+
+		stream.AddReader(m, videoMedia, videoFormatVP9, func(unit formatprocessor.Unit) {
+			m.ringBuffer.Push(func() error {
+				tunit := unit.(*formatprocessor.UnitVP9)
+
+				if tunit.Frame == nil {
+					return nil
+				}
+
+				if !startPTSFilled {
+					startPTSFilled = true
+					startPTS = tunit.PTS
+				}
+
+				pts := tunit.PTS - startPTS
+				err := m.muxer.WriteVP9(tunit.NTP, pts, tunit.Frame)
+				if err != nil {
+					return fmt.Errorf("muxer error: %v", err)
+				}
+
+				return nil
+			})
+		})
+
+		return videoMedia, &gohlslib.Track{
+			Codec: &codecs.VP9{},
+		}
+	}
+
 	var videoFormatH265 *formats.H265
 	videoMedia = stream.Medias().FindFormat(&videoFormatH265)
 
