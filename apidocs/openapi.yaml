@@ -336,9 +336,6 @@ components:
           $ref: '#/components/schemas/PathConf'
         source:
           $ref: '#/components/schemas/PathSourceOrReader'
-        sourceReady:
-          type: boolean
-          description: deprecated, replaced by 'ready'
         ready:
           type: boolean
         readyTime:
