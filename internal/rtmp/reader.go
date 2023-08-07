@@ -12,7 +12,6 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
-	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/notedit/rtmp/format/flv/flvio"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp/h264conf"
@@ -20,7 +19,7 @@ import (
 )
 
 // OnDataAV1Func is the prototype of the callback passed to OnDataAV1().
-type OnDataAV1Func func(pts time.Duration, obus [][]byte)
+type OnDataAV1Func func(pts time.Duration, tu [][]byte)
 
 // OnDataH26xFunc is the prototype of the callback passed to OnDataH26x().
 type OnDataH26xFunc func(pts time.Duration, au [][]byte)
@@ -237,7 +236,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 					}
 
 				case message.FourCCAV1:
-					var av1c fmp4.Av1C
+					var av1c mp4.Av1C
 					_, err := mp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &av1c, mp4.Context{})
 					if err != nil {
 						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
@@ -438,12 +437,12 @@ func (r *Reader) Tracks() (formats.Format, formats.Format) {
 func (r *Reader) OnDataAV1(cb OnDataAV1Func) {
 	r.onDataVideo = func(msg message.Message) error {
 		if msg, ok := msg.(*message.ExtendedCodedFrames); ok {
-			obus, err := av1.BitstreamUnmarshal(msg.Payload, true)
+			tu, err := av1.BitstreamUnmarshal(msg.Payload, true)
 			if err != nil {
 				return fmt.Errorf("unable to decode bitstream: %v", err)
 			}
 
-			cb(msg.DTS, obus)
+			cb(msg.DTS, tu)
 		}
 		return nil
 	}

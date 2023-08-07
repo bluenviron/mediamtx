@@ -14,8 +14,8 @@ import (
 // UnitAV1 is an AV1 data unit.
 type UnitAV1 struct {
 	BaseUnit
-	PTS  time.Duration
-	OBUs [][]byte
+	PTS time.Duration
+	TU  [][]byte
 }
 
 type formatProcessorAV1 struct {
@@ -82,7 +82,7 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 			}
 
 			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			obus, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			tu, pts, err := t.decoder.DecodeUntilMarker(pkt)
 			if err != nil {
 				if err == rtpav1.ErrNonStartingPacketAndNoPrevious || err == rtpav1.ErrMorePacketsNeeded {
 					return nil
@@ -90,7 +90,7 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 				return err
 			}
 
-			tunit.OBUs = obus
+			tunit.TU = tu
 			tunit.PTS = pts
 		}
 
@@ -99,7 +99,7 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.OBUs, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.TU, tunit.PTS)
 	if err != nil {
 		return err
 	}
