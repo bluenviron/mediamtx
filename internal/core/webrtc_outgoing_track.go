@@ -56,11 +56,11 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			cb: func(unit formatprocessor.Unit) error {
 				tunit := unit.(*formatprocessor.UnitAV1)
 
-				if tunit.OBUs == nil {
+				if tunit.TU == nil {
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.OBUs, tunit.PTS)
+				packets, err := encoder.Encode(tunit.TU, tunit.PTS)
 				if err != nil {
 					return nil //nolint:nilerr
 				}

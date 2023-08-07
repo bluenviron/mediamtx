@@ -30,17 +30,6 @@ func durationGoToMPEGTS(v time.Duration) int64 {
 	return int64(v.Seconds() * 90000)
 }
 
-func h265RandomAccessPresent(au [][]byte) bool {
-	for _, nalu := range au {
-		typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
-		switch typ {
-		case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
-			return true
-		}
-	}
-	return false
-}
-
 type srtConnState int
 
 const (
@@ -454,7 +443,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	for _, medi := range res.stream.Medias() {
 		for _, format := range medi.Formats {
 			switch format := format.(type) {
-			case *formats.H265:
+			case *formats.H265: //nolint:dupl
 				track := addTrack(medi, &mpegts.CodecH265{})
 
 				var startPTS time.Duration
@@ -482,10 +471,10 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 							startPTSFilled = true
 						}
 
-						randomAccessPresent := h265RandomAccessPresent(tunit.AU)
+						randomAccess := h265.IsRandomAccess(tunit.AU)
 
 						if !randomAccessReceived {
-							if !randomAccessPresent {
+							if !randomAccess {
 								return nil
 							}
 							randomAccessReceived = true
@@ -510,7 +499,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 						pts -= leadingTrackStartDTS
 
 						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteH26x(track, durationGoToMPEGTS(pts), durationGoToMPEGTS(dts), randomAccessPresent, tunit.AU)
+						err = w.WriteH26x(track, durationGoToMPEGTS(pts), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
 						if err != nil {
 							return err
 						}
@@ -518,7 +507,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					})
 				})
 
-			case *formats.H264:
+			case *formats.H264: //nolint:dupl
 				track := addTrack(medi, &mpegts.CodecH264{})
 
 				var startPTS time.Duration

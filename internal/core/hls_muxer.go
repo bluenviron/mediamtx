@@ -347,7 +347,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 			m.ringBuffer.Push(func() error {
 				tunit := unit.(*formatprocessor.UnitAV1)
 
-				if tunit.OBUs == nil {
+				if tunit.TU == nil {
 					return nil
 				}
 
@@ -357,7 +357,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 				}
 
 				pts := tunit.PTS - startPTS
-				err := m.muxer.WriteAV1(tunit.NTP, pts, tunit.OBUs)
+				err := m.muxer.WriteAV1(tunit.NTP, pts, tunit.TU)
 				if err != nil {
 					return fmt.Errorf("muxer error: %v", err)
 				}

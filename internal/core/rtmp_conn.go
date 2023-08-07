@@ -621,13 +621,13 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 
 		switch videoFormat.(type) {
 		case *formats.AV1:
-			r.OnDataAV1(func(pts time.Duration, obus [][]byte) {
+			r.OnDataAV1(func(pts time.Duration, tu [][]byte) {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitAV1{
 					BaseUnit: formatprocessor.BaseUnit{
 						NTP: time.Now(),
 					},
-					PTS:  pts,
-					OBUs: obus,
+					PTS: pts,
+					TU:  tu,
 				})
 			})
 
