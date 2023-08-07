@@ -137,11 +137,7 @@ const initVideoElement = (callback, container) => {
 		video.id = "video";
 
 		setVideoAttributes(video);
-
-		if (container) {
-			container.append(video);
-		}
-
+		container.append(video);
 		callback(video);
 	};
 };
