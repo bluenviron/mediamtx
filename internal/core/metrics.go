@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -46,9 +47,7 @@ func newMetrics(
 	router := gin.New()
 	router.SetTrustedProxies(nil)
 
-	mwLog := httpserv.MiddlewareLogger(m)
-	router.NoRoute(mwLog)
-	router.GET("/metrics", mwLog, m.onMetrics)
+	router.GET("/metrics", m.onMetrics)
 
 	network, address := restrictNetwork("tcp", address)
 
@@ -56,10 +55,11 @@ func newMetrics(
 	m.httpServer, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		readTimeout,
+		time.Duration(readTimeout),
 		"",
 		"",
 		router,
+		m,
 	)
 	if err != nil {
 		return nil, err

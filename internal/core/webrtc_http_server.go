@@ -68,7 +68,7 @@ func newWebRTCHTTPServer( //nolint:dupl
 
 	router := gin.New()
 	router.SetTrustedProxies(trustedProxies.ToTrustedProxies())
-	router.NoRoute(httpserv.MiddlewareLogger(s), httpserv.MiddlewareServerHeader, s.onRequest)
+	router.NoRoute(s.onRequest)
 
 	network, address := restrictNetwork("tcp", address)
 
@@ -76,10 +76,11 @@ func newWebRTCHTTPServer( //nolint:dupl
 	s.inner, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		readTimeout,
+		time.Duration(readTimeout),
 		serverCert,
 		serverKey,
 		router,
+		s,
 	)
 	if err != nil {
 		return nil, err
