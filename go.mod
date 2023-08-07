@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/websocket v1.5.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/notedit/rtmp v0.0.2
-	github.com/pion/ice/v2 v2.3.9
+	github.com/pion/ice/v2 v2.3.10
 	github.com/pion/interceptor v0.1.17
 	github.com/pion/rtcp v1.2.10
 	github.com/pion/rtp v1.8.1
@@ -60,7 +60,7 @@ require (
 	github.com/pion/srtp/v2 v2.0.16 // indirect
 	github.com/pion/stun v0.6.1 // indirect
 	github.com/pion/transport/v2 v2.2.1 // indirect
-	github.com/pion/turn/v2 v2.1.2 // indirect
+	github.com/pion/turn/v2 v2.1.3 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
