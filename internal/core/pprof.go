@@ -2,6 +2,7 @@ package core
 
 import (
 	"net/http"
+	"time"
 
 	// start pprof
 	_ "net/http/pprof"
@@ -36,10 +37,11 @@ func newPPROF(
 	pp.httpServer, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		readTimeout,
+		time.Duration(readTimeout),
 		"",
 		"",
 		http.DefaultServeMux,
+		pp,
 	)
 	if err != nil {
 		return nil, err

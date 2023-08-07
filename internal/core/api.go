@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -237,9 +238,7 @@ func newAPI(
 	router := gin.New()
 	router.SetTrustedProxies(nil)
 
-	mwLog := httpserv.MiddlewareLogger(a)
-	router.NoRoute(mwLog, httpserv.MiddlewareServerHeader)
-	group := router.Group("/", mwLog, httpserv.MiddlewareServerHeader)
+	group := router.Group("/")
 
 	group.GET("/v2/config/get", a.onConfigGet)
 	group.POST("/v2/config/set", a.onConfigSet)
@@ -301,10 +300,11 @@ func newAPI(
 	a.httpServer, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		readTimeout,
+		time.Duration(readTimeout),
 		"",
 		"",
 		router,
+		a,
 	)
 	if err != nil {
 		return nil, err

@@ -4,15 +4,12 @@ package httpserv
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"runtime"
 	"time"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 type nilWriter struct{}
@@ -21,29 +18,13 @@ func (nilWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// exit when there's a panic inside the HTTP handler.
-// https://github.com/golang/go/issues/16542
-type exitOnPanicHandler struct {
-	http.Handler
-}
-
-func (h exitOnPanicHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		err := recover()
-		if err != nil {
-			buf := make([]byte, 1<<20)
-			n := runtime.Stack(buf, true)
-			fmt.Fprintf(os.Stderr, "panic: %v\n\n%s", err, buf[:n])
-			os.Exit(1)
-		}
-	}()
-	h.Handler.ServeHTTP(w, r)
-}
-
 // WrappedServer is a wrapper around http.Server that provides:
 // - net.Listener allocation and closure
 // - TLS allocation
 // - exit on panic
+// - logging
+// - server header
+// - filtering of invalid requests
 type WrappedServer struct {
 	ln    net.Listener
 	inner *http.Server
@@ -53,10 +34,11 @@ type WrappedServer struct {
 func NewWrappedServer(
 	network string,
 	address string,
-	readTimeout conf.StringDuration,
+	readTimeout time.Duration,
 	serverCert string,
 	serverKey string,
 	handler http.Handler,
+	parent logger.Writer,
 ) (*WrappedServer, error) {
 	ln, err := net.Listen(network, address)
 	if err != nil {
@@ -76,12 +58,19 @@ func NewWrappedServer(
 		}
 	}
 
+	h := handler
+	h = &handlerFilterRequests{h}
+	h = &handlerFilterRequests{h}
+	h = &handlerServerHeader{h}
+	h = &handlerLogger{h, parent}
+	h = &handlerExitOnPanic{h}
+
 	s := &WrappedServer{
 		ln: ln,
 		inner: &http.Server{
-			Handler:           exitOnPanicHandler{handler},
+			Handler:           h,
 			TLSConfig:         tlsConfig,
-			ReadHeaderTimeout: time.Duration(readTimeout),
+			ReadHeaderTimeout: readTimeout,
 			ErrorLog:          log.New(&nilWriter{}, "", 0),
 		},
 	}
