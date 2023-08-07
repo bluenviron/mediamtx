@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
-	github.com/abema/go-mp4 v0.11.0
+	github.com/abema/go-mp4 v0.12.0
 	github.com/alecthomas/kong v0.8.0
 	github.com/bluenviron/gohlslib v0.3.1-0.20230806182538-54b835e0ef2c
 	github.com/bluenviron/gortsplib/v3 v3.9.1-0.20230806185830-e6e9e8490907
