@@ -14,7 +14,7 @@
 
 <br>
 
-_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows users to publish, read and proxy live video and audio streams. It has been conceived as a "media broker", a message broker that routes media streams.
+_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows users to publish, read and proxy live video and audio streams. It has been conceived as a "media broker", a message broker-like software that routes media streams.
 
 Live streams can be published to the server with:
 
