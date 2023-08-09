@@ -166,7 +166,7 @@ func TestReadTracks(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			bc := bytecounter.NewReadWriter(&buf)
-			mrw := message.NewReadWriter(bc, true)
+			mrw := message.NewReadWriter(bc, bc, true)
 
 			switch ca.name {
 			case "video+audio":

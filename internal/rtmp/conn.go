@@ -156,12 +156,12 @@ func NewClientConn(rw io.ReadWriter, u *url.URL, publish bool) (*Conn, error) {
 func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 	connectpath, actionpath := splitPath(u)
 
-	err := handshake.DoClient(c.bc, false)
+	_, _, err := handshake.DoClient(c.bc, false, false)
 	if err != nil {
 		return err
 	}
 
-	c.mrw = message.NewReadWriter(c.bc, false)
+	c.mrw = message.NewReadWriter(c.bc, c.bc, false)
 
 	err = c.mrw.Write(&message.SetWindowAckSize{
 		Value: 2500000,
@@ -329,12 +329,23 @@ func NewServerConn(rw io.ReadWriter) (*Conn, *url.URL, bool, error) {
 }
 
 func (c *Conn) initializeServer() (*url.URL, bool, error) {
-	err := handshake.DoServer(c.bc, false)
+	keyIn, keyOut, err := handshake.DoServer(c.bc, false)
 	if err != nil {
 		return nil, false, err
 	}
 
-	c.mrw = message.NewReadWriter(c.bc, false)
+	var rw io.ReadWriter
+	if keyIn != nil {
+		var err error
+		rw, err = newRC4ReadWriter(c.bc, keyIn, keyOut)
+		if err != nil {
+			return nil, false, err
+		}
+	} else {
+		rw = c.bc
+	}
+
+	c.mrw = message.NewReadWriter(rw, c.bc, false)
 
 	cmd, err := readCommand(c.mrw)
 	if err != nil {
@@ -581,7 +592,7 @@ func newNoHandshakeConn(rw io.ReadWriter) *Conn {
 		bc: bytecounter.NewReadWriter(rw),
 	}
 
-	c.mrw = message.NewReadWriter(c.bc, false)
+	c.mrw = message.NewReadWriter(c.bc, c.bc, false)
 
 	return c
 }

@@ -268,7 +268,8 @@ var readWriterCases = []struct {
 func TestReader(t *testing.T) {
 	for _, ca := range readWriterCases {
 		t.Run(ca.name, func(t *testing.T) {
-			r := NewReader(bytecounter.NewReader(bytes.NewReader(ca.enc)), nil)
+			bc := bytecounter.NewReader(bytes.NewReader(ca.enc))
+			r := NewReader(bc, bc, nil)
 			dec, err := r.Read()
 			require.NoError(t, err)
 			require.Equal(t, ca.dec, dec)

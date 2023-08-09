@@ -15,7 +15,8 @@ func TestWriter(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			w := NewWriter(bytecounter.NewWriter(&buf), true)
+			bc := bytecounter.NewWriter(&buf)
+			w := NewWriter(bc, bc, true)
 
 			for _, msg := range ca.messages {
 				err := w.Write(msg)
@@ -36,11 +37,11 @@ func TestWriterAcknowledge(t *testing.T) {
 	for _, ca := range []string{"standard", "overflow"} {
 		t.Run(ca, func(t *testing.T) {
 			var buf bytes.Buffer
-			bcw := bytecounter.NewWriter(&buf)
-			w := NewWriter(bcw, true)
+			bc := bytecounter.NewWriter(&buf)
+			w := NewWriter(bc, bc, true)
 
 			if ca == "overflow" {
-				bcw.SetCount(4294967096)
+				bc.SetCount(4294967096)
 				w.ackValue = 4294967096
 			}
 
