@@ -46,7 +46,7 @@ func TestWriteTracks(t *testing.T) {
 	require.NoError(t, err)
 
 	bc := bytecounter.NewReadWriter(&buf)
-	mrw := message.NewReadWriter(bc, true)
+	mrw := message.NewReadWriter(bc, bc, true)
 
 	msg, err := mrw.Read()
 	require.NoError(t, err)

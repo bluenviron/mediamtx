@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
@@ -30,7 +31,7 @@ func (rc *readerChunkStream) readChunk(c chunk.Chunk, chunkBodySize uint32) erro
 
 	// check if an ack is needed
 	if rc.mr.ackWindowSize != 0 {
-		count := uint32(rc.mr.r.Count())
+		count := uint32(rc.mr.bcr.Count())
 		diff := count - rc.mr.lastAckCount
 
 		if diff > (rc.mr.ackWindowSize) {
@@ -208,7 +209,7 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 
 // Reader is a raw message reader.
 type Reader struct {
-	r           *bytecounter.Reader
+	bcr         *bytecounter.Reader
 	onAckNeeded func(uint32) error
 
 	br            *bufio.Reader
@@ -224,9 +225,13 @@ type Reader struct {
 }
 
 // NewReader allocates a Reader.
-func NewReader(r *bytecounter.Reader, onAckNeeded func(uint32) error) *Reader {
+func NewReader(
+	r io.Reader,
+	bcr *bytecounter.Reader,
+	onAckNeeded func(uint32) error,
+) *Reader {
 	return &Reader{
-		r:            r,
+		bcr:          bcr,
 		br:           bufio.NewReader(r),
 		onAckNeeded:  onAckNeeded,
 		chunkSize:    128,

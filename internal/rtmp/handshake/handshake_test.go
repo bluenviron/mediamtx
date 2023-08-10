@@ -1,91 +1,50 @@
 package handshake
 
 import (
-	"crypto/rand"
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func TestHandshake(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:9122")
-	require.NoError(t, err)
-	defer ln.Close()
-
-	done := make(chan struct{})
-
-	go func() {
-		conn, err := ln.Accept()
-		require.NoError(t, err)
-		defer conn.Close()
-
-		err = DoServer(conn, true)
-		require.NoError(t, err)
-
-		close(done)
-	}()
-
-	conn, err := net.Dial("tcp", "127.0.0.1:9122")
-	require.NoError(t, err)
-	defer conn.Close()
-
-	err = DoClient(conn, true)
-	require.NoError(t, err)
-
-	<-done
+type testReadWriter struct {
+	ch chan []byte
 }
 
-// when C1 signature is invalid, S2 must be equal to C1.
-func TestHandshakeFallback(t *testing.T) {
-	ln, err := net.Listen("tcp", "127.0.0.1:9122")
-	require.NoError(t, err)
-	defer ln.Close()
+func (rw *testReadWriter) Read(p []byte) (int, error) {
+	in := <-rw.ch
+	n := copy(p, in)
+	return n, nil
+}
 
-	done := make(chan struct{})
+func (rw *testReadWriter) Write(p []byte) (int, error) {
+	rw.ch <- p
+	return len(p), nil
+}
 
-	go func() {
-		conn, err := ln.Accept()
-		require.NoError(t, err)
-		defer conn.Close()
+func TestHandshake(t *testing.T) {
+	for _, ca := range []string{"plain", "encrypted"} {
+		t.Run(ca, func(t *testing.T) {
+			rw := &testReadWriter{ch: make(chan []byte)}
+			var serverInKey []byte
+			var serverOutKey []byte
+			done := make(chan struct{})
 
-		err = DoServer(conn, false)
-		require.NoError(t, err)
+			go func() {
+				var err error
+				serverInKey, serverOutKey, err = DoServer(rw, true)
+				require.NoError(t, err)
+				close(done)
+			}()
 
-		close(done)
-	}()
+			clientInKey, clientOutKey, err := DoClient(rw, ca == "encrypted", true)
+			require.NoError(t, err)
+			<-done
 
-	conn, err := net.Dial("tcp", "127.0.0.1:9122")
-	require.NoError(t, err)
-	defer conn.Close()
-
-	err = C0S0{}.Write(conn)
-	require.NoError(t, err)
-
-	c1 := make([]byte, 1536)
-	_, err = rand.Read(c1[8:])
-	require.NoError(t, err)
-	_, err = conn.Write(c1)
-	require.NoError(t, err)
-
-	err = C0S0{}.Read(conn)
-	require.NoError(t, err)
-
-	s1 := C1S1{}
-	err = s1.Read(conn, false, false)
-	require.NoError(t, err)
-
-	s2 := C2S2{}
-	err = s2.Read(conn, false)
-	require.NoError(t, err)
-	require.Equal(t, c1[8:], s2.Random)
-
-	err = C2S2{
-		Time:   s1.Time,
-		Random: s1.Random,
-		Digest: s1.Digest,
-	}.Write(conn)
-	require.NoError(t, err)
-
-	<-done
+			if ca == "encrypted" {
+				require.NotNil(t, serverInKey)
+				require.Equal(t, serverInKey, clientOutKey)
+				require.Equal(t, serverOutKey, clientInKey)
+			}
+		})
+	}
 }

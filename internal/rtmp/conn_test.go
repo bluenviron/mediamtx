@@ -29,10 +29,10 @@ func TestNewClientConn(t *testing.T) {
 				defer conn.Close()
 				bc := bytecounter.NewReadWriter(conn)
 
-				err = handshake.DoServer(bc, true)
+				_, _, err = handshake.DoServer(bc, false)
 				require.NoError(t, err)
 
-				mrw := message.NewReadWriter(bc, true)
+				mrw := message.NewReadWriter(bc, bc, true)
 
 				msg, err := mrw.Read()
 				require.NoError(t, err)
@@ -289,10 +289,10 @@ func TestNewServerConn(t *testing.T) {
 			defer conn.Close()
 			bc := bytecounter.NewReadWriter(conn)
 
-			err = handshake.DoClient(bc, true)
+			_, _, err = handshake.DoClient(bc, false, false)
 			require.NoError(t, err)
 
-			mrw := message.NewReadWriter(bc, true)
+			mrw := message.NewReadWriter(bc, bc, true)
 
 			tcURL := "rtmp://127.0.0.1:9121/stream"
 			if ca == "publish neko" {

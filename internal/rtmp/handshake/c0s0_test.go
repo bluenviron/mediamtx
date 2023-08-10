@@ -7,9 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var c0s0enc = []byte{0x03}
+var c0s0enc = []byte{3}
 
-var c0s0dec = C0S0{}
+var c0s0dec = C0S0{
+	Version: 3,
+}
 
 func TestC0S0Read(t *testing.T) {
 	var c0s0 C0S0

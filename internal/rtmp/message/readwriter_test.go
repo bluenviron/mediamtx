@@ -27,19 +27,21 @@ func TestReadWriterAcknowledge(t *testing.T) {
 	var buf1 bytes.Buffer
 	var buf2 bytes.Buffer
 
-	rw1 := NewReadWriter(bytecounter.NewReadWriter(&duplexRW{
+	bc1 := bytecounter.NewReadWriter(&duplexRW{
 		Reader: &buf2,
 		Writer: &buf1,
-	}), true)
+	})
+	rw1 := NewReadWriter(bc1, bc1, true)
 	err := rw1.Write(&Acknowledge{
 		Value: 7863534,
 	})
 	require.NoError(t, err)
 
-	rw2 := NewReadWriter(bytecounter.NewReadWriter(&duplexRW{
+	bc2 := bytecounter.NewReadWriter(&duplexRW{
 		Reader: &buf1,
 		Writer: &buf2,
-	}), true)
+	})
+	rw2 := NewReadWriter(bc2, bc2, true)
 	_, err = rw2.Read()
 	require.NoError(t, err)
 }
@@ -48,19 +50,21 @@ func TestReadWriterPing(t *testing.T) {
 	var buf1 bytes.Buffer
 	var buf2 bytes.Buffer
 
-	rw1 := NewReadWriter(bytecounter.NewReadWriter(&duplexRW{
+	bc1 := bytecounter.NewReadWriter(&duplexRW{
 		Reader: &buf2,
 		Writer: &buf1,
-	}), true)
+	})
+	rw1 := NewReadWriter(bc1, bc1, true)
 	err := rw1.Write(&UserControlPingRequest{
 		ServerTime: 143424312,
 	})
 	require.NoError(t, err)
 
-	rw2 := NewReadWriter(bytecounter.NewReadWriter(&duplexRW{
+	bc2 := bytecounter.NewReadWriter(&duplexRW{
 		Reader: &buf1,
 		Writer: &buf2,
-	}), true)
+	})
+	rw2 := NewReadWriter(bc2, bc2, true)
 	_, err = rw2.Read()
 	require.NoError(t, err)
 

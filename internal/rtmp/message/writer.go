@@ -1,6 +1,8 @@
 package message
 
 import (
+	"io"
+
 	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
 )
@@ -11,9 +13,13 @@ type Writer struct {
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(w *bytecounter.Writer, checkAcknowledge bool) *Writer {
+func NewWriter(
+	w io.Writer,
+	bcw *bytecounter.Writer,
+	checkAcknowledge bool,
+) *Writer {
 	return &Writer{
-		w: rawmessage.NewWriter(w, checkAcknowledge),
+		w: rawmessage.NewWriter(w, bcw, checkAcknowledge),
 	}
 }
 

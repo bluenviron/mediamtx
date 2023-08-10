@@ -1,6 +1,8 @@
 package message
 
 import (
+	"io"
+
 	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
 )
 
@@ -11,10 +13,14 @@ type ReadWriter struct {
 }
 
 // NewReadWriter allocates a ReadWriter.
-func NewReadWriter(bc *bytecounter.ReadWriter, checkAcknowledge bool) *ReadWriter {
-	w := NewWriter(bc.Writer, checkAcknowledge)
+func NewReadWriter(
+	rw io.ReadWriter,
+	bcrw *bytecounter.ReadWriter,
+	checkAcknowledge bool,
+) *ReadWriter {
+	w := NewWriter(rw, bcrw.Writer, checkAcknowledge)
 
-	r := NewReader(bc.Reader, func(count uint32) error {
+	r := NewReader(rw, bcrw.Reader, func(count uint32) error {
 		return w.Write(&Acknowledge{
 			Value: count,
 		})

@@ -3,6 +3,7 @@ package rawmessage
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
@@ -21,7 +22,7 @@ type writerChunkStream struct {
 func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
 	// check if we received an acknowledge
 	if wc.mw.checkAcknowledge && wc.mw.ackWindowSize != 0 {
-		diff := uint32(wc.mw.w.Count()) - wc.mw.ackValue
+		diff := uint32(wc.mw.bcw.Count()) - wc.mw.ackValue
 
 		if diff > (wc.mw.ackWindowSize * 3 / 2) {
 			return fmt.Errorf("no acknowledge received within window")
@@ -148,7 +149,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 
 // Writer is a raw message writer.
 type Writer struct {
-	w                *bytecounter.Writer
+	bcw              *bytecounter.Writer
 	bw               *bufio.Writer
 	checkAcknowledge bool
 	chunkSize        uint32
@@ -158,9 +159,13 @@ type Writer struct {
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(w *bytecounter.Writer, checkAcknowledge bool) *Writer {
+func NewWriter(
+	w io.Writer,
+	bcw *bytecounter.Writer,
+	checkAcknowledge bool,
+) *Writer {
 	return &Writer{
-		w:                w,
+		bcw:              bcw,
 		bw:               bufio.NewWriter(w),
 		checkAcknowledge: checkAcknowledge,
 		chunkSize:        128,

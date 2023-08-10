@@ -13,7 +13,8 @@ func TestWriter(t *testing.T) {
 	for _, ca := range readWriterCases {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			r := NewWriter(bytecounter.NewWriter(&buf), true)
+			bc := bytecounter.NewWriter(&buf)
+			r := NewWriter(bc, bc, true)
 			err := r.Write(ca.dec)
 			require.NoError(t, err)
 			require.Equal(t, ca.enc, buf.Bytes())

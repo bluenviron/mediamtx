@@ -198,7 +198,8 @@ func TestReader(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			r := NewReader(bytecounter.NewReader(&buf), func(count uint32) error {
+			br := bytecounter.NewReader(&buf)
+			r := NewReader(br, br, func(count uint32) error {
 				return nil
 			})
 
@@ -224,7 +225,7 @@ func TestReaderAcknowledge(t *testing.T) {
 
 			var buf bytes.Buffer
 			bc := bytecounter.NewReader(&buf)
-			r := NewReader(bc, func(count uint32) error {
+			r := NewReader(bc, bc, func(count uint32) error {
 				close(onAckCalled)
 				return nil
 			})

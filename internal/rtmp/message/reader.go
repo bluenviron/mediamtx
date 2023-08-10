@@ -2,6 +2,7 @@ package message
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/rtmp/rawmessage"
@@ -116,9 +117,13 @@ type Reader struct {
 }
 
 // NewReader allocates a Reader.
-func NewReader(r *bytecounter.Reader, onAckNeeded func(uint32) error) *Reader {
+func NewReader(
+	r io.Reader,
+	bcr *bytecounter.Reader,
+	onAckNeeded func(uint32) error,
+) *Reader {
 	return &Reader{
-		r: rawmessage.NewReader(r, onAckNeeded),
+		r: rawmessage.NewReader(r, bcr, onAckNeeded),
 	}
 }
 
