@@ -1,6 +1,6 @@
 define DOCKERFILE_FORMAT
 FROM $(BASE_IMAGE)
-RUN go install mvdan.cc/gofumpt@v0.3.1
+RUN go install mvdan.cc/gofumpt@v0.5.0
 endef
 export DOCKERFILE_FORMAT
 
