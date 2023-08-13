@@ -50,7 +50,7 @@ func (e *Cmd) runOSSpecific() error {
 
 	select {
 	case <-e.terminate:
-		syscall.Kill(cmd.Process.Pid, syscall.SIGINT)
+		syscall.Kill(cmd.Process.Pid, syscall.SIGINT) //nolint:errcheck
 		<-cmdDone
 		return errTerminated
 

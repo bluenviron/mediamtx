@@ -51,7 +51,7 @@ func New(confPath string) (*ConfWatcher, error) {
 
 	err = inner.Add(parentPath)
 	if err != nil {
-		inner.Close()
+		inner.Close() //nolint:errcheck
 		return nil, err
 	}
 
@@ -120,7 +120,7 @@ outer:
 	}
 
 	close(w.signal)
-	w.inner.Close()
+	w.inner.Close() //nolint:errcheck
 }
 
 // Watch returns a channel that is called after the configuration file has changed.

@@ -90,7 +90,7 @@ func New(
 
 // Close closes the connection.
 func (co *PeerConnection) Close() {
-	co.PeerConnection.Close()
+	co.PeerConnection.Close() //nolint:errcheck
 	<-co.closed
 }
 

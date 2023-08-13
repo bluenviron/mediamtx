@@ -50,7 +50,9 @@ func TestSRTServer(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	bw.Flush()
+
+	err = bw.Flush()
+	require.NoError(t, err)
 
 	time.Sleep(500 * time.Millisecond)
 
@@ -71,7 +73,9 @@ func TestSRTServer(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	bw.Flush()
+
+	err = bw.Flush()
+	require.NoError(t, err)
 
 	r, err := mpegts.NewReader(reader)
 	require.NoError(t, err)

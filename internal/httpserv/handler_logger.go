@@ -35,7 +35,7 @@ func (w *loggerWriter) WriteHeader(statusCode int) {
 func (w *loggerWriter) dump() string {
 	var buf bytes.Buffer
 	fmt.Fprintf(&buf, "%s %d %s\n", "HTTP/1.1", w.status, http.StatusText(w.status))
-	w.w.Header().Write(&buf)
+	w.w.Header().Write(&buf) //nolint:errcheck
 	buf.Write([]byte("\n"))
 	if w.buf.Len() > 0 {
 		fmt.Fprintf(&buf, "(body of %d bytes)", w.buf.Len())

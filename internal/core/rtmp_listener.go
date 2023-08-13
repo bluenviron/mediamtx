@@ -31,16 +31,18 @@ func newRTMPListener(
 func (l *rtmpListener) run() {
 	defer l.wg.Done()
 
-	err := func() error {
-		for {
-			conn, err := l.ln.Accept()
-			if err != nil {
-				return err
-			}
-
-			l.parent.newConn(conn)
-		}
-	}()
+	err := l.runInner()
 
 	l.parent.acceptError(err)
+}
+
+func (l *rtmpListener) runInner() error {
+	for {
+		conn, err := l.ln.Accept()
+		if err != nil {
+			return err
+		}
+
+		l.parent.newConn(conn)
+	}
 }

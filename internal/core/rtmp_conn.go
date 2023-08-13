@@ -164,29 +164,31 @@ func (c *rtmpConn) run() {
 		}()
 	}
 
-	err := func() error {
-		readerErr := make(chan error)
-		go func() {
-			readerErr <- c.runReader()
-		}()
-
-		select {
-		case err := <-readerErr:
-			c.nconn.Close()
-			return err
-
-		case <-c.ctx.Done():
-			c.nconn.Close()
-			<-readerErr
-			return errors.New("terminated")
-		}
-	}()
+	err := c.runInner()
 
 	c.ctxCancel()
 
 	c.parent.closeConn(c)
 
 	c.Log(logger.Info, "closed (%v)", err)
+}
+
+func (c *rtmpConn) runInner() error {
+	readerErr := make(chan error)
+	go func() {
+		readerErr <- c.runReader()
+	}()
+
+	select {
+	case err := <-readerErr:
+		c.nconn.Close()
+		return err
+
+	case <-c.ctx.Done():
+		c.nconn.Close()
+		<-readerErr
+		return errors.New("terminated")
+	}
 }
 
 func (c *rtmpConn) runReader() error {

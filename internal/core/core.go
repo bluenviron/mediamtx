@@ -206,7 +206,7 @@ func (p *Core) createResources(initial bool) error {
 		// on Linux, try to raise the number of file descriptors that can be opened
 		// to allow the maximum possible number of clients
 		// do not check for errors
-		rlimit.Raise()
+		rlimit.Raise() //nolint:errcheck
 
 		gin.SetMode(gin.ReleaseMode)
 

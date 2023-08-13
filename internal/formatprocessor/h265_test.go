@@ -29,7 +29,8 @@ func TestH265DynamicParams(t *testing.T) {
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}
-	p.Process(data, true)
+	err = p.Process(data, true)
+	require.NoError(t, err)
 
 	require.Equal(t, [][]byte{
 		{byte(h265.NALUType_CRA_NUT) << 1, 0},
@@ -37,27 +38,33 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
 	require.NoError(t, err)
-	p.Process(&UnitH265{
+
+	err = p.Process(&UnitH265{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
+	require.NoError(t, err)
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}}, 0)
 	require.NoError(t, err)
-	p.Process(&UnitH265{
+
+	err = p.Process(&UnitH265{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
+	require.NoError(t, err)
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}}, 0)
 	require.NoError(t, err)
-	p.Process(&UnitH265{
+
+	err = p.Process(&UnitH265{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
+	require.NoError(t, err)
 
 	require.Equal(t, []byte{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}, forma.VPS)
 	require.Equal(t, []byte{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}, forma.SPS)
@@ -65,12 +72,14 @@ func TestH265DynamicParams(t *testing.T) {
 
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
+
 	data = &UnitH265{
 		BaseUnit: BaseUnit{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}
-	p.Process(data, true)
+	err = p.Process(data, true)
+	require.NoError(t, err)
 
 	require.Equal(t, [][]byte{
 		{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3},
@@ -124,7 +133,9 @@ func TestH265OversizedPackets(t *testing.T) {
 				RTPPackets: []*rtp.Packet{pkt},
 			},
 		}
-		p.Process(data, false)
+		err = p.Process(data, false)
+		require.NoError(t, err)
+
 		out = append(out, data.RTPPackets...)
 	}
 
@@ -187,7 +198,8 @@ func TestH265EmptyPacket(t *testing.T) {
 		},
 	}
 
-	p.Process(unit, false)
+	err = p.Process(unit, false)
+	require.NoError(t, err)
 
 	// if all NALUs have been removed, no RTP packets must be generated.
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)

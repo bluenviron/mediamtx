@@ -117,7 +117,7 @@ func TestRTSPSource(t *testing.T) {
 
 			err = s.Start()
 			require.NoError(t, err)
-			defer s.Wait()
+			defer s.Wait() //nolint:errcheck
 			defer s.Close()
 
 			if source == "udp" || source == "tcp" {
@@ -212,7 +212,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	}
 	err = s.Start()
 	require.NoError(t, err)
-	defer s.Wait()
+	defer s.Wait() //nolint:errcheck
 	defer s.Close()
 
 	p, ok := newInstance("rtmp: no\n" +
@@ -268,7 +268,7 @@ func TestRTSPSourceRange(t *testing.T) {
 			}
 			err := s.Start()
 			require.NoError(t, err)
-			defer s.Wait()
+			defer s.Wait() //nolint:errcheck
 			defer s.Close()
 
 			var addConf string

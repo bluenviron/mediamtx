@@ -32,29 +32,31 @@ func newSRTListener(
 func (l *srtListener) run() {
 	defer l.wg.Done()
 
-	err := func() error {
-		for {
-			var sconn *srtConn
-			conn, _, err := l.ln.Accept(func(req srt.ConnRequest) srt.ConnType {
-				sconn = l.parent.newConnRequest(req)
-				if sconn == nil {
-					return srt.REJECT
-				}
-
-				// currently it's the same to return SUBSCRIBE or PUBLISH
-				return srt.SUBSCRIBE
-			})
-			if err != nil {
-				return err
-			}
-
-			if conn == nil {
-				continue
-			}
-
-			sconn.setConn(conn)
-		}
-	}()
+	err := l.runInner()
 
 	l.parent.acceptError(err)
+}
+
+func (l *srtListener) runInner() error {
+	for {
+		var sconn *srtConn
+		conn, _, err := l.ln.Accept(func(req srt.ConnRequest) srt.ConnType {
+			sconn = l.parent.newConnRequest(req)
+			if sconn == nil {
+				return srt.REJECT
+			}
+
+			// currently it's the same to return SUBSCRIBE or PUBLISH
+			return srt.SUBSCRIBE
+		})
+		if err != nil {
+			return err
+		}
+
+		if conn == nil {
+			continue
+		}
+
+		sconn.setConn(conn)
+	}
 }

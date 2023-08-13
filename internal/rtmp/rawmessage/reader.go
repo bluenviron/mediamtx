@@ -266,7 +266,7 @@ func (r *Reader) Read() (*Message, error) {
 			r.chunkStreams[chunkStreamID] = rc
 		}
 
-		r.br.UnreadByte()
+		r.br.UnreadByte() //nolint:errcheck
 
 		msg, err := rc.readMessage(typ)
 		if err != nil {
