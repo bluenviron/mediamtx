@@ -828,7 +828,7 @@ This web page can be embedded into another web page by using an iframe:
 SRT is a protocol that allows to publish and read live data stream, providing encryption, integrity and a retransmission mechanism. It is usually used to transfer media streams encoded with MPEG-TS. In order to read a stream from the server with the SRT protocol, use this URL:
 
 ```
-srt://localhost:8890?streamid=read:mystream&pkt_size=1316
+srt://localhost:8890?streamid=read:mystream
 ```
 
 Replace `mystream` with the path name.
@@ -836,7 +836,7 @@ Replace `mystream` with the path name.
 If credentials are enabled, append username and password to `streamid`;
 
 ```
-srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
+srt://localhost:8890?streamid=publish:mystream:user:pass
 ```
 
 Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
