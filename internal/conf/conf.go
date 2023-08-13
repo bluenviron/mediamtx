@@ -45,7 +45,8 @@ func loadFromFile(fpath string, conf *Conf) (bool, error) {
 	// other configuration files are not
 	if fpath == "mediamtx.yml" || fpath == "rtsp-simple-server.yml" {
 		if _, err := os.Stat(fpath); errors.Is(err, os.ErrNotExist) {
-			conf.UnmarshalJSON(nil) // load defaults
+			// load defaults
+			conf.UnmarshalJSON(nil) //nolint:errcheck
 			return false, nil
 		}
 	}
@@ -294,7 +295,8 @@ func (conf *Conf) Check() error {
 		pconf := conf.Paths[name]
 		if pconf == nil {
 			pconf = &PathConf{}
-			pconf.UnmarshalJSON(nil) // fill defaults
+			// load defaults
+			pconf.UnmarshalJSON(nil) //nolint:errcheck
 			conf.Paths[name] = pconf
 		}
 

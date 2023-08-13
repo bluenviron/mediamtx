@@ -51,13 +51,17 @@ func TestSRTSource(t *testing.T) {
 			},
 		})
 		require.NoError(t, err)
-		bw.Flush()
+
+		err = bw.Flush()
+		require.NoError(t, err)
 
 		<-connected
 
 		err = w.WriteH26x(track, 0, 0, true, [][]byte{{5, 2}})
 		require.NoError(t, err)
-		bw.Flush()
+
+		err = bw.Flush()
+		require.NoError(t, err)
 
 		<-done
 	}()

@@ -87,7 +87,7 @@ func (ts *testHLSManager) onSegment1(ctx *gin.Context) {
 
 	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
 
-	w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
+	w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}}) //nolint:errcheck
 }
 
 func (ts *testHLSManager) onSegment2(ctx *gin.Context) {
@@ -97,14 +97,14 @@ func (ts *testHLSManager) onSegment2(ctx *gin.Context) {
 
 	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
 
-	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
+	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{ //nolint:errcheck
 		{7, 1, 2, 3}, // SPS
 		{8},          // PPS
 	})
 
-	w.WriteMPEG4Audio(track2, 2*90000, [][]byte{{1, 2, 3, 4}})
+	w.WriteMPEG4Audio(track2, 2*90000, [][]byte{{1, 2, 3, 4}}) //nolint:errcheck
 
-	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
+	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{ //nolint:errcheck
 		{5}, // IDR
 	})
 }

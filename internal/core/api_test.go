@@ -265,13 +265,14 @@ func TestAPIPathsList(t *testing.T) {
 		require.NoError(t, err)
 		defer source.Close()
 
-		source.WritePacketRTP(media0, &rtp.Packet{
+		err = source.WritePacketRTP(media0, &rtp.Packet{
 			Header: rtp.Header{
 				Version:     2,
 				PayloadType: 96,
 			},
 			Payload: []byte{0x01, 0x02, 0x03, 0x04},
 		})
+		require.NoError(t, err)
 
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
@@ -618,7 +619,7 @@ func TestAPIProtocolList(t *testing.T) {
 							0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
 						},*/
 
-						source.WritePacketRTP(medi, &rtp.Packet{
+						err = source.WritePacketRTP(medi, &rtp.Packet{
 							Header: rtp.Header{
 								Version:        2,
 								Marker:         true,
@@ -632,6 +633,7 @@ func TestAPIProtocolList(t *testing.T) {
 								0x05,
 							},
 						})
+						require.NoError(t, err)
 					}
 				}()
 
@@ -654,7 +656,7 @@ func TestAPIProtocolList(t *testing.T) {
 
 				time.Sleep(500 * time.Millisecond)
 
-				source.WritePacketRTP(medi, &rtp.Packet{
+				err = source.WritePacketRTP(medi, &rtp.Packet{
 					Header: rtp.Header{
 						Version:        2,
 						Marker:         true,
@@ -665,6 +667,7 @@ func TestAPIProtocolList(t *testing.T) {
 					},
 					Payload: []byte{0x01, 0x02, 0x03, 0x04},
 				})
+				require.NoError(t, err)
 
 				<-c.incomingTrack
 
@@ -686,7 +689,9 @@ func TestAPIProtocolList(t *testing.T) {
 
 				err = w.WriteH26x(track, 0, 0, true, [][]byte{{1}})
 				require.NoError(t, err)
-				bw.Flush()
+
+				err = bw.Flush()
+				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
 			}
@@ -898,7 +903,7 @@ func TestAPIProtocolGet(t *testing.T) {
 							0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
 						},*/
 
-						source.WritePacketRTP(medi, &rtp.Packet{
+						err := source.WritePacketRTP(medi, &rtp.Packet{
 							Header: rtp.Header{
 								Version:        2,
 								Marker:         true,
@@ -912,6 +917,7 @@ func TestAPIProtocolGet(t *testing.T) {
 								0x05,
 							},
 						})
+						require.NoError(t, err)
 					}
 				}()
 
@@ -934,7 +940,7 @@ func TestAPIProtocolGet(t *testing.T) {
 
 				time.Sleep(500 * time.Millisecond)
 
-				source.WritePacketRTP(medi, &rtp.Packet{
+				err = source.WritePacketRTP(medi, &rtp.Packet{
 					Header: rtp.Header{
 						Version:        2,
 						Marker:         true,
@@ -945,6 +951,7 @@ func TestAPIProtocolGet(t *testing.T) {
 					},
 					Payload: []byte{0x01, 0x02, 0x03, 0x04},
 				})
+				require.NoError(t, err)
 
 				<-c.incomingTrack
 
@@ -966,7 +973,9 @@ func TestAPIProtocolGet(t *testing.T) {
 
 				err = w.WriteH26x(track, 0, 0, true, [][]byte{{1}})
 				require.NoError(t, err)
-				bw.Flush()
+
+				err = bw.Flush()
+				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
 			}
@@ -1237,9 +1246,9 @@ func TestAPIProtocolKick(t *testing.T) {
 
 				err = w.WriteH26x(track, 0, 0, true, [][]byte{{1}})
 				require.NoError(t, err)
-				bw.Flush()
 
-				// time.Sleep(500 * time.Millisecond)
+				err = bw.Flush()
+				require.NoError(t, err)
 			}
 
 			var pa string

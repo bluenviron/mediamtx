@@ -57,7 +57,7 @@ func NewServerConn(w http.ResponseWriter, req *http.Request) (*ServerConn, error
 
 // Close closes a ServerConn.
 func (c *ServerConn) Close() {
-	c.wc.Close()
+	c.wc.Close() //nolint:errcheck
 	close(c.terminate)
 }
 
@@ -67,10 +67,10 @@ func (c *ServerConn) RemoteAddr() net.Addr {
 }
 
 func (c *ServerConn) run() {
-	c.wc.SetReadDeadline(time.Now().Add(pingInterval + pingTimeout))
+	c.wc.SetReadDeadline(time.Now().Add(pingInterval + pingTimeout)) //nolint:errcheck
 
 	c.wc.SetPongHandler(func(string) error {
-		c.wc.SetReadDeadline(time.Now().Add(pingInterval + pingTimeout))
+		c.wc.SetReadDeadline(time.Now().Add(pingInterval + pingTimeout)) //nolint:errcheck
 		return nil
 	})
 
@@ -80,13 +80,13 @@ func (c *ServerConn) run() {
 	for {
 		select {
 		case byts := <-c.write:
-			c.wc.SetWriteDeadline(time.Now().Add(writeTimeout))
+			c.wc.SetWriteDeadline(time.Now().Add(writeTimeout)) //nolint:errcheck
 			err := c.wc.WriteMessage(websocket.TextMessage, byts)
 			c.writeErr <- err
 
 		case <-pingTicker.C:
-			c.wc.SetWriteDeadline(time.Now().Add(writeTimeout))
-			c.wc.WriteMessage(websocket.PingMessage, nil)
+			c.wc.SetWriteDeadline(time.Now().Add(writeTimeout)) //nolint:errcheck
+			c.wc.WriteMessage(websocket.PingMessage, nil)       //nolint:errcheck
 
 		case <-c.terminate:
 			return

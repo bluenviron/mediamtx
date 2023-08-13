@@ -44,9 +44,12 @@ func (rw *ReadWriter) Read() (Message, error) {
 		rw.w.SetAcknowledgeValue(tmsg.Value)
 
 	case *UserControlPingRequest:
-		rw.w.Write(&UserControlPingResponse{
+		err := rw.w.Write(&UserControlPingResponse{
 			ServerTime: tmsg.ServerTime,
 		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return msg, nil

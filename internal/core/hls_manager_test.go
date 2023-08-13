@@ -143,7 +143,7 @@ func TestHLSRead(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	for i := 0; i < 2; i++ {
-		source.WritePacketRTP(medi, &rtp.Packet{
+		err = source.WritePacketRTP(medi, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,
 				Marker:         true,
@@ -156,6 +156,7 @@ func TestHLSRead(t *testing.T) {
 				0x05, 0x02, 0x03, 0x04, // IDR
 			},
 		})
+		require.NoError(t, err)
 	}
 
 	hc := &http.Client{Transport: &http.Transport{}}

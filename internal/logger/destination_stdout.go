@@ -25,7 +25,7 @@ func (d *destinationStdout) log(t time.Time, level Level, format string, args ..
 	writeTime(&d.buf, t, d.useColor)
 	writeLevel(&d.buf, level, d.useColor)
 	writeContent(&d.buf, format, args)
-	os.Stdout.Write(d.buf.Bytes())
+	os.Stdout.Write(d.buf.Bytes()) //nolint:errcheck
 }
 
 func (d *destinationStdout) close() {

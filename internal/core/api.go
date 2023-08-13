@@ -236,7 +236,7 @@ func newAPI(
 	}
 
 	router := gin.New()
-	router.SetTrustedProxies(nil)
+	router.SetTrustedProxies(nil) //nolint:errcheck
 
 	group := router.Group("/")
 
@@ -387,7 +387,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	newConfPath := &conf.PathConf{}
 
 	// load default values
-	newConfPath.UnmarshalJSON([]byte("{}"))
+	newConfPath.UnmarshalJSON([]byte("{}")) //nolint:errcheck
 
 	fillStruct(newConfPath, in)
 

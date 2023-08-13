@@ -45,7 +45,7 @@ func newMetrics(
 	}
 
 	router := gin.New()
-	router.SetTrustedProxies(nil)
+	router.SetTrustedProxies(nil) //nolint:errcheck
 
 	router.GET("/metrics", m.onMetrics)
 
@@ -215,7 +215,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	ctx.Writer.WriteHeader(http.StatusOK)
-	io.WriteString(ctx.Writer, out)
+	io.WriteString(ctx.Writer, out) //nolint:errcheck
 }
 
 // pathManagerSet is called by pathManager.

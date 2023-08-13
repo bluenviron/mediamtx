@@ -117,7 +117,8 @@ func loadEnvInternal(env map[string]string, prefix string, rv reflect.Value) err
 			if nv == zero {
 				nv = reflect.New(rt.Elem().Elem())
 				if unm, ok := nv.Interface().(json.Unmarshaler); ok {
-					unm.UnmarshalJSON(nil) // load defaults
+					// load defaults
+					unm.UnmarshalJSON(nil) //nolint:errcheck
 				}
 				rv.SetMapIndex(reflect.ValueOf(mapKeyLower), nv)
 			}

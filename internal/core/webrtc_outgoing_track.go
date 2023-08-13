@@ -47,7 +47,10 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			PayloadType:    105,
 			PayloadMaxSize: webrtcPayloadMaxSize,
 		}
-		encoder.Init()
+		err = encoder.Init()
+		if err != nil {
+			return nil, err
+		}
 
 		return &webRTCOutgoingTrack{
 			media:  videoMedia,
@@ -66,7 +69,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil
@@ -94,7 +97,10 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			PayloadType:    96,
 			PayloadMaxSize: webrtcPayloadMaxSize,
 		}
-		encoder.Init()
+		err = encoder.Init()
+		if err != nil {
+			return nil, err
+		}
 
 		return &webRTCOutgoingTrack{
 			media:  videoMedia,
@@ -113,7 +119,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil
@@ -141,7 +147,10 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			PayloadType:    96,
 			PayloadMaxSize: webrtcPayloadMaxSize,
 		}
-		encoder.Init()
+		err = encoder.Init()
+		if err != nil {
+			return nil, err
+		}
 
 		return &webRTCOutgoingTrack{
 			media:  videoMedia,
@@ -160,7 +169,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil
@@ -188,7 +197,10 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			PayloadType:    96,
 			PayloadMaxSize: webrtcPayloadMaxSize,
 		}
-		encoder.Init()
+		err = encoder.Init()
+		if err != nil {
+			return nil, err
+		}
 
 		var lastPTS time.Duration
 		firstNALUReceived := false
@@ -220,7 +232,7 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 				}
 
 				for _, pkt := range packets {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil
@@ -255,7 +267,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil
@@ -285,7 +297,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil
@@ -322,7 +334,7 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			track:  webRTCTrak,
 			cb: func(unit formatprocessor.Unit) error {
 				for _, pkt := range unit.GetRTPPackets() {
-					webRTCTrak.WriteRTP(pkt)
+					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
 				return nil

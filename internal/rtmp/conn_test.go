@@ -490,6 +490,6 @@ func BenchmarkRead(b *testing.B) {
 	conn := newNoHandshakeConn(&buf)
 
 	for n := 0; n < b.N; n++ {
-		conn.Read()
+		conn.Read() //nolint:errcheck
 	}
 }

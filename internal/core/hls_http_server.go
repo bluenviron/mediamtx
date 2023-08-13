@@ -63,7 +63,7 @@ func newHLSHTTPServer( //nolint:dupl
 	}
 
 	router := gin.New()
-	router.SetTrustedProxies(trustedProxies.ToTrustedProxies())
+	router.SetTrustedProxies(trustedProxies.ToTrustedProxies()) //nolint:errcheck
 
 	router.NoRoute(s.onRequest)
 

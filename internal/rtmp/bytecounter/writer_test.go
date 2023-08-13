@@ -13,6 +13,7 @@ func TestWriter(t *testing.T) {
 	w := NewWriter(&buf)
 	w.SetCount(100)
 
-	w.Write(bytes.Repeat([]byte{0x01}, 64))
+	_, err := w.Write(bytes.Repeat([]byte{0x01}, 64))
+	require.NoError(t, err)
 	require.Equal(t, uint64(100+64), w.Count())
 }

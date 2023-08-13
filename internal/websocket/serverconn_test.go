@@ -37,7 +37,7 @@ func TestServerConn(t *testing.T) {
 	c, res, err := websocket.DefaultDialer.Dial("ws://localhost:6344/", nil)
 	require.NoError(t, err)
 	defer res.Body.Close()
-	defer c.Close()
+	defer c.Close() //nolint:errcheck
 
 	c.SetPingHandler(func(msg string) error {
 		close(pingReceived)
@@ -49,7 +49,8 @@ func TestServerConn(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "testing", msg)
 
-	c.ReadMessage()
+	_, _, err = c.ReadMessage()
+	require.Error(t, err)
 
 	<-pingReceived
 }

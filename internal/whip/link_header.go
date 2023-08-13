@@ -16,7 +16,7 @@ func quoteCredential(v string) string {
 
 func unquoteCredential(v string) string {
 	var s string
-	json.Unmarshal([]byte("\""+v+"\""), &s)
+	json.Unmarshal([]byte("\""+v+"\""), &s) //nolint:errcheck
 	return s
 }
 

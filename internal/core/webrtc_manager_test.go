@@ -242,7 +242,7 @@ func TestWebRTCRead(t *testing.T) {
 
 			time.Sleep(500 * time.Millisecond)
 
-			source.WritePacketRTP(medi, &rtp.Packet{
+			err = source.WritePacketRTP(medi, &rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
 					Marker:         true,
@@ -253,6 +253,7 @@ func TestWebRTCRead(t *testing.T) {
 				},
 				Payload: []byte{3},
 			})
+			require.NoError(t, err)
 
 			trak := <-c.incomingTrack
 
@@ -289,7 +290,7 @@ func TestWebRTCReadNotFound(t *testing.T) {
 		ICEServers: iceServers,
 	})
 	require.NoError(t, err)
-	defer pc.Close()
+	defer pc.Close() //nolint:errcheck
 
 	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
 	require.NoError(t, err)

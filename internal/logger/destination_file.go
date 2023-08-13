@@ -27,7 +27,7 @@ func (d *destinationFile) log(t time.Time, level Level, format string, args ...i
 	writeTime(&d.buf, t, false)
 	writeLevel(&d.buf, level, false)
 	writeContent(&d.buf, format, args)
-	d.file.Write(d.buf.Bytes())
+	d.file.Write(d.buf.Bytes()) //nolint:errcheck
 }
 
 func (d *destinationFile) close() {
