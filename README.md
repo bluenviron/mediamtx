@@ -104,6 +104,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [HLS](#hls)
 * [Features](#features)
   * [Configuration](#configuration)
+  * [WebHook](#webhook-events)
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
@@ -1017,7 +1018,20 @@ There are 3 ways to change the configuration:
    ```
 
 3. By using the [API](#api).
+### Webhook Events
+```yml
+webhookEventURL: http://myserver/webhok
+```
 
+Each time a user start or stop publish stream on a path, the specified URL will be requested with the POST method and this payload:
+
+```json
+ {
+   "path": "path",
+   "active": true, // true|false
+   "tracks": [ "H264", "MPEG4-audio" ]
+}
+```
 ### Authentication
 
 Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:

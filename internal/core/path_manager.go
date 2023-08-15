@@ -61,6 +61,7 @@ type pathManagerHLSManager interface {
 
 type pathManagerParent interface {
 	logger.Writer
+	PublishEvent(event StreamEvent)
 }
 
 type pathManager struct {
@@ -388,6 +389,17 @@ func (pm *pathManager) confReload(pathConfs map[string]*conf.PathConf) {
 
 // pathReady is called by path.
 func (pm *pathManager) pathReady(pa *path) {
+	ev := StreamEvent{
+		Path: pa.name,
+		Tracks: func() []string {
+			if pa.stream == nil {
+				return []string{}
+			}
+			return mediasDescription(pa.stream.Medias())
+		}(),
+		Active: true,
+	}
+	pm.parent.PublishEvent(ev)
 	select {
 	case pm.chPathReady <- pa:
 	case <-pm.ctx.Done():
@@ -397,6 +409,17 @@ func (pm *pathManager) pathReady(pa *path) {
 
 // pathNotReady is called by path.
 func (pm *pathManager) pathNotReady(pa *path) {
+	ev := StreamEvent{
+		Path: pa.name,
+		Tracks: func() []string {
+			if pa.stream == nil {
+				return []string{}
+			}
+			return mediasDescription(pa.stream.Medias())
+		}(),
+		Active: false,
+	}
+	pm.parent.PublishEvent(ev)
 	select {
 	case pm.chPathNotReady <- pa:
 	case <-pm.ctx.Done():

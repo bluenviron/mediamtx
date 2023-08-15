@@ -124,6 +124,12 @@ func (p *Core) Wait() {
 	<-p.done
 }
 
+func (p *Core) PublishEvent(event StreamEvent) {
+	if p.conf.WebhookEventURL != "" {
+		WebHookEventPublish(p.conf.WebhookEventURL, event)
+	}
+}
+
 // Log is the main logging function.
 func (p *Core) Log(level logger.Level, format string, args ...interface{}) {
 	p.logger.Log(level, format, args...)

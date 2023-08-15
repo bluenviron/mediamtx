@@ -37,6 +37,15 @@ udpMaxPayloadSize: 1472
 # it is discarded.
 externalAuthenticationURL:
 
+# HTTP URL to perform webhook actions.
+# with the POST method and a body containing:
+# {
+#   path: 'path',
+#   active: true|false,
+#   tracks: [ 'H264', 'MPEG4-audio' ]
+# }
+webhookEventURL:
+
 # Enable the HTTP API.
 api: no
 # Address of the API listener.

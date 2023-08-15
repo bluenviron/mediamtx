@@ -98,6 +98,7 @@ type Conf struct {
 	ReadBufferCount           int             `json:"readBufferCount"`
 	UDPMaxPayloadSize         int             `json:"udpMaxPayloadSize"`
 	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
+	WebhookEventURL           string          `json:"webhookEventURL"`
 	API                       bool            `json:"api"`
 	APIAddress                string          `json:"apiAddress"`
 	Metrics                   bool            `json:"metrics"`
@@ -232,6 +233,17 @@ func (conf *Conf) Check() error {
 
 		if contains(conf.AuthMethods, headers.AuthDigest) {
 			return fmt.Errorf("'externalAuthenticationURL' can't be used when 'digest' is in authMethods")
+		}
+	}
+
+	if conf.WebhookEventURL != "" {
+		if !strings.HasPrefix(conf.WebhookEventURL, "http://") &&
+			!strings.HasPrefix(conf.WebhookEventURL, "https://") {
+			return fmt.Errorf("'WebhookEventURL' must be a HTTP URL")
+		}
+
+		if contains(conf.AuthMethods, headers.AuthDigest) {
+			return fmt.Errorf("'WebhookEventURL' can't be used when 'digest' is in authMethods")
 		}
 	}
 
