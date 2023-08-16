@@ -108,6 +108,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Save streams to disk](#save-streams-to-disk)
+  * [Forward streams to another server](#forward-streams-to-another-server)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
   * [RTSP-specific features](#rtsp-specific-features)
@@ -1138,7 +1139,7 @@ paths:
 
 ### Save streams to disk
 
-To save available streams to disk, use the `runOnReady` parameter and _FFmpeg_:
+To save available streams to disk, use _FFmpeg_ inside the `runOnReady` parameter:
 
 ```yml
 paths:
@@ -1151,6 +1152,20 @@ paths:
 ```
 
 In the configuration above, streams are saved in MPEG-TS format, that is resilient to system crashes.
+
+### Forward streams to another server
+
+To forward incoming streams to another server, use _FFmpeg_ inside the `runOnReady` parameter:
+
+```yml
+paths:
+  all:
+    runOnReady: >
+      ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
+      -c copy
+      -f rtsp rtsp://another-server/another-path
+    runOnReadyRestart: yes
+```
 
 ### On-demand publishing
 
