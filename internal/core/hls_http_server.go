@@ -160,7 +160,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 			ip:    net.ParseIP(ctx.ClientIP()),
 			user:  user,
 			pass:  pass,
-			proto: authProtocolWebRTC,
+			proto: authProtocolHLS,
 		},
 	})
 	if res.err != nil {
