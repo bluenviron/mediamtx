@@ -356,9 +356,11 @@ Check that the output contains `GStreamer: YES`.
 Videos can be published with `VideoWriter`:
 
 ```python
+from datetime import datetime
+from time import sleep, time
+
 import cv2
 import numpy as np
-from time import sleep, time
 
 fps = 15
 width = 800
@@ -370,6 +372,7 @@ colors = [
 ]
 
 out = cv2.VideoWriter('appsrc ! videoconvert' + \
+    ' ! video/x-raw,format=I420' + \
     ' ! x264enc speed-preset=ultrafast bitrate=600 key-int-max=' + str(fps * 2) + \
     ' ! video/x-h264,profile=baseline' + \
     ' ! rtspclientsink location=rtsp://localhost:8554/mystream',
@@ -392,7 +395,7 @@ while True:
             frame[y][x] = color
 
     out.write(frame)
-    print("frame written to the server")
+    print("%s frame written to the server" % datetime.now())
 
     now = time()
     diff = (1 / fps) - now - start
@@ -692,7 +695,7 @@ The server supports ingesting UDP/MPEG-TS packets (i.e. MPEG-TS packets sent wit
 
 ```
 gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
-videotestsrc ! video/x-raw,width=1280,height=720 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
+videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
 
