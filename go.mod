@@ -22,7 +22,7 @@ require (
 	github.com/pion/rtcp v1.2.10
 	github.com/pion/rtp v1.8.1
 	github.com/pion/sdp/v3 v3.0.6
-	github.com/pion/webrtc/v3 v3.2.15
+	github.com/pion/webrtc/v3 v3.2.16
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.12.0
 	golang.org/x/net v0.14.0
