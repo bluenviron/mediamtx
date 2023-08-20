@@ -109,6 +109,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Save streams to disk](#save-streams-to-disk)
+  * [Forward streams to another server](#forward-streams-to-another-server)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
   * [RTSP-specific features](#rtsp-specific-features)
@@ -357,9 +358,11 @@ Check that the output contains `GStreamer: YES`.
 Videos can be published with `VideoWriter`:
 
 ```python
+from datetime import datetime
+from time import sleep, time
+
 import cv2
 import numpy as np
-from time import sleep, time
 
 fps = 15
 width = 800
@@ -371,6 +374,7 @@ colors = [
 ]
 
 out = cv2.VideoWriter('appsrc ! videoconvert' + \
+    ' ! video/x-raw,format=I420' + \
     ' ! x264enc speed-preset=ultrafast bitrate=600 key-int-max=' + str(fps * 2) + \
     ' ! video/x-h264,profile=baseline' + \
     ' ! rtspclientsink location=rtsp://localhost:8554/mystream',
@@ -393,7 +397,7 @@ while True:
             frame[y][x] = color
 
     out.write(frame)
-    print("frame written to the server")
+    print("%s frame written to the server" % datetime.now())
 
     now = time()
     diff = (1 / fps) - now - start
@@ -693,7 +697,7 @@ The server supports ingesting UDP/MPEG-TS packets (i.e. MPEG-TS packets sent wit
 
 ```
 gst-launch-1.0 -v mpegtsmux name=mux alignment=1 ! udpsink host=238.0.0.1 port=1234 \
-videotestsrc ! video/x-raw,width=1280,height=720 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
+videotestsrc ! video/x-raw,width=1280,height=720,format=I420 ! x264enc speed-preset=ultrafast bitrate=3000 key-int-max=60 ! video/x-h264,profile=high ! mux. \
 audiotestsrc ! audioconvert ! avenc_aac ! mux.
 ```
 
@@ -1149,7 +1153,7 @@ paths:
 
 ### Save streams to disk
 
-To save available streams to disk, use the `runOnReady` parameter and _FFmpeg_:
+To save available streams to disk, use _FFmpeg_ inside the `runOnReady` parameter:
 
 ```yml
 paths:
@@ -1162,6 +1166,20 @@ paths:
 ```
 
 In the configuration above, streams are saved in MPEG-TS format, that is resilient to system crashes.
+
+### Forward streams to another server
+
+To forward incoming streams to another server, use _FFmpeg_ inside the `runOnReady` parameter:
+
+```yml
+paths:
+  all:
+    runOnReady: >
+      ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
+      -c copy
+      -f rtsp rtsp://another-server/another-path
+    runOnReadyRestart: yes
+```
 
 ### On-demand publishing
 
