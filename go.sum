@@ -139,8 +139,8 @@ github.com/pion/rtp v1.8.0/go.mod h1:pBGHaFt/yW7bf1jjWAoUjpSNoDnw98KTMg+jWWvziqU
 github.com/pion/rtp v1.8.1 h1:26OxTc6lKg/qLSGir5agLyj0QKaOv8OP5wps2SFnVNQ=
 github.com/pion/rtp v1.8.1/go.mod h1:pBGHaFt/yW7bf1jjWAoUjpSNoDnw98KTMg+jWWvziqU=
 github.com/pion/sctp v1.8.5/go.mod h1:SUFFfDpViyKejTAdwD1d/HQsCu+V/40cCs2nZIvC3s0=
-github.com/pion/sctp v1.8.7 h1:JnABvFakZueGAn4KU/4PSKg+GWbF6QWbKTWZOSGJjXw=
-github.com/pion/sctp v1.8.7/go.mod h1:g1Ul+ARqZq5JEmoFy87Q/4CePtKnTJ1QCL9dBBdN6AU=
+github.com/pion/sctp v1.8.8 h1:5EdnnKI4gpyR1a1TwbiS/wxEgcUWBHsc7ILAjARJB+U=
+github.com/pion/sctp v1.8.8/go.mod h1:igF9nZBrjh5AtmKc7U30jXltsFHicFCXSmWA2GWRaWs=
 github.com/pion/sdp/v3 v3.0.6 h1:WuDLhtuFUUVpTfus9ILC4HRyHsW6TdugjEX/QY9OiUw=
 github.com/pion/sdp/v3 v3.0.6/go.mod h1:iiFWFpQO8Fy3S5ldclBkpXqmWy02ns78NOKoLLL0YQw=
 github.com/pion/srtp/v2 v2.0.16 h1:impT2XBrHKsDpXr1x5hHIRydwssrSWKpmw3KvSfXbso=
@@ -150,14 +150,13 @@ github.com/pion/stun v0.6.1/go.mod h1:/hO7APkX4hZKu/D0f2lHzNyvdkTGtIy3NDmLR7kSz/
 github.com/pion/transport v0.14.1 h1:XSM6olwW+o8J4SCmOBb/BpwZypkHeyM0PGFCxNQBr40=
 github.com/pion/transport v0.14.1/go.mod h1:4tGmbk00NeYA3rUa9+n+dzCCoKkcy3YlYb99Jn2fNnI=
 github.com/pion/transport/v2 v2.0.0/go.mod h1:HS2MEBJTwD+1ZI2eSXSvHJx/HnzQqRy2/LXxt6eVMHc=
-github.com/pion/transport/v2 v2.1.0/go.mod h1:AdSw4YBZVDkZm8fpoz+fclXyQwANWmZAlDuQdctTThQ=
 github.com/pion/transport/v2 v2.2.0/go.mod h1:AdSw4YBZVDkZm8fpoz+fclXyQwANWmZAlDuQdctTThQ=
 github.com/pion/transport/v2 v2.2.1 h1:7qYnCBlpgSJNYMbLCKuSY9KbQdBFoETvPNETv0y4N7c=
 github.com/pion/transport/v2 v2.2.1/go.mod h1:cXXWavvCnFF6McHTft3DWS9iic2Mftcz1Aq29pGcU5g=
 github.com/pion/turn/v2 v2.1.3 h1:pYxTVWG2gpC97opdRc5IGsQ1lJ9O/IlNhkzj7MMrGAA=
 github.com/pion/turn/v2 v2.1.3/go.mod h1:huEpByKKHix2/b9kmTAM3YoX6MKP+/D//0ClgUYR2fY=
-github.com/pion/webrtc/v3 v3.2.16 h1:2tfQ8qdyUAjeG5Zn44yE98umMtdxuHembJ3WYhj4Zd4=
-github.com/pion/webrtc/v3 v3.2.16/go.mod h1:vm5dipobPQGXn2hNyQ+hh2KbTTTaDxJiDcM+MyAyrsc=
+github.com/pion/webrtc/v3 v3.2.17 h1:4ra4H3atxp02e891dz8ZOye2Rgfsv8E2VUksyS1EW28=
+github.com/pion/webrtc/v3 v3.2.17/go.mod h1:stMj0DIIhmUF0yOSR02uPAoKapzYbDIthSwW/Uk+AGs=
 github.com/pkg/profile v1.4.0/go.mod h1:NWz/XGvpEW1FyYQ7fCx4dqYBLlfTcE+A9FLAkNKqjFE=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
