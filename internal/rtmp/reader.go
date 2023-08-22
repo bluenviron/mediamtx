@@ -103,7 +103,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 			}
 
 		case string:
-			if vt == "avc1" {
+			if vt == "avc1" || vt == "hvc1" || vt == "av01" {
 				return true, nil
 			}
 		}
