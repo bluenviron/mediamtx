@@ -77,15 +77,19 @@ func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m Audio) Marshal() (*rawmessage.Message, error) {
+func (m Audio) marshalBodySize() int {
 	var l int
 	if m.Codec == CodecMPEG1Audio {
 		l = 1 + len(m.Payload)
 	} else {
 		l = 2 + len(m.Payload)
 	}
-	body := make([]byte, l)
+	return l
+}
+
+// Marshal implements Message.
+func (m Audio) Marshal() (*rawmessage.Message, error) {
+	body := make([]byte, m.marshalBodySize())
 
 	body[0] = m.Codec<<4 | m.Rate<<2 | m.Depth<<1 | m.Channels
 

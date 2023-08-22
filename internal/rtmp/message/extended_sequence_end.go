@@ -8,7 +8,7 @@ import (
 
 // ExtendedSequenceEnd is a sequence end extended message.
 type ExtendedSequenceEnd struct {
-	FourCC [4]byte
+	FourCC FourCC
 }
 
 // Unmarshal implements Message.
@@ -17,7 +17,7 @@ func (m *ExtendedSequenceEnd) Unmarshal(raw *rawmessage.Message) error {
 		return fmt.Errorf("invalid body size")
 	}
 
-	copy(m.FourCC[:], raw.Body[1:5])
+	m.FourCC = FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
 
 	return nil
 }

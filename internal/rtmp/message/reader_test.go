@@ -233,6 +233,20 @@ var readWriterCases = []struct {
 		},
 	},
 	{
+		"extended sequence start",
+		&ExtendedSequenceStart{
+			ChunkStreamID:   4,
+			MessageStreamID: 0x1000000,
+			FourCC:          FourCCHEVC,
+			Config:          []byte{0x01, 0x02, 0x03},
+		},
+		[]byte{
+			0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x08, 0x09,
+			0x01, 0x00, 0x00, 0x00, 0x80, 0x68, 0x76, 0x63,
+			0x31, 0x01, 0x02, 0x03,
+		},
+	},
+	{
 		"extended coded frames",
 		&ExtendedCodedFrames{
 			ChunkStreamID:   4,

@@ -70,8 +70,7 @@ func allocateMessage(raw *rawmessage.Message) (Message, error) {
 		}
 
 		if (raw.Body[0] & 0b10000000) != 0 {
-			var fourCC [4]byte
-			copy(fourCC[:], raw.Body[1:5])
+			fourCC := FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
 
 			switch fourCC {
 			case FourCCAV1, FourCCVP9, FourCCHEVC:

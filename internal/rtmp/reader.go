@@ -98,7 +98,8 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 			case 0:
 				return false, nil
 
-			case message.CodecH264:
+			case message.CodecH264, float64(message.FourCCAV1),
+				float64(message.FourCCVP9), float64(message.FourCCHEVC):
 				return true, nil
 			}
 

@@ -74,9 +74,13 @@ func (m *Video) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
+func (m Video) marshalBodySize() int {
+	return 5 + len(m.Payload)
+}
+
 // Marshal implements Message.
 func (m Video) Marshal() (*rawmessage.Message, error) {
-	body := make([]byte, 5+len(m.Payload))
+	body := make([]byte, m.marshalBodySize())
 
 	if m.IsKeyFrame {
 		body[0] = flvio.FRAME_KEY << 4

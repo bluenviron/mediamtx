@@ -14,9 +14,9 @@ readTimeout: 10s
 # Timeout of write operations.
 writeTimeout: 10s
 # Number of read buffers.
-# A higher value allows a wider throughput, a lower value allows to save RAM.
+# A higher value allows to increase throughput, a lower value allows to save RAM.
 readBufferCount: 512
-# Maximum size of payload of outgoing UDP packets.
+# Maximum size of outgoing UDP packets.
 # This can be decreased to avoid fragmentation on networks with a low UDP MTU.
 udpMaxPayloadSize: 1472
 
