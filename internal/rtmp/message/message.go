@@ -61,13 +61,13 @@ const (
 )
 
 // FourCC is an identifier of a video codec.
-type FourCC [4]byte
+type FourCC uint32
 
 // video codec identifiers.
 var (
-	FourCCAV1  FourCC = [4]byte{'a', 'v', '0', '1'}
-	FourCCVP9  FourCC = [4]byte{'v', 'p', '0', '9'}
-	FourCCHEVC FourCC = [4]byte{'h', 'v', 'c', '1'}
+	FourCCAV1  FourCC = 'a'<<24 | 'v'<<16 | '0'<<8 | '1'
+	FourCCVP9  FourCC = 'v'<<24 | 'p'<<16 | '0'<<8 | '9'
+	FourCCHEVC FourCC = 'h'<<24 | 'v'<<16 | 'c'<<8 | '1'
 )
 
 // Message is a message.

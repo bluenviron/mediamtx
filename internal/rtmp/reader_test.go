@@ -50,6 +50,58 @@ func TestReadTracks(t *testing.T) {
 		0x44, 0x01, 0xc0, 0xf7, 0xc0, 0xcc, 0x90,
 	}
 
+	var spsp h265.SPS
+	err := spsp.Unmarshal(h265SPS)
+	require.NoError(t, err)
+
+	hvcc := &mp4.HvcC{
+		ConfigurationVersion:        1,
+		GeneralProfileIdc:           spsp.ProfileTierLevel.GeneralProfileIdc,
+		GeneralProfileCompatibility: spsp.ProfileTierLevel.GeneralProfileCompatibilityFlag,
+		GeneralConstraintIndicator: [6]uint8{
+			h265SPS[7], h265SPS[8], h265SPS[9],
+			h265SPS[10], h265SPS[11], h265SPS[12],
+		},
+		GeneralLevelIdc: spsp.ProfileTierLevel.GeneralLevelIdc,
+		// MinSpatialSegmentationIdc
+		// ParallelismType
+		ChromaFormatIdc:      uint8(spsp.ChromaFormatIdc),
+		BitDepthLumaMinus8:   uint8(spsp.BitDepthLumaMinus8),
+		BitDepthChromaMinus8: uint8(spsp.BitDepthChromaMinus8),
+		// AvgFrameRate
+		// ConstantFrameRate
+		NumTemporalLayers: 1,
+		// TemporalIdNested
+		LengthSizeMinusOne: 3,
+		NumOfNaluArrays:    3,
+		NaluArrays: []mp4.HEVCNaluArray{
+			{
+				NaluType: byte(h265.NALUType_VPS_NUT),
+				NumNalus: 1,
+				Nalus: []mp4.HEVCNalu{{
+					Length:  uint16(len(h265VPS)),
+					NALUnit: h265VPS,
+				}},
+			},
+			{
+				NaluType: byte(h265.NALUType_SPS_NUT),
+				NumNalus: 1,
+				Nalus: []mp4.HEVCNalu{{
+					Length:  uint16(len(h265SPS)),
+					NALUnit: h265SPS,
+				}},
+			},
+			{
+				NaluType: byte(h265.NALUType_PPS_NUT),
+				NumNalus: 1,
+				Nalus: []mp4.HEVCNalu{{
+					Length:  uint16(len(h265PPS)),
+					NALUnit: h265PPS,
+				}},
+			},
+		},
+	}
+
 	for _, ca := range []struct {
 		name       string
 		videoTrack formats.Format
@@ -172,6 +224,16 @@ func TestReadTracks(t *testing.T) {
 		},
 		{
 			"xplit broadcaster",
+			&formats.H265{
+				PayloadTyp: 96,
+				VPS:        h265VPS,
+				SPS:        h265SPS,
+				PPS:        h265PPS,
+			},
+			nil,
+		},
+		{
+			"obs 30",
 			&formats.H265{
 				PayloadTyp: 96,
 				VPS:        h265VPS,
@@ -566,57 +628,46 @@ func TestReadTracks(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				var spsp h265.SPS
-				err = spsp.Unmarshal(h265SPS)
+				var buf bytes.Buffer
+				_, err = mp4.Marshal(&buf, hvcc, mp4.Context{})
 				require.NoError(t, err)
 
-				hvcc := &mp4.HvcC{
-					ConfigurationVersion:        1,
-					GeneralProfileIdc:           spsp.ProfileTierLevel.GeneralProfileIdc,
-					GeneralProfileCompatibility: spsp.ProfileTierLevel.GeneralProfileCompatibilityFlag,
-					GeneralConstraintIndicator: [6]uint8{
-						h265SPS[7], h265SPS[8], h265SPS[9],
-						h265SPS[10], h265SPS[11], h265SPS[12],
-					},
-					GeneralLevelIdc: spsp.ProfileTierLevel.GeneralLevelIdc,
-					// MinSpatialSegmentationIdc
-					// ParallelismType
-					ChromaFormatIdc:      uint8(spsp.ChromaFormatIdc),
-					BitDepthLumaMinus8:   uint8(spsp.BitDepthLumaMinus8),
-					BitDepthChromaMinus8: uint8(spsp.BitDepthChromaMinus8),
-					// AvgFrameRate
-					// ConstantFrameRate
-					NumTemporalLayers: 1,
-					// TemporalIdNested
-					LengthSizeMinusOne: 3,
-					NumOfNaluArrays:    3,
-					NaluArrays: []mp4.HEVCNaluArray{
-						{
-							NaluType: byte(h265.NALUType_VPS_NUT),
-							NumNalus: 1,
-							Nalus: []mp4.HEVCNalu{{
-								Length:  uint16(len(h265VPS)),
-								NALUnit: h265VPS,
-							}},
-						},
-						{
-							NaluType: byte(h265.NALUType_SPS_NUT),
-							NumNalus: 1,
-							Nalus: []mp4.HEVCNalu{{
-								Length:  uint16(len(h265SPS)),
-								NALUnit: h265SPS,
-							}},
-						},
-						{
-							NaluType: byte(h265.NALUType_PPS_NUT),
-							NumNalus: 1,
-							Nalus: []mp4.HEVCNalu{{
-								Length:  uint16(len(h265PPS)),
-								NALUnit: h265PPS,
-							}},
+				err = mrw.Write(&message.ExtendedSequenceStart{
+					ChunkStreamID:   4,
+					MessageStreamID: 0x1000000,
+					FourCC:          message.FourCCHEVC,
+					Config:          buf.Bytes(),
+				})
+				require.NoError(t, err)
+
+			case "obs 30":
+				err := mrw.Write(&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{
+								K: "videodatarate",
+								V: float64(0),
+							},
+							{
+								K: "videocodecid",
+								V: float64(message.FourCCHEVC),
+							},
+							{
+								K: "audiodatarate",
+								V: float64(0),
+							},
+							{
+								K: "audiocodecid",
+								V: float64(0),
+							},
 						},
 					},
-				}
+				})
+				require.NoError(t, err)
 
 				var buf bytes.Buffer
 				_, err = mp4.Marshal(&buf, hvcc, mp4.Context{})

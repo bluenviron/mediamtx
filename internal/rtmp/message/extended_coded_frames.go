@@ -12,7 +12,7 @@ type ExtendedCodedFrames struct {
 	ChunkStreamID   byte
 	DTS             time.Duration
 	MessageStreamID uint32
-	FourCC          [4]byte
+	FourCC          FourCC
 	PTSDelta        time.Duration
 	Payload         []byte
 }
@@ -26,7 +26,7 @@ func (m *ExtendedCodedFrames) Unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
-	copy(m.FourCC[:], raw.Body[1:5])
+	m.FourCC = FourCC(raw.Body[1])<<24 | FourCC(raw.Body[2])<<16 | FourCC(raw.Body[3])<<8 | FourCC(raw.Body[4])
 
 	if m.FourCC == FourCCHEVC {
 		m.PTSDelta = time.Duration(uint32(raw.Body[5])<<16|uint32(raw.Body[6])<<8|uint32(raw.Body[7])) * time.Millisecond
@@ -38,18 +38,25 @@ func (m *ExtendedCodedFrames) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m ExtendedCodedFrames) Marshal() (*rawmessage.Message, error) {
+func (m ExtendedCodedFrames) marshalBodySize() int {
 	var l int
 	if m.FourCC == FourCCHEVC {
 		l = 8 + len(m.Payload)
 	} else {
 		l = 5 + len(m.Payload)
 	}
-	body := make([]byte, l)
+	return l
+}
+
+// Marshal implements Message.
+func (m ExtendedCodedFrames) Marshal() (*rawmessage.Message, error) {
+	body := make([]byte, m.marshalBodySize())
 
 	body[0] = 0b10000000 | byte(ExtendedTypeCodedFrames)
-	copy(body[1:5], m.FourCC[:])
+	body[1] = uint8(m.FourCC >> 24)
+	body[2] = uint8(m.FourCC >> 16)
+	body[3] = uint8(m.FourCC >> 8)
+	body[4] = uint8(m.FourCC)
 
 	if m.FourCC == FourCCHEVC {
 		tmp := uint32(m.PTSDelta / time.Millisecond)
