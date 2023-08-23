@@ -29,7 +29,7 @@ jobs:
 
     - if: ${{ steps.check_repo.outputs.clean != '' }}
       run: >
-        && git reset ${GITHUB_REF_NAME}
+        git reset ${GITHUB_REF_NAME}
         && git add .
         && git commit -m "bump hls-js to v${VERSION}"
         && git push --set-upstream origin deps/hlsjs --force
