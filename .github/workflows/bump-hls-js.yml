@@ -42,7 +42,7 @@ jobs:
           const prs = await github.rest.pulls.list({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            head: 'deps/hlsjs',
+            head: `${context.repo.owner}:deps/hlsjs`,
             state: 'open',
           });
 
