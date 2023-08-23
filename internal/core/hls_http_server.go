@@ -23,6 +23,9 @@ const (
 //go:embed hls_index.html
 var hlsIndex []byte
 
+//go:embed hls.min.js
+var hlsMinJS []byte
+
 type hlsHTTPServerParent interface {
 	logger.Writer
 	handleRequest(req hlsMuxerHandleRequestReq)
@@ -118,6 +121,13 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 	var fname string
 
 	switch {
+	case strings.HasSuffix(pa, "/hls.min.js"):
+		ctx.Writer.Header().Set("Cache-Control", "max-age=3600")
+		ctx.Writer.Header().Set("Content-Type", "application/javascript")
+		ctx.Writer.WriteHeader(http.StatusOK)
+		ctx.Writer.Write(hlsMinJS)
+		return
+
 	case pa == "", pa == "favicon.ico":
 		return
 
@@ -190,6 +200,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 
 	switch fname {
 	case "":
+		ctx.Writer.Header().Set("Cache-Control", "max-age=3600")
 		ctx.Writer.Header().Set("Content-Type", "text/html")
 		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(hlsIndex)

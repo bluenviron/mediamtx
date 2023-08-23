@@ -1551,3 +1551,4 @@ The command will produce tarballs in folder `binaries/`.
 * [notedit/rtmp (RTMP library used internally)](https://github.com/notedit/rtmp)
 * [go-astits (MPEG-TS library used internally)](https://github.com/asticode/go-astits)
 * [go-mp4 (MP4 library used internally)](https://github.com/abema/go-mp4)
+* [hls.js (browser-side HLS library used internally)](https://github.com/video-dev/hls.js)
