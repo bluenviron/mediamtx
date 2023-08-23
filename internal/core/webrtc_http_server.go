@@ -205,11 +205,13 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 	switch fname {
 	case "":
+		ctx.Writer.Header().Set("Cache-Control", "max-age=3600")
 		ctx.Writer.Header().Set("Content-Type", "text/html")
 		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(webrtcReadIndex)
 
 	case "publish":
+		ctx.Writer.Header().Set("Cache-Control", "max-age=3600")
 		ctx.Writer.Header().Set("Content-Type", "text/html")
 		ctx.Writer.WriteHeader(http.StatusOK)
 		ctx.Writer.Write(webrtcPublishIndex)

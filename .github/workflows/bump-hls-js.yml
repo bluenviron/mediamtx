@@ -1,0 +1,64 @@
+name: bump-hls-js
+
+on:
+  schedule:
+  - cron: '4 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  bump-hls-js:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - run: >
+        git config user.name mediamtx-bot
+        && git config user.email bot@mediamtx
+        && ((git checkout deps/hlsjs && git rebase ${GITHUB_REF_NAME}) || git checkout -b deps/hlsjs)
+
+    - run: >
+        curl -o internal/core/hls.min.js https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js
+        && echo VERSION=$(cat internal/core/hls.min.js | grep -o '"version",get:function(){return".*"}' | sed 's/"version",get:function(){return"\(.*\)"}/\1/') >> $GITHUB_ENV
+
+    - id: check_repo
+      run: >
+        echo "clean=$(git status --porcelain)" >> "$GITHUB_OUTPUT"
+
+    - if: ${{ steps.check_repo.outputs.clean != '' }}
+      run: >
+        && git reset ${GITHUB_REF_NAME}
+        && git add .
+        && git commit -m "bump hls-js to v${VERSION}"
+        && git push --set-upstream origin deps/hlsjs --force
+
+    - if: ${{ steps.check_repo.outputs.clean != '' }}
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const prs = await github.rest.pulls.list({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            head: 'deps/hlsjs',
+            state: 'open',
+          });
+
+          if (prs.data.length == 0) {
+            await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: 'deps/hlsjs',
+              base: context.ref.slice('refs/heads/'.length),
+              title: `bump hls-js to v${process.env.VERSION}`,
+            });
+          } else {
+            github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prs.data[0].number,
+              title: `bump hls-js to v${process.env.VERSION}`,
+            });
+          }
