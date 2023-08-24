@@ -57,13 +57,13 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			},
 		},
 		OnDownloadPrimaryPlaylist: func(u string) {
-			s.Log(logger.Debug, "downloading primary playlist %u", u)
+			s.Log(logger.Debug, "downloading primary playlist %v", u)
 		},
 		OnDownloadStreamPlaylist: func(u string) {
-			s.Log(logger.Debug, "downloading stream playlist %u", u)
+			s.Log(logger.Debug, "downloading stream playlist %v", u)
 		},
 		OnDownloadSegment: func(u string) {
-			s.Log(logger.Debug, "downloading segment %u", u)
+			s.Log(logger.Debug, "downloading segment %v", u)
 		},
 		OnDecodeError: func(err error) {
 			s.Log(logger.Warn, err.Error())
