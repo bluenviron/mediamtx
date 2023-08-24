@@ -8,6 +8,8 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func TestH265DynamicParams(t *testing.T) {
@@ -24,8 +26,8 @@ func TestH265DynamicParams(t *testing.T) {
 	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
 
-	data := &UnitH265{
-		BaseUnit: BaseUnit{
+	data := &unit.H265{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}
@@ -39,8 +41,8 @@ func TestH265DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
 	require.NoError(t, err)
 
-	err = p.Process(&UnitH265{
-		BaseUnit: BaseUnit{
+	err = p.Process(&unit.H265{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
@@ -49,8 +51,8 @@ func TestH265DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}}, 0)
 	require.NoError(t, err)
 
-	err = p.Process(&UnitH265{
-		BaseUnit: BaseUnit{
+	err = p.Process(&unit.H265{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
@@ -59,8 +61,8 @@ func TestH265DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}}, 0)
 	require.NoError(t, err)
 
-	err = p.Process(&UnitH265{
-		BaseUnit: BaseUnit{
+	err = p.Process(&unit.H265{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
@@ -73,8 +75,8 @@ func TestH265DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
 	require.NoError(t, err)
 
-	data = &UnitH265{
-		BaseUnit: BaseUnit{
+	data = &unit.H265{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}
@@ -128,8 +130,8 @@ func TestH265OversizedPackets(t *testing.T) {
 			Payload: bytes.Repeat([]byte{0x01, 0x02, 0x03, 0x04}, 2000/4),
 		},
 	} {
-		data := &UnitH265{
-			BaseUnit: BaseUnit{
+		data := &unit.H265{
+			Base: unit.Base{
 				RTPPackets: []*rtp.Packet{pkt},
 			},
 		}
@@ -190,7 +192,7 @@ func TestH265EmptyPacket(t *testing.T) {
 	p, err := New(1472, forma, true, nil)
 	require.NoError(t, err)
 
-	unit := &UnitH265{
+	unit := &unit.H265{
 		AU: [][]byte{
 			{byte(h265.NALUType_VPS_NUT) << 1, 10, 11, 12}, // VPS
 			{byte(h265.NALUType_SPS_NUT) << 1, 13, 14, 15}, // SPS

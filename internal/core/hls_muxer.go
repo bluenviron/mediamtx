@@ -19,9 +19,9 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 const (
@@ -343,9 +343,9 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(m, videoMedia, videoFormatAV1, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, videoMedia, videoFormatAV1, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitAV1)
+				tunit := u.(*unit.AV1)
 
 				if tunit.TU == nil {
 					return nil
@@ -378,9 +378,9 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(m, videoMedia, videoFormatVP9, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, videoMedia, videoFormatVP9, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitVP9)
+				tunit := u.(*unit.VP9)
 
 				if tunit.Frame == nil {
 					return nil
@@ -413,9 +413,9 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(m, videoMedia, videoFormatH265, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, videoMedia, videoFormatH265, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitH265)
+				tunit := u.(*unit.H265)
 
 				if tunit.AU == nil {
 					return nil
@@ -454,9 +454,9 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*media.Media, *gohls
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(m, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, videoMedia, videoFormatH264, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitH264)
+				tunit := u.(*unit.H264)
 
 				if tunit.AU == nil {
 					return nil
@@ -498,9 +498,9 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.AddReader(m, audioMedia, audioFormatOpus, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, audioMedia, audioFormatOpus, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitOpus)
+				tunit := u.(*unit.Opus)
 
 				if !audioStartPTSFilled {
 					audioStartPTSFilled = true
@@ -539,9 +539,9 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioGeneric, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioGeneric, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG4AudioGeneric)
+				tunit := u.(*unit.MPEG4AudioGeneric)
 
 				if tunit.AUs == nil {
 					return nil
@@ -582,9 +582,9 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*media.Media, *gohls
 		audioStartPTSFilled := false
 		var audioStartPTS time.Duration
 
-		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioLATM, func(unit formatprocessor.Unit) {
+		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) {
 			m.ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG4AudioLATM)
+				tunit := u.(*unit.MPEG4AudioLATM)
 
 				if tunit.AU == nil {
 					return nil

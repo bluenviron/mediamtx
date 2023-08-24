@@ -11,13 +11,14 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type streamFormat struct {
 	source         logger.Writer
 	proc           formatprocessor.Processor
 	mutex          sync.RWMutex
-	nonRTSPReaders map[interface{}]func(formatprocessor.Unit)
+	nonRTSPReaders map[interface{}]func(unit.Unit)
 }
 
 func newStreamFormat(
@@ -34,13 +35,13 @@ func newStreamFormat(
 	sf := &streamFormat{
 		source:         source,
 		proc:           proc,
-		nonRTSPReaders: make(map[interface{}]func(formatprocessor.Unit)),
+		nonRTSPReaders: make(map[interface{}]func(unit.Unit)),
 	}
 
 	return sf, nil
 }
 
-func (sf *streamFormat) addReader(r interface{}, cb func(formatprocessor.Unit)) {
+func (sf *streamFormat) addReader(r interface{}, cb func(unit.Unit)) {
 	sf.mutex.Lock()
 	defer sf.mutex.Unlock()
 	sf.nonRTSPReaders[r] = cb
@@ -52,7 +53,7 @@ func (sf *streamFormat) removeReader(r interface{}) {
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data formatprocessor.Unit) {
+func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data unit.Unit) {
 	sf.mutex.RLock()
 	defer sf.mutex.RUnlock()
 

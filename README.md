@@ -565,7 +565,7 @@ srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
 
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
-Known clients that can publish with SRT are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
+Known clients that can publish with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### SRT servers
 
@@ -596,7 +596,7 @@ http://localhost:8889/mystream/whip
 
 Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
 
-Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
+Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### WebRTC servers
 
@@ -619,7 +619,7 @@ rtsp://localhost:8554/mystream
 
 The resulting stream will be available in path `/mystream`.
 
-Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
+Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### RTSP cameras and servers
 
@@ -661,7 +661,7 @@ In case authentication is enabled, credentials can be passed to the server by us
 rtmp://localhost/mystream?user=myuser&pass=mypass
 ```
 
-Known clients that can publish with RTMP are [FFmpeg](#ffmpeg), [Gstreamer](#gstreamer), [OBS Studio](#obs-studio).
+Known clients that can publish with RTMP are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
 #### RTMP cameras and servers
 
@@ -717,7 +717,7 @@ paths:
 
 The resulting stream will be available in path `/mypath`.
 
-Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg) and [Gstreamer](#gstreamer).
+Known clients that can publish with WebRTC and WHIP are [FFmpeg](#ffmpeg) and [GStreamer](#gstreamer).
 
 ## Read from the server
 
@@ -842,7 +842,7 @@ If credentials are enabled, append username and password to `streamid`;
 srt://localhost:8890?streamid=publish:mystream:user:pass
 ```
 
-Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
+Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [VLC](#vlc).
 
 #### WebRTC
 
@@ -860,7 +860,7 @@ http://localhost:8889/mystream/whep
 
 Depending on the network it may be difficult to establish a connection between server and clients, see [WebRTC-specific features](#webrtc-specific-features) for remediations.
 
-Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [web browsers](#web-browsers-1).
+Known clients that can read with WebRTC and WHEP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [web browsers](#web-browsers-1).
 
 #### RTSP
 
@@ -870,7 +870,7 @@ RTSP is a protocol that allows to publish and read streams. It supports differen
 rtsp://localhost:8554/mystream
 ```
 
-Known clients that can read with RTSP are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
+Known clients that can read with RTSP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [VLC](#vlc).
 
 ##### Latency
 
@@ -894,7 +894,7 @@ In case authentication is enabled, credentials can be passed to the server by us
 rtmp://localhost/mystream?user=myuser&pass=mypass
 ```
 
-Known clients that can read with RTMP are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1) and [VLC](#vlc).
+Known clients that can read with RTMP are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [VLC](#vlc).
 
 #### HLS
 
@@ -923,7 +923,7 @@ ffmpeg -i rtsp://original-source \
 -f rtsp rtsp://localhost:8554/mystream
 ```
 
-Known clients that can read with HLS are [FFmpeg](#ffmpeg-1), [Gstreamer](#gstreamer-1), [VLC](#vlc) and [web browsers](#web-browsers-1).
+Known clients that can read with HLS are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1), [VLC](#vlc) and [web browsers](#web-browsers-1).
 
 ##### LL-HLS
 

@@ -12,9 +12,9 @@ import (
 	"golang.org/x/net/ipv4"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 const (
@@ -165,8 +165,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: decodeTime(pts),
@@ -184,8 +184,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: decodeTime(pts),
@@ -207,8 +207,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: decodeTime(pts),
@@ -227,8 +227,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:     decodeTime(pts),
@@ -244,8 +244,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 			}
 
 			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG1Audio{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Audio{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:    decodeTime(pts),

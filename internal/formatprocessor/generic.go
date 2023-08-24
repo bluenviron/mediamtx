@@ -8,12 +8,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitGeneric is a generic data unit.
-type UnitGeneric struct {
-	BaseUnit
-}
 
 type formatProcessorGeneric struct {
 	udpMaxPayloadSize int
@@ -34,8 +30,8 @@ func newGeneric(
 	}, nil
 }
 
-func (t *formatProcessorGeneric) Process(unit Unit, _ bool) error {
-	tunit := unit.(*UnitGeneric)
+func (t *formatProcessorGeneric) Process(u unit.Unit, _ bool) error {
+	tunit := u.(*unit.Generic)
 
 	pkt := tunit.RTPPackets[0]
 
@@ -51,9 +47,9 @@ func (t *formatProcessorGeneric) Process(unit Unit, _ bool) error {
 	return nil
 }
 
-func (t *formatProcessorGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitGeneric{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.Generic{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},

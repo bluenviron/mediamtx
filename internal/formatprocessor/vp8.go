@@ -9,14 +9,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitVP8 is a VP8 data unit.
-type UnitVP8 struct {
-	BaseUnit
-	PTS   time.Duration
-	Frame []byte
-}
 
 type formatProcessorVP8 struct {
 	udpMaxPayloadSize int
@@ -54,8 +48,8 @@ func (t *formatProcessorVP8) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitVP8)
+func (t *formatProcessorVP8) Process(y unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := y.(*unit.VP8)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -105,9 +99,9 @@ func (t *formatProcessorVP8) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	return nil
 }
 
-func (t *formatProcessorVP8) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitVP8{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorVP8) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.VP8{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},

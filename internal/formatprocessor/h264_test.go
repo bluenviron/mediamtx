@@ -8,6 +8,8 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func TestH264DynamicParams(t *testing.T) {
@@ -25,8 +27,8 @@ func TestH264DynamicParams(t *testing.T) {
 	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
 
-	data := &UnitH264{
-		BaseUnit: BaseUnit{
+	data := &unit.H264{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}
@@ -40,8 +42,8 @@ func TestH264DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
 	require.NoError(t, err)
 
-	err = p.Process(&UnitH264{
-		BaseUnit: BaseUnit{
+	err = p.Process(&unit.H264{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
@@ -50,8 +52,8 @@ func TestH264DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
 	require.NoError(t, err)
 
-	err = p.Process(&UnitH264{
-		BaseUnit: BaseUnit{
+	err = p.Process(&unit.H264{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}, false)
@@ -63,8 +65,8 @@ func TestH264DynamicParams(t *testing.T) {
 	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
 	require.NoError(t, err)
 
-	data = &UnitH264{
-		BaseUnit: BaseUnit{
+	data = &unit.H264{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkts[0]},
 		},
 	}
@@ -129,8 +131,8 @@ func TestH264OversizedPackets(t *testing.T) {
 			Payload: []byte{0x1c, 0b01000000, 0x01, 0x02, 0x03, 0x04},
 		},
 	} {
-		data := &UnitH264{
-			BaseUnit: BaseUnit{
+		data := &unit.H264{
+			Base: unit.Base{
 				RTPPackets: []*rtp.Packet{pkt},
 			},
 		}
@@ -192,7 +194,7 @@ func TestH264EmptyPacket(t *testing.T) {
 	p, err := New(1472, forma, true, nil)
 	require.NoError(t, err)
 
-	unit := &UnitH264{
+	unit := &unit.H264{
 		AU: [][]byte{
 			{0x07, 0x01, 0x02, 0x03}, // SPS
 			{0x08, 0x01, 0x02},       // PPS

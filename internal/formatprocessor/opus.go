@@ -10,14 +10,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitOpus is a Opus data unit.
-type UnitOpus struct {
-	BaseUnit
-	PTS     time.Duration
-	Packets [][]byte
-}
 
 type formatProcessorOpus struct {
 	udpMaxPayloadSize int
@@ -56,8 +50,8 @@ func (t *formatProcessorOpus) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitOpus)
+func (t *formatProcessorOpus) Process(u unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := u.(*unit.Opus)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -111,9 +105,9 @@ func (t *formatProcessorOpus) Process(unit Unit, hasNonRTSPReaders bool) error {
 	return nil
 }
 
-func (t *formatProcessorOpus) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitOpus{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorOpus) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.Opus{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},

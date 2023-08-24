@@ -9,14 +9,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitAV1 is an AV1 data unit.
-type UnitAV1 struct {
-	BaseUnit
-	PTS time.Duration
-	TU  [][]byte
-}
 
 type formatProcessorAV1 struct {
 	udpMaxPayloadSize int
@@ -56,8 +50,8 @@ func (t *formatProcessorAV1) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitAV1)
+func (t *formatProcessorAV1) Process(u unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := u.(*unit.AV1)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -108,9 +102,9 @@ func (t *formatProcessorAV1) Process(unit Unit, hasNonRTSPReaders bool) error { 
 	return nil
 }
 
-func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitAV1{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.AV1{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},

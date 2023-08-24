@@ -11,9 +11,9 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type hlsSourceParent interface {
@@ -82,8 +82,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 
 					c.OnDataAV1(track, func(pts time.Duration, tu [][]byte) {
-						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitAV1{
-							BaseUnit: formatprocessor.BaseUnit{
+						stream.WriteUnit(medi, medi.Formats[0], &unit.AV1{
+							Base: unit.Base{
 								NTP: time.Now(),
 							},
 							PTS: pts,
@@ -98,8 +98,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 
 					c.OnDataVP9(track, func(pts time.Duration, frame []byte) {
-						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitVP9{
-							BaseUnit: formatprocessor.BaseUnit{
+						stream.WriteUnit(medi, medi.Formats[0], &unit.VP9{
+							Base: unit.Base{
 								NTP: time.Now(),
 							},
 							PTS:   pts,
@@ -119,8 +119,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 
 					c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
-							BaseUnit: formatprocessor.BaseUnit{
+						stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
+							Base: unit.Base{
 								NTP: time.Now(),
 							},
 							PTS: pts,
@@ -140,8 +140,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 
 					c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
-						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
-							BaseUnit: formatprocessor.BaseUnit{
+						stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+							Base: unit.Base{
 								NTP: time.Now(),
 							},
 							PTS: pts,
@@ -162,8 +162,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 
 					c.OnDataMPEG4Audio(track, func(pts time.Duration, aus [][]byte) {
-						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
-							BaseUnit: formatprocessor.BaseUnit{
+						stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
+							Base: unit.Base{
 								NTP: time.Now(),
 							},
 							PTS: pts,
@@ -181,8 +181,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 					}
 
 					c.OnDataOpus(track, func(pts time.Duration, packets [][]byte) {
-						stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
-							BaseUnit: formatprocessor.BaseUnit{
+						stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
+							Base: unit.Base{
 								NTP: time.Now(),
 							},
 							PTS:     pts,

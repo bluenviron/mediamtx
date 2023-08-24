@@ -9,14 +9,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitMPEG4AudioGeneric is a MPEG-4 Audio data unit.
-type UnitMPEG4AudioGeneric struct {
-	BaseUnit
-	PTS time.Duration
-	AUs [][]byte
-}
 
 type formatProcessorMPEG4AudioGeneric struct {
 	udpMaxPayloadSize int
@@ -58,8 +52,8 @@ func (t *formatProcessorMPEG4AudioGeneric) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG4AudioGeneric) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitMPEG4AudioGeneric)
+func (t *formatProcessorMPEG4AudioGeneric) Process(u unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := u.(*unit.MPEG4AudioGeneric)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -109,9 +103,9 @@ func (t *formatProcessorMPEG4AudioGeneric) Process(unit Unit, hasNonRTSPReaders 
 	return nil
 }
 
-func (t *formatProcessorMPEG4AudioGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitMPEG4AudioGeneric{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorMPEG4AudioGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.MPEG4AudioGeneric{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},

@@ -8,15 +8,16 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 // Processor cleans and normalizes streams.
 type Processor interface {
 	// cleans and normalizes a data unit.
-	Process(Unit, bool) error
+	Process(unit.Unit, bool) error
 
 	// wraps a RTP packet into a Unit.
-	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit
+	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit
 }
 
 // New allocates a Processor.

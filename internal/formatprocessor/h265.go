@@ -10,6 +10,7 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 // extract VPS, SPS and PPS without decoding RTP packets
@@ -74,13 +75,6 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 	default:
 		return nil, nil, nil
 	}
-}
-
-// UnitH265 is a H265 data unit.
-type UnitH265 struct {
-	BaseUnit
-	PTS time.Duration
-	AU  [][]byte
 }
 
 type formatProcessorH265 struct {
@@ -252,8 +246,8 @@ func (t *formatProcessorH265) remuxAccessUnit(au [][]byte) [][]byte {
 	return filteredNALUs
 }
 
-func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitH265)
+func (t *formatProcessorH265) Process(u unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := u.(*unit.H265)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -326,9 +320,9 @@ func (t *formatProcessorH265) Process(unit Unit, hasNonRTSPReaders bool) error {
 	return nil
 }
 
-func (t *formatProcessorH265) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitH265{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorH265) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.H265{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},

@@ -6,6 +6,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/formats"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func TestGenericRemovePadding(t *testing.T) {
@@ -33,8 +35,8 @@ func TestGenericRemovePadding(t *testing.T) {
 		PaddingSize: 20,
 	}
 
-	err = p.Process(&UnitGeneric{
-		BaseUnit: BaseUnit{
+	err = p.Process(&unit.Generic{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 		},
 	}, false)

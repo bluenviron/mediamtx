@@ -21,9 +21,9 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func durationGoToMPEGTS(v time.Duration) int64 {
@@ -260,8 +260,8 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 			}
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: decodeTime(pts),
@@ -279,8 +279,8 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 			}
 
 			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH265{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: decodeTime(pts),
@@ -302,8 +302,8 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 			}
 
 			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG4AudioGeneric{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: decodeTime(pts),
@@ -322,8 +322,8 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 			}
 
 			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitOpus{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:     decodeTime(pts),
@@ -339,8 +339,8 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 			}
 
 			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitMPEG1Audio{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Audio{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:    decodeTime(pts),
@@ -459,9 +459,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				randomAccessReceived := false
 				dtsExtractor := h265.NewDTSExtractor()
 
-				res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+				res.stream.AddReader(c, medi, format, func(u unit.Unit) {
 					ringBuffer.Push(func() error {
-						tunit := unit.(*formatprocessor.UnitH265)
+						tunit := u.(*unit.H265)
 						if tunit.AU == nil {
 							return nil
 						}
@@ -523,9 +523,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				firstIDRReceived := false
 				dtsExtractor := h264.NewDTSExtractor()
 
-				res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+				res.stream.AddReader(c, medi, format, func(u unit.Unit) {
 					ringBuffer.Push(func() error {
-						tunit := unit.(*formatprocessor.UnitH264)
+						tunit := u.(*unit.H264)
 						if tunit.AU == nil {
 							return nil
 						}
@@ -579,9 +579,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				var startPTS time.Duration
 				startPTSFilled := false
 
-				res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+				res.stream.AddReader(c, medi, format, func(u unit.Unit) {
 					ringBuffer.Push(func() error {
-						tunit := unit.(*formatprocessor.UnitMPEG4AudioGeneric)
+						tunit := u.(*unit.MPEG4AudioGeneric)
 						if tunit.AUs == nil {
 							return nil
 						}
@@ -619,9 +619,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					var startPTS time.Duration
 					startPTSFilled := false
 
-					res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+					res.stream.AddReader(c, medi, format, func(u unit.Unit) {
 						ringBuffer.Push(func() error {
-							tunit := unit.(*formatprocessor.UnitMPEG4AudioLATM)
+							tunit := u.(*unit.MPEG4AudioLATM)
 							if tunit.AU == nil {
 								return nil
 							}
@@ -662,9 +662,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				var startPTS time.Duration
 				startPTSFilled := false
 
-				res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+				res.stream.AddReader(c, medi, format, func(u unit.Unit) {
 					ringBuffer.Push(func() error {
-						tunit := unit.(*formatprocessor.UnitOpus)
+						tunit := u.(*unit.Opus)
 						if tunit.Packets == nil {
 							return nil
 						}
@@ -697,9 +697,9 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				var startPTS time.Duration
 				startPTSFilled := false
 
-				res.stream.AddReader(c, medi, format, func(unit formatprocessor.Unit) {
+				res.stream.AddReader(c, medi, format, func(u unit.Unit) {
 					ringBuffer.Push(func() error {
-						tunit := unit.(*formatprocessor.UnitMPEG1Audio)
+						tunit := u.(*unit.MPEG1Audio)
 						if tunit.Frames == nil {
 							return nil
 						}

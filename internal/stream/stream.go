@@ -9,8 +9,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 // Stream is a media stream.
@@ -64,7 +64,7 @@ func (s *Stream) RTSPStream() *gortsplib.ServerStream {
 }
 
 // AddReader adds a reader.
-func (s *Stream) AddReader(r interface{}, medi *media.Media, forma formats.Format, cb func(formatprocessor.Unit)) {
+func (s *Stream) AddReader(r interface{}, medi *media.Media, forma formats.Format, cb func(unit.Unit)) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.addReader(r, cb)
@@ -80,7 +80,7 @@ func (s *Stream) RemoveReader(r interface{}) {
 }
 
 // WriteUnit writes a Unit.
-func (s *Stream) WriteUnit(medi *media.Media, forma formats.Format, data formatprocessor.Unit) {
+func (s *Stream) WriteUnit(medi *media.Media, forma formats.Format, data unit.Unit) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.writeUnit(s, medi, data)

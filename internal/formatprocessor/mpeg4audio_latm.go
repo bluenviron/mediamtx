@@ -9,14 +9,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitMPEG4AudioLATM is a MPEG-4 Audio data unit.
-type UnitMPEG4AudioLATM struct {
-	BaseUnit
-	PTS time.Duration
-	AU  []byte
-}
 
 type formatProcessorMPEG4AudioLATM struct {
 	udpMaxPayloadSize int
@@ -54,8 +48,8 @@ func (t *formatProcessorMPEG4AudioLATM) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitMPEG4AudioLATM)
+func (t *formatProcessorMPEG4AudioLATM) Process(u unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := u.(*unit.MPEG4AudioLATM)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -105,9 +99,9 @@ func (t *formatProcessorMPEG4AudioLATM) Process(unit Unit, hasNonRTSPReaders boo
 	return nil
 }
 
-func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitMPEG4AudioLATM{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.MPEG4AudioLATM{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},
