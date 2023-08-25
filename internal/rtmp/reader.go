@@ -21,6 +21,9 @@ import (
 // OnDataAV1Func is the prototype of the callback passed to OnDataAV1().
 type OnDataAV1Func func(pts time.Duration, tu [][]byte)
 
+// OnDataVP9Func is the prototype of the callback passed to OnDataVP9().
+type OnDataVP9Func func(pts time.Duration, frame []byte)
+
 // OnDataH26xFunc is the prototype of the callback passed to OnDataH26x().
 type OnDataH26xFunc func(pts time.Duration, au [][]byte)
 
@@ -252,7 +255,13 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 					videoTrack = &formats.AV1{}
 
 				default: // VP9
-					return nil, nil, fmt.Errorf("VP9 is not supported yet")
+					var vpcc mp4.VpcC
+					_, err := mp4.Unmarshal(bytes.NewReader(tmsg.Config), uint64(len(tmsg.Config)), &vpcc, mp4.Context{})
+					if err != nil {
+						return nil, nil, fmt.Errorf("invalid VP9 configuration: %v", err)
+					}
+
+					videoTrack = &formats.VP9{}
 				}
 			}
 
@@ -444,6 +453,16 @@ func (r *Reader) OnDataAV1(cb OnDataAV1Func) {
 			}
 
 			cb(msg.DTS, tu)
+		}
+		return nil
+	}
+}
+
+// OnDataVP9 sets a callback that is called when VP9 data is received.
+func (r *Reader) OnDataVP9(cb OnDataVP9Func) {
+	r.onDataVideo = func(msg message.Message) error {
+		if msg, ok := msg.(*message.ExtendedCodedFrames); ok {
+			cb(msg.DTS, msg.Payload)
 		}
 		return nil
 	}
