@@ -12,10 +12,10 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type rtmpSourceParent interface {
@@ -126,8 +126,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 		switch videoFormat.(type) {
 		case *formats.H264:
 			mc.OnDataH264(func(pts time.Duration, au [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH264{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(videoMedia, videoFormat, &unit.H264{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: pts,
@@ -150,8 +150,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 		switch audioFormat.(type) {
 		case *formats.MPEG4AudioGeneric:
 			mc.OnDataMPEG4Audio(func(pts time.Duration, au []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG4AudioGeneric{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4AudioGeneric{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: pts,
@@ -161,8 +161,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 
 		case *formats.MPEG1Audio:
 			mc.OnDataMPEG1Audio(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG1Audio{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG1Audio{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:    pts,

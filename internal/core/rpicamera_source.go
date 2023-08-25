@@ -8,10 +8,10 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/media"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/rpicamera"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func paramsFromConf(cnf *conf.PathConf) rpicamera.Params {
@@ -98,8 +98,8 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 			stream = res.stream
 		}
 
-		stream.WriteUnit(medi, medi.Formats[0], &formatprocessor.UnitH264{
-			BaseUnit: formatprocessor.BaseUnit{
+		stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
+			Base: unit.Base{
 				NTP: time.Now(),
 			},
 			PTS: dts,

@@ -20,10 +20,10 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 const (
@@ -338,9 +338,9 @@ func (c *rtmpConn) setupVideo(
 		var startPTS time.Duration
 		var videoDTSExtractor *h264.DTSExtractor
 
-		stream.AddReader(c, videoMedia, videoFormatH264, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, videoMedia, videoFormatH264, func(u unit.Unit) {
 			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitH264)
+				tunit := u.(*unit.H264)
 
 				if tunit.AU == nil {
 					return nil
@@ -427,9 +427,9 @@ func (c *rtmpConn) setupAudio(
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(c, audioMedia, audioFormatMPEG4Generic, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG4Generic, func(u unit.Unit) {
 			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG4AudioGeneric)
+				tunit := u.(*unit.MPEG4AudioGeneric)
 
 				if tunit.AUs == nil {
 					return nil
@@ -481,9 +481,9 @@ func (c *rtmpConn) setupAudio(
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(c, audioMedia, audioFormatMPEG4AudioLATM, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) {
 			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG4AudioLATM)
+				tunit := u.(*unit.MPEG4AudioLATM)
 
 				if tunit.AU == nil {
 					return nil
@@ -521,9 +521,9 @@ func (c *rtmpConn) setupAudio(
 		startPTSFilled := false
 		var startPTS time.Duration
 
-		stream.AddReader(c, audioMedia, audioFormatMPEG1, func(unit formatprocessor.Unit) {
+		stream.AddReader(c, audioMedia, audioFormatMPEG1, func(u unit.Unit) {
 			ringBuffer.Push(func() error {
-				tunit := unit.(*formatprocessor.UnitMPEG1Audio)
+				tunit := u.(*unit.MPEG1Audio)
 
 				if !startPTSFilled {
 					startPTSFilled = true
@@ -624,8 +624,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 		switch videoFormat.(type) {
 		case *formats.AV1:
 			r.OnDataAV1(func(pts time.Duration, tu [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitAV1{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(videoMedia, videoFormat, &unit.AV1{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: pts,
@@ -635,8 +635,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 
 		case *formats.VP9:
 			r.OnDataVP9(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitVP9{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(videoMedia, videoFormat, &unit.VP9{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:   pts,
@@ -646,8 +646,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 
 		case *formats.H265:
 			r.OnDataH265(func(pts time.Duration, au [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH265{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(videoMedia, videoFormat, &unit.H265{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: pts,
@@ -657,8 +657,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 
 		case *formats.H264:
 			r.OnDataH264(func(pts time.Duration, au [][]byte) {
-				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH264{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(videoMedia, videoFormat, &unit.H264{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: pts,
@@ -681,8 +681,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 		switch audioFormat.(type) {
 		case *formats.MPEG4AudioGeneric:
 			r.OnDataMPEG4Audio(func(pts time.Duration, au []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG4AudioGeneric{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4AudioGeneric{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS: pts,
@@ -692,8 +692,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 
 		case *formats.MPEG1Audio:
 			r.OnDataMPEG1Audio(func(pts time.Duration, frame []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &formatprocessor.UnitMPEG1Audio{
-					BaseUnit: formatprocessor.BaseUnit{
+				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG1Audio{
+					Base: unit.Base{
 						NTP: time.Now(),
 					},
 					PTS:    pts,

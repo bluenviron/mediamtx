@@ -14,8 +14,8 @@ import (
 	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
 	"github.com/pion/webrtc/v3"
 
-	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type webRTCOutgoingTrack struct {
@@ -23,7 +23,7 @@ type webRTCOutgoingTrack struct {
 	media  *media.Media
 	format formats.Format
 	track  *webrtc.TrackLocalStaticRTP
-	cb     func(formatprocessor.Unit) error
+	cb     func(unit.Unit) error
 }
 
 func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, error) {
@@ -56,8 +56,8 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  videoMedia,
 			format: av1Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				tunit := unit.(*formatprocessor.UnitAV1)
+			cb: func(u unit.Unit) error {
+				tunit := u.(*unit.AV1)
 
 				if tunit.TU == nil {
 					return nil
@@ -106,8 +106,8 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  videoMedia,
 			format: vp9Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				tunit := unit.(*formatprocessor.UnitVP9)
+			cb: func(u unit.Unit) error {
+				tunit := u.(*unit.VP9)
 
 				if tunit.Frame == nil {
 					return nil
@@ -156,8 +156,8 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  videoMedia,
 			format: vp8Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				tunit := unit.(*formatprocessor.UnitVP8)
+			cb: func(u unit.Unit) error {
+				tunit := u.(*unit.VP8)
 
 				if tunit.Frame == nil {
 					return nil
@@ -209,8 +209,8 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  videoMedia,
 			format: h264Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				tunit := unit.(*formatprocessor.UnitH264)
+			cb: func(u unit.Unit) error {
+				tunit := u.(*unit.H264)
 
 				if tunit.AU == nil {
 					return nil
@@ -265,8 +265,8 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  audioMedia,
 			format: opusFormat,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				for _, pkt := range unit.GetRTPPackets() {
+			cb: func(u unit.Unit) error {
+				for _, pkt := range u.GetRTPPackets() {
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -295,8 +295,8 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  audioMedia,
 			format: g722Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				for _, pkt := range unit.GetRTPPackets() {
+			cb: func(u unit.Unit) error {
+				for _, pkt := range u.GetRTPPackets() {
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -332,8 +332,8 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 			media:  audioMedia,
 			format: g711Format,
 			track:  webRTCTrak,
-			cb: func(unit formatprocessor.Unit) error {
-				for _, pkt := range unit.GetRTPPackets() {
+			cb: func(u unit.Unit) error {
+				for _, pkt := range u.GetRTPPackets() {
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -363,9 +363,9 @@ func (t *webRTCOutgoingTrack) start(
 		}
 	}()
 
-	stream.AddReader(r, t.media, t.format, func(unit formatprocessor.Unit) {
+	stream.AddReader(r, t.media, t.format, func(u unit.Unit) {
 		ringBuffer.Push(func() {
-			err := t.cb(unit)
+			err := t.cb(u)
 			if err != nil {
 				select {
 				case writeError <- err:

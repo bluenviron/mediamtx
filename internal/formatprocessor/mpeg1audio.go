@@ -9,14 +9,8 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-// UnitMPEG1Audio is a MPEG-1/2 Audio data unit.
-type UnitMPEG1Audio struct {
-	BaseUnit
-	PTS    time.Duration
-	Frames [][]byte
-}
 
 type formatProcessorMPEG1Audio struct {
 	udpMaxPayloadSize int
@@ -53,8 +47,8 @@ func (t *formatProcessorMPEG1Audio) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG1Audio) Process(unit Unit, hasNonRTSPReaders bool) error { //nolint:dupl
-	tunit := unit.(*UnitMPEG1Audio)
+func (t *formatProcessorMPEG1Audio) Process(u unit.Unit, hasNonRTSPReaders bool) error { //nolint:dupl
+	tunit := u.(*unit.MPEG1Audio)
 
 	if tunit.RTPPackets != nil {
 		pkt := tunit.RTPPackets[0]
@@ -104,9 +98,9 @@ func (t *formatProcessorMPEG1Audio) Process(unit Unit, hasNonRTSPReaders bool) e
 	return nil
 }
 
-func (t *formatProcessorMPEG1Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) Unit {
-	return &UnitMPEG1Audio{
-		BaseUnit: BaseUnit{
+func (t *formatProcessorMPEG1Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+	return &unit.MPEG1Audio{
+		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
 		},
