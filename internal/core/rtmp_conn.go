@@ -633,6 +633,17 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				})
 			})
 
+		case *formats.VP9:
+			r.OnDataVP9(func(pts time.Duration, frame []byte) {
+				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitVP9{
+					BaseUnit: formatprocessor.BaseUnit{
+						NTP: time.Now(),
+					},
+					PTS:   pts,
+					Frame: frame,
+				})
+			})
+
 		case *formats.H265:
 			r.OnDataH265(func(pts time.Duration, au [][]byte) {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH265{
@@ -654,6 +665,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 					AU:  au,
 				})
 			})
+
+		default:
+			return fmt.Errorf("unsupported video codec: %T", videoFormat)
 		}
 	}
 
@@ -686,6 +700,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 					Frames: [][]byte{frame},
 				})
 			})
+
+		default:
+			return fmt.Errorf("unsupported audio codec: %T", audioFormat)
 		}
 	}
 

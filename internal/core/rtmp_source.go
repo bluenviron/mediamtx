@@ -113,11 +113,6 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 
 	videoFormat, audioFormat := mc.Tracks()
 
-	switch videoFormat.(type) {
-	case *formats.H265, *formats.AV1:
-		return fmt.Errorf("proxying H265 or AV1 tracks with RTMP is not supported")
-	}
-
 	var medias media.Medias
 	var stream *stream.Stream
 
@@ -128,7 +123,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 		}
 		medias = append(medias, videoMedia)
 
-		if _, ok := videoFormat.(*formats.H264); ok {
+		switch videoFormat.(type) {
+		case *formats.H264:
 			mc.OnDataH264(func(pts time.Duration, au [][]byte) {
 				stream.WriteUnit(videoMedia, videoFormat, &formatprocessor.UnitH264{
 					BaseUnit: formatprocessor.BaseUnit{
@@ -138,6 +134,9 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 					AU:  au,
 				})
 			})
+
+		default:
+			return fmt.Errorf("unsupported video codec: %T", videoFormat)
 		}
 	}
 
@@ -170,6 +169,9 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 					Frames: [][]byte{frame},
 				})
 			})
+
+		default:
+			return fmt.Errorf("unsupported audio codec: %T", audioFormat)
 		}
 	}
 
