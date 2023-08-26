@@ -1,7 +1,6 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -11,7 +10,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
-	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -350,11 +348,9 @@ func newWebRTCOutgoingTrackAudio(desc *description.Session) (*webRTCOutgoingTrac
 }
 
 func (t *webRTCOutgoingTrack) start(
-	ctx context.Context,
 	r reader,
 	stream *stream.Stream,
-	ringBuffer *ringbuffer.RingBuffer,
-	writeError chan error,
+	writer *asyncWriter,
 ) {
 	// read incoming RTCP packets to make interceptors work
 	go func() {
@@ -368,14 +364,8 @@ func (t *webRTCOutgoingTrack) start(
 	}()
 
 	stream.AddReader(r, t.media, t.format, func(u unit.Unit) {
-		ringBuffer.Push(func() {
-			err := t.cb(u)
-			if err != nil {
-				select {
-				case writeError <- err:
-				case <-ctx.Done():
-				}
-			}
+		writer.push(func() error {
+			return t.cb(u)
 		})
 	})
 }

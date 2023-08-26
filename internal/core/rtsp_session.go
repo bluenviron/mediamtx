@@ -40,15 +40,17 @@ type rtspSession struct {
 	pathManager     rtspSessionPathManager
 	parent          rtspSessionParent
 
-	uuid      uuid.UUID
-	created   time.Time
-	path      *path
-	stream    *stream.Stream
-	onReadCmd *externalcmd.Cmd // read
-	mutex     sync.Mutex
-	state     gortsplib.ServerSessionState
-	transport *gortsplib.Transport
-	pathName  string
+	uuid                 uuid.UUID
+	created              time.Time
+	path                 *path
+	stream               *stream.Stream
+	onReadCmd            *externalcmd.Cmd // read
+	mutex                sync.Mutex
+	state                gortsplib.ServerSessionState
+	transport            *gortsplib.Transport
+	pathName             string
+	prevWarnPrinted      time.Time
+	prevWarnPrintedMutex sync.Mutex
 }
 
 func newRTSPSession(
@@ -406,6 +408,17 @@ func (s *rtspSession) onPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) 
 // onDecodeError is called by rtspServer.
 func (s *rtspSession) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
 	s.Log(logger.Warn, ctx.Error.Error())
+}
+
+// onStreamWriteError is called by rtspServer.
+func (s *rtspSession) onStreamWriteError(ctx *gortsplib.ServerHandlerOnStreamWriteErrorCtx) {
+	now := time.Now()
+	s.prevWarnPrintedMutex.Lock()
+	if now.Sub(s.prevWarnPrinted) >= minIntervalBetweenWarnings {
+		s.prevWarnPrinted = now
+		s.Log(logger.Warn, ctx.Error.Error())
+	}
+	s.prevWarnPrintedMutex.Unlock()
 }
 
 func (s *rtspSession) apiItem() *apiRTSPSession {

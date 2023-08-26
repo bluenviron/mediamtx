@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
@@ -241,11 +240,7 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.pathName = pathName
 	c.mutex.Unlock()
 
-	ringBuffer, _ := ringbuffer.New(uint64(c.writeQueueSize))
-	go func() {
-		<-c.ctx.Done()
-		ringBuffer.Close()
-	}()
+	writer := newAsyncWriter(c.writeQueueSize, c)
 
 	var medias []*description.Media
 	var w *rtmp.Writer
@@ -253,7 +248,7 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	videoMedia, videoFormat := c.setupVideo(
 		&w,
 		res.stream,
-		ringBuffer)
+		writer)
 	if videoMedia != nil {
 		medias = append(medias, videoMedia)
 	}
@@ -261,7 +256,7 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	audioMedia, audioFormat := c.setupAudio(
 		&w,
 		res.stream,
-		ringBuffer)
+		writer)
 	if audioFormat != nil {
 		medias = append(medias, audioMedia)
 	}
@@ -303,23 +298,22 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	// disable read deadline
 	c.nconn.SetReadDeadline(time.Time{})
 
-	for {
-		item, ok := ringBuffer.Pull()
-		if !ok {
-			return fmt.Errorf("terminated")
-		}
+	writer.start()
 
-		err := item.(func() error)()
-		if err != nil {
-			return err
-		}
+	select {
+	case <-c.ctx.Done():
+		writer.stop()
+		return fmt.Errorf("terminated")
+
+	case err := <-writer.error():
+		return err
 	}
 }
 
 func (c *rtmpConn) setupVideo(
 	w **rtmp.Writer,
 	stream *stream.Stream,
-	ringBuffer *ringbuffer.RingBuffer,
+	writer *asyncWriter,
 ) (*description.Media, format.Format) {
 	var videoFormatH264 *format.H264
 	videoMedia := stream.Desc().FindFormat(&videoFormatH264)
@@ -328,7 +322,7 @@ func (c *rtmpConn) setupVideo(
 		var videoDTSExtractor *h264.DTSExtractor
 
 		stream.AddReader(c, videoMedia, videoFormatH264, func(u unit.Unit) {
-			ringBuffer.Push(func() error {
+			writer.push(func() error {
 				tunit := u.(*unit.H264)
 
 				if tunit.AU == nil {
@@ -392,14 +386,14 @@ func (c *rtmpConn) setupVideo(
 func (c *rtmpConn) setupAudio(
 	w **rtmp.Writer,
 	stream *stream.Stream,
-	ringBuffer *ringbuffer.RingBuffer,
+	writer *asyncWriter,
 ) (*description.Media, format.Format) {
 	var audioFormatMPEG4Generic *format.MPEG4AudioGeneric
 	audioMedia := stream.Desc().FindFormat(&audioFormatMPEG4Generic)
 
 	if audioMedia != nil {
 		stream.AddReader(c, audioMedia, audioFormatMPEG4Generic, func(u unit.Unit) {
-			ringBuffer.Push(func() error {
+			writer.push(func() error {
 				tunit := u.(*unit.MPEG4AudioGeneric)
 
 				if tunit.AUs == nil {
@@ -435,7 +429,7 @@ func (c *rtmpConn) setupAudio(
 		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
 		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
 		stream.AddReader(c, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) {
-			ringBuffer.Push(func() error {
+			writer.push(func() error {
 				tunit := u.(*unit.MPEG4AudioLATM)
 
 				if tunit.AU == nil {
@@ -457,7 +451,7 @@ func (c *rtmpConn) setupAudio(
 
 	if audioMedia != nil {
 		stream.AddReader(c, audioMedia, audioFormatMPEG1, func(u unit.Unit) {
-			ringBuffer.Push(func() error {
+			writer.push(func() error {
 				tunit := u.(*unit.MPEG1Audio)
 
 				pts := tunit.PTS
