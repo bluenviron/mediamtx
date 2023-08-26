@@ -9,7 +9,7 @@ require (
 	github.com/bluenviron/gohlslib v1.0.0
 	github.com/bluenviron/gortsplib/v4 v4.0.0-20230826160945-3bdae4ed4630
 	github.com/bluenviron/mediacommon v1.0.0
-	github.com/datarhei/gosrt v0.5.3
+	github.com/datarhei/gosrt v0.5.4
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.1
@@ -73,5 +73,3 @@ require (
 )
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
-
-replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.0.0-20230803201410-b26769a3a222
