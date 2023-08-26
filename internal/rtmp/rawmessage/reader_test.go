@@ -235,7 +235,9 @@ func TestReaderAcknowledge(t *testing.T) {
 				r.lastAckCount = 4294967096
 			}
 
-			r.SetChunkSize(65536)
+			err := r.SetChunkSize(65536)
+			require.NoError(t, err)
+
 			r.SetWindowAckSize(100)
 
 			buf2, err := chunk.Chunk0{
@@ -255,4 +257,20 @@ func TestReaderAcknowledge(t *testing.T) {
 			<-onAckCalled
 		})
 	}
+}
+
+func FuzzReader(f *testing.F) {
+	f.Fuzz(func(t *testing.T, b []byte) {
+		br := bytecounter.NewReader(bytes.NewReader(b))
+		r := NewReader(br, br, func(count uint32) error {
+			return nil
+		})
+
+		for {
+			_, err := r.Read()
+			if err != nil {
+				break
+			}
+		}
+	})
 }

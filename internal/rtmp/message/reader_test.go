@@ -290,3 +290,16 @@ func TestReader(t *testing.T) {
 		})
 	}
 }
+
+func FuzzReader(f *testing.F) {
+	f.Add([]byte{
+		0x04, 0x00, 0x3a, 0xfc, 0x00, 0x00, 0x08, 0x09,
+		0x01, 0x00, 0x00, 0x00, 0x88, 0x68, 0x76, 0x63,
+		0x31, 0x01, 0x02, 0x03,
+	})
+	f.Fuzz(func(t *testing.T, b []byte) {
+		bc := bytecounter.NewReader(bytes.NewReader(b))
+		r := NewReader(bc, bc, nil)
+		r.Read() //nolint:errcheck
+	})
+}

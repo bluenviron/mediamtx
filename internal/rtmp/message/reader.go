@@ -145,7 +145,10 @@ func (r *Reader) Read() (Message, error) {
 
 	switch tmsg := msg.(type) {
 	case *SetChunkSize:
-		r.r.SetChunkSize(tmsg.Value)
+		err := r.r.SetChunkSize(tmsg.Value)
+		if err != nil {
+			return nil, err
+		}
 
 	case *SetWindowAckSize:
 		r.r.SetWindowAckSize(tmsg.Value)

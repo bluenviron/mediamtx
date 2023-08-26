@@ -13,14 +13,30 @@ import (
 
 var errMoreChunksNeeded = errors.New("more chunks are needed")
 
+const (
+	maxBodySize = 10 * 1024 * 1024
+)
+
+func joinFragments(fragments [][]byte, size uint32) []byte {
+	ret := make([]byte, size)
+	n := 0
+	for _, p := range fragments {
+		n += copy(ret[n:], p)
+	}
+	return ret
+}
+
 type readerChunkStream struct {
-	mr                 *Reader
-	curTimestamp       *uint32
-	curType            *uint8
-	curMessageStreamID *uint32
-	curBodyLen         *uint32
-	curBody            []byte
-	curTimestampDelta  *uint32
+	mr                         *Reader
+	curTimestamp               uint32
+	curTimestampAvailable      bool
+	curType                    uint8
+	curMessageStreamID         uint32
+	curBodyLen                 uint32
+	curBodyFragments           [][]byte
+	curBodyRecv                uint32
+	curTimestampDelta          uint32
+	curTimestampDeltaAvailable bool
 }
 
 func (rc *readerChunkStream) readChunk(c chunk.Chunk, chunkBodySize uint32) error {
@@ -50,7 +66,7 @@ func (rc *readerChunkStream) readChunk(c chunk.Chunk, chunkBodySize uint32) erro
 func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 	switch typ {
 	case 0:
-		if rc.curBody != nil {
+		if rc.curBodyRecv != 0 {
 			return nil, fmt.Errorf("received type 0 chunk but expected type 3 chunk")
 		}
 
@@ -59,18 +75,22 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, err
 		}
 
-		v1 := rc.mr.c0.MessageStreamID
-		rc.curMessageStreamID = &v1
-		v2 := rc.mr.c0.Type
-		rc.curType = &v2
-		v3 := rc.mr.c0.Timestamp
-		rc.curTimestamp = &v3
-		v4 := rc.mr.c0.BodyLen
-		rc.curBodyLen = &v4
-		rc.curTimestampDelta = nil
+		rc.curMessageStreamID = rc.mr.c0.MessageStreamID
+		rc.curType = rc.mr.c0.Type
+		rc.curTimestamp = rc.mr.c0.Timestamp
+		rc.curTimestampAvailable = true
+		rc.curTimestampDeltaAvailable = false
+		rc.curBodyLen = rc.mr.c0.BodyLen
 
-		if rc.mr.c0.BodyLen != uint32(len(rc.mr.c0.Body)) {
-			rc.curBody = rc.mr.c0.Body
+		if rc.curBodyLen > maxBodySize {
+			return nil, fmt.Errorf("body size (%d) exceeds maximum (%d)", rc.curBodyLen, maxBodySize)
+		}
+
+		le := uint32(len(rc.mr.c0.Body))
+
+		if rc.mr.c0.BodyLen != le {
+			rc.curBodyFragments = append(rc.curBodyFragments, rc.mr.c0.Body)
+			rc.curBodyRecv = le
 			return nil, errMoreChunksNeeded
 		}
 
@@ -81,11 +101,11 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 		return &rc.mr.msg, nil
 
 	case 1:
-		if rc.curTimestamp == nil {
+		if !rc.curTimestampAvailable {
 			return nil, fmt.Errorf("received type 1 chunk without previous chunk")
 		}
 
-		if rc.curBody != nil {
+		if rc.curBodyRecv != 0 {
 			return nil, fmt.Errorf("received type 1 chunk but expected type 3 chunk")
 		}
 
@@ -94,36 +114,40 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, err
 		}
 
-		v2 := rc.mr.c1.Type
-		rc.curType = &v2
-		v3 := *rc.curTimestamp + rc.mr.c1.TimestampDelta
-		rc.curTimestamp = &v3
-		v4 := rc.mr.c1.BodyLen
-		rc.curBodyLen = &v4
-		v5 := rc.mr.c1.TimestampDelta
-		rc.curTimestampDelta = &v5
+		rc.curType = rc.mr.c1.Type
+		rc.curTimestamp += rc.mr.c1.TimestampDelta
+		rc.curTimestampDelta = rc.mr.c1.TimestampDelta
+		rc.curTimestampDeltaAvailable = true
+		rc.curBodyLen = rc.mr.c1.BodyLen
 
-		if rc.mr.c1.BodyLen != uint32(len(rc.mr.c1.Body)) {
-			rc.curBody = rc.mr.c1.Body
+		if rc.curBodyLen > maxBodySize {
+			return nil, fmt.Errorf("body size (%d) exceeds maximum (%d)", rc.curBodyLen, maxBodySize)
+		}
+
+		le := uint32(len(rc.mr.c1.Body))
+
+		if rc.mr.c1.BodyLen != le {
+			rc.curBodyFragments = append(rc.curBodyFragments, rc.mr.c1.Body)
+			rc.curBodyRecv = le
 			return nil, errMoreChunksNeeded
 		}
 
-		rc.mr.msg.Timestamp = time.Duration(*rc.curTimestamp) * time.Millisecond
+		rc.mr.msg.Timestamp = time.Duration(rc.curTimestamp) * time.Millisecond
 		rc.mr.msg.Type = rc.mr.c1.Type
-		rc.mr.msg.MessageStreamID = *rc.curMessageStreamID
+		rc.mr.msg.MessageStreamID = rc.curMessageStreamID
 		rc.mr.msg.Body = rc.mr.c1.Body
 		return &rc.mr.msg, nil
 
 	case 2:
-		if rc.curTimestamp == nil {
+		if !rc.curTimestampAvailable {
 			return nil, fmt.Errorf("received type 2 chunk without previous chunk")
 		}
 
-		if rc.curBody != nil {
+		if rc.curBodyRecv != 0 {
 			return nil, fmt.Errorf("received type 2 chunk but expected type 3 chunk")
 		}
 
-		chunkBodyLen := *rc.curBodyLen
+		chunkBodyLen := rc.curBodyLen
 		if chunkBodyLen > rc.mr.chunkSize {
 			chunkBodyLen = rc.mr.chunkSize
 		}
@@ -133,29 +157,27 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, err
 		}
 
-		v1 := *rc.curTimestamp + rc.mr.c2.TimestampDelta
-		rc.curTimestamp = &v1
-		v2 := rc.mr.c2.TimestampDelta
-		rc.curTimestampDelta = &v2
+		rc.curTimestamp += rc.mr.c2.TimestampDelta
+		rc.curTimestampDelta = rc.mr.c2.TimestampDelta
+		rc.curTimestampDeltaAvailable = true
 
-		if *rc.curBodyLen != uint32(len(rc.mr.c2.Body)) {
-			rc.curBody = rc.mr.c2.Body
+		le := uint32(len(rc.mr.c2.Body))
+
+		if rc.curBodyLen != le {
+			rc.curBodyFragments = append(rc.curBodyFragments, rc.mr.c2.Body)
+			rc.curBodyRecv = le
 			return nil, errMoreChunksNeeded
 		}
 
-		rc.mr.msg.Timestamp = time.Duration(*rc.curTimestamp) * time.Millisecond
-		rc.mr.msg.Type = *rc.curType
-		rc.mr.msg.MessageStreamID = *rc.curMessageStreamID
+		rc.mr.msg.Timestamp = time.Duration(rc.curTimestamp) * time.Millisecond
+		rc.mr.msg.Type = rc.curType
+		rc.mr.msg.MessageStreamID = rc.curMessageStreamID
 		rc.mr.msg.Body = rc.mr.c2.Body
 		return &rc.mr.msg, nil
 
 	default: // 3
-		if rc.curBody == nil && rc.curTimestampDelta == nil {
-			return nil, fmt.Errorf("received type 3 chunk without previous chunk")
-		}
-
-		if rc.curBody != nil {
-			chunkBodyLen := (*rc.curBodyLen) - uint32(len(rc.curBody))
+		if rc.curBodyRecv != 0 {
+			chunkBodyLen := rc.curBodyLen - rc.curBodyRecv
 			if chunkBodyLen > rc.mr.chunkSize {
 				chunkBodyLen = rc.mr.chunkSize
 			}
@@ -165,23 +187,27 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 				return nil, err
 			}
 
-			rc.curBody = append(rc.curBody, rc.mr.c3.Body...)
+			rc.curBodyFragments = append(rc.curBodyFragments, rc.mr.c3.Body)
+			rc.curBodyRecv += uint32(len(rc.mr.c3.Body))
 
-			if *rc.curBodyLen != uint32(len(rc.curBody)) {
+			if rc.curBodyLen != rc.curBodyRecv {
 				return nil, errMoreChunksNeeded
 			}
 
-			body := rc.curBody
-			rc.curBody = nil
-
-			rc.mr.msg.Timestamp = time.Duration(*rc.curTimestamp) * time.Millisecond
-			rc.mr.msg.Type = *rc.curType
-			rc.mr.msg.MessageStreamID = *rc.curMessageStreamID
-			rc.mr.msg.Body = body
+			rc.mr.msg.Timestamp = time.Duration(rc.curTimestamp) * time.Millisecond
+			rc.mr.msg.Type = rc.curType
+			rc.mr.msg.MessageStreamID = rc.curMessageStreamID
+			rc.mr.msg.Body = joinFragments(rc.curBodyFragments, rc.curBodyRecv)
+			rc.curBodyFragments = rc.curBodyFragments[:0]
+			rc.curBodyRecv = 0
 			return &rc.mr.msg, nil
 		}
 
-		chunkBodyLen := (*rc.curBodyLen)
+		if !rc.curTimestampDeltaAvailable {
+			return nil, fmt.Errorf("received type 3 chunk without previous chunk")
+		}
+
+		chunkBodyLen := rc.curBodyLen
 		if chunkBodyLen > rc.mr.chunkSize {
 			chunkBodyLen = rc.mr.chunkSize
 		}
@@ -191,17 +217,19 @@ func (rc *readerChunkStream) readMessage(typ byte) (*Message, error) {
 			return nil, err
 		}
 
-		v1 := *rc.curTimestamp + *rc.curTimestampDelta
-		rc.curTimestamp = &v1
+		rc.curTimestamp += rc.curTimestampDelta
 
-		if *rc.curBodyLen != uint32(len(rc.mr.c3.Body)) {
-			rc.curBody = rc.mr.c3.Body
+		le := uint32(len(rc.mr.c3.Body))
+
+		if rc.curBodyLen != le {
+			rc.curBodyFragments = append(rc.curBodyFragments, rc.mr.c3.Body)
+			rc.curBodyRecv = le
 			return nil, errMoreChunksNeeded
 		}
 
-		rc.mr.msg.Timestamp = time.Duration(*rc.curTimestamp) * time.Millisecond
-		rc.mr.msg.Type = *rc.curType
-		rc.mr.msg.MessageStreamID = *rc.curMessageStreamID
+		rc.mr.msg.Timestamp = time.Duration(rc.curTimestamp) * time.Millisecond
+		rc.mr.msg.Type = rc.curType
+		rc.mr.msg.MessageStreamID = rc.curMessageStreamID
 		rc.mr.msg.Body = rc.mr.c3.Body
 		return &rc.mr.msg, nil
 	}
@@ -240,8 +268,13 @@ func NewReader(
 }
 
 // SetChunkSize sets the maximum chunk size.
-func (r *Reader) SetChunkSize(v uint32) {
+func (r *Reader) SetChunkSize(v uint32) error {
+	if v > maxBodySize {
+		return fmt.Errorf("chunk size (%d) exceeds maximum (%d)", v, maxBodySize)
+	}
+
 	r.chunkSize = v
+	return nil
 }
 
 // SetWindowAckSize sets the window acknowledgement size.
