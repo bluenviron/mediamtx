@@ -95,7 +95,8 @@ type Conf struct {
 	LogFile                   string          `json:"logFile"`
 	ReadTimeout               StringDuration  `json:"readTimeout"`
 	WriteTimeout              StringDuration  `json:"writeTimeout"`
-	ReadBufferCount           int             `json:"readBufferCount"`
+	ReadBufferCount           int             `json:"readBufferCount"` // deprecated
+	WriteQueueSize            int             `json:"writeQueueSize"`
 	UDPMaxPayloadSize         int             `json:"udpMaxPayloadSize"`
 	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
 	API                       bool            `json:"api"`
@@ -218,8 +219,11 @@ func (conf Conf) Clone() *Conf {
 // Check checks the configuration for errors.
 func (conf *Conf) Check() error {
 	// general
-	if (conf.ReadBufferCount & (conf.ReadBufferCount - 1)) != 0 {
-		return fmt.Errorf("'readBufferCount' must be a power of two")
+	if conf.ReadBufferCount != 0 {
+		conf.WriteQueueSize = conf.ReadBufferCount
+	}
+	if (conf.WriteQueueSize & (conf.WriteQueueSize - 1)) != 0 {
+		return fmt.Errorf("'writeQueueSize' must be a power of two")
 	}
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
@@ -317,7 +321,7 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.LogFile = "mediamtx.log"
 	conf.ReadTimeout = 10 * StringDuration(time.Second)
 	conf.WriteTimeout = 10 * StringDuration(time.Second)
-	conf.ReadBufferCount = 512
+	conf.WriteQueueSize = 512
 	conf.UDPMaxPayloadSize = 1472
 	conf.APIAddress = "127.0.0.1:9997"
 	conf.MetricsAddress = "127.0.0.1:9998"

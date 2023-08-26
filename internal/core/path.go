@@ -174,7 +174,7 @@ type path struct {
 	rtspAddress       string
 	readTimeout       conf.StringDuration
 	writeTimeout      conf.StringDuration
-	readBufferCount   int
+	writeQueueSize    int
 	udpMaxPayloadSize int
 	confName          string
 	conf              *conf.PathConf
@@ -225,7 +225,7 @@ func newPath(
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	udpMaxPayloadSize int,
 	confName string,
 	cnf *conf.PathConf,
@@ -241,7 +241,7 @@ func newPath(
 		rtspAddress:                    rtspAddress,
 		readTimeout:                    readTimeout,
 		writeTimeout:                   writeTimeout,
-		readBufferCount:                readBufferCount,
+		writeQueueSize:                 writeQueueSize,
 		udpMaxPayloadSize:              udpMaxPayloadSize,
 		confName:                       confName,
 		conf:                           cnf,
@@ -310,7 +310,7 @@ func (pa *path) run() {
 			pa.conf,
 			pa.readTimeout,
 			pa.writeTimeout,
-			pa.readBufferCount,
+			pa.writeQueueSize,
 			pa)
 
 		if !pa.conf.SourceOnDemand {

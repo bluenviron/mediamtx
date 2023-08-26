@@ -49,7 +49,7 @@ func newSourceStatic(
 	cnf *conf.PathConf,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	parent sourceStaticParent,
 ) *sourceStatic {
 	s := &sourceStatic{
@@ -66,7 +66,7 @@ func newSourceStatic(
 		s.impl = newRTSPSource(
 			readTimeout,
 			writeTimeout,
-			readBufferCount,
+			writeQueueSize,
 			s)
 
 	case strings.HasPrefix(cnf.Source, "rtmp://") ||

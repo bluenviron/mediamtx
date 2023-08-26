@@ -175,12 +175,12 @@ type webRTCSessionPathManager interface {
 }
 
 type webRTCSession struct {
-	readBufferCount int
-	api             *webrtc.API
-	req             webRTCNewSessionReq
-	wg              *sync.WaitGroup
-	pathManager     webRTCSessionPathManager
-	parent          *webRTCManager
+	writeQueueSize int
+	api            *webrtc.API
+	req            webRTCNewSessionReq
+	wg             *sync.WaitGroup
+	pathManager    webRTCSessionPathManager
+	parent         *webRTCManager
 
 	ctx       context.Context
 	ctxCancel func()
@@ -196,7 +196,7 @@ type webRTCSession struct {
 
 func newWebRTCSession(
 	parentCtx context.Context,
-	readBufferCount int,
+	writeQueueSize int,
 	api *webrtc.API,
 	req webRTCNewSessionReq,
 	wg *sync.WaitGroup,
@@ -206,7 +206,7 @@ func newWebRTCSession(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	s := &webRTCSession{
-		readBufferCount: readBufferCount,
+		writeQueueSize:  writeQueueSize,
 		api:             api,
 		req:             req,
 		wg:              wg,
@@ -509,7 +509,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	ringBuffer, _ := ringbuffer.New(uint64(s.readBufferCount))
+	ringBuffer, _ := ringbuffer.New(uint64(s.writeQueueSize))
 	defer ringBuffer.Close()
 
 	writeError := make(chan error)

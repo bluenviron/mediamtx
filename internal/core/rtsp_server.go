@@ -67,7 +67,7 @@ func newRTSPServer(
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	useUDP bool,
 	useMulticast bool,
 	rtpAddress string,
@@ -111,8 +111,8 @@ func newRTSPServer(
 		Handler:          s,
 		ReadTimeout:      time.Duration(readTimeout),
 		WriteTimeout:     time.Duration(writeTimeout),
-		ReadBufferCount:  readBufferCount,
-		WriteBufferCount: readBufferCount,
+		ReadBufferCount:  writeQueueSize,
+		WriteBufferCount: writeQueueSize,
 		RTSPAddress:      address,
 	}
 

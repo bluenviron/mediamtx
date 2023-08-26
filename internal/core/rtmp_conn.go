@@ -60,7 +60,7 @@ type rtmpConn struct {
 	rtspAddress         string
 	readTimeout         conf.StringDuration
 	writeTimeout        conf.StringDuration
-	readBufferCount     int
+	writeQueueSize      int
 	runOnConnect        string
 	runOnConnectRestart bool
 	wg                  *sync.WaitGroup
@@ -85,7 +85,7 @@ func newRTMPConn(
 	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	runOnConnect string,
 	runOnConnectRestart bool,
 	wg *sync.WaitGroup,
@@ -101,7 +101,7 @@ func newRTMPConn(
 		rtspAddress:         rtspAddress,
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
-		readBufferCount:     readBufferCount,
+		writeQueueSize:      writeQueueSize,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
 		wg:                  wg,
@@ -241,7 +241,7 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.pathName = pathName
 	c.mutex.Unlock()
 
-	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
+	ringBuffer, _ := ringbuffer.New(uint64(c.writeQueueSize))
 	go func() {
 		<-c.ctx.Done()
 		ringBuffer.Close()

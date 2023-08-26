@@ -66,7 +66,7 @@ type hlsMuxer struct {
 	partDuration              conf.StringDuration
 	segmentMaxSize            conf.StringSize
 	directory                 string
-	readBufferCount           int
+	writeQueueSize            int
 	wg                        *sync.WaitGroup
 	pathName                  string
 	pathManager               *pathManager
@@ -96,7 +96,7 @@ func newHLSMuxer(
 	partDuration conf.StringDuration,
 	segmentMaxSize conf.StringSize,
 	directory string,
-	readBufferCount int,
+	writeQueueSize int,
 	wg *sync.WaitGroup,
 	pathName string,
 	pathManager *pathManager,
@@ -113,7 +113,7 @@ func newHLSMuxer(
 		partDuration:              partDuration,
 		segmentMaxSize:            segmentMaxSize,
 		directory:                 directory,
-		readBufferCount:           readBufferCount,
+		writeQueueSize:            writeQueueSize,
 		wg:                        wg,
 		pathName:                  pathName,
 		pathManager:               pathManager,
@@ -254,7 +254,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	defer m.path.removeReader(pathRemoveReaderReq{author: m})
 
-	m.ringBuffer, _ = ringbuffer.New(uint64(m.readBufferCount))
+	m.ringBuffer, _ = ringbuffer.New(uint64(m.writeQueueSize))
 
 	var medias media.Medias
 

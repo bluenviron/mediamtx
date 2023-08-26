@@ -42,7 +42,7 @@ type hlsManager struct {
 	partDuration              conf.StringDuration
 	segmentMaxSize            conf.StringSize
 	directory                 string
-	readBufferCount           int
+	writeQueueSize            int
 	pathManager               *pathManager
 	metrics                   *metrics
 	parent                    hlsManagerParent
@@ -78,7 +78,7 @@ func newHLSManager(
 	trustedProxies conf.IPsOrCIDRs,
 	directory string,
 	readTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	pathManager *pathManager,
 	metrics *metrics,
 	parent hlsManagerParent,
@@ -94,7 +94,7 @@ func newHLSManager(
 		partDuration:              partDuration,
 		segmentMaxSize:            segmentMaxSize,
 		directory:                 directory,
-		readBufferCount:           readBufferCount,
+		writeQueueSize:            writeQueueSize,
 		pathManager:               pathManager,
 		parent:                    parent,
 		metrics:                   metrics,
@@ -241,7 +241,7 @@ func (m *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 		m.partDuration,
 		m.segmentMaxSize,
 		m.directory,
-		m.readBufferCount,
+		m.writeQueueSize,
 		&m.wg,
 		pathName,
 		m.pathManager,

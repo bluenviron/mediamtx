@@ -1276,10 +1276,10 @@ rtsps://localhost:8322/mystream
 
 In some scenarios, when publishing or reading from the server with RTSP, frames can get corrupted. This can be caused by multiple reasons:
 
-* the packet buffer of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
+* the write queue of the server is too small and can't keep up with the stream throughput. A solution consists in increasing its size:
 
   ```yml
-  readBufferCount: 1024
+  writeQueueSize: 1024
   ```
 
 * The stream throughput is too big and the stream can't be transmitted correctly with the UDP transport protocol. UDP is more performant, faster and more efficient than TCP, but doesn't have a retransmission mechanism, that is needed in case of streams that need a large bandwidth. A solution consists in switching to TCP:

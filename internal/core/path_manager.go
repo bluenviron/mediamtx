@@ -69,7 +69,7 @@ type pathManager struct {
 	authMethods               conf.AuthMethods
 	readTimeout               conf.StringDuration
 	writeTimeout              conf.StringDuration
-	readBufferCount           int
+	writeQueueSize            int
 	udpMaxPayloadSize         int
 	pathConfs                 map[string]*conf.PathConf
 	externalCmdPool           *externalcmd.Pool
@@ -103,7 +103,7 @@ func newPathManager(
 	authMethods conf.AuthMethods,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	udpMaxPayloadSize int,
 	pathConfs map[string]*conf.PathConf,
 	externalCmdPool *externalcmd.Pool,
@@ -118,7 +118,7 @@ func newPathManager(
 		authMethods:               authMethods,
 		readTimeout:               readTimeout,
 		writeTimeout:              writeTimeout,
-		readBufferCount:           readBufferCount,
+		writeQueueSize:            writeQueueSize,
 		udpMaxPayloadSize:         udpMaxPayloadSize,
 		pathConfs:                 pathConfs,
 		externalCmdPool:           externalCmdPool,
@@ -352,7 +352,7 @@ func (pm *pathManager) createPath(
 		pm.rtspAddress,
 		pm.readTimeout,
 		pm.writeTimeout,
-		pm.readBufferCount,
+		pm.writeQueueSize,
 		pm.udpMaxPayloadSize,
 		pathConfName,
 		pathConf,

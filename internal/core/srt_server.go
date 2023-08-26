@@ -59,7 +59,7 @@ type srtServerParent interface {
 type srtServer struct {
 	readTimeout       conf.StringDuration
 	writeTimeout      conf.StringDuration
-	readBufferCount   int
+	writeQueueSize    int
 	udpMaxPayloadSize int
 	externalCmdPool   *externalcmd.Pool
 	pathManager       *pathManager
@@ -84,7 +84,7 @@ func newSRTServer(
 	address string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	udpMaxPayloadSize int,
 	externalCmdPool *externalcmd.Pool,
 	pathManager *pathManager,
@@ -104,7 +104,7 @@ func newSRTServer(
 	s := &srtServer{
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
-		readBufferCount:   readBufferCount,
+		writeQueueSize:    writeQueueSize,
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		externalCmdPool:   externalCmdPool,
 		pathManager:       pathManager,
@@ -161,7 +161,7 @@ outer:
 				s.ctx,
 				s.readTimeout,
 				s.writeTimeout,
-				s.readBufferCount,
+				s.writeQueueSize,
 				s.udpMaxPayloadSize,
 				req.connReq,
 				&s.wg,

@@ -50,7 +50,7 @@ type rtmpServerParent interface {
 type rtmpServer struct {
 	readTimeout         conf.StringDuration
 	writeTimeout        conf.StringDuration
-	readBufferCount     int
+	writeQueueSize      int
 	isTLS               bool
 	rtspAddress         string
 	runOnConnect        string
@@ -79,7 +79,7 @@ func newRTMPServer(
 	address string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	isTLS bool,
 	serverCert string,
 	serverKey string,
@@ -113,7 +113,7 @@ func newRTMPServer(
 	s := &rtmpServer{
 		readTimeout:         readTimeout,
 		writeTimeout:        writeTimeout,
-		readBufferCount:     readBufferCount,
+		writeQueueSize:      writeQueueSize,
 		rtspAddress:         rtspAddress,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
@@ -185,7 +185,7 @@ outer:
 				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,
-				s.readBufferCount,
+				s.writeQueueSize,
 				s.runOnConnect,
 				s.runOnConnectRestart,
 				&s.wg,

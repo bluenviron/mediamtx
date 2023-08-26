@@ -246,7 +246,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.AuthMethods,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
-			p.conf.ReadBufferCount,
+			p.conf.WriteQueueSize,
 			p.conf.UDPMaxPayloadSize,
 			p.conf.Paths,
 			p.externalCmdPool,
@@ -266,7 +266,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				useUDP,
 				useMulticast,
 				p.conf.RTPAddress,
@@ -301,7 +301,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.AuthMethods,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				false,
 				false,
 				"",
@@ -335,7 +335,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RTMPAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				false,
 				"",
 				"",
@@ -361,7 +361,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.RTMPSAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				true,
 				p.conf.RTMPServerCert,
 				p.conf.RTMPServerKey,
@@ -397,7 +397,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.HLSTrustedProxies,
 				p.conf.HLSDirectory,
 				p.conf.ReadTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				p.pathManager,
 				p.metrics,
 				p,
@@ -419,7 +419,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.WebRTCTrustedProxies,
 				p.conf.WebRTCICEServers2,
 				p.conf.ReadTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				p.conf.WebRTCICEHostNAT1To1IPs,
 				p.conf.WebRTCICEUDPMuxAddress,
 				p.conf.WebRTCICETCPMuxAddress,
@@ -439,7 +439,7 @@ func (p *Core) createResources(initial bool) error {
 				p.conf.SRTAddress,
 				p.conf.ReadTimeout,
 				p.conf.WriteTimeout,
-				p.conf.ReadBufferCount,
+				p.conf.WriteQueueSize,
 				p.conf.UDPMaxPayloadSize,
 				p.externalCmdPool,
 				p.pathManager,
@@ -504,7 +504,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		closeMetrics
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
@@ -518,7 +518,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RTPAddress != p.conf.RTPAddress ||
 		newConf.RTCPAddress != p.conf.RTCPAddress ||
@@ -539,7 +539,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.ServerCert != p.conf.ServerCert ||
 		newConf.ServerKey != p.conf.ServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
@@ -555,7 +555,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPAddress != p.conf.RTMPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
@@ -568,7 +568,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTMPSAddress != p.conf.RTMPSAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.RTMPServerCert != p.conf.RTMPServerCert ||
 		newConf.RTMPServerKey != p.conf.RTMPServerKey ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
@@ -594,7 +594,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.HLSTrustedProxies, p.conf.HLSTrustedProxies) ||
 		newConf.HLSDirectory != p.conf.HLSDirectory ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		closePathManager ||
 		closeMetrics
 
@@ -608,7 +608,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
 		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs) ||
 		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
 		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
@@ -620,7 +620,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.SRTAddress != p.conf.SRTAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
-		newConf.ReadBufferCount != p.conf.ReadBufferCount ||
+		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		closePathManager
 

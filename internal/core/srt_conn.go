@@ -50,7 +50,7 @@ type srtConnParent interface {
 type srtConn struct {
 	readTimeout       conf.StringDuration
 	writeTimeout      conf.StringDuration
-	readBufferCount   int
+	writeQueueSize    int
 	udpMaxPayloadSize int
 	connReq           srt.ConnRequest
 	wg                *sync.WaitGroup
@@ -75,7 +75,7 @@ func newSRTConn(
 	parentCtx context.Context,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	udpMaxPayloadSize int,
 	connReq srt.ConnRequest,
 	wg *sync.WaitGroup,
@@ -88,7 +88,7 @@ func newSRTConn(
 	c := &srtConn{
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
-		readBufferCount:   readBufferCount,
+		writeQueueSize:    writeQueueSize,
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		connReq:           connReq,
 		wg:                wg,
@@ -416,7 +416,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	c.conn = sconn
 	c.mutex.Unlock()
 
-	ringBuffer, _ := ringbuffer.New(uint64(c.readBufferCount))
+	ringBuffer, _ := ringbuffer.New(uint64(c.writeQueueSize))
 	go func() {
 		<-c.ctx.Done()
 		ringBuffer.Close()
