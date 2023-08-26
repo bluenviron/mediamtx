@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/auth"
-	"github.com/bluenviron/gortsplib/v3/pkg/base"
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
 
@@ -27,6 +27,8 @@ type rtspSessionPathManager interface {
 
 type rtspSessionParent interface {
 	logger.Writer
+	getISTLS() bool
+	getServer() *gortsplib.Server
 }
 
 type rtspSession struct {
@@ -124,7 +126,7 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 
 	if c.authNonce == "" {
 		var err error
-		c.authNonce, err = auth.GenerateNonce2()
+		c.authNonce, err = auth.GenerateNonce()
 		if err != nil {
 			return &base.Response{
 				StatusCode: base.StatusInternalServerError,
@@ -209,7 +211,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 		if c.authNonce == "" {
 			var err error
-			c.authNonce, err = auth.GenerateNonce2()
+			c.authNonce, err = auth.GenerateNonce()
 			if err != nil {
 				return &base.Response{
 					StatusCode: base.StatusInternalServerError,
@@ -257,9 +259,16 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		s.pathName = ctx.Path
 		s.mutex.Unlock()
 
+		var stream *gortsplib.ServerStream
+		if !s.parent.getISTLS() {
+			stream = res.stream.RTSPStream(s.parent.getServer())
+		} else {
+			stream = res.stream.RTSPSStream(s.parent.getServer())
+		}
+
 		return &base.Response{
 			StatusCode: base.StatusOK,
-		}, res.stream.RTSPStream(), nil
+		}, stream, nil
 
 	default: // record
 		return &base.Response{
@@ -308,7 +317,7 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Response, error) {
 	res := s.path.startPublisher(pathStartPublisherReq{
 		author:             s,
-		medias:             s.session.AnnouncedMedias(),
+		desc:               s.session.AnnouncedDescription(),
 		generateRTPPackets: false,
 	})
 	if res.err != nil {
@@ -319,13 +328,18 @@ func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Res
 
 	s.stream = res.stream
 
-	for _, medi := range s.session.AnnouncedMedias() {
+	for _, medi := range s.session.AnnouncedDescription().Medias {
 		for _, forma := range medi.Formats {
 			cmedi := medi
 			cforma := forma
 
 			s.session.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-				res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
+				pts, ok := s.session.PacketPTS(cmedi, pkt)
+				if !ok {
+					return
+				}
+
+				res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
 			})
 		}
 	}

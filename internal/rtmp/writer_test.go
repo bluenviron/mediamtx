@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
@@ -14,7 +14,7 @@ import (
 )
 
 func TestWriteTracks(t *testing.T) {
-	videoTrack := &formats.H264{
+	videoTrack := &format.H264{
 		PayloadTyp: 96,
 		SPS: []byte{
 			0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -27,7 +27,7 @@ func TestWriteTracks(t *testing.T) {
 		PacketizationMode: 1,
 	}
 
-	audioTrack := &formats.MPEG4Audio{
+	audioTrack := &format.MPEG4Audio{
 		PayloadTyp: 96,
 		Config: &mpeg4audio.Config{
 			Type:         2,

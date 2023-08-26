@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpav1"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -14,7 +14,7 @@ import (
 
 type formatProcessorAV1 struct {
 	udpMaxPayloadSize int
-	format            *formats.AV1
+	format            *format.AV1
 	log               logger.Writer
 
 	encoder *rtpav1.Encoder
@@ -23,7 +23,7 @@ type formatProcessorAV1 struct {
 
 func newAV1(
 	udpMaxPayloadSize int,
-	forma *formats.AV1,
+	forma *format.AV1,
 	generateRTPPackets bool,
 	log logger.Writer,
 ) (*formatProcessorAV1, error) {
@@ -69,14 +69,13 @@ func (t *formatProcessorAV1) Process(u unit.Unit, hasNonRTSPReaders bool) error 
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				var err error
-				t.decoder, err = t.format.CreateDecoder2()
+				t.decoder, err = t.format.CreateDecoder()
 				if err != nil {
 					return err
 				}
 			}
 
-			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			tu, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			tu, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpav1.ErrNonStartingPacketAndNoPrevious || err == rtpav1.ErrMorePacketsNeeded {
 					return nil
@@ -85,7 +84,6 @@ func (t *formatProcessorAV1) Process(u unit.Unit, hasNonRTSPReaders bool) error 
 			}
 
 			tunit.TU = tu
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -93,20 +91,22 @@ func (t *formatProcessorAV1) Process(u unit.Unit, hasNonRTSPReaders bool) error 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.TU, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.TU)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+func (t *formatProcessorAV1) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &unit.AV1{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

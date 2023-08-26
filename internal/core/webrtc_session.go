@@ -10,8 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/google/uuid"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
@@ -25,16 +26,16 @@ type trackRecvPair struct {
 	receiver *webrtc.RTPReceiver
 }
 
-func webrtcMediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) media.Medias {
-	ret := make(media.Medias, len(tracks))
+func webrtcMediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) []*description.Media {
+	ret := make([]*description.Media, len(tracks))
 	for i, track := range tracks {
 		ret[i] = track.media
 	}
 	return ret
 }
 
-func webrtcMediasOfIncomingTracks(tracks []*webRTCIncomingTrack) media.Medias {
-	ret := make(media.Medias, len(tracks))
+func webrtcMediasOfIncomingTracks(tracks []*webRTCIncomingTrack) []*description.Media {
+	ret := make([]*description.Media, len(tracks))
 	for i, track := range tracks {
 		ret[i] = track.media
 	}
@@ -72,10 +73,10 @@ outer:
 	return nil
 }
 
-func webrtcGatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, error) {
+func webrtcGatherOutgoingTracks(desc *description.Session) ([]*webRTCOutgoingTrack, error) {
 	var tracks []*webRTCOutgoingTrack
 
-	videoTrack, err := newWebRTCOutgoingTrackVideo(medias)
+	videoTrack, err := newWebRTCOutgoingTrackVideo(desc)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +85,7 @@ func webrtcGatherOutgoingTracks(medias media.Medias) ([]*webRTCOutgoingTrack, er
 		tracks = append(tracks, videoTrack)
 	}
 
-	audioTrack, err := newWebRTCOutgoingTrackAudio(medias)
+	audioTrack, err := newWebRTCOutgoingTrackAudio(desc)
 	if err != nil {
 		return nil, err
 	}
@@ -395,15 +396,17 @@ func (s *webRTCSession) runPublish() (int, error) {
 
 	rres := res.path.startPublisher(pathStartPublisherReq{
 		author:             s,
-		medias:             medias,
+		desc:               &description.Session{Medias: medias},
 		generateRTPPackets: false,
 	})
 	if rres.err != nil {
 		return 0, rres.err
 	}
 
+	timeDecoder := rtptime.NewGlobalDecoder()
+
 	for _, track := range tracks {
-		track.start(rres.stream)
+		track.start(rres.stream, timeDecoder)
 	}
 
 	select {
@@ -447,7 +450,7 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	defer res.path.removeReader(pathRemoveReaderReq{author: s})
 
-	tracks, err := webrtcGatherOutgoingTracks(res.stream.Medias())
+	tracks, err := webrtcGatherOutgoingTracks(res.stream.Desc())
 	if err != nil {
 		return http.StatusBadRequest, err
 	}

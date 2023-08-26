@@ -9,7 +9,7 @@ import (
 	"reflect"
 
 	"github.com/alecthomas/kong"
-	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v4"
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -213,29 +213,27 @@ func (p *Core) createResources(initial bool) error {
 		p.externalCmdPool = externalcmd.NewPool()
 	}
 
-	if p.conf.Metrics {
-		if p.metrics == nil {
-			p.metrics, err = newMetrics(
-				p.conf.MetricsAddress,
-				p.conf.ReadTimeout,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+	if p.conf.Metrics &&
+		p.metrics == nil {
+		p.metrics, err = newMetrics(
+			p.conf.MetricsAddress,
+			p.conf.ReadTimeout,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
-	if p.conf.PPROF {
-		if p.pprof == nil {
-			p.pprof, err = newPPROF(
-				p.conf.PPROFAddress,
-				p.conf.ReadTimeout,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+	if p.conf.PPROF &&
+		p.pprof == nil {
+		p.pprof, err = newPPROF(
+			p.conf.PPROFAddress,
+			p.conf.ReadTimeout,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -257,219 +255,212 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.RTSP &&
 		(p.conf.Encryption == conf.EncryptionNo ||
-			p.conf.Encryption == conf.EncryptionOptional) {
-		if p.rtspServer == nil {
-			_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
-			_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
-			p.rtspServer, err = newRTSPServer(
-				p.conf.RTSPAddress,
-				p.conf.AuthMethods,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.WriteQueueSize,
-				useUDP,
-				useMulticast,
-				p.conf.RTPAddress,
-				p.conf.RTCPAddress,
-				p.conf.MulticastIPRange,
-				p.conf.MulticastRTPPort,
-				p.conf.MulticastRTCPPort,
-				false,
-				"",
-				"",
-				p.conf.RTSPAddress,
-				p.conf.Protocols,
-				p.conf.RunOnConnect,
-				p.conf.RunOnConnectRestart,
-				p.externalCmdPool,
-				p.metrics,
-				p.pathManager,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+			p.conf.Encryption == conf.EncryptionOptional) &&
+		p.rtspServer == nil {
+		_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
+		_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
+
+		p.rtspServer, err = newRTSPServer(
+			p.conf.RTSPAddress,
+			p.conf.AuthMethods,
+			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.WriteQueueSize,
+			useUDP,
+			useMulticast,
+			p.conf.RTPAddress,
+			p.conf.RTCPAddress,
+			p.conf.MulticastIPRange,
+			p.conf.MulticastRTPPort,
+			p.conf.MulticastRTCPPort,
+			false,
+			"",
+			"",
+			p.conf.RTSPAddress,
+			p.conf.Protocols,
+			p.conf.RunOnConnect,
+			p.conf.RunOnConnectRestart,
+			p.externalCmdPool,
+			p.metrics,
+			p.pathManager,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
 	if p.conf.RTSP &&
 		(p.conf.Encryption == conf.EncryptionStrict ||
-			p.conf.Encryption == conf.EncryptionOptional) {
-		if p.rtspsServer == nil {
-			p.rtspsServer, err = newRTSPServer(
-				p.conf.RTSPSAddress,
-				p.conf.AuthMethods,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.WriteQueueSize,
-				false,
-				false,
-				"",
-				"",
-				"",
-				0,
-				0,
-				true,
-				p.conf.ServerCert,
-				p.conf.ServerKey,
-				p.conf.RTSPAddress,
-				p.conf.Protocols,
-				p.conf.RunOnConnect,
-				p.conf.RunOnConnectRestart,
-				p.externalCmdPool,
-				p.metrics,
-				p.pathManager,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+			p.conf.Encryption == conf.EncryptionOptional) &&
+		p.rtspsServer == nil {
+		p.rtspsServer, err = newRTSPServer(
+			p.conf.RTSPSAddress,
+			p.conf.AuthMethods,
+			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.WriteQueueSize,
+			false,
+			false,
+			"",
+			"",
+			"",
+			0,
+			0,
+			true,
+			p.conf.ServerCert,
+			p.conf.ServerKey,
+			p.conf.RTSPAddress,
+			p.conf.Protocols,
+			p.conf.RunOnConnect,
+			p.conf.RunOnConnectRestart,
+			p.externalCmdPool,
+			p.metrics,
+			p.pathManager,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
 	if p.conf.RTMP &&
 		(p.conf.RTMPEncryption == conf.EncryptionNo ||
-			p.conf.RTMPEncryption == conf.EncryptionOptional) {
-		if p.rtmpServer == nil {
-			p.rtmpServer, err = newRTMPServer(
-				p.conf.RTMPAddress,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.WriteQueueSize,
-				false,
-				"",
-				"",
-				p.conf.RTSPAddress,
-				p.conf.RunOnConnect,
-				p.conf.RunOnConnectRestart,
-				p.externalCmdPool,
-				p.metrics,
-				p.pathManager,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
+		p.rtmpServer == nil {
+		p.rtmpServer, err = newRTMPServer(
+			p.conf.RTMPAddress,
+			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.WriteQueueSize,
+			false,
+			"",
+			"",
+			p.conf.RTSPAddress,
+			p.conf.RunOnConnect,
+			p.conf.RunOnConnectRestart,
+			p.externalCmdPool,
+			p.metrics,
+			p.pathManager,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
 	if p.conf.RTMP &&
 		(p.conf.RTMPEncryption == conf.EncryptionStrict ||
-			p.conf.RTMPEncryption == conf.EncryptionOptional) {
-		if p.rtmpsServer == nil {
-			p.rtmpsServer, err = newRTMPServer(
-				p.conf.RTMPSAddress,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.WriteQueueSize,
-				true,
-				p.conf.RTMPServerCert,
-				p.conf.RTMPServerKey,
-				p.conf.RTSPAddress,
-				p.conf.RunOnConnect,
-				p.conf.RunOnConnectRestart,
-				p.externalCmdPool,
-				p.metrics,
-				p.pathManager,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
+		p.rtmpsServer == nil {
+		p.rtmpsServer, err = newRTMPServer(
+			p.conf.RTMPSAddress,
+			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.WriteQueueSize,
+			true,
+			p.conf.RTMPServerCert,
+			p.conf.RTMPServerKey,
+			p.conf.RTSPAddress,
+			p.conf.RunOnConnect,
+			p.conf.RunOnConnectRestart,
+			p.externalCmdPool,
+			p.metrics,
+			p.pathManager,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
-	if p.conf.HLS {
-		if p.hlsManager == nil {
-			p.hlsManager, err = newHLSManager(
-				p.conf.HLSAddress,
-				p.conf.HLSEncryption,
-				p.conf.HLSServerKey,
-				p.conf.HLSServerCert,
-				p.conf.ExternalAuthenticationURL,
-				p.conf.HLSAlwaysRemux,
-				p.conf.HLSVariant,
-				p.conf.HLSSegmentCount,
-				p.conf.HLSSegmentDuration,
-				p.conf.HLSPartDuration,
-				p.conf.HLSSegmentMaxSize,
-				p.conf.HLSAllowOrigin,
-				p.conf.HLSTrustedProxies,
-				p.conf.HLSDirectory,
-				p.conf.ReadTimeout,
-				p.conf.WriteQueueSize,
-				p.pathManager,
-				p.metrics,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+	if p.conf.HLS &&
+		p.hlsManager == nil {
+		p.hlsManager, err = newHLSManager(
+			p.conf.HLSAddress,
+			p.conf.HLSEncryption,
+			p.conf.HLSServerKey,
+			p.conf.HLSServerCert,
+			p.conf.ExternalAuthenticationURL,
+			p.conf.HLSAlwaysRemux,
+			p.conf.HLSVariant,
+			p.conf.HLSSegmentCount,
+			p.conf.HLSSegmentDuration,
+			p.conf.HLSPartDuration,
+			p.conf.HLSSegmentMaxSize,
+			p.conf.HLSAllowOrigin,
+			p.conf.HLSTrustedProxies,
+			p.conf.HLSDirectory,
+			p.conf.ReadTimeout,
+			p.conf.WriteQueueSize,
+			p.pathManager,
+			p.metrics,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
-	if p.conf.WebRTC {
-		if p.webRTCManager == nil {
-			p.webRTCManager, err = newWebRTCManager(
-				p.conf.WebRTCAddress,
-				p.conf.WebRTCEncryption,
-				p.conf.WebRTCServerKey,
-				p.conf.WebRTCServerCert,
-				p.conf.WebRTCAllowOrigin,
-				p.conf.WebRTCTrustedProxies,
-				p.conf.WebRTCICEServers2,
-				p.conf.ReadTimeout,
-				p.conf.WriteQueueSize,
-				p.conf.WebRTCICEHostNAT1To1IPs,
-				p.conf.WebRTCICEUDPMuxAddress,
-				p.conf.WebRTCICETCPMuxAddress,
-				p.pathManager,
-				p.metrics,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+	if p.conf.WebRTC &&
+		p.webRTCManager == nil {
+		p.webRTCManager, err = newWebRTCManager(
+			p.conf.WebRTCAddress,
+			p.conf.WebRTCEncryption,
+			p.conf.WebRTCServerKey,
+			p.conf.WebRTCServerCert,
+			p.conf.WebRTCAllowOrigin,
+			p.conf.WebRTCTrustedProxies,
+			p.conf.WebRTCICEServers2,
+			p.conf.ReadTimeout,
+			p.conf.WriteQueueSize,
+			p.conf.WebRTCICEHostNAT1To1IPs,
+			p.conf.WebRTCICEUDPMuxAddress,
+			p.conf.WebRTCICETCPMuxAddress,
+			p.pathManager,
+			p.metrics,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
-	if p.conf.SRT {
-		if p.srtServer == nil {
-			p.srtServer, err = newSRTServer(
-				p.conf.SRTAddress,
-				p.conf.ReadTimeout,
-				p.conf.WriteTimeout,
-				p.conf.WriteQueueSize,
-				p.conf.UDPMaxPayloadSize,
-				p.externalCmdPool,
-				p.pathManager,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+	if p.conf.SRT &&
+		p.srtServer == nil {
+		p.srtServer, err = newSRTServer(
+			p.conf.SRTAddress,
+			p.conf.ReadTimeout,
+			p.conf.WriteTimeout,
+			p.conf.WriteQueueSize,
+			p.conf.UDPMaxPayloadSize,
+			p.externalCmdPool,
+			p.pathManager,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 
-	if p.conf.API {
-		if p.api == nil {
-			p.api, err = newAPI(
-				p.conf.APIAddress,
-				p.conf.ReadTimeout,
-				p.conf,
-				p.pathManager,
-				p.rtspServer,
-				p.rtspsServer,
-				p.rtmpServer,
-				p.rtmpsServer,
-				p.hlsManager,
-				p.webRTCManager,
-				p.srtServer,
-				p,
-			)
-			if err != nil {
-				return err
-			}
+	if p.conf.API &&
+		p.api == nil {
+		p.api, err = newAPI(
+			p.conf.APIAddress,
+			p.conf.ReadTimeout,
+			p.conf,
+			p.pathManager,
+			p.rtspServer,
+			p.rtspsServer,
+			p.rtmpServer,
+			p.rtmpsServer,
+			p.hlsManager,
+			p.webRTCManager,
+			p.srtServer,
+			p,
+		)
+		if err != nil {
+			return err
 		}
 	}
 

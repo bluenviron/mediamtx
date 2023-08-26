@@ -1,23 +1,23 @@
 package stream
 
 import (
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 type streamMedia struct {
-	formats map[formats.Format]*streamFormat
+	formats map[format.Format]*streamFormat
 }
 
 func newStreamMedia(udpMaxPayloadSize int,
-	medi *media.Media,
+	medi *description.Media,
 	generateRTPPackets bool,
 	source logger.Writer,
 ) (*streamMedia, error) {
 	sm := &streamMedia{
-		formats: make(map[formats.Format]*streamFormat),
+		formats: make(map[format.Format]*streamFormat),
 	}
 
 	for _, forma := range medi.Formats {

@@ -5,9 +5,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -22,9 +24,9 @@ type webRTCIncomingTrack struct {
 	receiver  *webrtc.RTPReceiver
 	writeRTCP func([]rtcp.Packet) error
 
-	mediaType media.Type
-	format    formats.Format
-	media     *media.Media
+	mediaType description.MediaType
+	format    format.Format
+	media     *description.Media
 }
 
 func newWebRTCIncomingTrack(
@@ -40,49 +42,49 @@ func newWebRTCIncomingTrack(
 
 	switch strings.ToLower(track.Codec().MimeType) {
 	case strings.ToLower(webrtc.MimeTypeAV1):
-		t.mediaType = media.TypeVideo
-		t.format = &formats.AV1{
+		t.mediaType = description.MediaTypeVideo
+		t.format = &format.AV1{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeVP9):
-		t.mediaType = media.TypeVideo
-		t.format = &formats.VP9{
+		t.mediaType = description.MediaTypeVideo
+		t.format = &format.VP9{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeVP8):
-		t.mediaType = media.TypeVideo
-		t.format = &formats.VP8{
+		t.mediaType = description.MediaTypeVideo
+		t.format = &format.VP8{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeH264):
-		t.mediaType = media.TypeVideo
-		t.format = &formats.H264{
+		t.mediaType = description.MediaTypeVideo
+		t.format = &format.H264{
 			PayloadTyp:        uint8(track.PayloadType()),
 			PacketizationMode: 1,
 		}
 
 	case strings.ToLower(webrtc.MimeTypeOpus):
-		t.mediaType = media.TypeAudio
-		t.format = &formats.Opus{
+		t.mediaType = description.MediaTypeAudio
+		t.format = &format.Opus{
 			PayloadTyp: uint8(track.PayloadType()),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeG722):
-		t.mediaType = media.TypeAudio
-		t.format = &formats.G722{}
+		t.mediaType = description.MediaTypeAudio
+		t.format = &format.G722{}
 
 	case strings.ToLower(webrtc.MimeTypePCMU):
-		t.mediaType = media.TypeAudio
-		t.format = &formats.G711{
+		t.mediaType = description.MediaTypeAudio
+		t.format = &format.G711{
 			MULaw: true,
 		}
 
 	case strings.ToLower(webrtc.MimeTypePCMA):
-		t.mediaType = media.TypeAudio
-		t.format = &formats.G711{
+		t.mediaType = description.MediaTypeAudio
+		t.format = &format.G711{
 			MULaw: false,
 		}
 
@@ -90,15 +92,29 @@ func newWebRTCIncomingTrack(
 		return nil, fmt.Errorf("unsupported codec: %v", track.Codec())
 	}
 
-	t.media = &media.Media{
+	t.media = &description.Media{
 		Type:    t.mediaType,
-		Formats: []formats.Format{t.format},
+		Formats: []format.Format{t.format},
 	}
 
 	return t, nil
 }
 
-func (t *webRTCIncomingTrack) start(stream *stream.Stream) {
+type webrtcTrackWrapper struct {
+	clockRate int
+}
+
+func (w webrtcTrackWrapper) ClockRate() int {
+	return w.clockRate
+}
+
+func (webrtcTrackWrapper) PTSEqualsDTS(*rtp.Packet) bool {
+	return true
+}
+
+func (t *webRTCIncomingTrack) start(stream *stream.Stream, timeDecoder *rtptime.GlobalDecoder) {
+	trackWrapper := &webrtcTrackWrapper{clockRate: int(t.track.Codec().ClockRate)}
+
 	go func() {
 		for {
 			pkt, _, err := t.track.ReadRTP()
@@ -111,7 +127,12 @@ func (t *webRTCIncomingTrack) start(stream *stream.Stream) {
 				continue
 			}
 
-			stream.WriteRTPPacket(t.media, t.format, pkt, time.Now())
+			pts, ok := timeDecoder.Decode(trackWrapper, pkt)
+			if !ok {
+				continue
+			}
+
+			stream.WriteRTPPacket(t.media, t.format, pkt, time.Now(), pts)
 		}
 	}()
 
@@ -126,7 +147,7 @@ func (t *webRTCIncomingTrack) start(stream *stream.Stream) {
 		}
 	}()
 
-	if t.mediaType == media.TypeVideo {
+	if t.mediaType == description.MediaTypeVideo {
 		go func() {
 			keyframeTicker := time.NewTicker(keyFrameInterval)
 			defer keyframeTicker.Stop()

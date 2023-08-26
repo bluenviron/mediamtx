@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg4audiolatm"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg4audiolatm"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -14,14 +14,14 @@ import (
 
 type formatProcessorMPEG4AudioLATM struct {
 	udpMaxPayloadSize int
-	format            *formats.MPEG4AudioLATM
+	format            *format.MPEG4AudioLATM
 	encoder           *rtpmpeg4audiolatm.Encoder
 	decoder           *rtpmpeg4audiolatm.Decoder
 }
 
 func newMPEG4AudioLATM(
 	udpMaxPayloadSize int,
-	forma *formats.MPEG4AudioLATM,
+	forma *format.MPEG4AudioLATM,
 	generateRTPPackets bool,
 	_ logger.Writer,
 ) (*formatProcessorMPEG4AudioLATM, error) {
@@ -43,7 +43,6 @@ func newMPEG4AudioLATM(
 func (t *formatProcessorMPEG4AudioLATM) createEncoder() error {
 	t.encoder = &rtpmpeg4audiolatm.Encoder{
 		PayloadType: t.format.PayloadTyp,
-		Config:      t.format.Config,
 	}
 	return t.encoder.Init()
 }
@@ -67,13 +66,13 @@ func (t *formatProcessorMPEG4AudioLATM) Process(u unit.Unit, hasNonRTSPReaders b
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				var err error
-				t.decoder, err = t.format.CreateDecoder2()
+				t.decoder, err = t.format.CreateDecoder()
 				if err != nil {
 					return err
 				}
 			}
 
-			au, pts, err := t.decoder.Decode(pkt)
+			au, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpmpeg4audiolatm.ErrMorePacketsNeeded {
 					return nil
@@ -82,7 +81,6 @@ func (t *formatProcessorMPEG4AudioLATM) Process(u unit.Unit, hasNonRTSPReaders b
 			}
 
 			tunit.AU = au
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -90,20 +88,22 @@ func (t *formatProcessorMPEG4AudioLATM) Process(u unit.Unit, hasNonRTSPReaders b
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.AU)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+func (t *formatProcessorMPEG4AudioLATM) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &unit.MPEG4AudioLATM{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

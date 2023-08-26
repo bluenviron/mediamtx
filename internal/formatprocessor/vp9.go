@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp9"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -14,14 +14,14 @@ import (
 
 type formatProcessorVP9 struct {
 	udpMaxPayloadSize int
-	format            *formats.VP9
+	format            *format.VP9
 	encoder           *rtpvp9.Encoder
 	decoder           *rtpvp9.Decoder
 }
 
 func newVP9(
 	udpMaxPayloadSize int,
-	forma *formats.VP9,
+	forma *format.VP9,
 	generateRTPPackets bool,
 	_ logger.Writer,
 ) (*formatProcessorVP9, error) {
@@ -67,13 +67,13 @@ func (t *formatProcessorVP9) Process(u unit.Unit, hasNonRTSPReaders bool) error 
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				var err error
-				t.decoder, err = t.format.CreateDecoder2()
+				t.decoder, err = t.format.CreateDecoder()
 				if err != nil {
 					return err
 				}
 			}
 
-			frame, pts, err := t.decoder.Decode(pkt)
+			frame, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpvp9.ErrNonStartingPacketAndNoPrevious || err == rtpvp9.ErrMorePacketsNeeded {
 					return nil
@@ -82,7 +82,6 @@ func (t *formatProcessorVP9) Process(u unit.Unit, hasNonRTSPReaders bool) error 
 			}
 
 			tunit.Frame = frame
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -90,20 +89,22 @@ func (t *formatProcessorVP9) Process(u unit.Unit, hasNonRTSPReaders bool) error 
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.Frame, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.Frame)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorVP9) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+func (t *formatProcessorVP9) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &unit.VP9{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v4"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/secretbox"
 

@@ -5,10 +5,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/auth"
-	"github.com/bluenviron/gortsplib/v3/pkg/base"
-	"github.com/bluenviron/gortsplib/v3/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -22,6 +22,8 @@ const (
 
 type rtspConnParent interface {
 	logger.Writer
+	getISTLS() bool
+	getServer() *gortsplib.Server
 }
 
 type rtspConn struct {
@@ -138,7 +140,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	if c.authNonce == "" {
 		var err error
-		c.authNonce, err = auth.GenerateNonce2()
+		c.authNonce, err = auth.GenerateNonce()
 		if err != nil {
 			return &base.Response{
 				StatusCode: base.StatusInternalServerError,
@@ -186,9 +188,16 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		}, nil, nil
 	}
 
+	var stream *gortsplib.ServerStream
+	if !c.parent.getISTLS() {
+		stream = res.stream.RTSPStream(c.parent.getServer())
+	} else {
+		stream = res.stream.RTSPSStream(c.parent.getServer())
+	}
+
 	return &base.Response{
 		StatusCode: base.StatusOK,
-	}, res.stream.RTSPStream(), nil
+	}, stream, nil
 }
 
 func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {

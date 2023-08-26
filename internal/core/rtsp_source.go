@@ -4,12 +4,12 @@ import (
 	"context"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/base"
-	"github.com/bluenviron/gortsplib/v3/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -95,13 +95,12 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 	s.Log(logger.Debug, "connecting")
 
 	c := &gortsplib.Client{
-		Transport:        cnf.SourceProtocol.Transport,
-		TLSConfig:        tlsConfigForFingerprint(cnf.SourceFingerprint),
-		ReadTimeout:      time.Duration(s.readTimeout),
-		WriteTimeout:     time.Duration(s.writeTimeout),
-		ReadBufferCount:  s.writeQueueSize,
-		WriteBufferCount: s.writeQueueSize,
-		AnyPortEnable:    cnf.SourceAnyPortEnable,
+		Transport:      cnf.SourceProtocol.Transport,
+		TLSConfig:      tlsConfigForFingerprint(cnf.SourceFingerprint),
+		ReadTimeout:    time.Duration(s.readTimeout),
+		WriteTimeout:   time.Duration(s.writeTimeout),
+		WriteQueueSize: s.writeQueueSize,
+		AnyPortEnable:  cnf.SourceAnyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "c->s %v", req)
 		},
@@ -133,18 +132,18 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 	readErr := make(chan error)
 	go func() {
 		readErr <- func() error {
-			medias, baseURL, _, err := c.Describe(u)
+			desc, _, err := c.Describe(u)
 			if err != nil {
 				return err
 			}
 
-			err = c.SetupAll(medias, baseURL)
+			err = c.SetupAll(desc.BaseURL, desc.Medias)
 			if err != nil {
 				return err
 			}
 
 			res := s.parent.setReady(pathSourceStaticSetReadyReq{
-				medias:             medias,
+				desc:               desc,
 				generateRTPPackets: false,
 			})
 			if res.err != nil {
@@ -153,13 +152,18 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 
 			defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
-			for _, medi := range medias {
+			for _, medi := range desc.Medias {
 				for _, forma := range medi.Formats {
 					cmedi := medi
 					cforma := forma
 
 					c.OnPacketRTP(cmedi, cforma, func(pkt *rtp.Packet) {
-						res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now())
+						pts, ok := c.PacketPTS(cmedi, pkt)
+						if !ok {
+							return
+						}
+
+						res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
 					})
 				}
 			}

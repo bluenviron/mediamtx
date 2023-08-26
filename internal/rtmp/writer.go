@@ -3,7 +3,7 @@ package rtmp
 import (
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
@@ -39,7 +39,7 @@ type Writer struct {
 }
 
 // NewWriter allocates a Writer.
-func NewWriter(conn *Conn, videoTrack formats.Format, audioTrack formats.Format) (*Writer, error) {
+func NewWriter(conn *Conn, videoTrack format.Format, audioTrack format.Format) (*Writer, error) {
 	w := &Writer{
 		conn: conn,
 	}
@@ -52,7 +52,7 @@ func NewWriter(conn *Conn, videoTrack formats.Format, audioTrack formats.Format)
 	return w, nil
 }
 
-func (w *Writer) writeTracks(videoTrack formats.Format, audioTrack formats.Format) error {
+func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format) error {
 	err := w.conn.Write(&message.DataAMF0{
 		ChunkStreamID:   4,
 		MessageStreamID: 0x1000000,
@@ -68,7 +68,7 @@ func (w *Writer) writeTracks(videoTrack formats.Format, audioTrack formats.Forma
 					K: "videocodecid",
 					V: func() float64 {
 						switch videoTrack.(type) {
-						case *formats.H264:
+						case *format.H264:
 							return message.CodecH264
 
 						default:
@@ -84,10 +84,10 @@ func (w *Writer) writeTracks(videoTrack formats.Format, audioTrack formats.Forma
 					K: "audiocodecid",
 					V: func() float64 {
 						switch audioTrack.(type) {
-						case *formats.MPEG1Audio:
+						case *format.MPEG1Audio:
 							return message.CodecMPEG1Audio
 
-						case *formats.MPEG4AudioGeneric, *formats.MPEG4AudioLATM:
+						case *format.MPEG4AudioGeneric, *format.MPEG4AudioLATM:
 							return message.CodecMPEG4Audio
 
 						default:
@@ -102,7 +102,7 @@ func (w *Writer) writeTracks(videoTrack formats.Format, audioTrack formats.Forma
 		return err
 	}
 
-	if videoTrack, ok := videoTrack.(*formats.H264); ok {
+	if videoTrack, ok := videoTrack.(*format.H264); ok {
 		// write decoder config only if SPS and PPS are available.
 		// if they're not available yet, they're sent later.
 		if sps, pps := videoTrack.SafeParams(); sps != nil && pps != nil {
@@ -128,10 +128,10 @@ func (w *Writer) writeTracks(videoTrack formats.Format, audioTrack formats.Forma
 	var audioConfig *mpeg4audio.AudioSpecificConfig
 
 	switch track := audioTrack.(type) {
-	case *formats.MPEG4Audio:
+	case *format.MPEG4Audio:
 		audioConfig = track.Config
 
-	case *formats.MPEG4AudioLATM:
+	case *format.MPEG4AudioLATM:
 		audioConfig = track.Config.Programs[0].Layers[0].AudioSpecificConfig
 	}
 

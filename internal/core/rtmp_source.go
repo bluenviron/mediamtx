@@ -8,8 +8,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -113,25 +113,25 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 
 	videoFormat, audioFormat := mc.Tracks()
 
-	var medias media.Medias
+	var medias []*description.Media
 	var stream *stream.Stream
 
 	if videoFormat != nil {
-		videoMedia := &media.Media{
-			Type:    media.TypeVideo,
-			Formats: []formats.Format{videoFormat},
+		videoMedia := &description.Media{
+			Type:    description.MediaTypeVideo,
+			Formats: []format.Format{videoFormat},
 		}
 		medias = append(medias, videoMedia)
 
 		switch videoFormat.(type) {
-		case *formats.H264:
+		case *format.H264:
 			mc.OnDataH264(func(pts time.Duration, au [][]byte) {
 				stream.WriteUnit(videoMedia, videoFormat, &unit.H264{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
-					AU:  au,
+					AU: au,
 				})
 			})
 
@@ -141,31 +141,31 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 	}
 
 	if audioFormat != nil { //nolint:dupl
-		audioMedia := &media.Media{
-			Type:    media.TypeAudio,
-			Formats: []formats.Format{audioFormat},
+		audioMedia := &description.Media{
+			Type:    description.MediaTypeAudio,
+			Formats: []format.Format{audioFormat},
 		}
 		medias = append(medias, audioMedia)
 
 		switch audioFormat.(type) {
-		case *formats.MPEG4AudioGeneric:
+		case *format.MPEG4AudioGeneric:
 			mc.OnDataMPEG4Audio(func(pts time.Duration, au []byte) {
 				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4AudioGeneric{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS: pts,
 					AUs: [][]byte{au},
 				})
 			})
 
-		case *formats.MPEG1Audio:
+		case *format.MPEG1Audio:
 			mc.OnDataMPEG1Audio(func(pts time.Duration, frame []byte) {
 				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG1Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: pts,
 					},
-					PTS:    pts,
 					Frames: [][]byte{frame},
 				})
 			})
@@ -176,7 +176,7 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 	}
 
 	res := s.parent.setReady(pathSourceStaticSetReadyReq{
-		medias:             medias,
+		desc:               &description.Session{Medias: medias},
 		generateRTPPackets: true,
 	})
 	if res.err != nil {

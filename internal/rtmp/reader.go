@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/abema/go-mp4"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
@@ -43,14 +43,14 @@ func h265FindNALU(array []mp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	return nil
 }
 
-func trackFromH264DecoderConfig(data []byte) (formats.Format, error) {
+func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
 	var conf h264conf.Conf
 	err := conf.Unmarshal(data)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse H264 config: %v", err)
 	}
 
-	return &formats.H264{
+	return &format.H264{
 		PayloadTyp:        96,
 		SPS:               conf.SPS,
 		PPS:               conf.PPS,
@@ -58,14 +58,14 @@ func trackFromH264DecoderConfig(data []byte) (formats.Format, error) {
 	}, nil
 }
 
-func trackFromAACDecoderConfig(data []byte) (formats.Format, error) {
+func trackFromAACDecoderConfig(data []byte) (format.Format, error) {
 	var mpegConf mpeg4audio.Config
 	err := mpegConf.Unmarshal(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return &formats.MPEG4Audio{
+	return &format.MPEG4Audio{
 		PayloadTyp:       96,
 		Config:           &mpegConf,
 		SizeLength:       13,
@@ -76,7 +76,7 @@ func trackFromAACDecoderConfig(data []byte) (formats.Format, error) {
 
 var errEmptyMetadata = errors.New("metadata is empty")
 
-func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, formats.Format, error) {
+func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, format.Format, error) {
 	if len(payload) != 1 {
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
@@ -86,8 +86,8 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
 
-	var videoTrack formats.Format
-	var audioTrack formats.Format
+	var videoTrack format.Format
+	var audioTrack format.Format
 
 	hasVideo, err := func() (bool, error) {
 		v, ok := md.GetV("videocodecid")
@@ -131,7 +131,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 				return false, nil
 
 			case message.CodecMPEG1Audio:
-				audioTrack = &formats.MPEG1Audio{}
+				audioTrack = &format.MPEG1Audio{}
 				return true, nil
 
 			case message.CodecMPEG4Audio:
@@ -205,7 +205,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 					}
 
 					if vps != nil && sps != nil && pps != nil {
-						videoTrack = &formats.H265{
+						videoTrack = &format.H265{
 							PayloadTyp: 96,
 							VPS:        vps,
 							SPS:        sps,
@@ -232,7 +232,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 						return nil, nil, fmt.Errorf("H265 parameters are missing")
 					}
 
-					videoTrack = &formats.H265{
+					videoTrack = &format.H265{
 						PayloadTyp: 96,
 						VPS:        vps,
 						SPS:        sps,
@@ -252,7 +252,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
 					}
 
-					videoTrack = &formats.AV1{}
+					videoTrack = &format.AV1{}
 
 				default: // VP9
 					var vpcc mp4.VpcC
@@ -261,7 +261,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 						return nil, nil, fmt.Errorf("invalid VP9 configuration: %v", err)
 					}
 
-					videoTrack = &formats.VP9{}
+					videoTrack = &format.VP9{}
 				}
 			}
 
@@ -282,10 +282,10 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (formats.Format, form
 	}
 }
 
-func tracksFromMessages(conn *Conn, msg message.Message) (formats.Format, formats.Format, error) {
+func tracksFromMessages(conn *Conn, msg message.Message) (format.Format, format.Format, error) {
 	var startTime *time.Duration
-	var videoTrack formats.Format
-	var audioTrack formats.Format
+	var videoTrack format.Format
+	var audioTrack format.Format
 
 	// analyze 1 second of packets
 outer:
@@ -359,8 +359,8 @@ outer:
 // Reader is a wrapper around Conn that provides utilities to demux incoming data.
 type Reader struct {
 	conn        *Conn
-	videoTrack  formats.Format
-	audioTrack  formats.Format
+	videoTrack  format.Format
+	audioTrack  format.Format
 	onDataVideo func(message.Message) error
 	onDataAudio func(*message.Audio) error
 }
@@ -380,7 +380,7 @@ func NewReader(conn *Conn) (*Reader, error) {
 	return r, nil
 }
 
-func (r *Reader) readTracks() (formats.Format, formats.Format, error) {
+func (r *Reader) readTracks() (format.Format, format.Format, error) {
 	msg, err := func() (message.Message, error) {
 		for {
 			msg, err := r.conn.Read()
@@ -439,7 +439,7 @@ func (r *Reader) readTracks() (formats.Format, formats.Format, error) {
 }
 
 // Tracks returns detected tracks
-func (r *Reader) Tracks() (formats.Format, formats.Format) {
+func (r *Reader) Tracks() (format.Format, format.Format) {
 	return r.videoTrack, r.audioTrack
 }
 

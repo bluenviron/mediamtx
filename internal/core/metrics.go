@@ -232,15 +232,15 @@ func (m *metrics) setHLSManager(s apiHLSManager) {
 	m.hlsManager = s
 }
 
-// rtspServerSet is called by rtspServer (plain).
-func (m *metrics) rtspServerSet(s apiRTSPServer) {
+// setRTSPServer is called by rtspServer (plain).
+func (m *metrics) setRTSPServer(s apiRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspServer = s
 }
 
-// rtspsServerSet is called by rtspServer (tls).
-func (m *metrics) rtspsServerSet(s apiRTSPServer) {
+// setRTSPSServer is called by rtspServer (tls).
+func (m *metrics) setRTSPSServer(s apiRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspsServer = s

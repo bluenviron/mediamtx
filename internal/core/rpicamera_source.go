@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -75,20 +75,20 @@ func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interfa
 
 // run implements sourceStaticImpl.
 func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
-	medi := &media.Media{
-		Type: media.TypeVideo,
-		Formats: []formats.Format{&formats.H264{
+	medi := &description.Media{
+		Type: description.MediaTypeVideo,
+		Formats: []format.Format{&format.H264{
 			PayloadTyp:        96,
 			PacketizationMode: 1,
 		}},
 	}
-	medias := media.Medias{medi}
+	medias := []*description.Media{medi}
 	var stream *stream.Stream
 
 	onData := func(dts time.Duration, au [][]byte) {
 		if stream == nil {
 			res := s.parent.setReady(pathSourceStaticSetReadyReq{
-				medias:             medias,
+				desc:               &description.Session{Medias: medias},
 				generateRTPPackets: true,
 			})
 			if res.err != nil {
@@ -101,9 +101,9 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 		stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
 			Base: unit.Base{
 				NTP: time.Now(),
+				PTS: dts,
 			},
-			PTS: dts,
-			AU:  au,
+			AU: au,
 		})
 	}
 

@@ -1,12 +1,11 @@
 package stream
 
 import (
-	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
@@ -17,13 +16,12 @@ import (
 type streamFormat struct {
 	source         logger.Writer
 	proc           formatprocessor.Processor
-	mutex          sync.RWMutex
 	nonRTSPReaders map[interface{}]func(unit.Unit)
 }
 
 func newStreamFormat(
 	udpMaxPayloadSize int,
-	forma formats.Format,
+	forma format.Format,
 	generateRTPPackets bool,
 	source logger.Writer,
 ) (*streamFormat, error) {
@@ -42,21 +40,14 @@ func newStreamFormat(
 }
 
 func (sf *streamFormat) addReader(r interface{}, cb func(unit.Unit)) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	sf.nonRTSPReaders[r] = cb
 }
 
 func (sf *streamFormat) removeReader(r interface{}) {
-	sf.mutex.Lock()
-	defer sf.mutex.Unlock()
 	delete(sf.nonRTSPReaders, r)
 }
 
-func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data unit.Unit) {
-	sf.mutex.RLock()
-	defer sf.mutex.RUnlock()
-
+func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, data unit.Unit) {
 	hasNonRTSPReaders := len(sf.nonRTSPReaders) > 0
 
 	err := sf.proc.Process(data, hasNonRTSPReaders)
@@ -65,10 +56,22 @@ func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data unit.Unit) 
 		return
 	}
 
-	// forward RTP packets to RTSP readers
+	n := uint64(0)
 	for _, pkt := range data.GetRTPPackets() {
-		atomic.AddUint64(s.bytesReceived, uint64(pkt.MarshalSize()))
-		s.rtspStream.WritePacketRTPWithNTP(medi, pkt, data.GetNTP())
+		n += uint64(pkt.MarshalSize())
+	}
+	atomic.AddUint64(s.bytesReceived, n)
+
+	if s.rtspStream != nil {
+		for _, pkt := range data.GetRTPPackets() {
+			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, data.GetNTP()) //nolint:errcheck
+		}
+	}
+
+	if s.rtspsStream != nil {
+		for _, pkt := range data.GetRTPPackets() {
+			s.rtspsStream.WritePacketRTPWithNTP(medi, pkt, data.GetNTP()) //nolint:errcheck
+		}
 	}
 
 	// forward decoded frames to non-RTSP readers
@@ -77,6 +80,12 @@ func (sf *streamFormat) writeUnit(s *Stream, medi *media.Media, data unit.Unit) 
 	}
 }
 
-func (sf *streamFormat) writeRTPPacket(s *Stream, medi *media.Media, pkt *rtp.Packet, ntp time.Time) {
-	sf.writeUnit(s, medi, sf.proc.UnitForRTPPacket(pkt, ntp))
+func (sf *streamFormat) writeRTPPacket(
+	s *Stream,
+	medi *description.Media,
+	pkt *rtp.Packet,
+	ntp time.Time,
+	pts time.Duration,
+) {
+	sf.writeUnit(s, medi, sf.proc.UnitForRTPPacket(pkt, ntp, pts))
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -17,7 +17,7 @@ type formatProcessorGeneric struct {
 
 func newGeneric(
 	udpMaxPayloadSize int,
-	forma formats.Format,
+	forma format.Format,
 	generateRTPPackets bool,
 	_ logger.Writer,
 ) (*formatProcessorGeneric, error) {
@@ -47,11 +47,12 @@ func (t *formatProcessorGeneric) Process(u unit.Unit, _ bool) error {
 	return nil
 }
 
-func (t *formatProcessorGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+func (t *formatProcessorGeneric) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &unit.Generic{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

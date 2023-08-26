@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpav1"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph264"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp8"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpvp9"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/ringbuffer"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph264"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp8"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
+	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -20,15 +20,15 @@ import (
 
 type webRTCOutgoingTrack struct {
 	sender *webrtc.RTPSender
-	media  *media.Media
-	format formats.Format
+	media  *description.Media
+	format format.Format
 	track  *webrtc.TrackLocalStaticRTP
 	cb     func(unit.Unit) error
 }
 
-func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, error) {
-	var av1Format *formats.AV1
-	videoMedia := medias.FindFormat(&av1Format)
+func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrack, error) {
+	var av1Format *format.AV1
+	videoMedia := desc.FindFormat(&av1Format)
 
 	if videoMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
@@ -63,12 +63,13 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.TU, tunit.PTS)
+				packets, err := encoder.Encode(tunit.TU)
 				if err != nil {
 					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
+					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -77,10 +78,10 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		}, nil
 	}
 
-	var vp9Format *formats.VP9
-	videoMedia = medias.FindFormat(&vp9Format)
+	var vp9Format *format.VP9
+	videoMedia = desc.FindFormat(&vp9Format)
 
-	if videoMedia != nil {
+	if videoMedia != nil { //nolint:dupl
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeVP9,
@@ -113,12 +114,13 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
+				packets, err := encoder.Encode(tunit.Frame)
 				if err != nil {
 					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
+					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -127,10 +129,10 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		}, nil
 	}
 
-	var vp8Format *formats.VP8
-	videoMedia = medias.FindFormat(&vp8Format)
+	var vp8Format *format.VP8
+	videoMedia = desc.FindFormat(&vp8Format)
 
-	if videoMedia != nil {
+	if videoMedia != nil { //nolint:dupl
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
 			webrtc.RTPCodecCapability{
 				MimeType:  webrtc.MimeTypeVP8,
@@ -163,12 +165,13 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 					return nil
 				}
 
-				packets, err := encoder.Encode(tunit.Frame, tunit.PTS)
+				packets, err := encoder.Encode(tunit.Frame)
 				if err != nil {
 					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
+					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -177,8 +180,8 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 		}, nil
 	}
 
-	var h264Format *formats.H264
-	videoMedia = medias.FindFormat(&h264Format)
+	var h264Format *format.H264
+	videoMedia = desc.FindFormat(&h264Format)
 
 	if videoMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
@@ -226,12 +229,13 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 					lastPTS = tunit.PTS
 				}
 
-				packets, err := encoder.Encode(tunit.AU, tunit.PTS)
+				packets, err := encoder.Encode(tunit.AU)
 				if err != nil {
 					return nil //nolint:nilerr
 				}
 
 				for _, pkt := range packets {
+					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -243,9 +247,9 @@ func newWebRTCOutgoingTrackVideo(medias media.Medias) (*webRTCOutgoingTrack, err
 	return nil, nil
 }
 
-func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, error) {
-	var opusFormat *formats.Opus
-	audioMedia := medias.FindFormat(&opusFormat)
+func newWebRTCOutgoingTrackAudio(desc *description.Session) (*webRTCOutgoingTrack, error) {
+	var opusFormat *format.Opus
+	audioMedia := desc.FindFormat(&opusFormat)
 
 	if audioMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
@@ -275,8 +279,8 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 		}, nil
 	}
 
-	var g722Format *formats.G722
-	audioMedia = medias.FindFormat(&g722Format)
+	var g722Format *format.G722
+	audioMedia = desc.FindFormat(&g722Format)
 
 	if audioMedia != nil {
 		webRTCTrak, err := webrtc.NewTrackLocalStaticRTP(
@@ -305,8 +309,8 @@ func newWebRTCOutgoingTrackAudio(medias media.Medias) (*webRTCOutgoingTrack, err
 		}, nil
 	}
 
-	var g711Format *formats.G711
-	audioMedia = medias.FindFormat(&g711Format)
+	var g711Format *format.G711
+	audioMedia = desc.FindFormat(&g711Format)
 
 	if audioMedia != nil {
 		var mtyp string

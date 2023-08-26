@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/auth"
-	"github.com/bluenviron/gortsplib/v3/pkg/base"
-	"github.com/bluenviron/gortsplib/v3/pkg/headers"
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v4/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"

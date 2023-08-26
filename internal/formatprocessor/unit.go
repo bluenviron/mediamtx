@@ -1,5 +1,4 @@
-// Package unit contains the Unit definition.
-package unit
+package formatprocessor
 
 import (
 	"time"

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtpmpeg1audio"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1audio"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -14,14 +14,14 @@ import (
 
 type formatProcessorMPEG1Audio struct {
 	udpMaxPayloadSize int
-	format            *formats.MPEG1Audio
+	format            *format.MPEG1Audio
 	encoder           *rtpmpeg1audio.Encoder
 	decoder           *rtpmpeg1audio.Decoder
 }
 
 func newMPEG1Audio(
 	udpMaxPayloadSize int,
-	forma *formats.MPEG1Audio,
+	forma *format.MPEG1Audio,
 	generateRTPPackets bool,
 	_ logger.Writer,
 ) (*formatProcessorMPEG1Audio, error) {
@@ -66,13 +66,13 @@ func (t *formatProcessorMPEG1Audio) Process(u unit.Unit, hasNonRTSPReaders bool)
 		if hasNonRTSPReaders || t.decoder != nil {
 			if t.decoder == nil {
 				var err error
-				t.decoder, err = t.format.CreateDecoder2()
+				t.decoder, err = t.format.CreateDecoder()
 				if err != nil {
 					return err
 				}
 			}
 
-			frames, pts, err := t.decoder.Decode(pkt)
+			frames, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtpmpeg1audio.ErrNonStartingPacketAndNoPrevious || err == rtpmpeg1audio.ErrMorePacketsNeeded {
 					return nil
@@ -81,7 +81,6 @@ func (t *formatProcessorMPEG1Audio) Process(u unit.Unit, hasNonRTSPReaders bool)
 			}
 
 			tunit.Frames = frames
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -89,20 +88,22 @@ func (t *formatProcessorMPEG1Audio) Process(u unit.Unit, hasNonRTSPReaders bool)
 	}
 
 	// encode into RTP
-	pkts, err := t.encoder.Encode(tunit.Frames, tunit.PTS)
+	pkts, err := t.encoder.Encode(tunit.Frames)
 	if err != nil {
 		return err
 	}
+	setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 	tunit.RTPPackets = pkts
 
 	return nil
 }
 
-func (t *formatProcessorMPEG1Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+func (t *formatProcessorMPEG1Audio) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &unit.MPEG1Audio{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

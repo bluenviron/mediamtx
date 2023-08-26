@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 )
 
 // AuthMethods is the authMethods parameter.
