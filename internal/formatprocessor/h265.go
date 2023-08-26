@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats/rtph265"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
 
@@ -79,7 +79,7 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 
 type formatProcessorH265 struct {
 	udpMaxPayloadSize int
-	format            *formats.H265
+	format            *format.H265
 	log               logger.Writer
 
 	encoder *rtph265.Encoder
@@ -88,7 +88,7 @@ type formatProcessorH265 struct {
 
 func newH265(
 	udpMaxPayloadSize int,
-	forma *formats.H265,
+	forma *format.H265,
 	generateRTPPackets bool,
 	log logger.Writer,
 ) (*formatProcessorH265, error) {
@@ -99,7 +99,7 @@ func newH265(
 	}
 
 	if generateRTPPackets {
-		err := t.createEncoder(nil, nil, nil)
+		err := t.createEncoder(nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -109,14 +109,14 @@ func newH265(
 }
 
 func (t *formatProcessorH265) createEncoder(
-	ssrc *uint32, initialSequenceNumber *uint16, initialTimestamp *uint32,
+	ssrc *uint32,
+	initialSequenceNumber *uint16,
 ) error {
 	t.encoder = &rtph265.Encoder{
 		PayloadMaxSize:        t.udpMaxPayloadSize - 12,
 		PayloadType:           t.format.PayloadTyp,
 		SSRC:                  ssrc,
 		InitialSequenceNumber: initialSequenceNumber,
-		InitialTimestamp:      initialTimestamp,
 		MaxDONDiff:            t.format.MaxDONDiff,
 	}
 	return t.encoder.Init()
@@ -262,8 +262,7 @@ func (t *formatProcessorH265) Process(u unit.Unit, hasNonRTSPReaders bool) error
 			if pkt.MarshalSize() > t.udpMaxPayloadSize {
 				v1 := pkt.SSRC
 				v2 := pkt.SequenceNumber
-				v3 := pkt.Timestamp
-				err := t.createEncoder(&v1, &v2, &v3)
+				err := t.createEncoder(&v1, &v2)
 				if err != nil {
 					return err
 				}
@@ -274,27 +273,24 @@ func (t *formatProcessorH265) Process(u unit.Unit, hasNonRTSPReaders bool) error
 		if hasNonRTSPReaders || t.decoder != nil || t.encoder != nil {
 			if t.decoder == nil {
 				var err error
-				t.decoder, err = t.format.CreateDecoder2()
+				t.decoder, err = t.format.CreateDecoder()
 				if err != nil {
 					return err
 				}
 			}
 
-			if t.encoder != nil {
-				tunit.RTPPackets = nil
-			}
-
-			// DecodeUntilMarker() is necessary, otherwise Encode() generates partial groups
-			au, pts, err := t.decoder.DecodeUntilMarker(pkt)
+			au, err := t.decoder.Decode(pkt)
 			if err != nil {
 				if err == rtph265.ErrNonStartingPacketAndNoPrevious || err == rtph265.ErrMorePacketsNeeded {
+					if t.encoder != nil {
+						tunit.RTPPackets = nil
+					}
 					return nil
 				}
 				return err
 			}
 
 			tunit.AU = t.remuxAccessUnit(au)
-			tunit.PTS = pts
 		}
 
 		// route packet as is
@@ -308,10 +304,11 @@ func (t *formatProcessorH265) Process(u unit.Unit, hasNonRTSPReaders bool) error
 
 	// encode into RTP
 	if len(tunit.AU) != 0 {
-		pkts, err := t.encoder.Encode(tunit.AU, tunit.PTS)
+		pkts, err := t.encoder.Encode(tunit.AU)
 		if err != nil {
 			return err
 		}
+		setTimestamp(pkts, tunit.RTPPackets, t.format.ClockRate(), tunit.PTS)
 		tunit.RTPPackets = pkts
 	} else {
 		tunit.RTPPackets = nil
@@ -320,11 +317,12 @@ func (t *formatProcessorH265) Process(u unit.Unit, hasNonRTSPReaders bool) error
 	return nil
 }
 
-func (t *formatProcessorH265) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time) unit.Unit {
+func (t *formatProcessorH265) UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit {
 	return &unit.H265{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,
+			PTS:        pts,
 		},
 	}
 }

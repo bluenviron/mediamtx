@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -13,7 +13,7 @@ import (
 )
 
 func TestH264DynamicParams(t *testing.T) {
-	forma := &formats.H264{
+	forma := &format.H264{
 		PayloadTyp:        96,
 		PacketizationMode: 1,
 	}
@@ -21,10 +21,10 @@ func TestH264DynamicParams(t *testing.T) {
 	p, err := New(1472, forma, false, nil)
 	require.NoError(t, err)
 
-	enc, err := forma.CreateEncoder2()
+	enc, err := forma.CreateEncoder()
 	require.NoError(t, err)
 
-	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
+	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
 	require.NoError(t, err)
 
 	data := &unit.H264{
@@ -39,7 +39,7 @@ func TestH264DynamicParams(t *testing.T) {
 		{byte(h264.NALUTypeIDR)},
 	}, data.AU)
 
-	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}, 0) // SPS
+	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}) // SPS
 	require.NoError(t, err)
 
 	err = p.Process(&unit.H264{
@@ -49,7 +49,7 @@ func TestH264DynamicParams(t *testing.T) {
 	}, false)
 	require.NoError(t, err)
 
-	pkts, err = enc.Encode([][]byte{{8, 1}}, 0) // PPS
+	pkts, err = enc.Encode([][]byte{{8, 1}}) // PPS
 	require.NoError(t, err)
 
 	err = p.Process(&unit.H264{
@@ -62,7 +62,7 @@ func TestH264DynamicParams(t *testing.T) {
 	require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
 	require.Equal(t, []byte{8, 1}, forma.PPS)
 
-	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}}, 0)
+	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
 	require.NoError(t, err)
 
 	data = &unit.H264{
@@ -81,7 +81,7 @@ func TestH264DynamicParams(t *testing.T) {
 }
 
 func TestH264OversizedPackets(t *testing.T) {
-	forma := &formats.H264{
+	forma := &format.H264{
 		PayloadTyp:        96,
 		SPS:               []byte{0x01, 0x02, 0x03, 0x04},
 		PPS:               []byte{0x01, 0x02, 0x03, 0x04},
@@ -186,7 +186,7 @@ func TestH264OversizedPackets(t *testing.T) {
 }
 
 func TestH264EmptyPacket(t *testing.T) {
-	forma := &formats.H264{
+	forma := &format.H264{
 		PayloadTyp:        96,
 		PacketizationMode: 1,
 	}

@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -29,7 +29,7 @@ func TestRTSPServerRunOnConnect(t *testing.T) {
 
 	err = source.StartRecording(
 		"rtsp://127.0.0.1:8554/mypath",
-		media.Medias{testMediaH264})
+		&description.Session{Medias: []*description.Media{testMediaH264}})
 	require.NoError(t, err)
 	defer source.Close()
 
@@ -88,7 +88,7 @@ func TestRTSPServer(t *testing.T) {
 
 			err := source.StartRecording(
 				"rtsp://testpublisher:testpass@127.0.0.1:8554/teststream?param=value",
-				media.Medias{medi})
+				&description.Session{Medias: []*description.Media{medi}})
 			require.NoError(t, err)
 			defer source.Close()
 
@@ -107,10 +107,10 @@ func TestRTSPServer(t *testing.T) {
 			require.NoError(t, err)
 			defer reader.Close()
 
-			medias, baseURL, _, err := reader.Describe(u)
+			desc, _, err := reader.Describe(u)
 			require.NoError(t, err)
 
-			err = reader.SetupAll(medias, baseURL)
+			err = reader.SetupAll(desc.BaseURL, desc.Medias)
 			require.NoError(t, err)
 
 			_, err = reader.Play(nil)
@@ -137,7 +137,7 @@ func TestRTSPServerAuthHashed(t *testing.T) {
 
 	err := source.StartRecording(
 		"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
-		media.Medias{medi})
+		&description.Session{Medias: []*description.Media{medi}})
 	require.NoError(t, err)
 	defer source.Close()
 }
@@ -181,7 +181,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 
 			err := c.StartRecording(
 				"rtsp://"+ca.user+":"+ca.pass+"@localhost:8554/test/stream",
-				media.Medias{medi},
+				&description.Session{Medias: []*description.Media{medi}},
 			)
 			require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 		})
@@ -228,7 +228,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 			require.NoError(t, err)
 			defer c.Close()
 
-			_, _, _, err = c.Describe(u)
+			_, _, err = c.Describe(u)
 			require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 		})
 	}
@@ -249,7 +249,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 
 		err := c.StartRecording(
 			"rtsp://localhost:8554/test/stream",
-			media.Medias{medi},
+			&description.Session{Medias: []*description.Media{medi}},
 		)
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	})
@@ -270,7 +270,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 
 		err := c.StartRecording(
 			"rtsp://testpublisher2:testpass@localhost:8554/teststream?param=value",
-			media.Medias{medi},
+			&description.Session{Medias: []*description.Media{medi}},
 		)
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	})
@@ -298,13 +298,15 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 
 			s1 := gortsplib.Client{}
 
-			err := s1.StartRecording("rtsp://localhost:8554/teststream", media.Medias{medi})
+			err := s1.StartRecording("rtsp://localhost:8554/teststream",
+				&description.Session{Medias: []*description.Media{medi}})
 			require.NoError(t, err)
 			defer s1.Close()
 
 			s2 := gortsplib.Client{}
 
-			err = s2.StartRecording("rtsp://localhost:8554/teststream", media.Medias{medi})
+			err = s2.StartRecording("rtsp://localhost:8554/teststream",
+				&description.Session{Medias: []*description.Media{medi}})
 			if ca == "enabled" {
 				require.NoError(t, err)
 				defer s2.Close()
@@ -323,17 +325,17 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 			require.NoError(t, err)
 			defer c.Close()
 
-			medias, baseURL, _, err := c.Describe(u)
+			desc, _, err := c.Describe(u)
 			require.NoError(t, err)
 
-			err = c.SetupAll(medias, baseURL)
+			err = c.SetupAll(desc.BaseURL, desc.Medias)
 			require.NoError(t, err)
 
-			c.OnPacketRTP(medias[0], medias[0].Formats[0], func(pkt *rtp.Packet) {
+			c.OnPacketRTP(desc.Medias[0], desc.Medias[0].Formats[0], func(pkt *rtp.Packet) {
 				if ca == "enabled" {
-					require.Equal(t, []byte{0x05, 0x06, 0x07, 0x08}, pkt.Payload)
+					require.Equal(t, []byte{5, 15, 16, 17, 18}, pkt.Payload)
 				} else {
-					require.Equal(t, []byte{0x01, 0x02, 0x03, 0x04}, pkt.Payload)
+					require.Equal(t, []byte{5, 11, 12, 13, 14}, pkt.Payload)
 				}
 				close(frameRecv)
 			})
@@ -354,7 +356,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 						SSRC:           978651231,
 						Marker:         true,
 					},
-					Payload: []byte{0x05, 0x06, 0x07, 0x08},
+					Payload: []byte{5, 15, 16, 17, 18},
 				})
 				require.NoError(t, err)
 			} else {
@@ -367,7 +369,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 						SSRC:           978651231,
 						Marker:         true,
 					},
-					Payload: []byte{0x01, 0x02, 0x03, 0x04},
+					Payload: []byte{5, 11, 12, 13, 14},
 				})
 				require.NoError(t, err)
 			}
@@ -402,7 +404,7 @@ func TestRTSPServerFallback(t *testing.T) {
 
 			source := gortsplib.Client{}
 			err := source.StartRecording("rtsp://localhost:8554/path2",
-				media.Medias{testMediaH264})
+				&description.Session{Medias: []*description.Media{testMediaH264}})
 			require.NoError(t, err)
 			defer source.Close()
 
@@ -414,9 +416,9 @@ func TestRTSPServerFallback(t *testing.T) {
 			require.NoError(t, err)
 			defer dest.Close()
 
-			medias, _, _, err := dest.Describe(u)
+			desc, _, err := dest.Describe(u)
 			require.NoError(t, err)
-			require.Equal(t, 1, len(medias))
+			require.Equal(t, 1, len(desc.Medias))
 		})
 	}
 }

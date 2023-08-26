@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp"
@@ -69,13 +69,13 @@ webrtc_sessions_bytes_sent 0
 
 	source := gortsplib.Client{}
 	err = source.StartRecording("rtsp://localhost:8554/rtsp_path",
-		media.Medias{medi})
+		&description.Session{Medias: []*description.Media{medi}})
 	require.NoError(t, err)
 	defer source.Close()
 
 	source2 := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
 	err = source2.StartRecording("rtsps://localhost:8322/rtsps_path",
-		media.Medias{medi})
+		&description.Session{Medias: []*description.Media{medi}})
 	require.NoError(t, err)
 	defer source2.Close()
 
@@ -89,7 +89,7 @@ webrtc_sessions_bytes_sent 0
 	conn, err := rtmp.NewClientConn(nconn, u, true)
 	require.NoError(t, err)
 
-	videoTrack := &formats.H264{
+	videoTrack := &format.H264{
 		PayloadTyp: 96,
 		SPS: []byte{ // 1920x1080 baseline
 			0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,

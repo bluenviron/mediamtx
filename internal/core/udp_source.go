@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	"golang.org/x/net/ipv4"
 
@@ -140,7 +140,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 		return err
 	}
 
-	var medias media.Medias
+	var medias []*description.Media //nolint:prealloc
 	var stream *stream.Stream
 
 	var td *mpegts.TimeDecoder
@@ -152,13 +152,13 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 	}
 
 	for _, track := range r.Tracks() { //nolint:dupl
-		var medi *media.Media
+		var medi *description.Media
 
 		switch tcodec := track.Codec.(type) {
 		case *mpegts.CodecH264:
-			medi = &media.Media{
-				Type: media.TypeVideo,
-				Formats: []formats.Format{&formats.H264{
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H264{
 					PayloadTyp:        96,
 					PacketizationMode: 1,
 				}},
@@ -168,17 +168,17 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS: decodeTime(pts),
-					AU:  au,
+					AU: au,
 				})
 				return nil
 			})
 
 		case *mpegts.CodecH265:
-			medi = &media.Media{
-				Type: media.TypeVideo,
-				Formats: []formats.Format{&formats.H265{
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H265{
 					PayloadTyp: 96,
 				}},
 			}
@@ -187,17 +187,17 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS: decodeTime(pts),
-					AU:  au,
+					AU: au,
 				})
 				return nil
 			})
 
 		case *mpegts.CodecMPEG4Audio:
-			medi = &media.Media{
-				Type: media.TypeAudio,
-				Formats: []formats.Format{&formats.MPEG4Audio{
+			medi = &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.MPEG4Audio{
 					PayloadTyp:       96,
 					SizeLength:       13,
 					IndexLength:      3,
@@ -210,17 +210,17 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS: decodeTime(pts),
 					AUs: aus,
 				})
 				return nil
 			})
 
 		case *mpegts.CodecOpus:
-			medi = &media.Media{
-				Type: media.TypeAudio,
-				Formats: []formats.Format{&formats.Opus{
+			medi = &description.Media{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
 					PayloadTyp: 96,
 					IsStereo:   (tcodec.ChannelCount == 2),
 				}},
@@ -230,25 +230,25 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 				stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS:     decodeTime(pts),
 					Packets: packets,
 				})
 				return nil
 			})
 
 		case *mpegts.CodecMPEG1Audio:
-			medi = &media.Media{
-				Type:    media.TypeAudio,
-				Formats: []formats.Format{&formats.MPEG1Audio{}},
+			medi = &description.Media{
+				Type:    description.MediaTypeAudio,
+				Formats: []format.Format{&format.MPEG1Audio{}},
 			}
 
 			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
 				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
+						PTS: decodeTime(pts),
 					},
-					PTS:    decodeTime(pts),
 					Frames: frames,
 				})
 				return nil
@@ -266,7 +266,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 	}
 
 	res := s.parent.setReady(pathSourceStaticSetReadyReq{
-		medias:             medias,
+		desc:               &description.Session{Medias: medias},
 		generateRTPPackets: true,
 	})
 	if res.err != nil {

@@ -3,7 +3,7 @@ package formatprocessor
 import (
 	"testing"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -11,7 +11,7 @@ import (
 )
 
 func TestGenericRemovePadding(t *testing.T) {
-	forma := &formats.Generic{
+	forma := &format.Generic{
 		PayloadTyp: 96,
 		RTPMa:      "private/90000",
 	}

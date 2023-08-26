@@ -224,7 +224,7 @@ func (s *sourceStatic) setReady(req pathSourceStaticSetReadyReq) pathSourceStati
 		res := <-req.res
 
 		if res.err == nil {
-			s.impl.Log(logger.Info, "ready: %s", sourceMediaInfo(req.medias))
+			s.impl.Log(logger.Info, "ready: %s", sourceMediaInfo(req.desc.Medias))
 		}
 
 		return res

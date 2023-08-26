@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
@@ -144,7 +146,7 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf
 	medias := webrtcMediasOfIncomingTracks(tracks)
 
 	rres := s.parent.setReady(pathSourceStaticSetReadyReq{
-		medias:             medias,
+		desc:               &description.Session{Medias: medias},
 		generateRTPPackets: true,
 	})
 	if rres.err != nil {
@@ -153,8 +155,10 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf
 
 	defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
 
+	timeDecoder := rtptime.NewGlobalDecoder()
+
 	for _, track := range tracks {
-		track.start(rres.stream)
+		track.start(rres.stream, timeDecoder)
 	}
 
 	select {

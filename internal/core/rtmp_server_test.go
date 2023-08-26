@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
@@ -128,7 +128,7 @@ func TestRTMPServer(t *testing.T) {
 				conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 				require.NoError(t, err)
 
-				videoTrack := &formats.H264{
+				videoTrack := &format.H264{
 					PayloadTyp: 96,
 					SPS: []byte{ // 1920x1080 baseline
 						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
@@ -139,7 +139,7 @@ func TestRTMPServer(t *testing.T) {
 					PacketizationMode: 1,
 				}
 
-				audioTrack := &formats.MPEG4Audio{
+				audioTrack := &format.MPEG4Audio{
 					PayloadTyp: 96,
 					Config: &mpeg4audio.Config{
 						Type:         2,
@@ -238,7 +238,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &formats.H264{
+		videoTrack := &format.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -290,7 +290,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &formats.H264{
+		videoTrack := &format.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,
@@ -343,7 +343,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 		conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 		require.NoError(t, err)
 
-		videoTrack := &formats.H264{
+		videoTrack := &format.H264{
 			PayloadTyp: 96,
 			SPS: []byte{
 				0x67, 0x64, 0x00, 0x0c, 0xac, 0x3b, 0x50, 0xb0,

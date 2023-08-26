@@ -7,8 +7,8 @@ import (
 
 	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gohlslib/pkg/codecs"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -69,48 +69,48 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			s.Log(logger.Warn, err.Error())
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
-			var medias media.Medias
+			var medias []*description.Media
 
 			for _, track := range tracks {
-				var medi *media.Media
+				var medi *description.Media
 
 				switch tcodec := track.Codec.(type) {
 				case *codecs.AV1:
-					medi = &media.Media{
-						Type:    media.TypeVideo,
-						Formats: []formats.Format{&formats.AV1{}},
+					medi = &description.Media{
+						Type:    description.MediaTypeVideo,
+						Formats: []format.Format{&format.AV1{}},
 					}
 
 					c.OnDataAV1(track, func(pts time.Duration, tu [][]byte) {
 						stream.WriteUnit(medi, medi.Formats[0], &unit.AV1{
 							Base: unit.Base{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
-							TU:  tu,
+							TU: tu,
 						})
 					})
 
 				case *codecs.VP9:
-					medi = &media.Media{
-						Type:    media.TypeVideo,
-						Formats: []formats.Format{&formats.VP9{}},
+					medi = &description.Media{
+						Type:    description.MediaTypeVideo,
+						Formats: []format.Format{&format.VP9{}},
 					}
 
 					c.OnDataVP9(track, func(pts time.Duration, frame []byte) {
 						stream.WriteUnit(medi, medi.Formats[0], &unit.VP9{
 							Base: unit.Base{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS:   pts,
 							Frame: frame,
 						})
 					})
 
 				case *codecs.H264:
-					medi = &media.Media{
-						Type: media.TypeVideo,
-						Formats: []formats.Format{&formats.H264{
+					medi = &description.Media{
+						Type: description.MediaTypeVideo,
+						Formats: []format.Format{&format.H264{
 							PayloadTyp:        96,
 							PacketizationMode: 1,
 							SPS:               tcodec.SPS,
@@ -122,16 +122,16 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
 							Base: unit.Base{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
-							AU:  au,
+							AU: au,
 						})
 					})
 
 				case *codecs.H265:
-					medi = &media.Media{
-						Type: media.TypeVideo,
-						Formats: []formats.Format{&formats.H265{
+					medi = &description.Media{
+						Type: description.MediaTypeVideo,
+						Formats: []format.Format{&format.H265{
 							PayloadTyp: 96,
 							VPS:        tcodec.VPS,
 							SPS:        tcodec.SPS,
@@ -143,16 +143,16 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
 							Base: unit.Base{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
-							AU:  au,
+							AU: au,
 						})
 					})
 
 				case *codecs.MPEG4Audio:
-					medi = &media.Media{
-						Type: media.TypeAudio,
-						Formats: []formats.Format{&formats.MPEG4Audio{
+					medi = &description.Media{
+						Type: description.MediaTypeAudio,
+						Formats: []format.Format{&format.MPEG4Audio{
 							PayloadTyp:       96,
 							SizeLength:       13,
 							IndexLength:      3,
@@ -165,16 +165,16 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
 							Base: unit.Base{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS: pts,
 							AUs: aus,
 						})
 					})
 
 				case *codecs.Opus:
-					medi = &media.Media{
-						Type: media.TypeAudio,
-						Formats: []formats.Format{&formats.Opus{
+					medi = &description.Media{
+						Type: description.MediaTypeAudio,
+						Formats: []format.Format{&format.Opus{
 							PayloadTyp: 96,
 							IsStereo:   (tcodec.ChannelCount == 2),
 						}},
@@ -184,8 +184,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 						stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
 							Base: unit.Base{
 								NTP: time.Now(),
+								PTS: pts,
 							},
-							PTS:     pts,
 							Packets: packets,
 						})
 					})
@@ -195,7 +195,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			}
 
 			res := s.parent.setReady(pathSourceStaticSetReadyReq{
-				medias:             medias,
+				desc:               &description.Session{Medias: medias},
 				generateRTPPackets: true,
 			})
 			if res.err != nil {

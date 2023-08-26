@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -118,9 +118,9 @@ func TestHLSRead(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	medi := &media.Media{
-		Type: media.TypeVideo,
-		Formats: []formats.Format{&formats.H264{
+	medi := &description.Media{
+		Type: description.MediaTypeVideo,
+		Formats: []format.Format{&format.H264{
 			PayloadTyp:        96,
 			PacketizationMode: 1,
 			SPS: []byte{ // 1920x1080 baseline
@@ -136,7 +136,8 @@ func TestHLSRead(t *testing.T) {
 	source := gortsplib.Client{
 		Transport: &v,
 	}
-	err := source.StartRecording("rtsp://localhost:8554/stream", media.Medias{medi})
+	err := source.StartRecording("rtsp://localhost:8554/stream",
+		&description.Session{Medias: []*description.Media{medi}})
 	require.NoError(t, err)
 	defer source.Close()
 

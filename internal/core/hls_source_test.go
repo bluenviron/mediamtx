@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	"github.com/gin-gonic/gin"
@@ -135,25 +135,25 @@ func TestHLSSource(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Close()
 
-	medias, baseURL, _, err := c.Describe(u)
+	desc, _, err := c.Describe(u)
 	require.NoError(t, err)
 
-	require.Equal(t, media.Medias{
+	require.Equal(t, []*description.Media{
 		{
-			Type:    media.TypeVideo,
-			Control: medias[0].Control,
-			Formats: []formats.Format{
-				&formats.H264{
+			Type:    description.MediaTypeVideo,
+			Control: desc.Medias[0].Control,
+			Formats: []format.Format{
+				&format.H264{
 					PayloadTyp:        96,
 					PacketizationMode: 1,
 				},
 			},
 		},
 		{
-			Type:    media.TypeAudio,
-			Control: medias[1].Control,
-			Formats: []formats.Format{
-				&formats.MPEG4Audio{
+			Type:    description.MediaTypeAudio,
+			Control: desc.Medias[1].Control,
+			Formats: []format.Format{
+				&format.MPEG4Audio{
 					PayloadTyp:     96,
 					ProfileLevelID: 1,
 					Config: &mpeg4audio.Config{
@@ -167,12 +167,12 @@ func TestHLSSource(t *testing.T) {
 				},
 			},
 		},
-	}, medias)
+	}, desc.Medias)
 
-	var forma *formats.H264
-	medi := medias.FindFormat(&forma)
+	var forma *format.H264
+	medi := desc.FindFormat(&forma)
 
-	_, err = c.Setup(medi, baseURL, 0, 0)
+	_, err = c.Setup(desc.BaseURL, medi, 0, 0)
 	require.NoError(t, err)
 
 	c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {

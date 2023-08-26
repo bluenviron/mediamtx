@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/base"
-	"github.com/bluenviron/gortsplib/v3/pkg/headers"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/sdp"
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/headers"
+	"github.com/bluenviron/gortsplib/v4/pkg/sdp"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/stretchr/testify/require"
 )
 
@@ -103,9 +103,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 )
 
 func main() {
@@ -113,9 +113,9 @@ func main() {
 		panic("environment not set")
 	}
 
-	medi := &media.Media{
-		Type: media.TypeVideo,
-		Formats: []formats.Format{&formats.H264{
+	medi := &description.Media{
+		Type: description.MediaTypeVideo,
+		Formats: []format.Format{&format.H264{
 			PayloadTyp: 96,
 			SPS: []byte{0x01, 0x02, 0x03, 0x04},
 			PPS: []byte{0x01, 0x02, 0x03, 0x04},
@@ -127,7 +127,7 @@ func main() {
 
 	err := source.StartRecording(
 		"rtsp://localhost:" + os.Getenv("RTSP_PORT") + "/" + os.Getenv("MTX_PATH"),
-		media.Medias{medi})
+		&description.Session{Medias: []*description.Media{medi}})
 	if err != nil {
 		panic(err)
 	}
@@ -264,7 +264,7 @@ func TestPathRunOnReady(t *testing.T) {
 
 	err := c.StartRecording(
 		"rtsp://localhost:8554/test",
-		media.Medias{medi})
+		&description.Session{Medias: []*description.Media{medi}})
 	require.NoError(t, err)
 	defer c.Close()
 
@@ -284,7 +284,7 @@ func TestPathMaxReaders(t *testing.T) {
 	source := gortsplib.Client{}
 	err := source.StartRecording(
 		"rtsp://localhost:8554/mystream",
-		media.Medias{testMediaH264})
+		&description.Session{Medias: []*description.Media{testMediaH264}})
 	require.NoError(t, err)
 	defer source.Close()
 
@@ -298,10 +298,10 @@ func TestPathMaxReaders(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		medias, baseURL, _, err := reader.Describe(u)
+		desc, _, err := reader.Describe(u)
 		require.NoError(t, err)
 
-		err = reader.SetupAll(medias, baseURL)
+		err = reader.SetupAll(desc.BaseURL, desc.Medias)
 		if i != 1 {
 			require.NoError(t, err)
 		} else {

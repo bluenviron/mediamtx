@@ -2,11 +2,12 @@
 package stream
 
 import (
+	"sync"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -16,28 +17,31 @@ import (
 // Stream is a media stream.
 // It stores tracks, readers and allow to write data to readers.
 type Stream struct {
+	desc          *description.Session
 	bytesReceived *uint64
 
-	rtspStream *gortsplib.ServerStream
-	smedias    map[*media.Media]*streamMedia
+	smedias     map[*description.Media]*streamMedia
+	mutex       sync.RWMutex
+	rtspStream  *gortsplib.ServerStream
+	rtspsStream *gortsplib.ServerStream
 }
 
 // New allocates a Stream.
 func New(
 	udpMaxPayloadSize int,
-	medias media.Medias,
+	desc *description.Session,
 	generateRTPPackets bool,
 	bytesReceived *uint64,
 	source logger.Writer,
 ) (*Stream, error) {
 	s := &Stream{
 		bytesReceived: bytesReceived,
-		rtspStream:    gortsplib.NewServerStream(medias),
+		desc:          desc,
 	}
 
-	s.smedias = make(map[*media.Media]*streamMedia)
+	s.smedias = make(map[*description.Media]*streamMedia)
 
-	for _, media := range s.rtspStream.Medias() {
+	for _, media := range desc.Medias {
 		var err error
 		s.smedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, source)
 		if err != nil {
@@ -50,21 +54,46 @@ func New(
 
 // Close closes all resources of the stream.
 func (s *Stream) Close() {
-	s.rtspStream.Close()
+	if s.rtspStream != nil {
+		s.rtspStream.Close()
+	}
+	if s.rtspsStream != nil {
+		s.rtspsStream.Close()
+	}
 }
 
-// Medias returns medias of the stream.
-func (s *Stream) Medias() media.Medias {
-	return s.rtspStream.Medias()
+// Desc returns description of the stream.
+func (s *Stream) Desc() *description.Session {
+	return s.desc
 }
 
 // RTSPStream returns the RTSP stream.
-func (s *Stream) RTSPStream() *gortsplib.ServerStream {
+func (s *Stream) RTSPStream(server *gortsplib.Server) *gortsplib.ServerStream {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.rtspStream == nil {
+		s.rtspStream = gortsplib.NewServerStream(server, s.desc)
+	}
 	return s.rtspStream
 }
 
+// RTSPSStream returns the RTSPS stream.
+func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if s.rtspsStream == nil {
+		s.rtspsStream = gortsplib.NewServerStream(server, s.desc)
+	}
+	return s.rtspsStream
+}
+
 // AddReader adds a reader.
-func (s *Stream) AddReader(r interface{}, medi *media.Media, forma formats.Format, cb func(unit.Unit)) {
+func (s *Stream) AddReader(r interface{}, medi *description.Media, forma format.Format, cb func(unit.Unit)) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 	sf.addReader(r, cb)
@@ -72,6 +101,9 @@ func (s *Stream) AddReader(r interface{}, medi *media.Media, forma formats.Forma
 
 // RemoveReader removes a reader.
 func (s *Stream) RemoveReader(r interface{}) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
 	for _, sm := range s.smedias {
 		for _, sf := range sm.formats {
 			sf.removeReader(r)
@@ -80,15 +112,29 @@ func (s *Stream) RemoveReader(r interface{}) {
 }
 
 // WriteUnit writes a Unit.
-func (s *Stream) WriteUnit(medi *media.Media, forma formats.Format, data unit.Unit) {
+func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, data unit.Unit) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
 	sf.writeUnit(s, medi, data)
 }
 
 // WriteRTPPacket writes a RTP packet.
-func (s *Stream) WriteRTPPacket(medi *media.Media, forma formats.Format, pkt *rtp.Packet, ntp time.Time) {
+func (s *Stream) WriteRTPPacket(
+	medi *description.Media,
+	forma format.Format,
+	pkt *rtp.Packet,
+	ntp time.Time,
+	pts time.Duration,
+) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
-	sf.writeRTPPacket(s, medi, pkt, ntp)
+
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	sf.writeRTPPacket(s, medi, pkt, ntp, pts)
 }

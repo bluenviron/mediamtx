@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/formats"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -13,17 +13,17 @@ import (
 )
 
 func TestH265DynamicParams(t *testing.T) {
-	forma := &formats.H265{
+	forma := &format.H265{
 		PayloadTyp: 96,
 	}
 
 	p, err := New(1472, forma, false, nil)
 	require.NoError(t, err)
 
-	enc, err := forma.CreateEncoder2()
+	enc, err := forma.CreateEncoder()
 	require.NoError(t, err)
 
-	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
+	pkts, err := enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}})
 	require.NoError(t, err)
 
 	data := &unit.H265{
@@ -38,7 +38,7 @@ func TestH265DynamicParams(t *testing.T) {
 		{byte(h265.NALUType_CRA_NUT) << 1, 0},
 	}, data.AU)
 
-	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}}, 0)
+	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_VPS_NUT) << 1, 1, 2, 3}})
 	require.NoError(t, err)
 
 	err = p.Process(&unit.H265{
@@ -48,7 +48,7 @@ func TestH265DynamicParams(t *testing.T) {
 	}, false)
 	require.NoError(t, err)
 
-	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}}, 0)
+	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}})
 	require.NoError(t, err)
 
 	err = p.Process(&unit.H265{
@@ -58,7 +58,7 @@ func TestH265DynamicParams(t *testing.T) {
 	}, false)
 	require.NoError(t, err)
 
-	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}}, 0)
+	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}})
 	require.NoError(t, err)
 
 	err = p.Process(&unit.H265{
@@ -72,7 +72,7 @@ func TestH265DynamicParams(t *testing.T) {
 	require.Equal(t, []byte{byte(h265.NALUType_SPS_NUT) << 1, 4, 5, 6}, forma.SPS)
 	require.Equal(t, []byte{byte(h265.NALUType_PPS_NUT) << 1, 7, 8, 9}, forma.PPS)
 
-	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}}, 0)
+	pkts, err = enc.Encode([][]byte{{byte(h265.NALUType_CRA_NUT) << 1, 0}})
 	require.NoError(t, err)
 
 	data = &unit.H265{
@@ -92,7 +92,7 @@ func TestH265DynamicParams(t *testing.T) {
 }
 
 func TestH265OversizedPackets(t *testing.T) {
-	forma := &formats.H265{
+	forma := &format.H265{
 		PayloadTyp: 96,
 		VPS:        []byte{byte(h265.NALUType_VPS_NUT) << 1, 10, 11, 12},
 		SPS:        []byte{byte(h265.NALUType_SPS_NUT) << 1, 13, 14, 15},
@@ -185,7 +185,7 @@ func TestH265OversizedPackets(t *testing.T) {
 }
 
 func TestH265EmptyPacket(t *testing.T) {
-	forma := &formats.H265{
+	forma := &format.H265{
 		PayloadTyp: 96,
 	}
 

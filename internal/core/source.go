@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -19,7 +19,7 @@ type source interface {
 	apiSourceDescribe() pathAPISourceOrReader
 }
 
-func mediaDescription(media *media.Media) string {
+func mediaDescription(media *description.Media) string {
 	ret := make([]string, len(media.Formats))
 	for i, forma := range media.Formats {
 		ret[i] = forma.Codec()
@@ -27,7 +27,7 @@ func mediaDescription(media *media.Media) string {
 	return strings.Join(ret, "/")
 }
 
-func mediasDescription(medias media.Medias) []string {
+func mediasDescription(medias []*description.Media) []string {
 	ret := make([]string, len(medias))
 	for i, media := range medias {
 		ret[i] = mediaDescription(media)
@@ -35,7 +35,7 @@ func mediasDescription(medias media.Medias) []string {
 	return ret
 }
 
-func sourceMediaInfo(medias media.Medias) string {
+func sourceMediaInfo(medias []*description.Media) string {
 	return fmt.Sprintf("%d %s (%s)",
 		len(medias),
 		func() string {

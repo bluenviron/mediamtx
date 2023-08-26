@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
-	"github.com/bluenviron/gortsplib/v3/pkg/url"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/url"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -56,7 +56,7 @@ type pathSourceStaticSetReadyRes struct {
 }
 
 type pathSourceStaticSetReadyReq struct {
-	medias             media.Medias
+	desc               *description.Session
 	generateRTPPackets bool
 	res                chan pathSourceStaticSetReadyRes
 }
@@ -135,7 +135,7 @@ type pathStartPublisherRes struct {
 
 type pathStartPublisherReq struct {
 	author             publisher
-	medias             media.Medias
+	desc               *description.Session
 	generateRTPPackets bool
 	res                chan pathStartPublisherRes
 }
@@ -589,10 +589,10 @@ func (pa *path) onDemandStopPublisher() {
 	}
 }
 
-func (pa *path) setReady(medias media.Medias, allocateEncoder bool) error {
+func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
 	stream, err := stream.New(
 		pa.udpMaxPayloadSize,
-		medias,
+		desc,
 		allocateEncoder,
 		pa.bytesReceived,
 		pa.source,
@@ -654,7 +654,7 @@ func (pa *path) doPublisherRemove() {
 }
 
 func (pa *path) handleSourceStaticSetReady(req pathSourceStaticSetReadyReq) {
-	err := pa.setReady(req.medias, req.generateRTPPackets)
+	err := pa.setReady(req.desc, req.generateRTPPackets)
 	if err != nil {
 		req.res <- pathSourceStaticSetReadyRes{err: err}
 		return
@@ -782,7 +782,7 @@ func (pa *path) handleStartPublisher(req pathStartPublisherReq) {
 		return
 	}
 
-	err := pa.setReady(req.medias, req.generateRTPPackets)
+	err := pa.setReady(req.desc, req.generateRTPPackets)
 	if err != nil {
 		req.res <- pathStartPublisherRes{err: err}
 		return
@@ -790,7 +790,7 @@ func (pa *path) handleStartPublisher(req pathStartPublisherReq) {
 
 	req.author.Log(logger.Info, "is publishing to path '%s', %s",
 		pa.name,
-		sourceMediaInfo(req.medias))
+		sourceMediaInfo(req.desc.Medias))
 
 	if pa.conf.HasOnDemandPublisher() {
 		pa.onDemandPublisherReadyTimer.Stop()
@@ -920,7 +920,7 @@ func (pa *path) handleAPIPathsGet(req pathAPIPathsGetReq) {
 				if pa.stream == nil {
 					return []string{}
 				}
-				return mediasDescription(pa.stream.Medias())
+				return mediasDescription(pa.stream.Desc().Medias)
 			}(),
 			BytesReceived: atomic.LoadUint64(pa.bytesReceived),
 			Readers: func() []interface{} {

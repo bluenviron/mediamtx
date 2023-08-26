@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v3"
-	"github.com/bluenviron/gortsplib/v3/pkg/media"
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/stretchr/testify/require"
 )
 
@@ -111,7 +111,8 @@ func TestCoreHotReloading(t *testing.T) {
 		medi := testMediaH264
 
 		c := gortsplib.Client{}
-		err = c.StartRecording("rtsp://localhost:8554/test1", media.Medias{medi})
+		err = c.StartRecording("rtsp://localhost:8554/test1",
+			&description.Session{Medias: []*description.Media{medi}})
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	}()
 
@@ -126,7 +127,8 @@ func TestCoreHotReloading(t *testing.T) {
 		medi := testMediaH264
 
 		conn := gortsplib.Client{}
-		err = conn.StartRecording("rtsp://localhost:8554/test1", media.Medias{medi})
+		err = conn.StartRecording("rtsp://localhost:8554/test1",
+			&description.Session{Medias: []*description.Media{medi}})
 		require.NoError(t, err)
 		defer conn.Close()
 	}()

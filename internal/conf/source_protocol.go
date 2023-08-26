@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/bluenviron/gortsplib/v3"
+	"github.com/bluenviron/gortsplib/v4"
 )
 
 // SourceProtocol is the sourceProtocol parameter.
