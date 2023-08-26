@@ -31,7 +31,7 @@ components:
           type: string
         writeTimeout:
           type: string
-        readBufferCount:
+        writeQueueSize:
           type: integer
         udpMaxPayloadSize:
           type: integer

@@ -276,13 +276,13 @@ type webRTCManagerParent interface {
 }
 
 type webRTCManager struct {
-	allowOrigin     string
-	trustedProxies  conf.IPsOrCIDRs
-	iceServers      []conf.WebRTCICEServer
-	readBufferCount int
-	pathManager     *pathManager
-	metrics         *metrics
-	parent          webRTCManagerParent
+	allowOrigin    string
+	trustedProxies conf.IPsOrCIDRs
+	iceServers     []conf.WebRTCICEServer
+	writeQueueSize int
+	pathManager    *pathManager
+	metrics        *metrics
+	parent         webRTCManagerParent
 
 	ctx              context.Context
 	ctxCancel        func()
@@ -314,7 +314,7 @@ func newWebRTCManager(
 	trustedProxies conf.IPsOrCIDRs,
 	iceServers []conf.WebRTCICEServer,
 	readTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	iceHostNAT1To1IPs []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
@@ -328,7 +328,7 @@ func newWebRTCManager(
 		allowOrigin:            allowOrigin,
 		trustedProxies:         trustedProxies,
 		iceServers:             iceServers,
-		readBufferCount:        readBufferCount,
+		writeQueueSize:         writeQueueSize,
 		pathManager:            pathManager,
 		metrics:                metrics,
 		parent:                 parent,
@@ -436,7 +436,7 @@ outer:
 		case req := <-m.chNewSession:
 			sx := newWebRTCSession(
 				m.ctx,
-				m.readBufferCount,
+				m.writeQueueSize,
 				m.api,
 				req,
 				&wg,

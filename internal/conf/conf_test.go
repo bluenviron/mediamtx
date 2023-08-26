@@ -217,9 +217,9 @@ func TestConfErrors(t *testing.T) {
 			"json: unknown field \"invalid\"",
 		},
 		{
-			"invalid readBufferCount",
-			"readBufferCount: 1001\n",
-			"'readBufferCount' must be a power of two",
+			"invalid writeQueueSize",
+			"writeQueueSize: 1001\n",
+			"'writeQueueSize' must be a power of two",
 		},
 		{
 			"invalid udpMaxPayloadSize",

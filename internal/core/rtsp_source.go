@@ -66,23 +66,23 @@ type rtspSourceParent interface {
 }
 
 type rtspSource struct {
-	readTimeout     conf.StringDuration
-	writeTimeout    conf.StringDuration
-	readBufferCount int
-	parent          rtspSourceParent
+	readTimeout    conf.StringDuration
+	writeTimeout   conf.StringDuration
+	writeQueueSize int
+	parent         rtspSourceParent
 }
 
 func newRTSPSource(
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
-	readBufferCount int,
+	writeQueueSize int,
 	parent rtspSourceParent,
 ) *rtspSource {
 	return &rtspSource{
-		readTimeout:     readTimeout,
-		writeTimeout:    writeTimeout,
-		readBufferCount: readBufferCount,
-		parent:          parent,
+		readTimeout:    readTimeout,
+		writeTimeout:   writeTimeout,
+		writeQueueSize: writeQueueSize,
+		parent:         parent,
 	}
 }
 
@@ -95,12 +95,13 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 	s.Log(logger.Debug, "connecting")
 
 	c := &gortsplib.Client{
-		Transport:       cnf.SourceProtocol.Transport,
-		TLSConfig:       tlsConfigForFingerprint(cnf.SourceFingerprint),
-		ReadTimeout:     time.Duration(s.readTimeout),
-		WriteTimeout:    time.Duration(s.writeTimeout),
-		ReadBufferCount: s.readBufferCount,
-		AnyPortEnable:   cnf.SourceAnyPortEnable,
+		Transport:        cnf.SourceProtocol.Transport,
+		TLSConfig:        tlsConfigForFingerprint(cnf.SourceFingerprint),
+		ReadTimeout:      time.Duration(s.readTimeout),
+		WriteTimeout:     time.Duration(s.writeTimeout),
+		ReadBufferCount:  s.writeQueueSize,
+		WriteBufferCount: s.writeQueueSize,
+		AnyPortEnable:    cnf.SourceAnyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "c->s %v", req)
 		},
