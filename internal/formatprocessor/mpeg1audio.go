@@ -1,4 +1,4 @@
-package formatprocessor
+package formatprocessor //nolint:dupl
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1audio"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -23,7 +22,6 @@ func newMPEG1Audio(
 	udpMaxPayloadSize int,
 	forma *format.MPEG1Audio,
 	generateRTPPackets bool,
-	_ logger.Writer,
 ) (*formatProcessorMPEG1Audio, error) {
 	t := &formatProcessorMPEG1Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,

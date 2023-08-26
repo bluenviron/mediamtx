@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -73,7 +72,6 @@ func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
 type formatProcessorH264 struct {
 	udpMaxPayloadSize int
 	format            *format.H264
-	log               logger.Writer
 
 	encoder *rtph264.Encoder
 	decoder *rtph264.Decoder
@@ -83,12 +81,10 @@ func newH264(
 	udpMaxPayloadSize int,
 	forma *format.H264,
 	generateRTPPackets bool,
-	log logger.Writer,
 ) (*formatProcessorH264, error) {
 	t := &formatProcessorH264{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
-		log:               log,
 	}
 
 	if generateRTPPackets {

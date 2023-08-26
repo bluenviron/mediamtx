@@ -48,6 +48,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		}
 	}()
 
+	decodeErrLogger := newLimitedLogger(s)
+
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
 		URI: cnf.Source,
@@ -66,7 +68,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 			s.Log(logger.Debug, "downloading segment %v", u)
 		},
 		OnDecodeError: func(err error) {
-			s.Log(logger.Warn, err.Error())
+			decodeErrLogger.Log(logger.Warn, err.Error())
 		},
 		OnTracks: func(tracks []*gohlslib.Track) error {
 			var medias []*description.Media

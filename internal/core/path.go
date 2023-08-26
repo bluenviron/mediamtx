@@ -595,7 +595,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		desc,
 		allocateEncoder,
 		pa.bytesReceived,
-		pa.source,
+		newLimitedLogger(pa.source),
 	)
 	if err != nil {
 		return err

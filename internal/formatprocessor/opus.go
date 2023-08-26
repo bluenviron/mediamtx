@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -24,7 +23,6 @@ func newOpus(
 	udpMaxPayloadSize int,
 	forma *format.Opus,
 	generateRTPPackets bool,
-	_ logger.Writer,
 ) (*formatProcessorOpus, error) {
 	t := &formatProcessorOpus{
 		udpMaxPayloadSize: udpMaxPayloadSize,

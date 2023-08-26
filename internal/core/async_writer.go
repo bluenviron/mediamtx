@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
@@ -15,11 +14,8 @@ const (
 )
 
 type asyncWriter struct {
-	parent logger.Writer
-
-	buffer               *ringbuffer.RingBuffer
-	prevWarnPrinted      time.Time
-	prevWarnPrintedMutex sync.Mutex
+	writeErrLogger logger.Writer
+	buffer         *ringbuffer.RingBuffer
 
 	// out
 	err chan error
@@ -32,9 +28,9 @@ func newAsyncWriter(
 	buffer, _ := ringbuffer.New(uint64(queueSize))
 
 	return &asyncWriter{
-		parent: parent,
-		buffer: buffer,
-		err:    make(chan error),
+		writeErrLogger: newLimitedLogger(parent),
+		buffer:         buffer,
+		err:            make(chan error),
 	}
 }
 
@@ -72,12 +68,6 @@ func (w *asyncWriter) runInner() error {
 func (w *asyncWriter) push(cb func() error) {
 	ok := w.buffer.Push(cb)
 	if !ok {
-		now := time.Now()
-		w.prevWarnPrintedMutex.Lock()
-		if now.Sub(w.prevWarnPrinted) >= minIntervalBetweenWarnings {
-			w.prevWarnPrinted = now
-			w.parent.Log(logger.Warn, "write queue is full")
-		}
-		w.prevWarnPrintedMutex.Unlock()
+		w.writeErrLogger.Log(logger.Warn, "write queue is full")
 	}
 }

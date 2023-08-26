@@ -40,17 +40,17 @@ type rtspSession struct {
 	pathManager     rtspSessionPathManager
 	parent          rtspSessionParent
 
-	uuid                 uuid.UUID
-	created              time.Time
-	path                 *path
-	stream               *stream.Stream
-	onReadCmd            *externalcmd.Cmd // read
-	mutex                sync.Mutex
-	state                gortsplib.ServerSessionState
-	transport            *gortsplib.Transport
-	pathName             string
-	prevWarnPrinted      time.Time
-	prevWarnPrintedMutex sync.Mutex
+	uuid            uuid.UUID
+	created         time.Time
+	path            *path
+	stream          *stream.Stream
+	onReadCmd       *externalcmd.Cmd // read
+	mutex           sync.Mutex
+	state           gortsplib.ServerSessionState
+	transport       *gortsplib.Transport
+	pathName        string
+	decodeErrLogger logger.Writer
+	writeErrLogger  logger.Writer
 }
 
 func newRTSPSession(
@@ -73,6 +73,9 @@ func newRTSPSession(
 		uuid:            uuid.New(),
 		created:         time.Now(),
 	}
+
+	s.decodeErrLogger = newLimitedLogger(s)
+	s.writeErrLogger = newLimitedLogger(s)
 
 	s.Log(logger.Info, "created by %v", s.author.NetConn().RemoteAddr())
 
@@ -402,23 +405,17 @@ func (s *rtspSession) apiSourceDescribe() pathAPISourceOrReader {
 
 // onPacketLost is called by rtspServer.
 func (s *rtspSession) onPacketLost(ctx *gortsplib.ServerHandlerOnPacketLostCtx) {
-	s.Log(logger.Warn, ctx.Error.Error())
+	s.decodeErrLogger.Log(logger.Warn, ctx.Error.Error())
 }
 
 // onDecodeError is called by rtspServer.
 func (s *rtspSession) onDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx) {
-	s.Log(logger.Warn, ctx.Error.Error())
+	s.decodeErrLogger.Log(logger.Warn, ctx.Error.Error())
 }
 
 // onStreamWriteError is called by rtspServer.
 func (s *rtspSession) onStreamWriteError(ctx *gortsplib.ServerHandlerOnStreamWriteErrorCtx) {
-	now := time.Now()
-	s.prevWarnPrintedMutex.Lock()
-	if now.Sub(s.prevWarnPrinted) >= minIntervalBetweenWarnings {
-		s.prevWarnPrinted = now
-		s.Log(logger.Warn, ctx.Error.Error())
-	}
-	s.prevWarnPrintedMutex.Unlock()
+	s.writeErrLogger.Log(logger.Warn, ctx.Error.Error())
 }
 
 func (s *rtspSession) apiItem() *apiRTSPSession {

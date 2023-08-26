@@ -7,7 +7,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -19,7 +18,6 @@ func newGeneric(
 	udpMaxPayloadSize int,
 	forma format.Format,
 	generateRTPPackets bool,
-	_ logger.Writer,
 ) (*formatProcessorGeneric, error) {
 	if generateRTPPackets {
 		return nil, fmt.Errorf("we don't know how to generate RTP packets of format %+v", forma)

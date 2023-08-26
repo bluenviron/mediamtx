@@ -1,4 +1,4 @@
-package formatprocessor
+package formatprocessor //nolint:dupl
 
 import (
 	"fmt"
@@ -8,14 +8,12 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpav1"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 type formatProcessorAV1 struct {
 	udpMaxPayloadSize int
 	format            *format.AV1
-	log               logger.Writer
 
 	encoder *rtpav1.Encoder
 	decoder *rtpav1.Decoder
@@ -25,12 +23,10 @@ func newAV1(
 	udpMaxPayloadSize int,
 	forma *format.AV1,
 	generateRTPPackets bool,
-	log logger.Writer,
 ) (*formatProcessorAV1, error) {
 	t := &formatProcessorAV1{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
-		log:               log,
 	}
 
 	if generateRTPPackets {

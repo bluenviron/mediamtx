@@ -140,6 +140,12 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 		return err
 	}
 
+	decodeErrLogger := newLimitedLogger(s)
+
+	r.OnDecodeError(func(err error) {
+		decodeErrLogger.Log(logger.Warn, err.Error())
+	})
+
 	var medias []*description.Media //nolint:prealloc
 	var stream *stream.Stream
 
