@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-PUBLISHER_COUNT=20
+PUBLISHER_COUNT=50
 PUBLISHER_PROTOCOL=tcp
 
 #####################################################
