@@ -1,9 +1,10 @@
-FROM golang:1.20-alpine3.18
+ARG BASE_IMAGE
+FROM $BASE_IMAGE
 
 RUN apk add --no-cache \
     ffmpeg
 
-RUN wget -O /video.mkv http://jell.yfish.us/media/jellyfish-10-mbps-hd-h264.mkv
+RUN wget -O /video.mkv http://www.larmoire.info/jellyfish/media/jellyfish-10-mbps-hd-h264.mkv
 
 WORKDIR /s
 

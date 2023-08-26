@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-READER_COUNT=20
+READER_COUNT=50
 READER_PROTOCOL=tcp
 
 #####################################################
@@ -26,7 +26,7 @@ sleep 1
 for i in $(seq 1 $READER_COUNT); do
     ffmpeg  -hide_banner -loglevel error \
     -rtsp_transport $READER_PROTOCOL \
-    -i rtsp://localhost:8554/source -c copy -f mpegts -y /dev/null &
+    -i rtsp://localhost:8554/source -c copy -f null - &
 done
 
 sleep 5
