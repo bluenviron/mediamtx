@@ -330,6 +330,12 @@ func (s *rtspServer) OnDecodeError(ctx *gortsplib.ServerHandlerOnDecodeErrorCtx)
 	se.onDecodeError(ctx)
 }
 
+// OnDecodeError implements gortsplib.ServerHandlerOnStreamWriteError.
+func (s *rtspServer) OnStreamWriteError(ctx *gortsplib.ServerHandlerOnStreamWriteErrorCtx) {
+	se := ctx.Session.UserData().(*rtspSession)
+	se.onStreamWriteError(ctx)
+}
+
 func (s *rtspServer) findConnByUUID(uuid uuid.UUID) *rtspConn {
 	for _, c := range s.conns {
 		if c.uuid == uuid {

@@ -12,7 +12,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
@@ -416,11 +415,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	c.conn = sconn
 	c.mutex.Unlock()
 
-	ringBuffer, _ := ringbuffer.New(uint64(c.writeQueueSize))
-	go func() {
-		<-c.ctx.Done()
-		ringBuffer.Close()
-	}()
+	writer := newAsyncWriter(c.writeQueueSize, c)
 
 	var w *mpegts.Writer
 	var tracks []*mpegts.Track
@@ -446,7 +441,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				dtsExtractor := h265.NewDTSExtractor()
 
 				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					ringBuffer.Push(func() error {
+					writer.push(func() error {
 						tunit := u.(*unit.H265)
 						if tunit.AU == nil {
 							return nil
@@ -483,7 +478,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				dtsExtractor := h264.NewDTSExtractor()
 
 				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					ringBuffer.Push(func() error {
+					writer.push(func() error {
 						tunit := u.(*unit.H264)
 						if tunit.AU == nil {
 							return nil
@@ -519,7 +514,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				})
 
 				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					ringBuffer.Push(func() error {
+					writer.push(func() error {
 						tunit := u.(*unit.MPEG4AudioGeneric)
 						if tunit.AUs == nil {
 							return nil
@@ -545,7 +540,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					})
 
 					res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-						ringBuffer.Push(func() error {
+						writer.push(func() error {
 							tunit := u.(*unit.MPEG4AudioLATM)
 							if tunit.AU == nil {
 								return nil
@@ -574,7 +569,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				})
 
 				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					ringBuffer.Push(func() error {
+					writer.push(func() error {
 						tunit := u.(*unit.Opus)
 						if tunit.Packets == nil {
 							return nil
@@ -595,7 +590,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 				track := addTrack(medi, &mpegts.CodecMPEG1Audio{})
 
 				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					ringBuffer.Push(func() error {
+					writer.push(func() error {
 						tunit := u.(*unit.MPEG1Audio)
 						if tunit.Frames == nil {
 							return nil
@@ -646,16 +641,15 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	// disable read deadline
 	sconn.SetReadDeadline(time.Time{})
 
-	for {
-		item, ok := ringBuffer.Pull()
-		if !ok {
-			return true, fmt.Errorf("terminated")
-		}
+	writer.start()
 
-		err := item.(func() error)()
-		if err != nil {
-			return true, err
-		}
+	select {
+	case <-c.ctx.Done():
+		writer.stop()
+		return true, fmt.Errorf("terminated")
+
+	case err := <-writer.error():
+		return true, err
 	}
 }
 

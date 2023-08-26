@@ -15,7 +15,6 @@ import (
 	"github.com/bluenviron/gohlslib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -76,7 +75,7 @@ type hlsMuxer struct {
 	ctxCancel       func()
 	created         time.Time
 	path            *path
-	ringBuffer      *ringbuffer.RingBuffer
+	writer          *asyncWriter
 	lastRequestTime *int64
 	muxer           *gohlslib.Muxer
 	requests        []*hlsMuxerHandleRequestReq
@@ -254,7 +253,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	defer m.path.removeReader(pathRemoveReaderReq{author: m})
 
-	m.ringBuffer, _ = ringbuffer.New(uint64(m.writeQueueSize))
+	m.writer = newAsyncWriter(m.writeQueueSize, m)
 
 	var medias []*description.Media
 
@@ -304,10 +303,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	m.Log(logger.Info, "is converting into HLS, %s",
 		sourceMediaInfo(medias))
 
-	writerDone := make(chan error)
-	go func() {
-		writerDone <- m.runWriter()
-	}()
+	m.writer.start()
 
 	closeCheckTicker := time.NewTicker(closeCheckPeriod)
 	defer closeCheckTicker.Stop()
@@ -318,18 +314,16 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			if m.remoteAddr != "" {
 				t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
 				if time.Since(t) >= closeAfterInactivity {
-					m.ringBuffer.Close()
-					<-writerDone
+					m.writer.stop()
 					return fmt.Errorf("not used anymore")
 				}
 			}
 
-		case err := <-writerDone:
+		case err := <-m.writer.error():
 			return err
 
 		case <-innerCtx.Done():
-			m.ringBuffer.Close()
-			<-writerDone
+			m.writer.stop()
 			return fmt.Errorf("terminated")
 		}
 	}
@@ -341,7 +335,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 
 	if videoFormatAV1 != nil {
 		stream.AddReader(m, videoMedia, videoFormatAV1, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.AV1)
 
 				if tunit.TU == nil {
@@ -368,7 +362,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 
 	if videoFormatVP9 != nil {
 		stream.AddReader(m, videoMedia, videoFormatVP9, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.VP9)
 
 				if tunit.Frame == nil {
@@ -395,7 +389,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 
 	if videoFormatH265 != nil {
 		stream.AddReader(m, videoMedia, videoFormatH265, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.H265)
 
 				if tunit.AU == nil {
@@ -428,7 +422,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 
 	if videoFormatH264 != nil {
 		stream.AddReader(m, videoMedia, videoFormatH264, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.H264)
 
 				if tunit.AU == nil {
@@ -464,7 +458,7 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 
 	if audioMedia != nil {
 		stream.AddReader(m, audioMedia, audioFormatOpus, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.Opus)
 
 				pts := tunit.PTS
@@ -497,7 +491,7 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 
 	if audioMedia != nil {
 		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioGeneric, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.MPEG4AudioGeneric)
 
 				if tunit.AUs == nil {
@@ -532,7 +526,7 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
 		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
 		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) {
-			m.ringBuffer.Push(func() error {
+			m.writer.push(func() error {
 				tunit := u.(*unit.MPEG4AudioLATM)
 
 				if tunit.AU == nil {
@@ -560,20 +554,6 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 	}
 
 	return nil, nil
-}
-
-func (m *hlsMuxer) runWriter() error {
-	for {
-		item, ok := m.ringBuffer.Pull()
-		if !ok {
-			return fmt.Errorf("terminated")
-		}
-
-		err := item.(func() error)()
-		if err != nil {
-			return err
-		}
-	}
 }
 
 func (m *hlsMuxer) handleRequest(ctx *gin.Context) {

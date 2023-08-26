@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/ringbuffer"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/google/uuid"
 	"github.com/pion/sdp/v3"
@@ -512,13 +511,10 @@ func (s *webRTCSession) runRead() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	ringBuffer, _ := ringbuffer.New(uint64(s.writeQueueSize))
-	defer ringBuffer.Close()
-
-	writeError := make(chan error)
+	writer := newAsyncWriter(s.writeQueueSize, s)
 
 	for _, track := range tracks {
-		track.start(s.ctx, s, res.stream, ringBuffer, writeError)
+		track.start(s, res.stream, writer)
 	}
 
 	defer res.stream.RemoveReader(s)
@@ -526,24 +522,18 @@ func (s *webRTCSession) runRead() (int, error) {
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(webrtcMediasOfOutgoingTracks(tracks)))
 
-	go func() {
-		for {
-			item, ok := ringBuffer.Pull()
-			if !ok {
-				return
-			}
-			item.(func())()
-		}
-	}()
+	writer.start()
 
 	select {
 	case <-pc.Disconnected():
+		writer.stop()
 		return 0, fmt.Errorf("peer connection closed")
 
-	case err := <-writeError:
+	case err := <-writer.error():
 		return 0, err
 
 	case <-s.ctx.Done():
+		writer.stop()
 		return 0, fmt.Errorf("terminated")
 	}
 }
