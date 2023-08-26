@@ -7,7 +7,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -45,37 +44,36 @@ func New(
 	udpMaxPayloadSize int,
 	forma format.Format,
 	generateRTPPackets bool,
-	log logger.Writer,
 ) (Processor, error) {
 	switch forma := forma.(type) {
 	case *format.H264:
-		return newH264(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.H265:
-		return newH265(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newH265(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.VP8:
-		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.VP9:
-		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.AV1:
-		return newAV1(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newAV1(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.MPEG1Audio:
-		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.MPEG4AudioGeneric:
-		return newMPEG4AudioGeneric(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newMPEG4AudioGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.MPEG4AudioLATM:
-		return newMPEG4AudioLATM(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newMPEG4AudioLATM(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.Opus:
-		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	default:
-		return newGeneric(udpMaxPayloadSize, forma, generateRTPPackets, log)
+		return newGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
 	}
 }

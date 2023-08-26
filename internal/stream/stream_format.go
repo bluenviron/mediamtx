@@ -14,26 +14,26 @@ import (
 )
 
 type streamFormat struct {
-	source         logger.Writer
-	proc           formatprocessor.Processor
-	nonRTSPReaders map[interface{}]func(unit.Unit)
+	decodeErrLogger logger.Writer
+	proc            formatprocessor.Processor
+	nonRTSPReaders  map[interface{}]func(unit.Unit)
 }
 
 func newStreamFormat(
 	udpMaxPayloadSize int,
 	forma format.Format,
 	generateRTPPackets bool,
-	source logger.Writer,
+	decodeErrLogger logger.Writer,
 ) (*streamFormat, error) {
-	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets, source)
+	proc, err := formatprocessor.New(udpMaxPayloadSize, forma, generateRTPPackets)
 	if err != nil {
 		return nil, err
 	}
 
 	sf := &streamFormat{
-		source:         source,
-		proc:           proc,
-		nonRTSPReaders: make(map[interface{}]func(unit.Unit)),
+		decodeErrLogger: decodeErrLogger,
+		proc:            proc,
+		nonRTSPReaders:  make(map[interface{}]func(unit.Unit)),
 	}
 
 	return sf, nil
@@ -52,7 +52,7 @@ func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, data unit.
 
 	err := sf.proc.Process(data, hasNonRTSPReaders)
 	if err != nil {
-		sf.source.Log(logger.Warn, err.Error())
+		sf.decodeErrLogger.Log(logger.Warn, err.Error())
 		return
 	}
 

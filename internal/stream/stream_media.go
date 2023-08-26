@@ -14,7 +14,7 @@ type streamMedia struct {
 func newStreamMedia(udpMaxPayloadSize int,
 	medi *description.Media,
 	generateRTPPackets bool,
-	source logger.Writer,
+	decodeErrLogger logger.Writer,
 ) (*streamMedia, error) {
 	sm := &streamMedia{
 		formats: make(map[format.Format]*streamFormat),
@@ -22,7 +22,7 @@ func newStreamMedia(udpMaxPayloadSize int,
 
 	for _, forma := range medi.Formats {
 		var err error
-		sm.formats[forma], err = newStreamFormat(udpMaxPayloadSize, forma, generateRTPPackets, source)
+		sm.formats[forma], err = newStreamFormat(udpMaxPayloadSize, forma, generateRTPPackets, decodeErrLogger)
 		if err != nil {
 			return nil, err
 		}

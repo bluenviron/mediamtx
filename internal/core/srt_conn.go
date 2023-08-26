@@ -234,6 +234,12 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 		return err
 	}
 
+	decodeErrLogger := newLimitedLogger(c)
+
+	r.OnDecodeError(func(err error) {
+		decodeErrLogger.Log(logger.Warn, err.Error())
+	})
+
 	var medias []*description.Media //nolint:prealloc
 	var stream *stream.Stream
 

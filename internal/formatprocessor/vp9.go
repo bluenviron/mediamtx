@@ -8,7 +8,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -23,7 +22,6 @@ func newVP9(
 	udpMaxPayloadSize int,
 	forma *format.VP9,
 	generateRTPPackets bool,
-	_ logger.Writer,
 ) (*formatProcessorVP9, error) {
 	t := &formatProcessorVP9{
 		udpMaxPayloadSize: udpMaxPayloadSize,

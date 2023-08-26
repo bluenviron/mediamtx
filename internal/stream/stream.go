@@ -32,7 +32,7 @@ func New(
 	desc *description.Session,
 	generateRTPPackets bool,
 	bytesReceived *uint64,
-	source logger.Writer,
+	decodeErrLogger logger.Writer,
 ) (*Stream, error) {
 	s := &Stream{
 		bytesReceived: bytesReceived,
@@ -43,7 +43,7 @@ func New(
 
 	for _, media := range desc.Medias {
 		var err error
-		s.smedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, source)
+		s.smedias[media], err = newStreamMedia(udpMaxPayloadSize, media, generateRTPPackets, decodeErrLogger)
 		if err != nil {
 			return nil, err
 		}

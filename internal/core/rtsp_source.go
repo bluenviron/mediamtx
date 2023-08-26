@@ -94,6 +94,8 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
 	s.Log(logger.Debug, "connecting")
 
+	decodeErrLogger := newLimitedLogger(s)
+
 	c := &gortsplib.Client{
 		Transport:      cnf.SourceProtocol.Transport,
 		TLSConfig:      tlsConfigForFingerprint(cnf.SourceFingerprint),
@@ -111,10 +113,10 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 			s.Log(logger.Warn, err.Error())
 		},
 		OnPacketLost: func(err error) {
-			s.Log(logger.Warn, err.Error())
+			decodeErrLogger.Log(logger.Warn, err.Error())
 		},
 		OnDecodeError: func(err error) {
-			s.Log(logger.Warn, err.Error())
+			decodeErrLogger.Log(logger.Warn, err.Error())
 		},
 	}
 

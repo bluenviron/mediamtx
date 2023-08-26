@@ -8,7 +8,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg4audio"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -23,7 +22,6 @@ func newMPEG4AudioGeneric(
 	udpMaxPayloadSize int,
 	forma *format.MPEG4Audio,
 	generateRTPPackets bool,
-	_ logger.Writer,
 ) (*formatProcessorMPEG4AudioGeneric, error) {
 	t := &formatProcessorMPEG4AudioGeneric{
 		udpMaxPayloadSize: udpMaxPayloadSize,
