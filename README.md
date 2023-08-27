@@ -1356,7 +1356,7 @@ If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be 
 # public IP of the server
 webrtcICEHostNAT1To1IPs: [192.168.x.x]
 # any port of choice
-webrtcICETCPPMuxAddress: :8189
+webrtcICETCPMuxAddress: :8189
 ```
 
 The NAT / container must then be configured in order to redirect all incoming TCP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
