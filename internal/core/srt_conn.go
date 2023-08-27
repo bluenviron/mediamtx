@@ -18,6 +18,7 @@ import (
 	"github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -234,7 +235,7 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 		return err
 	}
 
-	decodeErrLogger := newLimitedLogger(c)
+	decodeErrLogger := logger.NewLimitedLogger(c)
 
 	r.OnDecodeError(func(err error) {
 		decodeErrLogger.Log(logger.Warn, err.Error())
@@ -421,7 +422,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	c.conn = sconn
 	c.mutex.Unlock()
 
-	writer := newAsyncWriter(c.writeQueueSize, c)
+	writer := asyncwriter.New(c.writeQueueSize, c)
 
 	var w *mpegts.Writer
 	var tracks []*mpegts.Track
@@ -443,75 +444,67 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 			case *format.H265: //nolint:dupl
 				track := addTrack(medi, &mpegts.CodecH265{})
 
-				randomAccessReceived := false
-				dtsExtractor := h265.NewDTSExtractor()
+				var dtsExtractor *h265.DTSExtractor
 
-				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					writer.push(func() error {
-						tunit := u.(*unit.H265)
-						if tunit.AU == nil {
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.H265)
+					if tunit.AU == nil {
+						return nil
+					}
+
+					randomAccess := h265.IsRandomAccess(tunit.AU)
+
+					if dtsExtractor == nil {
+						if !randomAccess {
 							return nil
 						}
+						dtsExtractor = h265.NewDTSExtractor()
+					}
 
-						randomAccess := h265.IsRandomAccess(tunit.AU)
+					dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+					if err != nil {
+						return err
+					}
 
-						if !randomAccessReceived {
-							if !randomAccess {
-								return nil
-							}
-							randomAccessReceived = true
-						}
-
-						pts := tunit.PTS
-						dts, err := dtsExtractor.Extract(tunit.AU, pts)
-						if err != nil {
-							return err
-						}
-
-						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteH26x(track, durationGoToMPEGTS(pts), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
-						if err != nil {
-							return err
-						}
-						return bw.Flush()
-					})
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), randomAccess, tunit.AU)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
 				})
 
 			case *format.H264: //nolint:dupl
 				track := addTrack(medi, &mpegts.CodecH264{})
 
-				firstIDRReceived := false
-				dtsExtractor := h264.NewDTSExtractor()
+				var dtsExtractor *h264.DTSExtractor
 
-				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					writer.push(func() error {
-						tunit := u.(*unit.H264)
-						if tunit.AU == nil {
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.H264)
+					if tunit.AU == nil {
+						return nil
+					}
+
+					idrPresent := h264.IDRPresent(tunit.AU)
+
+					if dtsExtractor == nil {
+						if !idrPresent {
 							return nil
 						}
+						dtsExtractor = h264.NewDTSExtractor()
+					}
 
-						idrPresent := h264.IDRPresent(tunit.AU)
+					dts, err := dtsExtractor.Extract(tunit.AU, tunit.PTS)
+					if err != nil {
+						return err
+					}
 
-						if !firstIDRReceived {
-							if !idrPresent {
-								return nil
-							}
-							firstIDRReceived = true
-						}
-
-						pts := tunit.PTS
-						dts, err := dtsExtractor.Extract(tunit.AU, pts)
-						if err != nil {
-							return err
-						}
-
-						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteH26x(track, durationGoToMPEGTS(pts), durationGoToMPEGTS(dts), idrPresent, tunit.AU)
-						if err != nil {
-							return err
-						}
-						return bw.Flush()
-					})
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), idrPresent, tunit.AU)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
 				})
 
 			case *format.MPEG4AudioGeneric:
@@ -519,22 +512,18 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					Config: *forma.Config,
 				})
 
-				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					writer.push(func() error {
-						tunit := u.(*unit.MPEG4AudioGeneric)
-						if tunit.AUs == nil {
-							return nil
-						}
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG4AudioGeneric)
+					if tunit.AUs == nil {
+						return nil
+					}
 
-						pts := tunit.PTS
-
-						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteMPEG4Audio(track, durationGoToMPEGTS(pts), tunit.AUs)
-						if err != nil {
-							return err
-						}
-						return bw.Flush()
-					})
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.AUs)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
 				})
 
 			case *format.MPEG4AudioLATM:
@@ -545,22 +534,18 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 						Config: *forma.Config.Programs[0].Layers[0].AudioSpecificConfig,
 					})
 
-					res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-						writer.push(func() error {
-							tunit := u.(*unit.MPEG4AudioLATM)
-							if tunit.AU == nil {
-								return nil
-							}
+					res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+						tunit := u.(*unit.MPEG4AudioLATM)
+						if tunit.AU == nil {
+							return nil
+						}
 
-							pts := tunit.PTS
-
-							sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-							err = w.WriteMPEG4Audio(track, durationGoToMPEGTS(pts), [][]byte{tunit.AU})
-							if err != nil {
-								return err
-							}
-							return bw.Flush()
-						})
+						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+						err = w.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), [][]byte{tunit.AU})
+						if err != nil {
+							return err
+						}
+						return bw.Flush()
 					})
 				}
 
@@ -574,43 +559,35 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					}(),
 				})
 
-				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					writer.push(func() error {
-						tunit := u.(*unit.Opus)
-						if tunit.Packets == nil {
-							return nil
-						}
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.Opus)
+					if tunit.Packets == nil {
+						return nil
+					}
 
-						pts := tunit.PTS
-
-						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteOpus(track, durationGoToMPEGTS(pts), tunit.Packets)
-						if err != nil {
-							return err
-						}
-						return bw.Flush()
-					})
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteOpus(track, durationGoToMPEGTS(tunit.PTS), tunit.Packets)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
 				})
 
 			case *format.MPEG1Audio:
 				track := addTrack(medi, &mpegts.CodecMPEG1Audio{})
 
-				res.stream.AddReader(c, medi, forma, func(u unit.Unit) {
-					writer.push(func() error {
-						tunit := u.(*unit.MPEG1Audio)
-						if tunit.Frames == nil {
-							return nil
-						}
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG1Audio)
+					if tunit.Frames == nil {
+						return nil
+					}
 
-						pts := tunit.PTS
-
-						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteMPEG1Audio(track, durationGoToMPEGTS(pts), tunit.Frames)
-						if err != nil {
-							return err
-						}
-						return bw.Flush()
-					})
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteMPEG1Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.Frames)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
 				})
 			}
 		}
@@ -647,14 +624,14 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	// disable read deadline
 	sconn.SetReadDeadline(time.Time{})
 
-	writer.start()
+	writer.Start()
 
 	select {
 	case <-c.ctx.Done():
-		writer.stop()
+		writer.Stop()
 		return true, fmt.Errorf("terminated")
 
-	case err := <-writer.error():
+	case err := <-writer.Error():
 		return true, err
 	}
 }

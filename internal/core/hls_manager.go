@@ -142,7 +142,7 @@ func newHLSManager(
 
 // Log is the main logging function.
 func (m *hlsManager) Log(level logger.Level, format string, args ...interface{}) {
-	m.parent.Log(level, "[HLS] "+format, append([]interface{}{}, args...)...)
+	m.parent.Log(level, "[HLS] "+format, args...)
 }
 
 func (m *hlsManager) close() {

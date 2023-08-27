@@ -167,7 +167,7 @@ func (s *sourceStatic) run() {
 		select {
 		case err := <-implErr:
 			innerCtxCancel()
-			s.impl.Log(logger.Info, "ERR: %v", err)
+			s.impl.Log(logger.Error, err.Error())
 			recreating = true
 			recreateTimer = time.NewTimer(sourceStaticRetryPause)
 

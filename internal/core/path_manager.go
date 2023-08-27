@@ -85,6 +85,7 @@ type pathManager struct {
 
 	// in
 	chReloadConf     chan map[string]*conf.PathConf
+	chSetHLSManager  chan pathManagerHLSManager
 	chClosePath      chan *path
 	chPathReady      chan *path
 	chPathNotReady   chan *path
@@ -92,7 +93,6 @@ type pathManager struct {
 	chDescribe       chan pathDescribeReq
 	chAddReader      chan pathAddReaderReq
 	chAddPublisher   chan pathAddPublisherReq
-	chSetHLSManager  chan pathManagerHLSManager
 	chAPIPathsList   chan pathAPIPathsListReq
 	chAPIPathsGet    chan pathAPIPathsGetReq
 }
@@ -129,6 +129,7 @@ func newPathManager(
 		paths:                     make(map[string]*path),
 		pathsByConf:               make(map[string]map[*path]struct{}),
 		chReloadConf:              make(chan map[string]*conf.PathConf),
+		chSetHLSManager:           make(chan pathManagerHLSManager),
 		chClosePath:               make(chan *path),
 		chPathReady:               make(chan *path),
 		chPathNotReady:            make(chan *path),
@@ -136,7 +137,6 @@ func newPathManager(
 		chDescribe:                make(chan pathDescribeReq),
 		chAddReader:               make(chan pathAddReaderReq),
 		chAddPublisher:            make(chan pathAddPublisherReq),
-		chSetHLSManager:           make(chan pathManagerHLSManager),
 		chAPIPathsList:            make(chan pathAPIPathsListReq),
 		chAPIPathsGet:             make(chan pathAPIPathsGetReq),
 	}
@@ -177,157 +177,37 @@ outer:
 	for {
 		select {
 		case newPathConfs := <-pm.chReloadConf:
-			for confName, pathConf := range pm.pathConfs {
-				if newPathConf, ok := newPathConfs[confName]; ok {
-					// configuration has changed
-					if !newPathConf.Equal(pathConf) {
-						if pathConfCanBeUpdated(pathConf, newPathConf) { // paths associated with the configuration can be updated
-							for pa := range pm.pathsByConf[confName] {
-								go pa.reloadConf(newPathConf)
-							}
-						} else { // paths associated with the configuration must be recreated
-							for pa := range pm.pathsByConf[confName] {
-								pm.removePath(pa)
-								pa.close()
-								pa.wait() // avoid conflicts between sources
-							}
-						}
-					}
-				} else {
-					// configuration has been deleted, remove associated paths
-					for pa := range pm.pathsByConf[confName] {
-						pm.removePath(pa)
-						pa.close()
-						pa.wait() // avoid conflicts between sources
-					}
-				}
-			}
+			pm.doReloadConf(newPathConfs)
 
-			pm.pathConfs = newPathConfs
-
-			// add new paths
-			for pathConfName, pathConf := range pm.pathConfs {
-				if _, ok := pm.paths[pathConfName]; !ok && pathConf.Regexp == nil {
-					pm.createPath(pathConfName, pathConf, pathConfName, nil)
-				}
-			}
+		case m := <-pm.chSetHLSManager:
+			pm.doSetHLSManager(m)
 
 		case pa := <-pm.chClosePath:
-			if pmpa, ok := pm.paths[pa.name]; !ok || pmpa != pa {
-				continue
-			}
-			pm.removePath(pa)
+			pm.doClosePath(pa)
 
 		case pa := <-pm.chPathReady:
-			if pm.hlsManager != nil {
-				pm.hlsManager.pathReady(pa)
-			}
+			pm.doPathReady(pa)
 
 		case pa := <-pm.chPathNotReady:
-			if pm.hlsManager != nil {
-				pm.hlsManager.pathNotReady(pa)
-			}
+			pm.doPathNotReady(pa)
 
 		case req := <-pm.chGetConfForPath:
-			_, pathConf, _, err := getConfForPath(pm.pathConfs, req.name)
-			if err != nil {
-				req.res <- pathGetConfForPathRes{err: err}
-				continue
-			}
-
-			err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
-				req.name, pathConf, req.publish, req.credentials)
-			if err != nil {
-				req.res <- pathGetConfForPathRes{err: err}
-				continue
-			}
-
-			req.res <- pathGetConfForPathRes{conf: pathConf}
+			pm.doGetConfForPath(req)
 
 		case req := <-pm.chDescribe:
-			pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
-			if err != nil {
-				req.res <- pathDescribeRes{err: err}
-				continue
-			}
-
-			err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
-			if err != nil {
-				req.res <- pathDescribeRes{err: err}
-				continue
-			}
-
-			// create path if it doesn't exist
-			if _, ok := pm.paths[req.pathName]; !ok {
-				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
-			}
-
-			req.res <- pathDescribeRes{path: pm.paths[req.pathName]}
+			pm.doDescribe(req)
 
 		case req := <-pm.chAddReader:
-			pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
-			if err != nil {
-				req.res <- pathAddReaderRes{err: err}
-				continue
-			}
-
-			if !req.skipAuth {
-				err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
-				if err != nil {
-					req.res <- pathAddReaderRes{err: err}
-					continue
-				}
-			}
-
-			// create path if it doesn't exist
-			if _, ok := pm.paths[req.pathName]; !ok {
-				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
-			}
-
-			req.res <- pathAddReaderRes{path: pm.paths[req.pathName]}
+			pm.doAddReader(req)
 
 		case req := <-pm.chAddPublisher:
-			pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
-			if err != nil {
-				req.res <- pathAddPublisherRes{err: err}
-				continue
-			}
-
-			if !req.skipAuth {
-				err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
-				if err != nil {
-					req.res <- pathAddPublisherRes{err: err}
-					continue
-				}
-			}
-
-			// create path if it doesn't exist
-			if _, ok := pm.paths[req.pathName]; !ok {
-				pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
-			}
-
-			req.res <- pathAddPublisherRes{path: pm.paths[req.pathName]}
-
-		case s := <-pm.chSetHLSManager:
-			pm.hlsManager = s
+			pm.doAddPublisher(req)
 
 		case req := <-pm.chAPIPathsList:
-			paths := make(map[string]*path)
-
-			for name, pa := range pm.paths {
-				paths[name] = pa
-			}
-
-			req.res <- pathAPIPathsListRes{paths: paths}
+			pm.doAPIPathsList(req)
 
 		case req := <-pm.chAPIPathsGet:
-			path, ok := pm.paths[req.name]
-			if !ok {
-				req.res <- pathAPIPathsGetRes{err: errAPINotFound}
-				continue
-			}
-
-			req.res <- pathAPIPathsGetRes{path: path}
+			pm.doAPIPathsGet(req)
 
 		case <-pm.ctx.Done():
 			break outer
@@ -339,6 +219,170 @@ outer:
 	if pm.metrics != nil {
 		pm.metrics.pathManagerSet(nil)
 	}
+}
+
+func (pm *pathManager) doReloadConf(newPathConfs map[string]*conf.PathConf) {
+	for confName, pathConf := range pm.pathConfs {
+		if newPathConf, ok := newPathConfs[confName]; ok {
+			// configuration has changed
+			if !newPathConf.Equal(pathConf) {
+				if pathConfCanBeUpdated(pathConf, newPathConf) { // paths associated with the configuration can be updated
+					for pa := range pm.pathsByConf[confName] {
+						go pa.reloadConf(newPathConf)
+					}
+				} else { // paths associated with the configuration must be recreated
+					for pa := range pm.pathsByConf[confName] {
+						pm.removePath(pa)
+						pa.close()
+						pa.wait() // avoid conflicts between sources
+					}
+				}
+			}
+		} else {
+			// configuration has been deleted, remove associated paths
+			for pa := range pm.pathsByConf[confName] {
+				pm.removePath(pa)
+				pa.close()
+				pa.wait() // avoid conflicts between sources
+			}
+		}
+	}
+
+	pm.pathConfs = newPathConfs
+
+	// add new paths
+	for pathConfName, pathConf := range pm.pathConfs {
+		if _, ok := pm.paths[pathConfName]; !ok && pathConf.Regexp == nil {
+			pm.createPath(pathConfName, pathConf, pathConfName, nil)
+		}
+	}
+}
+
+func (pm *pathManager) doSetHLSManager(m pathManagerHLSManager) {
+	pm.hlsManager = m
+}
+
+func (pm *pathManager) doClosePath(pa *path) {
+	if pmpa, ok := pm.paths[pa.name]; !ok || pmpa != pa {
+		return
+	}
+	pm.removePath(pa)
+}
+
+func (pm *pathManager) doPathReady(pa *path) {
+	if pm.hlsManager != nil {
+		pm.hlsManager.pathReady(pa)
+	}
+}
+
+func (pm *pathManager) doPathNotReady(pa *path) {
+	if pm.hlsManager != nil {
+		pm.hlsManager.pathNotReady(pa)
+	}
+}
+
+func (pm *pathManager) doGetConfForPath(req pathGetConfForPathReq) {
+	_, pathConf, _, err := getConfForPath(pm.pathConfs, req.name)
+	if err != nil {
+		req.res <- pathGetConfForPathRes{err: err}
+		return
+	}
+
+	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+		req.name, pathConf, req.publish, req.credentials)
+	if err != nil {
+		req.res <- pathGetConfForPathRes{err: err}
+		return
+	}
+
+	req.res <- pathGetConfForPathRes{conf: pathConf}
+}
+
+func (pm *pathManager) doDescribe(req pathDescribeReq) {
+	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
+	if err != nil {
+		req.res <- pathDescribeRes{err: err}
+		return
+	}
+
+	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+	if err != nil {
+		req.res <- pathDescribeRes{err: err}
+		return
+	}
+
+	// create path if it doesn't exist
+	if _, ok := pm.paths[req.pathName]; !ok {
+		pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
+	}
+
+	req.res <- pathDescribeRes{path: pm.paths[req.pathName]}
+}
+
+func (pm *pathManager) doAddReader(req pathAddReaderReq) {
+	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
+	if err != nil {
+		req.res <- pathAddReaderRes{err: err}
+		return
+	}
+
+	if !req.skipAuth {
+		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+		if err != nil {
+			req.res <- pathAddReaderRes{err: err}
+			return
+		}
+	}
+
+	// create path if it doesn't exist
+	if _, ok := pm.paths[req.pathName]; !ok {
+		pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
+	}
+
+	req.res <- pathAddReaderRes{path: pm.paths[req.pathName]}
+}
+
+func (pm *pathManager) doAddPublisher(req pathAddPublisherReq) {
+	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
+	if err != nil {
+		req.res <- pathAddPublisherRes{err: err}
+		return
+	}
+
+	if !req.skipAuth {
+		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
+		if err != nil {
+			req.res <- pathAddPublisherRes{err: err}
+			return
+		}
+	}
+
+	// create path if it doesn't exist
+	if _, ok := pm.paths[req.pathName]; !ok {
+		pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
+	}
+
+	req.res <- pathAddPublisherRes{path: pm.paths[req.pathName]}
+}
+
+func (pm *pathManager) doAPIPathsList(req pathAPIPathsListReq) {
+	paths := make(map[string]*path)
+
+	for name, pa := range pm.paths {
+		paths[name] = pa
+	}
+
+	req.res <- pathAPIPathsListRes{paths: paths}
+}
+
+func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
+	path, ok := pm.paths[req.name]
+	if !ok {
+		req.res <- pathAPIPathsGetRes{err: errAPINotFound}
+		return
+	}
+
+	req.res <- pathAPIPathsGetRes{path: path}
 }
 
 func (pm *pathManager) createPath(

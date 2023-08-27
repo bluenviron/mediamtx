@@ -10,12 +10,15 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+type readerFunc func(unit.Unit) error
+
 // Stream is a media stream.
-// It stores tracks, readers and allow to write data to readers.
+// It stores tracks, readers and allows to write data to readers.
 type Stream struct {
 	desc          *description.Session
 	bytesReceived *uint64
@@ -62,7 +65,7 @@ func (s *Stream) Close() {
 	}
 }
 
-// Desc returns description of the stream.
+// Desc returns the description of the stream.
 func (s *Stream) Desc() *description.Session {
 	return s.desc
 }
@@ -90,7 +93,7 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
 }
 
 // AddReader adds a reader.
-func (s *Stream) AddReader(r interface{}, medi *description.Media, forma format.Format, cb func(unit.Unit)) {
+func (s *Stream) AddReader(r *asyncwriter.Writer, medi *description.Media, forma format.Format, cb readerFunc) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -100,7 +103,7 @@ func (s *Stream) AddReader(r interface{}, medi *description.Media, forma format.
 }
 
 // RemoveReader removes a reader.
-func (s *Stream) RemoveReader(r interface{}) {
+func (s *Stream) RemoveReader(r *asyncwriter.Writer) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -112,14 +115,14 @@ func (s *Stream) RemoveReader(r interface{}) {
 }
 
 // WriteUnit writes a Unit.
-func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, data unit.Unit) {
+func (s *Stream) WriteUnit(medi *description.Media, forma format.Format, u unit.Unit) {
 	sm := s.smedias[medi]
 	sf := sm.formats[forma]
 
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	sf.writeUnit(s, medi, data)
+	sf.writeUnit(s, medi, u)
 }
 
 // WriteRTPPacket writes a RTP packet.
