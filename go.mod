@@ -6,6 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v0.13.0
 	github.com/alecthomas/kong v0.8.0
+	github.com/aler9/writerseeker v1.1.0
 	github.com/bluenviron/gohlslib v1.0.2
 	github.com/bluenviron/gortsplib/v4 v4.0.2-0.20230916090332-99773e19afc9
 	github.com/bluenviron/mediacommon v1.2.0
@@ -30,7 +31,6 @@ require (
 )
 
 require (
-	github.com/aler9/writerseeker v1.1.0 // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/asticode/go-astits v1.13.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect

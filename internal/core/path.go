@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -171,24 +172,29 @@ type pathAPIPathsGetReq struct {
 }
 
 type path struct {
-	rtspAddress       string
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
-	writeQueueSize    int
-	udpMaxPayloadSize int
-	confName          string
-	conf              *conf.PathConf
-	name              string
-	matches           []string
-	wg                *sync.WaitGroup
-	externalCmdPool   *externalcmd.Pool
-	parent            pathParent
+	rtspAddress           string
+	readTimeout           conf.StringDuration
+	writeTimeout          conf.StringDuration
+	writeQueueSize        int
+	udpMaxPayloadSize     int
+	record                bool
+	recordPath            string
+	recordPartDuration    conf.StringDuration
+	recordSegmentDuration conf.StringDuration
+	confName              string
+	conf                  *conf.PathConf
+	name                  string
+	matches               []string
+	wg                    *sync.WaitGroup
+	externalCmdPool       *externalcmd.Pool
+	parent                pathParent
 
 	ctx                            context.Context
 	ctxCancel                      func()
 	confMutex                      sync.RWMutex
 	source                         source
 	stream                         *stream.Stream
+	recorder                       *record.Recorder
 	readyTime                      time.Time
 	bytesReceived                  *uint64
 	readers                        map[reader]struct{}
@@ -227,6 +233,10 @@ func newPath(
 	writeTimeout conf.StringDuration,
 	writeQueueSize int,
 	udpMaxPayloadSize int,
+	record bool,
+	recordPath string,
+	recordPartDuration conf.StringDuration,
+	recordSegmentDuration conf.StringDuration,
 	confName string,
 	cnf *conf.PathConf,
 	name string,
@@ -243,6 +253,10 @@ func newPath(
 		writeTimeout:                   writeTimeout,
 		writeQueueSize:                 writeQueueSize,
 		udpMaxPayloadSize:              udpMaxPayloadSize,
+		record:                         record,
+		recordPath:                     recordPath,
+		recordPartDuration:             recordPartDuration,
+		recordSegmentDuration:          recordSegmentDuration,
 		confName:                       confName,
 		conf:                           cnf,
 		name:                           name,
@@ -875,6 +889,18 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		return err
 	}
 
+	if pa.record {
+		pa.recorder = record.NewRecorder(
+			pa.writeQueueSize,
+			pa.recordPath,
+			time.Duration(pa.recordPartDuration),
+			time.Duration(pa.recordSegmentDuration),
+			pa.name,
+			pa.stream,
+			pa,
+		)
+	}
+
 	pa.readyTime = time.Now()
 
 	if pa.conf.RunOnReady != "" {
@@ -906,6 +932,11 @@ func (pa *path) setNotReady() {
 		pa.onReadyCmd.Close()
 		pa.onReadyCmd = nil
 		pa.Log(logger.Info, "runOnReady command stopped")
+	}
+
+	if pa.recorder != nil {
+		pa.recorder.Close()
+		pa.recorder = nil
 	}
 
 	if pa.stream != nil {
