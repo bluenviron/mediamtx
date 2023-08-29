@@ -42,6 +42,7 @@ func newAV1(
 func (t *formatProcessorAV1) createEncoder() error {
 	t.encoder = &rtpav1.Encoder{
 		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadType:    t.format.PayloadTyp,
 	}
 	return t.encoder.Init()
 }
