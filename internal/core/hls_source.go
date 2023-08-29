@@ -79,8 +79,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 				switch tcodec := track.Codec.(type) {
 				case *codecs.AV1:
 					medi = &description.Media{
-						Type:    description.MediaTypeVideo,
-						Formats: []format.Format{&format.AV1{}},
+						Type: description.MediaTypeVideo,
+						Formats: []format.Format{&format.AV1{
+							PayloadTyp: 96,
+						}},
 					}
 
 					c.OnDataAV1(track, func(pts time.Duration, tu [][]byte) {
@@ -95,8 +97,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 
 				case *codecs.VP9:
 					medi = &description.Media{
-						Type:    description.MediaTypeVideo,
-						Formats: []format.Format{&format.VP9{}},
+						Type: description.MediaTypeVideo,
+						Formats: []format.Format{&format.VP9{
+							PayloadTyp: 96,
+						}},
 					}
 
 					c.OnDataVP9(track, func(pts time.Duration, frame []byte) {

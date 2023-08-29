@@ -242,6 +242,13 @@ func TestReadTracks(t *testing.T) {
 			},
 			nil,
 		},
+		{
+			"ffmpeg av1",
+			&format.AV1{
+				PayloadTyp: 96,
+			},
+			nil,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
@@ -678,6 +685,67 @@ func TestReadTracks(t *testing.T) {
 					MessageStreamID: 0x1000000,
 					FourCC:          message.FourCCHEVC,
 					Config:          buf.Bytes(),
+				})
+				require.NoError(t, err)
+
+			case "ffmpeg av1":
+				err := mrw.Write(&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{
+								K: "duration",
+								V: float64(0),
+							},
+							{
+								K: "width",
+								V: float64(1920),
+							},
+							{
+								K: "height",
+								V: float64(1080),
+							},
+							{
+								K: "videodatarate",
+								V: float64(0),
+							},
+							{
+								K: "framerate",
+								V: float64(30),
+							},
+							{
+								K: "videocodecid",
+								V: float64(message.FourCCAV1),
+							},
+							{
+								K: "encoder",
+								V: "Lavf60.10.101",
+							},
+							{
+								K: "filesize",
+								V: float64(0),
+							},
+						},
+					},
+				})
+				require.NoError(t, err)
+
+				var buf bytes.Buffer
+				_, err = mp4.Marshal(&buf, hvcc, mp4.Context{})
+				require.NoError(t, err)
+
+				err = mrw.Write(&message.ExtendedSequenceStart{
+					ChunkStreamID:   6,
+					MessageStreamID: 0x1000000,
+					FourCC:          message.FourCCAV1,
+					Config: []byte{
+						0x81, 0x08, 0x0c, 0x00, 0x0a, 0x0b, 0x00, 0x00,
+						0x00, 0x42, 0xab, 0xbf, 0xc3, 0x70, 0x0b, 0xe0,
+						0x01,
+					},
 				})
 				require.NoError(t, err)
 			}

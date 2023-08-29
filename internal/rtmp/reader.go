@@ -252,7 +252,9 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
 					}
 
-					videoTrack = &format.AV1{}
+					videoTrack = &format.AV1{
+						PayloadTyp: 96,
+					}
 
 				default: // VP9
 					var vpcc mp4.VpcC
@@ -261,7 +263,9 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 						return nil, nil, fmt.Errorf("invalid VP9 configuration: %v", err)
 					}
 
-					videoTrack = &format.VP9{}
+					videoTrack = &format.VP9{
+						PayloadTyp: 96,
+					}
 				}
 			}
 
