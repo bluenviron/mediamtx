@@ -128,7 +128,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 		ctx.Writer.Write(hlsMinJS)
 		return
 
-	case pa == "", pa == "favicon.ico":
+	case pa == "", pa == "favicon.ico", strings.HasSuffix(pa, "/hls.min.js.map"):
 		return
 
 	case strings.HasSuffix(pa, ".m3u8") ||
