@@ -89,7 +89,7 @@ func contains(list []headers.AuthMethod, item headers.AuthMethod) bool {
 
 // Conf is a configuration.
 type Conf struct {
-	// general
+	// General
 	LogLevel                  LogLevel        `json:"logLevel"`
 	LogDestinations           LogDestinations `json:"logDestinations"`
 	LogFile                   string          `json:"logFile"`
@@ -169,7 +169,7 @@ type Conf struct {
 	SRT        bool   `json:"srt"`
 	SRTAddress string `json:"srtAddress"`
 
-	// paths
+	// Paths
 	Paths map[string]*PathConf `json:"paths"`
 }
 
@@ -218,7 +218,8 @@ func (conf Conf) Clone() *Conf {
 
 // Check checks the configuration for errors.
 func (conf *Conf) Check() error {
-	// general
+	// General
+
 	if conf.ReadBufferCount != 0 {
 		conf.WriteQueueSize = conf.ReadBufferCount
 	}
@@ -240,6 +241,7 @@ func (conf *Conf) Check() error {
 	}
 
 	// RTSP
+
 	if conf.RTSPDisable {
 		conf.RTSP = false
 	}
@@ -253,16 +255,19 @@ func (conf *Conf) Check() error {
 	}
 
 	// RTMP
+
 	if conf.RTMPDisable {
 		conf.RTMP = false
 	}
 
 	// HLS
+
 	if conf.HLSDisable {
 		conf.HLS = false
 	}
 
 	// WebRTC
+
 	if conf.WebRTCDisable {
 		conf.WebRTC = false
 	}

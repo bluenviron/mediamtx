@@ -16,6 +16,7 @@ import (
 	"github.com/pion/sdp/v3"
 	"github.com/pion/webrtc/v3"
 
+	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/webrtcpc"
 )
@@ -511,29 +512,29 @@ func (s *webRTCSession) runRead() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	writer := newAsyncWriter(s.writeQueueSize, s)
+	writer := asyncwriter.New(s.writeQueueSize, s)
 
 	for _, track := range tracks {
-		track.start(s, res.stream, writer)
+		track.start(res.stream, writer)
 	}
 
-	defer res.stream.RemoveReader(s)
+	defer res.stream.RemoveReader(writer)
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(webrtcMediasOfOutgoingTracks(tracks)))
 
-	writer.start()
+	writer.Start()
 
 	select {
 	case <-pc.Disconnected():
-		writer.stop()
+		writer.Stop()
 		return 0, fmt.Errorf("peer connection closed")
 
-	case err := <-writer.error():
+	case err := <-writer.Error():
 		return 0, err
 
 	case <-s.ctx.Done():
-		writer.stop()
+		writer.Stop()
 		return 0, fmt.Errorf("terminated")
 	}
 }

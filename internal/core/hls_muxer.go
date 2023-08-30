@@ -17,6 +17,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/gin-gonic/gin"
 
+	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -75,7 +76,7 @@ type hlsMuxer struct {
 	ctxCancel       func()
 	created         time.Time
 	path            *path
-	writer          *asyncWriter
+	writer          *asyncwriter.Writer
 	lastRequestTime *int64
 	muxer           *gohlslib.Muxer
 	requests        []*hlsMuxerHandleRequestReq
@@ -207,7 +208,7 @@ func (m *hlsMuxer) run() {
 				innerCtxCancel()
 
 				if m.remoteAddr == "" { // created with "always remux"
-					m.Log(logger.Info, "ERR: %v", err)
+					m.Log(logger.Error, err.Error())
 					m.clearQueuedRequests()
 					isReady = false
 					isRecreating = true
@@ -253,7 +254,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	defer m.path.removeReader(pathRemoveReaderReq{author: m})
 
-	m.writer = newAsyncWriter(m.writeQueueSize, m)
+	m.writer = asyncwriter.New(m.writeQueueSize, m)
 
 	var medias []*description.Media
 
@@ -267,7 +268,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 		medias = append(medias, audioMedia)
 	}
 
-	defer res.stream.RemoveReader(m)
+	defer res.stream.RemoveReader(m.writer)
 
 	if medias == nil {
 		return fmt.Errorf(
@@ -303,7 +304,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	m.Log(logger.Info, "is converting into HLS, %s",
 		sourceMediaInfo(medias))
 
-	m.writer.start()
+	m.writer.Start()
 
 	closeCheckTicker := time.NewTicker(closeCheckPeriod)
 	defer closeCheckTicker.Stop()
@@ -314,16 +315,16 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 			if m.remoteAddr != "" {
 				t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
 				if time.Since(t) >= closeAfterInactivity {
-					m.writer.stop()
+					m.writer.Stop()
 					return fmt.Errorf("not used anymore")
 				}
 			}
 
-		case err := <-m.writer.error():
+		case err := <-m.writer.Error():
 			return err
 
 		case <-innerCtx.Done():
-			m.writer.stop()
+			m.writer.Stop()
 			return fmt.Errorf("terminated")
 		}
 	}
@@ -334,22 +335,19 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 	videoMedia := stream.Desc().FindFormat(&videoFormatAV1)
 
 	if videoFormatAV1 != nil {
-		stream.AddReader(m, videoMedia, videoFormatAV1, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.AV1)
+		stream.AddReader(m.writer, videoMedia, videoFormatAV1, func(u unit.Unit) error {
+			tunit := u.(*unit.AV1)
 
-				if tunit.TU == nil {
-					return nil
-				}
-
-				pts := tunit.PTS
-				err := m.muxer.WriteAV1(tunit.NTP, pts, tunit.TU)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
+			if tunit.TU == nil {
 				return nil
-			})
+			}
+
+			err := m.muxer.WriteAV1(tunit.NTP, tunit.PTS, tunit.TU)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+
+			return nil
 		})
 
 		return videoMedia, &gohlslib.Track{
@@ -361,22 +359,19 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 	videoMedia = stream.Desc().FindFormat(&videoFormatVP9)
 
 	if videoFormatVP9 != nil {
-		stream.AddReader(m, videoMedia, videoFormatVP9, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.VP9)
+		stream.AddReader(m.writer, videoMedia, videoFormatVP9, func(u unit.Unit) error {
+			tunit := u.(*unit.VP9)
 
-				if tunit.Frame == nil {
-					return nil
-				}
-
-				pts := tunit.PTS
-				err := m.muxer.WriteVP9(tunit.NTP, pts, tunit.Frame)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
+			if tunit.Frame == nil {
 				return nil
-			})
+			}
+
+			err := m.muxer.WriteVP9(tunit.NTP, tunit.PTS, tunit.Frame)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+
+			return nil
 		})
 
 		return videoMedia, &gohlslib.Track{
@@ -388,22 +383,19 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 	videoMedia = stream.Desc().FindFormat(&videoFormatH265)
 
 	if videoFormatH265 != nil {
-		stream.AddReader(m, videoMedia, videoFormatH265, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.H265)
+		stream.AddReader(m.writer, videoMedia, videoFormatH265, func(u unit.Unit) error {
+			tunit := u.(*unit.H265)
 
-				if tunit.AU == nil {
-					return nil
-				}
-
-				pts := tunit.PTS
-				err := m.muxer.WriteH26x(tunit.NTP, pts, tunit.AU)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
+			if tunit.AU == nil {
 				return nil
-			})
+			}
+
+			err := m.muxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+
+			return nil
 		})
 
 		vps, sps, pps := videoFormatH265.SafeParams()
@@ -421,22 +413,19 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 	videoMedia = stream.Desc().FindFormat(&videoFormatH264)
 
 	if videoFormatH264 != nil {
-		stream.AddReader(m, videoMedia, videoFormatH264, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.H264)
+		stream.AddReader(m.writer, videoMedia, videoFormatH264, func(u unit.Unit) error {
+			tunit := u.(*unit.H264)
 
-				if tunit.AU == nil {
-					return nil
-				}
-
-				pts := tunit.PTS
-				err := m.muxer.WriteH26x(tunit.NTP, pts, tunit.AU)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
+			if tunit.AU == nil {
 				return nil
-			})
+			}
+
+			err := m.muxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+
+			return nil
 		})
 
 		sps, pps := videoFormatH264.SafeParams()
@@ -457,21 +446,18 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 	audioMedia := stream.Desc().FindFormat(&audioFormatOpus)
 
 	if audioMedia != nil {
-		stream.AddReader(m, audioMedia, audioFormatOpus, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.Opus)
+		stream.AddReader(m.writer, audioMedia, audioFormatOpus, func(u unit.Unit) error {
+			tunit := u.(*unit.Opus)
 
-				pts := tunit.PTS
-				err := m.muxer.WriteOpus(
-					tunit.NTP,
-					pts,
-					tunit.Packets)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
+			err := m.muxer.WriteOpus(
+				tunit.NTP,
+				tunit.PTS,
+				tunit.Packets)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
 
-				return nil
-			})
+			return nil
 		})
 
 		return audioMedia, &gohlslib.Track{
@@ -490,25 +476,22 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4AudioGeneric)
 
 	if audioMedia != nil {
-		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioGeneric, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.MPEG4AudioGeneric)
+		stream.AddReader(m.writer, audioMedia, audioFormatMPEG4AudioGeneric, func(u unit.Unit) error {
+			tunit := u.(*unit.MPEG4AudioGeneric)
 
-				if tunit.AUs == nil {
-					return nil
-				}
-
-				pts := tunit.PTS
-				err := m.muxer.WriteMPEG4Audio(
-					tunit.NTP,
-					pts,
-					tunit.AUs)
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
+			if tunit.AUs == nil {
 				return nil
-			})
+			}
+
+			err := m.muxer.WriteMPEG4Audio(
+				tunit.NTP,
+				tunit.PTS,
+				tunit.AUs)
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+
+			return nil
 		})
 
 		return audioMedia, &gohlslib.Track{
@@ -525,25 +508,22 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 		audioFormatMPEG4AudioLATM.Config != nil &&
 		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
 		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
-		stream.AddReader(m, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) {
-			m.writer.push(func() error {
-				tunit := u.(*unit.MPEG4AudioLATM)
+		stream.AddReader(m.writer, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) error {
+			tunit := u.(*unit.MPEG4AudioLATM)
 
-				if tunit.AU == nil {
-					return nil
-				}
-
-				pts := tunit.PTS
-				err := m.muxer.WriteMPEG4Audio(
-					tunit.NTP,
-					pts,
-					[][]byte{tunit.AU})
-				if err != nil {
-					return fmt.Errorf("muxer error: %v", err)
-				}
-
+			if tunit.AU == nil {
 				return nil
-			})
+			}
+
+			err := m.muxer.WriteMPEG4Audio(
+				tunit.NTP,
+				tunit.PTS,
+				[][]byte{tunit.AU})
+			if err != nil {
+				return fmt.Errorf("muxer error: %v", err)
+			}
+
+			return nil
 		})
 
 		return audioMedia, &gohlslib.Track{

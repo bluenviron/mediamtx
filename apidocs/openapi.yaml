@@ -18,7 +18,7 @@ components:
     Conf:
       type: object
       properties:
-        # general
+        # General
         logLevel:
           type: string
         logDestinations:
@@ -169,13 +169,13 @@ components:
         webrtcICETCPMuxAddress:
           type: string
 
-        # srt
+        # SRT
         srt:
           type: boolean
         srtAddress:
           type: string
 
-        # paths
+        # Paths
         paths:
           type: object
           additionalProperties:
@@ -184,10 +184,9 @@ components:
     PathConf:
       type: object
       properties:
+        # General
         source:
           type: string
-
-        # general
         sourceFingerprint:
           type: string
         sourceOnDemand:
@@ -199,7 +198,7 @@ components:
         maxReaders:
           type: number
 
-        # authentication
+        # Authentication
         publishUser:
           type: string
         publishPass:
@@ -217,13 +216,13 @@ components:
           items:
             type: string
 
-        # publisher
+        # Publisher
         overridePublisher:
           type: boolean
         fallback:
           type: string
 
-        # rtsp
+        # RTSP
         sourceProtocol:
           type: string
         sourceAnyPortEnable:
@@ -233,11 +232,11 @@ components:
         rtspRangeStart:
           type: string
 
-        # redirect
+        # Redirect
         sourceRedirect:
           type: string
 
-        # raspberry pi camera
+        # Raspberry Pi Camera
         rpiCameraCamID:
           type: integer
         rpiCameraWidth:
@@ -303,7 +302,7 @@ components:
         rpiCameraTextOverlay:
           type: string
 
-        # external commands
+        # External commands
         runOnInit:
           type: string
         runOnInitRestart:

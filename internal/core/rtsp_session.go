@@ -74,8 +74,8 @@ func newRTSPSession(
 		created:         time.Now(),
 	}
 
-	s.decodeErrLogger = newLimitedLogger(s)
-	s.writeErrLogger = newLimitedLogger(s)
+	s.decodeErrLogger = logger.NewLimitedLogger(s)
+	s.writeErrLogger = logger.NewLimitedLogger(s)
 
 	s.Log(logger.Info, "created by %v", s.author.NetConn().RemoteAddr())
 

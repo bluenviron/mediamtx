@@ -48,7 +48,7 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 		}
 	}()
 
-	decodeErrLogger := newLimitedLogger(s)
+	decodeErrLogger := logger.NewLimitedLogger(s)
 
 	var c *gohlslib.Client
 	c = &gohlslib.Client{

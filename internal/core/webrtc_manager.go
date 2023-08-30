@@ -416,7 +416,7 @@ func newWebRTCManager(
 
 // Log is the main logging function.
 func (m *webRTCManager) Log(level logger.Level, format string, args ...interface{}) {
-	m.parent.Log(level, "[WebRTC] "+format, append([]interface{}{}, args...)...)
+	m.parent.Log(level, "[WebRTC] "+format, args...)
 }
 
 func (m *webRTCManager) close() {

@@ -42,17 +42,15 @@ func IsValidPathName(name string) error {
 type PathConf struct {
 	Regexp *regexp.Regexp `json:"-"`
 
-	// source
-	Source string `json:"source"`
-
-	// general
+	// General
+	Source                     string         `json:"source"`
 	SourceFingerprint          string         `json:"sourceFingerprint"`
 	SourceOnDemand             bool           `json:"sourceOnDemand"`
 	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int            `json:"maxReaders"`
 
-	// authentication
+	// Authentication
 	PublishUser Credential `json:"publishUser"`
 	PublishPass Credential `json:"publishPass"`
 	PublishIPs  IPsOrCIDRs `json:"publishIPs"`
@@ -60,21 +58,21 @@ type PathConf struct {
 	ReadPass    Credential `json:"readPass"`
 	ReadIPs     IPsOrCIDRs `json:"readIPs"`
 
-	// publisher
+	// Publisher
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
 	Fallback                 string `json:"fallback"`
 
-	// rtsp
+	// RTSP
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
 	SourceAnyPortEnable bool           `json:"sourceAnyPortEnable"`
 	RtspRangeType       RtspRangeType  `json:"rtspRangeType"`
 	RtspRangeStart      string         `json:"rtspRangeStart"`
 
-	// redirect
+	// Redirect
 	SourceRedirect string `json:"sourceRedirect"`
 
-	// raspberry pi camera
+	// Raspberry Pi Camera
 	RPICameraCamID             int     `json:"rpiCameraCamID"`
 	RPICameraWidth             int     `json:"rpiCameraWidth"`
 	RPICameraHeight            int     `json:"rpiCameraHeight"`
@@ -108,7 +106,7 @@ type PathConf struct {
 	RPICameraTextOverlayEnable bool    `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string  `json:"rpiCameraTextOverlay"`
 
-	// external commands
+	// External commands
 	RunOnInit               string         `json:"runOnInit"`
 	RunOnInitRestart        bool           `json:"runOnInitRestart"`
 	RunOnDemand             string         `json:"runOnDemand"`
@@ -139,6 +137,8 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 		pconf.Regexp = pathRegexp
 	}
+
+	// General
 
 	switch {
 	case pconf.Source == "publisher":
@@ -263,10 +263,11 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
+	// Publisher
+
 	if pconf.DisablePublisherOverride {
 		pconf.OverridePublisher = true
 	}
-
 	if pconf.Fallback != "" {
 		if strings.HasPrefix(pconf.Fallback, "/") {
 			err := IsValidPathName(pconf.Fallback[1:])
@@ -281,26 +282,24 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
+	// Authentication
+
 	if (pconf.PublishUser != "" && pconf.PublishPass == "") ||
 		(pconf.PublishUser == "" && pconf.PublishPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
-
 	if pconf.PublishUser != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'publishUser' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
-
 	if len(pconf.PublishIPs) > 0 && pconf.Source != "publisher" {
 		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
-
 	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
 		(pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
-
 	if contains(conf.AuthMethods, headers.AuthDigest) {
 		if strings.HasPrefix(string(pconf.PublishUser), "sha256:") ||
 			strings.HasPrefix(string(pconf.PublishPass), "sha256:") ||
@@ -309,7 +308,6 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			return fmt.Errorf("hashed credentials can't be used when the digest auth method is available")
 		}
 	}
-
 	if conf.ExternalAuthenticationURL != "" {
 		if pconf.PublishUser != "" ||
 			len(pconf.PublishIPs) > 0 ||
@@ -319,10 +317,11 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
+	// External commands
+
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
 		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
 	}
-
 	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
 	}
@@ -378,17 +377,17 @@ func (pconf PathConf) HasOnDemandPublisher() bool {
 
 // UnmarshalJSON implements json.Unmarshaler. It is used to set default values.
 func (pconf *PathConf) UnmarshalJSON(b []byte) error {
-	// source
+	// Source
 	pconf.Source = "publisher"
 
-	// general
+	// General
 	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
 
-	// publisher
+	// Publisher
 	pconf.OverridePublisher = true
 
-	// raspberry pi camera
+	// Raspberry Pi Camera
 	pconf.RPICameraWidth = 1920
 	pconf.RPICameraHeight = 1080
 	pconf.RPICameraContrast = 1
@@ -401,7 +400,7 @@ func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 	pconf.RPICameraLevel = "4.1"
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
 
-	// external commands
+	// External commands
 	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
 

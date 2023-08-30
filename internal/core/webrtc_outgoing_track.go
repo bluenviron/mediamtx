@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/pion/webrtc/v3"
 
+	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -348,9 +349,8 @@ func newWebRTCOutgoingTrackAudio(desc *description.Session) (*webRTCOutgoingTrac
 }
 
 func (t *webRTCOutgoingTrack) start(
-	r reader,
 	stream *stream.Stream,
-	writer *asyncWriter,
+	writer *asyncwriter.Writer,
 ) {
 	// read incoming RTCP packets to make interceptors work
 	go func() {
@@ -363,9 +363,7 @@ func (t *webRTCOutgoingTrack) start(
 		}
 	}()
 
-	stream.AddReader(r, t.media, t.format, func(u unit.Unit) {
-		writer.push(func() error {
-			return t.cb(u)
-		})
+	stream.AddReader(writer, t.media, t.format, func(u unit.Unit) error {
+		return t.cb(u)
 	})
 }

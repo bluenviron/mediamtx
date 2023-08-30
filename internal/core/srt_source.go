@@ -91,7 +91,7 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 		return err
 	}
 
-	decodeErrLogger := newLimitedLogger(s)
+	decodeErrLogger := logger.NewLimitedLogger(s)
 
 	r.OnDecodeError(func(err error) {
 		decodeErrLogger.Log(logger.Warn, err.Error())

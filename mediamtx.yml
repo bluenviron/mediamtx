@@ -1,6 +1,6 @@
 
 ###############################################
-# General parameters
+# General settings
 
 # Sets the verbosity of the program; available values are "error", "warn", "info", "debug".
 logLevel: info
@@ -62,9 +62,9 @@ runOnConnect:
 runOnConnectRestart: no
 
 ###############################################
-# RTSP parameters
+# RTSP settings
 
-# Enable support for the RTSP protocol.
+# Allow publishing and reading streams with the RTSP protocol.
 rtsp: yes
 # List of enabled RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
@@ -102,9 +102,9 @@ serverCert: server.crt
 authMethods: [basic]
 
 ###############################################
-# RTMP parameters
+# RTMP settings
 
-# Enable support for the RTMP protocol.
+# Allow publishing and reading streams with the RTMP protocol.
 rtmp: yes
 # Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
 rtmpAddress: :1935
@@ -122,9 +122,9 @@ rtmpServerKey: server.key
 rtmpServerCert: server.crt
 
 ###############################################
-# HLS parameters
+# HLS settings
 
-# Enable support for the HLS protocol.
+# Allow reading streams with the HLS protocol.
 hls: yes
 # Address of the HLS listener.
 hlsAddress: :8888
@@ -178,9 +178,9 @@ hlsTrustedProxies: []
 hlsDirectory: ''
 
 ###############################################
-# WebRTC parameters
+# WebRTC settings
 
-# Enable support for the WebRTC protocol.
+# Allow publishing and reading streams with the WebRTC protocol.
 webrtc: yes
 # Address of the WebRTC listener.
 webrtcAddress: :8889
@@ -222,20 +222,20 @@ webrtcICEUDPMuxAddress:
 # Address of a ICE TCP listener in format host:port.
 # If filled, ICE traffic will pass through a single TCP port,
 # allowing the deployment of the server inside a container or behind a NAT.
-# Setting this parameter forces usage of the TCP protocol, which is not
+# Using this setting forces usage of the TCP protocol, which is not
 # optimal for WebRTC.
 webrtcICETCPMuxAddress:
 
 ###############################################
-# SRT parameters
+# SRT settings
 
-# Enables support for the SRT protocol.
+# Allow publishing and reading streams with the SRT protocol.
 srt: yes
 # Address of the SRT listener.
 srtAddress: :8890
 
 ###############################################
-# Path parameters
+# Path settings
 
 # These settings are path-dependent, and the map key is the name of the path.
 # It's possible to use regular expressions by using a tilde as prefix,
@@ -245,25 +245,24 @@ srtAddress: :8890
 # another entry.
 paths:
   all:
+    ###############################################
+    # General path settings
+
     # Source of the stream. This can be:
-    # * publisher -> the stream is published by a RTSP, RTMP, WebRTC or SRT client
+    # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
     # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
     # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
     # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
     # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
-    # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server
-    # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server with HTTPS
+    # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera
+    # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
     # * udp://ip:port -> the stream is pulled with UDP, by listening on the specified IP and port
-    # * srt://existing-url -> the stream is pulled from another SRT server
-    # * whep://existing-url -> the stream is pulled from another WebRTC server
-    # * wheps://existing-url -> the stream is pulled from another WebRTC server with HTTPS
+    # * srt://existing-url -> the stream is pulled from another SRT server / camera
+    # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
+    # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
     # * redirect -> the stream is provided by another path or server
     # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
     source: publisher
-
-    ###############################################
-    # General path parameters
-
     # If the source is a URL, and the source certificate is self-signed
     # or invalid, you can provide the fingerprint of the certificate in order to
     # validate it anyway. It can be obtained by running:
@@ -283,7 +282,7 @@ paths:
     maxReaders: 0
 
     ###############################################
-    # Authentication path parameters
+    # Authentication path settings
 
     # Username required to publish.
     # SHA256-hashed values can be inserted with the "sha256:" prefix.
@@ -304,7 +303,7 @@ paths:
     readIPs: []
 
     ###############################################
-    # Publisher path parameters (when source is "publisher")
+    # Publisher path settings (when source is "publisher")
 
     # allow another client to disconnect the current publisher and publish in its place.
     overridePublisher: yes
@@ -313,7 +312,7 @@ paths:
     fallback:
 
     ###############################################
-    # RTSP path parameters (when source is a RTSP or a RTSPS URL)
+    # RTSP path settings (when source is a RTSP or a RTSPS URL)
 
     # protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
     sourceProtocol: automatic
@@ -333,13 +332,13 @@ paths:
     rtspRangeStart:
 
     ###############################################
-    # Redirect path parameters (when source is "redirect")
+    # Redirect path settings (when source is "redirect")
 
     # RTSP URL which clients will be redirected to.
     sourceRedirect:
 
     ###############################################
-    # Raspberry Pi Camera path parameters (when source is "rpiCamera")
+    # Raspberry Pi Camera path settings (when source is "rpiCamera")
 
     # ID of the camera
     rpiCameraCamID: 0
@@ -421,7 +420,7 @@ paths:
     rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
 
     ###############################################
-    # external commands path parameters
+    # External commands path settings
 
     # Command to run when this path is initialized.
     # This can be used to publish a stream and keep it always opened.

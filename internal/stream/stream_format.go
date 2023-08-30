@@ -8,15 +8,24 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 
+	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/formatprocessor"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+func unitSize(u unit.Unit) uint64 {
+	n := uint64(0)
+	for _, pkt := range u.GetRTPPackets() {
+		n += uint64(pkt.MarshalSize())
+	}
+	return n
+}
+
 type streamFormat struct {
 	decodeErrLogger logger.Writer
 	proc            formatprocessor.Processor
-	nonRTSPReaders  map[interface{}]func(unit.Unit)
+	readers         map[*asyncwriter.Writer]readerFunc
 }
 
 func newStreamFormat(
@@ -33,50 +42,47 @@ func newStreamFormat(
 	sf := &streamFormat{
 		decodeErrLogger: decodeErrLogger,
 		proc:            proc,
-		nonRTSPReaders:  make(map[interface{}]func(unit.Unit)),
+		readers:         make(map[*asyncwriter.Writer]readerFunc),
 	}
 
 	return sf, nil
 }
 
-func (sf *streamFormat) addReader(r interface{}, cb func(unit.Unit)) {
-	sf.nonRTSPReaders[r] = cb
+func (sf *streamFormat) addReader(r *asyncwriter.Writer, cb readerFunc) {
+	sf.readers[r] = cb
 }
 
-func (sf *streamFormat) removeReader(r interface{}) {
-	delete(sf.nonRTSPReaders, r)
+func (sf *streamFormat) removeReader(r *asyncwriter.Writer) {
+	delete(sf.readers, r)
 }
 
-func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, data unit.Unit) {
-	hasNonRTSPReaders := len(sf.nonRTSPReaders) > 0
+func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u unit.Unit) {
+	hasNonRTSPReaders := len(sf.readers) > 0
 
-	err := sf.proc.Process(data, hasNonRTSPReaders)
+	err := sf.proc.Process(u, hasNonRTSPReaders)
 	if err != nil {
 		sf.decodeErrLogger.Log(logger.Warn, err.Error())
 		return
 	}
 
-	n := uint64(0)
-	for _, pkt := range data.GetRTPPackets() {
-		n += uint64(pkt.MarshalSize())
-	}
-	atomic.AddUint64(s.bytesReceived, n)
+	atomic.AddUint64(s.bytesReceived, unitSize(u))
 
 	if s.rtspStream != nil {
-		for _, pkt := range data.GetRTPPackets() {
-			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, data.GetNTP()) //nolint:errcheck
+		for _, pkt := range u.GetRTPPackets() {
+			s.rtspStream.WritePacketRTPWithNTP(medi, pkt, u.GetNTP()) //nolint:errcheck
 		}
 	}
 
 	if s.rtspsStream != nil {
-		for _, pkt := range data.GetRTPPackets() {
-			s.rtspsStream.WritePacketRTPWithNTP(medi, pkt, data.GetNTP()) //nolint:errcheck
+		for _, pkt := range u.GetRTPPackets() {
+			s.rtspsStream.WritePacketRTPWithNTP(medi, pkt, u.GetNTP()) //nolint:errcheck
 		}
 	}
 
-	// forward decoded frames to non-RTSP readers
-	for _, cb := range sf.nonRTSPReaders {
-		cb(data)
+	for writer, cb := range sf.readers {
+		writer.Push(func() error {
+			return cb(u)
+		})
 	}
 }
 

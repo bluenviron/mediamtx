@@ -1,4 +1,4 @@
-// Package formatprocessor contains code to cleanup and normalize streams.
+// Package formatprocessor cleans and normalizes streams.
 package formatprocessor
 
 import (

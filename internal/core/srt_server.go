@@ -137,7 +137,7 @@ func newSRTServer(
 
 // Log is the main logging function.
 func (s *srtServer) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[SRT] "+format, append([]interface{}{}, args...)...)
+	s.parent.Log(level, "[SRT] "+format, args...)
 }
 
 func (s *srtServer) close() {

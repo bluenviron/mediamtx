@@ -94,7 +94,7 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
 	s.Log(logger.Debug, "connecting")
 
-	decodeErrLogger := newLimitedLogger(s)
+	decodeErrLogger := logger.NewLimitedLogger(s)
 
 	c := &gortsplib.Client{
 		Transport:      cnf.SourceProtocol.Transport,
