@@ -19,11 +19,13 @@ export DOCKERFILE_DOCKERHUB_FFMPEG
 
 define DOCKERFILE_DOCKERHUB_RPI_BASE_32
 FROM $(RPI32_IMAGE)
+RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6 && rm -rf /var/lib/apt/lists/*
 endef
 export DOCKERFILE_DOCKERHUB_RPI_BASE_32
 
 define DOCKERFILE_DOCKERHUB_RPI_BASE_64
 FROM $(RPI64_IMAGE)
+RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6 && rm -rf /var/lib/apt/lists/*
 endef
 export DOCKERFILE_DOCKERHUB_RPI_BASE_64
 
@@ -31,7 +33,6 @@ define DOCKERFILE_DOCKERHUB_RPI
 FROM scratch
 ARG TARGETPLATFORM
 ADD tmp/rpi_base/$$TARGETPLATFORM.tar /
-RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6
 ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
 endef
@@ -41,7 +42,7 @@ define DOCKERFILE_DOCKERHUB_FFMPEG_RPI
 FROM scratch
 ARG TARGETPLATFORM
 ADD tmp/rpi_base/$$TARGETPLATFORM.tar /
-RUN apt update && apt install -y --no-install-recommends libcamera0 libfreetype6 ffmpeg
+RUN apt update && apt install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
 ADD tmp/binaries/$$TARGETPLATFORM.tar.gz /
 ENTRYPOINT [ "/mediamtx" ]
 endef
@@ -68,11 +69,7 @@ dockerhub:
 	--provenance=false \
 	--platform=linux/arm/v6 \
 	--output type=tar,dest=tmp/rpi_base/linux/arm/v6.tar
-
-	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_32" | docker buildx build . -f - \
-	--provenance=false \
-	--platform=linux/arm/v7 \
-	--output type=tar,dest=tmp/rpi_base/linux/arm/v7.tar
+	cp tmp/rpi_base/linux/arm/v6.tar tmp/rpi_base/linux/arm/v7.tar
 
 	echo "$$DOCKERFILE_DOCKERHUB_RPI_BASE_64" | docker buildx build . -f - \
 	--provenance=false \
