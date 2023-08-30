@@ -43,6 +43,21 @@ var testMediaH264 = &description.Media{
 	Formats: []format.Format{testFormatH264},
 }
 
+var testMediaAAC = &description.Media{
+	Type: description.MediaTypeAudio,
+	Formats: []format.Format{&format.MPEG4Audio{
+		PayloadTyp: 96,
+		Config: &mpeg4audio.Config{
+			Type:         2,
+			SampleRate:   44100,
+			ChannelCount: 2,
+		},
+		SizeLength:       13,
+		IndexLength:      3,
+		IndexDeltaLength: 3,
+	}},
+}
+
 func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in interface{}, out interface{}) {
 	buf := func() io.Reader {
 		if in == nil {
@@ -247,20 +262,7 @@ func TestAPIPathsList(t *testing.T) {
 			"rtsp://localhost:8554/mypath",
 			&description.Session{Medias: []*description.Media{
 				media0,
-				{
-					Type: description.MediaTypeAudio,
-					Formats: []format.Format{&format.MPEG4Audio{
-						PayloadTyp: 96,
-						Config: &mpeg4audio.Config{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
-						},
-						SizeLength:       13,
-						IndexLength:      3,
-						IndexDeltaLength: 3,
-					}},
-				},
+				testMediaAAC,
 			}})
 		require.NoError(t, err)
 		defer source.Close()
@@ -314,24 +316,8 @@ func TestAPIPathsList(t *testing.T) {
 		source := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
 		err = source.StartRecording("rtsps://localhost:8322/mypath",
 			&description.Session{Medias: []*description.Media{
-				{
-					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{testFormatH264},
-				},
-				{
-					Type: description.MediaTypeAudio,
-					Formats: []format.Format{&format.MPEG4Audio{
-						PayloadTyp: 97,
-						Config: &mpeg4audio.Config{
-							Type:         2,
-							SampleRate:   44100,
-							ChannelCount: 2,
-						},
-						SizeLength:       13,
-						IndexLength:      3,
-						IndexDeltaLength: 3,
-					}},
-				},
+				testMediaH264,
+				testMediaAAC,
 			}})
 		require.NoError(t, err)
 		defer source.Close()

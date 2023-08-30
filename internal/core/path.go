@@ -866,6 +866,14 @@ func (pa *path) handleAddReader(req pathAddReaderReq) {
 }
 
 func (pa *path) handleAddReaderPost(req pathAddReaderReq) {
+	if _, ok := pa.readers[req.author]; ok {
+		req.res <- pathAddReaderRes{
+			path:   pa,
+			stream: pa.stream,
+		}
+		return
+	}
+
 	if pa.conf.MaxReaders != 0 && len(pa.readers) >= pa.conf.MaxReaders {
 		req.res <- pathAddReaderRes{
 			err: fmt.Errorf("maximum reader count reached"),

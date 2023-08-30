@@ -284,7 +284,10 @@ func TestPathMaxReaders(t *testing.T) {
 	source := gortsplib.Client{}
 	err := source.StartRecording(
 		"rtsp://localhost:8554/mystream",
-		&description.Session{Medias: []*description.Media{testMediaH264}})
+		&description.Session{Medias: []*description.Media{
+			testMediaH264,
+			testMediaAAC,
+		}})
 	require.NoError(t, err)
 	defer source.Close()
 
