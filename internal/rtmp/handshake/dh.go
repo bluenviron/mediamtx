@@ -1,6 +1,7 @@
 package handshake
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -100,6 +101,10 @@ func dhGenerateKeyPair() ([]byte, []byte, error) {
 	y.Exp(&g, &x, &p)
 	pub := y.Bytes()
 
+	if len(pub) < dhKeyLength {
+		pub = append(bytes.Repeat([]byte{0}, dhKeyLength-len(pub)), pub...)
+	}
+
 	return priv, pub, nil
 }
 
@@ -114,5 +119,11 @@ func dhComputeSharedSecret(priv []byte, pub []byte) []byte {
 	p.SetBytes(p1024)
 	var z big.Int
 	z.Exp(&y, &x, &p)
-	return z.Bytes()
+	sec := z.Bytes()
+
+	if len(sec) < dhKeyLength {
+		sec = append(bytes.Repeat([]byte{0}, dhKeyLength-len(sec)), sec...)
+	}
+
+	return sec
 }
