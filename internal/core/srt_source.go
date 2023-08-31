@@ -112,6 +112,25 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 		var medi *description.Media
 
 		switch tcodec := track.Codec.(type) {
+		case *mpegts.CodecH265:
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H265{
+					PayloadTyp: 96,
+				}},
+			}
+
+			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					AU: au,
+				})
+				return nil
+			})
+
 		case *mpegts.CodecH264:
 			medi = &description.Media{
 				Type: description.MediaTypeVideo,
@@ -132,21 +151,38 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 				return nil
 			})
 
-		case *mpegts.CodecH265:
+		case *mpegts.CodecMPEG4Video:
 			medi = &description.Media{
 				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{
+				Formats: []format.Format{&format.MPEG4Video{
 					PayloadTyp: 96,
 				}},
 			}
 
-			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4Video{
 					Base: unit.Base{
 						NTP: time.Now(),
 						PTS: decodeTime(pts),
 					},
-					AU: au,
+					Frame: frame,
+				})
+				return nil
+			})
+
+		case *mpegts.CodecMPEG1Video:
+			medi = &description.Media{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.MPEG1Video{}},
+			}
+
+			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Video{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					Frame: frame,
 				})
 				return nil
 			})

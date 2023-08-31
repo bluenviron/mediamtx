@@ -81,7 +81,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 	var pc packetConn
 
 	if ip4 := addr.IP.To4(); ip4 != nil && addr.IP.IsMulticast() {
-		pc, err = multicast.NewMultiConn(hostPort, net.ListenPacket)
+		pc, err = multicast.NewMultiConn(hostPort, true, net.ListenPacket)
 		if err != nil {
 			return err
 		}
@@ -179,6 +179,42 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 						PTS: decodeTime(pts),
 					},
 					AU: au,
+				})
+				return nil
+			})
+
+		case *mpegts.CodecMPEG4Video:
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.MPEG4Video{
+					PayloadTyp: 96,
+				}},
+			}
+
+			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4Video{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					Frame: frame,
+				})
+				return nil
+			})
+
+		case *mpegts.CodecMPEG1Video:
+			medi = &description.Media{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.MPEG1Video{}},
+			}
+
+			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Video{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					Frame: frame,
 				})
 				return nil
 			})

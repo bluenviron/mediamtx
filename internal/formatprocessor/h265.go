@@ -13,25 +13,25 @@ import (
 )
 
 // extract VPS, SPS and PPS without decoding RTP packets
-func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
-	if len(pkt.Payload) < 2 {
+func rtpH265ExtractVPSSPSPPS(payload []byte) ([]byte, []byte, []byte) {
+	if len(payload) < 2 {
 		return nil, nil, nil
 	}
 
-	typ := h265.NALUType((pkt.Payload[0] >> 1) & 0b111111)
+	typ := h265.NALUType((payload[0] >> 1) & 0b111111)
 
 	switch typ {
 	case h265.NALUType_VPS_NUT:
-		return pkt.Payload, nil, nil
+		return payload, nil, nil
 
 	case h265.NALUType_SPS_NUT:
-		return nil, pkt.Payload, nil
+		return nil, payload, nil
 
 	case h265.NALUType_PPS_NUT:
-		return nil, nil, pkt.Payload
+		return nil, nil, payload
 
 	case h265.NALUType_AggregationUnit:
-		payload := pkt.Payload[2:]
+		payload := payload[2:]
 		var vps []byte
 		var sps []byte
 		var pps []byte
@@ -55,7 +55,7 @@ func rtpH265ExtractVPSSPSPPS(pkt *rtp.Packet) ([]byte, []byte, []byte) {
 			nalu := payload[:size]
 			payload = payload[size:]
 
-			typ = h265.NALUType((pkt.Payload[0] >> 1) & 0b111111)
+			typ = h265.NALUType((payload[0] >> 1) & 0b111111)
 
 			switch typ {
 			case h265.NALUType_VPS_NUT:
@@ -118,23 +118,12 @@ func (t *formatProcessorH265) createEncoder(
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(pkt *rtp.Packet) {
-	vps, sps, pps := rtpH265ExtractVPSSPSPPS(pkt)
-	update := false
+func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(payload []byte) {
+	vps, sps, pps := rtpH265ExtractVPSSPSPPS(payload)
 
-	if vps != nil && !bytes.Equal(vps, t.format.VPS) {
-		update = true
-	}
-
-	if sps != nil && !bytes.Equal(sps, t.format.SPS) {
-		update = true
-	}
-
-	if pps != nil && !bytes.Equal(pps, t.format.PPS) {
-		update = true
-	}
-
-	if update {
+	if (vps != nil && !bytes.Equal(vps, t.format.VPS)) ||
+		(sps != nil && !bytes.Equal(sps, t.format.SPS)) ||
+		(pps != nil && !bytes.Equal(pps, t.format.PPS)) {
 		if vps == nil {
 			vps = t.format.VPS
 		}
@@ -279,7 +268,7 @@ func (t *formatProcessorH265) ProcessRTPPacket( //nolint:dupl
 		},
 	}
 
-	t.updateTrackParametersFromRTPPacket(pkt)
+	t.updateTrackParametersFromRTPPacket(pkt.Payload)
 
 	if t.encoder == nil {
 		// remove padding

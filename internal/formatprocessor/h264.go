@@ -13,22 +13,22 @@ import (
 )
 
 // extract SPS and PPS without decoding RTP packets
-func rtpH264ExtractSPSPPS(pkt *rtp.Packet) ([]byte, []byte) {
-	if len(pkt.Payload) < 1 {
+func rtpH264ExtractSPSPPS(payload []byte) ([]byte, []byte) {
+	if len(payload) < 1 {
 		return nil, nil
 	}
 
-	typ := h264.NALUType(pkt.Payload[0] & 0x1F)
+	typ := h264.NALUType(payload[0] & 0x1F)
 
 	switch typ {
 	case h264.NALUTypeSPS:
-		return pkt.Payload, nil
+		return payload, nil
 
 	case h264.NALUTypePPS:
-		return nil, pkt.Payload
+		return nil, payload
 
 	case h264.NALUTypeSTAPA:
-		payload := pkt.Payload[1:]
+		payload := payload[1:]
 		var sps []byte
 		var pps []byte
 
@@ -111,19 +111,11 @@ func (t *formatProcessorH264) createEncoder(
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(pkt *rtp.Packet) {
-	sps, pps := rtpH264ExtractSPSPPS(pkt)
-	update := false
+func (t *formatProcessorH264) updateTrackParametersFromRTPPacket(payload []byte) {
+	sps, pps := rtpH264ExtractSPSPPS(payload)
 
-	if sps != nil && !bytes.Equal(sps, t.format.SPS) {
-		update = true
-	}
-
-	if pps != nil && !bytes.Equal(pps, t.format.PPS) {
-		update = true
-	}
-
-	if update {
+	if (sps != nil && !bytes.Equal(sps, t.format.SPS)) ||
+		(pps != nil && !bytes.Equal(pps, t.format.PPS)) {
 		if sps == nil {
 			sps = t.format.SPS
 		}
@@ -257,7 +249,7 @@ func (t *formatProcessorH264) ProcessRTPPacket( //nolint:dupl
 		},
 	}
 
-	t.updateTrackParametersFromRTPPacket(pkt)
+	t.updateTrackParametersFromRTPPacket(pkt.Payload)
 
 	if t.encoder == nil {
 		// remove padding

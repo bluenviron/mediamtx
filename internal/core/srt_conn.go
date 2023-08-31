@@ -295,6 +295,42 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 				return nil
 			})
 
+		case *mpegts.CodecMPEG4Video:
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.MPEG4Video{
+					PayloadTyp: 96,
+				}},
+			}
+
+			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4Video{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					Frame: frame,
+				})
+				return nil
+			})
+
+		case *mpegts.CodecMPEG1Video:
+			medi = &description.Media{
+				Type:    description.MediaTypeVideo,
+				Formats: []format.Format{&format.MPEG1Video{}},
+			}
+
+			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Video{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					Frame: frame,
+				})
+				return nil
+			})
+
 		case *mpegts.CodecOpus:
 			medi = &description.Media{
 				Type: description.MediaTypeAudio,
@@ -503,6 +539,40 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 					err = w.WriteH26x(track, durationGoToMPEGTS(tunit.PTS), durationGoToMPEGTS(dts), idrPresent, tunit.AU)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
+				})
+
+			case *format.MPEG4Video:
+				track := addTrack(medi, &mpegts.CodecMPEG4Video{})
+
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG4Video)
+					if tunit.Frame == nil {
+						return nil
+					}
+
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteMPEGxVideo(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
+					if err != nil {
+						return err
+					}
+					return bw.Flush()
+				})
+
+			case *format.MPEG1Video:
+				track := addTrack(medi, &mpegts.CodecMPEG1Video{})
+
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG1Video)
+					if tunit.Frame == nil {
+						return nil
+					}
+
+					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+					err = w.WriteMPEGxVideo(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
 					if err != nil {
 						return err
 					}
