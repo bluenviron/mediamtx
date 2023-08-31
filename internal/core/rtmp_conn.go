@@ -243,6 +243,8 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
 
+	defer res.stream.RemoveReader(writer)
+
 	var medias []*description.Media
 	var w *rtmp.Writer
 
@@ -266,8 +268,6 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 		return fmt.Errorf(
 			"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
 	}
-
-	defer res.stream.RemoveReader(writer)
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(medias))

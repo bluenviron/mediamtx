@@ -256,6 +256,25 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 		var medi *description.Media
 
 		switch tcodec := track.Codec.(type) {
+		case *mpegts.CodecH265:
+			medi = &description.Media{
+				Type: description.MediaTypeVideo,
+				Formats: []format.Format{&format.H265{
+					PayloadTyp: 96,
+				}},
+			}
+
+			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: decodeTime(pts),
+					},
+					AU: au,
+				})
+				return nil
+			})
+
 		case *mpegts.CodecH264:
 			medi = &description.Media{
 				Type: description.MediaTypeVideo,
@@ -276,21 +295,22 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 				return nil
 			})
 
-		case *mpegts.CodecH265:
+		case *mpegts.CodecOpus:
 			medi = &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{
+				Type: description.MediaTypeAudio,
+				Formats: []format.Format{&format.Opus{
 					PayloadTyp: 96,
+					IsStereo:   (tcodec.ChannelCount == 2),
 				}},
 			}
 
-			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
+			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
+				stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
 					Base: unit.Base{
 						NTP: time.Now(),
 						PTS: decodeTime(pts),
 					},
-					AU: au,
+					Packets: packets,
 				})
 				return nil
 			})
@@ -314,26 +334,6 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 						PTS: decodeTime(pts),
 					},
 					AUs: aus,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecOpus:
-			medi = &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.Opus{
-					PayloadTyp: 96,
-					IsStereo:   (tcodec.ChannelCount == 2),
-				}},
-			}
-
-			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					Packets: packets,
 				})
 				return nil
 			})
@@ -423,6 +423,8 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	c.mutex.Unlock()
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
+
+	defer res.stream.RemoveReader(writer)
 
 	var w *mpegts.Writer
 	var tracks []*mpegts.Track

@@ -514,11 +514,11 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	writer := asyncwriter.New(s.writeQueueSize, s)
 
+	defer res.stream.RemoveReader(writer)
+
 	for _, track := range tracks {
 		track.start(res.stream, writer)
 	}
-
-	defer res.stream.RemoveReader(writer)
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, sourceMediaInfo(webrtcMediasOfOutgoingTracks(tracks)))
