@@ -256,6 +256,8 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 
 	m.writer = asyncwriter.New(m.writeQueueSize, m)
 
+	defer res.stream.RemoveReader(m.writer)
+
 	var medias []*description.Media
 
 	videoMedia, videoTrack := m.createVideoTrack(res.stream)
@@ -267,8 +269,6 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	if audioMedia != nil {
 		medias = append(medias, audioMedia)
 	}
-
-	defer res.stream.RemoveReader(m.writer)
 
 	if medias == nil {
 		return fmt.Errorf(
