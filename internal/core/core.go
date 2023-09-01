@@ -476,18 +476,20 @@ func (p *Core) createResources(initial bool) error {
 
 func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeLogger := newConf == nil ||
+		newConf.LogLevel != p.conf.LogLevel ||
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
 		newConf.LogFile != p.conf.LogFile
-
 	closeMetrics := newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
 		newConf.MetricsAddress != p.conf.MetricsAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeLogger
 
 	closePPROF := newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
 		newConf.PPROFAddress != p.conf.PPROFAddress ||
-		newConf.ReadTimeout != p.conf.ReadTimeout
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeLogger
 
 	closePathManager := newConf == nil ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
@@ -497,7 +499,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
-		closeMetrics
+		closeMetrics ||
+		closeLogger
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.confReload(newConf.Paths)
 	}
@@ -521,7 +524,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		closeLogger
 
 	closeRTSPSServer := newConf == nil ||
 		newConf.RTSP != p.conf.RTSP ||
@@ -538,7 +542,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		closeLogger
 
 	closeRTMPServer := newConf == nil ||
 		newConf.RTMP != p.conf.RTMP ||
@@ -551,7 +556,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		closeLogger
 
 	closeRTMPSServer := newConf == nil ||
 		newConf.RTMP != p.conf.RTMP ||
@@ -566,7 +572,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		closeLogger
 
 	closeHLSManager := newConf == nil ||
 		newConf.HLS != p.conf.HLS ||
@@ -587,7 +594,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		closePathManager ||
-		closeMetrics
+		closeMetrics ||
+		closeLogger
 
 	closeWebRTCManager := newConf == nil ||
 		newConf.WebRTC != p.conf.WebRTC ||
@@ -604,7 +612,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
 		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
 		closeMetrics ||
-		closePathManager
+		closePathManager ||
+		closeLogger
 
 	closeSRTServer := newConf == nil ||
 		newConf.SRT != p.conf.SRT ||
@@ -613,7 +622,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
-		closePathManager
+		closePathManager ||
+		closeLogger
 
 	closeAPI := newConf == nil ||
 		newConf.API != p.conf.API ||
@@ -625,7 +635,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTMPServer ||
 		closeHLSManager ||
 		closeWebRTCManager ||
-		closeSRTServer
+		closeSRTServer ||
+		closeLogger
 
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
