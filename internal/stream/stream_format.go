@@ -80,8 +80,9 @@ func (sf *streamFormat) writeUnit(s *Stream, medi *description.Media, u unit.Uni
 	}
 
 	for writer, cb := range sf.readers {
+		ccb := cb
 		writer.Push(func() error {
-			return cb(u)
+			return ccb(u)
 		})
 	}
 }

@@ -363,7 +363,5 @@ func (t *webRTCOutgoingTrack) start(
 		}
 	}()
 
-	stream.AddReader(writer, t.media, t.format, func(u unit.Unit) error {
-		return t.cb(u)
-	})
+	stream.AddReader(writer, t.media, t.format, t.cb)
 }
