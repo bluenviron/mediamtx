@@ -200,7 +200,7 @@ func (p *Core) createResources(initial bool) error {
 	if initial {
 		p.Log(logger.Info, "MediaMTX %s", version)
 		if !p.confFound {
-			p.Log(logger.Warn, "configuration file not found, using an empty configuration")
+			p.Log(logger.Warn, "configuration file not found, using an empty configuration (Try running the program inside the executable's folder)")
 		}
 
 		// on Linux, try to raise the number of file descriptors that can be opened
