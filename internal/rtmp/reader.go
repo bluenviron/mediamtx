@@ -2,7 +2,6 @@ package rtmp
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"time"
 
@@ -32,6 +31,67 @@ type OnDataMPEG4AudioFunc func(pts time.Duration, au []byte)
 
 // OnDataMPEG1AudioFunc is the prototype of the callback passed to OnDataMPEG1Audio().
 type OnDataMPEG1AudioFunc func(pts time.Duration, frame []byte)
+
+func hasVideo(md flvio.AMFMap) (bool, error) {
+	v, ok := md.GetV("videocodecid")
+	if !ok {
+		// some Dahua cameras send width and height without videocodecid
+		if v, ok := md.GetV("width"); ok {
+			if vf, ok := v.(float64); ok && vf != 0 {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+
+	switch vt := v.(type) {
+	case float64:
+		switch vt {
+		case 0:
+			return false, nil
+
+		case message.CodecH264, float64(message.FourCCAV1),
+			float64(message.FourCCVP9), float64(message.FourCCHEVC):
+			return true, nil
+		}
+
+	case string:
+		if vt == "avc1" || vt == "hvc1" || vt == "av01" {
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("unsupported video codec: %v", v)
+}
+
+func hasAudio(md flvio.AMFMap, audioTrack *format.Format) (bool, error) {
+	v, ok := md.GetV("audiocodecid")
+	if !ok {
+		return false, nil
+	}
+
+	switch vt := v.(type) {
+	case float64:
+		switch vt {
+		case 0:
+			return false, nil
+
+		case message.CodecMPEG1Audio:
+			*audioTrack = &format.MPEG1Audio{}
+			return true, nil
+
+		case message.CodecMPEG4Audio:
+			return true, nil
+		}
+
+	case string:
+		if vt == "mp4a" {
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("unsupported audio codec %v", v)
+}
 
 func h265FindNALU(array []mp4.HEVCNaluArray, typ h265.NALUType) []byte {
 	for _, entry := range array {
@@ -74,8 +134,6 @@ func trackFromAACDecoderConfig(data []byte) (format.Format, error) {
 	}, nil
 }
 
-var errEmptyMetadata = errors.New("metadata is empty")
-
 func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, format.Format, error) {
 	if len(payload) != 1 {
 		return nil, nil, fmt.Errorf("invalid metadata")
@@ -89,69 +147,18 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 	var videoTrack format.Format
 	var audioTrack format.Format
 
-	hasVideo, err := func() (bool, error) {
-		v, ok := md.GetV("videocodecid")
-		if !ok {
-			return false, nil
-		}
-
-		switch vt := v.(type) {
-		case float64:
-			switch vt {
-			case 0:
-				return false, nil
-
-			case message.CodecH264, float64(message.FourCCAV1),
-				float64(message.FourCCVP9), float64(message.FourCCHEVC):
-				return true, nil
-			}
-
-		case string:
-			if vt == "avc1" || vt == "hvc1" || vt == "av01" {
-				return true, nil
-			}
-		}
-
-		return false, fmt.Errorf("unsupported video codec: %v", v)
-	}()
+	hasVideo, err := hasVideo(md)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	hasAudio, err := func() (bool, error) {
-		v, ok := md.GetV("audiocodecid")
-		if !ok {
-			return false, nil
-		}
-
-		switch vt := v.(type) {
-		case float64:
-			switch vt {
-			case 0:
-				return false, nil
-
-			case message.CodecMPEG1Audio:
-				audioTrack = &format.MPEG1Audio{}
-				return true, nil
-
-			case message.CodecMPEG4Audio:
-				return true, nil
-			}
-
-		case string:
-			if vt == "mp4a" {
-				return true, nil
-			}
-		}
-
-		return false, fmt.Errorf("unsupported audio codec %v", v)
-	}()
+	hasAudio, err := hasAudio(md, &audioTrack)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if !hasVideo && !hasAudio {
-		return nil, nil, errEmptyMetadata
+		return nil, nil, fmt.Errorf("metadata doesn't contain any track")
 	}
 
 	for {
@@ -422,15 +429,6 @@ func (r *Reader) readTracks() (format.Format, format.Format, error) {
 			if s, ok := payload[0].(string); ok && s == "onMetaData" {
 				videoTrack, audioTrack, err := tracksFromMetadata(r.conn, payload[1:])
 				if err != nil {
-					if err == errEmptyMetadata {
-						msg, err := r.conn.Read()
-						if err != nil {
-							return nil, nil, err
-						}
-
-						return tracksFromMessages(r.conn, msg)
-					}
-
 					return nil, nil, err
 				}
 
