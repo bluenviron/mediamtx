@@ -25,7 +25,7 @@ require (
 	github.com/pion/webrtc/v3 v3.2.18
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.13.0
-	golang.org/x/net v0.14.0
+	golang.org/x/net v0.15.0
 	golang.org/x/term v0.12.0
 	gopkg.in/yaml.v2 v2.4.0
 )
