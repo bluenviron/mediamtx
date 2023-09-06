@@ -605,8 +605,8 @@ In order to ingest into the server a WebRTC stream from an existing server, add 
 ```yml
 paths:
   proxied:
-    # url of the source stream, in the format whep://host:port/path (HTTP) or wheps:// (HTTPS)
-    source: wheps://host:port/path
+    # url of the source stream, in the format whep://host:port/path/whep (HTTP) or wheps://host:port/path/whep (HTTPS)
+    source: wheps://host:port/path/whep
 ```
 
 #### RTSP clients
