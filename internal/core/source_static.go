@@ -105,19 +105,23 @@ func newSourceStatic(
 	return s
 }
 
-func (s *sourceStatic) close() {
-	if s.running {
-		s.stop()
-	}
+func (s *sourceStatic) close(reason string) {
+	s.stop(reason)
 }
 
-func (s *sourceStatic) start() {
+func (s *sourceStatic) start(onDemand bool) {
 	if s.running {
 		panic("should not happen")
 	}
 
 	s.running = true
-	s.impl.Log(logger.Info, "started")
+	s.impl.Log(logger.Info, "started%s",
+		func() string {
+			if onDemand {
+				return " on demand"
+			}
+			return ""
+		}())
 
 	s.ctx, s.ctxCancel = context.WithCancel(context.Background())
 	s.done = make(chan struct{})
@@ -125,13 +129,13 @@ func (s *sourceStatic) start() {
 	go s.run()
 }
 
-func (s *sourceStatic) stop() {
+func (s *sourceStatic) stop(reason string) {
 	if !s.running {
 		panic("should not happen")
 	}
 
 	s.running = false
-	s.impl.Log(logger.Info, "stopped")
+	s.impl.Log(logger.Info, "stopped: %s", reason)
 
 	s.ctxCancel()
 

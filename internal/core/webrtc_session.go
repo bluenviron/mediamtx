@@ -248,7 +248,7 @@ func (s *webRTCSession) run() {
 
 	s.parent.closeSession(s)
 
-	s.Log(logger.Info, "closed (%v)", err)
+	s.Log(logger.Info, "closed: %v", err)
 }
 
 func (s *webRTCSession) runInner() error {

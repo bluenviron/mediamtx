@@ -110,7 +110,7 @@ func (c *rtspConn) ip() net.IP {
 
 // onClose is called by rtspServer.
 func (c *rtspConn) onClose(err error) {
-	c.Log(logger.Info, "closed (%v)", err)
+	c.Log(logger.Info, "closed: %v", err)
 
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()

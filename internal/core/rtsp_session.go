@@ -117,7 +117,7 @@ func (s *rtspSession) onClose(err error) {
 	s.path = nil
 	s.stream = nil
 
-	s.Log(logger.Info, "destroyed (%v)", err)
+	s.Log(logger.Info, "destroyed: %v", err)
 }
 
 // onAnnounce is called by rtspServer.
