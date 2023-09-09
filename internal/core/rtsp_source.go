@@ -104,10 +104,10 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 		WriteQueueSize: s.writeQueueSize,
 		AnyPortEnable:  cnf.SourceAnyPortEnable,
 		OnRequest: func(req *base.Request) {
-			s.Log(logger.Debug, "c->s %v", req)
+			s.Log(logger.Debug, "[c->s] %v", req)
 		},
 		OnResponse: func(res *base.Response) {
-			s.Log(logger.Debug, "s->c %v", res)
+			s.Log(logger.Debug, "[s->c] %v", res)
 		},
 		OnTransportSwitch: func(err error) {
 			s.Log(logger.Warn, err.Error())
