@@ -230,7 +230,7 @@ func (m *hlsMuxer) run() {
 
 	m.parent.closeMuxer(m)
 
-	m.Log(logger.Info, "destroyed (%v)", err)
+	m.Log(logger.Info, "destroyed: %v", err)
 }
 
 func (m *hlsMuxer) clearQueuedRequests() {

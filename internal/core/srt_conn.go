@@ -132,7 +132,7 @@ func (c *srtConn) run() {
 
 	c.parent.closeConn(c)
 
-	c.Log(logger.Info, "closed (%v)", err)
+	c.Log(logger.Info, "closed: %v", err)
 }
 
 func (c *srtConn) runInner() error {

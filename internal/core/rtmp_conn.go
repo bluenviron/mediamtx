@@ -170,7 +170,7 @@ func (c *rtmpConn) run() {
 
 	c.parent.closeConn(c)
 
-	c.Log(logger.Info, "closed (%v)", err)
+	c.Log(logger.Info, "closed: %v", err)
 }
 
 func (c *rtmpConn) runInner() error {
