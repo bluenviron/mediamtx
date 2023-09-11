@@ -8,8 +8,8 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/multicast"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"golang.org/x/net/ipv4"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -18,33 +18,9 @@ import (
 )
 
 const (
-	multicastTTL = 16
-	udpMTU       = 1472
+	// same size as GStreamer's rtspsrc
+	udpKernelReadBufferSize = 0x80000
 )
-
-func joinMulticastGroupOnAtLeastOneInterface(p *ipv4.PacketConn, listenIP net.IP) error {
-	intfs, err := net.Interfaces()
-	if err != nil {
-		return err
-	}
-
-	success := false
-
-	for _, intf := range intfs {
-		if (intf.Flags & net.FlagMulticast) != 0 {
-			err := p.JoinGroup(&intf, &net.UDPAddr{IP: listenIP})
-			if err == nil {
-				success = true
-			}
-		}
-	}
-
-	if !success {
-		return fmt.Errorf("unable to activate multicast on any network interface")
-	}
-
-	return nil
-}
 
 type packetConnReader struct {
 	net.PacketConn
@@ -59,6 +35,11 @@ func newPacketConnReader(pc net.PacketConn) *packetConnReader {
 func (r *packetConnReader) Read(p []byte) (int, error) {
 	n, _, err := r.PacketConn.ReadFrom(p)
 	return n, err
+}
+
+type packetConn interface {
+	net.PacketConn
+	SetReadBuffer(int) error
 }
 
 type udpSourceParent interface {
@@ -97,24 +78,26 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.Pa
 		return err
 	}
 
-	pc, err := net.ListenPacket(restrictNetwork("udp", addr.String()))
-	if err != nil {
-		return err
+	var pc packetConn
+
+	if ip4 := addr.IP.To4(); ip4 != nil && addr.IP.IsMulticast() {
+		pc, err = multicast.NewMultiConn(hostPort, net.ListenPacket)
+		if err != nil {
+			return err
+		}
+	} else {
+		tmp, err := net.ListenPacket(restrictNetwork("udp", addr.String()))
+		if err != nil {
+			return err
+		}
+		pc = tmp.(*net.UDPConn)
 	}
+
 	defer pc.Close()
 
-	if addr.IP.IsMulticast() {
-		p := ipv4.NewPacketConn(pc)
-
-		err = p.SetMulticastTTL(multicastTTL)
-		if err != nil {
-			return err
-		}
-
-		err = joinMulticastGroupOnAtLeastOneInterface(p, addr.IP)
-		if err != nil {
-			return err
-		}
+	err = pc.SetReadBuffer(udpKernelReadBufferSize)
+	if err != nil {
+		return err
 	}
 
 	readerErr := make(chan error)
