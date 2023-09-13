@@ -18,25 +18,18 @@ func multiplyAndDivide(v, m, d time.Duration) time.Duration {
 	return (secs*m + dec*m/d)
 }
 
-func setTimestamp(newPackets []*rtp.Packet, oldPackets []*rtp.Packet, clockRate int, pts time.Duration) {
-	if oldPackets != nil { // get timestamp from old packets
-		for _, pkt := range newPackets {
-			pkt.Timestamp = oldPackets[0].Timestamp
-		}
-	} else { // get timestamp from PTS
-		for _, pkt := range newPackets {
-			pkt.Timestamp = uint32(multiplyAndDivide(pts, time.Duration(clockRate), time.Second))
-		}
-	}
-}
-
 // Processor cleans and normalizes streams.
 type Processor interface {
-	// cleans and normalizes a data unit.
-	Process(unit.Unit, bool) error
+	// process a Unit.
+	ProcessUnit(unit.Unit) error
 
-	// wraps a RTP packet into a Unit.
-	UnitForRTPPacket(pkt *rtp.Packet, ntp time.Time, pts time.Duration) Unit
+	// process a RTP packet and convert it into a unit.
+	ProcessRTPPacket(
+		pkt *rtp.Packet,
+		ntp time.Time,
+		pts time.Duration,
+		hasNonRTSPReaders bool,
+	) (Unit, error)
 }
 
 // New allocates a Processor.

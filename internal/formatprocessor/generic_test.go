@@ -2,12 +2,11 @@ package formatprocessor
 
 import (
 	"testing"
+	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
-
-	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 func TestGenericRemovePadding(t *testing.T) {
@@ -31,15 +30,11 @@ func TestGenericRemovePadding(t *testing.T) {
 			SSRC:           563423,
 			Padding:        true,
 		},
-		Payload:     []byte{0x01, 0x02, 0x03, 0x04},
+		Payload:     []byte{1, 2, 3, 4},
 		PaddingSize: 20,
 	}
 
-	err = p.Process(&unit.Generic{
-		Base: unit.Base{
-			RTPPackets: []*rtp.Packet{pkt},
-		},
-	}, false)
+	_, err = p.ProcessRTPPacket(pkt, time.Time{}, 0, false)
 	require.NoError(t, err)
 
 	require.Equal(t, &rtp.Packet{
@@ -51,6 +46,6 @@ func TestGenericRemovePadding(t *testing.T) {
 			Timestamp:      45343,
 			SSRC:           563423,
 		},
-		Payload: []byte{0x01, 0x02, 0x03, 0x04},
+		Payload: []byte{1, 2, 3, 4},
 	}, pkt)
 }
