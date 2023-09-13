@@ -134,21 +134,22 @@ type Conf struct {
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
 	// HLS
-	HLS                bool           `json:"hls"`
-	HLSDisable         bool           `json:"hlsDisable"` // depreacted
-	HLSAddress         string         `json:"hlsAddress"`
-	HLSEncryption      bool           `json:"hlsEncryption"`
-	HLSServerKey       string         `json:"hlsServerKey"`
-	HLSServerCert      string         `json:"hlsServerCert"`
-	HLSAlwaysRemux     bool           `json:"hlsAlwaysRemux"`
-	HLSVariant         HLSVariant     `json:"hlsVariant"`
-	HLSSegmentCount    int            `json:"hlsSegmentCount"`
-	HLSSegmentDuration StringDuration `json:"hlsSegmentDuration"`
-	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
-	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
-	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
-	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
-	HLSDirectory       string         `json:"hlsDirectory"`
+	HLS                          bool           `json:"hls"`
+	HLSDisable                   bool           `json:"hlsDisable"` // depreacted
+	HLSAddress                   string         `json:"hlsAddress"`
+	HLSEncryption                bool           `json:"hlsEncryption"`
+	HLSServerKey                 string         `json:"hlsServerKey"`
+	HLSServerCert                string         `json:"hlsServerCert"`
+	HLSAlwaysRemux               bool           `json:"hlsAlwaysRemux"`
+	HLSVariant                   HLSVariant     `json:"hlsVariant"`
+	HLSSegmentCount              int            `json:"hlsSegmentCount"`
+	HLSSegmentDuration           StringDuration `json:"hlsSegmentDuration"`
+	HLSPartDuration              StringDuration `json:"hlsPartDuration"`
+	HLSDurationRequiredPartCount int            `json:"hlsDurationRequiredPartCount"`
+	HLSSegmentMaxSize            StringSize     `json:"hlsSegmentMaxSize"`
+	HLSAllowOrigin               string         `json:"hlsAllowOrigin"`
+	HLSTrustedProxies            IPsOrCIDRs     `json:"hlsTrustedProxies"`
+	HLSDirectory                 string         `json:"hlsDirectory"`
 
 	// WebRTC
 	WebRTC                  bool              `json:"webrtc"`
@@ -364,6 +365,7 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.HLSSegmentCount = 7
 	conf.HLSSegmentDuration = 1 * StringDuration(time.Second)
 	conf.HLSPartDuration = 200 * StringDuration(time.Millisecond)
+	conf.HLSDurationRequiredPartCount = 5
 	conf.HLSSegmentMaxSize = 50 * 1024 * 1024
 	conf.HLSAllowOrigin = "*"
 

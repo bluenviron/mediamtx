@@ -64,6 +64,7 @@ type hlsMuxer struct {
 	segmentCount              int
 	segmentDuration           conf.StringDuration
 	partDuration              conf.StringDuration
+	durationRequiredPartCount int
 	segmentMaxSize            conf.StringSize
 	directory                 string
 	writeQueueSize            int
@@ -94,6 +95,7 @@ func newHLSMuxer(
 	segmentCount int,
 	segmentDuration conf.StringDuration,
 	partDuration conf.StringDuration,
+	durationRequiredPartCount int,
 	segmentMaxSize conf.StringSize,
 	directory string,
 	writeQueueSize int,
@@ -111,6 +113,7 @@ func newHLSMuxer(
 		segmentCount:              segmentCount,
 		segmentDuration:           segmentDuration,
 		partDuration:              partDuration,
+		durationRequiredPartCount: durationRequiredPartCount,
 		segmentMaxSize:            segmentMaxSize,
 		directory:                 directory,
 		writeQueueSize:            writeQueueSize,
@@ -283,14 +286,15 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 
 	m.muxer = &gohlslib.Muxer{
-		Variant:         gohlslib.MuxerVariant(m.variant),
-		SegmentCount:    m.segmentCount,
-		SegmentDuration: time.Duration(m.segmentDuration),
-		PartDuration:    time.Duration(m.partDuration),
-		SegmentMaxSize:  uint64(m.segmentMaxSize),
-		VideoTrack:      videoTrack,
-		AudioTrack:      audioTrack,
-		Directory:       muxerDirectory,
+		Variant:                   gohlslib.MuxerVariant(m.variant),
+		SegmentCount:              m.segmentCount,
+		SegmentDuration:           time.Duration(m.segmentDuration),
+		PartDuration:              time.Duration(m.partDuration),
+		DurationRequiredPartCount: uint64(m.durationRequiredPartCount),
+		SegmentMaxSize:            uint64(m.segmentMaxSize),
+		VideoTrack:                videoTrack,
+		AudioTrack:                audioTrack,
+		Directory:                 muxerDirectory,
 	}
 
 	err := m.muxer.Start()

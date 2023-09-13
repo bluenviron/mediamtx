@@ -162,6 +162,8 @@ hlsSegmentDuration: 1s
 # Part duration is influenced by the distance between video/audio samples
 # and is adjusted in order to produce segments with a similar duration.
 hlsPartDuration: 200ms
+# Minimum required part count to be able to determine first segment duration in Low-Latency variant.
+hlsDurationRequiredPartCount: 5
 # Maximum size of each segment.
 # This prevents RAM exhaustion.
 hlsSegmentMaxSize: 50M

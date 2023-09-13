@@ -40,6 +40,7 @@ type hlsManager struct {
 	segmentCount              int
 	segmentDuration           conf.StringDuration
 	partDuration              conf.StringDuration
+	durationRequiredPartCount int
 	segmentMaxSize            conf.StringSize
 	directory                 string
 	writeQueueSize            int
@@ -73,6 +74,7 @@ func newHLSManager(
 	segmentCount int,
 	segmentDuration conf.StringDuration,
 	partDuration conf.StringDuration,
+	durationRequiredPartCount int,
 	segmentMaxSize conf.StringSize,
 	allowOrigin string,
 	trustedProxies conf.IPsOrCIDRs,
@@ -92,6 +94,7 @@ func newHLSManager(
 		segmentCount:              segmentCount,
 		segmentDuration:           segmentDuration,
 		partDuration:              partDuration,
+		durationRequiredPartCount: durationRequiredPartCount,
 		segmentMaxSize:            segmentMaxSize,
 		directory:                 directory,
 		writeQueueSize:            writeQueueSize,
@@ -239,6 +242,7 @@ func (m *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
 		m.segmentCount,
 		m.segmentDuration,
 		m.partDuration,
+		m.durationRequiredPartCount,
 		m.segmentMaxSize,
 		m.directory,
 		m.writeQueueSize,
