@@ -194,7 +194,7 @@ type path struct {
 	confMutex                      sync.RWMutex
 	source                         source
 	stream                         *stream.Stream
-	recorder                       *record.Recorder
+	recordAgent                    *record.Agent
 	readyTime                      time.Time
 	bytesReceived                  *uint64
 	readers                        map[reader]struct{}
@@ -890,7 +890,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 	}
 
 	if pa.record {
-		pa.recorder = record.NewRecorder(
+		pa.recordAgent = record.NewAgent(
 			pa.writeQueueSize,
 			pa.recordPath,
 			time.Duration(pa.recordPartDuration),
@@ -934,9 +934,9 @@ func (pa *path) setNotReady() {
 		pa.Log(logger.Info, "runOnReady command stopped")
 	}
 
-	if pa.recorder != nil {
-		pa.recorder.Close()
-		pa.recorder = nil
+	if pa.recordAgent != nil {
+		pa.recordAgent.Close()
+		pa.recordAgent = nil
 	}
 
 	if pa.stream != nil {

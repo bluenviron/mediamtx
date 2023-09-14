@@ -38,7 +38,7 @@ func commonPath(v string) string {
 	return common
 }
 
-// Cleaner is a recording cleaner.
+// Cleaner removes expired recordings from disk.
 type Cleaner struct {
 	ctx         context.Context
 	ctxCancel   func()

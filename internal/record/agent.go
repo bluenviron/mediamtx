@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
+	"github.com/bluenviron/mediacommon/pkg/codecs/vp9"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
@@ -32,8 +33,8 @@ type sample struct {
 	dts time.Duration
 }
 
-// Recorder is a stream recorder.
-type Recorder struct {
+// Agent saves streams on disk.
+type Agent struct {
 	path            string
 	partDuration    time.Duration
 	segmentDuration time.Duration
@@ -50,8 +51,8 @@ type Recorder struct {
 	done chan struct{}
 }
 
-// NewRecorder allocates a Recorder.
-func NewRecorder(
+// NewAgent allocates a nAgent.
+func NewAgent(
 	writeQueueSize int,
 	path string,
 	partDuration time.Duration,
@@ -59,14 +60,14 @@ func NewRecorder(
 	pathName string,
 	stream *stream.Stream,
 	parent logger.Writer,
-) *Recorder {
+) *Agent {
 	path, _ = filepath.Abs(path)
 	path = strings.ReplaceAll(path, "%path", pathName)
 	path += ".mp4"
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
-	r := &Recorder{
+	r := &Agent{
 		path:            path,
 		partDuration:    partDuration,
 		segmentDuration: segmentDuration,
@@ -96,7 +97,7 @@ func NewRecorder(
 			switch forma := forma.(type) {
 			case *format.AV1:
 				codec := &fmp4.CodecAV1{
-					SequenceHeader: []byte{ // dummy value
+					SequenceHeader: []byte{
 						8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
 					},
 				}
@@ -150,7 +151,61 @@ func NewRecorder(
 				})
 
 			case *format.VP9:
-				// TODO
+				codec := &fmp4.CodecVP9{
+					Width:             1280,
+					Height:            720,
+					Profile:           1,
+					BitDepth:          8,
+					ChromaSubsampling: 1,
+					ColorRange:        false,
+				}
+
+				track := addTrack(&fmp4.InitTrack{
+					TimeScale: 90000,
+					Codec:     codec,
+				}, true)
+
+				firstReceived := false
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.VP9)
+					if tunit.Frame == nil {
+						return nil
+					}
+
+					var h vp9.Header
+					err := h.Unmarshal(tunit.Frame)
+					if err != nil {
+						return err
+					}
+
+					randomAccess := false
+
+					if h.FrameType == vp9.FrameTypeKeyFrame {
+						randomAccess = true
+						codec.Width = h.Width()
+						codec.Height = h.Height()
+						codec.Profile = h.Profile
+						codec.BitDepth = h.ColorConfig.BitDepth
+						codec.ChromaSubsampling = h.ChromaSubsampling()
+						codec.ColorRange = h.ColorConfig.ColorRange
+					}
+
+					if !firstReceived {
+						if !randomAccess {
+							return nil
+						}
+						firstReceived = true
+					}
+
+					return track.record(&sample{
+						PartSample: &fmp4.PartSample{
+							IsNonSyncSample: !randomAccess,
+							Payload:         tunit.Frame,
+						},
+						dts: tunit.PTS,
+					})
+				})
 
 			case *format.VP8:
 				// TODO
@@ -158,7 +213,6 @@ func NewRecorder(
 			case *format.H265:
 				vps, sps, pps := forma.SafeParams()
 
-				// if parameters have not been received yet, use dummy ones
 				if vps == nil || sps == nil || pps == nil {
 					vps = []byte{
 						0x40, 0x01, 0x0c, 0x01, 0xff, 0xff, 0x02, 0x20,
@@ -247,7 +301,6 @@ func NewRecorder(
 			case *format.H264:
 				sps, pps := forma.SafeParams()
 
-				// if parameters have not been received yet, use dummy ones
 				if sps == nil || pps == nil {
 					sps = []byte{
 						0x67, 0x42, 0xc0, 0x1f, 0xd9, 0x00, 0xf0, 0x11,
@@ -453,18 +506,18 @@ func NewRecorder(
 	return r
 }
 
-// Close closes the Recorder.
-func (r *Recorder) Close() {
+// Close closes the Agent.
+func (r *Agent) Close() {
 	r.ctxCancel()
 	<-r.done
 }
 
 // Log is the main logging function.
-func (r *Recorder) Log(level logger.Level, format string, args ...interface{}) {
-	r.parent.Log(level, "[recorder] "+format, args...)
+func (r *Agent) Log(level logger.Level, format string, args ...interface{}) {
+	r.parent.Log(level, "[record] "+format, args...)
 }
 
-func (r *Recorder) run() {
+func (r *Agent) run() {
 	close(r.done)
 
 	r.writer.Start()

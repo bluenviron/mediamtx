@@ -5,7 +5,7 @@ import (
 )
 
 type track struct {
-	r         *Recorder
+	r         *Agent
 	initTrack *fmp4.InitTrack
 	isVideo   bool
 
@@ -13,7 +13,7 @@ type track struct {
 }
 
 func newTrack(
-	r *Recorder,
+	r *Agent,
 	initTrack *fmp4.InitTrack,
 	isVideo bool,
 ) *track {

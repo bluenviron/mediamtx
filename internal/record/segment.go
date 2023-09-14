@@ -31,7 +31,7 @@ func writeInit(f io.Writer, tracks []*track) error {
 }
 
 type segment struct {
-	r        *Recorder
+	r        *Agent
 	startDTS time.Duration
 
 	f       *os.File
@@ -39,7 +39,7 @@ type segment struct {
 }
 
 func newSegment(
-	r *Recorder,
+	r *Agent,
 	startDTS time.Duration,
 ) (*segment, error) {
 	s := &segment{
