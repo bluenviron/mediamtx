@@ -14,7 +14,7 @@
 
 <br>
 
-_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows users to publish, read and proxy live video and audio streams. It has been conceived as a "media broker", a message broker-like software that routes media streams.
+_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows users to publish, read and proxy live video and audio streams. It has been conceived as a "media router", a software that routes media streams.
 
 Live streams can be published to the server with:
 
@@ -122,7 +122,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Metrics](#metrics)
   * [pprof](#pprof)
 * [Compile from source](#compile-from-source)
-* [Standards](#standards)
+* [Specifications](#specifications)
 * [Related projects](#related-projects)
 
 ## Installation
@@ -1508,34 +1508,20 @@ make binaries
 
 The command will produce tarballs in folder `binaries/`.
 
-## Standards
+## Specifications
 
-* RTSP
-
-  * [RTSP / RTP / RTCP standards](https://github.com/bluenviron/gortsplib#standards)
-
-* HLS
-
-  * [HLS standards](https://github.com/bluenviron/gohlslib#standards)
-
-* RTMP
-
-  * [RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)
-  * [Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)
-
-* WebRTC
-
-  * [WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)
-  * [WebRTC HTTP Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)
-  * [WebRTC HTTP Egress Protocol (WHEP)](https://datatracker.ietf.org/doc/draft-murillo-whep/)
-
-* Video and audio codecs
-
-  * [Codec standards](https://github.com/bluenviron/mediacommon#standards)
-
-* Other
-
-  * [Golang project layout](https://github.com/golang-standards/project-layout)
+|name|area|
+|----|----|
+|[RTSP / RTP / RTCP specifications](https://github.com/bluenviron/gortsplib#specifications)|RTSP|
+|[HLS specifications](https://github.com/bluenviron/gohlslib#specifications)|HLS|
+|[RTMP](https://rtmp.veriskope.com/pdf/rtmp_specification_1.0.pdf)|RTMP|
+|[Enhanced RTMP](https://raw.githubusercontent.com/veovera/enhanced-rtmp/main/enhanced-rtmp-v1.pdf)|RTMP|
+|[WebRTC: Real-Time Communication in Browsers](https://www.w3.org/TR/webrtc/)|WebRTC|
+|[WebRTC HTTP Ingestion Protocol (WHIP)](https://datatracker.ietf.org/doc/draft-ietf-wish-whip/)|WebRTC|
+|[WebRTC HTTP Egress Protocol (WHEP)](https://datatracker.ietf.org/doc/draft-murillo-whep/)|WebRTC|
+|[The SRT Protocol](https://haivision.github.io/srt-rfc/draft-sharabayko-srt.html)|SRT|
+|[Codec specifications](https://github.com/bluenviron/mediacommon#specifications)|codecs|
+|[Golang project layout](https://github.com/golang-standards/project-layout)|project layout|
 
 ## Related projects
 
