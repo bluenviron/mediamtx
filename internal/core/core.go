@@ -241,6 +241,7 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.conf.Record &&
+		p.conf.RecordDeleteAfter != 0 &&
 		p.recordCleaner == nil {
 		p.recordCleaner = record.NewCleaner(
 			p.conf.RecordPath,
