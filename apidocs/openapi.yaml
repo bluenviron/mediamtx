@@ -196,7 +196,7 @@ components:
         sourceOnDemandCloseAfter:
           type: string
         maxReaders:
-          type: number
+          type: integer
 
         # Authentication
         publishUser:
@@ -691,13 +691,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -747,13 +747,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -803,13 +803,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -859,13 +859,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -937,13 +937,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -993,13 +993,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -1073,13 +1073,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -1151,13 +1151,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -1229,13 +1229,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
@@ -1307,13 +1307,13 @@ paths:
         in: query
         description: page number.
         schema:
-          type: number
+          type: integer
           default: 0
       - name: itemsPerPage
         in: query
         description: items per page.
         schema:
-          type: number
+          type: integer
           default: 100
       responses:
         '200':
