@@ -247,9 +247,8 @@ recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S
 # Currently the only available format is fmp4 (fragmented MP4).
 recordFormat: fmp4
 # fMP4 files are concatenation of small MP4 files (parts), each with this duration.
-# When a system failure occurs, the last part of a recording is lost.
+# When a system failure occurs, the last part gets lost.
 # Therefore, the part duration is equal to the RPO (recovery point objective).
-# Increasing it decreases segment size, decreasing it decreases the RPO.
 recordPartDuration: 100ms
 # Minimum duration of each segment.
 recordSegmentDuration: 1h
@@ -302,6 +301,8 @@ paths:
     sourceOnDemandCloseAfter: 10s
     # Maximum number of readers. Zero means no limit.
     maxReaders: 0
+    # Record streams to disk (if global recording is enabled).
+    record: yes
 
     ###############################################
     # Authentication path settings

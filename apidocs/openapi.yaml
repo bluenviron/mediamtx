@@ -211,6 +211,8 @@ components:
           type: string
         maxReaders:
           type: integer
+        record:
+          type: boolean
 
         # Authentication
         publishUser:

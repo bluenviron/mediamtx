@@ -889,7 +889,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		return err
 	}
 
-	if pa.record {
+	if pa.record && pa.conf.Record {
 		pa.recordAgent = record.NewAgent(
 			pa.writeQueueSize,
 			pa.recordPath,
