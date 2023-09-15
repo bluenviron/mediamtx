@@ -1,6 +1,7 @@
 package record
 
 import (
+	"bytes"
 	"context"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,18 @@ func durationGoToMp4(v time.Duration, timeScale uint32) uint64 {
 	secs := v / time.Second
 	dec := v % time.Second
 	return uint64(secs)*timeScale64 + uint64(dec)*timeScale64/uint64(time.Second)
+}
+
+func mpeg1audioChannelCount(cm mpeg1audio.ChannelMode) int {
+	switch cm {
+	case mpeg1audio.ChannelModeStereo,
+		mpeg1audio.ChannelModeJointStereo,
+		mpeg1audio.ChannelModeDualChannel:
+		return 2
+
+	default:
+		return 1
+	}
 }
 
 type sample struct {
@@ -126,7 +139,10 @@ func NewAgent(
 						}
 
 						if h.Type == av1.OBUTypeSequenceHeader {
-							codec.SequenceHeader = obu
+							if !bytes.Equal(codec.SequenceHeader, obu) {
+								codec.SequenceHeader = obu
+								r.updateCodecs()
+							}
 							randomAccess = true
 						}
 					}
@@ -184,12 +200,31 @@ func NewAgent(
 
 					if h.FrameType == vp9.FrameTypeKeyFrame {
 						randomAccess = true
-						codec.Width = h.Width()
-						codec.Height = h.Height()
-						codec.Profile = h.Profile
-						codec.BitDepth = h.ColorConfig.BitDepth
-						codec.ChromaSubsampling = h.ChromaSubsampling()
-						codec.ColorRange = h.ColorConfig.ColorRange
+
+						if w := h.Width(); codec.Width != w {
+							codec.Width = w
+							r.updateCodecs()
+						}
+						if h := h.Width(); codec.Height != h {
+							codec.Height = h
+							r.updateCodecs()
+						}
+						if codec.Profile != h.Profile {
+							codec.Profile = h.Profile
+							r.updateCodecs()
+						}
+						if codec.BitDepth != h.ColorConfig.BitDepth {
+							codec.BitDepth = h.ColorConfig.BitDepth
+							r.updateCodecs()
+						}
+						if c := h.ChromaSubsampling(); codec.ChromaSubsampling != c {
+							codec.ChromaSubsampling = c
+							r.updateCodecs()
+						}
+						if codec.ColorRange != h.ColorConfig.ColorRange {
+							codec.ColorRange = h.ColorConfig.ColorRange
+							r.updateCodecs()
+						}
 					}
 
 					if !firstReceived {
@@ -256,22 +291,34 @@ func NewAgent(
 						return nil
 					}
 
+					randomAccess := false
+
 					for _, nalu := range tunit.AU {
 						typ := h265.NALUType((nalu[0] >> 1) & 0b111111)
 
 						switch typ {
 						case h265.NALUType_VPS_NUT:
-							codec.VPS = nalu
+							if !bytes.Equal(codec.VPS, nalu) {
+								codec.VPS = nalu
+								r.updateCodecs()
+							}
 
 						case h265.NALUType_SPS_NUT:
-							codec.SPS = nalu
+							if !bytes.Equal(codec.SPS, nalu) {
+								codec.SPS = nalu
+								r.updateCodecs()
+							}
 
 						case h265.NALUType_PPS_NUT:
-							codec.PPS = nalu
+							if !bytes.Equal(codec.PPS, nalu) {
+								codec.PPS = nalu
+								r.updateCodecs()
+							}
+
+						case h265.NALUType_IDR_W_RADL, h265.NALUType_IDR_N_LP, h265.NALUType_CRA_NUT:
+							randomAccess = true
 						}
 					}
-
-					randomAccess := h265.IsRandomAccess(tunit.AU)
 
 					if dtsExtractor == nil {
 						if !randomAccess {
@@ -339,10 +386,16 @@ func NewAgent(
 						typ := h264.NALUType(nalu[0] & 0x1F)
 						switch typ {
 						case h264.NALUTypeSPS:
-							codec.SPS = nalu
+							if !bytes.Equal(codec.SPS, nalu) {
+								codec.SPS = nalu
+								r.updateCodecs()
+							}
 
 						case h264.NALUTypePPS:
-							codec.PPS = nalu
+							if !bytes.Equal(codec.PPS, nalu) {
+								codec.PPS = nalu
+								r.updateCodecs()
+							}
 
 						case h264.NALUTypeIDR:
 							randomAccess = true
@@ -504,16 +557,13 @@ func NewAgent(
 							return err
 						}
 
-						codec.SampleRate = h.SampleRate
-
-						switch h.ChannelMode {
-						case mpeg1audio.ChannelModeStereo,
-							mpeg1audio.ChannelModeJointStereo,
-							mpeg1audio.ChannelModeDualChannel:
-							codec.ChannelCount = 2
-
-						default:
-							codec.ChannelCount = 1
+						if codec.SampleRate != h.SampleRate {
+							codec.SampleRate = h.SampleRate
+							r.updateCodecs()
+						}
+						if c := mpeg1audioChannelCount(h.ChannelMode); codec.ChannelCount != c {
+							codec.ChannelCount = c
+							r.updateCodecs()
 						}
 
 						err = track.record(&sample{
@@ -587,5 +637,15 @@ func (r *Agent) run() {
 
 	if r.currentSegment != nil {
 		r.currentSegment.close() //nolint:errcheck
+	}
+}
+
+func (r *Agent) updateCodecs() {
+	// if codec parameters have been updated,
+	// and current segment has already written codec parameters on disk,
+	// close current segment.
+	if r.currentSegment != nil && r.currentSegment.initWritten {
+		r.currentSegment.close() //nolint:errcheck
+		r.currentSegment = nil
 	}
 }

@@ -8,6 +8,8 @@ import (
 
 	"github.com/aler9/writerseeker"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 func writeInit(f io.Writer, tracks []*track) error {
@@ -34,8 +36,10 @@ type segment struct {
 	r        *Agent
 	startDTS time.Duration
 
-	f       *os.File
-	curPart *part
+	fpath       string
+	f           *os.File
+	initWritten bool
+	curPart     *part
 }
 
 func newSegment(
@@ -47,19 +51,16 @@ func newSegment(
 		startDTS: startDTS,
 	}
 
-	fpath := encodeRecordPath(&recordPathParams{time: time.Now()}, r.path)
+	s.fpath = encodeRecordPath(&recordPathParams{time: time.Now()}, r.path)
 
-	err := os.MkdirAll(filepath.Dir(fpath), 0o755)
+	r.Log(logger.Debug, "opening segment %s", s.fpath)
+
+	err := os.MkdirAll(filepath.Dir(s.fpath), 0o755)
 	if err != nil {
 		return nil, err
 	}
 
-	s.f, err = os.Create(fpath)
-	if err != nil {
-		return nil, err
-	}
-
-	err = writeInit(s.f, r.tracks)
+	s.f, err = os.Create(s.fpath)
 	if err != nil {
 		return nil, err
 	}
@@ -67,25 +68,50 @@ func newSegment(
 	return s, nil
 }
 
-func (s *segment) record(track *track, sample *sample) error {
-	if s.curPart == nil {
-		s.curPart = newPart(s, sample.dts)
-	} else if s.curPart.duration() >= s.r.partDuration {
-		err := s.curPart.close()
+func (s *segment) close() error {
+	s.r.Log(logger.Debug, "closing segment %s", s.fpath)
+
+	// write init file at the last moment
+	// in order to allow codec parameters to be overridden
+	if !s.initWritten {
+		s.initWritten = true
+		err := writeInit(s.f, s.r.tracks)
 		if err != nil {
+			s.f.Close()
 			return err
 		}
-		s.curPart = newPart(s, sample.dts)
 	}
 
-	return s.curPart.record(track, sample)
-}
-
-func (s *segment) close() error {
 	err := s.curPart.close()
 	if err != nil {
+		s.f.Close()
 		return err
 	}
 
 	return s.f.Close()
+}
+
+func (s *segment) record(track *track, sample *sample) error {
+	if s.curPart == nil {
+		s.curPart = newPart(s, sample.dts)
+	} else if s.curPart.duration() >= s.r.partDuration {
+		// write init file at the last moment
+		// in order to allow codec parameters to be overridden
+		if !s.initWritten {
+			s.initWritten = true
+			err := writeInit(s.f, s.r.tracks)
+			if err != nil {
+				return err
+			}
+		}
+
+		err := s.curPart.close()
+		if err != nil {
+			return err
+		}
+
+		s.curPart = newPart(s, sample.dts)
+	}
+
+	return s.curPart.record(track, sample)
 }

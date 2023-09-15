@@ -49,6 +49,10 @@ func newPart(
 	}
 }
 
+func (p *part) close() error {
+	return writePart(p.s.f, p.partTracks)
+}
+
 func (p *part) record(track *track, sample *sample) error {
 	partTrack, ok := p.partTracks[track]
 	if !ok {
@@ -67,8 +71,4 @@ func (p *part) record(track *track, sample *sample) error {
 
 func (p *part) duration() time.Duration {
 	return p.endDTS - p.startDTS
-}
-
-func (p *part) close() error {
-	return writePart(p.s.f, p.partTracks)
 }
