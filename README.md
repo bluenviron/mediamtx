@@ -1152,6 +1152,11 @@ recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S
 
 All available recording parameters are listed in the [sample configuration file](/mediamtx.yml).
 
+Currently the server supports recording tracks encoded with the following codecs:
+
+* Video: AV1, VP9, H265, H264
+* Audio: Opus, MPEG-4 Audio (AAC), MPEG-1 Audio (MP3)
+
 ### Forward streams to another server
 
 To forward incoming streams to another server, use _FFmpeg_ inside the `runOnReady` parameter:

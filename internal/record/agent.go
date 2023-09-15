@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
 	"github.com/bluenviron/mediacommon/pkg/codecs/vp9"
@@ -478,7 +479,59 @@ func NewAgent(
 				})
 
 			case *format.MPEG1Audio:
-				// TODO
+				codec := &fmp4.CodecMPEG1Audio{
+					SampleRate:   32000,
+					ChannelCount: 2,
+				}
+
+				track := addTrack(&fmp4.InitTrack{
+					TimeScale: 90000,
+					Codec:     codec,
+				}, false)
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG1Audio)
+					if tunit.Frames == nil {
+						return nil
+					}
+
+					pts := tunit.PTS
+
+					for _, frame := range tunit.Frames {
+						var h mpeg1audio.FrameHeader
+						err := h.Unmarshal(frame)
+						if err != nil {
+							return err
+						}
+
+						codec.SampleRate = h.SampleRate
+
+						switch h.ChannelMode {
+						case mpeg1audio.ChannelModeStereo,
+							mpeg1audio.ChannelModeJointStereo,
+							mpeg1audio.ChannelModeDualChannel:
+							codec.ChannelCount = 2
+
+						default:
+							codec.ChannelCount = 1
+						}
+
+						err = track.record(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload: frame,
+							},
+							dts: pts,
+						})
+						if err != nil {
+							return err
+						}
+
+						pts += time.Duration(h.SampleCount()) *
+							time.Second / time.Duration(h.SampleRate)
+					}
+
+					return nil
+				})
 
 			case *format.G722:
 				// TODO
