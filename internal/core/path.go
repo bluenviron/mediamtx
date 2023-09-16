@@ -145,11 +145,6 @@ type pathStopPublisherReq struct {
 	res    chan struct{}
 }
 
-type pathAPISourceOrReader struct {
-	Type string `json:"type"`
-	ID   string `json:"id"`
-}
-
 type pathAPIPathsListRes struct {
 	data  *apiPathsList
 	paths map[string]*path
@@ -744,11 +739,12 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 			Name:     pa.name,
 			ConfName: pa.confName,
 			Conf:     pa.conf,
-			Source: func() interface{} {
+			Source: func() *apiPathSourceOrReader {
 				if pa.source == nil {
 					return nil
 				}
-				return pa.source.apiSourceDescribe()
+				v := pa.source.apiSourceDescribe()
+				return &v
 			}(),
 			SourceReady: pa.stream != nil,
 			Ready:       pa.stream != nil,
@@ -771,8 +767,8 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.BytesReceived()
 			}(),
-			Readers: func() []interface{} {
-				ret := []interface{}{}
+			Readers: func() []apiPathSourceOrReader {
+				ret := []apiPathSourceOrReader{}
 				for r := range pa.readers {
 					ret = append(ret, r.apiReaderDescribe())
 				}
@@ -905,12 +901,17 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 	pa.readyTime = time.Now()
 
 	if pa.conf.RunOnReady != "" {
+		env := pa.externalCmdEnv()
+		desc := pa.source.apiSourceDescribe()
+		env["MTX_SOURCE_TYPE"] = desc.Type
+		env["MTX_SOURCE_ID"] = desc.ID
+
 		pa.Log(logger.Info, "runOnReady command started")
 		pa.onReadyCmd = externalcmd.NewCmd(
 			pa.externalCmdPool,
 			pa.conf.RunOnReady,
 			pa.conf.RunOnReadyRestart,
-			pa.externalCmdEnv(),
+			env,
 			func(err error) {
 				pa.Log(logger.Info, "runOnReady command exited: %v", err)
 			})
@@ -936,12 +937,17 @@ func (pa *path) setNotReady() {
 	}
 
 	if pa.conf.RunOnNotReady != "" {
+		env := pa.externalCmdEnv()
+		desc := pa.source.apiSourceDescribe()
+		env["MTX_SOURCE_TYPE"] = desc.Type
+		env["MTX_SOURCE_ID"] = desc.ID
+
 		pa.Log(logger.Info, "runOnNotReady command launched")
 		externalcmd.NewCmd(
 			pa.externalCmdPool,
 			pa.conf.RunOnNotReady,
 			false,
-			pa.externalCmdEnv(),
+			env,
 			nil)
 	}
 

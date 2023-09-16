@@ -143,8 +143,9 @@ func (c *srtConn) ip() net.IP {
 func (c *srtConn) run() { //nolint:dupl
 	defer c.wg.Done()
 
-	c.conn.open()
-	defer c.conn.close()
+	desc := c.apiReaderDescribe()
+	c.conn.open(desc)
+	defer c.conn.close(desc)
 
 	err := c.runInner()
 
@@ -716,12 +717,17 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	pathConf := res.path.safeConf()
 
 	if pathConf.RunOnRead != "" {
+		env := res.path.externalCmdEnv()
+		desc := c.apiReaderDescribe()
+		env["MTX_READER_TYPE"] = desc.Type
+		env["MTX_READER_ID"] = desc.ID
+
 		c.Log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
 			c.externalCmdPool,
 			pathConf.RunOnRead,
 			pathConf.RunOnReadRestart,
-			res.path.externalCmdEnv(),
+			env,
 			func(err error) {
 				c.Log(logger.Info, "runOnRead command exited: %v", err)
 			})
@@ -733,12 +739,17 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 	if pathConf.RunOnUnread != "" {
 		defer func() {
+			env := res.path.externalCmdEnv()
+			desc := c.apiReaderDescribe()
+			env["MTX_READER_TYPE"] = desc.Type
+			env["MTX_READER_ID"] = desc.ID
+
 			c.Log(logger.Info, "runOnUnread command launched")
 			externalcmd.NewCmd(
 				c.externalCmdPool,
 				pathConf.RunOnUnread,
 				false,
-				res.path.externalCmdEnv(),
+				env,
 				nil)
 		}()
 	}
@@ -792,15 +803,15 @@ func (c *srtConn) setConn(sconn srt.Conn) {
 }
 
 // apiReaderDescribe implements reader.
-func (c *srtConn) apiReaderDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (c *srtConn) apiReaderDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "srtConn",
 		ID:   c.uuid.String(),
 	}
 }
 
 // apiSourceDescribe implements source.
-func (c *srtConn) apiSourceDescribe() pathAPISourceOrReader {
+func (c *srtConn) apiSourceDescribe() apiPathSourceOrReader {
 	return c.apiReaderDescribe()
 }
 

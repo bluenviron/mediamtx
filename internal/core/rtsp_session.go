@@ -103,12 +103,17 @@ func (s *rtspSession) onUnread() {
 	}
 
 	if s.path.conf.RunOnUnread != "" {
+		env := s.path.externalCmdEnv()
+		desc := s.apiReaderDescribe()
+		env["MTX_READER_TYPE"] = desc.Type
+		env["MTX_READER_ID"] = desc.ID
+
 		s.Log(logger.Info, "runOnUnread command launched")
 		externalcmd.NewCmd(
 			s.externalCmdPool,
 			s.path.conf.RunOnUnread,
 			false,
-			s.path.externalCmdEnv(),
+			env,
 			nil)
 	}
 }
@@ -308,12 +313,17 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 		pathConf := s.path.safeConf()
 
 		if pathConf.RunOnRead != "" {
+			env := s.path.externalCmdEnv()
+			desc := s.apiReaderDescribe()
+			env["MTX_READER_TYPE"] = desc.Type
+			env["MTX_READER_ID"] = desc.ID
+
 			s.Log(logger.Info, "runOnRead command started")
 			s.onReadCmd = externalcmd.NewCmd(
 				s.externalCmdPool,
 				pathConf.RunOnRead,
 				pathConf.RunOnReadRestart,
-				s.path.externalCmdEnv(),
+				env,
 				func(err error) {
 					s.Log(logger.Info, "runOnRead command exited: %v", err)
 				})
@@ -396,8 +406,8 @@ func (s *rtspSession) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Respo
 }
 
 // apiReaderDescribe implements reader.
-func (s *rtspSession) apiReaderDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (s *rtspSession) apiReaderDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: func() string {
 			if s.isTLS {
 				return "rtspsSession"
@@ -409,7 +419,7 @@ func (s *rtspSession) apiReaderDescribe() pathAPISourceOrReader {
 }
 
 // apiSourceDescribe implements source.
-func (s *rtspSession) apiSourceDescribe() pathAPISourceOrReader {
+func (s *rtspSession) apiSourceDescribe() apiPathSourceOrReader {
 	return s.apiReaderDescribe()
 }
 

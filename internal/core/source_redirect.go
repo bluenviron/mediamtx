@@ -11,8 +11,8 @@ func (*sourceRedirect) Log(logger.Level, string, ...interface{}) {
 }
 
 // apiSourceDescribe implements source.
-func (*sourceRedirect) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*sourceRedirect) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "redirect",
 		ID:   "",
 	}

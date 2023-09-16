@@ -217,6 +217,7 @@ outer:
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.
 func (s *rtspServer) OnConnOpen(ctx *gortsplib.ServerHandlerOnConnOpenCtx) {
 	c := newRTSPConn(
+		s.isTLS,
 		s.rtspAddress,
 		s.authMethods,
 		s.readTimeout,

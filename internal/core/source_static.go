@@ -17,7 +17,7 @@ const (
 type sourceStaticImpl interface {
 	logger.Writer
 	run(context.Context, *conf.PathConf, chan *conf.PathConf) error
-	apiSourceDescribe() pathAPISourceOrReader
+	apiSourceDescribe() apiPathSourceOrReader
 }
 
 type sourceStaticParent interface {
@@ -216,7 +216,7 @@ func (s *sourceStatic) reloadConf(newConf *conf.PathConf) {
 }
 
 // apiSourceDescribe implements source.
-func (s *sourceStatic) apiSourceDescribe() pathAPISourceOrReader {
+func (s *sourceStatic) apiSourceDescribe() apiPathSourceOrReader {
 	return s.impl.apiSourceDescribe()
 }
 

@@ -131,8 +131,8 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadCon
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rpiCameraSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*rpiCameraSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "rpiCameraSource",
 		ID:   "",
 	}

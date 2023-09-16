@@ -200,8 +200,8 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf cha
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rtspSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*rtspSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "rtspSource",
 		ID:   "",
 	}

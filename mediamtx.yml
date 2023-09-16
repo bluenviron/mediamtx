@@ -56,6 +56,8 @@ pprofAddress: 127.0.0.1:9999
 # This is terminated with SIGINT when a client disconnects from the server.
 # The following environment variables are available:
 # * RTSP_PORT: RTSP server port
+# * MTX_CONN_TYPE: connection type
+# * MTX_CONN_ID: connection ID
 runOnConnect:
 # Restart the command if it exits.
 runOnConnectRestart: no
@@ -449,7 +451,7 @@ paths:
     # External commands path settings
 
     # Command to run when this path is initialized.
-    # This can be used to publish a stream and keep it always opened.
+    # This can be used to publish a stream when the server is launched.
     # This is terminated with SIGINT when the program closes.
     # The following environment variables are available:
     # * MTX_PATH: path name
@@ -460,7 +462,7 @@ paths:
     # Restart the command if it exits.
     runOnInitRestart: no
 
-    # Command to run when this path is requested.
+    # Command to run when this path is requested by a reader.
     # This can be used to publish a stream on demand.
     # This is terminated with SIGINT when the path is not requested anymore.
     # The following environment variables are available:
@@ -483,6 +485,8 @@ paths:
     # This is terminated with SIGINT when the stream is not ready anymore.
     # The following environment variables are available:
     # * MTX_PATH: path name
+    # * MTX_SOURCE_TYPE: source type
+    # * MTX_SOURCE_ID: source ID
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
@@ -497,6 +501,8 @@ paths:
     # This is terminated with SIGINT when a client stops reading.
     # The following environment variables are available:
     # * MTX_PATH: path name
+    # * MTX_READER_TYPE: reader type
+    # * MTX_READER_ID: reader ID
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.

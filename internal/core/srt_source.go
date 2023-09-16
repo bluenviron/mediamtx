@@ -278,8 +278,8 @@ func (s *srtSource) runReader(sconn srt.Conn) error {
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*srtSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*srtSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "srtSource",
 		ID:   "",
 	}

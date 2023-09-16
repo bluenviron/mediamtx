@@ -312,8 +312,8 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*udpSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*udpSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "udpSource",
 		ID:   "",
 	}

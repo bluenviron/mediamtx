@@ -36,27 +36,29 @@ func newConn(
 	}
 }
 
-func (c *conn) open() {
+func (c *conn) open(desc apiPathSourceOrReader) {
 	if c.runOnConnect != "" {
 		c.logger.Log(logger.Info, "runOnConnect command started")
 
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
+		env := externalcmd.Environment{
+			"RTSP_PORT":     port,
+			"MTX_CONN_TYPE": desc.Type,
+			"MTX_CONN_ID":   desc.ID,
+		}
+
 		c.onConnectCmd = externalcmd.NewCmd(
 			c.externalCmdPool,
 			c.runOnConnect,
 			c.runOnConnectRestart,
-			externalcmd.Environment{
-				"MTX_PATH":  "",
-				"RTSP_PATH": "", // deprecated
-				"RTSP_PORT": port,
-			},
+			env,
 			func(err error) {
 				c.logger.Log(logger.Info, "runOnConnect command exited: %v", err)
 			})
 	}
 }
 
-func (c *conn) close() {
+func (c *conn) close(desc apiPathSourceOrReader) {
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()
 		c.logger.Log(logger.Info, "runOnConnect command stopped")
@@ -64,16 +66,19 @@ func (c *conn) close() {
 
 	if c.runOnDisconnect != "" {
 		c.logger.Log(logger.Info, "runOnDisconnect command launched")
+
 		_, port, _ := net.SplitHostPort(c.rtspAddress)
+		env := externalcmd.Environment{
+			"RTSP_PORT":     port,
+			"MTX_CONN_TYPE": desc.Type,
+			"MTX_CONN_ID":   desc.ID,
+		}
+
 		externalcmd.NewCmd(
 			c.externalCmdPool,
 			c.runOnDisconnect,
 			false,
-			externalcmd.Environment{
-				"MTX_PATH":  "",
-				"RTSP_PATH": "", // deprecated
-				"RTSP_PORT": port,
-			},
+			env,
 			nil)
 	}
 }

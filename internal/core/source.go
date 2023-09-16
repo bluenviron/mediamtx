@@ -16,7 +16,7 @@ import (
 // - sourceRedirect
 type source interface {
 	logger.Writer
-	apiSourceDescribe() pathAPISourceOrReader
+	apiSourceDescribe() apiPathSourceOrReader
 }
 
 func mediaDescription(media *description.Media) string {

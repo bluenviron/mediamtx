@@ -557,8 +557,8 @@ func (m *hlsMuxer) processRequest(req *hlsMuxerHandleRequestReq) {
 }
 
 // apiReaderDescribe implements reader.
-func (m *hlsMuxer) apiReaderDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (m *hlsMuxer) apiReaderDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "hlsMuxer",
 		ID:   "",
 	}

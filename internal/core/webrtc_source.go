@@ -171,8 +171,8 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*webRTCSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*webRTCSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "webRTCSource",
 		ID:   "",
 	}
