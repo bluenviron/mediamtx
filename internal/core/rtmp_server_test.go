@@ -15,36 +15,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp"
 )
 
-func TestRTMPServerRunOnConnect(t *testing.T) {
-	f, err := os.CreateTemp(os.TempDir(), "rtspss-runonconnect-")
-	require.NoError(t, err)
-	f.Close()
-	defer os.Remove(f.Name())
-
-	p, ok := newInstance(
-		"runOnConnect: sh -c 'echo aa > " + f.Name() + "'\n" +
-			"paths:\n" +
-			"  all:\n")
-	require.Equal(t, true, ok)
-	defer p.Close()
-
-	u, err := url.Parse("rtmp://127.0.0.1:1935/teststream")
-	require.NoError(t, err)
-
-	nconn, err := net.Dial("tcp", u.Host)
-	require.NoError(t, err)
-	defer nconn.Close()
-
-	_, err = rtmp.NewClientConn(nconn, u, true)
-	require.NoError(t, err)
-
-	time.Sleep(500 * time.Millisecond)
-
-	byts, err := os.ReadFile(f.Name())
-	require.NoError(t, err)
-	require.Equal(t, "aa\n", string(byts))
-}
-
 func TestRTMPServer(t *testing.T) {
 	for _, encrypt := range []string{
 		"plain",
@@ -179,6 +149,7 @@ func TestRTMPServer(t *testing.T) {
 
 				r, err := rtmp.NewReader(conn2)
 				require.NoError(t, err)
+
 				videoTrack1, audioTrack2 := r.Tracks()
 				require.Equal(t, videoTrack, videoTrack1)
 				require.Equal(t, audioTrack, audioTrack2)

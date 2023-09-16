@@ -935,6 +935,16 @@ func (pa *path) setNotReady() {
 		pa.Log(logger.Info, "runOnReady command stopped")
 	}
 
+	if pa.conf.RunOnNotReady != "" {
+		pa.Log(logger.Info, "runOnNotReady command launched")
+		externalcmd.NewCmd(
+			pa.externalCmdPool,
+			pa.conf.RunOnNotReady,
+			false,
+			pa.externalCmdEnv(),
+			nil)
+	}
+
 	if pa.recordAgent != nil {
 		pa.recordAgent.Close()
 		pa.recordAgent = nil

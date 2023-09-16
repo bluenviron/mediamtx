@@ -96,14 +96,27 @@ func (s *rtspSession) Log(level logger.Level, format string, args ...interface{}
 	s.parent.Log(level, "[session %s] "+format, append([]interface{}{id}, args...)...)
 }
 
+func (s *rtspSession) onUnread() {
+	if s.onReadCmd != nil {
+		s.Log(logger.Info, "runOnRead command stopped")
+		s.onReadCmd.Close()
+	}
+
+	if s.path.conf.RunOnUnread != "" {
+		s.Log(logger.Info, "runOnUnread command launched")
+		externalcmd.NewCmd(
+			s.externalCmdPool,
+			s.path.conf.RunOnUnread,
+			false,
+			s.path.externalCmdEnv(),
+			nil)
+	}
+}
+
 // onClose is called by rtspServer.
 func (s *rtspSession) onClose(err error) {
 	if s.session.State() == gortsplib.ServerSessionStatePlay {
-		if s.onReadCmd != nil {
-			s.onReadCmd.Close()
-			s.onReadCmd = nil
-			s.Log(logger.Info, "runOnRead command stopped")
-		}
+		s.onUnread()
 	}
 
 	switch s.session.State() {
@@ -363,10 +376,7 @@ func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Res
 func (s *rtspSession) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
 	switch s.session.State() {
 	case gortsplib.ServerSessionStatePlay:
-		if s.onReadCmd != nil {
-			s.Log(logger.Info, "runOnRead command stopped")
-			s.onReadCmd.Close()
-		}
+		s.onUnread()
 
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay

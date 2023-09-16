@@ -20,6 +20,7 @@ import (
 	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -276,13 +277,14 @@ type webRTCManagerParent interface {
 }
 
 type webRTCManager struct {
-	allowOrigin    string
-	trustedProxies conf.IPsOrCIDRs
-	iceServers     []conf.WebRTCICEServer
-	writeQueueSize int
-	pathManager    *pathManager
-	metrics        *metrics
-	parent         webRTCManagerParent
+	allowOrigin     string
+	trustedProxies  conf.IPsOrCIDRs
+	iceServers      []conf.WebRTCICEServer
+	writeQueueSize  int
+	externalCmdPool *externalcmd.Pool
+	pathManager     *pathManager
+	metrics         *metrics
+	parent          webRTCManagerParent
 
 	ctx              context.Context
 	ctxCancel        func()
@@ -318,6 +320,7 @@ func newWebRTCManager(
 	iceHostNAT1To1IPs []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
+	externalCmdPool *externalcmd.Pool,
 	pathManager *pathManager,
 	metrics *metrics,
 	parent webRTCManagerParent,
@@ -329,6 +332,7 @@ func newWebRTCManager(
 		trustedProxies:         trustedProxies,
 		iceServers:             iceServers,
 		writeQueueSize:         writeQueueSize,
+		externalCmdPool:        externalCmdPool,
 		pathManager:            pathManager,
 		metrics:                metrics,
 		parent:                 parent,
@@ -440,6 +444,7 @@ outer:
 				m.api,
 				req,
 				&wg,
+				m.externalCmdPool,
 				m.pathManager,
 				m,
 			)

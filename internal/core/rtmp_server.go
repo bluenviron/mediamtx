@@ -55,6 +55,7 @@ type rtmpServer struct {
 	rtspAddress         string
 	runOnConnect        string
 	runOnConnectRestart bool
+	runOnDisconnect     string
 	externalCmdPool     *externalcmd.Pool
 	metrics             *metrics
 	pathManager         *pathManager
@@ -86,6 +87,7 @@ func newRTMPServer(
 	rtspAddress string,
 	runOnConnect string,
 	runOnConnectRestart bool,
+	runOnDisconnect string,
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
 	pathManager *pathManager,
@@ -117,6 +119,7 @@ func newRTMPServer(
 		rtspAddress:         rtspAddress,
 		runOnConnect:        runOnConnect,
 		runOnConnectRestart: runOnConnectRestart,
+		runOnDisconnect:     runOnDisconnect,
 		isTLS:               isTLS,
 		externalCmdPool:     externalCmdPool,
 		metrics:             metrics,
@@ -188,6 +191,7 @@ outer:
 				s.writeQueueSize,
 				s.runOnConnect,
 				s.runOnConnectRestart,
+				s.runOnDisconnect,
 				&s.wg,
 				nconn,
 				s.externalCmdPool,

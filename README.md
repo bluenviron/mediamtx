@@ -1155,7 +1155,7 @@ All available recording parameters are listed in the [sample configuration file]
 Currently the server supports recording tracks encoded with the following codecs:
 
 * Video: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video
-* Audio: Opus, MPEG-4 Audio (AAC), MPEG-1 Audio (MP3)
+* Audio: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)
 
 ### Forward streams to another server
 
