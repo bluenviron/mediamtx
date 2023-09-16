@@ -4,7 +4,6 @@ package conf
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"sort"
@@ -32,50 +31,53 @@ func getSortedKeys(paths map[string]*PathConf) []string {
 	return ret
 }
 
-func loadFromFile(fpath string, conf *Conf) (bool, error) {
-	if fpath == "mediamtx.yml" {
-		// give priority to the legacy configuration file, in order not to break
-		// existing setups
-		if _, err := os.Stat("rtsp-simple-server.yml"); err == nil {
-			fpath = "rtsp-simple-server.yml"
+func firstThatExists(paths []string) string {
+	for _, pa := range paths {
+		_, err := os.Stat(pa)
+		if err == nil {
+			return pa
 		}
 	}
+	return ""
+}
 
-	// mediamtx.yml is optional
-	// other configuration files are not
-	if fpath == "mediamtx.yml" || fpath == "rtsp-simple-server.yml" {
-		if _, err := os.Stat(fpath); errors.Is(err, os.ErrNotExist) {
-			// load defaults
+func loadFromFile(fpath string, defaultConfPaths []string, conf *Conf) (string, error) {
+	if fpath == "" {
+		fpath = firstThatExists(defaultConfPaths)
+
+		// when the configuration file is not explicitly set,
+		// it is optional. Load defaults.
+		if fpath == "" {
 			conf.UnmarshalJSON(nil) //nolint:errcheck
-			return false, nil
+			return "", nil
 		}
 	}
 
 	byts, err := os.ReadFile(fpath)
 	if err != nil {
-		return true, err
+		return "", err
 	}
 
 	if key, ok := os.LookupEnv("RTSP_CONFKEY"); ok { // legacy format
 		byts, err = decrypt.Decrypt(key, byts)
 		if err != nil {
-			return true, err
+			return "", err
 		}
 	}
 
 	if key, ok := os.LookupEnv("MTX_CONFKEY"); ok {
 		byts, err = decrypt.Decrypt(key, byts)
 		if err != nil {
-			return true, err
+			return "", err
 		}
 	}
 
 	err = yaml.Load(byts, conf)
 	if err != nil {
-		return true, err
+		return "", err
 	}
 
-	return true, nil
+	return fpath, nil
 }
 
 func contains(list []headers.AuthMethod, item headers.AuthMethod) bool {
@@ -183,30 +185,30 @@ type Conf struct {
 }
 
 // Load loads a Conf.
-func Load(fpath string) (*Conf, bool, error) {
+func Load(fpath string, defaultConfPaths []string) (*Conf, string, error) {
 	conf := &Conf{}
 
-	found, err := loadFromFile(fpath, conf)
+	fpath, err := loadFromFile(fpath, defaultConfPaths, conf)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
 	err = env.Load("RTSP", conf) // legacy prefix
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
 	err = env.Load("MTX", conf)
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
 	err = conf.Check()
 	if err != nil {
-		return nil, false, err
+		return nil, "", err
 	}
 
-	return conf, found, nil
+	return conf, fpath, nil
 }
 
 // Clone clones the configuration.
