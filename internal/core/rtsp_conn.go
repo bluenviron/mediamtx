@@ -29,6 +29,7 @@ type rtspConnParent interface {
 type rtspConn struct {
 	*conn
 
+	isTLS       bool
 	rtspAddress string
 	authMethods []headers.AuthMethod
 	readTimeout conf.StringDuration
@@ -43,6 +44,7 @@ type rtspConn struct {
 }
 
 func newRTSPConn(
+	isTLS bool,
 	rtspAddress string,
 	authMethods []headers.AuthMethod,
 	readTimeout conf.StringDuration,
@@ -55,6 +57,7 @@ func newRTSPConn(
 	parent rtspConnParent,
 ) *rtspConn {
 	c := &rtspConn{
+		isTLS:       isTLS,
 		rtspAddress: rtspAddress,
 		authMethods: authMethods,
 		readTimeout: readTimeout,
@@ -76,7 +79,15 @@ func newRTSPConn(
 
 	c.Log(logger.Info, "opened")
 
-	c.conn.open()
+	c.conn.open(apiPathSourceOrReader{
+		Type: func() string {
+			if isTLS {
+				return "rtspsConn"
+			}
+			return "rtspConn"
+		}(),
+		ID: c.uuid.String(),
+	})
 
 	return c
 }
@@ -102,7 +113,15 @@ func (c *rtspConn) ip() net.IP {
 func (c *rtspConn) onClose(err error) {
 	c.Log(logger.Info, "closed: %v", err)
 
-	c.conn.close()
+	c.conn.close(apiPathSourceOrReader{
+		Type: func() string {
+			if c.isTLS {
+				return "rtspsConn"
+			}
+			return "rtspConn"
+		}(),
+		ID: c.uuid.String(),
+	})
 }
 
 // onRequest is called by rtspServer.

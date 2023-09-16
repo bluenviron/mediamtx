@@ -530,12 +530,17 @@ func (s *webRTCSession) runRead() (int, error) {
 	pathConf := res.path.safeConf()
 
 	if pathConf.RunOnRead != "" {
+		env := res.path.externalCmdEnv()
+		desc := s.apiReaderDescribe()
+		env["MTX_READER_TYPE"] = desc.Type
+		env["MTX_READER_ID"] = desc.ID
+
 		s.Log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
 			s.externalCmdPool,
 			pathConf.RunOnRead,
 			pathConf.RunOnReadRestart,
-			res.path.externalCmdEnv(),
+			env,
 			func(err error) {
 				s.Log(logger.Info, "runOnRead command exited: %v", err)
 			})
@@ -547,12 +552,17 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	if pathConf.RunOnUnread != "" {
 		defer func() {
+			env := res.path.externalCmdEnv()
+			desc := s.apiReaderDescribe()
+			env["MTX_READER_TYPE"] = desc.Type
+			env["MTX_READER_ID"] = desc.ID
+
 			s.Log(logger.Info, "runOnUnread command launched")
 			externalcmd.NewCmd(
 				s.externalCmdPool,
 				pathConf.RunOnUnread,
 				false,
-				res.path.externalCmdEnv(),
+				env,
 				nil)
 		}()
 	}
@@ -623,15 +633,15 @@ func (s *webRTCSession) addCandidates(
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (s *webRTCSession) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (s *webRTCSession) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "webRTCSession",
 		ID:   s.uuid.String(),
 	}
 }
 
 // apiReaderDescribe implements reader.
-func (s *webRTCSession) apiReaderDescribe() pathAPISourceOrReader {
+func (s *webRTCSession) apiReaderDescribe() apiPathSourceOrReader {
 	return s.apiSourceDescribe()
 }
 

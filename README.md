@@ -54,7 +54,7 @@ And can be read from the server with:
 * Query and control the server through the API
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Read Prometheus-compatible metrics
-* Run external commands when clients connect, disconnect, read or publish streams
+* Run external commands (hooks) when clients connect, disconnect, read or publish streams
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 **Note about rtsp-simple-server**
@@ -111,6 +111,10 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Forward streams to another server](#forward-streams-to-another-server)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
+  * [Hooks](#hooks)
+  * [API](#api)
+  * [Metrics](#metrics)
+  * [pprof](#pprof)
   * [RTSP-specific features](#rtsp-specific-features)
     * [Transport protocols](#transport-protocols)
     * [Encryption](#encryption)
@@ -119,9 +123,6 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [Encryption](#encryption-1)
   * [WebRTC-specific features](#webrtc-specific-features)
     * [Connectivity issues](#connectivity-issues)
-  * [API](#api)
-  * [Metrics](#metrics)
-  * [pprof](#pprof)
 * [Compile from source](#compile-from-source)
 * [Specifications](#specifications)
 * [Related projects](#related-projects)
@@ -1241,6 +1242,193 @@ WinSW-x64 install
 
 The server is now installed as a system service and will start at boot time.
 
+### Hooks
+
+The server allows to specify commands that are executed when a certain event happens, allowing the propagation of events to external software.
+
+`runOnConnect` allows to run a command when a client connects to the server:
+
+```yml
+# This is terminated with SIGINT when a client disconnects from the server.
+# The following environment variables are available:
+# * RTSP_PORT: RTSP server port
+# * MTX_CONN_TYPE: connection type
+# * MTX_CONN_ID: connection ID
+runOnConnect: curl http://my-custom-server/webhook
+# Restart the command if it exits.
+runOnConnectRestart: no
+```
+
+`runOnDisconnect` allows to run a command when a client disconnects from the server:
+
+```yml
+# Environment variables are the same of runOnConnect.
+runOnDisconnect: curl http://my-custom-server/webhook
+```
+
+`runOnInit` allows to run a command when a path is initialized. This can be used to publish a stream when the server is launched:
+
+```yml
+paths:
+  mypath:
+    # This is terminated with SIGINT when the program closes.
+    # The following environment variables are available:
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
+    # * G1, G2, ...: regular expression groups, if path name is
+    #   a regular expression.
+    runOnInit: ffmpeg -i my_file.mp4 -c copy -f rtsp rtsp://localhost:8554/mypath
+    # Restart the command if it exits.
+    runOnInitRestart: no
+```
+
+`runOnDemand` allows to run a command when a path is requested by a reader. This can be used to publish a stream on demand:
+
+```yml
+paths:
+  mypath:
+    # This is terminated with SIGINT when the program closes.
+    # The following environment variables are available:
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
+    # * G1, G2, ...: regular expression groups, if path name is
+    #   a regular expression.
+    runOnDemand: ffmpeg -i my_file.mp4 -c copy -f rtsp rtsp://localhost:8554/mypath
+    # Restart the command if it exits.
+    runOnDemandRestart: no
+```
+
+`runOnReady` allows to run a command when a stream is ready to be read:
+
+```yml
+paths:
+  mypath:
+    # This is terminated with SIGINT when the stream is not ready anymore.
+    # The following environment variables are available:
+    # * MTX_PATH: path name
+    # * MTX_SOURCE_TYPE: source type
+    # * MTX_SOURCE_ID: source ID
+    # * RTSP_PORT: RTSP server port
+    # * G1, G2, ...: regular expression groups, if path name is
+    #   a regular expression.
+    runOnReady:
+    # Restart the command if it exits.
+    runOnReadyRestart: no
+```
+
+`runOnNotReady` allows to run a command when a stream is not available anymore:
+
+```yml
+paths:
+  mypath:
+    # Environment variables are the same of runOnReady.
+    runOnNotReady:
+```
+
+`runOnRead` allows to run a command when a client starts reading:
+
+```yml
+paths:
+  mypath:
+    # This is terminated with SIGINT when a client stops reading.
+    # The following environment variables are available:
+    # * MTX_PATH: path name
+    # * MTX_READER_TYPE: reader type
+    # * MTX_READER_ID: reader ID
+    # * RTSP_PORT: RTSP server port
+    # * G1, G2, ...: regular expression groups, if path name is
+    #   a regular expression.
+    runOnRead:
+    # Restart the command if it exits.
+    runOnReadRestart: no
+```
+
+`runOnUnread` allows to run a command when a client stops reading:
+
+```yml
+paths:
+  mypath:
+    # Command to run when a client stops reading.
+    # Environment variables are the same of runOnRead.
+    runOnUnread:
+```
+
+### API
+
+The server can be queried and controlled with its API, that must be enabled by setting the `api` parameter in the configuration:
+
+```yml
+api: yes
+```
+
+The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instance, to obtain a list of active paths, run:
+
+```
+curl http://127.0.0.1:9997/v2/paths/list
+```
+
+Full documentation of the API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
+
+### Metrics
+
+A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
+
+```
+curl localhost:9998/metrics
+```
+
+Obtaining:
+
+```ini
+# metrics of every path
+paths{name="[path_name]",state="[state]"} 1
+paths_bytes_received{name="[path_name]",state="[state]"} 1234
+
+# metrics of every HLS muxer
+hls_muxers{name="[name]"} 1
+hls_muxers_bytes_sent{name="[name]"} 187
+
+# metrics of every RTSP connection
+rtsp_conns{id="[id]"} 1
+rtsp_conns_bytes_received{id="[id]"} 1234
+rtsp_conns_bytes_sent{id="[id]"} 187
+
+# metrics of every RTSP session
+rtsp_sessions{id="[id]",state="idle"} 1
+rtsp_sessions_bytes_received{id="[id]",state="[state]"} 1234
+rtsp_sessions_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every RTSPS connection
+rtsps_conns{id="[id]"} 1
+rtsps_conns_bytes_received{id="[id]"} 1234
+rtsps_conns_bytes_sent{id="[id]"} 187
+
+# metrics of every RTSPS session
+rtsps_sessions{id="[id]",state="[state]"} 1
+rtsps_sessions_bytes_received{id="[id]",state="[state]"} 1234
+rtsps_sessions_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every RTMP connection
+rtmp_conns{id="[id]",state="[state]"} 1
+rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
+rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every WebRTC session
+webrtc_sessions{id="[id]"} 1
+webrtc_sessions_bytes_received{id="[id]",state="[state]"} 1234
+webrtc_sessions_bytes_sent{id="[id]",state="[state]"} 187
+```
+
+### pprof
+
+A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
+
+```
+go tool pprof -text http://localhost:9999/debug/pprof/goroutine
+go tool pprof -text http://localhost:9999/debug/pprof/heap
+go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
+```
+
 ### RTSP-specific features
 
 #### Transport protocols
@@ -1394,82 +1582,6 @@ webrtcICEServers2:
 ```
 
 where secret is the secret of the TURN server. MediaMTX will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
-
-### API
-
-The server can be queried and controlled with its API, that must be enabled by setting the `api` parameter in the configuration:
-
-```yml
-api: yes
-```
-
-The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instance, to obtain a list of active paths, run:
-
-```
-curl http://127.0.0.1:9997/v2/paths/list
-```
-
-Full documentation of the API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
-
-### Metrics
-
-A metrics exporter, compatible with [Prometheus](https://prometheus.io/), can be enabled with the parameter `metrics: yes`; then the server can be queried for metrics with Prometheus or with a simple HTTP request:
-
-```
-curl localhost:9998/metrics
-```
-
-Obtaining:
-
-```ini
-# metrics of every path
-paths{name="[path_name]",state="[state]"} 1
-paths_bytes_received{name="[path_name]",state="[state]"} 1234
-
-# metrics of every HLS muxer
-hls_muxers{name="[name]"} 1
-hls_muxers_bytes_sent{name="[name]"} 187
-
-# metrics of every RTSP connection
-rtsp_conns{id="[id]"} 1
-rtsp_conns_bytes_received{id="[id]"} 1234
-rtsp_conns_bytes_sent{id="[id]"} 187
-
-# metrics of every RTSP session
-rtsp_sessions{id="[id]",state="idle"} 1
-rtsp_sessions_bytes_received{id="[id]",state="[state]"} 1234
-rtsp_sessions_bytes_sent{id="[id]",state="[state]"} 187
-
-# metrics of every RTSPS connection
-rtsps_conns{id="[id]"} 1
-rtsps_conns_bytes_received{id="[id]"} 1234
-rtsps_conns_bytes_sent{id="[id]"} 187
-
-# metrics of every RTSPS session
-rtsps_sessions{id="[id]",state="[state]"} 1
-rtsps_sessions_bytes_received{id="[id]",state="[state]"} 1234
-rtsps_sessions_bytes_sent{id="[id]",state="[state]"} 187
-
-# metrics of every RTMP connection
-rtmp_conns{id="[id]",state="[state]"} 1
-rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
-rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
-
-# metrics of every WebRTC session
-webrtc_sessions{id="[id]"} 1
-webrtc_sessions_bytes_received{id="[id]",state="[state]"} 1234
-webrtc_sessions_bytes_sent{id="[id]",state="[state]"} 187
-```
-
-### pprof
-
-A performance monitor, compatible with pprof, can be enabled with the parameter `pprof: yes`; then the server can be queried for metrics with pprof-compatible tools, like:
-
-```
-go tool pprof -text http://localhost:9999/debug/pprof/goroutine
-go tool pprof -text http://localhost:9999/debug/pprof/heap
-go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
-```
 
 ## Compile from source
 

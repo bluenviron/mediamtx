@@ -236,8 +236,8 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*hlsSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*hlsSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "hlsSource",
 		ID:   "",
 	}

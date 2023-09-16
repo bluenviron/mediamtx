@@ -148,8 +148,9 @@ func (c *rtmpConn) ip() net.IP {
 func (c *rtmpConn) run() { //nolint:dupl
 	defer c.wg.Done()
 
-	c.conn.open()
-	defer c.conn.close()
+	desc := c.apiReaderDescribe()
+	c.conn.open(desc)
+	defer c.conn.close(desc)
 
 	err := c.runInner()
 
@@ -262,12 +263,17 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	pathConf := res.path.safeConf()
 
 	if pathConf.RunOnRead != "" {
+		env := res.path.externalCmdEnv()
+		desc := c.apiReaderDescribe()
+		env["MTX_READER_TYPE"] = desc.Type
+		env["MTX_READER_ID"] = desc.ID
+
 		c.Log(logger.Info, "runOnRead command started")
 		onReadCmd := externalcmd.NewCmd(
 			c.externalCmdPool,
 			pathConf.RunOnRead,
 			pathConf.RunOnReadRestart,
-			res.path.externalCmdEnv(),
+			env,
 			func(err error) {
 				c.Log(logger.Info, "runOnRead command exited: %v", err)
 			})
@@ -279,6 +285,11 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 
 	if pathConf.RunOnUnread != "" {
 		defer func() {
+			env := res.path.externalCmdEnv()
+			desc := c.apiReaderDescribe()
+			env["MTX_READER_TYPE"] = desc.Type
+			env["MTX_READER_ID"] = desc.ID
+
 			c.Log(logger.Info, "runOnUnread command launched")
 			externalcmd.NewCmd(
 				c.externalCmdPool,
@@ -630,8 +641,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 }
 
 // apiReaderDescribe implements reader.
-func (c *rtmpConn) apiReaderDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (c *rtmpConn) apiReaderDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: func() string {
 			if c.isTLS {
 				return "rtmpsConn"
@@ -643,7 +654,7 @@ func (c *rtmpConn) apiReaderDescribe() pathAPISourceOrReader {
 }
 
 // apiSourceDescribe implements source.
-func (c *rtmpConn) apiSourceDescribe() pathAPISourceOrReader {
+func (c *rtmpConn) apiSourceDescribe() apiPathSourceOrReader {
 	return c.apiReaderDescribe()
 }
 

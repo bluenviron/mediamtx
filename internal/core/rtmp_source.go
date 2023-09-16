@@ -200,8 +200,8 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
-func (*rtmpSource) apiSourceDescribe() pathAPISourceOrReader {
-	return pathAPISourceOrReader{
+func (*rtmpSource) apiSourceDescribe() apiPathSourceOrReader {
+	return apiPathSourceOrReader{
 		Type: "rtmpSource",
 		ID:   "",
 	}

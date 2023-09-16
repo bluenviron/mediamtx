@@ -8,17 +8,22 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
+type apiPathSourceOrReader struct {
+	Type string `json:"type"`
+	ID   string `json:"id"`
+}
+
 type apiPath struct {
-	Name          string         `json:"name"`
-	ConfName      string         `json:"confName"`
-	Conf          *conf.PathConf `json:"conf"`
-	Source        interface{}    `json:"source"`
-	SourceReady   bool           `json:"sourceReady"` // Deprecated: renamed to Ready
-	Ready         bool           `json:"ready"`
-	ReadyTime     *time.Time     `json:"readyTime"`
-	Tracks        []string       `json:"tracks"`
-	BytesReceived uint64         `json:"bytesReceived"`
-	Readers       []interface{}  `json:"readers"`
+	Name          string                  `json:"name"`
+	ConfName      string                  `json:"confName"`
+	Conf          *conf.PathConf          `json:"conf"`
+	Source        *apiPathSourceOrReader  `json:"source"`
+	SourceReady   bool                    `json:"sourceReady"` // Deprecated: renamed to Ready
+	Ready         bool                    `json:"ready"`
+	ReadyTime     *time.Time              `json:"readyTime"`
+	Tracks        []string                `json:"tracks"`
+	BytesReceived uint64                  `json:"bytesReceived"`
+	Readers       []apiPathSourceOrReader `json:"readers"`
 }
 
 type apiPathsList struct {
