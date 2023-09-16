@@ -76,7 +76,7 @@ func (e *Cmd) runOSSpecific() error {
 		return errTerminated
 
 	case c := <-cmdDone:
-		if c != nil {
+		if c != 0 {
 			return fmt.Errorf("command exited with code %d", c)
 		}
 		return nil
