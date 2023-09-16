@@ -39,9 +39,9 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		conf, hasFile, err := Load(tmpf)
+		conf, confPath, err := Load(tmpf, nil)
 		require.NoError(t, err)
-		require.Equal(t, true, hasFile)
+		require.Equal(t, tmpf, confPath)
 
 		require.Equal(t, LogLevel(logger.Debug), conf.LogLevel)
 
@@ -73,7 +73,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf)
+		_, _, err = Load(tmpf, nil)
 		require.NoError(t, err)
 	}()
 
@@ -82,7 +82,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf)
+		_, _, err = Load(tmpf, nil)
 		require.NoError(t, err)
 	}()
 
@@ -93,7 +93,7 @@ func TestConfFromFile(t *testing.T) {
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 
-		_, _, err = Load(tmpf)
+		_, _, err = Load(tmpf, nil)
 		require.NoError(t, err)
 	}()
 }
@@ -109,9 +109,9 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
 
-	conf, hasFile, err := Load(tmpf)
+	conf, confPath, err := Load(tmpf, nil)
 	require.NoError(t, err)
-	require.Equal(t, true, hasFile)
+	require.Equal(t, tmpf, confPath)
 
 	require.Equal(t, Protocols{Protocol(gortsplib.TransportTCP): {}}, conf.Protocols)
 
@@ -142,9 +142,9 @@ func TestConfFromEnvOnly(t *testing.T) {
 	os.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("MTX_PATHS_CAM1_SOURCE")
 
-	conf, hasFile, err := Load("mediamtx.yml")
+	conf, confPath, err := Load("", nil)
 	require.NoError(t, err)
-	require.Equal(t, false, hasFile)
+	require.Equal(t, "", confPath)
 
 	pa, ok := conf.Paths["cam1"]
 	require.Equal(t, true, ok)
@@ -194,9 +194,9 @@ func TestConfEncryption(t *testing.T) {
 	require.NoError(t, err)
 	defer os.Remove(tmpf)
 
-	conf, hasFile, err := Load(tmpf)
+	conf, confPath, err := Load(tmpf, nil)
 	require.NoError(t, err)
-	require.Equal(t, true, hasFile)
+	require.Equal(t, tmpf, confPath)
 
 	_, ok := conf.Paths["path1"]
 	require.Equal(t, true, ok)
@@ -283,7 +283,7 @@ func TestConfErrors(t *testing.T) {
 			require.NoError(t, err)
 			defer os.Remove(tmpf)
 
-			_, _, err = Load(tmpf)
+			_, _, err = Load(tmpf, nil)
 			require.EqualError(t, err, ca.err)
 		})
 	}

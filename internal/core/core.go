@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -23,9 +25,17 @@ import (
 
 var version = "v0.0.0"
 
+var defaultConfPaths = []string{
+	"rtsp-simple-server.yml",
+	"mediamtx.yml",
+	"/usr/local/etc/mediamtx.yml",
+	"/usr/etc/mediamtx.yml",
+	"/etc/mediamtx/mediamtx.yml",
+}
+
 var cli struct {
 	Version  bool   `help:"print version"`
-	Confpath string `arg:"" default:"mediamtx.yml"`
+	Confpath string `arg:"" default:""`
 }
 
 // Core is an instance of mediamtx.
@@ -34,7 +44,6 @@ type Core struct {
 	ctxCancel       func()
 	confPath        string
 	conf            *conf.Conf
-	confFound       bool
 	logger          *logger.Logger
 	externalCmdPool *externalcmd.Pool
 	metrics         *metrics
@@ -89,12 +98,11 @@ func New(args []string) (*Core, bool) {
 	p := &Core{
 		ctx:            ctx,
 		ctxCancel:      ctxCancel,
-		confPath:       cli.Confpath,
 		chAPIConfigSet: make(chan *conf.Conf),
 		done:           make(chan struct{}),
 	}
 
-	p.conf, p.confFound, err = conf.Load(p.confPath)
+	p.conf, p.confPath, err = conf.Load(cli.Confpath, defaultConfPaths)
 	if err != nil {
 		fmt.Printf("ERR: %s\n", err)
 		return nil, false
@@ -151,7 +159,7 @@ outer:
 		case <-confChanged:
 			p.Log(logger.Info, "reloading configuration (file changed)")
 
-			newConf, _, err := conf.Load(p.confPath)
+			newConf, _, err := conf.Load(p.confPath, nil)
 			if err != nil {
 				p.Log(logger.Error, "%s", err)
 				break outer
@@ -202,8 +210,17 @@ func (p *Core) createResources(initial bool) error {
 
 	if initial {
 		p.Log(logger.Info, "MediaMTX %s", version)
-		if !p.confFound {
-			p.Log(logger.Warn, "configuration file not found, using an empty configuration")
+
+		if p.confPath == "" {
+			list := make([]string, len(defaultConfPaths))
+			for i, pa := range defaultConfPaths {
+				a, _ := filepath.Abs(pa)
+				list[i] = a
+			}
+
+			p.Log(logger.Warn,
+				"configuration file not found (looked in %s), using an empty configuration",
+				strings.Join(list, ", "))
 		}
 
 		// on Linux, try to raise the number of file descriptors that can be opened
@@ -490,7 +507,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if initial && p.confFound {
+	if initial && p.confPath != "" {
 		p.confWatcher, err = confwatcher.New(p.confPath)
 		if err != nil {
 			return err
@@ -505,6 +522,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.LogLevel != p.conf.LogLevel ||
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
 		newConf.LogFile != p.conf.LogFile
+
 	closeMetrics := newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
 		newConf.MetricsAddress != p.conf.MetricsAddress ||
