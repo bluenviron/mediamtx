@@ -39,23 +39,29 @@ func New(
 	generateRTPPackets bool,
 ) (Processor, error) {
 	switch forma := forma.(type) {
-	case *format.H264:
-		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
-
-	case *format.H265:
-		return newH265(udpMaxPayloadSize, forma, generateRTPPackets)
-
-	case *format.VP8:
-		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets)
+	case *format.AV1:
+		return newAV1(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.VP9:
 		return newVP9(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.AV1:
-		return newAV1(udpMaxPayloadSize, forma, generateRTPPackets)
+	case *format.VP8:
+		return newVP8(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.MPEG1Audio:
-		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets)
+	case *format.H265:
+		return newH265(udpMaxPayloadSize, forma, generateRTPPackets)
+
+	case *format.H264:
+		return newH264(udpMaxPayloadSize, forma, generateRTPPackets)
+
+	case *format.MPEG4Video:
+		return newMPEG4Video(udpMaxPayloadSize, forma, generateRTPPackets)
+
+	case *format.MPEG1Video:
+		return newMPEG1Video(udpMaxPayloadSize, forma, generateRTPPackets)
+
+	case *format.Opus:
+		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.MPEG4AudioGeneric:
 		return newMPEG4AudioGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
@@ -63,8 +69,8 @@ func New(
 	case *format.MPEG4AudioLATM:
 		return newMPEG4AudioLATM(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.Opus:
-		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
+	case *format.MPEG1Audio:
+		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	default:
 		return newGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
