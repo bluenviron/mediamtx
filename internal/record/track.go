@@ -7,7 +7,6 @@ import (
 type track struct {
 	r         *Agent
 	initTrack *fmp4.InitTrack
-	isVideo   bool
 
 	nextSample *sample
 }
@@ -15,18 +14,16 @@ type track struct {
 func newTrack(
 	r *Agent,
 	initTrack *fmp4.InitTrack,
-	isVideo bool,
 ) *track {
 	return &track{
 		r:         r,
 		initTrack: initTrack,
-		isVideo:   isVideo,
 	}
 }
 
 func (t *track) record(sample *sample) error {
 	// wait the first video sample before setting hasVideo
-	if t.isVideo {
+	if t.initTrack.Codec.IsVideo() {
 		t.r.hasVideo = true
 	}
 
@@ -49,7 +46,7 @@ func (t *track) record(sample *sample) error {
 		return err
 	}
 
-	if (!t.r.hasVideo || t.isVideo) &&
+	if (!t.r.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
 		(t.nextSample.dts-t.r.currentSegment.startDTS) >= t.r.segmentDuration {
 		err := t.r.currentSegment.close()

@@ -3,6 +3,7 @@ package record
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4video"
 	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
 	"github.com/bluenviron/mediacommon/pkg/codecs/vp9"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
@@ -96,11 +98,15 @@ func NewAgent(
 
 	nextID := 1
 
-	addTrack := func(initTrack *fmp4.InitTrack, isVideo bool) *track {
+	addTrack := func(codec fmp4.Codec) *track {
+		initTrack := &fmp4.InitTrack{
+			TimeScale: 90000,
+			Codec:     codec,
+		}
 		initTrack.ID = nextID
 		nextID++
 
-		track := newTrack(r, initTrack, isVideo)
+		track := newTrack(r, initTrack)
 		r.tracks = append(r.tracks, track)
 
 		return track
@@ -115,11 +121,7 @@ func NewAgent(
 						8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
 					},
 				}
-
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec:     codec,
-				}, true)
+				track := addTrack(codec)
 
 				firstReceived := false
 
@@ -176,11 +178,7 @@ func NewAgent(
 					ChromaSubsampling: 1,
 					ColorRange:        false,
 				}
-
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec:     codec,
-				}, true)
+				track := addTrack(codec)
 
 				firstReceived := false
 
@@ -277,11 +275,7 @@ func NewAgent(
 					SPS: sps,
 					PPS: pps,
 				}
-
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec:     codec,
-				}, true)
+				track := addTrack(codec)
 
 				var dtsExtractor *h265.DTSExtractor
 
@@ -366,11 +360,7 @@ func NewAgent(
 					SPS: sps,
 					PPS: pps,
 				}
-
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec:     codec,
-				}, true)
+				track := addTrack(codec)
 
 				var dtsExtractor *h264.DTSExtractor
 
@@ -429,26 +419,131 @@ func NewAgent(
 				})
 
 			case *format.MPEG4Video:
-				// TODO
+				config := forma.SafeParams()
+
+				if config == nil {
+					config = []byte{
+						0x00, 0x00, 0x01, 0xb0, 0x01, 0x00, 0x00, 0x01,
+						0xb5, 0x89, 0x13, 0x00, 0x00, 0x01, 0x00, 0x00,
+						0x00, 0x01, 0x20, 0x00, 0xc4, 0x8d, 0x88, 0x00,
+						0xf5, 0x3c, 0x04, 0x87, 0x14, 0x63, 0x00, 0x00,
+						0x01, 0xb2, 0x4c, 0x61, 0x76, 0x63, 0x35, 0x38,
+						0x2e, 0x31, 0x33, 0x34, 0x2e, 0x31, 0x30, 0x30,
+					}
+				}
+
+				codec := &fmp4.CodecMPEG4Video{
+					Config: config,
+				}
+				track := addTrack(codec)
+
+				firstReceived := false
+				var lastPTS time.Duration
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG4Video)
+					if tunit.Frame == nil {
+						return nil
+					}
+
+					randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+
+					if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, byte(mpeg4video.VisualObjectSequenceStartCode)}) {
+						end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, byte(mpeg4video.GroupOfVOPStartCode)})
+						if end >= 0 {
+							config := tunit.Frame[:end+4]
+
+							if !bytes.Equal(codec.Config, config) {
+								codec.Config = config
+								r.updateCodecs()
+							}
+						}
+					}
+
+					if !firstReceived {
+						if !randomAccess {
+							return nil
+						}
+						firstReceived = true
+					} else if tunit.PTS < lastPTS {
+						return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
+					}
+					lastPTS = tunit.PTS
+
+					return track.record(&sample{
+						PartSample: &fmp4.PartSample{
+							Payload:         tunit.Frame,
+							IsNonSyncSample: !randomAccess,
+						},
+						dts: tunit.PTS,
+					})
+				})
 
 			case *format.MPEG1Video:
-				// TODO
+				codec := &fmp4.CodecMPEG1Video{
+					Config: []byte{
+						0x00, 0x00, 0x01, 0xb3, 0x78, 0x04, 0x38, 0x35,
+						0xff, 0xff, 0xe0, 0x18, 0x00, 0x00, 0x01, 0xb5,
+						0x14, 0x4a, 0x00, 0x01, 0x00, 0x00,
+					},
+				}
+				track := addTrack(codec)
+
+				firstReceived := false
+				var lastPTS time.Duration
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MPEG1Video)
+					if tunit.Frame == nil {
+						return nil
+					}
+
+					randomAccess := bytes.Contains(tunit.Frame, []byte{0, 0, 1, 0xB8})
+
+					if bytes.HasPrefix(tunit.Frame, []byte{0, 0, 1, 0xB3}) {
+						end := bytes.Index(tunit.Frame[4:], []byte{0, 0, 1, 0xB8})
+						if end >= 0 {
+							config := tunit.Frame[:end+4]
+
+							if !bytes.Equal(codec.Config, config) {
+								codec.Config = config
+								r.updateCodecs()
+							}
+						}
+					}
+
+					if !firstReceived {
+						if !randomAccess {
+							return nil
+						}
+						firstReceived = true
+					} else if tunit.PTS < lastPTS {
+						return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
+					}
+					lastPTS = tunit.PTS
+
+					return track.record(&sample{
+						PartSample: &fmp4.PartSample{
+							Payload:         tunit.Frame,
+							IsNonSyncSample: !randomAccess,
+						},
+						dts: tunit.PTS,
+					})
+				})
 
 			case *format.MJPEG:
 				// TODO
 
 			case *format.Opus:
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec: &fmp4.CodecOpus{
-						ChannelCount: func() int {
-							if forma.IsStereo {
-								return 2
-							}
-							return 1
-						}(),
-					},
-				}, false)
+				codec := &fmp4.CodecOpus{
+					ChannelCount: func() int {
+						if forma.IsStereo {
+							return 2
+						}
+						return 1
+					}(),
+				}
+				track := addTrack(codec)
 
 				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
@@ -476,12 +571,10 @@ func NewAgent(
 				})
 
 			case *format.MPEG4AudioGeneric:
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec: &fmp4.CodecMPEG4Audio{
-						Config: *forma.Config,
-					},
-				}, false)
+				codec := &fmp4.CodecMPEG4Audio{
+					Config: *forma.Config,
+				}
+				track := addTrack(codec)
 
 				sampleRate := time.Duration(forma.Config.SampleRate)
 
@@ -510,12 +603,10 @@ func NewAgent(
 				})
 
 			case *format.MPEG4AudioLATM:
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec: &fmp4.CodecMPEG4Audio{
-						Config: *forma.Config.Programs[0].Layers[0].AudioSpecificConfig,
-					},
-				}, false)
+				codec := &fmp4.CodecMPEG4Audio{
+					Config: *forma.Config.Programs[0].Layers[0].AudioSpecificConfig,
+				}
+				track := addTrack(codec)
 
 				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4AudioLATM)
@@ -536,11 +627,7 @@ func NewAgent(
 					SampleRate:   32000,
 					ChannelCount: 2,
 				}
-
-				track := addTrack(&fmp4.InitTrack{
-					TimeScale: 90000,
-					Codec:     codec,
-				}, false)
+				track := addTrack(codec)
 
 				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)

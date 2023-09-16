@@ -82,10 +82,12 @@ func (s *segment) close() error {
 		}
 	}
 
-	err := s.curPart.close()
-	if err != nil {
-		s.f.Close()
-		return err
+	if s.curPart != nil {
+		err := s.curPart.close()
+		if err != nil {
+			s.f.Close()
+			return err
+		}
 	}
 
 	return s.f.Close()
