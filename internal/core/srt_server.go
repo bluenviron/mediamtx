@@ -57,13 +57,17 @@ type srtServerParent interface {
 }
 
 type srtServer struct {
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
-	writeQueueSize    int
-	udpMaxPayloadSize int
-	externalCmdPool   *externalcmd.Pool
-	pathManager       *pathManager
-	parent            srtServerParent
+	rtspAddress         string
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
+	writeQueueSize      int
+	udpMaxPayloadSize   int
+	runOnConnect        string
+	runOnConnectRestart bool
+	runOnDisconnect     string
+	externalCmdPool     *externalcmd.Pool
+	pathManager         *pathManager
+	parent              srtServerParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -82,10 +86,14 @@ type srtServer struct {
 
 func newSRTServer(
 	address string,
+	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	writeQueueSize int,
 	udpMaxPayloadSize int,
+	runOnConnect string,
+	runOnConnectRestart bool,
+	runOnDisconnect string,
 	externalCmdPool *externalcmd.Pool,
 	pathManager *pathManager,
 	parent srtServerParent,
@@ -102,23 +110,27 @@ func newSRTServer(
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	s := &srtServer{
-		readTimeout:       readTimeout,
-		writeTimeout:      writeTimeout,
-		writeQueueSize:    writeQueueSize,
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		externalCmdPool:   externalCmdPool,
-		pathManager:       pathManager,
-		parent:            parent,
-		ctx:               ctx,
-		ctxCancel:         ctxCancel,
-		ln:                ln,
-		conns:             make(map[*srtConn]struct{}),
-		chNewConnRequest:  make(chan srtNewConnReq),
-		chAcceptErr:       make(chan error),
-		chCloseConn:       make(chan *srtConn),
-		chAPIConnsList:    make(chan srtServerAPIConnsListReq),
-		chAPIConnsGet:     make(chan srtServerAPIConnsGetReq),
-		chAPIConnsKick:    make(chan srtServerAPIConnsKickReq),
+		rtspAddress:         rtspAddress,
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		writeQueueSize:      writeQueueSize,
+		udpMaxPayloadSize:   udpMaxPayloadSize,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		runOnDisconnect:     runOnDisconnect,
+		externalCmdPool:     externalCmdPool,
+		pathManager:         pathManager,
+		parent:              parent,
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
+		ln:                  ln,
+		conns:               make(map[*srtConn]struct{}),
+		chNewConnRequest:    make(chan srtNewConnReq),
+		chAcceptErr:         make(chan error),
+		chCloseConn:         make(chan *srtConn),
+		chAPIConnsList:      make(chan srtServerAPIConnsListReq),
+		chAPIConnsGet:       make(chan srtServerAPIConnsGetReq),
+		chAPIConnsKick:      make(chan srtServerAPIConnsKickReq),
 	}
 
 	s.Log(logger.Info, "listener opened on "+address+" (UDP)")
@@ -159,11 +171,15 @@ outer:
 		case req := <-s.chNewConnRequest:
 			c := newSRTConn(
 				s.ctx,
+				s.rtspAddress,
 				s.readTimeout,
 				s.writeTimeout,
 				s.writeQueueSize,
 				s.udpMaxPayloadSize,
 				req.connReq,
+				s.runOnConnect,
+				s.runOnConnectRestart,
+				s.runOnDisconnect,
 				&s.wg,
 				s.externalCmdPool,
 				s.pathManager,

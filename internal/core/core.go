@@ -297,6 +297,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.Protocols,
 			p.conf.RunOnConnect,
 			p.conf.RunOnConnectRestart,
+			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
 			p.metrics,
 			p.pathManager,
@@ -331,6 +332,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.Protocols,
 			p.conf.RunOnConnect,
 			p.conf.RunOnConnectRestart,
+			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
 			p.metrics,
 			p.pathManager,
@@ -356,6 +358,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RTSPAddress,
 			p.conf.RunOnConnect,
 			p.conf.RunOnConnectRestart,
+			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
 			p.metrics,
 			p.pathManager,
@@ -381,6 +384,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RTSPAddress,
 			p.conf.RunOnConnect,
 			p.conf.RunOnConnectRestart,
+			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
 			p.metrics,
 			p.pathManager,
@@ -434,6 +438,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.WebRTCICEHostNAT1To1IPs,
 			p.conf.WebRTCICEUDPMuxAddress,
 			p.conf.WebRTCICETCPMuxAddress,
+			p.externalCmdPool,
 			p.pathManager,
 			p.metrics,
 			p,
@@ -447,10 +452,14 @@ func (p *Core) createResources(initial bool) error {
 		p.srtServer == nil {
 		p.srtServer, err = newSRTServer(
 			p.conf.SRTAddress,
+			p.conf.RTSPAddress,
 			p.conf.ReadTimeout,
 			p.conf.WriteTimeout,
 			p.conf.WriteQueueSize,
 			p.conf.UDPMaxPayloadSize,
+			p.conf.RunOnConnect,
+			p.conf.RunOnConnectRestart,
+			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
 			p.pathManager,
 			p,
@@ -549,6 +558,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger
@@ -567,6 +577,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.Protocols, p.conf.Protocols) ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger
@@ -581,6 +592,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger
@@ -597,6 +609,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.RunOnConnect != p.conf.RunOnConnect ||
 		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger
@@ -644,10 +657,14 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	closeSRTServer := newConf == nil ||
 		newConf.SRT != p.conf.SRT ||
 		newConf.SRTAddress != p.conf.SRTAddress ||
+		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.RunOnConnect != p.conf.RunOnConnect ||
+		newConf.RunOnConnectRestart != p.conf.RunOnConnectRestart ||
+		newConf.RunOnDisconnect != p.conf.RunOnDisconnect ||
 		closePathManager ||
 		closeLogger
 

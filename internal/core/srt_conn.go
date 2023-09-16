@@ -48,6 +48,9 @@ type srtConnParent interface {
 }
 
 type srtConn struct {
+	*conn
+
+	rtspAddress       string
 	readTimeout       conf.StringDuration
 	writeTimeout      conf.StringDuration
 	writeQueueSize    int
@@ -65,7 +68,7 @@ type srtConn struct {
 	mutex     sync.RWMutex
 	state     srtConnState
 	pathName  string
-	conn      srt.Conn
+	sconn     srt.Conn
 
 	chNew     chan srtNewConnReq
 	chSetConn chan srt.Conn
@@ -73,11 +76,15 @@ type srtConn struct {
 
 func newSRTConn(
 	parentCtx context.Context,
+	rtspAddress string,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	writeQueueSize int,
 	udpMaxPayloadSize int,
 	connReq srt.ConnRequest,
+	runOnConnect string,
+	runOnConnectRestart bool,
+	runOnDisconnect string,
 	wg *sync.WaitGroup,
 	externalCmdPool *externalcmd.Pool,
 	pathManager srtConnPathManager,
@@ -86,6 +93,7 @@ func newSRTConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &srtConn{
+		rtspAddress:       rtspAddress,
 		readTimeout:       readTimeout,
 		writeTimeout:      writeTimeout,
 		writeQueueSize:    writeQueueSize,
@@ -102,6 +110,15 @@ func newSRTConn(
 		chNew:             make(chan srtNewConnReq),
 		chSetConn:         make(chan srt.Conn),
 	}
+
+	c.conn = newConn(
+		rtspAddress,
+		runOnConnect,
+		runOnConnectRestart,
+		runOnDisconnect,
+		externalCmdPool,
+		c,
+	)
 
 	c.Log(logger.Info, "opened")
 
@@ -123,8 +140,11 @@ func (c *srtConn) ip() net.IP {
 	return c.connReq.RemoteAddr().(*net.UDPAddr).IP
 }
 
-func (c *srtConn) run() {
+func (c *srtConn) run() { //nolint:dupl
 	defer c.wg.Done()
+
+	c.conn.open()
+	defer c.conn.close()
 
 	err := c.runInner()
 
@@ -208,7 +228,7 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 	c.mutex.Lock()
 	c.state = srtConnStatePublish
 	c.pathName = pathName
-	c.conn = sconn
+	c.sconn = sconn
 	c.mutex.Unlock()
 
 	readerErr := make(chan error)
@@ -455,7 +475,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	c.mutex.Lock()
 	c.state = srtConnStateRead
 	c.pathName = pathName
-	c.conn = sconn
+	c.sconn = sconn
 	c.mutex.Unlock()
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
@@ -711,6 +731,18 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 		}()
 	}
 
+	if pathConf.RunOnUnread != "" {
+		defer func() {
+			c.Log(logger.Info, "runOnUnread command launched")
+			externalcmd.NewCmd(
+				c.externalCmdPool,
+				pathConf.RunOnUnread,
+				false,
+				res.path.externalCmdEnv(),
+				nil)
+		}()
+	}
+
 	w = mpegts.NewWriter(bw, tracks)
 
 	// disable read deadline
@@ -781,7 +813,7 @@ func (c *srtConn) apiItem() *apiSRTConn {
 
 	if c.conn != nil {
 		var s srt.Statistics
-		c.conn.Stats(&s)
+		c.sconn.Stats(&s)
 		bytesReceived = s.Accumulated.ByteRecv
 		bytesSent = s.Accumulated.ByteSent
 	}

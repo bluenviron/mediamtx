@@ -56,25 +56,24 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
-	isTLS               bool
-	rtspAddress         string
-	readTimeout         conf.StringDuration
-	writeTimeout        conf.StringDuration
-	writeQueueSize      int
-	runOnConnect        string
-	runOnConnectRestart bool
-	wg                  *sync.WaitGroup
-	nconn               net.Conn
-	externalCmdPool     *externalcmd.Pool
-	pathManager         rtmpConnPathManager
-	parent              rtmpConnParent
+	*conn
+
+	isTLS           bool
+	readTimeout     conf.StringDuration
+	writeTimeout    conf.StringDuration
+	writeQueueSize  int
+	wg              *sync.WaitGroup
+	nconn           net.Conn
+	externalCmdPool *externalcmd.Pool
+	pathManager     rtmpConnPathManager
+	parent          rtmpConnParent
 
 	ctx       context.Context
 	ctxCancel func()
 	uuid      uuid.UUID
 	created   time.Time
 	mutex     sync.RWMutex
-	conn      *rtmp.Conn
+	rconn     *rtmp.Conn
 	state     rtmpConnState
 	pathName  string
 }
@@ -88,6 +87,7 @@ func newRTMPConn(
 	writeQueueSize int,
 	runOnConnect string,
 	runOnConnectRestart bool,
+	runOnDisconnect string,
 	wg *sync.WaitGroup,
 	nconn net.Conn,
 	externalCmdPool *externalcmd.Pool,
@@ -97,23 +97,29 @@ func newRTMPConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
-		isTLS:               isTLS,
-		rtspAddress:         rtspAddress,
-		readTimeout:         readTimeout,
-		writeTimeout:        writeTimeout,
-		writeQueueSize:      writeQueueSize,
-		runOnConnect:        runOnConnect,
-		runOnConnectRestart: runOnConnectRestart,
-		wg:                  wg,
-		nconn:               nconn,
-		externalCmdPool:     externalCmdPool,
-		pathManager:         pathManager,
-		parent:              parent,
-		ctx:                 ctx,
-		ctxCancel:           ctxCancel,
-		uuid:                uuid.New(),
-		created:             time.Now(),
+		isTLS:           isTLS,
+		readTimeout:     readTimeout,
+		writeTimeout:    writeTimeout,
+		writeQueueSize:  writeQueueSize,
+		wg:              wg,
+		nconn:           nconn,
+		externalCmdPool: externalCmdPool,
+		pathManager:     pathManager,
+		parent:          parent,
+		ctx:             ctx,
+		ctxCancel:       ctxCancel,
+		uuid:            uuid.New(),
+		created:         time.Now(),
 	}
+
+	c.conn = newConn(
+		rtspAddress,
+		runOnConnect,
+		runOnConnectRestart,
+		runOnDisconnect,
+		externalCmdPool,
+		c,
+	)
 
 	c.Log(logger.Info, "opened")
 
@@ -139,30 +145,11 @@ func (c *rtmpConn) ip() net.IP {
 	return c.nconn.RemoteAddr().(*net.TCPAddr).IP
 }
 
-func (c *rtmpConn) run() {
+func (c *rtmpConn) run() { //nolint:dupl
 	defer c.wg.Done()
 
-	if c.runOnConnect != "" {
-		c.Log(logger.Info, "runOnConnect command started")
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		onConnectCmd := externalcmd.NewCmd(
-			c.externalCmdPool,
-			c.runOnConnect,
-			c.runOnConnectRestart,
-			externalcmd.Environment{
-				"MTX_PATH":  "",
-				"RTSP_PATH": "", // deprecated
-				"RTSP_PORT": port,
-			},
-			func(err error) {
-				c.Log(logger.Info, "runOnConnect command exited: %v", err)
-			})
-
-		defer func() {
-			onConnectCmd.Close()
-			c.Log(logger.Info, "runOnConnect command stopped")
-		}()
-	}
+	c.conn.open()
+	defer c.conn.close()
 
 	err := c.runInner()
 
@@ -200,7 +187,7 @@ func (c *rtmpConn) runReader() error {
 	}
 
 	c.mutex.Lock()
-	c.conn = conn
+	c.rconn = conn
 	c.mutex.Unlock()
 
 	if !publish {
@@ -287,6 +274,18 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 		defer func() {
 			onReadCmd.Close()
 			c.Log(logger.Info, "runOnRead command stopped")
+		}()
+	}
+
+	if pathConf.RunOnUnread != "" {
+		defer func() {
+			c.Log(logger.Info, "runOnUnread command launched")
+			externalcmd.NewCmd(
+				c.externalCmdPool,
+				pathConf.RunOnUnread,
+				false,
+				res.path.externalCmdEnv(),
+				nil)
 		}()
 	}
 
@@ -656,8 +655,8 @@ func (c *rtmpConn) apiItem() *apiRTMPConn {
 	bytesSent := uint64(0)
 
 	if c.conn != nil {
-		bytesReceived = c.conn.BytesReceived()
-		bytesSent = c.conn.BytesSent()
+		bytesReceived = c.rconn.BytesReceived()
+		bytesSent = c.rconn.BytesSent()
 	}
 
 	return &apiRTMPConn{

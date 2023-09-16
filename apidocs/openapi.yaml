@@ -53,6 +53,8 @@ components:
           type: string
         runOnConnectRestart:
           type: boolean
+        runOnDisconnect:
+          type: string
 
         # RTSP
         rtsp:
@@ -335,10 +337,14 @@ components:
           type: string
         runOnReadyRestart:
           type: boolean
+        runOnNotReady:
+          type: string
         runOnRead:
           type: string
         runOnReadRestart:
           type: boolean
+        runOnUnread:
+          type: string
 
     Path:
       type: object

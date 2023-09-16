@@ -3,6 +3,7 @@ package externalcmd
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -12,6 +13,9 @@ const (
 )
 
 var errTerminated = errors.New("terminated")
+
+// OnExitFunc is the prototype of onExit.
+type OnExitFunc func(error)
 
 // Environment is a Cmd environment.
 type Environment map[string]string
@@ -34,12 +38,16 @@ func NewCmd(
 	cmdstr string,
 	restart bool,
 	env Environment,
-	onExit func(error),
+	onExit OnExitFunc,
 ) *Cmd {
 	// replace variables in both Linux and Windows, in order to allow using the
 	// same commands on both of them.
 	for key, val := range env {
 		cmdstr = strings.ReplaceAll(cmdstr, "$"+key, val)
+	}
+
+	if onExit == nil {
+		onExit = func(_ error) {}
 	}
 
 	e := &Cmd{
@@ -72,12 +80,14 @@ func (e *Cmd) run() {
 			return
 		}
 
-		e.onExit(err)
-
 		if !e.restart {
-			<-e.terminate
+			if err != nil {
+				e.onExit(err)
+			}
 			return
 		}
+
+		e.onExit(fmt.Errorf("command exited with code 0"))
 
 		select {
 		case <-time.After(restartPause):

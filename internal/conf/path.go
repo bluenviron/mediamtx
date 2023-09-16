@@ -116,8 +116,10 @@ type PathConf struct {
 	RunOnDemandCloseAfter   StringDuration `json:"runOnDemandCloseAfter"`
 	RunOnReady              string         `json:"runOnReady"`
 	RunOnReadyRestart       bool           `json:"runOnReadyRestart"`
+	RunOnNotReady           string         `json:"runOnNotReady"`
 	RunOnRead               string         `json:"runOnRead"`
 	RunOnReadRestart        bool           `json:"runOnReadRestart"`
+	RunOnUnread             string         `json:"runOnUnread"`
 }
 
 func (pconf *PathConf) check(conf *Conf, name string) error {
