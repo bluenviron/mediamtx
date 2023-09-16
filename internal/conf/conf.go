@@ -169,6 +169,14 @@ type Conf struct {
 	SRT        bool   `json:"srt"`
 	SRTAddress string `json:"srtAddress"`
 
+	// Record
+	Record                bool           `json:"record"`
+	RecordPath            string         `json:"recordPath"`
+	RecordFormat          string         `json:"recordFormat"`
+	RecordPartDuration    StringDuration `json:"recordPartDuration"`
+	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
+	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
+
 	// Paths
 	Paths map[string]*PathConf `json:"paths"`
 }
@@ -294,6 +302,12 @@ func (conf *Conf) Check() error {
 		}
 	}
 
+	// Record
+
+	if conf.RecordFormat != "fmp4" {
+		return fmt.Errorf("unsupported record format '%s'", conf.RecordFormat)
+	}
+
 	// do not add automatically "all", since user may want to
 	// initialize all paths through API or hot reloading.
 	if conf.Paths == nil {
@@ -378,6 +392,13 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	// SRT
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
+
+	// Record
+	conf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S"
+	conf.RecordFormat = "fmp4"
+	conf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
+	conf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
+	conf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
 
 	type alias Conf
 	d := json.NewDecoder(bytes.NewReader(b))

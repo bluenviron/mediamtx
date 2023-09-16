@@ -235,6 +235,28 @@ srt: yes
 srtAddress: :8890
 
 ###############################################
+# Recording settings
+
+# Record streams to disk.
+record: no
+# Path of recording segments.
+# Extension is added automatically.
+# Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+# Format of recorded segments.
+# Currently the only available format is fmp4 (fragmented MP4).
+recordFormat: fmp4
+# fMP4 files are concatenation of small MP4 files (parts), each with this duration.
+# When a system failure occurs, the last part gets lost.
+# Therefore, the part duration is equal to the RPO (recovery point objective).
+recordPartDuration: 100ms
+# Minimum duration of each segment.
+recordSegmentDuration: 1h
+# Delete segments after this timespan.
+# Set to 0 to disable automatic deletion.
+recordDeleteAfter: 24h
+
+###############################################
 # Path settings
 
 # These settings are path-dependent, and the map key is the name of the path.
@@ -280,6 +302,8 @@ paths:
     sourceOnDemandCloseAfter: 10s
     # Maximum number of readers. Zero means no limit.
     maxReaders: 0
+    # Record streams to disk (if global recording is enabled).
+    record: yes
 
     ###############################################
     # Authentication path settings

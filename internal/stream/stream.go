@@ -3,6 +3,7 @@ package stream
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -20,13 +21,13 @@ type readerFunc func(unit.Unit) error
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers.
 type Stream struct {
-	desc          *description.Session
-	bytesReceived *uint64
+	desc *description.Session
 
-	smedias     map[*description.Media]*streamMedia
-	mutex       sync.RWMutex
-	rtspStream  *gortsplib.ServerStream
-	rtspsStream *gortsplib.ServerStream
+	bytesReceived *uint64
+	smedias       map[*description.Media]*streamMedia
+	mutex         sync.RWMutex
+	rtspStream    *gortsplib.ServerStream
+	rtspsStream   *gortsplib.ServerStream
 }
 
 // New allocates a Stream.
@@ -34,12 +35,11 @@ func New(
 	udpMaxPayloadSize int,
 	desc *description.Session,
 	generateRTPPackets bool,
-	bytesReceived *uint64,
 	decodeErrLogger logger.Writer,
 ) (*Stream, error) {
 	s := &Stream{
-		bytesReceived: bytesReceived,
 		desc:          desc,
+		bytesReceived: new(uint64),
 	}
 
 	s.smedias = make(map[*description.Media]*streamMedia)
@@ -68,6 +68,11 @@ func (s *Stream) Close() {
 // Desc returns the description of the stream.
 func (s *Stream) Desc() *description.Session {
 	return s.desc
+}
+
+// BytesReceived returns received bytes.
+func (s *Stream) BytesReceived() uint64 {
+	return atomic.LoadUint64(s.bytesReceived)
 }
 
 // RTSPStream returns the RTSP stream.

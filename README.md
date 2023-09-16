@@ -48,6 +48,7 @@ And can be read from the server with:
 * Read live streams from the server
 * Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
 * Serve multiple streams at once in separate paths
+* Record streams to disk
 * Authenticate users; use internal or external authentication
 * Redirect readers to other RTSP servers (load balancing)
 * Query and control the server through the API
@@ -106,7 +107,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Authentication](#authentication)
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
-  * [Save streams to disk](#save-streams-to-disk)
+  * [Record streams to disk](#record-streams-to-disk)
   * [Forward streams to another server](#forward-streams-to-another-server)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
@@ -1136,21 +1137,25 @@ paths:
     runOnReadyRestart: yes
 ```
 
-### Save streams to disk
+### Record streams to disk
 
-To save available streams to disk, use _FFmpeg_ inside the `runOnReady` parameter:
+To save available streams to disk, set the `record` and the `recordPath` parameter in the configuration file:
 
 ```yml
-paths:
-  all:
-    runOnReady: >
-      ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
-      -c copy
-      -f segment -strftime 1 -segment_time 60 -segment_format mpegts saved_%Y-%m-%d_%H-%M-%S.ts
-    runOnReadyRestart: yes
+# Record streams to disk.
+record: yes
+# Path of recording segments.
+# Extension is added automatically.
+# Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 ```
 
-In the configuration above, streams are saved in MPEG-TS format, that is resilient to system crashes.
+All available recording parameters are listed in the [sample configuration file](/mediamtx.yml).
+
+Currently the server supports recording tracks encoded with the following codecs:
+
+* Video: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video
+* Audio: Opus, MPEG-4 Audio (AAC), MPEG-1 Audio (MP3)
 
 ### Forward streams to another server
 

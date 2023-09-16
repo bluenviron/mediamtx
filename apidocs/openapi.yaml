@@ -175,6 +175,20 @@ components:
         srtAddress:
           type: string
 
+        # Record
+        record:
+          type: boolean
+        recordPath:
+          type: string
+        recordFormat:
+          type: string
+        recordPartDuration:
+          type: string
+        recordSegmentDuration:
+          type: string
+        recordDeleteAfter:
+          type: string
+
         # Paths
         paths:
           type: object
@@ -197,6 +211,8 @@ components:
           type: string
         maxReaders:
           type: integer
+        record:
+          type: boolean
 
         # Authentication
         publishUser:

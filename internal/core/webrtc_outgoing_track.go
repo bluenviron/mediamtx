@@ -204,8 +204,8 @@ func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrac
 			return nil, err
 		}
 
+		firstReceived := false
 		var lastPTS time.Duration
-		firstNALUReceived := false
 
 		return &webRTCOutgoingTrack{
 			media:  videoMedia,
@@ -218,15 +218,12 @@ func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrac
 					return nil
 				}
 
-				if !firstNALUReceived {
-					firstNALUReceived = true
-					lastPTS = tunit.PTS
-				} else {
-					if tunit.PTS < lastPTS {
-						return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
-					}
-					lastPTS = tunit.PTS
+				if !firstReceived {
+					firstReceived = true
+				} else if tunit.PTS < lastPTS {
+					return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
 				}
+				lastPTS = tunit.PTS
 
 				packets, err := encoder.Encode(tunit.AU)
 				if err != nil {

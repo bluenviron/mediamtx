@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -16,6 +15,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -171,26 +171,30 @@ type pathAPIPathsGetReq struct {
 }
 
 type path struct {
-	rtspAddress       string
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
-	writeQueueSize    int
-	udpMaxPayloadSize int
-	confName          string
-	conf              *conf.PathConf
-	name              string
-	matches           []string
-	wg                *sync.WaitGroup
-	externalCmdPool   *externalcmd.Pool
-	parent            pathParent
+	rtspAddress           string
+	readTimeout           conf.StringDuration
+	writeTimeout          conf.StringDuration
+	writeQueueSize        int
+	udpMaxPayloadSize     int
+	record                bool
+	recordPath            string
+	recordPartDuration    conf.StringDuration
+	recordSegmentDuration conf.StringDuration
+	confName              string
+	conf                  *conf.PathConf
+	name                  string
+	matches               []string
+	wg                    *sync.WaitGroup
+	externalCmdPool       *externalcmd.Pool
+	parent                pathParent
 
 	ctx                            context.Context
 	ctxCancel                      func()
 	confMutex                      sync.RWMutex
 	source                         source
 	stream                         *stream.Stream
+	recordAgent                    *record.Agent
 	readyTime                      time.Time
-	bytesReceived                  *uint64
 	readers                        map[reader]struct{}
 	describeRequestsOnHold         []pathDescribeReq
 	readerAddRequestsOnHold        []pathAddReaderReq
@@ -227,6 +231,10 @@ func newPath(
 	writeTimeout conf.StringDuration,
 	writeQueueSize int,
 	udpMaxPayloadSize int,
+	record bool,
+	recordPath string,
+	recordPartDuration conf.StringDuration,
+	recordSegmentDuration conf.StringDuration,
 	confName string,
 	cnf *conf.PathConf,
 	name string,
@@ -243,6 +251,10 @@ func newPath(
 		writeTimeout:                   writeTimeout,
 		writeQueueSize:                 writeQueueSize,
 		udpMaxPayloadSize:              udpMaxPayloadSize,
+		record:                         record,
+		recordPath:                     recordPath,
+		recordPartDuration:             recordPartDuration,
+		recordSegmentDuration:          recordSegmentDuration,
 		confName:                       confName,
 		conf:                           cnf,
 		name:                           name,
@@ -252,7 +264,6 @@ func newPath(
 		parent:                         parent,
 		ctx:                            ctx,
 		ctxCancel:                      ctxCancel,
-		bytesReceived:                  new(uint64),
 		readers:                        make(map[reader]struct{}),
 		onDemandStaticSourceReadyTimer: newEmptyTimer(),
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
@@ -754,7 +765,12 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return mediasDescription(pa.stream.Desc().Medias)
 			}(),
-			BytesReceived: atomic.LoadUint64(pa.bytesReceived),
+			BytesReceived: func() uint64 {
+				if pa.stream == nil {
+					return 0
+				}
+				return pa.stream.BytesReceived()
+			}(),
 			Readers: func() []interface{} {
 				ret := []interface{}{}
 				for r := range pa.readers {
@@ -868,11 +884,22 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		pa.udpMaxPayloadSize,
 		desc,
 		allocateEncoder,
-		pa.bytesReceived,
 		logger.NewLimitedLogger(pa.source),
 	)
 	if err != nil {
 		return err
+	}
+
+	if pa.record && pa.conf.Record {
+		pa.recordAgent = record.NewAgent(
+			pa.writeQueueSize,
+			pa.recordPath,
+			time.Duration(pa.recordPartDuration),
+			time.Duration(pa.recordSegmentDuration),
+			pa.name,
+			pa.stream,
+			pa,
+		)
 	}
 
 	pa.readyTime = time.Now()
@@ -906,6 +933,11 @@ func (pa *path) setNotReady() {
 		pa.onReadyCmd.Close()
 		pa.onReadyCmd = nil
 		pa.Log(logger.Info, "runOnReady command stopped")
+	}
+
+	if pa.recordAgent != nil {
+		pa.recordAgent.Close()
+		pa.recordAgent = nil
 	}
 
 	if pa.stream != nil {

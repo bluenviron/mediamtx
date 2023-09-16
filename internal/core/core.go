@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"reflect"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/bluenviron/gortsplib/v4"
@@ -16,6 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/confwatcher"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
 )
 
@@ -37,6 +39,7 @@ type Core struct {
 	externalCmdPool *externalcmd.Pool
 	metrics         *metrics
 	pprof           *pprof
+	recordCleaner   *record.Cleaner
 	pathManager     *pathManager
 	rtspServer      *rtspServer
 	rtspsServer     *rtspServer
@@ -237,6 +240,16 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
+	if p.conf.Record &&
+		p.conf.RecordDeleteAfter != 0 &&
+		p.recordCleaner == nil {
+		p.recordCleaner = record.NewCleaner(
+			p.conf.RecordPath,
+			time.Duration(p.conf.RecordDeleteAfter),
+			p,
+		)
+	}
+
 	if p.pathManager == nil {
 		p.pathManager = newPathManager(
 			p.conf.ExternalAuthenticationURL,
@@ -246,6 +259,10 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.WriteTimeout,
 			p.conf.WriteQueueSize,
 			p.conf.UDPMaxPayloadSize,
+			p.conf.Record,
+			p.conf.RecordPath,
+			p.conf.RecordPartDuration,
+			p.conf.RecordSegmentDuration,
 			p.conf.Paths,
 			p.externalCmdPool,
 			p.metrics,
@@ -491,6 +508,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		closeLogger
 
+	closeRecorderCleaner := newConf == nil ||
+		newConf.Record != p.conf.Record ||
+		newConf.RecordPath != p.conf.RecordPath ||
+		newConf.RecordDeleteAfter != p.conf.RecordDeleteAfter
+
 	closePathManager := newConf == nil ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
@@ -499,6 +521,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
+		newConf.Record != p.conf.Record ||
+		newConf.RecordPath != p.conf.RecordPath ||
+		newConf.RecordPartDuration != p.conf.RecordPartDuration ||
+		newConf.RecordSegmentDuration != p.conf.RecordSegmentDuration ||
 		closeMetrics ||
 		closeLogger
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
@@ -690,6 +716,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closePathManager && p.pathManager != nil {
 		p.pathManager.close()
 		p.pathManager = nil
+	}
+
+	if closeRecorderCleaner && p.recordCleaner != nil {
+		p.recordCleaner.Close()
+		p.recordCleaner = nil
 	}
 
 	if closePPROF && p.pprof != nil {

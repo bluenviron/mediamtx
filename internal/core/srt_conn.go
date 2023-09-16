@@ -548,14 +548,24 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 			case *format.MPEG4Video:
 				track := addTrack(medi, &mpegts.CodecMPEG4Video{})
 
+				firstReceived := false
+				var lastPTS time.Duration
+
 				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Video)
 					if tunit.Frame == nil {
 						return nil
 					}
 
+					if !firstReceived {
+						firstReceived = true
+					} else if tunit.PTS < lastPTS {
+						return fmt.Errorf("MPEG-4 Video streams with B-frames are not supported (yet)")
+					}
+					lastPTS = tunit.PTS
+
 					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-					err = w.WriteMPEGxVideo(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
+					err = w.WriteMPEG4Video(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
 					if err != nil {
 						return err
 					}
@@ -565,14 +575,24 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 			case *format.MPEG1Video:
 				track := addTrack(medi, &mpegts.CodecMPEG1Video{})
 
+				firstReceived := false
+				var lastPTS time.Duration
+
 				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Video)
 					if tunit.Frame == nil {
 						return nil
 					}
 
+					if !firstReceived {
+						firstReceived = true
+					} else if tunit.PTS < lastPTS {
+						return fmt.Errorf("MPEG-1 Video streams with B-frames are not supported (yet)")
+					}
+					lastPTS = tunit.PTS
+
 					sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-					err = w.WriteMPEGxVideo(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
+					err = w.WriteMPEG1Video(track, durationGoToMPEGTS(tunit.PTS), tunit.Frame)
 					if err != nil {
 						return err
 					}
