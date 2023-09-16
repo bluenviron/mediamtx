@@ -241,8 +241,8 @@ srtAddress: :8890
 record: no
 # Path of recording segments.
 # Extension is added automatically.
-# Available variables are %path (path name), %Y %m %d %H %M %S (time in strftime format)
-recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S
+# Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 # Format of recorded segments.
 # Currently the only available format is fmp4 (fragmented MP4).
 recordFormat: fmp4

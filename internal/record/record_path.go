@@ -36,6 +36,7 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 	re = strings.ReplaceAll(re, "%H", "([0-9]{2})")
 	re = strings.ReplaceAll(re, "%M", "([0-9]{2})")
 	re = strings.ReplaceAll(re, "%S", "([0-9]{2})")
+	re = strings.ReplaceAll(re, "%f", "([0-9]{6})")
 	r := regexp.MustCompile(re)
 
 	var groupMapping []string
@@ -56,6 +57,7 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 			"%H",
 			"%M",
 			"%S",
+			"%f",
 		} {
 			if strings.HasPrefix(cur, va) {
 				groupMapping = append(groupMapping, va)
@@ -82,6 +84,7 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 	var hour int
 	var minute int
 	var second int
+	var micros int
 
 	for k, v := range values {
 		switch k {
@@ -108,10 +111,14 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 		case "%S":
 			tmp, _ := strconv.ParseInt(v, 10, 64)
 			second = int(tmp)
+
+		case "%f":
+			tmp, _ := strconv.ParseInt(v, 10, 64)
+			micros = int(tmp)
 		}
 	}
 
-	t := time.Date(year, month, day, hour, minute, second, 0, time.Local)
+	t := time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
 
 	return &recordPathParams{
 		path: values["%path"],
@@ -126,5 +133,6 @@ func encodeRecordPath(params *recordPathParams, v string) string {
 	v = strings.ReplaceAll(v, "%H", leadingZeros(params.time.Hour(), 2))
 	v = strings.ReplaceAll(v, "%M", leadingZeros(params.time.Minute(), 2))
 	v = strings.ReplaceAll(v, "%S", leadingZeros(params.time.Second(), 2))
+	v = strings.ReplaceAll(v, "%f", leadingZeros(params.time.Nanosecond()/1000, 6))
 	return v
 }

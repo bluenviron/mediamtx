@@ -1146,8 +1146,8 @@ To save available streams to disk, set the `record` and the `recordPath` paramet
 record: yes
 # Path of recording segments.
 # Extension is added automatically.
-# Available variables are %path (path name), %Y %m %d %H %M %S (time in strftime format)
-recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S
+# Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 ```
 
 All available recording parameters are listed in the [sample configuration file](/mediamtx.yml).
