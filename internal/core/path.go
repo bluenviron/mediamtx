@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
@@ -196,7 +195,6 @@ type path struct {
 	stream                         *stream.Stream
 	recordAgent                    *record.Agent
 	readyTime                      time.Time
-	bytesReceived                  *uint64
 	readers                        map[reader]struct{}
 	describeRequestsOnHold         []pathDescribeReq
 	readerAddRequestsOnHold        []pathAddReaderReq
@@ -266,7 +264,6 @@ func newPath(
 		parent:                         parent,
 		ctx:                            ctx,
 		ctxCancel:                      ctxCancel,
-		bytesReceived:                  new(uint64),
 		readers:                        make(map[reader]struct{}),
 		onDemandStaticSourceReadyTimer: newEmptyTimer(),
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
@@ -768,7 +765,12 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return mediasDescription(pa.stream.Desc().Medias)
 			}(),
-			BytesReceived: atomic.LoadUint64(pa.bytesReceived),
+			BytesReceived: func() uint64 {
+				if pa.stream == nil {
+					return 0
+				}
+				return pa.stream.BytesReceived()
+			}(),
 			Readers: func() []interface{} {
 				ret := []interface{}{}
 				for r := range pa.readers {
@@ -882,7 +884,6 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		pa.udpMaxPayloadSize,
 		desc,
 		allocateEncoder,
-		pa.bytesReceived,
 		logger.NewLimitedLogger(pa.source),
 	)
 	if err != nil {

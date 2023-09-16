@@ -70,21 +70,21 @@ type Agent struct {
 // NewAgent allocates a nAgent.
 func NewAgent(
 	writeQueueSize int,
-	path string,
+	recordPath string,
 	partDuration time.Duration,
 	segmentDuration time.Duration,
 	pathName string,
 	stream *stream.Stream,
 	parent logger.Writer,
 ) *Agent {
-	path, _ = filepath.Abs(path)
-	path = strings.ReplaceAll(path, "%path", pathName)
-	path += ".mp4"
+	recordPath, _ = filepath.Abs(recordPath)
+	recordPath = strings.ReplaceAll(recordPath, "%path", pathName)
+	recordPath += ".mp4"
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	r := &Agent{
-		path:            path,
+		path:            recordPath,
 		partDuration:    partDuration,
 		segmentDuration: segmentDuration,
 		stream:          stream,
@@ -731,7 +731,7 @@ func (r *Agent) updateCodecs() {
 	// if codec parameters have been updated,
 	// and current segment has already written codec parameters on disk,
 	// close current segment.
-	if r.currentSegment != nil && r.currentSegment.initWritten {
+	if r.currentSegment != nil && r.currentSegment.f != nil {
 		r.currentSegment.close() //nolint:errcheck
 		r.currentSegment = nil
 	}

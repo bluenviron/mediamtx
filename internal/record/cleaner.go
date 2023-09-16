@@ -51,19 +51,19 @@ type Cleaner struct {
 
 // NewCleaner allocates a Cleaner.
 func NewCleaner(
-	path string,
+	recordPath string,
 	deleteAfter time.Duration,
 	parent logger.Writer,
 ) *Cleaner {
-	path, _ = filepath.Abs(path)
-	path += ".mp4"
+	recordPath, _ = filepath.Abs(recordPath)
+	recordPath += ".mp4"
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	c := &Cleaner{
 		ctx:         ctx,
 		ctxCancel:   ctxCancel,
-		path:        path,
+		path:        recordPath,
 		deleteAfter: deleteAfter,
 		parent:      parent,
 		done:        make(chan struct{}),
@@ -108,7 +108,7 @@ func (c *Cleaner) run() {
 
 func (c *Cleaner) doRun() error {
 	commonPath := commonPath(c.path)
-	now := time.Now()
+	now := timeNow()
 
 	filepath.Walk(commonPath, func(path string, info fs.FileInfo, err error) error { //nolint:errcheck
 		if err != nil {

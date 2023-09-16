@@ -28,11 +28,7 @@ func (t *track) record(sample *sample) error {
 	}
 
 	if t.r.currentSegment == nil {
-		var err error
-		t.r.currentSegment, err = newSegment(t.r, sample.dts)
-		if err != nil {
-			return err
-		}
+		t.r.currentSegment = newSegment(t.r, sample.dts)
 	}
 
 	sample, t.nextSample = t.nextSample, sample
@@ -54,10 +50,7 @@ func (t *track) record(sample *sample) error {
 			return err
 		}
 
-		t.r.currentSegment, err = newSegment(t.r, t.nextSample.dts)
-		if err != nil {
-			return err
-		}
+		t.r.currentSegment = newSegment(t.r, t.nextSample.dts)
 	}
 
 	return nil
