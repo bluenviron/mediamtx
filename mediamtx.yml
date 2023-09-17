@@ -257,7 +257,7 @@ recordPartDuration: 100ms
 # Minimum duration of each segment.
 recordSegmentDuration: 1h
 # Delete segments after this timespan.
-# Set to 0 to disable automatic deletion.
+# Set to 0s to disable automatic deletion.
 recordDeleteAfter: 24h
 
 ###############################################
