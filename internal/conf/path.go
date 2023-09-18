@@ -380,12 +380,11 @@ func (pconf PathConf) HasOnDemandPublisher() bool {
 
 // UnmarshalJSON implements json.Unmarshaler. It is used to set default values.
 func (pconf *PathConf) UnmarshalJSON(b []byte) error {
-	// Source
-	pconf.Source = "publisher"
-
 	// General
+	pconf.Source = "publisher"
 	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.Record = true
 
 	// Publisher
 	pconf.OverridePublisher = true
