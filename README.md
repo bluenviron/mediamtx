@@ -14,14 +14,14 @@
 
 <br>
 
-_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows users to publish, read and proxy live video and audio streams. It has been conceived as a "media router", a software that routes media streams.
+_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows to publish, read, proxy and record video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other.
 
 Live streams can be published to the server with:
 
 |protocol|variants|video codecs|audio codecs|
 |--------|--------|------------|------------|
 |[SRT clients](#srt-clients)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
-|[SRT servers](#srt-servers)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
+|[SRT cameras and servers](#srt-cameras-and-servers)||H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[WebRTC clients](#webrtc-clients)|Browser-based, WHIP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |[WebRTC servers](#webrtc-servers)|WHEP|AV1, VP9, VP8, H264|Opus, G722, G711|
 |[RTSP clients](#rtsp-clients)|UDP, TCP, RTSPS|AV1, VP9, VP8, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG and any RTP-compatible codec|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), G726, G722, G711, LPCM and any RTP-compatible codec|
@@ -46,7 +46,7 @@ And can be read from the server with:
 
 * Publish live streams to the server
 * Read live streams from the server
-* Streams are automatically converted from a protocol to another. For instance, it's possible to publish a stream with RTSP and read it with HLS
+* Streams are automatically converted from a protocol to another
 * Serve multiple streams at once in separate paths
 * Record streams to disk
 * Authenticate users; use internal or external authentication
@@ -81,7 +81,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [Raspberry Pi Cameras](#raspberry-pi-cameras)
   * [By protocol](#by-protocol)
     * [SRT clients](#srt-clients)
-    * [SRT servers](#srt-servers)
+    * [SRT cameras and servers](#srt-cameras-and-servers)
     * [WebRTC clients](#webrtc-clients)
     * [WebRTC servers](#webrtc-servers)
     * [RTSP clients](#rtsp-clients)
@@ -569,7 +569,7 @@ If you want to publish a stream by using a client in listening mode (i.e. with `
 
 Known clients that can publish with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
 
-#### SRT servers
+#### SRT cameras and servers
 
 In order to ingest into the server a SRT stream from an existing server, camera or client in listening mode (i.e. with `mode=listener` appended to the URL), add the corresponding URL into the `source` parameter of a path:
 
@@ -625,7 +625,7 @@ Known clients that can publish with RTSP are [FFmpeg](#ffmpeg), [GStreamer](#gst
 
 #### RTSP cameras and servers
 
-Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. You can use _MediaMTX_ to connect to one or multiple existing RTSP servers and read their video streams:
+Most IP cameras expose their video stream by using a RTSP server that is embedded into the camera itself. In particular, cameras that are compliant to ONVIF profile S or T meet this requirement. You can use _MediaMTX_ to connect to one or multiple existing RTSP servers and read their video streams:
 
 ```yml
 paths:
@@ -1254,7 +1254,7 @@ The server allows to specify commands that are executed when a certain event hap
 # * RTSP_PORT: RTSP server port
 # * MTX_CONN_TYPE: connection type
 # * MTX_CONN_ID: connection ID
-runOnConnect: curl http://my-custom-server/webhook
+runOnConnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&conn_id=$MTX_CONN_ID
 # Restart the command if it exits.
 runOnConnectRestart: no
 ```
@@ -1263,7 +1263,7 @@ runOnConnectRestart: no
 
 ```yml
 # Environment variables are the same of runOnConnect.
-runOnDisconnect: curl http://my-custom-server/webhook
+runOnDisconnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&conn_id=$MTX_CONN_ID
 ```
 
 `runOnInit` allows to run a command when a path is initialized. This can be used to publish a stream when the server is launched:
@@ -1311,7 +1311,7 @@ paths:
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
-    runOnReady:
+    runOnReady: curl http://my-custom-server/webhook?source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
     # Restart the command if it exits.
     runOnReadyRestart: no
 ```
@@ -1322,7 +1322,7 @@ paths:
 paths:
   mypath:
     # Environment variables are the same of runOnReady.
-    runOnNotReady:
+    runOnNotReady: curl http://my-custom-server/webhook?source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
 
 `runOnRead` allows to run a command when a client starts reading:
@@ -1338,7 +1338,7 @@ paths:
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
-    runOnRead:
+    runOnRead: curl http://my-custom-server/webhook?reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
     # Restart the command if it exits.
     runOnReadRestart: no
 ```
@@ -1350,7 +1350,7 @@ paths:
   mypath:
     # Command to run when a client stops reading.
     # Environment variables are the same of runOnRead.
-    runOnUnread:
+    runOnUnread: curl http://my-custom-server/webhook?reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
 ```
 
 ### API
