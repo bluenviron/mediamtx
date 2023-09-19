@@ -708,7 +708,7 @@ func (r *Agent) Log(level logger.Level, format string, args ...interface{}) {
 }
 
 func (r *Agent) run() {
-	close(r.done)
+	defer close(r.done)
 
 	r.writer.Start()
 
