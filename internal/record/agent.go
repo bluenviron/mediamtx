@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
@@ -629,6 +630,8 @@ func NewAgent(
 				}
 				track := addTrack(codec)
 
+				parsed := false
+
 				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
 					if tunit.Frames == nil {
@@ -644,12 +647,10 @@ func NewAgent(
 							return err
 						}
 
-						if codec.SampleRate != h.SampleRate {
+						if !parsed {
+							parsed = true
 							codec.SampleRate = h.SampleRate
-							r.updateCodecs()
-						}
-						if c := mpeg1audioChannelCount(h.ChannelMode); codec.ChannelCount != c {
-							codec.ChannelCount = c
+							codec.ChannelCount = mpeg1audioChannelCount(h.ChannelMode)
 							r.updateCodecs()
 						}
 
@@ -665,6 +666,72 @@ func NewAgent(
 
 						pts += time.Duration(h.SampleCount()) *
 							time.Second / time.Duration(h.SampleRate)
+					}
+
+					return nil
+				})
+
+			case *format.AC3:
+				codec := &fmp4.CodecAC3{
+					SampleRate:   forma.SampleRate,
+					ChannelCount: forma.ChannelCount,
+					Fscod:        0,
+					Bsid:         8,
+					Bsmod:        0,
+					Acmod:        7,
+					LfeOn:        true,
+					BitRateCode:  7,
+				}
+				track := addTrack(codec)
+
+				parsed := false
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.AC3)
+					if tunit.Frames == nil {
+						return nil
+					}
+
+					pts := tunit.PTS
+
+					for _, frame := range tunit.Frames {
+						var syncInfo ac3.SyncInfo
+						err := syncInfo.Unmarshal(frame)
+						if err != nil {
+							return fmt.Errorf("invalid AC-3 frame: %s", err)
+						}
+
+						var bsi ac3.BSI
+						err = bsi.Unmarshal(frame[5:])
+						if err != nil {
+							return fmt.Errorf("invalid AC-3 frame: %s", err)
+						}
+
+						if !parsed {
+							parsed = true
+							codec.SampleRate = syncInfo.SampleRate()
+							codec.ChannelCount = bsi.ChannelCount()
+							codec.Fscod = syncInfo.Fscod
+							codec.Bsid = bsi.Bsid
+							codec.Bsmod = bsi.Bsmod
+							codec.Acmod = bsi.Acmod
+							codec.LfeOn = bsi.LfeOn
+							codec.BitRateCode = syncInfo.Frmsizecod >> 1
+							r.updateCodecs()
+						}
+
+						err = track.record(&sample{
+							PartSample: &fmp4.PartSample{
+								Payload: frame,
+							},
+							dts: pts,
+						})
+						if err != nil {
+							return err
+						}
+
+						pts += time.Duration(ac3.SamplesPerFrame) *
+							time.Second / time.Duration(codec.SampleRate)
 					}
 
 					return nil
