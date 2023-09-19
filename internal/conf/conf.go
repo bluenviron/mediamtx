@@ -371,6 +371,8 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.RTMP = true
 	conf.RTMPAddress = ":1935"
 	conf.RTMPSAddress = ":1936"
+	conf.RTMPServerKey = "server.key"
+	conf.RTMPServerCert = "server.crt"
 
 	// HLS
 	conf.HLS = true
@@ -391,13 +393,14 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.WebRTCServerCert = "server.crt"
 	conf.WebRTCAllowOrigin = "*"
 	conf.WebRTCICEServers2 = []WebRTCICEServer{{URL: "stun:stun.l.google.com:19302"}}
+	conf.WebRTCICEHostNAT1To1IPs = []string{}
 
 	// SRT
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
 
 	// Record
-	conf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S"
+	conf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
 	conf.RecordFormat = "fmp4"
 	conf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
 	conf.RecordSegmentDuration = 3600 * StringDuration(time.Second)

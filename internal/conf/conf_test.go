@@ -58,11 +58,18 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraContrast:          1,
 			RPICameraSaturation:        1,
 			RPICameraSharpness:         1,
+			RPICameraExposure:          "normal",
+			RPICameraAWB:               "auto",
+			RPICameraDenoise:           "off",
+			RPICameraMetering:          "centre",
 			RPICameraFPS:               30,
 			RPICameraIDRPeriod:         60,
 			RPICameraBitrate:           1000000,
 			RPICameraProfile:           "main",
 			RPICameraLevel:             "4.1",
+			RPICameraAfMode:            "auto",
+			RPICameraAfRange:           "normal",
+			RPICameraAfSpeed:           "normal",
 			RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
 			RunOnDemandStartTimeout:    5 * StringDuration(time.Second),
 			RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
@@ -129,11 +136,18 @@ func TestConfFromFileAndEnv(t *testing.T) {
 		RPICameraContrast:          1,
 		RPICameraSaturation:        1,
 		RPICameraSharpness:         1,
+		RPICameraExposure:          "normal",
+		RPICameraAWB:               "auto",
+		RPICameraDenoise:           "off",
+		RPICameraMetering:          "centre",
 		RPICameraFPS:               30,
 		RPICameraIDRPeriod:         60,
 		RPICameraBitrate:           1000000,
 		RPICameraProfile:           "main",
 		RPICameraLevel:             "4.1",
+		RPICameraAfMode:            "auto",
+		RPICameraAfRange:           "normal",
+		RPICameraAfSpeed:           "normal",
 		RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
 		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
 		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
@@ -161,11 +175,18 @@ func TestConfFromEnvOnly(t *testing.T) {
 		RPICameraContrast:          1,
 		RPICameraSaturation:        1,
 		RPICameraSharpness:         1,
+		RPICameraExposure:          "normal",
+		RPICameraAWB:               "auto",
+		RPICameraDenoise:           "off",
+		RPICameraMetering:          "centre",
 		RPICameraFPS:               30,
 		RPICameraIDRPeriod:         60,
 		RPICameraBitrate:           1000000,
 		RPICameraProfile:           "main",
 		RPICameraLevel:             "4.1",
+		RPICameraAfMode:            "auto",
+		RPICameraAfRange:           "normal",
+		RPICameraAfSpeed:           "normal",
 		RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
 		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
 		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
@@ -290,4 +311,35 @@ func TestConfErrors(t *testing.T) {
 			require.EqualError(t, err, ca.err)
 		})
 	}
+}
+
+func TestSampleConfFile(t *testing.T) {
+	func() {
+		conf1, confPath1, err := Load("../../mediamtx.yml", nil)
+		require.NoError(t, err)
+		require.Equal(t, "../../mediamtx.yml", confPath1)
+		delete(conf1.Paths, "all")
+
+		conf2, confPath2, err := Load("", nil)
+		require.NoError(t, err)
+		require.Equal(t, "", confPath2)
+
+		require.Equal(t, conf1, conf2)
+	}()
+
+	func() {
+		conf1, confPath1, err := Load("../../mediamtx.yml", nil)
+		require.NoError(t, err)
+		require.Equal(t, "../../mediamtx.yml", confPath1)
+
+		tmpf, err := writeTempFile([]byte("paths:\n  all:"))
+		require.NoError(t, err)
+		defer os.Remove(tmpf)
+
+		conf2, confPath2, err := Load(tmpf, nil)
+		require.NoError(t, err)
+		require.Equal(t, tmpf, confPath2)
+
+		require.Equal(t, conf1.Paths, conf2.Paths)
+	}()
 }

@@ -395,11 +395,18 @@ func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 	pconf.RPICameraContrast = 1
 	pconf.RPICameraSaturation = 1
 	pconf.RPICameraSharpness = 1
+	pconf.RPICameraExposure = "normal"
+	pconf.RPICameraAWB = "auto"
+	pconf.RPICameraDenoise = "off"
+	pconf.RPICameraMetering = "centre"
 	pconf.RPICameraFPS = 30
 	pconf.RPICameraIDRPeriod = 60
 	pconf.RPICameraBitrate = 1000000
 	pconf.RPICameraProfile = "main"
 	pconf.RPICameraLevel = "4.1"
+	pconf.RPICameraAfMode = "auto"
+	pconf.RPICameraAfRange = "normal"
+	pconf.RPICameraAfSpeed = "normal"
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
 
 	// External commands
