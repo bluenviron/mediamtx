@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
@@ -262,165 +263,11 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 		decodeErrLogger.Log(logger.Warn, err.Error())
 	})
 
-	var medias []*description.Media //nolint:prealloc
 	var stream *stream.Stream
 
-	var td *mpegts.TimeDecoder
-	decodeTime := func(t int64) time.Duration {
-		if td == nil {
-			td = mpegts.NewTimeDecoder(t)
-		}
-		return td.Decode(t)
-	}
-
-	for _, track := range r.Tracks() { //nolint:dupl
-		var medi *description.Media
-
-		switch tcodec := track.Codec.(type) {
-		case *mpegts.CodecH265:
-			medi = &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H265{
-					PayloadTyp: 96,
-				}},
-			}
-
-			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					AU: au,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecH264:
-			medi = &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.H264{
-					PayloadTyp:        96,
-					PacketizationMode: 1,
-				}},
-			}
-
-			r.OnDataH26x(track, func(pts int64, _ int64, au [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					AU: au,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecMPEG4Video:
-			medi = &description.Media{
-				Type: description.MediaTypeVideo,
-				Formats: []format.Format{&format.MPEG4Video{
-					PayloadTyp: 96,
-				}},
-			}
-
-			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4Video{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					Frame: frame,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecMPEG1Video:
-			medi = &description.Media{
-				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{&format.MPEG1Video{}},
-			}
-
-			r.OnDataMPEGxVideo(track, func(pts int64, frame []byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Video{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					Frame: frame,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecOpus:
-			medi = &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.Opus{
-					PayloadTyp: 96,
-					IsStereo:   (tcodec.ChannelCount == 2),
-				}},
-			}
-
-			r.OnDataOpus(track, func(pts int64, packets [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.Opus{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					Packets: packets,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecMPEG4Audio:
-			medi = &description.Media{
-				Type: description.MediaTypeAudio,
-				Formats: []format.Format{&format.MPEG4Audio{
-					PayloadTyp:       96,
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
-					Config:           &tcodec.Config,
-				}},
-			}
-
-			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					AUs: aus,
-				})
-				return nil
-			})
-
-		case *mpegts.CodecMPEG1Audio:
-			medi = &description.Media{
-				Type:    description.MediaTypeAudio,
-				Formats: []format.Format{&format.MPEG1Audio{}},
-			}
-
-			r.OnDataMPEG1Audio(track, func(pts int64, frames [][]byte) error {
-				stream.WriteUnit(medi, medi.Formats[0], &unit.MPEG1Audio{
-					Base: unit.Base{
-						NTP: time.Now(),
-						PTS: decodeTime(pts),
-					},
-					Frames: frames,
-				})
-				return nil
-			})
-
-		default:
-			continue
-		}
-
-		medias = append(medias, medi)
-	}
-
-	if len(medias) == 0 {
-		return fmt.Errorf("no supported tracks found")
+	medias, err := mpegtsSetupTracks(r, &stream)
+	if err != nil {
+		return err
 	}
 
 	rres := path.startPublisher(pathStartPublisherReq{
@@ -699,6 +546,30 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					err = w.WriteMPEG1Audio(track, durationGoToMPEGTS(tunit.PTS), tunit.Frames)
 					if err != nil {
 						return err
+					}
+					return bw.Flush()
+				})
+
+			case *format.AC3:
+				track := addTrack(medi, &mpegts.CodecAC3{})
+
+				sampleRate := time.Duration(forma.SampleRate)
+
+				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.AC3)
+					if tunit.Frames == nil {
+						return nil
+					}
+
+					for i, frame := range tunit.Frames {
+						framePTS := tunit.PTS + time.Duration(i)*ac3.SamplesPerFrame*
+							time.Second/sampleRate
+
+						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
+						err = w.WriteAC3(track, durationGoToMPEGTS(framePTS), frame)
+						if err != nil {
+							return err
+						}
 					}
 					return bw.Flush()
 				})
