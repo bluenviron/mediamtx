@@ -256,6 +256,48 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			}
 		}
 
+		switch pconf.RPICameraExposure {
+		case "normal", "short", "long", "custom":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraExposure' value")
+		}
+
+		switch pconf.RPICameraAWB {
+		case "auto", "incandescent", "tungsten", "fluorescent", "indoor", "daylight", "cloudy", "custom":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAWB' value")
+		}
+
+		switch pconf.RPICameraDenoise {
+		case "off", "cdn_off", "cdn_fast", "cdn_hq":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraDenoise' value")
+		}
+
+		switch pconf.RPICameraMetering {
+		case "centre", "spot", "matrix", "custom":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraMetering' value")
+		}
+
+		switch pconf.RPICameraAfMode {
+		case "auto", "manual", "continuous":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAfMode' value")
+		}
+
+		switch pconf.RPICameraAfRange {
+		case "normal", "macro", "full":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAfRange' value")
+		}
+
+		switch pconf.RPICameraAfSpeed {
+		case "normal", "fast":
+		default:
+			return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
+		}
+
 	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
 	}
