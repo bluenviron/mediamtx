@@ -70,6 +70,10 @@ type PathConf struct {
 	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart      string         `json:"rtspRangeStart"`
 
+	// SRT
+	PublishSRTPassphrase string `json:"publishSRTPassphrase"`
+	ReadSRTPassphrase    string `json:"readSRTPassphrase"`
+
 	// Redirect
 	SourceRedirect string `json:"sourceRedirect"`
 

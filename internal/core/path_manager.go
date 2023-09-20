@@ -171,6 +171,10 @@ func newPathManager(
 	return pm
 }
 
+func (pm *pathManager) getPathConfs() map[string]*conf.PathConf {
+	return pm.pathConfs
+}
+
 func (pm *pathManager) close() {
 	pm.Log(logger.Debug, "path manager is shutting down")
 	pm.ctxCancel()

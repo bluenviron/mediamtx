@@ -16,7 +16,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
@@ -41,6 +41,7 @@ const (
 type srtConnPathManager interface {
 	addReader(req pathAddReaderReq) pathAddReaderRes
 	addPublisher(req pathAddPublisherReq) pathAddPublisherRes
+	getPathConfs() map[string]*conf.PathConf
 }
 
 type srtConnParent interface {
@@ -174,6 +175,22 @@ func (c *srtConn) runInner() error {
 	return err
 }
 
+func checkSrtPassphrase(passphrase string, which string, pathName string) (bool, string) {
+	retVal := true
+	message := ""
+	if passphrase == "" {
+		message = fmt.Sprintf("No %sSRTPassphrase provided in %s path config\n", which, pathName)
+		retVal = false
+	} else if len(passphrase) < 10 {
+		message = fmt.Sprintf("%sSRTPassphrase in %s path config is too short.  %sSRTPassphrase must be between 10 and 79 characters long\n", which, pathName, which)
+		retVal = false
+	} else if len(passphrase) > 79 {
+		message = fmt.Sprintf("%sSRTPassphrase in %s path config is too long.  %sSRTPassphrase must be between 10 and 79 characters long\n", which, pathName, which)
+		retVal = false
+	}
+	return retVal, message
+}
+
 func (c *srtConn) runInner2(req srtNewConnReq) (bool, error) {
 	parts := strings.Split(req.connReq.StreamId(), ":")
 	if (len(parts) != 2 && len(parts) != 4) || (parts[0] != "read" && parts[0] != "publish") {
@@ -191,8 +208,54 @@ func (c *srtConn) runInner2(req srtNewConnReq) (bool, error) {
 		user, pass = parts[2], parts[3]
 	}
 
+	// get the mediamtx.yml path from the stream id
+	publishPassphrase := ""
+	readPassphrase := ""
+	// get the path config from the pathName
+	pathConfs := c.pathManager.getPathConfs()
+	pathConf, ok := pathConfs[pathName]
+	if ok {
+		// get the passphrase
+		publishPassphrase = pathConf.PublishSRTPassphrase
+		readPassphrase = pathConf.ReadSRTPassphrase
+	} else {
+		fmt.Printf("No path config found for pathName: %s", pathName)
+	}
+
 	if parts[0] == "publish" {
+		// if the publishing connection is encrypted, ensure a valid passphrase is provided in the config file
+		if req.connReq.IsEncrypted() {
+			if ok, msg := checkSrtPassphrase(publishPassphrase, "publish", pathName); ok {
+				err := req.connReq.SetPassphrase(publishPassphrase)
+				if err != nil {
+					return false, errors.New(fmt.Sprintf("Wrong SRT passphrase:  %s", err.Error()))
+				}
+			} else {
+				return false, errors.New(msg)
+			}
+		}
+		// if a publishing passphrase is provided, only allow encrypted connections
+		if publishPassphrase != "" && !req.connReq.IsEncrypted() {
+			msg := fmt.Sprintf("Path %s expects SRT encryption for publishing, but the connection was not encrypted.\n", pathName)
+			return false, errors.New(msg)
+		}
 		return c.runPublish(req, pathName, user, pass)
+	}
+	// if the reading connection is encrypted, ensure a valid passphrase is provided in the config file
+	if req.connReq.IsEncrypted() {
+		if ok, msg := checkSrtPassphrase(readPassphrase, "read", pathName); ok {
+			err := req.connReq.SetPassphrase(readPassphrase)
+			if err != nil {
+				return false, errors.New(fmt.Sprintf("Wrong SRT passphrase:  %s", err.Error()))
+			}
+		} else {
+			return false, errors.New(msg)
+		}
+	}
+	// if a reading passphrase is provided, only allow encrypted connections
+	if readPassphrase != "" && !req.connReq.IsEncrypted() {
+		msg := fmt.Sprintf("Path %s expects SRT encryption for reading, but the connection was not encrypted.\n", pathName)
+		return false, errors.New(msg)
 	}
 	return c.runRead(req, pathName, user, pass)
 }
