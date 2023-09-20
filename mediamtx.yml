@@ -358,15 +358,19 @@ paths:
     # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
     # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
     rtspRangeStart:
+
     ###############################################
     # SRT path settings (when source is a SRT URL) and MediaMTX is acting as SRT listener
     # SRT supports encryption passphrases to protect payload data.  
+    # Note that setting SRT passphrases does not prevent unencrypted reading from the path using another protocol!
     # SRT Passphrases must be strings between 10 and 79 characters long.
+    # Setting a SRT passphrase means that a publisher or reader using SRT MUST use the passphrase to publish or read.
+
     # SRT encryption passphrase required to publish on this path
     publishSRTPassphrase:
     # SRT encryption passphrase require to read from this path
     readSRTPassphrase: 
-    # Note that setting SRT passphrases does not prevent unencrypted reading from the path using another protocol!
+    
     
     ###############################################
     # Redirect path settings (when source is "redirect")
