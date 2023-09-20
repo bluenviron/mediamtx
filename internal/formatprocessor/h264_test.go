@@ -14,53 +14,68 @@ import (
 )
 
 func TestH264DynamicParams(t *testing.T) {
-	forma := &format.H264{
-		PayloadTyp:        96,
-		PacketizationMode: 1,
+	for _, ca := range []string{"standard", "aggregated"} {
+		t.Run(ca, func(t *testing.T) {
+			forma := &format.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+			}
+
+			p, err := New(1472, forma, false)
+			require.NoError(t, err)
+
+			enc, err := forma.CreateEncoder()
+			require.NoError(t, err)
+
+			pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
+			require.NoError(t, err)
+
+			data, err := p.ProcessRTPPacket(pkts[0], time.Time{}, 0, true)
+			require.NoError(t, err)
+
+			require.Equal(t, [][]byte{
+				{byte(h264.NALUTypeIDR)},
+			}, data.(*unit.H264).AU)
+
+			if ca == "standard" {
+				pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}) // SPS
+				require.NoError(t, err)
+
+				_, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, false)
+				require.NoError(t, err)
+
+				pkts, err = enc.Encode([][]byte{{8, 1}}) // PPS
+				require.NoError(t, err)
+
+				_, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, false)
+				require.NoError(t, err)
+			} else {
+				pkts, err = enc.Encode([][]byte{
+					{7, 4, 5, 6}, // SPS
+					{8, 1},       // PPS
+				})
+				require.NoError(t, err)
+
+				_, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, false)
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
+			require.Equal(t, []byte{8, 1}, forma.PPS)
+
+			pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
+			require.NoError(t, err)
+
+			data, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, true)
+			require.NoError(t, err)
+
+			require.Equal(t, [][]byte{
+				{0x07, 4, 5, 6},
+				{0x08, 1},
+				{byte(h264.NALUTypeIDR)},
+			}, data.(*unit.H264).AU)
+		})
 	}
-
-	p, err := New(1472, forma, false)
-	require.NoError(t, err)
-
-	enc, err := forma.CreateEncoder()
-	require.NoError(t, err)
-
-	pkts, err := enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
-	require.NoError(t, err)
-
-	data, err := p.ProcessRTPPacket(pkts[0], time.Time{}, 0, true)
-	require.NoError(t, err)
-
-	require.Equal(t, [][]byte{
-		{byte(h264.NALUTypeIDR)},
-	}, data.(*unit.H264).AU)
-
-	pkts, err = enc.Encode([][]byte{{7, 4, 5, 6}}) // SPS
-	require.NoError(t, err)
-
-	_, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, false)
-	require.NoError(t, err)
-
-	pkts, err = enc.Encode([][]byte{{8, 1}}) // PPS
-	require.NoError(t, err)
-
-	_, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, false)
-	require.NoError(t, err)
-
-	require.Equal(t, []byte{7, 4, 5, 6}, forma.SPS)
-	require.Equal(t, []byte{8, 1}, forma.PPS)
-
-	pkts, err = enc.Encode([][]byte{{byte(h264.NALUTypeIDR)}})
-	require.NoError(t, err)
-
-	data, err = p.ProcessRTPPacket(pkts[0], time.Time{}, 0, true)
-	require.NoError(t, err)
-
-	require.Equal(t, [][]byte{
-		{0x07, 4, 5, 6},
-		{0x08, 1},
-		{byte(h264.NALUTypeIDR)},
-	}, data.(*unit.H264).AU)
 }
 
 func TestH264OversizedPackets(t *testing.T) {
