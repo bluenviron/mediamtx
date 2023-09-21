@@ -94,7 +94,7 @@ func (t *formatProcessorMPEG4Video) ProcessUnit(uu unit.Unit) error { //nolint:d
 
 		ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
 		for _, pkt := range pkts {
-			pkt.Timestamp = ts
+			pkt.Timestamp += ts
 		}
 
 		u.RTPPackets = pkts

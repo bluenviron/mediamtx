@@ -60,7 +60,7 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 		}
 
 		ts := uint32(multiplyAndDivide(pts, time.Duration(t.format.ClockRate()), time.Second))
-		pkt.Timestamp = ts
+		pkt.Timestamp += ts
 
 		rtpPackets = append(rtpPackets, pkt)
 		pts += opus.PacketDuration(packet)
