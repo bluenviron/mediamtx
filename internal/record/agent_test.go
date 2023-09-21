@@ -132,7 +132,7 @@ func TestAgent(t *testing.T) {
 			},
 		})
 
-		stream.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4AudioGeneric{
+		stream.WriteUnit(desc.Medias[2], desc.Medias[2].Formats[0], &unit.MPEG4Audio{
 			Base: unit.Base{
 				PTS: (50 + time.Duration(i)) * time.Second,
 			},

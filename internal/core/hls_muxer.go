@@ -472,12 +472,12 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 		}
 	}
 
-	var audioFormatMPEG4AudioGeneric *format.MPEG4AudioGeneric
-	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4AudioGeneric)
+	var audioFormatMPEG4Audio *format.MPEG4Audio
+	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4Audio)
 
 	if audioMedia != nil {
-		stream.AddReader(m.writer, audioMedia, audioFormatMPEG4AudioGeneric, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4AudioGeneric)
+		stream.AddReader(m.writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
+			tunit := u.(*unit.MPEG4Audio)
 
 			if tunit.AUs == nil {
 				return nil
@@ -496,39 +496,7 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 
 		return audioMedia, &gohlslib.Track{
 			Codec: &codecs.MPEG4Audio{
-				Config: *audioFormatMPEG4AudioGeneric.Config,
-			},
-		}
-	}
-
-	var audioFormatMPEG4AudioLATM *format.MPEG4AudioLATM
-	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4AudioLATM)
-
-	if audioMedia != nil &&
-		audioFormatMPEG4AudioLATM.Config != nil &&
-		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
-		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
-		stream.AddReader(m.writer, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4AudioLATM)
-
-			if tunit.AU == nil {
-				return nil
-			}
-
-			err := m.muxer.WriteMPEG4Audio(
-				tunit.NTP,
-				tunit.PTS,
-				[][]byte{tunit.AU})
-			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
-			}
-
-			return nil
-		})
-
-		return audioMedia, &gohlslib.Track{
-			Codec: &codecs.MPEG4Audio{
-				Config: *audioFormatMPEG4AudioLATM.Config.Programs[0].Layers[0].AudioSpecificConfig,
+				Config: *audioFormatMPEG4Audio.GetConfig(),
 			},
 		}
 	}

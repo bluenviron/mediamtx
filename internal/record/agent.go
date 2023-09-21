@@ -571,16 +571,16 @@ func NewAgent(
 					return nil
 				})
 
-			case *format.MPEG4AudioGeneric:
+			case *format.MPEG4Audio:
 				codec := &fmp4.CodecMPEG4Audio{
-					Config: *forma.Config,
+					Config: *forma.GetConfig(),
 				}
 				track := addTrack(codec)
 
-				sampleRate := time.Duration(forma.Config.SampleRate)
+				sampleRate := time.Duration(forma.ClockRate())
 
 				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4AudioGeneric)
+					tunit := u.(*unit.MPEG4Audio)
 					if tunit.AUs == nil {
 						return nil
 					}
@@ -601,26 +601,6 @@ func NewAgent(
 					}
 
 					return nil
-				})
-
-			case *format.MPEG4AudioLATM:
-				codec := &fmp4.CodecMPEG4Audio{
-					Config: *forma.Config.Programs[0].Layers[0].AudioSpecificConfig,
-				}
-				track := addTrack(codec)
-
-				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4AudioLATM)
-					if tunit.AU == nil {
-						return nil
-					}
-
-					return track.record(&sample{
-						PartSample: &fmp4.PartSample{
-							Payload: tunit.AU,
-						},
-						dts: tunit.PTS,
-					})
 				})
 
 			case *format.MPEG1Audio:

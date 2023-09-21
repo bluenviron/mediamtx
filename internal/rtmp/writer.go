@@ -87,7 +87,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 						case *format.MPEG1Audio:
 							return message.CodecMPEG1Audio
 
-						case *format.MPEG4AudioGeneric, *format.MPEG4AudioLATM:
+						case *format.MPEG4Audio:
 							return message.CodecMPEG4Audio
 
 						default:
@@ -127,12 +127,8 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 
 	var audioConfig *mpeg4audio.AudioSpecificConfig
 
-	switch track := audioTrack.(type) {
-	case *format.MPEG4Audio:
-		audioConfig = track.Config
-
-	case *format.MPEG4AudioLATM:
-		audioConfig = track.Config.Programs[0].Layers[0].AudioSpecificConfig
+	if track, ok := audioTrack.(*format.MPEG4Audio); ok {
+		audioConfig = track.GetConfig()
 	}
 
 	if audioConfig != nil {

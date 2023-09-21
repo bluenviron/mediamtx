@@ -148,9 +148,9 @@ func (s *rtmpSource) runReader(u *url.URL, nconn net.Conn) error {
 		medias = append(medias, audioMedia)
 
 		switch audioFormat.(type) {
-		case *format.MPEG4AudioGeneric:
+		case *format.MPEG4Audio:
 			mc.OnDataMPEG4Audio(func(pts time.Duration, au []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4AudioGeneric{
+				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
 						PTS: pts,
