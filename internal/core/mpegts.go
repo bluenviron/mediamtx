@@ -135,7 +135,7 @@ func mpegtsSetupTracks(r *mpegts.Reader, stream **stream.Stream) ([]*description
 			}
 
 			r.OnDataMPEG4Audio(track, func(pts int64, aus [][]byte) error {
-				(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4AudioGeneric{
+				(*stream).WriteUnit(medi, medi.Formats[0], &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
 						PTS: decodeTime(pts),

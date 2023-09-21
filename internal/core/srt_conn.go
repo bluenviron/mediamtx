@@ -467,13 +467,13 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					return bw.Flush()
 				})
 
-			case *format.MPEG4AudioGeneric:
+			case *format.MPEG4Audio:
 				track := addTrack(medi, &mpegts.CodecMPEG4Audio{
-					Config: *forma.Config,
+					Config: *forma.GetConfig(),
 				})
 
 				res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
-					tunit := u.(*unit.MPEG4AudioGeneric)
+					tunit := u.(*unit.MPEG4Audio)
 					if tunit.AUs == nil {
 						return nil
 					}
@@ -485,29 +485,6 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 					}
 					return bw.Flush()
 				})
-
-			case *format.MPEG4AudioLATM:
-				if forma.Config != nil &&
-					len(forma.Config.Programs) == 1 &&
-					len(forma.Config.Programs[0].Layers) == 1 {
-					track := addTrack(medi, &mpegts.CodecMPEG4Audio{
-						Config: *forma.Config.Programs[0].Layers[0].AudioSpecificConfig,
-					})
-
-					res.stream.AddReader(writer, medi, forma, func(u unit.Unit) error {
-						tunit := u.(*unit.MPEG4AudioLATM)
-						if tunit.AU == nil {
-							return nil
-						}
-
-						sconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-						err = w.WriteMPEG4Audio(track, durationGoToMPEGTS(tunit.PTS), [][]byte{tunit.AU})
-						if err != nil {
-							return err
-						}
-						return bw.Flush()
-					})
-				}
 
 			case *format.Opus:
 				track := addTrack(medi, &mpegts.CodecOpus{

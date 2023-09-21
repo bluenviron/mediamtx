@@ -11,19 +11,19 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type formatProcessorMPEG4AudioGeneric struct {
+type formatProcessorMPEG4Audio struct {
 	udpMaxPayloadSize int
 	format            *format.MPEG4Audio
 	encoder           *rtpmpeg4audio.Encoder
 	decoder           *rtpmpeg4audio.Decoder
 }
 
-func newMPEG4AudioGeneric(
+func newMPEG4Audio(
 	udpMaxPayloadSize int,
 	forma *format.MPEG4Audio,
 	generateRTPPackets bool,
-) (*formatProcessorMPEG4AudioGeneric, error) {
-	t := &formatProcessorMPEG4AudioGeneric{
+) (*formatProcessorMPEG4Audio, error) {
+	t := &formatProcessorMPEG4Audio{
 		udpMaxPayloadSize: udpMaxPayloadSize,
 		format:            forma,
 	}
@@ -38,7 +38,7 @@ func newMPEG4AudioGeneric(
 	return t, nil
 }
 
-func (t *formatProcessorMPEG4AudioGeneric) createEncoder() error {
+func (t *formatProcessorMPEG4Audio) createEncoder() error {
 	t.encoder = &rtpmpeg4audio.Encoder{
 		PayloadMaxSize:   t.udpMaxPayloadSize - 12,
 		PayloadType:      t.format.PayloadTyp,
@@ -49,8 +49,8 @@ func (t *formatProcessorMPEG4AudioGeneric) createEncoder() error {
 	return t.encoder.Init()
 }
 
-func (t *formatProcessorMPEG4AudioGeneric) ProcessUnit(uu unit.Unit) error { //nolint:dupl
-	u := uu.(*unit.MPEG4AudioGeneric)
+func (t *formatProcessorMPEG4Audio) ProcessUnit(uu unit.Unit) error { //nolint:dupl
+	u := uu.(*unit.MPEG4Audio)
 
 	pkts, err := t.encoder.Encode(u.AUs)
 	if err != nil {
@@ -67,13 +67,13 @@ func (t *formatProcessorMPEG4AudioGeneric) ProcessUnit(uu unit.Unit) error { //n
 	return nil
 }
 
-func (t *formatProcessorMPEG4AudioGeneric) ProcessRTPPacket( //nolint:dupl
+func (t *formatProcessorMPEG4Audio) ProcessRTPPacket( //nolint:dupl
 	pkt *rtp.Packet,
 	ntp time.Time,
 	pts time.Duration,
 	hasNonRTSPReaders bool,
 ) (Unit, error) {
-	u := &unit.MPEG4AudioGeneric{
+	u := &unit.MPEG4Audio{
 		Base: unit.Base{
 			RTPPackets: []*rtp.Packet{pkt},
 			NTP:        ntp,

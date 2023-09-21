@@ -63,11 +63,8 @@ func New(
 	case *format.Opus:
 		return newOpus(udpMaxPayloadSize, forma, generateRTPPackets)
 
-	case *format.MPEG4AudioGeneric:
-		return newMPEG4AudioGeneric(udpMaxPayloadSize, forma, generateRTPPackets)
-
-	case *format.MPEG4AudioLATM:
-		return newMPEG4AudioLATM(udpMaxPayloadSize, forma, generateRTPPackets)
+	case *format.MPEG4Audio:
+		return newMPEG4Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
 	case *format.MPEG1Audio:
 		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets)

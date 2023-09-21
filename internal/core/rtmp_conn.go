@@ -395,12 +395,12 @@ func (c *rtmpConn) setupAudio(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 ) (*description.Media, format.Format) {
-	var audioFormatMPEG4Generic *format.MPEG4AudioGeneric
-	audioMedia := stream.Desc().FindFormat(&audioFormatMPEG4Generic)
+	var audioFormatMPEG4Audio *format.MPEG4Audio
+	audioMedia := stream.Desc().FindFormat(&audioFormatMPEG4Audio)
 
 	if audioMedia != nil {
-		stream.AddReader(writer, audioMedia, audioFormatMPEG4Generic, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4AudioGeneric)
+		stream.AddReader(writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
+			tunit := u.(*unit.MPEG4Audio)
 
 			if tunit.AUs == nil {
 				return nil
@@ -410,7 +410,7 @@ func (c *rtmpConn) setupAudio(
 				c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
 				err := (*w).WriteMPEG4Audio(
 					tunit.PTS+time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-						time.Second/time.Duration(audioFormatMPEG4Generic.ClockRate()),
+						time.Second/time.Duration(audioFormatMPEG4Audio.ClockRate()),
 					au,
 				)
 				if err != nil {
@@ -421,28 +421,7 @@ func (c *rtmpConn) setupAudio(
 			return nil
 		})
 
-		return audioMedia, audioFormatMPEG4Generic
-	}
-
-	var audioFormatMPEG4AudioLATM *format.MPEG4AudioLATM
-	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4AudioLATM)
-
-	if audioMedia != nil &&
-		audioFormatMPEG4AudioLATM.Config != nil &&
-		len(audioFormatMPEG4AudioLATM.Config.Programs) == 1 &&
-		len(audioFormatMPEG4AudioLATM.Config.Programs[0].Layers) == 1 {
-		stream.AddReader(writer, audioMedia, audioFormatMPEG4AudioLATM, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4AudioLATM)
-
-			if tunit.AU == nil {
-				return nil
-			}
-
-			c.nconn.SetWriteDeadline(time.Now().Add(time.Duration(c.writeTimeout)))
-			return (*w).WriteMPEG4Audio(tunit.PTS, tunit.AU)
-		})
-
-		return audioMedia, audioFormatMPEG4AudioLATM
+		return audioMedia, audioFormatMPEG4Audio
 	}
 
 	var audioFormatMPEG1 *format.MPEG1Audio
@@ -590,9 +569,9 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 		medias = append(medias, audioMedia)
 
 		switch audioFormat.(type) {
-		case *format.MPEG4AudioGeneric:
+		case *format.MPEG4Audio:
 			r.OnDataMPEG4Audio(func(pts time.Duration, au []byte) {
-				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4AudioGeneric{
+				stream.WriteUnit(audioMedia, audioFormat, &unit.MPEG4Audio{
 					Base: unit.Base{
 						NTP: time.Now(),
 						PTS: pts,
