@@ -493,12 +493,12 @@ func checkSrtPassphrase(passphrase string, which string, pathName string) error 
 	}
 }
 
-// ensure readSRTPassphrase is configured and meets length requirements
+// CheckReadSrtPassphrase ensures readSRTPassphrase is configured and meets length requirements
 func (pconf *PathConf) CheckReadSrtPassphrase(pathName string) error {
 	return checkSrtPassphrase(pconf.ReadSRTPassphrase, "read", pathName)
 }
 
-// ensure publishSRTPassphrase is configured and meets length requirements
+// CheckPublishSrtPassphrase ensures publishSRTPassphrase is configured and meets length requirements
 func (pconf *PathConf) CheckPublishSrtPassphrase(pathName string) error {
 	return checkSrtPassphrase(pconf.PublishSRTPassphrase, "publish", pathName)
 }
