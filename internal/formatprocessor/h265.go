@@ -245,7 +245,7 @@ func (t *formatProcessorH265) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 
 		ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
 		for _, pkt := range pkts {
-			pkt.Timestamp = ts
+			pkt.Timestamp += ts
 		}
 
 		u.RTPPackets = pkts

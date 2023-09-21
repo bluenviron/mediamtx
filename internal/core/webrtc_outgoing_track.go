@@ -68,7 +68,7 @@ func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrac
 				}
 
 				for _, pkt := range packets {
-					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -119,7 +119,7 @@ func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrac
 				}
 
 				for _, pkt := range packets {
-					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -170,7 +170,7 @@ func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrac
 				}
 
 				for _, pkt := range packets {
-					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
@@ -231,7 +231,7 @@ func newWebRTCOutgoingTrackVideo(desc *description.Session) (*webRTCOutgoingTrac
 				}
 
 				for _, pkt := range packets {
-					pkt.Timestamp = tunit.RTPPackets[0].Timestamp
+					pkt.Timestamp += tunit.RTPPackets[0].Timestamp
 					webRTCTrak.WriteRTP(pkt) //nolint:errcheck
 				}
 
