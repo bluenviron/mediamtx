@@ -1,8 +1,11 @@
 name: lint
 
 on:
-  workflow_dispatch:  
-
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    
 jobs:
   code:
     runs-on: ubuntu-22.04
