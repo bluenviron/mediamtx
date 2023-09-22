@@ -6,11 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// valid passphrase cannot be empty
-var emptyPassphrase string = ""
-
 // valid passphrase must be between 10 and 79 characters
 var (
+	emptyPassphrase    string
 	tooShortPassphrase string = "too short"
 	tooLongPassphrase  string = "Corre l'anno 2030" +
 		"E mi ritrovo che di anni quasi ne ho sessanta " +
