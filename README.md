@@ -1155,7 +1155,7 @@ All available recording parameters are listed in the [sample configuration file]
 
 Currently the server supports recording tracks encoded with the following codecs:
 
-* Video: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video
+* Video: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG
 * Audio: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3
 
 ### Forward streams to another server
@@ -1187,7 +1187,7 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 ### Start on boot
 
-#### Linux*
+#### Linux
 
 Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _MediaMTX_ on boot.
 
@@ -1219,7 +1219,7 @@ sudo systemctl enable mediamtx
 sudo systemctl start mediamtx
 ```
 
-#### Windows*
+#### Windows
 
 Download the [WinSW v2 executable](https://github.com/winsw/winsw/releases/download/v2.11.0/WinSW-x64.exe) and place it into the same folder of `mediamtx.exe`.
 

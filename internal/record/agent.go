@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
+	"github.com/bluenviron/mediacommon/pkg/codecs/jpeg"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg1audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4video"
@@ -42,6 +43,61 @@ func mpeg1audioChannelCount(cm mpeg1audio.ChannelMode) int {
 
 	default:
 		return 1
+	}
+}
+
+func jpegExtractSize(image []byte) (int, int, error) {
+	l := len(image)
+	if l < 2 || image[0] != 0xFF || image[1] != jpeg.MarkerStartOfImage {
+		return 0, 0, fmt.Errorf("invalid header")
+	}
+
+	image = image[2:]
+
+	for {
+		if len(image) < 2 {
+			return 0, 0, fmt.Errorf("not enough bits")
+		}
+
+		h0, h1 := image[0], image[1]
+		image = image[2:]
+
+		if h0 != 0xFF {
+			return 0, 0, fmt.Errorf("invalid image")
+		}
+
+		switch h1 {
+		case 0xE0, 0xE1, 0xE2, // JFIF
+			jpeg.MarkerDefineHuffmanTable,
+			jpeg.MarkerComment,
+			jpeg.MarkerDefineQuantizationTable,
+			jpeg.MarkerDefineRestartInterval:
+			mlen := int(image[0])<<8 | int(image[1])
+			if len(image) < mlen {
+				return 0, 0, fmt.Errorf("not enough bits")
+			}
+			image = image[mlen:]
+
+		case jpeg.MarkerStartOfFrame1:
+			mlen := int(image[0])<<8 | int(image[1])
+			if len(image) < mlen {
+				return 0, 0, fmt.Errorf("not enough bits")
+			}
+
+			var sof jpeg.StartOfFrame1
+			err := sof.Unmarshal(image[2:mlen])
+			if err != nil {
+				return 0, 0, err
+			}
+
+			return sof.Width, sof.Height, nil
+
+		case jpeg.MarkerStartOfScan:
+			return 0, 0, fmt.Errorf("SOF not found")
+
+		default:
+			return 0, 0, fmt.Errorf("unknown marker: 0x%.2x", h1)
+		}
 	}
 }
 
@@ -533,7 +589,38 @@ func NewAgent(
 				})
 
 			case *format.MJPEG:
-				// TODO
+				codec := &fmp4.CodecMJPEG{
+					Width:  800,
+					Height: 600,
+				}
+				track := addTrack(codec)
+
+				parsed := false
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.MJPEG)
+					if tunit.Frame == nil {
+						return nil
+					}
+
+					if !parsed {
+						parsed = true
+						width, height, err := jpegExtractSize(tunit.Frame)
+						if err != nil {
+							return err
+						}
+						codec.Width = width
+						codec.Height = height
+						r.updateCodecs()
+					}
+
+					return track.record(&sample{
+						PartSample: &fmp4.PartSample{
+							Payload: tunit.Frame,
+						},
+						dts: tunit.PTS,
+					})
+				})
 
 			case *format.Opus:
 				codec := &fmp4.CodecOpus{

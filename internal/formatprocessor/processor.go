@@ -69,6 +69,9 @@ func New(
 	case *format.MPEG1Audio:
 		return newMPEG1Audio(udpMaxPayloadSize, forma, generateRTPPackets)
 
+	case *format.MJPEG:
+		return newMJPEG(udpMaxPayloadSize, forma, generateRTPPackets)
+
 	case *format.AC3:
 		return newAC3(udpMaxPayloadSize, forma, generateRTPPackets)
 
