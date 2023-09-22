@@ -10,9 +10,13 @@ import (
 var emptyPassphrase string = ""
 
 // valid passphrase must be between 10 and 79 characters
-var tooShortPassphrase string = "too short"
-var tooLongPassphrase string = "Corre l'anno 2030 E mi ritrovo che di anni quasi ne ho sessanta Il mio pizzetto è grigio, e di capelli sono senza"
-var validPassphrase string = "Wherever you go, there you are."
+var (
+	tooShortPassphrase string = "too short"
+	tooLongPassphrase  string = "Corre l'anno 2030" +
+		"E mi ritrovo che di anni quasi ne ho sessanta " +
+		"Il mio pizzetto è grigio, e di capelli sono senza"
+	validPassphrase string = "Wherever you go, there you are."
+)
 
 func TestCheckSrtPassphrase(t *testing.T) {
 	which := "read"
