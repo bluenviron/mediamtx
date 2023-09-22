@@ -16,7 +16,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
@@ -220,11 +220,11 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 		return false, fmt.Errorf("no path config defined for path %s", pathName)
 	}
 	// get the publish SRT passphrase from path config
-	publishSRTPassphrase := res.path.conf.PublishSRTPassphrase
+	publishSRTPassphrase := res.path.safeConf().PublishSRTPassphrase
 
 	if req.connReq.IsEncrypted() {
 		// ensure publish SRT passphrase is valid and set it in the connection request
-		if err := res.path.conf.CheckPublishSrtPassphrase(pathName); err == nil {
+		if err := res.path.safeConf().CheckPublishSrtPassphrase(pathName); err == nil {
 			if err = req.connReq.SetPassphrase(publishSRTPassphrase); err != nil {
 				return false, fmt.Errorf("publisher sent incorrect SRT passphrase:  %s", err.Error())
 			}
@@ -339,11 +339,11 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 		return false, fmt.Errorf("no path config defined for path %s", pathName)
 	}
 	// get the read SRT passphrase from path config
-	readSRTPassphrase := res.path.conf.ReadSRTPassphrase
+	readSRTPassphrase := res.path.safeConf().ReadSRTPassphrase
 
 	if req.connReq.IsEncrypted() {
 		// ensure read SRT passphrase is valid and set it in the connection request
-		if err := res.path.conf.CheckReadSrtPassphrase(pathName); err == nil {
+		if err := res.path.safeConf().CheckReadSrtPassphrase(pathName); err == nil {
 			if err = req.connReq.SetPassphrase(readSRTPassphrase); err != nil {
 				return false, fmt.Errorf("reader sent incorrect SRT passphrase:  %s", err.Error())
 			}
