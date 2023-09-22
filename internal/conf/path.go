@@ -469,21 +469,16 @@ func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 func checkSrtPassphrase(passphrase string, which string, pathName string) error {
 	switch {
 	case passphrase == "":
-		fmt.Printf("%s connection was encrypted, but no %sSRTPassphrase defined in %s path config", which, which, pathName)
 		return fmt.Errorf(
 			"%s connection was encrypted, but no %sSRTPassphrase defined in %s path config",
 			which, which, pathName)
 
 	case len(passphrase) < 10:
-		fmt.Printf("%sSRTPassphrase in %s path config is too short.  %sSRTPassphrase must be between 10 and 79 characters",
-			which, pathName, which)
 		return fmt.Errorf(
 			"%sSRTPassphrase in %s path config is too short.  %sSRTPassphrase must be between 10 and 79 characters",
 			which, pathName, which)
 
 	case len(passphrase) > 79:
-		fmt.Printf("%sSRTPassphrase in %s path config is too long.  %sSRTPassphrase must be between 10 and 79 characters",
-			which, pathName, which)
 		return fmt.Errorf(
 			"%sSRTPassphrase in %s path config is too long.  %sSRTPassphrase must be between 10 and 79 characters",
 			which, pathName, which)
