@@ -88,7 +88,7 @@ func TestWebRTCSource(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/sdp")
 				w.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
-				w.Header().Set("E-Tag", "test_etag")
+				w.Header().Set("ETag", "test_etag")
 				w.Header().Set("Location", "/my/resource/sessionid")
 				w.WriteHeader(http.StatusCreated)
 				w.Write([]byte(pc.LocalDescription().SDP))
