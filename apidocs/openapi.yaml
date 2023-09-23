@@ -239,6 +239,10 @@ components:
           type: boolean
         fallback:
           type: string
+        srtPublishPassphrase:
+          type: string
+        srtReadPassphrase:
+          type: string
 
         # RTSP
         sourceProtocol:

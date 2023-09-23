@@ -338,6 +338,10 @@ paths:
     # if no one is publishing, redirect readers to this path.
     # It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
+    # SRT encryption passphrase required to publish on this path
+    srtPublishPassphrase:
+    # SRT encryption passphrase require to read from this path
+    srtReadPassphrase:
 
     ###############################################
     # RTSP path settings (when source is a RTSP or a RTSPS URL)

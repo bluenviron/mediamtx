@@ -38,6 +38,16 @@ func IsValidPathName(name string) error {
 	return nil
 }
 
+func srtCheckPassphrase(passphrase string) error {
+	switch {
+	case len(passphrase) < 10 || len(passphrase) > 79:
+		return fmt.Errorf("must be between 10 and 79 characters")
+
+	default:
+		return nil
+	}
+}
+
 // PathConf is a path configuration.
 type PathConf struct {
 	Regexp *regexp.Regexp `json:"-"`
@@ -63,6 +73,8 @@ type PathConf struct {
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
 	Fallback                 string `json:"fallback"`
+	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
+	SRTReadPassphrase        string `json:"srtReadPassphrase"`
 
 	// RTSP
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
@@ -359,6 +371,21 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			pconf.ReadUser != "" ||
 			len(pconf.ReadIPs) > 0 {
 			return fmt.Errorf("credentials or IPs can't be used together with 'externalAuthenticationURL'")
+		}
+	}
+
+	// SRT
+
+	if pconf.SRTPublishPassphrase != "" {
+		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
+		}
+	}
+	if pconf.SRTReadPassphrase != "" {
+		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
 		}
 	}
 

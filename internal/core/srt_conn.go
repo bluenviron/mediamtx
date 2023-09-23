@@ -31,6 +31,23 @@ func durationGoToMPEGTS(v time.Duration) int64 {
 	return int64(v.Seconds() * 90000)
 }
 
+func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
+	if passphrase == "" {
+		return nil
+	}
+
+	if !connReq.IsEncrypted() {
+		return fmt.Errorf("connection is encrypted, but not passphrase is defined in configuration")
+	}
+
+	err := connReq.SetPassphrase(passphrase)
+	if err != nil {
+		return fmt.Errorf("invalid passphrase")
+	}
+
+	return nil
+}
+
 type srtConnState int
 
 const (
@@ -222,6 +239,11 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 
 	defer res.path.removePublisher(pathRemovePublisherReq{author: c})
 
+	err := srtCheckPassphrase(req.connReq, res.path.conf.SRTPublishPassphrase)
+	if err != nil {
+		return false, err
+	}
+
 	sconn, err := c.exchangeRequestWithConn(req)
 	if err != nil {
 		return true, err
@@ -313,6 +335,11 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	}
 
 	defer res.path.removeReader(pathRemoveReaderReq{author: c})
+
+	err := srtCheckPassphrase(req.connReq, res.path.conf.SRTReadPassphrase)
+	if err != nil {
+		return false, err
+	}
 
 	sconn, err := c.exchangeRequestWithConn(req)
 	if err != nil {

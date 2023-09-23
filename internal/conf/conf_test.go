@@ -301,6 +301,20 @@ func TestConfErrors(t *testing.T) {
 				"    source: rpiCamera\n",
 			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam1' and 'cam2'",
 		},
+		{
+			"invalid srt publish passphrase",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    srtPublishPassphrase: a\n",
+			`invalid 'srtPublishPassphrase': must be between 10 and 79 characters`,
+		},
+		{
+			"invalid srt read passphrase",
+			"paths:\n" +
+				"  mypath:\n" +
+				"    srtReadPassphrase: a\n",
+			`invalid 'readRTPassphrase': must be between 10 and 79 characters`,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := writeTempFile([]byte(ca.conf))
