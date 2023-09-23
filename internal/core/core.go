@@ -769,7 +769,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	if newConf == nil && p.externalCmdPool != nil {
-		p.Log(logger.Info, "waiting for external commands")
+		p.Log(logger.Info, "waiting for running hooks")
 		p.externalCmdPool.Close()
 	}
 

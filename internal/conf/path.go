@@ -107,7 +107,7 @@ type PathConf struct {
 	RPICameraTextOverlayEnable bool    `json:"rpiCameraTextOverlayEnable"`
 	RPICameraTextOverlay       string  `json:"rpiCameraTextOverlay"`
 
-	// External commands
+	// Hooks
 	RunOnInit               string         `json:"runOnInit"`
 	RunOnInitRestart        bool           `json:"runOnInitRestart"`
 	RunOnDemand             string         `json:"runOnDemand"`
@@ -362,7 +362,7 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
-	// External commands
+	// Hooks
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
 		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
@@ -451,7 +451,7 @@ func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 	pconf.RPICameraAfSpeed = "normal"
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
 
-	// External commands
+	// Hooks
 	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
 
