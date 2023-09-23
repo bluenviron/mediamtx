@@ -67,8 +67,8 @@ type PathConf struct {
 	// RTSP
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
 	SourceAnyPortEnable bool           `json:"sourceAnyPortEnable"`
-	RtspRangeType       RtspRangeType  `json:"rtspRangeType"`
-	RtspRangeStart      string         `json:"rtspRangeStart"`
+	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
+	RTSPRangeStart      string         `json:"rtspRangeStart"`
 
 	// Redirect
 	SourceRedirect string `json:"sourceRedirect"`

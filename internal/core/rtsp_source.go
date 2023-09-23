@@ -15,9 +15,9 @@ import (
 )
 
 func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
-	switch cnf.RtspRangeType {
-	case conf.RtspRangeTypeClock:
-		start, err := time.Parse("20060102T150405Z", cnf.RtspRangeStart)
+	switch cnf.RTSPRangeType {
+	case conf.RTSPRangeTypeClock:
+		start, err := time.Parse("20060102T150405Z", cnf.RTSPRangeStart)
 		if err != nil {
 			return nil, err
 		}
@@ -28,8 +28,8 @@ func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
 			},
 		}, nil
 
-	case conf.RtspRangeTypeNPT:
-		start, err := time.ParseDuration(cnf.RtspRangeStart)
+	case conf.RTSPRangeTypeNPT:
+		start, err := time.ParseDuration(cnf.RTSPRangeStart)
 		if err != nil {
 			return nil, err
 		}
@@ -40,8 +40,8 @@ func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
 			},
 		}, nil
 
-	case conf.RtspRangeTypeSMPTE:
-		start, err := time.ParseDuration(cnf.RtspRangeStart)
+	case conf.RTSPRangeTypeSMPTE:
+		start, err := time.ParseDuration(cnf.RTSPRangeStart)
 		if err != nil {
 			return nil, err
 		}
