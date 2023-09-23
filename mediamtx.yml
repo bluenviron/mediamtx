@@ -448,7 +448,7 @@ paths:
     rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
 
     ###############################################
-    # External commands path settings
+    # Hooks path settings
 
     # Command to run when this path is initialized.
     # This can be used to publish a stream when the server is launched.

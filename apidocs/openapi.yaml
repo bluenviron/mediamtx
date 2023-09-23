@@ -320,7 +320,7 @@ components:
         rpiCameraTextOverlay:
           type: string
 
-        # External commands
+        # Hooks
         runOnInit:
           type: string
         runOnInitRestart:

@@ -54,7 +54,7 @@ And can be read from the server with:
 * Query and control the server through the API
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Read Prometheus-compatible metrics
-* Run external commands (hooks) when clients connect, disconnect, read or publish streams
+* Run hooks (external commands) when clients connect, disconnect, read or publish streams
 * Compatible with Linux, Windows and macOS, does not require any dependency or interpreter, it's a single executable
 
 **Note about rtsp-simple-server**
