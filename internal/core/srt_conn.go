@@ -239,7 +239,7 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 
 	defer res.path.removePublisher(pathRemovePublisherReq{author: c})
 
-	err := srtCheckPassphrase(req.connReq, res.path.conf.PublishSRTPassphrase)
+	err := srtCheckPassphrase(req.connReq, res.path.conf.SRTPublishPassphrase)
 	if err != nil {
 		return false, err
 	}
@@ -336,7 +336,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 	defer res.path.removeReader(pathRemoveReaderReq{author: c})
 
-	err := srtCheckPassphrase(req.connReq, res.path.conf.ReadSRTPassphrase)
+	err := srtCheckPassphrase(req.connReq, res.path.conf.SRTReadPassphrase)
 	if err != nil {
 		return false, err
 	}

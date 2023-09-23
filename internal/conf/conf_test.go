@@ -305,14 +305,14 @@ func TestConfErrors(t *testing.T) {
 			"invalid srt publish passphrase",
 			"paths:\n" +
 				"  mypath:\n" +
-				"    publishSRTPassphrase: a\n",
-			`invalid 'publishSRTPassphrase': must be between 10 and 79 characters`,
+				"    srtPublishPassphrase: a\n",
+			`invalid 'srtPublishPassphrase': must be between 10 and 79 characters`,
 		},
 		{
 			"invalid srt read passphrase",
 			"paths:\n" +
 				"  mypath:\n" +
-				"    readSRTPassphrase: a\n",
+				"    srtReadPassphrase: a\n",
 			`invalid 'readRTPassphrase': must be between 10 and 79 characters`,
 		},
 	} {

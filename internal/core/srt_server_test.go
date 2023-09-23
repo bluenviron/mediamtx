@@ -22,10 +22,10 @@ func TestSRTServer(t *testing.T) {
 
 			switch ca {
 			case "publish passphrase":
-				conf += "    publishSRTPassphrase: 123456789abcde"
+				conf += "    srtPublishPassphrase: 123456789abcde"
 
 			case "read passphrase":
-				conf += "    readSRTPassphrase: 123456789abcde"
+				conf += "    srtReadPassphrase: 123456789abcde"
 			}
 
 			p, ok := newInstance(conf)

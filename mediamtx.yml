@@ -339,9 +339,9 @@ paths:
     # It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
     # SRT encryption passphrase required to publish on this path
-    publishSRTPassphrase:
+    srtPublishPassphrase:
     # SRT encryption passphrase require to read from this path
-    readSRTPassphrase:
+    srtReadPassphrase:
 
     ###############################################
     # RTSP path settings (when source is a RTSP or a RTSPS URL)

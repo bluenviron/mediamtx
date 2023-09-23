@@ -73,8 +73,8 @@ type PathConf struct {
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
 	Fallback                 string `json:"fallback"`
-	PublishSRTPassphrase     string `json:"publishSRTPassphrase"`
-	ReadSRTPassphrase        string `json:"readSRTPassphrase"`
+	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
+	SRTReadPassphrase        string `json:"srtReadPassphrase"`
 
 	// RTSP
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
@@ -376,14 +376,14 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 
 	// SRT
 
-	if pconf.PublishSRTPassphrase != "" {
-		err := srtCheckPassphrase(pconf.PublishSRTPassphrase)
+	if pconf.SRTPublishPassphrase != "" {
+		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
 		if err != nil {
-			return fmt.Errorf("invalid 'publishSRTPassphrase': %v", err)
+			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
 		}
 	}
-	if pconf.ReadSRTPassphrase != "" {
-		err := srtCheckPassphrase(pconf.ReadSRTPassphrase)
+	if pconf.SRTReadPassphrase != "" {
+		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
 		}
