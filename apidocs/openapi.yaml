@@ -239,6 +239,10 @@ components:
           type: boolean
         fallback:
           type: string
+        publishSRTPassphrase:
+          type: string
+        readSRTPassphrase:
+          type: string
 
         # RTSP
         sourceProtocol:
@@ -248,12 +252,6 @@ components:
         rtspRangeType:
           type: string
         rtspRangeStart:
-          type: string
-
-        # SRT
-        publishSRTPassphrase:
-          type: string
-        readSRTPassphrase:
           type: string
 
         # Redirect

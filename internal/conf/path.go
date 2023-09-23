@@ -38,6 +38,16 @@ func IsValidPathName(name string) error {
 	return nil
 }
 
+func srtCheckPassphrase(passphrase string) error {
+	switch {
+	case len(passphrase) < 10 || len(passphrase) > 79:
+		return fmt.Errorf("must be between 10 and 79 characters")
+
+	default:
+		return nil
+	}
+}
+
 // PathConf is a path configuration.
 type PathConf struct {
 	Regexp *regexp.Regexp `json:"-"`
@@ -63,16 +73,14 @@ type PathConf struct {
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
 	Fallback                 string `json:"fallback"`
+	PublishSRTPassphrase     string `json:"publishSRTPassphrase"`
+	ReadSRTPassphrase        string `json:"readSRTPassphrase"`
 
 	// RTSP
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
 	SourceAnyPortEnable bool           `json:"sourceAnyPortEnable"`
 	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart      string         `json:"rtspRangeStart"`
-
-	// SRT
-	PublishSRTPassphrase string `json:"publishSRTPassphrase"`
-	ReadSRTPassphrase    string `json:"readSRTPassphrase"`
 
 	// Redirect
 	SourceRedirect string `json:"sourceRedirect"`
@@ -366,6 +374,21 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
+	// SRT
+
+	if pconf.PublishSRTPassphrase != "" {
+		err := srtCheckPassphrase(pconf.PublishSRTPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'publishSRTPassphrase': %v", err)
+		}
+	}
+	if pconf.ReadSRTPassphrase != "" {
+		err := srtCheckPassphrase(pconf.ReadSRTPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
+		}
+	}
+
 	// Hooks
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
@@ -463,37 +486,4 @@ func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 	d := json.NewDecoder(bytes.NewReader(b))
 	d.DisallowUnknownFields()
 	return d.Decode((*alias)(pconf))
-}
-
-// ensure SRT passphrase is configured and meets length requirements
-func checkSrtPassphrase(passphrase string, which string, pathName string) error {
-	switch {
-	case passphrase == "":
-		return fmt.Errorf(
-			"%s connection was encrypted, but no %sSRTPassphrase defined in %s path config",
-			which, which, pathName)
-
-	case len(passphrase) < 10:
-		return fmt.Errorf(
-			"%sSRTPassphrase in %s path config is too short.  %sSRTPassphrase must be between 10 and 79 characters",
-			which, pathName, which)
-
-	case len(passphrase) > 79:
-		return fmt.Errorf(
-			"%sSRTPassphrase in %s path config is too long.  %sSRTPassphrase must be between 10 and 79 characters",
-			which, pathName, which)
-
-	default:
-		return nil
-	}
-}
-
-// CheckReadSrtPassphrase ensures readSRTPassphrase is configured and meets length requirements
-func (pconf *PathConf) CheckReadSrtPassphrase(pathName string) error {
-	return checkSrtPassphrase(pconf.ReadSRTPassphrase, "read", pathName)
-}
-
-// CheckPublishSrtPassphrase ensures publishSRTPassphrase is configured and meets length requirements
-func (pconf *PathConf) CheckPublishSrtPassphrase(pathName string) error {
-	return checkSrtPassphrase(pconf.PublishSRTPassphrase, "publish", pathName)
 }

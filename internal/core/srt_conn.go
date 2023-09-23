@@ -31,6 +31,23 @@ func durationGoToMPEGTS(v time.Duration) int64 {
 	return int64(v.Seconds() * 90000)
 }
 
+func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
+	if passphrase == "" {
+		return nil
+	}
+
+	if !connReq.IsEncrypted() {
+		return fmt.Errorf("connection is encrypted, but not passphrase is defined in configuration")
+	}
+
+	err := connReq.SetPassphrase(passphrase)
+	if err != nil {
+		return fmt.Errorf("invalid passphrase")
+	}
+
+	return nil
+}
+
 type srtConnState int
 
 const (
@@ -210,33 +227,6 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 		},
 	})
 
-	// if the publishing connection is encrypted, ensure a valid publish SRT passphrase is provided in the config file
-	// ensure res.path is a valid pointer
-	if res.path == nil {
-		return false, fmt.Errorf("no such path %s", pathName)
-	}
-	// ensure res.path.conf is a valid pointer
-	if res.path.conf == nil {
-		return false, fmt.Errorf("no path config defined for path %s", pathName)
-	}
-	// get the publish SRT passphrase from path config
-	publishSRTPassphrase := res.path.safeConf().PublishSRTPassphrase
-
-	if req.connReq.IsEncrypted() {
-		// ensure publish SRT passphrase is valid and set it in the connection request
-		if err := res.path.safeConf().CheckPublishSrtPassphrase(pathName); err == nil {
-			if err = req.connReq.SetPassphrase(publishSRTPassphrase); err != nil {
-				return false, fmt.Errorf("publisher sent incorrect SRT passphrase:  %s", err.Error())
-			}
-		} else {
-			return false, err
-		}
-	}
-	// if a publish SRT passphrase is provided, only allow encrypted connections
-	if publishSRTPassphrase != "" && !req.connReq.IsEncrypted() {
-		return false, fmt.Errorf("publishSRTPassphrase in %s path, but publisher connection was not encrypted", pathName)
-	}
-
 	if res.err != nil {
 		if terr, ok := res.err.(*errAuthentication); ok {
 			// TODO: re-enable. Currently this freezes the listener.
@@ -248,6 +238,11 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 	}
 
 	defer res.path.removePublisher(pathRemovePublisherReq{author: c})
+
+	err := srtCheckPassphrase(req.connReq, res.path.conf.PublishSRTPassphrase)
+	if err != nil {
+		return false, err
+	}
 
 	sconn, err := c.exchangeRequestWithConn(req)
 	if err != nil {
@@ -329,33 +324,6 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 		},
 	})
 
-	// if the reading connection is encrypted, ensure a valid passphrase is provided in the config file
-	// ensure res.path is a valid pointer
-	if res.path == nil {
-		return false, fmt.Errorf("no such path %s", pathName)
-	}
-	// ensure res.path.conf is a valid pointer
-	if res.path.conf == nil {
-		return false, fmt.Errorf("no path config defined for path %s", pathName)
-	}
-	// get the read SRT passphrase from path config
-	readSRTPassphrase := res.path.safeConf().ReadSRTPassphrase
-
-	if req.connReq.IsEncrypted() {
-		// ensure read SRT passphrase is valid and set it in the connection request
-		if err := res.path.safeConf().CheckReadSrtPassphrase(pathName); err == nil {
-			if err = req.connReq.SetPassphrase(readSRTPassphrase); err != nil {
-				return false, fmt.Errorf("reader sent incorrect SRT passphrase:  %s", err.Error())
-			}
-		} else {
-			return false, err
-		}
-	}
-	// if a reading passphrase is provided, only allow encrypted connections
-	if readSRTPassphrase != "" && !req.connReq.IsEncrypted() {
-		return false, fmt.Errorf("readSRTPassphrase in %s path, but reader connection was not encrypted", pathName)
-	}
-
 	if res.err != nil {
 		if terr, ok := res.err.(*errAuthentication); ok {
 			// TODO: re-enable. Currently this freezes the listener.
@@ -367,6 +335,11 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	}
 
 	defer res.path.removeReader(pathRemoveReaderReq{author: c})
+
+	err := srtCheckPassphrase(req.connReq, res.path.conf.ReadSRTPassphrase)
+	if err != nil {
+		return false, err
+	}
 
 	sconn, err := c.exchangeRequestWithConn(req)
 	if err != nil {
