@@ -53,9 +53,9 @@ func PostOffer(
 
 	Location := res.Header.Get("Location")
 
-	etag := res.Header.Get("E-Tag")
+	etag := res.Header.Get("ETag")
 	if etag == "" {
-		return nil, fmt.Errorf("E-Tag is missing")
+		return nil, fmt.Errorf("ETag is missing")
 	}
 
 	sdp, err := io.ReadAll(res.Body)
