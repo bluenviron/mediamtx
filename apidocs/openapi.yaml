@@ -250,6 +250,12 @@ components:
         rtspRangeStart:
           type: string
 
+        # SRT
+        publishSRTPassphrase:
+          type: string
+        readSRTPassphrase:
+          type: string
+
         # Redirect
         sourceRedirect:
           type: string
