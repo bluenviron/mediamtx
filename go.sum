@@ -1,5 +1,5 @@
-github.com/abema/go-mp4 v1.0.0 h1:SvfJv+fi2Bpa1uInouqIYpEUFN3yyYCQMXlf4ijOHf0=
-github.com/abema/go-mp4 v1.0.0/go.mod h1:vPl9t5ZK7K0x68jh12/+ECWBCXoWuIDtNgPtU2f04ws=
+github.com/abema/go-mp4 v1.1.0 h1:wr2uc6ENLtYNw/nRmjIYkAc6ZuAUe88FAUYAeZhcAgE=
+github.com/abema/go-mp4 v1.1.0/go.mod h1:vPl9t5ZK7K0x68jh12/+ECWBCXoWuIDtNgPtU2f04ws=
 github.com/alecthomas/assert/v2 v2.1.0 h1:tbredtNcQnoSd3QBhQWI7QZ3XHOVkw1Moklp2ojoH/0=
 github.com/alecthomas/kong v0.8.0 h1:ryDCzutfIqJPnNn0omnrgHLbAggDQM2VWHikE1xqK7s=
 github.com/alecthomas/kong v0.8.0/go.mod h1:n1iCIO2xS46oE8ZfYCNDqdR0b0wZNrXAIAqro/2132U=
