@@ -447,7 +447,9 @@ func (pconf PathConf) HasOnDemandPublisher() bool {
 	return pconf.RunOnDemand != ""
 }
 
-// UnmarshalJSON implements json.Unmarshaler. It is used to set default values.
+// UnmarshalJSON implements json.Unmarshaler. It is used to:
+// - force DisallowUnknownFields
+// - set default values
 func (pconf *PathConf) UnmarshalJSON(b []byte) error {
 	// General
 	pconf.Source = "publisher"

@@ -63,7 +63,9 @@ func generateStructWithOptionalFields(model interface{}) interface{} {
 
 func loadConfData(ctx *gin.Context) (interface{}, error) {
 	in := generateStructWithOptionalFields(conf.Conf{})
-	err := json.NewDecoder(ctx.Request.Body).Decode(in)
+	d := json.NewDecoder(ctx.Request.Body)
+	d.DisallowUnknownFields()
+	err := d.Decode(in)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +75,9 @@ func loadConfData(ctx *gin.Context) (interface{}, error) {
 
 func loadConfPathData(ctx *gin.Context) (interface{}, error) {
 	in := generateStructWithOptionalFields(conf.PathConf{})
-	err := json.NewDecoder(ctx.Request.Body).Decode(in)
+	d := json.NewDecoder(ctx.Request.Body)
+	d.DisallowUnknownFields()
+	err := d.Decode(in)
 	if err != nil {
 		return nil, err
 	}

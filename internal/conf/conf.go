@@ -335,7 +335,9 @@ func (conf *Conf) Check() error {
 	return nil
 }
 
-// UnmarshalJSON implements json.Unmarshaler. It is used to set default values.
+// UnmarshalJSON implements json.Unmarshaler. It is used to:
+// - force DisallowUnknownFields
+// - set default values
 func (conf *Conf) UnmarshalJSON(b []byte) error {
 	// general
 	conf.LogLevel = LogLevel(logger.Info)
