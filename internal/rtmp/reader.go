@@ -189,6 +189,9 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 				} else if tmsg.Type == message.VideoTypeAU && tmsg.IsKeyFrame {
 					nalus, err := h264.AVCCUnmarshal(tmsg.Payload)
 					if err != nil {
+						if err == h264.ErrAVCCNoNALUs {
+							continue
+						}
 						return nil, nil, err
 					}
 
@@ -477,6 +480,9 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 		case *message.Video:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
+				if err == h264.ErrAVCCNoNALUs {
+					return nil
+				}
 				return fmt.Errorf("unable to decode AVCC: %v", err)
 			}
 
@@ -485,6 +491,9 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 		case *message.ExtendedFramesX:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
+				if err == h264.ErrAVCCNoNALUs {
+					return nil
+				}
 				return fmt.Errorf("unable to decode AVCC: %v", err)
 			}
 
@@ -493,6 +502,9 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 		case *message.ExtendedCodedFrames:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
+				if err == h264.ErrAVCCNoNALUs {
+					return nil
+				}
 				return fmt.Errorf("unable to decode AVCC: %v", err)
 			}
 
@@ -525,6 +537,9 @@ func (r *Reader) OnDataH264(cb OnDataH26xFunc) {
 			case message.VideoTypeAU:
 				au, err := h264.AVCCUnmarshal(msg.Payload)
 				if err != nil {
+					if err == h264.ErrAVCCNoNALUs {
+						return nil
+					}
 					return fmt.Errorf("unable to decode AVCC: %v", err)
 				}
 
