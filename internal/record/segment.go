@@ -65,6 +65,10 @@ func (s *segment) close() error {
 		if err == nil {
 			err = err2
 		}
+
+		if err2 == nil {
+			s.r.onSegmentComplete(s.fpath)
+		}
 	}
 
 	return err

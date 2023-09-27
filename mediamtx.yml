@@ -249,7 +249,7 @@ recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 # Format of recorded segments.
 # Currently the only available format is fmp4 (fragmented MP4).
 recordFormat: fmp4
-# fMP4 files are concatenation of small MP4 files (parts), each with this duration.
+# fMP4 segments are concatenation of small MP4 files (parts), each with this duration.
 # When a system failure occurs, the last part gets lost.
 # Therefore, the part duration is equal to the RPO (recovery point objective).
 recordPartDuration: 100ms
@@ -337,7 +337,7 @@ paths:
     # allow another client to disconnect the current publisher and publish in its place.
     overridePublisher: yes
     # if no one is publishing, redirect readers to this path.
-    # It can be can be a relative path  (i.e. /otherstream) or an absolute RTSP URL.
+    # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
     fallback:
     # SRT encryption passphrase required to publish to this path
     srtPublishPassphrase:
@@ -488,11 +488,11 @@ paths:
     # This is terminated with SIGINT when the stream is not ready anymore.
     # The following environment variables are available:
     # * MTX_PATH: path name
-    # * MTX_SOURCE_TYPE: source type
-    # * MTX_SOURCE_ID: source ID
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
+    # * MTX_SOURCE_TYPE: source type
+    # * MTX_SOURCE_ID: source ID
     runOnReady:
     # Restart the command if it exits.
     runOnReadyRestart: no
@@ -504,14 +504,23 @@ paths:
     # This is terminated with SIGINT when a client stops reading.
     # The following environment variables are available:
     # * MTX_PATH: path name
-    # * MTX_READER_TYPE: reader type
-    # * MTX_READER_ID: reader ID
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
+    # * MTX_READER_TYPE: reader type
+    # * MTX_READER_ID: reader ID
     runOnRead:
     # Restart the command if it exits.
     runOnReadRestart: no
     # Command to run when a client stops reading.
     # Environment variables are the same of runOnRead.
     runOnUnread:
+
+    # Command to run when a record segment is complete.
+    # The following environment variables are available:
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
+    # * G1, G2, ...: regular expression groups, if path name is
+    #   a regular expression.
+    # * MTX_SEGMENT_PATH: segment file path
+    runOnRecordSegmentComplete:

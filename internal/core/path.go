@@ -975,6 +975,20 @@ func (pa *path) startRecording() {
 		time.Duration(pa.recordSegmentDuration),
 		pa.name,
 		pa.stream,
+		func(segmentPath string) {
+			if pa.conf.RunOnRecordSegmentComplete != "" {
+				env := pa.externalCmdEnv()
+				env["MTX_SEGMENT_PATH"] = segmentPath
+
+				pa.Log(logger.Info, "runOnRecordSegmentComplete command launched")
+				externalcmd.NewCmd(
+					pa.externalCmdPool,
+					pa.conf.RunOnRecordSegmentComplete,
+					false,
+					env,
+					nil)
+			}
+		},
 		pa,
 	)
 }

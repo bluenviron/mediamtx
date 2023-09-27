@@ -120,18 +120,19 @@ type PathConf struct {
 	RPICameraTextOverlay       string  `json:"rpiCameraTextOverlay"`
 
 	// Hooks
-	RunOnInit               string         `json:"runOnInit"`
-	RunOnInitRestart        bool           `json:"runOnInitRestart"`
-	RunOnDemand             string         `json:"runOnDemand"`
-	RunOnDemandRestart      bool           `json:"runOnDemandRestart"`
-	RunOnDemandStartTimeout StringDuration `json:"runOnDemandStartTimeout"`
-	RunOnDemandCloseAfter   StringDuration `json:"runOnDemandCloseAfter"`
-	RunOnReady              string         `json:"runOnReady"`
-	RunOnReadyRestart       bool           `json:"runOnReadyRestart"`
-	RunOnNotReady           string         `json:"runOnNotReady"`
-	RunOnRead               string         `json:"runOnRead"`
-	RunOnReadRestart        bool           `json:"runOnReadRestart"`
-	RunOnUnread             string         `json:"runOnUnread"`
+	RunOnInit                  string         `json:"runOnInit"`
+	RunOnInitRestart           bool           `json:"runOnInitRestart"`
+	RunOnDemand                string         `json:"runOnDemand"`
+	RunOnDemandRestart         bool           `json:"runOnDemandRestart"`
+	RunOnDemandStartTimeout    StringDuration `json:"runOnDemandStartTimeout"`
+	RunOnDemandCloseAfter      StringDuration `json:"runOnDemandCloseAfter"`
+	RunOnReady                 string         `json:"runOnReady"`
+	RunOnReadyRestart          bool           `json:"runOnReadyRestart"`
+	RunOnNotReady              string         `json:"runOnNotReady"`
+	RunOnRead                  string         `json:"runOnRead"`
+	RunOnReadRestart           bool           `json:"runOnReadRestart"`
+	RunOnUnread                string         `json:"runOnUnread"`
+	RunOnRecordSegmentComplete string         `json:"runOnRecordSegmentComplete"`
 }
 
 func (pconf *PathConf) check(conf *Conf, name string) error {
@@ -319,6 +320,12 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
 		}
 	}
+	if pconf.SRTReadPassphrase != "" {
+		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
+		}
+	}
 
 	// Publisher
 
@@ -326,6 +333,10 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		pconf.OverridePublisher = true
 	}
 	if pconf.Fallback != "" {
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'fallback' can only be used when source is 'publisher'")
+		}
+
 		if strings.HasPrefix(pconf.Fallback, "/") {
 			err := IsValidPathName(pconf.Fallback[1:])
 			if err != nil {
@@ -336,6 +347,16 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
 			}
+		}
+	}
+	if pconf.SRTPublishPassphrase != "" {
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
+		}
+
+		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
 		}
 	}
 
@@ -374,25 +395,11 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 	}
 
-	// SRT
-
-	if pconf.SRTPublishPassphrase != "" {
-		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
-		if err != nil {
-			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
-		}
-	}
-	if pconf.SRTReadPassphrase != "" {
-		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
-		if err != nil {
-			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
-		}
-	}
-
 	// Hooks
 
 	if pconf.RunOnInit != "" && pconf.Regexp != nil {
-		return fmt.Errorf("a path with a regular expression does not support option 'runOnInit'; use another path")
+		return fmt.Errorf("a path with a regular expression (or path 'all')" +
+			" does not support option 'runOnInit'; use another path")
 	}
 	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
