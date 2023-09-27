@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -135,14 +136,6 @@ func paginate(itemsPtr interface{}, itemsPerPageStr string, pageStr string) (int
 	}
 
 	return paginate2(itemsPtr, itemsPerPage, page), nil
-}
-
-func abortWithError(ctx *gin.Context, err error) {
-	if err == errAPINotFound {
-		ctx.AbortWithStatus(http.StatusNotFound)
-	} else {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
-	}
 }
 
 func paramName(ctx *gin.Context) (string, bool) {
@@ -328,6 +321,30 @@ func (a *api) Log(level logger.Level, format string, args ...interface{}) {
 	a.parent.Log(level, "[API] "+format, args...)
 }
 
+// error coming from something the user inserted into the request.
+func (a *api) writeUserError(ctx *gin.Context, err error) {
+	a.Log(logger.Error, err.Error())
+	ctx.AbortWithStatus(http.StatusBadRequest)
+}
+
+// error coming from the server.
+func (a *api) writeServerError(ctx *gin.Context, err error) {
+	a.Log(logger.Error, err.Error())
+	ctx.AbortWithStatus(http.StatusInternalServerError)
+}
+
+func (a *api) writeNotFound(ctx *gin.Context) {
+	ctx.AbortWithStatus(http.StatusNotFound)
+}
+
+func (a *api) writeServerErrorOrNotFound(ctx *gin.Context, err error) {
+	if err == errAPINotFound {
+		a.writeNotFound(ctx)
+	} else {
+		a.writeServerError(ctx, err)
+	}
+}
+
 func (a *api) onConfigGet(ctx *gin.Context) {
 	a.mutex.Lock()
 	c := a.conf
@@ -339,7 +356,7 @@ func (a *api) onConfigGet(ctx *gin.Context) {
 func (a *api) onConfigSet(ctx *gin.Context) {
 	in, err := loadConfData(ctx)
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -352,7 +369,7 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 
 	err = newConf.Check()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -368,13 +385,13 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
 		return
 	}
 
 	in, err := loadConfPathData(ctx)
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -384,7 +401,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	newConf := a.conf.Clone()
 
 	if _, ok := newConf.Paths[name]; ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, fmt.Errorf("path already exists"))
 		return
 	}
 
@@ -399,7 +416,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 
 	err = newConf.Check()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -415,13 +432,13 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
 		return
 	}
 
 	in, err := loadConfPathData(ctx)
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -432,7 +449,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 
 	newConfPath, ok := newConf.Paths[name]
 	if !ok {
-		ctx.AbortWithStatus(http.StatusNotFound)
+		a.writeNotFound(ctx)
 		return
 	}
 
@@ -440,7 +457,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 
 	err = newConf.Check()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -456,7 +473,7 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
 		return
 	}
 
@@ -464,7 +481,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	defer a.mutex.Unlock()
 
 	if _, ok := a.conf.Paths[name]; !ok {
-		ctx.AbortWithStatus(http.StatusNotFound)
+		a.writeNotFound(ctx)
 		return
 	}
 
@@ -473,7 +490,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 
 	err := newConf.Check()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
@@ -489,14 +506,14 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 func (a *api) onPathsList(ctx *gin.Context) {
 	data, err := a.pathManager.apiPathsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -507,13 +524,13 @@ func (a *api) onPathsList(ctx *gin.Context) {
 func (a *api) onPathsGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
 		return
 	}
 
 	data, err := a.pathManager.apiPathsGet(name)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -523,14 +540,14 @@ func (a *api) onPathsGet(ctx *gin.Context) {
 func (a *api) onRTSPConnsList(ctx *gin.Context) {
 	data, err := a.rtspServer.apiConnsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -541,13 +558,13 @@ func (a *api) onRTSPConnsList(ctx *gin.Context) {
 func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.rtspServer.apiConnsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -557,14 +574,14 @@ func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 	data, err := a.rtspServer.apiSessionsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -575,13 +592,13 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.rtspServer.apiSessionsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -591,13 +608,13 @@ func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	err = a.rtspServer.apiSessionsKick(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -607,14 +624,14 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 	data, err := a.rtspsServer.apiConnsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -625,13 +642,13 @@ func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.rtspsServer.apiConnsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -641,14 +658,14 @@ func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 	data, err := a.rtspsServer.apiSessionsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -659,13 +676,13 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.rtspsServer.apiSessionsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -675,13 +692,13 @@ func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	err = a.rtspsServer.apiSessionsKick(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -691,14 +708,14 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	data, err := a.rtmpServer.apiConnsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -709,13 +726,13 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.rtmpServer.apiConnsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -725,13 +742,13 @@ func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	err = a.rtmpServer.apiConnsKick(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -741,14 +758,14 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 	data, err := a.rtmpsServer.apiConnsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -759,13 +776,13 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.rtmpsServer.apiConnsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -775,13 +792,13 @@ func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	err = a.rtmpsServer.apiConnsKick(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -791,14 +808,14 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
 	data, err := a.hlsManager.apiMuxersList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -809,13 +826,13 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
 		return
 	}
 
 	data, err := a.hlsManager.apiMuxersGet(name)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -825,14 +842,14 @@ func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 	data, err := a.webRTCManager.apiSessionsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -843,13 +860,13 @@ func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.webRTCManager.apiSessionsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -859,13 +876,13 @@ func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	err = a.webRTCManager.apiSessionsKick(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -875,14 +892,14 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 func (a *api) onSRTConnsList(ctx *gin.Context) {
 	data, err := a.srtServer.apiConnsList()
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusInternalServerError)
+		a.writeServerError(ctx, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -893,13 +910,13 @@ func (a *api) onSRTConnsList(ctx *gin.Context) {
 func (a *api) onSRTConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	data, err := a.srtServer.apiConnsGet(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
@@ -909,13 +926,13 @@ func (a *api) onSRTConnsGet(ctx *gin.Context) {
 func (a *api) onSRTConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
+		a.writeUserError(ctx, err)
 		return
 	}
 
 	err = a.srtServer.apiConnsKick(uuid)
 	if err != nil {
-		abortWithError(ctx, err)
+		a.writeServerErrorOrNotFound(ctx, err)
 		return
 	}
 
