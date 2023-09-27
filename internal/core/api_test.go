@@ -155,6 +155,29 @@ func TestAPIConfigSet(t *testing.T) {
 	require.Equal(t, []interface{}{"tcp"}, out["protocols"])
 }
 
+func TestAPIConfigSetUnknownField(t *testing.T) {
+	p, ok := newInstance("api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	b := map[string]interface{}{
+		"test": "asd",
+	}
+
+	byts, err := json.Marshal(b)
+	require.NoError(t, err)
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	req, err := http.NewRequest("POST", "http://localhost:9997/v2/config/set", bytes.NewReader(byts))
+	require.NoError(t, err)
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+}
+
 func TestAPIConfigPathsAdd(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
@@ -177,6 +200,29 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
 	require.Equal(t, "rtsp://127.0.0.1:9999/mypath", out.Paths["my/path"].Source)
 	require.Equal(t, "10s", out.Paths["my/path"].SourceOnDemandStartTimeout)
+}
+
+func TestAPIConfigPathsAddUnknownField(t *testing.T) {
+	p, ok := newInstance("api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	b := map[string]interface{}{
+		"test": "asd",
+	}
+
+	byts, err := json.Marshal(b)
+	require.NoError(t, err)
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	req, err := http.NewRequest("POST", "http://localhost:9997/v2/config/paths/add/my/path", bytes.NewReader(byts))
+	require.NoError(t, err)
+
+	res, err := hc.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
 }
 
 func TestAPIConfigPathsEdit(t *testing.T) {
