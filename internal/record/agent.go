@@ -832,6 +832,8 @@ func NewAgent(
 
 // Close closes the Agent.
 func (r *Agent) Close() {
+	r.Log(logger.Info, "recording stopped")
+
 	r.ctxCancel()
 	<-r.done
 }

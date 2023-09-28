@@ -299,12 +299,6 @@ func (pa *path) Log(level logger.Level, format string, args ...interface{}) {
 	pa.parent.Log(level, "[path "+pa.name+"] "+format, args...)
 }
 
-func (pa *path) safeConf() *conf.PathConf {
-	pa.confMutex.RLock()
-	defer pa.confMutex.RUnlock()
-	return pa.conf
-}
-
 func (pa *path) run() {
 	defer close(pa.done)
 	defer pa.wg.Done()
@@ -512,13 +506,22 @@ func (pa *path) doOnDemandPublisherCloseTimer() {
 }
 
 func (pa *path) doReloadConf(newConf *conf.PathConf) {
+	pa.confMutex.Lock()
+	pa.conf = newConf
+	pa.confMutex.Unlock()
+
 	if pa.conf.HasStaticSource() {
 		go pa.source.(*sourceStatic).reloadConf(newConf)
 	}
 
-	pa.confMutex.Lock()
-	pa.conf = newConf
-	pa.confMutex.Unlock()
+	if pa.recordingEnabled() {
+		if pa.stream != nil && pa.recordAgent == nil {
+			pa.startRecording()
+		}
+	} else if pa.recordAgent != nil {
+		pa.recordAgent.Close()
+		pa.recordAgent = nil
+	}
 }
 
 func (pa *path) doSourceStaticSetReady(req pathSourceStaticSetReadyReq) {
@@ -778,12 +781,22 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	}
 }
 
+func (pa *path) safeConf() *conf.PathConf {
+	pa.confMutex.RLock()
+	defer pa.confMutex.RUnlock()
+	return pa.conf
+}
+
 func (pa *path) shouldClose() bool {
 	return pa.conf.Regexp != nil &&
 		pa.source == nil &&
 		len(pa.readers) == 0 &&
 		len(pa.describeRequestsOnHold) == 0 &&
 		len(pa.readerAddRequestsOnHold) == 0
+}
+
+func (pa *path) recordingEnabled() bool {
+	return pa.record && pa.conf.Record
 }
 
 func (pa *path) externalCmdEnv() externalcmd.Environment {
@@ -886,16 +899,8 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		return err
 	}
 
-	if pa.record && pa.conf.Record {
-		pa.recordAgent = record.NewAgent(
-			pa.writeQueueSize,
-			pa.recordPath,
-			time.Duration(pa.recordPartDuration),
-			time.Duration(pa.recordSegmentDuration),
-			pa.name,
-			pa.stream,
-			pa,
-		)
+	if pa.recordingEnabled() {
+		pa.startRecording()
 	}
 
 	pa.readyTime = time.Now()
@@ -960,6 +965,18 @@ func (pa *path) setNotReady() {
 		pa.stream.Close()
 		pa.stream = nil
 	}
+}
+
+func (pa *path) startRecording() {
+	pa.recordAgent = record.NewAgent(
+		pa.writeQueueSize,
+		pa.recordPath,
+		time.Duration(pa.recordPartDuration),
+		time.Duration(pa.recordSegmentDuration),
+		pa.name,
+		pa.stream,
+		pa,
+	)
 }
 
 func (pa *path) executeRemoveReader(r reader) {

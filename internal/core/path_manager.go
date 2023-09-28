@@ -14,6 +14,8 @@ import (
 func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf) bool {
 	clone := oldPathConf.Clone()
 
+	clone.Record = newPathConf.Record
+
 	clone.RPICameraBrightness = newPathConf.RPICameraBrightness
 	clone.RPICameraContrast = newPathConf.RPICameraContrast
 	clone.RPICameraSaturation = newPathConf.RPICameraSaturation

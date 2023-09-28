@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/sdp"
 	rtspurl "github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/datarhei/gosrt"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp"
@@ -408,4 +409,82 @@ func TestPathMaxReaders(t *testing.T) {
 			require.Error(t, err)
 		}
 	}
+}
+
+func TestPathRecord(t *testing.T) {
+	dir, err := os.MkdirTemp("", "rtsp-path-record")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	p, ok := newInstance("api: yes\n" +
+		"record: yes\n" +
+		"recordPath: " + filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f") + "\n" +
+		"paths:\n" +
+		"  all:\n" +
+		"    record: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	source := gortsplib.Client{}
+	err = source.StartRecording(
+		"rtsp://localhost:8554/mystream",
+		&description.Session{Medias: []*description.Media{testMediaH264}})
+	require.NoError(t, err)
+	defer source.Close()
+
+	for i := 0; i < 4; i++ {
+		err := source.WritePacketRTP(testMediaH264, &rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 1123 + uint16(i),
+				Timestamp:      45343 + 90000*uint32(i),
+				SSRC:           563423,
+			},
+			Payload: []byte{5},
+		})
+		require.NoError(t, err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	files, err := os.ReadDir(filepath.Join(dir, "mystream"))
+	require.NoError(t, err)
+	require.Equal(t, 1, len(files))
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/edit/all", map[string]interface{}{
+		"record": false,
+	}, nil)
+
+	time.Sleep(500 * time.Millisecond)
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/edit/all", map[string]interface{}{
+		"record": true,
+	}, nil)
+
+	time.Sleep(500 * time.Millisecond)
+
+	for i := 4; i < 8; i++ {
+		err := source.WritePacketRTP(testMediaH264, &rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: 1123 + uint16(i),
+				Timestamp:      45343 + 90000*uint32(i),
+				SSRC:           563423,
+			},
+			Payload: []byte{5},
+		})
+		require.NoError(t, err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	files, err = os.ReadDir(filepath.Join(dir, "mystream"))
+	require.NoError(t, err)
+	require.Equal(t, 2, len(files))
 }
