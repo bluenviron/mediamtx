@@ -697,7 +697,7 @@ func (c *srtConn) apiItem() *apiSRTConn {
 	bytesReceived := uint64(0)
 	bytesSent := uint64(0)
 
-	if c.conn != nil {
+	if c.sconn != nil {
 		var s srt.Statistics
 		c.sconn.Stats(&s)
 		bytesReceived = s.Accumulated.ByteRecv
