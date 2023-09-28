@@ -59,6 +59,7 @@ type PathConf struct {
 	SourceOnDemandStartTimeout StringDuration `json:"sourceOnDemandStartTimeout"`
 	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int            `json:"maxReaders"`
+	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
 	Record                     bool           `json:"record"`
 
 	// Authentication
@@ -74,7 +75,6 @@ type PathConf struct {
 	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
 	Fallback                 string `json:"fallback"`
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
-	SRTReadPassphrase        string `json:"srtReadPassphrase"`
 
 	// RTSP
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
