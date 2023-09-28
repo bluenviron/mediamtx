@@ -419,6 +419,8 @@ func (pconf PathConf) Clone() *PathConf {
 		panic(err)
 	}
 
+	dest.Regexp = pconf.Regexp
+
 	return &dest
 }
 

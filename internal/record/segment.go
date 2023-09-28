@@ -3,7 +3,6 @@ package record
 import (
 	"io"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/aler9/writerseeker"
@@ -54,31 +53,31 @@ func newSegment(
 }
 
 func (s *segment) close() error {
+	var err error
+
 	if s.curPart != nil {
-		err := s.flush()
-
-		if s.f != nil {
-			s.r.Log(logger.Debug, "closing segment %s", s.fpath)
-
-			err2 := s.f.Close()
-			if err == nil {
-				err = err2
-			}
-		}
-
-		return err
+		err = s.curPart.close()
 	}
 
-	return nil
+	if s.f != nil {
+		s.r.Log(logger.Debug, "closing segment %s", s.fpath)
+		err2 := s.f.Close()
+		if err == nil {
+			err = err2
+		}
+	}
+
+	return err
 }
 
 func (s *segment) record(track *track, sample *sample) error {
 	if s.curPart == nil {
 		s.curPart = newPart(s, sample.dts)
 	} else if s.curPart.duration() >= s.r.partDuration {
-		err := s.flush()
+		err := s.curPart.close()
+		s.curPart = nil
+
 		if err != nil {
-			s.curPart = nil
 			return err
 		}
 
@@ -86,31 +85,4 @@ func (s *segment) record(track *track, sample *sample) error {
 	}
 
 	return s.curPart.record(track, sample)
-}
-
-func (s *segment) flush() error {
-	if s.f == nil {
-		s.fpath = encodeRecordPath(&recordPathParams{time: timeNow()}, s.r.path)
-		s.r.Log(logger.Debug, "opening segment %s", s.fpath)
-
-		err := os.MkdirAll(filepath.Dir(s.fpath), 0o755)
-		if err != nil {
-			return err
-		}
-
-		f, err := os.Create(s.fpath)
-		if err != nil {
-			return err
-		}
-
-		err = writeInit(f, s.r.tracks)
-		if err != nil {
-			f.Close()
-			return err
-		}
-
-		s.f = f
-	}
-
-	return s.curPart.close()
 }

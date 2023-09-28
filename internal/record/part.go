@@ -2,10 +2,14 @@ package record
 
 import (
 	"io"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/aler9/writerseeker"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+
+	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 func writePart(f io.Writer, partTracks map[*track]*fmp4.PartTrack) error {
@@ -50,6 +54,29 @@ func newPart(
 }
 
 func (p *part) close() error {
+	if p.s.f == nil {
+		p.s.fpath = encodeRecordPath(&recordPathParams{time: timeNow()}, p.s.r.path)
+		p.s.r.Log(logger.Debug, "opening segment %s", p.s.fpath)
+
+		err := os.MkdirAll(filepath.Dir(p.s.fpath), 0o755)
+		if err != nil {
+			return err
+		}
+
+		f, err := os.Create(p.s.fpath)
+		if err != nil {
+			return err
+		}
+
+		err = writeInit(f, p.s.r.tracks)
+		if err != nil {
+			f.Close()
+			return err
+		}
+
+		p.s.f = f
+	}
+
 	return writePart(p.s.f, p.partTracks)
 }
 
