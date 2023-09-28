@@ -213,6 +213,8 @@ components:
           type: string
         maxReaders:
           type: integer
+        srtReadPassphrase:
+          type: string
         record:
           type: boolean
 
@@ -240,8 +242,6 @@ components:
         fallback:
           type: string
         srtPublishPassphrase:
-          type: string
-        srtReadPassphrase:
           type: string
 
         # RTSP
