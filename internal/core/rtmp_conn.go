@@ -644,7 +644,7 @@ func (c *rtmpConn) apiItem() *apiRTMPConn {
 	bytesReceived := uint64(0)
 	bytesSent := uint64(0)
 
-	if c.conn != nil {
+	if c.rconn != nil {
 		bytesReceived = c.rconn.BytesReceived()
 		bytesSent = c.rconn.BytesSent()
 	}
