@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -108,11 +107,12 @@ type sample struct {
 
 // Agent saves streams on disk.
 type Agent struct {
-	path            string
-	partDuration    time.Duration
-	segmentDuration time.Duration
-	stream          *stream.Stream
-	parent          logger.Writer
+	path              string
+	partDuration      time.Duration
+	segmentDuration   time.Duration
+	stream            *stream.Stream
+	onSegmentComplete func(string)
+	parent            logger.Writer
 
 	ctx            context.Context
 	ctxCancel      func()
@@ -132,23 +132,28 @@ func NewAgent(
 	segmentDuration time.Duration,
 	pathName string,
 	stream *stream.Stream,
+	onSegmentComplete func(string),
 	parent logger.Writer,
 ) *Agent {
-	recordPath, _ = filepath.Abs(recordPath)
 	recordPath = strings.ReplaceAll(recordPath, "%path", pathName)
 	recordPath += ".mp4"
+
+	if onSegmentComplete == nil {
+		onSegmentComplete = func(_ string) {}
+	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	r := &Agent{
-		path:            recordPath,
-		partDuration:    partDuration,
-		segmentDuration: segmentDuration,
-		stream:          stream,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		done:            make(chan struct{}),
+		path:              recordPath,
+		partDuration:      partDuration,
+		segmentDuration:   segmentDuration,
+		stream:            stream,
+		onSegmentComplete: onSegmentComplete,
+		parent:            parent,
+		ctx:               ctx,
+		ctxCancel:         ctxCancel,
+		done:              make(chan struct{}),
 	}
 
 	r.writer = asyncwriter.New(writeQueueSize, r)

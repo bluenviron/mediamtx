@@ -1158,6 +1158,34 @@ Currently the server supports recording tracks encoded with the following codecs
 * Video: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG
 * Audio: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3
 
+To upload recordings to a remote location, you can use _MediaMTX_ together with [rclone](https://github.com/rclone/rclone), a command line tool that provides file synchronization capabilities with a huge variety of services (including S3, FTP, SMB, Google Drive):
+
+1. Download and install [rclone](https://github.com/rclone/rclone).
+
+2. Configure _rclone_:
+
+   ```
+   rclone config
+   ```
+
+3. Place `rclone` into the `runOnInit` and `runOnRecordSegmentComplete` hooks:
+
+   ```yml
+   record: yes
+
+   paths:
+     mypath:
+       # this is needed to sync segments after a crash.
+       # replace myconfig with the name of the rclone config.
+       runOnInit: rclone sync -v ./recordings myconfig:/my-path/recordings
+
+       # this is called when a segment has been finalized.
+       # replace myconfig with the name of the rclone config.
+       runOnRecordSegmentComplete: rclone sync -v --min-age=1ms ./recordings myconfig:/my-path/recordings
+   ```
+
+   If you want to delete local segments after they are uploaded, replace `rclone sync` with `rclone move`.
+
 ### Forward streams to another server
 
 To forward incoming streams to another server, use _FFmpeg_ inside the `runOnReady` parameter:
@@ -1311,7 +1339,7 @@ paths:
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
-    runOnReady: curl http://my-custom-server/webhook?source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+    runOnReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
     # Restart the command if it exits.
     runOnReadyRestart: no
 ```
@@ -1322,7 +1350,7 @@ paths:
 paths:
   mypath:
     # Environment variables are the same of runOnReady.
-    runOnNotReady: curl http://my-custom-server/webhook?source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+    runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
 
 `runOnRead` allows to run a command when a client starts reading:
@@ -1338,7 +1366,7 @@ paths:
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
-    runOnRead: curl http://my-custom-server/webhook?reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
+    runOnRead: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
     # Restart the command if it exits.
     runOnReadRestart: no
 ```
@@ -1350,7 +1378,22 @@ paths:
   mypath:
     # Command to run when a client stops reading.
     # Environment variables are the same of runOnRead.
-    runOnUnread: curl http://my-custom-server/webhook?reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
+    runOnUnread: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
+```
+
+`runOnRecordSegmentComplete` allows to run a command when a record segment is complete:
+
+```yml
+paths:
+  mypath:
+    # Command to run when a record segment is complete.
+    # The following environment variables are available:
+    # * MTX_PATH: path name
+    # * RTSP_PORT: RTSP server port
+    # * G1, G2, ...: regular expression groups, if path name is
+    #   a regular expression.
+    # * MTX_SEGMENT_PATH: segment file path
+    runOnRecordSegmentComplete: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
 
 ### API

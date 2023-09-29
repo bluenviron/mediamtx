@@ -55,7 +55,6 @@ func NewCleaner(
 	deleteAfter time.Duration,
 	parent logger.Writer,
 ) *Cleaner {
-	recordPath, _ = filepath.Abs(recordPath)
 	recordPath += ".mp4"
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
