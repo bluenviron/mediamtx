@@ -282,6 +282,20 @@ func TestConfErrors(t *testing.T) {
 				"    srtReadPassphrase: a\n",
 			`invalid 'readRTPassphrase': must be between 10 and 79 characters`,
 		},
+		{
+			"all_others aliases",
+			"paths:\n" +
+				"  all:\n" +
+				"  all_others:\n",
+			`all_others, all and '~^.*$' are aliases`,
+		},
+		{
+			"all_others aliases",
+			"paths:\n" +
+				"  all_others:\n" +
+				"  ~^.*$:\n",
+			`all_others, all and '~^.*$' are aliases`,
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			tmpf, err := writeTempFile([]byte(ca.conf))
@@ -314,7 +328,7 @@ func TestSampleConfFile(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
 
-		tmpf, err := writeTempFile([]byte("paths:\n  all:"))
+		tmpf, err := writeTempFile([]byte("paths:\n  all_others:"))
 		require.NoError(t, err)
 		defer os.Remove(tmpf)
 

@@ -18,7 +18,7 @@ func TestSRTServer(t *testing.T) {
 	} {
 		t.Run(ca, func(t *testing.T) {
 			conf := "paths:\n" +
-				"  all:\n"
+				"  all_others:\n"
 
 			switch ca {
 			case "publish passphrase":

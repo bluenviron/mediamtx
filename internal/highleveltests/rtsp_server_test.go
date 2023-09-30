@@ -47,7 +47,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 					"webrtc: no\n" +
 					"readTimeout: 20s\n" +
 					"paths:\n" +
-					"  all:\n")
+					"  all_others:\n")
 				require.Equal(t, true, ok)
 				defer p.Close()
 			} else {
@@ -71,7 +71,7 @@ func TestRTSPServerPublishRead(t *testing.T) {
 					"serverCert: " + serverCertFpath + "\n" +
 					"serverKey: " + serverKeyFpath + "\n" +
 					"paths:\n" +
-					"  all:\n")
+					"  all_others:\n")
 				require.Equal(t, true, ok)
 				defer p.Close()
 			}

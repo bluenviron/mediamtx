@@ -531,16 +531,15 @@ pathDefaults:
 # Path settings
 
 # Settings in "paths" are applied to specific paths, and the map key
-# is the name of the path.
+# is the name of the path. Any setting in "pathDefaults" can be overridden.
 # It's possible to use regular expressions by using a tilde as prefix,
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
-# Settings under path "all" are applied to all paths that do not match
-# another entry.
 paths:
-  all:
-
-  # any setting in "pathDefaults" can be overridden here.
-  # for instance:
+  # example:
   # my_camera:
   #   source: rtsp://my_camera
+
+  # Settings under path "all_others" are applied to all paths that
+  # do not match another entry.
+  all_others:

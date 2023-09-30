@@ -170,18 +170,18 @@ func TestWebRTCRead(t *testing.T) {
 			switch auth {
 			case "none":
 				conf = "paths:\n" +
-					"  all:\n"
+					"  all_others:\n"
 
 			case "internal":
 				conf = "paths:\n" +
-					"  all:\n" +
+					"  all_others:\n" +
 					"    readUser: myuser\n" +
 					"    readPass: mypass\n"
 
 			case "external":
 				conf = "externalAuthenticationURL: http://localhost:9120/auth\n" +
 					"paths:\n" +
-					"  all:\n"
+					"  all_others:\n"
 			}
 
 			p, ok := newInstance(conf)
@@ -278,7 +278,7 @@ func TestWebRTCRead(t *testing.T) {
 
 func TestWebRTCReadNotFound(t *testing.T) {
 	p, ok := newInstance("paths:\n" +
-		"  all:\n")
+		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
@@ -323,18 +323,18 @@ func TestWebRTCPublish(t *testing.T) {
 			switch auth {
 			case "none":
 				conf = "paths:\n" +
-					"  all:\n"
+					"  all_others:\n"
 
 			case "internal":
 				conf = "paths:\n" +
-					"  all:\n" +
+					"  all_others:\n" +
 					"    publishUser: myuser\n" +
 					"    publishPass: mypass\n"
 
 			case "external":
 				conf = "externalAuthenticationURL: http://localhost:9120/auth\n" +
 					"paths:\n" +
-					"  all:\n"
+					"  all_others:\n"
 			}
 
 			p, ok := newInstance(conf)

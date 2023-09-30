@@ -34,7 +34,7 @@ func TestMetrics(t *testing.T) {
 		"serverCert: " + serverCertFpath + "\n" +
 		"serverKey: " + serverKeyFpath + "\n" +
 		"paths:\n" +
-		"  all:\n")
+		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 

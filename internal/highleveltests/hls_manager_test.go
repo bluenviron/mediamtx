@@ -13,7 +13,7 @@ import (
 
 func TestHLSServerRead(t *testing.T) {
 	p, ok := newInstance("paths:\n" +
-		"  all:\n")
+		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
@@ -48,7 +48,7 @@ func TestHLSServerAuth(t *testing.T) {
 	} {
 		t.Run(result, func(t *testing.T) {
 			conf := "paths:\n" +
-				"  all:\n" +
+				"  all_others:\n" +
 				"    readUser: testreader\n" +
 				"    readPass: testpass\n" +
 				"    readIPs: [127.0.0.0/16]\n"

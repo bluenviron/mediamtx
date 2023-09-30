@@ -592,7 +592,7 @@ func TestAPIPathsList(t *testing.T) {
 func TestAPIPathsGet(t *testing.T) {
 	p, ok := newInstance("api: yes\n" +
 		"paths:\n" +
-		"  all:\n")
+		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
@@ -687,7 +687,7 @@ func TestAPIProtocolList(t *testing.T) {
 			}
 
 			conf += "paths:\n" +
-				"  all:\n"
+				"  all_others:\n"
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
@@ -973,7 +973,7 @@ func TestAPIProtocolGet(t *testing.T) {
 			}
 
 			conf += "paths:\n" +
-				"  all:\n"
+				"  all_others:\n"
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
@@ -1262,7 +1262,7 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 			}
 
 			conf += "paths:\n" +
-				"  all:\n"
+				"  all_others:\n"
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
@@ -1340,7 +1340,7 @@ func TestAPIProtocolKick(t *testing.T) {
 			}
 
 			conf += "paths:\n" +
-				"  all:\n"
+				"  all_others:\n"
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)
@@ -1475,7 +1475,7 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 			}
 
 			conf += "paths:\n" +
-				"  all:\n"
+				"  all_others:\n"
 
 			p, ok := newInstance(conf)
 			require.Equal(t, true, ok)

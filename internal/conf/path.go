@@ -209,7 +209,7 @@ func (pconf Path) Clone() *Path {
 
 func (pconf *Path) check(conf *Conf, name string) error {
 	switch {
-	case name == "all":
+	case name == "all_others", name == "all":
 		pconf.Regexp = regexp.MustCompile("^.*$")
 
 	case name == "" || name[0] != '~': // normal path
