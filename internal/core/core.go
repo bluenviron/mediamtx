@@ -211,7 +211,10 @@ func (p *Core) createResources(initial bool) error {
 	if initial {
 		p.Log(logger.Info, "MediaMTX %s", version)
 
-		if p.confPath == "" {
+		if p.confPath != "" {
+			a, _ := filepath.Abs(p.confPath)
+			p.Log(logger.Info, "configuration loaded from %s", a)
+		} else {
 			list := make([]string, len(defaultConfPaths))
 			for i, pa := range defaultConfPaths {
 				a, _ := filepath.Abs(pa)
@@ -224,8 +227,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 
 		// on Linux, try to raise the number of file descriptors that can be opened
-		// to allow the maximum possible number of clients
-		// do not check for errors
+		// to allow the maximum possible number of clients.
 		rlimit.Raise() //nolint:errcheck
 
 		gin.SetMode(gin.ReleaseMode)
