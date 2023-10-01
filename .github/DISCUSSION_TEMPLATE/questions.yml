@@ -1,0 +1,16 @@
+body:
+
+  - type: textarea
+    attributes:
+      label: Question
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        Note: If you are asking for help because you're having trouble doing something, provide enough informations to replicate the problem. In particular, include in the question:
+
+        * the server version you are using
+        * precise instructions on how to replicate the problem
+        * server logs with setting `logLevel` set to `debug`
