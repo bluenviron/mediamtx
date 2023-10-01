@@ -30,7 +30,7 @@ func (d *StringDuration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// UnmarshalEnv implements envUnmarshaler.
-func (d *StringDuration) UnmarshalEnv(s string) error {
-	return d.UnmarshalJSON([]byte(`"` + s + `"`))
+// UnmarshalEnv implements env.Unmarshaler.
+func (d *StringDuration) UnmarshalEnv(_ string, v string) error {
+	return d.UnmarshalJSON([]byte(`"` + v + `"`))
 }

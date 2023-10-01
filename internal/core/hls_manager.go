@@ -11,7 +11,7 @@ import (
 )
 
 type hlsManagerAPIMuxersListRes struct {
-	data *apiHLSMuxersList
+	data *apiHLSMuxerList
 	err  error
 }
 
@@ -189,7 +189,7 @@ outer:
 			delete(m.muxers, c.PathName())
 
 		case req := <-m.chAPIMuxerList:
-			data := &apiHLSMuxersList{
+			data := &apiHLSMuxerList{
 				Items: []*apiHLSMuxer{},
 			}
 
@@ -275,7 +275,7 @@ func (m *hlsManager) pathNotReady(pa *path) {
 }
 
 // apiMuxersList is called by api.
-func (m *hlsManager) apiMuxersList() (*apiHLSMuxersList, error) {
+func (m *hlsManager) apiMuxersList() (*apiHLSMuxerList, error) {
 	req := hlsManagerAPIMuxersListReq{
 		res: make(chan hlsManagerAPIMuxersListRes),
 	}

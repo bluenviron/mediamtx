@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-func createRangeHeader(cnf *conf.PathConf) (*headers.Range, error) {
+func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
 	switch cnf.RTSPRangeType {
 	case conf.RTSPRangeTypeClock:
 		start, err := time.Parse("20060102T150405Z", cnf.RTSPRangeStart)
@@ -91,7 +91,7 @@ func (s *rtspSource) Log(level logger.Level, format string, args ...interface{})
 }
 
 // run implements sourceStaticImpl.
-func (s *rtspSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
+func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *conf.Path) error {
 	s.Log(logger.Debug, "connecting")
 
 	decodeErrLogger := logger.NewLimitedLogger(s)

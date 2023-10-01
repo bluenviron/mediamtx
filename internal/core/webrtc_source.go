@@ -48,7 +48,7 @@ func (s *webRTCSource) Log(level logger.Level, format string, args ...interface{
 }
 
 // run implements sourceStaticImpl.
-func (s *webRTCSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf.PathConf) error {
+func (s *webRTCSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Path) error {
 	s.Log(logger.Debug, "connecting")
 
 	u, err := url.Parse(cnf.Source)

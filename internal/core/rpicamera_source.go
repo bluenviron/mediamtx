@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func paramsFromConf(cnf *conf.PathConf) rpicamera.Params {
+func paramsFromConf(cnf *conf.Path) rpicamera.Params {
 	return rpicamera.Params{
 		CameraID:          cnf.RPICameraCamID,
 		Width:             cnf.RPICameraWidth,
@@ -74,7 +74,7 @@ func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interfa
 }
 
 // run implements sourceStaticImpl.
-func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
+func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *conf.Path) error {
 	medi := &description.Media{
 		Type: description.MediaTypeVideo,
 		Formats: []format.Format{&format.H264{

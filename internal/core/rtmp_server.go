@@ -16,7 +16,7 @@ import (
 )
 
 type rtmpServerAPIConnsListRes struct {
-	data *apiRTMPConnsList
+	data *apiRTMPConnList
 	err  error
 }
 
@@ -203,7 +203,7 @@ outer:
 			delete(s.conns, c)
 
 		case req := <-s.chAPIConnsList:
-			data := &apiRTMPConnsList{
+			data := &apiRTMPConnList{
 				Items: []*apiRTMPConn{},
 			}
 
@@ -286,7 +286,7 @@ func (s *rtmpServer) closeConn(c *rtmpConn) {
 }
 
 // apiConnsList is called by api.
-func (s *rtmpServer) apiConnsList() (*apiRTMPConnsList, error) {
+func (s *rtmpServer) apiConnsList() (*apiRTMPConnList, error) {
 	req := rtmpServerAPIConnsListReq{
 		res: make(chan rtmpServerAPIConnsListRes),
 	}

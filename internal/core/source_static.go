@@ -16,7 +16,7 @@ const (
 
 type sourceStaticImpl interface {
 	logger.Writer
-	run(context.Context, *conf.PathConf, chan *conf.PathConf) error
+	run(context.Context, *conf.Path, chan *conf.Path) error
 	apiSourceDescribe() apiPathSourceOrReader
 }
 
@@ -28,7 +28,7 @@ type sourceStaticParent interface {
 
 // sourceStatic is a static source.
 type sourceStatic struct {
-	conf   *conf.PathConf
+	conf   *conf.Path
 	parent sourceStaticParent
 
 	ctx       context.Context
@@ -37,7 +37,7 @@ type sourceStatic struct {
 	running   bool
 
 	// in
-	chReloadConf                  chan *conf.PathConf
+	chReloadConf                  chan *conf.Path
 	chSourceStaticImplSetReady    chan pathSourceStaticSetReadyReq
 	chSourceStaticImplSetNotReady chan pathSourceStaticSetNotReadyReq
 
@@ -46,7 +46,7 @@ type sourceStatic struct {
 }
 
 func newSourceStatic(
-	cnf *conf.PathConf,
+	cnf *conf.Path,
 	readTimeout conf.StringDuration,
 	writeTimeout conf.StringDuration,
 	writeQueueSize int,
@@ -55,7 +55,7 @@ func newSourceStatic(
 	s := &sourceStatic{
 		conf:                          cnf,
 		parent:                        parent,
-		chReloadConf:                  make(chan *conf.PathConf),
+		chReloadConf:                  make(chan *conf.Path),
 		chSourceStaticImplSetReady:    make(chan pathSourceStaticSetReadyReq),
 		chSourceStaticImplSetNotReady: make(chan pathSourceStaticSetNotReadyReq),
 	}
@@ -153,7 +153,7 @@ func (s *sourceStatic) run() {
 	var innerCtx context.Context
 	var innerCtxCancel func()
 	implErr := make(chan error)
-	innerReloadConf := make(chan *conf.PathConf)
+	innerReloadConf := make(chan *conf.Path)
 
 	recreate := func() {
 		innerCtx, innerCtxCancel = context.WithCancel(context.Background())
@@ -208,7 +208,7 @@ func (s *sourceStatic) run() {
 	}
 }
 
-func (s *sourceStatic) reloadConf(newConf *conf.PathConf) {
+func (s *sourceStatic) reloadConf(newConf *conf.Path) {
 	select {
 	case s.chReloadConf <- newConf:
 	case <-s.ctx.Done():

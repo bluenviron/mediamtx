@@ -455,13 +455,13 @@ func TestPathRecord(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/edit/all", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all", map[string]interface{}{
 		"record": false,
 	}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/edit/all", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all", map[string]interface{}{
 		"record": true,
 	}, nil)
 

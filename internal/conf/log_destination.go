@@ -84,8 +84,8 @@ func (d *LogDestinations) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// UnmarshalEnv implements envUnmarshaler.
-func (d *LogDestinations) UnmarshalEnv(s string) error {
-	byts, _ := json.Marshal(strings.Split(s, ","))
+// UnmarshalEnv implements env.Unmarshaler.
+func (d *LogDestinations) UnmarshalEnv(_ string, v string) error {
+	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }

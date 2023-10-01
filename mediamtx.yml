@@ -1,7 +1,12 @@
 ###############################################
-# General settings
+# Global settings
 
-# Sets the verbosity of the program; available values are "error", "warn", "info", "debug".
+# Settings in this section are applied anywhere.
+
+###############################################
+# Global settings -> General
+
+# Verbosity of the program; available values are "error", "warn", "info", "debug".
 logLevel: info
 # Destinations of log messages; available values are "stdout", "file" and "syslog".
 logDestinations: [stdout]
@@ -65,7 +70,7 @@ runOnConnectRestart: no
 runOnDisconnect:
 
 ###############################################
-# RTSP settings
+# Global settings -> RTSP
 
 # Allow publishing and reading streams with the RTSP protocol.
 rtsp: yes
@@ -105,7 +110,7 @@ serverCert: server.crt
 authMethods: [basic]
 
 ###############################################
-# RTMP settings
+# Global settings -> RTMP
 
 # Allow publishing and reading streams with the RTMP protocol.
 rtmp: yes
@@ -125,7 +130,7 @@ rtmpServerKey: server.key
 rtmpServerCert: server.crt
 
 ###############################################
-# HLS settings
+# Global settings -> HLS
 
 # Allow reading streams with the HLS protocol.
 hls: yes
@@ -181,7 +186,7 @@ hlsTrustedProxies: []
 hlsDirectory: ''
 
 ###############################################
-# WebRTC settings
+# Global settings -> WebRTC
 
 # Allow publishing and reading streams with the WebRTC protocol.
 webrtc: yes
@@ -233,7 +238,7 @@ webrtcICEUDPMuxAddress:
 webrtcICETCPMuxAddress:
 
 ###############################################
-# SRT settings
+# Global settings -> SRT
 
 # Allow publishing and reading streams with the SRT protocol.
 srt: yes
@@ -241,7 +246,7 @@ srt: yes
 srtAddress: :8890
 
 ###############################################
-# Recording settings
+# Global settings -> Recording
 
 # Record streams to disk.
 record: no
@@ -263,267 +268,281 @@ recordSegmentDuration: 1h
 recordDeleteAfter: 24h
 
 ###############################################
+# Default path settings
+
+# Settings in "pathDefaults" are applied anywhere,
+# unless they are overridden in "paths".
+pathDefaults:
+
+  ###############################################
+  # Default path settings -> General
+
+  # Source of the stream. This can be:
+  # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
+  # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
+  # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
+  # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
+  # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
+  # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera
+  # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
+  # * udp://ip:port -> the stream is pulled with UDP, by listening on the specified IP and port
+  # * srt://existing-url -> the stream is pulled from another SRT server / camera
+  # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
+  # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
+  # * redirect -> the stream is provided by another path or server
+  # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
+  source: publisher
+  # If the source is a URL, and the source certificate is self-signed
+  # or invalid, you can provide the fingerprint of the certificate in order to
+  # validate it anyway. It can be obtained by running:
+  # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
+  # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
+  sourceFingerprint:
+  # If the source is a URL, it will be pulled only when at least
+  # one reader is connected, saving bandwidth.
+  sourceOnDemand: no
+  # If sourceOnDemand is "yes", readers will be put on hold until the source is
+  # ready or until this amount of time has passed.
+  sourceOnDemandStartTimeout: 10s
+  # If sourceOnDemand is "yes", the source will be closed when there are no
+  # readers connected and this amount of time has passed.
+  sourceOnDemandCloseAfter: 10s
+  # Maximum number of readers. Zero means no limit.
+  maxReaders: 0
+  # SRT encryption passphrase require to read from this path
+  srtReadPassphrase:
+  # Record streams to disk (if global recording is enabled).
+  record: yes
+
+  ###############################################
+  # Default path settings -> Authentication
+
+  # Username required to publish.
+  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  publishUser:
+  # Password required to publish.
+  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  publishPass:
+  # IPs or networks (x.x.x.x/24) allowed to publish.
+  publishIPs: []
+
+  # Username required to read.
+  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  readUser:
+  # password required to read.
+  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  readPass:
+  # IPs or networks (x.x.x.x/24) allowed to read.
+  readIPs: []
+
+  ###############################################
+  # Default path settings -> Publisher source (when source is "publisher")
+
+  # allow another client to disconnect the current publisher and publish in its place.
+  overridePublisher: yes
+  # if no one is publishing, redirect readers to this path.
+  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
+  fallback:
+  # SRT encryption passphrase required to publish to this path
+  srtPublishPassphrase:
+
+  ###############################################
+  # Default path settings -> RTSP source (when source is a RTSP or a RTSPS URL)
+
+  # protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
+  sourceProtocol: automatic
+  # support sources that don't provide server ports or use random server ports. This is a security issue
+  # and must be used only when interacting with sources that require it.
+  sourceAnyPortEnable: no
+  # range header to send to the source, in order to start streaming from the specified offset.
+  # available values:
+  # * clock: Absolute time
+  # * npt: Normal Play Time
+  # * smpte: SMPTE timestamps relative to the start of the recording
+  rtspRangeType:
+  # available values:
+  # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
+  # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+  # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
+  rtspRangeStart:
+
+  ###############################################
+  # Default path settings -> Redirect source (when source is "redirect")
+
+  # RTSP URL which clients will be redirected to.
+  sourceRedirect:
+
+  ###############################################
+  # Default path settings -> Raspberry Pi Camera source (when source is "rpiCamera")
+
+  # ID of the camera
+  rpiCameraCamID: 0
+  # width of frames
+  rpiCameraWidth: 1920
+  # height of frames
+  rpiCameraHeight: 1080
+  # flip horizontally
+  rpiCameraHFlip: false
+  # flip vertically
+  rpiCameraVFlip: false
+  # brightness [-1, 1]
+  rpiCameraBrightness: 0
+  # contrast [0, 16]
+  rpiCameraContrast: 1
+  # saturation [0, 16]
+  rpiCameraSaturation: 1
+  # sharpness [0, 16]
+  rpiCameraSharpness: 1
+  # exposure mode.
+  # values: normal, short, long, custom
+  rpiCameraExposure: normal
+  # auto-white-balance mode.
+  # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom
+  rpiCameraAWB: auto
+  # denoise operating mode.
+  # values: off, cdn_off, cdn_fast, cdn_hq
+  rpiCameraDenoise: "off"
+  # fixed shutter speed, in microseconds.
+  rpiCameraShutter: 0
+  # metering mode of the AEC/AGC algorithm.
+  # values: centre, spot, matrix, custom
+  rpiCameraMetering: centre
+  # fixed gain
+  rpiCameraGain: 0
+  # EV compensation of the image [-10, 10]
+  rpiCameraEV: 0
+  # Region of interest, in format x,y,width,height
+  rpiCameraROI:
+  # whether to enable HDR on Raspberry Camera 3.
+  rpiCameraHDR: false
+  # tuning file
+  rpiCameraTuningFile:
+  # sensor mode, in format [width]:[height]:[bit-depth]:[packing]
+  # bit-depth and packing are optional.
+  rpiCameraMode:
+  # frames per second
+  rpiCameraFPS: 30
+  # period between IDR frames
+  rpiCameraIDRPeriod: 60
+  # bitrate
+  rpiCameraBitrate: 1000000
+  # H264 profile
+  rpiCameraProfile: main
+  # H264 level
+  rpiCameraLevel: '4.1'
+  # Autofocus mode
+  # values: auto, manual, continuous
+  rpiCameraAfMode: auto
+  # Autofocus range
+  # values: normal, macro, full
+  rpiCameraAfRange: normal
+  # Autofocus speed
+  # values: normal, fast
+  rpiCameraAfSpeed: normal
+  # Lens position (for manual autofocus only), will be set to focus to a specific distance
+  # calculated by the following formula: d = 1 / value
+  # Examples: 0 moves the lens to infinity.
+  #           0.5 moves the lens to focus on objects 2m away.
+  #           2 moves the lens to focus on objects 50cm away.
+  rpiCameraLensPosition: 0.0
+  # Specifies the autofocus window, in the form x,y,width,height where the coordinates
+  # are given as a proportion of the entire image.
+  rpiCameraAfWindow:
+  # enables printing text on each frame.
+  rpiCameraTextOverlayEnable: false
+  # text that is printed on each frame.
+  # format is the one of the strftime() function.
+  rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
+
+  ###############################################
+  # Default path settings -> Hooks
+
+  # Command to run when this path is initialized.
+  # This can be used to publish a stream when the server is launched.
+  # This is terminated with SIGINT when the program closes.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  runOnInit:
+  # Restart the command if it exits.
+  runOnInitRestart: no
+
+  # Command to run when this path is requested by a reader.
+  # This can be used to publish a stream on demand.
+  # This is terminated with SIGINT when the path is not requested anymore.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  runOnDemand:
+  # Restart the command if it exits.
+  runOnDemandRestart: no
+  # Readers will be put on hold until the runOnDemand command starts publishing
+  # or until this amount of time has passed.
+  runOnDemandStartTimeout: 10s
+  # The command will be closed when there are no
+  # readers connected and this amount of time has passed.
+  runOnDemandCloseAfter: 10s
+
+  # Command to run when the stream is ready to be read, whenever it is
+  # published by a client or pulled from a server / camera.
+  # This is terminated with SIGINT when the stream is not ready anymore.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  # * MTX_SOURCE_TYPE: source type
+  # * MTX_SOURCE_ID: source ID
+  runOnReady:
+  # Restart the command if it exits.
+  runOnReadyRestart: no
+  # Command to run when the stream is not available anymore.
+  # Environment variables are the same of runOnReady.
+  runOnNotReady:
+
+  # Command to run when a client starts reading.
+  # This is terminated with SIGINT when a client stops reading.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  # * MTX_READER_TYPE: reader type
+  # * MTX_READER_ID: reader ID
+  runOnRead:
+  # Restart the command if it exits.
+  runOnReadRestart: no
+  # Command to run when a client stops reading.
+  # Environment variables are the same of runOnRead.
+  runOnUnread:
+
+  # Command to run when a record segment is complete.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  # * MTX_SEGMENT_PATH: segment file path
+  runOnRecordSegmentComplete:
+
+###############################################
 # Path settings
 
-# These settings are path-dependent, and the map key is the name of the path.
+# Settings in "paths" are applied to specific paths, and the map key
+# is the name of the path.
 # It's possible to use regular expressions by using a tilde as prefix,
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".
-# Settings under the path "all" are applied to all paths that do not match
+# Settings under path "all" are applied to all paths that do not match
 # another entry.
 paths:
   all:
-    ###############################################
-    # General path settings
 
-    # Source of the stream. This can be:
-    # * publisher -> the stream is provided by a RTSP, RTMP, WebRTC or SRT client
-    # * rtsp://existing-url -> the stream is pulled from another RTSP server / camera
-    # * rtsps://existing-url -> the stream is pulled from another RTSP server / camera with RTSPS
-    # * rtmp://existing-url -> the stream is pulled from another RTMP server / camera
-    # * rtmps://existing-url -> the stream is pulled from another RTMP server / camera with RTMPS
-    # * http://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera
-    # * https://existing-url/stream.m3u8 -> the stream is pulled from another HLS server / camera with HTTPS
-    # * udp://ip:port -> the stream is pulled with UDP, by listening on the specified IP and port
-    # * srt://existing-url -> the stream is pulled from another SRT server / camera
-    # * whep://existing-url -> the stream is pulled from another WebRTC server / camera
-    # * wheps://existing-url -> the stream is pulled from another WebRTC server / camera with HTTPS
-    # * redirect -> the stream is provided by another path or server
-    # * rpiCamera -> the stream is provided by a Raspberry Pi Camera
-    source: publisher
-    # If the source is a URL, and the source certificate is self-signed
-    # or invalid, you can provide the fingerprint of the certificate in order to
-    # validate it anyway. It can be obtained by running:
-    # openssl s_client -connect source_ip:source_port </dev/null 2>/dev/null | sed -n '/BEGIN/,/END/p' > server.crt
-    # openssl x509 -in server.crt -noout -fingerprint -sha256 | cut -d "=" -f2 | tr -d ':'
-    sourceFingerprint:
-    # If the source is a URL, it will be pulled only when at least
-    # one reader is connected, saving bandwidth.
-    sourceOnDemand: no
-    # If sourceOnDemand is "yes", readers will be put on hold until the source is
-    # ready or until this amount of time has passed.
-    sourceOnDemandStartTimeout: 10s
-    # If sourceOnDemand is "yes", the source will be closed when there are no
-    # readers connected and this amount of time has passed.
-    sourceOnDemandCloseAfter: 10s
-    # Maximum number of readers. Zero means no limit.
-    maxReaders: 0
-    # SRT encryption passphrase require to read from this path
-    srtReadPassphrase:
-    # Record streams to disk (if global recording is enabled).
-    record: yes
-
-    ###############################################
-    # Authentication path settings
-
-    # Username required to publish.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    publishUser:
-    # Password required to publish.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    publishPass:
-    # IPs or networks (x.x.x.x/24) allowed to publish.
-    publishIPs: []
-
-    # Username required to read.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    readUser:
-    # password required to read.
-    # SHA256-hashed values can be inserted with the "sha256:" prefix.
-    readPass:
-    # IPs or networks (x.x.x.x/24) allowed to read.
-    readIPs: []
-
-    ###############################################
-    # Publisher path settings (when source is "publisher")
-
-    # allow another client to disconnect the current publisher and publish in its place.
-    overridePublisher: yes
-    # if no one is publishing, redirect readers to this path.
-    # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
-    fallback:
-    # SRT encryption passphrase required to publish to this path
-    srtPublishPassphrase:
-
-    ###############################################
-    # RTSP path settings (when source is a RTSP or a RTSPS URL)
-
-    # protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
-    sourceProtocol: automatic
-    # support sources that don't provide server ports or use random server ports. This is a security issue
-    # and must be used only when interacting with sources that require it.
-    sourceAnyPortEnable: no
-    # range header to send to the source, in order to start streaming from the specified offset.
-    # available values:
-    # * clock: Absolute time
-    # * npt: Normal Play Time
-    # * smpte: SMPTE timestamps relative to the start of the recording
-    rtspRangeType:
-    # available values:
-    # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
-    # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
-    # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
-    rtspRangeStart:
-
-    ###############################################
-    # Redirect path settings (when source is "redirect")
-
-    # RTSP URL which clients will be redirected to.
-    sourceRedirect:
-
-    ###############################################
-    # Raspberry Pi Camera path settings (when source is "rpiCamera")
-
-    # ID of the camera
-    rpiCameraCamID: 0
-    # width of frames
-    rpiCameraWidth: 1920
-    # height of frames
-    rpiCameraHeight: 1080
-    # flip horizontally
-    rpiCameraHFlip: false
-    # flip vertically
-    rpiCameraVFlip: false
-    # brightness [-1, 1]
-    rpiCameraBrightness: 0
-    # contrast [0, 16]
-    rpiCameraContrast: 1
-    # saturation [0, 16]
-    rpiCameraSaturation: 1
-    # sharpness [0, 16]
-    rpiCameraSharpness: 1
-    # exposure mode.
-    # values: normal, short, long, custom
-    rpiCameraExposure: normal
-    # auto-white-balance mode.
-    # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom
-    rpiCameraAWB: auto
-    # denoise operating mode.
-    # values: off, cdn_off, cdn_fast, cdn_hq
-    rpiCameraDenoise: "off"
-    # fixed shutter speed, in microseconds.
-    rpiCameraShutter: 0
-    # metering mode of the AEC/AGC algorithm.
-    # values: centre, spot, matrix, custom
-    rpiCameraMetering: centre
-    # fixed gain
-    rpiCameraGain: 0
-    # EV compensation of the image [-10, 10]
-    rpiCameraEV: 0
-    # Region of interest, in format x,y,width,height
-    rpiCameraROI:
-    # whether to enable HDR on Raspberry Camera 3.
-    rpiCameraHDR: false
-    # tuning file
-    rpiCameraTuningFile:
-    # sensor mode, in format [width]:[height]:[bit-depth]:[packing]
-    # bit-depth and packing are optional.
-    rpiCameraMode:
-    # frames per second
-    rpiCameraFPS: 30
-    # period between IDR frames
-    rpiCameraIDRPeriod: 60
-    # bitrate
-    rpiCameraBitrate: 1000000
-    # H264 profile
-    rpiCameraProfile: main
-    # H264 level
-    rpiCameraLevel: '4.1'
-    # Autofocus mode
-    # values: auto, manual, continuous
-    rpiCameraAfMode: auto
-    # Autofocus range
-    # values: normal, macro, full
-    rpiCameraAfRange: normal
-    # Autofocus speed
-    # values: normal, fast
-    rpiCameraAfSpeed: normal
-    # Lens position (for manual autofocus only), will be set to focus to a specific distance
-    # calculated by the following formula: d = 1 / value
-    # Examples: 0 moves the lens to infinity.
-    #           0.5 moves the lens to focus on objects 2m away.
-    #           2 moves the lens to focus on objects 50cm away.
-    rpiCameraLensPosition: 0.0
-    # Specifies the autofocus window, in the form x,y,width,height where the coordinates
-    # are given as a proportion of the entire image.
-    rpiCameraAfWindow:
-    # enables printing text on each frame.
-    rpiCameraTextOverlayEnable: false
-    # text that is printed on each frame.
-    # format is the one of the strftime() function.
-    rpiCameraTextOverlay: '%Y-%m-%d %H:%M:%S - MediaMTX'
-
-    ###############################################
-    # Hooks path settings
-
-    # Command to run when this path is initialized.
-    # This can be used to publish a stream when the server is launched.
-    # This is terminated with SIGINT when the program closes.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    runOnInit:
-    # Restart the command if it exits.
-    runOnInitRestart: no
-
-    # Command to run when this path is requested by a reader.
-    # This can be used to publish a stream on demand.
-    # This is terminated with SIGINT when the path is not requested anymore.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    runOnDemand:
-    # Restart the command if it exits.
-    runOnDemandRestart: no
-    # Readers will be put on hold until the runOnDemand command starts publishing
-    # or until this amount of time has passed.
-    runOnDemandStartTimeout: 10s
-    # The command will be closed when there are no
-    # readers connected and this amount of time has passed.
-    runOnDemandCloseAfter: 10s
-
-    # Command to run when the stream is ready to be read, whenever it is
-    # published by a client or pulled from a server / camera.
-    # This is terminated with SIGINT when the stream is not ready anymore.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    # * MTX_SOURCE_TYPE: source type
-    # * MTX_SOURCE_ID: source ID
-    runOnReady:
-    # Restart the command if it exits.
-    runOnReadyRestart: no
-    # Command to run when the stream is not available anymore.
-    # Environment variables are the same of runOnReady.
-    runOnNotReady:
-
-    # Command to run when a client starts reading.
-    # This is terminated with SIGINT when a client stops reading.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    # * MTX_READER_TYPE: reader type
-    # * MTX_READER_ID: reader ID
-    runOnRead:
-    # Restart the command if it exits.
-    runOnReadRestart: no
-    # Command to run when a client stops reading.
-    # Environment variables are the same of runOnRead.
-    runOnUnread:
-
-    # Command to run when a record segment is complete.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    # * MTX_SEGMENT_PATH: segment file path
-    runOnRecordSegmentComplete:
+  # any setting in "pathDefaults" can be overridden here.
+  # for instance:
+  # my_camera:
+  #   source: rtsp://my_camera

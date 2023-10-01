@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -22,68 +23,6 @@ var errAPINotFound = errors.New("not found")
 
 func interfaceIsEmpty(i interface{}) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
-}
-
-func fillStruct(dest interface{}, source interface{}) {
-	rvsource := reflect.ValueOf(source).Elem()
-	rvdest := reflect.ValueOf(dest)
-	nf := rvsource.NumField()
-	for i := 0; i < nf; i++ {
-		fnew := rvsource.Field(i)
-		if !fnew.IsNil() {
-			f := rvdest.Elem().FieldByName(rvsource.Type().Field(i).Name)
-			if f.Kind() == reflect.Ptr {
-				f.Set(fnew)
-			} else {
-				f.Set(fnew.Elem())
-			}
-		}
-	}
-}
-
-func generateStructWithOptionalFields(model interface{}) interface{} {
-	var fields []reflect.StructField
-
-	rt := reflect.TypeOf(model)
-	nf := rt.NumField()
-	for i := 0; i < nf; i++ {
-		f := rt.Field(i)
-		j := f.Tag.Get("json")
-
-		if j != "-" && j != "paths" {
-			fields = append(fields, reflect.StructField{
-				Name: f.Name,
-				Type: reflect.PtrTo(f.Type),
-				Tag:  f.Tag,
-			})
-		}
-	}
-
-	return reflect.New(reflect.StructOf(fields)).Interface()
-}
-
-func loadConfData(ctx *gin.Context) (interface{}, error) {
-	in := generateStructWithOptionalFields(conf.Conf{})
-	d := json.NewDecoder(ctx.Request.Body)
-	d.DisallowUnknownFields()
-	err := d.Decode(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return in, err
-}
-
-func loadConfPathData(ctx *gin.Context) (interface{}, error) {
-	in := generateStructWithOptionalFields(conf.PathConf{})
-	d := json.NewDecoder(ctx.Request.Body)
-	d.DisallowUnknownFields()
-	err := d.Decode(in)
-	if err != nil {
-		return nil, err
-	}
-
-	return in, err
 }
 
 func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
@@ -138,6 +77,17 @@ func paginate(itemsPtr interface{}, itemsPerPageStr string, pageStr string) (int
 	return paginate2(itemsPtr, itemsPerPage, page), nil
 }
 
+func sortedKeys(paths map[string]*conf.OptionalPath) []string {
+	ret := make([]string, len(paths))
+	i := 0
+	for name := range paths {
+		ret[i] = name
+		i++
+	}
+	sort.Strings(ret)
+	return ret
+}
+
 func paramName(ctx *gin.Context) (string, bool) {
 	name := ctx.Param("name")
 
@@ -149,37 +99,37 @@ func paramName(ctx *gin.Context) (string, bool) {
 }
 
 type apiPathManager interface {
-	apiPathsList() (*apiPathsList, error)
+	apiPathsList() (*apiPathList, error)
 	apiPathsGet(string) (*apiPath, error)
 }
 
 type apiHLSManager interface {
-	apiMuxersList() (*apiHLSMuxersList, error)
+	apiMuxersList() (*apiHLSMuxerList, error)
 	apiMuxersGet(string) (*apiHLSMuxer, error)
 }
 
 type apiRTSPServer interface {
 	apiConnsList() (*apiRTSPConnsList, error)
 	apiConnsGet(uuid.UUID) (*apiRTSPConn, error)
-	apiSessionsList() (*apiRTSPSessionsList, error)
+	apiSessionsList() (*apiRTSPSessionList, error)
 	apiSessionsGet(uuid.UUID) (*apiRTSPSession, error)
 	apiSessionsKick(uuid.UUID) error
 }
 
 type apiRTMPServer interface {
-	apiConnsList() (*apiRTMPConnsList, error)
+	apiConnsList() (*apiRTMPConnList, error)
 	apiConnsGet(uuid.UUID) (*apiRTMPConn, error)
 	apiConnsKick(uuid.UUID) error
 }
 
 type apiWebRTCManager interface {
-	apiSessionsList() (*apiWebRTCSessionsList, error)
+	apiSessionsList() (*apiWebRTCSessionList, error)
 	apiSessionsGet(uuid.UUID) (*apiWebRTCSession, error)
 	apiSessionsKick(uuid.UUID) error
 }
 
 type apiSRTServer interface {
-	apiConnsList() (*apiSRTConnsList, error)
+	apiConnsList() (*apiSRTConnList, error)
 	apiConnsGet(uuid.UUID) (*apiSRTConn, error)
 	apiConnsKick(uuid.UUID) error
 }
@@ -237,58 +187,65 @@ func newAPI(
 
 	group := router.Group("/")
 
-	group.GET("/v2/config/get", a.onConfigGet)
-	group.POST("/v2/config/set", a.onConfigSet)
-	group.POST("/v2/config/paths/add/*name", a.onConfigPathsAdd)
-	group.POST("/v2/config/paths/edit/*name", a.onConfigPathsEdit)
-	group.POST("/v2/config/paths/remove/*name", a.onConfigPathsDelete)
+	group.GET("/v3/config/global/get", a.onConfigGlobalGet)
+	group.PATCH("/v3/config/global/patch", a.onConfigGlobalPatch)
+
+	group.GET("/v3/config/pathdefaults/get", a.onConfigPathDefaultsGet)
+	group.PATCH("/v3/config/pathdefaults/patch", a.onConfigPathDefaultsPatch)
+
+	group.GET("/v3/config/paths/list", a.onConfigPathsList)
+	group.GET("/v3/config/paths/get/*name", a.onConfigPathsGet)
+	group.POST("/v3/config/paths/add/*name", a.onConfigPathsAdd)
+	group.PATCH("/v3/config/paths/patch/*name", a.onConfigPathsPatch)
+	group.POST("/v3/config/paths/replace/*name", a.onConfigPathsReplace)
+	group.DELETE("/v3/config/paths/delete/*name", a.onConfigPathsDelete)
+
+	group.GET("/v3/paths/list", a.onPathsList)
+	group.GET("/v3/paths/get/*name", a.onPathsGet)
 
 	if !interfaceIsEmpty(a.hlsManager) {
-		group.GET("/v2/hlsmuxers/list", a.onHLSMuxersList)
-		group.GET("/v2/hlsmuxers/get/*name", a.onHLSMuxersGet)
+		group.GET("/v3/hlsmuxers/list", a.onHLSMuxersList)
+		group.GET("/v3/hlsmuxers/get/*name", a.onHLSMuxersGet)
 	}
 
-	group.GET("/v2/paths/list", a.onPathsList)
-	group.GET("/v2/paths/get/*name", a.onPathsGet)
-
 	if !interfaceIsEmpty(a.rtspServer) {
-		group.GET("/v2/rtspconns/list", a.onRTSPConnsList)
-		group.GET("/v2/rtspconns/get/:id", a.onRTSPConnsGet)
-		group.GET("/v2/rtspsessions/list", a.onRTSPSessionsList)
-		group.GET("/v2/rtspsessions/get/:id", a.onRTSPSessionsGet)
-		group.POST("/v2/rtspsessions/kick/:id", a.onRTSPSessionsKick)
+		group.GET("/v3/rtspconns/list", a.onRTSPConnsList)
+		group.GET("/v3/rtspconns/get/:id", a.onRTSPConnsGet)
+		group.GET("/v3/rtspsessions/list", a.onRTSPSessionsList)
+		group.GET("/v3/rtspsessions/get/:id", a.onRTSPSessionsGet)
+		group.POST("/v3/rtspsessions/kick/:id", a.onRTSPSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtspsServer) {
-		group.GET("/v2/rtspsconns/list", a.onRTSPSConnsList)
-		group.GET("/v2/rtspsconns/get/:id", a.onRTSPSConnsGet)
-		group.GET("/v2/rtspssessions/list", a.onRTSPSSessionsList)
-		group.GET("/v2/rtspssessions/get/:id", a.onRTSPSSessionsGet)
-		group.POST("/v2/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
+		group.GET("/v3/rtspsconns/list", a.onRTSPSConnsList)
+		group.GET("/v3/rtspsconns/get/:id", a.onRTSPSConnsGet)
+		group.GET("/v3/rtspssessions/list", a.onRTSPSSessionsList)
+		group.GET("/v3/rtspssessions/get/:id", a.onRTSPSSessionsGet)
+		group.POST("/v3/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtmpServer) {
-		group.GET("/v2/rtmpconns/list", a.onRTMPConnsList)
-		group.GET("/v2/rtmpconns/get/:id", a.onRTMPConnsGet)
-		group.POST("/v2/rtmpconns/kick/:id", a.onRTMPConnsKick)
+		group.GET("/v3/rtmpconns/list", a.onRTMPConnsList)
+		group.GET("/v3/rtmpconns/get/:id", a.onRTMPConnsGet)
+		group.POST("/v3/rtmpconns/kick/:id", a.onRTMPConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.rtmpsServer) {
-		group.GET("/v2/rtmpsconns/list", a.onRTMPSConnsList)
-		group.GET("/v2/rtmpsconns/get/:id", a.onRTMPSConnsGet)
-		group.POST("/v2/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
+		group.GET("/v3/rtmpsconns/list", a.onRTMPSConnsList)
+		group.GET("/v3/rtmpsconns/get/:id", a.onRTMPSConnsGet)
+		group.POST("/v3/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
 	if !interfaceIsEmpty(a.webRTCManager) {
-		group.GET("/v2/webrtcsessions/list", a.onWebRTCSessionsList)
-		group.GET("/v2/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
-		group.POST("/v2/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
+		group.GET("/v3/webrtcsessions/list", a.onWebRTCSessionsList)
+		group.GET("/v3/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
+		group.POST("/v3/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
 	if !interfaceIsEmpty(a.srtServer) {
-		group.GET("/v2/srtconns/list", a.onSRTConnsList)
-		group.GET("/v2/srtconns/get/:id", a.onSRTConnsGet)
-		group.POST("/v2/srtconns/kick/:id", a.onSRTConnsKick)
+		group.GET("/v3/srtconns/list", a.onSRTConnsList)
+		group.GET("/v3/srtconns/get/:id", a.onSRTConnsGet)
+		group.POST("/v3/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
 	network, address := restrictNetwork("tcp", address)
@@ -345,16 +302,17 @@ func (a *api) writeServerErrorOrNotFound(ctx *gin.Context, err error) {
 	}
 }
 
-func (a *api) onConfigGet(ctx *gin.Context) {
+func (a *api) onConfigGlobalGet(ctx *gin.Context) {
 	a.mutex.Lock()
 	c := a.conf
 	a.mutex.Unlock()
 
-	ctx.JSON(http.StatusOK, c)
+	ctx.JSON(http.StatusOK, c.Global())
 }
 
-func (a *api) onConfigSet(ctx *gin.Context) {
-	in, err := loadConfData(ctx)
+func (a *api) onConfigGlobalPatch(ctx *gin.Context) {
+	var c conf.OptionalGlobal
+	err := json.NewDecoder(ctx.Request.Body).Decode(&c)
 	if err != nil {
 		a.writeUserError(ctx, err)
 		return
@@ -365,7 +323,7 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 
 	newConf := a.conf.Clone()
 
-	fillStruct(newConf, in)
+	newConf.PatchGlobal(&c)
 
 	err = newConf.Check()
 	if err != nil {
@@ -382,14 +340,17 @@ func (a *api) onConfigSet(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathsAdd(ctx *gin.Context) {
-	name, ok := paramName(ctx)
-	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
-		return
-	}
+func (a *api) onConfigPathDefaultsGet(ctx *gin.Context) {
+	a.mutex.Lock()
+	c := a.conf
+	a.mutex.Unlock()
 
-	in, err := loadConfPathData(ctx)
+	ctx.JSON(http.StatusOK, c.PathDefaults)
+}
+
+func (a *api) onConfigPathDefaultsPatch(ctx *gin.Context) {
+	var p conf.OptionalPath
+	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
 	if err != nil {
 		a.writeUserError(ctx, err)
 		return
@@ -400,19 +361,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 
 	newConf := a.conf.Clone()
 
-	if _, ok := newConf.Paths[name]; ok {
-		a.writeUserError(ctx, fmt.Errorf("path already exists"))
-		return
-	}
-
-	newConfPath := &conf.PathConf{}
-
-	// load default values
-	newConfPath.UnmarshalJSON([]byte("{}")) //nolint:errcheck
-
-	fillStruct(newConfPath, in)
-
-	newConf.Paths[name] = newConfPath
+	newConf.PatchPathDefaults(&p)
 
 	err = newConf.Check()
 	if err != nil {
@@ -421,39 +370,79 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) {
 	}
 
 	a.conf = newConf
-
-	// since reloading the configuration can cause the shutdown of the API,
-	// call it in a goroutine
-	go a.parent.apiConfigSet(newConf)
+	a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathsEdit(ctx *gin.Context) {
+func (a *api) onConfigPathsList(ctx *gin.Context) {
+	a.mutex.Lock()
+	c := a.conf
+	a.mutex.Unlock()
+
+	data := &apiPathConfList{
+		Items: make([]*conf.OptionalPath, len(c.OptionalPaths)),
+	}
+
+	for i, key := range sortedKeys(c.OptionalPaths) {
+		data.Items[i] = c.OptionalPaths[key]
+	}
+
+	data.ItemCount = len(data.Items)
+	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+	data.PageCount = pageCount
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *api) onConfigPathsGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeUserError(ctx, fmt.Errorf("invalid name"))
 		return
 	}
 
-	in, err := loadConfPathData(ctx)
-	if err != nil {
-		a.writeUserError(ctx, err)
-		return
-	}
-
 	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	c := a.conf
+	a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
-
-	newConfPath, ok := newConf.Paths[name]
+	p, ok := c.OptionalPaths[name]
 	if !ok {
 		a.writeNotFound(ctx)
 		return
 	}
 
-	fillStruct(newConfPath, in)
+	ctx.JSON(http.StatusOK, p)
+}
+
+func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
+	name, ok := paramName(ctx)
+	if !ok {
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		return
+	}
+
+	var p conf.OptionalPath
+	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	newConf := a.conf.Clone()
+
+	err = newConf.AddPath(name, &p)
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
 
 	err = newConf.Check()
 	if err != nil {
@@ -462,10 +451,81 @@ func (a *api) onConfigPathsEdit(ctx *gin.Context) {
 	}
 
 	a.conf = newConf
+	a.parent.apiConfigSet(newConf)
 
-	// since reloading the configuration can cause the shutdown of the API,
-	// call it in a goroutine
-	go a.parent.apiConfigSet(newConf)
+	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
+	name, ok := paramName(ctx)
+	if !ok {
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		return
+	}
+
+	var p conf.OptionalPath
+	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	newConf := a.conf.Clone()
+
+	err = newConf.PatchPath(name, &p)
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	err = newConf.Check()
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	a.conf = newConf
+	a.parent.apiConfigSet(newConf)
+
+	ctx.Status(http.StatusOK)
+}
+
+func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
+	name, ok := paramName(ctx)
+	if !ok {
+		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		return
+	}
+
+	var p conf.OptionalPath
+	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	newConf := a.conf.Clone()
+
+	err = newConf.ReplacePath(name, &p)
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	err = newConf.Check()
+	if err != nil {
+		a.writeUserError(ctx, err)
+		return
+	}
+
+	a.conf = newConf
+	a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
@@ -480,25 +540,22 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if _, ok := a.conf.Paths[name]; !ok {
-		a.writeNotFound(ctx)
+	newConf := a.conf.Clone()
+
+	err := newConf.RemovePath(name)
+	if err != nil {
+		a.writeUserError(ctx, err)
 		return
 	}
 
-	newConf := a.conf.Clone()
-	delete(newConf.Paths, name)
-
-	err := newConf.Check()
+	err = newConf.Check()
 	if err != nil {
 		a.writeUserError(ctx, err)
 		return
 	}
 
 	a.conf = newConf
-
-	// since reloading the configuration can cause the shutdown of the API,
-	// call it in a goroutine
-	go a.parent.apiConfigSet(newConf)
+	a.parent.apiConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }

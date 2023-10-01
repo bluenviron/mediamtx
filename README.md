@@ -642,7 +642,7 @@ paths:
 
 The resulting stream will be available in path `/proxied`.
 
-The server supports any number of source streams (count is just limited by hardware capability) it's enough to add additional entries to the paths section:
+The server supports any number of source streams (count is just limited by available hardware resources) it's enough to add additional entries to the paths section:
 
 ```yml
 paths:

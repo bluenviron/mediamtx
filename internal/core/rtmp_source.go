@@ -47,7 +47,7 @@ func (s *rtmpSource) Log(level logger.Level, format string, args ...interface{})
 }
 
 // run implements sourceStaticImpl.
-func (s *rtmpSource) run(ctx context.Context, cnf *conf.PathConf, reloadConf chan *conf.PathConf) error {
+func (s *rtmpSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *conf.Path) error {
 	s.Log(logger.Debug, "connecting")
 
 	u, err := url.Parse(cnf.Source)

@@ -59,8 +59,8 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// UnmarshalEnv implements envUnmarshaler.
-func (d *AuthMethods) UnmarshalEnv(s string) error {
-	byts, _ := json.Marshal(strings.Split(s, ","))
+// UnmarshalEnv implements env.Unmarshaler.
+func (d *AuthMethods) UnmarshalEnv(_ string, v string) error {
+	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }

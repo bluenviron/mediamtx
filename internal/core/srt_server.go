@@ -25,7 +25,7 @@ type srtNewConnReq struct {
 }
 
 type srtServerAPIConnsListRes struct {
-	data *apiSRTConnsList
+	data *apiSRTConnList
 	err  error
 }
 
@@ -191,7 +191,7 @@ outer:
 			delete(s.conns, c)
 
 		case req := <-s.chAPIConnsList:
-			data := &apiSRTConnsList{
+			data := &apiSRTConnList{
 				Items: []*apiSRTConn{},
 			}
 
@@ -279,7 +279,7 @@ func (s *srtServer) closeConn(c *srtConn) {
 }
 
 // apiConnsList is called by api.
-func (s *srtServer) apiConnsList() (*apiSRTConnsList, error) {
+func (s *srtServer) apiConnsList() (*apiSRTConnList, error) {
 	req := srtServerAPIConnsListReq{
 		res: make(chan srtServerAPIConnsListRes),
 	}

@@ -74,8 +74,8 @@ func (d *Protocols) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// UnmarshalEnv implements envUnmarshaler.
-func (d *Protocols) UnmarshalEnv(s string) error {
-	byts, _ := json.Marshal(strings.Split(s, ","))
+// UnmarshalEnv implements env.Unmarshaler.
+func (d *Protocols) UnmarshalEnv(_ string, v string) error {
+	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }
