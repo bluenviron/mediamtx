@@ -403,7 +403,6 @@ components:
           - rpiCameraSource
           - rtmpConn
           - rtmpSource
-          - rtmpsSession
           - rtspSession
           - rtspSource
           - rtspsSession
