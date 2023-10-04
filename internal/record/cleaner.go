@@ -38,34 +38,35 @@ func commonPath(v string) string {
 	return common
 }
 
-// Cleaner removes expired recordings from disk.
+// CleanerEntry is a cleaner entry.
+type CleanerEntry struct {
+	RecordPath        string
+	RecordDeleteAfter time.Duration
+}
+
+// Cleaner removes expired recording segments from disk.
 type Cleaner struct {
-	ctx         context.Context
-	ctxCancel   func()
-	path        string
-	deleteAfter time.Duration
-	parent      logger.Writer
+	ctx       context.Context
+	ctxCancel func()
+	entries   []CleanerEntry
+	parent    logger.Writer
 
 	done chan struct{}
 }
 
 // NewCleaner allocates a Cleaner.
 func NewCleaner(
-	recordPath string,
-	deleteAfter time.Duration,
+	entries []CleanerEntry,
 	parent logger.Writer,
 ) *Cleaner {
-	recordPath += ".mp4"
-
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	c := &Cleaner{
-		ctx:         ctx,
-		ctxCancel:   ctxCancel,
-		path:        recordPath,
-		deleteAfter: deleteAfter,
-		parent:      parent,
-		done:        make(chan struct{}),
+		ctx:       ctx,
+		ctxCancel: ctxCancel,
+		entries:   entries,
+		parent:    parent,
+		done:      make(chan struct{}),
 	}
 
 	go c.run()
@@ -88,8 +89,10 @@ func (c *Cleaner) run() {
 	defer close(c.done)
 
 	interval := 30 * 60 * time.Second
-	if interval > (c.deleteAfter / 2) {
-		interval = c.deleteAfter / 2
+	for _, e := range c.entries {
+		if interval > (e.RecordDeleteAfter / 2) {
+			interval = e.RecordDeleteAfter / 2
+		}
 	}
 
 	c.doRun() //nolint:errcheck
@@ -97,7 +100,7 @@ func (c *Cleaner) run() {
 	for {
 		select {
 		case <-time.After(interval):
-			c.doRun() //nolint:errcheck
+			c.doRun()
 
 		case <-c.ctx.Done():
 			return
@@ -105,8 +108,15 @@ func (c *Cleaner) run() {
 	}
 }
 
-func (c *Cleaner) doRun() error {
-	commonPath := commonPath(c.path)
+func (c *Cleaner) doRun() {
+	for _, e := range c.entries {
+		c.doRunEntry(&e) //nolint:errcheck
+	}
+}
+
+func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
+	recordPath := e.RecordPath + ".mp4"
+	commonPath := commonPath(recordPath)
 	now := timeNow()
 
 	filepath.Walk(commonPath, func(path string, info fs.FileInfo, err error) error { //nolint:errcheck
@@ -115,9 +125,9 @@ func (c *Cleaner) doRun() error {
 		}
 
 		if !info.IsDir() {
-			params := decodeRecordPath(c.path, path)
+			params := decodeRecordPath(recordPath, path)
 			if params != nil {
-				if now.Sub(params.time) > c.deleteAfter {
+				if now.Sub(params.time) > e.RecordDeleteAfter {
 					c.Log(logger.Debug, "removing %s", path)
 					os.Remove(path)
 				}

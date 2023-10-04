@@ -1029,13 +1029,12 @@ There are 3 ways to change the configuration:
 
 ### Authentication
 
-Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+Edit `mediamtx.yml` and set `publishUser` and `publishPass`:
 
 ```yml
-paths:
-  all:
-    publishUser: myuser
-    publishPass: mypass
+pathDefaults:
+  publishUser: myuser
+  publishPass: mypass
 ```
 
 Only publishers that provide both username and password will be able to proceed:
@@ -1047,13 +1046,9 @@ ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://myuser:mypass@local
 It's possible to setup authentication for readers too:
 
 ```yml
-paths:
-  all:
-    publishUser: myuser
-    publishPass: mypass
-
-    readUser: user
-    readPass: userpass
+pathDefaults:
+  readUser: user
+  readPass: userpass
 ```
 
 If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed strings; a string must be hashed with sha256 and encoded with base64:
@@ -1065,10 +1060,9 @@ echo -n "userpass" | openssl dgst -binary -sha256 | openssl base64
 Then stored with the `sha256:` prefix:
 
 ```yml
-paths:
-  all:
-    readUser: sha256:j1tsRqDEw9xvq/D7/9tMx6Jh/jMhk3UfjwIB2f1zgMo=
-    readPass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
+pathDefaults:
+  readUser: sha256:j1tsRqDEw9xvq/D7/9tMx6Jh/jMhk3UfjwIB2f1zgMo=
+  readPass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
 ```
 
 **WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials in transit.
@@ -1133,7 +1127,7 @@ To change the format, codec or compression of a stream, use _FFmpeg_ or _GStream
 
 ```yml
 paths:
-  all:
+  compressed:
   original:
     runOnReady: >
       ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
@@ -1147,17 +1141,18 @@ paths:
 To save available streams to disk, set the `record` and the `recordPath` parameter in the configuration file:
 
 ```yml
-# Record streams to disk.
-record: yes
-# Path of recording segments.
-# Extension is added automatically.
-# Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
-recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+pathDefaults:
+  # Record streams to disk.
+  record: yes
+  # Path of recording segments.
+  # Extension is added automatically.
+  # Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 ```
 
 All available recording parameters are listed in the [sample configuration file](/mediamtx.yml).
 
-Be aware that not all tracks can be saved. A compatibility matrix is available at the beginning of the README.
+Be aware that not all codecs can be saved with all formats, as described in the compatibility matrix at the beginning of the README.
 
 To upload recordings to a remote location, you can use _MediaMTX_ together with [rclone](https://github.com/rclone/rclone), a command line tool that provides file synchronization capabilities with a huge variety of services (including S3, FTP, SMB, Google Drive):
 
@@ -1172,17 +1167,14 @@ To upload recordings to a remote location, you can use _MediaMTX_ together with 
 3. Place `rclone` into the `runOnInit` and `runOnRecordSegmentComplete` hooks:
 
    ```yml
-   record: yes
+   pathDefaults:
+     # this is needed to sync segments after a crash.
+     # replace myconfig with the name of the rclone config.
+     runOnInit: rclone sync -v ./recordings myconfig:/my-path/recordings
 
-   paths:
-     mypath:
-       # this is needed to sync segments after a crash.
-       # replace myconfig with the name of the rclone config.
-       runOnInit: rclone sync -v ./recordings myconfig:/my-path/recordings
-
-       # this is called when a segment has been finalized.
-       # replace myconfig with the name of the rclone config.
-       runOnRecordSegmentComplete: rclone sync -v --min-age=1ms ./recordings myconfig:/my-path/recordings
+     # this is called when a segment has been finalized.
+     # replace myconfig with the name of the rclone config.
+     runOnRecordSegmentComplete: rclone sync -v --min-age=1ms ./recordings myconfig:/my-path/recordings
    ```
 
    If you want to delete local segments after they are uploaded, replace `rclone sync` with `rclone move`.
@@ -1192,13 +1184,12 @@ To upload recordings to a remote location, you can use _MediaMTX_ together with 
 To forward incoming streams to another server, use _FFmpeg_ inside the `runOnReady` parameter:
 
 ```yml
-paths:
-  all:
-    runOnReady: >
-      ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
-      -c copy
-      -f rtsp rtsp://another-server/another-path
-    runOnReadyRestart: yes
+pathDefaults:
+  runOnReady: >
+    ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
+    -c copy
+    -f rtsp rtsp://another-server/another-path
+  runOnReadyRestart: yes
 ```
 
 ### On-demand publishing
@@ -1382,12 +1373,12 @@ paths:
     runOnUnread: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
 ```
 
-`runOnRecordSegmentComplete` allows to run a command when a record segment is complete:
+`runOnRecordSegmentComplete` allows to run a command when a recording segment is complete:
 
 ```yml
 paths:
   mypath:
-    # Command to run when a record segment is complete.
+    # Command to run when a recording segment is complete.
     # The following environment variables are available:
     # * MTX_PATH: path name
     # * RTSP_PORT: RTSP server port

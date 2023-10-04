@@ -30,8 +30,10 @@ func TestCleaner(t *testing.T) {
 	require.NoError(t, err)
 
 	c := NewCleaner(
-		recordPath,
-		10*time.Second,
+		[]CleanerEntry{{
+			RecordPath:        recordPath,
+			RecordDeleteAfter: 10 * time.Second,
+		}},
 		nilLogger{},
 	)
 	defer c.Close()

@@ -166,22 +166,18 @@ type pathAPIPathsGetReq struct {
 }
 
 type path struct {
-	rtspAddress           string
-	readTimeout           conf.StringDuration
-	writeTimeout          conf.StringDuration
-	writeQueueSize        int
-	udpMaxPayloadSize     int
-	record                bool
-	recordPath            string
-	recordPartDuration    conf.StringDuration
-	recordSegmentDuration conf.StringDuration
-	confName              string
-	conf                  *conf.Path
-	name                  string
-	matches               []string
-	wg                    *sync.WaitGroup
-	externalCmdPool       *externalcmd.Pool
-	parent                pathParent
+	rtspAddress       string
+	readTimeout       conf.StringDuration
+	writeTimeout      conf.StringDuration
+	writeQueueSize    int
+	udpMaxPayloadSize int
+	confName          string
+	conf              *conf.Path
+	name              string
+	matches           []string
+	wg                *sync.WaitGroup
+	externalCmdPool   *externalcmd.Pool
+	parent            pathParent
 
 	ctx                            context.Context
 	ctxCancel                      func()
@@ -226,10 +222,6 @@ func newPath(
 	writeTimeout conf.StringDuration,
 	writeQueueSize int,
 	udpMaxPayloadSize int,
-	record bool,
-	recordPath string,
-	recordPartDuration conf.StringDuration,
-	recordSegmentDuration conf.StringDuration,
 	confName string,
 	cnf *conf.Path,
 	name string,
@@ -246,10 +238,6 @@ func newPath(
 		writeTimeout:                   writeTimeout,
 		writeQueueSize:                 writeQueueSize,
 		udpMaxPayloadSize:              udpMaxPayloadSize,
-		record:                         record,
-		recordPath:                     recordPath,
-		recordPartDuration:             recordPartDuration,
-		recordSegmentDuration:          recordSegmentDuration,
 		confName:                       confName,
 		conf:                           cnf,
 		name:                           name,
@@ -514,7 +502,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 		go pa.source.(*sourceStatic).reloadConf(newConf)
 	}
 
-	if pa.recordingEnabled() {
+	if pa.conf.Record {
 		if pa.stream != nil && pa.recordAgent == nil {
 			pa.startRecording()
 		}
@@ -793,10 +781,6 @@ func (pa *path) shouldClose() bool {
 		len(pa.readerAddRequestsOnHold) == 0
 }
 
-func (pa *path) recordingEnabled() bool {
-	return pa.record && pa.conf.Record
-}
-
 func (pa *path) externalCmdEnv() externalcmd.Environment {
 	_, port, _ := net.SplitHostPort(pa.rtspAddress)
 	env := externalcmd.Environment{
@@ -897,7 +881,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 		return err
 	}
 
-	if pa.recordingEnabled() {
+	if pa.conf.Record {
 		pa.startRecording()
 	}
 
@@ -968,9 +952,9 @@ func (pa *path) setNotReady() {
 func (pa *path) startRecording() {
 	pa.recordAgent = record.NewAgent(
 		pa.writeQueueSize,
-		pa.recordPath,
-		time.Duration(pa.recordPartDuration),
-		time.Duration(pa.recordSegmentDuration),
+		pa.conf.RecordPath,
+		time.Duration(pa.conf.RecordPartDuration),
+		time.Duration(pa.conf.RecordSegmentDuration),
 		pa.name,
 		pa.stream,
 		func(segmentPath string) {

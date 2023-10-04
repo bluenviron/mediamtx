@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,6 +32,37 @@ var defaultConfPaths = []string{
 	"/usr/local/etc/mediamtx.yml",
 	"/usr/etc/mediamtx.yml",
 	"/etc/mediamtx/mediamtx.yml",
+}
+
+func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
+	out := make(map[record.CleanerEntry]struct{})
+
+	for _, pa := range paths {
+		if pa.Record {
+			entry := record.CleanerEntry{
+				RecordPath:        pa.RecordPath,
+				RecordDeleteAfter: time.Duration(pa.RecordDeleteAfter),
+			}
+			out[entry] = struct{}{}
+		}
+	}
+
+	out2 := make([]record.CleanerEntry, len(out))
+	i := 0
+
+	for v := range out {
+		out2[i] = v
+		i++
+	}
+
+	sort.Slice(out2, func(i, j int) bool {
+		if out2[i].RecordPath != out2[j].RecordPath {
+			return out2[i].RecordPath < out2[j].RecordPath
+		}
+		return out2[i].RecordDeleteAfter < out2[j].RecordDeleteAfter
+	})
+
+	return out2
 }
 
 var cli struct {
@@ -259,12 +291,11 @@ func (p *Core) createResources(initial bool) error {
 		}
 	}
 
-	if p.conf.Record &&
-		p.conf.RecordDeleteAfter != 0 &&
+	cleanerEntries := gatherCleanerEntries(p.conf.Paths)
+	if len(cleanerEntries) != 0 &&
 		p.recordCleaner == nil {
 		p.recordCleaner = record.NewCleaner(
-			p.conf.RecordPath,
-			time.Duration(p.conf.RecordDeleteAfter),
+			cleanerEntries,
 			p,
 		)
 	}
@@ -278,10 +309,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.WriteTimeout,
 			p.conf.WriteQueueSize,
 			p.conf.UDPMaxPayloadSize,
-			p.conf.Record,
-			p.conf.RecordPath,
-			p.conf.RecordPartDuration,
-			p.conf.RecordSegmentDuration,
 			p.conf.Paths,
 			p.externalCmdPool,
 			p.metrics,
@@ -539,9 +566,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeLogger
 
 	closeRecorderCleaner := newConf == nil ||
-		newConf.Record != p.conf.Record ||
-		newConf.RecordPath != p.conf.RecordPath ||
-		newConf.RecordDeleteAfter != p.conf.RecordDeleteAfter
+		!reflect.DeepEqual(gatherCleanerEntries(newConf.Paths), gatherCleanerEntries(p.conf.Paths)) ||
+		closeLogger
 
 	closePathManager := newConf == nil ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
@@ -551,10 +577,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
-		newConf.Record != p.conf.Record ||
-		newConf.RecordPath != p.conf.RecordPath ||
-		newConf.RecordPartDuration != p.conf.RecordPartDuration ||
-		newConf.RecordSegmentDuration != p.conf.RecordSegmentDuration ||
 		closeMetrics ||
 		closeLogger
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
