@@ -262,7 +262,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			}
 
 			ctx.Writer.Header().Set("Content-Type", "application/sdp")
-			ctx.Writer.Header().Set("Access-Control-Expose-Headers", "ETag, Accept-Patch, Link")
+			ctx.Writer.Header().Set("Access-Control-Expose-Headers", "ETag, Accept-Patch, Link, Location")
 			ctx.Writer.Header().Set("ETag", res.sx.secret.String())
 			ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 			ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
