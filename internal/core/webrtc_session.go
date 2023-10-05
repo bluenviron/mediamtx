@@ -410,7 +410,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	timeDecoder := rtptime.NewGlobalDecoder()
 
 	for _, track := range tracks {
-		track.start(rres.stream, timeDecoder)
+		track.start(rres.stream, timeDecoder, s)
 	}
 
 	select {
