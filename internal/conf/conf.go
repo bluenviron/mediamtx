@@ -165,6 +165,7 @@ type Conf struct {
 	WebRTCICEServers        []string          `json:"webrtcICEServers"` // deprecated
 	WebRTCICEServers2       []WebRTCICEServer `json:"webrtcICEServers2"`
 	WebRTCICEHostNAT1To1IPs []string          `json:"webrtcICEHostNAT1To1IPs"`
+	WebRTCICEInterfaces     []string          `json:"webrtcBlockICEInterfaces`
 	WebRTCICEUDPMuxAddress  string            `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string            `json:"webrtcICETCPMuxAddress"`
 
@@ -396,7 +397,7 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.WebRTCAllowOrigin = "*"
 	conf.WebRTCICEServers2 = []WebRTCICEServer{{URL: "stun:stun.l.google.com:19302"}}
 	conf.WebRTCICEHostNAT1To1IPs = []string{}
-
+	conf.WebRTCICEInterfaces = []string{}
 	// SRT
 	conf.SRT = true
 	conf.SRTAddress = ":8890"

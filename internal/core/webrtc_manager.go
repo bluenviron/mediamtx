@@ -168,12 +168,29 @@ func randomTurnUser() (string, error) {
 	return string(b), nil
 }
 
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+			if b == a {
+					return true
+			}
+	}
+	return false
+}
+
 func webrtcNewAPI(
 	iceHostNAT1To1IPs []string,
+	iceInterfacesAllowed []string,
 	iceUDPMux ice.UDPMux,
 	iceTCPMux ice.TCPMux,
 ) (*webrtc.API, error) {
 	settingsEngine := webrtc.SettingEngine{}
+
+	if len(iceInterfacesAllowed) != 0 {
+		//https://pkg.go.dev/github.com/pion/webrtc/v3#SettingEngine.SetInterfaceFilter
+		settingsEngine.SetInterfaceFilter(func(iface string) bool {
+			return stringInSlice(iface, iceInterfacesAllowed)
+		})
+	}
 
 	if len(iceHostNAT1To1IPs) != 0 {
 		settingsEngine.SetNAT1To1IPs(iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
@@ -318,6 +335,7 @@ func newWebRTCManager(
 	readTimeout conf.StringDuration,
 	writeQueueSize int,
 	iceHostNAT1To1IPs []string,
+	iceInterfacesAllowed []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
 	externalCmdPool *externalcmd.Pool,
@@ -391,7 +409,7 @@ func newWebRTCManager(
 		iceTCPMux = webrtc.NewICETCPMux(nil, m.tcpMuxLn, 8)
 	}
 
-	m.api, err = webrtcNewAPI(iceHostNAT1To1IPs, iceUDPMux, iceTCPMux)
+	m.api, err = webrtcNewAPI(iceHostNAT1To1IPs, iceInterfacesAllowed, iceUDPMux, iceTCPMux)
 	if err != nil {
 		m.udpMuxLn.Close()
 		m.tcpMuxLn.Close()

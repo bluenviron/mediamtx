@@ -166,6 +166,10 @@ components:
           type: array
           items:
             type: string
+        webrtcICEInterfaces:
+          type: array
+          items:
+            type: string
         webrtcICEUDPMuxAddress:
           type: string
         webrtcICETCPMuxAddress:

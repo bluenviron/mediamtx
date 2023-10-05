@@ -455,6 +455,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadTimeout,
 			p.conf.WriteQueueSize,
 			p.conf.WebRTCICEHostNAT1To1IPs,
+			p.conf.WebRTCICEInterfaces,
 			p.conf.WebRTCICEUDPMuxAddress,
 			p.conf.WebRTCICETCPMuxAddress,
 			p.externalCmdPool,
@@ -668,6 +669,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs) ||
+		!reflect.DeepEqual(newConf.WebRTCICEInterfaces, p.conf.WebRTCICEInterfaces) ||
 		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
 		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
 		closeMetrics ||
