@@ -88,7 +88,7 @@ var audioCodecs = []webrtc.RTPCodecParameters{
 			MimeType:    webrtc.MimeTypeOpus,
 			ClockRate:   48000,
 			Channels:    2,
-			SDPFmtpLine: "minptime=10;useinbandfec=1",
+			SDPFmtpLine: "minptime=10;useinbandfec=1;stereo=1;sprop-stereo=1",
 		},
 		PayloadType: 111,
 	},

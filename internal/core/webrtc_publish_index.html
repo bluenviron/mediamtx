@@ -276,7 +276,7 @@ const setAudioBitrate = (section, bitrate, voice) => {
 };
 
 const editAnswer = (answer, videoCodec, audioCodec, videoBitrate, audioBitrate, audioVoice) => {
-    const sections = answer.split('m=');
+    const sections = answer.sdp.split('m=');
 
     for (let i = 0; i < sections.length; i++) {
         const section = sections[i];
@@ -287,7 +287,7 @@ const editAnswer = (answer, videoCodec, audioCodec, videoBitrate, audioBitrate, 
         }
     }
 
-    return sections.join('m=');
+    answer.sdp = sections.join('m=');
 };
 
 class Transmitter {
@@ -377,19 +377,16 @@ class Transmitter {
 			return;
 		}
 
-        answer = new RTCSessionDescription({
-            type: 'answer',
-            sdp: editAnswer(
-                answer.sdp,
-                document.getElementById('video_codec').value,
-                document.getElementById('audio_codec').value,
-                document.getElementById('video_bitrate').value,
-                document.getElementById('audio_bitrate').value,
-                document.getElementById('audio_voice').value,
-            ),
-        });
+        editAnswer(
+            answer,
+            document.getElementById('video_codec').value,
+            document.getElementById('audio_codec').value,
+            document.getElementById('video_bitrate').value,
+            document.getElementById('audio_bitrate').value,
+            document.getElementById('audio_voice').value,
+        );
 
-        this.pc.setRemoteDescription(new RTCSessionDescription(answer));
+        this.pc.setRemoteDescription(answer);
 
         if (this.queuedCandidates.length !== 0) {
             this.sendLocalCandidates(this.queuedCandidates);
