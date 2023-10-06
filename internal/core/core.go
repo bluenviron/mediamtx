@@ -427,6 +427,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.HLSSegmentCount,
 			p.conf.HLSSegmentDuration,
 			p.conf.HLSPartDuration,
+			p.conf.HLSDurationRequiredPartCount,
 			p.conf.HLSSegmentMaxSize,
 			p.conf.HLSAllowOrigin,
 			p.conf.HLSTrustedProxies,
