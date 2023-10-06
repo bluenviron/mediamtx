@@ -170,9 +170,9 @@ func randomTurnUser() (string, error) {
 
 func stringInSlice(a string, list []string) bool {
 	for _, b := range list {
-			if b == a {
-					return true
-			}
+		if b == a {
+			return true
+		}
 	}
 	return false
 }
@@ -186,7 +186,6 @@ func webrtcNewAPI(
 	settingsEngine := webrtc.SettingEngine{}
 
 	if len(iceInterfacesAllowed) != 0 {
-		//https://pkg.go.dev/github.com/pion/webrtc/v3#SettingEngine.SetInterfaceFilter
 		settingsEngine.SetInterfaceFilter(func(iface string) bool {
 			return stringInSlice(iface, iceInterfacesAllowed)
 		})

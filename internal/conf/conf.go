@@ -165,7 +165,7 @@ type Conf struct {
 	WebRTCICEServers        []string          `json:"webrtcICEServers"` // deprecated
 	WebRTCICEServers2       []WebRTCICEServer `json:"webrtcICEServers2"`
 	WebRTCICEHostNAT1To1IPs []string          `json:"webrtcICEHostNAT1To1IPs"`
-	WebRTCICEInterfaces     []string          `json:"webrtcBlockICEInterfaces`
+	WebRTCICEInterfaces     []string          `json:"webrtcBlockICEInterfaces"`
 	WebRTCICEUDPMuxAddress  string            `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string            `json:"webrtcICETCPMuxAddress"`
 
