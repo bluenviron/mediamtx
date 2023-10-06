@@ -523,15 +523,18 @@ const populateDevices = () => {
                 }
             }
 
-            // add screen
-            const opt = document.createElement('option');
-            opt.value = "screen";
-            opt.text = "screen";
-            document.getElementById('video_device').appendChild(opt);
+            if (navigator.mediaDevices.getDisplayMedia !== undefined) {
+                const opt = document.createElement('option');
+                opt.value = "screen";
+                opt.text = "screen";
+                document.getElementById('video_device').appendChild(opt);
+            }
 
-            // set default
-            document.getElementById('video_device').value = document.getElementById('video_device').children[1].value;
-            if (document.getElementById('audio_device').children.length > 1) {
+            if (document.getElementById('video_device').children.length !== 0) {
+                document.getElementById('video_device').value = document.getElementById('video_device').children[1].value;
+            }
+
+            if (document.getElementById('audio_device').children.length !== 0) {
                 document.getElementById('audio_device').value = document.getElementById('audio_device').children[1].value;
             }
         });
