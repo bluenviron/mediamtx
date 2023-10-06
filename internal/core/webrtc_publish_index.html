@@ -8,7 +8,6 @@ html, body {
 	margin: 0;
 	padding: 0;
 	height: 100%;
-	overflow: hidden;
 }
 body {
     display: flex;
@@ -21,11 +20,12 @@ body {
     min-height: 0;
 }
 #controls {
-    height: 200px;
     flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    min-height: 200px;
+    padding: 10px;
 }
 #device {
     flex-direction: column;
@@ -35,6 +35,14 @@ body {
     display: flex;
     gap: 20px;
     justify-content: center;
+    flex-wrap: wrap;
+}
+#device > div > div {
+    display: flex;
+    gap: 20px;
+}
+#error-message {
+    text-align: center;
 }
 select {
     width: 200px;
@@ -50,31 +58,43 @@ select {
     </div>
     <div id="device" style="display: none;">
         <div id="device_line">
-            video device:
-            <select id="video_device">
-                <option value="none">none</option>
-            </select>
+            <div>
+                video device
+                <select id="video_device">
+                    <option value="none">none</option>
+                </select>
+            </div>
 
-            audio device:
-            <select id="audio_device">
-                <option value="none">none</option>
-            </select>
+            <div>
+                audio device
+                <select id="audio_device">
+                    <option value="none">none</option>
+                </select>
+            </div>
         </div>
         <div id="codec_line">
-            video codec:
-            <select id="video_codec">
-            </select>
+            <div>
+                video codec
+                <select id="video_codec">
+                </select>
+            </div>
 
-            audio codec:
-            <select id="audio_codec">
-            </select>
+            <div>
+                audio codec
+                <select id="audio_codec">
+                </select>
+            </div>
         </div>
         <div id="bitrate_line">
-            video bitrate (kbps):
-            <input id="video_bitrate" type="text" value="10000" />
+            <div>
+                video bitrate (kbps)
+                <input id="video_bitrate" type="text" value="10000" />
+            </div>
 
-            audio bitrate (kbps):
-            <input id="audio_bitrate" type="text" value="32" />
+            <div>
+                audio bitrate (kbps)
+                <input id="audio_bitrate" type="text" value="32" />
+            </div>
 
             <div>
                 <input id="audio_voice" type="checkbox" checked>
@@ -449,13 +469,14 @@ class Transmitter {
 }
 
 const onTransmit = (stream) => {
-    state = TRANSMITTING;
-    render();
     document.getElementById('video').srcObject = stream;
     new Transmitter(stream);
 };
 
 const onPublish = () => {
+    state = TRANSMITTING;
+    render();
+
     const videoId = document.getElementById('video_device').value;
     const audioId = document.getElementById('audio_device').value;
 
@@ -483,7 +504,12 @@ const onPublish = () => {
         }
 
         navigator.mediaDevices.getUserMedia({ video, audio })
-            .then(onTransmit);
+            .then(onTransmit)
+            .catch((err) => {
+                state = ERROR;
+                errorMessage = err.toString();
+                render();
+            });
     } else {
         navigator.mediaDevices.getDisplayMedia({
             video: {
@@ -494,7 +520,12 @@ const onPublish = () => {
             },
             audio: false,
         })
-            .then(onTransmit);
+            .then(onTransmit)
+            .catch((err) => {
+                state = ERROR;
+                errorMessage = err.toString();
+                render();
+            });
     }
 };
 
