@@ -64,6 +64,48 @@ const parseOffer = (offer) => {
     return ret;
 };
 
+const enableStereoOpus = (section) => {
+    let opusPayloadFormat = '';
+    let lines = section.split('\r\n');
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
+            opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
+            break;
+        }
+    }
+
+    if (opusPayloadFormat === '') {
+        return section;
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+            if (!lines[i].includes('stereo')) {
+                lines[i] += ';stereo=1';
+            }
+            if (!lines[i].includes('sprop-stereo')) {
+                lines[i] += ';sprop-stereo=1';
+            }
+        }
+    }
+
+    return lines.join('\r\n');
+};
+
+const editOffer = (offer) => {
+    const sections = offer.sdp.split('m=');
+
+    for (let i = 0; i < sections.length; i++) {
+        const section = sections[i];
+        if (section.startsWith('audio')) {
+            sections[i] = enableStereoOpus(section);
+        }
+    }
+
+    offer.sdp = sections.join('m=');
+};
+
 const generateSdpFragment = (offerData, candidates) => {
     const candidatesByMedia = {};
     for (const candidate of candidates) {
@@ -139,6 +181,8 @@ class WHEPClient {
     }
 
     onLocalOffer(offer) {
+        editOffer(offer);
+
         this.offerData = parseOffer(offer.sdp);
         this.pc.setLocalDescription(offer);
 
@@ -186,7 +230,7 @@ class WHEPClient {
             return;
         }
 
-		this.pc.setRemoteDescription(new RTCSessionDescription(answer));
+		this.pc.setRemoteDescription(answer);
 
         if (this.queuedCandidates.length !== 0) {
             this.sendLocalCandidates(this.queuedCandidates);
