@@ -20,7 +20,7 @@ import (
 func TestWebRTCSource(t *testing.T) {
 	state := 0
 
-	api, err := webrtcNewAPI(nil, nil, nil)
+	api, err := webrtcNewAPI(nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	pc, err := webrtcpc.New(nil, api, nilLogger{})

@@ -67,7 +67,7 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.PathConf, _ chan *conf
 		return err
 	}
 
-	api, err := webrtcNewAPI(nil, nil, nil)
+	api, err := webrtcNewAPI(nil, nil, nil, nil)
 	if err != nil {
 		return err
 	}

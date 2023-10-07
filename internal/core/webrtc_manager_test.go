@@ -43,7 +43,7 @@ func newWebRTCTestClient(
 
 	c := &webRTCTestClient{}
 
-	api, err := webrtcNewAPI(nil, nil, nil)
+	api, err := webrtcNewAPI(nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	pc, err := webrtcpc.New(iceServers, api, nilLogger{})

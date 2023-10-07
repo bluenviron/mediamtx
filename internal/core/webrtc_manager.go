@@ -168,12 +168,28 @@ func randomTurnUser() (string, error) {
 	return string(b), nil
 }
 
+func stringInSlice(a string, list []string) bool {
+	for _, b := range list {
+		if b == a {
+			return true
+		}
+	}
+	return false
+}
+
 func webrtcNewAPI(
+	iceInterfaces []string,
 	iceHostNAT1To1IPs []string,
 	iceUDPMux ice.UDPMux,
 	iceTCPMux ice.TCPMux,
 ) (*webrtc.API, error) {
 	settingsEngine := webrtc.SettingEngine{}
+
+	if len(iceInterfaces) != 0 {
+		settingsEngine.SetInterfaceFilter(func(iface string) bool {
+			return stringInSlice(iface, iceInterfaces)
+		})
+	}
 
 	if len(iceHostNAT1To1IPs) != 0 {
 		settingsEngine.SetNAT1To1IPs(iceHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
@@ -317,6 +333,7 @@ func newWebRTCManager(
 	iceServers []conf.WebRTCICEServer,
 	readTimeout conf.StringDuration,
 	writeQueueSize int,
+	iceInterfaces []string,
 	iceHostNAT1To1IPs []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
@@ -391,7 +408,7 @@ func newWebRTCManager(
 		iceTCPMux = webrtc.NewICETCPMux(nil, m.tcpMuxLn, 8)
 	}
 
-	m.api, err = webrtcNewAPI(iceHostNAT1To1IPs, iceUDPMux, iceTCPMux)
+	m.api, err = webrtcNewAPI(iceInterfaces, iceHostNAT1To1IPs, iceUDPMux, iceTCPMux)
 	if err != nil {
 		m.udpMuxLn.Close()
 		m.tcpMuxLn.Close()
