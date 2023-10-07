@@ -15,7 +15,7 @@ security: []
 
 components:
   schemas:
-    Conf:
+    GlobalConf:
       type: object
       properties:
         # General
@@ -195,12 +195,6 @@ components:
         recordDeleteAfter:
           type: string
 
-        # Paths
-        paths:
-          type: object
-          additionalProperties:
-            $ref: '#/components/schemas/PathConf'
-
     PathConf:
       type: object
       properties:
@@ -356,6 +350,16 @@ components:
         runOnRecordSegmentComplete:
           type: string
 
+    PathConfList:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PathConf'
+
     Path:
       type: object
       properties:
@@ -363,10 +367,8 @@ components:
           type: string
         confName:
           type: string
-        conf:
-          $ref: '#/components/schemas/PathConf'
         source:
-          $ref: '#/components/schemas/PathSourceOrReader'
+          $ref: '#/components/schemas/PathSource'
           nullable: true
         ready:
           type: boolean
@@ -383,9 +385,9 @@ components:
         readers:
           type: array
           items:
-            $ref: '#/components/schemas/PathSourceOrReader'
+            $ref: '#/components/schemas/PathReader'
 
-    PathsList:
+    PathList:
       type: object
       properties:
         pageCount:
@@ -395,13 +397,12 @@ components:
           items:
             $ref: '#/components/schemas/Path'
 
-    PathSourceOrReader:
+    PathSource:
       type: object
       properties:
         type:
           type: string
           enum:
-          - hlsMuxer
           - hlsSource
           - redirect
           - rpiCameraSource
@@ -418,6 +419,21 @@ components:
         id:
           type: string
 
+    PathReader:
+      type: object
+      properties:
+        type:
+          type: string
+          enum:
+          - hlsMuxer
+          - rtmpConn
+          - rtspSession
+          - rtspsSession
+          - srtConn
+          - webRTCSession
+        id:
+          type: string
+
     HLSMuxer:
       type: object
       properties:
@@ -431,7 +447,7 @@ components:
           type: integer
           format: int64
 
-    HLSMuxersList:
+    HLSMuxerList:
       type: object
       properties:
         pageCount:
@@ -462,7 +478,7 @@ components:
           type: integer
           format: int64
 
-    RTMPConnsList:
+    RTMPConnList:
       type: object
       properties:
         pageCount:
@@ -488,7 +504,7 @@ components:
           type: integer
           format: int64
 
-    RTSPConnsList:
+    RTSPConnList:
       type: object
       properties:
         pageCount:
@@ -522,7 +538,7 @@ components:
           type: integer
           format: int64
 
-    RTSPSessionsList:
+    RTSPSessionList:
       type: object
       properties:
         pageCount:
@@ -553,7 +569,7 @@ components:
           type: integer
           format: int64
 
-    SRTConnsList:
+    SRTConnList:
       type: object
       properties:
         pageCount:
@@ -590,7 +606,7 @@ components:
           type: integer
           format: int64
 
-    WebRTCSessionsList:
+    WebRTCSessionList:
       type: object
       properties:
         pageCount:
@@ -601,10 +617,10 @@ components:
             $ref: '#/components/schemas/WebRTCSession'
 
 paths:
-  /v2/config/get:
+  /v3/config/global/get:
     get:
-      operationId: configGet
-      summary: returns the configuration.
+      operationId: configGlobalGet
+      summary: returns the global configuration.
       description: ''
       responses:
         '200':
@@ -612,23 +628,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Conf'
+                $ref: '#/components/schemas/GlobalConf'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/config/set:
-    post:
-      operationId: configSet
-      summary: changes the configuration.
-      description: all fields are optional. paths can't be edited with this request, use /v2/config/paths/{operation}/{name} to edit them.
+  /v3/config/global/patch:
+    patch:
+      operationId: configGlobalSet
+      summary: patches the global configuration.
+      description: all fields are optional.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Conf'
+              $ref: '#/components/schemas/GlobalConf'
       responses:
         '200':
           description: the request was successful.
@@ -637,10 +653,100 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/config/paths/add/{name}:
+  /v3/config/pathdefaults/get:
+    get:
+      operationId: configPathDefaultsGet
+      summary: returns the default path configuration.
+      description: ''
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathConf'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v3/config/pathdefaults/patch:
+    patch:
+      operationId: configPathDefaultsPatch
+      summary: patches the default path configuration.
+      description: all fields are optional.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathConf'
+      responses:
+        '200':
+          description: the request was successful.
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v3/config/paths/list:
+    get:
+      operationId: configPathsList
+      summary: returns all path configurations.
+      description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: integer
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathConfList'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v3/config/paths/get/{name}:
+    get:
+      operationId: configPathsGet
+      summary: returns a path configuration.
+      description: ''
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: the name of the path.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PathConf'
+        '400':
+          description: invalid request.
+        '500':
+          description: internal server error.
+
+  /v3/config/paths/add/{name}:
     post:
       operationId: configPathsAdd
-      summary: adds the configuration of a path.
+      summary: adds a path configuration.
       description: all fields are optional.
       parameters:
       - name: name
@@ -663,10 +769,10 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/config/paths/edit/{name}:
-    post:
-      operationId: configPathsEdit
-      summary: changes the configuration of a path.
+  /v3/config/paths/patch/{name}:
+    patch:
+      operationId: configPathsPatch
+      summary: patches a path configuration.
       description: all fields are optional.
       parameters:
       - name: name
@@ -691,10 +797,38 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/config/paths/remove/{name}:
+  /v3/config/paths/replace/{name}:
     post:
-      operationId: configPathsRemove
-      summary: removes the configuration of a path.
+      operationId: configPathsReplace
+      summary: replaces all values of a path configuration.
+      description: all fields are optional.
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: the name of the path.
+        schema:
+          type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PathConf'
+      responses:
+        '200':
+          description: the request was successful.
+        '400':
+          description: invalid request.
+        '404':
+          description: configuration not found.
+        '500':
+          description: internal server error.
+
+  /v3/config/paths/delete/{name}:
+    delete:
+      operationId: configPathsDelete
+      summary: removes a path configuration.
       description: ''
       parameters:
       - name: name
@@ -713,7 +847,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/hlsmuxers/list:
+  /v3/hlsmuxers/list:
     get:
       operationId: hlsMuxersList
       summary: returns all HLS muxers.
@@ -737,13 +871,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HLSMuxersList'
+                $ref: '#/components/schemas/HLSMuxerList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/hlsmuxers/get/{name}:
+  /v3/hlsmuxers/get/{name}:
     get:
       operationId: hlsMuxersGet
       summary: returns a HLS muxer.
@@ -769,7 +903,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/paths/list:
+  /v3/paths/list:
     get:
       operationId: pathsList
       summary: returns all paths.
@@ -793,13 +927,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PathsList'
+                $ref: '#/components/schemas/PathList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/paths/get/{name}:
+  /v3/paths/get/{name}:
     get:
       operationId: pathsGet
       summary: returns a path.
@@ -825,7 +959,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspconns/list:
+  /v3/rtspconns/list:
     get:
       operationId: rtspConnsList
       summary: returns all RTSP connections.
@@ -849,13 +983,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPConnsList'
+                $ref: '#/components/schemas/RTSPConnList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/rtspconns/get/{id}:
+  /v3/rtspconns/get/{id}:
     get:
       operationId: rtspConnsGet
       summary: returns a RTSP connection.
@@ -881,7 +1015,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspsessions/list:
+  /v3/rtspsessions/list:
     get:
       operationId: rtspSessionsList
       summary: returns all RTSP sessions.
@@ -905,13 +1039,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSessionsList'
+                $ref: '#/components/schemas/RTSPSessionList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/rtspsessions/get/{id}:
+  /v3/rtspsessions/get/{id}:
     get:
       operationId: rtspSessionsGet
       summary: returns a RTSP session.
@@ -937,7 +1071,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspsessions/kick/{id}:
+  /v3/rtspsessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
       summary: kicks out a RTSP session from the server.
@@ -959,7 +1093,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspsconns/list:
+  /v3/rtspsconns/list:
     get:
       operationId: rtspsConnsList
       summary: returns all RTSPS connections.
@@ -983,13 +1117,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPConnsList'
+                $ref: '#/components/schemas/RTSPConnList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/rtspsconns/get/{id}:
+  /v3/rtspsconns/get/{id}:
     get:
       operationId: rtspsConnsGet
       summary: returns a RTSPS connection.
@@ -1015,7 +1149,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspssessions/list:
+  /v3/rtspssessions/list:
     get:
       operationId: rtspsSessionsList
       summary: returns all RTSPS sessions.
@@ -1039,7 +1173,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTSPSessionsList'
+                $ref: '#/components/schemas/RTSPSessionList'
         '400':
           description: invalid request.
         '404':
@@ -1047,7 +1181,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspssessions/get/{id}:
+  /v3/rtspssessions/get/{id}:
     get:
       operationId: rtspsSessionsGet
       summary: returns a RTSPS session.
@@ -1073,7 +1207,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtspssessions/kick/{id}:
+  /v3/rtspssessions/kick/{id}:
     post:
       operationId: rtspsSessionsKick
       summary: kicks out a RTSPS session from the server.
@@ -1095,7 +1229,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtmpconns/list:
+  /v3/rtmpconns/list:
     get:
       operationId: rtmpConnsList
       summary: returns all RTMP connections.
@@ -1119,13 +1253,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPConnsList'
+                $ref: '#/components/schemas/RTMPConnList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/rtmpconns/get/{id}:
+  /v3/rtmpconns/get/{id}:
     get:
       operationId: rtmpConnectionsGet
       summary: returns a RTMP connection.
@@ -1151,7 +1285,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtmpconns/kick/{id}:
+  /v3/rtmpconns/kick/{id}:
     post:
       operationId: rtmpConnsKick
       summary: kicks out a RTMP connection from the server.
@@ -1173,7 +1307,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtmpsconns/list:
+  /v3/rtmpsconns/list:
     get:
       operationId: rtmpsConnsList
       summary: returns all RTMPS connections.
@@ -1197,13 +1331,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RTMPConnsList'
+                $ref: '#/components/schemas/RTMPConnList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/rtmpsconns/get/{id}:
+  /v3/rtmpsconns/get/{id}:
     get:
       operationId: rtmpsConnectionsGet
       summary: returns a RTMPS connection.
@@ -1229,7 +1363,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/rtmpsconns/kick/{id}:
+  /v3/rtmpsconns/kick/{id}:
     post:
       operationId: rtmpsConnsKick
       summary: kicks out a RTMPS connection from the server.
@@ -1251,7 +1385,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/srtconns/list:
+  /v3/srtconns/list:
     get:
       operationId: srtConnsList
       summary: returns all SRT connections.
@@ -1275,13 +1409,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SRTConnsList'
+                $ref: '#/components/schemas/SRTConnList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/srtconns/get/{id}:
+  /v3/srtconns/get/{id}:
     get:
       operationId: srtConnsGet
       summary: returns a SRT connection.
@@ -1307,7 +1441,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/srtconns/kick/{id}:
+  /v3/srtconns/kick/{id}:
     post:
       operationId: srtConnsKick
       summary: kicks out a SRT connection from the server.
@@ -1329,7 +1463,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/webrtcsessions/list:
+  /v3/webrtcsessions/list:
     get:
       operationId: webrtcSessionsList
       summary: returns all WebRTC sessions.
@@ -1353,13 +1487,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WebRTCSessionsList'
+                $ref: '#/components/schemas/WebRTCSessionList'
         '400':
           description: invalid request.
         '500':
           description: internal server error.
 
-  /v2/webrtcsessions/get/{id}:
+  /v3/webrtcsessions/get/{id}:
     get:
       operationId: webrtcSessionsGet
       summary: returns a WebRTC session.
@@ -1385,7 +1519,7 @@ paths:
         '500':
           description: internal server error.
 
-  /v2/webrtcsessions/kick/{id}:
+  /v3/webrtcsessions/kick/{id}:
     post:
       operationId: webrtcSessionsKick
       summary: kicks out a WebRTC session from the server.

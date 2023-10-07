@@ -86,7 +86,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	if err == nil && len(data.Items) != 0 {
 		for _, i := range data.Items {
 			var state string
-			if i.SourceReady {
+			if i.Ready {
 				state = "ready"
 			} else {
 				state = "notReady"

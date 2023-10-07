@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf) bool {
+func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone := oldPathConf.Clone()
 
 	clone.Record = newPathConf.Record
@@ -32,7 +32,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.PathConf, newPathConf *conf.PathConf
 	return newPathConf.Equal(clone)
 }
 
-func getConfForPath(pathConfs map[string]*conf.PathConf, name string) (string, *conf.PathConf, []string, error) {
+func getConfForPath(pathConfs map[string]*conf.Path, name string) (string, *conf.Path, []string, error) {
 	err := conf.IsValidPathName(name)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
@@ -77,7 +77,7 @@ type pathManager struct {
 	recordPath                string
 	recordPartDuration        conf.StringDuration
 	recordSegmentDuration     conf.StringDuration
-	pathConfs                 map[string]*conf.PathConf
+	pathConfs                 map[string]*conf.Path
 	externalCmdPool           *externalcmd.Pool
 	metrics                   *metrics
 	parent                    pathManagerParent
@@ -90,7 +90,7 @@ type pathManager struct {
 	pathsByConf map[string]map[*path]struct{}
 
 	// in
-	chReloadConf     chan map[string]*conf.PathConf
+	chReloadConf     chan map[string]*conf.Path
 	chSetHLSManager  chan pathManagerHLSManager
 	chClosePath      chan *path
 	chPathReady      chan *path
@@ -115,7 +115,7 @@ func newPathManager(
 	recordPath string,
 	recordPartDuration conf.StringDuration,
 	recordSegmentDuration conf.StringDuration,
-	pathConfs map[string]*conf.PathConf,
+	pathConfs map[string]*conf.Path,
 	externalCmdPool *externalcmd.Pool,
 	metrics *metrics,
 	parent pathManagerParent,
@@ -142,7 +142,7 @@ func newPathManager(
 		ctxCancel:                 ctxCancel,
 		paths:                     make(map[string]*path),
 		pathsByConf:               make(map[string]map[*path]struct{}),
-		chReloadConf:              make(chan map[string]*conf.PathConf),
+		chReloadConf:              make(chan map[string]*conf.Path),
 		chSetHLSManager:           make(chan pathManagerHLSManager),
 		chClosePath:               make(chan *path),
 		chPathReady:               make(chan *path),
@@ -190,8 +190,8 @@ func (pm *pathManager) run() {
 outer:
 	for {
 		select {
-		case newPathConfs := <-pm.chReloadConf:
-			pm.doReloadConf(newPathConfs)
+		case newPaths := <-pm.chReloadConf:
+			pm.doReloadConf(newPaths)
 
 		case m := <-pm.chSetHLSManager:
 			pm.doSetHLSManager(m)
@@ -235,14 +235,14 @@ outer:
 	}
 }
 
-func (pm *pathManager) doReloadConf(newPathConfs map[string]*conf.PathConf) {
+func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {
 	for confName, pathConf := range pm.pathConfs {
-		if newPathConf, ok := newPathConfs[confName]; ok {
+		if newPath, ok := newPaths[confName]; ok {
 			// configuration has changed
-			if !newPathConf.Equal(pathConf) {
-				if pathConfCanBeUpdated(pathConf, newPathConf) { // paths associated with the configuration can be updated
+			if !newPath.Equal(pathConf) {
+				if pathConfCanBeUpdated(pathConf, newPath) { // paths associated with the configuration can be updated
 					for pa := range pm.pathsByConf[confName] {
-						go pa.reloadConf(newPathConf)
+						go pa.reloadConf(newPath)
 					}
 				} else { // paths associated with the configuration must be recreated
 					for pa := range pm.pathsByConf[confName] {
@@ -262,7 +262,7 @@ func (pm *pathManager) doReloadConf(newPathConfs map[string]*conf.PathConf) {
 		}
 	}
 
-	pm.pathConfs = newPathConfs
+	pm.pathConfs = newPaths
 
 	// add new paths
 	for pathConfName, pathConf := range pm.pathConfs {
@@ -401,7 +401,7 @@ func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
 
 func (pm *pathManager) createPath(
 	pathConfName string,
-	pathConf *conf.PathConf,
+	pathConf *conf.Path,
 	name string,
 	matches []string,
 ) {
@@ -441,7 +441,7 @@ func (pm *pathManager) removePath(pa *path) {
 }
 
 // confReload is called by core.
-func (pm *pathManager) confReload(pathConfs map[string]*conf.PathConf) {
+func (pm *pathManager) confReload(pathConfs map[string]*conf.Path) {
 	select {
 	case pm.chReloadConf <- pathConfs:
 	case <-pm.ctx.Done():
@@ -553,7 +553,7 @@ func (pm *pathManager) setHLSManager(s pathManagerHLSManager) {
 }
 
 // apiPathsList is called by api.
-func (pm *pathManager) apiPathsList() (*apiPathsList, error) {
+func (pm *pathManager) apiPathsList() (*apiPathList, error) {
 	req := pathAPIPathsListReq{
 		res: make(chan pathAPIPathsListRes),
 	}
@@ -562,7 +562,7 @@ func (pm *pathManager) apiPathsList() (*apiPathsList, error) {
 	case pm.chAPIPathsList <- req:
 		res := <-req.res
 
-		res.data = &apiPathsList{
+		res.data = &apiPathList{
 			Items: []*apiPath{},
 		}
 

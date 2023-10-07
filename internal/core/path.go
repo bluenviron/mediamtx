@@ -76,7 +76,7 @@ type pathRemovePublisherReq struct {
 }
 
 type pathGetConfForPathRes struct {
-	conf *conf.PathConf
+	conf *conf.Path
 	err  error
 }
 
@@ -146,7 +146,7 @@ type pathStopPublisherReq struct {
 }
 
 type pathAPIPathsListRes struct {
-	data  *apiPathsList
+	data  *apiPathList
 	paths map[string]*path
 }
 
@@ -176,7 +176,7 @@ type path struct {
 	recordPartDuration    conf.StringDuration
 	recordSegmentDuration conf.StringDuration
 	confName              string
-	conf                  *conf.PathConf
+	conf                  *conf.Path
 	name                  string
 	matches               []string
 	wg                    *sync.WaitGroup
@@ -203,7 +203,7 @@ type path struct {
 	onDemandPublisherCloseTimer    *time.Timer
 
 	// in
-	chReloadConf              chan *conf.PathConf
+	chReloadConf              chan *conf.Path
 	chSourceStaticSetReady    chan pathSourceStaticSetReadyReq
 	chSourceStaticSetNotReady chan pathSourceStaticSetNotReadyReq
 	chDescribe                chan pathDescribeReq
@@ -231,7 +231,7 @@ func newPath(
 	recordPartDuration conf.StringDuration,
 	recordSegmentDuration conf.StringDuration,
 	confName string,
-	cnf *conf.PathConf,
+	cnf *conf.Path,
 	name string,
 	matches []string,
 	wg *sync.WaitGroup,
@@ -264,7 +264,7 @@ func newPath(
 		onDemandStaticSourceCloseTimer: newEmptyTimer(),
 		onDemandPublisherReadyTimer:    newEmptyTimer(),
 		onDemandPublisherCloseTimer:    newEmptyTimer(),
-		chReloadConf:                   make(chan *conf.PathConf),
+		chReloadConf:                   make(chan *conf.Path),
 		chSourceStaticSetReady:         make(chan pathSourceStaticSetReadyReq),
 		chSourceStaticSetNotReady:      make(chan pathSourceStaticSetNotReadyReq),
 		chDescribe:                     make(chan pathDescribeReq),
@@ -505,7 +505,7 @@ func (pa *path) doOnDemandPublisherCloseTimer() {
 	pa.onDemandPublisherStop("not needed by anyone")
 }
 
-func (pa *path) doReloadConf(newConf *conf.PathConf) {
+func (pa *path) doReloadConf(newConf *conf.Path) {
 	pa.confMutex.Lock()
 	pa.conf = newConf
 	pa.confMutex.Unlock()
@@ -741,7 +741,6 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 		data: &apiPath{
 			Name:     pa.name,
 			ConfName: pa.confName,
-			Conf:     pa.conf,
 			Source: func() *apiPathSourceOrReader {
 				if pa.source == nil {
 					return nil
@@ -749,8 +748,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				v := pa.source.apiSourceDescribe()
 				return &v
 			}(),
-			SourceReady: pa.stream != nil,
-			Ready:       pa.stream != nil,
+			Ready: pa.stream != nil,
 			ReadyTime: func() *time.Time {
 				if pa.stream == nil {
 					return nil
@@ -781,7 +779,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	}
 }
 
-func (pa *path) safeConf() *conf.PathConf {
+func (pa *path) safeConf() *conf.Path {
 	pa.confMutex.RLock()
 	defer pa.confMutex.RUnlock()
 	return pa.conf
@@ -1044,7 +1042,7 @@ func (pa *path) addReaderPost(req pathAddReaderReq) {
 }
 
 // reloadConf is called by pathManager.
-func (pa *path) reloadConf(newConf *conf.PathConf) {
+func (pa *path) reloadConf(newConf *conf.Path) {
 	select {
 	case pa.chReloadConf <- newConf:
 	case <-pa.ctx.Done():

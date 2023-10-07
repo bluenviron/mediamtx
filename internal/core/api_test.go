@@ -121,7 +121,7 @@ func TestPagination(t *testing.T) {
 	require.Equal(t, []int{5}, items)
 }
 
-func TestAPIConfigGet(t *testing.T) {
+func TestAPIConfigGlobalGet(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -129,33 +129,35 @@ func TestAPIConfigGet(t *testing.T) {
 	hc := &http.Client{Transport: &http.Transport{}}
 
 	var out map[string]interface{}
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/global/get", nil, &out)
 	require.Equal(t, true, out["api"])
 }
 
-func TestAPIConfigSet(t *testing.T) {
+func TestAPIConfigGlobalPatch(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/set", map[string]interface{}{
-		"rtmp":        false,
-		"readTimeout": "7s",
-		"protocols":   []string{"tcp"},
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/global/patch", map[string]interface{}{
+		"rtmp":            false,
+		"readTimeout":     "7s",
+		"protocols":       []string{"tcp"},
+		"readBufferCount": 4096, // test setting a deprecated parameter
 	}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
 	var out map[string]interface{}
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/global/get", nil, &out)
 	require.Equal(t, false, out["rtmp"])
 	require.Equal(t, "7s", out["readTimeout"])
 	require.Equal(t, []interface{}{"tcp"}, out["protocols"])
+	require.Equal(t, float64(4096), out["readBufferCount"])
 }
 
-func TestAPIConfigSetUnknownField(t *testing.T) {
+func TestAPIConfigGlobalPatchUnknownField(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -169,13 +171,103 @@ func TestAPIConfigSetUnknownField(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	req, err := http.NewRequest("POST", "http://localhost:9997/v2/config/set", bytes.NewReader(byts))
-	require.NoError(t, err)
+	func() {
+		req, err := http.NewRequest(http.MethodPatch, "http://localhost:9997/v3/config/global/patch", bytes.NewReader(byts))
+		require.NoError(t, err)
 
-	res, err := hc.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+		res, err := hc.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+		require.Equal(t, http.StatusBadRequest, res.StatusCode)
+	}()
+}
+
+func TestAPIConfigPathDefaultsGet(t *testing.T) {
+	p, ok := newInstance("api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
+	require.Equal(t, "publisher", out["source"])
+}
+
+func TestAPIConfigPathDefaultsPatch(t *testing.T) {
+	p, ok := newInstance("api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/pathdefaults/patch", map[string]interface{}{
+		"readUser": "myuser",
+		"readPass": "mypass",
+	}, nil)
+
+	time.Sleep(500 * time.Millisecond)
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/pathdefaults/get", nil, &out)
+	require.Equal(t, "myuser", out["readUser"])
+	require.Equal(t, "mypass", out["readPass"])
+}
+
+func TestAPIConfigPathsList(t *testing.T) {
+	p, ok := newInstance("api: yes\n" +
+		"paths:\n" +
+		"  path1:\n" +
+		"    readUser: myuser\n" +
+		"    readPass: mypass\n" +
+		"  path2:\n" +
+		"    readUser: myuser\n" +
+		"    readPass: mypass\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	type pathConfig map[string]interface{}
+
+	type listRes struct {
+		ItemCount int          `json:"itemCount"`
+		PageCount int          `json:"pageCount"`
+		Items     []pathConfig `json:"items"`
+	}
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	var out listRes
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/list", nil, &out)
+	require.Equal(t, listRes{
+		ItemCount: 2,
+		PageCount: 1,
+		Items: []pathConfig{
+			{
+				"readUser": "myuser",
+				"readPass": "mypass",
+			},
+			{
+				"readUser": "myuser",
+				"readPass": "mypass",
+			},
+		},
+	}, out)
+}
+
+func TestAPIConfigPathsGet(t *testing.T) {
+	p, ok := newInstance("api: yes\n" +
+		"paths:\n" +
+		"  my/path:\n" +
+		"    readUser: myuser\n" +
+		"    readPass: mypass\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, "myuser", out["readUser"])
 }
 
 func TestAPIConfigPathsAdd(t *testing.T) {
@@ -185,21 +277,19 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/add/my/path", map[string]interface{}{
-		"source":         "rtsp://127.0.0.1:9999/mypath",
-		"sourceOnDemand": true,
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path", map[string]interface{}{
+		"source":                   "rtsp://127.0.0.1:9999/mypath",
+		"sourceOnDemand":           true,
+		"disablePublisherOverride": true, // test setting a deprecated parameter
 	}, nil)
 
-	var out struct {
-		Paths map[string]struct {
-			Source                     string `json:"source"`
-			SourceOnDemandStartTimeout string `json:"sourceOnDemandStartTimeout"`
-		} `json:"paths"`
-	}
-
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
-	require.Equal(t, "rtsp://127.0.0.1:9999/mypath", out.Paths["my/path"].Source)
-	require.Equal(t, "10s", out.Paths["my/path"].SourceOnDemandStartTimeout)
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, map[string]interface{}{
+		"source":                   "rtsp://127.0.0.1:9999/mypath",
+		"sourceOnDemand":           true,
+		"disablePublisherOverride": true,
+	}, out)
 }
 
 func TestAPIConfigPathsAddUnknownField(t *testing.T) {
@@ -216,61 +306,94 @@ func TestAPIConfigPathsAddUnknownField(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	req, err := http.NewRequest("POST", "http://localhost:9997/v2/config/paths/add/my/path", bytes.NewReader(byts))
-	require.NoError(t, err)
+	func() {
+		req, err := http.NewRequest(http.MethodPost,
+			"http://localhost:9997/v3/config/paths/add/my/path", bytes.NewReader(byts))
+		require.NoError(t, err)
 
-	res, err := hc.Do(req)
-	require.NoError(t, err)
-	defer res.Body.Close()
-	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+		res, err := hc.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+		require.Equal(t, http.StatusBadRequest, res.StatusCode)
+	}()
 }
 
-func TestAPIConfigPathsEdit(t *testing.T) {
+func TestAPIConfigPathsPatch(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/add/my/path", map[string]interface{}{
-		"source":         "rtsp://127.0.0.1:9999/mypath",
-		"sourceOnDemand": true,
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path", map[string]interface{}{
+		"source":                   "rtsp://127.0.0.1:9999/mypath",
+		"sourceOnDemand":           true,
+		"disablePublisherOverride": true, // test setting a deprecated parameter
 	}, nil)
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/edit/my/path", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9998/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 
-	var out struct {
-		Paths map[string]struct {
-			Source string `json:"source"`
-		} `json:"paths"`
-	}
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
-	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out.Paths["my/path"].Source)
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, map[string]interface{}{
+		"source":                   "rtsp://127.0.0.1:9998/mypath",
+		"sourceOnDemand":           true,
+		"disablePublisherOverride": true,
+	}, out)
 }
 
-func TestAPIConfigPathsRemove(t *testing.T) {
+func TestAPIConfigPathsReplace(t *testing.T) {
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/add/my/path", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path", map[string]interface{}{
+		"source":                   "rtsp://127.0.0.1:9999/mypath",
+		"sourceOnDemand":           true,
+		"disablePublisherOverride": true, // test setting a deprecated parameter
+	}, nil)
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path", map[string]interface{}{
+		"source":         "rtsp://127.0.0.1:9998/mypath",
+		"sourceOnDemand": true,
+	}, nil)
+
+	var out map[string]interface{}
+	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, map[string]interface{}{
+		"source":         "rtsp://127.0.0.1:9998/mypath",
+		"sourceOnDemand": true,
+	}, out)
+}
+
+func TestAPIConfigPathsDelete(t *testing.T) {
+	p, ok := newInstance("api: yes\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/add/my/path", map[string]interface{}{
 		"source":         "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand": true,
 	}, nil)
 
-	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/config/paths/remove/my/path", nil, nil)
+	httpRequest(t, hc, http.MethodDelete, "http://localhost:9997/v3/config/paths/delete/my/path", nil, nil)
 
-	var out struct {
-		Paths map[string]interface{} `json:"paths"`
-	}
-	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/config/get", nil, &out)
-	_, ok = out.Paths["my/path"]
-	require.Equal(t, false, ok)
+	func() {
+		req, err := http.NewRequest(http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil)
+		require.NoError(t, err)
+
+		res, err := hc.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+		require.Equal(t, http.StatusNotFound, res.StatusCode)
+	}()
 }
 
 func TestAPIPathsList(t *testing.T) {
@@ -323,7 +446,7 @@ func TestAPIPathsList(t *testing.T) {
 		require.NoError(t, err)
 
 		var out pathList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
 		require.Equal(t, pathList{
 			ItemCount: 1,
 			PageCount: 1,
@@ -369,7 +492,7 @@ func TestAPIPathsList(t *testing.T) {
 		defer source.Close()
 
 		var out pathList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
 		require.Equal(t, pathList{
 			ItemCount: 1,
 			PageCount: 1,
@@ -396,7 +519,7 @@ func TestAPIPathsList(t *testing.T) {
 		hc := &http.Client{Transport: &http.Transport{}}
 
 		var out pathList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
 		require.Equal(t, pathList{
 			ItemCount: 1,
 			PageCount: 1,
@@ -423,7 +546,7 @@ func TestAPIPathsList(t *testing.T) {
 		hc := &http.Client{Transport: &http.Transport{}}
 
 		var out pathList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
 		require.Equal(t, pathList{
 			ItemCount: 1,
 			PageCount: 1,
@@ -450,7 +573,7 @@ func TestAPIPathsList(t *testing.T) {
 		hc := &http.Client{Transport: &http.Transport{}}
 
 		var out pathList
-		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/list", nil, &out)
+		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
 		require.Equal(t, pathList{
 			ItemCount: 1,
 			PageCount: 1,
@@ -508,7 +631,7 @@ func TestAPIPathsGet(t *testing.T) {
 				defer source.Close()
 
 				var out path
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/paths/get/"+pathName, nil, &out)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/get/"+pathName, nil, &out)
 				require.Equal(t, path{
 					Name: pathName,
 					Source: pathSource{
@@ -518,7 +641,7 @@ func TestAPIPathsGet(t *testing.T) {
 					Tracks: []string{"H264"},
 				}, out)
 			} else {
-				res, err := hc.Get("http://localhost:9997/v2/paths/get/" + pathName)
+				res, err := hc.Get("http://localhost:9997/v3/paths/get/" + pathName)
 				require.NoError(t, err)
 				defer res.Body.Close()
 				require.Equal(t, 404, res.StatusCode)
@@ -765,7 +888,7 @@ func TestAPIProtocolList(t *testing.T) {
 					ItemCount int    `json:"itemCount"`
 					Items     []item `json:"items"`
 				}
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out)
 
 				if ca != "rtsp conns" && ca != "rtsps conns" {
 					require.Equal(t, item{
@@ -784,7 +907,7 @@ func TestAPIProtocolList(t *testing.T) {
 					ItemCount int    `json:"itemCount"`
 					Items     []item `json:"items"`
 				}
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/hlsmuxers/list", nil, &out)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/hlsmuxers/list", nil, &out)
 
 				s := fmt.Sprintf("^%d-", time.Now().Year())
 				require.Regexp(t, s, out.Items[0].Created)
@@ -801,7 +924,7 @@ func TestAPIProtocolList(t *testing.T) {
 					ItemCount int    `json:"itemCount"`
 					Items     []item `json:"items"`
 				}
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/webrtcsessions/list", nil, &out)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/webrtcsessions/list", nil, &out)
 
 				require.Equal(t, item{
 					PeerConnectionEstablished: true,
@@ -1050,14 +1173,14 @@ func TestAPIProtocolGet(t *testing.T) {
 				var out1 struct {
 					Items []item `json:"items"`
 				}
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out1)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out1)
 
 				if ca != "rtsp conns" && ca != "rtsps conns" {
 					require.Equal(t, "publish", out1.Items[0].State)
 				}
 
 				var out2 item
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/get/"+out1.Items[0].ID, nil, &out2)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/get/"+out1.Items[0].ID, nil, &out2)
 
 				if ca != "rtsp conns" && ca != "rtsps conns" {
 					require.Equal(t, "publish", out2.State)
@@ -1070,7 +1193,7 @@ func TestAPIProtocolGet(t *testing.T) {
 				}
 
 				var out item
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/hlsmuxers/get/mypath", nil, &out)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/hlsmuxers/get/mypath", nil, &out)
 
 				s := fmt.Sprintf("^%d-", time.Now().Year())
 				require.Regexp(t, s, out.Created)
@@ -1091,10 +1214,10 @@ func TestAPIProtocolGet(t *testing.T) {
 				var out1 struct {
 					Items []item `json:"items"`
 				}
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/webrtcsessions/list", nil, &out1)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/webrtcsessions/list", nil, &out1)
 
 				var out2 item
-				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/webrtcsessions/get/"+out1.Items[0].ID, nil, &out2)
+				httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/webrtcsessions/get/"+out1.Items[0].ID, nil, &out2)
 
 				require.Equal(t, true, out2.PeerConnectionEstablished)
 			}
@@ -1178,7 +1301,7 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 			}
 
 			func() {
-				req, err := http.NewRequest("GET", "http://localhost:9997/v2/"+pa+"/get/"+uuid.New().String(), nil)
+				req, err := http.NewRequest(http.MethodGet, "http://localhost:9997/v3/"+pa+"/get/"+uuid.New().String(), nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)
@@ -1310,16 +1433,16 @@ func TestAPIProtocolKick(t *testing.T) {
 					ID string `json:"id"`
 				} `json:"items"`
 			}
-			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out1)
+			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out1)
 
-			httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v2/"+pa+"/kick/"+out1.Items[0].ID, nil, nil)
+			httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/"+pa+"/kick/"+out1.Items[0].ID, nil, nil)
 
 			var out2 struct {
 				Items []struct {
 					ID string `json:"id"`
 				} `json:"items"`
 			}
-			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v2/"+pa+"/list", nil, &out2)
+			httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/"+pa+"/list", nil, &out2)
 			require.Equal(t, 0, len(out2.Items))
 		})
 	}
@@ -1379,7 +1502,7 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 			}
 
 			func() {
-				req, err := http.NewRequest("GET", "http://localhost:9997/v2/"+pa+"/kick/"+uuid.New().String(), nil)
+				req, err := http.NewRequest(http.MethodGet, "http://localhost:9997/v3/"+pa+"/kick/"+uuid.New().String(), nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)

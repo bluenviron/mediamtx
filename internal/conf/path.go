@@ -1,7 +1,6 @@
 package conf
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -48,8 +47,8 @@ func srtCheckPassphrase(passphrase string) error {
 	}
 }
 
-// PathConf is a path configuration.
-type PathConf struct {
+// Path is a path configuration.
+type Path struct {
 	Regexp *regexp.Regexp `json:"-"`
 
 	// General
@@ -72,7 +71,7 @@ type PathConf struct {
 
 	// Publisher
 	OverridePublisher        bool   `json:"overridePublisher"`
-	DisablePublisherOverride bool   `json:"disablePublisherOverride"` // deprecated
+	DisablePublisherOverride *bool  `json:"disablePublisherOverride,omitempty"` // deprecated
 	Fallback                 string `json:"fallback"`
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
 
@@ -135,7 +134,67 @@ type PathConf struct {
 	RunOnRecordSegmentComplete string         `json:"runOnRecordSegmentComplete"`
 }
 
-func (pconf *PathConf) check(conf *Conf, name string) error {
+func (pconf *Path) setDefaults() {
+	// General
+	pconf.Source = "publisher"
+	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
+	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
+	pconf.Record = true
+
+	// Publisher
+	pconf.OverridePublisher = true
+
+	// Raspberry Pi Camera
+	pconf.RPICameraWidth = 1920
+	pconf.RPICameraHeight = 1080
+	pconf.RPICameraContrast = 1
+	pconf.RPICameraSaturation = 1
+	pconf.RPICameraSharpness = 1
+	pconf.RPICameraExposure = "normal"
+	pconf.RPICameraAWB = "auto"
+	pconf.RPICameraDenoise = "off"
+	pconf.RPICameraMetering = "centre"
+	pconf.RPICameraFPS = 30
+	pconf.RPICameraIDRPeriod = 60
+	pconf.RPICameraBitrate = 1000000
+	pconf.RPICameraProfile = "main"
+	pconf.RPICameraLevel = "4.1"
+	pconf.RPICameraAfMode = "auto"
+	pconf.RPICameraAfRange = "normal"
+	pconf.RPICameraAfSpeed = "normal"
+	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
+
+	// Hooks
+	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
+	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
+}
+
+func newPath(defaults *Path, partial *OptionalPath) *Path {
+	pconf := &Path{}
+	copyStructFields(pconf, defaults)
+	copyStructFields(pconf, partial.Values)
+	return pconf
+}
+
+// Clone clones the configuration.
+func (pconf Path) Clone() *Path {
+	enc, err := json.Marshal(pconf)
+	if err != nil {
+		panic(err)
+	}
+
+	var dest Path
+	err = json.Unmarshal(enc, &dest)
+	if err != nil {
+		panic(err)
+	}
+
+	dest.Regexp = pconf.Regexp
+
+	return &dest
+}
+
+func (pconf *Path) check(conf *Conf, name string) error {
 	switch {
 	case name == "all":
 		pconf.Regexp = regexp.MustCompile("^.*$")
@@ -147,11 +206,11 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 		}
 
 	default: // regular expression-based path
-		pathRegexp, err := regexp.Compile(name[1:])
+		regexp, err := regexp.Compile(name[1:])
 		if err != nil {
 			return fmt.Errorf("invalid regular expression: %s", name[1:])
 		}
-		pconf.Regexp = pathRegexp
+		pconf.Regexp = regexp
 	}
 
 	// General
@@ -329,8 +388,8 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 
 	// Publisher
 
-	if pconf.DisablePublisherOverride {
-		pconf.OverridePublisher = true
+	if pconf.DisablePublisherOverride != nil {
+		pconf.OverridePublisher = !*pconf.DisablePublisherOverride
 	}
 	if pconf.Fallback != "" {
 		if pconf.Source != "publisher" {
@@ -408,31 +467,13 @@ func (pconf *PathConf) check(conf *Conf, name string) error {
 	return nil
 }
 
-// Equal checks whether two PathConfs are equal.
-func (pconf *PathConf) Equal(other *PathConf) bool {
+// Equal checks whether two Paths are equal.
+func (pconf *Path) Equal(other *Path) bool {
 	return reflect.DeepEqual(pconf, other)
 }
 
-// Clone clones the configuration.
-func (pconf PathConf) Clone() *PathConf {
-	enc, err := json.Marshal(pconf)
-	if err != nil {
-		panic(err)
-	}
-
-	var dest PathConf
-	err = json.Unmarshal(enc, &dest)
-	if err != nil {
-		panic(err)
-	}
-
-	dest.Regexp = pconf.Regexp
-
-	return &dest
-}
-
 // HasStaticSource checks whether the path has a static source.
-func (pconf PathConf) HasStaticSource() bool {
+func (pconf Path) HasStaticSource() bool {
 	return strings.HasPrefix(pconf.Source, "rtsp://") ||
 		strings.HasPrefix(pconf.Source, "rtsps://") ||
 		strings.HasPrefix(pconf.Source, "rtmp://") ||
@@ -447,54 +488,11 @@ func (pconf PathConf) HasStaticSource() bool {
 }
 
 // HasOnDemandStaticSource checks whether the path has a on demand static source.
-func (pconf PathConf) HasOnDemandStaticSource() bool {
+func (pconf Path) HasOnDemandStaticSource() bool {
 	return pconf.HasStaticSource() && pconf.SourceOnDemand
 }
 
 // HasOnDemandPublisher checks whether the path has a on-demand publisher.
-func (pconf PathConf) HasOnDemandPublisher() bool {
+func (pconf Path) HasOnDemandPublisher() bool {
 	return pconf.RunOnDemand != ""
-}
-
-// UnmarshalJSON implements json.Unmarshaler. It is used to:
-// - force DisallowUnknownFields
-// - set default values
-func (pconf *PathConf) UnmarshalJSON(b []byte) error {
-	// General
-	pconf.Source = "publisher"
-	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
-	pconf.Record = true
-
-	// Publisher
-	pconf.OverridePublisher = true
-
-	// Raspberry Pi Camera
-	pconf.RPICameraWidth = 1920
-	pconf.RPICameraHeight = 1080
-	pconf.RPICameraContrast = 1
-	pconf.RPICameraSaturation = 1
-	pconf.RPICameraSharpness = 1
-	pconf.RPICameraExposure = "normal"
-	pconf.RPICameraAWB = "auto"
-	pconf.RPICameraDenoise = "off"
-	pconf.RPICameraMetering = "centre"
-	pconf.RPICameraFPS = 30
-	pconf.RPICameraIDRPeriod = 60
-	pconf.RPICameraBitrate = 1000000
-	pconf.RPICameraProfile = "main"
-	pconf.RPICameraLevel = "4.1"
-	pconf.RPICameraAfMode = "auto"
-	pconf.RPICameraAfRange = "normal"
-	pconf.RPICameraAfSpeed = "normal"
-	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
-
-	// Hooks
-	pconf.RunOnDemandStartTimeout = 10 * StringDuration(time.Second)
-	pconf.RunOnDemandCloseAfter = 10 * StringDuration(time.Second)
-
-	type alias PathConf
-	d := json.NewDecoder(bytes.NewReader(b))
-	d.DisallowUnknownFields()
-	return d.Decode((*alias)(pconf))
 }

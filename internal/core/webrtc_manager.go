@@ -232,7 +232,7 @@ func webrtcNewAPI(
 }
 
 type webRTCManagerAPISessionsListRes struct {
-	data *apiWebRTCSessionsList
+	data *apiWebRTCSessionList
 	err  error
 }
 
@@ -483,7 +483,7 @@ outer:
 			req.res <- webRTCAddSessionCandidatesRes{sx: sx}
 
 		case req := <-m.chAPISessionsList:
-			data := &apiWebRTCSessionsList{
+			data := &apiWebRTCSessionList{
 				Items: []*apiWebRTCSession{},
 			}
 
@@ -620,7 +620,7 @@ func (m *webRTCManager) addSessionCandidates(
 }
 
 // apiSessionsList is called by api.
-func (m *webRTCManager) apiSessionsList() (*apiWebRTCSessionsList, error) {
+func (m *webRTCManager) apiSessionsList() (*apiWebRTCSessionList, error) {
 	req := webRTCManagerAPISessionsListReq{
 		res: make(chan webRTCManagerAPISessionsListRes),
 	}

@@ -115,7 +115,7 @@ func doAuthentication(
 	externalAuthenticationURL string,
 	rtspAuthMethods conf.AuthMethods,
 	pathName string,
-	pathConf *conf.PathConf,
+	pathConf *conf.Path,
 	publish bool,
 	credentials authCredentials,
 ) error {

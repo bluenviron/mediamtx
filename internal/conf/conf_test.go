@@ -47,7 +47,7 @@ func TestConfFromFile(t *testing.T) {
 
 		pa, ok := conf.Paths["cam1"]
 		require.Equal(t, true, ok)
-		require.Equal(t, &PathConf{
+		require.Equal(t, &Path{
 			Source:                     "publisher",
 			SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
 			SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
@@ -107,11 +107,21 @@ func TestConfFromFile(t *testing.T) {
 }
 
 func TestConfFromFileAndEnv(t *testing.T) {
+	// global parameter
+	os.Setenv("RTSP_PROTOCOLS", "tcp")
+	defer os.Unsetenv("RTSP_PROTOCOLS")
+
+	// path parameter
 	os.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 	defer os.Unsetenv("MTX_PATHS_CAM1_SOURCE")
 
-	os.Setenv("RTSP_PROTOCOLS", "tcp")
-	defer os.Unsetenv("RTSP_PROTOCOLS")
+	// deprecated global parameter
+	os.Setenv("MTX_RTMPDISABLE", "yes")
+	defer os.Unsetenv("MTX_RTMPDISABLE")
+
+	// deprecated path parameter
+	os.Setenv("MTX_PATHS_CAM2_DISABLEPUBLISHEROVERRIDE", "yes")
+	defer os.Unsetenv("MTX_PATHS_CAM2_DISABLEPUBLISHEROVERRIDE")
 
 	tmpf, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
@@ -122,36 +132,15 @@ func TestConfFromFileAndEnv(t *testing.T) {
 	require.Equal(t, tmpf, confPath)
 
 	require.Equal(t, Protocols{Protocol(gortsplib.TransportTCP): {}}, conf.Protocols)
+	require.Equal(t, false, conf.RTMP)
 
 	pa, ok := conf.Paths["cam1"]
 	require.Equal(t, true, ok)
-	require.Equal(t, &PathConf{
-		Source:                     "rtsp://testing",
-		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
-		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
-		Record:                     true,
-		OverridePublisher:          true,
-		RPICameraWidth:             1920,
-		RPICameraHeight:            1080,
-		RPICameraContrast:          1,
-		RPICameraSaturation:        1,
-		RPICameraSharpness:         1,
-		RPICameraExposure:          "normal",
-		RPICameraAWB:               "auto",
-		RPICameraDenoise:           "off",
-		RPICameraMetering:          "centre",
-		RPICameraFPS:               30,
-		RPICameraIDRPeriod:         60,
-		RPICameraBitrate:           1000000,
-		RPICameraProfile:           "main",
-		RPICameraLevel:             "4.1",
-		RPICameraAfMode:            "auto",
-		RPICameraAfRange:           "normal",
-		RPICameraAfSpeed:           "normal",
-		RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
-		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
-		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
-	}, pa)
+	require.Equal(t, "rtsp://testing", pa.Source)
+
+	pa, ok = conf.Paths["cam2"]
+	require.Equal(t, true, ok)
+	require.Equal(t, false, pa.OverridePublisher)
 }
 
 func TestConfFromEnvOnly(t *testing.T) {
@@ -164,33 +153,7 @@ func TestConfFromEnvOnly(t *testing.T) {
 
 	pa, ok := conf.Paths["cam1"]
 	require.Equal(t, true, ok)
-	require.Equal(t, &PathConf{
-		Source:                     "rtsp://testing",
-		SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
-		SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
-		Record:                     true,
-		OverridePublisher:          true,
-		RPICameraWidth:             1920,
-		RPICameraHeight:            1080,
-		RPICameraContrast:          1,
-		RPICameraSaturation:        1,
-		RPICameraSharpness:         1,
-		RPICameraExposure:          "normal",
-		RPICameraAWB:               "auto",
-		RPICameraDenoise:           "off",
-		RPICameraMetering:          "centre",
-		RPICameraFPS:               30,
-		RPICameraIDRPeriod:         60,
-		RPICameraBitrate:           1000000,
-		RPICameraProfile:           "main",
-		RPICameraLevel:             "4.1",
-		RPICameraAfMode:            "auto",
-		RPICameraAfRange:           "normal",
-		RPICameraAfSpeed:           "normal",
-		RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
-		RunOnDemandStartTimeout:    10 * StringDuration(time.Second),
-		RunOnDemandCloseAfter:      10 * StringDuration(time.Second),
-	}, pa)
+	require.Equal(t, "rtsp://testing", pa.Source)
 }
 
 func TestConfEncryption(t *testing.T) {
@@ -299,7 +262,7 @@ func TestConfErrors(t *testing.T) {
 				"    source: rpiCamera\n" +
 				"  cam2:\n" +
 				"    source: rpiCamera\n",
-			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam1' and 'cam2'",
+			"'rpiCamera' with same camera ID 0 is used as source in two paths, 'cam2' and 'cam1'",
 		},
 		{
 			"invalid srt publish passphrase",
@@ -332,7 +295,8 @@ func TestSampleConfFile(t *testing.T) {
 		conf1, confPath1, err := Load("../../mediamtx.yml", nil)
 		require.NoError(t, err)
 		require.Equal(t, "../../mediamtx.yml", confPath1)
-		delete(conf1.Paths, "all")
+		conf1.Paths = make(map[string]*Path)
+		conf1.OptionalPaths = nil
 
 		conf2, confPath2, err := Load("", nil)
 		require.NoError(t, err)

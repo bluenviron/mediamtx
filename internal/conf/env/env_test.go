@@ -10,12 +10,12 @@ import (
 )
 
 type subStruct struct {
-	MyParam int
+	MyParam int `json:"myParam"`
 }
 
 type mapEntry struct {
-	MyValue  string
-	MyStruct subStruct
+	MyValue  string    `json:"myValue"`
+	MyStruct subStruct `json:"myStruct"`
 }
 
 type myDuration time.Duration
@@ -35,28 +35,28 @@ func (d *myDuration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// UnmarshalEnv implements envUnmarshaler.
-func (d *myDuration) UnmarshalEnv(s string) error {
-	return d.UnmarshalJSON([]byte(`"` + s + `"`))
+// UnmarshalEnv implements env.Unmarshaler.
+func (d *myDuration) UnmarshalEnv(_ string, v string) error {
+	return d.UnmarshalJSON([]byte(`"` + v + `"`))
 }
 
 type mySubStruct struct {
-	URL      string
-	Username string
-	Password string
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type testStruct struct {
-	MyString              string
-	MyInt                 int
-	MyFloat               float64
-	MyBool                bool
-	MyDuration            myDuration
-	MyMap                 map[string]*mapEntry
-	MySlice               []string
-	MySliceEmpty          []string
-	MySliceSubStruct      []mySubStruct
-	MySliceSubStructEmpty []mySubStruct
+	MyString              string               `json:"myString"`
+	MyInt                 int                  `json:"myInt"`
+	MyFloat               float64              `json:"myFloat"`
+	MyBool                bool                 `json:"myBool"`
+	MyDuration            myDuration           `json:"myDuration"`
+	MyMap                 map[string]*mapEntry `json:"myMap"`
+	MySlice               []string             `json:"mySlice"`
+	MySliceEmpty          []string             `json:"mySliceEmpty"`
+	MySliceSubStruct      []mySubStruct        `json:"mySliceSubStruct"`
+	MySliceSubStructEmpty []mySubStruct        `json:"mySliceSubStructEmpty"`
 }
 
 func TestLoad(t *testing.T) {

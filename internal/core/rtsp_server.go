@@ -405,7 +405,7 @@ func (s *rtspServer) apiConnsGet(uuid uuid.UUID) (*apiRTSPConn, error) {
 }
 
 // apiSessionsList is called by api and metrics.
-func (s *rtspServer) apiSessionsList() (*apiRTSPSessionsList, error) {
+func (s *rtspServer) apiSessionsList() (*apiRTSPSessionList, error) {
 	select {
 	case <-s.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -415,7 +415,7 @@ func (s *rtspServer) apiSessionsList() (*apiRTSPSessionsList, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data := &apiRTSPSessionsList{
+	data := &apiRTSPSessionList{
 		Items: []*apiRTSPSession{},
 	}
 
