@@ -42,6 +42,12 @@ And can be read from the server with:
 |[RTMP](#rtmp)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC)|
 
+And can be recorded with:
+
+|format|video codecs|audio codecs|
+|------|------------|------------|
+|[fMP4](#record-streams-to-disk)|AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG|Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3, LPCM|
+
 **Features**
 
 * Publish live streams to the server
@@ -1151,10 +1157,7 @@ recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 
 All available recording parameters are listed in the [sample configuration file](/mediamtx.yml).
 
-Currently the server supports recording tracks encoded with the following codecs:
-
-* Video: AV1, VP9, H265, H264, MPEG-4 Video (H263, Xvid), MPEG-1/2 Video, M-JPEG
-* Audio: Opus, MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3), AC-3
+Be aware that not all tracks can be saved. A compatibility matrix is available at the beginning of the README.
 
 To upload recordings to a remote location, you can use _MediaMTX_ together with [rclone](https://github.com/rclone/rclone), a command line tool that provides file synchronization capabilities with a huge variety of services (including S3, FTP, SMB, Google Drive):
 
