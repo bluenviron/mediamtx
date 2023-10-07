@@ -12,7 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-func writePart(f io.Writer, partTracks map[*track]*fmp4.PartTrack) error {
+func writePart(f io.Writer, sequenceNumber uint32, partTracks map[*track]*fmp4.PartTrack) error {
 	fmp4PartTracks := make([]*fmp4.PartTrack, len(partTracks))
 	i := 0
 	for _, partTrack := range partTracks {
@@ -21,7 +21,8 @@ func writePart(f io.Writer, partTracks map[*track]*fmp4.PartTrack) error {
 	}
 
 	part := &fmp4.Part{
-		Tracks: fmp4PartTracks,
+		SequenceNumber: sequenceNumber,
+		Tracks:         fmp4PartTracks,
 	}
 
 	var ws writerseeker.WriterSeeker
@@ -35,8 +36,9 @@ func writePart(f io.Writer, partTracks map[*track]*fmp4.PartTrack) error {
 }
 
 type part struct {
-	s        *segment
-	startDTS time.Duration
+	s              *segment
+	sequenceNumber uint32
+	startDTS       time.Duration
 
 	partTracks map[*track]*fmp4.PartTrack
 	endDTS     time.Duration
@@ -44,12 +46,14 @@ type part struct {
 
 func newPart(
 	s *segment,
+	sequenceNumber uint32,
 	startDTS time.Duration,
 ) *part {
 	return &part{
-		s:          s,
-		startDTS:   startDTS,
-		partTracks: make(map[*track]*fmp4.PartTrack),
+		s:              s,
+		startDTS:       startDTS,
+		sequenceNumber: sequenceNumber,
+		partTracks:     make(map[*track]*fmp4.PartTrack),
 	}
 }
 
@@ -77,7 +81,7 @@ func (p *part) close() error {
 		p.s.f = f
 	}
 
-	return writePart(p.s.f, p.partTracks)
+	return writePart(p.s.f, p.sequenceNumber, p.partTracks)
 }
 
 func (p *part) record(track *track, sample *sample) error {
