@@ -246,28 +246,6 @@ srt: yes
 srtAddress: :8890
 
 ###############################################
-# Global settings -> Recording
-
-# Record streams to disk.
-record: no
-# Path of recording segments.
-# Extension is added automatically.
-# Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
-recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
-# Format of recorded segments.
-# Currently the only available format is fmp4 (fragmented MP4).
-recordFormat: fmp4
-# fMP4 segments are concatenation of small MP4 files (parts), each with this duration.
-# When a system failure occurs, the last part gets lost.
-# Therefore, the part duration is equal to the RPO (recovery point objective).
-recordPartDuration: 100ms
-# Minimum duration of each segment.
-recordSegmentDuration: 1h
-# Delete segments after this timespan.
-# Set to 0s to disable automatic deletion.
-recordDeleteAfter: 24h
-
-###############################################
 # Default path settings
 
 # Settings in "pathDefaults" are applied anywhere,
@@ -311,8 +289,28 @@ pathDefaults:
   maxReaders: 0
   # SRT encryption passphrase require to read from this path
   srtReadPassphrase:
-  # Record streams to disk (if global recording is enabled).
-  record: yes
+
+  ###############################################
+  # Default path settings -> Recording
+
+  # Record streams to disk.
+  record: no
+  # Path of recording segments.
+  # Extension is added automatically.
+  # Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  # Format of recorded segments.
+  # Currently the only available format is fmp4 (fragmented MP4).
+  recordFormat: fmp4
+  # fMP4 segments are concatenation of small MP4 files (parts), each with this duration.
+  # When a system failure occurs, the last part gets lost.
+  # Therefore, the part duration is equal to the RPO (recovery point objective).
+  recordPartDuration: 100ms
+  # Minimum duration of each segment.
+  recordSegmentDuration: 1h
+  # Delete segments after this timespan.
+  # Set to 0s to disable automatic deletion.
+  recordDeleteAfter: 24h
 
   ###############################################
   # Default path settings -> Authentication
@@ -520,7 +518,7 @@ pathDefaults:
   # Environment variables are the same of runOnRead.
   runOnUnread:
 
-  # Command to run when a record segment is complete.
+  # Command to run when a recording segment is complete.
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * RTSP_PORT: RTSP server port

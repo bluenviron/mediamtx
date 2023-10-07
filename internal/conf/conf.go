@@ -163,12 +163,12 @@ type Conf struct {
 	SRTAddress string `json:"srtAddress"`
 
 	// Record
-	Record                bool           `json:"record"`
-	RecordPath            string         `json:"recordPath"`
-	RecordFormat          string         `json:"recordFormat"`
-	RecordPartDuration    StringDuration `json:"recordPartDuration"`
-	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
-	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
+	Record                *bool           `json:"record,omitempty"`                // deprecated
+	RecordPath            *string         `json:"recordPath,omitempty"`            // deprecated
+	RecordFormat          *string         `json:"recordFormat,omitempty"`          // deprecated
+	RecordPartDuration    *StringDuration `json:"recordPartDuration,omitempty"`    // deprecated
+	RecordSegmentDuration *StringDuration `json:"recordSegmentDuration,omitempty"` // deprecated
+	RecordDeleteAfter     *StringDuration `json:"recordDeleteAfter,omitempty"`     // deprecated
 
 	// Path defaults
 	PathDefaults Path `json:"pathDefaults"`
@@ -241,13 +241,6 @@ func (conf *Conf) setDefaults() {
 	// SRT
 	conf.SRT = true
 	conf.SRTAddress = ":8890"
-
-	// Record
-	conf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
-	conf.RecordFormat = "fmp4"
-	conf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
-	conf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
-	conf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
 
 	conf.PathDefaults.setDefaults()
 }
@@ -414,9 +407,23 @@ func (conf *Conf) Check() error {
 	}
 
 	// Record
-
-	if conf.RecordFormat != "fmp4" {
-		return fmt.Errorf("unsupported record format '%s'", conf.RecordFormat)
+	if conf.Record != nil {
+		conf.PathDefaults.Record = *conf.Record
+	}
+	if conf.RecordPath != nil {
+		conf.PathDefaults.RecordPath = *conf.RecordPath
+	}
+	if conf.RecordFormat != nil {
+		conf.PathDefaults.RecordFormat = *conf.RecordFormat
+	}
+	if conf.RecordPartDuration != nil {
+		conf.PathDefaults.RecordPartDuration = *conf.RecordPartDuration
+	}
+	if conf.RecordSegmentDuration != nil {
+		conf.PathDefaults.RecordSegmentDuration = *conf.RecordSegmentDuration
+	}
+	if conf.RecordDeleteAfter != nil {
+		conf.PathDefaults.RecordDeleteAfter = *conf.RecordDeleteAfter
 	}
 
 	conf.Paths = make(map[string]*Path)

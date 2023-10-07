@@ -59,7 +59,14 @@ type Path struct {
 	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int            `json:"maxReaders"`
 	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
-	Record                     bool           `json:"record"`
+
+	// Record
+	Record                bool           `json:"record"`
+	RecordPath            string         `json:"recordPath"`
+	RecordFormat          string         `json:"recordFormat"`
+	RecordPartDuration    StringDuration `json:"recordPartDuration"`
+	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
+	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
 
 	// Authentication
 	PublishUser Credential `json:"publishUser"`
@@ -139,7 +146,13 @@ func (pconf *Path) setDefaults() {
 	pconf.Source = "publisher"
 	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
-	pconf.Record = true
+
+	// Record
+	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
+	pconf.RecordFormat = "fmp4"
+	pconf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
+	pconf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
+	pconf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
 
 	// Publisher
 	pconf.OverridePublisher = true
@@ -384,6 +397,12 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
 		}
+	}
+
+	// Record
+
+	if pconf.RecordFormat != "fmp4" {
+		return fmt.Errorf("unsupported record format '%s'", pconf.RecordFormat)
 	}
 
 	// Publisher
