@@ -76,7 +76,8 @@ func (s *segment) close() error {
 
 func (s *segment) record(track *track, sample *sample) error {
 	if s.curPart == nil {
-		s.curPart = newPart(s, sample.dts)
+		s.curPart = newPart(s, s.r.nextSequenceNumber, sample.dts)
+		s.r.nextSequenceNumber++
 	} else if s.curPart.duration() >= s.r.partDuration {
 		err := s.curPart.close()
 		s.curPart = nil
@@ -85,7 +86,8 @@ func (s *segment) record(track *track, sample *sample) error {
 			return err
 		}
 
-		s.curPart = newPart(s, sample.dts)
+		s.curPart = newPart(s, s.r.nextSequenceNumber, sample.dts)
+		s.r.nextSequenceNumber++
 	}
 
 	return s.curPart.record(track, sample)

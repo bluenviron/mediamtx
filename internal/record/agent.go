@@ -114,12 +114,13 @@ type Agent struct {
 	onSegmentComplete func(string)
 	parent            logger.Writer
 
-	ctx            context.Context
-	ctxCancel      func()
-	writer         *asyncwriter.Writer
-	tracks         []*track
-	hasVideo       bool
-	currentSegment *segment
+	ctx                context.Context
+	ctxCancel          func()
+	writer             *asyncwriter.Writer
+	tracks             []*track
+	hasVideo           bool
+	currentSegment     *segment
+	nextSequenceNumber uint32
 
 	done chan struct{}
 }
