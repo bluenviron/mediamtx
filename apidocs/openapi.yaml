@@ -162,11 +162,11 @@ components:
                 type: string
               password:
                 type: string
-        webrtcICEHostNAT1To1IPs:
+        webrtcICEInterfaces:
           type: array
           items:
             type: string
-        webrtcICEInterfaces:
+        webrtcICEHostNAT1To1IPs:
           type: array
           items:
             type: string

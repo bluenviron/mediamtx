@@ -178,16 +178,16 @@ func stringInSlice(a string, list []string) bool {
 }
 
 func webrtcNewAPI(
+	iceInterfaces []string,
 	iceHostNAT1To1IPs []string,
-	iceInterfacesAllowed []string,
 	iceUDPMux ice.UDPMux,
 	iceTCPMux ice.TCPMux,
 ) (*webrtc.API, error) {
 	settingsEngine := webrtc.SettingEngine{}
 
-	if len(iceInterfacesAllowed) != 0 {
+	if len(iceInterfaces) != 0 {
 		settingsEngine.SetInterfaceFilter(func(iface string) bool {
-			return stringInSlice(iface, iceInterfacesAllowed)
+			return stringInSlice(iface, iceInterfaces)
 		})
 	}
 
@@ -333,8 +333,8 @@ func newWebRTCManager(
 	iceServers []conf.WebRTCICEServer,
 	readTimeout conf.StringDuration,
 	writeQueueSize int,
+	iceInterfaces []string,
 	iceHostNAT1To1IPs []string,
-	iceInterfacesAllowed []string,
 	iceUDPMuxAddress string,
 	iceTCPMuxAddress string,
 	externalCmdPool *externalcmd.Pool,
@@ -408,7 +408,7 @@ func newWebRTCManager(
 		iceTCPMux = webrtc.NewICETCPMux(nil, m.tcpMuxLn, 8)
 	}
 
-	m.api, err = webrtcNewAPI(iceHostNAT1To1IPs, iceInterfacesAllowed, iceUDPMux, iceTCPMux)
+	m.api, err = webrtcNewAPI(iceInterfaces, iceHostNAT1To1IPs, iceUDPMux, iceTCPMux)
 	if err != nil {
 		m.udpMuxLn.Close()
 		m.tcpMuxLn.Close()

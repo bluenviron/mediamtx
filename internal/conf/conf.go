@@ -164,8 +164,8 @@ type Conf struct {
 	WebRTCTrustedProxies    IPsOrCIDRs        `json:"webrtcTrustedProxies"`
 	WebRTCICEServers        []string          `json:"webrtcICEServers"` // deprecated
 	WebRTCICEServers2       []WebRTCICEServer `json:"webrtcICEServers2"`
-	WebRTCICEHostNAT1To1IPs []string          `json:"webrtcICEHostNAT1To1IPs"`
 	WebRTCICEInterfaces     []string          `json:"webrtcICEInterfaces"`
+	WebRTCICEHostNAT1To1IPs []string          `json:"webrtcICEHostNAT1To1IPs"`
 	WebRTCICEUDPMuxAddress  string            `json:"webrtcICEUDPMuxAddress"`
 	WebRTCICETCPMuxAddress  string            `json:"webrtcICETCPMuxAddress"`
 
@@ -396,8 +396,8 @@ func (conf *Conf) UnmarshalJSON(b []byte) error {
 	conf.WebRTCServerCert = "server.crt"
 	conf.WebRTCAllowOrigin = "*"
 	conf.WebRTCICEServers2 = []WebRTCICEServer{{URL: "stun:stun.l.google.com:19302"}}
-	conf.WebRTCICEHostNAT1To1IPs = []string{}
 	conf.WebRTCICEInterfaces = []string{}
+	conf.WebRTCICEHostNAT1To1IPs = []string{}
 
 	// SRT
 	conf.SRT = true

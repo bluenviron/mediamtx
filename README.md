@@ -1624,12 +1624,6 @@ webrtcICEServers2:
 
 where secret is the secret of the TURN server. MediaMTX will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
-In the case that for security or network bandwith restrictions reasons the server should only route peer connections accross certain network interfaces, provide a string of webRTCICE interfaces to block network traffic in peer gathering.
-
-```yml
-webrtcICEInterfaces: ["en01"]
-```
-
 ## Compile from source
 
 ### Standard

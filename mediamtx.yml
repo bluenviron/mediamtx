@@ -215,6 +215,9 @@ webrtcICEServers2:
   # the secret must be inserted into the password field.
   username: ''
   password: ''
+# List of interfaces that will be used to gather IPs to send
+# to the counterpart to establish a connection.
+webrtcICEInterfaces: []
 # List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT.
 webrtcICEHostNAT1To1IPs: []
