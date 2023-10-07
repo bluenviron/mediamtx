@@ -816,7 +816,27 @@ func NewAgent(
 				// TODO
 
 			case *format.LPCM:
-				// TODO
+				codec := &fmp4.CodecLPCM{
+					LittleEndian: false,
+					BitDepth:     forma.BitDepth,
+					SampleRate:   forma.SampleRate,
+					ChannelCount: forma.ChannelCount,
+				}
+				track := addTrack(codec)
+
+				stream.AddReader(r.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.LPCM)
+					if tunit.Samples == nil {
+						return nil
+					}
+
+					return track.record(&sample{
+						PartSample: &fmp4.PartSample{
+							Payload: tunit.Samples,
+						},
+						dts: tunit.PTS,
+					})
+				})
 			}
 		}
 	}
