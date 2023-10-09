@@ -227,6 +227,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 			ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH")
 			ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
+			ctx.Writer.Header().Set("Access-Control-Expose-Headers", "Link")
 			ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
 			ctx.Writer.WriteHeader(http.StatusNoContent)
 
