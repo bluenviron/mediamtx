@@ -374,7 +374,7 @@ func TestPathRunOnRead(t *testing.T) {
 
 func TestPathMaxReaders(t *testing.T) {
 	p, ok := newInstance("paths:\n" +
-		"  all:\n" +
+		"  all_others:\n" +
 		"    maxReaders: 1\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -420,7 +420,7 @@ func TestPathRecord(t *testing.T) {
 		"record: yes\n" +
 		"recordPath: " + filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f") + "\n" +
 		"paths:\n" +
-		"  all:\n" +
+		"  all_others:\n" +
 		"    record: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -455,13 +455,13 @@ func TestPathRecord(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
 		"record": false,
 	}, nil)
 
 	time.Sleep(500 * time.Millisecond)
 
-	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all", map[string]interface{}{
+	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
 		"record": true,
 	}, nil)
 

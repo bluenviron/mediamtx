@@ -426,6 +426,16 @@ func (conf *Conf) Check() error {
 		conf.PathDefaults.RecordDeleteAfter = *conf.RecordDeleteAfter
 	}
 
+	hasAllOthers := false
+	for name := range conf.OptionalPaths {
+		if name == "all" || name == "all_others" || name == "~^.*$" {
+			if hasAllOthers {
+				return fmt.Errorf("all_others, all and '~^.*$' are aliases")
+			}
+			hasAllOthers = true
+		}
+	}
+
 	conf.Paths = make(map[string]*Path)
 
 	for _, name := range sortedKeys(conf.OptionalPaths) {

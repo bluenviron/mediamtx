@@ -15,7 +15,7 @@ CONF="${CONF}rtspAddress: :8555\n"
 CONF="${CONF}rtpAddress: :8002\n"
 CONF="${CONF}rtcpAddress: :8003\n"
 CONF="${CONF}paths:\n"
-CONF="${CONF}  all:\n"
+CONF="${CONF}  all_others:\n"
 echo -e "$CONF" > /source.conf
 
 /mediamtx /source.conf &

@@ -114,7 +114,7 @@ func TestHLSReadNotFound(t *testing.T) {
 func TestHLSRead(t *testing.T) {
 	p, ok := newInstance("hlsAlwaysRemux: yes\n" +
 		"paths:\n" +
-		"  all:\n")
+		"  all_others:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 

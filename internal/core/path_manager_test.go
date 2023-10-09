@@ -15,7 +15,7 @@ func TestPathAutoDeletion(t *testing.T) {
 	for _, ca := range []string{"describe", "setup"} {
 		t.Run(ca, func(t *testing.T) {
 			p, ok := newInstance("paths:\n" +
-				"  all:\n")
+				"  all_others:\n")
 			require.Equal(t, true, ok)
 			defer p.Close()
 

@@ -56,11 +56,11 @@ func TestRTMPServer(t *testing.T) {
 				switch auth {
 				case "none":
 					conf += "paths:\n" +
-						"  all:\n"
+						"  all_others:\n"
 
 				case "internal":
 					conf += "paths:\n" +
-						"  all:\n" +
+						"  all_others:\n" +
 						"    publishUser: testpublisher\n" +
 						"    publishPass: testpass\n" +
 						"    publishIPs: [127.0.0.0/16]\n" +
@@ -71,7 +71,7 @@ func TestRTMPServer(t *testing.T) {
 				case "external":
 					conf += "externalAuthenticationURL: http://localhost:9120/auth\n" +
 						"paths:\n" +
-						"  all:\n"
+						"  all_others:\n"
 				}
 
 				p, ok := newInstance(conf)
@@ -193,7 +193,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			"hls: no\n" +
 			"webrtc: no\n" +
 			"paths:\n" +
-			"  all:\n" +
+			"  all_others:\n" +
 			"    publishUser: testuser2\n" +
 			"    publishPass: testpass\n")
 		require.Equal(t, true, ok)
@@ -244,7 +244,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 	t.Run("publish_external", func(t *testing.T) {
 		p, ok := newInstance("externalAuthenticationURL: http://localhost:9120/auth\n" +
 			"paths:\n" +
-			"  all:\n")
+			"  all_others:\n")
 		require.Equal(t, true, ok)
 		defer p.Close()
 
@@ -298,7 +298,7 @@ func TestRTMPServerAuthFail(t *testing.T) {
 			"hls: no\n" +
 			"webrtc: no\n" +
 			"paths:\n" +
-			"  all:\n" +
+			"  all_others:\n" +
 			"    readUser: testuser2\n" +
 			"    readPass: testpass\n")
 		require.Equal(t, true, ok)
