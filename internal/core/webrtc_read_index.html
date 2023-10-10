@@ -375,6 +375,14 @@ const initVideoElement = (callback, container) => {
 		setVideoAttributes(video);
 		container.append(video);
 		callback(video);
+
+		setInterval(() => {
+			if (video.paused) {
+				console.log("Video paused, resuming.");
+				video.pause();
+				video.play();
+			}
+		}, restartPause);
 	};
 };
 
