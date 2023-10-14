@@ -26,6 +26,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+// OnSegmentFunc is the prototype of the function passed as runOnSegmentStart / runOnSegmentComplete
+type OnSegmentFunc = func(string)
+
 func durationGoToMp4(v time.Duration, timeScale uint32) uint64 {
 	timeScale64 := uint64(timeScale)
 	secs := v / time.Second
@@ -111,7 +114,8 @@ type Agent struct {
 	partDuration      time.Duration
 	segmentDuration   time.Duration
 	stream            *stream.Stream
-	onSegmentComplete func(string)
+	onSegmentCreate   OnSegmentFunc
+	onSegmentComplete OnSegmentFunc
 	parent            logger.Writer
 
 	ctx                context.Context
@@ -125,7 +129,7 @@ type Agent struct {
 	done chan struct{}
 }
 
-// NewAgent allocates a nAgent.
+// NewAgent allocates an Agent.
 func NewAgent(
 	writeQueueSize int,
 	recordPath string,
@@ -133,15 +137,12 @@ func NewAgent(
 	segmentDuration time.Duration,
 	pathName string,
 	stream *stream.Stream,
-	onSegmentComplete func(string),
+	onSegmentCreate OnSegmentFunc,
+	onSegmentComplete OnSegmentFunc,
 	parent logger.Writer,
 ) *Agent {
 	recordPath = strings.ReplaceAll(recordPath, "%path", pathName)
 	recordPath += ".mp4"
-
-	if onSegmentComplete == nil {
-		onSegmentComplete = func(_ string) {}
-	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
@@ -150,6 +151,7 @@ func NewAgent(
 		partDuration:      partDuration,
 		segmentDuration:   segmentDuration,
 		stream:            stream,
+		onSegmentCreate:   onSegmentCreate,
 		onSegmentComplete: onSegmentComplete,
 		parent:            parent,
 		ctx:               ctx,

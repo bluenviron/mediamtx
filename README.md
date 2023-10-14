@@ -1321,71 +1321,80 @@ paths:
 `runOnReady` allows to run a command when a stream is ready to be read:
 
 ```yml
-paths:
-  mypath:
-    # This is terminated with SIGINT when the stream is not ready anymore.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * MTX_SOURCE_TYPE: source type
-    # * MTX_SOURCE_ID: source ID
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    runOnReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
-    # Restart the command if it exits.
-    runOnReadyRestart: no
+pathDefaults:
+  # This is terminated with SIGINT when the stream is not ready anymore.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * MTX_SOURCE_TYPE: source type
+  # * MTX_SOURCE_ID: source ID
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  runOnReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+  # Restart the command if it exits.
+  runOnReadyRestart: no
 ```
 
 `runOnNotReady` allows to run a command when a stream is not available anymore:
 
 ```yml
-paths:
-  mypath:
-    # Environment variables are the same of runOnReady.
-    runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
+pathDefaults:
+  # Environment variables are the same of runOnReady.
+  runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
 
 `runOnRead` allows to run a command when a client starts reading:
 
 ```yml
-paths:
-  mypath:
-    # This is terminated with SIGINT when a client stops reading.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * MTX_READER_TYPE: reader type
-    # * MTX_READER_ID: reader ID
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    runOnRead: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
-    # Restart the command if it exits.
-    runOnReadRestart: no
+pathDefaults:
+  # This is terminated with SIGINT when a client stops reading.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * MTX_READER_TYPE: reader type
+  # * MTX_READER_ID: reader ID
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  runOnRead: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
+  # Restart the command if it exits.
+  runOnReadRestart: no
 ```
 
 `runOnUnread` allows to run a command when a client stops reading:
 
 ```yml
-paths:
-  mypath:
-    # Command to run when a client stops reading.
-    # Environment variables are the same of runOnRead.
-    runOnUnread: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
+pathDefaults:
+  # Command to run when a client stops reading.
+  # Environment variables are the same of runOnRead.
+  runOnUnread: curl http://my-custom-server/webhook?path=$MTX_PATH&reader_type=$MTX_READER_TYPE&reader_id=$MTX_READER_ID
+```
+
+`runOnRecordSegmentCreate` allows to run a command when a recording segment is created:
+
+```yml
+pathDefaults:
+  # Command to run when a recording segment is created.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  # * MTX_SEGMENT_PATH: segment file path
+  runOnRecordSegmentCreate: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
 
 `runOnRecordSegmentComplete` allows to run a command when a recording segment is complete:
 
 ```yml
-paths:
-  mypath:
-    # Command to run when a recording segment is complete.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    # * MTX_SEGMENT_PATH: segment file path
-    runOnRecordSegmentComplete: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
+pathDefaults:
+  # Command to run when a recording segment is complete.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  # * MTX_SEGMENT_PATH: segment file path
+  runOnRecordSegmentComplete: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
 
 ### API

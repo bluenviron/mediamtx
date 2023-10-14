@@ -138,6 +138,7 @@ type Path struct {
 	RunOnRead                  string         `json:"runOnRead"`
 	RunOnReadRestart           bool           `json:"runOnReadRestart"`
 	RunOnUnread                string         `json:"runOnUnread"`
+	RunOnRecordSegmentCreate   string         `json:"runOnRecordSegmentCreate"`
 	RunOnRecordSegmentComplete string         `json:"runOnRecordSegmentComplete"`
 }
 

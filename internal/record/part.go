@@ -60,7 +60,7 @@ func newPart(
 func (p *part) close() error {
 	if p.s.f == nil {
 		p.s.fpath = encodeRecordPath(&recordPathParams{time: timeNow()}, p.s.r.path)
-		p.s.r.Log(logger.Debug, "opening segment %s", p.s.fpath)
+		p.s.r.Log(logger.Debug, "creating segment %s", p.s.fpath)
 
 		err := os.MkdirAll(filepath.Dir(p.s.fpath), 0o755)
 		if err != nil {
@@ -71,6 +71,8 @@ func (p *part) close() error {
 		if err != nil {
 			return err
 		}
+
+		p.s.r.onSegmentCreate(p.s.fpath)
 
 		err = writeInit(f, p.s.r.tracks)
 		if err != nil {
