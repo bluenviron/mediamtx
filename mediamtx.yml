@@ -518,6 +518,15 @@ pathDefaults:
   # Environment variables are the same of runOnRead.
   runOnUnread:
 
+  # Command to run when a recording segment is created.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  # * MTX_SEGMENT_PATH: segment file path
+  runOnRecordSegmentCreate:
+
   # Command to run when a recording segment is complete.
   # The following environment variables are available:
   # * MTX_PATH: path name
@@ -531,7 +540,8 @@ pathDefaults:
 # Path settings
 
 # Settings in "paths" are applied to specific paths, and the map key
-# is the name of the path. Any setting in "pathDefaults" can be overridden.
+# is the name of the path.
+# Any setting in "pathDefaults" can be overridden here.
 # It's possible to use regular expressions by using a tilde as prefix,
 # for example "~^(test1|test2)$" will match both "test1" and "test2",
 # for example "~^prefix" will match all paths that start with "prefix".

@@ -77,6 +77,7 @@ func TestAgent(t *testing.T) {
 
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
+	segCreated := make(chan struct{}, 2)
 	segDone := make(chan struct{}, 2)
 
 	a := NewAgent(
@@ -86,6 +87,9 @@ func TestAgent(t *testing.T) {
 		1*time.Second,
 		"mypath",
 		stream,
+		func(fpath string) {
+			segCreated <- struct{}{}
+		},
 		func(fpath string) {
 			segDone <- struct{}{}
 		},
@@ -145,8 +149,11 @@ func TestAgent(t *testing.T) {
 		})
 	}
 
-	<-segDone
-	<-segDone
+	for i := 0; i < 2; i++ {
+		<-segCreated
+		<-segDone
+	}
+
 	a.Close()
 
 	_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000125.mp4"))

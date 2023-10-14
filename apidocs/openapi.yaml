@@ -347,6 +347,8 @@ components:
           type: boolean
         runOnUnread:
           type: string
+        runOnRecordSegmentCreate:
+          type: string
         runOnRecordSegmentComplete:
           type: string
 

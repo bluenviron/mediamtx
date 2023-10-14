@@ -958,6 +958,20 @@ func (pa *path) startRecording() {
 		pa.name,
 		pa.stream,
 		func(segmentPath string) {
+			if pa.conf.RunOnRecordSegmentCreate != "" {
+				env := pa.externalCmdEnv()
+				env["MTX_SEGMENT_PATH"] = segmentPath
+
+				pa.Log(logger.Info, "runOnRecordSegmentCreate command launched")
+				externalcmd.NewCmd(
+					pa.externalCmdPool,
+					pa.conf.RunOnRecordSegmentCreate,
+					false,
+					env,
+					nil)
+			}
+		},
+		func(segmentPath string) {
 			if pa.conf.RunOnRecordSegmentComplete != "" {
 				env := pa.externalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath
