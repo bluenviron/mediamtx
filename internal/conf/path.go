@@ -63,7 +63,7 @@ type Path struct {
 	// Record
 	Record                bool           `json:"record"`
 	RecordPath            string         `json:"recordPath"`
-	RecordFormat          string         `json:"recordFormat"`
+	RecordFormat          RecordFormat   `json:"recordFormat"`
 	RecordPartDuration    StringDuration `json:"recordPartDuration"`
 	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
 	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
@@ -150,7 +150,7 @@ func (pconf *Path) setDefaults() {
 
 	// Record
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
-	pconf.RecordFormat = "fmp4"
+	pconf.RecordFormat = RecordFormatFMP4
 	pconf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
 	pconf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
 	pconf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
@@ -398,12 +398,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
 		}
-	}
-
-	// Record
-
-	if pconf.RecordFormat != "fmp4" {
-		return fmt.Errorf("unsupported record format '%s'", pconf.RecordFormat)
 	}
 
 	// Publisher

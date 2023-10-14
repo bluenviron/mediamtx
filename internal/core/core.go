@@ -41,6 +41,7 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 		if pa.Record {
 			entry := record.CleanerEntry{
 				RecordPath:        pa.RecordPath,
+				RecordFormat:      pa.RecordFormat,
 				RecordDeleteAfter: time.Duration(pa.RecordDeleteAfter),
 			}
 			out[entry] = struct{}{}

@@ -12,7 +12,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-func writePart(f io.Writer, sequenceNumber uint32, partTracks map[*track]*fmp4.PartTrack) error {
+func writePart(
+	f io.Writer,
+	sequenceNumber uint32,
+	partTracks map[*recFormatFMP4Track]*fmp4.PartTrack,
+) error {
 	fmp4PartTracks := make([]*fmp4.PartTrack, len(partTracks))
 	i := 0
 	for _, partTrack := range partTracks {
@@ -35,58 +39,60 @@ func writePart(f io.Writer, sequenceNumber uint32, partTracks map[*track]*fmp4.P
 	return err
 }
 
-type part struct {
-	s              *segment
+type recFormatFMP4Part struct {
+	s              *recFormatFMP4Segment
 	sequenceNumber uint32
 	startDTS       time.Duration
 
-	partTracks map[*track]*fmp4.PartTrack
+	created    time.Time
+	partTracks map[*recFormatFMP4Track]*fmp4.PartTrack
 	endDTS     time.Duration
 }
 
-func newPart(
-	s *segment,
+func newRecFormatFMP4Part(
+	s *recFormatFMP4Segment,
 	sequenceNumber uint32,
 	startDTS time.Duration,
-) *part {
-	return &part{
+) *recFormatFMP4Part {
+	return &recFormatFMP4Part{
 		s:              s,
 		startDTS:       startDTS,
 		sequenceNumber: sequenceNumber,
-		partTracks:     make(map[*track]*fmp4.PartTrack),
+		created:        timeNow(),
+		partTracks:     make(map[*recFormatFMP4Track]*fmp4.PartTrack),
 	}
 }
 
-func (p *part) close() error {
-	if p.s.f == nil {
-		p.s.fpath = encodeRecordPath(&recordPathParams{time: timeNow()}, p.s.r.path)
-		p.s.r.Log(logger.Debug, "creating segment %s", p.s.fpath)
+func (p *recFormatFMP4Part) close() error {
+	if p.s.fi == nil {
+		p.s.fpath = encodeRecordPath(&recordPathParams{time: p.created}, p.s.f.a.path)
+		p.s.f.a.Log(logger.Debug, "creating segment %s", p.s.fpath)
 
 		err := os.MkdirAll(filepath.Dir(p.s.fpath), 0o755)
 		if err != nil {
 			return err
 		}
 
-		f, err := os.Create(p.s.fpath)
+		fi, err := os.Create(p.s.fpath)
 		if err != nil {
 			return err
 		}
 
-		p.s.r.onSegmentCreate(p.s.fpath)
+		p.s.f.a.onSegmentCreate(p.s.fpath)
 
-		err = writeInit(f, p.s.r.tracks)
+		err = writeInit(fi, p.s.f.tracks)
 		if err != nil {
-			f.Close()
+			fi.Close()
 			return err
 		}
 
-		p.s.f = f
+		p.s.fi = fi
 	}
 
-	return writePart(p.s.f, p.sequenceNumber, p.partTracks)
+	return writePart(p.s.fi, p.sequenceNumber, p.partTracks)
 }
 
-func (p *part) record(track *track, sample *sample) error {
+func (p *recFormatFMP4Part) record(track *recFormatFMP4Track, sample *sample) error {
 	partTrack, ok := p.partTracks[track]
 	if !ok {
 		partTrack = &fmp4.PartTrack{
@@ -102,6 +108,6 @@ func (p *part) record(track *track, sample *sample) error {
 	return nil
 }
 
-func (p *part) duration() time.Duration {
+func (p *recFormatFMP4Part) duration() time.Duration {
 	return p.endDTS - p.startDTS
 }

@@ -649,7 +649,7 @@ func (pa *path) doStartPublisher(req pathStartPublisherReq) {
 
 	req.author.Log(logger.Info, "is publishing to path '%s', %s",
 		pa.name,
-		sourceMediaInfo(req.desc.Medias))
+		mediaInfo(req.desc.Medias))
 
 	if pa.conf.HasOnDemandPublisher() {
 		pa.onDemandPublisherReadyTimer.Stop()
@@ -953,6 +953,7 @@ func (pa *path) startRecording() {
 	pa.recordAgent = record.NewAgent(
 		pa.writeQueueSize,
 		pa.conf.RecordPath,
+		pa.conf.RecordFormat,
 		time.Duration(pa.conf.RecordPartDuration),
 		time.Duration(pa.conf.RecordSegmentDuration),
 		pa.name,

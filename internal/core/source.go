@@ -35,7 +35,7 @@ func mediasDescription(medias []*description.Media) []string {
 	return ret
 }
 
-func sourceMediaInfo(medias []*description.Media) string {
+func mediaInfo(medias []*description.Media) string {
 	return fmt.Sprintf("%d %s (%s)",
 		len(medias),
 		func() string {

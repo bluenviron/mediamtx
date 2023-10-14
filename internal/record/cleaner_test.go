@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 func TestCleaner(t *testing.T) {
@@ -32,6 +34,7 @@ func TestCleaner(t *testing.T) {
 	c := NewCleaner(
 		[]CleanerEntry{{
 			RecordPath:        recordPath,
+			RecordFormat:      conf.RecordFormatFMP4,
 			RecordDeleteAfter: 10 * time.Second,
 		}},
 		nilLogger{},

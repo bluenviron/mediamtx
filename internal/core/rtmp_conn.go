@@ -233,24 +233,17 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 
 	defer res.stream.RemoveReader(writer)
 
-	var medias []*description.Media
 	var w *rtmp.Writer
 
-	videoMedia, videoFormat := c.setupVideo(
+	videoFormat := c.setupVideo(
 		&w,
 		res.stream,
 		writer)
-	if videoMedia != nil {
-		medias = append(medias, videoMedia)
-	}
 
-	audioMedia, audioFormat := c.setupAudio(
+	audioFormat := c.setupAudio(
 		&w,
 		res.stream,
 		writer)
-	if audioFormat != nil {
-		medias = append(medias, audioMedia)
-	}
 
 	if videoFormat == nil && audioFormat == nil {
 		return fmt.Errorf(
@@ -258,7 +251,7 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		res.path.name, sourceMediaInfo(medias))
+		res.path.name, readerMediaInfo(writer, res.stream))
 
 	pathConf := res.path.safeConf()
 
@@ -325,7 +318,7 @@ func (c *rtmpConn) setupVideo(
 	w **rtmp.Writer,
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
-) (*description.Media, format.Format) {
+) format.Format {
 	var videoFormatH264 *format.H264
 	videoMedia := stream.Desc().FindFormat(&videoFormatH264)
 
@@ -384,17 +377,17 @@ func (c *rtmpConn) setupVideo(
 			return (*w).WriteH264(tunit.PTS, dts, idrPresent, tunit.AU)
 		})
 
-		return videoMedia, videoFormatH264
+		return videoFormatH264
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (c *rtmpConn) setupAudio(
 	w **rtmp.Writer,
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
-) (*description.Media, format.Format) {
+) format.Format {
 	var audioFormatMPEG4Audio *format.MPEG4Audio
 	audioMedia := stream.Desc().FindFormat(&audioFormatMPEG4Audio)
 
@@ -421,7 +414,7 @@ func (c *rtmpConn) setupAudio(
 			return nil
 		})
 
-		return audioMedia, audioFormatMPEG4Audio
+		return audioFormatMPEG4Audio
 	}
 
 	var audioFormatMPEG1 *format.MPEG1Audio
@@ -457,10 +450,10 @@ func (c *rtmpConn) setupAudio(
 			return nil
 		})
 
-		return audioMedia, audioFormatMPEG1
+		return audioFormatMPEG1
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
