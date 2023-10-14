@@ -13,7 +13,7 @@ import (
 
 var timeNow = time.Now
 
-func writeInit(f io.Writer, tracks []*track) error {
+func writeInit(f io.Writer, tracks []*recFormatFMP4Track) error {
 	fmp4Tracks := make([]*fmp4.InitTrack, len(tracks))
 	for i, track := range tracks {
 		fmp4Tracks[i] = track.initTrack
@@ -33,52 +33,52 @@ func writeInit(f io.Writer, tracks []*track) error {
 	return err
 }
 
-type segment struct {
-	r        *Agent
+type recFormatFMP4Segment struct {
+	f        *recFormatFMP4
 	startDTS time.Duration
 
 	fpath   string
-	f       *os.File
-	curPart *part
+	fi      *os.File
+	curPart *recFormatFMP4Part
 }
 
-func newSegment(
-	r *Agent,
+func newRecFormatFMP4Segment(
+	f *recFormatFMP4,
 	startDTS time.Duration,
-) *segment {
-	return &segment{
-		r:        r,
+) *recFormatFMP4Segment {
+	return &recFormatFMP4Segment{
+		f:        f,
 		startDTS: startDTS,
 	}
 }
 
-func (s *segment) close() error {
+func (s *recFormatFMP4Segment) close() error {
 	var err error
 
 	if s.curPart != nil {
 		err = s.curPart.close()
 	}
 
-	if s.f != nil {
-		s.r.Log(logger.Debug, "closing segment %s", s.fpath)
-		err2 := s.f.Close()
+	if s.fi != nil {
+		s.f.a.Log(logger.Debug, "closing segment %s", s.fpath)
+		err2 := s.fi.Close()
 		if err == nil {
 			err = err2
 		}
 
 		if err2 == nil {
-			s.r.onSegmentComplete(s.fpath)
+			s.f.a.onSegmentComplete(s.fpath)
 		}
 	}
 
 	return err
 }
 
-func (s *segment) record(track *track, sample *sample) error {
+func (s *recFormatFMP4Segment) record(track *recFormatFMP4Track, sample *sample) error {
 	if s.curPart == nil {
-		s.curPart = newPart(s, s.r.nextSequenceNumber, sample.dts)
-		s.r.nextSequenceNumber++
-	} else if s.curPart.duration() >= s.r.partDuration {
+		s.curPart = newRecFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
+		s.f.nextSequenceNumber++
+	} else if s.curPart.duration() >= s.f.a.partDuration {
 		err := s.curPart.close()
 		s.curPart = nil
 
@@ -86,8 +86,8 @@ func (s *segment) record(track *track, sample *sample) error {
 			return err
 		}
 
-		s.curPart = newPart(s, s.r.nextSequenceNumber, sample.dts)
-		s.r.nextSequenceNumber++
+		s.curPart = newRecFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
+		s.f.nextSequenceNumber++
 	}
 
 	return s.curPart.record(track, sample)

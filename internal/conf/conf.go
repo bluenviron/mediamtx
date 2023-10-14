@@ -165,7 +165,7 @@ type Conf struct {
 	// Record
 	Record                *bool           `json:"record,omitempty"`                // deprecated
 	RecordPath            *string         `json:"recordPath,omitempty"`            // deprecated
-	RecordFormat          *string         `json:"recordFormat,omitempty"`          // deprecated
+	RecordFormat          *RecordFormat   `json:"recordFormat,omitempty"`          // deprecated
 	RecordPartDuration    *StringDuration `json:"recordPartDuration,omitempty"`    // deprecated
 	RecordSegmentDuration *StringDuration `json:"recordSegmentDuration,omitempty"` // deprecated
 	RecordDeleteAfter     *StringDuration `json:"recordDeleteAfter,omitempty"`     // deprecated

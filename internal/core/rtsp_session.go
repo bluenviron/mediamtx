@@ -308,7 +308,7 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 		s.Log(logger.Info, "is reading from path '%s', with %s, %s",
 			s.path.name,
 			s.session.SetuppedTransport(),
-			sourceMediaInfo(s.session.SetuppedMedias()))
+			mediaInfo(s.session.SetuppedMedias()))
 
 		pathConf := s.path.safeConf()
 

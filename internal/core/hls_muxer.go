@@ -302,7 +302,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	innerReady <- struct{}{}
 
 	m.Log(logger.Info, "is converting into HLS, %s",
-		sourceMediaInfo(medias))
+		mediaInfo(medias))
 
 	m.writer.Start()
 

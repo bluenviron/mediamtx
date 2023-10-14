@@ -8,7 +8,7 @@ import (
 // RTSPRangeType is the type used in the Range header.
 type RTSPRangeType int
 
-// supported rtsp range types.
+// supported values.
 const (
 	RTSPRangeTypeUndefined RTSPRangeType = iota
 	RTSPRangeTypeClock

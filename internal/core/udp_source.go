@@ -129,7 +129,7 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 
 	var stream *stream.Stream
 
-	medias, err := mpegtsSetupTracks(r, &stream)
+	medias, err := mpegtsSetupRead(r, &stream)
 	if err != nil {
 		return err
 	}

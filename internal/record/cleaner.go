@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -41,6 +42,7 @@ func commonPath(v string) string {
 // CleanerEntry is a cleaner entry.
 type CleanerEntry struct {
 	RecordPath        string
+	RecordFormat      conf.RecordFormat
 	RecordDeleteAfter time.Duration
 }
 
@@ -115,7 +117,16 @@ func (c *Cleaner) doRun() {
 }
 
 func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
-	recordPath := e.RecordPath + ".mp4"
+	recordPath := e.RecordPath
+
+	switch e.RecordFormat {
+	case conf.RecordFormatMPEGTS:
+		recordPath += ".ts"
+
+	default:
+		recordPath += ".mp4"
+	}
+
 	commonPath := commonPath(recordPath)
 	now := timeNow()
 

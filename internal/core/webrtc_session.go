@@ -27,14 +27,6 @@ type trackRecvPair struct {
 	receiver *webrtc.RTPReceiver
 }
 
-func webrtcMediasOfOutgoingTracks(tracks []*webRTCOutgoingTrack) []*description.Media {
-	ret := make([]*description.Media, len(tracks))
-	for i, track := range tracks {
-		ret[i] = track.media
-	}
-	return ret
-}
-
 func webrtcMediasOfIncomingTracks(tracks []*webRTCIncomingTrack) []*description.Media {
 	ret := make([]*description.Media, len(tracks))
 	for i, track := range tracks {
@@ -525,7 +517,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
-		res.path.name, sourceMediaInfo(webrtcMediasOfOutgoingTracks(tracks)))
+		res.path.name, readerMediaInfo(writer, res.stream))
 
 	pathConf := res.path.safeConf()
 

@@ -52,7 +52,7 @@ func TestConfFromFile(t *testing.T) {
 			SourceOnDemandStartTimeout: 10 * StringDuration(time.Second),
 			SourceOnDemandCloseAfter:   10 * StringDuration(time.Second),
 			RecordPath:                 "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f",
-			RecordFormat:               "fmp4",
+			RecordFormat:               RecordFormatFMP4,
 			RecordPartDuration:         100000000,
 			RecordSegmentDuration:      3600000000000,
 			RecordDeleteAfter:          86400000000000,
