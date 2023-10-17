@@ -122,7 +122,7 @@ func readCommandResult(
 		}
 
 		if cmd, ok := msg.(*message.CommandAMF0); ok {
-			if cmd.CommandID == commandID && cmd.Name == commandName {
+			if (cmd.CommandID == commandID || cmd.CommandID == 0) && cmd.Name == commandName {
 				if !isValid(cmd) {
 					return fmt.Errorf("server refused connect request")
 				}
