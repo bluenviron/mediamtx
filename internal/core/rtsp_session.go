@@ -44,7 +44,7 @@ type rtspSession struct {
 	created         time.Time
 	path            *path
 	stream          *stream.Stream
-	onReadCmd       *externalcmd.Cmd // read
+	onUnreadHook    func()
 	mutex           sync.Mutex
 	state           gortsplib.ServerSessionState
 	transport       *gortsplib.Transport
@@ -96,32 +96,10 @@ func (s *rtspSession) Log(level logger.Level, format string, args ...interface{}
 	s.parent.Log(level, "[session %s] "+format, append([]interface{}{id}, args...)...)
 }
 
-func (s *rtspSession) onUnread() {
-	if s.onReadCmd != nil {
-		s.Log(logger.Info, "runOnRead command stopped")
-		s.onReadCmd.Close()
-	}
-
-	if s.path.conf.RunOnUnread != "" {
-		env := s.path.externalCmdEnv()
-		desc := s.apiReaderDescribe()
-		env["MTX_READER_TYPE"] = desc.Type
-		env["MTX_READER_ID"] = desc.ID
-
-		s.Log(logger.Info, "runOnUnread command launched")
-		externalcmd.NewCmd(
-			s.externalCmdPool,
-			s.path.conf.RunOnUnread,
-			false,
-			env,
-			nil)
-	}
-}
-
 // onClose is called by rtspServer.
 func (s *rtspSession) onClose(err error) {
 	if s.session.State() == gortsplib.ServerSessionStatePlay {
-		s.onUnread()
+		s.onUnreadHook()
 	}
 
 	switch s.session.State() {
@@ -158,10 +136,11 @@ func (s *rtspSession) onAnnounce(c *rtspConn, ctx *gortsplib.ServerHandlerOnAnno
 	}
 
 	res := s.pathManager.addPublisher(pathAddPublisherReq{
-		author:   s,
-		pathName: ctx.Path,
-		credentials: authCredentials{
+		author: s,
+		accessRequest: pathAccessRequest{
+			name:        ctx.Path,
 			query:       ctx.Query,
+			publish:     true,
 			ip:          c.ip(),
 			proto:       authProtocolRTSP,
 			id:          &c.uuid,
@@ -243,9 +222,9 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 		}
 
 		res := s.pathManager.addReader(pathAddReaderReq{
-			author:   s,
-			pathName: ctx.Path,
-			credentials: authCredentials{
+			author: s,
+			accessRequest: pathAccessRequest{
+				name:        ctx.Path,
 				query:       ctx.Query,
 				ip:          c.ip(),
 				proto:       authProtocolRTSP,
@@ -312,22 +291,14 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 
 		pathConf := s.path.safeConf()
 
-		if pathConf.RunOnRead != "" {
-			env := s.path.externalCmdEnv()
-			desc := s.apiReaderDescribe()
-			env["MTX_READER_TYPE"] = desc.Type
-			env["MTX_READER_ID"] = desc.ID
-
-			s.Log(logger.Info, "runOnRead command started")
-			s.onReadCmd = externalcmd.NewCmd(
-				s.externalCmdPool,
-				pathConf.RunOnRead,
-				pathConf.RunOnReadRestart,
-				env,
-				func(err error) {
-					s.Log(logger.Info, "runOnRead command exited: %v", err)
-				})
-		}
+		s.onUnreadHook = readerOnReadHook(
+			s.externalCmdPool,
+			pathConf,
+			s.path,
+			s.apiReaderDescribe(),
+			s.session.SetuppedQuery(),
+			s,
+		)
 
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePlay
@@ -386,7 +357,7 @@ func (s *rtspSession) onRecord(_ *gortsplib.ServerHandlerOnRecordCtx) (*base.Res
 func (s *rtspSession) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Response, error) {
 	switch s.session.State() {
 	case gortsplib.ServerSessionStatePlay:
-		s.onUnread()
+		s.onUnreadHook()
 
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay

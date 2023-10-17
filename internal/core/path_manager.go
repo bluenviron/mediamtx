@@ -284,14 +284,14 @@ func (pm *pathManager) doPathNotReady(pa *path) {
 }
 
 func (pm *pathManager) doGetConfForPath(req pathGetConfForPathReq) {
-	_, pathConf, _, err := getConfForPath(pm.pathConfs, req.name)
+	_, pathConf, _, err := getConfForPath(pm.pathConfs, req.accessRequest.name)
 	if err != nil {
 		req.res <- pathGetConfForPathRes{err: err}
 		return
 	}
 
 	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
-		req.name, pathConf, req.publish, req.credentials)
+		pathConf, req.accessRequest)
 	if err != nil {
 		req.res <- pathGetConfForPathRes{err: err}
 		return
@@ -301,35 +301,37 @@ func (pm *pathManager) doGetConfForPath(req pathGetConfForPathReq) {
 }
 
 func (pm *pathManager) doDescribe(req pathDescribeReq) {
-	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
+	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.accessRequest.name)
 	if err != nil {
 		req.res <- pathDescribeRes{err: err}
 		return
 	}
 
-	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+		pathConf, req.accessRequest)
 	if err != nil {
 		req.res <- pathDescribeRes{err: err}
 		return
 	}
 
 	// create path if it doesn't exist
-	if _, ok := pm.paths[req.pathName]; !ok {
-		pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
+	if _, ok := pm.paths[req.accessRequest.name]; !ok {
+		pm.createPath(pathConfName, pathConf, req.accessRequest.name, pathMatches)
 	}
 
-	req.res <- pathDescribeRes{path: pm.paths[req.pathName]}
+	req.res <- pathDescribeRes{path: pm.paths[req.accessRequest.name]}
 }
 
 func (pm *pathManager) doAddReader(req pathAddReaderReq) {
-	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
+	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.accessRequest.name)
 	if err != nil {
 		req.res <- pathAddReaderRes{err: err}
 		return
 	}
 
-	if !req.skipAuth {
-		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, false, req.credentials)
+	if !req.accessRequest.skipAuth {
+		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+			pathConf, req.accessRequest)
 		if err != nil {
 			req.res <- pathAddReaderRes{err: err}
 			return
@@ -337,22 +339,23 @@ func (pm *pathManager) doAddReader(req pathAddReaderReq) {
 	}
 
 	// create path if it doesn't exist
-	if _, ok := pm.paths[req.pathName]; !ok {
-		pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
+	if _, ok := pm.paths[req.accessRequest.name]; !ok {
+		pm.createPath(pathConfName, pathConf, req.accessRequest.name, pathMatches)
 	}
 
-	req.res <- pathAddReaderRes{path: pm.paths[req.pathName]}
+	req.res <- pathAddReaderRes{path: pm.paths[req.accessRequest.name]}
 }
 
 func (pm *pathManager) doAddPublisher(req pathAddPublisherReq) {
-	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.pathName)
+	pathConfName, pathConf, pathMatches, err := getConfForPath(pm.pathConfs, req.accessRequest.name)
 	if err != nil {
 		req.res <- pathAddPublisherRes{err: err}
 		return
 	}
 
-	if !req.skipAuth {
-		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods, req.pathName, pathConf, true, req.credentials)
+	if !req.accessRequest.skipAuth {
+		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+			pathConf, req.accessRequest)
 		if err != nil {
 			req.res <- pathAddPublisherRes{err: err}
 			return
@@ -360,11 +363,11 @@ func (pm *pathManager) doAddPublisher(req pathAddPublisherReq) {
 	}
 
 	// create path if it doesn't exist
-	if _, ok := pm.paths[req.pathName]; !ok {
-		pm.createPath(pathConfName, pathConf, req.pathName, pathMatches)
+	if _, ok := pm.paths[req.accessRequest.name]; !ok {
+		pm.createPath(pathConfName, pathConf, req.accessRequest.name, pathMatches)
 	}
 
-	req.res <- pathAddPublisherRes{path: pm.paths[req.pathName]}
+	req.res <- pathAddPublisherRes{path: pm.paths[req.accessRequest.name]}
 }
 
 func (pm *pathManager) doAPIPathsList(req pathAPIPathsListReq) {

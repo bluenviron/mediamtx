@@ -211,8 +211,11 @@ func mpegtsSetupRead(r *mpegts.Reader, stream **stream.Stream) ([]*description.M
 	return medias, nil
 }
 
-func mpegtsSetupWrite(stream *stream.Stream,
-	writer *asyncwriter.Writer, bw *bufio.Writer, sconn srt.Conn,
+func mpegtsSetupWrite(
+	stream *stream.Stream,
+	writer *asyncwriter.Writer,
+	bw *bufio.Writer,
+	sconn srt.Conn,
 	writeTimeout time.Duration,
 ) error {
 	var w *mpegts.Writer

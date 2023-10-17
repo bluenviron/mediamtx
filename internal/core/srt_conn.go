@@ -207,14 +207,15 @@ func (c *srtConn) runInner2(req srtNewConnReq) (bool, error) {
 
 func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pass string) (bool, error) {
 	res := c.pathManager.addPublisher(pathAddPublisherReq{
-		author:   c,
-		pathName: pathName,
-		credentials: authCredentials{
-			ip:    c.ip(),
-			user:  user,
-			pass:  pass,
-			proto: authProtocolSRT,
-			id:    &c.uuid,
+		author: c,
+		accessRequest: pathAccessRequest{
+			name:    pathName,
+			ip:      c.ip(),
+			publish: true,
+			user:    user,
+			pass:    pass,
+			proto:   authProtocolSRT,
+			id:      &c.uuid,
 		},
 	})
 
@@ -304,9 +305,9 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 
 func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass string) (bool, error) {
 	res := c.pathManager.addReader(pathAddReaderReq{
-		author:   c,
-		pathName: pathName,
-		credentials: authCredentials{
+		author: c,
+		accessRequest: pathAccessRequest{
+			name:  pathName,
 			ip:    c.ip(),
 			user:  user,
 			pass:  pass,
@@ -360,43 +361,15 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 	pathConf := res.path.safeConf()
 
-	if pathConf.RunOnRead != "" {
-		env := res.path.externalCmdEnv()
-		desc := c.apiReaderDescribe()
-		env["MTX_READER_TYPE"] = desc.Type
-		env["MTX_READER_ID"] = desc.ID
-
-		c.Log(logger.Info, "runOnRead command started")
-		onReadCmd := externalcmd.NewCmd(
-			c.externalCmdPool,
-			pathConf.RunOnRead,
-			pathConf.RunOnReadRestart,
-			env,
-			func(err error) {
-				c.Log(logger.Info, "runOnRead command exited: %v", err)
-			})
-		defer func() {
-			onReadCmd.Close()
-			c.Log(logger.Info, "runOnRead command stopped")
-		}()
-	}
-
-	if pathConf.RunOnUnread != "" {
-		defer func() {
-			env := res.path.externalCmdEnv()
-			desc := c.apiReaderDescribe()
-			env["MTX_READER_TYPE"] = desc.Type
-			env["MTX_READER_ID"] = desc.ID
-
-			c.Log(logger.Info, "runOnUnread command launched")
-			externalcmd.NewCmd(
-				c.externalCmdPool,
-				pathConf.RunOnUnread,
-				false,
-				env,
-				nil)
-		}()
-	}
+	onUnreadHook := readerOnReadHook(
+		c.externalCmdPool,
+		pathConf,
+		res.path,
+		c.apiReaderDescribe(),
+		"",
+		c,
+	)
+	defer onUnreadHook()
 
 	// disable read deadline
 	sconn.SetReadDeadline(time.Time{})

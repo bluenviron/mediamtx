@@ -473,6 +473,7 @@ pathDefaults:
   # This is terminated with SIGINT when the path is not requested anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by first reader)
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
@@ -491,6 +492,7 @@ pathDefaults:
   # This is terminated with SIGINT when the stream is not ready anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by publisher)
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.
@@ -507,6 +509,7 @@ pathDefaults:
   # This is terminated with SIGINT when a client stops reading.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by reader)
   # * RTSP_PORT: RTSP server port
   # * G1, G2, ...: regular expression groups, if path name is
   #   a regular expression.

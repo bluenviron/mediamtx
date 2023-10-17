@@ -9,8 +9,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/url"
+	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -50,6 +52,23 @@ const (
 	pathOnDemandStateClosing
 )
 
+type pathAccessRequest struct {
+	name     string
+	query    string
+	publish  bool
+	skipAuth bool
+
+	// only if skipAuth = false
+	ip          net.IP
+	user        string
+	pass        string
+	proto       authProtocol
+	id          *uuid.UUID
+	rtspRequest *base.Request
+	rtspBaseURL *url.URL
+	rtspNonce   string
+}
+
 type pathSourceStaticSetReadyRes struct {
 	stream *stream.Stream
 	err    error
@@ -81,10 +100,8 @@ type pathGetConfForPathRes struct {
 }
 
 type pathGetConfForPathReq struct {
-	name        string
-	publish     bool
-	credentials authCredentials
-	res         chan pathGetConfForPathRes
+	accessRequest pathAccessRequest
+	res           chan pathGetConfForPathRes
 }
 
 type pathDescribeRes struct {
@@ -95,10 +112,8 @@ type pathDescribeRes struct {
 }
 
 type pathDescribeReq struct {
-	pathName    string
-	url         *url.URL
-	credentials authCredentials
-	res         chan pathDescribeRes
+	accessRequest pathAccessRequest
+	res           chan pathDescribeRes
 }
 
 type pathAddReaderRes struct {
@@ -108,11 +123,9 @@ type pathAddReaderRes struct {
 }
 
 type pathAddReaderReq struct {
-	author      reader
-	pathName    string
-	skipAuth    bool
-	credentials authCredentials
-	res         chan pathAddReaderRes
+	author        reader
+	accessRequest pathAccessRequest
+	res           chan pathAddReaderRes
 }
 
 type pathAddPublisherRes struct {
@@ -121,11 +134,9 @@ type pathAddPublisherRes struct {
 }
 
 type pathAddPublisherReq struct {
-	author      publisher
-	pathName    string
-	skipAuth    bool
-	credentials authCredentials
-	res         chan pathAddPublisherRes
+	author        publisher
+	accessRequest pathAccessRequest
+	res           chan pathAddPublisherRes
 }
 
 type pathStartPublisherRes struct {
@@ -183,14 +194,15 @@ type path struct {
 	ctxCancel                      func()
 	confMutex                      sync.RWMutex
 	source                         source
+	publisherQuery                 string
 	stream                         *stream.Stream
 	recordAgent                    *record.Agent
 	readyTime                      time.Time
+	onUnDemandHook                 func(string)
+	onNotReadyHook                 func()
 	readers                        map[reader]struct{}
 	describeRequestsOnHold         []pathDescribeReq
 	readerAddRequestsOnHold        []pathAddReaderReq
-	onDemandCmd                    *externalcmd.Cmd
-	onReadyCmd                     *externalcmd.Cmd
 	onDemandStaticSourceState      pathOnDemandState
 	onDemandStaticSourceReadyTimer *time.Timer
 	onDemandStaticSourceCloseTimer *time.Timer
@@ -358,9 +370,8 @@ func (pa *path) run() {
 		}
 	}
 
-	if pa.onDemandCmd != nil {
-		pa.onDemandCmd.Close()
-		pa.Log(logger.Info, "runOnDemand command stopped")
+	if pa.onUnDemandHook != nil {
+		pa.onUnDemandHook("path closed")
 	}
 
 	pa.Log(logger.Debug, "destroyed: %v", err)
@@ -578,7 +589,7 @@ func (pa *path) doDescribe(req pathDescribeReq) {
 
 	if pa.conf.HasOnDemandPublisher() {
 		if pa.onDemandPublisherState == pathOnDemandStateInitial {
-			pa.onDemandPublisherStart()
+			pa.onDemandPublisherStart(req.accessRequest.query)
 		}
 		pa.describeRequestsOnHold = append(pa.describeRequestsOnHold, req)
 		return
@@ -588,9 +599,9 @@ func (pa *path) doDescribe(req pathDescribeReq) {
 		fallbackURL := func() string {
 			if strings.HasPrefix(pa.conf.Fallback, "/") {
 				ur := url.URL{
-					Scheme: req.url.Scheme,
-					User:   req.url.User,
-					Host:   req.url.Host,
+					Scheme: req.accessRequest.rtspRequest.URL.Scheme,
+					User:   req.accessRequest.rtspRequest.URL.User,
+					Host:   req.accessRequest.rtspRequest.URL.Host,
 					Path:   pa.conf.Fallback,
 				}
 				return ur.String()
@@ -631,6 +642,7 @@ func (pa *path) doAddPublisher(req pathAddPublisherReq) {
 	}
 
 	pa.source = req.author
+	pa.publisherQuery = req.accessRequest.query
 
 	req.res <- pathAddPublisherRes{path: pa}
 }
@@ -696,7 +708,7 @@ func (pa *path) doAddReader(req pathAddReaderReq) {
 
 	if pa.conf.HasOnDemandPublisher() {
 		if pa.onDemandPublisherState == pathOnDemandStateInitial {
-			pa.onDemandPublisherStart()
+			pa.onDemandPublisherStart(req.accessRequest.query)
 		}
 		pa.readerAddRequestsOnHold = append(pa.readerAddRequestsOnHold, req)
 		return
@@ -825,16 +837,8 @@ func (pa *path) onDemandStaticSourceStop(reason string) {
 	pa.source.(*sourceStatic).stop(reason)
 }
 
-func (pa *path) onDemandPublisherStart() {
-	pa.Log(logger.Info, "runOnDemand command started")
-	pa.onDemandCmd = externalcmd.NewCmd(
-		pa.externalCmdPool,
-		pa.conf.RunOnDemand,
-		pa.conf.RunOnDemandRestart,
-		pa.externalCmdEnv(),
-		func(err error) {
-			pa.Log(logger.Info, "runOnDemand command exited: %v", err)
-		})
+func (pa *path) onDemandPublisherStart(query string) {
+	pa.onUnDemandHook = publisherOnDemandHook(pa, query)
 
 	pa.onDemandPublisherReadyTimer.Stop()
 	pa.onDemandPublisherReadyTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandStartTimeout))
@@ -862,11 +866,8 @@ func (pa *path) onDemandPublisherStop(reason string) {
 
 	pa.onDemandPublisherState = pathOnDemandStateInitial
 
-	if pa.onDemandCmd != nil {
-		pa.onDemandCmd.Close()
-		pa.onDemandCmd = nil
-		pa.Log(logger.Info, "runOnDemand command stopped: %s", reason)
-	}
+	pa.onUnDemandHook(reason)
+	pa.onUnDemandHook = nil
 }
 
 func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
@@ -887,22 +888,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 
 	pa.readyTime = time.Now()
 
-	if pa.conf.RunOnReady != "" {
-		env := pa.externalCmdEnv()
-		desc := pa.source.apiSourceDescribe()
-		env["MTX_SOURCE_TYPE"] = desc.Type
-		env["MTX_SOURCE_ID"] = desc.ID
-
-		pa.Log(logger.Info, "runOnReady command started")
-		pa.onReadyCmd = externalcmd.NewCmd(
-			pa.externalCmdPool,
-			pa.conf.RunOnReady,
-			pa.conf.RunOnReadyRestart,
-			env,
-			func(err error) {
-				pa.Log(logger.Info, "runOnReady command exited: %v", err)
-			})
-	}
+	pa.onNotReadyHook = sourceOnReadyHook(pa)
 
 	pa.parent.pathReady(pa)
 
@@ -917,26 +903,7 @@ func (pa *path) setNotReady() {
 		r.close()
 	}
 
-	if pa.onReadyCmd != nil {
-		pa.onReadyCmd.Close()
-		pa.onReadyCmd = nil
-		pa.Log(logger.Info, "runOnReady command stopped")
-	}
-
-	if pa.conf.RunOnNotReady != "" {
-		env := pa.externalCmdEnv()
-		desc := pa.source.apiSourceDescribe()
-		env["MTX_SOURCE_TYPE"] = desc.Type
-		env["MTX_SOURCE_ID"] = desc.ID
-
-		pa.Log(logger.Info, "runOnNotReady command launched")
-		externalcmd.NewCmd(
-			pa.externalCmdPool,
-			pa.conf.RunOnNotReady,
-			false,
-			env,
-			nil)
-	}
+	pa.onNotReadyHook()
 
 	if pa.recordAgent != nil {
 		pa.recordAgent.Close()

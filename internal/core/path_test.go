@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,11 +26,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rtmp"
 )
 
-func TestPathRunOnDemand(t *testing.T) {
-	onDemandFile := filepath.Join(os.TempDir(), "ondemand")
-
-	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
-	err := os.WriteFile(srcFile, []byte(`
+var runOnDemandSampleScript = `
 package main
 
 import (
@@ -42,7 +39,9 @@ import (
 )
 
 func main() {
-	if os.Getenv("G1") != "on" {
+	if os.Getenv("MTX_PATH") != "ondemand" ||
+		os.Getenv("MTX_QUERY") != "param=value" ||
+		os.Getenv("G1") != "on" {
 		panic("environment not set")
 	}
 
@@ -74,12 +73,19 @@ func main() {
 	signal.Notify(c, syscall.SIGINT)
 	<-c
 
-	err = os.WriteFile("`+onDemandFile+`", []byte(""), 0644)
+	err = os.WriteFile("ON_DEMAND_FILE", []byte(""), 0644)
 	if err != nil {
 		panic(err)
 	}
 }
-`), 0o644)
+`
+
+func TestPathRunOnDemand(t *testing.T) {
+	onDemandFile := filepath.Join(os.TempDir(), "ondemand")
+
+	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
+	err := os.WriteFile(srcFile,
+		[]byte(strings.ReplaceAll(runOnDemandSampleScript, "ON_DEMAND_FILE", onDemandFile)), 0o644)
 	require.NoError(t, err)
 
 	execFile := filepath.Join(os.TempDir(), "ondemand_cmd")
@@ -115,7 +121,7 @@ func main() {
 				br := bufio.NewReader(conn)
 
 				if ca == "describe" || ca == "describe and setup" {
-					u, err := rtspurl.Parse("rtsp://localhost:8554/ondemand")
+					u, err := rtspurl.Parse("rtsp://localhost:8554/ondemand?param=value")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -138,7 +144,7 @@ func main() {
 					require.NoError(t, err)
 					control, _ = desc.MediaDescriptions[0].Attribute("control")
 				} else {
-					control = "rtsp://localhost:8554/ondemand/"
+					control = "rtsp://localhost:8554/ondemand?param=value/"
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
@@ -259,15 +265,15 @@ func TestPathRunOnReady(t *testing.T) {
 			"webrtc: no\n"+
 			"paths:\n"+
 			"  test:\n"+
-			"    runOnReady: touch %s\n"+
-			"    runOnNotReady: touch %s\n",
+			"    runOnReady: sh -c 'echo \"$MTX_PATH $MTX_QUERY\" > %s'\n"+
+			"    runOnNotReady: sh -c 'echo \"$MTX_PATH $MTX_QUERY\" > %s'\n",
 			onReadyFile, onNotReadyFile))
 		require.Equal(t, true, ok)
 		defer p.Close()
 
 		c := gortsplib.Client{}
 		err := c.StartRecording(
-			"rtsp://localhost:8554/test",
+			"rtsp://localhost:8554/test?query=value",
 			&description.Session{Medias: []*description.Media{testMediaH264}})
 		require.NoError(t, err)
 		defer c.Close()
@@ -275,11 +281,13 @@ func TestPathRunOnReady(t *testing.T) {
 		time.Sleep(500 * time.Millisecond)
 	}()
 
-	_, err := os.Stat(onReadyFile)
+	byts, err := os.ReadFile(onReadyFile)
 	require.NoError(t, err)
+	require.Equal(t, "test query=value\n", string(byts))
 
-	_, err = os.Stat(onNotReadyFile)
+	byts, err = os.ReadFile(onNotReadyFile)
 	require.NoError(t, err)
+	require.Equal(t, "test query=value\n", string(byts))
 }
 
 func TestPathRunOnRead(t *testing.T) {
@@ -295,8 +303,8 @@ func TestPathRunOnRead(t *testing.T) {
 				p, ok := newInstance(fmt.Sprintf(
 					"paths:\n"+
 						"  test:\n"+
-						"    runOnRead: touch %s\n"+
-						"    runOnUnread: touch %s\n",
+						"    runOnRead: sh -c 'echo \"$MTX_PATH $MTX_QUERY\" > %s'\n"+
+						"    runOnUnread: sh -c 'echo \"$MTX_PATH $MTX_QUERY\" > %s'\n",
 					onReadFile, onUnreadFile))
 				require.Equal(t, true, ok)
 				defer p.Close()
@@ -312,7 +320,7 @@ func TestPathRunOnRead(t *testing.T) {
 				case "rtsp":
 					reader := gortsplib.Client{}
 
-					u, err := rtspurl.Parse("rtsp://127.0.0.1:8554/test")
+					u, err := rtspurl.Parse("rtsp://127.0.0.1:8554/test?query=value")
 					require.NoError(t, err)
 
 					err = reader.Start(u.Scheme, u.Host)
@@ -329,7 +337,7 @@ func TestPathRunOnRead(t *testing.T) {
 					require.NoError(t, err)
 
 				case "rtmp":
-					u, err := url.Parse("rtmp://127.0.0.1:1935/test")
+					u, err := url.Parse("rtmp://127.0.0.1:1935/test?query=value")
 					require.NoError(t, err)
 
 					nconn, err := net.Dial("tcp", u.Host)
@@ -356,18 +364,28 @@ func TestPathRunOnRead(t *testing.T) {
 
 				case "webrtc":
 					hc := &http.Client{Transport: &http.Transport{}}
-					c := newWebRTCTestClient(t, hc, "http://localhost:8889/test/whep", false)
+					c := newWebRTCTestClient(t, hc, "http://localhost:8889/test/whep?query=value", false)
 					defer c.close()
 				}
 
 				time.Sleep(500 * time.Millisecond)
 			}()
 
-			_, err := os.Stat(onReadFile)
+			byts, err := os.ReadFile(onReadFile)
 			require.NoError(t, err)
+			if ca == "srt" {
+				require.Equal(t, "test \n", string(byts))
+			} else {
+				require.Equal(t, "test query=value\n", string(byts))
+			}
 
-			_, err = os.Stat(onUnreadFile)
+			byts, err = os.ReadFile(onUnreadFile)
 			require.NoError(t, err)
+			if ca == "srt" {
+				require.Equal(t, "test \n", string(byts))
+			} else {
+				require.Equal(t, "test query=value\n", string(byts))
+			}
 		})
 	}
 }

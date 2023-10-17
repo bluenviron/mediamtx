@@ -201,9 +201,9 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
 	res := c.pathManager.addReader(pathAddReaderReq{
-		author:   c,
-		pathName: pathName,
-		credentials: authCredentials{
+		author: c,
+		accessRequest: pathAccessRequest{
+			name:  pathName,
 			query: rawQuery,
 			ip:    c.ip(),
 			user:  query.Get("user"),
@@ -255,43 +255,14 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 
 	pathConf := res.path.safeConf()
 
-	if pathConf.RunOnRead != "" {
-		env := res.path.externalCmdEnv()
-		desc := c.apiReaderDescribe()
-		env["MTX_READER_TYPE"] = desc.Type
-		env["MTX_READER_ID"] = desc.ID
-
-		c.Log(logger.Info, "runOnRead command started")
-		onReadCmd := externalcmd.NewCmd(
-			c.externalCmdPool,
-			pathConf.RunOnRead,
-			pathConf.RunOnReadRestart,
-			env,
-			func(err error) {
-				c.Log(logger.Info, "runOnRead command exited: %v", err)
-			})
-		defer func() {
-			onReadCmd.Close()
-			c.Log(logger.Info, "runOnRead command stopped")
-		}()
-	}
-
-	if pathConf.RunOnUnread != "" {
-		defer func() {
-			env := res.path.externalCmdEnv()
-			desc := c.apiReaderDescribe()
-			env["MTX_READER_TYPE"] = desc.Type
-			env["MTX_READER_ID"] = desc.ID
-
-			c.Log(logger.Info, "runOnUnread command launched")
-			externalcmd.NewCmd(
-				c.externalCmdPool,
-				pathConf.RunOnUnread,
-				false,
-				res.path.externalCmdEnv(),
-				nil)
-		}()
-	}
+	onUnreadHook := readerOnReadHook(
+		c.externalCmdPool,
+		pathConf,
+		res.path,
+		c.apiReaderDescribe(),
+		rawQuery,
+		c)
+	defer onUnreadHook()
 
 	var err error
 	w, err = rtmp.NewWriter(conn, videoFormat, audioFormat)
@@ -460,15 +431,16 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 	pathName, query, rawQuery := pathNameAndQuery(u)
 
 	res := c.pathManager.addPublisher(pathAddPublisherReq{
-		author:   c,
-		pathName: pathName,
-		credentials: authCredentials{
-			query: rawQuery,
-			ip:    c.ip(),
-			user:  query.Get("user"),
-			pass:  query.Get("pass"),
-			proto: authProtocolRTMP,
-			id:    &c.uuid,
+		author: c,
+		accessRequest: pathAccessRequest{
+			name:    pathName,
+			query:   rawQuery,
+			publish: true,
+			ip:      c.ip(),
+			user:    query.Get("user"),
+			pass:    query.Get("pass"),
+			proto:   authProtocolRTMP,
+			id:      &c.uuid,
 		},
 	})
 
