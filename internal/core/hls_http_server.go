@@ -163,14 +163,14 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	res := s.pathManager.getConfForPath(pathGetConfForPathReq{
-		name:    dir,
-		publish: false,
-		credentials: authCredentials{
-			query: ctx.Request.URL.RawQuery,
-			ip:    net.ParseIP(ctx.ClientIP()),
-			user:  user,
-			pass:  pass,
-			proto: authProtocolHLS,
+		accessRequest: pathAccessRequest{
+			name:    dir,
+			query:   ctx.Request.URL.RawQuery,
+			publish: false,
+			ip:      net.ParseIP(ctx.ClientIP()),
+			user:    user,
+			pass:    pass,
+			proto:   authProtocolHLS,
 		},
 	})
 	if res.err != nil {

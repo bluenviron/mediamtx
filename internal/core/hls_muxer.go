@@ -242,9 +242,11 @@ func (m *hlsMuxer) clearQueuedRequests() {
 
 func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
 	res := m.pathManager.addReader(pathAddReaderReq{
-		author:   m,
-		pathName: m.pathName,
-		skipAuth: true,
+		author: m,
+		accessRequest: pathAccessRequest{
+			name:     m.pathName,
+			skipAuth: true,
+		},
 	})
 	if res.err != nil {
 		return res.err

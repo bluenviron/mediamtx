@@ -1311,6 +1311,7 @@ paths:
     # This is terminated with SIGINT when the program closes.
     # The following environment variables are available:
     # * MTX_PATH: path name
+    # * MTX_QUERY: query parameters (passed by first reader)
     # * RTSP_PORT: RTSP server port
     # * G1, G2, ...: regular expression groups, if path name is
     #   a regular expression.
@@ -1326,6 +1327,7 @@ pathDefaults:
   # This is terminated with SIGINT when the stream is not ready anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by publisher)
   # * MTX_SOURCE_TYPE: source type
   # * MTX_SOURCE_ID: source ID
   # * RTSP_PORT: RTSP server port
@@ -1351,6 +1353,7 @@ pathDefaults:
   # This is terminated with SIGINT when a client stops reading.
   # The following environment variables are available:
   # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by reader)
   # * MTX_READER_TYPE: reader type
   # * MTX_READER_ID: reader ID
   # * RTSP_PORT: RTSP server port

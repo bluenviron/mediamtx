@@ -171,14 +171,14 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 	// if request doesn't belong to a session, check authentication here
 	if !isWHIPorWHEP || ctx.Request.Method == http.MethodOptions {
 		res := s.pathManager.getConfForPath(pathGetConfForPathReq{
-			name:    dir,
-			publish: publish,
-			credentials: authCredentials{
-				query: ctx.Request.URL.RawQuery,
-				ip:    net.ParseIP(ip),
-				user:  user,
-				pass:  pass,
-				proto: authProtocolWebRTC,
+			accessRequest: pathAccessRequest{
+				name:    dir,
+				query:   ctx.Request.URL.RawQuery,
+				publish: publish,
+				ip:      net.ParseIP(ip),
+				user:    user,
+				pass:    pass,
+				proto:   authProtocolWebRTC,
 			},
 		})
 		if res.err != nil {

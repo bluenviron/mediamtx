@@ -155,9 +155,8 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}
 
 	res := c.pathManager.describe(pathDescribeReq{
-		pathName: ctx.Path,
-		url:      ctx.Request.URL,
-		credentials: authCredentials{
+		accessRequest: pathAccessRequest{
+			name:        ctx.Path,
 			query:       ctx.Query,
 			ip:          c.ip(),
 			proto:       authProtocolRTSP,

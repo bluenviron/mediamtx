@@ -277,15 +277,16 @@ func (s *webRTCSession) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
 	res := s.pathManager.addPublisher(pathAddPublisherReq{
-		author:   s,
-		pathName: s.req.pathName,
-		credentials: authCredentials{
-			query: s.req.query,
-			ip:    net.ParseIP(ip),
-			user:  s.req.user,
-			pass:  s.req.pass,
-			proto: authProtocolWebRTC,
-			id:    &s.uuid,
+		author: s,
+		accessRequest: pathAccessRequest{
+			name:    s.req.pathName,
+			query:   s.req.query,
+			publish: true,
+			ip:      net.ParseIP(ip),
+			user:    s.req.user,
+			pass:    s.req.pass,
+			proto:   authProtocolWebRTC,
+			id:      &s.uuid,
 		},
 	})
 	if res.err != nil {
@@ -418,9 +419,9 @@ func (s *webRTCSession) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
 	res := s.pathManager.addReader(pathAddReaderReq{
-		author:   s,
-		pathName: s.req.pathName,
-		credentials: authCredentials{
+		author: s,
+		accessRequest: pathAccessRequest{
+			name:  s.req.pathName,
 			query: s.req.query,
 			ip:    net.ParseIP(ip),
 			user:  s.req.user,
@@ -521,43 +522,15 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	pathConf := res.path.safeConf()
 
-	if pathConf.RunOnRead != "" {
-		env := res.path.externalCmdEnv()
-		desc := s.apiReaderDescribe()
-		env["MTX_READER_TYPE"] = desc.Type
-		env["MTX_READER_ID"] = desc.ID
-
-		s.Log(logger.Info, "runOnRead command started")
-		onReadCmd := externalcmd.NewCmd(
-			s.externalCmdPool,
-			pathConf.RunOnRead,
-			pathConf.RunOnReadRestart,
-			env,
-			func(err error) {
-				s.Log(logger.Info, "runOnRead command exited: %v", err)
-			})
-		defer func() {
-			onReadCmd.Close()
-			s.Log(logger.Info, "runOnRead command stopped")
-		}()
-	}
-
-	if pathConf.RunOnUnread != "" {
-		defer func() {
-			env := res.path.externalCmdEnv()
-			desc := s.apiReaderDescribe()
-			env["MTX_READER_TYPE"] = desc.Type
-			env["MTX_READER_ID"] = desc.ID
-
-			s.Log(logger.Info, "runOnUnread command launched")
-			externalcmd.NewCmd(
-				s.externalCmdPool,
-				pathConf.RunOnUnread,
-				false,
-				env,
-				nil)
-		}()
-	}
+	onUnreadHook := readerOnReadHook(
+		s.externalCmdPool,
+		pathConf,
+		res.path,
+		s.apiReaderDescribe(),
+		s.req.query,
+		s,
+	)
+	defer onUnreadHook()
 
 	writer.Start()
 
