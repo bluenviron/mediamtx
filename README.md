@@ -1008,7 +1008,7 @@ There are 3 ways to change the configuration:
    MTX_RTSPADDRESS="127.0.0.1:8554" ./mediamtx
    ```
 
-   Parameters that have array as value can be overriden by setting a comma-separated list. For example:
+   Parameters that have array as value can be overridden by setting a comma-separated list. For example:
 
    ```
    MTX_PROTOCOLS="tcp,udp"
