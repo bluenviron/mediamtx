@@ -809,7 +809,7 @@ func TestAPIProtocolList(t *testing.T) {
 				defer source.Close()
 
 				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whep", false)
-				defer c.close()
+				defer c.close(t, true)
 
 				time.Sleep(500 * time.Millisecond)
 
@@ -1095,7 +1095,7 @@ func TestAPIProtocolGet(t *testing.T) {
 				defer source.Close()
 
 				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whep", false)
-				defer c.close()
+				defer c.close(t, true)
 
 				time.Sleep(500 * time.Millisecond)
 
@@ -1385,7 +1385,7 @@ func TestAPIProtocolKick(t *testing.T) {
 
 			case "webrtc":
 				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whip", true)
-				defer c.close()
+				defer c.close(t, false)
 
 			case "srt":
 				conf := srt.DefaultConfig()

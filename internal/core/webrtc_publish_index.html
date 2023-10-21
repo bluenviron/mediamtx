@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width">
 <style>
 html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
+    margin: 0;
+    padding: 0;
+    height: 100%;
 }
 body {
     display: flex;
     flex-direction: column;
 }
 #video {
-	height: 100%;
-	background: black;
+    height: 100%;
+    background: black;
     flex-grow: 1;
     min-height: 0;
 }
@@ -313,11 +313,11 @@ const editAnswer = (answer, videoCodec, audioCodec, videoBitrate, audioBitrate, 
 class Transmitter {
     constructor(stream) {
         this.stream = stream;
-		this.pc = null;
-		this.restartTimeout = null;
-        this.eTag = '';
+        this.pc = null;
+        this.restartTimeout = null;
+        this.sessionUrl = '';
         this.queuedCandidates = [];
-		this.start();
+        this.start();
     }
 
     start() {
@@ -366,7 +366,7 @@ class Transmitter {
                 if (res.status !== 201) {
                     throw new Error('bad status code');
                 }
-                this.eTag = res.headers.get('ETag');
+                this.sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
                 return res.text();
             })
             .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
@@ -393,9 +393,9 @@ class Transmitter {
     }
 
     onRemoteAnswer(answer) {
-		if (this.restartTimeout !== null) {
-			return;
-		}
+        if (this.restartTimeout !== null) {
+            return;
+        }
 
         editAnswer(
             answer,
@@ -412,7 +412,7 @@ class Transmitter {
             this.sendLocalCandidates(this.queuedCandidates);
             this.queuedCandidates = [];
         }
-	}
+    }
 
     onLocalCandidate(evt) {
         if (this.restartTimeout !== null) {
@@ -420,7 +420,7 @@ class Transmitter {
         }
 
         if (evt.candidate !== null) {
-            if (this.eTag === '') {
+            if (this.sessionUrl === '') {
                 this.queuedCandidates.push(evt.candidate);
             } else {
                 this.sendLocalCandidates([evt.candidate])
@@ -429,11 +429,11 @@ class Transmitter {
     }
 
     sendLocalCandidates(candidates) {
-        fetch(new URL('whip', window.location.href) + window.location.search, {
+        fetch(this.sessionUrl + window.location.search, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/trickle-ice-sdpfrag',
-                'If-Match': this.eTag,
+                'If-Match': '*',
             },
             body: generateSdpFragment(this.offerData, candidates),
         })
@@ -463,7 +463,21 @@ class Transmitter {
             this.start();
         }, restartPause);
 
-        this.eTag = '';
+        if (this.sessionUrl) {
+            fetch(this.sessionUrl, {
+                method: 'DELETE',
+            })
+                .then((res) => {
+                    if (res.status !== 200) {
+                        throw new Error('bad status code');
+                    }
+                })
+                .catch((err) => {
+                    console.log('delete session error: ' + err);
+                });
+        }
+        this.sessionUrl = '';
+
         this.queuedCandidates = [];
     }
 }

@@ -365,7 +365,7 @@ func TestPathRunOnRead(t *testing.T) {
 				case "webrtc":
 					hc := &http.Client{Transport: &http.Transport{}}
 					c := newWebRTCTestClient(t, hc, "http://localhost:8889/test/whep?query=value", false)
-					defer c.close()
+					defer c.close(t, true)
 				}
 
 				time.Sleep(500 * time.Millisecond)

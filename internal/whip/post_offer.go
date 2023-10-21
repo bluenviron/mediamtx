@@ -24,7 +24,7 @@ func PostOffer(
 	ur string,
 	offer *webrtc.SessionDescription,
 ) (*PostOfferResponse, error) {
-	req, err := http.NewRequestWithContext(ctx, "POST", ur, bytes.NewReader([]byte(offer.SDP)))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ur, bytes.NewReader([]byte(offer.SDP)))
 	if err != nil {
 		return nil, err
 	}

@@ -288,6 +288,15 @@ type webRTCAddSessionCandidatesReq struct {
 	res        chan webRTCAddSessionCandidatesRes
 }
 
+type webRTCDeleteSessionRes struct {
+	err error
+}
+
+type webRTCDeleteSessionReq struct {
+	secret uuid.UUID
+	res    chan webRTCDeleteSessionRes
+}
+
 type webRTCManagerParent interface {
 	logger.Writer
 }
@@ -315,6 +324,7 @@ type webRTCManager struct {
 	chNewSession           chan webRTCNewSessionReq
 	chCloseSession         chan *webRTCSession
 	chAddSessionCandidates chan webRTCAddSessionCandidatesReq
+	chDeleteSession        chan webRTCDeleteSessionReq
 	chAPISessionsList      chan webRTCManagerAPISessionsListReq
 	chAPISessionsGet       chan webRTCManagerAPISessionsGetReq
 	chAPIConnsKick         chan webRTCManagerAPISessionsKickReq
@@ -360,6 +370,7 @@ func newWebRTCManager(
 		chNewSession:           make(chan webRTCNewSessionReq),
 		chCloseSession:         make(chan *webRTCSession),
 		chAddSessionCandidates: make(chan webRTCAddSessionCandidatesReq),
+		chDeleteSession:        make(chan webRTCDeleteSessionReq),
 		chAPISessionsList:      make(chan webRTCManagerAPISessionsListReq),
 		chAPISessionsGet:       make(chan webRTCManagerAPISessionsGetReq),
 		chAPIConnsKick:         make(chan webRTCManagerAPISessionsKickReq),
@@ -482,6 +493,19 @@ outer:
 
 			req.res <- webRTCAddSessionCandidatesRes{sx: sx}
 
+		case req := <-m.chDeleteSession:
+			sx, ok := m.sessionsBySecret[req.secret]
+			if !ok {
+				req.res <- webRTCDeleteSessionRes{err: fmt.Errorf("session not found")}
+				continue
+			}
+
+			delete(m.sessions, sx)
+			delete(m.sessionsBySecret, sx.secret)
+			sx.close()
+
+			req.res <- webRTCDeleteSessionRes{}
+
 		case req := <-m.chAPISessionsList:
 			data := &apiWebRTCSessionList{
 				Items: []*apiWebRTCSession{},
@@ -516,6 +540,7 @@ outer:
 			delete(m.sessions, sx)
 			delete(m.sessionsBySecret, sx.secret)
 			sx.close()
+
 			req.res <- webRTCManagerAPISessionsKickRes{}
 
 		case <-m.ctx.Done():
@@ -616,6 +641,19 @@ func (m *webRTCManager) addSessionCandidates(
 
 	case <-m.ctx.Done():
 		return webRTCAddSessionCandidatesRes{err: fmt.Errorf("terminated")}
+	}
+}
+
+// deleteSession is called by webRTCHTTPServer.
+func (m *webRTCManager) deleteSession(req webRTCDeleteSessionReq) error {
+	req.res = make(chan webRTCDeleteSessionRes)
+	select {
+	case m.chDeleteSession <- req:
+		res := <-req.res
+		return res.err
+
+	case <-m.ctx.Done():
+		return fmt.Errorf("terminated")
 	}
 }
 

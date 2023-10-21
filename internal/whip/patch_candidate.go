@@ -1,4 +1,3 @@
-// Package whip contains WebRTC / WHIP utilities.
 package whip
 
 import (
@@ -10,8 +9,8 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-// PostCandidate posts a WHIP/WHEP candidate.
-func PostCandidate(
+// PatchCandidate sends a WHIP/WHEP candidate.
+func PatchCandidate(
 	ctx context.Context,
 	hc *http.Client,
 	ur string,
@@ -24,7 +23,7 @@ func PostCandidate(
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "PATCH", ur, bytes.NewReader(frag))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPatch, ur, bytes.NewReader(frag))
 	if err != nil {
 		return err
 	}
