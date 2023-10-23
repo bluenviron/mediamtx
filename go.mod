@@ -11,7 +11,7 @@ require (
 	github.com/bluenviron/gortsplib/v4 v4.2.2-0.20231017183154-2f7ed32139f2
 	github.com/bluenviron/mediacommon v1.5.0
 	github.com/datarhei/gosrt v0.5.4
-	github.com/fsnotify/fsnotify v1.6.0
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.3.1
 	github.com/gookit/color v1.5.4
