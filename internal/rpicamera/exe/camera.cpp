@@ -378,6 +378,29 @@ bool camera_start(camera_t *cam) {
     fill_dynamic_controls(camp->ctrls.get(), camp->params);
 
     if (camp->camera->controls().count(&controls::AfMode) > 0) {
+        if (camp->params->af_window != NULL) {
+            std::optional<Rectangle> opt = camp->camera->properties().get(properties::ScalerCropMaximum);
+            Rectangle sensor_area;
+            try {
+                sensor_area = opt.value();
+            } catch(const std::bad_optional_access& exc) {
+                set_error("get(ScalerCropMaximum) failed");
+                return false;
+            }
+
+            Rectangle afwindows_rectangle[1];
+
+            afwindows_rectangle[0] = Rectangle(
+                camp->params->af_window->x * sensor_area.width,
+                camp->params->af_window->y * sensor_area.height,
+                camp->params->af_window->width * sensor_area.width,
+                camp->params->af_window->height * sensor_area.height);
+
+            afwindows_rectangle[0].translateBy(sensor_area.topLeft());
+            camp->ctrls->set(controls::AfMetering, controls::AfMeteringWindows);
+            camp->ctrls->set(controls::AfWindows, afwindows_rectangle);
+        }
+
         int af_mode;
         if (strcmp(camp->params->af_mode, "manual") == 0) {
             af_mode = controls::AfModeManual;
@@ -388,12 +411,6 @@ bool camera_start(camera_t *cam) {
         }
         camp->ctrls->set(controls::AfMode, af_mode);
 
-        if (af_mode == controls::AfModeManual) {
-            camp->ctrls->set(controls::LensPosition, camp->params->lens_position);
-        }
-    }
-
-    if (camp->camera->controls().count(&controls::AfRange) > 0) {
         int af_range;
         if (strcmp(camp->params->af_range, "macro") == 0) {
             af_range = controls::AfRangeMacro;
@@ -403,9 +420,7 @@ bool camera_start(camera_t *cam) {
             af_range = controls::AfRangeNormal;
         }
         camp->ctrls->set(controls::AfRange, af_range);
-    }
 
-    if (camp->camera->controls().count(&controls::AfSpeed) > 0) {
         int af_speed;
         if (strcmp(camp->params->af_range, "fast") == 0) {
             af_speed = controls::AfSpeedFast;
@@ -413,6 +428,12 @@ bool camera_start(camera_t *cam) {
             af_speed = controls::AfSpeedNormal;
         }
         camp->ctrls->set(controls::AfSpeed, af_speed);
+
+        if (strcmp(camp->params->af_mode, "auto") == 0) {
+            camp->ctrls->set(controls::AfTrigger, controls::AfTriggerStart);
+        } else if (strcmp(camp->params->af_mode, "manual") == 0) {
+            camp->ctrls->set(controls::LensPosition, camp->params->lens_position);
+        }
     }
 
     if (camp->params->roi != NULL) {
@@ -432,29 +453,6 @@ bool camera_start(camera_t *cam) {
             camp->params->roi->height * sensor_area.height);
         crop.translateBy(sensor_area.topLeft());
         camp->ctrls->set(controls::ScalerCrop, crop);
-    }
-
-    if (camp->params->af_window != NULL) {
-        std::optional<Rectangle> opt = camp->camera->properties().get(properties::ScalerCropMaximum);
-        Rectangle sensor_area;
-        try {
-            sensor_area = opt.value();
-        } catch(const std::bad_optional_access& exc) {
-            set_error("get(ScalerCropMaximum) failed");
-            return false;
-        }
-
-        Rectangle afwindows_rectangle[1];
-
-        afwindows_rectangle[0] = Rectangle(
-            camp->params->af_window->x * sensor_area.width,
-            camp->params->af_window->y * sensor_area.height,
-            camp->params->af_window->width * sensor_area.width,
-            camp->params->af_window->height * sensor_area.height);
-
-        afwindows_rectangle[0].translateBy(sensor_area.topLeft());
-        camp->ctrls->set(controls::AfMetering, controls::AfMeteringWindows);
-        camp->ctrls->set(controls::AfWindows, afwindows_rectangle);
     }
 
     int res = camp->camera->start(camp->ctrls.get());
