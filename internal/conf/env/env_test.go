@@ -9,13 +9,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type subStruct struct {
-	MyParam int `json:"myParam"`
+func stringPtr(v string) *string {
+	return &v
 }
 
-type mapEntry struct {
-	MyValue  string    `json:"myValue"`
-	MyStruct subStruct `json:"myStruct"`
+func intPtr(v int) *int {
+	return &v
+}
+
+func uint64Ptr(v uint64) *uint64 {
+	return &v
+}
+
+func boolPtr(v bool) *bool {
+	return &v
+}
+
+func float64Ptr(v float64) *float64 {
+	return &v
+}
+
+func durationPtr(v time.Duration) *time.Duration {
+	return &v
 }
 
 type myDuration time.Duration
@@ -40,106 +55,150 @@ func (d *myDuration) UnmarshalEnv(_ string, v string) error {
 	return d.UnmarshalJSON([]byte(`"` + v + `"`))
 }
 
+type subStruct struct {
+	MyParam int `json:"myParam"`
+}
+
+type mapEntry struct {
+	MyValue  string    `json:"myValue"`
+	MyStruct subStruct `json:"myStruct"`
+}
+
 type mySubStruct struct {
 	URL      string `json:"url"`
 	Username string `json:"username"`
 	Password string `json:"password"`
+	MyInt2   int    `json:"myInt2"`
 }
 
 type testStruct struct {
-	MyString              string               `json:"myString"`
-	MyInt                 int                  `json:"myInt"`
-	MyFloat               float64              `json:"myFloat"`
-	MyBool                bool                 `json:"myBool"`
-	MyDuration            myDuration           `json:"myDuration"`
-	MyMap                 map[string]*mapEntry `json:"myMap"`
-	MySlice               []string             `json:"mySlice"`
-	MySliceEmpty          []string             `json:"mySliceEmpty"`
-	MySliceSubStruct      []mySubStruct        `json:"mySliceSubStruct"`
-	MySliceSubStructEmpty []mySubStruct        `json:"mySliceSubStructEmpty"`
+	MyString                 string               `json:"myString"`
+	MyStringOpt              *string              `json:"myStringOpt"`
+	MyInt                    int                  `json:"myInt"`
+	MyIntOpt                 *int                 `json:"myIntOpt"`
+	MyUint                   uint64               `json:"myUint"`
+	MyUintOpt                *uint64              `json:"myUintOpt"`
+	MyFloat                  float64              `json:"myFloat"`
+	MyFloatOpt               *float64             `json:"myFloatOpt"`
+	MyBool                   bool                 `json:"myBool"`
+	MyBoolOpt                *bool                `json:"myBoolOpt"`
+	MyDuration               myDuration           `json:"myDuration"`
+	MyDurationOpt            *myDuration          `json:"myDurationOpt"`
+	MyDurationOptUnset       *myDuration          `json:"myDurationOptUnset"`
+	MyMap                    map[string]*mapEntry `json:"myMap"`
+	MySliceString            []string             `json:"mySliceString"`
+	MySliceStringEmpty       []string             `json:"mySliceStringEmpty"`
+	MySliceStringOpt         *[]string            `json:"mySliceStringOpt"`
+	MySliceStringOptUnset    *[]string            `json:"mySliceStringOptUnset"`
+	MySliceSubStruct         []mySubStruct        `json:"mySliceSubStruct"`
+	MySliceSubStructEmpty    []mySubStruct        `json:"mySliceSubStructEmpty"`
+	MySliceSubStructOpt      *[]mySubStruct       `json:"mySliceSubStructOpt"`
+	MySliceSubStructOptUnset *[]mySubStruct       `json:"mySliceSubStructOptUnset"`
+	Unset                    *bool                `json:"unset"`
 }
 
 func TestLoad(t *testing.T) {
-	os.Setenv("MYPREFIX_MYSTRING", "testcontent")
-	defer os.Unsetenv("MYPREFIX_MYSTRING")
+	env := map[string]string{
+		"MYPREFIX_MYSTRING":                       "testcontent",
+		"MYPREFIX_MYSTRINGOPT":                    "testcontent2",
+		"MYPREFIX_MYINT":                          "123",
+		"MYPREFIX_MYINTOPT":                       "456",
+		"MYPREFIX_MYUINT":                         "8910",
+		"MYPREFIX_MYUINTOPT":                      "112313",
+		"MYPREFIX_MYFLOAT":                        "15.2",
+		"MYPREFIX_MYFLOATOPT":                     "16.2",
+		"MYPREFIX_MYBOOL":                         "yes",
+		"MYPREFIX_MYBOOLOPT":                      "false",
+		"MYPREFIX_MYDURATION":                     "22s",
+		"MYPREFIX_MYDURATIONOPT":                  "30s",
+		"MYPREFIX_MYMAP_MYKEY":                    "",
+		"MYPREFIX_MYMAP_MYKEY2_MYVALUE":           "asd",
+		"MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM":  "456",
+		"MYPREFIX_MYSLICESTRING":                  "val1,val2",
+		"MYPREFIX_MYSLICESTRINGEMPTY":             "",
+		"MYPREFIX_MYSLICESTRINGOPT":               "aa",
+		"MYPREFIX_MYSLICESUBSTRUCT_0_URL":         "url1",
+		"MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME":    "user1",
+		"MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD":    "pass1",
+		"MYPREFIX_MYSLICESUBSTRUCT_1_URL":         "url2",
+		"MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD":    "pass2",
+		"MYPREFIX_MYSLICESUBSTRUCTEMPTY":          "",
+		"MYPREFIX_MYSLICESUBSTRUCTOPT_1_PASSWORD": "pwd",
+	}
 
-	os.Setenv("MYPREFIX_MYINT", "123")
-	defer os.Unsetenv("MYPREFIX_MYINT")
-
-	os.Setenv("MYPREFIX_MYFLOAT", "15.2")
-	defer os.Unsetenv("MYPREFIX_MYFLOAT")
-
-	os.Setenv("MYPREFIX_MYBOOL", "yes")
-	defer os.Unsetenv("MYPREFIX_MYBOOL")
-
-	os.Setenv("MYPREFIX_MYDURATION", "22s")
-	defer os.Unsetenv("MYPREFIX_MYDURATION")
-
-	os.Setenv("MYPREFIX_MYMAP_MYKEY", "")
-	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY")
-
-	os.Setenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE", "asd")
-	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY2_MYVALUE")
-
-	os.Setenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM", "456")
-	defer os.Unsetenv("MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM")
-
-	os.Setenv("MYPREFIX_MYSLICE", "val1,val2")
-	defer os.Unsetenv("MYPREFIX_MYSLICE")
-
-	os.Setenv("MYPREFIX_MYSLICEEMPTY", "")
-	defer os.Unsetenv("MYPREFIX_MYSLICEEMPTY")
-
-	os.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_URL", "url1")
-	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCT_0_URL")
-
-	os.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME", "user1")
-	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCT_0_USERNAME")
-
-	os.Setenv("MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD", "pass1")
-	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCT_0_PASSWORD")
-
-	os.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_URL", "url2")
-	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCT_1_URL")
-
-	os.Setenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD", "pass2")
-	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCT_1_PASSWORD")
-
-	os.Setenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY", "")
-	defer os.Unsetenv("MYPREFIX_MYSLICESUBSTRUCTEMPTY")
+	for key, val := range env {
+		os.Setenv(key, val)
+		defer os.Unsetenv(key)
+	}
 
 	var s testStruct
 	err := Load("MYPREFIX", &s)
 	require.NoError(t, err)
 
-	require.Equal(t, "testcontent", s.MyString)
-	require.Equal(t, 123, s.MyInt)
-	require.Equal(t, 15.2, s.MyFloat)
-	require.Equal(t, true, s.MyBool)
-	require.Equal(t, 22*myDuration(time.Second), s.MyDuration)
-
-	_, ok := s.MyMap["mykey"]
-	require.Equal(t, true, ok)
-
-	v, ok := s.MyMap["mykey2"]
-	require.Equal(t, true, ok)
-	require.Equal(t, "asd", v.MyValue)
-	require.Equal(t, 456, v.MyStruct.MyParam)
-
-	require.Equal(t, []string{"val1", "val2"}, s.MySlice)
-	require.Equal(t, []string{}, s.MySliceEmpty)
-
-	require.Equal(t, []mySubStruct{
-		{
-			URL:      "url1",
-			Username: "user1",
-			Password: "pass1",
+	require.Equal(t, testStruct{
+		MyString:      "testcontent",
+		MyStringOpt:   stringPtr("testcontent2"),
+		MyInt:         123,
+		MyIntOpt:      intPtr(456),
+		MyUint:        8910,
+		MyUintOpt:     uint64Ptr(112313),
+		MyFloat:       15.2,
+		MyFloatOpt:    float64Ptr(16.2),
+		MyBool:        true,
+		MyBoolOpt:     boolPtr(false),
+		MyDuration:    22000000000,
+		MyDurationOpt: (*myDuration)(durationPtr(30000000000)),
+		MyMap: map[string]*mapEntry{
+			"mykey": {
+				MyValue: "",
+				MyStruct: subStruct{
+					MyParam: 0,
+				},
+			},
+			"mykey2": {
+				MyValue: "asd",
+				MyStruct: subStruct{
+					MyParam: 456,
+				},
+			},
 		},
-		{
-			URL:      "url2",
-			Password: "pass2",
+		MySliceString: []string{
+			"val1",
+			"val2",
 		},
-	}, s.MySliceSubStruct)
+		MySliceStringEmpty: []string{},
+		MySliceStringOpt:   &[]string{"aa"},
+		MySliceSubStruct: []mySubStruct{
+			{
+				URL:      "url1",
+				Username: "user1",
+				Password: "pass1",
+			},
+			{
+				URL:      "url2",
+				Username: "",
+				Password: "pass2",
+			},
+		},
+		MySliceSubStructEmpty: []mySubStruct{},
+	}, s)
+}
 
-	require.Equal(t, []mySubStruct{}, s.MySliceSubStructEmpty)
+func FuzzLoad(f *testing.F) {
+	f.Add("MYPREFIX_MYINT", "a")
+	f.Add("MYPREFIX_MYUINT", "a")
+	f.Add("MYPREFIX_MYFLOAT", "a")
+	f.Add("MYPREFIX_MYBOOL", "a")
+	f.Add("MYPREFIX_MYSLICESUBSTRUCT_0_MYINT2", "a")
+	f.Add("MYPREFIX_MYDURATION", "a")
+	f.Add("MYPREFIX_MYDURATION_A", "a")
+
+	f.Fuzz(func(t *testing.T, key string, val string) {
+		env := map[string]string{
+			key: val,
+		}
+
+		var s testStruct
+		loadWithEnv(env, "MYPREFIX", &s) //nolint:errcheck
+	})
 }
