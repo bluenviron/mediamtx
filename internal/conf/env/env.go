@@ -28,8 +28,14 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 		return loadEnvInternal(env, prefix, prv.Addr())
 	}
 
+	rt := prv.Type().Elem()
+
 	if i, ok := prv.Interface().(Unmarshaler); ok {
 		if ev, ok := env[prefix]; ok {
+			if prv.IsNil() {
+				prv.Set(reflect.New(rt))
+				i = prv.Interface().(Unmarshaler)
+			}
 			err := i.UnmarshalEnv(prefix, ev)
 			if err != nil {
 				return fmt.Errorf("%s: %s", prefix, err)
@@ -42,8 +48,6 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 		}
 		return nil
 	}
-
-	rt := prv.Type().Elem()
 
 	switch rt {
 	case reflect.TypeOf(""):
@@ -173,12 +177,12 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 		switch {
 		case rt.Elem() == reflect.TypeOf(""):
 			if ev, ok := env[prefix]; ok {
-				if prv.IsNil() {
-					prv.Set(reflect.New(rt))
-				}
 				if ev == "" {
 					prv.Elem().Set(reflect.MakeSlice(prv.Elem().Type(), 0, 0))
 				} else {
+					if prv.IsNil() {
+						prv.Set(reflect.New(rt))
+					}
 					prv.Elem().Set(reflect.ValueOf(strings.Split(ev, ",")))
 				}
 			}
@@ -186,9 +190,6 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 
 		case rt.Elem().Kind() == reflect.Struct:
 			if ev, ok := env[prefix]; ok && ev == "" { // special case: empty list
-				if prv.IsNil() {
-					prv.Set(reflect.New(rt))
-				}
 				prv.Elem().Set(reflect.MakeSlice(prv.Elem().Type(), 0, 0))
 			} else {
 				for i := 0; ; i++ {
@@ -213,13 +214,20 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 	return fmt.Errorf("unsupported type: %v", rt)
 }
 
-// Load loads the configuration from the environment.
-func Load(prefix string, v interface{}) error {
+func loadWithEnv(env map[string]string, prefix string, v interface{}) error {
+	return loadEnvInternal(env, prefix, reflect.ValueOf(v).Elem())
+}
+
+func envToMap() map[string]string {
 	env := make(map[string]string)
 	for _, kv := range os.Environ() {
 		tmp := strings.SplitN(kv, "=", 2)
 		env[tmp[0]] = tmp[1]
 	}
+	return env
+}
 
-	return loadEnvInternal(env, prefix, reflect.ValueOf(v).Elem())
+// Load loads the configuration from the environment.
+func Load(prefix string, v interface{}) error {
+	return loadWithEnv(envToMap(), prefix, v)
 }
