@@ -1635,7 +1635,7 @@ where secret is the secret of the TURN server. MediaMTX will generate a set of c
 
 ### Standard
 
-Install Go &ge; 1.20, download the repository, open a terminal in it and run:
+Install Go &ge; 1.21, download the repository, open a terminal in it and run:
 
 ```sh
 go build .
@@ -1647,7 +1647,7 @@ The command will produce the `mediamtx` binary.
 
 The server can be compiled with native support for the Raspberry Pi Camera. Compilation must be performed on a Raspberry Pi, with the following dependencies:
 
-* Go &ge; 1.20
+* Go &ge; 1.21
 * `libcamera-dev`
 * `libfreetype-dev`
 * `xxd`
