@@ -11,47 +11,34 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/webrtcpc"
+	"github.com/bluenviron/mediamtx/internal/webrtc"
 )
 
 func TestWebRTCSource(t *testing.T) {
 	state := 0
 
-	api, err := webrtcNewAPI(nil, nil, nil, nil)
+	api, err := webrtc.NewAPI(webrtc.APIConf{})
 	require.NoError(t, err)
 
-	pc, err := webrtcpc.New(nil, api, nilLogger{})
+	pc := &webrtc.PeerConnection{
+		API:     api,
+		Publish: true,
+	}
+	err = pc.Start()
 	require.NoError(t, err)
 	defer pc.Close()
 
-	outgoingTrack1, err := webrtc.NewTrackLocalStaticRTP(
-		webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeVP8,
-			ClockRate: 90000,
+	tracks, err := pc.SetupOutgoingTracks(
+		&format.VP8{
+			PayloadTyp: 96,
 		},
-		"vp8",
-		webrtcStreamID,
-	)
-	require.NoError(t, err)
-
-	_, err = pc.AddTrack(outgoingTrack1)
-	require.NoError(t, err)
-
-	outgoingTrack2, err := webrtc.NewTrackLocalStaticRTP(
-		webrtc.RTPCodecCapability{
-			MimeType:  webrtc.MimeTypeOpus,
-			ClockRate: 48000,
-			Channels:  2,
+		&format.Opus{
+			PayloadTyp: 111,
+			IsStereo:   true,
 		},
-		"opus",
-		webrtcStreamID,
 	)
-	require.NoError(t, err)
-
-	_, err = pc.AddTrack(outgoingTrack2)
 	require.NoError(t, err)
 
 	httpServ := &http.Server{
@@ -74,16 +61,7 @@ func TestWebRTCSource(t *testing.T) {
 				require.NoError(t, err)
 				offer := whipOffer(body)
 
-				err = pc.SetRemoteDescription(*offer)
-				require.NoError(t, err)
-
-				answer, err := pc.CreateAnswer(nil)
-				require.NoError(t, err)
-
-				err = pc.SetLocalDescription(answer)
-				require.NoError(t, err)
-
-				err = pc.WaitGatheringDone(context.Background())
+				answer, err := pc.CreateFullAnswer(context.Background(), offer)
 				require.NoError(t, err)
 
 				w.Header().Set("Content-Type", "application/sdp")
@@ -91,12 +69,13 @@ func TestWebRTCSource(t *testing.T) {
 				w.Header().Set("ETag", "test_etag")
 				w.Header().Set("Location", "/my/resource/sessionid")
 				w.WriteHeader(http.StatusCreated)
-				w.Write([]byte(pc.LocalDescription().SDP))
+				w.Write([]byte(answer.SDP))
 
 				go func() {
-					<-pc.Connected()
+					err = pc.WaitUntilConnected(context.Background())
+					require.NoError(t, err)
 
-					err = outgoingTrack1.WriteRTP(&rtp.Packet{
+					err = tracks[0].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
@@ -109,7 +88,7 @@ func TestWebRTCSource(t *testing.T) {
 					})
 					require.NoError(t, err)
 
-					err = outgoingTrack2.WriteRTP(&rtp.Packet{
+					err = tracks[1].WriteRTP(&rtp.Packet{
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
@@ -124,7 +103,18 @@ func TestWebRTCSource(t *testing.T) {
 				}()
 
 			default:
-				t.Errorf("should not happen since there should not be additional candidates")
+				require.Equal(t, "/my/resource/sessionid", r.URL.Path)
+
+				switch r.Method {
+				case http.MethodPatch:
+					w.WriteHeader(http.StatusNoContent)
+
+				case http.MethodDelete:
+					w.WriteHeader(http.StatusOK)
+
+				default:
+					t.Errorf("should not happen")
+				}
 			}
 			state++
 		}),
@@ -171,7 +161,7 @@ func TestWebRTCSource(t *testing.T) {
 	_, err = c.Play(nil)
 	require.NoError(t, err)
 
-	err = outgoingTrack1.WriteRTP(&rtp.Packet{
+	err = tracks[0].WriteRTP(&rtp.Packet{
 		Header: rtp.Header{
 			Version:        2,
 			Marker:         true,

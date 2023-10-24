@@ -1,4 +1,4 @@
-package whip
+package webrtc
 
 import (
 	"context"
@@ -8,8 +8,8 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-// OptionsICEServers sends a WHIP/WHEP request for ICE servers.
-func OptionsICEServers(
+// WHIPOptionsICEServers sends a WHIP/WHEP request for ICE servers.
+func WHIPOptionsICEServers(
 	ctx context.Context,
 	hc *http.Client,
 	ur string,

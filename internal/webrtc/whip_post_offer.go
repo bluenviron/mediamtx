@@ -1,4 +1,4 @@
-package whip
+package webrtc
 
 import (
 	"bytes"
@@ -10,8 +10,8 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-// PostOfferResponse is the response to a post offer.
-type PostOfferResponse struct {
+// WHIPPostOfferResponse is the response to a post offer.
+type WHIPPostOfferResponse struct {
 	Answer   *webrtc.SessionDescription
 	Location string
 	ETag     string
@@ -23,7 +23,7 @@ func PostOffer(
 	hc *http.Client,
 	ur string,
 	offer *webrtc.SessionDescription,
-) (*PostOfferResponse, error) {
+) (*WHIPPostOfferResponse, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, ur, bytes.NewReader([]byte(offer.SDP)))
 	if err != nil {
 		return nil, err
@@ -68,7 +68,7 @@ func PostOffer(
 		SDP:  string(sdp),
 	}
 
-	return &PostOfferResponse{
+	return &WHIPPostOfferResponse{
 		Answer:   answer,
 		Location: Location,
 		ETag:     etag,

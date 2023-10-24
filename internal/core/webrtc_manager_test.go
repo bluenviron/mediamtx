@@ -13,167 +13,11 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	rtspurl "github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/webrtcpc"
-	"github.com/bluenviron/mediamtx/internal/whip"
+	"github.com/bluenviron/mediamtx/internal/webrtc"
 )
-
-type nilLogger struct{}
-
-func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
-}
-
-type webRTCTestClient struct {
-	hc *http.Client
-
-	url            *url.URL
-	pc             *webrtcpc.PeerConnection
-	outgoingTrack1 *webrtc.TrackLocalStaticRTP
-	outgoingTrack2 *webrtc.TrackLocalStaticRTP
-	incomingTrack  chan *webrtc.TrackRemote
-}
-
-func newWebRTCTestClient(
-	t *testing.T,
-	hc *http.Client,
-	rawURL string,
-	publish bool,
-) *webRTCTestClient {
-	c := &webRTCTestClient{
-		hc: hc,
-	}
-
-	var err error
-	c.url, err = url.Parse(rawURL)
-	require.NoError(t, err)
-
-	iceServers, err := whip.OptionsICEServers(context.Background(), hc, c.url.String())
-	require.NoError(t, err)
-
-	api, err := webrtcNewAPI(nil, nil, nil, nil)
-	require.NoError(t, err)
-
-	pc, err := webrtcpc.New(iceServers, api, nilLogger{})
-	require.NoError(t, err)
-
-	var outgoingTrack1 *webrtc.TrackLocalStaticRTP
-	var outgoingTrack2 *webrtc.TrackLocalStaticRTP
-	var incomingTrack chan *webrtc.TrackRemote
-
-	if publish {
-		var err error
-		outgoingTrack1, err = webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeVP8,
-				ClockRate: 90000,
-			},
-			"vp8",
-			webrtcStreamID,
-		)
-		require.NoError(t, err)
-
-		_, err = pc.AddTrack(outgoingTrack1)
-		require.NoError(t, err)
-
-		outgoingTrack2, err = webrtc.NewTrackLocalStaticRTP(
-			webrtc.RTPCodecCapability{
-				MimeType:  webrtc.MimeTypeOpus,
-				ClockRate: 48000,
-				Channels:  2,
-			},
-			"opus",
-			webrtcStreamID,
-		)
-		require.NoError(t, err)
-
-		_, err = pc.AddTrack(outgoingTrack2)
-		require.NoError(t, err)
-	} else {
-		incomingTrack = make(chan *webrtc.TrackRemote, 1)
-		pc.OnTrack(func(trak *webrtc.TrackRemote, recv *webrtc.RTPReceiver) {
-			incomingTrack <- trak
-		})
-
-		_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
-		require.NoError(t, err)
-	}
-
-	offer, err := pc.CreateOffer(nil)
-	require.NoError(t, err)
-
-	res, err := whip.PostOffer(context.Background(), hc, c.url.String(), &offer)
-	require.NoError(t, err)
-
-	c.url, err = c.url.Parse(res.Location)
-	require.NoError(t, err)
-
-	err = pc.SetLocalDescription(offer)
-	require.NoError(t, err)
-
-	// test adding additional candidates, even if it is not strictly necessary
-outer:
-	for {
-		select {
-		case ca := <-pc.NewLocalCandidate():
-			err := whip.PatchCandidate(context.Background(), hc, c.url.String(), &offer, res.ETag, ca)
-			require.NoError(t, err)
-		case <-pc.GatheringDone():
-			break outer
-		}
-	}
-
-	err = pc.SetRemoteDescription(*res.Answer)
-	require.NoError(t, err)
-
-	<-pc.Connected()
-
-	if publish {
-		err := outgoingTrack1.WriteRTP(&rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: 123,
-				Timestamp:      45343,
-				SSRC:           563423,
-			},
-			Payload: []byte{1},
-		})
-		require.NoError(t, err)
-
-		err = outgoingTrack2.WriteRTP(&rtp.Packet{
-			Header: rtp.Header{
-				Version:        2,
-				Marker:         true,
-				PayloadType:    96,
-				SequenceNumber: 1123,
-				Timestamp:      45343,
-				SSRC:           563423,
-			},
-			Payload: []byte{2},
-		})
-		require.NoError(t, err)
-
-		time.Sleep(200 * time.Millisecond)
-	}
-
-	c.pc = pc
-	c.outgoingTrack1 = outgoingTrack1
-	c.outgoingTrack2 = outgoingTrack2
-	c.incomingTrack = incomingTrack
-	return c
-}
-
-func (c *webRTCTestClient) close(t *testing.T, delete bool) {
-	if delete {
-		err := whip.DeleteSession(context.Background(), c.hc, c.url.String())
-		require.NoError(t, err)
-	}
-	c.pc.Close()
-}
 
 func TestWebRTCRead(t *testing.T) {
 	for _, auth := range []string{
@@ -255,27 +99,36 @@ func TestWebRTCRead(t *testing.T) {
 			}
 			ur += "localhost:8889/teststream/whep?param=value"
 
-			c := newWebRTCTestClient(t, hc, ur, false)
-			defer c.close(t, true)
+			go func() {
+				time.Sleep(500 * time.Millisecond)
 
-			time.Sleep(500 * time.Millisecond)
+				err := source.WritePacketRTP(medi, &rtp.Packet{
+					Header: rtp.Header{
+						Version:        2,
+						Marker:         true,
+						PayloadType:    96,
+						SequenceNumber: 123,
+						Timestamp:      45343,
+						SSRC:           563423,
+					},
+					Payload: []byte{5, 3},
+				})
+				require.NoError(t, err)
+			}()
 
-			err = source.WritePacketRTP(medi, &rtp.Packet{
-				Header: rtp.Header{
-					Version:        2,
-					Marker:         true,
-					PayloadType:    96,
-					SequenceNumber: 123,
-					Timestamp:      45343,
-					SSRC:           563423,
-				},
-				Payload: []byte{5, 3},
-			})
+			u, err := url.Parse(ur)
 			require.NoError(t, err)
 
-			trak := <-c.incomingTrack
+			c := &webrtc.WHIPClient{
+				HTTPClient: hc,
+				URL:        u,
+			}
 
-			pkt, _, err := trak.ReadRTP()
+			tracks, err := c.Read(context.Background())
+			require.NoError(t, err)
+			defer checkClose(t, c.Close)
+
+			pkt, err := tracks[0].ReadRTP()
 			require.NoError(t, err)
 			require.Equal(t, &rtp.Packet{
 				Header: rtp.Header{
@@ -301,16 +154,16 @@ func TestWebRTCReadNotFound(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	iceServers, err := whip.OptionsICEServers(context.Background(), hc, "http://localhost:8889/stream/whep")
+	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc, "http://localhost:8889/stream/whep")
 	require.NoError(t, err)
 
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
+	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{
 		ICEServers: iceServers,
 	})
 	require.NoError(t, err)
 	defer pc.Close() //nolint:errcheck
 
-	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
+	_, err = pc.AddTransceiverFromKind(pwebrtc.RTPCodecTypeVideo)
 	require.NoError(t, err)
 
 	offer, err := pc.CreateOffer(nil)
@@ -403,8 +256,32 @@ func TestWebRTCPublish(t *testing.T) {
 			}
 			ur += "localhost:8889/teststream/whip?param=value"
 
-			s := newWebRTCTestClient(t, hc, ur, true)
-			defer s.close(t, true)
+			su, err := url.Parse(ur)
+			require.NoError(t, err)
+
+			s := &webrtc.WHIPClient{
+				HTTPClient: hc,
+				URL:        su,
+			}
+
+			tracks, err := s.Publish(context.Background(), testMediaH264.Formats[0], nil)
+			require.NoError(t, err)
+			defer checkClose(t, s.Close)
+
+			err = tracks[0].WriteRTP(&rtp.Packet{
+				Header: rtp.Header{
+					Version:        2,
+					Marker:         true,
+					PayloadType:    96,
+					SequenceNumber: 123,
+					Timestamp:      45343,
+					SSRC:           563423,
+				},
+				Payload: []byte{1},
+			})
+			require.NoError(t, err)
+
+			time.Sleep(200 * time.Millisecond)
 
 			if auth == "external" {
 				a.close()
@@ -428,7 +305,7 @@ func TestWebRTCPublish(t *testing.T) {
 			desc, _, err := c.Describe(u)
 			require.NoError(t, err)
 
-			var forma *format.VP8
+			var forma *format.H264
 			medi := desc.FindFormat(&forma)
 
 			_, err = c.Setup(desc.BaseURL, medi, 0, 0)
@@ -444,7 +321,7 @@ func TestWebRTCPublish(t *testing.T) {
 			_, err = c.Play(nil)
 			require.NoError(t, err)
 
-			err = s.outgoingTrack1.WriteRTP(&rtp.Packet{
+			err = tracks[0].WriteRTP(&rtp.Packet{
 				Header: rtp.Header{
 					Version:        2,
 					Marker:         true,

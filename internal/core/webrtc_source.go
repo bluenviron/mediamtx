@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -10,13 +9,10 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
-	"github.com/pion/sdp/v3"
-	"github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/webrtcpc"
-	"github.com/bluenviron/mediamtx/internal/whip"
+	"github.com/bluenviron/mediamtx/internal/webrtc"
 )
 
 type webRTCSourceParent interface {
@@ -58,91 +54,22 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Pat
 
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
-	c := &http.Client{
+	hc := &http.Client{
 		Timeout: time.Duration(s.readTimeout),
 	}
 
-	iceServers, err := whip.OptionsICEServers(ctx, c, u.String())
+	client := webrtc.WHIPClient{
+		HTTPClient: hc,
+		URL:        u,
+		Log:        s,
+	}
+
+	tracks, err := client.Read(ctx)
 	if err != nil {
 		return err
 	}
+	defer client.Close() //nolint:errcheck
 
-	api, err := webrtcNewAPI(nil, nil, nil, nil)
-	if err != nil {
-		return err
-	}
-
-	pc, err := webrtcpc.New(iceServers, api, s)
-	if err != nil {
-		return err
-	}
-	defer pc.Close()
-
-	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo)
-	if err != nil {
-		return err
-	}
-
-	_, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio)
-	if err != nil {
-		return err
-	}
-
-	offer, err := pc.CreateOffer(nil)
-	if err != nil {
-		return err
-	}
-
-	err = pc.SetLocalDescription(offer)
-	if err != nil {
-		return err
-	}
-
-	err = pc.WaitGatheringDone(ctx)
-	if err != nil {
-		return err
-	}
-
-	res, err := whip.PostOffer(ctx, c, u.String(), pc.LocalDescription())
-	if err != nil {
-		return err
-	}
-
-	var sdp sdp.SessionDescription
-	err = sdp.Unmarshal([]byte(res.Answer.SDP))
-	if err != nil {
-		return err
-	}
-
-	// check that there are at most two tracks
-	_, err = webrtcTrackCount(sdp.MediaDescriptions)
-	if err != nil {
-		return err
-	}
-
-	trackRecv := make(chan trackRecvPair)
-
-	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-		select {
-		case trackRecv <- trackRecvPair{track, receiver}:
-		case <-ctx.Done():
-		}
-	})
-
-	err = pc.SetRemoteDescription(*res.Answer)
-	if err != nil {
-		return err
-	}
-
-	err = webrtcWaitUntilConnected(ctx, pc)
-	if err != nil {
-		return err
-	}
-
-	tracks, err := webrtcGatherIncomingTracks(ctx, pc, trackRecv, 0)
-	if err != nil {
-		return err
-	}
 	medias := webrtcMediasOfIncomingTracks(tracks)
 
 	rres := s.parent.setReady(pathSourceStaticSetReadyReq{
@@ -157,17 +84,29 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Pat
 
 	timeDecoder := rtptime.NewGlobalDecoder()
 
-	for _, track := range tracks {
-		track.start(rres.stream, timeDecoder, s)
+	for i, media := range medias {
+		ci := i
+		cmedia := media
+		trackWrapper := &webrtcTrackWrapper{clockRate: cmedia.Formats[0].ClockRate()}
+
+		go func() {
+			for {
+				pkt, err := tracks[ci].ReadRTP()
+				if err != nil {
+					return
+				}
+
+				pts, ok := timeDecoder.Decode(trackWrapper, pkt)
+				if !ok {
+					continue
+				}
+
+				rres.stream.WriteRTPPacket(cmedia, cmedia.Formats[0], pkt, time.Now(), pts)
+			}
+		}()
 	}
 
-	select {
-	case <-pc.Disconnected():
-		return fmt.Errorf("peer connection closed")
-
-	case <-ctx.Done():
-		return fmt.Errorf("terminated")
-	}
+	return client.Wait(ctx)
 }
 
 // apiSourceDescribe implements sourceStaticImpl.
