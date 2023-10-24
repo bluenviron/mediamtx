@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width">
 <style>
 html, body {
-	margin: 0;
-	padding: 0;
-	height: 100%;
-	overflow: hidden;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
 }
 #video {
-	width: 100%;
-	height: 100%;
-	background: black;
+    width: 100%;
+    height: 100%;
+    background: black;
 }
 </style>
 </head>
@@ -137,17 +137,17 @@ const generateSdpFragment = (offerData, candidates) => {
 }
 
 class WHEPClient {
-	constructor(video) {
-		this.video = video;
-		this.pc = null;
-		this.restartTimeout = null;
-        this.eTag = '';
+    constructor(video) {
+        this.video = video;
+        this.pc = null;
+        this.restartTimeout = null;
+        this.sessionUrl = '';
         this.queuedCandidates = [];
-		this.start();
-	}
+        this.start();
+    }
 
-	start() {
-		console.log("requesting ICE servers");
+    start() {
+        console.log("requesting ICE servers");
 
         fetch(new URL('whep', window.location.href) + window.location.search, {
             method: 'OPTIONS',
@@ -157,7 +157,7 @@ class WHEPClient {
                 console.log('error: ' + err);
                 this.scheduleRestart();
             });
-	}
+    }
 
     onIceServers(res) {
         this.pc = new RTCPeerConnection({
@@ -199,7 +199,7 @@ class WHEPClient {
                 if (res.status !== 201) {
                     throw new Error('bad status code');
                 }
-                this.eTag = res.headers.get('ETag');
+                this.sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
                 return res.text();
             })
             .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
@@ -225,18 +225,18 @@ class WHEPClient {
         }
     }
 
-	onRemoteAnswer(answer) {
+    onRemoteAnswer(answer) {
         if (this.restartTimeout !== null) {
             return;
         }
 
-		this.pc.setRemoteDescription(answer);
+        this.pc.setRemoteDescription(answer);
 
         if (this.queuedCandidates.length !== 0) {
             this.sendLocalCandidates(this.queuedCandidates);
             this.queuedCandidates = [];
         }
-	}
+    }
 
     onLocalCandidate(evt) {
         if (this.restartTimeout !== null) {
@@ -244,7 +244,7 @@ class WHEPClient {
         }
 
         if (evt.candidate !== null) {
-            if (this.eTag === '') {
+            if (this.sessionUrl === '') {
                 this.queuedCandidates.push(evt.candidate);
             } else {
                 this.sendLocalCandidates([evt.candidate])
@@ -253,11 +253,11 @@ class WHEPClient {
     }
 
     sendLocalCandidates(candidates) {
-        fetch(new URL('whep', window.location.href) + window.location.search, {
+        fetch(this.sessionUrl + window.location.search, {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/trickle-ice-sdpfrag',
-                'If-Match': this.eTag,
+                'If-Match': '*',
             },
             body: generateSdpFragment(this.offerData, candidates),
         })
@@ -287,7 +287,21 @@ class WHEPClient {
             this.start();
         }, restartPause);
 
-        this.eTag = '';
+        if (this.sessionUrl) {
+            fetch(this.sessionUrl, {
+                method: 'DELETE',
+            })
+                .then((res) => {
+                    if (res.status !== 200) {
+                        throw new Error('bad status code');
+                    }
+                })
+                .catch((err) => {
+                    console.log('delete session error: ' + err);
+                });
+        }
+        this.sessionUrl = '';
+
         this.queuedCandidates = [];
     }
 }
@@ -300,31 +314,31 @@ class WHEPClient {
  * @returns {Object} An object representing the query parameters with keys as parameter names and values as parameter values.
  */
  const parseQueryString = (url) => {
-	const queryString = (url || window.location.search).split("?")[1];
-	if (!queryString) return {};
+    const queryString = (url || window.location.search).split("?")[1];
+    if (!queryString) return {};
 
-	const paramsArray = queryString.split("&");
-	const result = {};
+    const paramsArray = queryString.split("&");
+    const result = {};
 
-	for (let i = 0; i < paramsArray.length; i++) {
-		const param = paramsArray[i].split("=");
-		const key = decodeURIComponent(param[0]);
-		const value = decodeURIComponent(param[1] || "");
+    for (let i = 0; i < paramsArray.length; i++) {
+        const param = paramsArray[i].split("=");
+        const key = decodeURIComponent(param[0]);
+        const value = decodeURIComponent(param[1] || "");
 
-		if (key) {
-			if (result[key]) {
-				if (Array.isArray(result[key])) {
-					result[key].push(value);
-				} else {
-					result[key] = [result[key], value];
-				}
-			} else {
-				result[key] = value;
-			}
-		}
-	}
+        if (key) {
+            if (result[key]) {
+                if (Array.isArray(result[key])) {
+                    result[key].push(value);
+                } else {
+                    result[key] = [result[key], value];
+                }
+            } else {
+                result[key] = value;
+            }
+        }
+    }
 
-	return result;
+    return result;
 };
 
 /**
@@ -334,17 +348,17 @@ class WHEPClient {
  * @returns {boolean}
  */
 const parseBoolString = (str, defaultVal) => {
-	const trueValues = ["1", "yes", "true"];
-	const falseValues = ["0", "no", "false"];
-	str = (str || "").toString();
+    const trueValues = ["1", "yes", "true"];
+    const falseValues = ["0", "no", "false"];
+    str = (str || "").toString();
 
-	if (trueValues.includes(str.toLowerCase())) {
-		return true;
-	} else if (falseValues.includes(str.toLowerCase())) {
-		return false;
-	} else {
-		return defaultVal;
-	}
+    if (trueValues.includes(str.toLowerCase())) {
+        return true;
+    } else if (falseValues.includes(str.toLowerCase())) {
+        return false;
+    } else {
+        return defaultVal;
+    }
 };
 
 /**
@@ -353,12 +367,12 @@ const parseBoolString = (str, defaultVal) => {
  * @param {HTMLVideoElement} video - The video element on which to set the attributes.
  */
 const setVideoAttributes = (video) => {
-	let qs = parseQueryString();
+    let qs = parseQueryString();
 
-	video.controls = parseBoolString(qs["controls"], true);
-	video.muted = parseBoolString(qs["muted"], true);
-	video.autoplay = parseBoolString(qs["autoplay"], true);
-	video.playsInline = parseBoolString(qs["playsinline"], true);
+    video.controls = parseBoolString(qs["controls"], true);
+    video.muted = parseBoolString(qs["muted"], true);
+    video.autoplay = parseBoolString(qs["autoplay"], true);
+    video.playsInline = parseBoolString(qs["playsinline"], true);
 };
 
 /**
@@ -368,14 +382,14 @@ const setVideoAttributes = (video) => {
  * @returns
  */
 const initVideoElement = (callback, container) => {
-	return () => {
-		const video = document.createElement("video");
-		video.id = "video";
+    return () => {
+        const video = document.createElement("video");
+        video.id = "video";
 
-		setVideoAttributes(video);
-		container.append(video);
-		callback(video);
-	};
+        setVideoAttributes(video);
+        container.append(video);
+        callback(video);
+    };
 };
 
 window.addEventListener('DOMContentLoaded', initVideoElement((video) => new WHEPClient(video), document.body));

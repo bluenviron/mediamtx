@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
+	rtspurl "github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
@@ -26,6 +27,9 @@ func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
 }
 
 type webRTCTestClient struct {
+	hc *http.Client
+
+	url            *url.URL
 	pc             *webrtcpc.PeerConnection
 	outgoingTrack1 *webrtc.TrackLocalStaticRTP
 	outgoingTrack2 *webrtc.TrackLocalStaticRTP
@@ -35,13 +39,19 @@ type webRTCTestClient struct {
 func newWebRTCTestClient(
 	t *testing.T,
 	hc *http.Client,
-	ur string,
+	rawURL string,
 	publish bool,
 ) *webRTCTestClient {
-	iceServers, err := whip.GetICEServers(context.Background(), hc, ur)
+	c := &webRTCTestClient{
+		hc: hc,
+	}
+
+	var err error
+	c.url, err = url.Parse(rawURL)
 	require.NoError(t, err)
 
-	c := &webRTCTestClient{}
+	iceServers, err := whip.OptionsICEServers(context.Background(), hc, c.url.String())
+	require.NoError(t, err)
 
 	api, err := webrtcNewAPI(nil, nil, nil, nil)
 	require.NoError(t, err)
@@ -94,18 +104,21 @@ func newWebRTCTestClient(
 	offer, err := pc.CreateOffer(nil)
 	require.NoError(t, err)
 
-	res, err := whip.PostOffer(context.Background(), hc, ur, &offer)
+	res, err := whip.PostOffer(context.Background(), hc, c.url.String(), &offer)
+	require.NoError(t, err)
+
+	c.url, err = c.url.Parse(res.Location)
 	require.NoError(t, err)
 
 	err = pc.SetLocalDescription(offer)
 	require.NoError(t, err)
 
-	// test adding additional candidates, even if it is not mandatory here
+	// test adding additional candidates, even if it is not strictly necessary
 outer:
 	for {
 		select {
-		case c := <-pc.NewLocalCandidate():
-			err := whip.PostCandidate(context.Background(), hc, ur, &offer, res.ETag, c)
+		case ca := <-pc.NewLocalCandidate():
+			err := whip.PatchCandidate(context.Background(), hc, c.url.String(), &offer, res.ETag, ca)
 			require.NoError(t, err)
 		case <-pc.GatheringDone():
 			break outer
@@ -154,7 +167,11 @@ outer:
 	return c
 }
 
-func (c *webRTCTestClient) close() {
+func (c *webRTCTestClient) close(t *testing.T, delete bool) {
+	if delete {
+		err := whip.DeleteSession(context.Background(), c.hc, c.url.String())
+		require.NoError(t, err)
+	}
 	c.pc.Close()
 }
 
@@ -239,7 +256,7 @@ func TestWebRTCRead(t *testing.T) {
 			ur += "localhost:8889/teststream/whep?param=value"
 
 			c := newWebRTCTestClient(t, hc, ur, false)
-			defer c.close()
+			defer c.close(t, true)
 
 			time.Sleep(500 * time.Millisecond)
 
@@ -284,7 +301,7 @@ func TestWebRTCReadNotFound(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	iceServers, err := whip.GetICEServers(context.Background(), hc, "http://localhost:8889/stream/whep")
+	iceServers, err := whip.OptionsICEServers(context.Background(), hc, "http://localhost:8889/stream/whep")
 	require.NoError(t, err)
 
 	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{
@@ -387,7 +404,7 @@ func TestWebRTCPublish(t *testing.T) {
 			ur += "localhost:8889/teststream/whip?param=value"
 
 			s := newWebRTCTestClient(t, hc, ur, true)
-			defer s.close()
+			defer s.close(t, true)
 
 			if auth == "external" {
 				a.close()
@@ -401,7 +418,7 @@ func TestWebRTCPublish(t *testing.T) {
 				},
 			}
 
-			u, err := url.Parse("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
+			u, err := rtspurl.Parse("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
 			require.NoError(t, err)
 
 			err = c.Start(u.Scheme, u.Host)

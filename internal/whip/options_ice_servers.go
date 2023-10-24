@@ -8,13 +8,13 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-// GetICEServers posts a WHIP/WHEP request for ICE servers.
-func GetICEServers(
+// OptionsICEServers sends a WHIP/WHEP request for ICE servers.
+func OptionsICEServers(
 	ctx context.Context,
 	hc *http.Client,
 	ur string,
 ) ([]webrtc.ICEServer, error) {
-	req, err := http.NewRequestWithContext(ctx, "OPTIONS", ur, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodOptions, ur, nil)
 	if err != nil {
 		return nil, err
 	}

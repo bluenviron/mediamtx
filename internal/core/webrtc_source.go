@@ -62,7 +62,7 @@ func (s *webRTCSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Pat
 		Timeout: time.Duration(s.readTimeout),
 	}
 
-	iceServers, err := whip.GetICEServers(ctx, c, u.String())
+	iceServers, err := whip.OptionsICEServers(ctx, c, u.String())
 	if err != nil {
 		return err
 	}
