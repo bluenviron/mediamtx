@@ -3,6 +3,7 @@ package core
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp"
+	"github.com/bluenviron/mediamtx/internal/webrtc"
 )
 
 var testFormatH264 = &format.H264{
@@ -56,6 +58,10 @@ var testMediaAAC = &description.Media{
 		IndexLength:      3,
 		IndexDeltaLength: 3,
 	}},
+}
+
+func checkClose(t *testing.T, closeFunc func() error) {
+	require.NoError(t, closeFunc())
 }
 
 func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in interface{}, out interface{}) {
@@ -776,7 +782,7 @@ func TestAPIProtocolList(t *testing.T) {
 							0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
 						},*/
 
-						err = source.WritePacketRTP(medi, &rtp.Packet{
+						err := source.WritePacketRTP(medi, &rtp.Packet{
 							Header: rtp.Header{
 								Version:        2,
 								Marker:         true,
@@ -808,25 +814,34 @@ func TestAPIProtocolList(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
-				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whep", false)
-				defer c.close(t, true)
-
-				time.Sleep(500 * time.Millisecond)
-
-				err = source.WritePacketRTP(medi, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{5, 1, 2, 3, 4},
-				})
+				u, err := url.Parse("http://localhost:8889/mypath/whep")
 				require.NoError(t, err)
 
-				<-c.incomingTrack
+				go func() {
+					time.Sleep(500 * time.Millisecond)
+
+					err := source.WritePacketRTP(medi, &rtp.Packet{
+						Header: rtp.Header{
+							Version:        2,
+							Marker:         true,
+							PayloadType:    96,
+							SequenceNumber: 123,
+							Timestamp:      45343,
+							SSRC:           563423,
+						},
+						Payload: []byte{5, 1, 2, 3, 4},
+					})
+					require.NoError(t, err)
+				}()
+
+				c := &webrtc.WHIPClient{
+					HTTPClient: hc,
+					URL:        u,
+				}
+
+				_, err = c.Read(context.Background())
+				require.NoError(t, err)
+				defer checkClose(t, c.Close)
 
 			case "srt":
 				conf := srt.DefaultConfig()
@@ -1094,25 +1109,34 @@ func TestAPIProtocolGet(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
-				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whep", false)
-				defer c.close(t, true)
-
-				time.Sleep(500 * time.Millisecond)
-
-				err = source.WritePacketRTP(medi, &rtp.Packet{
-					Header: rtp.Header{
-						Version:        2,
-						Marker:         true,
-						PayloadType:    96,
-						SequenceNumber: 123,
-						Timestamp:      45343,
-						SSRC:           563423,
-					},
-					Payload: []byte{5, 1, 2, 3, 4},
-				})
+				u, err := url.Parse("http://localhost:8889/mypath/whep")
 				require.NoError(t, err)
 
-				<-c.incomingTrack
+				go func() {
+					time.Sleep(500 * time.Millisecond)
+
+					err := source.WritePacketRTP(medi, &rtp.Packet{
+						Header: rtp.Header{
+							Version:        2,
+							Marker:         true,
+							PayloadType:    96,
+							SequenceNumber: 123,
+							Timestamp:      45343,
+							SSRC:           563423,
+						},
+						Payload: []byte{5, 1, 2, 3, 4},
+					})
+					require.NoError(t, err)
+				}()
+
+				c := &webrtc.WHIPClient{
+					HTTPClient: hc,
+					URL:        u,
+				}
+
+				_, err = c.Read(context.Background())
+				require.NoError(t, err)
+				defer checkClose(t, c.Close)
 
 			case "srt":
 				conf := srt.DefaultConfig()
@@ -1384,8 +1408,19 @@ func TestAPIProtocolKick(t *testing.T) {
 				require.NoError(t, err)
 
 			case "webrtc":
-				c := newWebRTCTestClient(t, hc, "http://localhost:8889/mypath/whip", true)
-				defer c.close(t, false)
+				u, err := url.Parse("http://localhost:8889/mypath/whip")
+				require.NoError(t, err)
+
+				c := &webrtc.WHIPClient{
+					HTTPClient: hc,
+					URL:        u,
+				}
+
+				_, err = c.Publish(context.Background(), medi.Formats[0], nil)
+				require.NoError(t, err)
+				defer func() {
+					require.Error(t, c.Close())
+				}()
 
 			case "srt":
 				conf := srt.DefaultConfig()

@@ -1,4 +1,4 @@
-package whip
+package webrtc
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-// DeleteSession deletes a WHIP/WHEP session.
-func DeleteSession(
+// WHIPDeleteSession deletes a WHIP/WHEP session.
+func WHIPDeleteSession(
 	ctx context.Context,
 	hc *http.Client,
 	ur string,

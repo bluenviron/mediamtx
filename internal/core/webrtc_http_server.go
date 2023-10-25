@@ -13,12 +13,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pion/webrtc/v3"
+	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/whip"
+	"github.com/bluenviron/mediamtx/internal/webrtc"
 )
 
 //go:embed webrtc_publish_index.html
@@ -42,14 +42,12 @@ func relativeLocation(u *url.URL) string {
 
 type webRTCHTTPServerParent interface {
 	logger.Writer
-	generateICEServers() ([]webrtc.ICEServer, error)
+	generateICEServers() ([]pwebrtc.ICEServer, error)
 	newSession(req webRTCNewSessionReq) webRTCNewSessionRes
 	addSessionCandidates(req webRTCAddSessionCandidatesReq) webRTCAddSessionCandidatesRes
 	deleteSession(req webRTCDeleteSessionReq) error
 }
 
-// This implements https://datatracker.ietf.org/doc/draft-ietf-wish-whip/
-// This implements https://datatracker.ietf.org/doc/draft-murillo-whep/
 type webRTCHTTPServer struct {
 	allowOrigin string
 	pathManager *pathManager
@@ -170,7 +168,7 @@ func (s *webRTCHTTPServer) onWHIPOptions(ctx *gin.Context, path string, publish 
 	ctx.Writer.Header().Set("Access-Control-Allow-Methods", "OPTIONS, GET, POST, PATCH, DELETE")
 	ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
 	ctx.Writer.Header().Set("Access-Control-Expose-Headers", "Link")
-	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
+	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
 
@@ -215,7 +213,7 @@ func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish boo
 	ctx.Writer.Header().Set("ETag", "*")
 	ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 	ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
-	ctx.Writer.Header()["Link"] = whip.LinkHeaderMarshal(servers)
+	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
 	ctx.Request.URL.Path += "/" + res.sx.secret.String()
 	ctx.Writer.Header().Set("Location", relativeLocation(ctx.Request.URL))
 	ctx.Writer.WriteHeader(http.StatusCreated)
@@ -239,7 +237,7 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		return
 	}
 
-	candidates, err := whip.ICEFragmentUnmarshal(byts)
+	candidates, err := webrtc.ICEFragmentUnmarshal(byts)
 	if err != nil {
 		ctx.Writer.WriteHeader(http.StatusBadRequest)
 		return

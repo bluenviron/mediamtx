@@ -2,6 +2,7 @@ package core
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -24,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/rtmp"
+	"github.com/bluenviron/mediamtx/internal/webrtc"
 )
 
 var runOnDemandSampleScript = `
@@ -364,8 +366,18 @@ func TestPathRunOnRead(t *testing.T) {
 
 				case "webrtc":
 					hc := &http.Client{Transport: &http.Transport{}}
-					c := newWebRTCTestClient(t, hc, "http://localhost:8889/test/whep?query=value", false)
-					defer c.close(t, true)
+
+					u, err := url.Parse("http://localhost:8889/test/whep?query=value")
+					require.NoError(t, err)
+
+					c := &webrtc.WHIPClient{
+						HTTPClient: hc,
+						URL:        u,
+					}
+
+					_, err = c.Read(context.Background())
+					require.NoError(t, err)
+					defer checkClose(t, c.Close)
 				}
 
 				time.Sleep(500 * time.Millisecond)

@@ -1,4 +1,4 @@
-package whip
+package webrtc
 
 import (
 	"bytes"
@@ -9,8 +9,8 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-// PatchCandidate sends a WHIP/WHEP candidate.
-func PatchCandidate(
+// WHIPPatchCandidate sends a WHIP/WHEP candidate.
+func WHIPPatchCandidate(
 	ctx context.Context,
 	hc *http.Client,
 	ur string,

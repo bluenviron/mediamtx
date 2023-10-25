@@ -1,4 +1,4 @@
-package whip
+package webrtc
 
 import (
 	"fmt"
