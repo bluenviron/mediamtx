@@ -13,7 +13,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/rtmp"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 )
 
 func TestRTMPSource(t *testing.T) {

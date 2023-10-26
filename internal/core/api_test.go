@@ -25,8 +25,8 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/rtmp"
-	"github.com/bluenviron/mediamtx/internal/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
 var testFormatH264 = &format.H264{

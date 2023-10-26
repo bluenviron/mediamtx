@@ -16,7 +16,7 @@ import (
 	pwebrtc "github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
 func TestWebRTCRead(t *testing.T) {
