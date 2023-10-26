@@ -145,7 +145,9 @@ func NewAPI(conf APIConf) (*webrtc.API, error) {
 	}
 
 	interceptorRegistry := &interceptor.Registry{}
-	if err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry); err != nil {
+
+	err := webrtc.RegisterDefaultInterceptors(mediaEngine, interceptorRegistry)
+	if err != nil {
 		return nil, err
 	}
 
