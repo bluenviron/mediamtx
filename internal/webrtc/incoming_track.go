@@ -7,7 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/liberrors"
-	"github.com/bluenviron/gortsplib/v4/pkg/rtplossdetector"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtpreorderer"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
@@ -24,8 +24,9 @@ type IncomingTrack struct {
 	track *webrtc.TrackRemote
 	log   logger.Writer
 
-	format       format.Format
-	lossDetector *rtplossdetector.LossDetector
+	format    format.Format
+	reorderer *rtpreorderer.Reorderer
+	pkts      []*rtp.Packet
 }
 
 func newIncomingTrack(
@@ -35,9 +36,9 @@ func newIncomingTrack(
 	log logger.Writer,
 ) (*IncomingTrack, error) {
 	t := &IncomingTrack{
-		track:        track,
-		log:          log,
-		lossDetector: rtplossdetector.New(),
+		track:     track,
+		log:       log,
+		reorderer: rtpreorderer.New(),
 	}
 
 	isVideo := false
@@ -131,16 +132,35 @@ func (t *IncomingTrack) Format() format.Format {
 // ReadRTP reads a RTP packet.
 func (t *IncomingTrack) ReadRTP() (*rtp.Packet, error) {
 	for {
+		if len(t.pkts) != 0 {
+			var pkt *rtp.Packet
+			pkt, t.pkts = t.pkts[0], t.pkts[1:]
+
+			// sometimes Chrome sends empty RTP packets. ignore them.
+			if len(pkt.Payload) == 0 {
+				continue
+			}
+
+			return pkt, nil
+		}
+
 		pkt, _, err := t.track.ReadRTP()
 		if err != nil {
 			return nil, err
 		}
 
-		lost := t.lossDetector.Process(pkt)
+		var lost int
+		t.pkts, lost = t.reorderer.Process(pkt)
 		if lost != 0 {
 			t.log.Log(logger.Warn, (liberrors.ErrClientRTPPacketsLost{Lost: lost}).Error())
 			// do not return
 		}
+
+		if len(t.pkts) == 0 {
+			continue
+		}
+
+		pkt, t.pkts = t.pkts[0], t.pkts[1:]
 
 		// sometimes Chrome sends empty RTP packets. ignore them.
 		if len(pkt.Payload) == 0 {
