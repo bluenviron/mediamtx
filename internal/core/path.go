@@ -917,15 +917,15 @@ func (pa *path) setNotReady() {
 }
 
 func (pa *path) startRecording() {
-	pa.recordAgent = record.NewAgent(
-		pa.writeQueueSize,
-		pa.conf.RecordPath,
-		pa.conf.RecordFormat,
-		time.Duration(pa.conf.RecordPartDuration),
-		time.Duration(pa.conf.RecordSegmentDuration),
-		pa.name,
-		pa.stream,
-		func(segmentPath string) {
+	pa.recordAgent = &record.Agent{
+		WriteQueueSize:  pa.writeQueueSize,
+		RecordPath:      pa.conf.RecordPath,
+		Format:          pa.conf.RecordFormat,
+		PartDuration:    time.Duration(pa.conf.RecordPartDuration),
+		SegmentDuration: time.Duration(pa.conf.RecordSegmentDuration),
+		PathName:        pa.name,
+		Stream:          pa.stream,
+		OnSegmentCreate: func(segmentPath string) {
 			if pa.conf.RunOnRecordSegmentCreate != "" {
 				env := pa.externalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath
@@ -939,7 +939,7 @@ func (pa *path) startRecording() {
 					nil)
 			}
 		},
-		func(segmentPath string) {
+		OnSegmentComplete: func(segmentPath string) {
 			if pa.conf.RunOnRecordSegmentComplete != "" {
 				env := pa.externalCmdEnv()
 				env["MTX_SEGMENT_PATH"] = segmentPath
@@ -953,8 +953,9 @@ func (pa *path) startRecording() {
 					nil)
 			}
 		},
-		pa,
-	)
+		Parent: pa,
+	}
+	pa.recordAgent.Initialize()
 }
 
 func (pa *path) executeRemoveReader(r reader) {

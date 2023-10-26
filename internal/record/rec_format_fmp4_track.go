@@ -44,7 +44,7 @@ func (t *recFormatFMP4Track) record(sample *sample) error {
 
 	if (!t.f.hasVideo || t.initTrack.Codec.IsVideo()) &&
 		!t.nextSample.IsNonSyncSample &&
-		(t.nextSample.dts-t.f.currentSegment.startDTS) >= t.f.a.segmentDuration {
+		(t.nextSample.dts-t.f.currentSegment.startDTS) >= t.f.a.wrapper.SegmentDuration {
 		err := t.f.currentSegment.close()
 		if err != nil {
 			return err
