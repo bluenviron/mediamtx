@@ -16,9 +16,9 @@ import (
 	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/httpserv"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
 //go:embed webrtc_publish_index.html

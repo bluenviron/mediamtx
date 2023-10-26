@@ -12,7 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
 type webRTCSourceParent interface {

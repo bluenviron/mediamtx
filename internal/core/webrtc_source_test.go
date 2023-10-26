@@ -13,7 +13,7 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bluenviron/mediamtx/internal/webrtc"
+	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
 func TestWebRTCSource(t *testing.T) {
