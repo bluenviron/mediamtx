@@ -39,7 +39,7 @@ func (d *dynamicWriter) setTarget(w io.Writer) {
 }
 
 type recFormatMPEGTS struct {
-	a *Agent
+	a *agentInstance
 
 	dw             *dynamicWriter
 	bw             *bufio.Writer
@@ -48,11 +48,7 @@ type recFormatMPEGTS struct {
 	currentSegment *recFormatMPEGTSSegment
 }
 
-func newRecFormatMPEGTS(a *Agent) recFormat {
-	f := &recFormatMPEGTS{
-		a: a,
-	}
-
+func (f *recFormatMPEGTS) initialize() {
 	var tracks []*mpegts.Track
 
 	addTrack := func(codec mpegts.Codec) *mpegts.Track {
@@ -63,7 +59,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 		return track
 	}
 
-	for _, media := range a.stream.Desc().Medias {
+	for _, media := range f.a.wrapper.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *format.H265:
@@ -71,7 +67,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H265)
 					if tunit.AU == nil {
 						return nil
@@ -99,7 +95,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H264)
 					if tunit.AU == nil {
 						return nil
@@ -128,7 +124,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Video)
 					if tunit.Frame == nil {
 						return nil
@@ -158,7 +154,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Video)
 					if tunit.Frame == nil {
 						return nil
@@ -192,7 +188,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 					}(),
 				})
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
 					if tunit.Packets == nil {
 						return nil
@@ -211,7 +207,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 					Config: *forma.GetConfig(),
 				})
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Audio)
 					if tunit.AUs == nil {
 						return nil
@@ -228,7 +224,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 			case *format.MPEG1Audio:
 				track := addTrack(&mpegts.CodecMPEG1Audio{})
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
 					if tunit.Frames == nil {
 						return nil
@@ -247,7 +243,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 
 				sampleRate := time.Duration(forma.SampleRate)
 
-				a.stream.AddReader(a.writer, media, forma, func(u unit.Unit) error {
+				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AC3)
 					if tunit.Frames == nil {
 						return nil
@@ -273,7 +269,7 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
 	f.mw = mpegts.NewWriter(f.bw, tracks)
 
-	a.Log(logger.Info, "recording %d %s",
+	f.a.wrapper.Log(logger.Info, "recording %d %s",
 		len(tracks),
 		func() string {
 			if len(tracks) == 1 {
@@ -281,8 +277,6 @@ func newRecFormatMPEGTS(a *Agent) recFormat {
 			}
 			return "tracks"
 		}())
-
-	return f
 }
 
 func (f *recFormatMPEGTS) close() {
@@ -298,7 +292,7 @@ func (f *recFormatMPEGTS) setupSegment(dts time.Duration, isVideo bool, randomAc
 
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dts-f.currentSegment.startDTS) >= f.a.segmentDuration:
+		(dts-f.currentSegment.startDTS) >= f.a.wrapper.SegmentDuration:
 		err := f.currentSegment.close()
 		if err != nil {
 			return err
@@ -306,7 +300,7 @@ func (f *recFormatMPEGTS) setupSegment(dts time.Duration, isVideo bool, randomAc
 
 		f.currentSegment = newRecFormatMPEGTSSegment(f, dts)
 
-	case (dts - f.currentSegment.lastFlush) >= f.a.partDuration:
+	case (dts - f.currentSegment.lastFlush) >= f.a.wrapper.PartDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err

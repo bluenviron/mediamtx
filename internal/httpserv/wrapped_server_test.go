@@ -14,7 +14,6 @@ import (
 type testLogger struct{}
 
 func (testLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
-	// fmt.Printf(format, args...)
 }
 
 func TestFilterEmptyPath(t *testing.T) {
