@@ -90,6 +90,7 @@ outer:
 
 			currentWatchedPath, _ := filepath.EvalSymlinks(w.watchedPath)
 			eventPath, _ := filepath.Abs(event.Name)
+			eventPath, _ = filepath.EvalSymlinks(eventPath)
 
 			if currentWatchedPath == "" {
 				// watched file was removed; wait for write event to trigger reload
