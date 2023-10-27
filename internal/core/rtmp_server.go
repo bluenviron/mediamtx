@@ -220,7 +220,7 @@ outer:
 		case req := <-s.chAPIConnsGet:
 			c := s.findConnByUUID(req.uuid)
 			if c == nil {
-				req.res <- rtmpServerAPIConnsGetRes{err: errAPINotFound}
+				req.res <- rtmpServerAPIConnsGetRes{err: fmt.Errorf("connection not found")}
 				continue
 			}
 
@@ -229,7 +229,7 @@ outer:
 		case req := <-s.chAPIConnsKick:
 			c := s.findConnByUUID(req.uuid)
 			if c == nil {
-				req.res <- rtmpServerAPIConnsKickRes{err: errAPINotFound}
+				req.res <- rtmpServerAPIConnsKickRes{err: fmt.Errorf("connection not found")}
 				continue
 			}
 

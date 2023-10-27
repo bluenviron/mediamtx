@@ -398,7 +398,7 @@ func TestAPIConfigPathsDelete(t *testing.T) {
 		res, err := hc.Do(req)
 		require.NoError(t, err)
 		defer res.Body.Close()
-		require.Equal(t, http.StatusNotFound, res.StatusCode)
+		require.Equal(t, http.StatusInternalServerError, res.StatusCode)
 	}()
 }
 
@@ -650,7 +650,7 @@ func TestAPIPathsGet(t *testing.T) {
 				res, err := hc.Get("http://localhost:9997/v3/paths/get/" + pathName)
 				require.NoError(t, err)
 				defer res.Body.Close()
-				require.Equal(t, 404, res.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
 			}
 		})
 	}
@@ -1331,7 +1331,7 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 				res, err := hc.Do(req)
 				require.NoError(t, err)
 				defer res.Body.Close()
-				require.Equal(t, http.StatusNotFound, res.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
 			}()
 		})
 	}
@@ -1537,13 +1537,13 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 			}
 
 			func() {
-				req, err := http.NewRequest(http.MethodGet, "http://localhost:9997/v3/"+pa+"/kick/"+uuid.New().String(), nil)
+				req, err := http.NewRequest(http.MethodPost, "http://localhost:9997/v3/"+pa+"/kick/"+uuid.New().String(), nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)
 				require.NoError(t, err)
 				defer res.Body.Close()
-				require.Equal(t, http.StatusNotFound, res.StatusCode)
+				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
 			}()
 		})
 	}

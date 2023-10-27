@@ -2,7 +2,6 @@ package core
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -18,8 +17,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
 )
-
-var errAPINotFound = errors.New("not found")
 
 func interfaceIsEmpty(i interface{}) bool {
 	return reflect.ValueOf(i).Kind() != reflect.Ptr || reflect.ValueOf(i).IsNil()
@@ -290,18 +287,6 @@ func (a *api) writeServerError(ctx *gin.Context, err error) {
 	ctx.AbortWithStatus(http.StatusInternalServerError)
 }
 
-func (a *api) writeNotFound(ctx *gin.Context) {
-	ctx.AbortWithStatus(http.StatusNotFound)
-}
-
-func (a *api) writeServerErrorOrNotFound(ctx *gin.Context, err error) {
-	if err == errAPINotFound {
-		a.writeNotFound(ctx)
-	} else {
-		a.writeServerError(ctx, err)
-	}
-}
-
 func (a *api) onConfigGlobalGet(ctx *gin.Context) {
 	a.mutex.Lock()
 	c := a.conf
@@ -412,7 +397,7 @@ func (a *api) onConfigPathsGet(ctx *gin.Context) {
 
 	p, ok := c.OptionalPaths[name]
 	if !ok {
-		a.writeNotFound(ctx)
+		a.writeServerError(ctx, fmt.Errorf("path configuration not found"))
 		return
 	}
 
@@ -587,7 +572,7 @@ func (a *api) onPathsGet(ctx *gin.Context) {
 
 	data, err := a.pathManager.apiPathsGet(name)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -621,7 +606,7 @@ func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 
 	data, err := a.rtspServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -655,7 +640,7 @@ func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 
 	data, err := a.rtspServer.apiSessionsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -671,7 +656,7 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 
 	err = a.rtspServer.apiSessionsKick(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -705,7 +690,7 @@ func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 
 	data, err := a.rtspsServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -739,7 +724,7 @@ func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 
 	data, err := a.rtspsServer.apiSessionsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -755,7 +740,7 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 
 	err = a.rtspsServer.apiSessionsKick(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -789,7 +774,7 @@ func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 
 	data, err := a.rtmpServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -805,7 +790,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 
 	err = a.rtmpServer.apiConnsKick(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -839,7 +824,7 @@ func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 
 	data, err := a.rtmpsServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -855,7 +840,7 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 
 	err = a.rtmpsServer.apiConnsKick(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -889,7 +874,7 @@ func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 
 	data, err := a.hlsManager.apiMuxersGet(name)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -923,7 +908,7 @@ func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 
 	data, err := a.webRTCManager.apiSessionsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -939,7 +924,7 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 
 	err = a.webRTCManager.apiSessionsKick(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -973,7 +958,7 @@ func (a *api) onSRTConnsGet(ctx *gin.Context) {
 
 	data, err := a.srtServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 
@@ -989,7 +974,7 @@ func (a *api) onSRTConnsKick(ctx *gin.Context) {
 
 	err = a.srtServer.apiConnsKick(uuid)
 	if err != nil {
-		a.writeServerErrorOrNotFound(ctx, err)
+		a.writeServerError(ctx, err)
 		return
 	}
 

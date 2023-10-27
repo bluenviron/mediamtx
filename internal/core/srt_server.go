@@ -208,7 +208,7 @@ outer:
 		case req := <-s.chAPIConnsGet:
 			c := s.findConnByUUID(req.uuid)
 			if c == nil {
-				req.res <- srtServerAPIConnsGetRes{err: errAPINotFound}
+				req.res <- srtServerAPIConnsGetRes{err: fmt.Errorf("connection not found")}
 				continue
 			}
 
@@ -217,7 +217,7 @@ outer:
 		case req := <-s.chAPIConnsKick:
 			c := s.findConnByUUID(req.uuid)
 			if c == nil {
-				req.res <- srtServerAPIConnsKickRes{err: errAPINotFound}
+				req.res <- srtServerAPIConnsKickRes{err: fmt.Errorf("connection not found")}
 				continue
 			}
 
