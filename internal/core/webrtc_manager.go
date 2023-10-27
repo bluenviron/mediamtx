@@ -381,7 +381,7 @@ outer:
 		case req := <-m.chAPISessionsGet:
 			sx := m.findSessionByUUID(req.uuid)
 			if sx == nil {
-				req.res <- webRTCManagerAPISessionsGetRes{err: errAPINotFound}
+				req.res <- webRTCManagerAPISessionsGetRes{err: fmt.Errorf("session not found")}
 				continue
 			}
 
@@ -390,7 +390,7 @@ outer:
 		case req := <-m.chAPIConnsKick:
 			sx := m.findSessionByUUID(req.uuid)
 			if sx == nil {
-				req.res <- webRTCManagerAPISessionsKickRes{err: errAPINotFound}
+				req.res <- webRTCManagerAPISessionsKickRes{err: fmt.Errorf("session not found")}
 				continue
 			}
 

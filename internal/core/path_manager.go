@@ -383,7 +383,7 @@ func (pm *pathManager) doAPIPathsList(req pathAPIPathsListReq) {
 func (pm *pathManager) doAPIPathsGet(req pathAPIPathsGetReq) {
 	path, ok := pm.paths[req.name]
 	if !ok {
-		req.res <- pathAPIPathsGetRes{err: errAPINotFound}
+		req.res <- pathAPIPathsGetRes{err: fmt.Errorf("path not found")}
 		return
 	}
 

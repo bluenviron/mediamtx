@@ -634,7 +634,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/global/patch:
     patch:
@@ -653,7 +653,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/pathdefaults/get:
     get:
@@ -670,7 +670,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/pathdefaults/patch:
     patch:
@@ -689,7 +689,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/paths/list:
     get:
@@ -719,7 +719,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/paths/get/{name}:
     get:
@@ -743,7 +743,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/paths/add/{name}:
     post:
@@ -769,7 +769,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/paths/patch/{name}:
     patch:
@@ -794,10 +794,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: configuration not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/paths/replace/{name}:
     post:
@@ -822,10 +820,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: configuration not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/config/paths/delete/{name}:
     delete:
@@ -844,10 +840,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: configuration not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/hlsmuxers/list:
     get:
@@ -877,7 +871,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/hlsmuxers/get/{name}:
     get:
@@ -900,10 +894,8 @@ paths:
                 $ref: '#/components/schemas/HLSMuxer'
         '400':
           description: invalid request.
-        '404':
-          description: muxer not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/paths/list:
     get:
@@ -933,7 +925,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/paths/get/{name}:
     get:
@@ -956,10 +948,8 @@ paths:
                 $ref: '#/components/schemas/Path'
         '400':
           description: invalid request.
-        '404':
-          description: path not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspconns/list:
     get:
@@ -989,7 +979,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspconns/get/{id}:
     get:
@@ -1012,10 +1002,8 @@ paths:
                 $ref: '#/components/schemas/RTSPConn'
         '400':
           description: invalid request.
-        '404':
-          description: connection not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspsessions/list:
     get:
@@ -1045,7 +1033,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspsessions/get/{id}:
     get:
@@ -1068,10 +1056,8 @@ paths:
                 $ref: '#/components/schemas/RTSPSession'
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspsessions/kick/{id}:
     post:
@@ -1090,10 +1076,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspsconns/list:
     get:
@@ -1123,7 +1107,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspsconns/get/{id}:
     get:
@@ -1146,10 +1130,8 @@ paths:
                 $ref: '#/components/schemas/RTSPConn'
         '400':
           description: invalid request.
-        '404':
-          description: connection not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspssessions/list:
     get:
@@ -1178,10 +1160,8 @@ paths:
                 $ref: '#/components/schemas/RTSPSessionList'
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspssessions/get/{id}:
     get:
@@ -1204,10 +1184,8 @@ paths:
                 $ref: '#/components/schemas/RTSPSession'
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtspssessions/kick/{id}:
     post:
@@ -1226,10 +1204,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtmpconns/list:
     get:
@@ -1259,7 +1235,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtmpconns/get/{id}:
     get:
@@ -1282,10 +1258,8 @@ paths:
                 $ref: '#/components/schemas/RTMPConn'
         '400':
           description: invalid request.
-        '404':
-          description: connection not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtmpconns/kick/{id}:
     post:
@@ -1304,10 +1278,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtmpsconns/list:
     get:
@@ -1337,7 +1309,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtmpsconns/get/{id}:
     get:
@@ -1360,10 +1332,8 @@ paths:
                 $ref: '#/components/schemas/RTMPConn'
         '400':
           description: invalid request.
-        '404':
-          description: connection not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/rtmpsconns/kick/{id}:
     post:
@@ -1382,10 +1352,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/srtconns/list:
     get:
@@ -1415,7 +1383,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/srtconns/get/{id}:
     get:
@@ -1438,10 +1406,8 @@ paths:
                 $ref: '#/components/schemas/SRTConn'
         '400':
           description: invalid request.
-        '404':
-          description: connection not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/srtconns/kick/{id}:
     post:
@@ -1460,10 +1426,8 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: connection not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/webrtcsessions/list:
     get:
@@ -1493,7 +1457,7 @@ paths:
         '400':
           description: invalid request.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/webrtcsessions/get/{id}:
     get:
@@ -1516,10 +1480,8 @@ paths:
                 $ref: '#/components/schemas/WebRTCSession'
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.
 
   /v3/webrtcsessions/kick/{id}:
     post:
@@ -1538,7 +1500,5 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
-        '404':
-          description: session not found.
         '500':
-          description: internal server error.
+          description: server error.

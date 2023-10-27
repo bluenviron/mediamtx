@@ -398,7 +398,7 @@ func (s *rtspServer) apiConnsGet(uuid uuid.UUID) (*apiRTSPConn, error) {
 
 	conn := s.findConnByUUID(uuid)
 	if conn == nil {
-		return nil, errAPINotFound
+		return nil, fmt.Errorf("connection not found")
 	}
 
 	return conn.apiItem(), nil
@@ -443,7 +443,7 @@ func (s *rtspServer) apiSessionsGet(uuid uuid.UUID) (*apiRTSPSession, error) {
 
 	_, sx := s.findSessionByUUID(uuid)
 	if sx == nil {
-		return nil, errAPINotFound
+		return nil, fmt.Errorf("session not found")
 	}
 
 	return sx.apiItem(), nil
@@ -462,7 +462,7 @@ func (s *rtspServer) apiSessionsKick(uuid uuid.UUID) error {
 
 	key, sx := s.findSessionByUUID(uuid)
 	if sx == nil {
-		return errAPINotFound
+		return fmt.Errorf("session not found")
 	}
 
 	sx.close()
