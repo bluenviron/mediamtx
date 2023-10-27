@@ -8,6 +8,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
+type apiError struct {
+	Error string `json:"error"`
+}
+
 type apiPathConfList struct {
 	ItemCount int                  `json:"itemCount"`
 	PageCount int                  `json:"pageCount"`
