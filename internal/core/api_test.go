@@ -64,6 +64,13 @@ func checkClose(t *testing.T, closeFunc func() error) {
 	require.NoError(t, closeFunc())
 }
 
+func checkError(t *testing.T, msg string, body io.Reader) {
+	var resErr map[string]interface{}
+	err := json.NewDecoder(body).Decode(&resErr)
+	require.NoError(t, err)
+	require.Equal(t, map[string]interface{}{"error": msg}, resErr)
+}
+
 func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in interface{}, out interface{}) {
 	buf := func() io.Reader {
 		if in == nil {
@@ -184,7 +191,9 @@ func TestAPIConfigGlobalPatchUnknownField(t *testing.T) {
 		res, err := hc.Do(req)
 		require.NoError(t, err)
 		defer res.Body.Close()
+
 		require.Equal(t, http.StatusBadRequest, res.StatusCode)
+		checkError(t, "json: unknown field \"test\"", res.Body)
 	}()
 }
 
@@ -320,7 +329,9 @@ func TestAPIConfigPathsAddUnknownField(t *testing.T) {
 		res, err := hc.Do(req)
 		require.NoError(t, err)
 		defer res.Body.Close()
+
 		require.Equal(t, http.StatusBadRequest, res.StatusCode)
+		checkError(t, "json: unknown field \"test\"", res.Body)
 	}()
 }
 
@@ -398,7 +409,9 @@ func TestAPIConfigPathsDelete(t *testing.T) {
 		res, err := hc.Do(req)
 		require.NoError(t, err)
 		defer res.Body.Close()
+
 		require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+		checkError(t, "path configuration not found", res.Body)
 	}()
 }
 
@@ -650,7 +663,9 @@ func TestAPIPathsGet(t *testing.T) {
 				res, err := hc.Get("http://localhost:9997/v3/paths/get/" + pathName)
 				require.NoError(t, err)
 				defer res.Body.Close()
+
 				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+				checkError(t, "path not found", res.Body)
 			}
 		})
 	}
@@ -1331,7 +1346,19 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 				res, err := hc.Do(req)
 				require.NoError(t, err)
 				defer res.Body.Close()
+
 				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+				switch ca {
+				case "rtsp conns", "rtsps conns", "rtmp", "rtmps", "srt":
+					checkError(t, "connection not found", res.Body)
+
+				case "rtsp sessions", "rtsps sessions", "webrtc":
+					checkError(t, "session not found", res.Body)
+
+				case "hls":
+					checkError(t, "muxer not found", res.Body)
+				}
 			}()
 		})
 	}
@@ -1543,7 +1570,19 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 				res, err := hc.Do(req)
 				require.NoError(t, err)
 				defer res.Body.Close()
+
 				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+
+				switch ca {
+				case "rtsp conns", "rtsps conns", "rtmp", "rtmps", "srt":
+					checkError(t, "connection not found", res.Body)
+
+				case "rtsp sessions", "rtsps sessions", "webrtc":
+					checkError(t, "session not found", res.Body)
+
+				case "hls":
+					checkError(t, "muxer not found", res.Body)
+				}
 			}()
 		})
 	}

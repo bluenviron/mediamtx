@@ -277,14 +277,24 @@ func (a *api) Log(level logger.Level, format string, args ...interface{}) {
 
 // error coming from something the user inserted into the request.
 func (a *api) writeUserError(ctx *gin.Context, err error) {
+	// show error in logs
 	a.Log(logger.Error, err.Error())
-	ctx.AbortWithStatus(http.StatusBadRequest)
+
+	// send error in response
+	ctx.JSON(http.StatusBadRequest, &apiError{
+		Error: err.Error(),
+	})
 }
 
 // error coming from the server.
 func (a *api) writeServerError(ctx *gin.Context, err error) {
+	// show error in logs
 	a.Log(logger.Error, err.Error())
-	ctx.AbortWithStatus(http.StatusInternalServerError)
+
+	// send error in response
+	ctx.JSON(http.StatusInternalServerError, &apiError{
+		Error: err.Error(),
+	})
 }
 
 func (a *api) onConfigGlobalGet(ctx *gin.Context) {
