@@ -431,7 +431,7 @@ pathDefaults:
   rpiCameraLevel: '4.1'
   # Autofocus mode
   # values: auto, manual, continuous
-  rpiCameraAfMode: auto
+  rpiCameraAfMode: continuous
   # Autofocus range
   # values: normal, macro, full
   rpiCameraAfRange: normal

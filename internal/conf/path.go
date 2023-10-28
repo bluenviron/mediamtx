@@ -173,7 +173,7 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraBitrate = 1000000
 	pconf.RPICameraProfile = "main"
 	pconf.RPICameraLevel = "4.1"
-	pconf.RPICameraAfMode = "auto"
+	pconf.RPICameraAfMode = "continuous"
 	pconf.RPICameraAfRange = "normal"
 	pconf.RPICameraAfSpeed = "normal"
 	pconf.RPICameraTextOverlay = "%Y-%m-%d %H:%M:%S - MediaMTX"
