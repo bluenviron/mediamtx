@@ -49,7 +49,7 @@ func srtCheckPassphrase(passphrase string) error {
 
 // Path is a path configuration.
 type Path struct {
-	Regexp *regexp.Regexp `json:"-"`
+	Regexp *regexp.Regexp `json:"-"` // filled by Check()
 
 	// General
 	Source                     string         `json:"source"`

@@ -175,7 +175,7 @@ type Conf struct {
 
 	// Paths
 	OptionalPaths map[string]*OptionalPath `json:"paths"`
-	Paths         map[string]*Path         `json:"-"`
+	Paths         map[string]*Path         `json:"-"` // filled by Check()
 }
 
 func (conf *Conf) setDefaults() {
