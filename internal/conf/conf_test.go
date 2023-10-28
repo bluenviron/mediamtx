@@ -71,7 +71,7 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraBitrate:           1000000,
 			RPICameraProfile:           "main",
 			RPICameraLevel:             "4.1",
-			RPICameraAfMode:            "auto",
+			RPICameraAfMode:            "continuous",
 			RPICameraAfRange:           "normal",
 			RPICameraAfSpeed:           "normal",
 			RPICameraTextOverlay:       "%Y-%m-%d %H:%M:%S - MediaMTX",
