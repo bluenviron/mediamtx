@@ -49,7 +49,8 @@ func srtCheckPassphrase(passphrase string) error {
 
 // Path is a path configuration.
 type Path struct {
-	Regexp *regexp.Regexp `json:"-"` // filled by Check()
+	Regexp *regexp.Regexp `json:"-"`    // filled by Check()
+	Name   string         `json:"name"` // filled by Check()
 
 	// General
 	Source                     string         `json:"source"`
@@ -209,6 +210,8 @@ func (pconf Path) Clone() *Path {
 }
 
 func (pconf *Path) check(conf *Conf, name string) error {
+	pconf.Name = name
+
 	switch {
 	case name == "all_others", name == "all":
 		pconf.Regexp = regexp.MustCompile("^.*$")
