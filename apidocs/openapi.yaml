@@ -240,7 +240,7 @@ components:
           items:
             type: string
 
-        # Publisher
+        # Publisher source
         overridePublisher:
           type: boolean
         fallback:
@@ -248,7 +248,7 @@ components:
         srtPublishPassphrase:
           type: string
 
-        # RTSP
+        # RTSP source
         sourceProtocol:
           type: string
         sourceAnyPortEnable:
@@ -258,11 +258,11 @@ components:
         rtspRangeStart:
           type: string
 
-        # Redirect
+        # Redirect source
         sourceRedirect:
           type: string
 
-        # Raspberry Pi Camera
+        # Raspberry Pi Camera source
         rpiCameraCamID:
           type: integer
         rpiCameraWidth:

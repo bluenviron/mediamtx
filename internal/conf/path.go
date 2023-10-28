@@ -76,22 +76,22 @@ type Path struct {
 	ReadPass    Credential `json:"readPass"`
 	ReadIPs     IPsOrCIDRs `json:"readIPs"`
 
-	// Publisher
+	// Publisher source
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride *bool  `json:"disablePublisherOverride,omitempty"` // deprecated
 	Fallback                 string `json:"fallback"`
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
 
-	// RTSP
+	// RTSP source
 	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
 	SourceAnyPortEnable bool           `json:"sourceAnyPortEnable"`
 	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart      string         `json:"rtspRangeStart"`
 
-	// Redirect
+	// Redirect source
 	SourceRedirect string `json:"sourceRedirect"`
 
-	// Raspberry Pi Camera
+	// Raspberry Pi Camera source
 	RPICameraCamID             int     `json:"rpiCameraCamID"`
 	RPICameraWidth             int     `json:"rpiCameraWidth"`
 	RPICameraHeight            int     `json:"rpiCameraHeight"`
@@ -155,10 +155,10 @@ func (pconf *Path) setDefaults() {
 	pconf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
 	pconf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
 
-	// Publisher
+	// Publisher source
 	pconf.OverridePublisher = true
 
-	// Raspberry Pi Camera
+	// Raspberry Pi Camera source
 	pconf.RPICameraWidth = 1920
 	pconf.RPICameraHeight = 1080
 	pconf.RPICameraContrast = 1
