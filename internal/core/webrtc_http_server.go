@@ -40,6 +40,12 @@ func relativeLocation(u *url.URL) string {
 	return p
 }
 
+func webrtcWriteError(ctx *gin.Context, statusCode int, err error) {
+	ctx.JSON(statusCode, &apiError{
+		Error: err.Error(),
+	})
+}
+
 type webRTCHTTPServerParent interface {
 	logger.Writer
 	generateICEServers() ([]pwebrtc.ICEServer, error)
@@ -143,11 +149,11 @@ func (s *webRTCHTTPServer) checkAuthOutsideSession(ctx *gin.Context, path string
 			// wait some seconds to stop brute force attacks
 			<-time.After(webrtcPauseAfterAuthError)
 
-			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			webrtcWriteError(ctx, http.StatusUnauthorized, terr)
 			return false
 		}
 
-		ctx.Writer.WriteHeader(http.StatusNotFound)
+		webrtcWriteError(ctx, http.StatusInternalServerError, res.err)
 		return false
 	}
 
@@ -161,7 +167,7 @@ func (s *webRTCHTTPServer) onWHIPOptions(ctx *gin.Context, path string, publish 
 
 	servers, err := s.parent.generateICEServers()
 	if err != nil {
-		ctx.Writer.WriteHeader(http.StatusInternalServerError)
+		webrtcWriteError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -174,7 +180,7 @@ func (s *webRTCHTTPServer) onWHIPOptions(ctx *gin.Context, path string, publish 
 
 func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 	if ctx.Request.Header.Get("Content-Type") != "application/sdp" {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
 
@@ -198,18 +204,18 @@ func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish boo
 		publish:    publish,
 	})
 	if res.err != nil {
-		ctx.Writer.WriteHeader(res.errStatusCode)
+		webrtcWriteError(ctx, res.errStatusCode, res.err)
 		return
 	}
 
 	servers, err := s.parent.generateICEServers()
 	if err != nil {
-		ctx.Writer.WriteHeader(http.StatusInternalServerError)
+		webrtcWriteError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	ctx.Writer.Header().Set("Content-Type", "application/sdp")
-	ctx.Writer.Header().Set("Access-Control-Expose-Headers", "ETag, Accept-Patch, Link, Location")
+	ctx.Writer.Header().Set("Access-Control-Expose-Headers", "ETag, ID, Accept-Patch, Link, Location")
 	ctx.Writer.Header().Set("ETag", "*")
 	ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 	ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
@@ -223,12 +229,12 @@ func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish boo
 func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
 		return
 	}
 
 	if ctx.Request.Header.Get("Content-Type") != "application/trickle-ice-sdpfrag" {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
 
@@ -239,7 +245,7 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 
 	candidates, err := webrtc.ICEFragmentUnmarshal(byts)
 	if err != nil {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -248,7 +254,7 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		candidates: candidates,
 	})
 	if res.err != nil {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -258,7 +264,7 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 func (s *webRTCHTTPServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
 		return
 	}
 
@@ -266,7 +272,7 @@ func (s *webRTCHTTPServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 		secret: secret,
 	})
 	if err != nil {
-		ctx.Writer.WriteHeader(http.StatusBadRequest)
+		webrtcWriteError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -302,7 +308,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		return
 	}
 
-	// WHIP, outside session
+	// WHIP/WHEP, outside session
 	if m := reWHIPWHEPNoID.FindStringSubmatch(ctx.Request.URL.Path); m != nil {
 		switch ctx.Request.Method {
 		case http.MethodOptions:
@@ -315,12 +321,12 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			// RFC draft-ietf-whip-09
 			// The WHIP endpoints MUST return an "405 Method Not Allowed" response
 			// for any HTTP GET, HEAD or PUT requests
-			ctx.Writer.WriteHeader(http.StatusMethodNotAllowed)
+			webrtcWriteError(ctx, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		}
 		return
 	}
 
-	// WHIP, inside session
+	// WHIP/WHEP, inside session
 	if m := reWHIPWHEPWithID.FindStringSubmatch(ctx.Request.URL.Path); m != nil {
 		switch ctx.Request.Method {
 		case http.MethodPatch:
@@ -337,7 +343,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 		switch {
 		case ctx.Request.URL.Path == "/favicon.ico":
 
-		case len(ctx.Request.URL.Path) >= 3:
+		case len(ctx.Request.URL.Path) >= 2:
 			switch {
 			case strings.HasSuffix(ctx.Request.URL.Path, "/publish"):
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
