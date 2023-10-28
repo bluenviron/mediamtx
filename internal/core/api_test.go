@@ -233,11 +233,11 @@ func TestAPIConfigPathsList(t *testing.T) {
 	p, ok := newInstance("api: yes\n" +
 		"paths:\n" +
 		"  path1:\n" +
-		"    readUser: myuser\n" +
-		"    readPass: mypass\n" +
+		"    readUser: myuser1\n" +
+		"    readPass: mypass1\n" +
 		"  path2:\n" +
-		"    readUser: myuser\n" +
-		"    readPass: mypass\n")
+		"    readUser: myuser2\n" +
+		"    readPass: mypass2\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
@@ -253,20 +253,12 @@ func TestAPIConfigPathsList(t *testing.T) {
 
 	var out listRes
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/list", nil, &out)
-	require.Equal(t, listRes{
-		ItemCount: 2,
-		PageCount: 1,
-		Items: []pathConfig{
-			{
-				"readUser": "myuser",
-				"readPass": "mypass",
-			},
-			{
-				"readUser": "myuser",
-				"readPass": "mypass",
-			},
-		},
-	}, out)
+	require.Equal(t, 2, out.ItemCount)
+	require.Equal(t, 1, out.PageCount)
+	require.Equal(t, "myuser1", out.Items[0]["readUser"])
+	require.Equal(t, "mypass1", out.Items[0]["readPass"])
+	require.Equal(t, "myuser2", out.Items[1]["readUser"])
+	require.Equal(t, "mypass2", out.Items[1]["readPass"])
 }
 
 func TestAPIConfigPathsGet(t *testing.T) {
@@ -296,15 +288,15 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 		"source":                   "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand":           true,
 		"disablePublisherOverride": true, // test setting a deprecated parameter
+		"rpiCameraVFlip":           true,
 	}, nil)
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
-	require.Equal(t, map[string]interface{}{
-		"source":                   "rtsp://127.0.0.1:9999/mypath",
-		"sourceOnDemand":           true,
-		"disablePublisherOverride": true,
-	}, out)
+	require.Equal(t, "rtsp://127.0.0.1:9999/mypath", out["source"])
+	require.Equal(t, true, out["sourceOnDemand"])
+	require.Equal(t, true, out["disablePublisherOverride"])
+	require.Equal(t, true, out["rpiCameraVFlip"])
 }
 
 func TestAPIConfigPathsAddUnknownField(t *testing.T) {
@@ -335,7 +327,7 @@ func TestAPIConfigPathsAddUnknownField(t *testing.T) {
 	}()
 }
 
-func TestAPIConfigPathsPatch(t *testing.T) {
+func TestAPIConfigPathsPatch(t *testing.T) { //nolint:dupl
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -346,6 +338,7 @@ func TestAPIConfigPathsPatch(t *testing.T) {
 		"source":                   "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand":           true,
 		"disablePublisherOverride": true, // test setting a deprecated parameter
+		"rpiCameraVFlip":           true,
 	}, nil)
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/my/path", map[string]interface{}{
@@ -355,14 +348,13 @@ func TestAPIConfigPathsPatch(t *testing.T) {
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
-	require.Equal(t, map[string]interface{}{
-		"source":                   "rtsp://127.0.0.1:9998/mypath",
-		"sourceOnDemand":           true,
-		"disablePublisherOverride": true,
-	}, out)
+	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
+	require.Equal(t, true, out["sourceOnDemand"])
+	require.Equal(t, true, out["disablePublisherOverride"])
+	require.Equal(t, true, out["rpiCameraVFlip"])
 }
 
-func TestAPIConfigPathsReplace(t *testing.T) {
+func TestAPIConfigPathsReplace(t *testing.T) { //nolint:dupl
 	p, ok := newInstance("api: yes\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
@@ -373,6 +365,7 @@ func TestAPIConfigPathsReplace(t *testing.T) {
 		"source":                   "rtsp://127.0.0.1:9999/mypath",
 		"sourceOnDemand":           true,
 		"disablePublisherOverride": true, // test setting a deprecated parameter
+		"rpiCameraVFlip":           true,
 	}, nil)
 
 	httpRequest(t, hc, http.MethodPost, "http://localhost:9997/v3/config/paths/replace/my/path", map[string]interface{}{
@@ -382,10 +375,10 @@ func TestAPIConfigPathsReplace(t *testing.T) {
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
-	require.Equal(t, map[string]interface{}{
-		"source":         "rtsp://127.0.0.1:9998/mypath",
-		"sourceOnDemand": true,
-	}, out)
+	require.Equal(t, "rtsp://127.0.0.1:9998/mypath", out["source"])
+	require.Equal(t, true, out["sourceOnDemand"])
+	require.Equal(t, nil, out["disablePublisherOverride"])
+	require.Equal(t, false, out["rpiCameraVFlip"])
 }
 
 func TestAPIConfigPathsDelete(t *testing.T) {

@@ -74,7 +74,7 @@ func paginate(itemsPtr interface{}, itemsPerPageStr string, pageStr string) (int
 	return paginate2(itemsPtr, itemsPerPage, page), nil
 }
 
-func sortedKeys(paths map[string]*conf.OptionalPath) []string {
+func sortedKeys(paths map[string]*conf.Path) []string {
 	ret := make([]string, len(paths))
 	i := 0
 	for name := range paths {
@@ -276,23 +276,12 @@ func (a *api) Log(level logger.Level, format string, args ...interface{}) {
 }
 
 // error coming from something the user inserted into the request.
-func (a *api) writeUserError(ctx *gin.Context, err error) {
+func (a *api) writeError(ctx *gin.Context, status int, err error) {
 	// show error in logs
 	a.Log(logger.Error, err.Error())
 
 	// send error in response
-	ctx.JSON(http.StatusBadRequest, &apiError{
-		Error: err.Error(),
-	})
-}
-
-// error coming from the server.
-func (a *api) writeServerError(ctx *gin.Context, err error) {
-	// show error in logs
-	a.Log(logger.Error, err.Error())
-
-	// send error in response
-	ctx.JSON(http.StatusInternalServerError, &apiError{
+	ctx.JSON(status, &apiError{
 		Error: err.Error(),
 	})
 }
@@ -309,7 +298,7 @@ func (a *api) onConfigGlobalPatch(ctx *gin.Context) {
 	var c conf.OptionalGlobal
 	err := json.NewDecoder(ctx.Request.Body).Decode(&c)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -322,7 +311,7 @@ func (a *api) onConfigGlobalPatch(ctx *gin.Context) {
 
 	err = newConf.Check()
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -347,7 +336,7 @@ func (a *api) onConfigPathDefaultsPatch(ctx *gin.Context) {
 	var p conf.OptionalPath
 	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -360,7 +349,7 @@ func (a *api) onConfigPathDefaultsPatch(ctx *gin.Context) {
 
 	err = newConf.Check()
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -376,17 +365,17 @@ func (a *api) onConfigPathsList(ctx *gin.Context) {
 	a.mutex.Unlock()
 
 	data := &apiPathConfList{
-		Items: make([]*conf.OptionalPath, len(c.OptionalPaths)),
+		Items: make([]*conf.Path, len(c.Paths)),
 	}
 
-	for i, key := range sortedKeys(c.OptionalPaths) {
-		data.Items[i] = c.OptionalPaths[key]
+	for i, key := range sortedKeys(c.Paths) {
+		data.Items[i] = c.Paths[key]
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -397,7 +386,7 @@ func (a *api) onConfigPathsList(ctx *gin.Context) {
 func (a *api) onConfigPathsGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
@@ -405,9 +394,9 @@ func (a *api) onConfigPathsGet(ctx *gin.Context) {
 	c := a.conf
 	a.mutex.Unlock()
 
-	p, ok := c.OptionalPaths[name]
+	p, ok := c.Paths[name]
 	if !ok {
-		a.writeServerError(ctx, fmt.Errorf("path configuration not found"))
+		a.writeError(ctx, http.StatusInternalServerError, fmt.Errorf("path configuration not found"))
 		return
 	}
 
@@ -417,14 +406,14 @@ func (a *api) onConfigPathsGet(ctx *gin.Context) {
 func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
 	var p conf.OptionalPath
 	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -435,13 +424,13 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 
 	err = newConf.AddPath(name, &p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = newConf.Check()
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -454,14 +443,14 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
 	var p conf.OptionalPath
 	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -472,13 +461,13 @@ func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 
 	err = newConf.PatchPath(name, &p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = newConf.Check()
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -491,14 +480,14 @@ func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
 	var p conf.OptionalPath
 	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -509,13 +498,13 @@ func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 
 	err = newConf.ReplacePath(name, &p)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = newConf.Check()
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -528,7 +517,7 @@ func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
@@ -539,13 +528,13 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 
 	err := newConf.RemovePath(name)
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = newConf.Check()
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -558,14 +547,14 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 func (a *api) onPathsList(ctx *gin.Context) {
 	data, err := a.pathManager.apiPathsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -576,13 +565,13 @@ func (a *api) onPathsList(ctx *gin.Context) {
 func (a *api) onPathsGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
 	data, err := a.pathManager.apiPathsGet(name)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -592,14 +581,14 @@ func (a *api) onPathsGet(ctx *gin.Context) {
 func (a *api) onRTSPConnsList(ctx *gin.Context) {
 	data, err := a.rtspServer.apiConnsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -610,13 +599,13 @@ func (a *api) onRTSPConnsList(ctx *gin.Context) {
 func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.rtspServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -626,14 +615,14 @@ func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 	data, err := a.rtspServer.apiSessionsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -644,13 +633,13 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.rtspServer.apiSessionsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -660,13 +649,13 @@ func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.rtspServer.apiSessionsKick(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -676,14 +665,14 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 	data, err := a.rtspsServer.apiConnsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -694,13 +683,13 @@ func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.rtspsServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -710,14 +699,14 @@ func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 	data, err := a.rtspsServer.apiSessionsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -728,13 +717,13 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.rtspsServer.apiSessionsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -744,13 +733,13 @@ func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.rtspsServer.apiSessionsKick(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -760,14 +749,14 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	data, err := a.rtmpServer.apiConnsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -778,13 +767,13 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.rtmpServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -794,13 +783,13 @@ func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.rtmpServer.apiConnsKick(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -810,14 +799,14 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 	data, err := a.rtmpsServer.apiConnsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -828,13 +817,13 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.rtmpsServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -844,13 +833,13 @@ func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.rtmpsServer.apiConnsKick(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -860,14 +849,14 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
 	data, err := a.hlsManager.apiMuxersList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -878,13 +867,13 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
-		a.writeUserError(ctx, fmt.Errorf("invalid name"))
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
 	data, err := a.hlsManager.apiMuxersGet(name)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -894,14 +883,14 @@ func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 	data, err := a.webRTCManager.apiSessionsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -912,13 +901,13 @@ func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.webRTCManager.apiSessionsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -928,13 +917,13 @@ func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.webRTCManager.apiSessionsKick(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -944,14 +933,14 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 func (a *api) onSRTConnsList(ctx *gin.Context) {
 	data, err := a.srtServer.apiConnsList()
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	data.ItemCount = len(data.Items)
 	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 	data.PageCount = pageCount
@@ -962,13 +951,13 @@ func (a *api) onSRTConnsList(ctx *gin.Context) {
 func (a *api) onSRTConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	data, err := a.srtServer.apiConnsGet(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -978,13 +967,13 @@ func (a *api) onSRTConnsGet(ctx *gin.Context) {
 func (a *api) onSRTConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
-		a.writeUserError(ctx, err)
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
 	err = a.srtServer.apiConnsKick(uuid)
 	if err != nil {
-		a.writeServerError(ctx, err)
+		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 

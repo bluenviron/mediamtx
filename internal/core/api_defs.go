@@ -13,9 +13,9 @@ type apiError struct {
 }
 
 type apiPathConfList struct {
-	ItemCount int                  `json:"itemCount"`
-	PageCount int                  `json:"pageCount"`
-	Items     []*conf.OptionalPath `json:"items"`
+	ItemCount int          `json:"itemCount"`
+	PageCount int          `json:"pageCount"`
+	Items     []*conf.Path `json:"items"`
 }
 
 type apiPathSourceOrReader struct {
