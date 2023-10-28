@@ -502,6 +502,8 @@ docker run --rm -it \
 bluenviron/mediamtx:latest-rpi
 ```
 
+Be aware that the Docker image is not compatible with cameras that requires a custom `libcamera` (like some ArduCam products), since it comes with a standard `libcamera` included.
+
 Camera settings can be changed by using the `rpiCamera*` parameters:
 
 ```yml
