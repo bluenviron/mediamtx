@@ -114,8 +114,8 @@ type webRTCManagerAPISessionsKickReq struct {
 type webRTCNewSessionRes struct {
 	sx            *webRTCSession
 	answer        []byte
-	err           error
 	errStatusCode int
+	err           error
 }
 
 type webRTCNewSessionReq struct {
@@ -470,7 +470,10 @@ func (m *webRTCManager) newSession(req webRTCNewSessionReq) webRTCNewSessionRes 
 		return res.sx.new(req)
 
 	case <-m.ctx.Done():
-		return webRTCNewSessionRes{err: fmt.Errorf("terminated"), errStatusCode: http.StatusInternalServerError}
+		return webRTCNewSessionRes{
+			errStatusCode: http.StatusInternalServerError,
+			err:           fmt.Errorf("terminated"),
+		}
 	}
 }
 

@@ -19,6 +19,28 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
+func TestWebRTCPages(t *testing.T) {
+	p, ok := newInstance("paths:\n" +
+		"  stream:\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	hc := &http.Client{Transport: &http.Transport{}}
+
+	for _, path := range []string{"/stream", "/stream/publish"} {
+		func() {
+			req, err := http.NewRequest(http.MethodGet, "http://localhost:8889"+path, nil)
+			require.NoError(t, err)
+
+			res, err := hc.Do(req)
+			require.NoError(t, err)
+			defer res.Body.Close()
+
+			require.Equal(t, http.StatusOK, res.StatusCode)
+		}()
+	}
+}
+
 func TestWebRTCRead(t *testing.T) {
 	for _, auth := range []string{
 		"none",
@@ -169,7 +191,7 @@ func TestWebRTCReadNotFound(t *testing.T) {
 	offer, err := pc.CreateOffer(nil)
 	require.NoError(t, err)
 
-	req, err := http.NewRequest("POST", "http://localhost:8889/stream/whep", bytes.NewReader([]byte(offer.SDP)))
+	req, err := http.NewRequest(http.MethodPost, "http://localhost:8889/stream/whep", bytes.NewReader([]byte(offer.SDP)))
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/sdp")
@@ -220,7 +242,7 @@ func TestWebRTCPublish(t *testing.T) {
 
 			// preflight requests must always work, without authentication
 			func() {
-				req, err := http.NewRequest("OPTIONS", "http://localhost:8889/teststream/whip", nil)
+				req, err := http.NewRequest(http.MethodOptions, "http://localhost:8889/teststream/whip", nil)
 				require.NoError(t, err)
 
 				req.Header.Set("Access-Control-Request-Method", "OPTIONS")

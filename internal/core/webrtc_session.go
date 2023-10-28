@@ -395,8 +395,8 @@ func (s *webRTCSession) runInner() error {
 
 	if errStatusCode != 0 {
 		s.req.res <- webRTCNewSessionRes{
-			err:           err,
 			errStatusCode: errStatusCode,
+			err:           err,
 		}
 	}
 
@@ -466,7 +466,12 @@ func (s *webRTCSession) runPublish() (int, error) {
 
 	trackCount, err := webrtc.TrackCount(sdp.MediaDescriptions)
 	if err != nil {
-		return http.StatusBadRequest, err
+		// RFC draft-ietf-wish-whip
+		// if the number of audio and or video
+		// tracks or number streams is not supported by the WHIP Endpoint, it
+		// MUST reject the HTTP POST request with a "406 Not Acceptable" error
+		// response.
+		return http.StatusNotAcceptable, err
 	}
 
 	answer, err := pc.CreateFullAnswer(s.ctx, offer)
