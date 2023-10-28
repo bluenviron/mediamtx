@@ -255,8 +255,10 @@ func TestAPIConfigPathsList(t *testing.T) {
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/list", nil, &out)
 	require.Equal(t, 2, out.ItemCount)
 	require.Equal(t, 1, out.PageCount)
+	require.Equal(t, "path1", out.Items[0]["name"])
 	require.Equal(t, "myuser1", out.Items[0]["readUser"])
 	require.Equal(t, "mypass1", out.Items[0]["readPass"])
+	require.Equal(t, "path2", out.Items[1]["name"])
 	require.Equal(t, "myuser2", out.Items[1]["readUser"])
 	require.Equal(t, "mypass2", out.Items[1]["readPass"])
 }
@@ -274,6 +276,7 @@ func TestAPIConfigPathsGet(t *testing.T) {
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/config/paths/get/my/path", nil, &out)
+	require.Equal(t, "my/path", out["name"])
 	require.Equal(t, "myuser", out["readUser"])
 }
 

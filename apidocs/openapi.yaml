@@ -204,6 +204,9 @@ components:
     PathConf:
       type: object
       properties:
+        name:
+          type: string
+
         # General
         source:
           type: string
