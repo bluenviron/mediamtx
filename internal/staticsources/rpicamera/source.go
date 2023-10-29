@@ -1,13 +1,14 @@
-package core
+// Package rpicamera contains the Raspberry Pi Camera static source.
+package rpicamera
 
 import (
-	"context"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rpicamera"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -51,30 +52,18 @@ func paramsFromConf(cnf *conf.Path) rpicamera.Params {
 	}
 }
 
-type rpiCameraSourceParent interface {
-	logger.Writer
-	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	setNotReady(req pathSourceStaticSetNotReadyReq)
+// Source is a Raspberry Pi Camera static source.
+type Source struct {
+	Parent defs.StaticSourceParent
 }
 
-type rpiCameraSource struct {
-	parent rpiCameraSourceParent
+// Log implements StaticSource.
+func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+	s.Parent.Log(level, "[RPI Camera source] "+format, args...)
 }
 
-func newRPICameraSource(
-	parent rpiCameraSourceParent,
-) *rpiCameraSource {
-	return &rpiCameraSource{
-		parent: parent,
-	}
-}
-
-func (s *rpiCameraSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[RPI Camera source] "+format, args...)
-}
-
-// run implements sourceStaticImpl.
-func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *conf.Path) error {
+// Run implements StaticSource.
+func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	medi := &description.Media{
 		Type: description.MediaTypeVideo,
 		Formats: []format.Format{&format.H264{
@@ -87,15 +76,15 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.Path, reloadConf ch
 
 	onData := func(dts time.Duration, au [][]byte) {
 		if stream == nil {
-			res := s.parent.setReady(pathSourceStaticSetReadyReq{
-				desc:               &description.Session{Medias: medias},
-				generateRTPPackets: true,
+			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+				Desc:               &description.Session{Medias: medias},
+				GenerateRTPPackets: true,
 			})
-			if res.err != nil {
+			if res.Err != nil {
 				return
 			}
 
-			stream = res.stream
+			stream = res.Stream
 		}
 
 		stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
@@ -107,7 +96,7 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.Path, reloadConf ch
 		})
 	}
 
-	cam, err := rpicamera.New(paramsFromConf(cnf), onData)
+	cam, err := rpicamera.New(paramsFromConf(params.Conf), onData)
 	if err != nil {
 		return err
 	}
@@ -115,24 +104,24 @@ func (s *rpiCameraSource) run(ctx context.Context, cnf *conf.Path, reloadConf ch
 
 	defer func() {
 		if stream != nil {
-			s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
+			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
 	for {
 		select {
-		case cnf := <-reloadConf:
+		case cnf := <-params.ReloadConf:
 			cam.ReloadParams(paramsFromConf(cnf))
 
-		case <-ctx.Done():
+		case <-params.Context.Done():
 			return nil
 		}
 	}
 }
 
-// apiSourceDescribe implements sourceStaticImpl.
-func (*rpiCameraSource) apiSourceDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+// APISourceDescribe implements StaticSource.
+func (*Source) APISourceDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "rpiCameraSource",
 		ID:   "",
 	}

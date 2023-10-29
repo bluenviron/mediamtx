@@ -11,12 +11,14 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 type rtmpServerAPIConnsListRes struct {
-	data *apiRTMPConnList
+	data *defs.APIRTMPConnList
 	err  error
 }
 
@@ -25,7 +27,7 @@ type rtmpServerAPIConnsListReq struct {
 }
 
 type rtmpServerAPIConnsGetRes struct {
-	data *apiRTMPConn
+	data *defs.APIRTMPConn
 	err  error
 }
 
@@ -95,7 +97,7 @@ func newRTMPServer(
 ) (*rtmpServer, error) {
 	ln, err := func() (net.Listener, error) {
 		if !isTLS {
-			return net.Listen(restrictNetwork("tcp", address))
+			return net.Listen(restrictnetwork.Restrict("tcp", address))
 		}
 
 		cert, err := tls.LoadX509KeyPair(serverCert, serverKey)
@@ -103,7 +105,7 @@ func newRTMPServer(
 			return nil, err
 		}
 
-		network, address := restrictNetwork("tcp", address)
+		network, address := restrictnetwork.Restrict("tcp", address)
 		return tls.Listen(network, address, &tls.Config{Certificates: []tls.Certificate{cert}})
 	}()
 	if err != nil {
@@ -203,8 +205,8 @@ outer:
 			delete(s.conns, c)
 
 		case req := <-s.chAPIConnsList:
-			data := &apiRTMPConnList{
-				Items: []*apiRTMPConn{},
+			data := &defs.APIRTMPConnList{
+				Items: []*defs.APIRTMPConn{},
 			}
 
 			for c := range s.conns {
@@ -286,7 +288,7 @@ func (s *rtmpServer) closeConn(c *rtmpConn) {
 }
 
 // apiConnsList is called by api.
-func (s *rtmpServer) apiConnsList() (*apiRTMPConnList, error) {
+func (s *rtmpServer) apiConnsList() (*defs.APIRTMPConnList, error) {
 	req := rtmpServerAPIConnsListReq{
 		res: make(chan rtmpServerAPIConnsListRes),
 	}
@@ -302,7 +304,7 @@ func (s *rtmpServer) apiConnsList() (*apiRTMPConnList, error) {
 }
 
 // apiConnsGet is called by api.
-func (s *rtmpServer) apiConnsGet(uuid uuid.UUID) (*apiRTMPConn, error) {
+func (s *rtmpServer) apiConnsGet(uuid uuid.UUID) (*defs.APIRTMPConn, error) {
 	req := rtmpServerAPIConnsGetReq{
 		uuid: uuid,
 		res:  make(chan rtmpServerAPIConnsGetRes),

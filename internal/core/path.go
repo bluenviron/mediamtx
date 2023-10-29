@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/record"
@@ -67,21 +68,6 @@ type pathAccessRequest struct {
 	rtspRequest *base.Request
 	rtspBaseURL *url.URL
 	rtspNonce   string
-}
-
-type pathSourceStaticSetReadyRes struct {
-	stream *stream.Stream
-	err    error
-}
-
-type pathSourceStaticSetReadyReq struct {
-	desc               *description.Session
-	generateRTPPackets bool
-	res                chan pathSourceStaticSetReadyRes
-}
-
-type pathSourceStaticSetNotReadyReq struct {
-	res chan struct{}
 }
 
 type pathRemoveReaderReq struct {
@@ -157,7 +143,7 @@ type pathStopPublisherReq struct {
 }
 
 type pathAPIPathsListRes struct {
-	data  *apiPathList
+	data  *defs.APIPathList
 	paths map[string]*path
 }
 
@@ -167,7 +153,7 @@ type pathAPIPathsListReq struct {
 
 type pathAPIPathsGetRes struct {
 	path *path
-	data *apiPath
+	data *defs.APIPath
 	err  error
 }
 
@@ -212,8 +198,8 @@ type path struct {
 
 	// in
 	chReloadConf              chan *conf.Path
-	chSourceStaticSetReady    chan pathSourceStaticSetReadyReq
-	chSourceStaticSetNotReady chan pathSourceStaticSetNotReadyReq
+	chStaticSourceSetReady    chan defs.PathSourceStaticSetReadyReq
+	chStaticSourceSetNotReady chan defs.PathSourceStaticSetNotReadyReq
 	chDescribe                chan pathDescribeReq
 	chRemovePublisher         chan pathRemovePublisherReq
 	chAddPublisher            chan pathAddPublisherReq
@@ -265,8 +251,8 @@ func newPath(
 		onDemandPublisherReadyTimer:    newEmptyTimer(),
 		onDemandPublisherCloseTimer:    newEmptyTimer(),
 		chReloadConf:                   make(chan *conf.Path),
-		chSourceStaticSetReady:         make(chan pathSourceStaticSetReadyReq),
-		chSourceStaticSetNotReady:      make(chan pathSourceStaticSetNotReadyReq),
+		chStaticSourceSetReady:         make(chan defs.PathSourceStaticSetReadyReq),
+		chStaticSourceSetNotReady:      make(chan defs.PathSourceStaticSetNotReadyReq),
 		chDescribe:                     make(chan pathDescribeReq),
 		chRemovePublisher:              make(chan pathRemovePublisherReq),
 		chAddPublisher:                 make(chan pathAddPublisherReq),
@@ -306,7 +292,7 @@ func (pa *path) run() {
 	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
 	} else if pa.conf.HasStaticSource() {
-		pa.source = newSourceStatic(
+		pa.source = newStaticSourceHandler(
 			pa.conf,
 			pa.readTimeout,
 			pa.writeTimeout,
@@ -314,7 +300,7 @@ func (pa *path) run() {
 			pa)
 
 		if !pa.conf.SourceOnDemand {
-			pa.source.(*sourceStatic).start(false)
+			pa.source.(*staticSourceHandler).start(false)
 		}
 	}
 
@@ -361,7 +347,7 @@ func (pa *path) run() {
 	}
 
 	if pa.source != nil {
-		if source, ok := pa.source.(*sourceStatic); ok {
+		if source, ok := pa.source.(*staticSourceHandler); ok {
 			if !pa.conf.SourceOnDemand || pa.onDemandStaticSourceState != pathOnDemandStateInitial {
 				source.close("path is closing")
 			}
@@ -411,10 +397,10 @@ func (pa *path) runInner() error {
 		case newConf := <-pa.chReloadConf:
 			pa.doReloadConf(newConf)
 
-		case req := <-pa.chSourceStaticSetReady:
+		case req := <-pa.chStaticSourceSetReady:
 			pa.doSourceStaticSetReady(req)
 
-		case req := <-pa.chSourceStaticSetNotReady:
+		case req := <-pa.chStaticSourceSetNotReady:
 			pa.doSourceStaticSetNotReady(req)
 
 			if pa.shouldClose() {
@@ -510,7 +496,7 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	pa.confMutex.Unlock()
 
 	if pa.conf.HasStaticSource() {
-		go pa.source.(*sourceStatic).reloadConf(newConf)
+		go pa.source.(*staticSourceHandler).reloadConf(newConf)
 	}
 
 	if pa.conf.Record {
@@ -523,10 +509,10 @@ func (pa *path) doReloadConf(newConf *conf.Path) {
 	}
 }
 
-func (pa *path) doSourceStaticSetReady(req pathSourceStaticSetReadyReq) {
-	err := pa.setReady(req.desc, req.generateRTPPackets)
+func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
+	err := pa.setReady(req.Desc, req.GenerateRTPPackets)
 	if err != nil {
-		req.res <- pathSourceStaticSetReadyRes{err: err}
+		req.Res <- defs.PathSourceStaticSetReadyRes{Err: err}
 		return
 	}
 
@@ -549,15 +535,15 @@ func (pa *path) doSourceStaticSetReady(req pathSourceStaticSetReadyReq) {
 		pa.readerAddRequestsOnHold = nil
 	}
 
-	req.res <- pathSourceStaticSetReadyRes{stream: pa.stream}
+	req.Res <- defs.PathSourceStaticSetReadyRes{Stream: pa.stream}
 }
 
-func (pa *path) doSourceStaticSetNotReady(req pathSourceStaticSetNotReadyReq) {
+func (pa *path) doSourceStaticSetNotReady(req defs.PathSourceStaticSetNotReadyReq) {
 	pa.setNotReady()
 
 	// send response before calling onDemandStaticSourceStop()
-	// in order to avoid a deadlock due to sourceStatic.stop()
-	close(req.res)
+	// in order to avoid a deadlock due to staticSourceHandler.stop()
+	close(req.Res)
 
 	if pa.conf.HasOnDemandStaticSource() && pa.onDemandStaticSourceState != pathOnDemandStateInitial {
 		pa.onDemandStaticSourceStop("an error occurred")
@@ -738,14 +724,14 @@ func (pa *path) doRemoveReader(req pathRemoveReaderReq) {
 
 func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 	req.res <- pathAPIPathsGetRes{
-		data: &apiPath{
+		data: &defs.APIPath{
 			Name:     pa.name,
 			ConfName: pa.confName,
-			Source: func() *apiPathSourceOrReader {
+			Source: func() *defs.APIPathSourceOrReader {
 				if pa.source == nil {
 					return nil
 				}
-				v := pa.source.apiSourceDescribe()
+				v := pa.source.APISourceDescribe()
 				return &v
 			}(),
 			Ready: pa.stream != nil,
@@ -768,8 +754,8 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.BytesReceived()
 			}(),
-			Readers: func() []apiPathSourceOrReader {
-				ret := []apiPathSourceOrReader{}
+			Readers: func() []defs.APIPathSourceOrReader {
+				ret := []defs.APIPathSourceOrReader{}
 				for r := range pa.readers {
 					ret = append(ret, r.apiReaderDescribe())
 				}
@@ -811,7 +797,7 @@ func (pa *path) externalCmdEnv() externalcmd.Environment {
 }
 
 func (pa *path) onDemandStaticSourceStart() {
-	pa.source.(*sourceStatic).start(true)
+	pa.source.(*staticSourceHandler).start(true)
 
 	pa.onDemandStaticSourceReadyTimer.Stop()
 	pa.onDemandStaticSourceReadyTimer = time.NewTimer(time.Duration(pa.conf.SourceOnDemandStartTimeout))
@@ -834,7 +820,7 @@ func (pa *path) onDemandStaticSourceStop(reason string) {
 
 	pa.onDemandStaticSourceState = pathOnDemandStateInitial
 
-	pa.source.(*sourceStatic).stop(reason)
+	pa.source.(*staticSourceHandler).stop(reason)
 }
 
 func (pa *path) onDemandPublisherStart(query string) {
@@ -1016,35 +1002,39 @@ func (pa *path) reloadConf(newConf *conf.Path) {
 	}
 }
 
-// sourceStaticSetReady is called by sourceStatic.
-func (pa *path) sourceStaticSetReady(sourceStaticCtx context.Context, req pathSourceStaticSetReadyReq) {
+// staticSourceHandlerSetReady is called by staticSourceHandler.
+func (pa *path) staticSourceHandlerSetReady(
+	staticSourceHandlerCtx context.Context, req defs.PathSourceStaticSetReadyReq,
+) {
 	select {
-	case pa.chSourceStaticSetReady <- req:
+	case pa.chStaticSourceSetReady <- req:
 
 	case <-pa.ctx.Done():
-		req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
+		req.Res <- defs.PathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
 
 	// this avoids:
 	// - invalid requests sent after the source has been terminated
 	// - deadlocks caused by <-done inside stop()
-	case <-sourceStaticCtx.Done():
-		req.res <- pathSourceStaticSetReadyRes{err: fmt.Errorf("terminated")}
+	case <-staticSourceHandlerCtx.Done():
+		req.Res <- defs.PathSourceStaticSetReadyRes{Err: fmt.Errorf("terminated")}
 	}
 }
 
-// sourceStaticSetNotReady is called by sourceStatic.
-func (pa *path) sourceStaticSetNotReady(sourceStaticCtx context.Context, req pathSourceStaticSetNotReadyReq) {
+// staticSourceHandlerSetNotReady is called by staticSourceHandler.
+func (pa *path) staticSourceHandlerSetNotReady(
+	staticSourceHandlerCtx context.Context, req defs.PathSourceStaticSetNotReadyReq,
+) {
 	select {
-	case pa.chSourceStaticSetNotReady <- req:
+	case pa.chStaticSourceSetNotReady <- req:
 
 	case <-pa.ctx.Done():
-		close(req.res)
+		close(req.Res)
 
 	// this avoids:
 	// - invalid requests sent after the source has been terminated
 	// - deadlocks caused by <-done inside stop()
-	case <-sourceStaticCtx.Done():
-		close(req.res)
+	case <-staticSourceHandlerCtx.Done():
+		close(req.Res)
 	}
 }
 
@@ -1120,7 +1110,7 @@ func (pa *path) removeReader(req pathRemoveReaderReq) {
 }
 
 // apiPathsGet is called by api.
-func (pa *path) apiPathsGet(req pathAPIPathsGetReq) (*apiPath, error) {
+func (pa *path) apiPathsGet(req pathAPIPathsGetReq) (*defs.APIPath, error) {
 	req.res = make(chan pathAPIPathsGetRes)
 	select {
 	case pa.chAPIPathsGet <- req:

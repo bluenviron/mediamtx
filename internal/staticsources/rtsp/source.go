@@ -1,7 +1,7 @@
-package core
+// Package rtsp contains the RTSP static source.
+package rtsp
 
 import (
-	"context"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -11,7 +11,9 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 )
 
 func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
@@ -59,50 +61,32 @@ func createRangeHeader(cnf *conf.Path) (*headers.Range, error) {
 	}
 }
 
-type rtspSourceParent interface {
-	logger.Writer
-	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	setNotReady(req pathSourceStaticSetNotReadyReq)
+// Source is a RTSP static source.
+type Source struct {
+	ReadTimeout    conf.StringDuration
+	WriteTimeout   conf.StringDuration
+	WriteQueueSize int
+	Parent         defs.StaticSourceParent
 }
 
-type rtspSource struct {
-	readTimeout    conf.StringDuration
-	writeTimeout   conf.StringDuration
-	writeQueueSize int
-	parent         rtspSourceParent
+// Log implements StaticSource.
+func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+	s.Parent.Log(level, "[RTSP source] "+format, args...)
 }
 
-func newRTSPSource(
-	readTimeout conf.StringDuration,
-	writeTimeout conf.StringDuration,
-	writeQueueSize int,
-	parent rtspSourceParent,
-) *rtspSource {
-	return &rtspSource{
-		readTimeout:    readTimeout,
-		writeTimeout:   writeTimeout,
-		writeQueueSize: writeQueueSize,
-		parent:         parent,
-	}
-}
-
-func (s *rtspSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[RTSP source] "+format, args...)
-}
-
-// run implements sourceStaticImpl.
-func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *conf.Path) error {
+// Run implements StaticSource.
+func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
 	decodeErrLogger := logger.NewLimitedLogger(s)
 
 	c := &gortsplib.Client{
-		Transport:      cnf.SourceProtocol.Transport,
-		TLSConfig:      tlsConfigForFingerprint(cnf.SourceFingerprint),
-		ReadTimeout:    time.Duration(s.readTimeout),
-		WriteTimeout:   time.Duration(s.writeTimeout),
-		WriteQueueSize: s.writeQueueSize,
-		AnyPortEnable:  cnf.SourceAnyPortEnable,
+		Transport:      params.Conf.SourceProtocol.Transport,
+		TLSConfig:      tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+		ReadTimeout:    time.Duration(s.ReadTimeout),
+		WriteTimeout:   time.Duration(s.WriteTimeout),
+		WriteQueueSize: s.WriteQueueSize,
+		AnyPortEnable:  params.Conf.SourceAnyPortEnable,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
@@ -120,7 +104,7 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *c
 		},
 	}
 
-	u, err := url.Parse(cnf.Source)
+	u, err := url.Parse(params.Conf.Source)
 	if err != nil {
 		return err
 	}
@@ -144,15 +128,15 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *c
 				return err
 			}
 
-			res := s.parent.setReady(pathSourceStaticSetReadyReq{
-				desc:               desc,
-				generateRTPPackets: false,
+			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+				Desc:               desc,
+				GenerateRTPPackets: false,
 			})
-			if res.err != nil {
-				return res.err
+			if res.Err != nil {
+				return res.Err
 			}
 
-			defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
+			defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
 			for _, medi := range desc.Medias {
 				for _, forma := range medi.Formats {
@@ -165,12 +149,12 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *c
 							return
 						}
 
-						res.stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
+						res.Stream.WriteRTPPacket(cmedi, cforma, pkt, time.Now(), pts)
 					})
 				}
 			}
 
-			rangeHeader, err := createRangeHeader(cnf)
+			rangeHeader, err := createRangeHeader(params.Conf)
 			if err != nil {
 				return err
 			}
@@ -189,9 +173,9 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *c
 		case err := <-readErr:
 			return err
 
-		case <-reloadConf:
+		case <-params.ReloadConf:
 
-		case <-ctx.Done():
+		case <-params.Context.Done():
 			c.Close()
 			<-readErr
 			return nil
@@ -199,9 +183,9 @@ func (s *rtspSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *c
 	}
 }
 
-// apiSourceDescribe implements sourceStaticImpl.
-func (*rtspSource) apiSourceDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+// APISourceDescribe implements StaticSource.
+func (*Source) APISourceDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "rtspSource",
 		ID:   "",
 	}

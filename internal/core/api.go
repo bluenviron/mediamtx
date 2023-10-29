@@ -14,8 +14,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 func interfaceIsEmpty(i interface{}) bool {
@@ -96,38 +98,38 @@ func paramName(ctx *gin.Context) (string, bool) {
 }
 
 type apiPathManager interface {
-	apiPathsList() (*apiPathList, error)
-	apiPathsGet(string) (*apiPath, error)
+	apiPathsList() (*defs.APIPathList, error)
+	apiPathsGet(string) (*defs.APIPath, error)
 }
 
 type apiHLSManager interface {
-	apiMuxersList() (*apiHLSMuxerList, error)
-	apiMuxersGet(string) (*apiHLSMuxer, error)
+	apiMuxersList() (*defs.APIHLSMuxerList, error)
+	apiMuxersGet(string) (*defs.APIHLSMuxer, error)
 }
 
 type apiRTSPServer interface {
-	apiConnsList() (*apiRTSPConnsList, error)
-	apiConnsGet(uuid.UUID) (*apiRTSPConn, error)
-	apiSessionsList() (*apiRTSPSessionList, error)
-	apiSessionsGet(uuid.UUID) (*apiRTSPSession, error)
+	apiConnsList() (*defs.APIRTSPConnsList, error)
+	apiConnsGet(uuid.UUID) (*defs.APIRTSPConn, error)
+	apiSessionsList() (*defs.APIRTSPSessionList, error)
+	apiSessionsGet(uuid.UUID) (*defs.APIRTSPSession, error)
 	apiSessionsKick(uuid.UUID) error
 }
 
 type apiRTMPServer interface {
-	apiConnsList() (*apiRTMPConnList, error)
-	apiConnsGet(uuid.UUID) (*apiRTMPConn, error)
+	apiConnsList() (*defs.APIRTMPConnList, error)
+	apiConnsGet(uuid.UUID) (*defs.APIRTMPConn, error)
 	apiConnsKick(uuid.UUID) error
 }
 
 type apiWebRTCManager interface {
-	apiSessionsList() (*apiWebRTCSessionList, error)
-	apiSessionsGet(uuid.UUID) (*apiWebRTCSession, error)
+	apiSessionsList() (*defs.APIWebRTCSessionList, error)
+	apiSessionsGet(uuid.UUID) (*defs.APIWebRTCSession, error)
 	apiSessionsKick(uuid.UUID) error
 }
 
 type apiSRTServer interface {
-	apiConnsList() (*apiSRTConnList, error)
-	apiConnsGet(uuid.UUID) (*apiSRTConn, error)
+	apiConnsList() (*defs.APISRTConnList, error)
+	apiConnsGet(uuid.UUID) (*defs.APISRTConn, error)
 	apiConnsKick(uuid.UUID) error
 }
 
@@ -245,7 +247,7 @@ func newAPI(
 		group.POST("/v3/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
-	network, address := restrictNetwork("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", address)
 
 	var err error
 	a.httpServer, err = httpserv.NewWrappedServer(
@@ -281,7 +283,7 @@ func (a *api) writeError(ctx *gin.Context, status int, err error) {
 	a.Log(logger.Error, err.Error())
 
 	// send error in response
-	ctx.JSON(status, &apiError{
+	ctx.JSON(status, &defs.APIError{
 		Error: err.Error(),
 	})
 }
@@ -364,7 +366,7 @@ func (a *api) onConfigPathsList(ctx *gin.Context) {
 	c := a.conf
 	a.mutex.Unlock()
 
-	data := &apiPathConfList{
+	data := &defs.APIPathConfList{
 		Items: make([]*conf.Path, len(c.Paths)),
 	}
 

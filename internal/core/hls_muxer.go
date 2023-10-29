@@ -19,6 +19,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -527,15 +528,15 @@ func (m *hlsMuxer) processRequest(req *hlsMuxerHandleRequestReq) {
 }
 
 // apiReaderDescribe implements reader.
-func (m *hlsMuxer) apiReaderDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+func (m *hlsMuxer) apiReaderDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "hlsMuxer",
 		ID:   "",
 	}
 }
 
-func (m *hlsMuxer) apiItem() *apiHLSMuxer {
-	return &apiHLSMuxer{
+func (m *hlsMuxer) apiItem() *defs.APIHLSMuxer {
+	return &defs.APIHLSMuxer{
 		Path:        m.pathName,
 		Created:     m.created,
 		LastRequest: time.Unix(0, atomic.LoadInt64(m.lastRequestTime)),

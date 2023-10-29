@@ -3,6 +3,7 @@ package core
 import (
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -11,7 +12,7 @@ import (
 // reader is an entity that can read a stream.
 type reader interface {
 	close()
-	apiReaderDescribe() apiPathSourceOrReader
+	apiReaderDescribe() defs.APIPathSourceOrReader
 }
 
 func readerMediaInfo(r *asyncwriter.Writer, stream *stream.Stream) string {
@@ -22,7 +23,7 @@ func readerOnReadHook(
 	externalCmdPool *externalcmd.Pool,
 	pathConf *conf.Path,
 	path *path,
-	reader apiPathSourceOrReader,
+	reader defs.APIPathSourceOrReader,
 	query string,
 	l logger.Writer,
 ) func() {

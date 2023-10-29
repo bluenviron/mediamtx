@@ -12,6 +12,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 func metric(key string, tags string, value int64) string {
@@ -49,7 +50,7 @@ func newMetrics(
 
 	router.GET("/metrics", m.onMetrics)
 
-	network, address := restrictNetwork("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", address)
 
 	var err error
 	m.httpServer, err = httpserv.NewWrappedServer(

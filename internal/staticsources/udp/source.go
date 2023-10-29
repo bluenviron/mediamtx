@@ -1,17 +1,20 @@
-package core
+// Package udp contains the UDP static source.
+package udp
 
 import (
-	"context"
 	"fmt"
 	"net"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/multicast"
-	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	mcmpegts "github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -40,36 +43,22 @@ type packetConn interface {
 	SetReadBuffer(int) error
 }
 
-type udpSourceParent interface {
-	logger.Writer
-	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	setNotReady(req pathSourceStaticSetNotReadyReq)
+// Source is a UDP static source.
+type Source struct {
+	ReadTimeout conf.StringDuration
+	Parent      defs.StaticSourceParent
 }
 
-type udpSource struct {
-	readTimeout conf.StringDuration
-	parent      udpSourceParent
+// Log implements StaticSource.
+func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+	s.Parent.Log(level, "[UDP source] "+format, args...)
 }
 
-func newUDPSource(
-	readTimeout conf.StringDuration,
-	parent udpSourceParent,
-) *udpSource {
-	return &udpSource{
-		readTimeout: readTimeout,
-		parent:      parent,
-	}
-}
-
-func (s *udpSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[UDP source] "+format, args...)
-}
-
-// run implements sourceStaticImpl.
-func (s *udpSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Path) error {
+// Run implements StaticSource.
+func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	hostPort := cnf.Source[len("udp://"):]
+	hostPort := params.Conf.Source[len("udp://"):]
 
 	addr, err := net.ResolveUDPAddr("udp", hostPort)
 	if err != nil {
@@ -84,7 +73,7 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Path) 
 			return err
 		}
 	} else {
-		tmp, err := net.ListenPacket(restrictNetwork("udp", addr.String()))
+		tmp, err := net.ListenPacket(restrictnetwork.Restrict("udp", addr.String()))
 		if err != nil {
 			return err
 		}
@@ -107,16 +96,16 @@ func (s *udpSource) run(ctx context.Context, cnf *conf.Path, _ chan *conf.Path) 
 	case err := <-readerErr:
 		return err
 
-	case <-ctx.Done():
+	case <-params.Context.Done():
 		pc.Close()
 		<-readerErr
 		return fmt.Errorf("terminated")
 	}
 }
 
-func (s *udpSource) runReader(pc net.PacketConn) error {
-	pc.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
-	r, err := mpegts.NewReader(mpegts.NewBufferedReader(newPacketConnReader(pc)))
+func (s *Source) runReader(pc net.PacketConn) error {
+	pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
+	r, err := mcmpegts.NewReader(mcmpegts.NewBufferedReader(newPacketConnReader(pc)))
 	if err != nil {
 		return err
 	}
@@ -129,25 +118,25 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 
 	var stream *stream.Stream
 
-	medias, err := mpegtsSetupRead(r, &stream)
+	medias, err := mpegts.ToStream(r, &stream)
 	if err != nil {
 		return err
 	}
 
-	res := s.parent.setReady(pathSourceStaticSetReadyReq{
-		desc:               &description.Session{Medias: medias},
-		generateRTPPackets: true,
+	res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+		Desc:               &description.Session{Medias: medias},
+		GenerateRTPPackets: true,
 	})
-	if res.err != nil {
-		return res.err
+	if res.Err != nil {
+		return res.Err
 	}
 
-	defer s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
+	defer s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 
-	stream = res.stream
+	stream = res.Stream
 
 	for {
-		pc.SetReadDeadline(time.Now().Add(time.Duration(s.readTimeout)))
+		pc.SetReadDeadline(time.Now().Add(time.Duration(s.ReadTimeout)))
 		err := r.Read()
 		if err != nil {
 			return err
@@ -155,9 +144,9 @@ func (s *udpSource) runReader(pc net.PacketConn) error {
 	}
 }
 
-// apiSourceDescribe implements sourceStaticImpl.
-func (*udpSource) apiSourceDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+// APISourceDescribe implements StaticSource.
+func (*Source) APISourceDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "udpSource",
 		ID:   "",
 	}

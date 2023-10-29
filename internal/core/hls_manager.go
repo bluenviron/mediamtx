@@ -7,11 +7,12 @@ import (
 	"sync"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 type hlsManagerAPIMuxersListRes struct {
-	data *apiHLSMuxerList
+	data *defs.APIHLSMuxerList
 	err  error
 }
 
@@ -20,7 +21,7 @@ type hlsManagerAPIMuxersListReq struct {
 }
 
 type hlsManagerAPIMuxersGetRes struct {
-	data *apiHLSMuxer
+	data *defs.APIHLSMuxer
 	err  error
 }
 
@@ -189,8 +190,8 @@ outer:
 			delete(m.muxers, c.PathName())
 
 		case req := <-m.chAPIMuxerList:
-			data := &apiHLSMuxerList{
-				Items: []*apiHLSMuxer{},
+			data := &defs.APIHLSMuxerList{
+				Items: []*defs.APIHLSMuxer{},
 			}
 
 			for _, muxer := range m.muxers {
@@ -275,7 +276,7 @@ func (m *hlsManager) pathNotReady(pa *path) {
 }
 
 // apiMuxersList is called by api.
-func (m *hlsManager) apiMuxersList() (*apiHLSMuxerList, error) {
+func (m *hlsManager) apiMuxersList() (*defs.APIHLSMuxerList, error) {
 	req := hlsManagerAPIMuxersListReq{
 		res: make(chan hlsManagerAPIMuxersListRes),
 	}
@@ -291,7 +292,7 @@ func (m *hlsManager) apiMuxersList() (*apiHLSMuxerList, error) {
 }
 
 // apiMuxersGet is called by api.
-func (m *hlsManager) apiMuxersGet(name string) (*apiHLSMuxer, error) {
+func (m *hlsManager) apiMuxersGet(name string) (*defs.APIHLSMuxer, error) {
 	req := hlsManagerAPIMuxersGetReq{
 		name: name,
 		res:  make(chan hlsManagerAPIMuxersGetRes),

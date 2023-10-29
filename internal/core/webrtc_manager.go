@@ -19,9 +19,11 @@ import (
 	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 const (
@@ -84,7 +86,7 @@ func randomTurnUser() (string, error) {
 }
 
 type webRTCManagerAPISessionsListRes struct {
-	data *apiWebRTCSessionList
+	data *defs.APIWebRTCSessionList
 	err  error
 }
 
@@ -93,7 +95,7 @@ type webRTCManagerAPISessionsListReq struct {
 }
 
 type webRTCManagerAPISessionsGetRes struct {
-	data *apiWebRTCSession
+	data *defs.APIWebRTCSession
 	err  error
 }
 
@@ -249,7 +251,7 @@ func newWebRTCManager(
 	var iceUDPMux ice.UDPMux
 
 	if iceUDPMuxAddress != "" {
-		m.udpMuxLn, err = net.ListenPacket(restrictNetwork("udp", iceUDPMuxAddress))
+		m.udpMuxLn, err = net.ListenPacket(restrictnetwork.Restrict("udp", iceUDPMuxAddress))
 		if err != nil {
 			m.httpServer.close()
 			ctxCancel()
@@ -261,7 +263,7 @@ func newWebRTCManager(
 	var iceTCPMux ice.TCPMux
 
 	if iceTCPMuxAddress != "" {
-		m.tcpMuxLn, err = net.Listen(restrictNetwork("tcp", iceTCPMuxAddress))
+		m.tcpMuxLn, err = net.Listen(restrictnetwork.Restrict("tcp", iceTCPMuxAddress))
 		if err != nil {
 			m.udpMuxLn.Close()
 			m.httpServer.close()
@@ -364,8 +366,8 @@ outer:
 			req.res <- webRTCDeleteSessionRes{}
 
 		case req := <-m.chAPISessionsList:
-			data := &apiWebRTCSessionList{
-				Items: []*apiWebRTCSession{},
+			data := &defs.APIWebRTCSessionList{
+				Items: []*defs.APIWebRTCSession{},
 			}
 
 			for sx := range m.sessions {
@@ -518,7 +520,7 @@ func (m *webRTCManager) deleteSession(req webRTCDeleteSessionReq) error {
 }
 
 // apiSessionsList is called by api.
-func (m *webRTCManager) apiSessionsList() (*apiWebRTCSessionList, error) {
+func (m *webRTCManager) apiSessionsList() (*defs.APIWebRTCSessionList, error) {
 	req := webRTCManagerAPISessionsListReq{
 		res: make(chan webRTCManagerAPISessionsListRes),
 	}
@@ -534,7 +536,7 @@ func (m *webRTCManager) apiSessionsList() (*apiWebRTCSessionList, error) {
 }
 
 // apiSessionsGet is called by api.
-func (m *webRTCManager) apiSessionsGet(uuid uuid.UUID) (*apiWebRTCSession, error) {
+func (m *webRTCManager) apiSessionsGet(uuid uuid.UUID) (*defs.APIWebRTCSession, error) {
 	req := webRTCManagerAPISessionsGetReq{
 		uuid: uuid,
 		res:  make(chan webRTCManagerAPISessionsGetRes),

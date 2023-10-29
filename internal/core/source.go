@@ -6,18 +6,19 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
 // source is an entity that can provide a stream.
 // it can be:
-// - a publisher
-// - sourceStatic
-// - sourceRedirect
+// - publisher
+// - staticSourceHandler
+// - redirectSource
 type source interface {
 	logger.Writer
-	apiSourceDescribe() apiPathSourceOrReader
+	APISourceDescribe() defs.APIPathSourceOrReader
 }
 
 func mediaDescription(media *description.Media) string {
@@ -54,7 +55,7 @@ func sourceOnReadyHook(path *path) func() {
 
 	if path.conf.RunOnReady != "" {
 		env = path.externalCmdEnv()
-		desc := path.source.apiSourceDescribe()
+		desc := path.source.APISourceDescribe()
 		env["MTX_QUERY"] = path.publisherQuery
 		env["MTX_SOURCE_TYPE"] = desc.Type
 		env["MTX_SOURCE_ID"] = desc.ID

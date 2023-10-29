@@ -18,29 +18,17 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpvp9"
 	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/google/uuid"
-	"github.com/pion/rtp"
 	"github.com/pion/sdp/v3"
 	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-type webrtcTrackWrapper struct {
-	clockRate int
-}
-
-func (w webrtcTrackWrapper) ClockRate() int {
-	return w.clockRate
-}
-
-func (webrtcTrackWrapper) PTSEqualsDTS(*rtp.Packet) bool {
-	return true
-}
 
 type setupStreamFunc func(*webrtc.OutgoingTrack) error
 
@@ -268,31 +256,6 @@ func webrtcFindAudioTrack(
 	return nil, nil
 }
 
-func webrtcMediasOfIncomingTracks(tracks []*webrtc.IncomingTrack) []*description.Media {
-	ret := make([]*description.Media, len(tracks))
-
-	for i, track := range tracks {
-		forma := track.Format()
-
-		var mediaType description.MediaType
-
-		switch forma.(type) {
-		case *format.AV1, *format.VP9, *format.VP8, *format.H264:
-			mediaType = description.MediaTypeVideo
-
-		default:
-			mediaType = description.MediaTypeAudio
-		}
-
-		ret[i] = &description.Media{
-			Type:    mediaType,
-			Formats: []format.Format{forma},
-		}
-	}
-
-	return ret
-}
-
 func whipOffer(body []byte) *pwebrtc.SessionDescription {
 	return &pwebrtc.SessionDescription{
 		Type: pwebrtc.SDPTypeOffer,
@@ -497,7 +460,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 		return 0, err
 	}
 
-	medias := webrtcMediasOfIncomingTracks(tracks)
+	medias := webrtc.TracksToMedias(tracks)
 
 	rres := res.path.startPublisher(pathStartPublisherReq{
 		author:             s,
@@ -513,7 +476,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 	for i, media := range medias {
 		ci := i
 		cmedia := media
-		trackWrapper := &webrtcTrackWrapper{clockRate: cmedia.Formats[0].ClockRate()}
+		trackWrapper := &webrtc.TrackWrapper{ClockRat: cmedia.Formats[0].ClockRate()}
 
 		go func() {
 			for {
@@ -724,20 +687,20 @@ func (s *webRTCSession) addCandidates(
 	}
 }
 
-// apiSourceDescribe implements sourceStaticImpl.
-func (s *webRTCSession) apiSourceDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+// apiReaderDescribe implements reader.
+func (s *webRTCSession) apiReaderDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "webRTCSession",
 		ID:   s.uuid.String(),
 	}
 }
 
-// apiReaderDescribe implements reader.
-func (s *webRTCSession) apiReaderDescribe() apiPathSourceOrReader {
-	return s.apiSourceDescribe()
+// APISourceDescribe implements source.
+func (s *webRTCSession) APISourceDescribe() defs.APIPathSourceOrReader {
+	return s.apiReaderDescribe()
 }
 
-func (s *webRTCSession) apiItem() *apiWebRTCSession {
+func (s *webRTCSession) apiItem() *defs.APIWebRTCSession {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -755,18 +718,18 @@ func (s *webRTCSession) apiItem() *apiWebRTCSession {
 		bytesSent = s.pc.BytesSent()
 	}
 
-	return &apiWebRTCSession{
+	return &defs.APIWebRTCSession{
 		ID:                        s.uuid,
 		Created:                   s.created,
 		RemoteAddr:                s.req.remoteAddr,
 		PeerConnectionEstablished: peerConnectionEstablished,
 		LocalCandidate:            localCandidate,
 		RemoteCandidate:           remoteCandidate,
-		State: func() apiWebRTCSessionState {
+		State: func() defs.APIWebRTCSessionState {
 			if s.req.publish {
-				return apiWebRTCSessionStatePublish
+				return defs.APIWebRTCSessionStatePublish
 			}
-			return apiWebRTCSessionStateRead
+			return defs.APIWebRTCSessionStateRead
 		}(),
 		Path:          s.req.pathName,
 		BytesReceived: bytesReceived,

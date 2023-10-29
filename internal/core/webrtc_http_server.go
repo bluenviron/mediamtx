@@ -16,9 +16,11 @@ import (
 	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 //go:embed webrtc_publish_index.html
@@ -41,7 +43,7 @@ func relativeLocation(u *url.URL) string {
 }
 
 func webrtcWriteError(ctx *gin.Context, statusCode int, err error) {
-	ctx.JSON(statusCode, &apiError{
+	ctx.JSON(statusCode, &defs.APIError{
 		Error: err.Error(),
 	})
 }
@@ -92,7 +94,7 @@ func newWebRTCHTTPServer( //nolint:dupl
 	router.SetTrustedProxies(trustedProxies.ToTrustedProxies()) //nolint:errcheck
 	router.NoRoute(s.onRequest)
 
-	network, address := restrictNetwork("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", address)
 
 	var err error
 	s.inner, err = httpserv.NewWrappedServer(

@@ -71,7 +71,7 @@ var cli struct {
 	Confpath string `arg:"" default:""`
 }
 
-// Core is an instance of mediamtx.
+// Core is an instance of MediaMTX.
 type Core struct {
 	ctx             context.Context
 	ctxCancel       func()
@@ -100,7 +100,7 @@ type Core struct {
 	done chan struct{}
 }
 
-// New allocates a core.
+// New allocates a Core.
 func New(args []string) (*Core, bool) {
 	parser, err := kong.New(&cli,
 		kong.Description("MediaMTX "+version),
