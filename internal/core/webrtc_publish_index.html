@@ -120,12 +120,7 @@ select {
             <input id="audio_voice" type="checkbox" checked>
         </div>
 
-        <div class="item">
-            <label for="audio_capture">
-                capture audio (<a href="https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getDisplayMedia#browser_compatibility" target="_blank">support</a>)
-            </label>
-            <input id="audio_capture" type="checkbox">
-        </div>
+        <div class="item"></div>
     </div>
 
     <div id="submit_line" style="display: none">
@@ -164,7 +159,6 @@ const audioForm = {
     codec: document.getElementById("audio_codec"),
     bitrate: document.getElementById("audio_bitrate"),
     voice: document.getElementById("audio_voice"),
-    capture: document.getElementById("audio_capture")
 }
 
 const url = new URL(window.location.href);
@@ -628,7 +622,7 @@ const onPublish = () => {
                 frameRate: { ideal: videoForm.framerate.value },
                 cursor: "always",
             },
-            audio: audioForm.capture.checked,
+            audio: true,
         })
             .then(onTransmit)
             .catch((err) => {
