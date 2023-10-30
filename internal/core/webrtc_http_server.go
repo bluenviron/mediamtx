@@ -254,7 +254,7 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		candidates: candidates,
 	})
 	if res.err != nil {
-		webrtcWriteError(ctx, http.StatusInternalServerError, err)
+		webrtcWriteError(ctx, http.StatusInternalServerError, res.err)
 		return
 	}
 
