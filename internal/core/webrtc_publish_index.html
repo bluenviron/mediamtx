@@ -37,9 +37,10 @@ body {
 }
 
 .item {
-    display: flex;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: auto 200px;
     gap: 20px;
-    justify-content: space-between;
 }
 
 #submit_line {
