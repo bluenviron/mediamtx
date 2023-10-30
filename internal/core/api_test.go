@@ -121,17 +121,17 @@ func TestPagination(t *testing.T) {
 	pageCount, err = paginate(&items, "3", "2")
 	require.NoError(t, err)
 	require.Equal(t, 2, pageCount)
-	require.Equal(t, []int{4}, items)
+	require.Equal(t, []int{}, items)
 
 	items = make([]int, 6)
 	for i := 0; i < 6; i++ {
 		items[i] = i
 	}
 
-	pageCount, err = paginate(&items, "3", "3")
+	pageCount, err = paginate(&items, "4", "1")
 	require.NoError(t, err)
 	require.Equal(t, 2, pageCount)
-	require.Equal(t, []int{5}, items)
+	require.Equal(t, []int{4, 5}, items)
 }
 
 func TestAPIConfigGlobalGet(t *testing.T) {
