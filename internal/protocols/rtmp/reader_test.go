@@ -679,6 +679,89 @@ func TestReadTracks(t *testing.T) {
 				},
 			},
 		},
+		{
+			"issue mediamtx/2352 (missing audio)",
+			&format.H264{
+				PayloadTyp:        96,
+				SPS:               h264SPS,
+				PPS:               h264PPS,
+				PacketizationMode: 1,
+			},
+			nil,
+			[]message.Message{
+				&message.DataAMF0{
+					ChunkStreamID:   8,
+					MessageStreamID: 0x1000000,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{
+								K: "audiodatarate",
+								V: float64(128),
+							},
+							{
+								K: "framerate",
+								V: float64(30),
+							},
+							{
+								K: "videocodecid",
+								V: float64(7),
+							},
+							{
+								K: "videodatarate",
+								V: float64(2500),
+							},
+							{
+								K: "audiocodecid",
+								V: float64(10),
+							},
+							{
+								K: "height",
+								V: float64(720),
+							},
+							{
+								K: "width",
+								V: float64(1280),
+							},
+						},
+					},
+				},
+				&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecH264,
+					IsKeyFrame:      true,
+					Type:            message.VideoTypeConfig,
+					Payload: func() []byte {
+						buf, _ := h264conf.Conf{
+							SPS: h264SPS,
+							PPS: h264PPS,
+						}.Marshal()
+						return buf
+					}(),
+				},
+				&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           0x7,
+					IsKeyFrame:      true,
+					Payload: []uint8{
+						5,
+					},
+				},
+				&message.Video{
+					ChunkStreamID:   message.VideoChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           0x7,
+					IsKeyFrame:      true,
+					DTS:             2 * time.Second,
+					Payload: []uint8{
+						5,
+					},
+				},
+			},
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
