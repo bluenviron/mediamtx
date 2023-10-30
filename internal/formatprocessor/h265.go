@@ -13,7 +13,7 @@ import (
 )
 
 // extract VPS, SPS and PPS without decoding RTP packets
-func rtpH265ExtractVPSSPSPPS(payload []byte) ([]byte, []byte, []byte) {
+func rtpH265ExtractParams(payload []byte) ([]byte, []byte, []byte) {
 	if len(payload) < 2 {
 		return nil, nil, nil
 	}
@@ -119,7 +119,7 @@ func (t *formatProcessorH265) createEncoder(
 }
 
 func (t *formatProcessorH265) updateTrackParametersFromRTPPacket(payload []byte) {
-	vps, sps, pps := rtpH265ExtractVPSSPSPPS(payload)
+	vps, sps, pps := rtpH265ExtractParams(payload)
 
 	if (vps != nil && !bytes.Equal(vps, t.format.VPS)) ||
 		(sps != nil && !bytes.Equal(sps, t.format.SPS)) ||
