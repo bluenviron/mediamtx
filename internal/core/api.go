@@ -36,12 +36,12 @@ func paginate2(itemsPtr interface{}, itemsPerPage int, page int) int {
 	}
 
 	min := page * itemsPerPage
-	if min >= itemsLen {
-		min = itemsLen - 1
+	if min > itemsLen {
+		min = itemsLen
 	}
 
 	max := (page + 1) * itemsPerPage
-	if max >= itemsLen {
+	if max > itemsLen {
 		max = itemsLen
 	}
 
