@@ -196,3 +196,9 @@ func TestH265EmptyPacket(t *testing.T) {
 	// if all NALUs have been removed, no RTP packets must be generated.
 	require.Equal(t, []*rtp.Packet(nil), unit.RTPPackets)
 }
+
+func FuzzRTPH265ExtractParams(f *testing.F) {
+	f.Fuzz(func(t *testing.T, b []byte) {
+		rtpH265ExtractParams(b)
+	})
+}
