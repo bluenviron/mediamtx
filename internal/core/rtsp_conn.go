@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -79,7 +80,7 @@ func newRTSPConn(
 
 	c.Log(logger.Info, "opened")
 
-	c.conn.open(apiPathSourceOrReader{
+	c.conn.open(defs.APIPathSourceOrReader{
 		Type: func() string {
 			if isTLS {
 				return "rtspsConn"
@@ -113,7 +114,7 @@ func (c *rtspConn) ip() net.IP {
 func (c *rtspConn) onClose(err error) {
 	c.Log(logger.Info, "closed: %v", err)
 
-	c.conn.close(apiPathSourceOrReader{
+	c.conn.close(defs.APIPathSourceOrReader{
 		Type: func() string {
 			if c.isTLS {
 				return "rtspsConn"
@@ -231,8 +232,8 @@ func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {
 	}, authErr
 }
 
-func (c *rtspConn) apiItem() *apiRTSPConn {
-	return &apiRTSPConn{
+func (c *rtspConn) apiItem() *defs.APIRTSPConn {
+	return &defs.APIRTSPConn{
 		ID:            c.uuid,
 		Created:       c.created,
 		RemoteAddr:    c.remoteAddr().String(),

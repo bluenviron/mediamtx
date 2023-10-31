@@ -1,7 +1,7 @@
-package core
+// Package hls contains the HLS static source.
+package hls
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -10,41 +10,30 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
-	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type hlsSourceParent interface {
-	logger.Writer
-	setReady(req pathSourceStaticSetReadyReq) pathSourceStaticSetReadyRes
-	setNotReady(req pathSourceStaticSetNotReadyReq)
+// Source is a HLS static source.
+type Source struct {
+	Parent defs.StaticSourceParent
 }
 
-type hlsSource struct {
-	parent hlsSourceParent
+// Log implements StaticSource.
+func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
+	s.Parent.Log(level, "[HLS source] "+format, args...)
 }
 
-func newHLSSource(
-	parent hlsSourceParent,
-) *hlsSource {
-	return &hlsSource{
-		parent: parent,
-	}
-}
-
-func (s *hlsSource) Log(level logger.Level, format string, args ...interface{}) {
-	s.parent.Log(level, "[HLS source] "+format, args...)
-}
-
-// run implements sourceStaticImpl.
-func (s *hlsSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *conf.Path) error {
+// Run implements StaticSource.
+func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	var stream *stream.Stream
 
 	defer func() {
 		if stream != nil {
-			s.parent.setNotReady(pathSourceStaticSetNotReadyReq{})
+			s.Parent.SetNotReady(defs.PathSourceStaticSetNotReadyReq{})
 		}
 	}()
 
@@ -52,10 +41,10 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *co
 
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
-		URI: cnf.Source,
+		URI: params.Conf.Source,
 		HTTPClient: &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: tlsConfigForFingerprint(cnf.SourceFingerprint),
+				TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
 			},
 		},
 		OnDownloadPrimaryPlaylist: func(u string) {
@@ -200,15 +189,15 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *co
 				medias = append(medias, medi)
 			}
 
-			res := s.parent.setReady(pathSourceStaticSetReadyReq{
-				desc:               &description.Session{Medias: medias},
-				generateRTPPackets: true,
+			res := s.Parent.SetReady(defs.PathSourceStaticSetReadyReq{
+				Desc:               &description.Session{Medias: medias},
+				GenerateRTPPackets: true,
 			})
-			if res.err != nil {
-				return res.err
+			if res.Err != nil {
+				return res.Err
 			}
 
-			stream = res.stream
+			stream = res.Stream
 
 			return nil
 		},
@@ -225,9 +214,9 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *co
 			c.Close()
 			return err
 
-		case <-reloadConf:
+		case <-params.ReloadConf:
 
-		case <-ctx.Done():
+		case <-params.Context.Done():
 			c.Close()
 			<-c.Wait()
 			return nil
@@ -235,9 +224,9 @@ func (s *hlsSource) run(ctx context.Context, cnf *conf.Path, reloadConf chan *co
 	}
 }
 
-// apiSourceDescribe implements sourceStaticImpl.
-func (*hlsSource) apiSourceDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+// APISourceDescribe implements StaticSource.
+func (*Source) APISourceDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "hlsSource",
 		ID:   "",
 	}

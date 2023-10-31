@@ -19,6 +19,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
@@ -585,8 +586,8 @@ func (c *rtmpConn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 }
 
 // apiReaderDescribe implements reader.
-func (c *rtmpConn) apiReaderDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+func (c *rtmpConn) apiReaderDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: func() string {
 			if c.isTLS {
 				return "rtmpsConn"
@@ -597,12 +598,12 @@ func (c *rtmpConn) apiReaderDescribe() apiPathSourceOrReader {
 	}
 }
 
-// apiSourceDescribe implements source.
-func (c *rtmpConn) apiSourceDescribe() apiPathSourceOrReader {
+// APISourceDescribe implements source.
+func (c *rtmpConn) APISourceDescribe() defs.APIPathSourceOrReader {
 	return c.apiReaderDescribe()
 }
 
-func (c *rtmpConn) apiItem() *apiRTMPConn {
+func (c *rtmpConn) apiItem() *defs.APIRTMPConn {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -614,20 +615,20 @@ func (c *rtmpConn) apiItem() *apiRTMPConn {
 		bytesSent = c.rconn.BytesSent()
 	}
 
-	return &apiRTMPConn{
+	return &defs.APIRTMPConn{
 		ID:         c.uuid,
 		Created:    c.created,
 		RemoteAddr: c.remoteAddr().String(),
-		State: func() apiRTMPConnState {
+		State: func() defs.APIRTMPConnState {
 			switch c.state {
 			case rtmpConnStateRead:
-				return apiRTMPConnStateRead
+				return defs.APIRTMPConnStateRead
 
 			case rtmpConnStatePublish:
-				return apiRTMPConnStatePublish
+				return defs.APIRTMPConnStatePublish
 
 			default:
-				return apiRTMPConnStateIdle
+				return defs.APIRTMPConnStateIdle
 			}
 		}(),
 		Path:          c.pathName,

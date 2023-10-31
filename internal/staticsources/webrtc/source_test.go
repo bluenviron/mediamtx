@@ -1,4 +1,4 @@
-package core
+package webrtc
 
 import (
 	"context"
@@ -6,19 +6,27 @@ import (
 	"net"
 	"net/http"
 	"testing"
+	"time"
 
-	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
+	pwebrtc "github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
 )
 
-func TestWebRTCSource(t *testing.T) {
-	state := 0
+func whipOffer(body []byte) *pwebrtc.SessionDescription {
+	return &pwebrtc.SessionDescription{
+		Type: pwebrtc.SDPTypeOffer,
+		SDP:  string(body),
+	}
+}
 
+func TestSource(t *testing.T) {
 	api, err := webrtc.NewAPI(webrtc.APIConf{})
 	require.NoError(t, err)
 
@@ -31,15 +39,15 @@ func TestWebRTCSource(t *testing.T) {
 	defer pc.Close()
 
 	tracks, err := pc.SetupOutgoingTracks(
-		&format.VP8{
-			PayloadTyp: 96,
-		},
+		nil,
 		&format.Opus{
 			PayloadTyp: 111,
 			IsStereo:   true,
 		},
 	)
 	require.NoError(t, err)
+
+	state := 0
 
 	httpServ := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -79,23 +87,10 @@ func TestWebRTCSource(t *testing.T) {
 						Header: rtp.Header{
 							Version:        2,
 							Marker:         true,
-							PayloadType:    96,
-							SequenceNumber: 123,
-							Timestamp:      45343,
-							SSRC:           563423,
-						},
-						Payload: []byte{5, 1},
-					})
-					require.NoError(t, err)
-
-					err = tracks[1].WriteRTP(&rtp.Packet{
-						Header: rtp.Header{
-							Version:        2,
-							Marker:         true,
-							PayloadType:    97,
+							PayloadType:    111,
 							SequenceNumber: 1123,
 							Timestamp:      45343,
-							SSRC:           563423,
+							SSRC:           563424,
 						},
 						Payload: []byte{5, 2},
 					})
@@ -120,59 +115,24 @@ func TestWebRTCSource(t *testing.T) {
 		}),
 	}
 
-	ln, err := net.Listen("tcp", "localhost:5555")
+	ln, err := net.Listen("tcp", "localhost:9003")
 	require.NoError(t, err)
 
 	go httpServ.Serve(ln)
 	defer httpServ.Shutdown(context.Background())
 
-	p, ok := newInstance("paths:\n" +
-		"  proxied:\n" +
-		"    source: whep://localhost:5555/my/resource\n" +
-		"    sourceOnDemand: yes\n")
-	require.Equal(t, true, ok)
-	defer p.Close()
-
-	c := gortsplib.Client{}
-
-	u, err := url.Parse("rtsp://127.0.0.1:8554/proxied")
-	require.NoError(t, err)
-
-	err = c.Start(u.Scheme, u.Host)
-	require.NoError(t, err)
-	defer c.Close()
-
-	desc, _, err := c.Describe(u)
-	require.NoError(t, err)
-
-	var forma *format.VP8
-	medi := desc.FindFormat(&forma)
-
-	_, err = c.Setup(desc.BaseURL, medi, 0, 0)
-	require.NoError(t, err)
-
-	received := make(chan struct{})
-
-	c.OnPacketRTP(medi, forma, func(pkt *rtp.Packet) {
-		require.Equal(t, []byte{5, 3}, pkt.Payload)
-		close(received)
-	})
-
-	_, err = c.Play(nil)
-	require.NoError(t, err)
-
-	err = tracks[0].WriteRTP(&rtp.Packet{
-		Header: rtp.Header{
-			Version:        2,
-			Marker:         true,
-			PayloadType:    96,
-			SequenceNumber: 124,
-			Timestamp:      45343,
-			SSRC:           563423,
+	te := tester.New(
+		func(p defs.StaticSourceParent) defs.StaticSource {
+			return &Source{
+				ReadTimeout: conf.StringDuration(10 * time.Second),
+				Parent:      p,
+			}
 		},
-		Payload: []byte{5, 3},
-	})
-	require.NoError(t, err)
+		&conf.Path{
+			Source: "whep://localhost:9003/my/resource",
+		},
+	)
+	defer te.Close()
 
-	<-received
+	<-te.Unit
 }

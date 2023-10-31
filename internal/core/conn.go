@@ -3,6 +3,7 @@ package core
 import (
 	"net"
 
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -36,7 +37,7 @@ func newConn(
 	}
 }
 
-func (c *conn) open(desc apiPathSourceOrReader) {
+func (c *conn) open(desc defs.APIPathSourceOrReader) {
 	if c.runOnConnect != "" {
 		c.logger.Log(logger.Info, "runOnConnect command started")
 
@@ -58,7 +59,7 @@ func (c *conn) open(desc apiPathSourceOrReader) {
 	}
 }
 
-func (c *conn) close(desc apiPathSourceOrReader) {
+func (c *conn) close(desc defs.APIPathSourceOrReader) {
 	if c.onConnectCmd != nil {
 		c.onConnectCmd.Close()
 		c.logger.Log(logger.Info, "runOnConnect command stopped")

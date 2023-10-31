@@ -15,6 +15,7 @@ import (
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -377,8 +378,8 @@ func (s *rtspSession) onPause(_ *gortsplib.ServerHandlerOnPauseCtx) (*base.Respo
 }
 
 // apiReaderDescribe implements reader.
-func (s *rtspSession) apiReaderDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+func (s *rtspSession) apiReaderDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: func() string {
 			if s.isTLS {
 				return "rtspsSession"
@@ -389,8 +390,8 @@ func (s *rtspSession) apiReaderDescribe() apiPathSourceOrReader {
 	}
 }
 
-// apiSourceDescribe implements source.
-func (s *rtspSession) apiSourceDescribe() apiPathSourceOrReader {
+// APISourceDescribe implements source.
+func (s *rtspSession) APISourceDescribe() defs.APIPathSourceOrReader {
 	return s.apiReaderDescribe()
 }
 
@@ -409,25 +410,25 @@ func (s *rtspSession) onStreamWriteError(ctx *gortsplib.ServerHandlerOnStreamWri
 	s.writeErrLogger.Log(logger.Warn, ctx.Error.Error())
 }
 
-func (s *rtspSession) apiItem() *apiRTSPSession {
+func (s *rtspSession) apiItem() *defs.APIRTSPSession {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	return &apiRTSPSession{
+	return &defs.APIRTSPSession{
 		ID:         s.uuid,
 		Created:    s.created,
 		RemoteAddr: s.remoteAddr().String(),
-		State: func() apiRTSPSessionState {
+		State: func() defs.APIRTSPSessionState {
 			switch s.state {
 			case gortsplib.ServerSessionStatePrePlay,
 				gortsplib.ServerSessionStatePlay:
-				return apiRTSPSessionStateRead
+				return defs.APIRTSPSessionStateRead
 
 			case gortsplib.ServerSessionStatePreRecord,
 				gortsplib.ServerSessionStateRecord:
-				return apiRTSPSessionStatePublish
+				return defs.APIRTSPSessionStatePublish
 			}
-			return apiRTSPSessionStateIdle
+			return defs.APIRTSPSessionStateIdle
 		}(),
 		Path: s.pathName,
 		Transport: func() *string {

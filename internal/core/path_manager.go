@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -540,7 +541,7 @@ func (pm *pathManager) setHLSManager(s pathManagerHLSManager) {
 }
 
 // apiPathsList is called by api.
-func (pm *pathManager) apiPathsList() (*apiPathList, error) {
+func (pm *pathManager) apiPathsList() (*defs.APIPathList, error) {
 	req := pathAPIPathsListReq{
 		res: make(chan pathAPIPathsListRes),
 	}
@@ -549,8 +550,8 @@ func (pm *pathManager) apiPathsList() (*apiPathList, error) {
 	case pm.chAPIPathsList <- req:
 		res := <-req.res
 
-		res.data = &apiPathList{
-			Items: []*apiPath{},
+		res.data = &defs.APIPathList{
+			Items: []*defs.APIPath{},
 		}
 
 		for _, pa := range res.paths {
@@ -572,7 +573,7 @@ func (pm *pathManager) apiPathsList() (*apiPathList, error) {
 }
 
 // apiPathsGet is called by api.
-func (pm *pathManager) apiPathsGet(name string) (*apiPath, error) {
+func (pm *pathManager) apiPathsGet(name string) (*defs.APIPath, error) {
 	req := pathAPIPathsGetReq{
 		name: name,
 		res:  make(chan pathAPIPathsGetRes),

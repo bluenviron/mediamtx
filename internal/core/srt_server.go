@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -25,7 +26,7 @@ type srtNewConnReq struct {
 }
 
 type srtServerAPIConnsListRes struct {
-	data *apiSRTConnList
+	data *defs.APISRTConnList
 	err  error
 }
 
@@ -34,7 +35,7 @@ type srtServerAPIConnsListReq struct {
 }
 
 type srtServerAPIConnsGetRes struct {
-	data *apiSRTConn
+	data *defs.APISRTConn
 	err  error
 }
 
@@ -191,8 +192,8 @@ outer:
 			delete(s.conns, c)
 
 		case req := <-s.chAPIConnsList:
-			data := &apiSRTConnList{
-				Items: []*apiSRTConn{},
+			data := &defs.APISRTConnList{
+				Items: []*defs.APISRTConn{},
 			}
 
 			for c := range s.conns {
@@ -279,7 +280,7 @@ func (s *srtServer) closeConn(c *srtConn) {
 }
 
 // apiConnsList is called by api.
-func (s *srtServer) apiConnsList() (*apiSRTConnList, error) {
+func (s *srtServer) apiConnsList() (*defs.APISRTConnList, error) {
 	req := srtServerAPIConnsListReq{
 		res: make(chan srtServerAPIConnsListRes),
 	}
@@ -295,7 +296,7 @@ func (s *srtServer) apiConnsList() (*apiSRTConnList, error) {
 }
 
 // apiConnsGet is called by api.
-func (s *srtServer) apiConnsGet(uuid uuid.UUID) (*apiSRTConn, error) {
+func (s *srtServer) apiConnsGet(uuid uuid.UUID) (*defs.APISRTConn, error) {
 	req := srtServerAPIConnsGetReq{
 		uuid: uuid,
 		res:  make(chan srtServerAPIConnsGetRes),

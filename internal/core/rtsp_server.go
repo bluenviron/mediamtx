@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -360,7 +361,7 @@ func (s *rtspServer) findSessionByUUID(uuid uuid.UUID) (*gortsplib.ServerSession
 }
 
 // apiConnsList is called by api and metrics.
-func (s *rtspServer) apiConnsList() (*apiRTSPConnsList, error) {
+func (s *rtspServer) apiConnsList() (*defs.APIRTSPConnsList, error) {
 	select {
 	case <-s.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -370,8 +371,8 @@ func (s *rtspServer) apiConnsList() (*apiRTSPConnsList, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data := &apiRTSPConnsList{
-		Items: []*apiRTSPConn{},
+	data := &defs.APIRTSPConnsList{
+		Items: []*defs.APIRTSPConn{},
 	}
 
 	for _, c := range s.conns {
@@ -386,7 +387,7 @@ func (s *rtspServer) apiConnsList() (*apiRTSPConnsList, error) {
 }
 
 // apiConnsGet is called by api.
-func (s *rtspServer) apiConnsGet(uuid uuid.UUID) (*apiRTSPConn, error) {
+func (s *rtspServer) apiConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 	select {
 	case <-s.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -405,7 +406,7 @@ func (s *rtspServer) apiConnsGet(uuid uuid.UUID) (*apiRTSPConn, error) {
 }
 
 // apiSessionsList is called by api and metrics.
-func (s *rtspServer) apiSessionsList() (*apiRTSPSessionList, error) {
+func (s *rtspServer) apiSessionsList() (*defs.APIRTSPSessionList, error) {
 	select {
 	case <-s.ctx.Done():
 		return nil, fmt.Errorf("terminated")
@@ -415,8 +416,8 @@ func (s *rtspServer) apiSessionsList() (*apiRTSPSessionList, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data := &apiRTSPSessionList{
-		Items: []*apiRTSPSession{},
+	data := &defs.APIRTSPSessionList{
+		Items: []*defs.APIRTSPSession{},
 	}
 
 	for _, s := range s.sessions {
@@ -431,7 +432,7 @@ func (s *rtspServer) apiSessionsList() (*apiRTSPSessionList, error) {
 }
 
 // apiSessionsGet is called by api.
-func (s *rtspServer) apiSessionsGet(uuid uuid.UUID) (*apiRTSPSession, error) {
+func (s *rtspServer) apiSessionsGet(uuid uuid.UUID) (*defs.APIRTSPSession, error) {
 	select {
 	case <-s.ctx.Done():
 		return nil, fmt.Errorf("terminated")

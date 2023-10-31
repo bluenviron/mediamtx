@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
 const (
@@ -70,7 +71,7 @@ func newHLSHTTPServer( //nolint:dupl
 
 	router.NoRoute(s.onRequest)
 
-	network, address := restrictNetwork("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", address)
 
 	var err error
 	s.inner, err = httpserv.NewWrappedServer(

@@ -11,14 +11,16 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	mcmpegts "github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	"github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -266,7 +268,7 @@ func (c *srtConn) runPublish(req srtNewConnReq, pathName string, user string, pa
 
 func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 	sconn.SetReadDeadline(time.Now().Add(time.Duration(c.readTimeout)))
-	r, err := mpegts.NewReader(mpegts.NewBufferedReader(sconn))
+	r, err := mcmpegts.NewReader(mcmpegts.NewBufferedReader(sconn))
 	if err != nil {
 		return err
 	}
@@ -279,7 +281,7 @@ func (c *srtConn) runPublishReader(sconn srt.Conn, path *path) error {
 
 	var stream *stream.Stream
 
-	medias, err := mpegtsSetupRead(r, &stream)
+	medias, err := mpegts.ToStream(r, &stream)
 	if err != nil {
 		return err
 	}
@@ -418,19 +420,19 @@ func (c *srtConn) setConn(sconn srt.Conn) {
 }
 
 // apiReaderDescribe implements reader.
-func (c *srtConn) apiReaderDescribe() apiPathSourceOrReader {
-	return apiPathSourceOrReader{
+func (c *srtConn) apiReaderDescribe() defs.APIPathSourceOrReader {
+	return defs.APIPathSourceOrReader{
 		Type: "srtConn",
 		ID:   c.uuid.String(),
 	}
 }
 
-// apiSourceDescribe implements source.
-func (c *srtConn) apiSourceDescribe() apiPathSourceOrReader {
+// APISourceDescribe implements source.
+func (c *srtConn) APISourceDescribe() defs.APIPathSourceOrReader {
 	return c.apiReaderDescribe()
 }
 
-func (c *srtConn) apiItem() *apiSRTConn {
+func (c *srtConn) apiItem() *defs.APISRTConn {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
@@ -444,20 +446,20 @@ func (c *srtConn) apiItem() *apiSRTConn {
 		bytesSent = s.Accumulated.ByteSent
 	}
 
-	return &apiSRTConn{
+	return &defs.APISRTConn{
 		ID:         c.uuid,
 		Created:    c.created,
 		RemoteAddr: c.connReq.RemoteAddr().String(),
-		State: func() apiSRTConnState {
+		State: func() defs.APISRTConnState {
 			switch c.state {
 			case srtConnStateRead:
-				return apiSRTConnStateRead
+				return defs.APISRTConnStateRead
 
 			case srtConnStatePublish:
-				return apiSRTConnStatePublish
+				return defs.APISRTConnStatePublish
 
 			default:
-				return apiSRTConnStateIdle
+				return defs.APISRTConnStateIdle
 			}
 		}(),
 		Path:          c.pathName,

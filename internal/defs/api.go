@@ -1,4 +1,4 @@
-package core
+package defs
 
 import (
 	"time"
@@ -8,52 +8,60 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
-type apiError struct {
+// APIError is a generic error.
+type APIError struct {
 	Error string `json:"error"`
 }
 
-type apiPathConfList struct {
+// APIPathConfList is a list of path configurations.
+type APIPathConfList struct {
 	ItemCount int          `json:"itemCount"`
 	PageCount int          `json:"pageCount"`
 	Items     []*conf.Path `json:"items"`
 }
 
-type apiPathSourceOrReader struct {
+// APIPathSourceOrReader is a source or a reader.
+type APIPathSourceOrReader struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
 }
 
-type apiPath struct {
+// APIPath is a path.
+type APIPath struct {
 	Name          string                  `json:"name"`
 	ConfName      string                  `json:"confName"`
-	Source        *apiPathSourceOrReader  `json:"source"`
+	Source        *APIPathSourceOrReader  `json:"source"`
 	Ready         bool                    `json:"ready"`
 	ReadyTime     *time.Time              `json:"readyTime"`
 	Tracks        []string                `json:"tracks"`
 	BytesReceived uint64                  `json:"bytesReceived"`
-	Readers       []apiPathSourceOrReader `json:"readers"`
+	Readers       []APIPathSourceOrReader `json:"readers"`
 }
 
-type apiPathList struct {
+// APIPathList is a list of paths.
+type APIPathList struct {
 	ItemCount int        `json:"itemCount"`
 	PageCount int        `json:"pageCount"`
-	Items     []*apiPath `json:"items"`
+	Items     []*APIPath `json:"items"`
 }
 
-type apiHLSMuxer struct {
+// APIHLSMuxer is an HLS muxer.
+type APIHLSMuxer struct {
 	Path        string    `json:"path"`
 	Created     time.Time `json:"created"`
 	LastRequest time.Time `json:"lastRequest"`
 	BytesSent   uint64    `json:"bytesSent"`
 }
 
-type apiHLSMuxerList struct {
+// APIHLSMuxerList is a list of HLS muxers.
+type APIHLSMuxerList struct {
 	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
-	Items     []*apiHLSMuxer `json:"items"`
+	Items     []*APIHLSMuxer `json:"items"`
 }
 
-type apiRTSPConn struct {
+// APIRTSPConn is a RTSP connection.
+type APIRTSPConn struct {
 	ID            uuid.UUID `json:"id"`
 	Created       time.Time `json:"created"`
 	RemoteAddr    string    `json:"remoteAddr"`
@@ -61,107 +69,124 @@ type apiRTSPConn struct {
 	BytesSent     uint64    `json:"bytesSent"`
 }
 
-type apiRTSPConnsList struct {
+// APIRTSPConnsList is a list of RTSP connections.
+type APIRTSPConnsList struct {
 	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
-	Items     []*apiRTSPConn `json:"items"`
+	Items     []*APIRTSPConn `json:"items"`
 }
 
-type apiRTMPConnState string
+// APIRTMPConnState is the state of a RTMP connection.
+type APIRTMPConnState string
 
+// states.
 const (
-	apiRTMPConnStateIdle    apiRTMPConnState = "idle"
-	apiRTMPConnStateRead    apiRTMPConnState = "read"
-	apiRTMPConnStatePublish apiRTMPConnState = "publish"
+	APIRTMPConnStateIdle    APIRTMPConnState = "idle"
+	APIRTMPConnStateRead    APIRTMPConnState = "read"
+	APIRTMPConnStatePublish APIRTMPConnState = "publish"
 )
 
-type apiRTMPConn struct {
+// APIRTMPConn is a RTMP connection.
+type APIRTMPConn struct {
 	ID            uuid.UUID        `json:"id"`
 	Created       time.Time        `json:"created"`
 	RemoteAddr    string           `json:"remoteAddr"`
-	State         apiRTMPConnState `json:"state"`
+	State         APIRTMPConnState `json:"state"`
 	Path          string           `json:"path"`
 	BytesReceived uint64           `json:"bytesReceived"`
 	BytesSent     uint64           `json:"bytesSent"`
 }
 
-type apiRTMPConnList struct {
+// APIRTMPConnList is a list of RTMP connections.
+type APIRTMPConnList struct {
 	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
-	Items     []*apiRTMPConn `json:"items"`
+	Items     []*APIRTMPConn `json:"items"`
 }
 
-type apiRTSPSessionState string
+// APIRTSPSessionState is the state of a RTSP session.
+type APIRTSPSessionState string
 
+// states.
 const (
-	apiRTSPSessionStateIdle    apiRTSPSessionState = "idle"
-	apiRTSPSessionStateRead    apiRTSPSessionState = "read"
-	apiRTSPSessionStatePublish apiRTSPSessionState = "publish"
+	APIRTSPSessionStateIdle    APIRTSPSessionState = "idle"
+	APIRTSPSessionStateRead    APIRTSPSessionState = "read"
+	APIRTSPSessionStatePublish APIRTSPSessionState = "publish"
 )
 
-type apiRTSPSession struct {
+// APIRTSPSession is a RTSP session.
+type APIRTSPSession struct {
 	ID            uuid.UUID           `json:"id"`
 	Created       time.Time           `json:"created"`
 	RemoteAddr    string              `json:"remoteAddr"`
-	State         apiRTSPSessionState `json:"state"`
+	State         APIRTSPSessionState `json:"state"`
 	Path          string              `json:"path"`
 	Transport     *string             `json:"transport"`
 	BytesReceived uint64              `json:"bytesReceived"`
 	BytesSent     uint64              `json:"bytesSent"`
 }
 
-type apiRTSPSessionList struct {
+// APIRTSPSessionList is a list of RTSP sessions.
+type APIRTSPSessionList struct {
 	ItemCount int               `json:"itemCount"`
 	PageCount int               `json:"pageCount"`
-	Items     []*apiRTSPSession `json:"items"`
+	Items     []*APIRTSPSession `json:"items"`
 }
 
-type apiSRTConnState string
+// APISRTConnState is the state of a SRT connection.
+type APISRTConnState string
 
+// states.
 const (
-	apiSRTConnStateIdle    apiSRTConnState = "idle"
-	apiSRTConnStateRead    apiSRTConnState = "read"
-	apiSRTConnStatePublish apiSRTConnState = "publish"
+	APISRTConnStateIdle    APISRTConnState = "idle"
+	APISRTConnStateRead    APISRTConnState = "read"
+	APISRTConnStatePublish APISRTConnState = "publish"
 )
 
-type apiSRTConn struct {
+// APISRTConn is a SRT connection.
+type APISRTConn struct {
 	ID            uuid.UUID       `json:"id"`
 	Created       time.Time       `json:"created"`
 	RemoteAddr    string          `json:"remoteAddr"`
-	State         apiSRTConnState `json:"state"`
+	State         APISRTConnState `json:"state"`
 	Path          string          `json:"path"`
 	BytesReceived uint64          `json:"bytesReceived"`
 	BytesSent     uint64          `json:"bytesSent"`
 }
 
-type apiSRTConnList struct {
+// APISRTConnList is a list of SRT connections.
+type APISRTConnList struct {
 	ItemCount int           `json:"itemCount"`
 	PageCount int           `json:"pageCount"`
-	Items     []*apiSRTConn `json:"items"`
+	Items     []*APISRTConn `json:"items"`
 }
 
-type apiWebRTCSessionState string
+// APIWebRTCSessionState is the state of a WebRTC connection.
+type APIWebRTCSessionState string
 
+// states.
 const (
-	apiWebRTCSessionStateRead    apiWebRTCSessionState = "read"
-	apiWebRTCSessionStatePublish apiWebRTCSessionState = "publish"
+	APIWebRTCSessionStateRead    APIWebRTCSessionState = "read"
+	APIWebRTCSessionStatePublish APIWebRTCSessionState = "publish"
 )
 
-type apiWebRTCSession struct {
+// APIWebRTCSession is a WebRTC session.
+type APIWebRTCSession struct {
 	ID                        uuid.UUID             `json:"id"`
 	Created                   time.Time             `json:"created"`
 	RemoteAddr                string                `json:"remoteAddr"`
 	PeerConnectionEstablished bool                  `json:"peerConnectionEstablished"`
 	LocalCandidate            string                `json:"localCandidate"`
 	RemoteCandidate           string                `json:"remoteCandidate"`
-	State                     apiWebRTCSessionState `json:"state"`
+	State                     APIWebRTCSessionState `json:"state"`
 	Path                      string                `json:"path"`
 	BytesReceived             uint64                `json:"bytesReceived"`
 	BytesSent                 uint64                `json:"bytesSent"`
 }
 
-type apiWebRTCSessionList struct {
+// APIWebRTCSessionList is a list of WebRTC sessions.
+type APIWebRTCSessionList struct {
 	ItemCount int                 `json:"itemCount"`
 	PageCount int                 `json:"pageCount"`
-	Items     []*apiWebRTCSession `json:"items"`
+	Items     []*APIWebRTCSession `json:"items"`
 }
