@@ -170,13 +170,17 @@ The `--network=host` flag is mandatory since Docker can change the source port o
 ```
 docker run --rm -it \
 -e MTX_PROTOCOLS=tcp \
+-e MTX_WEBRTCADDITIONALHOSTS=192.168.x.x \
 -p 8554:8554 \
 -p 1935:1935 \
 -p 8888:8888 \
 -p 8889:8889 \
 -p 8890:8890/udp \
+-p 8189:8189/udp \
 bluenviron/mediamtx
 ```
+
+set `MTX_WEBRTCADDITIONALHOSTS` to your local IP address.
 
 ### Arch Linux package
 
@@ -1596,18 +1600,15 @@ Be aware that RTMPS is currently unsupported by all major players. However, you 
 
 #### Connectivity issues
 
-If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (the browser and the server) to establish a connection (WebRTC/ICE connection).
+If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
 
-A first method consists into forcing all WebRTC/ICE connections to pass through a single UDP server port, by using the parameters:
+Make sure that `webrtcAdditionalHosts` includes your public IP, that is the IP that can be used by clients to reach the server. If clients are on the same LAN as the server, then it's the LAN address of the server, otherwise it's the public internet IP of the server:
 
 ```yml
-# public IP of the server
-webrtcICEHostNAT1To1IPs: [192.168.x.x]
-# any port of choice
-webrtcICEUDPMuxAddress: :8189
+webrtcAdditionalHosts: [192.168.x.x]
 ```
 
-The NAT / container must then be configured in order to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+If there's a NAT / container between server and clients, it must be configured to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
 
 ```sh
 docker run --rm -it \
@@ -1616,27 +1617,27 @@ docker run --rm -it \
 bluenviron/mediamtx
 ```
 
-If the UDP protocol is blocked by a firewall, all WebRTC/ICE connections can be forced to pass through a single TCP server port:
+If you still have problems, maybe the UDP protocol is blocked by a firewall. Enable the local TCP listener:
 
 ```yml
-# public IP of the server
-webrtcICEHostNAT1To1IPs: [192.168.x.x]
 # any port of choice
-webrtcICETCPMuxAddress: :8189
+webrtcLocalTCPAddress: :8189
 ```
 
-The NAT / container must then be configured in order to redirect all incoming TCP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+If there's a NAT / container between server and clients, it must be configured to route all incoming TCP packets on port 8189 to the server.
 
-```sh
-docker run --rm -it \
--p 8189:8189
-....
-bluenviron/mediamtx
-```
-
-Finally, if none of these methods work, you can force all WebRTC/ICE connections to pass through a TURN server, like coturn, that must be configured externally. The server address and credentials must be set in the configuration file:
+If you still have problems, enable a STUN server:
 
 ```yml
+# STUN servers allows to obtain and share the public IP of the server.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+```
+
+If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like coturn, that must be configured externally. The server address and credentials must be set in the configuration file:
+
+```yml
+# TURN/TURNS servers forces all traffic through them.
 webrtcICEServers2:
 - url: turn:host:port
   username: user

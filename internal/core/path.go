@@ -376,10 +376,6 @@ func (pa *path) runInner() error {
 		case <-pa.onDemandPublisherCloseTimer.C:
 			pa.doOnDemandPublisherCloseTimer()
 
-			if pa.shouldClose() {
-				return fmt.Errorf("not in use")
-			}
-
 		case newConf := <-pa.chReloadConf:
 			pa.doReloadConf(newConf)
 

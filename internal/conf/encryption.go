@@ -8,7 +8,7 @@ import (
 // Encryption is the encryption parameter.
 type Encryption int
 
-// supported encryption policies.
+// values.
 const (
 	EncryptionNo Encryption = iota
 	EncryptionOptional

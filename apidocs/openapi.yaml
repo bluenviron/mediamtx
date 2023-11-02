@@ -157,6 +157,20 @@ components:
           type: array
           items:
             type: string
+        webrtcLocalUDPAddress:
+          type: string
+        webrtcLocalTCPAddress:
+          type: string
+        webrtcIPsFromInterfaces:
+          type: boolean
+        webrtcIPsFromInterfacesList:
+          type: array
+          items:
+            type: string
+        webrtcAdditionalHosts:
+          type: array
+          items:
+            type: string
         webrtcICEServers2:
           type: array
           items:
@@ -168,18 +182,6 @@ components:
                 type: string
               password:
                 type: string
-        webrtcICEInterfaces:
-          type: array
-          items:
-            type: string
-        webrtcICEHostNAT1To1IPs:
-          type: array
-          items:
-            type: string
-        webrtcICEUDPMuxAddress:
-          type: string
-        webrtcICETCPMuxAddress:
-          type: string
 
         # SRT
         srt:
