@@ -220,8 +220,8 @@ webrtcICEServers2:
   # the secret must be inserted into the password field.
   username: ''
   password: ''
-# List of interfaces that will be used to gather IPs to send
-# to the counterpart to establish a connection.
+# List of interfaces whose IPs will be sent to clients
+# to establish a connection. An empty list means all interfaces.
 webrtcICEInterfaces: []
 # List of public IP addresses that are to be used as a host.
 # This is used typically for servers that are behind 1:1 D-NAT.
