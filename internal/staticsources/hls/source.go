@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
+	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/tls"
@@ -19,7 +20,8 @@ import (
 
 // Source is a HLS static source.
 type Source struct {
-	Parent defs.StaticSourceParent
+	ReadTimeout conf.StringDuration
+	Parent      defs.StaticSourceParent
 }
 
 // Log implements StaticSource.
@@ -43,6 +45,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	c = &gohlslib.Client{
 		URI: params.Conf.Source,
 		HTTPClient: &http.Client{
+			Timeout: time.Duration(s.ReadTimeout),
 			Transport: &http.Transport{
 				TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
 			},

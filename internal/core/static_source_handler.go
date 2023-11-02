@@ -83,7 +83,8 @@ func newStaticSourceHandler(
 	case strings.HasPrefix(cnf.Source, "http://") ||
 		strings.HasPrefix(cnf.Source, "https://"):
 		s.instance = &hlssource.Source{
-			Parent: s,
+			ReadTimeout: readTimeout,
+			Parent:      s,
 		}
 
 	case strings.HasPrefix(cnf.Source, "udp://"):
