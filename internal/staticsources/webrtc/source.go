@@ -20,8 +20,7 @@ import (
 // Source is a WebRTC static source.
 type Source struct {
 	ReadTimeout conf.StringDuration
-
-	Parent defs.StaticSourceParent
+	Parent      defs.StaticSourceParent
 }
 
 // Log implements StaticSource.
