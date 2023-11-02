@@ -13,6 +13,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/protocols/tls"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
 
@@ -39,14 +40,15 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
-	hc := &http.Client{
-		Timeout: time.Duration(s.ReadTimeout),
-	}
-
 	client := webrtc.WHIPClient{
-		HTTPClient: hc,
-		URL:        u,
-		Log:        s,
+		HTTPClient: &http.Client{
+			Timeout: time.Duration(s.ReadTimeout),
+			Transport: &http.Transport{
+				TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+			},
+		},
+		URL: u,
+		Log: s,
 	}
 
 	tracks, err := client.Read(params.Context)
