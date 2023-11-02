@@ -848,7 +848,7 @@ Replace `mystream` with the path name.
 If credentials are enabled, append username and password to `streamid`;
 
 ```
-srt://localhost:8890?streamid=publish:mystream:user:pass
+srt://localhost:8890?streamid=read:mystream:user:pass
 ```
 
 Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [VLC](#vlc).
