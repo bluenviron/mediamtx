@@ -33,17 +33,21 @@ const create = (video) => {
 		});
 
 		hls.on(Hls.Events.ERROR, (evt, data) => {
-			if (data.fatal) {
+			if (data.type === Hls.ErrorTypes.MEDIA_ERROR)
+				hls.recoverMediaError();
+			else if (data.fatal) {
 				hls.destroy();
-
-				setTimeout(create, 2000);
+				setTimeout(() => create(video), 2000);
 			}
 		});
 
-		hls.loadSource('index.m3u8' + window.location.search);
+		hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+			hls.loadSource('index.m3u8' + window.location.search);
+		});
+		hls.on(Hls.Events.MANIFEST_PARSED, () => {
+			video.play();
+		});
 		hls.attachMedia(video);
-
-		video.play();
 
 	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
 		// since it's not possible to detect timeout errors in iOS,
