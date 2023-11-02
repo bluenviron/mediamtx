@@ -509,6 +509,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RunOnConnectRestart,
 			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
+			p.metrics,
 			p.pathManager,
 			p,
 		)

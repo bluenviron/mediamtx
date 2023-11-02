@@ -102,6 +102,7 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 	for writer, cb := range sf.readers {
 		ccb := cb
 		writer.Push(func() error {
+			atomic.AddUint64(s.bytesSent, unitSize(u))
 			return ccb(u)
 		})
 	}

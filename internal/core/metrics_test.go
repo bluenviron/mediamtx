@@ -60,6 +60,9 @@ rtsps_sessions_bytes_sent 0
 rtmp_conns 0
 rtmp_conns_bytes_received 0
 rtmp_conns_bytes_sent 0
+srt_conns 0
+srt_conns_bytes_received 0
+srt_conns_bytes_sent 0
 webrtc_sessions 0
 webrtc_sessions_bytes_received 0
 webrtc_sessions_bytes_sent 0
@@ -110,10 +113,13 @@ webrtc_sessions_bytes_sent 0
 	require.Regexp(t,
 		`^paths\{name=".*?",state="ready"\} 1`+"\n"+
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
+			`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
 			`paths\{name=".*?",state="ready"\} 1`+"\n"+
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
+			`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
 			`paths\{name=".*?",state="ready"\} 1`+"\n"+
 			`paths_bytes_received\{name=".*?",state="ready"\} 0`+"\n"+
+			`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
 			`hls_muxers\{name=".*?"\} 1`+"\n"+
 			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
 			`hls_muxers\{name=".*?"\} 1`+"\n"+
@@ -135,6 +141,9 @@ webrtc_sessions_bytes_sent 0
 			`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
 			`rtmp_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`rtmp_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+			`srt_conns 0`+"\n"+
+			`srt_conns_bytes_received 0`+"\n"+
+			`srt_conns_bytes_sent 0`+"\n"+
 			`webrtc_sessions 0`+"\n"+
 			`webrtc_sessions_bytes_received 0`+"\n"+
 			`webrtc_sessions_bytes_sent 0`+"\n"+
