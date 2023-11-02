@@ -26,21 +26,27 @@ body {
     justify-content: center;
     min-height: 200px;
     padding: 10px;
-}
-#device {
     flex-direction: column;
 }
-#device > div {
-    margin: 10px 0;
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    flex-wrap: wrap;
+
+#device {
+    display: grid;
+    grid-template-rows: repeat(6, 1fr);
+    grid-auto-flow: column;
+    gap: 10px 20px
 }
-#device > div > div {
-    display: flex;
+
+.item {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-columns: auto 200px;
     gap: 20px;
 }
+
+#submit_line {
+    margin-top: 20px;
+}
+
 #error-message {
     text-align: center;
 }
@@ -56,65 +62,81 @@ select {
     <div id="initializing" style="display: block;">
         initializing
     </div>
-    <div id="device" style="display: none;">
-        <div id="device_line">
-            <div>
-                video device
-                <select id="video_device">
-                    <option value="none">none</option>
-                </select>
-            </div>
 
-            <div>
-                audio device
-                <select id="audio_device">
-                    <option value="none">none</option>
-                </select>
-            </div>
+    <div id="device" style="display: none">
+        <div class="item">
+            <label for="video_device">video device</label>
+            <select id="video_device">
+                <option value="none">none</option>
+            </select>
         </div>
-        <div id="codec_line">
-            <div>
-                video codec
-                <select id="video_codec">
-                </select>
-            </div>
 
-            <div>
-                audio codec
-                <select id="audio_codec">
-                </select>
-            </div>
+        <div class="item">
+            <label for="video_codec">video codec</label>
+            <select id="video_codec">
+            </select>
         </div>
-        <div id="bitrate_line">
-            <div>
-                video bitrate (kbps)
-                <input id="video_bitrate" type="text" value="10000" />
-            </div>
 
-            <div>
-                audio bitrate (kbps)
-                <input id="audio_bitrate" type="text" value="32" />
-            </div>
+        <div class="item">
+            <label for="video_bitrate">video bitrate (kbps)</label>
+            <input id="video_bitrate" type="text" value="10000" />
+        </div>
 
-            <div>
-                <input id="audio_voice" type="checkbox" checked>
-                <label for="audio_voice">optimize for voice</label>
-            </div>
+        <div class="item">
+            <label for="video_framerate">video framerate</label>
+            <input id="video_framerate" type="text" value="30" />
         </div>
-        <div id="submit_line">
-            <button id="publish_confirm">publish</button>
+
+        <div class="item">
+            <label for="video_width">video width</label>
+            <input id="video_width" type="text" value="1920" />
         </div>
+
+        <div class="item">
+            <label for="video_height">video height</label>
+            <input id="video_height" type="text" value="1080" />
+        </div>
+
+        <div class="item">
+            <label for="audio_device">audio device</label>
+            <select id="audio_device">
+                <option value="none">none</option>
+            </select>
+        </div>
+
+        <div class="item">
+            <label for="audio_codec">audio codec</label>
+            <select id="audio_codec">
+            </select>
+        </div>
+
+        <div class="item">
+            <label for="audio_bitrate">audio bitrate (kbps)</label>
+            <input id="audio_bitrate" type="text" value="32" />
+        </div>
+
+        <div class="item">
+            <label for="audio_voice">optimize for voice</label>
+            <input id="audio_voice" type="checkbox" checked>
+        </div>
+
+        <div class="item"></div>
     </div>
+
+    <div id="submit_line" style="display: none">
+        <button id="publish_confirm">publish</button>
+    </div>
+
     <div id="transmitting" style="display: none;">
         publishing
     </div>
+
     <div id="error" style="display: none;">
         <span id="error-message"></span>
     </div>
 </div>
 
 <script>
-
 const INITIALIZING = 0;
 const DEVICE = 1;
 const TRANSMITTING = 2;
@@ -123,14 +145,83 @@ const ERROR = 3;
 let state = INITIALIZING;
 let errorMessage = '';
 
+const videoForm = {
+    device: document.getElementById("video_device"),
+    codec: document.getElementById("video_codec"),
+    bitrate: document.getElementById("video_bitrate"),
+    framerate: document.getElementById("video_framerate"),
+    width: document.getElementById("video_width"),
+    height: document.getElementById("video_height")
+}
+
+const audioForm = {
+    device: document.getElementById("audio_device"),
+    codec: document.getElementById("audio_codec"),
+    bitrate: document.getElementById("audio_bitrate"),
+    voice: document.getElementById("audio_voice"),
+}
+
+const url = new URL(window.location.href);
+
+const initializeInputsFromUrl = () => {
+    const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
+
+    for (const input of inputs) {
+        const value = url.searchParams.get(input.id);
+        if (value) {
+            if (input instanceof HTMLInputElement && input.type === "text") {
+                input.value = value;
+            }
+
+            if (input instanceof HTMLInputElement && input.type === "checkbox") {
+                input.checked = value === "true";
+            }
+
+            if (input instanceof HTMLSelectElement) {
+                input.value = value
+            }
+        }
+    }
+}
+
+const registerInputsToUrl = () => {
+    const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
+
+    for (const input of inputs) {
+        if (input instanceof HTMLInputElement && input.type === "text") {
+            input.addEventListener("input", () => {
+                url.searchParams.set(input.id, input.value);
+                window.history.replaceState(null, null, url);
+            })
+        }
+
+        if (input instanceof HTMLInputElement && input.type === "checkbox") {
+            input.addEventListener("input", () => {
+                url.searchParams.set(input.id, input.checked);
+                window.history.replaceState(null, null, url);
+            })
+        }
+
+        if (input instanceof HTMLSelectElement) {
+            input.addEventListener("input", () => {
+                url.searchParams.set(input.id, input.value);
+                window.history.replaceState(null, null, url);
+            })
+        }
+    }
+}
+
 const render = () => {
-    for (const el of ['initializing', 'device', 'transmitting', 'error']) {
+    for (const el of ['initializing', 'device', 'submit_line', 'transmitting', 'error']) {
         document.getElementById(el).style.display = 'none';
     }
 
     switch (state) {
     case DEVICE:
-        document.getElementById('device').style.display = 'flex';
+        document.getElementById('device').style.display = 'grid';
+        document.getElementById('submit_line').style.display = 'block';
+        initializeInputsFromUrl();
+        registerInputsToUrl();
         break;
 
     case TRANSMITTING:
@@ -323,7 +414,7 @@ class Transmitter {
     start() {
         console.log("requesting ICE servers");
 
-        fetch(new URL('whip', window.location.href) + window.location.search, {
+        fetch(new URL('whip', url) + url.search, {
             method: 'OPTIONS',
         })
             .then((res) => this.onIceServers(res))
@@ -355,7 +446,7 @@ class Transmitter {
 
         console.log("sending offer");
 
-        fetch(new URL('whip', window.location.href) + window.location.search, {
+        fetch(new URL('whip', url) + url.search, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/sdp',
@@ -366,7 +457,7 @@ class Transmitter {
                 if (res.status !== 201) {
                     throw new Error('bad status code');
                 }
-                this.sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
+                this.sessionUrl = new URL(res.headers.get('location'), url.href).toString();
                 return res.text();
             })
             .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
@@ -396,14 +487,13 @@ class Transmitter {
         if (this.restartTimeout !== null) {
             return;
         }
-
         editAnswer(
             answer,
-            document.getElementById('video_codec').value,
-            document.getElementById('audio_codec').value,
-            document.getElementById('video_bitrate').value,
-            document.getElementById('audio_bitrate').value,
-            document.getElementById('audio_voice').value,
+            videoForm.codec.value,
+            audioForm.codec.value,
+            videoForm.bitrate.value,
+            audioForm.bitrate.value,
+            audioForm.voice.checked,
         );
 
         this.pc.setRemoteDescription(answer);
@@ -491,8 +581,8 @@ const onPublish = () => {
     state = TRANSMITTING;
     render();
 
-    const videoId = document.getElementById('video_device').value;
-    const audioId = document.getElementById('audio_device').value;
+    const videoId = videoForm.device.value;
+    const audioId = audioForm.device.value;
 
     if (videoId !== 'screen') {
         let video = false;
@@ -509,7 +599,7 @@ const onPublish = () => {
                 deviceId: audioId,
             };
 
-            const voice = document.getElementById('audio_voice').checked;
+            const voice = audioForm.voice.checked;
             if (!voice) {
                 audio.autoGainControl = false;
                 audio.echoCancellation = false;
@@ -527,12 +617,12 @@ const onPublish = () => {
     } else {
         navigator.mediaDevices.getDisplayMedia({
             video: {
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-                frameRate: { ideal: 30 },
+                width: { ideal: videoForm.width.value },
+                height: { ideal: videoForm.height.value },
+                frameRate: { ideal: videoForm.framerate.value },
                 cursor: "always",
             },
-            audio: false,
+            audio: true,
         })
             .then(onTransmit)
             .catch((err) => {
@@ -553,7 +643,7 @@ const populateDevices = () => {
                         const opt = document.createElement('option');
                         opt.value = device.deviceId;
                         opt.text = device.label;
-                        document.getElementById('video_device').appendChild(opt);
+                        videoForm.device.appendChild(opt);
                     }
                     break;
 
@@ -562,7 +652,7 @@ const populateDevices = () => {
                         const opt = document.createElement('option');
                         opt.value = device.deviceId;
                         opt.text = device.label;
-                        document.getElementById('audio_device').appendChild(opt);
+                        audioForm.device.appendChild(opt);
                     }
                     break;
                 }
@@ -572,18 +662,18 @@ const populateDevices = () => {
                 const opt = document.createElement('option');
                 opt.value = "screen";
                 opt.text = "screen";
-                document.getElementById('video_device').appendChild(opt);
+                videoForm.device.appendChild(opt);
             }
 
-            if (document.getElementById('video_device').children.length !== 0) {
-                document.getElementById('video_device').value = document.getElementById('video_device').children[1].value;
+            if (videoForm.device.children.length !== 0) {
+                videoForm.device.value = videoForm.device.children[1].value;
             }
 
-            if (document.getElementById('audio_device').children.length !== 0) {
-                document.getElementById('audio_device').value = document.getElementById('audio_device').children[1].value;
+            if (audioForm.device.children.length !== 0) {
+                audioForm.device.value = audioForm.device.children[1].value;
             }
         });
-};
+    };
 
 const populateCodecs = () => {
     const pc = new RTCPeerConnection({});
@@ -599,7 +689,7 @@ const populateCodecs = () => {
                     const opt = document.createElement('option');
                     opt.value = codec;
                     opt.text = codec.split('/')[0].toUpperCase();
-                    document.getElementById('video_codec').appendChild(opt);
+                    videoForm.codec.appendChild(opt);
                 }
             }
 
@@ -608,7 +698,7 @@ const populateCodecs = () => {
                     const opt = document.createElement('option');
                     opt.value = codec;
                     opt.text = codec.split('/')[0].toUpperCase();
-                    document.getElementById('audio_codec').appendChild(opt);
+                    audioForm.codec.appendChild(opt);
                 }
             }
 
