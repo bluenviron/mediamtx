@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -34,18 +33,21 @@ var (
 	reWHIPWHEPWithID = regexp.MustCompile("^/(.+?)/(whip|whep)/(.+?)$")
 )
 
-func relativeLocation(u *url.URL) string {
-	p := u.Path
-	if u.RawQuery != "" {
-		p += "?" + u.RawQuery
-	}
-	return p
-}
-
 func webrtcWriteError(ctx *gin.Context, statusCode int, err error) {
 	ctx.JSON(statusCode, &defs.APIError{
 		Error: err.Error(),
 	})
+}
+
+func sessionLocation(publish bool, secret uuid.UUID) string {
+	ret := ""
+	if publish {
+		ret += "whip"
+	} else {
+		ret += "whep"
+	}
+	ret += "/" + secret.String()
+	return ret
 }
 
 type webRTCHTTPServerParent interface {
@@ -222,8 +224,7 @@ func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish boo
 	ctx.Writer.Header().Set("ID", res.sx.uuid.String())
 	ctx.Writer.Header().Set("Accept-Patch", "application/trickle-ice-sdpfrag")
 	ctx.Writer.Header()["Link"] = webrtc.LinkHeaderMarshal(servers)
-	ctx.Request.URL.Path += "/" + res.sx.secret.String()
-	ctx.Writer.Header().Set("Location", relativeLocation(ctx.Request.URL))
+	ctx.Writer.Header().Set("Location", sessionLocation(publish, res.sx.secret))
 	ctx.Writer.WriteHeader(http.StatusCreated)
 	ctx.Writer.Write(res.answer)
 }
@@ -351,8 +352,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				ctx.Request.URL.Path += "/"
-				ctx.Writer.Header().Set("Location", relativeLocation(ctx.Request.URL))
+				ctx.Writer.Header().Set("Location", ctx.Request.URL.Path[1:]+"/")
 				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 
 			default:
