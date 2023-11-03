@@ -1272,6 +1272,7 @@ The server allows to specify commands that are executed when a certain event hap
 `runOnConnect` allows to run a command when a client connects to the server:
 
 ```yml
+# Command to run when a client connects to the server.
 # This is terminated with SIGINT when a client disconnects from the server.
 # The following environment variables are available:
 # * RTSP_PORT: RTSP server port
@@ -1285,6 +1286,7 @@ runOnConnectRestart: no
 `runOnDisconnect` allows to run a command when a client disconnects from the server:
 
 ```yml
+# Command to run when a client disconnects from the server.
 # Environment variables are the same of runOnConnect.
 runOnDisconnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&conn_id=$MTX_CONN_ID
 ```
@@ -1294,7 +1296,8 @@ runOnDisconnect: curl http://my-custom-server/webhook?conn_type=$MTX_CONN_TYPE&c
 ```yml
 paths:
   mypath:
-    # This is terminated with SIGINT when the program closes.
+    # Command to run when this path is initialized.
+    # This can be used to publish a stream when the server is launched.
     # The following environment variables are available:
     # * MTX_PATH: path name
     # * RTSP_PORT: RTSP server port
@@ -1310,6 +1313,8 @@ paths:
 ```yml
 paths:
   mypath:
+    # Command to run when this path is requested by a reader
+    # and no one is publishing to this path yet.
     # This is terminated with SIGINT when the program closes.
     # The following environment variables are available:
     # * MTX_PATH: path name
@@ -1326,6 +1331,8 @@ paths:
 
 ```yml
 pathDefaults:
+  # Command to run when the stream is ready to be read, whenever it is
+  # published by a client or pulled from a server / camera.
   # This is terminated with SIGINT when the stream is not ready anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
@@ -1344,6 +1351,7 @@ pathDefaults:
 
 ```yml
 pathDefaults:
+  # Command to run when the stream is not available anymore.
   # Environment variables are the same of runOnReady.
   runOnNotReady: curl http://my-custom-server/webhook?path=$MTX_PATH&source_type=$MTX_SOURCE_TYPE&source_id=$MTX_SOURCE_ID
 ```
@@ -1352,6 +1360,7 @@ pathDefaults:
 
 ```yml
 pathDefaults:
+  # Command to run when a client starts reading.
   # This is terminated with SIGINT when a client stops reading.
   # The following environment variables are available:
   # * MTX_PATH: path name

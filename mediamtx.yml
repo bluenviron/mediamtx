@@ -468,7 +468,8 @@ pathDefaults:
   # Restart the command if it exits.
   runOnInitRestart: no
 
-  # Command to run when this path is requested by a reader.
+  # Command to run when this path is requested by a reader
+  # and no one is publishing to this path yet.
   # This can be used to publish a stream on demand.
   # This is terminated with SIGINT when the path is not requested anymore.
   # The following environment variables are available:
