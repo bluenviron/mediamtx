@@ -201,8 +201,8 @@ type path struct {
 	chStaticSourceSetReady    chan defs.PathSourceStaticSetReadyReq
 	chStaticSourceSetNotReady chan defs.PathSourceStaticSetNotReadyReq
 	chDescribe                chan pathDescribeReq
-	chRemovePublisher         chan pathRemovePublisherReq
 	chAddPublisher            chan pathAddPublisherReq
+	chRemovePublisher         chan pathRemovePublisherReq
 	chStartPublisher          chan pathStartPublisherReq
 	chStopPublisher           chan pathStopPublisherReq
 	chAddReader               chan pathAddReaderReq
@@ -254,8 +254,8 @@ func newPath(
 		chStaticSourceSetReady:         make(chan defs.PathSourceStaticSetReadyReq),
 		chStaticSourceSetNotReady:      make(chan defs.PathSourceStaticSetNotReadyReq),
 		chDescribe:                     make(chan pathDescribeReq),
-		chRemovePublisher:              make(chan pathRemovePublisherReq),
 		chAddPublisher:                 make(chan pathAddPublisherReq),
+		chRemovePublisher:              make(chan pathRemovePublisherReq),
 		chStartPublisher:               make(chan pathStartPublisherReq),
 		chStopPublisher:                make(chan pathStopPublisherReq),
 		chAddReader:                    make(chan pathAddReaderReq),
@@ -357,7 +357,7 @@ func (pa *path) run() {
 	}
 
 	if pa.onUnDemandHook != nil {
-		pa.onUnDemandHook("path closed")
+		pa.onUnDemandHook("path destroyed")
 	}
 
 	pa.Log(logger.Debug, "destroyed: %v", err)
@@ -414,15 +414,15 @@ func (pa *path) runInner() error {
 				return fmt.Errorf("not in use")
 			}
 
+		case req := <-pa.chAddPublisher:
+			pa.doAddPublisher(req)
+
 		case req := <-pa.chRemovePublisher:
 			pa.doRemovePublisher(req)
 
 			if pa.shouldClose() {
 				return fmt.Errorf("not in use")
 			}
-
-		case req := <-pa.chAddPublisher:
-			pa.doAddPublisher(req)
 
 		case req := <-pa.chStartPublisher:
 			pa.doStartPublisher(req)
@@ -519,21 +519,10 @@ func (pa *path) doSourceStaticSetReady(req defs.PathSourceStaticSetReadyReq) {
 	if pa.conf.HasOnDemandStaticSource() {
 		pa.onDemandStaticSourceReadyTimer.Stop()
 		pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
-
 		pa.onDemandStaticSourceScheduleClose()
-
-		for _, req := range pa.describeRequestsOnHold {
-			req.res <- pathDescribeRes{
-				stream: pa.stream,
-			}
-		}
-		pa.describeRequestsOnHold = nil
-
-		for _, req := range pa.readerAddRequestsOnHold {
-			pa.addReaderPost(req)
-		}
-		pa.readerAddRequestsOnHold = nil
 	}
+
+	pa.consumeOnHoldRequests()
 
 	req.Res <- defs.PathSourceStaticSetReadyRes{Stream: pa.stream}
 }
@@ -649,24 +638,13 @@ func (pa *path) doStartPublisher(req pathStartPublisherReq) {
 		pa.name,
 		mediaInfo(req.desc.Medias))
 
-	if pa.conf.HasOnDemandPublisher() {
+	if pa.conf.HasOnDemandPublisher() && pa.onDemandPublisherState != pathOnDemandStateInitial {
 		pa.onDemandPublisherReadyTimer.Stop()
 		pa.onDemandPublisherReadyTimer = newEmptyTimer()
-
 		pa.onDemandPublisherScheduleClose()
-
-		for _, req := range pa.describeRequestsOnHold {
-			req.res <- pathDescribeRes{
-				stream: pa.stream,
-			}
-		}
-		pa.describeRequestsOnHold = nil
-
-		for _, req := range pa.readerAddRequestsOnHold {
-			pa.addReaderPost(req)
-		}
-		pa.readerAddRequestsOnHold = nil
 	}
+
+	pa.consumeOnHoldRequests()
 
 	req.res <- pathStartPublisherRes{stream: pa.stream}
 }
@@ -840,20 +818,15 @@ func (pa *path) onDemandPublisherScheduleClose() {
 }
 
 func (pa *path) onDemandPublisherStop(reason string) {
-	if pa.source != nil {
-		pa.source.(publisher).close()
-		pa.executeRemovePublisher()
-	}
-
 	if pa.onDemandPublisherState == pathOnDemandStateClosing {
 		pa.onDemandPublisherCloseTimer.Stop()
 		pa.onDemandPublisherCloseTimer = newEmptyTimer()
 	}
 
-	pa.onDemandPublisherState = pathOnDemandStateInitial
-
 	pa.onUnDemandHook(reason)
 	pa.onUnDemandHook = nil
+
+	pa.onDemandPublisherState = pathOnDemandStateInitial
 }
 
 func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error {
@@ -879,6 +852,20 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 	pa.parent.pathReady(pa)
 
 	return nil
+}
+
+func (pa *path) consumeOnHoldRequests() {
+	for _, req := range pa.describeRequestsOnHold {
+		req.res <- pathDescribeRes{
+			stream: pa.stream,
+		}
+	}
+	pa.describeRequestsOnHold = nil
+
+	for _, req := range pa.readerAddRequestsOnHold {
+		pa.addReaderPost(req)
+	}
+	pa.readerAddRequestsOnHold = nil
 }
 
 func (pa *path) setNotReady() {
@@ -1048,16 +1035,6 @@ func (pa *path) describe(req pathDescribeReq) pathDescribeRes {
 	}
 }
 
-// removePublisher is called by a publisher.
-func (pa *path) removePublisher(req pathRemovePublisherReq) {
-	req.res = make(chan struct{})
-	select {
-	case pa.chRemovePublisher <- req:
-		<-req.res
-	case <-pa.ctx.Done():
-	}
-}
-
 // addPublisher is called by a publisher through pathManager.
 func (pa *path) addPublisher(req pathAddPublisherReq) pathAddPublisherRes {
 	select {
@@ -1065,6 +1042,16 @@ func (pa *path) addPublisher(req pathAddPublisherReq) pathAddPublisherRes {
 		return <-req.res
 	case <-pa.ctx.Done():
 		return pathAddPublisherRes{err: fmt.Errorf("terminated")}
+	}
+}
+
+// removePublisher is called by a publisher.
+func (pa *path) removePublisher(req pathRemovePublisherReq) {
+	req.res = make(chan struct{})
+	select {
+	case pa.chRemovePublisher <- req:
+		<-req.res
+	case <-pa.ctx.Done():
 	}
 }
 
