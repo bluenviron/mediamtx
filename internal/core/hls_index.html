@@ -44,9 +44,11 @@ const create = (video) => {
 		hls.on(Hls.Events.MEDIA_ATTACHED, () => {
 			hls.loadSource('index.m3u8' + window.location.search);
 		});
+
 		hls.on(Hls.Events.MANIFEST_PARSED, () => {
 			video.play();
 		});
+
 		hls.attachMedia(video);
 
 	} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
