@@ -210,7 +210,7 @@ func TestRTSPSource(t *testing.T) {
 			var te *tester.Tester
 
 			if source != "tls" {
-				var sp conf.SourceProtocol
+				var sp conf.RTSPTransport
 				sp.UnmarshalJSON([]byte(`"` + source + `"`)) //nolint:errcheck
 
 				te = tester.New(
@@ -223,8 +223,8 @@ func TestRTSPSource(t *testing.T) {
 						}
 					},
 					&conf.Path{
-						Source:         "rtsp://testuser:testpass@localhost:8555/teststream",
-						SourceProtocol: sp,
+						Source:        "rtsp://testuser:testpass@localhost:8555/teststream",
+						RTSPTransport: sp,
 					},
 				)
 			} else {
@@ -312,7 +312,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
 	defer stream.Close()
 
-	var sp conf.SourceProtocol
+	var sp conf.RTSPTransport
 	sp.UnmarshalJSON([]byte(`"tcp"`)) //nolint:errcheck
 
 	te := tester.New(
@@ -325,8 +325,8 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 			}
 		},
 		&conf.Path{
-			Source:         "rtsp://testuser:@127.0.0.1:8555/teststream",
-			SourceProtocol: sp,
+			Source:        "rtsp://testuser:@127.0.0.1:8555/teststream",
+			RTSPTransport: sp,
 		},
 	)
 	defer te.Close()

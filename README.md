@@ -1546,7 +1546,7 @@ In some scenarios, when publishing or reading from the server with RTSP, frames 
   paths:
     test:
       source: rtsp://..
-      sourceProtocol: tcp
+      rtspTransport: tcp
    ```
 
 * The stream throughput is too big to be handled by the network between server and readers. Upgrade the network or decrease the stream bitrate by re-encoding it.

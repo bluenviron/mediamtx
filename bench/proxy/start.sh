@@ -40,7 +40,7 @@ CONF="${CONF}paths:\n"
 for i in $(seq 1 $PROXY_COUNT); do
     CONF="${CONF}  proxy$i:\n"
     CONF="${CONF}    source: rtsp://localhost:8555/source\n"
-    CONF="${CONF}    sourceProtocol: $PROXY_PROTOCOL\n"
+    CONF="${CONF}    rtspTransport: $PROXY_PROTOCOL\n"
 done
 echo -e "$CONF" > /proxy.conf
 

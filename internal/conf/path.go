@@ -84,8 +84,10 @@ type Path struct {
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
 
 	// RTSP source
-	SourceProtocol      SourceProtocol `json:"sourceProtocol"`
-	SourceAnyPortEnable bool           `json:"sourceAnyPortEnable"`
+	RTSPTransport       RTSPTransport  `json:"rtspTransport"`
+	RTSPAnyPort         bool           `json:"rtspAnyPort"`
+	SourceProtocol      *RTSPTransport `json:"sourceProtocol,omitempty"`      // deprecated
+	SourceAnyPortEnable *bool          `json:"sourceAnyPortEnable,omitempty"` // deprecated
 	RTSPRangeType       RTSPRangeType  `json:"rtspRangeType"`
 	RTSPRangeStart      string         `json:"rtspRangeStart"`
 
@@ -322,14 +324,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		}
 
 	case pconf.Source == "redirect":
-		if pconf.SourceRedirect == "" {
-			return fmt.Errorf("source redirect must be filled")
-		}
-
-		_, err := url.Parse(pconf.SourceRedirect)
-		if err != nil {
-			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
-		}
 
 	case pconf.Source == "rpiCamera":
 		if pconf.Regexp != nil {
@@ -337,60 +331,9 @@ func (pconf *Path) check(conf *Conf, name string) error {
 				"a path with a regular expression (or path 'all') cannot have 'rpiCamera' as source. use another path")
 		}
 
-		for otherName, otherPath := range conf.Paths {
-			if otherPath != pconf && otherPath != nil &&
-				otherPath.Source == "rpiCamera" && otherPath.RPICameraCamID == pconf.RPICameraCamID {
-				return fmt.Errorf("'rpiCamera' with same camera ID %d is used as source in two paths, '%s' and '%s'",
-					pconf.RPICameraCamID, name, otherName)
-			}
-		}
-
-		switch pconf.RPICameraExposure {
-		case "normal", "short", "long", "custom":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraExposure' value")
-		}
-
-		switch pconf.RPICameraAWB {
-		case "auto", "incandescent", "tungsten", "fluorescent", "indoor", "daylight", "cloudy", "custom":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraAWB' value")
-		}
-
-		switch pconf.RPICameraDenoise {
-		case "off", "cdn_off", "cdn_fast", "cdn_hq":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraDenoise' value")
-		}
-
-		switch pconf.RPICameraMetering {
-		case "centre", "spot", "matrix", "custom":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraMetering' value")
-		}
-
-		switch pconf.RPICameraAfMode {
-		case "auto", "manual", "continuous":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraAfMode' value")
-		}
-
-		switch pconf.RPICameraAfRange {
-		case "normal", "macro", "full":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraAfRange' value")
-		}
-
-		switch pconf.RPICameraAfSpeed {
-		case "normal", "fast":
-		default:
-			return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
-		}
-
 	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)
 	}
-
 	if pconf.SourceOnDemand {
 		if pconf.Source == "publisher" {
 			return fmt.Errorf("'sourceOnDemand' is useless when source is 'publisher'")
@@ -400,39 +343,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
 		if err != nil {
 			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
-		}
-	}
-
-	// Publisher
-
-	if pconf.DisablePublisherOverride != nil {
-		pconf.OverridePublisher = !*pconf.DisablePublisherOverride
-	}
-	if pconf.Fallback != "" {
-		if pconf.Source != "publisher" {
-			return fmt.Errorf("'fallback' can only be used when source is 'publisher'")
-		}
-
-		if strings.HasPrefix(pconf.Fallback, "/") {
-			err := IsValidPathName(pconf.Fallback[1:])
-			if err != nil {
-				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
-			}
-		} else {
-			_, err := url.Parse(pconf.Fallback)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
-			}
-		}
-	}
-	if pconf.SRTPublishPassphrase != "" {
-		if pconf.Source != "publisher" {
-			return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
-		}
-
-		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
-		if err != nil {
-			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
 		}
 	}
 
@@ -469,6 +379,108 @@ func (pconf *Path) check(conf *Conf, name string) error {
 			len(pconf.ReadIPs) > 0 {
 			return fmt.Errorf("credentials or IPs can't be used together with 'externalAuthenticationURL'")
 		}
+	}
+
+	// Publisher source
+
+	if pconf.DisablePublisherOverride != nil {
+		pconf.OverridePublisher = !*pconf.DisablePublisherOverride
+	}
+	if pconf.Fallback != "" {
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'fallback' can only be used when source is 'publisher'")
+		}
+
+		if strings.HasPrefix(pconf.Fallback, "/") {
+			err := IsValidPathName(pconf.Fallback[1:])
+			if err != nil {
+				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
+			}
+		} else {
+			_, err := url.Parse(pconf.Fallback)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
+			}
+		}
+	}
+	if pconf.SRTPublishPassphrase != "" {
+		if pconf.Source != "publisher" {
+			return fmt.Errorf("'srtPublishPassphase' can only be used when source is 'publisher'")
+		}
+
+		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
+		if err != nil {
+			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
+		}
+	}
+
+	// RTSP source
+
+	if pconf.SourceProtocol != nil {
+		pconf.RTSPTransport = *pconf.SourceProtocol
+	}
+	if pconf.SourceAnyPortEnable != nil {
+		pconf.RTSPAnyPort = *pconf.SourceAnyPortEnable
+	}
+
+	// Redirect source
+
+	if pconf.Source == "redirect" {
+		if pconf.SourceRedirect == "" {
+			return fmt.Errorf("source redirect must be filled")
+		}
+
+		_, err := url.Parse(pconf.SourceRedirect)
+		if err != nil {
+			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
+		}
+	}
+
+	// Raspberry Pi Camera source
+
+	if pconf.Source == "rpiCamera" {
+		for otherName, otherPath := range conf.Paths {
+			if otherPath != pconf && otherPath != nil &&
+				otherPath.Source == "rpiCamera" && otherPath.RPICameraCamID == pconf.RPICameraCamID {
+				return fmt.Errorf("'rpiCamera' with same camera ID %d is used as source in two paths, '%s' and '%s'",
+					pconf.RPICameraCamID, name, otherName)
+			}
+		}
+	}
+	switch pconf.RPICameraExposure {
+	case "normal", "short", "long", "custom":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraExposure' value")
+	}
+	switch pconf.RPICameraAWB {
+	case "auto", "incandescent", "tungsten", "fluorescent", "indoor", "daylight", "cloudy", "custom":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraAWB' value")
+	}
+	switch pconf.RPICameraDenoise {
+	case "off", "cdn_off", "cdn_fast", "cdn_hq":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraDenoise' value")
+	}
+	switch pconf.RPICameraMetering {
+	case "centre", "spot", "matrix", "custom":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraMetering' value")
+	}
+	switch pconf.RPICameraAfMode {
+	case "auto", "manual", "continuous":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraAfMode' value")
+	}
+	switch pconf.RPICameraAfRange {
+	case "normal", "macro", "full":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraAfRange' value")
+	}
+	switch pconf.RPICameraAfSpeed {
+	case "normal", "fast":
+	default:
+		return fmt.Errorf("invalid 'rpiCameraAfSpeed' value")
 	}
 
 	// Hooks
