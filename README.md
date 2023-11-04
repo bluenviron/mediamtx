@@ -1311,20 +1311,28 @@ paths:
 `runOnDemand` allows to run a command when a path is requested by a reader. This can be used to publish a stream on demand:
 
 ```yml
-paths:
-  mypath:
-    # Command to run when this path is requested by a reader
-    # and no one is publishing to this path yet.
-    # This is terminated with SIGINT when the program closes.
-    # The following environment variables are available:
-    # * MTX_PATH: path name
-    # * MTX_QUERY: query parameters (passed by first reader)
-    # * RTSP_PORT: RTSP server port
-    # * G1, G2, ...: regular expression groups, if path name is
-    #   a regular expression.
-    runOnDemand: ffmpeg -i my_file.mp4 -c copy -f rtsp rtsp://localhost:8554/mypath
-    # Restart the command if it exits.
-    runOnDemandRestart: no
+pathDefaults:
+  # Command to run when this path is requested by a reader
+  # and no one is publishing to this path yet.
+  # This is terminated with SIGINT when there are no readers anymore.
+  # The following environment variables are available:
+  # * MTX_PATH: path name
+  # * MTX_QUERY: query parameters (passed by first reader)
+  # * RTSP_PORT: RTSP server port
+  # * G1, G2, ...: regular expression groups, if path name is
+  #   a regular expression.
+  runOnDemand: ffmpeg -i my_file.mp4 -c copy -f rtsp rtsp://localhost:8554/mypath
+  # Restart the command if it exits.
+  runOnDemandRestart: no
+```
+
+`runOnUnDemand` allows to run a command when there are no readers anymore:
+
+```yml
+pathDefaults:
+  # Command to run when there are no readers anymore.
+  # Environment variables are the same of runOnDemand.
+  runOnUnDemand:
 ```
 
 `runOnReady` allows to run a command when a stream is ready to be read:

@@ -84,6 +84,7 @@ func main() {
 
 func TestPathRunOnDemand(t *testing.T) {
 	onDemandFile := filepath.Join(os.TempDir(), "ondemand")
+	onUnDemandFile := filepath.Join(os.TempDir(), "ondisconnect")
 
 	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
 	err := os.WriteFile(srcFile,
@@ -103,6 +104,7 @@ func TestPathRunOnDemand(t *testing.T) {
 	for _, ca := range []string{"describe", "setup", "describe and setup"} {
 		t.Run(ca, func(t *testing.T) {
 			defer os.Remove(onDemandFile)
+			defer os.Remove(onUnDemandFile)
 
 			p1, ok := newInstance(fmt.Sprintf("rtmp: no\n"+
 				"hls: no\n"+
@@ -110,7 +112,8 @@ func TestPathRunOnDemand(t *testing.T) {
 				"paths:\n"+
 				"  '~^(on)demand$':\n"+
 				"    runOnDemand: %s\n"+
-				"    runOnDemandCloseAfter: 1s\n", execFile))
+				"    runOnDemandCloseAfter: 1s\n"+
+				"    runOnUnDemand: touch %s\n", execFile, onUnDemandFile))
 			require.Equal(t, true, ok)
 			defer p1.Close()
 
@@ -185,6 +188,9 @@ func TestPathRunOnDemand(t *testing.T) {
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
+
+			_, err := os.Stat(onUnDemandFile)
+			require.NoError(t, err)
 		})
 	}
 }

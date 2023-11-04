@@ -471,7 +471,7 @@ pathDefaults:
   # Command to run when this path is requested by a reader
   # and no one is publishing to this path yet.
   # This can be used to publish a stream on demand.
-  # This is terminated with SIGINT when the path is not requested anymore.
+  # This is terminated with SIGINT when there are no readers anymore.
   # The following environment variables are available:
   # * MTX_PATH: path name
   # * MTX_QUERY: query parameters (passed by first reader)
@@ -487,6 +487,9 @@ pathDefaults:
   # The command will be closed when there are no
   # readers connected and this amount of time has passed.
   runOnDemandCloseAfter: 10s
+  # Command to run when there are no readers anymore.
+  # Environment variables are the same of runOnDemand.
+  runOnUnDemand:
 
   # Command to run when the stream is ready to be read, whenever it is
   # published by a client or pulled from a server / camera.

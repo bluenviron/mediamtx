@@ -156,7 +156,7 @@ func (c *srtConn) run() { //nolint:dupl
 
 	desc := c.apiReaderDescribe()
 	c.conn.open(desc)
-	defer c.conn.close(desc)
+	defer c.conn.close()
 
 	err := c.runInner()
 
@@ -363,7 +363,7 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 
 	pathConf := res.path.safeConf()
 
-	onUnreadHook := readerOnReadHook(
+	onUnreadHook := onReadHook(
 		c.externalCmdPool,
 		pathConf,
 		res.path,

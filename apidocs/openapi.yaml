@@ -344,6 +344,8 @@ components:
           type: string
         runOnDemandCloseAfter:
           type: string
+        runOnUnDemand:
+          type: string
         runOnReady:
           type: string
         runOnReadyRestart:

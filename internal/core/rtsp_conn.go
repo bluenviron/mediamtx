@@ -114,15 +114,7 @@ func (c *rtspConn) ip() net.IP {
 func (c *rtspConn) onClose(err error) {
 	c.Log(logger.Info, "closed: %v", err)
 
-	c.conn.close(defs.APIPathSourceOrReader{
-		Type: func() string {
-			if c.isTLS {
-				return "rtspsConn"
-			}
-			return "rtspConn"
-		}(),
-		ID: c.uuid.String(),
-	})
+	c.conn.close()
 }
 
 // onRequest is called by rtspServer.
