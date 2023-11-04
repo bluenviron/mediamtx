@@ -75,3 +75,5 @@ require (
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
 
 replace github.com/pion/sdp/v3 => github.com/aler9/sdp/v3 v3.0.0-20231022165400-33437e07f326
+
+replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.0.0-20231104205907-3f110868f71d
