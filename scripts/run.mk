@@ -28,7 +28,7 @@ paths:
 
 #  proxied:
 #    source: rtsp://192.168.2.198:554/stream
-#    sourceProtocol: tcp
+#    rtspTransport: tcp
 #    sourceOnDemand: yes
 #    runOnDemand: ffmpeg -i rtsp://192.168.2.198:554/stream -c copy -f rtsp rtsp://localhost:$$RTSP_PORT/proxied2
 

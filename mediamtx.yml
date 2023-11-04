@@ -337,9 +337,9 @@ pathDefaults:
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
 
-  # allow another client to disconnect the current publisher and publish in its place.
+  # Allow another client to disconnect the current publisher and publish in its place.
   overridePublisher: yes
-  # if no one is publishing, redirect readers to this path.
+  # If no one is publishing, redirect readers to this path.
   # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
   fallback:
   # SRT encryption passphrase required to publish to this path
@@ -348,18 +348,18 @@ pathDefaults:
   ###############################################
   # Default path settings -> RTSP source (when source is a RTSP or a RTSPS URL)
 
-  # protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
-  sourceProtocol: automatic
-  # support sources that don't provide server ports or use random server ports. This is a security issue
+  # Transport protocol used to pull the stream. available values are "automatic", "udp", "multicast", "tcp".
+  rtspTransport: automatic
+  # Support sources that don't provide server ports or use random server ports. This is a security issue
   # and must be used only when interacting with sources that require it.
-  sourceAnyPortEnable: no
-  # range header to send to the source, in order to start streaming from the specified offset.
+  rtspAnyPort: no
+  # Range header to send to the source, in order to start streaming from the specified offset.
   # available values:
   # * clock: Absolute time
   # * npt: Normal Play Time
   # * smpte: SMPTE timestamps relative to the start of the recording
   rtspRangeType:
-  # available values:
+  # Available values:
   # * clock: UTC ISO 8601 combined date and time string, e.g. 20230812T120000Z
   # * npt: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"
   # * smpte: duration such as "300ms", "1.5m" or "2h45m", valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h"

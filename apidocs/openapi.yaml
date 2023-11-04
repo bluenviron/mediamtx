@@ -252,9 +252,9 @@ components:
           type: string
 
         # RTSP source
-        sourceProtocol:
+        rtspTransport:
           type: string
-        sourceAnyPortEnable:
+        rtspAnyPort:
           type: boolean
         rtspRangeType:
           type: string

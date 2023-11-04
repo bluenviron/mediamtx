@@ -7,13 +7,13 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 )
 
-// SourceProtocol is the sourceProtocol parameter.
-type SourceProtocol struct {
+// RTSPTransport is the rtspTransport parameter.
+type RTSPTransport struct {
 	*gortsplib.Transport
 }
 
 // MarshalJSON implements json.Marshaler.
-func (d SourceProtocol) MarshalJSON() ([]byte, error) {
+func (d RTSPTransport) MarshalJSON() ([]byte, error) {
 	var out string
 
 	if d.Transport == nil {
@@ -38,7 +38,7 @@ func (d SourceProtocol) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
+func (d *RTSPTransport) UnmarshalJSON(b []byte) error {
 	var in string
 	if err := json.Unmarshal(b, &in); err != nil {
 		return err
@@ -68,6 +68,6 @@ func (d *SourceProtocol) UnmarshalJSON(b []byte) error {
 }
 
 // UnmarshalEnv implements env.Unmarshaler.
-func (d *SourceProtocol) UnmarshalEnv(_ string, v string) error {
+func (d *RTSPTransport) UnmarshalEnv(_ string, v string) error {
 	return d.UnmarshalJSON([]byte(`"` + v + `"`))
 }

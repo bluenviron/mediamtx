@@ -81,12 +81,12 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	decodeErrLogger := logger.NewLimitedLogger(s)
 
 	c := &gortsplib.Client{
-		Transport:      params.Conf.SourceProtocol.Transport,
+		Transport:      params.Conf.RTSPTransport.Transport,
 		TLSConfig:      tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
 		ReadTimeout:    time.Duration(s.ReadTimeout),
 		WriteTimeout:   time.Duration(s.WriteTimeout),
 		WriteQueueSize: s.WriteQueueSize,
-		AnyPortEnable:  params.Conf.SourceAnyPortEnable,
+		AnyPortEnable:  params.Conf.RTSPAnyPort,
 		OnRequest: func(req *base.Request) {
 			s.Log(logger.Debug, "[c->s] %v", req)
 		},
