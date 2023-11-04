@@ -292,7 +292,7 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 
 		pathConf := s.path.safeConf()
 
-		s.onUnreadHook = readerOnReadHook(
+		s.onUnreadHook = onReadHook(
 			s.externalCmdPool,
 			pathConf,
 			s.path,

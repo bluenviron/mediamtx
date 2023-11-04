@@ -304,18 +304,7 @@ func (pa *path) run() {
 		}
 	}
 
-	var onInitCmd *externalcmd.Cmd
-	if pa.conf.RunOnInit != "" {
-		pa.Log(logger.Info, "runOnInit command started")
-		onInitCmd = externalcmd.NewCmd(
-			pa.externalCmdPool,
-			pa.conf.RunOnInit,
-			pa.conf.RunOnInitRestart,
-			pa.externalCmdEnv(),
-			func(err error) {
-				pa.Log(logger.Info, "runOnInit command exited: %v", err)
-			})
-	}
+	onUnInitHook := onInitHook(pa)
 
 	err := pa.runInner()
 
@@ -329,10 +318,7 @@ func (pa *path) run() {
 	pa.onDemandPublisherReadyTimer.Stop()
 	pa.onDemandPublisherCloseTimer.Stop()
 
-	if onInitCmd != nil {
-		onInitCmd.Close()
-		pa.Log(logger.Info, "runOnInit command stopped")
-	}
+	onUnInitHook()
 
 	for _, req := range pa.describeRequestsOnHold {
 		req.res <- pathDescribeRes{err: fmt.Errorf("terminated")}
@@ -802,7 +788,7 @@ func (pa *path) onDemandStaticSourceStop(reason string) {
 }
 
 func (pa *path) onDemandPublisherStart(query string) {
-	pa.onUnDemandHook = publisherOnDemandHook(pa, query)
+	pa.onUnDemandHook = onDemandHook(pa, query)
 
 	pa.onDemandPublisherReadyTimer.Stop()
 	pa.onDemandPublisherReadyTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandStartTimeout))
@@ -847,7 +833,7 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 
 	pa.readyTime = time.Now()
 
-	pa.onNotReadyHook = sourceOnReadyHook(pa)
+	pa.onNotReadyHook = onReadyHook(pa)
 
 	pa.parent.pathReady(pa)
 

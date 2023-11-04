@@ -1,8 +1,6 @@
 package core
 
 import (
-	"net"
-
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -16,7 +14,7 @@ type conn struct {
 	externalCmdPool     *externalcmd.Pool
 	logger              logger.Writer
 
-	onConnectCmd *externalcmd.Cmd
+	onDisconnectHook func()
 }
 
 func newConn(
@@ -38,48 +36,9 @@ func newConn(
 }
 
 func (c *conn) open(desc defs.APIPathSourceOrReader) {
-	if c.runOnConnect != "" {
-		c.logger.Log(logger.Info, "runOnConnect command started")
-
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		env := externalcmd.Environment{
-			"RTSP_PORT":     port,
-			"MTX_CONN_TYPE": desc.Type,
-			"MTX_CONN_ID":   desc.ID,
-		}
-
-		c.onConnectCmd = externalcmd.NewCmd(
-			c.externalCmdPool,
-			c.runOnConnect,
-			c.runOnConnectRestart,
-			env,
-			func(err error) {
-				c.logger.Log(logger.Info, "runOnConnect command exited: %v", err)
-			})
-	}
+	c.onDisconnectHook = onConnectHook(c, desc)
 }
 
-func (c *conn) close(desc defs.APIPathSourceOrReader) {
-	if c.onConnectCmd != nil {
-		c.onConnectCmd.Close()
-		c.logger.Log(logger.Info, "runOnConnect command stopped")
-	}
-
-	if c.runOnDisconnect != "" {
-		c.logger.Log(logger.Info, "runOnDisconnect command launched")
-
-		_, port, _ := net.SplitHostPort(c.rtspAddress)
-		env := externalcmd.Environment{
-			"RTSP_PORT":     port,
-			"MTX_CONN_TYPE": desc.Type,
-			"MTX_CONN_ID":   desc.ID,
-		}
-
-		externalcmd.NewCmd(
-			c.externalCmdPool,
-			c.runOnDisconnect,
-			false,
-			env,
-			nil)
-	}
+func (c *conn) close() {
+	c.onDisconnectHook()
 }

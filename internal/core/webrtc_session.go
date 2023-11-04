@@ -612,7 +612,7 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	pathConf := res.path.safeConf()
 
-	onUnreadHook := readerOnReadHook(
+	onUnreadHook := onReadHook(
 		s.externalCmdPool,
 		pathConf,
 		res.path,

@@ -135,6 +135,7 @@ type Path struct {
 	RunOnDemandRestart         bool           `json:"runOnDemandRestart"`
 	RunOnDemandStartTimeout    StringDuration `json:"runOnDemandStartTimeout"`
 	RunOnDemandCloseAfter      StringDuration `json:"runOnDemandCloseAfter"`
+	RunOnUnDemand              string         `json:"runOnUnDemand"`
 	RunOnReady                 string         `json:"runOnReady"`
 	RunOnReadyRestart          bool           `json:"runOnReadyRestart"`
 	RunOnNotReady              string         `json:"runOnNotReady"`
@@ -489,8 +490,8 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		return fmt.Errorf("a path with a regular expression (or path 'all')" +
 			" does not support option 'runOnInit'; use another path")
 	}
-	if pconf.RunOnDemand != "" && pconf.Source != "publisher" {
-		return fmt.Errorf("'runOnDemand' can be used only when source is 'publisher'")
+	if (pconf.RunOnDemand != "" || pconf.RunOnUnDemand != "") && pconf.Source != "publisher" {
+		return fmt.Errorf("'runOnDemand' and 'runOnUnDemand' can be used only when source is 'publisher'")
 	}
 
 	return nil
