@@ -51,9 +51,9 @@ APIEncryption: no
 # This can be generated with:
 # openssl genrsa -out server.key 2048
 # openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
-APIServerKey: server.key
+APIServerKey:
 # Path to the server certificates (or optional chain of certificates)
-APIServerCert: server.crt
+APIServerCert:
 
 # Enable Prometheus-compatible metrics.
 metrics: no
