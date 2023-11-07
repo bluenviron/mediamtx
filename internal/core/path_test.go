@@ -84,7 +84,7 @@ func main() {
 
 func TestPathRunOnDemand(t *testing.T) {
 	onDemandFile := filepath.Join(os.TempDir(), "ondemand")
-	onUnDemandFile := filepath.Join(os.TempDir(), "ondisconnect")
+	onUnDemandFile := filepath.Join(os.TempDir(), "onundemand")
 
 	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
 	err := os.WriteFile(srcFile,
@@ -182,14 +182,14 @@ func TestPathRunOnDemand(t *testing.T) {
 			}()
 
 			for {
-				_, err := os.Stat(onDemandFile)
+				_, err := os.Stat(onUnDemandFile)
 				if err == nil {
 					break
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
 
-			_, err := os.Stat(onUnDemandFile)
+			_, err := os.Stat(onDemandFile)
 			require.NoError(t, err)
 		})
 	}
