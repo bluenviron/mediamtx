@@ -254,8 +254,8 @@ func newAPI(
 		network,
 		address,
 		time.Duration(readTimeout),
-		"",
-		"",
+		conf.APIServerCert,
+		conf.APIServerKey,
 		router,
 		a,
 	)

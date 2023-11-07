@@ -45,6 +45,15 @@ externalAuthenticationURL:
 api: no
 # Address of the API listener.
 apiAddress: 127.0.0.1:9997
+# Encrypt the HTTP interface with TLS (HTTPS)
+APIEncryption: no
+# Path to the server key. This is needed only when encryption is enabled.
+# This can be generated with:
+# openssl genrsa -out server.key 2048
+# openssl req -new -x509 -sha256 -key server.key -out server.crt -days 3650
+APIServerKey: server.key
+# Path to the server certificates (or optional chain of certificates)
+APIServerCert: server.crt
 
 # Enable Prometheus-compatible metrics.
 metrics: no
