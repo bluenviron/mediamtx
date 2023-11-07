@@ -221,7 +221,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		data, err := m.webRTCManager.apiSessionsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
-				tags := "{id=\"" + i.ID.String() + "\"}"
+				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
 				out += metric("webrtc_sessions", tags, 1)
 				out += metric("webrtc_sessions_bytes_received", tags, int64(i.BytesReceived))
 				out += metric("webrtc_sessions_bytes_sent", tags, int64(i.BytesSent))

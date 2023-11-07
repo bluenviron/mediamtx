@@ -220,11 +220,11 @@ webrtc_sessions_bytes_sent 0
 			`hls_muxers\{name=".*?"\} 1`+"\n"+
 			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
 			`hls_muxers\{name=".*?"\} 1`+"\n"+
-			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+			`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 			`hls_muxers\{name=".*?"\} 1`+"\n"+
-			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+			`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 			`hls_muxers\{name=".*?"\} 1`+"\n"+
-			`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+			`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 			`rtsp_conns\{id=".*?"\} 1`+"\n"+
 			`rtsp_conns_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
 			`rtsp_conns_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
@@ -243,9 +243,9 @@ webrtc_sessions_bytes_sent 0
 			`srt_conns\{id=".*?",state="publish"\} 1`+"\n"+
 			`srt_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			`srt_conns_bytes_sent\{id=".*?",state="publish"\} 0`+"\n"+
-			`webrtc_sessions\{id=".*?"\} 1`+"\n"+
-			`webrtc_sessions_bytes_received\{id=".*?"\} [0-9]+`+"\n"+
-			`webrtc_sessions_bytes_sent\{id=".*?"\} [0-9]+`+"\n"+
+			`webrtc_sessions\{id=".*?",state="publish"\} 1`+"\n"+
+			`webrtc_sessions_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+			`webrtc_sessions_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 			"$",
 		string(bo))
 

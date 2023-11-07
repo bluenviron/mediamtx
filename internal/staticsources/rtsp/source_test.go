@@ -119,7 +119,7 @@ var testMediaH264 = &description.Media{
 	}},
 }
 
-func TestRTSPSource(t *testing.T) {
+func TestSource(t *testing.T) {
 	for _, source := range []string{
 		"udp",
 		"tcp",
