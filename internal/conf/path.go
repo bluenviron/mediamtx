@@ -144,6 +144,9 @@ type Path struct {
 	RunOnUnread                string         `json:"runOnUnread"`
 	RunOnRecordSegmentCreate   string         `json:"runOnRecordSegmentCreate"`
 	RunOnRecordSegmentComplete string         `json:"runOnRecordSegmentComplete"`
+
+	//Extras 
+	Metadata                   map[string]string `json:"metadata"`
 }
 
 func (pconf *Path) setDefaults() {
