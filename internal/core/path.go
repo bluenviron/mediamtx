@@ -718,6 +718,12 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				}
 				return pa.stream.BytesReceived()
 			}(),
+			BytesSent: func() uint64 {
+				if pa.stream == nil {
+					return 0
+				}
+				return pa.stream.BytesSent()
+			}(),
 			Readers: func() []defs.APIPathSourceOrReader {
 				ret := []defs.APIPathSourceOrReader{}
 				for r := range pa.readers {

@@ -1450,6 +1450,7 @@ Obtaining:
 # metrics of every path
 paths{name="[path_name]",state="[state]"} 1
 paths_bytes_received{name="[path_name]",state="[state]"} 1234
+paths_bytes_sent{name="[path_name]",state="[state]"} 1234
 
 # metrics of every HLS muxer
 hls_muxers{name="[name]"} 1
@@ -1479,6 +1480,11 @@ rtsps_sessions_bytes_sent{id="[id]",state="[state]"} 187
 rtmp_conns{id="[id]",state="[state]"} 1
 rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
+
+# metrics of every SRT connection
+srt_conns{id="[id]",state="[state]"} 1
+srt_conns_bytes_received{id="[id]",state="[state]"} 1234
+srt_conns_bytes_sent{id="[id]",state="[state]"} 187
 
 # metrics of every WebRTC session
 webrtc_sessions{id="[id]"} 1

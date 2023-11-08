@@ -395,6 +395,9 @@ components:
         bytesReceived:
           type: integer
           format: int64
+        bytesSent:
+          type: integer
+          format: int64
         readers:
           type: array
           items:
