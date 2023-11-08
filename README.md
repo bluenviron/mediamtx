@@ -1487,7 +1487,7 @@ srt_conns_bytes_received{id="[id]",state="[state]"} 1234
 srt_conns_bytes_sent{id="[id]",state="[state]"} 187
 
 # metrics of every WebRTC session
-webrtc_sessions{id="[id]"} 1
+webrtc_sessions{id="[id]",state="[state]"} 1
 webrtc_sessions_bytes_received{id="[id]",state="[state]"} 1234
 webrtc_sessions_bytes_sent{id="[id]",state="[state]"} 187
 ```
