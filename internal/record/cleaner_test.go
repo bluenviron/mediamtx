@@ -20,15 +20,15 @@ func TestCleaner(t *testing.T) {
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
 
-	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+	recordPath := filepath.Join(dir, "_-+*?^$()[]{}|_%path/%Y-%m-%d_%H-%M-%S-%f")
 
-	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	err = os.Mkdir(filepath.Join(dir, "_-+*?^$()[]{}|_mypath"), 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000125.mp4"), []byte{1}, 0o644)
+	err = os.WriteFile(filepath.Join(dir, "_-+*?^$()[]{}|_mypath", "2008-05-20_22-15-25-000125.mp4"), []byte{1}, 0o644)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath", "2009-05-20_22-15-25-000427.mp4"), []byte{1}, 0o644)
+	err = os.WriteFile(filepath.Join(dir, "_-+*?^$()[]{}|_mypath", "2009-05-20_22-15-25-000427.mp4"), []byte{1}, 0o644)
 	require.NoError(t, err)
 
 	c := NewCleaner(
@@ -43,9 +43,9 @@ func TestCleaner(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
-	_, err = os.Stat(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000125.mp4"))
+	_, err = os.Stat(filepath.Join(dir, "_-+*?^$()[]{}|_mypath", "2008-05-20_22-15-25-000125.mp4"))
 	require.Error(t, err)
 
-	_, err = os.Stat(filepath.Join(dir, "mypath", "2009-05-20_22-15-25-000427.mp4"))
+	_, err = os.Stat(filepath.Join(dir, "_-+*?^$()[]{}|_mypath", "2009-05-20_22-15-25-000427.mp4"))
 	require.NoError(t, err)
 }
