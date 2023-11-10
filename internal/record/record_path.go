@@ -28,7 +28,26 @@ type recordPathParams struct {
 
 func decodeRecordPath(format string, v string) *recordPathParams {
 	re := format
-	re = strings.ReplaceAll(re, "\\", "\\\\")
+
+	for _, ch := range []uint8{
+		'\\',
+		'.',
+		'+',
+		'*',
+		'?',
+		'^',
+		'$',
+		'(',
+		')',
+		'[',
+		']',
+		'{',
+		'}',
+		'|',
+	} {
+		re = strings.ReplaceAll(re, string(ch), "\\"+string(ch))
+	}
+
 	re = strings.ReplaceAll(re, "%path", "(.*?)")
 	re = strings.ReplaceAll(re, "%Y", "([0-9]{4})")
 	re = strings.ReplaceAll(re, "%m", "([0-9]{2})")
