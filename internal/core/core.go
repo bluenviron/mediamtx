@@ -38,7 +38,7 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	out := make(map[record.CleanerEntry]struct{})
 
 	for _, pa := range paths {
-		if pa.Record {
+		if pa.Record && pa.RecordDeleteAfter != 0 {
 			entry := record.CleanerEntry{
 				RecordPath:        pa.RecordPath,
 				RecordFormat:      pa.RecordFormat,
