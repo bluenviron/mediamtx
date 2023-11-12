@@ -1,4 +1,4 @@
-name: issue-lock
+name: issue_lock
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  issue-lock:
+  issue_lock:
     runs-on: ubuntu-latest
 
     steps:

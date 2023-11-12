@@ -1,11 +1,11 @@
-name: issue-lint
+name: issue_lint
 
 on:
   issues:
     types: [opened]
 
 jobs:
-  issue-lint:
+  issue_lint:
     runs-on: ubuntu-latest
 
     steps:
