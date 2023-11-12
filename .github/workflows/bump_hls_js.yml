@@ -1,4 +1,4 @@
-name: bump-hls-js
+name: bump_hls_js
 
 on:
   schedule:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  bump-hls-js:
+  bump_hls_js:
     runs-on: ubuntu-20.04
 
     steps:
