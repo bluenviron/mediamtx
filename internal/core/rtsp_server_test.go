@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
@@ -70,7 +70,7 @@ func TestRTSPServer(t *testing.T) {
 
 			reader := gortsplib.Client{}
 
-			u, err := url.Parse("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
+			u, err := base.ParseURL("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
 			require.NoError(t, err)
 
 			err = reader.Start(u.Scheme, u.Host)
@@ -191,7 +191,7 @@ func TestRTSPServerAuthFail(t *testing.T) {
 
 			c := gortsplib.Client{}
 
-			u, err := url.Parse("rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream")
+			u, err := base.ParseURL("rtsp://" + ca.user + ":" + ca.pass + "@localhost:8554/test/stream")
 			require.NoError(t, err)
 
 			err = c.Start(u.Scheme, u.Host)
@@ -288,7 +288,7 @@ func TestRTSPServerPublisherOverride(t *testing.T) {
 
 			c := gortsplib.Client{}
 
-			u, err := url.Parse("rtsp://localhost:8554/teststream")
+			u, err := base.ParseURL("rtsp://localhost:8554/teststream")
 			require.NoError(t, err)
 
 			err = c.Start(u.Scheme, u.Host)
@@ -378,7 +378,7 @@ func TestRTSPServerFallback(t *testing.T) {
 			require.NoError(t, err)
 			defer source.Close()
 
-			u, err := url.Parse("rtsp://localhost:8554/path1")
+			u, err := base.ParseURL("rtsp://localhost:8554/path1")
 			require.NoError(t, err)
 
 			dest := gortsplib.Client{}

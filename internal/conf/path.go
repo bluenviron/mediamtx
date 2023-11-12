@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
@@ -244,7 +244,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source. use another path")
 		}
 
-		_, err := url.Parse(pconf.Source)
+		_, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
 		}
@@ -398,7 +398,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
 			}
 		} else {
-			_, err := url.Parse(pconf.Fallback)
+			_, err := base.ParseURL(pconf.Fallback)
 			if err != nil {
 				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
 			}
@@ -431,7 +431,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 			return fmt.Errorf("source redirect must be filled")
 		}
 
-		_, err := url.Parse(pconf.SourceRedirect)
+		_, err := base.ParseURL(pconf.SourceRedirect)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.SourceRedirect)
 		}
