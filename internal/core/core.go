@@ -472,26 +472,29 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.WebRTC &&
 		p.webRTCManager == nil {
-		p.webRTCManager, err = newWebRTCManager(
-			p.conf.WebRTCAddress,
-			p.conf.WebRTCEncryption,
-			p.conf.WebRTCServerKey,
-			p.conf.WebRTCServerCert,
-			p.conf.WebRTCAllowOrigin,
-			p.conf.WebRTCTrustedProxies,
-			p.conf.WebRTCICEServers2,
-			p.conf.ReadTimeout,
-			p.conf.WriteQueueSize,
-			p.conf.WebRTCICEInterfaces,
-			p.conf.WebRTCICEHostNAT1To1IPs,
-			p.conf.WebRTCICEUDPMuxAddress,
-			p.conf.WebRTCICETCPMuxAddress,
-			p.externalCmdPool,
-			p.pathManager,
-			p.metrics,
-			p,
-		)
+		p.webRTCManager = &webRTCManager{
+			Address:               p.conf.WebRTCAddress,
+			Encryption:            p.conf.WebRTCEncryption,
+			ServerKey:             p.conf.WebRTCServerKey,
+			ServerCert:            p.conf.WebRTCServerCert,
+			AllowOrigin:           p.conf.WebRTCAllowOrigin,
+			TrustedProxies:        p.conf.WebRTCTrustedProxies,
+			ReadTimeout:           p.conf.ReadTimeout,
+			WriteQueueSize:        p.conf.WriteQueueSize,
+			LocalUDPAddress:       p.conf.WebRTCLocalUDPAddress,
+			LocalTCPAddress:       p.conf.WebRTCLocalTCPAddress,
+			IPsFromInterfaces:     p.conf.WebRTCIPsFromInterfaces,
+			IPsFromInterfacesList: p.conf.WebRTCIPsFromInterfacesList,
+			AdditionalHosts:       p.conf.WebRTCAdditionalHosts,
+			ICEServers:            p.conf.WebRTCICEServers2,
+			ExternalCmdPool:       p.externalCmdPool,
+			PathManager:           p.pathManager,
+			Metrics:               p.metrics,
+			Parent:                p,
+		}
+		err = p.webRTCManager.initialize()
 		if err != nil {
+			p.webRTCManager = nil
 			return err
 		}
 	}
@@ -689,13 +692,14 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.WebRTCServerCert != p.conf.WebRTCServerCert ||
 		newConf.WebRTCAllowOrigin != p.conf.WebRTCAllowOrigin ||
 		!reflect.DeepEqual(newConf.WebRTCTrustedProxies, p.conf.WebRTCTrustedProxies) ||
-		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
-		!reflect.DeepEqual(newConf.WebRTCICEInterfaces, p.conf.WebRTCICEInterfaces) ||
-		!reflect.DeepEqual(newConf.WebRTCICEHostNAT1To1IPs, p.conf.WebRTCICEHostNAT1To1IPs) ||
-		newConf.WebRTCICEUDPMuxAddress != p.conf.WebRTCICEUDPMuxAddress ||
-		newConf.WebRTCICETCPMuxAddress != p.conf.WebRTCICETCPMuxAddress ||
+		newConf.WebRTCLocalUDPAddress != p.conf.WebRTCLocalUDPAddress ||
+		newConf.WebRTCLocalTCPAddress != p.conf.WebRTCLocalTCPAddress ||
+		newConf.WebRTCIPsFromInterfaces != p.conf.WebRTCIPsFromInterfaces ||
+		!reflect.DeepEqual(newConf.WebRTCIPsFromInterfacesList, p.conf.WebRTCIPsFromInterfacesList) ||
+		!reflect.DeepEqual(newConf.WebRTCAdditionalHosts, p.conf.WebRTCAdditionalHosts) ||
+		!reflect.DeepEqual(newConf.WebRTCICEServers2, p.conf.WebRTCICEServers2) ||
 		closeMetrics ||
 		closePathManager ||
 		closeLogger

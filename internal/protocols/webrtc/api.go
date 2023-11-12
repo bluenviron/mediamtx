@@ -99,34 +99,44 @@ var audioCodecs = []webrtc.RTPCodecParameters{
 
 // APIConf is the configuration passed to NewAPI().
 type APIConf struct {
-	ICEInterfaces     []string
-	ICEHostNAT1To1IPs []string
-	ICEUDPMux         ice.UDPMux
-	ICETCPMux         ice.TCPMux
+	ICEUDPMux             ice.UDPMux
+	ICETCPMux             ice.TCPMux
+	LocalRandomUDP        bool
+	IPsFromInterfaces     bool
+	IPsFromInterfacesList []string
+	AdditionalHosts       []string
 }
 
 // NewAPI allocates a webrtc API.
-func NewAPI(conf APIConf) (*webrtc.API, error) {
+func NewAPI(cnf APIConf) (*webrtc.API, error) {
 	settingsEngine := webrtc.SettingEngine{}
 
-	if len(conf.ICEInterfaces) != 0 {
-		settingsEngine.SetInterfaceFilter(func(iface string) bool {
-			return stringInSlice(iface, conf.ICEInterfaces)
-		})
+	settingsEngine.SetInterfaceFilter(func(iface string) bool {
+		return cnf.IPsFromInterfaces && (len(cnf.IPsFromInterfacesList) == 0 ||
+			stringInSlice(iface, cnf.IPsFromInterfacesList))
+	})
+
+	settingsEngine.SetAdditionalHosts(cnf.AdditionalHosts)
+
+	var networkTypes []webrtc.NetworkType
+
+	// always enable UDP in order to support STUN/TURN
+	networkTypes = append(networkTypes, webrtc.NetworkTypeUDP4)
+
+	if cnf.ICEUDPMux != nil {
+		settingsEngine.SetICEUDPMux(cnf.ICEUDPMux)
 	}
 
-	if len(conf.ICEHostNAT1To1IPs) != 0 {
-		settingsEngine.SetNAT1To1IPs(conf.ICEHostNAT1To1IPs, webrtc.ICECandidateTypeHost)
+	if cnf.ICETCPMux != nil {
+		settingsEngine.SetICETCPMux(cnf.ICETCPMux)
+		networkTypes = append(networkTypes, webrtc.NetworkTypeTCP4)
 	}
 
-	if conf.ICEUDPMux != nil {
-		settingsEngine.SetICEUDPMux(conf.ICEUDPMux)
+	if cnf.LocalRandomUDP {
+		settingsEngine.SetICEUDPRandom(true)
 	}
 
-	if conf.ICETCPMux != nil {
-		settingsEngine.SetICETCPMux(conf.ICETCPMux)
-		settingsEngine.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeTCP4})
-	}
+	settingsEngine.SetNetworkTypes(networkTypes)
 
 	mediaEngine := &webrtc.MediaEngine{}
 
