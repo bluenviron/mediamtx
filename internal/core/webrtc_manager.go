@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pion/ice/v2"
+	"github.com/pion/logging"
 	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -31,6 +32,14 @@ const (
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 )
+
+type nilWriter struct{}
+
+func (nilWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+var webrtcNilLogger = logging.NewDefaultLeveledLoggerForScope("", 0, &nilWriter{})
 
 func randInt63() (int64, error) {
 	var b [8]byte
@@ -257,7 +266,7 @@ func newWebRTCManager(
 			ctxCancel()
 			return nil, err
 		}
-		iceUDPMux = pwebrtc.NewICEUDPMux(nil, m.udpMuxLn)
+		iceUDPMux = pwebrtc.NewICEUDPMux(webrtcNilLogger, m.udpMuxLn)
 	}
 
 	var iceTCPMux ice.TCPMux
@@ -270,7 +279,7 @@ func newWebRTCManager(
 			ctxCancel()
 			return nil, err
 		}
-		iceTCPMux = pwebrtc.NewICETCPMux(nil, m.tcpMuxLn, 8)
+		iceTCPMux = pwebrtc.NewICETCPMux(webrtcNilLogger, m.tcpMuxLn, 8)
 	}
 
 	m.api, err = webrtc.NewAPI(webrtc.APIConf{
