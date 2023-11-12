@@ -20,6 +20,7 @@ require (
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/ice/v2 v2.3.11
 	github.com/pion/interceptor v0.1.25
+	github.com/pion/logging v0.2.2
 	github.com/pion/rtcp v1.2.12
 	github.com/pion/rtp v1.8.3
 	github.com/pion/sdp/v3 v3.0.6
@@ -52,7 +53,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.2.7 // indirect
-	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.8 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
 	github.com/pion/sctp v1.8.8 // indirect
