@@ -11,7 +11,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -66,7 +65,7 @@ type pathAccessRequest struct {
 	proto       authProtocol
 	id          *uuid.UUID
 	rtspRequest *base.Request
-	rtspBaseURL *url.URL
+	rtspBaseURL *base.URL
 	rtspNonce   string
 }
 
@@ -555,7 +554,7 @@ func (pa *path) doDescribe(req pathDescribeReq) {
 	if pa.conf.Fallback != "" {
 		fallbackURL := func() string {
 			if strings.HasPrefix(pa.conf.Fallback, "/") {
-				ur := url.URL{
+				ur := base.URL{
 					Scheme: req.accessRequest.rtspRequest.URL.Scheme,
 					User:   req.accessRequest.rtspRequest.URL.User,
 					Host:   req.accessRequest.rtspRequest.URL.Host,

@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/pion/rtp"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -104,7 +103,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		},
 	}
 
-	u, err := url.Parse(params.Conf.Source)
+	u, err := base.ParseURL(params.Conf.Source)
 	if err != nil {
 		return err
 	}

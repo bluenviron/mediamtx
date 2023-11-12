@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	rtspurl "github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/pion/rtp"
 	pwebrtc "github.com/pion/webrtc/v3"
 	"github.com/stretchr/testify/require"
@@ -317,7 +317,7 @@ func TestWebRTCPublish(t *testing.T) {
 				},
 			}
 
-			u, err := rtspurl.Parse("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
+			u, err := base.ParseURL("rtsp://testreader:testpass@127.0.0.1:8554/teststream?param=value")
 			require.NoError(t, err)
 
 			err = c.Start(u.Scheme, u.Host)
