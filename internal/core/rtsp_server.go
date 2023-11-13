@@ -303,6 +303,13 @@ func (s *rtspServer) OnAnnounce(ctx *gortsplib.ServerHandlerOnAnnounceCtx) (*bas
 func (s *rtspServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 	c := ctx.Conn.UserData().(*rtspConn)
 	se := ctx.Session.UserData().(*rtspSession)
+	se.query = ctx.Query
+	var auth headers.Authorization
+	err := auth.Unmarshal(ctx.Request.Header["Authorization"])
+	if err == nil && auth.Method == headers.AuthBasic {
+		se.username = auth.BasicUser
+		se.password = auth.BasicPass
+	}
 	return se.onSetup(c, ctx)
 }
 

@@ -49,6 +49,9 @@ type rtspSession struct {
 	state           gortsplib.ServerSessionState
 	transport       *gortsplib.Transport
 	pathName        string
+	query           string
+	username        string
+	password        string
 	decodeErrLogger logger.Writer
 	writeErrLogger  logger.Writer
 }
@@ -429,7 +432,8 @@ func (s *rtspSession) apiItem() *defs.APIRTSPSession {
 			}
 			return defs.APIRTSPSessionStateIdle
 		}(),
-		Path: s.pathName,
+		Path:  s.pathName,
+		Query: s.query,
 		Transport: func() *string {
 			if s.transport == nil {
 				return nil
@@ -439,5 +443,7 @@ func (s *rtspSession) apiItem() *defs.APIRTSPSession {
 		}(),
 		BytesReceived: s.session.BytesReceived(),
 		BytesSent:     s.session.BytesSent(),
+		Username:      s.username,
+		Password:      s.password,
 	}
 }
