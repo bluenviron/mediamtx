@@ -21,13 +21,13 @@ import (
 
 func TestWebRTCPages(t *testing.T) {
 	p, ok := newInstance("paths:\n" +
-		"  stream:\n")
+		"  all:\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	for _, path := range []string{"/stream", "/stream/publish"} {
+	for _, path := range []string{"/stream", "/stream/publish", "/publish"} {
 		func() {
 			req, err := http.NewRequest(http.MethodGet, "http://localhost:8889"+path, nil)
 			require.NoError(t, err)

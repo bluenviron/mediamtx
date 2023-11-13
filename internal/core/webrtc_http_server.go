@@ -348,7 +348,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 
 		case len(ctx.Request.URL.Path) >= 2:
 			switch {
-			case strings.HasSuffix(ctx.Request.URL.Path, "/publish"):
+			case len(ctx.Request.URL.Path) > len("/publish") && strings.HasSuffix(ctx.Request.URL.Path, "/publish"):
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
