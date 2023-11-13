@@ -81,18 +81,24 @@ jobs:
             basehead: `${prevTag.commit.sha}...${curTag.commit.sha}`,
           });
 
+          const issues = {};
+
           for (const commit of diff.data.commits) {
             for (const match of commit.commit.message.matchAll(/(^| |\()#([0-9]+)( |\)|$)/g)) {
-              try {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: parseInt(match[2]),
-                  body: `This issue is mentioned in release ${curTag.name} 🚀\n`
-                    + `Check out the entire changelog by [clicking here](https://github.com/${owner}/${repo}/releases/tag/${curTag.name})`,
-                });
-              } catch (exc) {}
+              issues[match[2]] = 1;
             }
+          }
+
+          for (const issue in issues) {
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: parseInt(issue),
+                body: `This issue is mentioned in release ${curTag.name} 🚀\n`
+                  + `Check out the entire changelog by [clicking here](https://github.com/${owner}/${repo}/releases/tag/${curTag.name})`,
+              });
+            } catch (exc) {}
           }
 
   dockerhub:
