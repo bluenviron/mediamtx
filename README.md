@@ -1602,10 +1602,10 @@ Be aware that RTMPS is currently unsupported by all major players. However, you 
 
 If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
 
-Make sure that `webrtcAdditionalHosts` includes your public IP, that is the IP that can be used by clients to reach the server. If clients are on the same LAN as the server, then it's the LAN address of the server, otherwise it's the public internet IP of the server:
+Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, then insert the LAN address of the server. If clients are coming from the internet, insert the public IP address of the server, or alternatively a DNS name, if you have one. You can insert multiple values to support all scenarios:
 
 ```yml
-webrtcAdditionalHosts: [192.168.x.x]
+webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
 ```
 
 If there's a NAT / container between server and clients, it must be configured to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
