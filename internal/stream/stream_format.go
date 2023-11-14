@@ -85,7 +85,9 @@ func (sf *streamFormat) writeRTPPacket(
 }
 
 func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u unit.Unit) {
-	atomic.AddUint64(s.bytesReceived, unitSize(u))
+	size := unitSize(u)
+
+	atomic.AddUint64(s.bytesReceived, size)
 
 	if s.rtspStream != nil {
 		for _, pkt := range u.GetRTPPackets() {
@@ -102,6 +104,7 @@ func (sf *streamFormat) writeUnitInner(s *Stream, medi *description.Media, u uni
 	for writer, cb := range sf.readers {
 		ccb := cb
 		writer.Push(func() error {
+			atomic.AddUint64(s.bytesSent, size)
 			return ccb(u)
 		})
 	}

@@ -33,7 +33,10 @@ func (c *WHIPClient) Publish(
 		return nil, err
 	}
 
-	api, err := NewAPI(APIConf{})
+	api, err := NewAPI(APIConf{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +116,10 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 		return nil, err
 	}
 
-	api, err := NewAPI(APIConf{})
+	api, err := NewAPI(APIConf{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+	})
 	if err != nil {
 		return nil, err
 	}

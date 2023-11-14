@@ -422,6 +422,7 @@ func TestAPIPathsList(t *testing.T) {
 		Ready         bool       `json:"ready"`
 		Tracks        []string   `json:"tracks"`
 		BytesReceived uint64     `json:"bytesReceived"`
+		BytesSent     uint64     `json:"bytesSent"`
 	}
 
 	type pathList struct {
@@ -625,6 +626,7 @@ func TestAPIPathsGet(t *testing.T) {
 				Ready         bool       `json:"Ready"`
 				Tracks        []string   `json:"tracks"`
 				BytesReceived uint64     `json:"bytesReceived"`
+				BytesSent     uint64     `json:"bytesSent"`
 			}
 
 			var pathName string

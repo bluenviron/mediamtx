@@ -119,6 +119,10 @@ func (c *Cleaner) doRun() {
 func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
 	recordPath := e.RecordPath
 
+	// we have to convert to absolute paths
+	// otherwise, commonPath and fpath inside Walk() won't have common elements
+	recordPath, _ = filepath.Abs(recordPath)
+
 	switch e.RecordFormat {
 	case conf.RecordFormatMPEGTS:
 		recordPath += ".ts"
@@ -130,17 +134,17 @@ func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
 	commonPath := commonPath(recordPath)
 	now := timeNow()
 
-	filepath.Walk(commonPath, func(path string, info fs.FileInfo, err error) error { //nolint:errcheck
+	filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error { //nolint:errcheck
 		if err != nil {
 			return err
 		}
 
 		if !info.IsDir() {
-			params := decodeRecordPath(recordPath, path)
+			params := decodeRecordPath(recordPath, fpath)
 			if params != nil {
 				if now.Sub(params.time) > e.RecordDeleteAfter {
-					c.Log(logger.Debug, "removing %s", path)
-					os.Remove(path)
+					c.Log(logger.Debug, "removing %s", fpath)
+					os.Remove(fpath)
 				}
 			}
 		}
@@ -148,13 +152,13 @@ func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
 		return nil
 	})
 
-	filepath.Walk(commonPath, func(path string, info fs.FileInfo, err error) error { //nolint:errcheck
+	filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error { //nolint:errcheck
 		if err != nil {
 			return err
 		}
 
 		if info.IsDir() {
-			os.Remove(path)
+			os.Remove(fpath)
 		}
 
 		return nil

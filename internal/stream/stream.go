@@ -24,6 +24,7 @@ type Stream struct {
 	desc *description.Session
 
 	bytesReceived *uint64
+	bytesSent     *uint64
 	smedias       map[*description.Media]*streamMedia
 	mutex         sync.RWMutex
 	rtspStream    *gortsplib.ServerStream
@@ -40,6 +41,7 @@ func New(
 	s := &Stream{
 		desc:          desc,
 		bytesReceived: new(uint64),
+		bytesSent:     new(uint64),
 	}
 
 	s.smedias = make(map[*description.Media]*streamMedia)
@@ -73,6 +75,21 @@ func (s *Stream) Desc() *description.Session {
 // BytesReceived returns received bytes.
 func (s *Stream) BytesReceived() uint64 {
 	return atomic.LoadUint64(s.bytesReceived)
+}
+
+// BytesSent returns sent bytes.
+func (s *Stream) BytesSent() uint64 {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	bytesSent := atomic.LoadUint64(s.bytesSent)
+	if s.rtspStream != nil {
+		bytesSent += s.rtspStream.BytesSent()
+	}
+	if s.rtspsStream != nil {
+		bytesSent += s.rtspsStream.BytesSent()
+	}
+	return bytesSent
 }
 
 // RTSPStream returns the RTSP stream.

@@ -1,4 +1,4 @@
-name: test
+name: code_test
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test64:
+  test_64:
     runs-on: ubuntu-22.04
 
     steps:
@@ -19,7 +19,7 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
-  test32:
+  test_32:
     runs-on: ubuntu-22.04
 
     steps:

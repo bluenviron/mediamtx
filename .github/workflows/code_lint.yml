@@ -1,4 +1,4 @@
-name: lint
+name: code_lint
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  code:
+  golangci_lint:
     runs-on: ubuntu-22.04
 
     steps:
@@ -21,7 +21,7 @@ jobs:
       with:
         version: v1.55.0
 
-  mod-tidy:
+  mod_tidy:
     runs-on: ubuntu-22.04
 
     steps:
@@ -35,7 +35,7 @@ jobs:
         go mod tidy
         git diff --exit-code
 
-  apidocs:
+  api_docs:
     runs-on: ubuntu-22.04
 
     steps:

@@ -10,7 +10,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
 
@@ -199,7 +198,7 @@ func (s *rtspSession) onSetup(c *rtspConn, ctx *gortsplib.ServerHandlerOnSetupCt
 
 	switch s.session.State() {
 	case gortsplib.ServerSessionStateInitial, gortsplib.ServerSessionStatePrePlay: // play
-		baseURL := &url.URL{
+		baseURL := &base.URL{
 			Scheme:   ctx.Request.URL.Scheme,
 			Host:     ctx.Request.URL.Host,
 			Path:     ctx.Path,

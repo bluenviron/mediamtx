@@ -19,7 +19,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/gortsplib/v4/pkg/sdp"
-	rtspurl "github.com/bluenviron/gortsplib/v4/pkg/url"
 	"github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -84,7 +83,7 @@ func main() {
 
 func TestPathRunOnDemand(t *testing.T) {
 	onDemandFile := filepath.Join(os.TempDir(), "ondemand")
-	onUnDemandFile := filepath.Join(os.TempDir(), "ondisconnect")
+	onUnDemandFile := filepath.Join(os.TempDir(), "onundemand")
 
 	srcFile := filepath.Join(os.TempDir(), "ondemand.go")
 	err := os.WriteFile(srcFile,
@@ -126,7 +125,7 @@ func TestPathRunOnDemand(t *testing.T) {
 				br := bufio.NewReader(conn)
 
 				if ca == "describe" || ca == "describe and setup" {
-					u, err := rtspurl.Parse("rtsp://localhost:8554/ondemand?param=value")
+					u, err := base.ParseURL("rtsp://localhost:8554/ondemand?param=value")
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -153,7 +152,7 @@ func TestPathRunOnDemand(t *testing.T) {
 				}
 
 				if ca == "setup" || ca == "describe and setup" {
-					u, err := rtspurl.Parse(control)
+					u, err := base.ParseURL(control)
 					require.NoError(t, err)
 
 					byts, _ := base.Request{
@@ -182,14 +181,14 @@ func TestPathRunOnDemand(t *testing.T) {
 			}()
 
 			for {
-				_, err := os.Stat(onDemandFile)
+				_, err := os.Stat(onUnDemandFile)
 				if err == nil {
 					break
 				}
 				time.Sleep(100 * time.Millisecond)
 			}
 
-			_, err := os.Stat(onUnDemandFile)
+			_, err := os.Stat(onDemandFile)
 			require.NoError(t, err)
 		})
 	}
@@ -328,7 +327,7 @@ func TestPathRunOnRead(t *testing.T) {
 				case "rtsp":
 					reader := gortsplib.Client{}
 
-					u, err := rtspurl.Parse("rtsp://127.0.0.1:8554/test?query=value")
+					u, err := base.ParseURL("rtsp://127.0.0.1:8554/test?query=value")
 					require.NoError(t, err)
 
 					err = reader.Start(u.Scheme, u.Host)
@@ -428,7 +427,7 @@ func TestPathMaxReaders(t *testing.T) {
 	for i := 0; i < 2; i++ {
 		reader := gortsplib.Client{}
 
-		u, err := rtspurl.Parse("rtsp://127.0.0.1:8554/mystream")
+		u, err := base.ParseURL("rtsp://127.0.0.1:8554/mystream")
 		require.NoError(t, err)
 
 		err = reader.Start(u.Scheme, u.Host)

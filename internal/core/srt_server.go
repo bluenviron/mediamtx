@@ -67,6 +67,7 @@ type srtServer struct {
 	runOnConnectRestart bool
 	runOnDisconnect     string
 	externalCmdPool     *externalcmd.Pool
+	metrics             *metrics
 	pathManager         *pathManager
 	parent              srtServerParent
 
@@ -96,6 +97,7 @@ func newSRTServer(
 	runOnConnectRestart bool,
 	runOnDisconnect string,
 	externalCmdPool *externalcmd.Pool,
+	metrics *metrics,
 	pathManager *pathManager,
 	parent srtServerParent,
 ) (*srtServer, error) {
@@ -120,6 +122,7 @@ func newSRTServer(
 		runOnConnectRestart: runOnConnectRestart,
 		runOnDisconnect:     runOnDisconnect,
 		externalCmdPool:     externalCmdPool,
+		metrics:             metrics,
 		pathManager:         pathManager,
 		parent:              parent,
 		ctx:                 ctx,
@@ -135,6 +138,10 @@ func newSRTServer(
 	}
 
 	s.Log(logger.Info, "listener opened on "+address+" (UDP)")
+
+	if s.metrics != nil {
+		s.metrics.srtServerSet(s)
+	}
 
 	newSRTListener(
 		s.ln,

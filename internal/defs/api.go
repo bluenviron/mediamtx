@@ -35,6 +35,7 @@ type APIPath struct {
 	ReadyTime     *time.Time              `json:"readyTime"`
 	Tracks        []string                `json:"tracks"`
 	BytesReceived uint64                  `json:"bytesReceived"`
+	BytesSent     uint64                  `json:"bytesSent"`
 	Readers       []APIPathSourceOrReader `json:"readers"`
 }
 

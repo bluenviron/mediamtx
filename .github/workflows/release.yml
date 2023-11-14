@@ -19,13 +19,11 @@ jobs:
         name: binaries
         path: binaries
 
-  github:
+  github_release:
     needs: binaries
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v3
-
     - uses: actions/download-artifact@v3
       with:
         name: binaries
@@ -58,6 +56,51 @@ jobs:
             });
           }
 
+  github_inform_issues:
+    needs: github_release
+    runs-on: ubuntu-22.04
+
+    steps:
+    - uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { repo: { owner, repo } } = context;
+
+          const tags = await github.rest.repos.listTags({
+            owner,
+            repo,
+          });
+
+          const curTag = tags.data[0];
+          const prevTag = tags.data[1];
+
+          const diff = await github.rest.repos.compareCommitsWithBasehead({
+            owner,
+            repo,
+            basehead: `${prevTag.commit.sha}...${curTag.commit.sha}`,
+          });
+
+          const issues = {};
+
+          for (const commit of diff.data.commits) {
+            for (const match of commit.commit.message.matchAll(/(^| |\()#([0-9]+)( |\)|$)/g)) {
+              issues[match[2]] = 1;
+            }
+          }
+
+          for (const issue in issues) {
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: parseInt(issue),
+                body: `This issue is mentioned in release ${curTag.name} 🚀\n`
+                  + `Check out the entire changelog by [clicking here](https://github.com/${owner}/${repo}/releases/tag/${curTag.name})`,
+              });
+            } catch (exc) {}
+          }
+
   dockerhub:
     needs: binaries
     runs-on: ubuntu-22.04
@@ -87,7 +130,7 @@ jobs:
         DOCKER_USER_LEGACY: ${{ secrets.DOCKER_USER_LEGACY }}
         DOCKER_PASSWORD_LEGACY: ${{ secrets.DOCKER_PASSWORD_LEGACY }}
 
-  apidocs:
+  api_docs:
     needs: binaries
     runs-on: ubuntu-22.04
 

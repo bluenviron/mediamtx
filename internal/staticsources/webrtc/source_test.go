@@ -27,7 +27,10 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 }
 
 func TestSource(t *testing.T) {
-	api, err := webrtc.NewAPI(webrtc.APIConf{})
+	api, err := webrtc.NewAPI(webrtc.APIConf{
+		LocalRandomUDP:    true,
+		IPsFromInterfaces: true,
+	})
 	require.NoError(t, err)
 
 	pc := &webrtc.PeerConnection{

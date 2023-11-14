@@ -190,7 +190,7 @@ hlsDirectory: ''
 
 # Allow publishing and reading streams with the WebRTC protocol.
 webrtc: yes
-# Address of the WebRTC listener.
+# Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
 # Enable TLS/HTTPS on the WebRTC server.
 webrtcEncryption: no
@@ -208,34 +208,30 @@ webrtcAllowOrigin: '*'
 # If the server receives a request from one of these entries, IP in logs
 # will be taken from the X-Forwarded-For header.
 webrtcTrustedProxies: []
-# List of ICE servers.
-webrtcICEServers2:
-  # URL can point to a STUN, TURN or TURNS server.
-  # STUN servers are used to obtain the public IP of server and clients. They are
-  # needed when server and clients are on different LANs.
-  # TURN/TURNS servers are needed when a direct connection between server and
-  # clients is not possible. All traffic is routed through them.
-- url: stun:stun.l.google.com:19302
+# Address of a local UDP listener that will receive connections.
+# Use a blank string to disable.
+webrtcLocalUDPAddress: :8189
+# Address of a local TCP listener that will receive connections.
+# This is disabled by default since TCP is less efficient than UDP and
+# introduces a progressive delay when network is congested.
+webrtcLocalTCPAddress: ''
+# WebRTC clients need to know the IP of the server.
+# Gather IPs from interfaces and send them to clients.
+webrtcIPsFromInterfaces: yes
+# List of interfaces whose IPs will be sent to clients.
+# An empty value means to use all available interfaces.
+webrtcIPsFromInterfacesList: []
+# List of additional hosts or IPs to send to clients.
+webrtcAdditionalHosts: []
+# ICE servers. Needed only when local listeners can't be reached by clients.
+# STUN servers allows to obtain and share the public IP of the server.
+# TURN/TURNS servers forces all traffic through them.
+webrtcICEServers2: []
+  # - url: stun:stun.l.google.com:19302
   # if user is "AUTH_SECRET", then authentication is secret based.
   # the secret must be inserted into the password field.
-  username: ''
-  password: ''
-# List of interfaces whose IPs will be sent to clients
-# to establish a connection. An empty list means all interfaces.
-webrtcICEInterfaces: []
-# List of public IP addresses that are to be used as a host.
-# This is used typically for servers that are behind 1:1 D-NAT.
-webrtcICEHostNAT1To1IPs: []
-# Address of a ICE UDP listener in format host:port.
-# If filled, ICE traffic will pass through a single UDP port,
-# allowing the deployment of the server inside a container or behind a NAT.
-webrtcICEUDPMuxAddress:
-# Address of a ICE TCP listener in format host:port.
-# If filled, ICE traffic will pass through a single TCP port,
-# allowing the deployment of the server inside a container or behind a NAT.
-# Using this setting forces usage of the TCP protocol, which is not
-# optimal for WebRTC.
-webrtcICETCPMuxAddress:
+  # username: ''
+  # password: ''
 
 ###############################################
 # Global settings -> SRT
