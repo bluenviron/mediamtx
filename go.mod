@@ -8,7 +8,7 @@ require (
 	github.com/alecthomas/kong v0.8.1
 	github.com/aler9/writerseeker v1.1.0
 	github.com/bluenviron/gohlslib v1.0.5
-	github.com/bluenviron/gortsplib/v4 v4.5.0
+	github.com/bluenviron/gortsplib/v4 v4.6.0
 	github.com/bluenviron/mediacommon v1.5.0
 	github.com/datarhei/gosrt v0.5.4
 	github.com/fsnotify/fsnotify v1.7.0
