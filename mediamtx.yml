@@ -285,6 +285,9 @@ pathDefaults:
   maxReaders: 0
   # SRT encryption passphrase require to read from this path
   srtReadPassphrase:
+  # If the stream is not available, redirect readers to this path.
+  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
+  fallback:
 
   ###############################################
   # Default path settings -> Recording
@@ -335,9 +338,6 @@ pathDefaults:
 
   # Allow another client to disconnect the current publisher and publish in its place.
   overridePublisher: yes
-  # If no one is publishing, redirect readers to this path.
-  # It can be can be a relative path (i.e. /otherstream) or an absolute RTSP URL.
-  fallback:
   # SRT encryption passphrase required to publish to this path
   srtPublishPassphrase:
 

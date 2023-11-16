@@ -60,6 +60,7 @@ type Path struct {
 	SourceOnDemandCloseAfter   StringDuration `json:"sourceOnDemandCloseAfter"`
 	MaxReaders                 int            `json:"maxReaders"`
 	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
+	Fallback                   string         `json:"fallback"`
 
 	// Record
 	Record                bool           `json:"record"`
@@ -80,7 +81,6 @@ type Path struct {
 	// Publisher source
 	OverridePublisher        bool   `json:"overridePublisher"`
 	DisablePublisherOverride *bool  `json:"disablePublisherOverride,omitempty"` // deprecated
-	Fallback                 string `json:"fallback"`
 	SRTPublishPassphrase     string `json:"srtPublishPassphrase"`
 
 	// RTSP source
@@ -346,6 +346,19 @@ func (pconf *Path) check(conf *Conf, name string) error {
 			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
 		}
 	}
+	if pconf.Fallback != "" {
+		if strings.HasPrefix(pconf.Fallback, "/") {
+			err := IsValidPathName(pconf.Fallback[1:])
+			if err != nil {
+				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
+			}
+		} else {
+			_, err := base.ParseURL(pconf.Fallback)
+			if err != nil {
+				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
+			}
+		}
+	}
 
 	// Authentication
 
@@ -386,23 +399,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 	if pconf.DisablePublisherOverride != nil {
 		pconf.OverridePublisher = !*pconf.DisablePublisherOverride
-	}
-	if pconf.Fallback != "" {
-		if pconf.Source != "publisher" {
-			return fmt.Errorf("'fallback' can only be used when source is 'publisher'")
-		}
-
-		if strings.HasPrefix(pconf.Fallback, "/") {
-			err := IsValidPathName(pconf.Fallback[1:])
-			if err != nil {
-				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
-			}
-		} else {
-			_, err := base.ParseURL(pconf.Fallback)
-			if err != nil {
-				return fmt.Errorf("'%s' is not a valid RTSP URL", pconf.Fallback)
-			}
-		}
 	}
 	if pconf.SRTPublishPassphrase != "" {
 		if pconf.Source != "publisher" {
