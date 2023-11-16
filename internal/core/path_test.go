@@ -359,7 +359,7 @@ func TestPathRunOnRead(t *testing.T) {
 
 				case "srt":
 					conf := srt.DefaultConfig()
-					address, err := conf.UnmarshalURL("srt://localhost:8890?streamid=read:test")
+					address, err := conf.UnmarshalURL("srt://localhost:8890?streamid=read:test:query=value")
 					require.NoError(t, err)
 
 					err = conf.Validate()
@@ -390,19 +390,11 @@ func TestPathRunOnRead(t *testing.T) {
 
 			byts, err := os.ReadFile(onReadFile)
 			require.NoError(t, err)
-			if ca == "srt" {
-				require.Equal(t, "test \n", string(byts))
-			} else {
-				require.Equal(t, "test query=value\n", string(byts))
-			}
+			require.Equal(t, "test query=value\n", string(byts))
 
 			byts, err = os.ReadFile(onUnreadFile)
 			require.NoError(t, err)
-			if ca == "srt" {
-				require.Equal(t, "test \n", string(byts))
-			} else {
-				require.Equal(t, "test query=value\n", string(byts))
-			}
+			require.Equal(t, "test query=value\n", string(byts))
 		})
 	}
 }
