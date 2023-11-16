@@ -70,7 +70,7 @@ runOnConnectRestart: no
 runOnDisconnect:
 
 ###############################################
-# Global settings -> RTSP
+# Global settings -> RTSP server
 
 # Allow publishing and reading streams with the RTSP protocol.
 rtsp: yes
@@ -110,7 +110,7 @@ serverCert: server.crt
 authMethods: [basic]
 
 ###############################################
-# Global settings -> RTMP
+# Global settings -> RTMP server
 
 # Allow publishing and reading streams with the RTMP protocol.
 rtmp: yes
@@ -130,7 +130,7 @@ rtmpServerKey: server.key
 rtmpServerCert: server.crt
 
 ###############################################
-# Global settings -> HLS
+# Global settings -> HLS server
 
 # Allow reading streams with the HLS protocol.
 hls: yes
@@ -186,7 +186,7 @@ hlsTrustedProxies: []
 hlsDirectory: ''
 
 ###############################################
-# Global settings -> WebRTC
+# Global settings -> WebRTC server
 
 # Allow publishing and reading streams with the WebRTC protocol.
 webrtc: yes

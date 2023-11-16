@@ -100,7 +100,7 @@ type Conf struct {
 	RunOnConnectRestart       bool            `json:"runOnConnectRestart"`
 	RunOnDisconnect           string          `json:"runOnDisconnect"`
 
-	// RTSP
+	// RTSP server
 	RTSP              bool        `json:"rtsp"`
 	RTSPDisable       *bool       `json:"rtspDisable,omitempty"` // deprecated
 	Protocols         Protocols   `json:"protocols"`
@@ -116,7 +116,7 @@ type Conf struct {
 	ServerCert        string      `json:"serverCert"`
 	AuthMethods       AuthMethods `json:"authMethods"`
 
-	// RTMP
+	// RTMP server
 	RTMP           bool       `json:"rtmp"`
 	RTMPDisable    *bool      `json:"rtmpDisable,omitempty"` // deprecated
 	RTMPAddress    string     `json:"rtmpAddress"`
@@ -125,7 +125,7 @@ type Conf struct {
 	RTMPServerKey  string     `json:"rtmpServerKey"`
 	RTMPServerCert string     `json:"rtmpServerCert"`
 
-	// HLS
+	// HLS server
 	HLS                bool           `json:"hls"`
 	HLSDisable         *bool          `json:"hlsDisable,omitempty"` // depreacted
 	HLSAddress         string         `json:"hlsAddress"`
@@ -142,7 +142,7 @@ type Conf struct {
 	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
 	HLSDirectory       string         `json:"hlsDirectory"`
 
-	// WebRTC
+	// WebRTC server
 	WebRTC                      bool              `json:"webrtc"`
 	WebRTCDisable               *bool             `json:"webrtcDisable,omitempty"` // deprecated
 	WebRTCAddress               string            `json:"webrtcAddress"`
@@ -162,11 +162,11 @@ type Conf struct {
 	WebRTCICEHostNAT1To1IPs     *[]string         `json:"webrtcICEHostNAT1To1IPs,omitempty"` // deprecated
 	WebRTCICEServers            *[]string         `json:"webrtcICEServers,omitempty"`        // deprecated
 
-	// SRT
+	// SRT server
 	SRT        bool   `json:"srt"`
 	SRTAddress string `json:"srtAddress"`
 
-	// Record
+	// Record (deprecated)
 	Record                *bool           `json:"record,omitempty"`                // deprecated
 	RecordPath            *string         `json:"recordPath,omitempty"`            // deprecated
 	RecordFormat          *RecordFormat   `json:"recordFormat,omitempty"`          // deprecated

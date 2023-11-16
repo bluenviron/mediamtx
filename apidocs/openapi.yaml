@@ -62,7 +62,7 @@ components:
         runOnDisconnect:
           type: string
 
-        # RTSP
+        # RTSP server
         rtsp:
           type: boolean
         protocols:
@@ -94,7 +94,7 @@ components:
           items:
             type: string
 
-        # RTMP
+        # RTMP server
         rtmp:
           type: boolean
         rtmpAddress:
@@ -108,7 +108,7 @@ components:
         rtmpServerCert:
           type: string
 
-        # HLS
+        # HLS server
         hls:
           type: boolean
         hlsAddress:
@@ -140,7 +140,7 @@ components:
         hlsDirectory:
           type: string
 
-        # WebRTC
+        # WebRTC server
         webrtc:
           type: boolean
         webrtcAddress:
@@ -183,24 +183,10 @@ components:
               password:
                 type: string
 
-        # SRT
+        # SRT server
         srt:
           type: boolean
         srtAddress:
-          type: string
-
-        # Record
-        record:
-          type: boolean
-        recordPath:
-          type: string
-        recordFormat:
-          type: string
-        recordPartDuration:
-          type: string
-        recordSegmentDuration:
-          type: string
-        recordDeleteAfter:
           type: string
 
     PathConf:
@@ -224,8 +210,20 @@ components:
           type: integer
         srtReadPassphrase:
           type: string
+
+        # Record
         record:
           type: boolean
+        recordPath:
+          type: string
+        recordFormat:
+          type: string
+        recordPartDuration:
+          type: string
+        recordSegmentDuration:
+          type: string
+        recordDeleteAfter:
+          type: string
 
         # Authentication
         publishUser:
