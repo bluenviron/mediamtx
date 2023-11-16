@@ -515,3 +515,58 @@ func TestPathRecord(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 2, len(files))
 }
+
+func TestPathFallback(t *testing.T) {
+	for _, ca := range []string{
+		"absolute",
+		"relative",
+		"source",
+	} {
+		t.Run(ca, func(t *testing.T) {
+			var conf string
+
+			switch ca {
+			case "absolute":
+				conf = "paths:\n" +
+					"  path1:\n" +
+					"    fallback: rtsp://localhost:8554/path2\n" +
+					"  path2:\n"
+
+			case "relative":
+				conf = "paths:\n" +
+					"  path1:\n" +
+					"    fallback: /path2\n" +
+					"  path2:\n"
+
+			case "source":
+				conf = "paths:\n" +
+					"  path1:\n" +
+					"    fallback: /path2\n" +
+					"    source: rtsp://localhost:3333/nonexistent\n" +
+					"  path2:\n"
+			}
+
+			p1, ok := newInstance(conf)
+			require.Equal(t, true, ok)
+			defer p1.Close()
+
+			source := gortsplib.Client{}
+			err := source.StartRecording("rtsp://localhost:8554/path2",
+				&description.Session{Medias: []*description.Media{testMediaH264}})
+			require.NoError(t, err)
+			defer source.Close()
+
+			u, err := base.ParseURL("rtsp://localhost:8554/path1")
+			require.NoError(t, err)
+
+			dest := gortsplib.Client{}
+			err = dest.Start(u.Scheme, u.Host)
+			require.NoError(t, err)
+			defer dest.Close()
+
+			desc, _, err := dest.Describe(u)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(desc.Medias))
+		})
+	}
+}
