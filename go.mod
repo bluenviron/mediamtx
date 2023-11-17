@@ -9,7 +9,7 @@ require (
 	github.com/aler9/writerseeker v1.1.0
 	github.com/bluenviron/gohlslib v1.0.5
 	github.com/bluenviron/gortsplib/v4 v4.6.0
-	github.com/bluenviron/mediacommon v1.5.0
+	github.com/bluenviron/mediacommon v1.5.1
 	github.com/datarhei/gosrt v0.5.4
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.9.1

@@ -26,8 +26,8 @@ github.com/bluenviron/gohlslib v1.0.5 h1:AZsNdMI2ZvPHE0Yi3ZjGJO7DGhBh4bZAYgiGocY
 github.com/bluenviron/gohlslib v1.0.5/go.mod h1:yMw/Gm+SeC498fHc7DnqKvczTMZGBdJdJUmAM+k+pu0=
 github.com/bluenviron/gortsplib/v4 v4.6.0 h1:6z4ZEU9sl8H4rQMfxhd8z6FIGi/jmutU0R9HM6mZkMg=
 github.com/bluenviron/gortsplib/v4 v4.6.0/go.mod h1:hb4lwJ+LMLfk0YbImTIrWLA8u3yWj77z4nzv2kxYLdk=
-github.com/bluenviron/mediacommon v1.5.0 h1:lS0YKNo22ZOyCsYcLh3jn3TgUALqYw0f7RVwalC09vI=
-github.com/bluenviron/mediacommon v1.5.0/go.mod h1:Ij/kE1LEucSjryNBVTyPL/gBI0d6/Css3f5PyrM957w=
+github.com/bluenviron/mediacommon v1.5.1 h1:yYVF+ebqZOJh8yH+EeuPcAtTmWR66BqbJGmStxkScoI=
+github.com/bluenviron/mediacommon v1.5.1/go.mod h1:Ij/kE1LEucSjryNBVTyPL/gBI0d6/Css3f5PyrM957w=
 github.com/bytedance/sonic v1.5.0/go.mod h1:ED5hyg4y6t3/9Ku1R6dU/4KyJ48DZ4jPhfY1O2AihPM=
 github.com/bytedance/sonic v1.9.1 h1:6iJ6NqdoxCDr6mbY8h18oSO+cShGSMRGCEo7F2h0x8s=
 github.com/bytedance/sonic v1.9.1/go.mod h1:i736AoUSYt75HyZLoJW9ERYxcy6eaN6h4BZXU064P/U=
