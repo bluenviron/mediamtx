@@ -31,6 +31,14 @@ type Agent struct {
 
 // Initialize initializes Agent.
 func (w *Agent) Initialize() {
+	if w.OnSegmentCreate == nil {
+		w.OnSegmentCreate = func(string) {
+		}
+	}
+	if w.OnSegmentComplete == nil {
+		w.OnSegmentComplete = func(string) {
+		}
+	}
 	if w.restartPause == 0 {
 		w.restartPause = 2 * time.Second
 	}

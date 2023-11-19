@@ -27,15 +27,18 @@ func (t *recFormatFMP4Track) record(sample *sample) error {
 		t.f.hasVideo = true
 	}
 
-	if t.f.currentSegment == nil {
-		t.f.currentSegment = newRecFormatFMP4Segment(t.f, sample.dts)
-	}
-
 	sample, t.nextSample = t.nextSample, sample
 	if sample == nil {
 		return nil
 	}
 	sample.Duration = uint32(durationGoToMp4(t.nextSample.dts-sample.dts, t.initTrack.TimeScale))
+
+	if t.f.currentSegment == nil {
+		t.f.currentSegment = newRecFormatFMP4Segment(t.f, sample.dts)
+		// BaseTime is negative, this is not supported by fMP4. Reject the sample silently.
+	} else if (sample.dts - t.f.currentSegment.startDTS) < 0 {
+		return nil
+	}
 
 	err := t.f.currentSegment.record(t, sample)
 	if err != nil {
