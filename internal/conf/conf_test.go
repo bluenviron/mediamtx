@@ -113,20 +113,16 @@ func TestConfFromFile(t *testing.T) {
 
 func TestConfFromFileAndEnv(t *testing.T) {
 	// global parameter
-	os.Setenv("RTSP_PROTOCOLS", "tcp")
-	defer os.Unsetenv("RTSP_PROTOCOLS")
+	t.Setenv("RTSP_PROTOCOLS", "tcp")
 
 	// path parameter
-	os.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
-	defer os.Unsetenv("MTX_PATHS_CAM1_SOURCE")
+	t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 
 	// deprecated global parameter
-	os.Setenv("MTX_RTMPDISABLE", "yes")
-	defer os.Unsetenv("MTX_RTMPDISABLE")
+	t.Setenv("MTX_RTMPDISABLE", "yes")
 
 	// deprecated path parameter
-	os.Setenv("MTX_PATHS_CAM2_DISABLEPUBLISHEROVERRIDE", "yes")
-	defer os.Unsetenv("MTX_PATHS_CAM2_DISABLEPUBLISHEROVERRIDE")
+	t.Setenv("MTX_PATHS_CAM2_DISABLEPUBLISHEROVERRIDE", "yes")
 
 	tmpf, err := writeTempFile([]byte("{}"))
 	require.NoError(t, err)
@@ -149,8 +145,7 @@ func TestConfFromFileAndEnv(t *testing.T) {
 }
 
 func TestConfFromEnvOnly(t *testing.T) {
-	os.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
-	defer os.Unsetenv("MTX_PATHS_CAM1_SOURCE")
+	t.Setenv("MTX_PATHS_CAM1_SOURCE", "rtsp://testing")
 
 	conf, confPath, err := Load("", nil)
 	require.NoError(t, err)
@@ -179,8 +174,7 @@ func TestConfEncryption(t *testing.T) {
 		return base64.StdEncoding.EncodeToString(encrypted)
 	}()
 
-	os.Setenv("RTSP_CONFKEY", key)
-	defer os.Unsetenv("RTSP_CONFKEY")
+	t.Setenv("RTSP_CONFKEY", key)
 
 	tmpf, err := writeTempFile([]byte(encryptedConf))
 	require.NoError(t, err)

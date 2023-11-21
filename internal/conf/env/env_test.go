@@ -2,7 +2,6 @@ package env
 
 import (
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
@@ -127,8 +126,7 @@ func TestLoad(t *testing.T) {
 	}
 
 	for key, val := range env {
-		os.Setenv(key, val)
-		defer os.Unsetenv(key)
+		t.Setenv(key, val)
 	}
 
 	var s testStruct
