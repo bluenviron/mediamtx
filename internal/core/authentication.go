@@ -52,10 +52,15 @@ const (
 
 func doExternalAuthentication(
 	ur string,
+	externalAuthenticationRead bool,
+	externalAuthenticationWrite bool,
 	accessRequest pathAccessRequest,
 ) error {
-	// Allow read without authorization
-	if !accessRequest.publish {
+	if !externalAuthenticationRead && !accessRequest.publish {
+		return nil
+	}
+
+	if !externalAuthenticationWrite && accessRequest.publish {
 		return nil
 	}
 
@@ -117,6 +122,8 @@ func doAuthentication(
 	if externalAuthenticationURL != "" {
 		err := doExternalAuthentication(
 			externalAuthenticationURL,
+			pathConf.ExternalAuthenticationRead,
+			pathConf.ExternalAuthenticationWrite,
 			accessRequest,
 		)
 		if err != nil {
