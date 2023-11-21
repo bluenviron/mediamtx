@@ -54,6 +54,11 @@ func doExternalAuthentication(
 	ur string,
 	accessRequest pathAccessRequest,
 ) error {
+	// Allow read without authorization
+	if !accessRequest.publish {
+		return nil
+	}
+
 	enc, _ := json.Marshal(struct {
 		IP       string     `json:"ip"`
 		User     string     `json:"user"`
