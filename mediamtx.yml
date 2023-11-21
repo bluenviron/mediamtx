@@ -39,7 +39,7 @@ udpMaxPayloadSize: 1472
 # }
 # If the response code is 20x, authentication is accepted, otherwise
 # it is discarded.
-externalAuthenticationURL: http://localhost:8080/users/authLive
+externalAuthenticationURL:
 
 # Enable the HTTP API.
 api: no
@@ -332,6 +332,11 @@ pathDefaults:
   readPass:
   # IPs or networks (x.x.x.x/24) allowed to read.
   readIPs: []
+
+  # Call externalAuthenticationURL every time write is requested.
+  externalAuthenticationWrite: yes
+  # Call externalAuthenticationURL every time read is requested.
+  externalAuthenticationRead: yes
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
