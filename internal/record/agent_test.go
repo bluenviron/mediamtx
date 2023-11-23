@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/stretchr/testify/require"
 
@@ -211,11 +212,6 @@ func TestAgent(t *testing.T) {
 
 			w.Close()
 
-			for i := 0; i < 2; i++ {
-				<-segCreated
-				<-segDone
-			}
-
 			_, err = os.Stat(filepath.Join(dir, "mypath", "2010-05-20_22-15-25-000000."+ext))
 			require.NoError(t, err)
 
@@ -223,4 +219,111 @@ func TestAgent(t *testing.T) {
 			require.NoError(t, err)
 		})
 	}
+}
+
+func TestAgentFMP4NegativeDTS(t *testing.T) {
+	desc := &description.Session{Medias: []*description.Media{
+		{
+			Type: description.MediaTypeVideo,
+			Formats: []format.Format{&format.H264{
+				PayloadTyp:        96,
+				PacketizationMode: 1,
+			}},
+		},
+		{
+			Type: description.MediaTypeAudio,
+			Formats: []format.Format{&format.MPEG4Audio{
+				PayloadTyp: 96,
+				Config: &mpeg4audio.Config{
+					Type:         2,
+					SampleRate:   44100,
+					ChannelCount: 2,
+				},
+				SizeLength:       13,
+				IndexLength:      3,
+				IndexDeltaLength: 3,
+			}},
+		},
+	}}
+
+	timeNow = func() time.Time {
+		return time.Date(2008, 0o5, 20, 22, 15, 25, 0, time.UTC)
+	}
+
+	stream, err := stream.New(
+		1460,
+		desc,
+		true,
+		&nilLogger{},
+	)
+	require.NoError(t, err)
+	defer stream.Close()
+
+	dir, err := os.MkdirTemp("", "mediamtx-agent")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
+
+	w := &Agent{
+		WriteQueueSize:  1024,
+		RecordPath:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          stream,
+		Parent:          &nilLogger{},
+	}
+	w.Initialize()
+
+	for i := 0; i < 3; i++ {
+		stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
+			Base: unit.Base{
+				PTS: -50*time.Millisecond + (time.Duration(i) * 200 * time.Millisecond),
+			},
+			AU: [][]byte{
+				{ // SPS
+					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
+					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
+					0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
+				},
+				{ // PPS
+					0x08, 0x06, 0x07, 0x08,
+				},
+				{5}, // IDR
+			},
+		})
+
+		stream.WriteUnit(desc.Medias[1], desc.Medias[1].Formats[0], &unit.MPEG4Audio{
+			Base: unit.Base{
+				PTS: -100*time.Millisecond + (time.Duration(i) * 200 * time.Millisecond),
+			},
+			AUs: [][]byte{{1, 2, 3, 4}},
+		})
+	}
+
+	time.Sleep(50 * time.Millisecond)
+
+	w.Close()
+
+	byts, err := os.ReadFile(filepath.Join(dir, "mypath", "2008-05-20_22-15-25-000000.mp4"))
+	require.NoError(t, err)
+
+	var parts fmp4.Parts
+	err = parts.Unmarshal(byts)
+	require.NoError(t, err)
+
+	found := false
+
+	for _, part := range parts {
+		for _, track := range part.Tracks {
+			if track.ID == 2 {
+				require.Less(t, track.BaseTime, uint64(1*90000))
+				found = true
+			}
+		}
+	}
+
+	require.Equal(t, true, found)
 }
