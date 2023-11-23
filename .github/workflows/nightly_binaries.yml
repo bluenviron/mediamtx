@@ -1,10 +1,10 @@
-name: binaries
+name: nightly_binaries
 
 on:
   workflow_dispatch:
 
 jobs:
-  binaries:
+  nightly_binaries:
     runs-on: ubuntu-22.04
 
     steps:
