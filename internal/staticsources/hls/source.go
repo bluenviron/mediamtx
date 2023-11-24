@@ -174,7 +174,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 						Type: description.MediaTypeAudio,
 						Formats: []format.Format{&format.Opus{
 							PayloadTyp: 96,
-							IsStereo:   (tcodec.ChannelCount == 2),
+							IsStereo:   (tcodec.ChannelCount >= 2),
 						}},
 					}
 

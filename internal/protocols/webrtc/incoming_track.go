@@ -72,6 +72,7 @@ func newIncomingTrack(
 	case strings.ToLower(webrtc.MimeTypeOpus):
 		t.format = &format.Opus{
 			PayloadTyp: uint8(track.PayloadType()),
+			IsStereo:   strings.Contains(track.Codec().SDPFmtpLine, "stereo=1"),
 		}
 
 	case strings.ToLower(webrtc.MimeTypeG722):
