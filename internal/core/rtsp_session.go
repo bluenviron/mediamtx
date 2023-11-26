@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
@@ -289,16 +290,14 @@ func (s *rtspSession) onPlay(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Respons
 			s.session.SetuppedTransport(),
 			mediaInfo(s.session.SetuppedMedias()))
 
-		pathConf := s.path.safeConf()
-
-		s.onUnreadHook = onReadHook(
-			s.externalCmdPool,
-			pathConf,
-			s.path,
-			s.apiReaderDescribe(),
-			s.session.SetuppedQuery(),
-			s,
-		)
+		s.onUnreadHook = hooks.OnRead(hooks.OnReadParams{
+			Logger:          s,
+			ExternalCmdPool: s.externalCmdPool,
+			Conf:            s.path.safeConf(),
+			ExternalCmdEnv:  s.path.externalCmdEnv(),
+			Reader:          s.apiReaderDescribe(),
+			Query:           s.session.SetuppedQuery(),
+		})
 
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePlay

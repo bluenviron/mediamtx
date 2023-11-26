@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -59,18 +60,19 @@ type srtConnParent interface {
 }
 
 type srtConn struct {
-	*conn
-
-	rtspAddress       string
-	readTimeout       conf.StringDuration
-	writeTimeout      conf.StringDuration
-	writeQueueSize    int
-	udpMaxPayloadSize int
-	connReq           srt.ConnRequest
-	wg                *sync.WaitGroup
-	externalCmdPool   *externalcmd.Pool
-	pathManager       srtConnPathManager
-	parent            srtConnParent
+	rtspAddress         string
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
+	writeQueueSize      int
+	udpMaxPayloadSize   int
+	connReq             srt.ConnRequest
+	runOnConnect        string
+	runOnConnectRestart bool
+	runOnDisconnect     string
+	wg                  *sync.WaitGroup
+	externalCmdPool     *externalcmd.Pool
+	pathManager         srtConnPathManager
+	parent              srtConnParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -104,32 +106,26 @@ func newSRTConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &srtConn{
-		rtspAddress:       rtspAddress,
-		readTimeout:       readTimeout,
-		writeTimeout:      writeTimeout,
-		writeQueueSize:    writeQueueSize,
-		udpMaxPayloadSize: udpMaxPayloadSize,
-		connReq:           connReq,
-		wg:                wg,
-		externalCmdPool:   externalCmdPool,
-		pathManager:       pathManager,
-		parent:            parent,
-		ctx:               ctx,
-		ctxCancel:         ctxCancel,
-		created:           time.Now(),
-		uuid:              uuid.New(),
-		chNew:             make(chan srtNewConnReq),
-		chSetConn:         make(chan srt.Conn),
+		rtspAddress:         rtspAddress,
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		writeQueueSize:      writeQueueSize,
+		udpMaxPayloadSize:   udpMaxPayloadSize,
+		connReq:             connReq,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		runOnDisconnect:     runOnDisconnect,
+		wg:                  wg,
+		externalCmdPool:     externalCmdPool,
+		pathManager:         pathManager,
+		parent:              parent,
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
+		created:             time.Now(),
+		uuid:                uuid.New(),
+		chNew:               make(chan srtNewConnReq),
+		chSetConn:           make(chan srt.Conn),
 	}
-
-	c.conn = newConn(
-		rtspAddress,
-		runOnConnect,
-		runOnConnectRestart,
-		runOnDisconnect,
-		externalCmdPool,
-		c,
-	)
 
 	c.Log(logger.Info, "opened")
 
@@ -154,9 +150,16 @@ func (c *srtConn) ip() net.IP {
 func (c *srtConn) run() { //nolint:dupl
 	defer c.wg.Done()
 
-	desc := c.apiReaderDescribe()
-	c.conn.open(desc)
-	defer c.conn.close()
+	onDisconnectHook := hooks.OnConnect(hooks.OnConnectParams{
+		Logger:              c,
+		ExternalCmdPool:     c.externalCmdPool,
+		RunOnConnect:        c.runOnConnect,
+		RunOnConnectRestart: c.runOnConnectRestart,
+		RunOnDisconnect:     c.runOnDisconnect,
+		RTSPAddress:         c.rtspAddress,
+		Desc:                c.apiReaderDescribe(),
+	})
+	defer onDisconnectHook()
 
 	err := c.runInner()
 
@@ -373,16 +376,14 @@ func (c *srtConn) runRead(req srtNewConnReq, pathName string, user string, pass 
 	c.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, readerMediaInfo(writer, res.stream))
 
-	pathConf := res.path.safeConf()
-
-	onUnreadHook := onReadHook(
-		c.externalCmdPool,
-		pathConf,
-		res.path,
-		c.apiReaderDescribe(),
-		query,
-		c,
-	)
+	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
+		Logger:          c,
+		ExternalCmdPool: c.externalCmdPool,
+		Conf:            res.path.safeConf(),
+		ExternalCmdEnv:  res.path.externalCmdEnv(),
+		Reader:          c.apiReaderDescribe(),
+		Query:           query,
+	})
 	defer onUnreadHook()
 
 	// disable read deadline

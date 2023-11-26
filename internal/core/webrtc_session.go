@@ -24,6 +24,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -610,16 +611,14 @@ func (s *webRTCSession) runRead() (int, error) {
 	s.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, readerMediaInfo(writer, res.stream))
 
-	pathConf := res.path.safeConf()
-
-	onUnreadHook := onReadHook(
-		s.externalCmdPool,
-		pathConf,
-		res.path,
-		s.apiReaderDescribe(),
-		s.req.query,
-		s,
-	)
+	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
+		Logger:          s,
+		ExternalCmdPool: s.externalCmdPool,
+		Conf:            res.path.safeConf(),
+		ExternalCmdEnv:  res.path.externalCmdEnv(),
+		Reader:          s.apiReaderDescribe(),
+		Query:           s.req.query,
+	})
 	defer onUnreadHook()
 
 	writer.Start()

@@ -14,6 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
@@ -28,8 +29,6 @@ type rtspConnParent interface {
 }
 
 type rtspConn struct {
-	*conn
-
 	isTLS       bool
 	rtspAddress string
 	authMethods []headers.AuthMethod
@@ -38,10 +37,11 @@ type rtspConn struct {
 	rconn       *gortsplib.ServerConn
 	parent      rtspConnParent
 
-	uuid         uuid.UUID
-	created      time.Time
-	authNonce    string
-	authFailures int
+	uuid             uuid.UUID
+	created          time.Time
+	onDisconnectHook func()
+	authNonce        string
+	authFailures     int
 }
 
 func newRTSPConn(
@@ -69,18 +69,9 @@ func newRTSPConn(
 		created:     time.Now(),
 	}
 
-	c.conn = newConn(
-		rtspAddress,
-		runOnConnect,
-		runOnConnectRestart,
-		runOnDisconnect,
-		externalCmdPool,
-		c,
-	)
-
 	c.Log(logger.Info, "opened")
 
-	c.conn.open(defs.APIPathSourceOrReader{
+	desc := defs.APIPathSourceOrReader{
 		Type: func() string {
 			if isTLS {
 				return "rtspsConn"
@@ -88,6 +79,16 @@ func newRTSPConn(
 			return "rtspConn"
 		}(),
 		ID: c.uuid.String(),
+	}
+
+	c.onDisconnectHook = hooks.OnConnect(hooks.OnConnectParams{
+		Logger:              c,
+		ExternalCmdPool:     externalCmdPool,
+		RunOnConnect:        runOnConnect,
+		RunOnConnectRestart: runOnConnectRestart,
+		RunOnDisconnect:     runOnDisconnect,
+		RTSPAddress:         rtspAddress,
+		Desc:                desc,
 	})
 
 	return c
@@ -114,7 +115,7 @@ func (c *rtspConn) ip() net.IP {
 func (c *rtspConn) onClose(err error) {
 	c.Log(logger.Info, "closed: %v", err)
 
-	c.conn.close()
+	c.onDisconnectHook()
 }
 
 // onRequest is called by rtspServer.
