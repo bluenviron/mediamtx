@@ -56,7 +56,7 @@ jobs:
             });
           }
 
-  github_inform_issues:
+  github_notify_issues:
     needs: github_release
     runs-on: ubuntu-22.04
 
