@@ -6,8 +6,6 @@ github.com/alecthomas/kong v0.8.1 h1:acZdn3m4lLRobeh3Zi2S2EpnXTd1mOL6U7xVml+vfkY
 github.com/alecthomas/kong v0.8.1/go.mod h1:n1iCIO2xS46oE8ZfYCNDqdR0b0wZNrXAIAqro/2132U=
 github.com/alecthomas/repr v0.1.0 h1:ENn2e1+J3k09gyj2shc0dHr/yjaWSHRlrJ4DPMevDqE=
 github.com/alecthomas/repr v0.1.0/go.mod h1:2kn6fqh/zIyPLmm3ugklbEi5hg5wS435eygvNfaDQL8=
-github.com/aler9/gosrt v0.0.0-20231104205907-3f110868f71d h1:e+oBFUPyjr6dYd4lmT3+NI0lQVpr6R7nTO6z+1XGceQ=
-github.com/aler9/gosrt v0.0.0-20231104205907-3f110868f71d/go.mod h1:z+FuFVKH0eG03LwuMwVrOLlWhPlpbRlL2OytRK+hs5c=
 github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1 h1:fD6eZt+3/t8bzFn6ZZA2eP63xBP06v3EPfPJu8DO8ys=
 github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1/go.mod h1:lT3kv5uUIlHfXHU/ZRD7uKD/ufM202+eTa3C/umgGf4=
 github.com/aler9/sdp/v3 v3.0.0-20231022165400-33437e07f326 h1:HA7u47vkcxFiHtiOjm8srh1JRgC0ZPYefPtpDCaTtS0=
@@ -37,6 +35,8 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583j
 github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5 h1:xB7KkA98BcUdzVcwyZxb5R0FGIHxNPHgZOzkjPEY5gM=
 github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5/go.mod h1:v4VVB6oBMz/c9fRY6vZrwr5xKRWOH5NPDjQZlPk0Gbs=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
+github.com/datarhei/gosrt v0.5.5 h1:4Xx4v7pn/rz6EaWhZRE37fROW+rry0y4yBHZBkq5d8g=
+github.com/datarhei/gosrt v0.5.5/go.mod h1:In1zba2/999S1d+ENIJ0h9s3alHO3FvCNrIpykxYbEE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
