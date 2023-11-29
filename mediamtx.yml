@@ -234,7 +234,7 @@ webrtcICEServers2: []
   # password: ''
 
 ###############################################
-# Global settings -> SRT
+# Global settings -> SRT server
 
 # Allow publishing and reading streams with the SRT protocol.
 srt: yes

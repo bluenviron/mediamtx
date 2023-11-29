@@ -16,6 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -303,7 +304,12 @@ func (pa *path) run() {
 		}
 	}
 
-	onUnInitHook := onInitHook(pa)
+	onUnInitHook := hooks.OnInit(hooks.OnInitParams{
+		Logger:          pa,
+		ExternalCmdPool: pa.externalCmdPool,
+		Conf:            pa.conf,
+		ExternalCmdEnv:  pa.externalCmdEnv(),
+	})
 
 	err := pa.runInner()
 
@@ -789,7 +795,13 @@ func (pa *path) onDemandStaticSourceStop(reason string) {
 }
 
 func (pa *path) onDemandPublisherStart(query string) {
-	pa.onUnDemandHook = onDemandHook(pa, query)
+	pa.onUnDemandHook = hooks.OnDemand(hooks.OnDemandParams{
+		Logger:          pa,
+		ExternalCmdPool: pa.externalCmdPool,
+		Conf:            pa.conf,
+		ExternalCmdEnv:  pa.externalCmdEnv(),
+		Query:           query,
+	})
 
 	pa.onDemandPublisherReadyTimer.Stop()
 	pa.onDemandPublisherReadyTimer = time.NewTimer(time.Duration(pa.conf.RunOnDemandStartTimeout))
@@ -834,7 +846,14 @@ func (pa *path) setReady(desc *description.Session, allocateEncoder bool) error 
 
 	pa.readyTime = time.Now()
 
-	pa.onNotReadyHook = onReadyHook(pa)
+	pa.onNotReadyHook = hooks.OnReady(hooks.OnReadyParams{
+		Logger:          pa,
+		ExternalCmdPool: pa.externalCmdPool,
+		Conf:            pa.conf,
+		ExternalCmdEnv:  pa.externalCmdEnv(),
+		Desc:            pa.source.APISourceDescribe(),
+		Query:           pa.publisherQuery,
+	})
 
 	pa.parent.pathReady(pa)
 

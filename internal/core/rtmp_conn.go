@@ -21,6 +21,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
+	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/stream"
@@ -57,17 +58,19 @@ type rtmpConnParent interface {
 }
 
 type rtmpConn struct {
-	*conn
-
-	isTLS           bool
-	readTimeout     conf.StringDuration
-	writeTimeout    conf.StringDuration
-	writeQueueSize  int
-	wg              *sync.WaitGroup
-	nconn           net.Conn
-	externalCmdPool *externalcmd.Pool
-	pathManager     rtmpConnPathManager
-	parent          rtmpConnParent
+	isTLS               bool
+	rtspAddress         string
+	readTimeout         conf.StringDuration
+	writeTimeout        conf.StringDuration
+	writeQueueSize      int
+	runOnConnect        string
+	runOnConnectRestart bool
+	runOnDisconnect     string
+	wg                  *sync.WaitGroup
+	nconn               net.Conn
+	externalCmdPool     *externalcmd.Pool
+	pathManager         rtmpConnPathManager
+	parent              rtmpConnParent
 
 	ctx       context.Context
 	ctxCancel func()
@@ -98,29 +101,24 @@ func newRTMPConn(
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
 	c := &rtmpConn{
-		isTLS:           isTLS,
-		readTimeout:     readTimeout,
-		writeTimeout:    writeTimeout,
-		writeQueueSize:  writeQueueSize,
-		wg:              wg,
-		nconn:           nconn,
-		externalCmdPool: externalCmdPool,
-		pathManager:     pathManager,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		uuid:            uuid.New(),
-		created:         time.Now(),
+		isTLS:               isTLS,
+		rtspAddress:         rtspAddress,
+		readTimeout:         readTimeout,
+		writeTimeout:        writeTimeout,
+		writeQueueSize:      writeQueueSize,
+		runOnConnect:        runOnConnect,
+		runOnConnectRestart: runOnConnectRestart,
+		runOnDisconnect:     runOnDisconnect,
+		wg:                  wg,
+		nconn:               nconn,
+		externalCmdPool:     externalCmdPool,
+		pathManager:         pathManager,
+		parent:              parent,
+		ctx:                 ctx,
+		ctxCancel:           ctxCancel,
+		uuid:                uuid.New(),
+		created:             time.Now(),
 	}
-
-	c.conn = newConn(
-		rtspAddress,
-		runOnConnect,
-		runOnConnectRestart,
-		runOnDisconnect,
-		externalCmdPool,
-		c,
-	)
 
 	c.Log(logger.Info, "opened")
 
@@ -149,9 +147,16 @@ func (c *rtmpConn) ip() net.IP {
 func (c *rtmpConn) run() { //nolint:dupl
 	defer c.wg.Done()
 
-	desc := c.apiReaderDescribe()
-	c.conn.open(desc)
-	defer c.conn.close()
+	onDisconnectHook := hooks.OnConnect(hooks.OnConnectParams{
+		Logger:              c,
+		ExternalCmdPool:     c.externalCmdPool,
+		RunOnConnect:        c.runOnConnect,
+		RunOnConnectRestart: c.runOnConnectRestart,
+		RunOnDisconnect:     c.runOnDisconnect,
+		RTSPAddress:         c.rtspAddress,
+		Desc:                c.apiReaderDescribe(),
+	})
+	defer onDisconnectHook()
 
 	err := c.runInner()
 
@@ -254,15 +259,14 @@ func (c *rtmpConn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.Log(logger.Info, "is reading from path '%s', %s",
 		res.path.name, readerMediaInfo(writer, res.stream))
 
-	pathConf := res.path.safeConf()
-
-	onUnreadHook := onReadHook(
-		c.externalCmdPool,
-		pathConf,
-		res.path,
-		c.apiReaderDescribe(),
-		rawQuery,
-		c)
+	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
+		Logger:          c,
+		ExternalCmdPool: c.externalCmdPool,
+		Conf:            res.path.safeConf(),
+		ExternalCmdEnv:  res.path.externalCmdEnv(),
+		Reader:          c.APISourceDescribe(),
+		Query:           rawQuery,
+	})
 	defer onUnreadHook()
 
 	var err error
