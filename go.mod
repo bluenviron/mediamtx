@@ -10,7 +10,7 @@ require (
 	github.com/bluenviron/gohlslib v1.0.6
 	github.com/bluenviron/gortsplib/v4 v4.6.0
 	github.com/bluenviron/mediacommon v1.5.1
-	github.com/datarhei/gosrt v0.5.4
+	github.com/datarhei/gosrt v0.5.5
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.4.0
@@ -79,5 +79,3 @@ replace github.com/pion/sdp/v3 => github.com/aler9/sdp/v3 v3.0.0-20231022165400-
 replace github.com/pion/ice/v2 => github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1
 
 replace github.com/pion/webrtc/v3 => github.com/aler9/webrtc/v3 v3.0.0-20231112223655-e402ed2689c6
-
-replace github.com/datarhei/gosrt => github.com/aler9/gosrt v0.0.0-20231104205907-3f110868f71d
