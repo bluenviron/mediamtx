@@ -29,6 +29,8 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 	clone.RPICameraGain = newPathConf.RPICameraGain
 	clone.RPICameraEV = newPathConf.RPICameraEV
 	clone.RPICameraFPS = newPathConf.RPICameraFPS
+	clone.RPICameraIDRPeriod = newPathConf.RPICameraIDRPeriod
+	clone.RPICameraBitrate = newPathConf.RPICameraBitrate
 
 	return newPathConf.Equal(clone)
 }
