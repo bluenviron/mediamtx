@@ -111,6 +111,27 @@ static void *output_thread(void *userdata) {
     return NULL;
 }
 
+static bool fill_dynamic_params(int fd, const parameters_t *params) {
+    struct v4l2_control ctrl = {0};
+    ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
+    ctrl.value = params->idr_period;
+    int res = ioctl(fd, VIDIOC_S_CTRL, &ctrl);
+    if (res != 0) {
+        set_error("unable to set IDR period");
+        return false;
+    }
+
+    ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
+    ctrl.value = params->bitrate;
+    res = ioctl(fd, VIDIOC_S_CTRL, &ctrl);
+    if (res != 0) {
+        set_error("unable to set bitrate");
+        return false;
+    }
+
+    return true;
+}
+
 bool encoder_create(const parameters_t *params, int stride, int colorspace, encoder_output_cb output_cb, encoder_t **enc) {
     *enc = malloc(sizeof(encoder_priv_t));
     encoder_priv_t *encp = (encoder_priv_t *)(*enc);
@@ -122,18 +143,15 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
         goto failed;
     }
 
-    struct v4l2_control ctrl = {0};
-    ctrl.id = V4L2_CID_MPEG_VIDEO_BITRATE;
-    ctrl.value = params->bitrate;
-    int res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
-    if (res != 0) {
-        set_error("unable to set bitrate");
+    bool res2 = fill_dynamic_params(encp->fd, params);
+    if (!res2) {
         goto failed;
     }
 
+    struct v4l2_control ctrl = {0};
     ctrl.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE;
     ctrl.value = params->profile;
-    res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
+    int res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set profile");
         goto failed;
@@ -144,14 +162,6 @@ bool encoder_create(const parameters_t *params, int stride, int colorspace, enco
     res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
     if (res != 0) {
         set_error("unable to set level");
-        goto failed;
-    }
-
-    ctrl.id = V4L2_CID_MPEG_VIDEO_H264_I_PERIOD;
-    ctrl.value = params->idr_period;
-    res = ioctl(encp->fd, VIDIOC_S_CTRL, &ctrl);
-    if (res != 0) {
-        set_error("unable to set IDR period");
         goto failed;
     }
 
@@ -318,4 +328,10 @@ void encoder_encode(encoder_t *enc, int buffer_fd, size_t size, int64_t timestam
         fprintf(stderr, "encoder_encode(): ioctl(VIDIOC_QBUF) failed\n");
         // it happens when the raspberry is under pressure. do not exit.
     }
+}
+
+void encoder_reload_params(encoder_t *enc, const parameters_t *params) {
+     encoder_priv_t *encp = (encoder_priv_t *)enc;
+
+     fill_dynamic_params(encp->fd, params);
 }

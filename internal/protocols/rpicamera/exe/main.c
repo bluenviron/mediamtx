@@ -106,6 +106,7 @@ int main() {
                     continue;
                 }
                 camera_reload_params(cam, &params);
+                encoder_reload_params(enc, &params);
                 parameters_destroy(&params);
             }
         }
