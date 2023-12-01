@@ -28,6 +28,13 @@ func TestLocationWithTrailingSlash(t *testing.T) {
 			},
 			"./www.example.com/",
 		},
+		{
+			"slashes in path",
+			&url.URL{
+				Path: "/my/path",
+			},
+			"./../my/path/",
+		},
 	} {
 		t.Run(ca.name, func(t *testing.T) {
 			require.Equal(t, ca.loc, LocationWithTrailingSlash(ca.url))
