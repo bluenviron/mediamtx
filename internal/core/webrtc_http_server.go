@@ -352,11 +352,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				l := ctx.Request.URL.Path[1:] + "/"
-				if ctx.Request.URL.RawQuery != "" {
-					l += "?" + ctx.Request.URL.RawQuery
-				}
-				ctx.Writer.Header().Set("Location", l)
+				ctx.Writer.Header().Set("Location", httpserv.LocationWithTrailingSlash(ctx.Request.URL))
 				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 
 			default:
