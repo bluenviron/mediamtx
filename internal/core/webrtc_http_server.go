@@ -352,7 +352,9 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				ctx.Writer.Header().Set("Location", ctx.Request.URL.Path[1:]+"/")
+				var dir=ctx.Request.URL.Path[1:]
+				dir = strings.TrimLeft(dir, "/")
+				ctx.Writer.Header().Set("Location", dir+"/")
 				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 
 			default:
