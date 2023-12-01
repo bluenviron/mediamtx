@@ -146,7 +146,7 @@ func (s *hlsHTTPServer) onRequest(ctx *gin.Context) {
 		dir, fname = pa, ""
 
 		if !strings.HasSuffix(dir, "/") {
-			l := "/" + dir + "/"
+			l := ctx.Request.URL.Path[1:] + "/"
 			if ctx.Request.URL.RawQuery != "" {
 				l += "?" + ctx.Request.URL.RawQuery
 			}
