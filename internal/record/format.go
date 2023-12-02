@@ -1,6 +1,6 @@
 package record
 
-type recFormat interface {
+type format interface {
 	initialize()
 	close()
 }

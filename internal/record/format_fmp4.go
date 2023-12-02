@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
@@ -96,19 +96,19 @@ func jpegExtractSize(image []byte) (int, int, error) {
 	}
 }
 
-type recFormatFMP4 struct {
+type formatFMP4 struct {
 	a *agentInstance
 
-	tracks             []*recFormatFMP4Track
+	tracks             []*formatFMP4Track
 	hasVideo           bool
-	currentSegment     *recFormatFMP4Segment
+	currentSegment     *formatFMP4Segment
 	nextSequenceNumber uint32
 }
 
-func (f *recFormatFMP4) initialize() {
+func (f *formatFMP4) initialize() {
 	nextID := 1
 
-	addTrack := func(codec fmp4.Codec) *recFormatFMP4Track {
+	addTrack := func(codec fmp4.Codec) *formatFMP4Track {
 		initTrack := &fmp4.InitTrack{
 			TimeScale: 90000,
 			Codec:     codec,
@@ -116,7 +116,7 @@ func (f *recFormatFMP4) initialize() {
 		initTrack.ID = nextID
 		nextID++
 
-		track := newRecFormatFMP4Track(f, initTrack)
+		track := newFormatFMP4Track(f, initTrack)
 		f.tracks = append(f.tracks, track)
 
 		return track
@@ -135,7 +135,7 @@ func (f *recFormatFMP4) initialize() {
 	for _, media := range f.a.wrapper.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
-			case *format.AV1:
+			case *rtspformat.AV1:
 				codec := &fmp4.CodecAV1{
 					SequenceHeader: []byte{
 						8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
@@ -189,7 +189,7 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.VP9:
+			case *rtspformat.VP9:
 				codec := &fmp4.CodecVP9{
 					Width:             1280,
 					Height:            720,
@@ -261,10 +261,10 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.VP8:
+			case *rtspformat.VP8:
 				// TODO
 
-			case *format.H265:
+			case *rtspformat.H265:
 				vps, sps, pps := forma.SafeParams()
 
 				if vps == nil || sps == nil || pps == nil {
@@ -360,7 +360,7 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.H264:
+			case *rtspformat.H264:
 				sps, pps := forma.SafeParams()
 
 				if sps == nil || pps == nil {
@@ -438,7 +438,7 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.MPEG4Video:
+			case *rtspformat.MPEG4Video:
 				config := forma.SafeParams()
 
 				if config == nil {
@@ -499,7 +499,7 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.MPEG1Video:
+			case *rtspformat.MPEG1Video:
 				codec := &fmp4.CodecMPEG1Video{
 					Config: []byte{
 						0x00, 0x00, 0x01, 0xb3, 0x78, 0x04, 0x38, 0x35,
@@ -551,7 +551,7 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.MJPEG:
+			case *rtspformat.MJPEG:
 				codec := &fmp4.CodecMJPEG{
 					Width:  800,
 					Height: 600,
@@ -585,7 +585,7 @@ func (f *recFormatFMP4) initialize() {
 					})
 				})
 
-			case *format.Opus:
+			case *rtspformat.Opus:
 				codec := &fmp4.CodecOpus{
 					ChannelCount: func() int {
 						if forma.IsStereo {
@@ -621,7 +621,7 @@ func (f *recFormatFMP4) initialize() {
 					return nil
 				})
 
-			case *format.MPEG4Audio:
+			case *rtspformat.MPEG4Audio:
 				codec := &fmp4.CodecMPEG4Audio{
 					Config: *forma.GetConfig(),
 				}
@@ -653,7 +653,7 @@ func (f *recFormatFMP4) initialize() {
 					return nil
 				})
 
-			case *format.MPEG1Audio:
+			case *rtspformat.MPEG1Audio:
 				codec := &fmp4.CodecMPEG1Audio{
 					SampleRate:   32000,
 					ChannelCount: 2,
@@ -701,7 +701,7 @@ func (f *recFormatFMP4) initialize() {
 					return nil
 				})
 
-			case *format.AC3:
+			case *rtspformat.AC3:
 				codec := &fmp4.CodecAC3{
 					SampleRate:   forma.SampleRate,
 					ChannelCount: forma.ChannelCount,
@@ -767,13 +767,13 @@ func (f *recFormatFMP4) initialize() {
 					return nil
 				})
 
-			case *format.G722:
+			case *rtspformat.G722:
 				// TODO
 
-			case *format.G711:
+			case *rtspformat.G711:
 				// TODO
 
-			case *format.LPCM:
+			case *rtspformat.LPCM:
 				codec := &fmp4.CodecLPCM{
 					LittleEndian: false,
 					BitDepth:     forma.BitDepth,
@@ -809,7 +809,7 @@ func (f *recFormatFMP4) initialize() {
 		}())
 }
 
-func (f *recFormatFMP4) close() {
+func (f *formatFMP4) close() {
 	if f.currentSegment != nil {
 		f.currentSegment.close() //nolint:errcheck
 	}
