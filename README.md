@@ -1153,7 +1153,7 @@ pathDefaults:
   record: yes
   # Path of recording segments.
   # Extension is added automatically.
-  # Available variables are %path (path name), %Y %m %d %H %M %S %f (time in strftime format)
+  # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
 ```
 
