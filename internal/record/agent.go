@@ -11,7 +11,7 @@ import (
 // Agent writes recordings to disk.
 type Agent struct {
 	WriteQueueSize    int
-	SegmentPathFormat string
+	PathFormat        string
 	Format            conf.RecordFormat
 	PartDuration      time.Duration
 	SegmentDuration   time.Duration

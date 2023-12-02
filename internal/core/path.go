@@ -897,17 +897,17 @@ func (pa *path) setNotReady() {
 
 func (pa *path) startRecording() {
 	pa.recordAgent = &record.Agent{
-		WriteQueueSize:    pa.writeQueueSize,
-		SegmentPathFormat: pa.conf.RecordPath,
-		Format:            pa.conf.RecordFormat,
-		PartDuration:      time.Duration(pa.conf.RecordPartDuration),
-		SegmentDuration:   time.Duration(pa.conf.RecordSegmentDuration),
-		PathName:          pa.name,
-		Stream:            pa.stream,
-		OnSegmentCreate: func(segmentPath string) {
+		WriteQueueSize:  pa.writeQueueSize,
+		PathFormat:      pa.conf.RecordPath,
+		Format:          pa.conf.RecordFormat,
+		PartDuration:    time.Duration(pa.conf.RecordPartDuration),
+		SegmentDuration: time.Duration(pa.conf.RecordSegmentDuration),
+		PathName:        pa.name,
+		Stream:          pa.stream,
+		OnSegmentCreate: func(path string) {
 			if pa.conf.RunOnRecordSegmentCreate != "" {
 				env := pa.externalCmdEnv()
-				env["MTX_SEGMENT_PATH"] = segmentPath
+				env["MTX_SEGMENT_PATH"] = path
 
 				pa.Log(logger.Info, "runOnRecordSegmentCreate command launched")
 				externalcmd.NewCmd(
@@ -918,10 +918,10 @@ func (pa *path) startRecording() {
 					nil)
 			}
 		},
-		OnSegmentComplete: func(segmentPath string) {
+		OnSegmentComplete: func(path string) {
 			if pa.conf.RunOnRecordSegmentComplete != "" {
 				env := pa.externalCmdEnv()
-				env["MTX_SEGMENT_PATH"] = segmentPath
+				env["MTX_SEGMENT_PATH"] = path
 
 				pa.Log(logger.Info, "runOnRecordSegmentComplete command launched")
 				externalcmd.NewCmd(

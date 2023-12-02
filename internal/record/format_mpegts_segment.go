@@ -51,7 +51,7 @@ func (s *formatMPEGTSSegment) close() error {
 
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
-		s.path = segmentPath{time: s.created}.encode(s.f.a.segmentPathFormat)
+		s.path = path(s.created).encode(s.f.a.pathFormat)
 		s.f.a.agent.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)

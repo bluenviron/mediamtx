@@ -65,7 +65,7 @@ func newFormatFMP4Part(
 
 func (p *formatFMP4Part) close() error {
 	if p.s.fi == nil {
-		p.s.path = segmentPath{time: p.created}.encode(p.s.f.a.segmentPathFormat)
+		p.s.path = path(p.created).encode(p.s.f.a.pathFormat)
 		p.s.f.a.agent.Log(logger.Debug, "creating segment %s", p.s.path)
 
 		err := os.MkdirAll(filepath.Dir(p.s.path), 0o755)

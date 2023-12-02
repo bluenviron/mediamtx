@@ -156,13 +156,13 @@ func TestAgent(t *testing.T) {
 			}
 
 			w := &Agent{
-				WriteQueueSize:    1024,
-				SegmentPathFormat: recordPath,
-				Format:            f,
-				PartDuration:      100 * time.Millisecond,
-				SegmentDuration:   1 * time.Second,
-				PathName:          "mypath",
-				Stream:            stream,
+				WriteQueueSize:  1024,
+				PathFormat:      recordPath,
+				Format:          f,
+				PartDuration:    100 * time.Millisecond,
+				SegmentDuration: 1 * time.Second,
+				PathName:        "mypath",
+				Stream:          stream,
 				OnSegmentCreate: func(fpath string) {
 					segCreated <- struct{}{}
 				},
@@ -266,14 +266,14 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 	recordPath := filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f")
 
 	w := &Agent{
-		WriteQueueSize:    1024,
-		SegmentPathFormat: recordPath,
-		Format:            conf.RecordFormatFMP4,
-		PartDuration:      100 * time.Millisecond,
-		SegmentDuration:   1 * time.Second,
-		PathName:          "mypath",
-		Stream:            stream,
-		Parent:            &nilLogger{},
+		WriteQueueSize:  1024,
+		PathFormat:      recordPath,
+		Format:          conf.RecordFormatFMP4,
+		PartDuration:    100 * time.Millisecond,
+		SegmentDuration: 1 * time.Second,
+		PathName:        "mypath",
+		Stream:          stream,
+		Parent:          &nilLogger{},
 	}
 	w.Initialize()
 

@@ -40,9 +40,9 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	for _, pa := range paths {
 		if pa.Record && pa.RecordDeleteAfter != 0 {
 			entry := record.CleanerEntry{
-				SegmentPathFormat: pa.RecordPath,
-				Format:            pa.RecordFormat,
-				DeleteAfter:       time.Duration(pa.RecordDeleteAfter),
+				PathFormat:  pa.RecordPath,
+				Format:      pa.RecordFormat,
+				DeleteAfter: time.Duration(pa.RecordDeleteAfter),
 			}
 			out[entry] = struct{}{}
 		}
@@ -57,8 +57,8 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	}
 
 	sort.Slice(out2, func(i, j int) bool {
-		if out2[i].SegmentPathFormat != out2[j].SegmentPathFormat {
-			return out2[i].SegmentPathFormat < out2[j].SegmentPathFormat
+		if out2[i].PathFormat != out2[j].PathFormat {
+			return out2[i].PathFormat < out2[j].PathFormat
 		}
 		return out2[i].DeleteAfter < out2[j].DeleteAfter
 	})
