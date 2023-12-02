@@ -22,25 +22,25 @@ type sample struct {
 type agentInstance struct {
 	agent *Agent
 
-	segmentPathFormat string
-	writer            *asyncwriter.Writer
-	format            format
+	pathFormat string
+	writer     *asyncwriter.Writer
+	format     format
 
 	terminate chan struct{}
 	done      chan struct{}
 }
 
 func (a *agentInstance) initialize() {
-	a.segmentPathFormat = a.agent.SegmentPathFormat
+	a.pathFormat = a.agent.PathFormat
 
-	a.segmentPathFormat = strings.ReplaceAll(a.segmentPathFormat, "%path", a.agent.PathName)
+	a.pathFormat = strings.ReplaceAll(a.pathFormat, "%path", a.agent.PathName)
 
 	switch a.agent.Format {
 	case conf.RecordFormatMPEGTS:
-		a.segmentPathFormat += ".ts"
+		a.pathFormat += ".ts"
 
 	default:
-		a.segmentPathFormat += ".mp4"
+		a.pathFormat += ".mp4"
 	}
 
 	a.terminate = make(chan struct{})

@@ -33,9 +33,9 @@ func TestCleaner(t *testing.T) {
 
 	c := &Cleaner{
 		Entries: []CleanerEntry{{
-			SegmentPathFormat: recordPath,
-			Format:            conf.RecordFormatFMP4,
-			DeleteAfter:       10 * time.Second,
+			PathFormat:  recordPath,
+			Format:      conf.RecordFormatFMP4,
+			DeleteAfter: 10 * time.Second,
 		}},
 		Parent: nilLogger{},
 	}

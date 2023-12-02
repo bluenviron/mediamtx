@@ -21,11 +21,9 @@ func leadingZeros(v int, size int) string {
 	return out2 + out
 }
 
-type segmentPath struct {
-	time time.Time
-}
+type path time.Time
 
-func (p *segmentPath) decode(format string, v string) bool {
+func (p *path) decode(format string, v string) bool {
 	re := format
 
 	for _, ch := range []uint8{
@@ -143,22 +141,22 @@ func (p *segmentPath) decode(format string, v string) bool {
 	}
 
 	if unixSec > 0 {
-		p.time = time.Unix(unixSec, 0)
+		*p = path(time.Unix(unixSec, 0))
 	} else {
-		p.time = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
+		*p = path(time.Date(year, month, day, hour, minute, second, micros*1000, time.Local))
 	}
 
 	return true
 }
 
-func (p segmentPath) encode(format string) string {
-	format = strings.ReplaceAll(format, "%Y", strconv.FormatInt(int64(p.time.Year()), 10))
-	format = strings.ReplaceAll(format, "%m", leadingZeros(int(p.time.Month()), 2))
-	format = strings.ReplaceAll(format, "%d", leadingZeros(p.time.Day(), 2))
-	format = strings.ReplaceAll(format, "%H", leadingZeros(p.time.Hour(), 2))
-	format = strings.ReplaceAll(format, "%M", leadingZeros(p.time.Minute(), 2))
-	format = strings.ReplaceAll(format, "%S", leadingZeros(p.time.Second(), 2))
-	format = strings.ReplaceAll(format, "%f", leadingZeros(p.time.Nanosecond()/1000, 6))
-	format = strings.ReplaceAll(format, "%s", strconv.FormatInt(p.time.Unix(), 10))
+func (p path) encode(format string) string {
+	format = strings.ReplaceAll(format, "%Y", strconv.FormatInt(int64(time.Time(p).Year()), 10))
+	format = strings.ReplaceAll(format, "%m", leadingZeros(int(time.Time(p).Month()), 2))
+	format = strings.ReplaceAll(format, "%d", leadingZeros(time.Time(p).Day(), 2))
+	format = strings.ReplaceAll(format, "%H", leadingZeros(time.Time(p).Hour(), 2))
+	format = strings.ReplaceAll(format, "%M", leadingZeros(time.Time(p).Minute(), 2))
+	format = strings.ReplaceAll(format, "%S", leadingZeros(time.Time(p).Second(), 2))
+	format = strings.ReplaceAll(format, "%f", leadingZeros(time.Time(p).Nanosecond()/1000, 6))
+	format = strings.ReplaceAll(format, "%s", strconv.FormatInt(time.Time(p).Unix(), 10))
 	return format
 }
