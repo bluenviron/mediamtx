@@ -13,7 +13,7 @@ import (
 
 var timeNow = time.Now
 
-func writeInit(f io.Writer, tracks []*recFormatFMP4Track) error {
+func writeInit(f io.Writer, tracks []*formatFMP4Track) error {
 	fmp4Tracks := make([]*fmp4.InitTrack, len(tracks))
 	for i, track := range tracks {
 		fmp4Tracks[i] = track.initTrack
@@ -33,26 +33,26 @@ func writeInit(f io.Writer, tracks []*recFormatFMP4Track) error {
 	return err
 }
 
-type recFormatFMP4Segment struct {
-	f        *recFormatFMP4
+type formatFMP4Segment struct {
+	f        *formatFMP4
 	startDTS time.Duration
 
 	fpath   string
 	fi      *os.File
-	curPart *recFormatFMP4Part
+	curPart *formatFMP4Part
 }
 
-func newRecFormatFMP4Segment(
-	f *recFormatFMP4,
+func newFormatFMP4Segment(
+	f *formatFMP4,
 	startDTS time.Duration,
-) *recFormatFMP4Segment {
-	return &recFormatFMP4Segment{
+) *formatFMP4Segment {
+	return &formatFMP4Segment{
 		f:        f,
 		startDTS: startDTS,
 	}
 }
 
-func (s *recFormatFMP4Segment) close() error {
+func (s *formatFMP4Segment) close() error {
 	var err error
 
 	if s.curPart != nil {
@@ -74,9 +74,9 @@ func (s *recFormatFMP4Segment) close() error {
 	return err
 }
 
-func (s *recFormatFMP4Segment) record(track *recFormatFMP4Track, sample *sample) error {
+func (s *formatFMP4Segment) record(track *formatFMP4Track, sample *sample) error {
 	if s.curPart == nil {
-		s.curPart = newRecFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
+		s.curPart = newFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
 		s.f.nextSequenceNumber++
 	} else if s.curPart.duration() >= s.f.a.wrapper.PartDuration {
 		err := s.curPart.close()
@@ -86,7 +86,7 @@ func (s *recFormatFMP4Segment) record(track *recFormatFMP4Track, sample *sample)
 			return err
 		}
 
-		s.curPart = newRecFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
+		s.curPart = newFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
 		s.f.nextSequenceNumber++
 	}
 

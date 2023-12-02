@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
@@ -28,20 +28,20 @@ func TestAgent(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type: description.MediaTypeVideo,
-			Formats: []format.Format{&format.H265{
+			Formats: []rtspformat.Format{&rtspformat.H265{
 				PayloadTyp: 96,
 			}},
 		},
 		{
 			Type: description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{
+			Formats: []rtspformat.Format{&rtspformat.H264{
 				PayloadTyp:        96,
 				PacketizationMode: 1,
 			}},
 		},
 		{
 			Type: description.MediaTypeAudio,
-			Formats: []format.Format{&format.MPEG4Audio{
+			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,
@@ -225,14 +225,14 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
 		{
 			Type: description.MediaTypeVideo,
-			Formats: []format.Format{&format.H264{
+			Formats: []rtspformat.Format{&rtspformat.H264{
 				PayloadTyp:        96,
 				PacketizationMode: 1,
 			}},
 		},
 		{
 			Type: description.MediaTypeAudio,
-			Formats: []format.Format{&format.MPEG4Audio{
+			Formats: []rtspformat.Format{&rtspformat.MPEG4Audio{
 				PayloadTyp: 96,
 				Config: &mpeg4audio.Config{
 					Type:         2,

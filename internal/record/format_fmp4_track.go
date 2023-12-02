@@ -4,24 +4,24 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 )
 
-type recFormatFMP4Track struct {
-	f         *recFormatFMP4
+type formatFMP4Track struct {
+	f         *formatFMP4
 	initTrack *fmp4.InitTrack
 
 	nextSample *sample
 }
 
-func newRecFormatFMP4Track(
-	f *recFormatFMP4,
+func newFormatFMP4Track(
+	f *formatFMP4,
 	initTrack *fmp4.InitTrack,
-) *recFormatFMP4Track {
-	return &recFormatFMP4Track{
+) *formatFMP4Track {
+	return &formatFMP4Track{
 		f:         f,
 		initTrack: initTrack,
 	}
 }
 
-func (t *recFormatFMP4Track) record(sample *sample) error {
+func (t *formatFMP4Track) record(sample *sample) error {
 	// wait the first video sample before setting hasVideo
 	if t.initTrack.Codec.IsVideo() {
 		t.f.hasVideo = true
@@ -34,7 +34,7 @@ func (t *recFormatFMP4Track) record(sample *sample) error {
 	sample.Duration = uint32(durationGoToMp4(t.nextSample.dts-sample.dts, t.initTrack.TimeScale))
 
 	if t.f.currentSegment == nil {
-		t.f.currentSegment = newRecFormatFMP4Segment(t.f, sample.dts)
+		t.f.currentSegment = newFormatFMP4Segment(t.f, sample.dts)
 		// BaseTime is negative, this is not supported by fMP4. Reject the sample silently.
 	} else if (sample.dts - t.f.currentSegment.startDTS) < 0 {
 		return nil
@@ -53,7 +53,7 @@ func (t *recFormatFMP4Track) record(sample *sample) error {
 			return err
 		}
 
-		t.f.currentSegment = newRecFormatFMP4Segment(t.f, t.nextSample.dts)
+		t.f.currentSegment = newFormatFMP4Segment(t.f, t.nextSample.dts)
 	}
 
 	return nil

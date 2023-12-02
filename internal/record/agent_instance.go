@@ -24,7 +24,7 @@ type agentInstance struct {
 
 	resolvedPath string
 	writer       *asyncwriter.Writer
-	format       recFormat
+	format       format
 
 	terminate chan struct{}
 	done      chan struct{}
@@ -48,13 +48,13 @@ func (a *agentInstance) initialize() {
 
 	switch a.wrapper.Format {
 	case conf.RecordFormatMPEGTS:
-		a.format = &recFormatMPEGTS{
+		a.format = &formatMPEGTS{
 			a: a,
 		}
 		a.format.initialize()
 
 	default:
-		a.format = &recFormatFMP4{
+		a.format = &formatFMP4{
 			a: a,
 		}
 		a.format.initialize()

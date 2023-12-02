@@ -8,8 +8,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-type recFormatMPEGTSSegment struct {
-	f         *recFormatMPEGTS
+type formatMPEGTSSegment struct {
+	f         *formatMPEGTS
 	startDTS  time.Duration
 	lastFlush time.Duration
 
@@ -18,8 +18,8 @@ type recFormatMPEGTSSegment struct {
 	fi      *os.File
 }
 
-func newRecFormatMPEGTSSegment(f *recFormatMPEGTS, startDTS time.Duration) *recFormatMPEGTSSegment {
-	s := &recFormatMPEGTSSegment{
+func newFormatMPEGTSSegment(f *formatMPEGTS, startDTS time.Duration) *formatMPEGTSSegment {
+	s := &formatMPEGTSSegment{
 		f:         f,
 		startDTS:  startDTS,
 		lastFlush: startDTS,
@@ -31,7 +31,7 @@ func newRecFormatMPEGTSSegment(f *recFormatMPEGTS, startDTS time.Duration) *recF
 	return s
 }
 
-func (s *recFormatMPEGTSSegment) close() error {
+func (s *formatMPEGTSSegment) close() error {
 	err := s.f.bw.Flush()
 
 	if s.fi != nil {
@@ -49,7 +49,7 @@ func (s *recFormatMPEGTSSegment) close() error {
 	return err
 }
 
-func (s *recFormatMPEGTSSegment) Write(p []byte) (int, error) {
+func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
 		s.fpath = encodeRecordPath(&recordPathParams{time: s.created}, s.f.a.resolvedPath)
 		s.f.a.wrapper.Log(logger.Debug, "creating segment %s", s.fpath)
