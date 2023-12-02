@@ -106,8 +106,7 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 	var minute int
 	var second int
 	var micros int
-	var unix_sec int64 = -1
-	var t time.Time
+	var unixSec int64 = -1
 
 	for k, v := range values {
 		switch k {
@@ -140,13 +139,13 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 			micros = int(tmp)
 
 		case "%s":
-			tmp, _ := strconv.ParseInt(v, 10, 64)
-			unix_sec = int64(tmp)
+			unixSec, _ = strconv.ParseInt(v, 10, 64)
 		}
 	}
 
-	if unix_sec > 0 {
-		t = time.Unix(unix_sec, 0)
+	var t time.Time
+	if unixSec > 0 {
+		t = time.Unix(unixSec, 0)
 	} else {
 		t = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
 	}
@@ -165,6 +164,6 @@ func encodeRecordPath(params *recordPathParams, v string) string {
 	v = strings.ReplaceAll(v, "%M", leadingZeros(params.time.Minute(), 2))
 	v = strings.ReplaceAll(v, "%S", leadingZeros(params.time.Second(), 2))
 	v = strings.ReplaceAll(v, "%f", leadingZeros(params.time.Nanosecond()/1000, 6))
-	v = strings.ReplaceAll(v, "%s", strconv.FormatInt(int64(params.time.Unix()), 10))
+	v = strings.ReplaceAll(v, "%s", strconv.FormatInt(params.time.Unix(), 10))
 	return v
 }
