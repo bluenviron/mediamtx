@@ -21,12 +21,11 @@ func leadingZeros(v int, size int) string {
 	return out2 + out
 }
 
-type recordPathParams struct {
-	path string
+type segmentPath struct {
 	time time.Time
 }
 
-func decodeRecordPath(format string, v string) *recordPathParams {
+func (p *segmentPath) decode(format string, v string) bool {
 	re := format
 
 	for _, ch := range []uint8{
@@ -90,7 +89,7 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 
 	matches := r.FindStringSubmatch(v)
 	if matches == nil {
-		return nil
+		return false
 	}
 
 	values := make(map[string]string)
@@ -143,27 +142,23 @@ func decodeRecordPath(format string, v string) *recordPathParams {
 		}
 	}
 
-	var t time.Time
 	if unixSec > 0 {
-		t = time.Unix(unixSec, 0)
+		p.time = time.Unix(unixSec, 0)
 	} else {
-		t = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
+		p.time = time.Date(year, month, day, hour, minute, second, micros*1000, time.Local)
 	}
 
-	return &recordPathParams{
-		path: values["%path"],
-		time: t,
-	}
+	return true
 }
 
-func encodeRecordPath(params *recordPathParams, v string) string {
-	v = strings.ReplaceAll(v, "%Y", strconv.FormatInt(int64(params.time.Year()), 10))
-	v = strings.ReplaceAll(v, "%m", leadingZeros(int(params.time.Month()), 2))
-	v = strings.ReplaceAll(v, "%d", leadingZeros(params.time.Day(), 2))
-	v = strings.ReplaceAll(v, "%H", leadingZeros(params.time.Hour(), 2))
-	v = strings.ReplaceAll(v, "%M", leadingZeros(params.time.Minute(), 2))
-	v = strings.ReplaceAll(v, "%S", leadingZeros(params.time.Second(), 2))
-	v = strings.ReplaceAll(v, "%f", leadingZeros(params.time.Nanosecond()/1000, 6))
-	v = strings.ReplaceAll(v, "%s", strconv.FormatInt(params.time.Unix(), 10))
-	return v
+func (p segmentPath) encode(format string) string {
+	format = strings.ReplaceAll(format, "%Y", strconv.FormatInt(int64(p.time.Year()), 10))
+	format = strings.ReplaceAll(format, "%m", leadingZeros(int(p.time.Month()), 2))
+	format = strings.ReplaceAll(format, "%d", leadingZeros(p.time.Day(), 2))
+	format = strings.ReplaceAll(format, "%H", leadingZeros(p.time.Hour(), 2))
+	format = strings.ReplaceAll(format, "%M", leadingZeros(p.time.Minute(), 2))
+	format = strings.ReplaceAll(format, "%S", leadingZeros(p.time.Second(), 2))
+	format = strings.ReplaceAll(format, "%f", leadingZeros(p.time.Nanosecond()/1000, 6))
+	format = strings.ReplaceAll(format, "%s", strconv.FormatInt(p.time.Unix(), 10))
+	return format
 }

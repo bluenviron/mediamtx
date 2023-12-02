@@ -8,10 +8,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-// Agent is a record agent.
+// Agent writes recordings to disk.
 type Agent struct {
 	WriteQueueSize    int
-	RecordPath        string
+	SegmentPathFormat string
 	Format            conf.RecordFormat
 	PartDuration      time.Duration
 	SegmentDuration   time.Duration
@@ -47,7 +47,7 @@ func (w *Agent) Initialize() {
 	w.done = make(chan struct{})
 
 	w.currentInstance = &agentInstance{
-		wrapper: w,
+		agent: w,
 	}
 	w.currentInstance.initialize()
 
@@ -85,7 +85,7 @@ func (w *Agent) run() {
 		}
 
 		w.currentInstance = &agentInstance{
-			wrapper: w,
+			agent: w,
 		}
 		w.currentInstance.initialize()
 	}

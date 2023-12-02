@@ -31,14 +31,15 @@ func TestCleaner(t *testing.T) {
 	err = os.WriteFile(filepath.Join(dir, "_-+*?^$()[]{}|_mypath", "2009-05-20_22-15-25-000427.mp4"), []byte{1}, 0o644)
 	require.NoError(t, err)
 
-	c := NewCleaner(
-		[]CleanerEntry{{
-			RecordPath:        recordPath,
-			RecordFormat:      conf.RecordFormatFMP4,
-			RecordDeleteAfter: 10 * time.Second,
+	c := &Cleaner{
+		Entries: []CleanerEntry{{
+			SegmentPathFormat: recordPath,
+			Format:            conf.RecordFormatFMP4,
+			DeleteAfter:       10 * time.Second,
 		}},
-		nilLogger{},
-	)
+		Parent: nilLogger{},
+	}
+	c.Initialize()
 	defer c.Close()
 
 	time.Sleep(500 * time.Millisecond)

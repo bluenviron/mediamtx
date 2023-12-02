@@ -132,7 +132,7 @@ func (f *formatFMP4) initialize() {
 		}
 	}
 
-	for _, media := range f.a.wrapper.Stream.Desc().Medias {
+	for _, media := range f.a.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *rtspformat.AV1:
@@ -145,7 +145,7 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AV1)
 					if tunit.TU == nil {
 						return nil
@@ -202,7 +202,7 @@ func (f *formatFMP4) initialize() {
 
 				firstReceived := false
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.VP9)
 					if tunit.Frame == nil {
 						return nil
@@ -299,7 +299,7 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H265)
 					if tunit.AU == nil {
 						return nil
@@ -384,7 +384,7 @@ func (f *formatFMP4) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H264)
 					if tunit.AU == nil {
 						return nil
@@ -460,7 +460,7 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Video)
 					if tunit.Frame == nil {
 						return nil
@@ -512,7 +512,7 @@ func (f *formatFMP4) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Video)
 					if tunit.Frame == nil {
 						return nil
@@ -560,7 +560,7 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MJPEG)
 					if tunit.Frame == nil {
 						return nil
@@ -596,7 +596,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(codec)
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
 					if tunit.Packets == nil {
 						return nil
@@ -629,7 +629,7 @@ func (f *formatFMP4) initialize() {
 
 				sampleRate := time.Duration(forma.ClockRate())
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Audio)
 					if tunit.AUs == nil {
 						return nil
@@ -662,7 +662,7 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
 					if tunit.Frames == nil {
 						return nil
@@ -716,7 +716,7 @@ func (f *formatFMP4) initialize() {
 
 				parsed := false
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AC3)
 					if tunit.Frames == nil {
 						return nil
@@ -782,7 +782,7 @@ func (f *formatFMP4) initialize() {
 				}
 				track := addTrack(codec)
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.LPCM)
 					if tunit.Samples == nil {
 						return nil
@@ -799,7 +799,7 @@ func (f *formatFMP4) initialize() {
 		}
 	}
 
-	f.a.wrapper.Log(logger.Info, "recording %d %s",
+	f.a.agent.Log(logger.Info, "recording %d %s",
 		len(f.tracks),
 		func() string {
 			if len(f.tracks) == 1 {

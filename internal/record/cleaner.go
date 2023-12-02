@@ -41,39 +41,28 @@ func commonPath(v string) string {
 
 // CleanerEntry is a cleaner entry.
 type CleanerEntry struct {
-	RecordPath        string
-	RecordFormat      conf.RecordFormat
-	RecordDeleteAfter time.Duration
+	SegmentPathFormat string
+	Format            conf.RecordFormat
+	DeleteAfter       time.Duration
 }
 
 // Cleaner removes expired recording segments from disk.
 type Cleaner struct {
+	Entries []CleanerEntry
+	Parent  logger.Writer
+
 	ctx       context.Context
 	ctxCancel func()
-	entries   []CleanerEntry
-	parent    logger.Writer
 
 	done chan struct{}
 }
 
-// NewCleaner allocates a Cleaner.
-func NewCleaner(
-	entries []CleanerEntry,
-	parent logger.Writer,
-) *Cleaner {
-	ctx, ctxCancel := context.WithCancel(context.Background())
-
-	c := &Cleaner{
-		ctx:       ctx,
-		ctxCancel: ctxCancel,
-		entries:   entries,
-		parent:    parent,
-		done:      make(chan struct{}),
-	}
+// Initialize initializes a Cleaner.
+func (c *Cleaner) Initialize() {
+	c.ctx, c.ctxCancel = context.WithCancel(context.Background())
+	c.done = make(chan struct{})
 
 	go c.run()
-
-	return c
 }
 
 // Close closes the Cleaner.
@@ -84,16 +73,16 @@ func (c *Cleaner) Close() {
 
 // Log is the main logging function.
 func (c *Cleaner) Log(level logger.Level, format string, args ...interface{}) {
-	c.parent.Log(level, "[record cleaner]"+format, args...)
+	c.Parent.Log(level, "[record cleaner]"+format, args...)
 }
 
 func (c *Cleaner) run() {
 	defer close(c.done)
 
 	interval := 30 * 60 * time.Second
-	for _, e := range c.entries {
-		if interval > (e.RecordDeleteAfter / 2) {
-			interval = e.RecordDeleteAfter / 2
+	for _, e := range c.Entries {
+		if interval > (e.DeleteAfter / 2) {
+			interval = e.DeleteAfter / 2
 		}
 	}
 
@@ -111,27 +100,27 @@ func (c *Cleaner) run() {
 }
 
 func (c *Cleaner) doRun() {
-	for _, e := range c.entries {
+	for _, e := range c.Entries {
 		c.doRunEntry(&e) //nolint:errcheck
 	}
 }
 
 func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
-	recordPath := e.RecordPath
+	segmentPathFormat := e.SegmentPathFormat
+
+	switch e.Format {
+	case conf.RecordFormatMPEGTS:
+		segmentPathFormat += ".ts"
+
+	default:
+		segmentPathFormat += ".mp4"
+	}
 
 	// we have to convert to absolute paths
 	// otherwise, commonPath and fpath inside Walk() won't have common elements
-	recordPath, _ = filepath.Abs(recordPath)
+	segmentPathFormat, _ = filepath.Abs(segmentPathFormat)
 
-	switch e.RecordFormat {
-	case conf.RecordFormatMPEGTS:
-		recordPath += ".ts"
-
-	default:
-		recordPath += ".mp4"
-	}
-
-	commonPath := commonPath(recordPath)
+	commonPath := commonPath(segmentPathFormat)
 	now := timeNow()
 
 	filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error { //nolint:errcheck
@@ -140,9 +129,10 @@ func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
 		}
 
 		if !info.IsDir() {
-			params := decodeRecordPath(recordPath, fpath)
-			if params != nil {
-				if now.Sub(params.time) > e.RecordDeleteAfter {
+			var pa segmentPath
+			ok := pa.decode(segmentPathFormat, fpath)
+			if ok {
+				if now.Sub(pa.time) > e.DeleteAfter {
 					c.Log(logger.Debug, "removing %s", fpath)
 					os.Remove(fpath)
 				}

@@ -897,13 +897,13 @@ func (pa *path) setNotReady() {
 
 func (pa *path) startRecording() {
 	pa.recordAgent = &record.Agent{
-		WriteQueueSize:  pa.writeQueueSize,
-		RecordPath:      pa.conf.RecordPath,
-		Format:          pa.conf.RecordFormat,
-		PartDuration:    time.Duration(pa.conf.RecordPartDuration),
-		SegmentDuration: time.Duration(pa.conf.RecordSegmentDuration),
-		PathName:        pa.name,
-		Stream:          pa.stream,
+		WriteQueueSize:    pa.writeQueueSize,
+		SegmentPathFormat: pa.conf.RecordPath,
+		Format:            pa.conf.RecordFormat,
+		PartDuration:      time.Duration(pa.conf.RecordPartDuration),
+		SegmentDuration:   time.Duration(pa.conf.RecordSegmentDuration),
+		PathName:          pa.name,
+		Stream:            pa.stream,
 		OnSegmentCreate: func(segmentPath string) {
 			if pa.conf.RunOnRecordSegmentCreate != "" {
 				env := pa.externalCmdEnv()
