@@ -37,7 +37,7 @@ type formatFMP4Segment struct {
 	f        *formatFMP4
 	startDTS time.Duration
 
-	fpath   string
+	path    string
 	fi      *os.File
 	curPart *formatFMP4Part
 }
@@ -60,14 +60,14 @@ func (s *formatFMP4Segment) close() error {
 	}
 
 	if s.fi != nil {
-		s.f.a.wrapper.Log(logger.Debug, "closing segment %s", s.fpath)
+		s.f.a.agent.Log(logger.Debug, "closing segment %s", s.path)
 		err2 := s.fi.Close()
 		if err == nil {
 			err = err2
 		}
 
 		if err2 == nil {
-			s.f.a.wrapper.OnSegmentComplete(s.fpath)
+			s.f.a.agent.OnSegmentComplete(s.path)
 		}
 	}
 
@@ -78,7 +78,7 @@ func (s *formatFMP4Segment) record(track *formatFMP4Track, sample *sample) error
 	if s.curPart == nil {
 		s.curPart = newFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
 		s.f.nextSequenceNumber++
-	} else if s.curPart.duration() >= s.f.a.wrapper.PartDuration {
+	} else if s.curPart.duration() >= s.f.a.agent.PartDuration {
 		err := s.curPart.close()
 		s.curPart = nil
 

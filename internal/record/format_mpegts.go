@@ -59,7 +59,7 @@ func (f *formatMPEGTS) initialize() {
 		return track
 	}
 
-	for _, media := range f.a.wrapper.Stream.Desc().Medias {
+	for _, media := range f.a.agent.Stream.Desc().Medias {
 		for _, forma := range media.Formats {
 			switch forma := forma.(type) {
 			case *rtspformat.H265:
@@ -67,7 +67,7 @@ func (f *formatMPEGTS) initialize() {
 
 				var dtsExtractor *h265.DTSExtractor
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H265)
 					if tunit.AU == nil {
 						return nil
@@ -95,7 +95,7 @@ func (f *formatMPEGTS) initialize() {
 
 				var dtsExtractor *h264.DTSExtractor
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.H264)
 					if tunit.AU == nil {
 						return nil
@@ -124,7 +124,7 @@ func (f *formatMPEGTS) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Video)
 					if tunit.Frame == nil {
 						return nil
@@ -154,7 +154,7 @@ func (f *formatMPEGTS) initialize() {
 				firstReceived := false
 				var lastPTS time.Duration
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Video)
 					if tunit.Frame == nil {
 						return nil
@@ -188,7 +188,7 @@ func (f *formatMPEGTS) initialize() {
 					}(),
 				})
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
 					if tunit.Packets == nil {
 						return nil
@@ -207,7 +207,7 @@ func (f *formatMPEGTS) initialize() {
 					Config: *forma.GetConfig(),
 				})
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG4Audio)
 					if tunit.AUs == nil {
 						return nil
@@ -224,7 +224,7 @@ func (f *formatMPEGTS) initialize() {
 			case *rtspformat.MPEG1Audio:
 				track := addTrack(&mpegts.CodecMPEG1Audio{})
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.MPEG1Audio)
 					if tunit.Frames == nil {
 						return nil
@@ -243,7 +243,7 @@ func (f *formatMPEGTS) initialize() {
 
 				sampleRate := time.Duration(forma.SampleRate)
 
-				f.a.wrapper.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.AC3)
 					if tunit.Frames == nil {
 						return nil
@@ -269,7 +269,7 @@ func (f *formatMPEGTS) initialize() {
 	f.bw = bufio.NewWriterSize(f.dw, mpegtsMaxBufferSize)
 	f.mw = mpegts.NewWriter(f.bw, tracks)
 
-	f.a.wrapper.Log(logger.Info, "recording %d %s",
+	f.a.agent.Log(logger.Info, "recording %d %s",
 		len(tracks),
 		func() string {
 			if len(tracks) == 1 {
@@ -292,7 +292,7 @@ func (f *formatMPEGTS) setupSegment(dts time.Duration, isVideo bool, randomAcces
 
 	case (!f.hasVideo || isVideo) &&
 		randomAccess &&
-		(dts-f.currentSegment.startDTS) >= f.a.wrapper.SegmentDuration:
+		(dts-f.currentSegment.startDTS) >= f.a.agent.SegmentDuration:
 		err := f.currentSegment.close()
 		if err != nil {
 			return err
@@ -300,7 +300,7 @@ func (f *formatMPEGTS) setupSegment(dts time.Duration, isVideo bool, randomAcces
 
 		f.currentSegment = newFormatMPEGTSSegment(f, dts)
 
-	case (dts - f.currentSegment.lastFlush) >= f.a.wrapper.PartDuration:
+	case (dts - f.currentSegment.lastFlush) >= f.a.agent.PartDuration:
 		err := f.bw.Flush()
 		if err != nil {
 			return err

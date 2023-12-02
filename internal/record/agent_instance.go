@@ -20,33 +20,35 @@ type sample struct {
 }
 
 type agentInstance struct {
-	wrapper *Agent
+	agent *Agent
 
-	resolvedPath string
-	writer       *asyncwriter.Writer
-	format       format
+	segmentPathFormat string
+	writer            *asyncwriter.Writer
+	format            format
 
 	terminate chan struct{}
 	done      chan struct{}
 }
 
 func (a *agentInstance) initialize() {
-	a.resolvedPath = strings.ReplaceAll(a.wrapper.RecordPath, "%path", a.wrapper.PathName)
+	a.segmentPathFormat = a.agent.SegmentPathFormat
 
-	switch a.wrapper.Format {
+	a.segmentPathFormat = strings.ReplaceAll(a.segmentPathFormat, "%path", a.agent.PathName)
+
+	switch a.agent.Format {
 	case conf.RecordFormatMPEGTS:
-		a.resolvedPath += ".ts"
+		a.segmentPathFormat += ".ts"
 
 	default:
-		a.resolvedPath += ".mp4"
+		a.segmentPathFormat += ".mp4"
 	}
 
 	a.terminate = make(chan struct{})
 	a.done = make(chan struct{})
 
-	a.writer = asyncwriter.New(a.wrapper.WriteQueueSize, a.wrapper)
+	a.writer = asyncwriter.New(a.agent.WriteQueueSize, a.agent)
 
-	switch a.wrapper.Format {
+	switch a.agent.Format {
 	case conf.RecordFormatMPEGTS:
 		a.format = &formatMPEGTS{
 			a: a,
@@ -75,11 +77,11 @@ func (a *agentInstance) run() {
 
 	select {
 	case err := <-a.writer.Error():
-		a.wrapper.Log(logger.Error, err.Error())
-		a.wrapper.Stream.RemoveReader(a.writer)
+		a.agent.Log(logger.Error, err.Error())
+		a.agent.Stream.RemoveReader(a.writer)
 
 	case <-a.terminate:
-		a.wrapper.Stream.RemoveReader(a.writer)
+		a.agent.Stream.RemoveReader(a.writer)
 		a.writer.Stop()
 	}
 

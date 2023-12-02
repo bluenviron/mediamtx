@@ -40,9 +40,9 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	for _, pa := range paths {
 		if pa.Record && pa.RecordDeleteAfter != 0 {
 			entry := record.CleanerEntry{
-				RecordPath:        pa.RecordPath,
-				RecordFormat:      pa.RecordFormat,
-				RecordDeleteAfter: time.Duration(pa.RecordDeleteAfter),
+				SegmentPathFormat: pa.RecordPath,
+				Format:            pa.RecordFormat,
+				DeleteAfter:       time.Duration(pa.RecordDeleteAfter),
 			}
 			out[entry] = struct{}{}
 		}
@@ -57,10 +57,10 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	}
 
 	sort.Slice(out2, func(i, j int) bool {
-		if out2[i].RecordPath != out2[j].RecordPath {
-			return out2[i].RecordPath < out2[j].RecordPath
+		if out2[i].SegmentPathFormat != out2[j].SegmentPathFormat {
+			return out2[i].SegmentPathFormat < out2[j].SegmentPathFormat
 		}
-		return out2[i].RecordDeleteAfter < out2[j].RecordDeleteAfter
+		return out2[i].DeleteAfter < out2[j].DeleteAfter
 	})
 
 	return out2
@@ -295,10 +295,11 @@ func (p *Core) createResources(initial bool) error {
 	cleanerEntries := gatherCleanerEntries(p.conf.Paths)
 	if len(cleanerEntries) != 0 &&
 		p.recordCleaner == nil {
-		p.recordCleaner = record.NewCleaner(
-			cleanerEntries,
-			p,
-		)
+		p.recordCleaner = &record.Cleaner{
+			Entries: cleanerEntries,
+			Parent:  p,
+		}
+		p.recordCleaner.Initialize()
 	}
 
 	if p.pathManager == nil {
