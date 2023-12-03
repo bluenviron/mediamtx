@@ -41,6 +41,9 @@ func TestMetrics(t *testing.T) {
 		"encryption: optional\n" +
 		"serverCert: " + serverCertFpath + "\n" +
 		"serverKey: " + serverKeyFpath + "\n" +
+		"rtmpEncryption: optional\n" +
+		"rtmpServerCert: " + serverCertFpath + "\n" +
+		"rtmpServerKey: " + serverKeyFpath + "\n" +
 		"paths:\n" +
 		"  all_others:\n")
 	require.Equal(t, true, ok)
@@ -69,6 +72,9 @@ rtsps_sessions_bytes_sent 0
 rtmp_conns 0
 rtmp_conns_bytes_received 0
 rtmp_conns_bytes_sent 0
+rtmps_conns 0
+rtmps_conns_bytes_received 0
+rtmps_conns_bytes_sent 0
 srt_conns 0
 srt_conns_bytes_received 0
 srt_conns_bytes_sent 0
@@ -81,7 +87,7 @@ webrtc_sessions_bytes_sent 0
 	t.Run("with data", func(t *testing.T) {
 		terminate := make(chan struct{})
 		var wg sync.WaitGroup
-		wg.Add(5)
+		wg.Add(6)
 
 		go func() {
 			defer wg.Done()
@@ -117,6 +123,23 @@ webrtc_sessions_bytes_sent 0
 			nconn, err := net.Dial("tcp", u.Host)
 			require.NoError(t, err)
 			defer nconn.Close()
+
+			conn, err := rtmp.NewClientConn(nconn, u, true)
+			require.NoError(t, err)
+
+			_, err = rtmp.NewWriter(conn, testFormatH264, nil)
+			require.NoError(t, err)
+			<-terminate
+		}()
+
+		go func() {
+			defer wg.Done()
+			u, err := url.Parse("rtmp://localhost:1936/rtmps_path")
+			require.NoError(t, err)
+
+			nconn, err := tls.Dial("tcp", u.Host, &tls.Config{InsecureSkipVerify: true})
+			require.NoError(t, err)
+			defer nconn.Close() //nolint:errcheck
 
 			conn, err := rtmp.NewClientConn(nconn, u, true)
 			require.NoError(t, err)
@@ -219,10 +242,15 @@ webrtc_sessions_bytes_sent 0
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths\{name=".*?",state="ready"\} 1`+"\n"+
+				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
 				`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
 				`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+				`hls_muxers\{name=".*?"\} 1`+"\n"+
+				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
 				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
@@ -244,6 +272,9 @@ webrtc_sessions_bytes_sent 0
 				`rtmp_conns\{id=".*?",state="publish"\} 1`+"\n"+
 				`rtmp_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`rtmp_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`rtmps_conns\{id=".*?",state="publish"\} 1`+"\n"+
+				`rtmps_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`rtmps_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns\{id=".*?",state="publish"\} 1`+"\n"+
 				`srt_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_sent\{id=".*?",state="publish"\} 0`+"\n"+

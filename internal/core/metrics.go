@@ -24,7 +24,9 @@ type metricsParent interface {
 }
 
 type metrics struct {
-	parent metricsParent
+	Address     string
+	ReadTimeout conf.StringDuration
+	Parent      metricsParent
 
 	httpServer    *httpserv.WrappedServer
 	mutex         sync.Mutex
@@ -32,44 +34,37 @@ type metrics struct {
 	rtspServer    apiRTSPServer
 	rtspsServer   apiRTSPServer
 	rtmpServer    apiRTMPServer
+	rtmpsServer   apiRTMPServer
 	srtServer     apiSRTServer
 	hlsManager    apiHLSManager
 	webRTCManager apiWebRTCManager
 }
 
-func newMetrics(
-	address string,
-	readTimeout conf.StringDuration,
-	parent metricsParent,
-) (*metrics, error) {
-	m := &metrics{
-		parent: parent,
-	}
-
+func (m *metrics) initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(nil) //nolint:errcheck
 
 	router.GET("/metrics", m.onMetrics)
 
-	network, address := restrictnetwork.Restrict("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", m.Address)
 
 	var err error
 	m.httpServer, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		time.Duration(readTimeout),
+		time.Duration(m.ReadTimeout),
 		"",
 		"",
 		router,
 		m,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	m.Log(logger.Info, "listener opened on "+address)
 
-	return m, nil
+	return nil
 }
 
 func (m *metrics) close() {
@@ -78,7 +73,7 @@ func (m *metrics) close() {
 }
 
 func (m *metrics) Log(level logger.Level, format string, args ...interface{}) {
-	m.parent.Log(level, "[metrics] "+format, args...)
+	m.Parent.Log(level, "[metrics] "+format, args...)
 }
 
 func (m *metrics) onMetrics(ctx *gin.Context) {
@@ -201,6 +196,22 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
+	if !interfaceIsEmpty(m.rtmpsServer) {
+		data, err := m.rtmpsServer.apiConnsList()
+		if err == nil && len(data.Items) != 0 {
+			for _, i := range data.Items {
+				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
+				out += metric("rtmps_conns", tags, 1)
+				out += metric("rtmps_conns_bytes_received", tags, int64(i.BytesReceived))
+				out += metric("rtmps_conns_bytes_sent", tags, int64(i.BytesSent))
+			}
+		} else {
+			out += metric("rtmps_conns", "", 0)
+			out += metric("rtmps_conns_bytes_received", "", 0)
+			out += metric("rtmps_conns_bytes_sent", "", 0)
+		}
+	}
+
 	if !interfaceIsEmpty(m.srtServer) {
 		data, err := m.srtServer.apiConnsList()
 		if err == nil && len(data.Items) != 0 {
@@ -270,6 +281,13 @@ func (m *metrics) setRTMPServer(s apiRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s
+}
+
+// setRTMPSServer is called by core.
+func (m *metrics) setRTMPSServer(s apiRTMPServer) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.rtmpsServer = s
 }
 
 // setSRTServer is called by core.

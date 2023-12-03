@@ -270,11 +270,12 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.Metrics &&
 		p.metrics == nil {
-		p.metrics, err = newMetrics(
-			p.conf.MetricsAddress,
-			p.conf.ReadTimeout,
-			p,
-		)
+		p.metrics = &metrics{
+			Address:     p.conf.MetricsAddress,
+			ReadTimeout: p.conf.ReadTimeout,
+			Parent:      p,
+		}
+		err = p.metrics.initialize()
 		if err != nil {
 			return err
 		}
@@ -451,6 +452,10 @@ func (p *Core) createResources(initial bool) error {
 		)
 		if err != nil {
 			return err
+		}
+
+		if p.metrics != nil {
+			p.metrics.setRTMPSServer(p.rtmpsServer)
 		}
 	}
 
@@ -798,6 +803,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	if closeRTMPSServer && p.rtmpsServer != nil {
+		if p.metrics != nil {
+			p.metrics.setRTMPSServer(nil)
+		}
+
 		p.rtmpsServer.close()
 		p.rtmpsServer = nil
 	}

@@ -1485,6 +1485,11 @@ rtmp_conns{id="[id]",state="[state]"} 1
 rtmp_conns_bytes_received{id="[id]",state="[state]"} 1234
 rtmp_conns_bytes_sent{id="[id]",state="[state]"} 187
 
+# metrics of every RTMPS connection
+rtmps_conns{id="[id]",state="[state]"} 1
+rtmps_conns_bytes_received{id="[id]",state="[state]"} 1234
+rtmps_conns_bytes_sent{id="[id]",state="[state]"} 187
+
 # metrics of every SRT connection
 srt_conns{id="[id]",state="[state]"} 1
 srt_conns_bytes_received{id="[id]",state="[state]"} 1234
