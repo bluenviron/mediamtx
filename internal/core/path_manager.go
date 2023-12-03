@@ -78,7 +78,6 @@ type pathManager struct {
 	udpMaxPayloadSize         int
 	pathConfs                 map[string]*conf.Path
 	externalCmdPool           *externalcmd.Pool
-	metrics                   *metrics
 	parent                    pathManagerParent
 
 	ctx         context.Context
@@ -112,7 +111,6 @@ func newPathManager(
 	udpMaxPayloadSize int,
 	pathConfs map[string]*conf.Path,
 	externalCmdPool *externalcmd.Pool,
-	metrics *metrics,
 	parent pathManagerParent,
 ) *pathManager {
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -127,7 +125,6 @@ func newPathManager(
 		udpMaxPayloadSize:         udpMaxPayloadSize,
 		pathConfs:                 pathConfs,
 		externalCmdPool:           externalCmdPool,
-		metrics:                   metrics,
 		parent:                    parent,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
@@ -150,10 +147,6 @@ func newPathManager(
 		if pathConf.Regexp == nil {
 			pm.createPath(pathConfName, pathConf, pathConfName, nil)
 		}
-	}
-
-	if pm.metrics != nil {
-		pm.metrics.pathManagerSet(pm)
 	}
 
 	pm.Log(logger.Debug, "path manager created")
@@ -220,10 +213,6 @@ outer:
 	}
 
 	pm.ctxCancel()
-
-	if pm.metrics != nil {
-		pm.metrics.pathManagerSet(nil)
-	}
 }
 
 func (pm *pathManager) doReloadConf(newPaths map[string]*conf.Path) {

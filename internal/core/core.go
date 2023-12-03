@@ -313,9 +313,12 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.UDPMaxPayloadSize,
 			p.conf.Paths,
 			p.externalCmdPool,
-			p.metrics,
 			p,
 		)
+
+		if p.metrics != nil {
+			p.metrics.setPathManager(p.pathManager)
+		}
 	}
 
 	if p.conf.RTSP &&
@@ -347,12 +350,15 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RunOnConnectRestart,
 			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
-			p.metrics,
 			p.pathManager,
 			p,
 		)
 		if err != nil {
 			return err
+		}
+
+		if p.metrics != nil {
+			p.metrics.setRTSPServer(p.rtspServer)
 		}
 	}
 
@@ -382,12 +388,15 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RunOnConnectRestart,
 			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
-			p.metrics,
 			p.pathManager,
 			p,
 		)
 		if err != nil {
 			return err
+		}
+
+		if p.metrics != nil {
+			p.metrics.setRTSPSServer(p.rtspsServer)
 		}
 	}
 
@@ -408,12 +417,15 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RunOnConnectRestart,
 			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
-			p.metrics,
 			p.pathManager,
 			p,
 		)
 		if err != nil {
 			return err
+		}
+
+		if p.metrics != nil {
+			p.metrics.setRTMPServer(p.rtmpServer)
 		}
 	}
 
@@ -434,7 +446,6 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RunOnConnectRestart,
 			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
-			p.metrics,
 			p.pathManager,
 			p,
 		)
@@ -463,11 +474,16 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.ReadTimeout,
 			p.conf.WriteQueueSize,
 			p.pathManager,
-			p.metrics,
 			p,
 		)
 		if err != nil {
 			return err
+		}
+
+		p.pathManager.setHLSManager(p.hlsManager)
+
+		if p.metrics != nil {
+			p.metrics.setHLSManager(p.hlsManager)
 		}
 	}
 
@@ -490,13 +506,16 @@ func (p *Core) createResources(initial bool) error {
 			ICEServers:            p.conf.WebRTCICEServers2,
 			ExternalCmdPool:       p.externalCmdPool,
 			PathManager:           p.pathManager,
-			Metrics:               p.metrics,
 			Parent:                p,
 		}
 		err = p.webRTCManager.initialize()
 		if err != nil {
 			p.webRTCManager = nil
 			return err
+		}
+
+		if p.metrics != nil {
+			p.metrics.setWebRTCManager(p.webRTCManager)
 		}
 	}
 
@@ -513,12 +532,15 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.RunOnConnectRestart,
 			p.conf.RunOnDisconnect,
 			p.externalCmdPool,
-			p.metrics,
 			p.pathManager,
 			p,
 		)
 		if err != nil {
 			return err
+		}
+
+		if p.metrics != nil {
+			p.metrics.setSRTServer(p.srtServer)
 		}
 	}
 
@@ -747,16 +769,30 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	if closeSRTServer && p.srtServer != nil {
+		if p.metrics != nil {
+			p.metrics.setSRTServer(nil)
+		}
+
 		p.srtServer.close()
 		p.srtServer = nil
 	}
 
 	if closeWebRTCManager && p.webRTCManager != nil {
+		if p.metrics != nil {
+			p.metrics.setWebRTCManager(nil)
+		}
+
 		p.webRTCManager.close()
 		p.webRTCManager = nil
 	}
 
 	if closeHLSManager && p.hlsManager != nil {
+		if p.metrics != nil {
+			p.metrics.setHLSManager(nil)
+		}
+
+		p.pathManager.setHLSManager(nil)
+
 		p.hlsManager.close()
 		p.hlsManager = nil
 	}
@@ -767,21 +803,37 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	if closeRTMPServer && p.rtmpServer != nil {
+		if p.metrics != nil {
+			p.metrics.setRTMPServer(nil)
+		}
+
 		p.rtmpServer.close()
 		p.rtmpServer = nil
 	}
 
 	if closeRTSPSServer && p.rtspsServer != nil {
+		if p.metrics != nil {
+			p.metrics.setRTSPSServer(nil)
+		}
+
 		p.rtspsServer.close()
 		p.rtspsServer = nil
 	}
 
 	if closeRTSPServer && p.rtspServer != nil {
+		if p.metrics != nil {
+			p.metrics.setRTSPServer(nil)
+		}
+
 		p.rtspServer.close()
 		p.rtspServer = nil
 	}
 
 	if closePathManager && p.pathManager != nil {
+		if p.metrics != nil {
+			p.metrics.setPathManager(nil)
+		}
+
 		p.pathManager.close()
 		p.pathManager = nil
 	}

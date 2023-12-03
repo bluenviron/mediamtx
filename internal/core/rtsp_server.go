@@ -51,7 +51,6 @@ type rtspServer struct {
 	runOnConnectRestart bool
 	runOnDisconnect     string
 	externalCmdPool     *externalcmd.Pool
-	metrics             *metrics
 	pathManager         *pathManager
 	parent              rtspServerParent
 
@@ -86,7 +85,6 @@ func newRTSPServer(
 	runOnConnectRestart bool,
 	runOnDisconnect string,
 	externalCmdPool *externalcmd.Pool,
-	metrics *metrics,
 	pathManager *pathManager,
 	parent rtspServerParent,
 ) (*rtspServer, error) {
@@ -102,7 +100,6 @@ func newRTSPServer(
 		runOnConnectRestart: runOnConnectRestart,
 		runOnDisconnect:     runOnDisconnect,
 		externalCmdPool:     externalCmdPool,
-		metrics:             metrics,
 		pathManager:         pathManager,
 		parent:              parent,
 		ctx:                 ctx,
@@ -145,14 +142,6 @@ func newRTSPServer(
 	}
 
 	s.Log(logger.Info, "listener opened on %s", printAddresses(s.srv))
-
-	if metrics != nil {
-		if !isTLS {
-			metrics.setRTSPServer(s)
-		} else {
-			metrics.setRTSPSServer(s)
-		}
-	}
 
 	s.wg.Add(1)
 	go s.run()
@@ -205,14 +194,6 @@ outer:
 	}
 
 	s.ctxCancel()
-
-	if s.metrics != nil {
-		if !s.isTLS {
-			s.metrics.setRTSPServer(nil)
-		} else {
-			s.metrics.setRTSPSServer(nil)
-		}
-	}
 }
 
 // OnConnOpen implements gortsplib.ServerHandlerOnConnOpen.

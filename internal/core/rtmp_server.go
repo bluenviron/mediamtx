@@ -59,7 +59,6 @@ type rtmpServer struct {
 	runOnConnectRestart bool
 	runOnDisconnect     string
 	externalCmdPool     *externalcmd.Pool
-	metrics             *metrics
 	pathManager         *pathManager
 	parent              rtmpServerParent
 
@@ -91,7 +90,6 @@ func newRTMPServer(
 	runOnConnectRestart bool,
 	runOnDisconnect string,
 	externalCmdPool *externalcmd.Pool,
-	metrics *metrics,
 	pathManager *pathManager,
 	parent rtmpServerParent,
 ) (*rtmpServer, error) {
@@ -124,7 +122,6 @@ func newRTMPServer(
 		runOnDisconnect:     runOnDisconnect,
 		isTLS:               isTLS,
 		externalCmdPool:     externalCmdPool,
-		metrics:             metrics,
 		pathManager:         pathManager,
 		parent:              parent,
 		ctx:                 ctx,
@@ -140,10 +137,6 @@ func newRTMPServer(
 	}
 
 	s.Log(logger.Info, "listener opened on %s", address)
-
-	if s.metrics != nil {
-		s.metrics.rtmpServerSet(s)
-	}
 
 	newRTMPListener(
 		s.ln,
@@ -247,10 +240,6 @@ outer:
 	s.ctxCancel()
 
 	s.ln.Close()
-
-	if s.metrics != nil {
-		s.metrics.rtmpServerSet(s)
-	}
 }
 
 func (s *rtmpServer) findConnByUUID(uuid uuid.UUID) *rtmpConn {
