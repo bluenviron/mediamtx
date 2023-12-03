@@ -180,7 +180,6 @@ type webRTCManager struct {
 	ICEServers            []conf.WebRTCICEServer
 	ExternalCmdPool       *externalcmd.Pool
 	PathManager           *pathManager
-	Metrics               *metrics
 	Parent                webRTCManagerParent
 
 	ctx              context.Context
@@ -283,10 +282,6 @@ func (m *webRTCManager) initialize() error {
 		str += ", " + m.LocalTCPAddress + " (ICE/TCP)"
 	}
 	m.Log(logger.Info, str)
-
-	if m.Metrics != nil {
-		m.Metrics.webRTCManagerSet(m)
-	}
 
 	go m.run()
 

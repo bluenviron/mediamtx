@@ -237,50 +237,50 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	io.WriteString(ctx.Writer, out) //nolint:errcheck
 }
 
-// pathManagerSet is called by pathManager.
-func (m *metrics) pathManagerSet(s apiPathManager) {
+// setPathManager is called by core.
+func (m *metrics) setPathManager(s apiPathManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.pathManager = s
 }
 
-// setHLSManager is called by hlsManager.
+// setHLSManager is called by core.
 func (m *metrics) setHLSManager(s apiHLSManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.hlsManager = s
 }
 
-// setRTSPServer is called by rtspServer (plain).
+// setRTSPServer is called by core.
 func (m *metrics) setRTSPServer(s apiRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspServer = s
 }
 
-// setRTSPSServer is called by rtspServer (tls).
+// setRTSPSServer is called by core.
 func (m *metrics) setRTSPSServer(s apiRTSPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtspsServer = s
 }
 
-// rtmpServerSet is called by rtmpServer.
-func (m *metrics) rtmpServerSet(s apiRTMPServer) {
+// setRTMPServer is called by core.
+func (m *metrics) setRTMPServer(s apiRTMPServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.rtmpServer = s
 }
 
-// srtServerSet is called by srtServer.
-func (m *metrics) srtServerSet(s apiSRTServer) {
+// setSRTServer is called by core.
+func (m *metrics) setSRTServer(s apiSRTServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.srtServer = s
 }
 
-// webRTCManagerSet is called by webRTCManager.
-func (m *metrics) webRTCManagerSet(s apiWebRTCManager) {
+// setWebRTCManager is called by core.
+func (m *metrics) setWebRTCManager(s apiWebRTCManager) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.webRTCManager = s

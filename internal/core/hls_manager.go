@@ -45,7 +45,6 @@ type hlsManager struct {
 	directory                 string
 	writeQueueSize            int
 	pathManager               *pathManager
-	metrics                   *metrics
 	parent                    hlsManagerParent
 
 	ctx        context.Context
@@ -81,7 +80,6 @@ func newHLSManager(
 	readTimeout conf.StringDuration,
 	writeQueueSize int,
 	pathManager *pathManager,
-	metrics *metrics,
 	parent hlsManagerParent,
 ) (*hlsManager, error) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
@@ -98,7 +96,6 @@ func newHLSManager(
 		writeQueueSize:            writeQueueSize,
 		pathManager:               pathManager,
 		parent:                    parent,
-		metrics:                   metrics,
 		ctx:                       ctx,
 		ctxCancel:                 ctxCancel,
 		muxers:                    make(map[string]*hlsMuxer),
@@ -128,12 +125,6 @@ func newHLSManager(
 	}
 
 	m.Log(logger.Info, "listener opened on "+address)
-
-	m.pathManager.setHLSManager(m)
-
-	if m.metrics != nil {
-		m.metrics.setHLSManager(m)
-	}
 
 	m.wg.Add(1)
 	go m.run()
@@ -223,12 +214,6 @@ outer:
 	m.ctxCancel()
 
 	m.httpServer.close()
-
-	m.pathManager.setHLSManager(nil)
-
-	if m.metrics != nil {
-		m.metrics.setHLSManager(nil)
-	}
 }
 
 func (m *hlsManager) createMuxer(pathName string, remoteAddr string) *hlsMuxer {
