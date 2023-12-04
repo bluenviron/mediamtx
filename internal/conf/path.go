@@ -71,12 +71,14 @@ type Path struct {
 	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
 
 	// Authentication
-	PublishUser Credential `json:"publishUser"`
-	PublishPass Credential `json:"publishPass"`
-	PublishIPs  IPsOrCIDRs `json:"publishIPs"`
-	ReadUser    Credential `json:"readUser"`
-	ReadPass    Credential `json:"readPass"`
-	ReadIPs     IPsOrCIDRs `json:"readIPs"`
+	PublishUser                 Credential `json:"publishUser"`
+	PublishPass                 Credential `json:"publishPass"`
+	PublishIPs                  IPsOrCIDRs `json:"publishIPs"`
+	ReadUser                    Credential `json:"readUser"`
+	ReadPass                    Credential `json:"readPass"`
+	ReadIPs                     IPsOrCIDRs `json:"readIPs"`
+	ExternalAuthenticationWrite bool       `json:"externalAuthenticationWrite"`
+	ExternalAuthenticationRead  bool       `json:"externalAuthenticationRead"`
 
 	// Publisher source
 	OverridePublisher        bool   `json:"overridePublisher"`
@@ -158,6 +160,10 @@ func (pconf *Path) setDefaults() {
 	pconf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
 	pconf.RecordSegmentDuration = 3600 * StringDuration(time.Second)
 	pconf.RecordDeleteAfter = 24 * 3600 * StringDuration(time.Second)
+
+	// Authentication
+	pconf.ExternalAuthenticationRead = true
+	pconf.ExternalAuthenticationWrite = true
 
 	// Publisher source
 	pconf.OverridePublisher = true

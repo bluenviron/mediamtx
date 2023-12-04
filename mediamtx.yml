@@ -333,6 +333,11 @@ pathDefaults:
   # IPs or networks (x.x.x.x/24) allowed to read.
   readIPs: []
 
+  # Call externalAuthenticationURL every time write is requested.
+  externalAuthenticationWrite: yes
+  # Call externalAuthenticationURL every time read is requested.
+  externalAuthenticationRead: yes
+
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")
 

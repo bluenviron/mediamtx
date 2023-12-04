@@ -52,8 +52,18 @@ const (
 
 func doExternalAuthentication(
 	ur string,
+	externalAuthenticationRead bool,
+	externalAuthenticationWrite bool,
 	accessRequest pathAccessRequest,
 ) error {
+	if !externalAuthenticationRead && !accessRequest.publish {
+		return nil
+	}
+
+	if !externalAuthenticationWrite && accessRequest.publish {
+		return nil
+	}
+
 	enc, _ := json.Marshal(struct {
 		IP       string     `json:"ip"`
 		User     string     `json:"user"`
@@ -112,6 +122,8 @@ func doAuthentication(
 	if externalAuthenticationURL != "" {
 		err := doExternalAuthentication(
 			externalAuthenticationURL,
+			pathConf.ExternalAuthenticationRead,
+			pathConf.ExternalAuthenticationWrite,
 			accessRequest,
 		)
 		if err != nil {
