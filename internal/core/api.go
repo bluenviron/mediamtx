@@ -102,35 +102,35 @@ type apiPathManager interface {
 	apiPathsGet(string) (*defs.APIPath, error)
 }
 
-type apiHLSManager interface {
-	apiMuxersList() (*defs.APIHLSMuxerList, error)
-	apiMuxersGet(string) (*defs.APIHLSMuxer, error)
+type apiHLSServer interface {
+	APIMuxersList() (*defs.APIHLSMuxerList, error)
+	APIMuxersGet(string) (*defs.APIHLSMuxer, error)
 }
 
 type apiRTSPServer interface {
-	apiConnsList() (*defs.APIRTSPConnsList, error)
-	apiConnsGet(uuid.UUID) (*defs.APIRTSPConn, error)
-	apiSessionsList() (*defs.APIRTSPSessionList, error)
-	apiSessionsGet(uuid.UUID) (*defs.APIRTSPSession, error)
-	apiSessionsKick(uuid.UUID) error
+	APIConnsList() (*defs.APIRTSPConnsList, error)
+	APIConnsGet(uuid.UUID) (*defs.APIRTSPConn, error)
+	APISessionsList() (*defs.APIRTSPSessionList, error)
+	APISessionsGet(uuid.UUID) (*defs.APIRTSPSession, error)
+	APISessionsKick(uuid.UUID) error
 }
 
 type apiRTMPServer interface {
-	apiConnsList() (*defs.APIRTMPConnList, error)
-	apiConnsGet(uuid.UUID) (*defs.APIRTMPConn, error)
-	apiConnsKick(uuid.UUID) error
-}
-
-type apiWebRTCManager interface {
-	apiSessionsList() (*defs.APIWebRTCSessionList, error)
-	apiSessionsGet(uuid.UUID) (*defs.APIWebRTCSession, error)
-	apiSessionsKick(uuid.UUID) error
+	APIConnsList() (*defs.APIRTMPConnList, error)
+	APIConnsGet(uuid.UUID) (*defs.APIRTMPConn, error)
+	APIConnsKick(uuid.UUID) error
 }
 
 type apiSRTServer interface {
-	apiConnsList() (*defs.APISRTConnList, error)
-	apiConnsGet(uuid.UUID) (*defs.APISRTConn, error)
-	apiConnsKick(uuid.UUID) error
+	APIConnsList() (*defs.APISRTConnList, error)
+	APIConnsGet(uuid.UUID) (*defs.APISRTConn, error)
+	APIConnsKick(uuid.UUID) error
+}
+
+type apiWebRTCServer interface {
+	APISessionsList() (*defs.APIWebRTCSessionList, error)
+	APISessionsGet(uuid.UUID) (*defs.APIWebRTCSession, error)
+	APISessionsKick(uuid.UUID) error
 }
 
 type apiParent interface {
@@ -139,16 +139,16 @@ type apiParent interface {
 }
 
 type api struct {
-	conf          *conf.Conf
-	pathManager   apiPathManager
-	rtspServer    apiRTSPServer
-	rtspsServer   apiRTSPServer
-	rtmpServer    apiRTMPServer
-	rtmpsServer   apiRTMPServer
-	hlsManager    apiHLSManager
-	webRTCManager apiWebRTCManager
-	srtServer     apiSRTServer
-	parent        apiParent
+	conf         *conf.Conf
+	pathManager  apiPathManager
+	rtspServer   apiRTSPServer
+	rtspsServer  apiRTSPServer
+	rtmpServer   apiRTMPServer
+	rtmpsServer  apiRTMPServer
+	hlsManager   apiHLSServer
+	webRTCServer apiWebRTCServer
+	srtServer    apiSRTServer
+	parent       apiParent
 
 	httpServer *httpserv.WrappedServer
 	mutex      sync.Mutex
@@ -163,22 +163,22 @@ func newAPI(
 	rtspsServer apiRTSPServer,
 	rtmpServer apiRTMPServer,
 	rtmpsServer apiRTMPServer,
-	hlsManager apiHLSManager,
-	webRTCManager apiWebRTCManager,
+	hlsManager apiHLSServer,
+	webRTCServer apiWebRTCServer,
 	srtServer apiSRTServer,
 	parent apiParent,
 ) (*api, error) {
 	a := &api{
-		conf:          conf,
-		pathManager:   pathManager,
-		rtspServer:    rtspServer,
-		rtspsServer:   rtspsServer,
-		rtmpServer:    rtmpServer,
-		rtmpsServer:   rtmpsServer,
-		hlsManager:    hlsManager,
-		webRTCManager: webRTCManager,
-		srtServer:     srtServer,
-		parent:        parent,
+		conf:         conf,
+		pathManager:  pathManager,
+		rtspServer:   rtspServer,
+		rtspsServer:  rtspsServer,
+		rtmpServer:   rtmpServer,
+		rtmpsServer:  rtmpsServer,
+		hlsManager:   hlsManager,
+		webRTCServer: webRTCServer,
+		srtServer:    srtServer,
+		parent:       parent,
 	}
 
 	router := gin.New()
@@ -235,7 +235,7 @@ func newAPI(
 		group.POST("/v3/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
-	if !interfaceIsEmpty(a.webRTCManager) {
+	if !interfaceIsEmpty(a.webRTCServer) {
 		group.GET("/v3/webrtcsessions/list", a.onWebRTCSessionsList)
 		group.GET("/v3/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
 		group.POST("/v3/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
@@ -273,6 +273,7 @@ func (a *api) close() {
 	a.httpServer.Close()
 }
 
+// Log implements logger.Writer.
 func (a *api) Log(level logger.Level, format string, args ...interface{}) {
 	a.parent.Log(level, "[API] "+format, args...)
 }
@@ -581,7 +582,7 @@ func (a *api) onPathsGet(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPConnsList(ctx *gin.Context) {
-	data, err := a.rtspServer.apiConnsList()
+	data, err := a.rtspServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -605,7 +606,7 @@ func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.rtspServer.apiConnsGet(uuid)
+	data, err := a.rtspServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -615,7 +616,7 @@ func (a *api) onRTSPConnsGet(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	data, err := a.rtspServer.apiSessionsList()
+	data, err := a.rtspServer.APISessionsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -639,7 +640,7 @@ func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.rtspServer.apiSessionsGet(uuid)
+	data, err := a.rtspServer.APISessionsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -655,7 +656,7 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 		return
 	}
 
-	err = a.rtspServer.apiSessionsKick(uuid)
+	err = a.rtspServer.APISessionsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -665,7 +666,7 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSConnsList(ctx *gin.Context) {
-	data, err := a.rtspsServer.apiConnsList()
+	data, err := a.rtspsServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -689,7 +690,7 @@ func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.rtspsServer.apiConnsGet(uuid)
+	data, err := a.rtspsServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -699,7 +700,7 @@ func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 }
 
 func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
-	data, err := a.rtspsServer.apiSessionsList()
+	data, err := a.rtspsServer.APISessionsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -723,7 +724,7 @@ func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.rtspsServer.apiSessionsGet(uuid)
+	data, err := a.rtspsServer.APISessionsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -739,7 +740,7 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 		return
 	}
 
-	err = a.rtspsServer.apiSessionsKick(uuid)
+	err = a.rtspsServer.APISessionsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -749,7 +750,7 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	data, err := a.rtmpServer.apiConnsList()
+	data, err := a.rtmpServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -773,7 +774,7 @@ func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.rtmpServer.apiConnsGet(uuid)
+	data, err := a.rtmpServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -789,7 +790,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 		return
 	}
 
-	err = a.rtmpServer.apiConnsKick(uuid)
+	err = a.rtmpServer.APIConnsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -799,7 +800,7 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onRTMPSConnsList(ctx *gin.Context) {
-	data, err := a.rtmpsServer.apiConnsList()
+	data, err := a.rtmpsServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -823,7 +824,7 @@ func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.rtmpsServer.apiConnsGet(uuid)
+	data, err := a.rtmpsServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -839,7 +840,7 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 		return
 	}
 
-	err = a.rtmpsServer.apiConnsKick(uuid)
+	err = a.rtmpsServer.APIConnsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -849,7 +850,7 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 }
 
 func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	data, err := a.hlsManager.apiMuxersList()
+	data, err := a.hlsManager.APIMuxersList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -873,7 +874,7 @@ func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.hlsManager.apiMuxersGet(name)
+	data, err := a.hlsManager.APIMuxersGet(name)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -883,7 +884,7 @@ func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 }
 
 func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
-	data, err := a.webRTCManager.apiSessionsList()
+	data, err := a.webRTCServer.APISessionsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -907,7 +908,7 @@ func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.webRTCManager.apiSessionsGet(uuid)
+	data, err := a.webRTCServer.APISessionsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -923,7 +924,7 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 		return
 	}
 
-	err = a.webRTCManager.apiSessionsKick(uuid)
+	err = a.webRTCServer.APISessionsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -933,7 +934,7 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 }
 
 func (a *api) onSRTConnsList(ctx *gin.Context) {
-	data, err := a.srtServer.apiConnsList()
+	data, err := a.srtServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -957,7 +958,7 @@ func (a *api) onSRTConnsGet(ctx *gin.Context) {
 		return
 	}
 
-	data, err := a.srtServer.apiConnsGet(uuid)
+	data, err := a.srtServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -973,7 +974,7 @@ func (a *api) onSRTConnsKick(ctx *gin.Context) {
 		return
 	}
 
-	err = a.srtServer.apiConnsKick(uuid)
+	err = a.srtServer.APIConnsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return

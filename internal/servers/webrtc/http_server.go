@@ -1,4 +1,4 @@
-package core
+package webrtc
 
 import (
 	_ "embed"
@@ -12,7 +12,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -22,18 +21,18 @@ import (
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
-//go:embed webrtc_publish_index.html
-var webrtcPublishIndex []byte
+//go:embed publish_index.html
+var publishIndex []byte
 
-//go:embed webrtc_read_index.html
-var webrtcReadIndex []byte
+//go:embed read_index.html
+var readIndex []byte
 
 var (
 	reWHIPWHEPNoID   = regexp.MustCompile("^/(.+?)/(whip|whep)$")
 	reWHIPWHEPWithID = regexp.MustCompile("^/(.+?)/(whip|whep)/(.+?)$")
 )
 
-func webrtcWriteError(ctx *gin.Context, statusCode int, err error) {
+func writeError(ctx *gin.Context, statusCode int, err error) {
 	ctx.JSON(statusCode, &defs.APIError{
 		Error: err.Error(),
 	})
@@ -50,128 +49,111 @@ func sessionLocation(publish bool, secret uuid.UUID) string {
 	return ret
 }
 
-type webRTCHTTPServerParent interface {
-	logger.Writer
-	generateICEServers() ([]pwebrtc.ICEServer, error)
-	newSession(req webRTCNewSessionReq) webRTCNewSessionRes
-	addSessionCandidates(req webRTCAddSessionCandidatesReq) webRTCAddSessionCandidatesRes
-	deleteSession(req webRTCDeleteSessionReq) error
-}
-
-type webRTCHTTPServer struct {
-	allowOrigin string
-	pathManager *pathManager
-	parent      webRTCHTTPServerParent
+type httpServer struct {
+	address        string
+	encryption     bool
+	serverKey      string
+	serverCert     string
+	allowOrigin    string
+	trustedProxies conf.IPsOrCIDRs
+	readTimeout    conf.StringDuration
+	pathManager    defs.PathManager
+	parent         *Server
 
 	inner *httpserv.WrappedServer
 }
 
-func newWebRTCHTTPServer( //nolint:dupl
-	address string,
-	encryption bool,
-	serverKey string,
-	serverCert string,
-	allowOrigin string,
-	trustedProxies conf.IPsOrCIDRs,
-	readTimeout conf.StringDuration,
-	pathManager *pathManager,
-	parent webRTCHTTPServerParent,
-) (*webRTCHTTPServer, error) {
-	if encryption {
-		if serverCert == "" {
-			return nil, fmt.Errorf("server cert is missing")
+func (s *httpServer) initialize() error {
+	if s.encryption {
+		if s.serverCert == "" {
+			return fmt.Errorf("server cert is missing")
 		}
 	} else {
-		serverKey = ""
-		serverCert = ""
-	}
-
-	s := &webRTCHTTPServer{
-		allowOrigin: allowOrigin,
-		pathManager: pathManager,
-		parent:      parent,
+		s.serverKey = ""
+		s.serverCert = ""
 	}
 
 	router := gin.New()
-	router.SetTrustedProxies(trustedProxies.ToTrustedProxies()) //nolint:errcheck
+	router.SetTrustedProxies(s.trustedProxies.ToTrustedProxies()) //nolint:errcheck
 	router.NoRoute(s.onRequest)
 
-	network, address := restrictnetwork.Restrict("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", s.address)
 
 	var err error
 	s.inner, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		time.Duration(readTimeout),
-		serverCert,
-		serverKey,
+		time.Duration(s.readTimeout),
+		s.serverCert,
+		s.serverKey,
 		router,
 		s,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return s, nil
+	return nil
 }
 
-func (s *webRTCHTTPServer) Log(level logger.Level, format string, args ...interface{}) {
+// Log implements logger.Writer.
+func (s *httpServer) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, format, args...)
 }
 
-func (s *webRTCHTTPServer) close() {
+func (s *httpServer) close() {
 	s.inner.Close()
 }
 
-func (s *webRTCHTTPServer) checkAuthOutsideSession(ctx *gin.Context, path string, publish bool) bool {
+func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publish bool) bool {
 	ip := ctx.ClientIP()
 	_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
 	remoteAddr := net.JoinHostPort(ip, port)
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.getConfForPath(pathGetConfForPathReq{
-		accessRequest: pathAccessRequest{
-			name:    path,
-			query:   ctx.Request.URL.RawQuery,
-			publish: publish,
-			ip:      net.ParseIP(ip),
-			user:    user,
-			pass:    pass,
-			proto:   authProtocolWebRTC,
+	res := s.pathManager.GetConfForPath(defs.PathGetConfForPathReq{
+		AccessRequest: defs.PathAccessRequest{
+			Name:    path,
+			Query:   ctx.Request.URL.RawQuery,
+			Publish: publish,
+			IP:      net.ParseIP(ip),
+			User:    user,
+			Pass:    pass,
+			Proto:   defs.AuthProtocolWebRTC,
 		},
 	})
-	if res.err != nil {
-		if terr, ok := res.err.(*errAuthentication); ok {
+	if res.Err != nil {
+		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
 				return false
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.message)
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.Message)
 
 			// wait some seconds to stop brute force attacks
 			<-time.After(webrtcPauseAfterAuthError)
 
-			webrtcWriteError(ctx, http.StatusUnauthorized, terr)
+			writeError(ctx, http.StatusUnauthorized, terr)
 			return false
 		}
 
-		webrtcWriteError(ctx, http.StatusInternalServerError, res.err)
+		writeError(ctx, http.StatusInternalServerError, res.Err)
 		return false
 	}
 
 	return true
 }
 
-func (s *webRTCHTTPServer) onWHIPOptions(ctx *gin.Context, path string, publish bool) {
+func (s *httpServer) onWHIPOptions(ctx *gin.Context, path string, publish bool) {
 	if !s.checkAuthOutsideSession(ctx, path, publish) {
 		return
 	}
 
 	servers, err := s.parent.generateICEServers()
 	if err != nil {
-		webrtcWriteError(ctx, http.StatusInternalServerError, err)
+		writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -182,9 +164,9 @@ func (s *webRTCHTTPServer) onWHIPOptions(ctx *gin.Context, path string, publish 
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
 
-func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
+func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 	if ctx.Request.Header.Get("Content-Type") != "application/sdp" {
-		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
+		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
 
@@ -208,13 +190,13 @@ func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish boo
 		publish:    publish,
 	})
 	if res.err != nil {
-		webrtcWriteError(ctx, res.errStatusCode, res.err)
+		writeError(ctx, res.errStatusCode, res.err)
 		return
 	}
 
 	servers, err := s.parent.generateICEServers()
 	if err != nil {
-		webrtcWriteError(ctx, http.StatusInternalServerError, err)
+		writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -229,15 +211,15 @@ func (s *webRTCHTTPServer) onWHIPPost(ctx *gin.Context, path string, publish boo
 	ctx.Writer.Write(res.answer)
 }
 
-func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
+func (s *httpServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
-		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
+		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
 		return
 	}
 
 	if ctx.Request.Header.Get("Content-Type") != "application/trickle-ice-sdpfrag" {
-		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
+		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid Content-Type"))
 		return
 	}
 
@@ -248,7 +230,7 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 
 	candidates, err := webrtc.ICEFragmentUnmarshal(byts)
 	if err != nil {
-		webrtcWriteError(ctx, http.StatusBadRequest, err)
+		writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
@@ -257,17 +239,17 @@ func (s *webRTCHTTPServer) onWHIPPatch(ctx *gin.Context, rawSecret string) {
 		candidates: candidates,
 	})
 	if res.err != nil {
-		webrtcWriteError(ctx, http.StatusInternalServerError, res.err)
+		writeError(ctx, http.StatusInternalServerError, res.err)
 		return
 	}
 
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 }
 
-func (s *webRTCHTTPServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
+func (s *httpServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 	secret, err := uuid.Parse(rawSecret)
 	if err != nil {
-		webrtcWriteError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
+		writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid secret"))
 		return
 	}
 
@@ -275,14 +257,14 @@ func (s *webRTCHTTPServer) onWHIPDelete(ctx *gin.Context, rawSecret string) {
 		secret: secret,
 	})
 	if err != nil {
-		webrtcWriteError(ctx, http.StatusInternalServerError, err)
+		writeError(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
 	ctx.Writer.WriteHeader(http.StatusOK)
 }
 
-func (s *webRTCHTTPServer) onPage(ctx *gin.Context, path string, publish bool) {
+func (s *httpServer) onPage(ctx *gin.Context, path string, publish bool) {
 	if !s.checkAuthOutsideSession(ctx, path, publish) {
 		return
 	}
@@ -292,13 +274,13 @@ func (s *webRTCHTTPServer) onPage(ctx *gin.Context, path string, publish bool) {
 	ctx.Writer.WriteHeader(http.StatusOK)
 
 	if publish {
-		ctx.Writer.Write(webrtcPublishIndex)
+		ctx.Writer.Write(publishIndex)
 	} else {
-		ctx.Writer.Write(webrtcReadIndex)
+		ctx.Writer.Write(readIndex)
 	}
 }
 
-func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
+func (s *httpServer) onRequest(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Access-Control-Allow-Origin", s.allowOrigin)
 	ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 
@@ -324,7 +306,7 @@ func (s *webRTCHTTPServer) onRequest(ctx *gin.Context) {
 			// RFC draft-ietf-whip-09
 			// The WHIP endpoints MUST return an "405 Method Not Allowed" response
 			// for any HTTP GET, HEAD or PUT requests
-			webrtcWriteError(ctx, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
+			writeError(ctx, http.StatusMethodNotAllowed, fmt.Errorf("method not allowed"))
 		}
 		return
 	}

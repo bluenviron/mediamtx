@@ -6,7 +6,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	mcmpegts "github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -21,7 +21,7 @@ type Source struct {
 	Parent      defs.StaticSourceParent
 }
 
-// Log implements StaticSource.
+// Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 	s.Parent.Log(level, "[SRT source] "+format, args...)
 }

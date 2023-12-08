@@ -1,4 +1,4 @@
-package core
+package hls
 
 import (
 	"context"
@@ -26,13 +26,19 @@ import (
 )
 
 const (
-	closeCheckPeriod      = 1 * time.Second
-	closeAfterInactivity  = 60 * time.Second
-	hlsMuxerRecreatePause = 10 * time.Second
+	closeCheckPeriod     = 1 * time.Second
+	closeAfterInactivity = 60 * time.Second
+	muxerRecreatePause   = 10 * time.Second
 )
 
 func int64Ptr(v int64) *int64 {
 	return &v
+}
+
+func newEmptyTimer() *time.Timer {
+	t := time.NewTimer(0)
+	<-t.C
+	return t
 }
 
 type responseWriterWithCounter struct {
@@ -46,19 +52,15 @@ func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-type hlsMuxerHandleRequestReq struct {
+type muxerHandleRequestReq struct {
 	path string
 	file string
 	ctx  *gin.Context
-	res  chan *hlsMuxer
+	res  chan *muxer
 }
 
-type hlsMuxerParent interface {
-	logger.Writer
-	closeMuxer(*hlsMuxer)
-}
-
-type hlsMuxer struct {
+type muxer struct {
+	parentCtx                 context.Context
 	remoteAddr                string
 	externalAuthenticationURL string
 	variant                   conf.HLSVariant
@@ -70,90 +72,59 @@ type hlsMuxer struct {
 	writeQueueSize            int
 	wg                        *sync.WaitGroup
 	pathName                  string
-	pathManager               *pathManager
-	parent                    hlsMuxerParent
+	pathManager               defs.PathManager
+	parent                    *Server
 
 	ctx             context.Context
 	ctxCancel       func()
 	created         time.Time
-	path            *path
+	path            defs.Path
 	writer          *asyncwriter.Writer
 	lastRequestTime *int64
 	muxer           *gohlslib.Muxer
-	requests        []*hlsMuxerHandleRequestReq
+	requests        []*muxerHandleRequestReq
 	bytesSent       *uint64
 
 	// in
-	chRequest chan *hlsMuxerHandleRequestReq
+	chRequest chan *muxerHandleRequestReq
 }
 
-func newHLSMuxer(
-	parentCtx context.Context,
-	remoteAddr string,
-	externalAuthenticationURL string,
-	variant conf.HLSVariant,
-	segmentCount int,
-	segmentDuration conf.StringDuration,
-	partDuration conf.StringDuration,
-	segmentMaxSize conf.StringSize,
-	directory string,
-	writeQueueSize int,
-	wg *sync.WaitGroup,
-	pathName string,
-	pathManager *pathManager,
-	parent hlsMuxerParent,
-) *hlsMuxer {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+func (m *muxer) initialize() {
+	ctx, ctxCancel := context.WithCancel(m.parentCtx)
 
-	m := &hlsMuxer{
-		remoteAddr:                remoteAddr,
-		externalAuthenticationURL: externalAuthenticationURL,
-		variant:                   variant,
-		segmentCount:              segmentCount,
-		segmentDuration:           segmentDuration,
-		partDuration:              partDuration,
-		segmentMaxSize:            segmentMaxSize,
-		directory:                 directory,
-		writeQueueSize:            writeQueueSize,
-		wg:                        wg,
-		pathName:                  pathName,
-		pathManager:               pathManager,
-		parent:                    parent,
-		ctx:                       ctx,
-		ctxCancel:                 ctxCancel,
-		created:                   time.Now(),
-		lastRequestTime:           int64Ptr(time.Now().UnixNano()),
-		bytesSent:                 new(uint64),
-		chRequest:                 make(chan *hlsMuxerHandleRequestReq),
-	}
+	m.ctx = ctx
+	m.ctxCancel = ctxCancel
+	m.created = time.Now()
+	m.lastRequestTime = int64Ptr(time.Now().UnixNano())
+	m.bytesSent = new(uint64)
+	m.chRequest = make(chan *muxerHandleRequestReq)
 
 	m.Log(logger.Info, "created %s", func() string {
-		if remoteAddr == "" {
+		if m.remoteAddr == "" {
 			return "automatically"
 		}
-		return "(requested by " + remoteAddr + ")"
+		return "(requested by " + m.remoteAddr + ")"
 	}())
 
 	m.wg.Add(1)
 	go m.run()
-
-	return m
 }
 
-func (m *hlsMuxer) close() {
+func (m *muxer) Close() {
 	m.ctxCancel()
 }
 
-func (m *hlsMuxer) Log(level logger.Level, format string, args ...interface{}) {
+// Log implements logger.Writer.
+func (m *muxer) Log(level logger.Level, format string, args ...interface{}) {
 	m.parent.Log(level, "[muxer %s] "+format, append([]interface{}{m.pathName}, args...)...)
 }
 
 // PathName returns the path name.
-func (m *hlsMuxer) PathName() string {
+func (m *muxer) PathName() string {
 	return m.pathName
 }
 
-func (m *hlsMuxer) run() {
+func (m *muxer) run() {
 	defer m.wg.Done()
 
 	err := func() error {
@@ -213,7 +184,7 @@ func (m *hlsMuxer) run() {
 					m.clearQueuedRequests()
 					isReady = false
 					isRecreating = true
-					recreateTimer = time.NewTimer(hlsMuxerRecreatePause)
+					recreateTimer = time.NewTimer(muxerRecreatePause)
 				} else {
 					return err
 				}
@@ -234,41 +205,41 @@ func (m *hlsMuxer) run() {
 	m.Log(logger.Info, "destroyed: %v", err)
 }
 
-func (m *hlsMuxer) clearQueuedRequests() {
+func (m *muxer) clearQueuedRequests() {
 	for _, req := range m.requests {
 		req.res <- nil
 	}
 	m.requests = nil
 }
 
-func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
-	res := m.pathManager.addReader(pathAddReaderReq{
-		author: m,
-		accessRequest: pathAccessRequest{
-			name:     m.pathName,
-			skipAuth: true,
+func (m *muxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
+	res := m.pathManager.AddReader(defs.PathAddReaderReq{
+		Author: m,
+		AccessRequest: defs.PathAccessRequest{
+			Name:     m.pathName,
+			SkipAuth: true,
 		},
 	})
-	if res.err != nil {
-		return res.err
+	if res.Err != nil {
+		return res.Err
 	}
 
-	m.path = res.path
+	m.path = res.Path
 
-	defer m.path.removeReader(pathRemoveReaderReq{author: m})
+	defer m.path.RemoveReader(defs.PathRemoveReaderReq{Author: m})
 
 	m.writer = asyncwriter.New(m.writeQueueSize, m)
 
-	defer res.stream.RemoveReader(m.writer)
+	defer res.Stream.RemoveReader(m.writer)
 
 	var medias []*description.Media
 
-	videoMedia, videoTrack := m.createVideoTrack(res.stream)
+	videoMedia, videoTrack := m.createVideoTrack(res.Stream)
 	if videoMedia != nil {
 		medias = append(medias, videoMedia)
 	}
 
-	audioMedia, audioTrack := m.createAudioTrack(res.stream)
+	audioMedia, audioTrack := m.createAudioTrack(res.Stream)
 	if audioMedia != nil {
 		medias = append(medias, audioMedia)
 	}
@@ -305,7 +276,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	innerReady <- struct{}{}
 
 	m.Log(logger.Info, "is converting into HLS, %s",
-		mediaInfo(medias))
+		defs.MediasInfo(medias))
 
 	m.writer.Start()
 
@@ -333,7 +304,7 @@ func (m *hlsMuxer) runInner(innerCtx context.Context, innerReady chan struct{}) 
 	}
 }
 
-func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, *gohlslib.Track) {
+func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *gohlslib.Track) {
 	var videoFormatAV1 *format.AV1
 	videoMedia := stream.Desc().FindFormat(&videoFormatAV1)
 
@@ -444,7 +415,7 @@ func (m *hlsMuxer) createVideoTrack(stream *stream.Stream) (*description.Media, 
 	return nil, nil
 }
 
-func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, *gohlslib.Track) {
+func (m *muxer) createAudioTrack(stream *stream.Stream) (*description.Media, *gohlslib.Track) {
 	var audioFormatOpus *format.Opus
 	audioMedia := stream.Desc().FindFormat(&audioFormatOpus)
 
@@ -507,7 +478,7 @@ func (m *hlsMuxer) createAudioTrack(stream *stream.Stream) (*description.Media, 
 	return nil, nil
 }
 
-func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
+func (m *muxer) handleRequest(ctx *gin.Context) {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
 
 	w := &responseWriterWithCounter{
@@ -519,7 +490,7 @@ func (m *hlsMuxer) handleRequest(ctx *gin.Context) {
 }
 
 // processRequest is called by hlsserver.Server (forwarded from ServeHTTP).
-func (m *hlsMuxer) processRequest(req *hlsMuxerHandleRequestReq) {
+func (m *muxer) processRequest(req *muxerHandleRequestReq) {
 	select {
 	case m.chRequest <- req:
 	case <-m.ctx.Done():
@@ -527,15 +498,15 @@ func (m *hlsMuxer) processRequest(req *hlsMuxerHandleRequestReq) {
 	}
 }
 
-// apiReaderDescribe implements reader.
-func (m *hlsMuxer) apiReaderDescribe() defs.APIPathSourceOrReader {
+// APIReaderDescribe implements reader.
+func (m *muxer) APIReaderDescribe() defs.APIPathSourceOrReader {
 	return defs.APIPathSourceOrReader{
 		Type: "hlsMuxer",
 		ID:   "",
 	}
 }
 
-func (m *hlsMuxer) apiItem() *defs.APIHLSMuxer {
+func (m *muxer) apiItem() *defs.APIHLSMuxer {
 	return &defs.APIHLSMuxer{
 		Path:        m.pathName,
 		Created:     m.created,

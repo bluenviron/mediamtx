@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/defs"
 )
 
 func sha256Base64(in string) string {
@@ -31,28 +32,9 @@ func checkCredential(right string, guess string) bool {
 	return right == guess
 }
 
-type errAuthentication struct {
-	message string
-}
-
-// Error implements the error interface.
-func (e *errAuthentication) Error() string {
-	return "authentication failed: " + e.message
-}
-
-type authProtocol string
-
-const (
-	authProtocolRTSP   authProtocol = "rtsp"
-	authProtocolRTMP   authProtocol = "rtmp"
-	authProtocolHLS    authProtocol = "hls"
-	authProtocolWebRTC authProtocol = "webrtc"
-	authProtocolSRT    authProtocol = "srt"
-)
-
 func doExternalAuthentication(
 	ur string,
-	accessRequest pathAccessRequest,
+	accessRequest defs.PathAccessRequest,
 ) error {
 	enc, _ := json.Marshal(struct {
 		IP       string     `json:"ip"`
@@ -64,19 +46,19 @@ func doExternalAuthentication(
 		Action   string     `json:"action"`
 		Query    string     `json:"query"`
 	}{
-		IP:       accessRequest.ip.String(),
-		User:     accessRequest.user,
-		Password: accessRequest.pass,
-		Path:     accessRequest.name,
-		Protocol: string(accessRequest.proto),
-		ID:       accessRequest.id,
+		IP:       accessRequest.IP.String(),
+		User:     accessRequest.User,
+		Password: accessRequest.Pass,
+		Path:     accessRequest.Name,
+		Protocol: string(accessRequest.Proto),
+		ID:       accessRequest.ID,
 		Action: func() string {
-			if accessRequest.publish {
+			if accessRequest.Publish {
 				return "publish"
 			}
 			return "read"
 		}(),
-		Query: accessRequest.query,
+		Query: accessRequest.Query,
 	})
 	res, err := http.Post(ur, "application/json", bytes.NewReader(enc))
 	if err != nil {
@@ -98,14 +80,14 @@ func doAuthentication(
 	externalAuthenticationURL string,
 	rtspAuthMethods conf.AuthMethods,
 	pathConf *conf.Path,
-	accessRequest pathAccessRequest,
+	accessRequest defs.PathAccessRequest,
 ) error {
 	var rtspAuth headers.Authorization
-	if accessRequest.rtspRequest != nil {
-		err := rtspAuth.Unmarshal(accessRequest.rtspRequest.Header["Authorization"])
+	if accessRequest.RTSPRequest != nil {
+		err := rtspAuth.Unmarshal(accessRequest.RTSPRequest.Header["Authorization"])
 		if err == nil && rtspAuth.Method == headers.AuthBasic {
-			accessRequest.user = rtspAuth.BasicUser
-			accessRequest.pass = rtspAuth.BasicPass
+			accessRequest.User = rtspAuth.BasicUser
+			accessRequest.Pass = rtspAuth.BasicPass
 		}
 	}
 
@@ -115,7 +97,7 @@ func doAuthentication(
 			accessRequest,
 		)
 		if err != nil {
-			return &errAuthentication{message: fmt.Sprintf("external authentication failed: %s", err)}
+			return &defs.ErrAuthentication{Message: fmt.Sprintf("external authentication failed: %s", err)}
 		}
 	}
 
@@ -123,7 +105,7 @@ func doAuthentication(
 	var pathUser string
 	var pathPass string
 
-	if accessRequest.publish {
+	if accessRequest.Publish {
 		pathIPs = pathConf.PublishIPs
 		pathUser = string(pathConf.PublishUser)
 		pathPass = string(pathConf.PublishPass)
@@ -134,27 +116,27 @@ func doAuthentication(
 	}
 
 	if pathIPs != nil {
-		if !ipEqualOrInRange(accessRequest.ip, pathIPs) {
-			return &errAuthentication{message: fmt.Sprintf("IP %s not allowed", accessRequest.ip)}
+		if !ipEqualOrInRange(accessRequest.IP, pathIPs) {
+			return &defs.ErrAuthentication{Message: fmt.Sprintf("IP %s not allowed", accessRequest.IP)}
 		}
 	}
 
 	if pathUser != "" {
-		if accessRequest.rtspRequest != nil && rtspAuth.Method == headers.AuthDigest {
+		if accessRequest.RTSPRequest != nil && rtspAuth.Method == headers.AuthDigest {
 			err := auth.Validate(
-				accessRequest.rtspRequest,
+				accessRequest.RTSPRequest,
 				pathUser,
 				pathPass,
-				accessRequest.rtspBaseURL,
+				accessRequest.RTSPBaseURL,
 				rtspAuthMethods,
 				"IPCAM",
-				accessRequest.rtspNonce)
+				accessRequest.RTSPNonce)
 			if err != nil {
-				return &errAuthentication{message: err.Error()}
+				return &defs.ErrAuthentication{Message: err.Error()}
 			}
-		} else if !checkCredential(pathUser, accessRequest.user) ||
-			!checkCredential(pathPass, accessRequest.pass) {
-			return &errAuthentication{message: "invalid credentials"}
+		} else if !checkCredential(pathUser, accessRequest.User) ||
+			!checkCredential(pathPass, accessRequest.Pass) {
+			return &defs.ErrAuthentication{Message: "invalid credentials"}
 		}
 	}
 

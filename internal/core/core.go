@@ -22,6 +22,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
+	"github.com/bluenviron/mediamtx/internal/servers/hls"
+	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
+	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
+	"github.com/bluenviron/mediamtx/internal/servers/srt"
+	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 )
 
 var version = "v0.0.0"
@@ -83,13 +88,13 @@ type Core struct {
 	pprof           *pprof
 	recordCleaner   *record.Cleaner
 	pathManager     *pathManager
-	rtspServer      *rtspServer
-	rtspsServer     *rtspServer
-	rtmpServer      *rtmpServer
-	rtmpsServer     *rtmpServer
-	hlsManager      *hlsManager
-	webRTCManager   *webRTCManager
-	srtServer       *srtServer
+	rtspServer      *rtsp.Server
+	rtspsServer     *rtsp.Server
+	rtmpServer      *rtmp.Server
+	rtmpsServer     *rtmp.Server
+	hlsServer       *hls.Server
+	webRTCServer    *webrtc.Server
+	srtServer       *srt.Server
 	api             *api
 	confWatcher     *confwatcher.ConfWatcher
 
@@ -168,7 +173,7 @@ func (p *Core) Wait() {
 	<-p.done
 }
 
-// Log is the main logging function.
+// Log implements logger.Writer.
 func (p *Core) Log(level logger.Level, format string, args ...interface{}) {
 	p.logger.Log(level, format, args...)
 }
@@ -329,31 +334,32 @@ func (p *Core) createResources(initial bool) error {
 		_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
 		_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 
-		p.rtspServer, err = newRTSPServer(
-			p.conf.RTSPAddress,
-			p.conf.AuthMethods,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.WriteQueueSize,
-			useUDP,
-			useMulticast,
-			p.conf.RTPAddress,
-			p.conf.RTCPAddress,
-			p.conf.MulticastIPRange,
-			p.conf.MulticastRTPPort,
-			p.conf.MulticastRTCPPort,
-			false,
-			"",
-			"",
-			p.conf.RTSPAddress,
-			p.conf.Protocols,
-			p.conf.RunOnConnect,
-			p.conf.RunOnConnectRestart,
-			p.conf.RunOnDisconnect,
-			p.externalCmdPool,
-			p.pathManager,
-			p,
-		)
+		p.rtspServer = &rtsp.Server{
+			Address:             p.conf.RTSPAddress,
+			AuthMethods:         p.conf.AuthMethods,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			UseUDP:              useUDP,
+			UseMulticast:        useMulticast,
+			RTPAddress:          p.conf.RTPAddress,
+			RTCPAddress:         p.conf.RTCPAddress,
+			MulticastIPRange:    p.conf.MulticastIPRange,
+			MulticastRTPPort:    p.conf.MulticastRTPPort,
+			MulticastRTCPPort:   p.conf.MulticastRTCPPort,
+			IsTLS:               false,
+			ServerCert:          "",
+			ServerKey:           "",
+			RTSPAddress:         p.conf.RTSPAddress,
+			Protocols:           p.conf.Protocols,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err := p.rtspServer.Initialize()
 		if err != nil {
 			return err
 		}
@@ -367,31 +373,32 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.Encryption == conf.EncryptionStrict ||
 			p.conf.Encryption == conf.EncryptionOptional) &&
 		p.rtspsServer == nil {
-		p.rtspsServer, err = newRTSPServer(
-			p.conf.RTSPSAddress,
-			p.conf.AuthMethods,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.WriteQueueSize,
-			false,
-			false,
-			"",
-			"",
-			"",
-			0,
-			0,
-			true,
-			p.conf.ServerCert,
-			p.conf.ServerKey,
-			p.conf.RTSPAddress,
-			p.conf.Protocols,
-			p.conf.RunOnConnect,
-			p.conf.RunOnConnectRestart,
-			p.conf.RunOnDisconnect,
-			p.externalCmdPool,
-			p.pathManager,
-			p,
-		)
+		p.rtspsServer = &rtsp.Server{
+			Address:             p.conf.RTSPSAddress,
+			AuthMethods:         p.conf.AuthMethods,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			UseUDP:              false,
+			UseMulticast:        false,
+			RTPAddress:          "",
+			RTCPAddress:         "",
+			MulticastIPRange:    "",
+			MulticastRTPPort:    0,
+			MulticastRTCPPort:   0,
+			IsTLS:               true,
+			ServerCert:          p.conf.ServerCert,
+			ServerKey:           p.conf.ServerKey,
+			RTSPAddress:         p.conf.RTSPAddress,
+			Protocols:           p.conf.Protocols,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err := p.rtspsServer.Initialize()
 		if err != nil {
 			return err
 		}
@@ -405,22 +412,23 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTMPEncryption == conf.EncryptionNo ||
 			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
 		p.rtmpServer == nil {
-		p.rtmpServer, err = newRTMPServer(
-			p.conf.RTMPAddress,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.WriteQueueSize,
-			false,
-			"",
-			"",
-			p.conf.RTSPAddress,
-			p.conf.RunOnConnect,
-			p.conf.RunOnConnectRestart,
-			p.conf.RunOnDisconnect,
-			p.externalCmdPool,
-			p.pathManager,
-			p,
-		)
+		p.rtmpServer = &rtmp.Server{
+			Address:             p.conf.RTMPAddress,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			IsTLS:               false,
+			ServerCert:          "",
+			ServerKey:           "",
+			RTSPAddress:         p.conf.RTSPAddress,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err := p.rtmpServer.Initialize()
 		if err != nil {
 			return err
 		}
@@ -434,22 +442,23 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTMPEncryption == conf.EncryptionStrict ||
 			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
 		p.rtmpsServer == nil {
-		p.rtmpsServer, err = newRTMPServer(
-			p.conf.RTMPSAddress,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.WriteQueueSize,
-			true,
-			p.conf.RTMPServerCert,
-			p.conf.RTMPServerKey,
-			p.conf.RTSPAddress,
-			p.conf.RunOnConnect,
-			p.conf.RunOnConnectRestart,
-			p.conf.RunOnDisconnect,
-			p.externalCmdPool,
-			p.pathManager,
-			p,
-		)
+		p.rtmpsServer = &rtmp.Server{
+			Address:             p.conf.RTMPSAddress,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			IsTLS:               true,
+			ServerCert:          p.conf.RTMPServerCert,
+			ServerKey:           p.conf.RTMPServerKey,
+			RTSPAddress:         p.conf.RTSPAddress,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err := p.rtmpsServer.Initialize()
 		if err != nil {
 			return err
 		}
@@ -460,41 +469,42 @@ func (p *Core) createResources(initial bool) error {
 	}
 
 	if p.conf.HLS &&
-		p.hlsManager == nil {
-		p.hlsManager, err = newHLSManager(
-			p.conf.HLSAddress,
-			p.conf.HLSEncryption,
-			p.conf.HLSServerKey,
-			p.conf.HLSServerCert,
-			p.conf.ExternalAuthenticationURL,
-			p.conf.HLSAlwaysRemux,
-			p.conf.HLSVariant,
-			p.conf.HLSSegmentCount,
-			p.conf.HLSSegmentDuration,
-			p.conf.HLSPartDuration,
-			p.conf.HLSSegmentMaxSize,
-			p.conf.HLSAllowOrigin,
-			p.conf.HLSTrustedProxies,
-			p.conf.HLSDirectory,
-			p.conf.ReadTimeout,
-			p.conf.WriteQueueSize,
-			p.pathManager,
-			p,
-		)
+		p.hlsServer == nil {
+		p.hlsServer = &hls.Server{
+			Address:                   p.conf.HLSAddress,
+			Encryption:                p.conf.HLSEncryption,
+			ServerKey:                 p.conf.HLSServerKey,
+			ServerCert:                p.conf.HLSServerCert,
+			ExternalAuthenticationURL: p.conf.ExternalAuthenticationURL,
+			AlwaysRemux:               p.conf.HLSAlwaysRemux,
+			Variant:                   p.conf.HLSVariant,
+			SegmentCount:              p.conf.HLSSegmentCount,
+			SegmentDuration:           p.conf.HLSSegmentDuration,
+			PartDuration:              p.conf.HLSPartDuration,
+			SegmentMaxSize:            p.conf.HLSSegmentMaxSize,
+			AllowOrigin:               p.conf.HLSAllowOrigin,
+			TrustedProxies:            p.conf.HLSTrustedProxies,
+			Directory:                 p.conf.HLSDirectory,
+			ReadTimeout:               p.conf.ReadTimeout,
+			WriteQueueSize:            p.conf.WriteQueueSize,
+			PathManager:               p.pathManager,
+			Parent:                    p,
+		}
+		err := p.hlsServer.Initialize()
 		if err != nil {
 			return err
 		}
 
-		p.pathManager.setHLSManager(p.hlsManager)
+		p.pathManager.setHLSServer(p.hlsServer)
 
 		if p.metrics != nil {
-			p.metrics.setHLSManager(p.hlsManager)
+			p.metrics.setHLSServer(p.hlsServer)
 		}
 	}
 
 	if p.conf.WebRTC &&
-		p.webRTCManager == nil {
-		p.webRTCManager = &webRTCManager{
+		p.webRTCServer == nil {
+		p.webRTCServer = &webrtc.Server{
 			Address:               p.conf.WebRTCAddress,
 			Encryption:            p.conf.WebRTCEncryption,
 			ServerKey:             p.conf.WebRTCServerKey,
@@ -513,33 +523,34 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:           p.pathManager,
 			Parent:                p,
 		}
-		err = p.webRTCManager.initialize()
+		err = p.webRTCServer.Initialize()
 		if err != nil {
-			p.webRTCManager = nil
+			p.webRTCServer = nil
 			return err
 		}
 
 		if p.metrics != nil {
-			p.metrics.setWebRTCManager(p.webRTCManager)
+			p.metrics.setWebRTCServer(p.webRTCServer)
 		}
 	}
 
 	if p.conf.SRT &&
 		p.srtServer == nil {
-		p.srtServer, err = newSRTServer(
-			p.conf.SRTAddress,
-			p.conf.RTSPAddress,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.WriteQueueSize,
-			p.conf.UDPMaxPayloadSize,
-			p.conf.RunOnConnect,
-			p.conf.RunOnConnectRestart,
-			p.conf.RunOnDisconnect,
-			p.externalCmdPool,
-			p.pathManager,
-			p,
-		)
+		p.srtServer = &srt.Server{
+			Address:             p.conf.SRTAddress,
+			RTSPAddress:         p.conf.RTSPAddress,
+			ReadTimeout:         p.conf.ReadTimeout,
+			WriteTimeout:        p.conf.WriteTimeout,
+			WriteQueueSize:      p.conf.WriteQueueSize,
+			UDPMaxPayloadSize:   p.conf.UDPMaxPayloadSize,
+			RunOnConnect:        p.conf.RunOnConnect,
+			RunOnConnectRestart: p.conf.RunOnConnectRestart,
+			RunOnDisconnect:     p.conf.RunOnDisconnect,
+			ExternalCmdPool:     p.externalCmdPool,
+			PathManager:         p.pathManager,
+			Parent:              p,
+		}
+		err = p.srtServer.Initialize()
 		if err != nil {
 			return err
 		}
@@ -560,8 +571,8 @@ func (p *Core) createResources(initial bool) error {
 			p.rtspsServer,
 			p.rtmpServer,
 			p.rtmpsServer,
-			p.hlsManager,
-			p.webRTCManager,
+			p.hlsServer,
+			p.webRTCServer,
 			p.srtServer,
 			p,
 		)
@@ -690,7 +701,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closePathManager ||
 		closeLogger
 
-	closeHLSManager := newConf == nil ||
+	closeHLSServer := newConf == nil ||
 		newConf.HLS != p.conf.HLS ||
 		newConf.HLSAddress != p.conf.HLSAddress ||
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
@@ -712,7 +723,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics ||
 		closeLogger
 
-	closeWebRTCManager := newConf == nil ||
+	closeWebRTCServer := newConf == nil ||
 		newConf.WebRTC != p.conf.WebRTC ||
 		newConf.WebRTCAddress != p.conf.WebRTCAddress ||
 		newConf.WebRTCEncryption != p.conf.WebRTCEncryption ||
@@ -754,8 +765,8 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeRTSPServer ||
 		closeRTSPSServer ||
 		closeRTMPServer ||
-		closeHLSManager ||
-		closeWebRTCManager ||
+		closeHLSServer ||
+		closeWebRTCServer ||
 		closeSRTServer ||
 		closeLogger
 
@@ -778,28 +789,28 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.metrics.setSRTServer(nil)
 		}
 
-		p.srtServer.close()
+		p.srtServer.Close()
 		p.srtServer = nil
 	}
 
-	if closeWebRTCManager && p.webRTCManager != nil {
+	if closeWebRTCServer && p.webRTCServer != nil {
 		if p.metrics != nil {
-			p.metrics.setWebRTCManager(nil)
+			p.metrics.setWebRTCServer(nil)
 		}
 
-		p.webRTCManager.close()
-		p.webRTCManager = nil
+		p.webRTCServer.Close()
+		p.webRTCServer = nil
 	}
 
-	if closeHLSManager && p.hlsManager != nil {
+	if closeHLSServer && p.hlsServer != nil {
 		if p.metrics != nil {
-			p.metrics.setHLSManager(nil)
+			p.metrics.setHLSServer(nil)
 		}
 
-		p.pathManager.setHLSManager(nil)
+		p.pathManager.setHLSServer(nil)
 
-		p.hlsManager.close()
-		p.hlsManager = nil
+		p.hlsServer.Close()
+		p.hlsServer = nil
 	}
 
 	if closeRTMPSServer && p.rtmpsServer != nil {
@@ -807,7 +818,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.metrics.setRTMPSServer(nil)
 		}
 
-		p.rtmpsServer.close()
+		p.rtmpsServer.Close()
 		p.rtmpsServer = nil
 	}
 
@@ -816,7 +827,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.metrics.setRTMPServer(nil)
 		}
 
-		p.rtmpServer.close()
+		p.rtmpServer.Close()
 		p.rtmpServer = nil
 	}
 
@@ -825,7 +836,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.metrics.setRTSPSServer(nil)
 		}
 
-		p.rtspsServer.close()
+		p.rtspsServer.Close()
 		p.rtspsServer = nil
 	}
 
@@ -834,7 +845,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 			p.metrics.setRTSPServer(nil)
 		}
 
-		p.rtspServer.close()
+		p.rtspServer.Close()
 		p.rtspServer = nil
 	}
 

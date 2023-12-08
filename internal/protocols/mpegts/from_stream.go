@@ -1,4 +1,4 @@
-package core
+package mpegts
 
 import (
 	"bufio"
@@ -10,10 +10,9 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	mcmpegts "github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
-	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -22,7 +21,8 @@ func durationGoToMPEGTS(v time.Duration) int64 {
 	return int64(v.Seconds() * 90000)
 }
 
-func mpegtsSetupWrite(
+// FromStream links a server stream to a MPEG-TS writer.
+func FromStream(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 	bw *bufio.Writer,
@@ -251,7 +251,7 @@ func mpegtsSetupWrite(
 	}
 
 	if len(tracks) == 0 {
-		return mpegts.ErrNoTracks
+		return ErrNoTracks
 	}
 
 	w = mcmpegts.NewWriter(bw, tracks)

@@ -153,6 +153,7 @@ func (s *staticSourceHandler) stop(reason string) {
 	<-s.done
 }
 
+// Log implements logger.Writer.
 func (s *staticSourceHandler) Log(level logger.Level, format string, args ...interface{}) {
 	s.parent.Log(level, format, args...)
 }
@@ -242,7 +243,7 @@ func (s *staticSourceHandler) SetReady(req defs.PathSourceStaticSetReadyReq) def
 		res := <-req.Res
 
 		if res.Err == nil {
-			s.instance.Log(logger.Info, "ready: %s", mediaInfo(req.Desc.Medias))
+			s.instance.Log(logger.Info, "ready: %s", defs.MediasInfo(req.Desc.Medias))
 		}
 
 		return res

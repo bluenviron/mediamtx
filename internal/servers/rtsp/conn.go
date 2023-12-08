@@ -1,4 +1,4 @@
-package core
+package rtsp
 
 import (
 	"fmt"
@@ -22,20 +22,19 @@ const (
 	rtspPauseAfterAuthError = 2 * time.Second
 )
 
-type rtspConnParent interface {
-	logger.Writer
-	getISTLS() bool
-	getServer() *gortsplib.Server
-}
-
-type rtspConn struct {
-	isTLS       bool
-	rtspAddress string
-	authMethods []headers.AuthMethod
-	readTimeout conf.StringDuration
-	pathManager *pathManager
-	rconn       *gortsplib.ServerConn
-	parent      rtspConnParent
+type conn struct {
+	isTLS               bool
+	rtspAddress         string
+	authMethods         []headers.AuthMethod
+	readTimeout         conf.StringDuration
+	runOnConnect        string
+	runOnConnectRestart bool
+	runOnDisconnect     string
+	externalCmdPool     *externalcmd.Pool
+	pathManager         defs.PathManager
+	rconn               *gortsplib.ServerConn
+	rserver             *gortsplib.Server
+	parent              *Server
 
 	uuid             uuid.UUID
 	created          time.Time
@@ -44,92 +43,70 @@ type rtspConn struct {
 	authFailures     int
 }
 
-func newRTSPConn(
-	isTLS bool,
-	rtspAddress string,
-	authMethods []headers.AuthMethod,
-	readTimeout conf.StringDuration,
-	runOnConnect string,
-	runOnConnectRestart bool,
-	runOnDisconnect string,
-	externalCmdPool *externalcmd.Pool,
-	pathManager *pathManager,
-	conn *gortsplib.ServerConn,
-	parent rtspConnParent,
-) *rtspConn {
-	c := &rtspConn{
-		isTLS:       isTLS,
-		rtspAddress: rtspAddress,
-		authMethods: authMethods,
-		readTimeout: readTimeout,
-		pathManager: pathManager,
-		rconn:       conn,
-		parent:      parent,
-		uuid:        uuid.New(),
-		created:     time.Now(),
-	}
+func (c *conn) initialize() {
+	c.uuid = uuid.New()
+	c.created = time.Now()
 
 	c.Log(logger.Info, "opened")
 
 	desc := defs.APIPathSourceOrReader{
 		Type: func() string {
-			if isTLS {
+			if c.isTLS {
 				return "rtspsConn"
 			}
-			return "rtspConn"
+			return "conn"
 		}(),
 		ID: c.uuid.String(),
 	}
 
 	c.onDisconnectHook = hooks.OnConnect(hooks.OnConnectParams{
 		Logger:              c,
-		ExternalCmdPool:     externalCmdPool,
-		RunOnConnect:        runOnConnect,
-		RunOnConnectRestart: runOnConnectRestart,
-		RunOnDisconnect:     runOnDisconnect,
-		RTSPAddress:         rtspAddress,
+		ExternalCmdPool:     c.externalCmdPool,
+		RunOnConnect:        c.runOnConnect,
+		RunOnConnectRestart: c.runOnConnectRestart,
+		RunOnDisconnect:     c.runOnDisconnect,
+		RTSPAddress:         c.rtspAddress,
 		Desc:                desc,
 	})
-
-	return c
 }
 
-func (c *rtspConn) Log(level logger.Level, format string, args ...interface{}) {
+// Log implements logger.Writer.
+func (c *conn) Log(level logger.Level, format string, args ...interface{}) {
 	c.parent.Log(level, "[conn %v] "+format, append([]interface{}{c.rconn.NetConn().RemoteAddr()}, args...)...)
 }
 
 // Conn returns the RTSP connection.
-func (c *rtspConn) Conn() *gortsplib.ServerConn {
+func (c *conn) Conn() *gortsplib.ServerConn {
 	return c.rconn
 }
 
-func (c *rtspConn) remoteAddr() net.Addr {
+func (c *conn) remoteAddr() net.Addr {
 	return c.rconn.NetConn().RemoteAddr()
 }
 
-func (c *rtspConn) ip() net.IP {
+func (c *conn) ip() net.IP {
 	return c.rconn.NetConn().RemoteAddr().(*net.TCPAddr).IP
 }
 
 // onClose is called by rtspServer.
-func (c *rtspConn) onClose(err error) {
+func (c *conn) onClose(err error) {
 	c.Log(logger.Info, "closed: %v", err)
 
 	c.onDisconnectHook()
 }
 
 // onRequest is called by rtspServer.
-func (c *rtspConn) onRequest(req *base.Request) {
+func (c *conn) onRequest(req *base.Request) {
 	c.Log(logger.Debug, "[c->s] %v", req)
 }
 
 // OnResponse is called by rtspServer.
-func (c *rtspConn) OnResponse(res *base.Response) {
+func (c *conn) OnResponse(res *base.Response) {
 	c.Log(logger.Debug, "[s->c] %v", res)
 }
 
 // onDescribe is called by rtspServer.
-func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 ) (*base.Response, *gortsplib.ServerStream, error) {
 	if len(ctx.Path) == 0 || ctx.Path[0] != '/' {
 		return &base.Response{
@@ -148,50 +125,50 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 		}
 	}
 
-	res := c.pathManager.describe(pathDescribeReq{
-		accessRequest: pathAccessRequest{
-			name:        ctx.Path,
-			query:       ctx.Query,
-			ip:          c.ip(),
-			proto:       authProtocolRTSP,
-			id:          &c.uuid,
-			rtspRequest: ctx.Request,
-			rtspNonce:   c.authNonce,
+	res := c.pathManager.Describe(defs.PathDescribeReq{
+		AccessRequest: defs.PathAccessRequest{
+			Name:        ctx.Path,
+			Query:       ctx.Query,
+			IP:          c.ip(),
+			Proto:       defs.AuthProtocolRTSP,
+			ID:          &c.uuid,
+			RTSPRequest: ctx.Request,
+			RTSPNonce:   c.authNonce,
 		},
 	})
 
-	if res.err != nil {
-		switch terr := res.err.(type) {
-		case *errAuthentication:
+	if res.Err != nil {
+		switch terr := res.Err.(type) {
+		case *defs.ErrAuthentication:
 			res, err := c.handleAuthError(terr)
 			return res, nil, err
 
-		case errPathNoOnePublishing:
+		case defs.ErrPathNoOnePublishing:
 			return &base.Response{
 				StatusCode: base.StatusNotFound,
-			}, nil, res.err
+			}, nil, res.Err
 
 		default:
 			return &base.Response{
 				StatusCode: base.StatusBadRequest,
-			}, nil, res.err
+			}, nil, res.Err
 		}
 	}
 
-	if res.redirect != "" {
+	if res.Redirect != "" {
 		return &base.Response{
 			StatusCode: base.StatusMovedPermanently,
 			Header: base.Header{
-				"Location": base.HeaderValue{res.redirect},
+				"Location": base.HeaderValue{res.Redirect},
 			},
 		}, nil, nil
 	}
 
 	var stream *gortsplib.ServerStream
-	if !c.parent.getISTLS() {
-		stream = res.stream.RTSPStream(c.parent.getServer())
+	if !c.isTLS {
+		stream = res.Stream.RTSPStream(c.rserver)
 	} else {
-		stream = res.stream.RTSPSStream(c.parent.getServer())
+		stream = res.Stream.RTSPSStream(c.rserver)
 	}
 
 	return &base.Response{
@@ -199,7 +176,7 @@ func (c *rtspConn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	}, stream, nil
 }
 
-func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {
+func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 	c.authFailures++
 
 	// VLC with login prompt sends 4 requests:
@@ -225,7 +202,7 @@ func (c *rtspConn) handleAuthError(authErr error) (*base.Response, error) {
 	}, authErr
 }
 
-func (c *rtspConn) apiItem() *defs.APIRTSPConn {
+func (c *conn) apiItem() *defs.APIRTSPConn {
 	return &defs.APIRTSPConn{
 		ID:            c.uuid,
 		Created:       c.created,

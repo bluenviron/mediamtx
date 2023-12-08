@@ -71,7 +71,7 @@ func (c *Cleaner) Close() {
 	<-c.done
 }
 
-// Log is the main logging function.
+// Log implements logger.Writer.
 func (c *Cleaner) Log(level logger.Level, format string, args ...interface{}) {
 	c.Parent.Log(level, "[record cleaner]"+format, args...)
 }

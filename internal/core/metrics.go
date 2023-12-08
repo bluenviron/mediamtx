@@ -28,16 +28,16 @@ type metrics struct {
 	ReadTimeout conf.StringDuration
 	Parent      metricsParent
 
-	httpServer    *httpserv.WrappedServer
-	mutex         sync.Mutex
-	pathManager   apiPathManager
-	rtspServer    apiRTSPServer
-	rtspsServer   apiRTSPServer
-	rtmpServer    apiRTMPServer
-	rtmpsServer   apiRTMPServer
-	srtServer     apiSRTServer
-	hlsManager    apiHLSManager
-	webRTCManager apiWebRTCManager
+	httpServer   *httpserv.WrappedServer
+	mutex        sync.Mutex
+	pathManager  apiPathManager
+	rtspServer   apiRTSPServer
+	rtspsServer  apiRTSPServer
+	rtmpServer   apiRTMPServer
+	rtmpsServer  apiRTMPServer
+	srtServer    apiSRTServer
+	hlsManager   apiHLSServer
+	webRTCServer apiWebRTCServer
 }
 
 func (m *metrics) initialize() error {
@@ -72,6 +72,7 @@ func (m *metrics) close() {
 	m.httpServer.Close()
 }
 
+// Log implements logger.Writer.
 func (m *metrics) Log(level logger.Level, format string, args ...interface{}) {
 	m.Parent.Log(level, "[metrics] "+format, args...)
 }
@@ -99,7 +100,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.hlsManager) {
-		data, err := m.hlsManager.apiMuxersList()
+		data, err := m.hlsManager.APIMuxersList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{name=\"" + i.Path + "\"}"
@@ -114,7 +115,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspServer) { //nolint:dupl
 		func() {
-			data, err := m.rtspServer.apiConnsList()
+			data, err := m.rtspServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\"}"
@@ -130,7 +131,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}()
 
 		func() {
-			data, err := m.rtspServer.apiSessionsList()
+			data, err := m.rtspServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -148,7 +149,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 
 	if !interfaceIsEmpty(m.rtspsServer) { //nolint:dupl
 		func() {
-			data, err := m.rtspsServer.apiConnsList()
+			data, err := m.rtspsServer.APIConnsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\"}"
@@ -164,7 +165,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}()
 
 		func() {
-			data, err := m.rtspsServer.apiSessionsList()
+			data, err := m.rtspsServer.APISessionsList()
 			if err == nil && len(data.Items) != 0 {
 				for _, i := range data.Items {
 					tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -181,7 +182,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpServer) {
-		data, err := m.rtmpServer.apiConnsList()
+		data, err := m.rtmpServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -197,7 +198,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.rtmpsServer) {
-		data, err := m.rtmpsServer.apiConnsList()
+		data, err := m.rtmpsServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -213,7 +214,7 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 	}
 
 	if !interfaceIsEmpty(m.srtServer) {
-		data, err := m.srtServer.apiConnsList()
+		data, err := m.srtServer.APIConnsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -228,8 +229,8 @@ func (m *metrics) onMetrics(ctx *gin.Context) {
 		}
 	}
 
-	if !interfaceIsEmpty(m.webRTCManager) {
-		data, err := m.webRTCManager.apiSessionsList()
+	if !interfaceIsEmpty(m.webRTCServer) {
+		data, err := m.webRTCServer.APISessionsList()
 		if err == nil && len(data.Items) != 0 {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
@@ -255,8 +256,8 @@ func (m *metrics) setPathManager(s apiPathManager) {
 	m.pathManager = s
 }
 
-// setHLSManager is called by core.
-func (m *metrics) setHLSManager(s apiHLSManager) {
+// setHLSServer is called by core.
+func (m *metrics) setHLSServer(s apiHLSServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.hlsManager = s
@@ -297,9 +298,9 @@ func (m *metrics) setSRTServer(s apiSRTServer) {
 	m.srtServer = s
 }
 
-// setWebRTCManager is called by core.
-func (m *metrics) setWebRTCManager(s apiWebRTCManager) {
+// setWebRTCServer is called by core.
+func (m *metrics) setWebRTCServer(s apiWebRTCServer) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	m.webRTCManager = s
+	m.webRTCServer = s
 }

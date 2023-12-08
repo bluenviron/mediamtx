@@ -20,8 +20,8 @@ jobs:
         && ((git checkout deps/hlsjs && git rebase ${GITHUB_REF_NAME}) || git checkout -b deps/hlsjs)
 
     - run: >
-        curl -o internal/core/hls.min.js https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js
-        && echo VERSION=$(cat internal/core/hls.min.js | grep -o '"version",get:function(){return".*"}' | sed 's/"version",get:function(){return"\(.*\)"}/\1/') >> $GITHUB_ENV
+        curl -o internal/servers/hls/hls.min.js https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js
+        && echo VERSION=$(cat internal/servers/hls/hls.min.js | grep -o '"version",get:function(){return".*"}' | sed 's/"version",get:function(){return"\(.*\)"}/\1/') >> $GITHUB_ENV
 
     - id: check_repo
       run: >

@@ -197,7 +197,7 @@ func TestHLSRead(t *testing.T) {
 		"#EXT-X-GAP\n"+
 		"#EXTINF:1\\.00000,\n"+
 		"gap.mp4\n"+
-		"#EXT-X-PROGRAM-DATE-TIME:.+?Z\n"+
+		"#EXT-X-PROGRAM-DATE-TIME:.+?\n"+
 		"#EXT-X-PART:DURATION=1\\.00000,URI=\".*?_part0.mp4\",INDEPENDENT=YES\n"+
 		"#EXTINF:1\\.00000,\n"+
 		".*?_seg7.mp4\n"+

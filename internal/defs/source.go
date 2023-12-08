@@ -1,4 +1,4 @@
-package core
+package defs
 
 import (
 	"fmt"
@@ -6,18 +6,17 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 
-	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-// source is an entity that can provide a stream.
+// Source is an entity that can provide a stream.
 // it can be:
 // - publisher
 // - staticSourceHandler
 // - redirectSource
-type source interface {
+type Source interface {
 	logger.Writer
-	APISourceDescribe() defs.APIPathSourceOrReader
+	APISourceDescribe() APIPathSourceOrReader
 }
 
 func mediaDescription(media *description.Media) string {
@@ -28,7 +27,8 @@ func mediaDescription(media *description.Media) string {
 	return strings.Join(ret, "/")
 }
 
-func mediasDescription(medias []*description.Media) []string {
+// MediasDescription returns the description of medias.
+func MediasDescription(medias []*description.Media) []string {
 	ret := make([]string, len(medias))
 	for i, media := range medias {
 		ret[i] = mediaDescription(media)
@@ -36,7 +36,8 @@ func mediasDescription(medias []*description.Media) []string {
 	return ret
 }
 
-func mediaInfo(medias []*description.Media) string {
+// MediasInfo returns the description of medias.
+func MediasInfo(medias []*description.Media) string {
 	return fmt.Sprintf("%d %s (%s)",
 		len(medias),
 		func() string {
@@ -45,5 +46,5 @@ func mediaInfo(medias []*description.Media) string {
 			}
 			return "tracks"
 		}(),
-		strings.Join(mediasDescription(medias), ", "))
+		strings.Join(MediasDescription(medias), ", "))
 }
