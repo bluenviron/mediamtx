@@ -1,35 +1,23 @@
-package core
+package srt
 
 import (
 	"sync"
 
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 )
 
-type srtListener struct {
+type listener struct {
 	ln     srt.Listener
 	wg     *sync.WaitGroup
-	parent *srtServer
+	parent *Server
 }
 
-func newSRTListener(
-	ln srt.Listener,
-	wg *sync.WaitGroup,
-	parent *srtServer,
-) *srtListener {
-	l := &srtListener{
-		ln:     ln,
-		wg:     wg,
-		parent: parent,
-	}
-
+func (l *listener) initialize() {
 	l.wg.Add(1)
 	go l.run()
-
-	return l
 }
 
-func (l *srtListener) run() {
+func (l *listener) run() {
 	defer l.wg.Done()
 
 	err := l.runInner()
@@ -37,9 +25,9 @@ func (l *srtListener) run() {
 	l.parent.acceptError(err)
 }
 
-func (l *srtListener) runInner() error {
+func (l *listener) runInner() error {
 	for {
-		var sconn *srtConn
+		var sconn *conn
 		conn, _, err := l.ln.Accept(func(req srt.ConnRequest) srt.ConnType {
 			sconn = l.parent.newConnRequest(req)
 			if sconn == nil {

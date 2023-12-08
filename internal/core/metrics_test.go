@@ -229,26 +229,26 @@ webrtc_sessions_bytes_sent 0
 		require.Regexp(t,
 			`^paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`paths\{name=".*?",state="ready"\} 1`+"\n"+
 				`paths_bytes_received\{name=".*?",state="ready"\} [0-9]+`+"\n"+
-				`paths_bytes_sent\{name=".*?",state="ready"\} 0`+"\n"+
+				`paths_bytes_sent\{name=".*?",state="ready"\} [0-9]+`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
-				`hls_muxers_bytes_sent\{name=".*?"\} [0-9]+`+"\n"+
+				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+
 				`hls_muxers_bytes_sent\{name=".*?"\} 0`+"\n"+
 				`hls_muxers\{name=".*?"\} 1`+"\n"+

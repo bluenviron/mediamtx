@@ -58,6 +58,7 @@ func (pp *pprof) close() {
 	pp.httpServer.Close()
 }
 
+// Log implements logger.Writer.
 func (pp *pprof) Log(level logger.Level, format string, args ...interface{}) {
 	pp.parent.Log(level, "[pprof] "+format, args...)
 }

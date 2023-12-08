@@ -19,10 +19,11 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/gortsplib/v4/pkg/sdp"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 )
@@ -80,6 +81,8 @@ func main() {
 	}
 }
 `
+
+var _ defs.Path = &path{}
 
 func TestPathRunOnDemand(t *testing.T) {
 	onDemandFile := filepath.Join(os.TempDir(), "ondemand")

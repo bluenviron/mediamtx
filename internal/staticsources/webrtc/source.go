@@ -23,7 +23,7 @@ type Source struct {
 	Parent      defs.StaticSourceParent
 }
 
-// Log implements StaticSource.
+// Log implements logger.Writer.
 func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 	s.Parent.Log(level, "[WebRTC source] "+format, args...)
 }

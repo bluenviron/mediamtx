@@ -1,25 +1,156 @@
 package defs
 
 import (
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"fmt"
+	"net"
 
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
+	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/google/uuid"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-// PathSourceStaticSetReadyRes is a set ready response to a static source.
+// ErrPathNoOnePublishing is returned when no one is publishing.
+type ErrPathNoOnePublishing struct {
+	PathName string
+}
+
+// Error implements the error interface.
+func (e ErrPathNoOnePublishing) Error() string {
+	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
+}
+
+// Path is a path.
+type Path interface {
+	Name() string
+	SafeConf() *conf.Path
+	ExternalCmdEnv() externalcmd.Environment
+	StartPublisher(req PathStartPublisherReq) PathStartPublisherRes
+	StopPublisher(req PathStopPublisherReq)
+	RemovePublisher(req PathRemovePublisherReq)
+	RemoveReader(req PathRemoveReaderReq)
+}
+
+// PathAccessRequest is an access request.
+type PathAccessRequest struct {
+	Name     string
+	Query    string
+	Publish  bool
+	SkipAuth bool
+
+	// only if skipAuth = false
+	IP          net.IP
+	User        string
+	Pass        string
+	Proto       AuthProtocol
+	ID          *uuid.UUID
+	RTSPRequest *base.Request
+	RTSPBaseURL *base.URL
+	RTSPNonce   string
+}
+
+// PathGetConfForPathRes contains the response of GetConfForPath().
+type PathGetConfForPathRes struct {
+	Conf *conf.Path
+	Err  error
+}
+
+// PathGetConfForPathReq contains arguments of GetConfForPath().
+type PathGetConfForPathReq struct {
+	AccessRequest PathAccessRequest
+	Res           chan PathGetConfForPathRes
+}
+
+// PathDescribeRes contains the response of Describe().
+type PathDescribeRes struct {
+	Path     Path
+	Stream   *stream.Stream
+	Redirect string
+	Err      error
+}
+
+// PathDescribeReq contains arguments of Describe().
+type PathDescribeReq struct {
+	AccessRequest PathAccessRequest
+	Res           chan PathDescribeRes
+}
+
+// PathAddPublisherRes contains the response of AddPublisher().
+type PathAddPublisherRes struct {
+	Path Path
+	Err  error
+}
+
+// PathAddPublisherReq contains arguments of AddPublisher().
+type PathAddPublisherReq struct {
+	Author        Publisher
+	AccessRequest PathAccessRequest
+	Res           chan PathAddPublisherRes
+}
+
+// PathRemovePublisherReq contains arguments of RemovePublisher().
+type PathRemovePublisherReq struct {
+	Author Publisher
+	Res    chan struct{}
+}
+
+// PathStartPublisherRes contains the response of StartPublisher().
+type PathStartPublisherRes struct {
+	Stream *stream.Stream
+	Err    error
+}
+
+// PathStartPublisherReq contains arguments of StartPublisher().
+type PathStartPublisherReq struct {
+	Author             Publisher
+	Desc               *description.Session
+	GenerateRTPPackets bool
+	Res                chan PathStartPublisherRes
+}
+
+// PathStopPublisherReq contains arguments of StopPublisher().
+type PathStopPublisherReq struct {
+	Author Publisher
+	Res    chan struct{}
+}
+
+// PathAddReaderRes contains the response of AddReader().
+type PathAddReaderRes struct {
+	Path   Path
+	Stream *stream.Stream
+	Err    error
+}
+
+// PathAddReaderReq contains arguments of AddReader().
+type PathAddReaderReq struct {
+	Author        Reader
+	AccessRequest PathAccessRequest
+	Res           chan PathAddReaderRes
+}
+
+// PathRemoveReaderReq contains arguments of RemoveReader().
+type PathRemoveReaderReq struct {
+	Author Reader
+	Res    chan struct{}
+}
+
+// PathSourceStaticSetReadyRes contains the response of SetReadu().
 type PathSourceStaticSetReadyRes struct {
 	Stream *stream.Stream
 	Err    error
 }
 
-// PathSourceStaticSetReadyReq is a set ready request from a static source.
+// PathSourceStaticSetReadyReq contains arguments of SetReady().
 type PathSourceStaticSetReadyReq struct {
 	Desc               *description.Session
 	GenerateRTPPackets bool
 	Res                chan PathSourceStaticSetReadyRes
 }
 
-// PathSourceStaticSetNotReadyReq is a set not ready request from a static source.
+// PathSourceStaticSetNotReadyReq contains arguments of SetNotReady().
 type PathSourceStaticSetNotReadyReq struct {
 	Res chan struct{}
 }

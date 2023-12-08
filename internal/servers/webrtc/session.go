@@ -1,4 +1,4 @@
-package core
+package webrtc
 
 import (
 	"context"
@@ -33,7 +33,7 @@ import (
 
 type setupStreamFunc func(*webrtc.OutgoingTrack) error
 
-func webrtcFindVideoTrack(
+func findVideoTrack(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 ) (format.Format, setupStreamFunc) {
@@ -202,7 +202,7 @@ func webrtcFindVideoTrack(
 	return nil, nil
 }
 
-func webrtcFindAudioTrack(
+func findAudioTrack(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 ) (format.Format, setupStreamFunc) {
@@ -264,19 +264,15 @@ func whipOffer(body []byte) *pwebrtc.SessionDescription {
 	}
 }
 
-type webRTCSessionPathManager interface {
-	addPublisher(req pathAddPublisherReq) pathAddPublisherRes
-	addReader(req pathAddReaderReq) pathAddReaderRes
-}
-
-type webRTCSession struct {
+type session struct {
+	parentCtx       context.Context
 	writeQueueSize  int
 	api             *pwebrtc.API
 	req             webRTCNewSessionReq
 	wg              *sync.WaitGroup
 	externalCmdPool *externalcmd.Pool
-	pathManager     webRTCSessionPathManager
-	parent          *webRTCManager
+	pathManager     defs.PathManager
+	parent          *Server
 
 	ctx       context.Context
 	ctxCancel func()
@@ -290,53 +286,34 @@ type webRTCSession struct {
 	chAddCandidates chan webRTCAddSessionCandidatesReq
 }
 
-func newWebRTCSession(
-	parentCtx context.Context,
-	writeQueueSize int,
-	api *pwebrtc.API,
-	req webRTCNewSessionReq,
-	wg *sync.WaitGroup,
-	externalCmdPool *externalcmd.Pool,
-	pathManager webRTCSessionPathManager,
-	parent *webRTCManager,
-) *webRTCSession {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+func (s *session) initialize() {
+	ctx, ctxCancel := context.WithCancel(s.parentCtx)
 
-	s := &webRTCSession{
-		writeQueueSize:  writeQueueSize,
-		api:             api,
-		req:             req,
-		wg:              wg,
-		externalCmdPool: externalCmdPool,
-		pathManager:     pathManager,
-		parent:          parent,
-		ctx:             ctx,
-		ctxCancel:       ctxCancel,
-		created:         time.Now(),
-		uuid:            uuid.New(),
-		secret:          uuid.New(),
-		chNew:           make(chan webRTCNewSessionReq),
-		chAddCandidates: make(chan webRTCAddSessionCandidatesReq),
-	}
+	s.ctx = ctx
+	s.ctxCancel = ctxCancel
+	s.created = time.Now()
+	s.uuid = uuid.New()
+	s.secret = uuid.New()
+	s.chNew = make(chan webRTCNewSessionReq)
+	s.chAddCandidates = make(chan webRTCAddSessionCandidatesReq)
 
-	s.Log(logger.Info, "created by %s", req.remoteAddr)
+	s.Log(logger.Info, "created by %s", s.req.remoteAddr)
 
-	wg.Add(1)
+	s.wg.Add(1)
 	go s.run()
-
-	return s
 }
 
-func (s *webRTCSession) Log(level logger.Level, format string, args ...interface{}) {
+// Log implements logger.Writer.
+func (s *session) Log(level logger.Level, format string, args ...interface{}) {
 	id := hex.EncodeToString(s.uuid[:4])
 	s.parent.Log(level, "[session %v] "+format, append([]interface{}{id}, args...)...)
 }
 
-func (s *webRTCSession) close() {
+func (s *session) Close() {
 	s.ctxCancel()
 }
 
-func (s *webRTCSession) run() {
+func (s *session) run() {
 	defer s.wg.Done()
 
 	err := s.runInner()
@@ -348,7 +325,7 @@ func (s *webRTCSession) run() {
 	s.Log(logger.Info, "closed: %v", err)
 }
 
-func (s *webRTCSession) runInner() error {
+func (s *session) runInner() error {
 	select {
 	case <-s.chNew:
 	case <-s.ctx.Done():
@@ -367,41 +344,41 @@ func (s *webRTCSession) runInner() error {
 	return err
 }
 
-func (s *webRTCSession) runInner2() (int, error) {
+func (s *session) runInner2() (int, error) {
 	if s.req.publish {
 		return s.runPublish()
 	}
 	return s.runRead()
 }
 
-func (s *webRTCSession) runPublish() (int, error) {
+func (s *session) runPublish() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
-	res := s.pathManager.addPublisher(pathAddPublisherReq{
-		author: s,
-		accessRequest: pathAccessRequest{
-			name:    s.req.pathName,
-			query:   s.req.query,
-			publish: true,
-			ip:      net.ParseIP(ip),
-			user:    s.req.user,
-			pass:    s.req.pass,
-			proto:   authProtocolWebRTC,
-			id:      &s.uuid,
+	res := s.pathManager.AddPublisher(defs.PathAddPublisherReq{
+		Author: s,
+		AccessRequest: defs.PathAccessRequest{
+			Name:    s.req.pathName,
+			Query:   s.req.query,
+			Publish: true,
+			IP:      net.ParseIP(ip),
+			User:    s.req.user,
+			Pass:    s.req.pass,
+			Proto:   defs.AuthProtocolWebRTC,
+			ID:      &s.uuid,
 		},
 	})
-	if res.err != nil {
-		if _, ok := res.err.(*errAuthentication); ok {
+	if res.Err != nil {
+		if _, ok := res.Err.(*defs.ErrAuthentication); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(webrtcPauseAfterAuthError)
 
-			return http.StatusUnauthorized, res.err
+			return http.StatusUnauthorized, res.Err
 		}
 
-		return http.StatusBadRequest, res.err
+		return http.StatusBadRequest, res.Err
 	}
 
-	defer res.path.removePublisher(pathRemovePublisherReq{author: s})
+	defer res.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 
 	iceServers, err := s.parent.generateICEServers()
 	if err != nil {
@@ -463,13 +440,13 @@ func (s *webRTCSession) runPublish() (int, error) {
 
 	medias := webrtc.TracksToMedias(tracks)
 
-	rres := res.path.startPublisher(pathStartPublisherReq{
-		author:             s,
-		desc:               &description.Session{Medias: medias},
-		generateRTPPackets: false,
+	rres := res.Path.StartPublisher(defs.PathStartPublisherReq{
+		Author:             s,
+		Desc:               &description.Session{Medias: medias},
+		GenerateRTPPackets: false,
 	})
-	if rres.err != nil {
-		return 0, rres.err
+	if rres.Err != nil {
+		return 0, rres.Err
 	}
 
 	timeDecoder := rtptime.NewGlobalDecoder()
@@ -491,7 +468,7 @@ func (s *webRTCSession) runPublish() (int, error) {
 					continue
 				}
 
-				rres.stream.WriteRTPPacket(cmedia, cmedia.Formats[0], pkt, time.Now(), pts)
+				rres.Stream.WriteRTPPacket(cmedia, cmedia.Formats[0], pkt, time.Now(), pts)
 			}
 		}()
 	}
@@ -505,37 +482,37 @@ func (s *webRTCSession) runPublish() (int, error) {
 	}
 }
 
-func (s *webRTCSession) runRead() (int, error) {
+func (s *session) runRead() (int, error) {
 	ip, _, _ := net.SplitHostPort(s.req.remoteAddr)
 
-	res := s.pathManager.addReader(pathAddReaderReq{
-		author: s,
-		accessRequest: pathAccessRequest{
-			name:  s.req.pathName,
-			query: s.req.query,
-			ip:    net.ParseIP(ip),
-			user:  s.req.user,
-			pass:  s.req.pass,
-			proto: authProtocolWebRTC,
-			id:    &s.uuid,
+	res := s.pathManager.AddReader(defs.PathAddReaderReq{
+		Author: s,
+		AccessRequest: defs.PathAccessRequest{
+			Name:  s.req.pathName,
+			Query: s.req.query,
+			IP:    net.ParseIP(ip),
+			User:  s.req.user,
+			Pass:  s.req.pass,
+			Proto: defs.AuthProtocolWebRTC,
+			ID:    &s.uuid,
 		},
 	})
-	if res.err != nil {
-		if _, ok := res.err.(*errAuthentication); ok {
+	if res.Err != nil {
+		if _, ok := res.Err.(*defs.ErrAuthentication); ok {
 			// wait some seconds to stop brute force attacks
 			<-time.After(webrtcPauseAfterAuthError)
 
-			return http.StatusUnauthorized, res.err
+			return http.StatusUnauthorized, res.Err
 		}
 
-		if strings.HasPrefix(res.err.Error(), "no one is publishing") {
-			return http.StatusNotFound, res.err
+		if strings.HasPrefix(res.Err.Error(), "no one is publishing") {
+			return http.StatusNotFound, res.Err
 		}
 
-		return http.StatusBadRequest, res.err
+		return http.StatusBadRequest, res.Err
 	}
 
-	defer res.path.removeReader(pathRemoveReaderReq{author: s})
+	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
 	iceServers, err := s.parent.generateICEServers()
 	if err != nil {
@@ -556,8 +533,8 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	writer := asyncwriter.New(s.writeQueueSize, s)
 
-	videoTrack, videoSetup := webrtcFindVideoTrack(res.stream, writer)
-	audioTrack, audioSetup := webrtcFindAudioTrack(res.stream, writer)
+	videoTrack, videoSetup := findVideoTrack(res.Stream, writer)
+	audioTrack, audioSetup := findAudioTrack(res.Stream, writer)
 
 	if videoTrack == nil && audioTrack == nil {
 		return http.StatusBadRequest, fmt.Errorf(
@@ -589,7 +566,7 @@ func (s *webRTCSession) runRead() (int, error) {
 	s.pc = pc
 	s.mutex.Unlock()
 
-	defer res.stream.RemoveReader(writer)
+	defer res.Stream.RemoveReader(writer)
 
 	n := 0
 
@@ -609,14 +586,14 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 
 	s.Log(logger.Info, "is reading from path '%s', %s",
-		res.path.name, readerMediaInfo(writer, res.stream))
+		res.Path.Name(), defs.MediasInfo(res.Stream.MediasForReader(writer)))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          s,
 		ExternalCmdPool: s.externalCmdPool,
-		Conf:            res.path.safeConf(),
-		ExternalCmdEnv:  res.path.externalCmdEnv(),
-		Reader:          s.apiReaderDescribe(),
+		Conf:            res.Path.SafeConf(),
+		ExternalCmdEnv:  res.Path.ExternalCmdEnv(),
+		Reader:          s.APIReaderDescribe(),
 		Query:           s.req.query,
 	})
 	defer onUnreadHook()
@@ -637,14 +614,14 @@ func (s *webRTCSession) runRead() (int, error) {
 	}
 }
 
-func (s *webRTCSession) writeAnswer(answer *pwebrtc.SessionDescription) {
+func (s *session) writeAnswer(answer *pwebrtc.SessionDescription) {
 	s.req.res <- webRTCNewSessionRes{
 		sx:     s,
 		answer: []byte(answer.SDP),
 	}
 }
 
-func (s *webRTCSession) readRemoteCandidates(pc *webrtc.PeerConnection) {
+func (s *session) readRemoteCandidates(pc *webrtc.PeerConnection) {
 	for {
 		select {
 		case req := <-s.chAddCandidates:
@@ -662,8 +639,8 @@ func (s *webRTCSession) readRemoteCandidates(pc *webrtc.PeerConnection) {
 	}
 }
 
-// new is called by webRTCHTTPServer through webRTCManager.
-func (s *webRTCSession) new(req webRTCNewSessionReq) webRTCNewSessionRes {
+// new is called by webRTCHTTPServer through Server.
+func (s *session) new(req webRTCNewSessionReq) webRTCNewSessionRes {
 	select {
 	case s.chNew <- req:
 		return <-req.res
@@ -673,8 +650,8 @@ func (s *webRTCSession) new(req webRTCNewSessionReq) webRTCNewSessionRes {
 	}
 }
 
-// addCandidates is called by webRTCHTTPServer through webRTCManager.
-func (s *webRTCSession) addCandidates(
+// addCandidates is called by webRTCHTTPServer through Server.
+func (s *session) addCandidates(
 	req webRTCAddSessionCandidatesReq,
 ) webRTCAddSessionCandidatesRes {
 	select {
@@ -686,20 +663,20 @@ func (s *webRTCSession) addCandidates(
 	}
 }
 
-// apiReaderDescribe implements reader.
-func (s *webRTCSession) apiReaderDescribe() defs.APIPathSourceOrReader {
+// APIReaderDescribe implements reader.
+func (s *session) APIReaderDescribe() defs.APIPathSourceOrReader {
 	return defs.APIPathSourceOrReader{
-		Type: "webRTCSession",
+		Type: "webrtcSession",
 		ID:   s.uuid.String(),
 	}
 }
 
 // APISourceDescribe implements source.
-func (s *webRTCSession) APISourceDescribe() defs.APIPathSourceOrReader {
-	return s.apiReaderDescribe()
+func (s *session) APISourceDescribe() defs.APIPathSourceOrReader {
+	return s.APIReaderDescribe()
 }
 
-func (s *webRTCSession) apiItem() *defs.APIWebRTCSession {
+func (s *session) apiItem() *defs.APIWebRTCSession {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 

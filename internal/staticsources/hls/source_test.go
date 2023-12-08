@@ -32,17 +32,17 @@ var track2 = &mpegts.Track{
 	},
 }
 
-type testHLSManager struct {
+type testHLSServer struct {
 	s *http.Server
 }
 
-func newTestHLSManager() (*testHLSManager, error) {
+func newTestHLSServer() (*testHLSServer, error) {
 	ln, err := net.Listen("tcp", "localhost:5780")
 	if err != nil {
 		return nil, err
 	}
 
-	ts := &testHLSManager{}
+	ts := &testHLSServer{}
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
@@ -56,11 +56,11 @@ func newTestHLSManager() (*testHLSManager, error) {
 	return ts, nil
 }
 
-func (ts *testHLSManager) close() {
+func (ts *testHLSServer) close() {
 	ts.s.Shutdown(context.Background())
 }
 
-func (ts *testHLSManager) onPlaylist(ctx *gin.Context) {
+func (ts *testHLSServer) onPlaylist(ctx *gin.Context) {
 	cnt := `#EXTM3U
 #EXT-X-VERSION:3
 #EXT-X-ALLOW-CACHE:NO
@@ -77,7 +77,7 @@ segment2.ts
 	io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
 }
 
-func (ts *testHLSManager) onSegment1(ctx *gin.Context) {
+func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
 
 	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
@@ -85,7 +85,7 @@ func (ts *testHLSManager) onSegment1(ctx *gin.Context) {
 	w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}}) //nolint:errcheck
 }
 
-func (ts *testHLSManager) onSegment2(ctx *gin.Context) {
+func (ts *testHLSServer) onSegment2(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
 
 	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
@@ -97,7 +97,7 @@ func (ts *testHLSManager) onSegment2(ctx *gin.Context) {
 }
 
 func TestSource(t *testing.T) {
-	ts, err := newTestHLSManager()
+	ts, err := newTestHLSServer()
 	require.NoError(t, err)
 	defer ts.close()
 

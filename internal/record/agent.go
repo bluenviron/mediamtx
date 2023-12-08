@@ -54,7 +54,7 @@ func (w *Agent) Initialize() {
 	go w.run()
 }
 
-// Log is the main logging function.
+// Log implements logger.Writer.
 func (w *Agent) Log(level logger.Level, format string, args ...interface{}) {
 	w.Parent.Log(level, "[record] "+format, args...)
 }

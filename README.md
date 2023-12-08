@@ -435,7 +435,7 @@ This web page can be embedded into another web page by using an iframe:
 <iframe src="http://mediamtx-ip:8889/mystream/publish" scrolling="no"></iframe>
 ```
 
-For more advanced setups, you can create and serve a custom web page by starting from the [source code of the publish page](internal/core/webrtc_publish_index.html).
+For more advanced setups, you can create and serve a custom web page by starting from the [source code of the publish page](internal/core/servers/webrtc/publish_index.html).
 
 ### By device
 
@@ -823,7 +823,7 @@ This web page can be embedded into another web page by using an iframe:
 <iframe src="http://mediamtx-ip:8889/mystream" scrolling="no"></iframe>
 ```
 
-For more advanced setups, you can create and serve a custom web page by starting from the [source code of the read page](internal/core/webrtc_read_index.html).
+For more advanced setups, you can create and serve a custom web page by starting from the [source code of the read page](internal/core/servers/webrtc/read_index.html).
 
 Web browsers can also read a stream with the [HLS protocol](#hls). Latency is higher but there are less problems related to connectivity between server and clients, furthermore the server load can be balanced by using a common HTTP CDN (like CloudFront or Cloudflare), and this allows to handle readers in the order of millions. Visit the web page:
 
