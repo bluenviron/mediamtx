@@ -17,6 +17,7 @@ require (
 	github.com/gookit/color v1.5.4
 	github.com/gorilla/websocket v1.5.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+	github.com/minio/selfupdate v0.6.0
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/ice/v2 v2.3.11
 	github.com/pion/interceptor v0.1.25
@@ -32,6 +33,7 @@ require (
 )
 
 require (
+	aead.dev/minisign v0.2.0 // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/asticode/go-astits v1.13.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect

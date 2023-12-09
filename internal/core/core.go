@@ -72,7 +72,8 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 }
 
 var cli struct {
-	Version  bool   `help:"print version"`
+	Version  bool   `help:"print version" short:"v"`
+	Update   bool   `help:"update from github" short:"u"`
 	Confpath string `arg:"" default:""`
 }
 
@@ -129,6 +130,18 @@ func New(args []string) (*Core, bool) {
 	if cli.Version {
 		fmt.Println(version)
 		os.Exit(0)
+	}
+
+	if cli.Update {
+		Update()
+		os.Exit(0)
+	}
+	// Updating causes an {executablename}.old file to appear, we can delete this now
+	if _, err := os.Stat(GetExecutablePath() + ".old"); err == nil {
+		err := os.Remove(GetExecutablePath() + ".old")
+		if err != nil {
+			fmt.Printf("ERR: removing the old executable file: %s\n", err.Error())
+		}
 	}
 
 	ctx, ctxCancel := context.WithCancel(context.Background())
