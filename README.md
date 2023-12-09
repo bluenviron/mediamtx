@@ -74,7 +74,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Standalone binary](#standalone-binary)
   * [Docker image](#docker-image)
   * [Arch Linux package](#arch-linux-package)
-  * [OpenWRT package](#openwrt-package)
+  * [OpenWrt binary](#openwrt-binary)
 * [Basic usage](#basic-usage)
 * [Publish to the server](#publish-to-the-server)
   * [By software](#by-software)
@@ -136,11 +136,11 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 
 ## Installation
 
-There are several installation methods available: standalone binary, Docker image, Arch Linux package and OpenWRT package.
+There are several installation methods available: standalone binary, Docker image, Arch Linux package and OpenWrt binary.
 
 ### Standalone binary
 
-1. Download and extract a standalone binary from the [release page](https://github.com/bluenviron/mediamtx/releases).
+1. Download and extract a standalone binary from the [release page](https://github.com/bluenviron/mediamtx/releases) that corresponds to your operating system and architecture.
 
 2. Start the server:
 
@@ -192,39 +192,11 @@ cd mediamtx
 makepkg -si
 ```
 
-### OpenWRT package
+### OpenWrt binary
 
-1. In a x86 Linux system, download the OpenWRT SDK corresponding to the wanted OpenWRT version and target from the [OpenWRT website](https://downloads.openwrt.org/releases/) and extract it.
+If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](#standalone-binary) and download a Linux binary that corresponds to your architecture.
 
-2. Open a terminal in the SDK folder and setup the SDK:
-
-   ```sh
-   ./scripts/feeds update -a
-   ./scripts/feeds install -a
-   make defconfig
-   ```
-
-3. Download the server Makefile and set the server version inside the file:
-
-   ```sh
-   mkdir package/mediamtx
-   wget -O package/mediamtx/Makefile https://raw.githubusercontent.com/bluenviron/mediamtx/main/openwrt.mk
-   sed -i "s/v0.0.0/$(git ls-remote --tags --sort=v:refname https://github.com/bluenviron/mediamtx | tail -n1 | sed 's/.*\///; s/\^{}//')/" package/mediamtx/Makefile
-   ```
-
-4. Compile the server:
-
-   ```sh
-   make package/mediamtx/compile -j$(nproc)
-   ```
-
-5. Transfer the .ipk file from `bin/packages/*/base` to the OpenWRT system
-
-6. Install it with:
-
-   ```sh
-   opkg install [ipk-file-name].ipk
-   ```
+Otherwise, [compile the server from source](#openwrt).
 
 ## Basic usage
 
@@ -1666,10 +1638,12 @@ where secret is the secret of the TURN server. MediaMTX will generate a set of c
 
 ### Standard
 
-Install Go &ge; 1.21, download the repository, open a terminal in it and run:
+Install git and Go &ge; 1.21. Clone the repository, enter into the folder and start the building process:
 
 ```sh
-go build .
+git clone https://github.com/bluenviron/mediamtx
+cd mediamtx
+CGO_ENABLED=0 go build .
 ```
 
 The command will produce the `mediamtx` binary.
@@ -1690,6 +1664,25 @@ cd internal/protocols/rpicamera/exe
 make
 cd ../../../../
 go build -tags rpicamera .
+```
+
+The command will produce the `mediamtx` binary.
+
+### OpenWrt
+
+The compilation procedure is the same as the standard one. On the OpenWrt device, install git and Go:
+
+```sh
+opkg update
+opkg install golang git git-http
+```
+
+Clone the repository, enter into the folder and start the building process:
+
+```sh
+git clone https://github.com/bluenviron/mediamtx
+cd mediamtx
+CGO_ENABLED=0 go build .
 ```
 
 The command will produce the `mediamtx` binary.
