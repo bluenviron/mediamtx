@@ -118,6 +118,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Forward streams to another server](#forward-streams-to-another-server)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
+    * [Linux](#linux)
+    * [OpenWrt](#openwrt)
+    * [Windows](#windows)
   * [Hooks](#hooks)
   * [API](#api)
   * [Metrics](#metrics)
@@ -131,6 +134,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [WebRTC-specific features](#webrtc-specific-features)
     * [Connectivity issues](#connectivity-issues)
 * [Compile from source](#compile-from-source)
+  * [Standard](#standard)
+  * [Raspberry Pi](#raspberry-pi)
+  * [OpenWrt](#openwrt-1)
 * [Specifications](#specifications)
 * [Related projects](#related-projects)
 
@@ -196,7 +202,7 @@ makepkg -si
 
 If the architecture of the OpenWrt device is amd64, armv6, armv7 or arm64, use the [standalone binary method](#standalone-binary) and download a Linux binary that corresponds to your architecture.
 
-Otherwise, [compile the server from source](#openwrt).
+Otherwise, [compile the server from source](#openwrt-1).
 
 ## Basic usage
 
@@ -1188,16 +1194,16 @@ The command inserted into `runOnDemand` will start only when a client requests t
 
 #### Linux
 
-Systemd is the service manager used by Ubuntu, Debian and many other Linux distributions, and allows to launch _MediaMTX_ on boot.
+On most Linux distributions (including Ubuntu and Debian, but not OpenWrt), _systemd_ is in charge of managing services and starting them on boot.
 
-Download a release bundle from the [release page](https://github.com/bluenviron/mediamtx/releases), unzip it, and move the executable and configuration in the system:
+Move the server executable and configuration in global folders:
 
 ```sh
 sudo mv mediamtx /usr/local/bin/
 sudo mv mediamtx.yml /usr/local/etc/
 ```
 
-Create the service:
+Create a _systemd_ service:
 
 ```sh
 sudo tee /etc/systemd/system/mediamtx.service >/dev/null << EOF
@@ -1216,6 +1222,47 @@ Enable and start the service:
 sudo systemctl daemon-reload
 sudo systemctl enable mediamtx
 sudo systemctl start mediamtx
+```
+
+#### OpenWrt
+
+Move the server executable and configuration in global folders:
+
+```sh
+mv mediamtx /usr/bin/
+mkdir -p /usr/etc && mv mediamtx.yml /usr/etc/
+```
+
+Create a procd service:
+
+```sh
+tee /etc/init.d/mediamtx >/dev/null << EOF
+#!/bin/sh /etc/rc.common
+USE_PROCD=1
+START=95
+STOP=01
+start_service() {
+    procd_open_instance
+    procd_set_param command /usr/bin/mediamtx
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+}
+EOF
+```
+
+Enable and start the service:
+
+```sh
+chmod +x /etc/init.d/mediamtx
+/etc/init.d/mediamtx enable
+/etc/init.d/mediamtx start
+```
+
+Read the server logs:
+
+```sh
+logread
 ```
 
 #### Windows
