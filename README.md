@@ -115,7 +115,8 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Record streams to disk](#record-streams-to-disk)
-  * [Forward streams to another server](#forward-streams-to-another-server)
+  * [Forward streams to other servers](#forward-streams-to-other-servers)
+  * [Proxy requests to other servers](#proxy-requests-to-other-servers)
   * [On-demand publishing](#on-demand-publishing)
   * [Start on boot](#start-on-boot)
     * [Linux](#linux)
@@ -1164,7 +1165,7 @@ To upload recordings to a remote location, you can use _MediaMTX_ together with 
 
    If you want to delete local segments after they are uploaded, replace `rclone sync` with `rclone move`.
 
-### Forward streams to another server
+### Forward streams to other servers
 
 To forward incoming streams to another server, use _FFmpeg_ inside the `runOnReady` parameter:
 
@@ -1173,9 +1174,24 @@ pathDefaults:
   runOnReady: >
     ffmpeg -i rtsp://localhost:$RTSP_PORT/$MTX_PATH
     -c copy
-    -f rtsp rtsp://another-server/another-path
+    -f rtsp rtsp://other-server:8554/another-path
   runOnReadyRestart: yes
 ```
+
+### Proxy requests to other servers
+
+The server allows to proxy incoming requests to other servers or cameras. This is useful to expose servers or cameras behind a NAT. Edit `mediamtx.yml` and replace everything inside section `paths` with the following content:
+
+```yml
+paths:
+  "~^proxy_(.+)$":
+    # If path name is a regular expression, $G1, G2, etc will be replaced
+    # with regular expression groups.
+    source: rtsp://other-server:8554/$G1
+    sourceOnDemand: yes
+```
+
+All requests addressed to `rtsp://server:8854/proxy_a` will be forwarded to `rtsp://other-server:8854/a` and so on.
 
 ### On-demand publishing
 

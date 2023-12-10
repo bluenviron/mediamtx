@@ -156,26 +156,25 @@ func TestSource(t *testing.T) {
 				te = tester.New(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ReadTimeout:  conf.StringDuration(10 * time.Second),
-							WriteTimeout: conf.StringDuration(10 * time.Second),
-							Parent:       p,
+							ResolvedSource: "rtmp://localhost:1937/teststream",
+							ReadTimeout:    conf.StringDuration(10 * time.Second),
+							WriteTimeout:   conf.StringDuration(10 * time.Second),
+							Parent:         p,
 						}
 					},
-					&conf.Path{
-						Source: "rtmp://localhost:1937/teststream",
-					},
+					&conf.Path{},
 				)
 			} else {
 				te = tester.New(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ReadTimeout:  conf.StringDuration(10 * time.Second),
-							WriteTimeout: conf.StringDuration(10 * time.Second),
-							Parent:       p,
+							ResolvedSource: "rtmps://localhost:1937/teststream",
+							ReadTimeout:    conf.StringDuration(10 * time.Second),
+							WriteTimeout:   conf.StringDuration(10 * time.Second),
+							Parent:         p,
 						}
 					},
 					&conf.Path{
-						Source:            "rtmps://localhost:1937/teststream",
 						SourceFingerprint: "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
 					},
 				)

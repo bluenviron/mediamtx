@@ -104,12 +104,11 @@ func TestSource(t *testing.T) {
 	te := tester.New(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				Parent: p,
+				ResolvedSource: "http://localhost:5780/stream.m3u8",
+				Parent:         p,
 			}
 		},
-		&conf.Path{
-			Source: "http://localhost:5780/stream.m3u8",
-		},
+		&conf.Path{},
 	)
 	defer te.Close()
 

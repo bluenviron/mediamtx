@@ -201,7 +201,6 @@ func TestSource(t *testing.T) {
 
 			err = s.Start()
 			require.NoError(t, err)
-			defer s.Wait() //nolint:errcheck
 			defer s.Close()
 
 			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
@@ -216,6 +215,7 @@ func TestSource(t *testing.T) {
 				te = tester.New(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
+							ResolvedSource: "rtsp://testuser:testpass@localhost:8555/teststream",
 							ReadTimeout:    conf.StringDuration(10 * time.Second),
 							WriteTimeout:   conf.StringDuration(10 * time.Second),
 							WriteQueueSize: 2048,
@@ -223,7 +223,6 @@ func TestSource(t *testing.T) {
 						}
 					},
 					&conf.Path{
-						Source:        "rtsp://testuser:testpass@localhost:8555/teststream",
 						RTSPTransport: sp,
 					},
 				)
@@ -231,6 +230,7 @@ func TestSource(t *testing.T) {
 				te = tester.New(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
+							ResolvedSource: "rtsps://testuser:testpass@localhost:8555/teststream",
 							ReadTimeout:    conf.StringDuration(10 * time.Second),
 							WriteTimeout:   conf.StringDuration(10 * time.Second),
 							WriteQueueSize: 2048,
@@ -238,7 +238,6 @@ func TestSource(t *testing.T) {
 						}
 					},
 					&conf.Path{
-						Source:            "rtsps://testuser:testpass@localhost:8555/teststream",
 						SourceFingerprint: "33949E05FFFB5FF3E8AA16F8213A6251B4D9363804BA53233C4DA9A46D6F2739",
 					},
 				)
@@ -306,7 +305,6 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 
 	err = s.Start()
 	require.NoError(t, err)
-	defer s.Wait() //nolint:errcheck
 	defer s.Close()
 
 	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
@@ -318,6 +316,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	te := tester.New(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
+				ResolvedSource: "rtsp://testuser:@127.0.0.1:8555/teststream",
 				ReadTimeout:    conf.StringDuration(10 * time.Second),
 				WriteTimeout:   conf.StringDuration(10 * time.Second),
 				WriteQueueSize: 2048,
@@ -325,7 +324,6 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 			}
 		},
 		&conf.Path{
-			Source:        "rtsp://testuser:@127.0.0.1:8555/teststream",
 			RTSPTransport: sp,
 		},
 	)
@@ -389,15 +387,12 @@ func TestRTSPSourceRange(t *testing.T) {
 
 			err := s.Start()
 			require.NoError(t, err)
-			defer s.Wait() //nolint:errcheck
 			defer s.Close()
 
 			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
 			defer stream.Close()
 
-			cnf := &conf.Path{
-				Source: "rtsp://127.0.0.1:8555/teststream",
-			}
+			cnf := &conf.Path{}
 
 			switch ca {
 			case "clock":
@@ -416,6 +411,7 @@ func TestRTSPSourceRange(t *testing.T) {
 			te := tester.New(
 				func(p defs.StaticSourceParent) defs.StaticSource {
 					return &Source{
+						ResolvedSource: "rtsp://127.0.0.1:8555/teststream",
 						ReadTimeout:    conf.StringDuration(10 * time.Second),
 						WriteTimeout:   conf.StringDuration(10 * time.Second),
 						WriteQueueSize: 2048,
