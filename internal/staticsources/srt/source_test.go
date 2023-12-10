@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -59,13 +59,12 @@ func TestSource(t *testing.T) {
 	te := tester.New(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
-				ReadTimeout: conf.StringDuration(10 * time.Second),
-				Parent:      p,
+				ResolvedSource: "srt://localhost:9002?streamid=sidname&passphrase=ttest1234567",
+				ReadTimeout:    conf.StringDuration(10 * time.Second),
+				Parent:         p,
 			}
 		},
-		&conf.Path{
-			Source: "srt://localhost:9002?streamid=sidname&passphrase=ttest1234567",
-		},
+		&conf.Path{},
 	)
 	defer te.Close()
 

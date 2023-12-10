@@ -82,6 +82,25 @@ func main() {
 }
 `
 
+type testServer struct {
+	onDescribe func(*gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error)
+	onSetup    func(*gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error)
+	onPlay     func(*gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error)
+}
+
+func (sh *testServer) OnDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+) (*base.Response, *gortsplib.ServerStream, error) {
+	return sh.onDescribe(ctx)
+}
+
+func (sh *testServer) OnSetup(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+	return sh.onSetup(ctx)
+}
+
+func (sh *testServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+	return sh.onPlay(ctx)
+}
+
 var _ defs.Path = &path{}
 
 func TestPathRunOnDemand(t *testing.T) {
@@ -572,4 +591,59 @@ func TestPathFallback(t *testing.T) {
 			require.Equal(t, 1, len(desc.Medias))
 		})
 	}
+}
+
+func TestPathSourceRegexp(t *testing.T) {
+	var stream *gortsplib.ServerStream
+
+	s := gortsplib.Server{
+		Handler: &testServer{
+			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx,
+			) (*base.Response, *gortsplib.ServerStream, error) {
+				require.Equal(t, "/a", ctx.Path)
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, stream, nil
+			},
+			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+				return &base.Response{
+					StatusCode: base.StatusOK,
+				}, nil
+			},
+		},
+		RTSPAddress: "127.0.0.1:8555",
+	}
+
+	err := s.Start()
+	require.NoError(t, err)
+	defer s.Close()
+
+	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
+	defer stream.Close()
+
+	p, ok := newInstance(
+		"paths:\n" +
+			"  '~^test_(.+)$':\n" +
+			"    source: rtsp://127.0.0.1:8555/$G1\n" +
+			"    sourceOnDemand: yes\n" +
+			"  'all':\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	reader := gortsplib.Client{}
+
+	u, err := base.ParseURL("rtsp://127.0.0.1:8554/test_a")
+	require.NoError(t, err)
+
+	err = reader.Start(u.Scheme, u.Host)
+	require.NoError(t, err)
+	defer reader.Close()
+
+	_, _, err = reader.Describe(u)
+	require.NoError(t, err)
 }

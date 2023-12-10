@@ -197,12 +197,22 @@ func (pa *path) run() {
 	if pa.conf.Source == "redirect" {
 		pa.source = &sourceRedirect{}
 	} else if pa.conf.HasStaticSource() {
-		pa.source = newStaticSourceHandler(
-			pa.conf,
-			pa.readTimeout,
-			pa.writeTimeout,
-			pa.writeQueueSize,
-			pa)
+		resolvedSource := pa.conf.Source
+		if len(pa.matches) > 1 {
+			for i, ma := range pa.matches[1:] {
+				resolvedSource = strings.ReplaceAll(resolvedSource, "$G"+strconv.FormatInt(int64(i+1), 10), ma)
+			}
+		}
+
+		pa.source = &staticSourceHandler{
+			conf:           pa.conf,
+			readTimeout:    pa.readTimeout,
+			writeTimeout:   pa.writeTimeout,
+			writeQueueSize: pa.writeQueueSize,
+			resolvedSource: resolvedSource,
+			parent:         pa,
+		}
+		pa.source.(*staticSourceHandler).initialize()
 
 		if !pa.conf.SourceOnDemand {
 			pa.source.(*staticSourceHandler).start(false)

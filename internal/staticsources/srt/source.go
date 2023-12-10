@@ -17,8 +17,9 @@ import (
 
 // Source is a SRT static source.
 type Source struct {
-	ReadTimeout conf.StringDuration
-	Parent      defs.StaticSourceParent
+	ResolvedSource string
+	ReadTimeout    conf.StringDuration
+	Parent         defs.StaticSourceParent
 }
 
 // Log implements logger.Writer.
@@ -31,7 +32,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
 	conf := srt.DefaultConfig()
-	address, err := conf.UnmarshalURL(params.Conf.Source)
+	address, err := conf.UnmarshalURL(s.ResolvedSource)
 	if err != nil {
 		return err
 	}

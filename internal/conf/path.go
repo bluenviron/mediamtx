@@ -235,15 +235,16 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 	// General
 
+	if pconf.Source != "publisher" && pconf.Source != "redirect" &&
+		pconf.Regexp != nil && !pconf.SourceOnDemand {
+		return fmt.Errorf("a path with a regular expression (or path 'all') and a static source" +
+			" must have 'sourceOnDemand' set to true")
+	}
 	switch {
 	case pconf.Source == "publisher":
 
 	case strings.HasPrefix(pconf.Source, "rtsp://") ||
 		strings.HasPrefix(pconf.Source, "rtsps://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTSP source. use another path")
-		}
-
 		_, err := base.ParseURL(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -251,10 +252,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 	case strings.HasPrefix(pconf.Source, "rtmp://") ||
 		strings.HasPrefix(pconf.Source, "rtmps://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a RTMP source. use another path")
-		}
-
 		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -271,10 +268,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 	case strings.HasPrefix(pconf.Source, "http://") ||
 		strings.HasPrefix(pconf.Source, "https://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source. use another path")
-		}
-
 		u, err := gourl.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -293,19 +286,12 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		}
 
 	case strings.HasPrefix(pconf.Source, "udp://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a HLS source. use another path")
-		}
-
 		_, _, err := net.SplitHostPort(pconf.Source[len("udp://"):])
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid UDP URL", pconf.Source)
 		}
 
 	case strings.HasPrefix(pconf.Source, "srt://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') cannot have a SRT source. use another path")
-		}
 
 		_, err := gourl.Parse(pconf.Source)
 		if err != nil {
@@ -314,11 +300,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 	case strings.HasPrefix(pconf.Source, "whep://") ||
 		strings.HasPrefix(pconf.Source, "wheps://"):
-		if pconf.Regexp != nil {
-			return fmt.Errorf("a path with a regular expression (or path 'all') " +
-				"cannot have a WebRTC/WHEP source. use another path")
-		}
-
 		_, err := gourl.Parse(pconf.Source)
 		if err != nil {
 			return fmt.Errorf("'%s' is not a valid URL", pconf.Source)
@@ -327,10 +308,6 @@ func (pconf *Path) check(conf *Conf, name string) error {
 	case pconf.Source == "redirect":
 
 	case pconf.Source == "rpiCamera":
-		if pconf.Regexp != nil {
-			return fmt.Errorf(
-				"a path with a regular expression (or path 'all') cannot have 'rpiCamera' as source. use another path")
-		}
 
 	default:
 		return fmt.Errorf("invalid source: '%s'", pconf.Source)

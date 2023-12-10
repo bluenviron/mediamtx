@@ -45,8 +45,9 @@ type packetConn interface {
 
 // Source is a UDP static source.
 type Source struct {
-	ReadTimeout conf.StringDuration
-	Parent      defs.StaticSourceParent
+	ResolvedSource string
+	ReadTimeout    conf.StringDuration
+	Parent         defs.StaticSourceParent
 }
 
 // Log implements logger.Writer.
@@ -58,7 +59,7 @@ func (s *Source) Log(level logger.Level, format string, args ...interface{}) {
 func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	s.Log(logger.Debug, "connecting")
 
-	hostPort := params.Conf.Source[len("udp://"):]
+	hostPort := s.ResolvedSource[len("udp://"):]
 
 	addr, err := net.ResolveUDPAddr("udp", hostPort)
 	if err != nil {
