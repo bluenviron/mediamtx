@@ -48,7 +48,17 @@ func getConfForPath(pathConfs map[string]*conf.Path, name string) (string, *conf
 
 	// regular expression-based path
 	for pathConfName, pathConf := range pathConfs {
-		if pathConf.Regexp != nil {
+		if pathConf.Regexp != nil && pathConfName != "all" && pathConfName != "all_others" {
+			m := pathConf.Regexp.FindStringSubmatch(name)
+			if m != nil {
+				return pathConfName, pathConf, m, nil
+			}
+		}
+	}
+
+	// process path configuration "all_others" after everything else
+	for pathConfName, pathConf := range pathConfs {
+		if pathConfName == "all" || pathConfName == "all_others" {
 			m := pathConf.Regexp.FindStringSubmatch(name)
 			if m != nil {
 				return pathConfName, pathConf, m, nil
