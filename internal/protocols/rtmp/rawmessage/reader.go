@@ -293,6 +293,10 @@ func (r *Reader) Read() (*Message, error) {
 		typ := byt >> 6
 		chunkStreamID := byt & 0x3F
 
+		if chunkStreamID < 2 {
+			return nil, fmt.Errorf("extended chunk stream IDs are not supported (yet)")
+		}
+
 		rc, ok := r.chunkStreams[chunkStreamID]
 		if !ok {
 			rc = &readerChunkStream{mr: r}
