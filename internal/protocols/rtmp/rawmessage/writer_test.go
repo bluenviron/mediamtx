@@ -11,6 +11,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func chunkBodySize(ch chunk.Chunk) uint32 {
+	switch ch := ch.(type) {
+	case *chunk.Chunk0:
+		return uint32(len(ch.Body))
+	case *chunk.Chunk1:
+		return uint32(len(ch.Body))
+	case *chunk.Chunk2:
+		return uint32(len(ch.Body))
+	case *chunk.Chunk3:
+		return uint32(len(ch.Body))
+	}
+	return 0
+}
+
+func chunkHasExtendedTimestamp(ch chunk.Chunk) bool {
+	switch ch := ch.(type) {
+	case *chunk.Chunk0:
+		return ch.Timestamp >= 0xFFFFFF
+	case *chunk.Chunk1:
+		return ch.TimestampDelta >= 0xFFFFFF
+	case *chunk.Chunk2:
+		return ch.TimestampDelta >= 0xFFFFFF
+	case *chunk.Chunk3:
+		return false
+	}
+	return false
+}
+
 func TestWriter(t *testing.T) {
 	for _, ca := range cases {
 		t.Run(ca.name, func(t *testing.T) {
@@ -23,11 +51,14 @@ func TestWriter(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			for i, cach := range ca.chunks {
+			hasExtendedTimestamp := false
+
+			for _, cach := range ca.chunks {
 				ch := reflect.New(reflect.TypeOf(cach).Elem()).Interface().(chunk.Chunk)
-				err := ch.Read(&buf, ca.chunkSizes[i])
+				err := ch.Read(&buf, chunkBodySize(cach), hasExtendedTimestamp)
 				require.NoError(t, err)
 				require.Equal(t, cach, ch)
+				hasExtendedTimestamp = chunkHasExtendedTimestamp(cach)
 			}
 		})
 	}
