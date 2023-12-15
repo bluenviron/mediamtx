@@ -37,7 +37,9 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
         char *key = strsep(&entry, ":");
         char *val = strsep(&entry, ":");
 
-        if (strcmp(key, "CameraID") == 0) {
+        if (strcmp(key, "LogLevel") == 0) {
+            params->log_level = base64_decode(val);
+        } else if (strcmp(key, "CameraID") == 0) {
             params->camera_id = atoi(val);
         } else if (strcmp(key, "Width") == 0) {
             params->width = atoi(val);

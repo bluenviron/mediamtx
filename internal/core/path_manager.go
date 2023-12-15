@@ -79,6 +79,7 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
+	logLevel                  conf.LogLevel
 	externalAuthenticationURL string
 	rtspAddress               string
 	authMethods               conf.AuthMethods
@@ -112,6 +113,7 @@ type pathManager struct {
 }
 
 func newPathManager(
+	logLevel conf.LogLevel,
 	externalAuthenticationURL string,
 	rtspAddress string,
 	authMethods conf.AuthMethods,
@@ -126,6 +128,7 @@ func newPathManager(
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	pm := &pathManager{
+		logLevel:                  logLevel,
 		externalAuthenticationURL: externalAuthenticationURL,
 		rtspAddress:               rtspAddress,
 		authMethods:               authMethods,
@@ -400,6 +403,7 @@ func (pm *pathManager) createPath(
 ) {
 	pa := newPath(
 		pm.ctx,
+		pm.logLevel,
 		pm.rtspAddress,
 		pm.readTimeout,
 		pm.writeTimeout,
