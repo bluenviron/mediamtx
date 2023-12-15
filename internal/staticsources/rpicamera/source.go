@@ -15,8 +15,19 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-func paramsFromConf(cnf *conf.Path) rpicamera.Params {
+func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) rpicamera.Params {
 	return rpicamera.Params{
+		LogLevel: func() string {
+			switch logLevel {
+			case conf.LogLevel(logger.Debug):
+				return "debug"
+			case conf.LogLevel(logger.Info):
+				return "info"
+			case conf.LogLevel(logger.Warn):
+				return "warn"
+			}
+			return "error"
+		}(),
 		CameraID:          cnf.RPICameraCamID,
 		Width:             cnf.RPICameraWidth,
 		Height:            cnf.RPICameraHeight,
@@ -54,7 +65,8 @@ func paramsFromConf(cnf *conf.Path) rpicamera.Params {
 
 // Source is a Raspberry Pi Camera static source.
 type Source struct {
-	Parent defs.StaticSourceParent
+	LogLevel conf.LogLevel
+	Parent   defs.StaticSourceParent
 }
 
 // Log implements logger.Writer.
@@ -96,7 +108,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		})
 	}
 
-	cam, err := rpicamera.New(paramsFromConf(params.Conf), onData)
+	cam := &rpicamera.RPICamera{
+		Params: paramsFromConf(s.LogLevel, params.Conf),
+		OnData: onData,
+	}
+	err := cam.Initialize()
 	if err != nil {
 		return err
 	}
@@ -111,7 +127,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	for {
 		select {
 		case cnf := <-params.ReloadConf:
-			cam.ReloadParams(paramsFromConf(cnf))
+			cam.ReloadParams(paramsFromConf(s.LogLevel, cnf))
 
 		case <-params.Context.Done():
 			return nil

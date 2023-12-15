@@ -14,14 +14,14 @@ func Cleanup() {
 }
 
 // RPICamera is a RPI Camera reader.
-type RPICamera struct{}
+type RPICamera struct {
+	Params Params
+	OnData func(time.Duration, [][]byte)
+}
 
-// New allocates a RPICamera.
-func New(
-	_ Params,
-	_ func(time.Duration, [][]byte),
-) (*RPICamera, error) {
-	return nil, fmt.Errorf("server was compiled without support for the Raspberry Pi Camera")
+// Initialize initializes a RPICamera.
+func (c *RPICamera) Initialize() error {
+	return fmt.Errorf("server was compiled without support for the Raspberry Pi Camera")
 }
 
 // Close closes a RPICamera.

@@ -9,6 +9,7 @@ import (
 
 // Params is a set of camera parameters.
 type Params struct {
+	LogLevel          string
 	CameraID          int
 	Width             int
 	Height            int

@@ -8,6 +8,7 @@
 #include "sensor_mode.h"
 
 typedef struct {
+    char *log_level;
     unsigned int camera_id;
     unsigned int width;
     unsigned int height;

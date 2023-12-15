@@ -310,6 +310,7 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.pathManager == nil {
 		p.pathManager = newPathManager(
+			p.conf.LogLevel,
 			p.conf.ExternalAuthenticationURL,
 			p.conf.RTSPAddress,
 			p.conf.AuthMethods,
@@ -614,6 +615,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeLogger
 
 	closePathManager := newConf == nil ||
+		newConf.LogLevel != p.conf.LogLevel ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
 		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||

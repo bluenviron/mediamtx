@@ -31,6 +31,7 @@ type staticSourceHandlerParent interface {
 // staticSourceHandler is a static source handler.
 type staticSourceHandler struct {
 	conf           *conf.Path
+	logLevel       conf.LogLevel
 	readTimeout    conf.StringDuration
 	writeTimeout   conf.StringDuration
 	writeQueueSize int
@@ -108,7 +109,8 @@ func (s *staticSourceHandler) initialize() {
 
 	case s.resolvedSource == "rpiCamera":
 		s.instance = &rpicamerasource.Source{
-			Parent: s,
+			LogLevel: s.logLevel,
+			Parent:   s,
 		}
 	}
 }

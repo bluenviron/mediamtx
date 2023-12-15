@@ -111,8 +111,10 @@ func checkLibraries64Bit() error {
 	return nil
 }
 
+// RPICamera is a RPI Camera reader.
 type RPICamera struct {
-	onData func(time.Duration, [][]byte)
+	Params Params
+	OnData func(time.Duration, [][]byte)
 
 	cmd       *exec.Cmd
 	pipeConf  *pipe
@@ -122,31 +124,25 @@ type RPICamera struct {
 	readerDone chan error
 }
 
-func New(
-	params Params,
-	onData func(time.Duration, [][]byte),
-) (*RPICamera, error) {
+// Initialize initializes a RPICamera.
+func (c *RPICamera) Initialize() error {
 	if runtime.GOARCH == "arm" {
 		err := checkLibraries64Bit()
 		if err != nil {
-			return nil, err
+			return err
 		}
-	}
-
-	c := &RPICamera{
-		onData: onData,
 	}
 
 	var err error
 	c.pipeConf, err = newPipe()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	c.pipeVideo, err = newPipe()
 	if err != nil {
 		c.pipeConf.close()
-		return nil, err
+		return err
 	}
 
 	env := []string{
@@ -158,10 +154,10 @@ func New(
 	if err != nil {
 		c.pipeConf.close()
 		c.pipeVideo.close()
-		return nil, err
+		return err
 	}
 
-	c.pipeConf.write(append([]byte{'c'}, params.serialize()...))
+	c.pipeConf.write(append([]byte{'c'}, c.Params.serialize()...))
 
 	c.waitDone = make(chan error)
 	go func() {
@@ -178,7 +174,7 @@ func New(
 		c.pipeConf.close()
 		c.pipeVideo.close()
 		<-c.readerDone
-		return nil, fmt.Errorf("process exited unexpectedly")
+		return fmt.Errorf("process exited unexpectedly")
 
 	case err := <-c.readerDone:
 		if err != nil {
@@ -186,7 +182,7 @@ func New(
 			<-c.waitDone
 			c.pipeConf.close()
 			c.pipeVideo.close()
-			return nil, err
+			return err
 		}
 	}
 
@@ -195,7 +191,7 @@ func New(
 		c.readerDone <- c.readData()
 	}()
 
-	return c, nil
+	return nil
 }
 
 func (c *RPICamera) Close() {
@@ -248,6 +244,6 @@ func (c *RPICamera) readData() error {
 			return err
 		}
 
-		c.onData(dts, nalus)
+		c.OnData(dts, nalus)
 	}
 }
