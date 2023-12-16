@@ -7,6 +7,6 @@ import (
 
 // Chunk is a chunk.
 type Chunk interface {
-	Read(io.Reader, uint32) error
-	Marshal() ([]byte, error)
+	Read(r io.Reader, bodyLen uint32, hasExtendedTimestamp bool) error
+	Marshal(hasExtendedTimestamp bool) ([]byte, error)
 }

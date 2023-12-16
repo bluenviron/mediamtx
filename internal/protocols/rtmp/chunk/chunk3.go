@@ -16,24 +16,45 @@ type Chunk3 struct {
 }
 
 // Read reads the chunk.
-func (c *Chunk3) Read(r io.Reader, chunkBodyLen uint32) error {
-	header := make([]byte, 1)
-	_, err := io.ReadFull(r, header)
+func (c *Chunk3) Read(r io.Reader, bodyLen uint32, hasExtendedTimestamp bool) error {
+	header := make([]byte, 4)
+	_, err := io.ReadFull(r, header[:1])
 	if err != nil {
 		return err
 	}
 
 	c.ChunkStreamID = header[0] & 0x3F
 
-	c.Body = make([]byte, chunkBodyLen)
+	if hasExtendedTimestamp {
+		_, err := io.ReadFull(r, header[:4])
+		if err != nil {
+			return err
+		}
+	}
+
+	c.Body = make([]byte, bodyLen)
 	_, err = io.ReadFull(r, c.Body)
 	return err
 }
 
+func (c Chunk3) marshalSize(hasExtendedTimestamp bool) int {
+	n := 1 + len(c.Body)
+	if hasExtendedTimestamp {
+		n += 4
+	}
+	return n
+}
+
 // Marshal writes the chunk.
-func (c Chunk3) Marshal() ([]byte, error) {
-	buf := make([]byte, 1+len(c.Body))
+func (c Chunk3) Marshal(hasExtendedTimestamp bool) ([]byte, error) {
+	buf := make([]byte, c.marshalSize(hasExtendedTimestamp))
 	buf[0] = 3<<6 | c.ChunkStreamID
-	copy(buf[1:], c.Body)
+
+	if hasExtendedTimestamp {
+		copy(buf[5:], c.Body)
+	} else {
+		copy(buf[1:], c.Body)
+	}
+
 	return buf, nil
 }

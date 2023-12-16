@@ -11,15 +11,16 @@ import (
 )
 
 type writerChunkStream struct {
-	mw                  *Writer
-	lastMessageStreamID *uint32
-	lastType            *uint8
-	lastBodyLen         *uint32
-	lastTimestamp       *int64
-	lastTimestampDelta  *int64
+	mw                   *Writer
+	lastMessageStreamID  *uint32
+	lastType             *uint8
+	lastBodyLen          *uint32
+	lastTimestamp        *int64
+	lastTimestampDelta   *int64
+	hasExtendedTimestamp bool
 }
 
-func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
+func (wc *writerChunkStream) writeChunk(c chunk.Chunk, hasExtendedTimestamp bool) error {
 	// check if we received an acknowledge
 	if wc.mw.checkAcknowledge && wc.mw.ackWindowSize != 0 {
 		diff := uint32(wc.mw.bcw.Count()) - wc.mw.ackValue
@@ -29,7 +30,7 @@ func (wc *writerChunkStream) writeChunk(c chunk.Chunk) error {
 		}
 	}
 
-	buf, err := c.Marshal()
+	buf, err := c.Marshal(hasExtendedTimestamp)
 	if err != nil {
 		return err
 	}
@@ -72,45 +73,51 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 
 			switch {
 			case wc.lastMessageStreamID == nil || timestampDelta == nil || *wc.lastMessageStreamID != msg.MessageStreamID:
+				ts := uint32(timestamp)
 				err := wc.writeChunk(&chunk.Chunk0{
 					ChunkStreamID:   msg.ChunkStreamID,
-					Timestamp:       uint32(timestamp),
+					Timestamp:       ts,
 					Type:            msg.Type,
 					MessageStreamID: msg.MessageStreamID,
 					BodyLen:         (bodyLen),
 					Body:            msg.Body[pos : pos+chunkBodyLen],
-				})
+				}, false)
 				if err != nil {
 					return err
 				}
+				wc.hasExtendedTimestamp = ts >= 0xFFFFFF
 
 			case *wc.lastType != msg.Type || *wc.lastBodyLen != bodyLen:
+				ts := uint32(*timestampDelta)
 				err := wc.writeChunk(&chunk.Chunk1{
 					ChunkStreamID:  msg.ChunkStreamID,
-					TimestampDelta: uint32(*timestampDelta),
+					TimestampDelta: ts,
 					Type:           msg.Type,
 					BodyLen:        (bodyLen),
 					Body:           msg.Body[pos : pos+chunkBodyLen],
-				})
+				}, false)
 				if err != nil {
 					return err
 				}
+				wc.hasExtendedTimestamp = ts >= 0xFFFFFF
 
 			case wc.lastTimestampDelta == nil || *wc.lastTimestampDelta != *timestampDelta:
+				ts := uint32(*timestampDelta)
 				err := wc.writeChunk(&chunk.Chunk2{
 					ChunkStreamID:  msg.ChunkStreamID,
-					TimestampDelta: uint32(*timestampDelta),
+					TimestampDelta: ts,
 					Body:           msg.Body[pos : pos+chunkBodyLen],
-				})
+				}, false)
 				if err != nil {
 					return err
 				}
+				wc.hasExtendedTimestamp = ts >= 0xFFFFFF
 
 			default:
 				err := wc.writeChunk(&chunk.Chunk3{
 					ChunkStreamID: msg.ChunkStreamID,
 					Body:          msg.Body[pos : pos+chunkBodyLen],
-				})
+				}, wc.hasExtendedTimestamp)
 				if err != nil {
 					return err
 				}
@@ -133,7 +140,7 @@ func (wc *writerChunkStream) writeMessage(msg *Message) error {
 			err := wc.writeChunk(&chunk.Chunk3{
 				ChunkStreamID: msg.ChunkStreamID,
 				Body:          msg.Body[pos : pos+chunkBodyLen],
-			})
+			}, wc.hasExtendedTimestamp)
 			if err != nil {
 				return err
 			}
