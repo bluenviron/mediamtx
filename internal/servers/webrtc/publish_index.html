@@ -427,6 +427,8 @@ class Transmitter {
     onIceServers(res) {
         this.pc = new RTCPeerConnection({
             iceServers: linkToIceServers(res.headers.get('Link')),
+            // https://webrtc.org/getting-started/unified-plan-transition-guide
+            sdpSemantics: 'unified-plan',
         });
 
         this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
