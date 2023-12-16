@@ -63,7 +63,7 @@ yes / no
 <!--
 If the bug arises when using MediaMTX with an external hardware or software, the most helpful content you can provide is a dump of the data exchanged between the server and the target (network dump), that can be generated in this way:
 1) Download wireshark (https://www.wireshark.org/)
-2) Start capturing on the interface used for exchanging RTSP (if the server and the target software are both installed on your pc, the interface is probably "loopback", otherwise it's the one of your network card)
+2) Start capturing on the interface used for exchanging packets (if the server and the external hardware or software are both installed on your pc, the interface is probably "loopback", otherwise it's the one of your network card)
 3) Start the server and replicate the issue
 4) Stop capturing, save the result in .pcap format
 5) Attach
