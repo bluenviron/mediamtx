@@ -92,7 +92,7 @@ func TestSource(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			ln, err := func() (net.Listener, error) {
 				if ca == "plain" {
-					return net.Listen("tcp", "127.0.0.1:1937")
+					return net.Listen("tcp", "127.0.0.1:1935")
 				}
 
 				serverCertFpath, err := writeTempFile(serverCert)
@@ -107,7 +107,7 @@ func TestSource(t *testing.T) {
 				cert, err = tls.LoadX509KeyPair(serverCertFpath, serverKeyFpath)
 				require.NoError(t, err)
 
-				return tls.Listen("tcp", "127.0.0.1:1937", &tls.Config{Certificates: []tls.Certificate{cert}})
+				return tls.Listen("tcp", "127.0.0.1:1936", &tls.Config{Certificates: []tls.Certificate{cert}})
 			}()
 			require.NoError(t, err)
 			defer ln.Close()
@@ -156,7 +156,7 @@ func TestSource(t *testing.T) {
 				te = tester.New(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ResolvedSource: "rtmp://localhost:1937/teststream",
+							ResolvedSource: "rtmp://localhost/teststream",
 							ReadTimeout:    conf.StringDuration(10 * time.Second),
 							WriteTimeout:   conf.StringDuration(10 * time.Second),
 							Parent:         p,
@@ -168,7 +168,7 @@ func TestSource(t *testing.T) {
 				te = tester.New(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
-							ResolvedSource: "rtmps://localhost:1937/teststream",
+							ResolvedSource: "rtmps://localhost/teststream",
 							ReadTimeout:    conf.StringDuration(10 * time.Second),
 							WriteTimeout:   conf.StringDuration(10 * time.Second),
 							Parent:         p,
