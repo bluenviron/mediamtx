@@ -46,7 +46,11 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 	// add default port
 	_, _, err = net.SplitHostPort(u.Host)
 	if err != nil {
-		u.Host = net.JoinHostPort(u.Host, "1935")
+		if u.Scheme == "rtmp" {
+			u.Host = net.JoinHostPort(u.Host, "1935")
+		} else {
+			u.Host = net.JoinHostPort(u.Host, "1936")
+		}
 	}
 
 	nconn, err := func() (net.Conn, error) {
