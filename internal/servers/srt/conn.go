@@ -332,7 +332,7 @@ func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass str
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		res.Path.Name, defs.MediasInfo(res.Stream.MediasForReader(writer)))
+		res.Path.Name(), defs.MediasInfo(res.Stream.MediasForReader(writer)))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,

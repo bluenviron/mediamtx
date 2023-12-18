@@ -215,7 +215,7 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		res.Path.Name, defs.MediasInfo(res.Stream.MediasForReader(writer)))
+		res.Path.Name(), defs.MediasInfo(res.Stream.MediasForReader(writer)))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,
