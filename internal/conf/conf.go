@@ -92,6 +92,9 @@ type Conf struct {
 	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
 	API                       bool            `json:"api"`
 	APIAddress                string          `json:"apiAddress"`
+	APIEncryption             bool            `json:"apiEncryption"`
+	APIServerKey              string          `json:"APIServerKey"`
+	APIServerCert             string          `json:"APIServerCert"`
 	Metrics                   bool            `json:"metrics"`
 	MetricsAddress            string          `json:"metricsAddress"`
 	PPROF                     bool            `json:"pprof"`
