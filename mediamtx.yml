@@ -559,3 +559,27 @@ paths:
   # Settings under path "all_others" are applied to all paths that
   # do not match another entry.
   all_others:
+
+###############################################
+# Database settings
+database:
+  # Use database or not (use PostgreSQL)
+  use: true
+  # Database address
+  dbAddress: 127.0.0.1
+  # Database port
+  dbPort: 5432
+  # Database name
+  dbName: 
+  # Database user
+  dbUser: 
+  # Database password
+  dbPassword: 
+  # Maximum number of connections
+  maxConnections: 1
+  # SQL queryes 
+  sql:
+    # SQL query to insert video record
+    insertPath: "INSERT INTO \"video_record\" (\"code_mp_cam\", \"path_record\", \"file_name\", \"date_time_start\") VALUES ('%s', '%s', '%s', '%s')" 
+    # SQL query to update video record
+    updateSize: "UPDATE \"video_record\" SET \"file_size\"='%s', \"date_time_end\"='%s' WHERE \"file_name\"='%s'" 
