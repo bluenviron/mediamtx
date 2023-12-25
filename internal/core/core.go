@@ -15,9 +15,11 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/confwatcher"
+	"github.com/bluenviron/mediamtx/internal/database"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/record"
@@ -27,6 +29,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
 	"github.com/bluenviron/mediamtx/internal/servers/srt"
 	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
+	"github.com/bluenviron/mediamtx/internal/storage"
+	"github.com/bluenviron/mediamtx/internal/storage/psql"
 )
 
 var version = "v0.0.0"
@@ -97,6 +101,7 @@ type Core struct {
 	srtServer       *srt.Server
 	api             *api
 	confWatcher     *confwatcher.ConfWatcher
+	dbPool          *pgxpool.Pool
 
 	// in
 	chAPIConfigSet chan *conf.Conf
@@ -308,7 +313,24 @@ func (p *Core) createResources(initial bool) error {
 		p.recordCleaner.Initialize()
 	}
 
+	p.dbPool, err = database.CreateDbPool(
+		p.ctx,
+		database.CreatePgxConf(
+			p.conf.Database,
+		),
+	)
+	if err != nil {
+		return err
+	}
+
 	if p.pathManager == nil {
+		req := psql.NewReq(p.ctx, p.dbPool)
+		stor := storage.Storage{
+			Use: p.conf.Database.Use,
+			Req: req,
+			Sql: p.conf.Database.Sql,
+		}
+
 		p.pathManager = newPathManager(
 			p.conf.LogLevel,
 			p.conf.ExternalAuthenticationURL,
@@ -321,6 +343,7 @@ func (p *Core) createResources(initial bool) error {
 			p.conf.Paths,
 			p.externalCmdPool,
 			p,
+			stor,
 		)
 
 		if p.metrics != nil {
@@ -772,6 +795,18 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeSRTServer ||
 		closeLogger
 
+	closeDB := newConf == nil ||
+		newConf.Database.Use != p.conf.Database.Use ||
+		newConf.Database.DbAddress != p.conf.Database.DbAddress ||
+		newConf.Database.DbPort != p.conf.Database.DbPort ||
+		newConf.Database.DbName != p.conf.Database.DbName ||
+		newConf.Database.DbUser != p.conf.Database.DbUser ||
+		newConf.Database.DbPassword != p.conf.Database.DbPassword ||
+		newConf.Database.MaxConnections != p.conf.Database.MaxConnections ||
+		newConf.Database.Sql.InsertPath != p.conf.Database.Sql.InsertPath ||
+		newConf.Database.Sql.UpdateSize != p.conf.Database.Sql.UpdateSize ||
+		closePathManager
+
 	if newConf == nil && p.confWatcher != nil {
 		p.confWatcher.Close()
 		p.confWatcher = nil
@@ -883,6 +918,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeLogger {
 		p.logger.Close()
 		p.logger = nil
+	}
+
+	if closeDB && p.dbPool != nil {
+		database.ClosePool(p.dbPool)
 	}
 }
 
