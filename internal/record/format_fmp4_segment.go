@@ -1,8 +1,10 @@
 package record
 
 import (
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aler9/writerseeker"
@@ -68,6 +70,26 @@ func (s *formatFMP4Segment) close() error {
 
 		if err2 == nil {
 			s.f.a.agent.OnSegmentComplete(s.path)
+
+			if s.f.a.stor.Use {
+				stat, err3 := os.Stat(s.path)
+				if err3 == nil {
+					paths := strings.Split(s.path, "/")
+					err4 := s.f.a.stor.Req.ExecQuery(
+						fmt.Sprintf(
+							s.f.a.stor.Sql.UpdateSize,
+							fmt.Sprint(stat.Size()),
+							time.Now().Format("2006-01-02 15:04:05"),
+							paths[len(paths)-1]),
+					)
+					if err4 != nil {
+						return err4
+					}
+
+					return err
+				}
+				err = err3
+			}
 		}
 	}
 

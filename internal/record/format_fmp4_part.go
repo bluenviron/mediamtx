@@ -1,9 +1,11 @@
 package record
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/aler9/writerseeker"
@@ -76,6 +78,24 @@ func (p *formatFMP4Part) close() error {
 		fi, err := os.Create(p.s.path)
 		if err != nil {
 			return err
+		}
+
+		if p.s.f.a.stor.Use {
+			paths := strings.Split(p.s.path, "/")
+			pathRec := strings.Join(paths[:len(paths)-1], "/")
+			err := p.s.f.a.stor.Req.ExecQuery(
+				fmt.Sprintf(
+					p.s.f.a.stor.Sql.InsertPath,
+					p.s.f.a.agent.PathName,
+					pathRec+"/",
+					paths[len(paths)-1],
+					time.Now().Format("2006-01-02 15:04:05"),
+				),
+			)
+			if err != nil {
+				os.Remove(p.s.path)
+				return err
+			}
 		}
 
 		p.s.f.a.agent.OnSegmentCreate(p.s.path)

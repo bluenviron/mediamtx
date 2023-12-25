@@ -9,6 +9,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/storage"
 )
 
 // OnSegmentFunc is the prototype of the function passed as runOnSegmentStart / runOnSegmentComplete
@@ -28,6 +29,8 @@ type agentInstance struct {
 
 	terminate chan struct{}
 	done      chan struct{}
+
+	stor storage.Storage
 }
 
 func (a *agentInstance) initialize() {

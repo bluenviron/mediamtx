@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/storage"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -27,6 +28,8 @@ type Agent struct {
 
 	terminate chan struct{}
 	done      chan struct{}
+
+	Stor storage.Storage
 }
 
 // Initialize initializes Agent.
@@ -48,6 +51,7 @@ func (w *Agent) Initialize() {
 
 	w.currentInstance = &agentInstance{
 		agent: w,
+		stor:  w.Stor,
 	}
 	w.currentInstance.initialize()
 
@@ -86,6 +90,7 @@ func (w *Agent) run() {
 
 		w.currentInstance = &agentInstance{
 			agent: w,
+			stor:  w.Stor,
 		}
 		w.currentInstance.initialize()
 	}
