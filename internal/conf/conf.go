@@ -180,6 +180,9 @@ type Conf struct {
 	// Paths
 	OptionalPaths map[string]*OptionalPath `json:"paths"`
 	Paths         map[string]*Path         `json:"-"` // filled by Check()
+
+	// Database
+	Database Database `json:"database"`
 }
 
 func (conf *Conf) setDefaults() {
@@ -249,6 +252,8 @@ func (conf *Conf) setDefaults() {
 	conf.SRTAddress = ":8890"
 
 	conf.PathDefaults.setDefaults()
+
+	conf.Database.setDefaults()
 }
 
 // Load loads a Conf.
