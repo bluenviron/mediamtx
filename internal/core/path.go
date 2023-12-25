@@ -18,6 +18,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/hooks"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/record"
+	"github.com/bluenviron/mediamtx/internal/storage"
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
@@ -113,6 +114,8 @@ type path struct {
 
 	// out
 	done chan struct{}
+
+	stor storage.Storage
 }
 
 func newPath(
@@ -130,6 +133,7 @@ func newPath(
 	wg *sync.WaitGroup,
 	externalCmdPool *externalcmd.Pool,
 	parent pathParent,
+	stor storage.Storage,
 ) *path {
 	ctx, ctxCancel := context.WithCancel(parentCtx)
 
@@ -166,6 +170,7 @@ func newPath(
 		chRemoveReader:                 make(chan defs.PathRemoveReaderReq),
 		chAPIPathsGet:                  make(chan pathAPIPathsGetReq),
 		done:                           make(chan struct{}),
+		stor:                           stor,
 	}
 
 	pa.Log(logger.Debug, "created")
@@ -852,6 +857,7 @@ func (pa *path) startRecording() {
 			}
 		},
 		Parent: pa,
+		Stor:   pa.stor,
 	}
 	pa.recordAgent.Initialize()
 }

@@ -420,7 +420,8 @@ func (pm *pathManager) createPath(
 		matches,
 		&pm.wg,
 		pm.externalCmdPool,
-		pm)
+		pm,
+		pm.stor)
 
 	pm.paths[name] = pa
 
