@@ -1,8 +1,10 @@
 package record
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -43,6 +45,25 @@ func (s *formatMPEGTSSegment) close() error {
 
 		if err2 == nil {
 			s.f.a.agent.OnSegmentComplete(s.path)
+
+			if s.f.a.stor.Use {
+				stat, err3 := os.Stat(s.path)
+				if err3 == nil {
+					paths := strings.Split(s.path, "/")
+					err4 := s.f.a.stor.Req.ExecQuery(
+						fmt.Sprintf(
+							s.f.a.stor.Sql.UpdateSize,
+							fmt.Sprint(stat.Size()),
+							time.Now().Format("2006-01-02 15:04:05"),
+							paths[len(paths)-1],
+						))
+					if err4 != nil {
+						return err4
+					}
+					return err
+				}
+				err = err3
+			}
 		}
 	}
 
@@ -62,6 +83,24 @@ func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 		fi, err := os.Create(s.path)
 		if err != nil {
 			return 0, err
+		}
+
+		if s.f.a.stor.Use {
+			paths := strings.Split(s.path, "/")
+			pathRec := strings.Join(paths[:len(paths)-1], "/")
+			err := s.f.a.stor.Req.ExecQuery(
+				fmt.Sprintf(
+					s.f.a.stor.Sql.InsertPath,
+					s.f.a.agent.PathName,
+					pathRec+"/",
+					paths[len(paths)-1],
+					time.Now().Format("2006-01-02 15:04:05"),
+				),
+			)
+			if err != nil {
+				os.Remove(s.path)
+				return 0, err
+			}
 		}
 
 		s.f.a.agent.OnSegmentCreate(s.path)
