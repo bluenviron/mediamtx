@@ -51,6 +51,11 @@ func (a *agentInstance) initialize() {
 
 	a.writer = asyncwriter.New(a.agent.WriteQueueSize, a.agent)
 
+	paths := strings.Split(a.agent.PathName, "/")
+	if len(paths) > 1 {
+		a.agent.PathName = paths[len(paths)-1]
+	}
+
 	switch a.agent.Format {
 	case conf.RecordFormatMPEGTS:
 		a.format = &formatMPEGTS{
