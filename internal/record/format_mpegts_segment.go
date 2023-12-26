@@ -91,7 +91,7 @@ func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 			err := s.f.a.stor.Req.ExecQuery(
 				fmt.Sprintf(
 					s.f.a.stor.Sql.InsertPath,
-					s.f.a.agent.PathName,
+					s.f.a.agent.StreamName,
 					pathRec+"/",
 					paths[len(paths)-1],
 					time.Now().Format("2006-01-02 15:04:05"),

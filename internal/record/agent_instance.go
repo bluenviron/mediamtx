@@ -34,6 +34,7 @@ type agentInstance struct {
 }
 
 func (a *agentInstance) initialize() {
+	a.agent.StreamName = a.agent.PathName
 	a.pathFormat = a.agent.PathFormat
 
 	a.pathFormat = strings.ReplaceAll(a.pathFormat, "%path", a.agent.PathName)
@@ -53,7 +54,7 @@ func (a *agentInstance) initialize() {
 
 	paths := strings.Split(a.agent.PathName, "/")
 	if len(paths) > 1 {
-		a.agent.PathName = paths[len(paths)-1]
+		a.agent.StreamName = paths[len(paths)-1]
 	}
 
 	switch a.agent.Format {

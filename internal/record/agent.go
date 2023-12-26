@@ -17,6 +17,7 @@ type Agent struct {
 	PartDuration      time.Duration
 	SegmentDuration   time.Duration
 	PathName          string
+	StreamName        string
 	Stream            *stream.Stream
 	OnSegmentCreate   OnSegmentFunc
 	OnSegmentComplete OnSegmentFunc

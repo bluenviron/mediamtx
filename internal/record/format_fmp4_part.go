@@ -86,7 +86,7 @@ func (p *formatFMP4Part) close() error {
 			err := p.s.f.a.stor.Req.ExecQuery(
 				fmt.Sprintf(
 					p.s.f.a.stor.Sql.InsertPath,
-					p.s.f.a.agent.PathName,
+					p.s.f.a.agent.StreamName,
 					pathRec+"/",
 					paths[len(paths)-1],
 					time.Now().Format("2006-01-02 15:04:05"),
