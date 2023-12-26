@@ -87,7 +87,6 @@ func (e *Cmd) run() {
 			return
 		}
 
-
 		if err != nil {
 			e.onExit(err)
 		} else {
