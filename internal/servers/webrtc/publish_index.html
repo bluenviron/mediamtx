@@ -717,13 +717,19 @@ const initialize = () => {
     }
 
     navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(() => Promise.all([
-            populateDevices(),
-            populateCodecs(),
-        ]))
-        .then(() => {
-            state = DEVICE;
-            render();
+        .then((stream) => {
+            return Promise.all([
+                populateDevices(),
+                populateCodecs(),
+            ])
+                .then(() => {
+                    // free the webcam to prevent 'NotReadableError' on Android
+                    stream.getTracks()
+                        .forEach(track => track.stop());
+
+                    state = DEVICE;
+                    render();
+                });
         })
         .catch((err) => {
             state = ERROR;
