@@ -708,6 +708,7 @@ func (s *session) apiItem() *defs.APIWebRTCSession {
 			return defs.APIWebRTCSessionStateRead
 		}(),
 		Path:          s.req.pathName,
+		Query:         s.req.query,
 		BytesReceived: bytesReceived,
 		BytesSent:     bytesSent,
 	}

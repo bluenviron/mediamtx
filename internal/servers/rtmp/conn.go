@@ -71,6 +71,7 @@ type conn struct {
 	rconn     *rtmp.Conn
 	state     connState
 	pathName  string
+	query     string
 }
 
 func (c *conn) initialize() {
@@ -191,6 +192,7 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.mutex.Lock()
 	c.state = connStateRead
 	c.pathName = pathName
+	c.query = rawQuery
 	c.mutex.Unlock()
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
@@ -421,6 +423,7 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 	c.mutex.Lock()
 	c.state = connStatePublish
 	c.pathName = pathName
+	c.query = rawQuery
 	c.mutex.Unlock()
 
 	r, err := rtmp.NewReader(conn)
@@ -594,6 +597,7 @@ func (c *conn) apiItem() *defs.APIRTMPConn {
 			}
 		}(),
 		Path:          c.pathName,
+		Query:         c.query,
 		BytesReceived: bytesReceived,
 		BytesSent:     bytesSent,
 	}

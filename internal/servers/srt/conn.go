@@ -72,6 +72,7 @@ type conn struct {
 	mutex     sync.RWMutex
 	state     connState
 	pathName  string
+	query     string
 	sconn     srt.Conn
 
 	chNew     chan srtNewConnReq
@@ -218,6 +219,7 @@ func (c *conn) runPublish(req srtNewConnReq, pathName string, user string, pass 
 	c.mutex.Lock()
 	c.state = connStatePublish
 	c.pathName = pathName
+	c.query = query
 	c.sconn = sconn
 	c.mutex.Unlock()
 
@@ -317,6 +319,7 @@ func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass str
 	c.mutex.Lock()
 	c.state = connStateRead
 	c.pathName = pathName
+	c.query = query
 	c.sconn = sconn
 	c.mutex.Unlock()
 
@@ -434,6 +437,7 @@ func (c *conn) apiItem() *defs.APISRTConn {
 			}
 		}(),
 		Path:          c.pathName,
+		Query:         c.query,
 		BytesReceived: bytesReceived,
 		BytesSent:     bytesSent,
 	}
