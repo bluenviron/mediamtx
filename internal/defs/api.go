@@ -61,22 +61,6 @@ type APIHLSMuxerList struct {
 	Items     []*APIHLSMuxer `json:"items"`
 }
 
-// APIRTSPConn is a RTSP connection.
-type APIRTSPConn struct {
-	ID            uuid.UUID `json:"id"`
-	Created       time.Time `json:"created"`
-	RemoteAddr    string    `json:"remoteAddr"`
-	BytesReceived uint64    `json:"bytesReceived"`
-	BytesSent     uint64    `json:"bytesSent"`
-}
-
-// APIRTSPConnsList is a list of RTSP connections.
-type APIRTSPConnsList struct {
-	ItemCount int            `json:"itemCount"`
-	PageCount int            `json:"pageCount"`
-	Items     []*APIRTSPConn `json:"items"`
-}
-
 // APIRTMPConnState is the state of a RTMP connection.
 type APIRTMPConnState string
 
@@ -94,6 +78,7 @@ type APIRTMPConn struct {
 	RemoteAddr    string           `json:"remoteAddr"`
 	State         APIRTMPConnState `json:"state"`
 	Path          string           `json:"path"`
+	Query         string           `json:"query"`
 	BytesReceived uint64           `json:"bytesReceived"`
 	BytesSent     uint64           `json:"bytesSent"`
 }
@@ -103,6 +88,22 @@ type APIRTMPConnList struct {
 	ItemCount int            `json:"itemCount"`
 	PageCount int            `json:"pageCount"`
 	Items     []*APIRTMPConn `json:"items"`
+}
+
+// APIRTSPConn is a RTSP connection.
+type APIRTSPConn struct {
+	ID            uuid.UUID `json:"id"`
+	Created       time.Time `json:"created"`
+	RemoteAddr    string    `json:"remoteAddr"`
+	BytesReceived uint64    `json:"bytesReceived"`
+	BytesSent     uint64    `json:"bytesSent"`
+}
+
+// APIRTSPConnsList is a list of RTSP connections.
+type APIRTSPConnsList struct {
+	ItemCount int            `json:"itemCount"`
+	PageCount int            `json:"pageCount"`
+	Items     []*APIRTSPConn `json:"items"`
 }
 
 // APIRTSPSessionState is the state of a RTSP session.
@@ -122,6 +123,7 @@ type APIRTSPSession struct {
 	RemoteAddr    string              `json:"remoteAddr"`
 	State         APIRTSPSessionState `json:"state"`
 	Path          string              `json:"path"`
+	Query         string              `json:"query"`
 	Transport     *string             `json:"transport"`
 	BytesReceived uint64              `json:"bytesReceived"`
 	BytesSent     uint64              `json:"bytesSent"`
@@ -151,6 +153,7 @@ type APISRTConn struct {
 	RemoteAddr    string          `json:"remoteAddr"`
 	State         APISRTConnState `json:"state"`
 	Path          string          `json:"path"`
+	Query         string          `json:"query"`
 	BytesReceived uint64          `json:"bytesReceived"`
 	BytesSent     uint64          `json:"bytesSent"`
 }
@@ -181,6 +184,7 @@ type APIWebRTCSession struct {
 	RemoteCandidate           string                `json:"remoteCandidate"`
 	State                     APIWebRTCSessionState `json:"state"`
 	Path                      string                `json:"path"`
+	Query                     string                `json:"query"`
 	BytesReceived             uint64                `json:"bytesReceived"`
 	BytesSent                 uint64                `json:"bytesSent"`
 }

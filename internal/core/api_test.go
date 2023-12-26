@@ -688,7 +688,7 @@ func TestAPIProtocolList(t *testing.T) {
 			case "rtsp conns", "rtsp sessions":
 				source := gortsplib.Client{}
 
-				err := source.StartRecording("rtsp://localhost:8554/mypath",
+				err := source.StartRecording("rtsp://localhost:8554/mypath?key=val",
 					&description.Session{Medias: []*description.Media{medi}})
 				require.NoError(t, err)
 				defer source.Close()
@@ -698,7 +698,7 @@ func TestAPIProtocolList(t *testing.T) {
 					TLSConfig: &tls.Config{InsecureSkipVerify: true},
 				}
 
-				err := source.StartRecording("rtsps://localhost:8322/mypath",
+				err := source.StartRecording("rtsps://localhost:8322/mypath?key=val",
 					&description.Session{Medias: []*description.Media{medi}})
 				require.NoError(t, err)
 				defer source.Close()
@@ -711,7 +711,7 @@ func TestAPIProtocolList(t *testing.T) {
 					port = "1936"
 				}
 
-				u, err := url.Parse("rtmp://127.0.0.1:" + port + "/mypath")
+				u, err := url.Parse("rtmp://127.0.0.1:" + port + "/mypath?key=val")
 				require.NoError(t, err)
 
 				nconn, err := func() (net.Conn, error) {
@@ -795,7 +795,7 @@ func TestAPIProtocolList(t *testing.T) {
 				require.NoError(t, err)
 				defer source.Close()
 
-				u, err := url.Parse("http://localhost:8889/mypath/whep")
+				u, err := url.Parse("http://localhost:8889/mypath/whep?key=val")
 				require.NoError(t, err)
 
 				go func() {
@@ -826,7 +826,7 @@ func TestAPIProtocolList(t *testing.T) {
 
 			case "srt":
 				conf := srt.DefaultConfig()
-				conf.StreamId = "publish:mypath"
+				conf.StreamId = "publish:mypath:::key=val"
 
 				conn, err := srt.Dial("srt", "localhost:8890", conf)
 				require.NoError(t, err)
@@ -878,6 +878,7 @@ func TestAPIProtocolList(t *testing.T) {
 				type item struct {
 					State string `json:"state"`
 					Path  string `json:"path"`
+					Query string `json:"query"`
 				}
 
 				var out struct {
@@ -890,6 +891,7 @@ func TestAPIProtocolList(t *testing.T) {
 					require.Equal(t, item{
 						State: "publish",
 						Path:  "mypath",
+						Query: "key=val",
 					}, out.Items[0])
 				}
 
@@ -914,6 +916,7 @@ func TestAPIProtocolList(t *testing.T) {
 					PeerConnectionEstablished bool   `json:"peerConnectionEstablished"`
 					State                     string `json:"state"`
 					Path                      string `json:"path"`
+					Query                     string `json:"query"`
 				}
 
 				var out struct {
@@ -926,6 +929,7 @@ func TestAPIProtocolList(t *testing.T) {
 					PeerConnectionEstablished: true,
 					State:                     "read",
 					Path:                      "mypath",
+					Query:                     "key=val",
 				}, out.Items[0])
 			}
 		})

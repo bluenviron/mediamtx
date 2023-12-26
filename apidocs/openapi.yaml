@@ -487,6 +487,8 @@ components:
           enum: [idle, read, publish]
         path:
           type: string
+        query:
+          type: string
         bytesReceived:
           type: integer
           format: int64
@@ -544,6 +546,8 @@ components:
           enum: [idle, read, publish]
         path:
           type: string
+        query:
+          type: string
         transport:
           type: string
           nullable: true
@@ -577,6 +581,8 @@ components:
           type: string
           enum: [idle, read, publish]
         path:
+          type: string
+        query:
           type: string
         bytesReceived:
           type: integer
@@ -614,6 +620,8 @@ components:
           type: string
           enum: [read, publish]
         path:
+          type: string
+        query:
           type: string
         bytesReceived:
           type: integer

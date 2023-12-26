@@ -40,6 +40,7 @@ type session struct {
 	state           gortsplib.ServerSessionState
 	transport       *gortsplib.Transport
 	pathName        string
+	query           string
 	decodeErrLogger logger.Writer
 	writeErrLogger  logger.Writer
 }
@@ -140,6 +141,7 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	s.mutex.Lock()
 	s.state = gortsplib.ServerSessionStatePreRecord
 	s.pathName = ctx.Path
+	s.query = ctx.Query
 	s.mutex.Unlock()
 
 	return &base.Response{
@@ -232,6 +234,7 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		s.mutex.Lock()
 		s.state = gortsplib.ServerSessionStatePrePlay
 		s.pathName = ctx.Path
+		s.query = ctx.Query
 		s.mutex.Unlock()
 
 		var stream *gortsplib.ServerStream
@@ -400,7 +403,8 @@ func (s *session) apiItem() *defs.APIRTSPSession {
 			}
 			return defs.APIRTSPSessionStateIdle
 		}(),
-		Path: s.pathName,
+		Path:  s.pathName,
+		Query: s.query,
 		Transport: func() *string {
 			if s.transport == nil {
 				return nil
