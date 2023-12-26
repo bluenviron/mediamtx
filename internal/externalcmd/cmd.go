@@ -87,7 +87,11 @@ func (e *Cmd) run() {
 			return
 		}
 
-		e.onExit(fmt.Errorf("command exited with code 0"))
+		if err != nil {
+			e.onExit(err)
+		} else {
+			e.onExit(fmt.Errorf("command exited with code 0"))
+		}
 
 		select {
 		case <-time.After(restartPause):
