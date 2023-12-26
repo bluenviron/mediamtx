@@ -16,10 +16,13 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/gin-gonic/gin"
 
+	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/confwatcher"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/metrics"
+	"github.com/bluenviron/mediamtx/internal/pprof"
 	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
@@ -84,8 +87,8 @@ type Core struct {
 	conf            *conf.Conf
 	logger          *logger.Logger
 	externalCmdPool *externalcmd.Pool
-	metrics         *metrics
-	pprof           *pprof
+	metrics         *metrics.Metrics
+	pprof           *pprof.PPROF
 	recordCleaner   *record.Cleaner
 	pathManager     *pathManager
 	rtspServer      *rtsp.Server
@@ -95,7 +98,7 @@ type Core struct {
 	hlsServer       *hls.Server
 	webRTCServer    *webrtc.Server
 	srtServer       *srt.Server
-	api             *api
+	api             *api.API
 	confWatcher     *confwatcher.ConfWatcher
 
 	// in
@@ -275,12 +278,12 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.Metrics &&
 		p.metrics == nil {
-		p.metrics = &metrics{
+		p.metrics = &metrics.Metrics{
 			Address:     p.conf.MetricsAddress,
 			ReadTimeout: p.conf.ReadTimeout,
 			Parent:      p,
 		}
-		err = p.metrics.initialize()
+		err := p.metrics.Initialize()
 		if err != nil {
 			return err
 		}
@@ -288,11 +291,12 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.PPROF &&
 		p.pprof == nil {
-		p.pprof, err = newPPROF(
-			p.conf.PPROFAddress,
-			p.conf.ReadTimeout,
-			p,
-		)
+		p.pprof = &pprof.PPROF{
+			Address:     p.conf.PPROFAddress,
+			ReadTimeout: p.conf.ReadTimeout,
+			Parent:      p,
+		}
+		err := p.pprof.Initialize()
 		if err != nil {
 			return err
 		}
@@ -324,7 +328,7 @@ func (p *Core) createResources(initial bool) error {
 		)
 
 		if p.metrics != nil {
-			p.metrics.setPathManager(p.pathManager)
+			p.metrics.SetPathManager(p.pathManager)
 		}
 	}
 
@@ -366,7 +370,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 
 		if p.metrics != nil {
-			p.metrics.setRTSPServer(p.rtspServer)
+			p.metrics.SetRTSPServer(p.rtspServer)
 		}
 	}
 
@@ -405,7 +409,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 
 		if p.metrics != nil {
-			p.metrics.setRTSPSServer(p.rtspsServer)
+			p.metrics.SetRTSPSServer(p.rtspsServer)
 		}
 	}
 
@@ -435,7 +439,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 
 		if p.metrics != nil {
-			p.metrics.setRTMPServer(p.rtmpServer)
+			p.metrics.SetRTMPServer(p.rtmpServer)
 		}
 	}
 
@@ -465,7 +469,7 @@ func (p *Core) createResources(initial bool) error {
 		}
 
 		if p.metrics != nil {
-			p.metrics.setRTMPSServer(p.rtmpsServer)
+			p.metrics.SetRTMPSServer(p.rtmpsServer)
 		}
 	}
 
@@ -499,7 +503,7 @@ func (p *Core) createResources(initial bool) error {
 		p.pathManager.setHLSServer(p.hlsServer)
 
 		if p.metrics != nil {
-			p.metrics.setHLSServer(p.hlsServer)
+			p.metrics.SetHLSServer(p.hlsServer)
 		}
 	}
 
@@ -524,14 +528,14 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:           p.pathManager,
 			Parent:                p,
 		}
-		err = p.webRTCServer.Initialize()
+		err := p.webRTCServer.Initialize()
 		if err != nil {
 			p.webRTCServer = nil
 			return err
 		}
 
 		if p.metrics != nil {
-			p.metrics.setWebRTCServer(p.webRTCServer)
+			p.metrics.SetWebRTCServer(p.webRTCServer)
 		}
 	}
 
@@ -551,32 +555,33 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err = p.srtServer.Initialize()
+		err := p.srtServer.Initialize()
 		if err != nil {
 			return err
 		}
 
 		if p.metrics != nil {
-			p.metrics.setSRTServer(p.srtServer)
+			p.metrics.SetSRTServer(p.srtServer)
 		}
 	}
 
 	if p.conf.API &&
 		p.api == nil {
-		p.api, err = newAPI(
-			p.conf.APIAddress,
-			p.conf.ReadTimeout,
-			p.conf,
-			p.pathManager,
-			p.rtspServer,
-			p.rtspsServer,
-			p.rtmpServer,
-			p.rtmpsServer,
-			p.hlsServer,
-			p.webRTCServer,
-			p.srtServer,
-			p,
-		)
+		p.api = &api.API{
+			Address:      p.conf.APIAddress,
+			ReadTimeout:  p.conf.ReadTimeout,
+			Conf:         p.conf,
+			PathManager:  p.pathManager,
+			RTSPServer:   p.rtspServer,
+			RTSPSServer:  p.rtspsServer,
+			RTMPServer:   p.rtmpServer,
+			RTMPSServer:  p.rtmpsServer,
+			HLSServer:    p.hlsServer,
+			WebRTCServer: p.webRTCServer,
+			SRTServer:    p.srtServer,
+			Parent:       p,
+		}
+		err := p.api.Initialize()
 		if err != nil {
 			return err
 		}
@@ -626,7 +631,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics ||
 		closeLogger
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.pathManager.confReload(newConf.Paths)
+		p.pathManager.ReloadConf(newConf.Paths)
 	}
 
 	closeRTSPServer := newConf == nil ||
@@ -779,16 +784,16 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if p.api != nil {
 		if closeAPI {
-			p.api.close()
+			p.api.Close()
 			p.api = nil
 		} else if !calledByAPI { // avoid a loop
-			p.api.confReload(newConf)
+			p.api.ReloadConf(newConf)
 		}
 	}
 
 	if closeSRTServer && p.srtServer != nil {
 		if p.metrics != nil {
-			p.metrics.setSRTServer(nil)
+			p.metrics.SetSRTServer(nil)
 		}
 
 		p.srtServer.Close()
@@ -797,7 +802,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closeWebRTCServer && p.webRTCServer != nil {
 		if p.metrics != nil {
-			p.metrics.setWebRTCServer(nil)
+			p.metrics.SetWebRTCServer(nil)
 		}
 
 		p.webRTCServer.Close()
@@ -806,7 +811,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closeHLSServer && p.hlsServer != nil {
 		if p.metrics != nil {
-			p.metrics.setHLSServer(nil)
+			p.metrics.SetHLSServer(nil)
 		}
 
 		p.pathManager.setHLSServer(nil)
@@ -817,7 +822,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closeRTMPSServer && p.rtmpsServer != nil {
 		if p.metrics != nil {
-			p.metrics.setRTMPSServer(nil)
+			p.metrics.SetRTMPSServer(nil)
 		}
 
 		p.rtmpsServer.Close()
@@ -826,7 +831,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closeRTMPServer && p.rtmpServer != nil {
 		if p.metrics != nil {
-			p.metrics.setRTMPServer(nil)
+			p.metrics.SetRTMPServer(nil)
 		}
 
 		p.rtmpServer.Close()
@@ -835,7 +840,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closeRTSPSServer && p.rtspsServer != nil {
 		if p.metrics != nil {
-			p.metrics.setRTSPSServer(nil)
+			p.metrics.SetRTSPSServer(nil)
 		}
 
 		p.rtspsServer.Close()
@@ -844,7 +849,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closeRTSPServer && p.rtspServer != nil {
 		if p.metrics != nil {
-			p.metrics.setRTSPServer(nil)
+			p.metrics.SetRTSPServer(nil)
 		}
 
 		p.rtspServer.Close()
@@ -853,7 +858,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	if closePathManager && p.pathManager != nil {
 		if p.metrics != nil {
-			p.metrics.setPathManager(nil)
+			p.metrics.SetPathManager(nil)
 		}
 
 		p.pathManager.close()
@@ -866,12 +871,12 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	}
 
 	if closePPROF && p.pprof != nil {
-		p.pprof.close()
+		p.pprof.Close()
 		p.pprof = nil
 	}
 
 	if closeMetrics && p.metrics != nil {
-		p.metrics.close()
+		p.metrics.Close()
 		p.metrics = nil
 	}
 
@@ -892,8 +897,8 @@ func (p *Core) reloadConf(newConf *conf.Conf, calledByAPI bool) error {
 	return p.createResources(false)
 }
 
-// apiConfigSet is called by api.
-func (p *Core) apiConfigSet(conf *conf.Conf) {
+// APIConfigSet is called by api.
+func (p *Core) APIConfigSet(conf *conf.Conf) {
 	select {
 	case p.chAPIConfigSet <- conf:
 	case <-p.ctx.Done():

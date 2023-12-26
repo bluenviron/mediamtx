@@ -1,4 +1,5 @@
-package core
+// Package api contains the API server.
+package api
 
 import (
 	"encoding/json"
@@ -97,17 +98,20 @@ func paramName(ctx *gin.Context) (string, bool) {
 	return name[1:], true
 }
 
-type apiPathManager interface {
-	apiPathsList() (*defs.APIPathList, error)
-	apiPathsGet(string) (*defs.APIPath, error)
+// PathManager contains methods used by the API and Metrics server.
+type PathManager interface {
+	APIPathsList() (*defs.APIPathList, error)
+	APIPathsGet(string) (*defs.APIPath, error)
 }
 
-type apiHLSServer interface {
+// HLSServer contains methods used by the API and Metrics server.
+type HLSServer interface {
 	APIMuxersList() (*defs.APIHLSMuxerList, error)
 	APIMuxersGet(string) (*defs.APIHLSMuxer, error)
 }
 
-type apiRTSPServer interface {
+// RTSPServer contains methods used by the API and Metrics server.
+type RTSPServer interface {
 	APIConnsList() (*defs.APIRTSPConnsList, error)
 	APIConnsGet(uuid.UUID) (*defs.APIRTSPConn, error)
 	APISessionsList() (*defs.APIRTSPSessionList, error)
@@ -115,19 +119,22 @@ type apiRTSPServer interface {
 	APISessionsKick(uuid.UUID) error
 }
 
-type apiRTMPServer interface {
+// RTMPServer contains methods used by the API and Metrics server.
+type RTMPServer interface {
 	APIConnsList() (*defs.APIRTMPConnList, error)
 	APIConnsGet(uuid.UUID) (*defs.APIRTMPConn, error)
 	APIConnsKick(uuid.UUID) error
 }
 
-type apiSRTServer interface {
+// SRTServer contains methods used by the API and Metrics server.
+type SRTServer interface {
 	APIConnsList() (*defs.APISRTConnList, error)
 	APIConnsGet(uuid.UUID) (*defs.APISRTConn, error)
 	APIConnsKick(uuid.UUID) error
 }
 
-type apiWebRTCServer interface {
+// WebRTCServer contains methods used by the API and Metrics server.
+type WebRTCServer interface {
 	APISessionsList() (*defs.APIWebRTCSessionList, error)
 	APISessionsGet(uuid.UUID) (*defs.APIWebRTCSession, error)
 	APISessionsKick(uuid.UUID) error
@@ -135,52 +142,30 @@ type apiWebRTCServer interface {
 
 type apiParent interface {
 	logger.Writer
-	apiConfigSet(conf *conf.Conf)
+	APIConfigSet(conf *conf.Conf)
 }
 
-type api struct {
-	conf         *conf.Conf
-	pathManager  apiPathManager
-	rtspServer   apiRTSPServer
-	rtspsServer  apiRTSPServer
-	rtmpServer   apiRTMPServer
-	rtmpsServer  apiRTMPServer
-	hlsManager   apiHLSServer
-	webRTCServer apiWebRTCServer
-	srtServer    apiSRTServer
-	parent       apiParent
+// API is an API server.
+type API struct {
+	Address      string
+	ReadTimeout  conf.StringDuration
+	Conf         *conf.Conf
+	PathManager  PathManager
+	RTSPServer   RTSPServer
+	RTSPSServer  RTSPServer
+	RTMPServer   RTMPServer
+	RTMPSServer  RTMPServer
+	HLSServer    HLSServer
+	WebRTCServer WebRTCServer
+	SRTServer    SRTServer
+	Parent       apiParent
 
 	httpServer *httpserv.WrappedServer
 	mutex      sync.Mutex
 }
 
-func newAPI(
-	address string,
-	readTimeout conf.StringDuration,
-	conf *conf.Conf,
-	pathManager apiPathManager,
-	rtspServer apiRTSPServer,
-	rtspsServer apiRTSPServer,
-	rtmpServer apiRTMPServer,
-	rtmpsServer apiRTMPServer,
-	hlsManager apiHLSServer,
-	webRTCServer apiWebRTCServer,
-	srtServer apiSRTServer,
-	parent apiParent,
-) (*api, error) {
-	a := &api{
-		conf:         conf,
-		pathManager:  pathManager,
-		rtspServer:   rtspServer,
-		rtspsServer:  rtspsServer,
-		rtmpServer:   rtmpServer,
-		rtmpsServer:  rtmpsServer,
-		hlsManager:   hlsManager,
-		webRTCServer: webRTCServer,
-		srtServer:    srtServer,
-		parent:       parent,
-	}
-
+// Initialize initializes API.
+func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(nil) //nolint:errcheck
 
@@ -202,12 +187,12 @@ func newAPI(
 	group.GET("/v3/paths/list", a.onPathsList)
 	group.GET("/v3/paths/get/*name", a.onPathsGet)
 
-	if !interfaceIsEmpty(a.hlsManager) {
+	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/v3/hlsmuxers/list", a.onHLSMuxersList)
 		group.GET("/v3/hlsmuxers/get/*name", a.onHLSMuxersGet)
 	}
 
-	if !interfaceIsEmpty(a.rtspServer) {
+	if !interfaceIsEmpty(a.RTSPServer) {
 		group.GET("/v3/rtspconns/list", a.onRTSPConnsList)
 		group.GET("/v3/rtspconns/get/:id", a.onRTSPConnsGet)
 		group.GET("/v3/rtspsessions/list", a.onRTSPSessionsList)
@@ -215,7 +200,7 @@ func newAPI(
 		group.POST("/v3/rtspsessions/kick/:id", a.onRTSPSessionsKick)
 	}
 
-	if !interfaceIsEmpty(a.rtspsServer) {
+	if !interfaceIsEmpty(a.RTSPSServer) {
 		group.GET("/v3/rtspsconns/list", a.onRTSPSConnsList)
 		group.GET("/v3/rtspsconns/get/:id", a.onRTSPSConnsGet)
 		group.GET("/v3/rtspssessions/list", a.onRTSPSSessionsList)
@@ -223,63 +208,64 @@ func newAPI(
 		group.POST("/v3/rtspssessions/kick/:id", a.onRTSPSSessionsKick)
 	}
 
-	if !interfaceIsEmpty(a.rtmpServer) {
+	if !interfaceIsEmpty(a.RTMPServer) {
 		group.GET("/v3/rtmpconns/list", a.onRTMPConnsList)
 		group.GET("/v3/rtmpconns/get/:id", a.onRTMPConnsGet)
 		group.POST("/v3/rtmpconns/kick/:id", a.onRTMPConnsKick)
 	}
 
-	if !interfaceIsEmpty(a.rtmpsServer) {
+	if !interfaceIsEmpty(a.RTMPSServer) {
 		group.GET("/v3/rtmpsconns/list", a.onRTMPSConnsList)
 		group.GET("/v3/rtmpsconns/get/:id", a.onRTMPSConnsGet)
 		group.POST("/v3/rtmpsconns/kick/:id", a.onRTMPSConnsKick)
 	}
 
-	if !interfaceIsEmpty(a.webRTCServer) {
+	if !interfaceIsEmpty(a.WebRTCServer) {
 		group.GET("/v3/webrtcsessions/list", a.onWebRTCSessionsList)
 		group.GET("/v3/webrtcsessions/get/:id", a.onWebRTCSessionsGet)
 		group.POST("/v3/webrtcsessions/kick/:id", a.onWebRTCSessionsKick)
 	}
 
-	if !interfaceIsEmpty(a.srtServer) {
+	if !interfaceIsEmpty(a.SRTServer) {
 		group.GET("/v3/srtconns/list", a.onSRTConnsList)
 		group.GET("/v3/srtconns/get/:id", a.onSRTConnsGet)
 		group.POST("/v3/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
-	network, address := restrictnetwork.Restrict("tcp", address)
+	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
 	var err error
 	a.httpServer, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		time.Duration(readTimeout),
+		time.Duration(a.ReadTimeout),
 		"",
 		"",
 		router,
 		a,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	a.Log(logger.Info, "listener opened on "+address)
 
-	return a, nil
+	return nil
 }
 
-func (a *api) close() {
+// Close closes the API.
+func (a *API) Close() {
 	a.Log(logger.Info, "listener is closing")
 	a.httpServer.Close()
 }
 
 // Log implements logger.Writer.
-func (a *api) Log(level logger.Level, format string, args ...interface{}) {
-	a.parent.Log(level, "[API] "+format, args...)
+func (a *API) Log(level logger.Level, format string, args ...interface{}) {
+	a.Parent.Log(level, "[API] "+format, args...)
 }
 
 // error coming from something the user inserted into the request.
-func (a *api) writeError(ctx *gin.Context, status int, err error) {
+func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	// show error in logs
 	a.Log(logger.Error, err.Error())
 
@@ -289,15 +275,15 @@ func (a *api) writeError(ctx *gin.Context, status int, err error) {
 	})
 }
 
-func (a *api) onConfigGlobalGet(ctx *gin.Context) {
+func (a *API) onConfigGlobalGet(ctx *gin.Context) {
 	a.mutex.Lock()
-	c := a.conf
+	c := a.Conf
 	a.mutex.Unlock()
 
 	ctx.JSON(http.StatusOK, c.Global())
 }
 
-func (a *api) onConfigGlobalPatch(ctx *gin.Context) {
+func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 	var c conf.OptionalGlobal
 	err := json.NewDecoder(ctx.Request.Body).Decode(&c)
 	if err != nil {
@@ -308,7 +294,7 @@ func (a *api) onConfigGlobalPatch(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
+	newConf := a.Conf.Clone()
 
 	newConf.PatchGlobal(&c)
 
@@ -318,24 +304,24 @@ func (a *api) onConfigGlobalPatch(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = newConf
+	a.Conf = newConf
 
 	// since reloading the configuration can cause the shutdown of the API,
 	// call it in a goroutine
-	go a.parent.apiConfigSet(newConf)
+	go a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathDefaultsGet(ctx *gin.Context) {
+func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {
 	a.mutex.Lock()
-	c := a.conf
+	c := a.Conf
 	a.mutex.Unlock()
 
 	ctx.JSON(http.StatusOK, c.PathDefaults)
 }
 
-func (a *api) onConfigPathDefaultsPatch(ctx *gin.Context) {
+func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 	var p conf.OptionalPath
 	err := json.NewDecoder(ctx.Request.Body).Decode(&p)
 	if err != nil {
@@ -346,7 +332,7 @@ func (a *api) onConfigPathDefaultsPatch(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
+	newConf := a.Conf.Clone()
 
 	newConf.PatchPathDefaults(&p)
 
@@ -356,15 +342,15 @@ func (a *api) onConfigPathDefaultsPatch(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = newConf
-	a.parent.apiConfigSet(newConf)
+	a.Conf = newConf
+	a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathsList(ctx *gin.Context) {
+func (a *API) onConfigPathsList(ctx *gin.Context) {
 	a.mutex.Lock()
-	c := a.conf
+	c := a.Conf
 	a.mutex.Unlock()
 
 	data := &defs.APIPathConfList{
@@ -386,7 +372,7 @@ func (a *api) onConfigPathsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onConfigPathsGet(ctx *gin.Context) {
+func (a *API) onConfigPathsGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -394,7 +380,7 @@ func (a *api) onConfigPathsGet(ctx *gin.Context) {
 	}
 
 	a.mutex.Lock()
-	c := a.conf
+	c := a.Conf
 	a.mutex.Unlock()
 
 	p, ok := c.Paths[name]
@@ -406,7 +392,7 @@ func (a *api) onConfigPathsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, p)
 }
 
-func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
+func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -423,7 +409,7 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
+	newConf := a.Conf.Clone()
 
 	err = newConf.AddPath(name, &p)
 	if err != nil {
@@ -437,13 +423,13 @@ func (a *api) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	a.conf = newConf
-	a.parent.apiConfigSet(newConf)
+	a.Conf = newConf
+	a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
+func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -460,7 +446,7 @@ func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
+	newConf := a.Conf.Clone()
 
 	err = newConf.PatchPath(name, &p)
 	if err != nil {
@@ -474,13 +460,13 @@ func (a *api) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	a.conf = newConf
-	a.parent.apiConfigSet(newConf)
+	a.Conf = newConf
+	a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
+func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -497,7 +483,7 @@ func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
+	newConf := a.Conf.Clone()
 
 	err = newConf.ReplacePath(name, &p)
 	if err != nil {
@@ -511,13 +497,13 @@ func (a *api) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	a.conf = newConf
-	a.parent.apiConfigSet(newConf)
+	a.Conf = newConf
+	a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onConfigPathsDelete(ctx *gin.Context) {
+func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
@@ -527,7 +513,7 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	newConf := a.conf.Clone()
+	newConf := a.Conf.Clone()
 
 	err := newConf.RemovePath(name)
 	if err != nil {
@@ -541,14 +527,14 @@ func (a *api) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	a.conf = newConf
-	a.parent.apiConfigSet(newConf)
+	a.Conf = newConf
+	a.Parent.APIConfigSet(newConf)
 
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onPathsList(ctx *gin.Context) {
-	data, err := a.pathManager.apiPathsList()
+func (a *API) onPathsList(ctx *gin.Context) {
+	data, err := a.PathManager.APIPathsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -565,14 +551,14 @@ func (a *api) onPathsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onPathsGet(ctx *gin.Context) {
+func (a *API) onPathsGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
-	data, err := a.pathManager.apiPathsGet(name)
+	data, err := a.PathManager.APIPathsGet(name)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -581,42 +567,8 @@ func (a *api) onPathsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPConnsList(ctx *gin.Context) {
-	data, err := a.rtspServer.APIConnsList()
-	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	data.ItemCount = len(data.Items)
-	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-	data.PageCount = pageCount
-
-	ctx.JSON(http.StatusOK, data)
-}
-
-func (a *api) onRTSPConnsGet(ctx *gin.Context) {
-	uuid, err := uuid.Parse(ctx.Param("id"))
-	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	data, err := a.rtspServer.APIConnsGet(uuid)
-	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, data)
-}
-
-func (a *api) onRTSPSessionsList(ctx *gin.Context) {
-	data, err := a.rtspServer.APISessionsList()
+func (a *API) onRTSPConnsList(ctx *gin.Context) {
+	data, err := a.RTSPServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -633,14 +585,14 @@ func (a *api) onRTSPSessionsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
+func (a *API) onRTSPConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.rtspServer.APISessionsGet(uuid)
+	data, err := a.RTSPServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -649,14 +601,48 @@ func (a *api) onRTSPSessionsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
+func (a *API) onRTSPSessionsList(ctx *gin.Context) {
+	data, err := a.RTSPServer.APISessionsList()
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	data.ItemCount = len(data.Items)
+	pageCount, err := paginate(&data.Items, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	data.PageCount = pageCount
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *API) onRTSPSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.rtspServer.APISessionsKick(uuid)
+	data, err := a.RTSPServer.APISessionsGet(uuid)
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *API) onRTSPSessionsKick(ctx *gin.Context) {
+	uuid, err := uuid.Parse(ctx.Param("id"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	err = a.RTSPServer.APISessionsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -665,8 +651,8 @@ func (a *api) onRTSPSessionsKick(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onRTSPSConnsList(ctx *gin.Context) {
-	data, err := a.rtspsServer.APIConnsList()
+func (a *API) onRTSPSConnsList(ctx *gin.Context) {
+	data, err := a.RTSPSServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -683,14 +669,14 @@ func (a *api) onRTSPSConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
+func (a *API) onRTSPSConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.rtspsServer.APIConnsGet(uuid)
+	data, err := a.RTSPSServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -699,8 +685,8 @@ func (a *api) onRTSPSConnsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
-	data, err := a.rtspsServer.APISessionsList()
+func (a *API) onRTSPSSessionsList(ctx *gin.Context) {
+	data, err := a.RTSPSServer.APISessionsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -717,14 +703,14 @@ func (a *api) onRTSPSSessionsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
+func (a *API) onRTSPSSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.rtspsServer.APISessionsGet(uuid)
+	data, err := a.RTSPSServer.APISessionsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -733,14 +719,14 @@ func (a *api) onRTSPSSessionsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
+func (a *API) onRTSPSSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.rtspsServer.APISessionsKick(uuid)
+	err = a.RTSPSServer.APISessionsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -749,8 +735,8 @@ func (a *api) onRTSPSSessionsKick(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onRTMPConnsList(ctx *gin.Context) {
-	data, err := a.rtmpServer.APIConnsList()
+func (a *API) onRTMPConnsList(ctx *gin.Context) {
+	data, err := a.RTMPServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -767,14 +753,14 @@ func (a *api) onRTMPConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTMPConnsGet(ctx *gin.Context) {
+func (a *API) onRTMPConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.rtmpServer.APIConnsGet(uuid)
+	data, err := a.RTMPServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -783,14 +769,14 @@ func (a *api) onRTMPConnsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTMPConnsKick(ctx *gin.Context) {
+func (a *API) onRTMPConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.rtmpServer.APIConnsKick(uuid)
+	err = a.RTMPServer.APIConnsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -799,8 +785,8 @@ func (a *api) onRTMPConnsKick(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onRTMPSConnsList(ctx *gin.Context) {
-	data, err := a.rtmpsServer.APIConnsList()
+func (a *API) onRTMPSConnsList(ctx *gin.Context) {
+	data, err := a.RTMPSServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -817,14 +803,14 @@ func (a *api) onRTMPSConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
+func (a *API) onRTMPSConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.rtmpsServer.APIConnsGet(uuid)
+	data, err := a.RTMPSServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -833,14 +819,14 @@ func (a *api) onRTMPSConnsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
+func (a *API) onRTMPSConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.rtmpsServer.APIConnsKick(uuid)
+	err = a.RTMPSServer.APIConnsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -849,8 +835,8 @@ func (a *api) onRTMPSConnsKick(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onHLSMuxersList(ctx *gin.Context) {
-	data, err := a.hlsManager.APIMuxersList()
+func (a *API) onHLSMuxersList(ctx *gin.Context) {
+	data, err := a.HLSServer.APIMuxersList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -867,14 +853,14 @@ func (a *api) onHLSMuxersList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onHLSMuxersGet(ctx *gin.Context) {
+func (a *API) onHLSMuxersGet(ctx *gin.Context) {
 	name, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
-	data, err := a.hlsManager.APIMuxersGet(name)
+	data, err := a.HLSServer.APIMuxersGet(name)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -883,8 +869,8 @@ func (a *api) onHLSMuxersGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
-	data, err := a.webRTCServer.APISessionsList()
+func (a *API) onWebRTCSessionsList(ctx *gin.Context) {
+	data, err := a.WebRTCServer.APISessionsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -901,14 +887,14 @@ func (a *api) onWebRTCSessionsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
+func (a *API) onWebRTCSessionsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.webRTCServer.APISessionsGet(uuid)
+	data, err := a.WebRTCServer.APISessionsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -917,14 +903,14 @@ func (a *api) onWebRTCSessionsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
+func (a *API) onWebRTCSessionsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.webRTCServer.APISessionsKick(uuid)
+	err = a.WebRTCServer.APISessionsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -933,8 +919,8 @@ func (a *api) onWebRTCSessionsKick(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-func (a *api) onSRTConnsList(ctx *gin.Context) {
-	data, err := a.srtServer.APIConnsList()
+func (a *API) onSRTConnsList(ctx *gin.Context) {
+	data, err := a.SRTServer.APIConnsList()
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -951,14 +937,14 @@ func (a *api) onSRTConnsList(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onSRTConnsGet(ctx *gin.Context) {
+func (a *API) onSRTConnsGet(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	data, err := a.srtServer.APIConnsGet(uuid)
+	data, err := a.SRTServer.APIConnsGet(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -967,14 +953,14 @@ func (a *api) onSRTConnsGet(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, data)
 }
 
-func (a *api) onSRTConnsKick(ctx *gin.Context) {
+func (a *API) onSRTConnsKick(ctx *gin.Context) {
 	uuid, err := uuid.Parse(ctx.Param("id"))
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	err = a.srtServer.APIConnsKick(uuid)
+	err = a.SRTServer.APIConnsKick(uuid)
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -983,9 +969,9 @@ func (a *api) onSRTConnsKick(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
-// confReload is called by core.
-func (a *api) confReload(conf *conf.Conf) {
+// ReloadConf is called by core.
+func (a *API) ReloadConf(conf *conf.Conf) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	a.conf = conf
+	a.Conf = conf
 }

@@ -433,8 +433,8 @@ func (pm *pathManager) removePath(pa *path) {
 	delete(pm.paths, pa.name)
 }
 
-// confReload is called by core.
-func (pm *pathManager) confReload(pathConfs map[string]*conf.Path) {
+// ReloadConf is called by core.
+func (pm *pathManager) ReloadConf(pathConfs map[string]*conf.Path) {
 	select {
 	case pm.chReloadConf <- pathConfs:
 	case <-pm.ctx.Done():
@@ -545,8 +545,8 @@ func (pm *pathManager) setHLSServer(s pathManagerHLSServer) {
 	}
 }
 
-// apiPathsList is called by api.
-func (pm *pathManager) apiPathsList() (*defs.APIPathList, error) {
+// APIPathsList is called by api.
+func (pm *pathManager) APIPathsList() (*defs.APIPathList, error) {
 	req := pathAPIPathsListReq{
 		res: make(chan pathAPIPathsListRes),
 	}
@@ -560,7 +560,7 @@ func (pm *pathManager) apiPathsList() (*defs.APIPathList, error) {
 		}
 
 		for _, pa := range res.paths {
-			item, err := pa.apiPathsGet(pathAPIPathsGetReq{})
+			item, err := pa.APIPathsGet(pathAPIPathsGetReq{})
 			if err == nil {
 				res.data.Items = append(res.data.Items, item)
 			}
@@ -577,8 +577,8 @@ func (pm *pathManager) apiPathsList() (*defs.APIPathList, error) {
 	}
 }
 
-// apiPathsGet is called by api.
-func (pm *pathManager) apiPathsGet(name string) (*defs.APIPath, error) {
+// APIPathsGet is called by api.
+func (pm *pathManager) APIPathsGet(name string) (*defs.APIPath, error) {
 	req := pathAPIPathsGetReq{
 		name: name,
 		res:  make(chan pathAPIPathsGetRes),
@@ -591,7 +591,7 @@ func (pm *pathManager) apiPathsGet(name string) (*defs.APIPath, error) {
 			return nil, res.err
 		}
 
-		data, err := res.path.apiPathsGet(req)
+		data, err := res.path.APIPathsGet(req)
 		return data, err
 
 	case <-pm.ctx.Done():

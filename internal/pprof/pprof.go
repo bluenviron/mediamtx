@@ -1,4 +1,5 @@
-package core
+// Package pprof contains a pprof exporter.
+package pprof
 
 import (
 	"net/http"
@@ -17,48 +18,45 @@ type pprofParent interface {
 	logger.Writer
 }
 
-type pprof struct {
-	parent pprofParent
+// PPROF is a pprof exporter.
+type PPROF struct {
+	Address     string
+	ReadTimeout conf.StringDuration
+	Parent      pprofParent
 
 	httpServer *httpserv.WrappedServer
 }
 
-func newPPROF(
-	address string,
-	readTimeout conf.StringDuration,
-	parent pprofParent,
-) (*pprof, error) {
-	pp := &pprof{
-		parent: parent,
-	}
-
-	network, address := restrictnetwork.Restrict("tcp", address)
+// Initialize initializes PPROF.
+func (pp *PPROF) Initialize() error {
+	network, address := restrictnetwork.Restrict("tcp", pp.Address)
 
 	var err error
 	pp.httpServer, err = httpserv.NewWrappedServer(
 		network,
 		address,
-		time.Duration(readTimeout),
+		time.Duration(pp.ReadTimeout),
 		"",
 		"",
 		http.DefaultServeMux,
 		pp,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	pp.Log(logger.Info, "listener opened on "+address)
 
-	return pp, nil
+	return nil
 }
 
-func (pp *pprof) close() {
+// Close closes PPROF.
+func (pp *PPROF) Close() {
 	pp.Log(logger.Info, "listener is closing")
 	pp.httpServer.Close()
 }
 
 // Log implements logger.Writer.
-func (pp *pprof) Log(level logger.Level, format string, args ...interface{}) {
-	pp.parent.Log(level, "[pprof] "+format, args...)
+func (pp *PPROF) Log(level logger.Level, format string, args ...interface{}) {
+	pp.Parent.Log(level, "[pprof] "+format, args...)
 }

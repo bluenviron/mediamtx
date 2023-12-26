@@ -20,7 +20,7 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
@@ -100,38 +100,6 @@ func httpRequest(t *testing.T, hc *http.Client, method string, ur string, in int
 
 	err = json.NewDecoder(res.Body).Decode(out)
 	require.NoError(t, err)
-}
-
-func TestPagination(t *testing.T) {
-	items := make([]int, 5)
-	for i := 0; i < 5; i++ {
-		items[i] = i
-	}
-
-	pageCount, err := paginate(&items, "1", "1")
-	require.NoError(t, err)
-	require.Equal(t, 5, pageCount)
-	require.Equal(t, []int{1}, items)
-
-	items = make([]int, 5)
-	for i := 0; i < 5; i++ {
-		items[i] = i
-	}
-
-	pageCount, err = paginate(&items, "3", "2")
-	require.NoError(t, err)
-	require.Equal(t, 2, pageCount)
-	require.Equal(t, []int{}, items)
-
-	items = make([]int, 6)
-	for i := 0; i < 6; i++ {
-		items[i] = i
-	}
-
-	pageCount, err = paginate(&items, "4", "1")
-	require.NoError(t, err)
-	require.Equal(t, 2, pageCount)
-	require.Equal(t, []int{4, 5}, items)
 }
 
 func TestAPIConfigGlobalGet(t *testing.T) {
