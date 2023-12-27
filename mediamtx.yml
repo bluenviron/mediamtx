@@ -296,6 +296,8 @@ pathDefaults:
 
   # Record streams to disk.
   record: no
+  # Save audio from stream.
+  recordAudio: no
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)
@@ -564,7 +566,7 @@ paths:
 # Database settings
 database:
   # Use database or not (use PostgreSQL)
-  use: true
+  use: no
   # Database address
   dbAddress: 127.0.0.1
   # Database port

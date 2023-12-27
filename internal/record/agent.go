@@ -30,7 +30,8 @@ type Agent struct {
 	terminate chan struct{}
 	done      chan struct{}
 
-	Stor storage.Storage
+	Stor        storage.Storage
+	RecordAudio bool
 }
 
 // Initialize initializes Agent.
@@ -51,8 +52,9 @@ func (w *Agent) Initialize() {
 	w.done = make(chan struct{})
 
 	w.currentInstance = &agentInstance{
-		agent: w,
-		stor:  w.Stor,
+		agent:       w,
+		stor:        w.Stor,
+		recordAudio: w.RecordAudio,
 	}
 	w.currentInstance.initialize()
 
@@ -90,8 +92,9 @@ func (w *Agent) run() {
 		}
 
 		w.currentInstance = &agentInstance{
-			agent: w,
-			stor:  w.Stor,
+			agent:       w,
+			stor:        w.Stor,
+			recordAudio: w.RecordAudio,
 		}
 		w.currentInstance.initialize()
 	}

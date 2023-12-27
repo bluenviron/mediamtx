@@ -30,7 +30,8 @@ type agentInstance struct {
 	terminate chan struct{}
 	done      chan struct{}
 
-	stor storage.Storage
+	stor        storage.Storage
+	recordAudio bool
 }
 
 func (a *agentInstance) initialize() {

@@ -856,8 +856,9 @@ func (pa *path) startRecording() {
 					nil)
 			}
 		},
-		Parent: pa,
-		Stor:   pa.stor,
+		Parent:      pa,
+		Stor:        pa.stor,
+		RecordAudio: pa.conf.RecordAudio,
 	}
 	pa.recordAgent.Initialize()
 }

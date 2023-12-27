@@ -179,6 +179,11 @@ func (f *formatMPEGTS) initialize() {
 				})
 
 			case *rtspformat.Opus:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				track := addTrack(&mpegts.CodecOpus{
 					ChannelCount: func() int {
 						if forma.IsStereo {
@@ -203,6 +208,11 @@ func (f *formatMPEGTS) initialize() {
 				})
 
 			case *rtspformat.MPEG4Audio:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				track := addTrack(&mpegts.CodecMPEG4Audio{
 					Config: *forma.GetConfig(),
 				})
@@ -222,6 +232,11 @@ func (f *formatMPEGTS) initialize() {
 				})
 
 			case *rtspformat.MPEG1Audio:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				track := addTrack(&mpegts.CodecMPEG1Audio{})
 
 				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
@@ -239,6 +254,11 @@ func (f *formatMPEGTS) initialize() {
 				})
 
 			case *rtspformat.AC3:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				track := addTrack(&mpegts.CodecAC3{})
 
 				sampleRate := time.Duration(forma.SampleRate)

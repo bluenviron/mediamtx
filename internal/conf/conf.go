@@ -168,6 +168,7 @@ type Conf struct {
 
 	// Record (deprecated)
 	Record                *bool           `json:"record,omitempty"`                // deprecated
+	RecordAudio           *bool           `json:"recordAudio,omitempty"`           // deprecated
 	RecordPath            *string         `json:"recordPath,omitempty"`            // deprecated
 	RecordFormat          *RecordFormat   `json:"recordFormat,omitempty"`          // deprecated
 	RecordPartDuration    *StringDuration `json:"recordPartDuration,omitempty"`    // deprecated
@@ -440,6 +441,9 @@ func (conf *Conf) Check() error {
 	// Record
 	if conf.Record != nil {
 		conf.PathDefaults.Record = *conf.Record
+	}
+	if conf.RecordAudio != nil {
+		conf.PathDefaults.RecordAudio = *conf.RecordAudio
 	}
 	if conf.RecordPath != nil {
 		conf.PathDefaults.RecordPath = *conf.RecordPath

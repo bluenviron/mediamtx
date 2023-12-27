@@ -64,6 +64,7 @@ type Path struct {
 
 	// Record
 	Record                bool           `json:"record"`
+	RecordAudio           bool           `json:"recordAudio"`
 	RecordPath            string         `json:"recordPath"`
 	RecordFormat          RecordFormat   `json:"recordFormat"`
 	RecordPartDuration    StringDuration `json:"recordPartDuration"`

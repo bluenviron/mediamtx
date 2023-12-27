@@ -586,6 +586,11 @@ func (f *formatFMP4) initialize() {
 				})
 
 			case *rtspformat.Opus:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				codec := &fmp4.CodecOpus{
 					ChannelCount: func() int {
 						if forma.IsStereo {
@@ -622,6 +627,11 @@ func (f *formatFMP4) initialize() {
 				})
 
 			case *rtspformat.MPEG4Audio:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				codec := &fmp4.CodecMPEG4Audio{
 					Config: *forma.GetConfig(),
 				}
@@ -654,6 +664,11 @@ func (f *formatFMP4) initialize() {
 				})
 
 			case *rtspformat.MPEG1Audio:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				codec := &fmp4.CodecMPEG1Audio{
 					SampleRate:   32000,
 					ChannelCount: 2,
@@ -702,6 +717,11 @@ func (f *formatFMP4) initialize() {
 				})
 
 			case *rtspformat.AC3:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				codec := &fmp4.CodecAC3{
 					SampleRate:   forma.SampleRate,
 					ChannelCount: forma.ChannelCount,
@@ -768,12 +788,27 @@ func (f *formatFMP4) initialize() {
 				})
 
 			case *rtspformat.G722:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				// TODO
 
 			case *rtspformat.G711:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				// TODO
 
 			case *rtspformat.LPCM:
+
+				if !f.a.recordAudio {
+					continue
+				}
+
 				codec := &fmp4.CodecLPCM{
 					LittleEndian: false,
 					BitDepth:     forma.BitDepth,
