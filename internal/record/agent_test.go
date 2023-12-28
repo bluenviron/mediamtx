@@ -274,6 +274,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 		PathName:        "mypath",
 		Stream:          stream,
 		Parent:          &nilLogger{},
+		RecordAudio:     true,
 	}
 	w.Initialize()
 
