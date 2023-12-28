@@ -8,6 +8,7 @@ import (
 	rtspformat "github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/ac3"
 	"github.com/bluenviron/mediacommon/pkg/codecs/av1"
+	"github.com/bluenviron/mediacommon/pkg/codecs/g711"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/jpeg"
@@ -771,7 +772,34 @@ func (f *formatFMP4) initialize() {
 				// TODO
 
 			case *rtspformat.G711:
-				// TODO
+				codec := &fmp4.CodecLPCM{
+					LittleEndian: false,
+					BitDepth:     16,
+					SampleRate:   8000,
+					ChannelCount: 1,
+				}
+				track := addTrack(codec)
+
+				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
+					tunit := u.(*unit.G711)
+					if tunit.Samples == nil {
+						return nil
+					}
+
+					var out []byte
+					if forma.MULaw {
+						out = g711.DecodeMulaw(tunit.Samples)
+					} else {
+						out = g711.DecodeAlaw(tunit.Samples)
+					}
+
+					return track.record(&sample{
+						PartSample: &fmp4.PartSample{
+							Payload: out,
+						},
+						dts: tunit.PTS,
+					})
+				})
 
 			case *rtspformat.LPCM:
 				codec := &fmp4.CodecLPCM{

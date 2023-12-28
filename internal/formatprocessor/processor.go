@@ -75,6 +75,9 @@ func New(
 	case *format.AC3:
 		return newAC3(udpMaxPayloadSize, forma, generateRTPPackets)
 
+	case *format.G711:
+		return newG711(udpMaxPayloadSize, forma, generateRTPPackets)
+
 	case *format.LPCM:
 		return newLPCM(udpMaxPayloadSize, forma, generateRTPPackets)
 
