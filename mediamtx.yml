@@ -578,10 +578,12 @@ database:
   # Database password
   dbPassword: 
   # Maximum number of connections
-  maxConnections: 1
+  maxConnections: 0
   # SQL queryes 
   sql:
     # SQL query to insert video record
-    insertPath: "INSERT INTO \"video_record\" (\"code_mp_cam\", \"path_record\", \"file_name\", \"date_time_start\") VALUES ('%s', '%s', '%s', '%s')" 
+    # EXAMPLE insertPath: "INSERT INTO \"video_record\" (\"code_mp_cam\", \"path_record\", \"file_name\", \"date_time_start\") VALUES ('%s', '%s', '%s', '%s')" 
+    insertPath: ""
     # SQL query to update video record
-    updateSize: "UPDATE \"video_record\" SET \"file_size\"='%s', \"date_time_end\"='%s' WHERE \"file_name\"='%s'" 
+    # EXAMPLE updateSize: "UPDATE \"video_record\" SET \"file_size\"='%s', \"date_time_end\"='%s' WHERE \"file_name\"='%s'" 
+    updateSize: ""
