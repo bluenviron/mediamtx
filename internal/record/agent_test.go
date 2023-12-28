@@ -53,6 +53,18 @@ func TestAgent(t *testing.T) {
 				IndexDeltaLength: 3,
 			}},
 		},
+		{
+			Type: description.MediaTypeAudio,
+			Formats: []rtspformat.Format{&rtspformat.G711{
+				MULaw: false,
+			}},
+		},
+		{
+			Type: description.MediaTypeAudio,
+			Formats: []rtspformat.Format{&rtspformat.G711{
+				MULaw: true,
+			}},
+		},
 	}}
 
 	writeToStream := func(stream *stream.Stream) {
@@ -106,6 +118,20 @@ func TestAgent(t *testing.T) {
 					PTS: (50 + time.Duration(i)) * time.Second,
 				},
 				AUs: [][]byte{{1, 2, 3, 4}},
+			})
+
+			stream.WriteUnit(desc.Medias[3], desc.Medias[3].Formats[0], &unit.G711{
+				Base: unit.Base{
+					PTS: (50 + time.Duration(i)) * time.Second,
+				},
+				Samples: []byte{1, 2, 3, 4},
+			})
+
+			stream.WriteUnit(desc.Medias[4], desc.Medias[4].Formats[0], &unit.G711{
+				Base: unit.Base{
+					PTS: (50 + time.Duration(i)) * time.Second,
+				},
+				Samples: []byte{1, 2, 3, 4},
 			})
 		}
 	}
