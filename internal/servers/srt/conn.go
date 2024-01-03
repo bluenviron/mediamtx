@@ -195,7 +195,8 @@ func (c *conn) runPublish(req srtNewConnReq, pathName string, user string, pass 
 	})
 
 	if res.Err != nil {
-		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			// TODO: re-enable. Currently this freezes the listener.
 			// wait some seconds to stop brute force attacks
 			// <-time.After(srtPauseAfterAuthError)
@@ -294,11 +295,12 @@ func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass str
 	})
 
 	if res.Err != nil {
-		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			// TODO: re-enable. Currently this freezes the listener.
 			// wait some seconds to stop brute force attacks
 			// <-time.After(srtPauseAfterAuthError)
-			return false, terr
+			return false, res.Err
 		}
 		return false, res.Err
 	}

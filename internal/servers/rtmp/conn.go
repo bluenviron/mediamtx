@@ -179,7 +179,8 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	})
 
 	if res.Err != nil {
-		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpPauseAfterAuthError)
 			return terr
@@ -410,7 +411,8 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 	})
 
 	if res.Err != nil {
-		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			// wait some seconds to stop brute force attacks
 			<-time.After(rtmpPauseAfterAuthError)
 			return terr

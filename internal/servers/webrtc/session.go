@@ -3,6 +3,7 @@ package webrtc
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -368,7 +369,8 @@ func (s *session) runPublish() (int, error) {
 		},
 	})
 	if res.Err != nil {
-		if _, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			// wait some seconds to stop brute force attacks
 			<-time.After(webrtcPauseAfterAuthError)
 
@@ -498,7 +500,8 @@ func (s *session) runRead() (int, error) {
 		},
 	})
 	if res.Err != nil {
-		if _, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			// wait some seconds to stop brute force attacks
 			<-time.After(webrtcPauseAfterAuthError)
 

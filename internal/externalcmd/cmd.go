@@ -76,7 +76,7 @@ func (e *Cmd) run() {
 
 	for {
 		err := e.runOSSpecific()
-		if err == errTerminated {
+		if errors.Is(err, errTerminated) {
 			return
 		}
 

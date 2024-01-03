@@ -222,7 +222,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 	case name == "" || name[0] != '~': // normal path
 		err := IsValidPathName(name)
 		if err != nil {
-			return fmt.Errorf("invalid path name '%s': %s", name, err)
+			return fmt.Errorf("invalid path name '%s': %w", name, err)
 		}
 
 	default: // regular expression-based path
@@ -320,14 +320,14 @@ func (pconf *Path) check(conf *Conf, name string) error {
 	if pconf.SRTReadPassphrase != "" {
 		err := srtCheckPassphrase(pconf.SRTReadPassphrase)
 		if err != nil {
-			return fmt.Errorf("invalid 'readRTPassphrase': %v", err)
+			return fmt.Errorf("invalid 'readRTPassphrase': %w", err)
 		}
 	}
 	if pconf.Fallback != "" {
 		if strings.HasPrefix(pconf.Fallback, "/") {
 			err := IsValidPathName(pconf.Fallback[1:])
 			if err != nil {
-				return fmt.Errorf("'%s': %s", pconf.Fallback, err)
+				return fmt.Errorf("'%s': %w", pconf.Fallback, err)
 			}
 		} else {
 			_, err := base.ParseURL(pconf.Fallback)
@@ -384,7 +384,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 		err := srtCheckPassphrase(pconf.SRTPublishPassphrase)
 		if err != nil {
-			return fmt.Errorf("invalid 'srtPublishPassphrase': %v", err)
+			return fmt.Errorf("invalid 'srtPublishPassphrase': %w", err)
 		}
 	}
 

@@ -38,12 +38,12 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			}
 			err := i.UnmarshalEnv(prefix, ev)
 			if err != nil {
-				return fmt.Errorf("%s: %s", prefix, err)
+				return fmt.Errorf("%s: %w", prefix, err)
 			}
 		} else if envHasAtLeastAKeyWithPrefix(env, prefix) {
 			err := i.UnmarshalEnv(prefix, "")
 			if err != nil {
-				return fmt.Errorf("%s: %s", prefix, err)
+				return fmt.Errorf("%s: %w", prefix, err)
 			}
 		}
 		return nil
@@ -66,7 +66,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			}
 			iv, err := strconv.ParseInt(ev, 10, 32)
 			if err != nil {
-				return fmt.Errorf("%s: %s", prefix, err)
+				return fmt.Errorf("%s: %w", prefix, err)
 			}
 			prv.Elem().SetInt(iv)
 		}
@@ -79,7 +79,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			}
 			iv, err := strconv.ParseUint(ev, 10, 32)
 			if err != nil {
-				return fmt.Errorf("%s: %s", prefix, err)
+				return fmt.Errorf("%s: %w", prefix, err)
 			}
 			prv.Elem().SetUint(iv)
 		}
@@ -92,7 +92,7 @@ func loadEnvInternal(env map[string]string, prefix string, prv reflect.Value) er
 			}
 			iv, err := strconv.ParseFloat(ev, 64)
 			if err != nil {
-				return fmt.Errorf("%s: %s", prefix, err)
+				return fmt.Errorf("%s: %w", prefix, err)
 			}
 			prv.Elem().SetFloat(iv)
 		}

@@ -269,7 +269,7 @@ func (m *muxer) runInner(innerCtx context.Context, innerReady chan struct{}) err
 
 	err := m.muxer.Start()
 	if err != nil {
-		return fmt.Errorf("muxer error: %v", err)
+		return fmt.Errorf("muxer error: %w", err)
 	}
 	defer m.muxer.Close()
 
@@ -318,7 +318,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 
 			err := m.muxer.WriteAV1(tunit.NTP, tunit.PTS, tunit.TU)
 			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
+				return fmt.Errorf("muxer error: %w", err)
 			}
 
 			return nil
@@ -342,7 +342,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 
 			err := m.muxer.WriteVP9(tunit.NTP, tunit.PTS, tunit.Frame)
 			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
+				return fmt.Errorf("muxer error: %w", err)
 			}
 
 			return nil
@@ -366,7 +366,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 
 			err := m.muxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
 			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
+				return fmt.Errorf("muxer error: %w", err)
 			}
 
 			return nil
@@ -396,7 +396,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 
 			err := m.muxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
 			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
+				return fmt.Errorf("muxer error: %w", err)
 			}
 
 			return nil
@@ -428,7 +428,7 @@ func (m *muxer) createAudioTrack(stream *stream.Stream) (*description.Media, *go
 				tunit.PTS,
 				tunit.Packets)
 			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
+				return fmt.Errorf("muxer error: %w", err)
 			}
 
 			return nil
@@ -462,7 +462,7 @@ func (m *muxer) createAudioTrack(stream *stream.Stream) (*description.Media, *go
 				tunit.PTS,
 				tunit.AUs)
 			if err != nil {
-				return fmt.Errorf("muxer error: %v", err)
+				return fmt.Errorf("muxer error: %w", err)
 			}
 
 			return nil

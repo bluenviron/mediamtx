@@ -38,7 +38,7 @@ func pathConfCanBeUpdated(oldPathConf *conf.Path, newPathConf *conf.Path) bool {
 func getConfForPath(pathConfs map[string]*conf.Path, name string) (string, *conf.Path, []string, error) {
 	err := conf.IsValidPathName(name)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("invalid path name: %s (%s)", err, name)
+		return "", nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
 	}
 
 	// normal path

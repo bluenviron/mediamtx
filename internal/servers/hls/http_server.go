@@ -2,6 +2,7 @@ package hls
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -158,7 +159,8 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		},
 	})
 	if res.Err != nil {
-		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)

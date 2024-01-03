@@ -1,7 +1,10 @@
 linters:
   enable:
+  - asciicheck
+  - bidichk
   - bodyclose
   - dupl
+  - errorlint
   - exportloopref
   - gochecknoinits
   - gocritic
@@ -13,6 +16,7 @@ linters:
   - prealloc
   - revive
   - unconvert
+  - tparallel
   - wastedassign
   - whitespace
 
