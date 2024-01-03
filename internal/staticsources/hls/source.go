@@ -60,6 +60,9 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 		OnDownloadSegment: func(u string) {
 			s.Log(logger.Debug, "downloading segment %v", u)
 		},
+		OnDownloadPart: func(u string) {
+			s.Log(logger.Debug, "downloading part %v", u)
+		},
 		OnDecodeError: func(err error) {
 			decodeErrLogger.Log(logger.Warn, err.Error())
 		},

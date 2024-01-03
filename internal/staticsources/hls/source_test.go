@@ -1,9 +1,7 @@
 package hls
 
 import (
-	"bytes"
 	"context"
-	"io"
 	"net"
 	"net/http"
 	"testing"
@@ -18,88 +16,75 @@ import (
 	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
 )
 
-var track1 = &mpegts.Track{
-	Codec: &mpegts.CodecH264{},
-}
-
-var track2 = &mpegts.Track{
-	Codec: &mpegts.CodecMPEG4Audio{
-		Config: mpeg4audio.Config{
-			Type:         2,
-			SampleRate:   44100,
-			ChannelCount: 2,
-		},
-	},
-}
-
-type testHLSServer struct {
-	s *http.Server
-}
-
-func newTestHLSServer() (*testHLSServer, error) {
-	ln, err := net.Listen("tcp", "localhost:5780")
-	if err != nil {
-		return nil, err
+func TestSource(t *testing.T) {
+	track1 := &mpegts.Track{
+		Codec: &mpegts.CodecH264{},
 	}
 
-	ts := &testHLSServer{}
+	track2 := &mpegts.Track{
+		Codec: &mpegts.CodecMPEG4Audio{
+			Config: mpeg4audio.Config{
+				Type:         2,
+				SampleRate:   44100,
+				ChannelCount: 2,
+			},
+		},
+	}
+
+	tracks := []*mpegts.Track{
+		track1,
+		track2,
+	}
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
-	router.GET("/stream.m3u8", ts.onPlaylist)
-	router.GET("/segment1.ts", ts.onSegment1)
-	router.GET("/segment2.ts", ts.onSegment2)
 
-	ts.s = &http.Server{Handler: router}
-	go ts.s.Serve(ln)
-
-	return ts, nil
-}
-
-func (ts *testHLSServer) close() {
-	ts.s.Shutdown(context.Background())
-}
-
-func (ts *testHLSServer) onPlaylist(ctx *gin.Context) {
-	cnt := `#EXTM3U
-#EXT-X-VERSION:3
-#EXT-X-ALLOW-CACHE:NO
-#EXT-X-TARGETDURATION:2
-#EXT-X-MEDIA-SEQUENCE:0
-#EXTINF:2,
-segment1.ts
-#EXTINF:2,
-segment2.ts
-#EXT-X-ENDLIST
-`
-
-	ctx.Writer.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
-	io.Copy(ctx.Writer, bytes.NewReader([]byte(cnt)))
-}
-
-func (ts *testHLSServer) onSegment1(ctx *gin.Context) {
-	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
-
-	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
-
-	w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}}) //nolint:errcheck
-}
-
-func (ts *testHLSServer) onSegment2(ctx *gin.Context) {
-	ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
-
-	w := mpegts.NewWriter(ctx.Writer, []*mpegts.Track{track1, track2})
-
-	w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{ //nolint:errcheck
-		{7, 1, 2, 3}, // SPS
-		{8},          // PPS
+	router.GET("/stream.m3u8", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `application/vnd.apple.mpegurl`)
+		ctx.Writer.Write([]byte("#EXTM3U\n" +
+			"#EXT-X-VERSION:3\n" +
+			"#EXT-X-ALLOW-CACHE:NO\n" +
+			"#EXT-X-TARGETDURATION:2\n" +
+			"#EXT-X-MEDIA-SEQUENCE:0\n" +
+			"#EXTINF:2,\n" +
+			"segment1.ts\n" +
+			"#EXTINF:2,\n" +
+			"segment2.ts\n" +
+			"#EXTINF:2,\n" +
+			"segment2.ts\n" +
+			"#EXT-X-ENDLIST\n"))
 	})
-}
 
-func TestSource(t *testing.T) {
-	ts, err := newTestHLSServer()
+	router.GET("/segment1.ts", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+
+		w := mpegts.NewWriter(ctx.Writer, tracks)
+
+		err := w.WriteMPEG4Audio(track2, 1*90000, [][]byte{{1, 2, 3, 4}})
+		require.NoError(t, err)
+
+		err = w.WriteH26x(track1, 2*90000, 2*90000, true, [][]byte{
+			{7, 1, 2, 3}, // SPS
+			{8},          // PPS
+		})
+		require.NoError(t, err)
+	})
+
+	router.GET("/segment2.ts", func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Content-Type", `video/MP2T`)
+
+		w := mpegts.NewWriter(ctx.Writer, tracks)
+
+		err := w.WriteMPEG4Audio(track2, 3*90000, [][]byte{{1, 2, 3, 4}})
+		require.NoError(t, err)
+	})
+
+	ln, err := net.Listen("tcp", "localhost:5780")
 	require.NoError(t, err)
-	defer ts.close()
+
+	s := &http.Server{Handler: router}
+	go s.Serve(ln)
+	defer s.Shutdown(context.Background())
 
 	te := tester.New(
 		func(p defs.StaticSourceParent) defs.StaticSource {
