@@ -12,12 +12,12 @@ const (
 	AuthProtocolSRT    AuthProtocol = "srt"
 )
 
-// ErrAuthentication is a authentication error.
-type ErrAuthentication struct {
+// AuthenticationError is a authentication error.
+type AuthenticationError struct {
 	Message string
 }
 
 // Error implements the error interface.
-func (e *ErrAuthentication) Error() string {
+func (e AuthenticationError) Error() string {
 	return "authentication failed: " + e.Message
 }

@@ -13,13 +13,13 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
-// ErrPathNoOnePublishing is returned when no one is publishing.
-type ErrPathNoOnePublishing struct {
+// PathNoOnePublishingError is returned when no one is publishing.
+type PathNoOnePublishingError struct {
 	PathName string
 }
 
 // Error implements the error interface.
-func (e ErrPathNoOnePublishing) Error() string {
+func (e PathNoOnePublishingError) Error() string {
 	return fmt.Sprintf("no one is publishing to path '%s'", e.PathName)
 }
 

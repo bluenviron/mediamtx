@@ -2,6 +2,7 @@ package formatprocessor
 
 import (
 	"bytes"
+	"errors"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
@@ -284,7 +285,8 @@ func (t *formatProcessorH264) ProcessRTPPacket( //nolint:dupl
 		}
 
 		if err != nil {
-			if err == rtph264.ErrNonStartingPacketAndNoPrevious || err == rtph264.ErrMorePacketsNeeded {
+			if errors.Is(err, rtph264.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtph264.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

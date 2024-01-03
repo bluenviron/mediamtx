@@ -2,6 +2,7 @@ package rtsp
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -125,15 +126,14 @@ func (s *session) onAnnounce(c *conn, ctx *gortsplib.ServerHandlerOnAnnounceCtx)
 	})
 
 	if res.Err != nil {
-		switch terr := res.Err.(type) {
-		case *defs.ErrAuthentication:
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			return c.handleAuthError(terr)
-
-		default:
-			return &base.Response{
-				StatusCode: base.StatusBadRequest,
-			}, res.Err
 		}
+
+		return &base.Response{
+			StatusCode: base.StatusBadRequest,
+		}, res.Err
 	}
 
 	s.path = res.Path
@@ -211,21 +211,22 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 		})
 
 		if res.Err != nil {
-			switch terr := res.Err.(type) {
-			case *defs.ErrAuthentication:
+			var terr defs.AuthenticationError
+			if errors.As(res.Err, &terr) {
 				res, err := c.handleAuthError(terr)
 				return res, nil, err
+			}
 
-			case defs.ErrPathNoOnePublishing:
+			var terr2 defs.PathNoOnePublishingError
+			if errors.As(res.Err, &terr2) {
 				return &base.Response{
 					StatusCode: base.StatusNotFound,
 				}, nil, res.Err
-
-			default:
-				return &base.Response{
-					StatusCode: base.StatusBadRequest,
-				}, nil, res.Err
 			}
+
+			return &base.Response{
+				StatusCode: base.StatusBadRequest,
+			}, nil, res.Err
 		}
 
 		s.path = res.Path

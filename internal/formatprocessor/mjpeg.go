@@ -1,6 +1,7 @@
 package formatprocessor //nolint:dupl
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -99,7 +100,8 @@ func (t *formatProcessorMJPEG) ProcessRTPPacket( //nolint:dupl
 
 		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if err == rtpmjpeg.ErrNonStartingPacketAndNoPrevious || err == rtpmjpeg.ErrMorePacketsNeeded {
+			if errors.Is(err, rtpmjpeg.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpmjpeg.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

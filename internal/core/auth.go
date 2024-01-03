@@ -97,7 +97,7 @@ func doAuthentication(
 			accessRequest,
 		)
 		if err != nil {
-			return &defs.ErrAuthentication{Message: fmt.Sprintf("external authentication failed: %s", err)}
+			return defs.AuthenticationError{Message: fmt.Sprintf("external authentication failed: %s", err)}
 		}
 	}
 
@@ -117,7 +117,7 @@ func doAuthentication(
 
 	if pathIPs != nil {
 		if !ipEqualOrInRange(accessRequest.IP, pathIPs) {
-			return &defs.ErrAuthentication{Message: fmt.Sprintf("IP %s not allowed", accessRequest.IP)}
+			return defs.AuthenticationError{Message: fmt.Sprintf("IP %s not allowed", accessRequest.IP)}
 		}
 	}
 
@@ -132,11 +132,11 @@ func doAuthentication(
 				"IPCAM",
 				accessRequest.RTSPNonce)
 			if err != nil {
-				return &defs.ErrAuthentication{Message: err.Error()}
+				return defs.AuthenticationError{Message: err.Error()}
 			}
 		} else if !checkCredential(pathUser, accessRequest.User) ||
 			!checkCredential(pathPass, accessRequest.Pass) {
-			return &defs.ErrAuthentication{Message: "invalid credentials"}
+			return defs.AuthenticationError{Message: "invalid credentials"}
 		}
 	}
 

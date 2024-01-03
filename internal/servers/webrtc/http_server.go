@@ -2,6 +2,7 @@ package webrtc
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -123,7 +124,8 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 		},
 	})
 	if res.Err != nil {
-		if terr, ok := res.Err.(*defs.ErrAuthentication); ok {
+		var terr defs.AuthenticationError
+		if errors.As(res.Err, &terr) {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)

@@ -729,13 +729,13 @@ func (f *formatFMP4) initialize() {
 						var syncInfo ac3.SyncInfo
 						err := syncInfo.Unmarshal(frame)
 						if err != nil {
-							return fmt.Errorf("invalid AC-3 frame: %s", err)
+							return fmt.Errorf("invalid AC-3 frame: %w", err)
 						}
 
 						var bsi ac3.BSI
 						err = bsi.Unmarshal(frame[5:])
 						if err != nil {
-							return fmt.Errorf("invalid AC-3 frame: %s", err)
+							return fmt.Errorf("invalid AC-3 frame: %w", err)
 						}
 
 						if !parsed {

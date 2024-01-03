@@ -4,6 +4,7 @@
 package externalcmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,11 +41,11 @@ func (e *Cmd) runOSSpecific() error {
 			if err == nil {
 				return 0
 			}
-			ee, ok := err.(*exec.ExitError)
-			if !ok {
-				return 0
+			var ee *exec.ExitError
+			if errors.As(err, &ee) {
+				ee.ExitCode()
 			}
-			return ee.ExitCode()
+			return 0
 		}()
 	}()
 

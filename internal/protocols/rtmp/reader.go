@@ -2,6 +2,7 @@ package rtmp
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"time"
 
@@ -111,7 +112,7 @@ func trackFromH264DecoderConfig(data []byte) (format.Format, error) {
 	var conf h264conf.Conf
 	err := conf.Unmarshal(data)
 	if err != nil {
-		return nil, fmt.Errorf("unable to parse H264 config: %v", err)
+		return nil, fmt.Errorf("unable to parse H264 config: %w", err)
 	}
 
 	return &format.H264{
@@ -201,7 +202,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 				} else if msg.Type == message.VideoTypeAU && msg.IsKeyFrame {
 					nalus, err := h264.AVCCUnmarshal(msg.Payload)
 					if err != nil {
-						if err == h264.ErrAVCCNoNALUs {
+						if errors.Is(err, h264.ErrAVCCNoNALUs) {
 							continue
 						}
 						return nil, nil, err
@@ -249,7 +250,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 					var hvcc mp4.HvcC
 					_, err := mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &hvcc, mp4.Context{})
 					if err != nil {
-						return nil, nil, fmt.Errorf("invalid H265 configuration: %v", err)
+						return nil, nil, fmt.Errorf("invalid H265 configuration: %w", err)
 					}
 
 					vps := h265FindNALU(hvcc.NaluArrays, h265.NALUType_VPS_NUT)
@@ -270,13 +271,13 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 					var av1c mp4.Av1C
 					_, err := mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &av1c, mp4.Context{})
 					if err != nil {
-						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
+						return nil, nil, fmt.Errorf("invalid AV1 configuration: %w", err)
 					}
 
 					// parse sequence header and metadata contained in ConfigOBUs, but do not use them
 					_, err = av1.BitstreamUnmarshal(av1c.ConfigOBUs, false)
 					if err != nil {
-						return nil, nil, fmt.Errorf("invalid AV1 configuration: %v", err)
+						return nil, nil, fmt.Errorf("invalid AV1 configuration: %w", err)
 					}
 
 					videoTrack = &format.AV1{
@@ -287,7 +288,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 					var vpcc mp4.VpcC
 					_, err := mp4.Unmarshal(bytes.NewReader(msg.Config), uint64(len(msg.Config)), &vpcc, mp4.Context{})
 					if err != nil {
-						return nil, nil, fmt.Errorf("invalid VP9 configuration: %v", err)
+						return nil, nil, fmt.Errorf("invalid VP9 configuration: %w", err)
 					}
 
 					videoTrack = &format.VP9{
@@ -464,7 +465,7 @@ func (r *Reader) OnDataAV1(cb OnDataAV1Func) {
 		if msg, ok := msg.(*message.ExtendedCodedFrames); ok {
 			tu, err := av1.BitstreamUnmarshal(msg.Payload, true)
 			if err != nil {
-				return fmt.Errorf("unable to decode bitstream: %v", err)
+				return fmt.Errorf("unable to decode bitstream: %w", err)
 			}
 
 			cb(msg.DTS, tu)
@@ -490,10 +491,10 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 		case *message.Video:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
-				if err == h264.ErrAVCCNoNALUs {
+				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil
 				}
-				return fmt.Errorf("unable to decode AVCC: %v", err)
+				return fmt.Errorf("unable to decode AVCC: %w", err)
 			}
 
 			cb(msg.DTS+msg.PTSDelta, au)
@@ -501,10 +502,10 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 		case *message.ExtendedFramesX:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
-				if err == h264.ErrAVCCNoNALUs {
+				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil
 				}
-				return fmt.Errorf("unable to decode AVCC: %v", err)
+				return fmt.Errorf("unable to decode AVCC: %w", err)
 			}
 
 			cb(msg.DTS, au)
@@ -512,10 +513,10 @@ func (r *Reader) OnDataH265(cb OnDataH26xFunc) {
 		case *message.ExtendedCodedFrames:
 			au, err := h264.AVCCUnmarshal(msg.Payload)
 			if err != nil {
-				if err == h264.ErrAVCCNoNALUs {
+				if errors.Is(err, h264.ErrAVCCNoNALUs) {
 					return nil
 				}
-				return fmt.Errorf("unable to decode AVCC: %v", err)
+				return fmt.Errorf("unable to decode AVCC: %w", err)
 			}
 
 			cb(msg.DTS+msg.PTSDelta, au)
@@ -534,7 +535,7 @@ func (r *Reader) OnDataH264(cb OnDataH26xFunc) {
 				var conf h264conf.Conf
 				err := conf.Unmarshal(msg.Payload)
 				if err != nil {
-					return fmt.Errorf("unable to parse H264 config: %v", err)
+					return fmt.Errorf("unable to parse H264 config: %w", err)
 				}
 
 				au := [][]byte{
@@ -547,10 +548,10 @@ func (r *Reader) OnDataH264(cb OnDataH26xFunc) {
 			case message.VideoTypeAU:
 				au, err := h264.AVCCUnmarshal(msg.Payload)
 				if err != nil {
-					if err == h264.ErrAVCCNoNALUs {
+					if errors.Is(err, h264.ErrAVCCNoNALUs) {
 						return nil
 					}
-					return fmt.Errorf("unable to decode AVCC: %v", err)
+					return fmt.Errorf("unable to decode AVCC: %w", err)
 				}
 
 				cb(msg.DTS+msg.PTSDelta, au)

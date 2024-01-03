@@ -1,6 +1,7 @@
 package formatprocessor //nolint:dupl
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -98,7 +99,8 @@ func (t *formatProcessorMPEG1Audio) ProcessRTPPacket( //nolint:dupl
 
 		frames, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if err == rtpmpeg1audio.ErrNonStartingPacketAndNoPrevious || err == rtpmpeg1audio.ErrMorePacketsNeeded {
+			if errors.Is(err, rtpmpeg1audio.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpmpeg1audio.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err

@@ -311,7 +311,7 @@ func (r *Reader) Read() (*Message, error) {
 
 		msg, err := rc.readMessage(typ)
 		if err != nil {
-			if err == errMoreChunksNeeded {
+			if errors.Is(err, errMoreChunksNeeded) {
 				continue
 			}
 			return nil, err

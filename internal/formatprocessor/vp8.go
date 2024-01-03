@@ -1,6 +1,7 @@
 package formatprocessor //nolint:dupl
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -99,7 +100,8 @@ func (t *formatProcessorVP8) ProcessRTPPacket( //nolint:dupl
 
 		frame, err := t.decoder.Decode(pkt)
 		if err != nil {
-			if err == rtpvp8.ErrNonStartingPacketAndNoPrevious || err == rtpvp8.ErrMorePacketsNeeded {
+			if errors.Is(err, rtpvp8.ErrNonStartingPacketAndNoPrevious) ||
+				errors.Is(err, rtpvp8.ErrMorePacketsNeeded) {
 				return u, nil
 			}
 			return nil, err
