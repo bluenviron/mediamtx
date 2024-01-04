@@ -24,7 +24,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/rlimit"
 )
 
-var version = "v0.0.0"
+var version = "v1.2.1-roger"
 
 var defaultConfPaths = []string{
 	"rtsp-simple-server.yml",

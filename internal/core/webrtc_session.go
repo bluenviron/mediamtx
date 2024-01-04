@@ -44,7 +44,7 @@ func (webrtcTrackWrapper) PTSEqualsDTS(*rtp.Packet) bool {
 
 type setupStreamFunc func(*webrtc.OutgoingTrack) error
 
-func webrtcFindVideoTrack(
+func (s *webRTCSession) webrtcFindVideoTrack(
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 ) (format.Format, setupStreamFunc) {
@@ -189,7 +189,8 @@ func webrtcFindVideoTrack(
 				if !firstReceived {
 					firstReceived = true
 				} else if tunit.PTS < lastPTS {
-					return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
+					//return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
+                    s.Log(logger.Warn, "WebRTC doesn't support H264 streams with B-frames")
 				}
 				lastPTS = tunit.PTS
 
@@ -592,7 +593,7 @@ func (s *webRTCSession) runRead() (int, error) {
 
 	writer := asyncwriter.New(s.writeQueueSize, s)
 
-	videoTrack, videoSetup := webrtcFindVideoTrack(res.stream, writer)
+	videoTrack, videoSetup := s.webrtcFindVideoTrack(res.stream, writer)
 	audioTrack, audioSetup := webrtcFindAudioTrack(res.stream, writer)
 
 	if videoTrack == nil && audioTrack == nil {
