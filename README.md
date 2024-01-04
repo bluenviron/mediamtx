@@ -416,7 +416,7 @@ This web page can be embedded into another web page by using an iframe:
 <iframe src="http://mediamtx-ip:8889/mystream/publish" scrolling="no"></iframe>
 ```
 
-For more advanced setups, you can create and serve a custom web page by starting from the [source code of the publish page](internal/core/servers/webrtc/publish_index.html).
+For more advanced setups, you can create and serve a custom web page by starting from the [source code of the publish page](internal/servers/webrtc/publish_index.html).
 
 ### By device
 
