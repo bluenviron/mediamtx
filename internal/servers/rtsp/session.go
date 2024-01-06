@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -196,11 +197,19 @@ func (s *session) onSetup(c *conn, ctx *gortsplib.ServerHandlerOnSetupCtx,
 			}
 		}
 
+		// Grandstream GXD3500 RTSP Decoder sends corrupt Digest Authentication Headers for SETUP
+		var isGrandstream bool = false
+		userAgent, exists := ctx.Request.Header["User-Agent"]
+		if exists && strings.HasPrefix(userAgent[0], "Grandstream") {
+			isGrandstream = true
+		}
+
 		res := s.pathManager.AddReader(defs.PathAddReaderReq{
 			Author: s,
 			AccessRequest: defs.PathAccessRequest{
 				Name:        ctx.Path,
 				Query:       ctx.Query,
+				SkipAuth:    isGrandstream,
 				IP:          c.ip(),
 				Proto:       defs.AuthProtocolRTSP,
 				ID:          &c.uuid,
