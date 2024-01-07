@@ -37,6 +37,12 @@ type OnDataMPEG4AudioFunc func(pts time.Duration, au []byte)
 // OnDataMPEG1AudioFunc is the prototype of the callback passed to OnDataMPEG1Audio().
 type OnDataMPEG1AudioFunc func(pts time.Duration, frame []byte)
 
+// OnDataG711Func is the prototype of the callback passed to OnDataG711().
+type OnDataG711Func func(pts time.Duration, samples []byte)
+
+// OnDataLPCMFunc is the prototype of the callback passed to OnDataLPCM().
+type OnDataLPCMFunc func(pts time.Duration, samples []byte)
+
 func hasVideo(md flvio.AMFMap) (bool, error) {
 	v, ok := md.GetV("videocodecid")
 	if !ok {
@@ -81,11 +87,25 @@ func hasAudio(md flvio.AMFMap, audioTrack *format.Format) (bool, error) {
 		case 0:
 			return false, nil
 
+		case message.CodecMPEG4Audio, message.CodecLPCM:
+			return true, nil
+
 		case message.CodecMPEG1Audio:
 			*audioTrack = &format.MPEG1Audio{}
 			return true, nil
 
-		case message.CodecMPEG4Audio:
+		case message.CodecPCMA:
+			v, ok := md.GetV("stereo")
+			if ok && v == true {
+				return false, fmt.Errorf("stereo PCMA is not supported")
+			}
+			return true, nil
+
+		case message.CodecPCMU:
+			v, ok := md.GetV("stereo")
+			if ok && v == true {
+				return false, fmt.Errorf("stereo PCMU is not supported")
+			}
 			return true, nil
 		}
 
@@ -95,7 +115,7 @@ func hasAudio(md flvio.AMFMap, audioTrack *format.Format) (bool, error) {
 		}
 	}
 
-	return false, fmt.Errorf("unsupported audio codec %v", v)
+	return false, fmt.Errorf("unsupported audio codec: %v", v)
 }
 
 func h265FindNALU(array []mp4.HEVCNaluArray, typ h265.NALUType) []byte {
@@ -244,6 +264,10 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 			}
 
 		case *message.ExtendedSequenceStart:
+			if !hasVideo {
+				return nil, nil, fmt.Errorf("unexpected video packet")
+			}
+
 			if videoTrack == nil {
 				switch msg.FourCC {
 				case message.FourCCHEVC:
@@ -302,12 +326,46 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 				return nil, nil, fmt.Errorf("unexpected audio packet")
 			}
 
-			if audioTrack == nil &&
-				msg.Codec == message.CodecMPEG4Audio &&
-				msg.AACType == message.AudioAACTypeConfig {
-				audioTrack, err = trackFromAACDecoderConfig(msg.Payload)
-				if err != nil {
-					return nil, nil, err
+			if audioTrack == nil {
+				switch {
+				case msg.Codec == message.CodecMPEG4Audio &&
+					msg.AACType == message.AudioAACTypeConfig:
+					audioTrack, err = trackFromAACDecoderConfig(msg.Payload)
+					if err != nil {
+						return nil, nil, err
+					}
+
+				case msg.Codec == message.CodecPCMA:
+					if msg.Channels == message.ChannelsStereo {
+						return nil, nil, fmt.Errorf("stereo PCMA is not supported")
+					}
+
+					audioTrack = &format.G711{MULaw: false}
+
+				case msg.Codec == message.CodecPCMU:
+					if msg.Channels == message.ChannelsStereo {
+						return nil, nil, fmt.Errorf("stereo PCMU is not supported")
+					}
+
+					audioTrack = &format.G711{MULaw: true}
+
+				case msg.Codec == message.CodecLPCM:
+					audioTrack = &format.LPCM{
+						PayloadTyp: 96,
+						BitDepth: func() int {
+							if msg.Depth == message.Depth16 {
+								return 16
+							}
+							return 8
+						}(),
+						SampleRate: audioRateRTMPToInt(msg.Rate),
+						ChannelCount: func() int {
+							if msg.Channels == message.ChannelsMono {
+								return 1
+							}
+							return 2
+						}(),
+					}
 				}
 			}
 		}
@@ -577,6 +635,41 @@ func (r *Reader) OnDataMPEG1Audio(cb OnDataMPEG1AudioFunc) {
 	r.onDataAudio = func(msg *message.Audio) error {
 		cb(msg.DTS, msg.Payload)
 		return nil
+	}
+}
+
+// OnDataG711 sets a callback that is called when G711 data is received.
+func (r *Reader) OnDataG711(cb OnDataG711Func) {
+	r.onDataAudio = func(msg *message.Audio) error {
+		cb(msg.DTS, msg.Payload)
+		return nil
+	}
+}
+
+// OnDataLPCM sets a callback that is called when LPCM data is received.
+func (r *Reader) OnDataLPCM(cb OnDataLPCMFunc) {
+	bitDepth := r.audioTrack.(*format.LPCM).BitDepth
+
+	if bitDepth == 16 {
+		r.onDataAudio = func(msg *message.Audio) error {
+			le := len(msg.Payload)
+			if le%2 != 0 {
+				return fmt.Errorf("invalid payload length: %d", le)
+			}
+
+			// convert from little endian to big endian
+			for i := 0; i < le; i += 2 {
+				msg.Payload[i], msg.Payload[i+1] = msg.Payload[i+1], msg.Payload[i]
+			}
+
+			cb(msg.DTS, msg.Payload)
+			return nil
+		}
+	} else {
+		r.onDataAudio = func(msg *message.Audio) error {
+			cb(msg.DTS, msg.Payload)
+			return nil
+		}
 	}
 }
 

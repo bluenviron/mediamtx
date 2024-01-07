@@ -13,24 +13,37 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
 )
 
-func mpeg1AudioRate(sr int) uint8 {
-	switch sr {
-	case 5500:
-		return flvio.SOUND_5_5Khz
-	case 11025:
-		return flvio.SOUND_11Khz
-	case 22050:
-		return flvio.SOUND_22Khz
+func audioRateRTMPToInt(v uint8) int {
+	switch v {
+	case message.Rate5512:
+		return 5512
+	case message.Rate11025:
+		return 11025
+	case message.Rate22050:
+		return 22050
 	default:
-		return flvio.SOUND_44Khz
+		return 44100
+	}
+}
+
+func audioRateIntToRTMP(v int) uint8 {
+	switch v {
+	case 5512:
+		return message.Rate5512
+	case 11025:
+		return message.Rate11025
+	case 22050:
+		return message.Rate22050
+	default:
+		return message.Rate44100
 	}
 }
 
 func mpeg1AudioChannels(m mpeg1audio.ChannelMode) uint8 {
 	if m == mpeg1audio.ChannelModeMono {
-		return flvio.SOUND_MONO
+		return message.ChannelsMono
 	}
-	return flvio.SOUND_STEREO
+	return message.ChannelsStereo
 }
 
 // Writer is a wrapper around Conn that provides utilities to mux outgoing data.
@@ -141,9 +154,9 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 			ChunkStreamID:   message.AudioChunkStreamID,
 			MessageStreamID: 0x1000000,
 			Codec:           message.CodecMPEG4Audio,
-			Rate:            flvio.SOUND_44Khz,
-			Depth:           flvio.SOUND_16BIT,
-			Channels:        flvio.SOUND_STEREO,
+			Rate:            message.Rate44100,
+			Depth:           message.Depth16,
+			Channels:        message.ChannelsStereo,
 			AACType:         message.AudioAACTypeConfig,
 			Payload:         enc,
 		})
@@ -180,9 +193,9 @@ func (w *Writer) WriteMPEG4Audio(pts time.Duration, au []byte) error {
 		ChunkStreamID:   message.AudioChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecMPEG4Audio,
-		Rate:            flvio.SOUND_44Khz,
-		Depth:           flvio.SOUND_16BIT,
-		Channels:        flvio.SOUND_STEREO,
+		Rate:            message.Rate44100,
+		Depth:           message.Depth16,
+		Channels:        message.ChannelsStereo,
 		AACType:         message.AudioAACTypeAU,
 		Payload:         au,
 		DTS:             pts,
@@ -195,8 +208,8 @@ func (w *Writer) WriteMPEG1Audio(pts time.Duration, h *mpeg1audio.FrameHeader, f
 		ChunkStreamID:   message.AudioChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecMPEG1Audio,
-		Rate:            mpeg1AudioRate(h.SampleRate),
-		Depth:           flvio.SOUND_16BIT,
+		Rate:            audioRateIntToRTMP(h.SampleRate),
+		Depth:           message.Depth16,
 		Channels:        mpeg1AudioChannels(h.ChannelMode),
 		Payload:         frame,
 		DTS:             pts,
