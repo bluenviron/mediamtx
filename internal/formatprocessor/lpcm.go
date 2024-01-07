@@ -41,6 +41,9 @@ func newLPCM(
 func (t *formatProcessorLPCM) createEncoder() error {
 	t.encoder = &rtplpcm.Encoder{
 		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadType:    t.format.PayloadTyp,
+		BitDepth:       t.format.BitDepth,
+		ChannelCount:   t.format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
@@ -52,13 +55,12 @@ func (t *formatProcessorLPCM) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	if err != nil {
 		return err
 	}
+	u.RTPPackets = pkts
 
 	ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
-	for _, pkt := range pkts {
+	for _, pkt := range u.RTPPackets {
 		pkt.Timestamp += ts
 	}
-
-	u.RTPPackets = pkts
 
 	return nil
 }

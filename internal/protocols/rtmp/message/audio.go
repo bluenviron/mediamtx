@@ -12,10 +12,33 @@ const (
 	AudioChunkStreamID = 4
 )
 
-// supported audio codecs
+// audio codecs
 const (
 	CodecMPEG1Audio = 2
+	CodecLPCM       = 3
+	CodecPCMA       = 7
+	CodecPCMU       = 8
 	CodecMPEG4Audio = 10
+)
+
+// audio rates
+const (
+	Rate5512  = 0
+	Rate11025 = 1
+	Rate22050 = 2
+	Rate44100 = 3
+)
+
+// audio depths
+const (
+	Depth8  = 0
+	Depth16 = 1
+)
+
+// audio channels
+const (
+	ChannelsMono   = 0
+	ChannelsStereo = 1
 )
 
 // AudioAACType is the AAC type of a Audio.
@@ -52,7 +75,7 @@ func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
 
 	m.Codec = raw.Body[0] >> 4
 	switch m.Codec {
-	case CodecMPEG1Audio, CodecMPEG4Audio:
+	case CodecMPEG4Audio, CodecMPEG1Audio, CodecPCMA, CodecPCMU, CodecLPCM:
 	default:
 		return fmt.Errorf("unsupported audio codec: %d", m.Codec)
 	}
@@ -61,9 +84,7 @@ func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
 	m.Depth = (raw.Body[0] >> 1) & 0x01
 	m.Channels = raw.Body[0] & 0x01
 
-	if m.Codec == CodecMPEG1Audio {
-		m.Payload = raw.Body[1:]
-	} else {
+	if m.Codec == CodecMPEG4Audio {
 		m.AACType = AudioAACType(raw.Body[1])
 		switch m.AACType {
 		case AudioAACTypeConfig, AudioAACTypeAU:
@@ -72,6 +93,8 @@ func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
 		}
 
 		m.Payload = raw.Body[2:]
+	} else {
+		m.Payload = raw.Body[1:]
 	}
 
 	return nil
@@ -93,11 +116,11 @@ func (m Audio) Marshal() (*rawmessage.Message, error) {
 
 	body[0] = m.Codec<<4 | m.Rate<<2 | m.Depth<<1 | m.Channels
 
-	if m.Codec == CodecMPEG1Audio {
-		copy(body[1:], m.Payload)
-	} else {
+	if m.Codec == CodecMPEG4Audio {
 		body[1] = uint8(m.AACType)
 		copy(body[2:], m.Payload)
+	} else {
+		copy(body[1:], m.Payload)
 	}
 
 	return &rawmessage.Message{

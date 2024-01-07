@@ -224,13 +224,12 @@ func (t *formatProcessorH264) ProcessUnit(uu unit.Unit) error {
 		if err != nil {
 			return err
 		}
+		u.RTPPackets = pkts
 
 		ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
-		for _, pkt := range pkts {
+		for _, pkt := range u.RTPPackets {
 			pkt.Timestamp += ts
 		}
-
-		u.RTPPackets = pkts
 	}
 
 	return nil
@@ -306,12 +305,11 @@ func (t *formatProcessorH264) ProcessRTPPacket( //nolint:dupl
 		if err != nil {
 			return nil, err
 		}
+		u.RTPPackets = pkts
 
-		for _, newPKT := range pkts {
+		for _, newPKT := range u.RTPPackets {
 			newPKT.Timestamp = pkt.Timestamp
 		}
-
-		u.RTPPackets = pkts
 	}
 
 	return u, nil

@@ -109,7 +109,7 @@ func TestReadTracks(t *testing.T) {
 		messages   []message.Message
 	}{
 		{
-			"video+audio",
+			"h264 + aac",
 			&format.H264{
 				PayloadTyp:        96,
 				SPS:               h264SPS,
@@ -172,9 +172,9 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   message.AudioChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecMPEG4Audio,
-					Rate:            flvio.SOUND_44Khz,
-					Depth:           flvio.SOUND_16BIT,
-					Channels:        flvio.SOUND_STEREO,
+					Rate:            message.Rate44100,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsStereo,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -189,7 +189,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"video",
+			"h264",
 			&format.H264{
 				PayloadTyp:        96,
 				SPS:               h264SPS,
@@ -241,7 +241,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"issue mediamtx/386 (missing metadata), video+audio",
+			"h264 + aac, issue mediamtx/386 (missing metadata)",
 			&format.H264{
 				PayloadTyp:        96,
 				SPS:               h264SPS,
@@ -292,9 +292,9 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   message.AudioChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecMPEG4Audio,
-					Rate:            flvio.SOUND_44Khz,
-					Depth:           flvio.SOUND_16BIT,
-					Channels:        flvio.SOUND_STEREO,
+					Rate:            message.Rate44100,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsStereo,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -309,7 +309,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"issue mediamtx/386 (missing metadata), audio",
+			"aac, issue mediamtx/386 (missing metadata)",
 			nil,
 			&format.MPEG4Audio{
 				PayloadTyp: 96,
@@ -327,9 +327,9 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   message.AudioChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecMPEG4Audio,
-					Rate:            flvio.SOUND_44Khz,
-					Depth:           flvio.SOUND_16BIT,
-					Channels:        flvio.SOUND_STEREO,
+					Rate:            message.Rate44100,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsStereo,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -345,9 +345,9 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   message.AudioChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecMPEG4Audio,
-					Rate:            flvio.SOUND_44Khz,
-					Depth:           flvio.SOUND_16BIT,
-					Channels:        flvio.SOUND_STEREO,
+					Rate:            message.Rate44100,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsStereo,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -363,7 +363,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"obs studio pre 29.1 h265",
+			"h265 + aac, obs studio pre 29.1 h265",
 			&format.H265{
 				PayloadTyp: 96,
 				VPS:        h265VPS,
@@ -428,9 +428,9 @@ func TestReadTracks(t *testing.T) {
 					ChunkStreamID:   message.AudioChunkStreamID,
 					MessageStreamID: 0x1000000,
 					Codec:           message.CodecMPEG4Audio,
-					Rate:            flvio.SOUND_44Khz,
-					Depth:           flvio.SOUND_16BIT,
-					Channels:        flvio.SOUND_STEREO,
+					Rate:            message.Rate44100,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsStereo,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -445,7 +445,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"issue mediamtx/2232 (xsplit broadcaster)",
+			"h265, issue mediamtx/2232 (xsplit broadcaster)",
 			&format.H265{
 				PayloadTyp: 96,
 				VPS:        h265VPS,
@@ -494,7 +494,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"obs 30",
+			"h265, obs 30.0",
 			&format.H265{
 				PayloadTyp: 96,
 				VPS:        h265VPS,
@@ -543,7 +543,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"ffmpeg av1",
+			"av1, ffmpeg",
 			&format.AV1{
 				PayloadTyp: 96,
 			},
@@ -604,7 +604,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"issue mediamtx/2289 (missing videocodecid)",
+			"h264 + aac, issue mediamtx/2289 (missing videocodecid)",
 			&format.H264{
 				PayloadTyp: 96,
 				SPS: []byte{
@@ -680,7 +680,7 @@ func TestReadTracks(t *testing.T) {
 			},
 		},
 		{
-			"issue mediamtx/2352 (missing audio)",
+			"h264, issue mediamtx/2352",
 			&format.H264{
 				PayloadTyp:        96,
 				SPS:               h264SPS,
@@ -759,6 +759,123 @@ func TestReadTracks(t *testing.T) {
 					Payload: []uint8{
 						5,
 					},
+				},
+			},
+		},
+		{
+			"mpeg-1 audio",
+			nil,
+			&format.MPEG1Audio{},
+			[]message.Message{
+				&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{K: "duration", V: 0},
+							{K: "audiocodecid", V: 2},
+							{K: "encoder", V: "Lavf58.45.100"},
+							{K: "filesize", V: 0},
+						},
+					},
+				},
+			},
+		},
+		{
+			"pcma",
+			nil,
+			&format.G711{},
+			[]message.Message{
+				&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{K: "duration", V: 0},
+							{K: "audiocodecid", V: 7},
+							{K: "encoder", V: "Lavf58.45.100"},
+							{K: "filesize", V: 0},
+						},
+					},
+				},
+				&message.Audio{
+					ChunkStreamID:   message.AudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecPCMA,
+					Rate:            message.Rate5512,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsMono,
+					Payload:         []byte{1, 2, 3, 4},
+				},
+			},
+		},
+		{
+			"pcmu",
+			nil,
+			&format.G711{
+				MULaw: true,
+			},
+			[]message.Message{
+				&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{K: "duration", V: 0},
+							{K: "audiocodecid", V: 8},
+							{K: "encoder", V: "Lavf58.45.100"},
+							{K: "filesize", V: 0},
+						},
+					},
+				},
+				&message.Audio{
+					ChunkStreamID:   message.AudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecPCMU,
+					Rate:            message.Rate5512,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsMono,
+					Payload:         []byte{1, 2, 3, 4},
+				},
+			},
+		},
+		{
+			"lpcm gstreamer",
+			nil,
+			&format.LPCM{
+				PayloadTyp:   96,
+				BitDepth:     16,
+				SampleRate:   44100,
+				ChannelCount: 2,
+			},
+			[]message.Message{
+				&message.DataAMF0{
+					ChunkStreamID:   4,
+					MessageStreamID: 1,
+					Payload: []interface{}{
+						"@setDataFrame",
+						"onMetaData",
+						flvio.AMFMap{
+							{K: "duration", V: 0},
+							{K: "audiocodecid", V: 3},
+							{K: "filesize", V: 0},
+						},
+					},
+				},
+				&message.Audio{
+					ChunkStreamID:   message.AudioChunkStreamID,
+					MessageStreamID: 0x1000000,
+					Codec:           message.CodecLPCM,
+					Rate:            message.Rate44100,
+					Depth:           message.Depth16,
+					Channels:        message.ChannelsStereo,
+					Payload:         []byte{1, 2, 3, 4},
 				},
 			},
 		},

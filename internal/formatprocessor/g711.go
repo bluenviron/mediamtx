@@ -41,6 +41,7 @@ func newG711(
 func (t *formatProcessorG711) createEncoder() error {
 	t.encoder = &rtpsimpleaudio.Encoder{
 		PayloadMaxSize: t.udpMaxPayloadSize - 12,
+		PayloadType:    t.format.PayloadType(),
 	}
 	return t.encoder.Init()
 }
@@ -52,11 +53,10 @@ func (t *formatProcessorG711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	if err != nil {
 		return err
 	}
+	u.RTPPackets = []*rtp.Packet{pkt}
 
 	ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
-	pkt.Timestamp += ts
-
-	u.RTPPackets = []*rtp.Packet{pkt}
+	u.RTPPackets[0].Timestamp += ts
 
 	return nil
 }

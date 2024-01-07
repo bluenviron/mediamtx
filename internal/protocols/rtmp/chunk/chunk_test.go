@@ -156,3 +156,31 @@ func TestChunkMarshal(t *testing.T) {
 		})
 	}
 }
+
+func FuzzChunk0Read(f *testing.F) {
+	f.Fuzz(func(t *testing.T, b []byte) {
+		var chunk Chunk0
+		chunk.Read(bytes.NewReader(b), 65536, false) //nolint:errcheck
+	})
+}
+
+func FuzzChunk1Read(f *testing.F) {
+	f.Fuzz(func(t *testing.T, b []byte) {
+		var chunk Chunk1
+		chunk.Read(bytes.NewReader(b), 65536, false) //nolint:errcheck
+	})
+}
+
+func FuzzChunk2Read(f *testing.F) {
+	f.Fuzz(func(t *testing.T, b []byte) {
+		var chunk Chunk2
+		chunk.Read(bytes.NewReader(b), 65536, false) //nolint:errcheck
+	})
+}
+
+func FuzzChunk3Read(f *testing.F) {
+	f.Fuzz(func(t *testing.T, b []byte) {
+		var chunk Chunk3
+		chunk.Read(bytes.NewReader(b), 65536, true) //nolint:errcheck
+	})
+}

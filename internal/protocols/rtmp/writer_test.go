@@ -89,9 +89,9 @@ func TestWriteTracks(t *testing.T) {
 		ChunkStreamID:   message.AudioChunkStreamID,
 		MessageStreamID: 0x1000000,
 		Codec:           message.CodecMPEG4Audio,
-		Rate:            flvio.SOUND_44Khz,
-		Depth:           flvio.SOUND_16BIT,
-		Channels:        flvio.SOUND_STEREO,
+		Rate:            message.Rate44100,
+		Depth:           message.Depth16,
+		Channels:        message.ChannelsStereo,
 		AACType:         message.AudioAACTypeConfig,
 		Payload:         []byte{0x12, 0x10},
 	}, msg)

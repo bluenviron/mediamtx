@@ -524,6 +524,28 @@ func (c *conn) runPublish(conn *rtmp.Conn, u *url.URL) error {
 				})
 			})
 
+		case *format.G711:
+			r.OnDataG711(func(pts time.Duration, samples []byte) {
+				stream.WriteUnit(audioMedia, audioFormat, &unit.G711{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: pts,
+					},
+					Samples: samples,
+				})
+			})
+
+		case *format.LPCM:
+			r.OnDataLPCM(func(pts time.Duration, samples []byte) {
+				stream.WriteUnit(audioMedia, audioFormat, &unit.LPCM{
+					Base: unit.Base{
+						NTP: time.Now(),
+						PTS: pts,
+					},
+					Samples: samples,
+				})
+			})
+
 		default:
 			return fmt.Errorf("unsupported audio codec: %T", audioFormat)
 		}
