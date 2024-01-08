@@ -1039,7 +1039,9 @@ pathDefaults:
   readPass: userpass
 ```
 
-If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed strings; a string must be hashed with sha256 and encoded with base64:
+If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. SHA256 and Argon2 are supported.
+
+**To use sha256**, the string must be hashed with sha256 and encoded with base64:
 
 ```
 echo -n "userpass" | openssl dgst -binary -sha256 | openssl base64
@@ -1051,6 +1053,13 @@ Then stored with the `sha256:` prefix:
 pathDefaults:
   readUser: sha256:j1tsRqDEw9xvq/D7/9tMx6Jh/jMhk3UfjwIB2f1zgMo=
   readPass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
+```
+
+**To use Argon2**, the string must be hashed using Argon2id (recommended) or Argon2i, then stored with the `argon2:` prefix:
+```yml
+pathDefaults:
+  readUser: argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$OGGO0eCMN0ievb4YGSzvS/H+Vajx1pcbUmtLp2tRqRU
+  readPass: argon2:$argon2i$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$oct3kOiFywTdDdt19kT07hdvmsPTvt9zxAUho2DLqZw
 ```
 
 **WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials in transit.

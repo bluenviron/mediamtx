@@ -2,13 +2,10 @@ package core
 
 import (
 	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
@@ -17,20 +14,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 )
-
-func sha256Base64(in string) string {
-	h := sha256.New()
-	h.Write([]byte(in))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
-
-func checkCredential(right string, guess string) bool {
-	if strings.HasPrefix(right, "sha256:") {
-		return right[len("sha256:"):] == sha256Base64(guess)
-	}
-
-	return right == guess
-}
 
 func doExternalAuthentication(
 	ur string,
@@ -102,17 +85,17 @@ func doAuthentication(
 	}
 
 	var pathIPs conf.IPsOrCIDRs
-	var pathUser string
-	var pathPass string
+	var pathUser conf.Credential
+	var pathPass conf.Credential
 
 	if accessRequest.Publish {
 		pathIPs = pathConf.PublishIPs
-		pathUser = string(pathConf.PublishUser)
-		pathPass = string(pathConf.PublishPass)
+		pathUser = pathConf.PublishUser
+		pathPass = pathConf.PublishPass
 	} else {
 		pathIPs = pathConf.ReadIPs
-		pathUser = string(pathConf.ReadUser)
-		pathPass = string(pathConf.ReadPass)
+		pathUser = pathConf.ReadUser
+		pathPass = pathConf.ReadPass
 	}
 
 	if pathIPs != nil {
@@ -121,12 +104,12 @@ func doAuthentication(
 		}
 	}
 
-	if pathUser != "" {
+	if !pathUser.IsEmpty() {
 		if accessRequest.RTSPRequest != nil && rtspAuth.Method == headers.AuthDigest {
 			err := auth.Validate(
 				accessRequest.RTSPRequest,
-				pathUser,
-				pathPass,
+				pathUser.GetValue(),
+				pathPass.GetValue(),
 				accessRequest.RTSPBaseURL,
 				rtspAuthMethods,
 				"IPCAM",
@@ -134,8 +117,7 @@ func doAuthentication(
 			if err != nil {
 				return defs.AuthenticationError{Message: err.Error()}
 			}
-		} else if !checkCredential(pathUser, accessRequest.User) ||
-			!checkCredential(pathPass, accessRequest.Pass) {
+		} else if !pathUser.Check(accessRequest.User) || !pathPass.Check(accessRequest.Pass) {
 			return defs.AuthenticationError{Message: "invalid credentials"}
 		}
 	}
