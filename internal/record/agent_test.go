@@ -56,13 +56,19 @@ func TestAgent(t *testing.T) {
 		{
 			Type: description.MediaTypeAudio,
 			Formats: []rtspformat.Format{&rtspformat.G711{
-				MULaw: false,
+				PayloadTyp:   8,
+				MULaw:        false,
+				SampleRate:   8000,
+				ChannelCount: 1,
 			}},
 		},
 		{
 			Type: description.MediaTypeAudio,
 			Formats: []rtspformat.Format{&rtspformat.G711{
-				MULaw: true,
+				PayloadTyp:   0,
+				MULaw:        true,
+				SampleRate:   8000,
+				ChannelCount: 1,
 			}},
 		},
 	}}

@@ -775,8 +775,8 @@ func (f *formatFMP4) initialize() {
 				codec := &fmp4.CodecLPCM{
 					LittleEndian: false,
 					BitDepth:     16,
-					SampleRate:   8000,
-					ChannelCount: 1,
+					SampleRate:   forma.SampleRate,
+					ChannelCount: forma.ChannelCount,
 				}
 				track := addTrack(codec)
 

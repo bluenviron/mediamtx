@@ -12,7 +12,10 @@ import (
 func TestG611Encode(t *testing.T) {
 	t.Run("alaw", func(t *testing.T) {
 		forma := &format.G711{
-			MULaw: false,
+			PayloadTyp:   8,
+			MULaw:        false,
+			SampleRate:   8000,
+			ChannelCount: 1,
 		}
 
 		p, err := New(1472, forma, true)
@@ -37,7 +40,10 @@ func TestG611Encode(t *testing.T) {
 
 	t.Run("mulaw", func(t *testing.T) {
 		forma := &format.G711{
-			MULaw: true,
+			PayloadTyp:   0,
+			MULaw:        true,
+			SampleRate:   8000,
+			ChannelCount: 1,
 		}
 
 		p, err := New(1472, forma, true)

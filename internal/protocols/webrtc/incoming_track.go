@@ -80,12 +80,18 @@ func newIncomingTrack(
 
 	case strings.ToLower(webrtc.MimeTypePCMU):
 		t.format = &format.G711{
-			MULaw: true,
+			PayloadTyp:   0,
+			MULaw:        true,
+			SampleRate:   8000,
+			ChannelCount: 1,
 		}
 
 	case strings.ToLower(webrtc.MimeTypePCMA):
 		t.format = &format.G711{
-			MULaw: false,
+			PayloadTyp:   8,
+			MULaw:        false,
+			SampleRate:   8000,
+			ChannelCount: 1,
 		}
 
 	default:

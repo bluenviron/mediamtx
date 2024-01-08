@@ -95,17 +95,9 @@ func hasAudio(md flvio.AMFMap, audioTrack *format.Format) (bool, error) {
 			return true, nil
 
 		case message.CodecPCMA:
-			v, ok := md.GetV("stereo")
-			if ok && v == true {
-				return false, fmt.Errorf("stereo PCMA is not supported")
-			}
 			return true, nil
 
 		case message.CodecPCMU:
-			v, ok := md.GetV("stereo")
-			if ok && v == true {
-				return false, fmt.Errorf("stereo PCMU is not supported")
-			}
 			return true, nil
 		}
 
@@ -336,18 +328,30 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 					}
 
 				case msg.Codec == message.CodecPCMA:
-					if msg.Channels == message.ChannelsStereo {
-						return nil, nil, fmt.Errorf("stereo PCMA is not supported")
+					audioTrack = &format.G711{
+						PayloadTyp: 8,
+						MULaw:      false,
+						SampleRate: 8000,
+						ChannelCount: func() int {
+							if msg.Channels == message.ChannelsStereo {
+								return 2
+							}
+							return 1
+						}(),
 					}
-
-					audioTrack = &format.G711{MULaw: false}
 
 				case msg.Codec == message.CodecPCMU:
-					if msg.Channels == message.ChannelsStereo {
-						return nil, nil, fmt.Errorf("stereo PCMU is not supported")
+					audioTrack = &format.G711{
+						PayloadTyp: 0,
+						MULaw:      true,
+						SampleRate: 8000,
+						ChannelCount: func() int {
+							if msg.Channels == message.ChannelsStereo {
+								return 2
+							}
+							return 1
+						}(),
 					}
-
-					audioTrack = &format.G711{MULaw: true}
 
 				case msg.Codec == message.CodecLPCM:
 					audioTrack = &format.LPCM{
