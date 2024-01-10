@@ -168,7 +168,7 @@ func TestHLSRead(t *testing.T) {
 		"#EXT-X-INDEPENDENT-SEGMENTS\n"+
 		"\n"+
 		"#EXT-X-STREAM-INF:BANDWIDTH=1192,AVERAGE-BANDWIDTH=1192,"+
-		"CODECS=\"avc1.42c028\",RESOLUTION=1920x1084,FRAME-RATE=30.000\n"+
+		"CODECS=\"avc1.42c028\",RESOLUTION=1920x1080,FRAME-RATE=30.000\n"+
 		"stream.m3u8\n", string(cnt))
 
 	cnt = httpPullFile(t, hc, "http://localhost:8888/stream/stream.m3u8")
