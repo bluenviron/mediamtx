@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -186,6 +187,8 @@ func (a *API) Initialize() error {
 
 	group.GET("/v3/paths/list", a.onPathsList)
 	group.GET("/v3/paths/get/*name", a.onPathsGet)
+
+	group.GET("/v3/recordings/list", a.onListRecordings)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/v3/hlsmuxers/list", a.onHLSMuxersList)
@@ -967,6 +970,21 @@ func (a *API) onSRTConnsKick(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+}
+
+func (a *API) onListRecordings(ctx *gin.Context) {
+	files, err := os.ReadDir(a.Conf.PathDefaults.RecordPath)
+	if err != nil {
+		a.writeError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	var fileNames []string
+	for _, f := range files {
+		fileNames = append(fileNames, f.Name())
+	}
+
+	ctx.JSON(http.StatusOK, fileNames)
 }
 
 // ReloadConf is called by core.
