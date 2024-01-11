@@ -191,6 +191,9 @@ func (a *API) Initialize() error {
 	group.GET("/v3/paths/get/*name", a.onPathsGet)
 
 	group.GET("/v3/recordings/list", a.onListRecordings)
+	// using a PUT instead of a DELETE because DELETE should not have a body
+	// but this endpoint should accept a filename / filepath that needs to be passed in a body
+	group.PUT("/v3/recordings/delete", a.onDeleteRecording)
 
 	if !interfaceIsEmpty(a.HLSServer) {
 		group.GET("/v3/hlsmuxers/list", a.onHLSMuxersList)
@@ -975,6 +978,7 @@ func (a *API) onSRTConnsKick(ctx *gin.Context) {
 }
 
 func (a *API) onListRecordings(ctx *gin.Context) {
+	// TODO: move this subprocedure to dedicated function
 	// get the path until the first parametrized part
 	// ./recordings/stream-%path/%Y --> ./recordings
 	var parts []string = strings.Split(a.Conf.PathDefaults.RecordPath, "/")
@@ -1007,6 +1011,44 @@ func (a *API) onListRecordings(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, fileNames)
+}
+
+func (a *API) onDeleteRecording(ctx *gin.Context) {
+	type DeleteRequest struct {
+		FilePath string
+	}
+	var partialRecordingPath DeleteRequest
+	err := json.NewDecoder(ctx.Request.Body).Decode(&partialRecordingPath)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	// get the path until the first parametrized part
+	// ./recordings/stream-%path/%Y --> ./recordings
+	// TODO: see onListRecording2
+	// TODO: sanitize the receieved path
+	var parts []string = strings.Split(a.Conf.PathDefaults.RecordPath, "/")
+	var recordingsRoot string
+	var recordingsRootParts []string
+
+	for _, part := range parts {
+		if strings.Contains(part, "%") {
+			break
+		}
+		recordingsRootParts = append(recordingsRootParts, part)
+	}
+
+	recordingsRoot = strings.Join(recordingsRootParts, "/")
+
+	finalRecordingPath := filepath.Join(recordingsRoot, partialRecordingPath.FilePath)
+	err = os.Remove(finalRecordingPath)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx.Status(http.StatusOK)
 }
 
 // ReloadConf is called by core.
