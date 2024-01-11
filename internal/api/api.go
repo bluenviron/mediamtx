@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -973,15 +975,35 @@ func (a *API) onSRTConnsKick(ctx *gin.Context) {
 }
 
 func (a *API) onListRecordings(ctx *gin.Context) {
-	files, err := os.ReadDir(a.Conf.PathDefaults.RecordPath)
+	// get the path until the first parametrized part
+	// ./recordings/stream-%path/%Y --> ./recordings
+	var parts []string = strings.Split(a.Conf.PathDefaults.RecordPath, "/")
+	var recordingsRoot string
+	var recordingsRootParts []string
+
+	for _, part := range parts {
+		if strings.Contains(part, "%") {
+			break
+		}
+		recordingsRootParts = append(recordingsRootParts, part)
+	}
+
+	recordingsRoot = strings.Join(recordingsRootParts, "/")
+
+	var fileNames []string
+	err := filepath.WalkDir(recordingsRoot, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			fileNames = append(fileNames, path)
+		}
+		return nil
+	})
+
 	if err != nil {
 		a.writeError(ctx, http.StatusInternalServerError, err)
 		return
-	}
-
-	var fileNames []string
-	for _, f := range files {
-		fileNames = append(fileNames, f.Name())
 	}
 
 	ctx.JSON(http.StatusOK, fileNames)
