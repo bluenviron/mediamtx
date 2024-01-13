@@ -56,8 +56,8 @@ func TestCredential(t *testing.T) {
 		assert.True(t, cred.IsSha256())
 		assert.True(t, cred.IsHashed())
 
-		//nolint:lll
-		cred.value = "argon2:$argon2id$v=19$m=65536,t=1,p=4$WXJGqwIB2qd+pRmxMOw9Dg$X4gvR0ZB2DtQoN8vOnJPR2SeFdUhH9TyVzfV98sfWeE"
+		cred.value = "argon2:$argon2id$v=19$m=65536,t=1," +
+			"p=4$WXJGqwIB2qd+pRmxMOw9Dg$X4gvR0ZB2DtQoN8vOnJPR2SeFdUhH9TyVzfV98sfWeE"
 		assert.False(t, cred.IsSha256())
 		assert.True(t, cred.IsHashed())
 	})
@@ -71,8 +71,8 @@ func TestCredential(t *testing.T) {
 		assert.False(t, cred.IsArgon2())
 		assert.True(t, cred.IsHashed())
 
-		//nolint:lll
-		cred.value = "argon2:$argon2id$v=19$m=65536,t=1,p=4$WXJGqwIB2qd+pRmxMOw9Dg$X4gvR0ZB2DtQoN8vOnJPR2SeFdUhH9TyVzfV98sfWeE"
+		cred.value = "argon2:$argon2id$v=19$m=65536,t=1," +
+			"p=4$WXJGqwIB2qd+pRmxMOw9Dg$X4gvR0ZB2DtQoN8vOnJPR2SeFdUhH9TyVzfV98sfWeE"
 		assert.True(t, cred.IsArgon2())
 		assert.True(t, cred.IsHashed())
 	})
@@ -96,8 +96,8 @@ func TestCredential(t *testing.T) {
 	})
 
 	t.Run("Check-argon2", func(t *testing.T) {
-		//nolint:lll
-		cred := Credential{value: "argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$Ux/LWeTgJQPyfMMJo1myR64+o8rALHoPmlE1i/TR+58"}
+		cred := Credential{value: "argon2:$argon2id$v=19$m=4096,t=3," +
+			"p=1$MTIzNDU2Nzg$Ux/LWeTgJQPyfMMJo1myR64+o8rALHoPmlE1i/TR+58"}
 		assert.True(t, cred.Check("testuser"))
 		assert.False(t, cred.Check("notestuser"))
 	})
@@ -135,8 +135,8 @@ func TestCredential(t *testing.T) {
 			},
 			{
 				name: "Valid Argon2 credential",
-				//nolint:lll
-				cred:    &Credential{value: "argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$zarsL19s86GzUWlAkvwt4gJBFuU/A9CVuCjNI4fksow"},
+				cred: &Credential{value: "argon2:$argon2id$v=19$m=4096," +
+					"t=3,p=1$MTIzNDU2Nzg$zarsL19s86GzUWlAkvwt4gJBFuU/A9CVuCjNI4fksow"},
 				wantErr: false,
 			},
 			{
@@ -147,8 +147,8 @@ func TestCredential(t *testing.T) {
 			{
 				name: "Invalid Argon2 credential",
 				// testing argon2d errors, because it's not supported
-				//nolint:lll
-				cred:    &Credential{value: "$argon2d$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$Xqyd4R7LzXvvAEHaVU12+Nzf5OkHoYcwIEIIYJUDpz0"},
+				cred: &Credential{value: "$argon2d$v=19$m=4096,t=3," +
+					"p=1$MTIzNDU2Nzg$Xqyd4R7LzXvvAEHaVU12+Nzf5OkHoYcwIEIIYJUDpz0"},
 				wantErr: true,
 			},
 		}

@@ -84,6 +84,8 @@ func (d *Credential) Check(guess string) bool {
 		return d.value[len("sha256:"):] == sha256Base64(guess)
 	}
 	if d.IsArgon2() {
+		// TODO: remove matthewhartstonge/argon2 when this PR gets merged into mainline Go:
+		// https://go-review.googlesource.com/c/crypto/+/502515
 		ok, err := argon2.VerifyEncoded([]byte(guess), []byte(d.value[len("argon2:"):]))
 		return ok && err == nil
 	}
@@ -106,6 +108,8 @@ func (d *Credential) validateConfig() error {
 			return fmt.Errorf("credential contains unsupported characters, sha256 hash must be base64 encoded")
 		}
 	case d.IsArgon2():
+		// TODO: remove matthewhartstonge/argon2 when this PR gets merged into mainline Go:
+		// https://go-review.googlesource.com/c/crypto/+/502515
 		_, err := argon2.Decode([]byte(d.value[len("argon2:"):]))
 		if err != nil {
 			return fmt.Errorf("invalid argon2 hash: %w", err)

@@ -112,7 +112,7 @@ func TestRTSPServerAuthHashedSHA256(t *testing.T) {
 	defer source.Close()
 }
 
-func TestRTSPServerAuthHashedAron2(t *testing.T) {
+func TestRTSPServerAuthHashedArgon2(t *testing.T) {
 	p, ok := newInstance(
 		"rtmp: no\n" +
 			"hls: no\n" +
