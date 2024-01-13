@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpsimpleaudio"
+	"github.com/bluenviron/gortsplib/v4/pkg/format/rtplpcm"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -14,8 +14,8 @@ import (
 type formatProcessorG711 struct {
 	udpMaxPayloadSize int
 	format            *format.G711
-	encoder           *rtpsimpleaudio.Encoder
-	decoder           *rtpsimpleaudio.Decoder
+	encoder           *rtplpcm.Encoder
+	decoder           *rtplpcm.Decoder
 }
 
 func newG711(
@@ -39,9 +39,11 @@ func newG711(
 }
 
 func (t *formatProcessorG711) createEncoder() error {
-	t.encoder = &rtpsimpleaudio.Encoder{
+	t.encoder = &rtplpcm.Encoder{
 		PayloadMaxSize: t.udpMaxPayloadSize - 12,
 		PayloadType:    t.format.PayloadType(),
+		BitDepth:       8,
+		ChannelCount:   t.format.ChannelCount,
 	}
 	return t.encoder.Init()
 }
@@ -49,14 +51,16 @@ func (t *formatProcessorG711) createEncoder() error {
 func (t *formatProcessorG711) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 	u := uu.(*unit.G711)
 
-	pkt, err := t.encoder.Encode(u.Samples)
+	pkts, err := t.encoder.Encode(u.Samples)
 	if err != nil {
 		return err
 	}
-	u.RTPPackets = []*rtp.Packet{pkt}
+	u.RTPPackets = pkts
 
 	ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
-	u.RTPPackets[0].Timestamp += ts
+	for _, pkt := range u.RTPPackets {
+		pkt.Timestamp += ts
+	}
 
 	return nil
 }

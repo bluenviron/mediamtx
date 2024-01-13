@@ -786,7 +786,12 @@ func TestReadTracks(t *testing.T) {
 		{
 			"pcma",
 			nil,
-			&format.G711{},
+			&format.G711{
+				PayloadTyp:   8,
+				MULaw:        false,
+				SampleRate:   8000,
+				ChannelCount: 1,
+			},
 			[]message.Message{
 				&message.DataAMF0{
 					ChunkStreamID:   4,
@@ -817,7 +822,10 @@ func TestReadTracks(t *testing.T) {
 			"pcmu",
 			nil,
 			&format.G711{
-				MULaw: true,
+				PayloadTyp:   0,
+				MULaw:        true,
+				SampleRate:   8000,
+				ChannelCount: 1,
 			},
 			[]message.Message{
 				&message.DataAMF0{
