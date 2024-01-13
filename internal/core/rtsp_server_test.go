@@ -89,7 +89,7 @@ func TestRTSPServer(t *testing.T) {
 	}
 }
 
-func TestRTSPServerAuthHashed(t *testing.T) {
+func TestRTSPServerAuthHashedSHA256(t *testing.T) {
 	p, ok := newInstance(
 		"rtmp: no\n" +
 			"hls: no\n" +
@@ -98,6 +98,29 @@ func TestRTSPServerAuthHashed(t *testing.T) {
 			"  all_others:\n" +
 			"    publishUser: sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ=\n" +
 			"    publishPass: sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w=\n")
+	require.Equal(t, true, ok)
+	defer p.Close()
+
+	medi := testMediaH264
+
+	source := gortsplib.Client{}
+
+	err := source.StartRecording(
+		"rtsp://testuser:testpass@127.0.0.1:8554/test/stream",
+		&description.Session{Medias: []*description.Media{medi}})
+	require.NoError(t, err)
+	defer source.Close()
+}
+
+func TestRTSPServerAuthHashedArgon2(t *testing.T) {
+	p, ok := newInstance(
+		"rtmp: no\n" +
+			"hls: no\n" +
+			"webrtc: no\n" +
+			"paths:\n" +
+			"  all_others:\n" +
+			"    publishUser: argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$Ux/LWeTgJQPyfMMJo1myR64+o8rALHoPmlE1i/TR+58\n" +
+			"    publishPass: argon2:$argon2i$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$/mrZ42TiTv1mcPnpMUera5oi0SFYbbyueAbdx5sUvWo\n")
 	require.Equal(t, true, ok)
 	defer p.Close()
 

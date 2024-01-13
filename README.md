@@ -1035,14 +1035,30 @@ It's possible to setup authentication for readers too:
 
 ```yml
 pathDefaults:
-  readUser: user
-  readPass: userpass
+  readUser: myuser
+  readPass: mypass
 ```
 
-If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as sha256-hashed strings; a string must be hashed with sha256 and encoded with base64:
+If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported.
+
+To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
 
 ```
-echo -n "userpass" | openssl dgst -binary -sha256 | openssl base64
+echo -n "mypass" | argon2 saltItWithSalt -id -l 32 -e
+```
+
+Then stored with the `argon2:` prefix:
+
+```yml
+pathDefaults:
+  readUser: argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$OGGO0eCMN0ievb4YGSzvS/H+Vajx1pcbUmtLp2tRqRU
+  readPass: argon2:$argon2i$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$oct3kOiFywTdDdt19kT07hdvmsPTvt9zxAUho2DLqZw
+```
+
+To use SHA256, the string must be hashed with SHA256 and encoded with base64:
+
+```
+echo -n "mypass" | openssl dgst -binary -sha256 | openssl base64
 ```
 
 Then stored with the `sha256:` prefix:

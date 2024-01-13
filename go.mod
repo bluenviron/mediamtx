@@ -17,6 +17,7 @@ require (
 	github.com/gookit/color v1.5.4
 	github.com/gorilla/websocket v1.5.1
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+	github.com/matthewhartstonge/argon2 v1.0.0
 	github.com/notedit/rtmp v0.0.2
 	github.com/pion/ice/v2 v2.3.11
 	github.com/pion/interceptor v0.1.25

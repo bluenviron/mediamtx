@@ -318,19 +318,19 @@ pathDefaults:
   # Default path settings -> Authentication
 
   # Username required to publish.
-  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
   publishUser:
   # Password required to publish.
-  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
   publishPass:
   # IPs or networks (x.x.x.x/24) allowed to publish.
   publishIPs: []
 
   # Username required to read.
-  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
   readUser:
   # password required to read.
-  # SHA256-hashed values can be inserted with the "sha256:" prefix.
+  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
   readPass:
   # IPs or networks (x.x.x.x/24) allowed to read.
   readIPs: []

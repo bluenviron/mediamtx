@@ -339,11 +339,11 @@ func (pconf *Path) check(conf *Conf, name string) error {
 
 	// Authentication
 
-	if (pconf.PublishUser != "" && pconf.PublishPass == "") ||
-		(pconf.PublishUser == "" && pconf.PublishPass != "") {
+	if (!pconf.PublishUser.IsEmpty() && pconf.PublishPass.IsEmpty()) ||
+		(pconf.PublishUser.IsEmpty() && !pconf.PublishPass.IsEmpty()) {
 		return fmt.Errorf("read username and password must be both filled")
 	}
-	if pconf.PublishUser != "" && pconf.Source != "publisher" {
+	if !pconf.PublishUser.IsEmpty() && pconf.Source != "publisher" {
 		return fmt.Errorf("'publishUser' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
@@ -351,22 +351,22 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
-	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
-		(pconf.ReadUser == "" && pconf.ReadPass != "") {
+	if (!pconf.ReadUser.IsEmpty() && pconf.ReadPass.IsEmpty()) ||
+		(pconf.ReadUser.IsEmpty() && !pconf.ReadPass.IsEmpty()) {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 	if contains(conf.AuthMethods, headers.AuthDigest) {
-		if strings.HasPrefix(string(pconf.PublishUser), "sha256:") ||
-			strings.HasPrefix(string(pconf.PublishPass), "sha256:") ||
-			strings.HasPrefix(string(pconf.ReadUser), "sha256:") ||
-			strings.HasPrefix(string(pconf.ReadPass), "sha256:") {
+		if pconf.PublishUser.IsHashed() ||
+			pconf.PublishPass.IsHashed() ||
+			pconf.ReadUser.IsHashed() ||
+			pconf.ReadPass.IsHashed() {
 			return fmt.Errorf("hashed credentials can't be used when the digest auth method is available")
 		}
 	}
 	if conf.ExternalAuthenticationURL != "" {
-		if pconf.PublishUser != "" ||
+		if !pconf.PublishUser.IsEmpty() ||
 			len(pconf.PublishIPs) > 0 ||
-			pconf.ReadUser != "" ||
+			!pconf.ReadUser.IsEmpty() ||
 			len(pconf.ReadIPs) > 0 {
 			return fmt.Errorf("credentials or IPs can't be used together with 'externalAuthenticationURL'")
 		}
