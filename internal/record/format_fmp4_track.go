@@ -11,16 +11,6 @@ type formatFMP4Track struct {
 	nextSample *sample
 }
 
-func newFormatFMP4Track(
-	f *formatFMP4,
-	initTrack *fmp4.InitTrack,
-) *formatFMP4Track {
-	return &formatFMP4Track{
-		f:         f,
-		initTrack: initTrack,
-	}
-}
-
 func (t *formatFMP4Track) record(sample *sample) error {
 	// wait the first video sample before setting hasVideo
 	if t.initTrack.Codec.IsVideo() {

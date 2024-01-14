@@ -13,7 +13,6 @@ import (
 
 	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gohlslib/pkg/codecs"
-	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/gin-gonic/gin"
 
@@ -232,19 +231,10 @@ func (m *muxer) runInner(innerCtx context.Context, innerReady chan struct{}) err
 
 	defer res.Stream.RemoveReader(m.writer)
 
-	var medias []*description.Media
+	videoTrack := m.createVideoTrack(res.Stream)
+	audioTrack := m.createAudioTrack(res.Stream)
 
-	videoMedia, videoTrack := m.createVideoTrack(res.Stream)
-	if videoMedia != nil {
-		medias = append(medias, videoMedia)
-	}
-
-	audioMedia, audioTrack := m.createAudioTrack(res.Stream)
-	if audioMedia != nil {
-		medias = append(medias, audioMedia)
-	}
-
-	if medias == nil {
+	if videoTrack == nil && audioTrack == nil {
 		return fmt.Errorf(
 			"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
 	}
@@ -276,7 +266,7 @@ func (m *muxer) runInner(innerCtx context.Context, innerReady chan struct{}) err
 	innerReady <- struct{}{}
 
 	m.Log(logger.Info, "is converting into HLS, %s",
-		defs.MediasInfo(medias))
+		defs.FormatsInfo(res.Stream.FormatsForReader(m.writer)))
 
 	m.writer.Start()
 
@@ -304,7 +294,7 @@ func (m *muxer) runInner(innerCtx context.Context, innerReady chan struct{}) err
 	}
 }
 
-func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *gohlslib.Track) {
+func (m *muxer) createVideoTrack(stream *stream.Stream) *gohlslib.Track {
 	var videoFormatAV1 *format.AV1
 	videoMedia := stream.Desc().FindFormat(&videoFormatAV1)
 
@@ -324,7 +314,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 			return nil
 		})
 
-		return videoMedia, &gohlslib.Track{
+		return &gohlslib.Track{
 			Codec: &codecs.AV1{},
 		}
 	}
@@ -348,7 +338,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 			return nil
 		})
 
-		return videoMedia, &gohlslib.Track{
+		return &gohlslib.Track{
 			Codec: &codecs.VP9{},
 		}
 	}
@@ -374,7 +364,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 
 		vps, sps, pps := videoFormatH265.SafeParams()
 
-		return videoMedia, &gohlslib.Track{
+		return &gohlslib.Track{
 			Codec: &codecs.H265{
 				VPS: vps,
 				SPS: sps,
@@ -404,7 +394,7 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 
 		sps, pps := videoFormatH264.SafeParams()
 
-		return videoMedia, &gohlslib.Track{
+		return &gohlslib.Track{
 			Codec: &codecs.H264{
 				SPS: sps,
 				PPS: pps,
@@ -412,10 +402,10 @@ func (m *muxer) createVideoTrack(stream *stream.Stream) (*description.Media, *go
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
-func (m *muxer) createAudioTrack(stream *stream.Stream) (*description.Media, *gohlslib.Track) {
+func (m *muxer) createAudioTrack(stream *stream.Stream) *gohlslib.Track {
 	var audioFormatOpus *format.Opus
 	audioMedia := stream.Desc().FindFormat(&audioFormatOpus)
 
@@ -434,7 +424,7 @@ func (m *muxer) createAudioTrack(stream *stream.Stream) (*description.Media, *go
 			return nil
 		})
 
-		return audioMedia, &gohlslib.Track{
+		return &gohlslib.Track{
 			Codec: &codecs.Opus{
 				ChannelCount: func() int {
 					if audioFormatOpus.IsStereo {
@@ -468,14 +458,14 @@ func (m *muxer) createAudioTrack(stream *stream.Stream) (*description.Media, *go
 			return nil
 		})
 
-		return audioMedia, &gohlslib.Track{
+		return &gohlslib.Track{
 			Codec: &codecs.MPEG4Audio{
 				Config: *audioFormatMPEG4Audio.GetConfig(),
 			},
 		}
 	}
 
-	return nil, nil
+	return nil
 }
 
 func (m *muxer) handleRequest(ctx *gin.Context) {

@@ -136,23 +136,22 @@ func (s *Stream) RemoveReader(r *asyncwriter.Writer) {
 	}
 }
 
-// MediasForReader returns all medias that a reader is reading.
-func (s *Stream) MediasForReader(r *asyncwriter.Writer) []*description.Media {
+// FormatsForReader returns all formats that a reader is reading.
+func (s *Stream) FormatsForReader(r *asyncwriter.Writer) []format.Format {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	var medias []*description.Media
+	var formats []format.Format
 
-	for media, sm := range s.smedias {
-		for _, sf := range sm.formats {
+	for _, sm := range s.smedias {
+		for forma, sf := range sm.formats {
 			if _, ok := sf.readers[r]; ok {
-				medias = append(medias, media)
-				break
+				formats = append(formats, forma)
 			}
 		}
 	}
 
-	return medias
+	return formats
 }
 
 // WriteUnit writes a Unit.
