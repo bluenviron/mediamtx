@@ -32,7 +32,7 @@ func TestCleaner(t *testing.T) {
 
 	c := &Cleaner{
 		Entries: []CleanerEntry{{
-			PathFormat:  filepath.Join(dir, specialChars+"_%path/%Y-%m-%d_%H-%M-%S-%f"),
+			Path:        filepath.Join(dir, specialChars+"_%path/%Y-%m-%d_%H-%M-%S-%f"),
 			Format:      conf.RecordFormatFMP4,
 			DeleteAfter: 10 * time.Second,
 		}},

@@ -22,6 +22,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/metrics"
+	"github.com/bluenviron/mediamtx/internal/playback"
 	"github.com/bluenviron/mediamtx/internal/pprof"
 	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/rlimit"
@@ -48,7 +49,7 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	for _, pa := range paths {
 		if pa.Record && pa.RecordDeleteAfter != 0 {
 			entry := record.CleanerEntry{
-				PathFormat:  pa.RecordPath,
+				Path:        pa.RecordPath,
 				Format:      pa.RecordFormat,
 				DeleteAfter: time.Duration(pa.RecordDeleteAfter),
 			}
@@ -65,8 +66,8 @@ func gatherCleanerEntries(paths map[string]*conf.Path) []record.CleanerEntry {
 	}
 
 	sort.Slice(out2, func(i, j int) bool {
-		if out2[i].PathFormat != out2[j].PathFormat {
-			return out2[i].PathFormat < out2[j].PathFormat
+		if out2[i].Path != out2[j].Path {
+			return out2[i].Path < out2[j].Path
 		}
 		return out2[i].DeleteAfter < out2[j].DeleteAfter
 	})
@@ -90,6 +91,7 @@ type Core struct {
 	metrics         *metrics.Metrics
 	pprof           *pprof.PPROF
 	recordCleaner   *record.Cleaner
+	playbackServer  *playback.Server
 	pathManager     *pathManager
 	rtspServer      *rtsp.Server
 	rtspsServer     *rtsp.Server
@@ -312,20 +314,35 @@ func (p *Core) createResources(initial bool) error {
 		p.recordCleaner.Initialize()
 	}
 
+	if p.conf.Playback &&
+		p.playbackServer == nil {
+		p.playbackServer = &playback.Server{
+			Address:     p.conf.PlaybackAddress,
+			ReadTimeout: p.conf.ReadTimeout,
+			PathConfs:   p.conf.Paths,
+			Parent:      p,
+		}
+		err := p.playbackServer.Initialize()
+		if err != nil {
+			return err
+		}
+	}
+
 	if p.pathManager == nil {
-		p.pathManager = newPathManager(
-			p.conf.LogLevel,
-			p.conf.ExternalAuthenticationURL,
-			p.conf.RTSPAddress,
-			p.conf.AuthMethods,
-			p.conf.ReadTimeout,
-			p.conf.WriteTimeout,
-			p.conf.WriteQueueSize,
-			p.conf.UDPMaxPayloadSize,
-			p.conf.Paths,
-			p.externalCmdPool,
-			p,
-		)
+		p.pathManager = &pathManager{
+			logLevel:                  p.conf.LogLevel,
+			externalAuthenticationURL: p.conf.ExternalAuthenticationURL,
+			rtspAddress:               p.conf.RTSPAddress,
+			authMethods:               p.conf.AuthMethods,
+			readTimeout:               p.conf.ReadTimeout,
+			writeTimeout:              p.conf.WriteTimeout,
+			writeQueueSize:            p.conf.WriteQueueSize,
+			udpMaxPayloadSize:         p.conf.UDPMaxPayloadSize,
+			pathConfs:                 p.conf.Paths,
+			externalCmdPool:           p.externalCmdPool,
+			parent:                    p,
+		}
+		p.pathManager.initialize()
 
 		if p.metrics != nil {
 			p.metrics.SetPathManager(p.pathManager)
@@ -619,6 +636,15 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(gatherCleanerEntries(newConf.Paths), gatherCleanerEntries(p.conf.Paths)) ||
 		closeLogger
 
+	closePlaybackServer := newConf == nil ||
+		newConf.Playback != p.conf.Playback ||
+		newConf.PlaybackAddress != p.conf.PlaybackAddress ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeLogger
+	if !closePlaybackServer && p.playbackServer != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
+		p.playbackServer.ReloadPathConfs(newConf.Paths)
+	}
+
 	closePathManager := newConf == nil ||
 		newConf.LogLevel != p.conf.LogLevel ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
@@ -631,7 +657,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		closeMetrics ||
 		closeLogger
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
-		p.pathManager.ReloadConf(newConf.Paths)
+		p.pathManager.ReloadPathConfs(newConf.Paths)
 	}
 
 	closeRTSPServer := newConf == nil ||
@@ -863,6 +889,11 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 		p.pathManager.close()
 		p.pathManager = nil
+	}
+
+	if closePlaybackServer && p.playbackServer != nil {
+		p.playbackServer.Close()
+		p.playbackServer = nil
 	}
 
 	if closeRecorderCleaner && p.recordCleaner != nil {

@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/aler9/writerseeker"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -29,13 +29,13 @@ func writePart(
 		Tracks:         fmp4PartTracks,
 	}
 
-	var ws writerseeker.WriterSeeker
-	err := part.Marshal(&ws)
+	var buf seekablebuffer.Buffer
+	err := part.Marshal(&buf)
 	if err != nil {
 		return err
 	}
 
-	_, err = f.Write(ws.Bytes())
+	_, err = f.Write(buf.Bytes())
 	return err
 }
 
@@ -54,7 +54,7 @@ func (p *formatFMP4Part) initialize() {
 
 func (p *formatFMP4Part) close() error {
 	if p.s.fi == nil {
-		p.s.path = path(p.s.startNTP).encode(p.s.f.a.pathFormat)
+		p.s.path = Path(p.s.startNTP).Encode(p.s.f.a.pathFormat)
 		p.s.f.a.agent.Log(logger.Debug, "creating segment %s", p.s.path)
 
 		err := os.MkdirAll(filepath.Dir(p.s.path), 0o755)

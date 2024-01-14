@@ -52,16 +52,16 @@ type PathAccessRequest struct {
 	RTSPNonce   string
 }
 
-// PathGetConfForPathRes contains the response of GetConfForPath().
-type PathGetConfForPathRes struct {
+// PathFindPathConfRes contains the response of FindPathConf().
+type PathFindPathConfRes struct {
 	Conf *conf.Path
 	Err  error
 }
 
-// PathGetConfForPathReq contains arguments of GetConfForPath().
-type PathGetConfForPathReq struct {
+// PathFindPathConfReq contains arguments of FindPathConf().
+type PathFindPathConfReq struct {
 	AccessRequest PathAccessRequest
-	Res           chan PathGetConfForPathRes
+	Res           chan PathFindPathConfRes
 }
 
 // PathDescribeRes contains the response of Describe().

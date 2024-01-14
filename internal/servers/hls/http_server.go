@@ -147,7 +147,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.GetConfForPath(defs.PathGetConfForPathReq{
+	res := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:    dir,
 			Query:   ctx.Request.URL.RawQuery,

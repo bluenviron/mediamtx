@@ -274,7 +274,7 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	// show error in logs
 	a.Log(logger.Error, err.Error())
 
-	// send error in response
+	// add error to response
 	ctx.JSON(status, &defs.APIError{
 		Error: err.Error(),
 	})
@@ -303,7 +303,7 @@ func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 
 	newConf.PatchGlobal(&c)
 
-	err = newConf.Check()
+	err = newConf.Validate()
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -341,7 +341,7 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 
 	newConf.PatchPathDefaults(&p)
 
-	err = newConf.Check()
+	err = newConf.Validate()
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -422,7 +422,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = newConf.Check()
+	err = newConf.Validate()
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -463,7 +463,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = newConf.Check()
+	err = newConf.Validate()
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -504,7 +504,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 		return
 	}
 
-	err = newConf.Check()
+	err = newConf.Validate()
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -538,7 +538,7 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 		return
 	}
 
-	err = newConf.Check()
+	err = newConf.Validate()
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return

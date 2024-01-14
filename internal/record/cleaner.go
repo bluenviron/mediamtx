@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -14,36 +13,9 @@ import (
 
 var timeNow = time.Now
 
-func commonPath(v string) string {
-	common := ""
-	remaining := v
-
-	for {
-		i := strings.IndexAny(remaining, "\\/")
-		if i < 0 {
-			break
-		}
-
-		var part string
-		part, remaining = remaining[:i+1], remaining[i+1:]
-
-		if strings.Contains(part, "%") {
-			break
-		}
-
-		common += part
-	}
-
-	if len(common) > 0 {
-		common = common[:len(common)-1]
-	}
-
-	return common
-}
-
 // CleanerEntry is a cleaner entry.
 type CleanerEntry struct {
-	PathFormat  string
+	Path        string
 	Format      conf.RecordFormat
 	DeleteAfter time.Duration
 }
@@ -108,21 +80,13 @@ func (c *Cleaner) doRun() {
 }
 
 func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
-	pathFormat := e.PathFormat
-
-	switch e.Format {
-	case conf.RecordFormatMPEGTS:
-		pathFormat += ".ts"
-
-	default:
-		pathFormat += ".mp4"
-	}
+	entryPath := PathAddExtension(e.Path, e.Format)
 
 	// we have to convert to absolute paths
-	// otherwise, commonPath and fpath inside Walk() won't have common elements
-	pathFormat, _ = filepath.Abs(pathFormat)
+	// otherwise, entryPath and fpath inside Walk() won't have common elements
+	entryPath, _ = filepath.Abs(entryPath)
 
-	commonPath := commonPath(pathFormat)
+	commonPath := CommonPath(entryPath)
 	now := timeNow()
 
 	filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error { //nolint:errcheck
@@ -131,8 +95,8 @@ func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
 		}
 
 		if !info.IsDir() {
-			var pa path
-			ok := pa.decode(pathFormat, fpath)
+			var pa Path
+			ok := pa.Decode(entryPath, fpath)
 			if ok {
 				if now.Sub(time.Time(pa)) > e.DeleteAfter {
 					c.Log(logger.Debug, "removing %s", fpath)
