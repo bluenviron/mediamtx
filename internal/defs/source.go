@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -19,32 +20,44 @@ type Source interface {
 	APISourceDescribe() APIPathSourceOrReader
 }
 
-func mediaDescription(media *description.Media) string {
-	ret := make([]string, len(media.Formats))
-	for i, forma := range media.Formats {
+// FormatsToCodecs returns the name of codecs of given formats.
+func FormatsToCodecs(formats []format.Format) []string {
+	ret := make([]string, len(formats))
+	for i, forma := range formats {
 		ret[i] = forma.Codec()
-	}
-	return strings.Join(ret, "/")
-}
-
-// MediasDescription returns the description of medias.
-func MediasDescription(medias []*description.Media) []string {
-	ret := make([]string, len(medias))
-	for i, media := range medias {
-		ret[i] = mediaDescription(media)
 	}
 	return ret
 }
 
-// MediasInfo returns the description of medias.
-func MediasInfo(medias []*description.Media) string {
+// FormatsInfo returns a description of formats.
+func FormatsInfo(formats []format.Format) string {
 	return fmt.Sprintf("%d %s (%s)",
-		len(medias),
+		len(formats),
 		func() string {
-			if len(medias) == 1 {
+			if len(formats) == 1 {
 				return "track"
 			}
 			return "tracks"
 		}(),
-		strings.Join(MediasDescription(medias), ", "))
+		strings.Join(FormatsToCodecs(formats), ", "))
+}
+
+// MediasToCodecs returns the name of codecs of given formats.
+func MediasToCodecs(medias []*description.Media) []string {
+	var formats []format.Format
+	for _, media := range medias {
+		formats = append(formats, media.Formats...)
+	}
+
+	return FormatsToCodecs(formats)
+}
+
+// MediasInfo returns a description of medias.
+func MediasInfo(medias []*description.Media) string {
+	var formats []format.Format
+	for _, media := range medias {
+		formats = append(formats, media.Formats...)
+	}
+
+	return FormatsInfo(formats)
 }

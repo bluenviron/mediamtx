@@ -19,6 +19,7 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/vp9"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 
+	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
@@ -108,8 +109,9 @@ type formatFMP4 struct {
 
 func (f *formatFMP4) initialize() {
 	nextID := 1
+	var formats []rtspformat.Format
 
-	addTrack := func(codec fmp4.Codec) *formatFMP4Track {
+	addTrack := func(format rtspformat.Format, codec fmp4.Codec) *formatFMP4Track {
 		initTrack := &fmp4.InitTrack{
 			TimeScale: 90000,
 			Codec:     codec,
@@ -117,9 +119,13 @@ func (f *formatFMP4) initialize() {
 		initTrack.ID = nextID
 		nextID++
 
-		track := newFormatFMP4Track(f, initTrack)
-		f.tracks = append(f.tracks, track)
+		track := &formatFMP4Track{
+			f:         f,
+			initTrack: initTrack,
+		}
 
+		f.tracks = append(f.tracks, track)
+		formats = append(formats, format)
 		return track
 	}
 
@@ -142,7 +148,7 @@ func (f *formatFMP4) initialize() {
 						8, 0, 0, 0, 66, 167, 191, 228, 96, 13, 0, 64,
 					},
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				firstReceived := false
 
@@ -199,7 +205,7 @@ func (f *formatFMP4) initialize() {
 					ChromaSubsampling: 1,
 					ColorRange:        false,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				firstReceived := false
 
@@ -296,7 +302,7 @@ func (f *formatFMP4) initialize() {
 					SPS: sps,
 					PPS: pps,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				var dtsExtractor *h265.DTSExtractor
 
@@ -381,7 +387,7 @@ func (f *formatFMP4) initialize() {
 					SPS: sps,
 					PPS: pps,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				var dtsExtractor *h264.DTSExtractor
 
@@ -456,7 +462,7 @@ func (f *formatFMP4) initialize() {
 				codec := &fmp4.CodecMPEG4Video{
 					Config: config,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				firstReceived := false
 				var lastPTS time.Duration
@@ -508,7 +514,7 @@ func (f *formatFMP4) initialize() {
 						0x14, 0x4a, 0x00, 0x01, 0x00, 0x00,
 					},
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				firstReceived := false
 				var lastPTS time.Duration
@@ -557,7 +563,7 @@ func (f *formatFMP4) initialize() {
 					Width:  800,
 					Height: 600,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				parsed := false
 
@@ -595,7 +601,7 @@ func (f *formatFMP4) initialize() {
 						return 1
 					}(),
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.Opus)
@@ -626,7 +632,7 @@ func (f *formatFMP4) initialize() {
 				codec := &fmp4.CodecMPEG4Audio{
 					Config: *forma.GetConfig(),
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				sampleRate := time.Duration(forma.ClockRate())
 
@@ -659,7 +665,7 @@ func (f *formatFMP4) initialize() {
 					SampleRate:   32000,
 					ChannelCount: 2,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				parsed := false
 
@@ -713,7 +719,7 @@ func (f *formatFMP4) initialize() {
 					LfeOn:        true,
 					BitRateCode:  7,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				parsed := false
 
@@ -778,7 +784,7 @@ func (f *formatFMP4) initialize() {
 					SampleRate:   forma.SampleRate,
 					ChannelCount: forma.ChannelCount,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.G711)
@@ -808,7 +814,7 @@ func (f *formatFMP4) initialize() {
 					SampleRate:   forma.SampleRate,
 					ChannelCount: forma.ChannelCount,
 				}
-				track := addTrack(codec)
+				track := addTrack(forma, codec)
 
 				f.a.agent.Stream.AddReader(f.a.writer, media, forma, func(u unit.Unit) error {
 					tunit := u.(*unit.LPCM)
@@ -827,14 +833,8 @@ func (f *formatFMP4) initialize() {
 		}
 	}
 
-	f.a.agent.Log(logger.Info, "recording %d %s",
-		len(f.tracks),
-		func() string {
-			if len(f.tracks) == 1 {
-				return "track"
-			}
-			return "tracks"
-		}())
+	f.a.agent.Log(logger.Info, "recording %s",
+		defs.FormatsInfo(formats))
 }
 
 func (f *formatFMP4) close() {

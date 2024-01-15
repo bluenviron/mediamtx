@@ -630,7 +630,7 @@ func (pa *path) doAPIPathsGet(req pathAPIPathsGetReq) {
 				if pa.stream == nil {
 					return []string{}
 				}
-				return defs.MediasDescription(pa.stream.Desc().Medias)
+				return defs.MediasToCodecs(pa.stream.Desc().Medias)
 			}(),
 			BytesReceived: func() uint64 {
 				if pa.stream == nil {
