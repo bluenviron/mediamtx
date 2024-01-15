@@ -86,6 +86,8 @@ func NewWrappedServer(
 
 // Close closes all resources and waits for all routines to return.
 func (s *WrappedServer) Close() {
-	s.inner.Shutdown(context.Background())
+	ctx, ctxCancel := context.WithCancel(context.Background())
+	ctxCancel()
+	s.inner.Shutdown(ctx)
 	s.ln.Close() // in case Shutdown() is called before Serve()
 }
