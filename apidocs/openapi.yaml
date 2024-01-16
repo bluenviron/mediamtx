@@ -640,6 +640,12 @@ components:
           items:
             $ref: '#/components/schemas/WebRTCSession'
 
+    RecordingsList:
+      type: array
+      items:
+        type: string
+
+
 paths:
   /v3/config/global/get:
     get:
@@ -1812,3 +1818,23 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /v3/recodings/list:
+    get:
+      operationId: listRecordings
+      summary: Lists all the stored recordings
+      description: Returns an array with all the stored recordings (path from the specified recordings directory)
+      responses:
+        '200':
+          description: Operation was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingsList'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
