@@ -978,21 +978,7 @@ func (a *API) onSRTConnsKick(ctx *gin.Context) {
 }
 
 func (a *API) onListRecordings(ctx *gin.Context) {
-	// TODO: move this subprocedure to dedicated function
-	// get the path until the first parametrized part
-	// ./recordings/stream-%path/%Y --> ./recordings
-	var parts []string = strings.Split(a.Conf.PathDefaults.RecordPath, "/")
-	var recordingsRoot string
-	var recordingsRootParts []string
-
-	for _, part := range parts {
-		if strings.Contains(part, "%") {
-			break
-		}
-		recordingsRootParts = append(recordingsRootParts, part)
-	}
-
-	recordingsRoot = strings.Join(recordingsRootParts, "/")
+	recordingsRoot := PathToUnparametrizedRoot(a.Conf.PathDefaults.RecordPath)
 
 	var fileNames []string
 	err := filepath.WalkDir(recordingsRoot, func(path string, d os.DirEntry, err error) error {
@@ -1019,28 +1005,12 @@ func (a *API) onDeleteRecording(ctx *gin.Context) {
 	}
 	var partialRecordingPath DeleteRequest
 	err := json.NewDecoder(ctx.Request.Body).Decode(&partialRecordingPath)
-	if err != nil {
+	if err != nil || isPathSafe(partialRecordingPath.FilePath) {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 
-	// get the path until the first parametrized part
-	// ./recordings/stream-%path/%Y --> ./recordings
-	// TODO: see onListRecording2
-	// TODO: sanitize the receieved path
-	var parts []string = strings.Split(a.Conf.PathDefaults.RecordPath, "/")
-	var recordingsRoot string
-	var recordingsRootParts []string
-
-	for _, part := range parts {
-		if strings.Contains(part, "%") {
-			break
-		}
-		recordingsRootParts = append(recordingsRootParts, part)
-	}
-
-	recordingsRoot = strings.Join(recordingsRootParts, "/")
-
+	recordingsRoot := PathToUnparametrizedRoot(a.Conf.PathDefaults.RecordPath)
 	finalRecordingPath := filepath.Join(recordingsRoot, partialRecordingPath.FilePath)
 	err = os.Remove(finalRecordingPath)
 	if err != nil {
@@ -1056,4 +1026,30 @@ func (a *API) ReloadConf(conf *conf.Conf) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.Conf = conf
+}
+
+// PathToUnparametrizedRoot takes a path with parameters (%H-%S) and returns the part before them, the root folder not parametrized
+// given ./recordings/stream1/stream-%H/%S.mp4 returns ./recordings/stream1
+func PathToUnparametrizedRoot(path string) string {
+	var rootString string
+	var rootStringParts []string
+	parts := strings.Split(path, string(os.PathSeparator))
+
+	for _, p := range parts {
+		if strings.Contains(p, "%") {
+			break
+		}
+		rootStringParts = append(rootStringParts, p)
+	}
+	rootString = filepath.Join(rootStringParts...)
+	if filepath.IsAbs(path) {
+		rootString = string(os.PathSeparator) + rootString
+	} else {
+		rootString = "." + string(os.PathSeparator) + rootString
+	}
+	return rootString
+}
+
+func isPathSafe(path string) bool {
+	return !(strings.Contains(path, ".."))
 }
