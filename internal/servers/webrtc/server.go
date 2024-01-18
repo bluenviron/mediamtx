@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -32,6 +33,9 @@ const (
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 )
+
+// ErrSessionNotFound is returned when a session is not found.
+var ErrSessionNotFound = errors.New("session not found")
 
 type nilWriter struct{}
 
@@ -334,7 +338,7 @@ outer:
 		case req := <-s.chAddSessionCandidates:
 			sx, ok := s.sessionsBySecret[req.secret]
 			if !ok {
-				req.res <- webRTCAddSessionCandidatesRes{err: fmt.Errorf("session not found")}
+				req.res <- webRTCAddSessionCandidatesRes{err: ErrSessionNotFound}
 				continue
 			}
 
@@ -343,7 +347,7 @@ outer:
 		case req := <-s.chDeleteSession:
 			sx, ok := s.sessionsBySecret[req.secret]
 			if !ok {
-				req.res <- webRTCDeleteSessionRes{err: fmt.Errorf("session not found")}
+				req.res <- webRTCDeleteSessionRes{err: ErrSessionNotFound}
 				continue
 			}
 
@@ -371,7 +375,7 @@ outer:
 		case req := <-s.chAPISessionsGet:
 			sx := s.findSessionByUUID(req.uuid)
 			if sx == nil {
-				req.res <- serverAPISessionsGetRes{err: fmt.Errorf("session not found")}
+				req.res <- serverAPISessionsGetRes{err: ErrSessionNotFound}
 				continue
 			}
 
@@ -380,7 +384,7 @@ outer:
 		case req := <-s.chAPIConnsKick:
 			sx := s.findSessionByUUID(req.uuid)
 			if sx == nil {
-				req.res <- serverAPISessionsKickRes{err: fmt.Errorf("session not found")}
+				req.res <- serverAPISessionsKickRes{err: ErrSessionNotFound}
 				continue
 			}
 

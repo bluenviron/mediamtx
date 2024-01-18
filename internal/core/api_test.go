@@ -374,7 +374,7 @@ func TestAPIConfigPathsDelete(t *testing.T) {
 		require.NoError(t, err)
 		defer res.Body.Close()
 
-		require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+		require.Equal(t, http.StatusNotFound, res.StatusCode)
 		checkError(t, "path configuration not found", res.Body)
 	}()
 }
@@ -630,7 +630,7 @@ func TestAPIPathsGet(t *testing.T) {
 				require.NoError(t, err)
 				defer res.Body.Close()
 
-				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+				require.Equal(t, http.StatusNotFound, res.StatusCode)
 				checkError(t, "path not found", res.Body)
 			}
 		})
@@ -1317,7 +1317,7 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 				require.NoError(t, err)
 				defer res.Body.Close()
 
-				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+				require.Equal(t, http.StatusNotFound, res.StatusCode)
 
 				switch ca {
 				case "rtsp conns", "rtsps conns", "rtmp", "rtmps", "srt":
@@ -1541,7 +1541,7 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 				require.NoError(t, err)
 				defer res.Body.Close()
 
-				require.Equal(t, http.StatusInternalServerError, res.StatusCode)
+				require.Equal(t, http.StatusNotFound, res.StatusCode)
 
 				switch ca {
 				case "rtsp conns", "rtsps conns", "rtmp", "rtmps", "srt":

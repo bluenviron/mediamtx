@@ -3,6 +3,7 @@ package srt
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -16,6 +17,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
+
+// ErrConnNotFound is returned when a connection is not found.
+var ErrConnNotFound = errors.New("connection not found")
 
 func srtMaxPayloadSize(u int) int {
 	return ((u - 16) / 188) * 188 // 16 = SRT header, 188 = MPEG-TS packet
@@ -189,7 +193,7 @@ outer:
 		case req := <-s.chAPIConnsGet:
 			c := s.findConnByUUID(req.uuid)
 			if c == nil {
-				req.res <- serverAPIConnsGetRes{err: fmt.Errorf("connection not found")}
+				req.res <- serverAPIConnsGetRes{err: ErrConnNotFound}
 				continue
 			}
 
@@ -198,7 +202,7 @@ outer:
 		case req := <-s.chAPIConnsKick:
 			c := s.findConnByUUID(req.uuid)
 			if c == nil {
-				req.res <- serverAPIConnsKickRes{err: fmt.Errorf("connection not found")}
+				req.res <- serverAPIConnsKickRes{err: ErrConnNotFound}
 				continue
 			}
 

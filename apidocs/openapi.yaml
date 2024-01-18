@@ -808,6 +808,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -876,6 +882,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -910,6 +922,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -934,6 +952,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
           content:
             application/json:
               schema:
@@ -1008,6 +1032,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: muxer not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1074,6 +1104,12 @@ paths:
                 $ref: '#/components/schemas/Path'
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
           content:
             application/json:
               schema:
@@ -1148,6 +1184,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1218,6 +1260,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1242,6 +1290,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
           content:
             application/json:
               schema:
@@ -1316,6 +1370,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1386,6 +1446,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1410,6 +1476,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
           content:
             application/json:
               schema:
@@ -1484,6 +1556,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1508,6 +1586,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
           content:
             application/json:
               schema:
@@ -1582,6 +1666,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1606,6 +1696,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
           content:
             application/json:
               schema:
@@ -1680,6 +1776,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1704,6 +1806,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
           content:
             application/json:
               schema:
@@ -1778,6 +1886,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
         '500':
           description: server error.
           content:
@@ -1802,6 +1916,12 @@ paths:
           description: the request was successful.
         '400':
           description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: session not found.
           content:
             application/json:
               schema:

@@ -3,6 +3,7 @@ package hls
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -11,6 +12,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
+
+// ErrMuxerNotFound is returned when a muxer is not found.
+var ErrMuxerNotFound = errors.New("muxer not found")
 
 type serverAPIMuxersListRes struct {
 	data *defs.APIHLSMuxerList
@@ -179,7 +183,7 @@ outer:
 		case req := <-s.chAPIMuxerGet:
 			muxer, ok := s.muxers[req.name]
 			if !ok {
-				req.res <- serverAPIMuxersGetRes{err: fmt.Errorf("muxer not found")}
+				req.res <- serverAPIMuxersGetRes{err: ErrMuxerNotFound}
 				continue
 			}
 
