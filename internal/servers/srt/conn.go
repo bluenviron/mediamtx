@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"strings"
 	"sync"
 	"time"
 
@@ -151,50 +150,30 @@ func (c *conn) runInner() error {
 }
 
 func (c *conn) runInner2(req srtNewConnReq) (bool, error) {
-	parts := strings.Split(req.connReq.StreamId(), ":")
-	if (len(parts) < 2 || len(parts) > 5) || (parts[0] != "read" && parts[0] != "publish") {
-		return false, fmt.Errorf("invalid streamid '%s':"+
-			" it must be 'action:pathname[:query]' or 'action:pathname:user:pass[:query]', "+
-			"where action is either read or publish, pathname is the path name, user and pass are the credentials, "+
-			"query is an optional token containing additional information",
-			req.connReq.StreamId())
+	var streamID streamID
+	err := streamID.unmarshal(req.connReq.StreamId())
+	if err != nil {
+		return false, fmt.Errorf("invalid stream ID '%s': %w", req.connReq.StreamId(), err)
 	}
 
-	pathName := parts[1]
-	user := ""
-	pass := ""
-	query := ""
-
-	if len(parts) == 4 || len(parts) == 5 {
-		user, pass = parts[2], parts[3]
+	if streamID.mode == streamIDModePublish {
+		return c.runPublish(req, &streamID)
 	}
-
-	if len(parts) == 3 {
-		query = parts[2]
-	}
-
-	if len(parts) == 5 {
-		query = parts[4]
-	}
-
-	if parts[0] == "publish" {
-		return c.runPublish(req, pathName, user, pass, query)
-	}
-	return c.runRead(req, pathName, user, pass, query)
+	return c.runRead(req, &streamID)
 }
 
-func (c *conn) runPublish(req srtNewConnReq, pathName string, user string, pass string, query string) (bool, error) {
+func (c *conn) runPublish(req srtNewConnReq, streamID *streamID) (bool, error) {
 	res := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
-			Name:    pathName,
+			Name:    streamID.path,
 			IP:      c.ip(),
 			Publish: true,
-			User:    user,
-			Pass:    pass,
+			User:    streamID.user,
+			Pass:    streamID.pass,
 			Proto:   defs.AuthProtocolSRT,
 			ID:      &c.uuid,
-			Query:   query,
+			Query:   streamID.query,
 		},
 	})
 
@@ -222,8 +201,8 @@ func (c *conn) runPublish(req srtNewConnReq, pathName string, user string, pass 
 
 	c.mutex.Lock()
 	c.state = connStatePublish
-	c.pathName = pathName
-	c.query = query
+	c.pathName = streamID.path
+	c.query = streamID.query
 	c.sconn = sconn
 	c.mutex.Unlock()
 
@@ -283,17 +262,17 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 	}
 }
 
-func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass string, query string) (bool, error) {
+func (c *conn) runRead(req srtNewConnReq, streamID *streamID) (bool, error) {
 	res := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
-			Name:  pathName,
+			Name:  streamID.path,
 			IP:    c.ip(),
-			User:  user,
-			Pass:  pass,
+			User:  streamID.user,
+			Pass:  streamID.pass,
 			Proto: defs.AuthProtocolSRT,
 			ID:    &c.uuid,
-			Query: query,
+			Query: streamID.query,
 		},
 	})
 
@@ -322,8 +301,8 @@ func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass str
 
 	c.mutex.Lock()
 	c.state = connStateRead
-	c.pathName = pathName
-	c.query = query
+	c.pathName = streamID.path
+	c.query = streamID.query
 	c.sconn = sconn
 	c.mutex.Unlock()
 
@@ -347,7 +326,7 @@ func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass str
 		Conf:            res.Path.SafeConf(),
 		ExternalCmdEnv:  res.Path.ExternalCmdEnv(),
 		Reader:          c.APIReaderDescribe(),
-		Query:           query,
+		Query:           streamID.query,
 	})
 	defer onUnreadHook()
 
