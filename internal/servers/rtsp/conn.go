@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	rtspPauseAfterAuthError = 2 * time.Second
+	pauseAfterAuthError = 2 * time.Second
 )
 
 type conn struct {
@@ -196,8 +196,8 @@ func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 		}, nil
 	}
 
-	// wait some seconds to stop brute force attacks
-	<-time.After(rtspPauseAfterAuthError)
+	// wait some seconds to mitigate brute force attacks
+	<-time.After(pauseAfterAuthError)
 
 	return &base.Response{
 		StatusCode: base.StatusUnauthorized,

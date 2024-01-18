@@ -379,8 +379,8 @@ func (s *session) runPublish() (int, error) {
 	if res.Err != nil {
 		var terr defs.AuthenticationError
 		if errors.As(res.Err, &terr) {
-			// wait some seconds to stop brute force attacks
-			<-time.After(webrtcPauseAfterAuthError)
+			// wait some seconds to mitigate brute force attacks
+			<-time.After(pauseAfterAuthError)
 
 			return http.StatusUnauthorized, res.Err
 		}
@@ -510,9 +510,8 @@ func (s *session) runRead() (int, error) {
 	if res.Err != nil {
 		var terr defs.AuthenticationError
 		if errors.As(res.Err, &terr) {
-			// wait some seconds to stop brute force attacks
-			<-time.After(webrtcPauseAfterAuthError)
-
+			// wait some seconds to mitigate brute force attacks
+			<-time.After(pauseAfterAuthError)
 			return http.StatusUnauthorized, res.Err
 		}
 

@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	hlsPauseAfterAuthError = 2 * time.Second
+	pauseAfterAuthError = 2 * time.Second
 )
 
 //go:embed index.html
@@ -173,8 +173,8 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.Message)
 
-			// wait some seconds to stop brute force attacks
-			<-time.After(hlsPauseAfterAuthError)
+			// wait some seconds to mitigate brute force attacks
+			<-time.After(pauseAfterAuthError)
 
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return
