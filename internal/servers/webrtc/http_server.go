@@ -134,8 +134,8 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 
 			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.Message)
 
-			// wait some seconds to stop brute force attacks
-			<-time.After(webrtcPauseAfterAuthError)
+			// wait some seconds to mitigate brute force attacks
+			<-time.After(pauseAfterAuthError)
 
 			writeError(ctx, http.StatusUnauthorized, terr)
 			return false

@@ -25,6 +25,10 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
+const (
+	pauseAfterAuthError = 2 * time.Second
+)
+
 func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
 	if passphrase == "" {
 		return nil
@@ -197,9 +201,8 @@ func (c *conn) runPublish(req srtNewConnReq, pathName string, user string, pass 
 	if res.Err != nil {
 		var terr defs.AuthenticationError
 		if errors.As(res.Err, &terr) {
-			// TODO: re-enable. Currently this freezes the listener.
-			// wait some seconds to stop brute force attacks
-			// <-time.After(srtPauseAfterAuthError)
+			// wait some seconds to mitigate brute force attacks
+			<-time.After(pauseAfterAuthError)
 			return false, terr
 		}
 		return false, res.Err
@@ -297,9 +300,8 @@ func (c *conn) runRead(req srtNewConnReq, pathName string, user string, pass str
 	if res.Err != nil {
 		var terr defs.AuthenticationError
 		if errors.As(res.Err, &terr) {
-			// TODO: re-enable. Currently this freezes the listener.
-			// wait some seconds to stop brute force attacks
-			// <-time.After(srtPauseAfterAuthError)
+			// wait some seconds to mitigate brute force attacks
+			<-time.After(pauseAfterAuthError)
 			return false, res.Err
 		}
 		return false, res.Err
