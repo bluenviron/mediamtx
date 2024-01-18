@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -19,6 +20,11 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
+	"github.com/bluenviron/mediamtx/internal/servers/hls"
+	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
+	"github.com/bluenviron/mediamtx/internal/servers/rtsp"
+	"github.com/bluenviron/mediamtx/internal/servers/srt"
+	"github.com/bluenviron/mediamtx/internal/servers/webrtc"
 )
 
 func interfaceIsEmpty(i interface{}) bool {
@@ -264,7 +270,6 @@ func (a *API) Log(level logger.Level, format string, args ...interface{}) {
 	a.Parent.Log(level, "[API] "+format, args...)
 }
 
-// error coming from something the user inserted into the request.
 func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	// show error in logs
 	a.Log(logger.Error, err.Error())
@@ -385,7 +390,7 @@ func (a *API) onConfigPathsGet(ctx *gin.Context) {
 
 	p, ok := c.Paths[name]
 	if !ok {
-		a.writeError(ctx, http.StatusInternalServerError, fmt.Errorf("path configuration not found"))
+		a.writeError(ctx, http.StatusNotFound, fmt.Errorf("path configuration not found"))
 		return
 	}
 
@@ -450,7 +455,11 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 
 	err = newConf.PatchPath(name, &p)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
+		if errors.Is(err, conf.ErrPathNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusBadRequest, err)
+		}
 		return
 	}
 
@@ -487,7 +496,11 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 
 	err = newConf.ReplacePath(name, &p)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
+		if errors.Is(err, conf.ErrPathNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusBadRequest, err)
+		}
 		return
 	}
 
@@ -517,7 +530,11 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 
 	err := newConf.RemovePath(name)
 	if err != nil {
-		a.writeError(ctx, http.StatusBadRequest, err)
+		if errors.Is(err, conf.ErrPathNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusBadRequest, err)
+		}
 		return
 	}
 
@@ -560,7 +577,11 @@ func (a *API) onPathsGet(ctx *gin.Context) {
 
 	data, err := a.PathManager.APIPathsGet(name)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, conf.ErrPathNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -594,7 +615,11 @@ func (a *API) onRTSPConnsGet(ctx *gin.Context) {
 
 	data, err := a.RTSPServer.APIConnsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtsp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -628,7 +653,11 @@ func (a *API) onRTSPSessionsGet(ctx *gin.Context) {
 
 	data, err := a.RTSPServer.APISessionsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtsp.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -644,7 +673,11 @@ func (a *API) onRTSPSessionsKick(ctx *gin.Context) {
 
 	err = a.RTSPServer.APISessionsKick(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtsp.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -678,7 +711,11 @@ func (a *API) onRTSPSConnsGet(ctx *gin.Context) {
 
 	data, err := a.RTSPSServer.APIConnsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtsp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -712,7 +749,11 @@ func (a *API) onRTSPSSessionsGet(ctx *gin.Context) {
 
 	data, err := a.RTSPSServer.APISessionsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtsp.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -728,7 +769,11 @@ func (a *API) onRTSPSSessionsKick(ctx *gin.Context) {
 
 	err = a.RTSPSServer.APISessionsKick(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtsp.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -762,7 +807,11 @@ func (a *API) onRTMPConnsGet(ctx *gin.Context) {
 
 	data, err := a.RTMPServer.APIConnsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtmp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -778,7 +827,11 @@ func (a *API) onRTMPConnsKick(ctx *gin.Context) {
 
 	err = a.RTMPServer.APIConnsKick(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtmp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -812,7 +865,11 @@ func (a *API) onRTMPSConnsGet(ctx *gin.Context) {
 
 	data, err := a.RTMPSServer.APIConnsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtmp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -828,7 +885,11 @@ func (a *API) onRTMPSConnsKick(ctx *gin.Context) {
 
 	err = a.RTMPSServer.APIConnsKick(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, rtmp.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -862,7 +923,11 @@ func (a *API) onHLSMuxersGet(ctx *gin.Context) {
 
 	data, err := a.HLSServer.APIMuxersGet(name)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, hls.ErrMuxerNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -896,7 +961,11 @@ func (a *API) onWebRTCSessionsGet(ctx *gin.Context) {
 
 	data, err := a.WebRTCServer.APISessionsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, webrtc.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -912,7 +981,11 @@ func (a *API) onWebRTCSessionsKick(ctx *gin.Context) {
 
 	err = a.WebRTCServer.APISessionsKick(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, webrtc.ErrSessionNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -946,7 +1019,11 @@ func (a *API) onSRTConnsGet(ctx *gin.Context) {
 
 	data, err := a.SRTServer.APIConnsGet(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, srt.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 
@@ -962,7 +1039,11 @@ func (a *API) onSRTConnsKick(ctx *gin.Context) {
 
 	err = a.SRTServer.APIConnsKick(uuid)
 	if err != nil {
-		a.writeError(ctx, http.StatusInternalServerError, err)
+		if errors.Is(err, srt.ErrConnNotFound) {
+			a.writeError(ctx, http.StatusNotFound, err)
+		} else {
+			a.writeError(ctx, http.StatusInternalServerError, err)
+		}
 		return
 	}
 

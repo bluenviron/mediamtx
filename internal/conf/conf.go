@@ -4,6 +4,7 @@ package conf
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -20,6 +21,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf/yaml"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
+
+// ErrPathNotFound is returned when a path is not found.
+var ErrPathNotFound = errors.New("path not found")
 
 func sortedKeys(paths map[string]*OptionalPath) []string {
 	ret := make([]string, len(paths))
@@ -531,7 +535,7 @@ func (conf *Conf) AddPath(name string, p *OptionalPath) error {
 func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 	optional, ok := conf.OptionalPaths[name]
 	if !ok {
-		return fmt.Errorf("path not found")
+		return ErrPathNotFound
 	}
 
 	copyStructFields(optional.Values, optional2.Values)
@@ -542,7 +546,7 @@ func (conf *Conf) PatchPath(name string, optional2 *OptionalPath) error {
 func (conf *Conf) ReplacePath(name string, optional2 *OptionalPath) error {
 	_, ok := conf.OptionalPaths[name]
 	if !ok {
-		return fmt.Errorf("path not found")
+		return ErrPathNotFound
 	}
 
 	conf.OptionalPaths[name] = optional2
@@ -552,7 +556,7 @@ func (conf *Conf) ReplacePath(name string, optional2 *OptionalPath) error {
 // RemovePath removes a path.
 func (conf *Conf) RemovePath(name string) error {
 	if _, ok := conf.OptionalPaths[name]; !ok {
-		return fmt.Errorf("path not found")
+		return ErrPathNotFound
 	}
 
 	delete(conf.OptionalPaths, name)

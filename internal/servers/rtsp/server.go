@@ -4,6 +4,7 @@ package rtsp
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -21,6 +22,12 @@ import (
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
+
+// ErrConnNotFound is returned when a connection is not found.
+var ErrConnNotFound = errors.New("connection not found")
+
+// ErrSessionNotFound is returned when a session is not found.
+var ErrSessionNotFound = errors.New("session not found")
 
 func printAddresses(srv *gortsplib.Server) string {
 	var ret []string
@@ -356,7 +363,7 @@ func (s *Server) APIConnsGet(uuid uuid.UUID) (*defs.APIRTSPConn, error) {
 
 	conn := s.findConnByUUID(uuid)
 	if conn == nil {
-		return nil, fmt.Errorf("connection not found")
+		return nil, ErrConnNotFound
 	}
 
 	return conn.apiItem(), nil
@@ -401,7 +408,7 @@ func (s *Server) APISessionsGet(uuid uuid.UUID) (*defs.APIRTSPSession, error) {
 
 	_, sx := s.findSessionByUUID(uuid)
 	if sx == nil {
-		return nil, fmt.Errorf("session not found")
+		return nil, ErrSessionNotFound
 	}
 
 	return sx.apiItem(), nil
@@ -420,7 +427,7 @@ func (s *Server) APISessionsKick(uuid uuid.UUID) error {
 
 	key, sx := s.findSessionByUUID(uuid)
 	if sx == nil {
-		return fmt.Errorf("session not found")
+		return ErrSessionNotFound
 	}
 
 	sx.Close()
