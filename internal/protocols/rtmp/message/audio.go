@@ -35,12 +35,6 @@ const (
 	Depth16 = 1
 )
 
-// audio channels
-const (
-	ChannelsMono   = 0
-	ChannelsStereo = 1
-)
-
 // AudioAACType is the AAC type of a Audio.
 type AudioAACType uint8
 
@@ -58,7 +52,7 @@ type Audio struct {
 	Codec           uint8
 	Rate            uint8
 	Depth           uint8
-	Channels        uint8
+	IsStereo        bool
 	AACType         AudioAACType // only for CodecMPEG4Audio
 	Payload         []byte
 }
@@ -82,7 +76,10 @@ func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
 
 	m.Rate = (raw.Body[0] >> 2) & 0x03
 	m.Depth = (raw.Body[0] >> 1) & 0x01
-	m.Channels = raw.Body[0] & 0x01
+
+	if (raw.Body[0] & 0x01) != 0 {
+		m.IsStereo = true
+	}
 
 	if m.Codec == CodecMPEG4Audio {
 		m.AACType = AudioAACType(raw.Body[1])
@@ -114,7 +111,11 @@ func (m Audio) marshalBodySize() int {
 func (m Audio) Marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
-	body[0] = m.Codec<<4 | m.Rate<<2 | m.Depth<<1 | m.Channels
+	body[0] = m.Codec<<4 | m.Rate<<2 | m.Depth<<1
+
+	if m.IsStereo {
+		body[0] |= 1
+	}
 
 	if m.Codec == CodecMPEG4Audio {
 		body[1] = uint8(m.AACType)

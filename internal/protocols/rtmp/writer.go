@@ -39,11 +39,8 @@ func audioRateIntToRTMP(v int) uint8 {
 	}
 }
 
-func mpeg1AudioChannels(m mpeg1audio.ChannelMode) uint8 {
-	if m == mpeg1audio.ChannelModeMono {
-		return message.ChannelsMono
-	}
-	return message.ChannelsStereo
+func mpeg1AudioChannels(m mpeg1audio.ChannelMode) bool {
+	return m != mpeg1audio.ChannelModeMono
 }
 
 // Writer is a wrapper around Conn that provides utilities to mux outgoing data.
@@ -156,7 +153,7 @@ func (w *Writer) writeTracks(videoTrack format.Format, audioTrack format.Format)
 			Codec:           message.CodecMPEG4Audio,
 			Rate:            message.Rate44100,
 			Depth:           message.Depth16,
-			Channels:        message.ChannelsStereo,
+			IsStereo:        true,
 			AACType:         message.AudioAACTypeConfig,
 			Payload:         enc,
 		})
@@ -195,7 +192,7 @@ func (w *Writer) WriteMPEG4Audio(pts time.Duration, au []byte) error {
 		Codec:           message.CodecMPEG4Audio,
 		Rate:            message.Rate44100,
 		Depth:           message.Depth16,
-		Channels:        message.ChannelsStereo,
+		IsStereo:        true,
 		AACType:         message.AudioAACTypeAU,
 		Payload:         au,
 		DTS:             pts,
@@ -210,7 +207,7 @@ func (w *Writer) WriteMPEG1Audio(pts time.Duration, h *mpeg1audio.FrameHeader, f
 		Codec:           message.CodecMPEG1Audio,
 		Rate:            audioRateIntToRTMP(h.SampleRate),
 		Depth:           message.Depth16,
-		Channels:        mpeg1AudioChannels(h.ChannelMode),
+		IsStereo:        mpeg1AudioChannels(h.ChannelMode),
 		Payload:         frame,
 		DTS:             pts,
 	})

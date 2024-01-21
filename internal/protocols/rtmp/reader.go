@@ -333,7 +333,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 						MULaw:      false,
 						SampleRate: 8000,
 						ChannelCount: func() int {
-							if msg.Channels == message.ChannelsStereo {
+							if msg.IsStereo {
 								return 2
 							}
 							return 1
@@ -346,7 +346,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 						MULaw:      true,
 						SampleRate: 8000,
 						ChannelCount: func() int {
-							if msg.Channels == message.ChannelsStereo {
+							if msg.IsStereo {
 								return 2
 							}
 							return 1
@@ -364,10 +364,10 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 						}(),
 						SampleRate: audioRateRTMPToInt(msg.Rate),
 						ChannelCount: func() int {
-							if msg.Channels == message.ChannelsMono {
-								return 1
+							if msg.IsStereo {
+								return 2
 							}
-							return 2
+							return 1
 						}(),
 					}
 				}

@@ -174,7 +174,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecMPEG4Audio,
 					Rate:            message.Rate44100,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsStereo,
+					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -294,7 +294,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecMPEG4Audio,
 					Rate:            message.Rate44100,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsStereo,
+					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -329,7 +329,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecMPEG4Audio,
 					Rate:            message.Rate44100,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsStereo,
+					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -347,7 +347,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecMPEG4Audio,
 					Rate:            message.Rate44100,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsStereo,
+					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -430,7 +430,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecMPEG4Audio,
 					Rate:            message.Rate44100,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsStereo,
+					IsStereo:        true,
 					AACType:         message.AudioAACTypeConfig,
 					Payload: func() []byte {
 						enc, err := mpeg4audio.Config{
@@ -674,7 +674,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           0xa,
 					Rate:            0x3,
 					Depth:           0x1,
-					Channels:        0x1,
+					IsStereo:        true,
 					Payload:         []uint8{0x11, 0x88},
 				},
 			},
@@ -813,7 +813,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecPCMA,
 					Rate:            message.Rate5512,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsMono,
+					IsStereo:        false,
 					Payload:         []byte{1, 2, 3, 4},
 				},
 			},
@@ -848,7 +848,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecPCMU,
 					Rate:            message.Rate5512,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsMono,
+					IsStereo:        false,
 					Payload:         []byte{1, 2, 3, 4},
 				},
 			},
@@ -882,7 +882,7 @@ func TestReadTracks(t *testing.T) {
 					Codec:           message.CodecLPCM,
 					Rate:            message.Rate44100,
 					Depth:           message.Depth16,
-					Channels:        message.ChannelsStereo,
+					IsStereo:        true,
 					Payload:         []byte{1, 2, 3, 4},
 				},
 			},
