@@ -12,6 +12,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
+var timeNow = time.Now
+
 func commonPath(v string) string {
 	common := ""
 	remaining := v
