@@ -91,7 +91,7 @@ func TestWriteTracks(t *testing.T) {
 		Codec:           message.CodecMPEG4Audio,
 		Rate:            message.Rate44100,
 		Depth:           message.Depth16,
-		Channels:        message.ChannelsStereo,
+		IsStereo:        true,
 		AACType:         message.AudioAACTypeConfig,
 		Payload:         []byte{0x12, 0x10},
 	}, msg)

@@ -35,7 +35,7 @@ var readWriterCases = []struct {
 			Codec:           CodecMPEG1Audio,
 			Rate:            Rate44100,
 			Depth:           Depth16,
-			Channels:        ChannelsStereo,
+			IsStereo:        true,
 			Payload:         []byte{0x01, 0x02, 0x03, 0x04},
 		},
 		[]byte{
@@ -52,7 +52,7 @@ var readWriterCases = []struct {
 			Codec:           CodecMPEG4Audio,
 			Rate:            Rate44100,
 			Depth:           Depth16,
-			Channels:        ChannelsStereo,
+			IsStereo:        true,
 			AACType:         AudioAACTypeAU,
 			Payload:         []byte{0x5A, 0xC0, 0x77, 0x40},
 		},
