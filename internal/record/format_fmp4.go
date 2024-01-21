@@ -193,6 +193,7 @@ func (f *formatFMP4) initialize() {
 					return track.record(&sample{
 						PartSample: sampl,
 						dts:        tunit.PTS,
+						ntp:        tunit.NTP,
 					})
 				})
 
@@ -265,6 +266,7 @@ func (f *formatFMP4) initialize() {
 							Payload:         tunit.Frame,
 						},
 						dts: tunit.PTS,
+						ntp: tunit.NTP,
 					})
 				})
 
@@ -364,6 +366,7 @@ func (f *formatFMP4) initialize() {
 					return track.record(&sample{
 						PartSample: sampl,
 						dts:        dts,
+						ntp:        tunit.NTP,
 					})
 				})
 
@@ -442,6 +445,7 @@ func (f *formatFMP4) initialize() {
 					return track.record(&sample{
 						PartSample: sampl,
 						dts:        dts,
+						ntp:        tunit.NTP,
 					})
 				})
 
@@ -503,6 +507,7 @@ func (f *formatFMP4) initialize() {
 							IsNonSyncSample: !randomAccess,
 						},
 						dts: tunit.PTS,
+						ntp: tunit.NTP,
 					})
 				})
 
@@ -555,6 +560,7 @@ func (f *formatFMP4) initialize() {
 							IsNonSyncSample: !randomAccess,
 						},
 						dts: tunit.PTS,
+						ntp: tunit.NTP,
 					})
 				})
 
@@ -589,6 +595,7 @@ func (f *formatFMP4) initialize() {
 							Payload: tunit.Frame,
 						},
 						dts: tunit.PTS,
+						ntp: tunit.NTP,
 					})
 				})
 
@@ -609,20 +616,21 @@ func (f *formatFMP4) initialize() {
 						return nil
 					}
 
-					pts := tunit.PTS
+					var dt time.Duration
 
 					for _, packet := range tunit.Packets {
 						err := track.record(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: packet,
 							},
-							dts: pts,
+							dts: tunit.PTS + dt,
+							ntp: tunit.NTP.Add(dt),
 						})
 						if err != nil {
 							return err
 						}
 
-						pts += opus.PacketDuration(packet)
+						dt += opus.PacketDuration(packet)
 					}
 
 					return nil
@@ -643,14 +651,15 @@ func (f *formatFMP4) initialize() {
 					}
 
 					for i, au := range tunit.AUs {
-						auPTS := tunit.PTS + time.Duration(i)*mpeg4audio.SamplesPerAccessUnit*
-							time.Second/sampleRate
+						dt := time.Duration(i) * mpeg4audio.SamplesPerAccessUnit *
+							time.Second / sampleRate
 
 						err := track.record(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: au,
 							},
-							dts: auPTS,
+							dts: tunit.PTS + dt,
+							ntp: tunit.NTP.Add(dt),
 						})
 						if err != nil {
 							return err
@@ -675,7 +684,7 @@ func (f *formatFMP4) initialize() {
 						return nil
 					}
 
-					pts := tunit.PTS
+					var dt time.Duration
 
 					for _, frame := range tunit.Frames {
 						var h mpeg1audio.FrameHeader
@@ -695,13 +704,14 @@ func (f *formatFMP4) initialize() {
 							PartSample: &fmp4.PartSample{
 								Payload: frame,
 							},
-							dts: pts,
+							dts: tunit.PTS + tunit.PTS,
+							ntp: tunit.NTP,
 						})
 						if err != nil {
 							return err
 						}
 
-						pts += time.Duration(h.SampleCount()) *
+						dt += time.Duration(h.SampleCount()) *
 							time.Second / time.Duration(h.SampleRate)
 					}
 
@@ -729,9 +739,7 @@ func (f *formatFMP4) initialize() {
 						return nil
 					}
 
-					pts := tunit.PTS
-
-					for _, frame := range tunit.Frames {
+					for i, frame := range tunit.Frames {
 						var syncInfo ac3.SyncInfo
 						err := syncInfo.Unmarshal(frame)
 						if err != nil {
@@ -757,18 +765,19 @@ func (f *formatFMP4) initialize() {
 							updateCodecs()
 						}
 
+						dt := time.Duration(i) * time.Duration(ac3.SamplesPerFrame) *
+							time.Second / time.Duration(codec.SampleRate)
+
 						err = track.record(&sample{
 							PartSample: &fmp4.PartSample{
 								Payload: frame,
 							},
-							dts: pts,
+							dts: tunit.PTS + dt,
+							ntp: tunit.NTP.Add(dt),
 						})
 						if err != nil {
 							return err
 						}
-
-						pts += time.Duration(ac3.SamplesPerFrame) *
-							time.Second / time.Duration(codec.SampleRate)
 					}
 
 					return nil
@@ -804,6 +813,7 @@ func (f *formatFMP4) initialize() {
 							Payload: out,
 						},
 						dts: tunit.PTS,
+						ntp: tunit.NTP,
 					})
 				})
 
@@ -827,6 +837,7 @@ func (f *formatFMP4) initialize() {
 							Payload: tunit.Samples,
 						},
 						dts: tunit.PTS,
+						ntp: tunit.NTP,
 					})
 				})
 			}

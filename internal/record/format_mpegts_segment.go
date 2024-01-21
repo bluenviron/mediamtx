@@ -9,26 +9,18 @@ import (
 )
 
 type formatMPEGTSSegment struct {
-	f         *formatMPEGTS
-	startDTS  time.Duration
-	lastFlush time.Duration
+	f        *formatMPEGTS
+	startDTS time.Duration
+	startNTP time.Time
 
-	created time.Time
-	path    string
-	fi      *os.File
+	lastFlush time.Duration
+	path      string
+	fi        *os.File
 }
 
-func newFormatMPEGTSSegment(f *formatMPEGTS, startDTS time.Duration) *formatMPEGTSSegment {
-	s := &formatMPEGTSSegment{
-		f:         f,
-		startDTS:  startDTS,
-		lastFlush: startDTS,
-		created:   timeNow(),
-	}
-
-	f.dw.setTarget(s)
-
-	return s
+func (s *formatMPEGTSSegment) initialize() {
+	s.lastFlush = s.startDTS
+	s.f.dw.setTarget(s)
 }
 
 func (s *formatMPEGTSSegment) close() error {
@@ -51,7 +43,7 @@ func (s *formatMPEGTSSegment) close() error {
 
 func (s *formatMPEGTSSegment) Write(p []byte) (int, error) {
 	if s.fi == nil {
-		s.path = path(s.created).encode(s.f.a.pathFormat)
+		s.path = path(s.startNTP).encode(s.f.a.pathFormat)
 		s.f.a.agent.Log(logger.Debug, "creating segment %s", s.path)
 
 		err := os.MkdirAll(filepath.Dir(s.path), 0o755)

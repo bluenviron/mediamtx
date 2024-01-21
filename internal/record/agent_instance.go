@@ -17,6 +17,7 @@ type OnSegmentFunc = func(string)
 type sample struct {
 	*fmp4.PartSample
 	dts time.Duration
+	ntp time.Time
 }
 
 type agentInstance struct {

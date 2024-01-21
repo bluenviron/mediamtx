@@ -11,8 +11,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
 
-var timeNow = time.Now
-
 func writeInit(f io.Writer, tracks []*formatFMP4Track) error {
 	fmp4Tracks := make([]*fmp4.InitTrack, len(tracks))
 	for i, track := range tracks {
@@ -36,20 +34,14 @@ func writeInit(f io.Writer, tracks []*formatFMP4Track) error {
 type formatFMP4Segment struct {
 	f        *formatFMP4
 	startDTS time.Duration
+	startNTP time.Time
 
 	path    string
 	fi      *os.File
 	curPart *formatFMP4Part
 }
 
-func newFormatFMP4Segment(
-	f *formatFMP4,
-	startDTS time.Duration,
-) *formatFMP4Segment {
-	return &formatFMP4Segment{
-		f:        f,
-		startDTS: startDTS,
-	}
+func (s *formatFMP4Segment) initialize() {
 }
 
 func (s *formatFMP4Segment) close() error {
@@ -76,7 +68,12 @@ func (s *formatFMP4Segment) close() error {
 
 func (s *formatFMP4Segment) record(track *formatFMP4Track, sample *sample) error {
 	if s.curPart == nil {
-		s.curPart = newFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
+		s.curPart = &formatFMP4Part{
+			s:              s,
+			sequenceNumber: s.f.nextSequenceNumber,
+			startDTS:       sample.dts,
+		}
+		s.curPart.initialize()
 		s.f.nextSequenceNumber++
 	} else if s.curPart.duration() >= s.f.a.agent.PartDuration {
 		err := s.curPart.close()
@@ -86,7 +83,12 @@ func (s *formatFMP4Segment) record(track *formatFMP4Track, sample *sample) error
 			return err
 		}
 
-		s.curPart = newFormatFMP4Part(s, s.f.nextSequenceNumber, sample.dts)
+		s.curPart = &formatFMP4Part{
+			s:              s,
+			sequenceNumber: s.f.nextSequenceNumber,
+			startDTS:       sample.dts,
+		}
+		s.curPart.initialize()
 		s.f.nextSequenceNumber++
 	}
 
