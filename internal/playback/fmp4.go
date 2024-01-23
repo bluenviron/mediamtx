@@ -179,31 +179,9 @@ func seekAndMuxParts(
 
 						if !fsw {
 							if !isRandom {
-								/*
-									var nalus [][]byte
-									for _, sa2 := range gop[tfhd.TrackID] {
-										auNALUS, err := h264.AVCCUnmarshal(sa2.Payload)
-										if err != nil {
-											return nil, err
-										}
-										// auNALUS = append([][]byte{{byte(h264.NALUTypeAccessUnitDelimiter), 240}}, auNALUS...)
-										nalus = append(nalus, auNALUS...)
-									}
-
-									newPayload, err := h264.AVCCMarshal(nalus)
-									if err != nil {
-										return nil, err
-									}
-
-									sa.Payload = newPayload
-									// sa.PTSOffset = gop[tfhd.TrackID][0].PTSOffset
-									sa.IsNonSyncSample = false
-
-								*/
-
 								for _, sa2 := range gop[tfhd.TrackID][:len(gop[tfhd.TrackID])-1] {
 									sa2.Duration = 0
-									sa2.PTSOffset = 0 // sa.PTSOffset //  // -90000 //30 * 90000
+									sa2.PTSOffset = 0
 									outTrack.Samples = append(outTrack.Samples, sa2)
 								}
 							}

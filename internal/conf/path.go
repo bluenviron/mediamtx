@@ -96,8 +96,9 @@ type Path struct {
 	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
 	Fallback                   string         `json:"fallback"`
 
-	// Record
+	// Record and playback
 	Record                bool           `json:"record"`
+	Playback              bool           `json:"playback"`
 	RecordPath            string         `json:"recordPath"`
 	RecordFormat          RecordFormat   `json:"recordFormat"`
 	RecordPartDuration    StringDuration `json:"recordPartDuration"`
@@ -186,7 +187,8 @@ func (pconf *Path) setDefaults() {
 	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
 
-	// Record
+	// Record and playback
+	pconf.Playback = true
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
 	pconf.RecordFormat = RecordFormatFMP4
 	pconf.RecordPartDuration = 100 * StringDuration(time.Millisecond)

@@ -447,7 +447,7 @@ func (conf *Conf) Validate() error {
 		}
 	}
 
-	// Record
+	// Record (deprecated)
 	if conf.Record != nil {
 		conf.PathDefaults.Record = *conf.Record
 	}

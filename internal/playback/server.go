@@ -52,8 +52,8 @@ func findSegments(
 	start time.Time,
 	duration time.Duration,
 ) ([]segment, error) {
-	if !pathConf.Record {
-		return nil, fmt.Errorf("record is disabled on path '%s'", pathName)
+	if !pathConf.Playback {
+		return nil, fmt.Errorf("playback is disabled on path '%s'", pathName)
 	}
 
 	recordPath := record.PathAddExtension(
