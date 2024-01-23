@@ -128,14 +128,16 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [API](#api)
   * [Metrics](#metrics)
   * [pprof](#pprof)
+  * [SRT-specific features](#srt-specific-features)
+    * [Standard stream ID syntax](#standard-stream-id-syntax)
+  * [WebRTC-specific features](#webrtc-specific-features)
+    * [Connectivity issues](#connectivity-issues)
   * [RTSP-specific features](#rtsp-specific-features)
     * [Transport protocols](#transport-protocols)
     * [Encryption](#encryption)
     * [Corrupted frames](#corrupted-frames)
   * [RTMP-specific features](#rtmp-specific-features)
     * [Encryption](#encryption-1)
-  * [WebRTC-specific features](#webrtc-specific-features)
-    * [Connectivity issues](#connectivity-issues)
 * [Compile from source](#compile-from-source)
   * [Standard](#standard)
   * [Raspberry Pi](#raspberry-pi)
@@ -561,6 +563,8 @@ If credentials are enabled, append username and password to `streamid`;
 srt://localhost:8890?streamid=publish:mystream:user:pass&pkt_size=1316
 ```
 
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](#standard-stream-id-syntax).
+
 If you want to publish a stream by using a client in listening mode (i.e. with `mode=listener` appended to the URL), read the next section.
 
 Known clients that can publish with SRT are [FFmpeg](#ffmpeg), [GStreamer](#gstreamer), [OBS Studio](#obs-studio).
@@ -837,6 +841,8 @@ If credentials are enabled, append username and password to `streamid`;
 ```
 srt://localhost:8890?streamid=read:mystream:user:pass
 ```
+
+If you need to use the standard stream ID syntax instead of the custom one in use by this server, see [Standard stream ID syntax](#standard-stream-id-syntax).
 
 Known clients that can read with SRT are [FFmpeg](#ffmpeg-1), [GStreamer](#gstreamer-1) and [VLC](#vlc).
 
@@ -1604,6 +1610,84 @@ go tool pprof -text http://localhost:9999/debug/pprof/heap
 go tool pprof -text http://localhost:9999/debug/pprof/profile?seconds=30
 ```
 
+### SRT-specific features
+
+#### Standard stream ID syntax
+
+In SRT, the stream ID is a string that is sent to the counterpart in order to advertise what action the caller is gonna do (publish or read), the path and the credentials. All these informations have to be encoded into a single string. This server supports two stream ID syntaxes, a custom one (that is the one reported in rest of the README) and also a [standard one](https://github.com/Haivision/srt/blob/master/docs/features/access-control.md) proposed by the authors of the protocol and sometimes enforced by some hardware. The standard syntax can be used in this way:
+
+```
+srt://localhost:8890?streamid=#!::m=publish,r=mypath,u=myuser,s=mypass&pkt_size=1316
+```
+
+Where:
+
+* key `m` contains the action (`publish` or `request`)
+* key `r` contains the path
+* key `u` contains the username
+* key `s` contains the password
+
+### WebRTC-specific features
+
+#### Connectivity issues
+
+If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
+
+Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, then insert the LAN address of the server. If clients are coming from the internet, insert the public IP address of the server, or alternatively a DNS name, if you have one. You can insert multiple values to support all scenarios:
+
+```yml
+webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
+```
+
+If there's a NAT / container between server and clients, it must be configured to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
+
+```sh
+docker run --rm -it \
+-p 8189:8189/udp
+....
+bluenviron/mediamtx
+```
+
+If you still have problems, maybe the UDP protocol is blocked by a firewall. Enable the local TCP listener:
+
+```yml
+# any port of choice
+webrtcLocalTCPAddress: :8189
+```
+
+If there's a NAT / container between server and clients, it must be configured to route all incoming TCP packets on port 8189 to the server.
+
+If you still have problems, enable a STUN server:
+
+```yml
+# STUN servers allows to obtain and share the public IP of the server.
+webrtcICEServers2:
+  - url: stun:stun.l.google.com:19302
+```
+
+If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like coturn, that must be configured externally. The server address and credentials must be set in the configuration file:
+
+```yml
+# TURN/TURNS servers forces all traffic through them.
+webrtcICEServers2:
+- url: turn:host:port
+  username: user
+  password: password
+```
+
+Where user and pass are the username and password of the server. Note that port is not optional.
+
+If the server uses a secret-based authentication (for instance, coturn with the use-auth-secret option), it must be configured by using AUTH_SECRET as username, and the secret as password:
+
+```yml
+webrtcICEServers2:
+- url: turn:host:port
+  username: AUTH_SECRET
+  password: secret
+```
+
+where secret is the secret of the TURN server. MediaMTX will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
+
 ### RTSP-specific features
 
 #### Transport protocols
@@ -1693,67 +1777,6 @@ rtmps://localhost:1937/...
 ```
 
 Be aware that RTMPS is currently unsupported by all major players. However, you can use a proxy like [stunnel](https://www.stunnel.org) or [nginx](https://nginx.org/) or a dedicated _MediaMTX_ instance to decrypt streams before reading them.
-
-### WebRTC-specific features
-
-#### Connectivity issues
-
-If the server is hosted inside a container or is behind a NAT, additional configuration is required in order to allow the two WebRTC parts (server and client) to establish a connection.
-
-Make sure that `webrtcAdditionalHosts` includes your public IPs, that are IPs that can be used by clients to reach the server. If clients are on the same LAN as the server, then insert the LAN address of the server. If clients are coming from the internet, insert the public IP address of the server, or alternatively a DNS name, if you have one. You can insert multiple values to support all scenarios:
-
-```yml
-webrtcAdditionalHosts: [192.168.x.x, 1.2.3.4, my-dns.example.org, ...]
-```
-
-If there's a NAT / container between server and clients, it must be configured to route all incoming UDP packets on port 8189 to the server. If you're using Docker, this can be achieved with the flag:
-
-```sh
-docker run --rm -it \
--p 8189:8189/udp
-....
-bluenviron/mediamtx
-```
-
-If you still have problems, maybe the UDP protocol is blocked by a firewall. Enable the local TCP listener:
-
-```yml
-# any port of choice
-webrtcLocalTCPAddress: :8189
-```
-
-If there's a NAT / container between server and clients, it must be configured to route all incoming TCP packets on port 8189 to the server.
-
-If you still have problems, enable a STUN server:
-
-```yml
-# STUN servers allows to obtain and share the public IP of the server.
-webrtcICEServers2:
-  - url: stun:stun.l.google.com:19302
-```
-
-If you really still have problems, you can force all WebRTC/ICE connections to pass through a TURN server, like coturn, that must be configured externally. The server address and credentials must be set in the configuration file:
-
-```yml
-# TURN/TURNS servers forces all traffic through them.
-webrtcICEServers2:
-- url: turn:host:port
-  username: user
-  password: password
-```
-
-Where user and pass are the username and password of the server. Note that port is not optional.
-
-If the server uses a secret-based authentication (for instance, coturn with the use-auth-secret option), it must be configured by using AUTH_SECRET as username, and the secret as password:
-
-```yml
-webrtcICEServers2:
-- url: turn:host:port
-  username: AUTH_SECRET
-  password: secret
-```
-
-where secret is the secret of the TURN server. MediaMTX will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
 ## Compile from source
 
