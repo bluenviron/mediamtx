@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bluenviron/mediamtx/internal/conf"
 )
 
 func leadingZeros(v int, size int) string {
@@ -21,9 +23,50 @@ func leadingZeros(v int, size int) string {
 	return out2 + out
 }
 
-type path time.Time
+// PathAddExtension adds the file extension to path.
+func PathAddExtension(path string, format conf.RecordFormat) string {
+	switch format {
+	case conf.RecordFormatMPEGTS:
+		return path + ".ts"
 
-func (p *path) decode(format string, v string) bool {
+	default:
+		return path + ".mp4"
+	}
+}
+
+// CommonPath returns the common path between all segments with given recording path.
+func CommonPath(v string) string {
+	common := ""
+	remaining := v
+
+	for {
+		i := strings.IndexAny(remaining, "\\/")
+		if i < 0 {
+			break
+		}
+
+		var part string
+		part, remaining = remaining[:i+1], remaining[i+1:]
+
+		if strings.Contains(part, "%") {
+			break
+		}
+
+		common += part
+	}
+
+	if len(common) > 0 {
+		common = common[:len(common)-1]
+	}
+
+	return common
+}
+
+// Path is a record path.
+type Path time.Time
+
+// Decode decodes a Path.
+func (p *Path) Decode(format string, v string) bool {
 	re := format
 
 	for _, ch := range []uint8{
@@ -141,15 +184,16 @@ func (p *path) decode(format string, v string) bool {
 	}
 
 	if unixSec > 0 {
-		*p = path(time.Unix(unixSec, 0))
+		*p = Path(time.Unix(unixSec, 0))
 	} else {
-		*p = path(time.Date(year, month, day, hour, minute, second, micros*1000, time.Local))
+		*p = Path(time.Date(year, month, day, hour, minute, second, micros*1000, time.Local))
 	}
 
 	return true
 }
 
-func (p path) encode(format string) string {
+// Encode encodes a path.
+func (p Path) Encode(format string) string {
 	format = strings.ReplaceAll(format, "%Y", strconv.FormatInt(int64(time.Time(p).Year()), 10))
 	format = strings.ReplaceAll(format, "%m", leadingZeros(int(time.Time(p).Month()), 2))
 	format = strings.ReplaceAll(format, "%d", leadingZeros(time.Time(p).Day(), 2))

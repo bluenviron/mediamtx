@@ -43,10 +43,6 @@ components:
           type: integer
         externalAuthenticationURL:
           type: string
-        api:
-          type: boolean
-        apiAddress:
-          type: string
         metrics:
           type: boolean
         metricsAddress:
@@ -60,6 +56,18 @@ components:
         runOnConnectRestart:
           type: boolean
         runOnDisconnect:
+          type: string
+
+        # API
+        api:
+          type: boolean
+        apiAddress:
+          type: string
+
+        # Playback server
+        playback:
+          type: boolean
+        playbackAddress:
           type: string
 
         # RTSP server
@@ -213,8 +221,10 @@ components:
         fallback:
           type: string
 
-        # Record
+        # Record and playback
         record:
+          type: boolean
+        playback:
           type: boolean
         recordPath:
           type: string

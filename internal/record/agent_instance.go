@@ -34,15 +34,10 @@ type agentInstance struct {
 func (a *agentInstance) initialize() {
 	a.pathFormat = a.agent.PathFormat
 
-	a.pathFormat = strings.ReplaceAll(a.pathFormat, "%path", a.agent.PathName)
-
-	switch a.agent.Format {
-	case conf.RecordFormatMPEGTS:
-		a.pathFormat += ".ts"
-
-	default:
-		a.pathFormat += ".mp4"
-	}
+	a.pathFormat = PathAddExtension(
+		strings.ReplaceAll(a.pathFormat, "%path", a.agent.PathName),
+		a.agent.Format,
+	)
 
 	a.terminate = make(chan struct{})
 	a.done = make(chan struct{})

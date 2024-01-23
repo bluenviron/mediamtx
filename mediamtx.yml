@@ -41,11 +41,6 @@ udpMaxPayloadSize: 1472
 # it is discarded.
 externalAuthenticationURL:
 
-# Enable the HTTP API.
-api: no
-# Address of the API listener.
-apiAddress: 127.0.0.1:9997
-
 # Enable Prometheus-compatible metrics.
 metrics: no
 # Address of the metrics listener.
@@ -70,9 +65,25 @@ runOnConnectRestart: no
 runOnDisconnect:
 
 ###############################################
+# Global settings -> API
+
+# Enable controlling the server through the API.
+api: no
+# Address of the API listener.
+apiAddress: 127.0.0.1:9997
+
+###############################################
+# Global settings -> Playback server
+
+# Enable downloading recordings from the playback server.
+playback: no
+# Address of the playback server listener.
+playbackAddress: :9996
+
+###############################################
 # Global settings -> RTSP server
 
-# Allow publishing and reading streams with the RTSP protocol.
+# Enable publishing and reading streams with the RTSP protocol.
 rtsp: yes
 # List of enabled RTSP transport protocols.
 # UDP is the most performant, but doesn't work when there's a NAT/firewall between
@@ -112,7 +123,7 @@ authMethods: [basic]
 ###############################################
 # Global settings -> RTMP server
 
-# Allow publishing and reading streams with the RTMP protocol.
+# Enable publishing and reading streams with the RTMP protocol.
 rtmp: yes
 # Address of the RTMP listener. This is needed only when encryption is "no" or "optional".
 rtmpAddress: :1935
@@ -132,7 +143,7 @@ rtmpServerCert: server.crt
 ###############################################
 # Global settings -> HLS server
 
-# Allow reading streams with the HLS protocol.
+# Enable reading streams with the HLS protocol.
 hls: yes
 # Address of the HLS listener.
 hlsAddress: :8888
@@ -188,7 +199,7 @@ hlsDirectory: ''
 ###############################################
 # Global settings -> WebRTC server
 
-# Allow publishing and reading streams with the WebRTC protocol.
+# Enable publishing and reading streams with the WebRTC protocol.
 webrtc: yes
 # Address of the WebRTC HTTP listener.
 webrtcAddress: :8889
@@ -236,7 +247,7 @@ webrtcICEServers2: []
 ###############################################
 # Global settings -> SRT server
 
-# Allow publishing and reading streams with the SRT protocol.
+# Enable publishing and reading streams with the SRT protocol.
 srt: yes
 # Address of the SRT listener.
 srtAddress: :8890
@@ -292,10 +303,12 @@ pathDefaults:
   fallback:
 
   ###############################################
-  # Default path settings -> Recording
+  # Default path settings -> Record and playback
 
   # Record streams to disk.
   record: no
+  # Enable serving recordings with the playback server.
+  playback: yes
   # Path of recording segments.
   # Extension is added automatically.
   # Available variables are %path (path name), %Y %m %d %H %M %S %f %s (time in strftime format)

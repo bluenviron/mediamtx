@@ -64,6 +64,7 @@ type pathAPIPathsGetReq struct {
 }
 
 type path struct {
+	parentCtx         context.Context
 	logLevel          conf.LogLevel
 	rtspAddress       string
 	readTimeout       conf.StringDuration
@@ -115,65 +116,33 @@ type path struct {
 	done chan struct{}
 }
 
-func newPath(
-	parentCtx context.Context,
-	logLevel conf.LogLevel,
-	rtspAddress string,
-	readTimeout conf.StringDuration,
-	writeTimeout conf.StringDuration,
-	writeQueueSize int,
-	udpMaxPayloadSize int,
-	confName string,
-	cnf *conf.Path,
-	name string,
-	matches []string,
-	wg *sync.WaitGroup,
-	externalCmdPool *externalcmd.Pool,
-	parent pathParent,
-) *path {
-	ctx, ctxCancel := context.WithCancel(parentCtx)
+func (pa *path) initialize() {
+	ctx, ctxCancel := context.WithCancel(pa.parentCtx)
 
-	pa := &path{
-		logLevel:                       logLevel,
-		rtspAddress:                    rtspAddress,
-		readTimeout:                    readTimeout,
-		writeTimeout:                   writeTimeout,
-		writeQueueSize:                 writeQueueSize,
-		udpMaxPayloadSize:              udpMaxPayloadSize,
-		confName:                       confName,
-		conf:                           cnf,
-		name:                           name,
-		matches:                        matches,
-		wg:                             wg,
-		externalCmdPool:                externalCmdPool,
-		parent:                         parent,
-		ctx:                            ctx,
-		ctxCancel:                      ctxCancel,
-		readers:                        make(map[defs.Reader]struct{}),
-		onDemandStaticSourceReadyTimer: newEmptyTimer(),
-		onDemandStaticSourceCloseTimer: newEmptyTimer(),
-		onDemandPublisherReadyTimer:    newEmptyTimer(),
-		onDemandPublisherCloseTimer:    newEmptyTimer(),
-		chReloadConf:                   make(chan *conf.Path),
-		chStaticSourceSetReady:         make(chan defs.PathSourceStaticSetReadyReq),
-		chStaticSourceSetNotReady:      make(chan defs.PathSourceStaticSetNotReadyReq),
-		chDescribe:                     make(chan defs.PathDescribeReq),
-		chAddPublisher:                 make(chan defs.PathAddPublisherReq),
-		chRemovePublisher:              make(chan defs.PathRemovePublisherReq),
-		chStartPublisher:               make(chan defs.PathStartPublisherReq),
-		chStopPublisher:                make(chan defs.PathStopPublisherReq),
-		chAddReader:                    make(chan defs.PathAddReaderReq),
-		chRemoveReader:                 make(chan defs.PathRemoveReaderReq),
-		chAPIPathsGet:                  make(chan pathAPIPathsGetReq),
-		done:                           make(chan struct{}),
-	}
+	pa.ctx = ctx
+	pa.ctxCancel = ctxCancel
+	pa.readers = make(map[defs.Reader]struct{})
+	pa.onDemandStaticSourceReadyTimer = newEmptyTimer()
+	pa.onDemandStaticSourceCloseTimer = newEmptyTimer()
+	pa.onDemandPublisherReadyTimer = newEmptyTimer()
+	pa.onDemandPublisherCloseTimer = newEmptyTimer()
+	pa.chReloadConf = make(chan *conf.Path)
+	pa.chStaticSourceSetReady = make(chan defs.PathSourceStaticSetReadyReq)
+	pa.chStaticSourceSetNotReady = make(chan defs.PathSourceStaticSetNotReadyReq)
+	pa.chDescribe = make(chan defs.PathDescribeReq)
+	pa.chAddPublisher = make(chan defs.PathAddPublisherReq)
+	pa.chRemovePublisher = make(chan defs.PathRemovePublisherReq)
+	pa.chStartPublisher = make(chan defs.PathStartPublisherReq)
+	pa.chStopPublisher = make(chan defs.PathStopPublisherReq)
+	pa.chAddReader = make(chan defs.PathAddReaderReq)
+	pa.chRemoveReader = make(chan defs.PathRemoveReaderReq)
+	pa.chAPIPathsGet = make(chan pathAPIPathsGetReq)
+	pa.done = make(chan struct{})
 
 	pa.Log(logger.Debug, "created")
 
 	pa.wg.Add(1)
 	go pa.run()
-
-	return pa
 }
 
 func (pa *path) close() {

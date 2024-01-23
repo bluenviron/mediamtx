@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/aler9/writerseeker"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 
 	"github.com/bluenviron/mediamtx/internal/logger"
 )
@@ -21,13 +21,13 @@ func writeInit(f io.Writer, tracks []*formatFMP4Track) error {
 		Tracks: fmp4Tracks,
 	}
 
-	var ws writerseeker.WriterSeeker
-	err := init.Marshal(&ws)
+	var buf seekablebuffer.Buffer
+	err := init.Marshal(&buf)
 	if err != nil {
 		return err
 	}
 
-	_, err = f.Write(ws.Bytes())
+	_, err = f.Write(buf.Bytes())
 	return err
 }
 

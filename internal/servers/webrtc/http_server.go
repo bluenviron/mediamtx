@@ -112,7 +112,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 	remoteAddr := net.JoinHostPort(ip, port)
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.GetConfForPath(defs.PathGetConfForPathReq{
+	res := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:    path,
 			Query:   ctx.Request.URL.RawQuery,

@@ -6,8 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v0.8.1
-	github.com/aler9/writerseeker v1.1.0
-	github.com/bluenviron/gohlslib v1.2.0
+	github.com/bluenviron/gohlslib v1.2.1-0.20240114214154-83fc88edbaad
 	github.com/bluenviron/gortsplib/v4 v4.7.1
 	github.com/bluenviron/mediacommon v1.9.0
 	github.com/datarhei/gosrt v0.5.7

@@ -16,8 +16,7 @@ import (
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
 
-// IsValidPathName checks if a path name is valid.
-func IsValidPathName(name string) error {
+func isValidPathName(name string) error {
 	if name == "" {
 		return fmt.Errorf("cannot be empty")
 	}
@@ -47,6 +46,41 @@ func srtCheckPassphrase(passphrase string) error {
 	}
 }
 
+// FindPathConf returns the configuration corresponding to the given path name.
+func FindPathConf(pathConfs map[string]*Path, name string) (string, *Path, []string, error) {
+	err := isValidPathName(name)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("invalid path name: %w (%s)", err, name)
+	}
+
+	// normal path
+	if pathConf, ok := pathConfs[name]; ok {
+		return name, pathConf, nil, nil
+	}
+
+	// regular expression-based path
+	for pathConfName, pathConf := range pathConfs {
+		if pathConf.Regexp != nil && pathConfName != "all" && pathConfName != "all_others" {
+			m := pathConf.Regexp.FindStringSubmatch(name)
+			if m != nil {
+				return pathConfName, pathConf, m, nil
+			}
+		}
+	}
+
+	// all_others
+	for pathConfName, pathConf := range pathConfs {
+		if pathConfName == "all" || pathConfName == "all_others" {
+			m := pathConf.Regexp.FindStringSubmatch(name)
+			if m != nil {
+				return pathConfName, pathConf, m, nil
+			}
+		}
+	}
+
+	return "", nil, nil, fmt.Errorf("path '%s' is not configured", name)
+}
+
 // Path is a path configuration.
 type Path struct {
 	Regexp *regexp.Regexp `json:"-"`    // filled by Check()
@@ -62,8 +96,9 @@ type Path struct {
 	SRTReadPassphrase          string         `json:"srtReadPassphrase"`
 	Fallback                   string         `json:"fallback"`
 
-	// Record
+	// Record and playback
 	Record                bool           `json:"record"`
+	Playback              bool           `json:"playback"`
 	RecordPath            string         `json:"recordPath"`
 	RecordFormat          RecordFormat   `json:"recordFormat"`
 	RecordPartDuration    StringDuration `json:"recordPartDuration"`
@@ -152,7 +187,8 @@ func (pconf *Path) setDefaults() {
 	pconf.SourceOnDemandStartTimeout = 10 * StringDuration(time.Second)
 	pconf.SourceOnDemandCloseAfter = 10 * StringDuration(time.Second)
 
-	// Record
+	// Record and playback
+	pconf.Playback = true
 	pconf.RecordPath = "./recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
 	pconf.RecordFormat = RecordFormatFMP4
 	pconf.RecordPartDuration = 100 * StringDuration(time.Millisecond)
@@ -212,7 +248,7 @@ func (pconf Path) Clone() *Path {
 	return &dest
 }
 
-func (pconf *Path) check(conf *Conf, name string) error {
+func (pconf *Path) validate(conf *Conf, name string) error {
 	pconf.Name = name
 
 	switch {
@@ -220,7 +256,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 		pconf.Regexp = regexp.MustCompile("^.*$")
 
 	case name == "" || name[0] != '~': // normal path
-		err := IsValidPathName(name)
+		err := isValidPathName(name)
 		if err != nil {
 			return fmt.Errorf("invalid path name '%s': %w", name, err)
 		}
@@ -325,7 +361,7 @@ func (pconf *Path) check(conf *Conf, name string) error {
 	}
 	if pconf.Fallback != "" {
 		if strings.HasPrefix(pconf.Fallback, "/") {
-			err := IsValidPathName(pconf.Fallback[1:])
+			err := isValidPathName(pconf.Fallback[1:])
 			if err != nil {
 				return fmt.Errorf("'%s': %w", pconf.Fallback, err)
 			}

@@ -102,7 +102,7 @@ func TestCredential(t *testing.T) {
 		assert.False(t, cred.Check("notestuser"))
 	})
 
-	t.Run("validateConfig", func(t *testing.T) {
+	t.Run("validate", func(t *testing.T) {
 		tests := []struct {
 			name    string
 			cred    *Credential
@@ -155,7 +155,7 @@ func TestCredential(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				err := tt.cred.validateConfig()
+				err := tt.cred.validate()
 				if tt.wantErr {
 					assert.Error(t, err)
 				} else {
