@@ -92,6 +92,74 @@ func newInstance(conf string) (*Core, bool) {
 	return New([]string{tmpf})
 }
 
+func TestCoreErrors(t *testing.T) {
+	for _, ca := range []struct {
+		name string
+		conf string
+	}{
+		{
+			"logger",
+			"logDestinations: [file]\n" +
+				"logFile: /nonexisting/nonexist\n",
+		},
+		{
+			"metrics",
+			"metrics: yes\n" +
+				"metricsAddress: invalid\n",
+		},
+		{
+			"pprof",
+			"pprof: yes\n" +
+				"pprofAddress: invalid\n",
+		},
+		{
+			"playback",
+			"playback: yes\n" +
+				"playbackAddress: invalid\n",
+		},
+		{
+			"rtsp",
+			"rtspAddress: invalid\n",
+		},
+		{
+			"rtsps",
+			"encryption: strict\n" +
+				"rtspAddress: invalid\n",
+		},
+		{
+			"rtmp",
+			"rtmpAddress: invalid\n",
+		},
+		{
+			"rtmps",
+			"rtmpEncryption: strict\n" +
+				"rtmpAddress: invalid\n",
+		},
+		{
+			"hls",
+			"hlsAddress: invalid\n",
+		},
+		{
+			"webrtc",
+			"webrtcAddress: invalid\n",
+		},
+		{
+			"srt",
+			"srtAddress: invalid\n",
+		},
+		{
+			"api",
+			"api: yes\n" +
+				"apiAddress: invalid\n",
+		},
+	} {
+		t.Run(ca.name, func(t *testing.T) {
+			_, ok := newInstance(ca.conf)
+			require.Equal(t, false, ok)
+		})
+	}
+}
+
 func TestCoreHotReloading(t *testing.T) {
 	confPath := filepath.Join(os.TempDir(), "rtsp-conf")
 
