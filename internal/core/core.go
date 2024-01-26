@@ -280,28 +280,30 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.Metrics &&
 		p.metrics == nil {
-		p.metrics = &metrics.Metrics{
+		i := &metrics.Metrics{
 			Address:     p.conf.MetricsAddress,
 			ReadTimeout: p.conf.ReadTimeout,
 			Parent:      p,
 		}
-		err := p.metrics.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.metrics = i
 	}
 
 	if p.conf.PPROF &&
 		p.pprof == nil {
-		p.pprof = &pprof.PPROF{
+		i := &pprof.PPROF{
 			Address:     p.conf.PPROFAddress,
 			ReadTimeout: p.conf.ReadTimeout,
 			Parent:      p,
 		}
-		err := p.pprof.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.pprof = i
 	}
 
 	cleanerEntries := gatherCleanerEntries(p.conf.Paths)
@@ -316,16 +318,17 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.Playback &&
 		p.playbackServer == nil {
-		p.playbackServer = &playback.Server{
+		i := &playback.Server{
 			Address:     p.conf.PlaybackAddress,
 			ReadTimeout: p.conf.ReadTimeout,
 			PathConfs:   p.conf.Paths,
 			Parent:      p,
 		}
-		err := p.playbackServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.playbackServer = i
 	}
 
 	if p.pathManager == nil {
@@ -356,7 +359,7 @@ func (p *Core) createResources(initial bool) error {
 		_, useUDP := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDP)]
 		_, useMulticast := p.conf.Protocols[conf.Protocol(gortsplib.TransportUDPMulticast)]
 
-		p.rtspServer = &rtsp.Server{
+		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
 			AuthMethods:         p.conf.AuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
@@ -381,10 +384,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := p.rtspServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.rtspServer = i
 
 		if p.metrics != nil {
 			p.metrics.SetRTSPServer(p.rtspServer)
@@ -395,7 +399,7 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.Encryption == conf.EncryptionStrict ||
 			p.conf.Encryption == conf.EncryptionOptional) &&
 		p.rtspsServer == nil {
-		p.rtspsServer = &rtsp.Server{
+		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
 			AuthMethods:         p.conf.AuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
@@ -420,10 +424,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := p.rtspsServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.rtspsServer = i
 
 		if p.metrics != nil {
 			p.metrics.SetRTSPSServer(p.rtspsServer)
@@ -434,7 +439,7 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTMPEncryption == conf.EncryptionNo ||
 			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
 		p.rtmpServer == nil {
-		p.rtmpServer = &rtmp.Server{
+		i := &rtmp.Server{
 			Address:             p.conf.RTMPAddress,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
@@ -450,10 +455,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := p.rtmpServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.rtmpServer = i
 
 		if p.metrics != nil {
 			p.metrics.SetRTMPServer(p.rtmpServer)
@@ -464,7 +470,7 @@ func (p *Core) createResources(initial bool) error {
 		(p.conf.RTMPEncryption == conf.EncryptionStrict ||
 			p.conf.RTMPEncryption == conf.EncryptionOptional) &&
 		p.rtmpsServer == nil {
-		p.rtmpsServer = &rtmp.Server{
+		i := &rtmp.Server{
 			Address:             p.conf.RTMPSAddress,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
@@ -480,10 +486,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := p.rtmpsServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.rtmpsServer = i
 
 		if p.metrics != nil {
 			p.metrics.SetRTMPSServer(p.rtmpsServer)
@@ -492,7 +499,7 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.HLS &&
 		p.hlsServer == nil {
-		p.hlsServer = &hls.Server{
+		i := &hls.Server{
 			Address:                   p.conf.HLSAddress,
 			Encryption:                p.conf.HLSEncryption,
 			ServerKey:                 p.conf.HLSServerKey,
@@ -512,10 +519,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:               p.pathManager,
 			Parent:                    p,
 		}
-		err := p.hlsServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.hlsServer = i
 
 		p.pathManager.setHLSServer(p.hlsServer)
 
@@ -526,7 +534,7 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.WebRTC &&
 		p.webRTCServer == nil {
-		p.webRTCServer = &webrtc.Server{
+		i := &webrtc.Server{
 			Address:               p.conf.WebRTCAddress,
 			Encryption:            p.conf.WebRTCEncryption,
 			ServerKey:             p.conf.WebRTCServerKey,
@@ -545,11 +553,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:           p.pathManager,
 			Parent:                p,
 		}
-		err := p.webRTCServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
-			p.webRTCServer = nil
 			return err
 		}
+		p.webRTCServer = i
 
 		if p.metrics != nil {
 			p.metrics.SetWebRTCServer(p.webRTCServer)
@@ -558,7 +566,7 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.SRT &&
 		p.srtServer == nil {
-		p.srtServer = &srt.Server{
+		i := &srt.Server{
 			Address:             p.conf.SRTAddress,
 			RTSPAddress:         p.conf.RTSPAddress,
 			ReadTimeout:         p.conf.ReadTimeout,
@@ -572,10 +580,11 @@ func (p *Core) createResources(initial bool) error {
 			PathManager:         p.pathManager,
 			Parent:              p,
 		}
-		err := p.srtServer.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.srtServer = i
 
 		if p.metrics != nil {
 			p.metrics.SetSRTServer(p.srtServer)
@@ -584,7 +593,7 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.conf.API &&
 		p.api == nil {
-		p.api = &api.API{
+		i := &api.API{
 			Address:      p.conf.APIAddress,
 			ReadTimeout:  p.conf.ReadTimeout,
 			Conf:         p.conf,
@@ -598,10 +607,11 @@ func (p *Core) createResources(initial bool) error {
 			SRTServer:    p.srtServer,
 			Parent:       p,
 		}
-		err := p.api.Initialize()
+		err := i.Initialize()
 		if err != nil {
 			return err
 		}
+		p.api = i
 	}
 
 	if initial && p.confPath != "" {
@@ -916,7 +926,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		p.externalCmdPool.Close()
 	}
 
-	if closeLogger {
+	if closeLogger && p.logger != nil {
 		p.logger.Close()
 		p.logger = nil
 	}
