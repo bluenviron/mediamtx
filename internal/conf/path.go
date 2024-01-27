@@ -130,38 +130,39 @@ type Path struct {
 	SourceRedirect string `json:"sourceRedirect"`
 
 	// Raspberry Pi Camera source
-	RPICameraCamID             int     `json:"rpiCameraCamID"`
-	RPICameraWidth             int     `json:"rpiCameraWidth"`
-	RPICameraHeight            int     `json:"rpiCameraHeight"`
-	RPICameraHFlip             bool    `json:"rpiCameraHFlip"`
-	RPICameraVFlip             bool    `json:"rpiCameraVFlip"`
-	RPICameraBrightness        float64 `json:"rpiCameraBrightness"`
-	RPICameraContrast          float64 `json:"rpiCameraContrast"`
-	RPICameraSaturation        float64 `json:"rpiCameraSaturation"`
-	RPICameraSharpness         float64 `json:"rpiCameraSharpness"`
-	RPICameraExposure          string  `json:"rpiCameraExposure"`
-	RPICameraAWB               string  `json:"rpiCameraAWB"`
-	RPICameraDenoise           string  `json:"rpiCameraDenoise"`
-	RPICameraShutter           int     `json:"rpiCameraShutter"`
-	RPICameraMetering          string  `json:"rpiCameraMetering"`
-	RPICameraGain              float64 `json:"rpiCameraGain"`
-	RPICameraEV                float64 `json:"rpiCameraEV"`
-	RPICameraROI               string  `json:"rpiCameraROI"`
-	RPICameraHDR               bool    `json:"rpiCameraHDR"`
-	RPICameraTuningFile        string  `json:"rpiCameraTuningFile"`
-	RPICameraMode              string  `json:"rpiCameraMode"`
-	RPICameraFPS               float64 `json:"rpiCameraFPS"`
-	RPICameraIDRPeriod         int     `json:"rpiCameraIDRPeriod"`
-	RPICameraBitrate           int     `json:"rpiCameraBitrate"`
-	RPICameraProfile           string  `json:"rpiCameraProfile"`
-	RPICameraLevel             string  `json:"rpiCameraLevel"`
-	RPICameraAfMode            string  `json:"rpiCameraAfMode"`
-	RPICameraAfRange           string  `json:"rpiCameraAfRange"`
-	RPICameraAfSpeed           string  `json:"rpiCameraAfSpeed"`
-	RPICameraLensPosition      float64 `json:"rpiCameraLensPosition"`
-	RPICameraAfWindow          string  `json:"rpiCameraAfWindow"`
-	RPICameraTextOverlayEnable bool    `json:"rpiCameraTextOverlayEnable"`
-	RPICameraTextOverlay       string  `json:"rpiCameraTextOverlay"`
+	RPICameraCamID             int       `json:"rpiCameraCamID"`
+	RPICameraWidth             int       `json:"rpiCameraWidth"`
+	RPICameraHeight            int       `json:"rpiCameraHeight"`
+	RPICameraHFlip             bool      `json:"rpiCameraHFlip"`
+	RPICameraVFlip             bool      `json:"rpiCameraVFlip"`
+	RPICameraBrightness        float64   `json:"rpiCameraBrightness"`
+	RPICameraContrast          float64   `json:"rpiCameraContrast"`
+	RPICameraSaturation        float64   `json:"rpiCameraSaturation"`
+	RPICameraSharpness         float64   `json:"rpiCameraSharpness"`
+	RPICameraExposure          string    `json:"rpiCameraExposure"`
+	RPICameraAWB               string    `json:"rpiCameraAWB"`
+	RPICameraAWBGains          []float64 `json:"rpiCameraAWBGains"`
+	RPICameraDenoise           string    `json:"rpiCameraDenoise"`
+	RPICameraShutter           int       `json:"rpiCameraShutter"`
+	RPICameraMetering          string    `json:"rpiCameraMetering"`
+	RPICameraGain              float64   `json:"rpiCameraGain"`
+	RPICameraEV                float64   `json:"rpiCameraEV"`
+	RPICameraROI               string    `json:"rpiCameraROI"`
+	RPICameraHDR               bool      `json:"rpiCameraHDR"`
+	RPICameraTuningFile        string    `json:"rpiCameraTuningFile"`
+	RPICameraMode              string    `json:"rpiCameraMode"`
+	RPICameraFPS               float64   `json:"rpiCameraFPS"`
+	RPICameraIDRPeriod         int       `json:"rpiCameraIDRPeriod"`
+	RPICameraBitrate           int       `json:"rpiCameraBitrate"`
+	RPICameraProfile           string    `json:"rpiCameraProfile"`
+	RPICameraLevel             string    `json:"rpiCameraLevel"`
+	RPICameraAfMode            string    `json:"rpiCameraAfMode"`
+	RPICameraAfRange           string    `json:"rpiCameraAfRange"`
+	RPICameraAfSpeed           string    `json:"rpiCameraAfSpeed"`
+	RPICameraLensPosition      float64   `json:"rpiCameraLensPosition"`
+	RPICameraAfWindow          string    `json:"rpiCameraAfWindow"`
+	RPICameraTextOverlayEnable bool      `json:"rpiCameraTextOverlayEnable"`
+	RPICameraTextOverlay       string    `json:"rpiCameraTextOverlay"`
 
 	// Hooks
 	RunOnInit                  string         `json:"runOnInit"`
@@ -206,6 +207,7 @@ func (pconf *Path) setDefaults() {
 	pconf.RPICameraSharpness = 1
 	pconf.RPICameraExposure = "normal"
 	pconf.RPICameraAWB = "auto"
+	pconf.RPICameraAWBGains = []float64{0, 0}
 	pconf.RPICameraDenoise = "off"
 	pconf.RPICameraMetering = "centre"
 	pconf.RPICameraFPS = 30
@@ -466,6 +468,9 @@ func (pconf *Path) validate(conf *Conf, name string) error {
 	case "auto", "incandescent", "tungsten", "fluorescent", "indoor", "daylight", "cloudy", "custom":
 	default:
 		return fmt.Errorf("invalid 'rpiCameraAWB' value")
+	}
+	if len(pconf.RPICameraAWBGains) != 2 {
+		return fmt.Errorf("invalid 'rpiCameraAWBGains' value")
 	}
 	switch pconf.RPICameraDenoise {
 	case "off", "cdn_off", "cdn_fast", "cdn_hq":

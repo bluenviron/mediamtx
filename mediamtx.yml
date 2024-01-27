@@ -409,6 +409,9 @@ pathDefaults:
   # auto-white-balance mode.
   # values: auto, incandescent, tungsten, fluorescent, indoor, daylight, cloudy, custom
   rpiCameraAWB: auto
+  # auto-white-balance fixed gains. This can be used in place of rpiCameraAWB.
+  # format: [red,blue]
+  rpiCameraAWBGains: [0, 0]
   # denoise operating mode.
   # values: off, cdn_off, cdn_fast, cdn_hq
   rpiCameraDenoise: "off"

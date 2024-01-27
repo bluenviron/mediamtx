@@ -39,6 +39,8 @@ func paramsFromConf(logLevel conf.LogLevel, cnf *conf.Path) rpicamera.Params {
 		Sharpness:         cnf.RPICameraSharpness,
 		Exposure:          cnf.RPICameraExposure,
 		AWB:               cnf.RPICameraAWB,
+		AWBGainRed:        cnf.RPICameraAWBGains[0],
+		AWBGainBlue:       cnf.RPICameraAWBGains[1],
 		Denoise:           cnf.RPICameraDenoise,
 		Shutter:           cnf.RPICameraShutter,
 		Metering:          cnf.RPICameraMetering,

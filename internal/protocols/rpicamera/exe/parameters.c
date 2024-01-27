@@ -61,6 +61,10 @@ bool parameters_unserialize(parameters_t *params, const uint8_t *buf, size_t buf
             params->exposure = base64_decode(val);
         } else if (strcmp(key, "AWB") == 0) {
             params->awb = base64_decode(val);
+        } else if (strcmp(key, "AWBGainRed") == 0) {
+            params->awb_gain_red = atof(val);
+        } else if (strcmp(key, "AWBGainBlue") == 0) {
+            params->awb_gain_blue = atof(val);
         } else if (strcmp(key, "Denoise") == 0) {
             params->denoise = base64_decode(val);
         } else if (strcmp(key, "Shutter") == 0) {

@@ -20,6 +20,8 @@ typedef struct {
     float sharpness;
     char *exposure;
     char *awb;
+    float awb_gain_red;
+    float awb_gain_blue;
     char *denoise;
     unsigned int shutter;
     char *metering;

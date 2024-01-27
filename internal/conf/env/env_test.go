@@ -85,6 +85,7 @@ type testStruct struct {
 	MyDurationOpt            *myDuration          `json:"myDurationOpt"`
 	MyDurationOptUnset       *myDuration          `json:"myDurationOptUnset"`
 	MyMap                    map[string]*mapEntry `json:"myMap"`
+	MySliceFloat             []float64            `json:"mySliceFloat"`
 	MySliceString            []string             `json:"mySliceString"`
 	MySliceStringEmpty       []string             `json:"mySliceStringEmpty"`
 	MySliceStringOpt         *[]string            `json:"mySliceStringOpt"`
@@ -113,6 +114,7 @@ func TestLoad(t *testing.T) {
 		"MYPREFIX_MYMAP_MYKEY":                    "",
 		"MYPREFIX_MYMAP_MYKEY2_MYVALUE":           "asd",
 		"MYPREFIX_MYMAP_MYKEY2_MYSTRUCT_MYPARAM":  "456",
+		"MYPREFIX_MYSLICEFLOAT":                   "0.5,0.5",
 		"MYPREFIX_MYSLICESTRING":                  "val1,val2",
 		"MYPREFIX_MYSLICESTRINGEMPTY":             "",
 		"MYPREFIX_MYSLICESTRINGOPT":               "aa",
@@ -160,6 +162,7 @@ func TestLoad(t *testing.T) {
 				},
 			},
 		},
+		MySliceFloat: []float64{0.5, 0.5},
 		MySliceString: []string{
 			"val1",
 			"val2",
