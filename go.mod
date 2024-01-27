@@ -23,7 +23,7 @@ require (
 	github.com/pion/logging v0.2.2
 	github.com/pion/rtcp v1.2.13
 	github.com/pion/rtp v1.8.3
-	github.com/pion/sdp/v3 v3.0.6
+	github.com/pion/sdp/v3 v3.0.7-0.20240105013511-011e5e0cda6f
 	github.com/pion/webrtc/v3 v3.2.22
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.18.0
@@ -73,8 +73,6 @@ require (
 )
 
 replace code.cloudfoundry.org/bytefmt => github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5
-
-replace github.com/pion/sdp/v3 => github.com/aler9/sdp/v3 v3.0.0-20231022165400-33437e07f326
 
 replace github.com/pion/ice/v2 => github.com/aler9/ice/v2 v2.0.0-20231112223552-32d34dfcf3a1
 
