@@ -5,742 +5,726 @@
 <meta name="viewport" content="width=device-width">
 <style>
 html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-}
-body {
-    display: flex;
-    flex-direction: column;
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	font-family: 'Arial', sans-serif;
 }
 #video {
-    height: 100%;
-    background: black;
-    flex-grow: 1;
-    min-height: 0;
+	width: 100%;
+	height: 100%;
+	background: rgb(30, 30, 30);
 }
 #controls {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 200px;
-    padding: 10px;
-    flex-direction: column;
+	display: none;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	padding: 10px;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	box-sizing: border-box;
+	background: rgb(30, 30, 30);
+	color: white;
 }
-
-#device {
-    display: grid;
-    grid-template-rows: repeat(6, 1fr);
-    grid-auto-flow: column;
-    gap: 10px 20px
-}
-
 .item {
-    display: grid;
-    grid-auto-flow: column;
-    grid-template-columns: auto 200px;
-    gap: 20px;
+	display: grid;
+	grid-auto-flow: column;
+	grid-template-columns: auto 220px;
+	align-items: center;
+	gap: 20px;
+	max-width: 500px;
+	margin: 10px 0;
 }
-
-#submit_line {
-    margin-top: 20px;
+select, input[type="text"] {
+	appearance: none;
+	background: inherit;
+	color: inherit;
+	border: 1px solid rgb(200, 200, 200);
+	border-radius: 3px;
+	height: 40px;
 }
-
-#error-message {
-    text-align: center;
+#message {
+	position: absolute;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	align-items: center;
+	text-align: center;
+	justify-content: center;
+	font-size: 16px;
+	font-weight: bold;
+	color: white;
+	pointer-events: none;
+	padding: 20px;
+	box-sizing: border-box;
 }
-select {
-    width: 200px;
+#publish-button {
+	margin-top: 10px;
+	appearance: none;
+	background: rgb(200, 200, 200);
+	color: black;
+	border-radius: 3px;
+	height: 50px;
+	padding: 0 20px;
+	border: none;
 }
 </style>
 </head>
 <body>
 
-<video id="video" muted controls autoplay playsinline></video>
+<video id="video" muted autoplay playsinline></video>
+
 <div id="controls">
-    <div id="initializing" style="display: block;">
-        initializing
-    </div>
+	<div id="items">
+		<div class="item">
+			<label for="video-device">video device</label>
+			<select id="video-device">
+				<option value="none">none</option>
+			</select>
+		</div>
 
-    <div id="device" style="display: none">
-        <div class="item">
-            <label for="video_device">video device</label>
-            <select id="video_device">
-                <option value="none">none</option>
-            </select>
-        </div>
+		<div class="item">
+			<label for="video-codec">video codec</label>
+			<select id="video-codec">
+			</select>
+		</div>
 
-        <div class="item">
-            <label for="video_codec">video codec</label>
-            <select id="video_codec">
-            </select>
-        </div>
+		<div class="item">
+			<label for="video-bitrate">video bitrate (kbps)</label>
+			<input id="video-bitrate" type="text" value="10000" />
+		</div>
 
-        <div class="item">
-            <label for="video_bitrate">video bitrate (kbps)</label>
-            <input id="video_bitrate" type="text" value="10000" />
-        </div>
+		<div class="item">
+			<label for="video-framerate">video framerate</label>
+			<input id="video-framerate" type="text" value="30" />
+		</div>
 
-        <div class="item">
-            <label for="video_framerate">video framerate</label>
-            <input id="video_framerate" type="text" value="30" />
-        </div>
+		<div class="item">
+			<label for="video-width">video width</label>
+			<input id="video-width" type="text" value="1920" />
+		</div>
 
-        <div class="item">
-            <label for="video_width">video width</label>
-            <input id="video_width" type="text" value="1920" />
-        </div>
+		<div class="item">
+			<label for="video-height">video height</label>
+			<input id="video-height" type="text" value="1080" />
+		</div>
 
-        <div class="item">
-            <label for="video_height">video height</label>
-            <input id="video_height" type="text" value="1080" />
-        </div>
+		<div class="item">
+			<label for="audio-device">audio device</label>
+			<select id="audio-device">
+				<option value="none">none</option>
+			</select>
+		</div>
 
-        <div class="item">
-            <label for="audio_device">audio device</label>
-            <select id="audio_device">
-                <option value="none">none</option>
-            </select>
-        </div>
+		<div class="item">
+			<label for="audio-codec">audio codec</label>
+			<select id="audio-codec">
+			</select>
+		</div>
 
-        <div class="item">
-            <label for="audio_codec">audio codec</label>
-            <select id="audio_codec">
-            </select>
-        </div>
+		<div class="item">
+			<label for="audio-bitrate">audio bitrate (kbps)</label>
+			<input id="audio-bitrate" type="text" value="32" />
+		</div>
 
-        <div class="item">
-            <label for="audio_bitrate">audio bitrate (kbps)</label>
-            <input id="audio_bitrate" type="text" value="32" />
-        </div>
+		<div class="item">
+			<label for="audio-voice">optimize for voice</label>
+			<div>
+				<input id="audio-voice" type="checkbox" checked>
+			</div>
+		</div>
+	</div>
 
-        <div class="item">
-            <label for="audio_voice">optimize for voice</label>
-            <input id="audio_voice" type="checkbox" checked>
-        </div>
-
-        <div class="item"></div>
-    </div>
-
-    <div id="submit_line" style="display: none">
-        <button id="publish_confirm">publish</button>
-    </div>
-
-    <div id="transmitting" style="display: none;">
-        publishing
-    </div>
-
-    <div id="error" style="display: none;">
-        <span id="error-message"></span>
-    </div>
+	<div id="submit-line">
+		<button id="publish-button">publish</button>
+	</div>
 </div>
 
-<script>
-const INITIALIZING = 0;
-const DEVICE = 1;
-const TRANSMITTING = 2;
-const ERROR = 3;
+<div id="message"></div>
 
-let state = INITIALIZING;
-let errorMessage = '';
+<script>
+
+const retryPause = 2000;
+
+const video = document.getElementById('video');
+const controls = document.getElementById('controls');
+const message = document.getElementById('message');
+const publishButton = document.getElementById('publish-button');
 
 const videoForm = {
-    device: document.getElementById("video_device"),
-    codec: document.getElementById("video_codec"),
-    bitrate: document.getElementById("video_bitrate"),
-    framerate: document.getElementById("video_framerate"),
-    width: document.getElementById("video_width"),
-    height: document.getElementById("video_height")
-}
-
-const audioForm = {
-    device: document.getElementById("audio_device"),
-    codec: document.getElementById("audio_codec"),
-    bitrate: document.getElementById("audio_bitrate"),
-    voice: document.getElementById("audio_voice"),
-}
-
-const url = new URL(window.location.href);
-
-const initializeInputsFromUrl = () => {
-    const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
-
-    for (const input of inputs) {
-        const value = url.searchParams.get(input.id);
-        if (value) {
-            if (input instanceof HTMLInputElement && input.type === "text") {
-                input.value = value;
-            }
-
-            if (input instanceof HTMLInputElement && input.type === "checkbox") {
-                input.checked = value === "true";
-            }
-
-            if (input instanceof HTMLSelectElement) {
-                input.value = value
-            }
-        }
-    }
-}
-
-const registerInputsToUrl = () => {
-    const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
-
-    for (const input of inputs) {
-        if (input instanceof HTMLInputElement && input.type === "text") {
-            input.addEventListener("input", () => {
-                url.searchParams.set(input.id, input.value);
-                window.history.replaceState(null, null, url);
-            })
-        }
-
-        if (input instanceof HTMLInputElement && input.type === "checkbox") {
-            input.addEventListener("input", () => {
-                url.searchParams.set(input.id, input.checked);
-                window.history.replaceState(null, null, url);
-            })
-        }
-
-        if (input instanceof HTMLSelectElement) {
-            input.addEventListener("input", () => {
-                url.searchParams.set(input.id, input.value);
-                window.history.replaceState(null, null, url);
-            })
-        }
-    }
-}
-
-const render = () => {
-    for (const el of ['initializing', 'device', 'submit_line', 'transmitting', 'error']) {
-        document.getElementById(el).style.display = 'none';
-    }
-
-    switch (state) {
-    case DEVICE:
-        document.getElementById('device').style.display = 'grid';
-        document.getElementById('submit_line').style.display = 'block';
-        initializeInputsFromUrl();
-        registerInputsToUrl();
-        break;
-
-    case TRANSMITTING:
-        document.getElementById('transmitting').style.display = 'flex';
-        break;
-
-    case ERROR:
-        document.getElementById('error').style.display = 'flex';
-        document.getElementById('error-message').innerHTML = 'error: ' + errorMessage;
-        break;
-    }
+	device: document.getElementById('video-device'),
+	codec: document.getElementById('video-codec'),
+	bitrate: document.getElementById('video-bitrate'),
+	framerate: document.getElementById('video-framerate'),
+	width: document.getElementById('video-width'),
+	height: document.getElementById('video-height')
 };
 
-const restartPause = 2000;
+const audioForm = {
+	device: document.getElementById('audio-device'),
+	codec: document.getElementById('audio-codec'),
+	bitrate: document.getElementById('audio-bitrate'),
+	voice: document.getElementById('audio-voice'),
+};
+
+let pc = null;
+let stream = null;
+let restartTimeout = null;
+let sessionUrl = '';
+let offerData = '';
+let queuedCandidates = [];
+
+const setMessage = (str) => {
+	message.innerText = str;
+};
+
+const onError = (err, retry) => {
+	if (!retry) {
+		setMessage(err);
+	} else {
+		if (restartTimeout === null) {
+			setMessage(err + ', retrying in some seconds');
+
+			if (pc !== null) {
+				pc.close();
+				pc = null;
+			}
+
+			restartTimeout = window.setTimeout(() => {
+				restartTimeout = null;
+				startTransmit();
+			}, retryPause);
+
+			if (sessionUrl) {
+				fetch(sessionUrl, {
+					method: 'DELETE',
+				});
+			}
+			sessionUrl = '';
+
+			queuedCandidates = [];
+		}
+	}
+};
 
 const unquoteCredential = (v) => (
-    JSON.parse(`"${v}"`)
+	JSON.parse(`"${v}"`)
 );
 
 const linkToIceServers = (links) => (
-    (links !== null) ? links.split(', ').map((link) => {
-        const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
-        const ret = {
-            urls: [m[1]],
-        };
+	(links !== null) ? links.split(', ').map((link) => {
+		const m = link.match(/^<(.+?)>; rel="ice-server"(; username="(.*?)"; credential="(.*?)"; credential-type="password")?/i);
+		const ret = {
+			urls: [m[1]],
+		};
 
-        if (m[3] !== undefined) {
-            ret.username = unquoteCredential(m[3]);
-            ret.credential = unquoteCredential(m[4]);
-            ret.credentialType = "password";
-        }
+		if (m[3] !== undefined) {
+			ret.username = unquoteCredential(m[3]);
+			ret.credential = unquoteCredential(m[4]);
+			ret.credentialType = 'password';
+		}
 
-        return ret;
-    }) : []
+		return ret;
+	}) : []
 );
 
 const parseOffer = (offer) => {
-    const ret = {
-        iceUfrag: '',
-        icePwd: '',
-        medias: [],
-    };
+	const ret = {
+		iceUfrag: '',
+		icePwd: '',
+		medias: [],
+	};
 
-    for (const line of offer.split('\r\n')) {
-        if (line.startsWith('m=')) {
-            ret.medias.push(line.slice('m='.length));
-        } else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
-            ret.iceUfrag = line.slice('a=ice-ufrag:'.length);
-        } else if (ret.icePwd === '' && line.startsWith('a=ice-pwd:')) {
-            ret.icePwd = line.slice('a=ice-pwd:'.length);
-        }
-    }
+	for (const line of offer.split('\r\n')) {
+		if (line.startsWith('m=')) {
+			ret.medias.push(line.slice('m='.length));
+		} else if (ret.iceUfrag === '' && line.startsWith('a=ice-ufrag:')) {
+			ret.iceUfrag = line.slice('a=ice-ufrag:'.length);
+		} else if (ret.icePwd === '' && line.startsWith('a=ice-pwd:')) {
+			ret.icePwd = line.slice('a=ice-pwd:'.length);
+		}
+	}
 
-    return ret;
+	return ret;
 };
 
-const generateSdpFragment = (offerData, candidates) => {
-    const candidatesByMedia = {};
-    for (const candidate of candidates) {
-        const mid = candidate.sdpMLineIndex;
-        if (candidatesByMedia[mid] === undefined) {
-            candidatesByMedia[mid] = [];
-        }
-        candidatesByMedia[mid].push(candidate);
-    }
+const generateSdpFragment = (od, candidates) => {
+	const candidatesByMedia = {};
+	for (const candidate of candidates) {
+		const mid = candidate.sdpMLineIndex;
+		if (candidatesByMedia[mid] === undefined) {
+			candidatesByMedia[mid] = [];
+		}
+		candidatesByMedia[mid].push(candidate);
+	}
 
-    let frag = 'a=ice-ufrag:' + offerData.iceUfrag + '\r\n'
-        + 'a=ice-pwd:' + offerData.icePwd + '\r\n';
+	let frag = 'a=ice-ufrag:' + od.iceUfrag + '\r\n'
+		+ 'a=ice-pwd:' + od.icePwd + '\r\n';
 
-    let mid = 0;
+	let mid = 0;
 
-    for (const media of offerData.medias) {
-        if (candidatesByMedia[mid] !== undefined) {
-            frag += 'm=' + media + '\r\n'
-                + 'a=mid:' + mid + '\r\n';
+	for (const media of od.medias) {
+		if (candidatesByMedia[mid] !== undefined) {
+			frag += 'm=' + media + '\r\n'
+				+ 'a=mid:' + mid + '\r\n';
 
-            for (const candidate of candidatesByMedia[mid]) {
-                frag += 'a=' + candidate.candidate + '\r\n';
-            }
-        }
-        mid++;
-    }
+			for (const candidate of candidatesByMedia[mid]) {
+				frag += 'a=' + candidate.candidate + '\r\n';
+			}
+		}
+		mid++;
+	}
 
-    return frag;
+	return frag;
 };
 
 const setCodec = (section, codec) => {
-    const lines = section.split('\r\n');
-    const lines2 = [];
-    const payloadFormats = [];
+	const lines = section.split('\r\n');
+	const lines2 = [];
+	const payloadFormats = [];
 
-    for (const line of lines) {
-        if (!line.startsWith('a=rtpmap:')) {
-            lines2.push(line);
-        } else {
-            if (line.toLowerCase().includes(codec)) {
-                payloadFormats.push(line.slice('a=rtpmap:'.length).split(' ')[0]);
-                lines2.push(line);
-            }
-        }
-    }
+	for (const line of lines) {
+		if (!line.startsWith('a=rtpmap:')) {
+			lines2.push(line);
+		} else {
+			if (line.toLowerCase().includes(codec)) {
+				payloadFormats.push(line.slice('a=rtpmap:'.length).split(' ')[0]);
+				lines2.push(line);
+			}
+		}
+	}
 
-    const lines3 = [];
+	const lines3 = [];
 
-    for (const line of lines2) {
-        if (line.startsWith('a=fmtp:')) {
-            if (payloadFormats.includes(line.slice('a=fmtp:'.length).split(' ')[0])) {
-                lines3.push(line);
-            }
-        } else if (line.startsWith('a=rtcp-fb:')) {
-            if (payloadFormats.includes(line.slice('a=rtcp-fb:'.length).split(' ')[0])) {
-                lines3.push(line);
-            }
-        } else {
-            lines3.push(line);
-        }
-    }
+	for (const line of lines2) {
+		if (line.startsWith('a=fmtp:')) {
+			if (payloadFormats.includes(line.slice('a=fmtp:'.length).split(' ')[0])) {
+				lines3.push(line);
+			}
+		} else if (line.startsWith('a=rtcp-fb:')) {
+			if (payloadFormats.includes(line.slice('a=rtcp-fb:'.length).split(' ')[0])) {
+				lines3.push(line);
+			}
+		} else {
+			lines3.push(line);
+		}
+	}
 
-    return lines3.join('\r\n');
+	return lines3.join('\r\n');
 };
 
 const setVideoBitrate = (section, bitrate) => {
-    let lines = section.split('\r\n');
+	let lines = section.split('\r\n');
 
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('c=')) {
-            lines = [...lines.slice(0, i+1), 'b=TIAS:' + (parseInt(bitrate) * 1024).toString(), ...lines.slice(i+1)];
-            break
-        }
-    }
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].startsWith('c=')) {
+			lines = [...lines.slice(0, i+1), 'b=TIAS:' + (parseInt(bitrate) * 1024).toString(), ...lines.slice(i+1)];
+			break
+		}
+	}
 
-    return lines.join('\r\n');
+	return lines.join('\r\n');
 };
 
 const setAudioBitrate = (section, bitrate, voice) => {
-    let opusPayloadFormat = '';
-    let lines = section.split('\r\n');
+	let opusPayloadFormat = '';
+	let lines = section.split('\r\n');
 
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
-            opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
-            break;
-        }
-    }
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].startsWith('a=rtpmap:') && lines[i].toLowerCase().includes('opus/')) {
+			opusPayloadFormat = lines[i].slice('a=rtpmap:'.length).split(' ')[0];
+			break;
+		}
+	}
 
-    if (opusPayloadFormat === '') {
-        return section;
-    }
+	if (opusPayloadFormat === '') {
+		return section;
+	}
 
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
-            if (voice) {
-                lines[i] = 'a=fmtp:' + opusPayloadFormat + ' minptime=10;useinbandfec=1;maxaveragebitrate='
-                    + (parseInt(bitrate) * 1024).toString();
-            } else {
-                lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate'
-                    + (parseInt(bitrate) * 1024).toString();
-            }
-        }
-    }
+	for (let i = 0; i < lines.length; i++) {
+		if (lines[i].startsWith('a=fmtp:' + opusPayloadFormat + ' ')) {
+			if (voice) {
+				lines[i] = 'a=fmtp:' + opusPayloadFormat + ' minptime=10;useinbandfec=1;maxaveragebitrate='
+					+ (parseInt(bitrate) * 1024).toString();
+			} else {
+				lines[i] = 'a=fmtp:' + opusPayloadFormat + ' maxplaybackrate=48000;stereo=1;sprop-stereo=1;maxaveragebitrate'
+					+ (parseInt(bitrate) * 1024).toString();
+			}
+		}
+	}
 
-    return lines.join('\r\n');
+	return lines.join('\r\n');
 };
 
-const editAnswer = (answer, videoCodec, audioCodec, videoBitrate, audioBitrate, audioVoice) => {
-    const sections = answer.sdp.split('m=');
+const editAnswer = (sdp, videoCodec, audioCodec, videoBitrate, audioBitrate, audioVoice) => {
+	const sections = sdp.split('m=');
 
-    for (let i = 0; i < sections.length; i++) {
-        const section = sections[i];
-        if (section.startsWith('video')) {
-            sections[i] = setVideoBitrate(setCodec(section, videoCodec), videoBitrate);
-        } else if (section.startsWith('audio')) {
-            sections[i] = setAudioBitrate(setCodec(section, audioCodec), audioBitrate, audioVoice);
-        }
-    }
+	for (let i = 0; i < sections.length; i++) {
+		const section = sections[i];
+		if (section.startsWith('video')) {
+			sections[i] = setVideoBitrate(setCodec(section, videoCodec), videoBitrate);
+		} else if (section.startsWith('audio')) {
+			sections[i] = setAudioBitrate(setCodec(section, audioCodec), audioBitrate, audioVoice);
+		}
+	}
 
-    answer.sdp = sections.join('m=');
+	return sections.join('m=');
 };
 
-class Transmitter {
-    constructor(stream) {
-        this.stream = stream;
-        this.pc = null;
-        this.restartTimeout = null;
-        this.sessionUrl = '';
-        this.queuedCandidates = [];
-        this.start();
-    }
+const sendLocalCandidates = (candidates) => {
+	fetch(sessionUrl + window.location.search, {
+		method: 'PATCH',
+		headers: {
+			'Content-Type': 'application/trickle-ice-sdpfrag',
+			'If-Match': '*',
+		},
+		body: generateSdpFragment(offerData, candidates),
+	})
+		.then((res) => {
+			if (res.status !== 204) {
+				throw new Error('bad status code');
+			}
+		})
+		.catch((err) => {
+			onError(err.toString(), true);
+		});
+};
 
-    start() {
-        console.log("requesting ICE servers");
+const onLocalCandidate = (evt) => {
+	if (restartTimeout !== null) {
+		return;
+	}
 
-        fetch(new URL('whip', url) + url.search, {
-            method: 'OPTIONS',
-        })
-            .then((res) => this.onIceServers(res))
-            .catch((err) => {
-                console.log('error: ' + err);
-                this.scheduleRestart();
-            });
-    }
+	if (evt.candidate !== null) {
+		if (sessionUrl === '') {
+			queuedCandidates.push(evt.candidate);
+		} else {
+			sendLocalCandidates([evt.candidate])
+		}
+	}
+};
 
-    onIceServers(res) {
-        this.pc = new RTCPeerConnection({
-            iceServers: linkToIceServers(res.headers.get('Link')),
-            // https://webrtc.org/getting-started/unified-plan-transition-guide
-            sdpSemantics: 'unified-plan',
-        });
+const onRemoteAnswer = (sdp) => {
+	if (restartTimeout !== null) {
+		return;
+	}
 
-        this.pc.onicecandidate = (evt) => this.onLocalCandidate(evt);
-        this.pc.oniceconnectionstatechange = () => this.onConnectionState();
+	sdp = editAnswer(
+		sdp,
+		videoForm.codec.value,
+		audioForm.codec.value,
+		videoForm.bitrate.value,
+		audioForm.bitrate.value,
+		audioForm.voice.checked,
+	);
 
-        this.stream.getTracks().forEach((track) => {
-            this.pc.addTrack(track, this.stream);
-        });
+	pc.setRemoteDescription(new RTCSessionDescription({
+		type: 'answer',
+		sdp,
+	}));
 
-        this.pc.createOffer()
-            .then((offer) => this.onLocalOffer(offer));
-    }
+	if (queuedCandidates.length !== 0) {
+		sendLocalCandidates(queuedCandidates);
+		queuedCandidates = [];
+	}
+};
 
-    onLocalOffer(offer) {
-        this.offerData = parseOffer(offer.sdp);
-        this.pc.setLocalDescription(offer);
+const sendOffer = (offer) => {
+	fetch(new URL('whip', window.location.href) + window.location.search, {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/sdp',
+		},
+		body: offer.sdp,
+	})
+		.then((res) => {
+			if (res.status !== 201) {
+				throw new Error('bad status code');
+			}
+			sessionUrl = new URL(res.headers.get('location'), window.location.href).toString();
+			return res.text();
+		})
+		.then((sdp) => onRemoteAnswer(sdp))
+		.catch((err) => {
+			onError(err.toString(), true);
+		});
+};
 
-        console.log("sending offer");
+const createOffer = () => {
+	pc.createOffer()
+		.then((offer) => {
+			offerData = parseOffer(offer.sdp);
+			pc.setLocalDescription(offer);
+			sendOffer(offer);
+		});
+};
 
-        fetch(new URL('whip', url) + url.search, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/sdp',
-            },
-            body: offer.sdp,
-        })
-            .then((res) => {
-                if (res.status !== 201) {
-                    throw new Error('bad status code');
-                }
-                this.sessionUrl = new URL(res.headers.get('location'), url.href).toString();
-                return res.text();
-            })
-            .then((sdp) => this.onRemoteAnswer(new RTCSessionDescription({
-                type: 'answer',
-                sdp,
-            })))
-            .catch((err) => {
-                console.log('error: ' + err);
-                this.scheduleRestart();
-            });
-    }
+const onConnectionState = () => {
+	if (restartTimeout !== null) {
+		return;
+	}
 
-    onConnectionState() {
-        if (this.restartTimeout !== null) {
-            return;
-        }
+	if (pc.iceConnectionState === 'disconnected') {
+		onError('peer connection disconnected', true);
+	} else if (pc.iceConnectionState === 'connected') {
+		setMessage('');
+	}
+};
 
-        console.log("peer connection state:", this.pc.iceConnectionState);
+const requestICEServers = () => {
+	fetch(new URL('whip', window.location.href) + window.location.search, {
+		method: 'OPTIONS',
+	})
+		.then((res) => {
+			pc = new RTCPeerConnection({
+				iceServers: linkToIceServers(res.headers.get('Link')),
+				// https://webrtc.org/getting-started/unified-plan-transition-guide
+				sdpSemantics: 'unified-plan',
+			});
 
-        switch (this.pc.iceConnectionState) {
-        case "disconnected":
-            this.scheduleRestart();
-        }
-    }
+			pc.onicecandidate = (evt) => onLocalCandidate(evt);
+			pc.oniceconnectionstatechange = () => onConnectionState();
 
-    onRemoteAnswer(answer) {
-        if (this.restartTimeout !== null) {
-            return;
-        }
-        editAnswer(
-            answer,
-            videoForm.codec.value,
-            audioForm.codec.value,
-            videoForm.bitrate.value,
-            audioForm.bitrate.value,
-            audioForm.voice.checked,
-        );
+			stream.getTracks().forEach((track) => {
+				pc.addTrack(track, stream);
+			});
 
-        this.pc.setRemoteDescription(answer);
+			createOffer();
+		})
+		.catch((err) => {
+			onError(err.toString(), true);
+		});
+};
 
-        if (this.queuedCandidates.length !== 0) {
-            this.sendLocalCandidates(this.queuedCandidates);
-            this.queuedCandidates = [];
-        }
-    }
-
-    onLocalCandidate(evt) {
-        if (this.restartTimeout !== null) {
-            return;
-        }
-
-        if (evt.candidate !== null) {
-            if (this.sessionUrl === '') {
-                this.queuedCandidates.push(evt.candidate);
-            } else {
-                this.sendLocalCandidates([evt.candidate])
-            }
-        }
-    }
-
-    sendLocalCandidates(candidates) {
-        fetch(this.sessionUrl + window.location.search, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/trickle-ice-sdpfrag',
-                'If-Match': '*',
-            },
-            body: generateSdpFragment(this.offerData, candidates),
-        })
-            .then((res) => {
-                if (res.status !== 204) {
-                    throw new Error('bad status code');
-                }
-            })
-            .catch((err) => {
-                console.log('error: ' + err);
-                this.scheduleRestart();
-            });
-    }
-
-    scheduleRestart() {
-        if (this.restartTimeout !== null) {
-            return;
-        }
-
-        if (this.pc !== null) {
-            this.pc.close();
-            this.pc = null;
-        }
-
-        this.restartTimeout = window.setTimeout(() => {
-            this.restartTimeout = null;
-            this.start();
-        }, restartPause);
-
-        if (this.sessionUrl) {
-            fetch(this.sessionUrl, {
-                method: 'DELETE',
-            })
-                .then((res) => {
-                    if (res.status !== 200) {
-                        throw new Error('bad status code');
-                    }
-                })
-                .catch((err) => {
-                    console.log('delete session error: ' + err);
-                });
-        }
-        this.sessionUrl = '';
-
-        this.queuedCandidates = [];
-    }
-}
-
-const onTransmit = (stream) => {
-    document.getElementById('video').srcObject = stream;
-    new Transmitter(stream);
+const startTransmit = () => {
+	requestICEServers();
 };
 
 const onPublish = () => {
-    state = TRANSMITTING;
-    render();
+	controls.style.display = 'none';
+	video.style.display = 'block';
+	setMessage('connecting');
 
-    const videoId = videoForm.device.value;
-    const audioId = audioForm.device.value;
+	const videoId = videoForm.device.value;
+	const audioId = audioForm.device.value;
 
-    if (videoId !== 'screen') {
-        let video = false;
-        if (videoId !== 'none') {
-            video = {
-                deviceId: videoId,
-            };
-        }
+	if (videoId !== 'screen') {
+		let videoOpts = false;
 
-        let audio = false;
+		if (videoId !== 'none') {
+			videoOpts = {
+				deviceId: videoId,
+			};
+		}
 
-        if (audioId !== 'none') {
-            audio = {
-                deviceId: audioId,
-            };
+		let audioOpts = false;
 
-            const voice = audioForm.voice.checked;
-            if (!voice) {
-                audio.autoGainControl = false;
-                audio.echoCancellation = false;
-                audio.noiseSuppression = false;
-            }
-        }
+		if (audioId !== 'none') {
+			audioOpts = {
+				deviceId: audioId,
+			};
 
-        navigator.mediaDevices.getUserMedia({ video, audio })
-            .then(onTransmit)
-            .catch((err) => {
-                state = ERROR;
-                errorMessage = err.toString();
-                render();
-            });
-    } else {
-        navigator.mediaDevices.getDisplayMedia({
-            video: {
-                width: { ideal: videoForm.width.value },
-                height: { ideal: videoForm.height.value },
-                frameRate: { ideal: videoForm.framerate.value },
-                cursor: "always",
-            },
-            audio: true,
-        })
-            .then(onTransmit)
-            .catch((err) => {
-                state = ERROR;
-                errorMessage = err.toString();
-                render();
-            });
-    }
+			const voice = audioForm.voice.checked;
+			if (!voice) {
+				audioOpts.autoGainControl = false;
+				audioOpts.echoCancellation = false;
+				audioOpts.noiseSuppression = false;
+			}
+		}
+
+		navigator.mediaDevices.getUserMedia({
+			video: videoOpts,
+			audio: audioOpts,
+		})
+			.then((str) => {
+				stream = str;
+				video.srcObject = stream;
+				startTransmit();
+			})
+			.catch((err) => {
+				onError(err.toString(), false);
+			});
+	} else {
+		navigator.mediaDevices.getDisplayMedia({
+			video: {
+				width: { ideal: videoForm.width.value },
+				height: { ideal: videoForm.height.value },
+				frameRate: { ideal: videoForm.framerate.value },
+				cursor: 'always',
+			},
+			audio: true,
+		})
+			.then((str) => {
+				stream = str;
+				video.srcObject = stream;
+				startTransmit();
+			})
+			.catch((err) => {
+				onError(err.toString(), false);
+			});
+	}
 };
 
 const populateDevices = () => {
-    return navigator.mediaDevices.enumerateDevices()
-        .then((devices) => {
-            for (const device of devices) {
-                switch (device.kind) {
-                case 'videoinput':
-                    {
-                        const opt = document.createElement('option');
-                        opt.value = device.deviceId;
-                        opt.text = device.label;
-                        videoForm.device.appendChild(opt);
-                    }
-                    break;
+	return navigator.mediaDevices.enumerateDevices()
+		.then((devices) => {
+			for (const device of devices) {
+				switch (device.kind) {
+				case 'videoinput':
+					{
+						const opt = document.createElement('option');
+						opt.value = device.deviceId;
+						opt.text = device.label;
+						videoForm.device.appendChild(opt);
+					}
+					break;
 
-                case 'audioinput':
-                    {
-                        const opt = document.createElement('option');
-                        opt.value = device.deviceId;
-                        opt.text = device.label;
-                        audioForm.device.appendChild(opt);
-                    }
-                    break;
-                }
-            }
+				case 'audioinput':
+					{
+						const opt = document.createElement('option');
+						opt.value = device.deviceId;
+						opt.text = device.label;
+						audioForm.device.appendChild(opt);
+					}
+					break;
+				}
+			}
 
-            if (navigator.mediaDevices.getDisplayMedia !== undefined) {
-                const opt = document.createElement('option');
-                opt.value = "screen";
-                opt.text = "screen";
-                videoForm.device.appendChild(opt);
-            }
+			if (navigator.mediaDevices.getDisplayMedia !== undefined) {
+				const opt = document.createElement('option');
+				opt.value = 'screen';
+				opt.text = 'screen';
+				videoForm.device.appendChild(opt);
+			}
 
-            if (videoForm.device.children.length !== 0) {
-                videoForm.device.value = videoForm.device.children[1].value;
-            }
+			if (videoForm.device.children.length !== 0) {
+				videoForm.device.value = videoForm.device.children[1].value;
+			}
 
-            if (audioForm.device.children.length !== 0) {
-                audioForm.device.value = audioForm.device.children[1].value;
-            }
-        });
-    };
+			if (audioForm.device.children.length !== 0) {
+				audioForm.device.value = audioForm.device.children[1].value;
+			}
+		});
+};
 
 const populateCodecs = () => {
-    const pc = new RTCPeerConnection({});
-    pc.addTransceiver("video", { direction: 'sendonly' });
-    pc.addTransceiver("audio", { direction: 'sendonly' });
+	const tempPC = new RTCPeerConnection({});
+	tempPC.addTransceiver('video', { direction: 'sendonly' });
+	tempPC.addTransceiver('audio', { direction: 'sendonly' });
 
-    return pc.createOffer()
-        .then((desc) => {
-            const sdp = desc.sdp.toLowerCase();
+	return tempPC.createOffer()
+		.then((desc) => {
+			const sdp = desc.sdp.toLowerCase();
 
-            for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000']) {
-                if (sdp.includes(codec)) {
-                    const opt = document.createElement('option');
-                    opt.value = codec;
-                    opt.text = codec.split('/')[0].toUpperCase();
-                    videoForm.codec.appendChild(opt);
-                }
-            }
+			for (const codec of ['av1/90000', 'vp9/90000', 'vp8/90000', 'h264/90000']) {
+				if (sdp.includes(codec)) {
+					const opt = document.createElement('option');
+					opt.value = codec;
+					opt.text = codec.split('/')[0].toUpperCase();
+					videoForm.codec.appendChild(opt);
+				}
+			}
 
-            for (const codec of ['opus/48000', 'g722/8000', 'pcmu/8000', 'pcma/8000']) {
-                if (sdp.includes(codec)) {
-                    const opt = document.createElement('option');
-                    opt.value = codec;
-                    opt.text = codec.split('/')[0].toUpperCase();
-                    audioForm.codec.appendChild(opt);
-                }
-            }
+			for (const codec of ['opus/48000', 'g722/8000', 'pcmu/8000', 'pcma/8000']) {
+				if (sdp.includes(codec)) {
+					const opt = document.createElement('option');
+					opt.value = codec;
+					opt.text = codec.split('/')[0].toUpperCase();
+					audioForm.codec.appendChild(opt);
+				}
+			}
 
-            pc.close();
-        });
+			tempPC.close();
+		});
 };
 
-const initialize = () => {
-    if (navigator.mediaDevices === undefined) {
-        state = ERROR;
-        errorMessage = 'can\'t access webcams or microphones. Make sure that WebRTC encryption is enabled.';
-        render();
-        return;
-    }
+const populateOptions = () => {
+	setMessage('loading devices');
 
-    navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-            return Promise.all([
-                populateDevices(),
-                populateCodecs(),
-            ])
-                .then(() => {
-                    // free the webcam to prevent 'NotReadableError' on Android
-                    stream.getTracks()
-                        .forEach(track => track.stop());
+	navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+		.then((tempStream) => {
+			return Promise.all([
+				populateDevices(),
+				populateCodecs(),
+			])
+				.then(() => {
+					// free the webcam to prevent 'NotReadableError' on Android
+					tempStream.getTracks()
+						.forEach((track) => track.stop());
 
-                    state = DEVICE;
-                    render();
-                });
-        })
-        .catch((err) => {
-            state = ERROR;
-            errorMessage = err.toString();
-            render();
-        });
+					setMessage('');
+					video.style.display = 'none';
+					controls.style.display = 'flex';
+				});
+		})
+		.catch((err) => {
+			onError(err.toString(), false);
+		});
 };
 
-document.getElementById("publish_confirm").addEventListener('click', onPublish);
+const updateQueryOnControls = () => {
+	const url = new URL(window.location.href);
+	const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
 
-initialize();
+	for (const input of inputs) {
+		if (input instanceof HTMLInputElement && input.type === 'text') {
+			input.addEventListener('input', () => {
+				url.searchParams.set(input.id, input.value);
+				window.history.replaceState(null, null, url);
+			})
+		}
+
+		if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+			input.addEventListener('input', () => {
+				url.searchParams.set(input.id, input.checked);
+				window.history.replaceState(null, null, url);
+			})
+		}
+
+		if (input instanceof HTMLSelectElement) {
+			input.addEventListener('input', () => {
+				url.searchParams.set(input.id, input.value);
+				window.history.replaceState(null, null, url);
+			})
+		}
+	}
+};
+
+const loadControlsFromQuery = () => {
+	const params = new URLSearchParams(window.location.search);
+	const inputs = [...Object.values(videoForm), ...Object.values(audioForm)]
+
+	for (const input of inputs) {
+		const value = params.get(input.id);
+		if (value) {
+			if (input instanceof HTMLInputElement && input.type === 'text') {
+				input.value = value;
+			} else if (input instanceof HTMLInputElement && input.type === 'checkbox') {
+				input.checked = value === 'true';
+			} else if (input instanceof HTMLSelectElement) {
+				input.value = value
+			}
+		}
+	}
+};
+
+const init = () => {
+	if (navigator.mediaDevices === undefined) {
+		onError(`can't access webcams or microphones. Make sure that WebRTC encryption is enabled.`, false);
+		return;
+	}
+
+	loadControlsFromQuery();
+	updateQueryOnControls();
+	publishButton.addEventListener('click', onPublish);
+	populateOptions();
+};
+
+window.addEventListener('DOMContentLoaded', init);
 
 </script>
 
