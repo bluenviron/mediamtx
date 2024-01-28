@@ -66,6 +66,7 @@ func TestConfFromFile(t *testing.T) {
 			RPICameraSharpness:         1,
 			RPICameraExposure:          "normal",
 			RPICameraAWB:               "auto",
+			RPICameraAWBGains:          []float64{0, 0},
 			RPICameraDenoise:           "off",
 			RPICameraMetering:          "centre",
 			RPICameraFPS:               30,

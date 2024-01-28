@@ -298,6 +298,12 @@ components:
           type: string
         rpiCameraAWB:
           type: string
+        rpiCameraAWBGains:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            type: number
         rpiCameraDenoise:
           type: string
         rpiCameraShutter:

@@ -21,6 +21,8 @@ type Params struct {
 	Sharpness         float64
 	Exposure          string
 	AWB               string
+	AWBGainRed        float64
+	AWBGainBlue       float64
 	Denoise           string
 	Shutter           int
 	Metering          string
