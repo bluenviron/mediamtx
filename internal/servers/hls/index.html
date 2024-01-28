@@ -33,9 +33,7 @@ const create = (video) => {
 		});
 
 		hls.on(Hls.Events.ERROR, (evt, data) => {
-			if (data.type === Hls.ErrorTypes.MEDIA_ERROR)
-				hls.recoverMediaError();
-			else if (data.fatal) {
+			if (data.fatal) {
 				hls.destroy();
 				setTimeout(() => create(video), 2000);
 			}
