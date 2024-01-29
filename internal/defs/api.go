@@ -163,61 +163,59 @@ type APISRTConn struct {
 // APISRTConnMetrics contains all the extra metrics for the SRT connections
 // The metric names/comments are pulled from GoSRT
 type APISRTConnMetrics struct {
-	PktSent          uint64 `json:"pktSent"`        // The total number of sent DATA packets, including retransmitted packets
-	PktRecv          uint64 `json:"pktRecv"`        // The total number of received DATA packets, including retransmitted packets
-	PktSentUnique    uint64 `json:"pktSentUnique"`  // The total number of unique DATA packets sent by the SRT sender
-	PktRecvUnique    uint64 `json:"pktRecvUnique"`  // The total number of unique original, retransmitted or recovered by the packet filter DATA packets received in time, decrypted without errors and, as a result, scheduled for delivery to the upstream application by the SRT receiver.
-	PktSendLoss      uint64 `json:"pktSendLoss"`    // The total number of data packets considered or reported as lost at the sender side. Does not correspond to the packets detected as lost at the receiver side.
-	PktRecvLoss      uint64 `json:"pktRecvLoss"`    // The total number of SRT DATA packets detected as presently missing (either reordered or lost) at the receiver side
-	PktRetrans       uint64 `json:"pktRetrans"`     // The total number of retransmitted packets sent by the SRT sender
-	PktRecvRetrans   uint64 `json:"pktRecvRetrans"` // The total number of retransmitted packets registered at the receiver side
-	PktSentACK       uint64 `json:"pktSentACK"`     // The total number of sent ACK (Acknowledgement) control packets
-	PktRecvACK       uint64 `json:"pktRecvACK"`     // The total number of received ACK (Acknowledgement) control packets
-	PktSentNAK       uint64 `json:"pktSentNAK"`     // The total number of sent NAK (Negative Acknowledgement) control packets
-	PktRecvNAK       uint64 `json:"pktRecvNAK"`     // The total number of received NAK (Negative Acknowledgement) control packets
-	PktSentKM        uint64 `json:"pktSentKM"`      // The total number of sent KM (Key Material) control packets
-	PktRecvKM        uint64 `json:"pktRecvKM"`      // The total number of received KM (Key Material) control packets
-	UsSndDuration    uint64 `json:"usSndDuration"`  // The total accumulated time in microseconds, during which the SRT sender has some data to transmit, including packets that have been sent, but not yet acknowledged
-	PktRecvBelated   uint64 `json:"pktRecvBelated"`
-	PktSendDrop      uint64 `json:"pktSendDrop"`      // The total number of dropped by the SRT sender DATA packets that have no chance to be delivered in time
-	PktRecvDrop      uint64 `json:"pktRecvDrop"`      // The total number of dropped by the SRT receiver and, as a result, not delivered to the upstream application DATA packets
-	PktRecvUndecrypt uint64 `json:"pktRecvUndecrypt"` // The total number of packets that failed to be decrypted at the receiver side
+	PacketsSent              uint64 `json:"packetsSent"`            // The total number of sent DATA packets, including retransmitted packets
+	PacketsReceived          uint64 `json:"packetsReceived"`        // The total number of received DATA packets, including retransmitted packets
+	PacketsSentUnique        uint64 `json:"packetsSentUnique"`      // The total number of unique DATA packets sent by the SRT sender
+	PacketsReceivedUnique    uint64 `json:"packetsReceivedUnique"`  // The total number of unique original, retransmitted or recovered by the packet filter DATA packets received in time, decrypted without errors and, as a result, scheduled for delivery to the upstream application by the SRT receiver.
+	PacketsSendLoss          uint64 `json:"packetsSendLoss"`        // The total number of data packets considered or reported as lost at the sender side. Does not correspond to the packets detected as lost at the receiver side.
+	PacketsReceivedLoss      uint64 `json:"packetsReceivedLoss"`    // The total number of SRT DATA packets detected as presently missing (either reordered or lost) at the receiver side
+	PacketsRetrans           uint64 `json:"packetsRetrans"`         // The total number of retransmitted packets sent by the SRT sender
+	PacketsReceivedRetrans   uint64 `json:"packetsReceivedRetrans"` // The total number of retransmitted packets registered at the receiver side
+	PacketsSentACK           uint64 `json:"packetsSentACK"`         // The total number of sent ACK (Acknowledgement) control packets
+	PacketsReceivedACK       uint64 `json:"packetsReceivedACK"`     // The total number of received ACK (Acknowledgement) control packets
+	PacketsSentNAK           uint64 `json:"packetsSentNAK"`         // The total number of sent NAK (Negative Acknowledgement) control packets
+	PacketsReceivedNAK       uint64 `json:"packetsReceivedNAK"`     // The total number of received NAK (Negative Acknowledgement) control packets
+	PacketsSentKM            uint64 `json:"packetsSentKM"`          // The total number of sent KM (Key Material) control packets
+	PacketsReceivedKM        uint64 `json:"packetsReceivedKM"`      // The total number of received KM (Key Material) control packets
+	UsSndDuration            uint64 `json:"usSndDuration"`          // The total accumulated time in microseconds, during which the SRT sender has some data to transmit, including packets that have been sent, but not yet acknowledged
+	PacketsReceivedBelated   uint64 `json:"packetsReceivedBelated"`
+	PacketsSendDrop          uint64 `json:"packetsSendDrop"`          // The total number of dropped by the SRT sender DATA packets that have no chance to be delivered in time
+	PacketsReceivedDrop      uint64 `json:"packetsReceivedDrop"`      // The total number of dropped by the SRT receiver and, as a result, not delivered to the upstream application DATA packets
+	PacketsReceivedUndecrypt uint64 `json:"packetsReceivedUndecrypt"` // The total number of packets that failed to be decrypted at the receiver side
 
-	ByteSent          uint64 `json:"byteSent"`        // Same as pktSent, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecv          uint64 `json:"byteRecv"`        // Same as pktRecv, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteSentUnique    uint64 `json:"byteSentUnique"`  // Same as pktSentUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecvUnique    uint64 `json:"byteRecvUnique"`  // Same as pktRecvUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecvLoss      uint64 `json:"byteRecvLoss"`    // Same as pktRecvLoss, but expressed in bytes, including payload and all the headers (IP, TCP, SRT), bytes for the presently missing (either reordered or lost) packets' payloads are estimated based on the average packet size
-	ByteRetrans       uint64 `json:"byteRetrans"`     // Same as pktRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecvRetrans   uint64 `json:"byteRecvRetrans"` // Same as pktRecvRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecvBelated   uint64 `json:"byteRecvBelated"`
-	ByteSendDrop      uint64 `json:"byteSendDrop"`      // Same as pktSendDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecvDrop      uint64 `json:"byteRecvDrop"`      // Same as pktRecvDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-	ByteRecvUndecrypt uint64 `json:"byteRecvUndecrypt"` // Same as pktRecvUndecrypt, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesSentUnique        uint64 `json:"bytesSentUnique"`      // Same as packetsSentUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceivedUnique    uint64 `json:"bytesReceivedUnique"`  // Same as packetsReceivedUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceivedLoss      uint64 `json:"bytesReceivedLoss"`    // Same as packetsReceivedLoss, but expressed in bytes, including payload and all the headers (IP, TCP, SRT), bytes for the presently missing (either reordered or lost) packets' payloads are estimated based on the average packet size
+	BytesRetrans           uint64 `json:"bytesRetrans"`         // Same as packetsRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceivedRetrans   uint64 `json:"bytesReceivedRetrans"` // Same as packetsReceivedRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceivedBelated   uint64 `json:"bytesReceivedBelated"`
+	BytesSendDrop          uint64 `json:"bytesSendDrop"`          // Same as packetsSendDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceivedDrop      uint64 `json:"bytesReceivedDrop"`      // Same as packetsReceivedDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceivedUndecrypt uint64 `json:"bytesReceivedUndecrypt"` // Same as packetsReceivedUndecrypt, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
 
-	UsPktSendPeriod       float64 `json:"usPktSendPeriod"`       // Current minimum time interval between which consecutive packets are sent, in microseconds
-	PktFlowWindow         uint64  `json:"pktFlowWindow"`         // The maximum number of packets that can be "in flight"
-	PktFlightSize         uint64  `json:"pktFlightSize"`         // The number of packets in flight
-	MsRTT                 float64 `json:"msRTT"`                 // Smoothed round-trip time (SRTT), an exponentially-weighted moving average (EWMA) of an endpoint's RTT samples, in milliseconds
-	MbpsSentRate          float64 `json:"mbpsSentRate"`          // Current transmission bandwidth, in Mbps
-	MbpsRecvRate          float64 `json:"mbpsRecvRate"`          // Current receiving bandwidth, in Mbps
-	MbpsLinkCapacity      float64 `json:"mbpsLinkCapacity"`      // Estimated capacity of the network link, in Mbps
-	ByteAvailSendBuf      uint64  `json:"byteAvailSendBuf"`      // The available space in the sender's buffer, in bytes
-	ByteAvailRecvBuf      uint64  `json:"byteAvailRecvBuf"`      // The available space in the receiver's buffer, in bytes
-	MbpsMaxBW             float64 `json:"mbpsMaxBW"`             // Transmission bandwidth limit, in Mbps
-	ByteMSS               uint64  `json:"byteMSS"`               // Maximum Segment Size (MSS), in bytes
-	PktSendBuf            uint64  `json:"pktSendBuf"`            // The number of packets in the sender's buffer that are already scheduled for sending or even possibly sent, but not yet acknowledged
-	ByteSendBuf           uint64  `json:"byteSendBuf"`           // Instantaneous (current) value of pktSndBuf, but expressed in bytes, including payload and all headers (IP, TCP, SRT)
-	MsSendBuf             uint64  `json:"msSendBuf"`             // The timespan (msec) of packets in the sender's buffer (unacknowledged packets)
-	MsSendTsbPdDelay      uint64  `json:"msSendTsbPdDelay"`      // Timestamp-based Packet Delivery Delay value of the peer
-	PktRecvBuf            uint64  `json:"pktRecvBuf"`            // The number of acknowledged packets in receiver's buffer
-	ByteRecvBuf           uint64  `json:"byteRecvBuf"`           // Instantaneous (current) value of pktRcvBuf, expressed in bytes, including payload and all headers (IP, TCP, SRT)
-	MsRecvBuf             uint64  `json:"msRecvBuf"`             // The timespan (msec) of acknowledged packets in the receiver's buffer
-	MsRecvTsbPdDelay      uint64  `json:"msRecvTsbPdDelay"`      // Timestamp-based Packet Delivery Delay value set on the socket via SRTO_RCVLATENCY or SRTO_LATENCY
-	PktReorderTolerance   uint64  `json:"pktReorderTolerance"`   // Instant value of the packet reorder tolerance
-	PktRecvAvgBelatedTime uint64  `json:"pktRecvAvgBelatedTime"` // Accumulated difference between the current time and the time-to-play of a packet that is received late
-	PktSendLossRate       float64 `json:"pktSendLossRate"`       // Percentage of resent data vs. sent data
-	PktRecvLossRate       float64 `json:"pktRecvLossRate"`       // Percentage of retransmitted data vs. received data
+	UsPacketsSendPeriod           float64 `json:"usPacketsSendPeriod"`           // Current minimum time interval between which consecutive packets are sent, in microseconds
+	PacketsFlowWindow             uint64  `json:"packetsFlowWindow"`             // The maximum number of packets that can be "in flight"
+	PacketsFlightSize             uint64  `json:"packetsFlightSize"`             // The number of packets in flight
+	MsRTT                         float64 `json:"msRTT"`                         // Smoothed round-trip time (SRTT), an exponentially-weighted moving average (EWMA) of an endpoint's RTT samples, in milliseconds
+	MbpsSendRate                  float64 `json:"mbpsSendRate"`                  // Current transmission bandwidth, in Mbps
+	MbpsReceiveRate               float64 `json:"mbpsReceiveRate"`               // Current receiving bandwidth, in Mbps
+	MbpsLinkCapacity              float64 `json:"mbpsLinkCapacity"`              // Estimated capacity of the network link, in Mbps
+	BytesAvailSendBuf             uint64  `json:"bytesAvailSendBuf"`             // The available space in the sender's buffer, in bytes
+	BytesAvailReceiveBuf          uint64  `json:"bytesAvailReceiveBuf"`          // The available space in the receiver's buffer, in bytes
+	MbpsMaxBW                     float64 `json:"mbpsMaxBW"`                     // Transmission bandwidth limit, in Mbps
+	ByteMSS                       uint64  `json:"byteMSS"`                       // Maximum Segment Size (MSS), in bytes
+	PacketsSendBuf                uint64  `json:"packetsSendBuf"`                // The number of packets in the sender's buffer that are already scheduled for sending or even possibly sent, but not yet acknowledged
+	BytesSendBuf                  uint64  `json:"bytesSendBuf"`                  // Instantaneous (current) value of packetsSndBuf, but expressed in bytes, including payload and all headers (IP, TCP, SRT)
+	MsSendBuf                     uint64  `json:"msSendBuf"`                     // The timespan (msec) of packets in the sender's buffer (unacknowledged packets)
+	MsSendTsbPdDelay              uint64  `json:"msSendTsbPdDelay"`              // Timestamp-based Packet Delivery Delay value of the peer
+	PacketsReceiveBuf             uint64  `json:"packetsReceiveBuf"`             // The number of acknowledged packets in receiver's buffer
+	BytesReceiveBuf               uint64  `json:"bytesReceiveBuf"`               // Instantaneous (current) value of packetsRcvBuf, expressed in bytes, including payload and all headers (IP, TCP, SRT)
+	MsReceiveBuf                  uint64  `json:"msReceiveBuf"`                  // The timespan (msec) of acknowledged packets in the receiver's buffer
+	MsReceiveTsbPdDelay           uint64  `json:"msReceiveTsbPdDelay"`           // Timestamp-based Packet Delivery Delay value set on the socket via SRTO_RCVLATENCY or SRTO_LATENCY
+	PacketsReorderTolerance       uint64  `json:"packetsReorderTolerance"`       // Instant value of the packet reorder tolerance
+	PacketsReceivedAvgBelatedTime uint64  `json:"packetsReceivedAvgBelatedTime"` // Accumulated difference between the current time and the time-to-play of a packet that is received late
+	PacketsSendLossRate           float64 `json:"packetsSendLossRate"`           // Percentage of resent data vs. sent data
+	PacketsReceivedLossRate       float64 `json:"packetsReceivedLossRate"`       // Percentage of retransmitted data vs. received data
 }
 
 // APISRTConnList is a list of SRT connections.
