@@ -632,6 +632,211 @@ components:
         bytesSent:
           type: integer
           format: int64
+        pktSent:
+          type: integer
+          format: int64
+          description: The total number of sent DATA packets, including retransmitted packets
+        pktRecv:
+          type: integer
+          format: int64
+          description: The total number of received DATA packets, including retransmitted packets
+        pktSentUnique:
+          type: integer
+          format: int64
+          description: The total number of unique DATA packets sent by the SRT sender
+        pktRecvUnique:
+          type: integer
+          format: int64
+          description: The total number of unique original, retransmitted or recovered by the packet filter DATA packets received in time, decrypted without errors and, as a result, scheduled for delivery to the upstream application by the SRT receiver.
+        pktSendLoss:
+          type: integer
+          format: int64
+          description: The total number of data packets considered or reported as lost at the sender side. Does not correspond to the packets detected as lost at the receiver side.
+        pktRecvLoss:
+          type: integer
+          format: int64
+          description: The total number of SRT DATA packets detected as presently missing (either reordered or lost) at the receiver side
+        pktRetrans:
+          type: integer
+          format: int64
+          description: The total number of retransmitted packets sent by the SRT sender
+        pktRecvRetrans:
+          type: integer
+          format: int64
+          description: The total number of retransmitted packets registered at the receiver side
+        pktSentACK:
+          type: integer
+          format: int64
+          description: The total number of sent ACK (Acknowledgement) control packets
+        pktRecvACK:
+          type: integer
+          format: int64
+          description: The total number of received ACK (Acknowledgement) control packets
+        pktSentNAK:
+          type: integer
+          format: int64
+          description: The total number of sent NAK (Negative Acknowledgement) control packets
+        pktRecvNAK:
+          type: integer
+          format: int64
+          description: The total number of received NAK (Negative Acknowledgement) control packets
+        pktSentKM:
+          type: integer
+          format: int64
+          description: The total number of sent KM (Key Material) control packets
+        pktRecvKM:
+          type: integer
+          format: int64
+          description: The total number of received KM (Key Material) control packets
+        usSndDuration:
+          type: integer
+          format: int64
+          description: The total accumulated time in microseconds, during which the SRT sender has some data to transmit, including packets that have been sent, but not yet acknowledged
+        pktSendDrop:
+          type: integer
+          format: int64
+          description: The total number of dropped by the SRT sender DATA packets that have no chance to be delivered in time
+        pktRecvDrop:
+          type: integer
+          format: int64
+          description: The total number of dropped by the SRT receiver and, as a result, not delivered to the upstream application DATA packets
+        pktRecvUndecrypt:
+          type: integer
+          format: int64
+          description: The total number of packets that failed to be decrypted at the receiver side
+        byteSent:
+          type: integer
+          format: int64
+          description: Same as pktSent, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteRecv:
+          type: integer
+          format: int64
+          description: Same as pktRecv, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteSentUnique:
+          type: integer
+          format: int64
+          description: Same as pktSentUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteRecvUnique:
+          type: integer
+          format: int64
+          description: Same as pktRecvUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteRecvLoss:
+          type: integer
+          format: int64
+          description: Same as pktRecvLoss, but expressed in bytes, including payload and all the headers (IP, TCP, SRT), bytes for the presently missing (either reordered or lost) packets' payloads are estimated based on the average packet size
+        byteRetrans:
+          type: integer
+          format: int64
+          description: Same as pktRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteRecvRetrans:
+          type: integer
+          format: int64
+          description: Same as pktRecvRetrans, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteSendDrop:
+          type: integer
+          format: int64
+          description: Same as pktSendDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteRecvDrop:
+          type: integer
+          format: int64
+          description: Same as pktRecvDrop, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        byteRecvUndecrypt:
+          type: integer
+          format: int64
+          description: Same as pktRecvUndecrypt, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+        usPktSendPeriod:
+          type: float
+          format: float64
+          description: Current minimum time interval between which consecutive packets are sent, in microseconds
+        pktFlowWindow:
+          type: integer
+          format: int64
+          description: The maximum number of packets that can be "in flight"
+        pktFlightSize:
+          type: integer
+          format: int64
+          description: The number of packets in flight
+        msRTT:
+          type: float
+          format: float64
+          description: Smoothed round-trip time (SRTT), an exponentially-weighted moving average (EWMA) of an endpoint's RTT samples, in milliseconds
+        mbpsSentRate:
+          type: float
+          format: float64
+          description: Current transmission bandwidth, in Mbps
+        mbpsRecvRate:
+          type: float
+          format: float64
+          description: Current receiving bandwidth, in Mbps
+        mbpsLinkCapacity:
+          type: float
+          format: float64
+          description: Estimated capacity of the network link, in Mbps
+        byteAvailSendBuf:
+          type: integer
+          format: int64
+          description: The available space in the sender's buffer, in bytes
+        byteAvailRecvBuf:
+          type: integer
+          format: int64
+          description: The available space in the receiver's buffer, in bytes
+        mbpsMaxBW:
+          type: float
+          format: float64
+          description: Transmission bandwidth limit, in Mbps
+        byteMSS:
+          type: integer
+          format: int64
+          description: Maximum Segment Size (MSS), in bytes
+        pktSendBuf:
+          type: integer
+          format: int64
+          description: The number of packets in the sender's buffer that are already scheduled for sending or even possibly sent, but not yet acknowledged
+        byteSendBuf:
+          type: integer
+          format: int64
+          description: Instantaneous (current) value of pktSndBuf, but expressed in bytes, including payload and all headers (IP, TCP, SRT)
+        msSendBuf:
+          type: integer
+          format: int64
+          description: The timespan (msec) of packets in the sender's buffer (unacknowledged packets)
+        msSendTsbPdDelay:
+          type: integer
+          format: int64
+          description: Timestamp-based Packet Delivery Delay value of the peer
+        pktRecvBuf:
+          type: integer
+          format: int64
+          description: The number of acknowledged packets in receiver's buffer
+        byteRecvBuf:
+          type: integer
+          format: int64
+          description: Instantaneous (current) value of pktRcvBuf, expressed in bytes, including payload and all headers (IP, TCP, SRT)
+        msRecvBuf:
+          type: integer
+          format: int64
+          description: The timespan (msec) of acknowledged packets in the receiver's buffer
+        msRecvTsbPdDelay:
+          type: integer
+          format: int64
+          description: Timestamp-based Packet Delivery Delay value set on the socket via SRTO_RCVLATENCY or SRTO_LATENCY
+        pktReorderTolerance:
+          type: integer
+          format: int64
+          description: Instant value of the packet reorder tolerance
+        pktRecvAvgBelatedTime:
+          type: integer
+          format: int64
+          description: Accumulated difference between the current time and the time-to-play of a packet that is received late
+        pktSendLossRate:
+          type: float
+          format: float64
+          description: Percentage of resent data vs. sent data
+        pktRecvLossRate:
+          type: float
+          format: float64
+          description: Percentage of retransmitted data vs. received data
+
 
     SRTConnList:
       type: object
