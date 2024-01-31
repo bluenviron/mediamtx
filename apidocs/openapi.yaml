@@ -1819,7 +1819,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /v3/recodings/list:
+  /v3/recordings/list:
     get:
       operationId: listRecordings
       summary: Lists all the stored recordings
