@@ -167,7 +167,7 @@ type API struct {
 	Parent       apiParent
 
 	httpServer *httpserv.WrappedServer
-	mutex      sync.Mutex
+	mutex      sync.RWMutex
 }
 
 // Initialize initializes API.
@@ -281,9 +281,9 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 }
 
 func (a *API) onConfigGlobalGet(ctx *gin.Context) {
-	a.mutex.Lock()
+	a.mutex.RLock()
 	c := a.Conf
-	a.mutex.Unlock()
+	a.mutex.RUnlock()
 
 	ctx.JSON(http.StatusOK, c.Global())
 }
@@ -319,9 +319,9 @@ func (a *API) onConfigGlobalPatch(ctx *gin.Context) {
 }
 
 func (a *API) onConfigPathDefaultsGet(ctx *gin.Context) {
-	a.mutex.Lock()
+	a.mutex.RLock()
 	c := a.Conf
-	a.mutex.Unlock()
+	a.mutex.RUnlock()
 
 	ctx.JSON(http.StatusOK, c.PathDefaults)
 }
@@ -354,9 +354,9 @@ func (a *API) onConfigPathDefaultsPatch(ctx *gin.Context) {
 }
 
 func (a *API) onConfigPathsList(ctx *gin.Context) {
-	a.mutex.Lock()
+	a.mutex.RLock()
 	c := a.Conf
-	a.mutex.Unlock()
+	a.mutex.RUnlock()
 
 	data := &defs.APIPathConfList{
 		Items: make([]*conf.Path, len(c.Paths)),
@@ -384,9 +384,9 @@ func (a *API) onConfigPathsGet(ctx *gin.Context) {
 		return
 	}
 
-	a.mutex.Lock()
+	a.mutex.RLock()
 	c := a.Conf
-	a.mutex.Unlock()
+	a.mutex.RUnlock()
 
 	p, ok := c.Paths[name]
 	if !ok {
