@@ -137,7 +137,12 @@ func (p *Server) onList(ctx *gin.Context) {
 		return
 	}
 
-	segments, err := findAllSegments(pathConf, pathName)
+	if !pathConf.Playback {
+		p.writeError(ctx, http.StatusBadRequest, fmt.Errorf("playback is disabled on path '%s'", pathName))
+		return
+	}
+
+	segments, err := FindSegments(pathConf, pathName)
 	if err != nil {
 		if errors.Is(err, errNoSegmentsFound) {
 			p.writeError(ctx, http.StatusNotFound, err)
@@ -166,7 +171,7 @@ func (p *Server) onList(ctx *gin.Context) {
 	out := make([]listEntry, len(segments))
 	for i, seg := range segments {
 		out[i] = listEntry{
-			Start:    seg.start,
+			Start:    seg.Start,
 			Duration: seg.duration.Seconds(),
 		}
 	}
@@ -201,7 +206,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
-	segments, err := findSegments(pathConf, pathName, start, duration)
+	segments, err := findSegmentsInTimespan(pathConf, pathName, start, duration)
 	if err != nil {
 		if errors.Is(err, errNoSegmentsFound) {
 			p.writeError(ctx, http.StatusNotFound, err)
@@ -217,7 +222,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 	}
 
 	ww := &writerWrapper{ctx: ctx}
-	minTime := start.Sub(segments[0].start)
+	minTime := start.Sub(segments[0].Start)
 	maxTime := minTime + duration
 
 	elapsed, err := fmp4SeekAndMux(
@@ -253,7 +258,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 
 	for _, seg := range segments[1:] {
 		// there's a gap between segments, stop serving the recording
-		if seg.start.Before(start.Add(-concatenationTolerance)) || seg.start.After(start.Add(concatenationTolerance)) {
+		if seg.Start.Before(start.Add(-concatenationTolerance)) || seg.Start.After(start.Add(concatenationTolerance)) {
 			return
 		}
 
@@ -270,7 +275,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 			return
 		}
 
-		start = seg.start.Add(elapsed)
+		start = seg.Start.Add(elapsed)
 		duration -= elapsed
 		overallElapsed += elapsed
 	}

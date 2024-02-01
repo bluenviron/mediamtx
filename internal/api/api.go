@@ -6,9 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
 	"github.com/bluenviron/mediamtx/internal/servers/rtmp"
@@ -238,6 +241,10 @@ func (a *API) Initialize() error {
 		group.POST("/v3/srtconns/kick/:id", a.onSRTConnsKick)
 	}
 
+	group.GET("/v3/recordings/list", a.onRecordingsList)
+	group.GET("/v3/recordings/get/*name", a.onRecordingsGet)
+	group.DELETE("/v3/recordings/deletesegment", a.onRecordingDeleteSegment)
+
 	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
 	var err error
@@ -378,7 +385,7 @@ func (a *API) onConfigPathsList(ctx *gin.Context) {
 }
 
 func (a *API) onConfigPathsGet(ctx *gin.Context) {
-	name, ok := paramName(ctx)
+	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
@@ -388,7 +395,7 @@ func (a *API) onConfigPathsGet(ctx *gin.Context) {
 	c := a.Conf
 	a.mutex.RUnlock()
 
-	p, ok := c.Paths[name]
+	p, ok := c.Paths[confName]
 	if !ok {
 		a.writeError(ctx, http.StatusNotFound, fmt.Errorf("path configuration not found"))
 		return
@@ -398,7 +405,7 @@ func (a *API) onConfigPathsGet(ctx *gin.Context) {
 }
 
 func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
-	name, ok := paramName(ctx)
+	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
@@ -416,7 +423,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 
 	newConf := a.Conf.Clone()
 
-	err = newConf.AddPath(name, &p)
+	err = newConf.AddPath(confName, &p)
 	if err != nil {
 		a.writeError(ctx, http.StatusBadRequest, err)
 		return
@@ -435,7 +442,7 @@ func (a *API) onConfigPathsAdd(ctx *gin.Context) { //nolint:dupl
 }
 
 func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
-	name, ok := paramName(ctx)
+	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
@@ -453,7 +460,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 
 	newConf := a.Conf.Clone()
 
-	err = newConf.PatchPath(name, &p)
+	err = newConf.PatchPath(confName, &p)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -476,7 +483,7 @@ func (a *API) onConfigPathsPatch(ctx *gin.Context) { //nolint:dupl
 }
 
 func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
-	name, ok := paramName(ctx)
+	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
@@ -494,7 +501,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 
 	newConf := a.Conf.Clone()
 
-	err = newConf.ReplacePath(name, &p)
+	err = newConf.ReplacePath(confName, &p)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -517,7 +524,7 @@ func (a *API) onConfigPathsReplace(ctx *gin.Context) { //nolint:dupl
 }
 
 func (a *API) onConfigPathsDelete(ctx *gin.Context) {
-	name, ok := paramName(ctx)
+	confName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
@@ -528,7 +535,7 @@ func (a *API) onConfigPathsDelete(ctx *gin.Context) {
 
 	newConf := a.Conf.Clone()
 
-	err := newConf.RemovePath(name)
+	err := newConf.RemovePath(confName)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -569,13 +576,13 @@ func (a *API) onPathsList(ctx *gin.Context) {
 }
 
 func (a *API) onPathsGet(ctx *gin.Context) {
-	name, ok := paramName(ctx)
+	pathName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
-	data, err := a.PathManager.APIPathsGet(name)
+	data, err := a.PathManager.APIPathsGet(pathName)
 	if err != nil {
 		if errors.Is(err, conf.ErrPathNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -915,13 +922,13 @@ func (a *API) onHLSMuxersList(ctx *gin.Context) {
 }
 
 func (a *API) onHLSMuxersGet(ctx *gin.Context) {
-	name, ok := paramName(ctx)
+	pathName, ok := paramName(ctx)
 	if !ok {
 		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
 		return
 	}
 
-	data, err := a.HLSServer.APIMuxersGet(name)
+	data, err := a.HLSServer.APIMuxersGet(pathName)
 	if err != nil {
 		if errors.Is(err, hls.ErrMuxerNotFound) {
 			a.writeError(ctx, http.StatusNotFound, err)
@@ -1044,6 +1051,100 @@ func (a *API) onSRTConnsKick(ctx *gin.Context) {
 		} else {
 			a.writeError(ctx, http.StatusInternalServerError, err)
 		}
+		return
+	}
+
+	ctx.Status(http.StatusOK)
+}
+
+func (a *API) onRecordingsList(ctx *gin.Context) {
+	a.mutex.RLock()
+	c := a.Conf
+	a.mutex.RUnlock()
+
+	pathNames := getAllPathsWithRecordings(c.Paths)
+
+	data := defs.APIRecordingList{}
+
+	data.ItemCount = len(pathNames)
+	pageCount, err := paginate(&pathNames, ctx.Query("itemsPerPage"), ctx.Query("page"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+	data.PageCount = pageCount
+
+	data.Items = make([]*defs.APIRecording, len(pathNames))
+
+	for i, pathName := range pathNames {
+		_, pathConf, _, _ := conf.FindPathConf(c.Paths, pathName)
+		data.Items[i] = recordingEntry(pathConf, pathName)
+	}
+
+	ctx.JSON(http.StatusOK, data)
+}
+
+func (a *API) onRecordingsGet(ctx *gin.Context) {
+	pathName, ok := paramName(ctx)
+	if !ok {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid name"))
+		return
+	}
+
+	a.mutex.RLock()
+	c := a.Conf
+	a.mutex.RUnlock()
+
+	_, pathConf, _, err := conf.FindPathConf(c.Paths, pathName)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	if !pathConf.Playback {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("playback is disabled on path '%s'", pathName))
+		return
+	}
+
+	ctx.JSON(http.StatusOK, recordingEntry(pathConf, pathName))
+}
+
+func (a *API) onRecordingDeleteSegment(ctx *gin.Context) {
+	pathName := ctx.Query("path")
+
+	start, err := time.Parse(time.RFC3339, ctx.Query("start"))
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid 'start' parameter: %w", err))
+		return
+	}
+
+	a.mutex.RLock()
+	c := a.Conf
+	a.mutex.RUnlock()
+
+	_, pathConf, _, err := conf.FindPathConf(c.Paths, pathName)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	if !pathConf.Playback {
+		a.writeError(ctx, http.StatusBadRequest, fmt.Errorf("playback is disabled on path '%s'", pathName))
+		return
+	}
+
+	pathFormat := record.PathAddExtension(
+		strings.ReplaceAll(pathConf.RecordPath, "%path", pathName),
+		pathConf.RecordFormat,
+	)
+
+	segmentPath := record.Path{
+		Start: start,
+	}.Encode(pathFormat)
+
+	err = os.Remove(segmentPath)
+	if err != nil {
+		a.writeError(ctx, http.StatusBadRequest, err)
 		return
 	}
 

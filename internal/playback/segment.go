@@ -12,18 +12,19 @@ import (
 	"github.com/bluenviron/mediamtx/internal/record"
 )
 
-type segment struct {
+// Segment is a recording segment.
+type Segment struct {
 	fpath    string
-	start    time.Time
+	Start    time.Time
 	duration time.Duration
 }
 
-func findSegments(
+func findSegmentsInTimespan(
 	pathConf *conf.Path,
 	pathName string,
 	start time.Time,
 	duration time.Duration,
-) ([]*segment, error) {
+) ([]*Segment, error) {
 	if !pathConf.Playback {
 		return nil, fmt.Errorf("playback is disabled on path '%s'", pathName)
 	}
@@ -39,7 +40,7 @@ func findSegments(
 
 	commonPath := record.CommonPath(recordPath)
 	end := start.Add(duration)
-	var segments []*segment
+	var segments []*Segment
 
 	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -51,10 +52,10 @@ func findSegments(
 			ok := pa.Decode(recordPath, fpath)
 
 			// gather all segments that starts before the end of the playback
-			if ok && !end.Before(time.Time(pa)) {
-				segments = append(segments, &segment{
+			if ok && !end.Before(pa.Start) {
+				segments = append(segments, &Segment{
 					fpath: fpath,
-					start: time.Time(pa),
+					Start: pa.Start,
 				})
 			}
 		}
@@ -70,13 +71,13 @@ func findSegments(
 	}
 
 	sort.Slice(segments, func(i, j int) bool {
-		return segments[i].start.Before(segments[j].start)
+		return segments[i].Start.Before(segments[j].Start)
 	})
 
 	// find the segment that may contain the start of the playback and remove all previous ones
 	found := false
 	for i := 0; i < len(segments)-1; i++ {
-		if !start.Before(segments[i].start) && start.Before(segments[i+1].start) {
+		if !start.Before(segments[i].Start) && start.Before(segments[i+1].Start) {
 			segments = segments[i:]
 			found = true
 			break
@@ -86,7 +87,7 @@ func findSegments(
 	// otherwise, keep the last segment only and check if it may contain the start of the playback
 	if !found {
 		segments = segments[len(segments)-1:]
-		if segments[len(segments)-1].start.After(start) {
+		if segments[len(segments)-1].Start.After(start) {
 			return nil, errNoSegmentsFound
 		}
 	}
@@ -94,10 +95,11 @@ func findSegments(
 	return segments, nil
 }
 
-func findAllSegments(
+// FindSegments returns all segments of a path.
+func FindSegments(
 	pathConf *conf.Path,
 	pathName string,
-) ([]*segment, error) {
+) ([]*Segment, error) {
 	if !pathConf.Playback {
 		return nil, fmt.Errorf("playback is disabled on path '%s'", pathName)
 	}
@@ -112,7 +114,7 @@ func findAllSegments(
 	recordPath, _ = filepath.Abs(recordPath)
 
 	commonPath := record.CommonPath(recordPath)
-	var segments []*segment
+	var segments []*Segment
 
 	err := filepath.Walk(commonPath, func(fpath string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -123,9 +125,9 @@ func findAllSegments(
 			var pa record.Path
 			ok := pa.Decode(recordPath, fpath)
 			if ok {
-				segments = append(segments, &segment{
+				segments = append(segments, &Segment{
 					fpath: fpath,
-					start: time.Time(pa),
+					Start: pa.Start,
 				})
 			}
 		}
@@ -141,24 +143,24 @@ func findAllSegments(
 	}
 
 	sort.Slice(segments, func(i, j int) bool {
-		return segments[i].start.Before(segments[j].start)
+		return segments[i].Start.Before(segments[j].Start)
 	})
 
 	return segments, nil
 }
 
-func canBeConcatenated(seg1, seg2 *segment) bool {
-	end1 := seg1.start.Add(seg1.duration)
-	return !seg2.start.Before(end1.Add(-concatenationTolerance)) && !seg2.start.After(end1.Add(concatenationTolerance))
+func canBeConcatenated(seg1, seg2 *Segment) bool {
+	end1 := seg1.Start.Add(seg1.duration)
+	return !seg2.Start.Before(end1.Add(-concatenationTolerance)) && !seg2.Start.After(end1.Add(concatenationTolerance))
 }
 
-func mergeConcatenatedSegments(in []*segment) []*segment {
-	var out []*segment
+func mergeConcatenatedSegments(in []*Segment) []*Segment {
+	var out []*Segment
 
 	for _, seg := range in {
 		if len(out) != 0 && canBeConcatenated(out[len(out)-1], seg) {
-			start := out[len(out)-1].start
-			end := seg.start.Add(seg.duration)
+			start := out[len(out)-1].Start
+			end := seg.Start.Add(seg.duration)
 			out[len(out)-1].duration = end.Sub(start)
 		} else {
 			out = append(out, seg)

@@ -98,7 +98,7 @@ func (c *Cleaner) doRunEntry(e *CleanerEntry) error {
 			var pa Path
 			ok := pa.Decode(entryPath, fpath)
 			if ok {
-				if now.Sub(time.Time(pa)) > e.DeleteAfter {
+				if now.Sub(pa.Start) > e.DeleteAfter {
 					c.Log(logger.Debug, "removing %s", fpath)
 					os.Remove(fpath)
 				}

@@ -489,6 +489,32 @@ components:
           items:
             $ref: '#/components/schemas/HLSMuxer'
 
+    RecordingSegment:
+      type: object
+      properties:
+        start:
+          type: string
+
+    Recording:
+      type: object
+      properties:
+        name:
+          type: string
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordingSegment'
+
+    RecordingList:
+      type: object
+      properties:
+        pageCount:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Recording'
+
     RTMPConn:
       type: object
       properties:
@@ -1974,6 +2000,125 @@ paths:
                 $ref: '#/components/schemas/Error'
         '404':
           description: session not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/recordings/list:
+    get:
+      operationId: recordingsList
+      tags: [Recordings]
+      summary: returns all recordings.
+      description: ''
+      parameters:
+      - name: page
+        in: query
+        description: page number.
+        schema:
+          type: integer
+          default: 0
+      - name: itemsPerPage
+        in: query
+        description: items per page.
+        schema:
+          type: integer
+          default: 100
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingList'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/recordings/get/{name}:
+    get:
+      operationId: recordingsGet
+      tags: [Recordings]
+      summary: returns recordings for a path.
+      description: ''
+      parameters:
+      - name: name
+        in: path
+        required: true
+        description: name of the path.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recording'
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: path not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: server error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v3/recordings/deletesegment:
+    delete:
+      operationId: recordingsDeleteSegment
+      tags: [Recordings]
+      summary: deletes a recording segment.
+      description: ''
+      parameters:
+      - name: path
+        in: query
+        required: true
+        description: path.
+        schema:
+          type: string
+      - name: start
+        in: query
+        required: true
+        description: starting date of the segment.
+        schema:
+          type: string
+      responses:
+        '200':
+          description: the request was successful.
+        '400':
+          description: invalid request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: connection not found.
           content:
             application/json:
               schema:
