@@ -1231,13 +1231,13 @@ Where:
 
 * [mypath] is the path name
 * [start_date] is the start date in RFC3339 format
-* [duration] is the maximum duration of the recording in Golang format (example: 20s, 20h)
+* [duration] is the maximum duration of the recording in seconds
 * [format] must be fmp4
 
 All parameters must be [url-encoded](https://www.urlencoder.org/). For instance:
 
 ```
-http://localhost:9996/get?path=stream2&start=2024-01-14T16%3A33%3A17%2B00%3A00&duration=200s&format=fmp4
+http://localhost:9996/get?path=stream2&start=2024-01-14T16%3A33%3A17%2B00%3A00&duration=200.5&format=fmp4
 ```
 
 The resulting stream is natively compatible with any browser, therefore its URL can be directly inserted into a \<video> tag:

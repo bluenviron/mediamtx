@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -21,6 +22,16 @@ const (
 )
 
 var errNoSegmentsFound = errors.New("no recording segments found for the given timestamp")
+
+func parseDuration(raw string) (time.Duration, error) {
+	// seconds
+	if secs, err := strconv.ParseFloat(raw, 64); err == nil {
+		return time.Duration(secs * float64(time.Second)), nil
+	}
+
+	// deprecated, golang format
+	return time.ParseDuration(raw)
+}
 
 type listEntry struct {
 	Start    time.Time `json:"start"`
@@ -172,7 +183,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 		return
 	}
 
-	duration, err := time.ParseDuration(ctx.Query("duration"))
+	duration, err := parseDuration(ctx.Query("duration"))
 	if err != nil {
 		p.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid duration: %w", err))
 		return
