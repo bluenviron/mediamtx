@@ -164,7 +164,7 @@ func TestServerGet(t *testing.T) {
 	v := url.Values{}
 	v.Set("path", "mypath")
 	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 0, time.Local).Format(time.RFC3339))
-	v.Set("duration", "2s")
+	v.Set("duration", "2")
 	v.Set("format", "fmp4")
 
 	u := &url.URL{
