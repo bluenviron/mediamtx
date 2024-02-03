@@ -190,7 +190,7 @@ func (p *Server) onGet(ctx *gin.Context) {
 	}
 
 	format := ctx.Query("format")
-	if format != "fmp4" {
+	if format != "" && format != "fmp4" {
 		p.writeError(ctx, http.StatusBadRequest, fmt.Errorf("invalid format: %s", format))
 		return
 	}
