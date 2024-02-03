@@ -59,7 +59,7 @@ And can be recorded with:
 * Playback recorded streams
 * Authenticate users; use internal or external authentication
 * Redirect readers to other RTSP servers (load balancing)
-* Query and control the server through the API
+* Control the server through the Control API
 * Reload the configuration without disconnecting existing clients (hot reloading)
 * Read Prometheus-compatible metrics
 * Run hooks (external commands) when clients connect, disconnect, read or publish streams
@@ -125,7 +125,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
     * [OpenWrt](#openwrt)
     * [Windows](#windows)
   * [Hooks](#hooks)
-  * [API](#api)
+  * [Control API](#control-api)
   * [Metrics](#metrics)
   * [pprof](#pprof)
   * [SRT-specific features](#srt-specific-features)
@@ -1021,7 +1021,7 @@ There are 3 ways to change the configuration:
    docker run --rm -it --network=host -e MTX_PATHS_TEST_SOURCE=rtsp://myurl bluenviron/mediamtx
    ```
 
-3. By using the [API](#api).
+3. By using the [Control API](#control-api).
 
 ### Authentication
 
@@ -1542,9 +1542,9 @@ pathDefaults:
   runOnRecordSegmentComplete: curl http://my-custom-server/webhook?path=$MTX_PATH&segment_path=$MTX_SEGMENT_PATH
 ```
 
-### API
+### Control API
 
-The server can be queried and controlled with its API, that must be enabled by setting the `api` parameter in the configuration:
+The server can be queried and controlled with an API, that must be enabled by setting the `api` parameter in the configuration:
 
 ```yml
 api: yes
@@ -1556,7 +1556,7 @@ The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instan
 curl http://127.0.0.1:9997/v2/paths/list
 ```
 
-Full documentation of the API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
+Full documentation of the Control API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
 
 ### Metrics
 
