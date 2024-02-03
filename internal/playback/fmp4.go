@@ -40,6 +40,8 @@ func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
 		return nil, err
 	}
 
+	// find ftyp
+
 	if !bytes.Equal(buf[4:], []byte{'f', 't', 'y', 'p'}) {
 		return nil, fmt.Errorf("ftyp box not found")
 	}
@@ -50,6 +52,8 @@ func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// find moov
 
 	_, err = io.ReadFull(r, buf)
 	if err != nil {
@@ -67,6 +71,8 @@ func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
 		return nil, err
 	}
 
+	// return ftyp and moov
+
 	buf = make([]byte, ftypSize+moovSize)
 
 	_, err = io.ReadFull(r, buf)
@@ -77,7 +83,7 @@ func fmp4ReadInit(r io.ReadSeeker) ([]byte, error) {
 	return buf, nil
 }
 
-func seekAndMuxParts(
+func fmp4SeekAndMuxParts(
 	r io.ReadSeeker,
 	init []byte,
 	minTime time.Duration,
@@ -243,7 +249,7 @@ func seekAndMuxParts(
 	return durationMp4ToGo(elapsed, 90000), nil
 }
 
-func muxParts(
+func fmp4MuxParts(
 	r io.ReadSeeker,
 	startTime time.Duration,
 	maxTime time.Duration,
@@ -381,7 +387,7 @@ func fmp4SeekAndMux(
 		return 0, err
 	}
 
-	elapsed, err := seekAndMuxParts(f, init, minTime, maxTime, w)
+	elapsed, err := fmp4SeekAndMuxParts(f, init, minTime, maxTime, w)
 	if err != nil {
 		return 0, err
 	}
@@ -401,10 +407,222 @@ func fmp4Mux(
 	}
 	defer f.Close()
 
-	elapsed, err := muxParts(f, startTime, maxTime, w)
+	return fmp4MuxParts(f, startTime, maxTime, w)
+}
+
+func fmp4Duration(fpath string) (time.Duration, error) {
+	f, err := os.Open(fpath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	// find and skip ftyp
+
+	buf := make([]byte, 8)
+	_, err = io.ReadFull(f, buf)
 	if err != nil {
 		return 0, err
 	}
 
-	return elapsed, nil
+	if !bytes.Equal(buf[4:], []byte{'f', 't', 'y', 'p'}) {
+		return 0, fmt.Errorf("ftyp box not found")
+	}
+
+	ftypSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+	_, err = f.Seek(int64(ftypSize), io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
+
+	// find and skip moov
+
+	_, err = io.ReadFull(f, buf)
+	if err != nil {
+		return 0, err
+	}
+
+	if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'v'}) {
+		return 0, fmt.Errorf("moov box not found")
+	}
+
+	moovSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+	_, err = f.Seek(int64(moovSize)-8, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+
+	// find last valid moof and mdat
+
+	lastMoofPos := int64(-1)
+
+	for {
+		moofPos, err := f.Seek(0, io.SeekCurrent)
+		if err != nil {
+			return 0, err
+		}
+
+		_, err = io.ReadFull(f, buf)
+		if err != nil {
+			break
+		}
+
+		if !bytes.Equal(buf[4:], []byte{'m', 'o', 'o', 'f'}) {
+			return 0, fmt.Errorf("moof box not found")
+		}
+
+		moofSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+		_, err = f.Seek(int64(moofSize)-8, io.SeekCurrent)
+		if err != nil {
+			break
+		}
+
+		_, err = io.ReadFull(f, buf)
+		if err != nil {
+			break
+		}
+
+		if !bytes.Equal(buf[4:], []byte{'m', 'd', 'a', 't'}) {
+			return 0, fmt.Errorf("mdat box not found")
+		}
+
+		mdatSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+		_, err = f.Seek(int64(mdatSize)-8, io.SeekCurrent)
+		if err != nil {
+			break
+		}
+
+		lastMoofPos = moofPos
+	}
+
+	if lastMoofPos < 0 {
+		return 0, fmt.Errorf("no moof boxes found")
+	}
+
+	// open last moof
+
+	_, err = f.Seek(lastMoofPos+8, io.SeekStart)
+	if err != nil {
+		return 0, err
+	}
+
+	_, err = io.ReadFull(f, buf)
+	if err != nil {
+		return 0, err
+	}
+
+	// skip mfhd
+
+	if !bytes.Equal(buf[4:], []byte{'m', 'f', 'h', 'd'}) {
+		return 0, fmt.Errorf("mfhd box not found")
+	}
+
+	_, err = f.Seek(8, io.SeekCurrent)
+	if err != nil {
+		return 0, err
+	}
+
+	maxElapsed := uint64(0)
+
+	// foreach traf
+
+	for {
+		_, err := io.ReadFull(f, buf)
+		if err != nil {
+			return 0, err
+		}
+
+		if !bytes.Equal(buf[4:], []byte{'t', 'r', 'a', 'f'}) {
+			if bytes.Equal(buf[4:], []byte{'m', 'd', 'a', 't'}) {
+				break
+			}
+			return 0, fmt.Errorf("traf box not found")
+		}
+
+		// skip tfhd
+
+		_, err = io.ReadFull(f, buf)
+		if err != nil {
+			return 0, err
+		}
+
+		if !bytes.Equal(buf[4:], []byte{'t', 'f', 'h', 'd'}) {
+			return 0, fmt.Errorf("tfhd box not found")
+		}
+
+		tfhdSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+		_, err = f.Seek(int64(tfhdSize)-8, io.SeekCurrent)
+		if err != nil {
+			return 0, err
+		}
+
+		// parse tfdt
+
+		_, err = io.ReadFull(f, buf)
+		if err != nil {
+			return 0, err
+		}
+
+		if !bytes.Equal(buf[4:], []byte{'t', 'f', 'd', 't'}) {
+			return 0, fmt.Errorf("tfdt box not found")
+		}
+
+		tfdtSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+		buf2 := make([]byte, tfdtSize-8)
+
+		_, err = io.ReadFull(f, buf2)
+		if err != nil {
+			return 0, err
+		}
+
+		var tfdt mp4.Tfdt
+		_, err = mp4.Unmarshal(bytes.NewReader(buf2), uint64(len(buf2)), &tfdt, mp4.Context{})
+		if err != nil {
+			return 0, fmt.Errorf("invalid tfdt box: %w", err)
+		}
+
+		elapsed := tfdt.BaseMediaDecodeTimeV1
+
+		// parse trun
+
+		_, err = io.ReadFull(f, buf)
+		if err != nil {
+			return 0, err
+		}
+
+		if !bytes.Equal(buf[4:], []byte{'t', 'r', 'u', 'n'}) {
+			return 0, fmt.Errorf("trun box not found")
+		}
+
+		trunSize := uint32(buf[0])<<24 | uint32(buf[1])<<16 | uint32(buf[2])<<8 | uint32(buf[3])
+
+		buf2 = make([]byte, trunSize-8)
+
+		_, err = io.ReadFull(f, buf2)
+		if err != nil {
+			return 0, err
+		}
+
+		var trun mp4.Trun
+		_, err = mp4.Unmarshal(bytes.NewReader(buf2), uint64(len(buf2)), &trun, mp4.Context{})
+		if err != nil {
+			return 0, fmt.Errorf("invalid trun box: %w", err)
+		}
+
+		for _, entry := range trun.Entries {
+			elapsed += uint64(entry.SampleDuration)
+		}
+
+		if elapsed > maxElapsed {
+			maxElapsed = elapsed
+		}
+	}
+
+	return durationMp4ToGo(maxElapsed, 90000), nil
 }

@@ -56,7 +56,7 @@ And can be recorded with:
 * Streams are automatically converted from a protocol to another
 * Serve multiple streams at once in separate paths
 * Record streams to disk
-* Playback recordings
+* Playback recorded streams
 * Authenticate users; use internal or external authentication
 * Redirect readers to other RTSP servers (load balancing)
 * Query and control the server through the API
@@ -116,7 +116,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Record streams to disk](#record-streams-to-disk)
-  * [Playback recordings](#playback-recordings)
+  * [Playback recorded streams](#playback-recorded-streams)
   * [Forward streams to other servers](#forward-streams-to-other-servers)
   * [Proxy requests to other servers](#proxy-requests-to-other-servers)
   * [On-demand publishing](#on-demand-publishing)
@@ -1191,16 +1191,37 @@ To upload recordings to a remote location, you can use _MediaMTX_ together with 
 
    If you want to delete local segments after they are uploaded, replace `rclone sync` with `rclone move`.
 
-### Playback recordings
+### Playback recorded streams
 
-Recordings can be served to users through a dedicated HTTP server, that can be enabled inside the configuration:
+Existing recordings can be served to users through a dedicated HTTP server, that can be enabled inside the configuration:
 
 ```yml
 playback: yes
 playbackAddress: :9996
 ```
 
-The server can be queried for recordings by using the URL:
+The server provides an endpoint to list recorded timespans:
+
+```
+http://localhost:9996/list?path=[mypath]
+```
+
+Where [mypath] is the name of a path. The server will return a list of timespans in JSON format:
+
+```json
+[
+  {
+    "start": "2006-01-02T15:04:05Z07:00",
+    "duration": "60.0"
+  },
+  {
+    "start": "2006-01-02T15:07:05Z07:00",
+    "duration": "32.33"
+  }
+]
+```
+
+The server provides an endpoint for downloading recordings:
 
 ```
 http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]&format=[format]
@@ -1213,9 +1234,7 @@ Where:
 * [duration] is the maximum duration of the recording in Golang format (example: 20s, 20h)
 * [format] must be fmp4
 
-All parameters must be [url-encoded](https://www.urlencoder.org/).
-
-For instance:
+All parameters must be [url-encoded](https://www.urlencoder.org/). For instance:
 
 ```
 http://localhost:9996/get?path=stream2&start=2024-01-14T16%3A33%3A17%2B00%3A00&duration=200s&format=fmp4
@@ -1225,7 +1244,7 @@ The resulting stream is natively compatible with any browser, therefore its URL 
 
 ```html
 <video controls>
-  <source src="http://localhost:9996/get?path=stream2&start=2024-01-14T16%3A33%3A17%2B00%3A00&duration=200s&format=fmp4" type="video/mp4" />
+  <source src="http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]&format=[format]" type="video/mp4" />
 </video>
 ```
 
