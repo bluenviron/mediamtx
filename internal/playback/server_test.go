@@ -1,6 +1,7 @@
 package playback
 
 import (
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -134,7 +135,7 @@ func writeSegment2(t *testing.T, fpath string) {
 	require.NoError(t, err)
 }
 
-func TestServer(t *testing.T) {
+func TestServerGet(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mediamtx-playback")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
@@ -225,4 +226,66 @@ func TestServer(t *testing.T) {
 			},
 		},
 	}, parts)
+}
+
+func TestServerList(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
+	require.NoError(t, err)
+
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-000000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-000000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-000000.mp4"))
+
+	s := &Server{
+		Address:     "127.0.0.1:9996",
+		ReadTimeout: conf.StringDuration(10 * time.Second),
+		PathConfs: map[string]*conf.Path{
+			"mypath": {
+				Playback:   true,
+				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
+			},
+		},
+		Parent: &nilLogger{},
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	v := url.Values{}
+	v.Set("path", "mypath")
+
+	u := &url.URL{
+		Scheme:   "http",
+		Host:     "localhost:9996",
+		Path:     "/list",
+		RawQuery: v.Encode(),
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	require.NoError(t, err)
+
+	res, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	require.Equal(t, http.StatusOK, res.StatusCode)
+
+	var out interface{}
+	err = json.NewDecoder(res.Body).Decode(&out)
+	require.NoError(t, err)
+
+	require.Equal(t, []interface{}{
+		map[string]interface{}{
+			"duration": float64(64),
+			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+		},
+		map[string]interface{}{
+			"duration": float64(2),
+			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 0, time.Local).Format(time.RFC3339),
+		},
+	}, out)
 }
