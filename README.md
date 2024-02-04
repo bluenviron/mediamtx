@@ -14,7 +14,7 @@
 
 <br>
 
-_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows to publish, read, proxy and record video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other.
+_MediaMTX_ (formerly _rtsp-simple-server_) is a ready-to-use and zero-dependency real-time media server and media proxy that allows to publish, read, proxy, record and playback video and audio streams. It has been conceived as a "media router" that routes media streams from one end to the other.
 
 Live streams can be published to the server with:
 
@@ -42,7 +42,7 @@ And can be read from the server with:
 |[RTMP](#rtmp)|RTMP, RTMPS, Enhanced RTMP|H264|MPEG-4 Audio (AAC), MPEG-1/2 Audio (MP3)|
 |[HLS](#hls)|Low-Latency HLS, MP4-based HLS, legacy HLS|AV1, VP9, H265, H264|Opus, MPEG-4 Audio (AAC)|
 
-And can be recorded with:
+And can be recorded and played back with:
 
 |format|video codecs|audio codecs|
 |------|------------|------------|

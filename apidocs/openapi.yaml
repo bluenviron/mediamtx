@@ -660,6 +660,7 @@ paths:
   /v3/config/global/get:
     get:
       operationId: configGlobalGet
+      tags: [Configuration]
       summary: returns the global configuration.
       description: ''
       responses:
@@ -685,6 +686,7 @@ paths:
   /v3/config/global/patch:
     patch:
       operationId: configGlobalSet
+      tags: [Configuration]
       summary: patches the global configuration.
       description: all fields are optional.
       requestBody:
@@ -712,6 +714,7 @@ paths:
   /v3/config/pathdefaults/get:
     get:
       operationId: configPathDefaultsGet
+      tags: [Configuration]
       summary: returns the default path configuration.
       description: ''
       responses:
@@ -737,6 +740,7 @@ paths:
   /v3/config/pathdefaults/patch:
     patch:
       operationId: configPathDefaultsPatch
+      tags: [Configuration]
       summary: patches the default path configuration.
       description: all fields are optional.
       requestBody:
@@ -764,6 +768,7 @@ paths:
   /v3/config/paths/list:
     get:
       operationId: configPathsList
+      tags: [Configuration]
       summary: returns all path configurations.
       description: ''
       parameters:
@@ -802,6 +807,7 @@ paths:
   /v3/config/paths/get/{name}:
     get:
       operationId: configPathsGet
+      tags: [Configuration]
       summary: returns a path configuration.
       description: ''
       parameters:
@@ -840,6 +846,7 @@ paths:
   /v3/config/paths/add/{name}:
     post:
       operationId: configPathsAdd
+      tags: [Configuration]
       summary: adds a path configuration.
       description: all fields are optional.
       parameters:
@@ -874,6 +881,7 @@ paths:
   /v3/config/paths/patch/{name}:
     patch:
       operationId: configPathsPatch
+      tags: [Configuration]
       summary: patches a path configuration.
       description: all fields are optional.
       parameters:
@@ -914,6 +922,7 @@ paths:
   /v3/config/paths/replace/{name}:
     post:
       operationId: configPathsReplace
+      tags: [Configuration]
       summary: replaces all values of a path configuration.
       description: all fields are optional.
       parameters:
@@ -954,6 +963,7 @@ paths:
   /v3/config/paths/delete/{name}:
     delete:
       operationId: configPathsDelete
+      tags: [Configuration]
       summary: removes a path configuration.
       description: ''
       parameters:
@@ -988,6 +998,7 @@ paths:
   /v3/hlsmuxers/list:
     get:
       operationId: hlsMuxersList
+      tags: [HLS]
       summary: returns all HLS muxers.
       description: ''
       parameters:
@@ -1026,6 +1037,7 @@ paths:
   /v3/hlsmuxers/get/{name}:
     get:
       operationId: hlsMuxersGet
+      tags: [HLS]
       summary: returns a HLS muxer.
       description: ''
       parameters:
@@ -1064,6 +1076,7 @@ paths:
   /v3/paths/list:
     get:
       operationId: pathsList
+      tags: [Paths]
       summary: returns all paths.
       description: ''
       parameters:
@@ -1102,6 +1115,7 @@ paths:
   /v3/paths/get/{name}:
     get:
       operationId: pathsGet
+      tags: [Paths]
       summary: returns a path.
       description: ''
       parameters:
@@ -1140,6 +1154,7 @@ paths:
   /v3/rtspconns/list:
     get:
       operationId: rtspConnsList
+      tags: [RTSP]
       summary: returns all RTSP connections.
       description: ''
       parameters:
@@ -1178,6 +1193,7 @@ paths:
   /v3/rtspconns/get/{id}:
     get:
       operationId: rtspConnsGet
+      tags: [RTSP]
       summary: returns a RTSP connection.
       description: ''
       parameters:
@@ -1216,6 +1232,7 @@ paths:
   /v3/rtspsessions/list:
     get:
       operationId: rtspSessionsList
+      tags: [RTSP]
       summary: returns all RTSP sessions.
       description: ''
       parameters:
@@ -1254,6 +1271,7 @@ paths:
   /v3/rtspsessions/get/{id}:
     get:
       operationId: rtspSessionsGet
+      tags: [RTSP]
       summary: returns a RTSP session.
       description: ''
       parameters:
@@ -1292,6 +1310,7 @@ paths:
   /v3/rtspsessions/kick/{id}:
     post:
       operationId: rtspSessionsKick
+      tags: [RTSP]
       summary: kicks out a RTSP session from the server.
       description: ''
       parameters:
@@ -1326,6 +1345,7 @@ paths:
   /v3/rtspsconns/list:
     get:
       operationId: rtspsConnsList
+      tags: [RTSP]
       summary: returns all RTSPS connections.
       description: ''
       parameters:
@@ -1364,6 +1384,7 @@ paths:
   /v3/rtspsconns/get/{id}:
     get:
       operationId: rtspsConnsGet
+      tags: [RTSP]
       summary: returns a RTSPS connection.
       description: ''
       parameters:
@@ -1402,6 +1423,7 @@ paths:
   /v3/rtspssessions/list:
     get:
       operationId: rtspsSessionsList
+      tags: [RTSP]
       summary: returns all RTSPS sessions.
       description: ''
       parameters:
@@ -1440,6 +1462,7 @@ paths:
   /v3/rtspssessions/get/{id}:
     get:
       operationId: rtspsSessionsGet
+      tags: [RTSP]
       summary: returns a RTSPS session.
       description: ''
       parameters:
@@ -1478,6 +1501,7 @@ paths:
   /v3/rtspssessions/kick/{id}:
     post:
       operationId: rtspsSessionsKick
+      tags: [RTSP]
       summary: kicks out a RTSPS session from the server.
       description: ''
       parameters:
@@ -1512,6 +1536,7 @@ paths:
   /v3/rtmpconns/list:
     get:
       operationId: rtmpConnsList
+      tags: [RTMP]
       summary: returns all RTMP connections.
       description: ''
       parameters:
@@ -1550,6 +1575,7 @@ paths:
   /v3/rtmpconns/get/{id}:
     get:
       operationId: rtmpConnectionsGet
+      tags: [RTMP]
       summary: returns a RTMP connection.
       description: ''
       parameters:
@@ -1588,6 +1614,7 @@ paths:
   /v3/rtmpconns/kick/{id}:
     post:
       operationId: rtmpConnsKick
+      tags: [RTMP]
       summary: kicks out a RTMP connection from the server.
       description: ''
       parameters:
@@ -1622,6 +1649,7 @@ paths:
   /v3/rtmpsconns/list:
     get:
       operationId: rtmpsConnsList
+      tags: [RTMP]
       summary: returns all RTMPS connections.
       description: ''
       parameters:
@@ -1660,6 +1688,7 @@ paths:
   /v3/rtmpsconns/get/{id}:
     get:
       operationId: rtmpsConnectionsGet
+      tags: [RTMP]
       summary: returns a RTMPS connection.
       description: ''
       parameters:
@@ -1698,6 +1727,7 @@ paths:
   /v3/rtmpsconns/kick/{id}:
     post:
       operationId: rtmpsConnsKick
+      tags: [RTMP]
       summary: kicks out a RTMPS connection from the server.
       description: ''
       parameters:
@@ -1732,6 +1762,7 @@ paths:
   /v3/srtconns/list:
     get:
       operationId: srtConnsList
+      tags: [SRT]
       summary: returns all SRT connections.
       description: ''
       parameters:
@@ -1770,6 +1801,7 @@ paths:
   /v3/srtconns/get/{id}:
     get:
       operationId: srtConnsGet
+      tags: [SRT]
       summary: returns a SRT connection.
       description: ''
       parameters:
@@ -1808,6 +1840,7 @@ paths:
   /v3/srtconns/kick/{id}:
     post:
       operationId: srtConnsKick
+      tags: [SRT]
       summary: kicks out a SRT connection from the server.
       description: ''
       parameters:
@@ -1842,6 +1875,7 @@ paths:
   /v3/webrtcsessions/list:
     get:
       operationId: webrtcSessionsList
+      tags: [WebRTC]
       summary: returns all WebRTC sessions.
       description: ''
       parameters:
@@ -1880,6 +1914,7 @@ paths:
   /v3/webrtcsessions/get/{id}:
     get:
       operationId: webrtcSessionsGet
+      tags: [WebRTC]
       summary: returns a WebRTC session.
       description: ''
       parameters:
@@ -1918,6 +1953,7 @@ paths:
   /v3/webrtcsessions/kick/{id}:
     post:
       operationId: webrtcSessionsKick
+      tags: [WebRTC]
       summary: kicks out a WebRTC session from the server.
       description: ''
       parameters:
