@@ -50,8 +50,6 @@ type handlerLogger struct {
 }
 
 func (h *handlerLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.log.Log(logger.Debug, "[conn %v] %s %s", r.RemoteAddr, r.Method, r.URL.Path)
-
 	byts, _ := httputil.DumpRequest(r, true)
 	h.log.Log(logger.Debug, "[conn %v] [c->s] %s", r.RemoteAddr, string(byts))
 
