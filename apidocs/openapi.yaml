@@ -711,8 +711,6 @@ components:
         bytesReceivedUnique:
           type: integer
           format: int64
-          description: Same as pktRecvUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
-        byteRecvLoss:
           description: Same as packetsReceivedUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         bytesReceivedLoss:
           type: integer
@@ -739,7 +737,7 @@ components:
           format: int64
           description: Same as packetsReceivedUndecrypt, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
         usPacketsSendPeriod:
-          type: float
+          type: number
           format: float64
           description: Current minimum time interval between which consecutive packets are sent, in microseconds
         packetsFlowWindow:
@@ -751,19 +749,19 @@ components:
           format: int64
           description: The number of packets in flight
         msRTT:
-          type: float
+          type: number
           format: float64
           description: Smoothed round-trip time (SRTT), an exponentially-weighted moving average (EWMA) of an endpoint's RTT samples, in milliseconds
         mbpsSendRate:
-          type: float
+          type: number
           format: float64
           description: Current transmission bandwidth, in Mbps
         mbpsReceiveRate:
-          type: float
+          type: number
           format: float64
           description: Current receiving bandwidth, in Mbps
         mbpsLinkCapacity:
-          type: float
+          type: number
           format: float64
           description: Estimated capacity of the network link, in Mbps
         bytesAvailSendBuf:
@@ -775,7 +773,7 @@ components:
           format: int64
           description: The available space in the receiver's buffer, in bytes
         mbpsMaxBW:
-          type: float
+          type: number
           format: float64
           description: Transmission bandwidth limit, in Mbps
         byteMSS:
@@ -823,11 +821,11 @@ components:
           format: int64
           description: Accumulated difference between the current time and the time-to-play of a packet that is received late
         packetsSendLossRate:
-          type: float
+          type: number
           format: float64
           description: Percentage of resent data vs. sent data
         packetsReceivedLossRate:
-          type: float
+          type: number
           format: float64
           description: Percentage of retransmitted data vs. received data
 
