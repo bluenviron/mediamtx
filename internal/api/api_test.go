@@ -512,13 +512,13 @@ func TestRecordingsList(t *testing.T) {
 	err = os.Mkdir(filepath.Join(dir, "mypath2"), 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-000000.mp4"), []byte(""), 0o644)
+	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-500000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath1", "2009-11-07_11-22-00-000000.mp4"), []byte(""), 0o644)
+	err = os.WriteFile(filepath.Join(dir, "mypath1", "2009-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath2", "2009-11-07_11-22-00-000000.mp4"), []byte(""), 0o644)
+	err = os.WriteFile(filepath.Join(dir, "mypath2", "2009-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
 	hc := &http.Client{Transport: &http.Transport{}}
@@ -533,10 +533,10 @@ func TestRecordingsList(t *testing.T) {
 				"name": "mypath1",
 				"segments": []interface{}{
 					map[string]interface{}{
-						"start": time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+						"start": time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 					},
 					map[string]interface{}{
-						"start": time.Date(2009, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+						"start": time.Date(2009, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 					},
 				},
 			},
@@ -544,7 +544,7 @@ func TestRecordingsList(t *testing.T) {
 				"name": "mypath2",
 				"segments": []interface{}{
 					map[string]interface{}{
-						"start": time.Date(2009, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+						"start": time.Date(2009, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 					},
 				},
 			},
@@ -578,7 +578,7 @@ func TestRecordingsGet(t *testing.T) {
 	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-000000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath1", "2009-11-07_11-22-00-000000.mp4"), []byte(""), 0o644)
+	err = os.WriteFile(filepath.Join(dir, "mypath1", "2009-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
 	hc := &http.Client{Transport: &http.Transport{}}
@@ -589,10 +589,10 @@ func TestRecordingsGet(t *testing.T) {
 		"name": "mypath1",
 		"segments": []interface{}{
 			map[string]interface{}{
-				"start": time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+				"start": time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339Nano),
 			},
 			map[string]interface{}{
-				"start": time.Date(2009, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+				"start": time.Date(2009, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano),
 			},
 		},
 	}, out)
@@ -621,14 +621,14 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	err = os.Mkdir(filepath.Join(dir, "mypath1"), 0o755)
 	require.NoError(t, err)
 
-	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-000000.mp4"), []byte(""), 0o644)
+	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
 	v := url.Values{}
 	v.Set("path", "mypath1")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339))
+	v.Set("start", time.Date(2008, 11, 0o7, 11, 22, 0, 900000000, time.Local).Format(time.RFC3339Nano))
 
 	u := &url.URL{
 		Scheme:   "http",
