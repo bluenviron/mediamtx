@@ -26,6 +26,7 @@ ENV CGO_ENABLED 0
 RUN rm -rf tmp binaries
 RUN mkdir tmp binaries
 RUN cp mediamtx.yml LICENSE tmp/
+RUN go generate ./...
 
 FROM build-base AS build-windows-amd64
 RUN GOOS=windows GOARCH=amd64 go build -ldflags "-X github.com/bluenviron/mediamtx/internal/core.version=$$VERSION" -o tmp/$(BINARY_NAME).exe

@@ -1,4 +1,5 @@
 test-highlevel-nodocker:
+	go generate ./...
 	go test -v -race -tags enable_highlevel_tests ./internal/highleveltests
 
 define DOCKERFILE_HIGHLEVEL_TEST

@@ -23,9 +23,12 @@ const (
 	pauseAfterAuthError = 2 * time.Second
 )
 
+//go:generate go run ./hlsjsdownloader
+
 //go:embed index.html
 var hlsIndex []byte
 
+//nolint:typecheck
 //go:embed hls.min.js
 var hlsMinJS []byte
 
