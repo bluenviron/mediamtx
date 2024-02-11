@@ -143,8 +143,8 @@ func TestServerGet(t *testing.T) {
 	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-000000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-000000.mp4"))
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
@@ -163,7 +163,7 @@ func TestServerGet(t *testing.T) {
 
 	v := url.Values{}
 	v.Set("path", "mypath")
-	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 0, time.Local).Format(time.RFC3339))
+	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
 	v.Set("duration", "2")
 	v.Set("format", "fmp4")
 
@@ -236,9 +236,9 @@ func TestServerList(t *testing.T) {
 	err = os.Mkdir(filepath.Join(dir, "mypath"), 0o755)
 	require.NoError(t, err)
 
-	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-000000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-000000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-000000.mp4"))
+	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
+	writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
@@ -281,11 +281,11 @@ func TestServerList(t *testing.T) {
 	require.Equal(t, []interface{}{
 		map[string]interface{}{
 			"duration": float64(64),
-			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 0, time.Local).Format(time.RFC3339),
+			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
 		},
 		map[string]interface{}{
 			"duration": float64(2),
-			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 0, time.Local).Format(time.RFC3339),
+			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
 		},
 	}, out)
 }
