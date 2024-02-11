@@ -1,9 +1,9 @@
-LBITS := $(shell getconf LONG_BIT)
-ifeq ($(LBITS),64)
-RACE=-race
+ifeq ($(shell getconf LONG_BIT),64)
+  RACE=-race
 endif
 
 test-internal:
+	go generate ./...
 	go test -v $(RACE) -coverprofile=coverage-internal.txt \
 	$$(go list ./internal/... | grep -v /core)
 

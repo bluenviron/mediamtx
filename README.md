@@ -144,6 +144,7 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
   * [OpenWrt](#openwrt-1)
   * [Cross compile](#cross-compile)
   * [Compile for all supported platforms](#compile-for-all-supported-platforms)
+* [License](#license)
 * [Specifications](#specifications)
 * [Related projects](#related-projects)
 
@@ -1805,6 +1806,7 @@ Install git and Go &ge; 1.21. Clone the repository, enter into the folder and st
 ```sh
 git clone https://github.com/bluenviron/mediamtx
 cd mediamtx
+go generate ./...
 CGO_ENABLED=0 go build .
 ```
 
@@ -1825,6 +1827,7 @@ Download the repository, open a terminal in it and run:
 cd internal/protocols/rpicamera/exe
 make
 cd ../../../../
+go generate ./...
 go build -tags rpicamera .
 ```
 
@@ -1844,6 +1847,7 @@ Clone the repository, enter into the folder and start the building process:
 ```sh
 git clone https://github.com/bluenviron/mediamtx
 cd mediamtx
+go generate ./...
 CGO_ENABLED=0 go build .
 ```
 
@@ -1860,6 +1864,7 @@ On the machine you want to use to compile, install git and Go &ge; 1.21. Clone t
 ```sh
 git clone https://github.com/bluenviron/mediamtx
 cd mediamtx
+go generate ./...
 CGO_ENABLED=0 GOOS=my_os GOARCH=my_arch go build .
 ```
 
@@ -1898,6 +1903,13 @@ make binaries
 ```
 
 The command will produce tarballs in folder `binaries/`.
+
+## License
+
+All the code in this repository is released under the [MIT License](LICENSE). Compiled binaries make use of some third-party dependencies:
+
+* hls.js, released under the [Apache License 2.0](https://github.com/video-dev/hls.js/blob/master/LICENSE)
+* all the dependencies listed into the [go.mod file](go.mod), which are all released under either the MIT license, BSD-3-Clause license or Apache License 2.0
 
 ## Specifications
 

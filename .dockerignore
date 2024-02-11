@@ -3,3 +3,4 @@
 /binaries
 /coverage*.txt
 /apidocs/*.html
+**/hls.min.js
