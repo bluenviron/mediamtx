@@ -107,9 +107,6 @@ func (s *httpServer) close() {
 }
 
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publish bool) bool {
-	ip := ctx.ClientIP()
-	_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
-	remoteAddr := net.JoinHostPort(ip, port)
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
 	res := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
@@ -117,7 +114,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 			Name:    path,
 			Query:   ctx.Request.URL.RawQuery,
 			Publish: publish,
-			IP:      net.ParseIP(ip),
+			IP:      net.ParseIP(ctx.ClientIP()),
 			User:    user,
 			Pass:    pass,
 			Proto:   defs.AuthProtocolWebRTC,
@@ -132,7 +129,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 				return false
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.Message)
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpserv.RemoteAddr(ctx), terr.Message)
 
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(pauseAfterAuthError)
@@ -177,14 +174,11 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 		return
 	}
 
-	ip := ctx.ClientIP()
-	_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
-	remoteAddr := net.JoinHostPort(ip, port)
 	user, pass, _ := ctx.Request.BasicAuth()
 
 	res := s.parent.newSession(webRTCNewSessionReq{
 		pathName:   path,
-		remoteAddr: remoteAddr,
+		remoteAddr: httpserv.RemoteAddr(ctx),
 		query:      ctx.Request.URL.RawQuery,
 		user:       user,
 		pass:       pass,
