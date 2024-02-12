@@ -170,11 +170,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 				return
 			}
 
-			ip := ctx.ClientIP()
-			_, port, _ := net.SplitHostPort(ctx.Request.RemoteAddr)
-			remoteAddr := net.JoinHostPort(ip, port)
-
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", remoteAddr, terr.Message)
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpserv.RemoteAddr(ctx), terr.Message)
 
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(pauseAfterAuthError)
