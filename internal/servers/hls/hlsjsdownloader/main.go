@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func do() error {
@@ -16,7 +17,7 @@ func do() error {
 	if err != nil {
 		return err
 	}
-	version := string(buf[:len(buf)-1])
+	version := strings.TrimSpace(string(buf))
 
 	res, err := http.Get("https://cdn.jsdelivr.net/npm/hls.js@" + version + "/dist/hls.min.js")
 	if err != nil {
