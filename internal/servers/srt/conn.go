@@ -163,7 +163,7 @@ func (c *conn) runInner2(req srtNewConnReq) (bool, error) {
 }
 
 func (c *conn) runPublish(req srtNewConnReq, streamID *streamID) (bool, error) {
-	res := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
+	path, err := c.pathManager.AddPublisher(defs.PathAddPublisherReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:    streamID.path,
@@ -176,20 +176,19 @@ func (c *conn) runPublish(req srtNewConnReq, streamID *streamID) (bool, error) {
 			Query:   streamID.query,
 		},
 	})
-
-	if res.Err != nil {
+	if err != nil {
 		var terr defs.AuthenticationError
-		if errors.As(res.Err, &terr) {
+		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(pauseAfterAuthError)
 			return false, terr
 		}
-		return false, res.Err
+		return false, err
 	}
 
-	defer res.Path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
+	defer path.RemovePublisher(defs.PathRemovePublisherReq{Author: c})
 
-	err := srtCheckPassphrase(req.connReq, res.Path.SafeConf().SRTPublishPassphrase)
+	err = srtCheckPassphrase(req.connReq, path.SafeConf().SRTPublishPassphrase)
 	if err != nil {
 		return false, err
 	}
@@ -208,7 +207,7 @@ func (c *conn) runPublish(req srtNewConnReq, streamID *streamID) (bool, error) {
 
 	readerErr := make(chan error)
 	go func() {
-		readerErr <- c.runPublishReader(sconn, res.Path)
+		readerErr <- c.runPublishReader(sconn, path)
 	}()
 
 	select {
@@ -243,16 +242,14 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 		return err
 	}
 
-	rres := path.StartPublisher(defs.PathStartPublisherReq{
+	stream, err = path.StartPublisher(defs.PathStartPublisherReq{
 		Author:             c,
 		Desc:               &description.Session{Medias: medias},
 		GenerateRTPPackets: true,
 	})
-	if rres.Err != nil {
-		return rres.Err
+	if err != nil {
+		return err
 	}
-
-	stream = rres.Stream
 
 	for {
 		err := r.Read()
@@ -263,7 +260,7 @@ func (c *conn) runPublishReader(sconn srt.Conn, path defs.Path) error {
 }
 
 func (c *conn) runRead(req srtNewConnReq, streamID *streamID) (bool, error) {
-	res := c.pathManager.AddReader(defs.PathAddReaderReq{
+	path, stream, err := c.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: c,
 		AccessRequest: defs.PathAccessRequest{
 			Name:  streamID.path,
@@ -275,20 +272,19 @@ func (c *conn) runRead(req srtNewConnReq, streamID *streamID) (bool, error) {
 			Query: streamID.query,
 		},
 	})
-
-	if res.Err != nil {
+	if err != nil {
 		var terr defs.AuthenticationError
-		if errors.As(res.Err, &terr) {
+		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(pauseAfterAuthError)
-			return false, res.Err
+			return false, err
 		}
-		return false, res.Err
+		return false, err
 	}
 
-	defer res.Path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
+	defer path.RemoveReader(defs.PathRemoveReaderReq{Author: c})
 
-	err := srtCheckPassphrase(req.connReq, res.Path.SafeConf().SRTReadPassphrase)
+	err = srtCheckPassphrase(req.connReq, path.SafeConf().SRTReadPassphrase)
 	if err != nil {
 		return false, err
 	}
@@ -308,23 +304,23 @@ func (c *conn) runRead(req srtNewConnReq, streamID *streamID) (bool, error) {
 
 	writer := asyncwriter.New(c.writeQueueSize, c)
 
-	defer res.Stream.RemoveReader(writer)
+	defer stream.RemoveReader(writer)
 
 	bw := bufio.NewWriterSize(sconn, srtMaxPayloadSize(c.udpMaxPayloadSize))
 
-	err = mpegts.FromStream(res.Stream, writer, bw, sconn, time.Duration(c.writeTimeout))
+	err = mpegts.FromStream(stream, writer, bw, sconn, time.Duration(c.writeTimeout))
 	if err != nil {
 		return true, err
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",
-		res.Path.Name(), defs.FormatsInfo(res.Stream.FormatsForReader(writer)))
+		path.Name(), defs.FormatsInfo(stream.FormatsForReader(writer)))
 
 	onUnreadHook := hooks.OnRead(hooks.OnReadParams{
 		Logger:          c,
 		ExternalCmdPool: c.externalCmdPool,
-		Conf:            res.Path.SafeConf(),
-		ExternalCmdEnv:  res.Path.ExternalCmdEnv(),
+		Conf:            path.SafeConf(),
+		ExternalCmdEnv:  path.ExternalCmdEnv(),
 		Reader:          c.APIReaderDescribe(),
 		Query:           streamID.query,
 	})

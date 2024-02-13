@@ -11,6 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
@@ -22,9 +23,10 @@ type serverGetMuxerRes struct {
 }
 
 type serverGetMuxerReq struct {
-	path       string
-	remoteAddr string
-	res        chan serverGetMuxerRes
+	path           string
+	remoteAddr     string
+	sourceOnDemand bool
+	res            chan serverGetMuxerRes
 }
 
 type serverAPIMuxersListRes struct {
@@ -44,6 +46,11 @@ type serverAPIMuxersGetRes struct {
 type serverAPIMuxersGetReq struct {
 	name string
 	res  chan serverAPIMuxersGetRes
+}
+
+type serverPathManager interface {
+	FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error)
+	AddReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
 type serverParent interface {
@@ -68,7 +75,7 @@ type Server struct {
 	Directory                 string
 	ReadTimeout               conf.StringDuration
 	WriteQueueSize            int
-	PathManager               defs.PathManager
+	PathManager               serverPathManager
 	Parent                    serverParent
 
 	ctx        context.Context
@@ -162,17 +169,16 @@ outer:
 			switch {
 			case ok:
 				req.res <- serverGetMuxerRes{muxer: mux}
-			case !s.AlwaysRemux:
-				req.res <- serverGetMuxerRes{muxer: s.createMuxer(req.path, req.remoteAddr)}
-			default:
+			case s.AlwaysRemux && !req.sourceOnDemand:
 				req.res <- serverGetMuxerRes{err: fmt.Errorf("muxer is waiting to be created")}
+			default:
+				req.res <- serverGetMuxerRes{muxer: s.createMuxer(req.path, req.remoteAddr)}
 			}
 
 		case c := <-s.chCloseMuxer:
-			if c2, ok := s.muxers[c.PathName()]; !ok || c2 != c {
-				continue
+			if c2, ok := s.muxers[c.PathName()]; ok && c2 == c {
+				delete(s.muxers, c.PathName())
 			}
-			delete(s.muxers, c.PathName())
 
 		case req := <-s.chAPIMuxerList:
 			data := &defs.APIHLSMuxerList{

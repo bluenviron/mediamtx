@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
@@ -120,30 +118,7 @@ func TestSource(t *testing.T) {
 				conn, _, _, err := rtmp.NewServerConn(nconn)
 				require.NoError(t, err)
 
-				videoTrack := &format.H264{
-					PayloadTyp: 96,
-					SPS: []byte{ // 1920x1080 baseline
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-					},
-					PPS:               []byte{0x08, 0x06, 0x07, 0x08},
-					PacketizationMode: 1,
-				}
-
-				audioTrack := &format.MPEG4Audio{
-					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
-						Type:         2,
-						SampleRate:   44100,
-						ChannelCount: 2,
-					},
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
-				}
-
-				w, err := rtmp.NewWriter(conn, videoTrack, audioTrack)
+				w, err := rtmp.NewWriter(conn, test.FormatH264, test.FormatMPEG4Audio)
 				require.NoError(t, err)
 
 				err = w.WriteH264(0, 0, true, [][]byte{{0x05, 0x02, 0x03, 0x04}})

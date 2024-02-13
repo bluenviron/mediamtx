@@ -21,6 +21,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
@@ -374,16 +375,8 @@ func (f *formatFMP4) initialize() {
 				sps, pps := forma.SafeParams()
 
 				if sps == nil || pps == nil {
-					sps = []byte{
-						0x67, 0x42, 0xc0, 0x1f, 0xd9, 0x00, 0xf0, 0x11,
-						0x7e, 0xf0, 0x11, 0x00, 0x00, 0x03, 0x00, 0x01,
-						0x00, 0x00, 0x03, 0x00, 0x30, 0x8f, 0x18, 0x32,
-						0x48,
-					}
-
-					pps = []byte{
-						0x68, 0xcb, 0x8c, 0xb2,
-					}
+					sps = test.FormatH264.SPS
+					pps = test.FormatH264.PPS
 				}
 
 				codec := &fmp4.CodecH264{

@@ -40,7 +40,7 @@ type httpServer struct {
 	allowOrigin    string
 	trustedProxies conf.IPsOrCIDRs
 	readTimeout    conf.StringDuration
-	pathManager    defs.PathManager
+	pathManager    serverPathManager
 	parent         *Server
 
 	inner *httpp.WrappedServer
@@ -150,7 +150,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+	pathConf, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:    dir,
 			Query:   ctx.Request.URL.RawQuery,
@@ -161,9 +161,9 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			Proto:   defs.AuthProtocolHLS,
 		},
 	})
-	if res.Err != nil {
+	if err != nil {
 		var terr defs.AuthenticationError
-		if errors.As(res.Err, &terr) {
+		if errors.As(err, &terr) {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
@@ -192,23 +192,22 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 
 	default:
 		mux, err := s.parent.getMuxer(serverGetMuxerReq{
-			path:       dir,
-			remoteAddr: httpp.RemoteAddr(ctx),
+			path:           dir,
+			remoteAddr:     httpp.RemoteAddr(ctx),
+			sourceOnDemand: pathConf.SourceOnDemand,
 		})
 		if err != nil {
-			s.Log(logger.Error, err.Error())
-			ctx.Writer.WriteHeader(http.StatusInternalServerError)
+			ctx.Writer.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		err = mux.processRequest(muxerProcessRequestReq{})
-		if err != nil {
-			s.Log(logger.Error, err.Error())
-			ctx.Writer.WriteHeader(http.StatusInternalServerError)
+		mi := mux.getInstance()
+		if mi == nil {
+			ctx.Writer.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		ctx.Request.URL.Path = fname
-		mux.handleRequest(ctx)
+		mi.handleRequest(ctx)
 	}
 }

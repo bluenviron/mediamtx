@@ -109,7 +109,7 @@ func (s *httpServer) close() {
 func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publish bool) bool {
 	user, pass, hasCredentials := ctx.Request.BasicAuth()
 
-	res := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
+	_, err := s.pathManager.FindPathConf(defs.PathFindPathConfReq{
 		AccessRequest: defs.PathAccessRequest{
 			Name:    path,
 			Query:   ctx.Request.URL.RawQuery,
@@ -120,9 +120,9 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 			Proto:   defs.AuthProtocolWebRTC,
 		},
 	})
-	if res.Err != nil {
+	if err != nil {
 		var terr defs.AuthenticationError
-		if errors.As(res.Err, &terr) {
+		if errors.As(err, &terr) {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
 				ctx.Writer.WriteHeader(http.StatusUnauthorized)
@@ -138,7 +138,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 			return false
 		}
 
-		writeError(ctx, http.StatusInternalServerError, res.Err)
+		writeError(ctx, http.StatusInternalServerError, err)
 		return false
 	}
 

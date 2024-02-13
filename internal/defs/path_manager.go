@@ -1,9 +1,14 @@
 package defs
 
+import (
+	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/stream"
+)
+
 // PathManager is a path manager.
 type PathManager interface {
-	FindPathConf(req PathFindPathConfReq) PathFindPathConfRes
+	FindPathConf(req PathFindPathConfReq) (*conf.Path, error)
 	Describe(req PathDescribeReq) PathDescribeRes
-	AddPublisher(req PathAddPublisherReq) PathAddPublisherRes
-	AddReader(req PathAddReaderReq) PathAddReaderRes
+	AddPublisher(req PathAddPublisherReq) (Path, error)
+	AddReader(req PathAddReaderReq) (Path, *stream.Stream, error)
 }
