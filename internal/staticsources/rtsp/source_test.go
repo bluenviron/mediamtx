@@ -16,7 +16,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----
@@ -206,13 +206,13 @@ func TestSource(t *testing.T) {
 			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
 			defer stream.Close()
 
-			var te *tester.Tester
+			var te *test.SourceTester
 
 			if source != "tls" {
 				var sp conf.RTSPTransport
 				sp.UnmarshalJSON([]byte(`"` + source + `"`)) //nolint:errcheck
 
-				te = tester.New(
+				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
 							ResolvedSource: "rtsp://testuser:testpass@localhost:8555/teststream",
@@ -227,7 +227,7 @@ func TestSource(t *testing.T) {
 					},
 				)
 			} else {
-				te = tester.New(
+				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
 							ResolvedSource: "rtsps://testuser:testpass@localhost:8555/teststream",
@@ -313,7 +313,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	var sp conf.RTSPTransport
 	sp.UnmarshalJSON([]byte(`"tcp"`)) //nolint:errcheck
 
-	te := tester.New(
+	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
 				ResolvedSource: "rtsp://testuser:@127.0.0.1:8555/teststream",
@@ -408,7 +408,7 @@ func TestRTSPSourceRange(t *testing.T) {
 				cnf.RTSPRangeStart = "130s"
 			}
 
-			te := tester.New(
+			te := test.NewSourceTester(
 				func(p defs.StaticSourceParent) defs.StaticSource {
 					return &Source{
 						ResolvedSource: "rtsp://127.0.0.1:8555/teststream",

@@ -11,18 +11,13 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
-	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/stream"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
-
-type nilLogger struct{}
-
-func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
-}
 
 func TestAgent(t *testing.T) {
 	desc := &description.Session{Medias: []*description.Media{
@@ -149,7 +144,7 @@ func TestAgent(t *testing.T) {
 				1460,
 				desc,
 				true,
-				&nilLogger{},
+				&test.NilLogger{},
 			)
 			require.NoError(t, err)
 			defer stream.Close()
@@ -184,7 +179,7 @@ func TestAgent(t *testing.T) {
 				OnSegmentComplete: func(fpath string) {
 					segDone <- struct{}{}
 				},
-				Parent:       &nilLogger{},
+				Parent:       &test.NilLogger{},
 				restartPause: 1 * time.Millisecond,
 			}
 			w.Initialize()
@@ -265,7 +260,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 		1460,
 		desc,
 		true,
-		&nilLogger{},
+		&test.NilLogger{},
 	)
 	require.NoError(t, err)
 	defer stream.Close()
@@ -284,7 +279,7 @@ func TestAgentFMP4NegativeDTS(t *testing.T) {
 		SegmentDuration: 1 * time.Second,
 		PathName:        "mypath",
 		Stream:          stream,
-		Parent:          &nilLogger{},
+		Parent:          &test.NilLogger{},
 	}
 	w.Initialize()
 

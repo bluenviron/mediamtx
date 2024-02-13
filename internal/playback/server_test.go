@@ -13,14 +13,9 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 	"github.com/bluenviron/mediamtx/internal/conf"
-	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
-
-type nilLogger struct{}
-
-func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
-}
 
 func writeSegment1(t *testing.T, fpath string) {
 	init := fmp4.Init{
@@ -155,7 +150,7 @@ func TestServerGet(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		Parent: &nilLogger{},
+		Parent: &test.NilLogger{},
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
@@ -249,7 +244,7 @@ func TestServerList(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		Parent: &nilLogger{},
+		Parent: &test.NilLogger{},
 	}
 	err = s.Initialize()
 	require.NoError(t, err)

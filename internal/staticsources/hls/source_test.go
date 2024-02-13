@@ -13,7 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestSource(t *testing.T) {
@@ -86,7 +86,7 @@ func TestSource(t *testing.T) {
 	go s.Serve(ln)
 	defer s.Shutdown(context.Background())
 
-	te := tester.New(
+	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
 				ResolvedSource: "http://localhost:5780/stream.m3u8",

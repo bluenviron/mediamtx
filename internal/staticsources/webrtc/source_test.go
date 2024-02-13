@@ -16,7 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
-	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func whipOffer(body []byte) *pwebrtc.SessionDescription {
@@ -36,6 +36,7 @@ func TestSource(t *testing.T) {
 	pc := &webrtc.PeerConnection{
 		API:     api,
 		Publish: true,
+		Log:     test.NilLogger{},
 	}
 	err = pc.Start()
 	require.NoError(t, err)
@@ -124,7 +125,7 @@ func TestSource(t *testing.T) {
 	go httpServ.Serve(ln)
 	defer httpServ.Shutdown(context.Background())
 
-	te := tester.New(
+	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
 				ResolvedSource: "whep://localhost:9003/my/resource",
