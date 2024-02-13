@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestWebRTCPages(t *testing.T) {
@@ -144,6 +145,7 @@ func TestWebRTCRead(t *testing.T) {
 			c := &webrtc.WHIPClient{
 				HTTPClient: hc,
 				URL:        u,
+				Log:        test.NilLogger{},
 			}
 
 			tracks, err := c.Read(context.Background())
@@ -284,6 +286,7 @@ func TestWebRTCPublish(t *testing.T) {
 			s := &webrtc.WHIPClient{
 				HTTPClient: hc,
 				URL:        su,
+				Log:        test.NilLogger{},
 			}
 
 			tracks, err := s.Publish(context.Background(), testMediaH264.Formats[0], nil)

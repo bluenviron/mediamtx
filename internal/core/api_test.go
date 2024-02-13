@@ -27,6 +27,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 var testFormatH264 = &format.H264{
@@ -541,6 +542,7 @@ func TestAPIProtocolList(t *testing.T) {
 				c := &webrtc.WHIPClient{
 					HTTPClient: hc,
 					URL:        u,
+					Log:        test.NilLogger{},
 				}
 
 				_, err = c.Read(context.Background())
@@ -840,6 +842,7 @@ func TestAPIProtocolGet(t *testing.T) {
 				c := &webrtc.WHIPClient{
 					HTTPClient: hc,
 					URL:        u,
+					Log:        test.NilLogger{},
 				}
 
 				_, err = c.Read(context.Background())
@@ -1134,6 +1137,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				c := &webrtc.WHIPClient{
 					HTTPClient: hc,
 					URL:        u,
+					Log:        test.NilLogger{},
 				}
 
 				_, err = c.Publish(context.Background(), medi.Formats[0], nil)

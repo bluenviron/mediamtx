@@ -22,6 +22,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestMetrics(t *testing.T) {
@@ -158,6 +159,7 @@ webrtc_sessions_bytes_sent 0
 			s := &webrtc.WHIPClient{
 				HTTPClient: &http.Client{Transport: &http.Transport{}},
 				URL:        su,
+				Log:        test.NilLogger{},
 			}
 
 			tracks, err := s.Publish(context.Background(), testMediaH264.Formats[0], nil)
