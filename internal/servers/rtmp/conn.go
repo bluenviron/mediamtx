@@ -32,6 +32,9 @@ const (
 	pauseAfterAuthError = 2 * time.Second
 )
 
+var errNoSupportedCodecs = errors.New(
+	"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
+
 func pathNameAndQuery(inURL *url.URL) (string, url.Values, string) {
 	// remove leading and trailing slashes inserted by OBS and some other clients
 	tmp := strings.TrimRight(inURL.String(), "/")
@@ -212,8 +215,7 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 		writer)
 
 	if videoFormat == nil && audioFormat == nil {
-		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H264, MPEG-4 Audio, MPEG-1/2 Audio")
+		return errNoSupportedCodecs
 	}
 
 	c.Log(logger.Info, "is reading from path '%s', %s",

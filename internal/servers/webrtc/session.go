@@ -32,6 +32,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
+var errNoSupportedCodecs = errors.New(
+	"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711")
+
 type setupStreamFunc func(*webrtc.OutgoingTrack) error
 
 func findVideoTrack(
@@ -547,8 +550,7 @@ func (s *session) runRead() (int, error) {
 	audioTrack, audioSetup := findAudioTrack(stream, writer)
 
 	if videoTrack == nil && audioTrack == nil {
-		return http.StatusBadRequest, fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently AV1, VP9, VP8, H264, Opus, G722, G711")
+		return http.StatusBadRequest, errNoSupportedCodecs
 	}
 
 	tracks, err := pc.SetupOutgoingTracks(videoTrack, audioTrack)
