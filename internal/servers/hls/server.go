@@ -11,11 +11,21 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
 var ErrMuxerNotFound = errors.New("muxer not found")
+
+type serverGetMuxerRes struct {
+	muxer *muxer
+	err   error
+}
+
+type serverGetMuxerReq struct {
+	path       string
+	remoteAddr string
+	res        chan serverGetMuxerRes
+}
 
 type serverAPIMuxersListRes struct {
 	data *defs.APIHLSMuxerList
@@ -68,12 +78,12 @@ type Server struct {
 	muxers     map[string]*muxer
 
 	// in
-	chPathReady     chan defs.Path
-	chPathNotReady  chan defs.Path
-	chHandleRequest chan muxerHandleRequestReq
-	chCloseMuxer    chan *muxer
-	chAPIMuxerList  chan serverAPIMuxersListReq
-	chAPIMuxerGet   chan serverAPIMuxersGetReq
+	chPathReady    chan defs.Path
+	chPathNotReady chan defs.Path
+	chGetMuxer     chan serverGetMuxerReq
+	chCloseMuxer   chan *muxer
+	chAPIMuxerList chan serverAPIMuxersListReq
+	chAPIMuxerGet  chan serverAPIMuxersGetReq
 }
 
 // Initialize initializes the server.
@@ -85,7 +95,7 @@ func (s *Server) Initialize() error {
 	s.muxers = make(map[string]*muxer)
 	s.chPathReady = make(chan defs.Path)
 	s.chPathNotReady = make(chan defs.Path)
-	s.chHandleRequest = make(chan muxerHandleRequestReq)
+	s.chGetMuxer = make(chan serverGetMuxerReq)
 	s.chCloseMuxer = make(chan *muxer)
 	s.chAPIMuxerList = make(chan serverAPIMuxersListReq)
 	s.chAPIMuxerGet = make(chan serverAPIMuxersGetReq)
@@ -147,15 +157,15 @@ outer:
 				delete(s.muxers, pa.Name())
 			}
 
-		case req := <-s.chHandleRequest:
-			r, ok := s.muxers[req.path]
+		case req := <-s.chGetMuxer:
+			mux, ok := s.muxers[req.path]
 			switch {
 			case ok:
-				r.processRequest(&req)
-
+				req.res <- serverGetMuxerRes{muxer: mux}
+			case !s.AlwaysRemux:
+				req.res <- serverGetMuxerRes{muxer: s.createMuxer(req.path, req.remoteAddr)}
 			default:
-				r := s.createMuxer(req.path, httpp.RemoteAddr(req.ctx))
-				r.processRequest(&req)
+				req.res <- serverGetMuxerRes{err: fmt.Errorf("muxer is waiting to be created")}
 			}
 
 		case c := <-s.chCloseMuxer:
@@ -230,18 +240,16 @@ func (s *Server) closeMuxer(c *muxer) {
 	}
 }
 
-func (s *Server) handleRequest(req muxerHandleRequestReq) {
-	req.res = make(chan *muxer)
+func (s *Server) getMuxer(req serverGetMuxerReq) (*muxer, error) {
+	req.res = make(chan serverGetMuxerRes)
 
 	select {
-	case s.chHandleRequest <- req:
-		muxer := <-req.res
-		if muxer != nil {
-			req.ctx.Request.URL.Path = req.file
-			muxer.handleRequest(req.ctx)
-		}
+	case s.chGetMuxer <- req:
+		res := <-req.res
+		return res.muxer, res.err
 
 	case <-s.ctx.Done():
+		return nil, fmt.Errorf("terminated")
 	}
 }
 

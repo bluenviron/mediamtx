@@ -191,10 +191,24 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 		ctx.Writer.Write(hlsIndex)
 
 	default:
-		s.parent.handleRequest(muxerHandleRequestReq{
-			path: dir,
-			file: fname,
-			ctx:  ctx,
+		mux, err := s.parent.getMuxer(serverGetMuxerReq{
+			path:       dir,
+			remoteAddr: httpp.RemoteAddr(ctx),
 		})
+		if err != nil {
+			s.Log(logger.Error, err.Error())
+			ctx.Writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		err = mux.processRequest(muxerProcessRequestReq{})
+		if err != nil {
+			s.Log(logger.Error, err.Error())
+			ctx.Writer.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		ctx.Request.URL.Path = fname
+		mux.handleRequest(ctx)
 	}
 }

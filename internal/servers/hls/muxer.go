@@ -51,11 +51,8 @@ func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-type muxerHandleRequestReq struct {
-	path string
-	file string
-	ctx  *gin.Context
-	res  chan *muxer
+type muxerProcessRequestReq struct {
+	res chan error
 }
 
 type muxer struct {
@@ -81,11 +78,11 @@ type muxer struct {
 	writer          *asyncwriter.Writer
 	lastRequestTime *int64
 	muxer           *gohlslib.Muxer
-	requests        []*muxerHandleRequestReq
+	requests        []*muxerProcessRequestReq
 	bytesSent       *uint64
 
 	// in
-	chRequest chan *muxerHandleRequestReq
+	chProcessRequest chan muxerProcessRequestReq
 }
 
 func (m *muxer) initialize() {
@@ -96,7 +93,7 @@ func (m *muxer) initialize() {
 	m.created = time.Now()
 	m.lastRequestTime = int64Ptr(time.Now().UnixNano())
 	m.bytesSent = new(uint64)
-	m.chRequest = make(chan *muxerHandleRequestReq)
+	m.chProcessRequest = make(chan muxerProcessRequestReq)
 
 	m.Log(logger.Info, "created %s", func() string {
 		if m.remoteAddr == "" {
@@ -156,22 +153,22 @@ func (m *muxer) run() {
 				}
 				return errors.New("terminated")
 
-			case req := <-m.chRequest:
+			case req := <-m.chProcessRequest:
 				switch {
 				case isRecreating:
-					req.res <- nil
+					req.res <- fmt.Errorf("recreating")
 
 				case isReady:
-					req.res <- m
+					req.res <- nil
 
 				default:
-					m.requests = append(m.requests, req)
+					m.requests = append(m.requests, &req)
 				}
 
 			case <-innerReady:
 				isReady = true
 				for _, req := range m.requests {
-					req.res <- m
+					req.res <- nil
 				}
 				m.requests = nil
 
@@ -206,7 +203,7 @@ func (m *muxer) run() {
 
 func (m *muxer) clearQueuedRequests() {
 	for _, req := range m.requests {
-		req.res <- nil
+		req.res <- fmt.Errorf("terminated")
 	}
 	m.requests = nil
 }
@@ -479,12 +476,15 @@ func (m *muxer) handleRequest(ctx *gin.Context) {
 	m.muxer.Handle(w, ctx.Request)
 }
 
-// processRequest is called by hlsserver.Server (forwarded from ServeHTTP).
-func (m *muxer) processRequest(req *muxerHandleRequestReq) {
+func (m *muxer) processRequest(req muxerProcessRequestReq) error {
+	req.res = make(chan error)
+
 	select {
-	case m.chRequest <- req:
+	case m.chProcessRequest <- req:
+		return <-req.res
+
 	case <-m.ctx.Done():
-		req.res <- nil
+		return fmt.Errorf("terminated")
 	}
 }
 
