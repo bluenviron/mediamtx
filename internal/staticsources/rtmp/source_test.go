@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
-	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 var serverCert = []byte(`-----BEGIN CERTIFICATE-----
@@ -150,10 +150,10 @@ func TestSource(t *testing.T) {
 				require.NoError(t, err)
 			}()
 
-			var te *tester.Tester
+			var te *test.SourceTester
 
 			if ca == "plain" {
-				te = tester.New(
+				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
 							ResolvedSource: "rtmp://localhost/teststream",
@@ -165,7 +165,7 @@ func TestSource(t *testing.T) {
 					&conf.Path{},
 				)
 			} else {
-				te = tester.New(
+				te = test.NewSourceTester(
 					func(p defs.StaticSourceParent) defs.StaticSource {
 						return &Source{
 							ResolvedSource: "rtmps://localhost/teststream",

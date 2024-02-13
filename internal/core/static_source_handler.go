@@ -180,7 +180,7 @@ func (s *staticSourceHandler) run() {
 	recreate()
 
 	recreating := false
-	recreateTimer := newEmptyTimer()
+	recreateTimer := emptyTimer()
 
 	for {
 		select {

@@ -34,7 +34,7 @@ func int64Ptr(v int64) *int64 {
 	return &v
 }
 
-func newEmptyTimer() *time.Timer {
+func emptyTimer() *time.Timer {
 	t := time.NewTimer(0)
 	<-t.C
 	return t
@@ -142,7 +142,7 @@ func (m *muxer) run() {
 
 		isReady := false
 		isRecreating := false
-		recreateTimer := newEmptyTimer()
+		recreateTimer := emptyTimer()
 
 		for {
 			select {

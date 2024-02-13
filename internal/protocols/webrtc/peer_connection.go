@@ -19,11 +19,6 @@ const (
 	webrtcStreamID           = "mediamtx"
 )
 
-type nilLogger struct{}
-
-func (nilLogger) Log(_ logger.Level, _ string, _ ...interface{}) {
-}
-
 type trackRecvPair struct {
 	track    *webrtc.TrackRemote
 	receiver *webrtc.RTPReceiver
@@ -48,10 +43,6 @@ type PeerConnection struct {
 
 // Start starts the peer connection.
 func (co *PeerConnection) Start() error {
-	if co.Log == nil {
-		co.Log = &nilLogger{}
-	}
-
 	configuration := webrtc.Configuration{
 		ICEServers: co.ICEServers,
 	}

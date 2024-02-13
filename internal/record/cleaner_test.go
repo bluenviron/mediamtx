@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediamtx/internal/conf"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,7 +37,7 @@ func TestCleaner(t *testing.T) {
 			Format:      conf.RecordFormatFMP4,
 			DeleteAfter: 10 * time.Second,
 		}},
-		Parent: nilLogger{},
+		Parent: test.NilLogger{},
 	}
 	c.Initialize()
 	defer c.Close()

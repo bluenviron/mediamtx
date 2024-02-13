@@ -1,5 +1,5 @@
-// Package tester contains a static source tester.
-package tester
+// Package test contains test utilities.
+package test
 
 import (
 	"context"
@@ -12,8 +12,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-// Tester is a static source tester.
-type Tester struct {
+// SourceTester is a static source tester.
+type SourceTester struct {
 	ctx       context.Context
 	ctxCancel func()
 	stream    *stream.Stream
@@ -23,11 +23,11 @@ type Tester struct {
 	done chan struct{}
 }
 
-// New allocates a tester.
-func New(createFunc func(defs.StaticSourceParent) defs.StaticSource, conf *conf.Path) *Tester {
+// NewSourceTester allocates a SourceTester.
+func NewSourceTester(createFunc func(defs.StaticSourceParent) defs.StaticSource, conf *conf.Path) *SourceTester {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
-	t := &Tester{
+	t := &SourceTester{
 		ctx:       ctx,
 		ctxCancel: ctxCancel,
 		Unit:      make(chan unit.Unit),
@@ -48,7 +48,7 @@ func New(createFunc func(defs.StaticSourceParent) defs.StaticSource, conf *conf.
 }
 
 // Close closes the tester.
-func (t *Tester) Close() {
+func (t *SourceTester) Close() {
 	t.ctxCancel()
 	t.writer.Stop()
 	t.stream.Close()
@@ -56,11 +56,11 @@ func (t *Tester) Close() {
 }
 
 // Log implements StaticSourceParent.
-func (t *Tester) Log(_ logger.Level, _ string, _ ...interface{}) {
+func (t *SourceTester) Log(_ logger.Level, _ string, _ ...interface{}) {
 }
 
 // SetReady implements StaticSourceParent.
-func (t *Tester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
+func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceStaticSetReadyRes {
 	t.stream, _ = stream.New(
 		1460,
 		req.Desc,
@@ -82,5 +82,5 @@ func (t *Tester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathSourceS
 }
 
 // SetNotReady implements StaticSourceParent.
-func (t *Tester) SetNotReady(_ defs.PathSourceStaticSetNotReadyReq) {
+func (t *SourceTester) SetNotReady(_ defs.PathSourceStaticSetNotReadyReq) {
 }

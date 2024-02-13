@@ -11,7 +11,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
-	"github.com/bluenviron/mediamtx/internal/staticsources/tester"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func TestSource(t *testing.T) {
@@ -56,7 +56,7 @@ func TestSource(t *testing.T) {
 		time.Sleep(1000 * time.Millisecond)
 	}()
 
-	te := tester.New(
+	te := test.NewSourceTester(
 		func(p defs.StaticSourceParent) defs.StaticSource {
 			return &Source{
 				ResolvedSource: "srt://localhost:9002?streamid=sidname&passphrase=ttest1234567",
