@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -24,6 +25,21 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
+
+func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {
+	res, err := hc.Get(u)
+	require.NoError(t, err)
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Errorf("bad status code: %v", res.StatusCode)
+	}
+
+	byts, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+
+	return byts
+}
 
 func TestMetrics(t *testing.T) {
 	serverCertFpath, err := writeTempFile(serverCert)
@@ -96,7 +112,7 @@ webrtc_sessions_bytes_sent 0
 			err := source.StartRecording("rtsp://localhost:8554/rtsp_path",
 				&description.Session{Medias: []*description.Media{{
 					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{testFormatH264},
+					Formats: []format.Format{test.FormatH264},
 				}}})
 			require.NoError(t, err)
 			defer source.Close()
@@ -109,7 +125,7 @@ webrtc_sessions_bytes_sent 0
 			err := source2.StartRecording("rtsps://localhost:8322/rtsps_path",
 				&description.Session{Medias: []*description.Media{{
 					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{testFormatH264},
+					Formats: []format.Format{test.FormatH264},
 				}}})
 			require.NoError(t, err)
 			defer source2.Close()
@@ -128,7 +144,7 @@ webrtc_sessions_bytes_sent 0
 			conn, err := rtmp.NewClientConn(nconn, u, true)
 			require.NoError(t, err)
 
-			_, err = rtmp.NewWriter(conn, testFormatH264, nil)
+			_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
 			require.NoError(t, err)
 			<-terminate
 		}()
@@ -145,7 +161,7 @@ webrtc_sessions_bytes_sent 0
 			conn, err := rtmp.NewClientConn(nconn, u, true)
 			require.NoError(t, err)
 
-			_, err = rtmp.NewWriter(conn, testFormatH264, nil)
+			_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
 			require.NoError(t, err)
 			<-terminate
 		}()
@@ -204,18 +220,9 @@ webrtc_sessions_bytes_sent 0
 			require.NoError(t, err)
 
 			err = w.WriteH26x(track, 0, 0, true, [][]byte{
-				{ // SPS
-					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-					0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-					0x20,
-				},
-				{ // PPS
-					0x08, 0x06, 0x07, 0x08,
-				},
-				{ // IDR
-					0x05, 1,
-				},
+				test.FormatH264.SPS,
+				test.FormatH264.PPS,
+				{0x05, 1}, // IDR
 			})
 			require.NoError(t, err)
 

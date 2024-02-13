@@ -1,19 +1,86 @@
 package core //nolint:dupl
 
 import (
+	"context"
 	"crypto/tls"
+	"encoding/json"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/stretchr/testify/require"
 
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
+
+type testHTTPAuthenticator struct {
+	*http.Server
+}
+
+func newTestHTTPAuthenticator(t *testing.T, protocol string, action string) *testHTTPAuthenticator {
+	firstReceived := false
+
+	ts := &testHTTPAuthenticator{}
+
+	ts.Server = &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, http.MethodPost, r.Method)
+			require.Equal(t, "/auth", r.URL.Path)
+
+			var in struct {
+				IP       string `json:"ip"`
+				User     string `json:"user"`
+				Password string `json:"password"`
+				Path     string `json:"path"`
+				Protocol string `json:"protocol"`
+				ID       string `json:"id"`
+				Action   string `json:"action"`
+				Query    string `json:"query"`
+			}
+			err := json.NewDecoder(r.Body).Decode(&in)
+			require.NoError(t, err)
+
+			var user string
+			if action == "publish" {
+				user = "testpublisher"
+			} else {
+				user = "testreader"
+			}
+
+			if in.IP != "127.0.0.1" ||
+				in.User != user ||
+				in.Password != "testpass" ||
+				in.Path != "teststream" ||
+				in.Protocol != protocol ||
+				(firstReceived && in.ID == "") ||
+				in.Action != action ||
+				(in.Query != "user=testreader&pass=testpass&param=value" &&
+					in.Query != "user=testpublisher&pass=testpass&param=value" &&
+					in.Query != "param=value") {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			firstReceived = true
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:9120")
+	require.NoError(t, err)
+
+	go ts.Server.Serve(ln)
+
+	return ts
+}
+
+func (ts *testHTTPAuthenticator) close() {
+	ts.Server.Shutdown(context.Background())
+}
 
 func TestRTMPServer(t *testing.T) {
 	for _, encrypt := range []string{
@@ -98,30 +165,7 @@ func TestRTMPServer(t *testing.T) {
 				conn1, err := rtmp.NewClientConn(nconn1, u1, true)
 				require.NoError(t, err)
 
-				videoTrack := &format.H264{
-					PayloadTyp: 96,
-					SPS: []byte{ // 1920x1080 baseline
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-					},
-					PPS:               []byte{0x08, 0x06, 0x07, 0x08},
-					PacketizationMode: 1,
-				}
-
-				audioTrack := &format.MPEG4Audio{
-					PayloadTyp: 96,
-					Config: &mpeg4audio.Config{
-						Type:         2,
-						SampleRate:   44100,
-						ChannelCount: 2,
-					},
-					SizeLength:       13,
-					IndexLength:      3,
-					IndexDeltaLength: 3,
-				}
-
-				w, err := rtmp.NewWriter(conn1, videoTrack, audioTrack)
+				w, err := rtmp.NewWriter(conn1, test.FormatH264, test.FormatMPEG4Audio)
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -151,8 +195,8 @@ func TestRTMPServer(t *testing.T) {
 				require.NoError(t, err)
 
 				videoTrack1, audioTrack2 := r.Tracks()
-				require.Equal(t, videoTrack, videoTrack1)
-				require.Equal(t, audioTrack, audioTrack2)
+				require.Equal(t, test.FormatH264, videoTrack1)
+				require.Equal(t, test.FormatMPEG4Audio, audioTrack2)
 
 				err = w.WriteH264(0, 0, true, [][]byte{
 					{0x05, 0x02, 0x03, 0x04}, // IDR 1
@@ -162,15 +206,8 @@ func TestRTMPServer(t *testing.T) {
 
 				r.OnDataH264(func(pts time.Duration, au [][]byte) {
 					require.Equal(t, [][]byte{
-						{ // SPS
-							0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-							0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-							0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-							0x20,
-						},
-						{ // PPS
-							0x08, 0x06, 0x07, 0x08,
-						},
+						test.FormatH264.SPS,
+						test.FormatH264.PPS,
 						{ // IDR 1
 							0x05, 0x02, 0x03, 0x04,
 						},

@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
-	"github.com/datarhei/gosrt"
+	"github.com/bluenviron/mediamtx/internal/test"
+	srt "github.com/datarhei/gosrt"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,18 +58,9 @@ func TestSRTServer(t *testing.T) {
 			require.NoError(t, err)
 
 			err = w.WriteH26x(track, 0, 0, true, [][]byte{
-				{ // SPS
-					0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-					0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-					0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-					0x20,
-				},
-				{ // PPS
-					0x08, 0x06, 0x07, 0x08,
-				},
-				{ // IDR
-					0x05, 1,
-				},
+				test.FormatH264.SPS,
+				test.FormatH264.PPS,
+				{0x05, 1}, // IDR
 			})
 			require.NoError(t, err)
 
@@ -117,19 +109,10 @@ func TestSRTServer(t *testing.T) {
 				require.Equal(t, int64(0), pts)
 				require.Equal(t, int64(0), dts)
 				require.Equal(t, [][]byte{
-					{ // SPS
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-						0x20,
-					},
-					{ // PPS
-						0x08, 0x06, 0x07, 0x08,
-					},
-					{ // IDR
-						0x05, 1,
-					},
-				}, au)
+					test.FormatH264.SPS,
+					test.FormatH264.PPS,
+					{0x05, 1},
+				}, au) // IDR
 				received = true
 				return nil
 			})

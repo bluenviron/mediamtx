@@ -18,7 +18,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
@@ -30,35 +29,14 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-var testFormatH264 = &format.H264{
-	PayloadTyp: 96,
-	SPS: []byte{ // 1920x1080 baseline
-		0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-		0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-		0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-	},
-	PPS:               []byte{0x08, 0x06, 0x07, 0x08},
-	PacketizationMode: 1,
-}
-
 var testMediaH264 = &description.Media{
 	Type:    description.MediaTypeVideo,
-	Formats: []format.Format{testFormatH264},
+	Formats: []format.Format{test.FormatH264},
 }
 
 var testMediaAAC = &description.Media{
-	Type: description.MediaTypeAudio,
-	Formats: []format.Format{&format.MPEG4Audio{
-		PayloadTyp: 96,
-		Config: &mpeg4audio.Config{
-			Type:         2,
-			SampleRate:   44100,
-			ChannelCount: 2,
-		},
-		SizeLength:       13,
-		IndexLength:      3,
-		IndexDeltaLength: 3,
-	}},
+	Type:    description.MediaTypeAudio,
+	Formats: []format.Format{test.FormatMPEG4Audio},
 }
 
 func checkClose(t *testing.T, closeFunc func() error) {
@@ -450,7 +428,7 @@ func TestAPIProtocolList(t *testing.T) {
 				conn, err := rtmp.NewClientConn(nconn, u, true)
 				require.NoError(t, err)
 
-				_, err = rtmp.NewWriter(conn, testFormatH264, nil)
+				_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -750,7 +728,7 @@ func TestAPIProtocolGet(t *testing.T) {
 				conn, err := rtmp.NewClientConn(nconn, u, true)
 				require.NoError(t, err)
 
-				_, err = rtmp.NewWriter(conn, testFormatH264, nil)
+				_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
 				require.NoError(t, err)
 
 				time.Sleep(500 * time.Millisecond)
@@ -1127,7 +1105,7 @@ func TestAPIProtocolKick(t *testing.T) {
 				conn, err := rtmp.NewClientConn(nconn, u, true)
 				require.NoError(t, err)
 
-				_, err = rtmp.NewWriter(conn, testFormatH264, nil)
+				_, err = rtmp.NewWriter(conn, test.FormatH264, nil)
 				require.NoError(t, err)
 
 			case "webrtc":

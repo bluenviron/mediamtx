@@ -5,29 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/bluenviron/gohlslib"
-	"github.com/bluenviron/gohlslib/pkg/codecs"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
-	"github.com/gin-gonic/gin"
-
-	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/stream"
-	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
 const (
 	closeCheckPeriod     = 1 * time.Second
 	closeAfterInactivity = 60 * time.Second
-	muxerRecreatePause   = 10 * time.Second
+	recreatePause        = 10 * time.Second
 )
 
 func int64Ptr(v int64) *int64 {
@@ -51,8 +41,8 @@ func (w *responseWriterWithCounter) Write(p []byte) (int, error) {
 	return n, err
 }
 
-type muxerProcessRequestReq struct {
-	res chan error
+type muxerGetInstanceReq struct {
+	res chan *muxerInstance
 }
 
 type muxer struct {
@@ -68,21 +58,18 @@ type muxer struct {
 	writeQueueSize            int
 	wg                        *sync.WaitGroup
 	pathName                  string
-	pathManager               defs.PathManager
+	pathManager               serverPathManager
 	parent                    *Server
 
 	ctx             context.Context
 	ctxCancel       func()
 	created         time.Time
 	path            defs.Path
-	writer          *asyncwriter.Writer
 	lastRequestTime *int64
-	muxer           *gohlslib.Muxer
-	requests        []*muxerProcessRequestReq
 	bytesSent       *uint64
 
 	// in
-	chProcessRequest chan muxerProcessRequestReq
+	chGetInstance chan muxerGetInstanceReq
 }
 
 func (m *muxer) initialize() {
@@ -93,7 +80,7 @@ func (m *muxer) initialize() {
 	m.created = time.Now()
 	m.lastRequestTime = int64Ptr(time.Now().UnixNano())
 	m.bytesSent = new(uint64)
-	m.chProcessRequest = make(chan muxerProcessRequestReq)
+	m.chGetInstance = make(chan muxerGetInstanceReq)
 
 	m.Log(logger.Info, "created %s", func() string {
 		if m.remoteAddr == "" {
@@ -123,368 +110,139 @@ func (m *muxer) PathName() string {
 func (m *muxer) run() {
 	defer m.wg.Done()
 
-	err := func() error {
-		var innerReady chan struct{}
-		var innerErr chan error
-		var innerCtx context.Context
-		var innerCtxCancel func()
-
-		createInner := func() {
-			innerReady = make(chan struct{})
-			innerErr = make(chan error)
-			innerCtx, innerCtxCancel = context.WithCancel(context.Background())
-			go func() {
-				innerErr <- m.runInner(innerCtx, innerReady)
-			}()
-		}
-
-		createInner()
-
-		isReady := false
-		isRecreating := false
-		recreateTimer := emptyTimer()
-
-		for {
-			select {
-			case <-m.ctx.Done():
-				if !isRecreating {
-					innerCtxCancel()
-					<-innerErr
-				}
-				return errors.New("terminated")
-
-			case req := <-m.chProcessRequest:
-				switch {
-				case isRecreating:
-					req.res <- fmt.Errorf("recreating")
-
-				case isReady:
-					req.res <- nil
-
-				default:
-					m.requests = append(m.requests, &req)
-				}
-
-			case <-innerReady:
-				isReady = true
-				for _, req := range m.requests {
-					req.res <- nil
-				}
-				m.requests = nil
-
-			case err := <-innerErr:
-				innerCtxCancel()
-
-				if m.remoteAddr == "" { // created with "always remux"
-					m.Log(logger.Error, err.Error())
-					m.clearQueuedRequests()
-					isReady = false
-					isRecreating = true
-					recreateTimer = time.NewTimer(muxerRecreatePause)
-				} else {
-					return err
-				}
-
-			case <-recreateTimer.C:
-				isRecreating = false
-				createInner()
-			}
-		}
-	}()
+	err := m.runInner()
 
 	m.ctxCancel()
-
-	m.clearQueuedRequests()
 
 	m.parent.closeMuxer(m)
 
 	m.Log(logger.Info, "destroyed: %v", err)
 }
 
-func (m *muxer) clearQueuedRequests() {
-	for _, req := range m.requests {
-		req.res <- fmt.Errorf("terminated")
-	}
-	m.requests = nil
-}
-
-func (m *muxer) runInner(innerCtx context.Context, innerReady chan struct{}) error {
-	res := m.pathManager.AddReader(defs.PathAddReaderReq{
+func (m *muxer) runInner() error {
+	path, stream, err := m.pathManager.AddReader(defs.PathAddReaderReq{
 		Author: m,
 		AccessRequest: defs.PathAccessRequest{
 			Name:     m.pathName,
 			SkipAuth: true,
 		},
 	})
-	if res.Err != nil {
-		return res.Err
+	if err != nil {
+		return err
 	}
 
-	m.path = res.Path
+	m.path = path
 
 	defer m.path.RemoveReader(defs.PathRemoveReaderReq{Author: m})
 
-	m.writer = asyncwriter.New(m.writeQueueSize, m)
+	var instanceError chan error
+	var recreateTimer *time.Timer
 
-	defer res.Stream.RemoveReader(m.writer)
-
-	videoTrack := m.createVideoTrack(res.Stream)
-	audioTrack := m.createAudioTrack(res.Stream)
-
-	if videoTrack == nil && audioTrack == nil {
-		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
+	mi := &muxerInstance{
+		variant:         m.variant,
+		segmentCount:    m.segmentCount,
+		segmentDuration: m.segmentDuration,
+		partDuration:    m.partDuration,
+		segmentMaxSize:  m.segmentMaxSize,
+		directory:       m.directory,
+		writeQueueSize:  m.writeQueueSize,
+		pathName:        m.pathName,
+		stream:          stream,
+		bytesSent:       m.bytesSent,
+		parent:          m,
 	}
-
-	var muxerDirectory string
-	if m.directory != "" {
-		muxerDirectory = filepath.Join(m.directory, m.pathName)
-		os.MkdirAll(muxerDirectory, 0o755)
-		defer os.Remove(muxerDirectory)
-	}
-
-	m.muxer = &gohlslib.Muxer{
-		Variant:         gohlslib.MuxerVariant(m.variant),
-		SegmentCount:    m.segmentCount,
-		SegmentDuration: time.Duration(m.segmentDuration),
-		PartDuration:    time.Duration(m.partDuration),
-		SegmentMaxSize:  uint64(m.segmentMaxSize),
-		VideoTrack:      videoTrack,
-		AudioTrack:      audioTrack,
-		Directory:       muxerDirectory,
-	}
-
-	err := m.muxer.Start()
+	err = mi.initialize()
 	if err != nil {
-		return fmt.Errorf("muxer error: %w", err)
+		if m.remoteAddr != "" {
+			return err
+		}
+
+		m.Log(logger.Error, err.Error())
+		mi = nil
+		instanceError = make(chan error)
+		recreateTimer = time.NewTimer(recreatePause)
+	} else {
+		instanceError = mi.errorChan()
+		recreateTimer = emptyTimer()
 	}
-	defer m.muxer.Close()
 
-	innerReady <- struct{}{}
-
-	m.Log(logger.Info, "is converting into HLS, %s",
-		defs.FormatsInfo(res.Stream.FormatsForReader(m.writer)))
-
-	m.writer.Start()
-
-	closeCheckTicker := time.NewTicker(closeCheckPeriod)
-	defer closeCheckTicker.Stop()
+	var activityCheckTimer *time.Timer
+	if m.remoteAddr != "" {
+		activityCheckTimer = time.NewTimer(closeCheckPeriod)
+	} else {
+		activityCheckTimer = emptyTimer()
+	}
 
 	for {
 		select {
-		case <-closeCheckTicker.C:
+		case req := <-m.chGetInstance:
+			req.res <- mi
+
+		case err := <-instanceError:
+			mi.close()
+
 			if m.remoteAddr != "" {
-				t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
-				if time.Since(t) >= closeAfterInactivity {
-					m.writer.Stop()
-					return fmt.Errorf("not used anymore")
+				return err
+			}
+
+			m.Log(logger.Error, err.Error())
+			mi = nil
+			instanceError = make(chan error)
+			recreateTimer = time.NewTimer(recreatePause)
+
+		case <-recreateTimer.C:
+			mi = &muxerInstance{
+				variant:         m.variant,
+				segmentCount:    m.segmentCount,
+				segmentDuration: m.segmentDuration,
+				partDuration:    m.partDuration,
+				segmentMaxSize:  m.segmentMaxSize,
+				directory:       m.directory,
+				writeQueueSize:  m.writeQueueSize,
+				pathName:        m.pathName,
+				stream:          stream,
+				bytesSent:       m.bytesSent,
+				parent:          m,
+			}
+			err := mi.initialize()
+			if err != nil {
+				m.Log(logger.Error, err.Error())
+				mi = nil
+				recreateTimer = time.NewTimer(recreatePause)
+			} else {
+				instanceError = mi.errorChan()
+			}
+
+		case <-activityCheckTimer.C:
+			t := time.Unix(0, atomic.LoadInt64(m.lastRequestTime))
+			if time.Since(t) >= closeAfterInactivity {
+				if mi != nil {
+					mi.close()
 				}
+				return fmt.Errorf("not used anymore")
 			}
+			activityCheckTimer = time.NewTimer(closeCheckPeriod)
 
-		case err := <-m.writer.Error():
-			return err
-
-		case <-innerCtx.Done():
-			m.writer.Stop()
-			return fmt.Errorf("terminated")
+		case <-m.ctx.Done():
+			if mi != nil {
+				mi.close()
+			}
+			return errors.New("terminated")
 		}
 	}
 }
 
-func (m *muxer) createVideoTrack(stream *stream.Stream) *gohlslib.Track {
-	var videoFormatAV1 *format.AV1
-	videoMedia := stream.Desc().FindFormat(&videoFormatAV1)
-
-	if videoFormatAV1 != nil {
-		stream.AddReader(m.writer, videoMedia, videoFormatAV1, func(u unit.Unit) error {
-			tunit := u.(*unit.AV1)
-
-			if tunit.TU == nil {
-				return nil
-			}
-
-			err := m.muxer.WriteAV1(tunit.NTP, tunit.PTS, tunit.TU)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		return &gohlslib.Track{
-			Codec: &codecs.AV1{},
-		}
-	}
-
-	var videoFormatVP9 *format.VP9
-	videoMedia = stream.Desc().FindFormat(&videoFormatVP9)
-
-	if videoFormatVP9 != nil {
-		stream.AddReader(m.writer, videoMedia, videoFormatVP9, func(u unit.Unit) error {
-			tunit := u.(*unit.VP9)
-
-			if tunit.Frame == nil {
-				return nil
-			}
-
-			err := m.muxer.WriteVP9(tunit.NTP, tunit.PTS, tunit.Frame)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		return &gohlslib.Track{
-			Codec: &codecs.VP9{},
-		}
-	}
-
-	var videoFormatH265 *format.H265
-	videoMedia = stream.Desc().FindFormat(&videoFormatH265)
-
-	if videoFormatH265 != nil {
-		stream.AddReader(m.writer, videoMedia, videoFormatH265, func(u unit.Unit) error {
-			tunit := u.(*unit.H265)
-
-			if tunit.AU == nil {
-				return nil
-			}
-
-			err := m.muxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		vps, sps, pps := videoFormatH265.SafeParams()
-
-		return &gohlslib.Track{
-			Codec: &codecs.H265{
-				VPS: vps,
-				SPS: sps,
-				PPS: pps,
-			},
-		}
-	}
-
-	var videoFormatH264 *format.H264
-	videoMedia = stream.Desc().FindFormat(&videoFormatH264)
-
-	if videoFormatH264 != nil {
-		stream.AddReader(m.writer, videoMedia, videoFormatH264, func(u unit.Unit) error {
-			tunit := u.(*unit.H264)
-
-			if tunit.AU == nil {
-				return nil
-			}
-
-			err := m.muxer.WriteH26x(tunit.NTP, tunit.PTS, tunit.AU)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		sps, pps := videoFormatH264.SafeParams()
-
-		return &gohlslib.Track{
-			Codec: &codecs.H264{
-				SPS: sps,
-				PPS: pps,
-			},
-		}
-	}
-
-	return nil
-}
-
-func (m *muxer) createAudioTrack(stream *stream.Stream) *gohlslib.Track {
-	var audioFormatOpus *format.Opus
-	audioMedia := stream.Desc().FindFormat(&audioFormatOpus)
-
-	if audioMedia != nil {
-		stream.AddReader(m.writer, audioMedia, audioFormatOpus, func(u unit.Unit) error {
-			tunit := u.(*unit.Opus)
-
-			err := m.muxer.WriteOpus(
-				tunit.NTP,
-				tunit.PTS,
-				tunit.Packets)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		return &gohlslib.Track{
-			Codec: &codecs.Opus{
-				ChannelCount: func() int {
-					if audioFormatOpus.IsStereo {
-						return 2
-					}
-					return 1
-				}(),
-			},
-		}
-	}
-
-	var audioFormatMPEG4Audio *format.MPEG4Audio
-	audioMedia = stream.Desc().FindFormat(&audioFormatMPEG4Audio)
-
-	if audioMedia != nil {
-		stream.AddReader(m.writer, audioMedia, audioFormatMPEG4Audio, func(u unit.Unit) error {
-			tunit := u.(*unit.MPEG4Audio)
-
-			if tunit.AUs == nil {
-				return nil
-			}
-
-			err := m.muxer.WriteMPEG4Audio(
-				tunit.NTP,
-				tunit.PTS,
-				tunit.AUs)
-			if err != nil {
-				return fmt.Errorf("muxer error: %w", err)
-			}
-
-			return nil
-		})
-
-		return &gohlslib.Track{
-			Codec: &codecs.MPEG4Audio{
-				Config: *audioFormatMPEG4Audio.GetConfig(),
-			},
-		}
-	}
-
-	return nil
-}
-
-func (m *muxer) handleRequest(ctx *gin.Context) {
+func (m *muxer) getInstance() *muxerInstance {
 	atomic.StoreInt64(m.lastRequestTime, time.Now().UnixNano())
 
-	w := &responseWriterWithCounter{
-		ResponseWriter: ctx.Writer,
-		bytesSent:      m.bytesSent,
-	}
-
-	m.muxer.Handle(w, ctx.Request)
-}
-
-func (m *muxer) processRequest(req muxerProcessRequestReq) error {
-	req.res = make(chan error)
+	req := muxerGetInstanceReq{res: make(chan *muxerInstance)}
 
 	select {
-	case m.chProcessRequest <- req:
+	case m.chGetInstance <- req:
 		return <-req.res
 
 	case <-m.ctx.Done():
-		return fmt.Errorf("terminated")
+		return nil
 	}
 }
 

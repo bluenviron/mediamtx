@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
+	"github.com/bluenviron/mediamtx/internal/test"
 )
 
 func writeBenchInit(f io.WriteSeeker) {
@@ -16,13 +17,8 @@ func writeBenchInit(f io.WriteSeeker) {
 				ID:        1,
 				TimeScale: 90000,
 				Codec: &fmp4.CodecH264{
-					SPS: []byte{
-						0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-						0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-						0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9,
-						0x20,
-					},
-					PPS: []byte{0x08},
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
 				},
 			},
 			{

@@ -928,12 +928,13 @@ func (pa *path) describe(req defs.PathDescribeReq) defs.PathDescribeRes {
 }
 
 // addPublisher is called by a publisher through pathManager.
-func (pa *path) addPublisher(req defs.PathAddPublisherReq) defs.PathAddPublisherRes {
+func (pa *path) addPublisher(req defs.PathAddPublisherReq) (defs.Path, error) {
 	select {
 	case pa.chAddPublisher <- req:
-		return <-req.Res
+		res := <-req.Res
+		return res.Path, res.Err
 	case <-pa.ctx.Done():
-		return defs.PathAddPublisherRes{Err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
 	}
 }
 
@@ -948,13 +949,14 @@ func (pa *path) RemovePublisher(req defs.PathRemovePublisherReq) {
 }
 
 // StartPublisher is called by a publisher.
-func (pa *path) StartPublisher(req defs.PathStartPublisherReq) defs.PathStartPublisherRes {
+func (pa *path) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stream, error) {
 	req.Res = make(chan defs.PathStartPublisherRes)
 	select {
 	case pa.chStartPublisher <- req:
-		return <-req.Res
+		res := <-req.Res
+		return res.Stream, res.Err
 	case <-pa.ctx.Done():
-		return defs.PathStartPublisherRes{Err: fmt.Errorf("terminated")}
+		return nil, fmt.Errorf("terminated")
 	}
 }
 
@@ -969,12 +971,13 @@ func (pa *path) StopPublisher(req defs.PathStopPublisherReq) {
 }
 
 // addReader is called by a reader through pathManager.
-func (pa *path) addReader(req defs.PathAddReaderReq) defs.PathAddReaderRes {
+func (pa *path) addReader(req defs.PathAddReaderReq) (defs.Path, *stream.Stream, error) {
 	select {
 	case pa.chAddReader <- req:
-		return <-req.Res
+		res := <-req.Res
+		return res.Path, res.Stream, res.Err
 	case <-pa.ctx.Done():
-		return defs.PathAddReaderRes{Err: fmt.Errorf("terminated")}
+		return nil, nil, fmt.Errorf("terminated")
 	}
 }
 

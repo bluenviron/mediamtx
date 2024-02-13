@@ -106,17 +106,8 @@ func (sh *testServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 }
 
 var testMediaH264 = &description.Media{
-	Type: description.MediaTypeVideo,
-	Formats: []format.Format{&format.H264{
-		PayloadTyp: 96,
-		SPS: []byte{ // 1920x1080 baseline
-			0x67, 0x42, 0xc0, 0x28, 0xd9, 0x00, 0x78, 0x02,
-			0x27, 0xe5, 0x84, 0x00, 0x00, 0x03, 0x00, 0x04,
-			0x00, 0x00, 0x03, 0x00, 0xf0, 0x3c, 0x60, 0xc9, 0x20,
-		},
-		PPS:               []byte{0x08, 0x06, 0x07, 0x08},
-		PacketizationMode: 1,
-	}},
+	Type:    description.MediaTypeVideo,
+	Formats: []format.Format{test.FormatH264},
 }
 
 func TestSource(t *testing.T) {

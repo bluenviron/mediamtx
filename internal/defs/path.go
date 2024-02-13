@@ -28,7 +28,7 @@ type Path interface {
 	Name() string
 	SafeConf() *conf.Path
 	ExternalCmdEnv() externalcmd.Environment
-	StartPublisher(req PathStartPublisherReq) PathStartPublisherRes
+	StartPublisher(req PathStartPublisherReq) (*stream.Stream, error)
 	StopPublisher(req PathStopPublisherReq)
 	RemovePublisher(req PathRemovePublisherReq)
 	RemoveReader(req PathRemoveReaderReq)
