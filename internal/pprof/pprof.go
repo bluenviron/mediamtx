@@ -10,7 +10,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -24,7 +24,7 @@ type PPROF struct {
 	ReadTimeout conf.StringDuration
 	Parent      pprofParent
 
-	httpServer *httpserv.WrappedServer
+	httpServer *httpp.WrappedServer
 }
 
 // Initialize initializes PPROF.
@@ -32,7 +32,7 @@ func (pp *PPROF) Initialize() error {
 	network, address := restrictnetwork.Restrict("tcp", pp.Address)
 
 	var err error
-	pp.httpServer, err = httpserv.NewWrappedServer(
+	pp.httpServer, err = httpp.NewWrappedServer(
 		network,
 		address,
 		time.Duration(pp.ReadTimeout),

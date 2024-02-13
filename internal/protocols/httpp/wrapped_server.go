@@ -1,5 +1,5 @@
-// Package httpserv contains HTTP server utilities.
-package httpserv
+// Package httpp contains HTTP utilities.
+package httpp
 
 import (
 	"context"

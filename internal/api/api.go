@@ -20,7 +20,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/record"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/bluenviron/mediamtx/internal/servers/hls"
@@ -169,7 +169,7 @@ type API struct {
 	SRTServer    SRTServer
 	Parent       apiParent
 
-	httpServer *httpserv.WrappedServer
+	httpServer *httpp.WrappedServer
 	mutex      sync.RWMutex
 }
 
@@ -248,7 +248,7 @@ func (a *API) Initialize() error {
 	network, address := restrictnetwork.Restrict("tcp", a.Address)
 
 	var err error
-	a.httpServer, err = httpserv.NewWrappedServer(
+	a.httpServer, err = httpp.NewWrappedServer(
 		network,
 		address,
 		time.Duration(a.ReadTimeout),
