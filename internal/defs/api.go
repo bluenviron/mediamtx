@@ -162,6 +162,8 @@ type APISRTConn struct {
 
 // APISRTConnMetrics contains all the extra metrics for the SRT connections
 // The metric names/comments are pulled from GoSRT
+//
+//nolint:lll
 type APISRTConnMetrics struct {
 	PacketsSent              uint64 `json:"packetsSent"`            // The total number of sent DATA packets, including retransmitted packets
 	PacketsReceived          uint64 `json:"packetsReceived"`        // The total number of received DATA packets, including retransmitted packets
