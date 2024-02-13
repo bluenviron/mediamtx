@@ -1,4 +1,4 @@
-package httpserv
+package httpp
 
 import (
 	"net/http"

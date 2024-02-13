@@ -17,7 +17,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
@@ -61,7 +61,7 @@ type httpServer struct {
 	pathManager    defs.PathManager
 	parent         *Server
 
-	inner *httpserv.WrappedServer
+	inner *httpp.WrappedServer
 }
 
 func (s *httpServer) initialize() error {
@@ -81,7 +81,7 @@ func (s *httpServer) initialize() error {
 	network, address := restrictnetwork.Restrict("tcp", s.address)
 
 	var err error
-	s.inner, err = httpserv.NewWrappedServer(
+	s.inner, err = httpp.NewWrappedServer(
 		network,
 		address,
 		time.Duration(s.readTimeout),
@@ -129,7 +129,7 @@ func (s *httpServer) checkAuthOutsideSession(ctx *gin.Context, path string, publ
 				return false
 			}
 
-			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpserv.RemoteAddr(ctx), terr.Message)
+			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
 
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(pauseAfterAuthError)
@@ -178,7 +178,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 
 	res := s.parent.newSession(webRTCNewSessionReq{
 		pathName:   path,
-		remoteAddr: httpserv.RemoteAddr(ctx),
+		remoteAddr: httpp.RemoteAddr(ctx),
 		query:      ctx.Request.URL.RawQuery,
 		user:       user,
 		pass:       pass,
@@ -330,7 +330,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 				s.onPage(ctx, ctx.Request.URL.Path[1:len(ctx.Request.URL.Path)-len("/publish")], true)
 
 			case ctx.Request.URL.Path[len(ctx.Request.URL.Path)-1] != '/':
-				ctx.Writer.Header().Set("Location", httpserv.LocationWithTrailingSlash(ctx.Request.URL))
+				ctx.Writer.Header().Set("Location", httpp.LocationWithTrailingSlash(ctx.Request.URL))
 				ctx.Writer.WriteHeader(http.StatusMovedPermanently)
 
 			default:

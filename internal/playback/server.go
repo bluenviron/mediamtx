@@ -12,7 +12,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 	"github.com/gin-gonic/gin"
 )
@@ -59,7 +59,7 @@ type Server struct {
 	PathConfs   map[string]*conf.Path
 	Parent      logger.Writer
 
-	httpServer *httpserv.WrappedServer
+	httpServer *httpp.WrappedServer
 	mutex      sync.RWMutex
 }
 
@@ -76,7 +76,7 @@ func (p *Server) Initialize() error {
 	network, address := restrictnetwork.Restrict("tcp", p.Address)
 
 	var err error
-	p.httpServer, err = httpserv.NewWrappedServer(
+	p.httpServer, err = httpp.NewWrappedServer(
 		network,
 		address,
 		time.Duration(p.ReadTimeout),

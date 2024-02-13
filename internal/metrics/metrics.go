@@ -14,7 +14,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/api"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
 )
 
@@ -36,7 +36,7 @@ type Metrics struct {
 	ReadTimeout conf.StringDuration
 	Parent      metricsParent
 
-	httpServer   *httpserv.WrappedServer
+	httpServer   *httpp.WrappedServer
 	mutex        sync.Mutex
 	pathManager  api.PathManager
 	rtspServer   api.RTSPServer
@@ -58,7 +58,7 @@ func (m *Metrics) Initialize() error {
 	network, address := restrictnetwork.Restrict("tcp", m.Address)
 
 	var err error
-	m.httpServer, err = httpserv.NewWrappedServer(
+	m.httpServer, err = httpp.NewWrappedServer(
 		network,
 		address,
 		time.Duration(m.ReadTimeout),

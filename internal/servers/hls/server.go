@@ -11,7 +11,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
-	"github.com/bluenviron/mediamtx/internal/protocols/httpserv"
+	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 )
 
 // ErrMuxerNotFound is returned when a muxer is not found.
@@ -154,7 +154,7 @@ outer:
 				r.processRequest(&req)
 
 			default:
-				r := s.createMuxer(req.path, httpserv.RemoteAddr(req.ctx))
+				r := s.createMuxer(req.path, httpp.RemoteAddr(req.ctx))
 				r.processRequest(&req)
 			}
 
