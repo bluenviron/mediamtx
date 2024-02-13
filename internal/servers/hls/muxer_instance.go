@@ -1,6 +1,7 @@
 package hls
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -17,6 +18,9 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 	"github.com/gin-gonic/gin"
 )
+
+var errNoSupportedCodecs = errors.New(
+	"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
 
 type muxerInstance struct {
 	variant         conf.HLSVariant
@@ -43,8 +47,7 @@ func (mi *muxerInstance) initialize() error {
 
 	if videoTrack == nil && audioTrack == nil {
 		mi.stream.RemoveReader(mi.writer)
-		return fmt.Errorf(
-			"the stream doesn't contain any supported codec, which are currently H265, H264, Opus, MPEG-4 Audio")
+		return errNoSupportedCodecs
 	}
 
 	var muxerDirectory string

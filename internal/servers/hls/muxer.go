@@ -153,7 +153,7 @@ func (m *muxer) runInner() error {
 	}
 	err = mi.initialize()
 	if err != nil {
-		if m.remoteAddr != "" {
+		if m.remoteAddr != "" || errors.Is(err, errNoSupportedCodecs) {
 			return err
 		}
 
