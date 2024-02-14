@@ -32,7 +32,7 @@ jobs:
       run: >
         git reset ${GITHUB_REF_NAME}
         && git add .
-        && git commit -m "bump hls-js to v${VERSION}"
+        && git commit -m "bump hls.js to ${VERSION}"
         && git push --set-upstream origin deps/hlsjs --force
 
     - if: ${{ steps.check_repo.outputs.clean != '' }}
