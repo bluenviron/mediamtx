@@ -389,15 +389,10 @@ func (c *conn) apiItem() *defs.APISRTConn {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	bytesReceived := uint64(0)
-	bytesSent := uint64(0)
-
 	var connMetrics defs.APISRTConnMetrics
 	if c.sconn != nil {
 		var s srt.Statistics
 		c.sconn.Stats(&s)
-		bytesReceived = s.Accumulated.ByteRecv
-		bytesSent = s.Accumulated.ByteSent
 
 		connMetrics.PacketsSent = s.Accumulated.PktSent
 		connMetrics.PacketsReceived = s.Accumulated.PktRecv
@@ -418,6 +413,8 @@ func (c *conn) apiItem() *defs.APISRTConn {
 		connMetrics.PacketsSendDrop = s.Accumulated.PktSendDrop
 		connMetrics.PacketsReceivedDrop = s.Accumulated.PktRecvDrop
 		connMetrics.PacketsReceivedUndecrypt = s.Accumulated.PktRecvUndecrypt
+		connMetrics.BytesSent = s.Accumulated.ByteSent
+		connMetrics.BytesReceived = s.Accumulated.ByteRecv
 		connMetrics.BytesSentUnique = s.Accumulated.ByteSentUnique
 		connMetrics.BytesReceivedUnique = s.Accumulated.ByteRecvUnique
 		connMetrics.BytesReceivedLoss = s.Accumulated.ByteRecvLoss
@@ -470,8 +467,6 @@ func (c *conn) apiItem() *defs.APISRTConn {
 		}(),
 		Path:              c.pathName,
 		Query:             c.query,
-		BytesReceived:     bytesReceived,
-		BytesSent:         bytesSent,
 		APISRTConnMetrics: connMetrics,
 	}
 }

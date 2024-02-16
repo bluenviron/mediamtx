@@ -148,14 +148,12 @@ const (
 
 // APISRTConn is a SRT connection.
 type APISRTConn struct {
-	ID            uuid.UUID       `json:"id"`
-	Created       time.Time       `json:"created"`
-	RemoteAddr    string          `json:"remoteAddr"`
-	State         APISRTConnState `json:"state"`
-	Path          string          `json:"path"`
-	Query         string          `json:"query"`
-	BytesReceived uint64          `json:"bytesReceived"`
-	BytesSent     uint64          `json:"bytesSent"`
+	ID         uuid.UUID       `json:"id"`
+	Created    time.Time       `json:"created"`
+	RemoteAddr string          `json:"remoteAddr"`
+	State      APISRTConnState `json:"state"`
+	Path       string          `json:"path"`
+	Query      string          `json:"query"`
 
 	APISRTConnMetrics
 }
@@ -207,6 +205,10 @@ type APISRTConnMetrics struct {
 	// The total number of packets that failed to be decrypted at the receiver side
 	PacketsReceivedUndecrypt uint64 `json:"packetsReceivedUndecrypt"`
 
+	// Same as packetsReceived, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesReceived uint64 `json:"bytesReceived"`
+	// Same as packetsSent, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
+	BytesSent uint64 `json:"bytesSent"`
 	// Same as packetsSentUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
 	BytesSentUnique uint64 `json:"bytesSentUnique"`
 	// Same as packetsReceivedUnique, but expressed in bytes, including payload and all the headers (IP, TCP, SRT)
