@@ -155,12 +155,8 @@ type APISRTConn struct {
 	Path       string          `json:"path"`
 	Query      string          `json:"query"`
 
-	APISRTConnMetrics
-}
+	// The metric names/comments are pulled from GoSRT
 
-// APISRTConnMetrics contains all the extra metrics for the SRT connections
-// The metric names/comments are pulled from GoSRT
-type APISRTConnMetrics struct {
 	// The total number of sent DATA packets, including retransmitted packets
 	PacketsSent uint64 `json:"packetsSent"`
 	// The total number of received DATA packets, including retransmitted packets

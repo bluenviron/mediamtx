@@ -233,8 +233,6 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
 				out += metric("srt_conns", tags, 1)
-				out += metric("srt_conns_bytes_received", tags, int64(i.BytesReceived))
-				out += metric("srt_conns_bytes_sent", tags, int64(i.BytesSent))
 				out += metric("srt_conns_packets_sent", tags, int64(i.PacketsSent))
 				out += metric("srt_conns_packets_received", tags, int64(i.PacketsReceived))
 				out += metric("srt_conns_packets_sent_unique", tags, int64(i.PacketsSentUnique))
@@ -253,6 +251,8 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 				out += metric("srt_conns_packets_send_drop", tags, int64(i.PacketsSendDrop))
 				out += metric("srt_conns_packets_received_drop", tags, int64(i.PacketsReceivedDrop))
 				out += metric("srt_conns_packets_received_undecrypt", tags, int64(i.PacketsReceivedUndecrypt))
+				out += metric("srt_conns_bytes_sent", tags, int64(i.BytesSent))
+				out += metric("srt_conns_bytes_received", tags, int64(i.BytesReceived))
 				out += metric("srt_conns_bytes_sent_unique", tags, int64(i.BytesSentUnique))
 				out += metric("srt_conns_bytes_received_unique", tags, int64(i.BytesReceivedUnique))
 				out += metric("srt_conns_bytes_received_loss", tags, int64(i.BytesReceivedLoss))
