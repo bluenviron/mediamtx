@@ -1,6 +1,10 @@
 package core
 
 import (
+	"context"
+	"encoding/json"
+	"net"
+	"net/http"
 	"testing"
 
 	"github.com/bluenviron/gortsplib/v4"
@@ -9,6 +13,70 @@ import (
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
+
+type testHTTPAuthenticator struct {
+	*http.Server
+}
+
+func newTestHTTPAuthenticator(t *testing.T, protocol string, action string) *testHTTPAuthenticator {
+	firstReceived := false
+
+	ts := &testHTTPAuthenticator{}
+
+	ts.Server = &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, http.MethodPost, r.Method)
+			require.Equal(t, "/auth", r.URL.Path)
+
+			var in struct {
+				IP       string `json:"ip"`
+				User     string `json:"user"`
+				Password string `json:"password"`
+				Path     string `json:"path"`
+				Protocol string `json:"protocol"`
+				ID       string `json:"id"`
+				Action   string `json:"action"`
+				Query    string `json:"query"`
+			}
+			err := json.NewDecoder(r.Body).Decode(&in)
+			require.NoError(t, err)
+
+			var user string
+			if action == "publish" {
+				user = "testpublisher"
+			} else {
+				user = "testreader"
+			}
+
+			if in.IP != "127.0.0.1" ||
+				in.User != user ||
+				in.Password != "testpass" ||
+				in.Path != "teststream" ||
+				in.Protocol != protocol ||
+				(firstReceived && in.ID == "") ||
+				in.Action != action ||
+				(in.Query != "user=testreader&pass=testpass&param=value" &&
+					in.Query != "user=testpublisher&pass=testpass&param=value" &&
+					in.Query != "param=value") {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+
+			firstReceived = true
+		}),
+	}
+
+	ln, err := net.Listen("tcp", "127.0.0.1:9120")
+	require.NoError(t, err)
+
+	go ts.Server.Serve(ln)
+
+	return ts
+}
+
+func (ts *testHTTPAuthenticator) close() {
+	ts.Server.Shutdown(context.Background())
+}
 
 func TestRTSPServer(t *testing.T) {
 	for _, auth := range []string{

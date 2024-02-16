@@ -25,7 +25,7 @@ func unitSize(u unit.Unit) uint64 {
 type streamFormat struct {
 	decodeErrLogger logger.Writer
 	proc            formatprocessor.Processor
-	readers         map[*asyncwriter.Writer]readerFunc
+	readers         map[*asyncwriter.Writer]ReadFunc
 }
 
 func newStreamFormat(
@@ -42,13 +42,13 @@ func newStreamFormat(
 	sf := &streamFormat{
 		decodeErrLogger: decodeErrLogger,
 		proc:            proc,
-		readers:         make(map[*asyncwriter.Writer]readerFunc),
+		readers:         make(map[*asyncwriter.Writer]ReadFunc),
 	}
 
 	return sf, nil
 }
 
-func (sf *streamFormat) addReader(r *asyncwriter.Writer, cb readerFunc) {
+func (sf *streamFormat) addReader(r *asyncwriter.Writer, cb ReadFunc) {
 	sf.readers[r] = cb
 }
 

@@ -16,7 +16,8 @@ import (
 	"github.com/bluenviron/mediamtx/internal/unit"
 )
 
-type readerFunc func(unit.Unit) error
+// ReadFunc is the callback passed to AddReader().
+type ReadFunc func(unit.Unit) error
 
 // Stream is a media stream.
 // It stores tracks, readers and allows to write data to readers.
@@ -115,7 +116,7 @@ func (s *Stream) RTSPSStream(server *gortsplib.Server) *gortsplib.ServerStream {
 }
 
 // AddReader adds a reader.
-func (s *Stream) AddReader(r *asyncwriter.Writer, medi *description.Media, forma format.Format, cb readerFunc) {
+func (s *Stream) AddReader(r *asyncwriter.Writer, medi *description.Media, forma format.Format, cb ReadFunc) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

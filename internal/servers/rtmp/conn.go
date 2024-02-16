@@ -63,7 +63,7 @@ type conn struct {
 	wg                  *sync.WaitGroup
 	nconn               net.Conn
 	externalCmdPool     *externalcmd.Pool
-	pathManager         defs.PathManager
+	pathManager         serverPathManager
 	parent              *Server
 
 	ctx       context.Context
