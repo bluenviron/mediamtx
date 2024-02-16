@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,11 +55,11 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				proto = "rtsps"
 				port = "8322"
 
-				serverCertFpath, err := writeTempFile(serverCert)
+				serverCertFpath, err := writeTempFile(test.TLSCertPub)
 				require.NoError(t, err)
 				defer os.Remove(serverCertFpath)
 
-				serverKeyFpath, err := writeTempFile(serverKey)
+				serverKeyFpath, err := writeTempFile(test.TLSCertKey)
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 
