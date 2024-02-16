@@ -1612,8 +1612,6 @@ rtmps_conns_bytes_sent{id="[id]",state="[state]"} 187
 
 # metrics of every SRT connection
 srt_conns{id="[id]",state="[state]"} 1
-srt_conns_bytes_received{id="[id]",state="[state]"} 1234
-srt_conns_bytes_sent{id="[id]",state="[state]"} 187
 srt_conns_packets_sent{id="[id]",state="[state]"} 123
 srt_conns_packets_received{id="[id]",state="[state]"} 123
 srt_conns_packets_sent_unique{id="[id]",state="[state]"} 123
@@ -1632,6 +1630,8 @@ srt_conns_us_snd_duration{id="[id]",state="[state]"} 123
 srt_conns_packets_send_drop{id="[id]",state="[state]"} 123
 srt_conns_packets_received_drop{id="[id]",state="[state]"} 123
 srt_conns_packets_received_undecrypt{id="[id]",state="[state]"} 123
+srt_conns_bytes_sent{id="[id]",state="[state]"} 187
+srt_conns_bytes_received{id="[id]",state="[state]"} 1234
 srt_conns_bytes_sent_unique{id="[id]",state="[state]"} 123
 srt_conns_bytes_received_unique{id="[id]",state="[state]"} 123
 srt_conns_bytes_received_loss{id="[id]",state="[state]"} 123

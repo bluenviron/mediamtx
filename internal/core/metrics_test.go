@@ -285,8 +285,6 @@ webrtc_sessions_bytes_sent 0
 				`rtmps_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`rtmps_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns\{id=".*?",state="publish"\} 1`+"\n"+
-				`srt_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
-				`srt_conns_bytes_sent\{id=".*?",state="publish"\} 0`+"\n"+
 				`srt_conns_packets_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_sent_unique\{id=".*?",state="publish"\} [0-9]+`+"\n"+
@@ -305,6 +303,8 @@ webrtc_sessions_bytes_sent 0
 				`srt_conns_packets_send_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_packets_received_undecrypt\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_sent\{id=".*?",state="publish"\} 0`+"\n"+
+				`srt_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_sent_unique\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_unique\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_received_loss\{id=".*?",state="publish"\} [0-9]+`+"\n"+
