@@ -389,17 +389,7 @@ func (c *conn) apiItem() *defs.APISRTConn {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
-	bytesReceived := uint64(0)
-	bytesSent := uint64(0)
-
-	if c.sconn != nil {
-		var s srt.Statistics
-		c.sconn.Stats(&s)
-		bytesReceived = s.Accumulated.ByteRecv
-		bytesSent = s.Accumulated.ByteSent
-	}
-
-	return &defs.APISRTConn{
+	item := &defs.APISRTConn{
 		ID:         c.uuid,
 		Created:    c.created,
 		RemoteAddr: c.connReq.RemoteAddr().String(),
@@ -415,9 +405,68 @@ func (c *conn) apiItem() *defs.APISRTConn {
 				return defs.APISRTConnStateIdle
 			}
 		}(),
-		Path:          c.pathName,
-		Query:         c.query,
-		BytesReceived: bytesReceived,
-		BytesSent:     bytesSent,
+		Path:  c.pathName,
+		Query: c.query,
 	}
+
+	if c.sconn != nil {
+		var s srt.Statistics
+		c.sconn.Stats(&s)
+
+		item.PacketsSent = s.Accumulated.PktSent
+		item.PacketsReceived = s.Accumulated.PktRecv
+		item.PacketsSentUnique = s.Accumulated.PktSentUnique
+		item.PacketsReceivedUnique = s.Accumulated.PktRecvUnique
+		item.PacketsSendLoss = s.Accumulated.PktSendLoss
+		item.PacketsReceivedLoss = s.Accumulated.PktRecvLoss
+		item.PacketsRetrans = s.Accumulated.PktRetrans
+		item.PacketsReceivedRetrans = s.Accumulated.PktRecvRetrans
+		item.PacketsSentACK = s.Accumulated.PktSentACK
+		item.PacketsReceivedACK = s.Accumulated.PktRecvACK
+		item.PacketsSentNAK = s.Accumulated.PktSentNAK
+		item.PacketsReceivedNAK = s.Accumulated.PktRecvNAK
+		item.PacketsSentKM = s.Accumulated.PktSentKM
+		item.PacketsReceivedKM = s.Accumulated.PktRecvKM
+		item.UsSndDuration = s.Accumulated.UsSndDuration
+		item.PacketsReceivedBelated = s.Accumulated.PktRecvBelated
+		item.PacketsSendDrop = s.Accumulated.PktSendDrop
+		item.PacketsReceivedDrop = s.Accumulated.PktRecvDrop
+		item.PacketsReceivedUndecrypt = s.Accumulated.PktRecvUndecrypt
+		item.BytesSent = s.Accumulated.ByteSent
+		item.BytesReceived = s.Accumulated.ByteRecv
+		item.BytesSentUnique = s.Accumulated.ByteSentUnique
+		item.BytesReceivedUnique = s.Accumulated.ByteRecvUnique
+		item.BytesReceivedLoss = s.Accumulated.ByteRecvLoss
+		item.BytesRetrans = s.Accumulated.ByteRetrans
+		item.BytesReceivedRetrans = s.Accumulated.ByteRecvRetrans
+		item.BytesReceivedBelated = s.Accumulated.ByteRecvBelated
+		item.BytesSendDrop = s.Accumulated.ByteSendDrop
+		item.BytesReceivedDrop = s.Accumulated.ByteRecvDrop
+		item.BytesReceivedUndecrypt = s.Accumulated.ByteRecvUndecrypt
+		item.UsPacketsSendPeriod = s.Instantaneous.UsPktSendPeriod
+		item.PacketsFlowWindow = s.Instantaneous.PktFlowWindow
+		item.PacketsFlightSize = s.Instantaneous.PktFlightSize
+		item.MsRTT = s.Instantaneous.MsRTT
+		item.MbpsSendRate = s.Instantaneous.MbpsSentRate
+		item.MbpsReceiveRate = s.Instantaneous.MbpsRecvRate
+		item.MbpsLinkCapacity = s.Instantaneous.MbpsLinkCapacity
+		item.BytesAvailSendBuf = s.Instantaneous.ByteAvailSendBuf
+		item.BytesAvailReceiveBuf = s.Instantaneous.ByteAvailRecvBuf
+		item.MbpsMaxBW = s.Instantaneous.MbpsMaxBW
+		item.ByteMSS = s.Instantaneous.ByteMSS
+		item.PacketsSendBuf = s.Instantaneous.PktSendBuf
+		item.BytesSendBuf = s.Instantaneous.ByteSendBuf
+		item.MsSendBuf = s.Instantaneous.MsSendBuf
+		item.MsSendTsbPdDelay = s.Instantaneous.MsSendTsbPdDelay
+		item.PacketsReceiveBuf = s.Instantaneous.PktRecvBuf
+		item.BytesReceiveBuf = s.Instantaneous.ByteRecvBuf
+		item.MsReceiveBuf = s.Instantaneous.MsRecvBuf
+		item.MsReceiveTsbPdDelay = s.Instantaneous.MsRecvTsbPdDelay
+		item.PacketsReorderTolerance = s.Instantaneous.PktReorderTolerance
+		item.PacketsReceivedAvgBelatedTime = s.Instantaneous.PktRecvAvgBelatedTime
+		item.PacketsSendLossRate = s.Instantaneous.PktSendLossRate
+		item.PacketsReceivedLossRate = s.Instantaneous.PktRecvLossRate
+	}
+
+	return item
 }

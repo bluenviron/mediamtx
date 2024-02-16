@@ -285,8 +285,57 @@ webrtc_sessions_bytes_sent 0
 				`rtmps_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`rtmps_conns_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns\{id=".*?",state="publish"\} 1`+"\n"+
-				`srt_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_sent_unique\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_unique\{id=".*?",state="publish"\} 1`+"\n"+
+				`srt_conns_packets_send_loss\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_loss\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_retrans\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_retrans\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_sent_ack\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_ack\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_sent_nak\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_nak\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_sent_km\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_km\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_us_snd_duration\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_send_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_undecrypt\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`srt_conns_bytes_sent\{id=".*?",state="publish"\} 0`+"\n"+
+				`srt_conns_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_sent_unique\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_received_unique\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_received_loss\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_retrans\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_received_retrans\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_send_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_received_drop\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_received_undecrypt\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_us_packets_send_period\{id=".*?",state="publish"\} \d+\.\d+`+"\n"+
+				`srt_conns_packets_flow_window\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_flight_size\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_ms_rtt\{id=".*?",state="publish"\} \d+\.\d+`+"\n"+
+				`srt_conns_mbps_send_rate\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_mbps_receive_rate\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_mbps_link_capacity\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_avail_send_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_avail_receive_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_mbps_max_bw\{id=".*?",state="publish"\} -1`+"\n"+
+				`srt_conns_bytes_mss\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_send_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_send_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_ms_send_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_ms_send_tsb_pd_delay\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_receive_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_bytes_receive_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_ms_receive_buf\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_ms_receive_tsb_pd_delay\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_reorder_tolerance\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_avg_belated_time\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_send_loss_rate\{id=".*?",state="publish"\} [0-9]+`+"\n"+
+				`srt_conns_packets_received_loss_rate\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions\{id=".*?",state="publish"\} 1`+"\n"+
 				`webrtc_sessions_bytes_received\{id=".*?",state="publish"\} [0-9]+`+"\n"+
 				`webrtc_sessions_bytes_sent\{id=".*?",state="publish"\} [0-9]+`+"\n"+

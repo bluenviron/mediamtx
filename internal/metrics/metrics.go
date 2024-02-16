@@ -26,6 +26,10 @@ func metric(key string, tags string, value int64) string {
 	return key + tags + " " + strconv.FormatInt(value, 10) + "\n"
 }
 
+func metricFloat(key string, tags string, value float64) string {
+	return key + tags + " " + strconv.FormatFloat(value, 'f', -1, 64) + "\n"
+}
+
 type metricsParent interface {
 	logger.Writer
 }
@@ -229,8 +233,57 @@ func (m *Metrics) onMetrics(ctx *gin.Context) {
 			for _, i := range data.Items {
 				tags := "{id=\"" + i.ID.String() + "\",state=\"" + string(i.State) + "\"}"
 				out += metric("srt_conns", tags, 1)
-				out += metric("srt_conns_bytes_received", tags, int64(i.BytesReceived))
+				out += metric("srt_conns_packets_sent", tags, int64(i.PacketsSent))
+				out += metric("srt_conns_packets_received", tags, int64(i.PacketsReceived))
+				out += metric("srt_conns_packets_sent_unique", tags, int64(i.PacketsSentUnique))
+				out += metric("srt_conns_packets_received_unique", tags, int64(i.PacketsReceivedUnique))
+				out += metric("srt_conns_packets_send_loss", tags, int64(i.PacketsSendLoss))
+				out += metric("srt_conns_packets_received_loss", tags, int64(i.PacketsReceivedLoss))
+				out += metric("srt_conns_packets_retrans", tags, int64(i.PacketsRetrans))
+				out += metric("srt_conns_packets_received_retrans", tags, int64(i.PacketsReceivedRetrans))
+				out += metric("srt_conns_packets_sent_ack", tags, int64(i.PacketsSentACK))
+				out += metric("srt_conns_packets_received_ack", tags, int64(i.PacketsReceivedACK))
+				out += metric("srt_conns_packets_sent_nak", tags, int64(i.PacketsSentNAK))
+				out += metric("srt_conns_packets_received_nak", tags, int64(i.PacketsReceivedNAK))
+				out += metric("srt_conns_packets_sent_km", tags, int64(i.PacketsSentKM))
+				out += metric("srt_conns_packets_received_km", tags, int64(i.PacketsReceivedKM))
+				out += metric("srt_conns_us_snd_duration", tags, int64(i.UsSndDuration))
+				out += metric("srt_conns_packets_send_drop", tags, int64(i.PacketsSendDrop))
+				out += metric("srt_conns_packets_received_drop", tags, int64(i.PacketsReceivedDrop))
+				out += metric("srt_conns_packets_received_undecrypt", tags, int64(i.PacketsReceivedUndecrypt))
 				out += metric("srt_conns_bytes_sent", tags, int64(i.BytesSent))
+				out += metric("srt_conns_bytes_received", tags, int64(i.BytesReceived))
+				out += metric("srt_conns_bytes_sent_unique", tags, int64(i.BytesSentUnique))
+				out += metric("srt_conns_bytes_received_unique", tags, int64(i.BytesReceivedUnique))
+				out += metric("srt_conns_bytes_received_loss", tags, int64(i.BytesReceivedLoss))
+				out += metric("srt_conns_bytes_retrans", tags, int64(i.BytesRetrans))
+				out += metric("srt_conns_bytes_received_retrans", tags, int64(i.BytesReceivedRetrans))
+				out += metric("srt_conns_bytes_send_drop", tags, int64(i.BytesSendDrop))
+				out += metric("srt_conns_bytes_received_drop", tags, int64(i.BytesReceivedDrop))
+				out += metric("srt_conns_bytes_received_undecrypt", tags, int64(i.BytesReceivedUndecrypt))
+				out += metricFloat("srt_conns_us_packets_send_period", tags, i.UsPacketsSendPeriod)
+				out += metric("srt_conns_packets_flow_window", tags, int64(i.PacketsFlowWindow))
+				out += metric("srt_conns_packets_flight_size", tags, int64(i.PacketsFlightSize))
+				out += metricFloat("srt_conns_ms_rtt", tags, i.MsRTT)
+				out += metricFloat("srt_conns_mbps_send_rate", tags, i.MbpsSendRate)
+				out += metricFloat("srt_conns_mbps_receive_rate", tags, i.MbpsReceiveRate)
+				out += metricFloat("srt_conns_mbps_link_capacity", tags, i.MbpsLinkCapacity)
+				out += metric("srt_conns_bytes_avail_send_buf", tags, int64(i.BytesAvailSendBuf))
+				out += metric("srt_conns_bytes_avail_receive_buf", tags, int64(i.BytesAvailReceiveBuf))
+				out += metricFloat("srt_conns_mbps_max_bw", tags, i.MbpsMaxBW)
+				out += metric("srt_conns_bytes_mss", tags, int64(i.ByteMSS))
+				out += metric("srt_conns_packets_send_buf", tags, int64(i.PacketsSendBuf))
+				out += metric("srt_conns_bytes_send_buf", tags, int64(i.BytesSendBuf))
+				out += metric("srt_conns_ms_send_buf", tags, int64(i.MsSendBuf))
+				out += metric("srt_conns_ms_send_tsb_pd_delay", tags, int64(i.MsSendTsbPdDelay))
+				out += metric("srt_conns_packets_receive_buf", tags, int64(i.PacketsReceiveBuf))
+				out += metric("srt_conns_bytes_receive_buf", tags, int64(i.BytesReceiveBuf))
+				out += metric("srt_conns_ms_receive_buf", tags, int64(i.MsReceiveBuf))
+				out += metric("srt_conns_ms_receive_tsb_pd_delay", tags, int64(i.MsReceiveTsbPdDelay))
+				out += metric("srt_conns_packets_reorder_tolerance", tags, int64(i.PacketsReorderTolerance))
+				out += metric("srt_conns_packets_received_avg_belated_time", tags, int64(i.PacketsReceivedAvgBelatedTime))
+				out += metricFloat("srt_conns_packets_send_loss_rate", tags, i.PacketsSendLossRate)
+				out += metricFloat("srt_conns_packets_received_loss_rate", tags, i.PacketsReceivedLossRate)
 			}
 		} else {
 			out += metric("srt_conns", "", 0)
