@@ -8,30 +8,16 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
-
-func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
-	if err != nil {
-		return "", err
-	}
-	defer tmpf.Close()
-
-	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
-
-	return tmpf.Name(), nil
-}
 
 func newInstance(conf string) (*Core, bool) {
 	if conf == "" {
 		return New([]string{})
 	}
 
-	tmpf, err := writeTempFile([]byte(conf))
+	tmpf, err := test.CreateTempFile([]byte(conf))
 	if err != nil {
 		return nil, false
 	}
