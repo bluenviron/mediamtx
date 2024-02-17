@@ -15,21 +15,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/test"
 )
 
-func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
-	if err != nil {
-		return "", err
-	}
-	defer tmpf.Close()
-
-	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
-
-	return tmpf.Name(), nil
-}
-
 func TestSource(t *testing.T) {
 	for _, ca := range []string{
 		"plain",
@@ -41,11 +26,11 @@ func TestSource(t *testing.T) {
 					return net.Listen("tcp", "127.0.0.1:1935")
 				}
 
-				serverCertFpath, err := writeTempFile(test.TLSCertPub)
+				serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 				require.NoError(t, err)
 				defer os.Remove(serverCertFpath)
 
-				serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+				serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 

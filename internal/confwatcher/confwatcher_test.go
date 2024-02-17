@@ -5,23 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
-
-func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "confwatcher-")
-	if err != nil {
-		return "", err
-	}
-	defer tmpf.Close()
-
-	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
-
-	return tmpf.Name(), nil
-}
 
 func TestNoFile(t *testing.T) {
 	_, err := New("/nonexistent")
@@ -29,7 +15,7 @@ func TestNoFile(t *testing.T) {
 }
 
 func TestWrite(t *testing.T) {
-	fpath, err := writeTempFile([]byte("{}"))
+	fpath, err := test.CreateTempFile([]byte("{}"))
 	require.NoError(t, err)
 
 	w, err := New(fpath)
@@ -54,7 +40,7 @@ func TestWrite(t *testing.T) {
 }
 
 func TestWriteMultipleTimes(t *testing.T) {
-	fpath, err := writeTempFile([]byte("{}"))
+	fpath, err := test.CreateTempFile([]byte("{}"))
 	require.NoError(t, err)
 
 	w, err := New(fpath)
@@ -97,7 +83,7 @@ func TestWriteMultipleTimes(t *testing.T) {
 }
 
 func TestDeleteCreate(t *testing.T) {
-	fpath, err := writeTempFile([]byte("{}"))
+	fpath, err := test.CreateTempFile([]byte("{}"))
 	require.NoError(t, err)
 
 	w, err := New(fpath)
@@ -125,7 +111,7 @@ func TestDeleteCreate(t *testing.T) {
 }
 
 func TestSymlinkDeleteCreate(t *testing.T) {
-	fpath, err := writeTempFile([]byte("{}"))
+	fpath, err := test.CreateTempFile([]byte("{}"))
 	require.NoError(t, err)
 
 	err = os.Symlink(fpath, fpath+"-sym")

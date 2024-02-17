@@ -13,6 +13,7 @@ import (
 
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,23 +24,8 @@ func (testParent) Log(_ logger.Level, _ string, _ ...interface{}) {
 
 func (testParent) APIConfigSet(_ *conf.Conf) {}
 
-func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
-	if err != nil {
-		return "", err
-	}
-	defer tmpf.Close()
-
-	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
-
-	return tmpf.Name(), nil
-}
-
 func tempConf(t *testing.T, cnt string) *conf.Conf {
-	fi, err := writeTempFile([]byte(cnt))
+	fi, err := test.CreateTempFile([]byte(cnt))
 	require.NoError(t, err)
 	defer os.Remove(fi)
 

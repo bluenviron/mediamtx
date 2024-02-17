@@ -21,21 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func writeTempFile(byts []byte) (string, error) {
-	tmpf, err := os.CreateTemp(os.TempDir(), "rtsp-")
-	if err != nil {
-		return "", err
-	}
-	defer tmpf.Close()
-
-	_, err = tmpf.Write(byts)
-	if err != nil {
-		return "", err
-	}
-
-	return tmpf.Name(), nil
-}
-
 type dummyPath struct {
 	stream        *stream.Stream
 	streamCreated chan struct{}
@@ -100,11 +85,11 @@ func TestServerPublish(t *testing.T) {
 
 			if encrypt == "tls" {
 				var err error
-				serverCertFpath, err = writeTempFile(test.TLSCertPub)
+				serverCertFpath, err = test.CreateTempFile(test.TLSCertPub)
 				require.NoError(t, err)
 				defer os.Remove(serverCertFpath)
 
-				serverKeyFpath, err = writeTempFile(test.TLSCertKey)
+				serverKeyFpath, err = test.CreateTempFile(test.TLSCertKey)
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 			}
@@ -178,9 +163,7 @@ func TestServerPublish(t *testing.T) {
 			require.NoError(t, err)
 
 			aw.Start()
-
 			<-recv
-
 			aw.Stop()
 		})
 	}
@@ -197,11 +180,11 @@ func TestServerRead(t *testing.T) {
 
 			if encrypt == "tls" {
 				var err error
-				serverCertFpath, err = writeTempFile(test.TLSCertPub)
+				serverCertFpath, err = test.CreateTempFile(test.TLSCertPub)
 				require.NoError(t, err)
 				defer os.Remove(serverCertFpath)
 
-				serverKeyFpath, err = writeTempFile(test.TLSCertKey)
+				serverKeyFpath, err = test.CreateTempFile(test.TLSCertKey)
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 			}

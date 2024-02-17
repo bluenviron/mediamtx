@@ -55,11 +55,11 @@ func TestRTSPServerPublishRead(t *testing.T) {
 				proto = "rtsps"
 				port = "8322"
 
-				serverCertFpath, err := writeTempFile(test.TLSCertPub)
+				serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 				require.NoError(t, err)
 				defer os.Remove(serverCertFpath)
 
-				serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+				serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 

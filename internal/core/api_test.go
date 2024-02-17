@@ -149,11 +149,11 @@ func TestAPIPathsList(t *testing.T) {
 	})
 
 	t.Run("rtsps session", func(t *testing.T) {
-		serverCertFpath, err := writeTempFile(test.TLSCertPub)
+		serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 		require.NoError(t, err)
 		defer os.Remove(serverCertFpath)
 
-		serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+		serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 		require.NoError(t, err)
 		defer os.Remove(serverKeyFpath)
 
@@ -340,11 +340,11 @@ func TestAPIPathsGet(t *testing.T) {
 }
 
 func TestAPIProtocolListGet(t *testing.T) {
-	serverCertFpath, err := writeTempFile(test.TLSCertPub)
+	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)
 	defer os.Remove(serverCertFpath)
 
-	serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 	require.NoError(t, err)
 	defer os.Remove(serverKeyFpath)
 
@@ -813,11 +813,11 @@ func TestAPIProtocolListGet(t *testing.T) {
 }
 
 func TestAPIProtocolGetNotFound(t *testing.T) {
-	serverCertFpath, err := writeTempFile(test.TLSCertPub)
+	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)
 	defer os.Remove(serverCertFpath)
 
-	serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 	require.NoError(t, err)
 	defer os.Remove(serverKeyFpath)
 
@@ -913,11 +913,11 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 }
 
 func TestAPIProtocolKick(t *testing.T) {
-	serverCertFpath, err := writeTempFile(test.TLSCertPub)
+	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)
 	defer os.Remove(serverCertFpath)
 
-	serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 	require.NoError(t, err)
 	defer os.Remove(serverKeyFpath)
 
@@ -1060,11 +1060,11 @@ func TestAPIProtocolKick(t *testing.T) {
 }
 
 func TestAPIProtocolKickNotFound(t *testing.T) {
-	serverCertFpath, err := writeTempFile(test.TLSCertPub)
+	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)
 	defer os.Remove(serverCertFpath)
 
-	serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 	require.NoError(t, err)
 	defer os.Remove(serverKeyFpath)
 

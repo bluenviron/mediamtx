@@ -42,11 +42,11 @@ func httpPullFile(t *testing.T, hc *http.Client, u string) []byte {
 }
 
 func TestMetrics(t *testing.T) {
-	serverCertFpath, err := writeTempFile(test.TLSCertPub)
+	serverCertFpath, err := test.CreateTempFile(test.TLSCertPub)
 	require.NoError(t, err)
 	defer os.Remove(serverCertFpath)
 
-	serverKeyFpath, err := writeTempFile(test.TLSCertKey)
+	serverKeyFpath, err := test.CreateTempFile(test.TLSCertKey)
 	require.NoError(t, err)
 	defer os.Remove(serverKeyFpath)
 

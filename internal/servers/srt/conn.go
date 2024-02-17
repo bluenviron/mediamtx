@@ -65,7 +65,7 @@ type conn struct {
 	runOnDisconnect     string
 	wg                  *sync.WaitGroup
 	externalCmdPool     *externalcmd.Pool
-	pathManager         defs.PathManager
+	pathManager         serverPathManager
 	parent              *Server
 
 	ctx       context.Context
