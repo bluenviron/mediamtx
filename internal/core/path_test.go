@@ -404,6 +404,37 @@ func TestPathRunOnRead(t *testing.T) {
 						Log:        test.NilLogger{},
 					}
 
+					writerDone := make(chan struct{})
+					defer func() { <-writerDone }()
+
+					writerTerminate := make(chan struct{})
+					defer close(writerTerminate)
+
+					go func() {
+						defer close(writerDone)
+						i := uint16(0)
+						for {
+							select {
+							case <-time.After(100 * time.Millisecond):
+							case <-writerTerminate:
+								return
+							}
+							err := source.WritePacketRTP(testMediaH264, &rtp.Packet{
+								Header: rtp.Header{
+									Version:        2,
+									Marker:         true,
+									PayloadType:    96,
+									SequenceNumber: 123 + i,
+									Timestamp:      45343,
+									SSRC:           563423,
+								},
+								Payload: []byte{5},
+							})
+							require.NoError(t, err)
+							i++
+						}
+					}()
+
 					_, err = c.Read(context.Background())
 					require.NoError(t, err)
 					defer checkClose(t, c.Close)
