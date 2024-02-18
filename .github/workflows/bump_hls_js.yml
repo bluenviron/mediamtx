@@ -53,13 +53,13 @@ jobs:
               repo: context.repo.repo,
               head: 'deps/hlsjs',
               base: context.ref.slice('refs/heads/'.length),
-              title: `bump hls-js to v${process.env.VERSION}`,
+              title: `bump hls-js to ${process.env.VERSION}`,
             });
           } else {
             github.rest.pulls.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: prs.data[0].number,
-              title: `bump hls-js to v${process.env.VERSION}`,
+              title: `bump hls-js to ${process.env.VERSION}`,
             });
           }
