@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -283,7 +282,7 @@ type session struct {
 	req             webRTCNewSessionReq
 	wg              *sync.WaitGroup
 	externalCmdPool *externalcmd.Pool
-	pathManager     defs.PathManager
+	pathManager     serverPathManager
 	parent          *Server
 
 	ctx       context.Context
@@ -511,14 +510,15 @@ func (s *session) runRead() (int, error) {
 		},
 	})
 	if err != nil {
-		var terr defs.AuthenticationError
-		if errors.As(err, &terr) {
+		var terr1 defs.AuthenticationError
+		if errors.As(err, &terr1) {
 			// wait some seconds to mitigate brute force attacks
 			<-time.After(pauseAfterAuthError)
 			return http.StatusUnauthorized, err
 		}
 
-		if strings.HasPrefix(err.Error(), "no one is publishing") {
+		var terr2 *defs.PathNoOnePublishingError
+		if errors.As(err, &terr2) {
 			return http.StatusNotFound, err
 		}
 

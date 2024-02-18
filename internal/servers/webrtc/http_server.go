@@ -58,7 +58,7 @@ type httpServer struct {
 	allowOrigin    string
 	trustedProxies conf.IPsOrCIDRs
 	readTimeout    conf.StringDuration
-	pathManager    defs.PathManager
+	pathManager    serverPathManager
 	parent         *Server
 
 	inner *httpp.WrappedServer
