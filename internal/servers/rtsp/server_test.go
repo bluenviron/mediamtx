@@ -1,12 +1,14 @@
-package srt
+package rtsp
 
 import (
-	"bufio"
 	"testing"
 	"time"
 
+	"github.com/bluenviron/gortsplib/v4"
+	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
+	"github.com/bluenviron/gortsplib/v4/pkg/format"
+	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -14,7 +16,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/stream"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/bluenviron/mediamtx/internal/unit"
-	srt "github.com/datarhei/gosrt"
+	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -63,6 +65,15 @@ type dummyPathManager struct {
 	path *dummyPath
 }
 
+func (pm *dummyPathManager) Describe(_ defs.PathDescribeReq) defs.PathDescribeRes {
+	return defs.PathDescribeRes{
+		Path:     pm.path,
+		Stream:   pm.path.stream,
+		Redirect: "",
+		Err:      nil,
+	}
+}
+
 func (pm *dummyPathManager) AddPublisher(_ defs.PathAddPublisherReq) (defs.Path, error) {
 	return pm.path, nil
 }
@@ -72,9 +83,6 @@ func (pm *dummyPathManager) AddReader(_ defs.PathAddReaderReq) (defs.Path, *stre
 }
 
 func TestServerPublish(t *testing.T) {
-	externalCmdPool := externalcmd.NewPool()
-	defer externalCmdPool.Close()
-
 	path := &dummyPath{
 		streamCreated: make(chan struct{}),
 	}
@@ -82,16 +90,27 @@ func TestServerPublish(t *testing.T) {
 	pathManager := &dummyPathManager{path: path}
 
 	s := &Server{
-		Address:             "127.0.0.1:8890",
-		RTSPAddress:         "",
+		Address:             "127.0.0.1:8557",
+		AuthMethods:         []headers.AuthMethod{headers.AuthBasic},
 		ReadTimeout:         conf.StringDuration(10 * time.Second),
 		WriteTimeout:        conf.StringDuration(10 * time.Second),
 		WriteQueueSize:      512,
-		UDPMaxPayloadSize:   1472,
+		UseUDP:              false,
+		UseMulticast:        false,
+		RTPAddress:          "",
+		RTCPAddress:         "",
+		MulticastIPRange:    "",
+		MulticastRTPPort:    0,
+		MulticastRTCPPort:   0,
+		IsTLS:               false,
+		ServerCert:          "",
+		ServerKey:           "",
+		RTSPAddress:         "",
+		Protocols:           map[conf.Protocol]struct{}{conf.Protocol(gortsplib.TransportTCP): {}},
 		RunOnConnect:        "",
 		RunOnConnectRestart: false,
-		RunOnDisconnect:     "string",
-		ExternalCmdPool:     externalCmdPool,
+		RunOnDisconnect:     "",
+		ExternalCmdPool:     nil,
 		PathManager:         pathManager,
 		Parent:              &test.NilLogger{},
 	}
@@ -99,36 +118,15 @@ func TestServerPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://localhost:8890?streamid=publish:mypath"
+	source := gortsplib.Client{}
 
-	srtConf := srt.DefaultConfig()
-	address, err := srtConf.UnmarshalURL(u)
+	media0 := test.UniqueMediaH264()
+
+	err = source.StartRecording(
+		"rtsp://testpublisher:testpass@127.0.0.1:8557/teststream?param=value",
+		&description.Session{Medias: []*description.Media{media0}})
 	require.NoError(t, err)
-
-	err = srtConf.Validate()
-	require.NoError(t, err)
-
-	publisher, err := srt.Dial("srt", address, srtConf)
-	require.NoError(t, err)
-	defer publisher.Close()
-
-	track := &mpegts.Track{
-		Codec: &mpegts.CodecH264{},
-	}
-
-	bw := bufio.NewWriter(publisher)
-	w := mpegts.NewWriter(bw, []*mpegts.Track{track})
-	require.NoError(t, err)
-
-	err = w.WriteH26x(track, 0, 0, true, [][]byte{
-		test.FormatH264.SPS,
-		test.FormatH264.PPS,
-		{0x05, 1}, // IDR
-	})
-	require.NoError(t, err)
-
-	err = bw.Flush()
-	require.NoError(t, err)
+	defer source.Close()
 
 	<-path.streamCreated
 
@@ -143,18 +141,23 @@ func TestServerPublish(t *testing.T) {
 			require.Equal(t, [][]byte{
 				test.FormatH264.SPS,
 				test.FormatH264.PPS,
-				{0x05, 1}, // IDR
+				{5, 2, 3, 4},
 			}, u.(*unit.H264).AU)
 			close(recv)
 			return nil
 		})
 
-	err = w.WriteH26x(track, 0, 0, true, [][]byte{
-		{5, 2},
+	err = source.WritePacketRTP(media0, &rtp.Packet{
+		Header: rtp.Header{
+			Version:        2,
+			Marker:         true,
+			PayloadType:    96,
+			SequenceNumber: 123,
+			Timestamp:      45343,
+			SSRC:           563423,
+		},
+		Payload: []byte{5, 2, 3, 4},
 	})
-	require.NoError(t, err)
-
-	err = bw.Flush()
 	require.NoError(t, err)
 
 	aw.Start()
@@ -163,9 +166,6 @@ func TestServerPublish(t *testing.T) {
 }
 
 func TestServerRead(t *testing.T) {
-	externalCmdPool := externalcmd.NewPool()
-	defer externalCmdPool.Close()
-
 	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	stream, err := stream.New(
@@ -181,16 +181,27 @@ func TestServerRead(t *testing.T) {
 	pathManager := &dummyPathManager{path: path}
 
 	s := &Server{
-		Address:             "127.0.0.1:8890",
-		RTSPAddress:         "",
+		Address:             "127.0.0.1:8557",
+		AuthMethods:         []headers.AuthMethod{headers.AuthBasic},
 		ReadTimeout:         conf.StringDuration(10 * time.Second),
 		WriteTimeout:        conf.StringDuration(10 * time.Second),
 		WriteQueueSize:      512,
-		UDPMaxPayloadSize:   1472,
+		UseUDP:              false,
+		UseMulticast:        false,
+		RTPAddress:          "",
+		RTCPAddress:         "",
+		MulticastIPRange:    "",
+		MulticastRTPPort:    0,
+		MulticastRTCPPort:   0,
+		IsTLS:               false,
+		ServerCert:          "",
+		ServerKey:           "",
+		RTSPAddress:         "",
+		Protocols:           map[conf.Protocol]struct{}{conf.Protocol(gortsplib.TransportTCP): {}},
 		RunOnConnect:        "",
 		RunOnConnectRestart: false,
-		RunOnDisconnect:     "string",
-		ExternalCmdPool:     externalCmdPool,
+		RunOnDisconnect:     "",
+		ExternalCmdPool:     nil,
 		PathManager:         pathManager,
 		Parent:              &test.NilLogger{},
 	}
@@ -198,64 +209,56 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u := "srt://localhost:8890?streamid=read:mypath"
+	reader := gortsplib.Client{}
 
-	srtConf := srt.DefaultConfig()
-	address, err := srtConf.UnmarshalURL(u)
+	u, err := base.ParseURL("rtsp://testreader:testpass@127.0.0.1:8557/teststream?param=value")
 	require.NoError(t, err)
 
-	err = srtConf.Validate()
-	require.NoError(t, err)
-
-	reader, err := srt.Dial("srt", address, srtConf)
+	err = reader.Start(u.Scheme, u.Host)
 	require.NoError(t, err)
 	defer reader.Close()
 
-	stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
-		Base: unit.Base{
-			NTP: time.Time{},
-		},
-		AU: [][]byte{
-			{5, 1}, // IDR
-		},
-	})
-
-	r, err := mpegts.NewReader(reader)
+	desc2, _, err := reader.Describe(u)
 	require.NoError(t, err)
 
-	require.Equal(t, []*mpegts.Track{{
-		PID:   256,
-		Codec: &mpegts.CodecH264{},
-	}}, r.Tracks())
+	err = reader.SetupAll(desc2.BaseURL, desc2.Medias)
+	require.NoError(t, err)
 
-	received := false
+	recv := make(chan struct{})
 
-	r.OnDataH26x(r.Tracks()[0], func(pts int64, dts int64, au [][]byte) error {
-		require.Equal(t, int64(0), pts)
-		require.Equal(t, int64(0), dts)
-		require.Equal(t, [][]byte{
-			test.FormatH264.SPS,
-			test.FormatH264.PPS,
-			{0x05, 1},
-		}, au)
-		received = true
-		return nil
+	reader.OnPacketRTPAny(func(m *description.Media, f format.Format, p *rtp.Packet) {
+		require.Equal(t, &rtp.Packet{
+			Header: rtp.Header{
+				Version:        2,
+				Marker:         true,
+				PayloadType:    96,
+				SequenceNumber: p.SequenceNumber,
+				Timestamp:      0,
+				SSRC:           p.SSRC,
+				CSRC:           []uint32{},
+			},
+			Payload: []byte{
+				0x18, 0x00, 0x19, 0x67, 0x42, 0xc0, 0x28, 0xd9,
+				0x00, 0x78, 0x02, 0x27, 0xe5, 0x84, 0x00, 0x00,
+				0x03, 0x00, 0x04, 0x00, 0x00, 0x03, 0x00, 0xf0,
+				0x3c, 0x60, 0xc9, 0x20, 0x00, 0x04, 0x08, 0x06,
+				0x07, 0x08, 0x00, 0x04, 0x05, 0x02, 0x03, 0x04,
+			},
+		}, p)
+		close(recv)
 	})
+
+	_, err = reader.Play(nil)
+	require.NoError(t, err)
 
 	stream.WriteUnit(desc.Medias[0], desc.Medias[0].Formats[0], &unit.H264{
 		Base: unit.Base{
 			NTP: time.Time{},
 		},
 		AU: [][]byte{
-			{5, 2},
+			{5, 2, 3, 4}, // IDR
 		},
 	})
 
-	for {
-		err = r.Read()
-		require.NoError(t, err)
-		if received {
-			break
-		}
-	}
+	<-recv
 }

@@ -29,7 +29,7 @@ type session struct {
 	rconn           *gortsplib.ServerConn
 	rserver         *gortsplib.Server
 	externalCmdPool *externalcmd.Pool
-	pathManager     defs.PathManager
+	pathManager     serverPathManager
 	parent          *Server
 
 	uuid            uuid.UUID

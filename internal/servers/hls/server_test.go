@@ -9,7 +9,6 @@ import (
 	"github.com/bluenviron/gohlslib"
 	"github.com/bluenviron/gohlslib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -119,12 +118,7 @@ func TestServerNotFound(t *testing.T) {
 
 func TestServerRead(t *testing.T) {
 	t.Run("always remux off", func(t *testing.T) {
-		testMediaH264 := &description.Media{
-			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{test.FormatH264},
-		}
-
-		desc := &description.Session{Medias: []*description.Media{testMediaH264}}
+		desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 		stream, err := stream.New(
 			1460,
@@ -194,7 +188,7 @@ func TestServerRead(t *testing.T) {
 		go func() {
 			time.Sleep(100 * time.Millisecond)
 			for i := 0; i < 4; i++ {
-				stream.WriteUnit(testMediaH264, test.FormatH264, &unit.H264{
+				stream.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
 					Base: unit.Base{
 						NTP: time.Time{},
 						PTS: time.Duration(i) * time.Second,
@@ -210,12 +204,7 @@ func TestServerRead(t *testing.T) {
 	})
 
 	t.Run("always remux on", func(t *testing.T) {
-		testMediaH264 := &description.Media{
-			Type:    description.MediaTypeVideo,
-			Formats: []format.Format{test.FormatH264},
-		}
-
-		desc := &description.Session{Medias: []*description.Media{testMediaH264}}
+		desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 		stream, err := stream.New(
 			1460,
@@ -256,7 +245,7 @@ func TestServerRead(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		for i := 0; i < 4; i++ {
-			stream.WriteUnit(testMediaH264, test.FormatH264, &unit.H264{
+			stream.WriteUnit(test.MediaH264, test.FormatH264, &unit.H264{
 				Base: unit.Base{
 					NTP: time.Time{},
 					PTS: time.Duration(i) * time.Second,

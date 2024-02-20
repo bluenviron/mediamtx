@@ -15,7 +15,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/pion/rtp"
@@ -110,10 +109,7 @@ webrtc_sessions_bytes_sent 0
 			defer wg.Done()
 			source := gortsplib.Client{}
 			err := source.StartRecording("rtsp://localhost:8554/rtsp_path",
-				&description.Session{Medias: []*description.Media{{
-					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{test.FormatH264},
-				}}})
+				&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 			require.NoError(t, err)
 			defer source.Close()
 			<-terminate
@@ -123,10 +119,7 @@ webrtc_sessions_bytes_sent 0
 			defer wg.Done()
 			source2 := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
 			err := source2.StartRecording("rtsps://localhost:8322/rtsps_path",
-				&description.Session{Medias: []*description.Media{{
-					Type:    description.MediaTypeVideo,
-					Formats: []format.Format{test.FormatH264},
-				}}})
+				&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 			require.NoError(t, err)
 			defer source2.Close()
 			<-terminate
@@ -178,7 +171,7 @@ webrtc_sessions_bytes_sent 0
 				Log:        test.NilLogger{},
 			}
 
-			tracks, err := s.Publish(context.Background(), testMediaH264.Formats[0], nil)
+			tracks, err := s.Publish(context.Background(), test.MediaH264.Formats[0], nil)
 			require.NoError(t, err)
 			defer checkClose(t, s.Close)
 

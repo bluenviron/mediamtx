@@ -17,7 +17,6 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/formats/mpegts"
 	srt "github.com/datarhei/gosrt"
 	"github.com/google/uuid"
@@ -28,16 +27,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/protocols/webrtc"
 	"github.com/bluenviron/mediamtx/internal/test"
 )
-
-var testMediaH264 = &description.Media{
-	Type:    description.MediaTypeVideo,
-	Formats: []format.Format{test.FormatH264},
-}
-
-var testMediaAAC = &description.Media{
-	Type:    description.MediaTypeAudio,
-	Formats: []format.Format{test.FormatMPEG4Audio},
-}
 
 func checkClose(t *testing.T, closeFunc func() error) {
 	require.NoError(t, closeFunc())
@@ -110,14 +99,14 @@ func TestAPIPathsList(t *testing.T) {
 
 		hc := &http.Client{Transport: &http.Transport{}}
 
-		media0 := testMediaH264
+		media0 := test.UniqueMediaH264()
 
 		source := gortsplib.Client{}
 		err := source.StartRecording(
 			"rtsp://localhost:8554/mypath",
 			&description.Session{Medias: []*description.Media{
 				media0,
-				testMediaAAC,
+				test.MediaMPEG4Audio,
 			}})
 		require.NoError(t, err)
 		defer source.Close()
@@ -171,8 +160,8 @@ func TestAPIPathsList(t *testing.T) {
 		source := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
 		err = source.StartRecording("rtsps://localhost:8322/mypath",
 			&description.Session{Medias: []*description.Media{
-				testMediaH264,
-				testMediaAAC,
+				test.UniqueMediaH264(),
+				test.UniqueMediaMPEG4Audio(),
 			}})
 		require.NoError(t, err)
 		defer source.Close()
@@ -313,7 +302,7 @@ func TestAPIPathsGet(t *testing.T) {
 			if ca == "ok" || ca == "ok-nested" {
 				source := gortsplib.Client{}
 				err := source.StartRecording("rtsp://localhost:8554/"+pathName,
-					&description.Session{Medias: []*description.Media{testMediaH264}})
+					&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 				require.NoError(t, err)
 				defer source.Close()
 
@@ -384,7 +373,7 @@ func TestAPIProtocolListGet(t *testing.T) {
 
 			hc := &http.Client{Transport: &http.Transport{}}
 
-			medi := testMediaH264
+			medi := test.UniqueMediaH264()
 
 			switch ca { //nolint:dupl
 			case "rtsp conns", "rtsp sessions":
@@ -947,7 +936,7 @@ func TestAPIProtocolKick(t *testing.T) {
 
 			hc := &http.Client{Transport: &http.Transport{}}
 
-			medi := testMediaH264
+			medi := test.MediaH264
 
 			switch ca {
 			case "rtsp":
