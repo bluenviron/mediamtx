@@ -110,11 +110,9 @@ func TestCoreHotReloading(t *testing.T) {
 	defer p.Close()
 
 	func() {
-		medi := testMediaH264
-
 		c := gortsplib.Client{}
 		err = c.StartRecording("rtsp://localhost:8554/test1",
-			&description.Session{Medias: []*description.Media{medi}})
+			&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 		require.EqualError(t, err, "bad status code: 401 (Unauthorized)")
 	}()
 
@@ -126,11 +124,9 @@ func TestCoreHotReloading(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	func() {
-		medi := testMediaH264
-
 		conn := gortsplib.Client{}
 		err = conn.StartRecording("rtsp://localhost:8554/test1",
-			&description.Session{Medias: []*description.Media{medi}})
+			&description.Session{Medias: []*description.Media{test.UniqueMediaH264()}})
 		require.NoError(t, err)
 		defer conn.Close()
 	}()

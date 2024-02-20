@@ -32,7 +32,7 @@ type conn struct {
 	runOnConnectRestart bool
 	runOnDisconnect     string
 	externalCmdPool     *externalcmd.Pool
-	pathManager         defs.PathManager
+	pathManager         serverPathManager
 	rconn               *gortsplib.ServerConn
 	rserver             *gortsplib.Server
 	parent              *Server

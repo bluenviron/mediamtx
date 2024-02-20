@@ -10,7 +10,6 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/pion/rtp"
 	"github.com/stretchr/testify/require"
 
@@ -38,11 +37,6 @@ func (sh *testServer) OnPlay(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Respo
 	return sh.onPlay(ctx)
 }
 
-var testMediaH264 = &description.Media{
-	Type:    description.MediaTypeVideo,
-	Formats: []format.Format{test.FormatH264},
-}
-
 func TestSource(t *testing.T) {
 	for _, source := range []string{
 		"udp",
@@ -54,6 +48,8 @@ func TestSource(t *testing.T) {
 
 			nonce, err := auth.GenerateNonce()
 			require.NoError(t, err)
+
+			media0 := test.UniqueMediaH264()
 
 			s := gortsplib.Server{
 				Handler: &testServer{
@@ -81,7 +77,7 @@ func TestSource(t *testing.T) {
 					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 						go func() {
 							time.Sleep(100 * time.Millisecond)
-							err := stream.WritePacketRTP(testMediaH264, &rtp.Packet{
+							err := stream.WritePacketRTP(media0, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        0x02,
 									PayloadType:    96,
@@ -127,7 +123,7 @@ func TestSource(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
+			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{media0}})
 			defer stream.Close()
 
 			var te *test.SourceTester
@@ -180,6 +176,8 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	nonce, err := auth.GenerateNonce()
 	require.NoError(t, err)
 
+	media0 := test.UniqueMediaH264()
+
 	s := gortsplib.Server{
 		Handler: &testServer{
 			onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
@@ -200,7 +198,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 				go func() {
 					time.Sleep(100 * time.Millisecond)
-					err := stream.WritePacketRTP(testMediaH264, &rtp.Packet{
+					err := stream.WritePacketRTP(media0, &rtp.Packet{
 						Header: rtp.Header{
 							Version:        0x02,
 							PayloadType:    96,
@@ -231,7 +229,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
+	stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{media0}})
 	defer stream.Close()
 
 	var sp conf.RTSPTransport
@@ -261,6 +259,8 @@ func TestRTSPSourceRange(t *testing.T) {
 		t.Run(ca, func(t *testing.T) {
 			var stream *gortsplib.ServerStream
 
+			media0 := test.UniqueMediaH264()
+
 			s := gortsplib.Server{
 				Handler: &testServer{
 					onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
@@ -287,7 +287,7 @@ func TestRTSPSourceRange(t *testing.T) {
 
 						go func() {
 							time.Sleep(100 * time.Millisecond)
-							err := stream.WritePacketRTP(testMediaH264, &rtp.Packet{
+							err := stream.WritePacketRTP(media0, &rtp.Packet{
 								Header: rtp.Header{
 									Version:        0x02,
 									PayloadType:    96,
@@ -313,7 +313,7 @@ func TestRTSPSourceRange(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{testMediaH264}})
+			stream = gortsplib.NewServerStream(&s, &description.Session{Medias: []*description.Media{media0}})
 			defer stream.Close()
 
 			cnf := &conf.Path{}

@@ -377,11 +377,11 @@ func (pconf *Path) validate(conf *Conf, name string) error {
 
 	// Authentication
 
-	if (!pconf.PublishUser.IsEmpty() && pconf.PublishPass.IsEmpty()) ||
-		(pconf.PublishUser.IsEmpty() && !pconf.PublishPass.IsEmpty()) {
+	if (pconf.PublishUser != "" && pconf.PublishPass == "") ||
+		(pconf.PublishUser == "" && pconf.PublishPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
-	if !pconf.PublishUser.IsEmpty() && pconf.Source != "publisher" {
+	if pconf.PublishUser != "" && pconf.Source != "publisher" {
 		return fmt.Errorf("'publishUser' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
@@ -389,8 +389,8 @@ func (pconf *Path) validate(conf *Conf, name string) error {
 		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
 			"the stream is not provided by a publisher, but by a fixed source")
 	}
-	if (!pconf.ReadUser.IsEmpty() && pconf.ReadPass.IsEmpty()) ||
-		(pconf.ReadUser.IsEmpty() && !pconf.ReadPass.IsEmpty()) {
+	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
+		(pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
 	if contains(conf.AuthMethods, headers.AuthDigest) {
@@ -402,9 +402,9 @@ func (pconf *Path) validate(conf *Conf, name string) error {
 		}
 	}
 	if conf.ExternalAuthenticationURL != "" {
-		if !pconf.PublishUser.IsEmpty() ||
+		if pconf.PublishUser != "" ||
 			len(pconf.PublishIPs) > 0 ||
-			!pconf.ReadUser.IsEmpty() ||
+			pconf.ReadUser != "" ||
 			len(pconf.ReadIPs) > 0 {
 			return fmt.Errorf("credentials or IPs can't be used together with 'externalAuthenticationURL'")
 		}

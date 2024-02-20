@@ -21,6 +21,7 @@ import (
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/logger"
+	"github.com/bluenviron/mediamtx/internal/stream"
 )
 
 // ErrConnNotFound is returned when a connection is not found.
@@ -43,6 +44,12 @@ func printAddresses(srv *gortsplib.Server) string {
 	}
 
 	return strings.Join(ret, ", ")
+}
+
+type serverPathManager interface {
+	Describe(req defs.PathDescribeReq) defs.PathDescribeRes
+	AddPublisher(_ defs.PathAddPublisherReq) (defs.Path, error)
+	AddReader(_ defs.PathAddReaderReq) (defs.Path, *stream.Stream, error)
 }
 
 type serverParent interface {
@@ -72,7 +79,7 @@ type Server struct {
 	RunOnConnectRestart bool
 	RunOnDisconnect     string
 	ExternalCmdPool     *externalcmd.Pool
-	PathManager         defs.PathManager
+	PathManager         serverPathManager
 	Parent              serverParent
 
 	ctx       context.Context

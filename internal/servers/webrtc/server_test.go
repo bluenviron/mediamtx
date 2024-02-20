@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -89,7 +88,7 @@ func (pm *dummyPathManager) AddReader(req defs.PathAddReaderReq) (defs.Path, *st
 
 func TestServerStaticPages(t *testing.T) {
 	s := &Server{
-		Address:               "127.0.0.1:8889",
+		Address:               "127.0.0.1:8886",
 		Encryption:            false,
 		ServerKey:             "",
 		ServerCert:            "",
@@ -115,7 +114,7 @@ func TestServerStaticPages(t *testing.T) {
 
 	for _, path := range []string{"/stream", "/stream/publish", "/publish"} {
 		func() {
-			req, err := http.NewRequest(http.MethodGet, "http://localhost:8889"+path, nil)
+			req, err := http.NewRequest(http.MethodGet, "http://localhost:8886"+path, nil)
 			require.NoError(t, err)
 
 			res, err := hc.Do(req)
@@ -135,7 +134,7 @@ func TestServerPublish(t *testing.T) {
 	pathManager := &dummyPathManager{path: path}
 
 	s := &Server{
-		Address:               "127.0.0.1:8889",
+		Address:               "127.0.0.1:8886",
 		Encryption:            false,
 		ServerKey:             "",
 		ServerCert:            "",
@@ -161,7 +160,7 @@ func TestServerPublish(t *testing.T) {
 
 	// preflight requests must always work, without authentication
 	func() {
-		req, err := http.NewRequest(http.MethodOptions, "http://localhost:8889/teststream/whip", nil)
+		req, err := http.NewRequest(http.MethodOptions, "http://localhost:8886/teststream/whip", nil)
 		require.NoError(t, err)
 
 		req.Header.Set("Access-Control-Request-Method", "OPTIONS")
@@ -177,7 +176,7 @@ func TestServerPublish(t *testing.T) {
 	}()
 
 	ur := "http://"
-	ur += "localhost:8889/teststream/whip?param=value"
+	ur += "localhost:8886/teststream/whip?param=value"
 
 	su, err := url.Parse(ur)
 	require.NoError(t, err)
@@ -216,7 +215,7 @@ func TestServerPublish(t *testing.T) {
 		path.stream.Desc().Medias[0].Formats[0],
 		func(u unit.Unit) error {
 			require.Equal(t, [][]byte{
-				{2},
+				{1},
 			}, u.(*unit.H264).AU)
 			close(recv)
 			return nil
@@ -231,7 +230,7 @@ func TestServerPublish(t *testing.T) {
 			Timestamp:      45343,
 			SSRC:           563423,
 		},
-		Payload: []byte{2},
+		Payload: []byte{1},
 	})
 	require.NoError(t, err)
 
@@ -241,17 +240,7 @@ func TestServerPublish(t *testing.T) {
 }
 
 func TestServerRead(t *testing.T) {
-	testMediaH264 := &description.Media{
-		Type:    description.MediaTypeVideo,
-		Formats: []format.Format{test.FormatH264},
-	}
-
-	/*testMediaAAC := &description.Media{
-		Type:    description.MediaTypeVideo,
-		Formats: []format.Format{test.FormatMPEG4Audio},
-	}*/
-
-	desc := &description.Session{Medias: []*description.Media{testMediaH264}}
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 	stream, err := stream.New(
 		1460,
@@ -266,7 +255,7 @@ func TestServerRead(t *testing.T) {
 	pathManager := &dummyPathManager{path: path}
 
 	s := &Server{
-		Address:               "127.0.0.1:8889",
+		Address:               "127.0.0.1:8886",
 		Encryption:            false,
 		ServerKey:             "",
 		ServerCert:            "",
@@ -289,7 +278,7 @@ func TestServerRead(t *testing.T) {
 	defer s.Close()
 
 	ur := "http://"
-	ur += "localhost:8889/teststream/whep?param=value"
+	ur += "localhost:8886/teststream/whep?param=value"
 
 	u, err := url.Parse(ur)
 	require.NoError(t, err)
@@ -357,7 +346,7 @@ func TestServerReadNotFound(t *testing.T) {
 	pathManager := &dummyPathManager{}
 
 	s := &Server{
-		Address:               "127.0.0.1:8889",
+		Address:               "127.0.0.1:8886",
 		Encryption:            false,
 		ServerKey:             "",
 		ServerCert:            "",
@@ -381,7 +370,7 @@ func TestServerReadNotFound(t *testing.T) {
 
 	hc := &http.Client{Transport: &http.Transport{}}
 
-	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc, "http://localhost:8889/nonexisting/whep")
+	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc, "http://localhost:8886/nonexisting/whep")
 	require.NoError(t, err)
 
 	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{
@@ -397,7 +386,7 @@ func TestServerReadNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPost,
-		"http://localhost:8889/nonexisting/whep", bytes.NewReader([]byte(offer.SDP)))
+		"http://localhost:8886/nonexisting/whep", bytes.NewReader([]byte(offer.SDP)))
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/sdp")

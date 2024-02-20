@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
-	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
@@ -188,13 +187,7 @@ func TestServerRead(t *testing.T) {
 				require.NoError(t, err)
 				defer os.Remove(serverKeyFpath)
 			}
-
-			testMediaH264 := &description.Media{
-				Type:    description.MediaTypeVideo,
-				Formats: []format.Format{test.FormatH264},
-			}
-
-			desc := &description.Session{Medias: []*description.Media{testMediaH264}}
+			desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
 
 			stream, err := stream.New(
 				1460,
