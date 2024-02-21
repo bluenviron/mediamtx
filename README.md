@@ -1233,7 +1233,7 @@ http://localhost:9996/get?path=[mypath]&start=[start_date]&duration=[duration]
 Where:
 
 * [mypath] is the path name
-* [start_date] is the start date in RFC3339 format
+* [start_date] is the start date in [RFC3339 format](https://www.utctime.net/)
 * [duration] is the maximum duration of the recording in seconds
 
 All parameters must be [url-encoded](https://www.urlencoder.org/). For instance:
