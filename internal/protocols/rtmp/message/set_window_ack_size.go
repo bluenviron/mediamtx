@@ -11,8 +11,7 @@ type SetWindowAckSize struct {
 	Value uint32
 }
 
-// Unmarshal implements Message.
-func (m *SetWindowAckSize) Unmarshal(raw *rawmessage.Message) error {
+func (m *SetWindowAckSize) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -26,8 +25,7 @@ func (m *SetWindowAckSize) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m *SetWindowAckSize) Marshal() (*rawmessage.Message, error) {
+func (m *SetWindowAckSize) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 4)
 
 	buf[0] = byte(m.Value >> 24)

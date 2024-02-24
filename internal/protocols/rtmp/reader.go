@@ -12,8 +12,8 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
-	"github.com/notedit/rtmp/format/flv/flvio"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/h264conf"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
 )
@@ -43,11 +43,11 @@ type OnDataG711Func func(pts time.Duration, samples []byte)
 // OnDataLPCMFunc is the prototype of the callback passed to OnDataLPCM().
 type OnDataLPCMFunc func(pts time.Duration, samples []byte)
 
-func hasVideo(md flvio.AMFMap) (bool, error) {
-	v, ok := md.GetV("videocodecid")
+func hasVideo(md amf0.Object) (bool, error) {
+	v, ok := md.Get("videocodecid")
 	if !ok {
 		// some Dahua cameras send width and height without videocodecid
-		if v, ok := md.GetV("width"); ok {
+		if v, ok := md.Get("width"); ok {
 			if vf, ok := v.(float64); ok && vf != 0 {
 				return true, nil
 			}
@@ -75,8 +75,8 @@ func hasVideo(md flvio.AMFMap) (bool, error) {
 	return false, fmt.Errorf("unsupported video codec: %v", v)
 }
 
-func hasAudio(md flvio.AMFMap, audioTrack *format.Format) (bool, error) {
-	v, ok := md.GetV("audiocodecid")
+func hasAudio(md amf0.Object, audioTrack *format.Format) (bool, error) {
+	v, ok := md.Get("audiocodecid")
 	if !ok {
 		return false, nil
 	}
@@ -156,7 +156,7 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
 
-	md, ok := payload[0].(flvio.AMFMap)
+	md, ok := payload[0].(amf0.Object)
 	if !ok {
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}

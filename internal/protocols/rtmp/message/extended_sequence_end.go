@@ -11,8 +11,7 @@ type ExtendedSequenceEnd struct {
 	FourCC FourCC
 }
 
-// Unmarshal implements Message.
-func (m *ExtendedSequenceEnd) Unmarshal(raw *rawmessage.Message) error {
+func (m *ExtendedSequenceEnd) unmarshal(raw *rawmessage.Message) error {
 	if len(raw.Body) != 5 {
 		return fmt.Errorf("invalid body size")
 	}
@@ -22,7 +21,6 @@ func (m *ExtendedSequenceEnd) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m ExtendedSequenceEnd) Marshal() (*rawmessage.Message, error) {
+func (m ExtendedSequenceEnd) marshal() (*rawmessage.Message, error) {
 	return nil, fmt.Errorf("TODO")
 }

@@ -16,8 +16,7 @@ type ExtendedFramesX struct {
 	Payload         []byte
 }
 
-// Unmarshal implements Message.
-func (m *ExtendedFramesX) Unmarshal(raw *rawmessage.Message) error {
+func (m *ExtendedFramesX) unmarshal(raw *rawmessage.Message) error {
 	if len(raw.Body) < 6 {
 		return fmt.Errorf("not enough bytes")
 	}
@@ -35,8 +34,7 @@ func (m ExtendedFramesX) marshalBodySize() int {
 	return 5 + len(m.Payload)
 }
 
-// Marshal implements Message.
-func (m ExtendedFramesX) Marshal() (*rawmessage.Message, error) {
+func (m ExtendedFramesX) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
 	body[0] = 0b10000000 | byte(ExtendedTypeFramesX)

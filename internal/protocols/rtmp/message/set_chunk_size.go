@@ -11,8 +11,7 @@ type SetChunkSize struct {
 	Value uint32
 }
 
-// Unmarshal implements Message.
-func (m *SetChunkSize) Unmarshal(raw *rawmessage.Message) error {
+func (m *SetChunkSize) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -26,8 +25,7 @@ func (m *SetChunkSize) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m *SetChunkSize) Marshal() (*rawmessage.Message, error) {
+func (m *SetChunkSize) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 4)
 
 	buf[0] = byte(m.Value >> 24)

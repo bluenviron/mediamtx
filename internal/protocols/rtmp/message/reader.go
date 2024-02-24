@@ -138,7 +138,7 @@ func (r *Reader) Read() (Message, error) {
 		return nil, err
 	}
 
-	err = msg.Unmarshal(raw)
+	err = msg.unmarshal(raw)
 	if err != nil {
 		return nil, err
 	}

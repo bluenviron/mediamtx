@@ -30,7 +30,7 @@ func (w *Writer) SetAcknowledgeValue(v uint32) {
 
 // Write writes a message.
 func (w *Writer) Write(msg Message) error {
-	raw, err := msg.Marshal()
+	raw, err := msg.marshal()
 	if err != nil {
 		return err
 	}

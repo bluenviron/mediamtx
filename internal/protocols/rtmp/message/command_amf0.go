@@ -3,8 +3,7 @@ package message
 import (
 	"fmt"
 
-	"github.com/notedit/rtmp/format/flv/flvio"
-
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/rawmessage"
 )
 
@@ -17,12 +16,11 @@ type CommandAMF0 struct {
 	Arguments       []interface{}
 }
 
-// Unmarshal implements Message.
-func (m *CommandAMF0) Unmarshal(raw *rawmessage.Message) error {
+func (m *CommandAMF0) unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.MessageStreamID = raw.MessageStreamID
 
-	payload, err := flvio.ParseAMFVals(raw.Body, false)
+	payload, err := amf0.Unmarshal(raw.Body)
 	if err != nil {
 		return err
 	}
@@ -48,15 +46,21 @@ func (m *CommandAMF0) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m CommandAMF0) Marshal() (*rawmessage.Message, error) {
+func (m CommandAMF0) marshal() (*rawmessage.Message, error) {
+	data := append([]interface{}{
+		m.Name,
+		float64(m.CommandID),
+	}, m.Arguments...)
+
+	body, err := amf0.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+
 	return &rawmessage.Message{
 		ChunkStreamID:   m.ChunkStreamID,
 		Type:            uint8(TypeCommandAMF0),
 		MessageStreamID: m.MessageStreamID,
-		Body: flvio.FillAMF0ValsMalloc(append([]interface{}{
-			m.Name,
-			float64(m.CommandID),
-		}, m.Arguments...)),
+		Body:            body,
 	}, nil
 }

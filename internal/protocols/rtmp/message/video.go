@@ -39,8 +39,7 @@ type Video struct {
 	Payload         []byte
 }
 
-// Unmarshal implements Message.
-func (m *Video) Unmarshal(raw *rawmessage.Message) error {
+func (m *Video) unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
@@ -76,8 +75,7 @@ func (m Video) marshalBodySize() int {
 	return 5 + len(m.Payload)
 }
 
-// Marshal implements Message.
-func (m Video) Marshal() (*rawmessage.Message, error) {
+func (m Video) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
 	if m.IsKeyFrame {

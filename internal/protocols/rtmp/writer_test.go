@@ -6,9 +6,9 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
-	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
 )
@@ -56,11 +56,11 @@ func TestWriteTracks(t *testing.T) {
 		Payload: []interface{}{
 			"@setDataFrame",
 			"onMetaData",
-			flvio.AMFMap{
-				{K: "videodatarate", V: float64(0)},
-				{K: "videocodecid", V: float64(7)},
-				{K: "audiodatarate", V: float64(0)},
-				{K: "audiocodecid", V: float64(10)},
+			amf0.Object{
+				{Key: "videodatarate", Value: float64(0)},
+				{Key: "videocodecid", Value: float64(7)},
+				{Key: "audiodatarate", Value: float64(0)},
+				{Key: "audiocodecid", Value: float64(10)},
 			},
 		},
 	}, msg)

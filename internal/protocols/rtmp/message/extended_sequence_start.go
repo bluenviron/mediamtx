@@ -14,8 +14,7 @@ type ExtendedSequenceStart struct {
 	Config          []byte
 }
 
-// Unmarshal implements Message.
-func (m *ExtendedSequenceStart) Unmarshal(raw *rawmessage.Message) error {
+func (m *ExtendedSequenceStart) unmarshal(raw *rawmessage.Message) error {
 	if len(raw.Body) < 6 {
 		return fmt.Errorf("not enough bytes")
 	}
@@ -32,8 +31,7 @@ func (m ExtendedSequenceStart) marshalBodySize() int {
 	return 5 + len(m.Config)
 }
 
-// Marshal implements Message.
-func (m ExtendedSequenceStart) Marshal() (*rawmessage.Message, error) {
+func (m ExtendedSequenceStart) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
 	body[0] = 0b10000000 | byte(ExtendedTypeSequenceStart)

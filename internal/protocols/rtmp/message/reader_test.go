@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
 )
 
@@ -70,9 +70,9 @@ var readWriterCases = []struct {
 			Name:            "i8yythrergre",
 			CommandID:       56456,
 			Arguments: []interface{}{
-				flvio.AMFMap{
-					{K: "k1", V: "v1"},
-					{K: "k2", V: "v2"},
+				amf0.Object{
+					{Key: "k1", Value: "v1"},
+					{Key: "k2", Value: "v2"},
 				},
 				nil,
 			},

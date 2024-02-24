@@ -12,8 +12,7 @@ type UserControlSetBufferLength struct {
 	BufferLength uint32
 }
 
-// Unmarshal implements Message.
-func (m *UserControlSetBufferLength) Unmarshal(raw *rawmessage.Message) error {
+func (m *UserControlSetBufferLength) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -28,8 +27,7 @@ func (m *UserControlSetBufferLength) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m UserControlSetBufferLength) Marshal() (*rawmessage.Message, error) {
+func (m UserControlSetBufferLength) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 10)
 
 	buf[0] = byte(UserControlTypeSetBufferLength >> 8)

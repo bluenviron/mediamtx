@@ -10,9 +10,9 @@ import (
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
-	"github.com/notedit/rtmp/format/flv/flvio"
 	"github.com/stretchr/testify/require"
 
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/h264conf"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
@@ -134,22 +134,22 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "videodatarate",
-								V: float64(0),
+								Key:   "videodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "videocodecid",
-								V: float64(message.CodecH264),
+								Key:   "videocodecid",
+								Value: float64(message.CodecH264),
 							},
 							{
-								K: "audiodatarate",
-								V: float64(0),
+								Key:   "audiodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(message.CodecMPEG4Audio),
+								Key:   "audiocodecid",
+								Value: float64(message.CodecMPEG4Audio),
 							},
 						},
 					},
@@ -204,22 +204,22 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "videodatarate",
-								V: float64(0),
+								Key:   "videodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "videocodecid",
-								V: float64(message.CodecH264),
+								Key:   "videocodecid",
+								Value: float64(message.CodecH264),
 							},
 							{
-								K: "audiodatarate",
-								V: float64(0),
+								Key:   "audiodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(0),
+								Key:   "audiocodecid",
+								Value: float64(0),
 							},
 						},
 					},
@@ -388,22 +388,22 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "videodatarate",
-								V: float64(0),
+								Key:   "videodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "videocodecid",
-								V: float64(message.CodecH264),
+								Key:   "videocodecid",
+								Value: float64(message.CodecH264),
 							},
 							{
-								K: "audiodatarate",
-								V: float64(0),
+								Key:   "audiodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(message.CodecMPEG4Audio),
+								Key:   "audiocodecid",
+								Value: float64(message.CodecMPEG4Audio),
 							},
 						},
 					},
@@ -460,22 +460,22 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "videodatarate",
-								V: float64(0),
+								Key:   "videodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "videocodecid",
-								V: "hvc1",
+								Key:   "videocodecid",
+								Value: "hvc1",
 							},
 							{
-								K: "audiodatarate",
-								V: float64(0),
+								Key:   "audiodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(0),
+								Key:   "audiocodecid",
+								Value: float64(0),
 							},
 						},
 					},
@@ -509,22 +509,22 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "videodatarate",
-								V: float64(0),
+								Key:   "videodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "videocodecid",
-								V: float64(message.FourCCHEVC),
+								Key:   "videocodecid",
+								Value: float64(message.FourCCHEVC),
 							},
 							{
-								K: "audiodatarate",
-								V: float64(0),
+								Key:   "audiodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(0),
+								Key:   "audiocodecid",
+								Value: float64(0),
 							},
 						},
 					},
@@ -555,38 +555,38 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "duration",
-								V: float64(0),
+								Key:   "duration",
+								Value: float64(0),
 							},
 							{
-								K: "width",
-								V: float64(1920),
+								Key:   "width",
+								Value: float64(1920),
 							},
 							{
-								K: "height",
-								V: float64(1080),
+								Key:   "height",
+								Value: float64(1080),
 							},
 							{
-								K: "videodatarate",
-								V: float64(0),
+								Key:   "videodatarate",
+								Value: float64(0),
 							},
 							{
-								K: "framerate",
-								V: float64(30),
+								Key:   "framerate",
+								Value: float64(30),
 							},
 							{
-								K: "videocodecid",
-								V: float64(message.FourCCAV1),
+								Key:   "videocodecid",
+								Value: float64(message.FourCCAV1),
 							},
 							{
-								K: "encoder",
-								V: "Lavf60.10.101",
+								Key:   "encoder",
+								Value: "Lavf60.10.101",
 							},
 							{
-								K: "filesize",
-								V: float64(0),
+								Key:   "filesize",
+								Value: float64(0),
 							},
 						},
 					},
@@ -634,22 +634,22 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "width",
-								V: float64(1280),
+								Key:   "width",
+								Value: float64(1280),
 							},
 							{
-								K: "height",
-								V: float64(720),
+								Key:   "height",
+								Value: float64(720),
 							},
 							{
-								K: "framerate",
-								V: float64(30),
+								Key:   "framerate",
+								Value: float64(30),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(10),
+								Key:   "audiocodecid",
+								Value: float64(10),
 							},
 						},
 					},
@@ -695,34 +695,34 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
+						amf0.Object{
 							{
-								K: "audiodatarate",
-								V: float64(128),
+								Key:   "audiodatarate",
+								Value: float64(128),
 							},
 							{
-								K: "framerate",
-								V: float64(30),
+								Key:   "framerate",
+								Value: float64(30),
 							},
 							{
-								K: "videocodecid",
-								V: float64(7),
+								Key:   "videocodecid",
+								Value: float64(7),
 							},
 							{
-								K: "videodatarate",
-								V: float64(2500),
+								Key:   "videodatarate",
+								Value: float64(2500),
 							},
 							{
-								K: "audiocodecid",
-								V: float64(10),
+								Key:   "audiocodecid",
+								Value: float64(10),
 							},
 							{
-								K: "height",
-								V: float64(720),
+								Key:   "height",
+								Value: float64(720),
 							},
 							{
-								K: "width",
-								V: float64(1280),
+								Key:   "width",
+								Value: float64(1280),
 							},
 						},
 					},
@@ -773,11 +773,11 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
-							{K: "duration", V: 0},
-							{K: "audiocodecid", V: 2},
-							{K: "encoder", V: "Lavf58.45.100"},
-							{K: "filesize", V: 0},
+						amf0.Object{
+							{Key: "duration", Value: float64(0)},
+							{Key: "audiocodecid", Value: float64(2)},
+							{Key: "encoder", Value: "Lavf58.45.100"},
+							{Key: "filesize", Value: float64(0)},
 						},
 					},
 				},
@@ -799,11 +799,11 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
-							{K: "duration", V: 0},
-							{K: "audiocodecid", V: 7},
-							{K: "encoder", V: "Lavf58.45.100"},
-							{K: "filesize", V: 0},
+						amf0.Object{
+							{Key: "duration", Value: float64(0)},
+							{Key: "audiocodecid", Value: float64(7)},
+							{Key: "encoder", Value: "Lavf58.45.100"},
+							{Key: "filesize", Value: float64(0)},
 						},
 					},
 				},
@@ -834,11 +834,11 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
-							{K: "duration", V: 0},
-							{K: "audiocodecid", V: 8},
-							{K: "encoder", V: "Lavf58.45.100"},
-							{K: "filesize", V: 0},
+						amf0.Object{
+							{Key: "duration", Value: float64(0)},
+							{Key: "audiocodecid", Value: float64(8)},
+							{Key: "encoder", Value: "Lavf58.45.100"},
+							{Key: "filesize", Value: float64(0)},
 						},
 					},
 				},
@@ -869,10 +869,10 @@ func TestReadTracks(t *testing.T) {
 					Payload: []interface{}{
 						"@setDataFrame",
 						"onMetaData",
-						flvio.AMFMap{
-							{K: "duration", V: 0},
-							{K: "audiocodecid", V: 3},
-							{K: "filesize", V: 0},
+						amf0.Object{
+							{Key: "duration", Value: float64(0)},
+							{Key: "audiocodecid", Value: float64(3)},
+							{Key: "filesize", Value: float64(0)},
 						},
 					},
 				},
