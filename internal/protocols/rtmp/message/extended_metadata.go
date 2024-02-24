@@ -11,8 +11,7 @@ type ExtendedMetadata struct {
 	FourCC FourCC
 }
 
-// Unmarshal implements Message.
-func (m *ExtendedMetadata) Unmarshal(raw *rawmessage.Message) error {
+func (m *ExtendedMetadata) unmarshal(raw *rawmessage.Message) error {
 	if len(raw.Body) != 5 {
 		return fmt.Errorf("invalid body size")
 	}
@@ -22,7 +21,6 @@ func (m *ExtendedMetadata) Unmarshal(raw *rawmessage.Message) error {
 	return fmt.Errorf("ExtendedMetadata is not implemented yet")
 }
 
-// Marshal implements Message.
-func (m ExtendedMetadata) Marshal() (*rawmessage.Message, error) {
+func (m ExtendedMetadata) marshal() (*rawmessage.Message, error) {
 	return nil, fmt.Errorf("TODO")
 }

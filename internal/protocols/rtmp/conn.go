@@ -7,8 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/notedit/rtmp/format/flv/flvio"
-
+	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/amf0"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/bytecounter"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/handshake"
 	"github.com/bluenviron/mediamtx/internal/protocols/rtmp/message"
@@ -19,12 +18,12 @@ func resultIsOK1(res *message.CommandAMF0) bool {
 		return false
 	}
 
-	ma, ok := res.Arguments[1].(flvio.AMFMap)
+	ma, ok := res.Arguments[1].(amf0.Object)
 	if !ok {
 		return false
 	}
 
-	v, ok := ma.GetString("level")
+	v, ok := ma.Get("level")
 	if !ok {
 		return false
 	}
@@ -190,15 +189,15 @@ func (c *Conn) initializeClient(u *url.URL, publish bool) error {
 		Name:          "connect",
 		CommandID:     1,
 		Arguments: []interface{}{
-			flvio.AMFMap{
-				{K: "app", V: connectpath},
-				{K: "flashVer", V: "LNX 9,0,124,2"},
-				{K: "tcUrl", V: getTcURL(u)},
-				{K: "fpad", V: false},
-				{K: "capabilities", V: 15},
-				{K: "audioCodecs", V: 4071},
-				{K: "videoCodecs", V: 252},
-				{K: "videoFunction", V: 1},
+			amf0.Object{
+				{Key: "app", Value: connectpath},
+				{Key: "flashVer", Value: "LNX 9,0,124,2"},
+				{Key: "tcUrl", Value: getTcURL(u)},
+				{Key: "fpad", Value: false},
+				{Key: "capabilities", Value: float64(15)},
+				{Key: "audioCodecs", Value: float64(4071)},
+				{Key: "videoCodecs", Value: float64(252)},
+				{Key: "videoFunction", Value: float64(1)},
 			},
 		},
 	})
@@ -360,7 +359,7 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
 	}
 
-	ma, ok := cmd.Arguments[0].(flvio.AMFMap)
+	ma, ok := cmd.Arguments[0].(amf0.Object)
 	if !ok {
 		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
 	}
@@ -409,15 +408,15 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 		Name:          "_result",
 		CommandID:     cmd.CommandID,
 		Arguments: []interface{}{
-			flvio.AMFMap{
-				{K: "fmsVer", V: "LNX 9,0,124,2"},
-				{K: "capabilities", V: float64(31)},
+			amf0.Object{
+				{Key: "fmsVer", Value: "LNX 9,0,124,2"},
+				{Key: "capabilities", Value: float64(31)},
 			},
-			flvio.AMFMap{
-				{K: "level", V: "status"},
-				{K: "code", V: "NetConnection.Connect.Success"},
-				{K: "description", V: "Connection succeeded."},
-				{K: "objectEncoding", V: oe},
+			amf0.Object{
+				{Key: "level", Value: "status"},
+				{Key: "code", Value: "NetConnection.Connect.Success"},
+				{Key: "description", Value: "Connection succeeded."},
+				{Key: "objectEncoding", Value: oe},
 			},
 		},
 	})
@@ -482,10 +481,10 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
 					nil,
-					flvio.AMFMap{
-						{K: "level", V: "status"},
-						{K: "code", V: "NetStream.Play.Reset"},
-						{K: "description", V: "play reset"},
+					amf0.Object{
+						{Key: "level", Value: "status"},
+						{Key: "code", Value: "NetStream.Play.Reset"},
+						{Key: "description", Value: "play reset"},
 					},
 				},
 			})
@@ -500,10 +499,10 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
 					nil,
-					flvio.AMFMap{
-						{K: "level", V: "status"},
-						{K: "code", V: "NetStream.Play.Start"},
-						{K: "description", V: "play start"},
+					amf0.Object{
+						{Key: "level", Value: "status"},
+						{Key: "code", Value: "NetStream.Play.Start"},
+						{Key: "description", Value: "play start"},
 					},
 				},
 			})
@@ -518,10 +517,10 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
 					nil,
-					flvio.AMFMap{
-						{K: "level", V: "status"},
-						{K: "code", V: "NetStream.Data.Start"},
-						{K: "description", V: "data start"},
+					amf0.Object{
+						{Key: "level", Value: "status"},
+						{Key: "code", Value: "NetStream.Data.Start"},
+						{Key: "description", Value: "data start"},
 					},
 				},
 			})
@@ -536,10 +535,10 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 				CommandID:       cmd.CommandID,
 				Arguments: []interface{}{
 					nil,
-					flvio.AMFMap{
-						{K: "level", V: "status"},
-						{K: "code", V: "NetStream.Play.PublishNotify"},
-						{K: "description", V: "publish notify"},
+					amf0.Object{
+						{Key: "level", Value: "status"},
+						{Key: "code", Value: "NetStream.Play.PublishNotify"},
+						{Key: "description", Value: "publish notify"},
 					},
 				},
 			})
@@ -571,10 +570,10 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 				MessageStreamID: 0x1000000,
 				Arguments: []interface{}{
 					nil,
-					flvio.AMFMap{
-						{K: "level", V: "status"},
-						{K: "code", V: "NetStream.Publish.Start"},
-						{K: "description", V: "publish start"},
+					amf0.Object{
+						{Key: "level", Value: "status"},
+						{Key: "code", Value: "NetStream.Publish.Start"},
+						{Key: "description", Value: "publish start"},
 					},
 				},
 			})

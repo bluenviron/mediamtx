@@ -11,8 +11,7 @@ type UserControlPingRequest struct {
 	ServerTime uint32
 }
 
-// Unmarshal implements Message.
-func (m *UserControlPingRequest) Unmarshal(raw *rawmessage.Message) error {
+func (m *UserControlPingRequest) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -26,8 +25,7 @@ func (m *UserControlPingRequest) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m UserControlPingRequest) Marshal() (*rawmessage.Message, error) {
+func (m UserControlPingRequest) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 6)
 
 	buf[0] = byte(UserControlTypePingRequest >> 8)

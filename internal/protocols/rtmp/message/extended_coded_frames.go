@@ -17,8 +17,7 @@ type ExtendedCodedFrames struct {
 	Payload         []byte
 }
 
-// Unmarshal implements Message.
-func (m *ExtendedCodedFrames) Unmarshal(raw *rawmessage.Message) error {
+func (m *ExtendedCodedFrames) unmarshal(raw *rawmessage.Message) error {
 	if len(raw.Body) < 8 {
 		return fmt.Errorf("not enough bytes")
 	}
@@ -48,8 +47,7 @@ func (m ExtendedCodedFrames) marshalBodySize() int {
 	return l
 }
 
-// Marshal implements Message.
-func (m ExtendedCodedFrames) Marshal() (*rawmessage.Message, error) {
+func (m ExtendedCodedFrames) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
 	body[0] = 0b10000000 | byte(ExtendedTypeCodedFrames)

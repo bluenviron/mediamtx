@@ -12,8 +12,7 @@ type SetPeerBandwidth struct {
 	Type  byte
 }
 
-// Unmarshal implements Message.
-func (m *SetPeerBandwidth) Unmarshal(raw *rawmessage.Message) error {
+func (m *SetPeerBandwidth) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -28,8 +27,7 @@ func (m *SetPeerBandwidth) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m *SetPeerBandwidth) Marshal() (*rawmessage.Message, error) {
+func (m *SetPeerBandwidth) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 5)
 
 	buf[0] = byte(m.Value >> 24)

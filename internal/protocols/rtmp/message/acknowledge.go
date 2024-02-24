@@ -11,8 +11,7 @@ type Acknowledge struct {
 	Value uint32
 }
 
-// Unmarshal implements Message.
-func (m *Acknowledge) Unmarshal(raw *rawmessage.Message) error {
+func (m *Acknowledge) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -26,8 +25,7 @@ func (m *Acknowledge) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m *Acknowledge) Marshal() (*rawmessage.Message, error) {
+func (m *Acknowledge) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 4)
 
 	buf[0] = byte(m.Value >> 24)

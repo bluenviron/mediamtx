@@ -72,6 +72,6 @@ var (
 
 // Message is a message.
 type Message interface {
-	Unmarshal(*rawmessage.Message) error
-	Marshal() (*rawmessage.Message, error)
+	unmarshal(*rawmessage.Message) error
+	marshal() (*rawmessage.Message, error)
 }

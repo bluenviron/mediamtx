@@ -11,8 +11,7 @@ type UserControlStreamDry struct {
 	StreamID uint32
 }
 
-// Unmarshal implements Message.
-func (m *UserControlStreamDry) Unmarshal(raw *rawmessage.Message) error {
+func (m *UserControlStreamDry) unmarshal(raw *rawmessage.Message) error {
 	if raw.ChunkStreamID != ControlChunkStreamID {
 		return fmt.Errorf("unexpected chunk stream ID")
 	}
@@ -26,8 +25,7 @@ func (m *UserControlStreamDry) Unmarshal(raw *rawmessage.Message) error {
 	return nil
 }
 
-// Marshal implements Message.
-func (m UserControlStreamDry) Marshal() (*rawmessage.Message, error) {
+func (m UserControlStreamDry) marshal() (*rawmessage.Message, error) {
 	buf := make([]byte, 6)
 
 	buf[0] = byte(UserControlTypeStreamDry >> 8)

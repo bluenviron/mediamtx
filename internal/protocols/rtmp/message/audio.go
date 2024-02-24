@@ -57,8 +57,7 @@ type Audio struct {
 	Payload         []byte
 }
 
-// Unmarshal implements Message.
-func (m *Audio) Unmarshal(raw *rawmessage.Message) error {
+func (m *Audio) unmarshal(raw *rawmessage.Message) error {
 	m.ChunkStreamID = raw.ChunkStreamID
 	m.DTS = raw.Timestamp
 	m.MessageStreamID = raw.MessageStreamID
@@ -107,8 +106,7 @@ func (m Audio) marshalBodySize() int {
 	return l
 }
 
-// Marshal implements Message.
-func (m Audio) Marshal() (*rawmessage.Message, error) {
+func (m Audio) marshal() (*rawmessage.Message, error) {
 	body := make([]byte, m.marshalBodySize())
 
 	body[0] = m.Codec<<4 | m.Rate<<2 | m.Depth<<1
