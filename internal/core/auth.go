@@ -105,7 +105,7 @@ func doAuthentication(
 	}
 
 	if pathUser != "" {
-		if accessRequest.RTSPRequest != nil && rtspAuth.Method == headers.AuthDigest {
+		if accessRequest.RTSPRequest != nil && rtspAuth.Method == headers.AuthDigestMD5 {
 			err := auth.Validate(
 				accessRequest.RTSPRequest,
 				string(pathUser),

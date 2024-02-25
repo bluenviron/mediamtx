@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpmpeg1video"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/pion/rtp"
 
 	"github.com/bluenviron/mediamtx/internal/unit"
@@ -15,6 +16,7 @@ import (
 type formatProcessorMPEG1Video struct {
 	udpMaxPayloadSize int
 	format            *format.MPEG1Video
+	timeEncoder       *rtptime.Encoder
 	encoder           *rtpmpeg1video.Encoder
 	decoder           *rtpmpeg1video.Decoder
 }
@@ -31,6 +33,14 @@ func newMPEG1Video(
 
 	if generateRTPPackets {
 		err := t.createEncoder()
+		if err != nil {
+			return nil, err
+		}
+
+		t.timeEncoder = &rtptime.Encoder{
+			ClockRate: forma.ClockRate(),
+		}
+		err = t.timeEncoder.Initialize()
 		if err != nil {
 			return nil, err
 		}
@@ -56,7 +66,7 @@ func (t *formatProcessorMPEG1Video) ProcessUnit(uu unit.Unit) error { //nolint:d
 	}
 	u.RTPPackets = pkts
 
-	ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
+	ts := t.timeEncoder.Encode(u.PTS)
 	for _, pkt := range u.RTPPackets {
 		pkt.Timestamp += ts
 	}

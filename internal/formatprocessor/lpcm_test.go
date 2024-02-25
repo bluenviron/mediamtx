@@ -13,6 +13,7 @@ func TestLPCMEncode(t *testing.T) {
 	forma := &format.LPCM{
 		PayloadTyp:   96,
 		BitDepth:     16,
+		SampleRate:   44100,
 		ChannelCount: 2,
 	}
 
@@ -30,6 +31,7 @@ func TestLPCMEncode(t *testing.T) {
 			Version:        2,
 			PayloadType:    96,
 			SequenceNumber: unit.RTPPackets[0].SequenceNumber,
+			Timestamp:      unit.RTPPackets[0].Timestamp,
 			SSRC:           unit.RTPPackets[0].SSRC,
 		},
 		Payload: []byte{1, 2, 3, 4},

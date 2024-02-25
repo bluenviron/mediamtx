@@ -18,8 +18,15 @@ func resultIsOK1(res *message.CommandAMF0) bool {
 		return false
 	}
 
-	ma, ok := res.Arguments[1].(amf0.Object)
-	if !ok {
+	var ma amf0.Object
+	switch pl := res.Arguments[1].(type) {
+	case amf0.Object:
+		ma = pl
+
+	case amf0.ECMAArray:
+		ma = amf0.Object(pl)
+
+	default:
 		return false
 	}
 
@@ -359,8 +366,15 @@ func (c *Conn) initializeServer() (*url.URL, bool, error) {
 		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
 	}
 
-	ma, ok := cmd.Arguments[0].(amf0.Object)
-	if !ok {
+	var ma amf0.Object
+	switch pl := cmd.Arguments[0].(type) {
+	case amf0.Object:
+		ma = pl
+
+	case amf0.ECMAArray:
+		ma = amf0.Object(pl)
+
+	default:
 		return nil, false, fmt.Errorf("invalid connect command: %+v", cmd)
 	}
 
