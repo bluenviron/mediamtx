@@ -233,7 +233,7 @@ func TestServerRead(t *testing.T) {
 				Marker:         true,
 				PayloadType:    96,
 				SequenceNumber: p.SequenceNumber,
-				Timestamp:      0,
+				Timestamp:      p.Timestamp,
 				SSRC:           p.SSRC,
 				CSRC:           []uint32{},
 			},

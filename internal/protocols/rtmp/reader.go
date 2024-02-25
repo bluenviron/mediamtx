@@ -156,8 +156,15 @@ func tracksFromMetadata(conn *Conn, payload []interface{}) (format.Format, forma
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
 
-	md, ok := payload[0].(amf0.Object)
-	if !ok {
+	var md amf0.Object
+	switch pl := payload[0].(type) {
+	case amf0.Object:
+		md = pl
+
+	case amf0.ECMAArray:
+		md = amf0.Object(pl)
+
+	default:
 		return nil, nil, fmt.Errorf("invalid metadata")
 	}
 

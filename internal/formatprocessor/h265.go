@@ -7,6 +7,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtph265"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h265"
 	"github.com/pion/rtp"
 
@@ -80,9 +81,9 @@ func rtpH265ExtractParams(payload []byte) ([]byte, []byte, []byte) {
 type formatProcessorH265 struct {
 	udpMaxPayloadSize int
 	format            *format.H265
-
-	encoder *rtph265.Encoder
-	decoder *rtph265.Decoder
+	timeEncoder       *rtptime.Encoder
+	encoder           *rtph265.Encoder
+	decoder           *rtph265.Decoder
 }
 
 func newH265(
@@ -97,6 +98,14 @@ func newH265(
 
 	if generateRTPPackets {
 		err := t.createEncoder(nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		t.timeEncoder = &rtptime.Encoder{
+			ClockRate: forma.ClockRate(),
+		}
+		err = t.timeEncoder.Initialize()
 		if err != nil {
 			return nil, err
 		}
@@ -245,7 +254,7 @@ func (t *formatProcessorH265) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 		}
 		u.RTPPackets = pkts
 
-		ts := uint32(multiplyAndDivide(u.PTS, time.Duration(t.format.ClockRate()), time.Second))
+		ts := t.timeEncoder.Encode(u.PTS)
 		for _, pkt := range u.RTPPackets {
 			pkt.Timestamp += ts
 		}

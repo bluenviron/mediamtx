@@ -367,7 +367,7 @@ func (conf *Conf) Validate() error {
 			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
 		}
 
-		if contains(conf.AuthMethods, headers.AuthDigest) {
+		if contains(conf.AuthMethods, headers.AuthDigestMD5) {
 			return fmt.Errorf("'externalAuthenticationURL' can't be used when 'digest' is in authMethods")
 		}
 	}

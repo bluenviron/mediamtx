@@ -7,7 +7,7 @@ require (
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v0.8.1
 	github.com/bluenviron/gohlslib v1.2.2
-	github.com/bluenviron/gortsplib/v4 v4.7.2
+	github.com/bluenviron/gortsplib/v4 v4.7.3-0.20240225222544-ce46aee084cc
 	github.com/bluenviron/mediacommon v1.9.2
 	github.com/datarhei/gosrt v0.5.7
 	github.com/fsnotify/fsnotify v1.7.0
@@ -64,7 +64,7 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/net v0.20.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect

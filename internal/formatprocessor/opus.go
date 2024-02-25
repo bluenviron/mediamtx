@@ -6,6 +6,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/format"
 	"github.com/bluenviron/gortsplib/v4/pkg/format/rtpsimpleaudio"
+	"github.com/bluenviron/gortsplib/v4/pkg/rtptime"
 	"github.com/bluenviron/mediacommon/pkg/codecs/opus"
 	"github.com/pion/rtp"
 
@@ -15,6 +16,7 @@ import (
 type formatProcessorOpus struct {
 	udpMaxPayloadSize int
 	format            *format.Opus
+	timeEncoder       *rtptime.Encoder
 	encoder           *rtpsimpleaudio.Encoder
 	decoder           *rtpsimpleaudio.Decoder
 }
@@ -31,6 +33,14 @@ func newOpus(
 
 	if generateRTPPackets {
 		err := t.createEncoder()
+		if err != nil {
+			return nil, err
+		}
+
+		t.timeEncoder = &rtptime.Encoder{
+			ClockRate: forma.ClockRate(),
+		}
+		err = t.timeEncoder.Initialize()
 		if err != nil {
 			return nil, err
 		}
@@ -59,7 +69,7 @@ func (t *formatProcessorOpus) ProcessUnit(uu unit.Unit) error { //nolint:dupl
 			return err
 		}
 
-		ts := uint32(multiplyAndDivide(pts, time.Duration(t.format.ClockRate()), time.Second))
+		ts := t.timeEncoder.Encode(u.PTS)
 		pkt.Timestamp += ts
 
 		rtpPackets = append(rtpPackets, pkt)

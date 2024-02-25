@@ -21,7 +21,7 @@ func (d AuthMethods) MarshalJSON() ([]byte, error) {
 		case headers.AuthBasic:
 			out[i] = "basic"
 
-		case headers.AuthDigest:
+		case headers.AuthDigestMD5:
 			out[i] = "digest"
 
 		default:
@@ -49,7 +49,7 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 			*d = append(*d, headers.AuthBasic)
 
 		case "digest":
-			*d = append(*d, headers.AuthDigest)
+			*d = append(*d, headers.AuthDigestMD5)
 
 		default:
 			return fmt.Errorf("invalid authentication method: '%s'", v)
