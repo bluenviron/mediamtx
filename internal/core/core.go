@@ -500,24 +500,23 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.HLS &&
 		p.hlsServer == nil {
 		i := &hls.Server{
-			Address:                   p.conf.HLSAddress,
-			Encryption:                p.conf.HLSEncryption,
-			ServerKey:                 p.conf.HLSServerKey,
-			ServerCert:                p.conf.HLSServerCert,
-			ExternalAuthenticationURL: p.conf.ExternalAuthenticationURL,
-			AlwaysRemux:               p.conf.HLSAlwaysRemux,
-			Variant:                   p.conf.HLSVariant,
-			SegmentCount:              p.conf.HLSSegmentCount,
-			SegmentDuration:           p.conf.HLSSegmentDuration,
-			PartDuration:              p.conf.HLSPartDuration,
-			SegmentMaxSize:            p.conf.HLSSegmentMaxSize,
-			AllowOrigin:               p.conf.HLSAllowOrigin,
-			TrustedProxies:            p.conf.HLSTrustedProxies,
-			Directory:                 p.conf.HLSDirectory,
-			ReadTimeout:               p.conf.ReadTimeout,
-			WriteQueueSize:            p.conf.WriteQueueSize,
-			PathManager:               p.pathManager,
-			Parent:                    p,
+			Address:         p.conf.HLSAddress,
+			Encryption:      p.conf.HLSEncryption,
+			ServerKey:       p.conf.HLSServerKey,
+			ServerCert:      p.conf.HLSServerCert,
+			AlwaysRemux:     p.conf.HLSAlwaysRemux,
+			Variant:         p.conf.HLSVariant,
+			SegmentCount:    p.conf.HLSSegmentCount,
+			SegmentDuration: p.conf.HLSSegmentDuration,
+			PartDuration:    p.conf.HLSPartDuration,
+			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
+			AllowOrigin:     p.conf.HLSAllowOrigin,
+			TrustedProxies:  p.conf.HLSTrustedProxies,
+			Directory:       p.conf.HLSDirectory,
+			ReadTimeout:     p.conf.ReadTimeout,
+			WriteQueueSize:  p.conf.WriteQueueSize,
+			PathManager:     p.pathManager,
+			Parent:          p,
 		}
 		err := i.Initialize()
 		if err != nil {
@@ -750,7 +749,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
 		newConf.HLSServerCert != p.conf.HLSServerCert ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSVariant != p.conf.HLSVariant ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||

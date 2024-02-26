@@ -59,24 +59,23 @@ type serverParent interface {
 
 // Server is a HLS server.
 type Server struct {
-	Address                   string
-	Encryption                bool
-	ServerKey                 string
-	ServerCert                string
-	ExternalAuthenticationURL string
-	AlwaysRemux               bool
-	Variant                   conf.HLSVariant
-	SegmentCount              int
-	SegmentDuration           conf.StringDuration
-	PartDuration              conf.StringDuration
-	SegmentMaxSize            conf.StringSize
-	AllowOrigin               string
-	TrustedProxies            conf.IPsOrCIDRs
-	Directory                 string
-	ReadTimeout               conf.StringDuration
-	WriteQueueSize            int
-	PathManager               serverPathManager
-	Parent                    serverParent
+	Address         string
+	Encryption      bool
+	ServerKey       string
+	ServerCert      string
+	AlwaysRemux     bool
+	Variant         conf.HLSVariant
+	SegmentCount    int
+	SegmentDuration conf.StringDuration
+	PartDuration    conf.StringDuration
+	SegmentMaxSize  conf.StringSize
+	AllowOrigin     string
+	TrustedProxies  conf.IPsOrCIDRs
+	Directory       string
+	ReadTimeout     conf.StringDuration
+	WriteQueueSize  int
+	PathManager     serverPathManager
+	Parent          serverParent
 
 	ctx        context.Context
 	ctxCancel  func()
@@ -218,20 +217,19 @@ outer:
 
 func (s *Server) createMuxer(pathName string, remoteAddr string) *muxer {
 	r := &muxer{
-		parentCtx:                 s.ctx,
-		remoteAddr:                remoteAddr,
-		externalAuthenticationURL: s.ExternalAuthenticationURL,
-		variant:                   s.Variant,
-		segmentCount:              s.SegmentCount,
-		segmentDuration:           s.SegmentDuration,
-		partDuration:              s.PartDuration,
-		segmentMaxSize:            s.SegmentMaxSize,
-		directory:                 s.Directory,
-		writeQueueSize:            s.WriteQueueSize,
-		wg:                        &s.wg,
-		pathName:                  pathName,
-		pathManager:               s.PathManager,
-		parent:                    s,
+		parentCtx:       s.ctx,
+		remoteAddr:      remoteAddr,
+		variant:         s.Variant,
+		segmentCount:    s.SegmentCount,
+		segmentDuration: s.SegmentDuration,
+		partDuration:    s.PartDuration,
+		segmentMaxSize:  s.SegmentMaxSize,
+		directory:       s.Directory,
+		writeQueueSize:  s.WriteQueueSize,
+		wg:              &s.wg,
+		pathName:        pathName,
+		pathManager:     s.PathManager,
+		parent:          s,
 	}
 	r.initialize()
 	s.muxers[pathName] = r
