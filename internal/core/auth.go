@@ -84,7 +84,7 @@ func doAuthentication(
 		}
 	}
 
-	var pathIPs conf.IPsOrCIDRs
+	var pathIPs conf.IPNetworks
 	var pathUser conf.Credential
 	var pathPass conf.Credential
 
@@ -99,7 +99,7 @@ func doAuthentication(
 	}
 
 	if pathIPs != nil {
-		if !ipEqualOrInRange(accessRequest.IP, pathIPs) {
+		if !pathIPs.Contains(accessRequest.IP) {
 			return defs.AuthenticationError{Message: fmt.Sprintf("IP %s not allowed", accessRequest.IP)}
 		}
 	}

@@ -108,10 +108,10 @@ type Path struct {
 	// Authentication
 	PublishUser Credential `json:"publishUser"`
 	PublishPass Credential `json:"publishPass"`
-	PublishIPs  IPsOrCIDRs `json:"publishIPs"`
+	PublishIPs  IPNetworks `json:"publishIPs"`
 	ReadUser    Credential `json:"readUser"`
 	ReadPass    Credential `json:"readPass"`
-	ReadIPs     IPsOrCIDRs `json:"readIPs"`
+	ReadIPs     IPNetworks `json:"readIPs"`
 
 	// Publisher source
 	OverridePublisher        bool   `json:"overridePublisher"`

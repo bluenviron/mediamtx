@@ -70,7 +70,7 @@ type Server struct {
 	PartDuration    conf.StringDuration
 	SegmentMaxSize  conf.StringSize
 	AllowOrigin     string
-	TrustedProxies  conf.IPsOrCIDRs
+	TrustedProxies  conf.IPNetworks
 	Directory       string
 	ReadTimeout     conf.StringDuration
 	WriteQueueSize  int

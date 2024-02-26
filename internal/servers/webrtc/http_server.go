@@ -56,7 +56,7 @@ type httpServer struct {
 	serverKey      string
 	serverCert     string
 	allowOrigin    string
-	trustedProxies conf.IPsOrCIDRs
+	trustedProxies conf.IPNetworks
 	readTimeout    conf.StringDuration
 	pathManager    serverPathManager
 	parent         *Server

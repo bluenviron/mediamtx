@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-// IPsOrCIDRs is a parameter that contains a list of IPs or CIDRs.
-type IPsOrCIDRs []fmt.Stringer
+// IPNetworks is a parameter that contains a list of IP networks.
+type IPNetworks []*net.IPNet
 
 // MarshalJSON implements json.Marshaler.
-func (d IPsOrCIDRs) MarshalJSON() ([]byte, error) {
+func (d IPNetworks) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 
 	for i, v := range d {
@@ -25,7 +25,7 @@ func (d IPsOrCIDRs) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (d *IPsOrCIDRs) UnmarshalJSON(b []byte) error {
+func (d *IPNetworks) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {
 		return err
@@ -41,7 +41,7 @@ func (d *IPsOrCIDRs) UnmarshalJSON(b []byte) error {
 		if _, ipnet, err := net.ParseCIDR(t); err == nil {
 			*d = append(*d, ipnet)
 		} else if ip := net.ParseIP(t); ip != nil {
-			*d = append(*d, ip)
+			*d = append(*d, &net.IPNet{IP: ip, Mask: net.CIDRMask(len(ip)*8, len(ip)*8)})
 		} else {
 			return fmt.Errorf("unable to parse IP/CIDR '%s'", t)
 		}
@@ -51,16 +51,26 @@ func (d *IPsOrCIDRs) UnmarshalJSON(b []byte) error {
 }
 
 // UnmarshalEnv implements env.Unmarshaler.
-func (d *IPsOrCIDRs) UnmarshalEnv(_ string, v string) error {
+func (d *IPNetworks) UnmarshalEnv(_ string, v string) error {
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }
 
-// ToTrustedProxies converts IPsOrCIDRs into a string slice for SetTrustedProxies.
-func (d *IPsOrCIDRs) ToTrustedProxies() []string {
+// ToTrustedProxies converts IPNetworks into a string slice for SetTrustedProxies.
+func (d *IPNetworks) ToTrustedProxies() []string {
 	ret := make([]string, len(*d))
 	for i, entry := range *d {
 		ret[i] = entry.String()
 	}
 	return ret
+}
+
+// Contains checks whether the IP is part of one of the networks.
+func (d IPNetworks) Contains(ip net.IP) bool {
+	for _, network := range d {
+		if network.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }

@@ -182,7 +182,7 @@ type Server struct {
 	ServerKey             string
 	ServerCert            string
 	AllowOrigin           string
-	TrustedProxies        conf.IPsOrCIDRs
+	TrustedProxies        conf.IPNetworks
 	ReadTimeout           conf.StringDuration
 	WriteQueueSize        int
 	LocalUDPAddress       string

@@ -150,7 +150,7 @@ type Conf struct {
 	HLSPartDuration    StringDuration `json:"hlsPartDuration"`
 	HLSSegmentMaxSize  StringSize     `json:"hlsSegmentMaxSize"`
 	HLSAllowOrigin     string         `json:"hlsAllowOrigin"`
-	HLSTrustedProxies  IPsOrCIDRs     `json:"hlsTrustedProxies"`
+	HLSTrustedProxies  IPNetworks     `json:"hlsTrustedProxies"`
 	HLSDirectory       string         `json:"hlsDirectory"`
 
 	// WebRTC server
@@ -161,7 +161,7 @@ type Conf struct {
 	WebRTCServerKey             string            `json:"webrtcServerKey"`
 	WebRTCServerCert            string            `json:"webrtcServerCert"`
 	WebRTCAllowOrigin           string            `json:"webrtcAllowOrigin"`
-	WebRTCTrustedProxies        IPsOrCIDRs        `json:"webrtcTrustedProxies"`
+	WebRTCTrustedProxies        IPNetworks        `json:"webrtcTrustedProxies"`
 	WebRTCLocalUDPAddress       string            `json:"webrtcLocalUDPAddress"`
 	WebRTCLocalTCPAddress       string            `json:"webrtcLocalTCPAddress"`
 	WebRTCIPsFromInterfaces     bool              `json:"webrtcIPsFromInterfaces"`
