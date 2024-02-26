@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
@@ -57,6 +58,7 @@ type Server struct {
 	Address     string
 	ReadTimeout conf.StringDuration
 	PathConfs   map[string]*conf.Path
+	AuthManager *auth.Manager
 	Parent      logger.Writer
 
 	httpServer *httpp.WrappedServer
@@ -128,8 +130,44 @@ func (p *Server) safeFindPathConf(name string) (*conf.Path, error) {
 	return pathConf, err
 }
 
+func (p *Server) doAuth(ctx *gin.Context, pathName string) bool {
+	user, pass, hasCredentials := ctx.Request.BasicAuth()
+
+	err := p.AuthManager.Authenticate(&auth.Request{
+		User:   user,
+		Pass:   pass,
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionPlayback,
+		Path:   pathName,
+	})
+	if err != nil {
+		if !hasCredentials {
+			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+			ctx.Writer.WriteHeader(http.StatusUnauthorized)
+			return false
+		}
+
+		var terr auth.Error
+		errors.As(err, &terr)
+
+		p.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
+
+		// wait some seconds to mitigate brute force attacks
+		<-time.After(auth.PauseAfterError)
+
+		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		return false
+	}
+
+	return true
+}
+
 func (p *Server) onList(ctx *gin.Context) {
 	pathName := ctx.Query("path")
+
+	if !p.doAuth(ctx, pathName) {
+		return
+	}
 
 	pathConf, err := p.safeFindPathConf(pathName)
 	if err != nil {
@@ -181,6 +219,10 @@ func (p *Server) onList(ctx *gin.Context) {
 
 func (p *Server) onGet(ctx *gin.Context) {
 	pathName := ctx.Query("path")
+
+	if !p.doAuth(ctx, pathName) {
+		return
+	}
 
 	start, err := time.Parse(time.RFC3339, ctx.Query("start"))
 	if err != nil {

@@ -9,7 +9,7 @@ import (
 )
 
 // IPNetworks is a parameter that contains a list of IP networks.
-type IPNetworks []*net.IPNet
+type IPNetworks []net.IPNet
 
 // MarshalJSON implements json.Marshaler.
 func (d IPNetworks) MarshalJSON() ([]byte, error) {
@@ -39,9 +39,17 @@ func (d *IPNetworks) UnmarshalJSON(b []byte) error {
 
 	for _, t := range in {
 		if _, ipnet, err := net.ParseCIDR(t); err == nil {
-			*d = append(*d, ipnet)
+			if ipv4 := ipnet.IP.To4(); ipv4 != nil {
+				*d = append(*d, net.IPNet{IP: ipv4, Mask: ipnet.Mask[len(ipnet.Mask)-4 : len(ipnet.Mask)]})
+			} else {
+				*d = append(*d, *ipnet)
+			}
 		} else if ip := net.ParseIP(t); ip != nil {
-			*d = append(*d, &net.IPNet{IP: ip, Mask: net.CIDRMask(len(ip)*8, len(ip)*8)})
+			if ipv4 := ip.To4(); ipv4 != nil {
+				*d = append(*d, net.IPNet{IP: ipv4, Mask: net.CIDRMask(32, 32)})
+			} else {
+				*d = append(*d, net.IPNet{IP: ip, Mask: net.CIDRMask(128, 128)})
+			}
 		} else {
 			return fmt.Errorf("unable to parse IP/CIDR '%s'", t)
 		}

@@ -12,15 +12,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
 	"github.com/bluenviron/mediamtx/internal/restrictnetwork"
-)
-
-const (
-	pauseAfterAuthError = 2 * time.Second
 )
 
 //go:generate go run ./hlsjsdownloader
@@ -158,11 +155,11 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			IP:      net.ParseIP(ctx.ClientIP()),
 			User:    user,
 			Pass:    pass,
-			Proto:   defs.AuthProtocolHLS,
+			Proto:   auth.ProtocolHLS,
 		},
 	})
 	if err != nil {
-		var terr defs.AuthenticationError
+		var terr auth.Error
 		if errors.As(err, &terr) {
 			if !hasCredentials {
 				ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
@@ -173,7 +170,7 @@ func (s *httpServer) onRequest(ctx *gin.Context) {
 			s.Log(logger.Info, "connection %v failed to authenticate: %v", httpp.RemoteAddr(ctx), terr.Message)
 
 			// wait some seconds to mitigate brute force attacks
-			<-time.After(pauseAfterAuthError)
+			<-time.After(auth.PauseAfterError)
 
 			ctx.Writer.WriteHeader(http.StatusUnauthorized)
 			return

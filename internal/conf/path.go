@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
-	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 )
 
 var rePathName = regexp.MustCompile(`^[0-9a-zA-Z_\-/\.~]+$`)
@@ -105,13 +104,13 @@ type Path struct {
 	RecordSegmentDuration StringDuration `json:"recordSegmentDuration"`
 	RecordDeleteAfter     StringDuration `json:"recordDeleteAfter"`
 
-	// Authentication
-	PublishUser Credential `json:"publishUser"`
-	PublishPass Credential `json:"publishPass"`
-	PublishIPs  IPNetworks `json:"publishIPs"`
-	ReadUser    Credential `json:"readUser"`
-	ReadPass    Credential `json:"readPass"`
-	ReadIPs     IPNetworks `json:"readIPs"`
+	// Authentication (deprecated)
+	PublishUser *Credential `json:"publishUser,omitempty"` // deprecated
+	PublishPass *Credential `json:"publishPass,omitempty"` // deprecated
+	PublishIPs  *IPNetworks `json:"publishIPs,omitempty"`  // deprecated
+	ReadUser    *Credential `json:"readUser,omitempty"`    // deprecated
+	ReadPass    *Credential `json:"readPass,omitempty"`    // deprecated
+	ReadIPs     *IPNetworks `json:"readIPs,omitempty"`     // deprecated
 
 	// Publisher source
 	OverridePublisher        bool   `json:"overridePublisher"`
@@ -250,7 +249,11 @@ func (pconf Path) Clone() *Path {
 	return &dest
 }
 
-func (pconf *Path) validate(conf *Conf, name string) error {
+func (pconf *Path) validate(
+	conf *Conf,
+	name string,
+	deprecatedCredentialsMode bool,
+) error {
 	pconf.Name = name
 
 	switch {
@@ -375,39 +378,72 @@ func (pconf *Path) validate(conf *Conf, name string) error {
 		}
 	}
 
-	// Authentication
+	// Authentication (deprecated)
 
-	if (pconf.PublishUser != "" && pconf.PublishPass == "") ||
-		(pconf.PublishUser == "" && pconf.PublishPass != "") {
-		return fmt.Errorf("read username and password must be both filled")
-	}
-	if pconf.PublishUser != "" && pconf.Source != "publisher" {
-		return fmt.Errorf("'publishUser' is useless when source is not 'publisher', since " +
-			"the stream is not provided by a publisher, but by a fixed source")
-	}
-	if len(pconf.PublishIPs) > 0 && pconf.Source != "publisher" {
-		return fmt.Errorf("'publishIPs' is useless when source is not 'publisher', since " +
-			"the stream is not provided by a publisher, but by a fixed source")
-	}
-	if (pconf.ReadUser != "" && pconf.ReadPass == "") ||
-		(pconf.ReadUser == "" && pconf.ReadPass != "") {
-		return fmt.Errorf("read username and password must be both filled")
-	}
-	if contains(conf.RTSPAuthMethods, headers.AuthDigestMD5) {
-		if pconf.PublishUser.IsHashed() ||
-			pconf.PublishPass.IsHashed() ||
-			pconf.ReadUser.IsHashed() ||
-			pconf.ReadPass.IsHashed() {
-			return fmt.Errorf("hashed credentials can't be used when the digest auth method is available")
-		}
-	}
-	if conf.ExternalAuthenticationURL != "" {
-		if pconf.PublishUser != "" ||
-			len(pconf.PublishIPs) > 0 ||
-			pconf.ReadUser != "" ||
-			len(pconf.ReadIPs) > 0 {
-			return fmt.Errorf("credentials or IPs can't be used together with 'externalAuthenticationURL'")
-		}
+	if deprecatedCredentialsMode {
+		func() {
+			var user Credential = "any"
+			if pconf.PublishUser != nil {
+				user = *pconf.PublishUser
+			}
+
+			var pass Credential
+			if pconf.PublishPass != nil {
+				pass = *pconf.PublishPass
+			}
+
+			ips := IPNetworks{mustParseCIDR("0.0.0.0/0")}
+			if pconf.PublishIPs != nil {
+				ips = *pconf.PublishIPs
+			}
+
+			pathName := name
+			if name == "all_others" || name == "all" {
+				pathName = "~^.*$"
+			}
+
+			conf.AuthInternalUsers = append(conf.AuthInternalUsers, AuthInternalUser{
+				User: user,
+				Pass: pass,
+				IPs:  ips,
+				Permissions: []AuthInternalUserPermission{{
+					Action: AuthActionPublish,
+					Path:   pathName,
+				}},
+			})
+		}()
+
+		func() {
+			var user Credential = "any"
+			if pconf.ReadUser != nil {
+				user = *pconf.ReadUser
+			}
+
+			var pass Credential
+			if pconf.ReadPass != nil {
+				pass = *pconf.ReadPass
+			}
+
+			ips := IPNetworks{mustParseCIDR("0.0.0.0/0")}
+			if pconf.ReadIPs != nil {
+				ips = *pconf.ReadIPs
+			}
+
+			pathName := name
+			if name == "all_others" || name == "all" {
+				pathName = "~^.*$"
+			}
+
+			conf.AuthInternalUsers = append(conf.AuthInternalUsers, AuthInternalUser{
+				User: user,
+				Pass: pass,
+				IPs:  ips,
+				Permissions: []AuthInternalUserPermission{{
+					Action: AuthActionRead,
+					Path:   pathName,
+				}},
+			})
+		}()
 	}
 
 	// Publisher source

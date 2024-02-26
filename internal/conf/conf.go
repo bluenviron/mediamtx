@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"sort"
@@ -82,25 +83,58 @@ func copyStructFields(dest interface{}, source interface{}) {
 	}
 }
 
+func mustParseCIDR(v string) net.IPNet {
+	_, ne, err := net.ParseCIDR(v)
+	if err != nil {
+		panic(err)
+	}
+	if ipv4 := ne.IP.To4(); ipv4 != nil {
+		return net.IPNet{IP: ipv4, Mask: ne.Mask[len(ne.Mask)-4 : len(ne.Mask)]}
+	}
+	return *ne
+}
+
+func anyPathHasDeprecatedCredentials(paths map[string]*OptionalPath) bool {
+	for _, pa := range paths {
+		if pa != nil {
+			rva := reflect.ValueOf(pa.Values).Elem()
+			if !rva.FieldByName("PublishUser").IsNil() || !rva.FieldByName("PublishPass").IsNil() ||
+				!rva.FieldByName("PublishIPs").IsNil() ||
+				!rva.FieldByName("ReadUser").IsNil() || !rva.FieldByName("ReadPass").IsNil() ||
+				!rva.FieldByName("ReadIPs").IsNil() {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // Conf is a configuration.
 type Conf struct {
 	// General
-	LogLevel                  LogLevel        `json:"logLevel"`
-	LogDestinations           LogDestinations `json:"logDestinations"`
-	LogFile                   string          `json:"logFile"`
-	ReadTimeout               StringDuration  `json:"readTimeout"`
-	WriteTimeout              StringDuration  `json:"writeTimeout"`
-	ReadBufferCount           *int            `json:"readBufferCount,omitempty"` // deprecated
-	WriteQueueSize            int             `json:"writeQueueSize"`
-	UDPMaxPayloadSize         int             `json:"udpMaxPayloadSize"`
-	ExternalAuthenticationURL string          `json:"externalAuthenticationURL"`
-	Metrics                   bool            `json:"metrics"`
-	MetricsAddress            string          `json:"metricsAddress"`
-	PPROF                     bool            `json:"pprof"`
-	PPROFAddress              string          `json:"pprofAddress"`
-	RunOnConnect              string          `json:"runOnConnect"`
-	RunOnConnectRestart       bool            `json:"runOnConnectRestart"`
-	RunOnDisconnect           string          `json:"runOnDisconnect"`
+	LogLevel            LogLevel        `json:"logLevel"`
+	LogDestinations     LogDestinations `json:"logDestinations"`
+	LogFile             string          `json:"logFile"`
+	ReadTimeout         StringDuration  `json:"readTimeout"`
+	WriteTimeout        StringDuration  `json:"writeTimeout"`
+	ReadBufferCount     *int            `json:"readBufferCount,omitempty"` // deprecated
+	WriteQueueSize      int             `json:"writeQueueSize"`
+	UDPMaxPayloadSize   int             `json:"udpMaxPayloadSize"`
+	Metrics             bool            `json:"metrics"`
+	MetricsAddress      string          `json:"metricsAddress"`
+	PPROF               bool            `json:"pprof"`
+	PPROFAddress        string          `json:"pprofAddress"`
+	RunOnConnect        string          `json:"runOnConnect"`
+	RunOnConnectRestart bool            `json:"runOnConnectRestart"`
+	RunOnDisconnect     string          `json:"runOnDisconnect"`
+
+	// Authentication
+	AuthMethod                AuthMethod                   `json:"authMethod"`
+	AuthInternalUsers         []AuthInternalUser           `json:"authInternalUsers"`
+	AuthHTTPAddress           string                       `json:"authHTTPAddress"`
+	ExternalAuthenticationURL *string                      `json:"externalAuthenticationURL,omitempty"` // deprecated
+	AuthHTTPExclude           []AuthInternalUserPermission `json:"authHTTPExclude"`
+	AuthJWTJWKS               string                       `json:"authJWTJWKS"`
 
 	// API
 	API        bool   `json:"api"`
@@ -202,11 +236,57 @@ func (conf *Conf) setDefaults() {
 	conf.WriteTimeout = 10 * StringDuration(time.Second)
 	conf.WriteQueueSize = 512
 	conf.UDPMaxPayloadSize = 1472
-	conf.MetricsAddress = "127.0.0.1:9998"
-	conf.PPROFAddress = "127.0.0.1:9999"
+	conf.MetricsAddress = ":9998"
+	conf.PPROFAddress = ":9999"
+
+	// Authentication
+	conf.AuthInternalUsers = []AuthInternalUser{
+		{
+			User: "any",
+			Pass: "",
+			Permissions: []AuthInternalUserPermission{
+				{
+					Action: AuthActionPublish,
+				},
+				{
+					Action: AuthActionRead,
+				},
+				{
+					Action: AuthActionPlayback,
+				},
+			},
+		},
+		{
+			User: "any",
+			Pass: "",
+			IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
+			Permissions: []AuthInternalUserPermission{
+				{
+					Action: AuthActionAPI,
+				},
+				{
+					Action: AuthActionMetrics,
+				},
+				{
+					Action: AuthActionPprof,
+				},
+			},
+		},
+	}
+	conf.AuthHTTPExclude = []AuthInternalUserPermission{
+		{
+			Action: AuthActionAPI,
+		},
+		{
+			Action: AuthActionMetrics,
+		},
+		{
+			Action: AuthActionPprof,
+		},
+	}
 
 	// API
-	conf.APIAddress = "127.0.0.1:9997"
+	conf.APIAddress = ":9997"
 
 	// Playback server
 	conf.PlaybackAddress = ":9996"
@@ -362,10 +442,67 @@ func (conf *Conf) Validate() error {
 	if conf.UDPMaxPayloadSize > 1472 {
 		return fmt.Errorf("'udpMaxPayloadSize' must be less than 1472")
 	}
-	if conf.ExternalAuthenticationURL != "" {
-		if !strings.HasPrefix(conf.ExternalAuthenticationURL, "http://") &&
-			!strings.HasPrefix(conf.ExternalAuthenticationURL, "https://") {
-			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
+
+	// Authentication
+
+	if conf.ExternalAuthenticationURL != nil {
+		conf.AuthMethod = AuthMethodHTTP
+		conf.AuthHTTPAddress = *conf.ExternalAuthenticationURL
+	}
+	if conf.AuthHTTPAddress != "" &&
+		!strings.HasPrefix(conf.AuthHTTPAddress, "http://") &&
+		!strings.HasPrefix(conf.AuthHTTPAddress, "https://") {
+		return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
+	}
+	if conf.AuthJWTJWKS != "" &&
+		!strings.HasPrefix(conf.AuthJWTJWKS, "http://") &&
+		!strings.HasPrefix(conf.AuthJWTJWKS, "https://") {
+		return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
+	}
+	deprecatedCredentialsMode := false
+	if conf.PathDefaults.PublishUser != nil || conf.PathDefaults.PublishPass != nil ||
+		conf.PathDefaults.PublishIPs != nil ||
+		conf.PathDefaults.ReadUser != nil || conf.PathDefaults.ReadPass != nil ||
+		conf.PathDefaults.ReadIPs != nil ||
+		anyPathHasDeprecatedCredentials(conf.OptionalPaths) {
+		conf.AuthInternalUsers = []AuthInternalUser{
+			{
+				User: "any",
+				Pass: "",
+				Permissions: []AuthInternalUserPermission{
+					{
+						Action: AuthActionPlayback,
+					},
+				},
+			},
+			{
+				User: "any",
+				Pass: "",
+				IPs:  IPNetworks{mustParseCIDR("127.0.0.1/32"), mustParseCIDR("::1/128")},
+				Permissions: []AuthInternalUserPermission{
+					{
+						Action: AuthActionAPI,
+					},
+					{
+						Action: AuthActionMetrics,
+					},
+					{
+						Action: AuthActionPprof,
+					},
+				},
+			},
+		}
+		deprecatedCredentialsMode = true
+	}
+	switch conf.AuthMethod {
+	case AuthMethodHTTP:
+		if conf.AuthHTTPAddress == "" {
+			return fmt.Errorf("'authHTTPAddress' is empty")
+		}
+
+	case AuthMethodJWT:
+		if conf.AuthJWTJWKS == "" {
+			return fmt.Errorf("'authJWTJWKS' is empty")
 		}
 	}
 
@@ -385,8 +522,15 @@ func (conf *Conf) Validate() error {
 	if conf.AuthMethods != nil {
 		conf.RTSPAuthMethods = *conf.AuthMethods
 	}
-	if conf.ExternalAuthenticationURL != "" && contains(conf.RTSPAuthMethods, headers.AuthDigestMD5) {
-		return fmt.Errorf("'externalAuthenticationURL' can't be used when 'digest' is in authMethods")
+	if contains(conf.RTSPAuthMethods, headers.AuthDigestMD5) {
+		if conf.AuthMethod != AuthMethodInternal {
+			return fmt.Errorf("when RTSP digest is enabled, the only supported auth method is 'internal'")
+		}
+		for _, user := range conf.AuthInternalUsers {
+			if user.User.IsHashed() || user.Pass.IsHashed() {
+				return fmt.Errorf("when RTSP digest is enabled, hashed credentials cannot be used")
+			}
+		}
 	}
 
 	// RTMP
@@ -493,7 +637,7 @@ func (conf *Conf) Validate() error {
 		pconf := newPath(&conf.PathDefaults, optional)
 		conf.Paths[name] = pconf
 
-		err := pconf.validate(conf, name)
+		err := pconf.validate(conf, name, deprecatedCredentialsMode)
 		if err != nil {
 			return err
 		}

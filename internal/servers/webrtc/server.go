@@ -30,7 +30,6 @@ import (
 )
 
 const (
-	pauseAfterAuthError        = 2 * time.Second
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 )

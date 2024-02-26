@@ -48,7 +48,9 @@ func (p *dummyPath) StartPublisher(req defs.PathStartPublisherReq) (*stream.Stre
 	if err != nil {
 		return nil, err
 	}
+
 	close(p.streamCreated)
+
 	return p.stream, nil
 }
 
@@ -123,7 +125,7 @@ func TestServerPublish(t *testing.T) {
 	media0 := test.UniqueMediaH264()
 
 	err = source.StartRecording(
-		"rtsp://testpublisher:testpass@127.0.0.1:8557/teststream?param=value",
+		"rtsp://myuser:mypass@127.0.0.1:8557/teststream?param=value",
 		&description.Session{Medias: []*description.Media{media0}})
 	require.NoError(t, err)
 	defer source.Close()
@@ -211,7 +213,7 @@ func TestServerRead(t *testing.T) {
 
 	reader := gortsplib.Client{}
 
-	u, err := base.ParseURL("rtsp://testreader:testpass@127.0.0.1:8557/teststream?param=value")
+	u, err := base.ParseURL("rtsp://myuser:mypass@127.0.0.1:8557/teststream?param=value")
 	require.NoError(t, err)
 
 	err = reader.Start(u.Scheme, u.Host)

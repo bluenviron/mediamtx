@@ -6,6 +6,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -47,17 +48,16 @@ type pathManagerParent interface {
 }
 
 type pathManager struct {
-	logLevel                  conf.LogLevel
-	externalAuthenticationURL string
-	rtspAddress               string
-	rtspAuthMethods           conf.RTSPAuthMethods
-	readTimeout               conf.StringDuration
-	writeTimeout              conf.StringDuration
-	writeQueueSize            int
-	udpMaxPayloadSize         int
-	pathConfs                 map[string]*conf.Path
-	externalCmdPool           *externalcmd.Pool
-	parent                    pathManagerParent
+	logLevel          conf.LogLevel
+	authManager       *auth.Manager
+	rtspAddress       string
+	readTimeout       conf.StringDuration
+	writeTimeout      conf.StringDuration
+	writeQueueSize    int
+	udpMaxPayloadSize int
+	pathConfs         map[string]*conf.Path
+	externalCmdPool   *externalcmd.Pool
+	parent            pathManagerParent
 
 	ctx         context.Context
 	ctxCancel   func()
@@ -236,8 +236,7 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 		return
 	}
 
-	err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
-		pathConf, req.AccessRequest)
+	err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 	if err != nil {
 		req.Res <- defs.PathFindPathConfRes{Err: err}
 		return
@@ -253,8 +252,7 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
-		pathConf, req.AccessRequest)
+	err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 	if err != nil {
 		req.Res <- defs.PathDescribeRes{Err: err}
 		return
@@ -276,8 +274,7 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	if !req.AccessRequest.SkipAuth {
-		err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
-			pathConf, req.AccessRequest)
+		err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 		if err != nil {
 			req.Res <- defs.PathAddReaderRes{Err: err}
 			return
@@ -300,8 +297,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	if !req.AccessRequest.SkipAuth {
-		err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
-			pathConf, req.AccessRequest)
+		err = pm.authManager.Authenticate(req.AccessRequest.ToAuthRequest())
 		if err != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: err}
 			return

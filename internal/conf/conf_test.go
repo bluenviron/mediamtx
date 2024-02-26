@@ -215,17 +215,6 @@ func TestConfErrors(t *testing.T) {
 			"'udpMaxPayloadSize' must be less than 1472",
 		},
 		{
-			"invalid externalAuthenticationURL 1",
-			"externalAuthenticationURL: testing\n",
-			"'externalAuthenticationURL' must be a HTTP URL",
-		},
-		{
-			"invalid externalAuthenticationURL 2",
-			"externalAuthenticationURL: http://myurl\n" +
-				"authMethods: [digest]\n",
-			"'externalAuthenticationURL' can't be used when 'digest' is in authMethods",
-		},
-		{
 			"invalid strict encryption 1",
 			"encryption: strict\n" +
 				"protocols: [udp]\n",

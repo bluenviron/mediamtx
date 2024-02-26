@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
+	github.com/MicahParks/keyfunc/v3 v3.2.5
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v0.8.1
 	github.com/bluenviron/gohlslib v1.2.2
@@ -12,6 +13,7 @@ require (
 	github.com/datarhei/gosrt v0.5.7
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/gin-gonic/gin v1.9.1
+	github.com/golang-jwt/jwt/v5 v5.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gookit/color v1.5.4
 	github.com/gorilla/websocket v1.5.1
@@ -32,6 +34,7 @@ require (
 )
 
 require (
+	github.com/MicahParks/jwkset v0.5.12 // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/asticode/go-astits v1.13.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect
@@ -67,6 +70,7 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/net v0.21.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

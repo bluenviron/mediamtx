@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/gohlslib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -50,7 +51,10 @@ type dummyPathManager struct {
 	stream *stream.Stream
 }
 
-func (pm *dummyPathManager) FindPathConf(_ defs.PathFindPathConfReq) (*conf.Path, error) {
+func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
+	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
+		return nil, auth.Error{}
+	}
 	return &conf.Path{}, nil
 }
 
@@ -93,7 +97,7 @@ func TestServerNotFound(t *testing.T) {
 			hc := &http.Client{Transport: &http.Transport{}}
 
 			func() {
-				req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/nonexisting/", nil)
+				req, err := http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/nonexisting/", nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)
@@ -103,7 +107,7 @@ func TestServerNotFound(t *testing.T) {
 			}()
 
 			func() {
-				req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/nonexisting/index.m3u8", nil)
+				req, err := http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/nonexisting/index.m3u8", nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)
@@ -153,7 +157,7 @@ func TestServerRead(t *testing.T) {
 		defer s.Close()
 
 		c := &gohlslib.Client{
-			URI: "http://127.0.0.1:8888/mystream/index.m3u8",
+			URI: "http://myuser:mypass@127.0.0.1:8888/mystream/index.m3u8",
 		}
 
 		recv := make(chan struct{})
@@ -254,7 +258,7 @@ func TestServerRead(t *testing.T) {
 		}
 
 		c := &gohlslib.Client{
-			URI: "http://127.0.0.1:8888/mystream/index.m3u8",
+			URI: "http://myuser:mypass@127.0.0.1:8888/mystream/index.m3u8",
 		}
 
 		recv := make(chan struct{})
