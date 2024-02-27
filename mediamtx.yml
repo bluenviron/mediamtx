@@ -118,7 +118,7 @@ serverKey: server.key
 serverCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
 # "digest" doesn't provide any additional security and is available for compatibility reasons only.
-authMethods: [basic]
+rtspAuthMethods: [basic]
 
 ###############################################
 # Global settings -> RTMP server

@@ -76,7 +76,7 @@ func (ts *testHTTPAuthenticator) close() {
 func TestAuthSha256(t *testing.T) {
 	err := doAuthentication(
 		"",
-		conf.AuthMethods{headers.AuthBasic},
+		conf.RTSPAuthMethods{headers.AuthBasic},
 		&conf.Path{
 			PublishUser: conf.Credential("sha256:rl3rgi4NcZkpAEcacZnQ2VuOfJ0FxAqCRaKB/SwdZoQ="),
 			PublishPass: conf.Credential("sha256:E9JJ8stBJ7QM+nV4ZoUCeHk/gU3tPFh/5YieiJp6n2w="),
@@ -102,7 +102,7 @@ func TestAuthSha256(t *testing.T) {
 func TestAuthArgon2(t *testing.T) {
 	err := doAuthentication(
 		"",
-		conf.AuthMethods{headers.AuthBasic},
+		conf.RTSPAuthMethods{headers.AuthBasic},
 		&conf.Path{
 			PublishUser: conf.Credential(
 				"argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$Ux/LWeTgJQPyfMMJo1myR64+o8rALHoPmlE1i/TR+58"),
@@ -134,7 +134,7 @@ func TestAuthExternal(t *testing.T) {
 
 	err := doAuthentication(
 		"http://127.0.0.1:9120/auth",
-		conf.AuthMethods{headers.AuthBasic},
+		conf.RTSPAuthMethods{headers.AuthBasic},
 		&conf.Path{},
 		defs.PathAccessRequest{
 			Name:        "teststream",

@@ -111,20 +111,21 @@ type Conf struct {
 	PlaybackAddress string `json:"playbackAddress"`
 
 	// RTSP server
-	RTSP              bool        `json:"rtsp"`
-	RTSPDisable       *bool       `json:"rtspDisable,omitempty"` // deprecated
-	Protocols         Protocols   `json:"protocols"`
-	Encryption        Encryption  `json:"encryption"`
-	RTSPAddress       string      `json:"rtspAddress"`
-	RTSPSAddress      string      `json:"rtspsAddress"`
-	RTPAddress        string      `json:"rtpAddress"`
-	RTCPAddress       string      `json:"rtcpAddress"`
-	MulticastIPRange  string      `json:"multicastIPRange"`
-	MulticastRTPPort  int         `json:"multicastRTPPort"`
-	MulticastRTCPPort int         `json:"multicastRTCPPort"`
-	ServerKey         string      `json:"serverKey"`
-	ServerCert        string      `json:"serverCert"`
-	AuthMethods       AuthMethods `json:"authMethods"`
+	RTSP              bool             `json:"rtsp"`
+	RTSPDisable       *bool            `json:"rtspDisable,omitempty"` // deprecated
+	Protocols         Protocols        `json:"protocols"`
+	Encryption        Encryption       `json:"encryption"`
+	RTSPAddress       string           `json:"rtspAddress"`
+	RTSPSAddress      string           `json:"rtspsAddress"`
+	RTPAddress        string           `json:"rtpAddress"`
+	RTCPAddress       string           `json:"rtcpAddress"`
+	MulticastIPRange  string           `json:"multicastIPRange"`
+	MulticastRTPPort  int              `json:"multicastRTPPort"`
+	MulticastRTCPPort int              `json:"multicastRTCPPort"`
+	ServerKey         string           `json:"serverKey"`
+	ServerCert        string           `json:"serverCert"`
+	AuthMethods       *RTSPAuthMethods `json:"authMethods,omitempty"` // deprecated
+	RTSPAuthMethods   RTSPAuthMethods  `json:"rtspAuthMethods"`
 
 	// RTMP server
 	RTMP           bool       `json:"rtmp"`
@@ -226,7 +227,7 @@ func (conf *Conf) setDefaults() {
 	conf.MulticastRTCPPort = 8003
 	conf.ServerKey = "server.key"
 	conf.ServerCert = "server.crt"
-	conf.AuthMethods = AuthMethods{headers.AuthBasic}
+	conf.RTSPAuthMethods = RTSPAuthMethods{headers.AuthBasic}
 
 	// RTMP server
 	conf.RTMP = true
@@ -366,10 +367,6 @@ func (conf *Conf) Validate() error {
 			!strings.HasPrefix(conf.ExternalAuthenticationURL, "https://") {
 			return fmt.Errorf("'externalAuthenticationURL' must be a HTTP URL")
 		}
-
-		if contains(conf.AuthMethods, headers.AuthDigestMD5) {
-			return fmt.Errorf("'externalAuthenticationURL' can't be used when 'digest' is in authMethods")
-		}
 	}
 
 	// RTSP
@@ -384,6 +381,12 @@ func (conf *Conf) Validate() error {
 		if _, ok := conf.Protocols[Protocol(gortsplib.TransportUDPMulticast)]; ok {
 			return fmt.Errorf("strict encryption can't be used with the UDP-multicast transport protocol")
 		}
+	}
+	if conf.AuthMethods != nil {
+		conf.RTSPAuthMethods = *conf.AuthMethods
+	}
+	if conf.ExternalAuthenticationURL != "" && contains(conf.RTSPAuthMethods, headers.AuthDigestMD5) {
+		return fmt.Errorf("'externalAuthenticationURL' can't be used when 'digest' is in authMethods")
 	}
 
 	// RTMP

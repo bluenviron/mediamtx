@@ -50,7 +50,7 @@ type pathManager struct {
 	logLevel                  conf.LogLevel
 	externalAuthenticationURL string
 	rtspAddress               string
-	authMethods               conf.AuthMethods
+	rtspAuthMethods           conf.RTSPAuthMethods
 	readTimeout               conf.StringDuration
 	writeTimeout              conf.StringDuration
 	writeQueueSize            int
@@ -236,7 +236,7 @@ func (pm *pathManager) doFindPathConf(req defs.PathFindPathConfReq) {
 		return
 	}
 
-	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+	err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
 		pathConf, req.AccessRequest)
 	if err != nil {
 		req.Res <- defs.PathFindPathConfRes{Err: err}
@@ -253,7 +253,7 @@ func (pm *pathManager) doDescribe(req defs.PathDescribeReq) {
 		return
 	}
 
-	err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+	err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
 		pathConf, req.AccessRequest)
 	if err != nil {
 		req.Res <- defs.PathDescribeRes{Err: err}
@@ -276,7 +276,7 @@ func (pm *pathManager) doAddReader(req defs.PathAddReaderReq) {
 	}
 
 	if !req.AccessRequest.SkipAuth {
-		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+		err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
 			pathConf, req.AccessRequest)
 		if err != nil {
 			req.Res <- defs.PathAddReaderRes{Err: err}
@@ -300,7 +300,7 @@ func (pm *pathManager) doAddPublisher(req defs.PathAddPublisherReq) {
 	}
 
 	if !req.AccessRequest.SkipAuth {
-		err = doAuthentication(pm.externalAuthenticationURL, pm.authMethods,
+		err = doAuthentication(pm.externalAuthenticationURL, pm.rtspAuthMethods,
 			pathConf, req.AccessRequest)
 		if err != nil {
 			req.Res <- defs.PathAddPublisherRes{Err: err}

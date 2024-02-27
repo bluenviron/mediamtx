@@ -393,7 +393,7 @@ func (pconf *Path) validate(conf *Conf, name string) error {
 		(pconf.ReadUser == "" && pconf.ReadPass != "") {
 		return fmt.Errorf("read username and password must be both filled")
 	}
-	if contains(conf.AuthMethods, headers.AuthDigestMD5) {
+	if contains(conf.RTSPAuthMethods, headers.AuthDigestMD5) {
 		if pconf.PublishUser.IsHashed() ||
 			pconf.PublishPass.IsHashed() ||
 			pconf.ReadUser.IsHashed() ||

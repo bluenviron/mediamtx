@@ -61,7 +61,7 @@ func doExternalAuthentication(
 
 func doAuthentication(
 	externalAuthenticationURL string,
-	rtspAuthMethods conf.AuthMethods,
+	rtspAuthMethods conf.RTSPAuthMethods,
 	pathConf *conf.Path,
 	accessRequest defs.PathAccessRequest,
 ) error {

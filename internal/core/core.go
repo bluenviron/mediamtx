@@ -336,7 +336,7 @@ func (p *Core) createResources(initial bool) error {
 			logLevel:                  p.conf.LogLevel,
 			externalAuthenticationURL: p.conf.ExternalAuthenticationURL,
 			rtspAddress:               p.conf.RTSPAddress,
-			authMethods:               p.conf.AuthMethods,
+			rtspAuthMethods:           p.conf.RTSPAuthMethods,
 			readTimeout:               p.conf.ReadTimeout,
 			writeTimeout:              p.conf.WriteTimeout,
 			writeQueueSize:            p.conf.WriteQueueSize,
@@ -361,7 +361,7 @@ func (p *Core) createResources(initial bool) error {
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
-			AuthMethods:         p.conf.AuthMethods,
+			AuthMethods:         p.conf.RTSPAuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -401,7 +401,7 @@ func (p *Core) createResources(initial bool) error {
 		p.rtspsServer == nil {
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
-			AuthMethods:         p.conf.AuthMethods,
+			AuthMethods:         p.conf.RTSPAuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -659,7 +659,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.LogLevel != p.conf.LogLevel ||
 		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -674,7 +674,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSP != p.conf.RTSP ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -697,7 +697,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSP != p.conf.RTSP ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
-		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||

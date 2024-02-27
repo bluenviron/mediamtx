@@ -9,11 +9,11 @@ import (
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 )
 
-// AuthMethods is the authMethods parameter.
-type AuthMethods []headers.AuthMethod
+// RTSPAuthMethods is the rtspAuthMethods parameter.
+type RTSPAuthMethods []headers.AuthMethod
 
 // MarshalJSON implements json.Marshaler.
-func (d AuthMethods) MarshalJSON() ([]byte, error) {
+func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
 	out := make([]string, len(d))
 
 	for i, v := range d {
@@ -35,7 +35,7 @@ func (d AuthMethods) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler.
-func (d *AuthMethods) UnmarshalJSON(b []byte) error {
+func (d *RTSPAuthMethods) UnmarshalJSON(b []byte) error {
 	var in []string
 	if err := json.Unmarshal(b, &in); err != nil {
 		return err
@@ -60,7 +60,7 @@ func (d *AuthMethods) UnmarshalJSON(b []byte) error {
 }
 
 // UnmarshalEnv implements env.Unmarshaler.
-func (d *AuthMethods) UnmarshalEnv(_ string, v string) error {
+func (d *RTSPAuthMethods) UnmarshalEnv(_ string, v string) error {
 	byts, _ := json.Marshal(strings.Split(v, ","))
 	return d.UnmarshalJSON(byts)
 }
