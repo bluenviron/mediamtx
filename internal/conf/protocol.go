@@ -30,11 +30,8 @@ func (d Protocols) MarshalJSON() ([]byte, error) {
 		case Protocol(gortsplib.TransportUDPMulticast):
 			v = "multicast"
 
-		case Protocol(gortsplib.TransportTCP):
-			v = "tcp"
-
 		default:
-			return nil, fmt.Errorf("invalid protocol: %v", p)
+			v = "tcp"
 		}
 
 		out[i] = v

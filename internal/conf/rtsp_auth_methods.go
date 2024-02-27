@@ -21,11 +21,8 @@ func (d RTSPAuthMethods) MarshalJSON() ([]byte, error) {
 		case headers.AuthBasic:
 			out[i] = "basic"
 
-		case headers.AuthDigestMD5:
-			out[i] = "digest"
-
 		default:
-			return nil, fmt.Errorf("invalid authentication method: %v", v)
+			out[i] = "digest"
 		}
 	}
 

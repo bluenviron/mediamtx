@@ -26,11 +26,8 @@ func (d RTSPTransport) MarshalJSON() ([]byte, error) {
 		case gortsplib.TransportUDPMulticast:
 			out = "multicast"
 
-		case gortsplib.TransportTCP:
-			out = "tcp"
-
 		default:
-			return nil, fmt.Errorf("invalid protocol: %v", d.Transport)
+			out = "tcp"
 		}
 	}
 
