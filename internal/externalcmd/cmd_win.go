@@ -9,11 +9,52 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"unsafe"
 
 	"github.com/kballard/go-shellquote"
+	"golang.org/x/sys/windows"
 )
 
-func (e *Cmd) runOSSpecific() error {
+// taken from
+// https://gist.github.com/hallazzang/76f3970bfc949831808bbebc8ca15209
+func createProcessGroup() (windows.Handle, error) {
+	h, err := windows.CreateJobObject(nil, nil)
+	if err != nil {
+		return 0, err
+	}
+
+	info := windows.JOBOBJECT_EXTENDED_LIMIT_INFORMATION{
+		BasicLimitInformation: windows.JOBOBJECT_BASIC_LIMIT_INFORMATION{
+			LimitFlags: windows.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+		},
+	}
+	_, err = windows.SetInformationJobObject(
+		h,
+		windows.JobObjectExtendedLimitInformation,
+		uintptr(unsafe.Pointer(&info)),
+		uint32(unsafe.Sizeof(info)))
+	if err != nil {
+		return 0, err
+	}
+
+	return h, nil
+}
+
+func closeProcessGroup(h windows.Handle) error {
+	return windows.CloseHandle(h)
+}
+
+func addProcessToGroup(h windows.Handle, p *os.Process) error {
+	type process struct {
+		Pid    int
+		Handle uintptr
+	}
+
+	return windows.AssignProcessToJobObject(h,
+		windows.Handle((*process)(unsafe.Pointer(p)).Handle))
+}
+
+func (e *Cmd) runOSSpecific(env []string) error {
 	var cmd *exec.Cmd
 
 	// from Golang documentation:
@@ -39,15 +80,22 @@ func (e *Cmd) runOSSpecific() error {
 		cmd = exec.Command(cmdParts[0], cmdParts[1:]...)
 	}
 
-	cmd.Env = append([]string(nil), os.Environ()...)
-	for key, val := range e.env {
-		cmd.Env = append(cmd.Env, key+"="+val)
-	}
-
+	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	err := cmd.Start()
+	// create a process group to kill all subprocesses
+	g, err := createProcessGroup()
+	if err != nil {
+		return err
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		return err
+	}
+
+	err = addProcessToGroup(g, cmd.Process)
 	if err != nil {
 		return err
 	}
@@ -69,13 +117,12 @@ func (e *Cmd) runOSSpecific() error {
 
 	select {
 	case <-e.terminate:
-		// on Windows, it's not possible to send os.Interrupt to a process.
-		// Kill() is the only supported way.
-		cmd.Process.Kill()
+		closeProcessGroup(g)
 		<-cmdDone
 		return errTerminated
 
 	case c := <-cmdDone:
+		closeProcessGroup(g)
 		if c != 0 {
 			return fmt.Errorf("command exited with code %d", c)
 		}

@@ -42,14 +42,12 @@ func NewCmd(
 ) *Cmd {
 	// replace variables in both Linux and Windows, in order to allow using the
 	// same commands on both of them.
-	expandEnv := func(variable string) string {
+	cmdstr = os.Expand(cmdstr, func(variable string) string {
 		if value, ok := env[variable]; ok {
 			return value
 		}
 		return os.Getenv(variable)
-	}
-
-	cmdstr = os.Expand(cmdstr, expandEnv)
+	})
 
 	if onExit == nil {
 		onExit = func(_ error) {}
@@ -79,8 +77,13 @@ func (e *Cmd) Close() {
 func (e *Cmd) run() {
 	defer e.pool.wg.Done()
 
+	env := append([]string(nil), os.Environ()...)
+	for key, val := range e.env {
+		env = append(env, key+"="+val)
+	}
+
 	for {
-		err := e.runOSSpecific()
+		err := e.runOSSpecific(env)
 		if errors.Is(err, errTerminated) {
 			return
 		}
