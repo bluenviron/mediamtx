@@ -7,8 +7,8 @@ require (
 	github.com/MicahParks/keyfunc/v3 v3.2.5
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v0.8.1
-	github.com/bluenviron/gohlslib v1.2.2
-	github.com/bluenviron/gortsplib/v4 v4.7.3-0.20240225222544-ce46aee084cc
+	github.com/bluenviron/gohlslib v1.3.0
+	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bluenviron/mediacommon v1.9.2
 	github.com/datarhei/gosrt v0.5.7
 	github.com/fsnotify/fsnotify v1.7.0
