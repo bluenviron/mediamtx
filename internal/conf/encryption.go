@@ -26,11 +26,8 @@ func (d Encryption) MarshalJSON() ([]byte, error) {
 	case EncryptionOptional:
 		out = "optional"
 
-	case EncryptionStrict:
-		out = "strict"
-
 	default:
-		return nil, fmt.Errorf("invalid encryption: %v", d)
+		out = "strict"
 	}
 
 	return json.Marshal(out)

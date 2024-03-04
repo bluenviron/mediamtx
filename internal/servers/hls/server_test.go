@@ -10,6 +10,7 @@ import (
 	"github.com/bluenviron/gohlslib/pkg/codecs"
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/mediacommon/pkg/codecs/h264"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -50,7 +51,10 @@ type dummyPathManager struct {
 	stream *stream.Stream
 }
 
-func (pm *dummyPathManager) FindPathConf(_ defs.PathFindPathConfReq) (*conf.Path, error) {
+func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
+	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
+		return nil, auth.Error{}
+	}
 	return &conf.Path{}, nil
 }
 
@@ -68,24 +72,23 @@ func TestServerNotFound(t *testing.T) {
 	} {
 		t.Run(ca, func(t *testing.T) {
 			s := &Server{
-				Address:                   "127.0.0.1:8888",
-				Encryption:                false,
-				ServerKey:                 "",
-				ServerCert:                "",
-				ExternalAuthenticationURL: "",
-				AlwaysRemux:               ca == "always remux on",
-				Variant:                   conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-				SegmentCount:              7,
-				SegmentDuration:           conf.StringDuration(1 * time.Second),
-				PartDuration:              conf.StringDuration(200 * time.Millisecond),
-				SegmentMaxSize:            50 * 1024 * 1024,
-				AllowOrigin:               "",
-				TrustedProxies:            conf.IPsOrCIDRs{},
-				Directory:                 "",
-				ReadTimeout:               conf.StringDuration(10 * time.Second),
-				WriteQueueSize:            512,
-				PathManager:               &dummyPathManager{},
-				Parent:                    &test.NilLogger{},
+				Address:         "127.0.0.1:8888",
+				Encryption:      false,
+				ServerKey:       "",
+				ServerCert:      "",
+				AlwaysRemux:     ca == "always remux on",
+				Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+				SegmentCount:    7,
+				SegmentDuration: conf.StringDuration(1 * time.Second),
+				PartDuration:    conf.StringDuration(200 * time.Millisecond),
+				SegmentMaxSize:  50 * 1024 * 1024,
+				AllowOrigin:     "",
+				TrustedProxies:  conf.IPNetworks{},
+				Directory:       "",
+				ReadTimeout:     conf.StringDuration(10 * time.Second),
+				WriteQueueSize:  512,
+				PathManager:     &dummyPathManager{},
+				Parent:          &test.NilLogger{},
 			}
 			err := s.Initialize()
 			require.NoError(t, err)
@@ -94,7 +97,7 @@ func TestServerNotFound(t *testing.T) {
 			hc := &http.Client{Transport: &http.Transport{}}
 
 			func() {
-				req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/nonexisting/", nil)
+				req, err := http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/nonexisting/", nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)
@@ -104,7 +107,7 @@ func TestServerNotFound(t *testing.T) {
 			}()
 
 			func() {
-				req, err := http.NewRequest(http.MethodGet, "http://127.0.0.1:8888/nonexisting/index.m3u8", nil)
+				req, err := http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/nonexisting/index.m3u8", nil)
 				require.NoError(t, err)
 
 				res, err := hc.Do(req)
@@ -131,31 +134,30 @@ func TestServerRead(t *testing.T) {
 		pathManager := &dummyPathManager{stream: stream}
 
 		s := &Server{
-			Address:                   "127.0.0.1:8888",
-			Encryption:                false,
-			ServerKey:                 "",
-			ServerCert:                "",
-			ExternalAuthenticationURL: "",
-			AlwaysRemux:               false,
-			Variant:                   conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-			SegmentCount:              7,
-			SegmentDuration:           conf.StringDuration(1 * time.Second),
-			PartDuration:              conf.StringDuration(200 * time.Millisecond),
-			SegmentMaxSize:            50 * 1024 * 1024,
-			AllowOrigin:               "",
-			TrustedProxies:            conf.IPsOrCIDRs{},
-			Directory:                 "",
-			ReadTimeout:               conf.StringDuration(10 * time.Second),
-			WriteQueueSize:            512,
-			PathManager:               pathManager,
-			Parent:                    &test.NilLogger{},
+			Address:         "127.0.0.1:8888",
+			Encryption:      false,
+			ServerKey:       "",
+			ServerCert:      "",
+			AlwaysRemux:     false,
+			Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+			SegmentCount:    7,
+			SegmentDuration: conf.StringDuration(1 * time.Second),
+			PartDuration:    conf.StringDuration(200 * time.Millisecond),
+			SegmentMaxSize:  50 * 1024 * 1024,
+			AllowOrigin:     "",
+			TrustedProxies:  conf.IPNetworks{},
+			Directory:       "",
+			ReadTimeout:     conf.StringDuration(10 * time.Second),
+			WriteQueueSize:  512,
+			PathManager:     pathManager,
+			Parent:          &test.NilLogger{},
 		}
 		err = s.Initialize()
 		require.NoError(t, err)
 		defer s.Close()
 
 		c := &gohlslib.Client{
-			URI: "http://127.0.0.1:8888/mystream/index.m3u8",
+			URI: "http://myuser:mypass@127.0.0.1:8888/mystream/index.m3u8",
 		}
 
 		recv := make(chan struct{})
@@ -217,24 +219,23 @@ func TestServerRead(t *testing.T) {
 		pathManager := &dummyPathManager{stream: stream}
 
 		s := &Server{
-			Address:                   "127.0.0.1:8888",
-			Encryption:                false,
-			ServerKey:                 "",
-			ServerCert:                "",
-			ExternalAuthenticationURL: "",
-			AlwaysRemux:               true,
-			Variant:                   conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
-			SegmentCount:              7,
-			SegmentDuration:           conf.StringDuration(1 * time.Second),
-			PartDuration:              conf.StringDuration(200 * time.Millisecond),
-			SegmentMaxSize:            50 * 1024 * 1024,
-			AllowOrigin:               "",
-			TrustedProxies:            conf.IPsOrCIDRs{},
-			Directory:                 "",
-			ReadTimeout:               conf.StringDuration(10 * time.Second),
-			WriteQueueSize:            512,
-			PathManager:               pathManager,
-			Parent:                    &test.NilLogger{},
+			Address:         "127.0.0.1:8888",
+			Encryption:      false,
+			ServerKey:       "",
+			ServerCert:      "",
+			AlwaysRemux:     true,
+			Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+			SegmentCount:    7,
+			SegmentDuration: conf.StringDuration(1 * time.Second),
+			PartDuration:    conf.StringDuration(200 * time.Millisecond),
+			SegmentMaxSize:  50 * 1024 * 1024,
+			AllowOrigin:     "",
+			TrustedProxies:  conf.IPNetworks{},
+			Directory:       "",
+			ReadTimeout:     conf.StringDuration(10 * time.Second),
+			WriteQueueSize:  512,
+			PathManager:     pathManager,
+			Parent:          &test.NilLogger{},
 		}
 		err = s.Initialize()
 		require.NoError(t, err)
@@ -257,7 +258,7 @@ func TestServerRead(t *testing.T) {
 		}
 
 		c := &gohlslib.Client{
-			URI: "http://127.0.0.1:8888/mystream/index.m3u8",
+			URI: "http://myuser:mypass@127.0.0.1:8888/mystream/index.m3u8",
 		}
 
 		recv := make(chan struct{})

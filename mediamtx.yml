@@ -24,32 +24,15 @@ writeQueueSize: 512
 # This can be decreased to avoid fragmentation on networks with a low UDP MTU.
 udpMaxPayloadSize: 1472
 
-# HTTP URL to perform external authentication.
-# Every time a user wants to authenticate, the server calls this URL
-# with the POST method and a body containing:
-# {
-#   "ip": "ip",
-#   "user": "user",
-#   "password": "password",
-#   "path": "path",
-#   "protocol": "rtsp|rtmp|hls|webrtc",
-#   "id": "id",
-#   "action": "read|publish",
-#   "query": "query"
-# }
-# If the response code is 20x, authentication is accepted, otherwise
-# it is discarded.
-externalAuthenticationURL:
-
 # Enable Prometheus-compatible metrics.
 metrics: no
 # Address of the metrics listener.
-metricsAddress: 127.0.0.1:9998
+metricsAddress: :9998
 
 # Enable pprof-compatible endpoint to monitor performances.
 pprof: no
 # Address of the pprof listener.
-pprofAddress: 127.0.0.1:9999
+pprofAddress: :9999
 
 # Command to run when a client connects to the server.
 # This is terminated with SIGINT when a client disconnects from the server.
@@ -65,12 +48,97 @@ runOnConnectRestart: no
 runOnDisconnect:
 
 ###############################################
+# Global settings -> Authentication
+
+# Authentication method. Available values are:
+# * internal: users are stored in the configuration file
+# * http: an external HTTP URL is contacted to perform authentication
+# * jwt: an external identity server provides authentication through JWTs
+authMethod: internal
+
+# Internal authentication.
+# list of users.
+authInternalUsers:
+  # Default unprivileged user.
+  # Username. 'any' means any user, including anonymous ones.
+- user: any
+  # Password. Not used in case of 'any' user.
+  pass:
+  # IPs or networks allowed to use this user. An empty list means any IP.
+  ips: []
+  # List of permissions.
+  permissions:
+    # Available actions are: publish, read, playback, api, metrics, pprof.
+  - action: publish
+    # Paths can be set to further restrict access to a specific path.
+    # An empty path means any path.
+    # Regular expressions can be used by using a tilde as prefix.
+    path:
+  - action: read
+    path:
+  - action: playback
+    path:
+
+  # Default administrator.
+  # This allows to use API, metrics and PPROF without authentication,
+  # if the IP is localhost.
+- user: any
+  pass:
+  ips: ['127.0.0.1', '::1']
+  permissions:
+  - action: api
+  - action: metrics
+  - action: pprof
+
+# HTTP-based authentication.
+# URL called to perform authentication. Every time a user wants
+# to authenticate, the server calls this URL with the POST method
+# and a body containing:
+# {
+#   "user": "user",
+#   "password": "password",
+#   "ip": "ip",
+#   "action": "publish|read|playback|api|metrics|pprof",
+#   "path": "path",
+#   "protocol": "rtsp|rtmp|hls|webrtc|srt",
+#   "id": "id",
+#   "query": "query"
+# }
+# If the response code is 20x, authentication is accepted, otherwise
+# it is discarded.
+authHTTPAddress:
+# Actions to exclude from HTTP-based authentication.
+# Format is the same as the one of user permissions.
+authHTTPExclude:
+- action: api
+- action: metrics
+- action: pprof
+
+# JWT-based authentication.
+# Users have to login through an external identity server and obtain a JWT.
+# This JWT must contain the claim "mediamtx_permissions" with permissions,
+# for instance:
+# {
+#  ...
+#  "mediamtx_permissions": [
+#     {
+#       "action": "publish",
+#       "path": "somepath"
+#     }
+#   ]
+# }
+# Users are then expected to pass the JWT as a query parameter, i.e. ?jwt=...
+# This is the JWKS URL that will be used to pull (once) the public key that allows
+# to validate JWTs.
+authJWTJWKS:
+
+###############################################
 # Global settings -> API
 
 # Enable controlling the server through the API.
 api: no
 # Address of the API listener.
-apiAddress: 127.0.0.1:9997
+apiAddress: :9997
 
 ###############################################
 # Global settings -> Playback server
@@ -117,8 +185,8 @@ serverKey: server.key
 # Path to the server certificate. This is needed only when encryption is "strict" or "optional".
 serverCert: server.crt
 # Authentication methods. Available are "basic" and "digest".
-# "digest" doesn't provide any additional security and is available for compatibility reasons only.
-authMethods: [basic]
+# "digest" doesn't provide any additional security and is available for compatibility only.
+rtspAuthMethods: [basic]
 
 ###############################################
 # Global settings -> RTMP server
@@ -326,27 +394,6 @@ pathDefaults:
   # Delete segments after this timespan.
   # Set to 0s to disable automatic deletion.
   recordDeleteAfter: 24h
-
-  ###############################################
-  # Default path settings -> Authentication
-
-  # Username required to publish.
-  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
-  publishUser:
-  # Password required to publish.
-  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
-  publishPass:
-  # IPs or networks (x.x.x.x/24) allowed to publish.
-  publishIPs: []
-
-  # Username required to read.
-  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
-  readUser:
-  # password required to read.
-  # Hashed values can be inserted with the "argon2:" or "sha256:" prefix.
-  readPass:
-  # IPs or networks (x.x.x.x/24) allowed to read.
-  readIPs: []
 
   ###############################################
   # Default path settings -> Publisher source (when source is "publisher")

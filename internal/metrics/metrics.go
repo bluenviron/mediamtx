@@ -3,6 +3,7 @@ package metrics
 
 import (
 	"io"
+	"net"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/api"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/httpp"
@@ -38,6 +40,7 @@ type metricsParent interface {
 type Metrics struct {
 	Address     string
 	ReadTimeout conf.StringDuration
+	AuthManager *auth.Manager
 	Parent      metricsParent
 
 	httpServer   *httpp.WrappedServer
@@ -57,7 +60,7 @@ func (m *Metrics) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(nil) //nolint:errcheck
 
-	router.GET("/metrics", m.onMetrics)
+	router.GET("/metrics", m.mwAuth, m.onMetrics)
 
 	network, address := restrictnetwork.Restrict("tcp", m.Address)
 
@@ -89,6 +92,30 @@ func (m *Metrics) Close() {
 // Log implements logger.Writer.
 func (m *Metrics) Log(level logger.Level, format string, args ...interface{}) {
 	m.Parent.Log(level, "[metrics] "+format, args...)
+}
+
+func (m *Metrics) mwAuth(ctx *gin.Context) {
+	user, pass, hasCredentials := ctx.Request.BasicAuth()
+
+	err := m.AuthManager.Authenticate(&auth.Request{
+		User:   user,
+		Pass:   pass,
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionMetrics,
+	})
+	if err != nil {
+		if !hasCredentials {
+			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		// wait some seconds to mitigate brute force attacks
+		<-time.After(auth.PauseAfterError)
+
+		ctx.Writer.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 }
 
 func (m *Metrics) onMetrics(ctx *gin.Context) {

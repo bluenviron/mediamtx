@@ -24,11 +24,8 @@ func (d LogLevel) MarshalJSON() ([]byte, error) {
 	case LogLevel(logger.Info):
 		out = "info"
 
-	case LogLevel(logger.Debug):
-		out = "debug"
-
 	default:
-		return nil, fmt.Errorf("invalid log level: %v", d)
+		out = "debug"
 	}
 
 	return json.Marshal(out)

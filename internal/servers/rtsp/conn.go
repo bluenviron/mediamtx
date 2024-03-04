@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/bluenviron/gortsplib/v4"
-	"github.com/bluenviron/gortsplib/v4/pkg/auth"
+	rtspauth "github.com/bluenviron/gortsplib/v4/pkg/auth"
 	"github.com/bluenviron/gortsplib/v4/pkg/base"
 	"github.com/bluenviron/gortsplib/v4/pkg/headers"
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -20,7 +21,7 @@ import (
 )
 
 const (
-	pauseAfterAuthError = 2 * time.Second
+	rtspAuthRealm = "IPCAM"
 )
 
 type conn struct {
@@ -118,7 +119,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 
 	if c.authNonce == "" {
 		var err error
-		c.authNonce, err = auth.GenerateNonce()
+		c.authNonce, err = rtspauth.GenerateNonce()
 		if err != nil {
 			return &base.Response{
 				StatusCode: base.StatusInternalServerError,
@@ -131,7 +132,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 			Name:        ctx.Path,
 			Query:       ctx.Query,
 			IP:          c.ip(),
-			Proto:       defs.AuthProtocolRTSP,
+			Proto:       auth.ProtocolRTSP,
 			ID:          &c.uuid,
 			RTSPRequest: ctx.Request,
 			RTSPNonce:   c.authNonce,
@@ -139,7 +140,7 @@ func (c *conn) onDescribe(ctx *gortsplib.ServerHandlerOnDescribeCtx,
 	})
 
 	if res.Err != nil {
-		var terr defs.AuthenticationError
+		var terr auth.Error
 		if errors.As(res.Err, &terr) {
 			res, err := c.handleAuthError(terr)
 			return res, nil, err
@@ -191,13 +192,13 @@ func (c *conn) handleAuthError(authErr error) (*base.Response, error) {
 		return &base.Response{
 			StatusCode: base.StatusUnauthorized,
 			Header: base.Header{
-				"WWW-Authenticate": auth.GenerateWWWAuthenticate(c.authMethods, "IPCAM", c.authNonce),
+				"WWW-Authenticate": rtspauth.GenerateWWWAuthenticate(c.authMethods, rtspAuthRealm, c.authNonce),
 			},
 		}, nil
 	}
 
 	// wait some seconds to mitigate brute force attacks
-	<-time.After(pauseAfterAuthError)
+	<-time.After(auth.PauseAfterError)
 
 	return &base.Response{
 		StatusCode: base.StatusUnauthorized,

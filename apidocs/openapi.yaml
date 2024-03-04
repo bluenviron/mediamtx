@@ -97,7 +97,7 @@ components:
           type: string
         serverCert:
           type: string
-        authMethods:
+        rtspAuthMethods:
           type: array
           items:
             type: string

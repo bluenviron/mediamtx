@@ -12,6 +12,7 @@ import (
 
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/test"
 	"github.com/stretchr/testify/require"
@@ -120,6 +121,23 @@ func writeSegment2(t *testing.T, fpath string) {
 	require.NoError(t, err)
 }
 
+var authManager = &auth.Manager{
+	Method: conf.AuthMethodInternal,
+	InternalUsers: []conf.AuthInternalUser{
+		{
+			User: "myuser",
+			Pass: "mypass",
+			Permissions: []conf.AuthInternalUserPermission{
+				{
+					Action: conf.AuthActionPlayback,
+					Path:   "mypath",
+				},
+			},
+		},
+	},
+	RTSPAuthMethods: nil,
+}
+
 func TestServerGet(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mediamtx-playback")
 	require.NoError(t, err)
@@ -140,24 +158,22 @@ func TestServerGet(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		Parent: &test.NilLogger{},
+		AuthManager: authManager,
+		Parent:      &test.NilLogger{},
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
 	defer s.Close()
+
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/get")
+	require.NoError(t, err)
 
 	v := url.Values{}
 	v.Set("path", "mypath")
 	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
 	v.Set("duration", "2")
 	v.Set("format", "fmp4")
-
-	u := &url.URL{
-		Scheme:   "http",
-		Host:     "localhost:9996",
-		Path:     "/get",
-		RawQuery: v.Encode(),
-	}
+	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	require.NoError(t, err)
@@ -234,21 +250,19 @@ func TestServerList(t *testing.T) {
 				RecordPath: filepath.Join(dir, "%path/%Y-%m-%d_%H-%M-%S-%f"),
 			},
 		},
-		Parent: &test.NilLogger{},
+		AuthManager: authManager,
+		Parent:      &test.NilLogger{},
 	}
 	err = s.Initialize()
 	require.NoError(t, err)
 	defer s.Close()
 
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
+	require.NoError(t, err)
+
 	v := url.Values{}
 	v.Set("path", "mypath")
-
-	u := &url.URL{
-		Scheme:   "http",
-		Host:     "localhost:9996",
-		Path:     "/list",
-		RawQuery: v.Encode(),
-	}
+	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
 	require.NoError(t, err)

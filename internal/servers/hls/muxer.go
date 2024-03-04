@@ -46,20 +46,19 @@ type muxerGetInstanceReq struct {
 }
 
 type muxer struct {
-	parentCtx                 context.Context
-	remoteAddr                string
-	externalAuthenticationURL string
-	variant                   conf.HLSVariant
-	segmentCount              int
-	segmentDuration           conf.StringDuration
-	partDuration              conf.StringDuration
-	segmentMaxSize            conf.StringSize
-	directory                 string
-	writeQueueSize            int
-	wg                        *sync.WaitGroup
-	pathName                  string
-	pathManager               serverPathManager
-	parent                    *Server
+	parentCtx       context.Context
+	remoteAddr      string
+	variant         conf.HLSVariant
+	segmentCount    int
+	segmentDuration conf.StringDuration
+	partDuration    conf.StringDuration
+	segmentMaxSize  conf.StringSize
+	directory       string
+	writeQueueSize  int
+	wg              *sync.WaitGroup
+	pathName        string
+	pathManager     serverPathManager
+	parent          *Server
 
 	ctx             context.Context
 	ctxCancel       func()
