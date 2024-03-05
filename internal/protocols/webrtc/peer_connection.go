@@ -39,6 +39,9 @@ type PeerConnection struct {
 	closed            chan struct{}
 	gatheringDone     chan struct{}
 	incomingTrack     chan trackRecvPair
+
+	ctx       context.Context
+	ctxCancel context.CancelFunc
 }
 
 // Start starts the peer connection.
@@ -59,6 +62,8 @@ func (co *PeerConnection) Start() error {
 	co.closed = make(chan struct{})
 	co.gatheringDone = make(chan struct{})
 	co.incomingTrack = make(chan trackRecvPair)
+
+	co.ctx, co.ctxCancel = context.WithCancel(context.Background())
 
 	if !co.Publish {
 		_, err = co.wr.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo, webrtc.RtpTransceiverInit{
@@ -119,6 +124,7 @@ func (co *PeerConnection) Start() error {
 			case co.newLocalCandidate <- &v:
 			case <-co.connected:
 			case <-co.closed:
+			case <-co.ctx.Done():
 			}
 		} else {
 			close(co.gatheringDone)
@@ -130,6 +136,7 @@ func (co *PeerConnection) Start() error {
 
 // Close closes the connection.
 func (co *PeerConnection) Close() {
+	co.ctxCancel()
 	co.wr.Close() //nolint:errcheck
 	<-co.closed
 }
