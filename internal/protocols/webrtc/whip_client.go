@@ -89,7 +89,7 @@ outer:
 	for {
 		select {
 		case ca := <-c.pc.NewLocalCandidate():
-			err := WHIPPatchCandidate(context.Background(), c.HTTPClient, c.URL.String(), offer, res.ETag, ca)
+			err := WHIPPatchCandidate(ctx, c.HTTPClient, c.URL.String(), offer, res.ETag, ca)
 			if err != nil {
 				c.pc.Close()
 				return nil, err
@@ -180,7 +180,7 @@ outer:
 	for {
 		select {
 		case ca := <-c.pc.NewLocalCandidate():
-			err := WHIPPatchCandidate(context.Background(), c.HTTPClient, c.URL.String(), offer, res.ETag, ca)
+			err := WHIPPatchCandidate(ctx, c.HTTPClient, c.URL.String(), offer, res.ETag, ca)
 			if err != nil {
 				c.pc.Close()
 				return nil, err
