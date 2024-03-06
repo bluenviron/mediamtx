@@ -94,14 +94,24 @@ func mustParseCIDR(v string) net.IPNet {
 	return *ne
 }
 
+func credentialIsNotEmpty(c *Credential) bool {
+	return c != nil && *c != ""
+}
+
+func ipNetworkIsNotEmpty(i *IPNetworks) bool {
+	return i != nil && len(*i) != 0
+}
+
 func anyPathHasDeprecatedCredentials(paths map[string]*OptionalPath) bool {
 	for _, pa := range paths {
 		if pa != nil {
 			rva := reflect.ValueOf(pa.Values).Elem()
-			if !rva.FieldByName("PublishUser").IsNil() || !rva.FieldByName("PublishPass").IsNil() ||
-				!rva.FieldByName("PublishIPs").IsNil() ||
-				!rva.FieldByName("ReadUser").IsNil() || !rva.FieldByName("ReadPass").IsNil() ||
-				!rva.FieldByName("ReadIPs").IsNil() {
+			if credentialIsNotEmpty(rva.FieldByName("PublishUser").Interface().(*Credential)) ||
+				credentialIsNotEmpty(rva.FieldByName("PublishPass").Interface().(*Credential)) ||
+				ipNetworkIsNotEmpty(rva.FieldByName("PublishIPs").Interface().(*IPNetworks)) ||
+				credentialIsNotEmpty(rva.FieldByName("ReadUser").Interface().(*Credential)) ||
+				credentialIsNotEmpty(rva.FieldByName("ReadPass").Interface().(*Credential)) ||
+				ipNetworkIsNotEmpty(rva.FieldByName("ReadIPs").Interface().(*IPNetworks)) {
 				return true
 			}
 		}
@@ -460,10 +470,12 @@ func (conf *Conf) Validate() error {
 		return fmt.Errorf("'authJWTJWKS' must be a HTTP URL")
 	}
 	deprecatedCredentialsMode := false
-	if conf.PathDefaults.PublishUser != nil || conf.PathDefaults.PublishPass != nil ||
-		conf.PathDefaults.PublishIPs != nil ||
-		conf.PathDefaults.ReadUser != nil || conf.PathDefaults.ReadPass != nil ||
-		conf.PathDefaults.ReadIPs != nil ||
+	if credentialIsNotEmpty(conf.PathDefaults.PublishUser) ||
+		credentialIsNotEmpty(conf.PathDefaults.PublishPass) ||
+		ipNetworkIsNotEmpty(conf.PathDefaults.PublishIPs) ||
+		credentialIsNotEmpty(conf.PathDefaults.ReadUser) ||
+		credentialIsNotEmpty(conf.PathDefaults.ReadPass) ||
+		ipNetworkIsNotEmpty(conf.PathDefaults.ReadIPs) ||
 		anyPathHasDeprecatedCredentials(conf.OptionalPaths) {
 		conf.AuthInternalUsers = []AuthInternalUser{
 			{
