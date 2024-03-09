@@ -210,6 +210,7 @@ outer:
 func (c *WHIPClient) Close() error {
 	err := WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String())
 	c.pc.Close()
+	c.HTTPClient.CloseIdleConnections()
 	return err
 }
 
