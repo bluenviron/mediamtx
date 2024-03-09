@@ -53,7 +53,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	tracks, err := client.Read(params.Context)
 	if err != nil {
-		client.Close()
+		client.Close() //nolint:errcheck
 		return err
 	}
 	defer client.Close() //nolint:errcheck
