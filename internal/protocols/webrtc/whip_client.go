@@ -197,7 +197,13 @@ outer:
 		}
 	}
 
-	return c.pc.GatherIncomingTracks(ctx, 0)
+	tracks, err := c.pc.GatherIncomingTracks(ctx, 0)
+	if err != nil {
+		c.pc.Close()
+		return nil, err
+	}
+
+	return tracks, nil
 }
 
 // Close closes the client.
