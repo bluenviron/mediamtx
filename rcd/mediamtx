@@ -14,9 +14,10 @@ rcvar=mediamtx_enable
 
 : ${mediamtx_enable:="NO"}
 
+pidfile=/var/run/${name}.pid
 command=/usr/sbin/daemon
 mediamtx_chdir=/usr/local/www/mediamtx
-command_args="-r -u ${user} /usr/local/bin/${name}
+command_args="-r -u ${user} -P ${pidfile} /usr/local/bin/${name}"
 
 load_rc_config $name
 run_rc_command "$1"
