@@ -16,7 +16,7 @@ rcvar=mediamtx_enable
 
 pidfile=/var/run/${name}.pid
 command=/usr/sbin/daemon
-command_args="-r -u ${user} -P ${pidfile} /usr/local/bin/${name}"
+command_args="-f -u ${user} -P ${pidfile} /usr/local/bin/${name}"
 
 load_rc_config $name
 run_rc_command "$1"
