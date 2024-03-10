@@ -77,7 +77,9 @@ func TestHLSServerAuth(t *testing.T) {
 				usr = "testreader2"
 			}
 
-			hc := &http.Client{Transport: &http.Transport{}}
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
 
 			res, err := hc.Get("http://" + usr + ":testpass@127.0.0.1:8888/teststream/index.m3u8?param=value")
 			require.NoError(t, err)

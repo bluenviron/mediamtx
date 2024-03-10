@@ -397,7 +397,9 @@ func TestPathRunOnRead(t *testing.T) {
 					defer reader.Close()
 
 				case "webrtc":
-					hc := &http.Client{Transport: &http.Transport{}}
+					tr := &http.Transport{}
+					defer tr.CloseIdleConnections()
+					hc := &http.Client{Transport: tr}
 
 					u, err := url.Parse("http://localhost:8889/test/whep?query=value")
 					require.NoError(t, err)
@@ -543,7 +545,9 @@ func TestPathRecord(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPatch, "http://localhost:9997/v3/config/paths/patch/all_others", map[string]interface{}{
 		"record": false,

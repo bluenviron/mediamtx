@@ -42,14 +42,17 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	decodeErrLogger := logger.NewLimitedLogger(s)
 
+	tr := &http.Transport{
+		TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+	}
+	defer tr.CloseIdleConnections()
+
 	var c *gohlslib.Client
 	c = &gohlslib.Client{
 		URI: s.ResolvedSource,
 		HTTPClient: &http.Client{
-			Timeout: time.Duration(s.ReadTimeout),
-			Transport: &http.Transport{
-				TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
-			},
+			Timeout:   time.Duration(s.ReadTimeout),
+			Transport: tr,
 		},
 		OnDownloadPrimaryPlaylist: func(u string) {
 			s.Log(logger.Debug, "downloading primary playlist %v", u)

@@ -114,7 +114,9 @@ func TestServerStaticPages(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	for _, path := range []string{"/stream", "/stream/publish", "/publish"} {
 		func() {
@@ -160,7 +162,9 @@ func TestServerPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	// preflight requests must always work, without authentication
 	func() {
@@ -285,7 +289,9 @@ func TestServerRead(t *testing.T) {
 	u, err := url.Parse(ur)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	wc := &webrtc.WHIPClient{
 		HTTPClient: hc,
@@ -370,7 +376,9 @@ func TestServerReadNotFound(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc,
 		"http://myuser:mypass@localhost:8886/nonexisting/whep")
