@@ -94,7 +94,9 @@ func TestServerNotFound(t *testing.T) {
 			require.NoError(t, err)
 			defer s.Close()
 
-			hc := &http.Client{Transport: &http.Transport{}}
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
 
 			func() {
 				req, err := http.NewRequest(http.MethodGet, "http://myuser:mypass@127.0.0.1:8888/nonexisting/", nil)

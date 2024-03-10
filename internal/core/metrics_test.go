@@ -65,7 +65,9 @@ func TestMetrics(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	t.Run("initial", func(t *testing.T) {
 		bo := httpPullFile(t, hc, "http://localhost:9998/metrics")
@@ -165,8 +167,12 @@ webrtc_sessions_bytes_sent 0
 			su, err := url.Parse("http://localhost:8889/webrtc_path/whip")
 			require.NoError(t, err)
 
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
+
 			s := &webrtc.WHIPClient{
-				HTTPClient: &http.Client{Transport: &http.Transport{}},
+				HTTPClient: hc,
 				URL:        su,
 				Log:        test.NilLogger{},
 			}

@@ -136,7 +136,9 @@ func TestConfigGlobalGet(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/global/get", nil, &out)
@@ -157,7 +159,9 @@ func TestConfigGlobalPatch(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPatch, "http://myuser:mypass@localhost:9997/v3/config/global/patch",
 		map[string]interface{}{
@@ -198,7 +202,9 @@ func TestAPIConfigGlobalPatchUnknownField(t *testing.T) { //nolint:dupl
 	byts, err := json.Marshal(b)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	req, err := http.NewRequest(http.MethodPatch, "http://myuser:mypass@localhost:9997/v3/config/global/patch",
 		bytes.NewReader(byts))
@@ -226,7 +232,9 @@ func TestAPIConfigPathDefaultsGet(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/pathdefaults/get", nil, &out)
@@ -247,7 +255,9 @@ func TestAPIConfigPathDefaultsPatch(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPatch, "http://myuser:mypass@localhost:9997/v3/config/pathdefaults/patch",
 		map[string]interface{}{
@@ -292,7 +302,9 @@ func TestAPIConfigPathsList(t *testing.T) {
 		Items     []pathConfig `json:"items"`
 	}
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	var out listRes
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/paths/list", nil, &out)
@@ -324,7 +336,9 @@ func TestAPIConfigPathsGet(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	var out map[string]interface{}
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/config/paths/get/my/path", nil, &out)
@@ -346,7 +360,9 @@ func TestAPIConfigPathsAdd(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://myuser:mypass@localhost:9997/v3/config/paths/add/my/path",
 		map[string]interface{}{
@@ -385,7 +401,9 @@ func TestAPIConfigPathsAddUnknownField(t *testing.T) { //nolint:dupl
 	byts, err := json.Marshal(b)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	req, err := http.NewRequest(http.MethodPost,
 		"http://myuser:mypass@localhost:9997/v3/config/paths/add/my/path", bytes.NewReader(byts))
@@ -413,7 +431,9 @@ func TestAPIConfigPathsPatch(t *testing.T) { //nolint:dupl
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://myuser:mypass@localhost:9997/v3/config/paths/add/my/path",
 		map[string]interface{}{
@@ -451,7 +471,9 @@ func TestAPIConfigPathsReplace(t *testing.T) { //nolint:dupl
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://myuser:mypass@localhost:9997/v3/config/paths/add/my/path",
 		map[string]interface{}{
@@ -489,7 +511,9 @@ func TestAPIConfigPathsDelete(t *testing.T) {
 	require.NoError(t, err)
 	defer api.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	httpRequest(t, hc, http.MethodPost, "http://myuser:mypass@localhost:9997/v3/config/paths/add/my/path",
 		map[string]interface{}{
@@ -546,7 +570,9 @@ func TestRecordingsList(t *testing.T) {
 	err = os.WriteFile(filepath.Join(dir, "mypath2", "2009-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	var out interface{}
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/recordings/list", nil, &out)
@@ -607,7 +633,9 @@ func TestRecordingsGet(t *testing.T) {
 	err = os.WriteFile(filepath.Join(dir, "mypath1", "2009-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	var out interface{}
 	httpRequest(t, hc, http.MethodGet, "http://myuser:mypass@localhost:9997/v3/recordings/get/mypath1", nil, &out)
@@ -651,7 +679,9 @@ func TestRecordingsDeleteSegment(t *testing.T) {
 	err = os.WriteFile(filepath.Join(dir, "mypath1", "2008-11-07_11-22-00-900000.mp4"), []byte(""), 0o644)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	u, err := url.Parse("http://myuser:mypass@localhost:9997/v3/recordings/deletesegment")
 	require.NoError(t, err)
