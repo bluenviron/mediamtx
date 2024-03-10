@@ -78,6 +78,7 @@ func (c *WHIPClient) Publish(
 
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
+		WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -91,6 +92,7 @@ outer:
 		case ca := <-c.pc.NewLocalCandidate():
 			err := WHIPPatchCandidate(ctx, c.HTTPClient, c.URL.String(), offer, res.ETag, ca)
 			if err != nil {
+				WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 				c.pc.Close()
 				return nil, err
 			}
@@ -101,6 +103,7 @@ outer:
 			break outer
 
 		case <-t.C:
+			WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 			c.pc.Close()
 			return nil, fmt.Errorf("deadline exceeded while waiting connection")
 		}
@@ -156,6 +159,7 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 	var sdp sdp.SessionDescription
 	err = sdp.Unmarshal([]byte(res.Answer.SDP))
 	if err != nil {
+		WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -163,12 +167,14 @@ func (c *WHIPClient) Read(ctx context.Context) ([]*IncomingTrack, error) {
 	// check that there are at most two tracks
 	_, err = TrackCount(sdp.MediaDescriptions)
 	if err != nil {
+		WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
 
 	err = c.pc.SetAnswer(res.Answer)
 	if err != nil {
+		WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 		c.pc.Close()
 		return nil, err
 	}
@@ -182,6 +188,7 @@ outer:
 		case ca := <-c.pc.NewLocalCandidate():
 			err := WHIPPatchCandidate(ctx, c.HTTPClient, c.URL.String(), offer, res.ETag, ca)
 			if err != nil {
+				WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 				c.pc.Close()
 				return nil, err
 			}
@@ -192,12 +199,20 @@ outer:
 			break outer
 
 		case <-t.C:
+			WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
 			c.pc.Close()
 			return nil, fmt.Errorf("deadline exceeded while waiting connection")
 		}
 	}
 
-	return c.pc.GatherIncomingTracks(ctx, 0)
+	tracks, err := c.pc.GatherIncomingTracks(ctx, 0)
+	if err != nil {
+		WHIPDeleteSession(context.Background(), c.HTTPClient, c.URL.String()) //nolint:errcheck
+		c.pc.Close()
+		return nil, err
+	}
+
+	return tracks, nil
 }
 
 // Close closes the client.
