@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -22,10 +23,6 @@ import (
 	"github.com/bluenviron/mediamtx/internal/logger"
 	"github.com/bluenviron/mediamtx/internal/protocols/mpegts"
 	"github.com/bluenviron/mediamtx/internal/stream"
-)
-
-const (
-	pauseAfterAuthError = 2 * time.Second
 )
 
 func srtCheckPassphrase(connReq srt.ConnRequest, passphrase string) error {
@@ -171,16 +168,16 @@ func (c *conn) runPublish(req srtNewConnReq, streamID *streamID) (bool, error) {
 			Publish: true,
 			User:    streamID.user,
 			Pass:    streamID.pass,
-			Proto:   defs.AuthProtocolSRT,
+			Proto:   auth.ProtocolSRT,
 			ID:      &c.uuid,
 			Query:   streamID.query,
 		},
 	})
 	if err != nil {
-		var terr defs.AuthenticationError
+		var terr auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
-			<-time.After(pauseAfterAuthError)
+			<-time.After(auth.PauseAfterError)
 			return false, terr
 		}
 		return false, err
@@ -267,16 +264,16 @@ func (c *conn) runRead(req srtNewConnReq, streamID *streamID) (bool, error) {
 			IP:    c.ip(),
 			User:  streamID.user,
 			Pass:  streamID.pass,
-			Proto: defs.AuthProtocolSRT,
+			Proto: auth.ProtocolSRT,
 			ID:    &c.uuid,
 			Query: streamID.query,
 		},
 	})
 	if err != nil {
-		var terr defs.AuthenticationError
+		var terr auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
-			<-time.After(pauseAfterAuthError)
+			<-time.After(auth.PauseAfterError)
 			return false, err
 		}
 		return false, err

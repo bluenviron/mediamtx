@@ -30,11 +30,8 @@ func (d RTSPRangeType) MarshalJSON() ([]byte, error) {
 	case RTSPRangeTypeSMPTE:
 		out = "smpte"
 
-	case RTSPRangeTypeUndefined:
-		out = ""
-
 	default:
-		return nil, fmt.Errorf("invalid rtsp range type: %v", d)
+		out = ""
 	}
 
 	return json.Marshal(out)

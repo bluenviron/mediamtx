@@ -22,6 +22,7 @@ import (
 	pwebrtc "github.com/pion/webrtc/v3"
 
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
 	"github.com/bluenviron/mediamtx/internal/hooks"
@@ -374,15 +375,15 @@ func (s *session) runPublish() (int, error) {
 			IP:      net.ParseIP(ip),
 			User:    s.req.user,
 			Pass:    s.req.pass,
-			Proto:   defs.AuthProtocolWebRTC,
+			Proto:   auth.ProtocolWebRTC,
 			ID:      &s.uuid,
 		},
 	})
 	if err != nil {
-		var terr defs.AuthenticationError
+		var terr auth.Error
 		if errors.As(err, &terr) {
 			// wait some seconds to mitigate brute force attacks
-			<-time.After(pauseAfterAuthError)
+			<-time.After(auth.PauseAfterError)
 
 			return http.StatusUnauthorized, err
 		}
@@ -505,15 +506,15 @@ func (s *session) runRead() (int, error) {
 			IP:    net.ParseIP(ip),
 			User:  s.req.user,
 			Pass:  s.req.pass,
-			Proto: defs.AuthProtocolWebRTC,
+			Proto: auth.ProtocolWebRTC,
 			ID:    &s.uuid,
 		},
 	})
 	if err != nil {
-		var terr1 defs.AuthenticationError
+		var terr1 auth.Error
 		if errors.As(err, &terr1) {
 			// wait some seconds to mitigate brute force attacks
-			<-time.After(pauseAfterAuthError)
+			<-time.After(auth.PauseAfterError)
 			return http.StatusUnauthorized, err
 		}
 

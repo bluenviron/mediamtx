@@ -10,6 +10,7 @@ import (
 
 	"github.com/bluenviron/gortsplib/v4/pkg/description"
 	"github.com/bluenviron/mediamtx/internal/asyncwriter"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -71,7 +72,10 @@ type dummyPathManager struct {
 	path *dummyPath
 }
 
-func (pm *dummyPathManager) FindPathConf(_ defs.PathFindPathConfReq) (*conf.Path, error) {
+func (pm *dummyPathManager) FindPathConf(req defs.PathFindPathConfReq) (*conf.Path, error) {
+	if req.AccessRequest.User != "myuser" || req.AccessRequest.Pass != "mypass" {
+		return nil, auth.Error{}
+	}
 	return &conf.Path{}, nil
 }
 
@@ -93,7 +97,7 @@ func TestServerStaticPages(t *testing.T) {
 		ServerKey:             "",
 		ServerCert:            "",
 		AllowOrigin:           "",
-		TrustedProxies:        conf.IPsOrCIDRs{},
+		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
 		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -110,11 +114,13 @@ func TestServerStaticPages(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	for _, path := range []string{"/stream", "/stream/publish", "/publish"} {
 		func() {
-			req, err := http.NewRequest(http.MethodGet, "http://localhost:8886"+path, nil)
+			req, err := http.NewRequest(http.MethodGet, "http://myuser:mypass@localhost:8886"+path, nil)
 			require.NoError(t, err)
 
 			res, err := hc.Do(req)
@@ -139,7 +145,7 @@ func TestServerPublish(t *testing.T) {
 		ServerKey:             "",
 		ServerCert:            "",
 		AllowOrigin:           "",
-		TrustedProxies:        conf.IPsOrCIDRs{},
+		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
 		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -156,7 +162,9 @@ func TestServerPublish(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	// preflight requests must always work, without authentication
 	func() {
@@ -175,8 +183,7 @@ func TestServerPublish(t *testing.T) {
 		require.Equal(t, false, ok)
 	}()
 
-	ur := "http://"
-	ur += "localhost:8886/teststream/whip?param=value"
+	ur := "http://myuser:mypass@localhost:8886/teststream/whip?param=value"
 
 	su, err := url.Parse(ur)
 	require.NoError(t, err)
@@ -260,7 +267,7 @@ func TestServerRead(t *testing.T) {
 		ServerKey:             "",
 		ServerCert:            "",
 		AllowOrigin:           "",
-		TrustedProxies:        conf.IPsOrCIDRs{},
+		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
 		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -277,13 +284,14 @@ func TestServerRead(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	ur := "http://"
-	ur += "localhost:8886/teststream/whep?param=value"
+	ur := "http://myuser:mypass@localhost:8886/teststream/whep?param=value"
 
 	u, err := url.Parse(ur)
 	require.NoError(t, err)
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	wc := &webrtc.WHIPClient{
 		HTTPClient: hc,
@@ -351,7 +359,7 @@ func TestServerReadNotFound(t *testing.T) {
 		ServerKey:             "",
 		ServerCert:            "",
 		AllowOrigin:           "",
-		TrustedProxies:        conf.IPsOrCIDRs{},
+		TrustedProxies:        conf.IPNetworks{},
 		ReadTimeout:           conf.StringDuration(10 * time.Second),
 		WriteQueueSize:        512,
 		LocalUDPAddress:       "127.0.0.1:8887",
@@ -368,9 +376,12 @@ func TestServerReadNotFound(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
-	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc, "http://localhost:8886/nonexisting/whep")
+	iceServers, err := webrtc.WHIPOptionsICEServers(context.Background(), hc,
+		"http://myuser:mypass@localhost:8886/nonexisting/whep")
 	require.NoError(t, err)
 
 	pc, err := pwebrtc.NewPeerConnection(pwebrtc.Configuration{
@@ -386,7 +397,7 @@ func TestServerReadNotFound(t *testing.T) {
 	require.NoError(t, err)
 
 	req, err := http.NewRequest(http.MethodPost,
-		"http://localhost:8886/nonexisting/whep", bytes.NewReader([]byte(offer.SDP)))
+		"http://myuser:mypass@localhost:8886/nonexisting/whep", bytes.NewReader([]byte(offer.SDP)))
 	require.NoError(t, err)
 
 	req.Header.Set("Content-Type", "application/sdp")

@@ -21,11 +21,8 @@ func (d HLSVariant) MarshalJSON() ([]byte, error) {
 	case HLSVariant(gohlslib.MuxerVariantFMP4):
 		out = "fmp4"
 
-	case HLSVariant(gohlslib.MuxerVariantLowLatency):
-		out = "lowLatency"
-
 	default:
-		return nil, fmt.Errorf("invalid HLS variant: %v", d)
+		out = "lowLatency"
 	}
 
 	return json.Marshal(out)

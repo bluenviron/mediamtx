@@ -97,7 +97,9 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		hc := &http.Client{Transport: &http.Transport{}}
+		tr := &http.Transport{}
+		defer tr.CloseIdleConnections()
+		hc := &http.Client{Transport: tr}
 
 		media0 := test.UniqueMediaH264()
 
@@ -155,7 +157,9 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		hc := &http.Client{Transport: &http.Transport{}}
+		tr := &http.Transport{}
+		defer tr.CloseIdleConnections()
+		hc := &http.Client{Transport: tr}
 
 		source := gortsplib.Client{TLSConfig: &tls.Config{InsecureSkipVerify: true}}
 		err = source.StartRecording("rtsps://localhost:8322/mypath",
@@ -191,7 +195,9 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		hc := &http.Client{Transport: &http.Transport{}}
+		tr := &http.Transport{}
+		defer tr.CloseIdleConnections()
+		hc := &http.Client{Transport: tr}
 
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
@@ -218,7 +224,9 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		hc := &http.Client{Transport: &http.Transport{}}
+		tr := &http.Transport{}
+		defer tr.CloseIdleConnections()
+		hc := &http.Client{Transport: tr}
 
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
@@ -245,7 +253,9 @@ func TestAPIPathsList(t *testing.T) {
 		require.Equal(t, true, ok)
 		defer p.Close()
 
-		hc := &http.Client{Transport: &http.Transport{}}
+		tr := &http.Transport{}
+		defer tr.CloseIdleConnections()
+		hc := &http.Client{Transport: tr}
 
 		var out pathList
 		httpRequest(t, hc, http.MethodGet, "http://localhost:9997/v3/paths/list", nil, &out)
@@ -271,7 +281,9 @@ func TestAPIPathsGet(t *testing.T) {
 	require.Equal(t, true, ok)
 	defer p.Close()
 
-	hc := &http.Client{Transport: &http.Transport{}}
+	tr := &http.Transport{}
+	defer tr.CloseIdleConnections()
+	hc := &http.Client{Transport: tr}
 
 	for _, ca := range []string{"ok", "ok-nested", "not found"} {
 		t.Run(ca, func(t *testing.T) {
@@ -371,7 +383,9 @@ func TestAPIProtocolListGet(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			hc := &http.Client{Transport: &http.Transport{}}
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
 
 			medi := test.UniqueMediaH264()
 
@@ -844,7 +858,9 @@ func TestAPIProtocolGetNotFound(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			hc := &http.Client{Transport: &http.Transport{}}
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
 
 			var pa string
 			switch ca {
@@ -934,7 +950,9 @@ func TestAPIProtocolKick(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			hc := &http.Client{Transport: &http.Transport{}}
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
 
 			medi := test.MediaH264
 
@@ -1081,7 +1099,9 @@ func TestAPIProtocolKickNotFound(t *testing.T) {
 			require.Equal(t, true, ok)
 			defer p.Close()
 
-			hc := &http.Client{Transport: &http.Transport{}}
+			tr := &http.Transport{}
+			defer tr.CloseIdleConnections()
+			hc := &http.Client{Transport: tr}
 
 			var pa string
 			switch ca {

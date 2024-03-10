@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"reflect"
@@ -17,6 +18,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/defs"
 	"github.com/bluenviron/mediamtx/internal/logger"
@@ -159,6 +161,7 @@ type API struct {
 	Address      string
 	ReadTimeout  conf.StringDuration
 	Conf         *conf.Conf
+	AuthManager  *auth.Manager
 	PathManager  PathManager
 	RTSPServer   RTSPServer
 	RTSPSServer  RTSPServer
@@ -178,7 +181,7 @@ func (a *API) Initialize() error {
 	router := gin.New()
 	router.SetTrustedProxies(nil) //nolint:errcheck
 
-	group := router.Group("/")
+	group := router.Group("/", a.mwAuth)
 
 	group.GET("/v3/config/global/get", a.onConfigGlobalGet)
 	group.PATCH("/v3/config/global/patch", a.onConfigGlobalPatch)
@@ -285,6 +288,30 @@ func (a *API) writeError(ctx *gin.Context, status int, err error) {
 	ctx.JSON(status, &defs.APIError{
 		Error: err.Error(),
 	})
+}
+
+func (a *API) mwAuth(ctx *gin.Context) {
+	user, pass, hasCredentials := ctx.Request.BasicAuth()
+
+	err := a.AuthManager.Authenticate(&auth.Request{
+		User:   user,
+		Pass:   pass,
+		IP:     net.ParseIP(ctx.ClientIP()),
+		Action: conf.AuthActionAPI,
+	})
+	if err != nil {
+		if !hasCredentials {
+			ctx.Header("WWW-Authenticate", `Basic realm="mediamtx"`)
+			ctx.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		// wait some seconds to mitigate brute force attacks
+		<-time.After(auth.PauseAfterError)
+
+		ctx.AbortWithStatus(http.StatusUnauthorized)
+		return
+	}
 }
 
 func (a *API) onConfigGlobalGet(ctx *gin.Context) {

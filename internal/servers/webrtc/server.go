@@ -30,7 +30,6 @@ import (
 )
 
 const (
-	pauseAfterAuthError        = 2 * time.Second
 	webrtcTurnSecretExpiration = 24 * 3600 * time.Second
 	webrtcPayloadMaxSize       = 1188 // 1200 - 12 (RTP header)
 )
@@ -182,7 +181,7 @@ type Server struct {
 	ServerKey             string
 	ServerCert            string
 	AllowOrigin           string
-	TrustedProxies        conf.IPsOrCIDRs
+	TrustedProxies        conf.IPNetworks
 	ReadTimeout           conf.StringDuration
 	WriteQueueSize        int
 	LocalUDPAddress       string

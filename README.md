@@ -57,7 +57,7 @@ And can be recorded and played back with:
 * Serve multiple streams at once in separate paths
 * Record streams to disk
 * Playback recorded streams
-* Authenticate users; use internal or external authentication
+* Authenticate users
 * Redirect readers to other RTSP servers (load balancing)
 * Control the server through the Control API
 * Reload the configuration without disconnecting existing clients (hot reloading)
@@ -113,6 +113,9 @@ _rtsp-simple-server_ has been rebranded as _MediaMTX_. The reason is pretty obvi
 * [Other features](#other-features)
   * [Configuration](#configuration)
   * [Authentication](#authentication)
+    * [Internal](#internal)
+    * [HTTP-based](#http-based)
+    * [JWT-based](#jwt-based)
   * [Encrypt the configuration](#encrypt-the-configuration)
   * [Remuxing, re-encoding, compression](#remuxing-re-encoding-compression)
   * [Record streams to disk](#record-streams-to-disk)
@@ -1028,31 +1031,44 @@ There are 3 ways to change the configuration:
 
 ### Authentication
 
-Edit `mediamtx.yml` and set `publishUser` and `publishPass`:
+#### Internal
+
+The server provides three way to authenticate users:
+* Internal: users are stored in the configuration file
+* HTTP-based: an external HTTP URL is contacted to perform authentication
+* JWT: an external identity server provides authentication through JWTs
+
+The internal authentication method is the default one. Users are stored inside the configuration file, in this format:
 
 ```yml
-pathDefaults:
-  publishUser: myuser
-  publishPass: mypass
+authInternalUsers:
+  # Username. 'any' means any user, including anonymous ones.
+- user: any
+  # Password. Not used in case of 'any' user.
+  pass:
+  # IPs or networks allowed to use this user. An empty list means any IP.
+  ips: []
+  # List of permissions.
+  permissions:
+    # Available actions are: publish, read, playback, api, metrics, pprof.
+  - action: publish
+    # Paths can be set to further restrict access to a specific path.
+    # An empty path means any path.
+    # Regular expressions can be used by using a tilde as prefix.
+    path:
+  - action: read
+    path:
+  - action: playback
+    path:
 ```
 
-Only publishers that provide both username and password will be able to proceed:
+Only clients that provide username and passwords will be able to perform a given action:
 
 ```
 ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://myuser:mypass@localhost:8554/mystream
 ```
 
-It's possible to setup authentication for readers too:
-
-```yml
-pathDefaults:
-  readUser: myuser
-  readPass: mypass
-```
-
-If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported.
-
-To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
+If storing plain credentials in the configuration file is a security problem, username and passwords can be stored as hashed strings. The Argon2 and SHA256 hashing algorithms are supported. To use Argon2, the string must be hashed using Argon2id (recommended) or Argon2i:
 
 ```
 echo -n "mypass" | argon2 saltItWithSalt -id -l 32 -e
@@ -1061,9 +1077,11 @@ echo -n "mypass" | argon2 saltItWithSalt -id -l 32 -e
 Then stored with the `argon2:` prefix:
 
 ```yml
-pathDefaults:
-  readUser: argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$OGGO0eCMN0ievb4YGSzvS/H+Vajx1pcbUmtLp2tRqRU
-  readPass: argon2:$argon2i$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$oct3kOiFywTdDdt19kT07hdvmsPTvt9zxAUho2DLqZw
+authInternalUsers:
+- user: argon2:$argon2id$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$OGGO0eCMN0ievb4YGSzvS/H+Vajx1pcbUmtLp2tRqRU
+  pass: argon2:$argon2i$v=19$m=4096,t=3,p=1$MTIzNDU2Nzg$oct3kOiFywTdDdt19kT07hdvmsPTvt9zxAUho2DLqZw
+  permissions:
+  - action: publish
 ```
 
 To use SHA256, the string must be hashed with SHA256 and encoded with base64:
@@ -1075,16 +1093,21 @@ echo -n "mypass" | openssl dgst -binary -sha256 | openssl base64
 Then stored with the `sha256:` prefix:
 
 ```yml
-pathDefaults:
-  readUser: sha256:j1tsRqDEw9xvq/D7/9tMx6Jh/jMhk3UfjwIB2f1zgMo=
-  readPass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
+authInternalUsers:
+- user: sha256:j1tsRqDEw9xvq/D7/9tMx6Jh/jMhk3UfjwIB2f1zgMo=
+  pass: sha256:BdSWkrdV+ZxFBLUQQY7+7uv9RmiSVA8nrPmjGjJtZQQ=
+  permissions:
+  - action: publish
 ```
 
 **WARNING**: enable encryption or use a VPN to ensure that no one is intercepting the credentials in transit.
 
+#### HTTP-based
+
 Authentication can be delegated to an external HTTP server:
 
 ```yml
+authMethod: http
 externalAuthenticationURL: http://myauthserver/auth
 ```
 
@@ -1092,20 +1115,18 @@ Each time a user needs to be authenticated, the specified URL will be requested 
 
 ```json
 {
-  "ip": "ip",
   "user": "user",
   "password": "password",
+  "ip": "ip",
+  "action": "publish|read|playback|api|metrics|pprof",
   "path": "path",
-  "protocol": "rtsp|rtmp|hls|webrtc",
+  "protocol": "rtsp|rtmp|hls|webrtc|srt",
   "id": "id",
-  "action": "read|publish",
   "query": "query"
 }
 ```
 
-If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails.
-
-Please be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
+If the URL returns a status code that begins with `20` (i.e. `200`), authentication is successful, otherwise it fails. Be aware that it's perfectly normal for the authentication server to receive requests with empty users and passwords, i.e.:
 
 ```json
 {
@@ -1114,7 +1135,107 @@ Please be aware that it's perfectly normal for the authentication server to rece
 }
 ```
 
-This happens because a RTSP client doesn't provide credentials until it is asked to. In order to receive the credentials, the authentication server must reply with status code `401`, then the client will send credentials.
+This happens because RTSP clients don't provide credentials until they are asked to. In order to receive the credentials, the authentication server must reply with status code `401`, then the client will send credentials.
+
+Some actions can be excluded from the process:
+
+```yml
+# Actions to exclude from HTTP-based authentication.
+# Format is the same as the one of user permissions.
+authHTTPExclude:
+- action: api
+- action: metrics
+- action: pprof
+```
+
+#### JWT-based
+
+Authentication can be delegated to an external identity server, that is capable of generating JWTs and provides a JWKS endpoint. With respect to the HTTP-based method, this has the advantage that the external server is contacted just once, and not for every request, greatly improving performance. In order to use the JWT-based authentication method, set `authMethod` and `authJWTJWKS`:
+
+```yml
+authMethod: jwt
+authJWTJWKS: http://my_identity_server/jwks_endpoint
+```
+
+The JWT is expected to contain the `mediamtx_permissions` scope, with a list of permissions in the same format as the one of user permissions:
+
+```json
+{
+ "mediamtx_permissions": [
+    {
+      "action": "publish",
+      "path": ""
+    }
+  ]
+}
+```
+
+Clients are expected to pass the JWT in query parameters, for instance:
+
+```
+ffmpeg -re -stream_loop -1 -i file.ts -c copy -f rtsp rtsp://localhost:8554/mystream?jwt=MY_JWT
+```
+
+Here's a tutorial on how to setup the [Keycloak identity server](https://www.keycloak.org/) in order to provide such JWTs:
+
+1. Start Keycloak:
+
+   ```
+   docker run --name=keycloak -p 8080:8080 -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin quay.io/keycloak/keycloak:23.0.7 start-dev
+   ```
+
+2. Open the Keycloak administration console on http://localhost:8080, click on _master_ in the top left corner, _create realm_, set realm name to `mediamtx`, Save
+
+3. Open page _Client scopes_, _create client scope_, set name to `mediamtx`, Save
+
+4. Open tab _Mappers_, _Configure a new Mapper_, _User Attribute_
+
+   * Name: `mediamtx_permissions`
+   * User Attribute: `mediamtx_permissions`
+   * Token Claim Name: `mediamtx_permissions`
+   * Claim JSON Type: `JSON`
+   * Multivalued: `On`
+
+   Save
+
+5. Open page _Clients_, _Create client_, set Client ID to `mediamtx`, Next, Client authentication `On`, Next, Save
+
+6. Open tab _Credentials_, copy client secret somewhere
+
+7. Open tab _Client scopes_, _Add client scope_, Select `mediamtx`, Add, Default
+
+8. Open page _Users_, _Create user_, Username `testuser`, Tab credentials, _Set password_, pick a password, Save
+
+9. Open tab _Attributes_, _Add an attribute_
+
+   * Key: `mediamtx_permissions`
+   * Value: `{"action":"publish", "paths": "all"}`
+
+   You can add as many attributes with key `mediamtx_permissions` as you want, each with a single permission in it
+
+10. In MediaMTX, use the following URL:
+
+    ```yml
+    authJWTJWKS: http://localhost:8080/realms/mediamtx/protocol/openid-connect/certs
+    ```
+
+11. Perform authentication on Keycloak:
+
+    ```
+    curl \
+    -d "client_id=mediamtx" \
+    -d "client_secret=$CLIENT_SECRET" \
+    -d "username=$USER" \
+    -d "password=$PASS" \
+    -d "grant_type=password" \
+    http://localhost:8080/realms/mediamtx/protocol/openid-connect/token
+    ```
+
+    The JWT is inside the `access_token` key of the response:
+
+    ```json
+    {"access_token":"eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICIyNzVjX3ptOVlOdHQ0TkhwWVk4Und6ZndUclVGSzRBRmQwY3lsM2wtY3pzIn0.eyJleHAiOjE3MDk1NTUwOTIsImlhdCI6MTcwOTU1NDc5MiwianRpIjoiMzE3ZTQ1NGUtNzczMi00OTM1LWExNzAtOTNhYzQ2ODhhYWIxIiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tZWRpYW10eCIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiI2NTBhZDA5Zi03MDgxLTQyNGItODI4Ni0xM2I3YTA3ZDI0MWEiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJtZWRpYW10eCIsInNlc3Npb25fc3RhdGUiOiJjYzJkNDhjYy1kMmU5LTQ0YjAtODkzZS0wYTdhNjJiZDI1YmQiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIi8qIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJvZmZsaW5lX2FjY2VzcyIsInVtYV9hdXRob3JpemF0aW9uIiwiZGVmYXVsdC1yb2xlcy1tZWRpYW10eCJdfSwicmVzb3VyY2VfYWNjZXNzIjp7ImFjY291bnQiOnsicm9sZXMiOlsibWFuYWdlLWFjY291bnQiLCJtYW5hZ2UtYWNjb3VudC1saW5rcyIsInZpZXctcHJvZmlsZSJdfX0sInNjb3BlIjoibWVkaWFtdHggcHJvZmlsZSBlbWFpbCIsInNpZCI6ImNjMmQ0OGNjLWQyZTktNDRiMC04OTNlLTBhN2E2MmJkMjViZCIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwibWVkaWFtdHhfcGVybWlzc2lvbnMiOlt7ImFjdGlvbiI6InB1Ymxpc2giLCJwYXRocyI6ImFsbCJ9XSwicHJlZmVycmVkX3VzZXJuYW1lIjoidGVzdHVzZXIifQ.Gevz7rf1qHqFg7cqtSfSP31v_NS0VH7MYfwAdra1t6Yt5rTr9vJzqUeGfjYLQWR3fr4XC58DrPOhNnILCpo7jWRdimCnbPmuuCJ0AYM-Aoi3PAsWZNxgmtopq24_JokbFArY9Y1wSGFvF8puU64lt1jyOOyxf2M4cBHCs_EarCKOwuQmEZxSf8Z-QV9nlfkoTUszDCQTiKyeIkLRHL2Iy7Fw7_T3UI7sxJjVIt0c6HCNJhBBazGsYzmcSQ_GrmhbUteMTg00o6FicqkMBe99uZFnx9wIBm_QbO9hbAkkzF923I-DTAQrFLxT08ESMepDwmzFrmnwWYBLE3u8zuUlCA","expires_in":300,"refresh_expires_in":1800,"refresh_token":"eyJhbGciOiJIUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI3OTI3Zjg4Zi05YWM4LTRlNmEtYWE1OC1kZmY0MDQzZDRhNGUifQ.eyJleHAiOjE3MDk1NTY1OTIsImlhdCI6MTcwOTU1NDc5MiwianRpIjoiMGVhZWFhMWItYzNhMC00M2YxLWJkZjAtZjI2NTRiODlkOTE3IiwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo4MDgwL3JlYWxtcy9tZWRpYW10eCIsImF1ZCI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODA4MC9yZWFsbXMvbWVkaWFtdHgiLCJzdWIiOiI2NTBhZDA5Zi03MDgxLTQyNGItODI4Ni0xM2I3YTA3ZDI0MWEiLCJ0eXAiOiJSZWZyZXNoIiwiYXpwIjoibWVkaWFtdHgiLCJzZXNzaW9uX3N0YXRlIjoiY2MyZDQ4Y2MtZDJlOS00NGIwLTg5M2UtMGE3YTYyYmQyNWJkIiwic2NvcGUiOiJtZWRpYW10eCBwcm9maWxlIGVtYWlsIiwic2lkIjoiY2MyZDQ4Y2MtZDJlOS00NGIwLTg5M2UtMGE3YTYyYmQyNWJkIn0.yuXV8_JU0TQLuosNdp5xlYMjn7eO5Xq-PusdHzE7bsQ","token_type":"Bearer","not-before-policy":0,"session_state":"cc2d48cc-d2e9-44b0-893e-0a7a62bd25bd","scope":"mediamtx profile email"}
+    ```
 
 ### Encrypt the configuration
 

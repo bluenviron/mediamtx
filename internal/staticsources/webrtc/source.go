@@ -40,12 +40,15 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 
 	u.Scheme = strings.ReplaceAll(u.Scheme, "whep", "http")
 
+	tr := &http.Transport{
+		TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
+	}
+	defer tr.CloseIdleConnections()
+
 	client := webrtc.WHIPClient{
 		HTTPClient: &http.Client{
-			Timeout: time.Duration(s.ReadTimeout),
-			Transport: &http.Transport{
-				TLSClientConfig: tls.ConfigForFingerprint(params.Conf.SourceFingerprint),
-			},
+			Timeout:   time.Duration(s.ReadTimeout),
+			Transport: tr,
 		},
 		URL: u,
 		Log: s,

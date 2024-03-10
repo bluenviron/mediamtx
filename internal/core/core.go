@@ -17,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/bluenviron/mediamtx/internal/api"
+	"github.com/bluenviron/mediamtx/internal/auth"
 	"github.com/bluenviron/mediamtx/internal/conf"
 	"github.com/bluenviron/mediamtx/internal/confwatcher"
 	"github.com/bluenviron/mediamtx/internal/externalcmd"
@@ -88,6 +89,7 @@ type Core struct {
 	conf            *conf.Conf
 	logger          *logger.Logger
 	externalCmdPool *externalcmd.Pool
+	authManager     *auth.Manager
 	metrics         *metrics.Metrics
 	pprof           *pprof.PPROF
 	recordCleaner   *record.Cleaner
@@ -278,11 +280,24 @@ func (p *Core) createResources(initial bool) error {
 		p.externalCmdPool = externalcmd.NewPool()
 	}
 
+	if p.authManager == nil {
+		p.authManager = &auth.Manager{
+			Method:          p.conf.AuthMethod,
+			InternalUsers:   p.conf.AuthInternalUsers,
+			HTTPAddress:     p.conf.AuthHTTPAddress,
+			HTTPExclude:     p.conf.AuthHTTPExclude,
+			JWTJWKS:         p.conf.AuthJWTJWKS,
+			ReadTimeout:     time.Duration(p.conf.ReadTimeout),
+			RTSPAuthMethods: p.conf.RTSPAuthMethods,
+		}
+	}
+
 	if p.conf.Metrics &&
 		p.metrics == nil {
 		i := &metrics.Metrics{
 			Address:     p.conf.MetricsAddress,
 			ReadTimeout: p.conf.ReadTimeout,
+			AuthManager: p.authManager,
 			Parent:      p,
 		}
 		err := i.Initialize()
@@ -297,6 +312,7 @@ func (p *Core) createResources(initial bool) error {
 		i := &pprof.PPROF{
 			Address:     p.conf.PPROFAddress,
 			ReadTimeout: p.conf.ReadTimeout,
+			AuthManager: p.authManager,
 			Parent:      p,
 		}
 		err := i.Initialize()
@@ -322,6 +338,7 @@ func (p *Core) createResources(initial bool) error {
 			Address:     p.conf.PlaybackAddress,
 			ReadTimeout: p.conf.ReadTimeout,
 			PathConfs:   p.conf.Paths,
+			AuthManager: p.authManager,
 			Parent:      p,
 		}
 		err := i.Initialize()
@@ -333,17 +350,16 @@ func (p *Core) createResources(initial bool) error {
 
 	if p.pathManager == nil {
 		p.pathManager = &pathManager{
-			logLevel:                  p.conf.LogLevel,
-			externalAuthenticationURL: p.conf.ExternalAuthenticationURL,
-			rtspAddress:               p.conf.RTSPAddress,
-			authMethods:               p.conf.AuthMethods,
-			readTimeout:               p.conf.ReadTimeout,
-			writeTimeout:              p.conf.WriteTimeout,
-			writeQueueSize:            p.conf.WriteQueueSize,
-			udpMaxPayloadSize:         p.conf.UDPMaxPayloadSize,
-			pathConfs:                 p.conf.Paths,
-			externalCmdPool:           p.externalCmdPool,
-			parent:                    p,
+			logLevel:          p.conf.LogLevel,
+			authManager:       p.authManager,
+			rtspAddress:       p.conf.RTSPAddress,
+			readTimeout:       p.conf.ReadTimeout,
+			writeTimeout:      p.conf.WriteTimeout,
+			writeQueueSize:    p.conf.WriteQueueSize,
+			udpMaxPayloadSize: p.conf.UDPMaxPayloadSize,
+			pathConfs:         p.conf.Paths,
+			externalCmdPool:   p.externalCmdPool,
+			parent:            p,
 		}
 		p.pathManager.initialize()
 
@@ -361,7 +377,7 @@ func (p *Core) createResources(initial bool) error {
 
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPAddress,
-			AuthMethods:         p.conf.AuthMethods,
+			AuthMethods:         p.conf.RTSPAuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -401,7 +417,7 @@ func (p *Core) createResources(initial bool) error {
 		p.rtspsServer == nil {
 		i := &rtsp.Server{
 			Address:             p.conf.RTSPSAddress,
-			AuthMethods:         p.conf.AuthMethods,
+			AuthMethods:         p.conf.RTSPAuthMethods,
 			ReadTimeout:         p.conf.ReadTimeout,
 			WriteTimeout:        p.conf.WriteTimeout,
 			WriteQueueSize:      p.conf.WriteQueueSize,
@@ -500,24 +516,23 @@ func (p *Core) createResources(initial bool) error {
 	if p.conf.HLS &&
 		p.hlsServer == nil {
 		i := &hls.Server{
-			Address:                   p.conf.HLSAddress,
-			Encryption:                p.conf.HLSEncryption,
-			ServerKey:                 p.conf.HLSServerKey,
-			ServerCert:                p.conf.HLSServerCert,
-			ExternalAuthenticationURL: p.conf.ExternalAuthenticationURL,
-			AlwaysRemux:               p.conf.HLSAlwaysRemux,
-			Variant:                   p.conf.HLSVariant,
-			SegmentCount:              p.conf.HLSSegmentCount,
-			SegmentDuration:           p.conf.HLSSegmentDuration,
-			PartDuration:              p.conf.HLSPartDuration,
-			SegmentMaxSize:            p.conf.HLSSegmentMaxSize,
-			AllowOrigin:               p.conf.HLSAllowOrigin,
-			TrustedProxies:            p.conf.HLSTrustedProxies,
-			Directory:                 p.conf.HLSDirectory,
-			ReadTimeout:               p.conf.ReadTimeout,
-			WriteQueueSize:            p.conf.WriteQueueSize,
-			PathManager:               p.pathManager,
-			Parent:                    p,
+			Address:         p.conf.HLSAddress,
+			Encryption:      p.conf.HLSEncryption,
+			ServerKey:       p.conf.HLSServerKey,
+			ServerCert:      p.conf.HLSServerCert,
+			AlwaysRemux:     p.conf.HLSAlwaysRemux,
+			Variant:         p.conf.HLSVariant,
+			SegmentCount:    p.conf.HLSSegmentCount,
+			SegmentDuration: p.conf.HLSSegmentDuration,
+			PartDuration:    p.conf.HLSPartDuration,
+			SegmentMaxSize:  p.conf.HLSSegmentMaxSize,
+			AllowOrigin:     p.conf.HLSAllowOrigin,
+			TrustedProxies:  p.conf.HLSTrustedProxies,
+			Directory:       p.conf.HLSDirectory,
+			ReadTimeout:     p.conf.ReadTimeout,
+			WriteQueueSize:  p.conf.WriteQueueSize,
+			PathManager:     p.pathManager,
+			Parent:          p,
 		}
 		err := i.Initialize()
 		if err != nil {
@@ -597,6 +612,7 @@ func (p *Core) createResources(initial bool) error {
 			Address:      p.conf.APIAddress,
 			ReadTimeout:  p.conf.ReadTimeout,
 			Conf:         p.conf,
+			AuthManager:  p.authManager,
 			PathManager:  p.pathManager,
 			RTSPServer:   p.rtspServer,
 			RTSPSServer:  p.rtspsServer,
@@ -630,16 +646,29 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		!reflect.DeepEqual(newConf.LogDestinations, p.conf.LogDestinations) ||
 		newConf.LogFile != p.conf.LogFile
 
+	closeAuthManager := newConf == nil ||
+		newConf.AuthMethod != p.conf.AuthMethod ||
+		newConf.AuthHTTPAddress != p.conf.AuthHTTPAddress ||
+		!reflect.DeepEqual(newConf.AuthHTTPExclude, p.conf.AuthHTTPExclude) ||
+		newConf.AuthJWTJWKS != p.conf.AuthJWTJWKS ||
+		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods)
+	if !closeAuthManager && !reflect.DeepEqual(newConf.AuthInternalUsers, p.conf.AuthInternalUsers) {
+		p.authManager.ReloadInternalUsers(newConf.AuthInternalUsers)
+	}
+
 	closeMetrics := newConf == nil ||
 		newConf.Metrics != p.conf.Metrics ||
 		newConf.MetricsAddress != p.conf.MetricsAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
 		closeLogger
 
 	closePPROF := newConf == nil ||
 		newConf.PPROF != p.conf.PPROF ||
 		newConf.PPROFAddress != p.conf.PPROFAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
 		closeLogger
 
 	closeRecorderCleaner := newConf == nil ||
@@ -650,6 +679,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.Playback != p.conf.Playback ||
 		newConf.PlaybackAddress != p.conf.PlaybackAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
 		closeLogger
 	if !closePlaybackServer && p.playbackServer != nil && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.playbackServer.ReloadPathConfs(newConf.Paths)
@@ -657,14 +687,14 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 
 	closePathManager := newConf == nil ||
 		newConf.LogLevel != p.conf.LogLevel ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
 		newConf.UDPMaxPayloadSize != p.conf.UDPMaxPayloadSize ||
 		closeMetrics ||
+		closeAuthManager ||
 		closeLogger
 	if !closePathManager && !reflect.DeepEqual(newConf.Paths, p.conf.Paths) {
 		p.pathManager.ReloadPathConfs(newConf.Paths)
@@ -674,7 +704,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSP != p.conf.RTSP ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPAddress != p.conf.RTSPAddress ||
-		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -697,7 +727,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.RTSP != p.conf.RTSP ||
 		newConf.Encryption != p.conf.Encryption ||
 		newConf.RTSPSAddress != p.conf.RTSPSAddress ||
-		!reflect.DeepEqual(newConf.AuthMethods, p.conf.AuthMethods) ||
+		!reflect.DeepEqual(newConf.RTSPAuthMethods, p.conf.RTSPAuthMethods) ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
 		newConf.WriteTimeout != p.conf.WriteTimeout ||
 		newConf.WriteQueueSize != p.conf.WriteQueueSize ||
@@ -750,7 +780,6 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.HLSEncryption != p.conf.HLSEncryption ||
 		newConf.HLSServerKey != p.conf.HLSServerKey ||
 		newConf.HLSServerCert != p.conf.HLSServerCert ||
-		newConf.ExternalAuthenticationURL != p.conf.ExternalAuthenticationURL ||
 		newConf.HLSAlwaysRemux != p.conf.HLSAlwaysRemux ||
 		newConf.HLSVariant != p.conf.HLSVariant ||
 		newConf.HLSSegmentCount != p.conf.HLSSegmentCount ||
@@ -804,6 +833,7 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 		newConf.API != p.conf.API ||
 		newConf.APIAddress != p.conf.APIAddress ||
 		newConf.ReadTimeout != p.conf.ReadTimeout ||
+		closeAuthManager ||
 		closePathManager ||
 		closeRTSPServer ||
 		closeRTSPSServer ||
@@ -919,6 +949,10 @@ func (p *Core) closeResources(newConf *conf.Conf, calledByAPI bool) {
 	if closeMetrics && p.metrics != nil {
 		p.metrics.Close()
 		p.metrics = nil
+	}
+
+	if closeAuthManager && p.authManager != nil {
+		p.authManager = nil
 	}
 
 	if newConf == nil && p.externalCmdPool != nil {
