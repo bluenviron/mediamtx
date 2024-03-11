@@ -1,7 +1,7 @@
-github.com/MicahParks/jwkset v0.5.13 h1:vRXsx+b8uaZm1AU6MpavHJXOmuwP36iR+DNmlg2Lx8o=
-github.com/MicahParks/jwkset v0.5.13/go.mod h1:q8ptTGn/Z9c4MwbcfeCDssADeVQb3Pk7PnVxrvi+2QY=
-github.com/MicahParks/keyfunc/v3 v3.2.7 h1:ZNVuh6dQ/1JQamtahDy1fUUPMVewZupWTDpMq/pxMqk=
-github.com/MicahParks/keyfunc/v3 v3.2.7/go.mod h1:LXARqJdr+5ETgA2soFi8ZqX7hAES9YbSwxakZxLRWTk=
+github.com/MicahParks/jwkset v0.5.14 h1:VeSaeoeERrYhbzaXyjDctbl5KqT+pHdaLZz8Or5GMNA=
+github.com/MicahParks/jwkset v0.5.14/go.mod h1:q8ptTGn/Z9c4MwbcfeCDssADeVQb3Pk7PnVxrvi+2QY=
+github.com/MicahParks/keyfunc/v3 v3.2.8 h1:3AFMW/fRykBs4VKbuEPAODvJXqnPjrqm/emOUJiX1+s=
+github.com/MicahParks/keyfunc/v3 v3.2.8/go.mod h1:xO0NcrjdxfRJ+lDKNaXzhgFG/0XlnSi58JiMMAsQeZM=
 github.com/abema/go-mp4 v1.2.0 h1:gi4X8xg/m179N/J15Fn5ugywN9vtI6PLk6iLldHGLAk=
 github.com/abema/go-mp4 v1.2.0/go.mod h1:vPl9t5ZK7K0x68jh12/+ECWBCXoWuIDtNgPtU2f04ws=
 github.com/alecthomas/assert/v2 v2.1.0 h1:tbredtNcQnoSd3QBhQWI7QZ3XHOVkw1Moklp2ojoH/0=

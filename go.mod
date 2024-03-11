@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	code.cloudfoundry.org/bytefmt v0.0.0
-	github.com/MicahParks/keyfunc/v3 v3.2.7
+	github.com/MicahParks/keyfunc/v3 v3.2.8
 	github.com/abema/go-mp4 v1.2.0
 	github.com/alecthomas/kong v0.8.1
 	github.com/bluenviron/gohlslib v1.3.0
@@ -34,7 +34,7 @@ require (
 )
 
 require (
-	github.com/MicahParks/jwkset v0.5.13 // indirect
+	github.com/MicahParks/jwkset v0.5.14 // indirect
 	github.com/asticode/go-astikit v0.30.0 // indirect
 	github.com/asticode/go-astits v1.13.0 // indirect
 	github.com/benburkert/openpgp v0.0.0-20160410205803-c2471f86866c // indirect
