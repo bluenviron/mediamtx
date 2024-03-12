@@ -6,7 +6,7 @@ require (
 	code.cloudfoundry.org/bytefmt v0.0.0
 	github.com/MicahParks/keyfunc/v3 v3.2.9
 	github.com/abema/go-mp4 v1.2.0
-	github.com/alecthomas/kong v0.8.1
+	github.com/alecthomas/kong v0.9.0
 	github.com/bluenviron/gohlslib v1.3.0
 	github.com/bluenviron/gortsplib/v4 v4.8.0
 	github.com/bluenviron/mediacommon v1.9.2
