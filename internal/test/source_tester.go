@@ -69,6 +69,7 @@ func (t *SourceTester) SetReady(req defs.PathSourceStaticSetReadyReq) defs.PathS
 	)
 
 	t.writer = asyncwriter.New(2048, t)
+
 	t.stream.AddReader(t.writer, req.Desc.Medias[0], req.Desc.Medias[0].Formats[0], func(u unit.Unit) error {
 		t.Unit <- u
 		close(t.Unit)

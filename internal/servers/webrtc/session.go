@@ -612,17 +612,16 @@ func (s *session) runRead() (int, error) {
 	defer onUnreadHook()
 
 	writer.Start()
+	defer writer.Stop()
 
 	select {
 	case <-pc.Disconnected():
-		writer.Stop()
 		return 0, fmt.Errorf("peer connection closed")
 
 	case err := <-writer.Error():
 		return 0, err
 
 	case <-s.ctx.Done():
-		writer.Stop()
 		return 0, fmt.Errorf("terminated")
 	}
 }
