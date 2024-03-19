@@ -198,7 +198,7 @@ func TestH265EmptyPacket(t *testing.T) {
 }
 
 func FuzzRTPH265ExtractParams(f *testing.F) {
-	f.Fuzz(func(t *testing.T, b []byte) {
+	f.Fuzz(func(_ *testing.T, b []byte) {
 		rtpH265ExtractParams(b)
 	})
 }

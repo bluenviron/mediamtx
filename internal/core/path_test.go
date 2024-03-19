@@ -650,12 +650,12 @@ func TestPathSourceRegexp(t *testing.T) {
 					StatusCode: base.StatusOK,
 				}, stream, nil
 			},
-			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+			onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 				return &base.Response{
 					StatusCode: base.StatusOK,
 				}, stream, nil
 			},
-			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+			onPlay: func(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 				return &base.Response{
 					StatusCode: base.StatusOK,
 				}, nil

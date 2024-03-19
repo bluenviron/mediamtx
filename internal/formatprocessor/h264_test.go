@@ -202,7 +202,7 @@ func TestH264EmptyPacket(t *testing.T) {
 }
 
 func FuzzRTPH264ExtractParams(f *testing.F) {
-	f.Fuzz(func(t *testing.T, b []byte) {
+	f.Fuzz(func(_ *testing.T, b []byte) {
 		rtpH264ExtractParams(b)
 	})
 }

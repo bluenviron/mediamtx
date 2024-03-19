@@ -258,7 +258,7 @@ func TestServerRead(t *testing.T) {
 				},
 			})
 
-			r.OnDataH264(func(pts time.Duration, au [][]byte) {
+			r.OnDataH264(func(_ time.Duration, au [][]byte) {
 				require.Equal(t, [][]byte{
 					test.FormatH264.SPS,
 					test.FormatH264.PPS,

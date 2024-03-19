@@ -69,12 +69,12 @@ func TestSource(t *testing.T) {
 							StatusCode: base.StatusOK,
 						}, stream, nil
 					},
-					onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 						return &base.Response{
 							StatusCode: base.StatusOK,
 						}, stream, nil
 					},
-					onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+					onPlay: func(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 						go func() {
 							time.Sleep(100 * time.Millisecond)
 							err := stream.WritePacketRTP(media0, &rtp.Packet{
@@ -195,7 +195,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 					StatusCode: base.StatusOK,
 				}, stream, nil
 			},
-			onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+			onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 				go func() {
 					time.Sleep(100 * time.Millisecond)
 					err := stream.WritePacketRTP(media0, &rtp.Packet{
@@ -216,7 +216,7 @@ func TestRTSPSourceNoPassword(t *testing.T) {
 					StatusCode: base.StatusOK,
 				}, stream, nil
 			},
-			onPlay: func(ctx *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
+			onPlay: func(_ *gortsplib.ServerHandlerOnPlayCtx) (*base.Response, error) {
 				return &base.Response{
 					StatusCode: base.StatusOK,
 				}, nil
@@ -263,12 +263,12 @@ func TestRTSPSourceRange(t *testing.T) {
 
 			s := gortsplib.Server{
 				Handler: &testServer{
-					onDescribe: func(ctx *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					onDescribe: func(_ *gortsplib.ServerHandlerOnDescribeCtx) (*base.Response, *gortsplib.ServerStream, error) {
 						return &base.Response{
 							StatusCode: base.StatusOK,
 						}, stream, nil
 					},
-					onSetup: func(ctx *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
+					onSetup: func(_ *gortsplib.ServerHandlerOnSetupCtx) (*base.Response, *gortsplib.ServerStream, error) {
 						return &base.Response{
 							StatusCode: base.StatusOK,
 						}, stream, nil

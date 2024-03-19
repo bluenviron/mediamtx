@@ -15,6 +15,7 @@ linters:
   - nilerr
   - prealloc
   - revive
+  - usestdlibvars
   - unconvert
   - tparallel
   - wastedassign
