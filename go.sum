@@ -35,8 +35,8 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583j
 github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5 h1:xB7KkA98BcUdzVcwyZxb5R0FGIHxNPHgZOzkjPEY5gM=
 github.com/cloudfoundry/bytefmt v0.0.0-20211005130812-5bb3c17173e5/go.mod h1:v4VVB6oBMz/c9fRY6vZrwr5xKRWOH5NPDjQZlPk0Gbs=
 github.com/creack/pty v1.1.7/go.mod h1:lj5s0c3V2DBrqTV7llrYr5NG6My20zk30Fl46Y7DoTY=
-github.com/datarhei/gosrt v0.5.7 h1:1COeDgF0D0v0poWu0yKDC72d29x16Ma6VFR1icx+3Xc=
-github.com/datarhei/gosrt v0.5.7/go.mod h1:ZicbsY9T2rXtWgQVBTR9ilnEkSYVSIb36hG9Lj7XCKM=
+github.com/datarhei/gosrt v0.6.0 h1:HrrXAw90V78ok4WMIhX6se1aTHPCn82Sg2hj+PhdmGc=
+github.com/datarhei/gosrt v0.6.0/go.mod h1:fsOWdLSHUHShHjgi/46h6wjtdQrtnSdAQFnlas8ONxs=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
