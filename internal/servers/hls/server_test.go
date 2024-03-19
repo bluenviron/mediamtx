@@ -3,6 +3,8 @@ package hls
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -292,4 +294,52 @@ func TestServerRead(t *testing.T) {
 
 		<-recv
 	})
+}
+
+func TestDirectory(t *testing.T) {
+	dir, err := os.MkdirTemp("", "mediamtx-playback")
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
+
+	desc := &description.Session{Medias: []*description.Media{test.MediaH264}}
+
+	stream, err := stream.New(
+		1460,
+		desc,
+		true,
+		test.NilLogger{},
+	)
+	require.NoError(t, err)
+
+	pathManager := &dummyPathManager{stream: stream}
+
+	s := &Server{
+		Address:         "127.0.0.1:8888",
+		Encryption:      false,
+		ServerKey:       "",
+		ServerCert:      "",
+		AlwaysRemux:     true,
+		Variant:         conf.HLSVariant(gohlslib.MuxerVariantMPEGTS),
+		SegmentCount:    7,
+		SegmentDuration: conf.StringDuration(1 * time.Second),
+		PartDuration:    conf.StringDuration(200 * time.Millisecond),
+		SegmentMaxSize:  50 * 1024 * 1024,
+		AllowOrigin:     "",
+		TrustedProxies:  conf.IPNetworks{},
+		Directory:       filepath.Join(dir, "mydir"),
+		ReadTimeout:     conf.StringDuration(10 * time.Second),
+		WriteQueueSize:  512,
+		PathManager:     pathManager,
+		Parent:          &test.NilLogger{},
+	}
+	err = s.Initialize()
+	require.NoError(t, err)
+	defer s.Close()
+
+	s.PathReady(&dummyPath{})
+
+	time.Sleep(100 * time.Millisecond)
+
+	_, err = os.Stat(filepath.Join(dir, "mydir", "mystream"))
+	require.NoError(t, err)
 }

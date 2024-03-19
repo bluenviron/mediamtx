@@ -54,7 +54,6 @@ func (mi *muxerInstance) initialize() error {
 	if mi.directory != "" {
 		muxerDirectory = filepath.Join(mi.directory, mi.pathName)
 		os.MkdirAll(muxerDirectory, 0o755)
-		defer os.Remove(muxerDirectory)
 	}
 
 	mi.hmuxer = &gohlslib.Muxer{
@@ -91,6 +90,9 @@ func (mi *muxerInstance) close() {
 	mi.writer.Stop()
 	mi.hmuxer.Close()
 	mi.stream.RemoveReader(mi.writer)
+	if mi.hmuxer.Directory != "" {
+		os.Remove(mi.hmuxer.Directory)
+	}
 }
 
 func (mi *muxerInstance) createVideoTrack() *gohlslib.Track {
