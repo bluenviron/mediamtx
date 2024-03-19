@@ -194,7 +194,7 @@ func FuzzLoad(f *testing.F) {
 	f.Add("MYPREFIX_MYDURATION", "a")
 	f.Add("MYPREFIX_MYDURATION_A", "a")
 
-	f.Fuzz(func(t *testing.T, key string, val string) {
+	f.Fuzz(func(_ *testing.T, key string, val string) {
 		env := map[string]string{
 			key: val,
 		}

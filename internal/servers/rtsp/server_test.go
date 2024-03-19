@@ -228,7 +228,7 @@ func TestServerRead(t *testing.T) {
 
 	recv := make(chan struct{})
 
-	reader.OnPacketRTPAny(func(m *description.Media, f format.Format, p *rtp.Packet) {
+	reader.OnPacketRTPAny(func(_ *description.Media, _ format.Format, p *rtp.Packet) {
 		require.Equal(t, &rtp.Packet{
 			Header: rtp.Header{
 				Version:        2,

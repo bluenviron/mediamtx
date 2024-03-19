@@ -123,7 +123,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 						}},
 					}
 
-					c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
+					c.OnDataH26x(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
 						stream.WriteUnit(medi, medi.Formats[0], &unit.H264{
 							Base: unit.Base{
 								NTP: time.Now(),
@@ -144,7 +144,7 @@ func (s *Source) Run(params defs.StaticSourceRunParams) error {
 						}},
 					}
 
-					c.OnDataH26x(track, func(pts time.Duration, dts time.Duration, au [][]byte) {
+					c.OnDataH26x(track, func(pts time.Duration, _ time.Duration, au [][]byte) {
 						stream.WriteUnit(medi, medi.Formats[0], &unit.H265{
 							Base: unit.Base{
 								NTP: time.Now(),

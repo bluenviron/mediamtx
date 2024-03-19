@@ -205,7 +205,7 @@ func TestReader(t *testing.T) {
 		t.Run(ca.name, func(t *testing.T) {
 			var buf bytes.Buffer
 			br := bytecounter.NewReader(&buf)
-			r := NewReader(br, br, func(count uint32) error {
+			r := NewReader(br, br, func(_ uint32) error {
 				return nil
 			})
 
@@ -234,7 +234,7 @@ func TestReaderAcknowledge(t *testing.T) {
 
 			var buf bytes.Buffer
 			bc := bytecounter.NewReader(&buf)
-			r := NewReader(bc, bc, func(count uint32) error {
+			r := NewReader(bc, bc, func(_ uint32) error {
 				close(onAckCalled)
 				return nil
 			})
@@ -269,9 +269,9 @@ func TestReaderAcknowledge(t *testing.T) {
 }
 
 func FuzzReader(f *testing.F) {
-	f.Fuzz(func(t *testing.T, b []byte) {
+	f.Fuzz(func(_ *testing.T, b []byte) {
 		br := bytecounter.NewReader(bytes.NewReader(b))
-		r := NewReader(br, br, func(count uint32) error {
+		r := NewReader(br, br, func(_ uint32) error {
 			return nil
 		})
 

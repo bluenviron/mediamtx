@@ -167,10 +167,10 @@ func TestAgent(t *testing.T) {
 				SegmentDuration: 1 * time.Second,
 				PathName:        "mypath",
 				Stream:          stream,
-				OnSegmentCreate: func(fpath string) {
+				OnSegmentCreate: func(_ string) {
 					segCreated <- struct{}{}
 				},
-				OnSegmentComplete: func(fpath string) {
+				OnSegmentComplete: func(_ string) {
 					segDone <- struct{}{}
 				},
 				Parent:       &test.NilLogger{},

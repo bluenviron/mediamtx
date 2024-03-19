@@ -39,7 +39,7 @@ func TestServerConn(t *testing.T) {
 	defer res.Body.Close()
 	defer c.Close() //nolint:errcheck
 
-	c.SetPingHandler(func(msg string) error {
+	c.SetPingHandler(func(_ string) error {
 		close(pingReceived)
 		return nil
 	})
