@@ -237,10 +237,10 @@ func (c *conn) runRead(conn *rtmp.Conn, u *url.URL) error {
 	c.nconn.SetReadDeadline(time.Time{})
 
 	writer.Start()
+	defer writer.Stop()
 
 	select {
 	case <-c.ctx.Done():
-		writer.Stop()
 		return fmt.Errorf("terminated")
 
 	case err := <-writer.Error():

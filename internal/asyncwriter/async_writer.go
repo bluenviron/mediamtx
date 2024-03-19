@@ -50,6 +50,7 @@ func (w *Writer) Error() chan error {
 
 func (w *Writer) run() {
 	w.err <- w.runInner()
+	close(w.err)
 }
 
 func (w *Writer) runInner() error {

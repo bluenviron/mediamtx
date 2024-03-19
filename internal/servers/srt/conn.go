@@ -327,10 +327,10 @@ func (c *conn) runRead(req srtNewConnReq, streamID *streamID) (bool, error) {
 	sconn.SetReadDeadline(time.Time{})
 
 	writer.Start()
+	defer writer.Stop()
 
 	select {
 	case <-c.ctx.Done():
-		writer.Stop()
 		return true, fmt.Errorf("terminated")
 
 	case err := <-writer.Error():
