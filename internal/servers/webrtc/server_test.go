@@ -408,3 +408,40 @@ func TestServerReadNotFound(t *testing.T) {
 
 	require.Equal(t, http.StatusNotFound, res.StatusCode)
 }
+
+func TestICEServerNoClientOnly(t *testing.T) {
+	s := &Server{
+		ICEServers: []conf.WebRTCICEServer{
+			{
+				URL:      "turn:turn.example.com:1234",
+				Username: "user",
+				Password: "passwrd",
+			},
+		},
+	}
+	clientICEServers, err := s.generateICEServers(true)
+	require.NoError(t, err)
+	require.Equal(t, len(s.ICEServers), len(clientICEServers))
+	serverICEServers, err := s.generateICEServers(false)
+	require.NoError(t, err)
+	require.Equal(t, len(s.ICEServers), len(serverICEServers))
+}
+
+func TestICEServerClientOnly(t *testing.T) {
+	s := &Server{
+		ICEServers: []conf.WebRTCICEServer{
+			{
+				URL:        "turn:turn.example.com:1234",
+				Username:   "user",
+				Password:   "passwrd",
+				ClientOnly: true,
+			},
+		},
+	}
+	clientICEServers, err := s.generateICEServers(true)
+	require.NoError(t, err)
+	require.Equal(t, len(s.ICEServers), len(clientICEServers))
+	serverICEServers, err := s.generateICEServers(false)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(serverICEServers))
+}
