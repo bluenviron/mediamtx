@@ -86,7 +86,7 @@ func (p *formatFMP4Part) record(track *formatFMP4Track, sample *sample) error {
 	if !ok {
 		partTrack = &fmp4.PartTrack{
 			ID:       track.initTrack.ID,
-			BaseTime: durationGoToMp4(sample.dts-p.s.startDTS, track.initTrack.TimeScale),
+			BaseTime: durationGoToMp4(sample.dts, track.initTrack.TimeScale),
 		}
 		p.partTracks[track] = partTrack
 	}
