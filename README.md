@@ -1676,7 +1676,7 @@ api: yes
 The API listens on `apiAddress`, that by default is `127.0.0.1:9997`; for instance, to obtain a list of active paths, run:
 
 ```
-curl http://127.0.0.1:9997/v2/paths/list
+curl http://127.0.0.1:9997/v3/paths/list
 ```
 
 Full documentation of the Control API is available on the [dedicated site](https://bluenviron.github.io/mediamtx/).
