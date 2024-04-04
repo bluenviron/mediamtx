@@ -180,7 +180,7 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 
 		return out, buf[1:], nil
 
-	case markerNull:
+	case markerNull, markerUnsupported, markerUndefined:
 		return nil, buf, nil
 
 	case markerStrictArray:
@@ -200,7 +200,7 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 		}
 		return nil, buf, nil
 
-	case markerLongString:
+	case markerLongString, markerXMLDocument:
 		if len(buf) < 4 {
 			return nil, nil, errBufferTooShort
 		}
@@ -212,6 +212,16 @@ func unmarshal(buf []byte) (interface{}, []byte, error) {
 
 		return string(buf[:keyLen]), buf[keyLen:], nil
 
+	case markerDate:
+		if len(buf) < 10 {
+			return nil, nil, errBufferTooShort
+		}
+		date := math.Float64frombits(uint64(buf[0])<<56 | uint64(buf[1])<<48 | uint64(buf[2])<<40 | uint64(buf[3])<<32 |
+			uint64(buf[4])<<24 | uint64(buf[5])<<16 | uint64(buf[6])<<8 | uint64(buf[7]))
+		buf = buf[8:]
+		//timeZone := uint16(buf[0])<<8 | uint16(buf[1])
+		buf = buf[2:] // skip timeZone
+		return date, buf, nil
 	default:
 		return nil, nil, fmt.Errorf("unsupported marker 0x%.2x", marker)
 	}
