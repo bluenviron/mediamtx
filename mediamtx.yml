@@ -311,6 +311,7 @@ webrtcICEServers2: []
   # the secret must be inserted into the password field.
   # username: ''
   # password: ''
+  # clientOnly: false
 
 ###############################################
 # Global settings -> SRT server
