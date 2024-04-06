@@ -1,7 +1,6 @@
 package playback
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -10,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bluenviron/mediacommon/pkg/codecs/mpeg4audio"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4"
 	"github.com/bluenviron/mediacommon/pkg/formats/fmp4/seekablebuffer"
 	"github.com/bluenviron/mediamtx/internal/auth"
@@ -20,14 +20,27 @@ import (
 
 func writeSegment1(t *testing.T, fpath string) {
 	init := fmp4.Init{
-		Tracks: []*fmp4.InitTrack{{
-			ID:        1,
-			TimeScale: 90000,
-			Codec: &fmp4.CodecH264{
-				SPS: test.FormatH264.SPS,
-				PPS: test.FormatH264.PPS,
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &fmp4.CodecH264{
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
+				},
 			},
-		}},
+			{
+				ID:        2,
+				TimeScale: 90000,
+				Codec: &fmp4.CodecMPEG4Audio{
+					Config: mpeg4audio.Config{
+						Type:         mpeg4audio.ObjectTypeAACLC,
+						SampleRate:   48000,
+						ChannelCount: 2,
+					},
+				},
+			},
+		},
 	}
 
 	var buf1 seekablebuffer.Buffer
@@ -78,14 +91,27 @@ func writeSegment1(t *testing.T, fpath string) {
 
 func writeSegment2(t *testing.T, fpath string) {
 	init := fmp4.Init{
-		Tracks: []*fmp4.InitTrack{{
-			ID:        1,
-			TimeScale: 90000,
-			Codec: &fmp4.CodecH264{
-				SPS: test.FormatH264.SPS,
-				PPS: test.FormatH264.PPS,
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &fmp4.CodecH264{
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
+				},
 			},
-		}},
+			{
+				ID:        2,
+				TimeScale: 90000,
+				Codec: &fmp4.CodecMPEG4Audio{
+					Config: mpeg4audio.Config{
+						Type:         mpeg4audio.ObjectTypeAACLC,
+						SampleRate:   48000,
+						ChannelCount: 2,
+					},
+				},
+			},
+		},
 	}
 
 	var buf1 seekablebuffer.Buffer
@@ -121,6 +147,48 @@ func writeSegment2(t *testing.T, fpath string) {
 	require.NoError(t, err)
 }
 
+func writeSegment3(t *testing.T, fpath string) {
+	init := fmp4.Init{
+		Tracks: []*fmp4.InitTrack{
+			{
+				ID:        1,
+				TimeScale: 90000,
+				Codec: &fmp4.CodecH264{
+					SPS: test.FormatH264.SPS,
+					PPS: test.FormatH264.PPS,
+				},
+			},
+		},
+	}
+
+	var buf1 seekablebuffer.Buffer
+	err := init.Marshal(&buf1)
+	require.NoError(t, err)
+
+	var buf2 seekablebuffer.Buffer
+	parts := fmp4.Parts{
+		{
+			SequenceNumber: 1,
+			Tracks: []*fmp4.PartTrack{{
+				ID:       1,
+				BaseTime: 0,
+				Samples: []*fmp4.PartSample{
+					{
+						Duration:        1 * 90000,
+						IsNonSyncSample: false,
+						Payload:         []byte{10, 11},
+					},
+				},
+			}},
+		},
+	}
+	err = parts.Marshal(&buf2)
+	require.NoError(t, err)
+
+	err = os.WriteFile(fpath, append(buf1.Bytes(), buf2.Bytes()...), 0o644)
+	require.NoError(t, err)
+}
+
 var authManager = &auth.Manager{
 	Method: conf.AuthMethodInternal,
 	InternalUsers: []conf.AuthInternalUser{
@@ -138,7 +206,7 @@ var authManager = &auth.Manager{
 	RTSPAuthMethods: nil,
 }
 
-func TestServerGet(t *testing.T) {
+func TestOnGet(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mediamtx-playback")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
@@ -229,7 +297,7 @@ func TestServerGet(t *testing.T) {
 	}, parts)
 }
 
-func TestServerList(t *testing.T) {
+func TestOnGetDifferentInit(t *testing.T) {
 	dir, err := os.MkdirTemp("", "mediamtx-playback")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
@@ -238,8 +306,7 @@ func TestServerList(t *testing.T) {
 	require.NoError(t, err)
 
 	writeSegment1(t, filepath.Join(dir, "mypath", "2008-11-07_11-22-00-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
-	writeSegment2(t, filepath.Join(dir, "mypath", "2009-11-07_11-23-02-500000.mp4"))
+	writeSegment3(t, filepath.Join(dir, "mypath", "2008-11-07_11-23-02-500000.mp4"))
 
 	s := &Server{
 		Address:     "127.0.0.1:9996",
@@ -257,11 +324,14 @@ func TestServerList(t *testing.T) {
 	require.NoError(t, err)
 	defer s.Close()
 
-	u, err := url.Parse("http://myuser:mypass@localhost:9996/list")
+	u, err := url.Parse("http://myuser:mypass@localhost:9996/get")
 	require.NoError(t, err)
 
 	v := url.Values{}
 	v.Set("path", "mypath")
+	v.Set("start", time.Date(2008, 11, 0o7, 11, 23, 1, 500000000, time.Local).Format(time.RFC3339Nano))
+	v.Set("duration", "2")
+	v.Set("format", "fmp4")
 	u.RawQuery = v.Encode()
 
 	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
@@ -273,18 +343,32 @@ func TestServerList(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, res.StatusCode)
 
-	var out interface{}
-	err = json.NewDecoder(res.Body).Decode(&out)
+	buf, err := io.ReadAll(res.Body)
 	require.NoError(t, err)
 
-	require.Equal(t, []interface{}{
-		map[string]interface{}{
-			"duration": float64(64),
-			"start":    time.Date(2008, 11, 0o7, 11, 22, 0, 500000000, time.Local).Format(time.RFC3339Nano),
+	var parts fmp4.Parts
+	err = parts.Unmarshal(buf)
+	require.NoError(t, err)
+
+	require.Equal(t, fmp4.Parts{
+		{
+			SequenceNumber: 0,
+			Tracks: []*fmp4.PartTrack{
+				{
+					ID: 1,
+					Samples: []*fmp4.PartSample{
+						{
+							Duration: 0,
+							Payload:  []byte{3, 4},
+						},
+						{
+							Duration:        90000,
+							IsNonSyncSample: true,
+							Payload:         []byte{5, 6},
+						},
+					},
+				},
+			},
 		},
-		map[string]interface{}{
-			"duration": float64(2),
-			"start":    time.Date(2009, 11, 0o7, 11, 23, 2, 500000000, time.Local).Format(time.RFC3339Nano),
-		},
-	}, out)
+	}, parts)
 }
