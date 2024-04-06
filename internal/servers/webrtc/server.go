@@ -429,30 +429,32 @@ func (s *Server) findSessionByUUID(uuid uuid.UUID) *session {
 	return nil
 }
 
-func (s *Server) generateICEServers() ([]pwebrtc.ICEServer, error) {
-	ret := make([]pwebrtc.ICEServer, len(s.ICEServers))
+func (s *Server) generateICEServers(clientConfig bool) ([]pwebrtc.ICEServer, error) {
+	ret := make([]pwebrtc.ICEServer, 0, len(s.ICEServers))
 
-	for i, server := range s.ICEServers {
-		if server.Username == "AUTH_SECRET" {
-			expireDate := time.Now().Add(webrtcTurnSecretExpiration).Unix()
+	for _, server := range s.ICEServers {
+		if !server.ClientOnly || clientConfig {
+			if server.Username == "AUTH_SECRET" {
+				expireDate := time.Now().Add(webrtcTurnSecretExpiration).Unix()
 
-			user, err := randomTurnUser()
-			if err != nil {
-				return nil, err
+				user, err := randomTurnUser()
+				if err != nil {
+					return nil, err
+				}
+
+				server.Username = strconv.FormatInt(expireDate, 10) + ":" + user
+
+				h := hmac.New(sha1.New, []byte(server.Password))
+				h.Write([]byte(server.Username))
+
+				server.Password = base64.StdEncoding.EncodeToString(h.Sum(nil))
 			}
 
-			server.Username = strconv.FormatInt(expireDate, 10) + ":" + user
-
-			h := hmac.New(sha1.New, []byte(server.Password))
-			h.Write([]byte(server.Username))
-
-			server.Password = base64.StdEncoding.EncodeToString(h.Sum(nil))
-		}
-
-		ret[i] = pwebrtc.ICEServer{
-			URLs:       []string{server.URL},
-			Username:   server.Username,
-			Credential: server.Password,
+			ret = append(ret, pwebrtc.ICEServer{
+				URLs:       []string{server.URL},
+				Username:   server.Username,
+				Credential: server.Password,
+			})
 		}
 	}
 

@@ -393,7 +393,7 @@ func (s *session) runPublish() (int, error) {
 
 	defer path.RemovePublisher(defs.PathRemovePublisherReq{Author: s})
 
-	iceServers, err := s.parent.generateICEServers()
+	iceServers, err := s.parent.generateICEServers(false)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -528,7 +528,7 @@ func (s *session) runRead() (int, error) {
 
 	defer path.RemoveReader(defs.PathRemoveReaderReq{Author: s})
 
-	iceServers, err := s.parent.generateICEServers()
+	iceServers, err := s.parent.generateICEServers(false)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

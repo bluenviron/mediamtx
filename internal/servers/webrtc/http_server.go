@@ -151,7 +151,7 @@ func (s *httpServer) onWHIPOptions(ctx *gin.Context, path string, publish bool) 
 		return
 	}
 
-	servers, err := s.parent.generateICEServers()
+	servers, err := s.parent.generateICEServers(true)
 	if err != nil {
 		writeError(ctx, http.StatusInternalServerError, err)
 		return
@@ -191,7 +191,7 @@ func (s *httpServer) onWHIPPost(ctx *gin.Context, path string, publish bool) {
 		return
 	}
 
-	servers, err := s.parent.generateICEServers()
+	servers, err := s.parent.generateICEServers(true)
 	if err != nil {
 		writeError(ctx, http.StatusInternalServerError, err)
 		return

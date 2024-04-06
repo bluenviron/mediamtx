@@ -1879,6 +1879,16 @@ webrtcICEServers2:
 
 where secret is the secret of the TURN server. MediaMTX will generate a set of credentials by using the secret, and credentials will be sent to clients before the WebRTC/ICE connection is established.
 
+In some cases you may want the browser to connect using TURN servers but have mediamtx not using TURN (for example if the TURN server is on the same network as mediamtx).  To allow this you can configure the TURN server to be client only:
+
+```yml
+webrtcICEServers2:
+- url: turn:host:port
+  username: user
+  password: password
+  clientOnly: true
+```
+
 ### RTSP-specific features
 
 #### Transport protocols

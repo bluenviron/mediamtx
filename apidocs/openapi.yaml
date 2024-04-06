@@ -190,6 +190,8 @@ components:
                 type: string
               password:
                 type: string
+              clientOnly:
+                type: boolean
 
         # SRT server
         srt:
