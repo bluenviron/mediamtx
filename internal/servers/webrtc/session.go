@@ -38,6 +38,7 @@ var errNoSupportedCodecs = errors.New(
 type setupStreamFunc func(*webrtc.OutgoingTrack) error
 
 func findVideoTrack(
+	s *session,
 	stream *stream.Stream,
 	writer *asyncwriter.Writer,
 ) (format.Format, setupStreamFunc) {
@@ -182,7 +183,7 @@ func findVideoTrack(
 				if !firstReceived {
 					firstReceived = true
 				} else if tunit.PTS < lastPTS {
-					return fmt.Errorf("WebRTC doesn't support H264 streams with B-frames")
+					s.Log(logger.Warn, "WebRTC doesn't support H264 streams with B-frames")
 				}
 				lastPTS = tunit.PTS
 
@@ -547,7 +548,7 @@ func (s *session) runRead() (int, error) {
 
 	writer := asyncwriter.New(s.writeQueueSize, s)
 
-	videoTrack, videoSetup := findVideoTrack(stream, writer)
+	videoTrack, videoSetup := findVideoTrack(s, stream, writer)
 	audioTrack, audioSetup := findAudioTrack(stream, writer)
 
 	if videoTrack == nil && audioTrack == nil {
